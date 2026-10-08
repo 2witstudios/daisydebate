@@ -16,6 +16,7 @@ import {
   runPersonSpeech,
 } from './controllers';
 import type { TurnContext } from './play-line';
+import { hasSegment, idle, keyOf } from './store-turn';
 
 export type RoomView = AiDebateView & { readonly receivedAt: number };
 
@@ -53,37 +54,6 @@ const initial: RoomSnapshot = {
   speaking: false,
   level: 0,
 };
-
-// A segment's countdown and its live time share one controller, so the AI
-// can prepare its words while the countdown runs.
-const keyOf = (state: UiState) => {
-  if (state.phase === 'live' || state.phase === 'countdown')
-    return `segment-${state.segmentIndex}`;
-  if (state.phase === 'prep') return `prep-${state.segmentIndex}`;
-  return state.phase;
-};
-
-const hasSegment = (
-  state: UiState,
-): state is Extract<UiState, { phase: 'live' | 'countdown' }> =>
-  state.phase === 'live' || state.phase === 'countdown';
-
-type SegmentTurn = {
-  readonly key: string;
-  readonly controller: AbortController | null;
-  readonly goLive: () => void;
-  wentLive: boolean;
-  /** Wraps the segment up early, when its controller registered how. */
-  finish: (() => Promise<void>) | null;
-};
-
-const idle = (key: string): SegmentTurn => ({
-  key,
-  controller: null,
-  goLive: () => undefined,
-  wentLive: false,
-  finish: null,
-});
 
 /** Runs `run` every `ms` milliseconds; returns the stop. */
 type Every = (run: () => void, ms: number) => () => void;
@@ -180,18 +150,27 @@ export function createRoomStore({
       },
       onError: (problem) => set({ problem }),
     };
+    let done: Promise<void>;
     if (segment.kind === 'cross-examination')
-      void runCrossExamination(context, segment.side !== view.personSide);
+      done = runCrossExamination(context, segment.side !== view.personSide);
     else if (segment.side !== view.personSide)
-      void runAiSpeech(context, () => {
+      done = runAiSpeech(context, () => {
         // Speech completion and the clock tick may each advance the durable
         // version while this controller plays. Claim the current one.
         void refresh().then(() =>
           command({ type: 'yield', segmentIndex: segment.index }),
         );
       });
-    else void runPersonSpeech(context);
-    return { key, controller, goLive, wentLive: false, finish: null };
+    else done = runPersonSpeech(context);
+    // Observe failures even outside finalization; retain the rejection so
+    // the ballot barrier cannot accept an unsaved playback correction.
+    void done.catch(() =>
+      set({
+        problem:
+          'Your opponent’s playback could not be saved. Reload to try again.',
+      }),
+    );
+    return { key, controller, goLive, done, wentLive: false, finish: null };
   };
 
   /** The segment goes live: release its controller, with a bell on the cut. */
@@ -206,7 +185,15 @@ export function createRoomStore({
     judging = true;
     try {
       await finalizing;
-      if (stopped) return;
+    } catch {
+      set({
+        problem:
+          'Your opponent’s playback could not be saved. Reload to try again.',
+      });
+      return;
+    }
+    if (stopped) return;
+    try {
       set({ ballot: await api.ballot(id), status: '' });
     } catch {
       if (attempt < 3) {
@@ -266,8 +253,10 @@ export function createRoomStore({
     const key = keyOf(state);
     const restart = turn.controller === null && engine !== null;
     if (key === turn.key && !(restart && hasSegment(state))) return false;
-    if (state.phase === 'ended' && turn.finish) finalizing = turn.finish();
+    const finishing = state.phase === 'ended' ? turn.finish?.() : undefined;
     turn.controller?.abort();
+    if (state.phase === 'ended')
+      finalizing = Promise.all([finishing, turn.done]).then(() => undefined);
     turn = startTurn(state, view, key);
     return true;
   };

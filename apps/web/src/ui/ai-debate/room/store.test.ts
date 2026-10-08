@@ -7,6 +7,7 @@ import {
   fakeEngine,
   handClock,
   handTimers,
+  holdBallot,
   roomFixture,
   settle,
 } from './room.test-support';
@@ -192,10 +193,7 @@ test('natural final speech expiry flushes recorded words before requesting the b
         log.push('tail-saved');
         return { text: 'last words' };
       },
-      ballot: async () => {
-        log.push('ballot');
-        return new Promise(() => undefined);
-      },
+      ballot: holdBallot(log),
     },
   });
   const stop = store.start();

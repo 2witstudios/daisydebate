@@ -70,6 +70,14 @@ export const handTimers = () => {
 /** Lets pending promise callbacks run. */
 export const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
+/** Records judging while holding its response for finalization tests. */
+export const holdBallot =
+  (log: string[]): AiDebateApi['ballot'] =>
+  async () => {
+    log.push('ballot');
+    return new Promise(() => undefined);
+  };
+
 export type FakeEngine = AudioEngine & {
   /** Moves the timeline on by `ms`, running everything due on the way. */
   advance(ms: number): Promise<void>;

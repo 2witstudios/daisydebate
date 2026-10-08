@@ -16,6 +16,13 @@ export const withPractice = async (
     expireAt: (seconds: number) => Promise<void>;
     setTranscribe: (work: Voice['transcribe']) => void;
   }) => Promise<void>,
+  {
+    personSide = 'affirmative',
+    voiceOverrides = {},
+  }: {
+    readonly personSide?: 'affirmative' | 'negative';
+    readonly voiceOverrides?: Partial<Voice>;
+  } = {},
 ) => {
   const userId = createId();
   const actorId = createId();
@@ -38,6 +45,7 @@ export const withPractice = async (
     async *stream() {
       yield await unused();
     },
+    ...voiceOverrides,
   };
   await withSql(async (sql) => {
     await sql`insert into users (id) values (${userId})`;
@@ -52,7 +60,7 @@ export const withPractice = async (
     ({ id } = await operations.start({
       actorId,
       resolution: 'Cities should make transit free',
-      personSide: 'affirmative',
+      personSide,
       opponent: 'wren',
     }));
     await withSql(async (sql) => {
@@ -84,6 +92,7 @@ export const withPractice = async (
     await database.close();
     await withSql(async (sql) => {
       if (id) {
+        await sql`delete from ballots where judge_participant_id in (select id from round_participants where round_id = ${id})`;
         await sql`delete from utterances where round_id = ${id}`;
         await sql`delete from agent_runs where round_participant_id in (select id from round_participants where round_id = ${id})`;
         await sql`delete from rounds where id = ${id}`;
