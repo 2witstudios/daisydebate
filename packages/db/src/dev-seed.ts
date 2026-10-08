@@ -3,6 +3,7 @@ import { drizzle } from 'drizzle-orm/bun-sql';
 import { sql } from 'drizzle-orm';
 import { actors } from './schema/actors';
 import { roundParticipants } from './schema/round-participants';
+import { roundSegments } from './schema/round-segments';
 import { rounds } from './schema/rounds';
 import { seedVersions } from './schema/seed-versions';
 import { users } from './schema/users';
@@ -46,7 +47,8 @@ export type DevSeed = {
  * Applies a dev seed in one transaction, idempotently: rerunning leaves
  * every seeded row byte-identical. A seeded round a developer advanced
  * returns to the seed's own state — status, stage, timestamps, outcome,
- * checkpoint and seats — so the lifecycle CHECK never refuses the reset.
+ * checkpoint, execution segments (with their utterances) and seats — so
+ * the lifecycle CHECK never refuses the reset.
  * The version marker's `updated_at` moves only when the version changes.
  * This is the only path `bun db:seed` writes through; it is not part of
  * `createDatabase()`, because no running application seeds.
@@ -128,6 +130,11 @@ export async function applyDevSeed({
             runtimeState: sql`excluded.runtime_state`,
           },
         });
+      // Execution rows reconstruct the runtime; resetting only its checkpoint
+      // would resume the old speech. Segment deletion cascades to utterances.
+      await tx
+        .delete(roundSegments)
+        .where(sql`${roundSegments.roundId} = ${seed.round.id}`);
       await tx
         .delete(roundParticipants)
         .where(

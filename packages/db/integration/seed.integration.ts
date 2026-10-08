@@ -16,6 +16,8 @@ const seedActorIds = ['h3j7m1p5r9t2v6x0z4b8d2f6', 'q5s9u3w7y1a4c8e2g6j0l4n8'];
 
 /** Removes the rows the seeds insert, children first. */
 const removeSeedRows = async (database: SQL) => {
+  // Clear execution first: utterances restrict participant deletion.
+  await database`delete from round_segments where round_id = ${seedIds[2]}`;
   // The seeded round's participants cascade from it.
   await database`delete from rounds where id = ${seedIds[2]}`;
   await database`delete from actors where id in (${seedActorIds[0]}, ${seedActorIds[1]})`;
@@ -119,18 +121,37 @@ describe('agent seed', () => {
             runtime_state = runtime_state || '{"active_prep":{"side":"affirmative","started_at":"2026-01-01T00:00:00.000Z"}}'::jsonb
         where id = ${seedIds[2]}
       `;
+      await database`
+        insert into round_segments
+          (id, round_id, sequence, type, rules_segment_key, started_at, ended_at, duration_ms)
+        select 'seed-segment-' || sequence, id, sequence, segment->>'type',
+               segment->>'key', '2026-01-01T00:00:00Z'::timestamptz,
+               case when sequence = 0 then '2026-01-01T00:01:00Z'::timestamptz end,
+               (segment->>'durationMs')::int
+        from rounds,
+             lateral jsonb_array_elements(rules_snapshot->'segments') with ordinality as item(segment, ordinal),
+             lateral (select (ordinal - 1)::int as sequence) as position
+        where id = ${seedIds[2]} and sequence < 2
+      `;
+      await database`
+        insert into utterances (id, round_id, segment_id, round_participant_id, sequence, text)
+        select 'seed-spoken-line', round_id, 'seed-segment-0', id, 0, 'Previous speech'
+        from round_participants where round_id = ${seedIds[2]} and role = 'affirmative'
+      `;
       await runSeed();
       const [reset] = await database`
         select status, current_stage, started_at, completed_at, outcome,
                runtime_state->'active_prep' as active_prep,
                jsonb_typeof(rules_snapshot) as rules_type,
-               jsonb_typeof(runtime_state) as runtime_type
+               jsonb_typeof(runtime_state) as runtime_type,
+               (select count(*)::int from round_segments where round_id = ${seedIds[2]}) as segments,
+               (select count(*)::int from utterances where round_id = ${seedIds[2]}) as utterances
         from rounds where id = ${seedIds[2]}
       `;
       assert({
         given: 'a seed round that progressed to active before a reseed',
         should:
-          'reset status, stage, checkpoint and every lifecycle projection to scheduled',
+          'reset lifecycle, checkpoint, open and closed segments and their utterances',
         actual: reset,
         expected: {
           status: 'scheduled',
@@ -142,6 +163,8 @@ describe('agent seed', () => {
           // Not a double-encoded JSON string: the runtime must read it back.
           rules_type: 'object',
           runtime_type: 'object',
+          segments: 0,
+          utterances: 0,
         },
       });
     } finally {

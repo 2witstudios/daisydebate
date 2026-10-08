@@ -85,12 +85,6 @@ const idle = (key: string): SegmentTurn => ({
   finish: null,
 });
 
-/**
- * The debate room's state outside React: the server view (polled, and
- * refreshed after every action), the position derived each tick on the
- * server's clock from the same runtime the server runs, the controller for
- * the live segment, and the ballot.
- */
 /** Runs `run` every `ms` milliseconds; returns the stop. */
 type Every = (run: () => void, ms: number) => () => void;
 
@@ -99,6 +93,7 @@ const everyInterval: Every = (run, ms) => {
   return () => clearInterval(handle);
 };
 
+/** Polled server view, clock-derived position, live controller and ballot. */
 export function createRoomStore({
   id,
   clock = systemClock,
@@ -145,14 +140,17 @@ export function createRoomStore({
 
   const command = async (next: RoomCommand) => {
     const view = snapshot.view;
-    if (!view) return;
+    if (!view) return false;
+    let succeeded = false;
     try {
       await api.command(id, view.version, next);
+      succeeded = true;
     } catch (error) {
       if (!(error instanceof AiDebateRequestError && error.status === 409))
         set({ problem: 'That did not go through. Try again.' });
     }
     await refresh();
+    return succeeded;
   };
 
   /** The segment a controller would run, with who speaks it. */
@@ -232,11 +230,9 @@ export function createRoomStore({
   };
 
   const isAnswerer = (view: RoomView | null, segmentIndex: number): boolean => {
-    if (view === null) return false;
-    const row = view.segments[segmentIndex];
-    if (row === undefined) return false;
-    const side = view.rules.segments[row.sequence]?.side;
-    return side !== undefined && side !== view.personSide;
+    const row = view?.segments[segmentIndex];
+    const side = row && view?.rules.segments[row.sequence]?.side;
+    return side !== undefined && side !== view?.personSide;
   };
 
   /**
@@ -260,7 +256,9 @@ export function createRoomStore({
     )
       return;
     prepAsked = segment.index;
-    void command({ type: 'startPrep' });
+    void command({ type: 'startPrep' }).then((succeeded) => {
+      if (!succeeded && prepAsked === segment.index) prepAsked = -1;
+    });
   };
 
   /** A new segment, or the microphone joined during this one: (re)start it. */
@@ -275,14 +273,13 @@ export function createRoomStore({
   };
 
   const tick = () => {
-    const view = snapshot.view;
+    const { view, state: previous } = snapshot;
     if (!view) return;
     const position = positionOfView(
       view,
       now() + (view.serverNow - view.receivedAt),
     );
     const state = uiStateOf(position);
-    const previous = snapshot.state;
     const prepLeft = position.prepBudgetRemainingMs?.[view.personSide] ?? 0;
     askForPrep(state, view, prepLeft);
     if (advance(state, view))
