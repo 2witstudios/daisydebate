@@ -1,7 +1,7 @@
 import { afterAll } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createTestApp, withSql } from './fixtures';
-import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
+import { CLIENT_IP_HEADER } from '../src/features/auth/abuse/client-ip';
 import { requireTestServices } from '@daisy/config';
 
 setupRitewayBun();

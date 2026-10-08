@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import type { Card } from '../../../features/prep/card';
+import type { Card } from '../../../features/prep/cards/card';
 import { inertActions } from '../../../features/prep/actions';
 import { deleteInUse } from '../../../features/prep/notices';
 import { Breadcrumb } from '../breadcrumb/breadcrumb';

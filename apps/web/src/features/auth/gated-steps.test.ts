@@ -3,7 +3,7 @@ import {
   create,
   existingAccount,
   magicLinkRequest,
-} from './abuse.test-support';
+} from './abuse/abuse.test-support';
 
 setupRitewayBun();
 

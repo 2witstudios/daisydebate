@@ -3,7 +3,7 @@ import { systemClock, systemId } from '@daisy/clock';
 import { createDatabase } from '@daisy/db';
 import { createTestApp, fixtureEmail } from './fixtures';
 import { createAuthRouteHandlers } from '../src/features/auth/handlers';
-import { createConfirmHandlers } from '../src/features/auth/confirm';
+import { createConfirmHandlers } from '../src/features/auth/confirmation/confirm';
 import { createAuthServer } from '../src/features/auth/server';
 import { requireTestServices } from '@daisy/config';
 

@@ -4,9 +4,9 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   parseReviewQuery,
   reviewView,
-} from '../../../features/prep/brief-review';
-import { getBrief } from '../../../features/prep/get-brief';
-import { getShare } from '../../../features/prep/get-team';
+} from '../../../features/prep/briefs/brief-review';
+import { getBrief } from '../../../features/prep/briefs/get-brief';
+import { getShare } from '../../../features/prep/teams/get-team';
 import { ReviewPage } from './review-page';
 
 setupRitewayBun();

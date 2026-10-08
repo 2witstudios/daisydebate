@@ -10,7 +10,7 @@ import {
   userIdOf,
   withSql,
 } from './fixtures';
-import { emailedLinkIdentifier } from '../src/features/auth/emailed-link-token';
+import { emailedLinkIdentifier } from '../src/features/auth/confirmation/emailed-link-token';
 import { requireTestServices } from '@daisy/config';
 
 /**

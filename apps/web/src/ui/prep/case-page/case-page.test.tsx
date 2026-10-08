@@ -1,9 +1,9 @@
 import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { parseCaseQuery } from '../../../features/prep/case-query';
-import { caseView } from '../../../features/prep/case-view';
-import { getCase } from '../../../features/prep/get-case';
+import { parseCaseQuery } from '../../../features/prep/cases/case-query';
+import { caseView } from '../../../features/prep/cases/case-view';
+import { getCase } from '../../../features/prep/cases/get-case';
 import { CasePage } from './case-page';
 
 setupRitewayBun();

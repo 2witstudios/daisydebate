@@ -4,8 +4,8 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   defaultLibraryQuery,
   type LibraryQuery,
-} from '../../../features/prep/library-query';
-import { listLibrary } from '../../../features/prep/list-library';
+} from '../../../features/prep/library/library-query';
+import { listLibrary } from '../../../features/prep/library/list-library';
 import { Library } from './library';
 
 setupRitewayBun();

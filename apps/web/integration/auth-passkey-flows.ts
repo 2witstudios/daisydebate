@@ -1,7 +1,7 @@
 import { createAccountFlows } from './auth-account-helpers';
 import { createId } from '@paralleldrive/cuid2';
 import { cookieHeader, linkFrom, origin, tokenOf } from './fixtures';
-import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
+import { CLIENT_IP_HEADER } from '../src/features/auth/abuse/client-ip';
 import {
   buildAuthenticationResponse,
   buildRegistrationResponse,

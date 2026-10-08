@@ -2,7 +2,7 @@ import Link from 'next/link';
 import type {
   SavedSearch,
   TeamSummary,
-} from '../../../features/prep/list-library';
+} from '../../../features/prep/library/list-library';
 import { inertActions } from '../../../features/prep/actions';
 import { Avatar } from '../../components/avatar/avatar';
 import { Icon } from '../../components/icon/icon';

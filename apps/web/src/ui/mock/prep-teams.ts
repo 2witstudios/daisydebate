@@ -1,4 +1,4 @@
-import type { Team } from '../../features/prep/team';
+import type { Team } from '../../features/prep/teams/team';
 import type { ShareRecord } from '../../features/prep/sharing';
 import { sampleTeamName } from './prep';
 

@@ -8,14 +8,14 @@ import {
   pressEndSpeech,
   type EndSpeechState,
 } from '../../features/debate-room/clock';
-import { applyProposal } from '../../features/debate-room/document-edits';
+import { applyProposal } from '../../features/debate-room/documents/document-edits';
 import {
   createDocument,
   updateDocumentHtml,
   type FolderId,
   type TemplateId,
   type WorkspaceDocument,
-} from '../../features/debate-room/documents';
+} from '../../features/debate-room/documents/documents';
 import {
   initialLayout,
   nudgePane,

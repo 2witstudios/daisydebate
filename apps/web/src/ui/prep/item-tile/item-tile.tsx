@@ -1,4 +1,4 @@
-import type { ItemKind } from '../../../features/prep/library-item';
+import type { ItemKind } from '../../../features/prep/library/library-item';
 import { PrepIcon, type PrepIconName } from '../prep-icon/prep-icon';
 import { itemTileClass } from './item-tile-class';
 

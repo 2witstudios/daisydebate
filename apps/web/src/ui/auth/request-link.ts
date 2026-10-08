@@ -5,7 +5,7 @@ import {
   signInReducer,
   type SignInState,
 } from './sign-in-state';
-import { EMAIL_UNDELIVERABLE } from '../../features/auth/undeliverable-codes';
+import { EMAIL_UNDELIVERABLE } from '../../features/auth/mail/undeliverable-codes';
 
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
 

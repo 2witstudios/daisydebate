@@ -2,8 +2,8 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createCeilingFlows, GLOBAL_MINUTE } from './auth-ceiling-helpers';
 import { elapse, statuses } from './auth-rate-limit-helpers';
-import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
-import { MAGIC_LINK_NETWORK_RULES } from '../src/features/auth/rate-limit';
+import { CLIENT_IP_HEADER } from '../src/features/auth/abuse/client-ip';
+import { MAGIC_LINK_NETWORK_RULES } from '../src/features/auth/abuse/rate-limit';
 
 /**
  * AUTH-3.10 (DEC-78): Better Auth keys an IPv6 client by its /64, so one

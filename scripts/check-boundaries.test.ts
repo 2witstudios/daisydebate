@@ -336,7 +336,7 @@ describe('test support subpaths', () => {
       actual: [
         'packages/db/src/index.test.ts',
         'packages/db/integration/username-claim.integration.ts',
-        'apps/web/src/features/auth/email-change.test-support.ts',
+        'apps/web/src/features/auth/email-change/email-change.test-support.ts',
       ].map((file) => testSupportIssue('./index.test-support', file)),
       expected: [null, null, null],
     });

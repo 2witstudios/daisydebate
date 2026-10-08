@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import type { ReviewView } from '../../../features/prep/brief-review';
+import type { ReviewView } from '../../../features/prep/briefs/brief-review';
 import { wordCount } from '../../../features/prep/reading-time';
 import { Badge } from '../../components/badge/badge';
 import { buttonClass } from '../../components/button/button-class';

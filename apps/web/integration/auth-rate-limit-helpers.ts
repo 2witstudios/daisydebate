@@ -6,11 +6,11 @@ import { createRedis, redisKey } from '@daisy/redis';
 import { openTestRedis } from '@daisy/redis/testing';
 import { testDatabaseUrl, testRedisUrl, type TestApp } from './fixtures';
 import { createAuthRouteHandlers } from '../src/features/auth/handlers';
-import { createAuthRateLimiter } from '../src/features/auth/redis-limiter';
+import { createAuthRateLimiter } from '../src/features/auth/abuse/redis-limiter';
 import {
   deriveRecipientSubkey,
   recipientKey,
-} from '../src/features/auth/recipient-key';
+} from '../src/features/auth/mail/recipient-key';
 import { createAuthServer } from '../src/features/auth/server';
 
 const silentLogger = { log: () => {}, child: () => silentLogger };

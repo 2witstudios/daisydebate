@@ -1,5 +1,8 @@
-import type { Change, WordSegment } from '../../../features/prep/case-diff';
-import type { CaseView } from '../../../features/prep/case-view';
+import type {
+  Change,
+  WordSegment,
+} from '../../../features/prep/cases/case-diff';
+import type { CaseView } from '../../../features/prep/cases/case-view';
 import { inertActions } from '../../../features/prep/actions';
 import { buttonClass } from '../../components/button/button-class';
 import { controlClass } from '../form-controls/form-class';

@@ -1,5 +1,5 @@
 import { formatClock as formatSeconds } from '../judge/clock';
-import type { SpeechSlot } from './documents';
+import type { SpeechSlot } from './documents/documents';
 
 export type TranscriptSegment = {
   readonly id: string;

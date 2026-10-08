@@ -1,7 +1,7 @@
 import { systemClock } from '@daisy/clock';
 import type { Metadata } from 'next';
 import type { SearchParams } from '../../../../features/access/decision';
-import { readingPace } from '../../../../features/prep/get-card';
+import { readingPace } from '../../../../features/prep/cards/get-card';
 import { roomPanelView } from '../../../../features/prep/room-panel';
 import { parseRoomPanelQuery } from '../../../../features/prep/room-panel-query';
 import { requireAccess } from '../../../../lib/access';

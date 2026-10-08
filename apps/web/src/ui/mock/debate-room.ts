@@ -1,5 +1,5 @@
 import type { ChatMessage } from '../../features/debate-room/chat';
-import type { SpeechSlot } from '../../features/debate-room/documents';
+import type { SpeechSlot } from '../../features/debate-room/documents/documents';
 import type { RoundPhase } from '../../features/debate-room/layout';
 import type { TranscriptSegment } from '../../features/debate-room/transcript';
 import type { RoundKind } from '../../features/debate-room/workspace';

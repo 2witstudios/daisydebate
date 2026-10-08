@@ -1,5 +1,5 @@
-import type { LibraryItem } from '../../features/prep/library-item';
-import type { LibraryQuery } from '../../features/prep/library-query';
+import type { LibraryItem } from '../../features/prep/library/library-item';
+import type { LibraryQuery } from '../../features/prep/library/library-query';
 
 /**
  * Sample Prep data. Bracketed names, authors and motions are placeholders,

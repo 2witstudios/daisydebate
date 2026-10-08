@@ -1,4 +1,4 @@
-import type { SpeechSlot } from '../../features/debate-room/documents';
+import type { SpeechSlot } from '../../features/debate-room/documents/documents';
 import { cn } from '../cn';
 import type { Debater, RoundSnapshot } from './round';
 

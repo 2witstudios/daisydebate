@@ -3,9 +3,9 @@ import type { SearchParams } from '../../../../../../features/access/decision';
 import {
   parseReviewQuery,
   reviewView,
-} from '../../../../../../features/prep/brief-review';
-import { getBrief } from '../../../../../../features/prep/get-brief';
-import { getShare } from '../../../../../../features/prep/get-team';
+} from '../../../../../../features/prep/briefs/brief-review';
+import { getBrief } from '../../../../../../features/prep/briefs/get-brief';
+import { getShare } from '../../../../../../features/prep/teams/get-team';
 import { requireAccess } from '../../../../../../lib/access';
 import { NotFoundPanel } from '../../../../../../ui/prep/not-found/not-found-panel';
 import { ReviewPage } from '../../../../../../ui/prep/review-page/review-page';

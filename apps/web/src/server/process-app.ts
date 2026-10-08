@@ -1,6 +1,6 @@
 import { systemClock, systemId } from '@daisy/clock';
 import { createApp, type App } from './app';
-import type { Fetch } from '../features/auth/mail';
+import type { Fetch } from '../features/auth/mail/mail';
 import { captureMail, fileRecorder, readDevMailFile } from './dev-mail';
 import { createProcessEdge, type ProcessHolder } from './process-edge';
 import { createRouteBinder } from './route-binding';

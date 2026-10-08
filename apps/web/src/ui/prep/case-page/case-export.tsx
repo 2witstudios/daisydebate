@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import type { CaseView } from '../../../features/prep/case-view';
+import type { CaseView } from '../../../features/prep/cases/case-view';
 import { inertActions } from '../../../features/prep/actions';
 import { buttonClass } from '../../components/button/button-class';
 import { InertActionButton } from '../inert-action/inert-action';

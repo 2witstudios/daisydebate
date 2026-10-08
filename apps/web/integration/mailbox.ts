@@ -1,6 +1,6 @@
 import type { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
-import { resendRequest } from '../src/features/auth/resend-capture.test-support';
+import { resendRequest } from '../src/features/auth/mail/resend-capture.test-support';
 
 type CapturedMail = {
   readonly to: string;

@@ -6,46 +6,52 @@ import { createAppError } from '@daisy/errors';
 import type { Clock, IdGenerator } from '@daisy/clock';
 import type { Logger } from '@daisy/logger';
 import type { AuthConfig } from '@daisy/config';
-import type { AuthEmailSender, AuthDeliveryLedger } from './mail-types';
+import type { AuthEmailSender, AuthDeliveryLedger } from './mail/mail-types';
 import {
   emailedLinkIdentifier,
   generateEmailedLinkToken,
-} from './emailed-link-token';
-import { emailChangePlugin, type CompleteEmailChange } from './email-change';
-import { createMagicLinkGatePlugin } from './magic-link-gate';
-import { createSuppressionCheck } from './suppression-check';
-import { freshSessionGatePlugin } from './fresh-session-gate';
-import { browserSessionShapePlugin } from './browser-session-shape';
-import { passkeyDeviceHintPlugin } from './passkey-device-hint';
-import { passkeyNotificationsPlugin } from './passkey-notifications';
-import { passkeyOwnershipGuardPlugin } from './passkey-ownership-guard';
-import { sessionRevokedOutboxPlugin } from './session-revoked-outbox';
-import { revokeOthersOnEmailChangePlugin } from './revoke-others-on-email-change';
-import { revokeSessionsPlugin, type RevokeSessions } from './revoke-sessions';
+} from './confirmation/emailed-link-token';
+import {
+  emailChangePlugin,
+  type CompleteEmailChange,
+} from './email-change/email-change';
+import { createMagicLinkGatePlugin } from './confirmation/magic-link-gate';
+import { createSuppressionCheck } from './mail/suppression-check';
+import { freshSessionGatePlugin } from './sessions/fresh-session-gate';
+import { browserSessionShapePlugin } from './sessions/browser-session-shape';
+import { passkeyDeviceHintPlugin } from './passkeys/passkey-device-hint';
+import { passkeyNotificationsPlugin } from './passkeys/passkey-notifications';
+import { passkeyOwnershipGuardPlugin } from './passkeys/passkey-ownership-guard';
+import { sessionRevokedOutboxPlugin } from './sessions/session-revoked-outbox';
+import { revokeOthersOnEmailChangePlugin } from './email-change/revoke-others-on-email-change';
+import {
+  revokeSessionsPlugin,
+  type RevokeSessions,
+} from './sessions/revoke-sessions';
 import {
   signInAddressGuardPlugin,
   type RevokeSessionUnlessAddressHeld,
-} from './sign-in-address-guard';
-import { deriveRecipientSubkey } from './recipient-key';
-import { createSendMail } from './send-mail';
-import type { Deliver } from './deliver-or-unavailable';
+} from './abuse/sign-in-address-guard';
+import { deriveRecipientSubkey } from './mail/recipient-key';
+import { createSendMail } from './mail/send-mail';
+import type { Deliver } from './mail/deliver-or-unavailable';
 import {
   createAfterResponse,
   type AfterResponseLimits,
 } from './after-response';
-import { createSendMagicLink } from './sign-in-mail';
+import { createSendMagicLink } from './mail/sign-in-mail';
 import {
   SESSION_EXPIRES_IN_SECONDS,
   SESSION_FRESH_AGE_SECONDS,
   SESSION_UPDATE_AGE_SECONDS,
-} from './session-policy';
-import { CLIENT_IP_HEADER } from './client-ip';
+} from './sessions/session-policy';
+import { CLIENT_IP_HEADER } from './abuse/client-ip';
 import {
   clientIpOptions,
   createRateLimitGate,
   createSignUpCeiling,
   type AuthRateLimiter,
-} from './rate-limit';
+} from './abuse/rate-limit';
 
 const MAGIC_LINK_EXPIRES_IN_SECONDS = 300;
 
@@ -54,7 +60,7 @@ export type {
   AuthEmailMessage,
   AuthEmailSender,
   AuthDeliveryLedger,
-} from './mail-types';
+} from './mail/mail-types';
 /** Composition without a ledger neither suppresses nor records receipts. */
 const noLedger: AuthDeliveryLedger = {
   isSuppressed: async () => false,

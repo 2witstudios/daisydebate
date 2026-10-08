@@ -2,7 +2,7 @@ import type { Identity } from '@daisy/auth';
 import { createAppError } from '@daisy/errors';
 import type { Logger } from '@daisy/logger';
 import { z } from 'zod';
-import { consumeOrThrow, type AuthRateLimiter } from '../auth/rate-limit';
+import { consumeOrThrow, type AuthRateLimiter } from '../auth/abuse/rate-limit';
 import {
   handleOperation,
   readJson,

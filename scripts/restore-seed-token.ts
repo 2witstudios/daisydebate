@@ -7,7 +7,7 @@ import { createHash } from 'node:crypto';
  * repository never stores, logs or reuses the raw value, so nothing in its
  * source or history can ever reproduce the credential it seeds. Same
  * encoding as the real `generateEmailedLinkToken`
- * (`apps/web/src/features/auth/emailed-link-token.ts`); duplicated here
+ * (`apps/web/src/features/auth/confirmation/emailed-link-token.ts`); duplicated here
  * because a root script does not reach into `apps/web/src` for runtime
  * code.
  */

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import type { LibraryRow as Row } from '../../../features/prep/library-row';
+import type { LibraryRow as Row } from '../../../features/prep/library/library-row';
 import { ItemTile, kindLabel } from '../item-tile/item-tile';
 import { VisibilityMark } from '../visibility-mark/visibility-mark';
 

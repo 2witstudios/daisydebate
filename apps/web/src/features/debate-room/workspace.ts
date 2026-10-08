@@ -1,4 +1,4 @@
-import type { FolderId, WorkspaceDocument } from './documents';
+import type { FolderId, WorkspaceDocument } from './documents/documents';
 
 export type RoundKind = 'rated' | 'unrated';
 

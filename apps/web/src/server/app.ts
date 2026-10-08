@@ -10,11 +10,11 @@ import { createAppError } from '@daisy/errors';
 import { createLogger } from '@daisy/logger';
 import { createDrainState } from '@daisy/observability';
 import { createRedis } from '@daisy/redis';
-import { createResendSender, type Fetch } from '../features/auth/mail';
-import { createAuthRateLimiter } from '../features/auth/redis-limiter';
+import { createResendSender, type Fetch } from '../features/auth/mail/mail';
+import { createAuthRateLimiter } from '../features/auth/abuse/redis-limiter';
 import { createAuthServer, type AuthServer } from '../features/auth/server';
 import type { AfterResponseLimits } from '../features/auth/after-response';
-import { createResendWebhook } from '../features/auth/webhook';
+import { createResendWebhook } from '../features/auth/mail/webhook';
 import { createAlertRecorder, withAlertRecording } from './alert-recorder';
 import { createMetricsStore, type MetricsStore } from './metrics-store';
 

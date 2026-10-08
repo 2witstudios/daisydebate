@@ -3,8 +3,8 @@ import type { SearchParams } from '../../../../../features/access/decision';
 import {
   cardCreateView,
   parseCardCreateQuery,
-} from '../../../../../features/prep/card-create';
-import { readingPace } from '../../../../../features/prep/get-card';
+} from '../../../../../features/prep/cards/card-create';
+import { readingPace } from '../../../../../features/prep/cards/get-card';
 import { requireAccess } from '../../../../../lib/access';
 import { CardCreate } from '../../../../../ui/prep/card-create/card-create';
 

@@ -5,7 +5,7 @@ import type { Identity } from '@daisy/auth';
 import { systemClock, systemId } from '@daisy/clock';
 import { createPasskeyFlows } from './auth-passkey-flows';
 import { counts, removeAccount, testDatabaseUrl, withSql } from './fixtures';
-import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
+import { CLIENT_IP_HEADER } from '../src/features/auth/abuse/client-ip';
 import { identify } from '../src/lib/identity';
 import { createApp } from '../src/server/app';
 import { requireTestServices } from '@daisy/config';

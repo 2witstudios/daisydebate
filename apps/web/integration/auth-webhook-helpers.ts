@@ -2,7 +2,7 @@ import { createHmac } from 'node:crypto';
 import { afterAll } from 'bun:test';
 import { createId } from '@paralleldrive/cuid2';
 import { createTestApp, webhookSecret, withSql } from './fixtures';
-import { deriveRecipientSubkey } from '../src/features/auth/recipient-key';
+import { deriveRecipientSubkey } from '../src/features/auth/mail/recipient-key';
 
 const sign = (id: string, timestamp: string, body: string) =>
   `v1,${createHmac('sha256', Buffer.from(webhookSecret.slice(6), 'base64'))

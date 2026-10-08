@@ -1,4 +1,4 @@
-import type { Block, Case, Speech } from '../../features/prep/case';
+import type { Block, Case, Speech } from '../../features/prep/cases/case';
 import { sampleTeamName } from './prep';
 
 const fw = 'Brief: rights-based framework';

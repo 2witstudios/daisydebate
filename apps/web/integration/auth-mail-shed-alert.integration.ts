@@ -6,7 +6,7 @@ import { elapse } from './auth-rate-limit-helpers';
 import { createAccountFlows } from './auth-account-helpers';
 import { createTestApp } from './fixtures';
 import { serveEdge } from './ops-edge';
-import { CLIENT_IP_HEADER } from '../src/features/auth/client-ip';
+import { CLIENT_IP_HEADER } from '../src/features/auth/abuse/client-ip';
 
 /**
  * ISSUE-220: a flood that fills the handed-off work's bound sheds sign-in

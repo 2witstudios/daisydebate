@@ -19,7 +19,7 @@ import {
   type FolderId,
   type TemplateId,
   type WorkspaceDocument,
-} from '../../features/debate-room/documents';
+} from '../../features/debate-room/documents/documents';
 import { cn } from '../cn';
 import { Icon } from '../components/icon/icon';
 

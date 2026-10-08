@@ -1,8 +1,8 @@
 import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { listLibrary } from '../../../features/prep/list-library';
-import { defaultLibraryQuery } from '../../../features/prep/library-query';
+import { listLibrary } from '../../../features/prep/library/list-library';
+import { defaultLibraryQuery } from '../../../features/prep/library/library-query';
 import { LibraryList } from './library-row';
 
 setupRitewayBun();

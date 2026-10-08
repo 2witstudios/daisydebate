@@ -3,7 +3,7 @@ import { createAppError } from '@daisy/errors';
 import { parseUsername, type Identity } from '@daisy/auth';
 import type { UsernameClaim } from '@daisy/db';
 import { z } from 'zod';
-import { consumeOrThrow, type AuthRateLimiter } from '../auth/rate-limit';
+import { consumeOrThrow, type AuthRateLimiter } from '../auth/abuse/rate-limit';
 import {
   handleOperation,
   parseValidated,

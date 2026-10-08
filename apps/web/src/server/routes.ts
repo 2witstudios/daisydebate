@@ -4,13 +4,13 @@ import {
 } from '../features/account/sessions';
 import { createOnboardingHandler } from '../features/onboarding/save-answers';
 import { createUsernameHandler } from '../features/account/username';
-import { createConfirmEmailHandlers } from '../features/auth/confirm-email';
-import { createConfirmHandlers } from '../features/auth/confirm';
+import { createConfirmEmailHandlers } from '../features/auth/email-change/confirm-email';
+import { createConfirmHandlers } from '../features/auth/confirmation/confirm';
 import { createAuthRouteHandlers } from '../features/auth/handlers';
 import { createAiDebateHandlers } from '../features/ai-debate/handlers';
 import { createAiDebateOperations } from '../features/ai-debate/operations';
-import { createDebateRoomDocumentHandlers } from '../features/debate-room/document-handlers';
-import { createDebateDocumentOperations } from '../features/debate-room/document-operations';
+import { createDebateRoomDocumentHandlers } from '../features/debate-room/documents/document-handlers';
+import { createDebateDocumentOperations } from '../features/debate-room/documents/document-operations';
 import { createProofHandlers } from '../features/foundation/handlers';
 import { createAlertsHandler } from '../features/ops/alerts';
 import { createMetricsHandler } from '../features/ops/metrics';

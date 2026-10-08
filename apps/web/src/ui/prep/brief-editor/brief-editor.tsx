@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import type { BriefEditorView } from '../../../features/prep/brief-editor';
+import type { BriefEditorView } from '../../../features/prep/briefs/brief-editor';
 import { inertActions } from '../../../features/prep/actions';
 import { buttonClass } from '../../components/button/button-class';
 import { Breadcrumb } from '../breadcrumb/breadcrumb';
