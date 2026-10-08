@@ -37,3 +37,11 @@ Generate schema changes with `bun db:generate`, review SQL and snapshot metadata
 Email diagnostics live in `email_delivery`, `email_delivery_event`, and `email_suppression`: IDs, status rank, and a keyed SHA3-256 recipient hash, never the address or provider payload. The retention sweep removes delivery events and delivery records after their documented windows, and expired verification rows after a grace period. Suppressions remain. Revoking all sessions locks the user row before deleting sessions, so concurrent session creation is serialized against the revoke.
 
 The outbox is a transactionally written delivery log for realtime doorbells, not event sourcing. The realtime service reads its explicitly granted projection and keeps presence in expiring Redis keys. Redis keys are validated and namespaced per deployment, with expiry set atomically; tests delete only their own namespace. Rate limiting uses atomic server-side operations and an explicit outage policy. No global flush or Redis-derived competitive outcome is permitted.
+
+Round workspaces list the reader’s owned library documents and documents referenced
+by that Round. Owned scratch documents from other Rounds stay outside the workspace;
+removing a reference removes scratch from that workspace without deleting it.
+
+AI practice yield requests carry the intended segment sequence (`segmentIndex`).
+After clock hydration, the application checks that the same segment is open before
+executing the yield, including when one tick catches up across several segments.

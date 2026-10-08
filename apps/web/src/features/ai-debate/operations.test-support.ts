@@ -155,7 +155,7 @@ export const openFirstCrossExamination = async (
   await operations.command({
     actorId: 'actor-1',
     id,
-    command: { type: 'yield' },
+    command: { type: 'yield', segmentIndex: 0 },
     expectedVersion: view.version,
   });
   clock.advance(11);

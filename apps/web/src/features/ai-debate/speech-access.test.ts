@@ -19,7 +19,7 @@ for (const state of ['expired', 'completed', 'forfeit', 'grace'] as const) {
     await operations.command({
       actorId: 'actor-1',
       id,
-      command: { type: 'yield' },
+      command: { type: 'yield', segmentIndex: 1 },
       expectedVersion: version,
     });
     if (state === 'expired') clock.advance(31);

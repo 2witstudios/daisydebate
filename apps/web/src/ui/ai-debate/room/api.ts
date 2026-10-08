@@ -77,7 +77,7 @@ export const aiDebateApi = {
       | { type: 'startPrep' }
       | { type: 'startSpeech' }
       | { type: 'interrupt' }
-      | { type: 'yield' }
+      | { type: 'yield'; segmentIndex: number }
       | { type: 'abort' },
   ) {
     await post('command', { id, expectedVersion, command });

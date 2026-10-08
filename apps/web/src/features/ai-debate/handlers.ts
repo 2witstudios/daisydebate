@@ -55,7 +55,7 @@ export const schemas = {
       z.object({ type: z.literal('startPrep') }),
       z.object({ type: z.literal('startSpeech') }),
       z.object({ type: z.literal('interrupt') }),
-      z.object({ type: z.literal('yield') }),
+      z.object({ type: z.literal('yield'), segmentIndex }),
       z.object({ type: z.literal('abort') }),
     ]),
   }),

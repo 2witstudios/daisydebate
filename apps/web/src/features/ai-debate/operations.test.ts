@@ -115,7 +115,7 @@ describe('commands and the ballot', () => {
     await operations.command({
       actorId: 'actor-1',
       id,
-      command: { type: 'yield' },
+      command: { type: 'yield', segmentIndex: 0 },
       expectedVersion: version,
     });
     assert({
@@ -141,7 +141,7 @@ describe('commands and the ballot', () => {
         operations.command({
           actorId: 'actor-1',
           id,
-          command: { type: 'yield' },
+          command: { type: 'yield', segmentIndex: 1 },
           expectedVersion: before.version,
         }),
       code: 'CONFLICT',
@@ -162,7 +162,7 @@ describe('commands and the ballot', () => {
     await operations.command({
       actorId: 'actor-1',
       id,
-      command: { type: 'yield' },
+      command: { type: 'yield', segmentIndex: 1 },
       expectedVersion: before.version,
     });
     assert({

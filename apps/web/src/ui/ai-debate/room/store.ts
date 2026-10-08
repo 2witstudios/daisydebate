@@ -188,7 +188,9 @@ export function createRoomStore({
       void runAiSpeech(context, () => {
         // Speech completion and the clock tick may each advance the durable
         // version while this controller plays. Claim the current one.
-        void refresh().then(() => command({ type: 'yield' }));
+        void refresh().then(() =>
+          command({ type: 'yield', segmentIndex: segment.index }),
+        );
       });
     else void runPersonSpeech(context);
     return { key, controller, goLive, wentLive: false, finish: null };
@@ -322,12 +324,8 @@ export function createRoomStore({
     async finishTurn(segmentIndex: number) {
       await turn.finish?.();
       const view = snapshot.view;
-      if (isAnswerer(view, segmentIndex)) {
-        await command({ type: 'interrupt' });
-        await command({ type: 'yield' });
-        return;
-      }
-      await command({ type: 'yield' });
+      if (isAnswerer(view, segmentIndex)) await command({ type: 'interrupt' });
+      await command({ type: 'yield', segmentIndex });
     },
     /** Opens the microphone (a user gesture), and on a first visit starts. */
     async join(begin: boolean) {

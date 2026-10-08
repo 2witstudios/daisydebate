@@ -31,8 +31,19 @@ export type PersonCommand =
   | { readonly type: 'startPrep' }
   | { readonly type: 'startSpeech' }
   | { readonly type: 'interrupt' }
-  | { readonly type: 'yield' }
+  | { readonly type: 'yield'; readonly segmentIndex: number }
   | { readonly type: 'abort' };
+
+const requireYieldSegment = (
+  command: PersonCommand,
+  position: RoundPosition,
+): void => {
+  if (
+    command.type === 'yield' &&
+    position.openSegment?.sequence !== command.segmentIndex
+  )
+    throw createAppError('CONFLICT', 'That segment is not live');
+};
 
 const actingActorOf = (
   round: Awaited<ReturnType<RoundStore['getRound']>>,
@@ -254,6 +265,7 @@ export function createAiDebateOperations(dependencies: AiDebateDependencies) {
         throw createAppError('CONFLICT', 'The round moved on');
       const mapped = mappedCommand(command);
       const position = runtime.position(new Date(now).toISOString());
+      requireYieldSegment(command, position);
       const acting = actingActorOf(round, actorId, mapped, position);
       const botCommand = acting !== actorId;
       if (botCommand) await requireBotLine(store, round, position, acting);

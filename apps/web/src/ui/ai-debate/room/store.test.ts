@@ -81,6 +81,8 @@ describe('the room store', () => {
     const log: string[] = [];
     const time = handClock(T0 + 20_000); // 10 s into the AC
     const timers = handTimers();
+    const sent: unknown[] = [];
+    const initialView = await fakeApi({ log, at: time.at }).view('d1');
     const store = createRoomStore({
       id: 'd1',
       clock: time.clock,
@@ -89,6 +91,20 @@ describe('the room store', () => {
       api: fakeApi({
         log,
         at: time.at,
+        overrides: {
+          view: async () => ({ ...initialView, serverNow: time.at() }),
+          command: async (_id, _version, command) => {
+            log.push(`command:${command.type}`);
+            sent.push(command);
+          },
+          transcribe: async () => {
+            log.push('transcribe');
+            time.advance(940_000);
+            timers.fire(); // polling refreshes to a later segment during upload
+            await settle();
+            return { text: 'last words' };
+          },
+        },
       }),
     });
     store.start();
@@ -104,6 +120,12 @@ describe('the room store', () => {
         ['stop', 'transcribe', 'command:yield'].includes(entry),
       ),
       expected: ['stop', 'transcribe', 'command:yield'],
+    });
+    assert({
+      given: 'the round advances while the recorder uploads its tail',
+      should: 'send the yield with the original AC identity',
+      actual: sent,
+      expected: [{ type: 'yield', segmentIndex: 0 }],
     });
   });
 });

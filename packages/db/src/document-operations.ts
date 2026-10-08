@@ -87,7 +87,9 @@ export const documentOperations = ({
 
   /**
    * Only the reader's own documents. A round ref scopes a document into a
-   * workspace; it grants no sharing permission. Ordered by title.
+   * workspace; it grants no sharing permission. Round workspaces include
+   * the owner's library and referenced scratch; an unscoped list includes
+   * all owned documents. Ordered by title.
    */
   async listDocuments(input: {
     readonly ownerActorId: string;
@@ -97,7 +99,14 @@ export const documentOperations = ({
       const owned = await database
         .select(documentColumns)
         .from(documents)
-        .where(eq(documents.ownerActorId, input.ownerActorId));
+        .where(
+          and(
+            eq(documents.ownerActorId, input.ownerActorId),
+            input.roundId === null
+              ? undefined
+              : eq(documents.folder, 'library'),
+          ),
+        );
       const referenced =
         input.roundId === null
           ? []

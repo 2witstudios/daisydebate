@@ -38,7 +38,7 @@ for (const state of ['expired', 'completed'] as const) {
         await operations.command({
           actorId,
           id,
-          command: { type: 'yield' },
+          command: { type: 'yield', segmentIndex: 1 },
           expectedVersion: view.version,
         });
         if (state === 'completed') {
@@ -94,7 +94,7 @@ test('a command between a persisted hydration tick and reread keeps its version 
           await operations.command({
             actorId,
             id,
-            command: { type: 'yield' },
+            command: { type: 'yield', segmentIndex: 1 },
             expectedVersion: round.version,
           });
           afterRival = await database.getRound(id);

@@ -169,7 +169,7 @@ test('a hydration tick does not waive a version changed by another command', asy
       await operations.command({
         actorId,
         id,
-        command: { type: 'yield' },
+        command: { type: 'yield', segmentIndex: 1 },
         expectedVersion: rivalVersion,
       });
       afterRival = structuredClone(await store.getRound(id));
@@ -193,5 +193,50 @@ test('a hydration tick does not waive a version changed by another command', asy
     should: 'preserve the competing command’s round',
     actual: await store.getRound(id),
     expected: afterRival,
+  });
+});
+
+test('a delayed yield cannot close a later segment after multi-segment catch-up', async () => {
+  const { operations, begin, clock, store } = setup();
+  const id = await begin();
+  clock.advance(11);
+  const before = await operations.view({ actorId: 'actor-1', id });
+  clock.advance(940); // AC, CX1, NC and CX2 expire; 1AR opens.
+  await assertRejects({
+    given: 'the AC version and identity arriving while 1AR is live',
+    should:
+      'refuse the obsolete yield even when one tick advances several segments',
+    actual: () =>
+      operations.command({
+        actorId: 'actor-1',
+        id,
+        command: { type: 'yield', segmentIndex: 0 },
+        expectedVersion: before.version,
+      }),
+    code: 'CONFLICT',
+  });
+  const after = (await store.getRound(id))!;
+  assert({
+    given: 'the rejected yield after catch-up',
+    should: 'persist only the clock tick and leave 1AR open',
+    actual: [
+      after.version,
+      after.segments
+        .filter((row) => row.endedAt === null)
+        .map((row) => row.sequence),
+    ],
+    expected: [before.version + 1, [4]],
+  });
+  await assertRejects({
+    given: 'a refreshed version carrying the obsolete AC identity',
+    should: 'still refuse to close 1AR',
+    actual: () =>
+      operations.command({
+        actorId: 'actor-1',
+        id,
+        command: { type: 'yield', segmentIndex: 0 },
+        expectedVersion: after.version,
+      }),
+    code: 'CONFLICT',
   });
 });

@@ -71,6 +71,23 @@ describe('the browser speaks the schema the handler parses', () => {
     });
   });
 
+  test('yield carries its intended segment and refuses a missing identity', async () => {
+    const body = await capture(() =>
+      aiDebateApi.command('round-1', 7, { type: 'yield', segmentIndex: 4 }),
+    );
+    assert({
+      given:
+        'a yield posted by the browser and an obsolete identity-free payload',
+      should: 'preserve the segment index and require it at the HTTP boundary',
+      actual: [
+        schemas.command.parse(body).command,
+        schemas.command.safeParse({ ...body, command: { type: 'yield' } })
+          .success,
+      ],
+      expected: [{ type: 'yield', segmentIndex: 4 }, false],
+    });
+  });
+
   test('transcribe carries segmentIndex', async () => {
     const body = await capture(() =>
       aiDebateApi.transcribe('round-1', 3, {
