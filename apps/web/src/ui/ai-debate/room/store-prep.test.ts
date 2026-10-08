@@ -5,6 +5,7 @@ import {
   fakeApi,
   handClock,
   handTimers,
+  roomFixture,
   settle,
 } from './room.test-support';
 import { createRoomStore } from './store';
@@ -76,11 +77,7 @@ for (const personSide of ['affirmative', 'negative'] as const) {
 
 for (const failureStatus of [409, 500]) {
   test(`automatic prep retries after a ${failureStatus} rejection`, async () => {
-    const log: string[] = [];
-    const time = handClock();
-    const timers = handTimers();
-    const base = fakeApi({ log, at: time.at });
-    const view = await base.view('d1');
+    const { time, timers, base, view } = await roomFixture();
     const versions: number[] = [];
     let release: () => void = () => undefined;
     const pending = new Promise<void>((resolve) => (release = resolve));

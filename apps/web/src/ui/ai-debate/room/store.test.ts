@@ -7,6 +7,7 @@ import {
   fakeEngine,
   handClock,
   handTimers,
+  roomFixture,
   settle,
 } from './room.test-support';
 import { createRoomStore } from './store';
@@ -131,11 +132,7 @@ describe('the room store', () => {
 });
 
 test('a completed forfeit never asks the judge, including after reload', async () => {
-  const log: string[] = [];
-  const time = handClock();
-  const timers = handTimers();
-  const base = fakeApi({ log, at: time.at });
-  const view = await base.view('d1');
+  const { log, time, timers, base, view } = await roomFixture();
   const store = createRoomStore({
     id: 'd1',
     clock: time.clock,
@@ -171,11 +168,7 @@ test('a completed forfeit never asks the judge, including after reload', async (
 });
 
 test('natural final speech expiry flushes recorded words before requesting the ballot', async () => {
-  const log: string[] = [];
-  const time = handClock();
-  const timers = handTimers();
-  const base = fakeApi({ log, at: time.at });
-  const initialView = await base.view('d1');
+  const { log, time, timers, base, view: initialView } = await roomFixture();
   const total = initialView.rules.segments.reduce(
     (ms, segment) => ms + segment.durationMs + initialView.rules.countdownMs,
     0,

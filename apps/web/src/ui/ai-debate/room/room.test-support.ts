@@ -223,6 +223,15 @@ export const fakeApi = ({
   ...overrides,
 });
 
+/** A loaded room fixture with its clock, timers and API under test control. */
+export async function roomFixture() {
+  const log: string[] = [];
+  const time = handClock();
+  const timers = handTimers();
+  const base = fakeApi({ log, at: time.at });
+  return { log, time, timers, base, view: await base.view('d1') };
+}
+
 /** A turn's context with every callback a no-op unless given. */
 export const turnContext = (
   given: Pick<TurnContext, 'api' | 'engine'> & Partial<TurnContext>,
