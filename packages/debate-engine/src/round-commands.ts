@@ -248,6 +248,13 @@ const interrupt = (c: CommandContext): void => {
 const forfeit = (c: CommandContext): void => {
   const side = c.sideOf(c.actorId);
   if (side === null) refuse('CONFLICT', 'A seated debater forfeits');
+  if (c.on.lifecycle().status === 'scheduled') {
+    c.on.setLifecycle({
+      status: 'abandoned',
+      completedAtMs: c.now,
+    });
+    return;
+  }
   const open = c.on.openRow();
   if (open !== undefined) c.closeRowAt(open.id, c.now);
   c.on.endPrep();

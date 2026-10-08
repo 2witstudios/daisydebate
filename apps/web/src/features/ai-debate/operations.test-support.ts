@@ -32,7 +32,7 @@ const sequentialIds: IdGenerator = (() => {
 })();
 
 /** A voice layer that answers exactly, recording which calls were made. */
-const fakeVoice = () => {
+const fakeVoice = (transcribe?: () => Promise<{ text: string }>) => {
   const calls: string[] = [];
   const voice: OpenRouter = {
     async complete() {
@@ -69,7 +69,7 @@ const fakeVoice = () => {
     },
     async transcribe() {
       calls.push('transcribe');
-      return { text: 'I affirm.' };
+      return transcribe ? transcribe() : { text: 'I affirm.' };
     },
   } as unknown as OpenRouter;
   return { voice: () => voice, calls };
@@ -86,13 +86,16 @@ const fakeVoice = () => {
  * The full application operations over the in-memory store, with a movable
  * clock and a scripted voice; `begin` starts one of the actor's debates.
  */
-export function setup(limits?: {
-  readonly live: number;
-  readonly perDay: number;
-}) {
+export function setup(
+  limits?: {
+    readonly live: number;
+    readonly perDay: number;
+  },
+  transcribe?: () => Promise<{ text: string }>,
+) {
   const memory = createInMemoryRoundStore();
   const clock = testClock();
-  const { voice, calls } = fakeVoice();
+  const { voice, calls } = fakeVoice(transcribe);
   // The fake database's clock is the test's: the operations read the
   // database instant exactly as production reads PostgreSQL's.
   const store = {
@@ -137,4 +140,21 @@ export const speakOpeningConstructive = async (
     audioBase64: 'QUJDRA==',
     format: 'webm',
   });
+};
+
+/** Yield the opening constructive and move the injected clock into CX1. */
+export const openFirstCrossExamination = async (
+  operations: AiDebateOperations,
+  clock: { readonly advance: (seconds: number) => void },
+  id: string,
+) => {
+  clock.advance(11);
+  const view = await operations.view({ actorId: 'actor-1', id });
+  await operations.command({
+    actorId: 'actor-1',
+    id,
+    command: { type: 'yield' },
+    expectedVersion: view.version,
+  });
+  clock.advance(11);
 };

@@ -11,6 +11,28 @@ setupRitewayBun();
 const { rules, at, person, opponent } = practiceCast();
 
 describe('round runtime command refusals and seat order', () => {
+  test('forfeit before start abandons without inventing a competition result', () => {
+    const world = runtime();
+    const projection = world.execute({
+      command: { type: 'forfeit' },
+      actorId: person,
+      now: at(5_000),
+    });
+    assert({
+      given: 'a seated debater leaves a scheduled round',
+      should: 'record abandonment with no started instant or winner',
+      actual: projection.round,
+      expected: {
+        status: 'abandoned',
+        currentStage: null,
+        startedAt: null,
+        completedAt: at(5_000),
+        outcome: null,
+        checkpoint: world.checkpoint(),
+      },
+    });
+  });
+
   test('a scheduled round refuses in-round prep without changing its checkpoint', async () => {
     const world = runtime();
     const before = world.checkpoint();

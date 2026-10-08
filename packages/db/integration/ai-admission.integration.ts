@@ -2,13 +2,9 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { createDatabase } from '../src';
-import {
-  practiceRoomConfig,
-  referenceAiJudge,
-  referenceBots,
-} from '../src/reference-formats';
+import { referenceAiJudge, referenceBots } from '../src/reference-formats';
+import { aiPracticeRoom } from '../src/ai-practice-admission.test-support';
 import { withFixture } from './constraint-helpers';
-import { validRules } from './round-fixtures';
 
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
@@ -27,17 +23,7 @@ test('AI practice admission serializes both limits and leaves no partial room', 
         fixture.track('rooms', roomId);
         fixture.track('rounds', roundId);
         return {
-          room: {
-            id: roomId,
-            formatId: format.id,
-            formatVersion: format.version,
-            presetVersion: null,
-            competitionType: 'practice' as const,
-            length: 'full' as const,
-            config: practiceRoomConfig,
-            executionPlan: { preRoundPrep: { enabled: false as const } },
-            rules: validRules,
-          },
+          room: aiPracticeRoom(roomId, format.id, format.version),
           seats: [
             { id: createId(), actorId, role: 'affirmative' as const },
             {

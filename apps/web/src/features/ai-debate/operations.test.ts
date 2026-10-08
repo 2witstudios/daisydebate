@@ -1,6 +1,6 @@
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { setup } from './operations.test-support';
+import { openFirstCrossExamination, setup } from './operations.test-support';
 
 setupRitewayBun();
 
@@ -131,15 +131,7 @@ describe('commands and the ballot', () => {
   test('the browser ends a bot-held cross-examination only after its line is complete', async () => {
     const { operations, begin, clock, store } = setup();
     const id = await begin();
-    clock.advance(11);
-    await operations.command({
-      actorId: 'actor-1',
-      id,
-      command: { type: 'yield' },
-      expectedVersion: (await operations.view({ actorId: 'actor-1', id }))
-        .version,
-    });
-    clock.advance(11);
+    await openFirstCrossExamination(operations, clock, id);
     const before = await operations.view({ actorId: 'actor-1', id });
     await assertRejects({
       given:

@@ -83,11 +83,8 @@ export async function insertCommandRow(
 const lifecycleInstant = (
   column: typeof rounds.startedAt,
   projected: string | null,
-  recorded: string,
 ) =>
-  projected === recorded
-    ? sql`coalesce(${column}, statement_timestamp())`
-    : column;
+  projected !== null ? sql`coalesce(${column}, statement_timestamp())` : column;
 
 /** Writes one projection's round row and segment changes inside `tx`. */
 export async function writeProjection(
@@ -110,13 +107,11 @@ export async function writeProjection(
         // drifting onto a second clock.
         startedAt: lifecycleInstant(
           rounds.startedAt,
-          projection.round.status,
-          'active',
+          projection.round.startedAt,
         ),
         completedAt: lifecycleInstant(
           rounds.completedAt,
-          projection.round.status,
-          'completed',
+          projection.round.completedAt,
         ),
         outcome: projection.round.outcome,
         runtimeState: projection.round.checkpoint,

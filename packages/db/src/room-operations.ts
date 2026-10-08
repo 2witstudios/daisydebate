@@ -55,7 +55,7 @@ export const newRoomValues = (
   status,
 });
 
-const seatsComplete = (
+export const seatsComplete = (
   required: RoundRules['seats'],
   held: readonly { readonly role: string; readonly slot: number }[],
 ): boolean =>

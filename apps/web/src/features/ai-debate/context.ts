@@ -41,6 +41,8 @@ export type RoundStore = Pick<
   Database,
   | 'databaseNow'
   | 'getFormat'
+  | 'getCurrentPreset'
+  | 'getFormatRevision'
   | 'createRoom'
   | 'seatRoomParticipant'
   | 'startRound'

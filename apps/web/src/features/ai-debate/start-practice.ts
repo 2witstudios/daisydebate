@@ -1,4 +1,3 @@
-import { resolveRoomConfiguration as resolveRoom } from '@daisy/debate-engine';
 import { createAppError } from '@daisy/errors';
 import {
   practiceRoomConfig,
@@ -6,6 +5,7 @@ import {
 } from '@daisy/db/reference-formats';
 import { aiSideOf, type AiDebateDependencies } from './context';
 import { opponentFor } from './opponents';
+import { resolveRoomChoice } from '../debate-room/resolve-room';
 
 const tidy = (resolution: string) => resolution.trim().replace(/\s+/g, ' ');
 
@@ -40,25 +40,16 @@ export const startPractice = async (
   if (!opponent) throw createAppError('VALIDATION', 'Unknown opponent');
   voice(); // refuse before writing anything when AI debates are unavailable
   const now = Date.parse(await store.databaseNow());
-  const format = await store.getFormat('one-on-one');
-  if (!format) throw createAppError('INFRASTRUCTURE', 'The format is missing');
-  const resolved = resolveRoom(format.definition, practiceRoomConfig);
-  if (!resolved.ok)
-    throw createAppError(
-      'INFRASTRUCTURE',
-      `The practice room refuses to resolve: ${resolved.refusal.message}`,
-    );
+  const resolved = await resolveRoomChoice(store, {
+    competitionType: 'practice',
+    formatId: 'one-on-one',
+    length: 'full',
+    config: practiceRoomConfig,
+  });
   const roomId = ids.next();
   const room = {
     id: roomId,
-    formatId: format.id,
-    formatVersion: format.version,
-    presetVersion: null,
-    competitionType: 'practice',
-    length: 'full',
-    config: practiceRoomConfig,
-    executionPlan: resolved.roomPlan,
-    rules: resolved.rules,
+    ...resolved,
   } as const;
   const seats = [
     { id: ids.next(), actorId: input.actorId, role: input.personSide },

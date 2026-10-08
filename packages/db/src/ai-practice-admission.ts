@@ -6,7 +6,7 @@ import { rounds } from './schema/rounds';
 import { usageReservations } from './schema/usage-reservations';
 import { roomParticipants, rooms } from './schema/rooms';
 import { roundParticipants } from './schema/round-participants';
-import { newRoomValues, type NewRoom } from './room-operations';
+import { newRoomValues, seatsComplete, type NewRoom } from './room-operations';
 
 export type AiPracticeAdmission = {
   readonly room: NewRoom;
@@ -92,6 +92,13 @@ export async function admitAiPractice(
           'INVARIANT',
           'AI practice needs a direct-start practice room',
         );
+      if (
+        !seatsComplete(
+          room.rules.seats,
+          input.seats.map((seat) => ({ role: seat.role, slot: 0 })),
+        )
+      )
+        throw createAppError('INVARIANT', 'The room has incomplete seats');
       await tx.insert(rooms).values(newRoomValues(room, 'started'));
       await tx.insert(roomParticipants).values(
         input.seats.map((seat) => ({

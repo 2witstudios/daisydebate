@@ -123,6 +123,12 @@ export function createInMemoryRoundStore() {
       ) {
         const rows = state.utteranceRows.get(input.roundId);
         if (!rows) throw createAppError('NOT_FOUND', 'No such round');
+        const segment = state.segments
+          .get(input.roundId)
+          ?.find((candidate) => candidate.id === input.segmentId);
+        if (!segment) throw createAppError('NOT_FOUND', 'No such segment');
+        if (input.requireOpen && segment.endedAt !== null)
+          throw createAppError('CONFLICT', 'The segment is closed');
         rows.push({
           id: input.id,
           roundId: input.roundId,

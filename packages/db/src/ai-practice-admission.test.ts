@@ -1,23 +1,12 @@
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createTestDatabase } from './index.test-support';
-import { practiceRoomConfig } from './reference-formats';
-import { validRules } from './testing';
+import { aiPracticeRoom } from './ai-practice-admission.test-support';
 
 setupRitewayBun();
 
 const admission = () => ({
-  room: {
-    id: 'room-1',
-    formatId: 'foundation',
-    formatVersion: 1,
-    presetVersion: null,
-    competitionType: 'practice' as const,
-    length: 'full' as const,
-    config: practiceRoomConfig,
-    executionPlan: { preRoundPrep: { enabled: false as const } },
-    rules: validRules,
-  },
+  room: aiPracticeRoom('room-1', 'foundation', 1),
   seats: [
     { id: 'seat-1', actorId: 'person-1', role: 'affirmative' as const },
     { id: 'seat-2', actorId: 'bot-1', role: 'negative' as const },
@@ -94,6 +83,33 @@ describe('atomic AI practice admission', () => {
     assert({
       given: 'the refused daily cap',
       should: 'issue only the lock and two counts',
+      actual: queries.length,
+      expected: 3,
+    });
+  });
+
+  test('a changed format cast is refused before the room is created', async () => {
+    const { database, queries } = createTestDatabase([[], [[0]], [[0]]]);
+    const input = admission();
+    await assertRejects({
+      given: 'a resolved format requiring a second affirmative seat',
+      should: 'refuse the three-seat AI cast before any aggregate write',
+      actual: () =>
+        database.admitAiPractice({
+          ...input,
+          room: {
+            ...input.room,
+            rules: {
+              ...input.room.rules,
+              seats: { ...input.room.rules.seats, affirmative: 2 },
+            },
+          },
+        }),
+      code: 'INVARIANT',
+    });
+    assert({
+      given: 'the mismatched cast',
+      should: 'stop after the serialized allowance reads',
       actual: queries.length,
       expected: 3,
     });

@@ -122,7 +122,7 @@ export function crossExaminationOperations(
         segmentId,
         roundParticipantId: personSeatId,
         text,
-        requireOpen: false,
+        requireOpen: true,
       });
     return text;
   };
@@ -242,8 +242,7 @@ export function crossExaminationOperations(
      * The person's utterance (if any) is transcribed, then the AI asks or
      * answers. With the AI asking and nothing said yet, it opens with its
      * first question, which it may prepare during the countdown. Speech
-     * arriving in the grace period after the segment is kept but gets no
-     * reply.
+     * arriving after the segment closes is refused at the database write.
      */
     async crossExamine({
       actorId,
@@ -312,7 +311,7 @@ export function crossExaminationOperations(
         (line) => line.segmentId === segment.id,
       ).length;
       // The AI replies while its segment is live, or in the countdown when
-      // it opens the exchange; a grace-period line gets no reply.
+      // it opens the exchange.
       if (
         !shouldReply(
           position.stage,

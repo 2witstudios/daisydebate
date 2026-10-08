@@ -1,5 +1,10 @@
+import { assertRejects } from '@daisy/errors/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { setup, speakOpeningConstructive } from './operations.test-support';
+import {
+  openFirstCrossExamination,
+  setup,
+  speakOpeningConstructive,
+} from './operations.test-support';
 
 setupRitewayBun();
 
@@ -17,6 +22,45 @@ setupRitewayBun();
  * cross-examination.
  */
 describe('the AI opens its own cross-examination', () => {
+  test('a transcription finishing after CX closes leaves no late line', async () => {
+    let resolveTranscript: (value: { text: string }) => void = () => undefined;
+    let started: () => void = () => undefined;
+    const transcribing = new Promise<void>((resolve) => (started = resolve));
+    const transcript = new Promise<{ text: string }>(
+      (resolve) => (resolveTranscript = resolve),
+    );
+    const { operations, begin, clock } = setup(undefined, () => {
+      started();
+      return transcript;
+    });
+    const id = await begin();
+    await openFirstCrossExamination(operations, clock, id);
+    const pending = operations.crossExamine({
+      actorId: 'actor-1',
+      id,
+      segmentIndex: 1,
+      audio: { base64: 'QUJDRA==', format: 'webm' },
+    });
+    await transcribing;
+    clock.advance(130);
+    await operations.view({ actorId: 'actor-1', id });
+    resolveTranscript({ text: 'Too late for CX.' });
+    await assertRejects({
+      given: 'speech recognition returns after its cross-examination closes',
+      should: 'refuse the line at the durable segment boundary',
+      actual: () => pending,
+      code: 'CONFLICT',
+    });
+    assert({
+      given: 'the late transcript was refused',
+      should: 'leave the round transcript without that line',
+      actual: (
+        await operations.view({ actorId: 'actor-1', id })
+      ).utterances.some((line) => line.text === 'Too late for CX.'),
+      expected: false,
+    });
+  });
+
   test('asks its first question after the constructive has been spoken', async () => {
     const { operations, begin, clock } = setup();
     const id = await begin();
