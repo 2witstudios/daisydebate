@@ -22,8 +22,7 @@ const shut = createTestApp({ FOUNDATION_PROOF_ENABLED: 'false' });
 const createdIds: string[] = [];
 afterAll(async () => {
   await withSql(async (sql) => {
-    for (const id of createdIds)
-      await sql`DELETE FROM debates WHERE id = ${id}`;
+    for (const id of createdIds) await sql`DELETE FROM rounds WHERE id = ${id}`;
   });
 });
 

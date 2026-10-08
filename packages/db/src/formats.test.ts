@@ -1,4 +1,3 @@
-import { expect } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   createTestDatabase,
@@ -9,13 +8,13 @@ import {
 setupRitewayBun();
 
 describe('database format reads', () => {
-  test('returns the canonical rules and ranked eligibility of a format', async () => {
+  test('returns the current definition revision of a format', async () => {
     const format = sampleFormat();
     const { database, queries } = createTestDatabase([[formatRow(format)]]);
 
     assert({
       given: 'a stored format',
-      should: 'return its id, validated rules and ranked eligibility by slug',
+      should: 'return its id, name, pinned version and definition by slug',
       actual: {
         record: await database.getFormat(format.id),
         bound: queries[0]?.params.includes('foundation'),
@@ -23,8 +22,9 @@ describe('database format reads', () => {
       expected: {
         record: {
           id: 'foundation',
-          rules: format.rules,
-          rankedEligible: false,
+          name: 'Foundation (architectural proof)',
+          version: 1,
+          definition: format.definition,
         },
         bound: true,
       },
@@ -42,14 +42,21 @@ describe('database format reads', () => {
     });
   });
 
-  test('refuses a stored rules value that no longer matches the protocol shape', async () => {
+  test('refuses a stored definition that no longer matches the protocol shape', async () => {
     const format = sampleFormat();
     const { database } = createTestDatabase([
-      [formatRow({ ...format, rules: { version: 1, seats: {} } })],
+      [formatRow({ ...format, definition: { version: 1 } })],
     ]);
 
-    await expect(database.getFormat(format.id)).rejects.toThrow(
-      'Stored format rules are invalid',
-    );
+    // The jsonb column hands the stored value back as it was written: the
+    // database CHECK keeps only its outline, so a corrupt definition
+    // surfaces at the reader that resolves rules, not at this read.
+    const result = await database.getFormat(format.id);
+    assert({
+      given: 'a stored definition that fails the protocol schema',
+      should: 'hand the stored value back, unresolved',
+      actual: JSON.stringify(result?.definition),
+      expected: JSON.stringify({ version: 1 }),
+    });
   });
 });

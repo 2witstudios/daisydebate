@@ -86,10 +86,10 @@ describe('debate room document routes', () => {
       given: 'a member listing, creating and renaming',
       should: 'answer documents, the created document and the renamed one',
       actual: [
-        await read(await handlers.list.POST(post({ aiDebateId: DEBATE }))),
+        await read(await handlers.list.POST(post({ roundId: DEBATE }))),
         await read(
           await handlers.create.POST(
-            post({ aiDebateId: DEBATE, folder: 'round', templateId: 'flow' }),
+            post({ roundId: DEBATE, folder: 'round', templateId: 'flow' }),
           ),
         ),
         await read(
@@ -108,7 +108,7 @@ describe('debate room document routes', () => {
       actual: calls[1],
       expected: [
         { userId: 'user1', actorId: 'actor1' },
-        { aiDebateId: DEBATE, folder: 'round', templateId: 'flow' },
+        { roundId: DEBATE, folder: 'round', templateId: 'flow' },
       ],
     });
   });
@@ -163,7 +163,7 @@ describe('debate room document routes', () => {
     const provisional = handlersWith({
       identity: { state: 'provisional', principal: member.principal },
     });
-    const list = { aiDebateId: DEBATE };
+    const list = { roundId: DEBATE };
     assert({
       given: 'a foreign origin, no session, a provisional user and bad bodies',
       should: 'refuse each before any operation runs',
@@ -171,10 +171,10 @@ describe('debate room document routes', () => {
         (await handlers.list.POST(post(list, 'https://evil.test'))).status,
         (await anonymous.handlers.list.POST(post(list))).status,
         (await provisional.handlers.list.POST(post(list))).status,
-        (await handlers.list.POST(post({ aiDebateId: 'not-a-cuid' }))).status,
+        (await handlers.list.POST(post({ roundId: 'not-a-cuid' }))).status,
         (
           await handlers.create.POST(
-            post({ aiDebateId: DEBATE, folder: 'club', templateId: 'flow' }),
+            post({ roundId: DEBATE, folder: 'club', templateId: 'flow' }),
           )
         ).status,
         (

@@ -9,7 +9,7 @@ import type {
 } from '@daisy/protocol';
 
 /**
- * The adapter's side of the rating decision contract (ADR 0055): the
+ * The adapter's side of the rating decision contract (ADR 0055, ADR 0058): the
  * decision it is given, and what it returns. The fact and plan shapes are
  * `@daisy/protocol`'s, shared with the engine that implements the decision.
  */
@@ -35,7 +35,7 @@ export type RateDebateResult =
   | RatingUnrated;
 
 export type RateDebateInput = {
-  readonly debateId: string;
+  readonly roundId: string;
   /** cuid2 ids for the two ledger rows, affirmative first. */
   readonly changeIds: readonly [string, string];
   readonly decide: RatingDecision;

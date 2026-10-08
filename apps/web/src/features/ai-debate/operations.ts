@@ -1,122 +1,230 @@
-import {
-  DEFAULT_MODELS,
-  DEFAULT_REASONING,
-  judgeMessages,
-  parseBallot,
-  type Ballot,
-} from '@daisy/ai-voice';
-import {
-  acceptAiDebateCommand,
-  aiDebateLongestMs,
-  type AiDebateCommand,
-  type AiDebateSide,
+import { ownedBy, runtimeOf } from './runtime';
+import { DEFAULT_MODELS } from '@daisy/ai-voice';
+import type {
+  RoundCommand,
+  RoundPosition,
+  RoundProjection,
 } from '@daisy/debate-engine';
-import { createAppError } from '@daisy/errors';
+import { createAppError, isAppError } from '@daisy/errors';
+import type { RoundStore } from './context';
 import {
-  nowMs,
-  ownedBy,
-  requireLiveTurn,
-  stateAt,
-  toEngine,
-  transcriptOf,
+  aiSideOf,
+  digestOf,
+  participantIdOf,
+  personSideOf,
   type AiDebateDependencies,
   type AiDebateView,
   type AudioFormat,
+  type RecordUsage,
 } from './context';
 import { crossExaminationOperations } from './cross-examination';
-import { opponentFor } from './opponents';
+import { judgingOperations, viewOf } from './judging';
 import { speechOperations } from './speech';
+import { startPractice } from './start-practice';
 
 export type { AiDebateView } from './context';
 
 const DEFAULT_LIMITS = { live: 25, perDay: 20 } as const;
-/** A created AI debate has this long to start before it stops counting as live. */
-const START_WINDOW_MS = 15 * 60_000;
 
 export type PersonCommand =
   | { readonly type: 'start' }
+  | { readonly type: 'startPrep' }
   | { readonly type: 'startSpeech' }
-  | { readonly type: 'yield'; readonly turnIndex: number }
+  | { readonly type: 'interrupt' }
+  | { readonly type: 'yield'; readonly segmentIndex: number }
   | { readonly type: 'abort' };
 
-const atTime = (command: PersonCommand, at: number): AiDebateCommand => {
-  if (command.type === 'yield')
-    return { type: 'yield', at, turnIndex: command.turnIndex };
-  if (command.type === 'abort') return { type: 'abort', at, reason: 'person' };
-  return { type: command.type, at };
+const requireYieldSegment = (
+  command: PersonCommand,
+  position: RoundPosition,
+): void => {
+  if (
+    command.type === 'yield' &&
+    position.openSegment?.sequence !== command.segmentIndex
+  )
+    throw createAppError('CONFLICT', 'That segment is not live');
 };
 
-const asRecord = (command: AiDebateCommand) => {
-  const at = new Date(command.at);
-  if (command.type === 'yield')
-    return { type: 'yield' as const, at, turnIndex: command.turnIndex };
-  if (command.type === 'abort')
-    return { type: 'abort' as const, at, reason: command.reason };
-  return { type: command.type, at };
+const actingActorOf = (
+  round: Awaited<ReturnType<RoundStore['getRound']>>,
+  actorId: string,
+  command: RoundCommand,
+  position: RoundPosition,
+): string => {
+  if (!round || command.type !== 'yield') return actorId;
+  const open = position.openSegment;
+  if (!open) return actorId;
+  if (open.floorParticipantId)
+    return (
+      round.participants.find((seat) => seat.id === open.floorParticipantId)
+        ?.actorId ?? actorId
+    );
+  const botSide = aiSideOf(personSideOf(round, actorId));
+  return open.side === botSide
+    ? (round.participants.find((seat) => seat.role === botSide)?.actorId ??
+        actorId)
+    : actorId;
 };
 
-const tidy = (resolution: string) => resolution.trim().replace(/\s+/g, ' ');
+const requireBotLine = async (
+  store: RoundStore,
+  round: NonNullable<Awaited<ReturnType<RoundStore['getRound']>>>,
+  position: RoundPosition,
+  acting: string,
+): Promise<void> => {
+  const botSeat = round.participants.find((seat) => seat.actorId === acting);
+  const openRow = round.segments.find(
+    (segment) => segment.sequence === position.openSegment?.sequence,
+  );
+  const lines = await store.listRoundUtterances(round.id);
+  if (
+    !botSeat ||
+    !openRow ||
+    !lines.some(
+      (line) =>
+        line.segmentId === openRow.id &&
+        line.roundParticipantId === botSeat.id &&
+        line.complete,
+    )
+  )
+    throw createAppError('CONFLICT', 'The AI has not finished its turn');
+};
+
+const mappedCommand = (command: PersonCommand): RoundCommand => {
+  if (command.type === 'startPrep') return { type: 'start_prep' };
+  if (command.type === 'startSpeech') return { type: 'start_speech' };
+  if (command.type === 'abort') return { type: 'forfeit' };
+  return { type: command.type };
+};
+
+/** Accept a clip on the database clock, including the recorder's final flush. */
+const recordedSegmentOf = (
+  round: NonNullable<Awaited<ReturnType<RoundStore['getRound']>>>,
+  actorId: string,
+  segmentIndex: number,
+  now: number,
+) => {
+  const row = round.segments.find(
+    (segment) => segment.sequence === segmentIndex,
+  );
+  const resolved = round.rules.segments[segmentIndex];
+  // Admission is bounded on the database clock. Once accepted, provider
+  // latency must not revoke the recorded clip when its segment closes.
+  const end = row
+    ? Math.min(
+        Date.parse(row.startedAt) + row.durationMs,
+        row.endedAt === null ? Infinity : Date.parse(row.endedAt),
+      )
+    : 0;
+  if (
+    !row ||
+    !resolved ||
+    round.status === 'abandoned' ||
+    now < Date.parse(row.startedAt) ||
+    now > end + 30_000 ||
+    (resolved.type === 'speech' &&
+      resolved.side !== personSideOf(round, actorId))
+  )
+    throw createAppError('CONFLICT', 'That segment is not live');
+  return row;
+};
 
 /**
- * The AI debate application operations (AIDB): every call names its actor,
- * reads only that actor's own AI debate, and takes time and ids from the
- * injected clock and generator. Speeches and cross-examination live in
- * their own modules and are composed here.
+ * The AI practice application operations (AIDB on the one Round model,
+ * ADR 0058): a practice Room resolves the one-on-one format against the
+ * practice config, seats the person, the bot and the AI judge, and the
+ * startRound freeze creates the Round. Every later operation drives the
+ * same runtime the durable rows persist, so the person's browser, the bot
+ * and the judge are actors on one machine.
  */
 export function createAiDebateOperations(dependencies: AiDebateDependencies) {
-  const { store, voice, clock, ids, limits = DEFAULT_LIMITS } = dependencies;
+  const { store, voice, ids, limits = DEFAULT_LIMITS } = dependencies;
+
+  /** Persists one execution; a concurrent writer wins and the caller re-hydrates. */
+  const persist = async (
+    roundId: string,
+    expectedVersion: number,
+    command: Parameters<RoundStore['applyRoundExecution']>[0]['command'],
+    projection: RoundProjection,
+  ): Promise<boolean> => {
+    try {
+      await store.applyRoundExecution({
+        roundId,
+        expectedVersion,
+        command,
+        projection,
+      });
+      return true;
+    } catch (error) {
+      if (isAppError(error) && error.code === 'CONFLICT') return false;
+      throw error;
+    }
+  };
+
+  /**
+   * Hydrates one of the actor's rounds, materializing whatever time moved:
+   * the durable rows are the live interval, so a tick that opened or
+   * closed segments is persisted before anything reads position. The
+   * instant is the database's, read once here and used for the tick, any
+   * command this operation applies, and the view's serverNow — one clock
+   * for the whole execution (ADR 0033 §3.2, as amended by ADR 0058).
+   */
+  const hydrated = async (actorId: string, id: string) => {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const { round, runtime } = await ownedBy(store, actorId, id, () =>
+        ids.next(),
+      );
+      const now = Date.parse(await store.databaseNow());
+      const ticked = runtime.tick(new Date(now).toISOString());
+      const moved =
+        ticked.segmentInserts.length > 0 || ticked.segmentCloses.length > 0;
+      if (!moved) return { round, runtime, now, tickedFromVersion: null };
+      if (!(await persist(round.id, round.version, null, ticked))) continue;
+      const fresh = await store.getRound(id);
+      if (!fresh) throw createAppError('NOT_FOUND');
+      return {
+        round: fresh,
+        runtime: runtimeOf(fresh, () => ids.next()),
+        now,
+        tickedFromVersion:
+          fresh.version === round.version + 1 ? round.version : null,
+      };
+    }
+    throw createAppError('CONFLICT', 'The round moved on');
+  };
+
+  /** The usage and allowance writes for one billable AI call. */
+  const recordUsage: RecordUsage = async (
+    roundId,
+    participantId,
+    actorId,
+    usage,
+  ) => {
+    await store.recordAgentRun({
+      id: ids.next(),
+      roundParticipantId: participantId,
+      kind: usage.kind,
+      model: usage.model,
+      provider: 'openrouter',
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+      characters: usage.characters,
+      requests: usage.requests,
+    });
+    await store.markReservationCounted({ actorId, roundId });
+  };
 
   return {
-    ...speechOperations(dependencies),
-    ...crossExaminationOperations(dependencies),
+    ...speechOperations(dependencies, hydrated, recordUsage),
+    ...crossExaminationOperations(dependencies, hydrated, recordUsage),
 
-    async start({
-      actorId,
-      resolution,
-      personSide,
-      opponent: opponentId,
-    }: {
+    async start(input: {
       readonly actorId: string;
       readonly resolution: string;
-      readonly personSide: AiDebateSide;
-      /** The Train bot to debate. */
+      readonly personSide: 'affirmative' | 'negative';
       readonly opponent: string;
     }): Promise<{ readonly id: string }> {
-      const trimmed = tidy(resolution);
-      if (trimmed.length < 3 || trimmed.length > 200)
-        throw createAppError('VALIDATION', 'Resolution length');
-      const opponent = opponentFor(opponentId);
-      if (!opponent) throw createAppError('VALIDATION', 'Unknown opponent');
-      voice(); // refuse before writing anything when AI debates are unavailable
-      const now = nowMs(clock);
-      const id = ids.next();
-      const created = await store.createAiDebate({
-        now: new Date(now),
-        limits,
-        debate: {
-          id,
-          actorId,
-          resolution: trimmed,
-          personSide,
-          opponent: opponent.id,
-          voice: opponent.voice,
-          speechModel: DEFAULT_MODELS.speech,
-          cxModel: DEFAULT_MODELS.cx,
-          judgeModel: DEFAULT_MODELS.judge,
-          ttsModel: DEFAULT_MODELS.tts,
-          sttModel: DEFAULT_MODELS.stt,
-          // Unstarted, it holds a seat only for the start window.
-          expectedEndAt: new Date(now + START_WINDOW_MS),
-        },
-      });
-      if (created !== 'created')
-        throw createAppError(
-          'RATE_LIMIT',
-          created === 'busy'
-            ? 'Too many live AI debates'
-            : 'Daily AI debate limit',
-        );
-      return { id };
+      return startPractice({ store, voice, ids, limits }, input);
     },
 
     async view({
@@ -126,143 +234,107 @@ export function createAiDebateOperations(dependencies: AiDebateDependencies) {
       readonly actorId: string;
       readonly id: string;
     }): Promise<AiDebateView> {
-      const record = await ownedBy(store, actorId, id);
-      return {
-        id: record.id,
-        resolution: record.resolution,
-        personSide: record.personSide,
-        opponent: record.opponent,
-        voice: record.voice,
-        serverNow: nowMs(clock),
-        commands: record.commands.map(toEngine),
-        utterances: record.utterances.map(
-          ({ id: utteranceId, turnIndex, role, text, createdAt }) => ({
-            id: utteranceId,
-            turnIndex,
-            role,
-            text,
-            at: createdAt.getTime(),
-          }),
-        ),
-        ballot: record.ballot
-          ? parseBallot(JSON.stringify(record.ballot.ballot))
-          : null,
-      };
+      const { round, now } = await hydrated(actorId, id);
+      return viewOf(dependencies, round, now, actorId);
     },
 
-    /** Appends a timeline command at the server's time, or refuses it. */
+    /** Applies one legal command at the server's time, or refuses it. */
     async command({
       actorId,
       id,
       command,
-      expectedSequence,
+      expectedVersion,
     }: {
       readonly actorId: string;
       readonly id: string;
       readonly command: PersonCommand;
-      readonly expectedSequence: number;
+      readonly expectedVersion: number;
     }): Promise<void> {
-      const record = await ownedBy(store, actorId, id);
-      const now = nowMs(clock);
+      const { round, runtime, now, tickedFromVersion } = await hydrated(
+        actorId,
+        id,
+      );
+      // The caller's version is the optimistic-concurrency claim the handler
+      // validated on the way in. Comparing it here is what makes that check
+      // mean something: persisting with the freshly hydrated version instead
+      // would let a stale browser win every race it lost.
       if (
-        command.type === 'start' &&
-        now > record.createdAt.getTime() + START_WINDOW_MS
+        round.version !== expectedVersion &&
+        tickedFromVersion !== expectedVersion
       )
-        throw createAppError('CONFLICT', 'The start window has closed');
-      const timed = atTime(command, now);
-      const verdict = acceptAiDebateCommand({
-        personSide: record.personSide,
-        commands: record.commands.map(toEngine),
-        command: timed,
+        throw createAppError('CONFLICT', 'The round moved on');
+      const mapped = mappedCommand(command);
+      const position = runtime.position(new Date(now).toISOString());
+      requireYieldSegment(command, position);
+      const acting = actingActorOf(round, actorId, mapped, position);
+      const botCommand = acting !== actorId;
+      if (botCommand) await requireBotLine(store, round, position, acting);
+      const executed = runtime.execute({
+        command: mapped,
+        actorId: command.type === 'start' ? null : acting,
+        now: new Date(now).toISOString(),
       });
-      if (!verdict.ok) throw createAppError('CONFLICT', verdict.reason);
-      await store.appendAiDebateCommand({
-        aiDebateId: id,
-        expectedSequence,
-        command: asRecord(timed),
-        // Once started, it holds its seat until the longest debate ends.
-        expectedEndAt:
-          timed.type === 'start'
-            ? new Date(now + aiDebateLongestMs())
-            : undefined,
-      });
-      if (timed.type === 'abort') await store.finishAiDebate(id);
+      const applied = await persist(
+        round.id,
+        round.version,
+        {
+          commandId: ids.next(),
+          actorId: command.type === 'start' || botCommand ? null : actorId,
+          serviceId:
+            command.type === 'start'
+              ? 'ai-debate'
+              : botCommand
+                ? 'ai-opponent'
+                : null,
+          type: mapped.type,
+          payloadDigest: digestOf(mapped),
+          result: { ok: true },
+        },
+        executed,
+      );
+      if (!applied) throw createAppError('CONFLICT', 'The round moved on');
     },
 
     /** Transcribes a chunk of the person's speech into the transcript. */
     async transcribe({
       actorId,
       id,
-      turnIndex,
+      segmentIndex,
       audioBase64,
       format,
     }: {
       readonly actorId: string;
       readonly id: string;
-      readonly turnIndex: number;
+      readonly segmentIndex: number;
       readonly audioBase64: string;
       readonly format: AudioFormat;
     }): Promise<{ readonly text: string }> {
-      const record = await ownedBy(store, actorId, id);
-      requireLiveTurn(record, turnIndex, nowMs(clock), (roles, kind) =>
-        kind === 'speech' ? roles.speaker === 'person' : true,
-      );
+      const { round, now } = await hydrated(actorId, id);
+      const row = recordedSegmentOf(round, actorId, segmentIndex, now);
+      const model = DEFAULT_MODELS.stt;
       const { text } = await voice().transcribe({
-        model: record.sttModel,
+        model,
         audioBase64,
         format,
       });
-      await store.recordAiDebateUsage({ aiDebateId: id, sttRequests: 1 });
+      await recordUsage(id, participantIdOf(round, actorId), actorId, {
+        kind: 'stt',
+        model,
+        requests: 1,
+      });
       if (text)
-        await store.appendAiDebateUtterance({
+        await store.appendUtterance({
           id: ids.next(),
-          aiDebateId: id,
-          turnIndex,
-          role: 'person',
+          roundId: id,
+          segmentId: row.id,
+          roundParticipantId: participantIdOf(round, actorId),
           text,
+          requireOpen: false,
         });
       return { text };
     },
 
-    /** The judge's ballot, decided once after the last turn. */
-    async ballot({
-      actorId,
-      id,
-    }: {
-      readonly actorId: string;
-      readonly id: string;
-    }): Promise<Ballot> {
-      const record = await ownedBy(store, actorId, id);
-      if (record.ballot)
-        return parseBallot(JSON.stringify(record.ballot.ballot));
-      if (stateAt(record, nowMs(clock)).phase !== 'ended')
-        throw createAppError('CONFLICT', 'The debate is not over');
-      const answer = await voice().complete({
-        model: record.judgeModel,
-        messages: judgeMessages({
-          resolution: record.resolution,
-          personSide: record.personSide,
-          transcript: transcriptOf(record),
-        }),
-        maxTokens: 6_000,
-        temperature: 0.2,
-        json: true,
-        reasoning: DEFAULT_REASONING.judge,
-      });
-      await store.recordAiDebateUsage({
-        aiDebateId: id,
-        promptTokens: answer.promptTokens,
-        completionTokens: answer.completionTokens,
-      });
-      const ballot = parseBallot(answer.text);
-      const saved = await store.saveAiDebateBallot({
-        aiDebateId: id,
-        winner: ballot.winner,
-        ballot,
-      });
-      await store.finishAiDebate(id);
-      return parseBallot(JSON.stringify(saved.ballot));
-    },
+    ...judgingOperations(dependencies, hydrated, recordUsage),
   };
 }
 

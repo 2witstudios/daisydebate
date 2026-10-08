@@ -1,29 +1,25 @@
-import type { DebateScenario } from '../scripts/scenario';
+import {
+  foundationScenarioIds,
+  type DebateScenario,
+} from '../scripts/scenario';
 
+/** The round runs stage by stage to the final segment, awaiting its ballot. */
 const scenario: DebateScenario = {
   name: 'phase-transition',
   given: {
-    clock: '2026-01-01T00:00:00.000Z',
-    ids: [
-      'k2v9x0f4m8q3w1z7c5n6b4d2',
-      'a7b3c9d1e5f2k4m6n8p1r3t5',
-      'c8d4e2f6a1b3k5m7n9p2r4t6',
-    ],
-    resolution: 'A representative resolution',
+    ids: foundationScenarioIds,
   },
   when: [
-    { type: 'join', participant: 1, side: 'affirmative' },
-    { type: 'join', participant: 2, side: 'negative' },
-    { type: 'ready', participant: 1 },
-    { type: 'ready', participant: 2 },
-    { type: 'transition', phase: 'active' },
-    { type: 'transition', phase: 'completed' },
+    { type: 'command', command: { type: 'start' }, actor: null },
+    { type: 'tick', atMs: 10_000 },
+    { type: 'tick', atMs: 260_000 },
+    { type: 'tick', atMs: 500_000 }, // the NC spoken out, ballot pending
   ],
   expect: {
     id: 'k2v9x0f4m8q3w1z7c5n6b4d2',
-    createdAt: '2026-01-01T00:00:00.000Z',
-    phase: 'completed',
-    participantIds: ['a7b3c9d1e5f2k4m6n8p1r3t5', 'c8d4e2f6a1b3k5m7n9p2r4t6'],
+    status: 'active',
+    stage: 'live',
+    opened: ['AC', 'NC'],
   },
 };
 

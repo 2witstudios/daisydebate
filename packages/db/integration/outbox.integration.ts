@@ -48,12 +48,12 @@ test('a committed transaction delivers its outbox row with a txid, a NOTIFY and 
   const listener = new SQL(url);
   const reader = new SQL(url);
   const readerDb = drizzle({ client: reader });
-  const debateId = createId();
-  const topic = `debate:${debateId}`;
+  const roundId = createId();
+  const topic = `debate:${roundId}`;
   const payload = {
     entityVersion: 1,
     kind: 'debate.phase-changed' as const,
-    ids: [debateId],
+    ids: [roundId],
   };
   const notifications = notificationLog();
   try {
@@ -78,7 +78,7 @@ test('a committed transaction delivers its outbox row with a txid, a NOTIFY and 
             payload: {
               entityVersion: 1,
               kind: 'debate.phase-changed',
-              ids: [debateId],
+              ids: [roundId],
             },
           });
           throw new Error('deliberate rollback');

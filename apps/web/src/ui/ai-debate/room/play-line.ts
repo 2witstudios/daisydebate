@@ -85,19 +85,22 @@ export async function playLine({
    * loading, or in the breath between phrases), that the next phrase went
    * unheard, so no unspoken words stay in the transcript.
    */
-  const cut = () => {
+  const cut = async () => {
     for (const { playback } of scheduled) playback.stop();
     show.done();
     const playing = scheduled.find(
       ({ playback }) => playback.playedMs() < playback.durationMs,
     );
     if (playing)
-      reportHeard(context, utteranceId(), playing.index, {
+      await reportHeard(context, utteranceId(), playing.index, {
         playedMs: playing.playback.playedMs(),
         totalMs: playing.playback.durationMs,
       });
     else
-      reportHeard(context, utteranceId(), upNext, { playedMs: 0, totalMs: 1 });
+      await reportHeard(context, utteranceId(), upNext, {
+        playedMs: 0,
+        totalMs: 1,
+      });
     return 'stopped' as const;
   };
   /** The phrase's voice, queued; null when stopped first; SKIPPED on failure. */
@@ -233,15 +236,13 @@ function reportHeard(
   }: { readonly playedMs: number; readonly totalMs: number },
 ) {
   if (!id) return;
-  void context.api
-    .heard({
-      id: context.id,
-      utteranceId: id,
-      phraseIndex,
-      playedMs: Math.round(playedMs),
-      totalMs: Math.round(totalMs),
-    })
-    .catch(() => undefined);
+  return context.api.heard({
+    id: context.id,
+    utteranceId: id,
+    phraseIndex,
+    playedMs: Math.round(playedMs),
+    totalMs: Math.round(totalMs),
+  });
 }
 
 /** Waits for the turn to go live; false when it ended first. */

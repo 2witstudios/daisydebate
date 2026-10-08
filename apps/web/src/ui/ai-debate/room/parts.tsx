@@ -1,27 +1,39 @@
 'use client';
 
 import type { Ballot } from '@daisy/ai-voice';
-import {
-  aiDebateTurns,
-  turnRoles,
-  type AiDebateSide,
-  type AiDebateState,
-} from '@daisy/debate-engine';
+import type { DebateSide } from '@daisy/protocol';
 import { useRef, useState } from 'react';
 import { buttonClass } from '../../components/button/button-class';
 import { TrainCard } from '../../train/card/train-card';
+import {
+  segmentAt,
+  type AiDebateView,
+  type UiSegment,
+  type UiState,
+} from '../../../features/ai-debate/context';
+
+/**
+ * One side's speaker score: the sum of its ten category scores, out of 50.
+ * Local to the client on purpose: the protocol barrel carries the ballot
+ * schemas, and a value import from it would pull zod into this page's
+ * client chunk — whose eval probe the nonce CSP refuses (ISSUE-344).
+ */
+const speakerTotalOf = (scores: Ballot['scores'][keyof Ballot['scores']]) =>
+  Object.values(scores).reduce((total, score) => total + score, 0);
 
 export const sideName = (side: string) =>
   side === 'affirmative' ? 'Affirmative' : 'Negative';
 
-export function stageTitle(state: AiDebateState) {
-  const turn =
-    'turnIndex' in state ? aiDebateTurns[state.turnIndex] : undefined;
-  const titles: Record<AiDebateState['phase'], string> = {
+export function stageTitle(state: UiState, view: AiDebateView | null) {
+  const segment =
+    'segmentIndex' in state && view
+      ? segmentAt(view, state.segmentIndex)
+      : undefined;
+  const titles: Record<UiState['phase'], string> = {
     waiting: 'Ready when you are',
-    prep: `Prep before your ${turn?.name ?? 'speech'}`,
-    countdown: `Up next: ${turn?.label ?? 'the next turn'}`,
-    live: turn?.label ?? 'Live',
+    prep: `Prep before your ${segment?.name ?? 'speech'}`,
+    countdown: `Up next: ${segment?.label ?? 'the next segment'}`,
+    live: segment?.label ?? 'Live',
     ended: 'Debate over',
     aborted: 'Debate ended early',
   };
@@ -71,19 +83,32 @@ function EndButton({
   );
 }
 
+/** The live segment whose floor the controls are about, if one is running. */
+const liveSegmentOf = (
+  state: UiState,
+  view: AiDebateView,
+  personSide: DebateSide,
+): { readonly segment: UiSegment; readonly yours: boolean } | null => {
+  if (state.phase !== 'live') return null;
+  const segment = segmentAt(view, state.segmentIndex);
+  return {
+    segment,
+    yours: segment.kind === 'speech' && segment.side === personSide,
+  };
+};
+
 function LiveControls({
   state,
+  view,
   personSide,
   actions,
 }: {
-  readonly state: AiDebateState;
-  readonly personSide: AiDebateSide;
+  readonly state: UiState;
+  readonly view: AiDebateView;
+  readonly personSide: DebateSide;
   readonly actions: ControlActions;
 }) {
-  const turn =
-    state.phase === 'live' ? aiDebateTurns[state.turnIndex] : undefined;
-  const yours =
-    turn?.kind === 'speech' && turnRoles(turn, personSide).speaker === 'person';
+  const live = liveSegmentOf(state, view, personSide);
   return (
     <div className="flex flex-wrap gap-3">
       {state.phase === 'prep' ? (
@@ -95,17 +120,17 @@ function LiveControls({
           Start my speech
         </button>
       ) : null}
-      {yours ? (
+      {live?.yours ? (
         <EndButton
-          key={`speech-${turn.index}`}
+          key={`speech-${live.segment.index}`}
           label="End my speech"
           variant="primary"
           onConfirm={actions.onYield}
         />
       ) : null}
-      {turn?.kind === 'cross-examination' ? (
+      {live !== null && live.segment.kind === 'cross-examination' ? (
         <EndButton
-          key={`cx-${turn.index}`}
+          key={`cx-${live.segment.index}`}
           label="End cross-examination"
           variant="secondary"
           onConfirm={actions.onYield}
@@ -122,13 +147,15 @@ function LiveControls({
 
 export function Controls({
   state,
+  view,
   personSide,
   joined,
   busy,
   actions,
 }: {
-  readonly state: AiDebateState;
-  readonly personSide: AiDebateSide;
+  readonly state: UiState;
+  readonly view: AiDebateView | null;
+  readonly personSide: DebateSide;
   readonly joined: boolean;
   readonly busy: boolean;
   readonly actions: ControlActions;
@@ -156,9 +183,14 @@ export function Controls({
         Rejoin with your microphone
       </button>
     );
-  return (
-    <LiveControls state={state} personSide={personSide} actions={actions} />
-  );
+  return view ? (
+    <LiveControls
+      state={state}
+      view={view}
+      personSide={personSide}
+      actions={actions}
+    />
+  ) : null;
 }
 
 export function BallotCard({
@@ -167,7 +199,7 @@ export function BallotCard({
   opponent,
 }: {
   readonly ballot: Ballot;
-  readonly personSide: AiDebateSide;
+  readonly personSide: DebateSide;
   readonly opponent: string;
 }) {
   return (
@@ -180,36 +212,25 @@ export function BallotCard({
     >
       <p className="text-ink">
         <span className="font-strong">
-          Decision: {sideName(ballot.winner)}.
+          Decision: {sideName(ballot.winner)} · Speakers{' '}
+          {speakerTotalOf(ballot.scores.affirmative)}–
+          {speakerTotalOf(ballot.scores.negative)}.
         </span>{' '}
         {ballot.reason}
       </p>
-      {ballot.speeches.length ? (
-        <ul className="flex flex-col gap-3">
-          {ballot.speeches.map((speech) => (
-            <li
-              key={`${speech.turn}-${speech.side}`}
-              className="flex flex-col gap-1"
-            >
+      <div className="flex flex-col gap-3">
+        {(['affirmative', 'negative'] as const).map((side) =>
+          ballot.feedback[side] ? (
+            <div key={side} className="flex flex-col gap-1">
               <span className="text-xs font-strong tracking-wide text-ink-muted uppercase">
-                {speech.turn} · {speech.side === personSide ? 'You' : opponent}
+                {side === personSide ? 'You' : opponent} ·{' '}
+                {speakerTotalOf(ballot.scores[side])}/50
               </span>
-              <span className="text-ink">Worked: {speech.strengths}</span>
-              <span className="text-ink">Next time: {speech.improvements}</span>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-      {ballot.tips.length ? (
-        <div className="flex flex-col gap-1">
-          <span className="font-strong text-ink">Tips for your next round</span>
-          <ul className="list-disc pl-5 text-ink">
-            {ballot.tips.map((tip) => (
-              <li key={tip}>{tip}</li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
+              <span className="text-ink">{ballot.feedback[side]}</span>
+            </div>
+          ) : null,
+        )}
+      </div>
     </TrainCard>
   );
 }

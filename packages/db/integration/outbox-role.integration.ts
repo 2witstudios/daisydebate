@@ -33,11 +33,11 @@ test('the realtime role can only select the outbox and authorization read models
       realtime!.unsafe('select seq from outbox limit 1'),
     );
     const selectDebates = await sqlStateOf(() =>
-      realtime!.unsafe('select id from debates limit 1'),
+      realtime!.unsafe('select id from rounds limit 1'),
     );
     const selectDebateParticipants = await sqlStateOf(() =>
       realtime!.unsafe(
-        'select debate_id, actor_id from debate_participants limit 1',
+        'select round_id, actor_id from round_participants limit 1',
       ),
     );
     const selectActors = await sqlStateOf(() =>
@@ -82,14 +82,14 @@ test('the realtime role can only select the outbox and authorization read models
     );
     const insertDebates = await sqlStateOf(() =>
       realtime!.unsafe(
-        "insert into debates (id, resolution, format_id, snapshot, mode, phase, visibility) values ('x', 'r', 'f', '{}'::jsonb, 'casual', 'waiting', 'unlisted')",
+        "insert into rounds (id, resolution, competition_type, length, format_id, format_version, rules_snapshot, status) values ('x', 'r', 'casual', 'full', 'f', 1, '{}'::jsonb, 'scheduled')",
       ),
     );
 
     assert({
       given: 'reads the role is granted',
       should:
-        'succeed for outbox, debates, debate_participants, the two actors columns and the three session columns, and refuse users entirely, actors.kind and session.token',
+        'succeed for outbox, rounds, round_participants, the two actors columns and the three session columns, and refuse users entirely, actors.kind and session.token',
       actual: {
         selectOutbox,
         selectDebates,

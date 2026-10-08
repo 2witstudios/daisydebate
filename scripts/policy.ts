@@ -9,7 +9,23 @@ import * as ts from 'typescript';
 
 import { auditPolicyProblems } from './audit';
 import { numberCollisionProblems } from './number-claims';
-import { reviewDateStatus, utcToday } from './review-date';
+import {
+  validateMigrationBaselines,
+  type MigrationBaseline,
+} from './policy-baselines';
+// Re-exported so every registry validator keeps one import site.
+export { validateMigrationBaselines } from './policy-baselines';
+export type { MigrationBaseline } from './policy-baselines';
+import { collectExportNames } from './policy-exports';
+import { validatePlannedReaders, type PlannedReader } from './planned-readers';
+import {
+  entryObjectProblems,
+  registryShapeProblems,
+  requiredFieldProblems as sharedRequiredFieldProblems,
+  reviewDateProblems,
+  type RegistryEntryOptions,
+} from './policy-registry';
+import { utcToday } from './review-date';
 import { collectWorkflowHardeningProblems } from './workflow-hardening';
 
 const root = resolve(import.meta.dir, '..');
@@ -170,24 +186,25 @@ export function scanPolicyText(
   ];
 }
 
-export type PolicyRegistryValidationOptions = {
-  readonly knownPaths?: ReadonlySet<string>;
-  readonly today?: string;
-};
+export type PolicyRegistryValidationOptions = RegistryEntryOptions;
 
 type RegistryEntry = Partial<PolicyException>;
+
+const exceptionFields = [
+  'path',
+  'rule',
+  'category',
+  'owner',
+  'reason',
+  'adr',
+  'reviewBy',
+] as const;
 
 function requiredFieldProblems(
   entry: RegistryEntry,
   prefix: string,
 ): readonly string[] {
-  return (
-    ['path', 'rule', 'category', 'owner', 'reason', 'adr', 'reviewBy'] as const
-  )
-    .filter(
-      (field) => typeof entry[field] !== 'string' || entry[field].trim() === '',
-    )
-    .map((field) => `${prefix}: ${field} is required`);
+  return sharedRequiredFieldProblems(entry, prefix, exceptionFields);
 }
 
 function referenceProblems(
@@ -221,19 +238,6 @@ function referenceProblems(
   return problems;
 }
 
-function reviewDateProblems(
-  reviewBy: string | undefined,
-  prefix: string,
-  today: string,
-): readonly string[] {
-  if (typeof reviewBy !== 'string') return [];
-  const status = reviewDateStatus(reviewBy, today);
-  if (status === 'invalid') return [`${prefix}: reviewBy must be an ISO date`];
-  return status === 'expired'
-    ? [`${prefix}: reviewBy has expired: ${reviewBy}`]
-    : [];
-}
-
 function exceptionProblems(
   entry: RegistryEntry,
   prefix: string,
@@ -251,70 +255,22 @@ export function validatePolicyRegistry(
   registry: { version?: unknown; exceptions?: unknown },
   options: PolicyRegistryValidationOptions = {},
 ): readonly string[] {
-  const problems: string[] = [];
+  const problems: string[] = [...registryShapeProblems(registry, 'exceptions')];
   const today = options.today ?? utcToday();
-  if (registry.version !== 1) problems.push('registry: version must be 1');
-  if (!Array.isArray(registry.exceptions)) {
-    return [...problems, 'registry: exceptions must be an array'];
-  }
+  if (!Array.isArray(registry.exceptions)) return problems;
   const seen = new Set<string>();
   for (const [index, value] of registry.exceptions.entries()) {
-    const entry = value as RegistryEntry;
     const prefix = `registry[${index}]`;
+    const shape = entryObjectProblems(value, prefix);
+    if (shape.length > 0) {
+      problems.push(...shape);
+      continue;
+    }
+    const entry = value as RegistryEntry;
     problems.push(...exceptionProblems(entry, prefix, options, today));
     const key = `${entry.path}|${entry.rule}`;
     if (seen.has(key)) problems.push(`${prefix}: duplicate ${key}`);
     seen.add(key);
-  }
-  return problems;
-}
-
-export type MigrationBaseline = {
-  readonly baseMigrationsHash: string;
-  readonly adr: string;
-  readonly owner: string;
-  readonly reason: string;
-  readonly reviewBy: string;
-};
-
-export function validateMigrationBaselines(
-  registry: { version?: unknown; baselines?: unknown },
-  options: PolicyRegistryValidationOptions = {},
-): readonly string[] {
-  const problems: string[] = [];
-  const today = options.today ?? utcToday();
-  if (registry.version !== 1) problems.push('registry: version must be 1');
-  if (!Array.isArray(registry.baselines)) {
-    return [...problems, 'registry: baselines must be an array'];
-  }
-  for (const [index, value] of registry.baselines.entries()) {
-    const entry = value as Partial<MigrationBaseline>;
-    const prefix = `baselines[${index}]`;
-    for (const field of [
-      'baseMigrationsHash',
-      'adr',
-      'owner',
-      'reason',
-      'reviewBy',
-    ] as const)
-      if (typeof entry[field] !== 'string' || entry[field].trim() === '')
-        problems.push(`${prefix}: ${field} is required`);
-    if (
-      typeof entry.baseMigrationsHash === 'string' &&
-      !/^sha256:[0-9a-f]{64}$/.test(entry.baseMigrationsHash)
-    )
-      problems.push(
-        `${prefix}: baseMigrationsHash must be sha256:<64 lowercase hex>`,
-      );
-    problems.push(
-      ...referenceProblems(
-        { adr: entry.adr } as RegistryEntry,
-        prefix,
-        options.knownPaths,
-      ),
-    );
-    if (typeof entry.reviewBy === 'string')
-      problems.push(...reviewDateProblems(entry.reviewBy, prefix, today));
   }
   return problems;
 }
@@ -371,6 +327,13 @@ export async function collectPolicy(): Promise<PolicyReport> {
         baselines?: readonly MigrationBaseline[];
       })
     : { version: 1, baselines: [] };
+  const readersFile = Bun.file(join(root, 'policy/planned-readers.json'));
+  const readersRegistry = (await readersFile.exists())
+    ? ((await readersFile.json()) as {
+        version?: unknown;
+        readers?: readonly PlannedReader[];
+      })
+    : { version: 1, readers: [] };
   const repositoryFiles = await filesIn(root, scannedExtensions);
   const knownPaths = new Set(
     (await filesIn(root, undefined)).map((file) => relative(root, file)),
@@ -379,6 +342,10 @@ export async function collectPolicy(): Promise<PolicyReport> {
     ...validatePolicyRegistry(registry, { knownPaths }),
     ...(await auditPolicyProblems(knownPaths)),
     ...validateMigrationBaselines(baselinesRegistry, { knownPaths }),
+    ...validatePlannedReaders(readersRegistry, {
+      knownPaths,
+      exportNames: await collectExportNames(repositoryFiles, knownPaths),
+    }),
     ...duplicateAdrNumberProblems(knownPaths),
     ...numberCollisionProblems(),
     ...collectWorkflowHardeningProblems(root),

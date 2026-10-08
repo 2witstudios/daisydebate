@@ -16,6 +16,7 @@ export const idSchema = z.string().regex(/^[a-z0-9]{24}$/);
  */
 export const debateSides = ['affirmative', 'negative'] as const;
 export const debateSideSchema = z.enum(debateSides);
+export type DebateSide = (typeof debateSides)[number];
 
 /**
  * The one debate role vocabulary (ADR 0029): the two sides plus the judge.
@@ -26,14 +27,6 @@ export const debateSideSchema = z.enum(debateSides);
 export const debateRoles = [...debateSides, 'judge'] as const;
 export const debateRoleSchema = z.enum(debateRoles);
 export type DebateRole = (typeof debateRoles)[number];
-
-/**
- * The debate modes (ADR 0029, ADR 0055). `ranked` and `quick` are rated, each
- * on its own ladder; `casual` and `practice` never rate. The `debates.mode`
- * CHECK derives from this array.
- */
-export const debateModes = ['casual', 'ranked', 'quick', 'practice'] as const;
-export type DebateMode = (typeof debateModes)[number];
 
 /**
  * The rating ladders (ADR 0055): Ranked, judged by a person, and Quick

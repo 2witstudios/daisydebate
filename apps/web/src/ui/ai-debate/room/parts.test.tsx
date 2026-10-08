@@ -13,6 +13,7 @@ describe('Controls', () => {
     const html = renderToString(
       h(Controls, {
         state: { phase: 'waiting' },
+        view: null,
         personSide: 'affirmative',
         joined: false,
         busy: false,

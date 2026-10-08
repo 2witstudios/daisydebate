@@ -1,12 +1,8 @@
 import type { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
-import type { DebatePhase } from '@daisy/protocol';
-import {
-  createDatabase,
-  type DebateMode,
-  type DebateOutcome,
-  type DebateVisibility,
-} from './index';
+import type { RoundStatus } from '@daisy/protocol';
+import { createDatabase } from './index';
+import { foundationDefinition } from './reference-formats';
 import { createTestOnlyOperations } from './test-only-operations';
 import type { DatabaseEventSink } from './instrumented';
 
@@ -116,148 +112,63 @@ export const createTestDatabase = (
 };
 
 // Schema-definition column order; the driver returns rows positionally.
-export const debateRow = (record: {
+export const roundRow = (record: {
   id: string;
-  createdBy: string | null;
+  roomId: string | null;
+  createdByActorId: string | null;
   resolution: string;
-  format: string;
-  snapshot: unknown;
+  competitionType: 'ranked' | 'casual' | 'practice';
+  length: 'full' | 'quick';
+  formatId: string;
+  formatVersion: number;
+  presetVersion: number | null;
+  rules: unknown;
+  status: RoundStatus;
+  currentStage: string | null;
+  outcome: string | null;
+  ladderId: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  checkpoint: unknown;
   createdAt: string;
   updatedAt: string;
   version: number;
-  mode: DebateMode;
-  phase: DebatePhase;
-  visibility: DebateVisibility;
-  startedAt: string | null;
-  completedAt: string | null;
-  outcome: DebateOutcome | null;
 }): unknown[] => [
   record.id,
-  record.createdBy,
+  record.roomId,
+  record.createdByActorId,
   record.resolution,
-  record.format,
-  record.snapshot,
+  record.competitionType,
+  record.length,
+  record.formatId,
+  record.formatVersion,
+  record.presetVersion,
+  record.rules,
+  record.status,
+  record.currentStage,
+  record.outcome,
+  record.ladderId,
+  record.startedAt === null ? null : new Date(record.startedAt),
+  record.completedAt === null ? null : new Date(record.completedAt),
+  record.checkpoint,
   new Date(record.createdAt),
   new Date(record.updatedAt),
   record.version,
-  record.mode,
-  record.phase,
-  record.visibility,
-  record.startedAt === null ? null : new Date(record.startedAt),
-  record.completedAt === null ? null : new Date(record.completedAt),
-  record.outcome,
 ];
-
-export const userRow = (record: {
-  id: string;
-  username: string | null;
-  email: string | null;
-  emailVerified: boolean;
-  name: string;
-  image: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-  version: number;
-  deletedAt: Date | null;
-}): unknown[] => [
-  record.id,
-  record.username,
-  record.email,
-  record.emailVerified,
-  record.name,
-  record.image,
-  record.createdAt,
-  record.updatedAt,
-  record.version,
-  record.deletedAt,
-];
-
-/** A snapshot that satisfies the protocol schema every jsonb write parses. */
-export const sampleSnapshot = (
-  overrides: Partial<{ phase: DebatePhase; resolution: string }> = {},
-) => ({
-  version: 1 as const,
-  id: 'k2v9x0f4m8q3w1z7c5n6b4d2',
-  resolution: 'A representative resolution',
-  format: 'public-forum',
-  rules: {
-    version: 1 as const,
-    seats: { affirmative: 1, negative: 1, judge: 0 },
-    clock: { speechMs: 240_000, prepMs: 120_000 },
-  },
-  phase: 'waiting' as DebatePhase,
-  createdAt: '2026-01-01T00:00:00.000Z',
-  participants: [],
-  ...overrides,
-});
-
-export const sampleDebate = () => ({
-  id: 'k2v9x0f4m8q3w1z7c5n6b4d2',
-  createdBy: null,
-  resolution: 'A representative resolution',
-  format: 'public-forum',
-  snapshot: sampleSnapshot(),
-  createdAt: '2026-01-01T00:00:00.000Z',
-  updatedAt: '2026-01-01T00:00:00.000Z',
-  version: 1,
-  mode: 'casual' as const,
-  phase: 'waiting' as const,
-  visibility: 'unlisted' as const,
-  startedAt: null,
-  completedAt: null,
-  outcome: null,
-});
-
-/** The createDebate input that writes a sample record. */
-export const createInputOf = (record: ReturnType<typeof sampleDebate>) => ({
-  id: record.id,
-  resolution: record.resolution,
-  format: record.format,
-  snapshot: record.snapshot,
-  mode: record.mode,
-  visibility: record.visibility,
-});
-
-/** The saveSnapshot input moving a sample record to `phase`. */
-export const saveInputOf = (
-  record: ReturnType<typeof sampleDebate>,
-  phase: DebatePhase,
-  outcome?: DebateOutcome,
-) => ({
-  id: record.id,
-  expectedVersion: record.version,
-  snapshot: sampleSnapshot({ phase }),
-  updatedAt: record.updatedAt,
-  ...(outcome === undefined ? {} : { outcome }),
-});
-
-export const sampleUser = () => ({
-  id: 'a7b3c9d1e5f2k4m6n8p1r3t5',
-  username: 'demo',
-  email: null,
-  emailVerified: false,
-  name: '',
-  image: null,
-  createdAt: new Date('2026-01-01T00:00:00.000Z'),
-  updatedAt: new Date('2026-01-01T00:00:00.000Z'),
-  version: 1,
-  deletedAt: null,
-});
 
 // The columns `getFormat` selects, in selection order.
 export const formatRow = (record: {
   id: string;
-  rules: unknown;
-  rankedEligible: boolean;
-}): unknown[] => [record.id, record.rules, record.rankedEligible];
+  name: string;
+  version: number;
+  definition: unknown;
+}): unknown[] => [record.id, record.name, record.version, record.definition];
 
 export const sampleFormat = () => ({
   id: 'foundation',
   name: 'Foundation (architectural proof)',
-  rules: {
-    version: 1 as const,
-    seats: { affirmative: 1, negative: 1, judge: 0 },
-    clock: { speechMs: 240_000, prepMs: 120_000 },
-  },
-  rankedEligible: false,
+  version: 1,
+  definition: foundationDefinition,
 });
+
+export { validRules } from './testing';

@@ -2,7 +2,7 @@ import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import { rateDebate, ratingPolicy } from '@daisy/debate-engine';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { inArena, minute, rules } from './ratings-arena';
+import { inArena, minute } from './ratings-arena';
 import { withSql } from './fixtures';
 
 requireTestServices(process.env);
@@ -19,16 +19,16 @@ const newcomers = (outcome: 'affirmative' | 'negative' | 'draw') =>
 const stateOf = (row?: { rating: number; deviation: number }) =>
   row && { rating: row.rating, deviation: row.deviation };
 
-describe('rating a completed debate with the engine decision (RATE-1.3)', () => {
+describe('rating a completed round with the engine decision (RATE-1.3)', () => {
   test('writes exactly the engine calculation, once', async () => {
-    await inArena(async ({ actor, debate, rate, ratings }) => {
+    await inArena(async ({ actor, round, rate, ratings }) => {
       const [affirmative, negative] = [await actor(), await actor()];
-      const debateId = await debate({ affirmative, negative });
-      const result = await rate(debateId);
+      const roundId = await round({ affirmative, negative });
+      const result = await rate(roundId);
       const expected = newcomers('negative');
       assert({
         given:
-          'a completed ranked debate on canonical rules won by the negative',
+          'a completed ranked round won by the negative, constructed from its ladder',
         should:
           'store the engine calculation for both debaters on the ranked ladder at version 1',
         actual: [
@@ -57,27 +57,27 @@ describe('rating a completed debate with the engine decision (RATE-1.3)', () => 
         ],
       });
       assert({
-        given: 'the same debate rated again',
+        given: 'the same round rated again',
         should: 'report it already rated',
-        actual: (await rate(debateId)).kind,
+        actual: (await rate(roundId)).kind,
         expected: 'already-rated',
       });
     });
   });
 
-  test('rates quick matches, draws and forfeits on their own ladder', async () => {
-    await inArena(async ({ actor, debate, rate, ratings }) => {
+  test('rates quick-length rounds, draws and forfeits on their own ladder', async () => {
+    await inArena(async ({ actor, round, rate, ratings }) => {
       const [first, second] = [await actor(), await actor()];
-      const quick = await debate({
+      const quick = await round({
         affirmative: first,
         negative: second,
-        mode: 'quick',
+        length: 'quick',
         outcome: 'draw',
       });
       const quickResult = await rate(quick);
       const draw = newcomers('draw');
       assert({
-        given: 'a drawn quick match between newcomers',
+        given: 'a drawn quick-length ranked round between newcomers',
         should: 'rate it on the quick ladder only, as the engine rates a draw',
         actual: [
           quickResult.kind === 'rated' && quickResult.ladder,
@@ -94,7 +94,7 @@ describe('rating a completed debate with the engine decision (RATE-1.3)', () => 
         ],
       });
       const [third, fourth] = [await actor(), await actor()];
-      const forfeit = await debate({
+      const forfeit = await round({
         affirmative: third,
         negative: fourth,
         outcome: 'affirmative',
@@ -118,53 +118,44 @@ describe('rating a completed debate with the engine decision (RATE-1.3)', () => 
     });
   });
 
-  test('never rates practice, abandoned, overridden or unfinished debates', async () => {
-    await inArena(async ({ actor, debate, rate, ledger }) => {
+  test('never rates practice, abandoned or unfinished rounds', async () => {
+    await inArena(async ({ actor, round, rate, ledger }) => {
       const [first, second] = [await actor(), await actor()];
       const results = [
         await rate(
-          await debate({
+          await round({
             affirmative: first,
             negative: second,
-            mode: 'practice',
+            competitionType: 'casual',
           }),
         ),
         await rate(
-          await debate({
+          await round({
             affirmative: first,
             negative: second,
-            outcome: 'abandoned',
-          }),
-        ),
-        await rate(
-          await debate({
-            affirmative: first,
-            negative: second,
-            rules: { ...rules, clock: { speechMs: 60_000, prepMs: 0 } },
+            status: 'abandoned',
           }),
         ),
       ];
       assert({
-        given:
-          'a practice debate, an abandoned ranked debate and a ranked debate under overridden rules',
+        given: 'a casual round and an abandoned ranked round',
         should: 'leave each unrated for its reason and write nothing',
         actual: [results, (await ledger(first)).length],
         expected: [
           [
-            { kind: 'unrated', reason: 'mode' },
+            { kind: 'unrated', reason: 'competition' },
             { kind: 'unrated', reason: 'abandoned' },
-            { kind: 'unrated', reason: 'rules' },
           ],
           0,
         ],
       });
-      const active = await debate({
+      const active = await round({
         affirmative: first,
         negative: second,
-        phase: 'active',
+        status: 'active',
       });
       await assertRejects({
-        given: 'a ranked debate that has not completed',
+        given: 'a ranked round that has not completed',
         should: 'refuse as a conflict',
         actual: () => rate(active),
         code: 'CONFLICT',
@@ -172,37 +163,18 @@ describe('rating a completed debate with the engine decision (RATE-1.3)', () => 
     });
   });
 
-  test('never rates a format that is not ranked-eligible', async () => {
-    await inArena(
-      async ({ actor, debate, rate }) => {
-        const debateId = await debate({
-          affirmative: await actor(),
-          negative: await actor(),
-        });
-        assert({
-          given:
-            'a completed ranked debate on a format that is not ranked-eligible',
-          should: 'leave it unrated for its rules',
-          actual: await rate(debateId),
-          expected: { kind: 'unrated', reason: 'rules' },
-        });
-      },
-      { rankedEligible: false },
-    );
-  });
-
   test('refuses to rate without an active season', async () => {
     await inArena(
-      async ({ actor, debate, rate, ledger }) => {
+      async ({ actor, round, rate, ledger }) => {
         const first = await actor();
-        const debateId = await debate({
+        const roundId = await round({
           affirmative: first,
           negative: await actor(),
         });
         await assertRejects({
           given: 'no active season',
           should: 'refuse as a conflict',
-          actual: () => rate(debateId),
+          actual: () => rate(roundId),
           code: 'CONFLICT',
         });
         assert({
@@ -217,7 +189,7 @@ describe('rating a completed debate with the engine decision (RATE-1.3)', () => 
   });
 
   test('carries an earlier season into the active one', async () => {
-    await inArena(async ({ formatId, season, actor, debate, rate, ledger }) => {
+    await inArena(async ({ formatId, season, actor, round, rate, ledger }) => {
       const veteran = await actor();
       const earlier = await season('closed', '2026-06-01T00:00:00.000Z');
       await withSql(
@@ -227,7 +199,7 @@ describe('rating a completed debate with the engine decision (RATE-1.3)', () => 
           values (${veteran}, ${formatId}, ${earlier}, 'ranked', 1720, 60, 0.05)`,
       );
       await rate(
-        await debate({ affirmative: veteran, negative: await actor() }),
+        await round({ affirmative: veteran, negative: await actor() }),
       );
       const [row] = await ledger(veteran);
       assert({

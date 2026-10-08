@@ -13,35 +13,36 @@ setupRitewayBun();
 
 const { databaseUrl: url } = requireTestServices(process.env);
 
-describe('debates (DATA-2.1)', () => {
+describe('rounds (DATA-2.1)', () => {
   test('created_by points at actors and the vocabularies are closed', async () => {
     await withFixture(url, async (fixture) => {
       const userId = await fixture.user();
       const actorId = await fixture.actor(userId);
       const byUser = await rejected(() =>
-        fixture.debate({ created_by_actor_id: userId }),
+        fixture.round({ created_by_actor_id: userId }),
       );
       const byUnknownActor = await rejected(() =>
-        fixture.debate({ created_by_actor_id: createId() }),
+        fixture.round({ created_by_actor_id: createId() }),
       );
       const byActor = !(await rejected(() =>
-        fixture.debate({ created_by_actor_id: actorId }),
+        fixture.round({ created_by_actor_id: actorId }),
       ));
       const actorDeleteBlocked = await rejected(() =>
         fixture.sql.unsafe('delete from actors where id = $1', [actorId]),
       );
-      const badMode = await rejected(() =>
-        fixture.debate({ mode: 'friendly' }),
+      const badCompetitionType = await rejected(() =>
+        fixture.round({ competition_type: 'friendly' }),
       );
-      const quickMode = !(await rejected(() =>
-        fixture.debate({ mode: 'quick' }),
+      const quickLength = !(await rejected(() =>
+        fixture.round({ length: 'quick' }),
       ));
-      const badVisibility = await rejected(() =>
-        fixture.debate({ visibility: 'secret' }),
+      const badLength = await rejected(() =>
+        fixture.round({ length: 'extended' }),
       );
       const badOutcome = await rejected(() =>
-        fixture.debate({
-          phase: 'completed',
+        fixture.round({
+          status: 'completed',
+          current_stage: null,
           started_at: at,
           completed_at: at,
           outcome: 'tie',
@@ -49,17 +50,17 @@ describe('debates (DATA-2.1)', () => {
       );
       assert({
         given:
-          'debates authored by a user id, an unknown actor and a real actor',
+          'rounds authored by a user id, an unknown actor and a real actor',
         should:
-          'accept only the actor, keep it undeletable, accept quick mode and reject values outside each vocabulary',
+          'accept only the actor, keep it undeletable, accept the quick length and reject values outside each vocabulary',
         actual: {
           byUser,
           byUnknownActor,
           byActor,
           actorDeleteBlocked,
-          badMode,
-          quickMode,
-          badVisibility,
+          badCompetitionType,
+          quickLength,
+          badLength,
           badOutcome,
         },
         expected: {
@@ -67,82 +68,116 @@ describe('debates (DATA-2.1)', () => {
           byUnknownActor: true,
           byActor: true,
           actorDeleteBlocked: true,
-          badMode: true,
-          quickMode: true,
-          badVisibility: true,
+          badCompetitionType: true,
+          quickLength: true,
+          badLength: true,
           badOutcome: true,
         },
       });
     });
   });
 
-  test('the lifecycle CHECK keeps phase and its projections coherent', async () => {
+  test('the lifecycle CHECK keeps status and its projections coherent', async () => {
     await withFixture(url, async (fixture) => {
       const attempt = (row: Record<string, unknown>) =>
-        rejected(() => fixture.debate(row));
+        rejected(() => fixture.round(row));
       const outcomes = {
-        activeWithoutStart: await attempt({ phase: 'active' }),
-        activeWithStart: !(await attempt({ phase: 'active', started_at: at })),
+        activeWithoutStage: await attempt({
+          status: 'active',
+          started_at: at,
+        }),
+        activeWithoutStart: await attempt({
+          status: 'active',
+          current_stage: 'countdown',
+        }),
         activeWithOutcome: await attempt({
-          phase: 'active',
+          status: 'active',
+          current_stage: 'countdown',
           started_at: at,
           outcome: 'draw',
         }),
+        activeWithCompletion: await attempt({
+          status: 'active',
+          current_stage: 'countdown',
+          started_at: at,
+          completed_at: at,
+        }),
+        activeFull: !(await attempt({
+          status: 'active',
+          current_stage: 'countdown',
+          started_at: at,
+        })),
         completedWithoutOutcome: await attempt({
-          phase: 'completed',
+          status: 'completed',
           started_at: at,
           completed_at: at,
         }),
         completedWithoutCompletedAt: await attempt({
-          phase: 'completed',
+          status: 'completed',
           started_at: at,
           outcome: 'negative',
         }),
         completedFull: !(await attempt({
-          phase: 'completed',
+          status: 'completed',
           started_at: at,
           completed_at: at,
           outcome: 'affirmative',
         })),
         completedNeverStarted: await attempt({
-          phase: 'completed',
+          status: 'completed',
           completed_at: at,
           outcome: 'affirmative',
         }),
+        // Abandonment is lifecycle, not outcome: it deliberately leaves
+        // started_at nullable so a round abandoned before starting is
+        // representable (ADR 0058 §8).
         abandonedNeverStarted: !(await attempt({
-          phase: 'completed',
+          status: 'abandoned',
           completed_at: at,
-          outcome: 'abandoned',
         })),
-        waitingWithStart: await attempt({ phase: 'waiting', started_at: at }),
-        waitingWithCompletion: await attempt({
-          phase: 'waiting',
+        abandonedNeverCompleted: await attempt({ status: 'abandoned' }),
+        abandonedWithOutcome: await attempt({
+          status: 'abandoned',
           completed_at: at,
+          outcome: 'affirmative',
         }),
-        waitingWithOutcome: await attempt({
-          phase: 'waiting',
-          outcome: 'draw',
+        scheduledWithStart: await attempt({
+          status: 'scheduled',
+          started_at: at,
         }),
-        unknownPhase: await attempt({ phase: 'paused' }),
+        scheduledWithStage: await attempt({
+          status: 'scheduled',
+          current_stage: 'live',
+        }),
+        unknownStatus: await attempt({ status: 'paused' }),
+        unknownStage: await attempt({
+          status: 'active',
+          current_stage: 'speaking',
+          started_at: at,
+        }),
       };
       assert({
-        given: 'every phase combined with started_at, completed_at and outcome',
+        given: 'every status combined with its stage, timestamps and outcome',
         should:
           'accept only coherent rows, including abandoned-before-start, and reject the rest',
         actual: outcomes,
         expected: {
+          activeWithoutStage: true,
           activeWithoutStart: true,
-          activeWithStart: true,
           activeWithOutcome: true,
+          activeWithCompletion: true,
+          activeFull: true,
           completedWithoutOutcome: true,
           completedWithoutCompletedAt: true,
           completedFull: true,
           completedNeverStarted: true,
           abandonedNeverStarted: true,
-          waitingWithStart: true,
-          waitingWithCompletion: true,
-          waitingWithOutcome: true,
-          unknownPhase: true,
+          abandonedNeverCompleted: true,
+          abandonedWithOutcome: true,
+          scheduledWithStart: true,
+          scheduledWithStage: true,
+          unknownStatus: true,
+          unknownStage: true,
         },
       });
     });
@@ -151,81 +186,81 @@ describe('debates (DATA-2.1)', () => {
   test('carries the queryable indexes', async () => {
     await withFixture(url, async (fixture) => {
       assert({
-        given: 'the debates table',
-        should: 'index (phase, mode, created_at) and (format_id, completed_at)',
+        given: 'the rounds table',
+        should:
+          'index (status, competition_type, created_at) and (format_id, completed_at)',
         actual: [
-          await indexDefinition(fixture, 'debates_phase_mode_created_idx'),
-          await indexDefinition(fixture, 'debates_format_completed_idx'),
+          await indexDefinition(
+            fixture,
+            'rounds_status_competition_created_idx',
+          ),
+          await indexDefinition(fixture, 'rounds_format_completed_idx'),
         ].map((definition) => definition?.replace(/.* USING btree /, '')),
-        expected: ['(phase, mode, created_at)', '(format_id, completed_at)'],
+        expected: [
+          '(status, competition_type, created_at)',
+          '(format_id, completed_at)',
+        ],
       });
     });
   });
 });
 
-describe('debate participants (DATA-2.2)', () => {
-  test('one actor per debate, one actor per seat, roles from the vocabulary', async () => {
+describe('round participants (DATA-2.2)', () => {
+  test('one actor per round, one actor per seat, roles from the vocabulary', async () => {
     await withFixture(url, async (fixture) => {
-      const debateId = await fixture.debate();
+      const roundId = await fixture.round();
       const actorId = await fixture.actor();
-      await fixture.participant(debateId, 'affirmative', 0, actorId);
+      await fixture.participant(roundId, 'affirmative', 0, actorId);
       const seatTaken = await rejected(() =>
-        fixture.participant(debateId, 'affirmative', 0),
+        fixture.participant(roundId, 'affirmative', 0),
       );
       const actorTwice = await rejected(() =>
-        fixture.participant(debateId, 'negative', 0, actorId),
+        fixture.participant(roundId, 'negative', 0, actorId),
       );
       const secondSlot = !(await rejected(() =>
-        fixture.participant(debateId, 'affirmative', 1),
-      ));
-      const judge = !(await rejected(() =>
-        fixture.participant(debateId, 'judge', 0),
+        fixture.participant(roundId, 'affirmative', 1),
       ));
       const spectator = await rejected(() =>
-        fixture.participant(debateId, 'spectator', 0),
+        fixture.participant(roundId, 'spectator', 0),
       );
       const negativeSlot = await rejected(() =>
-        fixture.participant(debateId, 'negative', -1),
+        fixture.participant(roundId, 'negative', -1),
       );
-      const badStatus = await fixture.rejects('debate_participants', {
-        debate_id: debateId,
-        actor_id: await fixture.actor(),
-        role: 'negative',
-        slot: 0,
-        status: 'kicked',
-        joined_at: at,
-      });
-      const unknownActor = await fixture.rejects('debate_participants', {
-        debate_id: debateId,
+      const unknownActor = await fixture.rejects('round_participants', {
+        id: createId(),
+        round_id: roundId,
         actor_id: createId(),
         role: 'negative',
         slot: 0,
-        status: 'joined',
-        joined_at: at,
+      });
+      const unknownRound = await fixture.rejects('round_participants', {
+        id: createId(),
+        round_id: createId(),
+        actor_id: await fixture.actor(),
+        role: 'negative',
+        slot: 0,
       });
       assert({
-        given: 'a debate with one affirmative participant',
+        given: 'a round with one affirmative seat',
         should:
-          'reject the same seat, the same actor, a role or status outside the vocabulary, a negative slot and an unknown actor; accept a second slot and a judge',
+          'reject the same seat, the same actor, a role outside the vocabulary, a negative slot and an unknown actor or round; accept a second slot',
         actual: {
           seatTaken,
           actorTwice,
           secondSlot,
-          judge,
           spectator,
           negativeSlot,
-          badStatus,
           unknownActor,
+          unknownRound,
         },
         expected: {
           seatTaken: true,
           actorTwice: true,
           secondSlot: true,
-          judge: true,
           spectator: true,
           negativeSlot: true,
-          badStatus: true,
           unknownActor: true,
+          unknownRound: true,
         },
       });
     });
@@ -234,19 +269,15 @@ describe('debate participants (DATA-2.2)', () => {
   test('stores no derived result and indexes an actor history', async () => {
     await withFixture(url, async (fixture) => {
       assert({
-        given: 'the participants table',
-        should:
-          'have no result column and a descending joined_at history index',
+        given: 'the round_participants table',
+        should: 'have no result column and an actor history index',
         actual: {
-          hasResult: (await columnNames(fixture, 'debate_participants')).some(
+          hasResult: (await columnNames(fixture, 'round_participants')).some(
             (column) => column.includes('result'),
           ),
           history: (
-            await indexDefinition(
-              fixture,
-              'debate_participants_actor_joined_idx',
-            )
-          )?.includes('(actor_id, joined_at DESC'),
+            await indexDefinition(fixture, 'round_participants_actor_idx')
+          )?.includes('(actor_id)'),
         },
         expected: { hasResult: false, history: true },
       });

@@ -38,7 +38,10 @@ and detailed procedures in the linked documents, not here.
   isolation.
 - Put new work in its owning feature or package. Do not add broad `utils`,
   service, registry, or barrel files. Shared abstractions require two real
-  consumers.
+  consumers. A foundation whose reader is a committed leaf is the exception:
+  declare it in `policy/planned-readers.json` with the task that reads it and a
+  `reviewBy` date (ADR 0057), so a box may ship before its reader and still
+  go red if nobody adopts it.
 - A new package requires a responsibility, owner, explicit public exports,
   allowed dependencies, tests, and a package-map row. Add package-specific
   `AGENTS.md` only when its rules differ from this contract.
@@ -230,6 +233,13 @@ owner merge" to its parent and waits.
   and `bun board:stale`. Hand off with the `/handoff` skill.
 
 ## Work management
+
+Codex must run the `pagespace` CLI outside its sandbox, requesting command
+escalation when required. The sandbox can block network access or access to
+the CLI's stored credentials; a failure inside it is not evidence that no
+credential exists. Retry sandbox-blocked PageSpace commands with escalation
+before diagnosing missing credentials or asking the owner to log in. Never
+print credentials or copy them into the worktree to bypass the sandbox.
 
 All repository work is planned in the PageSpace "Daisy Debate" drive
 (`lguvh1y1ejhadk96xcftohha`, via the `pagespace` CLI); its `Roadmap` page is the

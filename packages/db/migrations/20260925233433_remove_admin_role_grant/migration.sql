@@ -1,1 +1,0 @@
-ALTER TABLE "role_grants" DROP CONSTRAINT "role_grants_role_check", ADD CONSTRAINT "role_grants_role_check" CHECK ("role" in ('moderator', 'judge'));

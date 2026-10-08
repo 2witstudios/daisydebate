@@ -45,10 +45,10 @@ export function createDocumentsApi({
       signal: signal(),
     });
   return {
-    list: async (aiDebateId) =>
+    list: async (roundId) =>
       (
         await read<{ documents: readonly StoredDocument[] }>(
-          await post('list', { aiDebateId }),
+          await post('list', { roundId }),
         )
       ).documents,
     create: async (input) =>

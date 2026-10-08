@@ -55,24 +55,35 @@ describe('jsonb columns (ISSUE-24)', () => {
       should: 'be the six known columns',
       actual: jsonb.map(({ name }) => name).sort(),
       expected: [
-        'ai_debate_ballots.ballot',
+        'agent_runs.configuration_snapshot',
+        'ballots.citations',
+        'ballots.feedback',
         'ballots.scores',
-        'debate_commands.result',
-        'debates.snapshot',
-        'formats.rules',
+        'format_presets.config',
+        'format_revisions.definition',
         'outbox.payload',
+        'rooms.config',
+        'rooms.execution_plan',
+        'rooms.rules_snapshot',
+        'round_commands.result',
+        'rounds.rules_snapshot',
+        'rounds.runtime_state',
       ],
     });
     assert({
       given: 'a bare string, a number, an array and null bound to each',
-      should: 'fail with an AppError VALIDATION before reaching the driver',
+      should:
+        'fail with an AppError VALIDATION before reaching the driver — null too, unless the column is the nullable form that passes it through',
       actual: jsonb.map(({ name, column }) => ({
         name,
         refusals: ['x', 1, [], null].map((value) => refusal(column, value)),
       })),
       expected: jsonb.map(({ name }) => ({
         name,
-        refusals: ['VALIDATION', 'VALIDATION', 'VALIDATION', 'VALIDATION'],
+        refusals:
+          name === 'ballots.feedback' || name === 'ballots.citations'
+            ? ['VALIDATION', 'VALIDATION', 'VALIDATION', 'accepted']
+            : ['VALIDATION', 'VALIDATION', 'VALIDATION', 'VALIDATION'],
       })),
     });
   });

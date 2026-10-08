@@ -6,7 +6,8 @@ import type {
 } from '@daisy/protocol';
 import { createDatabase, type Database } from '../src';
 import type { RatingDecision } from '../src/rating-facts';
-import { snapshotFor, withFixture, type Fixture } from './constraint-helpers';
+import { withFixture, type Fixture } from './constraint-helpers';
+import { validRules } from './round-fixtures';
 
 /** Fixtures for the rating adapter suite (RATE-1.3). */
 
@@ -24,18 +25,27 @@ const deltaFor = (outcome: string, side: string) =>
 
 /**
  * A stand-in for the engine's decision (`@daisy/debate-engine`'s
- * `ratingDecision`), which this adapter must not import: it rates ranked and
- * quick debates and moves the winner up ten points from the loaded standing,
- * so a test can see exactly which facts the adapter loaded and what it wrote.
+ * `ratingDecision`), which this adapter must not import: it rates whatever the
+ * round's own construction made ranked, and moves the winner up ten points from
+ * the loaded standing, so a test can see exactly which facts the adapter loaded
+ * and what it wrote. Ratedness has one authority — `competition_type` — with
+ * the ladder it implies read back from the row (ADR 0058 §8).
  */
 export const stub = (seen: RatingPlanFacts[] = []): RatingDecision => ({
-  eligibility: ({ mode, alreadyRated, outcome, completedAt }) => {
-    if (mode !== 'ranked' && mode !== 'quick')
-      return { kind: 'unrated', reason: 'mode' };
+  eligibility: ({
+    competitionType,
+    ladderId,
+    status,
+    outcome,
+    completedAt,
+    alreadyRated,
+  }) => {
+    if (competitionType !== 'ranked' || ladderId === null)
+      return { kind: 'unrated', reason: 'competition' };
     if (alreadyRated) return { kind: 'already-rated' };
-    return outcome === null || outcome === 'abandoned' || !completedAt
+    return status !== 'completed' || outcome === null || completedAt === null
       ? { kind: 'unrated', reason: 'abandoned' }
-      : { kind: 'rated', ladder: mode, outcome, occurredAt: completedAt };
+      : { kind: 'rated', ladder: ladderId, outcome, occurredAt: completedAt };
   },
   plan: (facts) => {
     seen.push(facts);
@@ -74,32 +84,45 @@ export const stub = (seen: RatingPlanFacts[] = []): RatingDecision => ({
 export const completedAt = (minute: number) =>
   new Date(Date.UTC(2026, 9, 5, 12, minute));
 
-/** A completed debate between two actors on one format. */
-const completedDebate = async (
+/**
+ * A completed round between two actors on one format. A ranked round is
+ * constructed from a sanctioned preset, so it needs one: the equivalence CHECK
+ * and the provenance FK both refuse a ranked row without it (ADR 0058 §4, §8).
+ */
+const completedRound = async (
   fixture: Fixture,
   input: {
     formatId: string;
     affirmative: string;
     negative: string;
-    mode?: string;
+    length?: 'full' | 'quick';
+    competitionType?: 'ranked' | 'casual' | 'practice';
     outcome?: string;
     minute?: number;
   },
 ) => {
   const id = createId();
-  fixture.track('debates', id);
-  await fixture.insert('debates', {
+  const competitionType = input.competitionType ?? 'ranked';
+  const length = input.length ?? 'full';
+  const ranked = competitionType === 'ranked';
+  if (ranked) await fixture.preset(input.formatId, length);
+  await fixture.insert('rounds', {
     id,
+    room_id: null,
     created_by_actor_id: null,
-    resolution: 'r',
+    resolution: 'A resolution',
+    competition_type: competitionType,
+    length,
     format_id: input.formatId,
-    snapshot: snapshotFor(id, { phase: 'completed' }),
-    mode: input.mode ?? 'ranked',
-    phase: 'completed',
-    visibility: 'public',
+    format_version: 1,
+    preset_version: ranked ? 1 : null,
+    rules_snapshot: validRules,
+    status: 'completed',
+    current_stage: null,
+    outcome: input.outcome ?? 'affirmative',
+    ladder_id: ranked ? (length === 'full' ? 'ranked' : 'quick') : null,
     started_at: completedAt(0),
     completed_at: completedAt(input.minute ?? 30),
-    outcome: input.outcome ?? 'affirmative',
   });
   await fixture.participant(id, 'affirmative', 0, input.affirmative);
   await fixture.participant(id, 'negative', 0, input.negative);
@@ -117,11 +140,11 @@ const activeSeason = async (fixture: Fixture, startsAt = completedAt(0)) => {
   return id;
 };
 
-/** Tracks the ledger rows and projections a test writes, for the purge. */
-const trackRatings = (fixture: Fixture, debateIds: readonly string[]) =>
+/** Removes the ledger rows and projections a test writes, for the purge. */
+const trackRatings = (fixture: Fixture, roundIds: readonly string[]) =>
   fixture.sql.unsafe(
-    `delete from rating_changes where debate_id in (${debateIds.map((_, index) => `$${index + 1}`).join(', ')})`,
-    [...debateIds],
+    `delete from rating_changes where round_id in (${roundIds.map((_, index) => `$${index + 1}`).join(', ')})`,
+    [...roundIds],
   );
 
 export const ratingsOf = async (fixture: Fixture, actorId: string) =>
@@ -135,12 +158,12 @@ export const ratingsOf = async (fixture: Fixture, actorId: string) =>
     version: number;
   }>;
 
-export const ledgerOf = async (fixture: Fixture, debateId: string) =>
+export const ledgerOf = async (fixture: Fixture, roundId: string) =>
   (await fixture.sql.unsafe(
     `select actor_id, ladder, rating_before, rating_after, calculation_version,
             occurred_at, season_id
-       from rating_changes where debate_id = $1 order by rating_after desc`,
-    [debateId],
+       from rating_changes where round_id = $1 order by rating_after desc`,
+    [roundId],
   )) as Array<{
     actor_id: string;
     ladder: string;
@@ -154,26 +177,26 @@ export const ledgerOf = async (fixture: Fixture, debateId: string) =>
 type RatingContext = {
   readonly fixture: Fixture;
   readonly database: Database;
-  /** Rates a debate through the adapter with the stub decision. */
+  /** Rates a round through the adapter with the stub decision. */
   readonly rate: (
-    debateId: string,
+    roundId: string,
     decide?: RatingDecision,
-  ) => ReturnType<Database['rateDebate']>;
+  ) => ReturnType<Database['rateRound']>;
   /**
-   * A completed debate between two new debaters on a new format, in an
+   * A completed round between two new debaters on a new format, in an
    * active season opened by the first call.
    */
   readonly seated: (
-    overrides?: Partial<Parameters<typeof completedDebate>[1]>,
+    overrides?: Partial<Parameters<typeof completedRound>[1]>,
   ) => Promise<{
     readonly formatId: string;
     readonly seasonId: string;
-    readonly debateId: string;
+    readonly roundId: string;
     readonly affirmative: string;
     readonly negative: string;
   }>;
-  /** Registers debates and debaters whose rating rows must be removed. */
-  readonly track: (debateIds: string[], actorIds: string[]) => void;
+  /** Registers rounds and debaters whose rating rows must be removed. */
+  readonly track: (roundIds: string[], actorIds: string[]) => void;
 };
 
 /**
@@ -187,10 +210,10 @@ export const withRatings = (
 ) =>
   withFixture(url, async (fixture) => {
     const database = createDatabase({ url, nextActorId: createId });
-    const debates: string[] = [];
+    const rounds: string[] = [];
     const actors: string[] = [];
-    const track = (debateIds: string[], actorIds: string[]) => {
-      debates.push(...debateIds);
+    const track = (roundIds: string[], actorIds: string[]) => {
+      rounds.push(...roundIds);
       actors.push(...actorIds);
     };
     let season: string | undefined;
@@ -199,26 +222,26 @@ export const withRatings = (
       const formatId = overrides.formatId ?? (await fixture.format());
       const affirmative = overrides.affirmative ?? (await fixture.actor());
       const negative = overrides.negative ?? (await fixture.actor());
-      const debateId = await completedDebate(fixture, {
+      const roundId = await completedRound(fixture, {
         ...overrides,
         formatId,
         affirmative,
         negative,
       });
-      track([debateId], [affirmative, negative]);
-      return { formatId, seasonId: season, debateId, affirmative, negative };
+      track([roundId], [affirmative, negative]);
+      return { formatId, seasonId: season, roundId, affirmative, negative };
     };
     try {
       await body({
         fixture,
         database,
-        rate: (debateId, decide = stub()) =>
-          database.rateDebate({ debateId, changeIds: ids(), decide }),
+        rate: (roundId, decide = stub()) =>
+          database.rateRound({ roundId, changeIds: ids(), decide }),
         seated,
         track,
       });
     } finally {
-      if (debates.length > 0) await trackRatings(fixture, debates);
+      if (rounds.length > 0) await trackRatings(fixture, rounds);
       for (const actorId of actors)
         await fixture.sql.unsafe('delete from ratings where actor_id = $1', [
           actorId,

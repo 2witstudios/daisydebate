@@ -32,6 +32,10 @@ describe('standings reads (RATE-1.4.1)', () => {
         const zulu = await formatNamed(fixture, 'Zulu fixture');
         const alpha = await formatNamed(fixture, 'Alpha fixture');
         const unranked = await fixture.format();
+        // Ranked-eligibility is not a flag: a format is ranked-eligible
+        // because a sanctioned preset exists for it (ADR 0058 §4).
+        await fixture.preset(zulu);
+        await fixture.preset(alpha);
         const formats = new Set([zulu, alpha, unranked]);
         const listedFormats = (await database.listRankedFormats())
           .map(({ id }) => id)
@@ -74,7 +78,7 @@ describe('standings reads (RATE-1.4.1)', () => {
           scope: { formatId: string; seasonId: string; ladder: string },
           winnerAfter: number,
         ) => {
-          const debateId = await completed(fixture, {
+          const roundId = await completed(fixture, {
             formatId: scope.formatId,
             affirmative: winner,
             negative: loser,
@@ -86,7 +90,7 @@ describe('standings reads (RATE-1.4.1)', () => {
           ] as const) {
             await rating(fixture, { actorId, ...scope, rating: after });
             await change(fixture, {
-              debateId,
+              roundId,
               actorId,
               ...scope,
               before: 1500,
@@ -94,7 +98,7 @@ describe('standings reads (RATE-1.4.1)', () => {
               occurredAt: at(5),
             });
           }
-          return debateId;
+          return roundId;
         };
         const inFirst = await rated(
           { formatId, seasonId: first, ladder: 'ranked' },
@@ -175,9 +179,9 @@ describe('standings reads (RATE-1.4.1)', () => {
             read.changes,
             (row) => row.ratingAfter,
           ).map(
-            ({ seasonId, debateId, actorId, role, outcome, ratingAfter }) => ({
+            ({ seasonId, roundId, actorId, role, outcome, ratingAfter }) => ({
               seasonId,
-              debateId,
+              roundId,
               actorId,
               role,
               outcome,
@@ -188,7 +192,7 @@ describe('standings reads (RATE-1.4.1)', () => {
             [
               {
                 seasonId: first,
-                debateId: inFirst,
+                roundId: inFirst,
                 actorId: winner,
                 role: 'affirmative',
                 outcome: 'affirmative',
@@ -196,7 +200,7 @@ describe('standings reads (RATE-1.4.1)', () => {
               },
               {
                 seasonId: first,
-                debateId: inFirst,
+                roundId: inFirst,
                 actorId: loser,
                 role: 'negative',
                 outcome: 'affirmative',
@@ -204,7 +208,7 @@ describe('standings reads (RATE-1.4.1)', () => {
               },
               {
                 seasonId: second,
-                debateId: inSecond,
+                roundId: inSecond,
                 actorId: winner,
                 role: 'affirmative',
                 outcome: 'affirmative',
@@ -212,7 +216,7 @@ describe('standings reads (RATE-1.4.1)', () => {
               },
               {
                 seasonId: second,
-                debateId: inSecond,
+                roundId: inSecond,
                 actorId: loser,
                 role: 'negative',
                 outcome: 'affirmative',

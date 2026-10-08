@@ -1,11 +1,11 @@
-import type { DebatePhase, FormatRules } from './index';
-import type { DebateMode, DebateRole, RatingLadder } from './primitives';
+import type { CompetitionType, RoundStatus } from './round';
+import type { DebateRole, RatingLadder } from './primitives';
 
 /**
- * The rating decision contract (ADR 0055) between `@daisy/db`, which loads
- * facts and writes results, and `@daisy/debate-engine`, which decides. It
- * lives here because the adapter sits below the domain and never imports
- * it, yet both must agree on one shape.
+ * The rating decision contract (ADR 0055, ADR 0058) between `@daisy/db`,
+ * which loads facts and writes results, and `@daisy/debate-engine`, which
+ * decides. It lives here because the adapter sits below the domain and
+ * never imports it, yet both must agree on one shape.
  */
 
 /** A Glicko-2 state on the 1500 scale. */
@@ -17,25 +17,21 @@ export type RatingState = {
 
 export type RatedOutcome = 'affirmative' | 'negative' | 'draw';
 
-/** What eligibility is decided from, as the adapter loads it. */
+/** What eligibility is decided from, as the adapter loads it. Frozen columns only. */
 export type RatingEligibilityFacts = {
-  readonly mode: DebateMode;
-  readonly phase: DebatePhase;
-  readonly outcome: RatedOutcome | 'abandoned' | null;
+  readonly competitionType: CompetitionType;
+  /** The round's stored ladder, derived by CHECK; null when unrated. */
+  readonly ladderId: RatingLadder | null;
+  readonly status: RoundStatus;
+  readonly outcome: RatedOutcome | null;
   readonly completedAt: string | null;
-  /** The rules the debate ran under, from its snapshot. */
-  readonly rules: FormatRules;
-  readonly format: {
-    readonly rules: FormatRules;
-    readonly rankedEligible: boolean;
-  };
-  /** Whether the ledger already holds a change for this debate. */
+  /** Whether the ledger already holds a change for this round. */
   readonly alreadyRated: boolean;
 };
 
 export type RatingUnrated = {
   readonly kind: 'unrated';
-  readonly reason: 'mode' | 'abandoned' | 'rules';
+  readonly reason: 'competition' | 'abandoned';
 };
 
 export type RatingEligibility =
