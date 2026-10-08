@@ -238,6 +238,9 @@ In Progress to In Review at handoff, and mark Done only when acceptance
 criteria are proven. Status belongs in the status field; task bodies are
 acceptance criteria (`Given X, should Y`).
 
+Codex must run the `pagespace` CLI outside its sandbox, requesting command
+escalation when required. The sandbox can block network access.
+
 PageSpace is the workspace, not only the board. Plans, prompts, handoffs and
 review records are task artifacts: they live in the drive's `Plans`,
 `Prompts` and `Reviews` folders (one subfolder per epic), reusable prompts
