@@ -4,6 +4,38 @@ import { afterPasskeyHref } from './continue';
 setupRitewayBun();
 
 describe('afterPasskeyHref', () => {
+  test('onboarding path boundaries', () => {
+    const destinations = [
+      '/onboarding/welcome',
+      '/onboarding/welcome?next=%2Franked',
+      '/onboarding/welcome#intro',
+      '/onboarding/welcome/',
+      '/onboarding/welcome/?next=%2Franked',
+      '/onboarding/welcome/#intro',
+    ];
+    assert({
+      given:
+        'onboarding steps with optional trailing slashes, queries or fragments',
+      should: 'go directly to each destination',
+      actual: destinations.map((destination) =>
+        afterPasskeyHref(destination, null),
+      ),
+      expected: destinations,
+    });
+    const nestedPaths = ['/onboarding/welcome/extra', '/onboarding/welcome//'];
+    assert({
+      given: 'paths with extra segments or a second trailing slash',
+      should: 'still lead into onboarding',
+      actual: nestedPaths.map((destination) =>
+        afterPasskeyHref(destination, null),
+      ),
+      expected: [
+        '/onboarding/welcome?next=%2Fonboarding%2Fwelcome%2Fextra',
+        '/onboarding/welcome?next=%2Fonboarding%2Fwelcome%2F%2F',
+      ],
+    });
+  });
+
   test('where the passkey offer leads', () => {
     assert({
       given: 'a member who has not finished onboarding',

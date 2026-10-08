@@ -2,7 +2,7 @@ import { welcomeHref } from '../access/decision';
 
 /** Whether a local path is already one of the onboarding steps. */
 const isOnboardingPath = (destination: string): boolean =>
-  /^\/onboarding\/[a-z]+(?:[?#]|$)/.test(destination);
+  /^\/onboarding\/[a-z]+\/?(?:[?#]|$)/.test(destination);
 
 /**
  * Where a member goes once the passkey offer is behind them: the
