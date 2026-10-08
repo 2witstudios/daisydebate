@@ -88,6 +88,7 @@ export const viewOf = async (
     serverNow: now,
     version: round.version,
     status: round.status,
+    outcome: round.outcome,
     startedAt: round.startedAt === null ? null : Date.parse(round.startedAt),
     rules: round.rules,
     segments: round.segments,

@@ -11,6 +11,7 @@ export const NOW = '2026-10-05T18:00:00.000Z';
 /** The round the tests sit in: the tester participates, on the negative. */
 const round = {
   id: 'debate-1',
+  competitionType: 'practice' as const,
   formatId: 'one-on-one',
   formatVersion: 1,
   resolution: 'A representative resolution',
@@ -89,16 +90,8 @@ const memoryStore = (seed: DocumentRecord[] = []) => {
       documents.set(record.id, record);
       return record;
     },
-    listDocuments: async ({ ownerActorId, roundId }) => {
-      const referenced = new Set(
-        [...refs]
-          .filter(([refRound]) => refRound === roundId)
-          .map(([, documentId]) => documentId),
-      );
-      return [...documents.values()].filter(
-        (d) => d.ownerActorId === ownerActorId || referenced.has(d.id),
-      );
-    },
+    listDocuments: async ({ ownerActorId }) =>
+      [...documents.values()].filter((d) => d.ownerActorId === ownerActorId),
     saveDocument: async ({ id, ownerActorId, html, expectedRevision }) => {
       const found = owned(id, ownerActorId);
       if (!found) return { status: 'missing' };

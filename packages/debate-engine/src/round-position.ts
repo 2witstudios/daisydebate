@@ -296,8 +296,9 @@ export const advancedClockRowsOf = (
 ): {
   readonly rows: readonly StoreRow[];
   readonly checkpoint: RuntimeCheckpoint;
+  readonly lifecycle: Lifecycle;
 } => {
-  if (lifecycle.status !== 'active') return { rows, checkpoint };
+  if (lifecycle.status !== 'active') return { rows, checkpoint, lifecycle };
   let virtual = [...rows];
   let activePrep = checkpoint.active_prep;
   const prepConsumed = { ...checkpoint.prep_consumed_ms };
@@ -343,6 +344,7 @@ export const advancedClockRowsOf = (
   }
   return {
     rows: virtual,
+    lifecycle: { ...lifecycle, gapAnchorMs },
     checkpoint: {
       ...checkpoint,
       prep_consumed_ms: prepConsumed,

@@ -34,8 +34,10 @@ const sequentialIds: IdGenerator = (() => {
 /** A voice layer that answers exactly, recording which calls were made. */
 const fakeVoice = (transcribe?: () => Promise<{ text: string }>) => {
   const calls: string[] = [];
+  const prompts: string[] = [];
   const voice: OpenRouter = {
-    async complete() {
+    async complete(input: Parameters<OpenRouter['complete']>[0]) {
+      prompts.push(JSON.stringify(input.messages));
       calls.push('complete');
       return {
         text: JSON.stringify({
@@ -72,7 +74,7 @@ const fakeVoice = (transcribe?: () => Promise<{ text: string }>) => {
       return transcribe ? transcribe() : { text: 'I affirm.' };
     },
   } as unknown as OpenRouter;
-  return { voice: () => voice, calls };
+  return { voice: () => voice, calls, prompts };
 };
 
 /**
@@ -95,7 +97,7 @@ export function setup(
 ) {
   const memory = createInMemoryRoundStore();
   const clock = testClock();
-  const { voice, calls } = fakeVoice(transcribe);
+  const { voice, calls, prompts } = fakeVoice(transcribe);
   // The fake database's clock is the test's: the operations read the
   // database instant exactly as production reads PostgreSQL's.
   const store = {
@@ -123,7 +125,7 @@ export function setup(
     });
     return id;
   };
-  return { operations, begin, memory, clock, calls, store };
+  return { operations, begin, memory, clock, calls, prompts, store };
 }
 
 /** The person speaks their opening constructive through the transcribe path. */

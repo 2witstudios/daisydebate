@@ -117,6 +117,7 @@ export function createRoomStore({
   let engine: AudioEngine | null = null;
   let turn = idle('waiting');
   let judging = false;
+  let finalizing = Promise.resolve();
   let stopped = false;
   let stopPolling: () => void = () => undefined;
   /** The gap whose prep this browser already asked for. */
@@ -204,6 +205,8 @@ export function createRoomStore({
   const requestBallot = async (attempt = 0): Promise<void> => {
     judging = true;
     try {
+      await finalizing;
+      if (stopped) return;
       set({ ballot: await api.ballot(id), status: '' });
     } catch {
       if (attempt < 3) {
@@ -216,6 +219,12 @@ export function createRoomStore({
 
   const judgeWhenOver = (state: UiState) => {
     if (state.phase !== 'ended' || snapshot.ballot || judging) return;
+    if (snapshot.view?.status === 'completed') {
+      set({
+        status: `Debate ended by forfeit. ${snapshot.view.outcome === snapshot.view.personSide ? 'You win.' : 'Your opponent wins.'}`,
+      });
+      return;
+    }
     set({ status: 'The judge is deciding…' });
     void requestBallot();
   };
@@ -257,6 +266,7 @@ export function createRoomStore({
     const key = keyOf(state);
     const restart = turn.controller === null && engine !== null;
     if (key === turn.key && !(restart && hasSegment(state))) return false;
+    if (state.phase === 'ended' && turn.finish) finalizing = turn.finish();
     turn.controller?.abort();
     turn = startTurn(state, view, key);
     return true;

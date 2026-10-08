@@ -31,6 +31,7 @@ const view: AiDebateView = {
   serverNow: 0,
   version: 1,
   status: 'active',
+  outcome: null,
   startedAt: 0,
   rules: resolved.rules,
   segments: [],

@@ -239,3 +239,34 @@ test('one write closes a speech and opens the next under the one-open-row index'
     }
   });
 });
+
+test('hydration orders closed segments by their schedule sequence', async () => {
+  await withFixture(url, async (fixture) => {
+    const roundId = await fixture.round();
+    for (const sequence of [1, 0]) {
+      await fixture.insert('round_segments', {
+        id: createId(),
+        round_id: roundId,
+        sequence,
+        type: 'speech',
+        rules_segment_key: sequence === 0 ? 'AC' : 'NC',
+        started_at: new Date(instant),
+        ended_at: new Date(instant),
+        duration_ms: 240_000,
+      });
+    }
+    const database = createDatabase({ url, nextActorId: createId });
+    try {
+      const round = await database.getRound(roundId);
+      assert({
+        given: 'closed segments inserted in reverse schedule order',
+        should:
+          'hydrate in ascending sequence for runtime and prompt consumers',
+        actual: round?.segments.map((segment) => segment.sequence),
+        expected: [0, 1],
+      });
+    } finally {
+      await database.close();
+    }
+  });
+});

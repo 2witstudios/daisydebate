@@ -98,9 +98,21 @@ const document = (
 });
 
 describe('documents', () => {
-  test('lists the owner’s documents plus the round’s refs, title order', async () => {
+  test('round references never grant access to another participant’s private documents', async () => {
     await withOwner(async ({ database, fixture, actorId, roundId }) => {
       const stranger = await fixture.actor();
+      const judge = await fixture.actor();
+      for (const [reader, role] of [
+        [stranger, 'affirmative'],
+        [judge, 'judge'],
+      ] as const)
+        await fixture.insert('round_participants', {
+          id: createId(),
+          round_id: roundId,
+          actor_id: reader,
+          role,
+          slot: 0,
+        });
       const mine = await database.createDocument(
         document(actorId, 'scratch', 'Flow'),
       );
@@ -121,16 +133,32 @@ describe('documents', () => {
       assert({
         given:
           'two library documents, one scratch round document and a scoped stranger’s',
-        should: 'list the owner’s and the round’s view, by title',
+        should: 'list only readable documents, by title',
         actual: listed.map((d) => [d.title, d.folder]),
         expected: [
           ['Block', 'library'],
           ['Case', 'library'],
           ['Flow', 'scratch'],
-          ['Theirs', 'library'],
         ],
       });
-      void mine;
+      await database.attachRoundDocument({
+        roundId,
+        documentId: mine.id,
+        role: 'notes',
+      });
+      for (const reader of [stranger, judge]) {
+        const visible = await database.listDocuments({
+          ownerActorId: reader,
+          roundId,
+        });
+        assert({
+          given:
+            'an opponent or judge reading a round with private referenced notes',
+          should: 'return only that reader’s own documents and HTML',
+          actual: visible.map((row) => [row.id, row.html]),
+          expected: reader === stranger ? [[theirs.id, theirs.html]] : [],
+        });
+      }
     });
   });
 

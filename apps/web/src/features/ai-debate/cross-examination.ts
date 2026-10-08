@@ -146,7 +146,6 @@ export function crossExaminationOperations(
     id: string,
     aiRole: 'asker' | 'answerer',
     personSide: 'affirmative' | 'negative',
-    heard: string,
     lines: Awaited<ReturnType<RoundStore['listRoundUtterances']>>,
     opening: boolean,
   ): Promise<CrossExamination['reply']> => {
@@ -168,24 +167,19 @@ export function crossExaminationOperations(
       aiSide: aiSideOf(personSide),
       turn,
       aiRole,
-      transcript: [
-        ...transcriptOf(
-          round.rules,
-          lines.map((line) => ({
-            id: line.id,
-            segmentIndex: round.segments.findIndex(
-              (candidate) => candidate.id === line.segmentId,
-            ),
-            role: roleOfLine(line.roundParticipantId),
-            text: line.text,
-            complete: line.complete,
-            at: line.createdAt.getTime(),
-          })),
-        ),
-        ...(heard
-          ? [{ turn: segment.key, role: 'person' as const, text: heard }]
-          : []),
-      ],
+      transcript: transcriptOf(
+        round.rules,
+        lines.map((line) => ({
+          id: line.id,
+          segmentIndex: round.segments.findIndex(
+            (candidate) => candidate.id === line.segmentId,
+          ),
+          role: roleOfLine(line.roundParticipantId),
+          text: line.text,
+          complete: line.complete,
+          at: line.createdAt.getTime(),
+        })),
+      ),
       persona: opponentForActor(
         round.participants.find((seat) => seat.role === aiSideOf(personSide))
           ?.actorId,
@@ -294,7 +288,6 @@ export function crossExaminationOperations(
         id,
         aiAsks ? 'asker' : 'answerer',
         personSide,
-        heard,
         lines,
         opening,
       );

@@ -29,6 +29,7 @@ const testView = (
   serverNow: at(),
   version: 7,
   status: 'active',
+  outcome: null,
   startedAt: at() - 10_000,
   rules: resolved.rules,
   segments: [],

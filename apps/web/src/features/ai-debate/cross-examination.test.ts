@@ -137,3 +137,21 @@ describe('the AI opens its own cross-examination', () => {
     });
   });
 });
+
+test('an audio exchange sends its latest utterance to the model once', async () => {
+  const { operations, begin, clock, prompts } = setup();
+  const id = await begin();
+  await openFirstCrossExamination(operations, clock, id);
+  await operations.crossExamine({
+    actorId: 'actor-1',
+    id,
+    segmentIndex: 1,
+    audio: { base64: 'QUJDRA==', format: 'webm' },
+  });
+  assert({
+    given: 'the latest transcription already persisted in the round transcript',
+    should: 'include it once in the cross-examination prompt',
+    actual: (prompts[0] ?? '').split('I affirm.').length - 1,
+    expected: 1,
+  });
+});

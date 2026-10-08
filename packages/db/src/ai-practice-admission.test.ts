@@ -24,6 +24,7 @@ describe('atomic AI practice admission', () => {
   test('locks and checks both caps before writing the room, cast, round and reservation', async () => {
     const { database, queries } = createTestDatabase([
       [],
+      [],
       [[1]],
       [[2]],
       [],
@@ -39,12 +40,15 @@ describe('atomic AI practice admission', () => {
       actual: queries.map(({ query }) =>
         query.includes('pg_advisory_xact_lock')
           ? 'lock'
-          : query.includes('count(*)')
-            ? 'count'
-            : query.match(/insert into "([^"]+)"/)?.[1],
+          : query.startsWith('select') && query.includes('for update')
+            ? 'reclaim'
+            : query.includes('count(*)')
+              ? 'count'
+              : query.match(/insert into "([^"]+)"/)?.[1],
       ),
       expected: [
         'lock',
+        'reclaim',
         'count',
         'count',
         'rooms',
@@ -57,7 +61,7 @@ describe('atomic AI practice admission', () => {
   });
 
   test('a full live cap leaves no aggregate rows', async () => {
-    const { database, queries } = createTestDatabase([[], [[2]]]);
+    const { database, queries } = createTestDatabase([[], [], [[2]]]);
     await assertRejects({
       given: 'two live practices against a cap of two',
       should: 'reject before any aggregate insert',
@@ -66,14 +70,14 @@ describe('atomic AI practice admission', () => {
     });
     assert({
       given: 'the refused live cap',
-      should: 'issue only the lock and count',
+      should: 'issue only the lock, reclamation and count',
       actual: queries.length,
-      expected: 2,
+      expected: 3,
     });
   });
 
   test('a full daily cap also leaves no aggregate rows', async () => {
-    const { database, queries } = createTestDatabase([[], [[0]], [[3]]]);
+    const { database, queries } = createTestDatabase([[], [], [[0]], [[3]]]);
     await assertRejects({
       given: 'three starts today against a cap of three',
       should: 'reject without writing a reservation',
@@ -84,12 +88,12 @@ describe('atomic AI practice admission', () => {
       given: 'the refused daily cap',
       should: 'issue only the lock and two counts',
       actual: queries.length,
-      expected: 3,
+      expected: 4,
     });
   });
 
   test('a changed format cast is refused before the room is created', async () => {
-    const { database, queries } = createTestDatabase([[], [[0]], [[0]]]);
+    const { database, queries } = createTestDatabase([[], [], [[0]], [[0]]]);
     const input = admission();
     await assertRejects({
       given: 'a resolved format requiring a second affirmative seat',
@@ -111,7 +115,7 @@ describe('atomic AI practice admission', () => {
       given: 'the mismatched cast',
       should: 'stop after the serialized allowance reads',
       actual: queries.length,
-      expected: 3,
+      expected: 4,
     });
   });
 });

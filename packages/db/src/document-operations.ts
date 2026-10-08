@@ -86,8 +86,8 @@ export const documentOperations = ({
   },
 
   /**
-   * What a round's workspace reads: the owner's own documents, plus every
-   * document scoped into the round by a ref. Ordered by title.
+   * Only the reader's own documents. A round ref scopes a document into a
+   * workspace; it grants no sharing permission. Ordered by title.
    */
   async listDocuments(input: {
     readonly ownerActorId: string;
@@ -108,7 +108,12 @@ export const documentOperations = ({
                 documents,
                 eq(documents.id, roundDocumentRefs.documentId),
               )
-              .where(eq(roundDocumentRefs.roundId, input.roundId));
+              .where(
+                and(
+                  eq(roundDocumentRefs.roundId, input.roundId),
+                  eq(documents.ownerActorId, input.ownerActorId),
+                ),
+              );
       const byId = new Map<string, DocumentRecord>();
       for (const row of [...owned, ...referenced])
         byId.set(

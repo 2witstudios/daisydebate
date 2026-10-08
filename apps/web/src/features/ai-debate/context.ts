@@ -113,6 +113,7 @@ export type AiDebateView = {
   readonly version: number;
   readonly status: 'scheduled' | 'active' | 'completed' | 'abandoned';
   readonly startedAt: number | null;
+  readonly outcome: RoundHydration['outcome'];
   readonly rules: RoundRules;
   readonly segments: RoundHydration['segments'];
   readonly checkpoint: RoundHydration['checkpoint'];
@@ -245,13 +246,13 @@ export const uiStateOf = (position: RoundPosition): UiState => {
   if (position.status === 'scheduled') return { phase: 'waiting' };
   if (position.status === 'abandoned') return { phase: 'aborted' };
   if (position.status === 'completed') return { phase: 'ended' };
+  if (position.awaitingBallot) return { phase: 'ended' };
   if (position.openSegment !== null)
     return {
       phase: 'live',
       segmentIndex: position.openSegment.sequence,
       remainingMs: position.openSegment.remainingMs,
     };
-  if (position.awaitingBallot) return { phase: 'ended' };
   return gapStateOf(position);
 };
 
@@ -293,7 +294,7 @@ export const positionOfView = (
     status: view.status,
     startedAtMs: view.startedAt,
     completedAtMs: null,
-    outcome: null,
+    outcome: view.outcome,
     gapAnchorMs:
       lastClosed !== undefined ? lastClosed.endedAtMs : view.startedAt,
   };
@@ -309,7 +310,7 @@ export const positionOfView = (
       rows: () => advanced.rows,
       openRow: () => advanced.rows.find((row) => row.endedAtMs === null),
       checkpoint: () => advanced.checkpoint,
-      lifecycle: () => lifecycle,
+      lifecycle: () => advanced.lifecycle,
     },
     atMs,
     view.rules,

@@ -5,7 +5,7 @@ import type {
   RoundPosition,
   RoundProjection,
 } from '@daisy/debate-engine';
-import { createAppError } from '@daisy/errors';
+import { createAppError, isAppError } from '@daisy/errors';
 import type { RoundStore } from './context';
 import {
   aiSideOf,
@@ -86,6 +86,38 @@ const mappedCommand = (command: PersonCommand): RoundCommand => {
   return { type: command.type };
 };
 
+/** Accept a clip on the database clock, including the recorder's final flush. */
+const recordedSegmentOf = (
+  round: NonNullable<Awaited<ReturnType<RoundStore['getRound']>>>,
+  actorId: string,
+  segmentIndex: number,
+  now: number,
+) => {
+  const row = round.segments.find(
+    (segment) => segment.sequence === segmentIndex,
+  );
+  const resolved = round.rules.segments[segmentIndex];
+  // Admission is bounded on the database clock. Once accepted, provider
+  // latency must not revoke the recorded clip when its segment closes.
+  const end = row
+    ? Math.min(
+        Date.parse(row.startedAt) + row.durationMs,
+        row.endedAt === null ? Infinity : Date.parse(row.endedAt),
+      )
+    : 0;
+  if (
+    !row ||
+    !resolved ||
+    round.status === 'abandoned' ||
+    now < Date.parse(row.startedAt) ||
+    now > end + 30_000 ||
+    (resolved.type === 'speech' &&
+      resolved.side !== personSideOf(round, actorId))
+  )
+    throw createAppError('CONFLICT', 'That segment is not live');
+  return row;
+};
+
 /**
  * The AI practice application operations (AIDB on the one Round model,
  * ADR 0058): a practice Room resolves the one-on-one format against the
@@ -112,8 +144,9 @@ export function createAiDebateOperations(dependencies: AiDebateDependencies) {
         projection,
       });
       return true;
-    } catch {
-      return false;
+    } catch (error) {
+      if (isAppError(error) && error.code === 'CONFLICT') return false;
+      throw error;
     }
   };
 
@@ -126,23 +159,26 @@ export function createAiDebateOperations(dependencies: AiDebateDependencies) {
    * for the whole execution (ADR 0033 §3.2, as amended by ADR 0058).
    */
   const hydrated = async (actorId: string, id: string) => {
-    const owned = await ownedBy(store, actorId, id, () => ids.next());
-    const { round, runtime } = owned;
-    const now = Date.parse(await store.databaseNow());
-    const ticked = runtime.tick(new Date(now).toISOString());
-    const moved =
-      ticked.segmentInserts.length > 0 || ticked.segmentCloses.length > 0;
-    if (moved && (await persist(round.id, round.version, null, ticked))) {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const { round, runtime } = await ownedBy(store, actorId, id, () =>
+        ids.next(),
+      );
+      const now = Date.parse(await store.databaseNow());
+      const ticked = runtime.tick(new Date(now).toISOString());
+      const moved =
+        ticked.segmentInserts.length > 0 || ticked.segmentCloses.length > 0;
+      if (!moved) return { round, runtime, now, tickedFromVersion: null };
+      if (!(await persist(round.id, round.version, null, ticked))) continue;
       const fresh = await store.getRound(id);
-      if (fresh)
-        return {
-          round: fresh,
-          runtime: runtimeOf(fresh, () => ids.next()),
-          now,
-          tickedFromVersion: round.version,
-        };
+      if (!fresh) throw createAppError('NOT_FOUND');
+      return {
+        round: fresh,
+        runtime: runtimeOf(fresh, () => ids.next()),
+        now,
+        tickedFromVersion: round.version,
+      };
     }
-    return { round, runtime, now, tickedFromVersion: null };
+    throw createAppError('CONFLICT', 'The round moved on');
   };
 
   /** The usage and allowance writes for one billable AI call. */
@@ -260,19 +296,8 @@ export function createAiDebateOperations(dependencies: AiDebateDependencies) {
       readonly audioBase64: string;
       readonly format: AudioFormat;
     }): Promise<{ readonly text: string }> {
-      const { round, runtime, now } = await hydrated(actorId, id);
-      const position = runtime.position(new Date(now).toISOString());
-      const open = position.openSegment;
-      if (
-        !open ||
-        open.sequence !== segmentIndex ||
-        (open.type === 'speech' && open.side !== personSideOf(round, actorId))
-      )
-        throw createAppError('CONFLICT', 'That segment is not live');
-      const row = round.segments.find(
-        (segment) => segment.sequence === open.sequence,
-      );
-      if (!row) throw createAppError('CONFLICT', 'That segment is not open');
+      const { round, now } = await hydrated(actorId, id);
+      const row = recordedSegmentOf(round, actorId, segmentIndex, now);
       const model = DEFAULT_MODELS.stt;
       const { text } = await voice().transcribe({
         model,
@@ -291,7 +316,7 @@ export function createAiDebateOperations(dependencies: AiDebateDependencies) {
           segmentId: row.id,
           roundParticipantId: participantIdOf(round, actorId),
           text,
-          requireOpen: true,
+          requireOpen: false,
         });
       return { text };
     },

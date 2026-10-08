@@ -107,3 +107,103 @@ describe('the room store', () => {
     });
   });
 });
+
+test('a completed forfeit never asks the judge, including after reload', async () => {
+  const log: string[] = [];
+  const time = handClock();
+  const timers = handTimers();
+  const base = fakeApi({ log, at: time.at });
+  const view = await base.view('d1');
+  const store = createRoomStore({
+    id: 'd1',
+    clock: time.clock,
+    every: timers.every,
+    api: {
+      ...base,
+      view: async () => ({
+        ...view,
+        status: 'completed',
+        outcome: 'negative',
+        ballot: null,
+      }),
+      ballot: async () => {
+        log.push('ballot');
+        throw new Error('forfeits need no ballot');
+      },
+    },
+  });
+  const stop = store.start();
+  await settle();
+  timers.fire();
+  await settle();
+  assert({
+    given: 'a reloaded round completed by forfeit without a ballot',
+    should: 'show a terminal result without requesting judging',
+    actual: {
+      requested: log.includes('ballot'),
+      phase: store.getSnapshot().state.phase,
+    },
+    expected: { requested: false, phase: 'ended' },
+  });
+  stop();
+});
+
+test('natural final speech expiry flushes recorded words before requesting the ballot', async () => {
+  const log: string[] = [];
+  const time = handClock();
+  const timers = handTimers();
+  const base = fakeApi({ log, at: time.at });
+  const initialView = await base.view('d1');
+  const total = initialView.rules.segments.reduce(
+    (ms, segment) => ms + segment.durationMs + initialView.rules.countdownMs,
+    0,
+  );
+  const startedAt = T0 - total + 1_000;
+  let uploaded: () => void = () => undefined;
+  const upload = new Promise<void>((resolve) => {
+    uploaded = resolve;
+  });
+  const store = createRoomStore({
+    id: 'd1',
+    clock: time.clock,
+    every: timers.every,
+    openEngine: async () => fakeEngine(log),
+    api: {
+      ...base,
+      view: async () => ({ ...initialView, startedAt, serverNow: time.at() }),
+      transcribe: async () => {
+        log.push('tail');
+        await upload;
+        log.push('tail-saved');
+        return { text: 'last words' };
+      },
+      ballot: async () => {
+        log.push('ballot');
+        return new Promise(() => undefined);
+      },
+    },
+  });
+  const stop = store.start();
+  await settle();
+  await store.join(false);
+  timers.fire();
+  await settle();
+  time.advance(1_001);
+  timers.fire();
+  await settle();
+  assert({
+    given: 'the naturally expired final speech with its last upload pending',
+    should: 'stop the recorder and wait for the tail before judging',
+    actual: log.filter((entry) => ['stop', 'tail', 'ballot'].includes(entry)),
+    expected: ['stop', 'tail'],
+  });
+  uploaded();
+  await settle();
+  assert({
+    given: 'the final clip is now persisted',
+    should: 'request judging once after the final words',
+    actual: log.filter((entry) => ['tail-saved', 'ballot'].includes(entry)),
+    expected: ['tail-saved', 'ballot'],
+  });
+  stop();
+});

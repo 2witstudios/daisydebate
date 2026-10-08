@@ -1,4 +1,5 @@
 import type {
+  CompetitionType,
   DebateRole,
   RoundRules,
   RuntimeCheckpoint,
@@ -16,6 +17,7 @@ import { rounds } from './schema/rounds';
  */
 export type RoundHydration = {
   readonly id: string;
+  readonly competitionType: CompetitionType;
   readonly formatId: string;
   readonly formatVersion: number;
   readonly resolution: string;
@@ -77,9 +79,11 @@ export async function hydrateRound(
           durationMs: roundSegments.durationMs,
         })
         .from(roundSegments)
-        .where(eq(roundSegments.roundId, id));
+        .where(eq(roundSegments.roundId, id))
+        .orderBy(roundSegments.sequence);
       return {
         id: row.id,
+        competitionType: row.competitionType,
         formatId: row.formatId,
         formatVersion: row.formatVersion,
         resolution: row.resolution,

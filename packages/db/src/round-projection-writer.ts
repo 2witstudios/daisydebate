@@ -122,7 +122,12 @@ export async function writeProjection(
   }
   // The open-segment index is immediate: close the previous interval before
   // opening its successor in the same transaction.
+  const insertedIds = new Set(projection.segmentInserts.map((row) => row.id));
+  const closes = new Map(
+    projection.segmentCloses.map((row) => [row.id, row.endedAt]),
+  );
   for (const close of projection.segmentCloses) {
+    if (insertedIds.has(close.id)) continue;
     await tx
       .update(roundSegments)
       .set({ endedAt: new Date(close.endedAt) })
@@ -140,6 +145,9 @@ export async function writeProjection(
         rulesSegmentKey: insert.rulesSegmentKey,
         startedAt: new Date(insert.startedAt),
         durationMs: insert.durationMs,
+        endedAt: closes.has(insert.id)
+          ? new Date(closes.get(insert.id)!)
+          : null,
       });
     } catch (error) {
       if (isUniqueViolation(error))

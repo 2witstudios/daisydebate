@@ -123,6 +123,7 @@ export const createFakeRoundState = (): FakeRoundState => {
     if (!row) return null;
     return {
       id: row.id,
+      competitionType: row.competitionType,
       formatId: row.formatId,
       formatVersion: row.formatVersion,
       resolution: row.resolution,

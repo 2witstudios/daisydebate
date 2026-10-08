@@ -173,6 +173,20 @@ depends on one, and nothing in a Round's history would change if Rooms were dele
 - **Abandonment is lifecycle, not outcome.** A `rounds_lifecycle_check` constrains status,
   stage, outcome and both timestamps together; `abandoned` deliberately leaves
   `started_at` nullable for a round abandoned before starting.
+- **AI practice capacity is reclaimed durably at admission.** Under the global
+  admission lock, scheduled practices with no execution for 15 minutes and active
+  practices with no execution for two hours become abandoned. Reclamation locks
+  their round rows, closes open segments, clears transient prep/floor state, records
+  completion on the database clock and increments the version before counting live
+  capacity. Reservations remain for the rolling daily allowance; only scheduled and
+  active status consumes global capacity.
+- **Recorded speech has a bounded finalization window.** A person's clip may enter
+  transcription until 30 seconds after its segment's actual close or scheduled end,
+  whichever is earlier. Eligibility uses the database instant at admission; admitted
+  transcription may finish after closure without losing its words. Naturally expired
+  final speech enters ballot readiness before the browser treats its open interval as
+  live. The browser waits for the final recorder flush before asking the judge for
+  a ballot. Completed forfeits carry the terminal outcome and never request judging.
 - **A submitted ballot cannot be erased by seat deletion.** The judge-participant FK is
   `RESTRICT`; retirement is voiding, which records who and when. This ships in the same
   migration as the participant surrogate id, so no intermediate model exists where uniform
@@ -187,9 +201,17 @@ depends on one, and nothing in a Round's history would change if Rooms were dele
   participant; one expiring, fenced AI speech generation claim per segment;
   the compiler's refusal set.
 
+AI-practice orchestration admits only practice rounds with a member debater,
+one roster AI opponent and the configured AI judge. A debater's seat in a
+human or ranked round grants no right to drive it through practice operations.
+Hydration returns durable segments in ascending `sequence` order, so runtime
+clock anchors and transcript schedule positions agree.
+
 ### 9. Documents: prep is the source, the Round is a view
 
-`documents` is owned by an actor and has no round FK. `round_document_refs` is the Round's
+`documents` is owned by an actor and has no round FK. Round references grant
+workspace scope only; every document read still requires ownership unless an
+explicit sharing permission is introduced. `round_document_refs` is the Round's
 view over what the owner can read. **Ending or deleting a Round never implies deleting a
 Document** — removing one from a Round removes the ref row only. The ownership decision is
 included here so the kernel is not built on the inverted dependency; the build is separate
