@@ -1,5 +1,8 @@
+import { BallotSummary } from '../../ballot/ballot-summary/ballot-summary';
+import { ScoreComparison } from '../../ballot/score-comparison/score-comparison';
 import Link from 'next/link';
 import type { DebateView, TimelineRow } from '../../../features/debates/view';
+import { Avatar } from '../../components/avatar/avatar';
 import { Badge } from '../../components/badge/badge';
 import { buttonClass } from '../../components/button/button-class';
 import { DemoControls } from '../../components/demo-controls/demo-controls';
@@ -14,7 +17,8 @@ const winnerText = {
   negative: 'Negative wins',
   draw: 'A draw',
 } as const;
-const panel = 'flex flex-col gap-4 rounded-xl bg-surface p-6 shadow-1';
+const panel =
+  'flex flex-col gap-4 rounded-xl bg-surface p-6 shadow-1 max-narrow:p-4';
 const shell =
   'mx-auto flex w-full max-w-dash-column flex-col gap-6 px-6 pt-5 pb-8 max-compact:gap-4 max-compact:px-4';
 
@@ -117,6 +121,38 @@ function Body({
 }
 
 type Completed = Extract<DebateView, { kind: 'completed' }>;
+type Ruling = Extract<Completed['ruling'], { kind: 'ballots' }>;
+
+/** A person's ruling: the winner by name, both judges' scores and their ballots. */
+function BallotResult({ ballots }: { readonly ballots: Ruling['ballots'] }) {
+  const winner = ballots.debaters[ballots.judge.winner];
+  return (
+    <>
+      <div className="flex min-w-0 items-center gap-4 max-narrow:flex-col max-narrow:items-stretch max-narrow:gap-3">
+        <Avatar
+          name={winner.name}
+          src={winner.avatarSrc}
+          size="lg"
+          nameVisible
+        />
+        <h2 className="min-w-0 font-display text-3xl leading-tight font-bold break-words text-ink max-narrow:text-xl">
+          {`${winner.name} wins`}
+        </h2>
+      </div>
+      <ScoreComparison {...ballots} />
+      <BallotSummary
+        title="Judge"
+        ballot={ballots.judge}
+        debaters={ballots.debaters}
+      />
+      <BallotSummary
+        title="AI judge"
+        ballot={ballots.ai}
+        debaters={ballots.debaters}
+      />
+    </>
+  );
+}
 
 function Result({ view }: { readonly view: Completed }) {
   return (
@@ -127,10 +163,16 @@ function Result({ view }: { readonly view: Completed }) {
           <Badge tone="gold">Placeholder AI ruling</Badge>
         ) : null}
       </div>
-      <h2 className="font-display text-3xl leading-tight font-bold text-ink">
-        {winnerText[view.winner]}
-      </h2>
-      <p className="text-base text-ink-muted">{view.reason}</p>
+      {view.ruling.kind === 'reason' ? (
+        <>
+          <h2 className="font-display text-3xl leading-tight font-bold text-ink">
+            {winnerText[view.winner]}
+          </h2>
+          <p className="text-base text-ink-muted">{view.ruling.reason}</p>
+        </>
+      ) : (
+        <BallotResult ballots={view.ruling.ballots} />
+      )}
       <div className="flex flex-wrap gap-3">
         {view.rematchHref ? (
           <Link

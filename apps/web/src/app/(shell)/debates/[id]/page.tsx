@@ -5,6 +5,7 @@ import type { SearchParams } from '../../../../features/access/decision';
 import { getDebateInfo } from '../../../../features/debates/get-debate';
 import { parseDebateQuery } from '../../../../features/debates/state';
 import { debateView } from '../../../../features/debates/view';
+import { getRoundBallots } from '../../../../features/judge/get-ballots';
 import { requireAccess } from '../../../../lib/access';
 import { DebatePage } from '../../../../ui/debates/debate-page/debate-page';
 
@@ -22,6 +23,12 @@ export default async function DebateRoute({
   const info = getDebateInfo(id, systemClock.now());
   if (info === null) notFound();
   return (
-    <DebatePage view={debateView(info, parseDebateQuery(await searchParams))} />
+    <DebatePage
+      view={debateView(
+        info,
+        parseDebateQuery(await searchParams),
+        getRoundBallots(id),
+      )}
+    />
   );
 }

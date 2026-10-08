@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import type { SearchParams } from '../../../../../features/access/decision';
 import { getDebateInfo } from '../../../../../features/debates/get-debate';
+import { getBallotDebaters } from '../../../../../features/judge/get-ballots';
 import {
   ballotView,
   parseBallotState,
@@ -30,6 +31,7 @@ export default async function BallotRoute({
         debateId,
         info.title,
         parseBallotState(await searchParams),
+        getBallotDebaters(debateId),
       )}
       action={submitBallotAction.bind(null, debateId)}
     />

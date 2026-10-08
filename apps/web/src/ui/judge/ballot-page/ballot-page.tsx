@@ -50,12 +50,7 @@ export function BallotPage({
           </div>
         </>
       ) : view.kind === 'open' ? (
-        <section
-          aria-label="Ballot"
-          className="rounded-xl bg-surface p-6 shadow-1"
-        >
-          <BallotForm action={action} />
-        </section>
+        <BallotForm action={action} debaters={view.debaters} />
       ) : (
         <>
           <Notice

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { debateSideSchema } from './primitives';
+import { debateSideSchema, debateSides } from './primitives';
 
 /**
  * The speaker rubric every ballot scores against, human or AI. Ten
@@ -151,8 +151,9 @@ export const ballotCategories = [
 ] as const;
 export type BallotCategory = (typeof ballotCategories)[number];
 
-/** The top of the 1–5 category scale; the floor is 1. */
-const ballotScoreMax = 5;
+/** The score every category starts at on a new ballot. */
+export const ballotDefaultScore = 3;
+export const ballotScoreMax = 5;
 const ballotReasonMax = 600;
 const ballotFeedbackMax = 280;
 
@@ -205,3 +206,22 @@ export const speakerTotal = (
   scores: Readonly<Record<BallotCategory, number>>,
 ): number =>
   ballotCategories.reduce((sum, category) => sum + scores[category], 0);
+
+/** True when the winner's speaker score is lower than the loser's. */
+export const isLowPointWin = (
+  winner: (typeof debateSides)[number],
+  scores: Readonly<
+    Record<
+      (typeof debateSides)[number],
+      Readonly<Record<BallotCategory, number>>
+    >
+  >,
+): boolean => {
+  const loser = debateSides.find((side) => side !== winner) ?? winner;
+  return speakerTotal(scores[winner]) < speakerTotal(scores[loser]);
+};
+
+export const ballotLimits = {
+  reason: ballotReasonMax,
+  feedback: ballotFeedbackMax,
+} as const;

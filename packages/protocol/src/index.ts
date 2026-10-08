@@ -57,6 +57,10 @@ export type {
 } from './round';
 export {
   ballotSchema,
+  ballotDefaultScore,
+  ballotLimits,
+  ballotScoreMax,
+  isLowPointWin,
   ballotScoresSchema,
   ballotFeedbackSchema,
   ballotCitationsSchema,
@@ -65,7 +69,7 @@ export {
   ballotCategories,
   speakerTotal,
 } from './ballot';
-export type { Ballot } from './ballot';
+export type { Ballot, BallotCategory } from './ballot';
 export type {
   DebaterStanding,
   PlannedRatingChange,

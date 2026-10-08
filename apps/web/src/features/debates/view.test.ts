@@ -1,7 +1,8 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { RoomInfo } from '../rooms/view';
 import { parseDebateQuery, type DebateQuery } from './state';
-import { debateView } from './view';
+import { getRoundBallots } from '../judge/get-ballots';
+import { debateView, type DebateView } from './view';
 
 setupRitewayBun();
 
@@ -14,6 +15,10 @@ const info: RoomInfo = {
 };
 const view = (change: Partial<DebateQuery> = {}) =>
   debateView(info, { ...parseDebateQuery({}), ...change });
+
+/** The one-line reason a ruling without ballots gives, if it gives one. */
+const reasonOf = (v: DebateView): string | null =>
+  v.kind === 'completed' && v.ruling.kind === 'reason' ? v.ruling.reason : null;
 
 describe('debateView', () => {
   test('a live turn', () => {
@@ -101,10 +106,60 @@ describe('debateView', () => {
         v.kind,
         v.kind === 'completed' &&
           ['affirmative', 'negative'].includes(v.winner),
-        v.kind === 'completed' && v.reason.includes('chose at random'),
+        reasonOf(v)?.includes('chose at random'),
         v.kind === 'completed' && v.rematchHref?.startsWith('/rooms/demo?'),
       ],
       expected: ['completed', true, true, true],
+    });
+  });
+
+  test('a person’s ruling carries both ballots', () => {
+    const ballots = getRoundBallots(info.id);
+    const ruled = {
+      turn: 6,
+      judgeKind: 'person' as const,
+      ruledBy: 'person' as const,
+    };
+    const person = debateView(
+      info,
+      { ...parseDebateQuery({}), ...ruled },
+      ballots,
+    );
+    const unread = view(ruled);
+    const ai = debateView(
+      info,
+      { ...parseDebateQuery({}), turn: 6, judgeKind: 'ai', ruledBy: 'ai' },
+      ballots,
+    );
+    const ballotsOf = (v: DebateView) =>
+      v.kind === 'completed' && v.ruling.kind === 'ballots'
+        ? v.ruling.ballots
+        : null;
+    assert({
+      given:
+        'a debate a person judged with its ballots read, one whose ballots are not read, and one only the AI judge ruled',
+      should:
+        'take the winner from the person’s ballot and show both ballots, and fall back to a one-line reason otherwise',
+      actual: [
+        person.kind === 'completed' && person.winner,
+        ballotsOf(person)?.judge === ballots?.judge,
+        ballotsOf(person)?.ai.rubricVersion,
+        reasonOf(person),
+        ballotsOf(unread),
+        reasonOf(unread) !== null,
+        ballotsOf(ai),
+        reasonOf(ai)?.includes('chose at random'),
+      ],
+      expected: [
+        'affirmative',
+        true,
+        'speaker-10@1',
+        null,
+        null,
+        true,
+        null,
+        true,
+      ],
     });
   });
 
@@ -140,7 +195,7 @@ describe('debateView', () => {
       actual: [
         lost.kind === 'completed' && lost.winner,
         draw.kind === 'completed' && draw.winner,
-        draw.kind === 'completed' && draw.reason.includes('level'),
+        reasonOf(draw)?.includes('level'),
         lost.kind === 'completed' && lost.rematchHref,
         lost.kind === 'completed' && lost.roomHref,
       ],

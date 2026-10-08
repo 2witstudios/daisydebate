@@ -6,7 +6,7 @@ import {
   mockFormUnavailable,
   type MockFormState,
 } from '../../features/mock-form/form';
-import { useFormAction } from './form-action';
+import { useFocusAfterAnswer, useFormAction } from './form-action';
 import { useMovedOn } from './use-moved-on';
 
 export type MockFormAction = (
@@ -31,11 +31,14 @@ export function MockForm({
   action,
   label,
   className,
+  focusOnRefusal,
   children,
 }: {
   readonly action: MockFormAction;
   readonly label: string;
   readonly className?: string;
+  /** The element that takes focus once a refusal renders (ISSUE-107). */
+  readonly focusOnRefusal?: string;
   readonly children: (body: MockFormBody) => ReactNode;
 }) {
   const [answered, post, posting] = useFormAction(
@@ -45,6 +48,11 @@ export function MockForm({
   );
   useMovedOn(answered.next);
   const pending = posting || answered.next !== undefined;
+  useFocusAfterAnswer(
+    answered,
+    answered.error === undefined ? undefined : focusOnRefusal,
+    !pending,
+  );
   return (
     <form
       action={post}
