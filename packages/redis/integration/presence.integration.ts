@@ -1,11 +1,10 @@
 import { createId } from '@paralleldrive/cuid2';
-import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
-import { lease, withRedis } from './test-support';
+import { assert, test } from 'riteway/bun';
+import { lease, redisSuite, withRedis } from './test-support';
 
-setupRitewayBun();
-
-const { redisUrl: url } = requireTestServices(process.env);
+requireTestServices(process.env);
+const { redisUrl: url } = redisSuite();
 
 /**
  * A lease's remaining life in whole tens of seconds, read against the Redis

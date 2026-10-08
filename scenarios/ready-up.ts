@@ -1,27 +1,23 @@
-import type { DebateScenario } from '../scripts/scenario';
+import {
+  foundationScenarioIds,
+  type DebateScenario,
+} from '../scripts/scenario';
 
+/** A started round holds its countdown until the clock reaches the AC. */
 const scenario: DebateScenario = {
   name: 'ready-up',
   given: {
-    clock: '2026-01-01T00:00:00.000Z',
-    ids: [
-      'k2v9x0f4m8q3w1z7c5n6b4d2',
-      'a7b3c9d1e5f2k4m6n8p1r3t5',
-      'c8d4e2f6a1b3k5m7n9p2r4t6',
-    ],
-    resolution: 'A representative resolution',
+    ids: foundationScenarioIds,
   },
   when: [
-    { type: 'join', participant: 1, side: 'affirmative' },
-    { type: 'join', participant: 2, side: 'negative' },
-    { type: 'ready', participant: 1 },
-    { type: 'ready', participant: 2 },
+    { type: 'command', command: { type: 'start' }, actor: null },
+    { type: 'tick', atMs: 9_999 }, // one millisecond before the AC opens
   ],
   expect: {
     id: 'k2v9x0f4m8q3w1z7c5n6b4d2',
-    createdAt: '2026-01-01T00:00:00.000Z',
-    phase: 'waiting',
-    participantIds: ['a7b3c9d1e5f2k4m6n8p1r3t5', 'c8d4e2f6a1b3k5m7n9p2r4t6'],
+    status: 'active',
+    stage: 'countdown',
+    opened: [],
   },
 };
 

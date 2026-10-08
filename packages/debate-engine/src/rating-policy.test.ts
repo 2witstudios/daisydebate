@@ -1,11 +1,9 @@
 import { assertRejects } from '@daisy/errors/testing';
-import { debateModes } from '@daisy/protocol';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   carryOver,
   inflateDeviation,
   isProvisional,
-  ladderForMode,
   RATING_CALCULATION_VERSION,
 } from './rating';
 
@@ -97,17 +95,6 @@ describe('isProvisional', () => {
       should: 'mark only the wider one provisional',
       actual: [isProvisional(110.01), isProvisional(110)],
       expected: [true, false],
-    });
-  });
-});
-
-describe('ladderForMode', () => {
-  test('maps rated modes to their ladder and the rest to none', () => {
-    assert({
-      given: 'every debate mode',
-      should: 'rate ranked and quick on their own ladders only',
-      actual: debateModes.map(ladderForMode),
-      expected: [null, 'ranked', 'quick', null],
     });
   });
 });

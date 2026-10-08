@@ -86,11 +86,11 @@ describe('invariant fixture runner', () => {
       version: 1,
       invariants: [
         {
-          id: 'debate.phase.active.requires-ready-participants',
-          check: 'active-requires-ready-participants',
+          id: 'round.seats.complete',
+          check: 'seats-complete',
           testReference: {
-            path: 'packages/debate-engine/src/engine.test.ts',
-            name: 'rejects a transition that breaks a registered invariant atomically',
+            path: 'packages/debate-engine/src/round-runtime.test.ts',
+            name: 'refuse with the seat-completeness invariant',
           },
         },
       ],
@@ -99,17 +99,49 @@ describe('invariant fixture runner', () => {
     assert({
       given: 'a registered invariant with a deterministic fixture',
       should: 'return a passing result for the fixture and its expected ID',
-      actual: runInvariantChecks(registeredSpec, [
-        'debate.phase.active.requires-ready-participants',
-      ]),
+      actual: runInvariantChecks(registeredSpec, ['round.seats.complete']),
       expected: {
         ok: true,
         issues: [],
         results: [
           {
-            id: 'debate.phase.active.requires-ready-participants',
+            id: 'round.seats.complete',
             status: 'pass',
-            detail: 'active-requires-ready-participants',
+            detail: 'seats-complete',
+          },
+        ],
+      },
+    });
+  });
+
+  test('reports a fixture that raises a different invariant as a failure', () => {
+    const mismatched: InvariantSpec = {
+      version: 1,
+      invariants: [
+        {
+          id: 'round.yield.requires-floor',
+          check: 'prep-requires-budget',
+          testReference: {
+            path: 'packages/debate-engine/src/round-runtime.test.ts',
+            name: 'refuse with the yield-floor invariant',
+          },
+        },
+      ],
+    };
+
+    assert({
+      given: 'a fixture that violates another registered invariant',
+      should: 'fail with the invariant the fixture actually raised',
+      actual: runInvariantChecks(mismatched, ['round.yield.requires-floor']),
+      expected: {
+        ok: false,
+        issues: [],
+        results: [
+          {
+            id: 'round.yield.requires-floor',
+            status: 'fail',
+            detail:
+              'expected round.yield.requires-floor, got round.prep.requires-budget',
           },
         ],
       },

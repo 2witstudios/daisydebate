@@ -24,8 +24,8 @@ const ledgerRow = (actor: string, after: number, season: string) => ({
 describe('rateDebate (RATE-1.3)', () => {
   test('writes the decided ledger rows and projection once', async () => {
     await withRatings(url, async ({ fixture, rate, seated }) => {
-      const { seasonId, debateId, affirmative, negative } = await seated();
-      const result = await rate(debateId);
+      const { seasonId, roundId, affirmative, negative } = await seated();
+      const result = await rate(roundId);
       assert({
         given: 'a completed ranked debate',
         should: 'report it rated on the ranked ladder in the active season',
@@ -36,7 +36,7 @@ describe('rateDebate (RATE-1.3)', () => {
         given: 'the decided changes',
         should:
           'write one ledger row per side at the debate completion with the decision version',
-        actual: (await ledgerOf(fixture, debateId)).map((row) => ({
+        actual: (await ledgerOf(fixture, roundId)).map((row) => ({
           actor: row.actor_id,
           ladder: row.ladder,
           before: row.rating_before,
@@ -62,13 +62,13 @@ describe('rateDebate (RATE-1.3)', () => {
           [{ ladder: 'ranked', rating: 1490, deviation: 349, version: 1 }],
         ],
       });
-      const rerun = await rate(debateId);
+      const rerun = await rate(roundId);
       assert({
         given: 'the same debate rated again',
         should: 'report it already rated and change nothing',
         actual: [
           rerun.kind,
-          (await ledgerOf(fixture, debateId)).length,
+          (await ledgerOf(fixture, roundId)).length,
           (await ratingsOf(fixture, affirmative))[0]?.version,
         ],
         expected: ['already-rated', 2, 1],
@@ -78,15 +78,15 @@ describe('rateDebate (RATE-1.3)', () => {
 
   test('rates one debate once under concurrent attempts', async () => {
     await withRatings(url, async ({ fixture, rate, seated }) => {
-      const { debateId } = await seated();
-      const results = await Promise.all([0, 1, 2].map(() => rate(debateId)));
+      const { roundId } = await seated();
+      const results = await Promise.all([0, 1, 2].map(() => rate(roundId)));
       assert({
         given: 'three concurrent attempts to rate one debate',
         should: 'rate it exactly once',
         actual: [
           results.filter(({ kind }) => kind === 'rated').length,
           results.filter(({ kind }) => kind === 'already-rated').length,
-          (await ledgerOf(fixture, debateId)).length,
+          (await ledgerOf(fixture, roundId)).length,
         ],
         expected: [1, 2, 2],
       });
@@ -102,13 +102,10 @@ describe('rateDebate (RATE-1.3)', () => {
         minute: 40,
       });
       const shared = one.affirmative;
-      const results = await Promise.all([
-        rate(one.debateId),
-        rate(two.debateId),
-      ]);
+      const results = await Promise.all([rate(one.roundId), rate(two.roundId)]);
       const sharedRows = [
-        ...(await ledgerOf(fixture, one.debateId)),
-        ...(await ledgerOf(fixture, two.debateId)),
+        ...(await ledgerOf(fixture, one.roundId)),
+        ...(await ledgerOf(fixture, two.roundId)),
       ]
         .filter(({ actor_id }) => actor_id === shared)
         .sort((a, b) => a.rating_after - b.rating_after);
@@ -150,7 +147,7 @@ describe('rateDebate (RATE-1.3)', () => {
           minute: 30 + round,
         });
         results.push(
-          ...(await Promise.all([rate(one.debateId), rate(two.debateId)])),
+          ...(await Promise.all([rate(one.roundId), rate(two.roundId)])),
         );
         assert({
           given: `round ${round}: two debates between the same pair with sides swapped`,

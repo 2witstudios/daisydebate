@@ -1,12 +1,11 @@
-import {
-  aiDebateCountdownMs,
-  aiDebateTurns,
-  turnRoles,
-  type AiDebateSide,
-  type AiDebateState,
-  type AiDebateTurn,
-} from '@daisy/debate-engine';
+import type { DebateSide } from '@daisy/protocol';
 import { cn } from '../../cn';
+import {
+  segmentAt,
+  type AiDebateView,
+  type UiSegment,
+  type UiState,
+} from '../../../features/ai-debate/context';
 
 const minutes = (ms: number) => {
   const seconds = Math.max(0, Math.ceil(ms / 1000));
@@ -15,21 +14,21 @@ const minutes = (ms: number) => {
 
 const seconds = (ms: number) => String(Math.max(0, Math.ceil(ms / 1000)));
 
-/** Who a turn belongs to: the speaker, or for cross-examination the asker. */
-const ownerOf = (turn: AiDebateTurn, personSide: AiDebateSide) =>
-  turnRoles(turn, personSide).speaker;
+/** Who a segment belongs to: the speaker, or for cross-examination the asker. */
+const ownerOf = (segment: UiSegment, personSide: DebateSide) =>
+  segment.side === personSide ? 'person' : 'ai';
 
-/** What the next turn is, said as "until …". */
-function untilCaption(turn: AiDebateTurn, personSide: AiDebateSide) {
-  const yours = ownerOf(turn, personSide) === 'person';
-  if (turn.kind === 'cross-examination')
+/** What the next segment is, said as "until …". */
+function untilCaption(segment: UiSegment, personSide: DebateSide) {
+  const yours = ownerOf(segment, personSide) === 'person';
+  if (segment.kind === 'cross-examination')
     return yours ? 'until you ask' : 'until your opponent asks';
   return yours ? 'until you speak' : 'until your opponent speaks';
 }
 
-function liveCaption(turn: AiDebateTurn, personSide: AiDebateSide) {
-  if (turn.kind === 'cross-examination') return 'left in cross-examination';
-  return ownerOf(turn, personSide) === 'person'
+function liveCaption(segment: UiSegment, personSide: DebateSide) {
+  if (segment.kind === 'cross-examination') return 'left in cross-examination';
+  return ownerOf(segment, personSide) === 'person'
     ? 'left in your speech'
     : 'left in their speech';
 }
@@ -42,27 +41,36 @@ type Reading = {
 
 /** The clock's reading for a state, or null when no clock runs. */
 function readingOf(
-  state: AiDebateState,
-  personSide: AiDebateSide,
+  state: UiState,
+  view: AiDebateView,
+  personSide: DebateSide,
 ): Reading | null {
+  const segment =
+    'segmentIndex' in state ? segmentAt(view, state.segmentIndex) : null;
   if (state.phase === 'countdown')
     return {
       time: seconds(state.remainingMs),
-      caption: untilCaption(aiDebateTurns[state.turnIndex]!, personSide),
+      caption: segment ? untilCaption(segment, personSide) : 'until it starts',
       tone: 'calm',
     };
   if (state.phase === 'prep')
-    return state.prepLeftMs <= aiDebateCountdownMs
+    return state.remainingMs <= view.rules.countdownMs
       ? {
-          time: seconds(state.prepLeftMs),
+          time: seconds(state.remainingMs),
           caption: 'until your speech starts',
           tone: 'warm',
         }
-      : { time: minutes(state.prepLeftMs), caption: 'prep left', tone: 'calm' };
+      : {
+          time: minutes(state.remainingMs),
+          caption: 'prep left',
+          tone: 'calm',
+        };
   if (state.phase !== 'live') return null;
   return {
     time: minutes(state.remainingMs),
-    caption: liveCaption(aiDebateTurns[state.turnIndex]!, personSide),
+    caption: segment
+      ? liveCaption(segment, personSide)
+      : 'left in this segment',
     tone:
       state.remainingMs <= 30_000
         ? 'urgent'
@@ -75,13 +83,17 @@ function readingOf(
 /** The clock for this moment, large and centred, with what it counts down to. */
 export function RoundClock({
   state,
+  view,
   personSide,
 }: {
-  readonly state: AiDebateState;
-  readonly personSide: AiDebateSide;
+  readonly state: UiState;
+  readonly view: AiDebateView | null;
+  readonly personSide: DebateSide;
 }) {
   const reading =
-    state.phase === 'aborted' ? null : readingOf(state, personSide);
+    state.phase === 'aborted' || view === null
+      ? null
+      : readingOf(state, view, personSide);
   if (!reading) return null;
   return (
     <p role="timer" className="flex flex-col items-center">

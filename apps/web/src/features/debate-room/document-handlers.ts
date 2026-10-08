@@ -30,9 +30,9 @@ const templateIds = documentTemplates.map((template) => template.id) as [
 ];
 
 const schemas = {
-  list: z.object({ aiDebateId: idSchema }),
+  list: z.object({ roundId: idSchema }),
   create: z.object({
-    aiDebateId: idSchema,
+    roundId: idSchema,
     folder: z.enum(['round', 'library']),
     templateId: z.enum(templateIds),
   }),

@@ -1,11 +1,12 @@
 import { createAppError } from '@daisy/errors';
 import { debateSides, type RatingLadder } from '@daisy/protocol';
-import { and, asc, desc, eq, inArray, ne } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, ne } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { actors } from './schema/actors';
-import { debateParticipants } from './schema/debate-participants';
-import { debates } from './schema/debates';
+import { roundParticipants } from './schema/round-participants';
+import { rounds } from './schema/rounds';
+import { formatPresets } from './schema/format-presets';
 import { formats } from './schema/formats';
 import { ratingChanges, ratings, seasons } from './schema/ratings';
 import { users } from './schema/users';
@@ -32,7 +33,7 @@ type StandingRating = {
 type StandingChange = {
   readonly seasonId: string;
   readonly actorId: string;
-  readonly debateId: string;
+  readonly roundId: string;
   readonly ratingBefore: number;
   readonly ratingAfter: number;
   readonly occurredAt: string;
@@ -87,15 +88,25 @@ export const standingsOperations = ({
     );
   },
 
-  /** Formats that rate, by name. */
+  /**
+   * Formats that rate, by name: the ones with a current approved preset.
+   * Ranked availability is constructed from presets (ADR 0058 §4), so a
+   * format without one never reaches a ladder.
+   */
   listRankedFormats(): Promise<
     readonly { readonly id: string; readonly name: string }[]
   > {
     return instrumented(eventSink, 'listRankedFormats', () =>
       database
-        .select({ id: formats.id, name: formats.name })
+        .selectDistinct({ id: formats.id, name: formats.name })
         .from(formats)
-        .where(eq(formats.rankedEligible, true))
+        .innerJoin(
+          formatPresets,
+          and(
+            eq(formatPresets.formatId, formats.id),
+            isNull(formatPresets.supersededAt),
+          ),
+        )
         .orderBy(asc(formats.name)),
     );
   },
@@ -134,20 +145,20 @@ export const standingsOperations = ({
             .select({
               seasonId: ratingChanges.seasonId,
               actorId: ratingChanges.actorId,
-              debateId: ratingChanges.debateId,
+              roundId: ratingChanges.roundId,
               ratingBefore: ratingChanges.ratingBefore,
               ratingAfter: ratingChanges.ratingAfter,
               occurredAt: ratingChanges.occurredAt,
-              role: debateParticipants.role,
-              outcome: debates.outcome,
+              role: roundParticipants.role,
+              outcome: rounds.outcome,
             })
             .from(ratingChanges)
-            .innerJoin(debates, eq(debates.id, ratingChanges.debateId))
+            .innerJoin(rounds, eq(rounds.id, ratingChanges.roundId))
             .innerJoin(
-              debateParticipants,
+              roundParticipants,
               and(
-                eq(debateParticipants.debateId, ratingChanges.debateId),
-                eq(debateParticipants.actorId, ratingChanges.actorId),
+                eq(roundParticipants.roundId, ratingChanges.roundId),
+                eq(roundParticipants.actorId, ratingChanges.actorId),
               ),
             )
             .where(
@@ -155,7 +166,7 @@ export const standingsOperations = ({
                 eq(ratingChanges.formatId, input.formatId),
                 eq(ratingChanges.ladder, input.ladder),
                 inArray(ratingChanges.seasonId, [...input.seasonIds]),
-                inArray(debateParticipants.role, [...debateSides]),
+                inArray(roundParticipants.role, [...debateSides]),
               ),
             ),
         }),

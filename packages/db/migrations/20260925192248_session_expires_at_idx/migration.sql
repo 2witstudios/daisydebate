@@ -1,1 +1,0 @@
-CREATE INDEX "session_expires_at_idx" ON "session" ("expires_at");

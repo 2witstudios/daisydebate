@@ -1,6 +1,6 @@
+import type { DocumentRecord } from '@daisy/db';
 import type { Clock, IdGenerator } from '@daisy/clock';
-import type { Database, DebateDocumentRecord } from '@daisy/db';
-import { aiDebateTurns, type AiDebateTurn } from '@daisy/debate-engine';
+import type { Database } from '@daisy/db';
 import { createAppError, isAppError, type AppError } from '@daisy/errors';
 import {
   createDocument as buildDocument,
@@ -13,11 +13,12 @@ import { normalizeDocumentHtml } from './normalize-html';
 
 export type DebateDocumentStore = Pick<
   Database,
-  | 'getAiDebate'
-  | 'createDebateDocument'
-  | 'listDebateDocuments'
-  | 'saveDebateDocument'
-  | 'renameDebateDocument'
+  | 'getRound'
+  | 'createDocument'
+  | 'listDocuments'
+  | 'saveDocument'
+  | 'renameDocument'
+  | 'attachRoundDocument'
 >;
 
 /** The signed-in user and their competitive actor, resolved at the edge. */
@@ -50,10 +51,12 @@ export const conflictRevision = (error: unknown): number | null =>
 const templateOf = (id: string): TemplateId =>
   documentTemplates.find((template) => template.id === id)?.id ?? 'blank';
 
-const toStored = (record: DebateDocumentRecord): StoredDocument => ({
+const toStored = (record: DocumentRecord): StoredDocument => ({
   id: record.id,
   title: record.title,
-  folder: record.folder,
+  // The workspace names the two folders it shows; scratch documents
+  // surfaced here belong to the round's work.
+  folder: record.folder === 'library' ? 'library' : 'round',
   templateId: templateOf(record.templateId),
   html: record.html,
   createdAt: record.createdAt.toISOString(),
@@ -61,12 +64,20 @@ const toStored = (record: DebateDocumentRecord): StoredDocument => ({
   revision: record.revision,
 });
 
-const toSlot = (turn: AiDebateTurn, index: number): SpeechSlot => ({
+const toSlot = (
+  segment: {
+    readonly key: string;
+    readonly type: string;
+    readonly side: string;
+    readonly durationMs: number;
+  },
+  index: number,
+): SpeechSlot => ({
   id: `t${index}`,
-  code: turn.name,
-  side: turn.side === 'affirmative' ? 'aff' : 'neg',
-  kind: turn.kind === 'cross-examination' ? 'cross-ex' : 'speech',
-  durationMs: turn.durationMs,
+  code: segment.key,
+  side: segment.side === 'affirmative' ? 'aff' : 'neg',
+  kind: segment.type === 'cross_ex' ? 'cross-ex' : 'speech',
+  durationMs: segment.durationMs,
 });
 
 const normalized = (html: string) => {
@@ -78,10 +89,12 @@ const normalized = (html: string) => {
 };
 
 /**
- * The round room's document operations (ADR 0054). Every call names its
- * principal and reaches only that user's documents; an AI debate is opened
- * only by its own person. HTML is normalized before it is stored, and time
- * and ids come from the injected clock and generator.
+ * The round room's document operations (ADR 0054, ADR 0058 §9). Documents
+ * are the member's — owned by their actor, with no round FK; the round's
+ * workspace is a view over them carried by round_document_refs. Every call
+ * names its principal and reaches only their documents; a round is opened
+ * only by its own participant. HTML is normalized before it is stored, and
+ * time and ids come from the injected clock and generator.
  */
 export function createDebateDocumentOperations({
   store,
@@ -92,36 +105,53 @@ export function createDebateDocumentOperations({
   readonly clock: Clock;
   readonly ids: IdGenerator;
 }) {
-  const ownDebate = async (principal: DocumentPrincipal, id: string) => {
-    const record = await store.getAiDebate(id);
-    if (!record || record.actorId !== principal.actorId)
+  const ownRound = async (principal: DocumentPrincipal, id: string) => {
+    const round = await store.getRound(id);
+    if (
+      !round ||
+      !round.participants.some((seat) => seat.actorId === principal.actorId)
+    )
       throw createAppError('NOT_FOUND');
-    return record;
+    return round;
   };
-  const list = (principal: DocumentPrincipal, aiDebateId: string) =>
-    store.listDebateDocuments({ ownerUserId: principal.userId, aiDebateId });
 
   return {
     async listDocuments(
       principal: DocumentPrincipal,
-      { aiDebateId }: { readonly aiDebateId: string },
+      { roundId }: { readonly roundId: string },
     ): Promise<StoredDocument[]> {
-      await ownDebate(principal, aiDebateId);
-      return (await list(principal, aiDebateId)).map(toStored);
+      await ownRound(principal, roundId);
+      const records = await store.listDocuments({
+        ownerActorId: principal.actorId,
+        roundId,
+      });
+      return records.map(toStored);
     },
 
     async createDocument(
       principal: DocumentPrincipal,
       input: {
-        readonly aiDebateId: string;
+        readonly roundId: string;
         readonly folder: 'round' | 'library';
         readonly templateId: TemplateId;
       },
     ): Promise<StoredDocument> {
-      const debate = await ownDebate(principal, input.aiDebateId);
-      const existingTitles = (await list(principal, input.aiDebateId))
-        .filter((document) => document.folder === input.folder)
+      const round = await ownRound(principal, input.roundId);
+      const existingTitles = (
+        await store.listDocuments({
+          ownerActorId: principal.actorId,
+          roundId: input.roundId,
+        })
+      )
+        .filter((document) =>
+          input.folder === 'library'
+            ? document.folder === 'library'
+            : document.folder !== 'library',
+        )
         .map((document) => document.title);
+      const personSide =
+        round.participants.find((seat) => seat.actorId === principal.actorId)
+          ?.role ?? 'affirmative';
       const now = clock.now();
       const built = buildDocument({
         id: ids.next(),
@@ -130,21 +160,25 @@ export function createDebateDocumentOperations({
         templateId: input.templateId,
         existingTitles,
         context: {
-          side: debate.personSide === 'affirmative' ? 'aff' : 'neg',
-          speeches: aiDebateTurns.map(toSlot),
+          side: personSide === 'affirmative' ? 'aff' : 'neg',
+          speeches: round.rules.segments.map(toSlot),
           title: '',
         },
       });
-      const record = await store.createDebateDocument({
+      const record = await store.createDocument({
         id: built.id,
-        ownerUserId: principal.userId,
-        aiDebateId: input.folder === 'round' ? input.aiDebateId : null,
-        folder: input.folder,
-        templateId: built.templateId,
+        ownerActorId: principal.actorId,
         title: built.title.slice(0, TITLE_MAX),
         html: normalized(built.html),
-        createdAt: new Date(now),
+        templateId: built.templateId,
+        folder: input.folder === 'library' ? 'library' : 'scratch',
       });
+      if (input.folder === 'round')
+        await store.attachRoundDocument({
+          roundId: input.roundId,
+          documentId: record.id,
+          role: 'notes',
+        });
       return toStored(record);
     },
 
@@ -156,12 +190,11 @@ export function createDebateDocumentOperations({
         readonly expectedRevision: number;
       },
     ): Promise<{ readonly revision: number }> {
-      const saved = await store.saveDebateDocument({
+      const saved = await store.saveDocument({
         id: input.id,
-        ownerUserId: principal.userId,
+        ownerActorId: principal.actorId,
         html: normalized(input.html),
         expectedRevision: input.expectedRevision,
-        updatedAt: new Date(clock.now()),
       });
       if (saved.status === 'missing') throw createAppError('NOT_FOUND');
       if (saved.status === 'conflict') throw conflict(saved.revision);
@@ -175,11 +208,10 @@ export function createDebateDocumentOperations({
       const title = input.title.trim();
       if (title.length < 1 || title.length > TITLE_MAX)
         throw createAppError('VALIDATION', 'Title length');
-      const renamed = await store.renameDebateDocument({
+      const renamed = await store.renameDocument({
         id: input.id,
-        ownerUserId: principal.userId,
+        ownerActorId: principal.actorId,
         title,
-        updatedAt: new Date(clock.now()),
       });
       if (!renamed) throw createAppError('NOT_FOUND');
       return toStored(renamed);

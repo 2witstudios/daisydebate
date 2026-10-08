@@ -1,22 +1,34 @@
+import type { DebateSide } from '@daisy/protocol';
 import {
-  aiDebateTurns,
-  type AiDebateSide,
-  type AiDebateTurn,
-} from '@daisy/debate-engine';
+  ballotCategories,
+  ballotRubric,
+  ballotRubricVersion,
+} from '@daisy/protocol';
 import type { ChatMessage } from './openrouter';
 import { wordBudget } from './speech';
 
-/** One spoken line of the debate, in order. */
+/** One spoken line of the debate, in order, named by its segment key. */
 export type TranscriptEntry = {
-  readonly turnIndex: number;
+  /** The segment's key in the resolved schedule: AC, CX1, NC, … */
+  readonly turn: string;
   readonly role: 'person' | 'ai';
   readonly text: string;
 };
 
+/** One segment the AI speaks or asks in, as the prompts name it. */
+export type SpeechTurn = {
+  readonly index: number;
+  readonly name: string;
+  readonly label: string;
+  readonly kind: 'speech' | 'cross-examination';
+  readonly side: DebateSide;
+  readonly durationMs: number;
+};
+
 const sideOf = (
   role: TranscriptEntry['role'],
-  aiSide: AiDebateSide,
-): AiDebateSide =>
+  aiSide: DebateSide,
+): DebateSide =>
   role === 'ai'
     ? aiSide
     : aiSide === 'affirmative'
@@ -26,15 +38,14 @@ const sideOf = (
 /** The transcript from the AI's point of view: "you" is the AI. */
 export function renderTranscript(
   transcript: readonly TranscriptEntry[],
-  aiSide: AiDebateSide,
+  aiSide: DebateSide,
   you = 'you',
   them = 'opponent',
 ): string {
   return transcript
     .map((entry) => {
-      const name = aiDebateTurns[entry.turnIndex]?.name ?? '?';
       const who = entry.role === 'ai' ? you : them;
-      return `[${name} — ${sideOf(entry.role, aiSide)} (${who})] ${entry.text}`;
+      return `[${entry.turn} — ${sideOf(entry.role, aiSide)} (${who})] ${entry.text}`;
     })
     .join('\n');
 }
@@ -95,8 +106,8 @@ export function speechMessages({
   persona = DEFAULT_PERSONA,
 }: {
   readonly resolution: string;
-  readonly aiSide: AiDebateSide;
-  readonly turn: AiDebateTurn;
+  readonly aiSide: DebateSide;
+  readonly turn: SpeechTurn;
   readonly transcript: readonly TranscriptEntry[];
   readonly persona?: string | undefined;
 }): ChatMessage[] {
@@ -128,14 +139,14 @@ export function cxMessages({
   persona = DEFAULT_PERSONA,
 }: {
   readonly resolution: string;
-  readonly aiSide: AiDebateSide;
-  readonly turn: AiDebateTurn;
+  readonly aiSide: DebateSide;
+  readonly turn: SpeechTurn;
   readonly aiRole: 'asker' | 'answerer';
   readonly transcript: readonly TranscriptEntry[];
   readonly persona?: string | undefined;
 }): ChatMessage[] {
-  const exchange = transcript.filter((entry) => entry.turnIndex === turn.index);
-  const earlier = transcript.filter((entry) => entry.turnIndex < turn.index);
+  const exchange = transcript.filter((entry) => entry.turn === turn.name);
+  const earlier = transcript.filter((entry) => entry.turn !== turn.name);
   const task =
     aiRole === 'asker'
       ? exchange.length === 0
@@ -163,13 +174,23 @@ export function cxMessages({
   ];
 }
 
-/** The default judging instructions (versioned and tunable later). */
+/**
+ * The default judging instructions: the speaker rubric the ballot contract
+ * scores against (DEC-116), rendered from the protocol's own table.
+ */
 const DEFAULT_RUBRIC = [
   'You are an experienced, fair debate judge who judges like a thoughtful lay person.',
   'Decide who did the better job of persuading you the resolution is true or false, based only on what was said.',
-  'Weigh clash, the quality of reasoning and examples, arguments that were dropped or extended, and cross-examination.',
   'Do not reward invented evidence. Ignore transcription glitches. Do not intervene with your own arguments.',
-].join(' ');
+  'Score every category for both sides, 1 to 5, against these anchors:',
+  ...ballotRubric.flatMap((group) => [
+    `${group.name}:`,
+    ...group.categories.map(
+      (category) =>
+        `- ${category.name}: 1 = ${category.anchors[0]}; 3 = ${category.anchors[1]}; 5 = ${category.anchors[2]}`,
+    ),
+  ]),
+].join('\n');
 
 export function judgeMessages({
   resolution,
@@ -178,11 +199,11 @@ export function judgeMessages({
   rubric = DEFAULT_RUBRIC,
 }: {
   readonly resolution: string;
-  readonly personSide: AiDebateSide;
+  readonly personSide: DebateSide;
   readonly transcript: readonly TranscriptEntry[];
   readonly rubric?: string;
 }): ChatMessage[] {
-  const aiSide: AiDebateSide =
+  const aiSide: DebateSide =
     personSide === 'affirmative' ? 'negative' : 'affirmative';
   return [
     { role: 'system', content: rubric },
@@ -192,8 +213,8 @@ export function judgeMessages({
         `Resolution: "${resolution}". The human debater was ${personSide}; the AI was ${aiSide}.`,
         `Transcript:\n${renderTranscript(transcript, aiSide, 'AI', 'human')}`,
         'Return only a JSON object of this shape:',
-        '{"winner": "affirmative" | "negative", "reason": "two or three sentences explaining the decision", "speeches": [{"turn": "AC", "side": "affirmative", "strengths": "...", "improvements": "..."}], "tips": ["three concrete tips for the human debater"]}',
-        'Include one speeches entry for each speech (not cross-examination) that was given.',
+        `{"rubricVersion": "${ballotRubricVersion}", "winner": "affirmative" | "negative", "scores": {"affirmative": {${ballotCategories.map((category) => `"${category}": 1`).join(', ')}}, "negative": {${ballotCategories.map((category) => `"${category}": 1`).join(', ')}}}, "reason": "two or three sentences explaining the decision", "feedback": {"affirmative": "two sentences for the affirmative", "negative": "two sentences for the negative"}}`,
+        'Every category score is 1 to 5 against the anchors. Both sides get feedback on what to do differently next time.',
       ].join('\n\n'),
     },
   ];

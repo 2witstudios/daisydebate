@@ -1,37 +1,27 @@
 import { assertRejects } from '@daisy/errors/testing';
-import type {
-  DebaterStanding,
-  FormatRules,
-  RatingEligibilityFacts,
-} from '@daisy/protocol';
+import type { DebaterStanding, RatingEligibilityFacts } from '@daisy/protocol';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { rateDebate, ratingPolicy } from './rating';
 import { planRating, ratingEligibility } from './rating-decision';
 
 setupRitewayBun();
 
-const rules: FormatRules = {
-  version: 1,
-  seats: { affirmative: 1, negative: 1, judge: 1 },
-  clock: { speechMs: 240_000, prepMs: 60_000 },
-};
 const at = '2026-10-05T12:00:00.000Z';
 
 const completed: RatingEligibilityFacts = {
-  mode: 'ranked',
-  phase: 'completed',
+  competitionType: 'ranked',
+  ladderId: 'ranked',
+  status: 'completed',
   outcome: 'affirmative',
   completedAt: at,
-  rules,
-  format: { rules, rankedEligible: true },
   alreadyRated: false,
 };
 
 describe('ratingEligibility', () => {
-  test('rates a completed ranked or quick debate on canonical rules', () => {
+  test('rates a completed ranked round on its frozen ladder', () => {
     assert({
-      given: 'a completed ranked debate on canonical rules',
-      should: 'rate it on the ranked ladder with its outcome and completion',
+      given: 'a completed ranked round carrying the ranked ladder',
+      should: 'rate it on that ladder with its outcome and completion',
       actual: ratingEligibility(completed),
       expected: {
         kind: 'rated',
@@ -41,11 +31,11 @@ describe('ratingEligibility', () => {
       },
     });
     assert({
-      given: 'a completed quick match drawn',
+      given: 'a completed quick-length ranked round drawn',
       should: 'rate it on the quick ladder as a draw',
       actual: ratingEligibility({
         ...completed,
-        mode: 'quick',
+        ladderId: 'quick',
         outcome: 'draw',
       }),
       expected: {
@@ -57,82 +47,67 @@ describe('ratingEligibility', () => {
     });
   });
 
-  test('never rates unrated modes, abandoned debates or overridden rules', () => {
+  test('never rates unrated competition or an abandoned round', () => {
     assert({
-      given: 'casual and practice debates',
-      should: 'leave them unrated for their mode',
+      given: 'casual and practice rounds, which carry no ladder',
+      should: 'leave them unrated for their competition type',
       actual: [
-        ratingEligibility({ ...completed, mode: 'casual' }),
-        ratingEligibility({ ...completed, mode: 'practice' }),
+        ratingEligibility({
+          ...completed,
+          competitionType: 'casual',
+          ladderId: null,
+        }),
+        ratingEligibility({
+          ...completed,
+          competitionType: 'practice',
+          ladderId: null,
+        }),
       ],
       expected: [
-        { kind: 'unrated', reason: 'mode' },
-        { kind: 'unrated', reason: 'mode' },
+        { kind: 'unrated', reason: 'competition' },
+        { kind: 'unrated', reason: 'competition' },
       ],
     });
     assert({
-      given: 'an abandoned ranked debate',
+      given: 'an abandoned ranked round',
       should: 'leave it unrated',
-      actual: ratingEligibility({ ...completed, outcome: 'abandoned' }),
+      actual: ratingEligibility({
+        ...completed,
+        status: 'abandoned',
+        outcome: null,
+        completedAt: null,
+      }),
       expected: { kind: 'unrated', reason: 'abandoned' },
-    });
-    assert({
-      given: 'overridden rules or a format that is not ranked-eligible',
-      should: 'leave the debate unrated for its rules',
-      actual: [
-        ratingEligibility({
-          ...completed,
-          rules: { ...rules, clock: { speechMs: 1_000, prepMs: 0 } },
-        }),
-        ratingEligibility({
-          ...completed,
-          format: { rules, rankedEligible: false },
-        }),
-      ],
-      expected: [
-        { kind: 'unrated', reason: 'rules' },
-        { kind: 'unrated', reason: 'rules' },
-      ],
     });
   });
 
-  test('reports a debate that is already rated', () => {
+  test('reports a round that is already rated', () => {
     assert({
-      given: 'a rated debate that already has ledger rows',
+      given: 'a rated round that already has ledger rows',
       should: 'report it as already rated',
       actual: ratingEligibility({ ...completed, alreadyRated: true }),
       expected: { kind: 'already-rated' },
     });
     assert({
-      given: 'a rerun after the format left ranked play or changed its rules',
+      given: 'a rerun whose stored columns moved',
       should: 'still report it as already rated',
-      actual: [
-        ratingEligibility({
-          ...completed,
-          alreadyRated: true,
-          format: { rules, rankedEligible: false },
-        }),
-        ratingEligibility({
-          ...completed,
-          alreadyRated: true,
-          format: {
-            rules: { ...rules, version: 1, clock: { speechMs: 1, prepMs: 0 } },
-            rankedEligible: true,
-          },
-        }),
-      ],
-      expected: [{ kind: 'already-rated' }, { kind: 'already-rated' }],
+      actual: ratingEligibility({
+        ...completed,
+        alreadyRated: true,
+        ladderId: null,
+      }),
+      expected: { kind: 'already-rated' },
     });
   });
 
-  test('refuses a debate that has not completed', async () => {
+  test('refuses a round that has not completed', async () => {
     await assertRejects({
-      given: 'an active ranked debate',
+      given: 'an active ranked round',
       should: 'refuse as a conflict',
       actual: () =>
         ratingEligibility({
           ...completed,
-          phase: 'active',
+          status: 'active',
           outcome: null,
           completedAt: null,
         }),

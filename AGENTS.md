@@ -234,6 +234,13 @@ owner merge" to its parent and waits.
 
 ## Work management
 
+Codex must run the `pagespace` CLI outside its sandbox, requesting command
+escalation when required. The sandbox can block network access or access to
+the CLI's stored credentials; a failure inside it is not evidence that no
+credential exists. Retry sandbox-blocked PageSpace commands with escalation
+before diagnosing missing credentials or asking the owner to log in. Never
+print credentials or copy them into the worktree to bypass the sandbox.
+
 All repository work is planned in the PageSpace "Daisy Debate" drive
 (`lguvh1y1ejhadk96xcftohha`, via the `pagespace` CLI); its `Roadmap` page is the
 operating system. Work only on committed tasks: claim `Ready` leaves, advance

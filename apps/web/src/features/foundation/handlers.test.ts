@@ -1,5 +1,4 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { fixedClock } from '@daisy/clock';
 import { silentLogger } from '../../server/test-loggers.test-support';
 import { createProofHandlers } from './handlers';
 
@@ -11,12 +10,11 @@ const dependencies = {
   enabled: true,
   database: {
     getFormat: async () => null,
-    createDebate: async (): Promise<never> => {
+    createRound: async (): Promise<never> => {
       throw new Error('unreachable: refused before any durable work');
     },
-    getDebate: async () => null,
+    getRound: async () => null,
   },
-  clock: fixedClock('2026-01-01T00:00:00.000Z'),
   ids: { next: () => 'd5e8f2a4c6b1k3m7n9p2r4t6' },
 };
 

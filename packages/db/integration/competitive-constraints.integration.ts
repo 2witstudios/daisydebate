@@ -121,32 +121,40 @@ describe('formats and the debate format key (DATA-1.3)', () => {
   test('debates reference a known format that cannot be removed underneath them', async () => {
     await withFixture(url, async (fixture) => {
       const unknownFormat = await rejected(() =>
-        fixture.debate({ format_id: `fmt-${createId()}` }),
+        fixture.round({ format_id: `fmt-${createId()}` }),
       );
       const formatId = await fixture.format();
       const known = !(await rejected(() =>
-        fixture.debate({ format_id: formatId }),
+        fixture.round({ format_id: formatId }),
       ));
       const formatDeleteBlocked = await rejected(() =>
         fixture.sql.unsafe('delete from formats where id = $1', [formatId]),
       );
-      const shapelessRules = await fixture.rejectedBy('formats', {
-        id: `fmt-${createId()}`,
-        name: 'Shapeless',
-        rules: {},
-        ranked_eligible: false,
-      });
+      const shapelessDefinition = await fixture.rejectedBy(
+        'format_revisions',
+        {
+          format_id: `fmt-${createId()}`,
+          version: 1,
+          definition: [],
+        },
+        'format_id',
+      );
       assert({
         given:
-          'a debate whose format is unknown, one whose format exists, and a format with empty rules',
+          'a round whose format is unknown, one whose format exists, and a definition that is not an object',
         should:
-          'reject the unknown format, accept and protect the known one, and refuse rules without the version-1 shape',
-        actual: { unknownFormat, known, formatDeleteBlocked, shapelessRules },
+          'reject the unknown format, accept and protect the known one, and refuse a definition that is not an object',
+        actual: {
+          unknownFormat,
+          known,
+          formatDeleteBlocked,
+          shapelessDefinition,
+        },
         expected: {
           unknownFormat: true,
           known: true,
           formatDeleteBlocked: true,
-          shapelessRules: 'formats_rules_shape',
+          shapelessDefinition: 'format_revisions_definition_is_object',
         },
       });
     });

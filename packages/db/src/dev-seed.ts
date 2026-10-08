@@ -2,16 +2,18 @@ import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { sql } from 'drizzle-orm';
 import { actors } from './schema/actors';
-import { debates } from './schema/debates';
+import { roundParticipants } from './schema/round-participants';
+import { roundSegments } from './schema/round-segments';
+import { rounds } from './schema/rounds';
 import { seedVersions } from './schema/seed-versions';
 import { users } from './schema/users';
-import { projectParticipants } from './debate-operations';
-import { parseSnapshot, type NewDebate } from './debate-record';
+import type { RoundRules } from '@daisy/protocol';
 
 /**
  * Dev and demo content for `bun db:seed` (ISSUE-8 AC4): fixed-id people,
- * each with a human actor, and one debate. Reference data (the formats) is
- * not seed content; the migrations insert it (ADR 0038).
+ * each with a human actor, and one scheduled practice round. Reference
+ * data (formats, revisions, presets, bots) is not seed content; the
+ * migrations insert it (ADR 0038).
  */
 export type DevSeed = {
   /** The `seed_versions` row that records which content was applied. */
@@ -25,17 +27,30 @@ export type DevSeed = {
     readonly email?: string;
     readonly emailVerified?: boolean;
   }>;
-  readonly debate: NewDebate;
+  readonly round: {
+    readonly id: string;
+    readonly createdByActorId: string;
+    readonly resolution: string;
+    readonly formatId: string;
+    readonly formatVersion: number;
+    readonly rules: RoundRules;
+    readonly seats: ReadonlyArray<{
+      readonly id: string;
+      readonly actorId: string;
+      readonly role: 'affirmative' | 'negative';
+      readonly slot: number;
+    }>;
+  };
 };
 
 /**
  * Applies a dev seed in one transaction, idempotently: rerunning leaves
- * every seeded row byte-identical. A seeded debate that a developer
- * advanced returns to the seed's own snapshot, and its lifecycle
- * projections (`started_at`, `completed_at`, `outcome`) and seats return
- * with it, so the lifecycle CHECK never refuses the reset. The version
- * marker's `updated_at` moves only when the version changes. This is the
- * only path `bun db:seed` writes through; it is not part of
+ * every seeded row byte-identical. A seeded round a developer advanced
+ * returns to the seed's own state — status, stage, timestamps, outcome,
+ * checkpoint, execution segments (with their utterances) and seats — so
+ * the lifecycle CHECK never refuses the reset.
+ * The version marker's `updated_at` moves only when the version changes.
+ * This is the only path `bun db:seed` writes through; it is not part of
  * `createDatabase()`, because no running application seeds.
  */
 export async function applyDevSeed({
@@ -45,7 +60,6 @@ export async function applyDevSeed({
   readonly url: string;
   readonly seed: DevSeed;
 }): Promise<void> {
-  const snapshot = parseSnapshot(seed.debate.id, seed.debate.snapshot);
   const client = new SQL(url, { max: 1 });
   try {
     await drizzle({ client }).transaction(async (tx) => {
@@ -83,33 +97,68 @@ export async function applyDevSeed({
           });
       }
       await tx
-        .insert(debates)
+        .insert(rounds)
         .values({
-          id: seed.debate.id,
-          createdByActorId: seed.debate.createdBy ?? null,
-          resolution: seed.debate.resolution,
-          formatId: seed.debate.format,
-          snapshot,
-          mode: seed.debate.mode,
-          visibility: seed.debate.visibility,
-          phase: snapshot.phase,
+          id: seed.round.id,
+          createdByActorId: seed.round.createdByActorId,
+          resolution: seed.round.resolution,
+          competitionType: 'practice',
+          length: 'full',
+          formatId: seed.round.formatId,
+          formatVersion: seed.round.formatVersion,
+          presetVersion: null,
+          rulesSnapshot: seed.round.rules,
+          status: 'scheduled',
+          ladderId: null,
         })
         .onConflictDoUpdate({
-          target: debates.id,
+          target: rounds.id,
           set: {
             createdByActorId: sql`excluded.created_by_actor_id`,
             resolution: sql`excluded.resolution`,
             formatId: sql`excluded.format_id`,
-            snapshot: sql`excluded.snapshot`,
-            mode: sql`excluded.mode`,
-            phase: sql`excluded.phase`,
-            visibility: sql`excluded.visibility`,
+            formatVersion: sql`excluded.format_version`,
+            rulesSnapshot: sql`excluded.rules_snapshot`,
+            status: sql`excluded.status`,
+            currentStage: null,
+            outcome: null,
+            ladderId: sql`excluded.ladder_id`,
             startedAt: null,
             completedAt: null,
-            outcome: null,
+            // The checkpoint is lifecycle too: a seeded round that ran a prep
+            // must come back with no active prep and nothing consumed.
+            runtimeState: sql`excluded.runtime_state`,
           },
         });
-      await projectParticipants(tx, snapshot);
+      // Execution rows reconstruct the runtime; resetting only its checkpoint
+      // would resume the old speech. Segment deletion cascades to utterances.
+      await tx
+        .delete(roundSegments)
+        .where(sql`${roundSegments.roundId} = ${seed.round.id}`);
+      await tx
+        .delete(roundParticipants)
+        .where(
+          sql`${roundParticipants.roundId} = ${seed.round.id} and (${roundParticipants.role} <> 'affirmative' and ${roundParticipants.role} <> 'negative')`,
+        );
+      for (const seat of seed.round.seats) {
+        await tx
+          .insert(roundParticipants)
+          .values({
+            id: seat.id,
+            roundId: seed.round.id,
+            actorId: seat.actorId,
+            role: seat.role,
+            slot: seat.slot,
+          })
+          .onConflictDoUpdate({
+            target: roundParticipants.id,
+            set: {
+              actorId: sql`excluded.actor_id`,
+              role: sql`excluded.role`,
+              slot: sql`excluded.slot`,
+            },
+          });
+      }
       await tx
         .insert(seedVersions)
         .values({ seedName: seed.name, version: seed.version })

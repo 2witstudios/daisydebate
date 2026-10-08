@@ -1,19 +1,21 @@
-import {
-  aiDebateTurns,
-  turnRoles,
-  type AiDebateSide,
-  type AiDebateState,
-} from '@daisy/debate-engine';
+import type { DebateSide } from '@daisy/protocol';
 import type { ReactNode } from 'react';
 import type { Bot } from '../../../features/train/bots';
+import type {
+  AiDebateView,
+  UiState,
+} from '../../../features/ai-debate/context';
+import { segmentAt } from '../../../features/ai-debate/context';
 import { BotPortrait } from '../../components/bot-portrait/bot-portrait';
 import { cn } from '../../cn';
 import { sideName } from './parts';
 
 /** Who holds the floor: the speaker, or in cross-examination the asker. */
-function floorOf(state: AiDebateState, personSide: AiDebateSide) {
+function floorOf(state: UiState, view: AiDebateView, personSide: DebateSide) {
   if (state.phase !== 'live') return null;
-  return turnRoles(aiDebateTurns[state.turnIndex]!, personSide).speaker;
+  return segmentAt(view, state.segmentIndex).side === personSide
+    ? 'person'
+    : 'ai';
 }
 
 /** Microphone level steps for the four meter bars (RMS, 0..1). */
@@ -49,7 +51,7 @@ function Tile({
   children,
 }: {
   readonly name: string;
-  readonly side: AiDebateSide;
+  readonly side: DebateSide;
   readonly onFloor: boolean;
   readonly corner?: ReactNode;
   readonly children: ReactNode;
@@ -85,20 +87,22 @@ function Tile({
 export function Stage({
   bot,
   personSide,
+  view,
   state,
   speaking,
   level,
   listening,
 }: {
   readonly bot: Bot;
-  readonly personSide: AiDebateSide;
-  readonly state: AiDebateState;
+  readonly personSide: DebateSide;
+  readonly view: AiDebateView;
+  readonly state: UiState;
   readonly speaking: boolean;
   readonly level: number;
   /** The microphone is open. */
   readonly listening: boolean;
 }) {
-  const floor = floorOf(state, personSide);
+  const floor = floorOf(state, view, personSide);
   const aiSide = personSide === 'affirmative' ? 'negative' : 'affirmative';
   return (
     <ul

@@ -37,59 +37,65 @@ const errorCode = async (response: Response) =>
 test('proof vertical: validated create, durable store, restored read', async () => {
   const created = await post({ resolution: '  Integration proof  ' });
   const snapshot = (await created.json()) as {
-    version: number;
     id: string;
     resolution: string;
-    phase: string;
-    participants: unknown[];
+    format: string;
+    formatVersion: number;
+    rules: { version: number };
+    status: string;
   };
   createdIds.push(snapshot.id);
   const loaded = await fetchById(snapshot.id);
   const restored = (await loaded.json()) as {
     id: string;
-    phase: string;
+    status: string;
     format: string;
-    rules: unknown;
+    formatVersion: number;
+    rules: { version: number };
   };
-  const [format] = await withSql(
-    (sql) => sql`select rules from formats where id = 'foundation'`,
-  );
   assert({
     given: 'a proof debate created with a padded resolution, then read back',
     should:
-      'answer 201 with a request id and a trimmed waiting snapshot, then restore it carrying the canonical foundation rules',
+      'answer 201 with a request id and a trimmed scheduled round, then restore it carrying the canonical foundation rules',
     actual: {
       created: {
-        status: created.status,
+        httpStatus: created.status,
         requestId: created.headers.get('x-request-id') !== null,
-        version: snapshot.version,
+        id: snapshot.id,
         resolution: snapshot.resolution,
-        phase: snapshot.phase,
-        participants: snapshot.participants,
+        format: snapshot.format,
+        formatVersion: snapshot.formatVersion,
+        rulesVersion: snapshot.rules.version,
+        status: snapshot.status,
       },
       loaded: {
-        status: loaded.status,
+        httpStatus: loaded.status,
         id: restored.id,
-        phase: restored.phase,
+        status: restored.status,
         format: restored.format,
-        rules: restored.rules,
+        formatVersion: restored.formatVersion,
+        rulesVersion: restored.rules.version,
       },
     },
     expected: {
       created: {
-        status: 201,
+        httpStatus: 201,
         requestId: true,
-        version: 1,
+        id: snapshot.id,
         resolution: 'Integration proof',
-        phase: 'waiting',
-        participants: [],
+        format: 'foundation',
+        formatVersion: 1,
+        // Resolved RoundRules, not a copy of the definition (ADR 0058 §6).
+        rulesVersion: 2,
+        status: 'scheduled',
       },
       loaded: {
-        status: 200,
+        httpStatus: 200,
         id: snapshot.id,
-        phase: 'waiting',
+        status: 'scheduled',
         format: 'foundation',
-        rules: format?.rules,
+        formatVersion: 1,
+        rulesVersion: 2,
       },
     },
   });
@@ -145,7 +151,6 @@ test('proof vertical rejects invalid, cross-origin, and unknown requests', async
 
 afterAll(() =>
   withSql(async (sql) => {
-    for (const id of createdIds)
-      await sql`DELETE FROM debates WHERE id = ${id}`;
+    for (const id of createdIds) await sql`DELETE FROM rounds WHERE id = ${id}`;
   }),
 );

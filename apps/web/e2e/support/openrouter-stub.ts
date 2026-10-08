@@ -5,6 +5,8 @@
  * transcript, a little silent audio and a fixed ballot. Test-only, wired
  * through `createApp`'s `fetch` like the mail capture.
  */
+import { ballotCategories, ballotRubricVersion } from '@daisy/protocol';
+
 const OPENROUTER = 'https://openrouter.ai/api/v1/';
 
 /** The e2e server stubs OpenRouter whenever its key is this placeholder. */
@@ -15,18 +17,20 @@ export const STUB_SPEECH =
   'Thank you, judge. I stand firmly against the resolution.';
 export const STUB_REPLY = 'What is your strongest example?';
 export const STUB_TRANSCRIPT = 'My first contention is that it helps people.';
+const stubScores = (score: number) =>
+  ballotCategories.reduce<Record<string, number>>((scores, category) => {
+    scores[category] = score;
+    return scores;
+  }, {});
 export const STUB_BALLOT = {
+  rubricVersion: ballotRubricVersion,
   winner: 'affirmative',
+  scores: {
+    affirmative: stubScores(4),
+    negative: stubScores(3),
+  },
   reason: 'The affirmative answered every argument the negative made.',
-  speeches: [
-    {
-      turn: 'AC',
-      side: 'affirmative',
-      strengths: 'A clear first contention.',
-      improvements: 'Give a concrete example.',
-    },
-  ],
-  tips: ['Signpost each contention.'],
+  feedback: { affirmative: 'Clear claims and direct answers.' },
 };
 
 /** 0.25 s of silent 16-bit mono WAV, which the browser decodes like mp3. */

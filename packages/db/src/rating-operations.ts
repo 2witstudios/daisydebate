@@ -1,8 +1,6 @@
-import { createAppError } from '@daisy/errors';
+import { createAppError, createInvariantError } from '@daisy/errors';
 import {
   debateSides,
-  formatRulesSchema,
-  type DebateRole,
   type DebaterStanding,
   type PlannedRatingChange,
   type RatingLadder,
@@ -10,21 +8,19 @@ import {
 } from '@daisy/protocol';
 import { and, desc, eq, inArray, max, ne, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import { parseSnapshot } from './debate-record';
 import type { RateDebateInput, RateDebateResult } from './rating-facts';
-import { debateParticipants } from './schema/debate-participants';
-import { debates } from './schema/debates';
-import { formats } from './schema/formats';
+import { roundParticipants } from './schema/round-participants';
+import { rounds } from './schema/rounds';
 import { ratingChanges, ratings, seasons } from './schema/ratings';
 
 /**
- * Rates one completed debate (ADR 0055) as a thin transactional shell: it
- * locks the debate, loads the facts, asks the injected domain decision
- * (`@daisy/debate-engine`'s `ratingDecision`, composed by the caller because
- * an adapter never decides domain rules) and writes what it decides. Two
- * ledger rows and both projections commit together or not at all; a rerun
- * finds the ledger rows and writes nothing; a projection that moved under a
- * concurrent debate is retried from fresh facts.
+ * Rates one completed round (ADR 0055, ADR 0058) as a thin transactional
+ * shell: it locks the round, asserts its frozen integrity, asks the
+ * injected domain decision (`@daisy/debate-engine`'s decision, composed by
+ * the caller because an adapter never decides domain rules) and writes what
+ * it decides. Two ledger rows and both projections commit together or not
+ * at all; a rerun finds the ledger rows and writes nothing; a projection
+ * that moved under a concurrent write is retried from fresh facts.
  */
 
 type Tx = Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0];
@@ -132,64 +128,66 @@ async function writeProjection(
 }
 
 /**
- * The debate's format, its rules parsed at the trust boundary as `getFormat`
- * does: the CHECK keeps only their outline.
+ * Rated-round integrity (ADR 0058 §8): corruption protection on frozen
+ * columns, never a decision. A ranked round carries a preset version whose
+ * provenance the composite FK proves structurally; if any of that fails
+ * here the round was corrupted after creation, and the failure is an
+ * invariant, not an `{ kind: 'unrated', reason: … }`.
  */
-async function loadFormat(tx: Tx, formatId: string) {
-  const [format] = await tx
-    .select({ rules: formats.rules, rankedEligible: formats.rankedEligible })
-    .from(formats)
-    .where(eq(formats.id, formatId));
-  if (!format) throw createAppError('INTERNAL', 'A debate has no format');
-  const rules = formatRulesSchema.safeParse(format.rules);
-  if (!rules.success)
-    throw createAppError('INTERNAL', 'Stored format rules are invalid');
-  return { rules: rules.data, rankedEligible: format.rankedEligible };
+function assertRatedRoundIntegrity(round: typeof rounds.$inferSelect): void {
+  if (round.competitionType === 'ranked') {
+    if (round.presetVersion === null || round.ladderId === null)
+      throw createInvariantError(
+        'round.rating.integrity',
+        'A ranked round pins its preset and ladder',
+      );
+    return;
+  }
+  if (round.presetVersion !== null || round.ladderId !== null)
+    throw createInvariantError(
+      'round.rating.integrity',
+      'Only a ranked round carries a preset or a ladder',
+    );
 }
 
 async function rateOnce(
   tx: Tx,
-  { debateId, changeIds, decide }: RateDebateInput,
+  { roundId, changeIds, decide }: RateDebateInput,
 ): Promise<RateDebateResult> {
-  const [debate] = await tx
+  const [round] = await tx
     .select()
-    .from(debates)
-    .where(eq(debates.id, debateId))
+    .from(rounds)
+    .where(eq(rounds.id, roundId))
     .for('update');
-  if (!debate) throw createAppError('NOT_FOUND', 'No such debate');
-  const format = await loadFormat(tx, debate.formatId);
+  if (!round) throw createAppError('NOT_FOUND', 'No such round');
+  assertRatedRoundIntegrity(round);
   const [rated] = await tx
     .select({ id: ratingChanges.id })
     .from(ratingChanges)
-    .where(eq(ratingChanges.debateId, debateId))
+    .where(eq(ratingChanges.roundId, roundId))
     .limit(1);
   const eligibility = decide.eligibility({
-    mode: debate.mode,
-    phase: debate.phase,
-    outcome: debate.outcome,
-    completedAt: debate.completedAt?.toISOString() ?? null,
-    rules: parseSnapshot(debateId, debate.snapshot).rules,
-    format,
+    competitionType: round.competitionType,
+    ladderId: round.ladderId,
+    status: round.status,
+    outcome: round.outcome,
+    completedAt: round.completedAt?.toISOString() ?? null,
     alreadyRated: rated !== undefined,
   });
   if (eligibility.kind !== 'rated') return eligibility;
 
-  const seatRows = await tx
+  const seats = await tx
     .select({
-      actorId: debateParticipants.actorId,
-      role: debateParticipants.role,
+      actorId: roundParticipants.actorId,
+      role: roundParticipants.role,
     })
-    .from(debateParticipants)
+    .from(roundParticipants)
     .where(
       and(
-        eq(debateParticipants.debateId, debateId),
-        inArray(debateParticipants.role, [...debateSides]),
+        eq(roundParticipants.roundId, roundId),
+        inArray(roundParticipants.role, [...debateSides]),
       ),
     );
-  const seats = seatRows.filter(
-    (seat): seat is { actorId: string; role: DebateRole } =>
-      (debateSides as readonly string[]).includes(seat.role),
-  );
   const [season] = await tx
     .select({ id: seasons.id })
     .from(seasons)
@@ -200,7 +198,7 @@ async function rateOnce(
   for (const { actorId } of seats)
     standings[actorId] = await loadStanding(tx, {
       actorId,
-      formatId: debate.formatId,
+      formatId: round.formatId,
       ladder: eligibility.ladder,
       seasonId,
     });
@@ -215,7 +213,7 @@ async function rateOnce(
     changeIds,
   });
   const scope = {
-    formatId: debate.formatId,
+    formatId: round.formatId,
     seasonId: plan.seasonId,
     ladder: plan.ladder,
   };
@@ -223,7 +221,7 @@ async function rateOnce(
     plan.changes.map((change) => ({
       ...scope,
       id: change.changeId,
-      debateId,
+      roundId,
       actorId: change.actorId,
       ratingBefore: change.before.rating,
       ratingAfter: change.after.rating,
@@ -235,7 +233,7 @@ async function rateOnce(
       occurredAt: new Date(plan.occurredAt),
     })),
   );
-  // Stable actor order: two debates between the same pair with sides swapped
+  // Stable actor order: two rounds between the same pair with sides swapped
   // would otherwise lock the two projections in opposite orders and deadlock.
   const byActor = [...plan.changes].sort((a, b) =>
     a.actorId < b.actorId ? -1 : a.actorId > b.actorId ? 1 : 0,
@@ -254,7 +252,7 @@ async function rateOnce(
   };
 }
 
-export async function rateCompletedDebate(
+export async function rateCompletedRound(
   database: BunSQLDatabase,
   input: RateDebateInput,
 ): Promise<RateDebateResult> {
@@ -266,7 +264,7 @@ export async function rateCompletedDebate(
       if (attempt >= ATTEMPTS)
         throw createAppError(
           'CONFLICT',
-          'Ratings kept changing while this debate was rated',
+          'Ratings kept changing while this round was rated',
         );
     }
   }

@@ -16,7 +16,9 @@ upserts the fixed local seed and its durable version marker, launches the
 web and realtime (ADR 0031) development tasks, waits for web's
 `/api/health/ready` and realtime's own `/health/ready`, and prints the web
 URL, the realtime URL, seeded development identities, and seed version. It
-does not print database URLs or passwords. Use `bun dev` when `bun slot:up`
+does not print database URLs or passwords. Reseeding returns the practice
+round to its scheduled state, clearing its runtime checkpoint, execution
+segments and their utterances so it starts a fresh schedule. Use `bun dev` when `bun slot:up`
 has already run; it also migrates the test database, so integration tests
 need nothing more: every `bun test:integration` run makes, migrates and drops a
 database of its own from it (ADR 0034), and a suite started by hand with

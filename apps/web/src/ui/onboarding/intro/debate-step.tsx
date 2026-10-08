@@ -1,9 +1,9 @@
 import Link from 'next/link';
+import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import {
-  aiDebatePrepMs,
-  aiDebateTurns,
-  type AiDebateTurn,
-} from '@daisy/debate-engine';
+  oneOnOneDefinition,
+  practiceRoomConfig,
+} from '@daisy/db/reference-formats';
 import { cn } from '../../cn';
 import { NextLink, OnboardingFrame, StepFooter } from '../frame/frame';
 import { heading, type IntroStepProps } from './intro';
@@ -27,7 +27,7 @@ const grow: Record<number, string> = {
 
 const minutesOf = (ms: number) => ms / 60_000;
 
-function segmentClass(turn: AiDebateTurn): string {
+function segmentClass(turn: IntroTurn): string {
   const affirmative = turn.side === 'affirmative';
   if (turn.kind === 'cross-examination')
     return affirmative
@@ -38,14 +38,38 @@ function segmentClass(turn: AiDebateTurn): string {
     : 'bg-hue-clay text-surface-raised';
 }
 
-const turnText = (turn: AiDebateTurn) =>
+/** The schedule the intro shows: the practice room's resolved segments. */
+const introRules = (() => {
+  const resolved = resolveRoomConfiguration(
+    oneOnOneDefinition,
+    practiceRoomConfig,
+  );
+  if (!resolved.ok) throw new Error(resolved.refusal.message);
+  return resolved.rules;
+})();
+const introTurns = introRules.segments.map((segment, index) => ({
+  index,
+  name: segment.key,
+  label: segment.label,
+  kind:
+    segment.type === 'cross_ex'
+      ? ('cross-examination' as const)
+      : ('speech' as const),
+  side: segment.side,
+  durationMs: segment.durationMs,
+}));
+type IntroTurn = (typeof introTurns)[number];
+
+const turnText = (turn: IntroTurn) =>
   `${turn.side === 'affirmative' ? 'Aff' : 'Neg'} ${
-    turn.kind === 'cross-examination' ? 'questions' : plainName[turn.name]
+    turn.kind === 'cross-examination'
+      ? 'questions'
+      : (plainName[turn.name] ?? turn.label)
   } ${minutesOf(turn.durationMs)} min`;
 
-/** Step 3: how a debate runs, drawn from the engine's turn table. */
+/** Step 3: how a debate runs, drawn from the resolved schedule. */
 export function DebateStep({ nextHref, backHref, skip }: IntroStepProps) {
-  const speaking = aiDebateTurns.reduce(
+  const speaking = introTurns.reduce(
     (sum, turn) => sum + minutesOf(turn.durationMs),
     0,
   );
@@ -59,7 +83,7 @@ export function DebateStep({ nextHref, backHref, skip }: IntroStepProps) {
     [
       'Q&A',
       `After each opening case, the other side has ${minutesOf(
-        aiDebateTurns.find((turn) => turn.kind === 'cross-examination')
+        introTurns.find((turn) => turn.kind === 'cross-examination')
           ?.durationMs ?? 0,
       )} minutes to question the speaker directly.`,
       '/watch',
@@ -97,10 +121,10 @@ export function DebateStep({ nextHref, backHref, skip }: IntroStepProps) {
       </div>
       <div className="flex flex-col gap-2">
         <ol
-          aria-label={`Turn order: ${aiDebateTurns.map(turnText).join(', ')}`}
+          aria-label={`Turn order: ${introTurns.map(turnText).join(', ')}`}
           className="flex h-onboarding-bar gap-1"
         >
-          {aiDebateTurns.map((turn) => (
+          {introTurns.map((turn) => (
             <li
               key={turn.index}
               aria-hidden="true"
@@ -118,7 +142,7 @@ export function DebateStep({ nextHref, backHref, skip }: IntroStepProps) {
           aria-hidden="true"
           className="flex gap-1 text-xs text-ink-muted tabular-nums"
         >
-          {aiDebateTurns.map((turn) => (
+          {introTurns.map((turn) => (
             <span
               key={turn.index}
               className={cn(
@@ -131,7 +155,7 @@ export function DebateStep({ nextHref, backHref, skip }: IntroStepProps) {
           ))}
         </div>
         <p className="text-sm text-ink-muted">
-          {`${speaking} minutes of speaking, plus ${minutesOf(aiDebatePrepMs)} minutes of prep you can spend between turns.`}
+          {`${speaking} minutes of speaking, plus ${minutesOf(introRules.inRoundPrep?.budgetMsPerSide ?? 0)} minutes of prep you can spend between turns.`}
         </p>
       </div>
       <div className="grid grid-cols-3 gap-6 max-narrow:grid-cols-1">

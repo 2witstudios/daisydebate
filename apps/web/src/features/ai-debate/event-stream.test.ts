@@ -14,6 +14,46 @@ async function* events(...values: string[]) {
 }
 
 describe('eventStream', () => {
+  test('keeps an idle speech stream alive while the next segment opens', async () => {
+    let release = () => {};
+    let pulse = () => {};
+    async function* delayed() {
+      yield { type: 'utterance' };
+      await new Promise<void>((resolve) => (release = resolve));
+      yield { type: 'phrase' };
+    }
+    const source = delayed();
+    const first = await source.next();
+    const reader = eventStream({
+      first,
+      events: source,
+      abort: () => {},
+      onFailure: () => {},
+      heartbeat: (next) => {
+        pulse = next;
+        return () => {};
+      },
+    }).getReader();
+    const decode = (chunk: Uint8Array | undefined) =>
+      new TextDecoder().decode(chunk);
+    const firstChunk = decode((await reader.read()).value);
+    pulse();
+    const keepalive = decode((await reader.read()).value);
+    release();
+    const phrase = decode((await reader.read()).value);
+    await reader.cancel();
+    assert({
+      given: 'a model stream paused after its utterance id',
+      should: 'send an ignorable blank line and then the next phrase',
+      actual: { firstChunk, keepalive, phrase },
+      expected: {
+        firstChunk: '{"type":"utterance"}\n',
+        keepalive: '\n',
+        phrase: '{"type":"phrase"}\n',
+      },
+    });
+  });
+
   test('sends each event as a line, then done', async () => {
     const source = events('a', 'b');
     const first = await source.next();

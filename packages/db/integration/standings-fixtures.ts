@@ -1,5 +1,6 @@
 import { createId } from '@paralleldrive/cuid2';
-import { snapshotFor, type Fixture } from './constraint-helpers';
+import type { Fixture } from './constraint-helpers';
+import { validRules } from './round-fixtures';
 
 /** Fixtures for the standings reads suite (RATE-1.4.1). */
 
@@ -23,7 +24,7 @@ export const season = async (
   return id;
 };
 
-/** A completed debate between two actors, outcome as given. */
+/** A completed ranked round between two actors, outcome as given. */
 export const completed = async (
   fixture: Fixture,
   input: {
@@ -34,18 +35,25 @@ export const completed = async (
   },
 ) => {
   const id = createId();
-  await fixture.insert('debates', {
+  // A ranked round is constructed from a sanctioned preset, so it pins one.
+  await fixture.preset(input.formatId, 'full');
+  await fixture.insert('rounds', {
     id,
+    room_id: null,
     created_by_actor_id: null,
-    resolution: 'r',
+    resolution: 'A resolution',
+    competition_type: 'ranked',
+    length: 'full',
     format_id: input.formatId,
-    snapshot: snapshotFor(id, { phase: 'completed' }),
-    mode: 'ranked',
-    phase: 'completed',
-    visibility: 'public',
+    format_version: 1,
+    preset_version: 1,
+    rules_snapshot: validRules,
+    status: 'completed',
+    current_stage: null,
+    outcome: input.outcome,
+    ladder_id: 'ranked',
     started_at: at(5, 11),
     completed_at: at(5),
-    outcome: input.outcome,
   });
   await fixture.participant(id, 'affirmative', 0, input.affirmative);
   await fixture.participant(id, 'negative', 0, input.negative);
@@ -55,7 +63,7 @@ export const completed = async (
 export const change = (
   fixture: Fixture,
   row: {
-    debateId: string;
+    roundId: string;
     actorId: string;
     formatId: string;
     seasonId: string;
@@ -67,7 +75,7 @@ export const change = (
 ) =>
   fixture.insert('rating_changes', {
     id: createId(),
-    debate_id: row.debateId,
+    round_id: row.roundId,
     actor_id: row.actorId,
     format_id: row.formatId,
     season_id: row.seasonId,
@@ -106,11 +114,16 @@ export const rating = (
     'actor_id',
   );
 
+/**
+ * A named format. There is no `ranked_eligible` flag to set: ratedness is
+ * constructed from a sanctioned preset (ADR 0058 §4), so a fixture that needs a
+ * ranked round calls `preset` against the format this returns.
+ */
 export const formatNamed = async (fixture: Fixture, name: string) => {
   const id = await fixture.format();
-  await fixture.sql.unsafe(
-    'update formats set ranked_eligible = true, name = $2 where id = $1',
-    [id, name],
-  );
+  await fixture.sql.unsafe('update formats set name = $2 where id = $1', [
+    id,
+    name,
+  ]);
   return id;
 };

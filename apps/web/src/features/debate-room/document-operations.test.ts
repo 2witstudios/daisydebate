@@ -16,7 +16,7 @@ describe('listDocuments', () => {
   test('the person’s own debate lists their documents', async () => {
     const { operations } = operationsOver([stored()]);
     const listed = await operations.listDocuments(me, {
-      aiDebateId: 'debate-1',
+      roundId: 'debate-1',
     });
     assert({
       given: 'one stored round document',
@@ -42,14 +42,13 @@ describe('listDocuments', () => {
     await assertRejects({
       given: 'a debate that belongs to another actor',
       should: 'refuse it as not found',
-      actual: () =>
-        operations.listDocuments(stranger, { aiDebateId: 'debate-1' }),
+      actual: () => operations.listDocuments(stranger, { roundId: 'debate-1' }),
       code: 'NOT_FOUND',
     });
     await assertRejects({
       given: 'an unknown debate',
       should: 'refuse it as not found',
-      actual: () => operations.listDocuments(me, { aiDebateId: 'missing' }),
+      actual: () => operations.listDocuments(me, { roundId: 'missing' }),
       code: 'NOT_FOUND',
     });
   });
@@ -59,7 +58,7 @@ describe('createDocument', () => {
   test('a round flow is built for the person’s side and stored normalized', async () => {
     const { operations, documents } = operationsOver([stored()]);
     const created = await operations.createDocument(me, {
-      aiDebateId: 'debate-1',
+      roundId: 'debate-1',
       folder: 'round',
       templateId: 'flow',
     });
@@ -69,7 +68,8 @@ describe('createDocument', () => {
       actual: {
         title: created.title,
         revision: created.revision,
-        aiDebateId: documents.get('doc-new')?.aiDebateId,
+        folder: documents.get('doc-new')?.folder,
+        scoped: documents.get('doc-new') !== undefined,
         yours: created.html.includes('NC · Neg · You'),
         stored: documents.get('doc-new')?.html === created.html,
         lines: created.html.includes('\n'),
@@ -77,7 +77,8 @@ describe('createDocument', () => {
       expected: {
         title: 'Flow 2',
         revision: 1,
-        aiDebateId: 'debate-1',
+        folder: 'scratch',
+        scoped: true,
         yours: true,
         stored: true,
         lines: true,
@@ -88,19 +89,15 @@ describe('createDocument', () => {
   test('a library document has no debate and its own titles', async () => {
     const { operations, documents } = operationsOver([stored()]);
     const created = await operations.createDocument(me, {
-      aiDebateId: 'debate-1',
+      roundId: 'debate-1',
       folder: 'library',
       templateId: 'flow',
     });
     assert({
       given: 'a round "Flow" and a new library flow',
       should: 'store it without a debate, titled "Flow"',
-      actual: [
-        created.folder,
-        created.title,
-        documents.get('doc-new')?.aiDebateId,
-      ],
-      expected: ['library', 'Flow', null],
+      actual: [created.folder, created.title, documents.get('doc-new')?.folder],
+      expected: ['library', 'Flow', 'library'],
     });
   });
 
@@ -111,7 +108,7 @@ describe('createDocument', () => {
       should: 'refuse it and store nothing',
       actual: () =>
         operations.createDocument(stranger, {
-          aiDebateId: 'debate-1',
+          roundId: 'debate-1',
           folder: 'library',
           templateId: 'blank',
         }),
