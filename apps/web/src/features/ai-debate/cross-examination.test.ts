@@ -112,4 +112,28 @@ describe('the AI opens its own cross-examination', () => {
       expected: { hasReply: true, phrases: 1 },
     });
   });
+
+  test('two simultaneous opening requests produce one AI question', async () => {
+    const { operations, begin, clock } = setup();
+    const id = await begin();
+    await openFirstCrossExamination(operations, clock, id);
+    const segmentIndex = 1;
+    const input = { actorId: 'actor-1', id, segmentIndex };
+    const replies = await Promise.all([
+      operations.crossExamine(input),
+      operations.crossExamine(input),
+    ]);
+    const after = await operations.view({ actorId: 'actor-1', id });
+    assert({
+      given: 'two requests opening the same AI cross-examination',
+      should: 'return and persist exactly one question',
+      actual: {
+        replies: replies.filter((reply) => reply.reply !== null).length,
+        lines: after.utterances.filter(
+          (line) => line.segmentIndex === segmentIndex,
+        ).length,
+      },
+      expected: { replies: 1, lines: 1 },
+    });
+  });
 });

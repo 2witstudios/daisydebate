@@ -5,8 +5,45 @@ import {
 import { createAppError } from '@daisy/errors';
 import type { RoundStore } from './context';
 import { assemblyMethods } from './round-store-assembly.test-support';
-import { createFakeRoundState } from './round-store-state.test-support';
+import {
+  createFakeRoundState,
+  type FakeRoundState,
+} from './round-store-state.test-support';
 import { usageMethods } from './round-store-usage.test-support';
+
+type FakeLine =
+  FakeRoundState['utteranceRows'] extends Map<string, (infer T)[]> ? T : never;
+
+const updateFakeSpeechClaim = (
+  row: FakeLine,
+  input: Parameters<RoundStore['replaceUtterance']>[0],
+  now: number,
+) => {
+  if (input.speechToken !== undefined) {
+    if (
+      row.generationToken !== input.speechToken ||
+      (row.generationExpiresAt ?? 0) <= now
+    )
+      throw createAppError('CONFLICT', 'Speech claim expired');
+    row.generationExpiresAt = input.complete === true ? null : now + 120_000;
+    if (input.complete === true) row.generationToken = null;
+  } else if (row.generationToken)
+    throw createAppError('CONFLICT', 'Speech claim required');
+};
+
+const claimExistingFakeSpeech = (
+  row: FakeLine,
+  input: Parameters<RoundStore['claimSpeech']>[0],
+  now: number,
+) => {
+  if (row.complete) return { status: 'complete' as const, utteranceId: row.id };
+  if ((row.generationExpiresAt ?? 0) > now)
+    return { status: 'held' as const, utteranceId: row.id };
+  row.text = '';
+  row.generationToken = input.token;
+  row.generationExpiresAt = now + 120_000;
+  return { status: 'claimed' as const, utteranceId: row.id };
+};
 
 /**
  * An in-memory RoundStore with the operations' real write semantics — the
@@ -129,6 +166,11 @@ export function createInMemoryRoundStore() {
         if (!segment) throw createAppError('NOT_FOUND', 'No such segment');
         if (input.requireOpen && segment.endedAt !== null)
           throw createAppError('CONFLICT', 'The segment is closed');
+        if (
+          input.requireEmptySegment &&
+          rows.some((row) => row.segmentId === input.segmentId)
+        )
+          return false;
         rows.push({
           id: input.id,
           roundId: input.roundId,
@@ -138,6 +180,7 @@ export function createInMemoryRoundStore() {
           complete: input.complete ?? true,
           createdAt: new Date(state.now()),
         });
+        return true;
       },
 
       async replaceUtterance(
@@ -146,6 +189,7 @@ export function createInMemoryRoundStore() {
         const rows = state.utteranceRows.get(input.roundId) ?? [];
         const row = rows.find((candidate) => candidate.id === input.id);
         if (!row) return;
+        updateFakeSpeechClaim(row, input, state.now());
         row.text = input.text;
         if (input.complete !== undefined) row.complete = input.complete;
       },
@@ -161,20 +205,41 @@ export function createInMemoryRoundStore() {
         }));
       },
 
-      async submitBallot(input: Parameters<RoundStore['submitBallot']>[0]) {
-        const existing = state.ballotRows.get(input.judgeParticipantId);
-        if (existing) return { stored: false };
-        state.ballotRows.set(input.judgeParticipantId, {
-          id: input.ballotId,
-          judgeParticipantId: input.judgeParticipantId,
-          rubricVersion: input.ballot.rubricVersion,
-          winner: input.ballot.winner,
-          scores: input.ballot.scores,
-          reason: input.ballot.reason,
-          feedback: input.ballot.feedback,
-          status: 'submitted',
+      async claimSpeech(input: Parameters<RoundStore['claimSpeech']>[0]) {
+        const segment = state.segments
+          .get(input.roundId)
+          ?.find((candidate) => candidate.id === input.segmentId);
+        if (!segment || segment.type !== 'speech' || segment.endedAt !== null)
+          throw createAppError('CONFLICT', 'The speech segment is closed');
+        const rows = state.utteranceRows.get(input.roundId) ?? [];
+        const existing = rows.find(
+          (row) =>
+            row.segmentId === input.segmentId &&
+            row.roundParticipantId === input.roundParticipantId,
+        );
+        if (existing)
+          return claimExistingFakeSpeech(existing, input, state.now());
+        rows.push({
+          id: input.id,
+          roundId: input.roundId,
+          segmentId: input.segmentId,
+          roundParticipantId: input.roundParticipantId,
+          text: '',
+          complete: false,
+          createdAt: new Date(state.now()),
+          generationToken: input.token,
+          generationExpiresAt: state.now() + 120_000,
         });
-        return { stored: true };
+        return { status: 'claimed' as const, utteranceId: input.id };
+      },
+
+      async releaseSpeech(input: Parameters<RoundStore['releaseSpeech']>[0]) {
+        const row = state.utteranceRows
+          .get(input.roundId)
+          ?.find((candidate) => candidate.id === input.utteranceId);
+        if (row?.generationToken !== input.token) return;
+        row.generationToken = null;
+        row.generationExpiresAt = null;
       },
 
       async getBallot(judgeParticipantId: string) {

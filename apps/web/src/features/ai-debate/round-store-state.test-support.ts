@@ -39,6 +39,8 @@ type FakeUtteranceRow = {
   roundParticipantId: string;
   text: string;
   complete: boolean;
+  generationToken?: string | null;
+  generationExpiresAt?: number | null;
   createdAt: Date;
 };
 

@@ -3630,6 +3630,32 @@
       "table": "utterances"
     },
     {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "generation_token",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "utterances"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "generation_expires_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "utterances"
+    },
+    {
       "type": "timestamp with time zone",
       "typeSchema": null,
       "notNull": true,
@@ -7306,6 +7332,13 @@
     {
       "value": "char_length(\"text\") <= 20000",
       "name": "utterances_text_length",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "utterances"
+    },
+    {
+      "value": "(\"generation_token\" is null) = (\"generation_expires_at\" is null)",
+      "name": "utterances_generation_pair",
       "entityType": "checks",
       "schema": "public",
       "table": "utterances"

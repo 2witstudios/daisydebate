@@ -6,7 +6,7 @@ import {
 } from '@daisy/ai-voice';
 import type { RoundHydration } from '@daisy/db';
 import type { createRoundRuntime } from '@daisy/debate-engine';
-import type { AiDebateDependencies, AudioFormat } from './context';
+import type { AiDebateDependencies, AudioFormat, RecordUsage } from './context';
 import {
   aiSideOf,
   participantIdOf,
@@ -26,20 +26,6 @@ type Hydrated = (
   readonly runtime: ReturnType<typeof createRoundRuntime>;
   readonly now: number;
 }>;
-
-type UsageRecorder = (
-  roundId: string,
-  participantId: string,
-  actorId: string,
-  usage: {
-    readonly kind: 'speech' | 'cross_ex' | 'tts' | 'stt' | 'judging';
-    readonly model: string;
-    readonly inputTokens?: number;
-    readonly outputTokens?: number;
-    readonly characters?: number;
-    readonly requests?: number;
-  },
-) => Promise<void>;
 
 export type CrossExamination = {
   /** What the person said, transcribed. */
@@ -63,23 +49,17 @@ type ExchangeInput = {
 
 const shouldReply = (
   stage: 'live' | 'countdown' | 'prep' | null,
-  aiAsks: boolean,
-  hasAudio: boolean,
-  saidInExchange: number,
   heard: string,
-): boolean => {
-  const opening = aiAsks && !hasAudio && saidInExchange === 0;
-  return (
-    (heard.length > 0 || opening) &&
-    (stage === 'live' || (opening && stage === 'countdown'))
-  );
-};
+  opening: boolean,
+) =>
+  (heard.length > 0 || opening) &&
+  (stage === 'live' || (opening && stage === 'countdown'));
 
 /** One cross-examination exchange at a time. */
 export function crossExaminationOperations(
   { store, voice, ids }: AiDebateDependencies,
   hydrated: Hydrated,
-  recordUsage: UsageRecorder,
+  recordUsage: RecordUsage,
 ) {
   const seatIdsOf = (
     round: RoundHydration,
@@ -168,6 +148,7 @@ export function crossExaminationOperations(
     personSide: 'affirmative' | 'negative',
     heard: string,
     lines: Awaited<ReturnType<RoundStore['listRoundUtterances']>>,
+    opening: boolean,
   ): Promise<CrossExamination['reply']> => {
     const turn = {
       index: segment.sequence,
@@ -226,14 +207,16 @@ export function crossExaminationOperations(
     const text = answer.text.trim();
     if (!text) return null;
     const utteranceId = ids.next();
-    await store.appendUtterance({
+    const stored = await store.appendUtterance({
       id: utteranceId,
       roundId: id,
       segmentId: segment.id,
       roundParticipantId: aiSeatId,
       text,
       requireOpen: true,
+      requireEmptySegment: opening,
     });
+    if (!stored) return null;
     return { utteranceId, phrases: phrasesOf(text) };
   };
 
@@ -250,12 +233,7 @@ export function crossExaminationOperations(
       segmentIndex,
       audio,
     }: ExchangeInput): Promise<CrossExamination> {
-      // The opening ask is prepared during the countdown, so it can arrive
-      // before the segment's row exists: the durable row opens at the
-      // database's instant, and the browser's ask runs on its own clock.
-      // Re-read until the row is there or the wait is spent — the clock
-      // stays PostgreSQL's; the wait only bounds how long the ask lingers,
-      // and it spans the countdown the ask may have jumped into.
+      // Bound the wait for PostgreSQL to open the segment after countdown.
       for (let attempt = 0; ; attempt += 1) {
         const outcome = await this.exchange({
           actorId,
@@ -301,26 +279,12 @@ export function crossExaminationOperations(
         : '';
 
       const lines = await store.listRoundUtterances(id);
-      // "Nothing has been said **in this exchange**", counted on this
-      // segment's rows only. The round's whole transcript is never empty once
-      // the constructive has been spoken, so counting all of it made this
-      // false exactly when the AI was supposed to open — the AI could ask its
-      // first question only if the debate began with cross-examination, and
-      // after the constructive it sat silent while its own segment ran.
+      // Count only this segment's lines when deciding whether to open CX.
       const saidInExchange = lines.filter(
         (line) => line.segmentId === segment.id,
       ).length;
-      // The AI replies while its segment is live, or in the countdown when
-      // it opens the exchange.
-      if (
-        !shouldReply(
-          position.stage,
-          aiAsks,
-          audio !== undefined,
-          saidInExchange,
-          heard,
-        )
-      )
+      const opening = aiAsks && audio === undefined && saidInExchange === 0;
+      if (!shouldReply(position.stage, heard, opening))
         return { heard, reply: null };
       const reply = await replyOf(
         round,
@@ -332,6 +296,7 @@ export function crossExaminationOperations(
         personSide,
         heard,
         lines,
+        opening,
       );
       return { heard, reply };
     },

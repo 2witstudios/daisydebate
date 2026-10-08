@@ -59,6 +59,33 @@ describe('utteranceOperations', () => {
     });
   });
 
+  test('renews a speech claim only while its token owns the open segment', async () => {
+    const { database, queries } = createTestDatabase([
+      [[segmentId]],
+      [[null]],
+      [['writer-1', new Date('2026-10-08T00:02:00.000Z')]],
+      [{ now: new Date('2026-10-08T00:00:00.000Z') }],
+      [['u1']],
+    ]);
+    await database.replaceUtterance({
+      id: 'u1',
+      roundId,
+      text: 'The next phrase.',
+      requireOpen: true,
+      speechToken: 'writer-1',
+    });
+    assert({
+      given: 'the current speech writer on an open segment',
+      should: 'lock the segment and guard the update by token and expiry',
+      actual: {
+        locked: queries[1]?.query.includes('for update'),
+        guarded: queries[4]?.query.includes('generation_token'),
+        expires: queries[4]?.query.includes('generation_expires_at'),
+      },
+      expected: { locked: true, guarded: true, expires: true },
+    });
+  });
+
   test('lists a segment in sequence order regardless of row order', async () => {
     const { database } = createTestDatabase([
       [

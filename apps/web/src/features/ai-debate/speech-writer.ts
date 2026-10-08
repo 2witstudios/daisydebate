@@ -38,8 +38,7 @@ export async function* writeSpeech({
   segmentKey,
   seatId,
   utteranceId,
-  alreadyLanded,
-  waitForSegment,
+  speechToken,
   recordUsage,
   signal,
 }: {
@@ -51,12 +50,7 @@ export async function* writeSpeech({
   readonly segmentKey: string;
   readonly seatId: string;
   readonly utteranceId: string;
-  readonly alreadyLanded: boolean;
-  readonly waitForSegment: (
-    actorId: string,
-    id: string,
-    sequence: number,
-  ) => Promise<{ readonly segmentId: string }>;
+  readonly speechToken: string;
   readonly recordUsage: RecordUsage;
   readonly signal: AbortSignal | undefined;
 }): AsyncGenerator<SpeechEvent> {
@@ -104,42 +98,26 @@ export async function* writeSpeech({
   const grouped = (done: readonly string[]) =>
     done.flatMap((sentence) => phrases.push(sentence));
   const spoken: string[] = [];
-  let landed = alreadyLanded;
   const save = async function* (incoming: readonly string[], whole = false) {
     for (const text of incoming) {
       spoken.push(text);
-      if (!landed) {
-        // The line lands only when time has opened the segment's row.
-        const opened = await waitForSegment(actorId, round.id, segmentIndex);
-        await store.appendUtterance({
-          id: utteranceId,
-          roundId: round.id,
-          segmentId: opened.segmentId,
-          roundParticipantId: seatId,
-          text: spoken.join(' '),
-          complete: false,
-          requireOpen: true,
-        });
-        landed = true;
-        yield { type: 'phrase' as const, index: spoken.length - 1, text };
-        continue;
-      }
       await store.replaceUtterance({
         id: utteranceId,
         roundId: round.id,
         text: spoken.join(' '),
-        ...(whole ? { complete: true } : {}),
         requireOpen: true,
+        speechToken,
       });
       yield { type: 'phrase' as const, index: spoken.length - 1, text };
     }
-    if (whole && landed)
+    if (whole)
       await store.replaceUtterance({
         id: utteranceId,
         roundId: round.id,
         text: spoken.join(' '),
         complete: true,
         requireOpen: true,
+        speechToken,
       });
   };
   let written = 0;

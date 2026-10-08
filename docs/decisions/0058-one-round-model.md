@@ -183,7 +183,9 @@ depends on one, and nothing in a Round's history would change if Rooms were dele
   omits it.
 - **Write-path domain invariants**, where the relationship crosses tables and no CHECK can
   express it: seat completeness against `rules_snapshot.seats`; the live-segment count per
-  stage; `submitBallot` verifying the participant is a judge; the compiler's refusal set.
+  stage; atomic round completion verifying the ballot belongs to its judge
+  participant; one expiring, fenced AI speech generation claim per segment;
+  the compiler's refusal set.
 
 ### 9. Documents: prep is the source, the Round is a view
 

@@ -4,12 +4,115 @@ import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { roundSegments } from './schema/round-segments';
 import { utterances } from './schema/utterances';
+import { speechClaimOperations } from './speech-claim-operations';
+import { lockUtteranceSegment } from './utterance-segment-lock';
 
-/**
- * What was said, in order (ADR 0058 §6): utterances belong to a segment,
- * appended one at a time under a lock on the round's rows, so lines
- * arriving together land in order.
- */
+type ReplaceInput = {
+  readonly id: string;
+  readonly roundId: string;
+  readonly text: string;
+  readonly complete?: boolean;
+  readonly requireOpen: boolean;
+  readonly speechToken?: string;
+};
+type WriteDatabase = Pick<BunSQLDatabase, 'select' | 'update' | 'execute'>;
+
+const assertSpeechClaim = async (
+  tx: WriteDatabase,
+  input: ReplaceInput,
+  line: {
+    readonly generationToken: string | null;
+    readonly generationExpiresAt: Date | null;
+  },
+) => {
+  if (line.generationToken !== null && input.speechToken === undefined)
+    throw createAppError('CONFLICT', 'Speech claim required');
+  if (input.speechToken === undefined) return;
+  const [instant] = (await tx.execute(
+    sql`select statement_timestamp() as now`,
+  )) as unknown as Array<{ now: Date }>;
+  if (
+    line.generationToken !== input.speechToken ||
+    line.generationExpiresAt === null ||
+    line.generationExpiresAt.getTime() <= instant!.now.getTime()
+  )
+    throw createAppError('CONFLICT', 'Speech claim expired');
+};
+
+const assertOpenReplacement = async (
+  tx: WriteDatabase,
+  input: ReplaceInput,
+) => {
+  const [initial] = await tx
+    .select({ segmentId: utterances.segmentId })
+    .from(utterances)
+    .where(
+      and(eq(utterances.id, input.id), eq(utterances.roundId, input.roundId)),
+    );
+  if (!initial) throw createAppError('NOT_FOUND', 'No such utterance');
+  const [segment] = await tx
+    .select({ endedAt: roundSegments.endedAt })
+    .from(roundSegments)
+    .where(
+      and(
+        eq(roundSegments.id, initial.segmentId),
+        eq(roundSegments.roundId, input.roundId),
+      ),
+    )
+    .for('update');
+  if (!segment || segment.endedAt !== null)
+    throw createAppError('CONFLICT', 'The segment is closed');
+  // Re-read after the lock: a takeover may have replaced the token while waiting.
+  const [line] = await tx
+    .select({
+      generationToken: utterances.generationToken,
+      generationExpiresAt: utterances.generationExpiresAt,
+    })
+    .from(utterances)
+    .where(eq(utterances.id, input.id));
+  if (!line) throw createAppError('NOT_FOUND', 'No such utterance');
+  await assertSpeechClaim(tx, input, line);
+};
+
+const replacementValues = (input: ReplaceInput) => {
+  if (input.speechToken === undefined)
+    return input.complete === undefined
+      ? { text: input.text }
+      : { text: input.text, complete: input.complete };
+  return {
+    text: input.text,
+    ...(input.complete === undefined ? {} : { complete: input.complete }),
+    generationToken: input.complete === true ? null : input.speechToken,
+    generationExpiresAt:
+      input.complete === true
+        ? null
+        : (sql`statement_timestamp() + interval '120 seconds'` as unknown as Date),
+  };
+};
+
+const writeReplacement = async (tx: WriteDatabase, input: ReplaceInput) => {
+  if (input.requireOpen) await assertOpenReplacement(tx, input);
+  const updated = await tx
+    .update(utterances)
+    .set(replacementValues(input))
+    .where(
+      and(
+        eq(utterances.id, input.id),
+        eq(utterances.roundId, input.roundId),
+        ...(input.speechToken === undefined
+          ? []
+          : [
+              eq(utterances.generationToken, input.speechToken),
+              sql`${utterances.generationExpiresAt} > statement_timestamp()`,
+            ]),
+      ),
+    )
+    .returning({ id: utterances.id });
+  if (input.speechToken !== undefined && updated.length === 0)
+    throw createAppError('CONFLICT', 'Speech claim expired');
+};
+
+/** Ordered, durable lines within one Round segment (ADR 0058 §6). */
 export const utteranceOperations = ({
   database,
   eventSink,
@@ -17,6 +120,8 @@ export const utteranceOperations = ({
   readonly database: BunSQLDatabase;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
+  ...speechClaimOperations({ database, eventSink }),
+
   async appendUtterance(input: {
     readonly id: string;
     readonly roundId: string;
@@ -26,22 +131,23 @@ export const utteranceOperations = ({
     readonly complete?: boolean;
     /** Require the segment row to still be open when this line lands. */
     readonly requireOpen: boolean;
-  }): Promise<void> {
-    await instrumented(eventSink, 'appendUtterance', async () => {
-      await database.transaction(async (tx) => {
-        const [segment] = await tx
-          .select({ endedAt: roundSegments.endedAt })
-          .from(roundSegments)
-          .where(
-            and(
-              eq(roundSegments.id, input.segmentId),
-              eq(roundSegments.roundId, input.roundId),
-            ),
-          )
-          .for('update');
+    /** Insert an opening only if this segment still has no lines. */
+    readonly requireEmptySegment?: boolean;
+  }): Promise<boolean> {
+    return instrumented(eventSink, 'appendUtterance', async () => {
+      return database.transaction(async (tx) => {
+        const segment = await lockUtteranceSegment(tx, input);
         if (!segment) throw createAppError('NOT_FOUND', 'No such segment');
         if (input.requireOpen && segment.endedAt !== null)
           throw createAppError('CONFLICT', 'The segment is closed');
+        if (input.requireEmptySegment) {
+          const [existing] = await tx
+            .select({ id: utterances.id })
+            .from(utterances)
+            .where(eq(utterances.segmentId, input.segmentId))
+            .limit(1);
+          if (existing) return false;
+        }
         await tx.insert(utterances).values({
           id: input.id,
           roundId: input.roundId,
@@ -51,15 +157,12 @@ export const utteranceOperations = ({
           complete: input.complete ?? true,
           sequence: sql`(select coalesce(max(${utterances.sequence}) + 1, 0) from ${utterances} where ${utterances.segmentId} = ${input.segmentId})`,
         });
+        return true;
       });
     });
   },
 
-  /**
-   * Replaces a line's text (a speech as it grows, or the part of an
-   * interrupted reply that was heard), and with `complete` marks whether
-   * the line is whole.
-   */
+  /** Replace a growing speech or record only the part heard. */
   async replaceUtterance(input: {
     readonly id: string;
     readonly roundId: string;
@@ -67,49 +170,18 @@ export const utteranceOperations = ({
     readonly complete?: boolean;
     /** Require the line's segment to remain open during this replacement. */
     readonly requireOpen: boolean;
+    /** Current speech claim; every replacement renews and fences it. */
+    readonly speechToken?: string;
   }): Promise<void> {
     await instrumented(eventSink, 'replaceUtterance', async () => {
-      const update = async (tx: Pick<BunSQLDatabase, 'select' | 'update'>) => {
-        if (input.requireOpen) {
-          const [line] = await tx
-            .select({ segmentId: utterances.segmentId })
-            .from(utterances)
-            .where(
-              and(
-                eq(utterances.id, input.id),
-                eq(utterances.roundId, input.roundId),
-              ),
-            );
-          if (!line) throw createAppError('NOT_FOUND', 'No such utterance');
-          const [segment] = await tx
-            .select({ endedAt: roundSegments.endedAt })
-            .from(roundSegments)
-            .where(
-              and(
-                eq(roundSegments.id, line.segmentId),
-                eq(roundSegments.roundId, input.roundId),
-              ),
-            )
-            .for('update');
-          if (!segment || segment.endedAt !== null)
-            throw createAppError('CONFLICT', 'The segment is closed');
-        }
-        await tx
-          .update(utterances)
-          .set(
-            input.complete === undefined
-              ? { text: input.text }
-              : { text: input.text, complete: input.complete },
-          )
-          .where(
-            and(
-              eq(utterances.id, input.id),
-              eq(utterances.roundId, input.roundId),
-            ),
-          );
-      };
-      if (input.requireOpen) await database.transaction(update);
-      else await update(database);
+      if (input.speechToken !== undefined && !input.requireOpen)
+        throw createAppError(
+          'INVARIANT',
+          'Speech writes require an open segment',
+        );
+      if (input.requireOpen)
+        await database.transaction((tx) => writeReplacement(tx, input));
+      else await writeReplacement(database, input);
     });
   },
 

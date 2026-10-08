@@ -9,7 +9,7 @@ import {
   text,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
-import { createdAtColumn } from './columns';
+import { createdAtColumn, timestampColumn } from './columns';
 import { roundParticipants } from './round-participants';
 import { roundSegments } from './round-segments';
 
@@ -33,6 +33,9 @@ export const utterances = pgTable(
     text: text('text').notNull(),
     /** False while the speaker's line is still arriving. */
     complete: boolean('complete').notNull().default(true),
+    /** Fences one active AI speech writer; expired claims may be taken over. */
+    generationToken: text('generation_token'),
+    generationExpiresAt: timestampColumn('generation_expires_at'),
     createdAt: createdAtColumn(),
   },
   (table) => [
@@ -60,5 +63,9 @@ export const utterances = pgTable(
     ),
     check('utterances_sequence_check', sql`${table.sequence} >= 0`),
     check('utterances_text_length', sql`char_length(${table.text}) <= 20000`),
+    check(
+      'utterances_generation_pair',
+      sql`(${table.generationToken} is null) = (${table.generationExpiresAt} is null)`,
+    ),
   ],
 );

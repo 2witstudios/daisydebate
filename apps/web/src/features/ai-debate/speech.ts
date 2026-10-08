@@ -145,11 +145,11 @@ export function speechOperations(
   return {
     /**
      * Writes the AI's speech for one of its speech segments (from the
-     * segment's countdown on), phrase by phrase as the model produces it.
-     * The model starts in the countdown so its words are ready when the
-     * segment opens; nothing is written until the row exists. The speech
-     * is saved as it grows, and marked whole only when the model finishes.
-     * A later call replays a whole speech and rewrites an unfinished one.
+     * segment's live window), phrase by phrase as the model produces it.
+     * The segment row carries a durable generation claim before the model
+     * starts. The speech is saved as it grows and marked whole when the
+     * model finishes. A later call replays a whole speech; an unfinished
+     * line can be rewritten only after its claim expires.
      * `signal` ends the model's stream when the listener goes.
      */
     async *speech({
@@ -173,46 +173,47 @@ export function speechOperations(
           candidate.side !== personSideOf(round, actorId),
         { early: true },
       );
-      const personSide = personSideOf(round, actorId);
       const seatId = botSeatOf(round, actorId).id;
-      const lines = await store.listRoundUtterances(id);
-      const existing = lines.find((line) => {
-        const rowIndex = round.segments.findIndex(
-          (candidate) => candidate.id === line.segmentId,
-        );
-        const role = participantRoleOfLine(round, line.roundParticipantId);
-        return rowIndex === segmentIndex && role !== personSide;
+      const opened = await waitForSegment(actorId, id, segmentIndex);
+      const token = ids.next();
+      const claim = await store.claimSpeech({
+        id: ids.next(),
+        roundId: id,
+        segmentId: opened.segmentId,
+        roundParticipantId: seatId,
+        token,
       });
-      if (existing?.complete) {
+      if (claim.status === 'held')
+        throw createAppError('CONFLICT', 'Speech generation in progress');
+      if (claim.status === 'complete') {
+        const existing = (await store.listRoundUtterances(id)).find(
+          (line) => line.id === claim.utteranceId,
+        );
+        if (!existing) throw createAppError('INVARIANT', 'Speech line missing');
         yield { type: 'utterance', id: existing.id };
         for (const [index, text] of phrasesOf(existing.text).entries())
           yield { type: 'phrase', index, text };
         return;
       }
-      const utteranceId = existing?.id ?? ids.next();
-      if (existing)
-        await store.replaceUtterance({
-          id: utteranceId,
-          roundId: id,
-          text: '',
-          complete: false,
-          requireOpen: true,
+      const utteranceId = claim.utteranceId;
+      try {
+        yield { type: 'utterance', id: utteranceId };
+        yield* writeSpeech({
+          store,
+          voice,
+          round,
+          actorId,
+          segmentIndex,
+          segmentKey: segment.key,
+          seatId,
+          utteranceId,
+          speechToken: token,
+          recordUsage,
+          signal,
         });
-      yield { type: 'utterance', id: utteranceId };
-      yield* writeSpeech({
-        store,
-        voice,
-        round,
-        actorId,
-        segmentIndex,
-        segmentKey: segment.key,
-        seatId,
-        utteranceId,
-        alreadyLanded: existing !== undefined,
-        waitForSegment,
-        recordUsage,
-        signal,
-      });
+      } finally {
+        await store.releaseSpeech({ utteranceId, roundId: id, token });
+      }
     },
 
     /**

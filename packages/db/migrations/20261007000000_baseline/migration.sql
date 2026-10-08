@@ -456,9 +456,12 @@ CREATE TABLE "utterances" (
 	"sequence" integer NOT NULL,
 	"text" text NOT NULL,
 	"complete" boolean DEFAULT true NOT NULL,
+	"generation_token" text,
+	"generation_expires_at" timestamp with time zone,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "utterances_sequence_check" CHECK ("sequence" >= 0),
-	CONSTRAINT "utterances_text_length" CHECK (char_length("text") <= 20000)
+	CONSTRAINT "utterances_text_length" CHECK (char_length("text") <= 20000),
+	CONSTRAINT "utterances_generation_pair" CHECK (("generation_token" is null) = ("generation_expires_at" is null))
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX "actors_user_id_unique" ON "actors" ("user_id");--> statement-breakpoint

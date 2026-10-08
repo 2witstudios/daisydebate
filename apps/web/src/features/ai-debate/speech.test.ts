@@ -13,6 +13,115 @@ const eventsOf = async (
 };
 
 describe('the AI speech, on the one Round model', () => {
+  test('only one request owns an AI speech while generation is live', async () => {
+    const { operations, begin, clock } = setup();
+    const id = await begin();
+    clock.advance(451);
+    const first = operations.speech({
+      actorId: 'actor-1',
+      id,
+      segmentIndex: 2,
+    });
+    const claimed = await first.next();
+    await assertRejects({
+      given: 'another stream for the same bot and segment',
+      should: 'refuse its duplicate generation while the claim is live',
+      actual: async () => {
+        const second = operations.speech({
+          actorId: 'actor-1',
+          id,
+          segmentIndex: 2,
+        });
+        await second.next();
+      },
+      code: 'CONFLICT',
+    });
+    await eventsOf(first);
+    const view = await operations.view({ actorId: 'actor-1', id });
+    assert({
+      given: 'the first stream completes after the duplicate was refused',
+      should: 'leave exactly one complete speech line',
+      actual: {
+        claimed: claimed.value?.type,
+        lines: view.utterances.map((line) => ({
+          text: line.text,
+          complete: line.complete,
+        })),
+      },
+      expected: {
+        claimed: 'utterance',
+        lines: [{ text: 'A short speech.', complete: true }],
+      },
+    });
+  });
+
+  test('an expired claim can be taken over and fences its old writer', async () => {
+    const { operations, begin, clock, memory } = setup();
+    const id = await begin();
+    clock.advance(451);
+    const old = operations.speech({ actorId: 'actor-1', id, segmentIndex: 2 });
+    await old.next();
+    clock.advance(121);
+    memory.tick(121_000);
+    const replacement = await eventsOf(
+      operations.speech({ actorId: 'actor-1', id, segmentIndex: 2 }),
+    );
+    await assertRejects({
+      given: 'the first stream resumes after its expired claim was replaced',
+      should: 'refuse its stale write',
+      actual: () => old.next(),
+      code: 'CONFLICT',
+    });
+    const view = await operations.view({ actorId: 'actor-1', id });
+    assert({
+      given: 'a replacement stream finished the same speech line',
+      should: 'store one complete line',
+      actual: {
+        replacement: replacement.map((event) => event.type),
+        lines: view.utterances.map((line) => ({
+          text: line.text,
+          complete: line.complete,
+        })),
+      },
+      expected: {
+        replacement: ['utterance', 'phrase'],
+        lines: [{ text: 'A short speech.', complete: true }],
+      },
+    });
+  });
+
+  test('a cancelled stream releases its claim for an immediate retry', async () => {
+    const { operations, begin, clock } = setup();
+    const id = await begin();
+    clock.advance(451);
+    const cancelled = operations.speech({
+      actorId: 'actor-1',
+      id,
+      segmentIndex: 2,
+    });
+    await cancelled.next();
+    await cancelled.return(undefined);
+    const retried = await eventsOf(
+      operations.speech({ actorId: 'actor-1', id, segmentIndex: 2 }),
+    );
+    const view = await operations.view({ actorId: 'actor-1', id });
+    assert({
+      given: 'a listener disconnects before its first phrase',
+      should: 'let the next request finish that same line immediately',
+      actual: {
+        events: retried.map((event) => event.type),
+        lines: view.utterances.map((line) => ({
+          text: line.text,
+          complete: line.complete,
+        })),
+      },
+      expected: {
+        events: ['utterance', 'phrase'],
+        lines: [{ text: 'A short speech.', complete: true }],
+      },
+    });
+  });
+
   test('restarts an unfinished line by replacing it on the same segment', async () => {
     const { operations, begin, clock, store } = setup();
     const id = await begin();

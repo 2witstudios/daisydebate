@@ -106,7 +106,11 @@ describe('competitive schema child tables', () => {
       },
       expected: {
         utterances: {
-          checks: ['utterances_sequence_check', 'utterances_text_length'],
+          checks: [
+            'utterances_generation_pair',
+            'utterances_sequence_check',
+            'utterances_text_length',
+          ],
           indexes: [
             'unique utterances_segment_sequence_unique',
             'utterances_participant_idx',
