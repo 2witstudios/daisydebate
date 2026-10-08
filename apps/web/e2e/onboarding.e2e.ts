@@ -1,6 +1,10 @@
 import { expect, test } from './support/fixtures';
 import {
+  confirmSignIn,
+  emailedLink,
+  freshEmail,
   origin,
+  requestSignInLink,
   resetRateLimits,
   signUpMember,
   signUpProvisional,
@@ -132,4 +136,26 @@ test('a member who follows a link from another site to any onboarding step gets 
     );
     expect(response.status(), step).toBe(200);
   }
+});
+
+test('a visitor who signs up from the Help link goes through onboarding once and lands on the lobby', async ({
+  page,
+  request,
+}) => {
+  await page.goto('/onboarding/welcome');
+  // Sign-in returns to the welcome step with its own validated next.
+  await expect(page).toHaveURL(
+    /\/sign-in\?next=%2Fonboarding%2Fwelcome%3Fnext%3D%252Flobby$/,
+  );
+  const email = freshEmail();
+  await requestSignInLink(page, email);
+  await confirmSignIn(page, await emailedLink(request, email));
+  await claimUsername(page, uniqueName('helper'));
+  await page.getByRole('button', { name: 'Not now' }).click();
+  // The destination is already the welcome step: no onboarding inside it.
+  await expect(page).toHaveURL(/\/onboarding\/welcome\?next=(\/|%2F)lobby$/);
+  await page.getByRole('button', { name: 'Skip' }).click();
+  await expect(page).toHaveURL(/\/onboarding\/ready\?next=(\/|%2F)lobby$/);
+  await page.getByRole('link', { name: 'Go to home' }).click();
+  await expect(page).toHaveURL(/\/lobby$/);
 });

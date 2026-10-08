@@ -14,7 +14,7 @@ const writes = (queries: readonly { query: string }[]) =>
 
 describe('readOnboarding', () => {
   test('a member with nothing stored', async () => {
-    const { database } = createTestDatabase([[], [], []]);
+    const { database } = createTestDatabase([[], [], [], []]);
     assert({
       given: 'no onboarding row, interests or topics',
       should: 'read back empty answers',
@@ -32,7 +32,9 @@ describe('readOnboarding', () => {
   });
 
   test('a member who answered everything', async () => {
-    const { database } = createTestDatabase([
+    const { database, queries } = createTestDatabase([
+      // The snapshot statement, then the three reads.
+      [],
       // Schema-definition column order; the driver returns rows positionally.
       [['user-1', 'own', 'class', ['one-on-one'], 'quick', at, at, at, 2]],
       [['debate'], ['watch']],
@@ -51,6 +53,13 @@ describe('readOnboarding', () => {
         wants: ['debate', 'watch'],
         topics: ['law'],
       },
+    });
+    assert({
+      given: 'the three reads',
+      should:
+        'run them in one read-only repeatable-read snapshot, so a save in between cannot mix answers',
+      actual: queries[0]?.query.toLowerCase(),
+      expected: 'set transaction isolation level repeatable read read only',
     });
   });
 });
