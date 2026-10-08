@@ -242,11 +242,11 @@ export function createRoomStore({
    * this browser asks for prep as the countdown runs, so the clock hands
    * over without a control nobody asked for.
    */
-  const askForPrep = (state: UiState, view: RoomView) => {
+  const askForPrep = (state: UiState, view: RoomView, remainingMs: number) => {
     if (
       state.phase !== 'countdown' ||
       view.status !== 'active' ||
-      !view.rules.inRoundPrep
+      remainingMs <= 0
     )
       return;
     const segment = segmentOf(state, view);
@@ -281,7 +281,8 @@ export function createRoomStore({
     );
     const state = uiStateOf(position);
     const previous = snapshot.state;
-    askForPrep(state, view);
+    const prepLeft = position.prepBudgetRemainingMs?.[view.personSide] ?? 0;
+    askForPrep(state, view, prepLeft);
     if (advance(state, view))
       set({ state, caption: '', status: '', speaking: false });
     else set({ state, level: engine?.level() ?? 0 });

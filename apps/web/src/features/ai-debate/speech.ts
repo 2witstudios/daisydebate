@@ -56,6 +56,23 @@ const segmentClosed = (
   (openSequence !== null && openSequence > expected) ||
   (endedAt !== null && endedAt !== undefined);
 
+/** A cutoff may report its final phrase for thirty seconds after closure. */
+const requirePlaybackWindow = (
+  round: RoundHydration,
+  segment: RoundHydration['segments'][number] | undefined,
+  now: number,
+) => {
+  if (round.status !== 'active' || !segment)
+    throw createAppError('CONFLICT', 'That segment is not live');
+  const start = Date.parse(segment.startedAt);
+  const end = Math.min(
+    start + segment.durationMs,
+    segment.endedAt === null ? Infinity : Date.parse(segment.endedAt),
+  );
+  if (now < start || now > end + 30_000)
+    throw createAppError('CONFLICT', 'That segment is not live');
+};
+
 /** The AI's spoken lines: its speeches, their voice, and what was heard. */
 export function speechOperations(
   { store, voice, ids, limits }: AiDebateDependencies,
@@ -115,7 +132,7 @@ export function speechOperations(
     id: string,
     utteranceId: string,
   ) => {
-    const { round } = await hydrated(actorId, id);
+    const { round, now } = await hydrated(actorId, id);
     const lines = await store.listRoundUtterances(id);
     const line = lines.find((candidate) => candidate.id === utteranceId);
     if (!line) throw createAppError('NOT_FOUND');
@@ -128,6 +145,7 @@ export function speechOperations(
         ? ('person' as const)
         : ('ai' as const);
     if (role !== 'ai') throw createAppError('NOT_FOUND');
+    requirePlaybackWindow(round, round.segments[segmentIndex], now);
     return {
       round,
       line: {
@@ -239,8 +257,7 @@ export function speechOperations(
       readonly utteranceId: string;
       readonly phraseIndex: number;
     }): Promise<ArrayBuffer> {
-      const { round } = await hydrated(actorId, id);
-      const { phrases } = await phrasesOfLine(actorId, id, utteranceId);
+      const { round, phrases } = await phrasesOfLine(actorId, id, utteranceId);
       const text = phrases[phraseIndex];
       if (!text) throw createAppError('NOT_FOUND');
       const speaker = voice();

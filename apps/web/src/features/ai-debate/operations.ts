@@ -175,7 +175,8 @@ export function createAiDebateOperations(dependencies: AiDebateDependencies) {
         round: fresh,
         runtime: runtimeOf(fresh, () => ids.next()),
         now,
-        tickedFromVersion: round.version,
+        tickedFromVersion:
+          fresh.version === round.version + 1 ? round.version : null,
       };
     }
     throw createAppError('CONFLICT', 'The round moved on');

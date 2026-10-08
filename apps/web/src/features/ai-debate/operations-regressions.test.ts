@@ -151,3 +151,47 @@ test('the browser carries a virtual close into its next countdown', async () => 
     expected: { phase: 'ended' },
   });
 });
+
+test('a hydration tick does not waive a version changed by another command', async () => {
+  const { operations, begin, clock, store } = setup();
+  const id = await begin();
+  clock.advance(11);
+  const version = (await operations.view({ actorId, id })).version;
+  const apply = store.applyRoundExecution;
+  let race = true;
+  let afterRival = await store.getRound(id);
+  store.applyRoundExecution = async (input) => {
+    await apply(input);
+    if (race && input.command === null) {
+      race = false;
+      await operations.crossExamine({ actorId, id, segmentIndex: 1 });
+      const rivalVersion = (await store.getRound(id))!.version;
+      await operations.command({
+        actorId,
+        id,
+        command: { type: 'yield' },
+        expectedVersion: rivalVersion,
+      });
+      afterRival = structuredClone(await store.getRound(id));
+    }
+  };
+  clock.advance(310);
+  await assertRejects({
+    given: 'version 3, a hydration tick to 4 and a concurrent CX yield to 5',
+    should: 'refuse the stale abort instead of committing version 6',
+    actual: () =>
+      operations.command({
+        actorId,
+        id,
+        command: { type: 'abort' },
+        expectedVersion: version,
+      }),
+    code: 'CONFLICT',
+  });
+  assert({
+    given: 'the rejected stale command',
+    should: 'preserve the competing command’s round',
+    actual: await store.getRound(id),
+    expected: afterRival,
+  });
+});

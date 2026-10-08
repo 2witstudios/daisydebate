@@ -204,6 +204,12 @@ depends on one, and nothing in a Round's history would change if Rooms were dele
 AI-practice orchestration admits only practice rounds with a member debater,
 one roster AI opponent and the configured AI judge. A debater's seat in a
 human or ranked round grants no right to drive it through practice operations.
+Playback and heard reports require an active round and are bounded to the
+segment's live interval plus a thirty-second cutoff grace period. Terminal
+rounds refuse both operations. A hydration tick may waive a browser's stale
+version only when its reread observes exactly its own next version; intervening
+commands retain optimistic-concurrency authority. Automatic prep requests use
+the runtime's remaining side-specific budget and stop when it is exhausted.
 Hydration returns durable segments in ascending `sequence` order, so runtime
 clock anchors and transcript schedule positions agree.
 
