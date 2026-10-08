@@ -74,11 +74,14 @@ JavaScript only enhances it.
 
 Recorded exceptions:
 
-- A debater's Ready in a room needs JavaScript. Ready waits on a local
-  microphone and camera check, which cannot run without script. So with
-  JavaScript off, the server render shows the debater's Ready control
-  disabled, with the reason ([ADR 0053](../decisions/0053-live-video-self-hosted-livekit.md)
-  section 7, DEC-109). The judge's Ready still works without JavaScript.
+- The planned media Ready check for a human debater needs JavaScript. It
+  must wait on a local microphone and camera check, which cannot run
+  without script. With JavaScript off, its server-rendered Ready control
+  must be disabled with the reason
+  ([ADR 0053](../decisions/0053-live-video-self-hosted-livekit.md) section 5,
+  DEC-109). Judge and server-operated bot seats need no human device check.
+  This exception specifies VIDEO-2.7; it does not claim that Ready or the
+  device check is already implemented.
 
 Forms that predate this rule are tracked as issues in the PageSpace `Issues`
 list. Bring each one into line when you next change it.
