@@ -15,7 +15,7 @@ agents:
     launchArgs: []
   codex:
     name: codex
-    command: scripts/agent-launch.sh codex --sandbox workspace-write --ask-for-approval on-request
+    command: scripts/agent-launch.sh codex --no-daemon --dangerously-bypass-approvals-and-sandbox --search
     launchArgs: []
   opencode:
     name: opencode

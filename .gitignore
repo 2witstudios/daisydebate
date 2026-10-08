@@ -36,3 +36,4 @@ apps/web/scripts/auth-load/reports/
 apps/web/.proof-hold/
 # Dev mail capture (DEV_MAIL_CAPTURE, ADR 0050): local sign-in links.
 .dev-mail/
+.pu/config.yaml
