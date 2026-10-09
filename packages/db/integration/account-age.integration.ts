@@ -1,3 +1,4 @@
+import { requireTestServices } from '@daisy/config';
 import { sql } from 'drizzle-orm';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
@@ -9,6 +10,7 @@ import {
 import { erasePrivacySubject, exportPrivacySubject } from '../src/privacy';
 import { bindings, now, withPrivacySubject } from './privacy.test-support';
 setupRitewayBun();
+requireTestServices(process.env);
 const authority = {
   status: 'approved' as const,
   decision: 'isolated test-only authority; no collection activation',
