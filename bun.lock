@@ -35,9 +35,11 @@
       "name": "@daisy/realtime",
       "version": "0.0.0",
       "dependencies": {
+        "@daisy/auth": "workspace:*",
         "@daisy/clock": "workspace:*",
         "@daisy/config": "workspace:*",
         "@daisy/db": "workspace:*",
+        "@daisy/ingress": "workspace:*",
         "@daisy/logger": "workspace:*",
         "@daisy/observability": "workspace:*",
         "@daisy/protocol": "workspace:*",
@@ -59,6 +61,7 @@
         "@daisy/db": "workspace:*",
         "@daisy/debate-engine": "workspace:*",
         "@daisy/errors": "workspace:*",
+        "@daisy/ingress": "workspace:*",
         "@daisy/logger": "workspace:*",
         "@daisy/observability": "workspace:*",
         "@daisy/protocol": "workspace:*",
@@ -172,6 +175,13 @@
       "dependencies": {
         "@daisy/protocol": "workspace:*",
       },
+      "devDependencies": {
+        "riteway": "9.3.0",
+      },
+    },
+    "packages/ingress": {
+      "name": "@daisy/ingress",
+      "version": "0.0.0",
       "devDependencies": {
         "riteway": "9.3.0",
       },
@@ -298,6 +308,8 @@
     "@daisy/debate-engine": ["@daisy/debate-engine@workspace:packages/debate-engine"],
 
     "@daisy/errors": ["@daisy/errors@workspace:packages/errors"],
+
+    "@daisy/ingress": ["@daisy/ingress@workspace:packages/ingress"],
 
     "@daisy/logger": ["@daisy/logger@workspace:packages/logger"],
 

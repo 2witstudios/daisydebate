@@ -30,6 +30,7 @@ import { standingsOperations } from './standings';
 import type { RateDebateInput } from './rating-facts';
 import { emailDeliveryOperations } from './email-delivery-operations';
 import { outboxOperations } from './outbox';
+import { readOutboxCatchup } from './outbox-catchup';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import {
   runtimeRoleFactsFrom,
@@ -168,6 +169,15 @@ export function createDatabase({
     messagingSocialStore: (authorize: MessagingSocialAuthorizationFence) =>
       createMessagingSocialStore({ database, authorize }),
     ...outboxOperations({ database, eventSink }),
+    readOutboxCatchup: (
+      topic: string,
+      since: string,
+      through: import('./outbox').OutboxPosition,
+      limit?: number,
+    ) =>
+      instrumented(eventSink, 'readOutboxCatchup', () =>
+        readOutboxCatchup(database, topic, since, through, limit),
+      ),
     ...formatOperations({ database, eventSink }),
     ...roomOperations({ database, eventSink }),
     ...roomCommandOperations({ database, eventSink }),

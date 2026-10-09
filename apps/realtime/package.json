@@ -17,7 +17,9 @@
     "@daisy/logger": "workspace:*",
     "@daisy/observability": "workspace:*",
     "@daisy/protocol": "workspace:*",
-    "@daisy/redis": "workspace:*"
+    "@daisy/redis": "workspace:*",
+    "@daisy/ingress": "workspace:*",
+    "@daisy/auth": "workspace:*"
   },
   "devDependencies": {
     "riteway": "9.3.0"

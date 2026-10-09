@@ -84,6 +84,7 @@ export type {
 export {
   buildUserInboxTopic,
   buildDebateTopic,
+  parseTopic,
   buildChannelTopic,
   buildRoomTopic,
 } from './topics';
@@ -164,3 +165,5 @@ export {
   roomCatalogChoiceSchema,
   roomCastChoiceSchema,
 } from './room-read';
+
+export { serverMessageSchema, type ServerMessage } from './realtime-server';

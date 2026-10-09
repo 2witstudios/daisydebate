@@ -23,7 +23,10 @@ const resources = (
 });
 
 const fakeServer = (upgraded: boolean): Server<SocketData> =>
-  ({ upgrade: () => upgraded }) as unknown as Server<SocketData>;
+  ({
+    upgrade: () => upgraded,
+    requestIP: () => ({ address: '127.0.0.1' }),
+  }) as unknown as Server<SocketData>;
 
 describe('createRealtimeServer socket tuning', () => {
   test('applies the ADR 0031 idle window, frame cap and hard backpressure backstop', () => {
@@ -115,9 +118,14 @@ describe('createRealtimeServer fetch', () => {
   });
 
   test('upgrades a WebSocket request on the socket path', async () => {
-    const server = createRealtimeServer({ resources: resources() });
+    const server = createRealtimeServer({
+      resources: resources(),
+      allowedOrigins: ['http://localhost'],
+    });
     const response = await server.fetch(
-      new Request(`http://localhost${SOCKET_PATH}`),
+      new Request(`http://localhost${SOCKET_PATH}`, {
+        headers: { Origin: 'http://localhost', Upgrade: 'websocket' },
+      }),
       fakeServer(true),
     );
 

@@ -2,7 +2,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createCeilingFlows, GLOBAL_MINUTE } from './auth-ceiling-helpers';
 import { elapse, statuses } from './auth-rate-limit-helpers';
-import { CLIENT_IP_HEADER } from '../src/features/auth/abuse/client-ip';
+import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
 import { MAGIC_LINK_NETWORK_RULES } from '../src/features/auth/abuse/rate-limit';
 
 /**

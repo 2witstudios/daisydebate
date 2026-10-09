@@ -1,12 +1,11 @@
-import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { create, magicLinkRequest } from './abuse.test-support';
 import {
+  resolveClientIp,
   CLIENT_IP_HEADER,
   FLY_CLIENT_IP_HEADER,
-  deriveClientIdSubkey,
-  resolveClientIp,
-  stampClientIdentity,
-} from './client-ip';
+} from '@daisy/ingress/client-ip';
+import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { create, magicLinkRequest } from './abuse.test-support';
+import { deriveClientIdSubkey, stampClientIdentity } from './client-ip';
 
 setupRitewayBun();
 

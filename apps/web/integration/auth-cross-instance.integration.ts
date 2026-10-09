@@ -10,7 +10,7 @@ import {
   withSql,
 } from './fixtures';
 import { uniqueName } from './auth-account-helpers';
-import { CLIENT_IP_HEADER } from '../src/features/auth/abuse/client-ip';
+import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
 import { createApp } from '../src/server/app';
 import { createRoutes } from '../src/server/routes';
 import {

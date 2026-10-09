@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { databaseUrl, redisUrl } from './urls';
+export { readRealtimeTransportConfig } from './realtime-transport';
 
 export { requireTestServices, requireTestSlotServices } from './test-services';
 export {
