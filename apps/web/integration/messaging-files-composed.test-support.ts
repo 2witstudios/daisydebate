@@ -6,13 +6,22 @@ import { socialPolicyEvidence } from '@daisy/auth/social-policy';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { FilePolicy, FileMime } from '@daisy/db/messaging-files';
 import { openMessagingFixture } from './messaging-fixture.test-support';
-import { openFileScannerRelay } from './messaging-files.test-support';
+import {
+  openFileScannerRelay,
+  controlledFileScan,
+} from './messaging-files.test-support';
 import { composeMessagingFileStore } from '../src/features/messaging/file-composition';
+import {
+  messagingAuthorizationFence,
+  type MessagingReadingPolicy,
+} from '../src/features/messaging/authorization-fence';
+import { mutateMessagingMessage } from '../src/features/messaging/mutate';
 import { composeMessagingFileCleanup } from '../src/features/messaging/file-cleanup';
 import { createLocalPrivateObjectStore } from '../src/features/messaging/files/local-object-store';
 import { createClamdScanner } from '../src/features/messaging/files/clamd';
 import { sanitizeMessagingImage } from '../src/features/messaging/files/image-sanitizer';
 import {
+  finalizeMessagingFile,
   reserveMessagingFile,
   uploadMessagingFile,
   type FileDependencies,
@@ -74,6 +83,10 @@ export async function openComposedFileFixture(
     }
     const clock = { now: () => fixture.now };
     const objects = createLocalPrivateObjectStore(directory);
+    const readingPolicy: MessagingReadingPolicy = (input) => ({
+      ...socialPolicyEvidence(input.channel, input.accounts, input.now),
+      allowed: true,
+    });
     const dependenciesFor = (
       identity: AuthorizationPrincipal,
     ): FileDependencies => ({
@@ -89,10 +102,7 @@ export async function openComposedFileFixture(
           revision: 1,
           allowedBandPairs: [['adult', 'adult']],
         },
-        readingPolicy: (input) => ({
-          ...socialPolicyEvidence(input.channel, input.accounts, input.now),
-          allowed: true,
-        }),
+        readingPolicy,
       }),
       failPending: composeMessagingFileCleanup({
         database,
@@ -104,6 +114,32 @@ export async function openComposedFileFixture(
       clock,
       ids: { next: createId },
     });
+    const removeMessage = () =>
+      mutateMessagingMessage(
+        'remove',
+        {
+          version: 1,
+          channelId: fixture.channelId,
+          messageId,
+          requestId: createId(),
+        },
+        principal,
+        {
+          bounds: { messageUnits: 100, pageItems: 20 },
+          editWindowMs: 1,
+          clock,
+          limit: async () => {},
+          store: database.messagingChannelStore(
+            messagingAuthorizationFence({
+              principal,
+              capability: 'channel.message.remove',
+              clock,
+              postingPolicy: { state: 'pending' },
+              readingPolicy,
+            }),
+          ),
+        },
+      );
     const dependencies = dependenciesFor(principal);
     const reserve = (
       bytes = cleanFilePdf,
@@ -162,6 +198,7 @@ export async function openComposedFileFixture(
       reserve,
       quarantine,
       messageId,
+      removeMessage,
       fileRow,
       close,
     };
@@ -169,4 +206,27 @@ export async function openComposedFileFixture(
     await close();
     throw error;
   }
+}
+
+export function startFileFinalization(
+  f: Pick<
+    Awaited<ReturnType<typeof openComposedFileFixture>>,
+    'dependencies' | 'principal' | 'messageId'
+  >,
+  token: {
+    version: number;
+    channelId: string;
+    fileId: string;
+    generation: number;
+  },
+) {
+  const scan = controlledFileScan(f.dependencies.scanner);
+  return {
+    ...scan,
+    finalizing: finalizeMessagingFile(
+      { ...token, messageId: f.messageId },
+      f.principal,
+      { ...f.dependencies, scanner: scan.scanner },
+    ),
+  };
 }
