@@ -255,7 +255,11 @@ export function createSubscriptionReceiver({
     sub: Subscription,
     through: OutboxPosition,
   ) {
-    if (!transport.current(connection, request.topic, sub)) return;
+    if (!transport.current(connection, request.topic, sub)) {
+      if (ownsSubscription(connection, request.topic, sub))
+        transport.resync(connection, request, sub);
+      return;
+    }
     connection.socket.subscribe(
       transport.nativeTopic(connection, request.topic),
     );

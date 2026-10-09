@@ -41,3 +41,30 @@ test('a drain between resolved boundary and the caller continuation cannot repla
     expected: { frames: ['resync_required'], attached: [] },
   });
 });
+
+test('a bell between initial allow and no-cursor attachment retires the pending request', async () => {
+  let resolve!: (decision: { revision: string; validUntil: number }) => void;
+  const { registry, connection, sent, attached } = fixture({
+    authorize: () =>
+      new Promise((done) => {
+        resolve = done;
+      }),
+  });
+  const pending = registry.subscribe(connection, { id: 'request', topic });
+  resolve({ revision: '1', validUntil: 60_000 });
+  queueMicrotask(() => queueMicrotask(() => registry.sink([row(1)])));
+  await pending;
+  await registry.settled();
+  assert({
+    given:
+      'a room bell invalidating the initial allow before its caller attaches',
+    should:
+      'retire initialization and explicitly request a fresh HTTP snapshot',
+    actual: {
+      types: sent.map((frame) => frame.type),
+      attached: [...attached],
+      pending: connection.topics.has(topic),
+    },
+    expected: { types: ['resync_required'], attached: [], pending: false },
+  });
+});
