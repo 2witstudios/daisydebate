@@ -22,6 +22,7 @@ export function createMessagingSocialHandlers(dependencies: {
   readonly decide: Operation;
   readonly block: Operation;
   readonly preview: Operation;
+  readonly status: Operation;
 }) {
   const schemas = createMessagingSocialSchemas(dependencies.bounds);
   const outputs = {
@@ -29,15 +30,16 @@ export function createMessagingSocialHandlers(dependencies: {
     decide: schemas.closedDmResult,
     block: schemas.blockResult,
     preview: schemas.previewDmResult,
+    status: schemas.dmResult,
   };
   const run = (
     request: Request,
-    kind: 'request' | 'decide' | 'block' | 'preview',
+    kind: 'request' | 'decide' | 'block' | 'preview' | 'status',
     readInput: () => Promise<unknown>,
   ) =>
     runMessagingHandler(dependencies, request, {
       name: `messaging.${kind}`,
-      readOnly: kind === 'preview',
+      readOnly: kind === 'preview' || kind === 'status',
       readInput,
       headers: {
         'x-messaging-introduction-units': String(
@@ -66,6 +68,8 @@ export function createMessagingSocialHandlers(dependencies: {
       ),
     block: (request: Request) =>
       run(request, 'block', () => readJson(request, dependencies.maxBodyBytes)),
+    status: (request: Request, channelId: string) =>
+      run(request, 'status', async () => ({ version: 1, channelId })),
     preview: (request: Request, channelId: string) =>
       run(request, 'preview', async () => ({ version: 1, channelId })),
   };
