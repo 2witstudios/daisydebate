@@ -23,6 +23,8 @@ export default defineConfig({
   ...canonical,
   testDir: resolve(import.meta.dirname, '..'),
   testMatch: '**/realtime-room-delivery.e2e.ts',
+  testIgnore: [],
+  outputDir: 'test-results/realtime',
   projects: [{ ...chromium, testIgnore: [] }],
   reporter: [
     ['list'],
