@@ -15,12 +15,17 @@ export default defineConfig({
   ...canonical,
   testDir: resolve(import.meta.dirname, '..'),
   testMatch: '**/room-launch.e2e.ts',
+  testIgnore: [],
   timeout: 120_000,
   reporter: [
     ['list'],
     ['json', { outputFile: 'test-results/room-launch-results.json' }],
   ],
-  projects,
+  projects: projects.map((project) => ({
+    ...project,
+    testIgnore: [],
+    use: { ...project.use, channel: 'chromium' },
+  })),
   webServer: servers.map((server, index) => {
     if (!server) throw new Error('Canonical browser server is missing');
     return index === 0

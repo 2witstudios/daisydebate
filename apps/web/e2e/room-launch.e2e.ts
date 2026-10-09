@@ -1,3 +1,4 @@
+import { proveHumanLaunch } from './support/room-launch-human';
 import { createId } from '@paralleldrive/cuid2';
 import { roomViewSchema, roundViewSchema } from '@daisy/protocol';
 import { expect, test, openPage } from './support/fixtures';
@@ -7,6 +8,7 @@ import {
   deniedCommand,
   createFromPlay,
   claim,
+  prepareJudgeRoom,
 } from './support/room-launch-flow';
 import { launchCustomSelection } from './support/room-launch-custom';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
@@ -119,30 +121,10 @@ test('native judge Ready and eligible stored bot debaters launch one frozen sche
   try {
     const context = accounts.members[0]!.context;
     const page = await openPage(context, 'bot Launch host');
-    let view = await createFromPlay(
+    let view = await prepareJudgeRoom(
       page,
       `Bot proof ${createId().slice(0, 8)}`,
-      'one-on-one',
     );
-    // One-on-one has two debaters and a judge. Every bot choice is a real catalog row.
-    const catalog = await context.request.get('/api/rooms/catalog');
-    const { bots } = (await catalog.json()) as {
-      bots: { actorId: string; eligible: boolean }[];
-    };
-    const eligible = bots.filter((bot) => bot.eligible);
-    expect(eligible.length).toBeGreaterThanOrEqual(2);
-    for (const [index, seat] of ['Affirmative 1', 'Negative 1'].entries()) {
-      await page
-        .getByLabel(`Assign ${seat}`, { exact: true })
-        .selectOption(eligible[index]!.actorId);
-      await page
-        .getByLabel(`Assign ${seat}`, { exact: true })
-        .locator('..')
-        .getByRole('button', { name: 'Assign', exact: true })
-        .click();
-      view = await reread(context.request, view.id);
-    }
-    view = await claim(page, view, 'Judge 1');
     // Real same-account cookies in a JS-disabled context; no readiness injection.
     const native = await browser.newContext({
       baseURL: origin,
@@ -174,9 +156,7 @@ test('native judge Ready and eligible stored bot debaters launch one frozen sche
         await launchForm.locator('[name="expectedVersion"]').inputValue(),
       );
       await judge.getByRole('button', { name: 'Launch', exact: true }).click();
-      await expect(
-        judge.getByRole('link', { name: 'View persisted Round' }),
-      ).toBeVisible();
+      await expect(judge).toHaveURL(/\/rounds\/[a-z0-9]+$/);
       const launched = await reread(native.request, view.id);
       expect(launched.roundRef).not.toBeNull();
       const receipt = await native.request.get(
@@ -212,7 +192,6 @@ test('native judge Ready and eligible stored bot debaters launch one frozen sche
       expect(retry.status()).toBe(200);
       expect((await retry.json()).receipt.replayed).toBe(true);
       expect((await launchEvidence(view.id)).hash).toBe(proof.hash);
-      await judge.getByRole('link', { name: 'View persisted Round' }).click();
       await expect(judge).toHaveURL(`/rounds/${round.id}`);
       await expect(
         judge.getByText('scheduled', { exact: false }).first(),
@@ -286,4 +265,10 @@ test('canonical browser custom-create preserves declared unequal seats and order
     await settledLaunchAuth();
     await accounts.closeContexts();
   }
+});
+
+test('actual Room device checks gate human Ready, withdrawal and durable Launch', async ({
+  browser,
+}, info) => {
+  await proveHumanLaunch(browser, info);
 });
