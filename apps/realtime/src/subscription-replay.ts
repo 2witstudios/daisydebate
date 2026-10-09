@@ -95,20 +95,32 @@ export function createSubscriptionReceiver({
     connection.topics.set(request.topic, sub);
     return sub;
   }
+  function beginAuthority(
+    connection: Connection,
+    topic: string,
+    sub: Subscription,
+  ) {
+    // Begin synchronously: extracting this seam must add no await before the caller fence.
+    const attempt = sub.lease.begin(
+      connection.principal.sessionId,
+      sub.revision,
+    );
+    return {
+      attempt,
+      decision: readSubscriptionDecision(authorize, connection, topic),
+    };
+  }
   async function initialAuthority(
     connection: Connection,
     request: SubscribeRequest,
     sub: Subscription,
   ) {
-    const attempt = sub.lease.begin(
-      connection.principal.sessionId,
-      sub.revision,
-    );
-    const decision = await readSubscriptionDecision(
-      authorize,
+    const { attempt, decision: pending } = beginAuthority(
       connection,
       request.topic,
+      sub,
     );
+    const decision = await pending;
     if (!ownsSubscription(connection, request.topic, sub)) return false;
     if (!decision || !sub.lease.accept(attempt, decision?.validUntil)) {
       refuse(connection, request, 'AUTHORIZATION');
@@ -165,15 +177,12 @@ export function createSubscriptionReceiver({
     since: string,
   ) {
     // History/lock waits cannot carry their earlier allow into attachment.
-    const attempt = sub.lease.begin(
-      connection.principal.sessionId,
-      sub.revision,
-    );
-    const decision = await readSubscriptionDecision(
-      authorize,
+    const { attempt, decision: pending } = beginAuthority(
       connection,
       request.topic,
+      sub,
     );
+    const decision = await pending;
     if (!ownsSubscription(connection, request.topic, sub)) return false;
     if (
       resyncIf(

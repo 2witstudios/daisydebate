@@ -56,7 +56,7 @@ test('selected config validation refuses wrong suites, shared output and missing
     outputDir: 'test-results/realtime',
     reporter: [['json', { outputFile: profile.report }]],
   };
-  const accepts = (input: typeof config) => {
+  const accepts = (input: Parameters<typeof assertRealtimeProofConfig>[1]) => {
     try {
       assertRealtimeProofConfig(profile, input);
       return true;
