@@ -9,9 +9,15 @@ import { requireLaunchSlot } from '../e2e/support/room-launch-slot';
 setupRitewayBun();
 
 const shutdownObservers = (calls: string[]) => ({
-  stopCapture: () => calls.push('capture'),
-  stopEdge: () => calls.push('edge'),
-  refused: () => calls.push('refused'),
+  stopCapture: () => {
+    calls.push('capture');
+  },
+  stopEdge: () => {
+    calls.push('edge');
+  },
+  refused: () => {
+    calls.push('refused');
+  },
 });
 
 test('Launch shutdown awaits auth settlement and closes each owned listener once', async () => {

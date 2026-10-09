@@ -200,3 +200,36 @@ test('configuration changes are fenced while prep is active', () => {
     expected: [{ ok: false, refusal: 'prep-running' }, before],
   });
 });
+
+test('a host close abandons the room and prevents further commands', () => {
+  const room = state();
+  const closed = executeRoomCommand(
+    room,
+    'host',
+    { type: 'close', commandId: 'close', expectedVersion: room.version },
+    consent,
+    edges,
+  );
+  const afterClose = closed.ok
+    ? executeRoomCommand(
+        closed.mutation.state,
+        'host',
+        {
+          type: 'update-details',
+          commandId: 'edit-after-close',
+          expectedVersion: closed.mutation.state.version,
+          title: 'Changed',
+          topic: room.topic,
+          visibility: room.visibility,
+        },
+        consent,
+        edges,
+      )
+    : closed;
+  assert({
+    given: 'the host closing an open assembled Room',
+    should: 'abandon it and refuse every later command',
+    actual: [closed.ok && closed.mutation.state.status, afterClose],
+    expected: ['abandoned', { ok: false, refusal: 'room-closed' }],
+  });
+});
