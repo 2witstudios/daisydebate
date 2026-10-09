@@ -155,3 +155,25 @@ test('denied reservation allocates no identifiers before its fresh fence', async
     expected: 0,
   });
 });
+
+test('wrong message association preserves a clean quarantine for the correct retry', async () => {
+  const f = fileOperationFixture();
+  f.frame.finalize = async () => {
+    throw createAppError('NOT_FOUND');
+  };
+  const pending = finalizeMessagingFile(f.input, f.principal, f.d);
+  await f.scanStarted;
+  f.completeScan('clean');
+  await assertRejects({
+    given: 'a clean file finalized against an unavailable or foreign message',
+    should: 'refuse the association',
+    actual: () => pending,
+    code: 'NOT_FOUND',
+  });
+  assert({
+    given: 'an invalid association retry',
+    should: 'preserve the existing clean quarantine',
+    actual: f.state.cleanup,
+    expected: 0,
+  });
+});

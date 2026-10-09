@@ -7,6 +7,7 @@ import { messagingChannels } from '../schema/messaging-channels';
 import { messagingMessages } from '../schema/messaging-messages';
 import { messagingFiles } from '../schema/messaging-files';
 import { requireFilePolicy } from './policy';
+import { requireReservation } from './reservation-input';
 import type {
   FileFrame,
   FileReservation,
@@ -112,22 +113,7 @@ export function channelFileFrame(
     async reserve(command, now, supplied) {
       await authorize();
       const policy = requireFilePolicy(supplied);
-      if (
-        [command.id, command.objectKey, command.requestId].some(
-          (id) => !idSchema.safeParse(id).success,
-        ) ||
-        !Number.isSafeInteger(command.bytes) ||
-        command.bytes < 1 ||
-        command.bytes > policy.maxFileBytes ||
-        !Number.isFinite(Date.parse(now)) ||
-        !command.filename.trim() ||
-        command.filename.length > policy.maxFilenameUnits ||
-        /[\x00-\x1f\x7f/\\]/u.test(command.filename) ||
-        !['image/png', 'image/jpeg', 'image/webp', 'application/pdf'].includes(
-          command.mime,
-        )
-      )
-        throw createAppError('VALIDATION');
+      requireReservation(command, input.channelId, now, policy);
       const [existing] = await tx
         .select()
         .from(messagingFiles)
