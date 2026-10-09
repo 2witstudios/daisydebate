@@ -22,6 +22,7 @@ export function createMessagingSocialSchemas(bounds: MessagingSocialBounds) {
   z.number().int().positive().safe().parse(bounds.batchActors);
   const command = { version: z.literal(1), requestId: idSchema };
   const scoped = { ...command, channelId: idSchema };
+  const generation = z.number().int().positive().safe();
   const actors = z
     .array(idSchema)
     .min(1)
@@ -57,6 +58,26 @@ export function createMessagingSocialSchemas(bounds: MessagingSocialBounds) {
       ...scoped,
       decision: z.enum(['accept', 'decline', 'cancel']),
     }),
+    groupResult: z.strictObject({
+      version: z.literal(1),
+      channelId: idSchema,
+      lifecycle: z.enum(['active', 'archived']),
+    }),
+    invitationResult: z.strictObject({
+      version: z.literal(1),
+      channelId: idSchema,
+      generation,
+      state: z.enum(['pending', 'accepted', 'declined', 'cancelled']),
+    }),
+    readGroupInvitation: z.strictObject({
+      version: z.literal(1),
+      channelId: idSchema,
+    }),
+    cancelGroupInvitation: z.strictObject({
+      ...scoped,
+      inviteeActorId: idSchema,
+      expectedGeneration: generation,
+    }),
     createGroup: z.strictObject({
       ...command,
       title: messagingTextSchema(bounds.titleUnits),
@@ -65,6 +86,7 @@ export function createMessagingSocialSchemas(bounds: MessagingSocialBounds) {
     inviteGroup: z.strictObject({ ...scoped, invitedActorIds: actors }),
     decideGroupInvitation: z.strictObject({
       ...scoped,
+      expectedGeneration: generation,
       decision: z.enum(['accept', 'decline']),
     }),
     removeGroupMember: z.strictObject({ ...scoped, memberActorId: idSchema }),
