@@ -57,7 +57,32 @@ export type MessagingAuthorizationFence = (
   },
   authority: Pick<MessagingLockedFrame, 'fact' | 'accounts'>,
 ) => Promise<void>;
+type MessagingHistoryPage = {
+  readonly messages: readonly MessagingMessageRecord[];
+  readonly changeVersion: number;
+  readonly nextBefore: {
+    readonly channelId: string;
+    readonly sequence: number;
+  } | null;
+};
+type MessagingChangesPage = {
+  readonly messages: readonly MessagingMessageRecord[];
+  readonly changeVersion: number;
+  readonly nextAfter: {
+    readonly channelId: string;
+    readonly changeVersion: number;
+  };
+};
 export type MessagingLockedFrame = {
+  readonly history: (input: {
+    readonly limit: number;
+    readonly before?: number;
+  }) => Promise<MessagingHistoryPage>;
+  readonly changes: (input: {
+    readonly limit: number;
+    readonly after: number;
+  }) => Promise<MessagingChangesPage>;
+  readonly markRead: (sequence: number) => Promise<number>;
   readonly authorize: () => Promise<void>;
   readonly fact: MessagingChannelFact;
   readonly accounts: readonly ReturnType<typeof authorizationAccountFact>[];

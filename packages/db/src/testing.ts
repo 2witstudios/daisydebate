@@ -138,4 +138,7 @@ export async function finishedOrBlockedBehind(
   }
 }
 
-export { createMessagingTestFixture } from './messaging/test-fixture';
+export {
+  createMessagingTestFixture,
+  seedMessagingTestDm,
+} from './messaging/test-fixture';
