@@ -1,8 +1,77 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { validateRoomCleanupTarget } from './room-account-admission';
-import { slotEnvValues, worktreeSlot } from './slot-model';
+import { deriveSlot, slotEnvValues, worktreeSlot } from './slot-model';
 import { resolveCheckout } from './slot';
 setupRitewayBun();
+
+type BrowserWorkflow = {
+  jobs: {
+    e2e: {
+      env?: Record<string, string>;
+      steps: { run?: string; env?: Record<string, string> }[];
+    };
+  };
+};
+
+describe('ROOM-6.1b browser CI cleanup admission', () => {
+  const checkout = '/home/runner/work/daisydebate/daisydebate';
+  const slot = deriveSlot({ checkout, mainCheckout: checkout });
+
+  for (const command of [
+    'bun run --cwd apps/web test:e2e',
+    'bun test:e2e:qualify',
+  ]) {
+    test(`${command} supplies canonical checkout metadata`, async () => {
+      const workflow = Bun.YAML.parse(
+        await Bun.file(
+          new URL('../.github/workflows/e2e.yml', import.meta.url),
+        ).text(),
+      ) as BrowserWorkflow;
+      const job = workflow.jobs.e2e;
+      const step = job.steps.find((entry) => entry.run === command);
+      if (!step) throw new Error('Missing browser CI runner');
+      const env = { ...job.env, ...step.env };
+      assert({
+        given: `the committed workflow environment for ${command}`,
+        should: 'admit only the canonical main-checkout E2E role and server',
+        actual: validateRoomCleanupTarget(slot, env),
+        expected: {
+          database: 'daisy_e2e',
+          role: 'daisy_e2e',
+          hostname: 'localhost',
+          port: '5432',
+        },
+      });
+      for (const change of [
+        { E2E_REDIS_NAMESPACE: 'ci-e2e' },
+        { E2E_DATABASE_URL: env.TEST_DATABASE_URL },
+        {
+          E2E_DATABASE_URL: env.E2E_DATABASE_URL?.replace(
+            'localhost',
+            'remote.example',
+          ),
+        },
+      ]) {
+        let connections = 0;
+        let refused = false;
+        try {
+          validateRoomCleanupTarget(slot, { ...env, ...change });
+          connections++;
+        } catch (error) {
+          refused =
+            error instanceof Error &&
+            error.message === 'Room account cleanup target refused';
+        }
+        assert({
+          given: 'a wrong namespace, integration database or remote server',
+          should: 'refuse before the connection boundary with sanitized errors',
+          actual: { refused, connections },
+          expected: { refused: true, connections: 0 },
+        });
+      }
+    });
+  }
+});
 
 async function runAdmissionProcess(
   body: string | Uint8Array,
