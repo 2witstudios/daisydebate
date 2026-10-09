@@ -11,10 +11,10 @@ const ORIGIN = 'http://localhost:3000';
 const DOC = 'ckdocument0000000000000a';
 const DEBATE = 'ckaidebate00000000000000';
 
-const member: Identity = {
+const member: Extract<Identity, { state: 'member' }> = {
   state: 'member',
   username: 'ada',
-  principal: { kind: 'user', userId: 'user1', permissions: [] },
+  principal: { kind: 'user', userId: 'user1', actorId: 'actor1' },
 };
 
 const document = {
@@ -161,7 +161,10 @@ describe('debate room document routes', () => {
       identity: { state: 'anonymous', principal: { kind: 'anonymous' } },
     });
     const provisional = handlersWith({
-      identity: { state: 'provisional', principal: member.principal },
+      identity: {
+        state: 'provisional',
+        principal: { kind: 'user', userId: 'user1', actorId: null },
+      },
     });
     const list = { roundId: DEBATE };
     assert({
