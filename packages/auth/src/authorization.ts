@@ -1,3 +1,4 @@
+import { policyEvidenceCurrent as currentPolicy } from './authorization-policy';
 import {
   authorizationCapabilitySchema,
   type AuthorizationCapability,
@@ -105,21 +106,6 @@ function validChannelAuthority(resource: ChannelAuthorizationFact) {
     : resource.policyKey === 'social.private_group' &&
         validGroupAuthority(authority);
 }
-function currentPolicy(
-  resource: ChannelAuthorizationFact,
-  policy: AuthorizationInput['context']['socialReading'],
-) {
-  if (!policy?.allowed) return false;
-  const authority = resource.authority;
-  return (
-    policy.channelId === resource.channelId &&
-    policy.policyKey === resource.policyKey &&
-    policy.policyRevision === resource.policyRevision &&
-    policy.authorityRevision === resource.revision &&
-    policy.relationshipRevision ===
-      (authority.kind === 'dm' ? authority.revision : authority.generation)
-  );
-}
 function requestDecision(
   actorId: string,
   capability: AuthorizationCapability,
@@ -142,7 +128,7 @@ function requestDecision(
     capability === 'channel.request.read'
       ? context.socialReading
       : context.socialPosting;
-  return actorAllowed && currentPolicy(resource, policy)
+  return actorAllowed && currentPolicy(resource, policy, context)
     ? allow
     : deny('missing-capability');
 }
@@ -163,7 +149,7 @@ function channelMutation(
 ): AuthorizationDecision {
   if (
     resource.lifecycle !== 'active' ||
-    !currentPolicy(resource, context.socialPosting)
+    !currentPolicy(resource, context.socialPosting, context)
   )
     return deny('missing-capability');
   const authority = resource.authority;
@@ -186,7 +172,7 @@ function channelDecision(
     return requestDecision(actorId, capability, resource, context);
   if (
     !channelEntitlement(resource, actorId) ||
-    !currentPolicy(resource, context.socialReading)
+    !currentPolicy(resource, context.socialReading, context)
   )
     return deny('missing-capability');
   if (['channel.read', 'channel.subscribe'].includes(capability)) return allow;
