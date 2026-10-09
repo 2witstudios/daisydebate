@@ -1,5 +1,9 @@
 import { z } from 'zod';
-import { ENVELOPE_VERSION, cursorSchema } from './realtime';
+import {
+  ENVELOPE_VERSION,
+  cursorSchema,
+  realtimeRequestIdSchema,
+} from './realtime';
 import { topicStringSchema } from './topics';
 import {
   outboxPayloadSchema,
@@ -8,7 +12,7 @@ import {
 
 const envelope = { v: z.literal(ENVELOPE_VERSION) };
 // Existing browser heartbeat IDs are correlation strings, not entity IDs.
-const requestId = z.string().min(1).max(128);
+const requestId = realtimeRequestIdSchema;
 const subscription = { ...envelope, id: requestId, topic: topicStringSchema };
 const eventSchema = z
   .strictObject({
