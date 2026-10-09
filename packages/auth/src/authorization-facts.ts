@@ -124,6 +124,8 @@ export type AuthorizationInput = {
     readonly account: AccountAuthorizationFact | null;
     /** Trusted current facts/time from the same account-fenced transaction. */
     readonly now?: string;
+    /** Exact fresh pair accounts under the same account fence; no age eligibility required. */
+    readonly contactAccounts?: readonly AccountAuthorizationFact[];
     readonly socialAccounts?: readonly SocialAccountFact[];
     readonly socialReading?: SocialPolicyEvidence;
     readonly socialPosting?: SocialPolicyEvidence;
