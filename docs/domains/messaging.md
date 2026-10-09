@@ -136,3 +136,33 @@ accept/decline action to the server preview's exact generation. Removed or renew
 invitations therefore cannot be acted on through a stale form. The same protected
 HTTP decision serves JavaScript and native form submissions. Browser and real
 composed database evidence for this group extension remain acceptance work.
+
+### Group creation and multi-target command privacy
+
+Private-group creation evaluates the existing prospective creation capability
+against locked real accounts, current minimal age facts and ordered contact
+pairs. Proposed invitees remain intent: the creator receives the initial manager
+grant and every other participant receives a pending invitation. Identifiers are
+allocated only after current admission is rechecked following rate limiting.
+Creation retries load current group authority and require a fresh independent
+history read grant before projecting their own bound receipt; creation approval
+never substitutes for current membership or reading authority.
+
+The dedicated `messaging_social_command_subjects` table records every invitee
+associated with a multi-target creation fingerprint. `actor_id`, `request_id`
+and `subject_actor_id` are all personal/private command relationship columns,
+owned by MSG in PostgreSQL, for subject export and erasure of the associated
+command. They are exportable only within the requester's own command or subject
+association. Erasure deletes the bound command and cascades its associations;
+unrelated peer commands and contributions remain untouched. Lawful basis is
+pending PRIV-3 (`jc0qcdvpkmqzrelpaesi3pah`); retention is pending PRIV-4
+(`njiorsf64z4iqjm2dbfa3zuu`), with no retention exception or activation approval.
+The fingerprint itself retains its existing personal/private declaration.
+
+Schema input and cleanup/export source must be composed with the sole canonical
+inventory update and CAP's reviewed forward migration before rights or service
+acceptance. Stale inventory refuses the newly exported table. These source
+changes do not establish migration application, physical cleanup proof, accepted
+group policy, late-join history policy or production collection activation. The
+shared title still has no durable subject-owner field; existing title locality
+and privacy gaps remain explicit.

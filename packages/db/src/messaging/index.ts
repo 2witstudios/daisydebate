@@ -32,3 +32,8 @@ export type {
   MessagingGroupInvitationFence,
   MessagingGroupInvitationStore,
 } from './group-invitation-contracts';
+
+export type {
+  MessagingGroupCreationStore,
+  MessagingGroupCreationFence,
+} from './group-creation-contracts';
