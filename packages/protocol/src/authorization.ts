@@ -20,6 +20,7 @@ const authorizationCapabilities = [
   'channel.manage',
   'channel.subscribe',
   'channel.request.read',
+  'channel.request.result',
   'channel.request.decide',
   'channel.request.cancel',
 ] as const;
