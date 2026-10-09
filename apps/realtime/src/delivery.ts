@@ -43,6 +43,7 @@ export function createRealtimeDelivery({
     maxSubscriptions: tuning.maxSubscriptions,
     authorize: authority.authorizeTopic,
     readCatchup: resources.database.readOutboxCatchup,
+    readRetentionBoundary: resources.database.readOutboxRetentionBoundary,
     publish,
   });
   return {

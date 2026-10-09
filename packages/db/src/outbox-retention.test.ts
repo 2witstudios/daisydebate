@@ -34,7 +34,7 @@ test('prefix delete preserves finality and refuses locked predecessors', async (
   const database = {
     execute: async (query: Parameters<PgDialect['sqlToQuery']>[0]) => {
       statement = new PgDialect().sqlToQuery(query).sql;
-      return [{ seq: 1 }];
+      return [{ known: true, count: 1 }];
     },
   } as unknown as Parameters<typeof deleteExpiredOutboxPrefix>[0];
   const count = await deleteExpiredOutboxPrefix(database, {
