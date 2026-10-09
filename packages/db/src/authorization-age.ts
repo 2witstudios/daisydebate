@@ -36,6 +36,7 @@ function knownBand(
   );
 }
 function checkedInstant(input: AgeInput) {
+  if (typeof input.now !== 'string') throw createAppError('VALIDATION');
   const instant = new Date(input.now);
   const validTime =
     Number.isFinite(instant.getTime()) && instant.toISOString() === input.now;
