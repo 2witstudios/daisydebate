@@ -19,6 +19,8 @@ export type {
   ChannelAuthorizationFact,
   AuthorizationInput,
   AuthorizationDecision,
+  SocialPolicyEvidence,
+  SocialAccountFact,
 } from './authorization-facts';
 const deny = (
   reason: Extract<AuthorizationDecision, { allow: false }>['reason'],
