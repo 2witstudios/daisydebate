@@ -1,11 +1,78 @@
 import { decodeLaunchEvidence } from '../e2e/support/room-launch-evidence-decoder';
+import { createLaunchShutdown } from '../e2e/support/room-launch-shutdown';
 import { mkdtemp, rm, readFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { basename, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createLaunchControl } from '../e2e/support/room-launch-control';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireLaunchSlot } from '../e2e/support/room-launch-slot';
 setupRitewayBun();
+
+test('Launch shutdown awaits auth settlement and closes each owned listener once', async () => {
+  const calls: string[] = [];
+  let release!: () => void;
+  const outstanding = new Promise<void>((accept) => {
+    release = accept;
+  });
+  const shutdown = createLaunchShutdown({
+    settled: () => outstanding,
+    closeControl: () => {
+      calls.push('control');
+    },
+    stopCapture: () => {
+      calls.push('capture');
+    },
+    stopEdge: () => {
+      calls.push('edge');
+    },
+    refused: () => {
+      calls.push('refused');
+    },
+  });
+  const first = shutdown();
+  const second = shutdown();
+  assert({
+    given: 'two signals while auth work remains outstanding',
+    should: 'await settlement without stopping listeners',
+    actual: calls,
+    expected: [],
+  });
+  release();
+  await Promise.all([first, second]);
+  assert({
+    given: 'auth work settled after repeated signals',
+    should: 'close every owned listener exactly once',
+    actual: calls,
+    expected: ['control', 'capture', 'edge'],
+  });
+});
+
+test('Launch shutdown continues cleanup after rejected settlement or control close', async () => {
+  const calls: string[] = [];
+  await createLaunchShutdown({
+    settled: () => Promise.reject(new Error('private settlement failure')),
+    closeControl: () => {
+      calls.push('control');
+      throw new Error('private close failure');
+    },
+    stopCapture: () => {
+      calls.push('capture');
+    },
+    stopEdge: () => {
+      calls.push('edge');
+    },
+    refused: () => {
+      calls.push('refused');
+    },
+  })();
+  assert({
+    given: 'failed settlement and control close',
+    should:
+      'still stop capture and TLS and report a single bounded failure without rejection',
+    actual: calls,
+    expected: ['control', 'capture', 'edge', 'refused'],
+  });
+});
 const own = {
   DATABASE_URL: 'postgres://admin:local@localhost:5432/daisy_wt_proof',
   E2E_DATABASE_URL:
@@ -114,6 +181,12 @@ test('private proof control waits for actual outstanding work and refuses unknow
     await new Promise<void>((accept, reject) =>
       control.close((error) => (error ? reject(error) : accept())),
     );
+    assert({
+      given: 'the real proof control listener closed',
+      should: 'remove its owned descriptor through the bound cleanup handler',
+      actual: await Bun.file(join(directory, 'control.sock')).exists(),
+      expected: false,
+    });
     await rm(directory, { recursive: true, force: true });
   }
 });
@@ -192,5 +265,43 @@ test('Launch admission rejects substituted database roles and effective PostgreS
     expected: Array(2).fill(
       'Launch proof requires its dedicated native worktree slot',
     ),
+  });
+});
+
+test('release entry sanitizes malformed lifecycle URLs before opening services', async () => {
+  const checkout = resolve(import.meta.dir, '../../..');
+  const id = basename(checkout).slice(3).replaceAll('-', '_');
+  const run = Bun.spawn(
+    ['bun', 'apps/web/e2e/support/room-launch-release.ts'],
+    {
+      cwd: checkout,
+      env: {
+        ...process.env,
+        ...own,
+        DATABASE_URL: `postgres://admin:local@localhost:5432/daisy_wt_${id}`,
+        E2E_DATABASE_URL: `postgres://daisy_e2e:local@localhost:5432/daisy_wt_${id}_e2e`,
+        E2E_REDIS_NAMESPACE: `daisy-wt-${id.replaceAll('_', '-')}-e2e`,
+        TEST_DATABASE_URL: `postgres://test:local@localhost:5432/daisy_wt_${id}_test`,
+        TEST_REDIS_URL: 'redis://localhost:6379/12',
+        REDIS_URL: 'malformed-credential-sentinel',
+      },
+      stdout: 'pipe',
+      stderr: 'pipe',
+    },
+  );
+  const [status, stdout, stderr] = await Promise.all([
+    run.exited,
+    new Response(run.stdout).text(),
+    new Response(run.stderr).text(),
+  ]);
+  assert({
+    given: 'an invalid lifecycle URL containing a credential sentinel',
+    should: 'exit with only bounded sanitized refusal evidence',
+    actual: { status, stdout, stderr },
+    expected: {
+      status: 1,
+      stdout: '',
+      stderr: '{"event":"room.launch.release","outcome":"refused"}\n',
+    },
   });
 });
