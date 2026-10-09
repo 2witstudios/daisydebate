@@ -3,6 +3,7 @@ import type { AgeBand } from './age-band';
 import type {
   AccountAuthorizationFact,
   ChannelAuthorizationFact,
+  SocialPolicyEvidence,
 } from './authorization';
 export type SocialContactPolicy =
   | { readonly state: 'pending' }
@@ -92,15 +93,7 @@ export function socialPostingPolicy({
   policy,
 }: PostingInput) {
   const authority = channel.authority;
-  const result = {
-    channelId: channel.channelId,
-    policyKey: channel.policyKey,
-    policyRevision: channel.policyRevision,
-    authorityRevision: channel.revision,
-    relationshipRevision:
-      authority.kind === 'dm' ? authority.revision : authority.generation,
-    allowed: false,
-  };
+  const result = socialPolicyEvidence(channel, accounts, now);
   const members =
     authority.kind === 'dm'
       ? [authority.lowActorId, authority.highActorId]
@@ -125,5 +118,63 @@ export function socialPostingPolicy({
     allowed: bands.every((band, i) =>
       bands.slice(i + 1).every((other) => allowsPair(policy, band, other)),
     ),
+  };
+}
+
+/** Current account revisions and source deadlines are part of every allowance. */
+export function socialPolicyEvidence(
+  channel: ChannelAuthorizationFact,
+  accounts: readonly SocialAccount[],
+  now: string,
+): SocialPolicyEvidence {
+  const authority = channel.authority;
+  const instant = new Date(now);
+  if (!Number.isFinite(instant.getTime()))
+    return invalidPolicyEvidence(channel, now);
+  const nextMonth = new Date(instant);
+  nextMonth.setUTCDate(1);
+  nextMonth.setUTCMonth(nextMonth.getUTCMonth() + 1);
+  nextMonth.setUTCHours(0, 0, 0, 0);
+  const expiry = Math.min(
+    nextMonth.getTime(),
+    ...accounts.map((row) =>
+      row.age.state === 'known'
+        ? Date.parse(row.age.validUntil)
+        : nextMonth.getTime(),
+    ),
+  );
+  const evidence = accounts.map((row) => ({
+    actorId: row.account.actorId ?? '',
+    userId: row.account.userId,
+    accountRevision: row.account.revision,
+    ageRevision: row.age.state === 'known' ? row.age.revision : null,
+  }));
+  return {
+    channelId: channel.channelId,
+    policyKey: channel.policyKey,
+    policyRevision: channel.policyRevision,
+    authorityRevision: channel.revision,
+    relationshipRevision:
+      authority.kind === 'dm' ? authority.revision : authority.generation,
+    evaluatedAt: now,
+    validUntil: Number.isFinite(expiry) ? new Date(expiry).toISOString() : '',
+    accounts: evidence,
+    allowed: false,
+  };
+}
+function invalidPolicyEvidence(
+  channel: ChannelAuthorizationFact,
+  now: string,
+): SocialPolicyEvidence {
+  return {
+    channelId: channel.channelId,
+    policyKey: channel.policyKey,
+    policyRevision: channel.policyRevision,
+    authorityRevision: channel.revision,
+    relationshipRevision: 0,
+    evaluatedAt: now,
+    validUntil: '',
+    accounts: [],
+    allowed: false,
   };
 }

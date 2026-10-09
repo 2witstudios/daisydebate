@@ -22,7 +22,32 @@ const resource: ChannelAuthorizationFact = {
     revision: 3,
   },
 };
+const accounts = ['a', 'b'].map((actorId) => ({
+  account: {
+    userId: actorId === 'a' ? 'u' : 'v',
+    actorId,
+    member: true,
+    erased: false,
+    revision: 1,
+  },
+  age: {
+    state: 'known' as const,
+    actorId,
+    band: 'adult' as const,
+    revision: 1,
+    accountRevision: 1,
+    validUntil: '2026-11-01T00:00:00.000Z',
+  },
+}));
 const policy = {
+  evaluatedAt: '2026-10-09T00:00:00.000Z',
+  validUntil: '2026-11-01T00:00:00.000Z',
+  accounts: accounts.map((row) => ({
+    actorId: row.account.actorId,
+    userId: row.account.userId,
+    accountRevision: 1,
+    ageRevision: 1,
+  })),
   channelId: 'c',
   policyKey: 'social.dm',
   policyRevision: 1,
@@ -35,6 +60,8 @@ const input: AuthorizationInput = {
   capability: 'channel.read',
   resource,
   context: {
+    now: '2026-10-09T00:00:00.000Z',
+    socialAccounts: accounts,
     account: {
       userId: 'u',
       actorId: 'a',
@@ -48,10 +75,14 @@ const input: AuthorizationInput = {
 };
 const atActor = (actorId: string): AuthorizationInput => ({
   ...input,
-  principal: { kind: 'user', userId: 'u', actorId },
+  principal: { kind: 'user', userId: actorId === 'a' ? 'u' : 'v', actorId },
   context: {
     ...input.context,
-    account: { ...input.context.account!, actorId },
+    account: {
+      ...input.context.account!,
+      actorId,
+      userId: actorId === 'a' ? 'u' : 'v',
+    },
   },
 });
 describe('canonical channel decisions', () => {
