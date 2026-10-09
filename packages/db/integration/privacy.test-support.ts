@@ -37,26 +37,32 @@ export async function withPrivacySubject(
     const verificationIds: string[] = [];
     for (const owner of [userId, otherId]) {
       for (const binding of bindings) {
-        const id = createId();
-        verificationIds.push(id);
-        const identifier =
-          'purpose' in binding ? `${binding.purpose}:${id}` : id;
-        const value =
+        const values =
           'purpose' in binding
-            ? {
-                userId: owner,
-                email: `${owner}@privacy.invalid`,
-                newEmail: `${owner}@new.invalid`,
-              }
-            : {
-                type: 'registration',
+            ? [
+                binding.subject === 'email'
+                  ? { email: `${owner}@privacy.invalid`.toUpperCase() }
+                  : {
+                      userId: owner,
+                      email: `${owner}@privacy.invalid`,
+                      newEmail: `${owner}@new.invalid`,
+                    },
+              ]
+            : binding.jsonTypes.map((type) => ({
+                type,
                 userData: { id: owner },
                 expectedChallenge: 'private-challenge',
-              };
-        await fixture.sql.unsafe(
-          'insert into verification(id,identifier,value,expires_at) values($1,$2,$3,$4)',
-          [id, identifier, JSON.stringify(value), now],
-        );
+              }));
+        for (const value of values) {
+          const id = createId();
+          verificationIds.push(id);
+          const identifier =
+            'purpose' in binding ? `${binding.purpose}:${id}` : id;
+          await fixture.sql.unsafe(
+            'insert into verification(id,identifier,value,expires_at) values($1,$2,$3,$4)',
+            [id, identifier, JSON.stringify(value), now],
+          );
+        }
       }
     }
     const opaque = createId();
@@ -88,7 +94,7 @@ export async function withPrivacySubject(
       });
     } finally {
       await fixture.sql.unsafe(
-        'delete from verification where id in ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+        `delete from verification where id in (${verificationIds.map((_, index) => `$${index + 1}`).join(',')})`,
         verificationIds,
       );
       for (const table of ['session', 'account', 'passkey'])
@@ -97,4 +103,12 @@ export async function withPrivacySubject(
         ]);
     }
   });
+}
+
+export async function subjectVerificationCount(client: SQL, userId: string) {
+  const rows = await client.unsafe(
+    "select count(*)::int as n from verification where case when value is json object then value::jsonb ->> 'userId'=$1 or value::jsonb #>> '{userData,id}'=$1 or lower(value::jsonb ->> 'email')=$2 else false end",
+    [userId, `${userId}@privacy.invalid`],
+  );
+  return rows[0]?.n;
 }
