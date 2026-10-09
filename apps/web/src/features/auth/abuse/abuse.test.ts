@@ -1,6 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { systemClock } from '@daisy/clock';
-import { CLIENT_IP_HEADER } from './client-ip';
+import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
 import { emailedLinkIdentifier } from '../confirmation/emailed-link-token';
 import { create, magicLinkRequest, tokenIn } from './abuse.test-support';
 

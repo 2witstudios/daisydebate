@@ -2,7 +2,7 @@ import { APIError, createAuthMiddleware, getIP } from 'better-auth/api';
 import { createAppError } from '@daisy/errors';
 import type { Logger } from '@daisy/logger';
 import { recipientKey } from '../mail/recipient-key';
-import { clientNetworks, type NetworkScope } from './client-networks';
+import { clientNetworks, type NetworkScope } from '@daisy/ingress/client-networks';
 
 /** Fixed-window allowance the gate asks the limiter to enforce for one key. */
 type RateRule = {
