@@ -133,11 +133,11 @@ test('social request and invitation declarations protect private associations', 
       field?.retention.status,
     ]),
     expected: protectedFields.map(() => [
-      'personal',
-      'private',
-      'delete',
-      'pending',
-      'pending',
+      'personal' as const,
+      'private' as const,
+      'delete' as const,
+      'pending' as const,
+      'pending' as const,
     ]),
   });
   assert({
