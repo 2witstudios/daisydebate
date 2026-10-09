@@ -16,8 +16,13 @@ const gate = () => {
   return { promise, resolve };
 };
 
-test('safety block and canonical peer erasure respect both ordered account fence outcomes', async () => {
-  for (const blockFirst of [false, true]) {
+for (const [blockFirst, noDm] of [
+  [false, false],
+  [true, false],
+  [false, true],
+  [true, true],
+] as const) {
+  test(`safety erasure ${blockFirst ? 'block first' : 'erase first'} ${noDm ? 'absent DM' : 'existing DM'}`, async () => {
     const { client, database, fixture, principal } =
       await openMessagingFixture(databaseUrl);
     const clock = { now: () => fixture.now };
@@ -50,7 +55,12 @@ test('safety block and canonical peer erasure respect both ordered account fence
       limit: async () => {},
     };
     const erase = () => fixture.eraseSubject(fixture.otherActorId);
+    let erasing: Promise<void> | undefined;
     try {
+      if (noDm)
+        await client.unsafe('delete from messaging_channels where id=$1', [
+          fixture.channelId,
+        ]);
       if (blockFirst) {
         const blocking = blockMessagingContact(
           command,
@@ -81,7 +91,7 @@ test('safety block and canonical peer erasure respect both ordered account fence
         } finally {
           await probe.close();
         }
-        const erasing = erase();
+        erasing = erase();
         release.resolve();
         await blocking;
         await erasing;
@@ -101,9 +111,7 @@ test('safety block and canonical peer erasure respect both ordered account fence
         [fixture.low, fixture.high, fixture.actorId],
       );
       assert({
-        given: blockFirst
-          ? 'block committed before canonical erasure'
-          : 'canonical erasure committed before block refusal',
+        given: `${blockFirst ? 'block first' : 'erasure first'} with ${noDm ? 'no DM' : 'an existing DM'}`,
         should:
           'leave no contact pair or peer-associated command after erasure',
         actual: state,
@@ -111,9 +119,10 @@ test('safety block and canonical peer erasure respect both ordered account fence
       });
     } finally {
       release.resolve();
+      await erasing?.catch(() => {});
       await fixture.cleanup();
       await database.close();
       await client.close();
     }
-  }
-});
+  });
+}

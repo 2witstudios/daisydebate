@@ -9,6 +9,7 @@ import {
   text,
   unique,
 } from 'drizzle-orm/pg-core';
+import { actors } from './actors';
 import { messagingActorColumn } from './messaging-columns';
 import { oneOf, timestampColumn } from './columns';
 import { messagingChannels } from './messaging-channels';
@@ -177,6 +178,10 @@ export const messagingSocialCommands = pgTable(
   {
     actorId: messagingActorColumn('actor_id'),
     requestId: text('request_id').notNull(),
+    counterpartActorId: text('counterpart_actor_id').references(
+      () => actors.id,
+      { onDelete: 'restrict' },
+    ),
     kind: text('kind').notNull(),
     digest: text('digest'),
     resultChannelId: text('result_channel_id').references(
@@ -186,6 +191,12 @@ export const messagingSocialCommands = pgTable(
     createdAt: timestampColumn('created_at').notNull(),
   },
   (table) => [
+    index('messaging_social_commands_counterpart_actor_idx').on(
+      table.counterpartActorId,
+    ),
+    index('messaging_social_commands_result_channel_idx').on(
+      table.resultChannelId,
+    ),
     primaryKey({ columns: [table.actorId, table.requestId] }),
     check(
       'messaging_social_commands_digest',
