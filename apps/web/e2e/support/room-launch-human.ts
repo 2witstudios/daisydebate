@@ -4,7 +4,10 @@ import { expect, openPage } from './fixtures';
 import { createRoomLaunchAccounts } from './room-launch-accounts';
 import { createFromPlay, claim, reread } from './room-launch-flow';
 import { origin } from './accounts';
-import { settledLaunchAuth } from './room-launch-settled';
+import {
+  closeSettledLaunchContexts,
+  settledLaunchAuth,
+} from './room-launch-settled';
 import { launchEvidence } from './room-launch-evidence';
 
 /** Actual getUserMedia/controller/UI over controlled Chromium inputs, not real-device qualification. */
@@ -125,7 +128,6 @@ export async function proveHumanLaunch(browser: Browser, info: TestInfo) {
       contentType: 'application/json',
     });
   } finally {
-    await settledLaunchAuth();
-    await accounts.closeContexts();
+    await closeSettledLaunchContexts(accounts);
   }
 }
