@@ -1,4 +1,5 @@
-import { roomLaunchClaimProblems } from './room-launch-evidence-registration';
+import { loadRealtimeClaimProblems } from './realtime-evidence-registration';
+import { loadRoomLaunchClaimProblems } from './room-launch-evidence-registration';
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import ts from 'typescript';
@@ -295,27 +296,15 @@ const e2eClaimProblems = async (
       detail:
         'no workflow invokes test:e2e; the browser tier would silently stop running in CI',
     });
-  problems.push(
-    ...roomLaunchClaimProblems({
-      rootScript:
-        (await readScripts(join(root, 'package.json')))[
-          'test:e2e:room-launch'
-        ] ?? '',
-      webScript: webScripts['test:e2e:room-launch'] ?? '',
-      defaultConfig:
-        (await readTextIfExists(join(root, 'apps/web/playwright.config.ts'))) ??
-        '',
-      dedicatedConfig:
-        (await readTextIfExists(
-          join(root, 'apps/web/e2e/support/room-launch-config.ts'),
-        )) ?? '',
-      runner:
-        (await readTextIfExists(
-          join(root, 'apps/web/e2e/support/room-launch-runner.ts'),
-        )) ?? '',
-      workflow: e2eWorkflow ?? '',
-    }),
-  );
+  const rootScripts = await readScripts(join(root, 'package.json'));
+  const proofInputs = {
+    read: (path: string) => readTextIfExists(join(root, path)),
+    rootScripts,
+    webScripts,
+    workflow: e2eWorkflow ?? '',
+  };
+  problems.push(...(await loadRoomLaunchClaimProblems(proofInputs)));
+  problems.push(...(await loadRealtimeClaimProblems(proofInputs)));
   return problems;
 };
 
