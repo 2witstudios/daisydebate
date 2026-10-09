@@ -153,6 +153,42 @@
       "adr": "docs/decisions/0059-one-competitive-api.md",
       "reason": "Canonical Room runtime and HTTP producer; committed consumer CAP-B.1 page yqvkic989n7tx0uf6uvqu24x; ROOM product lane consumes its responses.",
       "reviewBy": "2026-10-16"
+    },
+    {
+      "path": "packages/protocol/src/messaging/core.ts",
+      "export": "createMessagingCoreSchemas",
+      "task": "MSG-2.2",
+      "owner": "messaging",
+      "adr": "docs/decisions/0057-planned-readers.md",
+      "reason": "MSG-1.2 portable contracts precede the committed application operation reader; schema validation never grants entitlement and policy bounds are explicit.",
+      "reviewBy": "2026-12-01"
+    },
+    {
+      "path": "packages/protocol/src/messaging/core.ts",
+      "export": "MessagingCoreBounds",
+      "task": "MSG-2.2",
+      "owner": "messaging",
+      "adr": "docs/decisions/0057-planned-readers.md",
+      "reason": "MSG-1.2 portable contracts precede the committed application operation reader; schema validation never grants entitlement and policy bounds are explicit.",
+      "reviewBy": "2026-12-01"
+    },
+    {
+      "path": "packages/protocol/src/messaging/social.ts",
+      "export": "createMessagingSocialSchemas",
+      "task": "MSG-3.1",
+      "owner": "messaging",
+      "adr": "docs/decisions/0057-planned-readers.md",
+      "reason": "MSG-1.2 portable contracts precede the committed application operation reader; schema validation never grants entitlement and policy bounds are explicit.",
+      "reviewBy": "2026-12-01"
+    },
+    {
+      "path": "packages/protocol/src/messaging/social.ts",
+      "export": "MessagingSocialBounds",
+      "task": "MSG-3.1",
+      "owner": "messaging",
+      "adr": "docs/decisions/0057-planned-readers.md",
+      "reason": "MSG-1.2 portable contracts precede the committed application operation reader; schema validation never grants entitlement and policy bounds are explicit.",
+      "reviewBy": "2026-12-01"
     }
   ]
 }
