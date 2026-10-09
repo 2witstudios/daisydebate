@@ -6,8 +6,12 @@ import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createMessagingChannelAuthority } from './authority-frame';
 import { messagingAuthorityFixture } from './social.test-support';
 setupRitewayBun();
-for (const changed of [false, true]) {
-  test(`minimal channel fence ${changed ? 'refuses member drift' : 'rereads facts after ordered locks'}`, async () => {
+for (const [changed, locked] of [
+  [false, true],
+  [true, true],
+  [false, false],
+] as const) {
+  test(`minimal channel fence ${!locked ? 'refuses absent authority' : changed ? 'refuses member drift' : 'rereads facts after ordered locks'}`, async () => {
     const fact = messagingAuthorityFixture();
     if (fact.authority.kind !== 'dm') throw new Error('DM fixture required');
     const actorId = fact.authority.lowActorId;
@@ -41,7 +45,7 @@ for (const changed of [false, true]) {
           return [
             { actorId, userId, member: true, erased: false, revision: 9 },
           ];
-        return [{ id: fact.channelId }];
+        return [{ locked }];
       },
     };
     const database = {
@@ -63,7 +67,15 @@ for (const changed of [false, true]) {
         expected: [true, 9, ['accounts', 'fact', 'tx']],
       });
     };
-    if (changed)
+    if (!locked)
+      await assertRejects({
+        given: 'a missing or mismatched lock selector',
+        should: 'refuse without protected fact replay',
+        actual: () =>
+          read({ actorId, userId, channelId: fact.channelId }, work),
+        code: 'NOT_FOUND',
+      });
+    else if (changed)
       await assertRejects({
         given: 'a cast identity changed while locking',
         should: 'refuse before handing facts to the consumer',
@@ -82,9 +94,7 @@ for (const changed of [false, true]) {
             ? 'fact'
             : text.includes('daisy_authorization_accounts')
               ? 'account'
-              : text.includes('messaging_contact_pairs')
-                ? 'pair'
-                : 'channel',
+              : 'fence',
         ),
         statements.some((text) =>
           /messaging_messages|\btitle\b|select \*/i.test(
@@ -97,9 +107,11 @@ for (const changed of [false, true]) {
         used,
       ],
       expected: [
-        ['fact', 'account', 'pair', 'channel', 'fact'],
+        locked
+          ? ['fact', 'account', 'fence', 'fact']
+          : ['fact', 'account', 'fence'],
         false,
-        changed ? 0 : 1,
+        changed || !locked ? 0 : 1,
       ],
     });
   });
