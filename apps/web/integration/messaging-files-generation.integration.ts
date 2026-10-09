@@ -110,8 +110,10 @@ test('canonical own-message removal revokes attached access and retains the real
         'scrub attachment metadata but retain the actual object pending acknowledgement',
       actual: {
         lifecycle: row.lifecycle,
+        generation: row.generation,
         filename: row.filename,
         mime: row.mime,
+        requestId: row.request_id,
         messageId: row.message_id,
         bytes: [
           ...(await f.objects.read(
@@ -122,8 +124,10 @@ test('canonical own-message removal revokes attached access and retains the real
       },
       expected: {
         lifecycle: 'deleting',
+        generation: token.generation + 1,
         filename: null,
         mime: null,
+        requestId: null,
         messageId: null,
         bytes: [...cleanFilePdf],
       },
