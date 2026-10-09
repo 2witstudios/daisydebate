@@ -24,7 +24,7 @@ describe('account lock boundary', () => {
         given: 'malformed, repeated, empty or excessive actor ids',
         should: 'reject before I/O',
         actual: () => lockAuthorizationActors(tx, ids),
-        expected: 'VALIDATION',
+        code: 'VALIDATION',
       });
     }
     assert({
