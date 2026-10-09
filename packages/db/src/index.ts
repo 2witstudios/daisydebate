@@ -32,6 +32,7 @@ import type { RateDebateInput } from './rating-facts';
 import { emailDeliveryOperations } from './email-delivery-operations';
 import { outboxOperations } from './outbox';
 import { readOutboxCatchup } from './outbox-catchup';
+import { readOutboxRetentionBoundary } from './outbox-retention-boundary';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import {
   runtimeRoleFactsFrom,
@@ -173,6 +174,10 @@ export function createDatabase({
     messagingSocialStore: (authorize: MessagingSocialAuthorizationFence) =>
       createMessagingSocialStore({ database, authorize }),
     ...outboxOperations({ database, eventSink }),
+    readOutboxRetentionBoundary: () =>
+      instrumented(eventSink, 'readOutboxRetentionBoundary', () =>
+        readOutboxRetentionBoundary(database),
+      ),
     readOutboxCatchup: (
       topic: string,
       since: string,
