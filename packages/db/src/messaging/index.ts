@@ -7,3 +7,5 @@ export type {
   MessagingSendState,
   MessagingCreateSendPlan,
 } from './records';
+
+export { createMessagingPrivacyAdopter } from './privacy';
