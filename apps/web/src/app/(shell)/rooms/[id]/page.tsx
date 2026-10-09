@@ -9,13 +9,14 @@ import { requireAccess } from '../../../../lib/access';
 import { AssemblyCast } from '../../../../ui/rooms/room-page/assembly-cast';
 import { declaredSeats } from '../../../../ui/rooms/room-page/assembly-controls';
 import { AssemblyDetails } from '../../../../ui/rooms/room-page/assembly-details';
-import { AssemblyReadiness } from '../../../../ui/rooms/room-page/assembly-readiness';
+import { AssemblyDeviceReadiness } from '../../../../ui/rooms/room-page/assembly-device-readiness';
 import { AssemblySettingsForm } from '../../../../ui/rooms/room-page/assembly-settings-form';
 import { AssemblySeats } from '../../../../ui/rooms/room-page/assembly-seats';
 import { RoomRefresher } from '../../../../ui/rooms/room-page/room-refresher';
 import { roomTemplates } from '../../play/actions';
 import {
   roomAssembly,
+  roomConsentIntent,
   roomCommandAction,
   submitRoomFormAction,
   saveRoomSettingsAction,
@@ -89,10 +90,11 @@ export default async function RoomRoute({
         }))}
         leaveId={systemId.next()}
       />
-      <AssemblyReadiness
+      <AssemblyDeviceReadiness
         view={view}
         actorId={identity.principal.actorId}
-        local={{ devicesPassed: false, unreadyPending: false }}
+        read={roomAssembly.bind(null, id)}
+        send={roomConsentIntent.bind(null, id)}
         action={action}
         commandIds={{
           ready: systemId.next(),

@@ -102,3 +102,14 @@ export async function saveRoomSettingsAction(
   const result = await submitRoomFormAction(id, state, command);
   return result.error ? refused(form, result.error) : result;
 }
+
+/** Client consent recovery uses canonical commands without tearing down preview tracks. */
+export async function roomConsentIntent(id: string, form: FormData) {
+  if (form.get('type') !== 'ready' && form.get('type') !== 'unready')
+    return { kind: 'invalid' as const };
+  return submitAssembly(
+    inProcessFetch(commands, new Headers(await headers())),
+    id,
+    form,
+  );
+}
