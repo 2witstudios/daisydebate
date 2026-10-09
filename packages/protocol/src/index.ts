@@ -81,7 +81,11 @@ export type {
   RatingState,
   RatingUnrated,
 } from './ratings';
-export { buildUserInboxTopic, buildDebateTopic } from './topics';
+export {
+  buildUserInboxTopic,
+  buildDebateTopic,
+  buildRoomTopic,
+} from './topics';
 export {
   emailDeliveryStatuses,
   emailDeliveryStatusRank,
@@ -141,4 +145,12 @@ export type {
   RoomCommandReceipt,
   RoomCommandResponse,
   RoomCatalogChoice,
+} from './room-contract';
+
+export type {
+  RoomAssemblyState,
+  RoomConsent,
+  RoomMutation,
+  RoomMutationOutcome,
+  RoomCastChoice,
 } from './room-contract';

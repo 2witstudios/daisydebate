@@ -81,16 +81,16 @@ export const roomCommandSchema = z.discriminatedUnion('type', [
     type: z.literal('remove-seat'),
     participantId: idSchema,
   }),
-  ...(
-    [
-      'ready',
-      'unready',
-      'start-prep',
-      'finish-prep',
-      'start-round',
-      'close',
-    ] as const
-  ).map((type) => z.strictObject({ ...envelope, type: z.literal(type) })),
+  ...(['ready', 'unready'] as const).map((type) =>
+    z.strictObject({
+      ...envelope,
+      type: z.literal(type),
+      expectedConsentVersion: z.int().min(0),
+    }),
+  ),
+  ...(['start-prep', 'finish-prep', 'start-round', 'close'] as const).map(
+    (type) => z.strictObject({ ...envelope, type: z.literal(type) }),
+  ),
 ]);
 export type RoomCommand = z.infer<typeof roomCommandSchema>;
 export type RoomCreate = z.infer<typeof roomCreateSchema>;
@@ -100,6 +100,8 @@ export type RoomParticipant = {
   readonly id: string;
   readonly actorId: string;
   readonly kind: 'human' | 'bot';
+  readonly label: string;
+  readonly consentVersion: number;
   readonly role: 'affirmative' | 'negative' | 'judge';
   readonly slot: number;
 };
@@ -120,14 +122,17 @@ export type RoomRefusal =
   | 'readiness-unavailable'
   | 'prep-running'
   | 'prep-unavailable'
-  | 'command-conflict';
+  | 'command-conflict'
+  | 'consent-conflict';
 export type RoomView = {
   readonly id: string;
   readonly version: number;
+  readonly changeVersion: number;
   readonly title: string;
   readonly topic: string;
   readonly visibility: 'public' | 'unlisted' | 'private';
   readonly hostActorId: string;
+  readonly hostLabel: string;
   readonly status: (typeof roomStatuses)[number];
   readonly formatId: string;
   readonly formatVersion: number;
@@ -182,9 +187,47 @@ export type RoomCatalogChoice = {
   readonly formatVersion: number;
   readonly label: string;
   readonly definition: z.infer<typeof formatDefinitionSchema>;
+  readonly defaultConfig: z.infer<typeof roomConfigSchema>;
   readonly presets: readonly {
     readonly version: number;
     readonly length: 'full' | 'quick';
     readonly config: z.infer<typeof roomConfigSchema>;
   }[];
+};
+
+/** Portable assembly facts supplied by the durable adapter to pure operations. */
+export type RoomAssemblyState = Omit<
+  RoomView,
+  'participants' | 'readiness' | 'prep' | 'capabilities' | 'startRefusal'
+> & {
+  readonly participants: readonly (RoomParticipant & {
+    readonly label: string;
+    readonly eligible: boolean;
+    readonly consentCommandId: string | null;
+  })[];
+  readonly prepStartedAt: string | null;
+  readonly prepRemainingMs: number | null;
+};
+export type RoomConsent = {
+  readonly available: boolean;
+  readonly readyActorIds: readonly string[];
+};
+export type RoomMutation = {
+  readonly state: RoomAssemblyState;
+  readonly consent: {
+    readonly type: 'ready' | 'unready';
+    readonly actorId: string;
+    readonly commandId: string;
+  } | null;
+  readonly freeze: boolean;
+  readonly publishDefinition: boolean;
+};
+export type RoomMutationOutcome =
+  | { readonly ok: true; readonly mutation: RoomMutation }
+  | { readonly ok: false; readonly refusal: RoomRefusal };
+export type RoomCastChoice = {
+  readonly actorId: string;
+  readonly label: string;
+  readonly kind: 'bot';
+  readonly eligible: boolean;
 };
