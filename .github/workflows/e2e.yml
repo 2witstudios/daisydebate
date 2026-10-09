@@ -27,6 +27,14 @@ jobs:
     # qualification instead of the single-run PR gate; three full suites
     # need more than the single-run budget below.
     timeout-minutes: ${{ github.event_name == 'workflow_dispatch' && 60 || 20 }}
+    # The read-only fixture admission CLI derives the canonical main slot
+    # from this checkout. Dev/test URLs are identity metadata only; browser
+    # connections use the separately provisioned DML-only E2E login below.
+    env:
+      DATABASE_URL: postgres://daisy:ci-only@localhost:5432/daisy
+      TEST_DATABASE_URL: postgres://daisy:ci-only@localhost:5432/daisy_test
+      REDIS_NAMESPACE: daisy
+      E2E_REDIS_NAMESPACE: daisy-e2e
     services:
       postgres:
         image: postgres:18.3-alpine
@@ -118,7 +126,6 @@ jobs:
           # Explicit slot values: the config never defaults to a database.
           E2E_DATABASE_URL: postgres://daisy_e2e:e2e-loopback-only@localhost:5432/daisy_e2e
           E2E_REDIS_URL: redis://localhost:6379/2
-          E2E_REDIS_NAMESPACE: ci-e2e
 
       # AUTH-6.2-AC7: three consecutive full-suite runs, retries disabled
       # (the standing playwright.config.ts default), every outcome kept.
@@ -129,7 +136,6 @@ jobs:
           CI: true
           E2E_DATABASE_URL: postgres://daisy_e2e:e2e-loopback-only@localhost:5432/daisy_e2e
           E2E_REDIS_URL: redis://localhost:6379/2
-          E2E_REDIS_NAMESPACE: ci-e2e
 
       - name: Report discovered/executed/pass/fail/skip counts
         if: ${{ !cancelled() && github.event_name != 'workflow_dispatch' }}

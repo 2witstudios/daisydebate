@@ -214,7 +214,7 @@ async function claimPortBlock(admin: SQL, slot: Slot): Promise<number> {
     .map(({ comment }) => parsePortBlockComment(comment))
     .filter((block): block is number => block !== undefined);
   const block = pickPortBlock({
-    own,
+    ...(own === undefined ? {} : { own }),
     claimed,
     isFree: (candidate) => portBlockPorts(candidate).every(isPortFree),
   });
@@ -301,7 +301,11 @@ async function up(checkout: Checkout, envPath: string) {
           services.redis[0] as RedisClient,
           portBlock,
         );
-        const values = slotEnvValues({ slot, env, portBlock });
+        const values = slotEnvValues({
+          slot,
+          env,
+          ...(portBlock === undefined ? {} : { portBlock }),
+        });
         // Under the lock too: the baseline creates cluster-wide roles,
         // which two first-time slot:up runs could otherwise race on.
         for (const database of slotDatabases(slot))
