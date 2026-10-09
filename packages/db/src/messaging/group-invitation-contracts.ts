@@ -14,13 +14,12 @@ export type MessagingGroupInvitationScope = {
 };
 export type MessagingGroupInvitationFact = {
   readonly kind: 'group_invitation';
-  readonly channel: {
-    readonly channelId: string;
+  readonly channel: Pick<
+    MessagingChannelFact,
+    'channelId' | 'policyRevision' | 'revision' | 'lifecycle'
+  > & {
     readonly kind: 'private_group';
     readonly policyKey: 'social.private_group';
-    readonly policyRevision: number;
-    readonly revision: number;
-    readonly lifecycle: 'active' | 'archived';
     readonly activeMemberActorIds: readonly string[];
   };
   readonly invitation: {
@@ -53,7 +52,7 @@ export type MessagingGroupInvitationFence = (
     readonly accounts: Awaited<ReturnType<typeof lockAuthorizationActors>>;
   },
 ) => Promise<void>;
-export type MessagingGroupInvitationResult = {
+type MessagingGroupInvitationResult = {
   readonly channelId: string;
   readonly generation: number;
   readonly state: MessagingGroupInvitationFact['invitation']['state'];

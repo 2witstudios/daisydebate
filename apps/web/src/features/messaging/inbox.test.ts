@@ -3,7 +3,7 @@ import { createAppError } from '@daisy/errors';
 import { readMessagingInbox } from './inbox';
 setupRitewayBun();
 test('inbox reauthorizes each candidate and propagates infrastructure failure instead of empty history', async () => {
-  const ids = ['a', 'b', 'c'].map((prefix) => prefix.repeat(24));
+  const ids = ['a'.repeat(24), 'b'.repeat(24), 'c'.repeat(24)] as const;
   const inspected: string[] = [];
   const port = {
     candidates: async () => ids,
@@ -30,7 +30,7 @@ test('inbox reauthorizes each candidate and propagates infrastructure failure in
     given: 'candidate IDs',
     should: 'never become automatic grants',
     actual: inspected,
-    expected: ids,
+    expected: [...ids],
   });
   const { assertRejects } = await import('@daisy/errors/testing');
   await assertRejects({

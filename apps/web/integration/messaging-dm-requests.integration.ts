@@ -1,3 +1,4 @@
+import { buildUserInboxTopic } from '@daisy/protocol';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -150,13 +151,18 @@ test('real DM recipient accept opens history/post and binds closed retry through
     });
     const bells = await client.unsafe(
       "select payload from outbox where kind='messaging.inbox.changed' and topic in ($1,$2) order by txid,seq",
-      [`user:${sender.actorId}:inbox`, `user:${recipient.actorId}:inbox`],
+      [
+        buildUserInboxTopic(sender.actorId),
+        buildUserInboxTopic(recipient.actorId),
+      ],
     );
     assert({
       given: 'committed accept and block authority changes',
       should:
         'invalidate both own inboxes without channel IDs or request content',
-      actual: bells.map((row) => Object.keys(row.payload).sort()),
+      actual: bells.map((row: { payload: Record<string, unknown> }) =>
+        Object.keys(row.payload).sort(),
+      ),
       expected: Array.from({ length: 4 }, () => ['kind']),
     });
     await fixture.eraseSubject(sender.actorId);
