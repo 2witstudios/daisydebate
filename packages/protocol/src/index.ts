@@ -166,3 +166,4 @@ export {
 } from './room-read';
 
 export { serverMessageSchema, type ServerMessage } from './realtime-server';
+export { parseTopic } from './topics';
