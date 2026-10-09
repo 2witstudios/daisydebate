@@ -15,7 +15,8 @@
     "./messaging-social": "./src/messaging/social.ts",
     "./authorization": "./src/authorization.ts",
     "./privacy": "./src/privacy/index.ts",
-    "./messaging": "./src/messaging/index.ts"
+    "./messaging": "./src/messaging/index.ts",
+    "./account-age": "./src/account-age.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
