@@ -128,10 +128,16 @@ export type PendingFileAuthorizationFact = {
     readonly revision: number;
   };
 };
+/** Own-association discovery only; every returned channel needs separate authorization. */
+export type MessagingCollectionAuthorizationFact = {
+  readonly kind: 'messaging_collection';
+  readonly actorId: string;
+};
 export type AuthorizationInput = {
   readonly principal: AuthorizationPrincipal;
   readonly capability: AuthorizationCapability;
   readonly resource:
+    | MessagingCollectionAuthorizationFact
     | PendingFileAuthorizationFact
     | ContactPairAuthorizationFact
     | SocialCreationFact
