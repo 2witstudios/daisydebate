@@ -23,14 +23,6 @@ export const authorizationCapabilitySchema = z.enum(authorizationCapabilities);
 export type AuthorizationCapability = z.infer<
   typeof authorizationCapabilitySchema
 >;
-const authorizationDenyReasons = [
-  'denied',
-  'account-erased',
-  'unauthenticated',
-  'missing-capability',
-] as const;
-const authorizationDenyReasonSchema = z.enum(authorizationDenyReasons);
-
-export type AuthorizationDenyReason = z.infer<
-  typeof authorizationDenyReasonSchema
->;
+/** Internal decision reason vocabulary; no serialized deny-reason reader exists. */
+export type AuthorizationDenyReason =
+  'denied' | 'account-erased' | 'unauthenticated' | 'missing-capability';
