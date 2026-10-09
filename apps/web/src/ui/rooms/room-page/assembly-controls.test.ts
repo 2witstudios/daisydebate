@@ -6,6 +6,8 @@ setupRitewayBun();
 const participant = (role: 'affirmative' | 'judge') => ({
   id: 'participant',
   actorId: 'actor',
+  label: 'Member',
+  consentVersion: 0,
   kind: 'human' as const,
   role,
   slot: 0,

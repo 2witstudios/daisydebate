@@ -4,11 +4,9 @@ import { declaredSeats, seatLabel } from './assembly-controls';
 export function AssemblySeats({
   seats,
   participants,
-  labels,
 }: {
   readonly seats: RoomView['definition']['seats'];
   readonly participants: RoomView['participants'];
-  readonly labels: Readonly<Record<string, string>>;
 }) {
   return (
     <ul aria-label="Room seats" className="grid grid-cols-1 gap-4">
@@ -35,7 +33,7 @@ export function AssemblySeats({
             <h2 className="font-strong text-ink">{seatLabel(role, slot)}</h2>
             {occupant ? (
               <p className="text-ink">
-                {labels[occupant.actorId] ?? 'Participant'}
+                {occupant.label}
                 {occupant.kind === 'bot' ? ' · AI' : ''}
               </p>
             ) : null}

@@ -47,6 +47,7 @@ function CommandForm({
   action,
   label,
   enabled,
+  expectedConsentVersion,
 }: {
   readonly type: Control;
   readonly version: number;
@@ -54,12 +55,20 @@ function CommandForm({
   readonly action: (form: FormData) => Promise<void>;
   readonly label: string;
   readonly enabled: boolean;
+  readonly expectedConsentVersion: number | null;
 }) {
   return (
     <form action={action}>
       <input type="hidden" name="type" value={type} />
       <input type="hidden" name="expectedVersion" value={String(version)} />
       <input type="hidden" name="commandId" value={commandId} />
+      {expectedConsentVersion !== null ? (
+        <input
+          type="hidden"
+          name="expectedConsentVersion"
+          value={String(expectedConsentVersion)}
+        />
+      ) : null}
       <button
         type="submit"
         disabled={!enabled}
@@ -87,6 +96,7 @@ export function AssemblyReadiness({
 }) {
   const ready = readinessControl(view, actorId, local);
   const launchBlocked = launchFence(view, actorId, local);
+  const own = view.participants.find((seat) => seat.actorId === actorId);
   const command = (type: Control, label: string, enabled: boolean) =>
     CommandForm({
       type,
@@ -95,6 +105,10 @@ export function AssemblyReadiness({
       version: view.version,
       commandId: commandIds[type],
       action,
+      expectedConsentVersion:
+        type === 'ready' || type === 'unready'
+          ? (own?.consentVersion ?? null)
+          : null,
     });
   return (
     <section
