@@ -109,11 +109,11 @@ export const messagingPrivacyFields: readonly PrivacyFieldDeclaration[] =
             : 'Messaging references and ordered durable state',
         lawfulBasis: {
           status: 'pending' as const,
-          decision: 'DEC-124 / ADR-0063',
+          decision: 'jc0qcdvpkmqzrelpaesi3pah',
         },
         retention: {
           status: 'pending' as const,
-          decision: 'DEC-124 / ADR-0063',
+          decision: 'njiorsf64z4iqjm2dbfa3zuu',
         },
         erasure:
           table === 'messaging_messages' && column === 'text'
