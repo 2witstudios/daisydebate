@@ -13,6 +13,7 @@ import {
   type MessagingCoreBounds,
 } from '@daisy/protocol';
 import { parseValidated } from '../../server/http';
+import { requireMessagingActor } from './principal';
 import { planMessageMutation } from './mutation-plan';
 
 const digest = (command: MessagingMutationCommand) =>
@@ -61,9 +62,7 @@ export async function mutateMessagingMessage(
     readonly limit: (actorId: string, channelId: string) => Promise<void>;
   },
 ) {
-  if (principal.kind === 'anonymous') throw createAppError('AUTHENTICATION');
-  if (principal.kind !== 'user' || principal.actorId === null)
-    throw createAppError('AUTHORIZATION');
+  const { actorId, userId } = requireMessagingActor(principal);
   const command = {
     ...parseValidated(
       createMessagingCoreSchemas(dependencies.bounds)[kind],
@@ -71,10 +70,9 @@ export async function mutateMessagingMessage(
     ),
     kind,
   } as MessagingMutationCommand;
-  const actorId = principal.actorId;
   const payloadDigest = digest(command);
   return dependencies.store.withChannel(
-    { channelId: command.channelId, actorId, userId: principal.userId },
+    { channelId: command.channelId, actorId, userId },
     async (frame) => {
       const state = await frame.readMutationState(command);
       const existing = replay(command, state, actorId, payloadDigest);

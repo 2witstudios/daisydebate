@@ -13,7 +13,10 @@ import {
 import { launchCustomSelection } from './support/room-launch-custom';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
 import { launchEvidence } from './support/room-launch-evidence';
-import { settledLaunchAuth } from './support/room-launch-settled';
+import {
+  closeSettledLaunchContexts,
+  settledLaunchAuth,
+} from './support/room-launch-settled';
 
 // Actors, receipt and competitive history deliberately survive context closure.
 // Only a released suite-owned slot lifecycle can destroy this proof data.
@@ -109,8 +112,7 @@ test('canonical browser create, settings, cast, refusals and reread preserve dur
       contentType: 'application/json',
     });
   } finally {
-    await settledLaunchAuth();
-    await accounts.closeContexts();
+    await closeSettledLaunchContexts(accounts);
   }
 });
 
@@ -194,7 +196,7 @@ test('native judge Ready and eligible stored bot debaters launch one frozen sche
       expect((await launchEvidence(view.id)).hash).toBe(proof.hash);
       await expect(judge).toHaveURL(`/rounds/${round.id}`);
       await expect(
-        judge.getByText('scheduled', { exact: false }).first(),
+        judge.getByText('Round · Scheduled', { exact: true }),
       ).toBeVisible();
       await info.attach('scheduled-round-evidence', {
         body: JSON.stringify(proof),
@@ -204,8 +206,7 @@ test('native judge Ready and eligible stored bot debaters launch one frozen sche
       await native.close();
     }
   } finally {
-    await settledLaunchAuth();
-    await accounts.closeContexts();
+    await closeSettledLaunchContexts(accounts);
   }
 });
 
@@ -262,8 +263,7 @@ test('canonical browser custom-create preserves declared unequal seats and order
       contentType: 'application/json',
     });
   } finally {
-    await settledLaunchAuth();
-    await accounts.closeContexts();
+    await closeSettledLaunchContexts(accounts);
   }
 });
 

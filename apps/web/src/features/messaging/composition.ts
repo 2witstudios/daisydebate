@@ -1,3 +1,10 @@
+import { composeMessagingGroupCreationRoute } from './group-creation-route';
+import { composeMessagingGroupInvitationRoutes } from './group-invitation-route';
+import { composeMessagingInboxRoute } from './inbox-route';
+import {
+  composeMessagingSocialRoutes,
+  type MessagingSocialRuntimePolicy,
+} from './social-composition';
 import type { SocialContactPolicy } from '@daisy/auth/social-policy';
 import { createAppError } from '@daisy/errors';
 import type { MessagingCoreBounds } from '@daisy/protocol';
@@ -17,6 +24,7 @@ import { messagingMessageView } from './message-view';
 
 /** Explicit approved edge inputs; tests never supply production policy authority. */
 export type MessagingRuntimePolicy = {
+  readonly social?: MessagingSocialRuntimePolicy;
   readonly bounds: MessagingCoreBounds;
   readonly maxBodyBytes: number;
   readonly editWindowMs: number;
@@ -38,7 +46,14 @@ export function composeMessagingRoutes(app: App) {
   const policy = app.messagingPolicy;
   const run = (
     request: Request,
-    operation: 'send' | 'edit' | 'remove' | 'history' | 'changes' | 'markRead',
+    operation:
+      | 'send'
+      | 'edit'
+      | 'remove'
+      | 'history'
+      | 'search'
+      | 'changes'
+      | 'markRead',
     channelId?: string,
   ) => {
     if (!policy)
@@ -90,6 +105,8 @@ export function composeMessagingRoutes(app: App) {
       logger: app.logger,
       origin: () => app.auth().config.PUBLIC_APP_URL,
       maxBodyBytes: policy.maxBodyBytes,
+      bounds: policy.bounds,
+      websocketEndpoint: app.websocketEndpoint,
       identify: (request) => identify(app.auth(), request.headers),
       edit: mutation('edit'),
       remove: mutation('remove'),
@@ -113,7 +130,7 @@ export function composeMessagingRoutes(app: App) {
           },
         }).then(messagingMessageView),
       ...(Object.fromEntries(
-        (['history', 'changes', 'markRead'] as const).map((kind) => [
+        (['history', 'search', 'changes', 'markRead'] as const).map((kind) => [
           kind,
           async (
             input: unknown,
@@ -134,17 +151,27 @@ export function composeMessagingRoutes(app: App) {
         ]),
       ) as Pick<
         Parameters<typeof createMessagingHandlers>[0],
-        'history' | 'changes' | 'markRead'
+        'history' | 'search' | 'changes' | 'markRead'
       >),
     });
-    if (operation === 'history' || operation === 'changes')
+    if (
+      operation === 'history' ||
+      operation === 'search' ||
+      operation === 'changes'
+    )
       return handlers[operation](request, channelId!);
     return handlers[operation](request);
   };
   return {
+    ...composeMessagingSocialRoutes(app),
+    ...composeMessagingGroupInvitationRoutes(app),
+    createGroup: composeMessagingGroupCreationRoute(app),
+    inbox: composeMessagingInboxRoute(app),
     send: (request: Request) => run(request, 'send'),
     edit: (request: Request) => run(request, 'edit'),
     remove: (request: Request) => run(request, 'remove'),
+    search: (request: Request, channelId: string) =>
+      run(request, 'search', channelId),
     history: (request: Request, channelId: string) =>
       run(request, 'history', channelId),
     changes: (request: Request, channelId: string) =>

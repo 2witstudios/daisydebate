@@ -81,6 +81,31 @@ classify every one of its fields the same way a database column would
 before it can ride a topic: a `personal`/`public` value is allowed once
 classified; a `personal`/`private`, `sensitive` or `secret` value never is.
 
+### Messaging inbox invalidation declaration
+
+The strict `messaging.inbox.changed` payload contains exactly `kind`, whose
+literal value selects a content-free invalidation. It contains no actor,
+channel, request, message, content, or entity version. Delivery uses the
+existing authorized `user:<actorId>:inbox` routing topic. The subscriber
+matches its subscribed topic and refetches authenticated HTTP; the doorbell
+grants no collection or channel authority.
+
+| Field  | Category | Storage / owner                   | Purpose                                      | Lawful basis                              | Retention                                 | Erasure / export                                       |
+| ------ | -------- | --------------------------------- | -------------------------------------------- | ----------------------------------------- | ----------------------------------------- | ------------------------------------------------------ |
+| `kind` | none     | postgres (`outbox.payload`) / MSG | Select own protected collection invalidation | Pending PRIV-3 `jc0qcdvpkmqzrelpaesi3pah` | Pending PRIV-4 `njiorsf64z4iqjm2dbfa3zuu` | No personal value in this field; no independent export |
+
+Canonical source is MSG `cc1d922fbea87bda18bc197e050e3e7cc63231bc`.
+The bounded privacy adoption gate validates exact `table.column` declarations;
+it has no payload-variant registry. This declaration and the matching PR entry
+are the temporary mechanism described above, without fabricated schema
+columns or a claim to cover the whole repository inventory.
+
+The payload introduces no private personal field or ADR 0036 exception.
+Existing routing and durable subject associations remain subject to their
+canonical authorization, privacy declaration, erasure and own-export rules.
+This declaration approves no processing activity, legal basis, numeric
+retention or retention exception; the original PRIV-3/PRIV-4 holds remain.
+
 ## Retention
 
 Retention today is scattered across a few ADRs and one doc, until PRIV-3's

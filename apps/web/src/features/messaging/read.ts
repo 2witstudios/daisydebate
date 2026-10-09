@@ -3,13 +3,13 @@ import type {
   MessagingLockedFrame,
   MessagingChannelStore,
 } from '@daisy/db/messaging';
-import { createAppError } from '@daisy/errors';
 import {
   createMessagingCoreSchemas,
   type MessagingCoreBounds,
 } from '@daisy/protocol';
 import { parseValidated } from '../../server/http';
 import { messagingMessageView } from './message-view';
+import { requireMessagingActor } from './principal';
 
 export function createMessagingReadOperations({
   bounds,
@@ -24,32 +24,38 @@ export function createMessagingReadOperations({
     principal: AuthorizationPrincipal,
     work: (frame: MessagingLockedFrame) => Promise<T>,
   ) => {
-    if (principal.kind === 'anonymous') throw createAppError('AUTHENTICATION');
-    if (principal.kind !== 'user' || principal.actorId === null)
-      throw createAppError('AUTHORIZATION');
-    return store.withChannel(
-      { channelId, userId: principal.userId, actorId: principal.actorId },
-      work,
-    );
+    const identity = requireMessagingActor(principal);
+    return store.withChannel({ channelId, ...identity }, work);
   };
-  return {
-    history(input: unknown, principal: AuthorizationPrincipal) {
-      const command = parseValidated(schemas.history, input);
-      return run(command.channelId, principal, async (frame) => {
-        const page = await frame.history({
-          limit: command.limit,
-          ...(command.before === undefined
-            ? {}
-            : { before: command.before.sequence }),
-        });
-        return schemas.historyResult.parse({
-          version: 1,
-          channelId: command.channelId,
-          ...page,
-          messages: page.messages.map(messagingMessageView),
-        });
-      });
+  const history = (
+    command: {
+      channelId: string;
+      limit: number;
+      before?: { sequence: number } | undefined;
+      query?: string | undefined;
     },
+    principal: AuthorizationPrincipal,
+  ) =>
+    run(command.channelId, principal, async (frame) => {
+      const page = await frame.history({
+        limit: command.limit,
+        ...(command.before === undefined
+          ? {}
+          : { before: command.before.sequence }),
+        ...(command.query === undefined ? {} : { query: command.query }),
+      });
+      return schemas.historyResult.parse({
+        version: 1,
+        channelId: command.channelId,
+        ...page,
+        messages: page.messages.map(messagingMessageView),
+      });
+    });
+  return {
+    history: (input: unknown, principal: AuthorizationPrincipal) =>
+      history(parseValidated(schemas.history, input), principal),
+    search: (input: unknown, principal: AuthorizationPrincipal) =>
+      history(parseValidated(schemas.search, input), principal),
     changes(input: unknown, principal: AuthorizationPrincipal) {
       const command = parseValidated(schemas.changes, input);
       return run(command.channelId, principal, async (frame) => {
@@ -65,7 +71,7 @@ export function createMessagingReadOperations({
             kind:
               message.text === null || message.removedAt !== null
                 ? 'removed'
-                : message.changeVersion === message.sequence
+                : message.editedAt === null
                   ? 'created'
                   : 'edited',
             channelId: message.channelId,

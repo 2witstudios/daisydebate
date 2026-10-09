@@ -14,10 +14,16 @@ describe('fetchRealtimeTicket (RT-2.4a contract: POST /api/realtime/ticket)', ()
       init?: RequestInit,
     ): Promise<Response> => {
       calls.push({ url, init });
-      return new Response(JSON.stringify({ ticket: validTicket }), {
-        status: 201,
-        headers: { 'content-type': 'application/json' },
-      });
+      return new Response(
+        JSON.stringify({
+          ticket: validTicket,
+          socketUrl: 'wss://socket.daisy.invalid/realtime',
+        }),
+        {
+          status: 201,
+          headers: { 'content-type': 'application/json' },
+        },
+      );
     };
 
     const ticket = await fetchRealtimeTicket({ fetchImpl });
@@ -54,4 +60,17 @@ describe('fetchRealtimeTicket (RT-2.4a contract: POST /api/realtime/ticket)', ()
       'realtime ticket response was malformed',
     );
   });
+});
+
+test('ticket endpoint binding refuses an endpoint different from the configured browser transport', async () => {
+  await expect(
+    fetchRealtimeTicket({
+      expectedSocketUrl: 'wss://socket.daisy.invalid/realtime',
+      fetchImpl: async () =>
+        Response.json({
+          ticket: validTicket,
+          socketUrl: 'wss://foreign.invalid/',
+        }),
+    }),
+  ).rejects.toThrow('realtime ticket response was malformed');
 });

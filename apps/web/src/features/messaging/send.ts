@@ -1,12 +1,12 @@
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { Clock, IdGenerator } from '@daisy/clock';
-import { createAppError } from '@daisy/errors';
 import {
   createMessagingCoreSchemas,
   type MessagingCoreBounds,
 } from '@daisy/protocol';
 import { parseValidated } from '../../server/http';
 import { planMessageSend } from './send-plan';
+import { requireMessagingActor } from './principal';
 import type {
   MessagingCreateSendPlan,
   MessagingSendCommand,
@@ -44,10 +44,7 @@ export async function sendMessagingMessage(
   principal: AuthorizationPrincipal,
   dependencies: MessagingSendDependencies,
 ) {
-  if (principal.kind === 'anonymous') throw createAppError('AUTHENTICATION');
-  if (principal.kind !== 'user') throw createAppError('AUTHORIZATION');
-  if (principal.actorId === null) throw createAppError('AUTHORIZATION');
-  const actorId = principal.actorId;
+  const { actorId, userId } = requireMessagingActor(principal);
   const { replyToMessageId, ...required } = parseValidated(
     createMessagingCoreSchemas(dependencies.bounds).send,
     input,
@@ -57,7 +54,7 @@ export async function sendMessagingMessage(
     ...(replyToMessageId === undefined ? {} : { replyToMessageId }),
   };
   return dependencies.store.withChannel(
-    { channelId: command.channelId, actorId, userId: principal.userId },
+    { channelId: command.channelId, actorId, userId },
     async (frame) => {
       await frame.authorize();
       const state = await frame.readSendState(command);

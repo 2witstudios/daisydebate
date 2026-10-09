@@ -4,7 +4,10 @@ import { expect, openPage } from './fixtures';
 import { createRoomLaunchAccounts } from './room-launch-accounts';
 import { createFromPlay, claim, reread } from './room-launch-flow';
 import { origin } from './accounts';
-import { settledLaunchAuth } from './room-launch-settled';
+import {
+  closeSettledLaunchContexts,
+  settledLaunchAuth,
+} from './room-launch-settled';
 import { launchEvidence } from './room-launch-evidence';
 
 /** Actual getUserMedia/controller/UI over controlled Chromium inputs, not real-device qualification. */
@@ -28,6 +31,27 @@ export async function proveHumanLaunch(browser: Browser, info: TestInfo) {
     view = await claim(host, view, 'Affirmative 1');
     view = await claim(guest, view, 'Negative 1');
     await host.reload();
+    const native = await browser.newContext({
+      baseURL: origin,
+      ignoreHTTPSErrors: true,
+      javaScriptEnabled: false,
+      storageState: await accounts.members[0]!.context.storageState(),
+    });
+    try {
+      const failClosed = await openPage(
+        native,
+        'native human readiness refusal',
+      );
+      await failClosed.goto(`/rooms/${view.id}`);
+      await expect(
+        failClosed.getByRole('button', { name: 'I am ready', exact: true }),
+      ).toBeDisabled();
+      expect(
+        (await reread(native.request, view.id)).readiness.readyActorIds,
+      ).toEqual([]);
+    } finally {
+      await native.close();
+    }
     for (const page of [host, guest]) {
       await expect(
         page.getByRole('button', { name: 'I am ready', exact: true }),
@@ -104,7 +128,6 @@ export async function proveHumanLaunch(browser: Browser, info: TestInfo) {
       contentType: 'application/json',
     });
   } finally {
-    await settledLaunchAuth();
-    await accounts.closeContexts();
+    await closeSettledLaunchContexts(accounts);
   }
 }

@@ -91,7 +91,7 @@ describe('Adobe isolation rule', () => {
 });
 
 describe('realtime workspace edges (ADR 0031 §12)', () => {
-  test('the allowlist names exactly the ten ADR 0031 §12 edges', () => {
+  test('the allowlist names exactly the eleven ADR 0031 §12 edges', () => {
     assert({
       given: 'allowedWorkspaceDependencies.realtime',
       should: 'list exactly the ten edges the ADR mechanically enforces',
@@ -102,6 +102,7 @@ describe('realtime workspace edges (ADR 0031 §12)', () => {
         'config',
         'db',
         'errors',
+        'ingress',
         'logger',
         'observability',
         'presence',

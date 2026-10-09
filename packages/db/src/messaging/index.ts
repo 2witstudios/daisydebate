@@ -13,3 +13,27 @@ export type {
 } from './records';
 
 export { createMessagingPrivacyAdopter } from './privacy';
+export { createMessagingSocialStore } from './social-store';
+export type {
+  MessagingSocialAuthorizationFence,
+  MessagingSocialStore,
+} from './social-contracts';
+export { createMessagingFileStore } from './file-store';
+
+export {
+  createMessagingFileCleanup,
+  type MessagingFileCleanupFence,
+} from './file-cleanup';
+
+export type { MessagingDmStore } from './dm-contracts';
+
+export { createMessagingDmStore } from './dm-store';
+export type {
+  MessagingGroupInvitationFence,
+  MessagingGroupInvitationStore,
+} from './group-invitation-contracts';
+
+export type {
+  MessagingGroupCreationStore,
+  MessagingGroupCreationFence,
+} from './group-creation-contracts';

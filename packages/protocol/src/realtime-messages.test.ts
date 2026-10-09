@@ -22,6 +22,18 @@ const ticket = 'A'.repeat(43);
 
 describe('client message schema', () => {
   const base = { v: ENVELOPE_VERSION } as const;
+  test('correlation IDs accept existing browser pings but stay bounded', () => {
+    const ids = ['ping-1', '', 'x'.repeat(129)];
+    assert({
+      given: 'a browser correlation string, empty ID and oversized ID',
+      should: 'accept only a bounded nonempty request correlation',
+      actual: ids.map(
+        (id) =>
+          clientMessageSchema.safeParse({ ...base, type: 'ping', id }).success,
+      ),
+      expected: [true, false, false],
+    });
+  });
 
   test('accepts hello, subscribe, unsubscribe, presence.activity and ping{id}', () => {
     const messages = [

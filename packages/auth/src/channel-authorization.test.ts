@@ -1,4 +1,10 @@
-import { adultAccount } from './social.test-support';
+import {
+  resource,
+  accounts,
+  policy,
+  input,
+  pendingResource,
+} from './channel.test-support';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   authorize,
@@ -6,60 +12,6 @@ import {
   type ChannelAuthorizationFact,
 } from './authorization';
 setupRitewayBun();
-const resource: ChannelAuthorizationFact = {
-  kind: 'channel',
-  channelId: 'c',
-  policyKey: 'social.dm',
-  policyRevision: 1,
-  lifecycle: 'active',
-  revision: 2,
-  authority: {
-    kind: 'dm',
-    lowActorId: 'a',
-    highActorId: 'b',
-    requestSenderActorId: 'a',
-    state: 'accepted',
-    blocked: false,
-    revision: 3,
-  },
-};
-const accounts = ['a', 'b'].map((actorId) =>
-  adultAccount(actorId, actorId === 'a' ? 'u' : 'v'),
-);
-const policy = {
-  evaluatedAt: '2026-10-09T00:00:00.000Z',
-  validUntil: '2026-11-01T00:00:00.000Z',
-  accounts: accounts.map((row) => ({
-    actorId: row.account.actorId,
-    userId: row.account.userId,
-    accountRevision: 1,
-    ageRevision: 1,
-  })),
-  channelId: 'c',
-  policyKey: 'social.dm',
-  policyRevision: 1,
-  authorityRevision: 2,
-  relationshipRevision: 3,
-  allowed: true,
-};
-const input: AuthorizationInput = {
-  principal: { kind: 'user', userId: 'u', actorId: 'a' },
-  capability: 'channel.read',
-  resource,
-  context: {
-    now: '2026-10-09T00:00:00.000Z',
-    socialAccounts: accounts,
-    account: {
-      userId: 'u',
-      actorId: 'a',
-      member: true,
-      erased: false,
-      revision: 1,
-    },
-    socialReading: policy,
-    socialPosting: policy,
-  },
-};
 const atActor = (actorId: string): AuthorizationInput => ({
   ...input,
   principal: { kind: 'user', userId: actorId === 'a' ? 'u' : 'v', actorId },
@@ -124,18 +76,7 @@ describe('canonical channel decisions', () => {
     });
   });
   test('pending request is not ordinary channel access', () => {
-    const pending: ChannelAuthorizationFact = {
-      ...resource,
-      authority: {
-        kind: 'dm',
-        lowActorId: 'a',
-        highActorId: 'b',
-        requestSenderActorId: 'a',
-        state: 'pending',
-        blocked: false,
-        revision: 3,
-      },
-    };
+    const pending = pendingResource;
     assert({
       given: 'a pending addressed request',
       should: 'allow recipient read/decide and sender cancel only',

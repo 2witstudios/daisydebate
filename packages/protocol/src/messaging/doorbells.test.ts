@@ -68,3 +68,23 @@ test('channel activity is a content-free, topic-bound doorbell', () => {
       expected,
     });
 });
+
+test('messaging inbox invalidation carries only its owner and contains no private association', () => {
+  const actorId = 'a'.repeat(24);
+  const payload = { kind: 'messaging.inbox.changed' };
+  assert({
+    given: 'an owner-only content-free messaging bell',
+    should:
+      'be storable only on owner inbox family and reject channel/content fields',
+    actual: [
+      isPayloadStorableOnTopic(`user:${actorId}:inbox`, payload),
+      isPayloadStorableOnTopic(`user:${'b'.repeat(24)}:inbox`, payload),
+      isPayloadStorableOnTopic(`channel:${actorId}`, payload),
+      isPayloadStorableOnTopic(`user:${actorId}:inbox`, {
+        ...payload,
+        channelId: 'c'.repeat(24),
+      }),
+    ],
+    expected: [true, true, false, false],
+  });
+});

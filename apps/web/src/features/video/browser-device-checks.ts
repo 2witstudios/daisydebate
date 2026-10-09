@@ -92,29 +92,44 @@ function microphoneConfirmation(
 ) {
   return observe(signal, (pass, fail) => {
     const context = edge.createAudioContext();
-    const source = context.createMediaStreamSource(stream);
-    const analyser = context.createAnalyser();
-    analyser.fftSize = 1024;
-    source.connect(analyser); // Never connect to speakers or any transport.
-    const samples = new Float32Array(analyser.fftSize);
+    let source: MediaStreamAudioSourceNode | undefined;
+    let analyser: AnalyserNode | undefined;
+    let timer: ReturnType<typeof setInterval> | undefined;
     let closed = false;
-    const timer = setInterval(() => {
-      analyser.getFloatTimeDomainData(samples);
-      const rms = Math.sqrt(
-        samples.reduce((sum, sample) => sum + sample * sample, 0) /
-          samples.length,
-      );
-      if (rms >= MIC_LEVEL) pass();
-    }, 50);
-    void context.resume().catch(fail);
-    return () => {
+    const cleanup = () => {
       if (closed) return;
       closed = true;
       clearInterval(timer);
-      source.disconnect();
-      analyser.disconnect();
-      void context.close().catch(() => {});
+      try {
+        source?.disconnect();
+      } finally {
+        try {
+          analyser?.disconnect();
+        } finally {
+          void context.close().catch(() => {});
+        }
+      }
     };
+    try {
+      source = context.createMediaStreamSource(stream);
+      analyser = context.createAnalyser();
+      analyser.fftSize = 1024;
+      source.connect(analyser); // Never connect to speakers or any transport.
+      const samples = new Float32Array(analyser.fftSize);
+      timer = setInterval(() => {
+        analyser!.getFloatTimeDomainData(samples);
+        const rms = Math.sqrt(
+          samples.reduce((sum, sample) => sum + sample * sample, 0) /
+            samples.length,
+        );
+        if (rms >= MIC_LEVEL) pass();
+      }, 50);
+      void context.resume().catch(fail);
+      return cleanup;
+    } catch (error) {
+      cleanup();
+      throw error;
+    }
   });
 }
 

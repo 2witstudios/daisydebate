@@ -109,10 +109,64 @@ export type SocialCreationPolicy =
   import('./social-policy').SocialContactPolicy & {
     readonly groupBlockScope?: 'all_pairs' | 'initiator';
   };
+/** MSG projects the locked own file and actual channel core; no grant/age/content fields needed. */
+export type PendingFileAuthorizationFact = {
+  readonly kind: 'pending_file';
+  readonly fileId: string;
+  readonly channelId: string;
+  readonly ownerActorId: string;
+  readonly lifecycle:
+    'reserved' | 'quarantined' | 'attached' | 'deleting' | 'deleted';
+  readonly generation: number;
+  readonly expectedGeneration: number;
+  readonly revision: number;
+  readonly channel: {
+    readonly channelId: string;
+    readonly kind: 'dm' | 'private_group';
+    readonly policyKey: 'social.dm' | 'social.private_group';
+    readonly policyRevision: number;
+    readonly revision: number;
+  };
+};
+/** MSG projects the live invitation, channel and inviter grant under its transaction fence. */
+export type GroupInvitationAuthorizationFact = {
+  readonly kind: 'group_invitation';
+  readonly channel: {
+    readonly channelId: string;
+    readonly kind: 'private_group';
+    readonly policyKey: 'social.private_group';
+    readonly policyRevision: number;
+    readonly revision: number;
+    readonly lifecycle: 'active' | 'archived';
+    readonly activeMemberActorIds: readonly string[];
+  };
+  readonly invitation: {
+    readonly channelId: string;
+    readonly inviterActorId: string;
+    readonly inviteeActorId: string;
+    readonly state: 'pending' | 'accepted' | 'declined' | 'cancelled';
+    readonly generation: number;
+  };
+  readonly expectedGeneration?: number;
+  readonly inviterGrant: {
+    readonly actorId: string;
+    readonly role: 'manager' | 'member' | null;
+    readonly generation: number;
+  };
+  readonly contactPairs: readonly ContactAuthorizationFact[];
+};
+/** Own-association discovery only; every returned channel needs separate authorization. */
+export type MessagingCollectionAuthorizationFact = {
+  readonly kind: 'messaging_collection';
+  readonly actorId: string;
+};
 export type AuthorizationInput = {
   readonly principal: AuthorizationPrincipal;
   readonly capability: AuthorizationCapability;
   readonly resource:
+    | GroupInvitationAuthorizationFact
+    | MessagingCollectionAuthorizationFact
+    | PendingFileAuthorizationFact
     | ContactPairAuthorizationFact
     | SocialCreationFact
     | RoundAuthorizationFact
@@ -124,6 +178,8 @@ export type AuthorizationInput = {
     readonly account: AccountAuthorizationFact | null;
     /** Trusted current facts/time from the same account-fenced transaction. */
     readonly now?: string;
+    /** Exact fresh pair accounts under the same account fence; no age eligibility required. */
+    readonly contactAccounts?: readonly AccountAuthorizationFact[];
     readonly socialAccounts?: readonly SocialAccountFact[];
     readonly socialReading?: SocialPolicyEvidence;
     readonly socialPosting?: SocialPolicyEvidence;

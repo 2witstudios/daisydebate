@@ -1,5 +1,12 @@
 import type { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
+import { drizzle } from 'drizzle-orm/bun-sql';
+import {
+  erasePrivacySubject,
+  messagingPrivacyExpectedColumns,
+} from '../privacy';
+import { accountAgePrivacyAdopter } from '../account-age';
+import { createMessagingPrivacyAdopter } from './privacy';
 
 /** Isolated integration data only; never collection or production policy authority. */
 export async function createMessagingTestFixture(client: SQL) {
@@ -25,6 +32,10 @@ export async function createMessagingTestFixture(client: SQL) {
     await client.unsafe("delete from outbox where payload->>'channelId'=$1", [
       channelId,
     ]);
+    await client.unsafe(
+      "delete from outbox where kind='messaging.inbox.changed' and topic in ($1,$2)",
+      [`user:${actorId}:inbox`, `user:${otherActorId}:inbox`],
+    );
     await client.unsafe('delete from actors where id in ($1,$2)', [
       actorId,
       otherActorId,
@@ -67,6 +78,46 @@ export async function createMessagingTestFixture(client: SQL) {
       high,
       now,
       cleanup,
+      eraseSubject: async (subjectActorId: string) => {
+        if (![actorId, otherActorId].includes(subjectActorId))
+          throw new Error('Fixture actor required');
+        const subjectUserId = subjectActorId === actorId ? userId : otherUserId;
+        return erasePrivacySubject(
+          drizzle({ client }),
+          {
+            subject: { userId: subjectUserId, actorId: subjectActorId },
+            now,
+            vendors: [],
+            jobIds: [],
+          },
+          {
+            requiredAdopters: [
+              {
+                id: 'messaging',
+                phase: 'before-auth',
+                expectedColumns: messagingPrivacyExpectedColumns,
+              },
+              {
+                id: 'account-age',
+                phase: 'after-scrub',
+                expectedColumns: {
+                  account_age: [
+                    'user_id',
+                    'birth_month',
+                    'version',
+                    'recorded_at',
+                  ],
+                },
+              },
+            ],
+            adopters: [
+              createMessagingPrivacyAdopter(),
+              accountAgePrivacyAdopter,
+            ],
+          },
+          [{ purpose: 'sign-in', subject: 'email' }],
+        );
+      },
     };
   } catch (error) {
     await cleanup();

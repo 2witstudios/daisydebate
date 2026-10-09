@@ -1,28 +1,13 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { canonicalContactPair, parseMessagingChannelFact } from './social';
+import { messagingAuthorityFixture } from './social.test-support';
 
 setupRitewayBun();
 const actorId = 'a'.repeat(24);
 const otherId = 'b'.repeat(24);
 const channelId = 'c'.repeat(24);
-const dm = {
-  kind: 'channel' as const,
-  channelId,
-  policyKey: 'social.dm' as const,
-  policyRevision: 1,
-  lifecycle: 'active' as const,
-  revision: 1,
-  authority: {
-    kind: 'dm' as const,
-    lowActorId: actorId,
-    highActorId: otherId,
-    requestSenderActorId: actorId,
-    state: 'pending' as const,
-    blocked: false,
-    revision: 1,
-  },
-};
+const dm = messagingAuthorityFixture();
 
 test('contact pair canonicalization is independent of caller order', () => {
   assert({

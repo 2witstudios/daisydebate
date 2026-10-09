@@ -7,7 +7,7 @@ import {
   type ThemePreference,
 } from '../../../ui/theme/theme-preference';
 import { readBoundedBody } from '../bounded-body';
-import { CLIENT_IP_HEADER } from '../abuse/client-ip';
+import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
 
 export type PageContext = {
   /** Absent when `x-nonce` is missing or malformed: the page then renders

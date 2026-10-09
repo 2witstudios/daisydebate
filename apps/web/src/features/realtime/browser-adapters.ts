@@ -58,7 +58,10 @@ export function createBrowserConnectionStore(url: string): ConnectionStore {
       new WebSocket(socketUrl),
     scheduler: systemScheduler,
     fetchTicket: () =>
-      fetchRealtimeTicket({ fetchImpl: (url, init) => fetch(url, init) }),
+      fetchRealtimeTicket({
+        expectedSocketUrl: url,
+        fetchImpl: (url, init) => fetch(url, init),
+      }),
     random: secureRandom,
     onVisibilityChange: onDocumentVisibilityChange,
   };

@@ -21,6 +21,7 @@ const TICKET_RULE = { windowSeconds: 60, max: 20 } as const;
 type TicketDependencies = {
   readonly logger: Logger;
   readonly origin: () => string;
+  readonly websocketEndpoint: () => string | null;
   /** Principal resolution from the request's cookies only. */
   readonly identify: (request: Request) => Promise<Identity>;
   /** The caller's own durable session id, resolved from the same cookies. */
@@ -74,6 +75,8 @@ export function createTicketHandler(dependencies: TicketDependencies) {
         // authenticated, not authorized, same as every other permission gate.
         if (identity.state === 'provisional')
           throw createAppError('AUTHORIZATION');
+        const socketUrl = dependencies.websocketEndpoint();
+        if (socketUrl === null) throw createAppError('INFRASTRUCTURE');
         const { userId } = identity.principal;
         await consumeOrThrow(
           dependencies.limiter(),
@@ -101,6 +104,7 @@ export function createTicketHandler(dependencies: TicketDependencies) {
         });
         return Response.json({
           ticket,
+          socketUrl,
           expiresInSeconds: TICKET_TTL_SECONDS,
         });
       },
