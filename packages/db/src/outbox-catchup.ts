@@ -39,17 +39,13 @@ export function catchupWindow({
     floor !== null &&
     order(since, floor) >= 0 &&
     order(since, through) <= 0 &&
-    count <= limit &&
-    // A minimum survivor cannot certify history created by earlier pruning.
-    // Without a durable deletion watermark only an empty interval is known.
-    order(since, through) === 0 &&
-    count === 0
+    count <= limit
   );
 }
 
-/** One snapshot on the existing pool. Legacy retention could leave holes:
- * nonempty durable replay is therefore not certifiable and requires HTTP
- * resync. The live registry can prove its own continuously observed ring.
+/** One snapshot on the existing pool: the deletion boundary and final rows
+ * are read together. Migration fenced unknown history even when empty;
+ * every subsequent prefix deletion advances that boundary atomically.
  * Cursor positions are ordering tokens, never authority.
  */
 export async function readOutboxCatchup(
@@ -65,12 +61,9 @@ export async function readOutboxCatchup(
   decodeOutboxCursor(throughCursor);
   if (!Number.isSafeInteger(limit) || limit < 1 || limit > 500)
     throw new Error('Invalid outbox catchup limit');
-  if (order(since, throughCursor) !== 0) return { rows: [], resync: true };
   const result = await database.execute(sql`
     with retained as (
-      select txid, seq from outbox
-      where txid < pg_snapshot_xmin(pg_current_snapshot())
-      order by txid, seq limit 1
+      select txid, seq from public.outbox_retention_boundary where singleton = true
     ), replay as (
       select txid, seq, topic, kind, version, payload, created_at
       from outbox where topic = ${topic}
