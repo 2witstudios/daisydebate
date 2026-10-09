@@ -1,5 +1,5 @@
 import { S3Client } from 'bun';
-import { createAppError } from '@daisy/errors';
+import { createAppError, isAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import type { PrivateObjectStore } from './ports';
 /** Explicit deployment inputs only; bucket must be private and unversioned before activation. */
@@ -36,8 +36,8 @@ export function createPrivateS3ObjectStore(options: {
           type: 'application/octet-stream',
           acl: 'private',
         });
-      } catch {
-        throw createAppError('INFRASTRUCTURE');
+      } catch (error) {
+        throw isAppError(error) ? error : createAppError('INFRASTRUCTURE');
       }
     },
     async read(key, maxBytes) {
@@ -50,8 +50,8 @@ export function createPrivateS3ObjectStore(options: {
         const bytes = new Uint8Array(await object.arrayBuffer());
         if (bytes.length > maxBytes) throw createAppError('PAYLOAD_TOO_LARGE');
         return bytes;
-      } catch {
-        throw createAppError('INFRASTRUCTURE');
+      } catch (error) {
+        throw isAppError(error) ? error : createAppError('INFRASTRUCTURE');
       }
     },
     async remove(key) {
@@ -59,8 +59,8 @@ export function createPrivateS3ObjectStore(options: {
         const object = file(key);
         await object.delete();
         if (await object.exists()) throw createAppError('INFRASTRUCTURE');
-      } catch {
-        throw createAppError('INFRASTRUCTURE');
+      } catch (error) {
+        throw isAppError(error) ? error : createAppError('INFRASTRUCTURE');
       }
     },
   };

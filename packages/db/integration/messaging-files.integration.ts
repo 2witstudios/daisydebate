@@ -37,6 +37,9 @@ test('file quota is fenced and remains charged until actual object deletion ackn
   const database = drizzle({ client });
   try {
     await client.unsafe('select id from messaging_files limit 0');
+    await client.unsafe(
+      'select object_key from messaging_file_deletion_intents limit 0',
+    );
   } catch (error) {
     await client.close();
     throw error;
@@ -73,6 +76,7 @@ test('file quota is fenced and remains charged until actual object deletion ackn
         }),
       );
     });
+  let erasedKey: string | null = null;
   try {
     const results = await Promise.allSettled([
       withFrame((f) => f.reserve(command(), now, policy)),
@@ -174,6 +178,7 @@ test('file quota is fenced and remains charged until actual object deletion ackn
       actual: next.reservedBytes,
       expected: 60,
     });
+    erasedKey = next.objectKey;
     const chargedBefore = await chargedFileBytes(database);
     await database.transaction(async (tx) => {
       await lockAuthorizationActors(tx, [actorId], { maxActors: 1 });
@@ -184,15 +189,57 @@ test('file quota is fenced and remains charged until actual object deletion ackn
         actual: exported.messaging_files.length,
         expected: 0,
       });
-      await tx.execute(sql`select low_actor_id from messaging_contact_pairs where low_actor_id=${fixture.low} and high_actor_id=${fixture.high} for update`);
-      await tx.execute(sql`select id from messaging_channels where id=${channelId} for update`);
+      await tx.execute(
+        sql`select low_actor_id from messaging_contact_pairs where low_actor_id=${fixture.low} and high_actor_id=${fixture.high} for update`,
+      );
+      await tx.execute(
+        sql`select id from messaging_channels where id=${channelId} for update`,
+      );
       await eraseSubjectFiles(tx, actorId);
     });
-    assert({ given: 'subject erasure before vendor availability', should: 'remove every personal file row while retaining charged unlinked intent', actual: { rows: Number((await client.unsafe('select count(*) as count from messaging_files where owner_actor_id=$1',[actorId]))[0]!.count), bytes: await chargedFileBytes(database) }, expected: { rows: 0, bytes: chargedBefore } });
-    await assertRejects({ given: 'vendor outage after local erasure', should: 'retain unlinked charged intent', actual: () => acknowledgeErasedFileDeletion(database,next.objectKey,async () => { throw createAppError('INFRASTRUCTURE'); }), code: 'INFRASTRUCTURE' });
-    assert({ given: 'failed erased-object acknowledgement', should: 'retain charged storage independently of subject associations', actual: await chargedFileBytes(database), expected: chargedBefore });
-    await acknowledgeErasedFileDeletion(database,next.objectKey,async () => {});
-    assert({ given: 'actual erased-object deletion acknowledgement', should: 'remove unlinked intent and release storage charge', actual: await chargedFileBytes(database), expected: '0' });
+    assert({
+      given: 'subject erasure before vendor availability',
+      should:
+        'remove every personal file row while retaining charged unlinked intent',
+      actual: {
+        rows: Number(
+          (
+            await client.unsafe(
+              'select count(*) as count from messaging_files where owner_actor_id=$1',
+              [actorId],
+            )
+          )[0]!.count,
+        ),
+        bytes: await chargedFileBytes(database),
+      },
+      expected: { rows: 0, bytes: chargedBefore },
+    });
+    await assertRejects({
+      given: 'vendor outage after local erasure',
+      should: 'retain unlinked charged intent',
+      actual: () =>
+        acknowledgeErasedFileDeletion(database, next.objectKey, async () => {
+          throw createAppError('INFRASTRUCTURE');
+        }),
+      code: 'INFRASTRUCTURE',
+    });
+    assert({
+      given: 'failed erased-object acknowledgement',
+      should: 'retain charged storage independently of subject associations',
+      actual: await chargedFileBytes(database),
+      expected: chargedBefore,
+    });
+    await acknowledgeErasedFileDeletion(
+      database,
+      next.objectKey,
+      async () => {},
+    );
+    assert({
+      given: 'actual erased-object deletion acknowledgement',
+      should: 'remove unlinked intent and release storage charge',
+      actual: await chargedFileBytes(database),
+      expected: '0',
+    });
     await assertRejects({
       given: 'late completion after subject erasure',
       should: 'never restore association',
@@ -207,7 +254,11 @@ test('file quota is fenced and remains charged until actual object deletion ackn
       code: 'NOT_FOUND',
     });
   } finally {
-    await client.unsafe('delete from messaging_file_deletion_intents where object_key in (select object_key from messaging_files where channel_id=$1)', [channelId]);
+    if (erasedKey)
+      await client.unsafe(
+        'delete from messaging_file_deletion_intents where object_key=$1',
+        [erasedKey],
+      );
     await client.unsafe('delete from messaging_files where channel_id=$1', [
       channelId,
     ]);
