@@ -36,8 +36,12 @@ export function createAuthorityLease({
       return active;
     },
     invalidate,
+    owns(attempt: Attempt): boolean {
+      return active === attempt && attempt.generation === generation;
+    },
     accept(attempt: Attempt, validUntil = attempt.expiresAt): boolean {
       if (
+        !Number.isFinite(validUntil) ||
         active !== attempt ||
         attempt.generation !== generation ||
         now() >= Math.min(attempt.expiresAt, validUntil)
