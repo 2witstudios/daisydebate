@@ -9,6 +9,8 @@ const base = {
     {
       id: 'seat',
       actorId: 'viewer',
+      label: 'Viewer',
+      consentVersion: 8,
       kind: 'human' as const,
       role: 'judge' as const,
       slot: 0,
@@ -63,9 +65,36 @@ describe('native room readiness and Launch controls', () => {
           ['type', 'ready'],
           ['expectedVersion', '7'],
           ['commandId', 'ready-id'],
+          ['expectedConsentVersion', '8'],
         ],
         false,
       ],
+    });
+  });
+
+  test('Unready carries own consent revision and Launch carries none', () => {
+    const tree = AssemblyReadiness({
+      ...props,
+      view: {
+        ...base,
+        participants: [{ ...base.participants[0]!, ready: 'ready' }],
+        capabilities: { ...base.capabilities, canStart: true },
+      },
+    });
+    const forms = findElements(tree, (element) => element.type === 'form');
+    assert({
+      given: 'the viewer is ready at consent revision eight',
+      should:
+        'fence withdrawal using that participant revision without adding a readiness field to Launch',
+      actual: forms.map((form) =>
+        findElements(
+          form,
+          (element) =>
+            element.type === 'input' &&
+            element.props.name === 'expectedConsentVersion',
+        ).map((input) => input.props.value),
+      ),
+      expected: [['8'], []],
     });
   });
 
