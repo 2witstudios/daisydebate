@@ -12,7 +12,8 @@
     "test": "bun test src"
   },
   "dependencies": {
-    "@daisy/errors": "workspace:*"
+    "@daisy/errors": "workspace:*",
+    "@daisy/protocol": "workspace:*"
   },
   "devDependencies": {
     "riteway": "9.3.0"

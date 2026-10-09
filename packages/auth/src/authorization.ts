@@ -1,3 +1,7 @@
+import {
+  authorizationCapabilitySchema,
+  type AuthorizationCapability,
+} from '@daisy/protocol/authorization';
 /** Current producer facts only. Neither preferences nor client claims grant access. */
 export type AuthorizationPrincipal =
   | { readonly kind: 'anonymous' }
@@ -6,18 +10,7 @@ export type AuthorizationPrincipal =
       readonly userId: string;
       readonly actorId: string | null;
     };
-export type AuthorizationCapability =
-  | 'room.list'
-  | 'room.create'
-  | 'room.read'
-  | 'room.join'
-  | 'room.manage'
-  | 'room.ready'
-  | 'room.leave'
-  | 'channel.read'
-  | 'channel.post'
-  | 'channel.manage'
-  | 'channel.subscribe';
+export type { AuthorizationCapability } from '@daisy/protocol/authorization';
 export type AccountAuthorizationFact = {
   readonly userId: string;
   readonly actorId: string | null;
@@ -51,6 +44,7 @@ export type ChannelAuthorizationFact = {
         readonly kind: 'dm';
         readonly lowActorId: string;
         readonly highActorId: string;
+        readonly requestSenderActorId: string;
         readonly state: 'pending' | 'accepted' | 'declined' | 'cancelled';
         readonly blocked: boolean;
         readonly revision: number;
@@ -60,6 +54,7 @@ export type ChannelAuthorizationFact = {
         readonly actorId: string;
         readonly role: 'manager' | 'member' | null;
         readonly generation: number;
+        readonly activeMemberActorIds: readonly string[];
       };
 };
 export type AuthorizationInput = {
@@ -77,12 +72,16 @@ export type AuthorizationInput = {
       readonly policyKey: string;
       readonly policyRevision: number;
       readonly allowed: boolean;
+      readonly authorityRevision: number;
+      readonly relationshipRevision: number;
     };
     readonly socialPosting?: {
       readonly channelId: string;
       readonly policyKey: string;
       readonly policyRevision: number;
       readonly allowed: boolean;
+      readonly authorityRevision: number;
+      readonly relationshipRevision: number;
     };
   };
 };
@@ -104,6 +103,8 @@ export function authorize({
   resource,
   context,
 }: AuthorizationInput): AuthorizationDecision {
+  if (!authorizationCapabilitySchema.safeParse(capability).success)
+    return deny('denied');
   const valid =
     capability === 'room.create' || capability === 'room.list'
       ? resource.kind === 'room_collection'
@@ -144,6 +145,56 @@ export function authorize({
     return seated ? allow : deny('missing-capability');
   }
   const authority = resource.authority;
+  const positive = (n: number) => Number.isSafeInteger(n) && n > 0;
+  if (
+    !positive(resource.policyRevision) ||
+    (authority.kind === 'dm'
+      ? resource.policyKey !== 'social.dm' ||
+        !positive(authority.revision) ||
+        authority.lowActorId >= authority.highActorId ||
+        ![authority.lowActorId, authority.highActorId].includes(
+          authority.requestSenderActorId,
+        )
+      : resource.policyKey !== 'social.private_group' ||
+        !Number.isSafeInteger(authority.generation) ||
+        authority.generation < 0 ||
+        (authority.role !== null &&
+          (!positive(authority.generation) ||
+            !authority.activeMemberActorIds.includes(authority.actorId))) ||
+        new Set(authority.activeMemberActorIds).size !==
+          authority.activeMemberActorIds.length)
+  )
+    return deny('denied');
+  const currentPolicy = (
+    policy: AuthorizationInput['context']['socialReading'],
+  ) =>
+    policy?.allowed === true &&
+    policy.channelId === resource.channelId &&
+    policy.policyKey === resource.policyKey &&
+    policy.policyRevision === resource.policyRevision &&
+    policy.authorityRevision === resource.revision &&
+    policy.relationshipRevision ===
+      (authority.kind === 'dm' ? authority.revision : authority.generation);
+  if (capability.startsWith('channel.request.')) {
+    if (
+      authority.kind !== 'dm' ||
+      authority.state !== 'pending' ||
+      authority.blocked ||
+      resource.lifecycle !== 'active' ||
+      ![authority.lowActorId, authority.highActorId].includes(principal.actorId)
+    )
+      return deny('missing-capability');
+    const sender = authority.requestSenderActorId === principal.actorId;
+    const actorAllowed =
+      capability === 'channel.request.cancel' ? sender : !sender;
+    const policy =
+      capability === 'channel.request.read'
+        ? context.socialReading
+        : context.socialPosting;
+    return actorAllowed && currentPolicy(policy)
+      ? allow
+      : deny('missing-capability');
+  }
   const entitled =
     authority.kind === 'dm'
       ? authority.state === 'accepted' &&
@@ -152,28 +203,16 @@ export function authorize({
         )
       : authority.actorId === principal.actorId && authority.role !== null;
   if (!entitled) return deny('missing-capability');
-  const reading = context.socialReading;
-  if (
-    !reading ||
-    !reading.allowed ||
-    reading.channelId !== resource.channelId ||
-    reading.policyKey !== resource.policyKey ||
-    reading.policyRevision !== resource.policyRevision
-  )
-    return deny('missing-capability');
+  if (!currentPolicy(context.socialReading)) return deny('missing-capability');
   if (capability === 'channel.read' || capability === 'channel.subscribe')
     return allow;
   if (capability === 'channel.manage')
     return authority.kind === 'private_group' && authority.role === 'manager'
       ? allow
       : deny('missing-capability');
-  const policy = context.socialPosting;
   return resource.lifecycle === 'active' &&
     !(authority.kind === 'dm' && authority.blocked) &&
-    policy?.allowed === true &&
-    policy.channelId === resource.channelId &&
-    policy.policyKey === resource.policyKey &&
-    policy.policyRevision === resource.policyRevision
+    currentPolicy(context.socialPosting)
     ? allow
     : deny('missing-capability');
 }
