@@ -2,10 +2,11 @@ import {
   ENVELOPE_VERSION,
   PROTOCOL_VERSION,
   heartbeatMs,
-  serverMessageSchema,
-  parseTopic,
-  type ServerMessage,
 } from '@daisy/protocol';
+import {
+  createTopicSubscriptions,
+  parseServerMessage,
+} from './topic-subscriptions';
 import { nextReconnectDelayMs } from './backoff';
 import {
   closeReasonForCode,
@@ -13,75 +14,19 @@ import {
   type TerminalReason,
 } from './close-code-policy';
 
-/**
- * The subset of the browser's native `WebSocket` this store uses. Tests
- * inject a fake; production wiring injects the real global `WebSocket`
- * (ADR 0031 §3: native WebSocket only, no client library).
- */
-export type WebSocketLike = {
-  readonly send: (data: string) => void;
-  readonly close: (code?: number, reason?: string) => void;
-  readonly addEventListener: (
-    type: 'open' | 'message' | 'close',
-    listener: (event: { readonly [key: string]: unknown }) => void,
-  ) => void;
-};
-
-/**
- * The injected timing seam: production wires real `performance.now`/
- * `setTimeout`/`clearTimeout`; tests wire a virtual clock and timer queue so
- * the heartbeat and backoff rules are proven deterministically (AGENTS.md:
- * inject clocks, never sleep-and-hope).
- */
-export type Scheduler = {
-  readonly now: () => number;
-  readonly setTimeout: (callback: () => void, ms: number) => unknown;
-  readonly clearTimeout: (id: unknown) => void;
-};
-
-type ConnectionStatus = 'idle' | 'connecting' | 'open' | 'closed';
-
-type ConnectionState = {
-  readonly status: ConnectionStatus;
-  readonly generation: number;
-  readonly terminal: TerminalReason | null;
-};
-
-export type ConnectionStoreDeps = {
-  readonly url: string;
-  readonly createSocket: (url: string) => WebSocketLike;
-  readonly scheduler: Scheduler;
-  readonly fetchTicket: () => Promise<string>;
-  readonly random: () => number;
-  /** Registers a visibility listener; the callback receives `true` when the
-   * tab becomes visible. Returns an unsubscribe function. */
-  readonly onVisibilityChange: (
-    callback: (visible: boolean) => void,
-  ) => () => void;
-};
-
-export type ConnectionStore = {
-  readonly subscribeTopic: (
-    topic: string,
-    listener: (frame: ServerMessage) => void,
-  ) => () => void;
-  readonly onMessage: (listener: (frame: ServerMessage) => void) => () => void;
-  readonly resubscribeTopic: (topic: string) => void;
-  /** Single-flight: a no-op while already connecting or open. */
-  readonly connect: () => void;
-  /** User-initiated close (logout): closes the socket, never reconnects. */
-  readonly close: () => void;
-  /**
-   * A token refresh never reconnects a healthy socket: this is a documented
-   * no-op seam, kept so callers have somewhere to report the refresh without
-   * reaching into the store's internals.
-   */
-  readonly notifyTokenRefreshed: () => void;
-  readonly getState: () => ConnectionState;
-  readonly subscribe: (
-    listener: (state: ConnectionState) => void,
-  ) => () => void;
-};
+import type {
+  ConnectionStore,
+  ConnectionStoreDeps,
+  ConnectionStatus,
+  ConnectionState,
+  WebSocketLike,
+} from './connection-types';
+export type {
+  ConnectionStore,
+  ConnectionStoreDeps,
+  Scheduler,
+  WebSocketLike,
+} from './connection-types';
 
 const HEARTBEAT_DEAD_AFTER_MS = heartbeatMs * 2;
 
@@ -117,57 +62,11 @@ export function createConnectionStore(
   let heartbeatTimer: unknown = null;
   let reconnectTimer: unknown = null;
   const listeners = new Set<(state: ConnectionState) => void>();
-  const messageListeners = new Set<(frame: ServerMessage) => void>();
-  const topics = new Map<
-    string,
-    {
-      listeners: Set<(frame: ServerMessage) => void>;
-      position?: string;
-      requestId?: string;
-    }
-  >();
-  let requestCounter = 0;
-  function requestTopic(type: 'subscribe' | 'unsubscribe', topic: string) {
-    if (status !== 'open' || !socket) return;
-    const id = `rt${(++requestCounter).toString(36).padStart(22, '0')}`;
-    const entry = topics.get(topic);
-    if (entry) entry.requestId = id;
-    socket.send(
-      JSON.stringify({
-        v: ENVELOPE_VERSION,
-        type,
-        id,
-        topic,
-        ...(type === 'subscribe' && entry?.position
-          ? { since: entry.position }
-          : {}),
-      }),
-    );
-  }
-  function emitMessage(frame: ServerMessage) {
-    const entry =
-      'topic' in frame
-        ? topics.get(frame.topic)
-        : frame.type === 'error'
-          ? [...topics.values()].find((value) => value.requestId === frame.id)
-          : undefined;
-    if ('topic' in frame && !entry) return;
-    if (
-      (frame.type === 'subscribed' || frame.type === 'resync_required') &&
-      entry?.requestId !== frame.id
-    )
-      return;
-    if (entry && (frame.type === 'event' || frame.type === 'subscribed'))
-      entry.position = frame.position;
-    if (entry && frame.type === 'resync_required') delete entry.position;
-    for (const listener of [...messageListeners, ...(entry?.listeners ?? [])]) {
-      try {
-        listener(frame);
-      } catch {
-        /* Consumer failures cannot stop transport. */
-      }
-    }
-  }
+  const topics = createTopicSubscriptions({
+    send: (frame) => {
+      if (status === 'open' && socket) socket.send(JSON.stringify(frame));
+    },
+  });
 
   deps.onVisibilityChange((visible) => {
     if (visible && status === 'open' && socket) sendVisibilityPing(generation);
@@ -312,15 +211,8 @@ export function createConnectionStore(
   function handleMessage(myGeneration: number, raw: unknown) {
     if (myGeneration !== generation) return;
     if (typeof raw !== 'string') return;
-    let message: unknown;
-    try {
-      message = JSON.parse(raw);
-    } catch {
-      return;
-    }
-    const parsed = serverMessageSchema.safeParse(message);
-    if (!parsed.success) return;
-    const frame = parsed.data;
+    const frame = parseServerMessage(raw);
+    if (!frame) return;
     const type = frame.type;
     if (type === 'ready') {
       if (status !== 'connecting') return;
@@ -329,9 +221,9 @@ export function createConnectionStore(
       consecutiveAuthFailures = 0;
       reconnectAttempt = 0;
       startHeartbeat(myGeneration);
-      for (const topic of topics.keys()) requestTopic('subscribe', topic);
+      topics.reconnect();
       notify();
-      emitMessage(frame);
+      topics.emit(frame);
       return;
     }
     if (status !== 'open') return;
@@ -339,12 +231,12 @@ export function createConnectionStore(
       // Only a pong matching the earliest outstanding ping's own id clears
       // it (ADR 0031 §7): a late pong for an older, already-superseded ping
       // must never cancel a newer ping's still-live deadline.
-      if (frame.type === 'pong' && frame.id === outstandingPingId) {
+      if (frame.id === outstandingPingId) {
         outstandingPingId = null;
         outstandingPingDeadline = null;
       }
     }
-    emitMessage(frame);
+    topics.emit(frame);
   }
   function handleClose(myGeneration: number, code: number) {
     if (myGeneration !== generation) return;
@@ -435,36 +327,9 @@ export function createConnectionStore(
   }
 
   return {
-    subscribeTopic: (topic, listener) => {
-      if (!parseTopic(topic)) throw new Error('Invalid realtime topic');
-      let entry = topics.get(topic);
-      if (!entry) {
-        entry = { listeners: new Set([listener]) };
-        topics.set(topic, entry);
-        requestTopic('subscribe', topic);
-      }
-      entry.listeners.add(listener);
-      const subscribedEntry = entry;
-      return () => {
-        subscribedEntry.listeners.delete(listener);
-        if (
-          topics.get(topic) === subscribedEntry &&
-          subscribedEntry.listeners.size === 0
-        ) {
-          requestTopic('unsubscribe', topic);
-          topics.delete(topic);
-        }
-      };
-    },
-    onMessage: (listener) => {
-      messageListeners.add(listener);
-      return () => {
-        messageListeners.delete(listener);
-      };
-    },
-    resubscribeTopic: (topic) => {
-      if (topics.has(topic)) requestTopic('subscribe', topic);
-    },
+    subscribeTopic: topics.subscribe,
+    onMessage: topics.onMessage,
+    resubscribeTopic: topics.resubscribe,
     connect,
     close,
     notifyTokenRefreshed: () => {

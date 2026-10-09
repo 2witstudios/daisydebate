@@ -10,6 +10,20 @@ import {
   type OutboxRowsSink,
 } from './outbox-drain';
 
+function drainOptions(
+  pollIntervalMs: number | undefined,
+  timers: IntervalTimers | undefined,
+  onQuery: (() => void) | undefined,
+  onListenWake: (() => void) | undefined,
+) {
+  return {
+    ...(pollIntervalMs === undefined ? {} : { pollIntervalMs }),
+    ...(timers === undefined ? {} : { timers }),
+    ...(onQuery === undefined ? {} : { onQuery }),
+    ...(onListenWake === undefined ? {} : { onListenWake }),
+  };
+}
+
 /**
  * Wires startup order (ADR 0032 §2) around `Bun.serve`: production first
  * refuses a schema-altering role (ISSUE-101), then `startOutboxDrain` is
@@ -72,10 +86,7 @@ export async function serveRealtime({
       sink?.(rows);
     },
     logger: resources.logger,
-    ...(pollIntervalMs === undefined ? {} : { pollIntervalMs }),
-    ...(timers === undefined ? {} : { timers }),
-    ...(onQuery === undefined ? {} : { onQuery }),
-    ...(onListenWake === undefined ? {} : { onListenWake }),
+    ...drainOptions(pollIntervalMs, timers, onQuery, onListenWake),
   });
   delivery.registry.seed(drain.cursor());
   const { fetch, websocket } = createRealtimeServer({
