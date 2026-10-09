@@ -21,12 +21,12 @@ const anonymous: Identity = {
 };
 const provisional: Identity = {
   state: 'provisional',
-  principal: { kind: 'user', userId: 'u', permissions: [] },
+  principal: { kind: 'user', userId: 'u', actorId: null },
 };
 const member: Identity = {
   state: 'member',
   username: 'ada',
-  principal: { kind: 'user', userId: 'u', permissions: ['debate:create'] },
+  principal: { kind: 'user', userId: 'u', actorId: 'actor1' },
 };
 
 describe('decideAccess', () => {

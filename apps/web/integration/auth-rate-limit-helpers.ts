@@ -108,6 +108,7 @@ export function createSecondInstances(testApp: TestApp) {
     const base = createAuthRateLimiter(redis);
     const sent: string[] = [];
     const server = createAuthServer({
+      getActorByUserId: (userId) => database.getActorByUserId(userId),
       config: readAuthConfig(testApp.env),
       database: database.authAdapter,
       emailSender: {
