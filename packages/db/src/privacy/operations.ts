@@ -35,7 +35,9 @@ async function lockSubject(
   tx: AuthorizationTransaction,
   subject: PrivacySubject,
 ) {
-  const facts = await lockAuthorizationActors(tx, [subject.actorId]);
+  const facts = await lockAuthorizationActors(tx, [subject.actorId], {
+    maxActors: 1,
+  });
   const fact = facts[0];
   if (
     facts.length !== 1 ||
