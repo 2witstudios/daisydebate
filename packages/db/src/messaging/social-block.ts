@@ -62,6 +62,7 @@ export function contactBlockWriter(
     }
     await tx.insert(messagingSocialCommands).values({
       actorId: input.actorId,
+      counterpartActorId: ownsLow ? pair.highActorId : pair.lowActorId,
       requestId: command.requestId,
       kind: 'dm.block',
       digest: command.digest,

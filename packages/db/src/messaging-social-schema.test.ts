@@ -48,6 +48,7 @@ test('social command receipts and invitations persist private authority transiti
       .sort(),
     expected: [
       'actor_id',
+      'counterpart_actor_id',
       'created_at',
       'digest',
       'kind',
