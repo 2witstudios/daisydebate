@@ -79,6 +79,7 @@ export async function uploadMessagingFile(
   );
   const scope = { ...identity, channelId: command.channelId };
   const token = { fileId: command.fileId, generation: command.generation };
+  const startedAt = d.clock.now();
   let cleanup = false;
   try {
     return await d.store.withChannel(scope, 'post', async (frame) => {
@@ -118,6 +119,7 @@ export async function uploadMessagingFile(
         return { fileId: reservation.id, generation: reservation.generation };
       }
       await d.objects.put(reservation.objectKey, stored);
+      requireFileAttempt(startedAt, d.clock.now(), policy.serviceMs);
       await frame.quarantine(token, stored.byteLength, d.clock.now());
       return { fileId: reservation.id, generation: reservation.generation };
     });

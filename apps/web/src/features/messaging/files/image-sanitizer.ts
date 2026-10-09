@@ -1,5 +1,5 @@
 import sharp from 'sharp';
-import { createAppError } from '@daisy/errors';
+import { createAppError, isAppError } from '@daisy/errors';
 import type { ImageSanitizer } from './ports';
 /** Sharp 0.35.5 decodes under pixel/time limits and drops all input metadata by default. */
 export const sanitizeMessagingImage: ImageSanitizer = async (
@@ -38,7 +38,7 @@ export const sanitizeMessagingImage: ImageSanitizer = async (
     if (output.length > limits.maxBytes)
       throw createAppError('PAYLOAD_TOO_LARGE');
     return new Uint8Array(output);
-  } catch {
-    throw createAppError('VALIDATION');
+  } catch (error) {
+    throw isAppError(error) ? error : createAppError('VALIDATION');
   }
 };
