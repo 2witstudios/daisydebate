@@ -81,7 +81,7 @@ export type {
   RatingState,
   RatingUnrated,
 } from './ratings';
-export { buildUserInboxTopic, buildDebateTopic } from './topics';
+export { buildUserInboxTopic, buildDebateTopic, buildChannelTopic } from './topics';
 export {
   emailDeliveryStatuses,
   emailDeliveryStatusRank,
