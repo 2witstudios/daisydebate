@@ -29,7 +29,7 @@ export type MessagingCounters = {
 export type MessagingSendState = {
   readonly counters: MessagingCounters;
   readonly receipt: {
-    readonly payloadDigest: string;
+    readonly payloadDigest: string | null;
     readonly messageId: string | null;
   } | null;
   readonly existingMessage: MessagingMessageRecord | null;
