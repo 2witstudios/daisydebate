@@ -27,7 +27,7 @@ export async function createFromPlay(
   formatId = 'foundation',
 ) {
   await page.goto('/play');
-  await page.locator('a[href="/play/room"]').click();
+  await page.getByRole('link', { name: /^Open a practice room\b/ }).click();
   const form = page.getByRole('form', { name: 'Create a room' });
   const templates = form.getByLabel('Format template');
   const values = await templates

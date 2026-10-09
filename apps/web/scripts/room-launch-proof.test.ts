@@ -1,4 +1,6 @@
 import { decodeLaunchEvidence } from '../e2e/support/room-launch-evidence-decoder';
+import { roomCreateSchema } from '@daisy/protocol';
+import { launchCustomSelection } from '../e2e/support/room-launch-custom';
 import { createLaunchShutdown } from '../e2e/support/room-launch-shutdown';
 import { mkdtemp, rm, readFile } from 'node:fs/promises';
 import { basename, join, resolve } from 'node:path';
@@ -7,6 +9,25 @@ import { createLaunchControl } from '../e2e/support/room-launch-control';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireLaunchSlot } from '../e2e/support/room-launch-slot';
 setupRitewayBun();
+
+test('custom browser creation fixture satisfies the canonical complete request contract', () => {
+  const parsed = roomCreateSchema.safeParse({
+    commandId: 'a'.repeat(24),
+    title: 'Custom sequence proof',
+    topic: 'Proof transit motion',
+    visibility: 'public',
+    selection: launchCustomSelection,
+  });
+  assert({
+    given: 'the exact custom selection sent by the browser proof',
+    should:
+      'pass the complete canonical request decoder before HTTP submission',
+    actual: parsed.success
+      ? []
+      : parsed.error.issues.map((issue) => issue.path.join('.')),
+    expected: [],
+  });
+});
 
 test('dedicated config binds server commands and artifacts to their canonical workspace', async () => {
   const checkout = resolve(import.meta.dir, '../../..');
