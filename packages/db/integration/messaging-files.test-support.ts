@@ -21,6 +21,9 @@ export function withFileProofFrame<T>(
     await lockAuthorizationActors(tx, [actorId, otherActorId].sort(), {
       maxActors: 2,
     });
+    await tx.execute(
+      sql`select low_actor_id from messaging_contact_pairs where low_actor_id=${fixture.low} and high_actor_id=${fixture.high} for update`,
+    );
     const rows = await tx.execute(
       sql`select id, change_version from messaging_channels where id=${channelId} for update`,
     );
