@@ -30,19 +30,7 @@ export function accountAgeFact({
   readonly now: string;
 }): AccountAgeFact {
   const instant = new Date(now);
-  if (
-    !source ||
-    !account?.member ||
-    account.erased ||
-    !account.actorId ||
-    !Number.isSafeInteger(source.revision) ||
-    source.revision < 1 ||
-    !Number.isSafeInteger(account.revision) ||
-    account.revision < 1 ||
-    Number.isNaN(instant.getTime()) ||
-    Number.isNaN(Date.parse(source.recordedAt)) ||
-    Date.parse(source.recordedAt) > instant.getTime()
-  )
+  if (!source || !knownAccount(account) || !validSource(source, instant))
     return { state: 'unknown' };
   try {
     const band = ageBand(source.birthMonth, instant);
@@ -61,4 +49,27 @@ export function accountAgeFact({
   } catch {
     return { state: 'unknown' };
   }
+}
+
+function knownAccount(
+  account: AccountAuthorizationFact | null,
+): account is AccountAuthorizationFact & { actorId: string } {
+  return (
+    account !== null &&
+    account.member &&
+    !account.erased &&
+    account.actorId !== null &&
+    Number.isSafeInteger(account.revision) &&
+    account.revision > 0
+  );
+}
+function validSource(source: AccountAgeSource, instant: Date) {
+  const recorded = Date.parse(source.recordedAt);
+  return (
+    Number.isSafeInteger(source.revision) &&
+    source.revision > 0 &&
+    Number.isFinite(instant.getTime()) &&
+    Number.isFinite(recorded) &&
+    recorded <= instant.getTime()
+  );
 }

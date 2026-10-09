@@ -391,3 +391,24 @@ describe('runner-only code (ISSUE-275)', () => {
     });
   });
 });
+
+test('authorization consumes protocol while adapters stay outside its boundary', () => {
+  assert({
+    given: 'the accepted AZC inward vocabulary edge and forbidden adapters',
+    should: 'allow protocol and still refuse db, Redis and web dependencies',
+    actual: ['protocol', 'db', 'redis', 'web'].map((dependency) =>
+      forbiddenDependencyIssue(
+        'packages/auth',
+        '@daisy/auth',
+        `@daisy/${dependency}`,
+        allowedWorkspaceDependencies,
+      ),
+    ),
+    expected: [
+      null,
+      'packages/auth: forbidden dependency @daisy/db',
+      'packages/auth: forbidden dependency @daisy/redis',
+      'packages/auth: forbidden dependency @daisy/web',
+    ],
+  });
+});

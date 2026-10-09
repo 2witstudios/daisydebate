@@ -29,7 +29,8 @@ export const allowedWorkspaceDependencies: Record<string, readonly string[]> = {
   // protocol's ballot contract only.
   'ai-voice': ['debate-engine', 'errors', 'protocol'],
   protocol: [],
-  auth: ['errors'],
+  // ADR 0048: pure capability evaluation consumes portable vocabulary only.
+  auth: ['errors', 'protocol'],
   errors: ['protocol'],
   db: ['config', 'errors', 'protocol'],
   redis: ['config', 'errors', 'protocol'],

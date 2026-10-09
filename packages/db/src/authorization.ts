@@ -7,7 +7,7 @@ import {
   type AuthorizationAccountRow,
 } from './authorization-account';
 /** The exact caller transaction, never a second pool or nested transaction. */
-export type AuthorizationTransaction = Pick<BunSQLDatabase, 'execute'>;
+export type AuthorizationTransaction = Pick<BunSQLDatabase, 'execute' | 'insert'>;
 /**
  * All account/contact/channel mutations acquire this fence first. SQL locks in
  * user-id order, independent of actor input order. Re-read after downstream lock
@@ -16,10 +16,14 @@ export type AuthorizationTransaction = Pick<BunSQLDatabase, 'execute'>;
 export async function lockAuthorizationActors(
   tx: AuthorizationTransaction,
   actorIds: readonly string[],
+  limits: { readonly maxActors: number },
 ) {
   if (
     actorIds.length === 0 ||
-    actorIds.length > 50 ||
+    !Number.isSafeInteger(limits.maxActors) ||
+    limits.maxActors < 1 ||
+    limits.maxActors > 65535 ||
+    actorIds.length > limits.maxActors ||
     new Set(actorIds).size !== actorIds.length ||
     actorIds.some((id) => !idSchema.safeParse(id).success)
   )
