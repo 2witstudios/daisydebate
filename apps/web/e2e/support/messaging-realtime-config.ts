@@ -23,6 +23,7 @@ if (!chromium || servers.length !== 2 || !servers[0] || !servers[1])
   throw new Error('Canonical messaging browser processes unavailable');
 export default defineConfig({
   ...canonical,
+  outputDir: 'test-results/messaging-realtime',
   testDir: resolve(import.meta.dirname, '..'),
   testMatch: '**/messaging-realtime.e2e.ts',
   testIgnore: [],
