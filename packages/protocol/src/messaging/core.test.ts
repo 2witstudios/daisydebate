@@ -204,3 +204,28 @@ test('removed history entries carry cursor continuity without private content', 
     expected: false,
   });
 });
+
+test('exhausted change pages may advance over content-free authority revisions', () => {
+  const result = {
+    version: 1,
+    channelId,
+    changeVersion: 4,
+    changes: [{ kind: 'removed', channelId, messageId, changeVersion: 2 }],
+    nextAfter: { channelId, changeVersion: 4 },
+  };
+  assert({
+    given: 'a final content change followed by authority-only revisions',
+    should: 'accept the locked channel head as the exhausted page cursor',
+    actual: schemas.changesResult.safeParse(result).success,
+    expected: true,
+  });
+  assert({
+    given: 'an arbitrary cursor between the last change and head',
+    should: 'refuse an unproved intermediate cursor',
+    actual: schemas.changesResult.safeParse({
+      ...result,
+      nextAfter: { channelId, changeVersion: 3 },
+    }).success,
+    expected: false,
+  });
+});

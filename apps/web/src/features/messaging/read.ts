@@ -60,7 +60,7 @@ export function createMessagingReadOperations({
             kind:
               message.text === null || message.removedAt !== null
                 ? 'removed'
-                : message.changeVersion === message.sequence
+                : message.editedAt === null
                   ? 'created'
                   : 'edited',
             channelId: message.channelId,
