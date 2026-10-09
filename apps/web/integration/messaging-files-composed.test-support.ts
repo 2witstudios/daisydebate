@@ -28,7 +28,7 @@ import {
 } from '../src/features/messaging/files/operations';
 
 // Explicit integration-only policy, never production activation or numeric defaults.
-export const fileProofPolicy: FilePolicy = {
+const fileProofPolicy: FilePolicy = {
   maxFileBytes: 4096,
   maxStoredBytes: 16384,
   maxStoredFiles: 4,

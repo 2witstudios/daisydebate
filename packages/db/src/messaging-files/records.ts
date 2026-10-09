@@ -30,7 +30,7 @@ export type FileReservation = Readonly<{
   expiresAt: string;
 }>;
 export type FileToken = Readonly<{ fileId: string; generation: number }>;
-export type FileAccess = FileReservation &
+type FileAccess = FileReservation &
   Readonly<{ messageId: string; storedBytes: number; accessExpiresAt: string }>;
 export type FileReserveCommand = Readonly<{
   id: string;
