@@ -1,6 +1,7 @@
 import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
-import { migrate } from 'drizzle-orm/bun-sql/migrator';
+import { readMigrationFiles } from 'drizzle-orm/migrator';
+import { migrate } from 'drizzle-orm/pg-core';
 import { MIGRATOR_SESSION } from './session-bounds';
 
 /**
@@ -25,11 +26,18 @@ export async function runMigrations({
     connection: MIGRATOR_SESSION,
   });
   try {
-    await migrate(drizzle({ client }), {
+    const config = {
       migrationsFolder,
       ...(migrationsTable === undefined ? {} : { migrationsTable }),
       ...(migrationsSchema === undefined ? {} : { migrationsSchema }),
-    });
+    };
+    const database = drizzle({ client });
+    const migrations = readMigrationFiles(config);
+    // Commit each folder before the next DDL: reference inserts can leave
+    // deferred FK events which PostgreSQL forbids a later ALTER to cross.
+    for (let end = 1; end <= migrations.length; end += 1) {
+      await migrate(migrations.slice(0, end), database, config);
+    }
   } finally {
     await client.close();
   }
