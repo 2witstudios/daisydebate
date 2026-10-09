@@ -10,7 +10,8 @@
     "./seasons": "./src/seasons.ts",
     "./slots": "./src/slots.ts",
     "./test-runs": "./src/test-runs.ts",
-    "./testing": "./src/testing.ts"
+    "./testing": "./src/testing.ts",
+    "./authorization-account": "./src/authorization-account.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
