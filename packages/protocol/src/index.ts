@@ -85,6 +85,7 @@ export {
   buildUserInboxTopic,
   buildDebateTopic,
   buildRoomTopic,
+  buildChannelTopic,
 } from './topics';
 export {
   emailDeliveryStatuses,

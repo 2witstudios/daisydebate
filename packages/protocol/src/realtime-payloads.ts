@@ -12,6 +12,13 @@ import { parseTopic, type TopicFamily } from './topics';
  */
 const entityVersionSchema = z.int().positive();
 
+/** Channel sequence is separate from change version; this carries no content. */
+const channelChangedPayloadSchema = z.strictObject({
+  kind: z.literal('channel.changed'),
+  channelId: idSchema,
+  changeVersion: z.number().int().positive().safe(),
+});
+
 /**
  * `debate.presence-changed` is not one of these: presence is never written
  * to the outbox (ADR 0033 §1). It is delivered as the `presence.changed`
@@ -83,6 +90,7 @@ const actorPresencePreferenceChangedPayloadSchema = z.strictObject({
 
 /** The outbox payload contract, discriminated by `kind`, always carrying `entityVersion`. */
 export const outboxPayloadSchema = z.discriminatedUnion('kind', [
+  channelChangedPayloadSchema,
   doorbellPayloadSchema,
   roomChangedPayloadSchema,
   inboxDeltaPayloadSchema,
@@ -106,6 +114,7 @@ const storageFamilyPayloadKinds: Readonly<
   Record<TopicFamily, readonly OutboxPayloadKind[]>
 > = {
   room: ['room.changed'],
+  channel: ['channel.changed'],
   debate: ['debate.phase-changed'],
   'debate:presence': [],
   'debate:chat': [],
@@ -138,6 +147,11 @@ export function isPayloadStorableOnTopic(
       parsedPayload.data.ids[0] !== parsedTopic.roomId)
   )
     return false;
+  if (parsedTopic.family === 'channel')
+    return (
+      parsedPayload.data.kind === 'channel.changed' &&
+      parsedPayload.data.channelId === parsedTopic.channelId
+    );
   return storageFamilyPayloadKinds[parsedTopic.family].includes(
     parsedPayload.data.kind,
   );
