@@ -100,3 +100,38 @@ export function visibleAgents(
 ): readonly Agent[] {
   return kind === 'rated' ? [] : agents;
 }
+
+/** Reconcile stored documents without replacing a still-open valid tab. */
+export function loadWorkspaceDocuments<
+  T extends {
+    readonly tabs: TabsState;
+    readonly documents: readonly WorkspaceDocument[];
+  },
+>(state: T, documents: readonly WorkspaceDocument[]): T {
+  const ids = new Set(documents.map((d) => d.id));
+  const open = state.tabs.open.filter(
+    (id) => ids.has(id) || !state.documents.some((d) => d.id === id),
+  );
+  const round = documents.filter((d) => d.folder === 'round').map((d) => d.id);
+  const kept = open.length > 0 ? open : round;
+  const active =
+    state.tabs.active !== null && kept.includes(state.tabs.active)
+      ? state.tabs.active
+      : (kept[0] ?? null);
+  return { ...state, documents, tabs: { open: kept, active } };
+}
+
+export function appendWorkspaceDocument<
+  T extends {
+    readonly documents: readonly WorkspaceDocument[];
+    readonly tabs: TabsState;
+    readonly paletteOpen: boolean;
+  },
+>(state: T, document: WorkspaceDocument): T {
+  return {
+    ...state,
+    documents: [...state.documents, document],
+    tabs: openTab(state.tabs, document.id),
+    paletteOpen: false,
+  };
+}
