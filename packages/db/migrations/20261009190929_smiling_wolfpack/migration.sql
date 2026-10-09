@@ -1,0 +1,1 @@
+ALTER TABLE "rounds" ADD CONSTRAINT "rounds_room_config_snapshot_is_object" CHECK (jsonb_typeof("room_config_snapshot") = 'object');

@@ -5,6 +5,9 @@ import {
   messagingActorStates,
 } from './schema/messaging-channels';
 import {
+  messagingContactPairs,
+  messagingGroupInvitations,
+  messagingSocialCommands,
   messagingDmPairs,
   messagingGroupGrants,
 } from './schema/messaging-social';
@@ -148,5 +151,66 @@ test('authorization versions do not depend on message activity', () => {
       (column) => column.name === 'authority_revision',
     ),
     expected: true,
+  });
+});
+
+test('every dedicated messaging foreign key has a full leading-column index', () => {
+  const tables = [
+    messagingChannels,
+    messagingActorStates,
+    messagingContactPairs,
+    messagingDmPairs,
+    messagingGroupGrants,
+    messagingGroupInvitations,
+    messagingSocialCommands,
+    messagingMessages,
+    messagingReceipts,
+    messagingReactions,
+  ];
+  const uncovered = tables.flatMap((table) => {
+    const config = getTableConfig(table);
+    const keys = [
+      ...config.primaryKeys.map((key) =>
+        key.columns.map((column) => column.name),
+      ),
+      ...config.uniqueConstraints.map((key) =>
+        key.columns.map((column) => column.name),
+      ),
+      ...config.columns
+        .filter((column) => column.primary || column.isUnique)
+        .map((column) => [column.name]),
+      ...config.indexes
+        .filter((index) => index.config.where === undefined)
+        .map((index) =>
+          index.config.columns.map((column) =>
+            'name' in column ? column.name : null,
+          ),
+        ),
+    ];
+    return config.foreignKeys
+      .filter(
+        (key) =>
+          !keys.some((index) =>
+            key
+              .reference()
+              .columns.every(
+                (column, position) => index[position] === column.name,
+              ),
+          ),
+      )
+      .map(
+        (key) =>
+          `${config.name}:${key
+            .reference()
+            .columns.map((column) => column.name)
+            .join(',')}`,
+      );
+  });
+  assert({
+    given: 'all foreign keys of all dedicated messaging tables',
+    should:
+      'declare an unconditional index with exactly matching leading columns',
+    actual: uncovered,
+    expected: [],
   });
 });

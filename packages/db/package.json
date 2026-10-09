@@ -12,11 +12,11 @@
     "./test-runs": "./src/test-runs.ts",
     "./testing": "./src/testing.ts",
     "./authorization-account": "./src/authorization-account.ts",
-    "./authorization": "./src/authorization.ts",
     "./messaging-social": "./src/messaging/social.ts",
-    "./account-age": "./src/account-age.ts",
+    "./authorization": "./src/authorization.ts",
     "./privacy": "./src/privacy/index.ts",
-    "./messaging": "./src/messaging/index.ts"
+    "./messaging": "./src/messaging/index.ts",
+    "./account-age": "./src/account-age.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

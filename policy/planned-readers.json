@@ -162,6 +162,15 @@
       "adr": "docs/decisions/0057-planned-readers.md",
       "reason": "MSG-1.4 channel doorbells precede the committed transactional send reader; integration proves append shape and rollback independently of socket fanout.",
       "reviewBy": "2026-12-01"
+    },
+    {
+      "path": "apps/web/src/features/video/browser-device-checks.ts",
+      "export": "createBrowserDeviceChecks",
+      "task": "q2n3s1gmgspx21cmzgqcrkug",
+      "owner": "VIDEO / ag-f41q0moq",
+      "adr": "docs/decisions/0057-planned-readers.md",
+      "reason": "ROOM-3.6a composes real local camera/microphone checks with canonical native readiness; browser proof imports the producer before its production UI reader.",
+      "reviewBy": "2026-11-01"
     }
   ]
 }

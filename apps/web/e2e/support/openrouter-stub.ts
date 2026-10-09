@@ -13,16 +13,15 @@ const OPENROUTER = 'https://openrouter.ai/api/v1/';
 export const OPENROUTER_E2E_PLACEHOLDER =
   'sk-or-e2e-placeholder-not-a-credential';
 
-export const STUB_SPEECH =
-  'Thank you, judge. I stand firmly against the resolution.';
-export const STUB_REPLY = 'What is your strongest example?';
-export const STUB_TRANSCRIPT = 'My first contention is that it helps people.';
+const STUB_SPEECH = 'Thank you, judge. I stand firmly against the resolution.';
+const STUB_REPLY = 'What is your strongest example?';
+const STUB_TRANSCRIPT = 'My first contention is that it helps people.';
 const stubScores = (score: number) =>
   ballotCategories.reduce<Record<string, number>>((scores, category) => {
     scores[category] = score;
     return scores;
   }, {});
-export const STUB_BALLOT = {
+const STUB_BALLOT = {
   rubricVersion: ballotRubricVersion,
   winner: 'affirmative',
   scores: {

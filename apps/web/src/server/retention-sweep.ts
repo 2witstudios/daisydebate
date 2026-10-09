@@ -50,6 +50,8 @@ export function retentionTargets({
     readonly purgeExpiredOutboxEvents: (batch: Batch) => Promise<number>;
     readonly purgeExpiredEmailDeliveryEvents: (batch: Batch) => Promise<number>;
     readonly purgeExpiredEmailDeliveries: (batch: Batch) => Promise<number>;
+    readonly purgeExpiredRoomCommands: (batch: Batch) => Promise<number>;
+    readonly purgeExpiredRoundCommands: (batch: Batch) => Promise<number>;
     readonly purgeExpiredSessions: (batch: Batch) => Promise<number>;
   };
   readonly redis: {
@@ -107,6 +109,8 @@ export function retentionTargets({
           limit,
         }),
     },
+    // ADR0059/DEC-81: accepted command receipts dedupe for 24 hours.
+    ...commandTargets(database),
     /** ADR 0025: webhook dedupe rows are kept 30 days after receipt. */
     {
       name: 'retention.email_delivery_event',
@@ -289,3 +293,26 @@ export function startRetentionSweep({
     },
   };
 }
+
+const commandTargets = (database: {
+  purgeExpiredRoomCommands: (batch: Batch) => Promise<number>;
+  purgeExpiredRoundCommands: (batch: Batch) => Promise<number>;
+}): readonly RetentionTarget[] => [
+  {
+    name: 'retention.room_commands',
+    batchSize: 500,
+    maxBatches: 20,
+    purge: ({ now, limit }) =>
+      database.purgeExpiredRoomCommands({ before: cutoff(now, DAY_MS), limit }),
+  },
+  {
+    name: 'retention.round_commands',
+    batchSize: 500,
+    maxBatches: 20,
+    purge: ({ now, limit }) =>
+      database.purgeExpiredRoundCommands({
+        before: cutoff(now, DAY_MS),
+        limit,
+      }),
+  },
+];

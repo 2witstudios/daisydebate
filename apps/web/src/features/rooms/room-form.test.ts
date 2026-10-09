@@ -12,6 +12,7 @@ const controls: RoomFormControls = {
       key: 'AC',
       label: 'Affirmative constructive',
       side: 'affirmative',
+      slot: 0,
       type: 'speech',
       defaultDurationMs: 360000,
       minDurationMs: 30000,
@@ -21,6 +22,7 @@ const controls: RoomFormControls = {
       key: 'NC',
       label: 'Negative constructive',
       side: 'negative',
+      slot: 0,
       type: 'speech',
       defaultDurationMs: 420000,
       minDurationMs: 30000,
@@ -30,6 +32,7 @@ const controls: RoomFormControls = {
       key: 'AR',
       label: 'Affirmative rebuttal',
       side: 'affirmative',
+      slot: 0,
       type: 'speech',
       defaultDurationMs: 180000,
       minDurationMs: 30000,
@@ -39,6 +42,7 @@ const controls: RoomFormControls = {
       key: 'CX',
       label: 'Questions',
       side: 'negative',
+      slot: 0,
       type: 'cross_ex',
       defaultDurationMs: 90000,
       minDurationMs: 30000,
@@ -52,6 +56,28 @@ const saved = {
   sequence: ['AC', 'NC', 'AR'],
   durationsMs: { AC: 360000, NC: 420000, AR: 180000 },
 };
+
+test('a team preview preserves the declared speaker slot', () => {
+  const teamControls = {
+    ...controls,
+    segments: controls.segments.map((segment) => ({
+      ...segment,
+      slot: segment.side === 'affirmative' ? 1 : 2,
+    })),
+  };
+  assert({
+    given: 'a schedule assigned to different team members',
+    should: 'keep each segment attached to its declared side and seat',
+    actual: roomDraftPreview(saved, teamControls).segments.map(
+      ({ side, slot }) => [side, slot],
+    ),
+    expected: [
+      ['affirmative', 1],
+      ['negative', 2],
+      ['affirmative', 1],
+    ],
+  });
+});
 function posted(keys = saved.sequence, overrides: Record<string, string> = {}) {
   const form = new FormData();
   keys.forEach((key) => form.append('segment', key));
@@ -90,6 +116,7 @@ describe('independent room form draft', () => {
             key: 'AC',
             label: 'Affirmative constructive',
             side: 'affirmative',
+            slot: 0,
             type: 'speech',
             durationMs: 90000,
           },
@@ -97,6 +124,7 @@ describe('independent room form draft', () => {
             key: 'NC',
             label: 'Negative constructive',
             side: 'negative',
+            slot: 0,
             type: 'speech',
             durationMs: 450000,
           },
@@ -104,6 +132,7 @@ describe('independent room form draft', () => {
             key: 'AR',
             label: 'Affirmative rebuttal',
             side: 'affirmative',
+            slot: 0,
             type: 'speech',
             durationMs: 180000,
           },

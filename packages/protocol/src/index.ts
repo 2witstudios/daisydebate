@@ -84,8 +84,8 @@ export type {
 export {
   buildUserInboxTopic,
   buildDebateTopic,
-  buildRoomTopic,
   buildChannelTopic,
+  buildRoomTopic,
 } from './topics';
 export {
   emailDeliveryStatuses,
@@ -115,6 +115,7 @@ export type { CloseCodeReason } from './close-codes';
 export {
   outboxPayloadSchema,
   isPayloadStorableOnTopic,
+  isPayloadDeliverableOnTopic,
 } from './realtime-payloads';
 export {
   ENVELOPE_VERSION,
@@ -144,17 +145,17 @@ export type {
   RoomCatalogChoice,
 } from './room-contract';
 
+// Persistent messaging contracts; bounds come from the owning policy.
+export { createMessagingCoreSchemas } from './messaging/core';
+export type { MessagingCoreBounds } from './messaging/core';
+export { createMessagingSocialSchemas } from './messaging/social';
+export type { MessagingSocialBounds } from './messaging/social';
 export type {
   RoomAssemblyState,
   RoomConsent,
   RoomMutationOutcome,
   RoomCastChoice,
 } from './room-contract';
-// Persistent messaging contracts; bounds come from the owning policy.
-export { createMessagingCoreSchemas } from './messaging/core';
-export type { MessagingCoreBounds } from './messaging/core';
-export { createMessagingSocialSchemas } from './messaging/social';
-export type { MessagingSocialBounds } from './messaging/social';
 
 export { roundViewSchema, type RoundView } from './round-view';
 

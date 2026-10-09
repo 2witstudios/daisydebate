@@ -113,8 +113,8 @@ type OutboxPayloadKind = OutboxPayload['kind'];
 const storageFamilyPayloadKinds: Readonly<
   Record<TopicFamily, readonly OutboxPayloadKind[]>
 > = {
-  room: ['room.changed'],
   channel: ['channel.changed'],
+  room: ['room.changed'],
   debate: ['debate.phase-changed'],
   'debate:presence': [],
   'debate:chat': [],
@@ -141,18 +141,32 @@ export function isPayloadStorableOnTopic(
   if (!parsedTopic) return false;
   const parsedPayload = outboxPayloadSchema.safeParse(payload);
   if (!parsedPayload.success) return false;
+  if (parsedTopic.family === 'channel')
+    return (
+      parsedPayload.data.kind === 'channel.changed' &&
+      parsedPayload.data.channelId === parsedTopic.channelId
+    );
   if (
     parsedTopic.family === 'room' &&
     (parsedPayload.data.kind !== 'room.changed' ||
       parsedPayload.data.ids[0] !== parsedTopic.roomId)
   )
     return false;
-  if (parsedTopic.family === 'channel')
-    return (
-      parsedPayload.data.kind === 'channel.changed' &&
-      parsedPayload.data.channelId === parsedTopic.channelId
-    );
   return storageFamilyPayloadKinds[parsedTopic.family].includes(
     parsedPayload.data.kind,
+  );
+}
+
+/** Validated subscriber events exclude durable control rows handled by the drain. */
+export function isPayloadDeliverableOnTopic(
+  topic: string,
+  payload: unknown,
+): boolean {
+  if (!isPayloadStorableOnTopic(topic, payload)) return false;
+  const { kind } = outboxPayloadSchema.parse(payload);
+  return (
+    kind !== 'session.revoked' &&
+    kind !== 'access.revoked' &&
+    kind !== 'actor.presence-preference-changed'
   );
 }
