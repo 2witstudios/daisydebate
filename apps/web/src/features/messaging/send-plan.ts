@@ -20,6 +20,39 @@ export function sendPayloadDigest(command: MessagingSendCommand): string {
     .digest('hex');
 }
 
+function availableMessage(
+  message: MessagingMessageRecord | null,
+  channelId: string,
+  messageId: string | null,
+): MessagingMessageRecord {
+  if (!message) throw createAppError('NOT_FOUND');
+  if (
+    ![
+      message.id === messageId,
+      message.channelId === channelId,
+      message.text !== null,
+      message.removedAt === null,
+    ].every(Boolean)
+  )
+    throw createAppError('NOT_FOUND');
+  return message;
+}
+
+function nextCounters(state: MessagingSendState) {
+  const sequence = state.counters.messageSequence + 1;
+  const changeVersion = state.counters.changeVersion + 1;
+  if (
+    ![
+      Number.isSafeInteger(sequence),
+      Number.isSafeInteger(changeVersion),
+      sequence >= 1,
+      changeVersion >= sequence,
+    ].every(Boolean)
+  )
+    throw createAppError('CONFLICT');
+  return { sequence, changeVersion };
+}
+
 /**
  * Pure persistence plan. The operation must authorize CURRENT facts before
  * invoking this, including equal retries. A receipt carries no stored body.
@@ -39,36 +72,18 @@ export function planMessageSend(
   if (state.receipt) {
     if (state.receipt.payloadDigest !== payloadDigest)
       throw createAppError('CONFLICT');
-    const message = state.existingMessage;
-    if (
-      !message ||
-      message.id !== state.receipt.messageId ||
-      message.channelId !== command.channelId ||
-      message.authorActorId !== resources.actorId ||
-      message.text === null ||
-      message.removedAt !== null
-    )
+    const message = availableMessage(
+      state.existingMessage,
+      command.channelId,
+      state.receipt.messageId,
+    );
+    if (message.authorActorId !== resources.actorId)
       throw createAppError('NOT_FOUND');
     return { kind: 'replay' as const, message };
   }
-  if (
-    command.replyToMessageId &&
-    (!state.reply ||
-      state.reply.id !== command.replyToMessageId ||
-      state.reply.channelId !== command.channelId ||
-      state.reply.text === null ||
-      state.reply.removedAt !== null)
-  )
-    throw createAppError('NOT_FOUND');
-  const sequence = state.counters.messageSequence + 1;
-  const changeVersion = state.counters.changeVersion + 1;
-  if (
-    !Number.isSafeInteger(sequence) ||
-    !Number.isSafeInteger(changeVersion) ||
-    sequence < 1 ||
-    changeVersion < sequence
-  )
-    throw createAppError('CONFLICT');
+  if (command.replyToMessageId !== undefined)
+    availableMessage(state.reply, command.channelId, command.replyToMessageId);
+  const { sequence, changeVersion } = nextCounters(state);
   const message: MessagingMessageRecord = {
     id: resources.messageId,
     channelId: command.channelId,

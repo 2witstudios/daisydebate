@@ -50,10 +50,14 @@ export async function sendMessagingMessage(
   if (principal.kind === 'anonymous') throw createAppError('AUTHENTICATION');
   if (principal.actorId === null) throw createAppError('AUTHORIZATION');
   const actorId = principal.actorId;
-  const command = parseValidated(
+  const { replyToMessageId, ...required } = parseValidated(
     createMessagingCoreSchemas(dependencies.bounds).send,
     input,
   );
+  const command: MessagingSendCommand = {
+    ...required,
+    ...(replyToMessageId === undefined ? {} : { replyToMessageId }),
+  };
   return dependencies.store.withChannel(
     { channelId: command.channelId, actorId, userId: principal.userId },
     async (frame) => {
