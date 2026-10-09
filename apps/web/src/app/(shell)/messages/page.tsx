@@ -1,3 +1,6 @@
+import { createAppError } from '@daisy/errors';
+import { systemId } from '@daisy/clock';
+import { InboxLive } from '../../../ui/messaging/conversation-live';
 import { headers } from 'next/headers';
 import Link from 'next/link';
 import { requireAccess } from '../../../lib/access';
@@ -16,7 +19,10 @@ export default async function MessagesPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  await requireAccess('/messages', searchParams);
+  const identity = await requireAccess('/messages', searchParams);
+  const actorId =
+    identity.state === 'member' ? identity.principal.actorId : null;
+  if (actorId === null) throw createAppError('AUTHORIZATION');
   const params = await searchParams;
   const query =
     typeof params.after === 'string'
@@ -37,7 +43,11 @@ export default async function MessagesPage({
       {inbox === null ? (
         <p role="status">Messages are unavailable. Refresh to try again.</p>
       ) : (
-        <>
+        <InboxLive
+          actorId={actorId}
+          socketUrl={inbox.socketUrl}
+          snapshotId={systemId.next()}
+        >
           {inbox.entries.length === 0 ? (
             <p className="text-ink-muted">
               No conversations or requests on this page.
@@ -71,7 +81,7 @@ export default async function MessagesPage({
               Next page
             </Link>
           ) : null}
-        </>
+        </InboxLive>
       )}
     </main>
   );

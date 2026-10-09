@@ -19,6 +19,11 @@ const channelChangedPayloadSchema = z.strictObject({
   changeVersion: z.number().int().positive().safe(),
 });
 
+const messagingInboxChangedPayloadSchema = z.strictObject({
+  kind: z.literal('messaging.inbox.changed'),
+  actorId: idSchema,
+});
+
 /**
  * `debate.presence-changed` is not one of these: presence is never written
  * to the outbox (ADR 0033 §1). It is delivered as the `presence.changed`
@@ -91,6 +96,7 @@ const actorPresencePreferenceChangedPayloadSchema = z.strictObject({
 /** The outbox payload contract, discriminated by `kind`, always carrying `entityVersion`. */
 export const outboxPayloadSchema = z.discriminatedUnion('kind', [
   channelChangedPayloadSchema,
+  messagingInboxChangedPayloadSchema,
   doorbellPayloadSchema,
   roomChangedPayloadSchema,
   inboxDeltaPayloadSchema,
@@ -119,6 +125,7 @@ const storageFamilyPayloadKinds: Readonly<
   'debate:presence': [],
   'debate:chat': [],
   'user:inbox': [
+    'messaging.inbox.changed',
     'user.notification-delivered',
     'session.revoked',
     'access.revoked',
@@ -141,6 +148,11 @@ export function isPayloadStorableOnTopic(
   if (!parsedTopic) return false;
   const parsedPayload = outboxPayloadSchema.safeParse(payload);
   if (!parsedPayload.success) return false;
+  if (parsedPayload.data.kind === 'messaging.inbox.changed')
+    return (
+      parsedTopic.family === 'user:inbox' &&
+      parsedPayload.data.actorId === parsedTopic.actorId
+    );
   if (parsedTopic.family === 'channel')
     return (
       parsedPayload.data.kind === 'channel.changed' &&

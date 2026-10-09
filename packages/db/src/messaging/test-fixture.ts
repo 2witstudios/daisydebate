@@ -32,6 +32,10 @@ export async function createMessagingTestFixture(client: SQL) {
     await client.unsafe("delete from outbox where payload->>'channelId'=$1", [
       channelId,
     ]);
+    await client.unsafe(
+      "delete from outbox where kind='messaging.inbox.changed' and payload->>'actorId' in ($1,$2)",
+      [actorId, otherActorId],
+    );
     await client.unsafe('delete from actors where id in ($1,$2)', [
       actorId,
       otherActorId,
