@@ -13,6 +13,7 @@ const labels = {
   conversation: 'Conversation',
   incoming_request: 'Message request',
   outgoing_request: 'Sent request',
+  incoming_invitation: 'Group invitation',
 } as const;
 export default async function MessagesPage({
   searchParams,
@@ -61,11 +62,13 @@ export default async function MessagesPage({
                 >
                   <Link
                     href={
-                      entry.kind === 'conversation'
-                        ? `/messages/${entry.channelId}`
-                        : entry.kind === 'incoming_request'
-                          ? `/messages/requests/${entry.channelId}`
-                          : `/messages/requests/${entry.channelId}/status`
+                      entry.kind === 'incoming_invitation'
+                        ? `/messages/groups/invitations/${entry.channelId}`
+                        : entry.kind === 'conversation'
+                          ? `/messages/${entry.channelId}`
+                          : entry.kind === 'incoming_request'
+                            ? `/messages/requests/${entry.channelId}`
+                            : `/messages/requests/${entry.channelId}/status`
                     }
                   >
                     {labels[entry.kind]}

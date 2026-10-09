@@ -15,10 +15,12 @@ export function RequestDecision({
   action,
   requestId,
   mode = 'recipient',
+  subject = 'request',
 }: {
   readonly action: FormAction<DmDecisionFormState>;
   readonly requestId: string;
   readonly mode?: 'recipient' | 'sender';
+  readonly subject?: 'request' | 'invitation';
 }) {
   const [answer, post, pending] = useFormAction<DmDecisionFormState>(
     action,
@@ -52,7 +54,7 @@ export function RequestDecision({
           value={mode === 'sender' ? 'cancel' : 'accept'}
           disabled={pending || answer.next !== undefined}
         >
-          {mode === 'sender' ? 'Cancel request' : 'Accept request'}
+          {mode === 'sender' ? `Cancel ${subject}` : `Accept ${subject}`}
         </Button>
         {mode === 'recipient' ? (
           <Button
