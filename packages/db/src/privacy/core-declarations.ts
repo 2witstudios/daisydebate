@@ -42,9 +42,12 @@ export const corePrivacyFields: readonly PrivacyFieldDeclaration[] =
             : 'Durable configured vendor erasure intent and acknowledgment',
         lawfulBasis: {
           status: 'pending' as const,
-          decision: 'PRIV-3 / PRIV-H',
+          decision: 'jc0qcdvpkmqzrelpaesi3pah',
         },
-        retention: { status: 'pending' as const, decision: 'PRIV-3 / PRIV-4' },
+        retention: {
+          status: 'pending' as const,
+          decision: 'njiorsf64z4iqjm2dbfa3zuu',
+        },
         erasure:
           category === 'personal'
             ? ('scrub' as const)
