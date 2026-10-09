@@ -11,13 +11,14 @@ import { requireLaunchSlot } from '../e2e/support/room-launch-slot';
 setupRitewayBun();
 
 test('custom browser creation fixture satisfies the canonical complete request contract', () => {
-  const parsed = roomCreateSchema.safeParse({
+  const request = {
     commandId: 'a'.repeat(24),
     title: 'Custom sequence proof',
     topic: 'Proof transit motion',
     visibility: 'public',
     selection: launchCustomSelection,
-  });
+  };
+  const parsed = roomCreateSchema.safeParse(request);
   assert({
     given: 'the exact custom selection sent by the browser proof',
     should:
@@ -26,6 +27,20 @@ test('custom browser creation fixture satisfies the canonical complete request c
       ? []
       : parsed.error.issues.map((issue) => issue.path.join('.')),
     expected: [],
+  });
+  const incomplete = roomCreateSchema.safeParse({
+    ...request,
+    selection: Object.fromEntries(
+      Object.entries(launchCustomSelection).filter(([key]) => key !== 'length'),
+    ),
+  });
+  assert({
+    given: 'the same complete request with only its custom length omitted',
+    should: 'refuse the missing field at the canonical request boundary',
+    actual: incomplete.success
+      ? []
+      : incomplete.error.issues.map((issue) => issue.path.join('.')),
+    expected: ['selection.length'],
   });
 });
 

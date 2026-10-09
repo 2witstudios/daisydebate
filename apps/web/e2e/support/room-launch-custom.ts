@@ -1,4 +1,8 @@
-import { formatDefinitionSchema, roomConfigSchema } from '@daisy/protocol';
+import {
+  formatDefinitionSchema,
+  roomConfigSchema,
+  type RoomCreate,
+} from '@daisy/protocol';
 /** Declared proof format, persisted through canonical custom-create, never a mock view. */
 export const launchCustomSelection = {
   kind: 'custom' as const,
@@ -59,4 +63,4 @@ export const launchCustomSelection = {
     interruptions: null,
     yielding: null,
   }),
-};
+} satisfies Extract<RoomCreate['selection'], { kind: 'custom' }>;
