@@ -1,4 +1,5 @@
 import type { RoomView } from '@daisy/protocol';
+import { AssemblyCommandFields } from './assembly-command-fields';
 import { buttonClass } from '../../components/button/button-class';
 import { readinessControl, type LocalReadiness } from './assembly-controls';
 
@@ -59,9 +60,7 @@ function CommandForm({
 }) {
   return (
     <form action={action}>
-      <input type="hidden" name="type" value={type} />
-      <input type="hidden" name="expectedVersion" value={String(version)} />
-      <input type="hidden" name="commandId" value={commandId} />
+      {AssemblyCommandFields({ type, version, commandId })}
       {expectedConsentVersion !== null ? (
         <input
           type="hidden"

@@ -35,7 +35,7 @@ type OccupantView =
 
 type Link = { readonly label: string; readonly href: string };
 
-export type SeatView = {
+type SeatView = {
   readonly id: SeatId;
   readonly label: string;
   readonly occupant: OccupantView;
