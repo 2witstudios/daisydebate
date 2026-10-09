@@ -75,7 +75,7 @@ test('messaging rights erase subject associations atomically and preserve other 
       [channelId, otherMessage, actorId, otherActorId],
     );
     await client.unsafe(
-      'insert into messaging_actor_states(channel_id,actor_id) values($1,$2),($1,$3)',
+      "insert into messaging_actor_states(channel_id,actor_id,following,hidden,notification_level) values($1,$2,true,false,'all'),($1,$3,true,false,'all')",
       [channelId, actorId, otherActorId],
     );
     const exported = await database.transaction(async (tx) => {
@@ -197,6 +197,26 @@ test('messaging rights erase subject associations atomically and preserve other 
       },
     });
   } finally {
+    await client.unsafe('delete from messaging_channels where id in ($1,$2)', [
+      channelId,
+      groupId,
+    ]);
+    await client.unsafe(
+      'delete from messaging_contact_pairs where low_actor_id=$1 and high_actor_id=$2',
+      [low, high],
+    );
+    await client.unsafe(
+      "delete from outbox where payload->>'channelId' in ($1,$2)",
+      [channelId, groupId],
+    );
+    await client.unsafe('delete from actors where id in ($1,$2)', [
+      actorId,
+      otherActorId,
+    ]);
+    await client.unsafe('delete from users where id in ($1,$2)', [
+      userId,
+      otherUserId,
+    ]);
     await client.close();
   }
 });
