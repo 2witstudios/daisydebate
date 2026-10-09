@@ -12,7 +12,14 @@ const now = '2026-10-09T18:00:00.000Z';
 const socialAccounts = [
   {
     account: { userId, actorId, member: true, erased: false, revision: 1 },
-    age: { state: 'unknown' as const },
+    age: {
+      state: 'known' as const,
+      actorId,
+      band: 'adult' as const,
+      revision: 1,
+      accountRevision: 1,
+      validUntil: '2026-11-01T00:00:00.000Z',
+    },
   },
   {
     account: {
@@ -22,7 +29,14 @@ const socialAccounts = [
       erased: false,
       revision: 1,
     },
-    age: { state: 'unknown' as const },
+    age: {
+      state: 'known' as const,
+      actorId: otherId,
+      band: 'adult' as const,
+      revision: 1,
+      accountRevision: 1,
+      validUntil: '2026-11-01T00:00:00.000Z',
+    },
   },
 ];
 const policy = {
@@ -38,7 +52,7 @@ const policy = {
     actorId: account.actorId,
     userId: account.userId,
     accountRevision: account.revision,
-    ageRevision: null,
+    ageRevision: 1,
   })),
 };
 const input: AuthorizationInput = {

@@ -137,3 +137,5 @@ export async function finishedOrBlockedBehind(
     await Bun.sleep(POLL_INTERVAL_MS);
   }
 }
+
+export { createMessagingTestFixture } from './messaging/test-fixture';

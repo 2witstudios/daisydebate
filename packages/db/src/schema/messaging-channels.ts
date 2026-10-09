@@ -9,7 +9,10 @@ import {
   text,
   unique,
 } from 'drizzle-orm/pg-core';
-import { actors } from './actors';
+import {
+  messagingActorColumn,
+  messagingChannelColumn,
+} from './messaging-columns';
 import { createdAtColumn, oneOf } from './columns';
 
 /** Social foundation only; contextual kinds arrive with their real producer. */
@@ -66,12 +69,8 @@ export const messagingChannels = pgTable(
 export const messagingActorStates = pgTable(
   'messaging_actor_states',
   {
-    channelId: text('channel_id')
-      .notNull()
-      .references(() => messagingChannels.id, { onDelete: 'cascade' }),
-    actorId: text('actor_id')
-      .notNull()
-      .references(() => actors.id, { onDelete: 'restrict' }),
+    channelId: messagingChannelColumn(() => messagingChannels.id),
+    actorId: messagingActorColumn('actor_id'),
     following: boolean('following').notNull(),
     hidden: boolean('hidden').notNull(),
     notificationLevel: text('notification_level').notNull(),

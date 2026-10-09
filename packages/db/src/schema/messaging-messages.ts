@@ -9,7 +9,10 @@ import {
   unique,
   type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
-import { actors } from './actors';
+import {
+  messagingActorColumn,
+  messagingChannelColumn,
+} from './messaging-columns';
 import { timestampColumn } from './columns';
 import { messagingChannels } from './messaging-channels';
 
@@ -18,12 +21,8 @@ export const messagingMessages = pgTable(
   'messaging_messages',
   {
     id: text('id').primaryKey(),
-    channelId: text('channel_id')
-      .notNull()
-      .references(() => messagingChannels.id, { onDelete: 'cascade' }),
-    authorActorId: text('author_actor_id')
-      .notNull()
-      .references(() => actors.id, { onDelete: 'restrict' }),
+    channelId: messagingChannelColumn(() => messagingChannels.id),
+    authorActorId: messagingActorColumn('author_actor_id'),
     sequence: bigint('sequence', { mode: 'number' }).notNull(),
     changeVersion: bigint('change_version', { mode: 'number' }).notNull(),
     text: text('text'),
@@ -64,12 +63,8 @@ export const messagingMessages = pgTable(
 export const messagingReceipts = pgTable(
   'messaging_receipts',
   {
-    channelId: text('channel_id')
-      .notNull()
-      .references(() => messagingChannels.id, { onDelete: 'cascade' }),
-    actorId: text('actor_id')
-      .notNull()
-      .references(() => actors.id, { onDelete: 'restrict' }),
+    channelId: messagingChannelColumn(() => messagingChannels.id),
+    actorId: messagingActorColumn('actor_id'),
     requestId: text('request_id').notNull(),
     payloadDigest: text('payload_digest').notNull(),
     messageId: text('message_id'),
@@ -93,9 +88,7 @@ export const messagingReactions = pgTable(
   {
     channelId: text('channel_id').notNull(),
     messageId: text('message_id').notNull(),
-    actorId: text('actor_id')
-      .notNull()
-      .references(() => actors.id, { onDelete: 'restrict' }),
+    actorId: messagingActorColumn('actor_id'),
     reaction: text('reaction').notNull(),
   },
   (table) => [
