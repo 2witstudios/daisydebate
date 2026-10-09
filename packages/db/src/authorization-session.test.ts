@@ -10,16 +10,7 @@ test('session authorization binds durable session, user, actor, erasure and expi
   const userId = 'a'.repeat(24),
     actorId = 'b'.repeat(24),
     sessionId = 'c'.repeat(24);
-  const account = {
-    userId,
-    actorId,
-    actorKind: 'human',
-    actorUserId: userId,
-    username: 'member',
-    emailVerified: true,
-    deletedAt: null,
-    revision: 1,
-  };
+  const account = { userId, actorId, member: true, erased: false, revision: 1 };
   const session = { userId, expiresAt: new Date('2026-10-09T00:01:00.000Z') };
   const cases = [
     { session, account },
@@ -29,9 +20,12 @@ test('session authorization binds durable session, user, actor, erasure and expi
       session: { ...session, expiresAt: new Date('2026-10-09T00:00:00.000Z') },
       account,
     },
-    { session, account: { ...account, deletedAt: '2026-10-08', revision: 2 } },
+    {
+      session,
+      account: { ...account, erased: true, member: false, revision: 2 },
+    },
     { session, account: { ...account, actorId: 'foreign' } },
-    { session, account: { ...account, emailVerified: false } },
+    { session, account: { ...account, member: false } },
   ];
   const results = await Promise.all(
     cases.map(async (row) => {
