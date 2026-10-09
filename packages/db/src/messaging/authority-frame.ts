@@ -6,8 +6,6 @@ import {
   lockAuthorizationActors,
   type AuthorizationTransaction,
 } from '../authorization';
-import { messagingChannels } from '../schema/messaging-channels';
-import { messagingContactPairs } from '../schema/messaging-social';
 import { readMessagingChannelFact, type MessagingChannelFact } from './social';
 type Scope = {
   readonly channelId: string;
@@ -29,6 +27,18 @@ const actorIdsOf = (fact: MessagingChannelFact, actorId: string) =>
     ]),
   ].sort();
 
+async function lockChannel(
+  tx: AuthorizationTransaction,
+  channelId: string,
+  authority: MessagingChannelFact['authority'],
+) {
+  const pair = authority.kind === 'dm' ? authority : null;
+  const rows = await tx.execute(sql`select public.daisy_messaging_channel_fence(
+    ${channelId}::text, ${pair?.lowActorId ?? null}::text, ${pair?.highActorId ?? null}::text
+  ) as locked`);
+  return rows[0]?.locked === true;
+}
+
 /** Authority only: canonical accounts -> pair -> id-only channel lock -> fresh cast/facts. */
 export async function withLockedMessagingAuthority<T>(
   tx: AuthorizationTransaction,
@@ -47,15 +57,8 @@ export async function withLockedMessagingAuthority<T>(
   const accounts = await lockAuthorizationActors(tx, actors, {
     maxActors: 65535,
   });
-  if (discovered.authority.kind === 'dm')
-    await tx.execute(sql`
-    select low_actor_id from ${messagingContactPairs}
-    where low_actor_id=${discovered.authority.lowActorId} and high_actor_id=${discovered.authority.highActorId} for update
-  `);
-  const rows = await tx.execute(
-    sql`select id from ${messagingChannels} where id=${input.channelId} for update`,
-  );
-  if (!rows[0]) throw createAppError('NOT_FOUND');
+  if (!(await lockChannel(tx, input.channelId, discovered.authority)))
+    throw createAppError('NOT_FOUND');
   const fact = await readMessagingChannelFact(
     tx,
     input.channelId,
