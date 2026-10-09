@@ -14,10 +14,61 @@ import {
   finalizeMessagingFile,
   readMessagingFile,
   uploadMessagingFile,
+  cancelMessagingFile,
 } from '../src/features/messaging/files/operations';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 const port = requireFileScannerPort(process.env.CLAMD_TEST_PORT);
+
+test('canonical cancellation scrubs pending metadata while retaining the private object until acknowledgement', async () => {
+  const f = await openComposedFileFixture(databaseUrl, port);
+  try {
+    const token = await f.quarantine();
+    await cancelMessagingFile(token, f.principal, f.dependencies);
+    const row = await f.fileRow(token.fileId);
+    assert({
+      given: 'a cancelled real quarantined upload',
+      should:
+        'scrub associations and advance generation without releasing storage',
+      actual: {
+        lifecycle: row.lifecycle,
+        generation: row.generation,
+        filename: row.filename,
+        mime: row.mime,
+        requestId: row.request_id,
+        messageId: row.message_id,
+        bytes: [
+          ...(await f.objects.read(
+            String(row.object_key),
+            cleanFilePdf.length,
+          )),
+        ],
+      },
+      expected: {
+        lifecycle: 'deleting',
+        generation: token.generation + 1,
+        filename: null,
+        mime: null,
+        requestId: null,
+        messageId: null,
+        bytes: [...cleanFilePdf],
+      },
+    });
+    await assertRejects({
+      given: 'the cancelled generation completing late',
+      should: 'refuse attachment',
+      actual: () =>
+        finalizeMessagingFile(
+          { ...token, messageId: f.messageId },
+          f.principal,
+          f.dependencies,
+        ),
+      code: 'NOT_FOUND',
+    });
+  } finally {
+    await f.close();
+  }
+}, 30000);
 
 test('real file consumer attaches only scanned content and preserves clean quarantine after wrong association', async () => {
   const f = await openComposedFileFixture(databaseUrl, port);

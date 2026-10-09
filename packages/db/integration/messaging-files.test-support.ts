@@ -10,13 +10,19 @@ import {
 } from '../src/messaging-files';
 
 type Fixture = Awaited<ReturnType<typeof createMessagingTestFixture>>;
-export function withFileProofFrame<T>(
+type ProofTransaction = Pick<
+  BunSQLDatabase,
+  'select' | 'insert' | 'update' | 'execute'
+>;
+export function withFileProofTransaction<T>(
   database: BunSQLDatabase,
   fixture: Fixture,
-  work: (frame: FileFrame) => Promise<T>,
-  denied = false,
+  work: (
+    tx: ProofTransaction,
+    counters: { channelId: string; changeVersion: number },
+  ) => Promise<T>,
 ) {
-  const { actorId, otherActorId, channelId, userId } = fixture;
+  const { actorId, otherActorId, channelId } = fixture;
   return database.transaction(async (tx) => {
     await lockAuthorizationActors(tx, [actorId, otherActorId].sort(), {
       maxActors: 2,
@@ -27,17 +33,34 @@ export function withFileProofFrame<T>(
     const rows = await tx.execute(
       sql`select id, change_version from messaging_channels where id=${channelId} for update`,
     );
-    return work(
+    return work(tx, {
+      channelId,
+      changeVersion: Number(rows[0]!.change_version),
+    });
+  });
+}
+export function withFileProofFrame<T>(
+  database: BunSQLDatabase,
+  fixture: Fixture,
+  work: (frame: FileFrame) => Promise<T>,
+  denied = false,
+) {
+  return withFileProofTransaction(database, fixture, (tx, counters) =>
+    work(
       channelFileFrame(
         tx,
-        { actorId, userId, channelId },
-        { channelId, changeVersion: Number(rows[0]!.change_version) },
+        {
+          actorId: fixture.actorId,
+          userId: fixture.userId,
+          channelId: fixture.channelId,
+        },
+        counters,
         async () => {
           if (denied) throw createAppError('AUTHORIZATION');
         },
       ),
-    );
-  });
+    ),
+  );
 }
 
 export const fileDatabaseProofPolicy: FilePolicy = {

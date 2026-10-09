@@ -1,12 +1,11 @@
 import { z } from 'zod';
 import { idSchema } from '../primitives';
-export const messagingFileMimeSchema = z.enum([
+const messagingFileMimeSchema = z.enum([
   'image/png',
   'image/jpeg',
   'image/webp',
   'application/pdf',
 ]);
-export type MessagingFileMime = z.infer<typeof messagingFileMimeSchema>;
 /** No numeric policy is activated by this portable contract. */
 export function createMessagingFileSchemas(bounds: {
   readonly maxFileBytes: number;

@@ -16,11 +16,14 @@ import {
 } from '../src/privacy';
 import {
   acknowledgeFileDeletion,
+  expireChannelFiles,
   acknowledgeErasedFileDeletion,
   chargedFileBytes,
+  pendingFileDeletions,
 } from '../src/messaging-files';
 import {
   withFileProofFrame,
+  withFileProofTransaction,
   fileDatabaseProofPolicy as policy,
 } from './messaging-files.test-support';
 setupRitewayBun();
@@ -74,9 +77,30 @@ test('real private storage deletion acknowledgement alone releases durable quota
   };
   try {
     const first = await reserve();
-    await withFileProofFrame(database, fixture, (frame) =>
-      frame.cancel(first.token),
+    await withFileProofTransaction(database, fixture, (tx) =>
+      expireChannelFiles(
+        tx,
+        fixture.channelId,
+        new Date(
+          Date.parse(fixture.now) + policy.reservationMs + 1,
+        ).toISOString(),
+      ),
     );
+    await assertRejects({
+      given: 'abandoned upload expired under its complete maintenance fence',
+      should: 'refuse the stale completion before acknowledgement',
+      actual: () =>
+        withFileProofFrame(database, fixture, (frame) =>
+          frame.quarantine(first.token, 20, fixture.now),
+        ),
+      code: 'NOT_FOUND',
+    });
+    assert({
+      given: 'an expired reservation awaiting physical deletion',
+      should: 'discover bounded private file deletion work',
+      actual: await pendingFileDeletions(database, 1),
+      expected: [{ kind: 'file', fileId: first.row.id }],
+    });
     await assertRejects({
       given:
         'private object still exists and vendor acknowledgement is unavailable',
@@ -93,7 +117,7 @@ test('real private storage deletion acknowledgement alone releases durable quota
       code: 'INFRASTRUCTURE',
     });
     assert({
-      given: 'unacknowledged cancellation',
+      given: 'unacknowledged abandoned upload cleanup',
       should: 'retain real bytes and their charge',
       actual: {
         exists: await Bun.file(join(directory, first.row.objectKey)).exists(),
@@ -220,6 +244,13 @@ test('real private storage deletion acknowledgement alone releases durable quota
         exists: await Bun.file(join(directory, peerKey)).exists(),
       },
       expected: { lifecycle: 'reserved', exists: true },
+    });
+    assert({
+      given:
+        'erasure transfers the subject file to an unlinked deletion intent',
+      should: 'discover only opaque deletion work without subject metadata',
+      actual: await pendingFileDeletions(database, 1),
+      expected: [{ kind: 'erased', objectKey: next.row.objectKey }],
     });
     await acknowledgeErasedFileDeletion(database, next.row.objectKey, remove);
     await acknowledgeErasedFileDeletion(database, next.row.objectKey, remove);

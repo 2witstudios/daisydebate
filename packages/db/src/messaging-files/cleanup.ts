@@ -154,7 +154,7 @@ export async function acknowledgeErasedFileDeletion(
       .where(eq(messagingFileDeletionIntents.objectKey, objectKey));
   });
 }
-export type FileDeletionWork =
+type FileDeletionWork =
   | { readonly kind: 'file'; readonly fileId: string }
   | { readonly kind: 'erased'; readonly objectKey: string };
 /** Internal bounded worker discovery; never an HTTP/user projection. */
