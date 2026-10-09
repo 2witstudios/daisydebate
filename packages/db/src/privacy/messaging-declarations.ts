@@ -1,6 +1,6 @@
 import type { PrivacyFieldDeclaration } from './contracts';
 
-/** Dedicated MSG schema source 00d388321d790e2e9a0e68ea7b53b75fec6c085a. */
+/** Dedicated MSG schema inputs include file source fa38096a and F4 source f589971c. */
 const messagingColumns = {
   messaging_channels: {
     identifier: ['id'],
@@ -81,7 +81,12 @@ const messagingColumns = {
   },
   messaging_social_commands: {
     identifier: ['request_id'],
-    personal: ['actor_id', 'digest', 'result_channel_id'],
+    personal: [
+      'actor_id',
+      'counterpart_actor_id',
+      'digest',
+      'result_channel_id',
+    ],
     none: ['kind', 'created_at'],
   },
   messaging_group_invitations: {

@@ -105,6 +105,35 @@ test('dedicated MSG declarations match all actual producer columns', async () =>
       ['deleted_at', 'none', null, true, 'retain-nonpersonal'],
     ],
   });
+  assert({
+    given: 'MSG3.1b exact counterpart actor association',
+    should:
+      'classify the nullable social receipt relationship as private and exportable',
+    actual: messagingPrivacyFields.find(
+      (field) =>
+        field.table === 'messaging_social_commands' &&
+        field.column === 'counterpart_actor_id',
+    ),
+    expected: {
+      table: 'messaging_social_commands',
+      column: 'counterpart_actor_id',
+      category: 'personal',
+      visibility: 'private',
+      storage: 'postgres',
+      owner: 'MSG',
+      purpose: 'Subject-directed private communication and social access',
+      lawfulBasis: {
+        status: 'pending',
+        decision: 'jc0qcdvpkmqzrelpaesi3pah',
+      },
+      retention: {
+        status: 'pending',
+        decision: 'njiorsf64z4iqjm2dbfa3zuu',
+      },
+      erasure: 'delete',
+      exportable: true,
+    },
+  });
 });
 
 test('canonical pending policies link their owning records', async () => {
