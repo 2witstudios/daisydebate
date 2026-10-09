@@ -1,6 +1,9 @@
 import { z } from 'zod';
 /** Closed launch vocabulary: league grants belong to LEAGUE-OPS. */
 const authorizationCapabilities = [
+  'social.block',
+  'social.request.create',
+  'channel.create.private_group',
   'foundation.create',
   'foundation.read',
   'round.read',
@@ -13,6 +16,7 @@ const authorizationCapabilities = [
   'room.leave',
   'channel.read',
   'channel.post',
+  'channel.message.remove',
   'channel.manage',
   'channel.subscribe',
   'channel.request.read',

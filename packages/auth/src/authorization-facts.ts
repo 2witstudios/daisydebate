@@ -76,10 +76,45 @@ export type ChannelAuthorizationFact = {
         readonly activeMemberActorIds: readonly string[];
       };
 };
+export type ContactAuthorizationFact = {
+  readonly lowActorId: string;
+  readonly highActorId: string;
+  readonly blocked: boolean;
+  readonly revision: number;
+};
+export type ContactPairAuthorizationFact = ContactAuthorizationFact & {
+  readonly kind: 'contact_pair';
+};
+/** Proposed identities are an operation intent, never persisted membership. */
+export type SocialCreationFact =
+  | {
+      readonly kind: 'social_creation';
+      readonly mode: 'dm';
+      readonly initiatorActorId: string;
+      readonly recipientActorId: string;
+      readonly policyKey: 'social.dm';
+      readonly policyRevision: number;
+      readonly contactPair: ContactAuthorizationFact;
+    }
+  | {
+      readonly kind: 'social_creation';
+      readonly mode: 'private_group';
+      readonly initiatorActorId: string;
+      readonly memberActorIds: readonly string[];
+      readonly policyKey: 'social.private_group';
+      readonly policyRevision: number;
+      readonly contactPairs: readonly ContactAuthorizationFact[];
+    };
+export type SocialCreationPolicy =
+  import('./social-policy').SocialContactPolicy & {
+    readonly groupBlockScope?: 'all_pairs' | 'initiator';
+  };
 export type AuthorizationInput = {
   readonly principal: AuthorizationPrincipal;
   readonly capability: AuthorizationCapability;
   readonly resource:
+    | ContactPairAuthorizationFact
+    | SocialCreationFact
     | RoundAuthorizationFact
     | RoomAuthorizationFact
     | ChannelAuthorizationFact
@@ -89,9 +124,12 @@ export type AuthorizationInput = {
     readonly account: AccountAuthorizationFact | null;
     /** Trusted current facts/time from the same account-fenced transaction. */
     readonly now?: string;
+    /** Exact fresh pair accounts under the same account fence; no age eligibility required. */
+    readonly contactAccounts?: readonly AccountAuthorizationFact[];
     readonly socialAccounts?: readonly SocialAccountFact[];
     readonly socialReading?: SocialPolicyEvidence;
     readonly socialPosting?: SocialPolicyEvidence;
+    readonly socialCreationPolicy?: SocialCreationPolicy;
   };
 };
 export type AuthorizationDecision =

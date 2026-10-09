@@ -8,6 +8,7 @@ import {
 } from './listen';
 import { claimUsername } from './username-claim';
 import { authOperations } from './auth-operations';
+import { authorizationSessionOperations } from './authorization-session';
 import { formatOperations } from './format-operations';
 import { roomCommandOperations } from './room-command-operations';
 import { roomOperations } from './room-operations';
@@ -17,6 +18,12 @@ import { ballotOperations } from './ballot-operations';
 import { agentOperations } from './agent-operations';
 import { documentOperations } from './document-operations';
 import { onboardingOperations } from './onboarding-operations';
+import {
+  createMessagingStore,
+  type MessagingAuthorizationFence,
+  createMessagingSocialStore,
+  type MessagingSocialAuthorizationFence,
+} from './messaging';
 import { actorOperations } from './actor-operations';
 import { rateCompletedRound } from './rating-operations';
 import { standingsOperations } from './standings';
@@ -153,8 +160,13 @@ export function createDatabase({
       await client.close({ timeout: 5 });
     },
     ...authOperations({ database, eventSink }),
+    ...authorizationSessionOperations({ database }),
     ...emailDeliveryOperations({ database, eventSink }),
     ...actorOperations({ database, eventSink }),
+    messagingChannelStore: (authorize: MessagingAuthorizationFence) =>
+      createMessagingStore({ database, authorize }),
+    messagingSocialStore: (authorize: MessagingSocialAuthorizationFence) =>
+      createMessagingSocialStore({ database, authorize }),
     ...outboxOperations({ database, eventSink }),
     ...formatOperations({ database, eventSink }),
     ...roomOperations({ database, eventSink }),

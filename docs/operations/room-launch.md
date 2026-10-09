@@ -20,7 +20,7 @@ The authenticated routes are:
 | HTTP                           | Contract                                                   |
 | ------------------------------ | ---------------------------------------------------------- |
 | `GET /api/rooms/catalog`       | `{ choices: RoomCatalogChoice[], bots: RoomCastChoice[] }` |
-| `GET /api/rooms`               | `RoomView[]`                                               |
+| `GET /api/rooms`               | `{ rooms: RoomView[] }`                                    |
 | `POST /api/rooms`              | `RoomCreate` → `{ receipt, view }`                         |
 | `GET /api/rooms/:id`           | `RoomView`                                                 |
 | `POST /api/rooms/:id/commands` | `RoomCommand` → `{ receipt, view }`                        |

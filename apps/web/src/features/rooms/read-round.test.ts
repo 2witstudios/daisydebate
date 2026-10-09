@@ -48,6 +48,12 @@ test('Round receipt accepts only the requested persisted identity and legal froz
   const frozen = {
     id,
     roomId: 'd'.repeat(24),
+    version: 1,
+    visibility: 'unlisted',
+    hostActorId: 'l'.repeat(24),
+    startedAt: null,
+    completedAt: null,
+    outcome: null,
     status: 'scheduled',
     topic: 'Frozen launch topic',
     participants: [
@@ -85,10 +91,7 @@ test('Round receipt accepts only the requested persisted identity and legal froz
       countdownMs: 731,
       interaction: { crossExMode: 'ordered', yield: null, interruptions: null },
     },
-  } satisfies Pick<
-    RoundView,
-    'id' | 'roomId' | 'status' | 'topic' | 'participants' | 'rules' | 'config'
-  >;
+  } satisfies RoundView;
   const variants = [
     frozen,
     { ...frozen, id: 'g'.repeat(24) },

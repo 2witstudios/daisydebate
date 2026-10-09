@@ -8,14 +8,16 @@
     "./authorization": "./src/authorization.ts",
     "./account-age": "./src/account-age.ts",
     "./request-authorization": "./src/request-authorization.ts",
-    "./social-policy": "./src/social-policy.ts"
+    "./social-policy": "./src/social-policy.ts",
+    "./account-policy-facts": "./src/account-policy-facts.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
     "test": "bun test src"
   },
   "dependencies": {
-    "@daisy/errors": "workspace:*"
+    "@daisy/errors": "workspace:*",
+    "@daisy/protocol": "workspace:*"
   },
   "devDependencies": {
     "riteway": "9.3.0"

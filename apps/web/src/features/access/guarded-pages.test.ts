@@ -39,6 +39,19 @@ mock.module(
   () => ({ SecurityPage: () => null }),
 );
 
+// Guard coverage renders outside Next's request store; catalog I/O is proved separately.
+mock.module(join(import.meta.dir, '../../app/(shell)/play/actions.ts'), () => ({
+  roomTemplates: async () => ({ kind: 'found', choices: [] }),
+  createRoomAction: async () => ({ values: {} }),
+}));
+
+mock.module(
+  join(import.meta.dir, '../../app/(shell)/lobby/actions.ts'),
+  () => ({
+    roomListing: async () => ({ kind: 'found', rooms: [] }),
+  }),
+);
+
 type Page = (props: {
   params: Promise<Record<string, string>>;
   searchParams: Promise<Record<string, string>>;
@@ -140,8 +153,6 @@ const rendered: Readonly<Record<string, () => Promise<{ default: unknown }>>> =
       import('../../app/(shell)/tournaments/mine/[id]/page'),
     '(shell)/tournaments/mine/[id]/room/[round]/page.tsx': () =>
       import('../../app/(shell)/tournaments/mine/[id]/room/[round]/page'),
-    '(bare)/rooms/[id]/round/page.tsx': () =>
-      import('../../app/(bare)/rooms/[id]/round/page'),
     '(bare)/tournaments/mine/[id]/certificate/page.tsx': () =>
       import('../../app/(bare)/tournaments/mine/[id]/certificate/page'),
     '(shell)/tournaments/organize/page.tsx': () =>
