@@ -7,6 +7,9 @@ export type {
   MessagingSendCommand,
   MessagingSendState,
   MessagingCreateSendPlan,
+  MessagingMutationCommand,
+  MessagingMutationState,
+  MessagingMutationPlan,
 } from './records';
 
 export { createMessagingPrivacyAdopter } from './privacy';

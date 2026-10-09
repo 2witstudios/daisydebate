@@ -48,6 +48,24 @@ export type MessagingCreateSendPlan = {
     readonly changeVersion: number;
   };
 };
+export type MessagingMutationCommand = {
+  readonly version: 1;
+  readonly channelId: string;
+  readonly requestId: string;
+  readonly messageId: string;
+} & (
+  { readonly kind: 'edit'; readonly text: string } | { readonly kind: 'remove' }
+);
+export type MessagingMutationState = {
+  readonly message: MessagingMessageRecord | null;
+  readonly receipt: MessagingSendState['receipt'];
+  readonly counters: MessagingCounters;
+};
+export type MessagingMutationPlan = {
+  readonly message: MessagingMessageRecord;
+  readonly doorbell: MessagingCreateSendPlan['doorbell'];
+  readonly payloadDigest: string;
+};
 export type MessagingAuthorizationFence = (
   tx: AuthorizationTransaction,
   input: {
@@ -91,6 +109,10 @@ export type MessagingLockedFrame = {
     command: MessagingSendCommand,
   ) => Promise<MessagingSendState>;
   readonly commitSend: (plan: MessagingCreateSendPlan) => Promise<void>;
+  readonly readMutationState: (
+    command: MessagingMutationCommand,
+  ) => Promise<MessagingMutationState>;
+  readonly commitMutation: (plan: MessagingMutationPlan) => Promise<void>;
 };
 export type MessagingChannelStore = {
   readonly withChannel: <T>(

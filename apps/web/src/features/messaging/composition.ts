@@ -12,11 +12,14 @@ import {
 import { createMessagingHandlers } from './handlers';
 import { createMessagingReadOperations } from './read';
 import { sendMessagingMessage } from './send';
+import { mutateMessagingMessage } from './mutate';
+import { messagingMessageView } from './message-view';
 
 /** Explicit approved edge inputs; tests never supply production policy authority. */
 export type MessagingRuntimePolicy = {
   readonly bounds: MessagingCoreBounds;
   readonly maxBodyBytes: number;
+  readonly editWindowMs: number;
   readonly posting: SocialContactPolicy;
   readonly reading: MessagingReadingPolicy;
   readonly limits: {
@@ -35,7 +38,7 @@ export function composeMessagingRoutes(app: App) {
   const policy = app.messagingPolicy;
   const run = (
     request: Request,
-    operation: 'send' | 'history' | 'changes' | 'markRead',
+    operation: 'send' | 'edit' | 'remove' | 'history' | 'changes' | 'markRead',
     channelId?: string,
   ) => {
     if (!policy)
@@ -49,7 +52,7 @@ export function composeMessagingRoutes(app: App) {
       );
     const store = (
       principal: Parameters<typeof sendMessagingMessage>[1],
-      capability: 'channel.post' | 'channel.read',
+      capability: 'channel.post' | 'channel.read' | 'channel.message.remove',
     ) =>
       app.database.messagingChannelStore(
         messagingAuthorizationFence({
@@ -60,11 +63,36 @@ export function composeMessagingRoutes(app: App) {
           readingPolicy: policy.reading,
         }),
       );
+    const mutation =
+      (kind: 'edit' | 'remove') =>
+      async (
+        input: unknown,
+        principal: Parameters<typeof sendMessagingMessage>[1],
+      ) =>
+        messagingMessageView(
+          await mutateMessagingMessage(kind, input, principal, {
+            store: store(
+              principal,
+              kind === 'edit' ? 'channel.post' : 'channel.message.remove',
+            ),
+            bounds: policy.bounds,
+            editWindowMs: policy.editWindowMs,
+            clock: app.clock,
+            limit: async (actorId) =>
+              consumeOrThrow(
+                app.auth().limiter,
+                `messaging:mutation:${actorId}`,
+                policy.limits.actorSend,
+              ),
+          }),
+        );
     const handlers = createMessagingHandlers({
       logger: app.logger,
       origin: () => app.auth().config.PUBLIC_APP_URL,
       maxBodyBytes: policy.maxBodyBytes,
       identify: (request) => identify(app.auth(), request.headers),
+      edit: mutation('edit'),
+      remove: mutation('remove'),
       send: (input, principal) =>
         sendMessagingMessage(input, principal, {
           store: store(principal, 'channel.post'),
@@ -83,7 +111,7 @@ export function composeMessagingRoutes(app: App) {
               policy.limits.channelSend,
             );
           },
-        }),
+        }).then(messagingMessageView),
       ...(Object.fromEntries(
         (['history', 'changes', 'markRead'] as const).map((kind) => [
           kind,
@@ -115,6 +143,8 @@ export function composeMessagingRoutes(app: App) {
   };
   return {
     send: (request: Request) => run(request, 'send'),
+    edit: (request: Request) => run(request, 'edit'),
+    remove: (request: Request) => run(request, 'remove'),
     history: (request: Request, channelId: string) =>
       run(request, 'history', channelId),
     changes: (request: Request, channelId: string) =>
