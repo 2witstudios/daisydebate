@@ -33,6 +33,8 @@ describe('retention targets', () => {
         purgeExpiredEmailDeliveryEvents: record('email_delivery_event'),
         purgeExpiredEmailDeliveries: record('email_delivery'),
         purgeExpiredSessions: record('session'),
+        purgeExpiredRoomCommands: record('room_commands'),
+        purgeExpiredRoundCommands: record('round_commands'),
       },
       redis: {
         sweepOnlinePresence: async (limit: number) => {
@@ -70,6 +72,8 @@ describe('retention targets', () => {
           { name: 'retention.verification', batchSize: 500, maxBatches: 20 },
           { name: 'retention.outbox', batchSize: 200, maxBatches: 200 },
           { name: 'retention.session', batchSize: 500, maxBatches: 20 },
+          { name: 'retention.room_commands', batchSize: 500, maxBatches: 20 },
+          { name: 'retention.round_commands', batchSize: 500, maxBatches: 20 },
           {
             name: 'retention.email_delivery_event',
             batchSize: 500,
@@ -85,6 +89,8 @@ describe('retention targets', () => {
         calls: {
           verification: [{ before: '2026-09-19T12:00:00.000Z', limit: 500 }],
           session: [{ before: '2026-09-19T12:00:00.000Z', limit: 500 }],
+          room_commands: [{ before: '2026-09-19T12:00:00.000Z', limit: 500 }],
+          round_commands: [{ before: '2026-09-19T12:00:00.000Z', limit: 500 }],
           outbox: [{ before: '2026-09-19T12:00:00.000Z', limit: 200 }],
           email_delivery_event: [
             { before: '2026-08-21T12:00:00.000Z', limit: 500 },
@@ -107,7 +113,7 @@ describe('retention targets', () => {
     assert({
       given: 'a clock that returns an unparsable timestamp',
       should:
-        'report ok:false for the five database targets with no purge issued, and sweep the Redis online set by its own clock',
+        'report ok:false for the seven database targets with no purge issued, and sweep the Redis online set by its own clock',
       actual: {
         ok: results.map(({ operation, ok }) => [operation, ok]),
         calls,
@@ -120,13 +126,15 @@ describe('retention targets', () => {
           ['retention.verification', false],
           ['retention.outbox', false],
           ['retention.session', false],
+          ['retention.room_commands', false],
+          ['retention.round_commands', false],
           ['retention.email_delivery_event', false],
           ['retention.email_delivery', false],
           ['retention.presence_online', true],
         ],
         calls: {},
         sweeps: [1000],
-        failed: 5,
+        failed: 7,
       },
     });
   });

@@ -262,3 +262,38 @@ What makes play ranked is the sanctioned construction and `competition_type`
 (ADR 0058 §8), never the occupant kind of a seat: rated eligibility is a
 construction-time invariant, so whether a round rates is fixed by how it was
 constructed, not by who occupies a seat.
+
+## Amendment (2026-10-09, draft): assembly Launch and consent recovery
+
+This amendment is proposed reconciliation for the owner, not acceptance of
+this record or approval of product limits. The implemented branch follows
+accepted ADR 0058/0059 and the separately authorized full Room outcome.
+
+The Room assembly has a trusted host, saved title/topic/visibility, pinned
+format/config/rules and version. Casual and practice creation accept any
+compiler-legal two-sided definition, including unequal declared seats and
+speech counts, host-selected order and per-segment timing. Ranked creation
+uses the stored sanctioned one-on-one preset. Four-team placement is excluded.
+
+For this Launch milestone, section 3 freezes one **scheduled** Round and its
+real participants atomically; it does not enter an active runtime or invent
+a start timestamp. Section 4's rematch/many-Rounds behavior is subsequent
+scope: this milestone enforces one persisted Round per Room.
+
+The 2026-10-07 readiness amendment keeps effective consent in expiring
+Redis. Recoverable Ready/Unready additionally needs a durable revision and
+command fence on the seat, version-bound idempotent receipts, and one
+transactional Room change doorbell for each accepted mutation. These are
+replay/ordering facts, not persisted ready flags. Unready must replace the
+fence through Redis loss, and a stale Ready cannot revive later withdrawal.
+
+Private joining remains closed to an outsider without a separately delivered
+invite grant. Existing seated participants and the host can discover/read
+their private Room. Canonical current account/actor binding and erasure take
+precedence over membership. No URL is bearer authority.
+
+Numeric readiness expiry, resource limits and production activation remain
+specific owner choices. The runtime requires injected policy, and isolated
+proof choices confer no acceptance. Durable segment/floor speaking history,
+media, transcription freeze and judging delivery remain separate producers;
+section 5 must not license a fixed-timetable media authority.

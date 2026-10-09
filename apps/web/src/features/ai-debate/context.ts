@@ -251,28 +251,6 @@ export const uiStateOf = (position: RoundPosition): UiState => {
   return gapStateOf(position);
 };
 
-/** One resolved segment as the room's schedule shows it. */
-export type UiSegment = {
-  readonly index: number;
-  readonly name: string;
-  readonly label: string;
-  readonly kind: 'speech' | 'cross-examination';
-  readonly side: 'affirmative' | 'negative';
-  readonly durationMs: number;
-};
-
-export const segmentAt = (view: AiDebateView, index: number): UiSegment => {
-  const segment = view.rules.segments[index]!;
-  return {
-    index,
-    name: segment.key,
-    label: segment.label,
-    kind: segment.type === 'cross_ex' ? 'cross-examination' : 'speech',
-    side: segment.side,
-    durationMs: segment.durationMs,
-  };
-};
-
 /** The client-visible position at one instant, derived exactly as the server derives it. */
 export const positionOfView = (
   view: AiDebateView,

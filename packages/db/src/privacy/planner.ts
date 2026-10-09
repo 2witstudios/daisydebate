@@ -22,6 +22,22 @@ export type PrivacyAdoption = {
   }[];
   readonly adopters: readonly PrivacyAdopter[];
 };
+function checkAdopter(
+  requirement: PrivacyAdoption['requiredAdopters'][number],
+  adopter: PrivacyAdopter | undefined,
+) {
+  if (
+    !requirement.id.trim() ||
+    !adopter ||
+    adopter.phase !== requirement.phase ||
+    !['before-auth', 'after-scrub'].includes(adopter.phase) ||
+    typeof adopter.erase !== 'function' ||
+    typeof adopter.export !== 'function' ||
+    validatePrivacyAdoption(requirement.expectedColumns, adopter.fields)
+      .problems.length > 0
+  )
+    throw createAppError('VALIDATION');
+}
 export function planPrivacyExport(
   subject: PrivacySubject,
   adoption: PrivacyAdoption,
@@ -40,18 +56,10 @@ export function planPrivacyExport(
   )
     throw createAppError('VALIDATION');
   for (const requirement of expected) {
-    const adopter = actual.find((item) => item.id === requirement.id);
-    if (
-      !requirement.id.trim() ||
-      !adopter ||
-      adopter.phase !== requirement.phase ||
-      !['before-auth', 'after-scrub'].includes(adopter.phase) ||
-      typeof adopter.erase !== 'function' ||
-      typeof adopter.export !== 'function' ||
-      validatePrivacyAdoption(requirement.expectedColumns, adopter.fields)
-        .problems.length > 0
-    )
-      throw createAppError('VALIDATION');
+    checkAdopter(
+      requirement,
+      actual.find((item) => item.id === requirement.id),
+    );
   }
   // Local subject rights do not approve collection: pending basis/retention
   // remain activation holds. Explicit erasure/export rules are still required.

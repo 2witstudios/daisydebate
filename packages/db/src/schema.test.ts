@@ -46,7 +46,10 @@ describe('competitive schema rules', () => {
       expected: {
         formats: {
           checks: ['formats_current_version_positive'],
-          indexes: ['formats_current_revision_idx'],
+          indexes: [
+            'formats_created_by_actor_idx',
+            'formats_current_revision_idx',
+          ],
           uniques: [],
           namedKeys: ['formats_current_revision_fk'],
         },
@@ -87,6 +90,7 @@ describe('competitive schema rules', () => {
       expected: {
         rooms: {
           checks: [
+            'rooms_change_version_positive',
             'rooms_competition_type_check',
             'rooms_config_is_object',
             'rooms_execution_plan_is_object',
@@ -94,9 +98,15 @@ describe('competitive schema rules', () => {
             'rooms_ranked_has_preset_check',
             'rooms_rules_snapshot_is_object',
             'rooms_status_check',
+            'rooms_title_nonempty',
+            'rooms_topic_nonempty',
+            'rooms_version_positive',
+            'rooms_visibility_check',
           ],
           indexes: [
             'rooms_definition_revision_idx',
+            'rooms_host_actor_idx',
+            'rooms_lobby_idx',
             'rooms_preset_version_idx',
           ],
           uniques: ['rooms_id_format_unique'],
@@ -117,20 +127,21 @@ describe('competitive schema rules', () => {
             'rounds_outcome_check',
             'rounds_ranked_has_preset_check',
             'rounds_rated_ladder_check',
+            'rounds_room_freeze_complete',
             'rounds_rules_snapshot_is_object',
             'rounds_runtime_state_is_object',
             'rounds_status_check',
             'rounds_version_positive',
+            'rounds_visibility_check',
           ],
           indexes: [
             'rounds_created_by_actor_idx',
             'rounds_definition_revision_idx',
             'rounds_format_completed_idx',
             'rounds_preset_provenance_idx',
-            'rounds_room_idx',
             'rounds_status_competition_created_idx',
           ],
-          uniques: ['rounds_id_format_unique'],
+          uniques: ['rounds_id_format_unique', 'rounds_room_unique'],
           namedKeys: [
             'rounds_definition_revision_fk',
             'rounds_preset_provenance_fk',

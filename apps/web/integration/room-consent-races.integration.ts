@@ -1,7 +1,9 @@
+import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 
 import { withRoomRuntime, consentBarrier } from './room-runtime.test-support';
+requireTestServices(process.env);
 setupRitewayBun();
 
 test('a Redis write followed by transaction failure cannot establish consent after reconnect', async () => {
