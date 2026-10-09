@@ -14,6 +14,7 @@ type RoundFiles = {
   readonly stranger: APIRequestContext;
   readonly roundId: string;
   readonly documentId: string;
+  readonly violations: Awaited<ReturnType<typeof watchCspViolations>>;
 };
 const test = base.extend<{ roundFiles: RoundFiles }>({
   roundFiles: async ({ browser }, provide) => {
@@ -41,6 +42,7 @@ const test = base.extend<{ roundFiles: RoundFiles }>({
       const { document } = await created.json();
       expect(document.id).toMatch(/^[a-z0-9]{24}$/);
       expect(document.title).toBe('Flow');
+      const violations = await watchCspViolations(page);
       await page.reload();
       await expect(
         page.getByRole('textbox', { name: 'Flow', exact: true }),
@@ -49,6 +51,7 @@ const test = base.extend<{ roundFiles: RoundFiles }>({
         page,
         roundId,
         documentId: document.id,
+        violations,
         stranger: accounts.members[1]!.context.request,
       });
     } finally {
@@ -65,8 +68,7 @@ const test = base.extend<{ roundFiles: RoundFiles }>({
 test('persisted Round files: palette, editor, marks and dividers', async ({
   roundFiles,
 }) => {
-  const { page } = roundFiles;
-  const violations = await watchCspViolations(page);
+  const { page, violations } = roundFiles;
   await page.keyboard.press('ControlOrMeta+k');
   const search = page.getByRole('combobox', { name: 'Search commands' });
   await expect(search).toBeFocused();
@@ -116,8 +118,7 @@ test('persisted Round workspace has no serious or critical accessibility finding
 test('the participant’s persisted files survive editing and reload', async ({
   roundFiles,
 }) => {
-  const { page } = roundFiles;
-  const violations = await watchCspViolations(page);
+  const { page, violations } = roundFiles;
   const saved = page.waitForResponse(
     (response) =>
       response.url().endsWith(`${documentsPath}save`) && response.ok(),
