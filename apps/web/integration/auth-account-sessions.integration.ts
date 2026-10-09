@@ -4,7 +4,7 @@ import { createAccountFlows, uniqueName } from './auth-account-helpers';
 import { requireTestServices } from '@daisy/config';
 import { userIdOf, withSql } from './fixtures';
 import { trackRevocations } from './auth-outbox-helpers';
-import { CLIENT_IP_HEADER } from '../src/features/auth/abuse/client-ip';
+import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
 import { decideAccess, requirementFor } from '../src/features/access/decision';
 
 requireTestServices(process.env);

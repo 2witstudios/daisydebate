@@ -10,6 +10,7 @@ import type {
   PrivacyFieldDeclaration,
 } from './privacy/contracts';
 import { accountAge } from './schema/account-age';
+export { loadAuthorizationAgeFact } from './authorization-age';
 /** Same account-fenced transaction as send/contact/erasure; no external pool. */
 export async function loadAccountAgeSource(
   tx: AuthorizationTransaction,
@@ -29,7 +30,7 @@ export async function loadAccountAgeSource(
     : null;
 }
 
-export type AgeCollectionAuthority =
+type AgeCollectionAuthority =
   | { readonly status: 'pending'; readonly decision: string }
   | { readonly status: 'approved'; readonly decision: string };
 type AgeWriteInput = {

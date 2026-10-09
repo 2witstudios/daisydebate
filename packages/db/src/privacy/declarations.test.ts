@@ -101,7 +101,12 @@ test('social request and invitation declarations protect private associations', 
   const privateColumns = {
     messaging_dm_pairs: ['introduction'],
     messaging_receipts: ['payload_digest'],
-    messaging_social_commands: ['actor_id', 'digest', 'result_channel_id'],
+    messaging_social_commands: [
+      'actor_id',
+      'counterpart_actor_id',
+      'digest',
+      'result_channel_id',
+    ],
     messaging_group_invitations: [
       'channel_id',
       'invitee_actor_id',

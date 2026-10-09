@@ -216,11 +216,22 @@ const asRole = async <T>(role: string, run: (client: SQL) => Promise<T>) =>
     return run(client);
   });
 
-test('daisy_web is a DML-only runtime role on every public table and sequence', async () => {
+test('daisy_web has the exact runtime DML scope on every public table and sequence', async () => {
   const privileges = await withClient(
     (client) => client`
       select
-        bool_and(has_table_privilege('daisy_web', c.oid, 'SELECT,INSERT,UPDATE,DELETE')) as dml,
+        bool_and(case when c.relname = 'outbox_retention_boundary' then
+          has_table_privilege('daisy_web', c.oid, 'SELECT')
+          and not has_table_privilege('daisy_web', c.oid, 'INSERT,UPDATE,DELETE')
+          and has_column_privilege('daisy_web', c.oid, 'txid', 'UPDATE')
+          and has_column_privilege('daisy_web', c.oid, 'seq', 'UPDATE')
+          and not has_column_privilege('daisy_web', c.oid, 'singleton', 'UPDATE')
+        else
+          has_table_privilege('daisy_web', c.oid, 'SELECT')
+          and has_table_privilege('daisy_web', c.oid, 'INSERT')
+          and has_table_privilege('daisy_web', c.oid, 'UPDATE')
+          and has_table_privilege('daisy_web', c.oid, 'DELETE')
+        end) as dml,
         bool_or(has_table_privilege('daisy_web', c.oid, 'TRUNCATE')) as truncate,
         bool_or(has_table_privilege('daisy_web', c.oid, 'REFERENCES')) as references,
         bool_or(has_table_privilege('daisy_web', c.oid, 'TRIGGER')) as trigger,
@@ -234,7 +245,8 @@ test('daisy_web is a DML-only runtime role on every public table and sequence', 
   );
   const sequences = await withClient(
     (client) => client`
-      select bool_and(has_sequence_privilege('daisy_web', c.oid, 'USAGE,SELECT')) as usable
+      select bool_and(has_sequence_privilege('daisy_web', c.oid, 'USAGE')
+        and has_sequence_privilege('daisy_web', c.oid, 'SELECT')) as usable
       from pg_class c
       join pg_namespace n on n.oid = c.relnamespace and n.nspname = 'public'
       where c.relkind = 'S'
@@ -251,7 +263,7 @@ test('daisy_web is a DML-only runtime role on every public table and sequence', 
   assert({
     given: 'the daisy_web runtime role the baseline creates',
     should:
-      'hold DML on every table and sequence use, and nothing that alters schema',
+      'hold exact table DML scopes and sequence use, and nothing that alters schema',
     actual: {
       ...privileges[0],
       sequences: sequences[0]?.usable,

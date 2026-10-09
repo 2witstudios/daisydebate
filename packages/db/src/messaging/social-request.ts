@@ -53,7 +53,7 @@ export function dmRequestFrame(
         throw createAppError('CONFLICT');
       const current = await read();
       if (current && ['pending', 'accepted'].includes(current.requestState)) {
-        await recordRequest(tx, input.actorId, command, current.channelId);
+        await recordRequest(tx, input, command, current.channelId);
         return { channelId: current.channelId, state: current.requestState };
       }
       await enforceRequestLimits(tx, input.actorId, command, current);
@@ -104,19 +104,24 @@ export function dmRequestFrame(
           payload: { kind: 'channel.changed', channelId, changeVersion: 1 },
         });
       }
-      await recordRequest(tx, input.actorId, command, channelId);
+      await recordRequest(tx, input, command, channelId);
       return { channelId, state: 'pending' };
     },
   };
 }
 async function recordRequest(
   tx: Tx,
-  actorId: string,
+  input: MessagingSocialInput,
   command: RequestCommand,
   channelId: string,
 ) {
+  const counterpartActorId = input.memberActorIds.find(
+    (actorId) => actorId !== input.actorId,
+  );
+  if (!counterpartActorId) throw createAppError('VALIDATION');
   await tx.insert(messagingSocialCommands).values({
-    actorId,
+    actorId: input.actorId,
+    counterpartActorId,
     requestId: command.requestId,
     kind: 'dm.request',
     digest: command.digest,

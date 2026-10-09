@@ -1,3 +1,4 @@
+import { pendingFileCleanupAllowed } from './authorization-file';
 import { contactSafetyAllowed } from './authorization-contact';
 import { socialCreationAllowed } from './authorization-creation';
 import { policyEvidenceCurrent as currentPolicy } from './authorization-policy';
@@ -29,6 +30,7 @@ export type {
   SocialCreationPolicy,
   ContactAuthorizationFact,
   ContactPairAuthorizationFact,
+  PendingFileAuthorizationFact,
 } from './authorization-facts';
 const deny = (
   reason: Extract<AuthorizationDecision, { allow: false }>['reason'],
@@ -41,6 +43,8 @@ function validResourceKind(
   capability: AuthorizationCapability,
   resource: AuthorizationInput['resource'],
 ) {
+  if (capability === 'channel.file.cleanup')
+    return resource.kind === 'pending_file';
   if (capability === 'social.block') return resource.kind === 'contact_pair';
   if (
     ['social.request.create', 'channel.create.private_group'].includes(
@@ -124,6 +128,19 @@ function validChannelAuthority(resource: ChannelAuthorizationFact) {
     : resource.policyKey === 'social.private_group' &&
         validGroupAuthority(authority);
 }
+function requestResultDecision(
+  actorId: string,
+  resource: ChannelAuthorizationFact,
+  context: AuthorizationInput['context'],
+): AuthorizationDecision {
+  const authority = resource.authority;
+  return authority.kind === 'dm' &&
+    authority.state !== 'pending' &&
+    [authority.lowActorId, authority.highActorId].includes(actorId) &&
+    currentPolicy(resource, context.socialReading, context)
+    ? allow
+    : deny('missing-capability');
+}
 function requestDecision(
   actorId: string,
   capability: AuthorizationCapability,
@@ -192,6 +209,8 @@ function channelDecision(
   context: AuthorizationInput['context'],
 ): AuthorizationDecision {
   if (!validChannelAuthority(resource)) return deny('denied');
+  if (capability === 'channel.request.result')
+    return requestResultDecision(actorId, resource, context);
   if (capability.startsWith('channel.request.'))
     return requestDecision(actorId, capability, resource, context);
   if (
@@ -246,6 +265,10 @@ function memberDecision(
   resource: Exclude<AuthorizationInput['resource'], { kind: 'foundation' }>,
   context: AuthorizationInput['context'],
 ): AuthorizationDecision {
+  if (resource.kind === 'pending_file')
+    return pendingFileCleanupAllowed(actorId, resource)
+      ? allow
+      : deny('missing-capability');
   if (resource.kind === 'contact_pair')
     return contactSafetyAllowed(actorId, resource, context)
       ? allow

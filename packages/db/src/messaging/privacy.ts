@@ -54,7 +54,7 @@ async function lockSubjectMessaging(
       union select channel_id from messaging_actor_states where actor_id=${actorId}
       union select channel_id from messaging_receipts where actor_id=${actorId}
       union select channel_id from messaging_group_invitations where invitee_actor_id=${actorId} or invited_by_actor_id=${actorId}
-      union select result_channel_id from messaging_social_commands where actor_id=${actorId}
+      union select result_channel_id from messaging_social_commands where actor_id=${actorId} or counterpart_actor_id=${actorId}
     ) order by id for update
   `);
 }
@@ -117,7 +117,7 @@ async function eraseAssociations(
   `),
   );
   await tx.execute(
-    sql`delete from messaging_social_commands where actor_id=${actorId} or result_channel_id in (select channel_id from messaging_dm_pairs where low_actor_id=${actorId} or high_actor_id=${actorId})`,
+    sql`delete from messaging_social_commands where actor_id=${actorId} or counterpart_actor_id=${actorId} or result_channel_id in (select channel_id from messaging_dm_pairs where low_actor_id=${actorId} or high_actor_id=${actorId})`,
   );
   await tx.execute(
     sql`delete from messaging_group_invitations where invitee_actor_id=${actorId} or invited_by_actor_id=${actorId}`,

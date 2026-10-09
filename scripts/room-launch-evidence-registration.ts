@@ -66,6 +66,40 @@ function primaryIgnore(text: string) {
     ),
   );
 }
+function emptyIgnore(object: ts.ObjectLiteralExpression | undefined): boolean {
+  const ignored = property(object, 'testIgnore');
+  return Boolean(
+    ignored &&
+    ts.isArrayLiteralExpression(ignored) &&
+    ignored.elements.length === 0,
+  );
+}
+function projectIgnoresCleared(
+  config: ts.ObjectLiteralExpression | undefined,
+): boolean {
+  const projects = property(config, 'projects');
+  if (projects && ts.isArrayLiteralExpression(projects))
+    return (
+      projects.elements.length > 0 &&
+      projects.elements.every(
+        (project) =>
+          ts.isObjectLiteralExpression(project) && emptyIgnore(project),
+      )
+    );
+  if (
+    !projects ||
+    !ts.isCallExpression(projects) ||
+    !ts.isPropertyAccessExpression(projects.expression) ||
+    projects.expression.name.text !== 'map'
+  )
+    return false;
+  const callback = projects.arguments[0];
+  if (!callback || !ts.isArrowFunction(callback)) return false;
+  const body = ts.isParenthesizedExpression(callback.body)
+    ? callback.body.expression
+    : callback.body;
+  return ts.isObjectLiteralExpression(body) && emptyIgnore(body);
+}
 const record = (value: unknown): Record<string, unknown> | null =>
   value && typeof value === 'object' && !Array.isArray(value)
     ? Object.fromEntries(Object.entries(value))
@@ -73,11 +107,10 @@ const record = (value: unknown): Record<string, unknown> | null =>
 function launchJobs(workflow: string): number {
   try {
     const jobs = record(record(Bun.YAML.parse(workflow))?.jobs);
-    return Object.values(jobs ?? {}).filter((value) => {
+    return Object.values(jobs ?? {}).flatMap((value) => {
       const job = record(value);
-      if (!job || job.if !== undefined || !Array.isArray(job.steps))
-        return false;
-      return job.steps.some((value) => {
+      if (!job || job.if !== undefined || !Array.isArray(job.steps)) return [];
+      return job.steps.filter((value) => {
         const step = record(value);
         return (
           step &&
@@ -133,17 +166,24 @@ export function roomLaunchClaimProblems(
       script.trim().split(/\s+/).length !== 3
     )
       missing(`${label} does not register the actual Launch runner`);
-  if (!primaryIgnore(input.defaultConfig).includes('**/room-launch.e2e.ts'))
-    problems.push({
-      code: 'E2E_DUPLICATED',
-      detail: 'default Chromium still selects the dedicated Launch suite',
-    });
-  if (
-    !patterns(
-      property(exportedConfig(input.dedicatedConfig), 'testMatch'),
-    ).includes('**/room-launch.e2e.ts')
-  )
-    missing('dedicated config does not select the actual Launch suite');
+  const ignored = primaryIgnore(input.defaultConfig);
+  const dedicated = exportedConfig(input.dedicatedConfig);
+  if (!emptyIgnore(dedicated) || !projectIgnoresCleared(dedicated))
+    missing(
+      'dedicated global and project ignores must explicitly clear inherited suite exclusions',
+    );
+  const selected = patterns(
+    property(exportedConfig(input.dedicatedConfig), 'testMatch'),
+  );
+  for (const suite of ['**/room-launch.e2e.ts', '**/debate-room.e2e.ts']) {
+    if (!ignored.includes(suite))
+      problems.push({
+        code: 'E2E_DUPLICATED',
+        detail: `default Chromium still selects dedicated suite ${suite}`,
+      });
+    if (!selected.includes(suite))
+      missing(`dedicated config does not select actual suite ${suite}`);
+  }
   if (!runnerInvokesConfig(input.runner))
     missing(
       'Launch runner does not invoke its dedicated config through the canonical limiter',

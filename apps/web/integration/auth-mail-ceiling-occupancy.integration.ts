@@ -4,7 +4,7 @@ import { saturateGlobalMinute } from './auth-ceiling-helpers';
 import { createAccountFlows } from './auth-account-helpers';
 import { elapse, recipientBucket } from './auth-rate-limit-helpers';
 import { createTestApp, type TestApp } from './fixtures';
-import { CLIENT_IP_HEADER } from '../src/features/auth/abuse/client-ip';
+import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
 
 /**
  * The residual ADR 0025 records against DEC-41 (ISSUE-185, DEC-76): a real
