@@ -51,8 +51,13 @@ function profileBinding(source: ts.SourceFile, expression: ts.Expression) {
       ts.isImportDeclaration(node) &&
       ts.isStringLiteral(node.moduleSpecifier) &&
       node.moduleSpecifier.text === './realtime-profile' &&
-      node.importClause?.namedBindings?.getText(source) ===
-        '{ realtimeProofProfile }',
+      node.importClause?.namedBindings !== undefined &&
+      ts.isNamedImports(node.importClause.namedBindings) &&
+      node.importClause.namedBindings.elements.some(
+        (entry) =>
+          entry.name.text === 'realtimeProofProfile' &&
+          entry.propertyName === undefined,
+      ),
   );
   if (!imported) return false;
   return visitMatching(
@@ -90,13 +95,17 @@ export function browserRunnerClaimsConfig(
       !literals.includes('--config')
     )
       return false;
-    if (literals.includes(config)) return true;
+    const index = args.elements.findIndex(
+      (value) => ts.isStringLiteral(value) && value.text === '--config',
+    );
+    const selected = args.elements[index + 1];
+    if (!selected) return false;
+    if (ts.isStringLiteral(selected) && selected.text === config) return true;
     return Boolean(
       profile &&
       profileSource &&
-      args.elements.some(
-        (value) => ts.isExpression(value) && profileBinding(source, value),
-      ) &&
+      ts.isExpression(selected) &&
+      profileBinding(source, selected) &&
       profileBranchClaims(profileSource, profile!, config),
     );
   });
