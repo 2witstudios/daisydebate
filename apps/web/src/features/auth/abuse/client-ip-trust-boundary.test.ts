@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { resolveTrustedProxies } from '../../../server/trusted-proxies';
+import { resolveTrustedProxies } from '@daisy/ingress/trusted-proxies';
 import { resolveClientIp } from '@daisy/ingress/client-ip';
 
 setupRitewayBun();

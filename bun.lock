@@ -182,6 +182,9 @@
     "packages/ingress": {
       "name": "@daisy/ingress",
       "version": "0.0.0",
+      "dependencies": {
+        "@daisy/config": "workspace:*",
+      },
       "devDependencies": {
         "riteway": "9.3.0",
       },

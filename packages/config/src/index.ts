@@ -165,7 +165,7 @@ const embedsIpv4 = (value: string) =>
 // 32, so mapped ranges are refused outright; operators write the IPv4 form.
 // Stricter than Better Auth on purpose (no leading-zero prefixes either).
 // The literal keyword instead trusts this machine's single default gateway,
-// resolved once at the server edge (apps/web/src/server/trusted-proxies.ts):
+// resolved once at the server edge through @daisy/ingress/trusted-proxies:
 // on Fly that is the one address fly-proxy connects from (ISSUE-162).
 const proxyAddress = z.union([
   z.ipv4(),
@@ -182,6 +182,16 @@ const commaList = (entry: z.ZodType<string, string>) =>
       value.trim() === '' ? [] : value.split(',').map((item) => item.trim()),
     )
     .pipe(z.array(entry));
+
+/** Shared ingress configuration, independent of authentication activation. */
+export function readTrustedProxyConfig(
+  env: Readonly<Record<string, string | undefined>>,
+): readonly string[] {
+  const parsed = commaList(proxyAddress).safeParse(env.AUTH_TRUSTED_PROXIES);
+  if (!parsed.success)
+    throw new Error('Invalid ingress configuration: AUTH_TRUSTED_PROXIES');
+  return parsed.data;
+}
 /**
  * Narrow server authentication configuration, validated only when the auth
  * composition is activated: baseline startup never requires auth variables.
