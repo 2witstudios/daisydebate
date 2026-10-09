@@ -122,3 +122,23 @@ export {
   ticketSchema,
 } from './realtime';
 export type { PresenceActivity, PresenceStatus } from './realtime';
+
+export {
+  roomCreateSchema,
+  roomCommandSchema,
+  roomSelectionSchema,
+  roomVisibilitySchema,
+  roomStatuses,
+} from './room-contract';
+export type {
+  RoomCreate,
+  RoomCommand,
+  RoomSelection,
+  RoomParticipant,
+  RoomRoundRef,
+  RoomRefusal,
+  RoomView,
+  RoomCommandReceipt,
+  RoomCommandResponse,
+  RoomCatalogChoice,
+} from './room-contract';
