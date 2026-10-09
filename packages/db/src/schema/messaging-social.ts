@@ -46,6 +46,7 @@ export const messagingDmPairs = pgTable(
     channelKind: text('channel_kind').notNull().default('dm'),
     requestSenderActorId: text('request_sender_actor_id').notNull(),
     requestState: text('request_state').notNull(),
+    introduction: text('introduction'),
     requestedAt: timestampColumn('requested_at').notNull(),
     decidedAt: timestampColumn('decided_at'),
   },
@@ -124,5 +125,86 @@ export const messagingGroupGrants = pgTable(
       columns: [table.channelId, table.channelKind],
       foreignColumns: [messagingChannels.id, messagingChannels.kind],
     }).onDelete('cascade'),
+  ],
+);
+
+/** Pending invitations convey no grant or readable channel history. */
+export const messagingGroupInvitations = pgTable(
+  'messaging_group_invitations',
+  {
+    channelId: text('channel_id').notNull(),
+    channelKind: text('channel_kind').notNull().default('private_group'),
+    inviteeActorId: messagingActorColumn('invitee_actor_id'),
+    invitedByActorId: messagingActorColumn('invited_by_actor_id'),
+    generation: bigint('generation', { mode: 'number' }).notNull(),
+    state: text('state').notNull(),
+    invitedAt: timestampColumn('invited_at').notNull(),
+    decidedAt: timestampColumn('decided_at'),
+  },
+  (table) => [
+    primaryKey({ columns: [table.channelId, table.inviteeActorId] }),
+    check(
+      'messaging_group_invitations_kind',
+      sql`${table.channelKind} = 'private_group'`,
+    ),
+    foreignKey({
+      name: 'messaging_group_invitations_channel_kind_fk',
+      columns: [table.channelId, table.channelKind],
+      foreignColumns: [messagingChannels.id, messagingChannels.kind],
+    }).onDelete('cascade'),
+    check(
+      'messaging_group_invitations_generation',
+      sql`${table.generation} between 1 and 9007199254740991`,
+    ),
+    check(
+      'messaging_group_invitations_state',
+      oneOf(table.state, ['pending', 'accepted', 'declined', 'cancelled']),
+    ),
+    check(
+      'messaging_group_invitations_time',
+      sql`(${table.state} = 'pending' and ${table.decidedAt} is null) or (${table.state} <> 'pending' and ${table.decidedAt} >= ${table.invitedAt} and ${table.decidedAt} is not null)`,
+    ),
+    check(
+      'messaging_group_invitations_distinct',
+      sql`${table.inviteeActorId} <> ${table.invitedByActorId}`,
+    ),
+  ],
+);
+
+/** Durable timing/counting and dedupe for social commands, without a stored body. */
+export const messagingSocialCommands = pgTable(
+  'messaging_social_commands',
+  {
+    actorId: messagingActorColumn('actor_id'),
+    requestId: text('request_id').notNull(),
+    kind: text('kind').notNull(),
+    digest: text('digest'),
+    resultChannelId: text('result_channel_id').references(
+      () => messagingChannels.id,
+      { onDelete: 'set null' },
+    ),
+    createdAt: timestampColumn('created_at').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.actorId, table.requestId] }),
+    check(
+      'messaging_social_commands_digest',
+      sql`${table.digest} is null or ${table.digest} ~ '^[0-9a-f]{64}$'`,
+    ),
+    check(
+      'messaging_social_commands_kind',
+      oneOf(table.kind, [
+        'dm.request',
+        'dm.decide',
+        'dm.block',
+        'group.create',
+        'group.invite',
+        'group.decide',
+        'group.remove',
+        'group.leave',
+        'group.transfer',
+        'group.archive',
+      ]),
+    ),
   ],
 );
