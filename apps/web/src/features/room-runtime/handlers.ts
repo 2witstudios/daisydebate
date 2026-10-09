@@ -47,7 +47,8 @@ export function createRoomHandlers(dependencies: Dependencies) {
     const actor = await dependencies.getActorByUserId(
       identity.principal.userId,
     );
-    if (!actor) throw createAppError('AUTHORIZATION');
+    if (!actor || actor.id !== identity.principal.actorId)
+      throw createAppError('INFRASTRUCTURE');
     return { userId: identity.principal.userId, actorId: actor.id };
   };
   const run = (
@@ -130,6 +131,13 @@ export function createRoomHandlers(dependencies: Dependencies) {
             roomCommandSchema,
             await readJson(request, dependencies.maxBodyBytes),
           ),
+        ),
+      ),
+    roundRead: (request: Request, roundId: string) =>
+      run(request, 'read', false, (caller) =>
+        dependencies.operations.roundView(
+          caller,
+          parseValidated(idSchema, roundId),
         ),
       ),
     roundRef: (request: Request, roomId: string) =>
