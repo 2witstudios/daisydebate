@@ -1,13 +1,8 @@
+import { acceptedCommandColumns } from './command-columns';
 import { sql } from 'drizzle-orm';
-import { check, index, integer, pgTable, text } from 'drizzle-orm/pg-core';
+import { check, index, pgTable, text } from 'drizzle-orm/pg-core';
 import { actors } from './actors';
-import {
-  jsonbColumn,
-  jsonbIsObject,
-  jsonObjectSchema,
-  oneOf,
-  timestampColumn,
-} from './columns';
+import { jsonbIsObject, oneOf } from './columns';
 import { rounds } from './rounds';
 
 /** The legal operations on a running round (ADR 0058 §6). */
@@ -41,12 +36,7 @@ export const roundCommands = pgTable(
       onDelete: 'restrict',
     }),
     serviceId: text('service_id'),
-    type: text('type').notNull(),
-    /** SHA3-256 of the canonical payload, lowercase hex. */
-    payloadDigest: text('payload_digest').notNull(),
-    result: jsonbColumn('result', jsonObjectSchema).notNull(),
-    resultingVersion: integer('resulting_version').notNull(),
-    appliedAt: timestampColumn('applied_at').notNull(),
+    ...acceptedCommandColumns(),
   },
   (table) => [
     index('round_commands_round_version_idx').on(

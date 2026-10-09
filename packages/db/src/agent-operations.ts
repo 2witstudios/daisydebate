@@ -6,12 +6,7 @@ import { jsonObjectSchema } from './schema/columns';
 import { agentRuns } from './schema/agent-runs';
 import { usageReservations } from './schema/usage-reservations';
 import { roundParticipants } from './schema/round-participants';
-import {
-  admitAiPractice,
-  liveAiPracticeCount,
-  recentAiPracticeCount,
-  type AiPracticeAdmission,
-} from './ai-practice-admission';
+import { liveAiPracticeCount, recentAiPracticeCount } from './ai-usage-counts';
 
 /** The TTS characters a seat has already spent this round, summed. */
 const spentOnSpeech = (
@@ -44,8 +39,6 @@ export const agentOperations = ({
   readonly database: BunSQLDatabase;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
-  admitAiPractice: (input: AiPracticeAdmission) =>
-    admitAiPractice(database, eventSink, input),
   /**
    * Records one execution's consumption. Cost accounting only: no rule
    * reads it, so a failure here must never fail the round.

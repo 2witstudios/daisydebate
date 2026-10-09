@@ -4,13 +4,13 @@ import { openFirstCrossExamination, setup } from './operations.test-support';
 
 setupRitewayBun();
 
-describe('start and view', () => {
-  test('a person starts a practice round and only they can see it', async () => {
+describe('persisted practice runtime view', () => {
+  test('a participant reads a persisted practice round and another actor is masked', async () => {
     const { operations, begin } = setup();
     const id = await begin();
     const view = await operations.view({ actorId: 'actor-1', id });
     assert({
-      given: 'a new practice round with untidy spacing in the resolution',
+      given: 'a persisted practice round with frozen topic',
       should: 'store the tidied resolution as a scheduled round',
       actual: {
         resolution: view.resolution,
@@ -28,80 +28,6 @@ describe('start and view', () => {
       should: 'answer NOT_FOUND',
       actual: () => operations.view({ actorId: 'actor-2', id }),
       code: 'NOT_FOUND',
-    });
-  });
-
-  test('refuses an unknown opponent and a short resolution', async () => {
-    const { operations } = setup();
-    await assertRejects({
-      given: 'an opponent no Train bot is',
-      should: 'refuse with VALIDATION',
-      actual: () =>
-        operations.start({
-          actorId: 'a',
-          resolution: 'Resolved: x y',
-          personSide: 'negative',
-          opponent: 'robot',
-        }),
-      code: 'VALIDATION',
-    });
-    await assertRejects({
-      given: 'a resolution of two characters',
-      should: 'refuse with VALIDATION',
-      actual: () =>
-        operations.start({
-          actorId: 'a',
-          resolution: 'ok',
-          personSide: 'negative',
-          opponent: 'wren',
-        }),
-      code: 'VALIDATION',
-    });
-  });
-
-  test('refuses the fourth debate in a day under a three-a-day limit', async () => {
-    const { operations } = setup({ live: 25, perDay: 3 });
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      await operations.start({
-        actorId: 'actor-1',
-        resolution: 'Resolved: practice makes patterns',
-        personSide: 'affirmative',
-        opponent: 'wren',
-      });
-    }
-    await assertRejects({
-      given: 'a fourth start inside the window',
-      should: 'refuse with RATE_LIMIT',
-      actual: () =>
-        operations.start({
-          actorId: 'actor-1',
-          resolution: 'Resolved: practice makes patterns',
-          personSide: 'affirmative',
-          opponent: 'wren',
-        }),
-      code: 'RATE_LIMIT',
-    });
-  });
-
-  // The cutover deleted `countLiveAiDebates` with the table it read, and left
-  // `limits.live` declared but unread: every member's personal allowance
-  // multiplied out with no global ceiling at all.
-  test('refuses a new debate once the live ceiling is reached, whoever asks', async () => {
-    const { operations } = setup({ live: 2, perDay: 50 });
-    const start = (actorId: string) =>
-      operations.start({
-        actorId,
-        resolution: 'Resolved: practice makes patterns',
-        personSide: 'affirmative',
-        opponent: 'wren',
-      });
-    await start('actor-1');
-    await start('actor-2');
-    await assertRejects({
-      given: 'a third actor starting while two rounds are still live',
-      should: 'refuse with RATE_LIMIT',
-      actual: () => start('actor-3'),
-      code: 'RATE_LIMIT',
     });
   });
 });

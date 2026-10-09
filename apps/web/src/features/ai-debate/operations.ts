@@ -20,11 +20,8 @@ import {
 import { crossExaminationOperations } from './cross-examination';
 import { judgingOperations, viewOf } from './judging';
 import { speechOperations } from './speech';
-import { startPractice } from './start-practice';
 
 export type { AiDebateView } from './context';
-
-const DEFAULT_LIMITS = { live: 25, perDay: 20 } as const;
 
 export type PersonCommand =
   | { readonly type: 'start' }
@@ -138,7 +135,7 @@ const recordedSegmentOf = (
  * and the judge are actors on one machine.
  */
 export function createAiDebateOperations(dependencies: AiDebateDependencies) {
-  const { store, voice, ids, limits = DEFAULT_LIMITS } = dependencies;
+  const { store, voice, ids } = dependencies;
 
   /** Persists one execution; a concurrent writer wins and the caller re-hydrates. */
   const persist = async (
@@ -217,15 +214,6 @@ export function createAiDebateOperations(dependencies: AiDebateDependencies) {
   return {
     ...speechOperations(dependencies, hydrated, recordUsage),
     ...crossExaminationOperations(dependencies, hydrated, recordUsage),
-
-    async start(input: {
-      readonly actorId: string;
-      readonly resolution: string;
-      readonly personSide: 'affirmative' | 'negative';
-      readonly opponent: string;
-    }): Promise<{ readonly id: string }> {
-      return startPractice({ store, voice, ids, limits }, input);
-    },
 
     async view({
       actorId,

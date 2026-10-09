@@ -62,7 +62,6 @@ export type RoundStore = Pick<
   | 'markReservationCounted'
   | 'countRecentAiPractice'
   | 'countLiveRounds'
-  | 'admitAiPractice'
 >;
 
 type AiDebateVoice = Pick<
@@ -76,10 +75,6 @@ export type AiDebateDependencies = {
   readonly voice: () => AiDebateVoice;
   readonly ids: IdGenerator;
   readonly limits?: {
-    /** AI debates live at once, across everyone. */
-    readonly live: number;
-    /** AI debates one person may start counting per rolling day. */
-    readonly perDay: number;
     /** Characters of voice one debate may buy; see `SPEECH_BUDGET`. */
     readonly speechCharacters?: number;
   };

@@ -42,6 +42,7 @@ async function fixture() {
   const host = await caller(),
     guest = await caller(),
     outsider = await caller();
+  let openRoomLimit = 5;
   let failAfterReady = false;
   let unavailable = false;
   let gate: (() => Promise<void>) | null = null;
@@ -65,7 +66,7 @@ async function fixture() {
     store,
     redis: controlled,
     ids: systemId,
-    maxOpenRooms: () => 5,
+    maxOpenRooms: () => openRoomLimit,
     consentTtlMs: () => 60_000,
     botsAvailable: () => true,
   });
@@ -148,8 +149,18 @@ async function fixture() {
     outsider,
     create,
     command,
+    consent: (caller: typeof host, view: RoomView, type: 'ready' | 'unready') =>
+      command(caller, view, {
+        type,
+        expectedConsentVersion: view.participants.find(
+          (p) => p.actorId === caller.actorId,
+        )!.consentVersion,
+      }),
     snapshot,
     assemble,
+    openRoomLimit: (value: number) => {
+      openRoomLimit = value;
+    },
     failAfterReady: (value: boolean) => {
       failAfterReady = value;
     },
@@ -177,6 +188,10 @@ async function fixture() {
       try {
         for (const id of rooms) {
           await sql`delete from outbox where topic=${`room:${id}`}`;
+          await sql`delete from ballots where judge_participant_id in (select id from round_participants where round_id in (select id from rounds where room_id=${id}))`;
+          await sql`delete from utterances where round_id in (select id from rounds where room_id=${id})`;
+          await sql`delete from agent_runs where round_participant_id in (select id from round_participants where round_id in (select id from rounds where room_id=${id}))`;
+          await sql`delete from outbox where topic in (select 'round:' || id from rounds where room_id=${id})`;
           await sql`delete from rounds where room_id=${id}`;
           await sql`delete from rooms where id=${id}`;
         }
@@ -195,4 +210,22 @@ async function fixture() {
       }
     },
   };
+}
+
+export function consentBarrier(f: {
+  gateConsent: (gate: (() => Promise<void>) | null) => void;
+}) {
+  let enter!: () => void, release!: () => void;
+  const entered = new Promise<void>((resolve) => {
+      enter = resolve;
+    }),
+    released = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+  f.gateConsent(async () => {
+    f.gateConsent(null);
+    enter();
+    await released;
+  });
+  return { entered, release: () => release() };
 }
