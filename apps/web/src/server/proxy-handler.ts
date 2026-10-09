@@ -25,6 +25,7 @@ export type ProxySettings = {
   readonly foundationProofEnabled: boolean;
   /** `PUBLIC_APP_URL`. */
   readonly publicAppUrl: string;
+  readonly websocketEndpoint?: string | null;
   /** `NODE_ENV === 'development'`: the permissive dev-server policy. */
   readonly development: boolean;
   readonly ids: IdGenerator;
@@ -109,7 +110,7 @@ export function handleProxy(request: NextRequest, settings: ProxySettings) {
     "base-uri 'self'",
     "form-action 'self'",
     "frame-ancestors 'none'",
-    `connect-src 'self'${development ? ' ws:' : ''}`,
+    `connect-src 'self'${settings.websocketEndpoint ? ` ${new URL(settings.websocketEndpoint).origin}` : ''}${development ? ' ws:' : ''}`,
     ...(development ? [] : ['upgrade-insecure-requests']),
   ].join('; ');
   const hint = signInHint(request, policy, requestId, settings.publicAppUrl);

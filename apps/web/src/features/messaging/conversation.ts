@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { realtimePublicUrlSchema } from '@daisy/config';
 import { createAppError } from '@daisy/errors';
 import { createMessagingCoreSchemas } from '@daisy/protocol';
 
@@ -22,5 +23,8 @@ export async function readConversationResponse(response: Response) {
     await response.json(),
   );
   if (!history.success) throw createAppError('INFRASTRUCTURE');
-  return { history: history.data, bounds };
+  const endpoint = response.headers.get('x-realtime-socket-url');
+  const socketUrl =
+    endpoint === null ? null : realtimePublicUrlSchema.parse(endpoint);
+  return { history: history.data, bounds, socketUrl };
 }
