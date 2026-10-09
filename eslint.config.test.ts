@@ -113,6 +113,28 @@ describe('process edge: one module reads process.env and globalThis (ISSUE-7)', 
     });
   });
 
+  test('admits only the named Launch proof process entry', async () => {
+    const proof = 'apps/web/e2e/support/room-launch-server.ts';
+    const ordinary = 'apps/web/e2e/support/room-launch-adjacent.ts';
+    const cases: Case[] = [
+      [edgeImport('../../src/server/', 'adoptProcessApp'), proof, []],
+      [lazyEdge('../../src/server/process-app'), proof, []],
+      [edgeImport('../../src/server/', 'adoptProcessApp'), ordinary, imports],
+      [
+        lazyEdge('../../src/server/process-app'),
+        ordinary,
+        escapeRule(lazyEdge('../../src/server/process-app')),
+      ],
+    ];
+    assert({
+      given: 'the dedicated proof entry and an adjacent ordinary E2E helper',
+      should:
+        'permit only the exact named process entry to import or load the app edge',
+      actual: await outcomes(cases),
+      expected: expectedOf(cases),
+    });
+  });
+
   test('rejects mutating process.env or globalThis in app tests', async () => {
     const cases: Case[] = [
       [mutations, 'apps/web/integration/leaky.integration.ts', sixMutations],
