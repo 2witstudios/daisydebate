@@ -1,5 +1,8 @@
 import type { Database } from '@daisy/db';
-import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
+import type {
+  MessagingCollectionAuthorizationFact,
+  AuthorizationPrincipal,
+} from '@daisy/auth/authorization';
 import type { Clock } from '@daisy/clock';
 import type { SocialContactPolicy } from '@daisy/auth/social-policy';
 import { requireMessagingActor } from './principal';
@@ -22,7 +25,10 @@ export function composeMessagingInbox(input: {
       requireMessagingAuthorization({
         principal: input.principal,
         capability: 'channel.inbox.read',
-        resource: { kind: 'messaging_collection', actorId: scope.actorId },
+        resource: {
+          kind: 'messaging_collection',
+          actorId: scope.actorId,
+        } satisfies MessagingCollectionAuthorizationFact,
         context: { account, now: input.clock.now() },
       });
     },

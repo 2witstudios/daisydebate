@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { idSchema } from '../primitives';
-export const messagingInboxEntrySchema = z.strictObject({
+const messagingInboxEntrySchema = z.strictObject({
   channelId: idSchema,
   kind: z.enum(['conversation', 'incoming_request', 'outgoing_request']),
 });

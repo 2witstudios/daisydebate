@@ -2,7 +2,7 @@ import type {
   MessagingAuthorizationFence,
   MessagingChannelStore,
 } from './records';
-export type MessagingDmDecision = 'accept' | 'decline' | 'cancel';
+type MessagingDmDecision = 'accept' | 'decline' | 'cancel';
 export type MessagingDmFence = (
   capability: 'read' | 'decide' | 'cancel' | 'result',
 ) => MessagingAuthorizationFence;
