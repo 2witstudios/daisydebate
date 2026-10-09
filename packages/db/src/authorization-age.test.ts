@@ -40,7 +40,7 @@ test('minimal age projection binds the current account and monthly deadline', as
     expected: [
       { state: 'unknown' },
       fact,
-      ...Array.from({ length: 4 }, () => ({ state: 'unknown' })),
+      ...Array.from({ length: 4 }, () => ({ state: 'unknown' as const })),
     ],
   });
 });
