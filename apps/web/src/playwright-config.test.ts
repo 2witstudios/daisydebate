@@ -35,19 +35,19 @@ describe('Playwright Chromium TLS', () => {
       project.name?.startsWith('chromium'),
     );
     assert({
-      given:
-        'the per-run self-signed edge certificate, which ignoreHTTPSErrors alone answers by restarting requests (ISSUE-21)',
-      should: 'launch each Chromium project with certificate errors ignored',
+      given: 'controlled Chromium with the per-run self-signed certificate',
+      should:
+        'retain TLS acceptance and synthetic devices without permission bypass',
       actual: chromium.map((project) => [
         project.name,
-        project.use?.launchOptions?.args?.includes(
-          '--ignore-certificate-errors',
-        ),
+        project.use?.launchOptions?.args,
+        project.use?.permissions ?? [],
       ]),
-      expected: [
-        ['chromium', true],
-        ['chromium-mobile', true],
-      ],
+      expected: ['chromium', 'chromium-mobile'].map((name) => [
+        name,
+        ['--ignore-certificate-errors', '--use-fake-device-for-media-stream'],
+        [],
+      ]),
     });
   });
 });
