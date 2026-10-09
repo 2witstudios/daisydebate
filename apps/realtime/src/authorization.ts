@@ -98,12 +98,12 @@ export function createRealtimeAuthorization({
       };
     }
     if (parsed.family !== 'channel') return null;
-    let result: SubscriptionAuthority | null = null;
-    const store = resources.database.messagingChannelStore(
-      async (tx, _input, frame) => {
+    const result = await resources.database.messagingChannelAuthority(
+      { ...principal, channelId: parsed.channelId },
+      async ({ tx, fact, accounts: currentAccounts }) => {
         const factNow = resources.clock.now();
         const accounts = await loadAccountPolicyFacts({
-          accounts: frame.accounts,
+          accounts: currentAccounts,
           now: factNow,
           readAgeFact: (account) =>
             account.actorId
@@ -120,17 +120,17 @@ export function createRealtimeAuthorization({
           now: resources.clock.now(),
         });
         if (!current || current.account.revision !== session.account.revision)
-          throw new Error('Subscription refused');
+          return null;
         const instant = resources.clock.now();
         const reading = readingPolicy?.({
-          channel: frame.fact,
+          channel: fact,
           accounts,
           now: instant,
         });
         const decision = authorize({
           principal: { kind: 'user', ...principal },
           capability: 'channel.subscribe',
-          resource: frame.fact,
+          resource: fact,
           context: {
             account: current.account,
             socialAccounts: accounts,
@@ -138,17 +138,16 @@ export function createRealtimeAuthorization({
             ...(reading ? { socialReading: reading } : {}),
           },
         });
-        if (!decision.allow || !reading)
-          throw new Error('Subscription refused');
+        if (!decision.allow || !reading) return null;
         const ageDeadlines = accounts.flatMap((row) =>
           row.age.state === 'known' ? [deadline(row.age.validUntil)] : [],
         );
-        result = {
+        return {
           revision: fingerprint([
             ...base,
-            frame.fact.revision,
-            frame.fact.policyRevision,
-            frame.fact.authority,
+            fact.revision,
+            fact.policyRevision,
+            fact.authority,
             accounts.map((row) => [
               row.account.actorId,
               row.account.revision,
@@ -164,12 +163,6 @@ export function createRealtimeAuthorization({
             ...ageDeadlines,
           ),
         };
-      },
-    );
-    await store.withChannel(
-      { ...principal, channelId: parsed.channelId },
-      async (frame) => {
-        await frame.authorize();
       },
     );
     return result && now() < result.validUntil ? result : null;
