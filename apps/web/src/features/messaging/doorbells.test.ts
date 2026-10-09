@@ -65,9 +65,9 @@ test('owner inbox bell never interprets a foreign owner or a notification delta 
     emit({
       v: 1,
       type: 'event',
-      topic: `user:${actorId}:inbox`,
+      topic: `user:${owner}:inbox`,
       position: '1:2',
-      payload: { kind: 'messaging.inbox.changed', actorId: owner },
+      payload: { kind: 'messaging.inbox.changed' },
     });
   assert({
     given: 'foreign then actual owner activity',

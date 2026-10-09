@@ -15,7 +15,7 @@ export async function invalidateMessagingInboxes(
       topic: buildUserInboxTopic(actorId),
       kind: 'messaging.inbox.changed',
       version: 1,
-      payload: { kind: 'messaging.inbox.changed', actorId },
+      payload: { kind: 'messaging.inbox.changed' },
     });
 }
 export async function invalidateDmInboxes(

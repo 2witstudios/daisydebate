@@ -21,7 +21,6 @@ const channelChangedPayloadSchema = z.strictObject({
 
 const messagingInboxChangedPayloadSchema = z.strictObject({
   kind: z.literal('messaging.inbox.changed'),
-  actorId: idSchema,
 });
 
 /**
@@ -148,11 +147,6 @@ export function isPayloadStorableOnTopic(
   if (!parsedTopic) return false;
   const parsedPayload = outboxPayloadSchema.safeParse(payload);
   if (!parsedPayload.success) return false;
-  if (parsedPayload.data.kind === 'messaging.inbox.changed')
-    return (
-      parsedTopic.family === 'user:inbox' &&
-      parsedPayload.data.actorId === parsedTopic.actorId
-    );
   if (parsedTopic.family === 'channel')
     return (
       parsedPayload.data.kind === 'channel.changed' &&
