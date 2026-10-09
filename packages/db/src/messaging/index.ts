@@ -28,3 +28,7 @@ export {
 export type { MessagingDmStore } from './dm-contracts';
 
 export { createMessagingDmStore } from './dm-store';
+export type {
+  MessagingGroupInvitationFence,
+  MessagingGroupInvitationStore,
+} from './group-invitation-contracts';

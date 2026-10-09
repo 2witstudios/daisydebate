@@ -1,3 +1,5 @@
+import { createMessagingGroupInvitationStore } from './messaging/group-invitation-store';
+import type { MessagingGroupInvitationFence } from './messaging/group-invitation-contracts';
 import { createMessagingInboxStore } from './messaging/inbox-store';
 import { createMessagingChannelAuthority } from './messaging/authority-frame';
 import { SQL } from 'bun';
@@ -185,6 +187,8 @@ export function createDatabase({
     ) => createMessagingFileStore({ database, authorize }),
     messagingChannelStore: (authorize: MessagingAuthorizationFence) =>
       createMessagingStore({ database, authorize }),
+    messagingGroupInvitationStore: (authorize: MessagingGroupInvitationFence) =>
+      createMessagingGroupInvitationStore({ database, authorize }),
     messagingSocialStore: (authorize: MessagingSocialAuthorizationFence) =>
       createMessagingSocialStore({ database, authorize }),
     ...outboxOperations({ database, eventSink }),

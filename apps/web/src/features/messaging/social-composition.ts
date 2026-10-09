@@ -1,3 +1,7 @@
+import {
+  messagingHttpBoundary,
+  unavailableMessagingHandler,
+} from './handler-boundary';
 import { composeMessagingInbox } from './inbox-composition';
 import type { SocialCreationPolicy } from '@daisy/auth/authorization';
 import {
@@ -6,8 +10,7 @@ import {
 } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import type { App } from '../../server/app';
-import { handleOperation, parseValidated } from '../../server/http';
-import { identify } from '../../lib/identity';
+import { parseValidated } from '../../server/http';
 import { consumeOrThrow } from '../auth/abuse/rate-limit';
 import { createMessagingSocialHandlers } from './social-handlers';
 import { composeMessagingDmStore } from './dm-composition';
@@ -19,6 +22,7 @@ import { blockMessagingContact } from './block';
 export type MessagingSocialRuntimePolicy = {
   readonly bounds: MessagingSocialBounds;
   readonly creation: SocialCreationPolicy;
+  readonly groupAdmission?: SocialCreationPolicy;
   readonly requestLimits: {
     readonly windowMs: number;
     readonly maxNewPairs: number;
@@ -36,15 +40,7 @@ export function composeMessagingSocialRoutes(app: App) {
   ) => {
     const policy = app.messagingPolicy,
       social = policy?.social;
-    if (!policy || !social)
-      return handleOperation(
-        app.logger,
-        request,
-        'messaging.unavailable',
-        async () => {
-          throw createAppError('INFRASTRUCTURE');
-        },
-      );
+    if (!policy || !social) return unavailableMessagingHandler(app, request);
     const limit = (actorId: string) =>
       consumeOrThrow(
         app.auth().limiter,
@@ -60,9 +56,7 @@ export function composeMessagingSocialRoutes(app: App) {
         readingPolicy: policy.reading,
       });
     const handlers = createMessagingSocialHandlers({
-      logger: app.logger,
-      origin: () => app.auth().config.PUBLIC_APP_URL,
-      identify: (incoming) => identify(app.auth(), incoming.headers),
+      ...messagingHttpBoundary(app),
       maxBodyBytes: policy.maxBodyBytes,
       bounds: social.bounds,
       request: (input, principal) => {

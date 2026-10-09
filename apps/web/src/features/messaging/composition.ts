@@ -1,3 +1,4 @@
+import { composeMessagingGroupInvitationRoutes } from './group-invitation-route';
 import { composeMessagingInboxRoute } from './inbox-route';
 import {
   composeMessagingSocialRoutes,
@@ -162,6 +163,7 @@ export function composeMessagingRoutes(app: App) {
   };
   return {
     ...composeMessagingSocialRoutes(app),
+    ...composeMessagingGroupInvitationRoutes(app),
     inbox: composeMessagingInboxRoute(app),
     send: (request: Request) => run(request, 'send'),
     edit: (request: Request) => run(request, 'edit'),

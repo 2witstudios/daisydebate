@@ -102,3 +102,27 @@ durable search record, event payload or analytics field. Existing message and
 relationship privacy declarations, current reading-policy holds and erasure
 rules remain applicable. Contract and protected-refusal tests are branch proof;
 the new real database/HTTP and browser controls remain scheduled acceptance.
+
+### Private-group invitation decisions
+
+Invitation metadata uses `channel.invitation.read` and returns only the channel
+identifier, invitation generation and pending state. It does not disclose the
+shared title or history. Invited participants may decline, and the original
+inviter may cancel, without an age, posting or reading admission grant. Acceptance
+requires the canonical current inviter manager grant, complete fenced account
+and age facts, and an explicitly approved group admission policy and block
+scope. Missing approval makes the HTTP acceptance operation unavailable.
+
+The transaction locks the current account cast plus both invitation participants,
+then the selected ordered contact pairs, then the channel. It rereads the cast
+and invitation before evaluating canonical authorization. Acceptance installs one
+new member grant generation; refusal installs none. Every write rechecks current
+authority after limiter waits and advances channel authority with thin channel
+and own-inbox doorbells.
+
+Closed retries use `channel.invitation.result` only after binding the actor's
+original request receipt to its operation, digest, channel, actual counterpart
+and invitation generation. They return minimal closed state and never repeat a
+grant or mutation. Group creation, invitation issuance, management and self-leave
+remain separate operations; these decision bindings do not complete their
+acceptance or approve pending product, privacy or retention choices.
