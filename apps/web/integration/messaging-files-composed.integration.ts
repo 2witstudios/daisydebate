@@ -50,7 +50,7 @@ test('real file consumer attaches only scanned content and preserves clean quara
       expected: { bytes: [...cleanFilePdf], mime: 'application/pdf' },
     });
     const bells = await f.client.unsafe(
-      "select payload from outbox where payload->>'channelId'=$1 order by id",
+      "select payload from outbox where payload->>'channelId'=$1 order by txid, seq",
       [f.fixture.channelId],
     );
     assert({

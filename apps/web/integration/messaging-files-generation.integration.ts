@@ -129,7 +129,7 @@ test('canonical own-message removal revokes attached access and retains the real
       },
     });
     const bells = await f.client.unsafe(
-      "select payload from outbox where payload->>'channelId'=$1 order by id",
+      "select payload from outbox where payload->>'channelId'=$1 order by txid, seq",
       [f.fixture.channelId],
     );
     assert({
