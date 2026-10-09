@@ -29,7 +29,7 @@ export async function loadAccountAgeSource(
     : null;
 }
 
-export type AgeCollectionAuthority =
+type AgeCollectionAuthority =
   | { readonly status: 'pending'; readonly decision: string }
   | { readonly status: 'approved'; readonly decision: string };
 type AgeWriteInput = {
