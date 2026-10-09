@@ -1,3 +1,4 @@
+import { contactPairValid } from './authorization-contact';
 import { socialCreationAllowed } from './authorization-creation';
 import { policyEvidenceCurrent as currentPolicy } from './authorization-policy';
 import {
@@ -27,6 +28,7 @@ export type {
   SocialCreationFact,
   SocialCreationPolicy,
   ContactAuthorizationFact,
+  ContactPairAuthorizationFact,
 } from './authorization-facts';
 const deny = (
   reason: Extract<AuthorizationDecision, { allow: false }>['reason'],
@@ -39,6 +41,7 @@ function validResourceKind(
   capability: AuthorizationCapability,
   resource: AuthorizationInput['resource'],
 ) {
+  if (capability === 'social.block') return resource.kind === 'contact_pair';
   if (
     ['social.request.create', 'channel.create.private_group'].includes(
       capability,
@@ -237,6 +240,11 @@ function memberDecision(
   resource: Exclude<AuthorizationInput['resource'], { kind: 'foundation' }>,
   context: AuthorizationInput['context'],
 ): AuthorizationDecision {
+  if (resource.kind === 'contact_pair')
+    return contactPairValid(resource) &&
+      [resource.lowActorId, resource.highActorId].includes(actorId)
+      ? allow
+      : deny('missing-capability');
   if (resource.kind === 'social_creation')
     return socialCreationAllowed(actorId, capability, resource, context)
       ? allow

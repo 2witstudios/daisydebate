@@ -82,6 +82,9 @@ export type ContactAuthorizationFact = {
   readonly blocked: boolean;
   readonly revision: number;
 };
+export type ContactPairAuthorizationFact = ContactAuthorizationFact & {
+  readonly kind: 'contact_pair';
+};
 /** Proposed identities are an operation intent, never persisted membership. */
 export type SocialCreationFact =
   | {
@@ -110,6 +113,7 @@ export type AuthorizationInput = {
   readonly principal: AuthorizationPrincipal;
   readonly capability: AuthorizationCapability;
   readonly resource:
+    | ContactPairAuthorizationFact
     | SocialCreationFact
     | RoundAuthorizationFact
     | RoomAuthorizationFact
