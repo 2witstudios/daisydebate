@@ -71,14 +71,15 @@ not become empty history. Pagination and transport limits are explicit injected
 policy inputs.
 
 DM creation and authority changes append an owner-only `messaging.inbox.changed`
-bell in their transaction. Its payload is only `kind` and matching `actorId`; it
-contains no channel IDs, request content or fabricated entity revision. The
+bell in their transaction. Its payload is only `kind`; it contains no actor/channel association, request
+content or fabricated entity revision. The existing owner inbox topic provides
+the routing address, selected from the current locked DM pair. The
 browser clears its stale snapshot and refetches the protected inbox. Generic
 outbox position orders delivery; an uncertifiable reconnect requires HTTP
-resynchronization. The actor association is conservatively personal/private,
-used to address the owner's invalidation. Lawful basis and retention remain
-pending the canonical PRIV-3/PRIV-4 owner decisions; these branch contracts do not
-activate collection or a retention exception.
+resynchronization. The kind marker has privacy category `none`. No personal/private payload
+exception is inferred from an owner-only topic. Existing messaging collection
+lawful-basis and retention choices remain pending canonical PRIV-3/PRIV-4
+decisions; this bell supplies no activation or retention exception.
 
 The native routes, inbox and realtime reader are delivered source. Current
 browser, JavaScript-disabled, current-role and final composed service evidence

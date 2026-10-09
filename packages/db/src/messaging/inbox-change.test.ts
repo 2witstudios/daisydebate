@@ -44,7 +44,7 @@ test('inbox invalidation validates the entire recipient set before I/O and dedup
           topic: `user:${actorId}:inbox`,
           kind: 'messaging.inbox.changed',
           version: 1,
-          payload: { kind: 'messaging.inbox.changed', actorId },
+          payload: { kind: 'messaging.inbox.changed' },
         },
       ],
       1,

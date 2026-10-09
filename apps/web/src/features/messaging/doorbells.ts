@@ -75,6 +75,6 @@ export function attachMessagingInboxDoorbells(
     matches: (frame) =>
       frame.type === 'event' &&
       frame.payload.kind === 'messaging.inbox.changed' &&
-      frame.payload.actorId === input.actorId,
+      frame.topic === buildUserInboxTopic(input.actorId),
   });
 }
