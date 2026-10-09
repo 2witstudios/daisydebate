@@ -13,7 +13,8 @@
     "./testing": "./src/testing.ts",
     "./authorization-account": "./src/authorization-account.ts",
     "./authorization": "./src/authorization.ts",
-    "./privacy": "./src/privacy/index.ts"
+    "./privacy": "./src/privacy/index.ts",
+    "./account-age": "./src/account-age.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
