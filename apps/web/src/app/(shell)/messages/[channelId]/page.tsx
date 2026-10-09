@@ -7,6 +7,7 @@ import { requireAccess } from '../../../../lib/access';
 import type { SearchParams } from '../../../../features/access/decision';
 import { readConversationResponse } from '../../../../features/messaging/conversation';
 import { PageHeader } from '../../../../ui/components/page-header/page-header';
+import { ConversationLive } from '../../../../ui/messaging/conversation-live';
 import { MessageHistory } from '../../../../ui/messaging/message-history';
 import { MessageComposer } from '../../../../ui/messaging/message-composer';
 import { GET } from '../../../api/messaging/channels/[channelId]/messages/route';
@@ -33,7 +34,7 @@ export default async function ConversationPage({
   const actorId =
     identity.state === 'member' ? identity.principal.actorId : null;
   return (
-    <main className="max-w-reading mx-auto flex w-full flex-col gap-6 p-6">
+    <main className="mx-auto flex w-full max-w-reading flex-col gap-6 p-6">
       <PageHeader
         title="Conversation"
         lede="Private messages"
@@ -48,7 +49,13 @@ export default async function ConversationPage({
         </p>
       ) : (
         <>
-          <MessageHistory history={conversation.history} actorId={actorId} />
+          <ConversationLive
+            channelId={id.data}
+            socketUrl={conversation.socketUrl}
+            snapshotId={systemId.next()}
+          >
+            <MessageHistory history={conversation.history} actorId={actorId} />
+          </ConversationLive>
           <MessageComposer
             key={typeof query.sent === 'string' ? query.sent : id.data}
             action={sendMessageAction.bind(null, id.data)}
