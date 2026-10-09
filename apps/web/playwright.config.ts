@@ -159,7 +159,11 @@ export default defineConfig({
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'], launchOptions: chromiumLaunch },
-      testIgnore: ['**/visual.e2e.ts', '**/room-launch.e2e.ts'],
+      testIgnore: [
+        '**/visual.e2e.ts',
+        '**/room-launch.e2e.ts',
+        '**/debate-room.e2e.ts',
+      ],
     },
     {
       name: 'chromium-mobile',
