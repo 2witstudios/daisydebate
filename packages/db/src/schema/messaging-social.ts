@@ -9,7 +9,7 @@ import {
   text,
   unique,
 } from 'drizzle-orm/pg-core';
-import { actors } from './actors';
+import { messagingActorColumn } from './messaging-columns';
 import { oneOf, timestampColumn } from './columns';
 import { messagingChannels } from './messaging-channels';
 
@@ -17,12 +17,8 @@ import { messagingChannels } from './messaging-channels';
 export const messagingContactPairs = pgTable(
   'messaging_contact_pairs',
   {
-    lowActorId: text('low_actor_id')
-      .notNull()
-      .references(() => actors.id, { onDelete: 'restrict' }),
-    highActorId: text('high_actor_id')
-      .notNull()
-      .references(() => actors.id, { onDelete: 'restrict' }),
+    lowActorId: messagingActorColumn('low_actor_id'),
+    highActorId: messagingActorColumn('high_actor_id'),
     lowBlocksHigh: boolean('low_blocks_high').notNull().default(false),
     highBlocksLow: boolean('high_blocks_low').notNull().default(false),
     revision: bigint('revision', { mode: 'number' }).notNull().default(1),
@@ -44,12 +40,8 @@ export const messagingContactPairs = pgTable(
 export const messagingDmPairs = pgTable(
   'messaging_dm_pairs',
   {
-    lowActorId: text('low_actor_id')
-      .notNull()
-      .references(() => actors.id, { onDelete: 'restrict' }),
-    highActorId: text('high_actor_id')
-      .notNull()
-      .references(() => actors.id, { onDelete: 'restrict' }),
+    lowActorId: messagingActorColumn('low_actor_id'),
+    highActorId: messagingActorColumn('high_actor_id'),
     channelId: text('channel_id').notNull(),
     channelKind: text('channel_kind').notNull().default('dm'),
     requestSenderActorId: text('request_sender_actor_id').notNull(),
@@ -103,9 +95,7 @@ export const messagingGroupGrants = pgTable(
   {
     channelId: text('channel_id').notNull(),
     channelKind: text('channel_kind').notNull().default('private_group'),
-    actorId: text('actor_id')
-      .notNull()
-      .references(() => actors.id, { onDelete: 'restrict' }),
+    actorId: messagingActorColumn('actor_id'),
     role: text('role').notNull(),
     generation: bigint('generation', { mode: 'number' }).notNull(),
     grantedAt: timestampColumn('granted_at').notNull(),

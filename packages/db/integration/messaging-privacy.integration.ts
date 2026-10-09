@@ -4,6 +4,7 @@ import { sql } from 'drizzle-orm';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { createMessagingTestFixture } from '../src/testing';
 import { lockAuthorizationActors } from '../src/authorization';
 import { createMessagingPrivacyAdopter } from '../src/messaging';
 import { readMessagingChannelFact } from '../src/messaging/social';
@@ -15,40 +16,22 @@ const now = '2026-10-09T18:00:00.000Z';
 test('messaging rights erase subject associations atomically and preserve other contributions', async () => {
   const client = new SQL(databaseUrl);
   const database = drizzle({ client });
-  const [
-    userId,
-    otherUserId,
-    actorId,
-    otherActorId,
-    channelId,
-    groupId,
-    ownMessage,
-    otherMessage,
-    requestId,
-  ] = Array.from({ length: 9 }, createId);
-  const [low, high] = [actorId!, otherActorId!].sort();
+  const fixture = await createMessagingTestFixture(client);
+  const { userId, actorId, otherActorId, channelId, low, high } = fixture;
+  const groupId = createId(),
+    ownMessage = createId(),
+    otherMessage = createId(),
+    requestId = createId();
   const subject = { userId: userId!, actorId: actorId! };
   const adopter = createMessagingPrivacyAdopter();
   try {
     await client.unsafe(
-      'insert into users(id,username,email_verified) values($1,$1,true),($2,$2,true)',
-      [userId, otherUserId],
+      'update messaging_channels set message_sequence=2,change_version=2 where id=$1',
+      [channelId],
     );
     await client.unsafe(
-      "insert into actors(id,kind,user_id) values($1,'human',$2),($3,'human',$4)",
-      [actorId, userId, otherActorId, otherUserId],
-    );
-    await client.unsafe(
-      'insert into messaging_contact_pairs(low_actor_id,high_actor_id) values($1,$2)',
-      [low, high],
-    );
-    await client.unsafe(
-      "insert into messaging_channels(id,kind,policy_key,policy_revision,lifecycle,title,message_sequence,change_version) values($1,'dm','social.dm',1,'active',null,2,2),($2,'private_group','social.private_group',1,'active','Shared title',0,0)",
-      [channelId, groupId],
-    );
-    await client.unsafe(
-      "insert into messaging_dm_pairs(low_actor_id,high_actor_id,channel_id,request_sender_actor_id,request_state,requested_at,decided_at) values($1,$2,$3,$4,'accepted',$5,$5)",
-      [low, high, channelId, actorId, now],
+      "insert into messaging_channels(id,kind,policy_key,policy_revision,lifecycle,title) values($1,'private_group','social.private_group',1,'active','Shared title')",
+      [groupId],
     );
     await client.unsafe(
       "insert into messaging_group_grants(channel_id,actor_id,role,generation,granted_at) values($1,$2,'manager',1,$4),($1,$3,'member',1,$4)",
@@ -209,14 +192,7 @@ test('messaging rights erase subject associations atomically and preserve other 
       "delete from outbox where payload->>'channelId' in ($1,$2)",
       [channelId, groupId],
     );
-    await client.unsafe('delete from actors where id in ($1,$2)', [
-      actorId,
-      otherActorId,
-    ]);
-    await client.unsafe('delete from users where id in ($1,$2)', [
-      userId,
-      otherUserId,
-    ]);
+    await fixture.cleanup();
     await client.close();
   }
 });
