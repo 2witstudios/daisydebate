@@ -24,11 +24,14 @@ test('core privacy declarations match actual current schema columns', () => {
 
 test('dedicated MSG declarations match all actual producer columns', async () => {
   const channels = await import('../schema/messaging-channels');
+  const files = await import('../schema/messaging-files');
   const social = await import('../schema/messaging-social');
   const messages = await import('../schema/messaging-messages');
-  const { messagingPrivacyFields } = await import('./messaging-declarations');
+  const { messagingPrivacyFields, messagingPrivacyExpectedColumns } =
+    await import('./messaging-declarations');
   const tables = [
     ...Object.values(channels),
+    ...Object.values(files),
     ...Object.values(social),
     ...Object.values(messages),
   ];
@@ -44,6 +47,19 @@ test('dedicated MSG declarations match all actual producer columns', async () =>
     actual: validatePrivacyAdoption(expected, messagingPrivacyFields),
     expected: { problems: [], activationHeld: true },
   });
+  const sortedEntries = (entries: Record<string, readonly string[]>) =>
+    Object.entries(entries)
+      .map(([table, columns]): [string, string[]] => [
+        table,
+        [...columns].sort(),
+      ])
+      .sort(([left], [right]) => left!.localeCompare(right!));
+  assert({
+    given: 'MSG exact producer schema and canonical adopter manifest',
+    should: 'bind each expected table and column to its current source schema',
+    actual: sortedEntries(messagingPrivacyExpectedColumns),
+    expected: sortedEntries(expected),
+  });
   assert({
     given: 'subject authored content and relationship associations',
     should: 'scrub message content and delete personal relationship rows',
@@ -56,6 +72,38 @@ test('dedicated MSG declarations match all actual producer columns', async () =>
       )
       .map((field) => field.erasure),
     expected: ['delete', 'scrub'],
+  });
+  assert({
+    given: 'private messaging file metadata and internal vendor object key',
+    should:
+      'classify subject metadata as private/exportable and keep object routing internal',
+    actual: messagingPrivacyFields
+      .filter((field) => field.table === 'messaging_files')
+      .map((field) => [
+        field.column,
+        field.category,
+        field.visibility ?? null,
+        field.exportable,
+        field.erasure,
+      ]),
+    expected: [
+      ['id', 'identifier', null, true, 'retain-nonpersonal'],
+      ['object_key', 'identifier', 'private', false, 'delete'],
+      ['channel_id', 'personal', 'private', true, 'delete'],
+      ['owner_actor_id', 'personal', 'private', true, 'delete'],
+      ['request_id', 'personal', 'private', true, 'scrub'],
+      ['message_id', 'personal', 'private', true, 'scrub'],
+      ['filename', 'personal', 'private', true, 'scrub'],
+      ['mime', 'personal', 'private', true, 'scrub'],
+      ['reserved_bytes', 'personal', 'private', true, 'delete'],
+      ['stored_bytes', 'personal', 'private', true, 'delete'],
+      ['generation', 'none', null, true, 'retain-nonpersonal'],
+      ['authority_revision', 'none', null, true, 'retain-nonpersonal'],
+      ['lifecycle', 'none', null, true, 'retain-nonpersonal'],
+      ['created_at', 'none', null, true, 'retain-nonpersonal'],
+      ['expires_at', 'none', null, true, 'retain-nonpersonal'],
+      ['deleted_at', 'none', null, true, 'retain-nonpersonal'],
+    ],
   });
 });
 
