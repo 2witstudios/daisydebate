@@ -92,3 +92,18 @@ export const messagingFiles = pgTable(
     ),
   ],
 );
+
+/** Unlinked vendor cleanup intent after subject erasure: no social/account/file association. */
+export const messagingFileDeletionIntents = pgTable(
+  'messaging_file_deletion_intents',
+  {
+    objectKey: text('object_key').primaryKey(),
+    chargedBytes: bigint('charged_bytes', { mode: 'number' }).notNull(),
+  },
+  (t) => [
+    check(
+      'messaging_file_deletion_intents_bytes',
+      sql`${t.chargedBytes} between 1 and 9007199254740991`,
+    ),
+  ],
+);
