@@ -1,23 +1,12 @@
 import { sql } from 'drizzle-orm';
-import {
-  bigserial,
-  customType,
-  index,
-  integer,
-  pgTable,
-  text,
-} from 'drizzle-orm/pg-core';
+import { bigserial, index, integer, pgTable, text } from 'drizzle-orm/pg-core';
 import { outboxPayloadSchema } from '@daisy/protocol';
-import { jsonbColumn, jsonbIsObject, timestampColumn } from './columns';
-
-/**
- * Postgres 13+ 64-bit transaction id. Comparable (`<`, `>`) but not
- * arithmetic; carried as a decimal string because it can exceed
- * `Number.MAX_SAFE_INTEGER` over the database's lifetime.
- */
-const xid8 = customType<{ data: string; driverData: string }>({
-  dataType: () => 'xid8',
-});
+import {
+  jsonbColumn,
+  jsonbIsObject,
+  timestampColumn,
+  xid8Column,
+} from './columns';
 
 /**
  * Delivery log for the realtime service (ADR: outbox + LISTEN/NOTIFY). A
@@ -31,7 +20,7 @@ export const outbox = pgTable(
   'outbox',
   {
     seq: bigserial('seq', { mode: 'bigint' }).primaryKey(),
-    txid: xid8('txid')
+    txid: xid8Column('txid')
       .notNull()
       .default(sql`pg_current_xact_id()`),
     topic: text('topic').notNull(),
