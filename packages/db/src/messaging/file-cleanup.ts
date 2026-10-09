@@ -19,7 +19,7 @@ type PendingFileFact = {
   readonly fileId: string;
   readonly channelId: string;
   readonly ownerActorId: string;
-  readonly lifecycle: FileReservation['lifecycle'];
+  readonly lifecycle: FileReservation['lifecycle'] | 'deleting' | 'deleted';
   readonly generation: number;
   readonly expectedGeneration: number;
   readonly revision: number;
