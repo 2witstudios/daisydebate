@@ -67,9 +67,17 @@ test('a locked oldest row refuses the entire prefix without deleting later histo
     const before = await f.database.readOutboxRetentionBoundary();
     await f.sql.begin(async (lock) => {
       await lock`select seq from outbox where seq=${first.seq.toString()}::bigint for update`;
-      const refusal = await sqlStateOf(() =>
-        f.database.purgeExpiredOutboxEvents({ before: cutoff, limit: 500 }),
-      );
+      const refusal = await sqlStateOf(async () => {
+        try {
+          await f.database.purgeExpiredOutboxEvents({
+            before: cutoff,
+            limit: 500,
+          });
+        } catch (error) {
+          // Drizzle preserves the actual PostgreSQL SQLSTATE in Error.cause.
+          throw error instanceof Error && error.cause ? error.cause : error;
+        }
+      });
       const [remaining] =
         await f.sql`select count(*)::int as count from outbox where topic=${f.topic}`;
       assert({
