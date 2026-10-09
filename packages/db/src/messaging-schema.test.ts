@@ -61,6 +61,7 @@ test('social channels use constrained identity rather than preference grants', (
       .columns.map((column) => column.name)
       .sort(),
     expected: [
+      'authority_revision',
       'change_version',
       'created_at',
       'id',
@@ -134,6 +135,17 @@ test('request and block state share a canonical pair fence and grants have gener
     should: 'fence old invitation/authorization results by generation',
     actual: getTableConfig(messagingGroupGrants).columns.some(
       (column) => column.name === 'generation',
+    ),
+    expected: true,
+  });
+});
+
+test('authorization versions do not depend on message activity', () => {
+  assert({
+    given: 'an empty channel',
+    should: 'have an independent positive authority revision',
+    actual: getTableConfig(messagingChannels).columns.some(
+      (column) => column.name === 'authority_revision',
     ),
     expected: true,
   });
