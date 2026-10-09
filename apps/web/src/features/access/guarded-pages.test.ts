@@ -52,6 +52,8 @@ const rendered: Readonly<Record<string, () => Promise<{ default: unknown }>>> =
     '(shell)/debates/page.tsx': () => import('../../app/(shell)/debates/page'),
     '(shell)/debates/[id]/page.tsx': () =>
       import('../../app/(shell)/debates/[id]/page'),
+    '(shell)/rounds/[id]/page.tsx': () =>
+      import('../../app/(shell)/rounds/[id]/page'),
     '(shell)/rooms/[id]/page.tsx': () =>
       import('../../app/(shell)/rooms/[id]/page'),
     '(shell)/play/room/page.tsx': () =>
@@ -211,6 +213,7 @@ describe('guarded pages', () => {
         '/ranked',
         '/recordings',
         '/rooms',
+        '/rounds',
         '/settings',
         '/tournaments/enter',
         '/tournaments/mine',
