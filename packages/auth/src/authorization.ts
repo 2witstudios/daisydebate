@@ -199,7 +199,13 @@ function channelDecision(
     !currentPolicy(resource, context.socialReading, context)
   )
     return deny('missing-capability');
-  if (['channel.read', 'channel.subscribe'].includes(capability)) return allow;
+  // Removal still requires the operation's own-author check; this grant is not a content read or edit.
+  if (
+    ['channel.read', 'channel.subscribe', 'channel.message.remove'].includes(
+      capability,
+    )
+  )
+    return allow;
   return channelMutation(capability, resource, context);
 }
 function serviceDecision(
