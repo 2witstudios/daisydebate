@@ -6,7 +6,7 @@ import {
   type SocialPolicyEvidence,
 } from '@daisy/auth/authorization';
 import { loadAccountPolicyFacts } from '@daisy/auth/account-policy-facts';
-import { loadAuthorizationAgeFact } from '@daisy/db/account-age';
+import { bindAuthorizationAgeFact } from '@daisy/db/account-age';
 import { loadAuthorizationSession } from '@daisy/db/authorization';
 import { parseTopic } from '@daisy/protocol';
 import type { RealtimeApp } from './app';
@@ -137,15 +137,7 @@ export function createRealtimeAuthorization({
         const accounts = await loadAccountPolicyFacts({
           accounts: currentAccounts,
           now: factNow,
-          readAgeFact: (account, checkedAt) =>
-            account.actorId
-              ? loadAuthorizationAgeFact(tx, {
-                  userId: account.userId,
-                  actorId: account.actorId,
-                  accountRevision: account.revision,
-                  now: checkedAt,
-                })
-              : Promise.resolve({ state: 'unknown' }),
+          readAgeFact: bindAuthorizationAgeFact(tx),
         });
         const current = await loadAuthorizationSession(tx, {
           ...principal,
