@@ -1,4 +1,5 @@
 import { RedisClient } from 'bun';
+import { systemId, type IdGenerator } from '@daisy/clock';
 import { resendRequest } from '../../src/features/auth/mail/resend-capture.test-support';
 
 /**
@@ -14,10 +15,12 @@ export function createMailCapture({
   port,
   redisUrl,
   redisNamespace,
+  ids = systemId,
 }: {
   readonly port: number;
   readonly redisUrl: string;
   readonly redisNamespace: string;
+  readonly ids?: IdGenerator;
 }) {
   type Captured = { to: string; subject: string; text: string };
   const mails: Captured[] = [];
@@ -32,7 +35,7 @@ export function createMailCapture({
       subject: sent.subject,
       text: sent.text,
     });
-    return Response.json({ id: `msg_capture_${mails.length}` });
+    return Response.json({ id: ids.next() });
   };
   const resetRateLimits = async () => {
     const client = new RedisClient(redisUrl);
