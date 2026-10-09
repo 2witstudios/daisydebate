@@ -10,7 +10,7 @@ export async function readOutboxRetentionBoundary(
   const rows = await database.execute(sql`
     select ${outboxRetentionBoundary.txid}::text as txid,
       ${outboxRetentionBoundary.seq}::text as seq
-    from ${outboxRetentionBoundary}
+    from public.outbox_retention_boundary
     where ${outboxRetentionBoundary.singleton} = true
   `);
   const records = rows as unknown as Array<{ txid: unknown; seq: unknown }>;
