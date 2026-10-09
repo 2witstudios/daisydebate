@@ -92,6 +92,7 @@ export function createApp({
   const composeAuth = (): AuthServer => {
     const authConfig = readAuth();
     return createAuthServer({
+      getActorByUserId: (userId) => database.getActorByUserId(userId),
       config: authConfig,
       database: database.authAdapter,
       emailSender: createResendSender({

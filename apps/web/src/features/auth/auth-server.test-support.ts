@@ -97,6 +97,7 @@ export const composeAuthServer = (
   tables = memoryTables(),
 ) =>
   createAuthServer({
+    getActorByUserId: async () => null,
     config: readAuthConfig(authTestEnv),
     database: memoryAdapter(tables),
     completeEmailChange: memoryEmailChange(tables),

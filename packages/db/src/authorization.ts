@@ -35,8 +35,11 @@ export async function lockAuthorizationActors(
     )})
     order by u.id for update of u
   `);
-  return (rows as unknown as AuthorizationAccountRow[]).map(
-    authorizationAccountFact,
+  const current = rows as unknown as AuthorizationAccountRow[];
+  return actorIds.map((actorId) =>
+    authorizationAccountFact(
+      current.find((row) => row.actorId === actorId) ?? null,
+    ),
   );
 }
 /** Read-only requests get fresh rows without keeping a cross-request cache. */

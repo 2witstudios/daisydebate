@@ -11,7 +11,7 @@ setupRitewayBun();
 const member: Identity = {
   state: 'member',
   username: 'ada',
-  principal: { kind: 'user', userId: 'user1', permissions: ['debate:create'] },
+  principal: { kind: 'user', userId: 'user1', actorId: 'actor1' },
 };
 
 const handlerWith = ({
@@ -133,7 +133,7 @@ describe('POST /api/realtime/ticket gates', () => {
     const { handler, issued } = handlerWith({
       identity: {
         state: 'provisional',
-        principal: { kind: 'user', userId: 'user1', permissions: [] },
+        principal: { kind: 'user', userId: 'user1', actorId: null },
       },
     });
     const response = await handler(post());
