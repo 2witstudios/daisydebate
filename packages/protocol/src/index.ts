@@ -115,6 +115,7 @@ export type { CloseCodeReason } from './close-codes';
 export {
   outboxPayloadSchema,
   isPayloadStorableOnTopic,
+  isPayloadDeliverableOnTopic,
 } from './realtime-payloads';
 export {
   ENVELOPE_VERSION,
