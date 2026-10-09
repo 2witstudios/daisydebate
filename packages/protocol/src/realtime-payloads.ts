@@ -156,3 +156,17 @@ export function isPayloadStorableOnTopic(
     parsedPayload.data.kind,
   );
 }
+
+/** Validated subscriber events exclude durable control rows handled by the drain. */
+export function isPayloadDeliverableOnTopic(
+  topic: string,
+  payload: unknown,
+): boolean {
+  if (!isPayloadStorableOnTopic(topic, payload)) return false;
+  const { kind } = outboxPayloadSchema.parse(payload);
+  return (
+    kind !== 'session.revoked' &&
+    kind !== 'access.revoked' &&
+    kind !== 'actor.presence-preference-changed'
+  );
+}
