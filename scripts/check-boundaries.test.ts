@@ -19,6 +19,7 @@ const workspaces = [
   '@daisy/db',
   '@daisy/redis',
   '@daisy/auth',
+  '@daisy/ingress',
   '@daisy/errors',
   '@daisy/config',
   '@daisy/clock',
@@ -91,10 +92,11 @@ describe('Adobe isolation rule', () => {
 });
 
 describe('realtime workspace edges (ADR 0031 §12)', () => {
-  test('the allowlist names exactly the eleven ADR 0031 §12 edges', () => {
+  test('the allowlist names exactly the eleven adopted realtime edges', () => {
     assert({
       given: 'allowedWorkspaceDependencies.realtime',
-      should: 'list exactly the ten edges the ADR mechanically enforces',
+      should:
+        'list exactly the eleven edges including the shared ingress adapter',
       actual: [...allowedWorkspaceDependencies.realtime!].sort(),
       expected: [
         'auth',
