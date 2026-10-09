@@ -27,6 +27,15 @@ const exportRows = (rows: readonly Record<string, unknown>[]) =>
     ),
   );
 
+function omitPrivateColumns(
+  row: Record<string, unknown>,
+  columns: readonly string[],
+) {
+  return Object.fromEntries(
+    Object.entries(row).filter(([column]) => !columns.includes(column)),
+  );
+}
+
 /** Account lock is held by canonical PRIV before this pair -> channel fence. */
 async function lockSubjectMessaging(
   tx: AuthorizationTransaction,
@@ -44,6 +53,8 @@ async function lockSubjectMessaging(
       union select channel_id from messaging_reactions where actor_id=${actorId}
       union select channel_id from messaging_actor_states where actor_id=${actorId}
       union select channel_id from messaging_receipts where actor_id=${actorId}
+      union select channel_id from messaging_group_invitations where invitee_actor_id=${actorId} or invited_by_actor_id=${actorId}
+      union select result_channel_id from messaging_social_commands where actor_id=${actorId}
     ) order by id for update
   `);
 }
@@ -104,6 +115,12 @@ async function eraseAssociations(
     union select channel_id as "channelId" from messaging_group_grants where actor_id=${actorId}
     order by "channelId"
   `),
+  );
+  await tx.execute(
+    sql`delete from messaging_social_commands where actor_id=${actorId} or result_channel_id in (select channel_id from messaging_dm_pairs where low_actor_id=${actorId} or high_actor_id=${actorId})`,
+  );
+  await tx.execute(
+    sql`delete from messaging_group_invitations where invitee_actor_id=${actorId} or invited_by_actor_id=${actorId}`,
   );
   await tx.execute(
     sql`delete from messaging_receipts where actor_id=${actorId}`,
@@ -200,6 +217,23 @@ export function createMessagingPrivacyAdopter(): PrivacyAdopter {
           sql`select * from messaging_dm_pairs where low_actor_id=${actorId} or high_actor_id=${actorId} order by channel_id`,
         ),
       );
+      const ownPairs = pairs.map((row) => {
+        if (row.request_sender_actor_id === actorId) return row;
+        return omitPrivateColumns(row, ['introduction']);
+      });
+      const commands = rowsOf<Record<string, unknown>>(
+        await tx.execute(
+          sql`select * from messaging_social_commands where actor_id=${actorId} order by created_at,request_id`,
+        ),
+      );
+      const invitations = rowsOf<Record<string, unknown>>(
+        await tx.execute(
+          sql`select * from messaging_group_invitations where invitee_actor_id=${actorId} or invited_by_actor_id=${actorId} order by channel_id,invitee_actor_id`,
+        ),
+      ).map((row) => {
+        if (row.invitee_actor_id === actorId) return row;
+        return omitPrivateColumns(row, ['state', 'decided_at']);
+      });
       // Shared title has no subject attribution. Never export another author's
       // text/title by guessing ownership from current membership.
       return Object.fromEntries(
@@ -211,7 +245,9 @@ export function createMessagingPrivacyAdopter(): PrivacyAdopter {
           messaging_receipts: receipts,
           messaging_reactions: reactions,
           messaging_contact_pairs: contacts,
-          messaging_dm_pairs: pairs,
+          messaging_dm_pairs: ownPairs,
+          messaging_social_commands: commands,
+          messaging_group_invitations: invitations,
         }).map(([table, rows]) => [table, exportRows(rows)]),
       );
     },
