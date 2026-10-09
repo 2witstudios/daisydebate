@@ -6,9 +6,24 @@ import {
   parseRoomCleanupEvidence,
   roomCleanupTables,
 } from '../e2e/support/room-accounts';
-import { admitRoomCleanupConnection } from '../e2e/support/room-account-cleanup';
+import {
+  admitRoomCleanupConnection,
+  dispatchRoomCleanupRequest,
+} from '../e2e/support/room-account-cleanup';
 
 setupRitewayBun();
+
+const url = 'postgres://daisy_e2e:private@localhost:15432/daisy_wt_unit_e2e';
+const result = {
+  version: 1,
+  admitted: true,
+  target: {
+    database: 'daisy_wt_unit_e2e',
+    role: 'daisy_e2e',
+    hostname: 'localhost',
+    port: '15432',
+  },
+};
 
 /** Only the forwarding transport is scripted; the existing signup helper runs. */
 function requestProbe(failAt?: string) {
@@ -118,17 +133,6 @@ describe('ROOM-6.1 signup forwarding', () => {
 });
 
 describe('ROOM-6.1 admission process contract', () => {
-  const url = 'postgres://daisy_e2e:private@localhost:15432/daisy_wt_unit_e2e';
-  const result = {
-    version: 1,
-    admitted: true,
-    target: {
-      database: 'daisy_wt_unit_e2e',
-      role: 'daisy_e2e',
-      hostname: 'localhost',
-      port: '15432',
-    },
-  };
   for (const [label, output] of [
     ['corrupt JSON', '{'],
     ['wrong version', JSON.stringify({ ...result, version: 2 })],
@@ -294,6 +298,109 @@ describe('ROOM-6.1 cleanup evidence boundary', () => {
         should: 'refuse instead of reporting complete cleanup',
         actual: refused,
         expected: true,
+      });
+    });
+  }
+});
+
+describe('ROOM-6.1a cleanup request boundary', () => {
+  const account = {
+    email: 'e2eabcdefghijklmnop@example.test',
+    mailExpected: false,
+    uncertain: false,
+  };
+  const request = { action: 'clean', accounts: [account] };
+  for (const [label, value] of [
+    ['array action', { ...request, action: ['clean'] }],
+    ['numeric action', { ...request, action: 1 }],
+    ['null action', { ...request, action: null }],
+    ['unknown action', { ...request, action: 'erase' }],
+    [
+      'unknown envelope key',
+      { ...request, target: 'unit-private-placeholder' },
+    ],
+    [
+      'unknown ownership key',
+      {
+        ...request,
+        accounts: [{ ...account, actorId: 'unit-private-placeholder' }],
+      },
+    ],
+  ] as const) {
+    test(`refuses ${label} before invocation, admission and connection`, async () => {
+      const calls = { invocation: 0, admission: 0, connection: 0 };
+      let message: string | undefined;
+      try {
+        await dispatchRoomCleanupRequest(value, async () => {
+          calls.invocation++;
+          await admitRoomCleanupConnection(
+            { E2E_DATABASE_URL: url },
+            async () => {
+              calls.admission++;
+              return JSON.stringify(result);
+            },
+            () => {
+              calls.connection++;
+            },
+          );
+          return { before: {}, after: {} };
+        });
+      } catch (error) {
+        message = error instanceof Error ? error.message : undefined;
+      }
+      assert({
+        given: label,
+        should:
+          'return a sanitized input refusal with no cleanup invocation, admission or SQL connection',
+        actual: { calls, message },
+        expected: {
+          calls: { invocation: 0, admission: 0, connection: 0 },
+          message: 'Room account cleanup input refused',
+        },
+      });
+    });
+  }
+  for (const action of ['inspect', 'clean'] as const) {
+    test(`preserves valid ${action} ownership and partial identity`, async () => {
+      let invoked: unknown;
+      let calls = 0;
+      const accounts = [
+        account,
+        {
+          ...account,
+          email: 'e2eponmlkjihgfedcba@example.test',
+          userId: 'abcdefghijklmnopqrstuvwx',
+          mailExpected: true,
+        },
+      ];
+      const evidence = {
+        before: { users: 2 },
+        after: { users: action === 'clean' ? 0 : 2 },
+      };
+      const result = await dispatchRoomCleanupRequest(
+        { action, accounts },
+        async (input) => {
+          calls++;
+          invoked = input;
+          return evidence;
+        },
+      );
+      assert({
+        given: `valid ${action} with known and partial signup identities`,
+        should:
+          'invoke once with exact action and ownership and preserve supplied evidence',
+        actual: { calls, invoked, result },
+        expected: {
+          calls: 1,
+          invoked: {
+            action,
+            accounts: accounts.map((item) => ({
+              ...item,
+              userId: 'userId' in item ? item.userId : undefined,
+            })),
+          },
+          result: evidence,
+        },
       });
     });
   }

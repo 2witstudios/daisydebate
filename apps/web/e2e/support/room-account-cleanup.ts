@@ -95,49 +95,51 @@ function isFixtureEmail(value: unknown): value is string {
   );
 }
 
-function ownedAccount(item: unknown): RoomAccountOwnership {
-  if (
-    typeof item !== 'object' ||
-    item === null ||
-    !('email' in item) ||
-    !isFixtureEmail(item.email) ||
-    !('mailExpected' in item) ||
-    typeof item.mailExpected !== 'boolean' ||
-    !('uncertain' in item) ||
-    typeof item.uncertain !== 'boolean'
-  )
-    throw new Error('Room account cleanup ownership refused');
-  const userId = 'userId' in item ? idSchema.parse(item.userId) : undefined;
-  return {
-    email: item.email,
-    userId,
-    mailExpected: item.mailExpected,
-    uncertain: item.uncertain,
-  };
-}
+const cleanupInputSchema = z
+  .object({
+    action: z.enum(['inspect', 'clean']),
+    accounts: z
+      .array(
+        z
+          .object({
+            email: z.custom<string>(isFixtureEmail),
+            userId: idSchema.optional(),
+            mailExpected: z.boolean(),
+            uncertain: z.boolean(),
+          })
+          .strict(),
+      )
+      .max(16),
+  })
+  .strict();
 
 function ownedInput(value: unknown): {
   action: 'inspect' | 'clean';
   accounts: RoomAccountOwnership[];
 } {
-  if (
-    typeof value !== 'object' ||
-    value === null ||
-    !('action' in value) ||
-    !['inspect', 'clean'].includes(String(value.action)) ||
-    !('accounts' in value) ||
-    !Array.isArray(value.accounts) ||
-    value.accounts.length > 16
-  )
-    throw new Error('Room account cleanup input refused');
-  const accounts = value.accounts.map(ownedAccount);
+  const parsed = cleanupInputSchema.safeParse(value);
+  if (!parsed.success) throw new Error('Room account cleanup input refused');
+  const accounts = parsed.data.accounts.map((account) => ({
+    ...account,
+    userId: account.userId,
+  }));
   if (
     new Set(accounts.map((account) => account.email)).size !==
       accounts.length ||
     accounts.some((account) => account.uncertain)
   )
     throw new Error('Room account cleanup activity unresolved');
-  return { action: value.action as 'inspect' | 'clean', accounts };
+  return { action: parsed.data.action, accounts };
+}
+
+/** Decode before invoking cleanup, whose first I/O is runner admission. */
+export async function dispatchRoomCleanupRequest(
+  value: unknown,
+  invoke: (
+    input: ReturnType<typeof ownedInput>,
+  ) => Promise<RoomCleanupEvidence>,
+): Promise<RoomCleanupEvidence> {
+  return invoke(ownedInput(value));
 }
 
 function requireMailReceipts(
@@ -281,7 +283,10 @@ if (import.meta.main) {
       if (body.length > 8192)
         throw new Error('Room account cleanup input refused');
     }
-    const result = await runCleanup(ownedInput(JSON.parse(body)));
+    const result = await dispatchRoomCleanupRequest(
+      JSON.parse(body),
+      runCleanup,
+    );
     process.stdout.write(JSON.stringify(result));
   } catch (error) {
     const message = error instanceof Error ? error.message : '';
