@@ -1,3 +1,4 @@
+import { withRoomOutboxFailure } from './room-outbox-rollback.test-support';
 import { assertRejects } from '@daisy/errors/testing';
 import { withRoomRuntime } from './room-runtime.test-support';
 import { assert, test, setupRitewayBun } from 'riteway/bun';
@@ -27,6 +28,21 @@ test('prep persists one anchor with its receipt and refuses concurrent assembly 
         config,
       })
     ).view;
+    const beforeStart = await f.snapshot(view.id);
+    await withRoomOutboxFailure(f.sql, view.id, async () => {
+      let rolledBack = false;
+      try {
+        await f.command(f.host, view, { type: 'start-prep' });
+      } catch {
+        rolledBack = true;
+      }
+      assert({
+        given: 'the prep transaction cannot append its doorbell',
+        should: 'roll back the anchor, receipt and all assembly rows',
+        actual: [rolledBack, await f.snapshot(view.id)],
+        expected: [true, beforeStart],
+      });
+    });
     const started = await f.command(f.host, view, { type: 'start-prep' });
     const anchor = started.view.prep.startedAt;
     const [persisted] =
