@@ -20,6 +20,7 @@ type Dependencies = {
   readonly origin: () => string;
   readonly maxBodyBytes: number;
   readonly bounds: MessagingCoreBounds;
+  readonly websocketEndpoint?: string | null;
   readonly identify: (request: Request) => Promise<Identity>;
   readonly send: Operation;
   readonly edit: Operation;
@@ -56,6 +57,9 @@ export function createMessagingHandlers(dependencies: Dependencies) {
                 dependencies.bounds.messageUnits,
               ),
               'x-messaging-page-items': String(dependencies.bounds.pageItems),
+              ...(dependencies.websocketEndpoint
+                ? { 'x-realtime-socket-url': dependencies.websocketEndpoint }
+                : {}),
             },
           },
         );

@@ -104,6 +104,7 @@ export function createRoutes(app: App) {
     ticket: {
       POST: createTicketHandler({
         logger,
+        websocketEndpoint: () => app.websocketEndpoint,
         origin,
         identify: (request) => identify(app.auth(), request.headers),
         sessionId: async (headers) => {

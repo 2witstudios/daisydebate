@@ -140,6 +140,7 @@ export function createApp({
   const drainState = createDrainState([database, redis]);
   return {
     config,
+    websocketEndpoint: config.REALTIME_PUBLIC_URL ?? null,
     roomPolicy: roomPolicy ?? null,
     messagingPolicy: messagingPolicy ?? null,
     clock,
