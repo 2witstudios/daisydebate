@@ -66,7 +66,7 @@ export function planReviewPrompt(input: {
     '- missing build inputs: a pinned unmerged producer may satisfy branch availability; require its exact SHA, contract, source owner and provisional gaps, not global Done or default-branch presence;',
     '- actual concurrent writer collisions, migration generation conflicts, unresolved product authority and acceptance prerequisites; sequence actual shared mutations, not all readers of a shared concept;',
     '- deferred checks without a reason, responsible agent, discharge stage and remaining proof; branch failures may be provisional, all applicable checks must pass before main acceptance;',
-    'Do not require another owner approval for planning, task administration, experimentation, integration, reviewer spawning or fixes within an already authorized objective. Escalate changed product intent and protected production actions only.',
+    'Do not require another owner approval for planning, task administration, experimentation, integration, reviewer spawning or fixes within an already authorized objective. Escalate ambiguous or conflicting product choices, changed intent, scope cuts and protected production actions.',
     '- ADR or migration numbers the plan claims (they come from bun adr:next at the time, not the plan);',
     '- acceptance criteria that are ambiguous, untestable or cannot be proven by a test that fails when the behaviour is removed.',
     'End with exactly one line: "PLAN REVIEW: APPROVE" or "PLAN REVIEW: CHANGES REQUESTED".',

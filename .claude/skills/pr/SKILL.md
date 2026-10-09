@@ -36,7 +36,7 @@ Never put secrets, tokens, authenticating links or .env material in a PR or a pa
 
 resolveContext() {
 
-1. Read the repo's `project.config.json` (`pagespace.driveId`, `pagespace.pages.conventions`) or AGENTS.md / CLAUDE.md for the PageSpace drive id and the artifact conventions page. No drive declared => open a normal PR and record the administration gap; continue authorized work.
+1. Read the repo's `project.config.json` (`pagespace.driveId`, `pagespace.pages.conventions`) or AGENTS.md / CLAUDE.md for the PageSpace drive id and the artifact conventions page. No drive declared or PageSpace unavailable => open a normal PR and record the administration gap; continue authorized work. In this case skip PageSpace collection, page-ID verification and link-back, and keep criteria, plan/prompt context, exact head and proof obligations in the PR. Reconcile artifacts when a drive becomes available.
 2. Read the conventions page once (folders, naming, who may write what).
 3. Follow the repo's board rule. Default: every agent keeps its own tasks current up to In Review and publishes its own artifact pages; nobody edits a delegated task's criteria; Done comes from an independent review record.
    }
@@ -82,7 +82,7 @@ Criteria are the bullets above the "Related pages" block of each task page, quot
 ### 4 — Open or update
 
 openOrUpdate() {
-existing PR for the branch (`gh pr view --json number`) => `gh pr edit <n> --body-file <file>`
+existing PR for the branch (`gh pr view --json number,isDraft`) => `gh pr edit <n> --body-file <file>`; when promoting a completed candidate from provisional draft, run `gh pr ready <n>` and verify `isDraft` is false. Keep incomplete work draft; ready-for-review does not assert main acceptance.
 none => `gh pr create [--draft for provisional work] --base <default> --title "<conventional title>" --body-file <file>`
 Write the body to a scratch file whose name is unique to this branch (e.g. `<scratchpad>/pr-body-<branch with / replaced by ->.md`); a shared name let one agent publish another's body (PR #9 went up with PR #10's). Never inline multi-line bodies in the shell.
 Verify after writing: `gh pr view <n> --json body --jq .body` must equal the file (ignoring a trailing newline). A mismatch => rewrite it with `gh pr edit` and check again; never report a PR whose published body you did not verify.

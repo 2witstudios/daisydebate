@@ -1,4 +1,5 @@
-import { readFile, stat } from 'node:fs/promises';
+import { access, readFile, stat } from 'node:fs/promises';
+import { constants } from 'node:fs';
 import { resolve } from 'node:path';
 /** Pure assessment of the effective PU commands, without parent git state. */
 export function puLauncherProblem(
@@ -48,9 +49,10 @@ export async function readPuLauncher(
       readFile(resolve(root, 'scripts/agent-launch.sh'), 'utf8'),
       stat(launcher),
     ]);
+    await access(launcher, constants.X_OK);
     return {
       config: Bun.YAML.parse(config),
-      usable: info.isFile() && (info.mode & 0o111) !== 0 && active === expected,
+      usable: info.isFile() && active === expected,
     };
   } catch {
     return { config: undefined, usable: false };

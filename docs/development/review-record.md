@@ -128,3 +128,17 @@ Rules:
   PASS/FAIL/PARTIAL against the diff before writing a verdict.
 
 Review timing and check scheduling follow [the agent delivery pipeline](agent-pipeline.md).
+
+## Review App contents permission
+
+Exact-candidate documentation classification reads SHA-bound comparisons and Git
+trees, which require repository Contents: read in the review App installation
+and minted token. See [GitHub compare permissions](https://docs.github.com/en/rest/commits/commits#fine-grained-access-tokens-for-compare-two-commits).
+New generated App manifests request this read-only permission; no content-writing
+permission is added. For an existing App, its human owner must update Repository
+permissions → Contents → Read-only in GitHub App settings, then approve the
+permission update for the repository installation. Do not replace the App, copy
+its key or self-approve this identity permission change. Record a human-only
+acceptance prerequisite and verify the protected-main workflow after that update.
+Unapproved or unreadable facts fail closed; agents continue independent branch
+work without representing document classification or main acceptance as passed.

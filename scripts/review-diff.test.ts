@@ -23,6 +23,38 @@ const diff = (
 });
 
 describe('documentation evidence applicability', () => {
+  test('recognizes decorated branch metadata without interpreting findings as metadata', () => {
+    const states = [
+      'Review stage: branch',
+      '## Review stage: branch',
+      '# Review stage: branch',
+      '- **Review stage: branch**',
+    ].map(
+      (label) =>
+        verifyReviewRecord(pr, [
+          { ...record(), content: `${label}\n${record().content}` },
+        ]).state,
+    );
+    assert({
+      given:
+        'branch metadata in common Markdown forms with an otherwise approving record',
+      should: 'never mint acceptance',
+      actual: states,
+      expected: ['pending', 'pending', 'pending', 'pending'],
+    });
+    assert({
+      given: 'a quoted stage label in findings',
+      should: 'still judge the acceptance evidence',
+      actual: verifyReviewRecord(pr, [
+        record({
+          findings: '## Review stage: branch',
+          gates: 'bun check: PASS',
+        }),
+      ]).state,
+      expected: 'failure',
+    });
+  });
+
   test('classifies actual paths and modes, never an extension or reviewer label alone', () => {
     const cases = [
       diff('docs/decisions/0060-policy.md'),

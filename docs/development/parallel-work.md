@@ -86,7 +86,7 @@ PageSpace's lesson: branch debris accumulates faster than agents clean it
   not a gate.
 - `bun check` — the full main acceptance gate. Intermediate branch failures
   and deferred checks remain visible proof obligations, not a push prohibition.
-- `bun migrations:check` — when generating migrations and before accepting
+- `bun migrations:check` — when generating migrations, before pushing migration changes and before accepting
   `packages/db/migrations/`.
 - CI is per-PR isolated (service containers, concurrency cancellation);
   E2E runs once per PR in the dedicated browser workflow.

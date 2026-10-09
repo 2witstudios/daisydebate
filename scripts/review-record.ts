@@ -116,6 +116,21 @@ function gateLine(text: string, gate: RegExp): boolean {
     .some((line) => gate.test(line) && !/not run|deferred|\?/i.test(line));
 }
 
+/** Metadata ends at evidence/findings; quoted stage labels cannot hide a refusal. */
+function branchFeedback(text: string): boolean {
+  const lines = textLines(text);
+  const end = lines.findIndex(
+    (line) => GATES_HEADING.test(line) || NEXT_HEADING.test(line),
+  );
+  return lines
+    .slice(0, end === -1 ? undefined : end)
+    .some((line) =>
+      /^Review stage:\s*branch\s*$/i.test(
+        stripDecoration(line.replace(/^#{1,6}\s+/, '')),
+      ),
+    );
+}
+
 /** Why this record does not approve the PR; undefined when it does. */
 function recordProblem(
   pr: PullRequest,
@@ -172,9 +187,7 @@ export function verifyReviewRecord(
   const forSha = records.filter((record) => {
     const text = plainText(record.content);
     return (
-      !/^Review stage:\s*branch\s*$/m.test(
-        text.split(/^#{2,}\s|^Gates run\s*$/m)[0] ?? '',
-      ) &&
+      !branchFeedback(text) &&
       (record.title.includes(pr.headSha) ||
         CANDIDATE.exec(text)?.[1] === pr.headSha)
     );

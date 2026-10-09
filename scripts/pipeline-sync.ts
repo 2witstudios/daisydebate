@@ -1,8 +1,13 @@
 #!/usr/bin/env bun
 /** Explicit distribution of versioned pipeline sources to local skills and Daisy Library. */
-import { readFileSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
-import { homedir, tmpdir } from 'node:os';
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
+import {
+  canonicalPipeline as canonical,
+  retirePipelineReference,
+  withPipelineFiles,
+} from './pipeline-sync-files';
 
 const root = resolve(import.meta.dir, '..');
 const targets = JSON.parse(
@@ -18,7 +23,6 @@ if (args.some((arg) => !['--apply', '--local-only'].includes(arg)))
   throw new Error('usage: bun pipeline:sync [--apply] [--local-only]');
 const apply = args.includes('--apply');
 const source = (path: string) => readFileSync(join(root, path), 'utf8');
-const canonical = (text: string) => text.replace(/>\s+</g, '><').trim();
 const call = (argv: string[]) => {
   const result = Bun.spawnSync(['pagespace', ...argv, '--json'], {
     stdout: 'pipe',
@@ -63,11 +67,19 @@ for (const skill of localSkills) {
     `${apply ? 'updated' : 'drift'} local skill ${skill.target}\n`,
   );
 }
-if (apply)
-  for (const name of targets.retiredTaskReferences)
-    rmSync(join(homedir(), '.agents/skills/task/references', name), {
-      force: true,
-    });
+for (const name of targets.retiredTaskReferences) {
+  if (
+    !retirePipelineReference(
+      join(homedir(), '.agents/skills/task/references', name),
+      apply,
+    )
+  )
+    continue;
+  drift++;
+  process.stdout.write(
+    `${apply ? 'removed' : 'drift'} retired task reference ${name}\n`,
+  );
+}
 if (!args.includes('--local-only'))
   for (const page of targets.pages) {
     const desired = source(page.source);
@@ -76,11 +88,7 @@ if (!args.includes('--local-only'))
     drift++;
     if (apply) {
       // The board writer compares content again immediately before replacing.
-      const file = join(tmpdir(), `pipeline-${process.pid}-${page.id}`);
-      const old = `${file}.old`;
-      writeFileSync(file, desired);
-      writeFileSync(old, before.content);
-      try {
+      withPipelineFiles(desired, before.content, (file, old) => {
         const written = Bun.spawnSync(
           [
             'bun',
@@ -109,10 +117,7 @@ if (!args.includes('--local-only'))
           canonical(desired)
         )
           throw new Error(`Pipeline readback differs for ${page.id}`);
-      } finally {
-        rmSync(file, { force: true });
-        rmSync(old, { force: true });
-      }
+      });
     }
     process.stdout.write(`${apply ? 'updated' : 'drift'} Library ${page.id}\n`);
   }

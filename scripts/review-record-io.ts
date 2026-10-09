@@ -72,29 +72,24 @@ type PrDiffSource = {
 export function readPullRequestDiff(
   run: Run,
   repository: string,
-  number: number,
   source: PrDiffSource,
 ): ReviewDiff | undefined {
-  const api = <T>(path: string, paginate = false): T => {
-    const result = run([
-      'api',
-      ...(paginate ? ['--paginate', '--slurp'] : []),
-      path,
-    ]);
+  const api = <T>(path: string): T => {
+    const result = run(['api', path]);
     if (result.code !== 0) throw new Error('review diff unavailable');
     return JSON.parse(result.stdout) as T;
   };
   try {
-    const comparison = api<{ merge_base_commit: { sha: string } }>(
-      `repos/${repository}/compare/${source.base.sha}...${source.head.sha}`,
-    );
-    const files = api<
-      {
+    const comparison = api<{
+      merge_base_commit: { sha: string };
+      files?: {
         filename: string;
         previous_filename?: string;
         status: string;
-      }[][]
-    >(`repos/${repository}/pulls/${number}/files`, true).flat();
+      }[];
+    }>(`repos/${repository}/compare/${source.base.sha}...${source.head.sha}`);
+    // Compare's file list is SHA-bound and limited to 300; count mismatch fails closed.
+    const files = comparison.files ?? [];
     const tree = (sha: string) =>
       api<{
         truncated: boolean;
@@ -150,7 +145,7 @@ export function fetchPullRequest(
       number: prNumber,
       headSha: pull.head.sha,
       body: pull.body ?? '',
-      diff: readPullRequestDiff(gh, repository, prNumber, pull),
+      diff: readPullRequestDiff(gh, repository, pull),
     },
     comments,
   };
