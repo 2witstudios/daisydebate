@@ -1,5 +1,5 @@
 import type { Clock, IdGenerator } from '@daisy/clock';
-import { readRealtimeConfig } from '@daisy/config';
+import { readRealtimeConfig, readRealtimeTransportConfig } from '@daisy/config';
 import { createDatabase } from '@daisy/db';
 import { createLogger } from '@daisy/logger';
 import { createDrainState } from '@daisy/observability';
@@ -41,6 +41,7 @@ export function createRealtimeApp({
   });
   return {
     config,
+    transport: readRealtimeTransportConfig(env),
     clock,
     database,
     redis,

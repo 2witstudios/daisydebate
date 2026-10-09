@@ -66,7 +66,10 @@ export function createSubscriptionRegistry({
   readonly authorize: (
     principal: SocketPrincipal,
     topic: string,
-  ) => Promise<{ readonly revision: string } | null>;
+  ) => Promise<{
+    readonly revision: string;
+    readonly validUntil: number;
+  } | null>;
   readonly readCatchup: (
     topic: string,
     since: string,
@@ -175,7 +178,7 @@ export function createSubscriptionRegistry({
         }
         if (connection.topics.get(row.topic) !== sub || connection.closed)
           continue;
-        if (!decision || !sub.lease.accept(attempt)) {
+        if (!decision || !sub.lease.accept(attempt, decision?.validUntil)) {
           detach(connection, row.topic, sub);
           continue;
         }
@@ -206,12 +209,62 @@ export function createSubscriptionRegistry({
       return connection;
     },
     remove,
+    async revalidate(
+      validatePrincipal: (principal: SocketPrincipal) => Promise<boolean>,
+    ) {
+      for (const connection of connections) {
+        let valid = false;
+        try {
+          valid = await validatePrincipal(connection.principal);
+        } catch {
+          valid = false;
+        }
+        if (connection.closed) continue;
+        if (!valid) {
+          remove(connection);
+          connection.socket.close(4002, 'revoked');
+          continue;
+        }
+        for (const [topic, sub] of connection.topics) {
+          // Detach expired authority before starting an entirely fresh attempt.
+          if (!sub.lease.current()) detach(connection, topic, sub);
+          const attempt = sub.lease.begin(
+            connection.principal.sessionId,
+            sub.revision,
+          );
+          let decision;
+          try {
+            decision = await authorize(connection.principal, topic);
+          } catch {
+            decision = null;
+          }
+          if (connection.closed || connection.topics.get(topic) !== sub)
+            continue;
+          if (!decision || !sub.lease.accept(attempt, decision.validUntil)) {
+            detach(connection, topic, sub);
+            connection.topics.delete(topic);
+            continue;
+          }
+          sub.revision = decision.revision;
+          if (!sub.attached) {
+            connection.socket.subscribe(nativeTopic(connection, topic));
+            sub.attached = true;
+          }
+        }
+      }
+    },
+    closeAll() {
+      for (const connection of connections) {
+        remove(connection);
+        connection.socket.close(4006, 'server_restarting');
+      }
+    },
     async subscribe(
       connection: Connection,
       request: {
         readonly id: string;
         readonly topic: string;
-        readonly since?: string;
+        readonly since?: string | undefined;
       },
     ) {
       if (connection.closed) return;
@@ -244,7 +297,7 @@ export function createSubscriptionRegistry({
       } catch {
         decision = null;
       }
-      if (!decision || !sub.lease.accept(attempt)) {
+      if (!decision || !sub.lease.accept(attempt, decision?.validUntil)) {
         if (connection.closed || connection.topics.get(request.topic) !== sub)
           return;
         connection.topics.delete(request.topic);
