@@ -2,6 +2,9 @@ import {
   ENVELOPE_VERSION,
   PROTOCOL_VERSION,
   heartbeatMs,
+  serverMessageSchema,
+  parseTopic,
+  type ServerMessage,
 } from '@daisy/protocol';
 import { nextReconnectDelayMs } from './backoff';
 import {
@@ -58,6 +61,12 @@ export type ConnectionStoreDeps = {
 };
 
 export type ConnectionStore = {
+  readonly subscribeTopic: (
+    topic: string,
+    listener: (frame: ServerMessage) => void,
+  ) => () => void;
+  readonly onMessage: (listener: (frame: ServerMessage) => void) => () => void;
+  readonly resubscribeTopic: (topic: string) => void;
   /** Single-flight: a no-op while already connecting or open. */
   readonly connect: () => void;
   /** User-initiated close (logout): closes the socket, never reconnects. */
@@ -108,6 +117,57 @@ export function createConnectionStore(
   let heartbeatTimer: unknown = null;
   let reconnectTimer: unknown = null;
   const listeners = new Set<(state: ConnectionState) => void>();
+  const messageListeners = new Set<(frame: ServerMessage) => void>();
+  const topics = new Map<
+    string,
+    {
+      listeners: Set<(frame: ServerMessage) => void>;
+      position?: string;
+      requestId?: string;
+    }
+  >();
+  let requestCounter = 0;
+  function requestTopic(type: 'subscribe' | 'unsubscribe', topic: string) {
+    if (status !== 'open' || !socket) return;
+    const id = `rt${(++requestCounter).toString(36).padStart(22, '0')}`;
+    const entry = topics.get(topic);
+    if (entry) entry.requestId = id;
+    socket.send(
+      JSON.stringify({
+        v: ENVELOPE_VERSION,
+        type,
+        id,
+        topic,
+        ...(type === 'subscribe' && entry?.position
+          ? { since: entry.position }
+          : {}),
+      }),
+    );
+  }
+  function emitMessage(frame: ServerMessage) {
+    const entry =
+      'topic' in frame
+        ? topics.get(frame.topic)
+        : frame.type === 'error'
+          ? [...topics.values()].find((value) => value.requestId === frame.id)
+          : undefined;
+    if ('topic' in frame && !entry) return;
+    if (
+      (frame.type === 'subscribed' || frame.type === 'resync_required') &&
+      entry?.requestId !== frame.id
+    )
+      return;
+    if (entry && (frame.type === 'event' || frame.type === 'subscribed'))
+      entry.position = frame.position;
+    if (entry && frame.type === 'resync_required') delete entry.position;
+    for (const listener of [...messageListeners, ...(entry?.listeners ?? [])]) {
+      try {
+        listener(frame);
+      } catch {
+        /* Consumer failures cannot stop transport. */
+      }
+    }
+  }
 
   deps.onVisibilityChange((visible) => {
     if (visible && status === 'open' && socket) sendVisibilityPing(generation);
@@ -258,26 +318,33 @@ export function createConnectionStore(
     } catch {
       return;
     }
-    if (typeof message !== 'object' || message === null) return;
-    const type = Reflect.get(message, 'type');
+    const parsed = serverMessageSchema.safeParse(message);
+    if (!parsed.success) return;
+    const frame = parsed.data;
+    const type = frame.type;
     if (type === 'ready') {
+      if (status !== 'connecting') return;
       status = 'open';
       terminal = null;
       consecutiveAuthFailures = 0;
       reconnectAttempt = 0;
       startHeartbeat(myGeneration);
+      for (const topic of topics.keys()) requestTopic('subscribe', topic);
       notify();
+      emitMessage(frame);
       return;
     }
+    if (status !== 'open') return;
     if (type === 'pong') {
       // Only a pong matching the earliest outstanding ping's own id clears
       // it (ADR 0031 §7): a late pong for an older, already-superseded ping
       // must never cancel a newer ping's still-live deadline.
-      if (Reflect.get(message, 'id') === outstandingPingId) {
+      if (frame.type === 'pong' && frame.id === outstandingPingId) {
         outstandingPingId = null;
         outstandingPingDeadline = null;
       }
     }
+    emitMessage(frame);
   }
   function handleClose(myGeneration: number, code: number) {
     if (myGeneration !== generation) return;
@@ -358,6 +425,7 @@ export function createConnectionStore(
     outstandingPingDeadline = null;
     const current = socket;
     socket = null;
+    topics.clear();
     notify();
     try {
       current?.close(1000, 'logout');
@@ -367,6 +435,36 @@ export function createConnectionStore(
   }
 
   return {
+    subscribeTopic: (topic, listener) => {
+      if (!parseTopic(topic)) throw new Error('Invalid realtime topic');
+      let entry = topics.get(topic);
+      if (!entry) {
+        entry = { listeners: new Set([listener]) };
+        topics.set(topic, entry);
+        requestTopic('subscribe', topic);
+      }
+      entry.listeners.add(listener);
+      const subscribedEntry = entry;
+      return () => {
+        subscribedEntry.listeners.delete(listener);
+        if (
+          topics.get(topic) === subscribedEntry &&
+          subscribedEntry.listeners.size === 0
+        ) {
+          requestTopic('unsubscribe', topic);
+          topics.delete(topic);
+        }
+      };
+    },
+    onMessage: (listener) => {
+      messageListeners.add(listener);
+      return () => {
+        messageListeners.delete(listener);
+      };
+    },
+    resubscribeTopic: (topic) => {
+      if (topics.has(topic)) requestTopic('subscribe', topic);
+    },
     connect,
     close,
     notifyTokenRefreshed: () => {
