@@ -58,3 +58,22 @@ test('dedicated MSG declarations match all actual producer columns', async () =>
     expected: ['delete', 'scrub'],
   });
 });
+
+test('canonical pending policies link their owning records', async () => {
+  const { messagingPrivacyFields } = await import('./messaging-declarations');
+  assert({
+    given: 'core and messaging declarations with unresolved legal policies',
+    should: 'link exact PRIV inventory and subject-rights policy owners',
+    actual: [
+      ...new Set(
+        [...corePrivacyFields, ...messagingPrivacyFields].map(
+          (field) =>
+            `${field.lawfulBasis.status}:${field.lawfulBasis.decision}/${field.retention.status}:${field.retention.decision}`,
+        ),
+      ),
+    ],
+    expected: [
+      'pending:jc0qcdvpkmqzrelpaesi3pah/pending:njiorsf64z4iqjm2dbfa3zuu',
+    ],
+  });
+});
