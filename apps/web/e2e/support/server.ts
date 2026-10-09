@@ -1,3 +1,4 @@
+import { messagingBrowserPolicy } from './messaging-policy';
 import { systemClock, systemId } from '@daisy/clock';
 import { createApp } from '../../src/server/app';
 import { adoptProcessApp } from '../../src/server/process-app';
@@ -41,6 +42,7 @@ const mailCapture = createMailCapture({
 adoptProcessApp(
   createApp({
     env: process.env,
+    messagingPolicy: messagingBrowserPolicy,
     // OpenRouter (AI debates) is answered locally; everything else goes
     // through the mail capture.
     fetch: async (input, init) =>
