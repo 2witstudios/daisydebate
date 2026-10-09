@@ -32,15 +32,12 @@ export async function lockAuthorizationActors(
   )
     throw createAppError('VALIDATION');
   const rows = await tx.execute(sql`
-    select u.id as "userId", a.id as "actorId", a.kind as "actorKind",
-      a.user_id as "actorUserId", u.username, u.email_verified as "emailVerified",
-      u.deleted_at as "deletedAt", u.version as revision
-    from users u join actors a on a.user_id = u.id
-    where a.id in (${sql.join(
-      actorIds.map((id) => sql`${id}`),
-      sql`, `,
-    )})
-    order by u.id for update of u
+    select * from public.daisy_authorization_accounts(
+      array[${sql.join(
+        actorIds.map((id) => sql`${id}`),
+        sql`, `,
+      )}]::text[], null::text, true
+    )
   `);
   const current = rows as unknown as AuthorizationAccountRow[];
   return actorIds.map((actorId) =>
@@ -56,13 +53,12 @@ export async function loadAuthorizationAccount(
 ) {
   if (!idSchema.safeParse(userId).success) throw createAppError('VALIDATION');
   const rows = await tx.execute(sql`
-    select u.id as "userId", a.id as "actorId", a.kind as "actorKind",
-      a.user_id as "actorUserId", u.username, u.email_verified as "emailVerified",
-      u.deleted_at as "deletedAt", u.version as revision
-    from users u left join actors a on a.user_id = u.id
-    where u.id = ${userId}
+    select * from public.daisy_authorization_accounts(null::text[], ${userId}::text, false)
   `);
-  return authorizationAccountFact(
+  const account = authorizationAccountFact(
     (rows as unknown as AuthorizationAccountRow[])[0] ?? null,
   );
+  return account?.userId === userId ? account : null;
 }
+
+export { loadAuthorizationSession } from './authorization-session';

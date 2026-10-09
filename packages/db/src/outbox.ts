@@ -8,7 +8,8 @@ import {
 } from '@daisy/protocol';
 import { outbox } from './schema/outbox';
 import { instrumented, type DatabaseEventSink } from './instrumented';
-import { deleteExpiredBatch, type RetentionBatch } from './retention';
+import type { RetentionBatch } from './retention';
+import { deleteExpiredOutboxPrefix } from './outbox-retention';
 
 /**
  * Full validation of the append input (RT-2.2 hazard note, plan revision
@@ -203,17 +204,14 @@ export const outboxOperations = ({
 }) => ({
   /**
    * Retention (plan: "Maintenance prunes the outbox after a retention
-   * window"): one bounded batch of rows created before the cutoff, in its
+   * window"): one bounded final commit-order prefix before the cutoff, in its
    * own short autocommitted statement so it never holds back the
-   * `pg_snapshot_xmin` that `drainOutbox` waits on (see `deleteExpiredBatch`).
+   * `pg_snapshot_xmin` that `drainOutbox` waits on. A fresh or locked oldest
+   * row stops the prefix; pruning never skips it to delete later history.
    */
   async purgeExpiredOutboxEvents(input: RetentionBatch): Promise<number> {
     return instrumented(eventSink, 'purgeExpiredOutboxEvents', () =>
-      deleteExpiredBatch(
-        database,
-        { table: outbox, key: outbox.seq, at: outbox.createdAt },
-        input,
-      ),
+      deleteExpiredOutboxPrefix(database, input),
     );
   },
   /**

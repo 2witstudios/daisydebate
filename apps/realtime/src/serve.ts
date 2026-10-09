@@ -1,6 +1,8 @@
 import { refuseSchemaAlteringRole } from '@daisy/db';
 import type { RealtimeApp } from './app';
 import { createRealtimeServer } from './server';
+import { createRealtimeDelivery } from './delivery';
+import type { RealtimeReadingPolicy } from './authorization';
 import {
   startOutboxDrain,
   type IntervalTimers,
@@ -27,11 +29,17 @@ export async function serveRealtime({
   onQuery,
   onListenWake,
   serve = Bun.serve,
+  now = () => performance.now(),
+  readingPolicy,
+  trustedProxies = [],
 }: {
   readonly resources: RealtimeApp;
   readonly port: number;
   readonly hostname?: string;
-  readonly sink: OutboxRowsSink;
+  readonly sink?: OutboxRowsSink;
+  readonly now?: () => number;
+  readonly readingPolicy?: RealtimeReadingPolicy;
+  readonly trustedProxies?: readonly string[];
   readonly pollIntervalMs?: number;
   readonly timers?: IntervalTimers;
   readonly onQuery?: () => void;
@@ -42,19 +50,34 @@ export async function serveRealtime({
 }): Promise<{
   readonly server: ReturnType<typeof Bun.serve>;
   readonly drain: OutboxDrainControl;
+  readonly delivery: ReturnType<typeof createRealtimeDelivery>;
+  readonly close: () => Promise<void>;
 }> {
   // Production refuses a DATABASE_URL role that could create or alter schema
   // objects before LISTEN or any socket is accepted (ISSUE-101).
   await refuseSchemaAlteringRole(resources, 'daisy_realtime');
+  let server: ReturnType<typeof Bun.serve> | undefined;
+  const delivery = createRealtimeDelivery({
+    resources,
+    now,
+    ...(readingPolicy ? { readingPolicy } : {}),
+    publish: (topic, frame) => {
+      server?.publish(topic, JSON.stringify(frame));
+    },
+  });
   const drain = await startOutboxDrain({
     database: resources.database,
-    sink,
+    sink: (rows) => {
+      delivery.registry.sink(rows);
+      sink?.(rows);
+    },
     logger: resources.logger,
     ...(pollIntervalMs === undefined ? {} : { pollIntervalMs }),
     ...(timers === undefined ? {} : { timers }),
     ...(onQuery === undefined ? {} : { onQuery }),
     ...(onListenWake === undefined ? {} : { onListenWake }),
   });
+  delivery.registry.seed(drain.cursor());
   const { fetch, websocket } = createRealtimeServer({
     resources: {
       ...resources,
@@ -63,7 +86,32 @@ export async function serveRealtime({
         highWaterMark: resources.database.readOutboxHighWaterMark,
       },
     },
+    allowedOrigins: resources.transport?.allowedOrigins ?? [],
+    trustedProxies,
+    admission: delivery.admission,
+    socketDependencies: {
+      registry: delivery.registry,
+      authenticate: delivery.authenticate,
+      validatePrincipal: delivery.validatePrincipal,
+      now,
+    },
   });
-  const server = serve({ hostname, port, fetch, websocket });
-  return { server, drain };
+  server = serve({ hostname, port, fetch, websocket });
+  // Scheduling is transport tuning inside ADR0031's accepted60s bound.
+  // Every send independently enforces elapsed check-start expiry.
+  const validationTimer = setInterval(() => {
+    void delivery.registry.revalidate(delivery.validatePrincipal);
+  }, 50_000);
+  return {
+    server,
+    drain,
+    delivery,
+    async close() {
+      clearInterval(validationTimer);
+      delivery.registry.closeAll();
+      await server?.stop();
+      await drain.stop();
+      await delivery.registry.settled();
+    },
+  };
 }

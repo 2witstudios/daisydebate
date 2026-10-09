@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { CLIENT_IP_HEADER } from './client-ip';
+import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
 import {
   create,
   observableAnswer,

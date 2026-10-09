@@ -1,4 +1,4 @@
-import { contactPairValid } from './authorization-contact';
+import { contactSafetyAllowed } from './authorization-contact';
 import { socialCreationAllowed } from './authorization-creation';
 import { policyEvidenceCurrent as currentPolicy } from './authorization-policy';
 import {
@@ -124,6 +124,19 @@ function validChannelAuthority(resource: ChannelAuthorizationFact) {
     : resource.policyKey === 'social.private_group' &&
         validGroupAuthority(authority);
 }
+function requestResultDecision(
+  actorId: string,
+  resource: ChannelAuthorizationFact,
+  context: AuthorizationInput['context'],
+): AuthorizationDecision {
+  const authority = resource.authority;
+  return authority.kind === 'dm' &&
+    authority.state !== 'pending' &&
+    [authority.lowActorId, authority.highActorId].includes(actorId) &&
+    currentPolicy(resource, context.socialReading, context)
+    ? allow
+    : deny('missing-capability');
+}
 function requestDecision(
   actorId: string,
   capability: AuthorizationCapability,
@@ -192,6 +205,8 @@ function channelDecision(
   context: AuthorizationInput['context'],
 ): AuthorizationDecision {
   if (!validChannelAuthority(resource)) return deny('denied');
+  if (capability === 'channel.request.result')
+    return requestResultDecision(actorId, resource, context);
   if (capability.startsWith('channel.request.'))
     return requestDecision(actorId, capability, resource, context);
   if (
@@ -247,8 +262,7 @@ function memberDecision(
   context: AuthorizationInput['context'],
 ): AuthorizationDecision {
   if (resource.kind === 'contact_pair')
-    return contactPairValid(resource) &&
-      [resource.lowActorId, resource.highActorId].includes(actorId)
+    return contactSafetyAllowed(actorId, resource, context)
       ? allow
       : deny('missing-capability');
   if (resource.kind === 'social_creation')

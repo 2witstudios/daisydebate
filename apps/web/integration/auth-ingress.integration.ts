@@ -1,12 +1,10 @@
+import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
 import { createServer, type IncomingMessage } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createTestApp, origin } from './fixtures';
 import { requestFrom } from './socket-request';
-import {
-  CLIENT_IP_HEADER,
-  stampClientIdentity,
-} from '../src/features/auth/abuse/client-ip';
+import { stampClientIdentity } from '../src/features/auth/abuse/client-ip';
 import { requireTestServices } from '@daisy/config';
 
 requireTestServices(process.env);
