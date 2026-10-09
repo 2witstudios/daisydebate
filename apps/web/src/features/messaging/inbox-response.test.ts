@@ -16,7 +16,7 @@ test('inbox transport requires explicit bounds and refuses private or unbounded 
     given: 'a bounded own request navigation response',
     should: 'preserve its validated minimal projection',
     actual: await read(result),
-    expected: result,
+    expected: { ...result, socketUrl: null },
   });
   for (const body of [
     { ...result, entries: [...result.entries, ...result.entries] },

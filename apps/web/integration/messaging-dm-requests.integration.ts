@@ -148,6 +148,17 @@ test('real DM recipient accept opens history/post and binds closed retry through
         { receipts: 1, messages: 1 },
       ],
     });
+    const bells = await client.unsafe(
+      "select payload from outbox where kind='messaging.inbox.changed' and payload->>'actorId' in ($1,$2) order by txid,seq",
+      [sender.actorId, recipient.actorId],
+    );
+    assert({
+      given: 'committed accept and block authority changes',
+      should:
+        'invalidate both own inboxes without channel IDs or request content',
+      actual: bells.map((row) => Object.keys(row.payload).sort()),
+      expected: Array.from({ length: 4 }, () => ['actorId', 'kind']),
+    });
     await fixture.eraseSubject(sender.actorId);
     await assertRejects({
       given: 'counterpart erasure removed pair and receipt association',

@@ -28,7 +28,12 @@ export function composeMessagingInboxRoute(app: App) {
       {
         name: 'messaging.inbox',
         readOnly: true,
-        headers: { 'x-messaging-page-items': String(policy.bounds.pageItems) },
+        headers: {
+          'x-messaging-page-items': String(policy.bounds.pageItems),
+          ...(app.websocketEndpoint
+            ? { 'x-realtime-socket-url': app.websocketEndpoint }
+            : {}),
+        },
         readInput: async () => {
           const params = new URL(request.url).searchParams;
           if (

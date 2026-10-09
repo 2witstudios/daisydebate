@@ -55,3 +55,32 @@ so posting restrictions do not prevent removal under explicit retained-history
 permission. Removal scrubs text and all message-linked receipt fingerprints in
 the same transaction, emits a content-free doorbell and returns only an
 unavailable cursor. Retries never resurrect removed content.
+
+DM requests enter dedicated recipient preview/decision and sender status/cancel
+operations. Closed retries project an actor/request/channel/digest/original-operation
+bound receipt through current `channel.request.result`; they never replay a write
+or use ordinary history as a mutation grant. Native recipient and sender forms
+use these same authenticated HTTP operations and retain their idempotency ID on
+refusal.
+
+The inbox first authorizes the caller's own messaging collection and discovers
+association IDs only. Each entry then obtains a fresh channel read, recipient
+request read, or sender status grant while canonical account/pair/channel fences
+are held. A removed entitlement omits its entry; an infrastructure refusal does
+not become empty history. Pagination and transport limits are explicit injected
+policy inputs.
+
+DM creation and authority changes append an owner-only `messaging.inbox.changed`
+bell in their transaction. Its payload is only `kind` and matching `actorId`; it
+contains no channel IDs, request content or fabricated entity revision. The
+browser clears its stale snapshot and refetches the protected inbox. Generic
+outbox position orders delivery; an uncertifiable reconnect requires HTTP
+resynchronization. The actor association is conservatively personal/private,
+used to address the owner's invalidation. Lawful basis and retention remain
+pending the canonical PRIV-3/PRIV-4 owner decisions; these branch contracts do not
+activate collection or a retention exception.
+
+The native routes, inbox and realtime reader are delivered source. Current
+browser, JavaScript-disabled, current-role and final composed service evidence
+must be recorded separately; these additions do not establish whole messaging
+acceptance. Private-group and contextual producer obligations remain open.
