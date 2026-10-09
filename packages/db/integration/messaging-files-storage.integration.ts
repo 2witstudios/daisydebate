@@ -16,11 +16,13 @@ import {
 } from '../src/privacy';
 import {
   acknowledgeFileDeletion,
+  expireChannelFiles,
   acknowledgeErasedFileDeletion,
   chargedFileBytes,
 } from '../src/messaging-files';
 import {
   withFileProofFrame,
+  withFileProofTransaction,
   fileDatabaseProofPolicy as policy,
 } from './messaging-files.test-support';
 setupRitewayBun();
@@ -74,9 +76,24 @@ test('real private storage deletion acknowledgement alone releases durable quota
   };
   try {
     const first = await reserve();
-    await withFileProofFrame(database, fixture, (frame) =>
-      frame.cancel(first.token),
+    await withFileProofTransaction(database, fixture, (tx) =>
+      expireChannelFiles(
+        tx,
+        fixture.channelId,
+        new Date(
+          Date.parse(fixture.now) + policy.reservationMs + 1,
+        ).toISOString(),
+      ),
     );
+    await assertRejects({
+      given: 'abandoned upload expired under its complete maintenance fence',
+      should: 'refuse the stale completion before acknowledgement',
+      actual: () =>
+        withFileProofFrame(database, fixture, (frame) =>
+          frame.quarantine(first.token, 20, fixture.now),
+        ),
+      code: 'NOT_FOUND',
+    });
     await assertRejects({
       given:
         'private object still exists and vendor acknowledgement is unavailable',
@@ -93,7 +110,7 @@ test('real private storage deletion acknowledgement alone releases durable quota
       code: 'INFRASTRUCTURE',
     });
     assert({
-      given: 'unacknowledged cancellation',
+      given: 'unacknowledged abandoned upload cleanup',
       should: 'retain real bytes and their charge',
       actual: {
         exists: await Bun.file(join(directory, first.row.objectKey)).exists(),
