@@ -81,33 +81,30 @@ classify every one of its fields the same way a database column would
 before it can ride a topic: a `personal`/`public` value is allowed once
 classified; a `personal`/`private`, `sensitive` or `secret` value never is.
 
-### Provisional messaging inbox invalidation declaration
+### Messaging inbox invalidation declaration
 
-The branch contract `messaging.inbox.changed` contains exactly `kind` and
-`actorId`. It invalidates only the actor's protected collection; it contains
-no channel, request, message, content, or entity version. The topic actor
-must match `actorId`. This declaration records the proposed processing; it
-confers no delivery, storage, collection, or retention approval.
+The strict `messaging.inbox.changed` payload contains exactly `kind`, whose
+literal value selects a content-free invalidation. It contains no actor,
+channel, request, message, content, or entity version. Delivery uses the
+existing authorized `user:<actorId>:inbox` routing topic. The subscriber
+matches its subscribed topic and refetches authenticated HTTP; the doorbell
+grants no collection or channel authority.
 
-| Field     | Category / visibility                | Storage / owner                   | Purpose                                                | Lawful basis                              | Retention                                 | Erasure / export                                                                                                       |
-| --------- | ------------------------------------ | --------------------------------- | ------------------------------------------------------ | ----------------------------------------- | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `kind`    | none                                 | postgres (`outbox.payload`) / MSG | Select own protected collection invalidation           | Pending PRIV-3 `jc0qcdvpkmqzrelpaesi3pah` | Pending PRIV-4 `njiorsf64z4iqjm2dbfa3zuu` | No personal value in this field; no independent export                                                                 |
-| `actorId` | personal/private (actor association) | postgres (`outbox.payload`) / MSG | Invalidate only the subject's own protected collection | Pending PRIV-3 `jc0qcdvpkmqzrelpaesi3pah` | Pending PRIV-4 `njiorsf64z4iqjm2dbfa3zuu` | Delete subject association; producer erasure adoption and own-only export disposition must be proved before acceptance |
+| Field  | Category | Storage / owner                   | Purpose                                      | Lawful basis                              | Retention                                 | Erasure / export                                       |
+| ------ | -------- | --------------------------------- | -------------------------------------------- | ----------------------------------------- | ----------------------------------------- | ------------------------------------------------------ |
+| `kind` | none     | postgres (`outbox.payload`) / MSG | Select own protected collection invalidation | Pending PRIV-3 `jc0qcdvpkmqzrelpaesi3pah` | Pending PRIV-4 `njiorsf64z4iqjm2dbfa3zuu` | No personal value in this field; no independent export |
 
-The delivered bounded privacy adoption gate currently validates exact
-`table.column` declarations. It has no payload-variant registry; these fields
-must not be inserted as fabricated schema columns or treated as a complete
-repository inventory. This canonical declaration and the matching PR entry
-remain the temporary mechanism described above.
+Canonical source is MSG `cc1d922fbea87bda18bc197e050e3e7cc63231bc`.
+The bounded privacy adoption gate validates exact `table.column` declarations;
+it has no payload-variant registry. This declaration and the matching PR entry
+are the temporary mechanism described above, without fabricated schema
+columns or a claim to cover the whole repository inventory.
 
-ADR 0036 §1/§3 currently prohibits private personal values in both stored and
-delivered outbox payloads. An owner-only topic does not waive that rule. This
-proposed private actor association therefore holds activation and dependent
-acceptance until the owning PRIV-3 resolution reconciles the classification
-and permitted surface. PRIV-4 remains the retention owner; no numeric default,
-legal basis, retention exception, or storage-only exemption is inferred.
-Independent pure implementation and isolated fixture proof may continue under
-these recorded assumptions.
+The payload introduces no private personal field or ADR 0036 exception.
+Existing routing and durable subject associations remain subject to their
+canonical authorization, privacy declaration, erasure and own-export rules.
+This declaration approves no processing activity, legal basis, numeric
+retention or retention exception; the original PRIV-3/PRIV-4 holds remain.
 
 ## Retention
 
