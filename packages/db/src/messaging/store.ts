@@ -12,6 +12,7 @@ import {
 import { messagingContactPairs } from '../schema/messaging-social';
 import { readMessagingChannelFact, type MessagingChannelFact } from './social';
 import type {
+  MessagingAuthorizationFence,
   MessagingChannelStore,
   MessagingMessageRecord,
   MessagingSendCommand,
@@ -46,8 +47,10 @@ const recordOf = (
 /** Scope-specific transaction frame; never exposes a raw database to delivery. */
 export function createMessagingStore({
   database,
+  authorize,
 }: {
   readonly database: BunSQLDatabase;
+  readonly authorize: MessagingAuthorizationFence;
 }): MessagingChannelStore {
   return {
     withChannel: async (input, work) => {
@@ -93,6 +96,7 @@ export function createMessagingStore({
           messageSequence: channel.messageSequence,
           changeVersion: channel.changeVersion,
         };
+        let authorized = false;
         let command: MessagingSendCommand | null = null;
         const readMessage = async (
           messageId: string | null,
@@ -110,10 +114,16 @@ export function createMessagingStore({
           return row ? recordOf(row) : null;
         };
         return work({
+          async authorize() {
+            authorized = false;
+            await authorize(tx, input, { fact, accounts });
+            authorized = true;
+          },
           fact,
           accounts,
           counters,
           async readSendState(send) {
+            if (!authorized) throw createAppError('AUTHORIZATION');
             if (
               send.channelId !== channel.id ||
               !idSchema.safeParse(send.requestId).success
@@ -143,6 +153,7 @@ export function createMessagingStore({
             };
           },
           async commitSend(plan) {
+            if (!authorized) throw createAppError('AUTHORIZATION');
             if (!command) throw createAppError('CONFLICT');
             if (
               ![

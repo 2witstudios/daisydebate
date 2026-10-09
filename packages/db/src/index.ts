@@ -17,6 +17,10 @@ import { ballotOperations } from './ballot-operations';
 import { agentOperations } from './agent-operations';
 import { documentOperations } from './document-operations';
 import { onboardingOperations } from './onboarding-operations';
+import {
+  createMessagingStore,
+  type MessagingAuthorizationFence,
+} from './messaging';
 import { actorOperations } from './actor-operations';
 import { rateCompletedRound } from './rating-operations';
 import { standingsOperations } from './standings';
@@ -155,6 +159,8 @@ export function createDatabase({
     ...authOperations({ database, eventSink }),
     ...emailDeliveryOperations({ database, eventSink }),
     ...actorOperations({ database, eventSink }),
+    messagingChannelStore: (authorize: MessagingAuthorizationFence) =>
+      createMessagingStore({ database, authorize }),
     ...outboxOperations({ database, eventSink }),
     ...formatOperations({ database, eventSink }),
     ...roomOperations({ database, eventSink }),

@@ -1,3 +1,4 @@
+import type { AuthorizationTransaction } from '../authorization';
 import type { MessagingChannelFact } from './social';
 import type { authorizationAccountFact } from '../authorization-account';
 
@@ -47,7 +48,17 @@ export type MessagingCreateSendPlan = {
     readonly changeVersion: number;
   };
 };
+export type MessagingAuthorizationFence = (
+  tx: AuthorizationTransaction,
+  input: {
+    readonly channelId: string;
+    readonly userId: string;
+    readonly actorId: string;
+  },
+  authority: Pick<MessagingLockedFrame, 'fact' | 'accounts'>,
+) => Promise<void>;
 export type MessagingLockedFrame = {
+  readonly authorize: () => Promise<void>;
   readonly fact: MessagingChannelFact;
   readonly accounts: readonly ReturnType<typeof authorizationAccountFact>[];
   readonly counters: MessagingCounters;

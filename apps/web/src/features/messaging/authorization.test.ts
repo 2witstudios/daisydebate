@@ -8,6 +8,23 @@ const actorId = 'a'.repeat(24);
 const otherId = 'b'.repeat(24);
 const channelId = 'c'.repeat(24);
 const userId = 'u'.repeat(24);
+const now = '2026-10-09T18:00:00.000Z';
+const socialAccounts = [
+  {
+    account: { userId, actorId, member: true, erased: false, revision: 1 },
+    age: { state: 'unknown' as const },
+  },
+  {
+    account: {
+      userId: 'v'.repeat(24),
+      actorId: otherId,
+      member: true,
+      erased: false,
+      revision: 1,
+    },
+    age: { state: 'unknown' as const },
+  },
+];
 const policy = {
   channelId,
   policyKey: 'social.dm',
@@ -15,6 +32,14 @@ const policy = {
   authorityRevision: 1,
   relationshipRevision: 1,
   allowed: true,
+  evaluatedAt: now,
+  validUntil: '2026-11-01T00:00:00.000Z',
+  accounts: socialAccounts.map(({ account }) => ({
+    actorId: account.actorId,
+    userId: account.userId,
+    accountRevision: account.revision,
+    ageRevision: null,
+  })),
 };
 const input: AuthorizationInput = {
   principal: { kind: 'user', userId, actorId },
@@ -37,6 +62,8 @@ const input: AuthorizationInput = {
     },
   },
   context: {
+    now,
+    socialAccounts,
     account: { userId, actorId, member: true, erased: false, revision: 1 },
     socialReading: policy,
     socialPosting: policy,

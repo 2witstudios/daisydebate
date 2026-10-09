@@ -1,5 +1,7 @@
 import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
+import { createAppError } from '@daisy/errors';
+import { assertRejects } from '@daisy/errors/testing';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -38,19 +40,39 @@ test('fresh messaging transactions bind the canonical actor and acquire current 
       "insert into messaging_dm_pairs(low_actor_id,high_actor_id,channel_id,request_sender_actor_id,request_state,requested_at,decided_at) values ($1,$2,$3,$4,'accepted',now(),now())",
       [low, high, channelId, actorId],
     );
-    const result = await createMessagingStore({ database }).withChannel(
-      { channelId, actorId, userId },
-      async (frame) => ({
-        fact: frame.fact,
-        member: frame.accounts.some(
-          (account) =>
-            account?.actorId === actorId &&
-            account.userId === userId &&
-            account.member,
-        ),
-        counters: frame.counters,
-      }),
-    );
+    await assertRejects({
+      given: 'a fresh locked channel whose canonical authorizer refuses',
+      should: 'refuse protected receipt reads inside the same transaction',
+      actual: () =>
+        createMessagingStore({
+          database,
+          authorize: async () => {
+            throw createAppError('AUTHORIZATION');
+          },
+        }).withChannel({ channelId, actorId, userId }, async (frame) => {
+          await frame.authorize();
+          return frame.readSendState({
+            version: 1,
+            channelId,
+            requestId: createId(),
+            text: 'Forbidden',
+          });
+        }),
+      code: 'AUTHORIZATION',
+    });
+    const result = await createMessagingStore({
+      database,
+      authorize: async () => {},
+    }).withChannel({ channelId, actorId, userId }, async (frame) => ({
+      fact: frame.fact,
+      member: frame.accounts.some(
+        (account) =>
+          account?.actorId === actorId &&
+          account.userId === userId &&
+          account.member,
+      ),
+      counters: frame.counters,
+    }));
     assert({
       given: 'a durable accepted DM and live bound account',
       should:
