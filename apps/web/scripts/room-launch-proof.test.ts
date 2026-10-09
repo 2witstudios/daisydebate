@@ -8,6 +8,12 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireLaunchSlot } from '../e2e/support/room-launch-slot';
 setupRitewayBun();
 
+const shutdownObservers = (calls: string[]) => ({
+  stopCapture: () => calls.push('capture'),
+  stopEdge: () => calls.push('edge'),
+  refused: () => calls.push('refused'),
+});
+
 test('Launch shutdown awaits auth settlement and closes each owned listener once', async () => {
   const calls: string[] = [];
   let release!: () => void;
@@ -16,17 +22,9 @@ test('Launch shutdown awaits auth settlement and closes each owned listener once
   });
   const shutdown = createLaunchShutdown({
     settled: () => outstanding,
+    ...shutdownObservers(calls),
     closeControl: () => {
       calls.push('control');
-    },
-    stopCapture: () => {
-      calls.push('capture');
-    },
-    stopEdge: () => {
-      calls.push('edge');
-    },
-    refused: () => {
-      calls.push('refused');
     },
   });
   const first = shutdown();
@@ -51,18 +49,10 @@ test('Launch shutdown continues cleanup after rejected settlement or control clo
   const calls: string[] = [];
   await createLaunchShutdown({
     settled: () => Promise.reject(new Error('private settlement failure')),
+    ...shutdownObservers(calls),
     closeControl: () => {
       calls.push('control');
       throw new Error('private close failure');
-    },
-    stopCapture: () => {
-      calls.push('capture');
-    },
-    stopEdge: () => {
-      calls.push('edge');
-    },
-    refused: () => {
-      calls.push('refused');
     },
   })();
   assert({

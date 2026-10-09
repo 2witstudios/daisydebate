@@ -15,57 +15,13 @@ import {
   errorSchema,
 } from './primitives';
 import { parseOutcome } from './parse-outcome.test-support';
+import { practiceFormatFixture } from './format-fixtures.test-support';
 
 setupRitewayBun();
 
 const id = 'k2v9x0f4m8q3w1z7c5n6b4d2';
 
-/** The one-on-one practice format, as the definition schema expects it. */
-const oneOnOne = {
-  version: 1,
-  seats: { affirmative: 1, negative: 1, judge: 1 },
-  segments: [
-    {
-      key: 'AC',
-      label: 'Affirmative constructive',
-      type: 'speech',
-      side: 'affirmative',
-      slot: 0,
-      defaultDurationMs: 300_000,
-    },
-    {
-      key: 'CX',
-      label: 'Cross-examination of the affirmative',
-      type: 'cross_ex',
-      side: 'negative',
-      slot: 0,
-      defaultDurationMs: 120_000,
-    },
-  ],
-  configurable: {
-    timing: {
-      segmentDurationMs: {
-        AC: { min: 60_000, max: 600_000 },
-        CX: { min: 30_000, max: 300_000 },
-      },
-      countdownMs: { min: 0, max: 60_000 },
-    },
-    inRoundPrep: {
-      budgetMsPerSide: { min: 0, max: 600_000 },
-      spendableBefore: ['speech'],
-      expiresAtSegment: null,
-    },
-    preRoundPrep: { durationMs: { min: 0, max: 3_600_000 } },
-    interaction: {
-      crossExModes: ['ordered', 'free'],
-      interruptions: {
-        modes: ['disabled', 'cross_ex_only', 'enabled'],
-        minRemainingMs: { min: 0, max: 300_000 },
-      },
-      yield: { enabledChoices: [true], returnsTimeChoices: [true, false] },
-    },
-  },
-} as const;
+const oneOnOne = practiceFormatFixture;
 
 describe('identifier shape', () => {
   test('accepts exactly cuid2 and rejects every other identifier form', () => {
@@ -218,7 +174,7 @@ describe('format definition', () => {
           ...oneOnOne.configurable.timing,
           segmentDurationMs: {
             ...oneOnOne.configurable.timing.segmentDurationMs,
-            NR: { min: 60_000, max: 300_000 },
+            ZZ: { min: 60_000, max: 300_000 },
           },
         },
       },
