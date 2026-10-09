@@ -61,6 +61,44 @@ function fixture(
   };
 }
 describe('subscription registry', () => {
+  test('a write racing history I/O replays the snapshot then certified ring without duplication', async () => {
+    let resolve!: (value: {
+      rows: readonly OutboxRow[];
+      resync: boolean;
+    }) => void;
+    let started!: () => void;
+    const began = new Promise<void>((done) => {
+      started = done;
+    });
+    const { registry, connection, sent } = fixture({
+      readCatchup: () =>
+        new Promise((done) => {
+          resolve = done;
+          started();
+        }),
+    });
+    registry.seed({ txid: '1', seq: 1n });
+    const pending = registry.subscribe(connection, {
+      id: 'request',
+      topic,
+      since: '0:0',
+    });
+    await began;
+    registry.sink([row(2)]);
+    resolve({ rows: [row(1)], resync: false });
+    await pending;
+    await registry.settled();
+    assert({
+      given:
+        'a retained history snapshot followed by a same-topic write during its await',
+      should:
+        'freshly authorize and replay snapshot+bounded ring once before acknowledgement',
+      actual: sent.map((frame) =>
+        frame.type === 'event' ? frame.position : frame.type,
+      ),
+      expected: ['1:1', '1:2', 'subscribed'],
+    });
+  });
   test('a purge that advances past a stalled drain cursor refuses replay', async () => {
     const { registry, connection, sent } = fixture({
       readCatchup: async () => ({
@@ -84,39 +122,41 @@ describe('subscription registry', () => {
       expected: ['resync_required'],
     });
   });
-  test('expiry or drain advancement during the final boundary read cannot attach', async () => {
-    let resolve!: (value: { txid: string; seq: bigint }) => void;
-    let started!: () => void;
-    const began = new Promise<void>((done) => {
-      started = done;
+  for (const race of ['expiry', 'drain'] as const)
+    test(`${race} during the final boundary read cannot attach`, async () => {
+      let resolve!: (value: { txid: string; seq: bigint }) => void;
+      let started!: () => void;
+      const began = new Promise<void>((done) => {
+        started = done;
+      });
+      const { registry, connection, sent, attached, setNow } = fixture({
+        readRetentionBoundary: () =>
+          new Promise((done) => {
+            resolve = done;
+            started();
+          }),
+      });
+      registry.seed({ txid: '1', seq: 1n });
+      const pending = registry.subscribe(connection, {
+        id: 'request',
+        topic,
+        since: '1:1',
+      });
+      await began;
+      if (race === 'expiry') setNow(60_000);
+      else registry.sink([row(2)]);
+      resolve({ txid: '0', seq: 0n });
+      await pending;
+      assert({
+        given: `${race} advances during the final durable metadata await`,
+        should: 'send no event/subscribed or native attachment',
+        actual: {
+          types: sent.map((frame) => frame.type),
+          attached: [...attached],
+        },
+        expected: { types: ['resync_required'], attached: [] },
+      });
     });
-    const { registry, connection, sent, attached, setNow } = fixture({
-      readRetentionBoundary: () =>
-        new Promise((done) => {
-          resolve = done;
-          started();
-        }),
-    });
-    registry.seed({ txid: '1', seq: 1n });
-    const pending = registry.subscribe(connection, {
-      id: 'request',
-      topic,
-      since: '1:1',
-    });
-    await began;
-    setNow(60_000);
-    resolve({ txid: '0', seq: 0n });
-    await pending;
-    assert({
-      given: 'permission expires during the final durable metadata await',
-      should: 'send no event/subscribed or native attachment',
-      actual: {
-        types: sent.map((frame) => frame.type),
-        attached: [...attached],
-      },
-      expected: { types: ['resync_required'], attached: [] },
-    });
-  });
   for (const bell of [false, true])
     test(`last replay await fences ${bell ? 'pending authority invalidation' : 'ring eviction'}`, async () => {
       let resolve!: (value: { revision: string; validUntil: number }) => void;
