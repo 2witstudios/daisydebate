@@ -1,15 +1,10 @@
 import type { Identity } from '@daisy/auth';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { MessagingCoreBounds } from '@daisy/protocol';
-import { createAppError } from '@daisy/errors';
 import type { Logger } from '@daisy/logger';
-import {
-  handleOperation,
-  readJson,
-  requireSameOrigin,
-  requireSameOriginRead,
-  requireSignedIn,
-} from '../../server/http';
+import { createAppError } from '@daisy/errors';
+import { readJson } from '../../server/http';
+import { runMessagingHandler } from './handler-boundary';
 
 type Operation = (
   input: unknown,
@@ -39,32 +34,19 @@ export function createMessagingHandlers(dependencies: Dependencies) {
     >,
     input: () => Promise<unknown>,
   ) =>
-    handleOperation(
-      dependencies.logger,
-      request,
-      `messaging.${operation}`,
-      async () => {
-        if (operation === 'history' || operation === 'changes')
-          requireSameOriginRead(request, dependencies.origin());
-        else requireSameOrigin(request, dependencies.origin());
-        const identity = requireSignedIn(await dependencies.identify(request));
-        if (identity.state !== 'member') throw createAppError('AUTHORIZATION');
-        return Response.json(
-          await dependencies[operation](await input(), identity.principal),
-          {
-            headers: {
-              'x-messaging-message-units': String(
-                dependencies.bounds.messageUnits,
-              ),
-              'x-messaging-page-items': String(dependencies.bounds.pageItems),
-              ...(dependencies.websocketEndpoint
-                ? { 'x-realtime-socket-url': dependencies.websocketEndpoint }
-                : {}),
-            },
-          },
-        );
+    runMessagingHandler(dependencies, request, {
+      name: `messaging.${operation}`,
+      readOnly: operation === 'history' || operation === 'changes',
+      readInput: input,
+      operation: dependencies[operation],
+      headers: {
+        'x-messaging-message-units': String(dependencies.bounds.messageUnits),
+        'x-messaging-page-items': String(dependencies.bounds.pageItems),
+        ...(dependencies.websocketEndpoint
+          ? { 'x-realtime-socket-url': dependencies.websocketEndpoint }
+          : {}),
       },
-    );
+    });
   const query = (
     request: Request,
     channelId: string,

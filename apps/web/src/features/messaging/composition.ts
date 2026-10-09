@@ -1,3 +1,7 @@
+import {
+  composeMessagingSocialRoutes,
+  type MessagingSocialRuntimePolicy,
+} from './social-composition';
 import type { SocialContactPolicy } from '@daisy/auth/social-policy';
 import { createAppError } from '@daisy/errors';
 import type { MessagingCoreBounds } from '@daisy/protocol';
@@ -17,6 +21,7 @@ import { messagingMessageView } from './message-view';
 
 /** Explicit approved edge inputs; tests never supply production policy authority. */
 export type MessagingRuntimePolicy = {
+  readonly social?: MessagingSocialRuntimePolicy;
   readonly bounds: MessagingCoreBounds;
   readonly maxBodyBytes: number;
   readonly editWindowMs: number;
@@ -144,6 +149,7 @@ export function composeMessagingRoutes(app: App) {
     return handlers[operation](request);
   };
   return {
+    ...composeMessagingSocialRoutes(app),
     send: (request: Request) => run(request, 'send'),
     edit: (request: Request) => run(request, 'edit'),
     remove: (request: Request) => run(request, 'remove'),
