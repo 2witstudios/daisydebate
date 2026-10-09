@@ -53,15 +53,15 @@ test('messaging HTTP refuses cross-origin requests before principal or protected
 });
 
 test('authorized history exposes configured transport bounds without inventing a browser page limit', async () => {
-  const operations = Object.fromEntries(
-    ['send', 'edit', 'remove', 'history', 'changes', 'markRead'].map((kind) => [
-      kind,
-      async (input: unknown) => input,
-    ]),
-  ) as Pick<
-    Parameters<typeof createMessagingHandlers>[0],
-    'send' | 'edit' | 'remove' | 'history' | 'changes' | 'markRead'
-  >;
+  const echo = async (input: unknown) => input;
+  const operations = {
+    send: echo,
+    edit: echo,
+    remove: echo,
+    history: echo,
+    changes: echo,
+    markRead: echo,
+  };
   const handlers = createMessagingHandlers({
     ...operations,
     logger: silentLogger,

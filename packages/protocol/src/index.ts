@@ -82,6 +82,7 @@ export type {
   RatingUnrated,
 } from './ratings';
 export {
+  parseTopic,
   buildUserInboxTopic,
   buildDebateTopic,
   buildChannelTopic,
