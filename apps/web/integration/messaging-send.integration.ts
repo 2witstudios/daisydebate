@@ -1,10 +1,8 @@
-import { SQL } from 'bun';
+import { openMessagingFixture } from './messaging-fixture.test-support';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { createAppError } from '@daisy/errors';
-import { createDatabase } from '@daisy/db';
-import { createMessagingTestFixture } from '@daisy/db/testing';
 import { requireTestServices } from '@daisy/config';
 import { socialPolicyEvidence } from '@daisy/auth/social-policy';
 import { messagingAuthorizationFence } from '../src/features/messaging/authorization-fence';
@@ -14,14 +12,8 @@ setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 
 test('composed messaging sends dedupe races and refuse protected replay after blocking', async () => {
-  const client = new SQL(databaseUrl);
-  const fixture = await createMessagingTestFixture(client);
-  const database = createDatabase({ url: databaseUrl, nextActorId: createId });
-  const principal = {
-    kind: 'user' as const,
-    userId: fixture.userId,
-    actorId: fixture.actorId,
-  };
+  const { client, fixture, database, principal } =
+    await openMessagingFixture(databaseUrl);
   const clock = { now: () => fixture.now };
   const store = database.messagingChannelStore(
     messagingAuthorizationFence({

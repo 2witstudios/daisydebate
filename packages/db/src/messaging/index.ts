@@ -13,3 +13,8 @@ export type {
 } from './records';
 
 export { createMessagingPrivacyAdopter } from './privacy';
+export { createMessagingSocialStore } from './social-store';
+export type {
+  MessagingSocialAuthorizationFence,
+  MessagingSocialStore,
+} from './social-contracts';
