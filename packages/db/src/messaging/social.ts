@@ -118,7 +118,7 @@ export async function readMessagingChannelFact(
     left join ${messagingDmPairs} d on d.channel_id = c.id
     left join ${messagingContactPairs} p on p.low_actor_id = d.low_actor_id and p.high_actor_id = d.high_actor_id
     left join ${messagingGroupGrants} g on g.channel_id = c.id and g.actor_id = ${actorId}
-    where c.id = ${channelId}
+    where c.id = ${channelId} and (c.kind <> 'dm' or d.channel_id is not null)
   `)) as unknown as Array<{ fact: unknown }>;
   return rows.length === 0 ? null : parseMessagingChannelFact(rows[0]!.fact);
 }

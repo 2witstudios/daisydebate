@@ -62,7 +62,9 @@ export function createMessagingStore({
         );
         if (!discovered) throw createAppError('NOT_FOUND');
         const actors = actorIdsOf(discovered, input.actorId);
-        const accounts = await lockAuthorizationActors(tx, actors);
+        const accounts = await lockAuthorizationActors(tx, actors, {
+          maxActors: 65535,
+        });
         if (discovered.authority.kind === 'dm')
           await tx.execute(sql`
           select low_actor_id from ${messagingContactPairs}
