@@ -158,7 +158,7 @@ export function formatAffectedReport(
   return [
     `Daisy check:affected — ${changedFiles.length} changed file${changedFiles.length === 1 ? '' : 's'}`,
     ...results.map(({ name, ok }) => `${ok ? 'PASS' : 'FAIL'} ${name}`),
-    'bun check remains the pre-push gate; this loop skips knip, metrics, and build.',
+    'bun check is the main acceptance gate; this inner loop skips knip, metrics, and build.',
     '',
   ].join('\n');
 }

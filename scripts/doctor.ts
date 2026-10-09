@@ -1,3 +1,4 @@
+import { puLauncherProblem, readPuLauncher } from './doctor-launcher';
 import { SQL, RedisClient } from 'bun';
 import { readServerConfig } from '@daisy/config';
 import { createHash } from 'node:crypto';
@@ -335,17 +336,15 @@ async function checkIdentityRegime(): Promise<DoctorCheck> {
   };
 }
 
-/**
- * pu init writes its default config whenever .pu/manifest.json is missing (a
- * fresh clone), which would start agents without the identity launcher.
- */
-export function puConfigCheck(porcelain: string): DoctorCheck {
-  return porcelain.trim() === ''
-    ? pass('pu-config', 'agents start through scripts/agent-launch.sh')
-    : fail(
-        'pu-config',
-        '.pu/config.yaml differs from the committed launcher configuration (pu init rewrites it on a fresh clone): run git checkout -- .pu/config.yaml in the main checkout',
-      );
+/** Validate the actual PU launcher configuration, independent of git status. */
+export function puConfigCheck(
+  config: unknown,
+  launcherUsable: boolean,
+): DoctorCheck {
+  const problem = puLauncherProblem(config, launcherUsable);
+  return problem
+    ? fail('pu-config', problem)
+    : pass('pu-config', 'agents start through scripts/agent-launch.sh');
 }
 
 async function checkPuConfig(): Promise<DoctorCheck> {
@@ -355,17 +354,10 @@ async function checkPuConfig(): Promise<DoctorCheck> {
     '--path-format=absolute',
     '--git-common-dir',
   ]);
-  const main = commonDir ? dirname(commonDir) : root;
-  const status = await output([
-    'git',
-    '-C',
-    main,
-    'status',
-    '--porcelain',
-    '--',
-    '.pu/config.yaml',
-  ]);
-  return puConfigCheck(status ?? '');
+  const main =
+    process.env.PU_PROJECT_ROOT || (commonDir ? dirname(commonDir) : root);
+  const { config, usable } = await readPuLauncher(root, main);
+  return puConfigCheck(config, usable);
 }
 
 /** The main checkout off main is a warning (the session-start hook warns too). */

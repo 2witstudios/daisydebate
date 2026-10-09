@@ -33,6 +33,23 @@ describe('planReviewPrompt', () => {
     });
   });
 
+  test('distinguishes branch availability from main acceptance', () => {
+    assert({
+      given:
+        'an owner-authorized plan with unmerged producers and deferred checks',
+      should:
+        'review provisional evidence without imposing a merge or approval relay',
+      actual: [
+        prompt.includes('pinned unmerged producer'),
+        prompt.includes('deferred checks'),
+        prompt.includes('Do not require another owner approval'),
+        prompt.includes('actual concurrent writer'),
+        prompt.includes('prerequisite that is not merged'),
+      ],
+      expected: [true, true, true, true, false],
+    });
+  });
+
   test('asks for contradictions with accepted decisions before tasking', () => {
     assert({
       given: 'the prompt',

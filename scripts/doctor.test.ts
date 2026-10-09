@@ -231,24 +231,38 @@ describe('checkout check', () => {
 });
 
 describe('pu config check', () => {
-  test('fails when pu has replaced the committed launcher configuration', () => {
-    assert({
-      given: 'a modified, a deleted and an untouched .pu/config.yaml',
-      should: 'fail the first two and pass the last',
-      actual: [
-        puConfigCheck(' M .pu/config.yaml\n').status,
-        puConfigCheck(' D .pu/config.yaml\n').status,
-        puConfigCheck(''),
-      ],
-      expected: [
-        'fail',
-        'fail',
-        {
-          name: 'pu-config',
-          status: 'pass',
-          detail: 'agents start through scripts/agent-launch.sh',
+  test('validates effective launchers rather than parent git cleanliness', () => {
+    const wrapped = {
+      agents: {
+        codex: {
+          command: 'scripts/agent-launch.sh codex --search',
+          launchArgs: [],
         },
+      },
+    };
+    assert({
+      given:
+        'safe modified config, bypassed launcher, missing config and shell chaining',
+      should: 'pass only a valid launcher configuration with a usable launcher',
+      actual: [
+        puConfigCheck(wrapped, true).status,
+        puConfigCheck(
+          { agents: { codex: { command: 'codex --search' } } },
+          true,
+        ).status,
+        puConfigCheck(undefined, true).status,
+        puConfigCheck(wrapped, false).status,
+        puConfigCheck(
+          {
+            agents: {
+              codex: { command: 'scripts/agent-launch.sh codex; env' },
+            },
+          },
+          true,
+        ).status,
+        puConfigCheck({ agents: {} }, true).status,
       ],
+      expected: ['pass', 'fail', 'fail', 'fail', 'fail', 'fail'],
     });
   });
 });
