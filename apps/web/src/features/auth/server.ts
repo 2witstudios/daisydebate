@@ -266,6 +266,9 @@ const composeBetterAuth = (dependencies: {
  * request.
  */
 export type AuthServer = {
+  readonly getActorByUserId: (
+    userId: string,
+  ) => Promise<{ readonly id: string; readonly userId: string | null } | null>;
   readonly config: AuthConfig;
   readonly instance: AuthInstance;
   readonly limiter: AuthRateLimiter;
@@ -285,6 +288,7 @@ export type AuthServer = {
 export function createAuthServer<
   Database extends BetterAuthOptions['database'],
 >(dependencies: {
+  readonly getActorByUserId: AuthServer['getActorByUserId'];
   /** Validated by the composition root (`readAuthConfig`). */
   readonly config: AuthConfig;
   readonly database: Database;
@@ -334,6 +338,7 @@ export function createAuthServer<
     clock: dependencies.clock,
   });
   return {
+    getActorByUserId: dependencies.getActorByUserId,
     config,
     instance: composeBetterAuth({
       config,

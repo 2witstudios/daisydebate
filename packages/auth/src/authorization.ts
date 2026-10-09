@@ -6,6 +6,12 @@ import {
 export type AuthorizationPrincipal =
   | { readonly kind: 'anonymous' }
   | {
+      readonly kind: 'service';
+      readonly serviceId: string;
+      readonly scope: 'foundation';
+      readonly capabilities: readonly AuthorizationCapability[];
+    }
+  | {
       readonly kind: 'user';
       readonly userId: string;
       readonly actorId: string | null;
@@ -63,7 +69,8 @@ export type AuthorizationInput = {
   readonly resource:
     | RoomAuthorizationFact
     | ChannelAuthorizationFact
-    | { readonly kind: 'room_collection' };
+    | { readonly kind: 'room_collection' }
+    | { readonly kind: 'foundation' };
   readonly context: {
     readonly account: AccountAuthorizationFact | null;
     /** Explicit producer-approved current policy result; absence never enables posting. */
@@ -105,8 +112,9 @@ export function authorize({
 }: AuthorizationInput): AuthorizationDecision {
   if (!authorizationCapabilitySchema.safeParse(capability).success)
     return deny('denied');
-  const valid =
-    capability === 'room.create' || capability === 'room.list'
+  const valid = capability.startsWith('foundation.')
+    ? resource.kind === 'foundation'
+    : capability === 'room.create' || capability === 'room.list'
       ? resource.kind === 'room_collection'
       : capability.startsWith('room.')
         ? resource.kind === 'room'
@@ -114,6 +122,13 @@ export function authorize({
   if (!valid) return deny('denied');
   const account = context.account;
   if (account?.erased) return deny('account-erased');
+  if (principal.kind === 'service')
+    return resource.kind === 'foundation' &&
+      principal.scope === 'foundation' &&
+      principal.capabilities.includes(capability)
+      ? allow
+      : deny('missing-capability');
+  if (resource.kind === 'foundation') return deny('missing-capability');
   if (principal.kind !== 'user') return deny('unauthenticated');
   if (
     !account ||

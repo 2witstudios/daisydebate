@@ -1,6 +1,8 @@
 import { z } from 'zod';
 /** Closed launch vocabulary: league grants belong to LEAGUE-OPS. */
 export const authorizationCapabilities = [
+  'foundation.create',
+  'foundation.read',
   'room.create',
   'room.list',
   'room.read',
