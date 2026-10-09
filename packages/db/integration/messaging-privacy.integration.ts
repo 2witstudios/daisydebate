@@ -87,9 +87,9 @@ test('messaging rights erase subject associations atomically and preserve other 
       should: 'export only subject-authored text and no unowned shared title',
       actual: {
         texts: exported.messaging_messages?.map((row) => row.text),
-        hasChannels: 'messaging_channels' in exported,
+        channels: exported.messaging_channels,
       },
-      expected: { texts: ['Own private text'], hasChannels: false },
+      expected: { texts: ['Own private text'], channels: [] },
     });
     try {
       await database.transaction(async (tx) => {
