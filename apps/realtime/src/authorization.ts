@@ -105,13 +105,13 @@ export function createRealtimeAuthorization({
         const accounts = await loadAccountPolicyFacts({
           accounts: currentAccounts,
           now: factNow,
-          readAgeFact: (account) =>
+          readAgeFact: (account, checkedAt) =>
             account.actorId
               ? loadAuthorizationAgeFact(tx, {
                   userId: account.userId,
                   actorId: account.actorId,
                   accountRevision: account.revision,
-                  now: factNow,
+                  now: checkedAt,
                 })
               : Promise.resolve({ state: 'unknown' }),
         });
