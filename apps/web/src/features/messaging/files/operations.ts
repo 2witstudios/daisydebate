@@ -26,6 +26,23 @@ export type FileDependencies = {
   /** Trusted cleanup fence: pending only, same scope/owner/generation; no protected replay. */
   readonly failPending: (scope: FileScope, token: FileToken) => Promise<void>;
 };
+async function cleanupPending(
+  d: FileDependencies,
+  scope: FileScope,
+  token: FileToken,
+) {
+  try {
+    await d.failPending(scope, token);
+  } catch (error) {
+    // A newer generation, attachment or erasure must refuse stale cleanup.
+    if (
+      isAppError(error) &&
+      ['AUTHORIZATION', 'NOT_FOUND'].includes(error.code)
+    )
+      return;
+    throw isAppError(error) ? error : createAppError('INFRASTRUCTURE');
+  }
+}
 function context(principal: AuthorizationPrincipal, d: FileDependencies) {
   return {
     identity: requireMessagingActor(principal),
@@ -126,7 +143,7 @@ export async function uploadMessagingFile(
       return { fileId: reservation.id, generation: reservation.generation };
     });
   } catch (error) {
-    if (cleanup) await d.failPending(scope, token);
+    if (cleanup) await cleanupPending(d, scope, token);
     throw isAppError(error) ? error : createAppError('INFRASTRUCTURE');
   }
 }
@@ -179,7 +196,7 @@ export async function finalizeMessagingFile(
       !committing ||
       (isAppError(error) && ['AUTHORIZATION', 'CONFLICT'].includes(error.code))
     )
-      await d.failPending(scope, token);
+      await cleanupPending(d, scope, token);
     throw isAppError(error) ? error : createAppError('INFRASTRUCTURE');
   }
 }
