@@ -27,6 +27,15 @@ const exportRows = (rows: readonly Record<string, unknown>[]) =>
     ),
   );
 
+function omitPrivateColumns(
+  row: Record<string, unknown>,
+  columns: readonly string[],
+) {
+  return Object.fromEntries(
+    Object.entries(row).filter(([column]) => !columns.includes(column)),
+  );
+}
+
 /** Account lock is held by canonical PRIV before this pair -> channel fence. */
 async function lockSubjectMessaging(
   tx: AuthorizationTransaction,
@@ -210,8 +219,7 @@ export function createMessagingPrivacyAdopter(): PrivacyAdopter {
       );
       const ownPairs = pairs.map((row) => {
         if (row.request_sender_actor_id === actorId) return row;
-        const { introduction: _introduction, ...owned } = row;
-        return owned;
+        return omitPrivateColumns(row, ['introduction']);
       });
       const commands = rowsOf<Record<string, unknown>>(
         await tx.execute(
@@ -224,8 +232,7 @@ export function createMessagingPrivacyAdopter(): PrivacyAdopter {
         ),
       ).map((row) => {
         if (row.invitee_actor_id === actorId) return row;
-        const { state: _state, decided_at: _decidedAt, ...owned } = row;
-        return owned;
+        return omitPrivateColumns(row, ['state', 'decided_at']);
       });
       // Shared title has no subject attribution. Never export another author's
       // text/title by guessing ownership from current membership.
