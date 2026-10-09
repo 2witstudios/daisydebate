@@ -63,3 +63,35 @@ test('approved policies can release the declaration hold', () => {
     expected: { problems: [], activationHeld: false },
   });
 });
+
+test('canonical dedicated messaging inventory is exact and private fingerprints stay private', async () => {
+  const { messagingPrivacyFields, messagingPrivacyExpectedColumns } =
+    await import('./messaging-declarations');
+  assert({
+    given: 'canonical dedicated MSG columns',
+    should: 'declare every column while holding unresolved policies',
+    actual: validatePrivacyAdoption(
+      messagingPrivacyExpectedColumns,
+      messagingPrivacyFields,
+    ),
+    expected: { problems: [], activationHeld: true },
+  });
+  assert({
+    given: 'payload fingerprint and relationship references',
+    should: 'protect them as private personal data',
+    actual: messagingPrivacyFields
+      .filter(
+        (field) =>
+          (field.table === 'messaging_receipts' &&
+            field.column === 'payload_digest') ||
+          (field.table === 'messaging_contact_pairs' &&
+            field.column.endsWith('actor_id')),
+      )
+      .map((field) => [field.category, field.visibility, field.erasure]),
+    expected: [
+      ['personal', 'private', 'delete'],
+      ['personal', 'private', 'delete'],
+      ['personal', 'private', 'delete'],
+    ],
+  });
+});
