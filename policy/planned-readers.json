@@ -18,6 +18,141 @@
       "adr": "docs/decisions/0057-planned-readers.md",
       "reason": "The outbox drain runs with a no-op sink; fan-out to subscribed sockets is the reader (RT-2.3c). Until then the drain drains nothing.",
       "reviewBy": "2026-12-01"
+    },
+    {
+      "path": "packages/protocol/src/room-contract.ts",
+      "export": "roomCreateSchema",
+      "task": "CAP-B.1",
+      "owner": "ag-ewo55big",
+      "adr": "docs/decisions/0059-one-competitive-api.md",
+      "reason": "Canonical Room runtime and HTTP producer; committed consumer CAP-B.1 page yqvkic989n7tx0uf6uvqu24x; ROOM product lane consumes its responses.",
+      "reviewBy": "2026-10-16"
+    },
+    {
+      "path": "packages/protocol/src/room-contract.ts",
+      "export": "roomCommandSchema",
+      "task": "CAP-B.1",
+      "owner": "ag-ewo55big",
+      "adr": "docs/decisions/0059-one-competitive-api.md",
+      "reason": "Canonical Room runtime and HTTP producer; committed consumer CAP-B.1 page yqvkic989n7tx0uf6uvqu24x; ROOM product lane consumes its responses.",
+      "reviewBy": "2026-10-16"
+    },
+    {
+      "path": "packages/protocol/src/room-contract.ts",
+      "export": "roomSelectionSchema",
+      "task": "CAP-B.1",
+      "owner": "ag-ewo55big",
+      "adr": "docs/decisions/0059-one-competitive-api.md",
+      "reason": "Canonical Room runtime and HTTP producer; committed consumer CAP-B.1 page yqvkic989n7tx0uf6uvqu24x; ROOM product lane consumes its responses.",
+      "reviewBy": "2026-10-16"
+    },
+    {
+      "path": "packages/protocol/src/room-contract.ts",
+      "export": "roomVisibilitySchema",
+      "task": "CAP-B.1",
+      "owner": "ag-ewo55big",
+      "adr": "docs/decisions/0059-one-competitive-api.md",
+      "reason": "Canonical Room runtime and HTTP producer; committed consumer CAP-B.1 page yqvkic989n7tx0uf6uvqu24x; ROOM product lane consumes its responses.",
+      "reviewBy": "2026-10-16"
+    },
+    {
+      "path": "packages/protocol/src/room-contract.ts",
+      "export": "roomStatuses",
+      "task": "CAP-B.1",
+      "owner": "ag-ewo55big",
+      "adr": "docs/decisions/0059-one-competitive-api.md",
+      "reason": "Canonical Room runtime and HTTP producer; committed consumer CAP-B.1 page yqvkic989n7tx0uf6uvqu24x; ROOM product lane consumes its responses.",
+      "reviewBy": "2026-10-16"
+    },
+    {
+      "path": "packages/protocol/src/room-contract.ts",
+      "export": "RoomCreate",
+      "task": "CAP-B.1",
+      "owner": "ag-ewo55big",
+      "adr": "docs/decisions/0059-one-competitive-api.md",
+      "reason": "Canonical Room runtime and HTTP producer; committed consumer CAP-B.1 page yqvkic989n7tx0uf6uvqu24x; ROOM product lane consumes its responses.",
+      "reviewBy": "2026-10-16"
+    },
+    {
+      "path": "packages/protocol/src/room-contract.ts",
+      "export": "RoomCommand",
+      "task": "CAP-B.1",
+      "owner": "ag-ewo55big",
+      "adr": "docs/decisions/0059-one-competitive-api.md",
+      "reason": "Canonical Room runtime and HTTP producer; committed consumer CAP-B.1 page yqvkic989n7tx0uf6uvqu24x; ROOM product lane consumes its responses.",
+      "reviewBy": "2026-10-16"
+    },
+    {
+      "path": "packages/protocol/src/room-contract.ts",
+      "export": "RoomSelection",
+      "task": "CAP-B.1",
+      "owner": "ag-ewo55big",
+      "adr": "docs/decisions/0059-one-competitive-api.md",
+      "reason": "Canonical Room runtime and HTTP producer; committed consumer CAP-B.1 page yqvkic989n7tx0uf6uvqu24x; ROOM product lane consumes its responses.",
+      "reviewBy": "2026-10-16"
+    },
+    {
+      "path": "packages/protocol/src/room-contract.ts",
+      "export": "RoomParticipant",
+      "task": "CAP-B.1",
+      "owner": "ag-ewo55big",
+      "adr": "docs/decisions/0059-one-competitive-api.md",
+      "reason": "Canonical Room runtime and HTTP producer; committed consumer CAP-B.1 page yqvkic989n7tx0uf6uvqu24x; ROOM product lane consumes its responses.",
+      "reviewBy": "2026-10-16"
+    },
+    {
+      "path": "packages/protocol/src/room-contract.ts",
+      "export": "RoomRoundRef",
+      "task": "CAP-B.1",
+      "owner": "ag-ewo55big",
+      "adr": "docs/decisions/0059-one-competitive-api.md",
+      "reason": "Canonical Room runtime and HTTP producer; committed consumer CAP-B.1 page yqvkic989n7tx0uf6uvqu24x; ROOM product lane consumes its responses.",
+      "reviewBy": "2026-10-16"
+    },
+    {
+      "path": "packages/protocol/src/room-contract.ts",
+      "export": "RoomRefusal",
+      "task": "CAP-B.1",
+      "owner": "ag-ewo55big",
+      "adr": "docs/decisions/0059-one-competitive-api.md",
+      "reason": "Canonical Room runtime and HTTP producer; committed consumer CAP-B.1 page yqvkic989n7tx0uf6uvqu24x; ROOM product lane consumes its responses.",
+      "reviewBy": "2026-10-16"
+    },
+    {
+      "path": "packages/protocol/src/room-contract.ts",
+      "export": "RoomView",
+      "task": "CAP-B.1",
+      "owner": "ag-ewo55big",
+      "adr": "docs/decisions/0059-one-competitive-api.md",
+      "reason": "Canonical Room runtime and HTTP producer; committed consumer CAP-B.1 page yqvkic989n7tx0uf6uvqu24x; ROOM product lane consumes its responses.",
+      "reviewBy": "2026-10-16"
+    },
+    {
+      "path": "packages/protocol/src/room-contract.ts",
+      "export": "RoomCommandReceipt",
+      "task": "CAP-B.1",
+      "owner": "ag-ewo55big",
+      "adr": "docs/decisions/0059-one-competitive-api.md",
+      "reason": "Canonical Room runtime and HTTP producer; committed consumer CAP-B.1 page yqvkic989n7tx0uf6uvqu24x; ROOM product lane consumes its responses.",
+      "reviewBy": "2026-10-16"
+    },
+    {
+      "path": "packages/protocol/src/room-contract.ts",
+      "export": "RoomCommandResponse",
+      "task": "CAP-B.1",
+      "owner": "ag-ewo55big",
+      "adr": "docs/decisions/0059-one-competitive-api.md",
+      "reason": "Canonical Room runtime and HTTP producer; committed consumer CAP-B.1 page yqvkic989n7tx0uf6uvqu24x; ROOM product lane consumes its responses.",
+      "reviewBy": "2026-10-16"
+    },
+    {
+      "path": "packages/protocol/src/room-contract.ts",
+      "export": "RoomCatalogChoice",
+      "task": "CAP-B.1",
+      "owner": "ag-ewo55big",
+      "adr": "docs/decisions/0059-one-competitive-api.md",
+      "reason": "Canonical Room runtime and HTTP producer; committed consumer CAP-B.1 page yqvkic989n7tx0uf6uvqu24x; ROOM product lane consumes its responses.",
+      "reviewBy": "2026-10-16"
     }
   ]
 }
