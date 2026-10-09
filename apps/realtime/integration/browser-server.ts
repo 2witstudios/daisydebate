@@ -2,10 +2,12 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
 import { systemClock, systemId } from '@daisy/clock';
+import { messagingTestReading } from '@daisy/auth/testing';
 import { createRealtimeApp } from '../src/app';
 import { serveRealtime } from '../src/serve';
 
-// Dedicated native-slot fixture only. No identity, membership or policy override.
+// Dedicated native-slot fixture with explicit test-only DM reading evidence.
+// Durable identity/membership and canonical authorization remain authoritative.
 const folder = basename(resolve(import.meta.dir, '../../..'));
 const slot = folder.startsWith('wt-')
   ? folder.slice(3).replaceAll('-', '_')
@@ -66,6 +68,7 @@ const resources = createRealtimeApp({
 });
 const runtime = await serveRealtime({
   resources,
+  readingPolicy: messagingTestReading,
   port,
   hostname: '127.0.0.1',
   serve: ((options) =>
