@@ -63,7 +63,7 @@ export const newRoomValues = (
   status,
 });
 
-export const seatsComplete = (
+const seatsComplete = (
   required: RoundRules['seats'],
   held: readonly { readonly role: string; readonly slot: number }[],
 ): boolean =>

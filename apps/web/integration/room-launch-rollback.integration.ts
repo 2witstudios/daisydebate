@@ -1,3 +1,4 @@
+import { requireTestServices } from '@daisy/config';
 import {
   roomViewSchema,
   roomCatalogChoiceSchema,
@@ -8,6 +9,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 
 import { createId } from '@paralleldrive/cuid2';
 import { withRoomRuntime } from './room-runtime.test-support';
+requireTestServices(process.env);
 setupRitewayBun();
 
 test('outbox failure rolls back Launch including frozen Round and participants', async () => {

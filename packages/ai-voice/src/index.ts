@@ -5,7 +5,6 @@
  * Self-hosted adapters can replace OpenRouter behind the same shapes later.
  */
 export { createOpenRouter, type OpenRouter } from './openrouter';
-export { readLines } from './lines';
 export {
   cxMessages,
   debaterPersona,
@@ -14,13 +13,11 @@ export {
   type TranscriptEntry,
 } from './prompts';
 export { parseBallot, type Ballot } from './judge';
-export { createTurnTaking, defaultTurnTakingSettings } from './turn-taking';
 export {
   createPhraseBuffer,
   createSentenceBuffer,
   heardText,
   phrasesOf,
-  splitSentences,
   worthTranscribing,
 } from './speech';
 
