@@ -86,11 +86,12 @@ describe('auth server composition', () => {
     assert({
       given: 'a composed auth server',
       should:
-        'expose config, instance, limiter, logger, clock, settled and pendingWork, and no test-only mail seam',
+        'expose config, actor lookup, instance, limiter, logger, clock, settled and pendingWork, and no test-only mail seam',
       actual: Object.keys(composeAuthServer()).sort(),
       expected: [
         'clock',
         'config',
+        'getActorByUserId',
         'instance',
         'limiter',
         'logger',
