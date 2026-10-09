@@ -14,7 +14,7 @@ test('request preview transport refuses missing bounds and does not consume refu
     expected: [null, false],
   });
   const data = {
-    version: 1,
+    version: 1 as const,
     channelId: 'channel'.padEnd(24, 'x'),
     senderActorId: 'sender'.padEnd(24, 'x'),
     introduction: 'Private introduction',

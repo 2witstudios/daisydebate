@@ -76,7 +76,8 @@ export async function serveRealtime({
     now,
     ...(readingPolicy ? { readingPolicy } : {}),
     publish: (topic, frame) => {
-      server?.publish(topic, JSON.stringify(frame));
+      if (!server || server.publish(topic, JSON.stringify(frame)) <= 0)
+        throw new Error('Realtime recipient unavailable');
     },
   });
   const drain = await startOutboxDrain({
@@ -107,21 +108,45 @@ export async function serveRealtime({
       now,
     },
   });
-  server = serve({ hostname, port, fetch, websocket });
+  try {
+    server = serve({ hostname, port, fetch, websocket });
+  } catch (error) {
+    await drain.stop();
+    throw error;
+  }
   // Scheduling is transport tuning inside ADR0031's accepted60s bound.
   // Every send independently enforces elapsed check-start expiry.
-  const validationTimer = setInterval(() => {
-    void delivery.registry.revalidate(delivery.validatePrincipal);
+  const scheduler = timers ?? {
+    setInterval: (callback: () => void, ms: number) =>
+      setInterval(callback, ms),
+    clearInterval: (handle: ReturnType<typeof setInterval>) =>
+      clearInterval(handle),
+  };
+  let validation: Promise<void> | undefined;
+  let closed = false;
+  const validationTimer = scheduler.setInterval(() => {
+    if (closed || validation) return;
+    validation = delivery.registry
+      .revalidate(delivery.validatePrincipal)
+      .catch(() => {
+        delivery.registry.closeAll();
+      })
+      .finally(() => {
+        validation = undefined;
+      });
   }, 50_000);
   return {
     server,
     drain,
     delivery,
     async close() {
-      clearInterval(validationTimer);
+      if (closed) return;
+      closed = true;
+      scheduler.clearInterval(validationTimer);
       delivery.registry.closeAll();
       await server?.stop();
       await drain.stop();
+      await validation;
       await delivery.registry.settled();
     },
   };

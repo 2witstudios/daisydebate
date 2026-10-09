@@ -1,8 +1,13 @@
 import { z } from 'zod';
 import { idSchema } from '../primitives';
-export const messagingInboxEntrySchema = z.strictObject({
+const messagingInboxEntrySchema = z.strictObject({
   channelId: idSchema,
-  kind: z.enum(['conversation', 'incoming_request', 'outgoing_request']),
+  kind: z.enum([
+    'conversation',
+    'incoming_request',
+    'outgoing_request',
+    'incoming_invitation',
+  ]),
 });
 /** Pagination bounds are the explicit owning policy, never a navigation grant. */
 export function createMessagingInboxSchemas(maxItems: number) {

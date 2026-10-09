@@ -2,7 +2,7 @@ import type {
   MessagingAuthorizationFence,
   MessagingChannelStore,
 } from './records';
-export type MessagingDmDecision = 'accept' | 'decline' | 'cancel';
+type MessagingDmDecision = 'accept' | 'decline' | 'cancel';
 export type MessagingDmFence = (
   capability: 'read' | 'decide' | 'cancel' | 'result',
 ) => MessagingAuthorizationFence;
@@ -22,9 +22,7 @@ export type MessagingDmFrame = {
     readonly introduction: string | null;
     readonly requestedAt: string;
   }>;
-  readDecisionState(
-    command: Decision,
-  ): Promise<{
+  readDecisionState(command: Decision): Promise<{
     readonly channelId: string;
     readonly state: string;
     readonly requestedAt: string;

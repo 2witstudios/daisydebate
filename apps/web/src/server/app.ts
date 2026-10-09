@@ -1,3 +1,4 @@
+import { readRealtimePublicUrl } from '@daisy/config';
 import type { MessagingRuntimePolicy } from '../features/messaging/composition';
 import type { RoomPolicy } from '../features/room-runtime/composition';
 import type { Clock, IdGenerator } from '@daisy/clock';
@@ -140,6 +141,10 @@ export function createApp({
   const drainState = createDrainState([database, redis]);
   return {
     config,
+    websocketEndpoint: readRealtimePublicUrl({
+      REALTIME_PUBLIC_URL: config.REALTIME_PUBLIC_URL,
+      NODE_ENV: config.NODE_ENV,
+    }),
     roomPolicy: roomPolicy ?? null,
     messagingPolicy: messagingPolicy ?? null,
     clock,

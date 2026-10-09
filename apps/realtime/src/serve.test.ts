@@ -65,8 +65,9 @@ describe('serveRealtime startup order (RT-2.3b review finding 2)', () => {
     const afterListenOnly = serveCalled;
 
     highWaterMarkGate.resolve(OUTBOX_ORIGIN);
-    await settled;
+    const running = await settled;
     const afterBoth = serveCalled;
+    await running.close();
 
     assert({
       given:
@@ -110,13 +111,13 @@ describe('serveRealtime runtime role gate (ISSUE-101)', () => {
       >;
     }) as typeof Bun.serve;
     try {
-      const { drain } = await serveRealtime({
+      const running = await serveRealtime({
         resources,
         port: 0,
         sink: () => {},
         serve: fakeServe,
       });
-      await drain.stop();
+      await running.close();
       return { refused: null, listened, served };
     } catch (error) {
       return { refused: (error as Error).message, listened, served };
@@ -146,5 +147,51 @@ describe('serveRealtime runtime role gate (ISSUE-101)', () => {
       actual: await boot('production', []),
       expected: { refused: null, listened: true, served: true },
     });
+  });
+});
+
+test('runtime shutdown cancels both polling and reauthorization timers exactly once', async () => {
+  const scheduled: number[] = [];
+  const cleared: unknown[] = [];
+  let unlistened = 0,
+    stopped = 0;
+  const resources = fakeApp({
+    listenOutbox: async () => ({
+      unlisten: async () => {
+        unlistened += 1;
+      },
+    }),
+    readOutboxHighWaterMark: async () => OUTBOX_ORIGIN,
+  });
+  const running = await serveRealtime({
+    resources,
+    port: 0,
+    timers: {
+      setInterval: (_callback, ms) => {
+        scheduled.push(ms);
+        return scheduled.length as unknown as ReturnType<typeof setInterval>;
+      },
+      clearInterval: (handle) => {
+        cleared.push(handle);
+      },
+    },
+    serve: (() => ({
+      stop: async () => {
+        stopped += 1;
+      },
+    })) as unknown as typeof Bun.serve,
+  });
+  await running.close();
+  await running.close();
+  assert({
+    given: 'an injected poll/authorization scheduler and repeated shutdown',
+    should: 'release every runtime resource once',
+    actual: { scheduled, cleared: cleared.length, unlistened, stopped },
+    expected: {
+      scheduled: [1000, 50000],
+      cleared: 2,
+      unlistened: 1,
+      stopped: 1,
+    },
   });
 });

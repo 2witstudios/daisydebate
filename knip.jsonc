@@ -32,7 +32,10 @@
     },
     "packages/db": { "entry": ["integration/**/*.integration.ts"] },
     "apps/realtime": {
-      "entry": ["integration/**/*.integration.ts"],
+      "entry": [
+        "integration/**/*.integration.ts",
+        "integration/browser-server.ts",
+      ],
     },
     "packages/redis": {
       "entry": ["integration/**/*.integration.ts"],

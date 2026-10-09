@@ -1,6 +1,9 @@
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import { eq } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
+import { createAppError } from '@daisy/errors';
+import { idSchema, parseUsername } from '@daisy/protocol';
 import { actors } from './schema/actors';
+import { users } from './schema/users';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 
 export type ActorRecord = {
@@ -36,6 +39,28 @@ export const actorOperations = ({
   readonly database: BunSQLDatabase;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
+  /** Public intent discovery only; all contact authority is reloaded under locks. */
+  async lookupHumanActorByUsername(input: unknown): Promise<string | null> {
+    const parsed = parseUsername(input);
+    if (!parsed.ok) throw createAppError('VALIDATION');
+    return instrumented(eventSink, 'lookupHumanActorByUsername', async () => {
+      const [row] = await database
+        .select({ actorId: actors.id })
+        .from(actors)
+        .innerJoin(users, eq(users.id, actors.userId))
+        .where(
+          and(
+            eq(sql`lower(${users.username})`, parsed.username),
+            eq(actors.kind, 'human'),
+            eq(users.emailVerified, true),
+            isNull(users.deletedAt),
+          ),
+        )
+        .limit(1);
+      const actor = idSchema.safeParse(row?.actorId);
+      return actor.success ? actor.data : null;
+    });
+  },
   async getActorByUserId(userId: string): Promise<ActorRecord | null> {
     return instrumented(eventSink, 'getActorByUserId', () =>
       queryActorByUserId(database, userId),

@@ -128,6 +128,33 @@ export type PendingFileAuthorizationFact = {
     readonly revision: number;
   };
 };
+/** MSG projects the live invitation, channel and inviter grant under its transaction fence. */
+export type GroupInvitationAuthorizationFact = {
+  readonly kind: 'group_invitation';
+  readonly channel: {
+    readonly channelId: string;
+    readonly kind: 'private_group';
+    readonly policyKey: 'social.private_group';
+    readonly policyRevision: number;
+    readonly revision: number;
+    readonly lifecycle: 'active' | 'archived';
+    readonly activeMemberActorIds: readonly string[];
+  };
+  readonly invitation: {
+    readonly channelId: string;
+    readonly inviterActorId: string;
+    readonly inviteeActorId: string;
+    readonly state: 'pending' | 'accepted' | 'declined' | 'cancelled';
+    readonly generation: number;
+  };
+  readonly expectedGeneration?: number;
+  readonly inviterGrant: {
+    readonly actorId: string;
+    readonly role: 'manager' | 'member' | null;
+    readonly generation: number;
+  };
+  readonly contactPairs: readonly ContactAuthorizationFact[];
+};
 /** Own-association discovery only; every returned channel needs separate authorization. */
 export type MessagingCollectionAuthorizationFact = {
   readonly kind: 'messaging_collection';
@@ -137,6 +164,7 @@ export type AuthorizationInput = {
   readonly principal: AuthorizationPrincipal;
   readonly capability: AuthorizationCapability;
   readonly resource:
+    | GroupInvitationAuthorizationFact
     | MessagingCollectionAuthorizationFact
     | PendingFileAuthorizationFact
     | ContactPairAuthorizationFact

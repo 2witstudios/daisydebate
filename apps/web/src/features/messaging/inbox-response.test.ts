@@ -4,8 +4,8 @@ import { readMessagingInboxResponse } from './inbox-response';
 setupRitewayBun();
 test('inbox transport requires explicit bounds and refuses private or unbounded entries', async () => {
   const result = {
-    version: 1,
-    entries: [{ channelId: 'c'.repeat(24), kind: 'incoming_request' }],
+    version: 1 as const,
+    entries: [{ channelId: 'c'.repeat(24), kind: 'incoming_request' as const }],
     nextAfter: null,
   };
   const read = (body: unknown) =>
@@ -16,7 +16,7 @@ test('inbox transport requires explicit bounds and refuses private or unbounded 
     given: 'a bounded own request navigation response',
     should: 'preserve its validated minimal projection',
     actual: await read(result),
-    expected: result,
+    expected: { ...result, socketUrl: null },
   });
   for (const body of [
     { ...result, entries: [...result.entries, ...result.entries] },

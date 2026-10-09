@@ -1,5 +1,9 @@
+import { composeMessagingGroupInvitationStore } from './group-invitation-composition';
 import type { Database } from '@daisy/db';
-import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
+import type {
+  MessagingCollectionAuthorizationFact,
+  AuthorizationPrincipal,
+} from '@daisy/auth/authorization';
 import type { Clock } from '@daisy/clock';
 import type { SocialContactPolicy } from '@daisy/auth/social-policy';
 import { requireMessagingActor } from './principal';
@@ -8,7 +12,11 @@ import {
   messagingAuthorizationFence,
   type MessagingReadingPolicy,
 } from './authorization-fence';
-import { readMessagingInbox, type MessagingInboxEntry } from './inbox';
+import {
+  readMessagingInbox,
+  inspectMessagingInboxAssociation,
+  type MessagingInboxEntry,
+} from './inbox';
 export function composeMessagingInbox(input: {
   readonly database: Database;
   readonly principal: AuthorizationPrincipal;
@@ -22,12 +30,15 @@ export function composeMessagingInbox(input: {
       requireMessagingAuthorization({
         principal: input.principal,
         capability: 'channel.inbox.read',
-        resource: { kind: 'messaging_collection', actorId: scope.actorId },
+        resource: {
+          kind: 'messaging_collection',
+          actorId: scope.actorId,
+        } satisfies MessagingCollectionAuthorizationFact,
         context: { account, now: input.clock.now() },
       });
     },
   );
-  const inspect = (channelId: string): Promise<MessagingInboxEntry> =>
+  const inspectChannel = (channelId: string): Promise<MessagingInboxEntry> =>
     input.database.messagingChannelAuthority(
       { ...actor, channelId },
       async (frame) => {
@@ -55,6 +66,22 @@ export function composeMessagingInbox(input: {
         };
       },
     );
+  const inspect = (channelId: string): Promise<MessagingInboxEntry> =>
+    inspectMessagingInboxAssociation(channelId, {
+      channel: () => inspectChannel(channelId),
+      invitation: () =>
+        composeMessagingGroupInvitationStore(input).withInvitation(
+          {
+            ...actor,
+            channelId,
+            inviteeActorId: actor.actorId,
+            operation: 'read',
+          },
+          async (frame) => {
+            await frame.preview();
+          },
+        ),
+    });
   return {
     read: (page: { readonly limit: number; readonly after?: string }) =>
       readMessagingInbox(page, {

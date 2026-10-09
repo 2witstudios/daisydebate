@@ -11,6 +11,7 @@ import type {
 } from './privacy/contracts';
 import { accountAge } from './schema/account-age';
 export { loadAuthorizationAgeFact } from './authorization-age';
+export { bindAuthorizationAgeFact } from './authorization-age-reader';
 /** Same account-fenced transaction as send/contact/erasure; no external pool. */
 export async function loadAccountAgeSource(
   tx: AuthorizationTransaction,
@@ -21,7 +22,9 @@ export async function loadAccountAgeSource(
     sql`select birth_month as "birthMonth",version as revision,recorded_at as "recordedAt" from ${accountAge} where user_id=${userId}`,
   )) as unknown as { birthMonth: string; revision: number; recordedAt: Date }[];
   const row = rows[0];
-  return row
+  return row &&
+    row.recordedAt instanceof Date &&
+    Number.isFinite(row.recordedAt.getTime())
     ? {
         birthMonth: row.birthMonth,
         revision: row.revision,

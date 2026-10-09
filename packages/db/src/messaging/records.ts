@@ -93,6 +93,7 @@ type MessagingChangesPage = {
 };
 export type MessagingLockedFrame = {
   readonly history: (input: {
+    readonly query?: string;
     readonly limit: number;
     readonly before?: number;
   }) => Promise<MessagingHistoryPage>;

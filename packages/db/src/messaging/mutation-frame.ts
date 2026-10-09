@@ -1,3 +1,4 @@
+import { deleteMessageFiles } from '../messaging-files';
 import { and, eq } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
@@ -105,7 +106,11 @@ export function channelMutationFrame(
         messageId: original.id,
         payloadDigest: command.kind === 'remove' ? null : plan.payloadDigest,
       });
-      if (command.kind === 'remove')
+      if (command.kind === 'remove') {
+        await deleteMessageFiles(tx, {
+          channelId: input.channelId,
+          messageId: original.id,
+        });
         await tx
           .update(messagingReceipts)
           .set({ payloadDigest: null })
@@ -115,6 +120,7 @@ export function channelMutationFrame(
               eq(messagingReceipts.messageId, original.id),
             ),
           );
+      }
       await tx
         .update(messagingChannels)
         .set({ changeVersion: plan.message.changeVersion })

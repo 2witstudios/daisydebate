@@ -83,6 +83,26 @@ export const escapes: ReadonlyArray<readonly [string, string]> = [
 export const escapeRule = (code: string) =>
   code.startsWith('import {') ? imports : ['no-restricted-syntax'];
 
+/** Exact Launch entry positives and adjacent import/load refusals share the process-edge table. */
+const launchEntry = 'apps/web/e2e/support/room-launch-server.ts';
+export const launchEntryCases: readonly Case[] = [
+  launchEntry,
+  'apps/web/e2e/support/room-launch-adjacent.ts',
+].flatMap((path): Case[] => [
+  [
+    edgeImport('../../src/server/', 'adoptProcessApp'),
+    path,
+    path === launchEntry ? [] : imports,
+  ],
+  [
+    lazyEdge('../../src/server/process-app'),
+    path,
+    path === launchEntry
+      ? []
+      : escapeRule(lazyEdge('../../src/server/process-app')),
+  ],
+]);
+
 /**
  * Every route to a server bound to the wildcard address that the lint gate
  * must reject, and the bound or unrelated calls it must leave alone
@@ -293,4 +313,12 @@ const secondaryPageCases: readonly Problems[] = [
 export const sharedFixtureCases: readonly Problems[] = [
   ...importCases,
   ...secondaryPageCases,
+];
+
+export const throwSuitePaths = [
+  web('server/x.test.ts'),
+  'packages/db/integration/x.integration.ts',
+  'apps/web/integration/x.integration.ts',
+  'apps/web/e2e/x.e2e.ts',
+  'scripts/x.test.ts',
 ];

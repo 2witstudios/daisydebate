@@ -1,3 +1,5 @@
+import type { App } from '../../server/app';
+import { identify } from '../../lib/identity';
 import type { Identity } from '@daisy/auth';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { Logger } from '@daisy/logger';
@@ -37,5 +39,23 @@ export function runMessagingHandler(
       await input.operation(await input.readInput(), identity.principal),
       { headers: input.headers ?? {} },
     );
+  });
+}
+
+/** App-bound identity remains injected at the HTTP edge for each actual messaging route. */
+export function messagingHttpBoundary(app: App): Boundary {
+  return {
+    logger: app.logger,
+    origin: () => app.auth().config.PUBLIC_APP_URL,
+    identify: (request) => identify(app.auth(), request.headers),
+  };
+}
+export function unavailableMessagingHandler(
+  app: App,
+  request: Request,
+  name = 'messaging.unavailable',
+) {
+  return handleOperation(app.logger, request, name, async () => {
+    throw createAppError('INFRASTRUCTURE');
   });
 }
