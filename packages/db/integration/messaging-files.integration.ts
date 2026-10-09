@@ -8,6 +8,7 @@ import { assertRejects } from '@daisy/errors/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createMessagingTestFixture } from '../src/testing';
 import { lockAuthorizationActors } from '../src/authorization';
+import { rejectedBy } from './constraint-helpers';
 import {
   channelFileFrame,
   acknowledgeFileDeletion,
@@ -92,7 +93,56 @@ test('file quota is fenced and remains charged until actual object deletion ackn
       actual: () => withFrame((f) => f.reserve(command(), now, policy), true),
       code: 'AUTHORIZATION',
     });
-    await withFrame((f) => f.cancel(token));
+    const messageId = createId();
+    await client.unsafe(
+      "insert into messaging_messages(id,channel_id,author_actor_id,sequence,change_version,text,created_at) values($1,$2,$3,1,1,'Attachment message',$4)",
+      [messageId, channelId, actorId, now],
+    );
+    await client.unsafe(
+      'update messaging_channels set message_sequence=1,change_version=1 where id=$1',
+      [channelId],
+    );
+    assert({
+      given: 'an active file with its MIME removed directly in SQL',
+      should: 'reject unknown-valued metadata instead of accepting SQL NULL',
+      actual: await rejectedBy(() =>
+        client.unsafe('update messaging_files set mime=null where id=$1', [
+          token.fileId,
+        ]),
+      ),
+      expected: 'messaging_files_metadata',
+    });
+    await withFrame((f) => f.quarantine(token, 40, now));
+    const renewed = await withFrame((f) => f.renew(token, now, policy));
+    await assertRejects({
+      given: 'an old scanner callback after reservation generation renewal',
+      should: 'refuse late attachment',
+      actual: () => withFrame((f) => f.finalize(token, messageId, now, policy)),
+      code: 'CONFLICT',
+    });
+    const liveToken = { fileId: renewed.id, generation: renewed.generation };
+    await withFrame((f) => f.finalize(liveToken, messageId, now, policy));
+    await withFrame((f) =>
+      f.finalize(liveToken, messageId, '2026-10-09T18:00:02.000Z', policy),
+    );
+    await assertRejects({
+      given: 'a revoked reader with a known attached file identifier',
+      should: 'refuse before metadata replay',
+      actual: () => withFrame((f) => f.access(liveToken, now, policy), true),
+      code: 'AUTHORIZATION',
+    });
+    await client.unsafe(
+      'update messaging_channels set authority_revision=authority_revision+1 where id=$1',
+      [channelId],
+    );
+    const access = await withFrame((f) => f.access(liveToken, now, policy));
+    assert({
+      given: 'a surviving authorized member after authority revision changes',
+      should: 'retain shared attached access without deleting the object',
+      actual: { messageId: access.messageId, storedBytes: access.storedBytes },
+      expected: { messageId, storedBytes: 40 },
+    });
+    await withFrame((f) => f.cancel(liveToken));
     await assertRejects({
       given: 'a deleted local association with unacknowledged vendor object',
       should: 'keep its storage quota charged',

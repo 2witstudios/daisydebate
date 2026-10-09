@@ -20,6 +20,7 @@ type FileTransaction = Pick<
 >;
 type Row = typeof messagingFiles.$inferSelect;
 const reservation = (row: Row): FileReservation => ({
+  lifecycle: row.lifecycle as FileReservation['lifecycle'],
   id: row.id,
   channelId: row.channelId,
   ownerActorId: row.ownerActorId,
@@ -137,7 +138,7 @@ export function channelFileFrame(
           ),
         );
       if (existing) {
-        await live(existing, now);
+        if (existing.lifecycle !== 'attached') await live(existing, now);
         if (
           existing.reservedBytes !== command.bytes ||
           existing.filename !== command.filename ||
@@ -186,13 +187,12 @@ export function channelFileFrame(
     },
     async upload(token, now) {
       const row = await read(token, true);
-      await live(row, now);
-      if (row.lifecycle !== 'reserved') throw createAppError('CONFLICT');
+      if (row.lifecycle !== 'attached') await live(row, now);
       return reservation(row);
     },
     async scan(token, now) {
       const row = await read(token, true);
-      await live(row, now);
+      if (row.lifecycle !== 'attached') await live(row, now);
       if (!['quarantined', 'attached'].includes(row.lifecycle))
         throw createAppError('CONFLICT');
       return reservation(row);
@@ -231,7 +231,6 @@ export function channelFileFrame(
     async finalize(token, messageId, now, supplied) {
       const policy = requireFilePolicy(supplied);
       const row = await read(token, true);
-      await live(row, now);
       if (!idSchema.safeParse(messageId).success)
         throw createAppError('VALIDATION');
       const [message] = await tx
@@ -250,6 +249,7 @@ export function channelFileFrame(
       )
         throw createAppError('NOT_FOUND');
       if (row.lifecycle === 'attached' && row.messageId === messageId) return;
+      await live(row, now);
       if (row.lifecycle !== 'quarantined') throw createAppError('CONFLICT');
       const [count] = await tx
         .select({ value: sql<string>`count(*)` })
