@@ -7,6 +7,7 @@ import { createRealtimeApp } from '../src/app';
 import { serveRealtime } from '../src/serve';
 import type { OutboxRowsSink } from '../src/outbox-drain';
 
+export const testOrigin = 'https://realtime.integration.test';
 const testServices = requireTestServices(process.env);
 export const databaseUrl = testServices.databaseUrl;
 const redisUrl = testServices.redisUrl;
@@ -40,6 +41,7 @@ export async function bootServer(
       REDIS_URL: redisUrl,
       REDIS_NAMESPACE: testNamespace(systemId.next()),
       LOG_LEVEL: 'silent',
+      REALTIME_ALLOWED_ORIGINS: testOrigin,
     },
     clock: systemClock,
     ids: systemId,
