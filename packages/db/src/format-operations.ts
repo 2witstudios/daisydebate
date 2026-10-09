@@ -26,6 +26,24 @@ export type FormatPresetRecord = {
   readonly config: RoomConfig;
 };
 
+/** Shared current-revision join used by single-format reads and the Room catalog. */
+export const currentFormatRevisions = (client: BunSQLDatabase) =>
+  client
+    .select({
+      id: formats.id,
+      name: formats.name,
+      version: formats.currentVersion,
+      definition: formatRevisions.definition,
+    })
+    .from(formats)
+    .innerJoin(
+      formatRevisions,
+      and(
+        eq(formatRevisions.formatId, formats.id),
+        eq(formatRevisions.version, formats.currentVersion),
+      ),
+    );
+
 /**
  * The formats area (ADR 0058 §2a): reads over the identity table, its
  * immutable revisions and the sanctioned presets. Publishing a revision or
@@ -43,21 +61,7 @@ export const formatOperations = ({
   /** The format's current definition revision, or null when absent. */
   async getFormat(id: string): Promise<FormatRevisionRecord | null> {
     return instrumented(eventSink, 'getFormat', async () => {
-      const [row] = await database
-        .select({
-          id: formats.id,
-          name: formats.name,
-          version: formats.currentVersion,
-          definition: formatRevisions.definition,
-        })
-        .from(formats)
-        .innerJoin(
-          formatRevisions,
-          and(
-            eq(formatRevisions.formatId, formats.id),
-            eq(formatRevisions.version, formats.currentVersion),
-          ),
-        )
+      const [row] = await currentFormatRevisions(database)
         .where(eq(formats.id, id))
         .limit(1);
       if (!row) return null;
