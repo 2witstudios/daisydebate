@@ -1,5 +1,9 @@
 import type { APIRequestContext, Page } from '@playwright/test';
-import { roomViewSchema, type RoomView } from '@daisy/protocol';
+import {
+  roomCastChoiceSchema,
+  roomViewSchema,
+  type RoomView,
+} from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import { expect } from './fixtures';
 import { origin } from './accounts';
@@ -50,4 +54,27 @@ export async function claim(page: Page, view: RoomView, seat: string) {
   await page.goto(`/rooms/${view.id}`);
   await page.getByRole('button', { name: `Take ${seat}`, exact: true }).click();
   return reread(page.request, view.id);
+}
+
+/** Real actors from the authenticated catalog; human judge claims its own seat. */
+export async function prepareJudgeRoom(page: Page, title: string) {
+  let view = await createFromPlay(page, title, 'one-on-one');
+  const response = await page.request.get('/api/rooms/catalog');
+  expect(response.status()).toBe(200);
+  const body = await response.json();
+  const bots = body.bots.map((bot: unknown) => roomCastChoiceSchema.parse(bot));
+  const eligible = bots.filter(
+    (bot: ReturnType<typeof roomCastChoiceSchema.parse>) => bot.eligible,
+  );
+  expect(eligible.length).toBeGreaterThanOrEqual(2);
+  for (const [index, seat] of ['Affirmative 1', 'Negative 1'].entries()) {
+    const select = page.getByLabel(`Assign ${seat}`, { exact: true });
+    await select.selectOption(eligible[index]!.actorId);
+    await select
+      .locator('..')
+      .getByRole('button', { name: 'Assign', exact: true })
+      .click();
+    view = await reread(page.request, view.id);
+  }
+  return claim(page, view, 'Judge 1');
 }
