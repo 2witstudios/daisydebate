@@ -1,3 +1,4 @@
+import { currentAgeFact } from './authorization-age';
 import type {
   ChannelAuthorizationFact,
   SocialPolicyEvidence,
@@ -32,10 +33,21 @@ function policyTimeCurrent(
     instant < expiry
   );
 }
+function policyAgeCurrent(
+  row: SocialAccountFact,
+  now: string,
+  posting: boolean,
+) {
+  if (row.age.state === 'known' && !currentAgeFact(row, now)) return false;
+  return !posting || (row.age.state === 'known' && row.age.band !== 'under-13');
+}
 function policyAccountCurrent(
   row: SocialAccountFact,
   evidence: SocialPolicyEvidence['accounts'][number],
+  now: string,
+  posting: boolean,
 ) {
+  if (!policyAgeCurrent(row, now, posting)) return false;
   const account = row.account;
   const ageRevision = row.age.state === 'known' ? row.age.revision : null;
   return (
@@ -51,6 +63,7 @@ function policyAccountsCurrent(
   resource: ChannelAuthorizationFact,
   policy: SocialPolicyEvidence,
   context: AuthorizationInput['context'],
+  posting: boolean,
 ) {
   const accounts = context.socialAccounts;
   if (!accounts) return false;
@@ -71,7 +84,7 @@ function policyAccountsCurrent(
     return (
       row !== undefined &&
       evidence !== undefined &&
-      policyAccountCurrent(row, evidence)
+      policyAccountCurrent(row, evidence, context.now!, posting)
     );
   });
 }
@@ -91,12 +104,13 @@ export function policyEvidenceCurrent(
   resource: ChannelAuthorizationFact,
   policy: SocialPolicyEvidence | undefined,
   context: AuthorizationInput['context'],
+  posting = false,
 ) {
   return (
     policy?.allowed === true &&
     policyRevisionsMatch(resource, policy) &&
     policyTimeCurrent(policy, context.now) &&
-    policyAccountsCurrent(resource, policy, context) &&
+    policyAccountsCurrent(resource, policy, context, posting) &&
     policySelfCurrent(context)
   );
 }
