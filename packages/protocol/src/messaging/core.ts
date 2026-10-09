@@ -143,6 +143,13 @@ export function createMessagingCoreSchemas(bounds: MessagingCoreBounds) {
           input.before === undefined ||
           input.before.channelId === input.channelId,
       ),
+    search: z
+      .strictObject({ ...page, query: text, before: sequenceCursor.optional() })
+      .refine(
+        (input) =>
+          input.before === undefined ||
+          input.before.channelId === input.channelId,
+      ),
     changes: z
       .strictObject({ ...page, after: changeCursor })
       .refine((input) => input.after.channelId === input.channelId),

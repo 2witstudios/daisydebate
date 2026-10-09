@@ -27,24 +27,35 @@ export function createMessagingReadOperations({
     const identity = requireMessagingActor(principal);
     return store.withChannel({ channelId, ...identity }, work);
   };
-  return {
-    history(input: unknown, principal: AuthorizationPrincipal) {
-      const command = parseValidated(schemas.history, input);
-      return run(command.channelId, principal, async (frame) => {
-        const page = await frame.history({
-          limit: command.limit,
-          ...(command.before === undefined
-            ? {}
-            : { before: command.before.sequence }),
-        });
-        return schemas.historyResult.parse({
-          version: 1,
-          channelId: command.channelId,
-          ...page,
-          messages: page.messages.map(messagingMessageView),
-        });
-      });
+  const history = (
+    command: {
+      channelId: string;
+      limit: number;
+      before?: { sequence: number } | undefined;
+      query?: string | undefined;
     },
+    principal: AuthorizationPrincipal,
+  ) =>
+    run(command.channelId, principal, async (frame) => {
+      const page = await frame.history({
+        limit: command.limit,
+        ...(command.before === undefined
+          ? {}
+          : { before: command.before.sequence }),
+        ...(command.query === undefined ? {} : { query: command.query }),
+      });
+      return schemas.historyResult.parse({
+        version: 1,
+        channelId: command.channelId,
+        ...page,
+        messages: page.messages.map(messagingMessageView),
+      });
+    });
+  return {
+    history: (input: unknown, principal: AuthorizationPrincipal) =>
+      history(parseValidated(schemas.history, input), principal),
+    search: (input: unknown, principal: AuthorizationPrincipal) =>
+      history(parseValidated(schemas.search, input), principal),
     changes(input: unknown, principal: AuthorizationPrincipal) {
       const command = parseValidated(schemas.changes, input);
       return run(command.channelId, principal, async (frame) => {

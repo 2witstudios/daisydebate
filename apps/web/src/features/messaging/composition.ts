@@ -44,7 +44,14 @@ export function composeMessagingRoutes(app: App) {
   const policy = app.messagingPolicy;
   const run = (
     request: Request,
-    operation: 'send' | 'edit' | 'remove' | 'history' | 'changes' | 'markRead',
+    operation:
+      | 'send'
+      | 'edit'
+      | 'remove'
+      | 'history'
+      | 'search'
+      | 'changes'
+      | 'markRead',
     channelId?: string,
   ) => {
     if (!policy)
@@ -121,7 +128,7 @@ export function composeMessagingRoutes(app: App) {
           },
         }).then(messagingMessageView),
       ...(Object.fromEntries(
-        (['history', 'changes', 'markRead'] as const).map((kind) => [
+        (['history', 'search', 'changes', 'markRead'] as const).map((kind) => [
           kind,
           async (
             input: unknown,
@@ -142,10 +149,14 @@ export function composeMessagingRoutes(app: App) {
         ]),
       ) as Pick<
         Parameters<typeof createMessagingHandlers>[0],
-        'history' | 'changes' | 'markRead'
+        'history' | 'search' | 'changes' | 'markRead'
       >),
     });
-    if (operation === 'history' || operation === 'changes')
+    if (
+      operation === 'history' ||
+      operation === 'search' ||
+      operation === 'changes'
+    )
       return handlers[operation](request, channelId!);
     return handlers[operation](request);
   };
@@ -155,6 +166,8 @@ export function composeMessagingRoutes(app: App) {
     send: (request: Request) => run(request, 'send'),
     edit: (request: Request) => run(request, 'edit'),
     remove: (request: Request) => run(request, 'remove'),
+    search: (request: Request, channelId: string) =>
+      run(request, 'search', channelId),
     history: (request: Request, channelId: string) =>
       run(request, 'history', channelId),
     changes: (request: Request, channelId: string) =>

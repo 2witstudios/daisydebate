@@ -96,6 +96,31 @@ test('mounted messaging composition uses real signed-in actors and shared HTTP g
         text: 'Private routed text',
       },
     });
+    const searchRequest = (id: string, query: string) =>
+      new Request(
+        `${origin}/api/messaging/channels/${id}/messages/search?query=${encodeURIComponent(query)}`,
+        { headers: { origin, cookie: second.cookie } },
+      );
+    for (const [query, count] of [
+      ['ROUTED', 1],
+      ['%', 0],
+      ['not present', 0],
+    ] as const) {
+      const found = await routes.messaging.search(
+        searchRequest(channelId, query),
+        channelId,
+      );
+      assert({
+        given: `entitled literal search ${query}`,
+        should:
+          'return only matching channel messages without wildcard expansion',
+        actual: {
+          status: found.status,
+          count: (await found.json()).messages.length,
+        },
+        expected: { status: 200, count },
+      });
+    }
     const changesRequest = () =>
       new Request(
         `${origin}/api/messaging/channels/${channelId}/changes?limit=20&after=0`,
@@ -154,6 +179,30 @@ test('mounted messaging composition uses real signed-in actors and shared HTTP g
         status: 200,
         keys: ['changeVersion', 'channelId', 'id', 'sequence', 'unavailable'],
       },
+    });
+    const removedSearch = await routes.messaging.search(
+      searchRequest(channelId, 'Edited'),
+      channelId,
+    );
+    assert({
+      given: 'removed text after an entitled search',
+      should: 'never resurrect content or its matching identity',
+      actual: {
+        status: removedSearch.status,
+        messages: (await removedSearch.json()).messages,
+      },
+      expected: { status: 200, messages: [] },
+    });
+    const unavailableChannel = createId();
+    const foreignSearch = await routes.messaging.search(
+      searchRequest(unavailableChannel, 'Private'),
+      unavailableChannel,
+    );
+    assert({
+      given: 'a foreign unavailable channel search',
+      should: 'mask the channel without returning content',
+      actual: foreignSearch.status,
+      expected: 404,
     });
     await client.unsafe(
       'update messaging_channels set change_version=change_version+1 where id=$1',

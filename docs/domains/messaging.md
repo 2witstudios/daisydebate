@@ -85,3 +85,20 @@ The native routes, inbox and realtime reader are delivered source. Current
 browser, JavaScript-disabled, current-role and final composed service evidence
 must be recorded separately; these additions do not establish whole messaging
 acceptance. Private-group and contextual producer obligations remain open.
+
+### Scoped search
+
+`GET /api/messaging/channels/:channelId/messages/search` accepts one literal
+`query`, a configured page limit and an optional channel-bound `before` cursor.
+It uses the same ordered account/pair/channel transaction and canonical current
+`channel.read` decision as history. Search text is bound SQL data, including `%`
+and `_`; it is not a wildcard expression. Removed/scrubbed message text cannot
+match or return a message identifier. Results carry the existing validated
+history envelope and preserve the query when following an earlier-page cursor.
+
+The conversation's GET search form works without JavaScript. Search text stays
+in the request/browser navigation; this implementation adds no query log,
+durable search record, event payload or analytics field. Existing message and
+relationship privacy declarations, current reading-policy holds and erasure
+rules remain applicable. Contract and protected-refusal tests are branch proof;
+the new real database/HTTP and browser controls remain scheduled acceptance.
