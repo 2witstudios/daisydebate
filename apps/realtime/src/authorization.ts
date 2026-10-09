@@ -6,7 +6,7 @@ import {
   type SocialPolicyEvidence,
 } from '@daisy/auth/authorization';
 import { loadAccountPolicyFacts } from '@daisy/auth/account-policy-facts';
-import { loadAccountAgeSource } from '@daisy/db/account-age';
+import { loadAuthorizationAgeFact } from '@daisy/db/account-age';
 import { loadAuthorizationSession } from '@daisy/db/authorization';
 import { parseTopic } from '@daisy/protocol';
 import type { RealtimeApp } from './app';
@@ -101,10 +101,19 @@ export function createRealtimeAuthorization({
     let result: SubscriptionAuthority | null = null;
     const store = resources.database.messagingChannelStore(
       async (tx, _input, frame) => {
+        const factNow = resources.clock.now();
         const accounts = await loadAccountPolicyFacts({
           accounts: frame.accounts,
-          now: resources.clock.now(),
-          readAgeSource: (userId) => loadAccountAgeSource(tx, userId),
+          now: factNow,
+          readAgeFact: (account) =>
+            account.actorId
+              ? loadAuthorizationAgeFact(tx, {
+                  userId: account.userId,
+                  actorId: account.actorId,
+                  accountRevision: account.revision,
+                  now: factNow,
+                })
+              : Promise.resolve({ state: 'unknown' }),
         });
         const current = await loadAuthorizationSession(tx, {
           ...principal,

@@ -18,19 +18,38 @@ export async function deleteExpiredOutboxPrefix(
   )
     throw new Error('Invalid retention bounds');
   const deleted = await database.execute(sql`
-    with boundary as (
+    with watermark as materialized (
+      select txid, seq from public.outbox_retention_boundary
+      where singleton = true for update nowait
+    ), boundary as (
       select txid, seq from outbox
       where txid < pg_snapshot_xmin(pg_current_snapshot())
         and created_at >= ${before}::timestamptz
       order by txid, seq limit 1
     ), prefix as (
-      select o.seq from outbox o
+      select o.seq from outbox o cross join watermark
       where o.txid < pg_snapshot_xmin(pg_current_snapshot())
         and o.created_at < ${before}::timestamptz
         and not exists (select 1 from boundary b where (o.txid, o.seq) >= (b.txid, b.seq))
       order by o.txid, o.seq limit ${limit}
       for update of o nowait
-    ) delete from outbox where seq in (select seq from prefix) returning seq
+    ), deleted as (
+      delete from outbox where seq in (select seq from prefix) returning txid, seq
+    ), maximum as (
+      select txid, seq from deleted order by txid desc, seq desc limit 1
+    ), advanced as (
+      update public.outbox_retention_boundary b
+      set txid = m.txid, seq = m.seq from maximum m
+      where b.singleton = true and (b.txid, b.seq) < (m.txid, m.seq)
+      returning b.seq
+    ) select exists(select 1 from watermark) as known,
+      (select count(*)::int from deleted) as count,
+      (select count(*)::int from advanced) as advanced
   `);
-  return (deleted as unknown as unknown[]).length;
+  const [result] = deleted as unknown as Array<{
+    known: boolean;
+    count: number;
+  }>;
+  if (!result?.known) throw new Error('Outbox retention boundary unavailable');
+  return result.count;
 }
