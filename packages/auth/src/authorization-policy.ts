@@ -88,7 +88,7 @@ function policyAccountsCurrent(
     );
   });
 }
-function policySelfCurrent(context: AuthorizationInput['context']) {
+export function policySelfCurrent(context: AuthorizationInput['context']) {
   const account = context.account;
   if (!account) return false;
   return (
