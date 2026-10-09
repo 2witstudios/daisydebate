@@ -1,3 +1,4 @@
+import type { MessagingRuntimePolicy } from '../features/messaging/composition';
 import type { RoomPolicy } from '../features/room-runtime/composition';
 import type { Clock, IdGenerator } from '@daisy/clock';
 import {
@@ -21,6 +22,7 @@ import { createMetricsStore, type MetricsStore } from './metrics-store';
 
 export type AppDependencies = {
   readonly roomPolicy?: RoomPolicy;
+  readonly messagingPolicy?: MessagingRuntimePolicy;
   /** Raw environment, validated here and nowhere else. */
   readonly env: Readonly<Record<string, string | undefined>>;
   /** Outbound HTTP (the Resend mail transport). */
@@ -55,6 +57,7 @@ export type AppDependencies = {
 export function createApp({
   env,
   roomPolicy,
+  messagingPolicy,
   fetch,
   clock,
   ids,
@@ -138,6 +141,7 @@ export function createApp({
   return {
     config,
     roomPolicy: roomPolicy ?? null,
+    messagingPolicy: messagingPolicy ?? null,
     clock,
     ids,
     logger,

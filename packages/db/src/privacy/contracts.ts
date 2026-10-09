@@ -1,7 +1,7 @@
 import type { AuthorizationTransaction } from '../authorization';
 
 /** Policies name actual decision records; pending never confers activation authority. */
-export type PrivacyPolicy =
+type PrivacyPolicy =
   | { readonly status: 'pending'; readonly decision: string }
   | {
       readonly status: 'approved';

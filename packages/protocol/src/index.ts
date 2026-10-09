@@ -84,6 +84,7 @@ export type {
 export {
   buildUserInboxTopic,
   buildDebateTopic,
+  buildChannelTopic,
   buildRoomTopic,
 } from './topics';
 export {
@@ -143,6 +144,11 @@ export type {
   RoomCatalogChoice,
 } from './room-contract';
 
+// Persistent messaging contracts; bounds come from the owning policy.
+export { createMessagingCoreSchemas } from './messaging/core';
+export type { MessagingCoreBounds } from './messaging/core';
+export { createMessagingSocialSchemas } from './messaging/social';
+export type { MessagingSocialBounds } from './messaging/social';
 export type {
   RoomAssemblyState,
   RoomConsent,
