@@ -44,7 +44,7 @@ export async function bootServer(
     clock: systemClock,
     ids: systemId,
   });
-  const { server, drain } = await serveRealtime({
+  const { server, drain, close } = await serveRealtime({
     resources,
     port: 0,
     hostname: '127.0.0.1',
@@ -62,8 +62,7 @@ export async function bootServer(
     origin: `http://127.0.0.1:${server.port}`,
     drain,
     async close() {
-      server.stop(true);
-      await drain.stop();
+      await close();
       await resources.close();
     },
   };
