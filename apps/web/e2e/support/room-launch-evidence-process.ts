@@ -1,3 +1,4 @@
+import { admitLaunchCheckout } from './room-launch-admission';
 import { resolve } from 'node:path';
 import { SQL } from 'bun';
 import { requireLaunchSlot } from './room-launch-slot';
@@ -9,12 +10,17 @@ if (import.meta.main) {
   const roomId = Bun.argv[2];
   if (!roomId || !/^[a-z0-9]{20,32}$/.test(roomId))
     throw new Error('Invalid proof Room identity');
+  await admitLaunchCheckout(
+    resolve(import.meta.dir, '../../../..'),
+    slot.database,
+  );
   const sql = new SQL(process.env.E2E_DATABASE_URL!, { max: 1 });
   try {
     await sql.begin(async (tx) => {
       await tx`set transaction read only`;
-      const [identity] = await tx`select current_database() name`;
-      if (identity!.name !== slot.database)
+      const [identity] =
+        await tx`select current_database() name, current_user role`;
+      if (identity!.name !== slot.database || identity!.role !== 'daisy_e2e')
         throw new Error('Proof evidence target mismatch');
       const [rows] = await tx`select
         (select row_to_json(r) from rooms r where id=${roomId}) room,
