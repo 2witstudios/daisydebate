@@ -61,6 +61,23 @@ test('messaging rights erase subject associations atomically and preserve other 
       "insert into messaging_actor_states(channel_id,actor_id,following,hidden,notification_level) values($1,$2,true,false,'all'),($1,$3,true,false,'all')",
       [channelId, actorId, otherActorId],
     );
+    await client.unsafe(
+      "insert into messaging_group_invitations(channel_id,invitee_actor_id,invited_by_actor_id,generation,state,invited_at,decided_at) values($1,$2,$3,1,'accepted',$4,$4)",
+      [groupId, otherActorId, actorId, now],
+    );
+    await client.unsafe(
+      "insert into messaging_social_commands(actor_id,request_id,kind,digest,result_channel_id,created_at) values($1,$2,'dm.request',$3,$4,$6),($5,$2,'dm.decide',$3,$4,$6),($5,$7,'group.create',$3,$8,$6)",
+      [
+        actorId,
+        requestId,
+        'b'.repeat(64),
+        channelId,
+        otherActorId,
+        now,
+        createId(),
+        groupId,
+      ],
+    );
     const exported = await database.transaction(async (tx) => {
       await lockAuthorizationActors(tx, [subject.actorId], { maxActors: 1 });
       return adopter.export(tx, subject);
@@ -113,9 +130,12 @@ test('messaging rights erase subject associations atomically and preserve other 
       (select count(*)::int from messaging_dm_pairs where low_actor_id=$1 or high_actor_id=$1) as pairs,
       (select count(*)::int from messaging_reactions where actor_id=$1) as reactions,
       (select count(*)::int from messaging_actor_states where actor_id=$1) as preferences,
+      (select count(*)::int from messaging_social_commands where actor_id=$1 or result_channel_id=$3) as commands,
+      (select count(*)::int from messaging_group_invitations where invitee_actor_id=$1 or invited_by_actor_id=$1) as invitations,
+      (select count(*)::int from messaging_social_commands where actor_id=$2) as other_commands,
       (select count(*)::int from messaging_receipts where actor_id=$2) as other_receipts,
       (select count(*)::int from messaging_group_grants where actor_id=$2) as other_grants`,
-      [actorId, otherActorId],
+      [actorId, otherActorId, channelId],
     );
     assert({
       given: 'committed erasure',
@@ -129,6 +149,9 @@ test('messaging rights erase subject associations atomically and preserve other 
         pairs: 0,
         reactions: 0,
         preferences: 0,
+        commands: 0,
+        invitations: 0,
+        other_commands: 1,
         other_receipts: 1,
         other_grants: 1,
       },
