@@ -14,3 +14,8 @@ export type {
 
 export { createMessagingPrivacyAdopter } from './privacy';
 export { createMessagingFileStore } from './file-store';
+export { createMessagingSocialStore } from './social-store';
+export type {
+  MessagingSocialAuthorizationFence,
+  MessagingSocialStore,
+} from './social-contracts';

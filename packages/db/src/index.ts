@@ -22,6 +22,8 @@ import {
   createMessagingStore,
   createMessagingFileStore,
   type MessagingAuthorizationFence,
+  createMessagingSocialStore,
+  type MessagingSocialAuthorizationFence,
 } from './messaging';
 import { actorOperations } from './actor-operations';
 import { rateCompletedRound } from './rating-operations';
@@ -169,6 +171,8 @@ export function createDatabase({
     ) => createMessagingFileStore({ database, authorize }),
     messagingChannelStore: (authorize: MessagingAuthorizationFence) =>
       createMessagingStore({ database, authorize }),
+    messagingSocialStore: (authorize: MessagingSocialAuthorizationFence) =>
+      createMessagingSocialStore({ database, authorize }),
     ...outboxOperations({ database, eventSink }),
     readOutboxRetentionBoundary: () =>
       instrumented(eventSink, 'readOutboxRetentionBoundary', () =>
