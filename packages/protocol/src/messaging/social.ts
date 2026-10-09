@@ -8,6 +8,15 @@ export type MessagingSocialBounds = Readonly<{
   batchActors: number;
 }>;
 
+export const messagingDmResultSchema = z.strictObject({
+  version: z.literal(1),
+  channelId: idSchema,
+  state: z.enum(['pending', 'accepted', 'declined', 'cancelled']),
+});
+export const messagingDmDecisionResultSchema = messagingDmResultSchema.extend({
+  state: z.enum(['accepted', 'declined', 'cancelled']),
+});
+
 /** Actor comes from the principal; contact facts never come from a command. */
 export function createMessagingSocialSchemas(bounds: MessagingSocialBounds) {
   z.number().int().positive().safe().parse(bounds.batchActors);
@@ -19,6 +28,20 @@ export function createMessagingSocialSchemas(bounds: MessagingSocialBounds) {
     .max(bounds.batchActors)
     .refine((ids) => new Set(ids).size === ids.length);
   return {
+    dmResult: messagingDmResultSchema,
+    closedDmResult: messagingDmDecisionResultSchema,
+    previewDmResult: z.strictObject({
+      version: z.literal(1),
+      channelId: idSchema,
+      senderActorId: idSchema,
+      introduction: messagingTextSchema(bounds.introductionUnits).nullable(),
+      requestedAt: z.iso.datetime(),
+    }),
+    blockResult: z.strictObject({
+      version: z.literal(1),
+      blocked: z.boolean(),
+      revision: z.number().int().positive().safe(),
+    }),
     block: z.strictObject({
       ...command,
       otherActorId: idSchema,
@@ -29,6 +52,7 @@ export function createMessagingSocialSchemas(bounds: MessagingSocialBounds) {
       recipientActorId: idSchema,
       introduction: messagingTextSchema(bounds.introductionUnits).optional(),
     }),
+    previewDm: z.strictObject({ version: z.literal(1), channelId: idSchema }),
     decideDm: z.strictObject({
       ...scoped,
       decision: z.enum(['accept', 'decline', 'cancel']),
