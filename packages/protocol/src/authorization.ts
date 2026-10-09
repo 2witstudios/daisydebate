@@ -17,6 +17,7 @@ const authorizationCapabilities = [
   'channel.read',
   'channel.post',
   'channel.message.remove',
+  'channel.file.cleanup',
   'channel.manage',
   'channel.subscribe',
   'channel.request.read',
