@@ -108,6 +108,7 @@ export function channelFileFrame(
       throw createAppError('CONFLICT');
   };
   return {
+    authorize,
     async reserve(command, now, supplied) {
       await authorize();
       const policy = requireFilePolicy(supplied);

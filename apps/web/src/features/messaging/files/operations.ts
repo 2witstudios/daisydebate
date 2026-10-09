@@ -55,14 +55,16 @@ export async function reserveMessagingFile(
   return d.store.withChannel(
     { ...identity, channelId: command.channelId },
     'post',
-    async (frame) =>
-      publicReservation(
+    async (frame) => {
+      await frame.authorize();
+      return publicReservation(
         await frame.reserve(
           { ...command, id: d.ids.next(), objectKey: d.ids.next() },
           d.clock.now(),
           policy,
         ),
-      ),
+      );
+    },
   );
 }
 /** Object write remains inside the account/channel fence; asynchronous scanning does not. */
