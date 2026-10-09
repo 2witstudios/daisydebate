@@ -48,17 +48,21 @@ async function lockSubject(
 }
 
 function checkBindings(bindings: readonly PrivacyVerificationBinding[]) {
+  const canonical = z
+    .string()
+    .min(1)
+    .refine((value) => value === value.trim());
   const schemas = z.union([
     z
       .object({
-        purpose: z.string().trim().min(1),
+        purpose: canonical,
         subject: z.enum(['email', 'userId']),
       })
       .strict(),
     z
       .object({
-        jsonTypes: z.array(z.string().trim().min(1)).min(1),
-        subjectPath: z.array(z.string().trim().min(1)).min(1),
+        jsonTypes: z.array(canonical).min(1),
+        subjectPath: z.array(canonical).min(1),
       })
       .strict(),
   ]);
