@@ -11,6 +11,7 @@ import type {
 } from './privacy/contracts';
 import { accountAge } from './schema/account-age';
 export { loadAuthorizationAgeFact } from './authorization-age';
+export { bindAuthorizationAgeFact } from './authorization-age-reader';
 /** Same account-fenced transaction as send/contact/erasure; no external pool. */
 export async function loadAccountAgeSource(
   tx: AuthorizationTransaction,
