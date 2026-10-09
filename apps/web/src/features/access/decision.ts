@@ -25,6 +25,7 @@ const GUARDED_AREAS: Readonly<Record<string, Requirement>> = {
   '/debates': 'participant',
   '/judge': 'participant',
   '/notifications': 'participant',
+  '/messages': 'participant',
   '/recordings': 'participant',
   '/prep': 'participant',
   '/train': 'participant',
