@@ -22,3 +22,8 @@ export {
   type PrivacyVendor,
 } from './planner';
 export { corePrivacyFields } from './core-declarations';
+export {
+  erasePrivacySubject,
+  exportPrivacySubject,
+  type PrivacyVerificationBinding,
+} from './operations';
