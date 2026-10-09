@@ -7,6 +7,7 @@ import { requireAccess } from '../../../../lib/access';
 import type { SearchParams } from '../../../../features/access/decision';
 import { readConversationResponse } from '../../../../features/messaging/conversation';
 import { PageHeader } from '../../../../ui/components/page-header/page-header';
+import { MessageHistory } from '../../../../ui/messaging/message-history';
 import { MessageComposer } from '../../../../ui/messaging/message-composer';
 import { GET } from '../../../api/messaging/channels/[channelId]/messages/route';
 import { sendMessageAction } from './actions';
@@ -47,49 +48,7 @@ export default async function ConversationPage({
         </p>
       ) : (
         <>
-          {conversation.history.messages.length === 0 ? (
-            <p className="text-ink-muted">No messages yet.</p>
-          ) : (
-            <ol aria-label="Message history" className="flex flex-col gap-3">
-              {[...conversation.history.messages].reverse().map((message) => (
-                <li
-                  key={message.id}
-                  className="rounded-lg border border-border bg-surface-raised p-4"
-                >
-                  {'unavailable' in message ? (
-                    <p className="text-sm text-ink-muted">
-                      Message unavailable
-                    </p>
-                  ) : (
-                    <>
-                      <p className="mb-2 text-xs text-ink-muted">
-                        {message.authorActorId === actorId
-                          ? 'You'
-                          : 'Participant'}{' '}
-                        ·{' '}
-                        <time dateTime={message.createdAt}>
-                          {message.createdAt
-                            .replace('T', ' ')
-                            .replace('.000Z', ' UTC')}
-                        </time>
-                        {message.editedAt ? ' · edited' : ''}
-                      </p>
-                      <p className="break-words whitespace-pre-wrap text-ink">
-                        {message.text}
-                      </p>
-                    </>
-                  )}
-                </li>
-              ))}
-            </ol>
-          )}
-          {conversation.history.nextBefore ? (
-            <Link
-              href={`/messages/${id.data}?before=${conversation.history.nextBefore.sequence}`}
-            >
-              Earlier messages
-            </Link>
-          ) : null}
+          <MessageHistory history={conversation.history} actorId={actorId} />
           <MessageComposer
             key={typeof query.sent === 'string' ? query.sent : id.data}
             action={sendMessageAction.bind(null, id.data)}
