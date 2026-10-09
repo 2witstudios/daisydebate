@@ -18,3 +18,4 @@ export type {
   MessagingSocialAuthorizationFence,
   MessagingSocialStore,
 } from './social-contracts';
+export { createMessagingFileStore } from './file-store';

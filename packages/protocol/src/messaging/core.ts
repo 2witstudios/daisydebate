@@ -125,6 +125,7 @@ export function createMessagingCoreSchemas(bounds: MessagingCoreBounds) {
           result.nextAfter.channelId === result.channelId &&
           result.nextAfter.changeVersion <= result.changeVersion &&
           (result.changes.length === 0 ||
+            result.nextAfter.changeVersion === result.changeVersion ||
             result.nextAfter.changeVersion ===
               result.changes.at(-1)?.changeVersion),
       ),
