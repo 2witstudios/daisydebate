@@ -70,8 +70,6 @@ export function planMessageSend(
     throw createAppError('NOT_FOUND');
   const payloadDigest = sendPayloadDigest(command);
   if (state.receipt) {
-    if (state.receipt.payloadDigest !== payloadDigest)
-      throw createAppError('CONFLICT');
     const message = availableMessage(
       state.existingMessage,
       command.channelId,
@@ -79,6 +77,8 @@ export function planMessageSend(
     );
     if (message.authorActorId !== resources.actorId)
       throw createAppError('NOT_FOUND');
+    if (state.receipt.payloadDigest !== payloadDigest)
+      throw createAppError('CONFLICT');
     return { kind: 'replay' as const, message };
   }
   if (command.replyToMessageId !== undefined)
