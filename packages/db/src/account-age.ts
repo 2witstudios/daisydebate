@@ -32,48 +32,63 @@ export async function loadAccountAgeSource(
 export type AgeCollectionAuthority =
   | { readonly status: 'pending'; readonly decision: string }
   | { readonly status: 'approved'; readonly decision: string };
+type AgeWriteInput = {
+  readonly userId: string;
+  readonly birthMonth: string;
+  readonly now: string;
+  readonly expectedAccountRevision: number;
+  readonly expectedAgeRevision: number | null;
+};
+const validRevision = (revision: number) =>
+  Number.isSafeInteger(revision) && revision > 0;
+function validAgeWrite(input: AgeWriteInput, instant: Date) {
+  const validTime =
+    Number.isFinite(instant.getTime()) && instant.toISOString() === input.now;
+  const validSource =
+    /^[1-9]\d{3}-(0[1-9]|1[0-2])$/.test(input.birthMonth) &&
+    input.birthMonth <= input.now.slice(0, 7);
+  const validExpected =
+    validRevision(input.expectedAccountRevision) &&
+    (input.expectedAgeRevision === null ||
+      validRevision(input.expectedAgeRevision));
+  return (
+    idSchema.safeParse(input.userId).success &&
+    validTime &&
+    validSource &&
+    validExpected
+  );
+}
+async function requireCurrentAgeAccount(
+  tx: AuthorizationTransaction,
+  userId: string,
+) {
+  const rows = (await tx.execute(
+    sql`select version,deleted_at as "deletedAt" from users where id=${userId} for update`,
+  )) as unknown as { version: number; deletedAt: Date | null }[];
+  const user = rows[0];
+  if (!user || user.deletedAt !== null) throw createAppError('AUTHORIZATION');
+  const account = await loadAuthorizationAccount(tx, userId);
+  if (!account?.member) throw createAppError('AUTHORIZATION');
+  return user;
+}
 /** No route enables this producer yet. Collection authority is trusted injected configuration. */
 export async function writeAccountBirthMonth(
   database: Pick<
     import('drizzle-orm/bun-sql/postgres').BunSQLDatabase,
     'transaction'
   >,
-  input: {
-    readonly userId: string;
-    readonly birthMonth: string;
-    readonly now: string;
-    readonly expectedAccountRevision: number;
-    readonly expectedAgeRevision: number | null;
-  },
+  input: AgeWriteInput,
   authority: AgeCollectionAuthority,
 ) {
   if (authority.status !== 'approved' || !authority.decision.trim())
     throw createAppError('AUTHORIZATION');
   const instant = new Date(input.now);
-  if (
-    !idSchema.safeParse(input.userId).success ||
-    !Number.isFinite(instant.getTime()) ||
-    instant.toISOString() !== input.now ||
-    !/^[1-9]\d{3}-(0[1-9]|1[0-2])$/.test(input.birthMonth) ||
-    input.birthMonth > input.now.slice(0, 7) ||
-    !Number.isSafeInteger(input.expectedAccountRevision) ||
-    input.expectedAccountRevision < 1 ||
-    (input.expectedAgeRevision !== null &&
-      (!Number.isSafeInteger(input.expectedAgeRevision) ||
-        input.expectedAgeRevision < 1))
-  )
-    throw createAppError('VALIDATION');
+  if (!validAgeWrite(input, instant)) throw createAppError('VALIDATION');
   return database.transaction(async (tx) => {
-    const user = (await tx.execute(
-      sql`select version,deleted_at as "deletedAt" from users where id=${input.userId} for update`,
-    )) as unknown as { version: number; deletedAt: Date | null }[];
-    if (!user[0] || user[0].deletedAt !== null)
-      throw createAppError('AUTHORIZATION');
-    const account = await loadAuthorizationAccount(tx, input.userId);
-    if (!account?.member) throw createAppError('AUTHORIZATION');
+    const user = await requireCurrentAgeAccount(tx, input.userId);
     const source = await loadAccountAgeSource(tx, input.userId);
     if (
-      user[0].version !== input.expectedAccountRevision ||
+      user.version !== input.expectedAccountRevision ||
       (source?.revision ?? null) !== input.expectedAgeRevision
     )
       throw createAppError('CONFLICT');
