@@ -133,7 +133,13 @@ function requestDecision(
     capability === 'channel.request.read'
       ? context.socialReading
       : context.socialPosting;
-  return actorAllowed && currentPolicy(resource, policy, context)
+  return actorAllowed &&
+    currentPolicy(
+      resource,
+      policy,
+      context,
+      capability !== 'channel.request.read',
+    )
     ? allow
     : deny('missing-capability');
 }
@@ -154,7 +160,7 @@ function channelMutation(
 ): AuthorizationDecision {
   if (
     resource.lifecycle !== 'active' ||
-    !currentPolicy(resource, context.socialPosting, context)
+    !currentPolicy(resource, context.socialPosting, context, true)
   )
     return deny('missing-capability');
   const authority = resource.authority;
