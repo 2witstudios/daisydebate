@@ -1,5 +1,8 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { realtimeProofProfile } from '../e2e/support/realtime-profile';
+import {
+  realtimeProofProfile,
+  assertRealtimeProofConfig,
+} from '../e2e/support/realtime-profile';
 
 setupRitewayBun();
 
@@ -43,5 +46,34 @@ test('missing or arbitrary profiles cannot select another server or bypass the d
     should: 'refuse every unsupported profile before process creation',
     actual: refused,
     expected: [true, true, true, true],
+  });
+});
+
+test('selected config validation refuses wrong suites, shared output and missing reports', () => {
+  const profile = realtimeProofProfile('room');
+  const config = {
+    testMatch: profile.spec,
+    outputDir: 'test-results/realtime',
+    reporter: [['json', { outputFile: profile.report }]],
+  };
+  const accepts = (input: typeof config) => {
+    try {
+      assertRealtimeProofConfig(profile, input);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  assert({
+    given:
+      'the actual selected config and three malformed proof configurations',
+    should: 'admit only the exact isolated suite and retained reporter',
+    actual: [
+      accepts(config),
+      accepts({ ...config, testMatch: '**/*.e2e.ts' }),
+      accepts({ ...config, outputDir: 'test-results' }),
+      accepts({ ...config, reporter: [] }),
+    ],
+    expected: [true, false, false, false],
   });
 });

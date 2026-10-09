@@ -28,6 +28,11 @@ export function realtimeClaimProblems(input: Registration) {
       {
         label: `Realtime ${profile}`,
         command,
+        companionCommands: [
+          'test:e2e:room-launch',
+          'test:e2e:realtime',
+          'test:e2e:messaging-realtime',
+        ],
         profile,
         runnerPath: 'e2e/support/realtime-runner.ts',
         configPath: room
