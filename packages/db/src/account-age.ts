@@ -21,7 +21,9 @@ export async function loadAccountAgeSource(
     sql`select birth_month as "birthMonth",version as revision,recorded_at as "recordedAt" from ${accountAge} where user_id=${userId}`,
   )) as unknown as { birthMonth: string; revision: number; recordedAt: Date }[];
   const row = rows[0];
-  return row
+  return row &&
+    row.recordedAt instanceof Date &&
+    Number.isFinite(row.recordedAt.getTime())
     ? {
         birthMonth: row.birthMonth,
         revision: row.revision,
