@@ -82,10 +82,7 @@ test('same-transaction participant safety controls require no age or posting pol
       actual: unblocked,
       expected: { blocked: false, revision: 3 },
     });
-    await sql.unsafe(
-      'update users set deleted_at=$2,username=null,email_verified=false,version=version+1 where id=$1',
-      [fixture.userId, fixture.now],
-    );
+    await fixture.eraseSubject(fixture.actorId);
     await assertRejects({
       given: 'an erased caller retrying an accepted block request',
       should: 'refuse before reading the receipt or reintroducing authority',
