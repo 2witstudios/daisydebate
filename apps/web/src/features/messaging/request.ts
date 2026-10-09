@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { Clock, IdGenerator } from '@daisy/clock';
 import type { MessagingSocialStore } from '@daisy/db/messaging';
@@ -9,6 +8,7 @@ import {
 } from '@daisy/protocol';
 import { parseValidated } from '../../server/http';
 import { requireMessagingActor } from './principal';
+import { messagingSocialDigest } from './social-command-digest';
 
 export async function requestMessagingDm(
   input: unknown,
@@ -34,16 +34,10 @@ export async function requestMessagingDm(
     input,
   );
   if (command.recipientActorId === actorId) throw createAppError('VALIDATION');
-  const digest = createHash('sha3-256')
-    .update(
-      JSON.stringify([
-        command.version,
-        'dm.request',
-        command.recipientActorId,
-        command.introduction ?? null,
-      ]),
-    )
-    .digest('hex');
+  const digest = messagingSocialDigest('dm.request', [
+    command.recipientActorId,
+    command.introduction ?? null,
+  ]);
   return dependencies.store.withContacts(
     {
       actorId,
