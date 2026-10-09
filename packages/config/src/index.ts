@@ -1,5 +1,10 @@
 import { z } from 'zod';
 import { databaseUrl, redisUrl } from './urls';
+import { realtimePublicUrlSchema } from './realtime-endpoint';
+export {
+  readRealtimePublicUrl,
+  realtimePublicUrlSchema,
+} from './realtime-endpoint';
 
 export { requireTestServices, requireTestSlotServices } from './test-services';
 export {
@@ -99,6 +104,7 @@ const serverFields = {
     .default('false')
     .transform((value) => value === 'true'),
   PUBLIC_APP_URL: z.url(),
+  REALTIME_PUBLIC_URL: realtimePublicUrlSchema.optional(),
   // AIDB: OpenRouter for AI debates (chat, TTS, STT). Optional: without it
   // AI debates are unavailable and nothing calls out.
   OPENROUTER_API_KEY: secret(z.string().regex(/^\S+$/)).optional(),
@@ -109,6 +115,15 @@ const serverConfigSchema = z
     if (config.NODE_ENV !== 'production') return;
     requireHttpsOrigin(config.PUBLIC_APP_URL, ctx);
     requireDeploymentIdentity(config, ctx);
+    if (
+      config.REALTIME_PUBLIC_URL !== undefined &&
+      !config.REALTIME_PUBLIC_URL.startsWith('wss:')
+    )
+      ctx.addIssue({
+        code: 'custom',
+        path: ['REALTIME_PUBLIC_URL'],
+        message: 'Production requires WSS',
+      });
     if (config.FOUNDATION_PROOF_ENABLED)
       ctx.addIssue({
         code: 'custom',
