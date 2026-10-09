@@ -12,6 +12,7 @@
     "apps/web": {
       "entry": [
         "e2e/support/server.ts",
+        "e2e/support/realtime-config.ts",
         // Launch config/server are process entries selected by runner/command replacement;
         // evidence/release are Bun subprocess CLI entries, never browser imports.
         "e2e/support/room-launch-config.ts",
@@ -28,7 +29,10 @@
     },
     "packages/db": { "entry": ["integration/**/*.integration.ts"] },
     "apps/realtime": {
-      "entry": ["integration/**/*.integration.ts"],
+      "entry": [
+        "integration/**/*.integration.ts",
+        "integration/browser-server.ts",
+      ],
     },
     "packages/redis": {
       "entry": ["integration/**/*.integration.ts"],
