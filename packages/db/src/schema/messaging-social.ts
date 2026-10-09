@@ -1,0 +1,138 @@
+import { sql } from 'drizzle-orm';
+import {
+  bigint,
+  boolean,
+  check,
+  foreignKey,
+  pgTable,
+  primaryKey,
+  text,
+  unique,
+} from 'drizzle-orm/pg-core';
+import { actors } from './actors';
+import { oneOf, timestampColumn } from './columns';
+import { messagingChannels } from './messaging-channels';
+
+/** One durable lock target even when a blocked pair has no DM channel. */
+export const messagingContactPairs = pgTable(
+  'messaging_contact_pairs',
+  {
+    lowActorId: text('low_actor_id')
+      .notNull()
+      .references(() => actors.id, { onDelete: 'restrict' }),
+    highActorId: text('high_actor_id')
+      .notNull()
+      .references(() => actors.id, { onDelete: 'restrict' }),
+    lowBlocksHigh: boolean('low_blocks_high').notNull().default(false),
+    highBlocksLow: boolean('high_blocks_low').notNull().default(false),
+    revision: bigint('revision', { mode: 'number' }).notNull().default(1),
+  },
+  (table) => [
+    primaryKey({ columns: [table.lowActorId, table.highActorId] }),
+    check(
+      'messaging_contact_pairs_order',
+      sql`${table.lowActorId} < ${table.highActorId}`,
+    ),
+    check(
+      'messaging_contact_pairs_revision',
+      sql`${table.revision} between 1 and 9007199254740991`,
+    ),
+  ],
+);
+
+/** Messaging's accepted/requested DM pair is not a friendship producer. */
+export const messagingDmPairs = pgTable(
+  'messaging_dm_pairs',
+  {
+    lowActorId: text('low_actor_id')
+      .notNull()
+      .references(() => actors.id, { onDelete: 'restrict' }),
+    highActorId: text('high_actor_id')
+      .notNull()
+      .references(() => actors.id, { onDelete: 'restrict' }),
+    channelId: text('channel_id').notNull(),
+    channelKind: text('channel_kind').notNull().default('dm'),
+    requestSenderActorId: text('request_sender_actor_id').notNull(),
+    requestState: text('request_state').notNull(),
+    requestedAt: timestampColumn('requested_at').notNull(),
+    decidedAt: timestampColumn('decided_at'),
+  },
+  (table) => [
+    primaryKey({ columns: [table.lowActorId, table.highActorId] }),
+    unique('messaging_dm_pairs_channel_unique').on(table.channelId),
+    check(
+      'messaging_dm_pairs_order',
+      sql`${table.lowActorId} < ${table.highActorId}`,
+    ),
+    check('messaging_dm_pairs_kind', sql`${table.channelKind} = 'dm'`),
+    check(
+      'messaging_dm_pairs_request_sender',
+      sql`${table.requestSenderActorId} in (${table.lowActorId}, ${table.highActorId})`,
+    ),
+    check(
+      'messaging_dm_pairs_request_state',
+      oneOf(table.requestState, [
+        'pending',
+        'accepted',
+        'declined',
+        'cancelled',
+      ]),
+    ),
+    check(
+      'messaging_dm_pairs_request_time',
+      sql`(${table.requestState} = 'pending' and ${table.decidedAt} is null) or (${table.requestState} <> 'pending' and ${table.decidedAt} is not null and ${table.decidedAt} >= ${table.requestedAt})`,
+    ),
+    foreignKey({
+      name: 'messaging_dm_pairs_contact_fk',
+      columns: [table.lowActorId, table.highActorId],
+      foreignColumns: [
+        messagingContactPairs.lowActorId,
+        messagingContactPairs.highActorId,
+      ],
+    }),
+    foreignKey({
+      name: 'messaging_dm_pairs_channel_kind_fk',
+      columns: [table.channelId, table.channelKind],
+      foreignColumns: [messagingChannels.id, messagingChannels.kind],
+    }).onDelete('cascade'),
+  ],
+);
+
+export const messagingGroupGrants = pgTable(
+  'messaging_group_grants',
+  {
+    channelId: text('channel_id').notNull(),
+    channelKind: text('channel_kind').notNull().default('private_group'),
+    actorId: text('actor_id')
+      .notNull()
+      .references(() => actors.id, { onDelete: 'restrict' }),
+    role: text('role').notNull(),
+    generation: bigint('generation', { mode: 'number' }).notNull(),
+    grantedAt: timestampColumn('granted_at').notNull(),
+    revokedAt: timestampColumn('revoked_at'),
+  },
+  (table) => [
+    primaryKey({ columns: [table.channelId, table.actorId] }),
+    check(
+      'messaging_group_grants_kind',
+      sql`${table.channelKind} = 'private_group'`,
+    ),
+    check(
+      'messaging_group_grants_role',
+      oneOf(table.role, ['manager', 'member']),
+    ),
+    check(
+      'messaging_group_grants_time',
+      sql`${table.revokedAt} is null or ${table.revokedAt} >= ${table.grantedAt}`,
+    ),
+    check(
+      'messaging_group_grants_generation',
+      sql`${table.generation} between 1 and 9007199254740991`,
+    ),
+    foreignKey({
+      name: 'messaging_group_grants_channel_kind_fk',
+      columns: [table.channelId, table.channelKind],
+      foreignColumns: [messagingChannels.id, messagingChannels.kind],
+    }).onDelete('cascade'),
+  ],
+);
