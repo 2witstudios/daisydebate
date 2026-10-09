@@ -27,11 +27,13 @@ import type {
 type Caller = { readonly userId: string; readonly actorId: string };
 type Store = Pick<
   Database,
+  | 'readLaunchedRound'
   | 'databaseNow'
   | 'listRoomCatalogSources'
   | 'listRoomBots'
   | 'getFormatRevision'
   | 'getCurrentPreset'
+  | 'readRoomCreateReceipt'
   | 'createRoomCommand'
   | 'readRoomAssembly'
   | 'listRoomAssemblies'
@@ -100,12 +102,14 @@ export function createRoomRuntimeOperations({
   store,
   redis,
   ids,
+  maxOpenRooms,
   consentTtlMs,
   botsAvailable,
 }: {
   readonly store: Store;
   readonly redis: Redis;
   readonly ids: IdGenerator;
+  readonly maxOpenRooms: () => number;
   readonly consentTtlMs: () => number;
   readonly botsAvailable: () => boolean;
 }) {
@@ -171,6 +175,26 @@ export function createRoomRuntimeOperations({
     }));
   return {
     view,
+    roundView: (caller: Caller, roundId: string) =>
+      store.readLaunchedRound(
+        roundId,
+        caller,
+        (view, account) =>
+          authorize({
+            principal: { kind: 'user', ...caller },
+            capability: 'round.read',
+            context: { account },
+            resource: {
+              kind: 'round',
+              roundId: view.id,
+              createdByActorId: view.hostActorId,
+              visibility: view.visibility,
+              status: view.status,
+              participants: view.participants,
+              revision: view.version,
+            },
+          }).allow,
+      ),
     catalog,
     async castChoices(caller: Caller): Promise<readonly RoomCastChoice[]> {
       return (
@@ -187,8 +211,10 @@ export function createRoomRuntimeOperations({
         }));
     },
     async list(caller: Caller) {
-      const states = await store.listRoomAssemblies(caller, (state, account) =>
-        can(caller, 'room.read', account, state),
+      const states = await store.listRoomAssemblies(
+        caller,
+        (state, account) => can(caller, 'room.read', account, state),
+        (account) => can(caller, 'room.list', account),
       );
       const now = await store.databaseNow();
       return Promise.all(
@@ -206,6 +232,14 @@ export function createRoomRuntimeOperations({
       caller: Caller,
       body: RoomCreate,
     ): Promise<RoomCommandResponse> {
+      const previous = await store.readRoomCreateReceipt({
+        caller,
+        commandId: body.commandId,
+        payloadDigest: digest(body),
+        authorize: (account) => can(caller, 'room.create', account),
+      });
+      if (previous)
+        return { receipt: previous, view: await view(caller, previous.roomId) };
       const selection = body.selection;
       let definition: FormatDefinition;
       let config: RoomConfig;
@@ -257,6 +291,7 @@ export function createRoomRuntimeOperations({
       const receipt = await store.createRoomCommand({
         caller,
         authorize: (account) => can(caller, 'room.create', account),
+        maxOpenRooms: maxOpenRooms(),
         commandId: body.commandId,
         payloadDigest: digest(body),
         definition: selection.kind === 'custom' ? definition : null,

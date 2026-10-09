@@ -1,6 +1,7 @@
 import { and, eq, isNull, or, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type {
+  RoundView,
   RoomAssemblyState,
   RoomCommandReceipt,
   RoomMutationOutcome,
@@ -33,7 +34,7 @@ type Caller = { readonly userId: string; readonly actorId: string };
 type Account = ReturnType<typeof authorizationAccountFact>;
 type AuthorizeRoom = (state: RoomAssemblyState, account: Account) => boolean;
 const lockedAccount = async (tx: Tx, caller: Caller): Promise<Account> => {
-  await lockAuthorizationActors(tx, [caller.actorId]);
+  await lockAuthorizationActors(tx, [caller.actorId], { maxActors: 1 });
   return loadAuthorizationAccount(tx, caller.userId);
 };
 type Actor = {
@@ -221,6 +222,59 @@ export const roomCommandOperations = ({
   readonly database: BunSQLDatabase;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
+  async readLaunchedRound(
+    roundId: string,
+    caller: Caller,
+    authorize: (view: RoundView, account: Account) => boolean,
+  ): Promise<RoundView> {
+    return instrumented(eventSink, 'readLaunchedRound', () =>
+      database.transaction(async (tx) => {
+        const account = await lockedAccount(tx, caller);
+        const [row] = await tx
+          .select()
+          .from(rounds)
+          .where(eq(rounds.id, roundId))
+          .for('share');
+        if (!row || !row.roomId || !row.roomConfigSnapshot || !row.visibility)
+          throw createAppError('NOT_FOUND');
+        const seats = await tx
+          .select()
+          .from(roundParticipants)
+          .where(eq(roundParticipants.roundId, roundId));
+        const participants = await Promise.all(
+          seats.map(async (p) => {
+            const actor = await actorFact(tx, p.actorId);
+            if (!actor) throw createAppError('INVARIANT');
+            return {
+              id: p.id,
+              actorId: actor.actorId,
+              kind: actor.kind,
+              label: actor.label,
+              role: p.role,
+              slot: p.slot,
+            };
+          }),
+        );
+        const view: RoundView = {
+          id: row.id,
+          roomId: row.roomId,
+          version: row.version,
+          status: row.status,
+          topic: row.resolution,
+          visibility: row.visibility,
+          hostActorId: row.createdByActorId,
+          config: row.roomConfigSnapshot,
+          rules: row.rulesSnapshot,
+          participants,
+          startedAt: row.startedAt?.toISOString() ?? null,
+          completedAt: row.completedAt?.toISOString() ?? null,
+          outcome: row.outcome,
+        };
+        if (!authorize(view, account)) throw createAppError('NOT_FOUND');
+        return view;
+      }),
+    );
+  },
   async listRoomCatalogSources(
     caller: Caller,
     authorize: (account: Account) => boolean,
@@ -281,10 +335,13 @@ export const roomCommandOperations = ({
   async listRoomAssemblies(
     caller: Caller,
     authorize: AuthorizeRoom,
+    authorizeCollection: (account: Account) => boolean,
   ): Promise<readonly RoomAssemblyState[]> {
     return instrumented(eventSink, 'listRoomAssemblies', () =>
       database.transaction(async (tx) => {
         const account = await lockedAccount(tx, caller);
+        if (!authorizeCollection(account))
+          throw createAppError('AUTHORIZATION');
         const rows = await tx
           .select()
           .from(rooms)
@@ -292,6 +349,7 @@ export const roomCommandOperations = ({
             or(
               eq(rooms.visibility, 'public'),
               eq(rooms.hostActorId, caller.actorId),
+              sql`exists (select 1 from room_participants rp where rp.room_id = ${rooms.id} and rp.actor_id = ${caller.actorId})`,
             ),
           )
           .for('share');
@@ -320,8 +378,29 @@ export const roomCommandOperations = ({
       }),
     );
   },
+  async readRoomCreateReceipt(input: {
+    readonly caller: Caller;
+    readonly commandId: string;
+    readonly payloadDigest: string;
+    readonly authorize: (account: Account) => boolean;
+  }): Promise<RoomCommandReceipt | null> {
+    return instrumented(eventSink, 'readRoomCreateReceipt', () =>
+      database.transaction(async (tx) => {
+        const account = await lockedAccount(tx, input.caller);
+        if (!input.authorize(account)) throw createAppError('AUTHORIZATION');
+        await lockCommand(tx, input.commandId);
+        return replayReceipt(
+          tx,
+          input.commandId,
+          input.caller.actorId,
+          input.payloadDigest,
+        );
+      }),
+    );
+  },
   async createRoomCommand(input: {
     readonly room: NewRoom;
+    readonly maxOpenRooms: number;
     readonly commandId: string;
     readonly payloadDigest: string;
     readonly definition: FormatDefinition | null;
@@ -344,7 +423,7 @@ export const roomCommandOperations = ({
           input.payloadDigest,
         );
         if (replay) return replay;
-        // Serialize the adopted five-open-Room cap for a host, across instances.
+        // Serialize the explicitly configured open-Room cap across instances.
         await tx.execute(
           sql`select pg_advisory_xact_lock(hashtextextended(${input.room.hostActorId}, 59002))`,
         );
@@ -357,7 +436,10 @@ export const roomCommandOperations = ({
               sql`${rooms.status} in ('assembling', 'ready')`,
             ),
           );
-        if (Number(count?.count ?? 0) >= 5) throw createAppError('RATE_LIMIT');
+        if (!Number.isSafeInteger(input.maxOpenRooms) || input.maxOpenRooms < 1)
+          throw createAppError('INVARIANT');
+        if (Number(count?.count ?? 0) >= input.maxOpenRooms)
+          throw createAppError('RATE_LIMIT');
         if (input.definition)
           await publishDefinition(
             tx,
@@ -421,7 +503,9 @@ export const roomCommandOperations = ({
             ...(input.targetActorId ? [input.targetActorId] : []),
           ]),
         ];
-        await lockAuthorizationActors(tx, fencedActors);
+        await lockAuthorizationActors(tx, fencedActors, {
+          maxActors: fencedActors.length,
+        });
         const account = await loadAuthorizationAccount(tx, input.caller.userId);
         if (input.caller.actorId !== input.actorId)
           throw createAppError('AUTHORIZATION');
