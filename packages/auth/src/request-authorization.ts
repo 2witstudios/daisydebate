@@ -21,6 +21,7 @@ export function toAuthorizationInput(
 export function requireAuthorization(input: AuthorizationInput): void {
   if (authorize(input).allow) return;
   const read = [
+    'round.read',
     'room.read',
     'room.list',
     'channel.read',

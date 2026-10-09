@@ -3,6 +3,7 @@ import { z } from 'zod';
 export const authorizationCapabilities = [
   'foundation.create',
   'foundation.read',
+  'round.read',
   'room.create',
   'room.list',
   'room.read',
