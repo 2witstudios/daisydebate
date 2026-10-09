@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import {
   authorize,
   type ChannelAuthorizationFact,
+  type MessagingCollectionAuthorizationFact,
   type SocialAccountFact,
   type SocialPolicyEvidence,
 } from '@daisy/auth/authorization';
@@ -63,7 +64,15 @@ export function createRealtimeAuthorization({
     ];
     const bound = Math.min(started + 60_000, deadline(session.expiresAt));
     if (parsed.family === 'user:inbox')
-      return parsed.actorId === principal.actorId
+      return authorize({
+        principal: { kind: 'user', ...principal },
+        capability: 'channel.inbox.read',
+        resource: {
+          kind: 'messaging_collection',
+          actorId: parsed.actorId,
+        } satisfies MessagingCollectionAuthorizationFact,
+        context: { account: session.account },
+      }).allow
         ? { revision: fingerprint(base), validUntil: bound }
         : null;
     if (parsed.family === 'standings')
