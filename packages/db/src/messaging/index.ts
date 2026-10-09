@@ -1,5 +1,6 @@
 export { createMessagingStore } from './store';
 export type {
+  MessagingAuthorizationFence,
   MessagingChannelStore,
   MessagingLockedFrame,
   MessagingMessageRecord,
