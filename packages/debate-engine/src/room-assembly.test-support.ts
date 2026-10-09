@@ -1,5 +1,5 @@
 import type { RoomAssemblyState } from '@daisy/protocol';
-export const rules = {
+const rules = {
   version: 2 as const,
   seats: { affirmative: 1, negative: 1, judge: 0 },
   segments: [
