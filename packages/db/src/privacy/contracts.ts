@@ -3,12 +3,17 @@ import type { AuthorizationTransaction } from '../authorization';
 /** Policies name actual decision records; pending never confers activation authority. */
 export type PrivacyPolicy =
   | { readonly status: 'pending'; readonly decision: string }
-  | { readonly status: 'approved'; readonly decision: string; readonly rule: string };
+  | {
+      readonly status: 'approved';
+      readonly decision: string;
+      readonly rule: string;
+    };
 
 export type PrivacyFieldDeclaration = {
   readonly table: string;
   readonly column: string;
-  readonly category: 'none' | 'identifier' | 'personal' | 'sensitive' | 'secret';
+  readonly category:
+    'none' | 'identifier' | 'personal' | 'sensitive' | 'secret';
   readonly visibility?: 'public' | 'private';
   readonly storage: 'postgres';
   readonly owner: string;
@@ -23,7 +28,9 @@ export type PrivacySubject = {
   readonly userId: string;
   readonly actorId: string;
 };
-export type PrivacyExport = Readonly<Record<string, readonly Readonly<Record<string, unknown>>[]>>;
+export type PrivacyExport = Readonly<
+  Record<string, readonly Readonly<Record<string, unknown>>[]>
+>;
 
 /**
  * Called only inside the caller's transaction, after the canonical user lock.
