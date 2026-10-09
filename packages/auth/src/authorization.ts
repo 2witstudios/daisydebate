@@ -1,4 +1,4 @@
-import { contactPairValid } from './authorization-contact';
+import { contactSafetyAllowed } from './authorization-contact';
 import { socialCreationAllowed } from './authorization-creation';
 import { policyEvidenceCurrent as currentPolicy } from './authorization-policy';
 import {
@@ -247,8 +247,7 @@ function memberDecision(
   context: AuthorizationInput['context'],
 ): AuthorizationDecision {
   if (resource.kind === 'contact_pair')
-    return contactPairValid(resource) &&
-      [resource.lowActorId, resource.highActorId].includes(actorId)
+    return contactSafetyAllowed(actorId, resource, context)
       ? allow
       : deny('missing-capability');
   if (resource.kind === 'social_creation')
