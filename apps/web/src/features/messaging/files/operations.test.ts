@@ -12,11 +12,17 @@ import { fileOperationFixture } from './operations.test-support';
 setupRitewayBun();
 test('cancellation requires fresh post authority and never deletes unacknowledged bytes', async () => {
   const f = fileOperationFixture();
+  const command = {
+    version: 1,
+    channelId: f.channelId,
+    fileId: f.fileId,
+    generation: 1,
+  };
   f.state.allowed = false;
   await assertRejects({
     given: 'a cancellation after authority revocation',
     should: 'refuse before changing the file',
-    actual: () => cancelMessagingFile(f.input, f.principal, f.d),
+    actual: () => cancelMessagingFile(command, f.principal, f.d),
     code: 'AUTHORIZATION',
   });
   assert({
@@ -26,7 +32,7 @@ test('cancellation requires fresh post authority and never deletes unacknowledge
     expected: 0,
   });
   f.state.allowed = true;
-  await cancelMessagingFile(f.input, f.principal, f.d);
+  await cancelMessagingFile(command, f.principal, f.d);
   assert({
     given: 'an authorized cancellation',
     should:
