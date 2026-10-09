@@ -46,6 +46,9 @@ export function fileOperationFixture() {
     scanned = resolve;
   });
   const frame: FileFrame = {
+    authorize: async () => {
+      if (!state.allowed) throw createAppError('AUTHORIZATION');
+    },
     reserve: async () => reservation,
     upload: async () => reservation,
     scan: async () => {
