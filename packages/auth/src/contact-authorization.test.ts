@@ -82,7 +82,10 @@ test('safety authority requires exact current nonerased pair accounts', () => {
       'deny invalid projections and preserve safety without age or peer membership',
     actual: projections.map(
       (contactAccounts) =>
-        authorize({ ...input, context: { account, contactAccounts } }).allow,
+        authorize({
+          ...input,
+          context: contactAccounts ? { account, contactAccounts } : { account },
+        }).allow,
     ),
     expected: [
       false,
