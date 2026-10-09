@@ -1,4 +1,10 @@
-import { resource, accounts, policy, input } from './channel.test-support';
+import {
+  resource,
+  accounts,
+  policy,
+  input,
+  pendingResource,
+} from './channel.test-support';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   authorize,
@@ -70,18 +76,7 @@ describe('canonical channel decisions', () => {
     });
   });
   test('pending request is not ordinary channel access', () => {
-    const pending: ChannelAuthorizationFact = {
-      ...resource,
-      authority: {
-        kind: 'dm',
-        lowActorId: 'a',
-        highActorId: 'b',
-        requestSenderActorId: 'a',
-        state: 'pending',
-        blocked: false,
-        revision: 3,
-      },
-    };
+    const pending = pendingResource;
     assert({
       given: 'a pending addressed request',
       should: 'allow recipient read/decide and sender cancel only',
