@@ -109,7 +109,8 @@ Rules:
   missing or incomplete diffs never qualify. Runtime/unclassified approvals
   require integration PASS and a negative control regardless of finding count.
   A decorated or false PASS saying NOT RUN, deferred or carrying `?` never counts.
-- Branch feedback carries `Review stage: branch`. It names the candidate,
+- Branch feedback carries `Review stage: branch` and the nonacceptance verdict
+  `BRANCH FEEDBACK` (source conclusions go in prose). It names the candidate,
   findings and deferred proof but cannot mint main acceptance. An acceptance
   record evaluates the complete exact-head candidate and all relevant findings;
   outstanding main proof cannot be bypassed by calling feedback an approval.

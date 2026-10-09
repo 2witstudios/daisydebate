@@ -86,7 +86,9 @@ acceptance; migration generation remains single-writer.
 Request branch feedback early when it helps resolve a design or implementation
 risk. Label its record `Review stage: branch`, name the exact SHA and list deferred
 proof. A branch review may report sound source with outstanding proof; it cannot
-mint the main acceptance status. Fix real findings without waiting for every
+mint the main acceptance status. Use the nonacceptance verdict `BRANCH FEEDBACK`
+and describe source conclusions in prose; an approval verdict belongs only to
+acceptance, including while stage-aware verification is being adopted. Fix real findings without waiting for every
 service tier to become runnable. There is no review pass-count limit and no
 mandatory owner relay between review passes.
 
