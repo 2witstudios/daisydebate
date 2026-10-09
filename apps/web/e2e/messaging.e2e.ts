@@ -35,6 +35,29 @@ for (const javaScriptEnabled of [true, false]) {
         `/api/messaging/channels/${journey.channelId}/messages`,
       );
       expect([403, 404]).toContain(foreign.status());
+      const foreignSearch = await journey.outsider.request.get(
+        `/api/messaging/channels/${journey.channelId}/messages/search?query=browser`,
+      );
+      expect([403, 404]).toContain(foreignSearch.status());
+      await sender
+        .getByRole('searchbox', { name: 'Search messages' })
+        .fill('browser');
+      await sender.getByRole('button', { name: 'Search', exact: true }).click();
+      await expect(
+        sender
+          .getByRole('list', { name: 'Message history' })
+          .getByText(text, { exact: true }),
+      ).toHaveCount(1);
+      await sender
+        .getByRole('searchbox', { name: 'Search messages' })
+        .fill('%');
+      await sender.getByRole('button', { name: 'Search', exact: true }).click();
+      await expect(
+        sender.getByText('No matching messages.', { exact: true }),
+      ).toBeVisible();
+      await sender
+        .getByRole('link', { name: 'Clear search', exact: true })
+        .click();
       await sender.reload();
       await expect(
         sender
