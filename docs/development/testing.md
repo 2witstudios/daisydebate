@@ -75,6 +75,17 @@ AIDD/Vitest guidance is overridden here by Bun and RITEway (ADR 0021).
    `bun slot:up` writes (CI sets them in `e2e.yml`). `bun slot:reset-e2e`
    empties that database back to the baseline. A missing value makes the server refuse to start rather than
    fall back to another checkout's data.
+   Dedicated realtime browser proofs run with `bun test:e2e:realtime`
+   (Room delivery) and `bun test:e2e:messaging-realtime` (DM delivery).
+   Their registered runners select one exact suite under Node 24 and the
+   canonical machine-wide limiter. Both use the native slot's actual TLS
+   realtime server, shared Redis namespace, configured WSS endpoint, durable
+   sessions and canonical authorization. Explicit isolated test policy evidence
+   is supplied through the public auth testing seam; production has no default.
+   WebSocket events prompt protected HTTP reads. The default Chromium profile
+   excludes these two suites, while the same native CI job runs each dedicated
+   profile and enforces its reporter count before sanitizing artifacts. Separate
+   output directories preserve reports and traces from earlier profiles.
 4. **CI parity** — `bun check` approximates the CI checks job (format, lint,
    policy, knip, duplication, invariants, evidence, typecheck, unit tests, metrics policy,
    production build). CI additionally runs the

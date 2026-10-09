@@ -252,6 +252,24 @@ jobs:
         env:
           CI: true
           ROOM_LAUNCH_NODE: node
+      - name: Run authenticated generic realtime browser proof
+        id: realtime_room
+        run: bun test:e2e:realtime
+        env:
+          CI: true
+          REALTIME_BROWSER_NODE: node
+      - name: Report actual generic realtime outcomes
+        if: ${{ always() && !cancelled() }}
+        run: bun scripts/e2e-report-counts.ts apps/web/test-results/realtime-results.json
+      - name: Run authenticated messaging realtime browser proof
+        id: realtime_messaging
+        run: bun test:e2e:messaging-realtime
+        env:
+          CI: true
+          REALTIME_BROWSER_NODE: node
+      - name: Report actual messaging realtime outcomes
+        if: ${{ always() && !cancelled() }}
+        run: bun scripts/e2e-report-counts.ts apps/web/test-results/messaging-realtime-results.json
       - name: Report actual discovered and executed outcomes
         if: ${{ always() && !cancelled() && (steps.launch.outcome == 'success' || steps.launch.outcome == 'failure') }}
         run: bun scripts/e2e-report-counts.ts apps/web/test-results/room-launch-results.json
