@@ -1,3 +1,4 @@
+import { composeMessagingInboxRoute } from './inbox-route';
 import {
   composeMessagingSocialRoutes,
   type MessagingSocialRuntimePolicy,
@@ -148,6 +149,7 @@ export function composeMessagingRoutes(app: App) {
   };
   return {
     ...composeMessagingSocialRoutes(app),
+    inbox: composeMessagingInboxRoute(app),
     send: (request: Request) => run(request, 'send'),
     edit: (request: Request) => run(request, 'edit'),
     remove: (request: Request) => run(request, 'remove'),

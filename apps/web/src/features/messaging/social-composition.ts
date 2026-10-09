@@ -1,8 +1,12 @@
+import { composeMessagingInbox } from './inbox-composition';
 import type { SocialCreationPolicy } from '@daisy/auth/authorization';
-import type { MessagingSocialBounds } from '@daisy/protocol';
+import {
+  createMessagingSocialSchemas,
+  type MessagingSocialBounds,
+} from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import type { App } from '../../server/app';
-import { handleOperation } from '../../server/http';
+import { handleOperation, parseValidated } from '../../server/http';
 import { identify } from '../../lib/identity';
 import { consumeOrThrow } from '../auth/abuse/rate-limit';
 import { createMessagingSocialHandlers } from './social-handlers';
@@ -27,7 +31,7 @@ export type MessagingSocialRuntimePolicy = {
 export function composeMessagingSocialRoutes(app: App) {
   const run = (
     request: Request,
-    kind: 'request' | 'decide' | 'block' | 'preview',
+    kind: 'request' | 'decide' | 'block' | 'preview' | 'status',
     channelId?: string,
   ) => {
     const policy = app.messagingPolicy,
@@ -87,6 +91,19 @@ export function composeMessagingSocialRoutes(app: App) {
           clock: app.clock,
           limit,
         }),
+      status: (input, principal) => {
+        const command = parseValidated(
+          createMessagingSocialSchemas(social.bounds).previewDm,
+          input,
+        );
+        return composeMessagingInbox({
+          database: app.database,
+          principal,
+          clock: app.clock,
+          postingPolicy: policy.posting,
+          readingPolicy: policy.reading,
+        }).status(command.channelId);
+      },
       preview: (input, principal) =>
         readMessagingDmRequest(input, principal, {
           store: dm(principal),
@@ -106,11 +123,13 @@ export function composeMessagingSocialRoutes(app: App) {
           ),
         }),
     });
-    return kind === 'preview'
-      ? handlers.preview(request, channelId!)
+    return kind === 'preview' || kind === 'status'
+      ? handlers[kind](request, channelId!)
       : handlers[kind](request);
   };
   return {
+    requestStatus: (request: Request, channelId: string) =>
+      run(request, 'status', channelId),
     requestDm: (request: Request) => run(request, 'request'),
     decideDm: (request: Request) => run(request, 'decide'),
     blockContact: (request: Request) => run(request, 'block'),

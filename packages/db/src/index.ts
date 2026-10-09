@@ -1,3 +1,4 @@
+import { createMessagingInboxStore } from './messaging/inbox-store';
 import { createMessagingChannelAuthority } from './messaging/authority-frame';
 import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
@@ -169,6 +170,9 @@ export function createDatabase({
     ...authorizationSessionOperations({ database }),
     ...emailDeliveryOperations({ database, eventSink }),
     ...actorOperations({ database, eventSink }),
+    messagingInboxStore: (
+      authorize: Parameters<typeof createMessagingInboxStore>[1],
+    ) => createMessagingInboxStore(database, authorize),
     messagingDmStore: (
       authorize: Parameters<typeof createMessagingDmStore>[0]['authorize'],
     ) => createMessagingDmStore({ database, authorize }),

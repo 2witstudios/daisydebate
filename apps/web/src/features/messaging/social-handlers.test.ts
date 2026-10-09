@@ -21,6 +21,7 @@ test('social HTTP checks origin and current participant identity before untruste
     decide: operation,
     block: operation,
     preview: operation,
+    status: operation,
   });
   const cross = await handlers.decide(
     new Request('https://daisy.example/api/messaging/requests/decide', {
