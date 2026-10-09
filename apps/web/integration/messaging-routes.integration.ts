@@ -1,4 +1,5 @@
 import { SQL } from 'bun';
+import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { seedMessagingTestDm } from '@daisy/db/testing';
@@ -8,6 +9,7 @@ import { createTestApp, origin, testDatabaseUrl } from './fixtures';
 import { createAccountFlows, uniqueName } from './auth-account-helpers';
 
 setupRitewayBun();
+requireTestServices(process.env);
 test('mounted messaging composition uses real signed-in actors and shared HTTP gates', async () => {
   const testApp = createTestApp();
   const accounts = createAccountFlows(testApp);
@@ -33,6 +35,7 @@ test('mounted messaging composition uses real signed-in actors and shared HTTP g
     messagingPolicy: {
       bounds: { messageUnits: 100, pageItems: 20 },
       maxBodyBytes: 1024,
+      editWindowMs: 60000,
       posting: {
         state: 'approved',
         decision: 'Integration fixture only',
@@ -99,6 +102,47 @@ test('mounted messaging composition uses real signed-in actors and shared HTTP g
         readStatus: 200,
         sentActor: me.principal.actorId,
         text: 'Private routed text',
+      },
+    });
+    const mutationBody = {
+      version: 1,
+      channelId,
+      messageId: sentBody.id,
+      requestId: createId(),
+      text: 'Edited through HTTP',
+    };
+    const edited = await routes.messaging.edit(
+      testApp.jsonPost('/api/messaging/messages/edit', mutationBody, {
+        cookie: first.cookie,
+      }),
+    );
+    assert({
+      given: 'the signed-in author editing through the real composed handler',
+      should: 'return the new public message with its creation sequence',
+      actual: { status: edited.status, body: (await edited.json()).text },
+      expected: { status: 200, body: 'Edited through HTTP' },
+    });
+    const removed = await routes.messaging.remove(
+      testApp.jsonPost(
+        '/api/messaging/messages/remove',
+        {
+          version: 1,
+          channelId,
+          messageId: sentBody.id,
+          requestId: createId(),
+        },
+        { cookie: first.cookie },
+      ),
+    );
+    const removedBody = await removed.json();
+    assert({
+      given: 'the author removing through the composed handler',
+      should:
+        'return only an unavailable cursor without author or private text',
+      actual: { status: removed.status, keys: Object.keys(removedBody).sort() },
+      expected: {
+        status: 200,
+        keys: ['changeVersion', 'channelId', 'id', 'sequence', 'unavailable'],
       },
     });
     const hidden = createId();

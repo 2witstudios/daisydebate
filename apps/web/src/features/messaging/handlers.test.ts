@@ -12,6 +12,12 @@ test('messaging HTTP refuses cross-origin requests before principal or protected
       calls.push('principal');
       throw new Error('Must not identify');
     },
+    edit: async () => {
+      throw new Error('Must not edit');
+    },
+    remove: async () => {
+      throw new Error('Must not remove');
+    },
     send: async () => {
       calls.push('send');
       throw new Error('Must not send');

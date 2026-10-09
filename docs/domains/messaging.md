@@ -38,10 +38,20 @@ only, excludes the other actor's directional block flag, and serializes dates as
 UTC ISO values.
 
 The web composition accepts an explicit `MessagingRuntimePolicy`. It wires the
-same operations to authenticated, same-origin HTTP send/history/change/read
+same operations to authenticated, same-origin HTTP send/edit/remove/history/change/read
 handlers and the canonical limiter. An absent policy returns unavailable (503).
 No production size, contact, reading, legal-basis or retention approval is supplied
-by fixtures or package defaults. Native forms, edit/delete/reaction/search,
+by fixtures or package defaults. Native forms, reaction/search,
 social lifecycle commands, realtime subscriptions and the remaining contextual
 slices are still delivery work; these primitives do not constitute full messaging
 acceptance.
+
+Author edits keep their creation sequence and allocate an independent change
+version. The edit deadline is injected policy, rechecked after limiter waits.
+Equal retries read the current available result after current authorization;
+conflicting payloads leave state unchanged. Own removal uses the canonical
+`channel.message.remove` capability and a separate operation authorship check,
+so posting restrictions do not prevent removal under explicit retained-history
+permission. Removal scrubs text and all message-linked receipt fingerprints in
+the same transaction, emits a content-free doorbell and returns only an
+unavailable cursor. Retries never resurrect removed content.
