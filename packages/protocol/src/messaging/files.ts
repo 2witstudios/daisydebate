@@ -33,7 +33,15 @@ export function createMessagingFileSchemas(bounds: {
         .min(1)
         .max(bounds.maxFilenameUnits)
         .refine(
-          (name) => name.trim().length > 0 && !/[\x00-\x1f\x7f/\\]/u.test(name),
+          (name) =>
+            name.trim().length > 0 &&
+            [...name].every(
+              (c) =>
+                c.charCodeAt(0) > 31 &&
+                c.charCodeAt(0) !== 127 &&
+                c !== '/' &&
+                c !== '\\',
+            ),
         ),
     }),
     finalize: z.strictObject({ ...association, messageId: idSchema }),
