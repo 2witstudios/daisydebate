@@ -97,18 +97,34 @@ export function socialPostingPolicy({
     !memberSetMatches(members, accounts)
   )
     return result;
+  return {
+    ...result,
+    allowed: socialAccountsEligible(members, accounts, now, policy),
+  };
+}
+/** Evaluate prospective participants directly; no channel or grant is minted. */
+export function socialAccountsEligible(
+  members: readonly string[],
+  accounts: readonly SocialAccount[],
+  now: string,
+  policy: SocialContactPolicy,
+): boolean {
+  const instant = Date.parse(now);
+  if (
+    policy.state !== 'approved' ||
+    !Number.isFinite(instant) ||
+    !memberSetMatches(members, accounts)
+  )
+    return false;
   const current = members.map((actorId) =>
     accounts.find((row) => row.account.actorId === actorId),
   );
   const valid = current.filter((row) => currentAccount(row, instant));
-  if (valid.length !== current.length) return result;
+  if (valid.length !== current.length) return false;
   const bands = valid.map((row) => row.age.band);
-  return {
-    ...result,
-    allowed: bands.every((band, i) =>
-      bands.slice(i + 1).every((other) => allowsPair(policy, band, other)),
-    ),
-  };
+  return bands.every((band, i) =>
+    bands.slice(i + 1).every((other) => allowsPair(policy, band, other)),
+  );
 }
 
 /** Current account revisions and source deadlines are part of every allowance. */

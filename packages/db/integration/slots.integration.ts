@@ -2,8 +2,7 @@ import { afterAll, expect } from 'bun:test';
 import { SQL } from 'bun';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
-import { drizzle } from 'drizzle-orm/bun-sql';
-import { migrate } from 'drizzle-orm/bun-sql/migrator';
+import { runMigrations } from '../src/migrator';
 import {
   createSlotDatabase,
   dropSlotDatabase,
@@ -47,9 +46,9 @@ const withDatabase = async <T>(
 
 /** What `bun slot:up` and `bun db:reset` do: migrate, then provision. */
 const migrateAndProvision = async (database: string) => {
-  await withDatabase(database, (client) =>
-    migrate(drizzle({ client }), { migrationsFolder }),
-  );
+  const target = new URL(url);
+  target.pathname = `/${database}`;
+  await runMigrations({ databaseUrl: target.toString(), migrationsFolder });
   await provisionTestRoles(admin, e2e);
 };
 

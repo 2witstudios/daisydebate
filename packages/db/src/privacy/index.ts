@@ -1,24 +1,11 @@
-export type {
-  PrivacyPolicy,
-  PrivacyFieldDeclaration,
-  PrivacySubject,
-  PrivacyExport,
-  PrivacyAdopter,
-} from './contracts';
-export {
-  validatePrivacyAdoption,
-  type PrivacyExpectedColumns,
-} from './declarations';
+export type { PrivacyExport, PrivacyAdopter } from './contracts';
 export {
   messagingPrivacyFields,
   messagingPrivacyExpectedColumns,
 } from './messaging-declarations';
 export {
-  planPrivacyExport,
-  planPrivacyErasure,
-  privacyVendors,
-  type PrivacyAdoption,
-  type PrivacyErasureInput,
-  type PrivacyVendor,
-} from './planner';
-export { corePrivacyFields } from './core-declarations';
+  erasePrivacySubject,
+  exportPrivacySubject,
+  type PrivacyVerificationBinding,
+} from './operations';
+export { deliverPrivacyJob } from './vendor-jobs';
