@@ -194,7 +194,7 @@ test('native judge Ready and eligible stored bot debaters launch one frozen sche
       expect((await launchEvidence(view.id)).hash).toBe(proof.hash);
       await expect(judge).toHaveURL(`/rounds/${round.id}`);
       await expect(
-        judge.getByText('scheduled', { exact: false }).first(),
+        judge.getByText('Round · Scheduled', { exact: true }),
       ).toBeVisible();
       await info.attach('scheduled-round-evidence', {
         body: JSON.stringify(proof),
