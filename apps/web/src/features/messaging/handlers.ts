@@ -20,6 +20,8 @@ type Dependencies = {
   readonly maxBodyBytes: number;
   readonly identify: (request: Request) => Promise<Identity>;
   readonly send: Operation;
+  readonly edit: Operation;
+  readonly remove: Operation;
   readonly history: Operation;
   readonly changes: Operation;
   readonly markRead: Operation;
@@ -30,7 +32,7 @@ export function createMessagingHandlers(dependencies: Dependencies) {
     request: Request,
     operation: keyof Pick<
       Dependencies,
-      'send' | 'history' | 'changes' | 'markRead'
+      'send' | 'edit' | 'remove' | 'history' | 'changes' | 'markRead'
     >,
     input: () => Promise<unknown>,
   ) =>
@@ -79,6 +81,12 @@ export function createMessagingHandlers(dependencies: Dependencies) {
     };
   };
   return {
+    edit: (request: Request) =>
+      run(request, 'edit', () => readJson(request, dependencies.maxBodyBytes)),
+    remove: (request: Request) =>
+      run(request, 'remove', () =>
+        readJson(request, dependencies.maxBodyBytes),
+      ),
     send: (request: Request) =>
       run(request, 'send', () => readJson(request, dependencies.maxBodyBytes)),
     history: (request: Request, channelId: string) =>

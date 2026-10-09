@@ -5,6 +5,7 @@ import { buildChannelTopic, idSchema } from '@daisy/protocol';
 import { lockAuthorizationActors } from '../authorization';
 import { messageRecord } from './message-record';
 import { channelReadFrame } from './read-frame';
+import { channelMutationFrame } from './mutation-frame';
 import { appendOutboxEvent } from '../outbox';
 import { messagingChannels } from '../schema/messaging-channels';
 import {
@@ -105,6 +106,13 @@ export function createMessagingStore({
           accounts,
           counters,
           ...channelReadFrame(tx, input, counters, refreshAuthorization),
+          ...channelMutationFrame(
+            tx,
+            input,
+            counters,
+            refreshAuthorization,
+            readMessage,
+          ),
           async readSendState(send) {
             await refreshAuthorization();
             if (

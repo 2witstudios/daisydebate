@@ -2,7 +2,6 @@ import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type {
   MessagingLockedFrame,
   MessagingChannelStore,
-  MessagingMessageRecord,
 } from '@daisy/db/messaging';
 import { createAppError } from '@daisy/errors';
 import {
@@ -10,31 +9,8 @@ import {
   type MessagingCoreBounds,
 } from '@daisy/protocol';
 import { parseValidated } from '../../server/http';
+import { messagingMessageView } from './message-view';
 
-function messagingHistoryEntry(message: MessagingMessageRecord) {
-  const { id, channelId, sequence, changeVersion } = message;
-  if (message.text === null || message.removedAt !== null)
-    return {
-      id,
-      channelId,
-      sequence,
-      changeVersion,
-      unavailable: true as const,
-    };
-  return {
-    id,
-    channelId,
-    sequence,
-    changeVersion,
-    authorActorId: message.authorActorId,
-    text: message.text,
-    createdAt: message.createdAt,
-    editedAt: message.editedAt,
-    ...(message.replyToMessageId === undefined
-      ? {}
-      : { replyToMessageId: message.replyToMessageId }),
-  };
-}
 export function createMessagingReadOperations({
   bounds,
   store,
@@ -70,7 +46,7 @@ export function createMessagingReadOperations({
           version: 1,
           channelId: command.channelId,
           ...page,
-          messages: page.messages.map(messagingHistoryEntry),
+          messages: page.messages.map(messagingMessageView),
         });
       });
     },
@@ -97,7 +73,7 @@ export function createMessagingReadOperations({
             changeVersion: message.changeVersion,
             ...(message.text === null || message.removedAt !== null
               ? {}
-              : { message: messagingHistoryEntry(message) }),
+              : { message: messagingMessageView(message) }),
           })),
         });
       });
