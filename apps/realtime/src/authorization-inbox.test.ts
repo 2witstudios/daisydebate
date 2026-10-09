@@ -26,7 +26,11 @@ test('own inbox subscribes only through current canonical account authority', as
     { ...account, member: false },
     { ...account, revision: 0 },
     { ...account, userId: 'v'.repeat(24) },
-  ];
+  ].map((account) => ({ account, actorId: principal.actorId, expiresAt }));
+  cases.push(
+    { account, actorId: 'b'.repeat(24), expiresAt },
+    { account, actorId: principal.actorId, expiresAt: instant },
+  );
   const actual = [];
   for (const current of cases) {
     const resources = {
@@ -34,8 +38,8 @@ test('own inbox subscribes only through current canonical account authority', as
       database: {
         readAuthorizationSession: async () => ({
           ...principal,
-          account: current,
-          expiresAt,
+          account: current.account,
+          expiresAt: current.expiresAt,
         }),
       },
     } as unknown as RealtimeApp;
@@ -47,17 +51,17 @@ test('own inbox subscribes only through current canonical account authority', as
       (
         await authorization.authorizeTopic(
           principal,
-          buildUserInboxTopic(principal.actorId),
+          buildUserInboxTopic(current.actorId),
         )
       )?.validUntil ?? null,
     );
   }
   assert({
     given:
-      'own inbox with bound member, erased, nonmember, invalid-revision or foreign account facts',
+      'own inbox with bound member, erased, nonmember, invalid-revision, foreign account/topic or expired session facts',
     should:
       'use the sole canonical inbox capability and preserve the real session deadline',
     actual,
-    expected: [Date.parse(expiresAt), null, null, null, null],
+    expected: [Date.parse(expiresAt), null, null, null, null, null, null],
   });
 });
