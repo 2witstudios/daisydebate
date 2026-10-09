@@ -107,7 +107,7 @@ export async function readMessagingChannelFact(
         'requestSenderActorId', d.request_sender_actor_id, 'state', d.request_state,
         'blocked', p.low_blocks_high or p.high_blocks_low, 'revision', p.revision
       ) else jsonb_build_object(
-        'kind', 'private_group', 'actorId', ${actorId},
+        'kind', 'private_group', 'actorId', ${actorId}::text,
         'role', case when g.revoked_at is null then g.role else null end,
         'generation', coalesce(g.generation, 0),
         'activeMemberActorIds', coalesce((select jsonb_agg(actor_id order by actor_id)
