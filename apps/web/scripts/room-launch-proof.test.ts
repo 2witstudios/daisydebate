@@ -1,4 +1,6 @@
 import { decodeLaunchEvidence } from '../e2e/support/room-launch-evidence-decoder';
+import { roomCreateSchema } from '@daisy/protocol';
+import { launchCustomSelection } from '../e2e/support/room-launch-custom';
 import { createLaunchShutdown } from '../e2e/support/room-launch-shutdown';
 import { mkdtemp, rm, readFile } from 'node:fs/promises';
 import { basename, join, resolve } from 'node:path';
@@ -8,16 +10,78 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireLaunchSlot } from '../e2e/support/room-launch-slot';
 setupRitewayBun();
 
-const shutdownObservers = (calls: string[]) => ({
-  stopCapture: () => {
-    calls.push('capture');
-  },
-  stopEdge: () => {
-    calls.push('edge');
-  },
-  refused: () => {
-    calls.push('refused');
-  },
+test('custom browser creation fixture satisfies the canonical complete request contract', () => {
+  const request = {
+    commandId: 'a'.repeat(24),
+    title: 'Custom sequence proof',
+    topic: 'Proof transit motion',
+    visibility: 'public',
+    selection: launchCustomSelection,
+  };
+  const parsed = roomCreateSchema.safeParse(request);
+  assert({
+    given: 'the exact custom selection sent by the browser proof',
+    should:
+      'pass the complete canonical request decoder before HTTP submission',
+    actual: parsed.success
+      ? []
+      : parsed.error.issues.map((issue) => issue.path.join('.')),
+    expected: [],
+  });
+  const incomplete = roomCreateSchema.safeParse({
+    ...request,
+    selection: Object.fromEntries(
+      Object.entries(launchCustomSelection).filter(([key]) => key !== 'length'),
+    ),
+  });
+  assert({
+    given: 'the same complete request with only its custom length omitted',
+    should: 'refuse the missing field at the canonical request boundary',
+    actual: incomplete.success
+      ? []
+      : incomplete.error.issues.map((issue) => issue.path.join('.')),
+    expected: ['selection.length'],
+  });
+});
+
+test('dedicated config binds server commands and artifacts to their canonical workspace', async () => {
+  const checkout = resolve(import.meta.dir, '../../..');
+  const script = `import config from './apps/web/e2e/support/room-launch-config';
+    console.log(JSON.stringify({
+      servers: config.webServer.map(server => server.cwd ?? null),
+      artifacts: config.outputDir ?? null,
+      report: config.reporter.find(reporter => reporter[0] === 'json')[1].outputFile,
+    }));`;
+  const loaded = Bun.spawn(['bun', '--eval', script], {
+    cwd: checkout,
+    env: process.env,
+    stdout: 'pipe',
+    stderr: 'pipe',
+  });
+  const [status, output] = await Promise.all([
+    loaded.exited,
+    new Response(loaded.stdout).text(),
+  ]);
+  assert({
+    given: 'the actual dedicated config loaded from its nested support folder',
+    should:
+      'run web/realtime from their own workspaces and retain artifacts at the CI-registered paths',
+    actual: { status, paths: JSON.parse(output) },
+    expected: {
+      status: 0,
+      paths: {
+        servers: [
+          resolve(checkout, 'apps/web'),
+          resolve(checkout, 'apps/realtime'),
+        ],
+        artifacts: resolve(checkout, 'apps/web/test-results'),
+        report: resolve(
+          checkout,
+          'apps/web/test-results/room-launch-results.json',
+        ),
+      },
+    },
+  });
 });
 
 test('Launch shutdown awaits auth settlement and closes each owned listener once', async () => {
@@ -28,9 +92,17 @@ test('Launch shutdown awaits auth settlement and closes each owned listener once
   });
   const shutdown = createLaunchShutdown({
     settled: () => outstanding,
-    ...shutdownObservers(calls),
     closeControl: () => {
       calls.push('control');
+    },
+    stopCapture: () => {
+      calls.push('capture');
+    },
+    stopEdge: () => {
+      calls.push('edge');
+    },
+    refused: () => {
+      calls.push('refused');
     },
   });
   const first = shutdown();
@@ -55,10 +127,18 @@ test('Launch shutdown continues cleanup after rejected settlement or control clo
   const calls: string[] = [];
   await createLaunchShutdown({
     settled: () => Promise.reject(new Error('private settlement failure')),
-    ...shutdownObservers(calls),
     closeControl: () => {
       calls.push('control');
       throw new Error('private close failure');
+    },
+    stopCapture: () => {
+      calls.push('capture');
+    },
+    stopEdge: () => {
+      calls.push('edge');
+    },
+    refused: () => {
+      calls.push('refused');
     },
   })();
   assert({
