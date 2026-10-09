@@ -160,3 +160,5 @@ export { createMessagingCoreSchemas } from './messaging/core';
 export type { MessagingCoreBounds } from './messaging/core';
 export { createMessagingSocialSchemas } from './messaging/social';
 export type { MessagingSocialBounds } from './messaging/social';
+
+export type { RoundView } from './round-view';

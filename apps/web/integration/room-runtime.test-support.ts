@@ -42,12 +42,21 @@ async function fixture() {
   const host = await caller(),
     guest = await caller(),
     outsider = await caller();
+  let failAfterReady = false;
+  let unavailable = false;
   let gate: (() => Promise<void>) | null = null;
   const controlled = {
     ...redis,
+    setRoomConsent: async (
+      ...args: Parameters<typeof redis.setRoomConsent>
+    ) => {
+      await redis.setRoomConsent(...args);
+      if (failAfterReady) throw new Error('fixture crash after consent write');
+    },
     readRoomConsent: async (
       ...args: Parameters<typeof redis.readRoomConsent>
     ) => {
+      if (unavailable) throw new Error('fixture Redis unavailable');
       if (gate) await gate();
       return redis.readRoomConsent(...args);
     },
@@ -56,6 +65,7 @@ async function fixture() {
     store,
     redis: controlled,
     ids: systemId,
+    maxOpenRooms: () => 5,
     consentTtlMs: () => 60_000,
     botsAvailable: () => true,
   });
@@ -140,6 +150,12 @@ async function fixture() {
     command,
     snapshot,
     assemble,
+    failAfterReady: (value: boolean) => {
+      failAfterReady = value;
+    },
+    unavailable: (value: boolean) => {
+      unavailable = value;
+    },
     gateConsent: (next: typeof gate) => {
       gate = next;
     },

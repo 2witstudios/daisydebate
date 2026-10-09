@@ -1,5 +1,3 @@
 import { processRoute } from '../../../../server/process-app';
-
 export const runtime = 'nodejs';
-
-export const POST = processRoute((routes) => routes.aiDebate.crossExamine.POST);
+export const GET = processRoute((routes) => routes.rooms.catalog);
