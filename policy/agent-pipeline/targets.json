@@ -1,0 +1,48 @@
+{
+  "pages": [
+    {
+      "id": "cvslieavdwwkbz8l551hhhsz",
+      "source": "policy/agent-pipeline/builder.html"
+    },
+    {
+      "id": "md5o6lkffvxivjig2fig63rw",
+      "source": "policy/agent-pipeline/orchestrator.html"
+    },
+    {
+      "id": "rt5njtusm5liyj6391skv467",
+      "source": "policy/agent-pipeline/reviewer.html"
+    },
+    {
+      "id": "szsrb6lui57zjemvl25ywfox",
+      "source": "policy/agent-pipeline/conventions.html"
+    },
+    {
+      "id": "ek1lle4urffctxmt2t6sozf1",
+      "source": "policy/agent-pipeline/converge.html"
+    },
+    {
+      "id": "b8wa5of9y2199cx2wlcrfni0",
+      "source": ".claude/skills/pr/SKILL.md"
+    },
+    {
+      "id": "emthsjm0z78jc3fxlm1evc3v",
+      "source": ".claude/skills/review/SKILL.md"
+    },
+    {
+      "id": "m2xz5ih4pq538yqmujcilw2s",
+      "source": ".claude/skills/handoff/SKILL.md"
+    }
+  ],
+  "skills": ["task", "review", "handoff", "pr", "orchestrate", "triage"],
+  "retiredTaskReferences": ["board-commands.md", "plan-template.md"],
+  "additionalSkills": [
+    {
+      "source": ".claude/skills/orchestrate/SKILL.md",
+      "target": ".codex/skills/orchestrate/SKILL.md"
+    },
+    {
+      "source": ".claude/skills/plan/SKILL.md",
+      "target": ".codex/skills/plan/SKILL.md"
+    }
+  ]
+}
