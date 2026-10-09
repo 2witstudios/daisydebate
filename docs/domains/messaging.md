@@ -166,3 +166,14 @@ changes do not establish migration application, physical cleanup proof, accepted
 group policy, late-join history policy or production collection activation. The
 shared title still has no durable subject-owner field; existing title locality
 and privacy gaps remain explicit.
+
+## Public username intent discovery
+
+The account adapter exposes `lookupHumanActorByUsername(input)` for native DM
+initiation. The single portable `parseUsername` rule validates and normalizes
+the input before database I/O. Discovery returns only an actor ID bound to an
+existing human account with verified email and no deletion tombstone, or null.
+It returns no account profile, age, session or contact entitlement. The messaging
+request transaction still locks both current accounts and the canonical contact
+pair, then evaluates current authorization and policy before creating a request.
+Discovery cannot replace that transaction or grant admission.
