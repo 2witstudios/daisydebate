@@ -5,7 +5,7 @@ import type {
   FilePolicy,
 } from '@daisy/db/messaging-files';
 import type { FileDependencies } from './operations';
-export const fileTestPolicy: FilePolicy = {
+const fileTestPolicy: FilePolicy = {
   maxFileBytes: 1024,
   maxStoredBytes: 2048,
   maxStoredFiles: 5,

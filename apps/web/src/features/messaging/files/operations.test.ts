@@ -6,9 +6,35 @@ import {
   finalizeMessagingFile,
   reserveMessagingFile,
   uploadMessagingFile,
+  cancelMessagingFile,
 } from './operations';
 import { fileOperationFixture } from './operations.test-support';
 setupRitewayBun();
+test('cancellation requires fresh post authority and never deletes unacknowledged bytes', async () => {
+  const f = fileOperationFixture();
+  f.state.allowed = false;
+  await assertRejects({
+    given: 'a cancellation after authority revocation',
+    should: 'refuse before changing the file',
+    actual: () => cancelMessagingFile(f.input, f.principal, f.d),
+    code: 'AUTHORIZATION',
+  });
+  assert({
+    given: 'denied cancellation',
+    should: 'leave durable state unchanged',
+    actual: f.state.commits,
+    expected: 0,
+  });
+  f.state.allowed = true;
+  await cancelMessagingFile(f.input, f.principal, f.d);
+  assert({
+    given: 'an authorized cancellation',
+    should:
+      'cancel inside the post fence without issuing a premature vendor delete',
+    actual: { commits: f.state.commits, calls: f.calls },
+    expected: { commits: 1, calls: ['post', 'post'] },
+  });
+});
 test('async clean scan cannot attach after current authority is revoked', async () => {
   const f = fileOperationFixture();
   const pending = finalizeMessagingFile(f.input, f.principal, f.d);

@@ -19,6 +19,7 @@ import {
   expireChannelFiles,
   acknowledgeErasedFileDeletion,
   chargedFileBytes,
+  pendingFileDeletions,
 } from '../src/messaging-files';
 import {
   withFileProofFrame,
@@ -93,6 +94,12 @@ test('real private storage deletion acknowledgement alone releases durable quota
           frame.quarantine(first.token, 20, fixture.now),
         ),
       code: 'NOT_FOUND',
+    });
+    assert({
+      given: 'an expired reservation awaiting physical deletion',
+      should: 'discover bounded private file deletion work',
+      actual: await pendingFileDeletions(database, 1),
+      expected: [{ kind: 'file', fileId: first.row.id }],
     });
     await assertRejects({
       given:
@@ -237,6 +244,13 @@ test('real private storage deletion acknowledgement alone releases durable quota
         exists: await Bun.file(join(directory, peerKey)).exists(),
       },
       expected: { lifecycle: 'reserved', exists: true },
+    });
+    assert({
+      given:
+        'erasure transfers the subject file to an unlinked deletion intent',
+      should: 'discover only opaque deletion work without subject metadata',
+      actual: await pendingFileDeletions(database, 1),
+      expected: [{ kind: 'erased', objectKey: next.row.objectKey }],
     });
     await acknowledgeErasedFileDeletion(database, next.row.objectKey, remove);
     await acknowledgeErasedFileDeletion(database, next.row.objectKey, remove);
