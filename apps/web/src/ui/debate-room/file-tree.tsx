@@ -20,10 +20,16 @@ type Props = {
   readonly tree: readonly TreeNode[];
   readonly active: string | null;
   readonly dispatch: Dispatch<RoomAction>;
+  readonly transcriptAvailable?: boolean;
 };
 
 /** This round, My library and the club's shared files. */
-export function FileTree({ tree, active, dispatch }: Props) {
+export function FileTree({
+  tree,
+  active,
+  dispatch,
+  transcriptAvailable = true,
+}: Props) {
   const open = (id: string) => dispatch({ type: 'tabs/open', id });
   return (
     <nav
@@ -54,7 +60,7 @@ export function FileTree({ tree, active, dispatch }: Props) {
             ) : null}
           </h3>
           <ul className="flex flex-col gap-px">
-            {node.folder.id === 'round' ? (
+            {node.folder.id === 'round' && transcriptAvailable ? (
               <li>
                 <button
                   type="button"
