@@ -33,7 +33,7 @@ export default async function ConversationPage({
   const actorId =
     identity.state === 'member' ? identity.principal.actorId : null;
   return (
-    <main className="max-w-3xl mx-auto flex w-full flex-col gap-6 p-6">
+    <main className="max-w-reading mx-auto flex w-full flex-col gap-6 p-6">
       <PageHeader
         title="Conversation"
         lede="Private messages"
