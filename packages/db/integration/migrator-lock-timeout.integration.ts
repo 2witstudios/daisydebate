@@ -1,11 +1,8 @@
 import { SQL } from 'bun';
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
-import { runMigrations } from '../src/migrator';
+import { migrationFolders } from './migration-folders.test-support';
 import { RUNTIME_SESSION } from '../src/session-bounds';
 
 setupRitewayBun();
@@ -109,25 +106,17 @@ async function withHotTable(
  * under the app's unchanged 2 s lock_timeout.
  */
 test('the release migrator fails fast on a held lock and live writes keep flowing', async () => {
-  const folder = await mkdtemp(join(tmpdir(), 'deploysafe-migrations-'));
   const migrationsTable = `deploysafe_migrations_${createId()}`;
   const journal = new SQL(ownerUrl, { max: 1 });
+  const folders = await migrationFolders(ownerUrl, migrationsTable);
   try {
     await withHotTable(
       async ({ table, holderPid, appPid, observer, appInsert }) => {
-        await mkdir(join(folder, '20990101000000_deploysafe_hot_table'));
-        await writeFile(
-          join(folder, '20990101000000_deploysafe_hot_table', 'migration.sql'),
+        await folders.add(
+          '20990101000000_deploysafe_hot_table',
           `ALTER TABLE "${table}" ADD COLUMN "added" integer;`,
         );
-        const migration = settle(
-          runMigrations({
-            databaseUrl: ownerUrl,
-            migrationsFolder: folder,
-            migrationsTable,
-            migrationsSchema: 'drizzle',
-          }),
-        );
+        const migration = settle(folders.migrate());
         const migratorPid = await backendBlockedBehind(observer, holderPid);
         const live = settle(appInsert());
         // The live insert is queued behind the migrator's lock request, the
@@ -171,7 +160,7 @@ test('the release migrator fails fast on a held lock and live writes keep flowin
   } finally {
     await journal.unsafe(`drop table if exists "drizzle"."${migrationsTable}"`);
     await journal.close();
-    await rm(folder, { recursive: true, force: true });
+    await folders.close();
   }
 });
 

@@ -1,3 +1,9 @@
+import {
+  practiceRoomConfig,
+  referenceAiJudge,
+} from '@daisy/db/reference-formats';
+import { resolveRoomChoice } from '../debate-room/resolve-room';
+import { opponentFor } from './opponents';
 import type { OpenRouter } from '@daisy/ai-voice';
 import { ballotCategories } from '@daisy/protocol';
 import type { Clock, IdGenerator } from '@daisy/clock';
@@ -89,10 +95,7 @@ const fakeVoice = (transcribe?: () => Promise<{ text: string }>) => {
  * clock and a scripted voice; `begin` starts one of the actor's debates.
  */
 export function setup(
-  limits?: {
-    readonly live: number;
-    readonly perDay: number;
-  },
+  limits?: { readonly speechCharacters?: number },
   transcribe?: () => Promise<{ text: string }>,
 ) {
   const memory = createInMemoryRoundStore();
@@ -111,11 +114,41 @@ export function setup(
     ...(limits ? { limits } : {}),
   });
   const begin = async () => {
-    const { id } = await operations.start({
+    const resolved = await resolveRoomChoice(store, {
+      competitionType: 'practice',
+      formatId: 'one-on-one',
+      length: 'full',
+      config: practiceRoomConfig,
+    });
+    const roomId = sequentialIds.next(),
+      id = sequentialIds.next();
+    const topic = 'Social media does more harm than good';
+    await store.createRoom({
+      id: roomId,
+      hostActorId: 'actor-1',
+      title: topic,
+      topic,
+      visibility: 'private',
+      ...resolved,
+    });
+    for (const seat of [
+      { actorId: 'actor-1', role: 'affirmative' as const },
+      { actorId: opponentFor('wren')!.actorId, role: 'negative' as const },
+      { actorId: referenceAiJudge.actorId, role: 'judge' as const },
+    ]) {
+      await store.seatRoomParticipant({
+        roomId,
+        participantId: sequentialIds.next(),
+        actorId: seat.actorId,
+        role: seat.role,
+        slot: 0,
+      });
+    }
+    await store.startRound({ roomId, roundId: id, resolution: topic });
+    await store.reserveAiPractice({
+      id: sequentialIds.next(),
       actorId: 'actor-1',
-      resolution: '  Social   media does more harm than good  ',
-      personSide: 'affirmative',
-      opponent: 'wren',
+      roundId: id,
     });
     await operations.command({
       actorId: 'actor-1',

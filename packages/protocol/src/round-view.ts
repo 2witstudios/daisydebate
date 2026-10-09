@@ -1,28 +1,33 @@
-import type { DebateRole } from './primitives';
-import type { RoomConfig } from './room';
-import type { RoundRules } from './format';
-import type { RoundStatus } from './round';
-import type { RatedOutcome } from './ratings';
-/** Durable Launch projection. Active floor/media/history producers extend this boundary later. */
-export type RoundView = {
-  readonly id: string;
-  readonly roomId: string;
-  readonly version: number;
-  readonly status: RoundStatus;
-  readonly topic: string;
-  readonly visibility: 'public' | 'unlisted' | 'private';
-  readonly hostActorId: string | null;
-  readonly config: RoomConfig;
-  readonly rules: RoundRules;
-  readonly participants: readonly {
-    readonly id: string;
-    readonly actorId: string;
-    readonly kind: 'human' | 'bot';
-    readonly label: string;
-    readonly role: DebateRole;
-    readonly slot: number;
-  }[];
-  readonly startedAt: string | null;
-  readonly completedAt: string | null;
-  readonly outcome: RatedOutcome | null;
-};
+import { z } from 'zod';
+import { idSchema, debateRoleSchema } from './primitives';
+import { roomConfigSchema } from './room';
+import { roundRulesSchema } from './format';
+import { roundStatusSchema } from './round';
+/** Durable Launch read grammar; scheduled rounds have no fabricated runtime clock. */
+export const roundViewSchema = z.strictObject({
+  id: idSchema,
+  roomId: idSchema,
+  version: z.int().positive(),
+  status: roundStatusSchema,
+  topic: z.string().min(1),
+  visibility: z.enum(['public', 'unlisted', 'private']),
+  hostActorId: idSchema.nullable(),
+  config: roomConfigSchema,
+  rules: roundRulesSchema,
+  participants: z
+    .array(
+      z.strictObject({
+        id: idSchema,
+        actorId: idSchema,
+        kind: z.enum(['human', 'bot']),
+        label: z.string(),
+        role: debateRoleSchema,
+        slot: z.int().nonnegative(),
+      }),
+    )
+    .readonly(),
+  startedAt: z.iso.datetime({ offset: true }).nullable(),
+  completedAt: z.iso.datetime({ offset: true }).nullable(),
+  outcome: z.enum(['affirmative', 'negative', 'draw']).nullable(),
+});
+export type RoundView = z.infer<typeof roundViewSchema>;

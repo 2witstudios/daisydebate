@@ -131,16 +131,12 @@ export type { PresenceActivity, PresenceStatus } from './realtime';
 export {
   roomCreateSchema,
   roomCommandSchema,
-  roomSelectionSchema,
-  roomVisibilitySchema,
   roomStatuses,
 } from './room-contract';
 export type {
   RoomCreate,
   RoomCommand,
-  RoomSelection,
   RoomParticipant,
-  RoomRoundRef,
   RoomRefusal,
   RoomView,
   RoomCommandReceipt,
@@ -151,7 +147,6 @@ export type {
 export type {
   RoomAssemblyState,
   RoomConsent,
-  RoomMutation,
   RoomMutationOutcome,
   RoomCastChoice,
 } from './room-contract';
@@ -161,4 +156,10 @@ export type { MessagingCoreBounds } from './messaging/core';
 export { createMessagingSocialSchemas } from './messaging/social';
 export type { MessagingSocialBounds } from './messaging/social';
 
-export type { RoundView } from './round-view';
+export { roundViewSchema, type RoundView } from './round-view';
+
+export {
+  roomViewSchema,
+  roomCatalogChoiceSchema,
+  roomCastChoiceSchema,
+} from './room-read';
