@@ -1,4 +1,4 @@
-import sharp from 'sharp';
+import sharp, { type Metadata } from 'sharp';
 import { createAppError, isAppError } from '@daisy/errors';
 import type { ImageSanitizer } from './ports';
 /** Sharp 0.35.5 decodes under pixel/time limits and drops all input metadata by default. */
@@ -22,14 +22,7 @@ export const sanitizeMessagingImage: ImageSanitizer = async (
     const metadata = await image.metadata();
     const format =
       mime === 'image/jpeg' ? 'jpeg' : mime === 'image/png' ? 'png' : 'webp';
-    if (
-      metadata.format !== format ||
-      !metadata.width ||
-      !metadata.height ||
-      metadata.width * metadata.height > limits.maxPixels ||
-      (metadata.pages ?? 1) !== 1
-    )
-      throw createAppError('VALIDATION');
+    requireImageMetadata(metadata, format, limits.maxPixels);
     const output = await image
       .timeout({ seconds: Math.max(1, Math.ceil(limits.serviceMs / 1000)) })
       .rotate()
@@ -42,3 +35,18 @@ export const sanitizeMessagingImage: ImageSanitizer = async (
     throw isAppError(error) ? error : createAppError('VALIDATION');
   }
 };
+
+function requireImageMetadata(
+  metadata: Metadata,
+  format: string,
+  maxPixels: number,
+): void {
+  if (
+    metadata.format !== format ||
+    !metadata.width ||
+    !metadata.height ||
+    metadata.width * metadata.height > maxPixels ||
+    (metadata.pages ?? 1) !== 1
+  )
+    throw createAppError('VALIDATION');
+}
