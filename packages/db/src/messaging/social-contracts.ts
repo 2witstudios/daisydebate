@@ -1,7 +1,7 @@
 import type { AuthorizationTransaction } from '../authorization';
 import type { authorizationAccountFact } from '../authorization-account';
 
-export type MessagingContactFact = {
+type MessagingContactFact = {
   readonly lowActorId: string;
   readonly highActorId: string;
   readonly blocked: boolean;
