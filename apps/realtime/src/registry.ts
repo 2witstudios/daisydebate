@@ -352,12 +352,7 @@ export function createSubscriptionRegistry({
         }
         if (connection.closed || connection.topics.get(request.topic) !== sub)
           return;
-        if (
-          !current(connection, request.topic, sub) ||
-          result.resync ||
-          compare(floor, through) > 0 ||
-          compare(cursor, through) !== 0
-        ) {
+        if (result.resync || compare(floor, through) > 0) {
           resync(connection, request, sub);
           return;
         }
@@ -375,11 +370,7 @@ export function createSubscriptionRegistry({
         }
         if (connection.closed || connection.topics.get(request.topic) !== sub)
           return;
-        if (
-          !sub.lease.owns(replayAttempt) ||
-          compare(floor, through) > 0 ||
-          compare(cursor, through) !== 0
-        ) {
+        if (!sub.lease.owns(replayAttempt) || compare(floor, through) > 0) {
           resync(connection, request, sub);
           return;
         }
@@ -399,6 +390,7 @@ export function createSubscriptionRegistry({
         // durable high-water after that await, then fence the drain generation
         // and permission deadline before touching cached history or attachment.
         let boundary: OutboxPosition | null;
+        const boundaryThrough = cursor;
         try {
           boundary = await readRetentionBoundary();
         } catch {
@@ -409,7 +401,8 @@ export function createSubscriptionRegistry({
         if (
           !boundary ||
           compare(decodeOutboxCursor(request.since), boundary) < 0 ||
-          compare(cursor, through) !== 0 ||
+          compare(cursor, boundaryThrough) !== 0 ||
+          compare(floor, through) > 0 ||
           !sub.lease.owns(replayAttempt)
         ) {
           resync(connection, request, sub);
