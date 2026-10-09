@@ -110,7 +110,9 @@ test('real file consumer attaches only scanned content and preserves clean quara
     assert({
       given: 'successful attachment and immutable retries',
       should: 'emit one content-free canonical notification',
-      actual: bells.map((row) => Object.keys(row.payload).sort()),
+      actual: bells.map((row: { readonly payload: Record<string, unknown> }) =>
+        Object.keys(row.payload).sort(),
+      ),
       expected: [['changeVersion', 'channelId', 'kind']],
     });
   } finally {
