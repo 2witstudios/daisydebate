@@ -76,7 +76,7 @@ test('dedicated MSG declarations match all actual producer columns', async () =>
   assert({
     given: 'private messaging file metadata and internal vendor object key',
     should:
-      'classify subject metadata as private/exportable and keep object routing internal',
+      'delete subject file rows while keeping unlinked deletion routing internal',
     actual: messagingPrivacyFields
       .filter((field) => field.table === 'messaging_files')
       .map((field) => [
@@ -87,22 +87,40 @@ test('dedicated MSG declarations match all actual producer columns', async () =>
         field.erasure,
       ]),
     expected: [
-      ['id', 'identifier', null, true, 'retain-nonpersonal'],
+      ['id', 'identifier', null, true, 'delete'],
       ['object_key', 'identifier', 'private', false, 'delete'],
       ['channel_id', 'personal', 'private', true, 'delete'],
       ['owner_actor_id', 'personal', 'private', true, 'delete'],
-      ['request_id', 'personal', 'private', true, 'scrub'],
-      ['message_id', 'personal', 'private', true, 'scrub'],
-      ['filename', 'personal', 'private', true, 'scrub'],
-      ['mime', 'personal', 'private', true, 'scrub'],
+      ['request_id', 'personal', 'private', true, 'delete'],
+      ['message_id', 'personal', 'private', true, 'delete'],
+      ['filename', 'personal', 'private', true, 'delete'],
+      ['mime', 'personal', 'private', true, 'delete'],
       ['reserved_bytes', 'personal', 'private', true, 'delete'],
       ['stored_bytes', 'personal', 'private', true, 'delete'],
-      ['generation', 'none', null, true, 'retain-nonpersonal'],
-      ['authority_revision', 'none', null, true, 'retain-nonpersonal'],
-      ['lifecycle', 'none', null, true, 'retain-nonpersonal'],
-      ['created_at', 'none', null, true, 'retain-nonpersonal'],
-      ['expires_at', 'none', null, true, 'retain-nonpersonal'],
-      ['deleted_at', 'none', null, true, 'retain-nonpersonal'],
+      ['generation', 'none', null, true, 'delete'],
+      ['authority_revision', 'none', null, true, 'delete'],
+      ['lifecycle', 'none', null, true, 'delete'],
+      ['created_at', 'none', null, true, 'delete'],
+      ['expires_at', 'none', null, true, 'delete'],
+      ['deleted_at', 'none', null, true, 'delete'],
+    ],
+  });
+  assert({
+    given: 'unlinked pending file object deletion intent',
+    should:
+      'retain only internal object routing and nonpersonal charged bytes until ACK',
+    actual: messagingPrivacyFields
+      .filter((field) => field.table === 'messaging_file_deletion_intents')
+      .map((field) => [
+        field.column,
+        field.category,
+        field.visibility ?? null,
+        field.exportable,
+        field.erasure,
+      ]),
+    expected: [
+      ['object_key', 'identifier', 'private', false, 'delete'],
+      ['charged_bytes', 'none', null, false, 'retain-nonpersonal'],
     ],
   });
   assert({

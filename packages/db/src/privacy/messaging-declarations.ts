@@ -1,6 +1,6 @@
 import type { PrivacyFieldDeclaration } from './contracts';
 
-/** Dedicated MSG schema inputs include file source fa38096a and F4 source f589971c. */
+/** Dedicated MSG schema inputs include file source b493460b and F4 source f589971c. */
 const messagingColumns = {
   messaging_channels: {
     identifier: ['id'],
@@ -128,6 +128,11 @@ const messagingColumns = {
       'deleted_at',
     ],
   },
+  messaging_file_deletion_intents: {
+    identifier: ['object_key'],
+    personal: [],
+    none: ['charged_bytes'],
+  },
 } as const;
 
 export const messagingPrivacyExpectedColumns = Object.fromEntries(
@@ -147,6 +152,11 @@ function privacyPurpose(
   if (table === 'messaging_files' && column === 'object_key') {
     return 'Internal vendor object deletion routing';
   }
+  if (table === 'messaging_file_deletion_intents') {
+    return column === 'object_key'
+      ? 'Internal vendor object deletion routing'
+      : 'Unlinked charged deletion accounting';
+  }
   if (table === 'messaging_files') {
     return 'Private attachment metadata and quota reservation';
   }
@@ -162,14 +172,13 @@ function privacyErasure(
   category: MessagingPrivacyCategory,
 ): 'scrub' | 'delete' | 'retain-nonpersonal' {
   if (table === 'messaging_messages' && column === 'text') return 'scrub';
-  if (
-    table === 'messaging_files' &&
-    ['filename', 'mime', 'request_id', 'message_id'].includes(column)
-  ) {
-    return 'scrub';
-  }
+  if (table === 'messaging_files') return 'delete';
   if (category === 'personal') return 'delete';
-  if (table === 'messaging_files' && column === 'object_key') return 'delete';
+  if (
+    (table === 'messaging_files' && column === 'object_key') ||
+    (table === 'messaging_file_deletion_intents' && column === 'object_key')
+  )
+    return 'delete';
   return 'retain-nonpersonal';
 }
 
@@ -182,7 +191,9 @@ export const messagingPrivacyFields: readonly PrivacyFieldDeclaration[] =
         column,
         category: category as MessagingPrivacyCategory,
         ...(category === 'personal' ||
-        (table === 'messaging_files' && column === 'object_key')
+        ((table === 'messaging_files' ||
+          table === 'messaging_file_deletion_intents') &&
+          column === 'object_key')
           ? { visibility: 'private' as const }
           : {}),
         storage: 'postgres' as const,
@@ -205,7 +216,12 @@ export const messagingPrivacyFields: readonly PrivacyFieldDeclaration[] =
           column,
           category as MessagingPrivacyCategory,
         ),
-        exportable: !(table === 'messaging_files' && column === 'object_key'),
+        exportable: !(
+          ((table === 'messaging_files' ||
+            table === 'messaging_file_deletion_intents') &&
+            column === 'object_key') ||
+          table === 'messaging_file_deletion_intents'
+        ),
       })),
     ),
   );
