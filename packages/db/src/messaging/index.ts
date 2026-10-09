@@ -13,3 +13,4 @@ export type {
 } from './records';
 
 export { createMessagingPrivacyAdopter } from './privacy';
+export { createMessagingFileStore } from './file-store';
