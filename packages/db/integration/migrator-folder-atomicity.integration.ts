@@ -1,30 +1,17 @@
 import { SQL } from 'bun';
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
-import { runMigrations } from '../src/migrator';
+import { migrationFolders } from './migration-folders.test-support';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 test('migration folders commit deferred references and roll back a failing next folder', async () => {
-  const folder = await mkdtemp(join(tmpdir(), 'room-migrations-'));
   const suffix = createId(),
     parent = `migration_parent_${suffix}`,
     child = `migration_child_${suffix}`,
     journal = `migration_journal_${suffix}`;
   const client = new SQL(databaseUrl);
-  const add = async (name: string, sql: string) => {
-    await mkdir(join(folder, name));
-    await writeFile(join(folder, name, 'migration.sql'), sql);
-  };
-  const migrate = () =>
-    runMigrations({
-      databaseUrl,
-      migrationsFolder: folder,
-      migrationsTable: journal,
-    });
+  const { add, migrate, close } = await migrationFolders(databaseUrl, journal);
   try {
     await add(
       '20990101000000_references',
@@ -71,6 +58,6 @@ test('migration folders commit deferred references and roll back a failing next 
       `DROP TABLE IF EXISTS "${child}", "${parent}", drizzle."${journal}"`,
     );
     await client.close();
-    await rm(folder, { recursive: true, force: true });
+    await close();
   }
 });

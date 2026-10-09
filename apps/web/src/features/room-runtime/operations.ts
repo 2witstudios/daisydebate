@@ -1,15 +1,12 @@
+import { roomCommandOperation } from './command';
+import { can, digest } from './authority';
+import { resolveRoomSelection } from './selection';
 import {
   authorize,
-  type AccountAuthorizationFact,
-  type AuthorizationCapability,
+  type RoundAuthorizationFact,
 } from '@daisy/auth/authorization';
 import type { Database } from '@daisy/db';
-import {
-  executeRoomCommand,
-  projectRoom,
-  resolveRoomConfiguration,
-} from '@daisy/debate-engine';
-import { createAppError } from '@daisy/errors';
+import { projectRoom } from '@daisy/debate-engine';
 import type { IdGenerator } from '@daisy/clock';
 import type { createRedis } from '@daisy/redis';
 import type {
@@ -17,15 +14,14 @@ import type {
   RoomAssemblyState,
   RoomCatalogChoice,
   RoomCastChoice,
-  RoomCommand,
   RoomCommandResponse,
   RoomConsent,
   RoomCreate,
   RoomConfig,
 } from '@daisy/protocol';
 
-type Caller = { readonly userId: string; readonly actorId: string };
-type Store = Pick<
+export type Caller = { readonly userId: string; readonly actorId: string };
+export type Store = Pick<
   Database,
   | 'readLaunchedRound'
   | 'databaseNow'
@@ -43,46 +39,6 @@ type Redis = Pick<
   ReturnType<typeof createRedis>,
   'setRoomConsent' | 'readRoomConsent'
 >;
-const roomFact = (state: RoomAssemblyState) => ({
-  kind: 'room' as const,
-  roomId: state.id,
-  hostActorId: state.hostActorId,
-  visibility: state.visibility,
-  status: state.status,
-  revision: state.version,
-  participants: state.participants,
-});
-const can = (
-  caller: Caller,
-  capability: AuthorizationCapability,
-  account: AccountAuthorizationFact | null,
-  state?: RoomAssemblyState,
-) =>
-  authorize({
-    principal: { kind: 'user', ...caller },
-    capability,
-    context: { account },
-    resource: state ? roomFact(state) : { kind: 'room_collection' },
-  }).allow;
-const capabilityOf = (command: RoomCommand): AuthorizationCapability =>
-  command.type === 'claim-seat'
-    ? 'room.join'
-    : command.type === 'ready' || command.type === 'unready'
-      ? 'room.ready'
-      : command.type === 'leave-seat'
-        ? 'room.leave'
-        : 'room.manage';
-const canonical = (value: unknown): string => {
-  if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
-  if (value !== null && typeof value === 'object')
-    return `{${Object.entries(value)
-      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
-      .map(([key, item]) => `${JSON.stringify(key)}:${canonical(item)}`)
-      .join(',')}}`;
-  return JSON.stringify(value);
-};
-const digest = (value: unknown) =>
-  new Bun.CryptoHasher('sha3-256').update(canonical(value)).digest('hex');
 /** Suggested initial config comes exclusively from the pinned format's declared legal choices. */
 const initialConfig = (definition: FormatDefinition): RoomConfig => ({
   preRoundPrep: { enabled: false },
@@ -192,7 +148,7 @@ export function createRoomRuntimeOperations({
               status: view.status,
               participants: view.participants,
               revision: view.version,
-            },
+            } satisfies RoundAuthorizationFact,
           }).allow,
       ),
     catalog,
@@ -240,54 +196,21 @@ export function createRoomRuntimeOperations({
       });
       if (previous)
         return { receipt: previous, view: await view(caller, previous.roomId) };
-      const selection = body.selection;
-      let definition: FormatDefinition;
-      let config: RoomConfig;
-      let formatId: string;
-      let formatVersion: number;
-      let presetVersion: number | null = null;
-      let competitionType: 'casual' | 'practice' | 'ranked';
-      if (selection.kind === 'custom') {
-        definition = selection.definition;
-        config = selection.config;
-        formatId = ids.next();
-        formatVersion = 1;
-        competitionType = selection.competitionType;
-      } else {
-        const choice = (await catalog(caller)).find(
-          (choice) =>
-            choice.formatId === selection.formatId &&
-            choice.formatVersion === selection.formatVersion,
-        );
-        if (!choice) throw createAppError('VALIDATION');
-        definition = choice.definition;
-        formatId = choice.formatId;
-        formatVersion = choice.formatVersion;
-        if (selection.kind === 'ranked') {
-          const preset = await store.getCurrentPreset(
-            formatId,
-            selection.length,
-          );
-          if (
-            !preset ||
-            preset.version !== selection.presetVersion ||
-            preset.formatVersion !== formatVersion ||
-            definition.seats.affirmative !== 1 ||
-            definition.seats.negative !== 1 ||
-            definition.seats.judge !== 1
-          )
-            throw createAppError('VALIDATION');
-          config = preset.config;
-          presetVersion = preset.version;
-          competitionType = 'ranked';
-        } else {
-          config = selection.config;
-          competitionType = selection.competitionType;
-        }
-      }
-      const resolved = resolveRoomConfiguration(definition, config);
-      if (!resolved.ok)
-        throw createAppError('VALIDATION', resolved.refusal.kind);
+      const {
+        selection,
+        definition,
+        config,
+        formatId,
+        formatVersion,
+        presetVersion,
+        competitionType,
+        resolved,
+      } = await resolveRoomSelection(
+        body,
+        body.selection.kind === 'custom' ? [] : await catalog(caller),
+        store,
+        ids,
+      );
       const receipt = await store.createRoomCommand({
         caller,
         authorize: (account) => can(caller, 'room.create', account),
@@ -313,74 +236,16 @@ export function createRoomRuntimeOperations({
       });
       return { receipt, view: await view(caller, receipt.roomId) };
     },
-    async command(
-      caller: Caller,
-      roomId: string,
-      command: RoomCommand,
-    ): Promise<RoomCommandResponse> {
-      const receipt = await store.executeRoomCommand({
-        caller,
-        roomId,
-        actorId: caller.actorId,
-        commandId: command.commandId,
-        payloadDigest: digest(command),
-        type: command.type,
-        targetActorId:
-          command.type === 'claim-seat'
-            ? caller.actorId
-            : command.type === 'assign-seat'
-              ? command.actorId
-              : null,
-        roundId: ids.next(),
-        authorizeRead: (state, account) =>
-          can(caller, 'room.read', account, state),
-        execute: async (raw, now, target, account) => {
-          if (!can(caller, capabilityOf(command), account, raw))
-            throw createAppError('AUTHORIZATION');
-          const state = eligible(raw);
-          const outcome = executeRoomCommand(
-            state,
-            caller.actorId,
-            command,
-            await consentOf(state),
-            {
-              now,
-              participantId: ids.next(),
-              formatId: ids.next(),
-              target: target
-                ? {
-                    ...target,
-                    id: '',
-                    consentVersion: 0,
-                    role:
-                      command.type === 'claim-seat' ||
-                      command.type === 'assign-seat'
-                        ? command.role
-                        : 'judge',
-                    slot: 0,
-                    eligible:
-                      target.eligible &&
-                      (target.kind === 'human' || botsAvailable()),
-                  }
-                : null,
-            },
-          );
-          if (outcome.ok && outcome.mutation.consent?.type === 'ready') {
-            const consent = outcome.mutation.consent;
-            await redis.setRoomConsent({
-              roomId,
-              version: state.version,
-              actorId: consent.actorId,
-              commandId: consent.commandId,
-              ttlMs: consentTtlMs(),
-            });
-          }
-          // Unready replaces the durable fence even during Redis loss; the old lease no longer matches.
-          return outcome;
-        },
-      });
-      return { receipt, view: await view(caller, roomId) };
-    },
+    command: roomCommandOperation({
+      store,
+      redis,
+      ids,
+      botsAvailable,
+      consentTtlMs,
+      eligible,
+      consentOf,
+      view,
+    }),
   };
 }
 export type RoomRuntimeOperations = ReturnType<

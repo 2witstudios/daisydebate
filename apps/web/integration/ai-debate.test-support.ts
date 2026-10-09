@@ -1,15 +1,18 @@
-import { createId } from '@paralleldrive/cuid2';
 import { systemId } from '@daisy/clock';
-import { createDatabase } from '@daisy/db';
+import type { Database } from '@daisy/db';
+import {
+  practiceRoomConfig,
+  referenceAiJudge,
+} from '@daisy/db/reference-formats';
 import { createAiDebateOperations } from '../src/features/ai-debate/operations';
 import type { AiDebateDependencies } from '../src/features/ai-debate/context';
-import { testDatabaseUrl, withSql } from './fixtures';
-
+import { opponentFor } from '../src/features/ai-debate/opponents';
+import { withRoomRuntime } from './room-runtime.test-support';
 type Voice = ReturnType<AiDebateDependencies['voice']>;
-
+/** Existing bot runtime proof starts from the same canonical persisted Room Launch. */
 export const withPractice = async (
   run: (fixture: {
-    database: ReturnType<typeof createDatabase>;
+    database: Database;
     actorId: string;
     id: string;
     operations: ReturnType<typeof createAiDebateOperations>;
@@ -23,49 +26,74 @@ export const withPractice = async (
     readonly personSide?: 'affirmative' | 'negative';
     readonly voiceOverrides?: Partial<Voice>;
   } = {},
-) => {
-  const userId = createId();
-  const actorId = createId();
-  const database = createDatabase({
-    url: testDatabaseUrl,
-    nextActorId: createId,
-  });
-  let id: string | undefined;
-  let roomId: string | null = null;
-  let transcribe: Voice['transcribe'] = async () => ({
-    text: 'My final words.',
-  });
-  const unused = async (): Promise<never> => {
-    throw new Error('unexpected voice call');
-  };
-  const voice: Voice = {
-    transcribe: (input) => transcribe(input),
-    complete: unused,
-    speak: unused,
-    async *stream() {
-      yield await unused();
-    },
-    ...voiceOverrides,
-  };
-  await withSql(async (sql) => {
-    await sql`insert into users (id) values (${userId})`;
-    await sql`insert into actors (id, kind, user_id) values (${actorId}, 'human', ${userId})`;
-  });
-  try {
+) =>
+  withRoomRuntime(async (f) => {
+    const actorId = f.host.actorId;
+    let view = (
+      await f.create({
+        visibility: 'private',
+        selection: {
+          kind: 'catalog',
+          formatId: 'one-on-one',
+          formatVersion: 1,
+          length: 'full',
+          competitionType: 'practice',
+          config: practiceRoomConfig,
+        },
+      })
+    ).view;
+    view = (
+      await f.command(f.host, view, {
+        type: 'claim-seat',
+        role: personSide,
+        slot: 0,
+      })
+    ).view;
+    view = (
+      await f.command(f.host, view, {
+        type: 'assign-seat',
+        actorId: opponentFor('wren')!.actorId,
+        role: personSide === 'affirmative' ? 'negative' : 'affirmative',
+        slot: 0,
+      })
+    ).view;
+    view = (
+      await f.command(f.host, view, {
+        type: 'assign-seat',
+        actorId: referenceAiJudge.actorId,
+        role: 'judge',
+        slot: 0,
+      })
+    ).view;
+    view = (
+      await f.command(f.host, view, {
+        type: 'ready',
+        expectedConsentVersion: view.participants.find(
+          (p) => p.actorId === actorId,
+        )!.consentVersion,
+      })
+    ).view;
+    view = (await f.command(f.host, view, { type: 'start-round' })).view;
+    const id = view.roundRef!.id;
+    let transcribe: Voice['transcribe'] = async () => ({
+      text: 'My final words.',
+    });
+    const unused = async (): Promise<never> => {
+      throw new Error('unexpected voice call');
+    };
+    const voice: Voice = {
+      transcribe: (input) => transcribe(input),
+      complete: unused,
+      speak: unused,
+      async *stream() {
+        yield await unused();
+      },
+      ...voiceOverrides,
+    };
     const operations = createAiDebateOperations({
-      store: database,
+      store: f.store,
       voice: () => voice,
       ids: systemId,
-    });
-    ({ id } = await operations.start({
-      actorId,
-      resolution: 'Cities should make transit free',
-      personSide,
-      opponent: 'wren',
-    }));
-    await withSql(async (sql) => {
-      const [row] = await sql`select room_id from rounds where id = ${id!}`;
-      roomId = row!.room_id as string;
     });
     await operations.command({
       actorId,
@@ -73,33 +101,16 @@ export const withPractice = async (
       command: { type: 'start' },
       expectedVersion: 1,
     });
-    const roundId = id;
     await run({
-      database,
+      database: f.store,
       actorId,
       id,
       operations,
       expireAt: async (seconds) => {
-        await withSql(async (sql) => {
-          await sql`update rounds set started_at = statement_timestamp() - (${seconds} * interval '1 second') where id = ${roundId}`;
-        });
+        await f.sql`update rounds set started_at = statement_timestamp() - (${seconds} * interval '1 second') where id = ${id}`;
       },
       setTranscribe: (work) => {
         transcribe = work;
       },
     });
-  } finally {
-    await database.close();
-    await withSql(async (sql) => {
-      if (id) {
-        await sql`delete from ballots where judge_participant_id in (select id from round_participants where round_id = ${id})`;
-        await sql`delete from utterances where round_id = ${id}`;
-        await sql`delete from agent_runs where round_participant_id in (select id from round_participants where round_id = ${id})`;
-        await sql`delete from rounds where id = ${id}`;
-      }
-      if (roomId) await sql`delete from rooms where id = ${roomId}`;
-      await sql`delete from actors where id = ${actorId}`;
-      await sql`delete from users where id = ${userId}`;
-    });
-  }
-};
+  });

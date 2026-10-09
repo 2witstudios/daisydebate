@@ -1,12 +1,8 @@
+import { acceptedCommandColumns } from './command-columns';
 import { sql } from 'drizzle-orm';
-import { check, index, integer, pgTable, text } from 'drizzle-orm/pg-core';
+import { check, index, pgTable, text } from 'drizzle-orm/pg-core';
 import { actors } from './actors';
-import {
-  jsonbColumn,
-  jsonbIsObject,
-  jsonObjectSchema,
-  timestampColumn,
-} from './columns';
+import { jsonbIsObject } from './columns';
 import { rooms } from './rooms';
 
 /** Accepted commands only; refusals and exact retries append nothing. */
@@ -20,11 +16,7 @@ export const roomCommands = pgTable(
     actorId: text('actor_id')
       .notNull()
       .references(() => actors.id, { onDelete: 'restrict' }),
-    type: text('type').notNull(),
-    payloadDigest: text('payload_digest').notNull(),
-    result: jsonbColumn('result', jsonObjectSchema).notNull(),
-    resultingVersion: integer('resulting_version').notNull(),
-    appliedAt: timestampColumn('applied_at').notNull(),
+    ...acceptedCommandColumns(),
   },
   (table) => [
     index('room_commands_room_idx').on(table.roomId, table.appliedAt),
