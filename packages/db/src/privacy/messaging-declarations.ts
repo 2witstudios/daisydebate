@@ -1,6 +1,6 @@
 import type { PrivacyFieldDeclaration } from './contracts';
 
-/** Dedicated MSG schema source 0b1babf2e769d37e81f5a06d1142ebb3c85a2cac. */
+/** Dedicated MSG schema source 00d388321d790e2e9a0e68ea7b53b75fec6c085a. */
 const messagingColumns = {
   messaging_channels: {
     identifier: ['id'],
@@ -45,6 +45,7 @@ const messagingColumns = {
       'high_actor_id',
       'request_sender_actor_id',
       'request_state',
+      'introduction',
       'requested_at',
       'decided_at',
     ],
@@ -77,6 +78,24 @@ const messagingColumns = {
     identifier: ['channel_id', 'request_id', 'message_id'],
     personal: ['actor_id', 'payload_digest'],
     none: [],
+  },
+  messaging_social_commands: {
+    identifier: ['request_id'],
+    personal: ['actor_id', 'digest', 'result_channel_id'],
+    none: ['kind', 'created_at'],
+  },
+  messaging_group_invitations: {
+    identifier: [],
+    personal: [
+      'channel_id',
+      'invitee_actor_id',
+      'invited_by_actor_id',
+      'generation',
+      'state',
+      'invited_at',
+      'decided_at',
+    ],
+    none: ['channel_kind'],
   },
   messaging_reactions: {
     identifier: ['channel_id', 'message_id'],
