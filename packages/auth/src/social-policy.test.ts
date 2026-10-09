@@ -136,3 +136,43 @@ test('a prior allowance cannot survive account correction or expiry', () => {
     expected: [true, false, false],
   });
 });
+
+test('current peer age binding invalidates a prior allowance', () => {
+  const now = '2026-10-09T00:00:00.000Z';
+  const proof = socialPostingPolicy({ channel, accounts, now, policy });
+  const invalidAges = [
+    { validUntil: '2026-10-01T00:00:00.000Z' },
+    { actorId: 'foreign' },
+    { accountRevision: 2 },
+  ];
+  const results = invalidAges.map((patch) => {
+    const current = accounts.map((row, index) =>
+      index === 1 ? { ...row, age: { ...row.age, ...patch } } : row,
+    );
+    return [
+      socialPostingPolicy({ channel, accounts: current, now, policy }).allowed,
+      authorize({
+        principal: { kind: 'user', userId: 'a', actorId: 'a' },
+        capability: 'channel.post',
+        resource: channel,
+        context: {
+          account: current[0]!.account,
+          now,
+          socialAccounts: current,
+          socialReading: proof,
+          socialPosting: proof,
+        },
+      }).allow,
+    ];
+  });
+  assert({
+    given: 'an expired, foreign or account-mismatched current peer age',
+    should: 'deny both fresh projection and replay of earlier allowed evidence',
+    actual: results,
+    expected: [
+      [false, false],
+      [false, false],
+      [false, false],
+    ],
+  });
+});

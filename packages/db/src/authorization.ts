@@ -7,7 +7,10 @@ import {
   type AuthorizationAccountRow,
 } from './authorization-account';
 /** The exact caller transaction, never a second pool or nested transaction. */
-export type AuthorizationTransaction = Pick<BunSQLDatabase, 'execute' | 'insert'>;
+export type AuthorizationTransaction = Pick<
+  BunSQLDatabase,
+  'execute' | 'insert'
+>;
 /**
  * All account/contact/channel mutations acquire this fence first. SQL locks in
  * user-id order, independent of actor input order. Re-read after downstream lock

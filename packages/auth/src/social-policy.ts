@@ -1,3 +1,4 @@
+import { currentAgeFact } from './authorization-age';
 import type { AccountAgeFact } from './account-age';
 import type { AgeBand } from './age-band';
 import type {
@@ -50,19 +51,6 @@ function memberSetMatches(
     new Set(accounts.map((row) => row.account.actorId)).size === accounts.length
   );
 }
-function validAge(row: SocialAccount, instant: number) {
-  if (row.age.state !== 'known') return false;
-  const age = row.age;
-  return (
-    age.actorId === row.account.actorId &&
-    age.accountRevision === row.account.revision &&
-    Number.isSafeInteger(age.revision) &&
-    age.revision > 0 &&
-    age.band !== 'under-13' &&
-    Number.isFinite(Date.parse(age.validUntil)) &&
-    Date.parse(age.validUntil) > instant
-  );
-}
 function currentAccount(
   row: SocialAccount | undefined,
   instant: number,
@@ -73,7 +61,9 @@ function currentAccount(
     !row.account.erased &&
     Number.isSafeInteger(row.account.revision) &&
     row.account.revision > 0 &&
-    validAge(row, instant)
+    currentAgeFact(row, new Date(instant).toISOString()) &&
+    row.age.state === 'known' &&
+    row.age.band !== 'under-13'
   );
 }
 function allowsPair(
