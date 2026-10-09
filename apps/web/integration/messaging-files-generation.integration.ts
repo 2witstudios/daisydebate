@@ -136,7 +136,9 @@ test('canonical own-message removal revokes attached access and retains the real
       given: 'attachment and then canonical message removal',
       should:
         'emit exactly one content-free bell per mutation in the same transactions',
-      actual: bells.map((row) => Object.keys(row.payload).sort()),
+      actual: bells.map((row: { readonly payload: Record<string, unknown> }) =>
+        Object.keys(row.payload).sort(),
+      ),
       expected: [
         ['changeVersion', 'channelId', 'kind'],
         ['changeVersion', 'channelId', 'kind'],
