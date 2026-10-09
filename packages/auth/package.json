@@ -9,7 +9,8 @@
     "./account-age": "./src/account-age.ts",
     "./request-authorization": "./src/request-authorization.ts",
     "./social-policy": "./src/social-policy.ts",
-    "./account-policy-facts": "./src/account-policy-facts.ts"
+    "./account-policy-facts": "./src/account-policy-facts.ts",
+    "./testing": "./src/testing/social-policy.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
