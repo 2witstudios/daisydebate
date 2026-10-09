@@ -112,12 +112,11 @@ export function createSubscriptionDelivery({
   async function deliverTo(connection: Connection, row: OutboxRow) {
     const sub = connection.topics.get(row.topic);
     if (!sub?.attached) return;
-    if (!transport.current(connection, row.topic, sub)) {
-      transport.detach(connection, row.topic, sub);
-      return;
-    }
     if (row.kind === 'channel.changed' || row.kind === 'room.changed') {
       if ((await refresh(connection, row.topic, sub)) !== 'allowed') return;
+    } else if (!transport.current(connection, row.topic, sub)) {
+      transport.detach(connection, row.topic, sub);
+      return;
     }
     // The current lease is checked after the final await, immediately before publish.
     publishRow(connection, row, sub);
@@ -171,7 +170,10 @@ export function createSubscriptionDelivery({
     if (row.kind !== 'channel.changed' && row.kind !== 'room.changed') return;
     for (const connection of connections) {
       const sub = connection.topics.get(row.topic);
-      if (sub && !sub.attached) sub.lease.invalidate();
+      if (!sub) continue;
+      if (sub.attached && sub.lease.expired())
+        transport.detach(connection, row.topic, sub);
+      else sub.lease.invalidate();
     }
   }
   return {

@@ -36,6 +36,7 @@ export function createAuthorityLease({
       return active;
     },
     invalidate,
+    expired: () => now() >= effectiveExpiry,
     owns(attempt: Attempt): boolean {
       return active === attempt && attempt.generation === generation;
     },
