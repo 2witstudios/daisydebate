@@ -6,6 +6,7 @@ import {
   lockAuthorizationActors,
   type AuthorizationTransaction,
 } from '../authorization';
+import { exportSubjectFiles } from '../messaging-files/cleanup';
 import type {
   PrivacyExport,
   PrivacyFieldDeclaration,
@@ -90,6 +91,44 @@ async function eraseAdopters(
     const adopter = adoption.adopters.find((item) => item.id === required.id)!;
     await adopter.erase(tx, subject, { now });
   }
+}
+
+function normalizeExportRows(
+  rows: readonly Readonly<Record<string, unknown>>[],
+) {
+  return rows.map((row) =>
+    Object.fromEntries(
+      Object.entries(row).map(([column, value]) => {
+        if (value instanceof Date) {
+          if (!Number.isFinite(value.getTime()))
+            throw createAppError('VALIDATION');
+          return [column, value.toISOString()];
+        }
+        if (typeof value === 'bigint') {
+          const number = Number(value);
+          if (!Number.isSafeInteger(number)) throw createAppError('VALIDATION');
+          return [column, number];
+        }
+        return [column, value];
+      }),
+    ),
+  );
+}
+
+async function exportAdopter(
+  tx: AuthorizationTransaction,
+  adopter: PrivacyAdoption['adopters'][number],
+  subject: PrivacySubject,
+) {
+  const exported = await adopter.export(tx, subject);
+  if (adopter.id !== 'messaging') return exported;
+  if (Object.hasOwn(exported, 'messaging_files'))
+    throw createAppError('VALIDATION');
+  const files = await exportSubjectFiles(tx, subject.actorId);
+  return {
+    ...exported,
+    messaging_files: normalizeExportRows(files.messaging_files),
+  };
 }
 
 /** Owns transaction commit; external calls cannot participate in local erasure. */
@@ -205,7 +244,7 @@ export async function exportPrivacySubject(
       const adopter = adoption.adopters.find((item) => item.id === id)!;
       const exported = checkedExport(
         adopter.fields,
-        await adopter.export(tx, plan.subject),
+        await exportAdopter(tx, adopter, plan.subject),
       );
       for (const [table, records] of Object.entries(exported)) {
         if (Object.hasOwn(result, table)) throw createAppError('VALIDATION');
