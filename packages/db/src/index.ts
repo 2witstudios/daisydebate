@@ -20,6 +20,8 @@ import { onboardingOperations } from './onboarding-operations';
 import {
   createMessagingStore,
   type MessagingAuthorizationFence,
+  createMessagingSocialStore,
+  type MessagingSocialAuthorizationFence,
 } from './messaging';
 import { actorOperations } from './actor-operations';
 import { rateCompletedRound } from './rating-operations';
@@ -161,6 +163,8 @@ export function createDatabase({
     ...actorOperations({ database, eventSink }),
     messagingChannelStore: (authorize: MessagingAuthorizationFence) =>
       createMessagingStore({ database, authorize }),
+    messagingSocialStore: (authorize: MessagingSocialAuthorizationFence) =>
+      createMessagingSocialStore({ database, authorize }),
     ...outboxOperations({ database, eventSink }),
     ...formatOperations({ database, eventSink }),
     ...roomOperations({ database, eventSink }),
