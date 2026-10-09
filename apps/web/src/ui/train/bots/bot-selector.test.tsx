@@ -18,13 +18,13 @@ describe('BotSelectorPage', () => {
     assert({
       given: 'wren chosen',
       should:
-        'show its personality, voice and traits and link to a debate against it',
+        'show its personality, voice and traits and link to canonical room creation',
       actual: [
         html.includes('Quick-witted and dry'),
         html.includes('Crisp and quick, with a dry edge'),
         html.includes('Witty'),
-        html.includes('href="/ai-debate?bot=wren"'),
-        html.includes('Debate Wren'),
+        html.includes('href="/play"'),
+        html.includes('Create a debate'),
       ],
       expected: [true, true, true, true, true],
     });
