@@ -54,9 +54,9 @@ describe('hrefs', () => {
       actual: [
         selectBotHref(defaultBotId),
         selectBotHref('bram'),
-        debateBotHref('bram'),
+        debateBotHref(),
       ],
-      expected: ['/train', '/train?bot=bram', '/ai-debate?bot=bram'],
+      expected: ['/train', '/train?bot=bram', '/play'],
     });
   });
 });
