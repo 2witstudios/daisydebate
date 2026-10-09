@@ -91,6 +91,7 @@ export function composeMessagingRoutes(app: App) {
       origin: () => app.auth().config.PUBLIC_APP_URL,
       maxBodyBytes: policy.maxBodyBytes,
       bounds: policy.bounds,
+      websocketEndpoint: app.websocketEndpoint,
       identify: (request) => identify(app.auth(), request.headers),
       edit: mutation('edit'),
       remove: mutation('remove'),
