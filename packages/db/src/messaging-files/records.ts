@@ -17,6 +17,7 @@ export type FileScope = Readonly<{
   userId: string;
 }>;
 export type FileReservation = Readonly<{
+  lifecycle: 'reserved' | 'quarantined' | 'attached';
   id: string;
   channelId: string;
   ownerActorId: string;
