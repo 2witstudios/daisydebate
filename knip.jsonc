@@ -12,6 +12,12 @@
     "apps/web": {
       "entry": [
         "e2e/support/server.ts",
+        // Launch config/server are process entries selected by runner/command replacement;
+        // evidence/release are Bun subprocess CLI entries, never browser imports.
+        "e2e/support/room-launch-config.ts",
+        "e2e/support/room-launch-server.ts",
+        "e2e/support/room-launch-evidence-process.ts",
+        "e2e/support/room-launch-release.ts",
         "integration/**/*.integration.ts",
         // AUTH-6.7 load harness: run.ts and abuse-run.ts are CLI entries;
         // instance-process.ts is spawned as a subprocess, never imported.
