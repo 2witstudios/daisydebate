@@ -4,12 +4,15 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { ticketSchema } from '@daisy/protocol';
 import { createAccountFlows, uniqueName } from './auth-account-helpers';
-import { origin, testRedisUrl, withSql } from './fixtures';
+import { createTestApp, origin, testRedisUrl, withSql } from './fixtures';
 
 requireTestServices(process.env);
 setupRitewayBun();
 
-const { flows, signUp, claim } = createAccountFlows();
+const socketUrl = 'wss://ticket-fixture.example.test/socket';
+const { flows, signUp, claim } = createAccountFlows(
+  createTestApp({ REALTIME_PUBLIC_URL: socketUrl }),
+);
 const { testApp, jsonPost } = flows;
 const ticketRoute = testApp.routes.ticket;
 
@@ -60,6 +63,7 @@ describe('RT-2.4a POST /api/realtime/ticket through the mounted route', () => {
     const body = (await response.json()) as {
       ticket: string;
       expiresInSeconds: number;
+      socketUrl: string;
     };
     const hash = createHash('sha3-256').update(body.ticket).digest('hex');
     const key = `${testApp.redisNamespace}:v1:ticket:${hash}`;
@@ -73,6 +77,7 @@ describe('RT-2.4a POST /api/realtime/ticket through the mounted route', () => {
       actual: {
         status: response.status,
         ticketShapeOk: ticketSchema.safeParse(body.ticket).success,
+        socketUrl: body.socketUrl,
         expiresInSeconds: body.expiresInSeconds,
         binding,
         ttlWithinBudget: ttlMs > 0 && ttlMs <= 60_000,
@@ -82,6 +87,7 @@ describe('RT-2.4a POST /api/realtime/ticket through the mounted route', () => {
       expected: {
         status: 200,
         ticketShapeOk: true,
+        socketUrl,
         expiresInSeconds: 60,
         binding: { actorId, sessionId, origin },
         ttlWithinBudget: true,
