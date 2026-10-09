@@ -39,19 +39,6 @@ function messagingExportDatabase(
             revision: 1,
           },
         ];
-      if (query.sql.includes('from users u join actors'))
-        return [
-          {
-            userId: subject.userId,
-            actorId: subject.actorId,
-            actorKind: 'human',
-            actorUserId: subject.userId,
-            username: 'subject',
-            emailVerified: true,
-            deletedAt: null,
-            revision: 1,
-          },
-        ];
       if (query.sql.includes('from users where id'))
         return [
           {
