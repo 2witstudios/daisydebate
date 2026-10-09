@@ -1,5 +1,7 @@
 import { resolve } from 'node:path';
 import { RedisClient, SQL } from 'bun';
+import { listNamespaces } from '@daisy/redis/namespaces';
+import { TEST_NAMESPACE_PREFIX } from '@daisy/redis/testing';
 import { requireLaunchSlot } from './room-launch-slot';
 
 // Invoked only after parent/reviewer release; proof runner always retains data.
@@ -28,18 +30,19 @@ try {
     await admin`select oid::text oid from pg_database where datname='daisy'`;
   if (!before)
     throw new Error('Unrelated main slot sentinel is missing before release');
+  // The derived test Redis database owns per-run t3- namespaces, not the dev namespace.
+  const runNamespaces = await listNamespaces(
+    ownTestRedis,
+    TEST_NAMESPACE_PREFIX,
+  );
   const removed = Bun.spawn(['bun', 'slot:down'], {
     cwd: checkout,
     env: process.env,
-    stdout: 'pipe',
-    stderr: 'pipe',
+    stdout: 'ignore',
+    stderr: 'ignore',
   });
-  const [stdout, stderr, code] = await Promise.all([
-    new Response(removed.stdout).text(),
-    new Response(removed.stderr).text(),
-    removed.exited,
-  ]);
-  if (code !== 0) throw new Error(`Own slot lifecycle failed: ${stderr}`);
+  if ((await removed.exited) !== 0)
+    throw new Error('Own slot lifecycle failed');
   const remaining =
     await admin`select datname from pg_database where datname in (${`daisy_wt_${slot.id}`}, ${`daisy_wt_${slot.id}_test`}, ${slot.database})`;
   const [after] =
@@ -52,12 +55,20 @@ try {
   const e2eKeys = (await redis.send('KEYS', [
     `${slot.namespace}:*`,
   ])) as string[];
-  const testKeys = (await ownTestRedis.send('KEYS', ['t3-*'])) as string[];
-  if (keys.length || e2eKeys.length || testKeys.length)
+  const remainingRunNamespaces = await listNamespaces(
+    ownTestRedis,
+    TEST_NAMESPACE_PREFIX,
+  );
+  if (keys.length || e2eKeys.length || remainingRunNamespaces.length)
     throw new Error('Released slot Redis state remains');
   process.stdout.write(
-    `${stdout}${JSON.stringify({ event: 'room.launch.release', slot: slot.id, databasesAbsent: true, namespacesAbsent: true, unrelatedMainSentinelRetained: true })}\n`,
+    `${JSON.stringify({ event: 'room.launch.release', slot: slot.id, databasesAbsent: true, namespacesAbsent: true, unrelatedMainSentinelRetained: true, testRedisDatabase: Number(testRedis.pathname.slice(1)), clearedRunNamespaces: runNamespaces.length })}\n`,
   );
+} catch {
+  process.stderr.write(
+    `${JSON.stringify({ event: 'room.launch.release', outcome: 'refused' })}\n`,
+  );
+  process.exitCode = 1;
 } finally {
   redis.close();
   devRedis.close();

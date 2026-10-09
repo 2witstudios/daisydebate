@@ -24,6 +24,7 @@ export function requireLaunchSlot(
   const port = Number(env.E2E_PORT);
   if (
     !validServices(pg, redis, database) ||
+    !validRoleAndPort(pg, env.DATABASE_URL) ||
     env.E2E_REDIS_NAMESPACE !== namespace ||
     !validPort(port)
   )
@@ -45,3 +46,18 @@ const validServices = (pg: URL, redis: URL, database: string) =>
   redis.protocol === 'redis:' &&
   loopback(redis.hostname) &&
   redis.pathname === '/2';
+
+function validRoleAndPort(pg: URL, value: string | undefined) {
+  try {
+    const admin = new URL(value ?? '');
+    return (
+      pg.username === 'daisy_e2e' &&
+      !pg.search &&
+      !pg.hash &&
+      (pg.port || '5432') === (admin.port || '5432') &&
+      pg.hostname === admin.hostname
+    );
+  } catch {
+    return false;
+  }
+}

@@ -1,9 +1,11 @@
+import { admitLaunchCheckout } from './room-launch-admission';
 import { resolve } from 'node:path';
 import { requireLaunchSlot } from './room-launch-slot';
 
 /** Run only from a freshly allocated dedicated native proof checkout. */
 const checkout = resolve(import.meta.dir, '../../../..');
 const slot = requireLaunchSlot(checkout, process.env);
+await admitLaunchCheckout(checkout, slot.database);
 process.stdout.write(
   `${JSON.stringify({ event: 'room.launch.proof', slot: slot.id, database: slot.database, namespace: slot.namespace })}\n`,
 );
