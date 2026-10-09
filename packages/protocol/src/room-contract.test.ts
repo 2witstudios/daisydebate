@@ -6,7 +6,12 @@ const commandId = 'abcdefghijklmnopqrstuvwx';
 
 describe('Room command boundary', () => {
   test('requires version and refuses caller identity claims', () => {
-    const valid = { commandId, expectedVersion: 3, type: 'ready' };
+    const valid = {
+      commandId,
+      expectedVersion: 3,
+      expectedConsentVersion: 0,
+      type: 'ready',
+    };
     const cases = [
       valid,
       { ...valid, expectedVersion: undefined },

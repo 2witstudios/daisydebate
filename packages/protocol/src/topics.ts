@@ -16,6 +16,7 @@ const seasonIdSchema = z.string().regex(/^[a-z0-9]([a-z0-9-]{0,62}[a-z0-9])?$/);
  * (realtime-payloads.ts) is keyed by it.
  */
 const topicFamilies = [
+  'room',
   'debate',
   'debate:presence',
   'debate:chat',
@@ -27,9 +28,13 @@ export type TopicFamily = z.infer<typeof topicFamilySchema>;
 
 type ParsedTopic =
   | {
-      readonly family: Exclude<TopicFamily, 'user:inbox' | 'standings'>;
+      readonly family: Exclude<
+        TopicFamily,
+        'user:inbox' | 'standings' | 'room'
+      >;
       readonly debateId: string;
     }
+  | { readonly family: 'room'; readonly roomId: string }
   | { readonly family: 'user:inbox'; readonly actorId: string }
   | { readonly family: 'standings'; readonly season: string };
 
@@ -61,6 +66,7 @@ export function parseTopic(topic: string): ParsedTopic | undefined {
       ? { family: 'standings', season: key }
       : undefined;
   if (!idSchema.safeParse(key).success) return undefined;
+  if (family.data === 'room') return { family: 'room', roomId: key };
   return family.data === 'user:inbox'
     ? { family: 'user:inbox', actorId: key }
     : { family: family.data, debateId: key };
@@ -94,3 +100,6 @@ export const buildUserInboxTopic = (actorId: string): string =>
 /** The `debate:<id>` family (RT-2.3b's first consumer). */
 export const buildDebateTopic = (debateId: string): string =>
   `debate:${idSchema.parse(debateId)}`;
+
+export const buildRoomTopic = (roomId: string): string =>
+  `room:${idSchema.parse(roomId)}`;
