@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import {
   bigint,
   check,
+  index,
   foreignKey,
   pgTable,
   primaryKey,
@@ -32,6 +33,11 @@ export const messagingMessages = pgTable(
     removedAt: timestampColumn('removed_at'),
   },
   (table) => [
+    index('messaging_messages_author_idx').on(table.authorActorId),
+    index('messaging_messages_reply_channel_idx').on(
+      table.replyToMessageId,
+      table.channelId,
+    ),
     unique('messaging_messages_id_channel_unique').on(
       table.id,
       table.channelId,
@@ -70,6 +76,11 @@ export const messagingReceipts = pgTable(
     messageId: text('message_id'),
   },
   (table) => [
+    index('messaging_receipts_channel_idx').on(table.channelId),
+    index('messaging_receipts_message_channel_idx').on(
+      table.messageId,
+      table.channelId,
+    ),
     primaryKey({ columns: [table.actorId, table.channelId, table.requestId] }),
     check(
       'messaging_receipts_digest',
@@ -92,6 +103,11 @@ export const messagingReactions = pgTable(
     reaction: text('reaction').notNull(),
   },
   (table) => [
+    index('messaging_reactions_actor_idx').on(table.actorId),
+    index('messaging_reactions_message_channel_idx').on(
+      table.messageId,
+      table.channelId,
+    ),
     primaryKey({ columns: [table.messageId, table.actorId, table.reaction] }),
     check(
       'messaging_reactions_nonempty',
