@@ -154,3 +154,26 @@ export async function acknowledgeErasedFileDeletion(
       .where(eq(messagingFileDeletionIntents.objectKey, objectKey));
   });
 }
+export type FileDeletionWork =
+  | { readonly kind: 'file'; readonly fileId: string }
+  | { readonly kind: 'erased'; readonly objectKey: string };
+/** Internal bounded worker discovery; never an HTTP/user projection. */
+export async function pendingFileDeletions(
+  tx: AuthorizationTransaction,
+  maxItems: number,
+): Promise<readonly FileDeletionWork[]> {
+  if (!Number.isSafeInteger(maxItems) || maxItems < 1 || maxItems > 65535)
+    throw createAppError('VALIDATION');
+  const rows = await tx.execute(sql`
+    select kind, key from (
+      select 'file' as kind, id as key from messaging_files where lifecycle='deleting'
+      union all
+      select 'erased' as kind, object_key as key from messaging_file_deletion_intents
+    ) work order by key limit ${maxItems}
+  `);
+  return [...rows].map((row) =>
+    row.kind === 'file'
+      ? { kind: 'file' as const, fileId: String(row.key) }
+      : { kind: 'erased' as const, objectKey: String(row.key) },
+  );
+}
