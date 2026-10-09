@@ -14,7 +14,7 @@ if (!projects?.length) throw new Error('Canonical Chromium project is missing');
 export default defineConfig({
   ...canonical,
   testDir: resolve(import.meta.dirname, '..'),
-  testMatch: '**/room-launch.e2e.ts',
+  testMatch: ['**/room-launch.e2e.ts', '**/debate-room.e2e.ts'],
   testIgnore: [],
   timeout: 120_000,
   reporter: [
