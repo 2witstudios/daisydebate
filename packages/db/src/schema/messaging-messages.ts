@@ -66,7 +66,7 @@ export const messagingReceipts = pgTable(
     channelId: messagingChannelColumn(() => messagingChannels.id),
     actorId: messagingActorColumn('actor_id'),
     requestId: text('request_id').notNull(),
-    payloadDigest: text('payload_digest').notNull(),
+    payloadDigest: text('payload_digest'),
     messageId: text('message_id'),
   },
   (table) => [
