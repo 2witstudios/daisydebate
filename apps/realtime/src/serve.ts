@@ -24,6 +24,9 @@ function drainOptions(
   };
 }
 
+const listenerTls = (tls: Bun.TLSOptions | undefined) =>
+  tls === undefined ? {} : { tls };
+
 /**
  * Wires startup order (ADR 0032 §2) around `Bun.serve`: production first
  * refuses a schema-altering role (ISSUE-101), then `startOutboxDrain` is
@@ -37,6 +40,7 @@ export async function serveRealtime({
   resources,
   port,
   hostname = '0.0.0.0',
+  tls,
   sink,
   pollIntervalMs,
   timers,
@@ -50,6 +54,7 @@ export async function serveRealtime({
   readonly resources: RealtimeApp;
   readonly port: number;
   readonly hostname?: string;
+  readonly tls?: Bun.TLSOptions;
   readonly sink?: OutboxRowsSink;
   readonly now?: () => number;
   readonly readingPolicy?: RealtimeReadingPolicy;
@@ -109,7 +114,13 @@ export async function serveRealtime({
     },
   });
   try {
-    server = serve({ hostname, port, fetch, websocket });
+    server = serve({
+      hostname,
+      port,
+      fetch,
+      websocket,
+      ...listenerTls(tls),
+    });
   } catch (error) {
     await drain.stop();
     throw error;
