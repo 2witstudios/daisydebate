@@ -14,9 +14,11 @@ import {
 export function RequestDecision({
   action,
   requestId,
+  mode = 'recipient',
 }: {
   readonly action: FormAction<DmDecisionFormState>;
   readonly requestId: string;
+  readonly mode?: 'recipient' | 'sender';
 }) {
   const [answer, post, pending] = useFormAction<DmDecisionFormState>(
     action,
@@ -26,7 +28,7 @@ export function RequestDecision({
   useMovedOn(answer.next);
   useFocusAfterAnswer(
     answer,
-    answer.notice ? 'request-notice' : 'request-accept',
+    answer.notice ? 'request-notice' : 'request-primary',
     !pending,
   );
   return (
@@ -44,23 +46,25 @@ export function RequestDecision({
       ) : null}
       <div className="flex flex-wrap gap-3">
         <Button
-          id="request-accept"
+          id="request-primary"
           type="submit"
           name="decision"
-          value="accept"
+          value={mode === 'sender' ? 'cancel' : 'accept'}
           disabled={pending || answer.next !== undefined}
         >
-          Accept request
+          {mode === 'sender' ? 'Cancel request' : 'Accept request'}
         </Button>
-        <Button
-          type="submit"
-          name="decision"
-          value="decline"
-          variant="secondary"
-          disabled={pending || answer.next !== undefined}
-        >
-          Decline
-        </Button>
+        {mode === 'recipient' ? (
+          <Button
+            type="submit"
+            name="decision"
+            value="decline"
+            variant="secondary"
+            disabled={pending || answer.next !== undefined}
+          >
+            Decline
+          </Button>
+        ) : null}
       </div>
     </form>
   );

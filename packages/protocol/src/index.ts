@@ -177,3 +177,5 @@ export {
   messagingFileMimeSchema,
   type MessagingFileMime,
 } from './messaging/files';
+
+export { createMessagingInboxSchemas } from './messaging/inbox';
