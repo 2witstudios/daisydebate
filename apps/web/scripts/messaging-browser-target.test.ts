@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { messagingBrowserTarget } from './messaging-data';
+import { messagingBrowserTarget } from '../e2e/support/messaging-data';
 setupRitewayBun();
 test('messaging browser data refuses foreign slots, production targets and writer roles before connect', () => {
   const own = 'postgres://daisy_e2e:test@localhost:5432/daisy_wt_abc_e2e';

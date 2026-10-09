@@ -25,6 +25,7 @@ export default defineConfig({
   ...canonical,
   testDir: resolve(import.meta.dirname, '..'),
   testMatch: '**/messaging-realtime.e2e.ts',
+  testIgnore: [],
   projects: [{ ...chromium, testIgnore: [] }],
   reporter: [
     ['list'],
