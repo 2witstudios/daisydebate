@@ -52,7 +52,8 @@ describe('jsonb columns (ISSUE-24)', () => {
     const jsonb = columnsOf((column) => column.getSQLType() === 'jsonb');
     assert({
       given: 'every jsonb column in the schema',
-      should: 'be the six known columns',
+      should:
+        'include the Room receipt and frozen config alongside every known JSON contract',
       actual: jsonb.map(({ name }) => name).sort(),
       expected: [
         'agent_runs.configuration_snapshot',
@@ -62,10 +63,12 @@ describe('jsonb columns (ISSUE-24)', () => {
         'format_presets.config',
         'format_revisions.definition',
         'outbox.payload',
+        'room_commands.result',
         'rooms.config',
         'rooms.execution_plan',
         'rooms.rules_snapshot',
         'round_commands.result',
+        'rounds.room_config_snapshot',
         'rounds.rules_snapshot',
         'rounds.runtime_state',
       ],

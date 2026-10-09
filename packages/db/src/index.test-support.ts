@@ -116,6 +116,8 @@ export const roundRow = (record: {
   id: string;
   roomId: string | null;
   createdByActorId: string | null;
+  visibility?: string | null;
+  roomConfigSnapshot?: unknown;
   resolution: string;
   competitionType: 'ranked' | 'casual' | 'practice';
   length: 'full' | 'quick';
@@ -137,12 +139,14 @@ export const roundRow = (record: {
   record.id,
   record.roomId,
   record.createdByActorId,
+  record.visibility ?? null,
   record.resolution,
   record.competitionType,
   record.length,
   record.formatId,
   record.formatVersion,
   record.presetVersion,
+  record.roomConfigSnapshot ?? null,
   record.rules,
   record.status,
   record.currentStage,

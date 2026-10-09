@@ -1,7 +1,9 @@
+import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { createId } from '@paralleldrive/cuid2';
 import { withRoomRuntime } from './room-runtime.test-support';
+requireTestServices(process.env);
 setupRitewayBun();
 
 test('Room refusals preserve durable state and Ready retries cannot revive withdrawn or expired consent', async () => {
@@ -75,7 +77,17 @@ test('Room refusals preserve durable state and Ready retries cannot revive withd
       ],
       expected: [true, 'not-ready', withdrawn],
     });
-    await f.sql`delete from room_commands where command_id=${readyId}`;
+    await f.sql`update room_commands set applied_at='2000-01-01T00:00:00Z' where command_id=${readyId}`;
+    assert({
+      given: 'an expired Ready receipt and current command receipts',
+      should:
+        'prune only the expired receipt in a bounded canonical retention call',
+      actual: await f.store.purgeExpiredRoomCommands({
+        before: '2000-01-02T00:00:00Z',
+        limit: 1,
+      }),
+      expected: 1,
+    });
     await assertRejects({
       given: 'the same Ready after log pruning',
       should: 'refuse consumed consent revision',

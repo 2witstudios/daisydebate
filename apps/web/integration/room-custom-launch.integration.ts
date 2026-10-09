@@ -1,7 +1,9 @@
+import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 
 import { withRoomRuntime } from './room-runtime.test-support';
+requireTestServices(process.env);
 setupRitewayBun();
 
 test('custom unequal casts and ordered timing freeze alongside canonical quota and masked reads', async () => {
