@@ -35,19 +35,38 @@ test('session authorization binds durable session, user, actor, erasure and expi
   ];
   const results = await Promise.all(
     cases.map(async (row) => {
-      let reads = 0;
-      const tx = {
-        execute: async () =>
-          reads++ === 0 ? (row.session ? [row.session] : []) : [row.account],
-      } as unknown as AuthorizationTransaction;
-      return (
-        (await loadAuthorizationSession(tx, {
-          userId,
-          actorId,
-          sessionId,
-          now: '2026-10-09T00:00:00.000Z',
-        })) !== null
+      const input = {
+        userId,
+        actorId,
+        sessionId,
+        now: '2026-10-09T00:00:00.000Z',
+      };
+      const transaction = (fenced: boolean) => {
+        let reads = fenced ? -1 : 0;
+        return {
+          execute: async () =>
+            reads++ === 0 ? (row.session ? [row.session] : []) : [row.account],
+        } as unknown as AuthorizationTransaction;
+      };
+      const explicit = await loadAuthorizationSession(
+        transaction(false),
+        input,
       );
+      const reader = authorizationSessionOperations({
+        database: {
+          transaction: async (
+            work: (tx: AuthorizationTransaction) => Promise<unknown>,
+          ) => work(transaction(true)),
+        } as unknown as Parameters<
+          typeof authorizationSessionOperations
+        >[0]['database'],
+      });
+      const resolved = await reader.resolveRealtimeSession({
+        sessionId,
+        actorId,
+        now: input.now,
+      });
+      return [explicit !== null, resolved !== null];
     }),
   );
   assert({
@@ -55,7 +74,15 @@ test('session authorization binds durable session, user, actor, erasure and expi
       'current, missing, mismatched, expired, erased, foreign actor and provisional rows',
     should: 'accept only the current exact bound session',
     actual: results,
-    expected: [true, false, false, false, false, false, false],
+    expected: [
+      [true, true],
+      [false, false],
+      [false, false],
+      [false, false],
+      [false, false],
+      [false, false],
+      [false, false],
+    ],
   });
 });
 
