@@ -7,6 +7,7 @@ export type AuthorizationPrincipal =
       readonly actorId: string | null;
     };
 export type AuthorizationCapability =
+  | 'room.list'
   | 'room.create'
   | 'room.read'
   | 'room.join'
@@ -104,7 +105,7 @@ export function authorize({
   context,
 }: AuthorizationInput): AuthorizationDecision {
   const valid =
-    capability === 'room.create'
+    capability === 'room.create' || capability === 'room.list'
       ? resource.kind === 'room_collection'
       : capability.startsWith('room.')
         ? resource.kind === 'room'
