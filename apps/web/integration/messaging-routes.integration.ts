@@ -1,3 +1,4 @@
+import type { Identity } from '@daisy/auth';
 import { SQL } from 'bun';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
@@ -17,18 +18,11 @@ test('mounted messaging composition uses real signed-in actors and shared HTTP g
     second = await accounts.signUp();
   await accounts.claim(first.cookie, { username: uniqueName() });
   await accounts.claim(second.cookie, { username: uniqueName() });
-  const me = await accounts.identifyAs(first.cookie),
-    peer = await accounts.identifyAs(second.cookie);
-  if (
-    me.state !== 'member' ||
-    peer.state !== 'member' ||
-    me.principal.actorId === null ||
-    peer.principal.actorId === null
-  )
-    throw new Error('Real member actors required');
+  const me = requireActor(await accounts.identifyAs(first.cookie)),
+    peer = requireActor(await accounts.identifyAs(second.cookie));
   const client = new SQL(testDatabaseUrl),
     channelId = createId();
-  const [low, high] = [me.principal.actorId, peer.principal.actorId].sort();
+  const [low, high] = [me.actorId, peer.actorId].sort();
   const now = testApp.app.clock.now();
   const routes = createRoutes({
     ...testApp.app,
@@ -57,11 +51,11 @@ test('mounted messaging composition uses real signed-in actors and shared HTTP g
   try {
     await client.unsafe(
       "insert into account_age(user_id,birth_month,version,recorded_at) values($1,'2000-01',1,$3),($2,'2000-01',1,$3)",
-      [me.principal.userId, peer.principal.userId, now],
+      [me.userId, peer.userId, now],
     );
     await seedMessagingTestDm(client, {
-      actorId: me.principal.actorId,
-      otherActorId: peer.principal.actorId,
+      actorId: me.actorId,
+      otherActorId: peer.actorId,
       channelId,
       now,
     });
@@ -104,7 +98,7 @@ test('mounted messaging composition uses real signed-in actors and shared HTTP g
       expected: {
         sendStatus: 200,
         readStatus: 200,
-        sentActor: me.principal.actorId,
+        sentActor: me.actorId,
         text: 'Private routed text',
       },
     });
@@ -231,9 +225,15 @@ test('mounted messaging composition uses real signed-in actors and shared HTTP g
       channelId,
     ]);
     await client.unsafe('delete from account_age where user_id in ($1,$2)', [
-      me.principal.userId,
-      peer.principal.userId,
+      me.userId,
+      peer.userId,
     ]);
     await client.close();
   }
 });
+
+function requireActor(identity: Identity) {
+  if (identity.state !== 'member' || identity.principal.actorId === null)
+    throw new Error('Real member actor required');
+  return { ...identity.principal, actorId: identity.principal.actorId };
+}
