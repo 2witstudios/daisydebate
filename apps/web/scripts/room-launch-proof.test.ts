@@ -8,6 +8,46 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireLaunchSlot } from '../e2e/support/room-launch-slot';
 setupRitewayBun();
 
+test('dedicated config binds server commands and artifacts to their canonical workspace', async () => {
+  const checkout = resolve(import.meta.dir, '../../..');
+  const script = `import config from './apps/web/e2e/support/room-launch-config';
+    console.log(JSON.stringify({
+      servers: config.webServer.map(server => server.cwd ?? null),
+      artifacts: config.outputDir ?? null,
+      report: config.reporter.find(reporter => reporter[0] === 'json')[1].outputFile,
+    }));`;
+  const loaded = Bun.spawn(['bun', '--eval', script], {
+    cwd: checkout,
+    env: process.env,
+    stdout: 'pipe',
+    stderr: 'pipe',
+  });
+  const [status, output] = await Promise.all([
+    loaded.exited,
+    new Response(loaded.stdout).text(),
+  ]);
+  assert({
+    given: 'the actual dedicated config loaded from its nested support folder',
+    should:
+      'run web/realtime from their own workspaces and retain artifacts at the CI-registered paths',
+    actual: { status, paths: JSON.parse(output) },
+    expected: {
+      status: 0,
+      paths: {
+        servers: [
+          resolve(checkout, 'apps/web'),
+          resolve(checkout, 'apps/realtime'),
+        ],
+        artifacts: resolve(checkout, 'apps/web/test-results'),
+        report: resolve(
+          checkout,
+          'apps/web/test-results/room-launch-results.json',
+        ),
+      },
+    },
+  });
+});
+
 test('Launch shutdown awaits auth settlement and closes each owned listener once', async () => {
   const calls: string[] = [];
   let release!: () => void;
