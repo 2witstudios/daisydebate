@@ -106,7 +106,7 @@ export async function writeAccountBirthMonth(
   });
 }
 
-export const accountAgePrivacyFields: readonly PrivacyFieldDeclaration[] = [
+const accountAgePrivacyFields: readonly PrivacyFieldDeclaration[] = [
   'user_id',
   'birth_month',
   'version',

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 /** Closed launch vocabulary: league grants belong to LEAGUE-OPS. */
-export const authorizationCapabilities = [
+const authorizationCapabilities = [
   'foundation.create',
   'foundation.read',
   'round.read',
@@ -23,10 +23,14 @@ export const authorizationCapabilitySchema = z.enum(authorizationCapabilities);
 export type AuthorizationCapability = z.infer<
   typeof authorizationCapabilitySchema
 >;
-export const authorizationDenyReasons = [
+const authorizationDenyReasons = [
   'denied',
   'account-erased',
   'unauthenticated',
   'missing-capability',
 ] as const;
-export const authorizationDenyReasonSchema = z.enum(authorizationDenyReasons);
+const authorizationDenyReasonSchema = z.enum(authorizationDenyReasons);
+
+export type AuthorizationDenyReason = z.infer<
+  typeof authorizationDenyReasonSchema
+>;
