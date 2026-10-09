@@ -1,5 +1,6 @@
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { channelFileFrame, type FileStore } from '../messaging-files';
+import { scopeFileFrame } from './file-capability';
 import { withMessagingChannel } from './channel-frame';
 import type { MessagingAuthorizationFence } from './records';
 
@@ -25,7 +26,12 @@ export function createMessagingFileStore({
             channelId: channel.id,
             changeVersion: channel.changeVersion,
           };
-          return work(channelFileFrame(tx, input, counters, refresh));
+          return work(
+            scopeFileFrame(
+              channelFileFrame(tx, input, counters, refresh),
+              capability,
+            ),
+          );
         },
       ),
   };
