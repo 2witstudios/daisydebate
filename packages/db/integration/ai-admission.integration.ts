@@ -36,7 +36,7 @@ const withAdmission = async (
         fixture.track('rooms', roomId);
         fixture.track('rounds', roundId);
         return {
-          room: aiPracticeRoom(roomId, format.id, format.version),
+          room: aiPracticeRoom(roomId, format.id, format.version, actorId),
           seats: [
             { id: createId(), actorId, role: 'affirmative' },
             {

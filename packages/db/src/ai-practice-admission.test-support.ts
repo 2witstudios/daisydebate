@@ -7,8 +7,13 @@ export const aiPracticeRoom = (
   id: string,
   formatId: string,
   formatVersion: number,
+  hostActorId: string,
 ): NewRoom => ({
   id,
+  hostActorId,
+  title: 'Practice proof',
+  topic: 'A motion',
+  visibility: 'private',
   formatId,
   formatVersion,
   presetVersion: null,

@@ -49,6 +49,10 @@ export const startPractice = async (
   const roomId = ids.next();
   const room = {
     id: roomId,
+    hostActorId: input.actorId,
+    title: trimmed,
+    topic: trimmed,
+    visibility: 'private' as const,
     ...resolved,
   } as const;
   const seats = [
