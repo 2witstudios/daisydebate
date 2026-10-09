@@ -147,13 +147,13 @@ export async function erasePrivacySubject(
   });
 }
 
+/** Own-direction projections may omit another subject’s declared private fields. */
 function checkExportRow(
   row: Readonly<Record<string, unknown>>,
   columns: Set<string>,
 ) {
   if (
     !z.record(z.string(), z.json()).safeParse(row).success ||
-    Object.keys(row).length !== columns.size ||
     Object.keys(row).some((column) => !columns.has(column))
   )
     throw createAppError('VALIDATION');
