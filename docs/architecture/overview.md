@@ -144,6 +144,14 @@ account facts require verified email, a username and no erasure tombstone.
   relationship, account and age revisions, actor identities and expiry. The
   evaluator revalidates those current facts when consuming evidence. Unresolved
   age/contact policy supplies no affirmative production authority.
+- **Prospective and safety operations.** Creation consumes proposed actors,
+  current account/age facts and MSG's canonical pair fences, without fabricating
+  channel membership. Group creation requires explicit approved block scope;
+  DEC127 is Pending and supplies no default. Safety blocking requires a current
+  pair participant, independent of contact admission or age. Own-message removal
+  requires channel entitlement and fresh reading evidence; MSG's operation also
+  enforces authorship. Archived, blocked or posting-ineligible history does not
+  itself forbid that cleanup.
 - **The `auth → protocol` edge.** Portable capability contracts live in
   `@daisy/protocol/authorization`; the allowed and declared dependencies of
   `@daisy/auth` are `errors` and `protocol`. Auth never imports persistence or
@@ -152,7 +160,7 @@ account facts require verified email, a username and no erasure tombstone.
   belong to no league and count on Daisy's own ladder (one per format and
   season), and anyone with an actor may host ranked or unranked play. A
   league is an organizer's private tournament space with its own UI: it never
-  owns a ladder, and none exists at launch. The epic adds no migration;
+  owns a ladder, and none exists at launch. The authorization core adds no league migration;
   tenancy, with row-level security in place before the first league, arrives
   with LEAGUE-OPS (ADR 0048 section 6).
 - **Denied reads** answer `NOT_FOUND` for every principal; denied
