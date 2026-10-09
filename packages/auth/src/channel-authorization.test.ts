@@ -67,8 +67,12 @@ describe('canonical channel decisions', () => {
         policy,
       ].map(
         (socialReading) =>
-          authorize({ ...input, context: socialReading ? { ...input.context, socialReading } : { account: input.context.account, socialPosting: policy } })
-            .allow,
+          authorize({
+            ...input,
+            context: socialReading
+              ? { ...input.context, socialReading }
+              : { account: input.context.account, socialPosting: policy },
+          }).allow,
       ),
       expected: [false, false, false, true],
     });

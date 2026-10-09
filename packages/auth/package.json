@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./authorization": "./src/authorization.ts"
+    "./authorization": "./src/authorization.ts",
+    "./account-age": "./src/account-age.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
