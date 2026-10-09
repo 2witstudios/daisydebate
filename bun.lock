@@ -111,6 +111,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@daisy/errors": "workspace:*",
+        "@daisy/protocol": "workspace:*",
       },
       "devDependencies": {
         "riteway": "9.3.0",
