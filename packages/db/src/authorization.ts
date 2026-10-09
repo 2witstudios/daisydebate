@@ -66,3 +66,5 @@ export async function loadAuthorizationAccount(
     (rows as unknown as AuthorizationAccountRow[])[0] ?? null,
   );
 }
+
+export { loadAuthorizationSession } from './authorization-session';
