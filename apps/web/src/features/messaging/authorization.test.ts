@@ -1,5 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
+import { accountAgeFact } from '@daisy/auth/account-age';
 import type { AuthorizationInput } from '@daisy/auth/authorization';
 import { requireMessagingAuthorization } from './authorization';
 
@@ -10,35 +11,22 @@ const channelId = 'c'.repeat(24);
 const userId = 'u'.repeat(24);
 const now = '2026-10-09T18:00:00.000Z';
 const socialAccounts = [
+  { userId, actorId, member: true, erased: false, revision: 1 },
   {
-    account: { userId, actorId, member: true, erased: false, revision: 1 },
-    age: {
-      state: 'known' as const,
-      actorId,
-      band: 'adult' as const,
-      revision: 1,
-      accountRevision: 1,
-      validUntil: '2026-11-01T00:00:00.000Z',
-    },
+    userId: 'v'.repeat(24),
+    actorId: otherId,
+    member: true,
+    erased: false,
+    revision: 1,
   },
-  {
-    account: {
-      userId: 'v'.repeat(24),
-      actorId: otherId,
-      member: true,
-      erased: false,
-      revision: 1,
-    },
-    age: {
-      state: 'known' as const,
-      actorId: otherId,
-      band: 'adult' as const,
-      revision: 1,
-      accountRevision: 1,
-      validUntil: '2026-11-01T00:00:00.000Z',
-    },
-  },
-];
+].map((account) => ({
+  account,
+  age: accountAgeFact({
+    account,
+    now,
+    source: { birthMonth: '2000-01', revision: 1, recordedAt: now },
+  }),
+}));
 const policy = {
   channelId,
   policyKey: 'social.dm',

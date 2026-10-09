@@ -3,6 +3,8 @@ import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { buildChannelTopic, idSchema } from '@daisy/protocol';
 import { lockAuthorizationActors } from '../authorization';
+import { messageRecord } from './message-record';
+import { channelReadFrame } from './read-frame';
 import { appendOutboxEvent } from '../outbox';
 import { messagingChannels } from '../schema/messaging-channels';
 import {
@@ -27,23 +29,6 @@ const actorIdsOf = (fact: MessagingChannelFact, actorId: string) =>
         : fact.authority.activeMemberActorIds),
     ]),
   ].sort();
-const recordOf = (
-  row: typeof messagingMessages.$inferSelect,
-): MessagingMessageRecord => ({
-  id: row.id,
-  channelId: row.channelId,
-  authorActorId: row.authorActorId,
-  sequence: row.sequence,
-  changeVersion: row.changeVersion,
-  text: row.text,
-  createdAt: row.createdAt.toISOString(),
-  editedAt: row.editedAt?.toISOString() ?? null,
-  removedAt: row.removedAt?.toISOString() ?? null,
-  ...(row.replyToMessageId === null
-    ? {}
-    : { replyToMessageId: row.replyToMessageId }),
-});
-
 /** Scope-specific transaction frame; never exposes a raw database to delivery. */
 export function createMessagingStore({
   database,
@@ -96,7 +81,8 @@ export function createMessagingStore({
           messageSequence: channel.messageSequence,
           changeVersion: channel.changeVersion,
         };
-        let authorized = false;
+        const refreshAuthorization = () =>
+          authorize(tx, input, { fact, accounts });
         let command: MessagingSendCommand | null = null;
         const readMessage = async (
           messageId: string | null,
@@ -111,19 +97,16 @@ export function createMessagingStore({
                 eq(messagingMessages.channelId, channel.id),
               ),
             );
-          return row ? recordOf(row) : null;
+          return row ? messageRecord(row) : null;
         };
         return work({
-          async authorize() {
-            authorized = false;
-            await authorize(tx, input, { fact, accounts });
-            authorized = true;
-          },
+          authorize: refreshAuthorization,
           fact,
           accounts,
           counters,
+          ...channelReadFrame(tx, input, counters, refreshAuthorization),
           async readSendState(send) {
-            if (!authorized) throw createAppError('AUTHORIZATION');
+            await refreshAuthorization();
             if (
               send.channelId !== channel.id ||
               !idSchema.safeParse(send.requestId).success
@@ -153,7 +136,7 @@ export function createMessagingStore({
             };
           },
           async commitSend(plan) {
-            if (!authorized) throw createAppError('AUTHORIZATION');
+            await refreshAuthorization();
             if (!command) throw createAppError('CONFLICT');
             if (
               ![

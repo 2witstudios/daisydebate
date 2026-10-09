@@ -47,18 +47,12 @@ export async function createMessagingTestFixture(client: SQL) {
       "insert into account_age(user_id,birth_month,version,recorded_at) values($1,'2000-01',1,$3),($2,'2000-01',1,$3)",
       [userId, otherUserId, now],
     );
-    await client.unsafe(
-      'insert into messaging_contact_pairs(low_actor_id,high_actor_id) values($1,$2)',
-      [low, high],
-    );
-    await client.unsafe(
-      "insert into messaging_channels(id,kind,policy_key,policy_revision,lifecycle) values($1,'dm','social.dm',1,'active')",
-      [channelId],
-    );
-    await client.unsafe(
-      "insert into messaging_dm_pairs(low_actor_id,high_actor_id,channel_id,request_sender_actor_id,request_state,requested_at,decided_at) values($1,$2,$3,$4,'accepted',$5,$5)",
-      [low, high, channelId, actorId, now],
-    );
+    await seedMessagingTestDm(client, {
+      actorId,
+      otherActorId,
+      channelId,
+      now,
+    });
     return {
       userId,
       otherUserId,
@@ -74,4 +68,33 @@ export async function createMessagingTestFixture(client: SQL) {
     await cleanup();
     throw error;
   }
+}
+
+export async function seedMessagingTestDm(
+  client: SQL,
+  {
+    actorId,
+    otherActorId,
+    channelId,
+    now,
+  }: {
+    readonly actorId: string;
+    readonly otherActorId: string;
+    readonly channelId: string;
+    readonly now: string;
+  },
+) {
+  const [low, high] = [actorId, otherActorId].sort();
+  await client.unsafe(
+    'insert into messaging_contact_pairs(low_actor_id,high_actor_id) values($1,$2)',
+    [low, high],
+  );
+  await client.unsafe(
+    "insert into messaging_channels(id,kind,policy_key,policy_revision,lifecycle) values($1,'dm','social.dm',1,'active')",
+    [channelId],
+  );
+  await client.unsafe(
+    "insert into messaging_dm_pairs(low_actor_id,high_actor_id,channel_id,request_sender_actor_id,request_state,requested_at,decided_at) values($1,$2,$3,$4,'accepted',$5,$5)",
+    [low, high, channelId, actorId, now],
+  );
 }

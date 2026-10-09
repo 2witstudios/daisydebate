@@ -172,3 +172,35 @@ test('change envelopes separate deletion from text and maintain increasing versi
       expected,
     });
 });
+
+test('removed history entries carry cursor continuity without private content', () => {
+  const entry = {
+    id: messageId,
+    channelId,
+    sequence: 1,
+    changeVersion: 2,
+    unavailable: true,
+  };
+  const result = {
+    version: 1,
+    channelId,
+    changeVersion: 2,
+    messages: [entry],
+    nextBefore: null,
+  };
+  assert({
+    given: 'a removed message whose ordering must remain visible',
+    should: 'accept only a minimal unavailable history marker',
+    actual: schemas.historyResult.safeParse(result).success,
+    expected: true,
+  });
+  assert({
+    given: 'private text added to an unavailable marker',
+    should: 'refuse the leaked body',
+    actual: schemas.historyResult.safeParse({
+      ...result,
+      messages: [{ ...entry, text: 'Leaked' }],
+    }).success,
+    expected: false,
+  });
+});

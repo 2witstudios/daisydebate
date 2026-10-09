@@ -46,6 +46,13 @@ export function createMessagingCoreSchemas(bounds: MessagingCoreBounds) {
     editedAt: z.iso.datetime().nullable(),
     replyToMessageId: idSchema.optional(),
   });
+  const unavailableMessage = z.strictObject({
+    id: idSchema,
+    channelId: idSchema,
+    sequence: positiveOrder,
+    changeVersion: positiveOrder,
+    unavailable: z.literal(true),
+  });
   const changedMessage = z
     .strictObject({
       kind: z.enum(['created', 'edited']),
@@ -78,7 +85,9 @@ export function createMessagingCoreSchemas(bounds: MessagingCoreBounds) {
         version: z.literal(1),
         channelId: idSchema,
         changeVersion: orderingNumber,
-        messages: z.array(message).max(bounds.pageItems),
+        messages: z
+          .array(z.union([message, unavailableMessage]))
+          .max(bounds.pageItems),
         nextBefore: sequenceCursor.nullable(),
       })
       .refine(

@@ -8,22 +8,19 @@ import {
 import { parseValidated } from '../../server/http';
 import { planMessageSend } from './send-plan';
 import type {
+  MessagingCreateSendPlan,
   MessagingSendCommand,
   MessagingSendState,
 } from '@daisy/db/messaging';
 
-export type MessagingCreateSendPlan = Extract<
-  ReturnType<typeof planMessageSend>,
-  { kind: 'create' }
->;
-export type MessagingSendFrame = {
+type MessagingSendFrame = {
   readonly authorize: () => Promise<void>;
   readonly readSendState: (
     command: MessagingSendCommand,
   ) => Promise<MessagingSendState>;
   readonly commitSend: (plan: MessagingCreateSendPlan) => Promise<void>;
 };
-export type MessagingSendStore = {
+type MessagingSendStore = {
   readonly withChannel: <T>(
     input: {
       readonly channelId: string;
