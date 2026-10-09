@@ -127,6 +127,7 @@ describe('competitive schema rules', () => {
             'rounds_outcome_check',
             'rounds_ranked_has_preset_check',
             'rounds_rated_ladder_check',
+            'rounds_room_config_snapshot_is_object',
             'rounds_room_freeze_complete',
             'rounds_rules_snapshot_is_object',
             'rounds_runtime_state_is_object',

@@ -1,3 +1,4 @@
+import { socialCreationAllowed } from './authorization-creation';
 import { policyEvidenceCurrent as currentPolicy } from './authorization-policy';
 import {
   authorizationCapabilitySchema,
@@ -23,6 +24,9 @@ export type {
   AuthorizationDecision,
   SocialPolicyEvidence,
   SocialAccountFact,
+  SocialCreationFact,
+  SocialCreationPolicy,
+  ContactAuthorizationFact,
 } from './authorization-facts';
 const deny = (
   reason: Extract<AuthorizationDecision, { allow: false }>['reason'],
@@ -35,6 +39,12 @@ function validResourceKind(
   capability: AuthorizationCapability,
   resource: AuthorizationInput['resource'],
 ) {
+  if (
+    ['social.request.create', 'channel.create.private_group'].includes(
+      capability,
+    )
+  )
+    return resource.kind === 'social_creation';
   if (capability.startsWith('foundation.'))
     return resource.kind === 'foundation';
   if (capability === 'round.read') return resource.kind === 'round';
@@ -227,6 +237,10 @@ function memberDecision(
   resource: Exclude<AuthorizationInput['resource'], { kind: 'foundation' }>,
   context: AuthorizationInput['context'],
 ): AuthorizationDecision {
+  if (resource.kind === 'social_creation')
+    return socialCreationAllowed(actorId, capability, resource, context)
+      ? allow
+      : deny('missing-capability');
   if (resource.kind === 'room_collection') return allow;
   if (!positiveRevision(resource.revision)) return deny('denied');
   if (resource.kind === 'round') return roundDecision(actorId, resource);

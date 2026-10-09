@@ -138,6 +138,7 @@ export const rounds = pgTable(
         'rounds_room_freeze_complete',
         sql`${table.roomId} is null or (${table.roomConfigSnapshot} is not null and ${table.visibility} is not null)`,
       ),
+      jsonbIsObject('rounds', table.roomConfigSnapshot),
       jsonbIsObject('rounds', table.runtimeState),
       jsonbIsObject('rounds', table.rulesSnapshot),
       check(

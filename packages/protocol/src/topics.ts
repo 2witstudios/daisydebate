@@ -22,6 +22,7 @@ const topicFamilies = [
   'debate:chat',
   'user:inbox',
   'standings',
+  'channel',
 ] as const;
 const topicFamilySchema = z.enum(topicFamilies);
 export type TopicFamily = z.infer<typeof topicFamilySchema>;
@@ -30,12 +31,13 @@ type ParsedTopic =
   | {
       readonly family: Exclude<
         TopicFamily,
-        'user:inbox' | 'standings' | 'room'
+        'user:inbox' | 'standings' | 'channel' | 'room'
       >;
       readonly debateId: string;
     }
   | { readonly family: 'room'; readonly roomId: string }
   | { readonly family: 'user:inbox'; readonly actorId: string }
+  | { readonly family: 'channel'; readonly channelId: string }
   | { readonly family: 'standings'; readonly season: string };
 
 /** `<head>:<key>` or `<head>:<key>:<suffix>` names the family `<head>[:<suffix>]`. */
@@ -66,6 +68,7 @@ export function parseTopic(topic: string): ParsedTopic | undefined {
       ? { family: 'standings', season: key }
       : undefined;
   if (!idSchema.safeParse(key).success) return undefined;
+  if (family.data === 'channel') return { family: 'channel', channelId: key };
   if (family.data === 'room') return { family: 'room', roomId: key };
   return family.data === 'user:inbox'
     ? { family: 'user:inbox', actorId: key }
@@ -101,5 +104,8 @@ export const buildUserInboxTopic = (actorId: string): string =>
 export const buildDebateTopic = (debateId: string): string =>
   `debate:${idSchema.parse(debateId)}`;
 
+/** Persistent messaging authorization boundary (ADR 0060). */
+export const buildChannelTopic = (channelId: string): string =>
+  `channel:${idSchema.parse(channelId)}`;
 export const buildRoomTopic = (roomId: string): string =>
   `room:${idSchema.parse(roomId)}`;

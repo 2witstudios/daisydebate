@@ -1,3 +1,4 @@
+import { composeMessagingRoutes } from '../features/messaging/composition';
 import { composeRoomRoutes } from '../features/room-runtime/composition';
 import {
   createListSessionsHandler,
@@ -47,6 +48,7 @@ export function createRoutes(app: App) {
   const rooms = composeRoomRoutes(app);
   return {
     rooms,
+    messaging: composeMessagingRoutes(app),
     rounds: { read: rooms.roundRead },
     auth: createAuthRouteHandlers(confirmAuth, logger),
     confirm: createConfirmHandlers({ auth: confirmAuth, logger }),
