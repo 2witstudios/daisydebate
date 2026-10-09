@@ -10,12 +10,19 @@ const slot = requireLaunchSlot(checkout, process.env);
 const dev = new URL(process.env.DATABASE_URL ?? '');
 const test = new URL(process.env.TEST_DATABASE_URL ?? '');
 const testRedis = new URL(process.env.TEST_REDIS_URL ?? '');
+const devRedisUrl = new URL(process.env.REDIS_URL ?? '');
+const e2eRedisUrl = new URL(process.env.E2E_REDIS_URL ?? '');
 if (
   dev.hostname !== 'localhost' ||
   dev.pathname !== `/daisy_wt_${slot.id}` ||
   test.hostname !== dev.hostname ||
+  (test.port || '5432') !== (dev.port || '5432') ||
   test.pathname !== `/daisy_wt_${slot.id}_test` ||
   testRedis.hostname !== 'localhost' ||
+  devRedisUrl.hostname !== testRedis.hostname ||
+  devRedisUrl.pathname !== '/0' ||
+  (devRedisUrl.port || '6379') !== (testRedis.port || '6379') ||
+  (e2eRedisUrl.port || '6379') !== (testRedis.port || '6379') ||
   Number(testRedis.pathname.slice(1)) !== 2 + (slot.port - 13001) / 10
 )
   throw new Error('Release refuses cross-slot lifecycle services');
