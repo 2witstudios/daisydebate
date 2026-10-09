@@ -34,7 +34,7 @@ function fixture() {
     lifetimeMs: 60_000,
     ringLimit: 2,
     maxSubscriptions: 64,
-    authorize: async () => ({ revision: '1' }),
+    authorize: async () => ({ revision: '1', validUntil: now + 60_000 }),
     readCatchup: async () => ({ rows: [], resync: false }),
     publish: (_topic, frame) => {
       sent.push(frame);

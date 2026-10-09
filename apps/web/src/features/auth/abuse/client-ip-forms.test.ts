@@ -1,4 +1,5 @@
 import {
+  resolveClientIp,
   CLIENT_IP_HEADER,
   FLY_CLIENT_IP_HEADER,
 } from '@daisy/ingress/client-ip';

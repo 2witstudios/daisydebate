@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { databaseUrl, redisUrl } from './urls';
+export { readRealtimeTransportConfig } from './realtime-transport';
 import { realtimePublicUrlSchema } from './realtime-endpoint';
 export {
   readRealtimePublicUrl,
