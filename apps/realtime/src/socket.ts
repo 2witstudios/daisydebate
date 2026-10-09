@@ -155,7 +155,7 @@ export function createWebSocketHandlers({
         {
           send: (frame) => send(ws, frame),
           subscribe: (topic) => {
-            ws.subscribe(topic);
+            if (!ws.subscribe(topic)) reject(ws, 'slow_consumer');
           },
           unsubscribe: (topic) => {
             ws.unsubscribe(topic);
