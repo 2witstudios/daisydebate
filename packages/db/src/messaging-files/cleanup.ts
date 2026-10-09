@@ -2,7 +2,10 @@ import { and, eq, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
-import { messagingFiles } from '../schema/messaging-files';
+import {
+  messagingFiles,
+  messagingFileDeletionIntents,
+} from '../schema/messaging-files';
 import { fileDeletionValues } from './frame';
 import type { AuthorizationTransaction } from '../authorization';
 
@@ -28,16 +31,15 @@ export async function eraseSubjectFiles(
   actorId: string,
 ) {
   if (!idSchema.safeParse(actorId).success) throw createAppError('VALIDATION');
+  // Canonical adopter acquires its complete sorted pair/channel set before invoking this hook.
   await tx.execute(sql`
-    select c.id from messaging_channels c
-    where c.id in (select channel_id from messaging_files where owner_actor_id = ${actorId} and lifecycle <> 'deleted')
-    order by c.id for update
+    insert into messaging_file_deletion_intents(object_key, charged_bytes)
+    select object_key, reserved_bytes from messaging_files
+    where owner_actor_id = ${actorId} and lifecycle <> 'deleted'
   `);
-  await tx.execute(sql`
-    update messaging_files set lifecycle = 'deleting', filename = null, mime = null,
-      request_id = null, message_id = null, generation = generation + 1
-    where owner_actor_id = ${actorId} and lifecycle not in ('deleting','deleted')
-  `);
+  await tx.execute(
+    sql`delete from messaging_files where owner_actor_id = ${actorId}`,
+  );
 }
 export async function exportSubjectFiles(
   tx: AuthorizationTransaction,
@@ -45,13 +47,24 @@ export async function exportSubjectFiles(
 ) {
   if (!idSchema.safeParse(actorId).success) throw createAppError('VALIDATION');
   const rows = await tx.execute(sql`
-    select id, channel_id, request_id, message_id, filename, mime,
-      reserved_bytes, stored_bytes, created_at, expires_at
-    from messaging_files where owner_actor_id = ${actorId}
-      and lifecycle not in ('deleting','deleted') order by id
+    select id, channel_id, owner_actor_id, request_id, message_id, filename, mime,
+      reserved_bytes, stored_bytes, generation, authority_revision, lifecycle,
+      created_at, expires_at, deleted_at
+    from messaging_files where owner_actor_id = ${actorId} order by id
   `);
   return {
-    messaging_files: [...rows] as readonly Readonly<Record<string, unknown>>[],
+    messaging_files: [...rows].map((row) =>
+      Object.fromEntries(
+        Object.entries(row).map(([key, value]) => [
+          key,
+          value instanceof Date
+            ? value.toISOString()
+            : typeof value === 'bigint'
+              ? Number(value)
+              : value,
+        ]),
+      ),
+    ),
   };
 }
 /** Use inside the parent maintenance frame after canonical account/channel locks. */
@@ -108,4 +121,36 @@ export async function failPendingFile(
     where id = ${token.fileId} and channel_id = ${scope.channelId} and owner_actor_id = ${scope.actorId}
       and generation = ${token.generation} and lifecycle in ('reserved','quarantined')
   `);
+}
+
+/** Global charged bytes include unlinked erasure intents until acknowledged. */
+export async function chargedFileBytes(
+  tx: AuthorizationTransaction,
+): Promise<string> {
+  const rows = await tx.execute(sql`
+    select (coalesce((select sum(reserved_bytes) from messaging_files where lifecycle <> 'deleted'),0)
+      + coalesce((select sum(charged_bytes) from messaging_file_deletion_intents),0))::text as bytes
+  `);
+  return String(rows[0]!.bytes);
+}
+/** Internal worker port; erased intents contain no subject or channel lookup. */
+export async function acknowledgeErasedFileDeletion(
+  database: BunSQLDatabase,
+  objectKey: string,
+  remove: (key: string) => Promise<void>,
+) {
+  if (!idSchema.safeParse(objectKey).success)
+    throw createAppError('VALIDATION');
+  return database.transaction(async (tx) => {
+    const [intent] = await tx
+      .select()
+      .from(messagingFileDeletionIntents)
+      .where(eq(messagingFileDeletionIntents.objectKey, objectKey))
+      .for('update');
+    if (!intent) return;
+    await remove(intent.objectKey);
+    await tx
+      .delete(messagingFileDeletionIntents)
+      .where(eq(messagingFileDeletionIntents.objectKey, objectKey));
+  });
 }

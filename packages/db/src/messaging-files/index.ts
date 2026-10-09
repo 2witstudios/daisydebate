@@ -1,6 +1,8 @@
 export { channelFileFrame } from './frame';
 export { requireFilePolicy } from './policy';
 export {
+  chargedFileBytes,
+  acknowledgeErasedFileDeletion,
   failPendingFile,
   deleteMessageFiles,
   eraseSubjectFiles,
