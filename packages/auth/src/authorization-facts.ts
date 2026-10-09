@@ -1,4 +1,7 @@
-import type { AuthorizationCapability } from '@daisy/protocol/authorization';
+import type {
+  AuthorizationCapability,
+  AuthorizationDenyReason,
+} from '@daisy/protocol/authorization';
 /** Current producer facts only. Neither preferences nor client claims grant access. */
 export type AuthorizationPrincipal =
   | { readonly kind: 'anonymous' }
@@ -95,8 +98,7 @@ export type AuthorizationDecision =
   | { readonly allow: true }
   | {
       readonly allow: false;
-      readonly reason:
-        'denied' | 'account-erased' | 'unauthenticated' | 'missing-capability';
+      readonly reason: AuthorizationDenyReason;
     };
 
 export type SocialAccountFact = {
