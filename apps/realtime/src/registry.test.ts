@@ -38,6 +38,7 @@ function fixture(
     maxSubscriptions: 64,
     authorize: async () => ({ revision: '1', validUntil: now + 60_000 }),
     readCatchup: async () => ({ rows: [], resync: false }),
+    readRetentionBoundary: async () => ({ txid: '0', seq: 0n }),
     publish: (_topic, frame) => {
       sent.push(frame);
     },
@@ -60,15 +61,76 @@ function fixture(
   };
 }
 describe('subscription registry', () => {
+  test('a purge that advances past a stalled drain cursor refuses replay', async () => {
+    const { registry, connection, sent } = fixture({
+      readCatchup: async () => ({
+        rows: [{ ...row(3), txid: '3' }],
+        resync: false,
+      }),
+      readRetentionBoundary: async () => ({ txid: '2', seq: 2n }),
+    });
+    registry.seed({ txid: '1', seq: 1n });
+    registry.sink([{ ...row(3), txid: '3' }]);
+    await registry.settled();
+    await registry.subscribe(connection, {
+      id: 'request',
+      topic,
+      since: '1:1',
+    });
+    assert({
+      given: 'undrained 2:2 pruned between cursor1:1 and observed3:3',
+      should: 'refuse even a cached or optimistic replay result',
+      actual: sent.map((frame) => frame.type),
+      expected: ['resync_required'],
+    });
+  });
+  test('expiry or drain advancement during the final boundary read cannot attach', async () => {
+    let resolve!: (value: { txid: string; seq: bigint }) => void;
+    let started!: () => void;
+    const began = new Promise<void>((done) => {
+      started = done;
+    });
+    const { registry, connection, sent, attached, setNow } = fixture({
+      readRetentionBoundary: () =>
+        new Promise((done) => {
+          resolve = done;
+          started();
+        }),
+    });
+    registry.seed({ txid: '1', seq: 1n });
+    const pending = registry.subscribe(connection, {
+      id: 'request',
+      topic,
+      since: '1:1',
+    });
+    await began;
+    setNow(60_000);
+    resolve({ txid: '0', seq: 0n });
+    await pending;
+    assert({
+      given: 'permission expires during the final durable metadata await',
+      should: 'send no event/subscribed or native attachment',
+      actual: {
+        types: sent.map((frame) => frame.type),
+        attached: [...attached],
+      },
+      expected: { types: ['resync_required'], attached: [] },
+    });
+  });
   for (const bell of [false, true])
     test(`last replay await fences ${bell ? 'pending authority invalidation' : 'ring eviction'}`, async () => {
       let resolve!: (value: { revision: string; validUntil: number }) => void;
       let calls = 0;
+      let started!: () => void;
+      const began = new Promise<void>((done) => {
+        started = done;
+      });
       const { registry, connection, sent, attached } = fixture({
         authorize: () =>
           ++calls === 2
             ? new Promise((done) => {
                 resolve = done;
+                started();
               })
             : Promise.resolve({ revision: '1', validUntil: 60_000 }),
       });
@@ -78,7 +140,7 @@ describe('subscription registry', () => {
         topic,
         since: '1:1',
       });
-      await Promise.resolve();
+      await began;
       const rows = [2, 3, 4].map((seq) =>
         bell
           ? row(seq)
@@ -138,7 +200,7 @@ describe('subscription registry', () => {
       expected: { calls: 2, attached: [], types: ['error'] },
     });
   });
-  test('an observed ring supports reconnect without certifying durable gaps', async () => {
+  test('an observed ring cannot bypass the durable completeness refusal', async () => {
     let reads = 0;
     const { registry, connection, sent } = fixture({
       readCatchup: async () => {
@@ -155,11 +217,12 @@ describe('subscription registry', () => {
       since: '1:1',
     });
     assert({
-      given: 'a cursor covered by the continuously observed ring',
+      given:
+        'a cursor that retention may have overtaken before drain observed the next row',
       should:
-        'replay after fresh authorization without trusting an SQL survivor floor',
+        'consult the durable adapter and resync without silently missing history',
       actual: { reads, types: sent.map((frame) => frame.type) },
-      expected: { reads: 0, types: ['event', 'subscribed'] },
+      expected: { reads: 1, types: ['resync_required'] },
     });
   });
   test('access changed while catchup waits cannot replay an old allow', async () => {

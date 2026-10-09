@@ -18,6 +18,13 @@ const schema = z.object({
   REALTIME_MAX_UNAUTHENTICATED: positive(4),
   REALTIME_MAX_ACTOR_CONNECTIONS: positive(8),
   REALTIME_RING_LIMIT: positive(2_000),
+  REALTIME_MAX_IP_UPGRADES: positive(60),
+  REALTIME_IP_UPGRADE_WINDOW_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .max(3_600_000)
+    .default(60_000),
 });
 /** Local transport resource tuning, never authorization policy or membership. */
 export function readRealtimeTransportConfig(
@@ -39,5 +46,7 @@ export function readRealtimeTransportConfig(
     maxUnauthenticated: parsed.data.REALTIME_MAX_UNAUTHENTICATED,
     maxPerActor: parsed.data.REALTIME_MAX_ACTOR_CONNECTIONS,
     ringLimit: parsed.data.REALTIME_RING_LIMIT,
+    maxUpgradesPerWindow: parsed.data.REALTIME_MAX_IP_UPGRADES,
+    upgradeWindowMs: parsed.data.REALTIME_IP_UPGRADE_WINDOW_MS,
   };
 }

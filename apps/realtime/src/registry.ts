@@ -60,6 +60,7 @@ export function createSubscriptionRegistry({
   maxSubscriptions,
   authorize,
   readCatchup,
+  readRetentionBoundary,
   publish,
 }: {
   readonly now: () => number;
@@ -81,6 +82,7 @@ export function createSubscriptionRegistry({
     readonly rows: readonly OutboxRow[];
     readonly resync: boolean;
   }>;
+  readonly readRetentionBoundary: () => Promise<OutboxPosition | null>;
   readonly publish: (topic: string, frame: ServerMessage) => void;
 }) {
   const connections = new Set<Connection>();
@@ -342,19 +344,9 @@ export function createSubscriptionRegistry({
       if (request.since) {
         let result;
         try {
-          const since = decodeOutboxCursor(request.since);
-          result =
-            compare(since, floor) >= 0 && compare(since, through) <= 0
-              ? {
-                  rows: ring.filter(
-                    (row) =>
-                      row.topic === request.topic &&
-                      compare(row, since) > 0 &&
-                      compare(row, through) <= 0,
-                  ),
-                  resync: false,
-                }
-              : await readCatchup(request.topic, request.since, through);
+          // Observed rows alone cannot certify a drain cursor that retention
+          // may have overtaken. The durable adapter must prove completeness.
+          result = await readCatchup(request.topic, request.since, through);
         } catch {
           result = { rows: [], resync: true };
         }
@@ -363,7 +355,8 @@ export function createSubscriptionRegistry({
         if (
           !current(connection, request.topic, sub) ||
           result.resync ||
-          compare(floor, through) > 0
+          compare(floor, through) > 0 ||
+          compare(cursor, through) !== 0
         ) {
           resync(connection, request, sub);
           return;
@@ -382,14 +375,15 @@ export function createSubscriptionRegistry({
         }
         if (connection.closed || connection.topics.get(request.topic) !== sub)
           return;
-        if (!sub.lease.owns(replayAttempt) || compare(floor, through) > 0) {
+        if (
+          !sub.lease.owns(replayAttempt) ||
+          compare(floor, through) > 0 ||
+          compare(cursor, through) !== 0
+        ) {
           resync(connection, request, sub);
           return;
         }
-        if (
-          !replayDecision ||
-          !sub.lease.accept(replayAttempt, replayDecision.validUntil)
-        ) {
+        if (!replayDecision) {
           detach(connection, request.topic, sub);
           connection.topics.delete(request.topic);
           connection.socket.send({
@@ -399,6 +393,30 @@ export function createSubscriptionRegistry({
             code: 'AUTHORIZATION',
             message: 'Subscription refused',
           });
+          return;
+        }
+        // The purge may commit while canonical authorization waits. Read its
+        // durable high-water after that await, then fence the drain generation
+        // and permission deadline before touching cached history or attachment.
+        let boundary: OutboxPosition | null;
+        try {
+          boundary = await readRetentionBoundary();
+        } catch {
+          boundary = null;
+        }
+        if (connection.closed || connection.topics.get(request.topic) !== sub)
+          return;
+        if (
+          !boundary ||
+          compare(decodeOutboxCursor(request.since), boundary) < 0 ||
+          compare(cursor, through) !== 0 ||
+          !sub.lease.owns(replayAttempt)
+        ) {
+          resync(connection, request, sub);
+          return;
+        }
+        if (!sub.lease.accept(replayAttempt, replayDecision.validUntil)) {
+          resync(connection, request, sub);
           return;
         }
         sub.revision = replayDecision.revision;
