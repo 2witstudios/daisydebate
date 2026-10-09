@@ -4,7 +4,10 @@ import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { seedMessagingTestDm } from '@daisy/db/testing';
-import { socialPolicyEvidence } from '@daisy/auth/social-policy';
+import {
+  messagingFixturePosting,
+  messagingFixtureReading,
+} from './messaging-policy.test-support';
 import { createRoutes } from '../src/server/routes';
 import { createTestApp, origin, testDatabaseUrl } from './fixtures';
 import { createAccountFlows, uniqueName } from './auth-account-helpers';
@@ -30,17 +33,8 @@ test('mounted messaging composition uses real signed-in actors and shared HTTP g
       bounds: { messageUnits: 100, pageItems: 20 },
       maxBodyBytes: 1024,
       editWindowMs: 60000,
-      posting: {
-        state: 'approved',
-        decision: 'Integration fixture only',
-        key: 'social.dm',
-        revision: 1,
-        allowedBandPairs: [['adult', 'adult']],
-      },
-      reading: (input) => ({
-        ...socialPolicyEvidence(input.channel, input.accounts, input.now),
-        allowed: true,
-      }),
+      posting: messagingFixturePosting,
+      reading: messagingFixtureReading,
       limits: {
         actorSend: { max: 10, windowSeconds: 60 },
         channelSend: { max: 10, windowSeconds: 60 },
