@@ -20,7 +20,9 @@ test('account authorization locks fence erasure and return fresh durable members
     await fixture.sql`insert into actors (id,kind,user_id) values (${actorId},'human',${userId})`;
     const db = drizzle({ client: fixture.sql });
     await db.transaction(async (tx) => {
-      const facts = await lockAuthorizationActors(tx, [actorId]);
+      const facts = await lockAuthorizationActors(tx, [actorId], {
+        maxActors: 2,
+      });
       assert({
         given: 'live verified member loaded under the command transaction',
         should: 'bind actor and current account revision',

@@ -23,7 +23,7 @@ describe('account lock boundary', () => {
       await assertRejects({
         given: 'malformed, repeated, empty or excessive actor ids',
         should: 'reject before I/O',
-        actual: () => lockAuthorizationActors(tx, ids),
+        actual: () => lockAuthorizationActors(tx, ids, { maxActors: 50 }),
         code: 'VALIDATION',
       });
     }
