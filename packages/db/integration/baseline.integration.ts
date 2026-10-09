@@ -2,6 +2,7 @@ import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
+import { foreignKeyNameValid } from './baseline-naming.test-support';
 
 setupRitewayBun();
 
@@ -133,18 +134,7 @@ test('foreign-key columns are named after what they reference, and every timesta
         where c.contype = 'f' and cardinality(c.conkey) = 1
         order by 1
       `) as Array<{ col: string; target: string }>
-    ).filter(({ col, target }) => {
-      const column = col.split('.')[1] ?? '';
-      const suffix: Record<string, string> = {
-        actors: 'actor_id',
-        users: 'user_id',
-        formats: 'format_id',
-        rounds: 'round_id',
-        seasons: 'season_id',
-      };
-      const expected = suffix[target];
-      return expected !== undefined && !column.endsWith(expected);
-    }),
+    ).filter((row) => !foreignKeyNameValid(row)),
     naiveTimestamps: (
       (await client`
         select table_name || '.' || column_name as col
@@ -157,7 +147,8 @@ test('foreign-key columns are named after what they reference, and every timesta
   }));
   assert({
     given: 'every single-column foreign key',
-    should: 'name the column <what>_actor_id, _user_id, _format_id and so on',
+    should:
+      'name the referenced entity, including the exact ADR0036 tombstoned subject reference',
     actual: misnamed,
     expected: [],
   });
