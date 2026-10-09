@@ -56,32 +56,7 @@ test('messaging HTTP refuses cross-origin requests before principal or protected
 });
 
 test('authorized history exposes configured transport bounds without inventing a browser page limit', async () => {
-  const echo = async (input: unknown) => input;
-  const operations = {
-    send: echo,
-    edit: echo,
-    remove: echo,
-    history: echo,
-    search: echo,
-    changes: echo,
-    markRead: echo,
-  };
-  const handlers = createMessagingHandlers({
-    ...operations,
-    logger: silentLogger,
-    origin: () => 'https://daisy.example',
-    maxBodyBytes: 1024,
-    bounds: { messageUnits: 100, pageItems: 10 },
-    identify: async () => ({
-      state: 'member',
-      username: 'ada',
-      principal: {
-        kind: 'user',
-        userId: 'u'.repeat(24),
-        actorId: 'a'.repeat(24),
-      },
-    }),
-  });
+  const handlers = authorizedHandlers();
   const response = await handlers.history(
     new Request(
       'https://daisy.example/api/messaging/channels/example/messages',
@@ -101,29 +76,7 @@ test('authorized history exposes configured transport bounds without inventing a
 });
 
 test('search HTTP preserves literal text and rejects ambiguous query parameters', async () => {
-  const echo = async (input: unknown) => input;
-  const handlers = createMessagingHandlers({
-    logger: silentLogger,
-    origin: () => 'https://daisy.example',
-    maxBodyBytes: 1024,
-    bounds: { messageUnits: 100, pageItems: 10 },
-    identify: async () => ({
-      state: 'member',
-      username: 'ada',
-      principal: {
-        kind: 'user',
-        userId: 'u'.repeat(24),
-        actorId: 'a'.repeat(24),
-      },
-    }),
-    send: echo,
-    edit: echo,
-    remove: echo,
-    history: echo,
-    search: echo,
-    changes: echo,
-    markRead: echo,
-  });
+  const handlers = authorizedHandlers();
   for (const [query, status] of [
     ['query=%25_literal', 200],
     ['query=one&query=two', 400],
@@ -148,3 +101,32 @@ test('search HTTP preserves literal text and rejects ambiguous query parameters'
       });
   }
 });
+
+function authorizedHandlers() {
+  const echo = async (input: unknown) => input;
+  const operations = {
+    send: echo,
+    edit: echo,
+    remove: echo,
+    history: echo,
+    search: echo,
+    changes: echo,
+    markRead: echo,
+  };
+  return createMessagingHandlers({
+    ...operations,
+    logger: silentLogger,
+    origin: () => 'https://daisy.example',
+    maxBodyBytes: 1024,
+    bounds: { messageUnits: 100, pageItems: 10 },
+    identify: async () => ({
+      state: 'member',
+      username: 'ada',
+      principal: {
+        kind: 'user',
+        userId: 'u'.repeat(24),
+        actorId: 'a'.repeat(24),
+      },
+    }),
+  });
+}

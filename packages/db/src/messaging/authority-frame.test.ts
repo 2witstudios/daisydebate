@@ -3,15 +3,20 @@ import { assertRejects } from '@daisy/errors/testing';
 import { PgDialect } from 'drizzle-orm/pg-core';
 import type { SQL } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import { createMessagingChannelAuthority } from './authority-frame';
+import {
+  createMessagingChannelAuthority,
+  withLockedMessagingAuthority,
+} from './authority-frame';
 import { messagingAuthorityFixture } from './social.test-support';
 setupRitewayBun();
-for (const [changed, locked] of [
-  [false, true],
-  [true, true],
-  [false, false],
+for (const [changed, locked, extended] of [
+  [false, true, false],
+  [true, true, false],
+  [false, false, false],
+  [false, true, true],
+  [true, true, true],
 ] as const) {
-  test(`minimal channel fence ${!locked ? 'refuses absent authority' : changed ? 'refuses member drift' : 'rereads facts after ordered locks'}`, async () => {
+  test(`minimal channel fence ${extended ? 'with invitation participants ' : ''}${!locked ? 'refuses absent authority' : changed ? 'refuses member drift' : 'rereads facts after ordered locks'}`, async () => {
     const fact = messagingAuthorityFixture();
     if (fact.authority.kind !== 'dm') throw new Error('DM fixture required');
     const actorId = fact.authority.lowActorId;
@@ -52,7 +57,24 @@ for (const [changed, locked] of [
       transaction: async (work: (value: typeof tx) => Promise<unknown>) =>
         work(tx),
     } as unknown as BunSQLDatabase;
-    const read = createMessagingChannelAuthority(database);
+    const base = createMessagingChannelAuthority(database);
+    const read: typeof base = extended
+      ? (scope, work) =>
+          database.transaction((current) =>
+            withLockedMessagingAuthority(current, scope, work, {
+              additionalActors: ['d'.repeat(24)],
+              beforeChannel: async (frame) => {
+                assert({
+                  given: 'the invitation extension',
+                  should: 'receive the same fenced accounts before pair work',
+                  actual: [frame.tx === tx, frame.accounts[0]?.revision],
+                  expected: [true, 9],
+                });
+                statements.push('invitation-pairs');
+              },
+            }),
+          )
+      : base;
     const work = async (frame: Parameters<Parameters<typeof read>[1]>[0]) => {
       used += 1;
       assert({
@@ -90,11 +112,13 @@ for (const [changed, locked] of [
         'discover, lock accounts then pair/channel, and reread without message/title columns',
       actual: [
         statements.map((text) =>
-          text.includes('jsonb_build_object')
-            ? 'fact'
-            : text.includes('daisy_authorization_accounts')
-              ? 'account'
-              : 'fence',
+          text === 'invitation-pairs'
+            ? 'invitation-pairs'
+            : text.includes('jsonb_build_object')
+              ? 'fact'
+              : text.includes('daisy_authorization_accounts')
+                ? 'account'
+                : 'fence',
         ),
         statements.some((text) =>
           /messaging_messages|\btitle\b|select \*/i.test(
@@ -107,9 +131,11 @@ for (const [changed, locked] of [
         used,
       ],
       expected: [
-        locked
-          ? ['fact', 'account', 'fence', 'fact']
-          : ['fact', 'account', 'fence'],
+        extended
+          ? ['fact', 'account', 'invitation-pairs', 'fence', 'fact']
+          : locked
+            ? ['fact', 'account', 'fence', 'fact']
+            : ['fact', 'account', 'fence'],
         false,
         changed || !locked ? 0 : 1,
       ],

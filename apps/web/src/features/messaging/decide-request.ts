@@ -1,12 +1,10 @@
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
-import type { Clock } from '@daisy/clock';
 import type { MessagingDmStore } from '@daisy/db/messaging';
 import { createAppError } from '@daisy/errors';
 import {
-  createMessagingSocialSchemas,
-  type MessagingSocialBounds,
-} from '@daisy/protocol';
-import { parseValidated } from '../../server/http';
+  parseSocialCommand,
+  type SocialOperationDependencies,
+} from './social-command';
 import { requireMessagingActor } from './principal';
 import { messagingSocialDigest } from './social-command-digest';
 const resultStates = {
@@ -19,17 +17,13 @@ const resultStates = {
 export async function decideMessagingDm(
   input: unknown,
   principal: AuthorizationPrincipal,
-  dependencies: {
-    readonly store: MessagingDmStore;
-    readonly bounds: MessagingSocialBounds;
-    readonly clock: Clock;
-    readonly limit: (actorId: string) => Promise<void>;
-  },
+  dependencies: SocialOperationDependencies<MessagingDmStore>,
 ) {
   const { actorId, userId } = requireMessagingActor(principal);
-  const command = parseValidated(
-    createMessagingSocialSchemas(dependencies.bounds).decideDm,
+  const command = parseSocialCommand(
+    dependencies.bounds,
     input,
+    (schemas) => schemas.decideDm,
   );
   const digest = messagingSocialDigest('dm.decide', [
     command.channelId,
