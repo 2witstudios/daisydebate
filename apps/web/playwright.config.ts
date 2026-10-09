@@ -163,6 +163,8 @@ export default defineConfig({
         '**/visual.e2e.ts',
         '**/room-launch.e2e.ts',
         '**/debate-room.e2e.ts',
+        '**/realtime-room-delivery.e2e.ts',
+        '**/messaging-realtime.e2e.ts',
       ],
     },
     {
