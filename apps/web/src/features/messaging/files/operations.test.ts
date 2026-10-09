@@ -1,4 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { createAppError } from '@daisy/errors';
+import type { FileScope, FileFrame } from '@daisy/db/messaging-files';
 import { assertRejects } from '@daisy/errors/testing';
 import {
   finalizeMessagingFile,
@@ -100,5 +102,56 @@ test('changed upload retry leaves existing immutable quarantine unchanged', asyn
     should: 'neither rewrite nor clean up the existing object',
     actual: { calls: f.calls, cleanup: f.state.cleanup },
     expected: { calls: ['post'], cleanup: 0 },
+  });
+});
+
+test('denied reservation allocates no identifiers before its fresh fence', async () => {
+  const f = fileOperationFixture();
+  let allocated = 0;
+  const fenced = {
+    ...f.frame,
+    authorize: async () => {
+      throw createAppError('AUTHORIZATION');
+    },
+  };
+  const d = {
+    ...f.d,
+    ids: {
+      next: () => {
+        allocated++;
+        return f.fileId;
+      },
+    },
+    store: {
+      withChannel: async <T>(
+        _scope: FileScope,
+        _capability: 'post' | 'read',
+        work: (frame: FileFrame) => Promise<T>,
+      ) => work(fenced),
+    },
+  };
+  await assertRejects({
+    given: 'a reservation denied by fresh canonical authority',
+    should: 'refuse before generating file/object identifiers',
+    actual: () =>
+      reserveMessagingFile(
+        {
+          version: 1,
+          channelId: f.channelId,
+          requestId: 'r'.repeat(24),
+          bytes: 100,
+          filename: 'notes.pdf',
+          mime: 'application/pdf',
+        },
+        f.principal,
+        d,
+      ),
+    code: 'AUTHORIZATION',
+  });
+  assert({
+    given: 'denied authority',
+    should: 'leave ID allocation untouched',
+    actual: allocated,
+    expected: 0,
   });
 });

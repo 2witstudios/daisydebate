@@ -41,6 +41,7 @@ export type FileReserveCommand = Readonly<{
   bytes: number;
 }>;
 export type FileFrame = {
+  authorize(): Promise<void>;
   reserve(
     command: FileReserveCommand,
     now: string,
