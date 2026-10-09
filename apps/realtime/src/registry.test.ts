@@ -60,6 +60,60 @@ function fixture(
   };
 }
 describe('subscription registry', () => {
+  for (const bell of [false, true])
+    test(`last replay await fences ${bell ? 'pending authority invalidation' : 'ring eviction'}`, async () => {
+      let resolve!: (value: { revision: string; validUntil: number }) => void;
+      let calls = 0;
+      const { registry, connection, sent, attached } = fixture({
+        authorize: () =>
+          ++calls === 2
+            ? new Promise((done) => {
+                resolve = done;
+              })
+            : Promise.resolve({ revision: '1', validUntil: 60_000 }),
+      });
+      registry.seed({ txid: '1', seq: 1n });
+      const pending = registry.subscribe(connection, {
+        id: 'request',
+        topic,
+        since: '1:1',
+      });
+      await Promise.resolve();
+      const rows = [2, 3, 4].map((seq) =>
+        bell
+          ? row(seq)
+          : {
+              ...row(seq),
+              topic: `room:${'e'.repeat(24)}`,
+              payload: {
+                kind: 'room.changed',
+                ids: ['e'.repeat(24)],
+                entityVersion: seq,
+              },
+            },
+      );
+      registry.sink(rows);
+      resolve({ revision: '1', validUntil: 60_000 });
+      await pending;
+      await registry.settled();
+      assert({
+        given: 'a replay authorization await while drain advances',
+        should:
+          'refuse the still-current request before any replay or attachment',
+        actual: {
+          types: sent.map((frame) => frame.type),
+          attached: [...attached],
+        },
+        expected: { types: ['resync_required'], attached: [] },
+      });
+      await registry.subscribe(connection, { id: 'retry', topic });
+      assert({
+        given: 'a refused pending request',
+        should: 'permit a fresh subscription rather than strand initialization',
+        actual: sent.at(-1)?.type,
+        expected: 'subscribed',
+      });
+    });
   test('canonical denial after catchup refuses replay even without a bell', async () => {
     let calls = 0;
     const { registry, connection, sent, attached } = fixture({

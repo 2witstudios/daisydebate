@@ -69,26 +69,19 @@ export function createRealtimeAuthorization({
     if (parsed.family === 'standings')
       return { revision: fingerprint(base), validUntil: bound };
     if (parsed.family === 'room') {
-      let revision: number | undefined;
-      await resources.database.readRoomAssembly(
+      const facts = await resources.database.readRoomAuthorizationFacts(
         parsed.roomId,
         principal,
-        (state, account) => {
-          const decision = authorize({
-            principal: { kind: 'user', ...principal },
-            capability: 'room.read',
-            resource: {
-              ...state,
-              kind: 'room',
-              roomId: state.id,
-              revision: state.version,
-            },
-            context: { account },
-          });
-          if (decision.allow) revision = state.version;
-          return decision.allow;
-        },
       );
+      if (!facts || facts.account.revision !== session.account.revision)
+        return null;
+      const decision = authorize({
+        principal: { kind: 'user', ...principal },
+        capability: 'room.read',
+        resource: facts.resource,
+        context: { account: facts.account },
+      });
+      if (!decision.allow) return null;
       const current = await resources.database.readAuthorizationSession({
         ...principal,
         now: resources.clock.now(),
@@ -96,11 +89,11 @@ export function createRealtimeAuthorization({
       if (
         !current ||
         current.account.revision !== session.account.revision ||
-        revision === undefined
+        facts.account.revision !== current.account.revision
       )
         return null;
       return {
-        revision: fingerprint([...base, revision]),
+        revision: fingerprint([...base, facts.resource.revision]),
         validUntil: Math.min(bound, deadline(current.expiresAt)),
       };
     }
