@@ -1,6 +1,7 @@
 import { resolve } from 'node:path';
 import { launchControlPath } from './room-launch-settled';
 import { createLaunchControl } from './room-launch-control';
+import { createLaunchShutdown } from './room-launch-shutdown';
 import { systemClock, systemId } from '@daisy/clock';
 import { createApp } from '../../src/server/app';
 import { adoptProcessApp } from '../../src/server/process-app';
@@ -38,15 +39,23 @@ const control = createLaunchControl({
 });
 await import('../../src/server/start');
 // start owns drain/auth.settled/close. Local listeners cannot retain the process.
+const shutdown = createLaunchShutdown({
+  settled: () => app.auth().settled(),
+  closeControl: () =>
+    new Promise<void>((accept, reject) => {
+      control.close((error) => (error ? reject(error) : accept()));
+      control.closeAllConnections();
+    }),
+  stopCapture: () => capture.stop(true),
+  stopEdge: () => edge.stop(true),
+  refused: () => {
+    process.stderr.write(
+      `${JSON.stringify({ event: 'room.launch.shutdown', outcome: 'refused' })}\n`,
+    );
+    process.exitCode = 1;
+  },
+});
 for (const signal of ['SIGTERM', 'SIGINT'] as const)
   process.once(signal, () => {
-    void app
-      .auth()
-      .settled()
-      .then(() => {
-        control.stop(true);
-        rmSync(launchControlPath(slot.id), { force: true });
-        capture.stop(true);
-        edge.stop(true);
-      });
+    void shutdown();
   });

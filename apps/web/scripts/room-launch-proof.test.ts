@@ -1,4 +1,5 @@
 import { decodeLaunchEvidence } from '../e2e/support/room-launch-evidence-decoder';
+import { createLaunchShutdown } from '../e2e/support/room-launch-shutdown';
 import { mkdtemp, rm, readFile } from 'node:fs/promises';
 import { basename, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -6,6 +7,72 @@ import { createLaunchControl } from '../e2e/support/room-launch-control';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireLaunchSlot } from '../e2e/support/room-launch-slot';
 setupRitewayBun();
+
+test('Launch shutdown awaits auth settlement and closes each owned listener once', async () => {
+  const calls: string[] = [];
+  let release!: () => void;
+  const outstanding = new Promise<void>((accept) => {
+    release = accept;
+  });
+  const shutdown = createLaunchShutdown({
+    settled: () => outstanding,
+    closeControl: () => {
+      calls.push('control');
+    },
+    stopCapture: () => {
+      calls.push('capture');
+    },
+    stopEdge: () => {
+      calls.push('edge');
+    },
+    refused: () => {
+      calls.push('refused');
+    },
+  });
+  const first = shutdown();
+  const second = shutdown();
+  assert({
+    given: 'two signals while auth work remains outstanding',
+    should: 'await settlement without stopping listeners',
+    actual: calls,
+    expected: [],
+  });
+  release();
+  await Promise.all([first, second]);
+  assert({
+    given: 'auth work settled after repeated signals',
+    should: 'close every owned listener exactly once',
+    actual: calls,
+    expected: ['control', 'capture', 'edge'],
+  });
+});
+
+test('Launch shutdown continues cleanup after rejected settlement or control close', async () => {
+  const calls: string[] = [];
+  await createLaunchShutdown({
+    settled: () => Promise.reject(new Error('private settlement failure')),
+    closeControl: () => {
+      calls.push('control');
+      throw new Error('private close failure');
+    },
+    stopCapture: () => {
+      calls.push('capture');
+    },
+    stopEdge: () => {
+      calls.push('edge');
+    },
+    refused: () => {
+      calls.push('refused');
+    },
+  })();
+  assert({
+    given: 'failed settlement and control close',
+    should:
+      'still stop capture and TLS and report a single bounded failure without rejection',
+    actual: calls,
+    expected: ['control', 'capture', 'edge', 'refused'],
+  });
+});
 const own = {
   DATABASE_URL: 'postgres://admin:local@localhost:5432/daisy_wt_proof',
   E2E_DATABASE_URL:
@@ -114,6 +181,12 @@ test('private proof control waits for actual outstanding work and refuses unknow
     await new Promise<void>((accept, reject) =>
       control.close((error) => (error ? reject(error) : accept())),
     );
+    assert({
+      given: 'the real proof control listener closed',
+      should: 'remove its owned descriptor through the bound cleanup handler',
+      actual: await Bun.file(join(directory, 'control.sock')).exists(),
+      expected: false,
+    });
     await rm(directory, { recursive: true, force: true });
   }
 });
