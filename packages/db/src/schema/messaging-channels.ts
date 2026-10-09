@@ -28,6 +28,9 @@ export const messagingChannels = pgTable(
     changeVersion: bigint('change_version', { mode: 'number' })
       .notNull()
       .default(0),
+    authorityRevision: bigint('authority_revision', { mode: 'number' })
+      .notNull()
+      .default(1),
     createdAt: createdAtColumn(),
   },
   (table) => [
@@ -47,6 +50,10 @@ export const messagingChannels = pgTable(
     check(
       'messaging_channels_counters',
       sql`${table.messageSequence} between 0 and 9007199254740991 and ${table.changeVersion} between ${table.messageSequence} and 9007199254740991`,
+    ),
+    check(
+      'messaging_channels_authority_revision',
+      sql`${table.authorityRevision} between 1 and 9007199254740991`,
     ),
     check(
       'messaging_channels_title',
