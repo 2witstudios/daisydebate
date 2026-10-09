@@ -11,6 +11,10 @@ export async function createMessagingTestFixture(client: SQL) {
   const [low, high] = [actorId, otherActorId].sort();
   const now = '2026-10-09T18:00:00.000Z';
   const cleanup = async () => {
+    await client.unsafe(
+      'delete from messaging_social_commands where actor_id in ($1,$2)',
+      [actorId, otherActorId],
+    );
     await client.unsafe('delete from messaging_channels where id=$1', [
       channelId,
     ]);
