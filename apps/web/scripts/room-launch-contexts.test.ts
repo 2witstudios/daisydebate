@@ -1,4 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { closeSettledLaunchContexts } from '../e2e/support/room-launch-settled';
 import { createLaunchContexts } from '../e2e/support/room-launch-contexts';
 
 setupRitewayBun();
@@ -133,5 +134,25 @@ describe('Launch proof context lifetime', () => {
       actual: [refused, calls.accounts, calls.closed],
       expected: [4, [], []],
     });
+  });
+});
+
+test('rejected auth settlement still closes every owned Launch context', async () => {
+  const calls = probe();
+  const accounts = await createLaunchContexts(3, calls.open, calls.signup);
+  const refusal = new Error('Launch auth did not settle');
+  let observed: unknown;
+  try {
+    await closeSettledLaunchContexts(accounts, async () => {
+      throw refusal;
+    });
+  } catch (error) {
+    observed = error;
+  }
+  assert({
+    given: 'three owned contexts and a rejected auth-control settlement',
+    should: 'close every context, retain accounts and preserve the refusal',
+    actual: [calls.closed, calls.accounts, observed === refusal],
+    expected: [[1, 2, 3], [1, 2, 3], true],
   });
 });
