@@ -127,3 +127,38 @@ test('source-scoped replies and counters refuse without altering state', async (
     code: 'CONFLICT',
   });
 });
+
+test('deleted consumed requests refuse before comparing discarded payload proof', async () => {
+  const command = {
+    version: 1 as const,
+    channelId: 'c'.repeat(24),
+    requestId: 'r'.repeat(24),
+    text: 'Changed retry',
+  };
+  await assertRejects({
+    given:
+      'an authorized consumed request whose original result is unavailable',
+    should:
+      'return the same unavailable refusal for a different payload without resurrection',
+    actual: () =>
+      planMessageSend(
+        command,
+        {
+          counters: {
+            channelId: command.channelId,
+            messageSequence: 1,
+            changeVersion: 2,
+          },
+          receipt: { payloadDigest: '0'.repeat(64), messageId: null },
+          existingMessage: null,
+          reply: null,
+        },
+        {
+          actorId: 'a'.repeat(24),
+          messageId: 'm'.repeat(24),
+          now: '2026-10-09T18:00:00.000Z',
+        },
+      ),
+    code: 'NOT_FOUND',
+  });
+});
