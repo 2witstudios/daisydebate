@@ -1,3 +1,4 @@
+import { adultAccount } from './social.test-support';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { authorize } from './authorization';
 import { socialPostingPolicy } from './social-policy';
@@ -18,23 +19,7 @@ const channel: ChannelAuthorizationFact = {
     activeMemberActorIds: ['a', 'b'],
   },
 };
-const accounts = ['a', 'b'].map((actorId) => ({
-  account: {
-    userId: actorId,
-    actorId,
-    member: true,
-    erased: false,
-    revision: 1,
-  },
-  age: {
-    state: 'known' as const,
-    actorId,
-    band: 'adult' as const,
-    revision: 1,
-    accountRevision: 1,
-    validUntil: '2026-11-01T00:00:00.000Z',
-  },
-}));
+const accounts = ['a', 'b'].map((actorId) => adultAccount(actorId));
 const policy = {
   state: 'approved' as const,
   decision: 'test-only explicit policy',
