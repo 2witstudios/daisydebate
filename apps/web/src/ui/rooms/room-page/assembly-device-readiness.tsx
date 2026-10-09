@@ -1,5 +1,8 @@
 'use client';
 
+import type { MockFormState } from '../../../features/mock-form/form';
+import type { FormAction } from '../../form-action/form-action';
+
 import { useEffect, useState, useSyncExternalStore, useRef } from 'react';
 import { systemId } from '@daisy/clock';
 import type { RoomView } from '@daisy/protocol';
@@ -9,13 +12,14 @@ import type { DeviceKind } from '../../../features/video/device-check-controller
 import type { readAssembly } from '../../../features/rooms/read-assembly';
 import type { submitAssembly } from '../../../features/rooms/submit-assembly';
 import { AssemblyReadiness } from './assembly-readiness';
+import { createLocalCommandAction } from '../../../features/rooms/local-command-action';
 import { controlClass } from '../../components/form-field/form-field-class';
 import { buttonClass } from '../../components/button/button-class';
 
 type Props = {
   readonly view: RoomView;
   readonly actorId: string;
-  readonly action: (form: FormData) => Promise<void>;
+  readonly action: FormAction<MockFormState>;
   readonly send: (form: FormData) => ReturnType<typeof submitAssembly>;
   readonly read: () => ReturnType<typeof readAssembly>;
   readonly commandIds: Parameters<typeof AssemblyReadiness>[0]['commandIds'];
@@ -79,19 +83,7 @@ function LiveDevices({
       setInputs([]);
     }
   };
-  const action = async (form: FormData) => {
-    const type = form.get('type');
-    if (type === 'ready') {
-      await consent.ready();
-      return;
-    }
-    if (type === 'unready') {
-      await consent.unready();
-      return;
-    }
-    if (!consent.readSnapshot().pending && consent.readSnapshot().devicesPassed)
-      await props.action(form);
-  };
+  const action = createLocalCommandAction(consent, props.action);
   return (
     <>
       <section

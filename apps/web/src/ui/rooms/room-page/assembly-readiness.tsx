@@ -1,3 +1,6 @@
+import { AssemblyCommandForm } from './assembly-command-form';
+import type { MockFormState } from '../../../features/mock-form/form';
+import type { FormAction } from '../../form-action/form-action';
 import type { RoomView } from '@daisy/protocol';
 import { AssemblyCommandFields } from './assembly-command-fields';
 import { buttonClass } from '../../components/button/button-class';
@@ -53,13 +56,13 @@ function CommandForm({
   readonly type: Control;
   readonly version: number;
   readonly commandId: string;
-  readonly action: (form: FormData) => Promise<void>;
+  readonly action: FormAction<MockFormState>;
   readonly label: string;
   readonly enabled: boolean;
   readonly expectedConsentVersion: number | null;
 }) {
   return (
-    <form action={action}>
+    <AssemblyCommandForm action={action}>
       {AssemblyCommandFields({ type, version, commandId })}
       {expectedConsentVersion !== null ? (
         <input
@@ -75,7 +78,7 @@ function CommandForm({
       >
         {label}
       </button>
-    </form>
+    </AssemblyCommandForm>
   );
 }
 
@@ -90,7 +93,7 @@ export function AssemblyReadiness({
   readonly view: View;
   readonly actorId: string;
   readonly local: LocalReadiness;
-  readonly action: (form: FormData) => Promise<void>;
+  readonly action: FormAction<MockFormState>;
   readonly commandIds: Readonly<Record<Control, string>>;
 }) {
   const ready = readinessControl(view, actorId, local);

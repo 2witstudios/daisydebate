@@ -1,3 +1,4 @@
+import { AssemblyCommandForm } from './assembly-command-form';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { findElements, byText } from '../../test-support/find-elements';
 import { AssemblyReadiness } from './assembly-readiness';
@@ -29,7 +30,7 @@ const base = {
   },
   startRefusal: 'not-ready' as const,
 };
-const action = async (_form: FormData) => {};
+const action = async () => ({ values: {} });
 const props = {
   view: base,
   actorId: 'viewer',
@@ -47,7 +48,10 @@ const props = {
 describe('native room readiness and Launch controls', () => {
   test('judge Ready submits a versioned command through the injected real action', () => {
     const tree = AssemblyReadiness(props);
-    const form = findElements(tree, (element) => element.type === 'form')[0];
+    const form = findElements(
+      tree,
+      (element) => element.type === AssemblyCommandForm,
+    )[0];
     assert({
       given: 'an eligible judge without local device checks',
       should:
@@ -81,7 +85,10 @@ describe('native room readiness and Launch controls', () => {
         capabilities: { ...base.capabilities, canStart: true },
       },
     });
-    const forms = findElements(tree, (element) => element.type === 'form');
+    const forms = findElements(
+      tree,
+      (element) => element.type === AssemblyCommandForm,
+    );
     assert({
       given: 'the viewer is ready at consent revision eight',
       should:
