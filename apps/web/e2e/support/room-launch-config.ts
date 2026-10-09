@@ -7,6 +7,10 @@ requireLaunchSlot(resolve(import.meta.dirname, '../../../..'), process.env);
 const servers = Array.isArray(canonical.webServer)
   ? canonical.webServer
   : [canonical.webServer];
+const projects = canonical.projects?.filter(
+  (project) => project.name === 'chromium',
+);
+if (!projects?.length) throw new Error('Canonical Chromium project is missing');
 export default defineConfig({
   ...canonical,
   testDir: resolve(import.meta.dirname, '..'),
@@ -16,9 +20,7 @@ export default defineConfig({
     ['list'],
     ['json', { outputFile: 'test-results/room-launch-results.json' }],
   ],
-  projects: canonical.projects?.filter(
-    (project) => project.name === 'chromium',
-  ),
+  projects,
   webServer: servers.map((server, index) => {
     if (!server) throw new Error('Canonical browser server is missing');
     return index === 0
