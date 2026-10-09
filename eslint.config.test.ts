@@ -19,6 +19,8 @@ import {
   route,
   lazyEdge,
   e2eServer,
+  launchEntryCases,
+  throwSuitePaths,
   escapes,
   escapeRule,
 } from './eslint.config.test-support';
@@ -53,7 +55,7 @@ describe('repository ESLint configuration', () => {
 });
 
 describe('process edge: one module reads process.env and globalThis (ISSUE-7)', () => {
-  test('rejects ambient reads and edge imports outside the edge', async () => {
+  test('rejects ambient reads and edge imports outside the exact permitted entries', async () => {
     const cases: Case[] = [
       ['export const f = process.env.X;', web('proxy.ts'), props],
       [
@@ -77,11 +79,13 @@ describe('process edge: one module reads process.env and globalThis (ISSUE-7)', 
       [edgeImport('../../../../server/'), route, imports],
       [edgeImport('./'), web('server/routes.ts'), imports],
       ...escapes.map(([code, file]): Case => [code, file, escapeRule(code)]),
+      ...launchEntryCases,
     ];
     assert({
       given:
-        'app source reading process.env, Bun.env or globalThis, or importing the process edge as a locator',
-      should: 'report each as the matching restriction',
+        'app ambient reads/edge imports, the named Launch entry import/load and adjacent E2E helper refusals',
+      should:
+        'retain every restriction while allowing only the exact named entries',
       actual: await outcomes(cases),
       expected: expectedOf(cases),
     });
@@ -108,28 +112,6 @@ describe('process edge: one module reads process.env and globalThis (ISSUE-7)', 
       given:
         'the two edges, a processRoute binding, the process entries and a test reading its service URL',
       should: 'report nothing',
-      actual: await outcomes(cases),
-      expected: expectedOf(cases),
-    });
-  });
-
-  test('admits only the named Launch proof process entry', async () => {
-    const proof = 'apps/web/e2e/support/room-launch-server.ts';
-    const ordinary = 'apps/web/e2e/support/room-launch-adjacent.ts';
-    const cases: Case[] = [
-      [edgeImport('../../src/server/', 'adoptProcessApp'), proof, []],
-      [lazyEdge('../../src/server/process-app'), proof, []],
-      [edgeImport('../../src/server/', 'adoptProcessApp'), ordinary, imports],
-      [
-        lazyEdge('../../src/server/process-app'),
-        ordinary,
-        escapeRule(lazyEdge('../../src/server/process-app')),
-      ],
-    ];
-    assert({
-      given: 'the dedicated proof entry and an adjacent ordinary E2E helper',
-      should:
-        'permit only the exact named process entry to import or load the app edge',
       actual: await outcomes(cases),
       expected: expectedOf(cases),
     });
@@ -318,15 +300,8 @@ describe('restrictions every no-restricted-syntax list carries', () => {
       ([message, type]) =>
         `import { expect } from 'bun:test';\nawait expect(async () => {}).rejects.toThrow(${message});\nexpect(() => {}).toThrowError(${type});\nexpect(() => {}).not.toThrow();`,
     ) as [string, string];
-    const suites = [
-      web('server/x.test.ts'),
-      'packages/db/integration/x.integration.ts',
-      'apps/web/integration/x.integration.ts',
-      'apps/web/e2e/x.e2e.ts',
-      'scripts/x.test.ts',
-    ];
     const { actual, expected } = table([
-      ...suites.map((suite): Problems => [bare, suite, 2]),
+      ...throwSuitePaths.map((suite): Problems => [bare, suite, 2]),
       [named, web('server/x.test.ts'), 0],
     ]);
     assert({
