@@ -28,7 +28,9 @@ export async function createFromPlay(
 ) {
   await page.goto('/play');
   await page.getByRole('link', { name: /^Open a practice room\b/ }).click();
+  await expect(page).toHaveURL('/play/room');
   const form = page.getByRole('form', { name: 'Create a room' });
+  await expect(form).toBeVisible();
   const templates = form.getByLabel('Format template');
   const values = await templates
     .locator('option')
