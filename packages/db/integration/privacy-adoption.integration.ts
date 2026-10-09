@@ -8,7 +8,12 @@ import {
   exportPrivacySubject,
   type PrivacyAdopter,
 } from '../src/privacy';
-import { bindings, now, withPrivacySubject } from './privacy.test-support';
+import {
+  bindings,
+  now,
+  withPrivacySubject,
+  subjectVerificationCount,
+} from './privacy.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 const adoption = { requiredAdopters: [], adopters: [] };
@@ -25,9 +30,13 @@ test('local erasure is atomic and removes only bound auth subjects', async () =>
         'select username,email,name,image,email_verified,version,deleted_at is not null as erased from users where id=$1',
         [userId],
       );
-      const remaining = await client.unsafe(
-        "select count(*)::int as n from verification where case when value is json object then value::jsonb ->> 'userId'=$1 or value::jsonb #>> '{userData,id}'=$1 else false end",
-        [otherId],
+      const ownVerifications = await subjectVerificationCount(client, userId);
+      const otherVerifications = await subjectVerificationCount(
+        client,
+        otherId,
+      );
+      const opaque = await client.unsafe(
+        "select count(*)::int as n from verification where value='opaque-non-json'",
       );
       const counts = await Promise.all(
         ['session', 'account', 'passkey'].map((table) =>
@@ -49,7 +58,9 @@ test('local erasure is atomic and removes only bound auth subjects', async () =>
         actual: [
           result,
           users[0],
-          remaining[0]?.n,
+          ownVerifications,
+          otherVerifications,
+          opaque[0]?.n,
           counts.map((rows) => rows[0]?.n),
           actors[0]?.user_id,
         ],
@@ -64,7 +75,9 @@ test('local erasure is atomic and removes only bound auth subjects', async () =>
             version: 2,
             erased: true,
           },
-          4,
+          0,
+          5,
+          1,
           [0, 0, 0],
           userId,
         ],
@@ -121,8 +134,12 @@ test('late adopter failure rolls back scrub auth deletion and earlier cleanup', 
         given:
           'failure after scrub and auth cleanup in the same real transaction',
         should: 'restore original user and session',
-        actual: [rows[0], sessions[0]?.n],
-        expected: [{ email, version: 1, deleted_at: null }, 1],
+        actual: [
+          rows[0],
+          sessions[0]?.n,
+          await subjectVerificationCount(client, userId),
+        ],
+        expected: [{ email, version: 1, deleted_at: null }, 1, 5],
       });
     },
   );

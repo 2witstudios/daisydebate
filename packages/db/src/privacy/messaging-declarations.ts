@@ -116,9 +116,11 @@ export const messagingPrivacyFields: readonly PrivacyFieldDeclaration[] =
           decision: 'DEC-124 / ADR-0063',
         },
         erasure:
-          category === 'personal'
-            ? ('delete' as const)
-            : ('retain-nonpersonal' as const),
+          table === 'messaging_messages' && column === 'text'
+            ? ('scrub' as const)
+            : category === 'personal'
+              ? ('delete' as const)
+              : ('retain-nonpersonal' as const),
         exportable: true,
       })),
     ),
