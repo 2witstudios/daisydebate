@@ -133,17 +133,15 @@ export function createMessagingDmStore({
                 fact.authority.lowActorId === scope.actorId
                   ? fact.authority.highActorId
                   : fact.authority.lowActorId;
-              await tx
-                .insert(messagingSocialCommands)
-                .values({
-                  actorId: scope.actorId,
-                  counterpartActorId,
-                  requestId: command.requestId,
-                  kind: 'dm.decide',
-                  digest: command.digest,
-                  resultChannelId: scope.channelId,
-                  createdAt: new Date(command.now),
-                });
+              await tx.insert(messagingSocialCommands).values({
+                actorId: scope.actorId,
+                counterpartActorId,
+                requestId: command.requestId,
+                kind: 'dm.decide',
+                digest: command.digest,
+                resultChannelId: scope.channelId,
+                createdAt: new Date(command.now),
+              });
               await advanceSocialChannelAuthority(tx, channel);
               observed = null;
               return { channelId: scope.channelId, state };

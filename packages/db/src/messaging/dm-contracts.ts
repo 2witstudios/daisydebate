@@ -22,9 +22,7 @@ export type MessagingDmFrame = {
     readonly introduction: string | null;
     readonly requestedAt: string;
   }>;
-  readDecisionState(
-    command: Decision,
-  ): Promise<{
+  readDecisionState(command: Decision): Promise<{
     readonly channelId: string;
     readonly state: string;
     readonly requestedAt: string;
