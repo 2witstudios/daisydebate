@@ -18,6 +18,11 @@ import { z } from 'zod';
 export const timestampColumn = (name: string) =>
   timestamp(name, { withTimezone: true, mode: 'date' });
 
+/** PostgreSQL 64-bit transaction ordering token, retained as a decimal string. */
+export const xid8Column = customType<{ data: string; driverData: string }>({
+  dataType: () => 'xid8',
+});
+
 export const createdAtColumn = () =>
   timestampColumn('created_at').notNull().defaultNow();
 
