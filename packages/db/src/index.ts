@@ -20,6 +20,7 @@ import { documentOperations } from './document-operations';
 import { onboardingOperations } from './onboarding-operations';
 import {
   createMessagingStore,
+  createMessagingFileStore,
   type MessagingAuthorizationFence,
   createMessagingSocialStore,
   type MessagingSocialAuthorizationFence,
@@ -164,6 +165,9 @@ export function createDatabase({
     ...authorizationSessionOperations({ database }),
     ...emailDeliveryOperations({ database, eventSink }),
     ...actorOperations({ database, eventSink }),
+    messagingFileStore: (
+      authorize: Parameters<typeof createMessagingFileStore>[0]['authorize'],
+    ) => createMessagingFileStore({ database, authorize }),
     messagingChannelStore: (authorize: MessagingAuthorizationFence) =>
       createMessagingStore({ database, authorize }),
     messagingSocialStore: (authorize: MessagingSocialAuthorizationFence) =>
