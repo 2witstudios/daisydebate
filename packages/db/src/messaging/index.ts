@@ -19,3 +19,8 @@ export type {
   MessagingSocialStore,
 } from './social-contracts';
 export { createMessagingFileStore } from './file-store';
+
+export {
+  createMessagingFileCleanup,
+  type MessagingFileCleanupFence,
+} from './file-cleanup';

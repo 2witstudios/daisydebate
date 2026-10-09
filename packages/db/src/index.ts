@@ -21,6 +21,7 @@ import { onboardingOperations } from './onboarding-operations';
 import {
   createMessagingStore,
   createMessagingFileStore,
+  createMessagingFileCleanup,
   type MessagingAuthorizationFence,
   createMessagingSocialStore,
   type MessagingSocialAuthorizationFence,
@@ -164,6 +165,9 @@ export function createDatabase({
     ...authorizationSessionOperations({ database }),
     ...emailDeliveryOperations({ database, eventSink }),
     ...actorOperations({ database, eventSink }),
+    messagingFileCleanup: (
+      authorize: Parameters<typeof createMessagingFileCleanup>[0]['authorize'],
+    ) => createMessagingFileCleanup({ database, authorize }),
     messagingFileStore: (
       authorize: Parameters<typeof createMessagingFileStore>[0]['authorize'],
     ) => createMessagingFileStore({ database, authorize }),
