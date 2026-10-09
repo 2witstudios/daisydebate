@@ -38,6 +38,18 @@ test('account authorization locks fence erasure and return fresh durable members
         ?.account.revision,
       expected: 1,
     });
+    assert({
+      given: 'a consumed RT ticket containing sessionId/actorId without userId',
+      should: 'resolve the durable user binding under the same account fence',
+      actual: (
+        await sessionReader.resolveRealtimeSession({
+          sessionId,
+          actorId,
+          now: sessionInput.now,
+        })
+      )?.userId,
+      expected: userId,
+    });
     await db.transaction(async (tx) => {
       const facts = await lockAuthorizationActors(tx, [actorId], {
         maxActors: 2,

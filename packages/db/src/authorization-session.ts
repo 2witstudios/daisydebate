@@ -7,16 +7,24 @@ import {
   type AuthorizationTransaction,
 } from './authorization';
 import type { authorizationAccountFact } from './authorization-account';
-type AuthorizationSessionInput = {
+type RealtimeSessionInput = {
   readonly sessionId: string;
-  readonly userId: string;
   readonly actorId: string;
   readonly now: string;
+};
+type AuthorizationSessionInput = RealtimeSessionInput & {
+  readonly userId: string;
 };
 /** Ticket identities are hints: reread their exact durable session and account inside the caller's fenced transaction. */
 export async function loadAuthorizationSession(
   tx: AuthorizationTransaction,
   input: AuthorizationSessionInput,
+) {
+  return checkedSession(tx, input);
+}
+async function checkedSession(
+  tx: AuthorizationTransaction,
+  input: RealtimeSessionInput & { readonly userId?: string },
 ) {
   const instant = sessionInstant(input);
   const rows = (await tx.execute(
@@ -25,28 +33,42 @@ export async function loadAuthorizationSession(
   const session = rows[0];
   if (
     !session ||
-    session.userId !== input.userId ||
+    !sessionUserMatches(session.userId, input) ||
     !(session.expiresAt instanceof Date) ||
     !(session.expiresAt.getTime() > instant)
   )
     return null;
-  const account = await loadAuthorizationAccount(tx, input.userId);
-  if (!currentSessionAccount(account, input.actorId)) return null;
+  const account = await loadAuthorizationAccount(tx, session.userId);
+  if (!currentSessionAccount(account, input.actorId, session.userId))
+    return null;
   return {
     sessionId: input.sessionId,
-    userId: input.userId,
+    userId: session.userId,
     actorId: input.actorId,
     expiresAt: session.expiresAt.toISOString(),
     account,
   };
 }
 
-function sessionInstant(input: AuthorizationSessionInput): number {
+function sessionUserMatches(
+  userId: string,
+  input: RealtimeSessionInput & { readonly userId?: string },
+): boolean {
+  return (
+    idSchema.safeParse(userId).success &&
+    (input.userId === undefined || input.userId === userId)
+  );
+}
+function sessionInstant(
+  input: RealtimeSessionInput & { readonly userId?: string },
+): number {
   const instant = Date.parse(input.now);
   if (
-    ![input.sessionId, input.userId, input.actorId].every(
-      (id) => idSchema.safeParse(id).success,
-    ) ||
+    ![
+      input.sessionId,
+      input.actorId,
+      ...(input.userId === undefined ? [] : [input.userId]),
+    ].every((id) => idSchema.safeParse(id).success) ||
     !Number.isFinite(instant)
   )
     throw createAppError('VALIDATION');
@@ -56,12 +78,14 @@ function sessionInstant(input: AuthorizationSessionInput): number {
 function currentSessionAccount(
   account: ReturnType<typeof authorizationAccountFact>,
   actorId: string,
+  userId: string,
 ): account is NonNullable<ReturnType<typeof authorizationAccountFact>> {
   return (
     account !== null &&
     account.member &&
     !account.erased &&
     account.actorId === actorId &&
+    account.userId === userId &&
     Number.isSafeInteger(account.revision) &&
     account.revision > 0
   );
@@ -76,13 +100,18 @@ export function authorizationSessionOperations({
     'transaction'
   >;
 }) {
+  const withSession = async (
+    input: RealtimeSessionInput & { readonly userId?: string },
+  ) => {
+    sessionInstant(input);
+    return database.transaction(async (tx) => {
+      await lockAuthorizationActors(tx, [input.actorId], { maxActors: 1 });
+      return checkedSession(tx, input);
+    });
+  };
   return {
-    readAuthorizationSession: async (input: AuthorizationSessionInput) => {
-      sessionInstant(input);
-      return database.transaction(async (tx) => {
-        await lockAuthorizationActors(tx, [input.actorId], { maxActors: 1 });
-        return loadAuthorizationSession(tx, input);
-      });
-    },
+    resolveRealtimeSession: (input: RealtimeSessionInput) => withSession(input),
+    readAuthorizationSession: (input: AuthorizationSessionInput) =>
+      withSession(input),
   };
 }
