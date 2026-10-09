@@ -178,47 +178,29 @@ test('wrong message association preserves a clean quarantine for the correct ret
   });
 });
 
-test('stale scan keeps the original conflict when canonical cleanup refuses a newer generation', async () => {
-  const f = fileOperationFixture();
-  f.frame.finalize = async () => {
-    throw createAppError('CONFLICT');
-  };
-  const pending = finalizeMessagingFile(f.input, f.principal, {
-    ...f.d,
-    failPending: async () => {
-      throw createAppError('AUTHORIZATION');
-    },
+for (const [cleanupCode, expectedCode] of [
+  ['AUTHORIZATION', 'CONFLICT'],
+  ['INFRASTRUCTURE', 'INFRASTRUCTURE'],
+] as const) {
+  test(`pending cleanup ${cleanupCode} preserves ${expectedCode}`, async () => {
+    const f = fileOperationFixture();
+    f.frame.finalize = async () => {
+      throw createAppError('CONFLICT');
+    };
+    const pending = finalizeMessagingFile(f.input, f.principal, {
+      ...f.d,
+      failPending: async () => {
+        throw createAppError(cleanupCode);
+      },
+    });
+    await f.scanStarted;
+    f.completeScan('clean');
+    await assertRejects({
+      given: `canonical cleanup returns ${cleanupCode} after refused finalization`,
+      should:
+        'preserve stale conflict while keeping infrastructure failures observable',
+      actual: () => pending,
+      code: expectedCode,
+    });
   });
-  await f.scanStarted;
-  f.completeScan('clean');
-  await assertRejects({
-    given:
-      'scan token became stale and cleanup correctly refuses the new generation',
-    should:
-      'preserve the original typed conflict without touching the newer upload',
-    actual: () => pending,
-    code: 'CONFLICT',
-  });
-});
-
-test('infrastructure cleanup failure remains observable while its object stays charged', async () => {
-  const f = fileOperationFixture();
-  f.frame.finalize = async () => {
-    throw createAppError('CONFLICT');
-  };
-  const pending = finalizeMessagingFile(f.input, f.principal, {
-    ...f.d,
-    failPending: async () => {
-      throw createAppError('INFRASTRUCTURE');
-    },
-  });
-  await f.scanStarted;
-  f.completeScan('clean');
-  await assertRejects({
-    given: 'storage cleanup infrastructure fails after refused finalization',
-    should:
-      'surface infrastructure failure for retry instead of treating it as stale authority',
-    actual: () => pending,
-    code: 'INFRASTRUCTURE',
-  });
-});
+}
