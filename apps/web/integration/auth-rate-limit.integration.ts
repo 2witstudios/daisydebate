@@ -2,7 +2,7 @@ import { afterAll } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createTestApp, origin } from './fixtures';
 import { createSecondInstances, statuses } from './auth-rate-limit-helpers';
-import { CLIENT_IP_HEADER } from '../src/features/auth/abuse/client-ip';
+import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
 import { requireTestServices } from '@daisy/config';
 
 requireTestServices(process.env);
