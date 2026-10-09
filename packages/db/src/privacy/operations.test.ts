@@ -29,6 +29,16 @@ function messagingExportDatabase(
     execute: async (statement: SQL) => {
       const query = dialect.sqlToQuery(statement);
       statements.push(query);
+      if (query.sql.includes('daisy_authorization_accounts'))
+        return [
+          {
+            userId: subject.userId,
+            actorId: subject.actorId,
+            member: true,
+            erased: false,
+            revision: 1,
+          },
+        ];
       if (query.sql.includes('from users u join actors'))
         return [
           {
