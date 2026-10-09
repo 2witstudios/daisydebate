@@ -73,6 +73,13 @@ export async function resolveIdentity({
   if (!Number.isFinite(instant)) return UNAVAILABLE;
   const expires = Date.parse(found.expiresAt);
   if (Number.isNaN(expires) || expires <= instant) return ANONYMOUS;
+  return identityFromSession(found, readActor);
+}
+
+async function identityFromSession(
+  found: VerifiedSession,
+  readActor: Parameters<typeof resolveIdentity>[0]['readActor'],
+): Promise<Identity> {
   // The reader is an adapter boundary: only a non-empty string username
   // makes a member, whatever else the lookup returned.
   const { userId, username } = found;
