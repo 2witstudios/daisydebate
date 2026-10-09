@@ -72,6 +72,7 @@ export function createDeviceCheckController(edge: Edge) {
     kind: DeviceKind,
     check: Check,
     event?: DeviceInvalidation,
+    announce = true,
   ) => {
     const next = { ...snapshot, [kind]: Object.freeze(check) };
     snapshot = Object.freeze({
@@ -79,6 +80,9 @@ export function createDeviceCheckController(edge: Edge) {
       devicesPassed:
         next.camera.status === 'passed' && next.microphone.status === 'passed',
     });
+    if (announce) notify(event);
+  };
+  const notify = (event?: DeviceInvalidation) => {
     for (const listener of listeners) listener(snapshot, event);
   };
   const release = (kind: DeviceKind) => {
@@ -111,9 +115,11 @@ export function createDeviceCheckController(edge: Edge) {
               : 'unavailable',
         reason,
       },
-      { kind, generation, reason },
+      undefined,
+      false,
     );
     release(kind);
+    notify({ kind, generation, reason });
   };
   return {
     readSnapshot: () => snapshot,
@@ -131,30 +137,40 @@ export function createDeviceCheckController(edge: Edge) {
     async check(kind: DeviceKind) {
       if (disposed) return;
       const generation = snapshot[kind].generation + 1;
-      update(kind, {
-        ...snapshot[kind],
-        generation,
-        status: 'checking',
-        reason: null,
-        deviceId: null,
-      });
-      if (!current(kind, generation)) return;
+      update(
+        kind,
+        {
+          ...snapshot[kind],
+          generation,
+          status: 'checking',
+          reason: null,
+          deviceId: null,
+        },
+        undefined,
+        false,
+      );
       release(kind);
       const abort = new AbortController();
       aborts[kind] = abort;
+      notify();
+      if (!current(kind, generation)) return;
       try {
         const capture = await edge.open(kind, snapshot[kind].selectedDeviceId);
         if (!current(kind, generation)) {
           capture.stop();
           return;
         }
-        resources[kind] = {
-          capture,
-          unwatch: capture.onLoss((reason) => {
-            if (current(kind, generation)) invalidate(kind, reason);
-          }),
-        };
+        resources[kind] = { capture, unwatch: () => {} };
+        const unwatch = capture.onLoss((reason) => {
+          if (current(kind, generation)) invalidate(kind, reason);
+        });
+        if (!current(kind, generation)) {
+          unwatch();
+          return;
+        }
+        resources[kind]!.unwatch = unwatch;
         update(kind, { ...snapshot[kind], deviceId: capture.deviceId });
+        if (!current(kind, generation)) return;
         await capture.confirm(abort.signal);
         if (current(kind, generation))
           update(kind, { ...snapshot[kind], status: 'passed' });
