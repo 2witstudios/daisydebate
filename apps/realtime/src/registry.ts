@@ -1,5 +1,6 @@
 import {
   encodeOutboxCursor,
+  decodeOutboxCursor,
   OUTBOX_ORIGIN,
   type OutboxPosition,
   type OutboxRow,
@@ -28,6 +29,7 @@ type Subscription = {
   readonly lease: ReturnType<typeof createAuthorityLease>;
   revision: string;
   attached: boolean;
+  initializing: boolean;
   delivered: OutboxPosition;
 };
 type Connection = {
@@ -235,6 +237,7 @@ export function createSubscriptionRegistry({
         }
         for (const [topic, sub] of connection.topics) {
           // Detach expired authority before starting an entirely fresh attempt.
+          if (sub.initializing) continue;
           if (!sub.lease.current()) detach(connection, topic, sub);
           const attempt = sub.lease.begin(
             connection.principal.sessionId,
@@ -293,6 +296,7 @@ export function createSubscriptionRegistry({
         lease: createAuthorityLease({ now, lifetimeMs }),
         revision: '',
         attached: false,
+        initializing: true,
         delivered: OUTBOX_ORIGIN,
       };
       connection.topics.set(request.topic, sub);
@@ -324,7 +328,19 @@ export function createSubscriptionRegistry({
       if (request.since) {
         let result;
         try {
-          result = await readCatchup(request.topic, request.since, through);
+          const since = decodeOutboxCursor(request.since);
+          result =
+            compare(since, floor) >= 0 && compare(since, through) <= 0
+              ? {
+                  rows: ring.filter(
+                    (row) =>
+                      row.topic === request.topic &&
+                      compare(row, since) > 0 &&
+                      compare(row, through) <= 0,
+                  ),
+                  resync: false,
+                }
+              : await readCatchup(request.topic, request.since, through);
         } catch {
           result = { rows: [], resync: true };
         }
@@ -385,6 +401,7 @@ export function createSubscriptionRegistry({
       if (!current(connection, request.topic, sub)) return;
       connection.socket.subscribe(nativeTopic(connection, request.topic));
       sub.attached = true;
+      sub.initializing = false;
       if (!request.since) sub.delivered = through;
       for (const row of ring)
         if (row.topic === request.topic && compare(row, through) > 0)
