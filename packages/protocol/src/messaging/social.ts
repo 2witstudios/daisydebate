@@ -19,6 +19,11 @@ export function createMessagingSocialSchemas(bounds: MessagingSocialBounds) {
     .max(bounds.batchActors)
     .refine((ids) => new Set(ids).size === ids.length);
   return {
+    block: z.strictObject({
+      ...command,
+      otherActorId: idSchema,
+      blocked: z.boolean(),
+    }),
     requestDm: z.strictObject({
       ...command,
       recipientActorId: idSchema,
