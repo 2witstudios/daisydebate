@@ -46,7 +46,10 @@ export function messagingSocialAuthorizationFence({
         principal,
         capability: 'social.block',
         resource,
-        context: { account },
+        context: {
+          account,
+          contactAccounts: facts.accounts.filter((row) => row !== null),
+        },
       });
       return;
     }

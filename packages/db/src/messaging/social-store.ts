@@ -39,13 +39,7 @@ export function createMessagingSocialStore({
         const accounts = await lockAuthorizationActors(tx, members, {
           maxActors: 65535,
         });
-        if (
-          accounts.some(
-            (account) =>
-              account === null ||
-              (account.actorId !== input.actorId && account.erased),
-          )
-        )
+        if (accounts.some((account) => account === null))
           throw createAppError('NOT_FOUND');
         const rows: (typeof messagingContactPairs.$inferSelect)[] = [];
         for (const [index, low] of members.entries())
