@@ -65,6 +65,10 @@ test('mounted messaging composition uses real signed-in actors and shared HTTP g
       channelId,
       now,
     });
+    await client.unsafe(
+      'update messaging_channels set change_version=1 where id=$1',
+      [channelId],
+    );
     const sent = await routes.messaging.send(
       testApp.jsonPost(
         '/api/messaging/messages',
@@ -103,6 +107,24 @@ test('mounted messaging composition uses real signed-in actors and shared HTTP g
         sentActor: me.principal.actorId,
         text: 'Private routed text',
       },
+    });
+    const changesRequest = () =>
+      new Request(
+        `${origin}/api/messaging/channels/${channelId}/changes?limit=20&after=0`,
+        { headers: { origin, cookie: first.cookie } },
+      );
+    const firstChanges = await routes.messaging.changes(
+      changesRequest(),
+      channelId,
+    );
+    assert({
+      given: 'first send after an authority-only establishment version',
+      should: 'classify creation independently from ordering equality',
+      actual: {
+        status: firstChanges.status,
+        kind: (await firstChanges.json()).changes?.[0]?.kind,
+      },
+      expected: { status: 200, kind: 'created' },
     });
     const mutationBody = {
       version: 1,
@@ -144,6 +166,25 @@ test('mounted messaging composition uses real signed-in actors and shared HTTP g
         status: 200,
         keys: ['changeVersion', 'channelId', 'id', 'sequence', 'unavailable'],
       },
+    });
+    await client.unsafe(
+      'update messaging_channels set change_version=change_version+1 where id=$1',
+      [channelId],
+    );
+    const exhausted = await routes.messaging.changes(
+      changesRequest(),
+      channelId,
+    );
+    const exhaustedBody = await exhausted.json();
+    assert({
+      given: 'authority-only advance after the last removed content change',
+      should: 'return an exhausted channel-head cursor without a schema error',
+      actual: {
+        status: exhausted.status,
+        last: exhaustedBody.changes?.[0]?.changeVersion,
+        cursor: exhaustedBody.nextAfter?.changeVersion,
+      },
+      expected: { status: 200, last: 4, cursor: 5 },
     });
     const hidden = createId();
     const missing = await routes.messaging.history(
