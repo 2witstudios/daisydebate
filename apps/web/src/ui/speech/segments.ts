@@ -7,7 +7,7 @@ import { worthTranscribing } from '@daisy/ai-voice';
  * turn. Used by every debate whose speeches are transcribed live.
  */
 
-export type Clip = {
+type Clip = {
   readonly blob: Blob;
   /** How long the microphone heard a voice while recording. */
   readonly voicedMs: number;
