@@ -126,10 +126,6 @@ const rendered: Readonly<Record<string, () => Promise<{ default: unknown }>>> =
     '(shell)/watch/page.tsx': () => import('../../app/(shell)/watch/page'),
     '(shell)/watch/[debateId]/page.tsx': () =>
       import('../../app/(shell)/watch/[debateId]/page'),
-    '(shell)/ai-debate/page.tsx': () =>
-      import('../../app/(shell)/ai-debate/page'),
-    '(bare)/ai-debate/[id]/page.tsx': () =>
-      import('../../app/(bare)/ai-debate/[id]/page'),
     '(shell)/leaderboard/page.tsx': () =>
       import('../../app/(shell)/leaderboard/page'),
     '(shell)/tournaments/page.tsx': () =>
@@ -206,7 +202,6 @@ describe('guarded pages', () => {
         ...new Set(guarded.map(({ route }) => guardedAreaFor(route))),
       ].sort(),
       expected: [
-        '/ai-debate',
         '/debates',
         '/judge',
         '/lobby',

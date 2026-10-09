@@ -28,8 +28,8 @@ export const selectBotHref = (id: string): string =>
     ? trainDestinations.bots
     : `${trainDestinations.bots}?bot=${id}`;
 
-/** Where "debate this bot" goes: the room before a real debate against it. */
-export const debateBotHref = (id: string): string => `/ai-debate?bot=${id}`;
+/** Cast selection happens in the durable room, never through this sample roster URL. */
+export const debateBotHref = (): string => '/play';
 
 type CarouselCard = {
   readonly bot: Bot;
@@ -68,7 +68,7 @@ export function botSelector(
     steps: bots.map(card),
     previousHref: before ? selectBotHref(before.id) : null,
     nextHref: after ? selectBotHref(after.id) : null,
-    debateHref: debateBotHref(selected.id),
+    debateHref: debateBotHref(),
   };
 }
 

@@ -105,7 +105,7 @@ export function BotSelectorPage({ view }: { readonly view: BotSelector }) {
               href={view.debateHref}
               className={cn(buttonClass('primary'), link, 'w-full')}
             >
-              Debate {selected.name}
+              Create a debate
             </Link>
           </article>
           <Arrow href={view.nextHref} label="Next opponent" direction="next" />
