@@ -13,6 +13,20 @@ import {
 type ChangedMessage = { id: string; channelId: string; authorActorId: string };
 const rowsOf = <T>(rows: unknown) => rows as T[];
 
+const exportRows = (rows: readonly Record<string, unknown>[]) =>
+  rows.map((row) =>
+    Object.fromEntries(
+      Object.entries(row).map(([column, value]) => [
+        column,
+        value instanceof Date
+          ? value.toISOString()
+          : typeof value === 'bigint'
+            ? Number(value)
+            : value,
+      ]),
+    ),
+  );
+
 /** Account lock is held by canonical PRIV before this pair -> channel fence. */
 async function lockSubjectMessaging(
   tx: AuthorizationTransaction,
@@ -188,15 +202,18 @@ export function createMessagingPrivacyAdopter(): PrivacyAdopter {
       );
       // Shared title has no subject attribution. Never export another author's
       // text/title by guessing ownership from current membership.
-      return {
-        messaging_messages: messages,
-        messaging_actor_states: preferences,
-        messaging_group_grants: grants,
-        messaging_receipts: receipts,
-        messaging_reactions: reactions,
-        messaging_contact_pairs: contacts,
-        messaging_dm_pairs: pairs,
-      };
+      return Object.fromEntries(
+        Object.entries({
+          messaging_channels: [],
+          messaging_messages: messages,
+          messaging_actor_states: preferences,
+          messaging_group_grants: grants,
+          messaging_receipts: receipts,
+          messaging_reactions: reactions,
+          messaging_contact_pairs: contacts,
+          messaging_dm_pairs: pairs,
+        }).map(([table, rows]) => [table, exportRows(rows)]),
+      );
     },
   };
 }
