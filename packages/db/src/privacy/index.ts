@@ -27,3 +27,4 @@ export {
   exportPrivacySubject,
   type PrivacyVerificationBinding,
 } from './operations';
+export { deliverPrivacyJob } from './vendor-jobs';

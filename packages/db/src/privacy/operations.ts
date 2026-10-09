@@ -71,6 +71,21 @@ function checkBindings(bindings: readonly PrivacyVerificationBinding[]) {
   if (new Set(keys).size !== keys.length) throw createAppError('VALIDATION');
 }
 
+async function eraseAdopters(
+  tx: AuthorizationTransaction,
+  subject: PrivacySubject,
+  now: string,
+  adoption: PrivacyAdoption,
+  phase: 'before-auth' | 'after-scrub',
+) {
+  for (const required of adoption.requiredAdopters.filter(
+    (item) => item.phase === phase,
+  )) {
+    const adopter = adoption.adopters.find((item) => item.id === required.id)!;
+    await adopter.erase(tx, subject, { now });
+  }
+}
+
 /** Owns transaction commit; external calls cannot participate in local erasure. */
 export async function erasePrivacySubject(
   database: PrivacyDatabase,
@@ -83,11 +98,7 @@ export async function erasePrivacySubject(
   return database.transaction(async (tx) => {
     const account = await lockSubject(tx, plan.subject);
     if (account.erased) return { alreadyErased: true, jobs: [] };
-    for (const id of plan.adopterIds) {
-      const adopter = adoption.adopters.find((item) => item.id === id)!;
-      if (adopter.phase === 'before-auth')
-        await adopter.erase(tx, plan.subject, { now: plan.now });
-    }
+    await eraseAdopters(tx, plan.subject, plan.now, adoption, 'before-auth');
     for (const binding of verificationBindings) {
       if ('purpose' in binding) {
         const condition =
@@ -120,11 +131,7 @@ export async function erasePrivacySubject(
       name = '', email_verified = false, deleted_at = ${plan.now}::timestamptz,
       updated_at = ${plan.now}::timestamptz, version = version + 1
       where id = ${plan.subject.userId}`);
-    for (const id of plan.adopterIds) {
-      const adopter = adoption.adopters.find((item) => item.id === id)!;
-      if (adopter.phase === 'after-scrub')
-        await adopter.erase(tx, plan.subject, { now: plan.now });
-    }
+    await eraseAdopters(tx, plan.subject, plan.now, adoption, 'after-scrub');
     for (const job of plan.jobs)
       await tx.execute(sql`insert into privacy_jobs
       (id, subject_ref, vendor, status, attempts, created_at, retry_at)
@@ -132,6 +139,18 @@ export async function erasePrivacySubject(
         ${job.createdAt}::timestamptz, ${job.createdAt}::timestamptz)`);
     return { alreadyErased: false, jobs: plan.jobs };
   });
+}
+
+function checkExportRow(
+  row: Readonly<Record<string, unknown>>,
+  columns: Set<string>,
+) {
+  if (
+    !z.record(z.string(), z.json()).safeParse(row).success ||
+    Object.keys(row).length !== columns.size ||
+    Object.keys(row).some((column) => !columns.has(column))
+  )
+    throw createAppError('VALIDATION');
 }
 
 function checkedExport(
@@ -150,14 +169,7 @@ function checkedExport(
   for (const [table, columns] of allowed) {
     const rows = result[table];
     if (!Array.isArray(rows)) throw createAppError('VALIDATION');
-    for (const row of rows) {
-      if (
-        !z.record(z.string(), z.json()).safeParse(row).success ||
-        Object.keys(row).length !== columns.size ||
-        Object.keys(row).some((column) => !columns.has(column))
-      )
-        throw createAppError('VALIDATION');
-    }
+    for (const row of rows) checkExportRow(row, columns);
   }
   return result;
 }
