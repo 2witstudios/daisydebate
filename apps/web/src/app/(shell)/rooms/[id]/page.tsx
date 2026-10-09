@@ -7,6 +7,7 @@ import { parseRoomState } from '../../../../features/rooms/state';
 import { roomView } from '../../../../features/rooms/view';
 import { requireAccess } from '../../../../lib/access';
 import { RoomPage } from '../../../../ui/rooms/room-page/room-page';
+import { RoomRefresher } from '../../../../ui/rooms/room-page/room-refresher';
 import { saveRoomSettingsAction } from './actions';
 
 export const metadata: Metadata = { title: 'Room' };
@@ -29,9 +30,12 @@ export default async function RoomRoute({
     ),
   ).toString();
   return (
-    <RoomPage
-      view={roomView(info, parseRoomState(id, query, info.judge))}
-      settingsAction={saveRoomSettingsAction.bind(null, id, search)}
-    />
+    <>
+      <RoomRefresher />
+      <RoomPage
+        view={roomView(info, parseRoomState(id, query, info.judge))}
+        settingsAction={saveRoomSettingsAction.bind(null, id, search)}
+      />
+    </>
   );
 }
