@@ -39,12 +39,18 @@ export function catchupWindow({
     floor !== null &&
     order(since, floor) >= 0 &&
     order(since, through) <= 0 &&
-    count <= limit
+    count <= limit &&
+    // A minimum survivor cannot certify history created by earlier pruning.
+    // Without a durable deletion watermark only an empty interval is known.
+    order(since, through) === 0 &&
+    count === 0
   );
 }
 
-/** One statement/snapshot on the existing pool: retained floor and final rows
- * cannot race a prune. Cursor positions are ordering tokens, never authority.
+/** One snapshot on the existing pool. Legacy retention could leave holes:
+ * nonempty durable replay is therefore not certifiable and requires HTTP
+ * resync. The live registry can prove its own continuously observed ring.
+ * Cursor positions are ordering tokens, never authority.
  */
 export async function readOutboxCatchup(
   database: Pick<BunSQLDatabase, 'execute'>,
@@ -59,6 +65,7 @@ export async function readOutboxCatchup(
   decodeOutboxCursor(throughCursor);
   if (!Number.isSafeInteger(limit) || limit < 1 || limit > 500)
     throw new Error('Invalid outbox catchup limit');
+  if (order(since, throughCursor) !== 0) return { rows: [], resync: true };
   const result = await database.execute(sql`
     with retained as (
       select txid, seq from outbox
