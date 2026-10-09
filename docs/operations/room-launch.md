@@ -20,7 +20,7 @@ The authenticated routes are:
 | HTTP                           | Contract                                                   |
 | ------------------------------ | ---------------------------------------------------------- |
 | `GET /api/rooms/catalog`       | `{ choices: RoomCatalogChoice[], bots: RoomCastChoice[] }` |
-| `GET /api/rooms`               | `RoomView[]`                                               |
+| `GET /api/rooms`               | `{ rooms: RoomView[] }`                                    |
 | `POST /api/rooms`              | `RoomCreate` → `{ receipt, view }`                         |
 | `GET /api/rooms/:id`           | `RoomView`                                                 |
 | `POST /api/rooms/:id/commands` | `RoomCommand` → `{ receipt, view }`                        |
@@ -82,6 +82,23 @@ order/timing, complete human/bot/judge cast, and frozen Round reads. A real
 signed-cookie HTTP suite covers multi-account membership, masked reads,
 origin refusal and native-form transport through the canonical handlers.
 Walt owns composed Play/Lobby/Room/native-browser delivery.
+
+Realtime Room authorization uses `readRoomAuthorizationFacts(roomId, caller)`
+on the existing database pool. It returns the canonical current account and
+Room host, visibility, status, revision and seated actor/role/slot facts;
+it does not hydrate labels, topics, configuration or formats. The sole
+authorization evaluator decides `room.read`. The account fence runs through
+the minimal security-definer account function; realtime receives function
+execution and only the Room/participant columns this projection reads.
+Source grants are not production activation or proof of restricted-role delivery.
+
+The durable `outbox_retention_boundary` singleton stores only ordering tokens.
+Its initial migration transaction position refuses unknown earlier history,
+including an empty previously-pruned log. Missing metadata requires resync.
+The runtime producer must atomically advance this boundary with prefix deletion
+and check it across catchup/authorization awaits before replay; observed ring
+rows alone do not certify completeness. Role, concurrent purge/drain and socket
+proof remain required before realtime acceptance.
 
 Forward migration integrity is required. A warm local database containing
 older Rooms without trusted host metadata cannot apply the metadata

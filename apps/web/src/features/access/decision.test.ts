@@ -274,3 +274,15 @@ describe('return links', () => {
     });
   });
 });
+
+test('persisted Round destinations require a participant, including normalized descendants', () => {
+  assert({
+    given: 'a Round receipt, a doubled slash descendant and a public lookalike',
+    should:
+      'guard the real Round area without treating a lookalike as that area',
+    actual: ['/rounds/round-id', '/rounds//round-id', '/roundship'].map(
+      requirementFor,
+    ),
+    expected: ['participant', 'participant', null],
+  });
+});

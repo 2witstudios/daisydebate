@@ -1,11 +1,11 @@
 import { z } from 'zod';
 import { databaseUrl, redisUrl } from './urls';
-export { readRealtimeTransportConfig } from './realtime-transport';
 import { realtimePublicUrlSchema } from './realtime-endpoint';
 export {
   readRealtimePublicUrl,
   realtimePublicUrlSchema,
 } from './realtime-endpoint';
+export { readRealtimeTransportConfig } from './realtime-transport';
 
 export { requireTestServices, requireTestSlotServices } from './test-services';
 export {

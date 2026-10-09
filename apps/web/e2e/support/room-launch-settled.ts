@@ -7,6 +7,17 @@ import { requireLaunchSlot } from './room-launch-slot';
 
 export const launchControlPath = (id: string) =>
   join(tmpdir(), `daisy-room-launch-${id}.json`);
+/** Close owned browser contexts even when the auth control refuses settlement. */
+export async function closeSettledLaunchContexts(
+  accounts: { closeContexts(): Promise<void> },
+  settle: () => Promise<void> = settledLaunchAuth,
+) {
+  try {
+    await settle();
+  } finally {
+    await accounts.closeContexts();
+  }
+}
 /** Await the actual auth process's background work before recording/closing. */
 export async function settledLaunchAuth() {
   const { id } = requireLaunchSlot(

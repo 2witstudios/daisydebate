@@ -8,6 +8,7 @@ import {
   serverGlobCases,
   sharedFixtureCases,
   type Problems,
+  throwSuitePaths,
 } from './eslint.config.test-support';
 
 setupRitewayBun();
@@ -207,15 +208,8 @@ describe('restrictions every no-restricted-syntax list carries', () => {
       ([message, type]) =>
         `import { expect } from 'bun:test';\nawait expect(async () => {}).rejects.toThrow(${message});\nexpect(() => {}).toThrowError(${type});\nexpect(() => {}).not.toThrow();`,
     ) as [string, string];
-    const suites = [
-      web('server/x.test.ts'),
-      'packages/db/integration/x.integration.ts',
-      'apps/web/integration/x.integration.ts',
-      'apps/web/e2e/x.e2e.ts',
-      'scripts/x.test.ts',
-    ];
     const { actual, expected } = table([
-      ...suites.map((suite): Problems => [bare, suite, 2]),
+      ...throwSuitePaths.map((suite): Problems => [bare, suite, 2]),
       [named, web('server/x.test.ts'), 0],
     ]);
     assert({

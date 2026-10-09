@@ -10,6 +10,7 @@ const controls: RoomFormControls = {
       key: 'AC',
       label: 'Affirmative constructive',
       side: 'affirmative',
+      slot: 0,
       type: 'speech',
       defaultDurationMs: 360000,
       minDurationMs: 30000,
@@ -19,6 +20,7 @@ const controls: RoomFormControls = {
       key: 'NC',
       label: 'Negative constructive',
       side: 'negative',
+      slot: 0,
       type: 'speech',
       defaultDurationMs: 420000,
       minDurationMs: 30000,
@@ -28,6 +30,7 @@ const controls: RoomFormControls = {
       key: 'AR',
       label: 'Affirmative rebuttal',
       side: 'affirmative',
+      slot: 0,
       type: 'speech',
       defaultDurationMs: 180000,
       minDurationMs: 30000,
@@ -37,6 +40,7 @@ const controls: RoomFormControls = {
       key: 'NR',
       label: 'Negative rebuttal',
       side: 'negative',
+      slot: 0,
       type: 'speech',
       defaultDurationMs: 240000,
       minDurationMs: 30000,
@@ -94,6 +98,31 @@ const html = (
   pending = false,
 ) => renderToString(<RoomFormFields {...props(changes, editable, pending)} />);
 describe('standalone room form renderer', () => {
+  test('team preview names the assigned speaker on each side', () => {
+    const out = renderToString(
+      <RoomFormFields
+        {...props()}
+        controls={{
+          ...controls,
+          segments: controls.segments.map((segment) => ({
+            ...segment,
+            slot: segment.side === 'affirmative' ? 1 : 2,
+          })),
+        }}
+      />,
+    );
+    assert({
+      given: 'speeches belonging to different teammates',
+      should:
+        'show the assigned seat alongside each speech rather than imply the first speaker owns every speech',
+      actual: [
+        out.includes('(Affirmative 2)'),
+        out.includes('(Negative 3)'),
+        out.includes('(Affirmative 1)'),
+      ],
+      expected: [true, true, false],
+    });
+  });
   test('renders unequal counts, exact preview and native intents', () => {
     const out = html();
     assert({

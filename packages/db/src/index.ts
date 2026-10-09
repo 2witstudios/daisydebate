@@ -196,6 +196,10 @@ export function createDatabase({
     messagingSocialStore: (authorize: MessagingSocialAuthorizationFence) =>
       createMessagingSocialStore({ database, authorize }),
     ...outboxOperations({ database, eventSink }),
+    readOutboxRetentionBoundary: () =>
+      instrumented(eventSink, 'readOutboxRetentionBoundary', () =>
+        readOutboxRetentionBoundary(database),
+      ),
     readOutboxCatchup: (
       topic: string,
       since: string,
@@ -204,10 +208,6 @@ export function createDatabase({
     ) =>
       instrumented(eventSink, 'readOutboxCatchup', () =>
         readOutboxCatchup(database, topic, since, through, limit),
-      ),
-    readOutboxRetentionBoundary: () =>
-      instrumented(eventSink, 'readOutboxRetentionBoundary', () =>
-        readOutboxRetentionBoundary(database),
       ),
     ...formatOperations({ database, eventSink }),
     ...roomOperations({ database, eventSink }),
