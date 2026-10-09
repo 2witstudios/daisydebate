@@ -10,27 +10,19 @@ import { createMessagingTestFixture } from '../src/testing';
 import { lockAuthorizationActors } from '../src/authorization';
 import { rejectedBy } from './constraint-helpers';
 import {
-  channelFileFrame,
+  withFileProofFrame,
+  fileDatabaseProofPolicy as policy,
+} from './messaging-files.test-support';
+import {
   acknowledgeFileDeletion,
   eraseSubjectFiles,
   exportSubjectFiles,
   chargedFileBytes,
   acknowledgeErasedFileDeletion,
 } from '../src/messaging-files';
-import type { FileFrame, FilePolicy } from '../src/messaging-files';
+import type { FileFrame } from '../src/messaging-files';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
-const policy: FilePolicy = {
-  maxFileBytes: 100,
-  maxStoredBytes: 100,
-  maxStoredFiles: 2,
-  maxFilesPerMessage: 1,
-  reservationMs: 1000,
-  accessMs: 100,
-  maxFilenameUnits: 50,
-  maxImagePixels: 100,
-  serviceMs: 1000,
-};
 
 test('file quota is fenced and remains charged until actual object deletion acknowledgement', async () => {
   const client = new SQL(databaseUrl);
@@ -45,8 +37,7 @@ test('file quota is fenced and remains charged until actual object deletion ackn
     throw error;
   }
   const fixture = await createMessagingTestFixture(client);
-  const { channelId, actorId, userId, otherActorId, now } = fixture;
-  const scope = { channelId, actorId, userId };
+  const { channelId, actorId, otherActorId, now } = fixture;
   const command = () => ({
     id: createId(),
     objectKey: createId(),
@@ -58,24 +49,7 @@ test('file quota is fenced and remains charged until actual object deletion ackn
   const withFrame = <T>(
     work: (frame: FileFrame) => Promise<T>,
     denied = false,
-  ) =>
-    database.transaction(async (tx) => {
-      await lockAuthorizationActors(tx, [actorId, otherActorId].sort(), {
-        maxActors: 2,
-      });
-      const rows = await tx.execute(
-        sql`select id, change_version from messaging_channels where id=${channelId} for update`,
-      );
-      const counters = {
-        channelId,
-        changeVersion: Number(rows[0]!.change_version),
-      };
-      return work(
-        channelFileFrame(tx, scope, counters, async () => {
-          if (denied) throw createAppError('AUTHORIZATION');
-        }),
-      );
-    });
+  ) => withFileProofFrame(database, fixture, work, denied);
   let erasedKey: string | null = null;
   try {
     const results = await Promise.allSettled([
