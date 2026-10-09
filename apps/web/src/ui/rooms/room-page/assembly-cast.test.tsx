@@ -6,7 +6,7 @@ import { AssemblyCast } from './assembly-cast';
 setupRitewayBun();
 
 const nativeIntents = {
-  action: async () => {},
+  action: async () => ({ values: {} }),
   commandIds: Array.from({ length: 6 }, (_, index) => ({
     claim: `claim-${index}`,
     assign: `assign-${index}`,

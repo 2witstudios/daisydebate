@@ -7,7 +7,7 @@ setupRitewayBun();
 const actorId = assemblySnapshot.hostActorId;
 const nativeProps = {
   actorId,
-  action: async () => {},
+  action: async () => ({ values: {} }),
   read: async () => ({ kind: 'found' as const, view: assemblySnapshot }),
   send: async () => ({ kind: 'unavailable' as const }),
   commandIds: {
