@@ -195,3 +195,31 @@ test('runtime shutdown cancels both polling and reauthorization timers exactly o
     },
   });
 });
+
+for (const tls of [undefined, { key: 'fixture-key', cert: 'fixture-cert' }])
+  test(`native listener preserves explicit TLS presence ${Boolean(tls)}`, async () => {
+    let options: object = {};
+    const running = await serveRealtime({
+      resources: fakeApp({
+        listenOutbox: async () => ({ unlisten: async () => {} }),
+        readOutboxHighWaterMark: async () => OUTBOX_ORIGIN,
+      }),
+      port: 0,
+      ...(tls ? { tls } : {}),
+      serve: ((input: object) => {
+        options = input;
+        return { stop: async () => {} };
+      }) as unknown as typeof Bun.serve,
+    });
+    await running.close();
+    assert({
+      given: 'the native runtime with an optional injected TLS certificate',
+      should:
+        'forward exactly supplied TLS or omit it for the existing listener',
+      actual: {
+        tls: 'tls' in options ? options.tls : undefined,
+        present: 'tls' in options,
+      },
+      expected: { tls, present: Boolean(tls) },
+    });
+  });

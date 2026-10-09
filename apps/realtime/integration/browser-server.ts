@@ -71,12 +71,7 @@ const runtime = await serveRealtime({
   readingPolicy: messagingTestReading,
   port,
   hostname: '127.0.0.1',
-  serve: ((options) =>
-    Bun.serve({
-      ...options,
-      hostname: '127.0.0.1',
-      tls: { key, cert },
-    })) as typeof Bun.serve,
+  tls: { key, cert },
 });
 let closing: Promise<void> | undefined;
 for (const signal of ['SIGTERM', 'SIGINT'] as const)
