@@ -9,6 +9,8 @@ import {
   messagingContactPairs,
   messagingDmPairs,
   messagingGroupGrants,
+  messagingGroupInvitations,
+  messagingSocialCommands,
 } from '../src/schema/messaging-social';
 import {
   messagingMessages,
@@ -88,6 +90,7 @@ export async function withPrivacyMessaging(
         channelId: dmId,
         requestSenderActorId: actorId,
         requestState: 'accepted',
+        introduction: 'Subject introduction',
         requestedAt: timestamp,
         decidedAt: timestamp,
       });
@@ -107,6 +110,67 @@ export async function withPrivacyMessaging(
           grantedAt: timestamp,
         },
       ]);
+      await database.insert(messagingGroupInvitations).values([
+        {
+          channelId: groupId,
+          inviteeActorId: actorId,
+          invitedByActorId: otherActorId,
+          generation: 1,
+          state: 'accepted',
+          invitedAt: timestamp,
+          decidedAt: timestamp,
+        },
+        {
+          channelId: groupId,
+          inviteeActorId: otherActorId,
+          invitedByActorId: actorId,
+          generation: 1,
+          state: 'declined',
+          invitedAt: timestamp,
+          decidedAt: timestamp,
+        },
+      ]);
+      await database.insert(messagingSocialCommands).values([
+        {
+          actorId,
+          requestId: createId(),
+          kind: 'dm.request',
+          digest: 'a'.repeat(64),
+          resultChannelId: dmId,
+          createdAt: timestamp,
+        },
+        {
+          actorId,
+          requestId: createId(),
+          kind: 'group.invite',
+          digest: null,
+          resultChannelId: groupId,
+          createdAt: timestamp,
+        },
+        {
+          actorId: otherActorId,
+          requestId: createId(),
+          kind: 'dm.decide',
+          digest: 'b'.repeat(64),
+          resultChannelId: dmId,
+          createdAt: timestamp,
+        },
+        {
+          actorId: otherActorId,
+          requestId: createId(),
+          kind: 'group.create',
+          digest: 'c'.repeat(64),
+          resultChannelId: groupId,
+          createdAt: timestamp,
+        },
+      ]);
+      await database.insert(messagingReceipts).values({
+        channelId: dmId,
+        actorId,
+        requestId: createId(),
+        payloadDigest: null,
+        messageId: null,
+      });
       await database.insert(messagingMessages).values([
         {
           id: ownMessageId,
@@ -131,15 +195,13 @@ export async function withPrivacyMessaging(
         [actorId, ownMessageId],
         [otherActorId, otherMessageId],
       ] as const) {
-        await database
-          .insert(messagingActorStates)
-          .values({
-            channelId: dmId,
-            actorId: owner,
-            following: true,
-            hidden: false,
-            notificationLevel: 'all',
-          });
+        await database.insert(messagingActorStates).values({
+          channelId: dmId,
+          actorId: owner,
+          following: true,
+          hidden: false,
+          notificationLevel: 'all',
+        });
         await database.insert(messagingReceipts).values({
           channelId: dmId,
           actorId: owner,
@@ -178,6 +240,15 @@ export async function withPrivacyMessaging(
         `channel:${dmId}`,
         `channel:${groupId}`,
       ]);
+      // Missing migration must fail setup, while cleanup still releases older fixtures.
+      const socialTable = await client.unsafe(
+        "select to_regclass('public.messaging_social_commands') is not null as present",
+      );
+      if (socialTable[0]?.present)
+        await client.unsafe(
+          'delete from messaging_social_commands where actor_id in ($1,$2)',
+          [actorId, otherActorId],
+        );
       await client.unsafe(
         'delete from messaging_dm_pairs where low_actor_id=$1 or high_actor_id=$1',
         [actorId],
