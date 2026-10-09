@@ -6,6 +6,7 @@ import { watchCspViolations } from './support/csp';
 import { expect, test as base, openPage } from './support/fixtures';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
 import { prepareJudgeRoom } from './support/room-launch-flow';
+import { settledLaunchAuth } from './support/room-launch-settled';
 
 const documentsPath = '/api/debate-room/documents/';
 type RoundFiles = {
@@ -52,7 +53,11 @@ const test = base.extend<{ roundFiles: RoundFiles }>({
       });
     } finally {
       // Competitive history stays in the dedicated slot until reviewed lifecycle release.
-      await accounts.close();
+      try {
+        await settledLaunchAuth();
+      } finally {
+        await accounts.closeContexts();
+      }
     }
   },
 });
