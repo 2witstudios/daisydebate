@@ -20,6 +20,7 @@ export type BrowserProofContract = {
   readonly profile?: string;
   readonly reportCommand?: string;
   readonly outputDir?: string;
+  readonly companionCommands?: readonly string[];
 };
 const parseConfig = (text: string) =>
   ts.createSourceFile(
@@ -123,7 +124,10 @@ function hasReport(steps: readonly unknown[], command: string | undefined) {
     const enforced =
       step?.if === undefined || step?.if === '${{ always() && !cancelled() }}';
     return (
-      enforced && typeof step?.run === 'string' && step.run.trim() === command
+      enforced &&
+      step?.['continue-on-error'] === undefined &&
+      typeof step?.run === 'string' &&
+      step.run.trim() === command
     );
   });
 }
@@ -131,18 +135,40 @@ function claimedSteps(
   workflow: string,
   command: string,
   reportCommand: string | undefined,
+  companions: readonly string[] = [],
 ): number {
   try {
     const jobs = record(record(Bun.YAML.parse(workflow))?.jobs);
     return Object.values(jobs ?? {}).flatMap((value) => {
       const job = record(value);
-      if (!job || job.if !== undefined || !Array.isArray(job.steps)) return [];
+      if (
+        !job ||
+        job.if !== undefined ||
+        job['continue-on-error'] !== undefined ||
+        !Array.isArray(job.steps)
+      )
+        return [];
+      if (
+        !companions.every((command) =>
+          job.steps.some((value: unknown) => {
+            const step = record(value);
+            return (
+              step?.if === undefined &&
+              step?.['continue-on-error'] === undefined &&
+              typeof step?.run === 'string' &&
+              [`bun ${command}`, `bun run ${command}`].includes(step.run.trim())
+            );
+          }),
+        )
+      )
+        return [];
       if (!hasReport(job.steps, reportCommand)) return [];
       return job.steps.filter((value) => {
         const step = record(value);
         return (
           step &&
           step.if === undefined &&
+          step['continue-on-error'] === undefined &&
           typeof step.run === 'string' &&
           [`bun ${command}`, `bun run ${command}`].includes(step.run.trim())
         );
@@ -211,6 +237,7 @@ export function browserProofClaimProblems(
     input.workflow,
     contract.command,
     contract.reportCommand,
+    contract.companionCommands,
   );
   if (jobs === 0)
     missing(

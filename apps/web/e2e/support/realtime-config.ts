@@ -1,6 +1,7 @@
 import { resolve } from 'node:path';
 import { defineConfig } from '@playwright/test';
-import canonical, {
+import canonical from './room-launch-config';
+import {
   resolveE2EOrigin,
   resolveE2EPorts,
   resolveE2EServices,
