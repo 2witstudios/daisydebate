@@ -15,6 +15,10 @@ import { rounds } from './schema/rounds';
 
 export type NewRoom = {
   readonly id: string;
+  readonly hostActorId: string;
+  readonly title: string;
+  readonly topic: string;
+  readonly visibility: 'public' | 'unlisted' | 'private';
   readonly formatId: string;
   readonly formatVersion: number;
   readonly presetVersion: number | null;
@@ -41,6 +45,10 @@ export const newRoomValues = (
   status: 'assembling' | 'started',
 ) => ({
   id: room.id,
+  hostActorId: room.hostActorId,
+  title: room.title,
+  topic: room.topic,
+  visibility: room.visibility,
   formatId: room.formatId,
   formatVersion: room.formatVersion,
   presetVersion: room.presetVersion,
@@ -262,6 +270,8 @@ export const roomOperations = ({
         await tx.insert(rounds).values({
           id: input.roundId,
           roomId: room.id,
+          createdByActorId: room.hostActorId,
+          roomConfigSnapshot: room.config,
           resolution: input.resolution,
           competitionType: room.competitionType,
           length: room.length,

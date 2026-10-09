@@ -6,7 +6,7 @@ import { aiPracticeRoom } from './ai-practice-admission.test-support';
 setupRitewayBun();
 
 const admission = () => ({
-  room: aiPracticeRoom('room-1', 'foundation', 1),
+  room: aiPracticeRoom('room-1', 'foundation', 1, 'person-1'),
   seats: [
     { id: 'seat-1', actorId: 'person-1', role: 'affirmative' as const },
     { id: 'seat-2', actorId: 'bot-1', role: 'negative' as const },

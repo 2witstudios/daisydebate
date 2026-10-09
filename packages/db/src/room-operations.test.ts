@@ -12,6 +12,10 @@ const rules = validRules;
 
 const roomInput = () => ({
   id: roomId,
+  hostActorId: 'host-actor',
+  title: 'Proof room',
+  topic: 'A motion',
+  visibility: 'public' as const,
   formatId: 'foundation',
   formatVersion: 1,
   presetVersion: null,
@@ -27,6 +31,12 @@ const roomInput = () => ({
 // rulesSnapshot, prepStartedAt, prepRemainingMs, status, createdAt, updatedAt.
 const roomRow = (overrides: Record<string, unknown> = {}) => [
   roomId,
+  'host-actor',
+  'Proof room',
+  'A motion',
+  'public',
+  1,
+  1,
   'foundation',
   1,
   null,
@@ -189,7 +199,7 @@ describe('roomOperations', () => {
       ['seat-3', 'actor-3', 'judge', 0],
     ];
     const { database, queries } = createTestDatabase([
-      [{ ...roomRow({ status: 'ready' }), 8: seatedRules }],
+      [{ ...roomRow({ status: 'ready' }), 14: seatedRules }],
       seats,
       [],
       [],

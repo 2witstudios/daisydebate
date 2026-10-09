@@ -6,6 +6,7 @@ import {
   ratingLadders,
   roundLengthSchema,
   roundRulesSchema,
+  roomConfigSchema,
   roundStageSchema,
   roundStatusSchema,
   runtimeCheckpointSchema,
@@ -79,6 +80,7 @@ export const rounds = pgTable(
     formatVersion: integer('format_version').notNull(),
     /** Which approved preset resolved this; null for casual and practice. */
     presetVersion: integer('preset_version'),
+    roomConfigSnapshot: jsonbColumn('room_config_snapshot', roomConfigSchema),
     rulesSnapshot: jsonbColumn('rules_snapshot', roundRulesSchema).notNull(),
     status: text('status').$type<RoundStatus>().notNull(),
     currentStage: text('current_stage').$type<RoundStage>(),
@@ -114,7 +116,7 @@ export const rounds = pgTable(
       ),
       // Every foreign key gets an index leading with its columns, so a
       // RESTRICT probe and the provenance joins never scan the table.
-      index('rounds_room_idx').on(table.roomId),
+      unique('rounds_room_unique').on(table.roomId),
       index('rounds_created_by_actor_idx').on(table.createdByActorId),
       index('rounds_definition_revision_idx').on(
         table.formatId,
