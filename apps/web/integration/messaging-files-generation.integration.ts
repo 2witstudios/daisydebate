@@ -23,12 +23,6 @@ for (const mutation of ['posting', 'generation'] as const) {
     try {
       const token = await f.quarantine();
       scan = startFileFinalization(f, token);
-      const rejection = assertRejects({
-        given: `real clean scan completes after ${mutation} changed`,
-        should: 'refuse late attachment and preserve the newer canonical state',
-        actual: () => scan!.finalizing,
-        code: mutation === 'posting' ? 'AUTHORIZATION' : 'CONFLICT',
-      });
       await scan.waitForScan(scan.finalizing);
       if (mutation === 'posting') {
         await f.client.unsafe(
@@ -43,7 +37,12 @@ for (const mutation of ['posting', 'generation'] as const) {
         await renewMessagingFile(token, f.principal, f.dependencies);
       }
       scan.release();
-      await rejection;
+      await assertRejects({
+        given: `real clean scan completes after ${mutation} changed`,
+        should: 'refuse late attachment and preserve the newer canonical state',
+        actual: () => scan!.finalizing,
+        code: mutation === 'posting' ? 'AUTHORIZATION' : 'CONFLICT',
+      });
       const row = await f.fileRow(token.fileId);
       assert({
         given: 'late scanner and cleanup completion',

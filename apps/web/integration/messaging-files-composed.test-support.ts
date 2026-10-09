@@ -73,7 +73,7 @@ export async function openComposedFileFixture(
         [fixture.channelId],
       );
       await client.unsafe(
-        "update messaging_channels set kind='private_group',policy_key='social.private_group' where id=$1",
+        "update messaging_channels set kind='private_group',policy_key='social.private_group',title='File proof group' where id=$1",
         [fixture.channelId],
       );
       await client.unsafe(
@@ -221,12 +221,13 @@ export function startFileFinalization(
   },
 ) {
   const scan = controlledFileScan(f.dependencies.scanner);
-  return {
-    ...scan,
-    finalizing: finalizeMessagingFile(
-      { ...token, messageId: f.messageId },
-      f.principal,
-      { ...f.dependencies, scanner: scan.scanner },
-    ),
-  };
+  const finalizing = finalizeMessagingFile(
+    { ...token, messageId: f.messageId },
+    f.principal,
+    { ...f.dependencies, scanner: scan.scanner },
+  );
+  // The test awaits this same promise through the entry fence and typed assertion.
+  // Observe early transport failure immediately so it cannot escape between tests.
+  void finalizing.catch(() => {});
+  return { ...scan, finalizing };
 }
