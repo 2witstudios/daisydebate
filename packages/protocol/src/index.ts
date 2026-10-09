@@ -85,6 +85,7 @@ export {
   buildUserInboxTopic,
   buildDebateTopic,
   buildChannelTopic,
+  buildRoomTopic,
 } from './topics';
 export {
   emailDeliveryStatuses,
@@ -152,3 +153,10 @@ export { createMessagingCoreSchemas } from './messaging/core';
 export type { MessagingCoreBounds } from './messaging/core';
 export { createMessagingSocialSchemas } from './messaging/social';
 export type { MessagingSocialBounds } from './messaging/social';
+export type {
+  RoomAssemblyState,
+  RoomConsent,
+  RoomMutation,
+  RoomMutationOutcome,
+  RoomCastChoice,
+} from './room-contract';

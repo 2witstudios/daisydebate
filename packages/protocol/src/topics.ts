@@ -16,6 +16,7 @@ const seasonIdSchema = z.string().regex(/^[a-z0-9]([a-z0-9-]{0,62}[a-z0-9])?$/);
  * (realtime-payloads.ts) is keyed by it.
  */
 const topicFamilies = [
+  'room',
   'debate',
   'debate:presence',
   'debate:chat',
@@ -30,10 +31,11 @@ type ParsedTopic =
   | {
       readonly family: Exclude<
         TopicFamily,
-        'user:inbox' | 'standings' | 'channel'
+        'user:inbox' | 'standings' | 'channel' | 'room'
       >;
       readonly debateId: string;
     }
+  | { readonly family: 'room'; readonly roomId: string }
   | { readonly family: 'user:inbox'; readonly actorId: string }
   | { readonly family: 'channel'; readonly channelId: string }
   | { readonly family: 'standings'; readonly season: string };
@@ -67,6 +69,7 @@ export function parseTopic(topic: string): ParsedTopic | undefined {
       : undefined;
   if (!idSchema.safeParse(key).success) return undefined;
   if (family.data === 'channel') return { family: 'channel', channelId: key };
+  if (family.data === 'room') return { family: 'room', roomId: key };
   return family.data === 'user:inbox'
     ? { family: 'user:inbox', actorId: key }
     : { family: family.data, debateId: key };
@@ -104,3 +107,5 @@ export const buildDebateTopic = (debateId: string): string =>
 /** Persistent messaging authorization boundary (ADR 0060). */
 export const buildChannelTopic = (channelId: string): string =>
   `channel:${idSchema.parse(channelId)}`;
+export const buildRoomTopic = (roomId: string): string =>
+  `room:${idSchema.parse(roomId)}`;

@@ -25,6 +25,11 @@ const channelChangedPayloadSchema = z.strictObject({
  * server message instead, which carries no outbox position or kind.
  */
 const doorbellKinds = ['debate.phase-changed', 'standings.updated'] as const;
+const roomChangedPayloadSchema = z.strictObject({
+  entityVersion: entityVersionSchema,
+  kind: z.literal('room.changed'),
+  ids: z.array(idSchema).length(1),
+});
 const doorbellKindSchema = z.enum(doorbellKinds);
 
 /** The doorbell shape: nothing beyond ids, kind and entity version. */
@@ -87,6 +92,7 @@ const actorPresencePreferenceChangedPayloadSchema = z.strictObject({
 export const outboxPayloadSchema = z.discriminatedUnion('kind', [
   channelChangedPayloadSchema,
   doorbellPayloadSchema,
+  roomChangedPayloadSchema,
   inboxDeltaPayloadSchema,
   sessionRevokedPayloadSchema,
   accessRevokedPayloadSchema,
@@ -108,6 +114,7 @@ const storageFamilyPayloadKinds: Readonly<
   Record<TopicFamily, readonly OutboxPayloadKind[]>
 > = {
   channel: ['channel.changed'],
+  room: ['room.changed'],
   debate: ['debate.phase-changed'],
   'debate:presence': [],
   'debate:chat': [],
@@ -139,6 +146,12 @@ export function isPayloadStorableOnTopic(
       parsedPayload.data.kind === 'channel.changed' &&
       parsedPayload.data.channelId === parsedTopic.channelId
     );
+  if (
+    parsedTopic.family === 'room' &&
+    (parsedPayload.data.kind !== 'room.changed' ||
+      parsedPayload.data.ids[0] !== parsedTopic.roomId)
+  )
+    return false;
   return storageFamilyPayloadKinds[parsedTopic.family].includes(
     parsedPayload.data.kind,
   );
