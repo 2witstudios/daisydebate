@@ -1,3 +1,4 @@
+import { contactPairValid } from './authorization-contact';
 import { policySelfCurrent } from './authorization-policy';
 import type {
   AuthorizationCapability,
@@ -10,9 +11,7 @@ import { socialAccountsEligible } from './social-policy';
 const positive = (value: number) => Number.isSafeInteger(value) && value > 0;
 function validPair(pair: ContactAuthorizationFact, members: readonly string[]) {
   return (
-    typeof pair.blocked === 'boolean' &&
-    pair.lowActorId < pair.highActorId &&
-    positive(pair.revision) &&
+    contactPairValid(pair) &&
     members.includes(pair.lowActorId) &&
     members.includes(pair.highActorId)
   );
