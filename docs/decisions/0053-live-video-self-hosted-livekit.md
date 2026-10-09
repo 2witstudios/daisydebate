@@ -61,7 +61,7 @@ A pure policy in `@daisy/debate-engine` receives authoritative participant seats
 
 - Human debaters may publish camera throughout a non-terminal session. Human and bot microphones publish only when eligible under the current segment and interaction rules. Prep closes microphones.
 - Interaction segments follow `RoundRules.interaction` and the accepted floor; do not universally assume both debaters may speak in every cross-examination.
-- Before the first segment and while awaiting a ballot inside the judging window, debaters may publish camera and microphone, preserving the confirmed policy.
+- Before the first segment and while awaiting a ballot inside the judging window, debaters may publish camera and microphone, preserving the confirmed policy. These grants permit conversation, not competitive transcript capture; no durable segment means no capture eligibility.
 - Judge seats subscribe hidden and publish nothing. Data, own metadata updates, screen sharing and room administration are never granted.
 - Completed or abandoned rounds, and sessions beyond the judging window, grant nothing.
 
@@ -162,18 +162,42 @@ Read transcripts ordered by durable segment sequence and then utterance sequence
 
 The worker leases a session and joins hidden/subscribe-only outside the
 competition seats. It receives 16 kHz mono human microphone PCM. Capture is
-cut against committed historical speaking-permission intervals, not the
-latest checkpoint or segment timetable. CAP materializes those intervals
+cut against capture-eligible intervals: the intersection of legal speaking
+permission and an actual durable segment open at the frame observation time.
+Publication permission alone never authorizes capture. CAP materializes
+those intervals
 atomically with accepted runtime transitions/ticks and exposes a signed
 worker reader; command payload digests cannot reconstruct them. Both worker
 and web ingress validate the same interval history. This is a derived read
 model, not event sourcing or another lifecycle.
 
+Capture requires a real segment scoped to the same Round and a valid speaking
+participant. Its actual opening/closure instants, including early closure,
+bound the eligible interval. Before the first segment, between segments and
+while awaiting a ballot, a microphone may be publication-enabled but PCM has
+no competitive segment. Discard that PCM before clip assembly, transcription,
+queueing or handoff; bot consumption in those windows also creates no
+competitive utterance or publication-accounting update. Never buffer it for
+the next segment, assign it to the last segment, synthesize a segment or
+create a segmentless utterance. No competitive capture/seal stream is created
+for those conversation windows. Discarding conversation outside competitive
+intervals is not itself a gap in required segment coverage or a silence seal;
+missing observation inside a required capture interval still makes it partial.
+
+“Open segment” refers to the observation/consumption interval, not whether
+the segment is still open when a delayed valid clip reaches ingress. A clip
+observed entirely within a historically open durable segment may still be
+flushed after closure while its transcript stream remains write-open, before
+cutoff/freeze, subject to the existing fencing and identity checks. Ingress
+independently verifies both segment membership/timing and historical speaking
+permission; a supplied segment ID cannot relabel pre/post-segment PCM.
+
 Map monotonic frame observations to PostgreSQL time using a bracketed
 `clock_timestamp()` calibration. The plan requires at most 100 ms round
 trips, refresh within 30 s and 100 ppm drift widening. Admit only frames
 whose full mapped observation interval including uncertainty lies inside
-eligibility. Boundary uncertainty, reconnect, stale calibration or cadence
+both the durable segment's actual open interval and its speaking-permission
+interval. Boundary uncertainty, reconnect, stale calibration or cadence
 stall creates a coverage gap; buffered frames are not retimestamped after
 reset. Exact source/acoustic time and network transit are not claimed.
 
@@ -188,7 +212,8 @@ path, timestamp and body with HMAC-SHA256 and `MEDIA_WORKER_SECRET`; validate
 clock skew and compare signatures in constant time. In one PostgreSQL
 transaction, ingress locks Round, session lease and stream rows in stable
 order, checks unexpired worker/job/epoch and scoped identities, validates
-historical eligibility, deduplicates and writes only to an open stream before
+durable segment identity/open interval and historical speaking eligibility,
+deduplicates and writes only to an open stream before
 cutoff and freeze. Takeover locks only the lease and never requests Round
 afterward. Expired leases are refused even without takeover.
 
@@ -211,7 +236,9 @@ that evidence is unavailable, publication accounting has a feasibility
 blocker, not an invented implementation.
 
 Count only a phrase's contiguous consumed prefix whose full calibrated
-consumption bounds lie in historical speaking intervals. At the first
+consumption bounds lie in both its actual durable segment open interval and
+historical speaking interval. Segmentless publication contributes no judged
+text, even if its microphone grant is enabled. At the first
 ineligible/uncertain sample, cancel the remainder; reopening the floor
 cannot stitch it into the old phrase. Queued audio does not count. Reuse the
 pure `heardText` prefix estimate against eligible published duration; it is
@@ -307,6 +334,11 @@ tracked work (ISSUE-333 and ISSUE-322); this ADR does not claim either shipped.
   human camera, bot portrait/LiveKit voice, runtime grants, human capture,
   eligible bot transcript, frozen input and real ballot, then media teardown.
   It proves both complete coverage and honest partial coverage reaching judging.
+- Capture-policy proofs distinguish grants from segment membership: pre-first,
+  inter-segment and awaiting-ballot microphones may publish but never produce
+  clips, STT calls or utterances. Reject forged adjacent segment IDs and
+  uncertain boundary frames; accept delayed flushing only for PCM wholly
+  inside the actual historical open segment, with all stream/lease guards.
 - Real services prove grant crash recovery, stale/expired lease refusal,
   append-versus-takeover/freeze/cutoff races, bounded stalled-writer recovery
   and durable judging recovery. Removing those protections must fail tests.
