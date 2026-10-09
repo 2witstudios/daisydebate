@@ -68,6 +68,22 @@ test('realtime age producer exposes monthly bands under the canonical erasure fe
             : null,
         ),
       });
+      await fixture.sql`update account_age set birth_month='2000-01',recorded_at='-infinity' where user_id=${userId}`;
+      await fixture.sql.begin(async (client) => {
+        await client`set local role daisy_realtime`;
+        assert({
+          given: 'a nonfinite persisted recording timestamp',
+          should: 'match the pure age projector refusal',
+          actual: await loadAuthorizationAgeFact(drizzle({ client }), {
+            userId,
+            actorId,
+            accountRevision: 1,
+            now,
+          }),
+          expected: { state: 'unknown' },
+        });
+      });
+      await fixture.sql`update account_age set recorded_at='2026-09-01T00:00:00Z' where user_id=${userId}`;
       await fixture.sql.begin(async (client) => {
         await client`set local role daisy_realtime`;
         await loadAuthorizationAgeFact(drizzle({ client }), {

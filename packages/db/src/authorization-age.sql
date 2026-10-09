@@ -35,6 +35,7 @@ BEGIN
     ) AS classified
     WHERE account."actorId" = requested_actor_id AND account.member AND NOT account.erased
       AND account.revision = account_revision AND age_source.version > 0
+      AND pg_catalog.isfinite(age_source.recorded_at)
       AND age_source.recorded_at <= checked_at AND classified.age_months >= 0;
 END;
 $authorization_age$;

@@ -57,4 +57,14 @@ test('minimal age inputs reject before transaction I/O', async () => {
       loadAuthorizationAgeFact(tx, { ...input, actorId: 'invalid' }),
     code: 'VALIDATION',
   });
+  await assertRejects({
+    given: 'a non-string injected timestamp',
+    should: 'refuse safely before date parsing or SQL',
+    actual: () =>
+      loadAuthorizationAgeFact(tx, {
+        ...input,
+        now: Symbol('invalid') as unknown as string,
+      }),
+    code: 'VALIDATION',
+  });
 });
