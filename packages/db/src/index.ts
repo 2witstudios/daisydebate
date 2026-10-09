@@ -8,6 +8,7 @@ import {
 } from './listen';
 import { claimUsername } from './username-claim';
 import { authOperations } from './auth-operations';
+import { authorizationSessionOperations } from './authorization-session';
 import { formatOperations } from './format-operations';
 import { roomCommandOperations } from './room-command-operations';
 import { roomOperations } from './room-operations';
@@ -160,6 +161,7 @@ export function createDatabase({
       await client.close({ timeout: 5 });
     },
     ...authOperations({ database, eventSink }),
+    ...authorizationSessionOperations({ database }),
     ...emailDeliveryOperations({ database, eventSink }),
     ...actorOperations({ database, eventSink }),
     messagingFileStore: (
