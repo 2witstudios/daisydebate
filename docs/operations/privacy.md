@@ -81,6 +81,34 @@ classify every one of its fields the same way a database column would
 before it can ride a topic: a `personal`/`public` value is allowed once
 classified; a `personal`/`private`, `sensitive` or `secret` value never is.
 
+### Provisional messaging inbox invalidation declaration
+
+The branch contract `messaging.inbox.changed` contains exactly `kind` and
+`actorId`. It invalidates only the actor's protected collection; it contains
+no channel, request, message, content, or entity version. The topic actor
+must match `actorId`. This declaration records the proposed processing; it
+confers no delivery, storage, collection, or retention approval.
+
+| Field     | Category / visibility                | Storage / owner                   | Purpose                                                | Lawful basis                              | Retention                                 | Erasure / export                                                                                                       |
+| --------- | ------------------------------------ | --------------------------------- | ------------------------------------------------------ | ----------------------------------------- | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `kind`    | none                                 | postgres (`outbox.payload`) / MSG | Select own protected collection invalidation           | Pending PRIV-3 `jc0qcdvpkmqzrelpaesi3pah` | Pending PRIV-4 `njiorsf64z4iqjm2dbfa3zuu` | No personal value in this field; no independent export                                                                 |
+| `actorId` | personal/private (actor association) | postgres (`outbox.payload`) / MSG | Invalidate only the subject's own protected collection | Pending PRIV-3 `jc0qcdvpkmqzrelpaesi3pah` | Pending PRIV-4 `njiorsf64z4iqjm2dbfa3zuu` | Delete subject association; producer erasure adoption and own-only export disposition must be proved before acceptance |
+
+The delivered bounded privacy adoption gate currently validates exact
+`table.column` declarations. It has no payload-variant registry; these fields
+must not be inserted as fabricated schema columns or treated as a complete
+repository inventory. This canonical declaration and the matching PR entry
+remain the temporary mechanism described above.
+
+ADR 0036 §1/§3 currently prohibits private personal values in both stored and
+delivered outbox payloads. An owner-only topic does not waive that rule. This
+proposed private actor association therefore holds activation and dependent
+acceptance until the owning PRIV-3 resolution reconciles the classification
+and permitted surface. PRIV-4 remains the retention owner; no numeric default,
+legal basis, retention exception, or storage-only exemption is inferred.
+Independent pure implementation and isolated fixture proof may continue under
+these recorded assumptions.
+
 ## Retention
 
 Retention today is scattered across a few ADRs and one doc, until PRIV-3's
