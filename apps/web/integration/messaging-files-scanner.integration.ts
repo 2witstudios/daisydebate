@@ -1,14 +1,15 @@
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { openFileScannerRelay } from './messaging-files.test-support';
+import {
+  openFileScannerRelay,
+  requireFileScannerPort,
+} from './messaging-files.test-support';
 import { createClamdScanner } from '../src/features/messaging/files/clamd';
 setupRitewayBun();
 requireTestServices(process.env);
 // Explicit isolated service, supplied by the scheduled local/CI edge; no public/default scanner.
-const port = Number(process.env.CLAMD_TEST_PORT?.replaceAll(' ', ''));
-if (!Number.isInteger(port) || port < 1 || port > 65535)
-  throw new Error('CLAMD_TEST_PORT must name the isolated local clamd service');
+const port = requireFileScannerPort(process.env.CLAMD_TEST_PORT);
 
 const limits = { maxBytes: 1024, serviceMs: 5000 };
 

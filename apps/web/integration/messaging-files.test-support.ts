@@ -45,3 +45,46 @@ export async function openFileScannerRelay(target: {
     },
   };
 }
+
+export function requireFileScannerPort(value: string | undefined): number {
+  const port = Number(value);
+  if (!Number.isInteger(port) || port < 1 || port > 65535)
+    throw new Error(
+      'CLAMD_TEST_PORT must name the isolated local clamd service',
+    );
+  return port;
+}
+
+/** Pauses only completion of an actual daemon scan; no classification is fabricated. */
+export function controlledFileScan(
+  scanner: import('../src/features/messaging/files/ports').FileScanner,
+) {
+  let enter!: () => void, release!: () => void;
+  const entered = new Promise<void>((done) => {
+    enter = done;
+  });
+  const released = new Promise<void>((done) => {
+    release = done;
+  });
+  return {
+    scanner: {
+      async scan(
+        bytes: Uint8Array,
+        limits: { maxBytes: number; serviceMs: number },
+      ) {
+        const result = await scanner.scan(bytes, limits);
+        enter();
+        await released;
+        return result;
+      },
+    },
+    waitForScan: (finalizing: Promise<unknown>) =>
+      Promise.race([
+        entered,
+        finalizing.then(() => {
+          throw new Error('Expected controlled scan before attachment');
+        }),
+      ]),
+    release,
+  };
+}
