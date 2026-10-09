@@ -160,3 +160,5 @@ export type {
   RoomMutationOutcome,
   RoomCastChoice,
 } from './room-contract';
+
+export type { RoundView } from './round-view';

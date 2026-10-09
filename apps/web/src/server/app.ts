@@ -1,3 +1,4 @@
+import type { RoomPolicy } from '../features/room-runtime/composition';
 import type { Clock, IdGenerator } from '@daisy/clock';
 import {
   readAuthConfig,
@@ -19,6 +20,7 @@ import { createAlertRecorder, withAlertRecording } from './alert-recorder';
 import { createMetricsStore, type MetricsStore } from './metrics-store';
 
 export type AppDependencies = {
+  readonly roomPolicy?: RoomPolicy;
   /** Raw environment, validated here and nowhere else. */
   readonly env: Readonly<Record<string, string | undefined>>;
   /** Outbound HTTP (the Resend mail transport). */
@@ -52,6 +54,7 @@ export type AppDependencies = {
  */
 export function createApp({
   env,
+  roomPolicy,
   fetch,
   clock,
   ids,
@@ -134,6 +137,7 @@ export function createApp({
   const drainState = createDrainState([database, redis]);
   return {
     config,
+    roomPolicy: roomPolicy ?? null,
     clock,
     ids,
     logger,
