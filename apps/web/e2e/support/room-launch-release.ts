@@ -51,7 +51,7 @@ try {
   if ((await removed.exited) !== 0)
     throw new Error('Own slot lifecycle failed');
   const remaining =
-    await admin`select datname from pg_database where datname in (${`daisy_wt_${slot.id}`}, ${`daisy_wt_${slot.id}_test`}, ${slot.database})`;
+    await admin`select datname from pg_database where datname in (${`daisy_wt_${slot.id}`}, ${`daisy_wt_${slot.id}_test`}, ${slot.database}) or starts_with(datname, ${`daisy_wt_${slot.id}_test_run_`})`;
   const [after] =
     await admin`select oid::text oid from pg_database where datname='daisy'`;
   if (remaining.length || before.oid !== after?.oid)
