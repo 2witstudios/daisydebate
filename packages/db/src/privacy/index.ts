@@ -13,15 +13,7 @@ export {
   messagingPrivacyFields,
   messagingPrivacyExpectedColumns,
 } from './messaging-declarations';
-export {
-  planPrivacyExport,
-  planPrivacyErasure,
-  privacyVendors,
-  type PrivacyAdoption,
-  type PrivacyErasureInput,
-  type PrivacyVendor,
-} from './planner';
-export { corePrivacyFields } from './core-declarations';
+export { type PrivacyAdoption, type PrivacyErasureInput } from './planner';
 export {
   erasePrivacySubject,
   exportPrivacySubject,
