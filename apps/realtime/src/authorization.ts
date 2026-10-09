@@ -109,7 +109,8 @@ export function createRealtimeAuthorization({
       roomId,
       principal,
     );
-    if (!facts || facts.account.revision !== accountRevision) return null;
+    if (!facts?.account || facts.account.revision !== accountRevision)
+      return null;
     const decision = authorize({
       principal: { kind: 'user', ...principal },
       capability: 'room.read',
