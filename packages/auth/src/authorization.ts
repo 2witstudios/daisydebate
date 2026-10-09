@@ -7,6 +7,7 @@ import type {
   AuthorizationPrincipal,
   AccountAuthorizationFact,
   RoomAuthorizationFact,
+  RoundAuthorizationFact,
   ChannelAuthorizationFact,
   AuthorizationInput,
   AuthorizationDecision,
@@ -16,6 +17,7 @@ export type {
   AuthorizationCapability,
   AccountAuthorizationFact,
   RoomAuthorizationFact,
+  RoundAuthorizationFact,
   ChannelAuthorizationFact,
   AuthorizationInput,
   AuthorizationDecision,
@@ -35,6 +37,7 @@ function validResourceKind(
 ) {
   if (capability.startsWith('foundation.'))
     return resource.kind === 'foundation';
+  if (capability === 'round.read') return resource.kind === 'round';
   if (['room.create', 'room.list'].includes(capability))
     return resource.kind === 'room_collection';
   return (
@@ -220,7 +223,19 @@ function memberDecision(
 ): AuthorizationDecision {
   if (resource.kind === 'room_collection') return allow;
   if (!positiveRevision(resource.revision)) return deny('denied');
+  if (resource.kind === 'round') return roundDecision(actorId, resource);
   return resource.kind === 'room'
     ? roomDecision(actorId, capability, resource)
     : channelDecision(actorId, capability, resource, context);
+}
+
+function roundDecision(
+  actorId: string,
+  resource: RoundAuthorizationFact,
+): AuthorizationDecision {
+  const readable =
+    ['public', 'unlisted'].includes(resource.visibility) ||
+    resource.createdByActorId === actorId ||
+    resource.participants.some((p) => p.actorId === actorId);
+  return readable ? allow : deny('missing-capability');
 }

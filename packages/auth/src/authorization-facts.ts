@@ -34,6 +34,19 @@ export type RoomAuthorizationFact = {
     readonly slot: number;
   }[];
 };
+export type RoundAuthorizationFact = {
+  readonly kind: 'round';
+  readonly roundId: string;
+  readonly createdByActorId: string | null;
+  readonly visibility: 'public' | 'unlisted' | 'private';
+  readonly status: string;
+  readonly participants: readonly {
+    readonly actorId: string;
+    readonly role: string;
+    readonly slot: number;
+  }[];
+  readonly revision: number;
+};
 /** MSG owns the underlying pair/grant projection and its transactional fence. */
 export type ChannelAuthorizationFact = {
   readonly kind: 'channel';
@@ -64,6 +77,7 @@ export type AuthorizationInput = {
   readonly principal: AuthorizationPrincipal;
   readonly capability: AuthorizationCapability;
   readonly resource:
+    | RoundAuthorizationFact
     | RoomAuthorizationFact
     | ChannelAuthorizationFact
     | { readonly kind: 'room_collection' }
