@@ -117,6 +117,15 @@
       "adr": "docs/decisions/0059-one-competitive-api.md",
       "reason": "Canonical Room runtime and HTTP producer; committed consumer CAP-B.1 page yqvkic989n7tx0uf6uvqu24x; ROOM product lane consumes its responses.",
       "reviewBy": "2026-10-16"
+    },
+    {
+      "path": "apps/web/src/features/video/browser-device-checks.ts",
+      "export": "createBrowserDeviceChecks",
+      "task": "q2n3s1gmgspx21cmzgqcrkug",
+      "owner": "VIDEO / ag-f41q0moq",
+      "adr": "docs/decisions/0057-planned-readers.md",
+      "reason": "ROOM-3.6a composes real local camera/microphone checks with canonical native readiness; browser proof imports the producer before its production UI reader.",
+      "reviewBy": "2026-11-01"
     }
   ]
 }
