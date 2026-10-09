@@ -193,3 +193,73 @@ describe('canonical channel decisions', () => {
     });
   });
 });
+
+test('own-message removal is independent of posting admission', () => {
+  const unknownAccounts = accounts.map((row) => ({
+    ...row,
+    age: { state: 'unknown' as const },
+  }));
+  const retainedReading = {
+    ...policy,
+    accounts: policy.accounts.map((row) => ({ ...row, ageRevision: null })),
+  };
+  const archived: ChannelAuthorizationFact = {
+    ...resource,
+    lifecycle: 'archived',
+    authority: {
+      ...resource.authority,
+      kind: 'dm',
+      lowActorId: 'a',
+      highActorId: 'b',
+      requestSenderActorId: 'a',
+      state: 'accepted',
+      revision: 3,
+      blocked: true,
+    },
+  };
+  const removal = {
+    ...input,
+    capability: 'channel.message.remove' as const,
+    resource: archived,
+    context: {
+      ...input.context,
+      socialAccounts: unknownAccounts,
+      socialReading: retainedReading,
+      socialPosting: { ...retainedReading, allowed: false },
+    },
+  };
+  assert({
+    given:
+      'approved retained history on an archived blocked channel with unknown age',
+    should:
+      'permit only the distinct own-removal capability and retain read and entitlement holds',
+    actual: [
+      authorize(removal).allow,
+      authorize({ ...removal, capability: 'channel.post' }).allow,
+      authorize({
+        ...removal,
+        context: {
+          ...removal.context,
+          socialReading: { ...retainedReading, allowed: false },
+        },
+      }).allow,
+      authorize({
+        ...removal,
+        resource: {
+          ...archived,
+          authority: {
+            ...archived.authority,
+            kind: 'dm',
+            lowActorId: 'a',
+            highActorId: 'b',
+            requestSenderActorId: 'a',
+            revision: 3,
+            blocked: true,
+            state: 'pending',
+          },
+        },
+      }).allow,
+    ],
+    expected: [true, false, false, false],
+  });
+});

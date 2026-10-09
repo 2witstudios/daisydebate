@@ -16,6 +16,7 @@ const authorizationCapabilities = [
   'room.leave',
   'channel.read',
   'channel.post',
+  'channel.message.remove',
   'channel.manage',
   'channel.subscribe',
   'channel.request.read',
