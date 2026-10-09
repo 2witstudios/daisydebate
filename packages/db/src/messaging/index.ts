@@ -19,3 +19,8 @@ export type {
   MessagingSocialAuthorizationFence,
   MessagingSocialStore,
 } from './social-contracts';
+
+export {
+  createMessagingFileCleanup,
+  type MessagingFileCleanupFence,
+} from './file-cleanup';
