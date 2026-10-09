@@ -55,7 +55,7 @@ for (const [blockFirst, noDm] of [
       limit: async () => {},
     };
     const erase = () => fixture.eraseSubject(fixture.otherActorId);
-    let erasing: Promise<void> | undefined;
+    let erasing: ReturnType<typeof erase> | undefined;
     try {
       if (noDm)
         await client.unsafe('delete from messaging_channels where id=$1', [
