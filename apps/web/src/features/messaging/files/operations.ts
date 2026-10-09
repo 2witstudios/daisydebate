@@ -142,6 +142,7 @@ export async function finalizeMessagingFile(
   );
   const scope = { ...identity, channelId: command.channelId };
   const token = { fileId: command.fileId, generation: command.generation };
+  let committing = false;
   try {
     const startedAt = d.clock.now();
     // Fresh post before any protected metadata/object read. Finalization repeats it after scanning.
@@ -167,13 +168,18 @@ export async function finalizeMessagingFile(
       })) !== 'clean'
     )
       throw createAppError('VALIDATION');
+    committing = true;
     await d.store.withChannel(scope, 'post', (frame) => {
       requireFileAttempt(startedAt, d.clock.now(), policy.serviceMs);
       return frame.finalize(attempt, command.messageId, d.clock.now(), policy);
     });
     return { fileId: command.fileId, generation: attempt.generation };
   } catch (error) {
-    await d.failPending(scope, token);
+    if (
+      !committing ||
+      (isAppError(error) && ['AUTHORIZATION', 'CONFLICT'].includes(error.code))
+    )
+      await d.failPending(scope, token);
     throw isAppError(error) ? error : createAppError('INFRASTRUCTURE');
   }
 }
