@@ -78,14 +78,12 @@ const publishDefinition = async (
   await tx
     .insert(formatRevisions)
     .values({ formatId: id, version: 1, definition });
-  await tx
-    .insert(formats)
-    .values({
-      id,
-      name: 'Custom format',
-      currentVersion: 1,
-      createdByActorId: hostActorId,
-    });
+  await tx.insert(formats).values({
+    id,
+    name: 'Custom format',
+    currentVersion: 1,
+    createdByActorId: hostActorId,
+  });
 };
 const roomState = async (
   tx: Tx,
@@ -186,18 +184,16 @@ const acceptCommand = async (
   changeVersion: number,
 ) => {
   const { replayed: _replayed, ...result } = receipt;
-  await tx
-    .insert(roomCommands)
-    .values({
-      commandId: receipt.commandId,
-      roomId: receipt.roomId,
-      actorId,
-      payloadDigest,
-      type,
-      result,
-      resultingVersion: receipt.resultingVersion,
-      appliedAt: new Date(now),
-    });
+  await tx.insert(roomCommands).values({
+    commandId: receipt.commandId,
+    roomId: receipt.roomId,
+    actorId,
+    payloadDigest,
+    type,
+    result,
+    resultingVersion: receipt.resultingVersion,
+    appliedAt: new Date(now),
+  });
   await appendOutboxEvent(tx, {
     topic: buildRoomTopic(receipt.roomId),
     kind: 'room.changed',
@@ -370,13 +366,11 @@ export const roomCommandOperations = ({
             input.definition,
           );
         const now = await transactionNow(tx);
-        await tx
-          .insert(rooms)
-          .values({
-            ...newRoomValues(input.room, 'assembling'),
-            createdAt: new Date(now),
-            updatedAt: new Date(now),
-          });
+        await tx.insert(rooms).values({
+          ...newRoomValues(input.room, 'assembling'),
+          createdAt: new Date(now),
+          updatedAt: new Date(now),
+        });
         const receipt: RoomCommandReceipt = {
           commandId: input.commandId,
           roomId: input.room.id,
@@ -502,56 +496,51 @@ export const roomCommandOperations = ({
           .delete(roomParticipants)
           .where(eq(roomParticipants.roomId, next.id));
         if (next.participants.length)
-          await tx
-            .insert(roomParticipants)
-            .values(
-              next.participants.map((p) => ({
-                id: p.id,
-                roomId: next.id,
-                actorId: p.actorId,
-                role: p.role,
-                slot: p.slot,
-                readinessCommandId: p.consentCommandId,
-                readinessVersion: p.consentVersion,
-              })),
-            );
+          await tx.insert(roomParticipants).values(
+            next.participants.map((p) => ({
+              id: p.id,
+              roomId: next.id,
+              actorId: p.actorId,
+              role: p.role,
+              slot: p.slot,
+              readinessCommandId: p.consentCommandId,
+              readinessVersion: p.consentVersion,
+            })),
+          );
         let roundRef = next.roundRef;
         if (outcome.mutation.freeze) {
-          await tx
-            .insert(rounds)
-            .values({
-              id: input.roundId,
-              roomId: next.id,
-              createdByActorId: next.hostActorId,
-              resolution: next.topic,
-              competitionType: next.competitionType,
-              length: next.length,
-              formatId: next.formatId,
-              formatVersion: next.formatVersion,
-              presetVersion: next.presetVersion,
-              roomConfigSnapshot: next.config,
-              rulesSnapshot: next.rules,
-              status: 'scheduled',
-              ladderId:
-                next.competitionType === 'ranked'
-                  ? next.length === 'full'
-                    ? 'ranked'
-                    : 'quick'
-                  : null,
-              createdAt: new Date(now),
-              updatedAt: new Date(now),
-            });
-          await tx
-            .insert(roundParticipants)
-            .values(
-              next.participants.map((p) => ({
-                id: p.id,
-                roundId: input.roundId,
-                actorId: p.actorId,
-                role: p.role,
-                slot: p.slot,
-              })),
-            );
+          await tx.insert(rounds).values({
+            id: input.roundId,
+            roomId: next.id,
+            createdByActorId: next.hostActorId,
+            resolution: next.topic,
+            competitionType: next.competitionType,
+            length: next.length,
+            formatId: next.formatId,
+            formatVersion: next.formatVersion,
+            presetVersion: next.presetVersion,
+            roomConfigSnapshot: next.config,
+            visibility: next.visibility,
+            rulesSnapshot: next.rules,
+            status: 'scheduled',
+            ladderId:
+              next.competitionType === 'ranked'
+                ? next.length === 'full'
+                  ? 'ranked'
+                  : 'quick'
+                : null,
+            createdAt: new Date(now),
+            updatedAt: new Date(now),
+          });
+          await tx.insert(roundParticipants).values(
+            next.participants.map((p) => ({
+              id: p.id,
+              roundId: input.roundId,
+              actorId: p.actorId,
+              role: p.role,
+              slot: p.slot,
+            })),
+          );
           roundRef = { id: input.roundId, status: 'scheduled' };
         }
         const receipt: RoomCommandReceipt = {

@@ -99,6 +99,7 @@ export const rooms = pgTable(
     check('rooms_title_nonempty', sql`length(trim(${table.title})) > 0`),
     check('rooms_topic_nonempty', sql`length(trim(${table.topic})) > 0`),
     versionPositive('rooms', table.version),
+    versionPositive('rooms_change', table.changeVersion),
     unique('rooms_id_format_unique').on(table.id, table.formatId),
     // Leading with each foreign key's own columns, so the provenance joins
     // and the RESTRICT probes are index lookups rather than scans.
@@ -179,5 +180,9 @@ export const roomParticipants = pgTable(
     index('room_participants_actor_idx').on(table.actorId),
     check('room_participants_role_check', oneOf(table.role, debateRoles)),
     check('room_participants_slot_check', seatSlotCheck(table.slot)),
+    check(
+      'room_participants_readiness_version_nonnegative',
+      sql`${table.readinessVersion} >= 0`,
+    ),
   ],
 );

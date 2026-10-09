@@ -67,6 +67,7 @@ export const rounds = pgTable(
     createdByActorId: text('created_by_actor_id').references(() => actors.id, {
       onDelete: 'restrict',
     }),
+    visibility: text('visibility').$type<'public' | 'unlisted' | 'private'>(),
     resolution: text('resolution').notNull(),
     competitionType: text('competition_type')
       .$type<CompetitionType>()
@@ -129,6 +130,14 @@ export const rounds = pgTable(
         table.formatVersion,
       ),
       versionPositive('rounds', table.version),
+      check(
+        'rounds_visibility_check',
+        sql`${table.visibility} is null or ${oneOf(table.visibility, ['public', 'unlisted', 'private'])}`,
+      ),
+      check(
+        'rounds_room_freeze_complete',
+        sql`${table.roomId} is null or (${table.roomConfigSnapshot} is not null and ${table.visibility} is not null)`,
+      ),
       jsonbIsObject('rounds', table.runtimeState),
       jsonbIsObject('rounds', table.rulesSnapshot),
       check(
