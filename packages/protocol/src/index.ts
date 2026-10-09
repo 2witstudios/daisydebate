@@ -167,8 +167,4 @@ export {
 
 export { serverMessageSchema, type ServerMessage } from './realtime-server';
 
-export {
-  createMessagingFileSchemas,
-  messagingFileMimeSchema,
-  type MessagingFileMime,
-} from './messaging/files';
+export { createMessagingFileSchemas } from './messaging/files';
