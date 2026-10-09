@@ -36,7 +36,7 @@ test('file admission requires explicit safe limits and rejects bearer access fie
     assert({
       given: 'unsafe or over-limit input',
       should: 'report validation issues',
-      actual: parsed.error?.issues.length! > 0,
+      actual: !parsed.success && parsed.error.issues.length > 0,
       expected: true,
     });
   }
