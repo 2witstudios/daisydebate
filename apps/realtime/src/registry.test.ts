@@ -60,6 +60,54 @@ function fixture(
   };
 }
 describe('subscription registry', () => {
+  test('canonical denial after catchup refuses replay even without a bell', async () => {
+    let calls = 0;
+    const { registry, connection, sent, attached } = fixture({
+      authorize: async () =>
+        ++calls === 1 ? { revision: '1', validUntil: 60_000 } : null,
+      readCatchup: async () => ({ rows: [row(1)], resync: false }),
+    });
+    await registry.subscribe(connection, {
+      id: 'request',
+      topic,
+      since: '1:1',
+    });
+    assert({
+      given:
+        'permission removed after the initial allow without a delivered control',
+      should: 'reread before replay and deny attachment',
+      actual: {
+        calls,
+        attached: [...attached],
+        types: sent.map((frame) => frame.type),
+      },
+      expected: { calls: 2, attached: [], types: ['error'] },
+    });
+  });
+  test('an observed ring supports reconnect without certifying durable gaps', async () => {
+    let reads = 0;
+    const { registry, connection, sent } = fixture({
+      readCatchup: async () => {
+        reads += 1;
+        return { rows: [], resync: true };
+      },
+    });
+    registry.seed({ txid: '1', seq: 1n });
+    registry.sink([row(2)]);
+    await registry.settled();
+    await registry.subscribe(connection, {
+      id: 'request',
+      topic,
+      since: '1:1',
+    });
+    assert({
+      given: 'a cursor covered by the continuously observed ring',
+      should:
+        'replay after fresh authorization without trusting an SQL survivor floor',
+      actual: { reads, types: sent.map((frame) => frame.type) },
+      expected: { reads: 0, types: ['event', 'subscribed'] },
+    });
+  });
   test('access changed while catchup waits cannot replay an old allow', async () => {
     let resolve!: (value: {
       rows: readonly OutboxRow[];
