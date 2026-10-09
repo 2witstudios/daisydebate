@@ -70,23 +70,11 @@ export type AuthorizationInput = {
     | { readonly kind: 'foundation' };
   readonly context: {
     readonly account: AccountAuthorizationFact | null;
-    /** Explicit producer-approved current policy result; absence never enables posting. */
-    readonly socialReading?: {
-      readonly channelId: string;
-      readonly policyKey: string;
-      readonly policyRevision: number;
-      readonly allowed: boolean;
-      readonly authorityRevision: number;
-      readonly relationshipRevision: number;
-    };
-    readonly socialPosting?: {
-      readonly channelId: string;
-      readonly policyKey: string;
-      readonly policyRevision: number;
-      readonly allowed: boolean;
-      readonly authorityRevision: number;
-      readonly relationshipRevision: number;
-    };
+    /** Trusted current facts/time from the same account-fenced transaction. */
+    readonly now?: string;
+    readonly socialAccounts?: readonly SocialAccountFact[];
+    readonly socialReading?: SocialPolicyEvidence;
+    readonly socialPosting?: SocialPolicyEvidence;
   };
 };
 export type AuthorizationDecision =
@@ -96,3 +84,24 @@ export type AuthorizationDecision =
       readonly reason:
         'denied' | 'account-erased' | 'unauthenticated' | 'missing-capability';
     };
+
+export type SocialAccountFact = {
+  readonly account: AccountAuthorizationFact;
+  readonly age: import('./account-age').AccountAgeFact;
+};
+export type SocialPolicyEvidence = {
+  readonly channelId: string;
+  readonly policyKey: string;
+  readonly policyRevision: number;
+  readonly allowed: boolean;
+  readonly authorityRevision: number;
+  readonly relationshipRevision: number;
+  readonly evaluatedAt: string;
+  readonly validUntil: string;
+  readonly accounts: readonly {
+    readonly actorId: string;
+    readonly userId: string;
+    readonly accountRevision: number;
+    readonly ageRevision: number | null;
+  }[];
+};

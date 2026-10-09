@@ -1,4 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { authorize } from './authorization';
 import { socialPostingPolicy } from './social-policy';
 import type { ChannelAuthorizationFact } from './authorization';
 setupRitewayBun();
@@ -92,4 +93,46 @@ describe('current social policy projection', () => {
       ],
       expected: [false, false],
     }));
+});
+
+test('a prior allowance cannot survive account correction or expiry', () => {
+  const now = '2026-10-09T00:00:00.000Z';
+  const proof = socialPostingPolicy({ channel, accounts, now, policy });
+  const changed = accounts.map((row) => ({
+    ...row,
+    account: { ...row.account, revision: 2 },
+    age: {
+      ...row.age,
+      band: 'under-13' as const,
+      revision: 2,
+      accountRevision: 2,
+    },
+  }));
+  const evaluate = (
+    current: Parameters<typeof socialPostingPolicy>[0]['accounts'],
+    time: string,
+  ) =>
+    authorize({
+      principal: { kind: 'user', userId: 'a', actorId: 'a' },
+      capability: 'channel.post',
+      resource: channel,
+      context: {
+        account: current[0]!.account,
+        now: time,
+        socialAccounts: current,
+        socialReading: proof,
+        socialPosting: proof,
+      },
+    }).allow;
+  assert({
+    given:
+      'previously allowed adult evidence replayed after correction and month expiry',
+    should: 'deny both stale authorizations and preserve a fresh allowance',
+    actual: [
+      evaluate(accounts, now),
+      evaluate(changed, now),
+      evaluate(accounts, '2026-11-01T00:00:00.000Z'),
+    ],
+    expected: [true, false, false],
+  });
 });
