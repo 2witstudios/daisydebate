@@ -164,3 +164,5 @@ export {
   roomCatalogChoiceSchema,
   roomCastChoiceSchema,
 } from './room-read';
+
+export { serverMessageSchema, type ServerMessage } from './realtime-server';
