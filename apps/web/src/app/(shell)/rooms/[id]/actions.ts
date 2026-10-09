@@ -1,7 +1,6 @@
 'use server';
 
 import { headers } from 'next/headers';
-import { redirect } from 'next/navigation';
 import { readAssembly } from '../../../../features/rooms/read-assembly';
 import { prepareSettings } from '../../../../features/rooms/prepare-settings';
 import { submitAssembly } from '../../../../features/rooms/submit-assembly';
@@ -11,6 +10,7 @@ import {
 } from '../../../../features/mock-form/form';
 import { inProcessFetch } from '../../../../server/in-process-fetch';
 import { moveOn } from '../../../../server/form-action';
+import { commandAnswer } from '../../../../features/rooms/command-answer';
 import { processRoute } from '../../../../server/process-app';
 
 const read = processRoute(
@@ -58,21 +58,17 @@ export async function submitRoomFormAction(
 /** Native cast/consent intents always return to a fresh canonical projection. */
 export async function roomCommandAction(
   id: string,
+  _state: MockFormState,
   form: FormData,
-): Promise<void> {
+): Promise<MockFormState> {
+  const incoming = new Headers(await headers());
   const result = await submitAssembly(
-    inProcessFetch(commands, new Headers(await headers())),
+    inProcessFetch(commands, incoming),
     id,
     form,
   );
-  if (
-    result.kind === 'accepted' &&
-    form.get('type') === 'start-round' &&
-    result.view.roundRef
-  )
-    redirect(`/rounds/${result.view.roundRef.id}`);
-  redirect(
-    `/rooms/${id}${result.kind === 'accepted' ? '' : '?notice=command-refused'}`,
+  return commandAnswer(result, id, form, (destination) =>
+    moveOn(incoming, destination),
   );
 }
 
