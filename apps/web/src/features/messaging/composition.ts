@@ -90,6 +90,7 @@ export function composeMessagingRoutes(app: App) {
       logger: app.logger,
       origin: () => app.auth().config.PUBLIC_APP_URL,
       maxBodyBytes: policy.maxBodyBytes,
+      bounds: policy.bounds,
       identify: (request) => identify(app.auth(), request.headers),
       edit: mutation('edit'),
       remove: mutation('remove'),
