@@ -109,10 +109,30 @@ export type SocialCreationPolicy =
   import('./social-policy').SocialContactPolicy & {
     readonly groupBlockScope?: 'all_pairs' | 'initiator';
   };
+/** MSG projects the locked own file and actual channel core; no grant/age/content fields needed. */
+export type PendingFileAuthorizationFact = {
+  readonly kind: 'pending_file';
+  readonly fileId: string;
+  readonly channelId: string;
+  readonly ownerActorId: string;
+  readonly lifecycle:
+    'reserved' | 'quarantined' | 'attached' | 'deleting' | 'deleted';
+  readonly generation: number;
+  readonly expectedGeneration: number;
+  readonly revision: number;
+  readonly channel: {
+    readonly channelId: string;
+    readonly kind: 'dm' | 'private_group';
+    readonly policyKey: 'social.dm' | 'social.private_group';
+    readonly policyRevision: number;
+    readonly revision: number;
+  };
+};
 export type AuthorizationInput = {
   readonly principal: AuthorizationPrincipal;
   readonly capability: AuthorizationCapability;
   readonly resource:
+    | PendingFileAuthorizationFact
     | ContactPairAuthorizationFact
     | SocialCreationFact
     | RoundAuthorizationFact
