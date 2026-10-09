@@ -12,7 +12,8 @@
     "test:integration": "bun ../../scripts/test-integration.ts",
     "test:e2e": "bun ../../scripts/e2e-limit.ts node node_modules/@playwright/test/cli.js test",
     "load:local": "bun --env-file=../../.env run scripts/auth-load/run.ts",
-    "load:abuse": "bun --env-file=../../.env run scripts/auth-load/abuse-run.ts"
+    "load:abuse": "bun --env-file=../../.env run scripts/auth-load/abuse-run.ts",
+    "test:e2e:room-launch": "bun --env-file=../../.env e2e/support/room-launch-runner.ts"
   },
   "dependencies": {
     "@better-auth/passkey": "1.7.5",
