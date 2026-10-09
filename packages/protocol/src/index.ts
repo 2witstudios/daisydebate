@@ -175,3 +175,5 @@ export { serverMessageSchema, type ServerMessage } from './realtime-server';
 export { createMessagingFileSchemas } from './messaging/files';
 
 export { createMessagingInboxSchemas } from './messaging/inbox';
+
+export { messagingGroupInvitationResultSchema } from './messaging/social';

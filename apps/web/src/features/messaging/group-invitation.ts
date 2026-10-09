@@ -4,6 +4,7 @@ import type { MessagingGroupInvitationStore } from '@daisy/db/messaging';
 import { createAppError } from '@daisy/errors';
 import {
   createMessagingSocialSchemas,
+  messagingGroupInvitationResultSchema,
   type MessagingSocialBounds,
 } from '@daisy/protocol';
 import { requireMessagingActor } from './principal';
@@ -38,11 +39,7 @@ export function readMessagingGroupInvitation(
       operation: 'read',
     },
     async (frame) =>
-      minimalInvitationResult(
-        await frame.preview(),
-        command.channelId,
-        dependencies.bounds,
-      ),
+      minimalInvitationResult(await frame.preview(), command.channelId),
   );
 }
 /** The original operation/generation/actual counterpart bind closed own receipt replay. */
@@ -102,7 +99,6 @@ export async function decideMessagingGroupInvitation(
           now,
         }),
         command.channelId,
-        dependencies.bounds,
       );
     },
   );
@@ -142,16 +138,13 @@ function invitationReplay(
   };
 }
 
-function minimalInvitationResult(
-  input: unknown,
-  channelId: string,
-  bounds: MessagingSocialBounds,
-) {
+function minimalInvitationResult(input: unknown, channelId: string) {
   if (typeof input !== 'object' || input === null)
     throw createAppError('INFRASTRUCTURE');
-  const result = createMessagingSocialSchemas(
-    bounds,
-  ).invitationResult.safeParse({ ...input, version: 1 });
+  const result = messagingGroupInvitationResultSchema.safeParse({
+    ...input,
+    version: 1,
+  });
   if (!result.success || result.data.channelId !== channelId)
     throw createAppError('INFRASTRUCTURE');
   return {

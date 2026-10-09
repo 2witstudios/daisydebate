@@ -126,3 +126,13 @@ and invitation generation. They return minimal closed state and never repeat a
 grant or mutation. Group creation, invitation issuance, management and self-leave
 remain separate operations; these decision bindings do not complete their
 acceptance or approve pending product, privacy or retention choices.
+
+Pending own invitations also enter the inbox candidate query. A denied history
+read may obtain the separate current invitation read grant; infrastructure
+failures propagate instead of becoming invitation entries or empty history.
+Navigation carries only the channel identifier and `incoming_invitation` kind.
+The native invitation page displays no title or message history and binds its
+accept/decline action to the server preview's exact generation. Removed or renewed
+invitations therefore cannot be acted on through a stale form. The same protected
+HTTP decision serves JavaScript and native form submissions. Browser and real
+composed database evidence for this group extension remain acceptance work.

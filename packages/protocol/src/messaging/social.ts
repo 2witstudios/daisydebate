@@ -17,6 +17,13 @@ export const messagingDmDecisionResultSchema = messagingDmResultSchema.extend({
   state: z.enum(['accepted', 'declined', 'cancelled']),
 });
 
+export const messagingGroupInvitationResultSchema = z.strictObject({
+  version: z.literal(1),
+  channelId: idSchema,
+  generation: z.number().int().positive().safe(),
+  state: z.enum(['pending', 'accepted', 'declined', 'cancelled']),
+});
+
 /** Actor comes from the principal; contact facts never come from a command. */
 export function createMessagingSocialSchemas(bounds: MessagingSocialBounds) {
   z.number().int().positive().safe().parse(bounds.batchActors);
@@ -63,12 +70,7 @@ export function createMessagingSocialSchemas(bounds: MessagingSocialBounds) {
       channelId: idSchema,
       lifecycle: z.enum(['active', 'archived']),
     }),
-    invitationResult: z.strictObject({
-      version: z.literal(1),
-      channelId: idSchema,
-      generation,
-      state: z.enum(['pending', 'accepted', 'declined', 'cancelled']),
-    }),
+    invitationResult: messagingGroupInvitationResultSchema,
     readGroupInvitation: z.strictObject({
       version: z.literal(1),
       channelId: idSchema,

@@ -1,3 +1,8 @@
+import { composeMessagingInbox } from '../src/features/messaging/inbox-composition';
+import {
+  messagingFixturePosting,
+  messagingFixtureReading,
+} from './messaging-policy.test-support';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -96,6 +101,23 @@ test('real group acceptance needs explicit admission and closed own retries neve
     decision: 'accept',
   };
   try {
+    const inbox = composeMessagingInbox({
+      database: f.database,
+      principal: f.principal,
+      clock: { now: () => f.fixture.now },
+      postingPolicy: messagingFixturePosting,
+      readingPolicy: messagingFixtureReading,
+    });
+    const pendingPage = await inbox.read({ limit: 10 });
+    assert({
+      given: 'a real own pending invitation and no group grant',
+      should:
+        'discover only minimal invitation navigation after its distinct current capability',
+      actual: pendingPage.entries.filter(
+        (entry) => entry.channelId === f.channelId,
+      ),
+      expected: [{ channelId: f.channelId, kind: 'incoming_invitation' }],
+    });
     const preview = await readMessagingGroupInvitation(
       { version: 1, channelId: f.channelId },
       f.principal,

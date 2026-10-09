@@ -45,6 +45,9 @@ export function createMessagingInboxStore(
           union all
           select channel_id from public.messaging_group_grants
           where actor_id = ${scope.actorId} and revoked_at is null
+          union all
+          select channel_id from public.messaging_group_invitations
+          where invitee_actor_id = ${scope.actorId} and state = 'pending'
         ) candidate
         where (${scope.after ?? null}::text is null or candidate.channel_id > ${scope.after ?? null}::text)
         order by candidate.channel_id limit ${scope.limit}
