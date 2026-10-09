@@ -185,6 +185,7 @@ export async function admitAiPractice(
         roomId: room.id,
         createdByActorId: room.hostActorId,
         roomConfigSnapshot: room.config,
+        visibility: room.visibility,
         resolution: input.resolution,
         competitionType: 'practice',
         length: room.length,

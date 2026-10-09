@@ -272,6 +272,7 @@ export const roomOperations = ({
           roomId: room.id,
           createdByActorId: room.hostActorId,
           roomConfigSnapshot: room.config,
+          visibility: room.visibility,
           resolution: input.resolution,
           competitionType: room.competitionType,
           length: room.length,
