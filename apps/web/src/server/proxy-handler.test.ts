@@ -250,3 +250,27 @@ describe('proxy early sign-in hint', () => {
     });
   });
 });
+
+test('production CSP permits only the configured websocket origin', () => {
+  const response = proxy(new NextRequest('https://daisy.invalid/'), {
+    websocketEndpoint: 'wss://socket.daisy.invalid:9443/realtime',
+  });
+  const policy = response.headers.get('Content-Security-Policy') ?? '';
+  assert({
+    given: 'an explicit websocket endpoint in validated production settings',
+    should:
+      'allow its exact origin while preserving closed object and frame directives',
+    actual: {
+      connect: policy
+        .split('; ')
+        .find((value) => value.startsWith('connect-src ')),
+      object: policy.includes("object-src 'none'"),
+      frame: policy.includes("frame-ancestors 'none'"),
+    },
+    expected: {
+      connect: "connect-src 'self' wss://socket.daisy.invalid:9443",
+      object: true,
+      frame: true,
+    },
+  });
+});

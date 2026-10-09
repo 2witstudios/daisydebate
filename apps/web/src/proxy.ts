@@ -7,6 +7,7 @@ export function proxy(request: NextRequest) {
   return handleProxy(request, {
     foundationProofEnabled: app.config.FOUNDATION_PROOF_ENABLED,
     publicAppUrl: app.config.PUBLIC_APP_URL,
+    websocketEndpoint: app.websocketEndpoint,
     development: app.config.NODE_ENV === 'development',
     ids: app.ids,
   });

@@ -1,5 +1,6 @@
 import type { Identity } from '@daisy/auth';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
+import type { MessagingCoreBounds } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import type { Logger } from '@daisy/logger';
 import {
@@ -18,6 +19,8 @@ type Dependencies = {
   readonly logger: Logger;
   readonly origin: () => string;
   readonly maxBodyBytes: number;
+  readonly bounds: MessagingCoreBounds;
+  readonly websocketEndpoint?: string | null;
   readonly identify: (request: Request) => Promise<Identity>;
   readonly send: Operation;
   readonly edit: Operation;
@@ -48,6 +51,17 @@ export function createMessagingHandlers(dependencies: Dependencies) {
         if (identity.state !== 'member') throw createAppError('AUTHORIZATION');
         return Response.json(
           await dependencies[operation](await input(), identity.principal),
+          {
+            headers: {
+              'x-messaging-message-units': String(
+                dependencies.bounds.messageUnits,
+              ),
+              'x-messaging-page-items': String(dependencies.bounds.pageItems),
+              ...(dependencies.websocketEndpoint
+                ? { 'x-realtime-socket-url': dependencies.websocketEndpoint }
+                : {}),
+            },
+          },
         );
       },
     );
@@ -72,7 +86,9 @@ export function createMessagingHandlers(dependencies: Dependencies) {
     return {
       version: 1,
       channelId,
-      limit: number('limit'),
+      limit: params.has('limit')
+        ? number('limit')
+        : dependencies.bounds.pageItems,
       ...(kind === 'history'
         ? params.has('before')
           ? { before: { channelId, sequence: number('before') } }
