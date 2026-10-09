@@ -134,6 +134,20 @@ export function createSubscriptionRegistry({
       payload: outboxPayloadSchema.parse(row.payload),
     };
   }
+  function resync(
+    connection: Connection,
+    request: { id: string; topic: string },
+    sub: Subscription,
+  ) {
+    detach(connection, request.topic, sub);
+    connection.topics.delete(request.topic);
+    connection.socket.send({
+      v: ENVELOPE_VERSION,
+      type: 'resync_required',
+      id: request.id,
+      topic: request.topic,
+    });
+  }
   function control(row: OutboxRow) {
     if (!isPayloadStorableOnTopic(row.topic, row.payload)) return;
     const parsed = outboxPayloadSchema.safeParse(row.payload);
@@ -351,14 +365,7 @@ export function createSubscriptionRegistry({
           result.resync ||
           compare(floor, through) > 0
         ) {
-          connection.topics.delete(request.topic);
-          sub.lease.invalidate();
-          connection.socket.send({
-            v: ENVELOPE_VERSION,
-            type: 'resync_required',
-            id: request.id,
-            topic: request.topic,
-          });
+          resync(connection, request, sub);
           return;
         }
         // History I/O may wait behind locks. Its earlier permission cannot
@@ -373,12 +380,12 @@ export function createSubscriptionRegistry({
         } catch {
           replayDecision = null;
         }
-        if (
-          connection.closed ||
-          connection.topics.get(request.topic) !== sub ||
-          !sub.lease.owns(replayAttempt)
-        )
+        if (connection.closed || connection.topics.get(request.topic) !== sub)
           return;
+        if (!sub.lease.owns(replayAttempt) || compare(floor, through) > 0) {
+          resync(connection, request, sub);
+          return;
+        }
         if (
           !replayDecision ||
           !sub.lease.accept(replayAttempt, replayDecision.validUntil)
