@@ -7,6 +7,7 @@ import {
 import {
   ENVELOPE_VERSION,
   isPayloadDeliverableOnTopic,
+  isPayloadStorableOnTopic,
   outboxPayloadSchema,
   type ServerMessage,
 } from '@daisy/protocol';
@@ -132,6 +133,7 @@ export function createSubscriptionRegistry({
     };
   }
   function control(row: OutboxRow) {
+    if (!isPayloadStorableOnTopic(row.topic, row.payload)) return;
     const parsed = outboxPayloadSchema.safeParse(row.payload);
     if (!parsed.success) return;
     const payload = parsed.data;
@@ -178,6 +180,7 @@ export function createSubscriptionRegistry({
         }
         if (connection.topics.get(row.topic) !== sub || connection.closed)
           continue;
+        if (!sub.lease.owns(attempt)) continue;
         if (!decision || !sub.lease.accept(attempt, decision?.validUntil)) {
           detach(connection, row.topic, sub);
           continue;
@@ -191,8 +194,13 @@ export function createSubscriptionRegistry({
       if (!current(connection, row.topic, sub))
         detach(connection, row.topic, sub);
       else if (compare(row, sub.delivered) > 0) {
-        publish(nativeTopic(connection, row.topic), event(row));
-        sub.delivered = row;
+        try {
+          publish(nativeTopic(connection, row.topic), event(row));
+          sub.delivered = row;
+        } catch {
+          remove(connection);
+          connection.socket.close(4005, 'slow_consumer');
+        }
       }
     }
   }
@@ -240,6 +248,7 @@ export function createSubscriptionRegistry({
           }
           if (connection.closed || connection.topics.get(topic) !== sub)
             continue;
+          if (!sub.lease.owns(attempt)) continue;
           if (!decision || !sub.lease.accept(attempt, decision.validUntil)) {
             detach(connection, topic, sub);
             connection.topics.delete(topic);
@@ -319,8 +328,13 @@ export function createSubscriptionRegistry({
         } catch {
           result = { rows: [], resync: true };
         }
-        if (!current(connection, request.topic, sub)) return;
-        if (result.resync || compare(floor, through) > 0) {
+        if (connection.closed || connection.topics.get(request.topic) !== sub)
+          return;
+        if (
+          !current(connection, request.topic, sub) ||
+          result.resync ||
+          compare(floor, through) > 0
+        ) {
           connection.topics.delete(request.topic);
           sub.lease.invalidate();
           connection.socket.send({
@@ -331,6 +345,40 @@ export function createSubscriptionRegistry({
           });
           return;
         }
+        // History I/O may wait behind locks. Its earlier permission cannot
+        // authorize replay: reread canonical facts before attaching or sending.
+        const replayAttempt = sub.lease.begin(
+          connection.principal.sessionId,
+          sub.revision,
+        );
+        let replayDecision;
+        try {
+          replayDecision = await authorize(connection.principal, request.topic);
+        } catch {
+          replayDecision = null;
+        }
+        if (
+          connection.closed ||
+          connection.topics.get(request.topic) !== sub ||
+          !sub.lease.owns(replayAttempt)
+        )
+          return;
+        if (
+          !replayDecision ||
+          !sub.lease.accept(replayAttempt, replayDecision.validUntil)
+        ) {
+          detach(connection, request.topic, sub);
+          connection.topics.delete(request.topic);
+          connection.socket.send({
+            v: ENVELOPE_VERSION,
+            type: 'error',
+            id: request.id,
+            code: 'AUTHORIZATION',
+            message: 'Subscription refused',
+          });
+          return;
+        }
+        sub.revision = replayDecision.revision;
         for (const row of result.rows)
           if (!sendRow(connection, request.topic, sub, row)) return;
       }
@@ -365,14 +413,25 @@ export function createSubscriptionRegistry({
     },
     sink(rows: readonly OutboxRow[]) {
       for (const row of rows) control(row);
+      for (const row of rows) {
+        if (!isPayloadDeliverableOnTopic(row.topic, row.payload)) continue;
+        if (row.kind !== 'channel.changed' && row.kind !== 'room.changed')
+          continue;
+        for (const connection of connections) {
+          const sub = connection.topics.get(row.topic);
+          if (sub && !sub.attached) sub.lease.invalidate();
+        }
+      }
       const all = [...ring, ...rows];
       if (all.length > ringLimit) floor = all[all.length - ringLimit - 1]!;
       ring = all.slice(-ringLimit);
       const last = rows.at(-1);
       if (last) cursor = { txid: last.txid, seq: last.seq };
-      pending = pending.then(async () => {
-        for (const row of rows) await deliver(row);
-      });
+      pending = pending
+        .catch(() => {})
+        .then(async () => {
+          for (const row of rows) await deliver(row);
+        });
     },
     seed(position: OutboxPosition) {
       cursor = position;

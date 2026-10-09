@@ -13,7 +13,9 @@ const row = (seq: number): OutboxRow => ({
   payload: { kind: 'room.changed', ids: ['b'.repeat(24)], entityVersion: seq },
   createdAt: '2026-10-09T00:00:00.000Z',
 });
-function fixture() {
+function fixture(
+  overrides: Partial<Parameters<typeof createSubscriptionRegistry>[0]> = {},
+) {
   let now = 0;
   const sent: import('@daisy/protocol').ServerMessage[] = [];
   const attached = new Set<string>();
@@ -39,6 +41,7 @@ function fixture() {
     publish: (_topic, frame) => {
       sent.push(frame);
     },
+    ...overrides,
   });
   const connection = registry.add(socket, {
     actorId: 'a'.repeat(24),
@@ -48,6 +51,7 @@ function fixture() {
   return {
     registry,
     connection,
+    socket,
     sent,
     attached,
     setNow: (value: number) => {
@@ -56,6 +60,65 @@ function fixture() {
   };
 }
 describe('subscription registry', () => {
+  test('access changed while catchup waits cannot replay an old allow', async () => {
+    let resolve!: (value: {
+      rows: readonly OutboxRow[];
+      resync: boolean;
+    }) => void;
+    let allowed = true;
+    const { registry, connection, sent, attached } = fixture({
+      authorize: async () =>
+        allowed ? { revision: '1', validUntil: 60_000 } : null,
+      readCatchup: () =>
+        new Promise((done) => {
+          resolve = done;
+        }),
+    });
+    const pending = registry.subscribe(connection, {
+      id: 'request',
+      topic,
+      since: '1:1',
+    });
+    await Promise.resolve();
+    allowed = false;
+    registry.sink([row(2)]);
+    resolve({ rows: [row(1)], resync: false });
+    await pending;
+    await registry.settled();
+    assert({
+      given: 'revoked access and a changed row during asynchronous catchup',
+      should: 'send no event or subscribed reply and never attach',
+      actual: {
+        attached: [...attached],
+        forbidden: sent.some((frame) =>
+          ['event', 'subscribed'].includes(frame.type),
+        ),
+      },
+      expected: { attached: [], forbidden: false },
+    });
+  });
+  test('one recipient publish failure does not poison future drain delivery', async () => {
+    let attempts = 0;
+    const { registry, connection, socket } = fixture({
+      publish: () => {
+        attempts += 1;
+        if (attempts === 1) throw new Error('Recipient unavailable');
+      },
+    });
+    await registry.subscribe(connection, { id: 'first', topic });
+    registry.sink([row(1)]);
+    await registry.settled();
+    const next = registry.add(socket, connection.principal);
+    await registry.subscribe(next, { id: 'second', topic });
+    registry.sink([row(2)]);
+    await registry.settled();
+    assert({
+      given: 'a transport publication failure in an earlier batch',
+      should: 'keep future serialized delivery runnable',
+      actual: attempts,
+      expected: 2,
+    });
+  });
   test('authorizes and publishes a validated producer row', async () => {
     const { registry, connection, sent, attached } = fixture();
     await registry.subscribe(connection, { id: 'request', topic });

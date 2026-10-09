@@ -49,7 +49,11 @@ export function createRealtimeAuthorization({
       ...principal,
       now: resources.clock.now(),
     });
-    if (!session) return null;
+    if (
+      !session ||
+      Date.parse(session.expiresAt) <= Date.parse(resources.clock.now())
+    )
+      return null;
     const base = [
       principal.sessionId,
       principal.userId,
@@ -103,7 +107,7 @@ export function createRealtimeAuthorization({
     if (parsed.family !== 'channel') return null;
     let result: SubscriptionAuthority | null = null;
     const store = resources.database.messagingChannelStore(
-      async (tx, input, frame) => {
+      async (tx, _input, frame) => {
         const accounts = await loadAccountPolicyFacts({
           accounts: frame.accounts,
           now: resources.clock.now(),
@@ -166,16 +170,18 @@ export function createRealtimeAuthorization({
         await frame.authorize();
       },
     );
-    return result;
+    return result && now() < result.validUntil ? result : null;
   }
   return {
     authorizeTopic,
     async validatePrincipal(principal: SocketPrincipal) {
+      const session = await resources.database.readAuthorizationSession({
+        ...principal,
+        now: resources.clock.now(),
+      });
       return (
-        (await resources.database.readAuthorizationSession({
-          ...principal,
-          now: resources.clock.now(),
-        })) !== null
+        session !== null &&
+        Date.parse(session.expiresAt) > Date.parse(resources.clock.now())
       );
     },
   };

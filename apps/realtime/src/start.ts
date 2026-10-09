@@ -25,10 +25,9 @@ const port = parsePort(process.env.REALTIME_PORT, DEFAULT_REALTIME_PORT);
 // `serveRealtime` awaits startup order (ADR 0032 §2: LISTEN, then the
 // high-water mark) before `Bun.serve` accepts sockets. The sink is a no-op
 // seam here: fan-out to subscribed sockets is RT-2.3c.
-const { server, drain } = await serveRealtime({
+const { close } = await serveRealtime({
   resources,
   port,
-  sink: () => {},
 });
 resources.logger.log(
   'server.start',
@@ -54,8 +53,7 @@ async function shutdown() {
     deadlineMs: 25_000,
     onDeadlineExceeded: () => process.exit(1),
     close: async () => {
-      await server.stop();
-      await drain.stop();
+      await close();
       await resources.close();
     },
   });
