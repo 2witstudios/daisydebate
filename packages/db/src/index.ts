@@ -9,6 +9,7 @@ import {
 import { claimUsername } from './username-claim';
 import { authOperations } from './auth-operations';
 import { formatOperations } from './format-operations';
+import { roomCommandOperations } from './room-command-operations';
 import { roomOperations } from './room-operations';
 import { roundOperations } from './round-operations';
 import { utteranceOperations } from './utterance-operations';
@@ -157,6 +158,7 @@ export function createDatabase({
     ...outboxOperations({ database, eventSink }),
     ...formatOperations({ database, eventSink }),
     ...roomOperations({ database, eventSink }),
+    ...roomCommandOperations({ database, eventSink }),
     ...roundOperations({ database, eventSink }),
     ...utteranceOperations({ database, eventSink }),
     ...ballotOperations({ database, eventSink }),
