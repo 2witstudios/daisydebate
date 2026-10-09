@@ -8,6 +8,7 @@ import {
   text,
 } from 'drizzle-orm/pg-core';
 import { createdAtColumn, updatedAtColumn } from './columns';
+import { actors } from './actors';
 import { formatRevisions } from './format-revisions';
 
 /**
@@ -26,11 +27,16 @@ export const formats = pgTable(
   {
     id: text('id').primaryKey(),
     name: text('name').notNull(),
+    /** Null only for publisher-owned catalog entries; custom room formats stay private. */
+    createdByActorId: text('created_by_actor_id').references(() => actors.id, {
+      onDelete: 'restrict',
+    }),
     currentVersion: integer('current_version').notNull(),
     createdAt: createdAtColumn(),
     updatedAt: updatedAtColumn(),
   },
   (table) => [
+    index('formats_created_by_actor_idx').on(table.createdByActorId),
     index('formats_current_revision_idx').on(table.id, table.currentVersion),
     foreignKey({
       name: 'formats_current_revision_fk',

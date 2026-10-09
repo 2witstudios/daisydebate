@@ -150,6 +150,11 @@ export async function admitAiPractice(
       if (Number(recent?.n ?? 0) >= input.limits.perDay)
         throw createAppError('RATE_LIMIT', 'Daily AI debate limit');
       const room = input.room;
+      if (room.hostActorId !== input.actorId || room.topic !== input.resolution)
+        throw createAppError(
+          'INVARIANT',
+          'Practice host and topic must match admission',
+        );
       if (
         room.competitionType !== 'practice' ||
         room.executionPlan.preRoundPrep.enabled
@@ -178,6 +183,8 @@ export async function admitAiPractice(
       await tx.insert(rounds).values({
         id: input.roundId,
         roomId: room.id,
+        createdByActorId: room.hostActorId,
+        roomConfigSnapshot: room.config,
         resolution: input.resolution,
         competitionType: 'practice',
         length: room.length,

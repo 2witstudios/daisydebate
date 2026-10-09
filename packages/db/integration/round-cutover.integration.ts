@@ -27,8 +27,13 @@ test('two ranked rooms may pin the same approved preset', async () => {
   await withFixture(url, async (fixture) => {
     const formatId = await fixture.format();
     await fixture.preset(formatId);
+    const hostActorId = await fixture.actor();
     const room = (id: string) => ({
       id,
+      host_actor_id: hostActorId,
+      title: 'Ranked proof',
+      topic: 'A motion',
+      visibility: 'public',
       format_id: formatId,
       format_version: 1,
       preset_version: 1,
@@ -88,6 +93,10 @@ test('a room waits for every seat and finishes durable pre-round prep before fre
     try {
       await database.createRoom({
         id: roomId,
+        hostActorId: await fixture.actor(),
+        title: 'Prep proof',
+        topic: 'A motion',
+        visibility: 'public',
         formatId,
         formatVersion: 1,
         presetVersion: null,
