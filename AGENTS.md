@@ -25,7 +25,23 @@ and detailed procedures in the linked documents, not here.
 - Parallel sessions, branches, and vertical ownership: [parallel work](docs/development/parallel-work.md).
 - Preferred multi-agent orchestration: [pu workflow](docs/development/pu-workflow.md).
 - Merges and the two operating modes: see "Two modes" below and [pu workflow](docs/development/pu-workflow.md).
-- New epics: the repository skill [epic-pipeline](.claude/skills/epic-pipeline/SKILL.md) (plan, automated plan review, owner approval, tasking, orchestration).
+- New epics: the repository skill [epic-pipeline](.claude/skills/epic-pipeline/SKILL.md) (authorized planning, implementation, integration, independent review and main acceptance).
+
+## Branch autonomy and acceptance
+
+An owner instruction to implement an outcome authorizes planning, task
+administration, isolated experimentation, provisional unmerged integration,
+PurePoint delegation, independent reviews and fixes within that outcome. Do not
+turn routine branch work into repeated owner or parent approval. A planning-only
+request stays planning-only. Follow [the agent delivery pipeline](docs/development/agent-pipeline.md)
+for long-running execution, dependency evidence, check scheduling and review stages.
+
+Branches may contain incomplete transitions and temporary failing/deferred checks;
+record their reason, candidate, remaining work, responsible agent and discharge
+point. Coordinate actual concurrent writers and shared resources. Before main
+acceptance, complete the transition and all applicable checks, preserve architecture,
+security and migration integrity, and obtain independent exact-candidate review.
+Production identity, secrets, deployment and data actions retain human sign-off.
 
 ## Dependency rules
 
@@ -77,7 +93,8 @@ and detailed procedures in the linked documents, not here.
   tests, and policy exceptions, and supersede the documenting ADR. Never
   accrete legacy modes, dual-shape validators, or migration replay fixtures
   for behavior nobody depends on (ADR 0023).
-- Transitions are total. Once we decide to replace an approach (a pipeline,
+- Transitions are total before main acceptance. During branch work, record
+  incomplete transitions and their remaining proof. Once we accept a decision to to replace an approach (a pipeline,
   integration, transport, or tool), replace it in one move: delete the old
   code path and its tests, config, CI steps, secrets, docs, and everything it
   created outside the repo (PageSpace workflows, webhooks, triggers, data
@@ -162,15 +179,16 @@ values in `.env`; initialize with `bun install --frozen-lockfile` and
   migration currency, Redis reachability, and architecture boundaries. Add
   `--json` for a machine-readable report. It should pass before service-based
   work.
-- `bun check`: the pre-push gate: `format:check`, lint and boundaries, policy,
+- `bun check`: the main acceptance gate: `format:check`, lint and boundaries, policy,
   Knip, duplication, invariants, evidence, typecheck, unit tests, metrics policy, and
   production build. It does not boot Next or require integration services,
   but its policy stage lists open PRs for ADR and migration number claims,
   so it needs the network and an authenticated `gh` (`GH_TOKEN` in CI).
 - `bun check:affected`: fast per-vertical inner loop over changed files and
   the affected turbo graph. A convenience, never a substitute for `bun check`.
-  The committed `.githooks/pre-push` hook runs it on every push once a clone
-  opts in with `bun hooks:install`; CI enforces the full gate.
+  The optional `.githooks/pre-push` hook allows provisional branch pushes and
+  runs the full gate for an exact clean candidate pushed to main. CI enforces
+  main acceptance; branch failures do not prohibit continued work.
 - `bun migrations:check`: fails a branch that rewrites, reorders, truncates,
   or chain-breaks shared migrations relative to `origin/main`. Required
   before pushing `packages/db/migrations/` changes; migration generation is
@@ -243,9 +261,10 @@ print credentials or copy them into the worktree to bypass the sandbox.
 
 All repository work is planned in the PageSpace "Daisy Debate" drive
 (`lguvh1y1ejhadk96xcftohha`, via the `pagespace` CLI); its `Roadmap` page is the
-operating system. Work only on committed tasks: claim `Ready` leaves, advance
-In Progress to In Review at handoff, and mark Done only when acceptance
-criteria are proven. Status belongs in the status field; task bodies are
+operating system. Record and claim work within the owner-authorized outcome; Ready means useful
+branch progress is available, not that every prerequisite has merged. Board
+administration never reauthorizes the same outcome. Advance In Progress to
+In Review at handoff; Done requires independent acceptance evidence. Status belongs in the status field; task bodies are
 acceptance criteria (`Given X, should Y`).
 
 Codex must run the `pagespace` CLI outside its sandbox, requesting command
@@ -295,15 +314,16 @@ automatically and reaches Done only from an independent review record.
 Use `/aidd-triage` for review-comment triage.
 
 Parallel sessions follow [parallel work](docs/development/parallel-work.md):
-short-lived vertical branches, one open vertical per agent, and a deviation
-from the plan means updating the plan before declaring done. The
+short-lived vertical branches, one open vertical per agent, and execution changes
+update the plan without a new approval relay; changed product intent or scope
+cuts go to the owner. The
 orchestrator owns Agent Memory writes.
 Reviews use the [review record](docs/development/review-record.md) format.
 
-While work is open, post the daily Yesterday / Today / Blockers standup and
-send scope, ceremony, epic, or incident updates to the designated PageSpace
-channels: standup for daily standups, epic-updates for epic milestones,
-sprint-room for merge notices and discussion, incidents for failures.
+Report meaningful milestones, final delivery, genuine blockers and actual
+writer conflicts directly to the spawning parent. Use the designated PageSpace
+channels for requested standups, epic milestones, merge discussion and incidents;
+do not duplicate routine task administration as messages or wait for acknowledgments.
 Keep durable environment findings in Agent Memory. Deploy-rail and
 production-data changes require a human-only sign-off leaf; agents never
 self-approve.

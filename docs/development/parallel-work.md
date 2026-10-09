@@ -37,21 +37,17 @@ PageSpace's lesson: branch debris accumulates faster than agents clean it
   and its PR. A worktree cannot commit to a branch another worktree has
   checked out, so a direct commit landing on `main` is always a
   parent-checkout violation, not a worktree accident.
-- Every agent, worktree or not, keeps its tasks current on the board
-  through the `pagespace` CLI: it claims leaves, advances statuses, creates
-  follow-up tasks and records evidence. No agent edits the acceptance
-  criteria or scope of a task delegated to it, and Done comes from an
-  independent review record, never from the agent that did the work. Every
-  agent also publishes its own handoff or review record in the drive's
-  `Plans`/`Reviews` folders, because those are the record a reviewer reads.
-  An agent's built-in todo lists, plan mode files, memory stores, local
-  `plan.md`/`TODO.md` files and `/tmp` are scratch only, whichever agent it
-  is (Claude Code, Codex, OpenCode): anything another session or a
-  reviewer needs must be a PageSpace page.
-- Deviating from a task's acceptance criteria is allowed exactly one way:
-  take it back to whoever delegated the task, who updates the task body (or
-  the plan) to describe the new approach **before** the work is declared
-  done. Silent scope substitution is the failure mode this prevents.
+- Every agent records authorized work and keeps its board status, artifacts and
+  proof obligations current. Tasks and prompts are delivery administration,
+  not another approval of the owner's instruction. Preserve delegated criteria
+  and the requested outcome; execution changes may be replanned independently,
+  while scope cuts and changed product intent go to the owner. Done requires
+  independent acceptance evidence. Local notes are scratch; information needed
+  by another session belongs in the durable PageSpace delivery record.
+- Agents may plan and spawn implementation children and independent reviewers
+  within their objective. Coordinate actual live writers, not every consumer
+  of an unmerged producer. Pin source and integration SHAs, contracts, ownership
+  and gaps; build availability is separate from main acceptance and global Done.
 
 ## What each session must not own concurrently
 
@@ -88,8 +84,9 @@ PageSpace's lesson: branch debris accumulates faster than agents clean it
 - `bun check:affected` — fast per-vertical loop (eslint/prettier on
   changed files, boundaries, duplication, affected turbo graph). It is a convenience,
   not a gate.
-- `bun check` — the pre-push gate for every PR.
-- `bun migrations:check` — before pushing any change that touches
+- `bun check` — the full main acceptance gate. Intermediate branch failures
+  and deferred checks remain visible proof obligations, not a push prohibition.
+- `bun migrations:check` — when generating migrations, before pushing migration changes and before accepting
   `packages/db/migrations/`.
 - CI is per-PR isolated (service containers, concurrency cancellation);
   E2E runs once per PR in the dedicated browser workflow.
@@ -105,6 +102,11 @@ in **Merged** until an independent review record grants Done; after the
 enforcement cutoff a merge without one files review debt. `bun board:stale`
 lists tasks whose status disagrees with git.
 
+Builders may spawn their own independent reviewers, fix findings and request
+delta review without another parent or owner permission. Branch feedback does
+not mint main acceptance. Use stable snapshots; pause a mutable shared worktree
+only while a reviewer actually uses it.
+
 A leaf is reviewed as many passes as it takes to reach a verdict; a
 disagreement goes to the orchestrator or owner only when it is a decision
 only they can make, never because of a pass count.
@@ -113,3 +115,6 @@ Follow [review records](review-record.md): gates run up front, findings
 with severity and fix commits, an explicit verdict, and a second pass
 that re-verifies the first. Plan compliance (acceptance criteria versus
 diff) is part of the verdict, not an afterthought.
+
+Check scheduling, long-running continuation and production boundaries follow
+[the agent delivery pipeline](agent-pipeline.md).

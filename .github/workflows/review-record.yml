@@ -75,6 +75,7 @@ jobs:
         with:
           app-id: ${{ vars.REVIEW_RECORD_APP_ID }}
           private-key: ${{ secrets.REVIEW_RECORD_APP_KEY }}
+          permission-contents: read
           permission-statuses: write
           permission-pull-requests: read
           permission-issues: read

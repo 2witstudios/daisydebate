@@ -1,50 +1,43 @@
 ---
 name: epic-pipeline
-description: >
-  Run a new Daisy epic through its explicit stages: plan draft, automated external plan review,
-  owner approval, tasking, orchestration. Stops only at owner approval and at human-only leaves.
-  Use when the owner asks for a new epic, feature area or retrospective remediation, or says "/epic-pipeline".
+description: Carry an owner-authorized epic through planning, branch implementation, integration, independent reviews and main acceptance.
 ---
 
 # Epic pipeline
 
-Repository-owned. It exists so the owner stops being the message bus: each stage runs on
-from the previous one, and the owner is asked exactly once, at approval. Codex and OpenCode sessions
-follow this file too; AGENTS.md points here.
+Read AGENTS.md and [the agent delivery pipeline](../../../docs/development/agent-pipeline.md).
+The owner's implementation request authorizes execution within that outcome.
+A planning-only request stays planning-only. The owner steers scope and product
+intent; agents own routine planning, board administration, spawning, integration,
+review fixes and continuation.
 
-Constraints {
-AGENTS.md governs everything below; PageSpace artifact rules apply (Plans, Prompts, Reviews, one folder per epic).
-Never task, prompt or spawn before the owner approves the reviewed plan.
-A decision you make on the owner's behalf at any stage is recorded with `bun decision:record "<decision>" --context <pageId> --why "<reason>"`; it stays open until confirmed or overruled. Never bury one in a page as "please confirm".
-Stop only at the owner-approval point and at human-only leaves (deploy rail, production data, identities, secrets). Everything else runs on.
-}
+1. Ground the requested outcome in relevant product/architecture documents and
+   existing work. Read Issues touching the current work, not every unrelated
+   bucket before every small edit. Record the objective and execution plan in
+   PageSpace. Reuse existing tasks, decisions and artifacts.
+2. Use [the task workflow](../task/SKILL.md) to maintain build inputs separately
+   from acceptance obligations. Review complex plans independently and apply
+   findings without another owner approval relay. Record decisions made on the
+   owner's behalf; unresolved product choices remain provisional.
+3. Build and integrate in the owning branch. Actual pinned unmerged producers
+   may satisfy build availability. Coordinate actual live writers and migration
+   generation. Do not wait for unrelated main merges or global Done statuses.
+4. Run focused proofs as behavior becomes runnable. Record failed/deferred gates
+   with SHA, reason, remaining work, responsible agent and discharge point.
+   Expected intermediate CI failure does not forbid commits, pushes or reviews.
+5. Spawn independent reviewers with native `pu spawn`, fix findings, obtain
+   relevant delta review and continue. Review stable commits; shared mutable
+   worktrees pause only while a reviewer uses them. No pass-count escalation or
+   mandatory parent acknowledgment between steps.
+6. Before main acceptance, reconcile the complete composed candidate, applicable
+   gates, contracts, security and migration integrity. Obtain independent
+   exact-head acceptance review and obey main's required checks. Deliver with
+   `/pr` and `/handoff`; never grant yourself Done or merge directly.
 
-Stages {
+Escalate ambiguity in product intent, changed outcomes, real writer conflicts and
+human-only production/identity/secret/data actions. Continue unaffected work.
+Report meaningful milestones and final delivery directly to your spawning parent
+with `pu send`; the owner is not the message bus. Native `pu status` and `pu logs`
+provide agent state. A stopped tool or context handoff does not reauthorize scope.
 
-1. Plan draft
-   Write `Plan — <epic>` in Plans/<Epic>: why, owner decisions, design, sequencing, out of scope, constraints.
-   Read every accepted ADR the plan touches. Take ADR and migration numbers from `bun adr:next`, never from memory.
-   Declare prerequisites (ADR, contract, leaf, PR) explicitly; leaves that depend on them are sequenced, not parallel.
-
-2. Automated external plan review
-   `bun plan:review <planPageId> > <scratchpad>/plan-review-<epic-slug>.md` runs Codex read-only with AGENTS.md and the ADR index.
-   Publish its output as `Plan review — <epic> (codex)` in Reviews/<Epic>, mentioning the plan.
-   CHANGES REQUESTED => revise the plan and review again until the review approves. Take a disagreement to the owner only when it is a decision only the owner can make (scope or intent), never because of a round count.
-
-3. Owner approval (the one stop)
-   Send the owner the plan link, the review verdict and every open decision (`bun decision:record` ids) in one message to Epic Updates.
-   Wait. The owner's approval, with the date, is recorded on the plan page. Anything the owner changes goes into the plan before tasking.
-
-4. Tasking
-   Create the epic, phases and leaves with `bun board:create` (criteria as "Given X, should Y"; Related pages: plan, prerequisites on a `Prerequisite:` line).
-   Before creating each leaf, check it for superseded terms (policy/superseded-terms.json).
-   Human-only leaves are marked so in their title and never delegated.
-
-5. Orchestration
-   Follow the Library "Orchestrator stage loop": `bun board:stale`, read Issues, commit Ready leaves, write prompts from the Builder and Reviewer contracts, spawn with `pu spawn`, reviews with `/review`, loops with the Library "Converge loop".
-   Stop again only at a human-only leaf or a decision only the owner can make; everything else continues.
-   }
-
-Commands {
-/epic-pipeline <epic name or source page> - run the stages from the first one not yet done
-}
+`/epic-pipeline <outcome>` resumes the first unfinished part of the delivery.

@@ -1,0 +1,67 @@
+<h1>Task artifacts and linking</h1>
+<p>
+  PageSpace is the durable delivery record. An owner's implementation request
+  authorizes routine planning, task administration, spawning, integration,
+  reviews and fixes within the requested outcome. Artifact creation is
+  administration, not another permission gate. Planning-only requests remain
+  planning-only.
+</p>
+<h2>Locations</h2>
+<ul>
+  <li>
+    Roadmap: epic, phase and leaf criteria/status. Issues holds defects or
+    improvements without an owning open leaf.
+  </li>
+  <li>
+    Plans/&lt;Epic&gt;: specification, execution manifest, delivery/continuation
+    record and handoffs.
+  </li>
+  <li>
+    Prompts/&lt;Epic&gt;: agent-specific scope, criteria, parent identity and
+    protected exclusions.
+  </li>
+  <li>
+    Reviews/&lt;Epic&gt;: independent records for stable candidate SHAs; branch
+    feedback is labeled separately from main acceptance.
+  </li>
+  <li>
+    Library: universal role prompts and reusable skills. These contain no
+    task-specific back-links.
+  </li>
+</ul>
+<h2>Linking and ownership</h2>
+<p>
+  Specific artifacts mention the general records they use. Task Related pages
+  mention plan, prompt, handoff and reviews. Documents use page mentions; GitHub
+  descriptions/comments use verified PageSpace URLs. Reuse records and their
+  page history rather than duplicate them for each procedural step. Gate logs
+  stay in CI or linked evidence; never upload credentials or environment
+  secrets.
+</p>
+<p>
+  Agents create/claim in-scope tasks, maintain their status and update execution
+  plans. Preserve delegated criteria and the requested outcome. Scope cuts or
+  conflicting product decisions go to the owner; routine execution changes do
+  not need another approval. Ready means branch progress is possible, not that
+  every acceptance prerequisite is Done. Incomplete work stays In Progress;
+  delivered candidates move In Review; merged tasks wait for independent
+  evidence before Done. Builders never self-Done.
+</p>
+<h2>Evidence and continuation</h2>
+<p>
+  Record provisional producer source and integration SHAs, contract, owner and
+  gaps. Record FAIL/NOT RUN checks with candidate, reason, remaining work,
+  responsible agent and discharge point. Deferral never satisfies a criterion.
+  Keep one durable record across context handoffs; local notes are scratch. Main
+  requires completed transitions, applicable proof and independent
+  exact-candidate review. Production identity, secrets, data and deployment
+  remain human-only.
+</p>
+<p>
+  Builders may spawn independent reviewers. Prefer stable separate snapshots;
+  only an actual mutable-worktree reviewer holds source mutation. Findings in an
+  open leaf remain its work; otherwise file an Issue with origin, why, criteria
+  and related record. Never lose a finding solely in prose. Report meaningful
+  outcomes or actual blockers to the spawning parent with native pu send; no
+  routine acknowledgment or owner relay.
+</p>

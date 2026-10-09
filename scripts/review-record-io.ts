@@ -5,6 +5,7 @@
  * verifier and its self-check command (`bun review:check`, ISSUE-122) both
  * read through this module, so there is exactly one copy of each call.
  */
+import type { ReviewDiff } from './review-diff';
 import { pagespaceApi } from './pagespace-docs';
 
 export type RecordPage = {
@@ -16,6 +17,7 @@ export type PullRequest = {
   readonly number: number;
   readonly headSha: string;
   readonly body: string;
+  readonly diff?: ReviewDiff;
 };
 
 /** The Daisy Debate drive: records anywhere else are never read. */
@@ -60,12 +62,71 @@ export function ghJson<T>(args: readonly string[]): T {
   return JSON.parse(result.stdout) as T;
 }
 
+type PrDiffSource = {
+  readonly head: { readonly sha: string };
+  readonly base: { readonly sha: string };
+  readonly changed_files: number;
+};
+
+/** GitHub supplies paths; Git trees supply modes. Incomplete reads never grant docs scope. */
+export function readPullRequestDiff(
+  run: Run,
+  repository: string,
+  source: PrDiffSource,
+): ReviewDiff | undefined {
+  const api = <T>(path: string): T => {
+    const result = run(['api', path]);
+    if (result.code !== 0) throw new Error('review diff unavailable');
+    return JSON.parse(result.stdout) as T;
+  };
+  try {
+    const comparison = api<{
+      merge_base_commit: { sha: string };
+      files?: {
+        filename: string;
+        previous_filename?: string;
+        status: string;
+      }[];
+    }>(`repos/${repository}/compare/${source.base.sha}...${source.head.sha}`);
+    // Compare's file list is SHA-bound and limited to 300; count mismatch fails closed.
+    const files = comparison.files ?? [];
+    const tree = (sha: string) =>
+      api<{
+        truncated: boolean;
+        tree: { path: string; mode: string }[];
+      }>(`repos/${repository}/git/trees/${sha}?recursive=1`);
+    const base = tree(comparison.merge_base_commit.sha);
+    const head = tree(source.head.sha);
+    const modes = (entries: typeof base.tree) =>
+      new Map(entries.map((entry) => [entry.path, entry.mode]));
+    const oldModes = modes(base.tree);
+    const newModes = modes(head.tree);
+    return {
+      headSha: source.head.sha,
+      complete:
+        base.truncated === false &&
+        head.truncated === false &&
+        files.length === source.changed_files &&
+        new Set(files.map((file) => file.filename)).size === files.length,
+      files: files.map((file) => ({
+        path: file.filename,
+        previousPath: file.previous_filename,
+        status: file.status,
+        oldMode: oldModes.get(file.previous_filename ?? file.filename),
+        newMode: newModes.get(file.filename),
+      })),
+    };
+  } catch {
+    return undefined;
+  }
+}
+
 /** The PR's live head SHA, body and every issue-comment body, through gh. */
 export function fetchPullRequest(
   repository: string,
   prNumber: number,
 ): { readonly pr: PullRequest; readonly comments: readonly string[] } {
-  const pull = ghJson<{ head: { sha: string }; body: string | null }>([
+  const pull = ghJson<PrDiffSource & { body: string | null }>([
     'api',
     `repos/${repository}/pulls/${prNumber}`,
   ]);
@@ -80,7 +141,12 @@ export function fetchPullRequest(
     ]),
   );
   return {
-    pr: { number: prNumber, headSha: pull.head.sha, body: pull.body ?? '' },
+    pr: {
+      number: prNumber,
+      headSha: pull.head.sha,
+      body: pull.body ?? '',
+      diff: readPullRequestDiff(gh, repository, pull),
+    },
     comments,
   };
 }

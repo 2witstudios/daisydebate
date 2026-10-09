@@ -72,3 +72,18 @@ read-only research and review.
   `gh pr merge --auto --merge`, and only once the live `main` ruleset
   requires `review-record`, while the owner may merge any PR at any time.
 - Given direct single-agent work, should be allowed to proceed without `pu`.
+
+## Autonomous continuation
+
+A builder may spawn implementation children and independent reviewers within
+its owner-authorized outcome. Native `pu spawn`, `pu send`, `pu status` and
+`pu logs` are the workflow; no wrapper or parent acknowledgment is required.
+Code-writing children use separate worktrees. Reviewers read a stable candidate
+and report to the builder that spawned them; that builder resolves findings and
+continues. Reserve source holds for reviewers actually using a mutable worktree.
+
+Report substantial milestones, final delivery, real blockers and actual writer
+conflicts to the original parent. Routine board updates and intermediate check
+failures need no owner relay. Keep a durable continuation record across context
+handoffs. [The agent pipeline](agent-pipeline.md) defines provisional dependencies,
+deferred proof and the independent exact-candidate main acceptance boundary.

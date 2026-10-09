@@ -100,15 +100,20 @@ Rules:
   and the `review-record` check takes the verdict from nowhere
   else: it accepts exactly `APPROVE` or `APPROVE WITH MINORS`, and refuses
   an approval that counts an open blocker or major.
-- A verdict with no findings is refused unless the reviewer ran the
-  integration tests and at least one negative control, and the Gates run
-  section says so on its own lines: `bun test:integration: PASS` and
-  `Negative control run: yes`. The review-record check enforces it too; a
-  PASS that says it did not run does not count. Markdown decoration (a
-  leading list bullet, backticks around the command, bold) is stripped
-  before matching, so a decorated line reads the same as a plain one — but
-  "not run" or a question mark anywhere on the line still disqualifies it,
-  however it is decorated.
+- Acceptance evidence is selected from the actual live PR diff and Git tree
+  modes. Regular markdown under `docs/` can use `Documentation review: PASS`,
+  `bun check: PASS` and `Negative control run: yes`; explicitly record the
+  independent contract/link/status/number checks and applicable negative proof.
+  Service tests may be NOT RUN with the documentation-only reason. Instruction
+  files, skills, templates, workflows, executable/symlink modes, mixed changes,
+  missing or incomplete diffs never qualify. Runtime/unclassified approvals
+  require integration PASS and a negative control regardless of finding count.
+  A decorated or false PASS saying NOT RUN, deferred or carrying `?` never counts.
+- Branch feedback carries `Review stage: branch` and the nonacceptance verdict
+  `BRANCH FEEDBACK` (source conclusions go in prose). It names the candidate,
+  findings and deferred proof but cannot mint main acceptance. An acceptance
+  record evaluates the complete exact-head candidate and all relevant findings;
+  outstanding main proof cannot be bypassed by calling feedback an approval.
 - No pass limit: the reviewer reviews again as many times as it takes to
   reach a verdict, and takes an open disagreement to the orchestrator or
   owner only when it is a decision only they can make, never because of a
@@ -121,3 +126,19 @@ Rules:
 - Plan compliance is a separate discipline: extract every
   "Given X, should Y" acceptance criterion from the task and mark each
   PASS/FAIL/PARTIAL against the diff before writing a verdict.
+
+Review timing and check scheduling follow [the agent delivery pipeline](agent-pipeline.md).
+
+## Review App contents permission
+
+Exact-candidate documentation classification reads SHA-bound comparisons and Git
+trees, which require repository Contents: read in the review App installation
+and minted token. See [GitHub compare permissions](https://docs.github.com/en/rest/commits/commits#fine-grained-access-tokens-for-compare-two-commits).
+New generated App manifests request this read-only permission; no content-writing
+permission is added. For an existing App, its human owner must update Repository
+permissions → Contents → Read-only in GitHub App settings, then approve the
+permission update for the repository installation. Do not replace the App, copy
+its key or self-approve this identity permission change. Record a human-only
+acceptance prerequisite and verify the protected-main workflow after that update.
+Unapproved or unreadable facts fail closed; agents continue independent branch
+work without representing document classification or main acceptance as passed.

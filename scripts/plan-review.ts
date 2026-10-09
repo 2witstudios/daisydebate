@@ -5,7 +5,7 @@
  * accepted ADRs in hand, before any tasking, so a plan that contradicts a
  * decision (a backfill under ADR 0023, UUIDs under ADR 0018) is caught
  * before builders fan out. Prints the review; the epic-pipeline skill
- * publishes it and stops for owner approval.
+ * publishes it; an implementation instruction already authorizes continuation.
  */
 import { readdirSync, readFileSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -58,12 +58,15 @@ export function planReviewPrompt(input: {
   readonly plan: string;
 }): string {
   return [
-    'You are an external reviewer of an implementation plan for this repository, before any of it is tasked. You do not edit anything.',
+    'You are an external reviewer of an implementation plan for this repository, during owner-authorized branch delivery. You do not edit anything.',
     'Review the plan against the repository contract (AGENTS.md) and the accepted decisions (docs/decisions). Read any ADR in full when the plan touches it.',
     'Report, each with severity (blocker, major, minor), the plan section and the AGENTS.md rule or ADR it concerns:',
     '- anything that contradicts AGENTS.md or an accepted ADR (for example a backfill, compat path or legacy mode under the greenfield baseline, or UUIDs where cuid2 is decided);',
     '- terms or approaches a later ADR superseded;',
-    '- work that depends on a decision, contract or prerequisite that is not merged, and leaves that must be sequenced rather than run in parallel;',
+    '- missing build inputs: a pinned unmerged producer may satisfy branch availability; require its exact SHA, contract, source owner and provisional gaps, not global Done or default-branch presence;',
+    '- actual concurrent writer collisions, migration generation conflicts, unresolved product authority and acceptance prerequisites; sequence actual shared mutations, not all readers of a shared concept;',
+    '- deferred checks without a reason, responsible agent, discharge stage and remaining proof; branch failures may be provisional, all applicable checks must pass before main acceptance;',
+    'Do not require another owner approval for planning, task administration, experimentation, integration, reviewer spawning or fixes within an already authorized objective. Escalate ambiguous or conflicting product choices, changed intent, scope cuts and protected production actions.',
     '- ADR or migration numbers the plan claims (they come from bun adr:next at the time, not the plan);',
     '- acceptance criteria that are ambiguous, untestable or cannot be proven by a test that fails when the behaviour is removed.',
     'End with exactly one line: "PLAN REVIEW: APPROVE" or "PLAN REVIEW: CHANGES REQUESTED".',
