@@ -10,7 +10,7 @@ export type AuthorizationProjection = Pick<
   'resource' | 'context'
 >;
 /** Pure mapper; producer row ancestry remains in the projection, never request flags. */
-export function toAuthorizationInput(
+function toAuthorizationInput(
   projection: AuthorizationProjection,
   principal: AuthorizationPrincipal,
   capability: AuthorizationInput['capability'],
@@ -59,20 +59,4 @@ export async function authorizeRequest({
   );
   requireAuthorization(input);
   return input;
-}
-/** Inbox identity is separate from any Room/channel entitlement. */
-export function authorizeInbox(
-  principal: AuthorizationPrincipal,
-  inboxActorId: string,
-  account: AuthorizationInput['context']['account'],
-) {
-  return (
-    principal.kind === 'user' &&
-    principal.actorId !== null &&
-    principal.actorId === inboxActorId &&
-    account?.userId === principal.userId &&
-    account.actorId === principal.actorId &&
-    account.member &&
-    !account.erased
-  );
 }
