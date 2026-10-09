@@ -16,6 +16,14 @@ import { sqlStateOf } from './constraint-helpers';
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
 const cutoff = '2001-01-01T00:00:00.000Z';
+async function closePools(
+  database: ReturnType<typeof createDatabase>,
+  sql: SQL,
+) {
+  const closed = await Promise.allSettled([database.close(), sql.close()]);
+  if (closed.some((result) => result.status === 'rejected'))
+    throw new Error('Prefix proof resource cleanup failed');
+}
 async function fixture(
   run: (f: {
     sql: SQL;
@@ -55,9 +63,7 @@ async function fixture(
     // after removing only this fixture's rows; no foreign service uses it.
     if (original)
       await sql`update outbox_retention_boundary set txid=${original.txid}::xid8,seq=${original.seq.toString()}::bigint where singleton=true`;
-    const closed = await Promise.allSettled([database.close(), sql.close()]);
-    if (closed.some((result) => result.status === 'rejected'))
-      throw new Error('Prefix proof resource cleanup failed');
+    await closePools(database, sql);
   }
 }
 test('a locked oldest row refuses the entire prefix without deleting later history', async () => {
