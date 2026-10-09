@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
 import { buildChannelTopic, idSchema } from '@daisy/protocol';
+import { eraseSubjectFiles, exportSubjectFiles } from '../messaging-files';
 import { appendOutboxEvent } from '../outbox';
 import type { AuthorizationTransaction } from '../authorization';
 import {
@@ -55,6 +56,7 @@ async function lockSubjectMessaging(
       union select channel_id from messaging_receipts where actor_id=${actorId}
       union select channel_id from messaging_group_invitations where invitee_actor_id=${actorId} or invited_by_actor_id=${actorId}
       union select result_channel_id from messaging_social_commands where actor_id=${actorId} or counterpart_actor_id=${actorId}
+      union select channel_id from messaging_files where owner_actor_id=${actorId}
     ) order by id for update
   `);
 }
@@ -159,6 +161,7 @@ export function createMessagingPrivacyAdopter(): PrivacyAdopter {
       await lockSubjectMessaging(tx, subject.actorId);
       const versions = new Map<string, number>();
       await scrubSubjectMessages(tx, subject.actorId, now, versions);
+      await eraseSubjectFiles(tx, subject.actorId);
       await eraseAssociations(tx, subject.actorId, versions);
       for (const [channelId, version] of versions)
         await appendOutboxEvent(tx, {
@@ -238,6 +241,7 @@ export function createMessagingPrivacyAdopter(): PrivacyAdopter {
       // text/title by guessing ownership from current membership.
       return Object.fromEntries(
         Object.entries({
+          ...(await exportSubjectFiles(tx, actorId)),
           messaging_channels: [],
           messaging_messages: messages,
           messaging_actor_states: preferences,
