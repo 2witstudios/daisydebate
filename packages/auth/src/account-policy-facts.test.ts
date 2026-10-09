@@ -21,43 +21,6 @@ test('minimal policy reader consumes a fenced age fact without birth data', asyn
     expected: { reads: [account], facts: [{ account, age }] },
   });
 });
-test('minimal policy facts use injected account-bound source without exposing birth data', async () => {
-  const account = adultAccount('a').account;
-  const reads: string[] = [];
-  const facts = await loadAccountPolicyFacts({
-    accounts: [account],
-    now: '2026-10-09T00:00:00.000Z',
-    readAgeSource: async (userId) => {
-      reads.push(userId);
-      return {
-        birthMonth: '2000-01',
-        revision: 1,
-        recordedAt: '2026-10-01T00:00:00.000Z',
-      };
-    },
-  });
-  assert({
-    given: 'a locked account and injected source reader',
-    should: 'read only its user binding and emit minimal revision-bound age',
-    actual: { reads, facts },
-    expected: {
-      reads: ['a'],
-      facts: [
-        {
-          account,
-          age: {
-            state: 'known',
-            actorId: 'a',
-            band: 'adult',
-            revision: 1,
-            accountRevision: 1,
-            validUntil: '2026-11-01T00:00:00.000Z',
-          },
-        },
-      ],
-    },
-  });
-});
 test('missing policy account rejects before any source read', async () => {
   let calls = 0;
   await assertRejects({
@@ -67,9 +30,9 @@ test('missing policy account rejects before any source read', async () => {
       loadAccountPolicyFacts({
         accounts: [adultAccount('a').account, null],
         now: '2026-10-09T00:00:00.000Z',
-        readAgeSource: async () => {
+        readAgeFact: async () => {
           calls++;
-          return null;
+          return { state: 'unknown' };
         },
       }),
     code: 'AUTHORIZATION',
