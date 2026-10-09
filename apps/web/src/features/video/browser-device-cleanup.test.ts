@@ -66,20 +66,26 @@ describe('microphone setup cleanup', () => {
           }) as unknown as AudioContext,
       });
       await controller.check('microphone');
+      const first = [...released];
+      await controller.check('microphone');
+      const retry = released.slice(first.length);
       const status = controller.readSnapshot().microphone.status;
       controller.dispose('departure');
+      const expected = [
+        ...(stage === 'source' ? [] : ['source']),
+        ...(['source', 'analyser'].includes(stage) ? [] : ['analyser']),
+        'context',
+        'track',
+      ];
       assert({
-        given: `a ${stage} setup failure and subsequent departure`,
+        given: `a ${stage} setup failure, retry and subsequent departure`,
         should: 'fail closed and release every acquired resource once',
-        actual: { status, released },
+        actual: { status, first, retry, released },
         expected: {
           status: 'unavailable',
-          released: [
-            ...(stage === 'source' ? [] : ['source']),
-            ...(['source', 'analyser'].includes(stage) ? [] : ['analyser']),
-            'context',
-            'track',
-          ],
+          first: expected,
+          retry: expected,
+          released: [...expected, ...expected],
         },
       });
     });
