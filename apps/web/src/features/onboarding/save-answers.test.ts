@@ -13,7 +13,7 @@ setupRitewayBun();
 const member: Identity = {
   state: 'member',
   username: 'ada',
-  principal: { kind: 'user', userId: 'user1', permissions: [] },
+  principal: { kind: 'user', userId: 'user1', actorId: null },
 };
 
 const NOW = '2026-10-05T12:00:00.000Z';
@@ -60,7 +60,7 @@ describe('POST /api/account/onboarding gates', () => {
     const provisional = handlerWith({
       identity: {
         state: 'provisional',
-        principal: { kind: 'user', userId: 'user1', permissions: [] },
+        principal: { kind: 'user', userId: 'user1', actorId: null },
       },
     });
     const outage = handlerWith({

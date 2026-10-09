@@ -6,7 +6,9 @@
   "exports": {
     ".": "./src/index.ts",
     "./authorization": "./src/authorization.ts",
-    "./account-age": "./src/account-age.ts"
+    "./account-age": "./src/account-age.ts",
+    "./request-authorization": "./src/request-authorization.ts",
+    "./social-policy": "./src/social-policy.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",

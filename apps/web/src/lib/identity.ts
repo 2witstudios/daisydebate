@@ -3,7 +3,10 @@ import { hasSessionCookie } from '../features/auth/sessions/session-cookie';
 import type { AuthServer } from '../features/auth/server';
 
 /** The slice of the composed auth server a session read needs. */
-export type SessionReader = Pick<AuthServer, 'instance' | 'clock' | 'logger'>;
+export type SessionReader = Pick<
+  AuthServer,
+  'instance' | 'clock' | 'logger' | 'getActorByUserId'
+>;
 
 /**
  * Principal resolution glue: Better Auth verifies the signed cookie and reads
@@ -40,6 +43,7 @@ export async function resolveSession(
   let expiresAt: string | null = null;
   const identity = await resolveIdentity({
     // No session cookie at all: nothing to look up, and no budget spent.
+    readActor: auth.getActorByUserId,
     cookie: hasSessionCookie(requestHeaders) ? cookie : null,
     now: () => clock.now(),
     readSession: async (header) => {

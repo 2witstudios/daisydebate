@@ -1,7 +1,8 @@
 import type { IdGenerator } from '@daisy/clock';
 import type { Database } from '@daisy/db';
 import { createAppError, isAppError } from '@daisy/errors';
-import { requirePermission, type Principal } from '@daisy/auth';
+import type { Principal } from '@daisy/auth';
+import { authorize } from '@daisy/auth/authorization';
 import { resolveRoomConfiguration as resolveRoom } from '@daisy/debate-engine';
 import type { RoundStatus, RoundRules } from '@daisy/protocol';
 import { parseValidated } from '../../server/http';
@@ -15,7 +16,11 @@ import { proofDebateIdSchema, proofDebateInputSchema } from './schemas';
 export const proofPrincipal: Principal = Object.freeze({
   kind: 'service',
   serviceId: 'foundation-proof',
-  permissions: Object.freeze(['debate:create', 'debate:read'] as const),
+  scope: 'foundation',
+  capabilities: Object.freeze([
+    'foundation.create',
+    'foundation.read',
+  ] as const),
 });
 
 import { foundationConfig } from '@daisy/db/reference-formats';
@@ -31,6 +36,23 @@ export type ProofDependencies = {
   readonly database: Pick<Database, 'getFormat' | 'createRound' | 'getRound'>;
   readonly ids: IdGenerator;
 };
+
+function requireFoundationAuthority(
+  principal: Principal,
+  capability: 'foundation.create' | 'foundation.read',
+) {
+  if (
+    !authorize({
+      principal,
+      capability,
+      resource: { kind: 'foundation' },
+      context: { account: null },
+    }).allow
+  )
+    throw createAppError(
+      principal.kind === 'anonymous' ? 'AUTHENTICATION' : 'AUTHORIZATION',
+    );
+}
 
 function requireProofEnabled(dependencies: ProofDependencies) {
   if (!dependencies.enabled) throw createAppError('NOT_FOUND');
@@ -65,7 +87,7 @@ export async function createProofDebate(
   principal: Principal = proofPrincipal,
 ): Promise<ProofRound> {
   requireProofEnabled(dependencies);
-  requirePermission(principal, 'debate:create');
+  requireFoundationAuthority(principal, 'foundation.create');
   const { resolution } = parseValidated(proofDebateInputSchema, input);
   const format = await withDurableContext(() =>
     dependencies.database.getFormat(proofFormat),
@@ -102,9 +124,9 @@ export async function createProofDebate(
 }
 
 /**
- * Reads pass the Principal gate before any database access and require
- * `debate:read`; holding `debate:create` alone does not admit a read. The
- * proof principal holds exactly create and read, never `debate:manage`.
+ * Reads pass the canonical authority gate before any database access and require
+ * `foundation.read`; holding `foundation.create` alone does not admit a read. The
+ * proof principal holds exactly create and read, never `room.manage`.
  */
 export async function getProofDebate(
   id: string,
@@ -112,7 +134,7 @@ export async function getProofDebate(
   principal: Principal = proofPrincipal,
 ): Promise<ProofRound> {
   requireProofEnabled(dependencies);
-  requirePermission(principal, 'debate:read');
+  requireFoundationAuthority(principal, 'foundation.read');
   const roundId = parseValidated(proofDebateIdSchema, id);
   return withDurableContext(async () => {
     const round = await dependencies.database.getRound(roundId);

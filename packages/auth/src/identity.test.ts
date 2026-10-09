@@ -14,7 +14,12 @@ const session = (
   ...overrides,
 });
 const resolveWith = (found: VerifiedSession | null, cookie = 'c=1') =>
-  resolveIdentity({ cookie, readSession: async () => found, now });
+  resolveIdentity({
+    cookie,
+    readSession: async () => found,
+    readActor: async (userId) => ({ id: 'actor1', userId }),
+    now,
+  });
 
 describe('resolveIdentity', () => {
   test('a verified, unexpired session with a username is a member', async () => {
@@ -28,7 +33,7 @@ describe('resolveIdentity', () => {
         principal: {
           kind: 'user',
           userId: 'user1',
-          permissions: ['debate:create'],
+          actorId: 'actor1',
         },
       },
     });
@@ -41,26 +46,24 @@ describe('resolveIdentity', () => {
       actual: await resolveWith(session({ username: null })),
       expected: {
         state: 'provisional',
-        principal: { kind: 'user', userId: 'user1', permissions: [] },
+        principal: { kind: 'user', userId: 'user1', actorId: null },
       },
     });
   });
 
-  test('no member ever holds debate:manage or debate:read', async () => {
-    const resolved = await resolveWith(session());
+  test('member identity is the durable actor mapping', async () => {
     assert({
-      given: 'an ordinary completed account',
-      should: 'never receive manage or read',
-      actual:
-        resolved.principal.kind === 'user'
-          ? resolved.principal.permissions.filter((permission) =>
-              ['debate:manage', 'debate:read'].includes(permission),
-            )
-          : ['not-a-user'],
-      expected: [],
+      given: 'a verified username with a missing or foreign actor row',
+      should: 'resolve unavailable instead of inventing an actor',
+      actual: await resolveIdentity({
+        cookie: 'c=1',
+        readSession: async () => session(),
+        readActor: async () => ({ id: 'actor1', userId: 'foreign' }),
+        now,
+      }),
+      expected: { state: 'unavailable', principal: { kind: 'anonymous' } },
     });
   });
-
   test('absent, unverified and expired sessions are anonymous', async () => {
     const anonymous = { state: 'anonymous', principal: { kind: 'anonymous' } };
     assert({
@@ -79,6 +82,7 @@ describe('resolveIdentity', () => {
   test('a missing cookie skips the lookup', async () => {
     let looked = false;
     const result = await resolveIdentity({
+      readActor: async (userId) => ({ id: 'actor1', userId }),
       cookie: null,
       readSession: async () => {
         looked = true;
@@ -96,6 +100,7 @@ describe('resolveIdentity', () => {
 
   test('a failing lookup resolves unavailable with no permissions, never a guess', async () => {
     const result = await resolveIdentity({
+      readActor: async (userId) => ({ id: 'actor1', userId }),
       cookie: 'c=1',
       readSession: async () => {
         throw new Error('database down');
@@ -121,7 +126,7 @@ describe('resolveIdentity', () => {
       given: 'a lookup result carrying extra role and permission fields',
       should: 'derive the principal only from the verified facts',
       actual: (await resolveWith(forged)).principal,
-      expected: { kind: 'user', userId: 'user1', permissions: [] },
+      expected: { kind: 'user', userId: 'user1', actorId: null },
     });
   });
 });
