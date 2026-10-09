@@ -68,38 +68,70 @@ export function createRealtimeAuthorization({
         : null;
     if (parsed.family === 'standings')
       return { revision: fingerprint(base), validUntil: bound };
-    if (parsed.family === 'room') {
-      const facts = await resources.database.readRoomAuthorizationFacts(
-        parsed.roomId,
-        principal,
-      );
-      if (!facts || facts.account.revision !== session.account.revision)
+    switch (parsed.family) {
+      case 'room':
+        return authorizeRoom(
+          principal,
+          parsed.roomId,
+          session.account.revision,
+          base,
+          bound,
+        );
+      case 'channel':
+        return authorizeChannel(
+          principal,
+          parsed.channelId,
+          session.account.revision,
+          base,
+          bound,
+        );
+      default:
         return null;
-      const decision = authorize({
-        principal: { kind: 'user', ...principal },
-        capability: 'room.read',
-        resource: facts.resource,
-        context: { account: facts.account },
-      });
-      if (!decision.allow) return null;
-      const current = await resources.database.readAuthorizationSession({
-        ...principal,
-        now: resources.clock.now(),
-      });
-      if (
-        !current ||
-        current.account.revision !== session.account.revision ||
-        facts.account.revision !== current.account.revision
-      )
-        return null;
-      return {
-        revision: fingerprint([...base, facts.resource.revision]),
-        validUntil: Math.min(bound, deadline(current.expiresAt)),
-      };
     }
-    if (parsed.family !== 'channel') return null;
+  }
+  async function authorizeRoom(
+    principal: SocketPrincipal,
+    roomId: string,
+    accountRevision: number,
+    base: readonly unknown[],
+    bound: number,
+  ): Promise<SubscriptionAuthority | null> {
+    const facts = await resources.database.readRoomAuthorizationFacts(
+      roomId,
+      principal,
+    );
+    if (!facts || facts.account.revision !== accountRevision) return null;
+    const decision = authorize({
+      principal: { kind: 'user', ...principal },
+      capability: 'room.read',
+      resource: facts.resource,
+      context: { account: facts.account },
+    });
+    if (!decision.allow) return null;
+    const current = await resources.database.readAuthorizationSession({
+      ...principal,
+      now: resources.clock.now(),
+    });
+    if (
+      !current ||
+      current.account.revision !== accountRevision ||
+      facts.account.revision !== current.account.revision
+    )
+      return null;
+    return {
+      revision: fingerprint([...base, facts.resource.revision]),
+      validUntil: Math.min(bound, deadline(current.expiresAt)),
+    };
+  }
+  async function authorizeChannel(
+    principal: SocketPrincipal,
+    channelId: string,
+    accountRevision: number,
+    base: readonly unknown[],
+    bound: number,
+  ): Promise<SubscriptionAuthority | null> {
     const result = await resources.database.messagingChannelAuthority(
-      { ...principal, channelId: parsed.channelId },
+      { ...principal, channelId: channelId },
       async ({ tx, fact, accounts: currentAccounts }) => {
         const factNow = resources.clock.now();
         const accounts = await loadAccountPolicyFacts({
@@ -119,7 +151,7 @@ export function createRealtimeAuthorization({
           ...principal,
           now: resources.clock.now(),
         });
-        if (!current || current.account.revision !== session.account.revision)
+        if (!current || current.account.revision !== accountRevision)
           return null;
         const instant = resources.clock.now();
         const reading = readingPolicy?.({

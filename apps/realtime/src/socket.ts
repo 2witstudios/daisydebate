@@ -61,9 +61,8 @@ const logRejection = (
 
 /**
  * Wires ADR 0031's socket lifecycle: arm the hello deadline on open, decide
- * every first frame (RT-2.4b onward will hand this a real success path),
- * and always clear the timer on close. No subscribe registry, drain loop or
- * ring exists yet (RT-2.3b, RT-2.3c, RT-2.5a); nothing here assumes one.
+ * consume a real ticket before ready, authorize subsequent frames against
+ * the current durable session, and always clear owned resources on close.
  */
 export function createWebSocketHandlers({
   logger,
@@ -103,6 +102,114 @@ export function createWebSocketHandlers({
     if (ws.send(text) === 0 || ws.getBufferedAmount() > 262_144)
       reject(ws, 'slow_consumer');
   }
+  async function receiveHello(
+    ws: ServerWebSocket<SocketData>,
+    message: string,
+  ) {
+    if (ws.data.phase === 'authenticating') {
+      reject(ws, 'auth_failed');
+      return;
+    }
+    const outcome = evaluateFirstMessage(message);
+    if ('code' in outcome) {
+      reject(ws, outcome.reason);
+      return;
+    }
+    if (!authenticate || !ws.data.origin || helloExpired(ws)) {
+      reject(ws, 'auth_failed');
+      return;
+    }
+    ws.data.phase = 'authenticating';
+    let principal;
+    try {
+      principal = await authenticate(outcome.ticket, ws.data.origin);
+    } catch {
+      principal = null;
+    }
+    if (ws.data.phase !== 'authenticating') return;
+    if (!principal || helloExpired(ws)) {
+      reject(ws, 'auth_failed');
+      return;
+    }
+    acceptHello(ws, principal);
+  }
+  function helloExpired(ws: ServerWebSocket<SocketData>) {
+    return now() >= (ws.data.helloDeadline ?? 0);
+  }
+  function acceptHello(
+    ws: ServerWebSocket<SocketData>,
+    principal: SocketPrincipal,
+  ) {
+    if (
+      ws.data.admission &&
+      !ws.data.admission.authenticate(principal.actorId)
+    ) {
+      reject(ws, 'rate_limited');
+      return;
+    }
+    clearHelloTimer(ws, timers);
+    ws.data.principal = principal;
+    ws.data.phase = 'authenticated';
+    if (registry)
+      ws.data.connection = registry.add(
+        {
+          send: (frame) => send(ws, frame),
+          subscribe: (topic) => {
+            ws.subscribe(topic);
+          },
+          unsubscribe: (topic) => {
+            ws.unsubscribe(topic);
+          },
+          close: (code, reason) => {
+            ws.data.phase = 'closed';
+            ws.close(code, reason);
+          },
+        },
+        principal,
+      );
+    send(ws, { v: ENVELOPE_VERSION, type: 'ready' });
+  }
+  async function receiveAuthenticated(
+    ws: ServerWebSocket<SocketData>,
+    message: string,
+  ) {
+    const frame = parseFrame(ws, message);
+    if (!frame) return;
+    if (!(await currentPrincipal(ws))) return;
+    if (frame.type === 'ping')
+      send(ws, { v: ENVELOPE_VERSION, type: 'pong', id: frame.id });
+    else if (frame.type === 'subscribe' && ws.data.connection)
+      await registry?.subscribe(ws.data.connection, frame);
+    else if (frame.type === 'unsubscribe' && ws.data.connection)
+      registry?.unsubscribe(ws.data.connection, frame);
+  }
+  function parseFrame(ws: ServerWebSocket<SocketData>, message: string) {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(message);
+    } catch {
+      reject(ws, 'protocol_unsupported');
+      return null;
+    }
+    const result = clientMessageSchema.safeParse(parsed);
+    if (!result.success || result.data.type === 'hello') {
+      reject(ws, 'protocol_unsupported');
+      return null;
+    }
+    return result.data;
+  }
+  async function currentPrincipal(ws: ServerWebSocket<SocketData>) {
+    if (!validatePrincipal || !ws.data.principal) return true;
+    let valid = false;
+    try {
+      valid = await validatePrincipal(ws.data.principal);
+    } catch {
+      valid = false;
+    }
+    if (ws.data.phase !== 'authenticated') return false;
+    if (!valid) reject(ws, 'revoked');
+    return valid;
+  }
   return {
     open(ws: ServerWebSocket<SocketData>) {
       ws.data.phase = 'awaiting';
@@ -122,98 +229,8 @@ export function createWebSocketHandlers({
         reject(ws, 'protocol_unsupported');
         return;
       }
-      if (ws.data.phase !== 'authenticated') {
-        if (ws.data.phase === 'authenticating') {
-          reject(ws, 'auth_failed');
-          return;
-        }
-        const outcome = evaluateFirstMessage(message);
-        if ('code' in outcome) {
-          reject(ws, outcome.reason);
-          return;
-        }
-        if (
-          !authenticate ||
-          !ws.data.origin ||
-          now() >= (ws.data.helloDeadline ?? 0)
-        ) {
-          reject(ws, 'auth_failed');
-          return;
-        }
-        ws.data.phase = 'authenticating';
-        let principal;
-        try {
-          principal = await authenticate(outcome.ticket, ws.data.origin);
-        } catch {
-          principal = null;
-        }
-        if (ws.data.phase !== 'authenticating') return;
-        if (!principal || now() >= (ws.data.helloDeadline ?? 0)) {
-          reject(ws, 'auth_failed');
-          return;
-        }
-        if (
-          ws.data.admission &&
-          !ws.data.admission.authenticate(principal.actorId)
-        ) {
-          reject(ws, 'rate_limited');
-          return;
-        }
-        clearHelloTimer(ws, timers);
-        ws.data.principal = principal;
-        ws.data.phase = 'authenticated';
-        if (registry)
-          ws.data.connection = registry.add(
-            {
-              send: (frame) => send(ws, frame),
-              subscribe: (topic) => {
-                ws.subscribe(topic);
-              },
-              unsubscribe: (topic) => {
-                ws.unsubscribe(topic);
-              },
-              close: (code, reason) => {
-                ws.data.phase = 'closed';
-                ws.close(code, reason);
-              },
-            },
-            principal,
-          );
-        send(ws, { v: ENVELOPE_VERSION, type: 'ready' });
-        return;
-      }
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(message);
-      } catch {
-        reject(ws, 'protocol_unsupported');
-        return;
-      }
-      const result = clientMessageSchema.safeParse(parsed);
-      if (!result.success || result.data.type === 'hello') {
-        reject(ws, 'protocol_unsupported');
-        return;
-      }
-      const frame = result.data;
-      if (validatePrincipal && ws.data.principal) {
-        let valid = false;
-        try {
-          valid = await validatePrincipal(ws.data.principal);
-        } catch {
-          valid = false;
-        }
-        if (ws.data.phase !== 'authenticated') return;
-        if (!valid) {
-          reject(ws, 'revoked');
-          return;
-        }
-      }
-      if (frame.type === 'ping')
-        send(ws, { v: ENVELOPE_VERSION, type: 'pong', id: frame.id });
-      else if (frame.type === 'subscribe' && ws.data.connection)
-        await registry?.subscribe(ws.data.connection, frame);
-      else if (frame.type === 'unsubscribe' && ws.data.connection)
-        registry?.unsubscribe(ws.data.connection, frame);
+      if (ws.data.phase !== 'authenticated') return receiveHello(ws, message);
+      return receiveAuthenticated(ws, message);
     },
     close(ws: ServerWebSocket<SocketData>) {
       ws.data.phase = 'closed';
