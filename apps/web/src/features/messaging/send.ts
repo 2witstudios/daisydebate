@@ -48,6 +48,7 @@ export async function sendMessagingMessage(
   dependencies: MessagingSendDependencies,
 ) {
   if (principal.kind === 'anonymous') throw createAppError('AUTHENTICATION');
+  if (principal.kind !== 'user') throw createAppError('AUTHORIZATION');
   if (principal.actorId === null) throw createAppError('AUTHORIZATION');
   const actorId = principal.actorId;
   const { replyToMessageId, ...required } = parseValidated(
