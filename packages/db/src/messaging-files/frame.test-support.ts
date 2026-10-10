@@ -88,7 +88,14 @@ export function fileMessageRow(
 /** Only the driver is scripted. Production Drizzle builds, binds and maps every query. */
 export function fileFrameFixture(responses: unknown[][][]) {
   const calls: { query: string; params: unknown[] }[] = [];
-  const state = { allowed: true, authorizations: 0 };
+  const state: {
+    allowed: boolean;
+    authorizations: number;
+    denyAfter?: number;
+  } = {
+    allowed: true,
+    authorizations: 0,
+  };
   const remaining = [...responses];
   const answer = (query: string, params: unknown[] = []) => {
     calls.push({ query, params });
@@ -105,7 +112,11 @@ export function fileFrameFixture(responses: unknown[][][]) {
   const counters = { channelId: fileFrameScope.channelId, changeVersion: 10 };
   const frame = channelFileFrame(tx, fileFrameScope, counters, async () => {
     state.authorizations++;
-    if (!state.allowed) throw createAppError('AUTHORIZATION');
+    if (
+      !state.allowed ||
+      (state.denyAfter !== undefined && state.authorizations > state.denyAfter)
+    )
+      throw createAppError('AUTHORIZATION');
   });
   const writes = () =>
     calls.filter(({ query }) => /^(insert|update)/u.test(query));
