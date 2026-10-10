@@ -5,6 +5,7 @@ import { systemId } from '@daisy/clock';
 import { openAuthorityPeer } from './authority-peer.test-support';
 import { authorityResources } from './authority-resources.test-support';
 import { serveRealtime } from '../src/serve';
+import type { RealtimeReadingPolicy } from '../src/authorization';
 import { testOrigin } from './support';
 
 /** Durable isolated identity; authority always comes from the actual session/account readers. */
@@ -12,6 +13,7 @@ export async function socketAuthorityFixture(
   serve?: typeof Bun.serve,
   maxSubscriptions = 64,
   afterCatchup?: () => Promise<void>,
+  readingPolicy?: RealtimeReadingPolicy,
 ) {
   const services = requireTestServices(process.env);
   const client = new SQL(services.databaseUrl);
@@ -40,6 +42,7 @@ export async function socketAuthorityFixture(
     runtime = await serveRealtime({
       resources,
       ...(serve ? { serve } : {}),
+      ...(readingPolicy ? { readingPolicy } : {}),
       port: 0,
       hostname: '127.0.0.1',
       now: () => elapsed,
