@@ -36,7 +36,6 @@ export async function decideDmAction(
     if (!result.success || result.data.channelId !== command.channelId)
       return kept;
     revalidatePath('/messages');
-    revalidatePath(`/messages/requests/${command.channelId}`);
     next =
       result.data.state === 'accepted'
         ? `/messages/${command.channelId}`
