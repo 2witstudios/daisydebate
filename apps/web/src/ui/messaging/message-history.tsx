@@ -4,7 +4,9 @@ type Message = MessagingConversation['messages'][number];
 function MessageRow({
   message,
   actorId,
+  channelId,
 }: {
+  readonly channelId: string;
   readonly message: Message;
   readonly actorId: string | null;
 }) {
@@ -24,6 +26,18 @@ function MessageRow({
           <p className="break-words whitespace-pre-wrap text-ink">
             {message.text}
           </p>
+          <Link
+            href={`/messages/${channelId}/attachments?messageId=${message.id}`}
+          >
+            Attachments
+          </Link>
+          {message.authorActorId === actorId ? (
+            <Link
+              href={`/messages/${channelId}/attachments?messageId=${message.id}&attach=1`}
+            >
+              Attach file
+            </Link>
+          ) : null}
         </>
       )}
     </li>
@@ -49,7 +63,12 @@ export function MessageHistory({
       ) : (
         <ol aria-label="Message history" className="flex flex-col gap-3">
           {[...history.messages].reverse().map((message) => (
-            <MessageRow key={message.id} message={message} actorId={actorId} />
+            <MessageRow
+              key={message.id}
+              message={message}
+              actorId={actorId}
+              channelId={history.channelId}
+            />
           ))}
         </ol>
       )}

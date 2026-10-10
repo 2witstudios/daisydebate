@@ -8,6 +8,7 @@ import { PageHeader } from '../../../../../../ui/components/page-header/page-hea
 import { GroupManagementForm } from '../../../../../../ui/messaging/group-management-form';
 import { manageGroupAction } from './actions';
 const labels = {
+  invite: 'Invite a person',
   remove: 'Remove a member',
   transfer: 'Transfer management',
   leave: 'Leave group',
@@ -23,7 +24,10 @@ export default async function GroupManagementPage({
   if (!id.success) notFound();
   const selected = (await searchParams).operation;
   const operation =
-    selected === 'remove' || selected === 'transfer' || selected === 'archive'
+    selected === 'invite' ||
+    selected === 'remove' ||
+    selected === 'transfer' ||
+    selected === 'archive'
       ? selected
       : 'leave';
   return (
@@ -50,7 +54,11 @@ export default async function GroupManagementPage({
       <GroupManagementForm
         key={operation}
         title={labels[operation]}
-        targeted={operation === 'remove' || operation === 'transfer'}
+        targeted={
+          operation === 'invite' ||
+          operation === 'remove' ||
+          operation === 'transfer'
+        }
         requestId={systemId.next()}
         action={manageGroupAction.bind(null, id.data, operation)}
       />

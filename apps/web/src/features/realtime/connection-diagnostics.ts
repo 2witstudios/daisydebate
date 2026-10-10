@@ -16,6 +16,16 @@ function safeErrorName(error: unknown): string {
     'URIError',
     'InvalidStateError',
     'SecurityError',
+    'RealtimeTicketFetchError',
+    'RealtimeTicketBodyError',
+    'RealtimeTicketSchemaObjectError',
+    'RealtimeTicketSchemaTicketError',
+    'RealtimeTicketSchemaSocketUrlError',
+    'RealtimeTicketSchemaThrownEvalError',
+    'RealtimeTicketSchemaThrownReferenceError',
+    'RealtimeTicketSchemaThrownTypeError',
+    'RealtimeTicketSchemaThrownUnknownError',
+    'RealtimeTicketEndpointError',
   ];
   return error instanceof Error && allowed.includes(error.name)
     ? error.name

@@ -21,6 +21,33 @@ export function createMessagingFileSchemas(bounds: {
     generation: positive,
   };
   return {
+    tokenResult: z.strictObject({
+      version: z.literal(1),
+      fileId: idSchema,
+      generation: positive,
+    }),
+    reservationResult: z.strictObject({
+      version: z.literal(1),
+      fileId: idSchema,
+      generation: positive,
+      filename: z.string().min(1).max(bounds.maxFilenameUnits),
+      mime: messagingFileMimeSchema,
+      bytes: positive.max(bounds.maxFileBytes),
+      expiresAt: z.iso.datetime(),
+    }),
+    listResult: z.strictObject({
+      version: z.literal(1),
+      files: z.array(
+        z.strictObject({
+          fileId: idSchema,
+          generation: positive,
+          messageId: idSchema,
+          filename: z.string().min(1).max(bounds.maxFilenameUnits),
+          mime: messagingFileMimeSchema,
+          bytes: positive.max(bounds.maxFileBytes),
+        }),
+      ),
+    }),
     reserve: z.strictObject({
       version: z.literal(1),
       channelId: idSchema,

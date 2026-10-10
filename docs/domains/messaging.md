@@ -41,10 +41,10 @@ The web composition accepts an explicit `MessagingRuntimePolicy`. It wires the
 same operations to authenticated, same-origin HTTP send/edit/remove/history/change/read
 handlers and the canonical limiter. An absent policy returns unavailable (503).
 No production size, contact, reading, legal-basis or retention approval is supplied
-by fixtures or package defaults. Native forms, reaction/search,
-social lifecycle commands, realtime subscriptions and the remaining contextual
-slices are still delivery work; these primitives do not constitute full messaging
-acceptance.
+by fixtures or package defaults. Native forms, scoped search and realtime
+refetch use these same operations. Remaining group management, reactions,
+notifications, file controls and contextual slices are delivery work; the
+committed operations do not constitute full messaging acceptance.
 
 Author edits keep their creation sequence and allocate an independent change
 version. The edit deadline is injected policy, rechecked after limiter waits.
@@ -195,6 +195,19 @@ history, admission, durable member history and refusal without a member grant,
 with JavaScript enabled and disabled. Actual browser acceptance is recorded only
 when the hosted isolated-service runner executes the composed candidate.
 
+Accepting or declining an invitation removes its pending-preview entitlement.
+The form action returns its next destination before refreshing any preview:
+an immediate server-action revalidation would render the now-unavailable
+pending page before the hydrated form can navigate. Destination pages read
+fresh, header-bound canonical HTTP state; native submissions use the same
+destination through their redirect.
+
+The browser ticket reader validates the configured endpoint and canonical
+ticket schema without dynamic parser code generation. It reports only fixed
+transport, JSON, schema-field or parser-class, and endpoint-binding error names.
+It never exposes rejected values, exception messages or bearer tickets, and
+does not relax the production content security policy.
+
 Contact safety has a native username form for block and unblock, available from
 the inbox. Both username and actor-ID routes use the same canonical safety
 operation: current subject and counterpart accounts, ordered pair fences and
@@ -224,3 +237,57 @@ list projection. Native membership forms preserve target and retry identity on
 refusal and work with JavaScript disabled. The expanded management integration
 and browser controls require execution on their exact composed candidate;
 source tests alone do not establish transactional or browser acceptance.
+
+Post-creation invitation issuance uses `channel.group.invite` over the actual
+current private-group cast and proposed nonmember actors. The native username
+form resolves intent only; the same transaction locks canonical accounts,
+selected contact pairs, and the channel before evaluating explicit approved
+admission. Issuance creates pending invitation associations, never member grants.
+Closed invitations may renew with an incremented generation; an already pending
+invitation refuses. Explicit injected member and pending-invitation budgets are
+required for new issuance, with no production default or DEC124/DEC127 approval
+inferred from isolated test values.
+
+The `group.invite` receipt binds the original channel and sorted proposed actor
+set. Every proposed actor is recorded in the existing command-subject table for
+subject-local export and erasure. Committed retries use the same minimal
+`channel.group.result` capability as management and cannot repeat admission or
+renew invitations. Expanded both-JavaScript-mode browser controls cover declined
+invitation renewal, approved late-join history, and renewed member revocation.
+Their acceptance requires the exact composed hosted execution.
+
+Native attachments use a dedicated bounded multipart POST outside the unchanged
+16 KiB server-action decoder. The multipart envelope has its own explicitly
+injected `maxMultipartBytes`; file size, count, charge and scan limits still come
+from the injected file policy. Origin and current member checks precede body
+reading. The native transport invokes the same reserve, immutable upload and
+scan/finalize operations as JSON/binary clients, binding the selected message
+and current file generation. Refusals retain escaped filename and request/token
+intent with a fresh file chooser, never file bytes in action state or URLs.
+Own pending discard calls the canonical cleanup capability independently of
+posting eligibility; quota remains charged until real physical deletion ACK.
+
+History links discover attachment metadata through the current read frame and
+per-file access fence. Downloads stream private bytes through the application,
+with inert attachment filenames and no object key, public vendor URL or signed
+bearer URL. Deployment composition remains unavailable without explicit policy,
+private-object and scanner ports. Native fixtures use real private filesystem
+storage and clamd only in their validated isolated slot; fixture values do not
+approve privacy, retention or numeric product policies.
+
+The optional file runtime maintenance configuration supplies explicit cadence and
+batch limits. The existing web process schedules bounded reservation expiry and
+private deletion work, prevents overlapping runs, and awaits current work before
+closing pools. Expiry discovers all due owners for a channel, acquires canonical
+account→pair→channel fences, and rereads owners after waits; unfenced owner drift
+refuses that channel until a later run. Only expired reserved/quarantined rows
+transition to deleting. Current membership, posting or age admission does not
+confer cleanup authority. Missing durable authority is never recreated.
+
+Physical deletion uses the delivered trusted provider: linked deleting files and
+unlinked subject-erasure intents retain their storage charge until the private
+store resolves deletion acknowledgement. An outage preserves the charged row
+for retry. Logs reuse content-free sweep counts/status; object keys and subject
+associations are not logged. Missing runtime/maintenance configuration schedules
+nothing. Deployment approval of vendors, cadence and policy remains outstanding;
+branch composition does not activate collection or approve pending retention.

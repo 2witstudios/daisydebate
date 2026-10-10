@@ -5,6 +5,7 @@ import {
   roomViewSchema,
   roomCatalogChoiceSchema,
   roundViewSchema,
+  buildDebateTopic,
   type RoomView,
 } from '@daisy/protocol';
 import { createRoutes } from '../src/server/routes';
@@ -231,6 +232,11 @@ test('real authenticated HTTP and native-form transport share principal, origin,
   } finally {
     if (roomId)
       await withSql(async (sql) => {
+        const [round] = await sql<{ id: string }[]>`
+          select id from rounds where room_id=${roomId}
+        `;
+        if (round)
+          await sql`delete from outbox where topic=${buildDebateTopic(round.id)}`;
         await sql`delete from round_participants where round_id in (select id from rounds where room_id=${roomId})`;
         await sql`delete from rounds where room_id=${roomId}`;
         await sql`delete from room_commands where room_id=${roomId}`;

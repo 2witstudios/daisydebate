@@ -44,3 +44,20 @@ export function groupStoreFacts() {
   ];
   return { inviter, invitee, channelId, accounts, channel, now, invitation };
 }
+
+/** Real driver responses for channel advancement and two recipient outbox inserts. */
+export function groupWriteBellRows() {
+  return [[], [], [[1, '9']], [], [], [[2, '9']], [], [[3, '9']], []];
+}
+export function groupWrittenBells(
+  queries: readonly {
+    readonly query: string;
+    readonly params: readonly unknown[];
+  }[],
+) {
+  return queries
+    .filter((query) => query.query.startsWith('insert into "outbox"'))
+    .map((query) =>
+      query.params.find((value) => typeof value === 'object' && value !== null),
+    );
+}

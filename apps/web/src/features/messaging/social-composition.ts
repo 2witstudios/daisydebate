@@ -22,6 +22,10 @@ export type MessagingSocialRuntimePolicy = {
   readonly bounds: MessagingSocialBounds;
   readonly creation: SocialCreationPolicy;
   readonly groupAdmission?: SocialCreationPolicy;
+  readonly groupInvitationLimits?: {
+    readonly maxMembers: number;
+    readonly maxPendingInvitations: number;
+  };
   readonly requestLimits: {
     readonly windowMs: number;
     readonly maxNewPairs: number;

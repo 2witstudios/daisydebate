@@ -13,10 +13,8 @@ export function parseGroupManagementForm(
 ) {
   const scope = parseMessagingFormScope(channel, input);
   if (
-    operation !== 'remove' &&
-    operation !== 'transfer' &&
-    operation !== 'leave' &&
-    operation !== 'archive'
+    typeof operation !== 'string' ||
+    !['invite', 'remove', 'transfer', 'leave', 'archive'].includes(operation)
   )
     throw createAppError('VALIDATION');
   const base = {
@@ -32,6 +30,13 @@ export function parseGroupManagementForm(
     scope.form.getAll('memberUsername').length !== 1
   )
     throw createAppError('VALIDATION');
+  if (operation === 'invite')
+    return {
+      version: base.version,
+      channelId: base.channelId,
+      requestId: base.requestId,
+      invitedUsernames: [username],
+    };
   return { ...base, memberUsername: username };
 }
 export function groupManagementUnavailable(

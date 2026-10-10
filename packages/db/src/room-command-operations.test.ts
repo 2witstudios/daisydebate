@@ -112,7 +112,9 @@ test('Start mutation commits one frozen Round, cast, receipt, and change signal'
     [],
     [],
     [],
+    [[2n, '42']], // Round phase signal for the frozen scheduled Round
     [],
+    [], // command receipt insert follows the Round phase signal
     [[1n, '42']],
     [],
   ]);
@@ -154,6 +156,11 @@ test('Start mutation commits one frozen Round, cast, receipt, and change signal'
       queries.filter(({ query }) =>
         query.includes('insert into "round_participants"'),
       ).length,
+      queries
+        .filter(({ query }) => query.startsWith('insert into "outbox"'))
+        .map(({ params }) =>
+          params.find((value) => typeof value === 'object' && value !== null),
+        ),
       queries.filter(({ query }) => query.includes('pg_notify')).length,
     ],
     expected: [
@@ -166,7 +173,19 @@ test('Start mutation commits one frozen Round, cast, receipt, and change signal'
       },
       1,
       1,
-      1,
+      [
+        {
+          kind: 'debate.phase-changed',
+          ids: [roundId],
+          entityVersion: 1,
+        },
+        {
+          kind: 'room.changed',
+          ids: [readyRoom.id],
+          entityVersion: 2,
+        },
+      ],
+      2,
     ],
   });
 });

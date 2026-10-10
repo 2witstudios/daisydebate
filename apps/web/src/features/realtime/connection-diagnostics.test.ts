@@ -75,3 +75,31 @@ for (const error of [new ReferenceError('private'), new EvalError('private')])
       ],
     });
   });
+
+for (const name of [
+  'RealtimeTicketFetchError',
+  'RealtimeTicketBodyError',
+  'RealtimeTicketSchemaObjectError',
+  'RealtimeTicketSchemaTicketError',
+  'RealtimeTicketSchemaSocketUrlError',
+  'RealtimeTicketSchemaThrownEvalError',
+  'RealtimeTicketSchemaThrownReferenceError',
+  'RealtimeTicketSchemaThrownTypeError',
+  'RealtimeTicketSchemaThrownUnknownError',
+  'RealtimeTicketEndpointError',
+])
+  test(`canonical reader stage ${name} is content-free`, () => {
+    const diagnostics = createConnectionDiagnostics();
+    const events: ConnectionDiagnostic[] = [];
+    diagnostics.subscribe((event) => events.push(event));
+    const error = new Error('private body or endpoint');
+    error.name = name;
+    diagnostics.emit(4, 'ticket-failed', error);
+    assert({
+      given: 'the owned ticket reader fixed failure name',
+      should:
+        'expose only its declared stage and no private body, message or URL',
+      actual: events,
+      expected: [{ generation: 4, phase: 'ticket-failed', errorName: name }],
+    });
+  });

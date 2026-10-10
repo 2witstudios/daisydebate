@@ -13,6 +13,8 @@ describe('secret configuration keys', () => {
       expected: [
         'BETTER_AUTH_SECRET',
         'DATABASE_URL',
+        'LIVEKIT_API_KEY',
+        'LIVEKIT_API_SECRET',
         'MIGRATION_DATABASE_URL',
         'OPENROUTER_API_KEY',
         'OPS_PROBE_TOKEN',

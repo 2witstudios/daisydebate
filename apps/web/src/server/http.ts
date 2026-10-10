@@ -207,6 +207,19 @@ function combineChunks(chunks: readonly Uint8Array[], length: number) {
   return bytes;
 }
 
+/** The stream itself is bounded for both JSON and private binary ingress. */
+export async function readBytes(
+  request: Request,
+  maxBytes: number,
+): Promise<Uint8Array<ArrayBuffer>> {
+  if (!Number.isSafeInteger(maxBytes) || maxBytes < 1)
+    throw createAppError('INFRASTRUCTURE');
+  const reader = request.body?.getReader();
+  if (!reader) throw createAppError('VALIDATION');
+  const { chunks, length } = await readChunks(request, reader, maxBytes);
+  return combineChunks(chunks, length);
+}
+
 /** Bound the stream itself; Content-Length is untrusted and may be absent. */
 export async function readJson(
   request: Request,
@@ -214,10 +227,7 @@ export async function readJson(
 ): Promise<unknown> {
   if (!request.headers.get('content-type')?.startsWith('application/json'))
     throw createAppError('VALIDATION');
-  const reader = request.body?.getReader();
-  if (!reader) throw createAppError('VALIDATION');
-  const { chunks, length } = await readChunks(request, reader, maxBytes);
-  const bytes = combineChunks(chunks, length);
+  const bytes = await readBytes(request, maxBytes);
   try {
     return JSON.parse(new TextDecoder().decode(bytes)) as unknown;
   } catch {

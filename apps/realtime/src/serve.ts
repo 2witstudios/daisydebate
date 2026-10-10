@@ -75,9 +75,16 @@ export async function serveRealtime({
   // Production refuses a DATABASE_URL role that could create or alter schema
   // objects before LISTEN or any socket is accepted (ISSUE-101).
   await refuseSchemaAlteringRole(resources, 'daisy_realtime');
+  const scheduler = timers ?? {
+    setInterval: (callback: () => void, ms: number) =>
+      setInterval(callback, ms),
+    clearInterval: (handle: ReturnType<typeof setInterval>) =>
+      clearInterval(handle),
+  };
   let server: ReturnType<typeof Bun.serve> | undefined;
   const delivery = createRealtimeDelivery({
     resources,
+    timers: scheduler,
     now,
     ...(readingPolicy ? { readingPolicy } : {}),
     publish: (topic, frame) => {
@@ -127,12 +134,6 @@ export async function serveRealtime({
   }
   // Scheduling is transport tuning inside ADR0031's accepted60s bound.
   // Every send independently enforces elapsed check-start expiry.
-  const scheduler = timers ?? {
-    setInterval: (callback: () => void, ms: number) =>
-      setInterval(callback, ms),
-    clearInterval: (handle: ReturnType<typeof setInterval>) =>
-      clearInterval(handle),
-  };
   let validation: Promise<void> | undefined;
   let closed = false;
   const validationTimer = scheduler.setInterval(() => {

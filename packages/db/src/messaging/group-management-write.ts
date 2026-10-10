@@ -1,7 +1,7 @@
+import { writeMessagingGroupLifecycle } from './group-channel-write';
 import { and, eq, isNull } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
-import { messagingChannels } from '../schema/messaging-channels';
 import {
   messagingGroupGrants,
   messagingGroupInvitations,
@@ -96,17 +96,12 @@ export async function writeGroupManagement(
   }
   const now = new Date(command.now);
   const invitees = await closeIssuedInvitations(tx, scope, now);
-  const [channel] = await tx
-    .update(messagingChannels)
-    .set({ lifecycle: plan.lifecycle })
-    .where(
-      and(
-        eq(messagingChannels.id, scope.channelId),
-        eq(messagingChannels.authorityRevision, fact.revision),
-      ),
-    )
-    .returning();
-  if (!channel) throw createAppError('CONFLICT');
+  const channel = await writeMessagingGroupLifecycle(
+    tx,
+    scope.channelId,
+    fact.revision,
+    plan.lifecycle,
+  );
   await tx.insert(messagingSocialCommands).values({
     actorId: scope.actorId,
     requestId: scope.requestId,

@@ -1,3 +1,6 @@
+import { createMessagingFileMaintenance } from './messaging-files/maintenance';
+import { createMessagingGroupIssuanceStore } from './messaging/group-issuance-store';
+import type { MessagingGroupIssuanceFence } from './messaging/group-issuance-contracts';
 import { createMessagingGroupManagementStore } from './messaging/group-management-store';
 import type { MessagingGroupManagementFence } from './messaging/group-management-contracts';
 import { createMessagingGroupCreationStore } from './messaging/group-creation-store';
@@ -183,6 +186,7 @@ export function createDatabase({
       authorize: Parameters<typeof createMessagingDmStore>[0]['authorize'],
     ) => createMessagingDmStore({ database, authorize }),
     messagingChannelAuthority: createMessagingChannelAuthority(database),
+    messagingFileMaintenance: createMessagingFileMaintenance(database),
     messagingFileCleanup: (
       authorize: Parameters<typeof createMessagingFileCleanup>[0]['authorize'],
     ) => createMessagingFileCleanup({ database, authorize }),
@@ -193,6 +197,8 @@ export function createDatabase({
       createMessagingStore({ database, authorize }),
     messagingGroupCreationStore: (authorize: MessagingGroupCreationFence) =>
       createMessagingGroupCreationStore(database, authorize),
+    messagingGroupIssuanceStore: (authorize: MessagingGroupIssuanceFence) =>
+      createMessagingGroupIssuanceStore({ database, authorize }),
     messagingGroupManagementStore: (authorize: MessagingGroupManagementFence) =>
       createMessagingGroupManagementStore({ database, authorize }),
     messagingGroupInvitationStore: (authorize: MessagingGroupInvitationFence) =>

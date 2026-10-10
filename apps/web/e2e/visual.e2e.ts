@@ -4,6 +4,7 @@ import {
   type Locator,
   type Page,
 } from '@playwright/test';
+import { createId } from '@paralleldrive/cuid2';
 import { expect, openPage, test } from './support/fixtures';
 import {
   resetRateLimits,
@@ -17,6 +18,7 @@ import {
   requestConfirmLink,
 } from './support/confirm-page';
 import type { Theme } from './support/theme';
+import { closeRoom, createFromPlay } from './support/room-launch-flow';
 
 /** A fresh browser context pinned to one viewport and theme, with its page. */
 async function themedPage(
@@ -36,20 +38,28 @@ async function themedPage(
 }
 
 /**
- * Writes a fixed name over every rendering of the run's random username.
- * Masking hides the pixels but not the width: a wider random name wraps
- * the settings profile line and changes the page height.
+ * Pins dynamic fixture strings in text and form controls before comparison.
  */
-async function pinUsername(page: Page, username: string): Promise<void> {
-  await page.evaluate((name) => {
-    const walker = document.createTreeWalker(
-      document.body,
-      NodeFilter.SHOW_TEXT,
-    );
-    for (let node = walker.nextNode(); node; node = walker.nextNode())
-      if (node.nodeValue?.includes(name))
-        node.nodeValue = node.nodeValue.replaceAll(name, 'visual-member');
-  }, username);
+async function pinDynamicText(
+  page: Page,
+  source: string,
+  replacement: string,
+): Promise<void> {
+  await page.evaluate(
+    ({ name, stable }) => {
+      const walker = document.createTreeWalker(
+        document.body,
+        NodeFilter.SHOW_TEXT,
+      );
+      for (let node = walker.nextNode(); node; node = walker.nextNode())
+        if (node.nodeValue?.includes(name))
+          node.nodeValue = node.nodeValue.replaceAll(name, stable);
+      for (const input of document.querySelectorAll('input'))
+        if (input.value.includes(name))
+          input.value = input.value.replaceAll(name, stable);
+    },
+    { name: source, stable: replacement },
+  );
 }
 
 /** Fonts settled, then the deterministic full-page baseline comparison. */
@@ -133,10 +143,11 @@ const routes = [
 
 /**
  * Parity oracle for the Tailwind transition (ADR 0028): full-page shots of
- * the dashboard, settings and the onboarding screens (ISSUE-77) across
+ * the dashboard, settings, authenticated Room lobby and onboarding screens (ISSUE-77) across
  * themes and widths. The theme is pinned through the saved-preference cookie
- * (ADR 0027), motion is frozen, and the pages render static mock data, so
- * the frames are deterministic. The random per-run username is pinned and masked.
+ * (ADR 0027), motion is frozen, and the Room lobby is filtered to one real
+ * Room created through the canonical Play flow. Dynamic fixture labels are
+ * pinned before comparison.
  * Baselines are Linux-only; see docs/development/testing.md ("Visual
  * parity").
  */
@@ -152,25 +163,48 @@ for (const viewport of viewports) {
           route.account === 'member'
             ? await signUpMember(page.context().request)
             : null;
+        let lobbyRoomId: string | undefined;
         if (route.account === 'provisional')
           await signUpProvisional(page.context().request);
-        await page.goto(route.path);
-        if (member) {
-          // Hydrated first, so React does not write the random name back.
-          await page.waitForLoadState('networkidle');
-          await pinUsername(page, member.username);
+        try {
+          let path: string = route.path;
+          let lobbyTitle: string | undefined;
+          if (route.name === 'lobby') {
+            lobbyTitle = `Visual Lobby ${createId()}`;
+            try {
+              const room = await createFromPlay(page, lobbyTitle);
+              lobbyRoomId = room.id;
+            } catch (error) {
+              lobbyRoomId = page.url().match(/\/rooms\/([a-z0-9]+)$/)?.[1];
+              throw error;
+            }
+            path = `/lobby?q=${encodeURIComponent(lobbyTitle)}`;
+          }
+          await page.goto(path);
+          if (member) {
+            // Hydrated first, so React does not write the random name back.
+            await page.waitForLoadState('networkidle');
+            await pinDynamicText(page, member.username, 'visual-member');
+          }
+          if (lobbyTitle) await pinDynamicText(page, lobbyTitle, 'Visual Room');
+          // The rail's avatar and the passkey offer still derive from the
+          // random name, so both stay masked.
+          await matchesBaseline(
+            page,
+            `${route.name}-${theme}-${viewport.name}.png`,
+            [
+              page.getByRole('link', { name: /^Account settings for/ }),
+              page.getByText(/^Signed in as /),
+            ],
+          );
+        } finally {
+          try {
+            if (lobbyRoomId)
+              await closeRoom(page.context().request, lobbyRoomId);
+          } finally {
+            await page.context().close();
+          }
         }
-        // The rail's avatar and the passkey offer still derive from the
-        // random name, so both stay masked.
-        await matchesBaseline(
-          page,
-          `${route.name}-${theme}-${viewport.name}.png`,
-          [
-            page.getByRole('link', { name: /^Account settings for/ }),
-            page.getByText(/^Signed in as /),
-          ],
-        );
-        await page.context().close();
       });
     }
   }

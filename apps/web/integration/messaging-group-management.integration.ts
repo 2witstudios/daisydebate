@@ -1,3 +1,5 @@
+import { composeMessagingGroupIssuanceStore } from '../src/features/messaging/group-issuance-composition';
+import { inviteMessagingGroup } from '../src/features/messaging/group-issuance';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { requireTestServices } from '@daisy/config';
@@ -43,12 +45,47 @@ test('real management transfers, revokes history, preserves survivor authority a
     clock,
     limit,
   });
+  const manage = (
+    operation: Parameters<typeof manageMessagingGroup>[0],
+    input: unknown,
+    principal: typeof f.sender,
+  ) =>
+    manageMessagingGroup(operation, input, principal, dependencies(principal));
+  const issuance = (principal: typeof f.sender) => ({
+    store: composeMessagingGroupIssuanceStore({
+      database: f.database,
+      principal,
+      clock,
+      policy: messagingTestGroupPolicy,
+    }),
+    bounds,
+    clock,
+    limit,
+    limits: { maxMembers: 4, maxPendingInvitations: 2 },
+  });
   const command = (extra: Record<string, unknown> = {}) => ({
     version: 1,
     channelId,
     requestId: createId(),
     ...extra,
   });
+  const decide = (decision: 'accept' | 'decline', expectedGeneration: number) =>
+    decideMessagingGroupInvitation(
+      'decide',
+      { ...command(), expectedGeneration, decision },
+      f.recipient,
+      {
+        store: composeMessagingGroupInvitationStore({
+          database: f.database,
+          principal: f.recipient,
+          clock,
+          admissionPolicy: messagingTestGroupPolicy,
+        }),
+        bounds,
+        clock,
+        limit,
+      },
+    );
   try {
     await createMessagingGroup(
       {
@@ -67,66 +104,70 @@ test('real management transfers, revokes history, preserves survivor authority a
         policyRevision: 1,
       },
     );
-    await decideMessagingGroupInvitation(
-      'decide',
-      { ...command(), expectedGeneration: 1, decision: 'accept' },
-      f.recipient,
-      {
-        store: composeMessagingGroupInvitationStore({
-          database: f.database,
-          principal: f.recipient,
-          clock,
-          admissionPolicy: messagingTestGroupPolicy,
-        }),
-        bounds,
-        clock,
-        limit,
-      },
+    await decide('decline', 1);
+    const renewed = command({ invitedActorIds: [f.recipient.actorId] });
+    await inviteMessagingGroup(renewed, f.sender, issuance(f.sender));
+    const pendingRetry = command({ invitedActorIds: [f.recipient.actorId] });
+    await assertRejects({
+      given: 'already pending invitation is reissued under a new receipt',
+      should: 'refuse rather than replace the pending generation',
+      actual: () =>
+        inviteMessagingGroup(pendingRetry, f.sender, issuance(f.sender)),
+      code: 'CONFLICT',
+    });
+    const unchanged = await f.client.unsafe(
+      'select generation::int as generation,state from messaging_group_invitations where channel_id=$1',
+      [channelId],
     );
+    const absent = await f.client.unsafe(
+      'select request_id from messaging_social_commands where actor_id=$1 and request_id=$2',
+      [f.sender.actorId, pendingRetry.requestId],
+    );
+    assert({
+      given: 'real transaction refusal after pair/channel locks',
+      should:
+        'preserve renewed generation and rollback all refused command effects',
+      actual: [
+        [...unchanged].map((row) => [row.generation, row.state]),
+        absent.length,
+      ],
+      expected: [[[2, 'pending']], 0],
+    });
+    await decide('accept', 2);
     await assertRejects({
       given: 'only active manager attempts leave',
       should: 'preserve required manager',
-      actual: () =>
-        manageMessagingGroup(
-          'leave',
-          command(),
-          f.sender,
-          dependencies(f.sender),
-        ),
+      actual: () => manage('leave', command(), f.sender),
       code: 'CONFLICT',
     });
     const transfer = command({ managerActorId: f.recipient.actorId });
-    await manageMessagingGroup(
-      'transfer',
-      transfer,
+    await manage('transfer', transfer, f.sender);
+    const renewalReplay = await inviteMessagingGroup(
+      renewed,
       f.sender,
-      dependencies(f.sender),
+      issuance(f.sender),
     );
-    const replay = await manageMessagingGroup(
-      'transfer',
-      transfer,
-      f.sender,
-      dependencies(f.sender),
-    );
+    assert({
+      given:
+        'committed invite retry after original manager loses manager authority',
+      should: 'return only its minimal own result without invitation admission',
+      actual: renewalReplay,
+      expected: { version: 1, channelId, lifecycle: 'active' },
+    });
+    const replay = await manage('transfer', transfer, f.sender);
     await assertRejects({
       given: 'former manager attempts remove',
       should: 'deny current role despite old receipt',
       actual: () =>
-        manageMessagingGroup(
+        manage(
           'remove',
           command({ memberActorId: f.recipient.actorId }),
           f.sender,
-          dependencies(f.sender),
         ),
       code: 'AUTHORIZATION',
     });
     const remove = command({ memberActorId: f.sender.actorId });
-    await manageMessagingGroup(
-      'remove',
-      remove,
-      f.recipient,
-      dependencies(f.recipient),
-    );
+    await manage('remove', remove, f.recipient);
     const read = (principal: typeof f.sender) =>
       createMessagingReadOperations({
         bounds: { messageUnits: 1000, pageItems: 20 },
@@ -152,31 +193,11 @@ test('real management transfers, revokes history, preserves survivor authority a
       f.fixture.otherUserId,
     ]);
     const archive = command();
-    const archived = await manageMessagingGroup(
-      'archive',
-      archive,
-      f.recipient,
-      dependencies(f.recipient),
-    );
-    const archiveReplay = await manageMessagingGroup(
-      'archive',
-      archive,
-      f.recipient,
-      dependencies(f.recipient),
-    );
+    const archived = await manage('archive', archive, f.recipient);
+    const archiveReplay = await manage('archive', archive, f.recipient);
     const leave = command();
-    await manageMessagingGroup(
-      'leave',
-      leave,
-      f.recipient,
-      dependencies(f.recipient),
-    );
-    const leaveReplay = await manageMessagingGroup(
-      'leave',
-      leave,
-      f.recipient,
-      dependencies(f.recipient),
-    );
+    await manage('leave', leave, f.recipient);
+    const leaveReplay = await manage('leave', leave, f.recipient);
     const rows = await f.client.unsafe(
       'select actor_id,role,generation::int as generation,revoked_at is not null as revoked from messaging_group_grants where channel_id=$1 order by actor_id',
       [channelId],
@@ -204,6 +225,34 @@ test('real management transfers, revokes history, preserves survivor authority a
         true,
         2,
       ],
+    });
+    await f.fixture.eraseSubject(f.recipient.actorId);
+    const [erasedInvitation] = await f.client.unsafe(
+      `select
+      (select count(*)::int from messaging_social_commands where actor_id=$1 and request_id=$2) as receipts,
+      (select count(*)::int from messaging_social_command_subjects where actor_id=$1 and request_id=$2) as subjects,
+      (select count(*)::int from messaging_group_grants where channel_id=$3 and actor_id=$4) as erased_grants,
+      (select title from messaging_channels where id=$3) as shared_title`,
+      [f.sender.actorId, renewed.requestId, channelId, f.recipient.actorId],
+    );
+    assert({
+      given:
+        'canonical erasure of the renewed invitee after management and leave',
+      should:
+        'delete receipt subjects and grants while preserving the unowned shared title',
+      actual: erasedInvitation,
+      expected: {
+        receipts: 0,
+        subjects: 0,
+        erased_grants: 0,
+        shared_title: 'Management proof',
+      },
+    });
+    await assertRejects({
+      given: 'old issuance retry after its subject associations are erased',
+      should: 'refuse without recreating invitation or contact authority',
+      actual: () => inviteMessagingGroup(renewed, f.sender, issuance(f.sender)),
+      code: 'AUTHORIZATION',
     });
   } finally {
     await f.client.unsafe('delete from outbox where topic=$1', [

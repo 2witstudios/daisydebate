@@ -73,3 +73,22 @@ describe('subscription registry delivery', () => {
     });
   });
 });
+
+for (const buffered of [262_144, 262_145])
+  test(`native live delivery applies the accepted soft buffer bound ${buffered}`, async () => {
+    const { registry, connection, closed, setBufferedAmount, attached } =
+      fixture();
+    await registry.subscribe(connection, { id: 'buffer', topic });
+    setBufferedAmount(buffered);
+    registry.sink([row(1)]);
+    await registry.settled();
+    assert({
+      given: 'an authorized native publication with measured socket buffering',
+      should: 'close and detach above256KiB while retaining the exact bound',
+      actual: { closed, attached: attached.size },
+      expected:
+        buffered > 262_144
+          ? { closed: [4005], attached: 0 }
+          : { closed: [], attached: 1 },
+    });
+  });
