@@ -153,6 +153,7 @@ export function createWebSocketHandlers({
     if (registry)
       ws.data.connection = registry.add(
         {
+          bufferedAmount: () => ws.getBufferedAmount(),
           send: (frame) => send(ws, frame),
           subscribe: (topic) => {
             if (!ws.subscribe(topic)) reject(ws, 'slow_consumer');

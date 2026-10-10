@@ -7,6 +7,7 @@ export type SocketPrincipal = {
   readonly sessionId: string;
 };
 export type RegistrySocket = {
+  readonly bufferedAmount: () => number;
   readonly send: (frame: ServerMessage) => void;
   readonly subscribe: (topic: string) => void;
   readonly unsubscribe: (topic: string) => void;

@@ -15,6 +15,8 @@ export function fixture(
   overrides: Partial<Parameters<typeof createSubscriptionRegistry>[0]> = {},
 ) {
   let now = 0;
+  let buffered = 0;
+  const closed: number[] = [];
   const sent: import('@daisy/protocol').ServerMessage[] = [];
   const attached = new Set<string>();
   const socket = {
@@ -27,7 +29,10 @@ export function fixture(
     unsubscribe: (value: string) => {
       attached.delete(value);
     },
-    close: () => {},
+    bufferedAmount: () => buffered,
+    close: (code: number) => {
+      closed.push(code);
+    },
   };
   const registry = createSubscriptionRegistry({
     now: () => now,
@@ -53,6 +58,10 @@ export function fixture(
     socket,
     sent,
     attached,
+    closed,
+    setBufferedAmount: (value: number) => {
+      buffered = value;
+    },
     setNow: (value: number) => {
       now = value;
     },
