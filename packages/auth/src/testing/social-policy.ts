@@ -2,6 +2,7 @@ import { authorize } from '../authorization';
 import type {
   ChannelAuthorizationFact,
   SocialAccountFact,
+  SocialCreationPolicy,
 } from '../authorization-facts';
 import { policyEvidenceCurrent } from '../authorization-policy';
 import {
@@ -17,6 +18,13 @@ export const messagingTestPosting = {
   revision: 1,
   allowedBandPairs: [['adult', 'adult']],
 } as const satisfies SocialContactPolicy;
+
+/** Selected only by isolated group browser tests; DEC127 stays unapproved. */
+export const messagingTestGroupPolicy = {
+  ...messagingTestPosting,
+  key: 'social.private_group',
+  groupBlockScope: 'all_pairs',
+} as const satisfies SocialCreationPolicy;
 
 function currentBoundMember({ account }: SocialAccountFact) {
   if (account.actorId === null) return false;
@@ -36,21 +44,21 @@ function currentBoundMember({ account }: SocialAccountFact) {
  * Isolated fixture evidence only. Consumers must still call canonical authorize
  * with freshly fenced facts; this does not grant membership or content access.
  */
-export function messagingTestReading({
-  channel,
-  accounts,
-  now,
-}: {
+type ReadingInput = {
   readonly channel: ChannelAuthorizationFact;
   readonly accounts: readonly SocialAccountFact[];
   readonly now: string;
-}) {
+};
+function fixtureReading(
+  { channel, accounts, now }: ReadingInput,
+  policy: typeof messagingTestPosting | typeof messagingTestGroupPolicy,
+) {
   const evidence = socialPolicyEvidence(channel, accounts, now);
   const candidate = { ...evidence, allowed: true };
   const allowed =
-    channel.authority.kind === 'dm' &&
-    channel.policyKey === messagingTestPosting.key &&
-    channel.policyRevision === messagingTestPosting.revision &&
+    `social.${channel.authority.kind}` === policy.key &&
+    channel.policyKey === policy.key &&
+    channel.policyRevision === policy.revision &&
     accounts.every(currentBoundMember) &&
     policyEvidenceCurrent(channel, candidate, {
       account: accounts[0]?.account ?? null,
@@ -59,3 +67,8 @@ export function messagingTestReading({
     });
   return { ...evidence, allowed };
 }
+
+export const messagingTestReading = (input: ReadingInput) =>
+  fixtureReading(input, messagingTestPosting);
+export const messagingTestGroupReading = (input: ReadingInput) =>
+  fixtureReading(input, messagingTestGroupPolicy);
