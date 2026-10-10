@@ -105,6 +105,7 @@ describe('competitive schema rules', () => {
           ],
           indexes: [
             'rooms_definition_revision_idx',
+            'rooms_discovery_assembly_idx',
             'rooms_host_actor_idx',
             'rooms_lobby_idx',
             'rooms_preset_version_idx',
@@ -138,6 +139,7 @@ describe('competitive schema rules', () => {
           indexes: [
             'rounds_created_by_actor_idx',
             'rounds_definition_revision_idx',
+            'rounds_discovery_live_room_idx',
             'rounds_format_completed_idx',
             'rounds_preset_provenance_idx',
             'rounds_status_competition_created_idx',

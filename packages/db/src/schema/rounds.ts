@@ -117,6 +117,11 @@ export const rounds = pgTable(
       ),
       // Every foreign key gets an index leading with its columns, so a
       // RESTRICT probe and the provenance joins never scan the table.
+      index('rounds_discovery_live_room_idx')
+        .on(sql`${table.roomId} collate "C"`)
+        .where(
+          sql`${table.status} in ('scheduled', 'active') and ${table.roomId} is not null`,
+        ),
       unique('rounds_room_unique').on(table.roomId),
       index('rounds_created_by_actor_idx').on(table.createdByActorId),
       index('rounds_definition_revision_idx').on(

@@ -10,6 +10,7 @@ const settingsForm = () => {
     commandId: 'v'.repeat(24),
     countdown: '1',
     'seconds.N3': '90',
+    'seconds.A1': '60',
     crossExMode: 'free',
     interruptionsMode: 'disabled',
     minRemaining: '2',
@@ -38,7 +39,7 @@ test('settings preserve the complete legal config and independent segment timing
           inRoundPrep: { enabled: false },
           speechTiming: {
             countdownMs: 1000,
-            segmentDurationOverrides: { N3: 90000 },
+            segmentDurationOverrides: { N3: 90000, A1: 60000 },
           },
           crossExamination: { crossExMode: 'free' },
           interruptions: { mode: 'disabled', minRemainingMs: 2000 },

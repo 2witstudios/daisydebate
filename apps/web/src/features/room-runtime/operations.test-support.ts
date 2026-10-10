@@ -189,16 +189,50 @@ export function makeOperations(overrides: Partial<Store> = {}) {
       if (!authorize(state, account)) throw createAppError('NOT_FOUND');
       return state;
     },
-    listRoomAssemblies: async (
+    listRoomPage: async (
       _caller: typeof caller,
+      _query: unknown,
       authorize: (
-        view: RoomAssemblyState,
-        fact: AccountAuthorizationFact,
+        fact: RoomAssemblyState,
+        account: AccountAuthorizationFact,
       ) => boolean,
       authorizeCollection: (fact: AccountAuthorizationFact) => boolean,
     ) => {
       if (!authorizeCollection(account)) throw createAppError('AUTHORIZATION');
-      return authorize(state, account) ? [state] : [];
+      const {
+        id,
+        version,
+        title,
+        topic,
+        visibility,
+        hostActorId,
+        hostLabel,
+        status,
+        competitionType,
+        length,
+      } = state;
+      return {
+        rooms: authorize(state, account)
+          ? [
+              {
+                id,
+                version,
+                title,
+                topic,
+                visibility,
+                hostActorId,
+                hostLabel,
+                status,
+                competitionType,
+                length,
+                seated: true,
+                roundRef: null,
+              },
+            ]
+          : [],
+        nextCursor: null,
+        retry: false,
+      };
     },
     readLaunchedRound: async (
       _id: string,

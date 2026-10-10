@@ -1,0 +1,2 @@
+CREATE INDEX "rooms_discovery_assembly_idx" ON "rooms" ("id") WHERE "status" in ('assembling', 'ready');--> statement-breakpoint
+CREATE INDEX "rounds_discovery_live_room_idx" ON "rounds" ("room_id") WHERE "status" in ('scheduled', 'active') and "room_id" is not null;

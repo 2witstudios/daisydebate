@@ -1,6 +1,55 @@
 import { z } from 'zod';
 import { debateRoleSchema, debateSideSchema } from './primitives';
 
+/** Provisional resource budget: bounds expanded seat records and per-seat command work,
+ * independent of any league roster policy. Judges consume the same budget. */
+export const MAX_FORMAT_SEATS = 256;
+export const formatSeatsSchema = z
+  .record(debateRoleSchema, z.int().min(0).max(MAX_FORMAT_SEATS))
+  .superRefine((seats, ctx) => {
+    if (seats.affirmative + seats.negative + seats.judge > MAX_FORMAT_SEATS)
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Total seats exceed the format resource budget',
+      });
+    for (const side of ['affirmative', 'negative'] as const)
+      if (seats[side] === 0)
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Both debate sides require seats',
+          path: [side],
+        });
+  });
+
+/** Speech and cross-ex both give the declared side a legal speaking floor. */
+function validateSpeakingOpportunities(
+  schedule: {
+    seats: z.infer<typeof formatSeatsSchema>;
+    segments: Array<{ side: 'affirmative' | 'negative'; slot: number }>;
+  },
+  ctx: z.RefinementCtx,
+) {
+  for (const [index, segment] of schedule.segments.entries())
+    if (segment.slot >= schedule.seats[segment.side])
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Segment requires a declared speaker seat',
+        path: ['segments', index, 'slot'],
+      });
+  for (const side of ['affirmative', 'negative'] as const)
+    if (
+      !schedule.segments.some(
+        (segment) =>
+          segment.side === side && segment.slot < schedule.seats[side],
+      )
+    )
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Both debate sides require a legal speaking opportunity',
+        path: ['segments'],
+      });
+}
+
 /**
  * The segment types a format's grammar is built from. Prep is deliberately
  * absent: neither kind of prep is a competitive interval with a transcript,
@@ -59,7 +108,7 @@ const segmentSchema = z.strictObject({
 const formatDefinitionShape = z.strictObject({
   version: z.literal(1),
   /** Exhaustive over the role vocabulary: every role declares its seats. */
-  seats: z.record(debateRoleSchema, z.int().min(0)),
+  seats: formatSeatsSchema,
   segments: z.array(segmentSchema).min(1),
   configurable: z.strictObject({
     timing: z.strictObject({
@@ -103,12 +152,6 @@ function validateSegmentReferences(
 ) {
   const keys = definition.segments.map((segment) => segment.key);
   for (const [index, segment] of definition.segments.entries()) {
-    if (segment.slot >= definition.seats[segment.side])
-      ctx.addIssue({
-        code: 'custom',
-        message: 'Segment requires a declared speaker seat',
-        path: ['segments', index, 'slot'],
-      });
     const bounds =
       definition.configurable.timing.segmentDurationMs[segment.key];
     if (
@@ -140,6 +183,7 @@ export const formatDefinitionSchema = formatDefinitionShape.superRefine(
         message: 'Segment keys must be unique',
         path: ['segments'],
       });
+    validateSpeakingOpportunities(definition, ctx);
     validateSegmentReferences(definition, ctx);
     const timingKeys = Object.keys(
       definition.configurable.timing.segmentDurationMs,
@@ -171,31 +215,33 @@ const rulesSegmentSchema = z.strictObject({
  * originates in the compiler — every value traces to the definition or the
  * config. Carries in-round prep (nullable), never pre-round prep.
  */
-export const roundRulesSchema = z.strictObject({
-  version: z.literal(2),
-  seats: z.record(debateRoleSchema, z.int().min(0)),
-  segments: z.array(rulesSegmentSchema).min(1),
-  inRoundPrep: z
-    .strictObject({
-      budgetMsPerSide: z.int().min(0),
-      spendableBefore: z.array(segmentTypeSchema).min(1),
-      expiresAtSegment: z.string().trim().min(1).max(8).nullable(),
-    })
-    .nullable(),
-  countdownMs: z.int().min(0),
-  interaction: z.strictObject({
-    crossExMode: crossExModeSchema,
-    /** The speaker voluntarily ends their own control. */
-    yield: z
-      .strictObject({ allowed: z.boolean(), returnsTime: z.boolean() })
-      .nullable(),
-    /** Another participant takes the floor during active control. */
-    interruptions: z
+export const roundRulesSchema = z
+  .strictObject({
+    version: z.literal(2),
+    seats: formatSeatsSchema,
+    segments: z.array(rulesSegmentSchema).min(1),
+    inRoundPrep: z
       .strictObject({
-        allowed: interruptionModeSchema,
-        minRemainingMs: z.int().min(0),
+        budgetMsPerSide: z.int().min(0),
+        spendableBefore: z.array(segmentTypeSchema).min(1),
+        expiresAtSegment: z.string().trim().min(1).max(8).nullable(),
       })
       .nullable(),
-  }),
-});
+    countdownMs: z.int().min(0),
+    interaction: z.strictObject({
+      crossExMode: crossExModeSchema,
+      /** The speaker voluntarily ends their own control. */
+      yield: z
+        .strictObject({ allowed: z.boolean(), returnsTime: z.boolean() })
+        .nullable(),
+      /** Another participant takes the floor during active control. */
+      interruptions: z
+        .strictObject({
+          allowed: interruptionModeSchema,
+          minRemainingMs: z.int().min(0),
+        })
+        .nullable(),
+    }),
+  })
+  .superRefine(validateSpeakingOpportunities);
 export type RoundRules = z.infer<typeof roundRulesSchema>;

@@ -1,5 +1,11 @@
+import { discoverRooms, type RoomDiscoveryFact } from './room-discovery';
+import {
+  roomListQuerySchema,
+  type RoomListQuery,
+  type RoomListPage,
+} from '@daisy/protocol';
 import { currentFormatRevisions } from './format-operations';
-import { eq, isNull, or, sql } from 'drizzle-orm';
+import { eq, isNull } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type {
   RoundView,
@@ -136,30 +142,18 @@ export const roomReadOperations = ({
       }),
     );
   },
-  async listRoomAssemblies(
+  async listRoomPage(
     caller: Caller,
-    authorize: AuthorizeRoom,
+    query: RoomListQuery,
+    authorize: (fact: RoomDiscoveryFact, account: Account) => boolean,
     authorizeCollection: (account: Account) => boolean,
-  ): Promise<readonly RoomAssemblyState[]> {
-    return instrumented(eventSink, 'listRoomAssemblies', () =>
-      database.transaction(async (tx) => {
-        const account = await lockedAccount(tx, caller);
-        if (!authorizeCollection(account))
-          throw createAppError('AUTHORIZATION');
-        const rows = await tx
-          .select()
-          .from(rooms)
-          .where(
-            or(
-              eq(rooms.visibility, 'public'),
-              eq(rooms.hostActorId, caller.actorId),
-              sql`exists (select 1 from room_participants rp where rp.room_id = ${rooms.id} and rp.actor_id = ${caller.actorId})`,
-            ),
-          )
-          .for('share');
-        const states = await Promise.all(rows.map((row) => roomState(tx, row)));
-        return states.filter((state) => authorize(state, account));
-      }),
+  ): Promise<RoomListPage> {
+    if (!roomListQuerySchema.safeParse(query).success)
+      throw createAppError('VALIDATION');
+    return instrumented(eventSink, 'listRoomPage', () =>
+      database.transaction((tx) =>
+        discoverRooms(tx, caller, query, authorize, authorizeCollection),
+      ),
     );
   },
   async listRoomBots(

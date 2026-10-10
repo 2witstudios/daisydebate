@@ -17,15 +17,15 @@ portable types derive from the projection grammars.
 
 The authenticated routes are:
 
-| HTTP                           | Contract                                                   |
-| ------------------------------ | ---------------------------------------------------------- |
-| `GET /api/rooms/catalog`       | `{ choices: RoomCatalogChoice[], bots: RoomCastChoice[] }` |
-| `GET /api/rooms`               | `{ rooms: RoomView[] }`                                    |
-| `POST /api/rooms`              | `RoomCreate` → `{ receipt, view }`                         |
-| `GET /api/rooms/:id`           | `RoomView`                                                 |
-| `POST /api/rooms/:id/commands` | `RoomCommand` → `{ receipt, view }`                        |
-| `GET /api/rooms/:id/round`     | The Room's current persisted `roundRef`                    |
-| `GET /api/rounds/:id`          | `RoundView`                                                |
+| HTTP                           | Contract                                                                           |
+| ------------------------------ | ---------------------------------------------------------------------------------- |
+| `GET /api/rooms/catalog`       | `{ choices: RoomCatalogChoice[], bots: RoomCastChoice[] }`                         |
+| `GET /api/rooms`               | `RoomListQuery` → `RoomListPage` (`rooms: RoomListEntry[]`, `nextCursor`, `retry`) |
+| `POST /api/rooms`              | `RoomCreate` → `{ receipt, view }`                                                 |
+| `GET /api/rooms/:id`           | `RoomView`                                                                         |
+| `POST /api/rooms/:id/commands` | `RoomCommand` → `{ receipt, view }`                                                |
+| `GET /api/rooms/:id/round`     | The Room's current persisted `roundRef`                                            |
+| `GET /api/rounds/:id`          | `RoundView`                                                                        |
 
 Every entry executes the canonical handler's origin, session membership,
 rate and input gates. Native actions forward the real incoming headers
@@ -47,6 +47,26 @@ capability. An available interruption or yielding capability requires explicit
 values from its declared permitted sets, including when disabled. Catalog
 defaults select declared legal values. The sole compiler rejects omitted or
 forbidden choices before creation or configuration changes persist any state.
+
+## Format admission and expansion
+
+Definitions and resolved rules share a provisional resource-work budget of
+256 total seats. Each role is independently bounded by the same budget;
+affirmative, negative and judge seats all consume it. This bounds each expanded
+seat list to 256 records and the Room page's three per-seat command identities
+to 768, independent of request byte size or a host's Room quota. It is an
+allocation/command-work ceiling, not a league roster rule or measured capacity
+claim. Changing this budget requires reassessing those consumers together.
+Counts must be nonnegative integers, and both debate sides must have at least
+one seat and a scheduled legal speaking opportunity. Either a speech or a
+cross-examination segment can provide that opportunity by referencing an
+existing seat on its declared side. Unequal rosters and zero judges remain legal.
+
+The canonical compiler refuses unsafe definitions before create/update writes.
+Launch defensively validates the definition and frozen executable rules even
+for direct domain callers. UI seat expansion validates counts before allocating
+arrays or command identities and fails closed; no consumer truncates a roster.
+Refused operations preserve Room, definition, receipt, outbox and Round state.
 
 ## Versions, consent and commit
 
@@ -118,3 +138,40 @@ slot and inventory its Room/participant/round/FK provenance read-only.
 No fabricated host, reset, applied-history rewrite, or Round deletion is
 part of this delivery. The schema epic owns a reviewed transition before
 warm adoption can be accepted.
+
+## Lobby discovery
+
+Authenticated discovery returns a lightweight page of Room metadata and the
+caller's seated flag. It includes assembling/ready Rooms and started Rooms
+whose frozen authoritative Round is scheduled or active. Abandoned Rooms and
+completed/abandoned Rounds do not appear. Offering View Round requires both
+fresh Room and frozen Round authorization, including their respective host or
+creator, visibility and only the caller's relevant seats. The canonical
+account fence and authorization evaluator govern every page; discovery adds
+no age or capability authority of its own.
+
+The strict request accepts `q` (at most 100 characters), `cursor` (a Room cuid2)
+and `pageSize` (default 20, maximum 50). These are delegated resource-work
+choices recorded in pending DEC-129, not an accepted competition capacity
+policy. Search matches title, topic or the current host label in SQL before
+paging. The native GET search form resets the cursor; Next page preserves
+search and page size, and First page resets pagination.
+
+Two separately ordered and bounded SQL branches traverse partial assembly
+Room-id and live Round-room-id indexes. Comparisons, branch order, global
+merge order and the indexes all use bytewise `C` collation. Each branch selects
+at most page size plus one; the global merge selects the same bound. Only the
+first page-size Room ids and associated Rounds are locked. The fresh projection
+contains no format/configuration, full cast or Redis consent reads. Historical
+rows are absent from the partial indexes. Search may examine nonmatching live
+index entries; it never scans historical aggregates or replenishes a page
+through an unbounded hydration loop.
+
+A lock wait can shorten a page. Continuation uses only the last returned,
+authorized Room id when selection observed another candidate. A masked
+page-plus-one candidate can produce a subsequent empty page. If every selected
+row becomes masked or terminal, the response has no cursor and explicitly
+requests retry of the same bounded query, rather than claiming the catalog
+ended or disclosing a hidden id. A stable retry can then reach a remaining
+accessible successor. The consumer refuses overflow, duplicate/nonprogressing
+ids and substituted cursors as a whole; it never silently truncates a response.
