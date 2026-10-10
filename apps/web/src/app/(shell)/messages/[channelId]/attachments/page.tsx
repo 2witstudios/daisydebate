@@ -1,8 +1,6 @@
-import { headers } from 'next/headers';
+import { messagePageContext } from '../message-page-context';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
 import { systemId } from '@daisy/clock';
-import { idSchema } from '@daisy/protocol';
 import { requireAccess } from '../../../../../lib/access';
 import type { MessagingChannelPageProps } from '../../../../../features/messaging/channel-page';
 import { messagingFileResponseSchemas } from '../../../../../features/messaging/files/response';
@@ -14,21 +12,21 @@ export default async function MessageAttachmentsPage({
   searchParams,
 }: MessagingChannelPageProps) {
   await requireAccess('/messages', searchParams);
-  const intent = await searchParams;
-  const channel = idSchema.safeParse((await params).channelId),
-    message = idSchema.safeParse(intent.messageId);
-  if (!channel.success || !message.success) notFound();
+  const { channelId, messageId, intent, incoming } = await messagePageContext({
+    params,
+    searchParams,
+  });
   const response = await GET(
     new Request(
-      `http://in-process.invalid/api/messaging/channels/${channel.data}/files?messageId=${message.data}`,
-      { headers: new Headers(await headers()) },
+      `http://in-process.invalid/api/messaging/channels/${channelId}/files?messageId=${messageId}`,
+      { headers: incoming },
     ),
   );
   if (!response.ok)
     return (
       <main>
         <h1>Attachments unavailable</h1>
-        <Link href={`/messages/${channel.data}`}>Back to conversation</Link>
+        <Link href={`/messages/${channelId}`}>Back to conversation</Link>
       </main>
     );
   const parsed = messagingFileResponseSchemas(response).listResult.safeParse(
@@ -47,7 +45,7 @@ export default async function MessageAttachmentsPage({
         {parsed.data.files.map((file) => (
           <li key={file.fileId}>
             <a
-              href={`/api/messaging/channels/${channel.data}/files/${file.fileId}?generation=${file.generation}`}
+              href={`/api/messaging/channels/${channelId}/files/${file.fileId}?generation=${file.generation}`}
             >
               {file.filename}
             </a>{' '}
@@ -57,12 +55,12 @@ export default async function MessageAttachmentsPage({
       </ul>
       {intent.attach === '1' ? (
         <AttachmentForm
-          channelId={channel.data}
-          messageId={message.data}
+          channelId={channelId}
+          messageId={messageId}
           state={{ requestId: systemId.next(), filename: '' }}
         />
       ) : null}
-      <Link href={`/messages/${channel.data}`}>Back to conversation</Link>
+      <Link href={`/messages/${channelId}`}>Back to conversation</Link>
     </main>
   );
 }

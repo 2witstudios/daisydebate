@@ -38,6 +38,7 @@ import { documentOperations } from './document-operations';
 import { onboardingOperations } from './onboarding-operations';
 import {
   createMessagingStore,
+  createMessagingReactionStore,
   createMessagingFileStore,
   createMessagingDmStore,
   createMessagingFileCleanup,
@@ -213,6 +214,10 @@ export function createDatabase({
     ) => createMessagingPreferenceStore(database, authorize),
     messagingChannelStore: (authorize: MessagingAuthorizationFence) =>
       createMessagingStore({ database, authorize }),
+    messagingReactionStore: (
+      policy: Parameters<typeof createMessagingReactionStore>[1],
+      authorize: Parameters<typeof createMessagingReactionStore>[2],
+    ) => createMessagingReactionStore(database, policy, authorize),
     messagingGroupCreationStore: (authorize: MessagingGroupCreationFence) =>
       createMessagingGroupCreationStore(database, authorize),
     messagingGroupIssuanceStore: (authorize: MessagingGroupIssuanceFence) =>

@@ -1,3 +1,4 @@
+import { manageNativeReactions } from './support/messaging-reactions';
 import type { Page } from '@playwright/test';
 import { proveNativeTyping } from './support/messaging-typing';
 import type { ServerMessage } from '@daisy/protocol';
@@ -94,6 +95,7 @@ for (const javaScriptEnabled of [true, false]) {
       await expect(messageInHistory(sender, text)).toHaveCount(1);
       await attachNativeMessageFile(recipient, sender, journey.channelId, text);
       await manageNativePreferences(sender, journey.channelId);
+      await manageNativeReactions(sender, journey.channelId, text);
       const foreign = await journey.outsider.request.get(
         `/api/messaging/channels/${journey.channelId}/messages`,
       );
