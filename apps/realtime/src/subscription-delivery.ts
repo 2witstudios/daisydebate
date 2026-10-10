@@ -163,8 +163,11 @@ export function createSubscriptionDelivery({
       revoke(connection);
       return;
     }
-    for (const [topic, sub] of connection.topics)
-      await revalidateTopic(connection, topic, sub);
+    await Promise.all(
+      [...connection.topics].map(([topic, sub]) =>
+        revalidateTopic(connection, topic, sub),
+      ),
+    );
   }
   function invalidateRow(row: OutboxRow) {
     control(row);
@@ -189,8 +192,11 @@ export function createSubscriptionDelivery({
     async revalidate(
       validate: (principal: SocketPrincipal) => Promise<boolean>,
     ) {
-      for (const connection of connections)
-        await revalidateConnection(connection, validate);
+      await Promise.all(
+        [...connections].map((connection) =>
+          revalidateConnection(connection, validate),
+        ),
+      );
     },
   };
 }

@@ -37,3 +37,20 @@ test('native profile gate survives preceding failures only after real prerequisi
     expected: [1, 0, 0, 0],
   });
 });
+
+test('conditional browser runner requires preceding prerequisites', () => {
+  const runner = `      - run: bun test:e2e:messaging-realtime\n        if: "${gate}"\n`;
+  const displaced = workflow
+    .replace(runner, '')
+    .replace('    steps:\n', `    steps:\n${runner}`);
+  assert({
+    given: 'a gated runner placed before doctor, build and Chromium',
+    should: 'refuse the impossible native execution claim',
+    actual: claimedBrowserSteps(
+      displaced,
+      'test:e2e:messaging-realtime',
+      'bun counts',
+    ),
+    expected: 0,
+  });
+});
