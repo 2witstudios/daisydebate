@@ -184,3 +184,4 @@ export {
 export { parseUsername } from './username';
 
 export { messagingPreferenceSchemas } from './messaging/preferences';
+export { messagingTypingSchemas } from './messaging/typing';

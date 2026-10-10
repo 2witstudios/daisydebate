@@ -68,6 +68,7 @@ export default async function ConversationPage({
             />
           </ConversationLive>
           <MessageComposer
+            channelId={id.data}
             key={typeof query.sent === 'string' ? query.sent : id.data}
             action={sendMessageAction.bind(null, id.data)}
             requestId={systemId.next()}

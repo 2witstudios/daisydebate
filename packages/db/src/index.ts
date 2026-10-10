@@ -1,3 +1,4 @@
+import { createMessagingTypingStore } from './messaging/typing-store';
 import { createMessagingPreferenceStore } from './messaging/preference-store';
 import { createMessagingFileMaintenance } from './messaging-files/maintenance';
 import { createMessagingGroupIssuanceStore } from './messaging/group-issuance-store';
@@ -194,6 +195,7 @@ export function createDatabase({
     messagingFileStore: (
       authorize: Parameters<typeof createMessagingFileStore>[0]['authorize'],
     ) => createMessagingFileStore({ database, authorize }),
+    messagingTypingStore: createMessagingTypingStore(database),
     messagingPreferenceStore: (
       authorize: Parameters<typeof createMessagingPreferenceStore>[1],
     ) => createMessagingPreferenceStore(database, authorize),
