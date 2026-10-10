@@ -37,7 +37,7 @@ for (const depth of [0, 1, 2])
         should:
           'redact its value without consuming its closing quote or following record fields',
         actual: redactText(
-          serialize(`${header}: fixture-\"secret\"\\value\nnext diagnostic`),
+          serialize(`${header}: fixture-"secret"\\value\nnext diagnostic`),
         ),
         expected: serialize(`${header}: [REDACTED]\nnext diagnostic`),
       });
