@@ -121,6 +121,20 @@ export function createMessagingSocialSchemas(bounds: MessagingSocialBounds) {
       expectedGeneration: generation,
       decision: z.enum(['accept', 'decline']),
     }),
+    manageGroupUsername: z.discriminatedUnion('operation', [
+      z.strictObject({
+        ...scoped,
+        operation: z.literal('remove'),
+        memberUsername: recipientUsername,
+      }),
+      z.strictObject({
+        ...scoped,
+        operation: z.literal('transfer'),
+        memberUsername: recipientUsername,
+      }),
+      z.strictObject({ ...scoped, operation: z.literal('leave') }),
+      z.strictObject({ ...scoped, operation: z.literal('archive') }),
+    ]),
     removeGroupMember: z.strictObject({ ...scoped, memberActorId: idSchema }),
     leaveGroup: z.strictObject(scoped),
     transferGroup: z.strictObject({ ...scoped, managerActorId: idSchema }),

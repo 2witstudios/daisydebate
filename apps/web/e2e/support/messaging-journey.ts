@@ -59,6 +59,7 @@ async function openJourney(
       channelId,
       introduction,
       senderUsername: signup.members[0].username,
+      recipientUsername: signup.members[1].username,
       async close() {
         await Promise.all(contexts.map((context) => context.close()));
         try {
@@ -140,4 +141,31 @@ export async function acceptMessagingJourney(
   await expect(page).toHaveURL(new RegExp(`/messages/${journey.channelId}$`));
   await expect(page.getByLabel('Your message')).toBeVisible();
   return page;
+}
+
+export async function manageNativeMessagingGroup(
+  page: Page,
+  channelId: string,
+  operation: 'remove' | 'transfer' | 'archive' | 'leave',
+  target?: string,
+) {
+  const labels = {
+    remove: 'Remove a member',
+    transfer: 'Transfer management',
+    archive: 'Archive group',
+    leave: 'Leave group',
+  };
+  await page.goto(
+    `/messages/groups/${channelId}/manage?operation=${operation}`,
+  );
+  if (target !== undefined)
+    await page.getByLabel('Member username', { exact: true }).fill(target);
+  await page
+    .getByRole('button', { name: labels[operation], exact: true })
+    .click();
+  await expect(page).toHaveURL(
+    operation === 'leave'
+      ? /\/messages$/
+      : new RegExp(`/messages/${channelId}$`),
+  );
 }

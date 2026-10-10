@@ -62,7 +62,9 @@ export function composeMessagingInbox(input: {
             ? sender
               ? 'outgoing_request'
               : 'incoming_request'
-            : 'conversation',
+            : frame.fact.authority.kind === 'private_group'
+              ? 'group_conversation'
+              : 'conversation',
         };
       },
     );
