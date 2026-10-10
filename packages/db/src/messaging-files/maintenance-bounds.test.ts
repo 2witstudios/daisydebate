@@ -100,7 +100,12 @@ test('a crowded channel expires only the globally selected reservation batch', a
       discovery.params.at(-1),
       queries
         .filter((q) => q.query.includes('join actors'))
-        .every((q) => q.params.includes(selected)),
+        .every(
+          (q) =>
+            q.params.includes(selected) &&
+            q.query.includes('f.id in (') &&
+            !q.query.includes('::text[]'),
+        ),
       expiry?.params.includes(selected),
     ],
     expected: [{ expiredChannels: 1, acknowledged: 0 }, false, 1, true, true],
