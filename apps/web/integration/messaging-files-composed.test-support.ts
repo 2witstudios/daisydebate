@@ -64,8 +64,8 @@ export async function openComposedFileFixture(
         [fixture.channelId],
       );
       await client.unsafe(
-        "update messaging_channels set kind='private_group',policy_key='social.private_group',title='File proof group' where id=$1",
-        [fixture.channelId],
+        "update messaging_channels set kind='private_group',policy_key='social.private_group',title='File proof group',title_author_actor_id=$2 where id=$1",
+        [fixture.channelId, fixture.actorId],
       );
       await client.unsafe(
         "insert into messaging_group_grants(channel_id,actor_id,role,generation,granted_at) values($1,$2,'manager',1,$4),($1,$3,'member',1,$4)",

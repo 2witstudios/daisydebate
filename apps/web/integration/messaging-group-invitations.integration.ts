@@ -30,8 +30,8 @@ async function fixture() {
   const channelId = createId();
   try {
     await base.client.unsafe(
-      "insert into messaging_channels(id,kind,policy_key,policy_revision,lifecycle,title) values($1,'private_group','social.private_group',1,'active','Private fixture title')",
-      [channelId],
+      "insert into messaging_channels(id,kind,policy_key,policy_revision,lifecycle,title,title_author_actor_id) values($1,'private_group','social.private_group',1,'active','Private fixture title',$2)",
+      [channelId, base.fixture.actorId],
     );
     await base.client.unsafe(
       "insert into messaging_group_grants(channel_id,actor_id,role,generation,granted_at) values($1,$2,'manager',1,$3)",
