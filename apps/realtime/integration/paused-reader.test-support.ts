@@ -1,7 +1,8 @@
 import { connect } from 'node:net';
 import { randomBytes, createHash } from 'node:crypto';
-import { serverMessageSchema, type ServerMessage } from '@daisy/protocol';
+import type { ServerMessage } from '@daisy/protocol';
 import type { SocketData } from '../src/socket';
+import { createNativeCloseReader } from '../src/native-close-reader.test-support';
 import { testOrigin, waitFor } from './support';
 
 /** Observe the actual Bun socket while preserving all native handlers and authorization. */
@@ -67,18 +68,11 @@ export async function pausedNativePeer(port: number) {
   let bytes = Buffer.alloc(0);
   let upgraded = false;
   let failure = false;
-  let closeCode: number | undefined;
-  const frames: ServerMessage[] = [];
+  const reader = createNativeCloseReader();
   const consumeFrame = (opcode: number, payload: Buffer) => {
-    if (opcode === 8) {
-      closeCode = payload.length >= 2 ? payload.readUInt16BE(0) : 1005;
+    if (reader.consume(opcode, payload)) {
       socket.end(maskedFrame(payload, 8));
-    } else if (opcode === 1)
-      frames.push(
-        serverMessageSchema.parse(JSON.parse(payload.toString()), {
-          jitless: true,
-        }),
-      );
+    }
   };
   const consume = () => {
     if (!upgraded) {
@@ -126,15 +120,22 @@ export async function pausedNativePeer(port: number) {
   await waitFor(() => upgraded || failure);
   if (failure) throw new Error('Native paused-reader connection unavailable');
   return {
-    frames,
+    frames: reader.frames,
     send(frame: unknown) {
       socket.write(maskedFrame(Buffer.from(JSON.stringify(frame))));
     },
     pause: () => socket.pause(),
-    resume: () => socket.resume(),
+    resumeForClose() {
+      // The handshake was validated before pausing. Consume queued physical
+      // traffic without retaining an unbounded application log; still decode
+      // every RFC6455 frame boundary and the actual close control/code.
+      reader.discardApplicationFrames();
+      socket.resume();
+    },
     destroy: () => socket.destroy(),
     async closed() {
-      await waitFor(() => closeCode !== undefined || failure);
+      await waitFor(() => reader.closeCode() !== undefined || failure);
+      const closeCode = reader.closeCode();
       if (failure || closeCode === undefined)
         throw new Error('Native paused-reader close unavailable');
       return closeCode;
