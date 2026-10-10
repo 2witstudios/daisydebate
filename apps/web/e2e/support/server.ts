@@ -1,4 +1,5 @@
 import { messagingBrowserPolicy } from './messaging-policy';
+import { launchProofPolicy } from './room-launch-policy';
 import { systemClock, systemId } from '@daisy/clock';
 import { createApp } from '../../src/server/app';
 import { adoptProcessApp } from '../../src/server/process-app';
@@ -15,7 +16,9 @@ import { createSelfSignedTlsEdge } from './tls-edge';
  *   2. a loopback TLS edge, because production configuration requires an
  *      HTTPS origin and a real browser needs it for Secure cookies;
  *   3. OpenRouter (AI debates) answered by a local stub, unless a real key
- *      was given for a live check by hand.
+ *      was given for a live check by hand;
+ *   4. the explicit Room test policy used by the isolated browser server.
+ *      Ordinary process composition has no Room policy and stays fail-closed.
  * Test-only: nothing under src/ imports it.
  */
 const env = (name: string) => {
@@ -43,6 +46,7 @@ adoptProcessApp(
   createApp({
     env: process.env,
     messagingPolicy: messagingBrowserPolicy,
+    roomPolicy: launchProofPolicy,
     // OpenRouter (AI debates) is answered locally; everything else goes
     // through the mail capture.
     fetch: async (input, init) =>
