@@ -302,6 +302,24 @@ export const roundAuthoring = async (fixture: Fixture, url: string) => {
   };
 };
 
+/** Create the scheduled durable round shared by execution and phase tests. */
+export const createScheduledRound = async (
+  authoring: Awaited<ReturnType<typeof roundAuthoring>>,
+  resolution: string,
+): Promise<void> => {
+  await authoring.database.createRound({
+    id: authoring.roundId,
+    createdByActorId: null,
+    resolution,
+    competitionType: 'casual',
+    length: 'full',
+    formatId: authoring.formatId,
+    formatVersion: 1,
+    presetVersion: null,
+    rules: authoring.rules,
+  });
+};
+
 export const at = new Date('2026-01-01T00:00:00.000Z');
 /** A well-formed SHA3-256 hex digest. */
 export const digest = 'a'.repeat(64);
