@@ -4,17 +4,53 @@ import type { Identity } from '@daisy/auth';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { Logger } from '@daisy/logger';
 import { createAppError } from '@daisy/errors';
+import { consumeOrThrow } from '../auth/abuse/rate-limit';
 import {
   handleOperation,
   requireSameOrigin,
   requireSameOriginRead,
   requireSignedIn,
+  readJson,
 } from '../../server/http';
+export type MessagingHandlerPort<T> = {
+  readonly boundary: Boundary;
+  readonly maxBodyBytes: number;
+  readonly consume: (actorId: string) => Promise<void>;
+  readonly store: (principal: AuthorizationPrincipal) => T;
+};
+/** Preferences and typing accept native channel scope only, never query-selected actor authority. */
+export function readMessagingScope(
+  request: Request,
+  write: boolean,
+  maxBodyBytes: number,
+  channelId?: string,
+) {
+  if (write) return readJson(request, maxBodyBytes);
+  if (new URL(request.url).search) throw createAppError('VALIDATION');
+  return Promise.resolve({ version: 1, channelId });
+}
 type Boundary = {
   readonly logger: Logger;
   readonly origin: () => string;
   readonly identify: (request: Request) => Promise<Identity>;
 };
+/** Two optional channel-metadata handlers share the same participant boundary and distinct explicit actor buckets. */
+export function messagingActorHandlerPort(
+  app: App,
+  policy: NonNullable<App['messagingPolicy']>,
+  bucket: 'typing' | 'preferences',
+) {
+  return {
+    boundary: messagingHttpBoundary(app),
+    maxBodyBytes: policy.maxBodyBytes,
+    consume: (actorId: string) =>
+      consumeOrThrow(
+        app.auth().limiter,
+        `messaging:${bucket}:${actorId}`,
+        policy.limits.read,
+      ),
+  };
+}
 /** Message and social handlers use the same injected participant boundary. */
 export function runMessagingHandler(
   boundary: Boundary,

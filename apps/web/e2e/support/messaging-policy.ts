@@ -7,6 +7,7 @@ import {
 import type { MessagingRuntimePolicy } from '../../src/features/messaging/composition';
 /** Explicit isolated browser proof inputs; never a production policy/default. */
 export const messagingBrowserPolicy: MessagingRuntimePolicy = {
+  typing: { ttlMs: 6000, refetchMs: 1000, maxActors: 12 },
   bounds: { messageUnits: 1000, pageItems: 20 },
   maxBodyBytes: 8192,
   editWindowMs: 60000,

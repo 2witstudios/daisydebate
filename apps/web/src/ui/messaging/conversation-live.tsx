@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
+import { createBrowserTypingReader } from './typing-browser';
 import { createBrowserConnectionStore } from '../../features/realtime/browser-adapters';
 import {
   attachMessagingDoorbells,
@@ -21,6 +22,7 @@ function MessagingLiveSnapshot({
   readonly children: ReactNode;
 }) {
   const router = useRouter();
+  const [typing, showTyping] = useState<boolean | null>(null);
   const [invalidated, invalidate] = useState<string | null>(null);
   const currentSnapshot = useRef(snapshotId);
   const reader = useRef<ReturnType<typeof attachMessagingDoorbells> | null>(
@@ -42,6 +44,10 @@ function MessagingLiveSnapshot({
       scope.kind === 'channel'
         ? attachMessagingDoorbells({ ...observer, channelId: scope.id })
         : attachMessagingInboxDoorbells({ ...observer, actorId: scope.id });
+    const typingReader =
+      scope.kind === 'channel'
+        ? createBrowserTypingReader(scope.id, connection, showTyping)
+        : null;
     reader.current = attached;
     const unsubscribe = connection.subscribe((state) => {
       if (state.terminal !== null) {
@@ -51,6 +57,7 @@ function MessagingLiveSnapshot({
     });
     connection.connect();
     return () => {
+      typingReader?.close();
       attached.close();
       unsubscribe();
       connection.close();
@@ -62,7 +69,10 @@ function MessagingLiveSnapshot({
       {notice}
     </p>
   ) : (
-    <>{children}</>
+    <>
+      {children}
+      {typing === true ? <p role="status">Someone is typing…</p> : null}
+    </>
   );
 }
 
