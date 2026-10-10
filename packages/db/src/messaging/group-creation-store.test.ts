@@ -4,10 +4,15 @@ import { createAppError } from '@daisy/errors';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { fakeSql } from '../index.test-support';
 import { createMessagingGroupCreationStore } from './group-creation-store';
+import { groupStoreFacts } from './group-store.test-support';
 setupRitewayBun();
-const actorId = 'a'.repeat(24),
-  peerId = 'b'.repeat(24),
-  channelId = 'c'.repeat(24);
+const {
+  inviter: actorId,
+  invitee: peerId,
+  channelId,
+  accounts,
+  channel,
+} = groupStoreFacts();
 const scope = {
   actorId,
   userId: 'u'.repeat(24),
@@ -15,13 +20,6 @@ const scope = {
   proposedActorIds: [peerId, actorId],
   policyRevision: 1,
 };
-const accounts = [actorId, peerId].map((id, index) => ({
-  actorId: id,
-  userId: ['u'.repeat(24), 'v'.repeat(24)][index],
-  member: true,
-  erased: false,
-  revision: 1,
-}));
 const pair = { low_blocks_high: false, high_blocks_low: false, revision: '1' };
 const command = {
   channelId,
@@ -29,21 +27,7 @@ const command = {
   digest: 'd'.repeat(64),
   now: '2026-10-09T18:00:00.000Z',
 };
-const fact = {
-  kind: 'channel',
-  channelId,
-  policyKey: 'social.private_group',
-  policyRevision: 1,
-  lifecycle: 'active',
-  revision: 1,
-  authority: {
-    kind: 'private_group',
-    actorId,
-    role: 'manager',
-    generation: 1,
-    activeMemberActorIds: [actorId],
-  },
-};
+const fact = channel(actorId, 'manager', 1);
 
 test('creation persists only after observing absent receipt and fresh account/pair admission', async () => {
   const { client, queries } = fakeSql([
