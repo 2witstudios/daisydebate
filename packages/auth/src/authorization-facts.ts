@@ -128,10 +128,92 @@ export type PendingFileAuthorizationFact = {
     readonly revision: number;
   };
 };
+/** MSG projects the live invitation, channel and inviter grant under its transaction fence. */
+export type GroupInvitationAuthorizationFact = {
+  readonly kind: 'group_invitation';
+  readonly channel: {
+    readonly channelId: string;
+    readonly kind: 'private_group';
+    readonly policyKey: 'social.private_group';
+    readonly policyRevision: number;
+    readonly revision: number;
+    readonly lifecycle: 'active' | 'archived';
+    readonly activeMemberActorIds: readonly string[];
+  };
+  readonly invitation: {
+    readonly channelId: string;
+    readonly inviterActorId: string;
+    readonly inviteeActorId: string;
+    readonly state: 'pending' | 'accepted' | 'declined' | 'cancelled';
+    readonly generation: number;
+  };
+  readonly expectedGeneration?: number;
+  readonly inviterGrant: {
+    readonly actorId: string;
+    readonly role: 'manager' | 'member' | null;
+    readonly generation: number;
+  };
+  readonly contactPairs: readonly ContactAuthorizationFact[];
+};
+/** Proposed invitees are intent only; MSG owns current channel/grant/pair projections. */
+export type GroupInvitationCreationAuthorizationFact = {
+  readonly kind: 'group_invitation_creation';
+  readonly channel: ChannelAuthorizationFact;
+  readonly inviteeActorIds: readonly string[];
+  readonly contactPairs: readonly ContactAuthorizationFact[];
+};
+/** MSG supplies a committed own receipt and fresh channel core under its transaction fence.
+ * This projection grants only a minimal result; digest/original-operation binding stays with MSG.
+ */
+export type GroupCommandResultAuthorizationFact = {
+  readonly kind: 'group_command_result';
+  readonly channel: {
+    readonly channelId: string;
+    readonly kind: 'private_group';
+    readonly policyKey: 'social.private_group';
+    readonly policyRevision: number;
+    readonly revision: number;
+    readonly lifecycle: 'active' | 'archived';
+  };
+  readonly command: {
+    readonly actorId: string;
+    readonly requestId: string;
+    readonly kind: string;
+    readonly resultChannelId: string;
+  };
+};
+/** Projected only from an existing locked MSG actor-state row, never a request intent. */
+export type MessagingPreferenceAuthorizationFact = {
+  readonly kind: 'channel_preference';
+  readonly actorId: string;
+  readonly channelId: string;
+};
+/** MSG projects an existing locked reaction joined to its same-channel message. */
+export type MessagingReactionAuthorizationFact = {
+  readonly kind: 'channel_reaction';
+  readonly channel: ChannelAuthorizationFact;
+  readonly reaction: {
+    readonly actorId: string;
+    readonly channelId: string;
+    readonly messageId: string;
+    readonly reaction: string;
+  };
+};
+/** Own-association discovery only; every returned channel needs separate authorization. */
+export type MessagingCollectionAuthorizationFact = {
+  readonly kind: 'messaging_collection';
+  readonly actorId: string;
+};
 export type AuthorizationInput = {
   readonly principal: AuthorizationPrincipal;
   readonly capability: AuthorizationCapability;
   readonly resource:
+    | MessagingReactionAuthorizationFact
+    | MessagingPreferenceAuthorizationFact
+    | GroupInvitationCreationAuthorizationFact
+    | GroupCommandResultAuthorizationFact
+    | GroupInvitationAuthorizationFact
+    | MessagingCollectionAuthorizationFact
     | PendingFileAuthorizationFact
     | ContactPairAuthorizationFact
     | SocialCreationFact

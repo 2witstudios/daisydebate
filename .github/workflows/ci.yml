@@ -112,6 +112,7 @@ jobs:
       PUBLIC_APP_URL: http://127.0.0.1:3100
       NODE_ENV: development
       FOUNDATION_PROOF_ENABLED: 'true'
+      CLAMD_TEST_PORT: '3310'
       APP_VERSION: ci
       GIT_COMMIT: ${{ github.sha }}
     services:
@@ -131,6 +132,13 @@ jobs:
         options: >-
           --health-cmd "redis-cli ping"
           --health-interval 3s --health-timeout 3s --health-retries 20
+      clamd:
+        image: clamav/clamav:1.4.6
+        ports: ['3310:3310']
+        options: >-
+          --health-cmd "clamdcheck.sh"
+          --health-interval 10s --health-timeout 5s
+          --health-start-period 3m --health-retries 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

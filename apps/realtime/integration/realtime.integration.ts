@@ -2,7 +2,7 @@ import { assert, test, setupRitewayBun } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { ENVELOPE_VERSION, PROTOCOL_VERSION } from '@daisy/protocol';
 import { SOCKET_PATH } from '../src/server';
-import { bootServer } from './support';
+import { bootServer, testOrigin } from './support';
 
 setupRitewayBun();
 
@@ -14,7 +14,9 @@ requireTestServices(process.env);
  */
 const closeAfterFirstFrame = async (frame: string) => {
   const { origin, close } = await bootServer();
-  const ws = new WebSocket(origin.replace('http', 'ws') + SOCKET_PATH);
+  const ws = new WebSocket(origin.replace('http', 'ws') + SOCKET_PATH, {
+    headers: { origin: testOrigin },
+  });
   try {
     const closed = new Promise<{ code: number; reason: string }>((resolve) => {
       ws.addEventListener('close', (event) =>
@@ -67,10 +69,10 @@ test('refuses a non-WebSocket request to the socket path with 400, never falling
   }
 });
 
-test('a real WebSocket client sending hello first is closed 4001 auth_failed', async () => {
+test('a real WebSocket client presenting an unissued ticket is closed 4001 auth_failed', async () => {
   assert({
     given:
-      'a well-formed hello over a real socket (ticket consumption is RT-2.4b)',
+      'a well-formed hello presenting a ticket absent from the real Redis producer',
     should: 'close 4001 auth_failed',
     actual: await closeAfterFirstFrame(
       JSON.stringify({

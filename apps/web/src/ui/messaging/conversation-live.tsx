@@ -1,21 +1,30 @@
 'use client';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
+import { createBrowserTypingReader } from './typing-browser';
 import { createBrowserConnectionStore } from '../../features/realtime/browser-adapters';
-import { attachMessagingDoorbells } from '../../features/messaging/doorbells';
+import {
+  attachMessagingDoorbells,
+  attachMessagingInboxDoorbells,
+} from '../../features/messaging/doorbells';
 
-export function ConversationLive({
-  channelId,
+function MessagingLiveSnapshot({
+  scope,
+  notice,
   socketUrl,
   snapshotId,
+  typingRefetchMs,
   children,
 }: {
-  readonly channelId: string;
+  readonly scope: { readonly kind: 'channel' | 'inbox'; readonly id: string };
+  readonly notice: string;
   readonly socketUrl: string | null;
   readonly snapshotId: string;
   readonly children: ReactNode;
+  readonly typingRefetchMs?: number | null;
 }) {
   const router = useRouter();
+  const [typing, showTyping] = useState<boolean | null>(null);
   const [invalidated, invalidate] = useState<string | null>(null);
   const currentSnapshot = useRef(snapshotId);
   const reader = useRef<ReturnType<typeof attachMessagingDoorbells> | null>(
@@ -28,12 +37,24 @@ export function ConversationLive({
   useEffect(() => {
     if (socketUrl === null) return;
     const connection = createBrowserConnectionStore(socketUrl);
-    const attached = attachMessagingDoorbells({
-      channelId,
+    const observer = {
       connection,
       invalidate: () => invalidate(currentSnapshot.current),
       refetch: () => router.refresh(),
-    });
+    };
+    const attached =
+      scope.kind === 'channel'
+        ? attachMessagingDoorbells({ ...observer, channelId: scope.id })
+        : attachMessagingInboxDoorbells({ ...observer, actorId: scope.id });
+    const typingReader =
+      scope.kind === 'channel'
+        ? createBrowserTypingReader(
+            scope.id,
+            connection,
+            showTyping,
+            typingRefetchMs ?? null,
+          )
+        : null;
     reader.current = attached;
     const unsubscribe = connection.subscribe((state) => {
       if (state.terminal !== null) {
@@ -43,17 +64,52 @@ export function ConversationLive({
     });
     connection.connect();
     return () => {
+      typingReader?.close();
       attached.close();
       unsubscribe();
       connection.close();
       reader.current = null;
     };
-  }, [channelId, socketUrl, router]);
+  }, [scope.kind, scope.id, socketUrl, router, typingRefetchMs]);
   return invalidated === snapshotId ? (
     <p role="status" className="text-ink-muted">
-      Refreshing this conversation…
+      {notice}
     </p>
   ) : (
-    <>{children}</>
+    <>
+      {children}
+      {typing === true ? <p role="status">Someone is typing…</p> : null}
+    </>
+  );
+}
+
+type SnapshotProps = {
+  readonly socketUrl: string | null;
+  readonly snapshotId: string;
+  readonly children: ReactNode;
+  readonly typingRefetchMs?: number | null;
+};
+export function ConversationLive({
+  channelId,
+  ...input
+}: SnapshotProps & { readonly channelId: string }) {
+  return (
+    <MessagingLiveSnapshot
+      {...input}
+      scope={{ kind: 'channel', id: channelId }}
+      notice="Refreshing this conversation…"
+    />
+  );
+}
+export function InboxLive({
+  actorId,
+  ...input
+}: SnapshotProps & { readonly actorId: string }) {
+  return (
+    <MessagingLiveSnapshot
+      {...input}
+      scope={{ kind: 'inbox', id: actorId }}
+      notice="Refreshing messages…"
+    />
   );
 }

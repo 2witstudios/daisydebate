@@ -15,6 +15,7 @@ export function composeMessagingFileStore(input: {
   readonly clock: Clock;
   readonly postingPolicy: SocialContactPolicy;
   readonly readingPolicy: MessagingReadingPolicy;
+  readonly groupPostingPolicy?: SocialContactPolicy;
 }): FileStore {
   return input.database.messagingFileStore((capability) =>
     messagingAuthorizationFence({
@@ -23,6 +24,9 @@ export function composeMessagingFileStore(input: {
       capability: capability === 'post' ? 'channel.post' : 'channel.read',
       postingPolicy: input.postingPolicy,
       readingPolicy: input.readingPolicy,
+      ...(input.groupPostingPolicy === undefined
+        ? {}
+        : { groupPostingPolicy: input.groupPostingPolicy }),
     }),
   );
 }

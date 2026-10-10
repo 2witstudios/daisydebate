@@ -142,3 +142,10 @@ export {
   createMessagingTestFixture,
   seedMessagingTestDm,
 } from './messaging/test-fixture';
+
+export {
+  seedMessagingBrowserAccounts,
+  cleanupMessagingBrowserData,
+} from './messaging/browser-fixture';
+
+export { createScriptedAuthorizationTransaction } from './testing-authorization';

@@ -25,8 +25,11 @@ export function requireAuthorization(input: AuthorizationInput): void {
     'room.read',
     'room.list',
     'channel.read',
+    'channel.preferences.read',
     'channel.subscribe',
     'channel.request.read',
+    'channel.request.status',
+    'channel.invitation.read',
     'foundation.read',
   ].includes(input.capability);
   throw createAppError(

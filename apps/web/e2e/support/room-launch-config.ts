@@ -4,6 +4,7 @@ import canonical from '../../playwright.config';
 import { requireLaunchSlot } from './room-launch-slot';
 
 requireLaunchSlot(resolve(import.meta.dirname, '../../../..'), process.env);
+const web = resolve(import.meta.dirname, '../..');
 const servers = Array.isArray(canonical.webServer)
   ? canonical.webServer
   : [canonical.webServer];
@@ -17,9 +18,13 @@ export default defineConfig({
   testMatch: ['**/room-launch.e2e.ts', '**/debate-room.e2e.ts'],
   testIgnore: [],
   timeout: 120_000,
+  outputDir: resolve(web, 'test-results'),
   reporter: [
     ['list'],
-    ['json', { outputFile: 'test-results/room-launch-results.json' }],
+    [
+      'json',
+      { outputFile: resolve(web, 'test-results/room-launch-results.json') },
+    ],
   ],
   projects: projects.map((project) => ({
     ...project,
@@ -28,14 +33,18 @@ export default defineConfig({
   })),
   webServer: servers.map((server, index) => {
     if (!server) throw new Error('Canonical browser server is missing');
+    const anchored = {
+      ...server,
+      cwd: resolve(web, server.cwd ?? '.'),
+      reuseExistingServer: false,
+    };
     return index === 0
       ? {
-          ...server,
+          ...anchored,
           command: server.command.replace(
             'e2e/support/server.ts',
             'e2e/support/room-launch-server.ts',
           ),
-          reuseExistingServer: false,
           env: {
             ...server.env,
             E2E_DATABASE_URL: process.env.E2E_DATABASE_URL!,
@@ -44,6 +53,6 @@ export default defineConfig({
             E2E_PORT: process.env.E2E_PORT!,
           },
         }
-      : { ...server, reuseExistingServer: false };
+      : anchored;
   }),
 });

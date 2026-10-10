@@ -82,7 +82,7 @@ export function messagingSocialAuthorizationFence({
     });
   };
 }
-function creationResource(
+export function creationResource(
   operation: {
     readonly kind: 'dm' | 'private_group';
     readonly policy: SocialCreationPolicy;

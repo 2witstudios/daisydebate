@@ -2,34 +2,33 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createId } from '@paralleldrive/cuid2';
+import { assert } from 'riteway/bun';
 import { socialPolicyEvidence } from '@daisy/auth/social-policy';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
-import type { FilePolicy, FileMime } from '@daisy/db/messaging-files';
+import { messagingFileProofRuntime } from './messaging-file-runtime.test-support';
+import type { FileMime } from '@daisy/db/messaging-files';
 import { openMessagingFixture } from './messaging-fixture.test-support';
-import { openFileScannerRelay } from './messaging-files.test-support';
+import {
+  openFileScannerRelay,
+  controlledFileScan,
+} from './messaging-files.test-support';
 import { composeMessagingFileStore } from '../src/features/messaging/file-composition';
+import {
+  messagingAuthorizationFence,
+  type MessagingReadingPolicy,
+} from '../src/features/messaging/authorization-fence';
+import { mutateMessagingMessage } from '../src/features/messaging/mutate';
 import { composeMessagingFileCleanup } from '../src/features/messaging/file-cleanup';
 import { createLocalPrivateObjectStore } from '../src/features/messaging/files/local-object-store';
 import { createClamdScanner } from '../src/features/messaging/files/clamd';
 import { sanitizeMessagingImage } from '../src/features/messaging/files/image-sanitizer';
 import {
+  finalizeMessagingFile,
   reserveMessagingFile,
   uploadMessagingFile,
   type FileDependencies,
 } from '../src/features/messaging/files/operations';
 
-// Explicit integration-only policy, never production activation or numeric defaults.
-export const fileProofPolicy: FilePolicy = {
-  maxFileBytes: 4096,
-  maxStoredBytes: 16384,
-  maxStoredFiles: 4,
-  maxFilesPerMessage: 2,
-  reservationMs: 60000,
-  accessMs: 1000,
-  maxFilenameUnits: 80,
-  maxImagePixels: 100,
-  serviceMs: 5000,
-};
 export const cleanFilePdf = new TextEncoder().encode(
   '%PDF-1.7\nclean document\n%%EOF',
 );
@@ -41,6 +40,7 @@ export async function openComposedFileFixture(
   const opened = await openMessagingFixture(databaseUrl);
   const directory = await mkdtemp(join(tmpdir(), 'daisy-file-proof-'));
   const relay = await openFileScannerRelay({ host: '127.0.0.1', port });
+  const fileProofPolicy = messagingFileProofRuntime(directory, port).policy;
   const { fixture, client, database, principal } = opened;
   const close = async () => {
     try {
@@ -64,7 +64,7 @@ export async function openComposedFileFixture(
         [fixture.channelId],
       );
       await client.unsafe(
-        "update messaging_channels set kind='private_group',policy_key='social.private_group' where id=$1",
+        "update messaging_channels set kind='private_group',policy_key='social.private_group',title='File proof group' where id=$1",
         [fixture.channelId],
       );
       await client.unsafe(
@@ -74,6 +74,10 @@ export async function openComposedFileFixture(
     }
     const clock = { now: () => fixture.now };
     const objects = createLocalPrivateObjectStore(directory);
+    const readingPolicy: MessagingReadingPolicy = (input) => ({
+      ...socialPolicyEvidence(input.channel, input.accounts, input.now),
+      allowed: true,
+    });
     const dependenciesFor = (
       identity: AuthorizationPrincipal,
     ): FileDependencies => ({
@@ -89,10 +93,7 @@ export async function openComposedFileFixture(
           revision: 1,
           allowedBandPairs: [['adult', 'adult']],
         },
-        readingPolicy: (input) => ({
-          ...socialPolicyEvidence(input.channel, input.accounts, input.now),
-          allowed: true,
-        }),
+        readingPolicy,
       }),
       failPending: composeMessagingFileCleanup({
         database,
@@ -104,6 +105,32 @@ export async function openComposedFileFixture(
       clock,
       ids: { next: createId },
     });
+    const removeMessage = () =>
+      mutateMessagingMessage(
+        'remove',
+        {
+          version: 1,
+          channelId: fixture.channelId,
+          messageId,
+          requestId: createId(),
+        },
+        principal,
+        {
+          bounds: { messageUnits: 100, pageItems: 20 },
+          editWindowMs: 1,
+          clock,
+          limit: async () => {},
+          store: database.messagingChannelStore(
+            messagingAuthorizationFence({
+              principal,
+              capability: 'channel.message.remove',
+              clock,
+              postingPolicy: { state: 'pending' },
+              readingPolicy,
+            }),
+          ),
+        },
+      );
     const dependencies = dependenciesFor(principal);
     const reserve = (
       bytes = cleanFilePdf,
@@ -162,6 +189,7 @@ export async function openComposedFileFixture(
       reserve,
       quarantine,
       messageId,
+      removeMessage,
       fileRow,
       close,
     };
@@ -169,4 +197,64 @@ export async function openComposedFileFixture(
     await close();
     throw error;
   }
+}
+
+export function startFileFinalization(
+  f: Pick<
+    Awaited<ReturnType<typeof openComposedFileFixture>>,
+    'dependencies' | 'principal' | 'messageId'
+  >,
+  token: {
+    version: number;
+    channelId: string;
+    fileId: string;
+    generation: number;
+  },
+) {
+  const scan = controlledFileScan(f.dependencies.scanner);
+  const finalizing = finalizeMessagingFile(
+    { ...token, messageId: f.messageId },
+    f.principal,
+    { ...f.dependencies, scanner: scan.scanner },
+  );
+  // The test awaits this same promise through the entry fence and typed assertion.
+  // Observe early transport failure immediately so it cannot escape between tests.
+  void finalizing.catch(() => {});
+  return { ...scan, finalizing };
+}
+
+export async function assertPendingFileDeletion(
+  f: Pick<
+    Awaited<ReturnType<typeof openComposedFileFixture>>,
+    'fileRow' | 'objects'
+  >,
+  token: { fileId: string; generation: number },
+  given: string,
+) {
+  const row = await f.fileRow(token.fileId);
+  assert({
+    given,
+    should:
+      'scrub associations and advance generation while retaining real private bytes until acknowledgement',
+    actual: {
+      lifecycle: row.lifecycle,
+      generation: row.generation,
+      filename: row.filename,
+      mime: row.mime,
+      requestId: row.request_id,
+      messageId: row.message_id,
+      bytes: [
+        ...(await f.objects.read(String(row.object_key), cleanFilePdf.length)),
+      ],
+    },
+    expected: {
+      lifecycle: 'deleting',
+      generation: token.generation + 1,
+      filename: null,
+      mime: null,
+      requestId: null,
+      messageId: null,
+      bytes: [...cleanFilePdf],
+    },
+  });
 }

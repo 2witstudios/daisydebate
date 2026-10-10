@@ -59,7 +59,6 @@ export const processApp = (): App => edge.get().app;
 
 /** Binds a Next route export to this process's route table. */
 export const processRoute = createRouteBinder(() => edge.get().routes);
-
 /**
  * For a process entry that composes its own app before the server starts
  * (the browser suite's server, which captures outbound mail): makes it this

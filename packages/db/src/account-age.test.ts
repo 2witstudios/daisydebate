@@ -1,7 +1,21 @@
-import { describe, setupRitewayBun, test } from 'riteway/bun';
+import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
-import { writeAccountBirthMonth } from './account-age';
+import { writeAccountBirthMonth, loadAccountAgeSource } from './account-age';
+import type { AuthorizationTransaction } from './authorization';
 setupRitewayBun();
+test('nonfinite persisted source recording time fails closed', async () => {
+  const tx = {
+    execute: async () => [
+      { birthMonth: '2000-01', revision: 1, recordedAt: new Date(NaN) },
+    ],
+  } as unknown as AuthorizationTransaction;
+  assert({
+    given: 'a nonfinite persisted timestamp',
+    should: 'return no usable source without a raw date exception',
+    actual: await loadAccountAgeSource(tx, 'a'.repeat(24)),
+    expected: null,
+  });
+});
 describe('birthmonth collection authority', () => {
   test('pending policy refuses before transaction', async () => {
     await assertRejects({

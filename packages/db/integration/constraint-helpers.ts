@@ -7,6 +7,7 @@ import {
 import { createId } from '@paralleldrive/cuid2';
 import { createDatabase } from '../src';
 import { createTestOnlyOperations } from '../src/test-only-operations';
+import { buildDebateTopic } from '@daisy/protocol';
 
 type PostgresFailure = { errno?: unknown; constraint?: unknown };
 
@@ -235,6 +236,11 @@ export class Fixture {
   }
 
   async purge() {
+    // A round may append canonical phase events through an accepted write.
+    // Remove only this fixture's topics before deleting their owning rows.
+    for (const roundId of this.tracked.get('rounds') ?? [])
+      await this
+        .sql`delete from outbox where topic=${buildDebateTopic(roundId)}`;
     // Documents are created through the adapter, never inserted here, and
     // they RESTRICT their owner. Clearing them by owner means every document
     // a fixture's actors own goes with the fixture, however it was written.
@@ -300,6 +306,24 @@ export const roundAuthoring = async (fixture: Fixture, url: string) => {
     database: createDatabase({ url, nextActorId: createId }),
     testOnly: createTestOnlyOperations({ client: fixture.sql }),
   };
+};
+
+/** Create the scheduled durable round shared by execution and phase tests. */
+export const createScheduledRound = async (
+  authoring: Awaited<ReturnType<typeof roundAuthoring>>,
+  resolution: string,
+): Promise<void> => {
+  await authoring.database.createRound({
+    id: authoring.roundId,
+    createdByActorId: null,
+    resolution,
+    competitionType: 'casual',
+    length: 'full',
+    formatId: authoring.formatId,
+    formatVersion: 1,
+    presetVersion: null,
+    rules: authoring.rules,
+  });
 };
 
 export const at = new Date('2026-01-01T00:00:00.000Z');

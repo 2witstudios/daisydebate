@@ -1,3 +1,4 @@
+import { proveFormatPicker } from './support/room-launch-format';
 import { proveHumanLaunch } from './support/room-launch-human';
 import { createId } from '@paralleldrive/cuid2';
 import { roomViewSchema, roundViewSchema } from '@daisy/protocol';
@@ -9,11 +10,15 @@ import {
   createFromPlay,
   claim,
   prepareJudgeRoom,
+  assertFrozenLaunch,
 } from './support/room-launch-flow';
 import { launchCustomSelection } from './support/room-launch-custom';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
 import { launchEvidence } from './support/room-launch-evidence';
-import { settledLaunchAuth } from './support/room-launch-settled';
+import {
+  closeSettledLaunchContexts,
+  settledLaunchAuth,
+} from './support/room-launch-settled';
 
 // Actors, receipt and competitive history deliberately survive context closure.
 // Only a released suite-owned slot lifecycle can destroy this proof data.
@@ -109,8 +114,7 @@ test('canonical browser create, settings, cast, refusals and reread preserve dur
       contentType: 'application/json',
     });
   } finally {
-    await settledLaunchAuth();
-    await accounts.closeContexts();
+    await closeSettledLaunchContexts(accounts);
   }
 });
 
@@ -170,18 +174,7 @@ test('native judge Ready and eligible stored bot debaters launch one frozen sche
         topic: view.topic,
         config: view.config,
       });
-      const proof = await launchEvidence(view.id);
-      expect(proof.frozen).toEqual([
-        {
-          status: 'scheduled',
-          startedAt: null,
-          topic: view.topic,
-          config: view.config,
-          rules: view.rules,
-          cast: view.participants.map((p) => p.actorId).sort(),
-        },
-      ]);
-      expect(proof.launchDoorbells).toBe(1);
+      const proof = await assertFrozenLaunch(view);
       const retry = await native.request.post(
         `/api/rooms/${view.id}/commands`,
         {
@@ -204,8 +197,7 @@ test('native judge Ready and eligible stored bot debaters launch one frozen sche
       await native.close();
     }
   } finally {
-    await settledLaunchAuth();
-    await accounts.closeContexts();
+    await closeSettledLaunchContexts(accounts);
   }
 });
 
@@ -262,8 +254,7 @@ test('canonical browser custom-create preserves declared unequal seats and order
       contentType: 'application/json',
     });
   } finally {
-    await settledLaunchAuth();
-    await accounts.closeContexts();
+    await closeSettledLaunchContexts(accounts);
   }
 });
 
@@ -271,4 +262,10 @@ test('actual Room device checks gate human Ready, withdrawal and durable Launch'
   browser,
 }, info) => {
   await proveHumanLaunch(browser, info);
+});
+
+test('catalog dialog previews real speech defaults and commits the selected template through native creation', async ({
+  browser,
+}) => {
+  await proveFormatPicker(browser);
 });

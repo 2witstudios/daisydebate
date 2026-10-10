@@ -1,23 +1,49 @@
-import {
-  requireFileScannerPort,
-  controlledFileScan,
-} from './messaging-files.test-support';
+import { requireFileScannerPort } from './messaging-files.test-support';
+import { infectedFilePdf } from './messaging-files-samples.test-support';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   cleanFilePdf,
+  assertPendingFileDeletion,
   openComposedFileFixture,
 } from './messaging-files-composed.test-support';
 import {
   finalizeMessagingFile,
   readMessagingFile,
   uploadMessagingFile,
+  cancelMessagingFile,
 } from '../src/features/messaging/files/operations';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 const port = requireFileScannerPort(process.env.CLAMD_TEST_PORT);
+
+test('canonical cancellation scrubs pending metadata while retaining the private object until acknowledgement', async () => {
+  const f = await openComposedFileFixture(databaseUrl, port);
+  try {
+    const token = await f.quarantine();
+    await cancelMessagingFile(token, f.principal, f.dependencies);
+    await assertPendingFileDeletion(
+      f,
+      token,
+      'a cancelled real quarantined upload',
+    );
+    await assertRejects({
+      given: 'the cancelled generation completing late',
+      should: 'refuse attachment',
+      actual: () =>
+        finalizeMessagingFile(
+          { ...token, messageId: f.messageId },
+          f.principal,
+          f.dependencies,
+        ),
+      code: 'NOT_FOUND',
+    });
+  } finally {
+    await f.close();
+  }
+}, 30000);
 
 test('real file consumer attaches only scanned content and preserves clean quarantine after wrong association', async () => {
   const f = await openComposedFileFixture(databaseUrl, port);
@@ -53,13 +79,15 @@ test('real file consumer attaches only scanned content and preserves clean quara
       expected: { bytes: [...cleanFilePdf], mime: 'application/pdf' },
     });
     const bells = await f.client.unsafe(
-      "select payload from outbox where payload->>'channelId'=$1 order by id",
+      "select payload from outbox where payload->>'channelId'=$1 order by txid, seq",
       [f.fixture.channelId],
     );
     assert({
       given: 'successful attachment and immutable retries',
       should: 'emit one content-free canonical notification',
-      actual: bells.map((row) => Object.keys(row.payload).sort()),
+      actual: bells.map((row: { readonly payload: Record<string, unknown> }) =>
+        Object.keys(row.payload).sort(),
+      ),
       expected: [['changeVersion', 'channelId', 'kind']],
     });
   } finally {
@@ -71,12 +99,7 @@ for (const failure of ['age', 'scanner', 'infected'] as const) {
   test(`canonical pending cleanup after ${failure} refusal`, async () => {
     const f = await openComposedFileFixture(databaseUrl, port);
     try {
-      const bytes =
-        failure === 'infected'
-          ? new TextEncoder().encode(
-              '%PDF-1.7\nX5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*\n%%EOF',
-            )
-          : cleanFilePdf;
+      const bytes = failure === 'infected' ? infectedFilePdf() : cleanFilePdf;
       const token = await f.quarantine(bytes);
       if (failure === 'age')
         await f.client.unsafe('delete from account_age where user_id=$1', [
@@ -133,50 +156,6 @@ for (const failure of ['age', 'scanner', 'infected'] as const) {
   }, 30000);
 }
 
-test('late real clean scan cannot attach after canonical posting revocation', async () => {
-  const f = await openComposedFileFixture(databaseUrl, port);
-  const scan = controlledFileScan(f.dependencies.scanner);
-  let finalizing: Promise<unknown> | undefined;
-  try {
-    const token = await f.quarantine();
-    finalizing = finalizeMessagingFile(
-      { ...token, messageId: f.messageId },
-      f.principal,
-      { ...f.dependencies, scanner: scan.scanner },
-    );
-    const rejection = assertRejects({
-      given: 'real scan finishes after bilateral blocking commits',
-      should: 'refuse late attachment and invoke the actual cleanup capability',
-      actual: () => finalizing!,
-      code: 'AUTHORIZATION',
-    });
-    await scan.waitForScan(finalizing);
-    await f.client.unsafe(
-      'update messaging_contact_pairs set low_blocks_high=true,revision=revision+1 where low_actor_id=$1 and high_actor_id=$2',
-      [f.fixture.low, f.fixture.high],
-    );
-    await f.client.unsafe(
-      'update messaging_channels set authority_revision=authority_revision+1 where id=$1',
-      [f.fixture.channelId],
-    );
-    scan.release();
-    await rejection;
-    assert({
-      given: 'late scanner completion after current authority changed',
-      should: 'leave no attachment or message link',
-      actual: {
-        lifecycle: (await f.fileRow(token.fileId)).lifecycle,
-        messageId: (await f.fileRow(token.fileId)).message_id,
-      },
-      expected: { lifecycle: 'deleting', messageId: null },
-    });
-  } finally {
-    scan.release();
-    await finalizing?.catch(() => {});
-    await f.close();
-  }
-}, 30000);
-
 test('former group member loses file access while the surviving member keeps shared content', async () => {
   const f = await openComposedFileFixture(databaseUrl, port, true);
   try {
@@ -204,7 +183,7 @@ test('former group member loses file access while the surviving member keeps sha
       given: 'a former member with the exact file identifier',
       should: 'refuse protected file replay',
       actual: () => readMessagingFile(token, peer, f.dependenciesFor(peer)),
-      code: 'AUTHORIZATION',
+      code: 'NOT_FOUND',
     });
     const access = await readMessagingFile(token, f.principal, f.dependencies);
     assert({

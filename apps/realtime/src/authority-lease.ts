@@ -4,6 +4,10 @@ type Attempt = {
   readonly revision: string;
   readonly expiresAt: number;
 };
+type Observation = {
+  readonly generation: number;
+  readonly expiresAt: number;
+};
 
 /** Transport fencing only: the injected canonical evaluator decides authority.
  * Lifetime is supplied by composition; this seam declares no accepted policy.
@@ -29,6 +33,16 @@ export function createAuthorityLease({
     accepted = false;
   }
   return {
+    observe(): Observation {
+      return { generation, expiresAt: now() + lifetimeMs };
+    },
+    observes(observation: Observation, validUntil = observation.expiresAt) {
+      return (
+        observation.generation === generation &&
+        Number.isFinite(validUntil) &&
+        now() < Math.min(observation.expiresAt, validUntil)
+      );
+    },
     begin(session: string, revision: string): Attempt {
       invalidate();
       active = { generation, session, revision, expiresAt: now() + lifetimeMs };
@@ -36,6 +50,7 @@ export function createAuthorityLease({
       return active;
     },
     invalidate,
+    expired: () => now() >= effectiveExpiry,
     owns(attempt: Attempt): boolean {
       return active === attempt && attempt.generation === generation;
     },

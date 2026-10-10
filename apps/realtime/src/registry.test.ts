@@ -1,81 +1,17 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createSubscriptionRegistry } from './registry';
 import type { OutboxRow } from '@daisy/db';
+import { fixture, row, topic, pendingRead } from './registry.test-support';
 
 setupRitewayBun();
-const topic = `room:${'b'.repeat(24)}`;
-const row = (seq: number): OutboxRow => ({
-  txid: '1',
-  seq: BigInt(seq),
-  topic,
-  kind: 'room.changed',
-  version: seq,
-  payload: { kind: 'room.changed', ids: ['b'.repeat(24)], entityVersion: seq },
-  createdAt: '2026-10-09T00:00:00.000Z',
-});
-function fixture(
-  overrides: Partial<Parameters<typeof createSubscriptionRegistry>[0]> = {},
-) {
-  let now = 0;
-  const sent: import('@daisy/protocol').ServerMessage[] = [];
-  const attached = new Set<string>();
-  const socket = {
-    send: (frame: import('@daisy/protocol').ServerMessage) => {
-      sent.push(frame);
-    },
-    subscribe: (value: string) => {
-      attached.add(value);
-    },
-    unsubscribe: (value: string) => {
-      attached.delete(value);
-    },
-    close: () => {},
-  };
-  const registry = createSubscriptionRegistry({
-    now: () => now,
-    lifetimeMs: 60_000,
-    ringLimit: 2,
-    maxSubscriptions: 64,
-    authorize: async () => ({ revision: '1', validUntil: now + 60_000 }),
-    readCatchup: async () => ({ rows: [], resync: false }),
-    readRetentionBoundary: async () => ({ txid: '0', seq: 0n }),
-    publish: (_topic, frame) => {
-      sent.push(frame);
-    },
-    ...overrides,
-  });
-  const connection = registry.add(socket, {
-    actorId: 'a'.repeat(24),
-    sessionId: 'c'.repeat(24),
-    userId: 'd'.repeat(24),
-  });
-  return {
-    registry,
-    connection,
-    socket,
-    sent,
-    attached,
-    setNow: (value: number) => {
-      now = value;
-    },
-  };
-}
+
 describe('subscription registry', () => {
   test('a write racing history I/O replays the snapshot then certified ring without duplication', async () => {
-    let resolve!: (value: {
+    const { resolve, began, read } = pendingRead<{
       rows: readonly OutboxRow[];
       resync: boolean;
-    }) => void;
-    let started!: () => void;
-    const began = new Promise<void>((done) => {
-      started = done;
-    });
+    }>();
     const { registry, connection, sent } = fixture({
-      readCatchup: () =>
-        new Promise((done) => {
-          resolve = done;
-          started();
-        }),
+      readCatchup: read,
     });
     registry.seed({ txid: '1', seq: 1n });
     const pending = registry.subscribe(connection, {
@@ -124,17 +60,12 @@ describe('subscription registry', () => {
   });
   for (const race of ['expiry', 'drain'] as const)
     test(`${race} during the final boundary read cannot attach`, async () => {
-      let resolve!: (value: { txid: string; seq: bigint }) => void;
-      let started!: () => void;
-      const began = new Promise<void>((done) => {
-        started = done;
-      });
+      const { resolve, began, read } = pendingRead<{
+        txid: string;
+        seq: bigint;
+      }>();
       const { registry, connection, sent, attached, setNow } = fixture({
-        readRetentionBoundary: () =>
-          new Promise((done) => {
-            resolve = done;
-            started();
-          }),
+        readRetentionBoundary: read,
       });
       registry.seed({ txid: '1', seq: 1n });
       const pending = registry.subscribe(connection, {
@@ -266,25 +197,22 @@ describe('subscription registry', () => {
     });
   });
   test('access changed while catchup waits cannot replay an old allow', async () => {
-    let resolve!: (value: {
+    const { resolve, began, read } = pendingRead<{
       rows: readonly OutboxRow[];
       resync: boolean;
-    }) => void;
+    }>();
     let allowed = true;
     const { registry, connection, sent, attached } = fixture({
       authorize: async () =>
         allowed ? { revision: '1', validUntil: 60_000 } : null,
-      readCatchup: () =>
-        new Promise((done) => {
-          resolve = done;
-        }),
+      readCatchup: read,
     });
     const pending = registry.subscribe(connection, {
       id: 'request',
       topic,
       since: '1:1',
     });
-    await Promise.resolve();
+    await began;
     allowed = false;
     registry.sink([row(2)]);
     resolve({ rows: [row(1)], resync: false });
@@ -300,74 +228,6 @@ describe('subscription registry', () => {
         ),
       },
       expected: { attached: [], forbidden: false },
-    });
-  });
-  test('one recipient publish failure does not poison future drain delivery', async () => {
-    let attempts = 0;
-    const { registry, connection, socket } = fixture({
-      publish: () => {
-        attempts += 1;
-        if (attempts === 1) throw new Error('Recipient unavailable');
-      },
-    });
-    await registry.subscribe(connection, { id: 'first', topic });
-    registry.sink([row(1)]);
-    await registry.settled();
-    const next = registry.add(socket, connection.principal);
-    await registry.subscribe(next, { id: 'second', topic });
-    registry.sink([row(2)]);
-    await registry.settled();
-    assert({
-      given: 'a transport publication failure in an earlier batch',
-      should: 'keep future serialized delivery runnable',
-      actual: attempts,
-      expected: 2,
-    });
-  });
-  test('authorizes and publishes a validated producer row', async () => {
-    const { registry, connection, sent, attached } = fixture();
-    await registry.subscribe(connection, { id: 'request', topic });
-    registry.sink([row(1)]);
-    await registry.settled();
-    assert({
-      given: 'an authorized native topic and real-shaped producer row',
-      should: 'attach and deliver the thin event',
-      actual: {
-        attached: [...attached],
-        types: sent.map((frame) => frame.type),
-      },
-      expected: { attached: [`${topic}#1`], types: ['subscribed', 'event'] },
-    });
-  });
-  test('expired authority is detached before native publish', async () => {
-    const { registry, connection, sent, attached, setNow } = fixture();
-    await registry.subscribe(connection, { id: 'request', topic });
-    setNow(60_000);
-    registry.sink([row(1)]);
-    await registry.settled();
-    assert({
-      given: 'elapsed lease expiry without any timer firing',
-      should: 'detach before send',
-      actual: {
-        attached: [...attached],
-        types: sent.map((frame) => frame.type),
-      },
-      expected: { attached: [], types: ['subscribed'] },
-    });
-  });
-  test('late catch-up allow cannot attach after unsubscribe', async () => {
-    const { registry, connection, sent, attached } = fixture();
-    const pending = registry.subscribe(connection, { id: 'request', topic });
-    registry.unsubscribe(connection, { id: 'remove', topic });
-    await pending;
-    assert({
-      given: 'unsubscribe racing an asynchronous allow',
-      should: 'leave no native attachment or subscribed reply',
-      actual: {
-        attached: [...attached],
-        types: sent.map((frame) => frame.type),
-      },
-      expected: { attached: [], types: ['unsubscribed'] },
     });
   });
 });

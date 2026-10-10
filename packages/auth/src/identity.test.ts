@@ -129,4 +129,20 @@ describe('resolveIdentity', () => {
       expected: { kind: 'user', userId: 'user1', actorId: null },
     });
   });
+  test('an actor-store outage cannot establish a member identity', async () => {
+    assert({
+      given: 'a valid session followed by an unavailable durable actor mapping',
+      should:
+        'fail closed without exposing the store exception or guessing identity',
+      actual: await resolveIdentity({
+        cookie: 'c=1',
+        readSession: async () => session(),
+        readActor: async () => {
+          throw new Error('private store failure');
+        },
+        now,
+      }),
+      expected: { state: 'unavailable', principal: { kind: 'anonymous' } },
+    });
+  });
 });

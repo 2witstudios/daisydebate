@@ -24,7 +24,7 @@ function currentContactAccount(account: AccountAuthorizationFact): boolean {
     account.revision > 0
   );
 }
-function sameAccount(
+export function sameAuthorizationAccount(
   a: AccountAuthorizationFact,
   b: AccountAuthorizationFact,
 ): boolean {
@@ -50,7 +50,7 @@ function contactAccountsCurrent(
   const high = accounts.find((account) => account.actorId === pair.highActorId);
   if (!low || !high || low === high) return false;
   const self = context.account;
-  return accounts.some((account) => sameAccount(account, self));
+  return accounts.some((account) => sameAuthorizationAccount(account, self));
 }
 
 export function contactSafetyAllowed(

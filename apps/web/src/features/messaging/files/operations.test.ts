@@ -6,9 +6,44 @@ import {
   finalizeMessagingFile,
   reserveMessagingFile,
   uploadMessagingFile,
+  cancelMessagingFile,
 } from './operations';
-import { fileOperationFixture } from './operations.test-support';
+import {
+  fileOperationFixture,
+  finalizeAfterCleanScan,
+} from './operations.test-support';
 setupRitewayBun();
+test('cancellation requires fresh post authority and never deletes unacknowledged bytes', async () => {
+  const f = fileOperationFixture();
+  const command = {
+    version: 1,
+    channelId: f.channelId,
+    fileId: f.fileId,
+    generation: 1,
+  };
+  f.state.allowed = false;
+  await assertRejects({
+    given: 'a cancellation after authority revocation',
+    should: 'refuse before changing the file',
+    actual: () => cancelMessagingFile(command, f.principal, f.d),
+    code: 'AUTHORIZATION',
+  });
+  assert({
+    given: 'denied cancellation',
+    should: 'leave durable state unchanged',
+    actual: f.state.commits,
+    expected: 0,
+  });
+  f.state.allowed = true;
+  await cancelMessagingFile(command, f.principal, f.d);
+  assert({
+    given: 'an authorized cancellation',
+    should:
+      'cancel inside the post fence without issuing a premature vendor delete',
+    actual: { commits: f.state.commits, calls: f.calls },
+    expected: { commits: 1, calls: ['post', 'post'] },
+  });
+});
 test('async clean scan cannot attach after current authority is revoked', async () => {
   const f = fileOperationFixture();
   const pending = finalizeMessagingFile(f.input, f.principal, f.d);
@@ -161,13 +196,10 @@ test('wrong message association preserves a clean quarantine for the correct ret
   f.frame.finalize = async () => {
     throw createAppError('NOT_FOUND');
   };
-  const pending = finalizeMessagingFile(f.input, f.principal, f.d);
-  await f.scanStarted;
-  f.completeScan('clean');
   await assertRejects({
     given: 'a clean file finalized against an unavailable or foreign message',
     should: 'refuse the association',
-    actual: () => pending,
+    actual: () => finalizeAfterCleanScan(f),
     code: 'NOT_FOUND',
   });
   assert({
@@ -178,47 +210,27 @@ test('wrong message association preserves a clean quarantine for the correct ret
   });
 });
 
-test('stale scan keeps the original conflict when canonical cleanup refuses a newer generation', async () => {
-  const f = fileOperationFixture();
-  f.frame.finalize = async () => {
-    throw createAppError('CONFLICT');
-  };
-  const pending = finalizeMessagingFile(f.input, f.principal, {
-    ...f.d,
-    failPending: async () => {
-      throw createAppError('AUTHORIZATION');
-    },
+for (const [cleanupCode, expectedCode] of [
+  ['AUTHORIZATION', 'CONFLICT'],
+  ['INFRASTRUCTURE', 'INFRASTRUCTURE'],
+] as const) {
+  test(`pending cleanup ${cleanupCode} preserves ${expectedCode}`, async () => {
+    const f = fileOperationFixture();
+    f.frame.finalize = async () => {
+      throw createAppError('CONFLICT');
+    };
+    await assertRejects({
+      given: `canonical cleanup returns ${cleanupCode} after refused finalization`,
+      should:
+        'preserve stale conflict while keeping infrastructure failures observable',
+      actual: () =>
+        finalizeAfterCleanScan(f, {
+          ...f.d,
+          failPending: async () => {
+            throw createAppError(cleanupCode);
+          },
+        }),
+      code: expectedCode,
+    });
   });
-  await f.scanStarted;
-  f.completeScan('clean');
-  await assertRejects({
-    given:
-      'scan token became stale and cleanup correctly refuses the new generation',
-    should:
-      'preserve the original typed conflict without touching the newer upload',
-    actual: () => pending,
-    code: 'CONFLICT',
-  });
-});
-
-test('infrastructure cleanup failure remains observable while its object stays charged', async () => {
-  const f = fileOperationFixture();
-  f.frame.finalize = async () => {
-    throw createAppError('CONFLICT');
-  };
-  const pending = finalizeMessagingFile(f.input, f.principal, {
-    ...f.d,
-    failPending: async () => {
-      throw createAppError('INFRASTRUCTURE');
-    },
-  });
-  await f.scanStarted;
-  f.completeScan('clean');
-  await assertRejects({
-    given: 'storage cleanup infrastructure fails after refused finalization',
-    should:
-      'surface infrastructure failure for retry instead of treating it as stale authority',
-    actual: () => pending,
-    code: 'INFRASTRUCTURE',
-  });
-});
+}

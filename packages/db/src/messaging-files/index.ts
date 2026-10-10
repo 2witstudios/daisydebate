@@ -2,7 +2,6 @@ export { channelFileFrame } from './frame';
 export { requireFilePolicy } from './policy';
 export {
   pendingFileDeletions,
-  type FileDeletionWork,
   chargedFileBytes,
   acknowledgeErasedFileDeletion,
   failPendingFile,
@@ -18,8 +17,6 @@ export type {
   FileScope,
   FileReservation,
   FileToken,
-  FileAccess,
-  FileReserveCommand,
   FileFrame,
   FileStore,
 } from './records';

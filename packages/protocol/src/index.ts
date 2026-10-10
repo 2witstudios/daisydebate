@@ -82,9 +82,9 @@ export type {
   RatingUnrated,
 } from './ratings';
 export {
+  parseTopic,
   buildUserInboxTopic,
   buildDebateTopic,
-  parseTopic,
   buildChannelTopic,
   buildRoomTopic,
 } from './topics';
@@ -149,7 +149,11 @@ export type {
 // Persistent messaging contracts; bounds come from the owning policy.
 export { createMessagingCoreSchemas } from './messaging/core';
 export type { MessagingCoreBounds } from './messaging/core';
-export { createMessagingSocialSchemas } from './messaging/social';
+export {
+  createMessagingSocialSchemas,
+  messagingDmResultSchema,
+  messagingDmDecisionResultSchema,
+} from './messaging/social';
 export type { MessagingSocialBounds } from './messaging/social';
 export type {
   RoomAssemblyState,
@@ -168,8 +172,21 @@ export {
 
 export { serverMessageSchema, type ServerMessage } from './realtime-server';
 
+export { createMessagingFileSchemas } from './messaging/files';
+
+export { createMessagingInboxSchemas } from './messaging/inbox';
+
 export {
-  createMessagingFileSchemas,
-  messagingFileMimeSchema,
-  type MessagingFileMime,
-} from './messaging/files';
+  messagingGroupInvitationResultSchema,
+  messagingGroupCreationResultSchema,
+  messagingContactBlockResultSchema,
+} from './messaging/social';
+export { parseUsername } from './username';
+
+export { messagingPreferenceSchemas } from './messaging/preferences';
+export { messagingTypingSchemas } from './messaging/typing';
+
+export {
+  createMessagingReactionSchemas,
+  type MessagingReactionPolicy,
+} from './messaging/reactions';

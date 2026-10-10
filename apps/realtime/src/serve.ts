@@ -10,6 +10,32 @@ import {
   type OutboxRowsSink,
 } from './outbox-drain';
 
+function drainOptions(
+  pollIntervalMs: number | undefined,
+  timers: IntervalTimers | undefined,
+  onQuery: (() => void) | undefined,
+  onListenWake: (() => void) | undefined,
+) {
+  return {
+    ...(pollIntervalMs === undefined ? {} : { pollIntervalMs }),
+    ...(timers === undefined ? {} : { timers }),
+    ...(onQuery === undefined ? {} : { onQuery }),
+    ...(onListenWake === undefined ? {} : { onListenWake }),
+  };
+}
+
+const listenerTls = (tls: Bun.TLSOptions | undefined) =>
+  tls === undefined ? {} : { tls };
+
+const readerPolicy = (readingPolicy: RealtimeReadingPolicy | undefined) =>
+  readingPolicy === undefined ? {} : { readingPolicy };
+
+async function completeShutdown(work: readonly Promise<unknown>[]) {
+  const shutdown = await Promise.allSettled(work);
+  if (shutdown.some((result) => result.status === 'rejected'))
+    throw new Error('Realtime shutdown incomplete');
+}
+
 /**
  * Wires startup order (ADR 0032 §2) around `Bun.serve`: production first
  * refuses a schema-altering role (ISSUE-101), then `startOutboxDrain` is
@@ -23,6 +49,7 @@ export async function serveRealtime({
   resources,
   port,
   hostname = '0.0.0.0',
+  tls,
   sink,
   pollIntervalMs,
   timers,
@@ -36,6 +63,7 @@ export async function serveRealtime({
   readonly resources: RealtimeApp;
   readonly port: number;
   readonly hostname?: string;
+  readonly tls?: Bun.TLSOptions;
   readonly sink?: OutboxRowsSink;
   readonly now?: () => number;
   readonly readingPolicy?: RealtimeReadingPolicy;
@@ -56,11 +84,18 @@ export async function serveRealtime({
   // Production refuses a DATABASE_URL role that could create or alter schema
   // objects before LISTEN or any socket is accepted (ISSUE-101).
   await refuseSchemaAlteringRole(resources, 'daisy_realtime');
+  const scheduler = timers ?? {
+    setInterval: (callback: () => void, ms: number) =>
+      setInterval(callback, ms),
+    clearInterval: (handle: ReturnType<typeof setInterval>) =>
+      clearInterval(handle),
+  };
   let server: ReturnType<typeof Bun.serve> | undefined;
   const delivery = createRealtimeDelivery({
     resources,
+    timers: scheduler,
     now,
-    ...(readingPolicy ? { readingPolicy } : {}),
+    ...readerPolicy(readingPolicy),
     publish: (topic, frame) => {
       if (!server || server.publish(topic, JSON.stringify(frame)) <= 0)
         throw new Error('Realtime recipient unavailable');
@@ -73,10 +108,7 @@ export async function serveRealtime({
       sink?.(rows);
     },
     logger: resources.logger,
-    ...(pollIntervalMs === undefined ? {} : { pollIntervalMs }),
-    ...(timers === undefined ? {} : { timers }),
-    ...(onQuery === undefined ? {} : { onQuery }),
-    ...(onListenWake === undefined ? {} : { onListenWake }),
+    ...drainOptions(pollIntervalMs, timers, onQuery, onListenWake),
   });
   delivery.registry.seed(drain.cursor());
   const { fetch, websocket } = createRealtimeServer({
@@ -97,20 +129,31 @@ export async function serveRealtime({
       now,
     },
   });
+  let hintSubscription:
+    | Awaited<ReturnType<RealtimeApp['database']['listenRealtimeHints']>>
+    | undefined;
   try {
-    server = serve({ hostname, port, fetch, websocket });
+    hintSubscription = await resources.database.listenRealtimeHints({
+      onNotify: (frame) => {
+        void delivery.registry.hint(frame).catch(() => {});
+      },
+      // Lost hints and natural expiry use MSG's bounded HTTP refresh contract.
+      // Reconnecting LISTEN must not manufacture a projection-change signal.
+      onListen: () => {},
+    });
+    server = serve({
+      hostname,
+      port,
+      fetch,
+      websocket,
+      ...listenerTls(tls),
+    });
   } catch (error) {
-    await drain.stop();
+    await Promise.allSettled([drain.stop(), hintSubscription?.unlisten()]);
     throw error;
   }
   // Scheduling is transport tuning inside ADR0031's accepted60s bound.
   // Every send independently enforces elapsed check-start expiry.
-  const scheduler = timers ?? {
-    setInterval: (callback: () => void, ms: number) =>
-      setInterval(callback, ms),
-    clearInterval: (handle: ReturnType<typeof setInterval>) =>
-      clearInterval(handle),
-  };
   let validation: Promise<void> | undefined;
   let closed = false;
   const validationTimer = scheduler.setInterval(() => {
@@ -133,10 +176,13 @@ export async function serveRealtime({
       closed = true;
       scheduler.clearInterval(validationTimer);
       delivery.registry.closeAll();
-      await server?.stop();
-      await drain.stop();
-      await validation;
-      await delivery.registry.settled();
+      await completeShutdown([
+        Promise.resolve().then(() => server?.stop()),
+        drain.stop(),
+        Promise.resolve(hintSubscription?.unlisten()),
+        Promise.resolve(validation),
+        delivery.registry.settled(),
+      ]);
     },
   };
 }

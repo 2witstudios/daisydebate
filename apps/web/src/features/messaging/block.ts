@@ -1,41 +1,29 @@
-import { createHash } from 'node:crypto';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
-import type { Clock } from '@daisy/clock';
 import type { MessagingSocialStore } from '@daisy/db/messaging';
 import { createAppError } from '@daisy/errors';
 import {
-  createMessagingSocialSchemas,
-  type MessagingSocialBounds,
-} from '@daisy/protocol';
-import { parseValidated } from '../../server/http';
+  parseSocialCommand,
+  type SocialOperationDependencies,
+} from './social-command';
 import { requireMessagingActor } from './principal';
+import { messagingSocialDigest } from './social-command-digest';
 
 export async function blockMessagingContact(
   input: unknown,
   principal: AuthorizationPrincipal,
-  dependencies: {
-    readonly store: MessagingSocialStore;
-    readonly bounds: MessagingSocialBounds;
-    readonly clock: Clock;
-    readonly limit: (actorId: string) => Promise<void>;
-  },
+  dependencies: SocialOperationDependencies<MessagingSocialStore>,
 ) {
   const { actorId, userId } = requireMessagingActor(principal);
-  const command = parseValidated(
-    createMessagingSocialSchemas(dependencies.bounds).block,
+  const command = parseSocialCommand(
+    dependencies.bounds,
     input,
+    (schemas) => schemas.block,
   );
   if (command.otherActorId === actorId) throw createAppError('VALIDATION');
-  const digest = createHash('sha3-256')
-    .update(
-      JSON.stringify([
-        command.version,
-        'dm.block',
-        command.otherActorId,
-        command.blocked,
-      ]),
-    )
-    .digest('hex');
+  const digest = messagingSocialDigest('dm.block', [
+    command.otherActorId,
+    command.blocked,
+  ]);
   return dependencies.store.withContacts(
     {
       actorId,

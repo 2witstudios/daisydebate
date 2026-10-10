@@ -26,6 +26,7 @@ test('dedicated MSG declarations match all actual producer columns', async () =>
   const channels = await import('../schema/messaging-channels');
   const files = await import('../schema/messaging-files');
   const social = await import('../schema/messaging-social');
+  const subjects = await import('../schema/messaging-social-command-subjects');
   const messages = await import('../schema/messaging-messages');
   const { messagingPrivacyFields, messagingPrivacyExpectedColumns } =
     await import('./messaging-declarations');
@@ -33,6 +34,7 @@ test('dedicated MSG declarations match all actual producer columns', async () =>
     ...Object.values(channels),
     ...Object.values(files),
     ...Object.values(social),
+    ...Object.values(subjects),
     ...Object.values(messages),
   ];
   const expected = Object.fromEntries(
@@ -170,5 +172,30 @@ test('canonical pending policies link their owning records', async () => {
     expected: [
       'pending:jc0qcdvpkmqzrelpaesi3pah/pending:njiorsf64z4iqjm2dbfa3zuu',
     ],
+  });
+});
+
+test('multi-target command subjects declare private erasable relationships', async () => {
+  const { messagingPrivacyFields } = await import('./messaging-declarations');
+  assert({
+    given: 'actual creator, request and proposed subject associations',
+    should:
+      'declare each association private, deletable and subject-exportable',
+    actual: messagingPrivacyFields
+      .filter((field) => field.table === 'messaging_social_command_subjects')
+      .map((field) => [
+        field.column,
+        field.category,
+        field.visibility,
+        field.erasure,
+        field.exportable,
+      ]),
+    expected: ['actor_id', 'request_id', 'subject_actor_id'].map((column) => [
+      column,
+      'personal',
+      'private',
+      'delete',
+      true,
+    ]),
   });
 });

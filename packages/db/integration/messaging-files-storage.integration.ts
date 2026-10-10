@@ -16,11 +16,14 @@ import {
 } from '../src/privacy';
 import {
   acknowledgeFileDeletion,
+  expireChannelFiles,
   acknowledgeErasedFileDeletion,
   chargedFileBytes,
+  pendingFileDeletions,
 } from '../src/messaging-files';
 import {
   withFileProofFrame,
+  withFileProofTransaction,
   fileDatabaseProofPolicy as policy,
 } from './messaging-files.test-support';
 setupRitewayBun();
@@ -74,9 +77,30 @@ test('real private storage deletion acknowledgement alone releases durable quota
   };
   try {
     const first = await reserve();
-    await withFileProofFrame(database, fixture, (frame) =>
-      frame.cancel(first.token),
+    await withFileProofTransaction(database, fixture, (tx) =>
+      expireChannelFiles(
+        tx,
+        fixture.channelId,
+        new Date(
+          Date.parse(fixture.now) + policy.reservationMs + 1,
+        ).toISOString(),
+      ),
     );
+    await assertRejects({
+      given: 'abandoned upload expired under its complete maintenance fence',
+      should: 'refuse the stale completion before acknowledgement',
+      actual: () =>
+        withFileProofFrame(database, fixture, (frame) =>
+          frame.quarantine(first.token, 20, fixture.now),
+        ),
+      code: 'NOT_FOUND',
+    });
+    assert({
+      given: 'an expired reservation awaiting physical deletion',
+      should: 'discover bounded private file deletion work',
+      actual: await pendingFileDeletions(database, 1),
+      expected: [{ kind: 'file', fileId: first.row.id }],
+    });
     await assertRejects({
       given:
         'private object still exists and vendor acknowledgement is unavailable',
@@ -93,7 +117,7 @@ test('real private storage deletion acknowledgement alone releases durable quota
       code: 'INFRASTRUCTURE',
     });
     assert({
-      given: 'unacknowledged cancellation',
+      given: 'unacknowledged abandoned upload cleanup',
       should: 'retain real bytes and their charge',
       actual: {
         exists: await Bun.file(join(directory, first.row.objectKey)).exists(),
@@ -110,6 +134,32 @@ test('real private storage deletion acknowledgement alone releases durable quota
         charged: await chargedFileBytes(database),
       },
       expected: { exists: false, charged: '0' },
+    });
+    const peerKey = createId();
+    keys.push(peerKey);
+    const peerFixture = {
+      ...fixture,
+      actorId: fixture.otherActorId,
+      userId: fixture.otherUserId,
+      otherActorId: fixture.actorId,
+    };
+    const peerFile = await withFileProofFrame(database, peerFixture, (frame) =>
+      frame.reserve(
+        {
+          id: createId(),
+          objectKey: peerKey,
+          requestId: createId(),
+          filename: 'peer.pdf',
+          mime: 'application/pdf',
+          bytes: 20,
+        },
+        fixture.now,
+        policy,
+      ),
+    );
+    await writeFile(join(directory, peerKey), 'Other private bytes', {
+      mode: 0o600,
+      flag: 'wx',
     });
     const next = await reserve();
     const adoption = {
@@ -142,9 +192,19 @@ test('real private storage deletion acknowledgement alone releases durable quota
       actual: {
         filename: ownFile.filename,
         privateKey: Object.hasOwn(ownFile, 'object_key'),
-        peerFiles: peerExport.messaging_files!.length,
+        peerHasSubjectFile: peerExport.messaging_files!.some(
+          (row) => row.id === next.row.id,
+        ),
+        peerHasOwnFile: peerExport.messaging_files!.some(
+          (row) => row.id === peerFile.id,
+        ),
       },
-      expected: { filename: 'notes.pdf', privateKey: false, peerFiles: 0 },
+      expected: {
+        filename: 'notes.pdf',
+        privateKey: false,
+        peerHasSubjectFile: false,
+        peerHasOwnFile: true,
+      },
     });
     await fixture.eraseSubject(fixture.actorId);
     const associations = await client.unsafe(
@@ -169,19 +229,39 @@ test('real private storage deletion acknowledgement alone releases durable quota
         associations: 0,
         intentFields: ['charged_bytes', 'object_key'],
         exists: true,
-        charged: '60',
+        charged: '80',
       },
+    });
+    const peerRows = await client.unsafe(
+      'select lifecycle from messaging_files where id=$1',
+      [peerFile.id],
+    );
+    assert({
+      given: 'erasure targets only the first subject',
+      should: 'preserve another author private file association and object',
+      actual: {
+        lifecycle: peerRows[0]!.lifecycle,
+        exists: await Bun.file(join(directory, peerKey)).exists(),
+      },
+      expected: { lifecycle: 'reserved', exists: true },
+    });
+    assert({
+      given:
+        'erasure transfers the subject file to an unlinked deletion intent',
+      should: 'discover only opaque deletion work without subject metadata',
+      actual: await pendingFileDeletions(database, 1),
+      expected: [{ kind: 'erased', objectKey: next.row.objectKey }],
     });
     await acknowledgeErasedFileDeletion(database, next.row.objectKey, remove);
     await acknowledgeErasedFileDeletion(database, next.row.objectKey, remove);
     assert({
       given: 'physical erased-object acknowledgement and idempotent retry',
-      should: 'remove unlinked intent and release its charge',
+      should: 'release only its own intent charge and preserve the peer charge',
       actual: {
         exists: await Bun.file(join(directory, next.row.objectKey)).exists(),
         charged: await chargedFileBytes(database),
       },
-      expected: { exists: false, charged: '0' },
+      expected: { exists: false, charged: '20' },
     });
   } finally {
     for (const key of keys)

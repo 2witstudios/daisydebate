@@ -4,7 +4,9 @@ type Message = MessagingConversation['messages'][number];
 function MessageRow({
   message,
   actorId,
+  channelId,
 }: {
+  readonly channelId: string;
   readonly message: Message;
   readonly actorId: string | null;
 }) {
@@ -24,6 +26,30 @@ function MessageRow({
           <p className="break-words whitespace-pre-wrap text-ink">
             {message.text}
           </p>
+          <Link
+            href={`/messages/${channelId}/attachments?messageId=${message.id}`}
+          >
+            Attachments
+          </Link>
+          <Link
+            href={`/messages/${channelId}/reactions?messageId=${message.id}`}
+          >
+            Reactions
+          </Link>
+          {message.authorActorId === actorId ? (
+            <Link
+              href={`/messages/${channelId}/message?messageId=${message.id}${message.sequence < Number.MAX_SAFE_INTEGER ? `&before=${message.sequence + 1}` : ''}`}
+            >
+              Edit or remove your message
+            </Link>
+          ) : null}
+          {message.authorActorId === actorId ? (
+            <Link
+              href={`/messages/${channelId}/attachments?messageId=${message.id}&attach=1`}
+            >
+              Attach file
+            </Link>
+          ) : null}
         </>
       )}
     </li>
@@ -32,24 +58,35 @@ function MessageRow({
 export function MessageHistory({
   history,
   actorId,
+  searchQuery,
 }: {
+  readonly searchQuery?: string;
   readonly history: MessagingConversation;
   readonly actorId: string | null;
 }) {
   return (
     <>
       {history.messages.length === 0 ? (
-        <p className="text-ink-muted">No messages yet.</p>
+        <p className="text-ink-muted">
+          {searchQuery === undefined
+            ? 'No messages yet.'
+            : 'No matching messages.'}
+        </p>
       ) : (
         <ol aria-label="Message history" className="flex flex-col gap-3">
           {[...history.messages].reverse().map((message) => (
-            <MessageRow key={message.id} message={message} actorId={actorId} />
+            <MessageRow
+              key={message.id}
+              message={message}
+              actorId={actorId}
+              channelId={history.channelId}
+            />
           ))}
         </ol>
       )}
       {history.nextBefore ? (
         <Link
-          href={`/messages/${history.channelId}?before=${history.nextBefore.sequence}`}
+          href={`/messages/${history.channelId}?before=${history.nextBefore.sequence}${searchQuery === undefined ? '' : `&query=${encodeURIComponent(searchQuery)}`}`}
         >
           Earlier messages
         </Link>

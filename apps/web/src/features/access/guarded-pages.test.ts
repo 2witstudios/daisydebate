@@ -83,6 +83,30 @@ const rendered: Readonly<Record<string, () => Promise<{ default: unknown }>>> =
     '(shell)/judge/waiting/page.tsx': () =>
       import('../../app/(shell)/judge/waiting/page'),
     '(shell)/lobby/page.tsx': () => import('../../app/(shell)/lobby/page'),
+    '(shell)/messages/contacts/page.tsx': () =>
+      import('../../app/(shell)/messages/contacts/page'),
+    '(shell)/messages/new/page.tsx': () =>
+      import('../../app/(shell)/messages/new/page'),
+    '(shell)/messages/page.tsx': () =>
+      import('../../app/(shell)/messages/page'),
+    '(shell)/messages/[channelId]/preferences/page.tsx': () =>
+      import('../../app/(shell)/messages/[channelId]/preferences/page'),
+    '(shell)/messages/[channelId]/reactions/page.tsx': () =>
+      import('../../app/(shell)/messages/[channelId]/reactions/page'),
+    '(shell)/messages/[channelId]/message/page.tsx': () =>
+      import('../../app/(shell)/messages/[channelId]/message/page'),
+    '(shell)/messages/[channelId]/attachments/page.tsx': () =>
+      import('../../app/(shell)/messages/[channelId]/attachments/page'),
+    '(shell)/messages/[channelId]/page.tsx': () =>
+      import('../../app/(shell)/messages/[channelId]/page'),
+    '(shell)/messages/requests/[channelId]/page.tsx': () =>
+      import('../../app/(shell)/messages/requests/[channelId]/page'),
+    '(shell)/messages/requests/[channelId]/status/page.tsx': () =>
+      import('../../app/(shell)/messages/requests/[channelId]/status/page'),
+    '(shell)/messages/groups/[channelId]/manage/page.tsx': () =>
+      import('../../app/(shell)/messages/groups/[channelId]/manage/page'),
+    '(shell)/messages/groups/invitations/[channelId]/page.tsx': () =>
+      import('../../app/(shell)/messages/groups/invitations/[channelId]/page'),
     '(shell)/play/page.tsx': () => import('../../app/(shell)/play/page'),
     '(shell)/ranked/page.tsx': () => import('../../app/(shell)/ranked/page'),
     '(shell)/ranked/host/page.tsx': () =>
@@ -178,6 +202,7 @@ const guardRequestsOf = async (file: string) => {
   } catch (error) {
     // A page may answer 404 for the placeholder id; the guard ran first.
     if (
+      guardCalls.length === 0 &&
       !String((error as { digest?: unknown }).digest).startsWith(
         'NEXT_HTTP_ERROR_FALLBACK',
       )
@@ -218,6 +243,7 @@ describe('guarded pages', () => {
         '/debates',
         '/judge',
         '/lobby',
+        '/messages',
         '/notifications',
         '/play',
         '/prep',
