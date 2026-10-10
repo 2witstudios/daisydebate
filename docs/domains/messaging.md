@@ -41,10 +41,10 @@ The web composition accepts an explicit `MessagingRuntimePolicy`. It wires the
 same operations to authenticated, same-origin HTTP send/edit/remove/history/change/read
 handlers and the canonical limiter. An absent policy returns unavailable (503).
 No production size, contact, reading, legal-basis or retention approval is supplied
-by fixtures or package defaults. Native forms, reaction/search,
-social lifecycle commands, realtime subscriptions and the remaining contextual
-slices are still delivery work; these primitives do not constitute full messaging
-acceptance.
+by fixtures or package defaults. Native forms, scoped search and realtime
+refetch use these same operations. Remaining group management, reactions,
+notifications, file controls and contextual slices are delivery work; the
+committed operations do not constitute full messaging acceptance.
 
 Author edits keep their creation sequence and allocate an independent change
 version. The edit deadline is injected policy, rechecked after limiter waits.
@@ -194,6 +194,19 @@ activate a runtime policy. Its cases cover invitation metadata without title or
 history, admission, durable member history and refusal without a member grant,
 with JavaScript enabled and disabled. Actual browser acceptance is recorded only
 when the hosted isolated-service runner executes the composed candidate.
+
+Accepting or declining an invitation removes its pending-preview entitlement.
+The form action returns its next destination before refreshing any preview:
+an immediate server-action revalidation would render the now-unavailable
+pending page before the hydrated form can navigate. Destination pages read
+fresh, header-bound canonical HTTP state; native submissions use the same
+destination through their redirect.
+
+The browser ticket reader validates the configured endpoint and canonical
+ticket schema without dynamic parser code generation. It reports only fixed
+transport, JSON, schema-field or parser-class, and endpoint-binding error names.
+It never exposes rejected values, exception messages or bearer tickets, and
+does not relax the production content security policy.
 
 Contact safety has a native username form for block and unblock, available from
 the inbox. Both username and actor-ID routes use the same canonical safety
