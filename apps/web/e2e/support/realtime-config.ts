@@ -16,6 +16,7 @@ export default defineConfig({
   testDir: resolve(import.meta.dirname, '..'),
   testMatch: '**/realtime-room-delivery.e2e.ts',
   testIgnore: [],
+  use: { ...canonical.use, trace: 'on' },
   outputDir: resolve(web, 'test-results/realtime'),
   projects: [{ ...chromium, testIgnore: [] }],
   reporter: [
