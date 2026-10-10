@@ -1,3 +1,4 @@
+import { groupSafetyAllowed } from './authorization-group-safety';
 import { groupCommandResultAllowed } from './authorization-group-result';
 import { groupInvitationAllowed } from './authorization-invitation';
 import { requestChannelDecision } from './authorization-request';
@@ -178,6 +179,8 @@ function channelDecision(
   context: AuthorizationInput['context'],
 ): AuthorizationDecision {
   if (!validChannelAuthority(resource)) return deny('denied');
+  if (['channel.group.revoke', 'channel.group.archive'].includes(capability))
+    return decision(groupSafetyAllowed(actorId, capability, resource));
   if (capability === 'channel.leave')
     return decision(
       resource.authority.kind === 'private_group' &&
