@@ -77,6 +77,14 @@ describe('round rules', () => {
     seats: { affirmative: 1, negative: 1, judge: 1 },
     segments: [
       {
+        key: 'A1',
+        label: 'Affirmative speech',
+        type: 'speech',
+        side: 'affirmative',
+        slot: 0,
+        durationMs: 60_000,
+      },
+      {
         key: 'CX',
         label: 'Cross-examination',
         type: 'cross_ex',
@@ -119,7 +127,9 @@ describe('round rules', () => {
       should: 'reject it',
       actual: parseOutcome(roundRulesSchema, {
         ...rules,
-        segments: [{ ...rules.segments[0], durationMs: 0 }],
+        segments: rules.segments.map((segment, index) =>
+          index === 0 ? { ...segment, durationMs: 0 } : segment,
+        ),
       }),
       expected: { issues: ['segments.0.durationMs'] },
     });

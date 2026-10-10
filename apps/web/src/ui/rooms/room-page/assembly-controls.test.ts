@@ -128,3 +128,54 @@ describe('canonical room assembly controls', () => {
     });
   });
 });
+
+test('unsafe seat expansion fails before allocation instead of truncating', () => {
+  const original = Array.from;
+  const outcomes: string[] = [];
+  let allocations = 0;
+  Array.from = (() => {
+    allocations += 1;
+    throw new Error('Unsafe expansion reached');
+  }) as typeof Array.from;
+  try {
+    for (const seats of [
+      { affirmative: 1_000_000_000, negative: 1, judge: 0 },
+      { affirmative: 1, negative: 1, judge: 1_000_000_000 },
+      { affirmative: 1, negative: 1_000_000_000, judge: 0 },
+      { affirmative: 128, negative: 128, judge: 1 },
+      { affirmative: 1, negative: 0, judge: 0 },
+      { affirmative: -1, negative: 1, judge: 0 },
+      { affirmative: 1.5, negative: 1, judge: 0 },
+    ]) {
+      try {
+        declaredSeats(seats);
+        outcomes.push('accepted');
+      } catch (error) {
+        outcomes.push(error instanceof Error ? error.message : 'unknown');
+      }
+    }
+  } finally {
+    Array.from = original;
+  }
+  assert({
+    given: 'malformed counts passed directly into the UI consumer',
+    should:
+      'refuse before any Array.from or downstream command identity allocation',
+    actual: [outcomes, allocations],
+    expected: [outcomes.map(() => 'Invalid room seats'), 0],
+  });
+});
+
+test('seat expansion includes the complete resource boundary', () => {
+  const seats = declaredSeats({ affirmative: 255, negative: 1, judge: 0 });
+  assert({
+    given: 'unequal sides at exactly 256 total seats',
+    should: 'expand all declared seats without truncation',
+    actual: [seats.length, seats[254], seats[255]],
+    expected: [
+      256,
+      { role: 'affirmative', slot: 254 },
+      { role: 'negative', slot: 0 },
+    ],
+  });
+});

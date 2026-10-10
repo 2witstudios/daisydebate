@@ -144,3 +144,88 @@ export const invalidFormatDefinitions: ReadonlyArray<
     },
   ],
 ];
+
+/** Audit fixtures keep timing keys consistent so each refusal isolates its invariant. */
+function onlySideSegments(
+  definition: FormatDefinition,
+  side: 'affirmative' | 'negative',
+): FormatDefinition {
+  const segments = definition.segments.filter((s) => s.side === side);
+  return {
+    ...definition,
+    segments,
+    configurable: {
+      ...definition.configurable,
+      timing: {
+        ...definition.configurable.timing,
+        segmentDurationMs: Object.fromEntries(
+          segments.map((s) => [
+            s.key,
+            definition.configurable.timing.segmentDurationMs[s.key]!,
+          ]),
+        ),
+      },
+    },
+  };
+}
+
+export const unsafeFormatDefinitions: ReadonlyArray<
+  readonly [string, FormatDefinition]
+> = [
+  ...(['affirmative', 'negative', 'judge'] as const).map(
+    (role) =>
+      [
+        `billion ${role} seats`,
+        {
+          ...practiceFormatFixture,
+          seats: { ...practiceFormatFixture.seats, [role]: 1_000_000_000 },
+        },
+      ] as const,
+  ),
+  [
+    'over total with individually bounded roles',
+    {
+      ...practiceFormatFixture,
+      seats: { affirmative: 128, negative: 128, judge: 1 },
+    },
+  ],
+  [
+    'no negative seats',
+    {
+      ...onlySideSegments(practiceFormatFixture, 'affirmative'),
+      seats: { affirmative: 1, negative: 0, judge: 0 },
+    },
+  ],
+  [
+    'negative seats without speaking opportunity',
+    onlySideSegments(practiceFormatFixture, 'affirmative'),
+  ],
+  ...(['affirmative', 'negative', 'judge'] as const).map(
+    (role) =>
+      [
+        `one over the role work bound: ${role}`,
+        {
+          ...practiceFormatFixture,
+          seats: { ...practiceFormatFixture.seats, [role]: 257 },
+        },
+      ] as const,
+  ),
+  [
+    'no affirmative seats',
+    {
+      ...onlySideSegments(practiceFormatFixture, 'negative'),
+      seats: { affirmative: 0, negative: 1, judge: 0 },
+    },
+  ],
+  [
+    'affirmative seats without speaking opportunity',
+    onlySideSegments(practiceFormatFixture, 'negative'),
+  ],
+  [
+    'missing negative count',
+    {
+      ...practiceFormatFixture,
+      seats: { affirmative: 1, judge: 0 } as FormatDefinition['seats'],
+    },
+  ],
+];
