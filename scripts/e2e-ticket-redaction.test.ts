@@ -37,8 +37,32 @@ for (const depth of [0, 1, 2])
         should:
           'redact its value without consuming its closing quote or following record fields',
         actual: redactText(
-          serialize(`${header}: fixture-"secret"\\value\nnext diagnostic`),
+          serialize(
+            `info "request" ${header}: fixture-"secret"\\value\nnext diagnostic`,
+          ),
         ),
-        expected: serialize(`${header}: [REDACTED]\nnext diagnostic`),
+        expected: serialize(
+          `info "request" ${header}: [REDACTED]\nnext diagnostic`,
+        ),
       });
     });
+
+test('plain quoted header logs retain whole-value redaction', () => {
+  assert({
+    given: 'a plain log prefix and quoted cookie value',
+    should: 'retain the prefix and redact the entire header value',
+    actual: redactText('info "request" cookie: "fixture-secret"; Path=/'),
+    expected: 'info "request" cookie: [REDACTED]',
+  });
+});
+
+for (const header of ['set-cookie', 'cookie', 'authorization'])
+  test(`literal redaction marker does not exempt ${header} suffix`, () => {
+    assert({
+      given:
+        'a plain credential header beginning with a literal redaction marker',
+      should: 'redact the complete value including its credential suffix',
+      actual: redactText(`${header}: [REDACTED]fixture-secret`),
+      expected: `${header}: [REDACTED]`,
+    });
+  });
