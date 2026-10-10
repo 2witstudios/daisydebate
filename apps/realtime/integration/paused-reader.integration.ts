@@ -31,7 +31,10 @@ test('physical paused TCP reader closes4005 while a healthy real recipient progr
   let position: { txid: string; seq: bigint } | undefined;
   let peer: Awaited<ReturnType<typeof pausedNativePeer>> | undefined;
   try {
-    peer = await pausedNativePeer(fixture.runtime.server.port);
+    const port = fixture.runtime.server.port;
+    if (port === undefined)
+      throw new Error('Native TCP proof port unavailable');
+    peer = await pausedNativePeer(port);
     peer.send({
       v: ENVELOPE_VERSION,
       type: 'hello',
