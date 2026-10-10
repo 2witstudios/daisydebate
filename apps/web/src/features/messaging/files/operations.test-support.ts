@@ -70,6 +70,7 @@ export function fileOperationFixture() {
       storedBytes: 20,
       accessExpiresAt: '2026-10-09T18:00:00.100Z',
     }),
+    listMessageFiles: async () => [],
     cancel: async () => {
       state.commits++;
     },

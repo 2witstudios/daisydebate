@@ -8,6 +8,7 @@ import { messagingMessages } from '../schema/messaging-messages';
 import { messagingFiles } from '../schema/messaging-files';
 import { requireFilePolicy } from './policy';
 import { requireReservation } from './reservation-input';
+import { createFileListing } from './message-files';
 import type {
   FileFrame,
   FileReservation,
@@ -48,19 +49,20 @@ export function channelFileFrame(
   counters: { channelId: string; changeVersion: number },
   authorize: () => Promise<void>,
 ): FileFrame {
+  const { channelId } = input;
   const changed = async () => {
     counters.changeVersion += 1;
     await tx
       .update(messagingChannels)
       .set({ changeVersion: counters.changeVersion })
-      .where(eq(messagingChannels.id, input.channelId));
+      .where(eq(messagingChannels.id, channelId));
     await appendOutboxEvent(tx, {
-      topic: buildChannelTopic(input.channelId),
+      topic: buildChannelTopic(channelId),
       kind: 'channel.changed',
       version: 1,
       payload: {
         kind: 'channel.changed',
-        channelId: input.channelId,
+        channelId: channelId,
         changeVersion: counters.changeVersion,
       },
     });
@@ -69,7 +71,7 @@ export function channelFileFrame(
     const [channel] = await tx
       .select({ revision: messagingChannels.authorityRevision })
       .from(messagingChannels)
-      .where(eq(messagingChannels.id, input.channelId));
+      .where(eq(messagingChannels.id, channelId));
     if (!channel) throw createAppError('NOT_FOUND');
     return channel.revision;
   };
@@ -87,7 +89,7 @@ export function channelFileFrame(
       .where(
         and(
           eq(messagingFiles.id, token.fileId),
-          eq(messagingFiles.channelId, input.channelId),
+          eq(messagingFiles.channelId, channelId),
         ),
       )
       .for('update');
@@ -108,18 +110,47 @@ export function channelFileFrame(
     )
       throw createAppError('CONFLICT');
   };
+  const access: FileFrame['access'] = async (token, now, supplied) => {
+    const policy = requireFilePolicy(supplied);
+    const row = await read(token, false);
+    if (row.lifecycle !== 'attached' || !row.messageId)
+      throw createAppError('NOT_FOUND');
+    const [message] = await tx
+      .select({ removedAt: messagingMessages.removedAt })
+      .from(messagingMessages)
+      .where(
+        and(
+          eq(messagingMessages.id, row.messageId),
+          eq(messagingMessages.channelId, channelId),
+        ),
+      );
+    if (
+      !message ||
+      message.removedAt !== null ||
+      !Number.isFinite(Date.parse(now))
+    )
+      throw createAppError('NOT_FOUND');
+    return {
+      ...reservation(row),
+      messageId: row.messageId,
+      storedBytes: row.storedBytes!,
+      accessExpiresAt: new Date(
+        Date.parse(now) + policy.accessMs,
+      ).toISOString(),
+    };
+  };
   return {
     authorize,
     async reserve(command, now, supplied) {
       await authorize();
       const policy = requireFilePolicy(supplied);
-      requireReservation(command, input.channelId, now, policy);
+      requireReservation(command, channelId, now, policy);
       const [existing] = await tx
         .select()
         .from(messagingFiles)
         .where(
           and(
-            eq(messagingFiles.channelId, input.channelId),
+            eq(messagingFiles.channelId, channelId),
             eq(messagingFiles.ownerActorId, input.actorId),
             eq(messagingFiles.requestId, command.requestId),
           ),
@@ -154,7 +185,7 @@ export function channelFileFrame(
       const row: typeof messagingFiles.$inferInsert = {
         id: command.id,
         objectKey: command.objectKey,
-        channelId: input.channelId,
+        channelId: channelId,
         ownerActorId: input.actorId,
         requestId: command.requestId,
         filename: command.filename,
@@ -226,7 +257,7 @@ export function channelFileFrame(
         .where(
           and(
             eq(messagingMessages.id, messageId),
-            eq(messagingMessages.channelId, input.channelId),
+            eq(messagingMessages.channelId, channelId),
           ),
         );
       if (
@@ -243,7 +274,7 @@ export function channelFileFrame(
         .from(messagingFiles)
         .where(
           and(
-            eq(messagingFiles.channelId, input.channelId),
+            eq(messagingFiles.channelId, channelId),
             eq(messagingFiles.messageId, messageId),
             eq(messagingFiles.lifecycle, 'attached'),
           ),
@@ -256,35 +287,8 @@ export function channelFileFrame(
         .where(eq(messagingFiles.id, row.id));
       await changed();
     },
-    async access(token, now, supplied) {
-      const policy = requireFilePolicy(supplied);
-      const row = await read(token, false);
-      if (row.lifecycle !== 'attached' || !row.messageId)
-        throw createAppError('NOT_FOUND');
-      const [message] = await tx
-        .select({ removedAt: messagingMessages.removedAt })
-        .from(messagingMessages)
-        .where(
-          and(
-            eq(messagingMessages.id, row.messageId),
-            eq(messagingMessages.channelId, input.channelId),
-          ),
-        );
-      if (
-        !message ||
-        message.removedAt !== null ||
-        !Number.isFinite(Date.parse(now))
-      )
-        throw createAppError('NOT_FOUND');
-      return {
-        ...reservation(row),
-        messageId: row.messageId,
-        storedBytes: row.storedBytes!,
-        accessExpiresAt: new Date(
-          Date.parse(now) + policy.accessMs,
-        ).toISOString(),
-      };
-    },
+    access,
+    listMessageFiles: createFileListing(tx, channelId, authorize, access),
     async cancel(token) {
       const row = await read(token, true);
       await tx

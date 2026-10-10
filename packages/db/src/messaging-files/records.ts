@@ -32,6 +32,14 @@ export type FileReservation = Readonly<{
 export type FileToken = Readonly<{ fileId: string; generation: number }>;
 type FileAccess = FileReservation &
   Readonly<{ messageId: string; storedBytes: number; accessExpiresAt: string }>;
+type MessageFile = Readonly<{
+  fileId: string;
+  generation: number;
+  messageId: string;
+  filename: string;
+  mime: FileMime;
+  bytes: number;
+}>;
 export type FileReserveCommand = Readonly<{
   id: string;
   objectKey: string;
@@ -66,6 +74,11 @@ export type FileFrame = {
     now: string,
     policy: FilePolicy,
   ): Promise<FileAccess>;
+  listMessageFiles(
+    messageIds: readonly string[],
+    now: string,
+    policy: FilePolicy,
+  ): Promise<readonly MessageFile[]>;
   cancel(token: FileToken): Promise<void>;
 };
 export type FileStore = {
