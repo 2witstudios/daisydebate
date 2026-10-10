@@ -80,8 +80,7 @@ test('preference clear composition refuses foreign rows, stale identity and eras
 test('real preference factory binds separate channel fences and row-derived cleanup callback', async () => {
   const { composeMessagingPreferences } =
     await import('./preference-composition');
-  const { messagingTestPosting, messagingTestReading } =
-    await import('@daisy/auth/testing');
+  const { messagingUnitPolicy } = await import('./typing.test-support');
   const calls: string[] = [];
   const tx = {
     execute: () => {
@@ -142,18 +141,7 @@ test('real preference factory binds separate channel fences and row-derived clea
     database,
     principal,
     clock: { now: () => '2026-10-10T12:00:00.000Z' },
-    policy: {
-      posting: messagingTestPosting,
-      reading: messagingTestReading,
-      bounds: { messageUnits: 100, pageItems: 20 },
-      maxBodyBytes: 1024,
-      editWindowMs: 1000,
-      limits: {
-        read: { max: 10, windowSeconds: 60 },
-        actorSend: { max: 10, windowSeconds: 60 },
-        channelSend: { max: 10, windowSeconds: 60 },
-      },
-    },
+    policy: messagingUnitPolicy(),
   });
   for (const operation of [
     () => store.read(input),

@@ -67,7 +67,10 @@ export async function seedMessagingRouteDm(
 export async function mountedMessagingPair(
   databaseUrl: string,
   extensions: Partial<
-    Pick<Parameters<typeof createRoutes>[0], 'messagingFiles'>
+    Pick<
+      Parameters<typeof createRoutes>[0],
+      'messagingFiles' | 'messagingPolicy'
+    >
   > = {},
 ) {
   const app = createTestApp();

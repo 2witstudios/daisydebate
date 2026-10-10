@@ -299,3 +299,40 @@ The dedicated preference store reads and updates existing actor-state selections
 Own clear first fences the current account, locks the actual scoped actor-state row, and uses `channel.preferences.clear` only for that persisted row. It deletes only that row, without upsert, membership recreation or content access. An absent row gets only current own-collection authorization and returns `cleared:false`. Removed members may clear their own saved state while preference reads remain concealed. Existing canonical actor-state privacy declarations and pending lawful-basis/retention decisions apply unchanged.
 
 The mounted JSON read/update/clear routes and `/messages/[channelId]/preferences` native form share this store and canonical authorization. Every selection is explicit; missing selections are not product defaults. The form works before hydration and with JavaScript disabled, retaining choices after refusal. Branch PostgreSQL and browser proofs are required before this increment is accepted; no production policy is supplied.
+
+### Ephemeral typing aggregate
+
+Typing uses an optional injected `ttlMs`, `refetchMs` and `maxActors` configuration;
+absence leaves its HTTP endpoints unavailable. The existing Redis client stores
+an actor/channel lease with explicit millisecond expiry. The same PostgreSQL
+account → pair → channel transaction fence rereads every current participant's
+own channel fact and minimal age fact. Canonical `channel.post` qualifies each
+lease; canonical `channel.read` authorizes aggregate reads. A retained Redis key
+cannot confer membership, posting eligibility or reading authority. Account,
+age, channel, pair/grant and policy revision changes invalidate its qualification.
+
+The aggregate excludes the observer and exposes only `typing:boolean` plus an
+explicit HTTP refresh interval. The composer sends boolean intent, never draft
+text. Renewals publish nothing unless a currently readable participant's
+aggregate changes. Qualifying transitions use the existing pool's separate
+`daisy_realtime_hints` notification with exactly `v`, `type:typing_changed` and
+the authorized channel topic. They create no outbox row or durable cursor.
+Realtime delivery freshly rechecks canonical subscription authority; hints are
+lossy and never extend a durable delivery lease. Reconnect, hints and bounded
+HTTP expiry refetch invalidate the browser projection, so natural expiry or a
+lost hint cannot leave a permanent typing indicator.
+
+Privacy declaration: the namespaced Redis key
+`<namespace>:v1:messaging-typing:<actorId>:<channelId>` and its actor/channel
+association are personal/private. Serialized `actorId`, `channelId`,
+`authorityRevision`, `relationshipRevision`, `accountRevision`, `ageRevision`,
+`policyRevision` and `expiresAt` remain personal/private as one associated
+lease; `version` is nonpersonal format metadata. Purpose is current authorized
+typing projection; owner is MSG. Lawful basis is pending PRIV3
+`jc0qcdvpkmqzrelpaesi3pah`, retention pending PRIV4
+`njiorsf64z4iqjm2dbfa3zuu`. The explicit lease TTL is bounded by current policy
+proof expiry and is not an approved product retention rule. No lease, actor,
+draft, Redis key or raw failure is logged or placed in a notification payload.
+Subject export/physical erasure adoption for this ephemeral vendor state remains
+an explicit acceptance obligation. Isolated browser/service fixtures do not
+activate collection, settle those decisions or establish deployment acceptance.

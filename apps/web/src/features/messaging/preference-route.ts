@@ -1,14 +1,14 @@
 import { messagingPreferenceSchemas } from '@daisy/protocol';
-import { createAppError } from '@daisy/errors';
 import type { App } from '../../server/app';
-import { parseValidated, readJson } from '../../server/http';
+import { parseValidated } from '../../server/http';
 import {
   runMessagingHandler,
-  messagingHttpBoundary,
+  messagingActorHandlerPort,
   unavailableMessagingHandler,
+  readMessagingScope,
+  type MessagingHandlerPort,
 } from './handler-boundary';
 import { requireMessagingActor } from './principal';
-import { consumeOrThrow } from '../auth/abuse/rate-limit';
 import { composeMessagingPreferences } from './preference-composition';
 export function composeMessagingPreferenceRoutes(app: App) {
   return (
@@ -24,14 +24,7 @@ export function composeMessagingPreferenceRoutes(app: App) {
         'messaging.preferences.unavailable',
       );
     return createMessagingPreferenceHandler({
-      boundary: messagingHttpBoundary(app),
-      maxBodyBytes: policy.maxBodyBytes,
-      consume: (actorId) =>
-        consumeOrThrow(
-          app.auth().limiter,
-          `messaging:preferences:${actorId}`,
-          policy.limits.read,
-        ),
+      ...messagingActorHandlerPort(app, policy, 'preferences'),
       store: (principal) =>
         composeMessagingPreferences({
           database: app.database,
@@ -48,16 +41,7 @@ export function createMessagingPreferenceHandler({
   maxBodyBytes,
   consume,
   store,
-}: {
-  readonly boundary: Parameters<typeof runMessagingHandler>[0];
-  readonly maxBodyBytes: number;
-  readonly consume: (actorId: string) => Promise<void>;
-  readonly store: (
-    principal: Parameters<
-      Parameters<typeof runMessagingHandler>[2]['operation']
-    >[1],
-  ) => ReturnType<typeof composeMessagingPreferences>;
-}) {
+}: MessagingHandlerPort<ReturnType<typeof composeMessagingPreferences>>) {
   return (
     request: Request,
     operation: 'read' | 'update' | 'clear',
@@ -66,12 +50,13 @@ export function createMessagingPreferenceHandler({
     runMessagingHandler(boundary, request, {
       name: `messaging.preferences.${operation}`,
       readOnly: operation === 'read',
-      readInput: async () => {
-        if (operation !== 'read') return readJson(request, maxBodyBytes);
-        if ([...new URL(request.url).searchParams.keys()].length)
-          throw createAppError('VALIDATION');
-        return { version: 1, channelId };
-      },
+      readInput: () =>
+        readMessagingScope(
+          request,
+          operation !== 'read',
+          maxBodyBytes,
+          channelId,
+        ),
       operation: async (input, principal) => {
         const actor = requireMessagingActor(principal);
         await consume(actor.actorId);
