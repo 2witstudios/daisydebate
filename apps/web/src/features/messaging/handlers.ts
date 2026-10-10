@@ -16,6 +16,7 @@ type Dependencies = {
   readonly maxBodyBytes: number;
   readonly bounds: MessagingCoreBounds;
   readonly websocketEndpoint?: string | null;
+  readonly typingRefetchMs?: number;
   readonly identify: (request: Request) => Promise<Identity>;
   readonly send: Operation;
   readonly edit: Operation;
@@ -46,6 +47,13 @@ export function createMessagingHandlers(dependencies: Dependencies) {
       headers: {
         'x-messaging-message-units': String(dependencies.bounds.messageUnits),
         'x-messaging-page-items': String(dependencies.bounds.pageItems),
+        ...(dependencies.typingRefetchMs === undefined
+          ? {}
+          : {
+              'x-messaging-typing-refetch-ms': String(
+                dependencies.typingRefetchMs,
+              ),
+            }),
         ...(dependencies.websocketEndpoint
           ? { 'x-realtime-socket-url': dependencies.websocketEndpoint }
           : {}),

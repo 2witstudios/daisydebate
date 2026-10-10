@@ -55,6 +55,7 @@ test('browser reader refetches thin hints and expiry with no cursor or stale asy
   const reader = attachTypingReader({
     channelId,
     timers,
+    recoveryAfterMs: null,
     connection: {
       subscribeTopic: (_topic, callback) => {
         emit = callback;
@@ -91,4 +92,48 @@ test('browser reader refetches thin hints and expiry with no cursor or stale asy
     ],
     expected: [2, null, 1],
   });
+});
+
+test('initial failed typing HTTP recovers on the explicitly injected interval without any new socket hint', async () => {
+  const timers = createTimerQueue((now, ms) => now + ms),
+    failed = Promise.withResolvers<void>(),
+    recovered = Promise.withResolvers<void>();
+  let reads = 0;
+  const values: (boolean | null)[] = [];
+  const reader = attachTypingReader({
+    channelId,
+    timers,
+    recoveryAfterMs: 700,
+    connection: { subscribeTopic: () => () => {}, subscribe: () => () => {} },
+    read: async () => {
+      reads++;
+      return reads === 1
+        ? new Response(null, { status: 503 })
+        : Response.json(body(true));
+    },
+    publish: (value) => {
+      values.push(value);
+      if (reads === 1 && value === null) failed.resolve();
+      if (value === true) recovered.resolve();
+    },
+  });
+  await failed.promise;
+  await Promise.resolve();
+  timers.advance(699);
+  assert({
+    given: 'initial unavailable projection before approved recovery interval',
+    should: 'expose unknown and perform no early retry',
+    actual: [reads, values.at(-1)],
+    expected: [1, null],
+  });
+  timers.advance(1);
+  // A bounded assertion exposes the missing timer without hanging the red control.
+  assert({
+    given: 'the explicit recovery interval elapsed with a stable socket',
+    should: 'start a fresh authorized HTTP read even without a hint',
+    actual: reads,
+    expected: 2,
+  });
+  await recovered.promise;
+  reader.close();
 });

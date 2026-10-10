@@ -148,12 +148,14 @@ export async function runTypingFrame({
     } else await clear();
   }
   const after = typing === undefined ? before : await read();
-  const final = await snapshot();
+  let final = await snapshot();
   if (
     typing !== undefined &&
     typingProjectionChanged(final.authority, before, after, final.now)
-  )
+  ) {
     await notify();
+    final = await snapshot();
+  }
   const aggregate = typingAggregate(
     final.authority,
     after,

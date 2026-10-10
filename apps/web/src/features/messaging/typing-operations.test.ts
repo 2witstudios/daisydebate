@@ -2,6 +2,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { runTypingFrame } from './typing-operations';
 import { typingWorld } from './typing.test-support';
+import { typingAuthority } from './typing-authority';
 setupRitewayBun();
 function fixture() {
   const f = typingWorld();
@@ -106,5 +107,68 @@ test('fresh authority refusal around awaits prevents lease mutation and stale ti
     should: 'use refreshed trusted time and never return expired typing',
     actual: [response.typing, reads, JSON.stringify(f.writes)],
     expected: [false, 1, before],
+  });
+});
+
+test('notification completion cannot return a projection stamped before current policy expiry', async () => {
+  const f = fixture();
+  await assertRejects({
+    given:
+      'real notify await crosses the current reading/posting evidence lifetime',
+    should:
+      'refresh canonical current facts before returning HTTP typing metadata',
+    actual: () =>
+      runTypingFrame({
+        ...f.input,
+        typing: true,
+        notify: async () =>
+          f.setSnapshot({
+            now: '2027-01-01T00:00:00.000Z',
+            authority: f.authority.map((row) => ({
+              ...row,
+              input: {
+                ...row.input,
+                context: {
+                  ...row.input.context,
+                  now: '2027-01-01T00:00:00.000Z',
+                },
+              },
+            })),
+          }),
+      }),
+    code: 'AUTHORIZATION',
+  });
+});
+
+test('peer lease expiry during notification clears the returned aggregate using fresh canonical evidence', async () => {
+  const f = fixture();
+  let reads = 0;
+  const now = '2026-10-10T12:00:06.000Z';
+  const result = await runTypingFrame({
+    ...f.input,
+    typing: true,
+    read: async () => (++reads === 1 ? [] : [f.leases[1]!]),
+    notify: async () =>
+      f.setSnapshot({
+        now,
+        authority: typingAuthority({
+          channels: f.channels,
+          accounts: f.accounts,
+          policy: f.policy,
+          now,
+        }),
+      }),
+  });
+  assert({
+    given:
+      'a qualifying peer aggregate before notification and expired lease at its completion',
+    should: 'return current false without stale peer typing or expired timing',
+    actual: result,
+    expected: {
+      version: 1,
+      channelId: f.channel.channelId,
+      typing: false,
+      refreshAfterMs: 1000,
+    },
   });
 });
