@@ -61,3 +61,42 @@ function validRoleAndPort(pg: URL, value: string | undefined) {
     return false;
   }
 }
+
+/** Admit only the derived slot's canonical lifecycle service URLs. */
+export function requireLaunchReleaseServices(
+  slot: ReturnType<typeof requireLaunchSlot>,
+  env: Readonly<Record<string, string | undefined>>,
+) {
+  const dev = new URL(env.DATABASE_URL ?? '');
+  const test = new URL(env.TEST_DATABASE_URL ?? '');
+  const testRedis = new URL(env.TEST_REDIS_URL ?? '');
+  const devRedisUrl = new URL(env.REDIS_URL ?? '');
+  const e2eRedisUrl = new URL(env.E2E_REDIS_URL ?? '');
+  if (
+    !validReleasePostgres(dev, test, slot.id) ||
+    !validReleaseRedis(devRedisUrl, testRedis, e2eRedisUrl, slot.port)
+  )
+    throw new Error('Release refuses cross-slot lifecycle services');
+  return dev;
+}
+
+function validReleasePostgres(dev: URL, test: URL, id: string) {
+  return (
+    dev.hostname === 'localhost' &&
+    dev.pathname === `/daisy_wt_${id}` &&
+    test.hostname === dev.hostname &&
+    (test.port || '5432') === (dev.port || '5432') &&
+    test.pathname === `/daisy_wt_${id}_test`
+  );
+}
+
+function validReleaseRedis(dev: URL, test: URL, e2e: URL, port: number) {
+  return (
+    test.hostname === 'localhost' &&
+    dev.hostname === test.hostname &&
+    ['', '/0'].includes(dev.pathname) &&
+    (dev.port || '6379') === (test.port || '6379') &&
+    (e2e.port || '6379') === (test.port || '6379') &&
+    Number(test.pathname.slice(1)) === 2 + (port - 13001) / 10
+  );
+}
