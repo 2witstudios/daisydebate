@@ -59,6 +59,17 @@ test('real HTTP Room mutation reaches its authenticated browser subscriber and r
     const topic = buildRoomTopic(before.id);
     const hostPage = await openPage(host, 'RT authorized host'),
       outsiderPage = await openPage(outsider, 'RT private outsider');
+    const roomChangedCount = (version: number) =>
+      hostPage.evaluate(
+        (expectedVersion) =>
+          window.realtimeProof.frames.filter(
+            (frame) =>
+              frame.type === 'event' &&
+              frame.payload.kind === 'room.changed' &&
+              frame.payload.entityVersion === expectedVersion,
+          ).length,
+        version,
+      );
     await hostPage.goto('/lobby');
     await outsiderPage.goto('/lobby');
     const source = browserTransportSource();
@@ -98,20 +109,7 @@ test('real HTTP Room mutation reaches its authenticated browser subscriber and r
     );
     expect(mutation.status()).toBe(200);
     const changed = roomViewSchema.parse((await mutation.json()).view);
-    await expect
-      .poll(() =>
-        hostPage.evaluate(
-          (version) =>
-            window.realtimeProof.frames.filter(
-              (frame) =>
-                frame.type === 'event' &&
-                frame.payload.kind === 'room.changed' &&
-                frame.payload.entityVersion === version,
-            ).length,
-          changed.changeVersion,
-        ),
-      )
-      .toBe(1);
+    await expect.poll(() => roomChangedCount(changed.changeVersion)).toBe(1);
     const bell = await hostPage.evaluate(
       (version) =>
         window.realtimeProof.frames.find(
@@ -178,18 +176,7 @@ test('real HTTP Room mutation reaches its authenticated browser subscriber and r
     );
     resumeTicket();
     await expect
-      .poll(() =>
-        hostPage.evaluate(
-          (version) =>
-            window.realtimeProof.frames.filter(
-              (frame) =>
-                frame.type === 'event' &&
-                frame.payload.kind === 'room.changed' &&
-                frame.payload.entityVersion === version,
-            ).length,
-          offlineView.changeVersion,
-        ),
-      )
+      .poll(() => roomChangedCount(offlineView.changeVersion))
       .toBe(1);
     await expect
       .poll(() =>
