@@ -54,6 +54,8 @@ test('actual pending cleanup composition uses canonical own-file authority witho
   });
   for (const patch of [
     { lifecycle: 'attached' as const },
+    { lifecycle: 'deleting' as const },
+    { lifecycle: 'deleted' as const },
     { ownerActorId: 'foreign'.padEnd(24, 'x') },
     { generation: 4 },
     { channelId: 'different'.padEnd(24, 'x') },

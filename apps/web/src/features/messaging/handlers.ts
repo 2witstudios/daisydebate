@@ -1,15 +1,10 @@
 import type { Identity } from '@daisy/auth';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { MessagingCoreBounds } from '@daisy/protocol';
-import { createAppError } from '@daisy/errors';
 import type { Logger } from '@daisy/logger';
-import {
-  handleOperation,
-  readJson,
-  requireSameOrigin,
-  requireSameOriginRead,
-  requireSignedIn,
-} from '../../server/http';
+import { createAppError } from '@daisy/errors';
+import { readJson } from '../../server/http';
+import { runMessagingHandler } from './handler-boundary';
 
 type Operation = (
   input: unknown,
@@ -26,6 +21,7 @@ type Dependencies = {
   readonly edit: Operation;
   readonly remove: Operation;
   readonly history: Operation;
+  readonly search: Operation;
   readonly changes: Operation;
   readonly markRead: Operation;
 };
@@ -35,44 +31,38 @@ export function createMessagingHandlers(dependencies: Dependencies) {
     request: Request,
     operation: keyof Pick<
       Dependencies,
-      'send' | 'edit' | 'remove' | 'history' | 'changes' | 'markRead'
+      'send' | 'edit' | 'remove' | 'history' | 'search' | 'changes' | 'markRead'
     >,
     input: () => Promise<unknown>,
   ) =>
-    handleOperation(
-      dependencies.logger,
-      request,
-      `messaging.${operation}`,
-      async () => {
-        if (operation === 'history' || operation === 'changes')
-          requireSameOriginRead(request, dependencies.origin());
-        else requireSameOrigin(request, dependencies.origin());
-        const identity = requireSignedIn(await dependencies.identify(request));
-        if (identity.state !== 'member') throw createAppError('AUTHORIZATION');
-        return Response.json(
-          await dependencies[operation](await input(), identity.principal),
-          {
-            headers: {
-              'x-messaging-message-units': String(
-                dependencies.bounds.messageUnits,
-              ),
-              'x-messaging-page-items': String(dependencies.bounds.pageItems),
-              ...(dependencies.websocketEndpoint
-                ? { 'x-realtime-socket-url': dependencies.websocketEndpoint }
-                : {}),
-            },
-          },
-        );
+    runMessagingHandler(dependencies, request, {
+      name: `messaging.${operation}`,
+      readOnly:
+        operation === 'history' ||
+        operation === 'search' ||
+        operation === 'changes',
+      readInput: input,
+      operation: dependencies[operation],
+      headers: {
+        'x-messaging-message-units': String(dependencies.bounds.messageUnits),
+        'x-messaging-page-items': String(dependencies.bounds.pageItems),
+        ...(dependencies.websocketEndpoint
+          ? { 'x-realtime-socket-url': dependencies.websocketEndpoint }
+          : {}),
       },
-    );
+    });
   const query = (
     request: Request,
     channelId: string,
-    kind: 'history' | 'changes',
+    kind: 'history' | 'search' | 'changes',
   ) => {
     const params = new URL(request.url).searchParams;
     const allowed =
-      kind === 'history' ? ['limit', 'before'] : ['limit', 'after'];
+      kind === 'changes'
+        ? ['limit', 'after']
+        : kind === 'search'
+          ? ['limit', 'before', 'query']
+          : ['limit', 'before'];
     if (
       [...params.keys()].some(
         (key) => !allowed.includes(key) || params.getAll(key).length !== 1,
@@ -86,10 +76,11 @@ export function createMessagingHandlers(dependencies: Dependencies) {
     return {
       version: 1,
       channelId,
+      ...(kind === 'search' ? { query: params.get('query') } : {}),
       limit: params.has('limit')
         ? number('limit')
         : dependencies.bounds.pageItems,
-      ...(kind === 'history'
+      ...(kind !== 'changes'
         ? params.has('before')
           ? { before: { channelId, sequence: number('before') } }
           : {}
@@ -105,6 +96,8 @@ export function createMessagingHandlers(dependencies: Dependencies) {
       ),
     send: (request: Request) =>
       run(request, 'send', () => readJson(request, dependencies.maxBodyBytes)),
+    search: (request: Request, channelId: string) =>
+      run(request, 'search', async () => query(request, channelId, 'search')),
     history: (request: Request, channelId: string) =>
       run(request, 'history', async () => query(request, channelId, 'history')),
     changes: (request: Request, channelId: string) =>

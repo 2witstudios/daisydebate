@@ -57,6 +57,11 @@ if (import.meta.main) {
         }),
       );
     });
+  } catch {
+    process.stderr.write(
+      `${JSON.stringify({ event: 'room.launch.evidence', outcome: 'refused' })}\n`,
+    );
+    process.exitCode = 1;
   } finally {
     await sql.close();
   }

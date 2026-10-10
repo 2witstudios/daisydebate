@@ -29,6 +29,8 @@ import {
 } from '../../features/debate-room/layout';
 import {
   activateTab,
+  loadWorkspaceDocuments,
+  appendWorkspaceDocument,
   closeTab,
   openTab,
   sidebarTabs,
@@ -209,28 +211,8 @@ const reducers: { readonly [T in RoomAction['type']]: Reducer<T> } = {
   },
   'doc/update': (s, a) =>
     withDocument(s, a.id, (doc) => updateDocumentHtml(doc, a.html, a.now)),
-  'doc/loaded': (s, a) => {
-    const ids = new Set(a.documents.map((d) => d.id));
-    const open = s.tabs.open.filter(
-      (id) => ids.has(id) || !s.documents.some((d) => d.id === id),
-    );
-    const round = a.documents
-      .filter((d) => d.folder === 'round')
-      .map((d) => d.id);
-    const kept = open.length > 0 ? open : round;
-    const active =
-      s.tabs.active !== null && kept.includes(s.tabs.active)
-        ? s.tabs.active
-        : (kept[0] ?? null);
-    const tabs = { open: kept, active };
-    return { ...s, documents: a.documents, tabs };
-  },
-  'doc/add': (s, a) => ({
-    ...s,
-    documents: [...s.documents, a.document],
-    tabs: openTab(s.tabs, a.document.id),
-    paletteOpen: false,
-  }),
+  'doc/loaded': (s, a) => loadWorkspaceDocuments(s, a.documents),
+  'doc/add': (s, a) => appendWorkspaceDocument(s, a.document),
   'sidebar/tab': (s, a, r) =>
     sidebarTabs(r.kind).includes(a.tab) ? { ...s, sidebar: a.tab } : s,
   'sidebar/channel': (s, a) => ({

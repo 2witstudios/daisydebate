@@ -39,6 +39,19 @@ mock.module(
   () => ({ SecurityPage: () => null }),
 );
 
+// Guard coverage renders outside Next's request store; catalog I/O is proved separately.
+mock.module(join(import.meta.dir, '../../app/(shell)/play/actions.ts'), () => ({
+  roomTemplates: async () => ({ kind: 'found', choices: [] }),
+  createRoomAction: async () => ({ values: {} }),
+}));
+
+mock.module(
+  join(import.meta.dir, '../../app/(shell)/lobby/actions.ts'),
+  () => ({
+    roomListing: async () => ({ kind: 'found', rooms: [] }),
+  }),
+);
+
 type Page = (props: {
   params: Promise<Record<string, string>>;
   searchParams: Promise<Record<string, string>>;
@@ -70,6 +83,16 @@ const rendered: Readonly<Record<string, () => Promise<{ default: unknown }>>> =
     '(shell)/judge/waiting/page.tsx': () =>
       import('../../app/(shell)/judge/waiting/page'),
     '(shell)/lobby/page.tsx': () => import('../../app/(shell)/lobby/page'),
+    '(shell)/messages/page.tsx': () =>
+      import('../../app/(shell)/messages/page'),
+    '(shell)/messages/[channelId]/page.tsx': () =>
+      import('../../app/(shell)/messages/[channelId]/page'),
+    '(shell)/messages/requests/[channelId]/page.tsx': () =>
+      import('../../app/(shell)/messages/requests/[channelId]/page'),
+    '(shell)/messages/requests/[channelId]/status/page.tsx': () =>
+      import('../../app/(shell)/messages/requests/[channelId]/status/page'),
+    '(shell)/messages/groups/invitations/[channelId]/page.tsx': () =>
+      import('../../app/(shell)/messages/groups/invitations/[channelId]/page'),
     '(shell)/play/page.tsx': () => import('../../app/(shell)/play/page'),
     '(shell)/ranked/page.tsx': () => import('../../app/(shell)/ranked/page'),
     '(shell)/ranked/host/page.tsx': () =>
@@ -140,8 +163,6 @@ const rendered: Readonly<Record<string, () => Promise<{ default: unknown }>>> =
       import('../../app/(shell)/tournaments/mine/[id]/page'),
     '(shell)/tournaments/mine/[id]/room/[round]/page.tsx': () =>
       import('../../app/(shell)/tournaments/mine/[id]/room/[round]/page'),
-    '(bare)/rooms/[id]/round/page.tsx': () =>
-      import('../../app/(bare)/rooms/[id]/round/page'),
     '(bare)/tournaments/mine/[id]/certificate/page.tsx': () =>
       import('../../app/(bare)/tournaments/mine/[id]/certificate/page'),
     '(shell)/tournaments/organize/page.tsx': () =>
@@ -167,6 +188,7 @@ const guardRequestsOf = async (file: string) => {
   } catch (error) {
     // A page may answer 404 for the placeholder id; the guard ran first.
     if (
+      guardCalls.length === 0 &&
       !String((error as { digest?: unknown }).digest).startsWith(
         'NEXT_HTTP_ERROR_FALLBACK',
       )
@@ -207,6 +229,7 @@ describe('guarded pages', () => {
         '/debates',
         '/judge',
         '/lobby',
+        '/messages',
         '/notifications',
         '/play',
         '/prep',

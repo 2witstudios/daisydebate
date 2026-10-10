@@ -3,6 +3,7 @@ import {
   bigint,
   boolean,
   check,
+  index,
   foreignKey,
   pgTable,
   primaryKey,
@@ -25,6 +26,7 @@ export const messagingContactPairs = pgTable(
     revision: bigint('revision', { mode: 'number' }).notNull().default(1),
   },
   (table) => [
+    index('messaging_contact_pairs_high_actor_idx').on(table.highActorId),
     primaryKey({ columns: [table.lowActorId, table.highActorId] }),
     check(
       'messaging_contact_pairs_order',
@@ -52,6 +54,11 @@ export const messagingDmPairs = pgTable(
     decidedAt: timestampColumn('decided_at'),
   },
   (table) => [
+    index('messaging_dm_pairs_high_actor_idx').on(table.highActorId),
+    index('messaging_dm_pairs_channel_kind_idx').on(
+      table.channelId,
+      table.channelKind,
+    ),
     primaryKey({ columns: [table.lowActorId, table.highActorId] }),
     unique('messaging_dm_pairs_channel_unique').on(table.channelId),
     check(
@@ -104,6 +111,11 @@ export const messagingGroupGrants = pgTable(
     revokedAt: timestampColumn('revoked_at'),
   },
   (table) => [
+    index('messaging_group_grants_actor_idx').on(table.actorId),
+    index('messaging_group_grants_channel_kind_idx').on(
+      table.channelId,
+      table.channelKind,
+    ),
     primaryKey({ columns: [table.channelId, table.actorId] }),
     check(
       'messaging_group_grants_kind',
@@ -143,6 +155,12 @@ export const messagingGroupInvitations = pgTable(
     decidedAt: timestampColumn('decided_at'),
   },
   (table) => [
+    index('messaging_group_invitations_invitee_idx').on(table.inviteeActorId),
+    index('messaging_group_invitations_inviter_idx').on(table.invitedByActorId),
+    index('messaging_group_invitations_channel_kind_idx').on(
+      table.channelId,
+      table.channelKind,
+    ),
     primaryKey({ columns: [table.channelId, table.inviteeActorId] }),
     check(
       'messaging_group_invitations_kind',

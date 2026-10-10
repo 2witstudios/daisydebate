@@ -93,7 +93,9 @@ export const resolveE2EOrigin = (env: Env): string =>
 // runs out of restarts, and the page loses its stylesheet to
 // ERR_TOO_MANY_RETRIES (ISSUE-21). Accepting the certificate at the TLS
 // layer leaves nothing to restart. The restart path is Chromium's own.
-const chromiumLaunch = { args: ['--ignore-certificate-errors'] };
+const chromiumLaunch = {
+  args: ['--ignore-certificate-errors', '--use-fake-device-for-media-stream'],
+};
 
 // Firefox saves every submitted field value as form history and, on the next
 // fill of a field with the same name, looks it up asynchronously and opens a

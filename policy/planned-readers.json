@@ -162,6 +162,24 @@
       "adr": "docs/decisions/0057-planned-readers.md",
       "reason": "MSG-1.4 channel doorbells precede the committed transactional send reader; integration proves append shape and rollback independently of socket fanout.",
       "reviewBy": "2026-12-01"
+    },
+    {
+      "path": "apps/web/src/features/video/browser-device-checks.ts",
+      "export": "createBrowserDeviceChecks",
+      "task": "q2n3s1gmgspx21cmzgqcrkug",
+      "owner": "VIDEO / ag-f41q0moq",
+      "adr": "docs/decisions/0057-planned-readers.md",
+      "reason": "ROOM-3.6a composes real local camera/microphone checks with canonical native readiness; browser proof imports the producer before its production UI reader.",
+      "reviewBy": "2026-11-01"
+    },
+    {
+      "path": "packages/db/src/account-age.ts",
+      "export": "writeAccountBirthMonth",
+      "task": "WAIT-4.6",
+      "owner": "account",
+      "adr": "docs/decisions/0057-planned-readers.md",
+      "reason": "Committed collection leaf WAIT-4.6 page sznp9ay8e88ny2sg4xujosae adopts the canonical fenced birthmonth writer. Collection remains unavailable without an explicit approved injected authority; this reader declaration does not approve collection or its policy.",
+      "reviewBy": "2026-10-16"
     }
   ]
 }

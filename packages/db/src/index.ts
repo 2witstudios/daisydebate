@@ -1,3 +1,8 @@
+import { createMessagingGroupCreationStore } from './messaging/group-creation-store';
+import type { MessagingGroupCreationFence } from './messaging/group-creation-contracts';
+import { createMessagingGroupInvitationStore } from './messaging/group-invitation-store';
+import type { MessagingGroupInvitationFence } from './messaging/group-invitation-contracts';
+import { createMessagingInboxStore } from './messaging/inbox-store';
 import { createMessagingChannelAuthority } from './messaging/authority-frame';
 import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
@@ -22,6 +27,7 @@ import { onboardingOperations } from './onboarding-operations';
 import {
   createMessagingStore,
   createMessagingFileStore,
+  createMessagingDmStore,
   createMessagingFileCleanup,
   type MessagingAuthorizationFence,
   createMessagingSocialStore,
@@ -168,6 +174,12 @@ export function createDatabase({
     ...authorizationSessionOperations({ database }),
     ...emailDeliveryOperations({ database, eventSink }),
     ...actorOperations({ database, eventSink }),
+    messagingInboxStore: (
+      authorize: Parameters<typeof createMessagingInboxStore>[1],
+    ) => createMessagingInboxStore(database, authorize),
+    messagingDmStore: (
+      authorize: Parameters<typeof createMessagingDmStore>[0]['authorize'],
+    ) => createMessagingDmStore({ database, authorize }),
     messagingChannelAuthority: createMessagingChannelAuthority(database),
     messagingFileCleanup: (
       authorize: Parameters<typeof createMessagingFileCleanup>[0]['authorize'],
@@ -177,6 +189,10 @@ export function createDatabase({
     ) => createMessagingFileStore({ database, authorize }),
     messagingChannelStore: (authorize: MessagingAuthorizationFence) =>
       createMessagingStore({ database, authorize }),
+    messagingGroupCreationStore: (authorize: MessagingGroupCreationFence) =>
+      createMessagingGroupCreationStore(database, authorize),
+    messagingGroupInvitationStore: (authorize: MessagingGroupInvitationFence) =>
+      createMessagingGroupInvitationStore({ database, authorize }),
     messagingSocialStore: (authorize: MessagingSocialAuthorizationFence) =>
       createMessagingSocialStore({ database, authorize }),
     ...outboxOperations({ database, eventSink }),

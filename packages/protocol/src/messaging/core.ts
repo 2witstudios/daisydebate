@@ -125,6 +125,7 @@ export function createMessagingCoreSchemas(bounds: MessagingCoreBounds) {
           result.nextAfter.channelId === result.channelId &&
           result.nextAfter.changeVersion <= result.changeVersion &&
           (result.changes.length === 0 ||
+            result.nextAfter.changeVersion === result.changeVersion ||
             result.nextAfter.changeVersion ===
               result.changes.at(-1)?.changeVersion),
       ),
@@ -137,6 +138,13 @@ export function createMessagingCoreSchemas(bounds: MessagingCoreBounds) {
     remove: z.strictObject({ ...mutation, messageId: idSchema }),
     history: z
       .strictObject({ ...page, before: sequenceCursor.optional() })
+      .refine(
+        (input) =>
+          input.before === undefined ||
+          input.before.channelId === input.channelId,
+      ),
+    search: z
+      .strictObject({ ...page, query: text, before: sequenceCursor.optional() })
       .refine(
         (input) =>
           input.before === undefined ||

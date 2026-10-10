@@ -23,6 +23,9 @@ test('messaging HTTP refuses cross-origin requests before principal or protected
       calls.push('send');
       throw new Error('Must not send');
     },
+    search: async () => {
+      throw new Error('Must not search');
+    },
     history: async () => {
       calls.push('history');
       throw new Error('Must not read');
@@ -53,31 +56,7 @@ test('messaging HTTP refuses cross-origin requests before principal or protected
 });
 
 test('authorized history exposes configured transport bounds without inventing a browser page limit', async () => {
-  const echo = async (input: unknown) => input;
-  const operations = {
-    send: echo,
-    edit: echo,
-    remove: echo,
-    history: echo,
-    changes: echo,
-    markRead: echo,
-  };
-  const handlers = createMessagingHandlers({
-    ...operations,
-    logger: silentLogger,
-    origin: () => 'https://daisy.example',
-    maxBodyBytes: 1024,
-    bounds: { messageUnits: 100, pageItems: 10 },
-    identify: async () => ({
-      state: 'member',
-      username: 'ada',
-      principal: {
-        kind: 'user',
-        userId: 'u'.repeat(24),
-        actorId: 'a'.repeat(24),
-      },
-    }),
-  });
+  const handlers = authorizedHandlers();
   const response = await handlers.history(
     new Request(
       'https://daisy.example/api/messaging/channels/example/messages',
@@ -95,3 +74,59 @@ test('authorized history exposes configured transport bounds without inventing a
     expected: { limit: 10, textBound: '100' },
   });
 });
+
+test('search HTTP preserves literal text and rejects ambiguous query parameters', async () => {
+  const handlers = authorizedHandlers();
+  for (const [query, status] of [
+    ['query=%25_literal', 200],
+    ['query=one&query=two', 400],
+    ['query=one&actorId=foreign', 400],
+  ] as const) {
+    const response = await handlers.search(
+      new Request(`https://daisy.example/api/messaging/search?${query}`),
+      'c'.repeat(24),
+    );
+    assert({
+      given: query,
+      should: 'preserve a unique query and reject ambiguous authority input',
+      actual: response.status,
+      expected: status,
+    });
+    if (status === 200)
+      assert({
+        given: 'SQL wildcard characters',
+        should: 'remain literal request data',
+        actual: (await response.json()).query,
+        expected: '%_literal',
+      });
+  }
+});
+
+function authorizedHandlers() {
+  const echo = async (input: unknown) => input;
+  const operations = {
+    send: echo,
+    edit: echo,
+    remove: echo,
+    history: echo,
+    search: echo,
+    changes: echo,
+    markRead: echo,
+  };
+  return createMessagingHandlers({
+    ...operations,
+    logger: silentLogger,
+    origin: () => 'https://daisy.example',
+    maxBodyBytes: 1024,
+    bounds: { messageUnits: 100, pageItems: 10 },
+    identify: async () => ({
+      state: 'member',
+      username: 'ada',
+      principal: {
+        kind: 'user',
+        userId: 'u'.repeat(24),
+        actorId: 'a'.repeat(24),
+      },
+    }),
+  });
+}

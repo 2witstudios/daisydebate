@@ -3,6 +3,7 @@ import {
   bigint,
   boolean,
   check,
+  index,
   integer,
   pgTable,
   primaryKey,
@@ -79,6 +80,7 @@ export const messagingActorStates = pgTable(
       .default(0),
   },
   (table) => [
+    index('messaging_actor_states_actor_idx').on(table.actorId),
     primaryKey({ columns: [table.channelId, table.actorId] }),
     check(
       'messaging_actor_states_notification',

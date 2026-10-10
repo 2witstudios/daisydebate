@@ -27,8 +27,10 @@ export async function createFromPlay(
   formatId = 'foundation',
 ) {
   await page.goto('/play');
-  await page.locator('a[href="/play/room"]').click();
+  await page.getByRole('link', { name: /^Open a practice room\b/ }).click();
+  await expect(page).toHaveURL('/play/room');
   const form = page.getByRole('form', { name: 'Create a room' });
+  await expect(form).toBeVisible();
   const templates = form.getByLabel('Format template');
   const values = await templates
     .locator('option')
@@ -53,12 +55,34 @@ export async function createFromPlay(
 export async function claim(page: Page, view: RoomView, seat: string) {
   await page.goto(`/rooms/${view.id}`);
   await page.getByRole('button', { name: `Take ${seat}`, exact: true }).click();
-  return reread(page.request, view.id);
+  const [role, number] = seat.toLowerCase().split(' ');
+  await expect(async () => {
+    view = await reread(page.request, view.id);
+    expect(
+      view.participants.some(
+        (participant) =>
+          participant.kind === 'human' &&
+          participant.role === role &&
+          participant.slot === Number(number) - 1,
+      ),
+    ).toBe(true);
+  }).toPass({ timeout: 10_000 });
+  return view;
 }
 
 /** Real actors from the authenticated catalog; human judge claims its own seat. */
 export async function prepareJudgeRoom(page: Page, title: string) {
   let view = await createFromPlay(page, title, 'one-on-one');
+  const settings = page.getByRole('form', { name: 'Room settings' });
+  await settings.getByLabel('Enable preparation before Launch').uncheck();
+  await settings.getByRole('button', { name: 'Save settings' }).click();
+  await expect(async () => {
+    view = await reread(page.request, view.id);
+    expect(view.config.preRoundPrep).toEqual({ enabled: false });
+  }).toPass({ timeout: 10_000 });
+  await expect(settings.locator('[name="expectedVersion"]')).toHaveValue(
+    String(view.version),
+  );
   const response = await page.request.get('/api/rooms/catalog');
   expect(response.status()).toBe(200);
   const body = await response.json();
@@ -74,7 +98,20 @@ export async function prepareJudgeRoom(page: Page, title: string) {
       .locator('..')
       .getByRole('button', { name: 'Assign', exact: true })
       .click();
-    view = await reread(page.request, view.id);
+    await expect(async () => {
+      view = await reread(page.request, view.id);
+      expect(
+        view.participants.some(
+          (participant) =>
+            participant.actorId === eligible[index]!.actorId &&
+            participant.role === (index === 0 ? 'affirmative' : 'negative') &&
+            participant.slot === 0,
+        ),
+      ).toBe(true);
+    }).toPass({ timeout: 10_000 });
+    await expect(
+      select.locator('..').locator('[name="expectedVersion"]'),
+    ).toHaveValue(String(view.version));
   }
   return claim(page, view, 'Judge 1');
 }

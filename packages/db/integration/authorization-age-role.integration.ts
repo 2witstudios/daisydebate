@@ -83,6 +83,60 @@ test('realtime age producer exposes monthly bands under the canonical erasure fe
           expected: { state: 'unknown' },
         });
       });
+      // Historical producer negative control is transactional in this isolated test database.
+      // No migration files, grant statements or durable function state are changed.
+      const migration18 = await Bun.file(
+        new URL(
+          '../migrations/20261009195939_canonical_minimal_authorization_age/migration.sql',
+          import.meta.url,
+        ),
+      ).text();
+      const oldFunction = migration18
+        .split('--> statement-breakpoint')[0]!
+        .replace(
+          'CREATE FUNCTION public.daisy_authorization_age(',
+          'CREATE OR REPLACE FUNCTION public.daisy_authorization_age(',
+        );
+      const rollbackControl = new Error('ROLLBACK_AGE_SOURCE_NEGATIVE_CONTROL');
+      try {
+        await fixture.sql.begin(async (client) => {
+          await client.unsafe(oldFunction);
+          await client`set local role daisy_realtime`;
+          const oldFact = await loadAuthorizationAgeFact(drizzle({ client }), {
+            userId,
+            actorId,
+            accountRevision: 1,
+            now,
+          });
+          assert({
+            given:
+              'the immutable migration18 body with a nonfinite source timestamp',
+            should:
+              'reproduce the prior known-band defect as a negative control',
+            actual: oldFact.state === 'known' ? oldFact.band : oldFact.state,
+            expected: 'adult',
+          });
+          throw rollbackControl;
+        });
+      } catch (error) {
+        if (error !== rollbackControl) throw error;
+      }
+      await fixture.sql.begin(async (client) => {
+        await client`set local role daisy_realtime`;
+        assert({
+          given:
+            'the forward19 producer restored after negative-control rollback',
+          should:
+            'still refuse the same nonfinite source without durable DDL changes',
+          actual: await loadAuthorizationAgeFact(drizzle({ client }), {
+            userId,
+            actorId,
+            accountRevision: 1,
+            now,
+          }),
+          expected: { state: 'unknown' },
+        });
+      });
       await fixture.sql`update account_age set recorded_at='2026-09-01T00:00:00Z' where user_id=${userId}`;
       await fixture.sql.begin(async (client) => {
         await client`set local role daisy_realtime`;

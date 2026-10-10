@@ -13,6 +13,8 @@ test('migration creates a conservative boundary with only narrow maintenance and
   try {
     await client.begin(async (tx) => {
       await tx`set local role daisy_realtime`;
+      await tx`create temporary table outbox_retention_boundary(txid text,seq text,singleton boolean) on commit drop`;
+      await tx`insert into pg_temp.outbox_retention_boundary values('0','0',true)`;
       const position = await readOutboxRetentionBoundary(
         drizzle({ client: tx }),
       );

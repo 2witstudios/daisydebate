@@ -55,4 +55,15 @@ test('image adapter actually decodes and strips private metadata', async () => {
       ),
     code: 'VALIDATION',
   });
+  await assertRejects({
+    given: 'decoded output above its explicit byte limit',
+    should: 'refuse oversized sanitized output',
+    actual: () =>
+      sanitizeMessagingImage(input, 'image/jpeg', {
+        maxPixels: 4,
+        maxBytes: 1,
+        serviceMs: 1000,
+      }),
+    code: 'PAYLOAD_TOO_LARGE',
+  });
 });

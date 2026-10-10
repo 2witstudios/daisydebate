@@ -27,6 +27,8 @@ export function requireAuthorization(input: AuthorizationInput): void {
     'channel.read',
     'channel.subscribe',
     'channel.request.read',
+    'channel.request.status',
+    'channel.invitation.read',
     'foundation.read',
   ].includes(input.capability);
   throw createAppError(

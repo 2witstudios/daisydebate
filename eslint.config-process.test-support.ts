@@ -16,6 +16,7 @@ import {
   escapes,
   escapeRule,
   type Case,
+  launchEntryCases,
 } from './eslint.config.test-support';
 
 export function registerProcessEdgeTests() {
@@ -85,18 +86,7 @@ export function registerProcessEdgeTests() {
     });
 
     test('admits only the named Launch proof process entry', async () => {
-      const proof = 'apps/web/e2e/support/room-launch-server.ts';
-      const ordinary = 'apps/web/e2e/support/room-launch-adjacent.ts';
-      const cases: Case[] = [
-        [edgeImport('../../src/server/', 'adoptProcessApp'), proof, []],
-        [lazyEdge('../../src/server/process-app'), proof, []],
-        [edgeImport('../../src/server/', 'adoptProcessApp'), ordinary, imports],
-        [
-          lazyEdge('../../src/server/process-app'),
-          ordinary,
-          escapeRule(lazyEdge('../../src/server/process-app')),
-        ],
-      ];
+      const cases = launchEntryCases;
       assert({
         given: 'the dedicated proof entry and an adjacent ordinary E2E helper',
         should:

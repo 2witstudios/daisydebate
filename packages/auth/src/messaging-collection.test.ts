@@ -66,6 +66,8 @@ test('messaging collection grants only current member own-association discovery'
 });
 test('pending status is sender-only minimal metadata with fresh reading evidence', () => {
   const pending = pendingResource;
+  const authority = pending.authority;
+  if (authority.kind !== 'dm') throw new Error('Expected canonical DM fixture');
   const own: AuthorizationInput = {
     ...input,
     capability: 'channel.request.status',
@@ -86,14 +88,14 @@ test('pending status is sender-only minimal metadata with fresh reading evidence
       ...own,
       resource: {
         ...pending,
-        authority: { ...pending.authority, state: 'accepted' },
+        authority: { ...authority, state: 'accepted' },
       },
     },
     {
       ...own,
       resource: {
         ...pending,
-        authority: { ...pending.authority, state: 'declined' },
+        authority: { ...authority, state: 'declined' },
       },
     },
     {
@@ -101,7 +103,7 @@ test('pending status is sender-only minimal metadata with fresh reading evidence
       resource: {
         ...pending,
         lifecycle: 'archived',
-        authority: { ...pending.authority, blocked: true },
+        authority: { ...authority, blocked: true },
       },
     },
     { ...own, capability: 'channel.read' },
