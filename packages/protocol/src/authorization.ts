@@ -24,6 +24,7 @@ const authorizationCapabilities = [
   'channel.group.result',
   'channel.group.revoke',
   'channel.group.archive',
+  'channel.group.invite',
   'channel.invitation.read',
   'channel.invitation.accept',
   'channel.invitation.decline',

@@ -155,6 +155,13 @@ export type GroupInvitationAuthorizationFact = {
   };
   readonly contactPairs: readonly ContactAuthorizationFact[];
 };
+/** Proposed invitees are intent only; MSG owns current channel/grant/pair projections. */
+export type GroupInvitationCreationAuthorizationFact = {
+  readonly kind: 'group_invitation_creation';
+  readonly channel: ChannelAuthorizationFact;
+  readonly inviteeActorIds: readonly string[];
+  readonly contactPairs: readonly ContactAuthorizationFact[];
+};
 /** MSG supplies a committed own receipt and fresh channel core under its transaction fence.
  * This projection grants only a minimal result; digest/original-operation binding stays with MSG.
  */
@@ -184,6 +191,7 @@ export type AuthorizationInput = {
   readonly principal: AuthorizationPrincipal;
   readonly capability: AuthorizationCapability;
   readonly resource:
+    | GroupInvitationCreationAuthorizationFact
     | GroupCommandResultAuthorizationFact
     | GroupInvitationAuthorizationFact
     | MessagingCollectionAuthorizationFact
