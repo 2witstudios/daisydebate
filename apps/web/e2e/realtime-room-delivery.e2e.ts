@@ -101,6 +101,7 @@ test('real HTTP Room mutation reaches its authenticated browser subscriber and r
           ),
           state: window.realtimeProof.store.getState(),
           closeCodes: window.realtimeProof.closeCodes,
+          diagnostics: window.realtimeProof.diagnostics,
           frames: window.realtimeProof.transportFrames.map((frame) => ({
             type: frame.type,
             ...(frame.type === 'error' ? { code: frame.code } : {}),

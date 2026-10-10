@@ -1,3 +1,4 @@
+import type { ConnectionDiagnostic } from '../../src/features/realtime/connection-diagnostics';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -16,6 +17,7 @@ declare global {
       sockets: WebSocket[];
       closeCodes: number[];
       transportFrames: ServerMessage[];
+      diagnostics: ConnectionDiagnostic[];
     };
   }
 }
@@ -69,6 +71,8 @@ export async function connectRoomTransport(
         }
       };
       const store = create(url);
+      const diagnostics: ConnectionDiagnostic[] = [];
+      store.onDiagnostic((event) => diagnostics.push(event));
       const frames: ServerMessage[] = [];
       const transportFrames: ServerMessage[] = [];
       store.onMessage((frame) => transportFrames.push(frame));
@@ -82,6 +86,7 @@ export async function connectRoomTransport(
         sockets,
         closeCodes,
         transportFrames,
+        diagnostics,
       };
       store.connect();
     },
