@@ -1,3 +1,4 @@
+import { resolve } from 'node:path';
 /** Closed dedicated proof profiles; the ordinary HTTP suite remains in the default runner. */
 export function realtimeProofProfile(name: string | undefined) {
   switch (name) {
@@ -28,17 +29,19 @@ export function assertRealtimeProofConfig(
     readonly outputDir?: unknown;
     readonly reporter?: unknown;
   },
+  web?: string,
 ) {
+  const expectedReport = web ? resolve(web, profile.report) : profile.report;
   const reporters = Array.isArray(config.reporter) ? config.reporter : [];
   const reported = reporters.some(
     (entry) =>
       Array.isArray(entry) &&
       entry[0] === 'json' &&
-      entry[1]?.outputFile === profile.report,
+      entry[1]?.outputFile === expectedReport,
   );
   if (
     config.testMatch !== profile.spec ||
-    config.outputDir !== profile.report.replace('-results.json', '') ||
+    config.outputDir !== expectedReport.replace('-results.json', '') ||
     !reported
   )
     throw new Error(
