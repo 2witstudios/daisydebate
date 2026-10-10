@@ -194,3 +194,12 @@ activate a runtime policy. Its cases cover invitation metadata without title or
 history, admission, durable member history and refusal without a member grant,
 with JavaScript enabled and disabled. Actual browser acceptance is recorded only
 when the hosted isolated-service runner executes the composed candidate.
+
+Contact safety has a native username form for block and unblock, available from
+the inbox. Both username and actor-ID routes use the same canonical safety
+operation: current subject and counterpart accounts, ordered pair fences and
+fresh participant authorization remain mandatory, while age/admission/read/post
+policies are not prerequisites. Unblocking grants neither request acceptance
+nor content access. Refused sends keep draft text and command identity; native
+browser controls exercise a blocked refusal followed by an authorized retry
+once the pair is unblocked.
