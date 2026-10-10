@@ -16,6 +16,7 @@ test('native browser role binding uses only its admitted isolated administrator 
   });
 });
 for (const rejected of [
+  'invalid target',
   administrator.replace('localhost', 'foreign.example'),
   administrator.replace('5432', '5433'),
   administrator.replace('_proof_test', '_foreign_test'),
