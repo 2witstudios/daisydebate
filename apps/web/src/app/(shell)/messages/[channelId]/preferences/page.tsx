@@ -7,6 +7,7 @@ import type { MessagingChannelPageProps } from '../../../../../features/messagin
 import { PreferenceForm } from '../../../../../ui/messaging/preference-form';
 import { GET } from '../../../../api/messaging/channels/[channelId]/preferences/route';
 import { changePreferenceAction } from './actions';
+import { preferenceFormState } from '../../../../../features/messaging/forms/preference-form';
 export const metadata = { title: 'Conversation preferences' };
 export default async function PreferencePage({
   params,
@@ -42,20 +43,10 @@ export default async function PreferencePage({
         </p>
       )}
       <PreferenceForm
-        state={formState(state)}
+        state={preferenceFormState(state)}
         action={changePreferenceAction.bind(null, channelId)}
       />
       <Link href={`/messages/${channelId}`}>Back to conversation</Link>
     </main>
   );
-}
-
-function formState(
-  state: ReturnType<typeof messagingPreferenceSchemas.result.parse>['state'],
-) {
-  return {
-    following: state === null ? '' : state.following ? 'yes' : 'no',
-    hidden: state === null ? '' : state.hidden ? 'yes' : 'no',
-    notificationLevel: state?.notificationLevel ?? '',
-  };
 }
