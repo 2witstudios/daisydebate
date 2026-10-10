@@ -11,6 +11,7 @@ import {
   type GroupManagementFormState,
 } from '../../../../../../features/messaging/forms/group-management-form';
 const manage = processRoute((routes) => routes.messaging.manageGroup);
+const invite = processRoute((routes) => routes.messaging.inviteGroup);
 export async function manageGroupAction(
   channelId: unknown,
   operation: unknown,
@@ -22,8 +23,13 @@ export async function manageGroupAction(
   let next: string;
   try {
     const command = parseGroupManagementForm(operation, channelId, form);
-    const response = await inProcessFetch(manage, incoming)(
-      '/api/messaging/groups/manage',
+    const response = await inProcessFetch(
+      operation === 'invite' ? invite : manage,
+      incoming,
+    )(
+      operation === 'invite'
+        ? '/api/messaging/groups/invite'
+        : '/api/messaging/groups/manage',
       {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -37,9 +43,7 @@ export async function manageGroupAction(
     if (!parsed.success || parsed.data.channelId !== command.channelId)
       return kept;
     next =
-      command.operation === 'leave'
-        ? '/messages'
-        : `/messages/${command.channelId}`;
+      operation === 'leave' ? '/messages' : `/messages/${command.channelId}`;
     revalidatePath('/messages');
   } catch {
     return kept;

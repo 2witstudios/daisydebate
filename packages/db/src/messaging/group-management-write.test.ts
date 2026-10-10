@@ -2,7 +2,11 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { fakeSql } from '../index.test-support';
-import { groupStoreFacts } from './group-store.test-support';
+import {
+  groupStoreFacts,
+  groupWriteBellRows,
+  groupWrittenBells,
+} from './group-store.test-support';
 import { writeGroupManagement } from './group-management-write';
 import { parseMessagingChannelFact } from './social';
 setupRitewayBun();
@@ -43,15 +47,7 @@ for (const operation of ['remove', 'transfer', 'archive'] as const)
       ...updates,
       [],
       [row(operation === 'archive' ? 'archived' : 'active')],
-      [],
-      [],
-      [[1, '9']],
-      [],
-      [],
-      [[2, '9']],
-      [],
-      [[3, '9']],
-      [],
+      ...groupWriteBellRows(),
     ]);
     const result = await writeGroupManagement(
       drizzle({ client }),
@@ -66,9 +62,7 @@ for (const operation of ['remove', 'transfer', 'archive'] as const)
     const grants = queries.filter((q) =>
       q.query.startsWith('update "messaging_group_grants"'),
     );
-    const bells = queries
-      .filter((q) => q.query.startsWith('insert into "outbox"'))
-      .map((q) => q.params.find((p) => typeof p === 'object' && p !== null));
+    const bells = groupWrittenBells(queries);
     assert({
       given: `fresh ${operation} authority with two current grants`,
       should:

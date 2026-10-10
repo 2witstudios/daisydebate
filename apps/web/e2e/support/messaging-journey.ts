@@ -60,6 +60,7 @@ async function openJourney(
       introduction,
       senderUsername: signup.members[0].username,
       recipientUsername: signup.members[1].username,
+      outsiderUsername: browserMemberUsername(signup.members, 2),
       async close() {
         await Promise.all(contexts.map((context) => context.close()));
         try {
@@ -146,10 +147,11 @@ export async function acceptMessagingJourney(
 export async function manageNativeMessagingGroup(
   page: Page,
   channelId: string,
-  operation: 'remove' | 'transfer' | 'archive' | 'leave',
+  operation: 'invite' | 'remove' | 'transfer' | 'archive' | 'leave',
   target?: string,
 ) {
   const labels = {
+    invite: 'Invite a person',
     remove: 'Remove a member',
     transfer: 'Transfer management',
     archive: 'Archive group',
@@ -168,4 +170,43 @@ export async function manageNativeMessagingGroup(
       ? /\/messages$/
       : new RegExp(`/messages/${channelId}$`),
   );
+}
+
+/** Both JS modes exercise renewed admission and approved pre-join history. */
+export async function renewNativeGroupInvitation(
+  journey: Awaited<ReturnType<typeof openMessagingGroupJourney>>,
+  creator: Page,
+  declined: Page,
+  text: string,
+) {
+  await manageNativeMessagingGroup(
+    creator,
+    journey.channelId,
+    'invite',
+    journey.outsiderUsername,
+  );
+  await declined.goto('/messages');
+  await declined
+    .getByRole('link', { name: 'Group invitation', exact: true })
+    .click();
+  await declined
+    .getByRole('button', { name: 'Accept invitation', exact: true })
+    .click();
+  await expect(declined).toHaveURL(
+    new RegExp(`/messages/${journey.channelId}$`),
+  );
+  await expect(
+    declined
+      .getByRole('list', { name: 'Message history' })
+      .getByText(text, { exact: true }),
+  ).toHaveCount(1);
+}
+
+function browserMemberUsername(
+  members: readonly { readonly username: string }[],
+  index: number,
+) {
+  const member = members[index];
+  if (!member) throw new Error('Messaging browser accounts unavailable');
+  return member.username;
 }

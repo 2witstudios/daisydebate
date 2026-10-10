@@ -1,8 +1,7 @@
-import { and, eq } from 'drizzle-orm';
+import { readMessagingGroupCommand } from './group-command-row';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
-import { messagingSocialCommands } from '../schema/messaging-social';
 import { withLockedMessagingAuthority } from './authority-frame';
 import { writeGroupManagement } from './group-management-write';
 import type {
@@ -29,21 +28,11 @@ export function createMessagingGroupManagementStore({
           async (authority) => {
             if (authority.fact.authority.kind !== 'private_group')
               throw createAppError('NOT_FOUND');
-            const [receipt] = await tx
-              .select({
-                actorId: messagingSocialCommands.actorId,
-                requestId: messagingSocialCommands.requestId,
-                kind: messagingSocialCommands.kind,
-                digest: messagingSocialCommands.digest,
-                channelId: messagingSocialCommands.resultChannelId,
-              })
-              .from(messagingSocialCommands)
-              .where(
-                and(
-                  eq(messagingSocialCommands.actorId, scope.actorId),
-                  eq(messagingSocialCommands.requestId, scope.requestId),
-                ),
-              );
+            const receipt = await readMessagingGroupCommand(
+              tx,
+              scope.actorId,
+              scope.requestId,
+            );
             const facts = {
               channel: authority.fact,
               accounts: authority.accounts,

@@ -116,6 +116,14 @@ export function createMessagingSocialSchemas(bounds: MessagingSocialBounds) {
       invitedActorIds: actors,
     }),
     inviteGroup: z.strictObject({ ...scoped, invitedActorIds: actors }),
+    inviteGroupUsernames: z.strictObject({
+      ...scoped,
+      invitedUsernames: z
+        .array(recipientUsername)
+        .min(1)
+        .max(bounds.batchActors)
+        .refine((names) => new Set(names).size === names.length),
+    }),
     decideGroupInvitation: z.strictObject({
       ...scoped,
       expectedGeneration: generation,

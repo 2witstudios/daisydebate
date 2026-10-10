@@ -237,3 +237,21 @@ list projection. Native membership forms preserve target and retry identity on
 refusal and work with JavaScript disabled. The expanded management integration
 and browser controls require execution on their exact composed candidate;
 source tests alone do not establish transactional or browser acceptance.
+
+Post-creation invitation issuance uses `channel.group.invite` over the actual
+current private-group cast and proposed nonmember actors. The native username
+form resolves intent only; the same transaction locks canonical accounts,
+selected contact pairs, and the channel before evaluating explicit approved
+admission. Issuance creates pending invitation associations, never member grants.
+Closed invitations may renew with an incremented generation; an already pending
+invitation refuses. Explicit injected member and pending-invitation budgets are
+required for new issuance, with no production default or DEC124/DEC127 approval
+inferred from isolated test values.
+
+The `group.invite` receipt binds the original channel and sorted proposed actor
+set. Every proposed actor is recorded in the existing command-subject table for
+subject-local export and erasure. Committed retries use the same minimal
+`channel.group.result` capability as management and cannot repeat admission or
+renew invitations. Expanded both-JavaScript-mode browser controls cover declined
+invitation renewal, approved late-join history, and renewed member revocation.
+Their acceptance requires the exact composed hosted execution.

@@ -185,3 +185,30 @@ test('username commands normalize discovery intent and forbid extra authority fi
       expected: false,
     });
 });
+
+test('post-creation invitation intent is bounded and never carries manager or membership authority', () => {
+  const command = {
+    version: 1,
+    requestId,
+    channelId,
+    invitedUsernames: ['Member_1'],
+  };
+  assert({
+    given: 'canonical username proposal for an existing group',
+    should: 'normalize intent and refuse duplicates or supplied authority',
+    actual: [
+      schemas.inviteGroupUsernames.parse(command).invitedUsernames,
+      schemas.inviteGroupUsernames.safeParse({
+        ...command,
+        invitedUsernames: ['Member_1', 'member_1'],
+      }).success,
+      schemas.inviteGroupUsernames.safeParse({ ...command, role: 'manager' })
+        .success,
+      schemas.inviteGroupUsernames.safeParse({
+        ...command,
+        invitedUsernames: [],
+      }).success,
+    ],
+    expected: [['member_1'], false, false, false],
+  });
+});
