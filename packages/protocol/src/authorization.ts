@@ -21,6 +21,7 @@ const authorizationCapabilities = [
   'channel.file.cleanup',
   'channel.manage',
   'channel.leave',
+  'channel.group.result',
   'channel.invitation.read',
   'channel.invitation.accept',
   'channel.invitation.decline',
