@@ -119,6 +119,9 @@ for (const javaScriptEnabled of [true, false]) {
       await sender
         .getByRole('link', { name: 'Clear search', exact: true })
         .click();
+      await expect(sender).toHaveURL(
+        new RegExp(`/messages/${journey.channelId}$`),
+      );
       await sender.reload();
       await expect(
         sender
