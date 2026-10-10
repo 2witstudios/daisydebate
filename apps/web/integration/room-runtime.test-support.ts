@@ -112,8 +112,8 @@ async function fixture() {
       (select coalesce(json_agg(o order by seq),'[]'::json) from outbox o where topic=${`room:${id}`}) outbox`;
     return JSON.stringify(r);
   };
-  const assemble = async () => {
-    let view = (await create()).view;
+  const assemble = async (overrides: Partial<RoomCreate> = {}) => {
+    let view = (await create(overrides)).view;
     view = (
       await command(host, view, {
         type: 'claim-seat',
