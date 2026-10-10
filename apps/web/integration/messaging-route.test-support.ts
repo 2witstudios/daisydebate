@@ -1,4 +1,6 @@
-import type { SQL } from 'bun';
+import { SQL } from 'bun';
+import { createId } from '@paralleldrive/cuid2';
+import { createRoutes } from '../src/server/routes';
 import { seedMessagingTestDm } from '@daisy/db/testing';
 import {
   messagingTestPosting,
@@ -7,7 +9,7 @@ import {
 import type { MessagingRuntimePolicy } from '../src/features/messaging/composition';
 import { requireMessagingActor } from '../src/features/messaging/principal';
 import { createAccountFlows, uniqueName } from './auth-account-helpers';
-import type { createTestApp } from './fixtures';
+import { createTestApp } from './fixtures';
 /** Two mounted suites use real signup/claim/session binding and the same isolated policy. */
 export async function messagingRouteActors(
   app: ReturnType<typeof createTestApp>,
@@ -59,4 +61,47 @@ export async function seedMessagingRouteDm(
     channelId,
     now,
   });
+}
+
+/** Native files and preferences share the same real mounted DM setup and scoped cleanup. */
+export async function mountedMessagingPair(
+  databaseUrl: string,
+  extensions: Partial<
+    Pick<Parameters<typeof createRoutes>[0], 'messagingFiles'>
+  > = {},
+) {
+  const app = createTestApp();
+  const actors = await messagingRouteActors(app);
+  return {
+    app,
+    ...actors,
+    client: new SQL(databaseUrl),
+    channelId: createId(),
+    routes: createRoutes({
+      ...app.app,
+      messagingPolicy: messagingRoutePolicy,
+      ...extensions,
+    }),
+  };
+}
+export async function closeMountedMessagingPair(
+  client: SQL,
+  channelId: string,
+  me: ReturnType<typeof requireMessagingActor>,
+  peer: ReturnType<typeof requireMessagingActor>,
+) {
+  await client.unsafe('delete from messaging_channels where id=$1', [
+    channelId,
+  ]);
+  await client.unsafe(
+    'delete from messaging_contact_pairs where low_actor_id=$1 and high_actor_id=$2',
+    [...[me.actorId, peer.actorId].sort()],
+  );
+  await client.unsafe("delete from outbox where payload->>'channelId'=$1", [
+    channelId,
+  ]);
+  await client.unsafe('delete from account_age where user_id in ($1,$2)', [
+    me.userId,
+    peer.userId,
+  ]);
 }

@@ -70,3 +70,13 @@ export function preferenceUnavailable(form: FormData): PreferenceFormState {
       'Could not change these preferences. Your selections are kept; try again.',
   };
 }
+
+export function preferenceFormState(
+  state: ReturnType<typeof messagingPreferenceSchemas.result.parse>['state'],
+): PreferenceFormState {
+  return {
+    following: state === null ? '' : state.following ? 'yes' : 'no',
+    hidden: state === null ? '' : state.hidden ? 'yes' : 'no',
+    notificationLevel: state?.notificationLevel ?? '',
+  };
+}
