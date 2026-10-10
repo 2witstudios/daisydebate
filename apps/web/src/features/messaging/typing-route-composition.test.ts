@@ -1,9 +1,15 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { fixedClock, sequentialId } from '@daisy/clock';
+import { fixedClock, sequentialId, systemClock } from '@daisy/clock';
 import { createMessagingUnitApp } from './messaging-app.test-support';
 import { messagingUnitPolicy } from './typing.test-support';
 import { composeMessagingTypingRoutes } from './typing-route';
 import { composeMessagingPreferenceRoutes } from './preference-route';
+import {
+  composeAuthServer,
+  memoryTables,
+  capturingSender,
+} from '../auth/auth-server.test-support';
+import { typingWorld } from './typing.test-support';
 setupRitewayBun();
 test('actual optional typing/preference app routes authenticate before configured stores and fail unavailable without explicit typing policy', async () => {
   const policy = messagingUnitPolicy(),
@@ -59,6 +65,123 @@ test('actual optional typing/preference app routes authenticate before configure
         ).status,
       ],
       expected: [[401, 401, 401, 401, 401], 503, 503, 503],
+    });
+  } finally {
+    await app.close();
+  }
+});
+
+test('signed-in app typing routes bind the principal and current account fence before any Redis operation', async () => {
+  const f = typingWorld(),
+    self = f.accounts[0]!.account,
+    tables = memoryTables(),
+    sender = capturingSender();
+  const auth = composeAuthServer(
+    {
+      emailSender: sender,
+      clock: systemClock,
+      getActorByUserId: async (userId) => ({ id: self.actorId, userId }),
+    },
+    tables,
+  );
+  await auth.instance.api.signInMagicLink({
+    body: { email: 'typing-member@daisy.example.com' },
+    headers: new Headers({ origin: auth.config.PUBLIC_APP_URL }),
+  });
+  const link = sender.sent[0]!;
+  const url = link.html.match(/href="([^"]+)"/)?.[1];
+  if (!url) throw new Error('Magic link missing');
+  const token = new URL(url.replaceAll('&amp;', '&')).searchParams.get('token');
+  const verified = await auth.instance.handler(
+    new Request(
+      auth.config.PUBLIC_APP_URL + '/api/auth/magic-link/verify?token=' + token,
+    ),
+  );
+  const cookie = verified.headers
+    .getSetCookie()
+    .map((value) => value.split(';')[0])
+    .join('; ');
+  if (!cookie) throw new Error('Verified session cookie missing');
+  const user = tables.user[0];
+  if (!user) throw new Error('Verified user missing');
+  user.username = 'typingmember';
+  const observed: unknown[] = [];
+  const app = createMessagingUnitApp({
+    clock: fixedClock(f.now),
+    ids: sequentialId('typing-app'),
+    messagingPolicy: {
+      ...f.policy,
+      typing: { ttlMs: 5000, refetchMs: 1000, maxActors: 2 },
+    },
+  });
+  const tx = {
+    execute: () => {
+      throw new Error('Nonmember age lookup forbidden');
+    },
+    insert: () => {
+      throw new Error('No insert');
+    },
+  };
+  const bound: typeof app = {
+    ...app,
+    auth: () => auth,
+    database: {
+      ...app.database,
+      messagingTypingStore: async (scope, budget, work) => {
+        observed.push([scope, budget]);
+        return work({
+          tx,
+          fact: f.channel,
+          channels: f.channels,
+          accounts: f.accounts.map((row) => ({
+            ...row.account,
+            member: false,
+          })),
+          notify: async () => {
+            throw new Error('No refused hint');
+          },
+        });
+      },
+    },
+  };
+  try {
+    const handler = composeMessagingTypingRoutes(bound),
+      origin = auth.config.PUBLIC_APP_URL;
+    const read = await handler(
+      new Request(origin + '/typing', { headers: { cookie } }),
+      false,
+      f.channel.channelId,
+    );
+    const write = await handler(
+      new Request(origin + '/typing', {
+        method: 'POST',
+        headers: { cookie, origin, 'content-type': 'application/json' },
+        body: JSON.stringify({
+          version: 1,
+          channelId: f.channel.channelId,
+          typing: true,
+        }),
+      }),
+      true,
+    );
+    assert({
+      given:
+        'real memory-backed signed session and actual app-bound route factory with current nonmember fence',
+      should:
+        'resolve principal then deny read/write before Redis, preserving canonical masking',
+      actual: [read.status, write.status, observed],
+      expected: [
+        404,
+        403,
+        Array(2).fill([
+          {
+            userId: String(user.id),
+            actorId: self.actorId,
+            channelId: f.channel.channelId,
+          },
+          2,
+        ]),
+      ],
     });
   } finally {
     await app.close();
