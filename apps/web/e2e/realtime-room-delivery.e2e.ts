@@ -1,4 +1,5 @@
 import { createId } from '@paralleldrive/cuid2';
+import type { BrowserContext, Page } from '@playwright/test';
 import {
   buildRoomTopic,
   roomCatalogChoiceSchema,
@@ -6,6 +7,7 @@ import {
   roomCreateSchema,
   ENVELOPE_VERSION,
   PROTOCOL_VERSION,
+  type RoomView,
 } from '@daisy/protocol';
 import { test, expect, openPage } from './support/fixtures';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
@@ -20,6 +22,33 @@ import {
 import { resolveE2EPorts } from '../playwright.config';
 
 requireLaunchSlot(resolve(import.meta.dirname, '../../..'), process.env);
+
+function changeDetails(context: BrowserContext, view: RoomView, title: string) {
+  return context.request.post(`/api/rooms/${view.id}/commands`, {
+    headers: { origin },
+    data: {
+      type: 'update-details',
+      commandId: createId(),
+      expectedVersion: view.version,
+      title,
+      topic: view.topic,
+      visibility: 'private',
+    },
+  });
+}
+
+function roomChanges(page: Page, version: number) {
+  return page.evaluate(
+    (version) =>
+      window.realtimeProof.frames.filter(
+        (frame) =>
+          frame.type === 'event' &&
+          frame.payload.kind === 'room.changed' &&
+          frame.payload.entityVersion === version,
+      ),
+    version,
+  );
+}
 
 test('real HTTP Room mutation reaches its authenticated browser subscriber and refuses a private outsider', async ({
   browser,
@@ -82,46 +111,19 @@ test('real HTTP Room mutation reaches its authenticated browser subscriber and r
         ),
       )
       .toBe(true);
-    const mutation = await host.request.post(
-      `/api/rooms/${before.id}/commands`,
-      {
-        headers: { origin },
-        data: {
-          type: 'update-details',
-          commandId: createId(),
-          expectedVersion: before.version,
-          title: 'Changed only through HTTP',
-          topic: before.topic,
-          visibility: 'private',
-        },
-      },
+    const mutation = await changeDetails(
+      host,
+      before,
+      'Changed only through HTTP',
     );
     expect(mutation.status()).toBe(200);
     const changed = roomViewSchema.parse((await mutation.json()).view);
     await expect
-      .poll(() =>
-        hostPage.evaluate(
-          (version) =>
-            window.realtimeProof.frames.filter(
-              (frame) =>
-                frame.type === 'event' &&
-                frame.payload.kind === 'room.changed' &&
-                frame.payload.entityVersion === version,
-            ).length,
-          changed.changeVersion,
-        ),
+      .poll(
+        async () => (await roomChanges(hostPage, changed.changeVersion)).length,
       )
       .toBe(1);
-    const bell = await hostPage.evaluate(
-      (version) =>
-        window.realtimeProof.frames.find(
-          (frame) =>
-            frame.type === 'event' &&
-            frame.payload.kind === 'room.changed' &&
-            frame.payload.entityVersion === version,
-        ),
-      changed.changeVersion,
-    );
+    const bell = (await roomChanges(hostPage, changed.changeVersion))[0];
     expect(bell?.type).toBe('event');
     if (bell?.type !== 'event')
       throw new Error('Validated Room bell unavailable');
@@ -158,19 +160,10 @@ test('real HTTP Room mutation reaches its authenticated browser subscriber and r
       window.realtimeProof.sockets.at(-1)!.close(4005, 'isolated interruption');
     });
     await expect.poll(() => ticketRequested).toBe(true);
-    const offlineMutation = await host.request.post(
-      `/api/rooms/${before.id}/commands`,
-      {
-        headers: { origin },
-        data: {
-          type: 'update-details',
-          commandId: createId(),
-          expectedVersion: changed.version,
-          title: 'Committed while the socket is disconnected',
-          topic: before.topic,
-          visibility: 'private',
-        },
-      },
+    const offlineMutation = await changeDetails(
+      host,
+      changed,
+      'Committed while the socket is disconnected',
     );
     expect(offlineMutation.status()).toBe(200);
     const offlineView = roomViewSchema.parse(
@@ -178,17 +171,9 @@ test('real HTTP Room mutation reaches its authenticated browser subscriber and r
     );
     resumeTicket();
     await expect
-      .poll(() =>
-        hostPage.evaluate(
-          (version) =>
-            window.realtimeProof.frames.filter(
-              (frame) =>
-                frame.type === 'event' &&
-                frame.payload.kind === 'room.changed' &&
-                frame.payload.entityVersion === version,
-            ).length,
-          offlineView.changeVersion,
-        ),
+      .poll(
+        async () =>
+          (await roomChanges(hostPage, offlineView.changeVersion)).length,
       )
       .toBe(1);
     await expect
