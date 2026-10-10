@@ -4,7 +4,7 @@ import type {
   FileReservation,
   FilePolicy,
 } from '@daisy/db/messaging-files';
-import type { FileDependencies } from './operations';
+import { finalizeMessagingFile, type FileDependencies } from './operations';
 const fileTestPolicy: FilePolicy = {
   maxFileBytes: 1024,
   maxStoredBytes: 2048,
@@ -125,4 +125,18 @@ export function fileOperationFixture() {
     },
     input: { version: 1, channelId, fileId, messageId, generation: 1 },
   };
+}
+
+export async function finalizeAfterCleanScan(
+  fixture: ReturnType<typeof fileOperationFixture>,
+  dependencies: FileDependencies = fixture.d,
+) {
+  const pending = finalizeMessagingFile(
+    fixture.input,
+    fixture.principal,
+    dependencies,
+  );
+  await fixture.scanStarted;
+  fixture.completeScan('clean');
+  return pending;
 }
