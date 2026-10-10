@@ -13,6 +13,7 @@ declare global {
       store: ConnectionStore;
       frames: ServerMessage[];
       release: () => void;
+      sockets: WebSocket[];
     };
   }
 }
@@ -51,12 +52,22 @@ export async function connectRoomTransport(
           createRealtimeProofStore: (url: string) => ConnectionStore;
         }
       ).createRealtimeProofStore;
+      const sockets: WebSocket[] = [];
+      const NativeSocket = window.WebSocket;
+      // Record actual native sockets so the proof can interrupt a real connection.
+      // No ticket, frame, server response or browser transport is replaced.
+      window.WebSocket = class extends NativeSocket {
+        constructor(endpoint: string | URL, protocols?: string | string[]) {
+          super(endpoint, protocols);
+          sockets.push(this);
+        }
+      };
       const store = create(url);
       const frames: ServerMessage[] = [];
       const release = store.subscribeTopic(topic, (frame) => {
         frames.push(frame);
       });
-      window.realtimeProof = { store, frames, release };
+      window.realtimeProof = { store, frames, release, sockets };
       store.connect();
     },
     {
