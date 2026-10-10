@@ -131,10 +131,28 @@ export function createSubscriptionDelivery({
   async function deliverHintTo(connection: Connection, frame: TypingHint) {
     const sub = connection.topics.get(frame.topic);
     if (!sub?.attached || sub.initializing) return;
-    const outcome = await refresh(connection, frame.topic, sub);
-    if (outcome === 'denied' && ownsSubscription(connection, frame.topic, sub))
+    // A lossy hint observes the durable generation; it must never supersede
+    // an in-flight durable event's authority attempt or extend its lease.
+    const observation = sub.lease.observe();
+    const decision = await readSubscriptionDecision(
+      authorize,
+      connection,
+      frame.topic,
+    );
+    if (
+      !ownsSubscription(connection, frame.topic, sub) ||
+      !sub.lease.observes(observation)
+    )
+      return;
+    if (!decision) {
+      transport.detach(connection, frame.topic, sub);
       connection.topics.delete(frame.topic);
-    if (outcome === 'allowed')
+      return;
+    }
+    if (
+      sub.lease.observes(observation, decision.validUntil) &&
+      transport.current(connection, frame.topic, sub)
+    )
       publishFrame(connection, frame.topic, sub, () => frame);
   }
   function hint(frame: unknown): Promise<void> {
