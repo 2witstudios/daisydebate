@@ -28,6 +28,42 @@ files needed for the authorized outcome may be added to the working scope; check
 active writers before editing their files. Respect explicit exclusions, protected
 feature ownership and human-only actions. Do not edit another agent's worktree.
 
+## Receiving branch authority
+
+Within an owner-authorized outcome, owners, point guards, root/main-level agents
+and worktree agents have the same non-main integration authority. Merge actual
+producer commits into only the receiving agent's own allocated checkout and
+branch. A root agent allocates an isolated receiving checkout; it never merges
+in the parent-main checkout. Do not modify a producer's checkout or any other
+agent's branch. Ordinary merge commits and conflict resolution are allowed;
+coordinate actual concurrent writers/resources, preserve dirty work, and never
+force-push, rewrite history or reset work.
+
+Before integrating, resolve the repository's symbolic default branch (remote
+HEAD and live repository metadata), and inspect live target protection, including
+branch protection and rulesets. `main`, the default branch and protected release
+targets retain their existing acceptance/human protections; any other protected
+target also follows its protection policy. Unknown or conflicting default or
+protection facts do not authorize a merge. A non-main name alone is insufficient.
+For PR merge automation, re-read the live PR's repository, base and head, compare
+its base with the intended allocated receiving branch, and recheck target
+protection immediately before acting. Refuse a mismatch or changed candidate;
+never let an integration command fall through to a direct main/default merge.
+
+Allowed unprotected non-main integration does not require global Done, separately
+approved producers, green whole-app CI, or root permission for each intermediate
+step. Pin producer and integration SHAs, contract, ownership and provisional gaps.
+Keep failing/deferred checks honest and preserve security and tests. Use one
+short-lived feature integration branch and an umbrella PR for the composed
+outcome; child branches need not each be main-ready. Integration grants neither
+Done nor main acceptance. Main/default/protected-release acceptance still needs
+completed transitions, applicable proof and independent exact-candidate review;
+production, identity, secrets, deployment and data retain human sign-off.
+
+CI runs for PRs targeting any branch; push CI runs only for main. Its failures
+remain visible evidence during branch composition. Do not change workflow
+triggers or require each child to pass whole-app acceptance before integration.
+
 ## Long-running execution
 
 Keep one durable delivery record with the objective, remaining work, source
@@ -103,9 +139,10 @@ Main acceptance requires the completed transition, reconciled contracts,
 architecture and security boundaries, applicable tests, migration integrity,
 resolved blockers and majors, and independent review of the exact PR head.
 Required GitHub CI/E2E/review-record checks must pass. Branch feedback is not an
-acceptance record. Autonomous agents never merge directly; they may request
+acceptance record. Autonomous agents never merge directly into main/default/protected release
+targets; for main they may request
 auto-merge only after confirming the live main ruleset requires review-record.
-The owner retains control of merges. Done remains an evidence-backed completion
+The owner retains existing protected-target merge authority. Done remains an evidence-backed completion
 state, not something a builder grants itself after a cherry-pick or branch push.
 
 Documentation-only acceptance is determined from the live PR diff and Git tree

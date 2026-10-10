@@ -32,7 +32,7 @@ review fixes and continuation.
 6. Before main acceptance, reconcile the complete composed candidate, applicable
    gates, contracts, security and migration integrity. Obtain independent
    exact-head acceptance review and obey main's required checks. Deliver with
-   `/pr` and `/handoff`; never grant yourself Done or merge directly.
+   `/pr` and `/handoff`; never grant yourself Done or directly merge main/default/protected release targets.
 
 Escalate ambiguity in product intent, changed outcomes, real writer conflicts and
 human-only production/identity/secret/data actions. Continue unaffected work.
@@ -41,3 +41,26 @@ with `pu send`; the owner is not the message bus. Native `pu status` and `pu log
 provide agent state. A stopped tool or context handoff does not reauthorize scope.
 
 `/epic-pipeline <outcome>` resumes the first unfinished part of the delivery.
+
+## Receiving branch authority
+
+Within owner-authorized work, owners, point guards, root/main-level agents and
+worktree agents may merge producers into their own allocated unprotected
+non-main receiving branch. Root agents use an isolated receiving checkout, never
+the parent-main checkout. Coordinate actual writers/resources; ordinary merges
+and conflict resolution are allowed, never another agent's checkout/branch,
+force-push, history rewrite, reset or dirty-work loss. Resolve symbolic default
+and live branch protection/rulesets before acting; main, default and protected
+release targets retain acceptance/human protections, other protected targets
+follow their policy, and unknown protection facts refuse integration. Before PR
+merge automation, re-read live repository/base/head and verify the intended
+allocated receiving branch and candidate; refuse mismatches or changed targets.
+
+Non-main integration needs no global Done, separate producer approval, green
+whole-app CI or per-step root permission. Pin source/integration SHAs and gaps,
+record failed/deferred checks honestly, and preserve security/tests. One
+short-lived integration branch and umbrella PR may compose children before they
+are main-ready. Integration grants neither Done nor main acceptance. Autonomous
+agents never merge directly into main/default/protected release targets; request
+main auto-merge only under the live required review-record ruleset and applicable
+checks, otherwise report ready for owner merge. Production retains human gates.
