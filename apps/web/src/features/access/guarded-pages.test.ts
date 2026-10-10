@@ -89,6 +89,8 @@ const rendered: Readonly<Record<string, () => Promise<{ default: unknown }>>> =
       import('../../app/(shell)/messages/new/page'),
     '(shell)/messages/page.tsx': () =>
       import('../../app/(shell)/messages/page'),
+    '(shell)/messages/[channelId]/preferences/page.tsx': () =>
+      import('../../app/(shell)/messages/[channelId]/preferences/page'),
     '(shell)/messages/[channelId]/attachments/page.tsx': () =>
       import('../../app/(shell)/messages/[channelId]/attachments/page'),
     '(shell)/messages/[channelId]/page.tsx': () =>

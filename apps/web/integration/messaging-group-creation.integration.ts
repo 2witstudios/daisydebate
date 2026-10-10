@@ -1,3 +1,4 @@
+import { closeMessagingGroupFixture } from './messaging-fixture.test-support';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { requireTestServices } from '@daisy/config';
@@ -136,14 +137,6 @@ test('real group creation installs only creator authority and erases counterpart
       'delete from messaging_social_commands where actor_id=$1 and request_id in ($2,$3)',
       [f.fixture.actorId, requestId, unrelatedRequestId],
     );
-    await f.client.unsafe('delete from messaging_channels where id=$1', [
-      channelId,
-    ]);
-    await f.client.unsafe("delete from outbox where payload->>'channelId'=$1", [
-      channelId,
-    ]);
-    await f.fixture.cleanup();
-    await f.database.close();
-    await f.client.close();
+    await closeMessagingGroupFixture(f, channelId);
   }
 });
