@@ -35,7 +35,8 @@ async function openJourney(
       !recipient ||
       !outsider ||
       !recipientAccount ||
-      !signup.members[1]
+      !signup.members[1] ||
+      !signup.members[0]
     )
       throw new Error('Messaging browser accounts unavailable');
     const introduction = 'An isolated browser message request';
@@ -57,6 +58,7 @@ async function openJourney(
       outsider,
       channelId,
       introduction,
+      senderUsername: signup.members[0].username,
       async close() {
         await Promise.all(contexts.map((context) => context.close()));
         try {

@@ -44,6 +44,9 @@ export default async function MessagesPage({
       <nav aria-label="Start a conversation" className="flex gap-4">
         <Link href="/messages/new">Message someone</Link>
         <Link href="/messages/new?kind=group">Create private group</Link>
+        <Link href="/messages/contacts" className="text-accent hover:underline">
+          Contact safety
+        </Link>
       </nav>
       {inbox === null ? (
         <p role="status">Messages are unavailable. Refresh to try again.</p>
