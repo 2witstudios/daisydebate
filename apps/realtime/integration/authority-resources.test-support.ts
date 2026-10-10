@@ -10,14 +10,26 @@ export async function authorityResources(
   services: { databaseUrl: string; redisUrl: string },
   clock: Clock,
   maxSubscriptions = 64,
+  afterCatchup?: () => Promise<void>,
 ) {
   const client = new SQL(services.databaseUrl, { max: 1 });
+  const database = createDatabase({
+    url: services.databaseUrl,
+    client,
+    nextActorId: () => systemId.next(),
+  });
   const resources = createRealtimeApp({
-    database: createDatabase({
-      url: services.databaseUrl,
-      client,
-      nextActorId: () => systemId.next(),
-    }),
+    database: {
+      ...database,
+      async readOutboxCatchup(
+        ...args: Parameters<typeof database.readOutboxCatchup>
+      ) {
+        const result = await database.readOutboxCatchup(...args);
+        // Test scheduling only: never replace rows, authority or the real pool.
+        await afterCatchup?.();
+        return result;
+      },
+    },
     env: {
       NODE_ENV: 'test',
       DATABASE_URL: services.databaseUrl,

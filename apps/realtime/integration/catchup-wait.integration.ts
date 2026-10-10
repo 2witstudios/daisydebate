@@ -16,7 +16,10 @@ setupRitewayBun();
 requireTestServices(process.env);
 
 test('real SQL catchup wait racing a committed write delivers history and live invalidation once', async () => {
-  const fixture = await socketAuthorityFixture();
+  let afterCatchup = async () => {};
+  const fixture = await socketAuthorityFixture(undefined, 64, () =>
+    afterCatchup(),
+  );
   const topic = 'standings:catchup-wait';
   const positions: Array<{ txid: string; seq: bigint }> = [];
   let release = () => {};
@@ -89,11 +92,28 @@ test('real SQL catchup wait racing a committed write delivers history and live i
     if (!written) throw new Error('Racing durable row unavailable');
     const racing = { txid: String(written.txid), seq: BigInt(written.seq) };
     positions.push(racing);
+    // Keep the *actual* query result pending while the real drain advances
+    // beyond captured C. Its pool connection is already free. This fixes the
+    // interleaving before fresh replay authorization, not the result or sink.
+    afterCatchup = async () => {
+      await waitFor(
+        () =>
+          encodeOutboxCursor(fixture.runtime.drain.cursor()) ===
+          encodeOutboxCursor(racing),
+      );
+    };
     release();
     await locked;
     await waitForOutboxFinality(fixture.client, racing.txid, { now: Date.now });
     await notifyOutbox(fixture.client, racing);
     const acknowledgement = await subscribed;
+    assert({
+      given:
+        'the real history query and real drain settled in the controlled write race',
+      should: 'acknowledge current complete catchup before waiting for events',
+      actual: acknowledgement.type,
+      expected: 'subscribed',
+    });
     await waitFor(() =>
       peer.frames.some(
         (frame) =>

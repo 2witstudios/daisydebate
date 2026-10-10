@@ -40,9 +40,10 @@ test('two actual instances consume durable access and session revocations withou
       now: () => 0,
     });
     const round = await rounds.seed('private', 'affirmative');
+    const instances = [fixture.runtime, replica];
     const peers = [];
     const acknowledgements: string[] = [];
-    for (const runtime of [fixture.runtime, replica]) {
+    for (const runtime of instances) {
       const port = runtime.server.port;
       if (port === undefined)
         throw new Error('Actual authority listener unavailable');
@@ -99,7 +100,7 @@ test('two actual instances consume durable access and session revocations withou
     };
     const access = await control('access.revoked', round.id);
     await waitFor(() =>
-      [fixture.runtime, replica].every(
+      instances.every(
         (runtime) =>
           encodeOutboxCursor(runtime.drain.cursor()) ===
           encodeOutboxCursor(access),

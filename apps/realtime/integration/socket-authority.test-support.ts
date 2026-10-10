@@ -11,6 +11,7 @@ import { testOrigin } from './support';
 export async function socketAuthorityFixture(
   serve?: typeof Bun.serve,
   maxSubscriptions = 64,
+  afterCatchup?: () => Promise<void>,
 ) {
   const services = requireTestServices(process.env);
   const client = new SQL(services.databaseUrl);
@@ -24,6 +25,7 @@ export async function socketAuthorityFixture(
     services,
     { now: () => new Date(initial + elapsed).toISOString() },
     maxSubscriptions,
+    afterCatchup,
   );
   const eraseFixture = async () => {
     await client`delete from session where id=${sessionId}`;
