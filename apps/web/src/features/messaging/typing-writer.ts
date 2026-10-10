@@ -23,10 +23,6 @@ export function createTypingWriter({
     timer = null;
   };
   const flush = async () => {
-    if (busy) {
-      queued = true;
-      return;
-    }
     busy = true;
     do {
       queued = false;
