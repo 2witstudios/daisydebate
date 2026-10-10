@@ -1,4 +1,5 @@
 import { expect, test } from './support/fixtures';
+import type { Page } from '@playwright/test';
 import { resolveE2EPorts } from '../playwright.config';
 import { buildRealtimeHarnessScript } from './support/realtime-harness';
 
@@ -45,13 +46,16 @@ function stubTicketFetchAndCountingSocket(socketUrl: string) {
     CountingSocket;
 }
 
+async function prepareCloseControl(page: Page) {
+  await page.goto(realtimeOrigin + '/health/live');
+  await page.addScriptTag({ content: buildRealtimeHarnessScript() });
+  await page.evaluate(stubTicketFetchAndCountingSocket, socketUrl);
+}
+
 test('opens exactly one socket per tab even when many components mount, and the real 4001 close reaction reaches terminal signed-out after three tries', async ({
   page,
 }) => {
-  const harnessScript = buildRealtimeHarnessScript();
-  await page.goto(realtimeOrigin + '/health/live');
-  await page.addScriptTag({ content: harnessScript });
-  await page.evaluate(stubTicketFetchAndCountingSocket, socketUrl);
+  await prepareCloseControl(page);
 
   // The three connect() calls and the count read happen inside one
   // page.evaluate: createSocket runs synchronously inside connect(), so the
@@ -108,10 +112,7 @@ test('opens exactly one socket per tab even when many components mount, and the 
 test('negative control: a store never told to connect opens no socket against the real scaffold', async ({
   page,
 }) => {
-  const harnessScript = buildRealtimeHarnessScript();
-  await page.goto(realtimeOrigin + '/health/live');
-  await page.addScriptTag({ content: harnessScript });
-  await page.evaluate(stubTicketFetchAndCountingSocket, socketUrl);
+  await prepareCloseControl(page);
 
   const socketCount = await page.evaluate((url) => {
     window.__daisyRealtimeHarness(url);
