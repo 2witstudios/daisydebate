@@ -3,6 +3,12 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createContext, runInContext } from 'node:vm';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import {
+  buildChannelTopic,
+  buildDebateTopic,
+  buildRoomTopic,
+  buildUserInboxTopic,
+} from '@daisy/protocol';
 
 setupRitewayBun();
 
@@ -47,20 +53,29 @@ async function restrictedFrameParser() {
 
 test('actual browser frame bundle validates after dynamic-code permission changes', async () => {
   const parse = await restrictedFrameParser();
+  const id = 'b'.repeat(24);
+  const bells = [
+    {
+      topic: buildRoomTopic(id),
+      payload: { kind: 'room.changed', ids: [id], entityVersion: 1 },
+    },
+    {
+      topic: buildDebateTopic(id),
+      payload: { kind: 'debate.phase-changed', ids: [id], entityVersion: 1 },
+    },
+    {
+      topic: buildChannelTopic(id),
+      payload: { kind: 'channel.changed', channelId: id, changeVersion: 1 },
+    },
+    {
+      topic: buildUserInboxTopic(id),
+      payload: { kind: 'messaging.inbox.changed' },
+    },
+  ];
   const frames = [
     { v: 1, type: 'ready' },
     { v: 1, type: 'pong', id: 'ping-1' },
-    {
-      v: 1,
-      type: 'event',
-      topic: `room:${'b'.repeat(24)}`,
-      position: '1:1',
-      payload: {
-        kind: 'room.changed',
-        ids: ['b'.repeat(24)],
-        entityVersion: 1,
-      },
-    },
+    ...bells.map((bell) => ({ v: 1, type: 'event', position: '1:1', ...bell })),
   ];
   assert({
     given: 'the actual reader initializes before Function is refused',
