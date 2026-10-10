@@ -4,17 +4,17 @@ import { deriveSlot, slotEnvValues, worktreeSlot } from './slot-model';
 import { resolveCheckout } from './slot';
 setupRitewayBun();
 
+type BrowserJob = {
+  env?: Record<string, string>;
+  services: Record<
+    string,
+    { image: string; ports: string[]; options?: string }
+  >;
+  steps: { run?: string; env?: Record<string, string> }[];
+};
+
 type BrowserWorkflow = {
-  jobs: {
-    e2e: {
-      env?: Record<string, string>;
-      services: Record<
-        string,
-        { image: string; ports: string[]; options?: string }
-      >;
-      steps: { run?: string; env?: Record<string, string> }[];
-    };
-  };
+  jobs: { e2e: BrowserJob; 'room-launch': BrowserJob };
 };
 
 describe('ROOM-6.1b browser CI cleanup admission', () => {
@@ -84,20 +84,17 @@ describe('native browser file-scanner prerequisite', () => {
         new URL('../.github/workflows/e2e.yml', import.meta.url),
       ).text(),
     ) as BrowserWorkflow;
-    const job = workflow.jobs.e2e;
+    const job = workflow.jobs['room-launch'];
     const scanner = job.services.clamd;
 
     assert({
-      given: 'the native Playwright browser job',
+      given: 'the isolated Room Launch and messaging browser job',
       should: 'provide the real test scanner on its explicit local port',
       actual: {
         image: scanner?.image,
         ports: scanner?.ports,
         healthCheck: scanner?.options?.includes('--health-cmd "clamdcheck.sh"'),
-        scannerPort:
-          job.steps.find(
-            (step) => step.run === 'bun run --cwd apps/web test:e2e',
-          )?.env?.CLAMD_TEST_PORT ?? job.env?.CLAMD_TEST_PORT,
+        scannerPort: job.env?.CLAMD_TEST_PORT,
       },
       expected: {
         image: 'clamav/clamav:1.4.6',
