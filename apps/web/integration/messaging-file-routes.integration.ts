@@ -4,72 +4,35 @@ import { join } from 'node:path';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
-import {
-  messagingTestPosting,
-  messagingTestReading,
-} from '@daisy/auth/testing';
-import { seedMessagingTestDm } from '@daisy/db/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createRoutes } from '../src/server/routes';
 import { createTestApp, origin } from './fixtures';
-import { createAccountFlows, uniqueName } from './auth-account-helpers';
+import {
+  messagingRouteActors,
+  seedMessagingRouteDm,
+  messagingRoutePolicy,
+} from './messaging-route.test-support';
 import { requireFileScannerPort } from './messaging-files.test-support';
-import { requireMessagingActor } from '../src/features/messaging/principal';
 import { messagingFileProofRuntime } from './messaging-file-runtime.test-support';
 import { nativeFileResponse } from '../src/features/messaging/files/form-response';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 const scannerPort = requireFileScannerPort(process.env.CLAMD_TEST_PORT);
 test('mounted native multipart attaches scanned private content and peers download only through current canonical authority', async () => {
-  const app = createTestApp(),
-    accounts = createAccountFlows(app);
-  const first = await accounts.signUp(),
-    second = await accounts.signUp();
-  await accounts.claim(first.cookie, { username: uniqueName() });
-  await accounts.claim(second.cookie, { username: uniqueName() });
-  const firstIdentity = await accounts.identifyAs(first.cookie),
-    secondIdentity = await accounts.identifyAs(second.cookie);
-  if (
-    firstIdentity.state !== 'member' ||
-    secondIdentity.state !== 'member' ||
-    !firstIdentity.principal.actorId ||
-    !secondIdentity.principal.actorId
-  )
-    throw new Error('Real members required');
-  const me = requireMessagingActor(firstIdentity.principal),
-    peer = requireMessagingActor(secondIdentity.principal),
-    client = new SQL(databaseUrl),
+  const app = createTestApp();
+  const { first, second, me, peer } = await messagingRouteActors(app);
+  const client = new SQL(databaseUrl),
     channelId = createId(),
     requestId = createId();
   const directory = await mkdtemp(join(tmpdir(), 'daisy-native-files-'));
   const now = app.app.clock.now();
   const routes = createRoutes({
     ...app.app,
-    messagingPolicy: {
-      bounds: { messageUnits: 100, pageItems: 20 },
-      maxBodyBytes: 1024,
-      editWindowMs: 60000,
-      posting: messagingTestPosting,
-      reading: messagingTestReading,
-      limits: {
-        actorSend: { max: 10, windowSeconds: 60 },
-        channelSend: { max: 10, windowSeconds: 60 },
-        read: { max: 20, windowSeconds: 60 },
-      },
-    },
+    messagingPolicy: messagingRoutePolicy,
     messagingFiles: messagingFileProofRuntime(directory, scannerPort),
   });
   try {
-    await client.unsafe(
-      "insert into account_age(user_id,birth_month,version,recorded_at) values($1,'2000-01',1,$3),($2,'2000-01',1,$3)",
-      [me.userId, peer.userId, now],
-    );
-    await seedMessagingTestDm(client, {
-      actorId: me.actorId,
-      otherActorId: peer.actorId,
-      channelId,
-      now,
-    });
+    await seedMessagingRouteDm(client, me, peer, channelId, now);
     const sent = await routes.messaging.send(
       app.jsonPost(
         '/api/messaging/messages',
@@ -186,21 +149,30 @@ test('mounted native multipart attaches scanned private content and peers downlo
       expected: 503,
     });
   } finally {
-    await client.unsafe('delete from messaging_channels where id=$1', [
-      channelId,
-    ]);
-    await client.unsafe(
-      'delete from messaging_contact_pairs where low_actor_id=$1 and high_actor_id=$2',
-      [...[me.actorId, peer.actorId].sort()],
-    );
-    await client.unsafe("delete from outbox where payload->>'channelId'=$1", [
-      channelId,
-    ]);
-    await client.unsafe('delete from account_age where user_id in ($1,$2)', [
-      me.userId,
-      peer.userId,
-    ]);
-    await client.close();
-    await rm(directory, { recursive: true, force: true });
+    try {
+      await client.unsafe('delete from messaging_files where channel_id=$1', [
+        channelId,
+      ]);
+      await client.unsafe('delete from messaging_channels where id=$1', [
+        channelId,
+      ]);
+      await client.unsafe(
+        'delete from messaging_contact_pairs where low_actor_id=$1 and high_actor_id=$2',
+        [...[me.actorId, peer.actorId].sort()],
+      );
+      await client.unsafe("delete from outbox where payload->>'channelId'=$1", [
+        channelId,
+      ]);
+      await client.unsafe('delete from account_age where user_id in ($1,$2)', [
+        me.userId,
+        peer.userId,
+      ]);
+    } finally {
+      try {
+        await client.close();
+      } finally {
+        await rm(directory, { recursive: true, force: true });
+      }
+    }
   }
 }, 30000);
