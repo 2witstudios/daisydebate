@@ -19,6 +19,7 @@ test('a file read frame cannot admit or mutate an upload', async () => {
     finalize: operation,
     cancel: operation,
     access: operation,
+    listMessageFiles: operation,
   };
   const read = scopeFileFrame(frame, 'read');
   for (const method of [
