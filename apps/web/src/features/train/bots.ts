@@ -29,7 +29,7 @@ export const selectBotHref = (id: string): string =>
     : `${trainDestinations.bots}?bot=${id}`;
 
 /** Cast selection happens in the durable room, never through this sample roster URL. */
-export const debateBotHref = (): string => '/play';
+export const debateBotHref = (): string => '/play/room';
 
 type CarouselCard = {
   readonly bot: Bot;

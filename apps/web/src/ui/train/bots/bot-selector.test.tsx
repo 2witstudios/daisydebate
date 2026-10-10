@@ -23,7 +23,7 @@ describe('BotSelectorPage', () => {
         html.includes('Quick-witted and dry'),
         html.includes('Crisp and quick, with a dry edge'),
         html.includes('Witty'),
-        html.includes('href="/play"'),
+        html.includes('href="/play/room"'),
         html.includes('Create a debate'),
       ],
       expected: [true, true, true, true, true],
