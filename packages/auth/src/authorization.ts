@@ -228,12 +228,16 @@ export function authorize({
 }
 const decision = (allowed: boolean): AuthorizationDecision =>
   allowed ? allow : deny('missing-capability');
-function specialResourceDecision(
+function resolveMemberResource(
   actorId: string,
   capability: AuthorizationCapability,
   resource: AuthorizationInput['resource'],
   context: AuthorizationInput['context'],
-): AuthorizationDecision | null {
+):
+  | AuthorizationDecision
+  | RoomAuthorizationFact
+  | RoundAuthorizationFact
+  | ChannelAuthorizationFact {
   switch (resource.kind) {
     case 'group_invitation':
       return decision(
@@ -252,7 +256,7 @@ function specialResourceDecision(
     case 'room_collection':
       return allow;
     default:
-      return null;
+      return resource;
   }
 }
 function memberDecision(
@@ -261,21 +265,18 @@ function memberDecision(
   resource: Exclude<AuthorizationInput['resource'], { kind: 'foundation' }>,
   context: AuthorizationInput['context'],
 ): AuthorizationDecision {
-  const collectionDecision = specialResourceDecision(
+  const resolved = resolveMemberResource(
     actorId,
     capability,
     resource,
     context,
   );
-  if (collectionDecision !== null) return collectionDecision;
-  if (!('revision' in resource)) return deny('denied');
-  if (!positiveRevision(resource.revision)) return deny('denied');
-  if (resource.kind === 'round') return roundDecision(actorId, resource);
-  return resource.kind === 'room'
-    ? roomDecision(actorId, capability, resource)
-    : resource.kind === 'channel'
-      ? channelDecision(actorId, capability, resource, context)
-      : deny('denied');
+  if ('allow' in resolved) return resolved;
+  if (!positiveRevision(resolved.revision)) return deny('denied');
+  if (resolved.kind === 'round') return roundDecision(actorId, resolved);
+  return resolved.kind === 'room'
+    ? roomDecision(actorId, capability, resolved)
+    : channelDecision(actorId, capability, resolved, context);
 }
 
 function roundDecision(
