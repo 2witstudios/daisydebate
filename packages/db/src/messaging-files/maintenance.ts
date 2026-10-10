@@ -20,7 +20,10 @@ async function dueOwners(
   const rows = await tx.execute(sql`
     select f.id as "fileId", f.owner_actor_id as "actorId", a.user_id as "userId"
     from messaging_files f join actors a on a.id=f.owner_actor_id
-    where f.channel_id=${channelId} and f.id = any(${fileIds}::text[]) and f.lifecycle in ('reserved','quarantined')
+    where f.channel_id=${channelId} and f.id in (${sql.join(
+      fileIds.map((id) => sql`${id}`),
+      sql`, `,
+    )}) and f.lifecycle in ('reserved','quarantined')
       and f.expires_at <= ${new Date(now)} order by f.owner_actor_id
   `);
   return [...rows].map((row) => ({
