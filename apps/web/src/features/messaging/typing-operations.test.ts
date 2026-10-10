@@ -172,3 +172,38 @@ test('peer lease expiry during notification clears the returned aggregate using 
     },
   });
 });
+
+test('authorized peer typing refetch is bounded by the actual remaining lease lifetime', async () => {
+  const f = fixture();
+  const now = '2026-10-10T12:00:04.900Z';
+  f.setSnapshot({
+    now,
+    authority: typingAuthority({
+      channels: f.channels,
+      accounts: f.accounts,
+      policy: f.policy,
+      now,
+    }),
+  });
+  const result = await runTypingFrame({
+    ...f.input,
+    typing: undefined,
+    read: async () => [f.leases[1]!],
+  });
+  assert({
+    given: 'a current peer lease with only100ms remaining before expiry',
+    should:
+      'project typing and refetch by that expiry without renewing or notifying',
+    actual: [result, f.writes, f.hints],
+    expected: [
+      {
+        version: 1,
+        channelId: f.channel.channelId,
+        typing: true,
+        refreshAfterMs: 100,
+      },
+      [],
+      [],
+    ],
+  });
+});
