@@ -273,5 +273,21 @@ with inert attachment filenames and no object key, public vendor URL or signed
 bearer URL. Deployment composition remains unavailable without explicit policy,
 private-object and scanner ports. Native fixtures use real private filesystem
 storage and clamd only in their validated isolated slot; fixture values do not
-approve privacy, retention or numeric product policies. Production expiry and
-physical deletion scheduling remains an outstanding composition obligation.
+approve privacy, retention or numeric product policies.
+
+The optional file runtime maintenance configuration supplies explicit cadence and
+batch limits. The existing web process schedules bounded reservation expiry and
+private deletion work, prevents overlapping runs, and awaits current work before
+closing pools. Expiry discovers all due owners for a channel, acquires canonical
+account→pair→channel fences, and rereads owners after waits; unfenced owner drift
+refuses that channel until a later run. Only expired reserved/quarantined rows
+transition to deleting. Current membership, posting or age admission does not
+confer cleanup authority. Missing durable authority is never recreated.
+
+Physical deletion uses the delivered trusted provider: linked deleting files and
+unlinked subject-erasure intents retain their storage charge until the private
+store resolves deletion acknowledgement. An outage preserves the charged row
+for retry. Logs reuse content-free sweep counts/status; object keys and subject
+associations are not logged. Missing runtime/maintenance configuration schedules
+nothing. Deployment approval of vendors, cadence and policy remains outstanding;
+branch composition does not activate collection or approve pending retention.

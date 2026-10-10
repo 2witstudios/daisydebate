@@ -148,3 +148,77 @@ test('native pending discard preserves canonical refusal and infrastructure stat
     expected: [503, 303, `/messages/${fixture.channelId}`, 2],
   });
 });
+
+test('native multipart carries real reserve/upload/scan/finalize operations and keeps a discard token after revocation', async () => {
+  for (const revoked of [false, true]) {
+    const fixture = fileOperationFixture();
+    const pdf = '%PDF-1.7\nhello\n%%EOF';
+    fixture.frame.reserve = async () => ({
+      ...fixture.reservation,
+      reservedBytes: new TextEncoder().encode(pdf).length,
+    });
+    const boundary = {
+      logger: silentLogger,
+      origin: () => 'https://example.test',
+      identify: async () => ({
+        state: 'member' as const,
+        username: 'ada',
+        principal: fixture.principal,
+      }),
+    };
+    const policy = fixture.d.policy;
+    if (!policy) throw new Error('Explicit fixture policy required');
+    const files = createMessagingFileHandlers({
+      boundary,
+      maxJsonBytes: 1024,
+      bounds: policy,
+      dependencies: () => fixture.d,
+    });
+    const form = new FormData();
+    form.set('requestId', 'r'.repeat(24));
+    form.set('file', new File([pdf], 'notes.pdf', { type: 'application/pdf' }));
+    const response = nativeFileHandler(
+      {
+        boundary,
+        files,
+        maxMultipartBytes: 2048,
+        respond: (state) =>
+          nativeFileResponse(fixture.channelId, fixture.messageId, state),
+      },
+      new Request('https://example.test/attach', {
+        method: 'POST',
+        headers: { origin: 'https://example.test' },
+        body: form,
+      }),
+      fixture.channelId,
+      fixture.messageId,
+    );
+    await fixture.scanStarted;
+    fixture.state.allowed = !revoked;
+    fixture.completeScan('clean');
+    const result = await response;
+    const html = await result.text();
+    assert({
+      given: revoked
+        ? 'canonical posting revoked while native scan is pending'
+        : 'bounded native multipart passes current operation fences',
+      should: revoked
+        ? 'keep escaped retry and own pending discard without a false success redirect'
+        : 'redirect only after current finalize commits',
+      actual: [
+        result.status,
+        result.headers.get('location'),
+        fixture.calls.includes('finalize'),
+        html.includes('Discard pending upload'),
+        html.includes(fixture.reservation.objectKey),
+      ],
+      expected: [
+        revoked ? 200 : 303,
+        revoked ? null : `/messages/${fixture.channelId}`,
+        !revoked,
+        revoked,
+        false,
+      ],
+    });
+  }
+});
