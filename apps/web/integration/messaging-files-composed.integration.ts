@@ -1,4 +1,5 @@
 import { requireFileScannerPort } from './messaging-files.test-support';
+import { infectedFilePdf } from './messaging-files-samples.test-support';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
@@ -98,12 +99,7 @@ for (const failure of ['age', 'scanner', 'infected'] as const) {
   test(`canonical pending cleanup after ${failure} refusal`, async () => {
     const f = await openComposedFileFixture(databaseUrl, port);
     try {
-      const bytes =
-        failure === 'infected'
-          ? new TextEncoder().encode(
-              '%PDF-1.7\nX5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*\n%%EOF',
-            )
-          : cleanFilePdf;
+      const bytes = failure === 'infected' ? infectedFilePdf() : cleanFilePdf;
       const token = await f.quarantine(bytes);
       if (failure === 'age')
         await f.client.unsafe('delete from account_age where user_id=$1', [
@@ -187,7 +183,7 @@ test('former group member loses file access while the surviving member keeps sha
       given: 'a former member with the exact file identifier',
       should: 'refuse protected file replay',
       actual: () => readMessagingFile(token, peer, f.dependenciesFor(peer)),
-      code: 'AUTHORIZATION',
+      code: 'NOT_FOUND',
     });
     const access = await readMessagingFile(token, f.principal, f.dependencies);
     assert({
