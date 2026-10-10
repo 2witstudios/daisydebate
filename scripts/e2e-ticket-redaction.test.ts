@@ -23,3 +23,22 @@ for (const depth of [0, 1, 2])
       expected: serialize(payload('[REDACTED]')),
     });
   });
+
+for (const depth of [0, 1, 2])
+  for (const header of ['set-cookie', 'cookie', 'authorization'])
+    test(`trace header ${header} preserves JSON framing at depth ${depth}`, () => {
+      const serialize = (message: string) => {
+        let text = JSON.stringify({ type: 'log', message, after: 'retained' });
+        for (let index = 0; index < depth; index++) text = JSON.stringify(text);
+        return text;
+      };
+      assert({
+        given: 'a serialized trace log containing a credential-bearing header',
+        should:
+          'redact its value without consuming its closing quote or following record fields',
+        actual: redactText(
+          serialize(`${header}: fixture-\"secret\"\\value\nnext diagnostic`),
+        ),
+        expected: serialize(`${header}: [REDACTED]\nnext diagnostic`),
+      });
+    });
