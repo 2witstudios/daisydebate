@@ -74,3 +74,22 @@ test('ticket endpoint binding refuses an endpoint different from the configured 
     }),
   ).rejects.toThrow('realtime ticket response was malformed');
 });
+
+test('configured native ticket response validates exact WSS binding with production TTL metadata', async () => {
+  const endpoint = 'wss://localhost:13014/ws';
+  assert({
+    given: 'the actual configured native endpoint and production response keys',
+    should:
+      'return only the validated ticket while preserving exact endpoint binding',
+    actual: await fetchRealtimeTicket({
+      expectedSocketUrl: endpoint,
+      fetchImpl: async () =>
+        Response.json({
+          ticket: validTicket,
+          socketUrl: endpoint,
+          expiresInSeconds: 30,
+        }),
+    }),
+    expected: validTicket,
+  });
+});
