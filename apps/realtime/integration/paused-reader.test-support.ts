@@ -104,7 +104,10 @@ export async function pausedNativePeer(port: number) {
     }
   };
   socket.on('data', (chunk) => {
-    bytes = Buffer.concat([bytes, chunk]);
+    bytes = Buffer.concat([
+      bytes,
+      Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk),
+    ]);
     try {
       consume();
     } catch {
