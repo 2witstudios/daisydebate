@@ -171,7 +171,8 @@ export function createSubscriptionRegistry({
         connection.socket.send({
           v: ENVELOPE_VERSION,
           type: 'unsubscribed',
-          ...request,
+          id: request.id,
+          topic: request.topic,
         });
     },
     sink(rows: readonly OutboxRow[]) {
