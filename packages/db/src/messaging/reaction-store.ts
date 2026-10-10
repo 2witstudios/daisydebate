@@ -34,15 +34,6 @@ export function createMessagingReactionStore(
   return {
     read: (scope, messageId) => frame(scope, (value) => value.read(messageId)),
     change: (scope, command, payloadDigest) =>
-      withMessagingChannel(database, scope, ({ tx, channel, fact, accounts }) =>
-        channelReactionFrame(
-          tx,
-          scope,
-          channel.changeVersion,
-          policy,
-          (operation, association) =>
-            authorize(tx, scope, { fact, accounts }, operation, association),
-        ).change(command, payloadDigest),
-      ),
+      frame(scope, (value) => value.change(command, payloadDigest)),
   };
 }

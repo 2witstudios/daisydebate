@@ -91,10 +91,12 @@ const rendered: Readonly<Record<string, () => Promise<{ default: unknown }>>> =
       import('../../app/(shell)/messages/page'),
     '(shell)/messages/[channelId]/preferences/page.tsx': () =>
       import('../../app/(shell)/messages/[channelId]/preferences/page'),
-    '(shell)/messages/[channelId]/attachments/page.tsx': () =>
-      import('../../app/(shell)/messages/[channelId]/attachments/page'),
     '(shell)/messages/[channelId]/reactions/page.tsx': () =>
       import('../../app/(shell)/messages/[channelId]/reactions/page'),
+    '(shell)/messages/[channelId]/message/page.tsx': () =>
+      import('../../app/(shell)/messages/[channelId]/message/page'),
+    '(shell)/messages/[channelId]/attachments/page.tsx': () =>
+      import('../../app/(shell)/messages/[channelId]/attachments/page'),
     '(shell)/messages/[channelId]/page.tsx': () =>
       import('../../app/(shell)/messages/[channelId]/page'),
     '(shell)/messages/requests/[channelId]/page.tsx': () =>

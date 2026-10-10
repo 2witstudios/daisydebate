@@ -52,19 +52,22 @@ export default async function MessageReactionsPage({
                 .filter((item) => item.own)
                 .map((item) => item.reaction),
             ]),
-          ].map((reaction) => (
-            <ReactionForm
-              key={reaction}
-              action={changeReactionAction.bind(null, channelId, messageId)}
-              requestId={systemId.next()}
-              reaction={reaction}
-              active={
-                !current.result.reactions.some(
-                  (item) => item.reaction === reaction && item.own,
-                )
-              }
-            />
-          ))}
+          ].map((reaction) => {
+            const requestId = systemId.next();
+            return (
+              <ReactionForm
+                key={requestId}
+                action={changeReactionAction.bind(null, channelId, messageId)}
+                requestId={requestId}
+                reaction={reaction}
+                active={
+                  !current.result.reactions.some(
+                    (item) => item.reaction === reaction && item.own,
+                  )
+                }
+              />
+            );
+          })}
         </ConversationLive>
       )}
       <Link href={`/messages/${channelId}`}>Back to conversation</Link>

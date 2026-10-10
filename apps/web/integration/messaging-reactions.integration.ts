@@ -96,6 +96,23 @@ test('mounted reactions retain current aggregates, replay immutability and own c
         404,
       ],
     });
+    const foreignChannel = await change(first.cookie, {
+      ...command,
+      channelId: createId(),
+      requestId: createId(),
+    });
+    const foreignMessage = await change(first.cookie, {
+      ...command,
+      messageId: createId(),
+      requestId: createId(),
+    });
+    assert({
+      given: 'valid identifiers outside the actual scoped channel/message',
+      should:
+        'deny both attempts without exposing or changing private associations',
+      actual: [foreignChannel.status, foreignMessage.status],
+      expected: [404, 404],
+    });
     await client.unsafe(
       'update messaging_contact_pairs set low_blocks_high=true, revision=revision+1 where low_actor_id=$1 and high_actor_id=$2',
       [...[me.actorId, peer.actorId].sort()],
@@ -113,6 +130,11 @@ test('mounted reactions retain current aggregates, replay immutability and own c
       reaction: '❤️',
     });
     const removed = await change(first.cookie, {
+      ...command,
+      requestId: createId(),
+      active: false,
+    });
+    const absentOwn = await change(first.cookie, {
       ...command,
       requestId: createId(),
       active: false,
@@ -138,6 +160,7 @@ test('mounted reactions retain current aggregates, replay immutability and own c
       actual: [
         denied.status,
         removed.status,
+        absentOwn.status,
         now.status,
         (await now.json()).reactions,
         z
@@ -153,6 +176,7 @@ test('mounted reactions retain current aggregates, replay immutability and own c
       expected: [
         403,
         200,
+        404,
         200,
         [{ reaction: '👍', count: 1, own: true }],
         [peer.actorId],

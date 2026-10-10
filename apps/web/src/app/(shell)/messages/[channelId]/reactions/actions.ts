@@ -2,7 +2,7 @@
 import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { processRoute } from '../../../../../server/process-app';
-import { inProcessFetch } from '../../../../../server/in-process-fetch';
+import { submitMessagingForm } from '../../../../../server/messaging-form-submit';
 import { moveOn } from '../../../../../server/form-action';
 import { parseReactionForm } from '../../../../../features/messaging/forms/reaction-form';
 import type { ReactionFormState } from '../../../../../ui/messaging/reaction-form';
@@ -20,15 +20,16 @@ export async function changeReactionAction(
   };
   try {
     const command = parseReactionForm(channelId, messageId, form);
-    const response = await inProcessFetch(change, incoming)(
-      '/api/messaging/reactions',
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(command),
-      },
-    );
-    if (!response.ok) return kept;
+    if (
+      !(await submitMessagingForm(
+        incoming,
+        change,
+        '/api/messaging/reactions',
+        command,
+        { field: 'messageId', value: command.messageId },
+      ))
+    )
+      return kept;
   } catch {
     return kept;
   }
