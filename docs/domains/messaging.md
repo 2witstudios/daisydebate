@@ -291,3 +291,11 @@ for retry. Logs reuse content-free sweep counts/status; object keys and subject
 associations are not logged. Missing runtime/maintenance configuration schedules
 nothing. Deployment approval of vendors, cadence and policy remains outstanding;
 branch composition does not activate collection or approve pending retention.
+
+### Channel preferences and current unread metadata
+
+The dedicated preference store reads and updates existing actor-state selections under the same ordered account, pair and channel fence as history. The canonical `channel.preferences.read` and `channel.preferences.update` capabilities require current entitlement and explicit fresh reading evidence; posting and age admission are independent. `following`, `hidden` and the `all | mentions | none` notification selection never grant access. An absent state remains null until an explicit selection is saved. Updates preserve the monotonic read marker. Unread counts include only surviving other-author messages after that marker; they contain no message body or actor-specific signal. Notification delivery and mention eligibility remain separate unfinished consumers.
+
+Own clear first fences the current account, locks the actual scoped actor-state row, and uses `channel.preferences.clear` only for that persisted row. It deletes only that row, without upsert, membership recreation or content access. An absent row gets only current own-collection authorization and returns `cleared:false`. Removed members may clear their own saved state while preference reads remain concealed. Existing canonical actor-state privacy declarations and pending lawful-basis/retention decisions apply unchanged.
+
+The mounted JSON read/update/clear routes and `/messages/[channelId]/preferences` native form share this store and canonical authorization. Every selection is explicit; missing selections are not product defaults. The form works before hydration and with JavaScript disabled, retaining choices after refusal. Branch PostgreSQL and browser proofs are required before this increment is accepted; no production policy is supplied.

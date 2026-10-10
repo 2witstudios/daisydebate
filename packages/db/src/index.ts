@@ -1,3 +1,4 @@
+import { createMessagingPreferenceStore } from './messaging/preference-store';
 import { createMessagingFileMaintenance } from './messaging-files/maintenance';
 import { createMessagingGroupIssuanceStore } from './messaging/group-issuance-store';
 import type { MessagingGroupIssuanceFence } from './messaging/group-issuance-contracts';
@@ -193,6 +194,9 @@ export function createDatabase({
     messagingFileStore: (
       authorize: Parameters<typeof createMessagingFileStore>[0]['authorize'],
     ) => createMessagingFileStore({ database, authorize }),
+    messagingPreferenceStore: (
+      authorize: Parameters<typeof createMessagingPreferenceStore>[1],
+    ) => createMessagingPreferenceStore(database, authorize),
     messagingChannelStore: (authorize: MessagingAuthorizationFence) =>
       createMessagingStore({ database, authorize }),
     messagingGroupCreationStore: (authorize: MessagingGroupCreationFence) =>

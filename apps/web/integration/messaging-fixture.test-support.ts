@@ -28,3 +28,19 @@ export async function openMessagingParticipants(databaseUrl: string) {
     },
   };
 }
+
+/** Shared teardown for group creation and preference revocation proofs; no production erasure claim. */
+export async function closeMessagingGroupFixture(
+  f: Awaited<ReturnType<typeof openMessagingFixture>>,
+  channelId: string,
+) {
+  await f.client.unsafe('delete from messaging_channels where id=$1', [
+    channelId,
+  ]);
+  await f.client.unsafe("delete from outbox where payload->>'channelId'=$1", [
+    channelId,
+  ]);
+  await f.fixture.cleanup();
+  await f.database.close();
+  await f.client.close();
+}
