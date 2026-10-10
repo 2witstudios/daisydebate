@@ -76,10 +76,12 @@ test('actual browser frame bundle validates after dynamic-code permission change
     { v: 1, type: 'ready' },
     { v: 1, type: 'pong', id: 'ping-1' },
     ...bells.map((bell) => ({ v: 1, type: 'event', position: '1:1', ...bell })),
+    { v: 1, type: 'typing_changed', topic: buildChannelTopic(id) },
   ];
   assert({
     given: 'the actual reader initializes before Function is refused',
-    should: 'validate ready, pong and canonical events without generating code',
+    should:
+      'validate ready, pong, events and transient hints without generating code',
     actual: frames.map(parse),
     expected: frames,
   });
@@ -92,7 +94,14 @@ test('actual browser frame bundle validates after dynamic-code permission change
         ...frames[2],
         topic: buildChannelTopic('c'.repeat(24)),
       }),
+      parse({ v: 1, type: 'typing_changed', topic: buildRoomTopic(id) }),
+      parse({
+        v: 1,
+        type: 'typing_changed',
+        topic: buildChannelTopic(id),
+        position: '1:2',
+      }),
     ],
-    expected: [null, null],
+    expected: [null, null, null, null],
   });
 });
