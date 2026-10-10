@@ -5,6 +5,11 @@ import { z } from 'zod';
 import { idSchema } from '@daisy/protocol';
 import { processRoute } from '../../../../server/process-app';
 import { inProcessFetch } from '../../../../server/in-process-fetch';
+import { submitMessagingForm } from '../../../../server/messaging-form-submit';
+import {
+  parseMessageMutationForm,
+  messageMutationUnavailable,
+} from '../../../../features/messaging/forms/message-mutation-form';
 import { moveOn } from '../../../../server/form-action';
 import {
   parseMessageForm,
@@ -52,4 +57,37 @@ export async function sendMessageAction(
     return kept;
   }
   return { text: '', requestId: command.requestId, ...moveOn(incoming, next) };
+}
+
+const edit = processRoute((routes) => routes.messaging.edit);
+const remove = processRoute((routes) => routes.messaging.remove);
+export async function changeMessageAction(
+  channelId: string,
+  messageId: string,
+  _previous: MessageFormState,
+  form: FormData,
+): Promise<MessageFormState> {
+  const kept = messageMutationUnavailable(form),
+    incoming = new Headers(await headers());
+  try {
+    const { operation, command } = parseMessageMutationForm(
+      channelId,
+      messageId,
+      form,
+    );
+    if (
+      !(await submitMessagingForm(
+        incoming,
+        operation === 'edit' ? edit : remove,
+        `/api/messaging/messages/${operation}`,
+        command,
+        { field: 'id', value: command.messageId },
+      ))
+    )
+      return kept;
+  } catch {
+    return kept;
+  }
+  const path = `/messages/${channelId}`;
+  return { text: '', requestId: kept.requestId, ...moveOn(incoming, path) };
 }

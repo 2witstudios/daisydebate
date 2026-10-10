@@ -7,20 +7,15 @@ import {
 } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { origin } from './fixtures';
-import {
-  mountedMessagingPair,
-  closeMountedMessagingPair,
-  seedMessagingRouteDm,
-  messagingRoutePolicy,
-} from './messaging-route.test-support';
+import * as mountedMessaging from './messaging-route.test-support';
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 test('mounted typing qualifies actual leases and publishes only changed aggregate projections', async () => {
   const { app, client, channelId, me, peer, first, second, routes } =
-    await mountedMessagingPair(databaseUrl, {
+    await mountedMessaging.mountedMessagingPair(databaseUrl, {
       messagingPolicy: {
-        ...messagingRoutePolicy,
+        ...mountedMessaging.messagingRoutePolicy,
         typing: { ttlMs: 6000, refetchMs: 1000, maxActors: 2 },
       },
     });
@@ -64,7 +59,7 @@ test('mounted typing qualifies actual leases and publishes only changed aggregat
     );
   try {
     await ready.promise;
-    await seedMessagingRouteDm(
+    await mountedMessaging.seedMessagingRouteDm(
       client,
       me,
       peer,
@@ -154,7 +149,12 @@ test('mounted typing qualifies actual leases and publishes only changed aggregat
           app.app.redis.clearTypingLease(channelId, actor.actorId),
         ),
       );
-      await closeMountedMessagingPair(client, channelId, me, peer);
+      await mountedMessaging.closeMountedMessagingPair(
+        client,
+        channelId,
+        me,
+        peer,
+      );
     } finally {
       await client.close();
     }

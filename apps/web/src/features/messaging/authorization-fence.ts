@@ -1,5 +1,6 @@
 import type {
   AuthorizationCapability,
+  AuthorizationInput,
   AuthorizationPrincipal,
   ChannelAuthorizationFact,
   SocialAccountFact,
@@ -25,52 +26,76 @@ export type MessagingReadingPolicy = (
   input: PolicyInput,
 ) => SocialPolicyEvidence | undefined;
 
-/** Run after account/pair/channel waits in the exact adapter transaction. */
-export function messagingAuthorizationFence({
-  principal,
-  capability,
-  clock,
-  postingPolicy,
-  groupPostingPolicy,
-  readingPolicy,
-}: {
+type FenceOptions = {
   readonly principal: AuthorizationPrincipal;
-  readonly capability: AuthorizationCapability;
   readonly clock: Clock;
   readonly postingPolicy: SocialContactPolicy;
   readonly groupPostingPolicy?: SocialContactPolicy;
   readonly readingPolicy?: MessagingReadingPolicy;
-}): MessagingAuthorizationFence {
-  return async (tx, input, frame) => {
-    if (
-      principal.kind !== 'user' ||
-      principal.userId !== input.userId ||
-      principal.actorId !== input.actorId
-    )
-      throw createAppError('AUTHORIZATION');
-    const now = clock.now();
-    const accounts = await loadAccountPolicyFacts(tx, frame.accounts, now);
-    const policyInput = { channel: frame.fact, accounts, now };
-    const reading = readingPolicy?.(policyInput);
-    requireMessagingAuthorization({
-      principal,
-      capability,
-      resource: frame.fact,
-      context: {
-        account:
-          accounts.find((row) => row.account.actorId === input.actorId)
-            ?.account ?? null,
-        now,
-        socialAccounts: accounts,
-        ...(reading === undefined ? {} : { socialReading: reading }),
-        socialPosting: socialPostingPolicy({
-          ...policyInput,
-          policy:
-            frame.fact.authority.kind === 'private_group'
-              ? (groupPostingPolicy ?? postingPolicy)
-              : postingPolicy,
-        }),
-      },
-    });
+};
+/** Two operation-specific fences share this same minimal producer, never another evaluator. */
+export async function loadMessagingAuthorizationInput(
+  tx: Parameters<MessagingAuthorizationFence>[0],
+  input: Parameters<MessagingAuthorizationFence>[1],
+  frame: Parameters<MessagingAuthorizationFence>[2],
+  options: FenceOptions,
+): Promise<
+  Omit<AuthorizationInput, 'capability' | 'resource'> & {
+    readonly resource: ChannelAuthorizationFact;
+  }
+> {
+  const { principal, clock, postingPolicy, groupPostingPolicy, readingPolicy } =
+    options;
+  requireBoundFrame(principal, input, frame.fact.channelId);
+  const accounts = await loadAccountPolicyFacts(
+    tx,
+    frame.accounts,
+    clock.now(),
+  );
+  const now = clock.now();
+  const policyInput = { channel: frame.fact, accounts, now };
+  const reading = readingPolicy?.(policyInput);
+  return {
+    principal,
+    resource: frame.fact,
+    context: {
+      account:
+        accounts.find((row) => row.account.actorId === input.actorId)
+          ?.account ?? null,
+      now,
+      socialAccounts: accounts,
+      ...(reading === undefined ? {} : { socialReading: reading }),
+      socialPosting: socialPostingPolicy({
+        ...policyInput,
+        policy:
+          frame.fact.authority.kind === 'private_group'
+            ? (groupPostingPolicy ?? postingPolicy)
+            : postingPolicy,
+      }),
+    },
   };
+}
+/** Run after account/pair/channel waits in the exact adapter transaction. */
+export function messagingAuthorizationFence(
+  options: FenceOptions & { readonly capability: AuthorizationCapability },
+): MessagingAuthorizationFence {
+  return async (tx, input, frame) =>
+    requireMessagingAuthorization({
+      ...(await loadMessagingAuthorizationInput(tx, input, frame, options)),
+      capability: options.capability,
+    });
+}
+
+function requireBoundFrame(
+  principal: AuthorizationPrincipal,
+  input: Parameters<MessagingAuthorizationFence>[1],
+  channelId: string,
+) {
+  if (
+    principal.kind !== 'user' ||
+    principal.userId !== input.userId ||
+    principal.actorId !== input.actorId ||
+    channelId !== input.channelId
+  )
+    throw createAppError('AUTHORIZATION');
 }
