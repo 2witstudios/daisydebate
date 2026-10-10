@@ -50,17 +50,34 @@ test('actual browser frame bundle validates after dynamic-code permission change
   const frames = [
     { v: 1, type: 'ready' },
     { v: 1, type: 'pong', id: 'ping-1' },
+    {
+      v: 1,
+      type: 'event',
+      topic: `room:${'b'.repeat(24)}`,
+      position: '1:1',
+      payload: {
+        kind: 'room.changed',
+        ids: ['b'.repeat(24)],
+        entityVersion: 1,
+      },
+    },
   ];
   assert({
     given: 'the actual reader initializes before Function is refused',
-    should: 'validate first ready and pong frames without generating code',
+    should: 'validate ready, pong and canonical events without generating code',
     actual: frames.map(parse),
     expected: frames,
   });
   assert({
     given: 'a malformed frame under the same restriction',
     should: 'retain strict framing refusal',
-    actual: parse({ v: 1, type: 'ready', ticket: 'not-a-frame-field' }),
-    expected: null,
+    actual: [
+      parse({ v: 1, type: 'ready', ticket: 'not-a-frame-field' }),
+      parse({
+        ...frames[2],
+        topic: `channel:${'b'.repeat(24)}`,
+      }),
+    ],
+    expected: [null, null],
   });
 });
