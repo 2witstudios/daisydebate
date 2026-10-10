@@ -209,6 +209,7 @@ export function createConnectionStore(
         ticket,
       }),
     );
+    diagnostics.emit(myGeneration, 'hello-sent');
   }
   function handleMessage(myGeneration: number, raw: unknown) {
     if (myGeneration !== generation) return;
@@ -288,7 +289,6 @@ export function createConnectionStore(
       if (!opened || ticket === null) return;
       try {
         handleOpen(myGeneration, ticket);
-        diagnostics.emit(myGeneration, 'hello-sent');
       } catch (error) {
         fail('hello-failed', error);
       }
