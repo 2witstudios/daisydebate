@@ -1,6 +1,6 @@
-import { decodeLaunchEvidence } from '../e2e/support/room-launch-evidence-decoder';
 import { roomCreateSchema } from '@daisy/protocol';
 import { launchCustomSelection } from '../e2e/support/room-launch-custom';
+import { decodeLaunchEvidence } from '../e2e/support/room-launch-evidence-decoder';
 import { createLaunchShutdown } from '../e2e/support/room-launch-shutdown';
 import { mkdtemp, rm, readFile } from 'node:fs/promises';
 import { basename, join, resolve } from 'node:path';

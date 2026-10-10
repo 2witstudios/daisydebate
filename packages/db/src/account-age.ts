@@ -129,7 +129,7 @@ const accountAgePrivacyFields: readonly PrivacyFieldDeclaration[] = [
   owner: 'WAIT',
   purpose: 'Minimum durable source for current account age eligibility',
   lawfulBasis: { status: 'pending', decision: 'sznp9ay8e88ny2sg4xujosae' },
-  retention: { status: 'pending', decision: 'jc0qcdvpkmqzrelpaesi3pah' },
+  retention: { status: 'pending', decision: 'njiorsf64z4iqjm2dbfa3zuu' },
   erasure: 'delete',
   exportable: true,
 }));
