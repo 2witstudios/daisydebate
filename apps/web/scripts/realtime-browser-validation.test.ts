@@ -2,6 +2,12 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createContext, runInContext } from 'node:vm';
+import {
+  buildRoomTopic,
+  buildDebateTopic,
+  buildChannelTopic,
+  buildUserInboxTopic,
+} from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 
 setupRitewayBun();
@@ -50,18 +56,21 @@ test('actual browser frame bundle validates after dynamic-code permission change
   const id = 'b'.repeat(24);
   const bells = [
     {
-      topic: `room:${id}`,
+      topic: buildRoomTopic(id),
       payload: { kind: 'room.changed', ids: [id], entityVersion: 1 },
     },
     {
-      topic: `debate:${id}`,
+      topic: buildDebateTopic(id),
       payload: { kind: 'debate.phase-changed', ids: [id], entityVersion: 1 },
     },
     {
-      topic: `channel:${id}`,
+      topic: buildChannelTopic(id),
       payload: { kind: 'channel.changed', channelId: id, changeVersion: 1 },
     },
-    { topic: `user:${id}:inbox`, payload: { kind: 'messaging.inbox.changed' } },
+    {
+      topic: buildUserInboxTopic(id),
+      payload: { kind: 'messaging.inbox.changed' },
+    },
   ];
   const frames = [
     { v: 1, type: 'ready' },
@@ -81,7 +90,7 @@ test('actual browser frame bundle validates after dynamic-code permission change
       parse({ v: 1, type: 'ready', ticket: 'not-a-frame-field' }),
       parse({
         ...frames[2],
-        topic: `channel:${'b'.repeat(24)}`,
+        topic: buildChannelTopic(id),
       }),
     ],
     expected: [null, null],
