@@ -144,6 +144,7 @@ export function createSubscriptionRegistry({
     },
     remove,
     revalidate: delivery.revalidate,
+    hint: delivery.hint,
     closeAll() {
       for (const connection of connections) {
         remove(connection);
@@ -192,7 +193,10 @@ export function createSubscriptionRegistry({
       cursor = position;
       floor = position;
     },
-    settled: () => pending,
+    async settled() {
+      await pending;
+      await delivery.settledHints();
+    },
   };
 }
 export type SubscriptionRegistry = ReturnType<
