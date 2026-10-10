@@ -1,3 +1,4 @@
+import { composeMessagingReactionRoute } from './reaction-route';
 import { composeMessagingTypingRoutes } from './typing-route';
 import { composeMessagingPreferenceRoutes } from './preference-route';
 import { composeMessagingFileRoutes } from './files/route-composition';
@@ -31,6 +32,7 @@ import { messagingMessageView } from './message-view';
 
 /** Explicit approved edge inputs; tests never supply production policy authority. */
 export type MessagingRuntimePolicy = {
+  readonly reactions?: import('@daisy/protocol').MessagingReactionPolicy;
   readonly typing?: ReturnType<
     typeof import('@daisy/protocol').messagingTypingSchemas.policy.parse
   >;
@@ -193,6 +195,7 @@ export function composeMessagingRoutes(app: App) {
     inbox: composeMessagingInboxRoute(app),
     preferences: composeMessagingPreferenceRoutes(app),
     typing: composeMessagingTypingRoutes(app),
+    reactions: composeMessagingReactionRoute(app),
     send: (request: Request) => run(request, 'send'),
     edit: (request: Request) => run(request, 'edit'),
     remove: (request: Request) => run(request, 'remove'),

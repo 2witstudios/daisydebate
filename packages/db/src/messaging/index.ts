@@ -47,3 +47,9 @@ export type {
   MessagingGroupIssuanceFence,
   MessagingGroupIssuanceStore,
 } from './group-issuance-contracts';
+
+export { createMessagingReactionStore } from './reaction-store';
+export type {
+  MessagingReactionFence,
+  MessagingReactionStore,
+} from './reaction-contracts';

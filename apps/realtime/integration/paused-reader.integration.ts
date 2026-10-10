@@ -90,7 +90,7 @@ test('physical paused TCP reader closes4005, preserves healthy delivery and catc
     });
     await notifyOutbox(fixture.client, position);
     await waitFor(() => native.data.connection?.closed === true);
-    peer.resume();
+    peer.resumeForClose();
     const closed = await peer.closed();
     await waitFor(() =>
       healthy.frames.some(

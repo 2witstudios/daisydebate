@@ -20,11 +20,9 @@ const PROTOCOL_UNSUPPORTED = closeFor('protocol_unsupported');
 
 /**
  * ADR 0031 §6, §11: evaluates a socket's first inbound frame. An unparseable
- * frame, or any message before `hello`, closes the socket; `hello` itself
- * authenticates by consuming a ticket (RT-2.4b), which does not exist yet,
- * so every `hello` here is rejected the same way a bad one would be. That
- * keeps the wire contract already correct (parse, then close) rather than
- * standing up a stub "success" path RT-2.4b would have to tear out.
+ * frame, or any message before `hello`, returns the documented rejection.
+ * A valid hello returns its ticket to the socket authentication boundary,
+ * which consumes it and checks the durable session before sending ready.
  */
 export function evaluateFirstMessage(
   raw: string,

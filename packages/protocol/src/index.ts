@@ -185,3 +185,8 @@ export { parseUsername } from './username';
 
 export { messagingPreferenceSchemas } from './messaging/preferences';
 export { messagingTypingSchemas } from './messaging/typing';
+
+export {
+  createMessagingReactionSchemas,
+  type MessagingReactionPolicy,
+} from './messaging/reactions';

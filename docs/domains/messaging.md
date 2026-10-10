@@ -278,16 +278,20 @@ approve privacy, retention or numeric product policies.
 The optional file runtime maintenance configuration supplies explicit cadence and
 batch limits. The existing web process schedules bounded reservation expiry and
 private deletion work, prevents overlapping runs, and awaits current work before
-closing pools. Expiry discovers all due owners for a channel, acquires canonical
-account→pair→channel fences, and rereads owners after waits; unfenced owner drift
-refuses that channel until a later run. Only expired reserved/quarantined rows
+closing pools. Expiry selects at most the configured number of due reservation
+rows globally, acquires canonical account→pair→channel fences for their owners,
+and rereads those same rows after waits. Unfenced owner drift refuses that
+selected work until a later run; a crowded channel cannot expand the batch. Only expired reserved/quarantined rows
 transition to deleting. Current membership, posting or age admission does not
 confer cleanup authority. Missing durable authority is never recreated.
 
 Physical deletion uses the delivered trusted provider: linked deleting files and
 unlinked subject-erasure intents retain their storage charge until the private
 store resolves deletion acknowledgement. An outage preserves the charged row
-for retry. Logs reuse content-free sweep counts/status; object keys and subject
+for retry. Each selected physical deletion is attempted even when an earlier
+object fails; successful acknowledgements commit independently, and any failure
+still makes the batch report infrastructure failure. Logs reuse content-free
+sweep counts/status; object keys and subject
 associations are not logged. Missing runtime/maintenance configuration schedules
 nothing. Deployment approval of vendors, cadence and policy remains outstanding;
 branch composition does not activate collection or approve pending retention.
@@ -348,3 +352,9 @@ acceptance; no production privacy-worker scheduling is claimed.
 ### Own reaction removal authority
 
 Addition uses current `channel.post`. Removal uses distinct `channel.reaction.remove` with `MessagingReactionAuthorizationFact` (`kind:channel_reaction`, current `channel`, and existing locked `reaction:{actorId,channelId,messageId,reaction}`). MSG must project this from the persisted reaction joined to its same-channel message; a request intent or absent row is not an association fact. The evaluator requires the caller's current bound non-erased member account, caller-owned association, matching channel, valid message identifier and nonempty canonical reaction value, plus current channel entitlement and approved fresh reading evidence. Archived or posting-ineligible channels may permit this cleanup; it grants no read, post or message-text removal. MSG retains scoped deletion, message/reaction binding, change-version and own receipt checks under the same transaction. No reaction choice or size default is introduced; existing reaction inventory and pending policy declarations apply.
+
+The mounted reaction consumer accepts explicit deployment-injected size and addition choices; missing configuration is unavailable. Native reaction forms work with and without JavaScript. The current scoped summary exposes only choice/count/own status, never actor lists. A channel doorbell invalidates that summary and the existing authorized HTTP reader rebuilds it; the doorbell contains no reaction choice or actor. Each actual association change advances the channel and message change versions without consuming message sequence or marking text edited. Changes remain current message snapshots, while reaction metadata is read separately from the scoped summary endpoint.
+
+Own actor/channel/request receipts bind the message and canonical operation fingerprint. A matching retry reads the current aggregate and never restores an association deleted since the original request. Conflicting payloads refuse; an absent own row cannot mint cleanup authority. Actual removals scope actor/channel/message/choice, preserve other participants' associations, and use the canonical removal capability after the locked row is read. Existing reaction associations and values remain personal/private under the canonical inventory and pending PRIV3/PRIV4 declarations; no new schema or retention exception is introduced. New mounted/native assertions require exact-candidate service/browser proof before acceptance.
+
+Own-message native controls select the existing authorized history snapshot by channel/message/cursor, then require current author identity before displaying the draft. They use the existing edit operation (posting and edit-window admission) or distinct own-text removal operation (current entitlement/reading and author check, independent of posting admission). Native forms preserve the draft on refusal and verify the returned message identifier before navigating. Both JavaScript modes have authored edit and blocked-posting removal controls; real hosted proof for this new consumer remains required. Live invalidation uses the existing channel subscription and authorized history re-read, never the draft as authority.
