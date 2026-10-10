@@ -79,7 +79,13 @@ for (const error of [new ReferenceError('private'), new EvalError('private')])
 for (const name of [
   'RealtimeTicketFetchError',
   'RealtimeTicketBodyError',
-  'RealtimeTicketSchemaError',
+  'RealtimeTicketSchemaObjectError',
+  'RealtimeTicketSchemaTicketError',
+  'RealtimeTicketSchemaSocketUrlError',
+  'RealtimeTicketSchemaThrownEvalError',
+  'RealtimeTicketSchemaThrownReferenceError',
+  'RealtimeTicketSchemaThrownTypeError',
+  'RealtimeTicketSchemaThrownUnknownError',
   'RealtimeTicketEndpointError',
 ])
   test(`canonical reader stage ${name} is content-free`, () => {
