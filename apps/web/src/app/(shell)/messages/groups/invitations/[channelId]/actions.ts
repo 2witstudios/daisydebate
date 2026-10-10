@@ -1,6 +1,5 @@
 'use server';
 import { headers } from 'next/headers';
-import { revalidatePath } from 'next/cache';
 import { messagingGroupInvitationResultSchema } from '@daisy/protocol';
 import { processRoute } from '../../../../../../server/process-app';
 import { inProcessFetch } from '../../../../../../server/in-process-fetch';
@@ -42,7 +41,6 @@ export async function decideInvitationAction(
         (command.decision === 'accept' ? 'accepted' : 'declined')
     )
       return kept;
-    revalidatePath('/messages');
     next =
       result.data.state === 'accepted'
         ? `/messages/${command.channelId}`

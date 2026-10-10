@@ -1,6 +1,5 @@
 'use server';
 import { headers } from 'next/headers';
-import { revalidatePath } from 'next/cache';
 import { messagingDmDecisionResultSchema } from '@daisy/protocol';
 import { processRoute } from '../../../../../server/process-app';
 import { inProcessFetch } from '../../../../../server/in-process-fetch';
@@ -35,7 +34,6 @@ export async function decideDmAction(
     );
     if (!result.success || result.data.channelId !== command.channelId)
       return kept;
-    revalidatePath('/messages');
     next =
       result.data.state === 'accepted'
         ? `/messages/${command.channelId}`
