@@ -41,7 +41,7 @@ const redactions: readonly (readonly [RegExp, string])[] = [
   // JSON object records are handled above. Plain logs retain whole-value
   // redaction, including quoted prefixes and literal redaction-marker suffixes.
   [
-    /^(?!\s*(?:\\*\")*[\{\[])([^\r\n]*?\b(?:set-cookie|cookie|authorization):[ \t]*)[^\r\n]+/gim,
+    /^(?!\s*(?:\\*")*[{[])([^\r\n]*?\b(?:set-cookie|cookie|authorization):[ \t]*)[^\r\n]+/gim,
     '$1[REDACTED]',
   ],
   [/(__Secure-[\w.-]+)=([^;,\s"'&]+)/g, '$1=[REDACTED]'],
