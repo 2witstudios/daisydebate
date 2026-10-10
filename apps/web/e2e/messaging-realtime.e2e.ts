@@ -4,6 +4,7 @@ import {
   openMessagingJourney,
   openMessagingGroupJourney,
   acceptMessagingJourney,
+  manageNativeMessagingGroup,
 } from './support/messaging-journey';
 
 test('an authenticated DM doorbell refetches current history in the other real browser', async ({
@@ -242,6 +243,45 @@ for (const javaScriptEnabled of [true, false]) {
           .getByRole('list', { name: 'Message history' })
           .getByText(text, { exact: true }),
       ).toHaveCount(1);
+      await creator.goto('/messages');
+      await creator
+        .getByRole('link', { name: 'Group membership', exact: true })
+        .click();
+      await expect(
+        creator.getByRole('heading', { name: 'Group membership', exact: true }),
+      ).toBeVisible();
+      await manageNativeMessagingGroup(
+        creator,
+        journey.channelId,
+        'transfer',
+        journey.recipientUsername,
+      );
+      await manageNativeMessagingGroup(
+        invited,
+        journey.channelId,
+        'remove',
+        journey.senderUsername,
+      );
+      const removedHistory = await journey.sender.request.get(
+        `/api/messaging/channels/${journey.channelId}/messages`,
+      );
+      expect(removedHistory.status()).toBe(404);
+      await expect(
+        invited
+          .getByRole('list', { name: 'Message history' })
+          .getByText(text, { exact: true }),
+      ).toHaveCount(1);
+      await manageNativeMessagingGroup(invited, journey.channelId, 'archive');
+      await expect(
+        invited
+          .getByRole('list', { name: 'Message history' })
+          .getByText(text, { exact: true }),
+      ).toHaveCount(1);
+      await manageNativeMessagingGroup(invited, journey.channelId, 'leave');
+      const leftHistory = await journey.recipient.request.get(
+        `/api/messaging/channels/${journey.channelId}/messages`,
+      );
+      expect(leftHistory.status()).toBe(404);
     } finally {
       await journey.close();
     }

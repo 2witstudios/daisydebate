@@ -216,3 +216,24 @@ policies are not prerequisites. Unblocking grants neither request acceptance
 nor content access. Refused sends keep draft text and command identity; native
 browser controls exercise a blocked refusal followed by an authorized retry
 once the pair is unblocked.
+
+Private-group membership commands use one native username-intent route and the
+same transactional provider as application operations. Revoke and archive use
+canonical current-manager safety capabilities without age or content-policy
+admission; self-leave requires the actual current grant. Transfer still uses
+fresh canonical management eligibility. Removing the last manager from an
+active group is refused until management transfers or the group is archived.
+Grant changes increment the actual generation and scope the write to its
+previous generation. Pending invitations issued by a manager losing that role
+are cancelled; archiving cancels every remaining pending invitation.
+
+Committed management retries use `channel.group.result` over the actual own
+receipt and current channel core. The operation separately binds actor, request,
+original operation, target digest and result channel. Replay returns only
+channel ID and lifecycle and cannot renew a grant or repeat a mutation. Current
+account erasure still refuses replay. Group inbox entries distinguish authorized
+group conversations for membership navigation; this adds no title or member
+list projection. Native membership forms preserve target and retry identity on
+refusal and work with JavaScript disabled. The expanded management integration
+and browser controls require execution on their exact composed candidate;
+source tests alone do not establish transactional or browser acceptance.
