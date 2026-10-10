@@ -117,7 +117,7 @@ async function createNativeConversation(
   await expect(page).toHaveURL(
     kind === 'dm'
       ? /\/messages\/requests\/[^/]+\/status$/
-      : /\/messages\/[^/]+$/,
+      : /\/messages\/[a-z0-9]{24}$/,
   );
   return idSchema.parse(
     new URL(page.url()).pathname.split('/')[kind === 'dm' ? 3 : 2],
