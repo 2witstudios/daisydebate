@@ -21,12 +21,12 @@ test('Room runtime reads resolve catalog, cast and collection projections from i
   const [choices, cast, rooms] = await Promise.all([
     operations.catalog(caller),
     operations.castChoices(caller),
-    operations.list(caller),
+    operations.list(caller, { pageSize: 20, q: '' }),
   ]);
   assert({
     given: 'the pinned catalog, bot roster and visible Room sources',
     should:
-      'project legal defaults, withhold human cast entries, and report current readiness',
+      'project legal defaults, withhold human cast entries, and return only lightweight discovery metadata',
     actual: {
       catalog: choices.map((choice) => [
         choice.formatId,
@@ -34,11 +34,7 @@ test('Room runtime reads resolve catalog, cast and collection projections from i
         choice.presets.length,
       ]),
       cast: cast.map(({ actorId, eligible }) => [actorId, eligible]),
-      rooms: rooms.map(({ id, readiness, participants }) => [
-        id,
-        readiness.available,
-        participants.map(({ ready }) => ready),
-      ]),
+      rooms: rooms.rooms.map(({ id, seated }) => [id, seated]),
     },
     expected: {
       catalog: [
@@ -46,7 +42,7 @@ test('Room runtime reads resolve catalog, cast and collection projections from i
         ['foundation', 0, 0],
       ],
       cast: [['b4n6p8r2t4v6x8z1k3b5c7d9', false]],
-      rooms: [[state.id, true, ['ready']]],
+      rooms: [[state.id, true]],
     },
   });
 });

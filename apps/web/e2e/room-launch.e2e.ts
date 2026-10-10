@@ -1,3 +1,4 @@
+import { proveLobbyDiscovery } from './support/room-lobby-discovery';
 import { proveFormatPicker } from './support/room-launch-format';
 import { proveHumanLaunch } from './support/room-launch-human';
 import { createId } from '@paralleldrive/cuid2';
@@ -189,6 +190,14 @@ test('native judge Ready and eligible stored bot debaters launch one frozen sche
       await expect(
         judge.getByText('Round · Scheduled', { exact: true }),
       ).toBeVisible();
+      await judge.goto(`/lobby?${new URLSearchParams({ q: view.title })}`);
+      await expect(
+        judge.getByRole('link', { name: 'View Round', exact: true }),
+      ).toHaveAttribute('href', `/rounds/${round.id}`);
+      await judge
+        .getByRole('link', { name: 'View Round', exact: true })
+        .click();
+      await expect(judge).toHaveURL(`/rounds/${round.id}`);
       await info.attach('scheduled-round-evidence', {
         body: JSON.stringify(proof),
         contentType: 'application/json',
@@ -268,4 +277,10 @@ test('catalog dialog previews real speech defaults and commits the selected temp
   browser,
 }) => {
   await proveFormatPicker(browser);
+});
+
+test('native Lobby search and keyset pages discover beyond the first page without truncation', async ({
+  browser,
+}) => {
+  await proveLobbyDiscovery(browser);
 });

@@ -10,6 +10,7 @@ import { projectRoom } from '@daisy/debate-engine';
 import type { IdGenerator } from '@daisy/clock';
 import type { createRedis } from '@daisy/redis';
 import type {
+  RoomListQuery,
   FormatDefinition,
   RoomAssemblyState,
   RoomCatalogChoice,
@@ -32,7 +33,7 @@ export type Store = Pick<
   | 'readRoomCreateReceipt'
   | 'createRoomCommand'
   | 'readRoomAssembly'
-  | 'listRoomAssemblies'
+  | 'listRoomPage'
   | 'executeRoomCommand'
 >;
 type Redis = Pick<
@@ -178,22 +179,20 @@ export function createRoomRuntimeOperations({
           eligible: p.eligible && botsAvailable(),
         }));
     },
-    async list(caller: Caller) {
-      const states = await store.listRoomAssemblies(
+    async list(caller: Caller, query: RoomListQuery) {
+      return store.listRoomPage(
         caller,
-        (state, account) => can(caller, 'room.read', account, state),
+        query,
+        (fact, account) =>
+          can(caller, 'room.read', account, fact) &&
+          (!fact.round ||
+            authorize({
+              principal: { kind: 'user', ...caller },
+              capability: 'round.read',
+              context: { account },
+              resource: fact.round,
+            }).allow),
         (account) => can(caller, 'room.list', account),
-      );
-      const now = await store.databaseNow();
-      return Promise.all(
-        states.map(async (state) =>
-          projectRoom(
-            eligible(state),
-            caller.actorId,
-            await consentOf(state),
-            now,
-          ),
-        ),
       );
     },
     async create(

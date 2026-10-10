@@ -45,6 +45,7 @@ async function fixture() {
   let openRoomLimit = 5;
   let failAfterReady = false;
   let unavailable = false;
+  let consentReads = 0;
   let gate: (() => Promise<void>) | null = null;
   const controlled = {
     ...redis,
@@ -57,6 +58,7 @@ async function fixture() {
     readRoomConsent: async (
       ...args: Parameters<typeof redis.readRoomConsent>
     ) => {
+      consentReads += 1;
       if (unavailable) throw new Error('fixture Redis unavailable');
       if (gate) await gate();
       return redis.readRoomConsent(...args);
@@ -167,6 +169,7 @@ async function fixture() {
     unavailable: (value: boolean) => {
       unavailable = value;
     },
+    consentReads: () => consentReads,
     gateConsent: (next: typeof gate) => {
       gate = next;
     },

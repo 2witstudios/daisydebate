@@ -136,8 +136,13 @@ export {
   roomCreateSchema,
   roomCommandSchema,
   roomStatuses,
+  roomListQuerySchema,
+  roomListPageSchema,
 } from './room-contract';
 export type {
+  RoomListQuery,
+  RoomListEntry,
+  RoomListPage,
   RoomCreate,
   RoomCommand,
   RoomParticipant,

@@ -1,5 +1,13 @@
-import { z, type ZodType } from 'zod';
-import { idSchema, roomViewSchema, type RoomView } from '@daisy/protocol';
+import { type ZodType } from 'zod';
+import {
+  idSchema,
+  roomViewSchema,
+  roomListPageSchema,
+  roomListQuerySchema,
+  type RoomListPage,
+  type RoomListQuery,
+  type RoomView,
+} from '@daisy/protocol';
 
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
 type Read<T> =
@@ -43,15 +51,38 @@ export async function readAssembly(
     : { kind: 'unavailable' };
 }
 
-const listing = z.strictObject({ rooms: z.array(roomViewSchema) });
-export async function readAssemblyList(
+export async function readRoomList(
   fetch: FetchLike,
+  query: RoomListQuery,
 ): Promise<
-  | { readonly kind: 'found'; readonly rooms: readonly RoomView[] }
-  | { readonly kind: 'unavailable' }
+  ({ readonly kind: 'found' } & RoomListPage) | { readonly kind: 'unavailable' }
 > {
-  const result = await readProjection(fetch, '/api/rooms', listing);
-  return result.kind === 'found'
-    ? { kind: 'found', rooms: result.value.rooms }
-    : { kind: 'unavailable' };
+  if (!roomListQuerySchema.safeParse(query).success)
+    return { kind: 'unavailable' };
+  const params = new URLSearchParams({
+    q: query.q,
+    pageSize: String(query.pageSize),
+    ...(query.cursor ? { cursor: query.cursor } : {}),
+  });
+  const result = await readProjection(
+    fetch,
+    `/api/rooms?${params}`,
+    roomListPageSchema,
+  );
+  if (result.kind !== 'found') return { kind: 'unavailable' };
+  const page = result.value;
+  if (!validPage(page, query)) return { kind: 'unavailable' };
+  return { kind: 'found', ...page };
+}
+
+function validPage(page: RoomListPage, query: RoomListQuery) {
+  return !(
+    page.rooms.length > query.pageSize ||
+    page.rooms.some(
+      (room, index) =>
+        room.id <= (index ? page.rooms[index - 1]!.id : (query.cursor ?? '')),
+    ) ||
+    (page.nextCursor !== null && page.nextCursor !== page.rooms.at(-1)?.id) ||
+    (page.retry && (page.rooms.length > 0 || page.nextCursor !== null))
+  );
 }

@@ -86,6 +86,9 @@ export const rooms = pgTable(
     updatedAt: updatedAtColumn(),
   },
   (table) => [
+    index('rooms_discovery_assembly_idx')
+      .on(sql`${table.id} collate "C"`)
+      .where(sql`${table.status} in ('assembling', 'ready')`),
     index('rooms_host_actor_idx').on(table.hostActorId),
     index('rooms_lobby_idx').on(
       table.visibility,

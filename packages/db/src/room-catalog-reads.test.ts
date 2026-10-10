@@ -2,10 +2,10 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { foundationDefinition } from './reference-formats';
 import {
   caller,
-  accountFact,
   room,
+  accountFact,
 } from './room-command-operations.test-support';
-import { createTestDatabase, roomRow } from './index.test-support';
+import { createTestDatabase } from './index.test-support';
 
 setupRitewayBun();
 
@@ -30,29 +30,8 @@ test('Room catalog joins only current public definitions to active presets', asy
     expected: [[room.formatId, 1, []]],
   });
 });
-test('Room listing and create-receipt read preserve collection and command authority', async () => {
+test('Room create-receipt read preserve collection and command authority', async () => {
   const account = accountFact();
-  const list = createTestDatabase([
-    [account],
-    [account],
-    [
-      roomRow({
-        id: room.id,
-        hostActorId: caller.actorId,
-        formatId: room.formatId,
-        rulesSnapshot: room.rules,
-      }),
-    ],
-    [[foundationDefinition]],
-    [],
-    [[caller.actorId, 'human', 'Host', null, true, null]],
-    [],
-  ]);
-  const rooms = await list.database.listRoomAssemblies(
-    caller,
-    (candidate) => candidate.hostActorId === caller.actorId,
-    () => true,
-  );
   const receipt = createTestDatabase([[account], [account], [], []]);
   const absent = await receipt.database.readRoomCreateReceipt({
     caller,
@@ -63,9 +42,9 @@ test('Room listing and create-receipt read preserve collection and command autho
 
   assert({
     given: 'a member with one visible Room and no matching create receipt',
-    should: 'list the current assembly and return no absent receipt',
-    actual: [rooms.map(({ id }) => id), absent],
-    expected: [[room.id], null],
+    should: 'return no absent receipt',
+    actual: absent,
+    expected: null,
   });
 });
 test('Room bot catalog includes current actor eligibility facts', async () => {

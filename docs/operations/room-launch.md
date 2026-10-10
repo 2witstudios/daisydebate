@@ -138,3 +138,40 @@ slot and inventory its Room/participant/round/FK provenance read-only.
 No fabricated host, reset, applied-history rewrite, or Round deletion is
 part of this delivery. The schema epic owns a reviewed transition before
 warm adoption can be accepted.
+
+## Lobby discovery
+
+Authenticated discovery returns a lightweight page of Room metadata and the
+caller's seated flag. It includes assembling/ready Rooms and started Rooms
+whose frozen authoritative Round is scheduled or active. Abandoned Rooms and
+completed/abandoned Rounds do not appear. Offering View Round requires both
+fresh Room and frozen Round authorization, including their respective host or
+creator, visibility and only the caller's relevant seats. The canonical
+account fence and authorization evaluator govern every page; discovery adds
+no age or capability authority of its own.
+
+The strict request accepts `q` (at most 100 characters), `cursor` (a Room cuid2)
+and `pageSize` (default 20, maximum 50). These are delegated resource-work
+choices recorded in pending DEC-129, not an accepted competition capacity
+policy. Search matches title, topic or the current host label in SQL before
+paging. The native GET search form resets the cursor; Next page preserves
+search and page size, and First page resets pagination.
+
+Two separately ordered and bounded SQL branches traverse partial assembly
+Room-id and live Round-room-id indexes. Comparisons, branch order, global
+merge order and the indexes all use bytewise `C` collation. Each branch selects
+at most page size plus one; the global merge selects the same bound. Only the
+first page-size Room ids and associated Rounds are locked. The fresh projection
+contains no format/configuration, full cast or Redis consent reads. Historical
+rows are absent from the partial indexes. Search may examine nonmatching live
+index entries; it never scans historical aggregates or replenishes a page
+through an unbounded hydration loop.
+
+A lock wait can shorten a page. Continuation uses only the last returned,
+authorized Room id when selection observed another candidate. A masked
+page-plus-one candidate can produce a subsequent empty page. If every selected
+row becomes masked or terminal, the response has no cursor and explicitly
+requests retry of the same bounded query, rather than claiming the catalog
+ended or disclosing a hidden id. A stable retry can then reach a remaining
+accessible successor. The consumer refuses overflow, duplicate/nonprogressing
+ids and substituted cursors as a whole; it never silently truncates a response.
