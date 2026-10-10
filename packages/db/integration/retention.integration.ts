@@ -2,6 +2,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { createDatabase, type Database } from '../src';
+import { waitForOutboxFinality } from '../src/testing';
 import { requireTestServices } from '@daisy/config';
 
 const { databaseUrl: url } = requireTestServices(process.env);
@@ -109,20 +110,23 @@ test('each retained table loses only rows older than the cutoff, and a repeat ru
   const database = createDatabase({ url, nextActorId: createId });
   try {
     const results = [];
+    const batch = { before: cutoff, limit: 100 };
     for (const table of tables) {
       // 30h and 25h old: past the 24h cutoff. 23h old and 1h in the future: kept.
       await withSql(async (sql) => {
         for (const hours of [30, 25, 23, -1])
           await table.insert(sql, tag, hoursAgo(hours));
+        if (table.operation === 'purgeExpiredOutboxEvents') {
+          const [row] = await sql`
+            select txid::text as txid from outbox where topic = ${tag}
+            order by txid desc limit 1`;
+          await waitForOutboxFinality(sql, String(row!.txid), {
+            now: Date.now,
+          });
+        }
       });
-      const deleted = await database[table.operation]({
-        before: cutoff,
-        limit: 100,
-      });
-      const again = await database[table.operation]({
-        before: cutoff,
-        limit: 100,
-      });
+      const deleted = await database[table.operation](batch);
+      const again = await database[table.operation](batch);
       results.push({
         operation: table.operation,
         // Other suites' rows may also be past the cutoff; only ours are counted.
@@ -262,9 +266,7 @@ test('concurrent sweeps delete each expired row exactly once', async () => {
 
 test('concurrent session sweeps race-free delete each expired session exactly once and never touch a live session, its user, or its passkey', async () => {
   const tag = `rt-${createId().slice(0, 10)}`;
-  const [session] = tables.filter(
-    (table) => table.operation === 'purgeExpiredSessions',
-  );
+  const session = tables.find((t) => t.operation === 'purgeExpiredSessions')!;
   const isolatedBefore = '2001-01-01T01:00:00.000Z';
   await withSql(async (sql) => {
     await sql`insert into users (id, name) values (${tag}, '') on conflict (id) do nothing`;
