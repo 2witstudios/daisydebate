@@ -1,3 +1,7 @@
+import { roomAllowed, roundReadable } from './authorization-room';
+import { groupInvitationCreationAllowed } from './authorization-group-invite';
+import { groupSafetyAllowed } from './authorization-group-safety';
+import { groupCommandResultAllowed } from './authorization-group-result';
 import { groupInvitationAllowed } from './authorization-invitation';
 import { requestChannelDecision } from './authorization-request';
 import { pendingFileCleanupAllowed } from './authorization-file';
@@ -35,6 +39,8 @@ export type {
   PendingFileAuthorizationFact,
   MessagingCollectionAuthorizationFact,
   GroupInvitationAuthorizationFact,
+  GroupCommandResultAuthorizationFact,
+  GroupInvitationCreationAuthorizationFact,
 } from './authorization-facts';
 const deny = (
   reason: Extract<AuthorizationDecision, { allow: false }>['reason'],
@@ -47,12 +53,16 @@ function validResourceKind(
   capability: AuthorizationCapability,
   resource: AuthorizationInput['resource'],
 ) {
+  const specialized = {
+    'channel.group.result': 'group_command_result',
+    'channel.group.invite': 'group_invitation_creation',
+    'channel.inbox.read': 'messaging_collection',
+    'channel.file.cleanup': 'pending_file',
+  } as const;
+  const kind = specialized[capability as keyof typeof specialized];
+  if (kind) return resource.kind === kind;
   if (capability.startsWith('channel.invitation.'))
     return resource.kind === 'group_invitation';
-  if (capability === 'channel.inbox.read')
-    return resource.kind === 'messaging_collection';
-  if (capability === 'channel.file.cleanup')
-    return resource.kind === 'pending_file';
   if (capability === 'social.block') return resource.kind === 'contact_pair';
   if (
     ['social.request.create', 'channel.create.private_group'].includes(
@@ -82,21 +92,6 @@ function boundMember(
     principal.actorId !== null &&
     positiveRevision(account.revision)
   );
-}
-function roomDecision(
-  actorId: string,
-  capability: AuthorizationCapability,
-  resource: RoomAuthorizationFact,
-): AuthorizationDecision {
-  const host = resource.hostActorId === actorId;
-  const seated = resource.participants.some((p) => p.actorId === actorId);
-  const readable =
-    ['public', 'unlisted'].includes(resource.visibility) || host || seated;
-  if (['room.read', 'room.join'].includes(capability))
-    return readable ? allow : deny('missing-capability');
-  if (capability === 'room.manage')
-    return host ? allow : deny('missing-capability');
-  return seated ? allow : deny('missing-capability');
 }
 function validDmAuthority(
   authority: Extract<ChannelAuthorizationFact['authority'], { kind: 'dm' }>,
@@ -173,6 +168,8 @@ function channelDecision(
   context: AuthorizationInput['context'],
 ): AuthorizationDecision {
   if (!validChannelAuthority(resource)) return deny('denied');
+  if (['channel.group.revoke', 'channel.group.archive'].includes(capability))
+    return decision(groupSafetyAllowed(actorId, capability, resource));
   if (capability === 'channel.leave')
     return decision(
       resource.authority.kind === 'private_group' &&
@@ -228,13 +225,23 @@ export function authorize({
 }
 const decision = (allowed: boolean): AuthorizationDecision =>
   allowed ? allow : deny('missing-capability');
-function specialResourceDecision(
+function resolveMemberResource(
   actorId: string,
   capability: AuthorizationCapability,
-  resource: AuthorizationInput['resource'],
+  resource: Exclude<AuthorizationInput['resource'], { kind: 'foundation' }>,
   context: AuthorizationInput['context'],
-): AuthorizationDecision | null {
+):
+  | AuthorizationDecision
+  | RoomAuthorizationFact
+  | RoundAuthorizationFact
+  | ChannelAuthorizationFact {
   switch (resource.kind) {
+    case 'group_invitation_creation':
+      return decision(
+        groupInvitationCreationAllowed(actorId, resource, context),
+      );
+    case 'group_command_result':
+      return decision(groupCommandResultAllowed(actorId, resource));
     case 'group_invitation':
       return decision(
         groupInvitationAllowed(actorId, capability, resource, context),
@@ -252,7 +259,7 @@ function specialResourceDecision(
     case 'room_collection':
       return allow;
     default:
-      return null;
+      return resource;
   }
 }
 function memberDecision(
@@ -261,30 +268,17 @@ function memberDecision(
   resource: Exclude<AuthorizationInput['resource'], { kind: 'foundation' }>,
   context: AuthorizationInput['context'],
 ): AuthorizationDecision {
-  const collectionDecision = specialResourceDecision(
+  const resolved = resolveMemberResource(
     actorId,
     capability,
     resource,
     context,
   );
-  if (collectionDecision !== null) return collectionDecision;
-  if (!('revision' in resource)) return deny('denied');
-  if (!positiveRevision(resource.revision)) return deny('denied');
-  if (resource.kind === 'round') return roundDecision(actorId, resource);
-  return resource.kind === 'room'
-    ? roomDecision(actorId, capability, resource)
-    : resource.kind === 'channel'
-      ? channelDecision(actorId, capability, resource, context)
-      : deny('denied');
-}
-
-function roundDecision(
-  actorId: string,
-  resource: RoundAuthorizationFact,
-): AuthorizationDecision {
-  const readable =
-    ['public', 'unlisted'].includes(resource.visibility) ||
-    resource.createdByActorId === actorId ||
-    resource.participants.some((p) => p.actorId === actorId);
-  return readable ? allow : deny('missing-capability');
+  if ('allow' in resolved) return resolved;
+  if (!positiveRevision(resolved.revision)) return deny('denied');
+  if (resolved.kind === 'round')
+    return decision(roundReadable(actorId, resolved));
+  return resolved.kind === 'room'
+    ? decision(roomAllowed(actorId, capability, resolved))
+    : channelDecision(actorId, capability, resolved, context);
 }

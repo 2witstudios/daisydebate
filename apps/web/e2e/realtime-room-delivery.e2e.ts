@@ -1,10 +1,12 @@
 import { createId } from '@paralleldrive/cuid2';
+import { readRealtimeTransportConfig } from '@daisy/config';
+import type { BrowserContext, Page } from '@playwright/test';
 import {
   buildRoomTopic,
   roomCatalogChoiceSchema,
   roomViewSchema,
-  ENVELOPE_VERSION,
-  PROTOCOL_VERSION,
+  roomCreateSchema,
+  type RoomView,
 } from '@daisy/protocol';
 import { test, expect, openPage } from './support/fixtures';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
@@ -17,8 +19,39 @@ import {
   connectRoomTransport,
 } from './support/realtime-fixture';
 import { resolveE2EPorts } from '../playwright.config';
+import {
+  nativeRealtimeRefusals,
+  nativeTicketReuse,
+} from './support/realtime-native-refusals';
 
 requireLaunchSlot(resolve(import.meta.dirname, '../../..'), process.env);
+
+function changeDetails(context: BrowserContext, view: RoomView, title: string) {
+  return context.request.post(`/api/rooms/${view.id}/commands`, {
+    headers: { origin },
+    data: {
+      type: 'update-details',
+      commandId: createId(),
+      expectedVersion: view.version,
+      title,
+      topic: view.topic,
+      visibility: 'private',
+    },
+  });
+}
+
+function roomChanges(page: Page, version: number) {
+  return page.evaluate(
+    (version) =>
+      window.realtimeProof.frames.filter(
+        (frame) =>
+          frame.type === 'event' &&
+          frame.payload.kind === 'room.changed' &&
+          frame.payload.entityVersion === version,
+      ),
+    version,
+  );
+}
 
 test('real HTTP Room mutation reaches its authenticated browser subscriber and refuses a private outsider', async ({
   browser,
@@ -38,22 +71,22 @@ test('real HTTP Room mutation reaches its authenticated browser subscriber and r
     if (!choice) throw new Error('Canonical Room format producer unavailable');
     const created = await host.request.post('/api/rooms', {
       headers: { origin },
-      data: {
+      data: roomCreateSchema.parse({
         commandId: createId(),
         title: 'Realtime isolated proof',
         topic: 'Cities should fund public transit',
         visibility: 'private',
         selection: {
-          kind: 'template',
+          kind: 'catalog',
           formatId: choice.formatId,
           formatVersion: choice.formatVersion,
           length: 'full',
           competitionType: 'casual',
           config: choice.defaultConfig,
         },
-      },
+      }),
     });
-    expect(created.status()).toBe(200);
+    expect(created.status()).toBe(201);
     const before = roomViewSchema.parse((await created.json()).view);
     const topic = buildRoomTopic(before.id);
     const hostPage = await openPage(host, 'RT authorized host'),
@@ -65,13 +98,22 @@ test('real HTTP Room mutation reaches its authenticated browser subscriber and r
     await connectRoomTransport(outsiderPage, topic, source);
     await expect
       .poll(() =>
-        hostPage.evaluate(() =>
-          window.realtimeProof.frames.some(
-            (frame) => frame.type === 'subscribed',
-          ),
-        ),
+        hostPage.evaluate(() => {
+          const proof = window.realtimeProof;
+          if (proof.frames.some((frame) => frame.type === 'subscribed'))
+            return null;
+          return {
+            state: proof.store.getState(),
+            closeCodes: proof.closeCodes,
+            diagnostics: proof.diagnostics,
+            frames: proof.transportFrames.map((frame) => ({
+              type: frame.type,
+              ...(frame.type === 'error' ? { code: frame.code } : {}),
+            })),
+          };
+        }),
       )
-      .toBe(true);
+      .toBe(null);
     await expect
       .poll(() =>
         outsiderPage.evaluate(() =>
@@ -81,46 +123,19 @@ test('real HTTP Room mutation reaches its authenticated browser subscriber and r
         ),
       )
       .toBe(true);
-    const mutation = await host.request.post(
-      `/api/rooms/${before.id}/commands`,
-      {
-        headers: { origin },
-        data: {
-          type: 'update-details',
-          commandId: createId(),
-          expectedVersion: before.version,
-          title: 'Changed only through HTTP',
-          topic: before.topic,
-          visibility: 'private',
-        },
-      },
+    const mutation = await changeDetails(
+      host,
+      before,
+      'Changed only through HTTP',
     );
     expect(mutation.status()).toBe(200);
     const changed = roomViewSchema.parse((await mutation.json()).view);
     await expect
-      .poll(() =>
-        hostPage.evaluate(
-          (version) =>
-            window.realtimeProof.frames.filter(
-              (frame) =>
-                frame.type === 'event' &&
-                frame.payload.kind === 'room.changed' &&
-                frame.payload.entityVersion === version,
-            ).length,
-          changed.changeVersion,
-        ),
+      .poll(
+        async () => (await roomChanges(hostPage, changed.changeVersion)).length,
       )
       .toBe(1);
-    const bell = await hostPage.evaluate(
-      (version) =>
-        window.realtimeProof.frames.find(
-          (frame) =>
-            frame.type === 'event' &&
-            frame.payload.kind === 'room.changed' &&
-            frame.payload.entityVersion === version,
-        ),
-      changed.changeVersion,
-    );
+    const bell = (await roomChanges(hostPage, changed.changeVersion))[0];
     expect(bell?.type).toBe('event');
     if (bell?.type !== 'event')
       throw new Error('Validated Room bell unavailable');
@@ -141,6 +156,52 @@ test('real HTTP Room mutation reaches its authenticated browser subscriber and r
         ),
       ),
     ).toBe(false);
+    // Hold only the next real ticket HTTP request while a durable command commits.
+    // Reconnection must consume that real ticket and catch up from its stored cursor.
+    let resumeTicket!: () => void;
+    let ticketRequested = false;
+    const ticketGate = new Promise<void>((resolve) => {
+      resumeTicket = resolve;
+    });
+    await hostPage.route('**/api/realtime/ticket', async (route) => {
+      ticketRequested = true;
+      await ticketGate;
+      await route.continue();
+    });
+    await hostPage.evaluate(() => {
+      window.realtimeProof.sockets.at(-1)!.close(4005, 'isolated interruption');
+    });
+    await expect.poll(() => ticketRequested).toBe(true);
+    const offlineMutation = await changeDetails(
+      host,
+      changed,
+      'Committed while the socket is disconnected',
+    );
+    expect(offlineMutation.status()).toBe(200);
+    const offlineView = roomViewSchema.parse(
+      (await offlineMutation.json()).view,
+    );
+    resumeTicket();
+    await expect
+      .poll(
+        async () =>
+          (await roomChanges(hostPage, offlineView.changeVersion)).length,
+      )
+      .toBe(1);
+    await expect
+      .poll(() =>
+        hostPage.evaluate(
+          () =>
+            window.realtimeProof.frames.filter(
+              (frame) => frame.type === 'subscribed',
+            ).length,
+        ),
+      )
+      .toBe(2);
+    expect(
+      await hostPage.evaluate(() => window.realtimeProof.sockets.length),
+    ).toBe(2);
+    await hostPage.unroute('**/api/realtime/ticket');
     const revoked = await host.request.post('/api/auth/revoke-sessions', {
       headers: { origin },
       data: {},
@@ -168,50 +229,43 @@ test('a real issued ticket accepts one hello and refuses its second consumption'
       'RT ticket consumer',
     );
     await page.goto('/lobby');
-    const result = await page.evaluate(
-      async ({ v, protocolVersion, endpoint }) => {
-        const response = await fetch('/api/realtime/ticket', {
-          method: 'POST',
-          credentials: 'same-origin',
-        });
-        const body = await response.json();
-        if (
-          response.status !== 200 ||
-          body.socketUrl !== endpoint ||
-          typeof body.ticket !== 'string'
-        )
-          throw new Error('Actual ticket endpoint unavailable');
-        const open = () =>
-          new Promise<'ready' | number>((accept, reject) => {
-            const socket = new WebSocket(body.socketUrl);
-            socket.onopen = () =>
-              socket.send(
-                JSON.stringify({
-                  v,
-                  type: 'hello',
-                  protocolVersion,
-                  ticket: body.ticket,
-                }),
-              );
-            socket.onmessage = (event) => {
-              if (JSON.parse(String(event.data)).type === 'ready') {
-                accept('ready');
-                socket.close();
-              }
-            };
-            socket.onclose = (event) => accept(event.code);
-            socket.onerror = () =>
-              reject(new Error('Native ticket socket failed'));
-          });
-        return [await open(), await open()];
-      },
-      {
-        v: ENVELOPE_VERSION,
-        protocolVersion: PROTOCOL_VERSION,
-        endpoint: `wss://localhost:${resolveE2EPorts(process.env).realtime}/ws`,
-      },
+    const result = await nativeTicketReuse(
+      page,
+      `wss://localhost:${resolveE2EPorts(process.env).realtime}/ws`,
     );
     expect(result).toEqual(['ready', 4001]);
+  } finally {
+    await settledLaunchAuth();
+    await accounts.closeContexts();
+  }
+});
+
+test('actual authenticated socket enforces version, hello deadline, malformed frames and inbound rate', async ({
+  browser,
+}) => {
+  const accounts = await createRoomLaunchAccounts(browser, 1);
+  try {
+    const page = await openPage(
+      accounts.members[0]!.context,
+      'RT native refusals',
+    );
+    await page.goto('/lobby');
+    const result = await nativeRealtimeRefusals(
+      page,
+      `wss://localhost:${resolveE2EPorts(process.env).realtime}/ws`,
+    );
+    expect(result).toEqual({
+      version: 4003,
+      timeout: 4001,
+      malformed: 4003,
+      rate: 4004,
+      actorConnections: [
+        ...Array(readRealtimeTransportConfig(process.env).maxPerActor).fill(
+          'ready',
+        ),
+        4004,
+      ],
+    });
   } finally {
     await settledLaunchAuth();
     await accounts.closeContexts();

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { mediaEndpoint } from './media-endpoint';
 import { databaseUrl, redisUrl } from './urls';
 import { realtimePublicUrlSchema } from './realtime-endpoint';
 export {
@@ -106,6 +107,10 @@ const serverFields = {
     .transform((value) => value === 'true'),
   PUBLIC_APP_URL: z.url(),
   REALTIME_PUBLIC_URL: realtimePublicUrlSchema.optional(),
+  LIVEKIT_URL: mediaEndpoint(/^https?$/).optional(),
+  LIVEKIT_PUBLIC_URL: mediaEndpoint(/^wss?$/).optional(),
+  LIVEKIT_API_KEY: secret(z.string().regex(/^\S+$/)).optional(),
+  LIVEKIT_API_SECRET: secret(z.string().regex(/^\S+$/)).optional(),
   // AIDB: OpenRouter for AI debates (chat, TTS, STT). Optional: without it
   // AI debates are unavailable and nothing calls out.
   OPENROUTER_API_KEY: secret(z.string().regex(/^\S+$/)).optional(),

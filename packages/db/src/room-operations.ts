@@ -12,6 +12,7 @@ import { isUniqueViolation } from './unique-violation';
 import { roomParticipants, rooms } from './schema/rooms';
 import { roundParticipants } from './schema/round-participants';
 import { rounds } from './schema/rounds';
+import { appendRoundPhaseChanged } from './round-projection-writer';
 
 export type NewRoom = {
   readonly id: string;
@@ -296,6 +297,7 @@ export const roomOperations = ({
           .update(rooms)
           .set({ status: 'started', updatedAt: sql`statement_timestamp()` })
           .where(eq(rooms.id, input.roomId));
+        await appendRoundPhaseChanged(tx, input.roundId, 1);
       });
     });
   },

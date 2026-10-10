@@ -77,3 +77,31 @@ test('selected config validation refuses wrong suites, shared output and missing
     expected: [true, false, false, false],
   });
 });
+
+test('anchored proof reports preserve exact output location and reject displaced evidence', () => {
+  const profile = realtimeProofProfile('room');
+  let refused = false;
+  const web = '/proof/apps/web';
+  const config = {
+    testMatch: profile.spec,
+    outputDir: `${web}/test-results/realtime`,
+    reporter: [['json', { outputFile: `${web}/${profile.report}` }]],
+  };
+  assertRealtimeProofConfig(profile, config, web);
+  try {
+    assertRealtimeProofConfig(
+      profile,
+      { ...config, outputDir: '/foreign/test-results/realtime' },
+      web,
+    );
+  } catch {
+    refused = true;
+  }
+  assert({
+    given:
+      'an exact checkout-anchored reporter and a displaced output directory',
+    should: 'accept only actual own-checkout evidence',
+    actual: refused,
+    expected: true,
+  });
+});

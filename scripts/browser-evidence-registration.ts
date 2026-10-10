@@ -1,3 +1,4 @@
+import { claimedBrowserSteps } from './browser-ci-claims';
 import ts from 'typescript';
 import type { EvidenceProblem } from './evidence';
 import { browserRunnerClaimsConfig } from './browser-runner-claim';
@@ -61,6 +62,47 @@ function patterns(expression: ts.Expression | undefined): readonly string[] {
     return expression.elements.filter(ts.isStringLiteral).map((e) => e.text);
   return [];
 }
+function artifactPath(text: string, value: ts.Expression | undefined) {
+  const literal = patterns(value)[0];
+  if (literal) return literal;
+  if (
+    !value ||
+    !ts.isCallExpression(value) ||
+    value.expression.getText() !== 'resolve' ||
+    value.arguments[0]?.getText() !== 'web'
+  )
+    return undefined;
+  const source = parseConfig(text);
+  const bound = source.statements.some(
+    (statement) =>
+      ts.isVariableStatement(statement) &&
+      statement.declarationList.declarations.some(
+        (binding) =>
+          binding.name.getText(source) === 'web' &&
+          binding.initializer !== undefined &&
+          ts.isCallExpression(binding.initializer) &&
+          binding.initializer.expression.getText(source) === 'resolve' &&
+          binding.initializer.arguments[0]?.getText(source) ===
+            'import.meta.dirname' &&
+          patterns(binding.initializer.arguments[1])[0] === '../..',
+      ),
+  );
+  const imported = source.statements.some(
+    (statement) =>
+      ts.isImportDeclaration(statement) &&
+      ts.isStringLiteral(statement.moduleSpecifier) &&
+      statement.moduleSpecifier.text === 'node:path' &&
+      statement.importClause?.namedBindings !== undefined &&
+      ts.isNamedImports(statement.importClause.namedBindings) &&
+      statement.importClause.namedBindings.elements.some(
+        (binding) =>
+          binding.name.text === 'resolve' && binding.propertyName === undefined,
+      ),
+  );
+  return bound && imported && value.arguments.length === 2
+    ? patterns(value.arguments[1])[0]
+    : undefined;
+}
 function primaryIgnore(text: string) {
   const config = exportedConfig(text);
   const projects = property(config, 'projects');
@@ -113,71 +155,6 @@ function projectIgnoresCleared(
     : callback.body;
   return ts.isObjectLiteralExpression(body) && emptyIgnore(body);
 }
-const record = (value: unknown): Record<string, unknown> | null =>
-  value && typeof value === 'object' && !Array.isArray(value)
-    ? Object.fromEntries(Object.entries(value))
-    : null;
-function hasReport(steps: readonly unknown[], command: string | undefined) {
-  if (!command) return true;
-  return steps.some((value) => {
-    const step = record(value);
-    const enforced =
-      step?.if === undefined || step?.if === '${{ always() && !cancelled() }}';
-    return (
-      enforced &&
-      step?.['continue-on-error'] === undefined &&
-      typeof step?.run === 'string' &&
-      step.run.trim() === command
-    );
-  });
-}
-function claimedSteps(
-  workflow: string,
-  command: string,
-  reportCommand: string | undefined,
-  companions: readonly string[] = [],
-): number {
-  try {
-    const jobs = record(record(Bun.YAML.parse(workflow))?.jobs);
-    return Object.values(jobs ?? {}).flatMap((value) => {
-      const job = record(value);
-      if (
-        !job ||
-        job.if !== undefined ||
-        job['continue-on-error'] !== undefined ||
-        !Array.isArray(job.steps)
-      )
-        return [];
-      if (
-        !companions.every((command) =>
-          job.steps.some((value: unknown) => {
-            const step = record(value);
-            return (
-              step?.if === undefined &&
-              step?.['continue-on-error'] === undefined &&
-              typeof step?.run === 'string' &&
-              [`bun ${command}`, `bun run ${command}`].includes(step.run.trim())
-            );
-          }),
-        )
-      )
-        return [];
-      if (!hasReport(job.steps, reportCommand)) return [];
-      return job.steps.filter((value) => {
-        const step = record(value);
-        return (
-          step &&
-          step.if === undefined &&
-          step['continue-on-error'] === undefined &&
-          typeof step.run === 'string' &&
-          [`bun ${command}`, `bun run ${command}`].includes(step.run.trim())
-        );
-      });
-    }).length;
-  } catch {
-    return 0;
-  }
-}
 /** Static claims supplement actual reporter counts; comments/disabled jobs never claim a run. */
 export function browserProofClaimProblems(
   input: BrowserRegistration,
@@ -205,7 +182,8 @@ export function browserProofClaimProblems(
     );
   if (
     contract.outputDir &&
-    patterns(property(dedicated, 'outputDir'))[0] !== contract.outputDir
+    artifactPath(input.dedicatedConfig, property(dedicated, 'outputDir')) !==
+      contract.outputDir
   )
     missing(
       'dedicated output directory must preserve earlier native profile evidence',
@@ -233,7 +211,7 @@ export function browserProofClaimProblems(
     missing(
       `${contract.label} runner does not invoke its dedicated config through the canonical limiter`,
     );
-  const jobs = claimedSteps(
+  const jobs = claimedBrowserSteps(
     input.workflow,
     contract.command,
     contract.reportCommand,

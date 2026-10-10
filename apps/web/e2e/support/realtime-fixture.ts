@@ -1,3 +1,4 @@
+import type { ConnectionDiagnostic } from '../../src/features/realtime/connection-diagnostics';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -13,6 +14,10 @@ declare global {
       store: ConnectionStore;
       frames: ServerMessage[];
       release: () => void;
+      sockets: WebSocket[];
+      closeCodes: number[];
+      transportFrames: ServerMessage[];
+      diagnostics: ConnectionDiagnostic[];
     };
   }
 }
@@ -51,12 +56,38 @@ export async function connectRoomTransport(
           createRealtimeProofStore: (url: string) => ConnectionStore;
         }
       ).createRealtimeProofStore;
+      const sockets: WebSocket[] = [];
+      const closeCodes: number[] = [];
+      const NativeSocket = window.WebSocket;
+      // Record actual native sockets so the proof can interrupt a real connection.
+      // No ticket, frame, server response or browser transport is replaced.
+      window.WebSocket = class extends NativeSocket {
+        constructor(endpoint: string | URL, protocols?: string | string[]) {
+          super(endpoint, protocols);
+          sockets.push(this);
+          this.addEventListener('close', (event) =>
+            closeCodes.push(event.code),
+          );
+        }
+      };
       const store = create(url);
+      const diagnostics: ConnectionDiagnostic[] = [];
+      store.onDiagnostic((event) => diagnostics.push(event));
       const frames: ServerMessage[] = [];
+      const transportFrames: ServerMessage[] = [];
+      store.onMessage((frame) => transportFrames.push(frame));
       const release = store.subscribeTopic(topic, (frame) => {
         frames.push(frame);
       });
-      window.realtimeProof = { store, frames, release };
+      window.realtimeProof = {
+        store,
+        frames,
+        release,
+        sockets,
+        closeCodes,
+        transportFrames,
+        diagnostics,
+      };
       store.connect();
     },
     {

@@ -1,7 +1,7 @@
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
-import { openMessagingFixture } from './messaging-fixture.test-support';
+import { openMessagingParticipants } from './messaging-fixture.test-support';
 import {
   messagingFixturePosting,
   messagingFixtureReading,
@@ -10,17 +10,8 @@ import { composeMessagingInbox } from '../src/features/messaging/inbox-compositi
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 test('real own collection projects pending direction through fresh request grants and forgets erased pair associations', async () => {
-  const {
-    client,
-    database,
-    fixture,
-    principal: sender,
-  } = await openMessagingFixture(databaseUrl);
-  const recipient = {
-    kind: 'user' as const,
-    userId: fixture.otherUserId,
-    actorId: fixture.otherActorId,
-  };
+  const { client, database, fixture, sender, recipient } =
+    await openMessagingParticipants(databaseUrl);
   const inbox = (principal: typeof sender) =>
     composeMessagingInbox({
       database,

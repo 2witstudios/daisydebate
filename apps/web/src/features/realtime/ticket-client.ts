@@ -12,6 +12,53 @@ import { z } from 'zod';
  */
 export type FetchLike = (url: string, init?: RequestInit) => Promise<Response>;
 
+function ticketFailure(
+  name:
+    | 'RealtimeTicketFetchError'
+    | 'RealtimeTicketBodyError'
+    | 'RealtimeTicketSchemaObjectError'
+    | 'RealtimeTicketSchemaTicketError'
+    | 'RealtimeTicketSchemaSocketUrlError'
+    | `RealtimeTicketSchemaThrown${'EvalError' | 'ReferenceError' | 'TypeError' | 'UnknownError'}`
+    | 'RealtimeTicketEndpointError',
+  message: string,
+): Error {
+  const error = new Error(message);
+  error.name = name;
+  return error;
+}
+
+function parseTicket(body: unknown) {
+  let result;
+  try {
+    result = z
+      .object({ ticket: ticketSchema, socketUrl: realtimePublicUrlSchema })
+      .safeParse(body, { jitless: true });
+  } catch (error) {
+    const name = error instanceof Error ? error.name : '';
+    const fixedClass =
+      name === 'EvalError' || name === 'ReferenceError' || name === 'TypeError'
+        ? name
+        : 'UnknownError';
+    throw ticketFailure(
+      `RealtimeTicketSchemaThrown${fixedClass}`,
+      'realtime ticket response was malformed',
+    );
+  }
+  if (!result.success) {
+    const field = result.error.issues[0]?.path[0];
+    throw ticketFailure(
+      field === 'ticket'
+        ? 'RealtimeTicketSchemaTicketError'
+        : field === 'socketUrl'
+          ? 'RealtimeTicketSchemaSocketUrlError'
+          : 'RealtimeTicketSchemaObjectError',
+      'realtime ticket response was malformed',
+    );
+  }
+  return result.data;
+}
+
 export async function fetchRealtimeTicket({
   fetchImpl,
   expectedSocketUrl,
@@ -19,22 +66,38 @@ export async function fetchRealtimeTicket({
   readonly fetchImpl: FetchLike;
   readonly expectedSocketUrl?: string;
 }): Promise<string> {
-  const response = await fetchImpl('/api/realtime/ticket', {
-    method: 'POST',
-    credentials: 'same-origin',
-  });
-  if (!response.ok) {
-    throw new Error(`realtime ticket request failed: ${response.status}`);
+  let response: Response;
+  try {
+    response = await fetchImpl('/api/realtime/ticket', {
+      method: 'POST',
+      credentials: 'same-origin',
+    });
+  } catch {
+    throw ticketFailure(
+      'RealtimeTicketFetchError',
+      'realtime ticket request failed',
+    );
   }
-  const body: unknown = await response.json();
-  const result = z
-    .object({ ticket: ticketSchema, socketUrl: realtimePublicUrlSchema })
-    .safeParse(body);
-  if (
-    !result.success ||
-    (expectedSocketUrl !== undefined &&
-      result.data.socketUrl !== expectedSocketUrl)
-  )
-    throw new Error('realtime ticket response was malformed');
-  return result.data.ticket;
+  if (!response.ok) {
+    throw ticketFailure(
+      'RealtimeTicketFetchError',
+      `realtime ticket request failed: ${response.status}`,
+    );
+  }
+  let body: unknown;
+  try {
+    body = await response.json();
+  } catch {
+    throw ticketFailure(
+      'RealtimeTicketBodyError',
+      'realtime ticket response was malformed',
+    );
+  }
+  const result = parseTicket(body);
+  if (expectedSocketUrl !== undefined && result.socketUrl !== expectedSocketUrl)
+    throw ticketFailure(
+      'RealtimeTicketEndpointError',
+      'realtime ticket response was malformed',
+    );
+  return result.ticket;
 }

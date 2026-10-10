@@ -145,7 +145,9 @@ export function isPayloadStorableOnTopic(
 ): boolean {
   const parsedTopic = parseTopic(topic);
   if (!parsedTopic) return false;
-  const parsedPayload = outboxPayloadSchema.safeParse(payload);
+  const parsedPayload = outboxPayloadSchema.safeParse(payload, {
+    jitless: true,
+  });
   if (!parsedPayload.success) return false;
   if (parsedTopic.family === 'channel')
     return (
@@ -169,7 +171,7 @@ export function isPayloadDeliverableOnTopic(
   payload: unknown,
 ): boolean {
   if (!isPayloadStorableOnTopic(topic, payload)) return false;
-  const { kind } = outboxPayloadSchema.parse(payload);
+  const { kind } = outboxPayloadSchema.parse(payload, { jitless: true });
   return (
     kind !== 'session.revoked' &&
     kind !== 'access.revoked' &&

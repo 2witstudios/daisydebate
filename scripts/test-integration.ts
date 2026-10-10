@@ -207,7 +207,17 @@ if (import.meta.main) {
     work: async (run) => {
       const before = await rowCounts(run.url);
       const suites = Bun.spawn(
-        ['bun', 'test', ...files.map((file) => `./${file}`), ...rest],
+        [
+          'bun',
+          'test',
+          // These suites share one run database. Files that assert on the
+          // whole outbox or exercise global maintenance must not race other
+          // files writing to that same database. In-suite concurrency tests
+          // still exercise their intended transaction races.
+          '--parallel=1',
+          ...files.map((file) => `./${file}`),
+          ...rest,
+        ],
         {
           stdio: ['inherit', 'inherit', 'inherit'],
           env: {

@@ -1,6 +1,14 @@
 import { z } from 'zod';
 import { idSchema } from '../primitives';
 import { messagingTextSchema } from './core';
+import { parseUsername } from '../username';
+
+const recipientUsername = z.string().transform((value, context) => {
+  const parsed = parseUsername(value);
+  if (parsed.ok) return parsed.username;
+  context.addIssue({ code: 'custom', message: 'Invalid username' });
+  return z.NEVER;
+});
 
 export type MessagingSocialBounds = Readonly<{
   introductionUnits: number;
@@ -24,6 +32,17 @@ export const messagingGroupInvitationResultSchema = z.strictObject({
   state: z.enum(['pending', 'accepted', 'declined', 'cancelled']),
 });
 
+export const messagingContactBlockResultSchema = z.strictObject({
+  version: z.literal(1),
+  blocked: z.boolean(),
+  revision: z.number().int().positive().safe(),
+});
+export const messagingGroupCreationResultSchema = z.strictObject({
+  version: z.literal(1),
+  channelId: idSchema,
+  lifecycle: z.enum(['active', 'archived']),
+});
+
 /** Actor comes from the principal; contact facts never come from a command. */
 export function createMessagingSocialSchemas(bounds: MessagingSocialBounds) {
   z.number().int().positive().safe().parse(bounds.batchActors);
@@ -45,10 +64,11 @@ export function createMessagingSocialSchemas(bounds: MessagingSocialBounds) {
       introduction: messagingTextSchema(bounds.introductionUnits).nullable(),
       requestedAt: z.iso.datetime(),
     }),
-    blockResult: z.strictObject({
-      version: z.literal(1),
+    blockResult: messagingContactBlockResultSchema,
+    blockUsername: z.strictObject({
+      ...command,
+      recipientUsername,
       blocked: z.boolean(),
-      revision: z.number().int().positive().safe(),
     }),
     block: z.strictObject({
       ...command,
@@ -60,16 +80,26 @@ export function createMessagingSocialSchemas(bounds: MessagingSocialBounds) {
       recipientActorId: idSchema,
       introduction: messagingTextSchema(bounds.introductionUnits).optional(),
     }),
+    requestUsername: z.strictObject({
+      ...command,
+      recipientUsername,
+      introduction: messagingTextSchema(bounds.introductionUnits).optional(),
+    }),
+    createGroupUsernames: z.strictObject({
+      ...command,
+      title: messagingTextSchema(bounds.titleUnits),
+      invitedUsernames: z
+        .array(recipientUsername)
+        .min(1)
+        .max(bounds.batchActors)
+        .refine((names) => new Set(names).size === names.length),
+    }),
     previewDm: z.strictObject({ version: z.literal(1), channelId: idSchema }),
     decideDm: z.strictObject({
       ...scoped,
       decision: z.enum(['accept', 'decline', 'cancel']),
     }),
-    groupResult: z.strictObject({
-      version: z.literal(1),
-      channelId: idSchema,
-      lifecycle: z.enum(['active', 'archived']),
-    }),
+    groupResult: messagingGroupCreationResultSchema,
     invitationResult: messagingGroupInvitationResultSchema,
     readGroupInvitation: z.strictObject({
       version: z.literal(1),
@@ -86,11 +116,33 @@ export function createMessagingSocialSchemas(bounds: MessagingSocialBounds) {
       invitedActorIds: actors,
     }),
     inviteGroup: z.strictObject({ ...scoped, invitedActorIds: actors }),
+    inviteGroupUsernames: z.strictObject({
+      ...scoped,
+      invitedUsernames: z
+        .array(recipientUsername)
+        .min(1)
+        .max(bounds.batchActors)
+        .refine((names) => new Set(names).size === names.length),
+    }),
     decideGroupInvitation: z.strictObject({
       ...scoped,
       expectedGeneration: generation,
       decision: z.enum(['accept', 'decline']),
     }),
+    manageGroupUsername: z.discriminatedUnion('operation', [
+      z.strictObject({
+        ...scoped,
+        operation: z.literal('remove'),
+        memberUsername: recipientUsername,
+      }),
+      z.strictObject({
+        ...scoped,
+        operation: z.literal('transfer'),
+        memberUsername: recipientUsername,
+      }),
+      z.strictObject({ ...scoped, operation: z.literal('leave') }),
+      z.strictObject({ ...scoped, operation: z.literal('archive') }),
+    ]),
     removeGroupMember: z.strictObject({ ...scoped, memberActorId: idSchema }),
     leaveGroup: z.strictObject(scoped),
     transferGroup: z.strictObject({ ...scoped, managerActorId: idSchema }),

@@ -2,12 +2,25 @@ import { expect } from 'bun:test';
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createTestDatabase, roundRow, validRules } from './index.test-support';
-import { emptyRuntimeCheckpoint } from '@daisy/protocol';
+import { emptyRuntimeCheckpoint, type RoundProjection } from '@daisy/protocol';
 
 setupRitewayBun();
 
 const rules = validRules;
 const checkpoint = emptyRuntimeCheckpoint;
+const activeCountdownProjection: RoundProjection = {
+  round: {
+    status: 'active',
+    currentStage: 'countdown',
+    startedAt: '2026-01-01T00:00:00.000Z',
+    completedAt: null,
+    outcome: null,
+    checkpoint,
+  },
+  segmentInserts: [],
+  segmentCloses: [],
+  effects: [],
+};
 const isRepeatableReadOnly = (query: string | undefined) => {
   const text = query?.toLowerCase() ?? '';
   return text.includes('repeatable read') && text.includes('read only');
@@ -117,10 +130,12 @@ describe('round persistence', () => {
   test('applyRoundExecution writes the command, the segments and the round row as one versioned step', async () => {
     const { database, queries } = createTestDatabase([
       [], // command idempotency select
-      [[3]], // rounds select for update (positional: the for-update path)
+      [[3, 'scheduled', null]], // version and persisted phase under row lock
       [], // the round-row update
+      [[1n, '42']], // the Round phase doorbell, in the same transaction
+      [], // pg_notify for the Round doorbell
       [], // the command insert
-      [[9]], // the refusing run's rounds select for update: stored 9, expected 4
+      [[9, 'scheduled', null]], // refusing run's locked Round state
     ]);
     await database.applyRoundExecution({
       roundId: 'c8d4e2f6a1b3k5m7n9p2r4t6',
@@ -133,29 +148,32 @@ describe('round persistence', () => {
         payloadDigest: 'a'.repeat(64),
         result: { ok: true },
       },
-      projection: {
-        round: {
-          status: 'active',
-          currentStage: 'countdown',
-          startedAt: '2026-01-01T00:00:00.000Z',
-          completedAt: null,
-          outcome: null,
-          checkpoint,
-        },
-        segmentInserts: [],
-        segmentCloses: [],
-        effects: [],
-      },
+      projection: activeCountdownProjection,
     });
     assert({
       given: 'a start execution at the expected version',
-      should: 'check the command id, lock the round and write both rows',
+      should:
+        'check the command id, lock the round and write the versioned command and phase signal',
       actual: [
         queries[0]?.query.includes('"round_commands"'),
         queries[1]?.query.includes('for update'),
-        queries[3]?.query.includes('insert into "round_commands"'),
+        queries[5]?.query.includes('insert into "round_commands"'),
+        queries[3]?.params.find(
+          (value) => typeof value === 'object' && value !== null,
+        ),
+        queries[4]?.query.includes('pg_notify'),
       ],
-      expected: [true, true, true],
+      expected: [
+        true,
+        true,
+        true,
+        {
+          kind: 'debate.phase-changed',
+          ids: ['c8d4e2f6a1b3k5m7n9p2r4t6'],
+          entityVersion: 4,
+        },
+        true,
+      ],
     });
     await assertRejects({
       given: 'an execution against a round that moved on',
@@ -173,6 +191,35 @@ describe('round persistence', () => {
           },
         }),
       code: 'CONFLICT',
+    });
+    assert({
+      given: 'the refused stale-version execution after an accepted transition',
+      should: 'append no second Round phase signal',
+      actual: queries.filter((query) =>
+        query.query.startsWith('insert into "outbox"'),
+      ).length,
+      expected: 1,
+    });
+  });
+
+  test('applyRoundExecution does not signal when status and stage stay fixed', async () => {
+    const { database, queries } = createTestDatabase([
+      [[7, 'active', 'countdown']], // locked version and current phase
+      [], // the round-row update
+    ]);
+    await database.applyRoundExecution({
+      roundId: 'c8d4e2f6a1b3k5m7n9p2r4t6',
+      expectedVersion: 7,
+      command: null,
+      projection: activeCountdownProjection,
+    });
+    assert({
+      given: 'an accepted Round projection that keeps its current phase',
+      should: 'write the projection without an unrelated phase signal',
+      actual: queries.map(({ query }) =>
+        query.startsWith('insert into "outbox"'),
+      ),
+      expected: [false, false],
     });
   });
 });

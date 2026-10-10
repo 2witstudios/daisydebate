@@ -10,16 +10,12 @@ import {
 } from '../src/authorization';
 import { authorizationSessionOperations } from '../src/authorization-session';
 import { withFixture, sqlStateOf } from './constraint-helpers';
+import { createAuthorizationSubject } from './authorization.test-support';
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
 test('account authorization locks fence erasure and return fresh durable membership', async () => {
   await withFixture(url, async (fixture) => {
-    const userId = createId(),
-      actorId = createId();
-    fixture.track('users', userId);
-    fixture.track('actors', actorId);
-    await fixture.sql`insert into users (id,username,email_verified) values (${userId},${userId},true)`;
-    await fixture.sql`insert into actors (id,kind,user_id) values (${actorId},'human',${userId})`;
+    const { userId, actorId } = await createAuthorizationSubject(fixture);
     const sessionId = createId();
     fixture.track('session', sessionId);
     await fixture.sql`insert into session(id,user_id,token,expires_at) values(${sessionId},${userId},${createId()},'2026-10-09T00:01:00Z')`;

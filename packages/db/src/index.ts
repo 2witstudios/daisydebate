@@ -1,3 +1,7 @@
+import { createMessagingGroupIssuanceStore } from './messaging/group-issuance-store';
+import type { MessagingGroupIssuanceFence } from './messaging/group-issuance-contracts';
+import { createMessagingGroupManagementStore } from './messaging/group-management-store';
+import type { MessagingGroupManagementFence } from './messaging/group-management-contracts';
 import { createMessagingGroupCreationStore } from './messaging/group-creation-store';
 import type { MessagingGroupCreationFence } from './messaging/group-creation-contracts';
 import { createMessagingGroupInvitationStore } from './messaging/group-invitation-store';
@@ -191,6 +195,10 @@ export function createDatabase({
       createMessagingStore({ database, authorize }),
     messagingGroupCreationStore: (authorize: MessagingGroupCreationFence) =>
       createMessagingGroupCreationStore(database, authorize),
+    messagingGroupIssuanceStore: (authorize: MessagingGroupIssuanceFence) =>
+      createMessagingGroupIssuanceStore({ database, authorize }),
+    messagingGroupManagementStore: (authorize: MessagingGroupManagementFence) =>
+      createMessagingGroupManagementStore({ database, authorize }),
     messagingGroupInvitationStore: (authorize: MessagingGroupInvitationFence) =>
       createMessagingGroupInvitationStore({ database, authorize }),
     messagingSocialStore: (authorize: MessagingSocialAuthorizationFence) =>

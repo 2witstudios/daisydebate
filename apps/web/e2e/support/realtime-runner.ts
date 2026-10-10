@@ -1,3 +1,4 @@
+import { browserDriverOptions, finishBrowserDriver } from './browser-driver';
 import { resolve } from 'node:path';
 import { requireLaunchSlot } from './room-launch-slot';
 import { admitLaunchCheckout } from './room-launch-admission';
@@ -16,7 +17,11 @@ const selected =
   Bun.argv[2] === 'room'
     ? await import('./realtime-config')
     : await import('./messaging-realtime-config');
-assertRealtimeProofConfig(profile, selected.default);
+assertRealtimeProofConfig(
+  profile,
+  selected.default,
+  resolve(checkout, 'apps/web'),
+);
 await admitLaunchCheckout(checkout, slot.database);
 const node = process.env.REALTIME_BROWSER_NODE ?? 'node';
 if (!Bun.spawnSync([node, '--version']).stdout.toString().startsWith('v24.'))
@@ -31,14 +36,7 @@ const child = Bun.spawn(
     '--config',
     profile.config,
   ],
-  {
-    cwd: resolve(checkout, 'apps/web'),
-    env: process.env,
-    stdout: 'inherit',
-    stderr: 'inherit',
-  },
+  browserDriverOptions(checkout, process.env),
 );
-for (const signal of ['SIGTERM', 'SIGINT'] as const)
-  process.once(signal, () => child.kill(signal));
-process.exitCode = await child.exited;
+await finishBrowserDriver(child);
 // Retain this slot's rows and reports for the assigned independent reviewer.

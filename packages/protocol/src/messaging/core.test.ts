@@ -113,17 +113,19 @@ test('history and changes use distinct channel-bound cursors with explicit limit
     });
 });
 
+const historyEntry = {
+  id: messageId,
+  channelId,
+  authorActorId: requestId,
+  sequence: 1,
+  changeVersion: 1,
+  text: 'Hello',
+  createdAt: '2026-10-09T17:00:00.000Z',
+  editedAt: null,
+};
+
 test('history envelopes reject foreign channels and invalid sequence order', () => {
-  const message = {
-    id: messageId,
-    channelId,
-    authorActorId: requestId,
-    sequence: 1,
-    changeVersion: 1,
-    text: 'Hello',
-    createdAt: '2026-10-09T17:00:00.000Z',
-    editedAt: null,
-  };
+  const message = historyEntry;
   const valid = {
     version: 1,
     channelId,
@@ -228,4 +230,50 @@ test('exhausted change pages may advance over content-free authority revisions',
     }).success,
     expected: false,
   });
+});
+
+test('text changes bind nested message identity, scope and revision exactly', () => {
+  const message = { ...historyEntry, changeVersion: 2 };
+  const change = {
+    kind: 'created',
+    channelId,
+    messageId,
+    changeVersion: 2,
+    message,
+  };
+  for (const [patch, expected] of [
+    [{}, true],
+    [{ kind: 'edited' }, true],
+    [{ message: { ...message, id: requestId } }, false],
+    [{ message: { ...message, channelId: requestId } }, false],
+    [{ message: { ...message, changeVersion: 1 } }, false],
+  ] as const)
+    assert({
+      given: JSON.stringify(patch),
+      should: 'refuse inconsistent nested change authority/cursor bindings',
+      actual: schemas.changesResult.safeParse({
+        version: 1,
+        channelId,
+        changeVersion: 2,
+        changes: [{ ...change, ...patch }],
+        nextAfter: { channelId, changeVersion: 2 },
+      }).success,
+      expected,
+    });
+});
+
+test('read cursors cannot acknowledge another channel or an unsafe sequence', () => {
+  for (const [cursor, expected] of [
+    [{ channelId, sequence: 1 }, true],
+    [{ channelId: requestId, sequence: 1 }, false],
+    [{ channelId, sequence: 0 }, false],
+    [{ channelId, sequence: Number.MAX_SAFE_INTEGER + 1 }, false],
+  ] as const)
+    assert({
+      given: JSON.stringify(cursor),
+      should: 'bind the positive safe read acknowledgement to its channel',
+      actual: schemas.markRead.safeParse({ version: 1, channelId, cursor })
+        .success,
+      expected,
+    });
 });

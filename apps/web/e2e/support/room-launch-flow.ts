@@ -1,3 +1,4 @@
+import { launchEvidence } from './room-launch-evidence';
 import type { APIRequestContext, Page } from '@playwright/test';
 import {
   roomCastChoiceSchema,
@@ -114,4 +115,21 @@ export async function prepareJudgeRoom(page: Page, title: string) {
     ).toHaveValue(String(view.version));
   }
   return claim(page, view, 'Judge 1');
+}
+
+/** Both Launch paths assert the same complete frozen durable projection. */
+export async function assertFrozenLaunch(view: RoomView) {
+  const proof = await launchEvidence(view.id);
+  expect(proof.frozen).toEqual([
+    {
+      status: 'scheduled',
+      startedAt: null,
+      topic: view.topic,
+      config: view.config,
+      rules: view.rules,
+      cast: view.participants.map((participant) => participant.actorId).sort(),
+    },
+  ]);
+  expect(proof.launchDoorbells).toBe(1);
+  return proof;
 }

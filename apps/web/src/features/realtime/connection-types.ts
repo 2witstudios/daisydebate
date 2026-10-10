@@ -1,3 +1,4 @@
+import type { ConnectionDiagnostic } from './connection-diagnostics';
 import type { ServerMessage } from '@daisy/protocol';
 import type { TerminalReason } from './close-code-policy';
 
@@ -49,6 +50,9 @@ export type ConnectionStoreDeps = {
 };
 
 export type ConnectionStore = {
+  readonly onDiagnostic: (
+    listener: (event: ConnectionDiagnostic) => void,
+  ) => () => void;
   readonly subscribeTopic: (
     topic: string,
     listener: (frame: ServerMessage) => void,

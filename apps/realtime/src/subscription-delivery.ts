@@ -103,6 +103,8 @@ export function createSubscriptionDelivery({
     if (compare(row, sub.delivered) <= 0) return;
     try {
       publish(transport.nativeTopic(connection, row.topic), event(row));
+      if (connection.socket.bufferedAmount() > 262_144)
+        throw new Error('Realtime recipient exceeded the soft buffer bound');
       sub.delivered = row;
     } catch {
       remove(connection);
@@ -112,12 +114,7 @@ export function createSubscriptionDelivery({
   async function deliverTo(connection: Connection, row: OutboxRow) {
     const sub = connection.topics.get(row.topic);
     if (!sub?.attached) return;
-    if (row.kind === 'channel.changed' || row.kind === 'room.changed') {
-      if ((await refresh(connection, row.topic, sub)) !== 'allowed') return;
-    } else if (!transport.current(connection, row.topic, sub)) {
-      transport.detach(connection, row.topic, sub);
-      return;
-    }
+    if ((await refresh(connection, row.topic, sub)) !== 'allowed') return;
     // The current lease is checked after the final await, immediately before publish.
     publishRow(connection, row, sub);
   }
@@ -161,13 +158,15 @@ export function createSubscriptionDelivery({
       revoke(connection);
       return;
     }
-    for (const [topic, sub] of connection.topics)
-      await revalidateTopic(connection, topic, sub);
+    await Promise.all(
+      [...connection.topics].map(([topic, sub]) =>
+        revalidateTopic(connection, topic, sub),
+      ),
+    );
   }
   function invalidateRow(row: OutboxRow) {
     control(row);
     if (!isPayloadDeliverableOnTopic(row.topic, row.payload)) return;
-    if (row.kind !== 'channel.changed' && row.kind !== 'room.changed') return;
     for (const connection of connections) {
       const sub = connection.topics.get(row.topic);
       if (!sub) continue;
@@ -187,8 +186,11 @@ export function createSubscriptionDelivery({
     async revalidate(
       validate: (principal: SocketPrincipal) => Promise<boolean>,
     ) {
-      for (const connection of connections)
-        await revalidateConnection(connection, validate);
+      await Promise.all(
+        [...connections].map((connection) =>
+          revalidateConnection(connection, validate),
+        ),
+      );
     },
   };
 }
