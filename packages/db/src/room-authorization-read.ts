@@ -107,52 +107,5 @@ export function roomAuthorizationRead({
         };
       });
     },
-    readRoundAuthorizationFacts: async (roundId: string, caller: Caller) => {
-      if (!idSchema.safeParse(roundId).success)
-        throw createAppError('VALIDATION');
-      return database.transaction(async (tx) => {
-        const account = await lockedAccount(tx, caller);
-        const rows = await tx
-          .select({
-            roundId: rounds.id,
-            createdByActorId: rounds.createdByActorId,
-            visibility: rounds.visibility,
-            status: rounds.status,
-            revision: rounds.version,
-            actorId: roundParticipants.actorId,
-            role: roundParticipants.role,
-            slot: roundParticipants.slot,
-          })
-          .from(rounds)
-          .leftJoin(roundParticipants, eq(roundParticipants.roundId, rounds.id))
-          .where(eq(rounds.id, roundId));
-        const round = rows[0];
-        // Older standalone rows have no persisted audience. They cannot be
-        // assigned a visibility by inference from their creator or seats.
-        if (
-          !round ||
-          (round.visibility !== 'public' &&
-            round.visibility !== 'unlisted' &&
-            round.visibility !== 'private')
-        )
-          return null;
-        return {
-          account,
-          resource: {
-            kind: 'round' as const,
-            roundId: round.roundId,
-            createdByActorId: round.createdByActorId,
-            visibility: round.visibility,
-            status: round.status,
-            revision: round.revision,
-            participants: rows.flatMap(({ actorId, role, slot }) =>
-              actorId === null || role === null || slot === null
-                ? []
-                : [{ actorId, role, slot }],
-            ),
-          },
-        };
-      });
-    },
   };
 }

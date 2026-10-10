@@ -119,6 +119,8 @@ describe('round persistence', () => {
       [], // command idempotency select
       [[3]], // rounds select for update (positional: the for-update path)
       [], // the round-row update
+      [[1n, '42']], // the Round phase doorbell, in the same transaction
+      [], // pg_notify for the Round doorbell
       [], // the command insert
       [[9]], // the refusing run's rounds select for update: stored 9, expected 4
     ]);
@@ -149,13 +151,28 @@ describe('round persistence', () => {
     });
     assert({
       given: 'a start execution at the expected version',
-      should: 'check the command id, lock the round and write both rows',
+      should:
+        'check the command id, lock the round and write the versioned command and phase signal',
       actual: [
         queries[0]?.query.includes('"round_commands"'),
         queries[1]?.query.includes('for update'),
-        queries[3]?.query.includes('insert into "round_commands"'),
+        queries[5]?.query.includes('insert into "round_commands"'),
+        queries[3]?.params.find(
+          (value) => typeof value === 'object' && value !== null,
+        ),
+        queries[4]?.query.includes('pg_notify'),
       ],
-      expected: [true, true, true],
+      expected: [
+        true,
+        true,
+        true,
+        {
+          kind: 'debate.phase-changed',
+          ids: ['c8d4e2f6a1b3k5m7n9p2r4t6'],
+          entityVersion: 4,
+        },
+        true,
+      ],
     });
     await assertRejects({
       given: 'an execution against a round that moved on',
@@ -173,6 +190,14 @@ describe('round persistence', () => {
           },
         }),
       code: 'CONFLICT',
+    });
+    assert({
+      given: 'the refused stale-version execution after an accepted transition',
+      should: 'append no second Round phase signal',
+      actual: queries.filter((query) =>
+        query.query.startsWith('insert into "outbox"'),
+      ).length,
+      expected: 1,
     });
   });
 });

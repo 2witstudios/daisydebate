@@ -2,7 +2,9 @@ import { createAppError } from '@daisy/errors';
 import { and, eq, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { RoundProjection } from '@daisy/protocol';
+import { buildDebateTopic } from '@daisy/protocol';
 import type { z } from 'zod';
+import { appendOutboxEvent } from './outbox';
 import { jsonObjectSchema } from './schema/columns';
 import { isUniqueViolation } from './unique-violation';
 import { roundCommands } from './schema/round-commands';
@@ -10,6 +12,36 @@ import { roundSegments } from './schema/round-segments';
 import { rounds } from './schema/rounds';
 
 type Tx = Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0];
+
+/** Append the canonical content-free invalidation for a persisted Round revision. */
+export async function appendRoundPhaseChanged(
+  tx: Tx,
+  roundId: string,
+  entityVersion: number,
+): Promise<void> {
+  await appendOutboxEvent(tx, {
+    topic: buildDebateTopic(roundId),
+    kind: 'debate.phase-changed',
+    version: 1,
+    payload: {
+      kind: 'debate.phase-changed',
+      ids: [roundId],
+      entityVersion,
+    },
+  });
+}
+
+/** Persist a projection and announce exactly the revision it advances to. */
+export async function writeProjectionWithPhaseSignal(
+  tx: Tx,
+  roundId: string,
+  currentVersion: number,
+  projection: RoundProjection,
+): Promise<void> {
+  await writeProjection(tx, roundId, projection);
+  if (projection.round !== null)
+    await appendRoundPhaseChanged(tx, roundId, currentVersion + 1);
+}
 
 /**
  * Locks the round row and refuses when it moved on: the optimistic-version
