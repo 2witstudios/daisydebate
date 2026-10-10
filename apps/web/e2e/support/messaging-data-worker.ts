@@ -9,17 +9,14 @@ import {
 } from '@daisy/db/testing';
 import {
   messagingBrowserAccountsSchema,
+  messagingBrowserSeedAccountsSchema,
   messagingBrowserTarget,
 } from './messaging-data';
 const command = z
   .discriminatedUnion('action', [
     z.strictObject({
       action: z.literal('seed'),
-      accounts: z
-        .array(
-          z.strictObject({ userId: idSchema, username: z.string().min(1) }),
-        )
-        .min(1),
+      accounts: messagingBrowserSeedAccountsSchema,
     }),
     z.strictObject({
       action: z.literal('cleanup'),
