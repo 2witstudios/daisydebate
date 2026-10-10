@@ -5,6 +5,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { origin } from './fixtures';
+import { createRoutes } from '../src/server/routes';
 import {
   mountedMessagingPair,
   closeMountedMessagingPair,
