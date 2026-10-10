@@ -1,3 +1,6 @@
+import { createMessagingTypingPrivacyPort } from './privacy/typing-rights';
+import { createMessagingTypingStore } from './messaging/typing-store';
+import { createMessagingPreferenceStore } from './messaging/preference-store';
 import { createMessagingFileMaintenance } from './messaging-files/maintenance';
 import { createMessagingGroupIssuanceStore } from './messaging/group-issuance-store';
 import type { MessagingGroupIssuanceFence } from './messaging/group-issuance-contracts';
@@ -17,6 +20,10 @@ import {
   subscribeOutbox,
   type OutboxListenHandlers,
 } from './listen';
+import {
+  subscribeRealtimeHints,
+  type RealtimeHintHandlers,
+} from './realtime-hints';
 import { claimUsername } from './username-claim';
 import { authOperations } from './auth-operations';
 import { authorizationSessionOperations } from './authorization-session';
@@ -172,6 +179,10 @@ export function createDatabase({
     listenOutbox(handlers: OutboxListenHandlers) {
       return subscribeOutbox(client, handlers);
     },
+    /** Validated transient hints over the same pool; durable drain is independent. */
+    listenRealtimeHints(handlers: RealtimeHintHandlers) {
+      return subscribeRealtimeHints(client, handlers);
+    },
     async close() {
       await client.close({ timeout: 5 });
     },
@@ -193,6 +204,13 @@ export function createDatabase({
     messagingFileStore: (
       authorize: Parameters<typeof createMessagingFileStore>[0]['authorize'],
     ) => createMessagingFileStore({ database, authorize }),
+    messagingTypingStore: createMessagingTypingStore(database),
+    messagingTypingPrivacyPort: (
+      producer: Parameters<typeof createMessagingTypingPrivacyPort>[1],
+    ) => createMessagingTypingPrivacyPort(database, producer),
+    messagingPreferenceStore: (
+      authorize: Parameters<typeof createMessagingPreferenceStore>[1],
+    ) => createMessagingPreferenceStore(database, authorize),
     messagingChannelStore: (authorize: MessagingAuthorizationFence) =>
       createMessagingStore({ database, authorize }),
     messagingGroupCreationStore: (authorize: MessagingGroupCreationFence) =>

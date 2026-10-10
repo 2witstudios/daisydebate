@@ -278,16 +278,73 @@ approve privacy, retention or numeric product policies.
 The optional file runtime maintenance configuration supplies explicit cadence and
 batch limits. The existing web process schedules bounded reservation expiry and
 private deletion work, prevents overlapping runs, and awaits current work before
-closing pools. Expiry discovers all due owners for a channel, acquires canonical
-account→pair→channel fences, and rereads owners after waits; unfenced owner drift
-refuses that channel until a later run. Only expired reserved/quarantined rows
+closing pools. Expiry selects at most the configured number of due reservation
+rows globally, acquires canonical account→pair→channel fences for their owners,
+and rereads those same rows after waits. Unfenced owner drift refuses that
+selected work until a later run; a crowded channel cannot expand the batch. Only expired reserved/quarantined rows
 transition to deleting. Current membership, posting or age admission does not
 confer cleanup authority. Missing durable authority is never recreated.
 
 Physical deletion uses the delivered trusted provider: linked deleting files and
 unlinked subject-erasure intents retain their storage charge until the private
 store resolves deletion acknowledgement. An outage preserves the charged row
-for retry. Logs reuse content-free sweep counts/status; object keys and subject
+for retry. Each selected physical deletion is attempted even when an earlier
+object fails; successful acknowledgements commit independently, and any failure
+still makes the batch report infrastructure failure. Logs reuse content-free
+sweep counts/status; object keys and subject
 associations are not logged. Missing runtime/maintenance configuration schedules
 nothing. Deployment approval of vendors, cadence and policy remains outstanding;
 branch composition does not activate collection or approve pending retention.
+
+### Channel preferences and current unread metadata
+
+The dedicated preference store reads and updates existing actor-state selections under the same ordered account, pair and channel fence as history. The canonical `channel.preferences.read` and `channel.preferences.update` capabilities require current entitlement and explicit fresh reading evidence; posting and age admission are independent. `following`, `hidden` and the `all | mentions | none` notification selection never grant access. An absent state remains null until an explicit selection is saved. Updates preserve the monotonic read marker. Unread counts include only surviving other-author messages after that marker; they contain no message body or actor-specific signal. Notification delivery and mention eligibility remain separate unfinished consumers.
+
+Own clear first fences the current account, locks the actual scoped actor-state row, and uses `channel.preferences.clear` only for that persisted row. It deletes only that row, without upsert, membership recreation or content access. An absent row gets only current own-collection authorization and returns `cleared:false`. Removed members may clear their own saved state while preference reads remain concealed. Existing canonical actor-state privacy declarations and pending lawful-basis/retention decisions apply unchanged.
+
+The mounted JSON read/update/clear routes and `/messages/[channelId]/preferences` native form share this store and canonical authorization. Every selection is explicit; missing selections are not product defaults. The form works before hydration and with JavaScript disabled, retaining choices after refusal. Branch PostgreSQL and browser proofs are required before this increment is accepted; no production policy is supplied.
+
+### Ephemeral typing aggregate
+
+Typing uses an optional injected `ttlMs`, `refetchMs` and `maxActors` configuration;
+absence leaves its HTTP endpoints unavailable. The existing Redis client stores
+an actor/channel lease with explicit millisecond expiry. The same PostgreSQL
+account → pair → channel transaction fence rereads every current participant's
+own channel fact and minimal age fact. Canonical `channel.post` qualifies each
+lease; canonical `channel.read` authorizes aggregate reads. A retained Redis key
+cannot confer membership, posting eligibility or reading authority. Account,
+age, channel, pair/grant and policy revision changes invalidate its qualification.
+
+The aggregate excludes the observer and exposes only `typing:boolean` plus an
+explicit HTTP refresh interval. The composer sends boolean intent, never draft
+text. Renewals publish nothing unless a currently readable participant's
+aggregate changes. Qualifying transitions use the existing pool's separate
+`daisy_realtime_hints` notification with exactly `v`, `type:typing_changed` and
+the authorized channel topic. They create no outbox row or durable cursor.
+Realtime delivery freshly rechecks canonical subscription authority; hints are
+lossy and never extend a durable delivery lease. Reconnect, hints and bounded
+HTTP expiry refetch invalidate the browser projection, so natural expiry or a
+lost hint cannot leave a permanent typing indicator. Authorized conversation responses carry only the explicitly configured recovery interval to the browser; an initial or later HTTP failure clears the projection and retries on that interval, without inventing a timing default. Notification delivery is followed by a fresh canonical authority/time snapshot before returning any HTTP projection.
+
+Privacy declaration: the namespaced Redis key
+`<namespace>:v1:messaging-typing:<actorId>:<channelId>` and its actor/channel
+association are personal/private. Serialized `actorId`, `channelId`,
+`authorityRevision`, `relationshipRevision`, `accountRevision`, `ageRevision`,
+`policyRevision` and `expiresAt` remain personal/private as one associated
+lease; `version` is nonpersonal format metadata. Purpose is current authorized
+typing projection; owner is MSG. Lawful basis is pending PRIV3
+`jc0qcdvpkmqzrelpaesi3pah`, retention pending PRIV4
+`njiorsf64z4iqjm2dbfa3zuu`. The explicit lease TTL is bounded by current policy
+proof expiry and is not an approved product retention rule. No lease, actor,
+draft, Redis key or raw failure is logged or placed in a notification payload.
+The canonical opaque `database.messagingTypingPrivacyPort` resolves durable
+user/actor binding before export and validates every own lease. Physical subject
+deletion walks the exact namespace/actor key prefix through Redis cursor zero,
+including channels no longer accessible; malformed/foreign keys and invalid
+deletion acknowledgements refuse. It runs outside PostgreSQL adopters after
+local erasure commits, through the existing `messaging-typing` vendor job.
+Outage retains a pending job for retry; TTL expiration never substitutes for
+physical deletion acknowledgement. The composed real PostgreSQL/Redis job,
+export and foreign-subject locality proof remains required. Isolated fixtures
+do not activate collection, settle those decisions or establish deployment
+acceptance; no production privacy-worker scheduling is claimed.

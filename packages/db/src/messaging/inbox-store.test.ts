@@ -11,6 +11,7 @@ test('inbox collection refusal prevents candidate discovery and successful disco
     userId = 'u'.repeat(24),
     channelId = 'c'.repeat(24);
   const phases: string[] = [];
+  let candidateSql = '';
   const tx = {
     execute: async (query: SQL) => {
       const statement = new PgDialect().sqlToQuery(query).sql;
@@ -19,6 +20,7 @@ test('inbox collection refusal prevents candidate discovery and successful disco
         return [{ actorId, userId, revision: 1, member: true, erased: false }];
       }
       phases.push('candidates');
+      candidateSql = statement;
       return [{ channelId }];
     },
   };
@@ -63,5 +65,16 @@ test('inbox collection refusal prevents candidate discovery and successful disco
     should: 'follow account and canonical authorization',
     actual: phases,
     expected: ['account', 'authorize', 'candidates'],
+  });
+  assert({
+    given: 'saved own associations and explicit hidden preferences',
+    should:
+      'discover candidates without treating following as authority and omit only own hidden selections',
+    actual: [
+      candidateSql.includes('messaging_actor_states'),
+      candidateSql.includes('hidden = true'),
+      candidateSql.includes('following = true'),
+    ],
+    expected: [true, true, false],
   });
 });

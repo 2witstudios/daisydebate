@@ -1,37 +1,10 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { OUTBOX_ORIGIN, type OutboxPosition, type OutboxRow } from '@daisy/db';
+import { OUTBOX_ORIGIN, type OutboxPosition } from '@daisy/db';
 import { serveRealtime } from './serve';
-import type { RealtimeApp } from './app';
-import { deferred, noopLogger } from './outbox-drain.test-support';
+import { deferred } from './outbox-drain.test-support';
+import { fakeApp } from './serve.test-support';
 
 setupRitewayBun();
-
-/**
- * A minimal `RealtimeApp` stand-in: only the fields `serveRealtime` and
- * `createRealtimeServer` actually read. Cast at the boundary, the same
- * pattern `server.test.ts`'s `fakeServer` uses for a Bun `Server`.
- */
-function fakeApp(overrides: {
-  readonly listenOutbox: () => Promise<{ unlisten: () => Promise<void> }>;
-  readonly readOutboxHighWaterMark: () => Promise<OutboxPosition>;
-  readonly NODE_ENV?: string;
-  readonly runtimeRoleProblems?: () => Promise<readonly string[]>;
-}): RealtimeApp {
-  return {
-    config: { NODE_ENV: overrides.NODE_ENV ?? 'test' },
-    isDraining: () => false,
-    logger: noopLogger,
-    database: {
-      runtimeRoleProblems: overrides.runtimeRoleProblems ?? (async () => []),
-      health: async () => true,
-      checkListen: async () => true,
-      listenOutbox: overrides.listenOutbox,
-      readOutboxHighWaterMark: overrides.readOutboxHighWaterMark,
-      drainOutbox: async (): Promise<readonly OutboxRow[]> => [],
-    },
-    redis: { health: async () => true },
-  } as unknown as RealtimeApp;
-}
 
 describe('serveRealtime startup order (RT-2.3b review finding 2)', () => {
   test('never calls serve() until both LISTEN and the high-water mark have resolved', async () => {

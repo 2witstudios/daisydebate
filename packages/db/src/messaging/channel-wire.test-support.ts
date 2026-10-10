@@ -2,7 +2,7 @@ import { drizzle } from 'drizzle-orm/bun-sql';
 import { fakeSql } from '../index.test-support';
 import { messagingAuthorityFixture } from './social.test-support';
 /** Real Drizzle/authority discovery over the scripted wire; no feature evaluator or fake frame. */
-export function channelWire(script: Parameters<typeof fakeSql>[0]) {
+export function messagingAuthorityWire(script: Parameters<typeof fakeSql>[0]) {
   const fact = messagingAuthorityFixture();
   const scope = {
     actorId: 'a'.repeat(24),
@@ -10,18 +10,6 @@ export function channelWire(script: Parameters<typeof fakeSql>[0]) {
     channelId: fact.channelId,
   };
   const now = '2026-10-09T18:00:00.000Z';
-  const channel = [
-    fact.channelId,
-    'dm',
-    'social.dm',
-    1,
-    'active',
-    null,
-    0,
-    1,
-    1,
-    new Date(now),
-  ];
   const { client, queries } = fakeSql([
     [{ fact }],
     [
@@ -42,8 +30,23 @@ export function channelWire(script: Parameters<typeof fakeSql>[0]) {
     ],
     [{ locked: true }],
     [{ fact }],
-    [channel],
     ...script,
   ]);
   return { database: drizzle({ client }), queries, scope, fact, now };
+}
+
+export function channelWire(script: Parameters<typeof fakeSql>[0]) {
+  const channel = [
+    'c'.repeat(24),
+    'dm',
+    'social.dm',
+    1,
+    'active',
+    null,
+    0,
+    1,
+    1,
+    new Date('2026-10-09T18:00:00.000Z'),
+  ];
+  return messagingAuthorityWire([[channel], ...script]);
 }

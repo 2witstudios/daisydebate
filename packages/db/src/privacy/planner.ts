@@ -12,6 +12,7 @@ export const privacyVendors = [
   'beehiiv',
   'resend',
   'object-storage',
+  'messaging-typing',
 ] as const;
 export type PrivacyVendor = (typeof privacyVendors)[number];
 export type PrivacyAdoption = {

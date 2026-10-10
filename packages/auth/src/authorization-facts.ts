@@ -182,6 +182,12 @@ export type GroupCommandResultAuthorizationFact = {
     readonly resultChannelId: string;
   };
 };
+/** Projected only from an existing locked MSG actor-state row, never a request intent. */
+export type MessagingPreferenceAuthorizationFact = {
+  readonly kind: 'channel_preference';
+  readonly actorId: string;
+  readonly channelId: string;
+};
 /** Own-association discovery only; every returned channel needs separate authorization. */
 export type MessagingCollectionAuthorizationFact = {
   readonly kind: 'messaging_collection';
@@ -191,6 +197,7 @@ export type AuthorizationInput = {
   readonly principal: AuthorizationPrincipal;
   readonly capability: AuthorizationCapability;
   readonly resource:
+    | MessagingPreferenceAuthorizationFact
     | GroupInvitationCreationAuthorizationFact
     | GroupCommandResultAuthorizationFact
     | GroupInvitationAuthorizationFact

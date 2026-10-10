@@ -1,16 +1,15 @@
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { origin } from './fixtures';
 import { createRoutes } from '../src/server/routes';
-import { createTestApp, origin } from './fixtures';
 import {
-  messagingRouteActors,
+  mountedMessagingPair,
+  closeMountedMessagingPair,
   seedMessagingRouteDm,
-  messagingRoutePolicy,
 } from './messaging-route.test-support';
 import { requireFileScannerPort } from './messaging-files.test-support';
 import { messagingFileProofRuntime } from './messaging-file-runtime.test-support';
@@ -19,18 +18,13 @@ setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 const scannerPort = requireFileScannerPort(process.env.CLAMD_TEST_PORT);
 test('mounted native multipart attaches scanned private content and peers download only through current canonical authority', async () => {
-  const app = createTestApp();
-  const { first, second, me, peer } = await messagingRouteActors(app);
-  const client = new SQL(databaseUrl),
-    channelId = createId(),
-    requestId = createId();
   const directory = await mkdtemp(join(tmpdir(), 'daisy-native-files-'));
+  const { app, first, second, me, peer, client, channelId, routes } =
+    await mountedMessagingPair(databaseUrl, {
+      messagingFiles: messagingFileProofRuntime(directory, scannerPort),
+    });
+  const requestId = createId();
   const now = app.app.clock.now();
-  const routes = createRoutes({
-    ...app.app,
-    messagingPolicy: messagingRoutePolicy,
-    messagingFiles: messagingFileProofRuntime(directory, scannerPort),
-  });
   try {
     await seedMessagingRouteDm(client, me, peer, channelId, now);
     const sent = await routes.messaging.send(
@@ -153,20 +147,7 @@ test('mounted native multipart attaches scanned private content and peers downlo
       await client.unsafe('delete from messaging_files where channel_id=$1', [
         channelId,
       ]);
-      await client.unsafe('delete from messaging_channels where id=$1', [
-        channelId,
-      ]);
-      await client.unsafe(
-        'delete from messaging_contact_pairs where low_actor_id=$1 and high_actor_id=$2',
-        [...[me.actorId, peer.actorId].sort()],
-      );
-      await client.unsafe("delete from outbox where payload->>'channelId'=$1", [
-        channelId,
-      ]);
-      await client.unsafe('delete from account_age where user_id in ($1,$2)', [
-        me.userId,
-        peer.userId,
-      ]);
+      await closeMountedMessagingPair(client, channelId, me, peer);
     } finally {
       try {
         await client.close();

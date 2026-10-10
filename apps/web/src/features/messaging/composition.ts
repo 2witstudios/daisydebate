@@ -1,3 +1,5 @@
+import { composeMessagingTypingRoutes } from './typing-route';
+import { composeMessagingPreferenceRoutes } from './preference-route';
 import { composeMessagingFileRoutes } from './files/route-composition';
 import { composeMessagingGroupIssuanceRoute } from './group-issuance-route';
 import { composeMessagingGroupManagementRoute } from './group-management-route';
@@ -11,6 +13,7 @@ import {
 } from './social-composition';
 import type { SocialContactPolicy } from '@daisy/auth/social-policy';
 import { createAppError } from '@daisy/errors';
+import { messagingTypingSchemas } from '@daisy/protocol';
 import type { MessagingCoreBounds } from '@daisy/protocol';
 import type { App } from '../../server/app';
 import { handleOperation } from '../../server/http';
@@ -28,6 +31,9 @@ import { messagingMessageView } from './message-view';
 
 /** Explicit approved edge inputs; tests never supply production policy authority. */
 export type MessagingRuntimePolicy = {
+  readonly typing?: ReturnType<
+    typeof import('@daisy/protocol').messagingTypingSchemas.policy.parse
+  >;
   readonly social?: MessagingSocialRuntimePolicy;
   readonly bounds: MessagingCoreBounds;
   readonly maxBodyBytes: number;
@@ -115,6 +121,12 @@ export function composeMessagingRoutes(app: App) {
       maxBodyBytes: policy.maxBodyBytes,
       bounds: policy.bounds,
       websocketEndpoint: app.websocketEndpoint,
+      ...(policy.typing === undefined
+        ? {}
+        : {
+            typingRefetchMs: messagingTypingSchemas.policy.parse(policy.typing)
+              .refetchMs,
+          }),
       identify: (request) => identify(app.auth(), request.headers),
       edit: mutation('edit'),
       remove: mutation('remove'),
@@ -179,6 +191,8 @@ export function composeMessagingRoutes(app: App) {
     files: composeMessagingFileRoutes(app),
     createGroup: composeMessagingGroupCreationRoute(app),
     inbox: composeMessagingInboxRoute(app),
+    preferences: composeMessagingPreferenceRoutes(app),
+    typing: composeMessagingTypingRoutes(app),
     send: (request: Request) => run(request, 'send'),
     edit: (request: Request) => run(request, 'edit'),
     remove: (request: Request) => run(request, 'remove'),

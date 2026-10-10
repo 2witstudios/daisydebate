@@ -39,6 +39,9 @@ export default async function ConversationPage({
         lede="Private messages"
         actions={<Link href="/lobby">Back to lobby</Link>}
       />
+      <Link href={`/messages/${id.data}/preferences`}>
+        Conversation preferences
+      </Link>
       {conversation === null ? (
         <p
           role="status"
@@ -56,6 +59,7 @@ export default async function ConversationPage({
           <ConversationLive
             channelId={id.data}
             socketUrl={conversation.socketUrl}
+            typingRefetchMs={conversation.typingRefetchMs}
             snapshotId={systemId.next()}
           >
             <MessageHistory
@@ -65,6 +69,7 @@ export default async function ConversationPage({
             />
           </ConversationLive>
           <MessageComposer
+            channelId={id.data}
             key={typeof query.sent === 'string' ? query.sent : id.data}
             action={sendMessageAction.bind(null, id.data)}
             requestId={systemId.next()}
