@@ -1,4 +1,3 @@
-import { createId } from '@paralleldrive/cuid2';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
@@ -7,16 +6,12 @@ import {
   loadAuthorizationAccount,
 } from '../src/authorization';
 import { withFixture, sqlStateOf } from './constraint-helpers';
+import { createAuthorizationSubject } from './authorization.test-support';
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
 test('realtime uses minimal account facts and the erasure fence without raw profile or update privileges', async () => {
   await withFixture(url, async (fixture) => {
-    const userId = createId(),
-      actorId = createId();
-    fixture.track('users', userId);
-    fixture.track('actors', actorId);
-    await fixture.sql`insert into users(id,username,email_verified) values(${userId},${userId},true)`;
-    await fixture.sql`insert into actors(id,kind,user_id) values(${actorId},'human',${userId})`;
+    const { userId, actorId } = await createAuthorizationSubject(fixture);
     await fixture.sql.begin(async (client) => {
       await client`set local role daisy_realtime`;
       await client`create temporary table users(id text) on commit drop`;
