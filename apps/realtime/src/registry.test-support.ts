@@ -1,3 +1,4 @@
+import { deferred } from './outbox-drain.test-support';
 import { createSubscriptionRegistry } from './registry';
 import type { OutboxRow } from '@daisy/db';
 
@@ -64,6 +65,19 @@ export function fixture(
     },
     setNow: (value: number) => {
       now = value;
+    },
+  };
+}
+
+export function pendingRead<T>() {
+  const result = deferred<T>();
+  const started = deferred<void>();
+  return {
+    resolve: result.resolve,
+    began: started.promise,
+    read: () => {
+      started.resolve();
+      return result.promise;
     },
   };
 }
