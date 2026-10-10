@@ -2,6 +2,8 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
 import { systemClock, systemId } from '@daisy/clock';
+import { SQL } from 'bun';
+import { createDatabase } from '@daisy/db';
 import {
   messagingTestReading,
   messagingTestGroupReading,
@@ -64,7 +66,23 @@ try {
 } finally {
   rmSync(directory, { recursive: true, force: true });
 }
+const runtimeClient = new SQL(process.env.DATABASE_URL!, { max: 1 });
+try {
+  await runtimeClient.unsafe('set role daisy_realtime');
+  const [binding] = await runtimeClient`select current_user as role`;
+  if (binding?.role !== 'daisy_realtime')
+    throw new Error('Realtime browser runtime role binding refused');
+} catch {
+  await runtimeClient.close();
+  throw new Error('Realtime browser runtime role unavailable');
+}
+const runtimeDatabase = createDatabase({
+  url: process.env.DATABASE_URL!,
+  client: runtimeClient,
+  nextActorId: () => systemId.next(),
+});
 const resources = createRealtimeApp({
+  database: runtimeDatabase,
   env: process.env,
   clock: systemClock,
   ids: systemId,
@@ -78,6 +96,9 @@ const runtime = await serveRealtime({
   port,
   hostname: '127.0.0.1',
   tls: { key, cert },
+}).catch(async () => {
+  await resources.close();
+  throw new Error('Realtime browser listener unavailable');
 });
 let closing: Promise<void> | undefined;
 for (const signal of ['SIGTERM', 'SIGINT'] as const)
