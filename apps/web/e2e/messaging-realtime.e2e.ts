@@ -1,4 +1,6 @@
 import type { Page } from '@playwright/test';
+import { proveNativeTyping } from './support/messaging-typing';
+import type { ServerMessage } from '@daisy/protocol';
 import { manageNativePreferences } from './support/messaging-preferences';
 import { attachNativeMessageFile } from './support/messaging-attachments';
 import { serverMessageSchema } from '@daisy/protocol';
@@ -19,6 +21,8 @@ test('an authenticated DM doorbell refetches current history in the other real b
     const recipient = await acceptMessagingJourney(journey);
     const sender = await openPage(journey.sender, 'the realtime DM recipient');
     const subscribed: string[] = [];
+    const typingHints: Extract<ServerMessage, { type: 'typing_changed' }>[] =
+      [];
     const bells: unknown[] = [];
     const invalidFrames: string[] = [];
     sender.on('websocket', (socket) =>
@@ -38,12 +42,15 @@ test('an authenticated DM doorbell refetches current history in the other real b
         if (result.data.type === 'subscribed')
           subscribed.push(result.data.topic);
         if (result.data.type === 'event') bells.push(result.data.payload);
+        if (result.data.type === 'typing_changed')
+          typingHints.push(result.data);
       }),
     );
     await sender.goto(`/messages/${journey.channelId}`);
     await expect
       .poll(() => subscribed.includes(`channel:${journey.channelId}`))
       .toBe(true);
+    await proveNativeTyping(sender, recipient, journey.channelId, typingHints);
     const text = 'Delivered through a real authenticated socket';
     await recipient.getByLabel('Your message').fill(text);
     await recipient

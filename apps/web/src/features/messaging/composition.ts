@@ -1,3 +1,4 @@
+import { composeMessagingTypingRoutes } from './typing-route';
 import { composeMessagingPreferenceRoutes } from './preference-route';
 import { composeMessagingFileRoutes } from './files/route-composition';
 import { composeMessagingGroupIssuanceRoute } from './group-issuance-route';
@@ -29,6 +30,9 @@ import { messagingMessageView } from './message-view';
 
 /** Explicit approved edge inputs; tests never supply production policy authority. */
 export type MessagingRuntimePolicy = {
+  readonly typing?: ReturnType<
+    typeof import('@daisy/protocol').messagingTypingSchemas.policy.parse
+  >;
   readonly social?: MessagingSocialRuntimePolicy;
   readonly bounds: MessagingCoreBounds;
   readonly maxBodyBytes: number;
@@ -181,6 +185,7 @@ export function composeMessagingRoutes(app: App) {
     createGroup: composeMessagingGroupCreationRoute(app),
     inbox: composeMessagingInboxRoute(app),
     preferences: composeMessagingPreferenceRoutes(app),
+    typing: composeMessagingTypingRoutes(app),
     send: (request: Request) => run(request, 'send'),
     edit: (request: Request) => run(request, 'edit'),
     remove: (request: Request) => run(request, 'remove'),
