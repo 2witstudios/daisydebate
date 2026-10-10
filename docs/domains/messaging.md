@@ -177,3 +177,20 @@ It returns no account profile, age, session or contact entitlement. The messagin
 request transaction still locks both current accounts and the canonical contact
 pair, then evaluates current authorization and policy before creating a request.
 Discovery cannot replace that transaction or grant admission.
+
+The participant inbox links to native username-based DM and private-group
+creation forms. Both preserve draft text and the request identity on refusal,
+and submit without JavaScript. The HTTP boundary requires the current signed-in
+member and same origin before validated, rate-limited username discovery. Both
+actor-ID and username entry points converge on the same account/pair/channel
+transaction and canonical creation evaluator. Proposed usernames never install
+membership or bypass current account/age/contact checks.
+
+Group posting is a separately injected policy input alongside DM posting;
+missing or mismatched evidence still refuses. The dedicated native browser
+profile selects explicit isolated group admission, posting and reading fixtures,
+including all-pairs block scope. These test inputs do not approve DEC127 or
+activate a runtime policy. Its cases cover invitation metadata without title or
+history, admission, durable member history and refusal without a member grant,
+with JavaScript enabled and disabled. Actual browser acceptance is recorded only
+when the hosted isolated-service runner executes the composed candidate.
