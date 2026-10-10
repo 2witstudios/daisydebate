@@ -4,9 +4,10 @@ import { drizzle } from 'drizzle-orm/bun-sql';
 import { fakeSql } from '../index.test-support';
 import { groupStoreFacts } from './group-store.test-support';
 import { writeGroupManagement } from './group-management-write';
+import { parseMessagingChannelFact } from './social';
 setupRitewayBun();
 const { inviter, invitee, channelId, channel, now } = groupStoreFacts();
-const fact = channel(inviter, 'manager', 2);
+const fact = parseMessagingChannelFact(channel(inviter, 'manager', 2));
 const base = {
   actorId: inviter,
   userId: 'u'.repeat(24),
