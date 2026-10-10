@@ -221,6 +221,7 @@ jobs:
         id: slot
         run: bun slot:up
       - name: Check services and slot identity
+        id: doctor
         run: bun doctor
       - name: Prove target refusals before browser work
         run: bun test apps/web/scripts/room-launch-proof.test.ts
@@ -236,6 +237,7 @@ jobs:
           fi
           echo 'Main checkout teardown refused before connection'
       - name: Build composed production server
+        id: build
         run: bun run build
         env:
           BETTER_AUTH_SECRET: ci-isolation-sentinel-auth-0000000000000000000000000000000000000
@@ -243,6 +245,7 @@ jobs:
           RESEND_API_KEY: ci-isolation-sentinel-resend-key
           RESEND_WEBHOOK_SECRET: ci-isolation-sentinel-webhook-secret
       - name: Install controlled Chromium and artifact tools
+        id: chromium
         run: |
           bun apps/web/node_modules/@playwright/test/cli.js install --with-deps chromium
           sudo apt-get update -qq && sudo apt-get install -y -qq zip unzip
@@ -254,6 +257,7 @@ jobs:
           ROOM_LAUNCH_NODE: node
       - name: Run authenticated generic realtime browser proof
         id: realtime_room
+        if: ${{ !cancelled() && steps.doctor.outcome == 'success' && steps.build.outcome == 'success' && steps.chromium.outcome == 'success' }}
         run: bun test:e2e:realtime
         env:
           CI: true
@@ -263,6 +267,7 @@ jobs:
         run: bun scripts/e2e-report-counts.ts apps/web/test-results/realtime-results.json
       - name: Run authenticated messaging realtime browser proof
         id: realtime_messaging
+        if: ${{ !cancelled() && steps.doctor.outcome == 'success' && steps.build.outcome == 'success' && steps.chromium.outcome == 'success' }}
         run: bun test:e2e:messaging-realtime
         env:
           CI: true

@@ -1,3 +1,4 @@
+import { browserDriverOptions, finishBrowserDriver } from './browser-driver';
 import { admitLaunchCheckout } from './room-launch-admission';
 import { resolve } from 'node:path';
 import { requireLaunchSlot } from './room-launch-slot';
@@ -24,14 +25,7 @@ const run = Bun.spawn(
     'e2e/support/room-launch-config.ts',
     ...Bun.argv.slice(2),
   ],
-  {
-    cwd: resolve(checkout, 'apps/web'),
-    env: process.env,
-    stdout: 'inherit',
-    stderr: 'inherit',
-  },
+  browserDriverOptions(checkout, process.env),
 );
-for (const signal of ['SIGTERM', 'SIGINT'] as const)
-  process.once(signal, () => run.kill(signal));
-process.exitCode = await run.exited;
+await finishBrowserDriver(run);
 // No row cleanup or reset: retain history for parent/reviewer release.

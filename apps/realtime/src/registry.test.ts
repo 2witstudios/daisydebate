@@ -1,25 +1,17 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { OutboxRow } from '@daisy/db';
-import { fixture, row, topic } from './registry.test-support';
+import { fixture, row, topic, pendingRead } from './registry.test-support';
 
 setupRitewayBun();
 
 describe('subscription registry', () => {
   test('a write racing history I/O replays the snapshot then certified ring without duplication', async () => {
-    let resolve!: (value: {
+    const { resolve, began, read } = pendingRead<{
       rows: readonly OutboxRow[];
       resync: boolean;
-    }) => void;
-    let started!: () => void;
-    const began = new Promise<void>((done) => {
-      started = done;
-    });
+    }>();
     const { registry, connection, sent } = fixture({
-      readCatchup: () =>
-        new Promise((done) => {
-          resolve = done;
-          started();
-        }),
+      readCatchup: read,
     });
     registry.seed({ txid: '1', seq: 1n });
     const pending = registry.subscribe(connection, {
@@ -68,17 +60,12 @@ describe('subscription registry', () => {
   });
   for (const race of ['expiry', 'drain'] as const)
     test(`${race} during the final boundary read cannot attach`, async () => {
-      let resolve!: (value: { txid: string; seq: bigint }) => void;
-      let started!: () => void;
-      const began = new Promise<void>((done) => {
-        started = done;
-      });
+      const { resolve, began, read } = pendingRead<{
+        txid: string;
+        seq: bigint;
+      }>();
       const { registry, connection, sent, attached, setNow } = fixture({
-        readRetentionBoundary: () =>
-          new Promise((done) => {
-            resolve = done;
-            started();
-          }),
+        readRetentionBoundary: read,
       });
       registry.seed({ txid: '1', seq: 1n });
       const pending = registry.subscribe(connection, {
@@ -210,23 +197,15 @@ describe('subscription registry', () => {
     });
   });
   test('access changed while catchup waits cannot replay an old allow', async () => {
-    let resolve!: (value: {
+    const { resolve, began, read } = pendingRead<{
       rows: readonly OutboxRow[];
       resync: boolean;
-    }) => void;
-    let started!: () => void;
-    const began = new Promise<void>((done) => {
-      started = done;
-    });
+    }>();
     let allowed = true;
     const { registry, connection, sent, attached } = fixture({
       authorize: async () =>
         allowed ? { revision: '1', validUntil: 60_000 } : null,
-      readCatchup: () =>
-        new Promise((done) => {
-          resolve = done;
-          started();
-        }),
+      readCatchup: read,
     });
     const pending = registry.subscribe(connection, {
       id: 'request',
