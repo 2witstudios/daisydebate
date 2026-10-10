@@ -20,11 +20,13 @@ export function createRealtimeApp({
   env,
   clock,
   ids,
+  database: injectedDatabase,
 }: {
   /** Raw environment, validated here and nowhere else. */
   readonly env: Readonly<Record<string, string | undefined>>;
   readonly clock: Clock;
   readonly ids: IdGenerator;
+  readonly database?: ReturnType<typeof createDatabase>;
 }) {
   const config = readRealtimeConfig(env);
   const logger = createLogger({
@@ -33,11 +35,13 @@ export function createRealtimeApp({
     appVersion: config.APP_VERSION,
     gitCommit: config.GIT_COMMIT,
   });
-  const database = createDatabase({
-    url: config.DATABASE_URL,
-    eventSink: logger.log,
-    nextActorId: () => ids.next(),
-  });
+  const database =
+    injectedDatabase ??
+    createDatabase({
+      url: config.DATABASE_URL,
+      eventSink: logger.log,
+      nextActorId: () => ids.next(),
+    });
   const redis = createRedis({
     url: config.REDIS_URL,
     namespace: config.REDIS_NAMESPACE,

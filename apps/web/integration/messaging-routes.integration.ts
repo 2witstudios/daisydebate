@@ -1,58 +1,30 @@
-import type { Identity } from '@daisy/auth';
 import { SQL } from 'bun';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { seedMessagingTestDm } from '@daisy/db/testing';
 import {
-  messagingFixturePosting,
-  messagingFixtureReading,
-} from './messaging-policy.test-support';
+  messagingRouteActors,
+  seedMessagingRouteDm,
+  messagingRoutePolicy,
+} from './messaging-route.test-support';
 import { createRoutes } from '../src/server/routes';
 import { createTestApp, origin, testDatabaseUrl } from './fixtures';
-import { createAccountFlows, uniqueName } from './auth-account-helpers';
 
 setupRitewayBun();
 requireTestServices(process.env);
 test('mounted messaging composition uses real signed-in actors and shared HTTP gates', async () => {
   const testApp = createTestApp();
-  const accounts = createAccountFlows(testApp);
-  const first = await accounts.signUp(),
-    second = await accounts.signUp();
-  await accounts.claim(first.cookie, { username: uniqueName() });
-  await accounts.claim(second.cookie, { username: uniqueName() });
-  const me = requireActor(await accounts.identifyAs(first.cookie)),
-    peer = requireActor(await accounts.identifyAs(second.cookie));
+  const { first, second, me, peer } = await messagingRouteActors(testApp);
   const client = new SQL(testDatabaseUrl),
     channelId = createId();
   const [low, high] = [me.actorId, peer.actorId].sort();
   const now = testApp.app.clock.now();
   const routes = createRoutes({
     ...testApp.app,
-    messagingPolicy: {
-      bounds: { messageUnits: 100, pageItems: 20 },
-      maxBodyBytes: 1024,
-      editWindowMs: 60000,
-      posting: messagingFixturePosting,
-      reading: messagingFixtureReading,
-      limits: {
-        actorSend: { max: 10, windowSeconds: 60 },
-        channelSend: { max: 10, windowSeconds: 60 },
-        read: { max: 20, windowSeconds: 60 },
-      },
-    },
+    messagingPolicy: messagingRoutePolicy,
   });
   try {
-    await client.unsafe(
-      "insert into account_age(user_id,birth_month,version,recorded_at) values($1,'2000-01',1,$3),($2,'2000-01',1,$3)",
-      [me.userId, peer.userId, now],
-    );
-    await seedMessagingTestDm(client, {
-      actorId: me.actorId,
-      otherActorId: peer.actorId,
-      channelId,
-      now,
-    });
+    await seedMessagingRouteDm(client, me, peer, channelId, now);
     await client.unsafe(
       'update messaging_channels set change_version=1 where id=$1',
       [channelId],
@@ -274,9 +246,3 @@ test('mounted messaging composition uses real signed-in actors and shared HTTP g
     await client.close();
   }
 });
-
-function requireActor(identity: Identity) {
-  if (identity.state !== 'member' || identity.principal.actorId === null)
-    throw new Error('Real member actor required');
-  return { ...identity.principal, actorId: identity.principal.actorId };
-}

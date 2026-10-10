@@ -31,11 +31,7 @@ export function nativeFileHandler(
       if (!type?.startsWith('multipart/form-data;'))
         throw createAppError('VALIDATION');
       const bytes = await readBytes(request, input.maxMultipartBytes);
-      const form = await new Request(request.url, {
-        method: 'POST',
-        headers: { 'content-type': type },
-        body: bytes,
-      }).formData();
+      const form = await multipartForm(request.url, type, bytes);
       return { channelId, messageId, form };
     },
     operation: async (value) => {
@@ -116,4 +112,20 @@ function isFormState(value: unknown): value is MessagingFileFormState {
     'filename' in value &&
     typeof value.filename === 'string'
   );
+}
+
+async function multipartForm(
+  url: string,
+  type: string,
+  bytes: Uint8Array<ArrayBuffer>,
+) {
+  try {
+    return await new Request(url, {
+      method: 'POST',
+      headers: { 'content-type': type },
+      body: bytes,
+    }).formData();
+  } catch {
+    throw createAppError('VALIDATION');
+  }
 }

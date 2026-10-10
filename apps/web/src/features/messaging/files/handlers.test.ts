@@ -170,4 +170,47 @@ test('JSON attachment routes project versioned public tokens and pending cleanup
     actual: await listed.json(),
     expected: { version: 1, files: [] },
   });
+  const renewal = await handlers.renew(
+    request({
+      version: 1,
+      channelId: f.channelId,
+      fileId: f.fileId,
+      generation: 1,
+    }),
+  );
+  const cancelled = await handlers.cancel(
+    request({
+      version: 1,
+      channelId: f.channelId,
+      fileId: f.fileId,
+      generation: 1,
+    }),
+  );
+  assert({
+    given:
+      'current renewal and cancellation through the same mounted handler boundary',
+    should: 'project only public renewed intent and await scoped cancel',
+    actual: [
+      renewal.status,
+      Object.keys(await renewal.json()).sort(),
+      cancelled.status,
+      await cancelled.json(),
+      f.state.commits,
+    ],
+    expected: [
+      200,
+      [
+        'bytes',
+        'expiresAt',
+        'fileId',
+        'filename',
+        'generation',
+        'mime',
+        'version',
+      ],
+      200,
+      { version: 1, cancelled: true },
+      1,
+    ],
+  });
 });

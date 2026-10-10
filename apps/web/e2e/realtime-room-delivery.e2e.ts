@@ -20,6 +20,10 @@ import {
 } from './support/realtime-fixture';
 import { resolveE2EPorts } from '../playwright.config';
 import {
+  retainSecondRealtimeConsumer,
+  releaseLastRealtimeConsumer,
+} from './support/realtime-consumers';
+import {
   nativeRealtimeRefusals,
   nativeTicketReuse,
 } from './support/realtime-native-refusals';
@@ -123,6 +127,7 @@ test('real HTTP Room mutation reaches its authenticated browser subscriber and r
         ),
       )
       .toBe(true);
+    await retainSecondRealtimeConsumer(hostPage, topic);
     const mutation = await changeDetails(
       host,
       before,
@@ -202,6 +207,7 @@ test('real HTTP Room mutation reaches its authenticated browser subscriber and r
       await hostPage.evaluate(() => window.realtimeProof.sockets.length),
     ).toBe(2);
     await hostPage.unroute('**/api/realtime/ticket');
+    await releaseLastRealtimeConsumer(hostPage);
     const revoked = await host.request.post('/api/auth/revoke-sessions', {
       headers: { origin },
       data: {},

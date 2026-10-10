@@ -45,11 +45,13 @@ export async function cleanupMessagingBrowserData(
       or exists(select 1 from messaging_group_grants where channel_id=any(${tx.array(channelIds, 'text')}::text[]) and not(actor_id=any(${tx.array(actors, 'text')}::text[])))
       or exists(select 1 from messaging_group_invitations where channel_id=any(${tx.array(channelIds, 'text')}::text[]) and (not(invitee_actor_id=any(${tx.array(actors, 'text')}::text[])) or not(invited_by_actor_id=any(${tx.array(actors, 'text')}::text[]))))
       or exists(select 1 from messaging_messages where channel_id=any(${tx.array(channelIds, 'text')}::text[]) and not(author_actor_id=any(${tx.array(actors, 'text')}::text[])))
+      or exists(select 1 from messaging_files where channel_id=any(${tx.array(channelIds, 'text')}::text[]) and not(owner_actor_id=any(${tx.array(actors, 'text')}::text[])))
       or exists(select 1 from messaging_dm_pairs where channel_id=any(${tx.array(channelIds, 'text')}::text[]) and (not(low_actor_id=any(${tx.array(actors, 'text')}::text[])) or not(high_actor_id=any(${tx.array(actors, 'text')}::text[]))))
       or exists(select 1 from messaging_social_commands where result_channel_id=any(${tx.array(channelIds, 'text')}::text[]) and not(actor_id=any(${tx.array(actors, 'text')}::text[]))) as present`;
     if (foreign?.present !== false)
       throw new Error('Messaging browser cleanup foreign contribution refused');
     await tx`delete from messaging_social_commands where actor_id=any(${tx.array(actors, 'text')}::text[])`;
+    await tx`delete from messaging_files where channel_id=any(${tx.array(channelIds, 'text')}::text[]) and owner_actor_id=any(${tx.array(actors, 'text')}::text[])`;
     await tx`delete from messaging_channels where id=any(${tx.array(channelIds, 'text')}::text[])`;
     await tx`delete from messaging_contact_pairs where low_actor_id=any(${tx.array(actors, 'text')}::text[]) and high_actor_id=any(${tx.array(actors, 'text')}::text[])`;
     await tx`delete from outbox where topic=any(${tx.array(

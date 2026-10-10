@@ -176,6 +176,8 @@ jobs:
     name: Isolated Room Launch E2E
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    env:
+      CLAMD_TEST_PORT: '3310'
     defaults:
       run:
         working-directory: .pu/worktrees/wt-roomlaunchci
@@ -196,6 +198,13 @@ jobs:
         options: >-
           --health-cmd "redis-cli ping"
           --health-interval 3s --health-timeout 3s --health-retries 20
+      clamd:
+        image: clamav/clamav:1.4.6
+        ports: ['3310:3310']
+        options: >-
+          --health-cmd "clamdcheck.sh"
+          --health-interval 10s --health-timeout 5s
+          --health-start-period 3m --health-retries 20
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
