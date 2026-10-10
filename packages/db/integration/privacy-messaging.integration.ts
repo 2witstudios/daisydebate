@@ -2,34 +2,21 @@ import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { expect } from 'bun:test';
-import { accountAgePrivacyAdopter } from '../src/account-age';
-import { createMessagingPrivacyAdopter } from '../src/messaging/privacy';
 import {
   erasePrivacySubject,
   exportPrivacySubject,
-  messagingPrivacyExpectedColumns,
   type PrivacyAdopter,
   type PrivacyExport,
 } from '../src/privacy';
 import { bindings, now } from './privacy.test-support';
-import { withPrivacyMessaging } from './privacy-messaging.test-support';
+import {
+  messagingRequiredAdopters as requiredAdopters,
+  messagingPrivacyAdoption,
+  withPrivacyMessaging,
+} from './privacy-messaging.test-support';
 
 setupRitewayBun();
 requireTestServices(process.env);
-const requiredAdopters = [
-  {
-    id: 'messaging',
-    phase: 'before-auth' as const,
-    expectedColumns: messagingPrivacyExpectedColumns,
-  },
-  {
-    id: 'account-age',
-    phase: 'after-scrub' as const,
-    expectedColumns: {
-      account_age: ['user_id', 'birth_month', 'version', 'recorded_at'],
-    },
-  },
-];
 function assertSocialExport(
   result: PrivacyExport,
   peer: PrivacyExport,
@@ -73,7 +60,7 @@ test('canonical privacy export composes MSG and age while masking other private 
         { userId, actorId },
         {
           requiredAdopters,
-          adopters: [createMessagingPrivacyAdopter(), accountAgePrivacyAdopter],
+          adopters: messagingPrivacyAdoption.adopters,
         },
       );
       const peer = await exportPrivacySubject(
@@ -81,7 +68,7 @@ test('canonical privacy export composes MSG and age while masking other private 
         { userId: otherId, actorId: otherActorId },
         {
           requiredAdopters,
-          adopters: [createMessagingPrivacyAdopter(), accountAgePrivacyAdopter],
+          adopters: messagingPrivacyAdoption.adopters,
         },
       );
       assertSocialExport(result, peer, actorId);
@@ -117,10 +104,7 @@ test('canonical composed erasure rolls back all adopters then commits subject-on
       ownMessageId,
       otherMessageId,
     }) => {
-      const adopters = [
-        createMessagingPrivacyAdopter(),
-        accountAgePrivacyAdopter,
-      ];
+      const adopters = messagingPrivacyAdoption.adopters;
       const late: PrivacyAdopter = {
         id: 'rollback-probe',
         phase: 'after-scrub',
@@ -282,7 +266,7 @@ test('canonical composed erasure rolls back all adopters then commits subject-on
           [0, 0, 0, 0],
           { contacts: 0, pairs: 0 },
           [{ user_id: otherId, birth_month: '2001-02' }],
-          'Unattributed shared title',
+          'Peer-authored shared title',
           [{ vendor: 'posthog', status: 'pending' }],
           2,
           true,

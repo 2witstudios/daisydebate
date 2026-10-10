@@ -35,6 +35,7 @@ test('issuance writes exact generation and explicit subject receipt but never gr
         1,
         'active',
         'Private title',
+        inviter,
         0,
         3,
         1,

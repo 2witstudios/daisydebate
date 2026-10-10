@@ -132,6 +132,36 @@ test('real group creation installs only creator authority and erases counterpart
         title: command.title,
       },
     });
+    const exported = await f.fixture.exportSubject(f.fixture.actorId);
+    assert({
+      given:
+        'creator title after invitee erasure has removed the creation receipt',
+      should:
+        'export its durable author binding without relying on receipt or membership inference',
+      actual: exported.messaging_channels?.map((row) => [
+        row.id,
+        row.title,
+        row.title_author_actor_id,
+      ]),
+      expected: [[channelId, command.title, f.fixture.actorId]],
+    });
+    await f.fixture.eraseSubject(f.fixture.actorId);
+    await assertRejects({
+      given: 'erased creator retries the original group creation',
+      should: 'refuse without restoring the erased title',
+      actual: () => createMessagingGroup(command, f.principal, dependencies),
+      code: 'AUTHORIZATION',
+    });
+    const [erasedTitle] = await f.client.unsafe(
+      'select title from messaging_channels where id=$1',
+      [channelId],
+    );
+    assert({
+      given: 'creator erasure and refused creation replay',
+      should: 'retain the shared channel with no personal title',
+      actual: erasedTitle?.title,
+      expected: null,
+    });
   } finally {
     await f.client.unsafe(
       'delete from messaging_social_commands where actor_id=$1 and request_id in ($2,$3)',

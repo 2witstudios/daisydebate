@@ -3,6 +3,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import {
   erasePrivacySubject,
+  exportPrivacySubject,
   messagingPrivacyExpectedColumns,
   deliverPrivacyJob,
 } from '../privacy';
@@ -88,6 +89,27 @@ export async function createMessagingTestFixture(client: SQL) {
           { ...input, vendor: 'messaging-typing' },
           port,
         ),
+      exportSubject: (subjectActorId: string) => {
+        if (![actorId, otherActorId].includes(subjectActorId))
+          throw new Error('Fixture actor required');
+        return exportPrivacySubject(
+          drizzle({ client }),
+          {
+            userId: subjectActorId === actorId ? userId : otherUserId,
+            actorId: subjectActorId,
+          },
+          {
+            requiredAdopters: [
+              {
+                id: 'messaging',
+                phase: 'before-auth',
+                expectedColumns: messagingPrivacyExpectedColumns,
+              },
+            ],
+            adopters: [createMessagingPrivacyAdopter()],
+          },
+        );
+      },
       eraseSubject: async (subjectActorId: string, typingJobId?: string) => {
         if (![actorId, otherActorId].includes(subjectActorId))
           throw new Error('Fixture actor required');

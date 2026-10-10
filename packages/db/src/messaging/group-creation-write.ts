@@ -34,6 +34,7 @@ export async function writeMessagingGroupCreation(
     policyRevision: scope.policyRevision,
     lifecycle: 'active',
     title: command.title,
+    titleAuthorActorId: scope.actorId,
     createdAt: now,
     changeVersion: 1,
   });

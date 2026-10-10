@@ -189,6 +189,36 @@ test('real management transfers, revokes history, preserves survivor authority a
       code: 'NOT_FOUND',
     });
     const history = await read(f.recipient);
+    const creatorExport = await f.fixture.exportSubject(f.sender.actorId);
+    const managerExport = await f.fixture.exportSubject(f.recipient.actorId);
+    assert({
+      given:
+        'creator loses manager role and group entitlement while peer retains current grant',
+      should:
+        'bind title rights only to its author, independently of current grants',
+      actual: [
+        creatorExport.messaging_channels?.map((row) => [
+          row.id,
+          row.title,
+          row.title_author_actor_id,
+        ]),
+        managerExport.messaging_channels,
+      ],
+      expected: [[[channelId, 'Management proof', f.sender.actorId]], []],
+    });
+    await f.fixture.eraseSubject(f.sender.actorId);
+    const survivingHistory = await read(f.recipient);
+    const [titleAfterAuthorErasure] = await f.client.unsafe(
+      'select title,title_author_actor_id from messaging_channels where id=$1',
+      [channelId],
+    );
+    assert({
+      given: 'departed creator is erased while current peer manager remains',
+      should:
+        'retain readable group history and clear only the title and author binding',
+      actual: [survivingHistory.channelId, titleAfterAuthorErasure],
+      expected: [channelId, { title: null, title_author_actor_id: null }],
+    });
     await f.client.unsafe('delete from account_age where user_id=$1', [
       f.fixture.otherUserId,
     ]);
@@ -223,7 +253,7 @@ test('real management transfers, revokes history, preserves survivor authority a
         'archived',
         'archived',
         true,
-        2,
+        1,
       ],
     });
     await f.fixture.eraseSubject(f.recipient.actorId);
@@ -239,13 +269,13 @@ test('real management transfers, revokes history, preserves survivor authority a
       given:
         'canonical erasure of the renewed invitee after management and leave',
       should:
-        'delete receipt subjects and grants while preserving the unowned shared title',
+        'delete receipt subjects and grants while preserving the erased title state',
       actual: erasedInvitation,
       expected: {
         receipts: 0,
         subjects: 0,
         erased_grants: 0,
-        shared_title: 'Management proof',
+        shared_title: null,
       },
     });
     await assertRejects({

@@ -43,6 +43,7 @@ export function channelWire(script: Parameters<typeof fakeSql>[0]) {
     1,
     'active',
     null,
+    null,
     0,
     1,
     1,

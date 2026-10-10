@@ -30,8 +30,8 @@ test('messaging rights erase subject associations atomically and preserve other 
       [channelId],
     );
     await client.unsafe(
-      "insert into messaging_channels(id,kind,policy_key,policy_revision,lifecycle,title) values($1,'private_group','social.private_group',1,'active','Shared title')",
-      [groupId],
+      "insert into messaging_channels(id,kind,policy_key,policy_revision,lifecycle,title,title_author_actor_id) values($1,'private_group','social.private_group',1,'active','Shared title',$2)",
+      [groupId, otherActorId],
     );
     await client.unsafe(
       "insert into messaging_group_grants(channel_id,actor_id,role,generation,granted_at) values($1,$2,'manager',1,$4),($1,$3,'member',1,$4)",
