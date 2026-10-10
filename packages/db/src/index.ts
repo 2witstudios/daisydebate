@@ -18,6 +18,10 @@ import {
   subscribeOutbox,
   type OutboxListenHandlers,
 } from './listen';
+import {
+  subscribeRealtimeHints,
+  type RealtimeHintHandlers,
+} from './realtime-hints';
 import { claimUsername } from './username-claim';
 import { authOperations } from './auth-operations';
 import { authorizationSessionOperations } from './authorization-session';
@@ -172,6 +176,10 @@ export function createDatabase({
      */
     listenOutbox(handlers: OutboxListenHandlers) {
       return subscribeOutbox(client, handlers);
+    },
+    /** Validated transient hints over the same pool; durable drain is independent. */
+    listenRealtimeHints(handlers: RealtimeHintHandlers) {
+      return subscribeRealtimeHints(client, handlers);
     },
     async close() {
       await client.close({ timeout: 5 });
