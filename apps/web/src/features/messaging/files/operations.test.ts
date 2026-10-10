@@ -8,7 +8,10 @@ import {
   uploadMessagingFile,
   cancelMessagingFile,
 } from './operations';
-import { fileOperationFixture } from './operations.test-support';
+import {
+  fileOperationFixture,
+  finalizeAfterCleanScan,
+} from './operations.test-support';
 setupRitewayBun();
 test('cancellation requires fresh post authority and never deletes unacknowledged bytes', async () => {
   const f = fileOperationFixture();
@@ -193,13 +196,10 @@ test('wrong message association preserves a clean quarantine for the correct ret
   f.frame.finalize = async () => {
     throw createAppError('NOT_FOUND');
   };
-  const pending = finalizeMessagingFile(f.input, f.principal, f.d);
-  await f.scanStarted;
-  f.completeScan('clean');
   await assertRejects({
     given: 'a clean file finalized against an unavailable or foreign message',
     should: 'refuse the association',
-    actual: () => pending,
+    actual: () => finalizeAfterCleanScan(f),
     code: 'NOT_FOUND',
   });
   assert({
@@ -219,19 +219,17 @@ for (const [cleanupCode, expectedCode] of [
     f.frame.finalize = async () => {
       throw createAppError('CONFLICT');
     };
-    const pending = finalizeMessagingFile(f.input, f.principal, {
-      ...f.d,
-      failPending: async () => {
-        throw createAppError(cleanupCode);
-      },
-    });
-    await f.scanStarted;
-    f.completeScan('clean');
     await assertRejects({
       given: `canonical cleanup returns ${cleanupCode} after refused finalization`,
       should:
         'preserve stale conflict while keeping infrastructure failures observable',
-      actual: () => pending,
+      actual: () =>
+        finalizeAfterCleanScan(f, {
+          ...f.d,
+          failPending: async () => {
+            throw createAppError(cleanupCode);
+          },
+        }),
       code: expectedCode,
     });
   });
