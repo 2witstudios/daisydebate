@@ -2,6 +2,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createId } from '@paralleldrive/cuid2';
+import { assert } from 'riteway/bun';
 import { socialPolicyEvidence } from '@daisy/auth/social-policy';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { FilePolicy, FileMime } from '@daisy/db/messaging-files';
@@ -230,4 +231,40 @@ export function startFileFinalization(
   // Observe early transport failure immediately so it cannot escape between tests.
   void finalizing.catch(() => {});
   return { ...scan, finalizing };
+}
+
+export async function assertPendingFileDeletion(
+  f: Pick<
+    Awaited<ReturnType<typeof openComposedFileFixture>>,
+    'fileRow' | 'objects'
+  >,
+  token: { fileId: string; generation: number },
+  given: string,
+) {
+  const row = await f.fileRow(token.fileId);
+  assert({
+    given,
+    should:
+      'scrub associations and advance generation while retaining real private bytes until acknowledgement',
+    actual: {
+      lifecycle: row.lifecycle,
+      generation: row.generation,
+      filename: row.filename,
+      mime: row.mime,
+      requestId: row.request_id,
+      messageId: row.message_id,
+      bytes: [
+        ...(await f.objects.read(String(row.object_key), cleanFilePdf.length)),
+      ],
+    },
+    expected: {
+      lifecycle: 'deleting',
+      generation: token.generation + 1,
+      filename: null,
+      mime: null,
+      requestId: null,
+      messageId: null,
+      bytes: [...cleanFilePdf],
+    },
+  });
 }
