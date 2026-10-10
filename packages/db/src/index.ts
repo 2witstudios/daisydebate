@@ -1,3 +1,4 @@
+import { createMessagingTypingPrivacyPort } from './privacy/typing-rights';
 import { createMessagingTypingStore } from './messaging/typing-store';
 import { createMessagingPreferenceStore } from './messaging/preference-store';
 import { createMessagingFileMaintenance } from './messaging-files/maintenance';
@@ -204,6 +205,9 @@ export function createDatabase({
       authorize: Parameters<typeof createMessagingFileStore>[0]['authorize'],
     ) => createMessagingFileStore({ database, authorize }),
     messagingTypingStore: createMessagingTypingStore(database),
+    messagingTypingPrivacyPort: (
+      producer: Parameters<typeof createMessagingTypingPrivacyPort>[1],
+    ) => createMessagingTypingPrivacyPort(database, producer),
     messagingPreferenceStore: (
       authorize: Parameters<typeof createMessagingPreferenceStore>[1],
     ) => createMessagingPreferenceStore(database, authorize),
