@@ -2,6 +2,7 @@ import { ENVELOPE_VERSION } from '@daisy/protocol';
 import {
   createConnectionStore,
   type Scheduler,
+  type ConnectionStoreDeps,
   type WebSocketLike,
 } from './connection-store';
 
@@ -106,7 +107,7 @@ export class FakeSocket implements WebSocketLike {
   }
 }
 
-export function harness() {
+export function harness(overrides: Partial<ConnectionStoreDeps> = {}) {
   const sockets: FakeSocket[] = [];
   const scheduler = createFakeScheduler();
   const ticketCalls: number[] = [];
@@ -124,6 +125,7 @@ export function harness() {
       return validTicket;
     },
     random: () => 0.5,
+    ...overrides,
     onVisibilityChange: (cb) => {
       visibilityHandler = cb;
       return () => {
