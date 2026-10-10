@@ -178,6 +178,8 @@ describe('roomOperations', () => {
       [],
       [],
       [],
+      [[1n, '42']],
+      [],
     ]);
     await database.startRound({ roomId, roundId, resolution: 'A resolution' });
     assert({
@@ -187,8 +189,19 @@ describe('roomOperations', () => {
         queries[2]?.query.includes('insert into "rounds"'),
         queries[3]?.query.includes('insert into "round_participants"'),
         queries[4]?.query.includes('update'),
+        queries.some(
+          ({ query, params }) =>
+            query.startsWith('insert into "outbox"') &&
+            params.some(
+              (value) =>
+                typeof value === 'object' &&
+                value !== null &&
+                'kind' in value &&
+                value.kind === 'debate.phase-changed',
+            ),
+        ),
       ],
-      expected: [true, true, true],
+      expected: [true, true, true, true],
     });
   });
 
