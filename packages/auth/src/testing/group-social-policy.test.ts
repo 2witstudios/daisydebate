@@ -1,5 +1,9 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { authorize, type ChannelAuthorizationFact } from '../authorization';
+import {
+  authorize,
+  type ChannelAuthorizationFact,
+  type SocialAccountFact,
+} from '../authorization';
 import { socialPostingPolicy } from '../social-policy';
 import { accounts, input, resource } from '../channel.test-support';
 import {
@@ -54,7 +58,7 @@ test('group browser fixture is explicit isolated adult policy without changing D
   });
 });
 test('group fixture keeps fresh membership, exact account set and canonical grant requirements', () => {
-  const evaluate = (rows: typeof accounts, instant = now) =>
+  const evaluate = (rows: readonly SocialAccountFact[], instant = now) =>
     messagingTestGroupReading({ channel, accounts: rows, now: instant })
       .allowed;
   const unknown = accounts.map((row) => ({
