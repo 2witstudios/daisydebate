@@ -10,7 +10,7 @@ import { hydrateRound, type RoundHydration } from './round-hydration';
 import {
   insertCommandRow,
   lockedRoundVersion,
-  writeProjection,
+  writeProjectionWithPhaseSignal,
 } from './round-projection-writer';
 import { isUniqueViolation } from './unique-violation';
 import { roundParticipants } from './schema/round-participants';
@@ -176,7 +176,12 @@ export const roundOperations = ({
             ballot: parsed,
           }),
         );
-        await writeProjection(tx, input.roundId, input.projection);
+        await writeProjectionWithPhaseSignal(
+          tx,
+          input.roundId,
+          roundVersion,
+          input.projection,
+        );
         await insertCommandRow(
           tx,
           input.roundId,
@@ -216,7 +221,12 @@ export const roundOperations = ({
           input.roundId,
           input.expectedVersion,
         );
-        await writeProjection(tx, input.roundId, input.projection);
+        await writeProjectionWithPhaseSignal(
+          tx,
+          input.roundId,
+          roundVersion,
+          input.projection,
+        );
         await insertCommandRow(
           tx,
           input.roundId,

@@ -5,6 +5,7 @@ import type { RoomMutationOutcome } from '@daisy/protocol';
 import { rooms, roomParticipants } from './schema/rooms';
 import { rounds } from './schema/rounds';
 import { roundParticipants } from './schema/round-participants';
+import { appendRoundPhaseChanged } from './round-projection-writer';
 
 import { type Tx, publishDefinition } from './room-command-facts';
 export const persistRoomMutation = async (
@@ -88,6 +89,7 @@ export const persistRoomMutation = async (
         slot: p.slot,
       })),
     );
+    await appendRoundPhaseChanged(tx, roundId, 1);
     roundRef = { id: roundId, status: 'scheduled' };
   }
   return roundRef;

@@ -191,7 +191,7 @@ async function fixture() {
           await sql`delete from ballots where judge_participant_id in (select id from round_participants where round_id in (select id from rounds where room_id=${id}))`;
           await sql`delete from utterances where round_id in (select id from rounds where room_id=${id})`;
           await sql`delete from agent_runs where round_participant_id in (select id from round_participants where round_id in (select id from rounds where room_id=${id}))`;
-          await sql`delete from outbox where topic in (select 'round:' || id from rounds where room_id=${id})`;
+          await sql`delete from outbox where topic in (select 'debate:' || id from rounds where room_id=${id})`;
           await sql`delete from rounds where room_id=${id}`;
           await sql`delete from rooms where id=${id}`;
         }
