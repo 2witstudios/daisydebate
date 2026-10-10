@@ -8,6 +8,7 @@ import {
   type Page,
   type BrowserContext,
   type Locator,
+  type Route,
 } from '@playwright/test';
 import { effectsRan } from './hydration';
 import { pressByKeyboard } from './focus';
@@ -99,6 +100,25 @@ async function proveMessageControlFocus(
   const draft = 'Keyboard revision retained for retry';
   if (buttonName === 'Save message edit') await editor.fill(draft);
   await refusal?.refuse();
+  let attemptPost:
+    { readonly started: () => void; readonly held: Promise<void> } | undefined;
+  const intercept = async (route: Route) => {
+    const attempt = attemptPost;
+    if (
+      route.request().method() !== 'POST' ||
+      route.request().headers()['next-action'] === undefined ||
+      attempt === undefined
+    )
+      return route.continue();
+    attempt.started();
+    await attempt.held;
+    return failure === 'transport'
+      ? route.abort('internetdisconnected')
+      : route.continue();
+  };
+  // A hosted second POST bypassed interception after route replacement.
+  // Keep this named handler installed across both attempt barriers.
+  await page.route('**/*', intercept);
   try {
     for (let attempt = 0; attempt < 2; attempt += 1) {
       let started!: () => void;
@@ -109,18 +129,7 @@ async function proveMessageControlFocus(
       const held = new Promise<void>((resolve) => {
         release = resolve;
       });
-      await page.route('**/*', async (route) => {
-        if (
-          route.request().method() !== 'POST' ||
-          route.request().headers()['next-action'] === undefined
-        )
-          return route.continue();
-        started();
-        await held;
-        return failure === 'transport'
-          ? route.abort('internetdisconnected')
-          : route.continue();
-      });
+      attemptPost = { started, held };
       try {
         await pressByKeyboard(button);
         await posted;
@@ -159,10 +168,10 @@ async function proveMessageControlFocus(
       await expect(
         page.getByRole('heading', { name: 'Something went wrong' }),
       ).toHaveCount(0);
-      await page.unrouteAll({ behavior: 'wait' });
     }
   } finally {
-    await page.unrouteAll({ behavior: 'wait' });
+    attemptPost = undefined;
+    await page.unroute('**/*', intercept);
   }
   await refusal?.recover(buttonName);
   // The same retained intent succeeds once credentials/transport recover.
