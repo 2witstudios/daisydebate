@@ -93,3 +93,63 @@ test('configured native ticket response validates exact WSS binding with product
     expected: validTicket,
   });
 });
+
+test('reader failures expose only fixed stage names and never untrusted diagnostics', async () => {
+  const cases: ReadonlyArray<{
+    name: string;
+    fetchImpl: () => Promise<Response>;
+    endpoint?: string;
+  }> = [
+    {
+      name: 'RealtimeTicketFetchError',
+      fetchImpl: async () => {
+        throw new Error('private transport detail');
+      },
+    },
+    {
+      name: 'RealtimeTicketFetchError',
+      fetchImpl: async () => new Response('private body', { status: 503 }),
+    },
+    {
+      name: 'RealtimeTicketBodyError',
+      fetchImpl: async () => new Response('private invalid JSON'),
+    },
+    {
+      name: 'RealtimeTicketSchemaError',
+      fetchImpl: async () =>
+        Response.json({ ticket: 'private malformed ticket' }),
+    },
+    {
+      name: 'RealtimeTicketEndpointError',
+      endpoint: 'wss://expected.invalid/ws',
+      fetchImpl: async () =>
+        Response.json({
+          ticket: validTicket,
+          socketUrl: 'wss://foreign.invalid/ws',
+        }),
+    },
+  ];
+  for (const scenario of cases) {
+    let actual: unknown;
+    try {
+      await fetchRealtimeTicket({
+        fetchImpl: scenario.fetchImpl,
+        ...(scenario.endpoint ? { expectedSocketUrl: scenario.endpoint } : {}),
+      });
+    } catch (error) {
+      actual =
+        error instanceof Error
+          ? {
+              name: error.name,
+              privateDetail: error.message.includes('private'),
+            }
+          : error;
+    }
+    assert({
+      given: scenario.name,
+      should: 'report its fixed stage without response or transport details',
+      actual,
+      expected: { name: scenario.name, privateDetail: false },
+    });
+  }
+});
