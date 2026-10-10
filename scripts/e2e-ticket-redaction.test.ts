@@ -42,3 +42,12 @@ for (const depth of [0, 1, 2])
         expected: serialize(`${header}: [REDACTED]\nnext diagnostic`),
       });
     });
+
+test('plain quoted header logs retain whole-value redaction', () => {
+  assert({
+    given: 'a plain log prefix and quoted cookie value',
+    should: 'retain the prefix and redact the entire header value',
+    actual: redactText('info "request" cookie: "fixture-secret"; Path=/'),
+    expected: 'info "request" cookie: [REDACTED]',
+  });
+});
