@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { createAppError } from '@daisy/errors';
 import type { SearchParams } from '../../../features/access/decision';
-import { roomListQuerySchema } from '@daisy/protocol';
+import { parseRoomDiscoveryQuery } from '../../../features/lobby/discovery-query';
 import { requireAccess } from '../../../lib/access';
 import { AssemblyLobby } from '../../../ui/lobby/assembly-lobby';
 import { roomListing } from './actions';
@@ -14,18 +14,7 @@ export default async function LobbyPage({
 }) {
   await requireAccess('/lobby', searchParams);
   const raw = await searchParams;
-  const query = roomListQuerySchema.safeParse({
-    ...raw,
-    ...(raw.pageSize === undefined
-      ? {}
-      : {
-          pageSize:
-            typeof raw.pageSize === 'string' &&
-            /^(?:[1-9]|[1-4][0-9]|50)$/.test(raw.pageSize)
-              ? Number(raw.pageSize)
-              : NaN,
-        }),
-  });
+  const query = parseRoomDiscoveryQuery(raw);
   if (!query.success) throw createAppError('VALIDATION');
   const listing = await roomListing(query.data);
   if (listing.kind !== 'found') throw createAppError('INFRASTRUCTURE');
