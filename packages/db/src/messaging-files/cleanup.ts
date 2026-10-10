@@ -72,16 +72,30 @@ export async function expireChannelFiles(
   tx: AuthorizationTransaction,
   channelId: string,
   now: string,
+  fileIds?: readonly string[],
 ) {
   if (
     !idSchema.safeParse(channelId).success ||
-    !Number.isFinite(Date.parse(now))
+    !Number.isFinite(Date.parse(now)) ||
+    (fileIds !== undefined &&
+      (!Array.isArray(fileIds) ||
+        fileIds.length === 0 ||
+        new Set(fileIds).size !== fileIds.length ||
+        [...fileIds].some((id) => !idSchema.safeParse(id).success)))
   )
     throw createAppError('VALIDATION');
+  const selected =
+    fileIds === undefined
+      ? sql``
+      : sql`and id in (${sql.join(
+          fileIds.map((id) => sql`${id}`),
+          sql`, `,
+        )})`;
   await tx.execute(sql`
     update messaging_files set lifecycle = 'deleting', filename = null, mime = null,
       request_id = null, message_id = null, generation = generation + 1
     where channel_id = ${channelId} and lifecycle in ('reserved','quarantined') and expires_at <= ${new Date(now)}
+    ${selected}
   `);
 }
 /** The private vendor port must resolve only after actual delete acknowledgement. */
@@ -154,7 +168,7 @@ export async function acknowledgeErasedFileDeletion(
       .where(eq(messagingFileDeletionIntents.objectKey, objectKey));
   });
 }
-export type FileDeletionWork =
+type FileDeletionWork =
   | { readonly kind: 'file'; readonly fileId: string }
   | { readonly kind: 'erased'; readonly objectKey: string };
 /** Internal bounded worker discovery; never an HTTP/user projection. */

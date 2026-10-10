@@ -1,25 +1,20 @@
-import { createHash } from 'node:crypto';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
-import type { Clock, IdGenerator } from '@daisy/clock';
+import type { IdGenerator } from '@daisy/clock';
 import type { MessagingSocialStore } from '@daisy/db/messaging';
 import { createAppError } from '@daisy/errors';
 import {
-  createMessagingSocialSchemas,
-  type MessagingSocialBounds,
-} from '@daisy/protocol';
-import { parseValidated } from '../../server/http';
+  parseSocialCommand,
+  type SocialOperationDependencies,
+} from './social-command';
 import { requireMessagingActor } from './principal';
+import { messagingSocialDigest } from './social-command-digest';
 
 export async function requestMessagingDm(
   input: unknown,
   principal: AuthorizationPrincipal,
-  dependencies: {
-    readonly store: MessagingSocialStore;
-    readonly bounds: MessagingSocialBounds;
-    readonly clock: Clock;
+  dependencies: SocialOperationDependencies<MessagingSocialStore> & {
     readonly ids: IdGenerator;
     readonly policyRevision: number;
-    readonly limit: (actorId: string) => Promise<void>;
     readonly limits: {
       readonly windowMs: number;
       readonly maxNewPairs: number;
@@ -29,21 +24,16 @@ export async function requestMessagingDm(
   },
 ) {
   const { actorId, userId } = requireMessagingActor(principal);
-  const command = parseValidated(
-    createMessagingSocialSchemas(dependencies.bounds).requestDm,
+  const command = parseSocialCommand(
+    dependencies.bounds,
     input,
+    (schemas) => schemas.requestDm,
   );
   if (command.recipientActorId === actorId) throw createAppError('VALIDATION');
-  const digest = createHash('sha3-256')
-    .update(
-      JSON.stringify([
-        command.version,
-        'dm.request',
-        command.recipientActorId,
-        command.introduction ?? null,
-      ]),
-    )
-    .digest('hex');
+  const digest = messagingSocialDigest('dm.request', [
+    command.recipientActorId,
+    command.introduction ?? null,
+  ]);
   return dependencies.store.withContacts(
     {
       actorId,

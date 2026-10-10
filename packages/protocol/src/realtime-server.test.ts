@@ -1,5 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { serverMessageSchema } from './realtime-server';
+import { buildChannelTopic } from './topics';
 
 setupRitewayBun();
 const actor = 'a'.repeat(24);
@@ -7,6 +8,7 @@ const room = 'b'.repeat(24);
 describe('server message trust boundary', () => {
   const cases = [
     { type: 'ready' },
+    { type: 'typing_changed', topic: buildChannelTopic(room) },
     { type: 'pong', id: 'ping-1' },
     { type: 'subscribed', id: actor, topic: `room:${room}`, position: '1:2' },
     { type: 'unsubscribed', id: actor, topic: `room:${room}` },
@@ -48,3 +50,25 @@ describe('server message trust boundary', () => {
       });
     });
 });
+
+for (const frame of [
+  { topic: `room:${room}` },
+  { topic: buildChannelTopic(room), position: '1:2' },
+  { topic: buildChannelTopic(room), payload: {} },
+  { topic: buildChannelTopic(room), actorId: actor },
+])
+  test(`reject noncanonical typing hint ${JSON.stringify(frame)}`, () => {
+    assert({
+      given: 'a non-channel or state-bearing typing hint',
+      should: 'refuse without treating it as an outbox event',
+      actual: serverMessageSchema.safeParse(
+        {
+          v: 1,
+          type: 'typing_changed',
+          ...frame,
+        },
+        { jitless: true },
+      ).success,
+      expected: false,
+    });
+  });

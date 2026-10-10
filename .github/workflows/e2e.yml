@@ -176,6 +176,8 @@ jobs:
     name: Isolated Room Launch E2E
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    env:
+      CLAMD_TEST_PORT: '3310'
     defaults:
       run:
         working-directory: .pu/worktrees/wt-roomlaunchci
@@ -196,18 +198,25 @@ jobs:
         options: >-
           --health-cmd "redis-cli ping"
           --health-interval 3s --health-timeout 3s --health-retries 20
+      clamd:
+        image: clamav/clamav:1.4.6
+        ports: ['3310:3310']
+        options: >-
+          --health-cmd "clamdcheck.sh"
+          --health-interval 10s --health-timeout 5s
+          --health-start-period 3m --health-retries 20
     steps:
       - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Set up Node 24
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
           package-manager-cache: false
       - name: Set up Bun
-        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version-file: .bun-version
       - name: Create dedicated native proof checkout
@@ -221,6 +230,7 @@ jobs:
         id: slot
         run: bun slot:up
       - name: Check services and slot identity
+        id: doctor
         run: bun doctor
       - name: Prove target refusals before browser work
         run: bun test apps/web/scripts/room-launch-proof.test.ts
@@ -236,6 +246,7 @@ jobs:
           fi
           echo 'Main checkout teardown refused before connection'
       - name: Build composed production server
+        id: build
         run: bun run build
         env:
           BETTER_AUTH_SECRET: ci-isolation-sentinel-auth-0000000000000000000000000000000000000
@@ -243,6 +254,7 @@ jobs:
           RESEND_API_KEY: ci-isolation-sentinel-resend-key
           RESEND_WEBHOOK_SECRET: ci-isolation-sentinel-webhook-secret
       - name: Install controlled Chromium and artifact tools
+        id: chromium
         run: |
           bun apps/web/node_modules/@playwright/test/cli.js install --with-deps chromium
           sudo apt-get update -qq && sudo apt-get install -y -qq zip unzip
@@ -252,6 +264,26 @@ jobs:
         env:
           CI: true
           ROOM_LAUNCH_NODE: node
+      - name: Run authenticated generic realtime browser proof
+        id: realtime_room
+        if: ${{ !cancelled() && steps.doctor.outcome == 'success' && steps.build.outcome == 'success' && steps.chromium.outcome == 'success' }}
+        run: bun test:e2e:realtime
+        env:
+          CI: true
+          REALTIME_BROWSER_NODE: node
+      - name: Report actual generic realtime outcomes
+        if: ${{ always() && !cancelled() }}
+        run: bun scripts/e2e-report-counts.ts apps/web/test-results/realtime-results.json
+      - name: Run authenticated messaging realtime browser proof
+        id: realtime_messaging
+        if: ${{ !cancelled() && steps.doctor.outcome == 'success' && steps.build.outcome == 'success' && steps.chromium.outcome == 'success' }}
+        run: bun test:e2e:messaging-realtime
+        env:
+          CI: true
+          REALTIME_BROWSER_NODE: node
+      - name: Report actual messaging realtime outcomes
+        if: ${{ always() && !cancelled() }}
+        run: bun scripts/e2e-report-counts.ts apps/web/test-results/messaging-realtime-results.json
       - name: Report actual discovered and executed outcomes
         if: ${{ always() && !cancelled() && (steps.launch.outcome == 'success' || steps.launch.outcome == 'failure') }}
         run: bun scripts/e2e-report-counts.ts apps/web/test-results/room-launch-results.json
@@ -261,7 +293,7 @@ jobs:
         run: bun scripts/e2e-artifact-sanitizer.ts apps/web/test-results apps/web/playwright-report
       - name: Retain Launch evidence on success and failure
         if: ${{ always() && !cancelled() && steps.sanitize_launch.outcome == 'success' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: room-launch-${{ github.run_id }}
           path: .pu/worktrees/wt-roomlaunchci/apps/web/test-results/

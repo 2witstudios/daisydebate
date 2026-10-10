@@ -2,13 +2,17 @@ import type { Browser, TestInfo } from '@playwright/test';
 import { createId } from '@paralleldrive/cuid2';
 import { expect, openPage } from './fixtures';
 import { createRoomLaunchAccounts } from './room-launch-accounts';
-import { createFromPlay, claim, reread } from './room-launch-flow';
+import {
+  createFromPlay,
+  claim,
+  reread,
+  assertFrozenLaunch,
+} from './room-launch-flow';
 import { origin } from './accounts';
 import {
   closeSettledLaunchContexts,
   settledLaunchAuth,
 } from './room-launch-settled';
-import { launchEvidence } from './room-launch-evidence';
 
 /** Actual getUserMedia/controller/UI over controlled Chromium inputs, not real-device qualification. */
 export async function proveHumanLaunch(browser: Browser, info: TestInfo) {
@@ -108,20 +112,7 @@ export async function proveHumanLaunch(browser: Browser, info: TestInfo) {
     view = await reread(host.request, view.id);
     await host.getByRole('button', { name: 'Launch', exact: true }).click();
     await expect(host).toHaveURL(/\/rounds\/[a-z0-9]+$/);
-    const proof = await launchEvidence(view.id);
-    expect(proof.frozen).toEqual([
-      {
-        status: 'scheduled',
-        startedAt: null,
-        topic: view.topic,
-        config: view.config,
-        rules: view.rules,
-        cast: view.participants
-          .map((participant) => participant.actorId)
-          .sort(),
-      },
-    ]);
-    expect(proof.launchDoorbells).toBe(1);
+    const proof = await assertFrozenLaunch(view);
     await settledLaunchAuth();
     await info.attach('controlled-input-human-launch-evidence', {
       body: JSON.stringify(proof),

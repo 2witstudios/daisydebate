@@ -112,8 +112,8 @@ async function fixture() {
       (select coalesce(json_agg(o order by seq),'[]'::json) from outbox o where topic=${`room:${id}`}) outbox`;
     return JSON.stringify(r);
   };
-  const assemble = async () => {
-    let view = (await create()).view;
+  const assemble = async (overrides: Partial<RoomCreate> = {}) => {
+    let view = (await create(overrides)).view;
     view = (
       await command(host, view, {
         type: 'claim-seat',
@@ -191,7 +191,7 @@ async function fixture() {
           await sql`delete from ballots where judge_participant_id in (select id from round_participants where round_id in (select id from rounds where room_id=${id}))`;
           await sql`delete from utterances where round_id in (select id from rounds where room_id=${id})`;
           await sql`delete from agent_runs where round_participant_id in (select id from round_participants where round_id in (select id from rounds where room_id=${id}))`;
-          await sql`delete from outbox where topic in (select 'round:' || id from rounds where room_id=${id})`;
+          await sql`delete from outbox where topic in (select 'debate:' || id from rounds where room_id=${id})`;
           await sql`delete from rounds where room_id=${id}`;
           await sql`delete from rooms where id=${id}`;
         }

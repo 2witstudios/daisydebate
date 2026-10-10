@@ -57,3 +57,14 @@ export const input: AuthorizationInput = {
     socialPosting: policy,
   },
 };
+
+export const pendingResource: ChannelAuthorizationFact = {
+  ...resource,
+  authority: {
+    ...(resource.authority as Extract<
+      ChannelAuthorizationFact['authority'],
+      { kind: 'dm' }
+    >),
+    state: 'pending',
+  },
+};

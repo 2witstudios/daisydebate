@@ -13,6 +13,8 @@ test('migration creates a conservative boundary with only narrow maintenance and
   try {
     await client.begin(async (tx) => {
       await tx`set local role daisy_realtime`;
+      await tx`create temporary table outbox_retention_boundary(txid text,seq text,singleton boolean) on commit drop`;
+      await tx`insert into pg_temp.outbox_retention_boundary values('0','0',true)`;
       const position = await readOutboxRetentionBoundary(
         drizzle({ client: tx }),
       );
@@ -30,7 +32,7 @@ test('migration creates a conservative boundary with only narrow maintenance and
     for (const statement of [
       'update public.outbox_retention_boundary set seq=seq',
       'delete from public.outbox_retention_boundary',
-      'insert into public.outbox_retention_boundary values(true,0,0)',
+      "insert into public.outbox_retention_boundary values(true,'0'::xid8,0)",
     ]) {
       assert({
         given: 'the realtime role attempting to change its history boundary',
@@ -66,6 +68,22 @@ test('migration creates a conservative boundary with only narrow maintenance and
       ),
       expected: '42501',
     });
+    for (const statement of [
+      'delete from public.outbox_retention_boundary',
+      "insert into public.outbox_retention_boundary values(true,'0'::xid8,0)",
+    ]) {
+      assert({
+        given: 'maintenance attempting to replace or remove the fixed boundary',
+        should: 'refuse inherited table DML beyond ordering-column updates',
+        actual: await sqlStateOf(() =>
+          client.begin(async (tx) => {
+            await tx`set local role daisy_web`;
+            await tx.unsafe(statement);
+          }),
+        ),
+        expected: '42501',
+      });
+    }
   } finally {
     await client.close();
   }

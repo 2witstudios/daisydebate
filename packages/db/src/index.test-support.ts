@@ -2,59 +2,17 @@ import type { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import type { RoundStatus } from '@daisy/protocol';
 import { createDatabase } from './index';
-import { foundationDefinition } from './reference-formats';
+import { foundationDefinition, practiceRoomConfig } from './reference-formats';
 import { createTestOnlyOperations } from './test-only-operations';
 import type { DatabaseEventSink } from './instrumented';
+import { validRules } from './testing';
+import {
+  fakeSql,
+  type RecordedQuery,
+  type ScriptedResult,
+} from './scripted-bun-wire';
 
-type RecordedQuery = { query: string; params: unknown[] };
-/**
- * A drizzle typed query (`.insert().returning()` etc.) maps positional
- * arrays; a raw `tx.execute(sql...)` (`appendOutboxEvent`'s `pg_notify`
- * call) gets named-object rows straight from the driver, so a script entry
- * may be either shape.
- */
-type ScriptedResult =
-  readonly (readonly unknown[] | Record<string, unknown>)[] | Error;
-
-/**
- * Stands in for the Bun SQL wire protocol only: real drizzle query building
- * runs against scripted positional results, exactly as the driver maps them
- * (drizzle-orm 1.0's bun-sql session uses unsafe().values() plus begin() for
- * transactions).
- */
-export function fakeSql(script: ScriptedResult[]): {
-  client: SQL;
-  queries: RecordedQuery[];
-} {
-  const queries: RecordedQuery[] = [];
-  const client = {
-    // drizzle-orm 1.0's bun-sql driver sets `options.bigint` on its client.
-    options: {},
-    unsafe(query: string, params: unknown[] = []) {
-      queries.push({ query, params });
-      const next = script.shift();
-      if (next instanceof Error) {
-        // Pre-consume the base rejection: the real driver is one awaitable
-        // object, while this fake forks a second promise for .values().
-        const rejected = Promise.reject(next);
-        rejected.catch(() => {});
-        return Object.assign(rejected, { values: () => Promise.reject(next) });
-      }
-      const rows = next ?? [];
-      return Object.assign(Promise.resolve(rows), {
-        values: () => Promise.resolve(rows),
-      });
-    },
-    begin(operation: (inner: unknown) => Promise<unknown>) {
-      return operation(client);
-    },
-    async listen() {
-      return { unlisten: async () => {} };
-    },
-    async close() {},
-  };
-  return { client: client as unknown as SQL, queries };
-}
+export { fakeSql } from './scripted-bun-wire';
 
 /** A `client.listen()` that rejects, for proving `checkListen` fails closed. */
 export function fakeSqlWithBrokenListen(script: ScriptedResult[]): {
@@ -175,4 +133,53 @@ export const sampleFormat = () => ({
   definition: foundationDefinition,
 });
 
-export { validRules } from './testing';
+export const roomRow = (overrides: Record<string, unknown> = {}) => {
+  const row = {
+    id: 'r1o2o3m4i5d6e7n8t9i1f5y3',
+    hostActorId: 'host-actor',
+    title: 'Proof room',
+    topic: 'A motion',
+    visibility: 'public',
+    version: 1,
+    changeVersion: 1,
+    formatId: 'foundation',
+    formatVersion: 1,
+    presetVersion: null,
+    competitionType: 'casual',
+    length: 'full',
+    config: practiceRoomConfig,
+    executionPlan: { preRoundPrep: { enabled: false } },
+    rulesSnapshot: validRules,
+    prepStartedAt: null,
+    prepRemainingMs: null,
+    status: 'assembling',
+    createdAt: new Date(0),
+    updatedAt: new Date(0),
+    ...overrides,
+  };
+  // Drizzle maps positional driver rows in the rooms schema's column order.
+  return [
+    row.id,
+    row.hostActorId,
+    row.title,
+    row.topic,
+    row.visibility,
+    row.version,
+    row.changeVersion,
+    row.formatId,
+    row.formatVersion,
+    row.presetVersion,
+    row.competitionType,
+    row.length,
+    row.config,
+    row.executionPlan,
+    row.rulesSnapshot,
+    row.prepStartedAt,
+    row.prepRemainingMs,
+    row.status,
+    row.createdAt,
+    row.updatedAt,
+  ];
+};
+
+export { validRules };

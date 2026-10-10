@@ -2,7 +2,11 @@ import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import type { RoundProjection, RoundRules } from '@daisy/protocol';
-import { roundAuthoring, withFixture } from './constraint-helpers';
+import {
+  createScheduledRound,
+  roundAuthoring,
+  withFixture,
+} from './constraint-helpers';
 
 setupRitewayBun();
 
@@ -246,22 +250,10 @@ const assertCompletionInWindow = async (inputs: {
  */
 test('started_at, segment instants and completed_at come from the injected database instant, never a caller-chosen one', async () => {
   await withFixture(url, async (fixture) => {
-    const { roundId, database, rules, formatId } = await roundAuthoring(
-      fixture,
-      url,
-    );
+    const authoring = await roundAuthoring(fixture, url);
+    const { roundId, database, rules } = authoring;
     try {
-      await database.createRound({
-        id: roundId,
-        createdByActorId: null,
-        resolution: 'integration proof',
-        competitionType: 'casual',
-        length: 'full',
-        formatId,
-        formatVersion: 1,
-        presetVersion: null,
-        rules,
-      });
+      await createScheduledRound(authoring, 'integration proof');
 
       // The caller proposes 2001; the injected instant is the database's.
       const callerInstant = '2001-01-01T00:00:00.000Z';

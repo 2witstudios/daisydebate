@@ -4,8 +4,8 @@ import type {
   FileReservation,
   FilePolicy,
 } from '@daisy/db/messaging-files';
-import type { FileDependencies } from './operations';
-export const fileTestPolicy: FilePolicy = {
+import { finalizeMessagingFile, type FileDependencies } from './operations';
+const fileTestPolicy: FilePolicy = {
   maxFileBytes: 1024,
   maxStoredBytes: 2048,
   maxStoredFiles: 5,
@@ -46,6 +46,9 @@ export function fileOperationFixture() {
     scanned = resolve;
   });
   const frame: FileFrame = {
+    authorize: async () => {
+      if (!state.allowed) throw createAppError('AUTHORIZATION');
+    },
     reserve: async () => reservation,
     upload: async () => reservation,
     scan: async () => {
@@ -67,6 +70,7 @@ export function fileOperationFixture() {
       storedBytes: 20,
       accessExpiresAt: '2026-10-09T18:00:00.100Z',
     }),
+    listMessageFiles: async () => [],
     cancel: async () => {
       state.commits++;
     },
@@ -122,4 +126,18 @@ export function fileOperationFixture() {
     },
     input: { version: 1, channelId, fileId, messageId, generation: 1 },
   };
+}
+
+export async function finalizeAfterCleanScan(
+  fixture: ReturnType<typeof fileOperationFixture>,
+  dependencies: FileDependencies = fixture.d,
+) {
+  const pending = finalizeMessagingFile(
+    fixture.input,
+    fixture.principal,
+    dependencies,
+  );
+  await fixture.scanStarted;
+  fixture.completeScan('clean');
+  return pending;
 }

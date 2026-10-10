@@ -1,3 +1,4 @@
+import { invalidateDmInboxes } from './inbox-change';
 import { eq } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
@@ -24,4 +25,5 @@ export async function advanceSocialChannelAuthority(
     version: 1,
     payload: { kind: 'channel.changed', channelId: channel.id, changeVersion },
   });
+  await invalidateDmInboxes(tx, channel.id);
 }

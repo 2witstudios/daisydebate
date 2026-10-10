@@ -1,15 +1,18 @@
 import { createAppError } from '@daisy/errors';
-import { accountAgeFact, type AccountAgeSource } from './account-age';
+import type { AccountAgeFact } from './account-age';
 import type { AccountAuthorizationFact } from './authorization';
-/** Bind the source reader to the caller's account-fenced transaction. Raw birth data stays in this composition. */
+/** Bind the canonical minimal fact reader to the same account-fenced transaction. */
 export async function loadAccountPolicyFacts({
   accounts,
   now,
-  readAgeSource,
+  readAgeFact,
 }: {
   readonly accounts: readonly (AccountAuthorizationFact | null)[];
   readonly now: string;
-  readonly readAgeSource: (userId: string) => Promise<AccountAgeSource | null>;
+  readonly readAgeFact: (
+    account: AccountAuthorizationFact,
+    now: string,
+  ) => Promise<AccountAgeFact>;
 }) {
   const present: AccountAuthorizationFact[] = accounts.map((account) => {
     if (!account) throw createAppError('AUTHORIZATION');
@@ -18,11 +21,7 @@ export async function loadAccountPolicyFacts({
   return Promise.all(
     present.map(async (account) => ({
       account,
-      age: accountAgeFact({
-        source: await readAgeSource(account.userId),
-        account,
-        now,
-      }),
+      age: await readAgeFact(account, now),
     })),
   );
 }

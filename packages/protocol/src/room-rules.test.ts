@@ -77,24 +77,20 @@ describe('round rules', () => {
     seats: { affirmative: 1, negative: 1, judge: 1 },
     segments: [
       {
-        key: 'AC',
-        label: 'Affirmative constructive',
-        type: 'speech',
-        side: 'affirmative',
+        key: 'CX',
+        label: 'Cross-examination',
+        type: 'cross_ex',
+        side: 'negative',
         slot: 0,
-        durationMs: 300_000,
+        durationMs: 45_000,
       },
     ],
-    inRoundPrep: {
-      budgetMsPerSide: 240_000,
-      spendableBefore: ['speech'],
-      expiresAtSegment: null,
-    },
-    countdownMs: 10_000,
+    inRoundPrep: null,
+    countdownMs: 0,
     interaction: {
-      crossExMode: 'ordered',
-      yield: { allowed: true, returnsTime: true },
-      interruptions: { allowed: 'cross_ex_only', minRemainingMs: 30_000 },
+      crossExMode: 'free',
+      yield: null,
+      interruptions: null,
     },
   };
 

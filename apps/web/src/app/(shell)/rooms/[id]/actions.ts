@@ -32,17 +32,22 @@ export async function roomAssembly(id: string) {
   return readAssembly(inProcessFetch(read, new Headers(await headers())), id);
 }
 
-export async function submitRoomFormAction(
-  id: string,
-  _state: MockFormState,
-  form: FormData,
-): Promise<MockFormState> {
+async function submitRoomCommand(id: string, form: FormData) {
   const incoming = new Headers(await headers());
   const result = await submitAssembly(
     inProcessFetch(commands, incoming),
     id,
     form,
   );
+  return { incoming, result };
+}
+
+export async function submitRoomFormAction(
+  id: string,
+  _state: MockFormState,
+  form: FormData,
+): Promise<MockFormState> {
+  const { incoming, result } = await submitRoomCommand(id, form);
   if (result.kind === 'accepted')
     return { values: {}, ...moveOn(incoming, `/rooms/${result.view.id}`) };
   return refused(
@@ -61,12 +66,7 @@ export async function roomCommandAction(
   _state: MockFormState,
   form: FormData,
 ): Promise<MockFormState> {
-  const incoming = new Headers(await headers());
-  const result = await submitAssembly(
-    inProcessFetch(commands, incoming),
-    id,
-    form,
-  );
+  const { incoming, result } = await submitRoomCommand(id, form);
   return commandAnswer(result, id, form, (destination) =>
     moveOn(incoming, destination),
   );

@@ -1,5 +1,7 @@
 'use client';
 
+import { FormatTemplatePicker } from './format-template-picker';
+
 import type { RoomTemplate } from '../../../features/rooms/read-catalog';
 import { formValues } from '../../../features/mock-form/form';
 import { FormError, FormField } from '../../components/form-field/form-field';
@@ -53,36 +55,11 @@ export function CreateAssemblyFields({
           className={controlClass}
         />
       </FormField>
-      <FormField
-        id="assembly-format"
-        label="Format template"
-        helper="Templates supply the initial settings. Edit your room before anyone readies."
-      >
-        <select
-          id="assembly-format"
-          name="selection"
-          required
-          defaultValue={state.values.selection}
-          className={controlClass}
-        >
-          {choices.map((choice) => (
-            <option
-              key={`${choice.formatId}:${choice.formatVersion}`}
-              value={JSON.stringify({
-                kind: 'catalog',
-                formatId: choice.formatId,
-                formatVersion: choice.formatVersion,
-                length: 'full',
-                competitionType: 'casual',
-                config: choice.defaultConfig,
-              })}
-            >
-              {choice.label} · {choice.definition.seats.affirmative} aff /{' '}
-              {choice.definition.seats.negative} neg
-            </option>
-          ))}
-        </select>
-      </FormField>
+      <FormatTemplatePicker
+        key={state.values.selection ?? 'initial'}
+        choices={choices}
+        defaultValue={state.values.selection}
+      />
       <FormField id="assembly-visibility" label="Who can find the room">
         <select
           id="assembly-visibility"

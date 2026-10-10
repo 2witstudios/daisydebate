@@ -26,6 +26,23 @@ export type FileDependencies = {
   /** Trusted cleanup fence: pending only, same scope/owner/generation; no protected replay. */
   readonly failPending: (scope: FileScope, token: FileToken) => Promise<void>;
 };
+async function cleanupPending(
+  d: FileDependencies,
+  scope: FileScope,
+  token: FileToken,
+) {
+  try {
+    await d.failPending(scope, token);
+  } catch (error) {
+    // A newer generation, attachment or erasure must refuse stale cleanup.
+    if (
+      isAppError(error) &&
+      ['AUTHORIZATION', 'NOT_FOUND'].includes(error.code)
+    )
+      return;
+    throw isAppError(error) ? error : createAppError('INFRASTRUCTURE');
+  }
+}
 function context(principal: AuthorizationPrincipal, d: FileDependencies) {
   return {
     identity: requireMessagingActor(principal),
@@ -55,14 +72,16 @@ export async function reserveMessagingFile(
   return d.store.withChannel(
     { ...identity, channelId: command.channelId },
     'post',
-    async (frame) =>
-      publicReservation(
+    async (frame) => {
+      await frame.authorize();
+      return publicReservation(
         await frame.reserve(
           { ...command, id: d.ids.next(), objectKey: d.ids.next() },
           d.clock.now(),
           policy,
         ),
-      ),
+      );
+    },
   );
 }
 /** Object write remains inside the account/channel fence; asynchronous scanning does not. */
@@ -124,7 +143,7 @@ export async function uploadMessagingFile(
       return { fileId: reservation.id, generation: reservation.generation };
     });
   } catch (error) {
-    if (cleanup) await d.failPending(scope, token);
+    if (cleanup) await cleanupPending(d, scope, token);
     throw isAppError(error) ? error : createAppError('INFRASTRUCTURE');
   }
 }
@@ -140,6 +159,7 @@ export async function finalizeMessagingFile(
   );
   const scope = { ...identity, channelId: command.channelId };
   const token = { fileId: command.fileId, generation: command.generation };
+  let committing = false;
   try {
     const startedAt = d.clock.now();
     // Fresh post before any protected metadata/object read. Finalization repeats it after scanning.
@@ -165,13 +185,18 @@ export async function finalizeMessagingFile(
       })) !== 'clean'
     )
       throw createAppError('VALIDATION');
+    committing = true;
     await d.store.withChannel(scope, 'post', (frame) => {
       requireFileAttempt(startedAt, d.clock.now(), policy.serviceMs);
       return frame.finalize(attempt, command.messageId, d.clock.now(), policy);
     });
     return { fileId: command.fileId, generation: attempt.generation };
   } catch (error) {
-    await d.failPending(scope, token);
+    if (
+      !committing ||
+      (isAppError(error) && ['AUTHORIZATION', 'CONFLICT'].includes(error.code))
+    )
+      await cleanupPending(d, scope, token);
     throw isAppError(error) ? error : createAppError('INFRASTRUCTURE');
   }
 }

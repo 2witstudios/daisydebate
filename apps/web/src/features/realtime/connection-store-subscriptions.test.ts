@@ -84,3 +84,33 @@ test('resync clears a historical cursor before the feature resubscribes', async 
     expected: { received: ['event', 'resync_required'], since: null },
   });
 });
+
+test('each registration retains authority to the shared topic until its own removal', async () => {
+  const h = harness();
+  const received: string[] = [];
+  const listener = (frame: import('@daisy/protocol').ServerMessage) =>
+    received.push(frame.type);
+  const first = h.store.subscribeTopic(topic, listener);
+  const second = h.store.subscribeTopic(topic, listener);
+  await openAndReady(h);
+  first();
+  first();
+  h.latestSocket().message(event);
+  const beforeLast = h
+    .latestSocket()
+    .sent.map((raw) => JSON.parse(raw))
+    .filter((frame) => frame.type === 'unsubscribe').length;
+  second();
+  const afterLast = h
+    .latestSocket()
+    .sent.map((raw) => JSON.parse(raw))
+    .filter((frame) => frame.type === 'unsubscribe').length;
+  assert({
+    given:
+      'two registrations of the same callback and an idempotent first cleanup',
+    should:
+      'retain the second registration and unsubscribe once after its removal',
+    actual: { received, beforeLast, afterLast },
+    expected: { received: ['event'], beforeLast: 0, afterLast: 1 },
+  });
+});

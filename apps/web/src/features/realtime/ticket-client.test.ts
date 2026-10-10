@@ -14,10 +14,16 @@ describe('fetchRealtimeTicket (RT-2.4a contract: POST /api/realtime/ticket)', ()
       init?: RequestInit,
     ): Promise<Response> => {
       calls.push({ url, init });
-      return new Response(JSON.stringify({ ticket: validTicket }), {
-        status: 201,
-        headers: { 'content-type': 'application/json' },
-      });
+      return new Response(
+        JSON.stringify({
+          ticket: validTicket,
+          socketUrl: 'wss://socket.daisy.invalid/realtime',
+        }),
+        {
+          status: 201,
+          headers: { 'content-type': 'application/json' },
+        },
+      );
     };
 
     const ticket = await fetchRealtimeTicket({ fetchImpl });
@@ -54,4 +60,150 @@ describe('fetchRealtimeTicket (RT-2.4a contract: POST /api/realtime/ticket)', ()
       'realtime ticket response was malformed',
     );
   });
+});
+
+test('ticket endpoint binding refuses an endpoint different from the configured browser transport', async () => {
+  await expect(
+    fetchRealtimeTicket({
+      expectedSocketUrl: 'wss://socket.daisy.invalid/realtime',
+      fetchImpl: async () =>
+        Response.json({
+          ticket: validTicket,
+          socketUrl: 'wss://foreign.invalid/',
+        }),
+    }),
+  ).rejects.toThrow('realtime ticket response was malformed');
+});
+
+test('configured native ticket response validates exact WSS binding with production TTL metadata', async () => {
+  const endpoint = 'wss://localhost:13014/ws';
+  assert({
+    given: 'the actual configured native endpoint and production response keys',
+    should:
+      'return only the validated ticket while preserving exact endpoint binding',
+    actual: await fetchRealtimeTicket({
+      expectedSocketUrl: endpoint,
+      fetchImpl: async () =>
+        Response.json({
+          ticket: validTicket,
+          socketUrl: endpoint,
+          expiresInSeconds: 30,
+        }),
+    }),
+    expected: validTicket,
+  });
+});
+
+test('reader failures expose only fixed stage names and never untrusted diagnostics', async () => {
+  const cases: ReadonlyArray<{
+    name: string;
+    fetchImpl: () => Promise<Response>;
+    endpoint?: string;
+  }> = [
+    {
+      name: 'RealtimeTicketFetchError',
+      fetchImpl: async () => {
+        throw new Error('private transport detail');
+      },
+    },
+    {
+      name: 'RealtimeTicketFetchError',
+      fetchImpl: async () => new Response('private body', { status: 503 }),
+    },
+    {
+      name: 'RealtimeTicketBodyError',
+      fetchImpl: async () => new Response('private invalid JSON'),
+    },
+    {
+      name: 'RealtimeTicketSchemaTicketError',
+      fetchImpl: async () =>
+        Response.json({ ticket: 'private malformed ticket' }),
+    },
+    {
+      name: 'RealtimeTicketSchemaObjectError',
+      fetchImpl: async () => Response.json(null),
+    },
+    {
+      name: 'RealtimeTicketSchemaSocketUrlError',
+      fetchImpl: async () =>
+        Response.json({
+          ticket: validTicket,
+          socketUrl: 'https://private.invalid',
+        }),
+    },
+    {
+      name: 'RealtimeTicketEndpointError',
+      endpoint: 'wss://expected.invalid/ws',
+      fetchImpl: async () =>
+        Response.json({
+          ticket: validTicket,
+          socketUrl: 'wss://foreign.invalid/ws',
+        }),
+    },
+  ];
+  for (const scenario of cases) {
+    let actual: unknown;
+    try {
+      await fetchRealtimeTicket({
+        fetchImpl: scenario.fetchImpl,
+        ...(scenario.endpoint ? { expectedSocketUrl: scenario.endpoint } : {}),
+      });
+    } catch (error) {
+      actual =
+        error instanceof Error
+          ? {
+              name: error.name,
+              privateDetail: error.message.includes('private'),
+            }
+          : error;
+    }
+    assert({
+      given: scenario.name,
+      should: 'report its fixed stage without response or transport details',
+      actual,
+      expected: { name: scenario.name, privateDetail: false },
+    });
+  }
+});
+
+test('thrown schema exceptions retain only a fixed native class', async () => {
+  for (const failure of [
+    new EvalError('private eval detail'),
+    new ReferenceError('private reference'),
+    new TypeError('private type'),
+    new Error('private unknown'),
+  ]) {
+    const payload = Object.defineProperty(
+      { socketUrl: 'wss://localhost:13014/ws' },
+      'ticket',
+      {
+        get() {
+          throw failure;
+        },
+        enumerable: true,
+      },
+    );
+    let actual: unknown;
+    try {
+      await fetchRealtimeTicket({
+        fetchImpl: async () =>
+          Object.assign(Response.json({}), { json: async () => payload }),
+      });
+    } catch (error) {
+      actual =
+        error instanceof Error
+          ? [error.name, error.message.includes('private')]
+          : error;
+    }
+    assert({
+      given: 'a parser exception with private diagnostic text',
+      should:
+        'distinguish it from rejected schema fields without retaining detail',
+      actual,
+      expected: [
+        `RealtimeTicketSchemaThrown${failure.name === 'Error' ? 'UnknownError' : failure.name}`,
+        false,
+      ],
+    });
+  }
 });

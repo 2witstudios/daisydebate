@@ -1,3 +1,4 @@
+import { startMessagingFileMaintenance } from './file-maintenance';
 import { readFileSync } from 'node:fs';
 import next from 'next';
 import { refuseSchemaAlteringRole } from '@daisy/db';
@@ -73,11 +74,26 @@ const retention = startRetentionSweep({
     clearInterval: (handle) => clearInterval(handle as NodeJS.Timeout),
   },
 });
+const fileRuntime = app.messagingFiles;
+const fileMaintenance = fileRuntime?.maintenance
+  ? startMessagingFileMaintenance({
+      maintenance: app.database.messagingFileMaintenance,
+      config: fileRuntime.maintenance,
+      remove: (key) => fileRuntime.objects.remove(key),
+      clock: app.clock,
+      logger: app.logger,
+      timers: {
+        setInterval: (tick, ms) => setInterval(tick, ms).unref(),
+        clearInterval: (handle) => clearInterval(handle as NodeJS.Timeout),
+      },
+    })
+  : null;
 async function shutdown() {
   if (app.isDraining()) return;
   app.drain();
   // Ends any sweep between batches; awaited before the pools close below.
   const retentionStopped = retention.stop();
+  const filesStopped = fileMaintenance?.stop();
   app.logger.log(
     'server.shutdown',
     { operation: 'server.shutdown' },
@@ -98,7 +114,7 @@ async function shutdown() {
         server.close((error) => (error ? reject(error) : resolve())),
       );
       await nextApp.close();
-      await retentionStopped;
+      await Promise.all([retentionStopped, filesStopped]);
       await closeProcessApp();
     },
   });

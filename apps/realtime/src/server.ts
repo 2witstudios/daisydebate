@@ -85,38 +85,43 @@ export function createRealtimeServer({
     ...socketDependencies,
     ...(timers ? { timers } : {}),
   });
+  function isUpgrade(request: Request) {
+    return (
+      new URL(request.url).search === '' &&
+      request.method === 'GET' &&
+      request.headers.get('upgrade')?.toLowerCase() === 'websocket'
+    );
+  }
+  function upgrade(request: Request, server: Server<SocketData>) {
+    if (resources.isDraining()) return new Response(null, { status: 503 });
+    if (!isUpgrade(request)) return new Response(null, { status: 400 });
+    const origin = request.headers.get('origin');
+    if (!origin || !allowedOrigins.includes(origin))
+      return new Response(null, { status: 403 });
+    const peer = server.requestIP(request)?.address;
+    const ip = resolveClientIp({
+      peer,
+      forwardedFor: request.headers.get('x-forwarded-for'),
+      flyClientIp: request.headers.get('fly-client-ip'),
+      trustedProxies,
+    });
+    const reservation = admission.reserve(ip ?? 'unknown');
+    if (!reservation) return new Response(null, { status: 429 });
+    const data: SocketData = { origin, admission: reservation };
+    if (server.upgrade(request, { data })) return undefined;
+    reservation.release();
+    return new Response(null, { status: 400 });
+  }
   return {
     async fetch(
       request: Request,
       server: Server<SocketData>,
     ): Promise<Response | undefined> {
-      const { pathname, search } = new URL(request.url);
+      const { pathname } = new URL(request.url);
       if (pathname === '/health/live') return liveResponse();
       if (pathname === '/health/ready') return readyResponse(resources);
       if (pathname === SOCKET_PATH) {
-        if (resources.isDraining()) return new Response(null, { status: 503 });
-        if (
-          search ||
-          request.method !== 'GET' ||
-          request.headers.get('upgrade')?.toLowerCase() !== 'websocket'
-        )
-          return new Response(null, { status: 400 });
-        const origin = request.headers.get('origin');
-        if (!origin || !allowedOrigins.includes(origin))
-          return new Response(null, { status: 403 });
-        const peer = server.requestIP(request)?.address;
-        const ip = resolveClientIp({
-          peer,
-          forwardedFor: request.headers.get('x-forwarded-for'),
-          flyClientIp: request.headers.get('fly-client-ip'),
-          trustedProxies,
-        });
-        const reservation = admission.reserve(ip ?? 'unknown');
-        if (!reservation) return new Response(null, { status: 429 });
-        const data: SocketData = { origin, admission: reservation };
-        if (server.upgrade(request, { data })) return undefined;
-        reservation.release();
-        return new Response(null, { status: 400 });
+        return upgrade(request, server);
       }
       return new Response(null, { status: 404 });
     },

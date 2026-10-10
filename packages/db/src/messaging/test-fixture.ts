@@ -4,6 +4,7 @@ import { drizzle } from 'drizzle-orm/bun-sql';
 import {
   erasePrivacySubject,
   messagingPrivacyExpectedColumns,
+  deliverPrivacyJob,
 } from '../privacy';
 import { accountAgePrivacyAdopter } from '../account-age';
 import { createMessagingPrivacyAdopter } from './privacy';
@@ -32,6 +33,10 @@ export async function createMessagingTestFixture(client: SQL) {
     await client.unsafe("delete from outbox where payload->>'channelId'=$1", [
       channelId,
     ]);
+    await client.unsafe(
+      "delete from outbox where kind='messaging.inbox.changed' and topic in ($1,$2)",
+      [`user:${actorId}:inbox`, `user:${otherActorId}:inbox`],
+    );
     await client.unsafe('delete from actors where id in ($1,$2)', [
       actorId,
       otherActorId,
@@ -74,7 +79,16 @@ export async function createMessagingTestFixture(client: SQL) {
       high,
       now,
       cleanup,
-      eraseSubject: async (subjectActorId: string) => {
+      deliverTypingJob: (
+        input: Omit<Parameters<typeof deliverPrivacyJob>[1], 'vendor'>,
+        port: Parameters<typeof deliverPrivacyJob>[2],
+      ) =>
+        deliverPrivacyJob(
+          drizzle({ client }),
+          { ...input, vendor: 'messaging-typing' },
+          port,
+        ),
+      eraseSubject: async (subjectActorId: string, typingJobId?: string) => {
         if (![actorId, otherActorId].includes(subjectActorId))
           throw new Error('Fixture actor required');
         const subjectUserId = subjectActorId === actorId ? userId : otherUserId;
@@ -83,8 +97,8 @@ export async function createMessagingTestFixture(client: SQL) {
           {
             subject: { userId: subjectUserId, actorId: subjectActorId },
             now,
-            vendors: [],
-            jobIds: [],
+            vendors: typingJobId ? ['messaging-typing'] : [],
+            jobIds: typingJobId ? [typingJobId] : [],
           },
           {
             requiredAdopters: [

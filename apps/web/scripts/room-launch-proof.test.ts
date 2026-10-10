@@ -1,6 +1,6 @@
-import { decodeLaunchEvidence } from '../e2e/support/room-launch-evidence-decoder';
 import { roomCreateSchema } from '@daisy/protocol';
 import { launchCustomSelection } from '../e2e/support/room-launch-custom';
+import { decodeLaunchEvidence } from '../e2e/support/room-launch-evidence-decoder';
 import { createLaunchShutdown } from '../e2e/support/room-launch-shutdown';
 import { mkdtemp, rm, readFile } from 'node:fs/promises';
 import { basename, join, resolve } from 'node:path';
@@ -44,8 +44,12 @@ test('custom browser creation fixture satisfies the canonical complete request c
   });
 });
 
-test('dedicated config binds server commands and artifacts to their canonical workspace', async () => {
+test('dedicated config refuses shared checkouts and binds dedicated paths', async () => {
   const checkout = resolve(import.meta.dir, '../../..');
+  const folder = basename(checkout);
+  const dedicated = folder.startsWith('wt-');
+  const slot = folder.slice('wt-'.length).replaceAll('-', '_');
+  const namespace = `daisy-wt-${slot.replaceAll('_', '-')}-e2e`;
   const script = `import config from './apps/web/e2e/support/room-launch-config';
     console.log(JSON.stringify({
       servers: config.webServer.map(server => server.cwd ?? null),
@@ -54,7 +58,14 @@ test('dedicated config binds server commands and artifacts to their canonical wo
     }));`;
   const loaded = Bun.spawn(['bun', '--eval', script], {
     cwd: checkout,
-    env: process.env,
+    env: {
+      ...process.env,
+      DATABASE_URL: `postgres://daisy:fixture@127.0.0.1:5432/daisy_wt_${slot}`,
+      E2E_DATABASE_URL: `postgres://daisy_e2e:fixture@127.0.0.1:5432/daisy_wt_${slot}_e2e`,
+      E2E_REDIS_URL: 'redis://127.0.0.1:6379/2',
+      E2E_REDIS_NAMESPACE: namespace,
+      E2E_PORT: '13001',
+    },
     stdout: 'pipe',
     stderr: 'pipe',
   });
@@ -62,6 +73,20 @@ test('dedicated config binds server commands and artifacts to their canonical wo
     loaded.exited,
     new Response(loaded.stdout).text(),
   ]);
+  const errors = await new Response(loaded.stderr).text();
+  if (!dedicated) {
+    assert({
+      given: 'the ordinary shared repository checkout',
+      should: 'refuse before resolving browser servers or artifacts',
+      actual: {
+        output,
+        refused:
+          status !== 0 && errors.includes('dedicated native worktree slot'),
+      },
+      expected: { output: '', refused: true },
+    });
+    return;
+  }
   assert({
     given: 'the actual dedicated config loaded from its nested support folder',
     should:
@@ -84,16 +109,13 @@ test('dedicated config binds server commands and artifacts to their canonical wo
   });
 });
 
-test('Launch shutdown awaits auth settlement and closes each owned listener once', async () => {
+function shutdownFixture(settled: () => Promise<void>, rejectClose = false) {
   const calls: string[] = [];
-  let release!: () => void;
-  const outstanding = new Promise<void>((accept) => {
-    release = accept;
-  });
   const shutdown = createLaunchShutdown({
-    settled: () => outstanding,
+    settled,
     closeControl: () => {
       calls.push('control');
+      if (rejectClose) throw new Error('private close failure');
     },
     stopCapture: () => {
       calls.push('capture');
@@ -105,6 +127,15 @@ test('Launch shutdown awaits auth settlement and closes each owned listener once
       calls.push('refused');
     },
   });
+  return { calls, shutdown };
+}
+
+test('Launch shutdown awaits auth settlement and closes each owned listener once', async () => {
+  let release!: () => void;
+  const outstanding = new Promise<void>((accept) => {
+    release = accept;
+  });
+  const { calls, shutdown } = shutdownFixture(() => outstanding);
   const first = shutdown();
   const second = shutdown();
   assert({
@@ -124,23 +155,11 @@ test('Launch shutdown awaits auth settlement and closes each owned listener once
 });
 
 test('Launch shutdown continues cleanup after rejected settlement or control close', async () => {
-  const calls: string[] = [];
-  await createLaunchShutdown({
-    settled: () => Promise.reject(new Error('private settlement failure')),
-    closeControl: () => {
-      calls.push('control');
-      throw new Error('private close failure');
-    },
-    stopCapture: () => {
-      calls.push('capture');
-    },
-    stopEdge: () => {
-      calls.push('edge');
-    },
-    refused: () => {
-      calls.push('refused');
-    },
-  })();
+  const { calls, shutdown } = shutdownFixture(
+    () => Promise.reject(new Error('private settlement failure')),
+    true,
+  );
+  await shutdown();
   assert({
     given: 'failed settlement and control close',
     should:

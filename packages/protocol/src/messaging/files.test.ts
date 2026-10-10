@@ -25,6 +25,10 @@ test('file admission requires explicit safe limits and rejects bearer access fie
     { bytes: 0 },
     { mime: 'text/html' },
     { filename: '../secret' },
+    { filename: 'notes\u0000.pdf' },
+    { filename: 'notes\u001f.pdf' },
+    { filename: 'notes\u007f.pdf' },
+    { filename: 'folder\\notes.pdf' },
     { objectKey: 'private' },
     { url: 'https://public' },
   ]) {
@@ -32,7 +36,7 @@ test('file admission requires explicit safe limits and rejects bearer access fie
     assert({
       given: 'unsafe or over-limit input',
       should: 'report validation issues',
-      actual: parsed.error?.issues.length! > 0,
+      actual: !parsed.success && parsed.error.issues.length > 0,
       expected: true,
     });
   }

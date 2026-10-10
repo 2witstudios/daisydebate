@@ -1,3 +1,4 @@
+import { invalidateMessagingInboxes } from './inbox-change';
 import { and, eq, gte, or, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
@@ -97,6 +98,10 @@ export function dmRequestFrame(
           introduction: command.introduction,
           requestedAt: new Date(command.now),
         });
+        await invalidateMessagingInboxes(tx, [
+          pair.lowActorId,
+          pair.highActorId,
+        ]);
         await appendOutboxEvent(tx, {
           topic: buildChannelTopic(channelId),
           kind: 'channel.changed',
