@@ -1,12 +1,11 @@
 import { createId } from '@paralleldrive/cuid2';
+import { readRealtimeTransportConfig } from '@daisy/config';
 import type { BrowserContext, Page } from '@playwright/test';
 import {
   buildRoomTopic,
   roomCatalogChoiceSchema,
   roomViewSchema,
   roomCreateSchema,
-  ENVELOPE_VERSION,
-  PROTOCOL_VERSION,
   type RoomView,
 } from '@daisy/protocol';
 import { test, expect, openPage } from './support/fixtures';
@@ -20,7 +19,10 @@ import {
   connectRoomTransport,
 } from './support/realtime-fixture';
 import { resolveE2EPorts } from '../playwright.config';
-import { nativeRealtimeRefusals } from './support/realtime-native-refusals';
+import {
+  nativeRealtimeRefusals,
+  nativeTicketReuse,
+} from './support/realtime-native-refusals';
 
 requireLaunchSlot(resolve(import.meta.dirname, '../../..'), process.env);
 
@@ -227,48 +229,9 @@ test('a real issued ticket accepts one hello and refuses its second consumption'
       'RT ticket consumer',
     );
     await page.goto('/lobby');
-    const result = await page.evaluate(
-      async ({ v, protocolVersion, endpoint }) => {
-        const response = await fetch('/api/realtime/ticket', {
-          method: 'POST',
-          credentials: 'same-origin',
-        });
-        const body = await response.json();
-        if (
-          response.status !== 200 ||
-          body.socketUrl !== endpoint ||
-          typeof body.ticket !== 'string'
-        )
-          throw new Error('Actual ticket endpoint unavailable');
-        const open = () =>
-          new Promise<'ready' | number>((accept, reject) => {
-            const socket = new WebSocket(body.socketUrl);
-            socket.onopen = () =>
-              socket.send(
-                JSON.stringify({
-                  v,
-                  type: 'hello',
-                  protocolVersion,
-                  ticket: body.ticket,
-                }),
-              );
-            socket.onmessage = (event) => {
-              if (JSON.parse(String(event.data)).type === 'ready') {
-                accept('ready');
-                socket.close();
-              }
-            };
-            socket.onclose = (event) => accept(event.code);
-            socket.onerror = () =>
-              reject(new Error('Native ticket socket failed'));
-          });
-        return [await open(), await open()];
-      },
-      {
-        v: ENVELOPE_VERSION,
-        protocolVersion: PROTOCOL_VERSION,
-        endpoint: `wss://localhost:${resolveE2EPorts(process.env).realtime}/ws`,
-      },
+    const result = await nativeTicketReuse(
+      page,
+      `wss://localhost:${resolveE2EPorts(process.env).realtime}/ws`,
     );
     expect(result).toEqual(['ready', 4001]);
   } finally {
@@ -296,6 +259,12 @@ test('actual authenticated socket enforces version, hello deadline, malformed fr
       timeout: 4001,
       malformed: 4003,
       rate: 4004,
+      actorConnections: [
+        ...Array(readRealtimeTransportConfig(process.env).maxPerActor).fill(
+          'ready',
+        ),
+        4004,
+      ],
     });
   } finally {
     await settledLaunchAuth();
