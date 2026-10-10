@@ -79,9 +79,23 @@ export function createRealtimeAuthorization({
       return { revision: fingerprint(base), validUntil: bound };
     switch (parsed.family) {
       case 'room':
-        return authorizeRoom(
+        return authorizeAudience(
           principal,
-          parsed.roomId,
+          resources.database.readRoomAuthorizationFacts(
+            parsed.roomId,
+            principal,
+          ),
+          session.account.revision,
+          base,
+          bound,
+        );
+      case 'debate':
+        return authorizeAudience(
+          principal,
+          resources.database.readRoundAuthorizationFacts(
+            parsed.debateId,
+            principal,
+          ),
           session.account.revision,
           base,
           bound,
@@ -98,22 +112,21 @@ export function createRealtimeAuthorization({
         return null;
     }
   }
-  async function authorizeRoom(
+  async function authorizeAudience(
     principal: SocketPrincipal,
-    roomId: string,
+    projection:
+      | ReturnType<RealtimeApp['database']['readRoomAuthorizationFacts']>
+      | ReturnType<RealtimeApp['database']['readRoundAuthorizationFacts']>,
     accountRevision: number,
     base: readonly unknown[],
     bound: number,
   ): Promise<SubscriptionAuthority | null> {
-    const facts = await resources.database.readRoomAuthorizationFacts(
-      roomId,
-      principal,
-    );
+    const facts = await projection;
     if (!facts?.account || facts.account.revision !== accountRevision)
       return null;
     const decision = authorize({
       principal: { kind: 'user', ...principal },
-      capability: 'room.read',
+      capability: facts.resource.kind === 'round' ? 'round.read' : 'room.read',
       resource: facts.resource,
       context: { account: facts.account },
     });
@@ -125,7 +138,8 @@ export function createRealtimeAuthorization({
     if (
       !current ||
       current.account.revision !== accountRevision ||
-      facts.account.revision !== current.account.revision
+      Date.parse(current.expiresAt) <= Date.parse(resources.clock.now()) ||
+      now() >= bound
     )
       return null;
     return {
