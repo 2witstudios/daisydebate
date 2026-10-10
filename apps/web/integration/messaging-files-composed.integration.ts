@@ -5,6 +5,7 @@ import { assertRejects } from '@daisy/errors/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   cleanFilePdf,
+  assertPendingFileDeletion,
   openComposedFileFixture,
 } from './messaging-files-composed.test-support';
 import {
@@ -22,35 +23,11 @@ test('canonical cancellation scrubs pending metadata while retaining the private
   try {
     const token = await f.quarantine();
     await cancelMessagingFile(token, f.principal, f.dependencies);
-    const row = await f.fileRow(token.fileId);
-    assert({
-      given: 'a cancelled real quarantined upload',
-      should:
-        'scrub associations and advance generation without releasing storage',
-      actual: {
-        lifecycle: row.lifecycle,
-        generation: row.generation,
-        filename: row.filename,
-        mime: row.mime,
-        requestId: row.request_id,
-        messageId: row.message_id,
-        bytes: [
-          ...(await f.objects.read(
-            String(row.object_key),
-            cleanFilePdf.length,
-          )),
-        ],
-      },
-      expected: {
-        lifecycle: 'deleting',
-        generation: token.generation + 1,
-        filename: null,
-        mime: null,
-        requestId: null,
-        messageId: null,
-        bytes: [...cleanFilePdf],
-      },
-    });
+    await assertPendingFileDeletion(
+      f,
+      token,
+      'a cancelled real quarantined upload',
+    );
     await assertRejects({
       given: 'the cancelled generation completing late',
       should: 'refuse attachment',

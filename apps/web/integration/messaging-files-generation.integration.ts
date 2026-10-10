@@ -3,6 +3,7 @@ import { assertRejects } from '@daisy/errors/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   cleanFilePdf,
+  assertPendingFileDeletion,
   openComposedFileFixture,
   startFileFinalization,
 } from './messaging-files-composed.test-support';
@@ -102,32 +103,11 @@ test('canonical own-message removal revokes attached access and retains the real
       actual: () => readMessagingFile(token, f.principal, f.dependencies),
       code: 'NOT_FOUND',
     });
-    const row = await f.fileRow(token.fileId);
-    assert({
-      given:
-        'own message and its attached file were removed in one canonical transaction',
-      should:
-        'scrub attachment metadata but retain the actual object pending acknowledgement',
-      actual: {
-        lifecycle: row.lifecycle,
-        filename: row.filename,
-        mime: row.mime,
-        messageId: row.message_id,
-        bytes: [
-          ...(await f.objects.read(
-            String(row.object_key),
-            cleanFilePdf.length,
-          )),
-        ],
-      },
-      expected: {
-        lifecycle: 'deleting',
-        filename: null,
-        mime: null,
-        messageId: null,
-        bytes: [...cleanFilePdf],
-      },
-    });
+    await assertPendingFileDeletion(
+      f,
+      token,
+      'own message and its attached file removed in one canonical transaction',
+    );
     const bells = await f.client.unsafe(
       "select payload from outbox where payload->>'channelId'=$1 order by txid, seq",
       [f.fixture.channelId],
