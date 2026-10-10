@@ -231,7 +231,7 @@ const decision = (allowed: boolean): AuthorizationDecision =>
 function specialResourceDecision(
   actorId: string,
   capability: AuthorizationCapability,
-  resource: AuthorizationInput['resource'],
+  resource: Exclude<AuthorizationInput['resource'], { kind: 'foundation' }>,
   context: AuthorizationInput['context'],
 ): AuthorizationDecision | null {
   switch (resource.kind) {
