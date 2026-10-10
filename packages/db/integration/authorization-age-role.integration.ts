@@ -1,19 +1,14 @@
-import { createId } from '@paralleldrive/cuid2';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { loadAuthorizationAgeFact } from '../src/account-age';
 import { withFixture, sqlStateOf } from './constraint-helpers';
+import { createAuthorizationSubject } from './authorization.test-support';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 test('realtime age producer exposes monthly bands under the canonical erasure fence without source access', async () => {
   await withFixture(databaseUrl, async (fixture) => {
-    const userId = createId(),
-      actorId = createId();
-    fixture.track('users', userId);
-    fixture.track('actors', actorId);
-    await fixture.sql`insert into users(id,username,email_verified) values(${userId},${userId},true)`;
-    await fixture.sql`insert into actors(id,kind,user_id) values(${actorId},'human',${userId})`;
+    const { userId, actorId } = await createAuthorizationSubject(fixture);
     const now = '2026-10-09T00:00:00.000Z';
     const cases = [
       ['2013-11', 'under-13'],

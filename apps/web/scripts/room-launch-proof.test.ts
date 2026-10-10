@@ -109,16 +109,13 @@ test('dedicated config refuses shared checkouts and binds dedicated paths', asyn
   });
 });
 
-test('Launch shutdown awaits auth settlement and closes each owned listener once', async () => {
+function shutdownFixture(settled: () => Promise<void>, rejectClose = false) {
   const calls: string[] = [];
-  let release!: () => void;
-  const outstanding = new Promise<void>((accept) => {
-    release = accept;
-  });
   const shutdown = createLaunchShutdown({
-    settled: () => outstanding,
+    settled,
     closeControl: () => {
       calls.push('control');
+      if (rejectClose) throw new Error('private close failure');
     },
     stopCapture: () => {
       calls.push('capture');
@@ -130,6 +127,15 @@ test('Launch shutdown awaits auth settlement and closes each owned listener once
       calls.push('refused');
     },
   });
+  return { calls, shutdown };
+}
+
+test('Launch shutdown awaits auth settlement and closes each owned listener once', async () => {
+  let release!: () => void;
+  const outstanding = new Promise<void>((accept) => {
+    release = accept;
+  });
+  const { calls, shutdown } = shutdownFixture(() => outstanding);
   const first = shutdown();
   const second = shutdown();
   assert({
@@ -149,23 +155,11 @@ test('Launch shutdown awaits auth settlement and closes each owned listener once
 });
 
 test('Launch shutdown continues cleanup after rejected settlement or control close', async () => {
-  const calls: string[] = [];
-  await createLaunchShutdown({
-    settled: () => Promise.reject(new Error('private settlement failure')),
-    closeControl: () => {
-      calls.push('control');
-      throw new Error('private close failure');
-    },
-    stopCapture: () => {
-      calls.push('capture');
-    },
-    stopEdge: () => {
-      calls.push('edge');
-    },
-    refused: () => {
-      calls.push('refused');
-    },
-  })();
+  const { calls, shutdown } = shutdownFixture(
+    () => Promise.reject(new Error('private settlement failure')),
+    true,
+  );
+  await shutdown();
   assert({
     given: 'failed settlement and control close',
     should:

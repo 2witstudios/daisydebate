@@ -14,3 +14,17 @@ export async function openMessagingFixture(databaseUrl: string) {
   };
   return { client, fixture, database, principal };
 }
+
+/** Current durable sender and counterpart identities for two-account proofs. */
+export async function openMessagingParticipants(databaseUrl: string) {
+  const opened = await openMessagingFixture(databaseUrl);
+  return {
+    ...opened,
+    sender: opened.principal,
+    recipient: {
+      kind: 'user' as const,
+      userId: opened.fixture.otherUserId,
+      actorId: opened.fixture.otherActorId,
+    },
+  };
+}
