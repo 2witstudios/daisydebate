@@ -42,3 +42,8 @@ export type {
   MessagingGroupManagementStore,
   MessagingGroupManagementFence,
 } from './group-management-contracts';
+
+export type {
+  MessagingGroupIssuanceFence,
+  MessagingGroupIssuanceStore,
+} from './group-issuance-contracts';

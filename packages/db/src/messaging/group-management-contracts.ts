@@ -13,7 +13,7 @@ export type MessagingGroupManagementScope = {
   readonly operation: GroupManagementOperation;
   readonly targetActorId?: string;
 };
-export type MessagingGroupManagementReceipt = {
+type MessagingGroupManagementReceipt = {
   readonly actorId: string;
   readonly requestId: string;
   readonly kind: string;

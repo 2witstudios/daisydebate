@@ -5,6 +5,7 @@ import {
   openMessagingGroupJourney,
   acceptMessagingJourney,
   manageNativeMessagingGroup,
+  renewNativeGroupInvitation,
 } from './support/messaging-journey';
 
 test('an authenticated DM doorbell refetches current history in the other real browser', async ({
@@ -250,6 +251,7 @@ for (const javaScriptEnabled of [true, false]) {
       await expect(
         creator.getByRole('heading', { name: 'Group membership', exact: true }),
       ).toBeVisible();
+      await renewNativeGroupInvitation(journey, creator, declined, text);
       await manageNativeMessagingGroup(
         creator,
         journey.channelId,
@@ -271,6 +273,16 @@ for (const javaScriptEnabled of [true, false]) {
           .getByRole('list', { name: 'Message history' })
           .getByText(text, { exact: true }),
       ).toHaveCount(1);
+      await manageNativeMessagingGroup(
+        invited,
+        journey.channelId,
+        'remove',
+        journey.outsiderUsername,
+      );
+      const revokedLateJoin = await journey.outsider.request.get(
+        `/api/messaging/channels/${journey.channelId}/messages`,
+      );
+      expect(revokedLateJoin.status()).toBe(404);
       await manageNativeMessagingGroup(invited, journey.channelId, 'archive');
       await expect(
         invited

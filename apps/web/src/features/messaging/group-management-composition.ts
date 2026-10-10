@@ -1,9 +1,7 @@
+import { requireMessagingGroupResult } from './group-command-result';
 import type { Database } from '@daisy/db';
 import type { MessagingGroupManagementFence } from '@daisy/db/messaging';
-import type {
-  AuthorizationPrincipal,
-  GroupCommandResultAuthorizationFact,
-} from '@daisy/auth/authorization';
+import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { SocialContactPolicy } from '@daisy/auth/social-policy';
 import type { Clock } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
@@ -38,32 +36,7 @@ export function composeMessagingGroupManagementStore(input: {
     )
       throw createAppError('AUTHORIZATION');
     if (facts.receipt) {
-      const resource: GroupCommandResultAuthorizationFact = {
-        kind: 'group_command_result',
-        channel: {
-          channelId: facts.channel.channelId,
-          kind: 'private_group',
-          policyKey: facts.channel.policyKey,
-          policyRevision: facts.channel.policyRevision,
-          revision: facts.channel.revision,
-          lifecycle: facts.channel.lifecycle,
-        },
-        command: {
-          actorId: facts.receipt.actorId,
-          requestId: facts.receipt.requestId,
-          kind: facts.receipt.kind,
-          resultChannelId: facts.receipt.channelId ?? '',
-        },
-      };
-      requireMessagingAuthorization({
-        principal,
-        capability: 'channel.group.result',
-        resource,
-        context: {
-          account:
-            facts.accounts.find((a) => a?.actorId === scope.actorId) ?? null,
-        },
-      });
+      requireMessagingGroupResult(principal, facts);
       return;
     }
     if (scope.operation === 'transfer') {

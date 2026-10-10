@@ -39,3 +39,21 @@ test('group management form binds operation/channel and preserves refused target
     code: 'VALIDATION',
   });
 });
+
+test('native invitation reuses only the bound channel and proposed username intent', () => {
+  const form = new FormData();
+  form.set('requestId', 'r'.repeat(24));
+  form.set('memberUsername', 'Member_1');
+  assert({
+    given: 'invite selected on the group membership form',
+    should:
+      'submit an explicit proposal without management permission or grant fields',
+    actual: parseGroupManagementForm('invite', 'c'.repeat(24), form),
+    expected: {
+      version: 1,
+      channelId: 'c'.repeat(24),
+      requestId: 'r'.repeat(24),
+      invitedUsernames: ['Member_1'],
+    },
+  });
+});

@@ -1,3 +1,5 @@
+import { composeMessagingGroupIssuanceStore } from '../src/features/messaging/group-issuance-composition';
+import { inviteMessagingGroup } from '../src/features/messaging/group-issuance';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { requireTestServices } from '@daisy/config';
@@ -43,6 +45,18 @@ test('real management transfers, revokes history, preserves survivor authority a
     clock,
     limit,
   });
+  const issuance = (principal: typeof f.sender) => ({
+    store: composeMessagingGroupIssuanceStore({
+      database: f.database,
+      principal,
+      clock,
+      policy: messagingTestGroupPolicy,
+    }),
+    bounds,
+    clock,
+    limit,
+    limits: { maxMembers: 4, maxPendingInvitations: 2 },
+  });
   const command = (extra: Record<string, unknown> = {}) => ({
     version: 1,
     channelId,
@@ -69,7 +83,51 @@ test('real management transfers, revokes history, preserves survivor authority a
     );
     await decideMessagingGroupInvitation(
       'decide',
-      { ...command(), expectedGeneration: 1, decision: 'accept' },
+      { ...command(), expectedGeneration: 1, decision: 'decline' },
+      f.recipient,
+      {
+        store: composeMessagingGroupInvitationStore({
+          database: f.database,
+          principal: f.recipient,
+          clock,
+          admissionPolicy: messagingTestGroupPolicy,
+        }),
+        bounds,
+        clock,
+        limit,
+      },
+    );
+    const renewed = command({ invitedActorIds: [f.recipient.actorId] });
+    await inviteMessagingGroup(renewed, f.sender, issuance(f.sender));
+    const pendingRetry = command({ invitedActorIds: [f.recipient.actorId] });
+    await assertRejects({
+      given: 'already pending invitation is reissued under a new receipt',
+      should: 'refuse rather than replace the pending generation',
+      actual: () =>
+        inviteMessagingGroup(pendingRetry, f.sender, issuance(f.sender)),
+      code: 'CONFLICT',
+    });
+    const unchanged = await f.client.unsafe(
+      'select generation::int as generation,state from messaging_group_invitations where channel_id=$1',
+      [channelId],
+    );
+    const absent = await f.client.unsafe(
+      'select request_id from messaging_social_commands where actor_id=$1 and request_id=$2',
+      [f.sender.actorId, pendingRetry.requestId],
+    );
+    assert({
+      given: 'real transaction refusal after pair/channel locks',
+      should:
+        'preserve renewed generation and rollback all refused command effects',
+      actual: [
+        [...unchanged].map((row) => [row.generation, row.state]),
+        absent.length,
+      ],
+      expected: [[[2, 'pending']], 0],
+    });
+    await decideMessagingGroupInvitation(
+      'decide',
+      { ...command(), expectedGeneration: 2, decision: 'accept' },
       f.recipient,
       {
         store: composeMessagingGroupInvitationStore({
@@ -102,6 +160,18 @@ test('real management transfers, revokes history, preserves survivor authority a
       f.sender,
       dependencies(f.sender),
     );
+    const renewalReplay = await inviteMessagingGroup(
+      renewed,
+      f.sender,
+      issuance(f.sender),
+    );
+    assert({
+      given:
+        'committed invite retry after original manager loses manager authority',
+      should: 'return only its minimal own result without invitation admission',
+      actual: renewalReplay,
+      expected: { version: 1, channelId, lifecycle: 'active' },
+    });
     const replay = await manageMessagingGroup(
       'transfer',
       transfer,

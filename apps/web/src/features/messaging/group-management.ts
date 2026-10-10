@@ -1,10 +1,10 @@
+import type { MessagingGroupOperationDependencies } from './group-operation';
+import { messagingGroupResultView } from './group-result-view';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { MessagingGroupManagementStore } from '@daisy/db/messaging';
-import type { Clock } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import {
   createMessagingSocialSchemas,
-  messagingGroupCreationResultSchema,
   type MessagingSocialBounds,
 } from '@daisy/protocol';
 import { parseValidated } from '../../server/http';
@@ -37,11 +37,8 @@ export async function manageMessagingGroup(
   operation: Operation,
   input: unknown,
   principal: AuthorizationPrincipal,
-  dependencies: {
+  dependencies: MessagingGroupOperationDependencies & {
     readonly store: MessagingGroupManagementStore;
-    readonly bounds: MessagingSocialBounds;
-    readonly clock: Clock;
-    readonly limit: (actorId: string) => Promise<void>;
   },
 ) {
   const actor = requireMessagingActor(principal);
@@ -82,13 +79,10 @@ export async function manageMessagingGroup(
         digest,
         now: dependencies.clock.now(),
       });
-      const parsed = messagingGroupCreationResultSchema.safeParse({
-        version: 1,
-        ...result,
-      });
-      if (!parsed.success || parsed.data.channelId !== command.channelId)
-        throw createAppError('INFRASTRUCTURE');
-      return parsed.data;
+      return messagingGroupResultView(
+        { version: 1, ...result },
+        command.channelId,
+      );
     },
   );
 }

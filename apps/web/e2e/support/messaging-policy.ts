@@ -25,6 +25,7 @@ export const messagingBrowserPolicy: MessagingRuntimePolicy = {
     bounds: { introductionUnits: 500, titleUnits: 80, batchActors: 10 },
     creation: messagingTestPosting,
     groupAdmission: messagingTestGroupPolicy,
+    groupInvitationLimits: { maxMembers: 12, maxPendingInvitations: 10 },
     requestLimits: {
       windowMs: 60000,
       maxNewPairs: 10,
