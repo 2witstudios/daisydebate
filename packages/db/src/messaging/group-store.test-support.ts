@@ -1,3 +1,4 @@
+import type { MessagingChannelFact } from './social';
 /** Durable wire facts shared by the actual creation and invitation store contract readers. */
 export function groupStoreFacts() {
   const inviter = 'a'.repeat(24),
@@ -15,7 +16,7 @@ export function groupStoreFacts() {
     role: 'manager' | null,
     generation: number,
     revision = 1,
-  ) => ({
+  ): MessagingChannelFact => ({
     kind: 'channel',
     channelId,
     policyKey: 'social.private_group',
