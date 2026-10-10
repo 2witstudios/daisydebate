@@ -152,7 +152,24 @@ test('seat and configuration refusals leave the room intact', () => {
 });
 
 test('ranked edits and format seat shrink are refused without mutation', () => {
-  const room = state();
+  const base = state();
+  const room = {
+    ...base,
+    definition: {
+      ...base.definition,
+      seats: { ...base.definition.seats, judge: 1 },
+    },
+    rules: { ...base.rules, seats: { ...base.rules.seats, judge: 1 } },
+    participants: [
+      ...base.participants,
+      {
+        ...base.participants[0]!,
+        id: 'judge-seat',
+        actorId: 'judge',
+        role: 'judge' as const,
+      },
+    ],
+  };
   const ranked = executeRoomCommand(
     { ...room, competitionType: 'ranked' },
     'host',
@@ -165,9 +182,9 @@ test('ranked edits and format seat shrink are refused without mutation', () => {
     consent,
     edges,
   );
-  const noAffirmativeSeats = {
+  const noJudgeSeats = {
     ...room.definition,
-    seats: { ...room.definition.seats, affirmative: 0 },
+    seats: { ...room.definition.seats, judge: 0 },
   };
   const crowded = executeRoomCommand(
     room,
@@ -176,7 +193,7 @@ test('ranked edits and format seat shrink are refused without mutation', () => {
       type: 'update-format',
       commandId: 'shrink-format',
       expectedVersion: room.version,
-      definition: noAffirmativeSeats,
+      definition: noJudgeSeats,
       config: room.config,
     },
     consent,

@@ -62,3 +62,52 @@ test('Room readiness requires current durable fence and does not mutate on read'
     expected: [[], [id], ['EVAL', 'EVAL']],
   });
 });
+
+test('a failed replacement Ready cannot overwrite the accepted durable lease', async () => {
+  const values = new Map<string, string>();
+  let failAfterWrite = false;
+  const client = {
+    connect: async () => {},
+    send: async (command: string, args: string[]) => {
+      if (command === 'SET') {
+        values.set(args[0]!, args[1]!);
+        if (failAfterWrite) throw new Error('Lost Redis acknowledgement');
+        return 'OK';
+      }
+      const count = Number(args[1]);
+      return args.slice(2, 2 + count).flatMap((key, index) => {
+        const value = values.get(key);
+        return value && JSON.parse(value).commandId === args[2 + count + index]
+          ? [index + 1]
+          : [];
+      });
+    },
+  } as unknown as RedisTransport;
+  const ready = createRoomReadinessOperations({
+    client,
+    namespace: 'test',
+    reportFailure: () => {},
+  });
+  const input = {
+    roomId: id,
+    version: 1,
+    actorId: id,
+    commandId: id,
+    ttlMs: 60_000,
+  };
+  await ready.setRoomConsent(input);
+  failAfterWrite = true;
+  await ready
+    .setRoomConsent({ ...input, commandId: 'zyxwvutsrqponmlkjihgfedc' })
+    .catch(() => undefined);
+  assert({
+    given:
+      'a replacement write whose acknowledgement fails before SQL can commit its fence',
+    should:
+      'retain readiness for the previous durable command without accepting the replacement',
+    actual: await ready.readRoomConsent(id, 1, [
+      { actorId: id, commandId: id },
+    ]),
+    expected: [id],
+  });
+});

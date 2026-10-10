@@ -59,6 +59,8 @@ consent event is current; it is not a durable Ready flag. Losing Redis,
 expiring a lease, a stale Ready after Unready, a pruned replay, or a Redis
 write whose SQL transaction rolls back cannot establish current consent.
 Unready commits its replacement fence even while Redis is unavailable.
+Each consent command owns its own expiring Redis key. A failed replacement
+write cannot overwrite the lease matched by the previous durable fence.
 Reads do not extend leases, and replay does not write Redis.
 
 Launch requires every declared slot, eligible stored cast, current human
@@ -100,7 +102,10 @@ and check it across catchup/authorization awaits before replay; observed ring
 rows alone do not certify completeness. Role, concurrent purge/drain and socket
 proof remain required before realtime acceptance.
 
-Forward migration integrity is required. A warm local database containing
+The shipping target is an empty greenfield database; its complete forward
+migration chain requires no historical Room or Round backfill. Populated
+legacy database upgrades are not a delivered capability. Forward migration
+integrity is required. A warm local database containing
 older Rooms without trusted host metadata cannot apply the metadata
 constraint; fresh-slot proof does not fix that adoption gap. Preserve that
 slot and inventory its Room/participant/round/FK provenance read-only.

@@ -2,9 +2,17 @@ import type { RoomView } from './room-read';
 export type { RoomView, RoomCatalogChoice, RoomCastChoice } from './room-read';
 import { z } from 'zod';
 import { debateRoleSchema, idSchema } from './primitives';
-import { formatDefinitionSchema } from './format';
-import { roomConfigSchema } from './room';
-import { roundLengthSchema } from './round';
+import {
+  formatDefinitionSchema,
+  type FormatDefinition,
+  type RoundRules,
+} from './format';
+import {
+  roomConfigSchema,
+  type RoomConfig,
+  type RoomExecutionPlan,
+} from './room';
+import { roundLengthSchema, type RoundLength } from './round';
 
 export const roomStatuses = [
   'assembling',
@@ -138,10 +146,26 @@ export type RoomCommandResponse = {
   readonly view: RoomView;
 };
 /** Portable assembly facts supplied by the durable adapter to pure operations. */
-export type RoomAssemblyState = Omit<
-  RoomView,
-  'participants' | 'readiness' | 'prep' | 'capabilities' | 'startRefusal'
-> & {
+export type RoomAssemblyState = {
+  readonly id: string;
+  readonly version: number;
+  readonly changeVersion: number;
+  readonly title: string;
+  readonly topic: string;
+  readonly visibility: 'public' | 'unlisted' | 'private';
+  readonly hostActorId: string;
+  readonly hostLabel: string;
+  readonly status: (typeof roomStatuses)[number];
+  readonly formatId: string;
+  readonly formatVersion: number;
+  readonly presetVersion: number | null;
+  readonly competitionType: 'casual' | 'practice' | 'ranked';
+  readonly length: RoundLength;
+  readonly definition: FormatDefinition;
+  readonly config: RoomConfig;
+  readonly executionPlan: RoomExecutionPlan;
+  readonly rules: RoundRules;
+  readonly roundRef: RoomRoundRef | null;
   readonly participants: readonly (RoomParticipant & {
     readonly label: string;
     readonly eligible: boolean;

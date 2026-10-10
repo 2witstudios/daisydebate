@@ -94,3 +94,53 @@ export const practiceFormatFixture: FormatDefinition = {
     },
   },
 };
+
+export const invalidFormatDefinitions: ReadonlyArray<
+  readonly [string, FormatDefinition]
+> = [
+  [
+    'unseated speaker',
+    {
+      ...practiceFormatFixture,
+      segments: practiceFormatFixture.segments.map((segment, index) =>
+        index === 0 ? { ...segment, slot: 99 } : segment,
+      ),
+    },
+  ],
+  [
+    'default outside timing bounds',
+    {
+      ...practiceFormatFixture,
+      segments: practiceFormatFixture.segments.map((segment, index) =>
+        index === 0 ? { ...segment, defaultDurationMs: 1 } : segment,
+      ),
+    },
+  ],
+  [
+    'inverted bounds',
+    {
+      ...practiceFormatFixture,
+      configurable: {
+        ...practiceFormatFixture.configurable,
+        timing: {
+          ...practiceFormatFixture.configurable.timing,
+          countdownMs: { min: 10, max: 1 },
+        },
+      },
+    },
+  ],
+  [
+    'dangling disabled prep reference',
+    {
+      ...practiceFormatFixture,
+      configurable: {
+        ...practiceFormatFixture.configurable,
+        inRoundPrep: {
+          budgetMsPerSide: { min: 0, max: 600_000 },
+          spendableBefore: ['speech'],
+          expiresAtSegment: 'MISSING',
+        },
+      },
+    },
+  ],
+];

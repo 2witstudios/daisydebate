@@ -19,6 +19,7 @@ const consentKey = (
   roomId: string,
   version: number,
   actorId: string,
+  commandId: string,
 ) => {
   if (!Number.isSafeInteger(version) || version < 1)
     throw new Error('Room version must be positive');
@@ -28,6 +29,7 @@ const consentKey = (
     idSchema.parse(roomId),
     String(version),
     idSchema.parse(actorId),
+    idSchema.parse(commandId),
   );
 };
 
@@ -41,7 +43,8 @@ export function createRoomReadinessOperations({
   readonly reportFailure: (operation: string) => void;
 }) {
   return {
-    /** Called exactly once for a new accepted Ready; dedupe retries never enter this write. */
+    /** Each command owns its expiring lease: a rolled-back replacement cannot destroy the prior fence.
+     * Called exactly once for a new accepted Ready; dedupe retries never enter this write. */
     async setRoomConsent(input: {
       readonly roomId: string;
       readonly version: number;
@@ -56,6 +59,7 @@ export function createRoomReadinessOperations({
         input.roomId,
         input.version,
         input.actorId,
+        input.commandId,
       );
       idSchema.parse(input.commandId);
       try {
@@ -86,7 +90,13 @@ export function createRoomReadinessOperations({
         const current = fences.filter((fence) => fence.commandId !== null);
         if (!current.length) return ready;
         const keys = current.map((fence) =>
-          consentKey(namespace, roomId, version, fence.actorId),
+          consentKey(
+            namespace,
+            roomId,
+            version,
+            fence.actorId,
+            fence.commandId!,
+          ),
         );
         const indexes = await client.send('EVAL', [
           readConsentScript,

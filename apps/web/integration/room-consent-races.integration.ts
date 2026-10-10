@@ -1,3 +1,4 @@
+import type { RoomView } from '@daisy/protocol';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
@@ -11,14 +12,7 @@ test('a Redis write followed by transaction failure cannot establish consent aft
     let view = await f.assemble();
     view = (await f.consent(f.guest, view, 'unready')).view;
     const before = await f.snapshot(view.id);
-    f.failAfterReady(true);
-    let failed = false;
-    try {
-      await f.consent(f.guest, view, 'ready');
-    } catch {
-      failed = true;
-    }
-    f.failAfterReady(false);
+    const failed = await failedReplacementReady(f, view);
     const reconnected = await f.operations.view(f.host, view.id);
     assert({
       given: 'Redis accepted a lease but PostgreSQL did not commit its fence',
@@ -134,3 +128,38 @@ test('Start and Unready serialize on the same durable authority fence', async ()
     });
   });
 });
+
+test('a failed replacement Ready preserves the committed readiness and durable snapshot', async () => {
+  await withRoomRuntime(async (f) => {
+    const view = await f.assemble();
+    const before = await f.snapshot(view.id);
+    const failed = await failedReplacementReady(f, view);
+    const current = await f.operations.view(f.host, view.id);
+    assert({
+      given:
+        'a ready member whose replacement Redis lease is written but SQL rolls back',
+      should: 'preserve the accepted lease and all durable rows',
+      actual: [
+        failed,
+        current.readiness.readyActorIds,
+        await f.snapshot(view.id),
+      ],
+      expected: [true, view.readiness.readyActorIds, before],
+    });
+  });
+});
+
+async function failedReplacementReady(
+  f: Parameters<Parameters<typeof withRoomRuntime>[0]>[0],
+  view: RoomView,
+): Promise<boolean> {
+  f.failAfterReady(true);
+  try {
+    await f.consent(f.guest, view, 'ready');
+    return false;
+  } catch {
+    return true;
+  } finally {
+    f.failAfterReady(false);
+  }
+}

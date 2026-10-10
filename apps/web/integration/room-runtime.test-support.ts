@@ -170,17 +170,24 @@ async function fixture() {
     gateConsent: (next: typeof gate) => {
       gate = next;
     },
-    expire: (view: RoomView, actorId: string) =>
-      client.send('PEXPIREAT', [
+    expire: async (view: RoomView, actorId: string) => {
+      const [fence] = await sql<
+        { readiness_command_id: string }[]
+      >`select readiness_command_id from room_participants where room_id=${view.id} and actor_id=${actorId}`;
+      if (!fence?.readiness_command_id)
+        throw new Error('Expiry proof requires committed consent');
+      return client.send('PEXPIREAT', [
         redisKey(
           namespace,
           'room-ready',
           view.id,
           String(view.version),
           actorId,
+          fence.readiness_command_id,
         ),
         '1',
-      ]),
+      ]);
+    },
     close: async () => {
       await store.close();
       await deleteNamespace(client, namespace);
