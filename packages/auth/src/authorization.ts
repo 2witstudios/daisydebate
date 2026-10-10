@@ -36,7 +36,6 @@ export type {
   PendingFileAuthorizationFact,
   MessagingCollectionAuthorizationFact,
   GroupInvitationAuthorizationFact,
-  GroupCommandResultAuthorizationFact,
 } from './authorization-facts';
 const deny = (
   reason: Extract<AuthorizationDecision, { allow: false }>['reason'],

@@ -91,13 +91,15 @@ export async function authenticatedAuthorityPeer(
   fixture: Awaited<ReturnType<typeof socketAuthorityFixture>>,
 ) {
   const ticket = randomBytes(32).toString('base64url');
-  await fixture.resources.redis.issueConnectTicket({
-    ticketHash: createHash('sha3-256').update(ticket).digest('hex'),
-    actorId: fixture.actorId,
-    sessionId: fixture.sessionId,
-    origin: testOrigin,
-    ttlSeconds: 60,
-  });
+  await fixture.resources.redis.issueConnectTicket(
+    createHash('sha3-256').update(ticket).digest('hex'),
+    {
+      actorId: fixture.actorId,
+      sessionId: fixture.sessionId,
+      origin: testOrigin,
+    },
+    60,
+  );
   const socket = new WebSocket(
     `ws://127.0.0.1:${fixture.runtime.server.port}/ws`,
     { headers: { origin: testOrigin } },

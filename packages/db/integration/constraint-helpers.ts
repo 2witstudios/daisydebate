@@ -7,6 +7,7 @@ import {
 import { createId } from '@paralleldrive/cuid2';
 import { createDatabase } from '../src';
 import { createTestOnlyOperations } from '../src/test-only-operations';
+import { buildDebateTopic } from '@daisy/protocol';
 
 type PostgresFailure = { errno?: unknown; constraint?: unknown };
 
@@ -235,6 +236,11 @@ export class Fixture {
   }
 
   async purge() {
+    // A round may append canonical phase events through an accepted write.
+    // Remove only this fixture's topics before deleting their owning rows.
+    for (const roundId of this.tracked.get('rounds') ?? [])
+      await this
+        .sql`delete from outbox where topic=${buildDebateTopic(roundId)}`;
     // Documents are created through the adapter, never inserted here, and
     // they RESTRICT their owner. Clearing them by owner means every document
     // a fixture's actors own goes with the fixture, however it was written.

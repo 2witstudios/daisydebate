@@ -84,9 +84,6 @@ test('Room freeze appends the scheduled Round phase signal in its transaction', 
       });
     } finally {
       await database.close();
-      await fixture.sql.unsafe('delete from outbox where topic = $1', [
-        buildDebateTopic(roundId),
-      ]);
     }
   });
 });
@@ -143,9 +140,6 @@ test('accepted Round projections append one phase signal with the stored version
       });
     } finally {
       await database.close();
-      await fixture.sql.unsafe('delete from outbox where topic = $1', [
-        buildDebateTopic(roundId),
-      ]);
     }
   });
 });
