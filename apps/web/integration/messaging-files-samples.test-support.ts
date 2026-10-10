@@ -3,7 +3,7 @@ export const fileProofEicar =
   'X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*';
 
 /** A valid PDF attachment stream, unlike arbitrary signature text wrapped in a PDF header. */
-export function infectedFilePdf(): Uint8Array {
+export function infectedFilePdf(): Uint8Array<ArrayBuffer> {
   const objects = [
     '<< /Type /Catalog /Pages 2 0 R /Names << /EmbeddedFiles << /Names [(eicar.com) 4 0 R] >> >> >>',
     '<< /Type /Pages /Count 1 /Kids [3 0 R] >>',
