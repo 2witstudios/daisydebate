@@ -83,8 +83,9 @@ Criteria are the bullets above the "Related pages" block of each task page, quot
 ### 4 — Open or update
 
 openOrUpdate() {
-existing PR for the branch (`gh pr view --json number,isDraft`) => `gh pr edit <n> --body-file <file>`.
-none => `gh pr create --base <default> --title "<conventional title>" --body-file <file>`; add `--draft` only when the owner explicitly requests draft.
+Resolve the intended delivery target from the authorized task: the allocated receiving integration branch for producer PRs, or the repository's resolved default branch for main acceptance. Never substitute the default for an intended non-main recipient.
+existing PR for the branch (`gh pr view --json number,isDraft`) => read its live repository/base/head and compare with the intended target. If the task authorizes correcting its base, use `gh pr edit <n> --base <intended-target> --body-file <file>`; otherwise refuse merge automation on a mismatch and preserve the PR. For a matching base use `gh pr edit <n> --body-file <file>`. Re-read the published base/head after any edit.
+none => `gh pr create --base <intended-target> --title "<conventional title>" --body-file <file>`; add `--draft` only when the owner explicitly requests draft.
 Write the body to a scratch file whose name is unique to this branch (e.g. `<scratchpad>/pr-body-<branch with / replaced by ->.md`); a shared name let one agent publish another's body (PR #9 went up with PR #10's). Never inline multi-line bodies in the shell.
 Verify after writing: `gh pr view <n> --json body --jq .body` must equal the file (ignoring a trailing newline). A mismatch => rewrite it with `gh pr edit` and check again; never report a PR whose published body you did not verify.
 Only after the published body matches the file, if draft was agent-selected without an explicit owner request, run `gh pr ready <n>` and verify `isDraft` is false. Preserve an explicitly owner-requested draft until the owner requests promotion.

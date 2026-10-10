@@ -142,7 +142,7 @@ Required GitHub CI/E2E/review-record checks must pass. Branch feedback is not an
 acceptance record. Autonomous agents never merge directly into main/default/protected release
 targets; for main they may request
 auto-merge only after confirming the live main ruleset requires review-record.
-The owner retains control of merges. Done remains an evidence-backed completion
+The owner retains existing protected-target merge authority. Done remains an evidence-backed completion
 state, not something a builder grants itself after a cherry-pick or branch push.
 
 Documentation-only acceptance is determined from the live PR diff and Git tree
