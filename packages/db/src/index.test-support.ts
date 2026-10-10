@@ -2,9 +2,10 @@ import type { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import type { RoundStatus } from '@daisy/protocol';
 import { createDatabase } from './index';
-import { foundationDefinition } from './reference-formats';
+import { foundationDefinition, practiceRoomConfig } from './reference-formats';
 import { createTestOnlyOperations } from './test-only-operations';
 import type { DatabaseEventSink } from './instrumented';
+import { validRules } from './testing';
 
 type RecordedQuery = { query: string; params: unknown[] };
 /**
@@ -175,4 +176,53 @@ export const sampleFormat = () => ({
   definition: foundationDefinition,
 });
 
-export { validRules } from './testing';
+export const roomRow = (overrides: Record<string, unknown> = {}) => {
+  const row = {
+    id: 'r1o2o3m4i5d6e7n8t9i1f5y3',
+    hostActorId: 'host-actor',
+    title: 'Proof room',
+    topic: 'A motion',
+    visibility: 'public',
+    version: 1,
+    changeVersion: 1,
+    formatId: 'foundation',
+    formatVersion: 1,
+    presetVersion: null,
+    competitionType: 'casual',
+    length: 'full',
+    config: practiceRoomConfig,
+    executionPlan: { preRoundPrep: { enabled: false } },
+    rulesSnapshot: validRules,
+    prepStartedAt: null,
+    prepRemainingMs: null,
+    status: 'assembling',
+    createdAt: new Date(0),
+    updatedAt: new Date(0),
+    ...overrides,
+  };
+  // Drizzle maps positional driver rows in the rooms schema's column order.
+  return [
+    row.id,
+    row.hostActorId,
+    row.title,
+    row.topic,
+    row.visibility,
+    row.version,
+    row.changeVersion,
+    row.formatId,
+    row.formatVersion,
+    row.presetVersion,
+    row.competitionType,
+    row.length,
+    row.config,
+    row.executionPlan,
+    row.rulesSnapshot,
+    row.prepStartedAt,
+    row.prepRemainingMs,
+    row.status,
+    row.createdAt,
+    row.updatedAt,
+  ];
+};
+
+export { validRules };

@@ -62,3 +62,54 @@ test('minimal Room authority facts retain membership without hydrating private c
     });
   });
 });
+
+test('minimal Round authority facts authorize only the persisted private cast', async () => {
+  await withRoomRuntime(async (f) => {
+    const view = await f.assemble({ visibility: 'private' });
+    const launched = await f.command(f.host, view, { type: 'start-round' });
+    const roundId = launched.view.roundRef!.id;
+    const decisions = [];
+    for (const caller of [f.host, f.guest, f.outsider]) {
+      const facts = await f.store.readRoundAuthorizationFacts(roundId, caller);
+      if (!facts) throw new Error('Fixture Round authority facts missing');
+      decisions.push(
+        authorize({
+          principal: { kind: 'user', ...caller },
+          capability: 'round.read',
+          context: { account: facts.account },
+          resource: facts.resource,
+        }).allow,
+      );
+      assert({
+        given:
+          'a durable Round authority projection for a private scheduled launch',
+        should:
+          'contain only current account, audience, revision, and frozen seat facts',
+        actual: [
+          Object.keys(facts.resource).sort(),
+          facts.resource.revision,
+          facts.resource.participants.map((p) => p.actorId).sort(),
+        ],
+        expected: [
+          [
+            'createdByActorId',
+            'kind',
+            'participants',
+            'revision',
+            'roundId',
+            'status',
+            'visibility',
+          ],
+          1,
+          [f.host.actorId, f.guest.actorId].sort(),
+        ],
+      });
+    }
+    assert({
+      given: 'the private Round creator, a frozen participant, and an outsider',
+      should: 'leave round.read to the canonical evaluator',
+      actual: decisions,
+      expected: [true, true, false],
+    });
+  });
+});

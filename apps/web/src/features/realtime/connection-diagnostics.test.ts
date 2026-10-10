@@ -59,3 +59,41 @@ test('diagnostic listeners cannot interfere with transport or expose arbitrary e
     ],
   });
 });
+
+for (const error of [new ReferenceError('private'), new EvalError('private')])
+  test(`native ${error.name} remains a safe diagnostic class`, () => {
+    const diagnostics = createConnectionDiagnostics();
+    const events: ConnectionDiagnostic[] = [];
+    diagnostics.subscribe((event) => events.push(event));
+    diagnostics.emit(3, 'ticket-failed', error);
+    assert({
+      given: 'a native browser runtime or evaluation exception',
+      should: 'preserve its fixed class without message or stack',
+      actual: events,
+      expected: [
+        { generation: 3, phase: 'ticket-failed', errorName: error.name },
+      ],
+    });
+  });
+
+for (const name of [
+  'RealtimeTicketFetchError',
+  'RealtimeTicketBodyError',
+  'RealtimeTicketSchemaError',
+  'RealtimeTicketEndpointError',
+])
+  test(`canonical reader stage ${name} is content-free`, () => {
+    const diagnostics = createConnectionDiagnostics();
+    const events: ConnectionDiagnostic[] = [];
+    diagnostics.subscribe((event) => events.push(event));
+    const error = new Error('private body or endpoint');
+    error.name = name;
+    diagnostics.emit(4, 'ticket-failed', error);
+    assert({
+      given: 'the owned ticket reader fixed failure name',
+      should:
+        'expose only its declared stage and no private body, message or URL',
+      actual: events,
+      expected: [{ generation: 4, phase: 'ticket-failed', errorName: name }],
+    });
+  });
