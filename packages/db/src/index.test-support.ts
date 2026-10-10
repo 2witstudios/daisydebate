@@ -1,3 +1,4 @@
+import type { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import type { RoundStatus } from '@daisy/protocol';
 import { createDatabase } from './index';
@@ -5,7 +6,11 @@ import { foundationDefinition, practiceRoomConfig } from './reference-formats';
 import { createTestOnlyOperations } from './test-only-operations';
 import type { DatabaseEventSink } from './instrumented';
 import { validRules } from './testing';
-import { fakeSql, type ScriptedResult } from './scripted-bun-wire';
+import {
+  fakeSql,
+  type RecordedQuery,
+  type ScriptedResult,
+} from './scripted-bun-wire';
 
 export { fakeSql } from './scripted-bun-wire';
 
