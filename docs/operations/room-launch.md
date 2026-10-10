@@ -17,15 +17,15 @@ portable types derive from the projection grammars.
 
 The authenticated routes are:
 
-| HTTP                           | Contract                                                   |
-| ------------------------------ | ---------------------------------------------------------- |
-| `GET /api/rooms/catalog`       | `{ choices: RoomCatalogChoice[], bots: RoomCastChoice[] }` |
-| `GET /api/rooms`               | `{ rooms: RoomView[] }`                                    |
-| `POST /api/rooms`              | `RoomCreate` → `{ receipt, view }`                         |
-| `GET /api/rooms/:id`           | `RoomView`                                                 |
-| `POST /api/rooms/:id/commands` | `RoomCommand` → `{ receipt, view }`                        |
-| `GET /api/rooms/:id/round`     | The Room's current persisted `roundRef`                    |
-| `GET /api/rounds/:id`          | `RoundView`                                                |
+| HTTP                           | Contract                                                                           |
+| ------------------------------ | ---------------------------------------------------------------------------------- |
+| `GET /api/rooms/catalog`       | `{ choices: RoomCatalogChoice[], bots: RoomCastChoice[] }`                         |
+| `GET /api/rooms`               | `RoomListQuery` → `RoomListPage` (`rooms: RoomListEntry[]`, `nextCursor`, `retry`) |
+| `POST /api/rooms`              | `RoomCreate` → `{ receipt, view }`                                                 |
+| `GET /api/rooms/:id`           | `RoomView`                                                                         |
+| `POST /api/rooms/:id/commands` | `RoomCommand` → `{ receipt, view }`                                                |
+| `GET /api/rooms/:id/round`     | The Room's current persisted `roundRef`                                            |
+| `GET /api/rounds/:id`          | `RoundView`                                                                        |
 
 Every entry executes the canonical handler's origin, session membership,
 rate and input gates. Native actions forward the real incoming headers

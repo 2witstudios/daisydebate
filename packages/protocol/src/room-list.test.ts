@@ -37,3 +37,31 @@ test('Lobby work bounds and cursor grammar refuse malformed input', () => {
     expected: [true, false],
   });
 });
+
+test('search trims edges before applying its bound', () => {
+  assert({
+    given: 'padded and whitespace-only searches',
+    should: 'normalize surrounding whitespace',
+    actual: [' Room ', ' \t\n '].map((q) => roomListQuerySchema.parse({ q }).q),
+    expected: ['Room', ''],
+  });
+  assert({
+    given: '100 search characters padded with spaces',
+    should: 'enforce the normalized length',
+    actual: roomListQuerySchema.safeParse({ q: ` ${'x'.repeat(100)} ` })
+      .success,
+    expected: true,
+  });
+  assert({
+    given: 'unknown API keys or repeated recognized keys',
+    should: 'keep the API contract strict',
+    actual: [
+      { utm_source: 'a' },
+      { next: '/lobby' },
+      { q: ['a', 'b'] },
+      { cursor: ['a', 'b'] },
+      { pageSize: [1, 2] },
+    ].map((value) => roomListQuerySchema.safeParse(value).success),
+    expected: Array(5).fill(false),
+  });
+});

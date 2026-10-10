@@ -37,7 +37,7 @@ export async function proveLobbyDiscovery(browser: Browser) {
     });
     const page = await openPage(native, 'native Lobby paging');
     await page.goto(
-      `/lobby?${new URLSearchParams({ q: token, pageSize: '1' })}`,
+      `/lobby?${new URLSearchParams({ q: `  ${token}  `, pageSize: '1', utm_source: 'native-proof', next: '/lobby' })}`,
     );
     for (const [index, view] of views.entries()) {
       await expect(
@@ -65,7 +65,7 @@ export async function proveLobbyDiscovery(browser: Browser) {
     await expect(
       page.getByRole('link', { name: views[0]!.title, exact: true }),
     ).toBeVisible();
-    await page.getByLabel('Search rooms').fill(views[2]!.title);
+    await page.getByLabel('Search rooms').fill(`  ${views[2]!.title}  `);
     await page.getByRole('button', { name: 'Search', exact: true }).click();
     expect(new URL(page.url()).searchParams.has('cursor')).toBe(false);
     await expect(
@@ -85,6 +85,10 @@ export async function proveLobbyDiscovery(browser: Browser) {
       'pageSize=1&pageSize=2',
       'history=true',
       'pageSize=01',
+      'q=a&q=b',
+      'cursor=a&cursor=b',
+      'utm_source=native-proof',
+      'next=/lobby',
     ]) {
       const response = await native.request.get(`/api/rooms?${query}`);
       expect(response.status()).toBe(400);
