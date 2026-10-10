@@ -20,6 +20,7 @@ import {
   connectRoomTransport,
 } from './support/realtime-fixture';
 import { resolveE2EPorts } from '../playwright.config';
+import { nativeRealtimeRefusals } from './support/realtime-native-refusals';
 
 requireLaunchSlot(resolve(import.meta.dirname, '../../..'), process.env);
 
@@ -270,6 +271,32 @@ test('a real issued ticket accepts one hello and refuses its second consumption'
       },
     );
     expect(result).toEqual(['ready', 4001]);
+  } finally {
+    await settledLaunchAuth();
+    await accounts.closeContexts();
+  }
+});
+
+test('actual authenticated socket enforces version, hello deadline, malformed frames and inbound rate', async ({
+  browser,
+}) => {
+  const accounts = await createRoomLaunchAccounts(browser, 1);
+  try {
+    const page = await openPage(
+      accounts.members[0]!.context,
+      'RT native refusals',
+    );
+    await page.goto('/lobby');
+    const result = await nativeRealtimeRefusals(
+      page,
+      `wss://localhost:${resolveE2EPorts(process.env).realtime}/ws`,
+    );
+    expect(result).toEqual({
+      version: 4003,
+      timeout: 4001,
+      malformed: 4003,
+      rate: 4004,
+    });
   } finally {
     await settledLaunchAuth();
     await accounts.closeContexts();

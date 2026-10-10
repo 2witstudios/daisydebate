@@ -47,20 +47,26 @@ async function restrictedFrameParser() {
 
 test('actual browser frame bundle validates after dynamic-code permission changes', async () => {
   const parse = await restrictedFrameParser();
+  const id = 'b'.repeat(24);
+  const bells = [
+    {
+      topic: `room:${id}`,
+      payload: { kind: 'room.changed', ids: [id], entityVersion: 1 },
+    },
+    {
+      topic: `debate:${id}`,
+      payload: { kind: 'debate.phase-changed', ids: [id], entityVersion: 1 },
+    },
+    {
+      topic: `channel:${id}`,
+      payload: { kind: 'channel.changed', channelId: id, changeVersion: 1 },
+    },
+    { topic: `user:${id}:inbox`, payload: { kind: 'messaging.inbox.changed' } },
+  ];
   const frames = [
     { v: 1, type: 'ready' },
     { v: 1, type: 'pong', id: 'ping-1' },
-    {
-      v: 1,
-      type: 'event',
-      topic: `room:${'b'.repeat(24)}`,
-      position: '1:1',
-      payload: {
-        kind: 'room.changed',
-        ids: ['b'.repeat(24)],
-        entityVersion: 1,
-      },
-    },
+    ...bells.map((bell) => ({ v: 1, type: 'event', position: '1:1', ...bell })),
   ];
   assert({
     given: 'the actual reader initializes before Function is refused',
