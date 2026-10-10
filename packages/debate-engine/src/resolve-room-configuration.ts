@@ -176,8 +176,11 @@ function resolveInterruptions(
   definition: FormatDefinition,
   config: RoomConfig,
 ): Step<Interaction['interruptions']> {
-  if (config.interruptions === null) return { ok: true, value: null };
   const capability = definition.configurable.interaction.interruptions;
+  if (config.interruptions === null)
+    return capability === null
+      ? { ok: true, value: null }
+      : stepRefused('invalid-choice', 'An interruption choice is required');
   if (capability === null)
     return stepRefused(
       'capability-forbidden',
@@ -207,8 +210,11 @@ function resolveYieldRule(
   definition: FormatDefinition,
   config: RoomConfig,
 ): Step<Interaction['yield']> {
-  if (config.yielding === null) return { ok: true, value: null };
   const capability = definition.configurable.interaction.yield;
+  if (config.yielding === null)
+    return capability === null
+      ? { ok: true, value: null }
+      : stepRefused('invalid-choice', 'A yielding choice is required');
   if (capability === null)
     return stepRefused('capability-forbidden', 'The format forbids yielding');
   if (!capability.enabledChoices.includes(config.yielding.allowed))

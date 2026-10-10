@@ -42,6 +42,12 @@ choices carry persisted identities and eligibility. A host can assign a
 bot or move a human who already joined; a host cannot manufacture another
 human's membership or Ready consent.
 
+Interaction controls are null only when the pinned format forbids that
+capability. An available interruption or yielding capability requires explicit
+values from its declared permitted sets, including when disabled. Catalog
+defaults select declared legal values. The sole compiler rejects omitted or
+forbidden choices before creation or configuration changes persist any state.
+
 ## Versions, consent and commit
 
 All commands carry `commandId` and `expectedVersion`. Ready and Unready also

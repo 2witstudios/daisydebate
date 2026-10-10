@@ -194,3 +194,72 @@ test('custom unequal casts and ordered timing freeze alongside canonical quota a
     });
   });
 });
+
+test('null interaction refusals preserve durable create and edit state', async () => {
+  await withRoomRuntime(async (f) => {
+    const choice = (await f.operations.catalog(f.host)).find(
+      (c) => c.formatId === 'foundation',
+    )!;
+    const definition = {
+      ...choice.definition,
+      configurable: {
+        ...choice.definition.configurable,
+        interaction: {
+          crossExModes: ['ordered' as const],
+          interruptions: {
+            modes: ['enabled' as const],
+            minRemainingMs: { min: 0, max: 1000 },
+          },
+          yield: { enabledChoices: [true], returnsTimeChoices: [true] },
+        },
+      },
+    };
+    const config = {
+      ...choice.defaultConfig,
+      interruptions: { mode: 'enabled' as const, minRemainingMs: 0 },
+      yielding: { allowed: true, returnsTime: true },
+    };
+    const selection = {
+      kind: 'custom' as const,
+      definition,
+      config,
+      length: 'full' as const,
+      competitionType: 'casual' as const,
+    };
+    const view = (await f.create({ selection })).view;
+    const initial = await f.snapshot(view.id);
+    const inventory = () =>
+      f.sql`select (select count(*) from rooms) rooms, (select count(*) from formats) formats, (select count(*) from format_revisions) revisions, (select count(*) from room_commands) commands, (select count(*) from outbox) events`;
+    const before = await inventory();
+    for (const field of ['interruptions', 'yielding'] as const) {
+      const invalid = { ...config, [field]: null };
+      await assertRejects({
+        given: `custom creation omits required ${field}`,
+        should: 'refuse before creating durable data',
+        actual: () =>
+          f.create({ selection: { ...selection, config: invalid } }),
+        code: 'VALIDATION',
+      });
+      for (const type of ['update-config', 'update-format'] as const) {
+        await assertRejects({
+          given: `${type} omits required ${field}`,
+          should:
+            'refuse the illegal configuration through the command refusal contract',
+          actual: () =>
+            f.command(f.host, view, {
+              type,
+              config: invalid,
+              ...(type === 'update-format' ? { definition } : {}),
+            }),
+          code: 'CONFLICT',
+        });
+      }
+      assert({
+        given: `refused ${field} create and edits`,
+        should: 'preserve Room, receipts, formats and outbox',
+        actual: [await f.snapshot(view.id), await inventory()],
+        expected: [initial, before],
+      });
+    }
+  });
+});

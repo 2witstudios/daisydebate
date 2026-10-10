@@ -166,3 +166,38 @@ test('Room creation pins resolved rules and replays the accepted receipt before 
     },
   });
 });
+
+test('catalog defaults select declared interaction choices without presets', async () => {
+  const definition = {
+    ...state.definition,
+    configurable: {
+      ...state.definition.configurable,
+      interaction: {
+        crossExModes: ['ordered' as const],
+        interruptions: {
+          modes: ['enabled' as const],
+          minRemainingMs: { min: 1234, max: 5678 },
+        },
+        yield: { enabledChoices: [true], returnsTimeChoices: [true] },
+      },
+    },
+  };
+  const { operations } = makeOperations({
+    listRoomCatalogSources: async () => [
+      { id: 'custom', name: 'Custom', version: 1, definition, presets: [] },
+    ],
+  });
+  const [choice] = await operations.catalog(caller);
+  assert({
+    given: 'a format whose only choices enable interruptions and yielding',
+    should: 'suggest exactly those legal choices',
+    actual: [
+      choice?.defaultConfig.interruptions,
+      choice?.defaultConfig.yielding,
+    ],
+    expected: [
+      { mode: 'enabled', minRemainingMs: 1234 },
+      { allowed: true, returnsTime: true },
+    ],
+  });
+});

@@ -50,8 +50,20 @@ const initialConfig = (definition: FormatDefinition): RoomConfig => ({
   crossExamination: {
     crossExMode: definition.configurable.interaction.crossExModes[0]!,
   },
-  interruptions: null,
-  yielding: null,
+  interruptions: definition.configurable.interaction.interruptions
+    ? {
+        mode: definition.configurable.interaction.interruptions.modes[0]!,
+        minRemainingMs:
+          definition.configurable.interaction.interruptions.minRemainingMs.min,
+      }
+    : null,
+  yielding: definition.configurable.interaction.yield
+    ? {
+        allowed: definition.configurable.interaction.yield.enabledChoices[0]!,
+        returnsTime:
+          definition.configurable.interaction.yield.returnsTimeChoices[0]!,
+      }
+    : null,
 });
 
 export function createRoomRuntimeOperations({

@@ -260,3 +260,48 @@ describe('resolveRoomConfiguration', () => {
     });
   });
 });
+
+test('null controls cannot omit declared interaction choices', () => {
+  for (const restricted of [true, false]) {
+    const definition: FormatDefinition = {
+      ...oneOnOneDefinition,
+      configurable: {
+        ...oneOnOneDefinition.configurable,
+        interaction: {
+          crossExModes: ['ordered'],
+          interruptions: {
+            modes: restricted ? ['enabled'] : ['disabled'],
+            minRemainingMs: { min: 0, max: 1000 },
+          },
+          yield: { enabledChoices: [!restricted], returnsTimeChoices: [true] },
+        },
+      },
+    };
+    const config = {
+      ...practiceConfig,
+      interruptions: {
+        mode: restricted ? ('enabled' as const) : ('disabled' as const),
+        minRemainingMs: 0,
+      },
+      yielding: { allowed: !restricted, returnsTime: true },
+    };
+    assert({
+      given: 'explicit permitted interaction values',
+      should: 'resolve them',
+      actual: resolveRoomConfiguration(definition, config).ok,
+      expected: true,
+    });
+    for (const field of ['interruptions', 'yielding'] as const) {
+      const result = resolveRoomConfiguration(definition, {
+        ...config,
+        [field]: null,
+      });
+      assert({
+        given: `a declared ${field} capability with a null control`,
+        should: 'require an explicit permitted choice',
+        actual: result.ok ? 'resolved' : result.refusal.kind,
+        expected: 'invalid-choice',
+      });
+    }
+  }
+});
