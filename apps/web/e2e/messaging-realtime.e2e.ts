@@ -1,3 +1,4 @@
+import { attachNativeMessageFile } from './support/messaging-attachments';
 import { serverMessageSchema } from '@daisy/protocol';
 import { test, expect, openPage } from './support/fixtures';
 import {
@@ -94,6 +95,7 @@ for (const javaScriptEnabled of [true, false]) {
           .getByRole('list', { name: 'Message history' })
           .getByText(text, { exact: true }),
       ).toHaveCount(1);
+      await attachNativeMessageFile(recipient, sender, journey.channelId, text);
       const foreign = await journey.outsider.request.get(
         `/api/messaging/channels/${journey.channelId}/messages`,
       );

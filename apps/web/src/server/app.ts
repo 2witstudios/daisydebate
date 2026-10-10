@@ -1,3 +1,4 @@
+import type { MessagingFileRuntime } from '../features/messaging/files/runtime';
 import { readRealtimePublicUrl } from '@daisy/config';
 import type { MessagingRuntimePolicy } from '../features/messaging/composition';
 import type { RoomPolicy } from '../features/room-runtime/composition';
@@ -24,6 +25,7 @@ import { createMetricsStore, type MetricsStore } from './metrics-store';
 export type AppDependencies = {
   readonly roomPolicy?: RoomPolicy;
   readonly messagingPolicy?: MessagingRuntimePolicy;
+  readonly messagingFiles?: MessagingFileRuntime;
   /** Raw environment, validated here and nowhere else. */
   readonly env: Readonly<Record<string, string | undefined>>;
   /** Outbound HTTP (the Resend mail transport). */
@@ -59,6 +61,7 @@ export function createApp({
   env,
   roomPolicy,
   messagingPolicy,
+  messagingFiles,
   fetch,
   clock,
   ids,
@@ -147,6 +150,7 @@ export function createApp({
     }),
     roomPolicy: roomPolicy ?? null,
     messagingPolicy: messagingPolicy ?? null,
+    messagingFiles: messagingFiles ?? null,
     clock,
     ids,
     logger,

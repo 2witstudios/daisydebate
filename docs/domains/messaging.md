@@ -255,3 +255,23 @@ subject-local export and erasure. Committed retries use the same minimal
 renew invitations. Expanded both-JavaScript-mode browser controls cover declined
 invitation renewal, approved late-join history, and renewed member revocation.
 Their acceptance requires the exact composed hosted execution.
+
+Native attachments use a dedicated bounded multipart POST outside the unchanged
+16 KiB server-action decoder. The multipart envelope has its own explicitly
+injected `maxMultipartBytes`; file size, count, charge and scan limits still come
+from the injected file policy. Origin and current member checks precede body
+reading. The native transport invokes the same reserve, immutable upload and
+scan/finalize operations as JSON/binary clients, binding the selected message
+and current file generation. Refusals retain escaped filename and request/token
+intent with a fresh file chooser, never file bytes in action state or URLs.
+Own pending discard calls the canonical cleanup capability independently of
+posting eligibility; quota remains charged until real physical deletion ACK.
+
+History links discover attachment metadata through the current read frame and
+per-file access fence. Downloads stream private bytes through the application,
+with inert attachment filenames and no object key, public vendor URL or signed
+bearer URL. Deployment composition remains unavailable without explicit policy,
+private-object and scanner ports. Native fixtures use real private filesystem
+storage and clamd only in their validated isolated slot; fixture values do not
+approve privacy, retention or numeric product policies. Production expiry and
+physical deletion scheduling remains an outstanding composition obligation.

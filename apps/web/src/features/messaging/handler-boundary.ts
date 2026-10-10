@@ -28,6 +28,7 @@ export function runMessagingHandler(
       principal: AuthorizationPrincipal,
     ) => Promise<unknown>;
     readonly headers?: HeadersInit;
+    readonly respond?: (value: unknown) => Response;
   },
 ) {
   return handleOperation(boundary.logger, request, input.name, async () => {
@@ -35,10 +36,13 @@ export function runMessagingHandler(
     else requireSameOrigin(request, boundary.origin());
     const identity = requireSignedIn(await boundary.identify(request));
     if (identity.state !== 'member') throw createAppError('AUTHORIZATION');
-    return Response.json(
-      await input.operation(await input.readInput(), identity.principal),
-      { headers: input.headers ?? {} },
+    const value = await input.operation(
+      await input.readInput(),
+      identity.principal,
     );
+    return input.respond
+      ? input.respond(value)
+      : Response.json(value, { headers: input.headers ?? {} });
   });
 }
 

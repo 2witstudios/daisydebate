@@ -1,3 +1,4 @@
+import { composeMessagingFileRoutes } from './files/route-composition';
 import { composeMessagingGroupIssuanceRoute } from './group-issuance-route';
 import { composeMessagingGroupManagementRoute } from './group-management-route';
 import { composeMessagingCreationIntentRoutes } from './creation-intent-route';
@@ -175,6 +176,7 @@ export function composeMessagingRoutes(app: App) {
     ...composeMessagingGroupInvitationRoutes(app),
     manageGroup: composeMessagingGroupManagementRoute(app),
     inviteGroup: composeMessagingGroupIssuanceRoute(app),
+    files: composeMessagingFileRoutes(app),
     createGroup: composeMessagingGroupCreationRoute(app),
     inbox: composeMessagingInboxRoute(app),
     send: (request: Request) => run(request, 'send'),
