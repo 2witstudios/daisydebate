@@ -95,7 +95,7 @@ test('Room authority projection keeps collection fields minimal and omits an emp
 });
 test('Round authority projection returns only frozen audience and seat facts', async () => {
   const roundId = 'c3a1d5f7h9j2k4m6n8p1r3t5';
-  const { database } = createTestDatabase([
+  const { database, queries } = createTestDatabase([
     [accountFact()],
     [accountFact()],
     [
@@ -133,6 +133,18 @@ test('Round authority projection returns only frozen audience and seat facts', a
         ],
       },
     },
+  });
+  assert({
+    given: 'the authorization fact query for a Round topic',
+    should:
+      'avoid selecting title, resolution, rules, or configuration content',
+    actual: [
+      queries[2]?.query.includes('"title"'),
+      queries[2]?.query.includes('"resolution"'),
+      queries[2]?.query.includes('"rules_snapshot"'),
+      queries[2]?.query.includes('"room_config_snapshot"'),
+    ],
+    expected: [false, false, false, false],
   });
 });
 test('Round authority projection fails closed when persisted visibility is absent', async () => {
