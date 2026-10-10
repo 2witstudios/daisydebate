@@ -1,3 +1,4 @@
+import { groupCommandResultAllowed } from './authorization-group-result';
 import { groupInvitationAllowed } from './authorization-invitation';
 import { requestChannelDecision } from './authorization-request';
 import { pendingFileCleanupAllowed } from './authorization-file';
@@ -35,6 +36,7 @@ export type {
   PendingFileAuthorizationFact,
   MessagingCollectionAuthorizationFact,
   GroupInvitationAuthorizationFact,
+  GroupCommandResultAuthorizationFact,
 } from './authorization-facts';
 const deny = (
   reason: Extract<AuthorizationDecision, { allow: false }>['reason'],
@@ -47,12 +49,15 @@ function validResourceKind(
   capability: AuthorizationCapability,
   resource: AuthorizationInput['resource'],
 ) {
+  const specialized = {
+    'channel.group.result': 'group_command_result',
+    'channel.inbox.read': 'messaging_collection',
+    'channel.file.cleanup': 'pending_file',
+  } as const;
+  const kind = specialized[capability as keyof typeof specialized];
+  if (kind) return resource.kind === kind;
   if (capability.startsWith('channel.invitation.'))
     return resource.kind === 'group_invitation';
-  if (capability === 'channel.inbox.read')
-    return resource.kind === 'messaging_collection';
-  if (capability === 'channel.file.cleanup')
-    return resource.kind === 'pending_file';
   if (capability === 'social.block') return resource.kind === 'contact_pair';
   if (
     ['social.request.create', 'channel.create.private_group'].includes(
@@ -239,6 +244,8 @@ function resolveMemberResource(
   | RoundAuthorizationFact
   | ChannelAuthorizationFact {
   switch (resource.kind) {
+    case 'group_command_result':
+      return decision(groupCommandResultAllowed(actorId, resource));
     case 'group_invitation':
       return decision(
         groupInvitationAllowed(actorId, capability, resource, context),

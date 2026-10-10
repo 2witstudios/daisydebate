@@ -155,6 +155,26 @@ export type GroupInvitationAuthorizationFact = {
   };
   readonly contactPairs: readonly ContactAuthorizationFact[];
 };
+/** MSG supplies a committed own receipt and fresh channel core under its transaction fence.
+ * This projection grants only a minimal result; digest/original-operation binding stays with MSG.
+ */
+export type GroupCommandResultAuthorizationFact = {
+  readonly kind: 'group_command_result';
+  readonly channel: {
+    readonly channelId: string;
+    readonly kind: 'private_group';
+    readonly policyKey: 'social.private_group';
+    readonly policyRevision: number;
+    readonly revision: number;
+    readonly lifecycle: 'active' | 'archived';
+  };
+  readonly command: {
+    readonly actorId: string;
+    readonly requestId: string;
+    readonly kind: string;
+    readonly resultChannelId: string;
+  };
+};
 /** Own-association discovery only; every returned channel needs separate authorization. */
 export type MessagingCollectionAuthorizationFact = {
   readonly kind: 'messaging_collection';
@@ -164,6 +184,7 @@ export type AuthorizationInput = {
   readonly principal: AuthorizationPrincipal;
   readonly capability: AuthorizationCapability;
   readonly resource:
+    | GroupCommandResultAuthorizationFact
     | GroupInvitationAuthorizationFact
     | MessagingCollectionAuthorizationFact
     | PendingFileAuthorizationFact
