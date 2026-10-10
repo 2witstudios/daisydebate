@@ -14,7 +14,9 @@ type Entry = {
 
 export function parseServerMessage(raw: string): ServerMessage | null {
   try {
-    const result = serverMessageSchema.safeParse(JSON.parse(raw));
+    const result = serverMessageSchema.safeParse(JSON.parse(raw), {
+      jitless: true,
+    });
     return result.success ? result.data : null;
   } catch {
     return null;
