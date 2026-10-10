@@ -1,3 +1,4 @@
+import { createConnectionDiagnostics } from './connection-diagnostics';
 import {
   ENVELOPE_VERSION,
   PROTOCOL_VERSION,
@@ -33,6 +34,7 @@ const HEARTBEAT_DEAD_AFTER_MS = heartbeatMs * 2;
 export function createConnectionStore(
   deps: ConnectionStoreDeps,
 ): ConnectionStore {
+  const diagnostics = createConnectionDiagnostics();
   let generation = 0;
   let status: ConnectionStatus = 'idle';
   let terminal: TerminalReason | null = null;
@@ -207,6 +209,7 @@ export function createConnectionStore(
         ticket,
       }),
     );
+    diagnostics.emit(myGeneration, 'hello-sent');
   }
   function handleMessage(myGeneration: number, raw: unknown) {
     if (myGeneration !== generation) return;
@@ -273,8 +276,22 @@ export function createConnectionStore(
     socket = newSocket;
     let opened = false;
     let ticket: string | null = null;
+    const fail = (phase: 'ticket-failed' | 'hello-failed', error: unknown) => {
+      if (myGeneration !== generation) return;
+      diagnostics.emit(myGeneration, phase, error);
+      try {
+        newSocket.close();
+      } catch {
+        /* Close events drive reconnect. */
+      }
+    };
     const tryHello = () => {
-      if (opened && ticket !== null) handleOpen(myGeneration, ticket);
+      if (!opened || ticket === null) return;
+      try {
+        handleOpen(myGeneration, ticket);
+      } catch (error) {
+        fail('hello-failed', error);
+      }
     };
     newSocket.addEventListener('open', () => {
       if (myGeneration !== generation) return;
@@ -293,16 +310,10 @@ export function createConnectionStore(
       .then((value) => {
         if (myGeneration !== generation) return;
         ticket = value;
+        diagnostics.emit(myGeneration, 'ticket-resolved');
         tryHello();
       })
-      .catch(() => {
-        if (myGeneration !== generation) return;
-        try {
-          newSocket.close();
-        } catch {
-          // A close event (if any) drives the usual reconnect path.
-        }
-      });
+      .catch((error: unknown) => fail('ticket-failed', error));
   }
 
   function close() {
@@ -327,6 +338,7 @@ export function createConnectionStore(
   }
 
   return {
+    onDiagnostic: diagnostics.subscribe,
     subscribeTopic: topics.subscribe,
     onMessage: topics.onMessage,
     resubscribeTopic: topics.resubscribe,

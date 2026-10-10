@@ -74,3 +74,82 @@ test('ticket endpoint binding refuses an endpoint different from the configured 
     }),
   ).rejects.toThrow('realtime ticket response was malformed');
 });
+
+test('configured native ticket response validates exact WSS binding with production TTL metadata', async () => {
+  const endpoint = 'wss://localhost:13014/ws';
+  assert({
+    given: 'the actual configured native endpoint and production response keys',
+    should:
+      'return only the validated ticket while preserving exact endpoint binding',
+    actual: await fetchRealtimeTicket({
+      expectedSocketUrl: endpoint,
+      fetchImpl: async () =>
+        Response.json({
+          ticket: validTicket,
+          socketUrl: endpoint,
+          expiresInSeconds: 30,
+        }),
+    }),
+    expected: validTicket,
+  });
+});
+
+test('reader failures expose only fixed stage names and never untrusted diagnostics', async () => {
+  const cases: ReadonlyArray<{
+    name: string;
+    fetchImpl: () => Promise<Response>;
+    endpoint?: string;
+  }> = [
+    {
+      name: 'RealtimeTicketFetchError',
+      fetchImpl: async () => {
+        throw new Error('private transport detail');
+      },
+    },
+    {
+      name: 'RealtimeTicketFetchError',
+      fetchImpl: async () => new Response('private body', { status: 503 }),
+    },
+    {
+      name: 'RealtimeTicketBodyError',
+      fetchImpl: async () => new Response('private invalid JSON'),
+    },
+    {
+      name: 'RealtimeTicketSchemaError',
+      fetchImpl: async () =>
+        Response.json({ ticket: 'private malformed ticket' }),
+    },
+    {
+      name: 'RealtimeTicketEndpointError',
+      endpoint: 'wss://expected.invalid/ws',
+      fetchImpl: async () =>
+        Response.json({
+          ticket: validTicket,
+          socketUrl: 'wss://foreign.invalid/ws',
+        }),
+    },
+  ];
+  for (const scenario of cases) {
+    let actual: unknown;
+    try {
+      await fetchRealtimeTicket({
+        fetchImpl: scenario.fetchImpl,
+        ...(scenario.endpoint ? { expectedSocketUrl: scenario.endpoint } : {}),
+      });
+    } catch (error) {
+      actual =
+        error instanceof Error
+          ? {
+              name: error.name,
+              privateDetail: error.message.includes('private'),
+            }
+          : error;
+    }
+    assert({
+      given: scenario.name,
+      should: 'report its fixed stage without response or transport details',
+      actual,
+      expected: { name: scenario.name, privateDetail: false },
+    });
+  }
+});

@@ -95,13 +95,22 @@ test('real HTTP Room mutation reaches its authenticated browser subscriber and r
     await connectRoomTransport(outsiderPage, topic, source);
     await expect
       .poll(() =>
-        hostPage.evaluate(() =>
-          window.realtimeProof.frames.some(
-            (frame) => frame.type === 'subscribed',
-          ),
-        ),
+        hostPage.evaluate(() => {
+          const proof = window.realtimeProof;
+          if (proof.frames.some((frame) => frame.type === 'subscribed'))
+            return null;
+          return {
+            state: proof.store.getState(),
+            closeCodes: proof.closeCodes,
+            diagnostics: proof.diagnostics,
+            frames: proof.transportFrames.map((frame) => ({
+              type: frame.type,
+              ...(frame.type === 'error' ? { code: frame.code } : {}),
+            })),
+          };
+        }),
       )
-      .toBe(true);
+      .toBe(null);
     await expect
       .poll(() =>
         outsiderPage.evaluate(() =>

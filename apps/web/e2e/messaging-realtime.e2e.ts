@@ -144,7 +144,9 @@ for (const javaScriptEnabled of [true, false]) {
       await expect(sender.getByLabel('Your message')).toHaveValue(
         'Retained retry after unblock',
       );
-      await expect(sender.getByRole('status')).toContainText('could not');
+      await expect(sender.getByRole('status')).toHaveText(
+        'You cannot send to this conversation now. Your draft is kept.',
+      );
       await recipient
         .getByRole('button', { name: 'Unblock contact', exact: true })
         .click();

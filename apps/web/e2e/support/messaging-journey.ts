@@ -2,6 +2,7 @@ import type { Browser, BrowserContext, Page } from '@playwright/test';
 import { idSchema } from '@daisy/protocol';
 import { expect, openPage } from './fixtures';
 import { createRoomAccounts } from './room-accounts';
+import { origin } from './accounts';
 import { openMessagingBrowserData } from './messaging-data';
 
 /** Actual signup/cookies, explicit isolated age policy inputs, and scoped teardown. */
