@@ -2,6 +2,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { fakeSql } from '../index.test-support';
+import { createDatabase } from '../index';
 import { createMessagingTypingPrivacyPort } from './typing-rights';
 import { planPrivacyErasure } from './planner';
 import { messagingTypingSchemas } from '@daisy/protocol';
@@ -230,4 +231,25 @@ test('typing deletion outage remains a durable retry until physical producer ACK
       ],
     });
   }
+});
+
+test('public database factory binds typing rights to the existing pool without exposing Drizzle', async () => {
+  const fake = fakeSql([[account]]);
+  const database = createDatabase({
+    url: 'postgresql://unit:unit@127.0.0.1:1/unit',
+    client: fake.client,
+    nextActorId: () => subject.actorId,
+    eventSink: () => {},
+  });
+  const port = database.messagingTypingPrivacyPort({
+    exportSubject: async () => [lease],
+    eraseSubject: async () => {},
+  });
+  assert({
+    given: 'the real public factory with an injected wire driver',
+    should:
+      'read canonical account facts on its original pool and return own lease data',
+    actual: [await port.export(subject), fake.queries.length],
+    expected: [[lease], 1],
+  });
 });
