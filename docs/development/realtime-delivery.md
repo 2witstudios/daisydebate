@@ -50,6 +50,22 @@ setup/cleanup. The paused-reader fixture pauses an actual TCP client and measure
 native buffered bytes; it also checks healthy delivery and durable reconnect.
 These tests do not substitute an authorization evaluator or sink.
 
+The audience table requires correlated native acknowledgements for persisted
+public/private Round seats, own inbox and standings, and refusals for private
+outsiders, foreign inboxes and unsupported topic families. It does not manufacture
+private spectator invitations: that audience requires a durable domain-owned
+admission contract before the canonical projection can authorize it.
+
+The catchup race holds the retention-boundary table lock, observes the actual
+blocked PostgreSQL history query, commits a concurrent row, then releases the
+lock. A fixture scheduling callback preserves the real adapter result while
+allowing the actual drain to advance before fresh replay authorization. The test
+requires history and live rows exactly once. Two separately pooled native server
+instances independently consume durable access and session revocations, and
+assert that control rows never reach event frames. The silent-membership test
+requires every initial native subscription to be acknowledged and attached
+before removing persisted membership and invoking the actual periodic callback.
+
 The registered native browser job runs Room, generic realtime and messaging
 profiles in sequence. The generic profile uses its dedicated TLS process and
 explicit canonical test-only messaging reading evidence, retains traces, and
