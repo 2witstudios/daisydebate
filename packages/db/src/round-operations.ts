@@ -186,7 +186,7 @@ export const roundOperations = ({
           tx,
           input.roundId,
           input.command,
-          roundVersion + 1,
+          roundVersion.version + 1,
         );
       });
     });
@@ -231,7 +231,7 @@ export const roundOperations = ({
           tx,
           input.roundId,
           input.command,
-          roundVersion + 1,
+          roundVersion.version + 1,
         );
       });
     });
