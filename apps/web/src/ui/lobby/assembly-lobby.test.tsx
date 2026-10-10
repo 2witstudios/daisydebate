@@ -1,43 +1,81 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { assemblySnapshot } from '../../features/rooms/assembly.test-support';
+import type { RoomListEntry } from '@daisy/protocol';
 import { AssemblyLobby } from './assembly-lobby';
-
 setupRitewayBun();
+const entry: RoomListEntry = {
+  id: 'a'.repeat(24),
+  version: 1,
+  title: 'Persisted room',
+  topic: 'Persisted debate topic',
+  visibility: 'unlisted',
+  hostActorId: 'b'.repeat(24),
+  hostLabel: 'Host member',
+  status: 'assembling',
+  competitionType: 'casual',
+  length: 'full',
+  seated: true,
+  roundRef: null,
+};
 
-test('Lobby renders actual Room identity and cast capacity without sample ratings', () => {
+test('Lobby renders lightweight canonical identity, live Round links and native paging', () => {
   const html = renderToStaticMarkup(
-    <AssemblyLobby rooms={[assemblySnapshot]} query="" />,
+    <AssemblyLobby
+      rooms={[
+        {
+          ...entry,
+          status: 'started',
+          roundRef: { id: 'c'.repeat(24), status: 'scheduled' },
+        },
+      ]}
+      query={{ q: 'Stored motion', pageSize: 1 }}
+      nextCursor={entry.id}
+      retry={false}
+    />,
   );
   assert({
-    given: 'a persisted unlisted Room supplied by canonical authorization',
+    given: 'one authorized live Room page',
     should:
-      'link to its durable identity and show its real host/topic and team capacity',
+      'render stored facts and explicit native continuation preserving search and page budget',
     actual: [
-      html.includes(`/rooms/${assemblySnapshot.id}`),
+      html.includes(`/rooms/${entry.id}`),
       html.includes('Persisted room'),
       html.includes('Persisted debate topic'),
       html.includes('Host member'),
-      html.includes('2 aff / 3 neg'),
-      html.includes('/play/room'),
+      html.includes(`/rounds/${'c'.repeat(24)}`),
+      html.includes('cursor=' + entry.id),
+      html.includes('q=Stored+motion'),
+      html.includes('pageSize=1'),
       html.includes('Your rating'),
     ],
-    expected: [true, true, true, true, true, true, false],
+    expected: [true, true, true, true, true, true, true, true, false],
   });
 });
-
-test('Lobby search filters only received rooms; empty means no visible results', () => {
-  const html = renderToStaticMarkup(
-    <AssemblyLobby rooms={[assemblySnapshot]} query="missing topic" />,
+test('Lobby renders authoritative empty pages and race retry distinctly', () => {
+  const results = [false, true].map((retry) =>
+    renderToStaticMarkup(
+      <AssemblyLobby
+        rooms={[]}
+        query={{ q: 'missing', pageSize: 1, cursor: entry.id }}
+        nextCursor={null}
+        retry={retry}
+      />,
+    ),
   );
   assert({
-    given: 'a search that matches no authorized Room',
-    should: 'show an empty result rather than inject sample rooms',
-    actual: [
+    given: 'an empty search and an all-masked race page',
+    should:
+      'show actual end or explicit same-page retry plus reset without inventing results',
+    actual: results.map((html) => [
       html.includes('No rooms match your search.'),
-      html.includes(`/rooms/${assemblySnapshot.id}`),
-      html.includes('name="q"'),
+      html.includes('Rooms changed. Retry this page.'),
+      html.includes('Retry page'),
+      html.includes('First page'),
+      html.includes('Next page'),
+    ]),
+    expected: [
+      [true, false, false, true, false],
+      [false, true, true, true, false],
     ],
-    expected: [true, false, true],
   });
 });

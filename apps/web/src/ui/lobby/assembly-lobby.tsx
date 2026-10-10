@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import type { RoomView } from '@daisy/protocol';
+import type { RoomListEntry, RoomListQuery } from '@daisy/protocol';
 import { buttonClass } from '../components/button/button-class';
 import { controlClass } from '../components/form-field/form-field-class';
 
@@ -7,16 +7,14 @@ import { controlClass } from '../components/form-field/form-field-class';
 export function AssemblyLobby({
   rooms,
   query,
+  nextCursor,
+  retry,
 }: {
-  readonly rooms: readonly RoomView[];
-  readonly query: string;
+  readonly rooms: readonly RoomListEntry[];
+  readonly query: RoomListQuery;
+  readonly nextCursor: string | null;
+  readonly retry: boolean;
 }) {
-  const needle = query.toLocaleLowerCase();
-  const visible = rooms.filter((room) =>
-    [room.title, room.topic, room.hostLabel].some((text) =>
-      text.toLocaleLowerCase().includes(needle),
-    ),
-  );
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-6 px-6 py-8">
       <header className="flex items-center justify-between gap-4">
@@ -35,24 +33,28 @@ export function AssemblyLobby({
         <input
           id="room-search"
           type="search"
+          maxLength={100}
           name="q"
-          defaultValue={query}
+          defaultValue={query.q}
           className={controlClass}
           placeholder="Search rooms, topics or hosts"
         />
+        <input type="hidden" name="pageSize" value={query.pageSize} />
         <button type="submit" className={buttonClass('secondary')}>
           Search
         </button>
       </form>
-      {visible.length === 0 ? (
+      {rooms.length === 0 ? (
         <p role="status">
-          {query
-            ? 'No rooms match your search.'
-            : 'No rooms are available. Create the first one.'}
+          {retry
+            ? 'Rooms changed. Retry this page.'
+            : query.q
+              ? 'No rooms match your search.'
+              : 'No rooms are available. Create the first one.'}
         </p>
       ) : (
         <ul className="flex flex-col gap-3" aria-label="Available rooms">
-          {visible.map((room) => (
+          {rooms.map((room) => (
             <li key={room.id} className="rounded-xl bg-surface p-5 shadow-1">
               <div className="flex justify-between gap-4">
                 <Link
@@ -65,8 +67,7 @@ export function AssemblyLobby({
               </div>
               <p>{room.topic}</p>
               <p className="text-sm text-ink-muted">
-                Host: {room.hostLabel} · {room.definition.seats.affirmative} aff
-                / {room.definition.seats.negative} neg · {room.competitionType}
+                Host: {room.hostLabel} · {room.competitionType}
               </p>
               {room.roundRef ? (
                 <Link href={`/rounds/${room.roundRef.id}`}>View Round</Link>
@@ -75,6 +76,29 @@ export function AssemblyLobby({
           ))}
         </ul>
       )}
+      <nav aria-label="Room pages" className="flex gap-3">
+        {retry ? (
+          <Link
+            href={`/lobby?${new URLSearchParams({ q: query.q, pageSize: String(query.pageSize), ...(query.cursor ? { cursor: query.cursor } : {}) })}`}
+          >
+            Retry page
+          </Link>
+        ) : null}
+        {query.cursor ? (
+          <Link
+            href={`/lobby?${new URLSearchParams({ q: query.q, pageSize: String(query.pageSize) })}`}
+          >
+            First page
+          </Link>
+        ) : null}
+        {nextCursor ? (
+          <Link
+            href={`/lobby?${new URLSearchParams({ q: query.q, pageSize: String(query.pageSize), cursor: nextCursor })}`}
+          >
+            Next page
+          </Link>
+        ) : null}
+      </nav>
     </div>
   );
 }

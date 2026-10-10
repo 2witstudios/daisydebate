@@ -99,7 +99,8 @@ test('custom unequal casts and ordered timing freeze alongside canonical quota a
       should: 'preserve complete durable state and exclude private discovery',
       actual: [
         await f.snapshot(view.id),
-        (await f.operations.list(f.outsider)).length,
+        (await f.operations.list(f.outsider, { pageSize: 20, q: '' })).rooms
+          .length,
       ],
       expected: [initial, 0],
     });
@@ -147,11 +148,11 @@ test('custom unequal casts and ordered timing freeze alongside canonical quota a
           )!.consentVersion,
         })
       ).view;
-    const joined = await f.operations.list(f.guest);
+    const joined = await f.operations.list(f.guest, { pageSize: 20, q: '' });
     assert({
       given: 'a member of a private cast',
       should: 'discover their authoritative Room',
-      actual: joined.map((v) => v.id),
+      actual: joined.rooms.map((v) => v.id),
       expected: [view.id],
     });
     const launched = await f.command(f.host, view, { type: 'start-round' });

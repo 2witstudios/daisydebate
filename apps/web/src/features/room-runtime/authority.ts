@@ -6,7 +6,11 @@ import {
 } from '@daisy/auth/authorization';
 import type { RoomCommand, RoomAssemblyState } from '@daisy/protocol';
 import type { Caller } from './operations';
-const roomFact = (state: RoomAssemblyState): RoomAuthorizationFact => ({
+type RoomFactSource = Pick<
+  RoomAssemblyState,
+  'id' | 'hostActorId' | 'visibility' | 'status' | 'version'
+> & { readonly participants: RoomAuthorizationFact['participants'] };
+const roomFact = (state: RoomFactSource): RoomAuthorizationFact => ({
   kind: 'room' as const,
   roomId: state.id,
   hostActorId: state.hostActorId,
@@ -19,7 +23,7 @@ export const can = (
   caller: Caller,
   capability: AuthorizationCapability,
   account: AccountAuthorizationFact | null,
-  state?: RoomAssemblyState,
+  state?: RoomFactSource,
 ) =>
   authorize({
     principal: { kind: 'user', ...caller },

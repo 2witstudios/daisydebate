@@ -1,7 +1,12 @@
 import type { Identity } from '@daisy/auth';
 import { createAppError, isAppError, toPublicError } from '@daisy/errors';
 import type { Logger } from '@daisy/logger';
-import { idSchema, roomCommandSchema, roomCreateSchema } from '@daisy/protocol';
+import {
+  idSchema,
+  roomCommandSchema,
+  roomCreateSchema,
+  roomListQuerySchema,
+} from '@daisy/protocol';
 import { consumeOrThrow, type AuthRateLimiter } from '../auth/abuse/rate-limit';
 import {
   handleOperation,
@@ -110,9 +115,25 @@ export function createRoomHandlers(dependencies: Dependencies) {
         ),
       ),
     list: (request: Request) =>
-      run(request, 'read', false, async (caller) => ({
-        rooms: await dependencies.operations.list(caller),
-      })),
+      run(request, 'read', false, async (caller) => {
+        const params = new URL(request.url).searchParams;
+        if (new Set(params.keys()).size !== [...params.keys()].length)
+          throw createAppError('VALIDATION');
+        const raw = Object.fromEntries(params);
+        return dependencies.operations.list(
+          caller,
+          parseValidated(roomListQuerySchema, {
+            ...raw,
+            ...(raw.pageSize === undefined
+              ? {}
+              : {
+                  pageSize: /^(?:[1-9]|[1-4][0-9]|50)$/.test(raw.pageSize)
+                    ? Number(raw.pageSize)
+                    : NaN,
+                }),
+          }),
+        );
+      }),
     catalog: (request: Request) =>
       run(request, 'read', false, async (caller) => ({
         choices: await dependencies.operations.catalog(caller),

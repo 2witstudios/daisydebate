@@ -191,3 +191,35 @@ type RoomMutation = {
 export type RoomMutationOutcome =
   | { readonly ok: true; readonly mutation: RoomMutation }
   | { readonly ok: false; readonly refusal: RoomRefusal };
+
+/** Provisional discovery resource-work settings; these are not Room capacity. */
+export const roomListQuerySchema = z.strictObject({
+  cursor: idSchema.optional(),
+  pageSize: z.int().min(1).max(50).default(20),
+  q: z.string().max(100).default(''),
+});
+/** Active discovery deliberately omits cast, format/configuration and consent. */
+const roomListEntrySchema = z.strictObject({
+  id: idSchema,
+  version: z.int().positive(),
+  title: z.string().min(1),
+  topic: z.string().min(1),
+  visibility: z.enum(['public', 'unlisted', 'private']),
+  hostActorId: idSchema,
+  hostLabel: z.string(),
+  status: z.enum(['assembling', 'ready', 'started']),
+  competitionType: z.enum(['casual', 'practice', 'ranked']),
+  length: z.enum(['full', 'quick']),
+  seated: z.boolean(),
+  roundRef: z
+    .strictObject({ id: idSchema, status: z.enum(['scheduled', 'active']) })
+    .nullable(),
+});
+export const roomListPageSchema = z.strictObject({
+  rooms: z.array(roomListEntrySchema).max(50).readonly(),
+  nextCursor: idSchema.nullable(),
+  retry: z.boolean(),
+});
+export type RoomListQuery = z.infer<typeof roomListQuerySchema>;
+export type RoomListEntry = z.infer<typeof roomListEntrySchema>;
+export type RoomListPage = z.infer<typeof roomListPageSchema>;
