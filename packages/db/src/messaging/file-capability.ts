@@ -8,9 +8,11 @@ export function scopeFileFrame(
   frame: FileFrame,
   capability: 'post' | 'read',
 ): FileFrame {
-  if (capability === 'post') return { ...frame, access: deny };
+  if (capability === 'post')
+    return { ...frame, access: deny, listMessageFiles: deny };
   return {
     access: frame.access,
+    listMessageFiles: frame.listMessageFiles,
     authorize: deny,
     reserve: deny,
     upload: deny,
