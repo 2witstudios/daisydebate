@@ -6,6 +6,7 @@ import {
 /** Declared proof format, persisted through canonical custom-create, never a mock view. */
 export const launchCustomSelection = {
   kind: 'custom' as const,
+  length: 'full' as const,
   competitionType: 'casual' as const,
   definition: formatDefinitionSchema.parse({
     version: 1,
