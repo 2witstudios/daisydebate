@@ -131,3 +131,57 @@ test('safety block commands cannot forge the blocking actor or durable facts', (
       expected: false,
     });
 });
+
+test('username commands normalize discovery intent and forbid extra authority fields', () => {
+  for (const key of ['requestUsername', 'blockUsername'] as const) {
+    const base = {
+      version: 1,
+      requestId,
+      recipientUsername: 'Peer_Name',
+      ...(key === 'blockUsername'
+        ? { blocked: true }
+        : { introduction: ' Exact intro ' }),
+    };
+    assert({
+      given: key,
+      should:
+        'use the single canonical username without inventing actor identity',
+      actual: schemas[key].parse(base).recipientUsername,
+      expected: 'peer_name',
+    });
+    for (const patch of [
+      { recipientUsername: 'bad username' },
+      { recipientUsername: 'ééé' },
+      { actorId },
+      { version: 2 },
+    ])
+      assert({
+        given: JSON.stringify(patch),
+        should: 'reject invalid or caller-granted discovery intent',
+        actual: schemas[key].safeParse({ ...base, ...patch }).success,
+        expected: false,
+      });
+  }
+  const group = {
+    version: 1,
+    requestId,
+    title: 'Native group',
+    invitedUsernames: ['Peer_Name', 'second_peer'],
+  };
+  assert({
+    given: 'a group username proposal',
+    should: 'normalize every proposed name',
+    actual: schemas.createGroupUsernames.parse(group).invitedUsernames,
+    expected: ['peer_name', 'second_peer'],
+  });
+  for (const names of [[], ['Peer_Name', 'peer_name'], ['bad username']])
+    assert({
+      given: JSON.stringify(names),
+      should: 'reject empty, canonically duplicated or invalid proposals',
+      actual: schemas.createGroupUsernames.safeParse({
+        ...group,
+        invitedUsernames: names,
+      }).success,
+      expected: false,
+    });
+});
