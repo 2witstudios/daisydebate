@@ -32,9 +32,18 @@ const redactions: readonly (readonly [RegExp, string])[] = [
   ],
   [/token=[^&\s"'<>]+/gi, 'token=[REDACTED]'],
   [/"cookie"\s*:\s*"[^"]*"/gi, '"cookie":"[REDACTED]"'],
-  [/set-cookie:\s*[^\r\n]+/gi, 'set-cookie: [REDACTED]'],
-  [/cookie:\s*[^\r\n]+/gi, 'cookie: [REDACTED]'],
-  [/authorization:\s*[^\r\n]+/gi, 'authorization: [REDACTED]'],
+  // Match serialized log strings at their actual escape depth. Stop at the
+  // matching closing quote or encoded newline, retaining JSONL record framing.
+  [
+    /(:\s*(?<!\\)(\\*)"[^"\r\n]*?(?:set-cookie|cookie|authorization):\s*)(?:(?!(?<!\\)\2(?:"|\\[nr]))[^\r\n])*/gi,
+    '$1[REDACTED]',
+  ],
+  // Serialized headers are already redacted; retain whole-line redaction for
+  // plain logs without processing the preserved JSON suffix a second time.
+  [
+    /((?:set-cookie|cookie|authorization):[ \t]*)(?![ \t]|\[REDACTED\])[^\r\n]+/gi,
+    '$1[REDACTED]',
+  ],
   [/(__Secure-[\w.-]+)=([^;,\s"'&]+)/g, '$1=[REDACTED]'],
   // The e2e placeholder credentials from playwright.config.ts webServer.env —
   // never a live secret, but redacted anyway so a diff of retained artifacts

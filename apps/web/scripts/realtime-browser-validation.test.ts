@@ -2,6 +2,12 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createContext, runInContext } from 'node:vm';
+import {
+  buildRoomTopic,
+  buildDebateTopic,
+  buildChannelTopic,
+  buildUserInboxTopic,
+} from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   buildChannelTopic,
@@ -90,7 +96,7 @@ test('actual browser frame bundle validates after dynamic-code permission change
       parse({ v: 1, type: 'ready', ticket: 'not-a-frame-field' }),
       parse({
         ...frames[2],
-        topic: `channel:${'b'.repeat(24)}`,
+        topic: buildChannelTopic(id),
       }),
     ],
     expected: [null, null],
