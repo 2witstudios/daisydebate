@@ -45,6 +45,12 @@ test('real management transfers, revokes history, preserves survivor authority a
     clock,
     limit,
   });
+  const manage = (
+    operation: Parameters<typeof manageMessagingGroup>[0],
+    input: unknown,
+    principal: typeof f.sender,
+  ) =>
+    manageMessagingGroup(operation, input, principal, dependencies(principal));
   const issuance = (principal: typeof f.sender) => ({
     store: composeMessagingGroupIssuanceStore({
       database: f.database,
@@ -131,22 +137,11 @@ test('real management transfers, revokes history, preserves survivor authority a
     await assertRejects({
       given: 'only active manager attempts leave',
       should: 'preserve required manager',
-      actual: () =>
-        manageMessagingGroup(
-          'leave',
-          command(),
-          f.sender,
-          dependencies(f.sender),
-        ),
+      actual: () => manage('leave', command(), f.sender),
       code: 'CONFLICT',
     });
     const transfer = command({ managerActorId: f.recipient.actorId });
-    await manageMessagingGroup(
-      'transfer',
-      transfer,
-      f.sender,
-      dependencies(f.sender),
-    );
+    await manage('transfer', transfer, f.sender);
     const renewalReplay = await inviteMessagingGroup(
       renewed,
       f.sender,
@@ -159,31 +154,20 @@ test('real management transfers, revokes history, preserves survivor authority a
       actual: renewalReplay,
       expected: { version: 1, channelId, lifecycle: 'active' },
     });
-    const replay = await manageMessagingGroup(
-      'transfer',
-      transfer,
-      f.sender,
-      dependencies(f.sender),
-    );
+    const replay = await manage('transfer', transfer, f.sender);
     await assertRejects({
       given: 'former manager attempts remove',
       should: 'deny current role despite old receipt',
       actual: () =>
-        manageMessagingGroup(
+        manage(
           'remove',
           command({ memberActorId: f.recipient.actorId }),
           f.sender,
-          dependencies(f.sender),
         ),
       code: 'AUTHORIZATION',
     });
     const remove = command({ memberActorId: f.sender.actorId });
-    await manageMessagingGroup(
-      'remove',
-      remove,
-      f.recipient,
-      dependencies(f.recipient),
-    );
+    await manage('remove', remove, f.recipient);
     const read = (principal: typeof f.sender) =>
       createMessagingReadOperations({
         bounds: { messageUnits: 1000, pageItems: 20 },
@@ -209,31 +193,11 @@ test('real management transfers, revokes history, preserves survivor authority a
       f.fixture.otherUserId,
     ]);
     const archive = command();
-    const archived = await manageMessagingGroup(
-      'archive',
-      archive,
-      f.recipient,
-      dependencies(f.recipient),
-    );
-    const archiveReplay = await manageMessagingGroup(
-      'archive',
-      archive,
-      f.recipient,
-      dependencies(f.recipient),
-    );
+    const archived = await manage('archive', archive, f.recipient);
+    const archiveReplay = await manage('archive', archive, f.recipient);
     const leave = command();
-    await manageMessagingGroup(
-      'leave',
-      leave,
-      f.recipient,
-      dependencies(f.recipient),
-    );
-    const leaveReplay = await manageMessagingGroup(
-      'leave',
-      leave,
-      f.recipient,
-      dependencies(f.recipient),
-    );
+    await manage('leave', leave, f.recipient);
+    const leaveReplay = await manage('leave', leave, f.recipient);
     const rows = await f.client.unsafe(
       'select actor_id,role,generation::int as generation,revoked_at is not null as revoked from messaging_group_grants where channel_id=$1 order by actor_id',
       [channelId],
