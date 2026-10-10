@@ -8,7 +8,6 @@ import {
   createMessagingSocialSchemas,
   type MessagingSocialBounds,
 } from '@daisy/protocol';
-import { createAppError } from '@daisy/errors';
 import type { App } from '../../server/app';
 import { parseValidated } from '../../server/http';
 import { consumeOrThrow } from '../auth/abuse/rate-limit';
@@ -16,6 +15,7 @@ import { createMessagingSocialHandlers } from './social-handlers';
 import { composeMessagingDmStore } from './dm-composition';
 import { messagingSocialAuthorizationFence } from './social-authorization';
 import { requestMessagingDm } from './request';
+import { composeMessagingCreationOperation } from './creation-operation';
 import { decideMessagingDm } from './decide-request';
 import { readMessagingDmRequest } from './read-request';
 import { blockMessagingContact } from './block';
@@ -59,25 +59,7 @@ export function composeMessagingSocialRoutes(app: App) {
       ...messagingHttpBoundary(app),
       maxBodyBytes: policy.maxBodyBytes,
       bounds: social.bounds,
-      request: (input, principal) => {
-        if (social.creation.state !== 'approved')
-          throw createAppError('INFRASTRUCTURE');
-        return requestMessagingDm(input, principal, {
-          store: app.database.messagingSocialStore(
-            messagingSocialAuthorizationFence({
-              principal,
-              clock: app.clock,
-              operation: { kind: 'dm', policy: social.creation },
-            }),
-          ),
-          bounds: social.bounds,
-          clock: app.clock,
-          ids: app.ids,
-          policyRevision: social.creation.revision,
-          limits: social.requestLimits,
-          limit,
-        });
-      },
+      request: composeMessagingCreationOperation(app, 'dm'),
       decide: (input, principal) =>
         decideMessagingDm(input, principal, {
           store: dm(principal),
