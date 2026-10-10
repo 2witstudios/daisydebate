@@ -4,6 +4,28 @@ import { createAuthorityLease } from './authority-lease';
 setupRitewayBun();
 
 describe('authority lease fencing', () => {
+  test('session and age deadlines dominate the accepted maximum', () => {
+    let now = 0;
+    const lease = createAuthorityLease({ now: () => now, lifetimeMs: 60_000 });
+    const attempt = lease.begin('session', 'revision');
+    const accepted = lease.accept(attempt, 100);
+    now = 100;
+    assert({
+      given: 'an authority deadline earlier than the periodic maximum',
+      should: 'refuse at that exact deadline without waiting for a timer',
+      actual: [accepted, lease.current(), lease.accept(attempt, 100)],
+      expected: [true, false, false],
+    });
+  });
+  test('an invalid deadline never becomes authority', () => {
+    const lease = createAuthorityLease({ now: () => 0, lifetimeMs: 60_000 });
+    assert({
+      given: 'NaN from an unvalidated producer deadline',
+      should: 'refuse the allow',
+      actual: lease.accept(lease.begin('session', 'revision'), Number.NaN),
+      expected: false,
+    });
+  });
   for (const invalidation of [
     'revocation',
     'unsubscribe',

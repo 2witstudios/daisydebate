@@ -57,6 +57,7 @@ async function lockSubjectMessaging(
       union select channel_id from messaging_group_invitations where invitee_actor_id=${actorId} or invited_by_actor_id=${actorId}
       union select result_channel_id from messaging_social_commands where actor_id=${actorId} or counterpart_actor_id=${actorId}
       union select channel_id from messaging_files where owner_actor_id=${actorId}
+      union select c.result_channel_id from messaging_social_commands c join messaging_social_command_subjects s on s.actor_id=c.actor_id and s.request_id=c.request_id where s.subject_actor_id=${actorId}
     ) order by id for update
   `);
 }
@@ -119,7 +120,7 @@ async function eraseAssociations(
   `),
   );
   await tx.execute(
-    sql`delete from messaging_social_commands where actor_id=${actorId} or counterpart_actor_id=${actorId} or result_channel_id in (select channel_id from messaging_dm_pairs where low_actor_id=${actorId} or high_actor_id=${actorId})`,
+    sql`delete from messaging_social_commands c where actor_id=${actorId} or counterpart_actor_id=${actorId} or exists (select 1 from messaging_social_command_subjects s where s.actor_id=c.actor_id and s.request_id=c.request_id and s.subject_actor_id=${actorId}) or result_channel_id in (select channel_id from messaging_dm_pairs where low_actor_id=${actorId} or high_actor_id=${actorId})`,
   );
   await tx.execute(
     sql`delete from messaging_group_invitations where invitee_actor_id=${actorId} or invited_by_actor_id=${actorId}`,
@@ -229,6 +230,11 @@ export function createMessagingPrivacyAdopter(): PrivacyAdopter {
           sql`select * from messaging_social_commands where actor_id=${actorId} order by created_at,request_id`,
         ),
       );
+      const commandSubjects = rowsOf<Record<string, unknown>>(
+        await tx.execute(
+          sql`select * from messaging_social_command_subjects where actor_id=${actorId} or subject_actor_id=${actorId} order by actor_id,request_id,subject_actor_id`,
+        ),
+      );
       const invitations = rowsOf<Record<string, unknown>>(
         await tx.execute(
           sql`select * from messaging_group_invitations where invitee_actor_id=${actorId} or invited_by_actor_id=${actorId} order by channel_id,invitee_actor_id`,
@@ -251,6 +257,7 @@ export function createMessagingPrivacyAdopter(): PrivacyAdopter {
           messaging_contact_pairs: contacts,
           messaging_dm_pairs: ownPairs,
           messaging_social_commands: commands,
+          messaging_social_command_subjects: commandSubjects,
           messaging_group_invitations: invitations,
         }).map(([table, rows]) => [table, exportRows(rows)]),
       );

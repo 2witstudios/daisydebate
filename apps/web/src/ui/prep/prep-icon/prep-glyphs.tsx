@@ -89,12 +89,6 @@ export const prepGlyphs = {
       <path d="M6.6 6.6A16 16 0 0 0 2 12s3.5 6 10 6a9.7 9.7 0 0 0 4.4-1" />
     </>
   ),
-  info: (
-    <>
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 11v5M12 8h.01" />
-    </>
-  ),
   warning: (
     <>
       <path d="M12 3 2 20h20Z" />

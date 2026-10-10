@@ -2,7 +2,7 @@ import type { FormatDefinition } from '@daisy/protocol';
 
 type Segment = Pick<
   FormatDefinition['segments'][number],
-  'key' | 'label' | 'side' | 'type' | 'defaultDurationMs'
+  'key' | 'label' | 'side' | 'slot' | 'type' | 'defaultDurationMs'
 > & {
   readonly minDurationMs: number;
   readonly maxDurationMs: number;
@@ -146,7 +146,10 @@ export function changeRoomSequence(
 }
 
 /** Preview follows the exact selected order, including asymmetric speech counts. */
-export function roomDraftPreview(draft: RoomDraft, controls: RoomFormControls) {
+export function roomDraftPreview(
+  draft: RoomDraft,
+  controls: Pick<RoomFormControls, 'segments'>,
+) {
   const segments = draft.sequence.map((key) => {
     const segment = controls.segments.find(
       (candidate) => candidate.key === key,
@@ -156,6 +159,7 @@ export function roomDraftPreview(draft: RoomDraft, controls: RoomFormControls) {
       key,
       label: segment.label,
       side: segment.side,
+      slot: segment.slot,
       type: segment.type,
       durationMs: draft.durationsMs[key] ?? segment.defaultDurationMs,
     };

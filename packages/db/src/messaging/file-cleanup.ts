@@ -2,6 +2,8 @@ import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
+import type { MessagingChannelFact } from './social';
+import type { FileReservation } from '../messaging-files';
 import {
   lockAuthorizationActors,
   type AuthorizationTransaction,
@@ -17,18 +19,14 @@ type PendingFileFact = {
   readonly fileId: string;
   readonly channelId: string;
   readonly ownerActorId: string;
-  readonly lifecycle:
-    'reserved' | 'quarantined' | 'attached' | 'deleting' | 'deleted';
+  readonly lifecycle: FileReservation['lifecycle'] | 'deleting' | 'deleted';
   readonly generation: number;
   readonly expectedGeneration: number;
   readonly revision: number;
-  readonly channel: {
-    readonly channelId: string;
-    readonly kind: 'dm' | 'private_group';
-    readonly policyKey: 'social.dm' | 'social.private_group';
-    readonly policyRevision: number;
-    readonly revision: number;
-  };
+  readonly channel: Pick<
+    MessagingChannelFact,
+    'channelId' | 'policyKey' | 'policyRevision' | 'revision'
+  > & { readonly kind: 'dm' | 'private_group' };
 };
 export type MessagingFileCleanupFence = (
   tx: AuthorizationTransaction,

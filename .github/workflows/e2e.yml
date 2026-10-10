@@ -171,3 +171,122 @@ jobs:
           path: apps/web/qualification-results/
           if-no-files-found: error
           retention-days: 30
+
+  room-launch:
+    name: Isolated Room Launch E2E
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: .pu/worktrees/wt-roomlaunchci
+    services:
+      postgres:
+        image: postgres:18.3-alpine
+        env:
+          POSTGRES_DB: daisy
+          POSTGRES_USER: daisy
+          POSTGRES_PASSWORD: local-development-only
+        ports: ['15432:5432']
+        options: >-
+          --health-cmd "pg_isready -U daisy -d daisy"
+          --health-interval 3s --health-timeout 3s --health-retries 20
+      redis:
+        image: redis:8.6.1-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 3s --health-timeout 3s --health-retries 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Node 24
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: .bun-version
+      - name: Create dedicated native proof checkout
+        working-directory: ${{ github.workspace }}
+        run: git worktree add --detach .pu/worktrees/wt-roomlaunchci "$GITHUB_SHA"
+      - name: Install exact dependencies
+        run: bun install --frozen-lockfile
+      - name: Initialize own environment
+        run: cp .env.example .env
+      - name: Create and migrate only the derived proof slot
+        id: slot
+        run: bun slot:up
+      - name: Check services and slot identity
+        run: bun doctor
+      - name: Prove target refusals before browser work
+        run: bun test apps/web/scripts/room-launch-proof.test.ts
+      - name: Prove main checkout teardown refuses before connection
+        run: |
+          set +e
+          output=$(bun scripts/slot.ts down --checkout "$GITHUB_WORKSPACE" 2>&1)
+          status=$?
+          set -e
+          if [ "$status" -eq 0 ] || [ "$output" != 'slot:down refuses the main checkout: its databases are the shared defaults' ]; then
+            echo 'Main teardown refusal proof failed'
+            exit 1
+          fi
+          echo 'Main checkout teardown refused before connection'
+      - name: Build composed production server
+        run: bun run build
+        env:
+          BETTER_AUTH_SECRET: ci-isolation-sentinel-auth-0000000000000000000000000000000000000
+          RECIPIENT_HASH_SECRET: ci-isolation-sentinel-recipient-hash-000000000000000000000000000
+          RESEND_API_KEY: ci-isolation-sentinel-resend-key
+          RESEND_WEBHOOK_SECRET: ci-isolation-sentinel-webhook-secret
+      - name: Install controlled Chromium and artifact tools
+        run: |
+          bun apps/web/node_modules/@playwright/test/cli.js install --with-deps chromium
+          sudo apt-get update -qq && sudo apt-get install -y -qq zip unzip
+      - name: Run real isolated Launch browser suite
+        id: launch
+        run: bun test:e2e:room-launch
+        env:
+          CI: true
+          ROOM_LAUNCH_NODE: node
+      - name: Run authenticated generic realtime browser proof
+        id: realtime_room
+        run: bun test:e2e:realtime
+        env:
+          CI: true
+          REALTIME_BROWSER_NODE: node
+      - name: Report actual generic realtime outcomes
+        if: ${{ always() && !cancelled() }}
+        run: bun scripts/e2e-report-counts.ts apps/web/test-results/realtime-results.json
+      - name: Run authenticated messaging realtime browser proof
+        id: realtime_messaging
+        run: bun test:e2e:messaging-realtime
+        env:
+          CI: true
+          REALTIME_BROWSER_NODE: node
+      - name: Report actual messaging realtime outcomes
+        if: ${{ always() && !cancelled() }}
+        run: bun scripts/e2e-report-counts.ts apps/web/test-results/messaging-realtime-results.json
+      - name: Report actual discovered and executed outcomes
+        if: ${{ always() && !cancelled() && (steps.launch.outcome == 'success' || steps.launch.outcome == 'failure') }}
+        run: bun scripts/e2e-report-counts.ts apps/web/test-results/room-launch-results.json
+      - name: Sanitize retained proof artifacts
+        id: sanitize_launch
+        if: ${{ always() && !cancelled() && (steps.launch.outcome == 'success' || steps.launch.outcome == 'failure') }}
+        run: bun scripts/e2e-artifact-sanitizer.ts apps/web/test-results apps/web/playwright-report
+      - name: Retain Launch evidence on success and failure
+        if: ${{ always() && !cancelled() && steps.sanitize_launch.outcome == 'success' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: room-launch-${{ github.run_id }}
+          path: .pu/worktrees/wt-roomlaunchci/apps/web/test-results/
+          if-no-files-found: error
+          retention-days: 7
+      # No reviewer attaches to this ephemeral job's live slot. Evidence is
+      # retained first; release checks its own derived scope and main sentinel.
+      - name: Release only the completed suite-owned slot
+        if: ${{ always() && steps.slot.outcome == 'success' }}
+        run: bun --env-file=.env apps/web/e2e/support/room-launch-release.ts

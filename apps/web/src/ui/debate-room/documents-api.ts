@@ -65,5 +65,3 @@ export function createDocumentsApi({
     },
   };
 }
-
-export const documentsApi = createDocumentsApi();

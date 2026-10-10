@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { idSchema } from './primitives';
 import { topicStringSchema } from './topics';
 
 /**
@@ -116,6 +115,9 @@ export const ticketSchema = z.string().regex(/^[A-Za-z0-9_-]{43}$/);
 
 // --- Client message envelopes -----------------------------------------
 
+/** Request correlation is bounded transport data, never an entity identity. */
+export const realtimeRequestIdSchema = z.string().min(1).max(128);
+
 export const presenceActivitySchema = z.enum(['active', 'idle']);
 export type PresenceActivity = z.infer<typeof presenceActivitySchema>;
 /**
@@ -156,14 +158,14 @@ export function buildClientMessageSchema(
     z.strictObject({
       ...envelope,
       type: z.literal('subscribe'),
-      id: idSchema,
+      id: realtimeRequestIdSchema,
       topic: topicStringSchema,
       since: cursorSchema.optional(),
     }),
     z.strictObject({
       ...envelope,
       type: z.literal('unsubscribe'),
-      id: idSchema,
+      id: realtimeRequestIdSchema,
       topic: topicStringSchema,
     }),
     z.strictObject({
@@ -174,7 +176,7 @@ export function buildClientMessageSchema(
     z.strictObject({
       ...envelope,
       type: z.literal('ping'),
-      id: idSchema,
+      id: realtimeRequestIdSchema,
     }),
   ]);
 }

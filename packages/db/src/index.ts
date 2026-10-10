@@ -1,3 +1,9 @@
+import { createMessagingGroupCreationStore } from './messaging/group-creation-store';
+import type { MessagingGroupCreationFence } from './messaging/group-creation-contracts';
+import { createMessagingGroupInvitationStore } from './messaging/group-invitation-store';
+import type { MessagingGroupInvitationFence } from './messaging/group-invitation-contracts';
+import { createMessagingInboxStore } from './messaging/inbox-store';
+import { createMessagingChannelAuthority } from './messaging/authority-frame';
 import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { sql } from 'drizzle-orm';
@@ -21,6 +27,7 @@ import { onboardingOperations } from './onboarding-operations';
 import {
   createMessagingStore,
   createMessagingFileStore,
+  createMessagingDmStore,
   createMessagingFileCleanup,
   type MessagingAuthorizationFence,
   createMessagingSocialStore,
@@ -32,6 +39,8 @@ import { standingsOperations } from './standings';
 import type { RateDebateInput } from './rating-facts';
 import { emailDeliveryOperations } from './email-delivery-operations';
 import { outboxOperations } from './outbox';
+import { readOutboxCatchup } from './outbox-catchup';
+import { readOutboxRetentionBoundary } from './outbox-retention-boundary';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import {
   runtimeRoleFactsFrom,
@@ -165,6 +174,13 @@ export function createDatabase({
     ...authorizationSessionOperations({ database }),
     ...emailDeliveryOperations({ database, eventSink }),
     ...actorOperations({ database, eventSink }),
+    messagingInboxStore: (
+      authorize: Parameters<typeof createMessagingInboxStore>[1],
+    ) => createMessagingInboxStore(database, authorize),
+    messagingDmStore: (
+      authorize: Parameters<typeof createMessagingDmStore>[0]['authorize'],
+    ) => createMessagingDmStore({ database, authorize }),
+    messagingChannelAuthority: createMessagingChannelAuthority(database),
     messagingFileCleanup: (
       authorize: Parameters<typeof createMessagingFileCleanup>[0]['authorize'],
     ) => createMessagingFileCleanup({ database, authorize }),
@@ -173,9 +189,26 @@ export function createDatabase({
     ) => createMessagingFileStore({ database, authorize }),
     messagingChannelStore: (authorize: MessagingAuthorizationFence) =>
       createMessagingStore({ database, authorize }),
+    messagingGroupCreationStore: (authorize: MessagingGroupCreationFence) =>
+      createMessagingGroupCreationStore(database, authorize),
+    messagingGroupInvitationStore: (authorize: MessagingGroupInvitationFence) =>
+      createMessagingGroupInvitationStore({ database, authorize }),
     messagingSocialStore: (authorize: MessagingSocialAuthorizationFence) =>
       createMessagingSocialStore({ database, authorize }),
     ...outboxOperations({ database, eventSink }),
+    readOutboxRetentionBoundary: () =>
+      instrumented(eventSink, 'readOutboxRetentionBoundary', () =>
+        readOutboxRetentionBoundary(database),
+      ),
+    readOutboxCatchup: (
+      topic: string,
+      since: string,
+      through: import('./outbox').OutboxPosition,
+      limit?: number,
+    ) =>
+      instrumented(eventSink, 'readOutboxCatchup', () =>
+        readOutboxCatchup(database, topic, since, through, limit),
+      ),
     ...formatOperations({ database, eventSink }),
     ...roomOperations({ database, eventSink }),
     ...roomCommandOperations({ database, eventSink }),

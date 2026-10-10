@@ -16,12 +16,14 @@ const member: Identity = {
 
 const handlerWith = ({
   identity = member,
+  websocketEndpoint = 'wss://socket.daisy.invalid/realtime' as string | null,
   consume = allowEvery,
   sessionId = async () => 'session1',
   actor = { id: 'actor1' } as { readonly id: string } | null,
   issue = async () => {},
 }: {
   identity?: Identity;
+  websocketEndpoint?: string | null;
   consume?: (
     key: string,
     rule: unknown,
@@ -47,6 +49,7 @@ const handlerWith = ({
   const handler = createTicketHandler({
     logger: silentLogger,
     origin: () => 'http://localhost:3000/',
+    websocketEndpoint: () => websocketEndpoint,
     identify: async () => identity,
     sessionId,
     limiter: () => ({
@@ -272,5 +275,16 @@ describe('POST /api/realtime/ticket, the happy path', () => {
       actual: first.ticket === second.ticket,
       expected: false,
     });
+  });
+});
+
+test('missing realtime endpoint refuses before ticket issuance', async () => {
+  const { handler, issued } = handlerWith({ websocketEndpoint: null });
+  const response = await handler(post());
+  assert({
+    given: 'no explicitly configured websocket endpoint',
+    should: 'answer unavailable without minting a ticket',
+    actual: { status: response.status, issued: issued.length },
+    expected: { status: 503, issued: 0 },
   });
 });

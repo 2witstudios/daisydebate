@@ -1,7 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { memoryAdapter } from '@better-auth/memory-adapter';
 import type { AuthRateLimiter } from './rate-limit';
-import { CLIENT_IP_HEADER } from './client-ip';
+import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
 import {
   authTestEnv,
   composeAuthServer,

@@ -3,7 +3,7 @@ import { requireTestServices } from '@daisy/config';
 import { assert, describe, test } from 'riteway/bun';
 import { origin } from './fixtures';
 import { trackRevocations } from './auth-outbox-helpers';
-import { CLIENT_IP_HEADER } from '../src/features/auth/abuse/client-ip';
+import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
 
 requireTestServices(process.env);
 const { flows, recordedEvents, newClient, signUp } = await authFlows();

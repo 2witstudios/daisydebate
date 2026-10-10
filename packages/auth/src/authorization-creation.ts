@@ -77,12 +77,10 @@ function policyCurrent(
     policy.decision.trim().length > 0
   );
 }
-export function socialCreationAllowed(
-  actorId: string,
-  capability: AuthorizationCapability,
+function currentAdmission(
   resource: SocialCreationFact,
   context: AuthorizationInput['context'],
-): boolean {
+) {
   const policy = context.socialCreationPolicy;
   if (
     !policy ||
@@ -90,15 +88,38 @@ export function socialCreationAllowed(
     !context.now ||
     !context.socialAccounts
   )
-    return false;
+    return null;
   if (!policyCurrent(resource, policy) || !policySelfCurrent(context))
-    return false;
+    return null;
   const members =
     resource.mode === 'dm'
-      ? [actorId, resource.recipientActorId]
+      ? [resource.initiatorActorId, resource.recipientActorId]
       : resource.memberActorIds;
+  return socialAccountsEligible(
+    members,
+    context.socialAccounts,
+    context.now,
+    policy,
+  )
+    ? policy
+    : null;
+}
+export function socialCreationAllowed(
+  actorId: string,
+  capability: AuthorizationCapability,
+  resource: SocialCreationFact,
+  context: AuthorizationInput['context'],
+): boolean {
+  const policy = currentAdmission(resource, context);
   return (
-    intentCurrent(actorId, capability, resource, policy) &&
-    socialAccountsEligible(members, context.socialAccounts, context.now, policy)
+    policy !== null && intentCurrent(actorId, capability, resource, policy)
   );
+}
+/** Admission to an existing group uses the same explicit policy and pairwise eligibility as creation. */
+export function socialGroupAdmissionAllowed(
+  resource: Extract<SocialCreationFact, { mode: 'private_group' }>,
+  context: AuthorizationInput['context'],
+): boolean {
+  const policy = currentAdmission(resource, context);
+  return policy !== null && groupPairsCurrent(resource, policy);
 }

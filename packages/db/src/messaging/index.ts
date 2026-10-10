@@ -24,3 +24,16 @@ export {
   createMessagingFileCleanup,
   type MessagingFileCleanupFence,
 } from './file-cleanup';
+
+export type { MessagingDmStore } from './dm-contracts';
+
+export { createMessagingDmStore } from './dm-store';
+export type {
+  MessagingGroupInvitationFence,
+  MessagingGroupInvitationStore,
+} from './group-invitation-contracts';
+
+export type {
+  MessagingGroupCreationStore,
+  MessagingGroupCreationFence,
+} from './group-creation-contracts';

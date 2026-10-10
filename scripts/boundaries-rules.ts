@@ -35,6 +35,7 @@ export const allowedWorkspaceDependencies: Record<string, readonly string[]> = {
   db: ['config', 'errors', 'protocol'],
   redis: ['config', 'errors', 'protocol'],
   config: [],
+  ingress: ['config'],
   // Test-only: the redaction tests derive their secret keys from config's
   // schema (ADR 0019); the logger itself imports nothing from it.
   logger: ['config'],
@@ -44,6 +45,7 @@ export const allowedWorkspaceDependencies: Record<string, readonly string[]> = {
   // library. `@daisy/presence` is not yet a package (owned by a later RT
   // leaf); the edge is declared now so nothing else moves when it lands.
   realtime: [
+    'ingress',
     'protocol',
     'auth',
     'db',

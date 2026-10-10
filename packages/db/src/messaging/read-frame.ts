@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, lt, lte, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, lt, lte, isNull, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { messagingMessages } from '../schema/messaging-messages';
@@ -26,19 +26,32 @@ export function channelReadFrame(
     async history({
       limit,
       before,
+      query,
     }: {
       readonly limit: number;
       readonly before?: number;
+      readonly query?: string;
     }) {
       await authorize();
       requirePageLimit(limit);
       if (before !== undefined) requireOrder(before);
+      if (
+        query !== undefined &&
+        (typeof query !== 'string' || query.trim().length === 0)
+      )
+        throw createAppError('VALIDATION');
       const rows = await tx
         .select()
         .from(messagingMessages)
         .where(
           and(
             channel,
+            query === undefined
+              ? undefined
+              : and(
+                  isNull(messagingMessages.removedAt),
+                  sql`strpos(lower(${messagingMessages.text}), lower(${query})) > 0`,
+                ),
             before === undefined
               ? undefined
               : lt(messagingMessages.sequence, before),

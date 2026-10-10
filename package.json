@@ -80,7 +80,10 @@
     "slot:prune": "bun scripts/slot.ts prune",
     "infra:logs": "docker compose -f infra/compose.yaml logs -f",
     "audit": "bun scripts/audit.ts",
-    "pipeline:sync": "bun scripts/pipeline-sync.ts"
+    "pipeline:sync": "bun scripts/pipeline-sync.ts",
+    "test:e2e:room-launch": "bun --env-file=.env apps/web/e2e/support/room-launch-runner.ts",
+    "test:e2e:realtime": "bun --env-file=.env apps/web/e2e/support/realtime-runner.ts room",
+    "test:e2e:messaging-realtime": "bun --env-file=.env apps/web/e2e/support/realtime-runner.ts messaging"
   },
   "devDependencies": {
     "@eslint/js": "9.39.5",

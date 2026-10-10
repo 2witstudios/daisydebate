@@ -1,10 +1,10 @@
 import type { AddressInfo } from 'node:net';
 import type { Logger } from '@daisy/logger';
+import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { fixedClock, sequentialId } from '@daisy/clock';
 import {
   CLIENT_ID_HASH_HEADER,
-  CLIENT_IP_HEADER,
   clientIdHash,
   deriveClientIdSubkey,
 } from '../features/auth/abuse/client-ip';

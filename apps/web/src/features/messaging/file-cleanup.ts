@@ -1,4 +1,5 @@
 import type { Database } from '@daisy/db';
+import type { MessagingFileCleanupFence } from '@daisy/db/messaging';
 import type {
   AuthorizationPrincipal,
   PendingFileAuthorizationFact,
@@ -14,7 +15,7 @@ export function composeMessagingFileCleanup({
   readonly database: Pick<Database, 'messagingFileCleanup'>;
   readonly principal: AuthorizationPrincipal;
 }) {
-  return database.messagingFileCleanup(async (_tx, input, frame) => {
+  const authorize: MessagingFileCleanupFence = async (_tx, input, frame) => {
     if (
       principal.kind !== 'user' ||
       principal.userId !== input.userId ||
@@ -31,5 +32,6 @@ export function composeMessagingFileCleanup({
           frame.accounts.find((row) => row?.actorId === input.actorId) ?? null,
       },
     });
-  });
+  };
+  return database.messagingFileCleanup(authorize);
 }

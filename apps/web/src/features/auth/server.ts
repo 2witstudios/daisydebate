@@ -45,7 +45,7 @@ import {
   SESSION_FRESH_AGE_SECONDS,
   SESSION_UPDATE_AGE_SECONDS,
 } from './sessions/session-policy';
-import { CLIENT_IP_HEADER } from './abuse/client-ip';
+import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
 import {
   clientIpOptions,
   createRateLimitGate,
