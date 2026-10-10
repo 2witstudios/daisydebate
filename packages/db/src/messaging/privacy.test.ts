@@ -55,6 +55,7 @@ test('subject export removes other-direction private state and serializes dates/
         decided_at: date,
       },
     ],
+    [],
     [
       {
         id: 'f'.repeat(24),
@@ -71,7 +72,7 @@ test('subject export removes other-direction private state and serializes dates/
   assert({
     given: 'own and other-direction request/block/invitation facts',
     should:
-      'export only own private decisions and explicit UTC JSON values without title attribution',
+      'export only own private decisions and explicit UTC JSON values with title attribution',
     actual: [
       result.messaging_channels,
       result.messaging_messages,
@@ -145,6 +146,7 @@ test('erasure fences every subject channel before file cleanup and publishes fin
     [{ changeVersion: 2 }],
     [],
     [{ changeVersion: 3 }],
+    [],
     [],
     [],
     [],

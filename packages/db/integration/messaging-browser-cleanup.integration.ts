@@ -23,6 +23,7 @@ test('browser cleanup accepts owned group provenance and refuses foreign invitat
       policy_revision: 1,
       lifecycle: 'active',
       title: 'Owned browser group',
+      title_author_actor_id: owner.actorId,
     });
     await fixture.sql`insert into messaging_social_commands(actor_id,request_id,kind,result_channel_id,created_at) values(${owner.actorId},${requestId},'group.create',${channelId},${now})`;
     await fixture.sql`insert into messaging_group_grants(channel_id,actor_id,role,generation,granted_at) values(${channelId},${owner.actorId},'manager',1,${now})`;

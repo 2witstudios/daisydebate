@@ -74,6 +74,7 @@ test('social channels use constrained identity rather than preference grants', (
       'policy_key',
       'policy_revision',
       'title',
+      'title_author_actor_id',
     ],
   });
   assert({

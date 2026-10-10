@@ -1,3 +1,5 @@
+import { accountAgePrivacyAdopter } from '../src/account-age';
+import { createMessagingPrivacyAdopter } from '../src/messaging/privacy';
 import { createId } from '@paralleldrive/cuid2';
 import { eq } from 'drizzle-orm';
 import { actors } from '../src/schema/actors';
@@ -17,7 +19,27 @@ import {
   messagingReceipts,
   messagingReactions,
 } from '../src/schema/messaging-messages';
+import { messagingPrivacyExpectedColumns } from '../src/privacy';
 import { now, withPrivacySubject } from './privacy.test-support';
+
+export const messagingRequiredAdopters = [
+  {
+    id: 'messaging',
+    phase: 'before-auth' as const,
+    expectedColumns: messagingPrivacyExpectedColumns,
+  },
+  {
+    id: 'account-age',
+    phase: 'after-scrub' as const,
+    expectedColumns: {
+      account_age: ['user_id', 'birth_month', 'version', 'recorded_at'],
+    },
+  },
+];
+export const messagingPrivacyAdoption = {
+  requiredAdopters: messagingRequiredAdopters,
+  adopters: [createMessagingPrivacyAdopter(), accountAgePrivacyAdopter],
+};
 
 /** Composes real MSG-owned tables through Drizzle; no alternative contact backend. */
 export async function withPrivacyMessaging(
@@ -74,7 +96,8 @@ export async function withPrivacyMessaging(
           policyKey: 'social.private_group',
           policyRevision: 1,
           lifecycle: 'active',
-          title: 'Unattributed shared title',
+          title: 'Peer-authored shared title',
+          titleAuthorActorId: otherActorId,
           createdAt: timestamp,
         },
       ]);

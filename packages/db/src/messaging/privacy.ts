@@ -49,6 +49,7 @@ async function lockSubjectMessaging(
   await tx.execute(sql`
     select id from messaging_channels where id in (
       select channel_id from messaging_dm_pairs where low_actor_id=${actorId} or high_actor_id=${actorId}
+      union select id from messaging_channels where title_author_actor_id=${actorId}
       union select channel_id from messaging_group_grants where actor_id=${actorId}
       union select channel_id from messaging_messages where author_actor_id=${actorId}
       union select channel_id from messaging_reactions where actor_id=${actorId}
@@ -107,6 +108,25 @@ async function scrubSubjectMessages(
   }
 }
 
+async function eraseSubjectTitles(
+  tx: AuthorizationTransaction,
+  actorId: string,
+  versions: Map<string, number>,
+) {
+  const channels = rowsOf<{ channelId: string }>(
+    await tx.execute(
+      sql`select id as "channelId" from messaging_channels where title_author_actor_id=${actorId} order by id`,
+    ),
+  );
+  for (const { channelId } of channels) {
+    const version = await advanceChannel(tx, channelId, false);
+    await tx.execute(
+      sql`update messaging_channels set title=null,title_author_actor_id=null where id=${channelId} and title_author_actor_id=${actorId}`,
+    );
+    versions.set(channelId, version);
+  }
+}
+
 async function eraseAssociations(
   tx: AuthorizationTransaction,
   actorId: string,
@@ -162,6 +182,7 @@ export function createMessagingPrivacyAdopter(): PrivacyAdopter {
       await lockSubjectMessaging(tx, subject.actorId);
       const versions = new Map<string, number>();
       await scrubSubjectMessages(tx, subject.actorId, now, versions);
+      await eraseSubjectTitles(tx, subject.actorId, versions);
       await eraseSubjectFiles(tx, subject.actorId);
       await eraseAssociations(tx, subject.actorId, versions);
       for (const [channelId, version] of versions)
@@ -243,12 +264,15 @@ export function createMessagingPrivacyAdopter(): PrivacyAdopter {
         if (row.invitee_actor_id === actorId) return row;
         return omitPrivateColumns(row, ['state', 'decided_at']);
       });
-      // Shared title has no subject attribution. Never export another author's
-      // text/title by guessing ownership from current membership.
+      const channels = rowsOf<Record<string, unknown>>(
+        await tx.execute(
+          sql`select id,title,title_author_actor_id from messaging_channels where title_author_actor_id=${actorId} order by id`,
+        ),
+      );
       return Object.fromEntries(
         Object.entries({
           ...(await exportSubjectFiles(tx, actorId)),
-          messaging_channels: [],
+          messaging_channels: channels,
           messaging_messages: messages,
           messaging_actor_states: preferences,
           messaging_group_grants: grants,

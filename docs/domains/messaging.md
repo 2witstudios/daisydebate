@@ -30,8 +30,14 @@ owner approval of its pending product policy.
 The same-transaction `messaging` privacy adopter runs before canonical account
 scrubbing. It deletes subject receipts, reactions, preferences, grants, contact
 pairs and DM pair authority, scrubs only subject-authored text, and preserves
-other authors' contributions. Shared titles lack subject attribution and are
-preserved; export returns no channel title rows. Missing DM pair authority denies
+other authors' contributions. Private-group creation binds caller-authored titles
+to the trusted creator in `messaging_channels.title_author_actor_id`. Export
+returns only that author's channel ID, title and author binding, regardless of
+current membership, manager transfers or command-receipt cleanup. Erasure clears
+the author's title and binding together, preserving the shared channel and other
+authors' titles. Title-only channels join the same ordered channel lock set;
+clearing advances the channel change version and emits a content-free doorbell
+within the canonical privacy transaction. Missing DM pair authority denies
 reads and posting. DEC126 governs any future survivor-history continuity; no
 continuity permission is inferred. Export includes subject-owned declared fields
 only, excludes the other actor's directional block flag, and serializes dates as
@@ -163,9 +169,14 @@ Schema input and cleanup/export source must be composed with the sole canonical
 inventory update and CAP's reviewed forward migration before rights or service
 acceptance. Stale inventory refuses the newly exported table. These source
 changes do not establish migration application, physical cleanup proof, accepted
-group policy, late-join history policy or production collection activation. The
-shared title still has no durable subject-owner field; existing title locality
-and privacy gaps remain explicit.
+group policy, late-join history policy or production collection activation. The title author binding is personal/private MSG-owned PostgreSQL data,
+exportable to its subject and deleted with its authored title on erasure. Its
+purpose is subject-directed private communication and social access. Lawful
+basis and retention remain pending PRIV-3 and PRIV-4; this rights implementation
+does not authorize production collection. The schema couples title and author: DM
+channels carry neither, private groups carry both or neither after erasure. The
+forward migration requires an empty greenfield target; existing unattributed local
+fixtures must be recreated by their owner, never assigned an inferred author.
 
 ## Public username intent discovery
 

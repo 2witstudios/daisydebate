@@ -4,7 +4,7 @@ import type { PrivacyFieldDeclaration } from './contracts';
 const messagingColumns = {
   messaging_channels: {
     identifier: ['id'],
-    personal: ['title'],
+    personal: ['title', 'title_author_actor_id'],
     none: [
       'kind',
       'policy_key',

@@ -15,6 +15,7 @@ import {
   messagingChannelColumn,
 } from './messaging-columns';
 import { createdAtColumn, oneOf } from './columns';
+import { actors } from './actors';
 
 /** Social foundation only; contextual kinds arrive with their real producer. */
 export const messagingChannels = pgTable(
@@ -26,6 +27,10 @@ export const messagingChannels = pgTable(
     policyRevision: integer('policy_revision').notNull(),
     lifecycle: text('lifecycle').notNull(),
     title: text('title'),
+    titleAuthorActorId: text('title_author_actor_id').references(
+      () => actors.id,
+      { onDelete: 'restrict' },
+    ),
     messageSequence: bigint('message_sequence', { mode: 'number' })
       .notNull()
       .default(0),
@@ -38,6 +43,7 @@ export const messagingChannels = pgTable(
     createdAt: createdAtColumn(),
   },
   (table) => [
+    index('messaging_channels_title_author_idx').on(table.titleAuthorActorId),
     unique('messaging_channels_id_kind_unique').on(table.id, table.kind),
     check(
       'messaging_channels_kind',
@@ -61,7 +67,7 @@ export const messagingChannels = pgTable(
     ),
     check(
       'messaging_channels_title',
-      sql`(${table.kind} = 'dm' and ${table.title} is null) or (${table.kind} = 'private_group' and ${table.title} is not null and ${table.title} ~ '[^[:space:]]')`,
+      sql`(${table.title} is null and ${table.titleAuthorActorId} is null) or (${table.kind} = 'private_group' and ${table.title} is not null and ${table.title} ~ '[^[:space:]]' and ${table.titleAuthorActorId} is not null)`,
     ),
   ],
 );
