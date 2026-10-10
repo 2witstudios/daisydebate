@@ -18,6 +18,12 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 const redactions: readonly (readonly [RegExp, string])[] = [
+  // Ticket responses and hello frames may be nested JSON inside trace records.
+  // Preserve the surrounding quote/escape framing while removing bearer data.
+  [
+    /((?:\\*)"ticket(?:\\*)"\s*:\s*(?:\\*)")[A-Za-z0-9_-]+((?:\\*)")/g,
+    '$1[REDACTED]$2',
+  ],
   // Any PEM private key, such as the e2e TLS edge's (ISSUE-78): an artifact
   // must never carry key material, however short-lived.
   [
