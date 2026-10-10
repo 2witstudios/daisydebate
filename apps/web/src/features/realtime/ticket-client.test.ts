@@ -115,9 +115,21 @@ test('reader failures expose only fixed stage names and never untrusted diagnost
       fetchImpl: async () => new Response('private invalid JSON'),
     },
     {
-      name: 'RealtimeTicketSchemaError',
+      name: 'RealtimeTicketSchemaTicketError',
       fetchImpl: async () =>
         Response.json({ ticket: 'private malformed ticket' }),
+    },
+    {
+      name: 'RealtimeTicketSchemaObjectError',
+      fetchImpl: async () => Response.json(null),
+    },
+    {
+      name: 'RealtimeTicketSchemaSocketUrlError',
+      fetchImpl: async () =>
+        Response.json({
+          ticket: validTicket,
+          socketUrl: 'https://private.invalid',
+        }),
     },
     {
       name: 'RealtimeTicketEndpointError',
@@ -150,6 +162,48 @@ test('reader failures expose only fixed stage names and never untrusted diagnost
       should: 'report its fixed stage without response or transport details',
       actual,
       expected: { name: scenario.name, privateDetail: false },
+    });
+  }
+});
+
+test('thrown schema exceptions retain only a fixed native class', async () => {
+  for (const failure of [
+    new EvalError('private eval detail'),
+    new ReferenceError('private reference'),
+    new TypeError('private type'),
+    new Error('private unknown'),
+  ]) {
+    const payload = Object.defineProperty(
+      { socketUrl: 'wss://localhost:13014/ws' },
+      'ticket',
+      {
+        get() {
+          throw failure;
+        },
+        enumerable: true,
+      },
+    );
+    let actual: unknown;
+    try {
+      await fetchRealtimeTicket({
+        fetchImpl: async () =>
+          Object.assign(Response.json({}), { json: async () => payload }),
+      });
+    } catch (error) {
+      actual =
+        error instanceof Error
+          ? [error.name, error.message.includes('private')]
+          : error;
+    }
+    assert({
+      given: 'a parser exception with private diagnostic text',
+      should:
+        'distinguish it from rejected schema fields without retaining detail',
+      actual,
+      expected: [
+        `RealtimeTicketSchemaThrown${failure.name === 'Error' ? 'UnknownError' : failure.name}`,
+        false,
+      ],
     });
   }
 });
