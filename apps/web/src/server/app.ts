@@ -25,6 +25,7 @@ import { createMetricsStore, type MetricsStore } from './metrics-store';
 export type AppDependencies = {
   readonly roomPolicy?: RoomPolicy;
   readonly messagingPolicy?: MessagingRuntimePolicy;
+  /** Explicit attachment vendors/budgets; principal-bound stores are composed per operation. */
   readonly messagingFiles?: MessagingFileRuntime;
   /** Raw environment, validated here and nowhere else. */
   readonly env: Readonly<Record<string, string | undefined>>;

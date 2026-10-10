@@ -1,7 +1,7 @@
 import { createId } from '@paralleldrive/cuid2';
 import { expect, test } from './support/fixtures';
-import { origin, resetRateLimits, signUpMember } from './support/accounts';
-import { createFromPlay, reread } from './support/room-launch-flow';
+import { resetRateLimits, signUpMember } from './support/accounts';
+import { closeRoom, createFromPlay } from './support/room-launch-flow';
 
 test.beforeEach(async ({ request }) => {
   await resetRateLimits(request);
@@ -9,22 +9,6 @@ test.beforeEach(async ({ request }) => {
 
 const roomRows = (page: import('@playwright/test').Page) =>
   page.getByRole('list', { name: 'Available rooms' }).getByRole('listitem');
-
-const closeRoom = async (
-  request: import('@playwright/test').APIRequestContext,
-  id: string,
-) => {
-  const view = await reread(request, id);
-  const response = await request.post(`/api/rooms/${id}/commands`, {
-    headers: { origin },
-    data: {
-      type: 'close',
-      commandId: createId(),
-      expectedVersion: view.version,
-    },
-  });
-  expect(response.status()).toBe(200);
-};
 
 test.describe('authenticated Room lobby', () => {
   test.beforeEach(async ({ page }) => {

@@ -53,6 +53,23 @@ export async function createFromPlay(
   const id = new URL(page.url()).pathname.split('/').at(-1)!;
   return reread(page.request, id);
 }
+
+export async function closeRoom(
+  request: APIRequestContext,
+  id: string,
+): Promise<void> {
+  const view = await reread(request, id);
+  const response = await request.post(`/api/rooms/${id}/commands`, {
+    headers: { origin },
+    data: {
+      type: 'close',
+      commandId: createId(),
+      expectedVersion: view.version,
+    },
+  });
+  expect(response.status()).toBe(200);
+}
+
 export async function claim(page: Page, view: RoomView, seat: string) {
   await page.goto(`/rooms/${view.id}`);
   await page.getByRole('button', { name: `Take ${seat}`, exact: true }).click();

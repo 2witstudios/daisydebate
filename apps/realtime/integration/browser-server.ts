@@ -2,12 +2,15 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
 import { systemClock, systemId } from '@daisy/clock';
+import { SQL } from 'bun';
+import { createDatabase } from '@daisy/db';
 import {
   messagingTestReading,
   messagingTestGroupReading,
 } from '@daisy/auth/testing';
 import { createRealtimeApp } from '../src/app';
 import { serveRealtime } from '../src/serve';
+import { browserRuntimeTarget } from './browser-runtime-target';
 
 // Dedicated native-slot fixture with explicit test-only DM/group reading evidence.
 // Durable identity/membership and canonical authorization remain authoritative.
@@ -64,7 +67,31 @@ try {
 } finally {
   rmSync(directory, { recursive: true, force: true });
 }
+// The browser login is deliberately not a member of the runtime role. Reuse
+// only this native slot's existing isolated test administrator for SET ROLE;
+// the runtime connection then performs every query as daisy_realtime.
+const runtimeUrl = browserRuntimeTarget(
+  process.env.TEST_DATABASE_URL ?? '',
+  process.env.DATABASE_URL!,
+  slot,
+);
+const runtimeClient = new SQL(runtimeUrl, { max: 1 });
+try {
+  await runtimeClient.unsafe('set role daisy_realtime');
+  const [binding] = await runtimeClient`select current_user as role`;
+  if (binding?.role !== 'daisy_realtime')
+    throw new Error('Realtime browser runtime role binding refused');
+} catch {
+  await runtimeClient.close();
+  throw new Error('Realtime browser runtime role unavailable');
+}
+const runtimeDatabase = createDatabase({
+  url: runtimeUrl,
+  client: runtimeClient,
+  nextActorId: () => systemId.next(),
+});
 const resources = createRealtimeApp({
+  database: runtimeDatabase,
   env: process.env,
   clock: systemClock,
   ids: systemId,
@@ -78,6 +105,9 @@ const runtime = await serveRealtime({
   port,
   hostname: '127.0.0.1',
   tls: { key, cert },
+}).catch(async () => {
+  await resources.close();
+  throw new Error('Realtime browser listener unavailable');
 });
 let closing: Promise<void> | undefined;
 for (const signal of ['SIGTERM', 'SIGINT'] as const)
