@@ -9,26 +9,39 @@ import type { MessageFormState } from '../../features/messaging/forms/send-form'
 export function MessageMutationForm({
   action,
   state,
+  removeRequestId,
   maxUnits,
 }: {
   readonly action: FormAction<MessageFormState>;
   readonly state: MessageFormState;
+  readonly removeRequestId: string;
   readonly maxUnits: number;
 }) {
-  const [answer, post, pending] = useFormAction(
+  const [answer, postEdit, editPending] = useFormAction(
     action,
     state,
     messageMutationUnavailable,
   );
-  useMovedOn(answer.next);
+  const [removeAnswer, postRemove, removePending] = useFormAction(
+    action,
+    { requestId: removeRequestId, text: '' },
+    messageMutationUnavailable,
+  );
+  useMovedOn(answer.next ?? removeAnswer.next);
   return (
-    <form action={post} className="mt-4 flex flex-col gap-3">
+    <div className="mt-4 flex flex-col gap-3">
       <MessageMutationFields
         answer={answer}
-        pending={pending}
+        pending={editPending}
         maxUnits={maxUnits}
+        action={postEdit}
       />
-    </form>
+      <MessageRemovalFields
+        answer={removeAnswer}
+        pending={removePending}
+        action={postRemove}
+      />
+    </div>
   );
 }
 /** The native field set keeps a refused draft and distinct edit/removal intent. */
@@ -36,15 +49,18 @@ export function MessageMutationFields({
   answer,
   pending,
   maxUnits,
+  action,
 }: {
   readonly answer: MessageFormState;
   readonly pending: boolean;
   readonly maxUnits: number;
+  readonly action: (form: FormData) => void;
 }) {
   const noticeId = `message-mutation-${answer.requestId}`;
   return (
-    <>
+    <form action={action} className="flex flex-col gap-3">
       <input type="hidden" name="requestId" value={answer.requestId} />
+      <input type="hidden" name="operation" value="edit" />
       <label className="flex flex-col gap-2">
         Revise your message
         <textarea
@@ -60,24 +76,39 @@ export function MessageMutationFields({
       </label>
       <DraftNotice id={noticeId} notice={answer.notice} />
       <div className="flex gap-3">
-        <Button
-          type="submit"
-          name="operation"
-          value="edit"
-          disabled={pending || answer.next !== undefined}
-        >
+        <Button type="submit" disabled={pending || answer.next !== undefined}>
           Save message edit
         </Button>
-        <Button
-          type="submit"
-          name="operation"
-          value="remove"
-          formNoValidate
-          disabled={pending || answer.next !== undefined}
-        >
-          Remove your message
-        </Button>
       </div>
-    </>
+    </form>
+  );
+}
+
+/** Removal is a separate native command with its own idempotency key. */
+export function MessageRemovalFields({
+  answer,
+  pending,
+  action,
+}: {
+  readonly answer: MessageFormState;
+  readonly pending: boolean;
+  readonly action: (form: FormData) => void;
+}) {
+  return (
+    <form action={action} className="flex flex-col gap-3">
+      <input type="hidden" name="requestId" value={answer.requestId} />
+      <input type="hidden" name="operation" value="remove" />
+      <DraftNotice
+        id={`message-removal-${answer.requestId}`}
+        notice={answer.notice}
+      />
+      <Button
+        type="submit"
+        disabled={pending || answer.next !== undefined}
+        formNoValidate
+      >
+        Remove your message
+      </Button>
+    </form>
   );
 }

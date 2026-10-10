@@ -46,9 +46,9 @@ export default async function OwnMessagePage(props: MessagingChannelPageProps) {
         snapshotId={requestId}
       >
         <MessageMutationForm
-          key={requestId}
           action={changeMessageAction.bind(null, channelId, messageId)}
           state={{ requestId, text: message.text }}
+          removeRequestId={systemId.next()}
           maxUnits={conversation.bounds.messageUnits}
         />
       </ConversationLive>

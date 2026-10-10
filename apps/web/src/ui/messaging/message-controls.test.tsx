@@ -1,6 +1,9 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { MessageMutationFields } from './message-mutation-form';
+import {
+  MessageMutationFields,
+  MessageRemovalFields,
+} from './message-mutation-form';
 import { ReactionFields } from './reaction-form';
 setupRitewayBun();
 test('native own-message fields retain escaped drafts and explicit removal while refusing duplicate submission', () => {
@@ -10,30 +13,43 @@ test('native own-message fields retain escaped drafts and explicit removal while
     notice: 'Your message could not be changed.',
   };
   const ready = renderToStaticMarkup(
-    <MessageMutationFields answer={state} pending={false} maxUnits={100} />,
+    <MessageMutationFields
+      answer={state}
+      pending={false}
+      maxUnits={100}
+      action={() => {}}
+    />,
   );
   const waiting = renderToStaticMarkup(
     <MessageMutationFields
       answer={{ ...state, next: '/messages/channel' }}
       pending={true}
       maxUnits={100}
+      action={() => {}}
+    />,
+  );
+  const removal = renderToStaticMarkup(
+    <MessageRemovalFields
+      answer={{ requestId: 's'.repeat(24), text: '' }}
+      pending={false}
+      action={() => {}}
     />,
   );
   assert({
     given: 'refused draft and pending/completed navigation states',
     should:
-      'escape content, retain request/text/notice, provide explicit edit and no-validation removal, and disable pending submission',
+      'escape content, retain request/text/notice, provide an explicit hidden edit intent, and disable pending submission',
     actual: [
       ready.includes('&lt;script&gt;private draft&lt;/script&gt;'),
-      ready.includes('value="edit"'),
-      ready.includes('value="remove"'),
-      ready.includes('formNoValidate=""'),
+      ready.includes('name="operation" value="edit"'),
+      removal.includes('name="operation" value="remove"'),
+      removal.includes('formNoValidate=""'),
       ready.includes('Your message could not be changed.'),
       ready.toLowerCase().includes('maxlength="100"'),
       ready.includes('disabled=""'),
       (waiting.match(/disabled=""/g) ?? []).length,
     ],
-    expected: [true, true, true, true, true, true, false, 3],
+    expected: [true, true, true, true, true, true, false, 2],
   });
 });
 test('native reactions keep false cleanup intent distinct from addition and escape untrusted displayed choices', () => {
