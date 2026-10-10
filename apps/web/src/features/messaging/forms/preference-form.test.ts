@@ -1,6 +1,10 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
-import { parsePreferenceForm, preferenceUnavailable } from './preference-form';
+import {
+  parsePreferenceForm,
+  preferenceUnavailable,
+  preferenceFormState,
+} from './preference-form';
 setupRitewayBun();
 const channelId = 'c'.repeat(24);
 test('native preferences require explicit choices and keep retry state', () => {
@@ -62,4 +66,24 @@ test('clear does not create default selections and malformed/repeated choices re
       code: 'VALIDATION',
     });
   }
+});
+
+test('successful clear discards submitted choices while saved answers keep actual durable choices', () => {
+  assert({
+    given: 'a saved row followed by successful row deletion',
+    should: 'render unset selections rather than the prior submitted values',
+    actual: [
+      preferenceFormState({
+        following: false,
+        hidden: true,
+        notificationLevel: 'none',
+        readSequence: 9,
+      }),
+      preferenceFormState(null),
+    ],
+    expected: [
+      { following: 'no', hidden: 'yes', notificationLevel: 'none' },
+      { following: '', hidden: '', notificationLevel: '' },
+    ],
+  });
 });

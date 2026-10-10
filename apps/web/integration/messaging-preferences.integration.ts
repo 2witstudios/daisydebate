@@ -1,13 +1,11 @@
-import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 
-import { createRoutes } from '../src/server/routes';
-import { createTestApp, origin } from './fixtures';
+import { origin } from './fixtures';
 import {
-  messagingRouteActors,
-  messagingRoutePolicy,
+  mountedMessagingPair,
+  closeMountedMessagingPair,
   seedMessagingRouteDm,
 } from './messaging-route.test-support';
 
@@ -19,14 +17,8 @@ const selections = {
   notificationLevel: 'none' as const,
 };
 test('mounted preferences preserve eligible unfollowed history and current unread progress without disclosing outsider metadata', async () => {
-  const app = createTestApp(),
-    { first, second, me, peer } = await messagingRouteActors(app);
-  const client = new SQL(databaseUrl),
-    channelId = createId();
-  const routes = createRoutes({
-    ...app.app,
-    messagingPolicy: messagingRoutePolicy,
-  });
+  const { app, first, second, me, peer, client, channelId, routes } =
+    await mountedMessagingPair(databaseUrl);
   const request = (cookie: string, id = channelId) =>
     new Request(`${origin}/api/messaging/channels/${id}/preferences`, {
       headers: { cookie },
@@ -166,16 +158,10 @@ test('mounted preferences preserve eligible unfollowed history and current unrea
       expected: [200, 200, { ...scope, state: null, unread: 0 }, 404, 401],
     });
   } finally {
-    await client.unsafe('delete from messaging_channels where id=$1', [
-      channelId,
-    ]);
-    await client.unsafe("delete from outbox where payload->>'channelId'=$1", [
-      channelId,
-    ]);
-    await client.unsafe('delete from account_age where user_id in ($1,$2)', [
-      me.userId,
-      peer.userId,
-    ]);
-    await client.close();
+    try {
+      await closeMountedMessagingPair(client, channelId, me, peer);
+    } finally {
+      await client.close();
+    }
   }
 });

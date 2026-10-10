@@ -4,7 +4,7 @@ import {
   messagingTestPosting,
   messagingTestReading,
 } from '@daisy/auth/testing';
-import { createApp } from '../../../server/app';
+import { createMessagingUnitApp } from '../messaging-app.test-support';
 import { authTestEnv } from '../../auth/auth-server.test-support';
 import { composeMessagingFileRoutes } from './route-composition';
 import { fileOperationFixture } from './operations.test-support';
@@ -14,20 +14,9 @@ test('configured mounted file routes still authenticate before any private vendo
   const policy = f.d.policy;
   if (!policy) throw new Error('Explicit file fixture policy required');
   const limits = { max: 2, windowSeconds: 60 };
-  const app = createApp({
-    env: {
-      ...authTestEnv,
-      NODE_ENV: 'test',
-      DATABASE_URL: 'postgres://unit:unit@127.0.0.1:1/unit',
-      REDIS_URL: 'redis://127.0.0.1:1',
-      REDIS_NAMESPACE: 'file-route-unit',
-      LOG_LEVEL: 'silent',
-    },
+  const app = createMessagingUnitApp({
     clock: fixedClock(f.state.now),
     ids: sequentialId('file-route'),
-    fetch: async () => {
-      throw new Error('Unexpected outbound request');
-    },
     messagingPolicy: {
       posting: messagingTestPosting,
       reading: messagingTestReading,

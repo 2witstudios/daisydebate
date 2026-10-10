@@ -2,6 +2,7 @@ import { idSchema, messagingTypingSchemas } from '@daisy/protocol';
 import type { RedisTransport } from './transport';
 import { redisKey } from './redis-key';
 import { defineScript } from './script-registry';
+import { createTypingSubjectOperations } from './messaging-typing-subject';
 type Lease = ReturnType<typeof messagingTypingSchemas.lease.parse>;
 const readScript = defineScript("return redis.call('MGET', unpack(KEYS))");
 const positive = (value: number) => Number.isSafeInteger(value) && value > 0;
@@ -61,6 +62,7 @@ export function createMessagingTypingOperations({
     }
   };
   return {
+    ...createTypingSubjectOperations(client, namespace, run),
     async writeTypingLease(input: Lease, ttlMs: number) {
       const lease = messagingTypingSchemas.lease.safeParse(input);
       if (!lease.success || !positive(ttlMs))

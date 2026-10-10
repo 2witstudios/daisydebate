@@ -3,6 +3,7 @@ import {
   isPayloadDeliverableOnTopic,
   isPayloadStorableOnTopic,
   outboxPayloadSchema,
+  serverMessageSchema,
   type ServerMessage,
 } from '@daisy/protocol';
 import {
@@ -31,6 +32,8 @@ export function createSubscriptionDelivery({
   readonly transport: SubscriptionTransport;
   readonly remove: (connection: Connection) => void;
 }) {
+  const hints = new Map<string, Promise<void>>();
+  type TypingHint = Extract<ServerMessage, { type: 'typing_changed' }>;
   function revoke(connection: Connection) {
     remove(connection);
     connection.socket.close(4002, 'revoked');
@@ -101,16 +104,79 @@ export function createSubscriptionDelivery({
       return;
     }
     if (compare(row, sub.delivered) <= 0) return;
+    if (publishFrame(connection, row.topic, sub, () => event(row)))
+      sub.delivered = row;
+  }
+  function publishFrame(
+    connection: Connection,
+    topic: string,
+    sub: Subscription,
+    frame: () => ServerMessage,
+  ) {
+    if (!transport.current(connection, topic, sub)) {
+      transport.detach(connection, topic, sub);
+      return false;
+    }
     try {
-      publish(transport.nativeTopic(connection, row.topic), event(row));
+      publish(transport.nativeTopic(connection, topic), frame());
       if (connection.socket.bufferedAmount() > 262_144)
         throw new Error('Realtime recipient exceeded the soft buffer bound');
-      sub.delivered = row;
+      return true;
     } catch {
       remove(connection);
       connection.socket.close(4005, 'slow_consumer');
+      return false;
     }
   }
+  async function deliverHintTo(connection: Connection, frame: TypingHint) {
+    const sub = connection.topics.get(frame.topic);
+    if (!sub?.attached || sub.initializing) return;
+    // A lossy hint observes the durable generation; it must never supersede
+    // an in-flight durable event's authority attempt or extend its lease.
+    const observation = sub.lease.observe();
+    const decision = await readSubscriptionDecision(
+      authorize,
+      connection,
+      frame.topic,
+    );
+    if (
+      !ownsSubscription(connection, frame.topic, sub) ||
+      !sub.lease.observes(observation)
+    )
+      return;
+    if (!decision) {
+      transport.detach(connection, frame.topic, sub);
+      connection.topics.delete(frame.topic);
+      return;
+    }
+    if (
+      sub.lease.observes(observation, decision.validUntil) &&
+      transport.current(connection, frame.topic, sub)
+    )
+      publishFrame(connection, frame.topic, sub, () => frame);
+  }
+  function hint(frame: unknown): Promise<void> {
+    const parsed = serverMessageSchema.safeParse(frame, { jitless: true });
+    if (!parsed.success || parsed.data.type !== 'typing_changed')
+      return Promise.resolve();
+    const validated = parsed.data;
+    const busy = hints.get(validated.topic);
+    if (busy) return busy;
+    const recipients = [...connections].filter(
+      (connection) => connection.topics.get(validated.topic)?.attached,
+    );
+    if (recipients.length === 0) return Promise.resolve();
+    const delivery = Promise.allSettled(
+      recipients.map((connection) => deliverHintTo(connection, validated)),
+    )
+      .then(() => {})
+      .finally(() => {
+        hints.delete(validated.topic);
+      });
+    hints.set(validated.topic, delivery);
+    return delivery;
+  }
+
   async function deliverTo(connection: Connection, row: OutboxRow) {
     const sub = connection.topics.get(row.topic);
     if (!sub?.attached) return;
@@ -176,6 +242,10 @@ export function createSubscriptionDelivery({
     }
   }
   return {
+    hint,
+    async settledHints() {
+      await Promise.allSettled([...hints.values()]);
+    },
     invalidate: (rows: readonly OutboxRow[]) => {
       for (const row of rows) invalidateRow(row);
     },
