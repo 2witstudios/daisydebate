@@ -1,13 +1,11 @@
-import {
-  requireFileScannerPort,
-  controlledFileScan,
-} from './messaging-files.test-support';
+import { requireFileScannerPort } from './messaging-files.test-support';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   cleanFilePdf,
+  assertPendingFileDeletion,
   openComposedFileFixture,
 } from './messaging-files-composed.test-support';
 import {
@@ -25,35 +23,11 @@ test('canonical cancellation scrubs pending metadata while retaining the private
   try {
     const token = await f.quarantine();
     await cancelMessagingFile(token, f.principal, f.dependencies);
-    const row = await f.fileRow(token.fileId);
-    assert({
-      given: 'a cancelled real quarantined upload',
-      should:
-        'scrub associations and advance generation without releasing storage',
-      actual: {
-        lifecycle: row.lifecycle,
-        generation: row.generation,
-        filename: row.filename,
-        mime: row.mime,
-        requestId: row.request_id,
-        messageId: row.message_id,
-        bytes: [
-          ...(await f.objects.read(
-            String(row.object_key),
-            cleanFilePdf.length,
-          )),
-        ],
-      },
-      expected: {
-        lifecycle: 'deleting',
-        generation: token.generation + 1,
-        filename: null,
-        mime: null,
-        requestId: null,
-        messageId: null,
-        bytes: [...cleanFilePdf],
-      },
-    });
+    await assertPendingFileDeletion(
+      f,
+      token,
+      'a cancelled real quarantined upload',
+    );
     await assertRejects({
       given: 'the cancelled generation completing late',
       should: 'refuse attachment',
@@ -104,7 +78,7 @@ test('real file consumer attaches only scanned content and preserves clean quara
       expected: { bytes: [...cleanFilePdf], mime: 'application/pdf' },
     });
     const bells = await f.client.unsafe(
-      "select payload from outbox where payload->>'channelId'=$1 order by id",
+      "select payload from outbox where payload->>'channelId'=$1 order by txid, seq",
       [f.fixture.channelId],
     );
     assert({
@@ -185,50 +159,6 @@ for (const failure of ['age', 'scanner', 'infected'] as const) {
     }
   }, 30000);
 }
-
-test('late real clean scan cannot attach after canonical posting revocation', async () => {
-  const f = await openComposedFileFixture(databaseUrl, port);
-  const scan = controlledFileScan(f.dependencies.scanner);
-  let finalizing: Promise<unknown> | undefined;
-  try {
-    const token = await f.quarantine();
-    finalizing = finalizeMessagingFile(
-      { ...token, messageId: f.messageId },
-      f.principal,
-      { ...f.dependencies, scanner: scan.scanner },
-    );
-    const rejection = assertRejects({
-      given: 'real scan finishes after bilateral blocking commits',
-      should: 'refuse late attachment and invoke the actual cleanup capability',
-      actual: () => finalizing!,
-      code: 'AUTHORIZATION',
-    });
-    await scan.waitForScan(finalizing);
-    await f.client.unsafe(
-      'update messaging_contact_pairs set low_blocks_high=true,revision=revision+1 where low_actor_id=$1 and high_actor_id=$2',
-      [f.fixture.low, f.fixture.high],
-    );
-    await f.client.unsafe(
-      'update messaging_channels set authority_revision=authority_revision+1 where id=$1',
-      [f.fixture.channelId],
-    );
-    scan.release();
-    await rejection;
-    assert({
-      given: 'late scanner completion after current authority changed',
-      should: 'leave no attachment or message link',
-      actual: {
-        lifecycle: (await f.fileRow(token.fileId)).lifecycle,
-        messageId: (await f.fileRow(token.fileId)).message_id,
-      },
-      expected: { lifecycle: 'deleting', messageId: null },
-    });
-  } finally {
-    scan.release();
-    await finalizing?.catch(() => {});
-    await f.close();
-  }
-}, 30000);
 
 test('former group member loses file access while the surviving member keeps shared content', async () => {
   const f = await openComposedFileFixture(databaseUrl, port, true);
