@@ -10,6 +10,7 @@ import {
 } from '@daisy/auth/testing';
 import { createRealtimeApp } from '../src/app';
 import { serveRealtime } from '../src/serve';
+import { browserRuntimeTarget } from './browser-runtime-target';
 
 // Dedicated native-slot fixture with explicit test-only DM/group reading evidence.
 // Durable identity/membership and canonical authorization remain authoritative.
@@ -66,7 +67,15 @@ try {
 } finally {
   rmSync(directory, { recursive: true, force: true });
 }
-const runtimeClient = new SQL(process.env.DATABASE_URL!, { max: 1 });
+// The browser login is deliberately not a member of the runtime role. Reuse
+// only this native slot's existing isolated test administrator for SET ROLE;
+// the runtime connection then performs every query as daisy_realtime.
+const runtimeUrl = browserRuntimeTarget(
+  process.env.TEST_DATABASE_URL ?? '',
+  process.env.DATABASE_URL!,
+  slot,
+);
+const runtimeClient = new SQL(runtimeUrl, { max: 1 });
 try {
   await runtimeClient.unsafe('set role daisy_realtime');
   const [binding] = await runtimeClient`select current_user as role`;
@@ -77,7 +86,7 @@ try {
   throw new Error('Realtime browser runtime role unavailable');
 }
 const runtimeDatabase = createDatabase({
-  url: process.env.DATABASE_URL!,
+  url: runtimeUrl,
   client: runtimeClient,
   nextActorId: () => systemId.next(),
 });
