@@ -51,12 +51,97 @@ const redactions: readonly (readonly [RegExp, string])[] = [
   [/whsec_ZTJlLXBsYWNlaG9sZGVyLW5vdC1hLXNlY3JldA==/g, '[REDACTED]'],
 ];
 
-export function redactText(text: string): string {
-  return redactions.reduce(
-    (redacted, [pattern, replacement]) =>
-      redacted.replace(pattern, replacement),
+const redactPlain = (text: string): string =>
+  redactions.reduce(
+    (value, [pattern, replacement]) => value.replace(pattern, replacement),
     text,
   );
+
+function parsedJson(text: string): { value: unknown } | null {
+  try {
+    return { value: JSON.parse(text) };
+  } catch {
+    return null;
+  }
+}
+
+function redactJson(value: unknown, depth: number): unknown {
+  if (depth > 64)
+    throw new Error('Artifact JSON nesting exceeds the redaction bound');
+  if (typeof value === 'string') {
+    const nested = parsedJson(value);
+    if (!nested) return redactPlain(value);
+    return formatRedactedJson(
+      value,
+      nested.value,
+      redactJson(nested.value, depth + 1),
+    );
+  }
+  if (Array.isArray(value))
+    return value.map((item) => redactJson(item, depth + 1));
+  if (value !== null && typeof value === 'object')
+    return redactJsonObject(value, depth);
+  return value;
+}
+
+function redactJsonObject(value: object, depth: number): object {
+  const entries = Object.entries(value);
+  const header = entries.find(([key]) => key === 'name')?.[1];
+  const headerValue =
+    typeof header === 'string' &&
+    (/^(cookie|set-cookie|authorization)$/i.test(header) ||
+      /^__Secure-[\w.-]+$/.test(header));
+  return Object.fromEntries(
+    entries.map(([key, item]) => [
+      key,
+      typeof item === 'string' &&
+      (/^(ticket|cookie|set-cookie|authorization)$/i.test(key) ||
+        (key === 'value' && headerValue))
+        ? '[REDACTED]'
+        : redactJson(item, depth + 1),
+    ]),
+  );
+}
+
+function redactJsonRecord(text: string): string | null {
+  if (!/^\s*[[{"]/.test(text)) return null;
+  const parsed = parsedJson(text);
+  if (!parsed) return null;
+  return formatRedactedJson(text, parsed.value, redactJson(parsed.value, 0));
+}
+
+function formatRedactedJson(
+  text: string,
+  value: unknown,
+  sanitized: unknown,
+): string {
+  const original = JSON.stringify(value);
+  const redacted = JSON.stringify(sanitized);
+  if (original === redacted) return text;
+  return (
+    (text.match(/^\s*/)?.[0] ?? '') + redacted + (text.match(/\s*$/)?.[0] ?? '')
+  );
+}
+
+export function redactText(text: string): string {
+  const whole = redactJsonRecord(text);
+  if (whole !== null) return whole;
+  const output: string[] = [];
+  let plain = '';
+  const flush = () => {
+    output.push(redactPlain(plain));
+    plain = '';
+  };
+  for (const line of text.split(/(?<=\n)/)) {
+    const record = redactJsonRecord(line);
+    if (record === null) plain += line;
+    else {
+      flush();
+      output.push(record);
+    }
+  }
+  flush();
+  return output.join('');
 }
 
 const binaryExtension = /\.(png|jpe?g|webp|gif|woff2?|ttf|otf|ico)$/i;
