@@ -19,6 +19,9 @@ export function messagingBrowserTarget(
     throw new Error('Messaging browser own database required');
   return url.toString();
 }
+export const messagingBrowserSeedAccountsSchema = z
+  .array(z.strictObject({ userId: idSchema, username: z.string().min(1) }))
+  .min(1);
 const accountSchema = z.strictObject({
   userId: idSchema,
   username: z.string().min(1),
@@ -44,11 +47,22 @@ function worker(input: unknown): Promise<unknown> {
     child.stdin?.end(JSON.stringify(input));
   });
 }
+/** Signup objects also own browser contexts; transport only the declared account values. */
+export function messagingBrowserSeedCommand(
+  accounts: readonly { userId: string; username: string }[],
+) {
+  return {
+    action: 'seed' as const,
+    accounts: messagingBrowserSeedAccountsSchema.parse(
+      accounts.map(({ userId, username }) => ({ userId, username })),
+    ),
+  };
+}
 export async function openMessagingBrowserData(
   accounts: readonly { userId: string; username: string }[],
 ) {
   const seeded = messagingBrowserAccountsSchema.parse(
-    await worker({ action: 'seed', accounts }),
+    await worker(messagingBrowserSeedCommand(accounts)),
   );
   const channels: string[] = [];
   return {
