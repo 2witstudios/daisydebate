@@ -145,12 +145,16 @@ describe('Room assembly authority', () => {
         expectedVersion: configured.version,
         type: 'start-round',
       },
-      { available: true, readyActorIds: ['host', 'other', 'second-affirmative'] },
+      {
+        available: true,
+        readyActorIds: ['host', 'other', 'second-affirmative'],
+      },
       edges,
     );
 
     assert({
-      given: 'a complete cast persisted in a different order from its seat slots',
+      given:
+        'a complete cast persisted in a different order from its seat slots',
       should: 'sort the occupied slots and allow the atomic Launch',
       actual: result.ok && result.mutation.freeze,
       expected: true,
