@@ -2,6 +2,8 @@ import {
   competitionTypes,
   debateRoles,
   roomConfigSchema,
+  roomStatuses,
+  type RoomView,
   roomExecutionPlanSchema,
   roundLengthSchema,
   roundRulesSchema,
@@ -26,19 +28,14 @@ import {
   oneOf,
   timestampColumn,
   updatedAtColumn,
+  versionColumn,
+  versionPositive,
 } from './columns';
 import { formatPresets } from './format-presets';
 import { formatRevisions } from './format-revisions';
 import { seatActorId, seatRole, seatSlot, seatSlotCheck } from './seats';
 import { formats } from './formats';
-
-/** The Room's assembly lifecycle, before and after its freeze. */
-export const roomStatuses = [
-  'assembling',
-  'ready',
-  'started',
-  'abandoned',
-] as const;
+import { actors } from './actors';
 
 /**
  * The durable pre-competition aggregate (ADR 0058 §5a). The Room holds its
@@ -53,6 +50,14 @@ export const rooms = pgTable(
   'rooms',
   {
     id: text('id').primaryKey(),
+    hostActorId: text('host_actor_id')
+      .notNull()
+      .references(() => actors.id, { onDelete: 'restrict' }),
+    title: text('title').notNull(),
+    topic: text('topic').notNull(),
+    visibility: text('visibility').$type<RoomView['visibility']>().notNull(),
+    version: versionColumn(),
+    changeVersion: integer('change_version').notNull().default(1),
     formatId: text('format_id')
       .notNull()
       .references(() => formats.id, { onDelete: 'restrict' }),
@@ -81,6 +86,20 @@ export const rooms = pgTable(
     updatedAt: updatedAtColumn(),
   },
   (table) => [
+    index('rooms_host_actor_idx').on(table.hostActorId),
+    index('rooms_lobby_idx').on(
+      table.visibility,
+      table.status,
+      table.createdAt,
+    ),
+    check(
+      'rooms_visibility_check',
+      oneOf(table.visibility, ['public', 'unlisted', 'private']),
+    ),
+    check('rooms_title_nonempty', sql`length(trim(${table.title})) > 0`),
+    check('rooms_topic_nonempty', sql`length(trim(${table.topic})) > 0`),
+    versionPositive('rooms', table.version),
+    versionPositive('rooms_change', table.changeVersion),
     unique('rooms_id_format_unique').on(table.id, table.formatId),
     // Leading with each foreign key's own columns, so the provenance joins
     // and the RESTRICT probes are index lookups rather than scans.
@@ -144,6 +163,9 @@ export const roomParticipants = pgTable(
     actorId: seatActorId(),
     role: seatRole(),
     slot: seatSlot(),
+    /** Latest accepted readiness command; Redis consent must match this fence. */
+    readinessCommandId: text('readiness_command_id'),
+    readinessVersion: integer('readiness_version').notNull().default(0),
   },
   (table) => [
     uniqueIndex('room_participants_actor_unique').on(
@@ -158,5 +180,9 @@ export const roomParticipants = pgTable(
     index('room_participants_actor_idx').on(table.actorId),
     check('room_participants_role_check', oneOf(table.role, debateRoles)),
     check('room_participants_slot_check', seatSlotCheck(table.slot)),
+    check(
+      'room_participants_readiness_version_nonnegative',
+      sql`${table.readinessVersion} >= 0`,
+    ),
   ],
 );

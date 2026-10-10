@@ -81,7 +81,13 @@ export type {
   RatingState,
   RatingUnrated,
 } from './ratings';
-export { buildUserInboxTopic, buildDebateTopic } from './topics';
+export {
+  parseTopic,
+  buildUserInboxTopic,
+  buildDebateTopic,
+  buildChannelTopic,
+  buildRoomTopic,
+} from './topics';
 export {
   emailDeliveryStatuses,
   emailDeliveryStatusRank,
@@ -110,6 +116,7 @@ export type { CloseCodeReason } from './close-codes';
 export {
   outboxPayloadSchema,
   isPayloadStorableOnTopic,
+  isPayloadDeliverableOnTopic,
 } from './realtime-payloads';
 export {
   ENVELOPE_VERSION,
@@ -122,3 +129,64 @@ export {
   ticketSchema,
 } from './realtime';
 export type { PresenceActivity, PresenceStatus } from './realtime';
+
+export {
+  roomCreateSchema,
+  roomCommandSchema,
+  roomStatuses,
+} from './room-contract';
+export type {
+  RoomCreate,
+  RoomCommand,
+  RoomParticipant,
+  RoomRefusal,
+  RoomView,
+  RoomCommandReceipt,
+  RoomCommandResponse,
+  RoomCatalogChoice,
+} from './room-contract';
+
+// Persistent messaging contracts; bounds come from the owning policy.
+export { createMessagingCoreSchemas } from './messaging/core';
+export type { MessagingCoreBounds } from './messaging/core';
+export {
+  createMessagingSocialSchemas,
+  messagingDmResultSchema,
+  messagingDmDecisionResultSchema,
+} from './messaging/social';
+export type { MessagingSocialBounds } from './messaging/social';
+export type {
+  RoomAssemblyState,
+  RoomConsent,
+  RoomMutationOutcome,
+  RoomCastChoice,
+} from './room-contract';
+
+export { roundViewSchema, type RoundView } from './round-view';
+
+export {
+  roomViewSchema,
+  roomCatalogChoiceSchema,
+  roomCastChoiceSchema,
+} from './room-read';
+
+export { serverMessageSchema, type ServerMessage } from './realtime-server';
+
+export { createMessagingFileSchemas } from './messaging/files';
+
+export { createMessagingInboxSchemas } from './messaging/inbox';
+
+export {
+  messagingGroupInvitationResultSchema,
+  messagingGroupCreationResultSchema,
+  messagingContactBlockResultSchema,
+} from './messaging/social';
+export { parseUsername } from './username';
+
+export { messagingPreferenceSchemas } from './messaging/preferences';
+export { messagingTypingSchemas } from './messaging/typing';
+
+export {
+  createMessagingReactionSchemas,
+  type MessagingReactionPolicy,
+} from './messaging/reactions';

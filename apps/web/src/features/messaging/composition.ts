@@ -1,0 +1,210 @@
+import { composeMessagingReactionRoute } from './reaction-route';
+import { composeMessagingTypingRoutes } from './typing-route';
+import { composeMessagingPreferenceRoutes } from './preference-route';
+import { composeMessagingFileRoutes } from './files/route-composition';
+import { composeMessagingGroupIssuanceRoute } from './group-issuance-route';
+import { composeMessagingGroupManagementRoute } from './group-management-route';
+import { composeMessagingCreationIntentRoutes } from './creation-intent-route';
+import { composeMessagingGroupCreationRoute } from './group-creation-route';
+import { composeMessagingGroupInvitationRoutes } from './group-invitation-route';
+import { composeMessagingInboxRoute } from './inbox-route';
+import {
+  composeMessagingSocialRoutes,
+  type MessagingSocialRuntimePolicy,
+} from './social-composition';
+import type { SocialContactPolicy } from '@daisy/auth/social-policy';
+import { createAppError } from '@daisy/errors';
+import { messagingTypingSchemas } from '@daisy/protocol';
+import type { MessagingCoreBounds } from '@daisy/protocol';
+import type { App } from '../../server/app';
+import { handleOperation } from '../../server/http';
+import { identify } from '../../lib/identity';
+import { consumeOrThrow } from '../auth/abuse/rate-limit';
+import {
+  messagingAuthorizationFence,
+  type MessagingReadingPolicy,
+} from './authorization-fence';
+import { createMessagingHandlers } from './handlers';
+import { createMessagingReadOperations } from './read';
+import { sendMessagingMessage } from './send';
+import { mutateMessagingMessage } from './mutate';
+import { messagingMessageView } from './message-view';
+
+/** Explicit approved edge inputs; tests never supply production policy authority. */
+export type MessagingRuntimePolicy = {
+  readonly reactions?: import('@daisy/protocol').MessagingReactionPolicy;
+  readonly typing?: ReturnType<
+    typeof import('@daisy/protocol').messagingTypingSchemas.policy.parse
+  >;
+  readonly social?: MessagingSocialRuntimePolicy;
+  readonly bounds: MessagingCoreBounds;
+  readonly maxBodyBytes: number;
+  readonly editWindowMs: number;
+  readonly posting: SocialContactPolicy;
+  readonly groupPosting?: SocialContactPolicy;
+  readonly reading: MessagingReadingPolicy;
+  readonly limits: {
+    readonly actorSend: {
+      readonly max: number;
+      readonly windowSeconds: number;
+    };
+    readonly channelSend: {
+      readonly max: number;
+      readonly windowSeconds: number;
+    };
+    readonly read: { readonly max: number; readonly windowSeconds: number };
+  };
+};
+export function composeMessagingRoutes(app: App) {
+  const policy = app.messagingPolicy;
+  const run = (
+    request: Request,
+    operation:
+      | 'send'
+      | 'edit'
+      | 'remove'
+      | 'history'
+      | 'search'
+      | 'changes'
+      | 'markRead',
+    channelId?: string,
+  ) => {
+    if (!policy)
+      return handleOperation(
+        app.logger,
+        request,
+        'messaging.unavailable',
+        async () => {
+          throw createAppError('INFRASTRUCTURE');
+        },
+      );
+    const store = (
+      principal: Parameters<typeof sendMessagingMessage>[1],
+      capability: 'channel.post' | 'channel.read' | 'channel.message.remove',
+    ) =>
+      app.database.messagingChannelStore(
+        messagingAuthorizationFence({
+          principal,
+          capability,
+          clock: app.clock,
+          postingPolicy: policy.posting,
+          ...(policy.groupPosting === undefined
+            ? {}
+            : { groupPostingPolicy: policy.groupPosting }),
+          readingPolicy: policy.reading,
+        }),
+      );
+    const mutation =
+      (kind: 'edit' | 'remove') =>
+      async (
+        input: unknown,
+        principal: Parameters<typeof sendMessagingMessage>[1],
+      ) =>
+        messagingMessageView(
+          await mutateMessagingMessage(kind, input, principal, {
+            store: store(
+              principal,
+              kind === 'edit' ? 'channel.post' : 'channel.message.remove',
+            ),
+            bounds: policy.bounds,
+            editWindowMs: policy.editWindowMs,
+            clock: app.clock,
+            limit: async (actorId) =>
+              consumeOrThrow(
+                app.auth().limiter,
+                `messaging:mutation:${actorId}`,
+                policy.limits.actorSend,
+              ),
+          }),
+        );
+    const handlers = createMessagingHandlers({
+      logger: app.logger,
+      origin: () => app.auth().config.PUBLIC_APP_URL,
+      maxBodyBytes: policy.maxBodyBytes,
+      bounds: policy.bounds,
+      websocketEndpoint: app.websocketEndpoint,
+      ...(policy.typing === undefined
+        ? {}
+        : {
+            typingRefetchMs: messagingTypingSchemas.policy.parse(policy.typing)
+              .refetchMs,
+          }),
+      identify: (request) => identify(app.auth(), request.headers),
+      edit: mutation('edit'),
+      remove: mutation('remove'),
+      send: (input, principal) =>
+        sendMessagingMessage(input, principal, {
+          store: store(principal, 'channel.post'),
+          bounds: policy.bounds,
+          clock: app.clock,
+          ids: app.ids,
+          limit: async (actorId, channelId) => {
+            await consumeOrThrow(
+              app.auth().limiter,
+              `messaging:send:${actorId}`,
+              policy.limits.actorSend,
+            );
+            await consumeOrThrow(
+              app.auth().limiter,
+              `messaging:send:${actorId}:${channelId}`,
+              policy.limits.channelSend,
+            );
+          },
+        }).then(messagingMessageView),
+      ...(Object.fromEntries(
+        (['history', 'search', 'changes', 'markRead'] as const).map((kind) => [
+          kind,
+          async (
+            input: unknown,
+            principal: Parameters<typeof sendMessagingMessage>[1],
+          ) => {
+            if (principal.kind !== 'user' || principal.actorId === null)
+              throw createAppError('AUTHORIZATION');
+            await consumeOrThrow(
+              app.auth().limiter,
+              `messaging:read:${principal.actorId}`,
+              policy.limits.read,
+            );
+            return createMessagingReadOperations({
+              store: store(principal, 'channel.read'),
+              bounds: policy.bounds,
+            })[kind](input, principal);
+          },
+        ]),
+      ) as Pick<
+        Parameters<typeof createMessagingHandlers>[0],
+        'history' | 'search' | 'changes' | 'markRead'
+      >),
+    });
+    if (
+      operation === 'history' ||
+      operation === 'search' ||
+      operation === 'changes'
+    )
+      return handlers[operation](request, channelId!);
+    return handlers[operation](request);
+  };
+  return {
+    ...composeMessagingSocialRoutes(app),
+    ...composeMessagingCreationIntentRoutes(app),
+    ...composeMessagingGroupInvitationRoutes(app),
+    manageGroup: composeMessagingGroupManagementRoute(app),
+    inviteGroup: composeMessagingGroupIssuanceRoute(app),
+    files: composeMessagingFileRoutes(app),
+    createGroup: composeMessagingGroupCreationRoute(app),
+    inbox: composeMessagingInboxRoute(app),
+    preferences: composeMessagingPreferenceRoutes(app),
+    typing: composeMessagingTypingRoutes(app),
+    reactions: composeMessagingReactionRoute(app),
+    send: (request: Request) => run(request, 'send'),
+    edit: (request: Request) => run(request, 'edit'),
+    remove: (request: Request) => run(request, 'remove'),
+    search: (request: Request, channelId: string) =>
+      run(request, 'search', channelId),
+    history: (request: Request, channelId: string) =>
+      run(request, 'history', channelId),
+    changes: (request: Request, channelId: string) =>
+      run(request, 'changes', channelId),
+    markRead: (request: Request) => run(request, 'markRead'),
+  };
+}

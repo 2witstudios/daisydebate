@@ -12,12 +12,28 @@ import { parseTopic, type TopicFamily } from './topics';
  */
 const entityVersionSchema = z.int().positive();
 
+/** Channel sequence is separate from change version; this carries no content. */
+const channelChangedPayloadSchema = z.strictObject({
+  kind: z.literal('channel.changed'),
+  channelId: idSchema,
+  changeVersion: z.number().int().positive().safe(),
+});
+
+const messagingInboxChangedPayloadSchema = z.strictObject({
+  kind: z.literal('messaging.inbox.changed'),
+});
+
 /**
  * `debate.presence-changed` is not one of these: presence is never written
  * to the outbox (ADR 0033 §1). It is delivered as the `presence.changed`
  * server message instead, which carries no outbox position or kind.
  */
 const doorbellKinds = ['debate.phase-changed', 'standings.updated'] as const;
+const roomChangedPayloadSchema = z.strictObject({
+  entityVersion: entityVersionSchema,
+  kind: z.literal('room.changed'),
+  ids: z.array(idSchema).length(1),
+});
 const doorbellKindSchema = z.enum(doorbellKinds);
 
 /** The doorbell shape: nothing beyond ids, kind and entity version. */
@@ -78,7 +94,10 @@ const actorPresencePreferenceChangedPayloadSchema = z.strictObject({
 
 /** The outbox payload contract, discriminated by `kind`, always carrying `entityVersion`. */
 export const outboxPayloadSchema = z.discriminatedUnion('kind', [
+  channelChangedPayloadSchema,
+  messagingInboxChangedPayloadSchema,
   doorbellPayloadSchema,
+  roomChangedPayloadSchema,
   inboxDeltaPayloadSchema,
   sessionRevokedPayloadSchema,
   accessRevokedPayloadSchema,
@@ -99,10 +118,13 @@ type OutboxPayloadKind = OutboxPayload['kind'];
 const storageFamilyPayloadKinds: Readonly<
   Record<TopicFamily, readonly OutboxPayloadKind[]>
 > = {
+  channel: ['channel.changed'],
+  room: ['room.changed'],
   debate: ['debate.phase-changed'],
   'debate:presence': [],
   'debate:chat': [],
   'user:inbox': [
+    'messaging.inbox.changed',
     'user.notification-delivered',
     'session.revoked',
     'access.revoked',
@@ -123,9 +145,36 @@ export function isPayloadStorableOnTopic(
 ): boolean {
   const parsedTopic = parseTopic(topic);
   if (!parsedTopic) return false;
-  const parsedPayload = outboxPayloadSchema.safeParse(payload);
+  const parsedPayload = outboxPayloadSchema.safeParse(payload, {
+    jitless: true,
+  });
   if (!parsedPayload.success) return false;
+  if (parsedTopic.family === 'channel')
+    return (
+      parsedPayload.data.kind === 'channel.changed' &&
+      parsedPayload.data.channelId === parsedTopic.channelId
+    );
+  if (
+    parsedTopic.family === 'room' &&
+    (parsedPayload.data.kind !== 'room.changed' ||
+      parsedPayload.data.ids[0] !== parsedTopic.roomId)
+  )
+    return false;
   return storageFamilyPayloadKinds[parsedTopic.family].includes(
     parsedPayload.data.kind,
+  );
+}
+
+/** Validated subscriber events exclude durable control rows handled by the drain. */
+export function isPayloadDeliverableOnTopic(
+  topic: string,
+  payload: unknown,
+): boolean {
+  if (!isPayloadStorableOnTopic(topic, payload)) return false;
+  const { kind } = outboxPayloadSchema.parse(payload, { jitless: true });
+  return (
+    kind !== 'session.revoked' &&
+    kind !== 'access.revoked' &&
+    kind !== 'actor.presence-preference-changed'
   );
 }

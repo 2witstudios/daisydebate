@@ -1,3 +1,5 @@
+import { loadRealtimeClaimProblems } from './realtime-evidence-registration';
+import { loadRoomLaunchClaimProblems } from './room-launch-evidence-registration';
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import ts from 'typescript';
@@ -294,6 +296,15 @@ const e2eClaimProblems = async (
       detail:
         'no workflow invokes test:e2e; the browser tier would silently stop running in CI',
     });
+  const rootScripts = await readScripts(join(root, 'package.json'));
+  const proofInputs = {
+    read: (path: string) => readTextIfExists(join(root, path)),
+    rootScripts,
+    webScripts,
+    workflow: e2eWorkflow ?? '',
+  };
+  problems.push(...(await loadRoomLaunchClaimProblems(proofInputs)));
+  problems.push(...(await loadRealtimeClaimProblems(proofInputs)));
   return problems;
 };
 

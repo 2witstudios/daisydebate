@@ -1,8 +1,13 @@
+import { createConnectionDiagnostics } from './connection-diagnostics';
 import {
   ENVELOPE_VERSION,
   PROTOCOL_VERSION,
   heartbeatMs,
 } from '@daisy/protocol';
+import {
+  createTopicSubscriptions,
+  parseServerMessage,
+} from './topic-subscriptions';
 import { nextReconnectDelayMs } from './backoff';
 import {
   closeReasonForCode,
@@ -10,75 +15,26 @@ import {
   type TerminalReason,
 } from './close-code-policy';
 
-/**
- * The subset of the browser's native `WebSocket` this store uses. Tests
- * inject a fake; production wiring injects the real global `WebSocket`
- * (ADR 0031 §3: native WebSocket only, no client library).
- */
-export type WebSocketLike = {
-  readonly send: (data: string) => void;
-  readonly close: (code?: number, reason?: string) => void;
-  readonly addEventListener: (
-    type: 'open' | 'message' | 'close',
-    listener: (event: { readonly [key: string]: unknown }) => void,
-  ) => void;
-};
-
-/**
- * The injected timing seam: production wires real `performance.now`/
- * `setTimeout`/`clearTimeout`; tests wire a virtual clock and timer queue so
- * the heartbeat and backoff rules are proven deterministically (AGENTS.md:
- * inject clocks, never sleep-and-hope).
- */
-export type Scheduler = {
-  readonly now: () => number;
-  readonly setTimeout: (callback: () => void, ms: number) => unknown;
-  readonly clearTimeout: (id: unknown) => void;
-};
-
-type ConnectionStatus = 'idle' | 'connecting' | 'open' | 'closed';
-
-type ConnectionState = {
-  readonly status: ConnectionStatus;
-  readonly generation: number;
-  readonly terminal: TerminalReason | null;
-};
-
-export type ConnectionStoreDeps = {
-  readonly url: string;
-  readonly createSocket: (url: string) => WebSocketLike;
-  readonly scheduler: Scheduler;
-  readonly fetchTicket: () => Promise<string>;
-  readonly random: () => number;
-  /** Registers a visibility listener; the callback receives `true` when the
-   * tab becomes visible. Returns an unsubscribe function. */
-  readonly onVisibilityChange: (
-    callback: (visible: boolean) => void,
-  ) => () => void;
-};
-
-export type ConnectionStore = {
-  /** Single-flight: a no-op while already connecting or open. */
-  readonly connect: () => void;
-  /** User-initiated close (logout): closes the socket, never reconnects. */
-  readonly close: () => void;
-  /**
-   * A token refresh never reconnects a healthy socket: this is a documented
-   * no-op seam, kept so callers have somewhere to report the refresh without
-   * reaching into the store's internals.
-   */
-  readonly notifyTokenRefreshed: () => void;
-  readonly getState: () => ConnectionState;
-  readonly subscribe: (
-    listener: (state: ConnectionState) => void,
-  ) => () => void;
-};
+import type {
+  ConnectionStore,
+  ConnectionStoreDeps,
+  ConnectionStatus,
+  ConnectionState,
+  WebSocketLike,
+} from './connection-types';
+export type {
+  ConnectionStore,
+  ConnectionStoreDeps,
+  Scheduler,
+  WebSocketLike,
+} from './connection-types';
 
 const HEARTBEAT_DEAD_AFTER_MS = heartbeatMs * 2;
 
 export function createConnectionStore(
   deps: ConnectionStoreDeps,
 ): ConnectionStore {
+  const diagnostics = createConnectionDiagnostics();
   let generation = 0;
   let status: ConnectionStatus = 'idle';
   let terminal: TerminalReason | null = null;
@@ -108,6 +64,11 @@ export function createConnectionStore(
   let heartbeatTimer: unknown = null;
   let reconnectTimer: unknown = null;
   const listeners = new Set<(state: ConnectionState) => void>();
+  const topics = createTopicSubscriptions({
+    send: (frame) => {
+      if (status === 'open' && socket) socket.send(JSON.stringify(frame));
+    },
+  });
 
   deps.onVisibilityChange((visible) => {
     if (visible && status === 'open' && socket) sendVisibilityPing(generation);
@@ -248,36 +209,37 @@ export function createConnectionStore(
         ticket,
       }),
     );
+    diagnostics.emit(myGeneration, 'hello-sent');
   }
   function handleMessage(myGeneration: number, raw: unknown) {
     if (myGeneration !== generation) return;
     if (typeof raw !== 'string') return;
-    let message: unknown;
-    try {
-      message = JSON.parse(raw);
-    } catch {
-      return;
-    }
-    if (typeof message !== 'object' || message === null) return;
-    const type = Reflect.get(message, 'type');
+    const frame = parseServerMessage(raw);
+    if (!frame) return;
+    const type = frame.type;
     if (type === 'ready') {
+      if (status !== 'connecting') return;
       status = 'open';
       terminal = null;
       consecutiveAuthFailures = 0;
       reconnectAttempt = 0;
       startHeartbeat(myGeneration);
+      topics.reconnect();
       notify();
+      topics.emit(frame);
       return;
     }
+    if (status !== 'open') return;
     if (type === 'pong') {
       // Only a pong matching the earliest outstanding ping's own id clears
       // it (ADR 0031 §7): a late pong for an older, already-superseded ping
       // must never cancel a newer ping's still-live deadline.
-      if (Reflect.get(message, 'id') === outstandingPingId) {
+      if (frame.id === outstandingPingId) {
         outstandingPingId = null;
         outstandingPingDeadline = null;
       }
     }
+    topics.emit(frame);
   }
   function handleClose(myGeneration: number, code: number) {
     if (myGeneration !== generation) return;
@@ -314,8 +276,22 @@ export function createConnectionStore(
     socket = newSocket;
     let opened = false;
     let ticket: string | null = null;
+    const fail = (phase: 'ticket-failed' | 'hello-failed', error: unknown) => {
+      if (myGeneration !== generation) return;
+      diagnostics.emit(myGeneration, phase, error);
+      try {
+        newSocket.close();
+      } catch {
+        /* Close events drive reconnect. */
+      }
+    };
     const tryHello = () => {
-      if (opened && ticket !== null) handleOpen(myGeneration, ticket);
+      if (!opened || ticket === null) return;
+      try {
+        handleOpen(myGeneration, ticket);
+      } catch (error) {
+        fail('hello-failed', error);
+      }
     };
     newSocket.addEventListener('open', () => {
       if (myGeneration !== generation) return;
@@ -334,16 +310,10 @@ export function createConnectionStore(
       .then((value) => {
         if (myGeneration !== generation) return;
         ticket = value;
+        diagnostics.emit(myGeneration, 'ticket-resolved');
         tryHello();
       })
-      .catch(() => {
-        if (myGeneration !== generation) return;
-        try {
-          newSocket.close();
-        } catch {
-          // A close event (if any) drives the usual reconnect path.
-        }
-      });
+      .catch((error: unknown) => fail('ticket-failed', error));
   }
 
   function close() {
@@ -358,6 +328,7 @@ export function createConnectionStore(
     outstandingPingDeadline = null;
     const current = socket;
     socket = null;
+    topics.clear();
     notify();
     try {
       current?.close(1000, 'logout');
@@ -367,6 +338,10 @@ export function createConnectionStore(
   }
 
   return {
+    onDiagnostic: diagnostics.subscribe,
+    subscribeTopic: topics.subscribe,
+    onMessage: topics.onMessage,
+    resubscribeTopic: topics.resubscribe,
     connect,
     close,
     notifyTokenRefreshed: () => {

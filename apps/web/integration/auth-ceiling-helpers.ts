@@ -1,7 +1,7 @@
 import { createAccountFlows } from './auth-account-helpers';
 import { elapse, holdOpenIfSaturated } from './auth-rate-limit-helpers';
 import type { TestApp } from './fixtures';
-import { CLIENT_IP_HEADER } from '../src/features/auth/abuse/client-ip';
+import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
 
 /** The global per-minute sign-up ceiling's bucket. */
 export const GLOBAL_MINUTE = 'auth:magic-link:global:60';

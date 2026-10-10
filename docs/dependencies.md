@@ -52,6 +52,17 @@ held-back majors are ESLint 10 (below) and TypeScript 7 (below).
 | `posthog-node`                                                                                                                       | `5.53.0`                | Product analytics server SDK, `apps/web` server only (ADR 0037)                                                                                                                                                                                                                                | [Docs](https://posthog.com/docs/libraries/node)                                                                                                                                                                                                                                                                                                    | Adopted, not yet installed (version is the npm registry `latest` tag read 2026-09-23). PRIV-6 installs it alongside `posthog-js` and re-verifies the version. Server-side `track` checks the request's consent cookie before sending; inert without `POSTHOG_API_KEY`. Also used for server-side person deletion (PRIV-4 vendor erasure).                                                                                                                                               |
 | beehiiv API                                                                                                                          | `v2` (HTTP, no package) | Newsletter subscription vendor for The Scoreboard, called only from `apps/web/src/features/newsletter/` with an injected `fetch` and a deadline; inert without `BEEHIIV_API_KEY` and `BEEHIIV_PUBLICATION_ID` (ADR 0047)                                                                       | [Create subscription](https://developers.beehiiv.com/api-reference/subscriptions/create), [Get by email](https://developers.beehiiv.com/api-reference/subscriptions/get-by-email), [Delete subscription](https://developers.beehiiv.com/api-reference/subscriptions/delete), [Rate limiting](https://developers.beehiiv.com/welcome/rate-limiting) | No SDK is installed. Read 2026-09-29. Every create sends `double_opt_override: "on"`. The Launch plan allows 2,500 subscribers and 180 requests per minute per organization.                                                                                                                                                                                                                                                                                                            |
 
+### Private messaging image decoding
+
+`sharp` `0.35.5` is a direct dependency of `apps/web`, imported only by the
+messaging file sanitizer. It decodes accepted images under injected pixel
+limits and re-encodes their pixels without source metadata before private
+quarantine storage. The [version-matched release](https://sharp.pixelplumbing.com/changelog/v0.35.5/),
+[constructor](https://sharp.pixelplumbing.com/api-constructor/) and
+[output documentation](https://sharp.pixelplumbing.com/api-output/) govern its
+use. Collection, file quotas and vendor activation require their owning policy;
+the decoder supplies no policy defaults.
+
 ## Domain and infrastructure
 
 | Dependency             | Version      | Purpose and allowed boundary                                                                                                                                                                                                                                                                              | Official documentation                                                                                                                                                                 | Notes                                                                                                                                                                                                                                                                                                                                   |
@@ -100,3 +111,22 @@ dependency, which clears the vitest and tinypool entries together, or an `@adobe
   OpenTelemetry SDK/exporters in-process.
 - Add shared packages (`ui`, `testing`, `validation`) only when a second real
   consumer exists; do not create them speculatively.
+
+### Round media vendor adapter
+
+`livekit-server-sdk` **2.19.0** is pinned in `@daisy/media` for VIDEO-1.4's
+independent branch foundation. It signs 60-second room join tokens and performs
+bounded self-hosted room-service operations; authoritative eligibility and
+competitive state remain CAP-owned. The version-matched
+[AccessToken source](https://github.com/livekit/node-sdks/blob/livekit-server-sdk%402.19.0/packages/livekit-server-sdk/src/AccessToken.ts),
+[permission vocabulary](https://github.com/livekit/node-sdks/blob/livekit-server-sdk%402.19.0/packages/livekit-server-sdk/src/grants.ts),
+[room-service source](https://github.com/livekit/node-sdks/blob/livekit-server-sdk%402.19.0/packages/livekit-server-sdk/src/RoomServiceClient.ts)
+and client options were read before adding it. Server requests use a five-second
+SDK timeout and no regional failover. No browser import of this credential-bearing
+package is allowed. Human ADR0053/design and production activation remain open.
+
+`livekit-client` **2.22.0** remains the task's browser candidate for the shared
+Round controller. It is not installed by this server adapter; the actual browser
+consumer must read its pinned official docs and declare it when implemented.
+The LiveKit server **1.13.7** local/CI service and SDK/network qualification remain
+VIDEO-1.1/VIDEO-1.5 obligations, rather than an inferred pass from token unit tests.

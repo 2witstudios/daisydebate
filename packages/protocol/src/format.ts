@@ -23,10 +23,12 @@ const interruptionModes = ['disabled', 'cross_ex_only', 'enabled'] as const;
 export const interruptionModeSchema = z.enum(interruptionModes);
 
 /** An inclusive millisecond range a room's chosen value must land inside. */
-const boundSchema = z.strictObject({
-  min: z.int().min(0),
-  max: z.int().min(0),
-});
+const boundSchema = z
+  .strictObject({
+    min: z.int().min(0),
+    max: z.int().min(0),
+  })
+  .refine((bound) => bound.min <= bound.max, 'Minimum must not exceed maximum');
 
 /** The segment identity both the definition's grammar and the resolved rules carry. */
 const segmentIdentity = {
@@ -54,48 +56,83 @@ const segmentSchema = z.strictObject({
  * permitted sets: the definition answers "which configurations may a room
  * choose?", never "what did this room choose?".
  */
-export const formatDefinitionSchema = z
-  .strictObject({
-    version: z.literal(1),
-    /** Exhaustive over the role vocabulary: every role declares its seats. */
-    seats: z.record(debateRoleSchema, z.int().min(0)),
-    segments: z.array(segmentSchema).min(1),
-    configurable: z.strictObject({
-      timing: z.strictObject({
-        /** Per-segment bounds; keys must correspond exactly to segments. */
-        segmentDurationMs: z.record(z.string(), boundSchema),
-        countdownMs: boundSchema,
-      }),
-      /** PrepBounds | null — when prep may be spent is structure, not choice. */
-      inRoundPrep: z
+const formatDefinitionShape = z.strictObject({
+  version: z.literal(1),
+  /** Exhaustive over the role vocabulary: every role declares its seats. */
+  seats: z.record(debateRoleSchema, z.int().min(0)),
+  segments: z.array(segmentSchema).min(1),
+  configurable: z.strictObject({
+    timing: z.strictObject({
+      /** Per-segment bounds; keys must correspond exactly to segments. */
+      segmentDurationMs: z.record(z.string(), boundSchema),
+      countdownMs: boundSchema,
+    }),
+    /** PrepBounds | null — when prep may be spent is structure, not choice. */
+    inRoundPrep: z
+      .strictObject({
+        budgetMsPerSide: boundSchema,
+        spendableBefore: z.array(segmentTypeSchema).min(1),
+        /** Segment key the budget dies at; null = the whole round. */
+        expiresAtSegment: z.string().trim().min(1).max(8).nullable(),
+      })
+      .nullable(),
+    /** Room-only: the pre-round product flow, executed before any Round. */
+    preRoundPrep: z.strictObject({ durationMs: boundSchema }).nullable(),
+    interaction: z.strictObject({
+      crossExModes: z.array(crossExModeSchema).min(1),
+      interruptions: z
         .strictObject({
-          budgetMsPerSide: boundSchema,
-          spendableBefore: z.array(segmentTypeSchema).min(1),
-          /** Segment key the budget dies at; null = the whole round. */
-          expiresAtSegment: z.string().trim().min(1).max(8).nullable(),
+          modes: z.array(interruptionModeSchema).min(1),
+          minRemainingMs: boundSchema,
         })
         .nullable(),
-      /** Room-only: the pre-round product flow, executed before any Round. */
-      preRoundPrep: z.strictObject({ durationMs: boundSchema }).nullable(),
-      interaction: z.strictObject({
-        crossExModes: z.array(crossExModeSchema).min(1),
-        interruptions: z
-          .strictObject({
-            modes: z.array(interruptionModeSchema).min(1),
-            minRemainingMs: boundSchema,
-          })
-          .nullable(),
-        yield: z
-          .strictObject({
-            /** e.g. [true] = must yield; [true, false] = the room may choose. */
-            enabledChoices: z.array(z.boolean()).min(1),
-            returnsTimeChoices: z.array(z.boolean()).min(1),
-          })
-          .nullable(),
-      }),
+      yield: z
+        .strictObject({
+          /** e.g. [true] = must yield; [true, false] = the room may choose. */
+          enabledChoices: z.array(z.boolean()).min(1),
+          returnsTimeChoices: z.array(z.boolean()).min(1),
+        })
+        .nullable(),
     }),
-  })
-  .superRefine((definition, ctx) => {
+  }),
+});
+
+function validateSegmentReferences(
+  definition: z.infer<typeof formatDefinitionShape>,
+  ctx: z.RefinementCtx,
+) {
+  const keys = definition.segments.map((segment) => segment.key);
+  for (const [index, segment] of definition.segments.entries()) {
+    if (segment.slot >= definition.seats[segment.side])
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Segment requires a declared speaker seat',
+        path: ['segments', index, 'slot'],
+      });
+    const bounds =
+      definition.configurable.timing.segmentDurationMs[segment.key];
+    if (
+      bounds &&
+      (segment.defaultDurationMs < bounds.min ||
+        segment.defaultDurationMs > bounds.max)
+    )
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Default duration must be within segment bounds',
+        path: ['segments', index, 'defaultDurationMs'],
+      });
+  }
+  const expiresAt = definition.configurable.inRoundPrep?.expiresAtSegment;
+  if (expiresAt && !keys.includes(expiresAt))
+    ctx.addIssue({
+      code: 'custom',
+      message: 'Prep expiry requires a declared segment',
+      path: ['configurable', 'inRoundPrep', 'expiresAtSegment'],
+    });
+}
+
+export const formatDefinitionSchema = formatDefinitionShape.superRefine(
+  (definition, ctx) => {
     const keys = definition.segments.map((segment) => segment.key);
     if (new Set(keys).size !== keys.length)
       ctx.addIssue({
@@ -103,6 +140,7 @@ export const formatDefinitionSchema = z
         message: 'Segment keys must be unique',
         path: ['segments'],
       });
+    validateSegmentReferences(definition, ctx);
     const timingKeys = Object.keys(
       definition.configurable.timing.segmentDurationMs,
     );
@@ -116,7 +154,8 @@ export const formatDefinitionSchema = z
           'segmentDurationMs bounds must correspond exactly to the segments',
         path: ['configurable', 'timing', 'segmentDurationMs'],
       });
-  });
+  },
+);
 export type FormatDefinition = z.infer<typeof formatDefinitionSchema>;
 
 /** One resolved segment: the definition's identity, the room's duration. */

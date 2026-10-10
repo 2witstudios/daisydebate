@@ -38,13 +38,14 @@ export const roomConfigSchema = z.strictObject({
     segmentDurationOverrides: z.record(z.string(), z.int().positive()),
   }),
   crossExamination: z.strictObject({ crossExMode: crossExModeSchema }),
-  /** Null unless the format's interruptions capability exists. */
+  /** Null only when the format forbids interruptions; otherwise an explicit legal choice. */
   interruptions: z
     .strictObject({
       mode: interruptionModeSchema,
       minRemainingMs: z.int().min(0),
     })
     .nullable(),
+  /** Null only when the format forbids yielding; otherwise an explicit legal choice. */
   yielding: z
     .strictObject({ allowed: z.boolean(), returnsTime: z.boolean() })
     .nullable(),

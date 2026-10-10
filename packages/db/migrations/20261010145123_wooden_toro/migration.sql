@@ -1,0 +1,4 @@
+ALTER TABLE "messaging_channels" ADD COLUMN "title_author_actor_id" text;--> statement-breakpoint
+CREATE INDEX "messaging_channels_title_author_idx" ON "messaging_channels" ("title_author_actor_id");--> statement-breakpoint
+ALTER TABLE "messaging_channels" ADD CONSTRAINT "messaging_channels_title_author_actor_id_actors_id_fkey" FOREIGN KEY ("title_author_actor_id") REFERENCES "actors"("id") ON DELETE RESTRICT;--> statement-breakpoint
+ALTER TABLE "messaging_channels" DROP CONSTRAINT "messaging_channels_title", ADD CONSTRAINT "messaging_channels_title" CHECK (("title" is null and "title_author_actor_id" is null) or ("kind" = 'private_group' and "title" is not null and "title" ~ '[^[:space:]]' and "title_author_actor_id" is not null));

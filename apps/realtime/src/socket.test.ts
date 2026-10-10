@@ -57,6 +57,51 @@ const fakeTimers = (): {
 };
 
 describe('createWebSocketHandlers', () => {
+  test('valid hello consumes the ticket before ready, and late allow after deadline cannot resurrect', async () => {
+    const { timers, scheduled } = fakeTimers();
+    const { logger } = fakeLogger();
+    const { ws, closes } = fakeSocket();
+    const sent: string[] = [];
+    ws.send = (frame) => {
+      sent.push(String(frame));
+      return 1;
+    };
+    ws.data.origin = 'http://localhost:3000';
+    let allow!: (
+      value: { actorId: string; userId: string; sessionId: string } | null,
+    ) => void;
+    const handlers = createWebSocketHandlers({
+      logger,
+      timers,
+      authenticate: () =>
+        new Promise((resolve) => {
+          allow = resolve;
+        }),
+    });
+    handlers.open(ws);
+    const pending = handlers.message(
+      ws,
+      JSON.stringify({
+        v: 1,
+        type: 'hello',
+        protocolVersion: 1,
+        ticket: 'a'.repeat(43),
+      }),
+    );
+    scheduled[0]?.callback();
+    allow({
+      actorId: 'a'.repeat(24),
+      userId: 'b'.repeat(24),
+      sessionId: 'c'.repeat(24),
+    });
+    await pending;
+    assert({
+      given: 'authentication resolving after the hello deadline',
+      should: 'close and never send ready',
+      actual: { closes, sent },
+      expected: { closes: [{ code: 4001, reason: 'auth_failed' }], sent: [] },
+    });
+  });
   test('arms a 5s hello deadline on open', () => {
     const { timers, scheduled } = fakeTimers();
     const { logger } = fakeLogger();

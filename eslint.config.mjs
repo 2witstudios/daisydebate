@@ -633,7 +633,10 @@ export default [
   // server, itself a process entry, hands the edge its app.
   {
     files: ['apps/web/integration/**/*.ts', 'apps/web/e2e/**/*.ts'],
-    ignores: ['apps/web/e2e/support/server.ts'],
+    ignores: [
+      'apps/web/e2e/support/server.ts',
+      'apps/web/e2e/support/room-launch-server.ts',
+    ],
     rules: {
       'no-restricted-imports': [
         'error',
@@ -664,7 +667,10 @@ export default [
   },
   {
     files: ['apps/web/e2e/**/*.ts'],
-    ignores: ['apps/web/e2e/support/server.ts'],
+    ignores: [
+      'apps/web/e2e/support/server.ts',
+      'apps/web/e2e/support/room-launch-server.ts',
+    ],
     rules: {
       'no-restricted-syntax': [
         'error',

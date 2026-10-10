@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  useEffect,
   useLayoutEffect,
   useMemo,
   useReducer,
@@ -20,12 +19,11 @@ import { buildTree } from '../../features/debate-room/workspace';
 import { CommandPalette, type PaletteChoice } from './command-palette';
 import { LayoutGroup, RoundControls } from './controls';
 import type { DocumentSync } from './document-sync';
-import { DocumentEditor } from './editor/document-editor';
-import { DocumentTabs, FileTree, TRANSCRIPT_ID } from './file-tree';
+import { DocumentPane } from './document-pane';
+import { FileTree, TRANSCRIPT_ID } from './file-tree';
 import { PaneDivider } from './pane-divider';
 import {
   initialRoomState,
-  pageToneOf,
   reduceRoom,
   type RoomAction,
   type RoomState,
@@ -34,6 +32,7 @@ import type { RoundSnapshot } from './round';
 import { RoomSidebar } from './sidebar';
 import { RoundHeader, VideoStage } from './stage';
 import { TranscriptView } from './transcript-view';
+import { usePaletteShortcut } from './use-palette-shortcut';
 import { useDocumentSync } from './use-document-sync';
 
 /** Writes the pane sizes as custom properties (CSSOM, so the CSP allows it). */
@@ -49,20 +48,6 @@ function usePaneVariables(round: RoundSnapshot, state: RoomState) {
     style.setProperty('--room-workspace', `${workspaceMinHeight(video)}px`);
   }, [state.layout.treeWidth, state.layout.sidebarWidth, video]);
   return { root, video };
-}
-
-/** ⌘K or Ctrl+K opens the palette from anywhere in the room. */
-function usePaletteShortcut(dispatch: Dispatch<RoomAction>) {
-  useEffect(() => {
-    const open = (event: KeyboardEvent) => {
-      if (event.key.toLowerCase() !== 'k' || !(event.metaKey || event.ctrlKey))
-        return;
-      event.preventDefault();
-      dispatch({ type: 'palette/open' });
-    };
-    document.addEventListener('keydown', open);
-    return () => document.removeEventListener('keydown', open);
-  }, [dispatch]);
 }
 
 /** The sidebar exists when the round has channels or agents to show. */
@@ -92,15 +77,10 @@ function Workspace({
     [round],
   );
   const active = state.tabs.active;
-  const doc = state.documents.find((d) => d.id === active);
   const resize = (pane: Pane) => (startPx: number, deltaPx: number) =>
     dispatch({ type: 'layout/resize', pane, startPx, deltaPx });
   const nudge = (pane: Pane) => (key: string) =>
     dispatch({ type: 'layout/nudge', pane, key });
-  const titleOf = (id: string) =>
-    id === TRANSCRIPT_ID
-      ? 'Transcript'
-      : (state.documents.find((d) => d.id === id)?.title ?? '');
   const live =
     round.phase === 'opponent-speaking'
       ? (round.speeches[round.liveIndex]?.id ?? null)
@@ -126,39 +106,22 @@ function Workspace({
         aria-label="Document"
         className="flex min-w-0 flex-1 flex-col bg-surface-raised"
       >
-        <DocumentTabs
-          tabs={state.tabs.open.map((id) => ({ id, title: titleOf(id) }))}
-          active={active}
+        <DocumentPane
+          documents={state.documents}
+          tabs={state.tabs}
+          pages={state.pages}
           dispatch={dispatch}
-        />
-        {active === TRANSCRIPT_ID ? (
-          <TranscriptView
-            sections={sections}
-            liveSpeechId={live}
-            filter={state.transcriptFilter}
-            dispatch={dispatch}
-          />
-        ) : null}
-        {doc ? (
-          <DocumentEditor
-            key={doc.id}
-            document={doc}
-            access={doc.folder === 'club' ? 'Club' : 'Only you'}
-            page={pageToneOf(state, doc.id)}
-            onPage={(tone) =>
-              dispatch({ type: 'page/tone', documentId: doc.id, tone })
-            }
-            onChange={(html) => {
-              dispatch({
-                type: 'doc/update',
-                id: doc.id,
-                html,
-                now: systemClock.now(),
-              });
-              onEdit?.(doc.id, html);
-            }}
-          />
-        ) : null}
+          onEdit={onEdit}
+        >
+          {active === TRANSCRIPT_ID ? (
+            <TranscriptView
+              sections={sections}
+              liveSpeechId={live}
+              filter={state.transcriptFilter}
+              dispatch={dispatch}
+            />
+          ) : null}
+        </DocumentPane>
       </section>
       {state.layout.sidebarOpen && hasSidebar(round) ? (
         <>

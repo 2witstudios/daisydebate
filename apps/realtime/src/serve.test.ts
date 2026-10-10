@@ -1,37 +1,10 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { OUTBOX_ORIGIN, type OutboxPosition, type OutboxRow } from '@daisy/db';
+import { OUTBOX_ORIGIN, type OutboxPosition } from '@daisy/db';
 import { serveRealtime } from './serve';
-import type { RealtimeApp } from './app';
-import { deferred, noopLogger } from './outbox-drain.test-support';
+import { deferred } from './outbox-drain.test-support';
+import { fakeApp } from './serve.test-support';
 
 setupRitewayBun();
-
-/**
- * A minimal `RealtimeApp` stand-in: only the fields `serveRealtime` and
- * `createRealtimeServer` actually read. Cast at the boundary, the same
- * pattern `server.test.ts`'s `fakeServer` uses for a Bun `Server`.
- */
-function fakeApp(overrides: {
-  readonly listenOutbox: () => Promise<{ unlisten: () => Promise<void> }>;
-  readonly readOutboxHighWaterMark: () => Promise<OutboxPosition>;
-  readonly NODE_ENV?: string;
-  readonly runtimeRoleProblems?: () => Promise<readonly string[]>;
-}): RealtimeApp {
-  return {
-    config: { NODE_ENV: overrides.NODE_ENV ?? 'test' },
-    isDraining: () => false,
-    logger: noopLogger,
-    database: {
-      runtimeRoleProblems: overrides.runtimeRoleProblems ?? (async () => []),
-      health: async () => true,
-      checkListen: async () => true,
-      listenOutbox: overrides.listenOutbox,
-      readOutboxHighWaterMark: overrides.readOutboxHighWaterMark,
-      drainOutbox: async (): Promise<readonly OutboxRow[]> => [],
-    },
-    redis: { health: async () => true },
-  } as unknown as RealtimeApp;
-}
 
 describe('serveRealtime startup order (RT-2.3b review finding 2)', () => {
   test('never calls serve() until both LISTEN and the high-water mark have resolved', async () => {
@@ -65,8 +38,9 @@ describe('serveRealtime startup order (RT-2.3b review finding 2)', () => {
     const afterListenOnly = serveCalled;
 
     highWaterMarkGate.resolve(OUTBOX_ORIGIN);
-    await settled;
+    const running = await settled;
     const afterBoth = serveCalled;
+    await running.close();
 
     assert({
       given:
@@ -110,13 +84,13 @@ describe('serveRealtime runtime role gate (ISSUE-101)', () => {
       >;
     }) as typeof Bun.serve;
     try {
-      const { drain } = await serveRealtime({
+      const running = await serveRealtime({
         resources,
         port: 0,
         sink: () => {},
         serve: fakeServe,
       });
-      await drain.stop();
+      await running.close();
       return { refused: null, listened, served };
     } catch (error) {
       return { refused: (error as Error).message, listened, served };
@@ -148,3 +122,77 @@ describe('serveRealtime runtime role gate (ISSUE-101)', () => {
     });
   });
 });
+
+test('runtime shutdown cancels both polling and reauthorization timers exactly once', async () => {
+  const scheduled: number[] = [];
+  const cleared: unknown[] = [];
+  let unlistened = 0,
+    stopped = 0;
+  const resources = fakeApp({
+    listenOutbox: async () => ({
+      unlisten: async () => {
+        unlistened += 1;
+      },
+    }),
+    readOutboxHighWaterMark: async () => OUTBOX_ORIGIN,
+  });
+  const running = await serveRealtime({
+    resources,
+    port: 0,
+    timers: {
+      setInterval: (_callback, ms) => {
+        scheduled.push(ms);
+        return scheduled.length as unknown as ReturnType<typeof setInterval>;
+      },
+      clearInterval: (handle) => {
+        cleared.push(handle);
+      },
+    },
+    serve: (() => ({
+      stop: async () => {
+        stopped += 1;
+      },
+    })) as unknown as typeof Bun.serve,
+  });
+  await running.close();
+  await running.close();
+  assert({
+    given: 'an injected poll/authorization scheduler and repeated shutdown',
+    should: 'release every runtime resource once',
+    actual: { scheduled, cleared: cleared.length, unlistened, stopped },
+    expected: {
+      scheduled: [1000, 50000],
+      cleared: 2,
+      unlistened: 1,
+      stopped: 1,
+    },
+  });
+});
+
+for (const tls of [undefined, { key: 'fixture-key', cert: 'fixture-cert' }])
+  test(`native listener preserves explicit TLS presence ${Boolean(tls)}`, async () => {
+    let options: object = {};
+    const running = await serveRealtime({
+      resources: fakeApp({
+        listenOutbox: async () => ({ unlisten: async () => {} }),
+        readOutboxHighWaterMark: async () => OUTBOX_ORIGIN,
+      }),
+      port: 0,
+      ...(tls ? { tls } : {}),
+      serve: ((input: object) => {
+        options = input;
+        return { stop: async () => {} };
+      }) as unknown as typeof Bun.serve,
+    });
+    await running.close();
+    assert({
+      given: 'the native runtime with an optional injected TLS certificate',
+      should:
+        'forward exactly supplied TLS or omit it for the existing listener',
+      actual: {
+        tls: 'tls' in options ? options.tls : undefined,
+        present: 'tls' in options,
+      },
+      expected: { tls, present: Boolean(tls) },
+    });
+  });

@@ -20,7 +20,7 @@ const anonymous = { kind: 'anonymous' } as const;
 
 /**
  * Who is asking, and how far through onboarding: anonymous visitors, verified
- * accounts still choosing a username (`provisional`, no permission), and
+ * accounts still choosing a username (`provisional`, no actor), and
  * accounts with a public identity (`member`).
  */
 type AnonymousPrincipal = Extract<Principal, { kind: 'anonymous' }>;
@@ -42,19 +42,23 @@ const UNAVAILABLE: Identity = { state: 'unavailable', principal: anonymous };
 
 /**
  * Principal resolution from request cookies (ADR 0020, gate 2). Only the
- * cookie header enters; permissions derive from verified facts alone, so
+ * cookie header enters; identity derives from verified facts alone, so
  * request-supplied roles, permissions or identity fields cannot matter. An
- * unreadable store resolves `unavailable`: no permissions (the gate fails
+ * unreadable store resolves `unavailable`: no authority (the gate fails
  * closed) and distinguishable from a signed-out visitor, so callers can
  * answer 503 and report the outage instead of sending members to sign-in.
  */
 export async function resolveIdentity({
   cookie,
   readSession,
+  readActor,
   now,
 }: {
   readonly cookie: string | null;
   readonly readSession: SessionReader;
+  readonly readActor: (
+    userId: string,
+  ) => Promise<{ readonly id: string; readonly userId: string | null } | null>;
   readonly now: () => string;
 }): Promise<Identity> {
   if (!cookie) return ANONYMOUS;
@@ -65,19 +69,41 @@ export async function resolveIdentity({
     return UNAVAILABLE;
   }
   if (!found || found.emailVerified !== true) return ANONYMOUS;
+  const instant = Date.parse(now());
+  if (!Number.isFinite(instant)) return UNAVAILABLE;
   const expires = Date.parse(found.expiresAt);
-  if (Number.isNaN(expires) || expires <= Date.parse(now())) return ANONYMOUS;
+  if (Number.isNaN(expires) || expires <= instant) return ANONYMOUS;
+  return identityFromSession(found, readActor);
+}
+
+async function identityFromSession(
+  found: VerifiedSession,
+  readActor: Parameters<typeof resolveIdentity>[0]['readActor'],
+): Promise<Identity> {
   // The reader is an adapter boundary: only a non-empty string username
   // makes a member, whatever else the lookup returned.
   const { userId, username } = found;
-  return typeof username === 'string' && username !== ''
-    ? {
-        state: 'member',
-        username,
-        principal: { kind: 'user', userId, permissions: ['debate:create'] },
-      }
-    : {
-        state: 'provisional',
-        principal: { kind: 'user', userId, permissions: [] },
-      };
+  if (typeof userId !== 'string' || !userId) return UNAVAILABLE;
+  if (typeof username !== 'string' || username === '')
+    return {
+      state: 'provisional',
+      principal: { kind: 'user', userId, actorId: null },
+    };
+  try {
+    const actor = await readActor(userId);
+    if (
+      !actor ||
+      actor.userId !== userId ||
+      typeof actor.id !== 'string' ||
+      !actor.id
+    )
+      return UNAVAILABLE;
+    return {
+      state: 'member',
+      username,
+      principal: { kind: 'user', userId, actorId: actor.id },
+    };
+  } catch {
+    return UNAVAILABLE;
+  }
 }

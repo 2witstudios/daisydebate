@@ -2,7 +2,7 @@ import { assertRejects } from '@daisy/errors/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { validRules } from './testing';
 import { practiceRoomConfig } from './reference-formats';
-import { createTestDatabase } from './index.test-support';
+import { createTestDatabase, roomRow } from './index.test-support';
 
 setupRitewayBun();
 
@@ -12,6 +12,10 @@ const rules = validRules;
 
 const roomInput = () => ({
   id: roomId,
+  hostActorId: 'host-actor',
+  title: 'Proof room',
+  topic: 'A motion',
+  visibility: 'public' as const,
   formatId: 'foundation',
   formatVersion: 1,
   presetVersion: null,
@@ -21,26 +25,6 @@ const roomInput = () => ({
   executionPlan: { preRoundPrep: { enabled: false as const } },
   rules,
 });
-
-// The rooms columns, in schema order: id, formatId, formatVersion,
-// presetVersion, competitionType, length, config, executionPlan,
-// rulesSnapshot, prepStartedAt, prepRemainingMs, status, createdAt, updatedAt.
-const roomRow = (overrides: Record<string, unknown> = {}) => [
-  roomId,
-  'foundation',
-  1,
-  null,
-  'casual',
-  'full',
-  practiceRoomConfig,
-  { preRoundPrep: { enabled: false } },
-  rules,
-  null,
-  null,
-  overrides.status ?? 'assembling',
-  new Date(0),
-  new Date(0),
-];
 
 describe('roomOperations', () => {
   test('creates an assembling room and refuses a replayed id', async () => {
@@ -189,10 +173,12 @@ describe('roomOperations', () => {
       ['seat-3', 'actor-3', 'judge', 0],
     ];
     const { database, queries } = createTestDatabase([
-      [{ ...roomRow({ status: 'ready' }), 8: seatedRules }],
+      [{ ...roomRow({ status: 'ready' }), 14: seatedRules }],
       seats,
       [],
       [],
+      [],
+      [[1n, '42']],
       [],
     ]);
     await database.startRound({ roomId, roundId, resolution: 'A resolution' });
@@ -203,8 +189,19 @@ describe('roomOperations', () => {
         queries[2]?.query.includes('insert into "rounds"'),
         queries[3]?.query.includes('insert into "round_participants"'),
         queries[4]?.query.includes('update'),
+        queries.some(
+          ({ query, params }) =>
+            query.startsWith('insert into "outbox"') &&
+            params.some(
+              (value) =>
+                typeof value === 'object' &&
+                value !== null &&
+                'kind' in value &&
+                value.kind === 'debate.phase-changed',
+            ),
+        ),
       ],
-      expected: [true, true, true],
+      expected: [true, true, true, true],
     });
   });
 

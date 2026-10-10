@@ -1,3 +1,5 @@
+import { composeMessagingRoutes } from '../features/messaging/composition';
+import { composeRoomRoutes } from '../features/room-runtime/composition';
 import {
   createListSessionsHandler,
   createRevokeSessionHandler,
@@ -7,8 +9,6 @@ import { createUsernameHandler } from '../features/account/username';
 import { createConfirmEmailHandlers } from '../features/auth/email-change/confirm-email';
 import { createConfirmHandlers } from '../features/auth/confirmation/confirm';
 import { createAuthRouteHandlers } from '../features/auth/handlers';
-import { createAiDebateHandlers } from '../features/ai-debate/handlers';
-import { createAiDebateOperations } from '../features/ai-debate/operations';
 import { createDebateRoomDocumentHandlers } from '../features/debate-room/documents/document-handlers';
 import { createDebateDocumentOperations } from '../features/debate-room/documents/document-operations';
 import { createProofHandlers } from '../features/foundation/handlers';
@@ -27,11 +27,6 @@ import { createReadinessHandler } from './readiness';
  */
 export function createRoutes(app: App) {
   const { logger, database } = app;
-  const aiDebateOperations = createAiDebateOperations({
-    store: database,
-    voice: app.aiVoice,
-    ids: app.ids,
-  });
   const documentOperations = createDebateDocumentOperations({
     store: database,
     clock: app.clock,
@@ -50,7 +45,11 @@ export function createRoutes(app: App) {
     const { instance, config } = app.auth();
     return { handler: instance.handler, config };
   };
+  const rooms = composeRoomRoutes(app);
   return {
+    rooms,
+    messaging: composeMessagingRoutes(app),
+    rounds: { read: rooms.roundRead },
     auth: createAuthRouteHandlers(confirmAuth, logger),
     confirm: createConfirmHandlers({ auth: confirmAuth, logger }),
     confirmEmail: createConfirmEmailHandlers({ auth: confirmAuth, logger }),
@@ -105,6 +104,7 @@ export function createRoutes(app: App) {
     ticket: {
       POST: createTicketHandler({
         logger,
+        websocketEndpoint: () => app.websocketEndpoint,
         origin,
         identify: (request) => identify(app.auth(), request.headers),
         sessionId: async (headers) => {
@@ -128,10 +128,6 @@ export function createRoutes(app: App) {
           ),
       }),
     },
-    aiDebate: createAiDebateHandlers({
-      ...memberGates,
-      operations: () => aiDebateOperations,
-    }),
     debateRoomDocuments: createDebateRoomDocumentHandlers({
       ...memberGates,
       operations: () => documentOperations,

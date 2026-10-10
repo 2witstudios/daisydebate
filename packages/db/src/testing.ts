@@ -137,3 +137,15 @@ export async function finishedOrBlockedBehind(
     await Bun.sleep(POLL_INTERVAL_MS);
   }
 }
+
+export {
+  createMessagingTestFixture,
+  seedMessagingTestDm,
+} from './messaging/test-fixture';
+
+export {
+  seedMessagingBrowserAccounts,
+  cleanupMessagingBrowserData,
+} from './messaging/browser-fixture';
+
+export { createScriptedAuthorizationTransaction } from './testing-authorization';

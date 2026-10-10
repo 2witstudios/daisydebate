@@ -1,7 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError } from '@daisy/errors';
 import { assertRejects } from '@daisy/errors/testing';
-import type { Permission } from '@daisy/auth';
+import type { AuthorizationCapability } from '@daisy/auth/authorization';
 import { fixedClock } from '@daisy/clock';
 import type { RoundHydration } from '@daisy/db';
 import { foundationDefinition } from '@daisy/db/reference-formats';
@@ -184,15 +184,16 @@ describe('foundation debate retrieval', () => {
     });
   });
 
-  test('admits a principal holding only debate:read', async () => {
+  test('admits a principal holding only foundation.read', async () => {
     database.getRound = () => Promise.resolve(storedRound);
     const restored = await getProofDebate(storedRound.id, dependencies, {
       kind: 'service',
       serviceId: 'reader',
-      permissions: ['debate:read'] as readonly Permission[],
+      scope: 'foundation',
+      capabilities: ['foundation.read'] as readonly AuthorizationCapability[],
     });
     assert({
-      given: 'a principal holding only debate:read',
+      given: 'a principal holding only foundation.read',
       should: 'admit the read',
       actual: restored?.id,
       expected: storedRound.id,
@@ -223,7 +224,7 @@ describe('the proof gate', () => {
 
   test('refuses a principal without the permission', async () => {
     await assertRejects({
-      given: 'a principal without debate:create',
+      given: 'a principal without foundation.create',
       should: 'refuse with AUTHORIZATION before touching the database',
       actual: () =>
         createProofDebate(
@@ -232,7 +233,10 @@ describe('the proof gate', () => {
           {
             kind: 'service',
             serviceId: 'no-create',
-            permissions: ['debate:read'] as readonly Permission[],
+            scope: 'foundation',
+            capabilities: [
+              'foundation.read',
+            ] as readonly AuthorizationCapability[],
           },
         ),
       code: 'AUTHORIZATION',
@@ -247,7 +251,8 @@ describe('the proof gate', () => {
       expected: {
         kind: 'service',
         serviceId: 'foundation-proof',
-        permissions: ['debate:create', 'debate:read'],
+        scope: 'foundation',
+        capabilities: ['foundation.create', 'foundation.read'],
       },
     });
   });

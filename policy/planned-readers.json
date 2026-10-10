@@ -18,6 +18,168 @@
       "adr": "docs/decisions/0057-planned-readers.md",
       "reason": "The outbox drain runs with a no-op sink; fan-out to subscribed sockets is the reader (RT-2.3c). Until then the drain drains nothing.",
       "reviewBy": "2026-12-01"
+    },
+    {
+      "path": "packages/protocol/src/room-contract.ts",
+      "export": "roomCreateSchema",
+      "task": "CAP-B.1",
+      "owner": "ag-ewo55big",
+      "adr": "docs/decisions/0059-one-competitive-api.md",
+      "reason": "Canonical Room runtime and HTTP producer; committed consumer CAP-B.1 page yqvkic989n7tx0uf6uvqu24x; ROOM product lane consumes its responses.",
+      "reviewBy": "2026-10-16"
+    },
+    {
+      "path": "packages/protocol/src/room-contract.ts",
+      "export": "roomCommandSchema",
+      "task": "CAP-B.1",
+      "owner": "ag-ewo55big",
+      "adr": "docs/decisions/0059-one-competitive-api.md",
+      "reason": "Canonical Room runtime and HTTP producer; committed consumer CAP-B.1 page yqvkic989n7tx0uf6uvqu24x; ROOM product lane consumes its responses.",
+      "reviewBy": "2026-10-16"
+    },
+    {
+      "path": "packages/protocol/src/room-contract.ts",
+      "export": "roomStatuses",
+      "task": "CAP-B.1",
+      "owner": "ag-ewo55big",
+      "adr": "docs/decisions/0059-one-competitive-api.md",
+      "reason": "Canonical Room runtime and HTTP producer; committed consumer CAP-B.1 page yqvkic989n7tx0uf6uvqu24x; ROOM product lane consumes its responses.",
+      "reviewBy": "2026-10-16"
+    },
+    {
+      "path": "packages/protocol/src/room-contract.ts",
+      "export": "RoomCreate",
+      "task": "CAP-B.1",
+      "owner": "ag-ewo55big",
+      "adr": "docs/decisions/0059-one-competitive-api.md",
+      "reason": "Canonical Room runtime and HTTP producer; committed consumer CAP-B.1 page yqvkic989n7tx0uf6uvqu24x; ROOM product lane consumes its responses.",
+      "reviewBy": "2026-10-16"
+    },
+    {
+      "path": "packages/protocol/src/room-contract.ts",
+      "export": "RoomCommand",
+      "task": "CAP-B.1",
+      "owner": "ag-ewo55big",
+      "adr": "docs/decisions/0059-one-competitive-api.md",
+      "reason": "Canonical Room runtime and HTTP producer; committed consumer CAP-B.1 page yqvkic989n7tx0uf6uvqu24x; ROOM product lane consumes its responses.",
+      "reviewBy": "2026-10-16"
+    },
+    {
+      "path": "packages/protocol/src/room-contract.ts",
+      "export": "RoomParticipant",
+      "task": "CAP-B.1",
+      "owner": "ag-ewo55big",
+      "adr": "docs/decisions/0059-one-competitive-api.md",
+      "reason": "Canonical Room runtime and HTTP producer; committed consumer CAP-B.1 page yqvkic989n7tx0uf6uvqu24x; ROOM product lane consumes its responses.",
+      "reviewBy": "2026-10-16"
+    },
+    {
+      "path": "packages/protocol/src/room-contract.ts",
+      "export": "RoomRefusal",
+      "task": "CAP-B.1",
+      "owner": "ag-ewo55big",
+      "adr": "docs/decisions/0059-one-competitive-api.md",
+      "reason": "Canonical Room runtime and HTTP producer; committed consumer CAP-B.1 page yqvkic989n7tx0uf6uvqu24x; ROOM product lane consumes its responses.",
+      "reviewBy": "2026-10-16"
+    },
+    {
+      "path": "packages/protocol/src/room-contract.ts",
+      "export": "RoomView",
+      "task": "CAP-B.1",
+      "owner": "ag-ewo55big",
+      "adr": "docs/decisions/0059-one-competitive-api.md",
+      "reason": "Canonical Room runtime and HTTP producer; committed consumer CAP-B.1 page yqvkic989n7tx0uf6uvqu24x; ROOM product lane consumes its responses.",
+      "reviewBy": "2026-10-16"
+    },
+    {
+      "path": "packages/protocol/src/room-contract.ts",
+      "export": "RoomCommandReceipt",
+      "task": "CAP-B.1",
+      "owner": "ag-ewo55big",
+      "adr": "docs/decisions/0059-one-competitive-api.md",
+      "reason": "Canonical Room runtime and HTTP producer; committed consumer CAP-B.1 page yqvkic989n7tx0uf6uvqu24x; ROOM product lane consumes its responses.",
+      "reviewBy": "2026-10-16"
+    },
+    {
+      "path": "packages/protocol/src/room-contract.ts",
+      "export": "RoomCommandResponse",
+      "task": "CAP-B.1",
+      "owner": "ag-ewo55big",
+      "adr": "docs/decisions/0059-one-competitive-api.md",
+      "reason": "Canonical Room runtime and HTTP producer; committed consumer CAP-B.1 page yqvkic989n7tx0uf6uvqu24x; ROOM product lane consumes its responses.",
+      "reviewBy": "2026-10-16"
+    },
+    {
+      "path": "packages/protocol/src/room-contract.ts",
+      "export": "RoomCatalogChoice",
+      "task": "CAP-B.1",
+      "owner": "ag-ewo55big",
+      "adr": "docs/decisions/0059-one-competitive-api.md",
+      "reason": "Canonical Room runtime and HTTP producer; committed consumer CAP-B.1 page yqvkic989n7tx0uf6uvqu24x; ROOM product lane consumes its responses.",
+      "reviewBy": "2026-10-16"
+    },
+    {
+      "path": "packages/protocol/src/messaging/core.ts",
+      "export": "createMessagingCoreSchemas",
+      "task": "MSG-2.2",
+      "owner": "messaging",
+      "adr": "docs/decisions/0057-planned-readers.md",
+      "reason": "MSG-1.2 portable contracts precede the committed application operation reader; schema validation never grants entitlement and policy bounds are explicit.",
+      "reviewBy": "2026-12-01"
+    },
+    {
+      "path": "packages/protocol/src/messaging/core.ts",
+      "export": "MessagingCoreBounds",
+      "task": "MSG-2.2",
+      "owner": "messaging",
+      "adr": "docs/decisions/0057-planned-readers.md",
+      "reason": "MSG-1.2 portable contracts precede the committed application operation reader; schema validation never grants entitlement and policy bounds are explicit.",
+      "reviewBy": "2026-12-01"
+    },
+    {
+      "path": "packages/protocol/src/messaging/social.ts",
+      "export": "createMessagingSocialSchemas",
+      "task": "MSG-3.1",
+      "owner": "messaging",
+      "adr": "docs/decisions/0057-planned-readers.md",
+      "reason": "MSG-1.2 portable contracts precede the committed application operation reader; schema validation never grants entitlement and policy bounds are explicit.",
+      "reviewBy": "2026-12-01"
+    },
+    {
+      "path": "packages/protocol/src/messaging/social.ts",
+      "export": "MessagingSocialBounds",
+      "task": "MSG-3.1",
+      "owner": "messaging",
+      "adr": "docs/decisions/0057-planned-readers.md",
+      "reason": "MSG-1.2 portable contracts precede the committed application operation reader; schema validation never grants entitlement and policy bounds are explicit.",
+      "reviewBy": "2026-12-01"
+    },
+    {
+      "path": "packages/protocol/src/topics.ts",
+      "export": "buildChannelTopic",
+      "task": "MSG-2.2",
+      "owner": "messaging",
+      "adr": "docs/decisions/0057-planned-readers.md",
+      "reason": "MSG-1.4 channel doorbells precede the committed transactional send reader; integration proves append shape and rollback independently of socket fanout.",
+      "reviewBy": "2026-12-01"
+    },
+    {
+      "path": "packages/db/src/account-age.ts",
+      "export": "writeAccountBirthMonth",
+      "task": "WAIT-4.6",
+      "owner": "account",
+      "adr": "docs/decisions/0057-planned-readers.md",
+      "reason": "Committed collection leaf WAIT-4.6 page sznp9ay8e88ny2sg4xujosae adopts the canonical fenced birthmonth writer. Collection remains unavailable without an explicit approved injected authority; this reader declaration does not approve collection or its policy.",
+      "reviewBy": "2026-10-16"
+    },
+    {
+      "path": "packages/media/src/index.ts",
+      "export": "createMediaService",
+      "task": "VIDEO-2.1",
+      "owner": "VIDEO / ag-f41q0moq",
+      "adr": "docs/decisions/0057-planned-readers.md",
+      "reason": "Committed seated-actor token/reconcile leaf pye8vaswx0emsq93mw08l9el consumes the isolated LiveKit adapter after actual CAP grants/session producers exist. This declaration authorizes no grants, pre-round joins or human acceptance.",
+      "reviewBy": "2026-10-16"
     }
   ]
 }

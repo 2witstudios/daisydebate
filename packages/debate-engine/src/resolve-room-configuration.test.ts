@@ -21,30 +21,22 @@ describe('resolveRoomConfiguration', () => {
       actual: outcome.ok && {
         keys: outcome.rules.segments.map((segment) => segment.key),
         durations: outcome.rules.segments.map((segment) => segment.durationMs),
-        inRoundPrep: outcome.rules.inRoundPrep,
+        prep: outcome.rules.inRoundPrep,
         countdownMs: outcome.rules.countdownMs,
-        interaction: outcome.rules.interaction,
         roomPlan: outcome.roomPlan,
-        seats: outcome.rules.seats,
       },
       expected: outcome.ok && {
         keys: ['AC', 'CX1', 'NC', 'CX2', '1AR', 'NR', '2AR'],
         durations: [
           300_000, 120_000, 360_000, 120_000, 300_000, 300_000, 180_000,
         ],
-        inRoundPrep: {
+        prep: {
           budgetMsPerSide: 240_000,
           spendableBefore: ['speech'],
           expiresAtSegment: null,
         },
         countdownMs: 10_000,
-        interaction: {
-          crossExMode: 'ordered',
-          yield: { allowed: true, returnsTime: true },
-          interruptions: { allowed: 'cross_ex_only', minRemainingMs: 30_000 },
-        },
         roomPlan: { preRoundPrep: { enabled: false } },
-        seats: { affirmative: 1, negative: 1, judge: 1 },
       },
     });
   });
@@ -267,4 +259,49 @@ describe('resolveRoomConfiguration', () => {
       },
     });
   });
+});
+
+test('null controls cannot omit declared interaction choices', () => {
+  for (const restricted of [true, false]) {
+    const definition: FormatDefinition = {
+      ...oneOnOneDefinition,
+      configurable: {
+        ...oneOnOneDefinition.configurable,
+        interaction: {
+          crossExModes: ['ordered'],
+          interruptions: {
+            modes: restricted ? ['enabled'] : ['disabled'],
+            minRemainingMs: { min: 0, max: 1000 },
+          },
+          yield: { enabledChoices: [!restricted], returnsTimeChoices: [true] },
+        },
+      },
+    };
+    const config = {
+      ...practiceConfig,
+      interruptions: {
+        mode: restricted ? ('enabled' as const) : ('disabled' as const),
+        minRemainingMs: 0,
+      },
+      yielding: { allowed: !restricted, returnsTime: true },
+    };
+    assert({
+      given: 'explicit permitted interaction values',
+      should: 'resolve them',
+      actual: resolveRoomConfiguration(definition, config).ok,
+      expected: true,
+    });
+    for (const field of ['interruptions', 'yielding'] as const) {
+      const result = resolveRoomConfiguration(definition, {
+        ...config,
+        [field]: null,
+      });
+      assert({
+        given: `a declared ${field} capability with a null control`,
+        should: 'require an explicit permitted choice',
+        actual: result.ok ? 'resolved' : result.refusal.kind,
+        expected: 'invalid-choice',
+      });
+    }
+  }
 });

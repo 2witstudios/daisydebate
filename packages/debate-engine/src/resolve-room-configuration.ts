@@ -1,3 +1,4 @@
+import { formatDefinitionSchema } from '@daisy/protocol';
 import type {
   FormatDefinition,
   RoomConfig,
@@ -17,6 +18,7 @@ import type {
  */
 
 type ResolveRefusalKind =
+  | 'invalid-definition'
   | 'capability-forbidden'
   | 'out-of-range'
   | 'unknown-segment-key'
@@ -105,12 +107,7 @@ function resolveSegments(
     const override = overrides[segment.key];
     if (override !== undefined) {
       const bounds =
-        definition.configurable.timing.segmentDurationMs[segment.key];
-      if (!bounds)
-        return stepRefused(
-          'incomplete-timing',
-          `Segment ${segment.key} has no declared timing bounds to resolve its override against`,
-        );
+        definition.configurable.timing.segmentDurationMs[segment.key]!;
       if (!within(override, bounds))
         return stepRefused(
           'out-of-range',
@@ -119,14 +116,6 @@ function resolveSegments(
       segments.push(resolvedSegment(segment, override));
       continue;
     }
-    // Unreachable for a parsed definition, which requires a positive
-    // default on every segment; the guard is what makes the totality
-    // claim true of the compiler itself rather than of the schema.
-    if (!(segment.defaultDurationMs > 0))
-      return stepRefused(
-        'incomplete-timing',
-        `Segment ${segment.key} has neither an override nor a usable default`,
-      );
     segments.push(resolvedSegment(segment, segment.defaultDurationMs));
   }
   return { ok: true, value: segments };
@@ -171,14 +160,6 @@ function resolveInRoundPrep(
       `In-round prep ${config.inRoundPrep.budgetMsPerSide}ms per side is outside ${bounds.budgetMsPerSide.min}-${bounds.budgetMsPerSide.max}ms`,
     );
   const { expiresAtSegment } = bounds;
-  if (
-    expiresAtSegment !== null &&
-    !definition.segments.some((segment) => segment.key === expiresAtSegment)
-  )
-    return stepRefused(
-      'unknown-segment-key',
-      `Prep expires at unknown segment ${expiresAtSegment}`,
-    );
   // When prep may be spent is structure: the room chose only the budget.
   return {
     ok: true,
@@ -195,8 +176,11 @@ function resolveInterruptions(
   definition: FormatDefinition,
   config: RoomConfig,
 ): Step<Interaction['interruptions']> {
-  if (config.interruptions === null) return { ok: true, value: null };
   const capability = definition.configurable.interaction.interruptions;
+  if (config.interruptions === null)
+    return capability === null
+      ? { ok: true, value: null }
+      : stepRefused('invalid-choice', 'An interruption choice is required');
   if (capability === null)
     return stepRefused(
       'capability-forbidden',
@@ -226,8 +210,11 @@ function resolveYieldRule(
   definition: FormatDefinition,
   config: RoomConfig,
 ): Step<Interaction['yield']> {
-  if (config.yielding === null) return { ok: true, value: null };
   const capability = definition.configurable.interaction.yield;
+  if (config.yielding === null)
+    return capability === null
+      ? { ok: true, value: null }
+      : stepRefused('invalid-choice', 'A yielding choice is required');
   if (capability === null)
     return stepRefused('capability-forbidden', 'The format forbids yielding');
   if (!capability.enabledChoices.includes(config.yielding.allowed))
@@ -274,10 +261,31 @@ function resolveInteraction(
   };
 }
 
+function invalidDefinition(
+  definition: FormatDefinition,
+): ResolveOutcome | null {
+  if (definition.segments.some((segment) => !(segment.defaultDurationMs > 0)))
+    return refused('incomplete-timing', 'A segment has no usable default');
+  const expiresAt = definition.configurable.inRoundPrep?.expiresAtSegment;
+  if (
+    expiresAt &&
+    !definition.segments.some((segment) => segment.key === expiresAt)
+  )
+    return refused('unknown-segment-key', 'Prep expires at an unknown segment');
+  if (!formatDefinitionSchema.safeParse(definition).success)
+    return refused(
+      'invalid-definition',
+      'The format definition is not executable',
+    );
+  return null;
+}
+
 export function resolveRoomConfiguration(
   definition: FormatDefinition,
   config: RoomConfig,
 ): ResolveOutcome {
+  const invalid = invalidDefinition(definition);
+  if (invalid) return invalid;
   const schedule = resolveSegments(
     definition,
     config.speechTiming.segmentDurationOverrides,

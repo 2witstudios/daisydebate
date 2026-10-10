@@ -54,14 +54,14 @@ const config: NextConfig = {
         source: '/auth/confirm',
         headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }],
       },
-      // AIDB: the AI debate room records the person's voice; every other
-      // page keeps the microphone off (later entries win).
+      // Local room checks need self camera/microphone. All other routes deny
+      // capture; this grants neither publication nor server readiness.
       {
-        source: '/ai-debate/:id',
+        source: '/rooms/:id',
         headers: [
           {
             key: 'Permissions-Policy',
-            value: 'camera=(), microphone=(self), geolocation=()',
+            value: 'camera=(self), microphone=(self), geolocation=()',
           },
         ],
       },

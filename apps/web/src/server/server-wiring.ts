@@ -3,7 +3,10 @@ import type { AuthConfig } from '@daisy/config';
 import type { Logger } from '@daisy/logger';
 import { deriveClientIdSubkey } from '../features/auth/abuse/client-ip';
 import { createHttpServer } from './http-server';
-import { defaultGateway, resolveTrustedProxies } from './trusted-proxies';
+import {
+  defaultGateway,
+  resolveTrustedProxies,
+} from '@daisy/ingress/trusted-proxies';
 
 /**
  * The production server start.ts runs, composed from the app this process

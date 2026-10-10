@@ -4,13 +4,17 @@ import { deriveSlot, slotEnvValues, worktreeSlot } from './slot-model';
 import { resolveCheckout } from './slot';
 setupRitewayBun();
 
+type BrowserJob = {
+  env?: Record<string, string>;
+  services: Record<
+    string,
+    { image: string; ports: string[]; options?: string }
+  >;
+  steps: { run?: string; env?: Record<string, string> }[];
+};
+
 type BrowserWorkflow = {
-  jobs: {
-    e2e: {
-      env?: Record<string, string>;
-      steps: { run?: string; env?: Record<string, string> }[];
-    };
-  };
+  jobs: { e2e: BrowserJob; 'room-launch': BrowserJob };
 };
 
 describe('ROOM-6.1b browser CI cleanup admission', () => {
@@ -71,6 +75,35 @@ describe('ROOM-6.1b browser CI cleanup admission', () => {
       }
     });
   }
+});
+
+describe('native browser file-scanner prerequisite', () => {
+  test('starts the same real clamd service used by infrastructure tests', async () => {
+    const workflow = Bun.YAML.parse(
+      await Bun.file(
+        new URL('../.github/workflows/e2e.yml', import.meta.url),
+      ).text(),
+    ) as BrowserWorkflow;
+    const job = workflow.jobs['room-launch'];
+    const scanner = job.services.clamd;
+
+    assert({
+      given: 'the isolated Room Launch and messaging browser job',
+      should: 'provide the real test scanner on its explicit local port',
+      actual: {
+        image: scanner?.image,
+        ports: scanner?.ports,
+        healthCheck: scanner?.options?.includes('--health-cmd "clamdcheck.sh"'),
+        scannerPort: job.env?.CLAMD_TEST_PORT,
+      },
+      expected: {
+        image: 'clamav/clamav:1.4.6',
+        ports: ['3310:3310'],
+        healthCheck: true,
+        scannerPort: '3310',
+      },
+    });
+  });
 });
 
 async function runAdmissionProcess(

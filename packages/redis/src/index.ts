@@ -1,4 +1,6 @@
+import { createMessagingTypingOperations } from './messaging-typing';
 import { RedisClient } from 'bun';
+import { createRoomReadinessOperations } from './room-readiness';
 import { createPresenceOperations } from './presence';
 import { createTicketOperations } from './ticket';
 import { redisKey } from './redis-key';
@@ -201,7 +203,9 @@ export function createRedis({
         throw error;
       }
     },
+    ...createRoomReadinessOperations({ client, namespace, reportFailure }),
     ...createPresenceOperations({ client, namespace, reportFailure }),
+    ...createMessagingTypingOperations({ client, namespace, reportFailure }),
     ...createTicketOperations({ client, namespace, reportFailure }),
     close() {
       client.close();

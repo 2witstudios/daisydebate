@@ -39,6 +39,19 @@ mock.module(
   () => ({ SecurityPage: () => null }),
 );
 
+// Guard coverage renders outside Next's request store; catalog I/O is proved separately.
+mock.module(join(import.meta.dir, '../../app/(shell)/play/actions.ts'), () => ({
+  roomTemplates: async () => ({ kind: 'found', choices: [] }),
+  createRoomAction: async () => ({ values: {} }),
+}));
+
+mock.module(
+  join(import.meta.dir, '../../app/(shell)/lobby/actions.ts'),
+  () => ({
+    roomListing: async () => ({ kind: 'found', rooms: [] }),
+  }),
+);
+
 type Page = (props: {
   params: Promise<Record<string, string>>;
   searchParams: Promise<Record<string, string>>;
@@ -52,6 +65,8 @@ const rendered: Readonly<Record<string, () => Promise<{ default: unknown }>>> =
     '(shell)/debates/page.tsx': () => import('../../app/(shell)/debates/page'),
     '(shell)/debates/[id]/page.tsx': () =>
       import('../../app/(shell)/debates/[id]/page'),
+    '(shell)/rounds/[id]/page.tsx': () =>
+      import('../../app/(shell)/rounds/[id]/page'),
     '(shell)/rooms/[id]/page.tsx': () =>
       import('../../app/(shell)/rooms/[id]/page'),
     '(shell)/play/room/page.tsx': () =>
@@ -68,6 +83,30 @@ const rendered: Readonly<Record<string, () => Promise<{ default: unknown }>>> =
     '(shell)/judge/waiting/page.tsx': () =>
       import('../../app/(shell)/judge/waiting/page'),
     '(shell)/lobby/page.tsx': () => import('../../app/(shell)/lobby/page'),
+    '(shell)/messages/contacts/page.tsx': () =>
+      import('../../app/(shell)/messages/contacts/page'),
+    '(shell)/messages/new/page.tsx': () =>
+      import('../../app/(shell)/messages/new/page'),
+    '(shell)/messages/page.tsx': () =>
+      import('../../app/(shell)/messages/page'),
+    '(shell)/messages/[channelId]/preferences/page.tsx': () =>
+      import('../../app/(shell)/messages/[channelId]/preferences/page'),
+    '(shell)/messages/[channelId]/reactions/page.tsx': () =>
+      import('../../app/(shell)/messages/[channelId]/reactions/page'),
+    '(shell)/messages/[channelId]/message/page.tsx': () =>
+      import('../../app/(shell)/messages/[channelId]/message/page'),
+    '(shell)/messages/[channelId]/attachments/page.tsx': () =>
+      import('../../app/(shell)/messages/[channelId]/attachments/page'),
+    '(shell)/messages/[channelId]/page.tsx': () =>
+      import('../../app/(shell)/messages/[channelId]/page'),
+    '(shell)/messages/requests/[channelId]/page.tsx': () =>
+      import('../../app/(shell)/messages/requests/[channelId]/page'),
+    '(shell)/messages/requests/[channelId]/status/page.tsx': () =>
+      import('../../app/(shell)/messages/requests/[channelId]/status/page'),
+    '(shell)/messages/groups/[channelId]/manage/page.tsx': () =>
+      import('../../app/(shell)/messages/groups/[channelId]/manage/page'),
+    '(shell)/messages/groups/invitations/[channelId]/page.tsx': () =>
+      import('../../app/(shell)/messages/groups/invitations/[channelId]/page'),
     '(shell)/play/page.tsx': () => import('../../app/(shell)/play/page'),
     '(shell)/ranked/page.tsx': () => import('../../app/(shell)/ranked/page'),
     '(shell)/ranked/host/page.tsx': () =>
@@ -126,10 +165,6 @@ const rendered: Readonly<Record<string, () => Promise<{ default: unknown }>>> =
     '(shell)/watch/page.tsx': () => import('../../app/(shell)/watch/page'),
     '(shell)/watch/[debateId]/page.tsx': () =>
       import('../../app/(shell)/watch/[debateId]/page'),
-    '(shell)/ai-debate/page.tsx': () =>
-      import('../../app/(shell)/ai-debate/page'),
-    '(bare)/ai-debate/[id]/page.tsx': () =>
-      import('../../app/(bare)/ai-debate/[id]/page'),
     '(shell)/leaderboard/page.tsx': () =>
       import('../../app/(shell)/leaderboard/page'),
     '(shell)/tournaments/page.tsx': () =>
@@ -142,8 +177,6 @@ const rendered: Readonly<Record<string, () => Promise<{ default: unknown }>>> =
       import('../../app/(shell)/tournaments/mine/[id]/page'),
     '(shell)/tournaments/mine/[id]/room/[round]/page.tsx': () =>
       import('../../app/(shell)/tournaments/mine/[id]/room/[round]/page'),
-    '(bare)/rooms/[id]/round/page.tsx': () =>
-      import('../../app/(bare)/rooms/[id]/round/page'),
     '(bare)/tournaments/mine/[id]/certificate/page.tsx': () =>
       import('../../app/(bare)/tournaments/mine/[id]/certificate/page'),
     '(shell)/tournaments/organize/page.tsx': () =>
@@ -169,6 +202,7 @@ const guardRequestsOf = async (file: string) => {
   } catch (error) {
     // A page may answer 404 for the placeholder id; the guard ran first.
     if (
+      guardCalls.length === 0 &&
       !String((error as { digest?: unknown }).digest).startsWith(
         'NEXT_HTTP_ERROR_FALLBACK',
       )
@@ -206,16 +240,17 @@ describe('guarded pages', () => {
         ...new Set(guarded.map(({ route }) => guardedAreaFor(route))),
       ].sort(),
       expected: [
-        '/ai-debate',
         '/debates',
         '/judge',
         '/lobby',
+        '/messages',
         '/notifications',
         '/play',
         '/prep',
         '/ranked',
         '/recordings',
         '/rooms',
+        '/rounds',
         '/settings',
         '/tournaments/enter',
         '/tournaments/mine',

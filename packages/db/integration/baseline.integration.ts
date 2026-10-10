@@ -2,6 +2,7 @@ import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
+import { foreignKeyNameValid } from './baseline-naming.test-support';
 
 setupRitewayBun();
 
@@ -133,18 +134,7 @@ test('foreign-key columns are named after what they reference, and every timesta
         where c.contype = 'f' and cardinality(c.conkey) = 1
         order by 1
       `) as Array<{ col: string; target: string }>
-    ).filter(({ col, target }) => {
-      const column = col.split('.')[1] ?? '';
-      const suffix: Record<string, string> = {
-        actors: 'actor_id',
-        users: 'user_id',
-        formats: 'format_id',
-        rounds: 'round_id',
-        seasons: 'season_id',
-      };
-      const expected = suffix[target];
-      return expected !== undefined && !column.endsWith(expected);
-    }),
+    ).filter((row) => !foreignKeyNameValid(row)),
     naiveTimestamps: (
       (await client`
         select table_name || '.' || column_name as col
@@ -157,7 +147,8 @@ test('foreign-key columns are named after what they reference, and every timesta
   }));
   assert({
     given: 'every single-column foreign key',
-    should: 'name the column <what>_actor_id, _user_id, _format_id and so on',
+    should:
+      'name the referenced entity, including the exact ADR0036 tombstoned subject reference',
     actual: misnamed,
     expected: [],
   });
@@ -225,11 +216,22 @@ const asRole = async <T>(role: string, run: (client: SQL) => Promise<T>) =>
     return run(client);
   });
 
-test('daisy_web is a DML-only runtime role on every public table and sequence', async () => {
+test('daisy_web has the exact runtime DML scope on every public table and sequence', async () => {
   const privileges = await withClient(
     (client) => client`
       select
-        bool_and(has_table_privilege('daisy_web', c.oid, 'SELECT,INSERT,UPDATE,DELETE')) as dml,
+        bool_and(case when c.relname = 'outbox_retention_boundary' then
+          has_table_privilege('daisy_web', c.oid, 'SELECT')
+          and not has_table_privilege('daisy_web', c.oid, 'INSERT,UPDATE,DELETE')
+          and has_column_privilege('daisy_web', c.oid, 'txid', 'UPDATE')
+          and has_column_privilege('daisy_web', c.oid, 'seq', 'UPDATE')
+          and not has_column_privilege('daisy_web', c.oid, 'singleton', 'UPDATE')
+        else
+          has_table_privilege('daisy_web', c.oid, 'SELECT')
+          and has_table_privilege('daisy_web', c.oid, 'INSERT')
+          and has_table_privilege('daisy_web', c.oid, 'UPDATE')
+          and has_table_privilege('daisy_web', c.oid, 'DELETE')
+        end) as dml,
         bool_or(has_table_privilege('daisy_web', c.oid, 'TRUNCATE')) as truncate,
         bool_or(has_table_privilege('daisy_web', c.oid, 'REFERENCES')) as references,
         bool_or(has_table_privilege('daisy_web', c.oid, 'TRIGGER')) as trigger,
@@ -243,7 +245,8 @@ test('daisy_web is a DML-only runtime role on every public table and sequence', 
   );
   const sequences = await withClient(
     (client) => client`
-      select bool_and(has_sequence_privilege('daisy_web', c.oid, 'USAGE,SELECT')) as usable
+      select bool_and(has_sequence_privilege('daisy_web', c.oid, 'USAGE')
+        and has_sequence_privilege('daisy_web', c.oid, 'SELECT')) as usable
       from pg_class c
       join pg_namespace n on n.oid = c.relnamespace and n.nspname = 'public'
       where c.relkind = 'S'
@@ -260,7 +263,7 @@ test('daisy_web is a DML-only runtime role on every public table and sequence', 
   assert({
     given: 'the daisy_web runtime role the baseline creates',
     should:
-      'hold DML on every table and sequence use, and nothing that alters schema',
+      'hold exact table DML scopes and sequence use, and nothing that alters schema',
     actual: {
       ...privileges[0],
       sequences: sequences[0]?.usable,

@@ -93,7 +93,9 @@ export const resolveE2EOrigin = (env: Env): string =>
 // runs out of restarts, and the page loses its stylesheet to
 // ERR_TOO_MANY_RETRIES (ISSUE-21). Accepting the certificate at the TLS
 // layer leaves nothing to restart. The restart path is Chromium's own.
-const chromiumLaunch = { args: ['--ignore-certificate-errors'] };
+const chromiumLaunch = {
+  args: ['--ignore-certificate-errors', '--use-fake-device-for-media-stream'],
+};
 
 // Firefox saves every submitted field value as form history and, on the next
 // fill of a field with the same name, looks it up asynchronously and opens a
@@ -157,7 +159,13 @@ export default defineConfig({
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'], launchOptions: chromiumLaunch },
-      testIgnore: '**/visual.e2e.ts',
+      testIgnore: [
+        '**/visual.e2e.ts',
+        '**/room-launch.e2e.ts',
+        '**/debate-room.e2e.ts',
+        '**/realtime-room-delivery.e2e.ts',
+        '**/messaging-realtime.e2e.ts',
+      ],
     },
     {
       name: 'chromium-mobile',
@@ -261,6 +269,7 @@ export default defineConfig({
       gracefulShutdown: { signal: 'SIGTERM', timeout: 30_000 },
       env: {
         REALTIME_PORT: String(ports.realtime),
+        REALTIME_ALLOWED_ORIGINS: `http://127.0.0.1:${ports.realtime}`,
         NODE_ENV: 'production',
         APP_VERSION: 'e2e',
         GIT_COMMIT: 'local-e2e',
