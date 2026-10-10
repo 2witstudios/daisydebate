@@ -48,6 +48,26 @@ values from its declared permitted sets, including when disabled. Catalog
 defaults select declared legal values. The sole compiler rejects omitted or
 forbidden choices before creation or configuration changes persist any state.
 
+## Format admission and expansion
+
+Definitions and resolved rules share a provisional resource-work budget of
+256 total seats. Each role is independently bounded by the same budget;
+affirmative, negative and judge seats all consume it. This bounds each expanded
+seat list to 256 records and the Room page's three per-seat command identities
+to 768, independent of request byte size or a host's Room quota. It is an
+allocation/command-work ceiling, not a league roster rule or measured capacity
+claim. Changing this budget requires reassessing those consumers together.
+Counts must be nonnegative integers, and both debate sides must have at least
+one seat and a scheduled legal speaking opportunity. Either a speech or a
+cross-examination segment can provide that opportunity by referencing an
+existing seat on its declared side. Unequal rosters and zero judges remain legal.
+
+The canonical compiler refuses unsafe definitions before create/update writes.
+Launch defensively validates the definition and frozen executable rules even
+for direct domain callers. UI seat expansion validates counts before allocating
+arrays or command identities and fails closed; no consumer truncates a roster.
+Refused operations preserve Room, definition, receipt, outbox and Round state.
+
 ## Versions, consent and commit
 
 All commands carry `commandId` and `expectedVersion`. Ready and Unready also

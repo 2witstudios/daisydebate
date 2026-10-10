@@ -19,6 +19,8 @@ export type {
   RatingLadder,
 } from './primitives';
 export {
+  MAX_FORMAT_SEATS,
+  formatSeatsSchema,
   formatDefinitionSchema,
   roundRulesSchema,
   segmentTypes,

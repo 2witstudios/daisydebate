@@ -5,7 +5,11 @@ import type {
   RoomParticipant,
   RoomRefusal,
 } from '@daisy/protocol';
-import { seatSlotsComplete } from '@daisy/protocol';
+import {
+  formatDefinitionSchema,
+  roundRulesSchema,
+  seatSlotsComplete,
+} from '@daisy/protocol';
 
 type Target = RoomParticipant & { readonly eligible: boolean };
 export type Edges = {
@@ -37,6 +41,11 @@ export const startBlocker = (
   now: string,
 ): RoomRefusal | null => {
   if (!assemblyOpen(room)) return 'room-closed';
+  if (
+    !formatDefinitionSchema.safeParse(room.definition).success ||
+    !roundRulesSchema.safeParse(room.rules).success
+  )
+    return 'illegal-config';
   if (!complete(room)) return 'incomplete-cast';
   if (room.participants.some((p) => !p.eligible)) return 'actor-ineligible';
   if (!consent.available) return 'readiness-unavailable';

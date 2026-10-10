@@ -1,7 +1,10 @@
+import { formatSeatsSchema } from '@daisy/protocol';
 import type { RoomView } from '@daisy/protocol';
 
 type Role = RoomView['participants'][number]['role'];
 export function declaredSeats(seats: RoomView['definition']['seats']) {
+  if (!formatSeatsSchema.safeParse(seats).success)
+    throw new Error('Invalid room seats');
   return (['affirmative', 'negative', 'judge'] as const).flatMap((role) =>
     Array.from({ length: seats[role] }, (_, slot) => ({ role, slot })),
   );

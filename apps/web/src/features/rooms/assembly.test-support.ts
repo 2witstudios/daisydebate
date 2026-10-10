@@ -19,10 +19,21 @@ export const unequalTemplate = {
         slot: 2,
         defaultDurationMs: 120000,
       },
+      {
+        key: 'A1',
+        label: 'Affirmative opening',
+        type: 'speech',
+        side: 'affirmative',
+        slot: 0,
+        defaultDurationMs: 60000,
+      },
     ],
     configurable: {
       timing: {
-        segmentDurationMs: { N3: { min: 60000, max: 180000 } },
+        segmentDurationMs: {
+          N3: { min: 60000, max: 180000 },
+          A1: { min: 60000, max: 180000 },
+        },
         countdownMs: { min: 0, max: 5000 },
       },
       preRoundPrep: { durationMs: { min: 60000, max: 600000 } },
