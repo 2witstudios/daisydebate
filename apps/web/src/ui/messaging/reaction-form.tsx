@@ -1,5 +1,9 @@
 'use client';
-import { useFormAction, type FormAction } from '../form-action/form-action';
+import {
+  useFormAction,
+  useFocusAfterAnswer,
+  type FormAction,
+} from '../form-action/form-action';
 import { useMovedOn } from '../form-action/use-moved-on';
 import { Button } from '../components/button/button';
 import { DraftNotice } from './draft-notice';
@@ -29,6 +33,11 @@ export function ReactionForm({
     unavailable,
   );
   useMovedOn(answer.next);
+  useFocusAfterAnswer(
+    answer,
+    answer.notice ? `reaction-${answer.requestId}` : undefined,
+    !pending,
+  );
   return (
     <form action={post} className="flex items-center gap-3">
       <ReactionFields

@@ -2,6 +2,7 @@ import {
   editNativeMessage,
   messageInHistory,
   removeNativeMessage,
+  testMessageControlFocus,
 } from './support/messaging-message-controls';
 import { manageNativeReactions } from './support/messaging-reactions';
 import { proveNativeTyping } from './support/messaging-typing';
@@ -17,6 +18,8 @@ import {
   manageNativeMessagingGroup,
   renewNativeGroupInvitation,
 } from './support/messaging-journey';
+
+testMessageControlFocus();
 
 test('an authenticated DM doorbell refetches current history in the other real browser', async ({
   browser,

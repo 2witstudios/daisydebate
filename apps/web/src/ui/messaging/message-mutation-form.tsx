@@ -1,5 +1,9 @@
 'use client';
-import { useFormAction, type FormAction } from '../form-action/form-action';
+import {
+  useFormAction,
+  useFocusAfterAnswer,
+  type FormAction,
+} from '../form-action/form-action';
 import { useMovedOn } from '../form-action/use-moved-on';
 import { Button } from '../components/button/button';
 import { DraftNotice } from './draft-notice';
@@ -28,6 +32,18 @@ export function MessageMutationForm({
     messageMutationUnavailable,
   );
   useMovedOn(answer.next ?? removeAnswer.next);
+  useFocusAfterAnswer(
+    answer,
+    answer.notice ? `message-mutation-${answer.requestId}` : undefined,
+    !editPending,
+  );
+  useFocusAfterAnswer(
+    removeAnswer,
+    removeAnswer.notice
+      ? `message-removal-${removeAnswer.requestId}`
+      : undefined,
+    !removePending,
+  );
   return (
     <div className="mt-4 flex flex-col gap-3">
       <MessageMutationFields
