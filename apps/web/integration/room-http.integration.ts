@@ -14,12 +14,9 @@ import { createAccountFlows, uniqueName } from './auth-account-helpers';
 import { createTestApp, withSql } from './fixtures';
 requireTestServices(process.env);
 setupRitewayBun();
-const f = createTestApp();
-const account = createAccountFlows(f);
-// Explicit proof policy. No production process or deploy default is activated.
-const routes = createRoutes({
-  ...f.app,
-  roomPolicy: {
+// Explicit env policy through ordinary createApp; no injection/adoption.
+const f = createTestApp({
+  ROOM_POLICY: JSON.stringify({
     consentTtlMs: 60_000,
     maxOpenRooms: 5,
     maxBodyBytes: 262_144,
@@ -28,8 +25,10 @@ const routes = createRoutes({
       read: { max: 200, windowSeconds: 60 },
       command: { max: 200, windowSeconds: 60 },
     },
-  },
+  }),
 });
+const account = createAccountFlows(f);
+const routes = createRoutes(f.app);
 const headers = (cookie: string) =>
   new Headers({ cookie, origin: f.origin, 'content-type': 'application/json' });
 const member = async () => {
