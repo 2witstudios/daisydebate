@@ -47,7 +47,16 @@ read-only research and review.
 - Independent reviews use the Reviewer contract and `/review`. The review
   record's `Candidate:` line mints the `review-record` check through the
   review-record GitHub App; nobody sets that status by hand.
-- An autonomous agent never merges. It runs `gh pr merge <n> --auto --merge`
+- Owners, point guards, root/main-level and worktree agents may merge producers
+  into their own allocated unprotected non-main receiving checkout/branch under
+  [receiving branch authority](agent-pipeline.md#receiving-branch-authority). Resolve
+  symbolic default and live protection/rulesets, validate the live PR base/head
+  before automation, and never mutate producer or parent-main checkouts. Ordinary
+  merges/conflict resolution need no global Done, separate producer approval,
+  green whole-app CI or per-step root permission. Preserve tests/security and
+  honest provisional evidence.
+- An autonomous agent never directly merges main/default/protected release
+  targets. For main it runs `gh pr merge <n> --auto --merge`
   only once the live `main` ruleset requires `review-record`; GitHub then
   merges once `CI gate`, `Playwright E2E` and `review-record` all pass.
   Without that ruleset it reports "ready for owner merge" to its parent and
@@ -68,7 +77,10 @@ read-only research and review.
   `pu clean`; the orchestrator owns coordination and acceptance decisions on
   the PageSpace board while delegated agents keep their own status,
   evidence, follow-up leaves and Issues entries current.
-- Given an autonomous agent, should request merges only with
+- Given non-main integration, should allow any agent role to merge only into
+  its allocated unprotected receiving branch after default/protection/PR-base
+  checks, preserving other checkouts, dirty work and provisional evidence.
+- Given autonomous main acceptance, should request merges only with
   `gh pr merge --auto --merge`, and only once the live `main` ruleset
   requires `review-record`, while the owner may merge any PR at any time.
 - Given direct single-agent work, should be allowed to proceed without `pu`.

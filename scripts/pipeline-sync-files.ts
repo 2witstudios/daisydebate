@@ -1,7 +1,17 @@
 /** Content comparison and private scratch for explicit pipeline distribution. */
-import { lstatSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  cpSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 // Only block-to-block boundaries are layout whitespace; inline spaces are text.
 export const canonicalPipeline = (text: string): string =>
@@ -33,4 +43,45 @@ export function withPipelineFiles<T>(
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
+}
+
+/** Replace installed links with local copies; never write into a source checkout. */
+export function installPipelineSkill(
+  path: string,
+  desired: string,
+  before: string,
+): void {
+  const unchanged = () => {
+    const current = lstatSync(path, { throwIfNoEntry: false })
+      ? readFileSync(path, 'utf8')
+      : '';
+    if (current !== before)
+      throw new Error(
+        'Installed pipeline skill changed; retry after reading current state',
+      );
+  };
+  unchanged();
+  const directory = dirname(path);
+  if (lstatSync(directory, { throwIfNoEntry: false })?.isSymbolicLink()) {
+    const scratch = mkdtempSync(join(dirname(directory), '.pipeline-install-'));
+    try {
+      const copy = join(scratch, 'skill');
+      cpSync(realpathSync(directory), copy, {
+        recursive: true,
+        dereference: true,
+      });
+      unchanged();
+      rmSync(directory);
+      renameSync(copy, directory);
+    } finally {
+      rmSync(scratch, { recursive: true, force: true });
+    }
+  }
+  mkdirSync(directory, { recursive: true });
+  unchanged();
+  if (lstatSync(path, { throwIfNoEntry: false })?.isSymbolicLink())
+    rmSync(path);
+  writeFileSync(path, desired);
+  if (readFileSync(path, 'utf8') !== desired)
+    throw new Error('Installed pipeline skill readback differs');
 }

@@ -4,6 +4,10 @@ import {
   mkdtempSync,
   rmSync,
   statSync,
+  mkdirSync,
+  readFileSync,
+  symlinkSync,
+  lstatSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -12,6 +16,7 @@ import {
   canonicalPipeline,
   retirePipelineReference,
   withPipelineFiles,
+  installPipelineSkill,
 } from './pipeline-sync-files';
 setupRitewayBun();
 
@@ -80,5 +85,95 @@ describe('pipeline distribution integrity', () => {
         remaining: false,
       },
     });
+  });
+});
+
+describe('installed pipeline checkout isolation', () => {
+  test('detaches linked skills without changing their source checkout', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'pipeline-install-'));
+    try {
+      const source = join(directory, 'parent-skill');
+      const installed = join(directory, 'installed-skill');
+      mkdirSync(source);
+      writeFileSync(join(source, 'SKILL.md'), 'parent policy');
+      writeFileSync(join(source, 'reference.md'), 'keep reference');
+      symlinkSync(source, installed);
+      installPipelineSkill(
+        join(installed, 'SKILL.md'),
+        'new branch authority',
+        'parent policy',
+      );
+      assert({
+        given: 'an installed skill directory linked to another checkout',
+        should:
+          'update the local copy, preserve references and leave parent source untouched',
+        actual: {
+          parent: readFileSync(join(source, 'SKILL.md'), 'utf8'),
+          local: readFileSync(join(installed, 'SKILL.md'), 'utf8'),
+          reference: readFileSync(join(installed, 'reference.md'), 'utf8'),
+          linked: lstatSync(installed).isSymbolicLink(),
+        },
+        expected: {
+          parent: 'parent policy',
+          local: 'new branch authority',
+          reference: 'keep reference',
+          linked: false,
+        },
+      });
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+  test('creates missing Codex installs and replaces file links locally', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'pipeline-file-link-'));
+    try {
+      const source = join(directory, 'source.md');
+      const linked = join(directory, 'linked.md');
+      const missing = join(directory, 'codex-skill', 'SKILL.md');
+      writeFileSync(source, 'source contract');
+      symlinkSync(source, linked);
+      installPipelineSkill(linked, 'installed contract', 'source contract');
+      installPipelineSkill(missing, 'new Codex contract', '');
+      assert({
+        given: 'a linked SKILL file and an absent Codex skill directory',
+        should:
+          'create independent local files without altering the link source',
+        actual: [
+          readFileSync(source, 'utf8'),
+          readFileSync(linked, 'utf8'),
+          readFileSync(missing, 'utf8'),
+          lstatSync(linked).isSymbolicLink(),
+        ],
+        expected: [
+          'source contract',
+          'installed contract',
+          'new Codex contract',
+          false,
+        ],
+      });
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+  test('refuses a concurrent change before detaching or writing', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'pipeline-race-'));
+    try {
+      const path = join(directory, 'SKILL.md');
+      writeFileSync(path, 'concurrent policy');
+      let refused = false;
+      try {
+        installPipelineSkill(path, 'replacement', 'previous policy');
+      } catch (error) {
+        refused = error instanceof Error && error.message.includes('changed');
+      }
+      assert({
+        given: 'installed content changed since the distribution read',
+        should: 'refuse and preserve the concurrent content',
+        actual: [refused, readFileSync(path, 'utf8')],
+        expected: [true, 'concurrent policy'],
+      });
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
   });
 });

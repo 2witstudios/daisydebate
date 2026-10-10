@@ -26,7 +26,16 @@ Check `pu status --json` to see where you fit in the current workspace.
 
 Agents started by `pu` run autonomously (`DAISY_AUTONOMOUS=1`) under the
 agent machine identity, never the owner's GitHub token or SSH key. The
-guard rails: a merge may be requested with `gh pr merge --auto --merge`
+guard rails: owners, point guards, root and worktree agents may integrate into
+their own allocated unprotected non-main receiving branch under
+[receiving branch authority](../docs/development/agent-pipeline.md#receiving-branch-authority).
+Resolve symbolic default/protected targets and verify the live PR base/head
+before automation. Never mutate producer or parent-main checkouts, lose dirty
+work, force-push, rewrite history or reset. Preserve security/tests and honest
+provisional checks; no global Done, separate producer approval, green whole-app
+CI or per-step root permission for branch integration. For main/default/protected
+release acceptance, no autonomous direct merge; main auto-merge may be requested
+with `gh pr merge --auto --merge`
 only once the live `main` ruleset requires `review-record`, otherwise
 report "ready for owner merge" to your parent and wait. See
 [pu workflow](../docs/development/pu-workflow.md).

@@ -93,7 +93,16 @@ PageSpace's lesson: branch debris accumulates faster than agents clean it
 
 ## Reviewing and merging parallel work
 
-The owner merges any PR whenever they choose. Autonomous agents never merge:
+Owners, point guards, root/main-level and worktree agents may integrate into
+their own allocated unprotected non-main receiving branches under
+[receiving branch authority](agent-pipeline.md#receiving-branch-authority). Root
+agents allocate a receiving worktree; parent-main and producer checkouts stay
+untouched. One short-lived integration branch and umbrella PR may compose
+unmerged children without global Done, separate producer approval or green
+whole-app CI. Preserve real writer coordination and honest provisional checks.
+
+The owner retains existing merge authority. Autonomous agents never merge
+directly into main, symbolic default or protected release targets. For main,
 once the live `main` ruleset requires `review-record`, they request it with
 `gh pr merge --auto --merge`, and GitHub merges once the `CI gate`,
 `Playwright E2E` and `review-record` checks pass; before that they report
