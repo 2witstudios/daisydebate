@@ -1,21 +1,13 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { fixture, row, topic } from './registry.test-support';
+import { fixture, row, topic, pendingRead } from './registry.test-support';
 
 setupRitewayBun();
 
 test('a drain between resolved boundary and the caller continuation cannot replay', async () => {
-  let resolve!: (boundary: { txid: string; seq: bigint }) => void;
-  let started!: () => void;
-  const began = new Promise<void>((done) => {
-    started = done;
-  });
+  const { resolve, began, read } = pendingRead<{ txid: string; seq: bigint }>();
   const { registry, connection, sent, attached } = fixture({
     readCatchup: async () => ({ rows: [row(1)], resync: false }),
-    readRetentionBoundary: () =>
-      new Promise((done) => {
-        resolve = done;
-        started();
-      }),
+    readRetentionBoundary: read,
   });
   registry.seed({ txid: '1', seq: 1n });
   const pending = registry.subscribe(connection, {

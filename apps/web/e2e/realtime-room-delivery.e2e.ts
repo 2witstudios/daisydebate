@@ -3,6 +3,7 @@ import {
   buildRoomTopic,
   roomCatalogChoiceSchema,
   roomViewSchema,
+  roomCreateSchema,
   ENVELOPE_VERSION,
   PROTOCOL_VERSION,
 } from '@daisy/protocol';
@@ -38,20 +39,20 @@ test('real HTTP Room mutation reaches its authenticated browser subscriber and r
     if (!choice) throw new Error('Canonical Room format producer unavailable');
     const created = await host.request.post('/api/rooms', {
       headers: { origin },
-      data: {
+      data: roomCreateSchema.parse({
         commandId: createId(),
         title: 'Realtime isolated proof',
         topic: 'Cities should fund public transit',
         visibility: 'private',
         selection: {
-          kind: 'template',
+          kind: 'catalog',
           formatId: choice.formatId,
           formatVersion: choice.formatVersion,
           length: 'full',
           competitionType: 'casual',
           config: choice.defaultConfig,
         },
-      },
+      }),
     });
     expect(created.status()).toBe(200);
     const before = roomViewSchema.parse((await created.json()).view);
