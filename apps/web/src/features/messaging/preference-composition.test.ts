@@ -76,3 +76,105 @@ test('preference clear composition refuses foreign rows, stale identity and eras
       code: 'AUTHORIZATION',
     });
 });
+
+test('real preference factory binds separate channel fences and row-derived cleanup callback', async () => {
+  const { composeMessagingPreferences } =
+    await import('./preference-composition');
+  const { messagingTestPosting, messagingTestReading } =
+    await import('@daisy/auth/testing');
+  const calls: string[] = [];
+  const tx = {
+    execute: () => {
+      throw new Error('No database call expected');
+    },
+    insert: () => {
+      throw new Error('No insert expected');
+    },
+  };
+  const channel = {
+    kind: 'channel' as const,
+    channelId: input.channelId,
+    policyKey: 'social.dm' as const,
+    policyRevision: 1,
+    lifecycle: 'active' as const,
+    revision: 1,
+    authority: {
+      kind: 'dm' as const,
+      lowActorId: input.actorId,
+      highActorId: 'b'.repeat(24),
+      requestSenderActorId: input.actorId,
+      state: 'accepted' as const,
+      blocked: false,
+      revision: 1,
+    },
+  };
+  const database: Pick<
+    import('@daisy/db').Database,
+    'messagingPreferenceStore'
+  > = {
+    messagingPreferenceStore: (fences) => ({
+      read: async (scope) => {
+        calls.push('read');
+        await fences.read(
+          tx,
+          { ...scope, userId: 'foreign'.repeat(3) },
+          { fact: channel, accounts: [account] },
+        );
+        return { state: null, unread: 0 };
+      },
+      update: async (scope) => {
+        calls.push('update');
+        await fences.update(
+          tx,
+          { ...scope, actorId: 'f'.repeat(24) },
+          { fact: channel, accounts: [account] },
+        );
+        return { state: null, unread: 0 };
+      },
+      clear: async (scope) => {
+        await fences.clear(tx, scope, { accounts: [account], fact });
+        calls.push('clear');
+        return true;
+      },
+    }),
+  };
+  const store = composeMessagingPreferences({
+    database,
+    principal,
+    clock: { now: () => '2026-10-10T12:00:00.000Z' },
+    policy: {
+      posting: messagingTestPosting,
+      reading: messagingTestReading,
+      bounds: { messageUnits: 100, pageItems: 20 },
+      maxBodyBytes: 1024,
+      editWindowMs: 1000,
+      limits: {
+        read: { max: 10, windowSeconds: 60 },
+        actorSend: { max: 10, windowSeconds: 60 },
+        channelSend: { max: 10, windowSeconds: 60 },
+      },
+    },
+  });
+  for (const operation of [
+    () => store.read(input),
+    () =>
+      store.update(input, {
+        following: false,
+        hidden: false,
+        notificationLevel: 'none',
+      }),
+  ])
+    await assertRejects({
+      given: 'misbound factory scope',
+      should: 'refuse the appropriate channel fence before account-age I/O',
+      actual: operation,
+      code: 'AUTHORIZATION',
+    });
+  assert({
+    given: 'actual row-bound clear callback',
+    should:
+      'allow only current self through canonical clear independently of channel fences',
+    actual: [await store.clear(input), calls],
+    expected: [true, ['read', 'update', 'clear']],
+  });
+});
