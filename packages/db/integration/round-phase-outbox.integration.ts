@@ -5,7 +5,11 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createDatabase } from '../src';
 import { practiceRoomConfig } from '../src/reference-formats';
 import { validRules } from './round-fixtures';
-import { roundAuthoring, withFixture } from './constraint-helpers';
+import {
+  createScheduledRound,
+  roundAuthoring,
+  withFixture,
+} from './constraint-helpers';
 
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
@@ -38,7 +42,6 @@ test('Room freeze appends the scheduled Round phase signal in its transaction', 
     const seats = [
       ['affirmative', 0],
       ['negative', 0],
-      ['judge', 0],
     ] as const;
     for (const [role, slot] of seats) {
       await fixture.insert('room_participants', {
@@ -81,17 +84,16 @@ test('Room freeze appends the scheduled Round phase signal in its transaction', 
       });
     } finally {
       await database.close();
-      await fixture.sql.unsafe('delete from outbox where topic = $1', [
-        buildDebateTopic(roundId),
-      ]);
     }
   });
 });
 
 test('accepted Round projections append one phase signal with the stored version', async () => {
   await withFixture(url, async (fixture) => {
-    const { roundId, database } = await roundAuthoring(fixture, url);
+    const authoring = await roundAuthoring(fixture, url);
+    const { roundId, database } = authoring;
     try {
+      await createScheduledRound(authoring, 'A motion');
       const before = await database.getRound(roundId);
       if (!before) throw new Error('the scheduled Round did not hydrate');
       await database.applyRoundExecution({
@@ -138,9 +140,6 @@ test('accepted Round projections append one phase signal with the stored version
       });
     } finally {
       await database.close();
-      await fixture.sql.unsafe('delete from outbox where topic = $1', [
-        buildDebateTopic(roundId),
-      ]);
     }
   });
 });

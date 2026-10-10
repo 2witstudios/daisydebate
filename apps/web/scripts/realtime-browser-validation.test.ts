@@ -3,9 +3,9 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createContext, runInContext } from 'node:vm';
 import {
-  buildRoomTopic,
-  buildDebateTopic,
   buildChannelTopic,
+  buildDebateTopic,
+  buildRoomTopic,
   buildUserInboxTopic,
 } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -90,7 +90,7 @@ test('actual browser frame bundle validates after dynamic-code permission change
       parse({ v: 1, type: 'ready', ticket: 'not-a-frame-field' }),
       parse({
         ...frames[2],
-        topic: buildChannelTopic(id),
+        topic: buildChannelTopic('c'.repeat(24)),
       }),
     ],
     expected: [null, null],
