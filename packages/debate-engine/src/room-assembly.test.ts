@@ -111,6 +111,51 @@ describe('Room assembly authority', () => {
       ],
     });
   });
+
+  test('Start accepts a complete cast when occupied slots arrive out of order', () => {
+    const room = state();
+    const participants = [
+      ...room.participants,
+      {
+        id: 'p3',
+        actorId: 'second-affirmative',
+        label: 'Second affirmative',
+        kind: 'human' as const,
+        role: 'affirmative' as const,
+        slot: 1,
+        eligible: true,
+        consentVersion: 0,
+        consentCommandId: 'r3',
+      },
+    ];
+    const rules = {
+      ...room.rules,
+      seats: { ...room.rules.seats, affirmative: 2 },
+    };
+    const configured = {
+      ...room,
+      rules,
+      participants: [participants[2]!, participants[0]!, participants[1]!],
+    };
+    const result = executeRoomCommand(
+      configured,
+      'host',
+      {
+        commandId: 'start-with-reordered-cast',
+        expectedVersion: configured.version,
+        type: 'start-round',
+      },
+      { available: true, readyActorIds: ['host', 'other', 'second-affirmative'] },
+      edges,
+    );
+
+    assert({
+      given: 'a complete cast persisted in a different order from its seat slots',
+      should: 'sort the occupied slots and allow the atomic Launch',
+      actual: result.ok && result.mutation.freeze,
+      expected: true,
+    });
+  });
 });
 
 test('prep keeps its original atomic anchor and derives time without restarting on finish', () => {
