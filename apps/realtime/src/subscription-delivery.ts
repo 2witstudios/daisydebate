@@ -103,6 +103,8 @@ export function createSubscriptionDelivery({
     if (compare(row, sub.delivered) <= 0) return;
     try {
       publish(transport.nativeTopic(connection, row.topic), event(row));
+      if (connection.socket.bufferedAmount() > 262_144)
+        throw new Error('Realtime recipient exceeded the soft buffer bound');
       sub.delivered = row;
     } catch {
       remove(connection);

@@ -42,11 +42,24 @@
       "dependsOn": ["^build"],
       "outputs": [".next/**", "!.next/cache/**"]
     },
-    "typecheck": { "dependsOn": ["^typecheck"], "outputs": [] },
-    "lint": { "outputs": [] },
-    "format:check": { "outputs": [] },
-    "test": { "dependsOn": ["^typecheck"], "outputs": [] },
-    "test:integration": { "cache": false },
+    "typecheck": {
+      "dependsOn": ["^typecheck"],
+      "outputs": []
+    },
+    "lint": {
+      "outputs": []
+    },
+    "format:check": {
+      "outputs": []
+    },
+    "test": {
+      "dependsOn": ["^typecheck"],
+      "outputs": []
+    },
+    "test:integration": {
+      "cache": false,
+      "passThroughEnv": ["CLAMD_TEST_PORT"]
+    },
     "test:e2e": {
       "dependsOn": ["build"],
       "cache": false,
@@ -56,6 +69,8 @@
         "DAISY_E2E_POLL_MS"
       ]
     },
-    "check": { "dependsOn": ["typecheck", "lint", "test", "build"] }
+    "check": {
+      "dependsOn": ["typecheck", "lint", "test", "build"]
+    }
   }
 }

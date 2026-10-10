@@ -28,6 +28,8 @@ export const allowedWorkspaceDependencies: Record<string, readonly string[]> = {
   // AIDB: the OpenRouter voice layer reads the engine's turn table and the
   // protocol's ballot contract only.
   'ai-voice': ['debate-engine', 'errors', 'protocol'],
+  // VIDEO-1.4: isolated LiveKit vendor adapter; no competitive authority.
+  media: ['errors', 'protocol'],
   protocol: [],
   // ADR 0048: pure capability evaluation consumes portable vocabulary only.
   auth: ['errors', 'protocol'],
