@@ -35,8 +35,8 @@ export function composeMessagingTyping({
   readonly readAccounts: typeof loadAccountPolicyFacts;
 }) {
   const actor = requireMessagingActor(principal);
-  const run = (channelId: string, typing: boolean | undefined) =>
-    database.messagingTypingStore(
+  const run = async (channelId: string, typing: boolean | undefined) => {
+    const project = await database.messagingTypingStore(
       { ...actor, channelId },
       bounds.maxActors,
       async (frame) => {
@@ -75,6 +75,8 @@ export function composeMessagingTyping({
         });
       },
     );
+    return project(clock.now());
+  };
   return {
     read: (channelId: string) => run(channelId, undefined),
     update: (channelId: string, typing: boolean) => run(channelId, typing),
@@ -117,16 +119,7 @@ export async function runTypingFrame({
     const current = await refreshAuthority();
     const own = current.authority.find((row) => row.actorId === actor.actorId);
     if (!own) throw createAppError('NOT_FOUND');
-    requireMessagingAuthorization({
-      ...own.input,
-      capability: typing === undefined ? 'channel.read' : 'channel.post',
-      principal,
-    });
-    requireMessagingAuthorization({
-      ...own.input,
-      capability: 'channel.read',
-      principal,
-    });
+    requireTypingAccess(own.input, principal, typing, current.now);
     return { ...current, own };
   };
   await snapshot();
@@ -156,22 +149,40 @@ export async function runTypingFrame({
     await notify();
     final = await snapshot();
   }
-  const aggregate = typingAggregate(
-    final.authority,
-    after,
-    actor.actorId,
-    final.now,
-  );
-  return messagingTypingSchemas.result.parse({
-    version: 1,
-    channelId,
-    typing: aggregate.typing,
-    refreshAfterMs:
-      aggregate.expiresAt === null
-        ? bounds.refetchMs
-        : Math.min(
-            bounds.refetchMs,
-            Math.max(1, aggregate.expiresAt - Date.parse(final.now)),
-          ),
+  // Sealed current facts and leases leave the transaction; projection runs after COMMIT.
+  return (now: string) => {
+    requireTypingAccess(final.own.input, principal, typing, now);
+    const aggregate = typingAggregate(
+      final.authority,
+      after,
+      actor.actorId,
+      now,
+    );
+    return messagingTypingSchemas.result.parse({
+      version: 1,
+      channelId,
+      typing: aggregate.typing,
+      refreshAfterMs:
+        aggregate.expiresAt === null
+          ? bounds.refetchMs
+          : Math.min(
+              bounds.refetchMs,
+              Math.max(1, aggregate.expiresAt - Date.parse(now)),
+            ),
+    });
+  };
+}
+
+function requireTypingAccess(
+  input: ReturnType<typeof typingAuthority>[number]['input'],
+  principal: AuthorizationPrincipal,
+  typing: boolean | undefined,
+  now: string,
+) {
+  const current = { ...input, principal, context: { ...input.context, now } };
+  requireMessagingAuthorization({
+    ...current,
+    capability: typing === undefined ? 'channel.read' : 'channel.post',
   });
+  requireMessagingAuthorization({ ...current, capability: 'channel.read' });
 }

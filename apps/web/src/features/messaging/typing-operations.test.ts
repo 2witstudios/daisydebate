@@ -45,9 +45,9 @@ function fixture() {
 }
 test('actual typing frame emits only aggregate transitions and preserves read-only projection', async () => {
   const f = fixture();
-  const first = await runTypingFrame({ ...f.input, typing: true });
+  const first = (await runTypingFrame({ ...f.input, typing: true }))(f.now);
   await runTypingFrame({ ...f.input, typing: true });
-  const read = await runTypingFrame({ ...f.input, typing: undefined });
+  const read = (await runTypingFrame({ ...f.input, typing: undefined }))(f.now);
   await runTypingFrame({ ...f.input, typing: false });
   assert({
     given: 'start, unchanged renewal, own aggregate read and stop',
@@ -105,7 +105,11 @@ test('fresh authority refusal around awaits prevents lease mutation and stale ti
   assert({
     given: 'lease expires while Redis read awaits',
     should: 'use refreshed trusted time and never return expired typing',
-    actual: [response.typing, reads, JSON.stringify(f.writes)],
+    actual: [
+      response('2026-10-10T12:00:06.000Z').typing,
+      reads,
+      JSON.stringify(f.writes),
+    ],
     expected: [false, 1, before],
   });
 });
@@ -163,7 +167,7 @@ test('peer lease expiry during notification clears the returned aggregate using 
     given:
       'a qualifying peer aggregate before notification and expired lease at its completion',
     should: 'return current false without stale peer typing or expired timing',
-    actual: result,
+    actual: result(now),
     expected: {
       version: 1,
       channelId: f.channel.channelId,
@@ -194,7 +198,7 @@ test('authorized peer typing refetch is bounded by the actual remaining lease li
     given: 'a current peer lease with only100ms remaining before expiry',
     should:
       'project typing and refetch by that expiry without renewing or notifying',
-    actual: [result, f.writes, f.hints],
+    actual: [result(now), f.writes, f.hints],
     expected: [
       {
         version: 1,
