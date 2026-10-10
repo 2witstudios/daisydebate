@@ -39,6 +39,9 @@ export default async function ConversationPage({
         lede="Private messages"
         actions={<Link href="/lobby">Back to lobby</Link>}
       />
+      <Link href={`/messages/${id.data}/preferences`}>
+        Conversation preferences
+      </Link>
       {conversation === null ? (
         <p
           role="status"

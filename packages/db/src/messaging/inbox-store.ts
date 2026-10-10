@@ -48,8 +48,12 @@ export function createMessagingInboxStore(
           union all
           select channel_id from public.messaging_group_invitations
           where invitee_actor_id = ${scope.actorId} and state = 'pending'
+          union all
+          select channel_id from public.messaging_actor_states where actor_id = ${scope.actorId}
         ) candidate
         where (${scope.after ?? null}::text is null or candidate.channel_id > ${scope.after ?? null}::text)
+        and not exists (select 1 from public.messaging_actor_states saved
+          where saved.actor_id = ${scope.actorId} and saved.channel_id = candidate.channel_id and saved.hidden = true)
         order by candidate.channel_id limit ${scope.limit}
       `);
         return rows.map((row) => {

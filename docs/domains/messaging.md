@@ -216,3 +216,86 @@ policies are not prerequisites. Unblocking grants neither request acceptance
 nor content access. Refused sends keep draft text and command identity; native
 browser controls exercise a blocked refusal followed by an authorized retry
 once the pair is unblocked.
+
+Private-group membership commands use one native username-intent route and the
+same transactional provider as application operations. Revoke and archive use
+canonical current-manager safety capabilities without age or content-policy
+admission; self-leave requires the actual current grant. Transfer still uses
+fresh canonical management eligibility. Removing the last manager from an
+active group is refused until management transfers or the group is archived.
+Grant changes increment the actual generation and scope the write to its
+previous generation. Pending invitations issued by a manager losing that role
+are cancelled; archiving cancels every remaining pending invitation.
+
+Committed management retries use `channel.group.result` over the actual own
+receipt and current channel core. The operation separately binds actor, request,
+original operation, target digest and result channel. Replay returns only
+channel ID and lifecycle and cannot renew a grant or repeat a mutation. Current
+account erasure still refuses replay. Group inbox entries distinguish authorized
+group conversations for membership navigation; this adds no title or member
+list projection. Native membership forms preserve target and retry identity on
+refusal and work with JavaScript disabled. The expanded management integration
+and browser controls require execution on their exact composed candidate;
+source tests alone do not establish transactional or browser acceptance.
+
+Post-creation invitation issuance uses `channel.group.invite` over the actual
+current private-group cast and proposed nonmember actors. The native username
+form resolves intent only; the same transaction locks canonical accounts,
+selected contact pairs, and the channel before evaluating explicit approved
+admission. Issuance creates pending invitation associations, never member grants.
+Closed invitations may renew with an incremented generation; an already pending
+invitation refuses. Explicit injected member and pending-invitation budgets are
+required for new issuance, with no production default or DEC124/DEC127 approval
+inferred from isolated test values.
+
+The `group.invite` receipt binds the original channel and sorted proposed actor
+set. Every proposed actor is recorded in the existing command-subject table for
+subject-local export and erasure. Committed retries use the same minimal
+`channel.group.result` capability as management and cannot repeat admission or
+renew invitations. Expanded both-JavaScript-mode browser controls cover declined
+invitation renewal, approved late-join history, and renewed member revocation.
+Their acceptance requires the exact composed hosted execution.
+
+Native attachments use a dedicated bounded multipart POST outside the unchanged
+16 KiB server-action decoder. The multipart envelope has its own explicitly
+injected `maxMultipartBytes`; file size, count, charge and scan limits still come
+from the injected file policy. Origin and current member checks precede body
+reading. The native transport invokes the same reserve, immutable upload and
+scan/finalize operations as JSON/binary clients, binding the selected message
+and current file generation. Refusals retain escaped filename and request/token
+intent with a fresh file chooser, never file bytes in action state or URLs.
+Own pending discard calls the canonical cleanup capability independently of
+posting eligibility; quota remains charged until real physical deletion ACK.
+
+History links discover attachment metadata through the current read frame and
+per-file access fence. Downloads stream private bytes through the application,
+with inert attachment filenames and no object key, public vendor URL or signed
+bearer URL. Deployment composition remains unavailable without explicit policy,
+private-object and scanner ports. Native fixtures use real private filesystem
+storage and clamd only in their validated isolated slot; fixture values do not
+approve privacy, retention or numeric product policies.
+
+The optional file runtime maintenance configuration supplies explicit cadence and
+batch limits. The existing web process schedules bounded reservation expiry and
+private deletion work, prevents overlapping runs, and awaits current work before
+closing pools. Expiry discovers all due owners for a channel, acquires canonical
+account→pair→channel fences, and rereads owners after waits; unfenced owner drift
+refuses that channel until a later run. Only expired reserved/quarantined rows
+transition to deleting. Current membership, posting or age admission does not
+confer cleanup authority. Missing durable authority is never recreated.
+
+Physical deletion uses the delivered trusted provider: linked deleting files and
+unlinked subject-erasure intents retain their storage charge until the private
+store resolves deletion acknowledgement. An outage preserves the charged row
+for retry. Logs reuse content-free sweep counts/status; object keys and subject
+associations are not logged. Missing runtime/maintenance configuration schedules
+nothing. Deployment approval of vendors, cadence and policy remains outstanding;
+branch composition does not activate collection or approve pending retention.
+
+### Channel preferences and current unread metadata
+
+The dedicated preference store reads and updates existing actor-state selections under the same ordered account, pair and channel fence as history. The canonical `channel.preferences.read` and `channel.preferences.update` capabilities require current entitlement and explicit fresh reading evidence; posting and age admission are independent. `following`, `hidden` and the `all | mentions | none` notification selection never grant access. An absent state remains null until an explicit selection is saved. Updates preserve the monotonic read marker. Unread counts include only surviving other-author messages after that marker; they contain no message body or actor-specific signal. Notification delivery and mention eligibility remain separate unfinished consumers.
+
+Own clear first fences the current account, locks the actual scoped actor-state row, and uses `channel.preferences.clear` only for that persisted row. It deletes only that row, without upsert, membership recreation or content access. An absent row gets only current own-collection authorization and returns `cleared:false`. Removed members may clear their own saved state while preference reads remain concealed. Existing canonical actor-state privacy declarations and pending lawful-basis/retention decisions apply unchanged.
+
+The mounted JSON read/update/clear routes and `/messages/[channelId]/preferences` native form share this store and canonical authorization. Every selection is explicit; missing selections are not product defaults. The form works before hydration and with JavaScript disabled, retaining choices after refusal. Branch PostgreSQL and browser proofs are required before this increment is accepted; no production policy is supplied.

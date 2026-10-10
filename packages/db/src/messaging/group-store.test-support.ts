@@ -1,3 +1,4 @@
+import type { MessagingChannelFact } from './social';
 /** Durable wire facts shared by the actual creation and invitation store contract readers. */
 export function groupStoreFacts() {
   const inviter = 'a'.repeat(24),
@@ -15,7 +16,7 @@ export function groupStoreFacts() {
     role: 'manager' | null,
     generation: number,
     revision = 1,
-  ) => ({
+  ): MessagingChannelFact => ({
     kind: 'channel',
     channelId,
     policyKey: 'social.private_group',
@@ -42,4 +43,21 @@ export function groupStoreFacts() {
     null,
   ];
   return { inviter, invitee, channelId, accounts, channel, now, invitation };
+}
+
+/** Real driver responses for channel advancement and two recipient outbox inserts. */
+export function groupWriteBellRows() {
+  return [[], [], [[1, '9']], [], [], [[2, '9']], [], [[3, '9']], []];
+}
+export function groupWrittenBells(
+  queries: readonly {
+    readonly query: string;
+    readonly params: readonly unknown[];
+  }[],
+) {
+  return queries
+    .filter((query) => query.query.startsWith('insert into "outbox"'))
+    .map((query) =>
+      query.params.find((value) => typeof value === 'object' && value !== null),
+    );
 }

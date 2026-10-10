@@ -1,9 +1,14 @@
+import type { Page } from '@playwright/test';
+import { manageNativePreferences } from './support/messaging-preferences';
+import { attachNativeMessageFile } from './support/messaging-attachments';
 import { serverMessageSchema } from '@daisy/protocol';
 import { test, expect, openPage } from './support/fixtures';
 import {
   openMessagingJourney,
   openMessagingGroupJourney,
   acceptMessagingJourney,
+  manageNativeMessagingGroup,
+  renewNativeGroupInvitation,
 } from './support/messaging-journey';
 
 test('an authenticated DM doorbell refetches current history in the other real browser', async ({
@@ -44,11 +49,7 @@ test('an authenticated DM doorbell refetches current history in the other real b
     await recipient
       .getByRole('button', { name: 'Send message', exact: true })
       .click();
-    await expect(
-      sender
-        .getByRole('list', { name: 'Message history' })
-        .getByText(text, { exact: true }),
-    ).toHaveCount(1);
+    await expect(messageInHistory(sender, text)).toHaveCount(1);
     expect(
       bells.some(
         (payload) =>
@@ -77,21 +78,15 @@ for (const javaScriptEnabled of [true, false]) {
       await recipient
         .getByRole('button', { name: 'Send message', exact: true })
         .click();
-      await expect(
-        recipient
-          .getByRole('list', { name: 'Message history' })
-          .getByText(text, { exact: true }),
-      ).toBeVisible();
+      await expect(messageInHistory(recipient, text)).toBeVisible();
       const sender = await openPage(
         journey.sender,
         'the sender durable history',
       );
       await sender.goto(`/messages/${journey.channelId}`);
-      await expect(
-        sender
-          .getByRole('list', { name: 'Message history' })
-          .getByText(text, { exact: true }),
-      ).toHaveCount(1);
+      await expect(messageInHistory(sender, text)).toHaveCount(1);
+      await attachNativeMessageFile(recipient, sender, journey.channelId, text);
+      await manageNativePreferences(sender, journey.channelId);
       const foreign = await journey.outsider.request.get(
         `/api/messaging/channels/${journey.channelId}/messages`,
       );
@@ -104,11 +99,7 @@ for (const javaScriptEnabled of [true, false]) {
         .getByRole('searchbox', { name: 'Search messages' })
         .fill('browser');
       await sender.getByRole('button', { name: 'Search', exact: true }).click();
-      await expect(
-        sender
-          .getByRole('list', { name: 'Message history' })
-          .getByText(text, { exact: true }),
-      ).toHaveCount(1);
+      await expect(messageInHistory(sender, text)).toHaveCount(1);
       await sender
         .getByRole('searchbox', { name: 'Search messages' })
         .fill('%');
@@ -123,11 +114,7 @@ for (const javaScriptEnabled of [true, false]) {
         new RegExp(`/messages/${journey.channelId}$`),
       );
       await sender.reload();
-      await expect(
-        sender
-          .getByRole('list', { name: 'Message history' })
-          .getByText(text, { exact: true }),
-      ).toHaveCount(1);
+      await expect(messageInHistory(sender, text)).toHaveCount(1);
       await recipient.goto('/messages/contacts');
       await recipient
         .getByLabel('Username', { exact: true })
@@ -160,9 +147,7 @@ for (const javaScriptEnabled of [true, false]) {
         .getByRole('button', { name: 'Send message', exact: true })
         .click();
       await expect(
-        sender
-          .getByRole('list', { name: 'Message history' })
-          .getByText('Retained retry after unblock', { exact: true }),
+        messageInHistory(sender, 'Retained retry after unblock'),
       ).toHaveCount(1);
     } finally {
       await journey.close();
@@ -242,8 +227,64 @@ for (const javaScriptEnabled of [true, false]) {
           .getByRole('list', { name: 'Message history' })
           .getByText(text, { exact: true }),
       ).toHaveCount(1);
+      await creator.goto('/messages');
+      await creator
+        .getByRole('link', { name: 'Group membership', exact: true })
+        .click();
+      await expect(
+        creator.getByRole('heading', { name: 'Group membership', exact: true }),
+      ).toBeVisible();
+      await renewNativeGroupInvitation(journey, creator, declined, text);
+      await manageNativeMessagingGroup(
+        creator,
+        journey.channelId,
+        'transfer',
+        journey.recipientUsername,
+      );
+      await manageNativeMessagingGroup(
+        invited,
+        journey.channelId,
+        'remove',
+        journey.senderUsername,
+      );
+      const removedHistory = await journey.sender.request.get(
+        `/api/messaging/channels/${journey.channelId}/messages`,
+      );
+      expect(removedHistory.status()).toBe(404);
+      await expect(
+        invited
+          .getByRole('list', { name: 'Message history' })
+          .getByText(text, { exact: true }),
+      ).toHaveCount(1);
+      await manageNativeMessagingGroup(
+        invited,
+        journey.channelId,
+        'remove',
+        journey.outsiderUsername,
+      );
+      const revokedLateJoin = await journey.outsider.request.get(
+        `/api/messaging/channels/${journey.channelId}/messages`,
+      );
+      expect(revokedLateJoin.status()).toBe(404);
+      await manageNativeMessagingGroup(invited, journey.channelId, 'archive');
+      await expect(
+        invited
+          .getByRole('list', { name: 'Message history' })
+          .getByText(text, { exact: true }),
+      ).toHaveCount(1);
+      await manageNativeMessagingGroup(invited, journey.channelId, 'leave');
+      const leftHistory = await journey.recipient.request.get(
+        `/api/messaging/channels/${journey.channelId}/messages`,
+      );
+      expect(leftHistory.status()).toBe(404);
     } finally {
       await journey.close();
     }
   });
+}
+
+function messageInHistory(page: Page, text: string) {
+  return page
+    .getByRole('list', { name: 'Message history' })
+    .getByText(text, { exact: true });
 }

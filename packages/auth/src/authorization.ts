@@ -1,3 +1,6 @@
+import { preferenceClearAllowed } from './authorization-preferences';
+import { roomAllowed, roundReadable } from './authorization-room';
+import { groupInvitationCreationAllowed } from './authorization-group-invite';
 import { groupSafetyAllowed } from './authorization-group-safety';
 import { groupCommandResultAllowed } from './authorization-group-result';
 import { groupInvitationAllowed } from './authorization-invitation';
@@ -36,7 +39,10 @@ export type {
   ContactPairAuthorizationFact,
   PendingFileAuthorizationFact,
   MessagingCollectionAuthorizationFact,
+  MessagingPreferenceAuthorizationFact,
   GroupInvitationAuthorizationFact,
+  GroupCommandResultAuthorizationFact,
+  GroupInvitationCreationAuthorizationFact,
 } from './authorization-facts';
 const deny = (
   reason: Extract<AuthorizationDecision, { allow: false }>['reason'],
@@ -51,6 +57,8 @@ function validResourceKind(
 ) {
   const specialized = {
     'channel.group.result': 'group_command_result',
+    'channel.group.invite': 'group_invitation_creation',
+    'channel.preferences.clear': 'channel_preference',
     'channel.inbox.read': 'messaging_collection',
     'channel.file.cleanup': 'pending_file',
   } as const;
@@ -87,21 +95,6 @@ function boundMember(
     principal.actorId !== null &&
     positiveRevision(account.revision)
   );
-}
-function roomDecision(
-  actorId: string,
-  capability: AuthorizationCapability,
-  resource: RoomAuthorizationFact,
-): AuthorizationDecision {
-  const host = resource.hostActorId === actorId;
-  const seated = resource.participants.some((p) => p.actorId === actorId);
-  const readable =
-    ['public', 'unlisted'].includes(resource.visibility) || host || seated;
-  if (['room.read', 'room.join'].includes(capability))
-    return readable ? allow : deny('missing-capability');
-  if (capability === 'room.manage')
-    return host ? allow : deny('missing-capability');
-  return seated ? allow : deny('missing-capability');
 }
 function validDmAuthority(
   authority: Extract<ChannelAuthorizationFact['authority'], { kind: 'dm' }>,
@@ -194,9 +187,13 @@ function channelDecision(
     return deny('missing-capability');
   // Removal still requires the operation's own-author check; this grant is not a content read or edit.
   if (
-    ['channel.read', 'channel.subscribe', 'channel.message.remove'].includes(
-      capability,
-    )
+    [
+      'channel.read',
+      'channel.subscribe',
+      'channel.message.remove',
+      'channel.preferences.read',
+      'channel.preferences.update',
+    ].includes(capability)
   )
     return allow;
   return channelMutation(capability, resource, context);
@@ -246,6 +243,12 @@ function resolveMemberResource(
   | RoundAuthorizationFact
   | ChannelAuthorizationFact {
   switch (resource.kind) {
+    case 'channel_preference':
+      return decision(preferenceClearAllowed(actorId, resource));
+    case 'group_invitation_creation':
+      return decision(
+        groupInvitationCreationAllowed(actorId, resource, context),
+      );
     case 'group_command_result':
       return decision(groupCommandResultAllowed(actorId, resource));
     case 'group_invitation':
@@ -282,19 +285,9 @@ function memberDecision(
   );
   if ('allow' in resolved) return resolved;
   if (!positiveRevision(resolved.revision)) return deny('denied');
-  if (resolved.kind === 'round') return roundDecision(actorId, resolved);
+  if (resolved.kind === 'round')
+    return decision(roundReadable(actorId, resolved));
   return resolved.kind === 'room'
-    ? roomDecision(actorId, capability, resolved)
+    ? decision(roomAllowed(actorId, capability, resolved))
     : channelDecision(actorId, capability, resolved, context);
-}
-
-function roundDecision(
-  actorId: string,
-  resource: RoundAuthorizationFact,
-): AuthorizationDecision {
-  const readable =
-    ['public', 'unlisted'].includes(resource.visibility) ||
-    resource.createdByActorId === actorId ||
-    resource.participants.some((p) => p.actorId === actorId);
-  return readable ? allow : deny('missing-capability');
 }

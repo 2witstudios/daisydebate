@@ -5,7 +5,8 @@ import { createId } from '@paralleldrive/cuid2';
 import { assert } from 'riteway/bun';
 import { socialPolicyEvidence } from '@daisy/auth/social-policy';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
-import type { FilePolicy, FileMime } from '@daisy/db/messaging-files';
+import { messagingFileProofRuntime } from './messaging-file-runtime.test-support';
+import type { FileMime } from '@daisy/db/messaging-files';
 import { openMessagingFixture } from './messaging-fixture.test-support';
 import {
   openFileScannerRelay,
@@ -28,18 +29,6 @@ import {
   type FileDependencies,
 } from '../src/features/messaging/files/operations';
 
-// Explicit integration-only policy, never production activation or numeric defaults.
-const fileProofPolicy: FilePolicy = {
-  maxFileBytes: 4096,
-  maxStoredBytes: 16384,
-  maxStoredFiles: 4,
-  maxFilesPerMessage: 2,
-  reservationMs: 60000,
-  accessMs: 1000,
-  maxFilenameUnits: 80,
-  maxImagePixels: 100,
-  serviceMs: 5000,
-};
 export const cleanFilePdf = new TextEncoder().encode(
   '%PDF-1.7\nclean document\n%%EOF',
 );
@@ -51,6 +40,7 @@ export async function openComposedFileFixture(
   const opened = await openMessagingFixture(databaseUrl);
   const directory = await mkdtemp(join(tmpdir(), 'daisy-file-proof-'));
   const relay = await openFileScannerRelay({ host: '127.0.0.1', port });
+  const fileProofPolicy = messagingFileProofRuntime(directory, port).policy;
   const { fixture, client, database, principal } = opened;
   const close = async () => {
     try {

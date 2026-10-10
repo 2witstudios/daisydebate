@@ -11,6 +11,7 @@ import { GET } from '../../api/messaging/inbox/route';
 export const metadata = { title: 'Messages' };
 const labels = {
   conversation: 'Conversation',
+  group_conversation: 'Group conversation',
   incoming_request: 'Message request',
   outgoing_request: 'Sent request',
   incoming_invitation: 'Group invitation',
@@ -71,7 +72,8 @@ export default async function MessagesPage({
                     href={
                       entry.kind === 'incoming_invitation'
                         ? `/messages/groups/invitations/${entry.channelId}`
-                        : entry.kind === 'conversation'
+                        : entry.kind === 'conversation' ||
+                            entry.kind === 'group_conversation'
                           ? `/messages/${entry.channelId}`
                           : entry.kind === 'incoming_request'
                             ? `/messages/requests/${entry.channelId}`
@@ -80,6 +82,14 @@ export default async function MessagesPage({
                   >
                     {labels[entry.kind]}
                   </Link>
+                  {entry.kind === 'group_conversation' ? (
+                    <Link
+                      className="ml-4"
+                      href={`/messages/groups/${entry.channelId}/manage`}
+                    >
+                      Group membership
+                    </Link>
+                  ) : null}
                 </li>
               ))}
             </ul>
