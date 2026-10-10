@@ -3,6 +3,7 @@ const ready =
 function runnerEnforced(
   step: Record<string, unknown> | null,
   steps: readonly unknown[],
+  index: number,
 ) {
   if (!step) return false;
   if (step.if === undefined) return true;
@@ -16,7 +17,7 @@ function runnerEnforced(
     ],
   ];
   return required.every(([id, command]) =>
-    steps.some((value) => {
+    steps.slice(0, index).some((value) => {
       const prerequisite = record(value);
       return (
         prerequisite?.id === id &&
@@ -65,10 +66,10 @@ export function claimedBrowserSteps(
         return [];
       if (
         !companions.every((command) =>
-          job.steps.some((value: unknown) => {
+          job.steps.some((value: unknown, index: number) => {
             const step = record(value);
             return (
-              runnerEnforced(step, job.steps) &&
+              runnerEnforced(step, job.steps, index) &&
               step?.['continue-on-error'] === undefined &&
               typeof step?.run === 'string' &&
               [`bun ${command}`, `bun run ${command}`].includes(step.run.trim())
@@ -78,11 +79,11 @@ export function claimedBrowserSteps(
       )
         return [];
       if (!hasReport(job.steps, reportCommand)) return [];
-      return job.steps.filter((value) => {
+      return job.steps.filter((value, index) => {
         const step = record(value);
         return (
           step &&
-          runnerEnforced(step, job.steps) &&
+          runnerEnforced(step, job.steps, index) &&
           step['continue-on-error'] === undefined &&
           typeof step.run === 'string' &&
           [`bun ${command}`, `bun run ${command}`].includes(step.run.trim())
