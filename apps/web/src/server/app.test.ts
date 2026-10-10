@@ -3,6 +3,7 @@ import { fixedClock, sequentialId } from '@daisy/clock';
 import { rejectionOf } from '@daisy/errors/testing';
 import { authTestEnv } from '../features/auth/auth-server.test-support';
 import { createApp } from './app';
+import { createRoutes } from './routes';
 
 setupRitewayBun();
 
@@ -151,5 +152,49 @@ describe('createApp', () => {
       actual: refusal,
       expected: { code: 'INFRASTRUCTURE' },
     });
+  });
+});
+
+test('ordinary app configuration activates canonical Room authentication and origin gates', async () => {
+  const policy = JSON.stringify({
+    consentTtlMs: 34567,
+    maxOpenRooms: 9,
+    maxBodyBytes: 98765,
+    limits: Object.fromEntries(
+      ['create', 'read', 'command'].map((operation) => [
+        operation,
+        { max: 11, windowSeconds: 37 },
+      ]),
+    ),
+  });
+  const inert = build(baseEnv);
+  const configured = build({
+    ...baseEnv,
+    ...authTestEnv,
+    ROOM_POLICY: policy,
+  });
+  const routes = createRoutes(configured);
+  const request = () => new Request(`${authTestEnv.PUBLIC_APP_URL}/api/rooms`);
+  const unavailable = await createRoutes(inert).rooms.list(request());
+  const anonymous = await routes.rooms.list(request());
+  const foreign = await routes.rooms.create(
+    new Request(`${authTestEnv.PUBLIC_APP_URL}/api/rooms`, {
+      method: 'POST',
+      headers: { origin: 'https://foreign.invalid' },
+    }),
+  );
+  await Promise.all([inert.close(), configured.close()]);
+  assert({
+    given:
+      'real createApp called as the ordinary process edge calls it, with only env policy',
+    should:
+      'preserve absent-policy 404 and use canonical 401/403 gates when configured',
+    actual: [
+      unavailable.status,
+      anonymous.status,
+      foreign.status,
+      configured.roomPolicy?.maxOpenRooms,
+    ],
+    expected: [404, 401, 403, 9],
   });
 });

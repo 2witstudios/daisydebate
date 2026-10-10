@@ -227,3 +227,22 @@ used. Main protection is enforced independently by GitHub.
   task needs environment variables: turbo runs in strict env mode and only
   forwards declared variables.
 - Never commit `.env`, build outputs, or `.pu/` runtime files.
+
+### Explicit Room deployment policy
+
+`ROOM_POLICY` is an optional JSON object read by `readServerConfig` and composed
+by the web server's ordinary `createApp`. When absent, canonical Room routes
+remain unavailable. A configured policy uses the existing authenticated routes,
+same-origin checks and per-member rate limiter; it does not bypass them.
+
+Every field is required, with no numeric defaults: `consentTtlMs` (milliseconds),
+`maxOpenRooms`, `maxBodyBytes`, and `limits.create`, `limits.read`,
+`limits.command`, each containing `max` and `windowSeconds`. Values must be
+positive safe integers expressed as JSON numbers. Unknown fields, partial
+objects, blank or malformed JSON refuse startup with configuration field paths
+only. These are deployment-owned settings; test fixture values are not adopted
+policy. Only the web deployment reads this setting.
+
+Changing configuration does not provision a compatible database or authorize
+activation. A deployment must complete its separately authorized schema and
+human sign-off requirements before configuring Room policy.
