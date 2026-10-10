@@ -1,4 +1,4 @@
-import { buildChannelTopic } from '@daisy/protocol';
+import { buildChannelTopic, messagingTypingSchemas } from '@daisy/protocol';
 import { readTypingResponse } from './typing-response';
 import type { ConnectionStore } from '../realtime/connection-store';
 type Timers = {
@@ -12,19 +12,25 @@ export function attachTypingReader({
   read,
   timers,
   publish,
+  recoveryAfterMs,
 }: {
   readonly channelId: string;
+  readonly recoveryAfterMs: number | null;
   readonly connection: Pick<ConnectionStore, 'subscribeTopic' | 'subscribe'>;
   readonly read: () => Promise<Response>;
   readonly timers: Timers;
   readonly publish: (typing: boolean | null) => void;
 }) {
+  if (recoveryAfterMs !== null)
+    messagingTypingSchemas.result.shape.refreshAfterMs.parse(recoveryAfterMs, {
+      jitless: true,
+    });
   let closed = false,
     busy = false,
     queued = false,
     generation = 0;
   let timer: unknown = null,
-    interval: number | null = null;
+    interval: number | null = recoveryAfterMs;
   const cancel = () => {
     if (timer !== null) timers.clearTimeout(timer);
     timer = null;
@@ -45,7 +51,10 @@ export function attachTypingReader({
     if (result) {
       interval = result.refreshAfterMs;
       publish(result.typing);
-    } else publish(null);
+    } else {
+      interval = recoveryAfterMs;
+      publish(null);
+    }
   };
   const drain = async () => {
     if (busy || closed) return;

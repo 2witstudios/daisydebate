@@ -320,7 +320,7 @@ the authorized channel topic. They create no outbox row or durable cursor.
 Realtime delivery freshly rechecks canonical subscription authority; hints are
 lossy and never extend a durable delivery lease. Reconnect, hints and bounded
 HTTP expiry refetch invalidate the browser projection, so natural expiry or a
-lost hint cannot leave a permanent typing indicator.
+lost hint cannot leave a permanent typing indicator. Authorized conversation responses carry only the explicitly configured recovery interval to the browser; an initial or later HTTP failure clears the projection and retries on that interval, without inventing a timing default. Notification delivery is followed by a fresh canonical authority/time snapshot before returning any HTTP projection.
 
 Privacy declaration: the namespaced Redis key
 `<namespace>:v1:messaging-typing:<actorId>:<channelId>` and its actor/channel

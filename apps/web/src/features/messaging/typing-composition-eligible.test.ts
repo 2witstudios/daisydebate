@@ -80,7 +80,7 @@ test('typing factory threads one fenced transaction through canonical facts and 
       false,
       false,
       [['2026-10-10T12:00:06.000Z', 5000]],
-      { reads: 8, hints: 2, clear: 1 },
+      { reads: 10, hints: 2, clear: 1 },
     ],
   });
 });

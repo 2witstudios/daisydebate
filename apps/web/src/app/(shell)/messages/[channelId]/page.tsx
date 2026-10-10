@@ -59,6 +59,7 @@ export default async function ConversationPage({
           <ConversationLive
             channelId={id.data}
             socketUrl={conversation.socketUrl}
+            typingRefetchMs={conversation.typingRefetchMs}
             snapshotId={systemId.next()}
           >
             <MessageHistory

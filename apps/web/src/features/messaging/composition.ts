@@ -13,6 +13,7 @@ import {
 } from './social-composition';
 import type { SocialContactPolicy } from '@daisy/auth/social-policy';
 import { createAppError } from '@daisy/errors';
+import { messagingTypingSchemas } from '@daisy/protocol';
 import type { MessagingCoreBounds } from '@daisy/protocol';
 import type { App } from '../../server/app';
 import { handleOperation } from '../../server/http';
@@ -120,6 +121,12 @@ export function composeMessagingRoutes(app: App) {
       maxBodyBytes: policy.maxBodyBytes,
       bounds: policy.bounds,
       websocketEndpoint: app.websocketEndpoint,
+      ...(policy.typing === undefined
+        ? {}
+        : {
+            typingRefetchMs: messagingTypingSchemas.policy.parse(policy.typing)
+              .refetchMs,
+          }),
       identify: (request) => identify(app.auth(), request.headers),
       edit: mutation('edit'),
       remove: mutation('remove'),

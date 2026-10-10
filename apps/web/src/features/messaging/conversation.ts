@@ -1,7 +1,10 @@
 import { z } from 'zod';
 import { realtimePublicUrlSchema } from '@daisy/config';
 import { createAppError } from '@daisy/errors';
-import { createMessagingCoreSchemas } from '@daisy/protocol';
+import {
+  createMessagingCoreSchemas,
+  messagingTypingSchemas,
+} from '@daisy/protocol';
 
 export type MessagingConversation = z.infer<
   ReturnType<typeof createMessagingCoreSchemas>['historyResult']
@@ -26,5 +29,20 @@ export async function readConversationResponse(response: Response) {
   const endpoint = response.headers.get('x-realtime-socket-url');
   const socketUrl =
     endpoint === null ? null : realtimePublicUrlSchema.parse(endpoint);
-  return { history: history.data, bounds, socketUrl };
+  const configured = response.headers.get('x-messaging-typing-refetch-ms');
+  const recovery =
+    configured === null
+      ? null
+      : messagingTypingSchemas.result.shape.refreshAfterMs.safeParse(
+          Number(configured),
+          { jitless: true },
+        );
+  if (recovery !== null && !recovery.success)
+    throw createAppError('INFRASTRUCTURE');
+  return {
+    history: history.data,
+    bounds,
+    socketUrl,
+    typingRefetchMs: recovery?.data ?? null,
+  };
 }
