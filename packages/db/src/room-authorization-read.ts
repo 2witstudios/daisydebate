@@ -7,6 +7,20 @@ import { rounds } from './schema/rounds';
 import { roundParticipants } from './schema/round-participants';
 import { lockedAccount, type Caller } from './room-command-facts';
 
+type AuthorizationParticipant = {
+  readonly actorId: string | null;
+  readonly role: string | null;
+  readonly slot: number | null;
+};
+
+function projectParticipants(rows: readonly AuthorizationParticipant[]) {
+  return rows.flatMap(({ actorId, role, slot }) =>
+    actorId === null || role === null || slot === null
+      ? []
+      : [{ actorId, role, slot }],
+  );
+}
+
 /** Minimal durable authority facts; no Room content, format or display-label hydration. */
 export function roomAuthorizationRead({
   database,
@@ -45,11 +59,7 @@ export function roomAuthorizationRead({
             visibility: room.visibility,
             status: room.status,
             revision: room.revision,
-            participants: rows.flatMap(({ actorId, role, slot }) =>
-              actorId === null || role === null || slot === null
-                ? []
-                : [{ actorId, role, slot }],
-            ),
+            participants: projectParticipants(rows),
           },
         };
       });
@@ -92,11 +102,7 @@ export function roomAuthorizationRead({
             visibility: round.visibility,
             status: round.status,
             revision: round.revision,
-            participants: rows.flatMap(({ actorId, role, slot }) =>
-              actorId === null || role === null || slot === null
-                ? []
-                : [{ actorId, role, slot }],
-            ),
+            participants: projectParticipants(rows),
           },
         };
       });
