@@ -33,6 +33,18 @@ Uncertifiable history, an advanced boundary, finality/ring loss or movement duri
 the final awaited fence requires resynchronization. A retained ring alone cannot
 certify completeness. Reauthorization precedes replay and attachment.
 
+Typing changes use a separate lossy hint on the same database pool's
+`daisy_realtime_hints` listener. Its strict frame is
+`{v:1,type:"typing_changed",topic:"channel:<id>"}`; it has no payload, position
+or replay entry. Each attached recipient is freshly authorized before native
+publication, with the same deadline and generation fences as durable delivery.
+Concurrent hints for one topic coalesce, and a failing recipient cannot stop
+other recipients. The generic browser listener forwards only subscribed topics
+without advancing their durable cursors. Messaging owns aggregate transitions,
+protected HTTP reads and approved expiry/refresh inputs. Listener reconnection
+does not synthesize a change; bounded HTTP refresh handles lost hints and natural
+lease expiry. Startup awaits both listeners, and shutdown releases both.
+
 The optional public WebSocket endpoint is configured explicitly; absence leaves
 ticket issuance unavailable. Browser ticket responses must bind to that exact
 endpoint. Origin admission and trusted-peer resolution are separate server
