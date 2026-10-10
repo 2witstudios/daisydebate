@@ -32,6 +32,11 @@ export const messagingGroupInvitationResultSchema = z.strictObject({
   state: z.enum(['pending', 'accepted', 'declined', 'cancelled']),
 });
 
+export const messagingContactBlockResultSchema = z.strictObject({
+  version: z.literal(1),
+  blocked: z.boolean(),
+  revision: z.number().int().positive().safe(),
+});
 export const messagingGroupCreationResultSchema = z.strictObject({
   version: z.literal(1),
   channelId: idSchema,
@@ -59,10 +64,11 @@ export function createMessagingSocialSchemas(bounds: MessagingSocialBounds) {
       introduction: messagingTextSchema(bounds.introductionUnits).nullable(),
       requestedAt: z.iso.datetime(),
     }),
-    blockResult: z.strictObject({
-      version: z.literal(1),
+    blockResult: messagingContactBlockResultSchema,
+    blockUsername: z.strictObject({
+      ...command,
+      recipientUsername,
       blocked: z.boolean(),
-      revision: z.number().int().positive().safe(),
     }),
     block: z.strictObject({
       ...command,

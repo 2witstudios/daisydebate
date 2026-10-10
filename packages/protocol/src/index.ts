@@ -179,5 +179,6 @@ export { createMessagingInboxSchemas } from './messaging/inbox';
 export {
   messagingGroupInvitationResultSchema,
   messagingGroupCreationResultSchema,
+  messagingContactBlockResultSchema,
 } from './messaging/social';
 export { parseUsername } from './username';
