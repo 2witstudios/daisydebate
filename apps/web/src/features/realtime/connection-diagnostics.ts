@@ -10,6 +10,10 @@ function safeErrorName(error: unknown): string {
     'Error',
     'TypeError',
     'SyntaxError',
+    'ReferenceError',
+    'EvalError',
+    'RangeError',
+    'URIError',
     'InvalidStateError',
     'SecurityError',
   ];

@@ -59,3 +59,19 @@ test('diagnostic listeners cannot interfere with transport or expose arbitrary e
     ],
   });
 });
+
+for (const error of [new ReferenceError('private'), new EvalError('private')])
+  test(`native ${error.name} remains a safe diagnostic class`, () => {
+    const diagnostics = createConnectionDiagnostics();
+    const events: ConnectionDiagnostic[] = [];
+    diagnostics.subscribe((event) => events.push(event));
+    diagnostics.emit(3, 'ticket-failed', error);
+    assert({
+      given: 'a native browser runtime or evaluation exception',
+      should: 'preserve its fixed class without message or stack',
+      actual: events,
+      expected: [
+        { generation: 3, phase: 'ticket-failed', errorName: error.name },
+      ],
+    });
+  });
