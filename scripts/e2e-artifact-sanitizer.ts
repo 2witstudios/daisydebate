@@ -35,13 +35,13 @@ const redactions: readonly (readonly [RegExp, string])[] = [
   // Match serialized log strings at their actual escape depth. Stop at the
   // matching closing quote or encoded newline, retaining JSONL record framing.
   [
-    /(:\s*(?<!\\)(\\*)"[^"\r\n]*?(?:set-cookie|cookie|authorization):\s*)(?:(?!(?<!\\)\2(?:"|\\[nr]))[^\r\n])*/gi,
+    /(:\s*(?<!\\)(\\*)"(?:(?!(?<!\\)\2")[^\r\n])*?(?:set-cookie|cookie|authorization):\s*)(?:(?!(?<!\\)\2(?:"|\\[nr]))[^\r\n])*/gi,
     '$1[REDACTED]',
   ],
-  // Serialized headers are already redacted; retain whole-line redaction for
-  // plain logs without processing the preserved JSON suffix a second time.
+  // JSON object records are handled above. Plain logs retain whole-value
+  // redaction, including quoted prefixes and literal redaction-marker suffixes.
   [
-    /((?:set-cookie|cookie|authorization):[ \t]*)(?![ \t]|\[REDACTED\])[^\r\n]+/gi,
+    /^(?!\s*(?:\\*\")*[\{\[])([^\r\n]*?\b(?:set-cookie|cookie|authorization):[ \t]*)[^\r\n]+/gim,
     '$1[REDACTED]',
   ],
   [/(__Secure-[\w.-]+)=([^;,\s"'&]+)/g, '$1=[REDACTED]'],
