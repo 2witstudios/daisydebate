@@ -63,6 +63,23 @@ test('real management transfers, revokes history, preserves survivor authority a
     requestId: createId(),
     ...extra,
   });
+  const decide = (decision: 'accept' | 'decline', expectedGeneration: number) =>
+    decideMessagingGroupInvitation(
+      'decide',
+      { ...command(), expectedGeneration, decision },
+      f.recipient,
+      {
+        store: composeMessagingGroupInvitationStore({
+          database: f.database,
+          principal: f.recipient,
+          clock,
+          admissionPolicy: messagingTestGroupPolicy,
+        }),
+        bounds,
+        clock,
+        limit,
+      },
+    );
   try {
     await createMessagingGroup(
       {
@@ -81,22 +98,7 @@ test('real management transfers, revokes history, preserves survivor authority a
         policyRevision: 1,
       },
     );
-    await decideMessagingGroupInvitation(
-      'decide',
-      { ...command(), expectedGeneration: 1, decision: 'decline' },
-      f.recipient,
-      {
-        store: composeMessagingGroupInvitationStore({
-          database: f.database,
-          principal: f.recipient,
-          clock,
-          admissionPolicy: messagingTestGroupPolicy,
-        }),
-        bounds,
-        clock,
-        limit,
-      },
-    );
+    await decide('decline', 1);
     const renewed = command({ invitedActorIds: [f.recipient.actorId] });
     await inviteMessagingGroup(renewed, f.sender, issuance(f.sender));
     const pendingRetry = command({ invitedActorIds: [f.recipient.actorId] });
@@ -125,22 +127,7 @@ test('real management transfers, revokes history, preserves survivor authority a
       ],
       expected: [[[2, 'pending']], 0],
     });
-    await decideMessagingGroupInvitation(
-      'decide',
-      { ...command(), expectedGeneration: 2, decision: 'accept' },
-      f.recipient,
-      {
-        store: composeMessagingGroupInvitationStore({
-          database: f.database,
-          principal: f.recipient,
-          clock,
-          admissionPolicy: messagingTestGroupPolicy,
-        }),
-        bounds,
-        clock,
-        limit,
-      },
-    );
+    await decide('accept', 2);
     await assertRejects({
       given: 'only active manager attempts leave',
       should: 'preserve required manager',
@@ -274,6 +261,34 @@ test('real management transfers, revokes history, preserves survivor authority a
         true,
         2,
       ],
+    });
+    await f.fixture.eraseSubject(f.recipient.actorId);
+    const [erasedInvitation] = await f.client.unsafe(
+      `select
+      (select count(*)::int from messaging_social_commands where actor_id=$1 and request_id=$2) as receipts,
+      (select count(*)::int from messaging_social_command_subjects where actor_id=$1 and request_id=$2) as subjects,
+      (select count(*)::int from messaging_group_grants where channel_id=$3 and actor_id=$4) as erased_grants,
+      (select title from messaging_channels where id=$3) as shared_title`,
+      [f.sender.actorId, renewed.requestId, channelId, f.recipient.actorId],
+    );
+    assert({
+      given:
+        'canonical erasure of the renewed invitee after management and leave',
+      should:
+        'delete receipt subjects and grants while preserving the unowned shared title',
+      actual: erasedInvitation,
+      expected: {
+        receipts: 0,
+        subjects: 0,
+        erased_grants: 0,
+        shared_title: 'Management proof',
+      },
+    });
+    await assertRejects({
+      given: 'old issuance retry after its subject associations are erased',
+      should: 'refuse without recreating invitation or contact authority',
+      actual: () => inviteMessagingGroup(renewed, f.sender, issuance(f.sender)),
+      code: 'AUTHORIZATION',
     });
   } finally {
     await f.client.unsafe('delete from outbox where topic=$1', [
