@@ -1,4 +1,5 @@
 'use client';
+import { DraftNotice } from './draft-notice';
 import {
   useFormAction,
   useFocusAfterAnswer,
@@ -52,16 +53,7 @@ export function MessageComposer({
         className="rounded-md border border-border-strong bg-surface px-3 py-2 text-ink disabled:opacity-60"
         aria-describedby={answer.notice ? 'message-notice' : undefined}
       />
-      {answer.notice ? (
-        <p
-          id="message-notice"
-          role="status"
-          tabIndex={-1}
-          className="text-sm text-ink-muted"
-        >
-          {answer.notice}
-        </p>
-      ) : null}
+      <DraftNotice id="message-notice" notice={answer.notice} />
       <div className="flex justify-end">
         <Button type="submit" disabled={pending || answer.next !== undefined}>
           {pending ? 'Sending…' : 'Send message'}

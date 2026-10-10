@@ -1,3 +1,4 @@
+import { composeMessagingCreationIntentRoutes } from './creation-intent-route';
 import { composeMessagingGroupCreationRoute } from './group-creation-route';
 import { composeMessagingGroupInvitationRoutes } from './group-invitation-route';
 import { composeMessagingInboxRoute } from './inbox-route';
@@ -29,6 +30,7 @@ export type MessagingRuntimePolicy = {
   readonly maxBodyBytes: number;
   readonly editWindowMs: number;
   readonly posting: SocialContactPolicy;
+  readonly groupPosting?: SocialContactPolicy;
   readonly reading: MessagingReadingPolicy;
   readonly limits: {
     readonly actorSend: {
@@ -75,6 +77,9 @@ export function composeMessagingRoutes(app: App) {
           capability,
           clock: app.clock,
           postingPolicy: policy.posting,
+          ...(policy.groupPosting === undefined
+            ? {}
+            : { groupPostingPolicy: policy.groupPosting }),
           readingPolicy: policy.reading,
         }),
       );
@@ -164,6 +169,7 @@ export function composeMessagingRoutes(app: App) {
   };
   return {
     ...composeMessagingSocialRoutes(app),
+    ...composeMessagingCreationIntentRoutes(app),
     ...composeMessagingGroupInvitationRoutes(app),
     createGroup: composeMessagingGroupCreationRoute(app),
     inbox: composeMessagingInboxRoute(app),

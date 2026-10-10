@@ -31,12 +31,14 @@ export function messagingAuthorizationFence({
   capability,
   clock,
   postingPolicy,
+  groupPostingPolicy,
   readingPolicy,
 }: {
   readonly principal: AuthorizationPrincipal;
   readonly capability: AuthorizationCapability;
   readonly clock: Clock;
   readonly postingPolicy: SocialContactPolicy;
+  readonly groupPostingPolicy?: SocialContactPolicy;
   readonly readingPolicy?: MessagingReadingPolicy;
 }): MessagingAuthorizationFence {
   return async (tx, input, frame) => {
@@ -63,7 +65,10 @@ export function messagingAuthorizationFence({
         ...(reading === undefined ? {} : { socialReading: reading }),
         socialPosting: socialPostingPolicy({
           ...policyInput,
-          policy: postingPolicy,
+          policy:
+            frame.fact.authority.kind === 'private_group'
+              ? (groupPostingPolicy ?? postingPolicy)
+              : postingPolicy,
         }),
       },
     });
