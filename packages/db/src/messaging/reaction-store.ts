@@ -17,7 +17,7 @@ export function createMessagingReactionStore(
     scope: Parameters<MessagingReactionStore['read']>[0],
     work: (
       value: ReturnType<typeof channelReactionFrame>,
-    ) => Promise<import('./reaction-contracts').MessagingReactionResult>,
+    ) => Promise<Awaited<ReturnType<MessagingReactionStore['read']>>>,
   ) =>
     withMessagingChannel(database, scope, ({ tx, channel, fact, accounts }) =>
       work(
