@@ -1,6 +1,7 @@
 import { SQL } from 'bun';
 import { createHash, randomBytes } from 'node:crypto';
 import { requireTestServices } from '@daisy/config';
+import { createDatabase } from '@daisy/db';
 import { systemId } from '@daisy/clock';
 import { testNamespace } from '@daisy/redis/testing';
 import {
@@ -23,7 +24,14 @@ export async function socketAuthorityFixture(serve?: typeof Bun.serve) {
   const initial = Date.parse('2026-10-09T00:00:00.000Z');
   let elapsed = 0;
   let revalidate: (() => void) | undefined;
+  const runtimeClient = new SQL(services.databaseUrl, { max: 1 });
+  const runtimeDatabase = createDatabase({
+    url: services.databaseUrl,
+    client: runtimeClient,
+    nextActorId: () => systemId.next(),
+  });
   const resources = createRealtimeApp({
+    database: runtimeDatabase,
     env: {
       NODE_ENV: 'test',
       DATABASE_URL: services.databaseUrl,
@@ -42,6 +50,14 @@ export async function socketAuthorityFixture(serve?: typeof Bun.serve) {
   };
   let runtime: Awaited<ReturnType<typeof serveRealtime>> | undefined;
   try {
+    await runtimeClient.unsafe('set role daisy_realtime');
+    if ((await resources.database.runtimeRoleProblems()).length !== 0)
+      throw new Error(
+        'Realtime proof requires its actual restricted runtime role',
+      );
+    const [runtimeRole] = await runtimeClient`select current_user as role`;
+    if (runtimeRole?.role !== 'daisy_realtime')
+      throw new Error('Realtime proof runtime role binding refused');
     await client`insert into users(id,username,email_verified) values(${userId},${userId},true)`;
     await client`insert into actors(id,kind,user_id) values(${actorId},'human',${userId})`;
     await client`insert into session(id,user_id,token,expires_at) values(${sessionId},${userId},${randomBytes(32).toString('base64url')},'2026-10-09T01:00:00Z')`;
