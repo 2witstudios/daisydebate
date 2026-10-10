@@ -10,6 +10,7 @@ import {
 } from './messaging-policy.test-support';
 import { composeMessagingGroupCreationStore } from '../src/features/messaging/group-creation-composition';
 import { createMessagingGroup } from '../src/features/messaging/create-group';
+import { messagingSocialDigest } from '../src/features/messaging/social-command-digest';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 const creationPolicy: SocialCreationPolicy = {
@@ -96,8 +97,14 @@ test('real group creation installs only creator authority and erases counterpart
       code: 'CONFLICT',
     });
     await f.client.unsafe(
-      "insert into messaging_social_commands(actor_id,request_id,kind,digest,result_channel_id,created_at) values($1,$2,'group.archive','unrelated private fingerprint',$3,$4)",
-      [f.fixture.actorId, unrelatedRequestId, channelId, f.fixture.now],
+      "insert into messaging_social_commands(actor_id,request_id,kind,digest,result_channel_id,created_at) values($1,$2,'group.archive',$3,$4,$5)",
+      [
+        f.fixture.actorId,
+        unrelatedRequestId,
+        messagingSocialDigest('group.archive', [channelId]),
+        channelId,
+        f.fixture.now,
+      ],
     );
     await f.fixture.eraseSubject(f.fixture.otherActorId);
     const [remaining] = await f.client.unsafe(
