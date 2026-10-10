@@ -111,3 +111,22 @@ dependency, which clears the vitest and tinypool entries together, or an `@adobe
   OpenTelemetry SDK/exporters in-process.
 - Add shared packages (`ui`, `testing`, `validation`) only when a second real
   consumer exists; do not create them speculatively.
+
+### Round media vendor adapter
+
+`livekit-server-sdk` **2.19.0** is pinned in `@daisy/media` for VIDEO-1.4's
+independent branch foundation. It signs 60-second room join tokens and performs
+bounded self-hosted room-service operations; authoritative eligibility and
+competitive state remain CAP-owned. The version-matched
+[AccessToken source](https://github.com/livekit/node-sdks/blob/livekit-server-sdk%402.19.0/packages/livekit-server-sdk/src/AccessToken.ts),
+[permission vocabulary](https://github.com/livekit/node-sdks/blob/livekit-server-sdk%402.19.0/packages/livekit-server-sdk/src/grants.ts),
+[room-service source](https://github.com/livekit/node-sdks/blob/livekit-server-sdk%402.19.0/packages/livekit-server-sdk/src/RoomServiceClient.ts)
+and client options were read before adding it. Server requests use a five-second
+SDK timeout and no regional failover. No browser import of this credential-bearing
+package is allowed. Human ADR0053/design and production activation remain open.
+
+`livekit-client` **2.22.0** remains the task's browser candidate for the shared
+Round controller. It is not installed by this server adapter; the actual browser
+consumer must read its pinned official docs and declare it when implemented.
+The LiveKit server **1.13.7** local/CI service and SDK/network qualification remain
+VIDEO-1.1/VIDEO-1.5 obligations, rather than an inferred pass from token unit tests.
