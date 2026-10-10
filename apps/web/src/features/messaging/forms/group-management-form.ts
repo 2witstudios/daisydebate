@@ -13,9 +13,8 @@ export function parseGroupManagementForm(
 ) {
   const scope = parseMessagingFormScope(channel, input);
   if (
-    !['invite', 'remove', 'transfer', 'leave', 'archive'].includes(
-      String(operation),
-    )
+    typeof operation !== 'string' ||
+    !['invite', 'remove', 'transfer', 'leave', 'archive'].includes(operation)
   )
     throw createAppError('VALIDATION');
   const base = {

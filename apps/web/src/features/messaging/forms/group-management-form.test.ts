@@ -57,3 +57,19 @@ test('native invitation reuses only the bound channel and proposed username inte
     },
   });
 });
+
+test('native operation boundary rejects coercible foreign values', async () => {
+  const form = new FormData();
+  form.set('requestId', 'r'.repeat(24));
+  await assertRejects({
+    given: 'a foreign object that stringifies as a supported operation',
+    should: 'refuse instead of coercing operation authority',
+    actual: async () =>
+      parseGroupManagementForm(
+        { toString: () => 'leave' },
+        'c'.repeat(24),
+        form,
+      ),
+    code: 'VALIDATION',
+  });
+});
