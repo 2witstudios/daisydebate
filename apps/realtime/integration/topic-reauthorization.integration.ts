@@ -29,12 +29,28 @@ test('actual periodic topic batch removes silent revoked membership while preser
       port,
       await issueAuthorityTicket(fixture),
     );
-    for (const [index, topic] of [
-      removed.topic,
-      retained.topic,
-      'standings:current',
-    ].entries())
-      await peer.subscribe(topic, `periodic-${index}`);
+    const topics = [removed.topic, retained.topic, 'standings:current'];
+    const acknowledgements: string[] = [];
+    for (const [index, topic] of topics.entries())
+      acknowledgements.push(
+        (await peer.subscribe(topic, `periodic-${index}`)).type,
+      );
+    assert({
+      given:
+        'three initial real native requests before silent membership removal',
+      should:
+        'establish every authorized native subscription before testing its revalidation',
+      actual: {
+        acknowledgements,
+        attached: topics.map((topic) =>
+          Boolean(sockets[0]?.data.connection?.topics.get(topic)?.attached),
+        ),
+      },
+      expected: {
+        acknowledgements: ['subscribed', 'subscribed', 'subscribed'],
+        attached: [true, true, true],
+      },
+    });
     await fixture.client.begin(async (tx) => {
       await tx`delete from round_participants where round_id=${removed.id} and actor_id=${fixture.actorId}`;
       await tx`update rounds set version=version+1 where id=${removed.id}`;
