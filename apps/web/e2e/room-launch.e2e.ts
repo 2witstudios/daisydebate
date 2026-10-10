@@ -1,3 +1,4 @@
+import { proveFormatPicker } from './support/room-launch-format';
 import { proveHumanLaunch } from './support/room-launch-human';
 import { createId } from '@paralleldrive/cuid2';
 import { roomViewSchema, roundViewSchema } from '@daisy/protocol';
@@ -261,4 +262,10 @@ test('actual Room device checks gate human Ready, withdrawal and durable Launch'
   browser,
 }, info) => {
   await proveHumanLaunch(browser, info);
+});
+
+test('catalog dialog previews real speech defaults and commits the selected template through native creation', async ({
+  browser,
+}) => {
+  await proveFormatPicker(browser);
 });
