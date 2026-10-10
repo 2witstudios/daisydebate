@@ -17,6 +17,36 @@ Redis is Fly-native Upstash (owner decision, September 22), both reached
 through the `DATABASE_URL` / `MIGRATION_DATABASE_URL` / `REDIS_URL`
 contract — no new client libraries.
 
+## Image workspace inputs (ISSUE-405)
+
+The web and release-only migrator share `apps/web/Dockerfile`. Both the
+`deps` and `prod-deps` stages copy the web manifest and every package
+manifest before `bun install --frozen-lockfile` (production-only in
+`prod-deps`). The runtime image includes the packages' raw TypeScript
+source, including ingress and media; installing their workspace symlinks
+alone does not supply their exported modules. Realtime is a separate deployment.
+
+`scripts/docker-workspaces.test.ts` discovers repository workspaces and
+follows transitive workspace dependencies. The existing CI `test` job and
+`bun check` run it, rejecting missing manifests in either install stage
+and missing runtime source. The required CI image job also builds the
+complete shared runtime image and imports ingress and media with production
+dependencies. Its negative controls remove each input,
+move a manifest past installation, and add an unseen transitive workspace.
+When adding a package or workspace dependency, update the image inputs in
+the same change. Local image proof uses the repository root as context:
+
+```sh
+bun test scripts/docker-workspaces.test.ts
+docker build --target deps -f apps/web/Dockerfile .
+docker build --target prod-deps -f apps/web/Dockerfile .
+docker build -f apps/web/Dockerfile -t daisy-web-image-proof .
+```
+
+These commands build local images without deploying. A green CI run proves
+its checks; confirm the deploy job actually ran and the live image's
+`GIT_COMMIT` matches the intended candidate before treating it as shipped.
+
 ## Database credentials (ISSUE-39, ISSUE-102)
 
 Two Fly secrets hold two different PostgreSQL roles, in two different Fly
