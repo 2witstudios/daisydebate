@@ -1,12 +1,14 @@
 #!/usr/bin/env bun
 /** Explicit distribution of versioned pipeline sources to local skills and Daisy Library. */
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import {
   canonicalPipeline as canonical,
   retirePipelineReference,
   withPipelineFiles,
+  installPipelineSkill,
+  pipelineSkillNeedsInstall,
 } from './pipeline-sync-files';
 
 const root = resolve(import.meta.dir, '..');
@@ -50,18 +52,17 @@ const localSkills = [
 for (const skill of localSkills) {
   const desired = source(skill.source);
   const path = join(homedir(), skill.target);
-  const directory = resolve(path, '..');
   let before = '';
   try {
     before = readFileSync(path, 'utf8');
   } catch {
     /* absent skill is drift */
   }
-  if (before === desired) continue;
+  const installedRoot = dirname(dirname(path));
+  if (!pipelineSkillNeedsInstall(path, desired, installedRoot)) continue;
   drift++;
   if (apply) {
-    mkdirSync(directory, { recursive: true });
-    writeFileSync(path, desired);
+    installPipelineSkill(path, desired, before, installedRoot);
   }
   process.stdout.write(
     `${apply ? 'updated' : 'drift'} local skill ${skill.target}\n`,
@@ -72,6 +73,7 @@ for (const name of targets.retiredTaskReferences) {
     !retirePipelineReference(
       join(homedir(), '.agents/skills/task/references', name),
       apply,
+      join(homedir(), '.agents/skills'),
     )
   )
     continue;

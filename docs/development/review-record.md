@@ -5,7 +5,13 @@ the Daisy Debate PageSpace drive, under `Reviews/<Epic>`, not in the
 repository — point-in-time documents rot into misinformation when committed
 at the root. The template below is the contract; keep sections in this order.
 
-The record is also what gates autonomous merges. Its page title ends
+The record gates autonomous main acceptance; it is not a prerequisite for
+allowed unprotected non-main integration. Branch feedback and honest failed or
+deferred checks may accompany that integration without granting Done or main
+acceptance. Resolve default/protected targets and PR base under
+[receiving branch authority](agent-pipeline.md#receiving-branch-authority).
+
+The review record's page title ends
 with the full 40-character head SHA, and its `Candidate:` line names that
 SHA, the PR, the builder the PR body declares and the reviewer. When the
 record's link lands on the PR, the review-record workflow reads it and sets

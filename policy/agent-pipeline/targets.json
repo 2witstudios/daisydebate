@@ -37,8 +37,28 @@
   "retiredTaskReferences": ["board-commands.md", "plan-template.md"],
   "additionalSkills": [
     {
+      "source": ".claude/skills/task/SKILL.md",
+      "target": ".codex/skills/task/SKILL.md"
+    },
+    {
+      "source": ".claude/skills/review/SKILL.md",
+      "target": ".codex/skills/review/SKILL.md"
+    },
+    {
+      "source": ".claude/skills/handoff/SKILL.md",
+      "target": ".codex/skills/handoff/SKILL.md"
+    },
+    {
+      "source": ".claude/skills/pr/SKILL.md",
+      "target": ".codex/skills/pr/SKILL.md"
+    },
+    {
       "source": ".claude/skills/orchestrate/SKILL.md",
       "target": ".codex/skills/orchestrate/SKILL.md"
+    },
+    {
+      "source": ".claude/skills/triage/SKILL.md",
+      "target": ".codex/skills/triage/SKILL.md"
     },
     {
       "source": ".claude/skills/plan/SKILL.md",

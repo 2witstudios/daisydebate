@@ -76,3 +76,29 @@ escalate only unresolved product intent or a protected action.
 `/review` reviews the named candidate; `/review verify` verifies prior findings
 and the new delta. Deliver the record URL, verdict/counts, candidate and remaining
 proof. Never merge or set the protected review status yourself.
+
+## Receiving branch authority
+
+Within owner-authorized work, owners, point guards, root/main-level agents and
+worktree agents may merge producers into their own allocated unprotected
+non-main receiving branch. Root agents use an isolated receiving checkout, never
+the parent-main checkout. Coordinate actual writers/resources; ordinary merges
+and conflict resolution are allowed, never another agent's checkout/branch,
+force-push, history rewrite, reset or dirty-work loss. Resolve symbolic default
+and live branch protection/rulesets before acting; main, default and protected
+release targets retain acceptance/human protections, other protected targets
+follow their policy, and unknown protection facts refuse integration. Before PR
+merge automation, re-read live repository/base/head and verify the intended
+allocated receiving branch and candidate; refuse mismatches or changed targets.
+
+Non-main integration needs no global Done, separate producer approval, green
+whole-app CI or per-step root permission. Pin source/integration SHAs and gaps,
+record failed/deferred checks honestly, and preserve security/tests. One
+short-lived integration branch and umbrella PR may compose children before they
+are main-ready. Integration grants neither Done nor main acceptance. Autonomous
+agents never merge directly into main/default/protected release targets; request
+main auto-merge only under the live required review-record ruleset and applicable
+checks, otherwise report ready for owner merge. Production retains human gates.
+
+This authority applies when executing as a receiving builder/orchestrator. An
+independent reviewer remains read-only and never merges the reviewed candidate.
