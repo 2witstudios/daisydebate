@@ -3,6 +3,7 @@ import { assertRejects } from '@daisy/errors/testing';
 import type { Database } from '@daisy/db';
 import { composeMessagingTyping } from './typing-operations';
 import { typingWorld } from './typing.test-support';
+import { loadAccountPolicyFacts } from '../authorization/account-policy-facts';
 setupRitewayBun();
 test('actual typing composition refuses current unavailable members before Redis and never uses a second transaction', async () => {
   const f = typingWorld(),
@@ -40,6 +41,7 @@ test('actual typing composition refuses current unavailable members before Redis
     },
     policy: f.policy,
     bounds: { ttlMs: 5000, refetchMs: 1000, maxActors: 2 },
+    readAccounts: loadAccountPolicyFacts,
     redis: {
       readTypingLeases: async () => {
         observed.push('read');

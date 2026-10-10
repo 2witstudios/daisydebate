@@ -10,6 +10,7 @@ import {
 } from './handler-boundary';
 import { requireMessagingActor } from './principal';
 import { composeMessagingTyping } from './typing-operations';
+import { loadAccountPolicyFacts } from '../authorization/account-policy-facts';
 export function composeMessagingTypingRoutes(app: App) {
   return (request: Request, write: boolean, channelId?: string) => {
     const policy = app.messagingPolicy;
@@ -30,6 +31,7 @@ export function composeMessagingTypingRoutes(app: App) {
           principal,
           policy,
           bounds,
+          readAccounts: loadAccountPolicyFacts,
         }),
     })(request, write, channelId);
   };

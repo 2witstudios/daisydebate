@@ -2,19 +2,8 @@ import { expect } from 'bun:test';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createTestRedis, createOutageRedis } from './test-support';
 setupRitewayBun();
-const actorId = 'a'.repeat(24),
-  channelId = 'c'.repeat(24);
-const lease = {
-  version: 1 as const,
-  channelId,
-  actorId,
-  authorityRevision: 2,
-  relationshipRevision: 3,
-  accountRevision: 4,
-  ageRevision: 5,
-  policyRevision: 1,
-  expiresAt: '2026-10-10T12:00:01.000Z',
-};
+import { typingLease as lease } from './messaging-typing.test-support';
+const { actorId, channelId } = lease;
 test('typing lease adapter binds actor/channel keys and explicit millisecond expiry', async () => {
   const { redis, commands, scriptEval } = createTestRedis();
   await redis.writeTypingLease(lease, 1000);
