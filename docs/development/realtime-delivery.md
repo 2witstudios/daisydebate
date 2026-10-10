@@ -38,6 +38,9 @@ Typing changes use a separate lossy hint on the same database pool's
 `{v:1,type:"typing_changed",topic:"channel:<id>"}`; it has no payload, position
 or replay entry. Each attached recipient is freshly authorized before native
 publication, with the same deadline and generation fences as durable delivery.
+The hint check observes that generation without replacing or extending the
+durable lease. A hint resolving while durable authorization remains pending is
+dropped; it cannot cancel delivery of the durable row.
 Concurrent hints for one topic coalesce, and a failing recipient cannot stop
 other recipients. The generic browser listener forwards only subscribed topics
 without advancing their durable cursors. Messaging owns aggregate transitions,

@@ -4,6 +4,37 @@ import { createAuthorityLease } from './authority-lease';
 setupRitewayBun();
 
 describe('authority lease fencing', () => {
+  test('transient observations do not supersede or extend durable authority', () => {
+    let now = 0;
+    const lease = createAuthorityLease({ now: () => now, lifetimeMs: 100 });
+    const durable = lease.begin('session', 'revision');
+    const observation = lease.observe();
+    const allowed = lease.observes(observation, 1_000);
+    const accepted = lease.accept(durable, 50);
+    now = 50;
+    assert({
+      given: 'an observational hint overlapping a pending durable check',
+      should: 'preserve that attempt and its shorter canonical deadline',
+      actual: { allowed, accepted, current: lease.current() },
+      expected: { allowed: true, accepted: true, current: false },
+    });
+  });
+  test('observation checks retain generation and deadline fences', () => {
+    let now = 0;
+    const lease = createAuthorityLease({ now: () => now, lifetimeMs: 100 });
+    const observation = lease.observe();
+    const malformed = lease.observes(observation, Number.NaN);
+    now = 50;
+    const expired = lease.observes(observation, 50);
+    lease.invalidate();
+    const stale = lease.observes(observation, 100);
+    assert({
+      given: 'malformed deadline, exact expiry and a changed generation',
+      should: 'refuse every stale observational allow',
+      actual: { malformed, expired, stale },
+      expected: { malformed: false, expired: false, stale: false },
+    });
+  });
   test('session and age deadlines dominate the accepted maximum', () => {
     let now = 0;
     const lease = createAuthorityLease({ now: () => now, lifetimeMs: 60_000 });
