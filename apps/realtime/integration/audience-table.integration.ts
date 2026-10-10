@@ -1,7 +1,7 @@
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { systemId } from '@daisy/clock';
-import { buildUserInboxTopic } from '@daisy/protocol';
+import { buildDebateTopic, buildUserInboxTopic } from '@daisy/protocol';
 import {
   socketAuthorityFixture,
   issueAuthorityTicket,
@@ -44,7 +44,11 @@ test('native restricted-role audience table uses persisted Round seats and canon
       ['own inbox', buildUserInboxTopic(fixture.actorId), 'subscribed'],
       ['foreign inbox', buildUserInboxTopic(systemId.next()), 'error'],
       ['standings member', 'standings:audience-proof', 'subscribed'],
-      ['unimplemented registry', `debate:${systemId.next()}:chat`, 'error'],
+      [
+        'unimplemented registry',
+        `${buildDebateTopic(systemId.next())}:chat`,
+        'error',
+      ],
     ] as const;
     for (const [label, topic, expected] of cases) {
       const id = systemId.next();

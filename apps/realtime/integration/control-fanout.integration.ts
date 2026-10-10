@@ -24,20 +24,24 @@ test('two actual instances consume durable access and session revocations withou
   const fixture = await socketAuthorityFixture(observe);
   const rounds = roundAudienceFixture(fixture.client, fixture.actorId);
   const positions: Array<{ txid: string; seq: bigint }> = [];
-  const replicaResources = await authorityResources(
-    requireTestServices(process.env),
-    fixture.resources.clock,
-  );
-  const replica = await serveRealtime({
-    resources: replicaResources,
-    serve: observe,
-    port: 0,
-    hostname: '127.0.0.1',
-    now: () => 0,
-  });
+  let replicaResources:
+    Awaited<ReturnType<typeof authorityResources>> | undefined;
+  let replica: Awaited<ReturnType<typeof serveRealtime>> | undefined;
   try {
+    replicaResources = await authorityResources(
+      requireTestServices(process.env),
+      fixture.resources.clock,
+    );
+    replica = await serveRealtime({
+      resources: replicaResources,
+      serve: observe,
+      port: 0,
+      hostname: '127.0.0.1',
+      now: () => 0,
+    });
     const round = await rounds.seed('private', 'affirmative');
     const peers = [];
+    const acknowledgements: string[] = [];
     for (const runtime of [fixture.runtime, replica]) {
       const port = runtime.server.port;
       if (port === undefined)
@@ -49,10 +53,26 @@ test('two actual instances consume durable access and session revocations withou
           resources: runtime === replica ? replicaResources : fixture.resources,
         }),
       );
-      await peer.subscribe(round.topic, 'private-round');
-      await peer.subscribe(buildUserInboxTopic(fixture.actorId), 'own-inbox');
+      acknowledgements.push(
+        (await peer.subscribe(round.topic, 'private-round')).type,
+      );
+      acknowledgements.push(
+        (
+          await peer.subscribe(
+            buildUserInboxTopic(fixture.actorId),
+            'own-inbox',
+          )
+        ).type,
+      );
       peers.push(peer);
     }
+    assert({
+      given: 'both actual listeners using independent restricted-role pools',
+      should:
+        'accept the persisted private seat and own inbox before revocation',
+      actual: acknowledgements,
+      expected: ['subscribed', 'subscribed', 'subscribed', 'subscribed'],
+    });
     const control = async (
       kind: 'access.revoked' | 'session.revoked',
       target: string,
@@ -64,7 +84,7 @@ test('two actual instances consume durable access and session revocations withou
         } else await tx`delete from session where id=${fixture.sessionId}`;
         return tx`insert into outbox(topic,kind,version,payload) values(
           ${buildUserInboxTopic(fixture.actorId)},${kind},1,
-          ${JSON.stringify({ kind, ids: [fixture.actorId, target], entityVersion: 1 })}::jsonb
+          ${{ kind, ids: [fixture.actorId, target], entityVersion: 1 }}::jsonb
         ) returning txid::text as txid,seq`;
       });
       const row = rows[0];
@@ -112,12 +132,18 @@ test('two actual instances consume durable access and session revocations withou
     assert({
       given: 'the same durable session deleted atomically with its control row',
       should: 'close both actual instances revoked without a periodic timer',
-      actual: await Promise.all(peers.map((peer) => peer.closed)),
-      expected: [4002, 4002],
+      actual: {
+        codes: await Promise.all(peers.map((peer) => peer.closed)),
+        events: peers.map(
+          (peer) =>
+            peer.frames.filter((frame) => frame.type === 'event').length,
+        ),
+      },
+      expected: { codes: [4002, 4002], events: [0, 0] },
     });
   } finally {
-    await replica.close();
-    await replicaResources.close();
+    await replica?.close();
+    await replicaResources?.close();
     await fixture.runtime.close();
     for (const row of positions)
       await fixture.client`delete from outbox where txid=${row.txid}::xid8 and seq=${row.seq}`;

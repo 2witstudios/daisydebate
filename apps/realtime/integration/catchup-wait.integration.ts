@@ -84,7 +84,7 @@ test('real SQL catchup wait racing a committed write delivers history and live i
     const [written] =
       await fixture.client`insert into outbox(topic,kind,version,payload)
       values(${topic},'standings.updated',1,
-      ${JSON.stringify({ kind: 'standings.updated', ids: [fixture.actorId], entityVersion: 3 })}::jsonb)
+      ${{ kind: 'standings.updated', ids: [fixture.actorId], entityVersion: 3 }}::jsonb)
       returning txid::text as txid,seq`;
     if (!written) throw new Error('Racing durable row unavailable');
     const racing = { txid: String(written.txid), seq: BigInt(written.seq) };
