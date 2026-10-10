@@ -4,7 +4,7 @@ import {
   cursorSchema,
   realtimeRequestIdSchema,
 } from './realtime';
-import { topicStringSchema } from './topics';
+import { parseTopic, topicStringSchema } from './topics';
 import {
   outboxPayloadSchema,
   isPayloadDeliverableOnTopic,
@@ -48,6 +48,14 @@ export const serverMessageSchema = z.discriminatedUnion('type', [
       'INFRASTRUCTURE',
     ]),
     message: z.string().max(256),
+  }),
+  z.strictObject({
+    ...envelope,
+    type: z.literal('typing_changed'),
+    topic: topicStringSchema.refine(
+      (topic) => parseTopic(topic)?.family === 'channel',
+      { message: 'Typing hints require a channel topic' },
+    ),
   }),
   eventSchema,
 ]);
