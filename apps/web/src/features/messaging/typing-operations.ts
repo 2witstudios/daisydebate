@@ -4,7 +4,7 @@ import type { Clock } from '@daisy/clock';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import { messagingTypingSchemas } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
-import { loadAccountPolicyFacts } from '../authorization/account-policy-facts';
+import type { loadAccountPolicyFacts } from '../authorization/account-policy-facts';
 import { requireMessagingActor } from './principal';
 import { requireMessagingAuthorization } from './authorization';
 import {
@@ -21,6 +21,7 @@ export function composeMessagingTyping({
   policy,
   principal,
   bounds,
+  readAccounts,
 }: {
   readonly database: Pick<Database, 'messagingTypingStore'>;
   readonly redis: Pick<
@@ -31,6 +32,7 @@ export function composeMessagingTyping({
   readonly policy: MessagingRuntimePolicy;
   readonly principal: AuthorizationPrincipal;
   readonly bounds: ReturnType<typeof messagingTypingSchemas.policy.parse>;
+  readonly readAccounts: typeof loadAccountPolicyFacts;
 }) {
   const actor = requireMessagingActor(principal);
   const run = (channelId: string, typing: boolean | undefined) =>
@@ -45,7 +47,7 @@ export function composeMessagingTyping({
           typing,
           bounds,
           refreshAuthority: async () => {
-            const accounts = await loadAccountPolicyFacts(
+            const accounts = await readAccounts(
               frame.tx,
               frame.accounts,
               clock.now(),

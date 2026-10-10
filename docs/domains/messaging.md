@@ -333,6 +333,14 @@ typing projection; owner is MSG. Lawful basis is pending PRIV3
 `njiorsf64z4iqjm2dbfa3zuu`. The explicit lease TTL is bounded by current policy
 proof expiry and is not an approved product retention rule. No lease, actor,
 draft, Redis key or raw failure is logged or placed in a notification payload.
-Subject export/physical erasure adoption for this ephemeral vendor state remains
-an explicit acceptance obligation. Isolated browser/service fixtures do not
-activate collection, settle those decisions or establish deployment acceptance.
+The canonical opaque `database.messagingTypingPrivacyPort` resolves durable
+user/actor binding before export and validates every own lease. Physical subject
+deletion walks the exact namespace/actor key prefix through Redis cursor zero,
+including channels no longer accessible; malformed/foreign keys and invalid
+deletion acknowledgements refuse. It runs outside PostgreSQL adopters after
+local erasure commits, through the existing `messaging-typing` vendor job.
+Outage retains a pending job for retry; TTL expiration never substitutes for
+physical deletion acknowledgement. The composed real PostgreSQL/Redis job,
+export and foreign-subject locality proof remains required. Isolated fixtures
+do not activate collection, settle those decisions or establish deployment
+acceptance; no production privacy-worker scheduling is claimed.
