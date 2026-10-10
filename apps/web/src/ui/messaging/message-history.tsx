@@ -31,6 +31,11 @@ function MessageRow({
           >
             Attachments
           </Link>
+          <Link
+            href={`/messages/${channelId}/reactions?messageId=${message.id}`}
+          >
+            Reactions
+          </Link>
           {message.authorActorId === actorId ? (
             <Link
               href={`/messages/${channelId}/attachments?messageId=${message.id}&attach=1`}

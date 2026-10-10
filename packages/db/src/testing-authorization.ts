@@ -11,8 +11,9 @@ export function createScriptedAuthorizationTransaction(
   script: Parameters<typeof fakeSql>[0],
 ) {
   const { client, queries } = fakeSql(script);
+  const tx = drizzle({ client }) as AuthorizationTransaction;
   return {
-    transaction: drizzle({ client }) as AuthorizationTransaction,
+    tx,
     queries,
   };
 }

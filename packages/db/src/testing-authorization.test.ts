@@ -5,11 +5,11 @@ import { createScriptedAuthorizationTransaction } from './testing';
 setupRitewayBun();
 
 test('scripted authorization transactions use real Drizzle query execution', async () => {
-  const { transaction, queries } = createScriptedAuthorizationTransaction([
+  const { tx, queries } = createScriptedAuthorizationTransaction([
     [{ actorId: 'actor', member: true }],
   ]);
 
-  const result = await transaction.execute(
+  const result = await tx.execute(
     sql`select ${'actor'}::text as "actorId", true as member`,
   );
 

@@ -1,14 +1,10 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { fixedClock, sequentialId, systemClock } from '@daisy/clock';
+import { fixedClock, sequentialId } from '@daisy/clock';
 import { createMessagingUnitApp } from './messaging-app.test-support';
 import { messagingUnitPolicy } from './typing.test-support';
 import { composeMessagingTypingRoutes } from './typing-route';
 import { composeMessagingPreferenceRoutes } from './preference-route';
-import {
-  composeAuthServer,
-  memoryTables,
-  capturingSender,
-} from '../auth/auth-server.test-support';
+import { signedMessagingAuth } from './signed-messaging.test-support';
 import { typingWorld } from './typing.test-support';
 setupRitewayBun();
 test('actual optional typing/preference app routes authenticate before configured stores and fail unavailable without explicit typing policy', async () => {
@@ -74,37 +70,11 @@ test('actual optional typing/preference app routes authenticate before configure
 test('signed-in app typing routes bind the principal and current account fence before any Redis operation', async () => {
   const f = typingWorld(),
     self = f.accounts[0]!.account,
-    tables = memoryTables(),
-    sender = capturingSender();
-  const auth = composeAuthServer(
-    {
-      emailSender: sender,
-      clock: systemClock,
-      getActorByUserId: async (userId) => ({ id: self.actorId, userId }),
-    },
-    tables,
-  );
-  await auth.instance.api.signInMagicLink({
-    body: { email: 'typing-member@daisy.example.com' },
-    headers: new Headers({ origin: auth.config.PUBLIC_APP_URL }),
-  });
-  const link = sender.sent[0]!;
-  const url = link.html.match(/href="([^"]+)"/)?.[1];
-  if (!url) throw new Error('Magic link missing');
-  const token = new URL(url.replaceAll('&amp;', '&')).searchParams.get('token');
-  const verified = await auth.instance.handler(
-    new Request(
-      auth.config.PUBLIC_APP_URL + '/api/auth/magic-link/verify?token=' + token,
-    ),
-  );
-  const cookie = verified.headers
-    .getSetCookie()
-    .map((value) => value.split(';')[0])
-    .join('; ');
-  if (!cookie) throw new Error('Verified session cookie missing');
-  const user = tables.user[0];
-  if (!user) throw new Error('Verified user missing');
-  user.username = 'typingmember';
+    signed = await signedMessagingAuth(
+      self.actorId,
+      'typing-member@daisy.example.com',
+    );
+  const { auth, cookie, user } = signed;
   const observed: unknown[] = [];
   const app = createMessagingUnitApp({
     clock: fixedClock(f.now),
