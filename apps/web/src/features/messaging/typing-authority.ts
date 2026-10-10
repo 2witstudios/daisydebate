@@ -27,7 +27,6 @@ export function typingAuthority({
   const result: {
     readonly actorId: string;
     readonly input: AuthorizationInput;
-    readonly readable: boolean;
     readonly lease: Lease | null;
   }[] = [];
   for (const { actorId, fact } of channels) {
@@ -56,11 +55,9 @@ export function typingAuthority({
         socialPosting: posting,
       },
     };
-    const readable = authorize(input).allow;
     result.push({
       actorId,
       input,
-      readable,
       lease: authorize({ ...input, capability: 'channel.post' }).allow
         ? boundLease(fact, self, posting, actorId)
         : null,
@@ -89,18 +86,25 @@ export function typingAggregate(
   observerId: string,
   now: string,
 ) {
-  const deadlines = leases
-    .filter(
-      (lease) =>
-        lease.actorId !== observerId &&
-        authority.some(
-          (row) =>
-            row.actorId === lease.actorId &&
-            row.lease !== null &&
-            qualifies(lease, row.lease, now),
-        ),
+  const deadlines = leases.flatMap((lease) => {
+    if (lease.actorId === observerId) return [];
+    const row = authority.find(
+      (candidate) => candidate.actorId === lease.actorId,
+    );
+    if (
+      !row?.lease ||
+      !qualifies(lease, row.lease, now) ||
+      !authorizeAt(row.input, 'channel.post', now)
     )
-    .map((lease) => Date.parse(lease.expiresAt));
+      return [];
+    const readingDeadline = row.input.context.socialReading?.validUntil;
+    return [
+      Math.min(
+        Date.parse(lease.expiresAt),
+        Date.parse(readingDeadline ?? row.lease.expiresAt),
+      ),
+    ];
+  });
   return {
     typing: deadlines.length > 0,
     expiresAt: deadlines.length ? Math.min(...deadlines) : null,
@@ -114,7 +118,7 @@ export function typingProjectionChanged(
 ) {
   return authority.some(
     (row) =>
-      row.readable &&
+      authorizeAt(row.input, 'channel.read', now) &&
       typingAggregate(authority, before, row.actorId, now).typing !==
         typingAggregate(authority, after, row.actorId, now).typing,
   );
@@ -142,4 +146,13 @@ function boundLease(
     expiresAt: posting.validUntil,
   });
   return candidate.success ? candidate.data : null;
+}
+
+function authorizeAt(
+  input: AuthorizationInput,
+  capability: 'channel.read' | 'channel.post',
+  now: string,
+) {
+  return authorize({ ...input, capability, context: { ...input.context, now } })
+    .allow;
 }
