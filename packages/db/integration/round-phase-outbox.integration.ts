@@ -38,7 +38,6 @@ test('Room freeze appends the scheduled Round phase signal in its transaction', 
     const seats = [
       ['affirmative', 0],
       ['negative', 0],
-      ['judge', 0],
     ] as const;
     for (const [role, slot] of seats) {
       await fixture.insert('room_participants', {
@@ -90,8 +89,22 @@ test('Room freeze appends the scheduled Round phase signal in its transaction', 
 
 test('accepted Round projections append one phase signal with the stored version', async () => {
   await withFixture(url, async (fixture) => {
-    const { roundId, database } = await roundAuthoring(fixture, url);
+    const { roundId, database, rules, formatId } = await roundAuthoring(
+      fixture,
+      url,
+    );
     try {
+      await database.createRound({
+        id: roundId,
+        createdByActorId: null,
+        resolution: 'A motion',
+        competitionType: 'casual',
+        length: 'full',
+        formatId,
+        formatVersion: 1,
+        presetVersion: null,
+        rules,
+      });
       const before = await database.getRound(roundId);
       if (!before) throw new Error('the scheduled Round did not hydrate');
       await database.applyRoundExecution({
