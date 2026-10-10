@@ -102,6 +102,11 @@ const messagingColumns = {
     ],
     none: ['channel_kind'],
   },
+  messaging_social_command_subjects: {
+    identifier: [],
+    personal: ['actor_id', 'request_id', 'subject_actor_id'],
+    none: [],
+  },
   messaging_reactions: {
     identifier: ['channel_id', 'message_id'],
     personal: ['actor_id', 'reaction'],

@@ -12,9 +12,14 @@ import { isUniqueViolation } from './unique-violation';
 import { roomParticipants, rooms } from './schema/rooms';
 import { roundParticipants } from './schema/round-participants';
 import { rounds } from './schema/rounds';
+import { appendRoundPhaseChanged } from './round-projection-writer';
 
 export type NewRoom = {
   readonly id: string;
+  readonly hostActorId: string;
+  readonly title: string;
+  readonly topic: string;
+  readonly visibility: 'public' | 'unlisted' | 'private';
   readonly formatId: string;
   readonly formatVersion: number;
   readonly presetVersion: number | null;
@@ -41,6 +46,10 @@ export const newRoomValues = (
   status: 'assembling' | 'started',
 ) => ({
   id: room.id,
+  hostActorId: room.hostActorId,
+  title: room.title,
+  topic: room.topic,
+  visibility: room.visibility,
   formatId: room.formatId,
   formatVersion: room.formatVersion,
   presetVersion: room.presetVersion,
@@ -55,7 +64,7 @@ export const newRoomValues = (
   status,
 });
 
-export const seatsComplete = (
+const seatsComplete = (
   required: RoundRules['seats'],
   held: readonly { readonly role: string; readonly slot: number }[],
 ): boolean =>
@@ -262,6 +271,9 @@ export const roomOperations = ({
         await tx.insert(rounds).values({
           id: input.roundId,
           roomId: room.id,
+          createdByActorId: room.hostActorId,
+          roomConfigSnapshot: room.config,
+          visibility: room.visibility,
           resolution: input.resolution,
           competitionType: room.competitionType,
           length: room.length,
@@ -285,6 +297,7 @@ export const roomOperations = ({
           .update(rooms)
           .set({ status: 'started', updatedAt: sql`statement_timestamp()` })
           .where(eq(rooms.id, input.roomId));
+        await appendRoundPhaseChanged(tx, input.roundId, 1);
       });
     });
   },

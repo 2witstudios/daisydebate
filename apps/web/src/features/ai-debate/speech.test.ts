@@ -224,10 +224,8 @@ describe('the AI speech, on the one Round model', () => {
 
   test('the voice budget is spent as characters, per seat', async () => {
     const { operations, begin, clock } = setup({
-      live: 25,
-      perDay: 20,
       speechCharacters: 5,
-    } as never);
+    });
     const id = await begin();
     clock.advance(451);
     const events = await eventsOf(

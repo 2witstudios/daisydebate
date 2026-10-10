@@ -1,7 +1,9 @@
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import { z } from 'zod';
-import type { createAiDebateHandlers } from '../../ai-debate/handlers';
+import type { Identity } from '@daisy/auth';
+import type { Logger } from '@daisy/logger';
+import type { AuthRateLimiter } from '../../auth/abuse/rate-limit';
 import { consumeOrThrow } from '../../auth/abuse/rate-limit';
 import {
   handleOperation,
@@ -18,11 +20,17 @@ import {
 import { documentTemplates, type TemplateId } from './documents';
 import { DOCUMENT_MAX_BYTES } from './normalize-html';
 
-/** The AI debate routes' gates (same origin, member, actor), with these operations. */
-type Dependencies = Omit<
-  Parameters<typeof createAiDebateHandlers>[0],
-  'operations'
-> & { readonly operations: () => DebateDocumentOperations };
+/** Document routes bind their authenticated principal at the HTTP boundary. */
+type Dependencies = {
+  readonly logger: Logger;
+  readonly origin: () => string;
+  readonly identify: (request: Request) => Promise<Identity>;
+  readonly limiter: () => AuthRateLimiter;
+  readonly getActorByUserId: (
+    userId: string,
+  ) => Promise<{ readonly id: string } | null>;
+  readonly operations: () => DebateDocumentOperations;
+};
 
 const templateIds = documentTemplates.map((template) => template.id) as [
   TemplateId,

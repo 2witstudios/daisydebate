@@ -52,6 +52,7 @@ export const createTestAuthServer = (
   },
 ) =>
   createAuthServer({
+    getActorByUserId: async () => null,
     config: readAuthConfig(authTestEnv),
     database,
     emailSender: {

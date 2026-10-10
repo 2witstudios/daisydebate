@@ -19,6 +19,7 @@ const workspaces = [
   '@daisy/db',
   '@daisy/redis',
   '@daisy/auth',
+  '@daisy/ingress',
   '@daisy/errors',
   '@daisy/config',
   '@daisy/clock',
@@ -91,10 +92,11 @@ describe('Adobe isolation rule', () => {
 });
 
 describe('realtime workspace edges (ADR 0031 §12)', () => {
-  test('the allowlist names exactly the ten ADR 0031 §12 edges', () => {
+  test('the allowlist names exactly the eleven adopted realtime edges', () => {
     assert({
       given: 'allowedWorkspaceDependencies.realtime',
-      should: 'list exactly the ten edges the ADR mechanically enforces',
+      should:
+        'list exactly the eleven edges including the shared ingress adapter',
       actual: [...allowedWorkspaceDependencies.realtime!].sort(),
       expected: [
         'auth',
@@ -102,6 +104,7 @@ describe('realtime workspace edges (ADR 0031 §12)', () => {
         'config',
         'db',
         'errors',
+        'ingress',
         'logger',
         'observability',
         'presence',
@@ -389,5 +392,26 @@ describe('runner-only code (ISSUE-275)', () => {
       ],
       expected: [null, null, null, null],
     });
+  });
+});
+
+test('authorization consumes protocol while adapters stay outside its boundary', () => {
+  assert({
+    given: 'the accepted AZC inward vocabulary edge and forbidden adapters',
+    should: 'allow protocol and still refuse db, Redis and web dependencies',
+    actual: ['protocol', 'db', 'redis', 'web'].map((dependency) =>
+      forbiddenDependencyIssue(
+        'packages/auth',
+        '@daisy/auth',
+        `@daisy/${dependency}`,
+        allowedWorkspaceDependencies,
+      ),
+    ),
+    expected: [
+      null,
+      'packages/auth: forbidden dependency @daisy/db',
+      'packages/auth: forbidden dependency @daisy/redis',
+      'packages/auth: forbidden dependency @daisy/web',
+    ],
   });
 });

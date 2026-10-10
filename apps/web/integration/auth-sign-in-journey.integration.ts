@@ -37,15 +37,15 @@ describe('AUTH-4.4 / 4.2 sign-in loop through the real handlers', () => {
         redirect: [response.status, response.headers.get('location')],
         sessionRows,
         provisional: provisional.state,
-        provisionalPermissions:
+        provisionalActor:
           provisional.principal.kind === 'user'
-            ? provisional.principal.permissions
+            ? provisional.principal.actorId
             : 'n/a',
         beforeAccess,
         claim: [claimed.status, await claimed.json()],
         member: member.state === 'member' ? member.username : member.state,
-        memberPermissions:
-          member.principal.kind === 'user' ? member.principal.permissions : [],
+        memberHasActor:
+          member.principal.kind === 'user' && member.principal.actorId !== null,
         afterAccess: decideAccess({
           identity: member,
           path: '/lobby',
@@ -57,14 +57,14 @@ describe('AUTH-4.4 / 4.2 sign-in loop through the real handlers', () => {
         redirect: [303, '/onboarding/username?next=/lobby'],
         sessionRows: 1,
         provisional: 'provisional',
-        provisionalPermissions: [],
+        provisionalActor: null,
         beforeAccess: {
           kind: 'redirect',
           to: '/onboarding/username?next=%2Flobby',
         },
         claim: [201, { username: name }],
         member: name,
-        memberPermissions: ['debate:create'],
+        memberHasActor: true,
         afterAccess: { kind: 'allow' },
         stored: name,
       },

@@ -72,16 +72,30 @@ export async function expireChannelFiles(
   tx: AuthorizationTransaction,
   channelId: string,
   now: string,
+  fileIds?: readonly string[],
 ) {
   if (
     !idSchema.safeParse(channelId).success ||
-    !Number.isFinite(Date.parse(now))
+    !Number.isFinite(Date.parse(now)) ||
+    (fileIds !== undefined &&
+      (!Array.isArray(fileIds) ||
+        fileIds.length === 0 ||
+        new Set(fileIds).size !== fileIds.length ||
+        [...fileIds].some((id) => !idSchema.safeParse(id).success)))
   )
     throw createAppError('VALIDATION');
+  const selected =
+    fileIds === undefined
+      ? sql``
+      : sql`and id in (${sql.join(
+          fileIds.map((id) => sql`${id}`),
+          sql`, `,
+        )})`;
   await tx.execute(sql`
     update messaging_files set lifecycle = 'deleting', filename = null, mime = null,
       request_id = null, message_id = null, generation = generation + 1
     where channel_id = ${channelId} and lifecycle in ('reserved','quarantined') and expires_at <= ${new Date(now)}
+    ${selected}
   `);
 }
 /** The private vendor port must resolve only after actual delete acknowledgement. */
@@ -153,4 +167,27 @@ export async function acknowledgeErasedFileDeletion(
       .delete(messagingFileDeletionIntents)
       .where(eq(messagingFileDeletionIntents.objectKey, objectKey));
   });
+}
+type FileDeletionWork =
+  | { readonly kind: 'file'; readonly fileId: string }
+  | { readonly kind: 'erased'; readonly objectKey: string };
+/** Internal bounded worker discovery; never an HTTP/user projection. */
+export async function pendingFileDeletions(
+  tx: AuthorizationTransaction,
+  maxItems: number,
+): Promise<readonly FileDeletionWork[]> {
+  if (!Number.isSafeInteger(maxItems) || maxItems < 1 || maxItems > 65535)
+    throw createAppError('VALIDATION');
+  const rows = await tx.execute(sql`
+    select kind, key from (
+      select 'file' as kind, id as key from messaging_files where lifecycle='deleting'
+      union all
+      select 'erased' as kind, object_key as key from messaging_file_deletion_intents
+    ) work order by key limit ${maxItems}
+  `);
+  return [...rows].map((row) =>
+    row.kind === 'file'
+      ? { kind: 'file' as const, fileId: String(row.key) }
+      : { kind: 'erased' as const, objectKey: String(row.key) },
+  );
 }

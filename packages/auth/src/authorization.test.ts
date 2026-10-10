@@ -99,3 +99,47 @@ describe('canonical authorization', () => {
     });
   });
 });
+
+test('persisted Round reads use their own canonical authority', () => {
+  const resource = {
+    kind: 'round' as const,
+    roundId: 'round',
+    createdByActorId: 'host',
+    visibility: 'private' as const,
+    status: 'scheduled',
+    revision: 1,
+    participants: [],
+  };
+  assert({
+    given: 'private Round, creator, seated, public and erased current accounts',
+    should: 'allow only eligible current members without borrowing Room facts',
+    actual: [
+      authorize({ ...input, capability: 'round.read', resource }).allow,
+      authorize({
+        ...input,
+        capability: 'round.read',
+        resource: { ...resource, createdByActorId: 'a' },
+      }).allow,
+      authorize({
+        ...input,
+        capability: 'round.read',
+        resource: {
+          ...resource,
+          participants: [{ actorId: 'a', role: 'debater', slot: 0 }],
+        },
+      }).allow,
+      authorize({
+        ...input,
+        capability: 'round.read',
+        resource: { ...resource, visibility: 'public' },
+      }).allow,
+      authorize({
+        ...input,
+        capability: 'round.read',
+        resource: { ...resource, visibility: 'public' },
+        context: { account: { ...input.context.account!, erased: true } },
+      }).allow,
+    ],
+    expected: [false, true, true, true, false],
+  });
+});

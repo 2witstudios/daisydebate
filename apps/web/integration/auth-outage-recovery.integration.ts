@@ -4,7 +4,7 @@ import { systemClock, systemId } from '@daisy/clock';
 import { requireTestServices } from '@daisy/config';
 import { createFaultedApp } from './fault-proxy';
 import { createTestApp, linkFrom, tokenOf, withSql } from './fixtures';
-import { CLIENT_IP_HEADER } from '../src/features/auth/abuse/client-ip';
+import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
 import type { Fetch } from '../src/features/auth/mail/mail';
 import { createApp } from '../src/server/app';
 import { createRoutes } from '../src/server/routes';

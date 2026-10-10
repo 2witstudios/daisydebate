@@ -1,0 +1,22 @@
+{
+  "name": "@daisy/media",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "bun test src"
+  },
+  "dependencies": {
+    "@daisy/errors": "workspace:*",
+    "@daisy/protocol": "workspace:*",
+    "livekit-server-sdk": "2.19.0",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "riteway": "9.3.0"
+  }
+}

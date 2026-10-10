@@ -1,5 +1,12 @@
 import { z } from 'zod';
+import { mediaEndpoint } from './media-endpoint';
 import { databaseUrl, redisUrl } from './urls';
+import { realtimePublicUrlSchema } from './realtime-endpoint';
+export {
+  readRealtimePublicUrl,
+  realtimePublicUrlSchema,
+} from './realtime-endpoint';
+export { readRealtimeTransportConfig } from './realtime-transport';
 
 export { requireTestServices, requireTestSlotServices } from './test-services';
 export {
@@ -99,6 +106,11 @@ const serverFields = {
     .default('false')
     .transform((value) => value === 'true'),
   PUBLIC_APP_URL: z.url(),
+  REALTIME_PUBLIC_URL: realtimePublicUrlSchema.optional(),
+  LIVEKIT_URL: mediaEndpoint(/^https?$/).optional(),
+  LIVEKIT_PUBLIC_URL: mediaEndpoint(/^wss?$/).optional(),
+  LIVEKIT_API_KEY: secret(z.string().regex(/^\S+$/)).optional(),
+  LIVEKIT_API_SECRET: secret(z.string().regex(/^\S+$/)).optional(),
   // AIDB: OpenRouter for AI debates (chat, TTS, STT). Optional: without it
   // AI debates are unavailable and nothing calls out.
   OPENROUTER_API_KEY: secret(z.string().regex(/^\S+$/)).optional(),
@@ -109,6 +121,15 @@ const serverConfigSchema = z
     if (config.NODE_ENV !== 'production') return;
     requireHttpsOrigin(config.PUBLIC_APP_URL, ctx);
     requireDeploymentIdentity(config, ctx);
+    if (
+      config.REALTIME_PUBLIC_URL !== undefined &&
+      !config.REALTIME_PUBLIC_URL.startsWith('wss:')
+    )
+      ctx.addIssue({
+        code: 'custom',
+        path: ['REALTIME_PUBLIC_URL'],
+        message: 'Production requires WSS',
+      });
     if (config.FOUNDATION_PROOF_ENABLED)
       ctx.addIssue({
         code: 'custom',
@@ -164,7 +185,7 @@ const embedsIpv4 = (value: string) =>
 // 32, so mapped ranges are refused outright; operators write the IPv4 form.
 // Stricter than Better Auth on purpose (no leading-zero prefixes either).
 // The literal keyword instead trusts this machine's single default gateway,
-// resolved once at the server edge (apps/web/src/server/trusted-proxies.ts):
+// resolved once at the server edge through @daisy/ingress/trusted-proxies:
 // on Fly that is the one address fly-proxy connects from (ISSUE-162).
 const proxyAddress = z.union([
   z.ipv4(),
@@ -181,6 +202,16 @@ const commaList = (entry: z.ZodType<string, string>) =>
       value.trim() === '' ? [] : value.split(',').map((item) => item.trim()),
     )
     .pipe(z.array(entry));
+
+/** Shared ingress configuration, independent of authentication activation. */
+export function readTrustedProxyConfig(
+  env: Readonly<Record<string, string | undefined>>,
+): readonly string[] {
+  const parsed = commaList(proxyAddress).safeParse(env.AUTH_TRUSTED_PROXIES);
+  if (!parsed.success)
+    throw new Error('Invalid ingress configuration: AUTH_TRUSTED_PROXIES');
+  return parsed.data;
+}
 /**
  * Narrow server authentication configuration, validated only when the auth
  * composition is activated: baseline startup never requires auth variables.

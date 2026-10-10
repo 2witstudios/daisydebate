@@ -44,7 +44,7 @@ describe('evaluateFirstMessage', () => {
     });
   });
 
-  test('closes auth_failed for a well-formed hello, since ticket consumption is not built yet', () => {
+  test('returns a valid ticket only for authentication at the transport edge', () => {
     const hello = JSON.stringify({
       v: ENVELOPE_VERSION,
       type: 'hello',
@@ -53,10 +53,10 @@ describe('evaluateFirstMessage', () => {
     });
 
     assert({
-      given: 'a well-formed hello (RT-2.4b owns real ticket validation)',
-      should: 'close 4001 auth_failed rather than accept the connection',
+      given: 'a well-formed hello awaiting actual single-use consumption',
+      should: 'return the ticket without granting authority',
       actual: evaluateFirstMessage(hello),
-      expected: { code: 4001, reason: 'auth_failed' },
+      expected: { ticket: validTicket },
     });
   });
 });

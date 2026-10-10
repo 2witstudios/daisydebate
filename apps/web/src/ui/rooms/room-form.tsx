@@ -21,7 +21,7 @@ export type RoomFormState = {
 
 type FieldsProps = {
   readonly state: RoomFormState;
-  readonly controls: RoomFormControls;
+  readonly controls: Pick<RoomFormControls, 'segments' | 'canEditSequence'>;
   readonly canEdit: boolean;
   readonly pending: boolean;
   readonly post: (form: FormData) => void;
@@ -38,7 +38,7 @@ function Preview({
   title,
 }: {
   readonly draft: RoomDraft;
-  readonly controls: RoomFormControls;
+  readonly controls: Pick<RoomFormControls, 'segments' | 'canEditSequence'>;
   readonly title: string;
 }) {
   const preview = roomDraftPreview(draft, controls);
@@ -54,7 +54,12 @@ function Preview({
       <ol className="flex flex-col gap-2">
         {preview.segments.map((segment) => (
           <li key={segment.key} className="flex justify-between gap-3">
-            <span>{segment.label}</span>
+            <span>
+              {segment.label}{' '}
+              <span className="text-sm text-ink-faint">
+                {`(${segment.side === 'affirmative' ? 'Affirmative' : 'Negative'} ${segment.slot + 1})`}
+              </span>
+            </span>
             <span>{time(segment.durationMs)}</span>
           </li>
         ))}
@@ -279,7 +284,7 @@ export function RoomForm({
   unavailable,
 }: {
   readonly initial: RoomFormState;
-  readonly controls: RoomFormControls;
+  readonly controls: Pick<RoomFormControls, 'segments' | 'canEditSequence'>;
   readonly canEdit: boolean;
   readonly action: FormAction<RoomFormState>;
   readonly unavailable: (form: FormData) => RoomFormState;

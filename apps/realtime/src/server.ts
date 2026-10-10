@@ -1,5 +1,7 @@
 import type { Server } from 'bun';
 import type { Logger } from '@daisy/logger';
+import { resolveClientIp } from '@daisy/ingress/client-ip';
+import { createAdmission } from './admission';
 import { checkReadiness, type ReadinessResources } from './health';
 import {
   createWebSocketHandlers,
@@ -58,15 +60,58 @@ const readyResponse = async (resources: RealtimeServerResources) => {
 export function createRealtimeServer({
   resources,
   timers,
+  allowedOrigins = [],
+  trustedProxies = [],
+  socketDependencies,
+  admission = createAdmission({
+    now: () => performance.now(),
+    maxPerIp: 20,
+    maxUnauthenticated: 4,
+    maxPerActor: 8,
+  }),
 }: {
   readonly resources: RealtimeServerResources;
   readonly timers?: SocketTimers;
+  readonly allowedOrigins?: readonly string[];
+  readonly trustedProxies?: readonly string[];
+  readonly admission?: ReturnType<typeof createAdmission>;
+  readonly socketDependencies?: Omit<
+    Parameters<typeof createWebSocketHandlers>[0],
+    'logger' | 'timers'
+  >;
 }) {
-  const websocket = createWebSocketHandlers(
-    timers
-      ? { logger: resources.logger, timers }
-      : { logger: resources.logger },
-  );
+  const websocket = createWebSocketHandlers({
+    logger: resources.logger,
+    ...socketDependencies,
+    ...(timers ? { timers } : {}),
+  });
+  function isUpgrade(request: Request) {
+    return (
+      new URL(request.url).search === '' &&
+      request.method === 'GET' &&
+      request.headers.get('upgrade')?.toLowerCase() === 'websocket'
+    );
+  }
+  function upgrade(request: Request, server: Server<SocketData>) {
+    if (resources.isDraining()) return new Response(null, { status: 503 });
+    if (!isUpgrade(request)) return new Response(null, { status: 400 });
+    const origin = request.headers.get('origin');
+    if (!origin || !allowedOrigins.includes(origin))
+      return new Response(null, { status: 403 });
+    const peer = server.requestIP(request)?.address;
+    const ip = resolveClientIp({
+      peer,
+      forwardedFor: request.headers.get('x-forwarded-for'),
+      flyClientIp: request.headers.get('fly-client-ip'),
+      trustedProxies,
+    });
+    const reservation = admission.reserve(ip ?? 'unknown');
+    if (!reservation) return new Response(null, { status: 429 });
+    const data: SocketData = { origin, admission: reservation };
+    if (server.upgrade(request, { data })) return undefined;
+    reservation.release();
+    return new Response(null, { status: 400 });
+  }
   return {
     async fetch(
       request: Request,
@@ -76,9 +121,7 @@ export function createRealtimeServer({
       if (pathname === '/health/live') return liveResponse();
       if (pathname === '/health/ready') return readyResponse(resources);
       if (pathname === SOCKET_PATH) {
-        const data: SocketData = {};
-        if (server.upgrade(request, { data })) return undefined;
-        return new Response(null, { status: 400 });
+        return upgrade(request, server);
       }
       return new Response(null, { status: 404 });
     },

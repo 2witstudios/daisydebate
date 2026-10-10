@@ -1,3 +1,7 @@
+import type { MessagingFileRuntime } from '../features/messaging/files/runtime';
+import { readRealtimePublicUrl } from '@daisy/config';
+import type { MessagingRuntimePolicy } from '../features/messaging/composition';
+import type { RoomPolicy } from '../features/room-runtime/composition';
 import type { Clock, IdGenerator } from '@daisy/clock';
 import {
   readAuthConfig,
@@ -19,6 +23,10 @@ import { createAlertRecorder, withAlertRecording } from './alert-recorder';
 import { createMetricsStore, type MetricsStore } from './metrics-store';
 
 export type AppDependencies = {
+  readonly roomPolicy?: RoomPolicy;
+  readonly messagingPolicy?: MessagingRuntimePolicy;
+  /** Explicit attachment vendors/budgets; principal-bound stores are composed per operation. */
+  readonly messagingFiles?: MessagingFileRuntime;
   /** Raw environment, validated here and nowhere else. */
   readonly env: Readonly<Record<string, string | undefined>>;
   /** Outbound HTTP (the Resend mail transport). */
@@ -52,6 +60,9 @@ export type AppDependencies = {
  */
 export function createApp({
   env,
+  roomPolicy,
+  messagingPolicy,
+  messagingFiles,
   fetch,
   clock,
   ids,
@@ -92,6 +103,7 @@ export function createApp({
   const composeAuth = (): AuthServer => {
     const authConfig = readAuth();
     return createAuthServer({
+      getActorByUserId: (userId) => database.getActorByUserId(userId),
       config: authConfig,
       database: database.authAdapter,
       emailSender: createResendSender({
@@ -133,6 +145,13 @@ export function createApp({
   const drainState = createDrainState([database, redis]);
   return {
     config,
+    websocketEndpoint: readRealtimePublicUrl({
+      REALTIME_PUBLIC_URL: config.REALTIME_PUBLIC_URL,
+      NODE_ENV: config.NODE_ENV,
+    }),
+    roomPolicy: roomPolicy ?? null,
+    messagingPolicy: messagingPolicy ?? null,
+    messagingFiles: messagingFiles ?? null,
     clock,
     ids,
     logger,

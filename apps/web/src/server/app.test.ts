@@ -128,6 +128,19 @@ describe('createApp', () => {
     });
   });
 
+  test('exposes attachment operations as unavailable until an explicit runtime is supplied', async () => {
+    const app = build({ ...baseEnv, ...authTestEnv });
+    const unavailable = app.messagingFiles;
+    await app.close();
+    assert({
+      given:
+        'an app created without file storage, scanning and sanitizing ports',
+      should: 'expose no implicit attachment runtime',
+      actual: unavailable,
+      expected: null,
+    });
+  });
+
   test('refuses the delivery webhook without a signing secret', async () => {
     const app = build({ ...baseEnv, ...authTestEnv });
     const refusal = await rejectionOf(() => app.mailWebhook());

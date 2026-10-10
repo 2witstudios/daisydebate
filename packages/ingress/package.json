@@ -1,0 +1,21 @@
+{
+  "name": "@daisy/ingress",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./client-ip": "./src/client-ip.ts",
+    "./client-networks": "./src/client-networks.ts",
+    "./trusted-proxies": "./src/trusted-proxies.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "bun test src"
+  },
+  "devDependencies": {
+    "riteway": "9.3.0"
+  },
+  "dependencies": {
+    "@daisy/config": "workspace:*"
+  }
+}

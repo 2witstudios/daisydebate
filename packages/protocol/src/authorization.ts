@@ -1,0 +1,50 @@
+import { z } from 'zod';
+/** Closed launch vocabulary: league grants belong to LEAGUE-OPS. */
+const authorizationCapabilities = [
+  'social.block',
+  'social.request.create',
+  'channel.create.private_group',
+  'foundation.create',
+  'foundation.read',
+  'round.read',
+  'room.create',
+  'room.list',
+  'room.read',
+  'room.join',
+  'room.manage',
+  'room.ready',
+  'room.leave',
+  'channel.inbox.read',
+  'channel.read',
+  'channel.preferences.read',
+  'channel.preferences.update',
+  'channel.preferences.clear',
+  'channel.post',
+  'channel.message.remove',
+  'channel.reaction.remove',
+  'channel.file.cleanup',
+  'channel.manage',
+  'channel.leave',
+  'channel.group.result',
+  'channel.group.revoke',
+  'channel.group.archive',
+  'channel.group.invite',
+  'channel.invitation.read',
+  'channel.invitation.accept',
+  'channel.invitation.decline',
+  'channel.invitation.cancel',
+  'channel.invitation.result',
+  'channel.subscribe',
+  'channel.request.status',
+  'channel.request.read',
+  'channel.request.result',
+  'channel.request.decide',
+  'channel.request.cancel',
+] as const;
+export const authorizationCapabilitySchema = z.enum(authorizationCapabilities);
+export type AuthorizationCapability = z.infer<
+  typeof authorizationCapabilitySchema
+>;
+/** Internal decision reason vocabulary; no serialized deny-reason reader exists. */
+export type AuthorizationDenyReason =
+  'denied' | 'account-erased' | 'unauthenticated' | 'missing-capability';

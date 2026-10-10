@@ -1,7 +1,6 @@
+import { registerProcessEdgeTests } from './eslint.config-process.test-support';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
-  expectedOf,
-  outcomes,
   repositoryEslint,
   table,
   web,
@@ -9,21 +8,11 @@ import {
   serverGlobCases,
   sharedFixtureCases,
   type Problems,
-  props,
-  globals,
-  imports,
-  edgeImport,
-  reads,
-  mutations,
-  sixMutations,
-  route,
-  lazyEdge,
-  e2eServer,
-  escapes,
-  escapeRule,
+  throwSuitePaths,
 } from './eslint.config.test-support';
 
 setupRitewayBun();
+registerProcessEdgeTests();
 
 describe('repository ESLint configuration', () => {
   test('rejects ambient time and identity reads outside the allowlist', async () => {
@@ -48,83 +37,6 @@ describe('repository ESLint configuration', () => {
         { ruleId: 'no-restricted-globals', severity: 2 },
         { ruleId: 'no-restricted-syntax', severity: 2 },
       ],
-    });
-  });
-});
-
-describe('process edge: one module reads process.env and globalThis (ISSUE-7)', () => {
-  test('rejects ambient reads and edge imports outside the edge', async () => {
-    const cases: Case[] = [
-      ['export const f = process.env.X;', web('proxy.ts'), props],
-      [
-        'const { env } = process;\nexport const e = env;',
-        web('lib/x.ts'),
-        props,
-      ],
-      ['export const level = Bun.env.X;', 'apps/realtime/src/server.ts', props],
-      ["export const a = Reflect.get(globalThis, 'a');", route, globals],
-      [
-        'export const a = globalThis as unknown;',
-        web('lib/identity.ts'),
-        globals,
-      ],
-      [
-        edgeImport('../../server/'),
-        web('features/foundation/leak.ts'),
-        imports,
-      ],
-      [edgeImport('../server/'), web('lib/identity.ts'), imports],
-      [edgeImport('../../../../server/'), route, imports],
-      [edgeImport('./'), web('server/routes.ts'), imports],
-      ...escapes.map(([code, file]): Case => [code, file, escapeRule(code)]),
-    ];
-    assert({
-      given:
-        'app source reading process.env, Bun.env or globalThis, or importing the process edge as a locator',
-      should: 'report each as the matching restriction',
-      actual: await outcomes(cases),
-      expected: expectedOf(cases),
-    });
-  });
-
-  test('admits the edges, route bindings and the documented process entries', async () => {
-    const cases: Case[] = [
-      [reads, web('server/process-app.ts'), []],
-      [reads, 'apps/realtime/src/start.ts', []],
-      [edgeImport('../../../../server/', 'processRoute'), route, []],
-      [edgeImport('./server/'), web('proxy.ts'), []],
-      [edgeImport('./server/'), web('instrumentation.ts'), []],
-      [edgeImport('./'), web('server/start.ts'), []],
-      [edgeImport('../server/'), web('lib/request-session.ts'), []],
-      [lazyEdge('./server/process-app'), web('instrumentation.ts'), []],
-      [edgeImport('../../src/server/', 'adoptProcessApp'), e2eServer, []],
-      [
-        'export const u = process.env.TEST_DATABASE_URL;',
-        'apps/web/integration/r.integration.ts',
-        [],
-      ],
-    ];
-    assert({
-      given:
-        'the two edges, a processRoute binding, the process entries and a test reading its service URL',
-      should: 'report nothing',
-      actual: await outcomes(cases),
-      expected: expectedOf(cases),
-    });
-  });
-
-  test('rejects mutating process.env or globalThis in app tests', async () => {
-    const cases: Case[] = [
-      [mutations, 'apps/web/integration/leaky.integration.ts', sixMutations],
-      [mutations, web('server/leaky.test.ts'), sixMutations],
-      [mutations, 'apps/realtime/src/leaky.test.ts', sixMutations],
-    ];
-    assert({
-      given:
-        'an integration suite and two unit tests mutating process.env and globalThis six ways',
-      should: 'report every mutation as no-restricted-syntax',
-      actual: await outcomes(cases),
-      expected: expectedOf(cases),
     });
   });
 });
@@ -296,15 +208,8 @@ describe('restrictions every no-restricted-syntax list carries', () => {
       ([message, type]) =>
         `import { expect } from 'bun:test';\nawait expect(async () => {}).rejects.toThrow(${message});\nexpect(() => {}).toThrowError(${type});\nexpect(() => {}).not.toThrow();`,
     ) as [string, string];
-    const suites = [
-      web('server/x.test.ts'),
-      'packages/db/integration/x.integration.ts',
-      'apps/web/integration/x.integration.ts',
-      'apps/web/e2e/x.e2e.ts',
-      'scripts/x.test.ts',
-    ];
     const { actual, expected } = table([
-      ...suites.map((suite): Problems => [bare, suite, 2]),
+      ...throwSuitePaths.map((suite): Problems => [bare, suite, 2]),
       [named, web('server/x.test.ts'), 0],
     ]);
     assert({

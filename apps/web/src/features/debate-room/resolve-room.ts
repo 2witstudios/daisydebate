@@ -73,7 +73,9 @@ const unrankedSource = async (
 export async function resolveRoomChoice(
   store: FormatReader,
   choice: RoomChoice,
-): Promise<Omit<NewRoom, 'id'>> {
+): Promise<
+  Omit<NewRoom, 'id' | 'hostActorId' | 'title' | 'topic' | 'visibility'>
+> {
   const source =
     choice.competitionType === 'ranked'
       ? await rankedSource(store, choice)

@@ -6,6 +6,7 @@ import {
   ratingLadders,
   roundLengthSchema,
   roundRulesSchema,
+  roomConfigSchema,
   roundStageSchema,
   roundStatusSchema,
   runtimeCheckpointSchema,
@@ -66,6 +67,7 @@ export const rounds = pgTable(
     createdByActorId: text('created_by_actor_id').references(() => actors.id, {
       onDelete: 'restrict',
     }),
+    visibility: text('visibility').$type<'public' | 'unlisted' | 'private'>(),
     resolution: text('resolution').notNull(),
     competitionType: text('competition_type')
       .$type<CompetitionType>()
@@ -79,6 +81,7 @@ export const rounds = pgTable(
     formatVersion: integer('format_version').notNull(),
     /** Which approved preset resolved this; null for casual and practice. */
     presetVersion: integer('preset_version'),
+    roomConfigSnapshot: jsonbColumn('room_config_snapshot', roomConfigSchema),
     rulesSnapshot: jsonbColumn('rules_snapshot', roundRulesSchema).notNull(),
     status: text('status').$type<RoundStatus>().notNull(),
     currentStage: text('current_stage').$type<RoundStage>(),
@@ -114,7 +117,7 @@ export const rounds = pgTable(
       ),
       // Every foreign key gets an index leading with its columns, so a
       // RESTRICT probe and the provenance joins never scan the table.
-      index('rounds_room_idx').on(table.roomId),
+      unique('rounds_room_unique').on(table.roomId),
       index('rounds_created_by_actor_idx').on(table.createdByActorId),
       index('rounds_definition_revision_idx').on(
         table.formatId,
@@ -127,6 +130,15 @@ export const rounds = pgTable(
         table.formatVersion,
       ),
       versionPositive('rounds', table.version),
+      check(
+        'rounds_visibility_check',
+        sql`${table.visibility} is null or ${oneOf(table.visibility, ['public', 'unlisted', 'private'])}`,
+      ),
+      check(
+        'rounds_room_freeze_complete',
+        sql`${table.roomId} is null or (${table.roomConfigSnapshot} is not null and ${table.visibility} is not null)`,
+      ),
+      jsonbIsObject('rounds', table.roomConfigSnapshot),
       jsonbIsObject('rounds', table.runtimeState),
       jsonbIsObject('rounds', table.rulesSnapshot),
       check(

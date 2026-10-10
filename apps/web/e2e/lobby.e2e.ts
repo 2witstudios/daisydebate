@@ -1,199 +1,124 @@
-import { type Locator, type Page } from '@playwright/test';
+import { createId } from '@paralleldrive/cuid2';
 import { expect, test } from './support/fixtures';
 import { resetRateLimits, signUpMember } from './support/accounts';
+import { closeRoom, createFromPlay } from './support/room-launch-flow';
 
-/**
- * The lobby lists sample rooms (ISSUE-303) and keeps its whole state in the
- * URL: the list filters and sorts on the server, so a link, a reload and a
- * browser with no script all give the same rooms.
- */
 test.beforeEach(async ({ request }) => {
   await resetRateLimits(request);
 });
 
-const rows = (page: Page): Locator =>
-  page.getByRole('region', { name: 'Rooms' }).getByRole('listitem');
+const roomRows = (page: import('@playwright/test').Page) =>
+  page.getByRole('list', { name: 'Available rooms' }).getByRole('listitem');
 
-const names = (page: Page): Promise<string[]> =>
-  rows(page).locator('p.text-md').allTextContents();
-
-test.describe('lobby list', () => {
+test.describe('authenticated Room lobby', () => {
   test.beforeEach(async ({ page }) => {
     await signUpMember(page.request);
   });
 
-  test('lists open tables and live rooms, closest to the viewer first', async ({
+  test('lists the public Rooms created through the canonical Play flow', async ({
     page,
   }) => {
-    await page.goto('/lobby');
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Lobby');
-    await expect(rows(page)).toHaveCount(8);
-    expect((await names(page)).slice(0, 3)).toEqual([
-      'Quarterfinal practice',
-      'Anything goes',
-      'Tuesday night, no mercy',
-    ]);
-    const first = rows(page).first();
-    await expect(first).toContainText('Ranked');
-    await expect(first).toContainText('Standard rules');
-    await expect(first).toContainText('Open seat');
-    await expect(first).toContainText('1200–1400');
-    await expect(first).toContainText('Waiting 9 min');
+    const title = `Lobby ${createId().slice(0, 8)}`;
+    let roomId: string | undefined;
+    try {
+      const created = await createFromPlay(page, title);
+      roomId = created.id;
+      await page.goto('/lobby');
+      await expect(page.getByRole('heading', { name: 'Lobby' })).toBeVisible();
+      const item = roomRows(page).filter({ hasText: title });
+      await expect(item).toHaveCount(1);
+      await expect(item).toContainText(created.topic);
+      await expect(item).toContainText('Host:');
+      await expect(item.getByRole('link', { name: title })).toHaveAttribute(
+        'href',
+        `/rooms/${created.id}`,
+      );
+    } finally {
+      if (roomId) await closeRoom(page.request, roomId);
+    }
   });
 
-  test('tab, mode, range, search and sort come from the URL', async ({
+  test('search filters current public Room projections and preserves the query in the URL', async ({
     page,
   }) => {
-    await page.goto('/lobby?tab=live&sort=watched');
-    expect(await names(page)).toEqual([
-      'Finals rehearsal',
-      'Ranked, serious only',
-      'Friendly spar',
-    ]);
-    await expect(rows(page).first()).toContainText('31 watching');
+    const ids: string[] = [];
+    try {
+      const first = await createFromPlay(
+        page,
+        `Blue ${createId().slice(0, 8)}`,
+      );
+      ids.push(first.id);
+      const second = await createFromPlay(
+        page,
+        `Gold ${createId().slice(0, 8)}`,
+      );
+      ids.push(second.id);
 
-    await page.goto('/lobby?mode=ranked&sort=low');
-    expect(await names(page)).toEqual([
-      'Quarterfinal practice',
-      'Tuesday night, no mercy',
-      'Ranked, serious only',
-      'Finals rehearsal',
-      'Top of the ladder',
-    ]);
-
-    await page.goto('/lobby?range=100&sort=high');
-    expect(await names(page)).toEqual([
-      'Anything goes',
-      'Quarterfinal practice',
-    ]);
-
-    await page.goto('/lobby?q=%40host-two');
-    expect(await names(page)).toEqual(['Newcomers welcome']);
+      await page.goto(`/lobby?q=${encodeURIComponent(second.title)}`);
+      await expect(page).toHaveURL(
+        new RegExp(`/lobby\\?q=${encodeURIComponent(second.title)}`),
+      );
+      await expect(roomRows(page)).toHaveCount(1);
+      await expect(roomRows(page).first()).toContainText(second.title);
+      await expect(roomRows(page).first()).not.toContainText(first.title);
+    } finally {
+      for (const id of ids) await closeRoom(page.request, id);
+    }
   });
 
-  test('bad parameters fall back to the defaults', async ({ page }) => {
-    await page.goto('/lobby?tab=nope&sort=%00&range=9');
-    await expect(rows(page)).toHaveCount(8);
-  });
-
-  test('a ranked table whose band excludes the viewer cannot be taken', async ({
+  test('a search with no matching Room explains the empty result', async ({
     page,
   }) => {
-    await page.goto('/lobby?tab=open');
-    const ladder = rows(page).filter({ hasText: 'Top of the ladder' });
-    await expect(
-      ladder.getByRole('button', { name: /^Take seat/ }),
-    ).toBeDisabled();
-    await expect(ladder.getByRole('link')).toHaveCount(0);
-    const tuesday = rows(page).filter({ hasText: 'Tuesday night' });
-    await expect(
-      tuesday.getByRole('link', { name: /^Take seat/ }),
-    ).toHaveAttribute('href', '/rooms/room-tuesday-night');
-    const spar = page.getByRole('link', { name: /^Spectate, Friendly spar/ });
-    await page.goto('/lobby?tab=live');
-    await expect(spar).toHaveAttribute('href', '/watch');
-  });
-
-  test('an empty result offers Clear filters and keeps the tab', async ({
-    page,
-  }) => {
-    await page.goto('/lobby?tab=live&q=zzz');
-    await expect(page.getByText('No rooms match these filters')).toBeVisible();
-    await page.getByRole('link', { name: 'Clear filters' }).click();
-    await expect(page).toHaveURL(/\/lobby\?tab=live$/);
-    await expect(rows(page)).toHaveCount(3);
-  });
-
-  test('tabs are links that keep the other filters', async ({ page }) => {
-    await page.goto('/lobby?mode=ranked');
-    await page.getByRole('link', { name: /^Live/ }).click();
-    await expect(page).toHaveURL(/\/lobby\?tab=live&mode=ranked$/);
-    await expect(page.getByRole('link', { name: /^Live/ })).toHaveAttribute(
-      'aria-current',
-      'page',
-    );
-    await expect(rows(page)).toHaveCount(2);
-  });
-
-  test('with script, changing a select applies it at once', async ({
-    page,
-  }) => {
-    await page.goto('/lobby');
-    await page.getByLabel('Sort by').selectOption('high');
-    await expect(page).toHaveURL(/sort=high/);
-    expect((await names(page))[0]).toBe('Top of the ladder');
-  });
-
-  test('desktop shows the filters; the phone hides them behind Filters', async ({
-    page,
-  }) => {
-    await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto('/lobby');
-    await expect(page.getByLabel('Rating range')).toBeVisible();
-    await expect(
-      page.getByRole('group', { name: 'Rated or casual' }),
-    ).toBeVisible();
-    await expect(page.getByText('Filters', { exact: true })).toBeHidden();
-
-    await page.setViewportSize({ width: 390, height: 844 });
-    await expect(page.getByLabel('Rating range')).toBeHidden();
-    await expect(page.getByText('8 rooms')).toBeVisible();
-    await page.getByText('Filters', { exact: true }).click();
-    await expect(page.getByLabel('Rating range')).toBeVisible();
-    await expect(
-      page.getByRole('group', { name: 'Rated or casual' }),
-    ).toBeVisible();
+    let roomId: string | undefined;
+    try {
+      const created = await createFromPlay(
+        page,
+        `Existing ${createId().slice(0, 8)}`,
+      );
+      roomId = created.id;
+      await page.goto('/lobby?q=not-a-real-room');
+      await expect(page.getByRole('status')).toHaveText(
+        'No rooms match your search.',
+      );
+      await expect(roomRows(page)).toHaveCount(0);
+    } finally {
+      if (roomId) await closeRoom(page.request, roomId);
+    }
   });
 });
 
-test.describe('lobby with JavaScript off', () => {
+test.describe('Room lobby with JavaScript off', () => {
   test.use({ javaScriptEnabled: false });
 
   test.beforeEach(async ({ page }) => {
     await signUpMember(page.request);
   });
 
-  test('the filter form is a GET that puts its state in the URL', async ({
+  test('native creation and search forms use the same durable Room list', async ({
     page,
   }) => {
-    await page.goto('/lobby');
-    await expect(rows(page)).toHaveCount(8);
-    await page.getByLabel('Search rooms or hosts').fill('debater');
-    await page.getByLabel('Sort by').selectOption('low');
-    await page
-      .getByRole('group', { name: 'Rated or casual' })
-      .getByText('Ranked')
-      .click();
-    await page.getByRole('button', { name: 'Apply' }).click();
-    await expect(page).toHaveURL(/q=debater/);
-    await expect(page).toHaveURL(/mode=ranked/);
-    await expect(page).toHaveURL(/sort=low/);
-    expect(await names(page)).toEqual([
-      'Ranked, serious only',
-      'Finals rehearsal',
-    ]);
-    // The result is the same one the link gives a browser with script.
-    await page.goto(page.url());
-    expect(await names(page)).toEqual([
-      'Ranked, serious only',
-      'Finals rehearsal',
-    ]);
-  });
+    const title = `Native lobby ${createId().slice(0, 8)}`;
+    let roomId: string | undefined;
+    try {
+      await page.goto('/play/room');
+      const form = page.getByRole('form', { name: 'Create a room' });
+      await form.getByLabel('Room name', { exact: true }).fill(title);
+      await form.getByLabel('Debate topic').fill('Native lobby topic');
+      await form
+        .getByRole('button', { name: 'Create room', exact: true })
+        .click();
+      await expect(page).toHaveURL(/\/rooms\/[a-z0-9]+$/);
+      roomId = new URL(page.url()).pathname.split('/').at(-1)!;
 
-  test('tabs and Clear are links; the panel is a native details', async ({
-    page,
-  }) => {
-    await page.goto('/lobby?q=friendly&tab=live');
-    expect(await names(page)).toEqual(['Friendly spar']);
-    await page.getByRole('link', { name: 'Clear', exact: true }).click();
-    await expect(page).toHaveURL(/\/lobby\?tab=live$/);
-    await page.getByRole('link', { name: /^Open tables/ }).click();
-    await expect(page).toHaveURL(/tab=open/);
-    await expect(rows(page)).toHaveCount(5);
-
-    await page.setViewportSize({ width: 390, height: 844 });
-    await expect(page.getByLabel('Rating range')).toBeHidden();
-    await page.getByText('Filters', { exact: true }).click();
-    await expect(page.getByLabel('Rating range')).toBeVisible();
+      await page.goto('/lobby');
+      await expect(roomRows(page).filter({ hasText: title })).toHaveCount(1);
+      await page.getByRole('searchbox', { name: 'Search rooms' }).fill(title);
+      await page.getByRole('button', { name: 'Search', exact: true }).click();
+      await expect(page).toHaveURL(/\/lobby\?q=/);
+      await expect(roomRows(page)).toHaveCount(1);
+      await expect(roomRows(page).first()).toContainText(title);
+    } finally {
+      if (roomId) await closeRoom(page.request, roomId);
+    }
   });
 });

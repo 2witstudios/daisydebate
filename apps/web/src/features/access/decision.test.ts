@@ -21,12 +21,12 @@ const anonymous: Identity = {
 };
 const provisional: Identity = {
   state: 'provisional',
-  principal: { kind: 'user', userId: 'u', permissions: [] },
+  principal: { kind: 'user', userId: 'u', actorId: null },
 };
 const member: Identity = {
   state: 'member',
   username: 'ada',
-  principal: { kind: 'user', userId: 'u', permissions: ['debate:create'] },
+  principal: { kind: 'user', userId: 'u', actorId: 'actor1' },
 };
 
 describe('decideAccess', () => {
@@ -128,7 +128,7 @@ describe('decideAccess during a session-store outage', () => {
 });
 
 describe('isGuardedPath', () => {
-  test('the eight participant areas and their descendants are guarded', () => {
+  test('participant areas and their descendants are guarded', () => {
     assert({
       given: 'guarded roots, a descendant, lookalikes and spectator routes',
       should: 'guard only the roots and their descendants',
@@ -142,6 +142,7 @@ describe('isGuardedPath', () => {
         '/prep',
         '/train',
         '/lobby/abc',
+        '/messages/channel',
         '/ranked/host',
         '/settings/security',
         '/playground',
@@ -152,6 +153,7 @@ describe('isGuardedPath', () => {
         '/',
       ].map(isGuardedPath),
       expected: [
+        true,
         true,
         true,
         true,
@@ -210,12 +212,21 @@ describe('requirementFor', () => {
       actual: [
         '/play',
         '/lobby/abc',
+        '/messages/channel',
         '/settings/security',
         '/lobbyist',
         '/watch',
         '/',
       ].map(requirementFor),
-      expected: ['participant', 'participant', 'account', null, null, null],
+      expected: [
+        'participant',
+        'participant',
+        'participant',
+        'account',
+        null,
+        null,
+        null,
+      ],
     });
   });
 });
@@ -261,5 +272,17 @@ describe('return links', () => {
         '/onboarding/ready?next=%2Flobby',
       ],
     });
+  });
+});
+
+test('persisted Round destinations require a participant, including normalized descendants', () => {
+  assert({
+    given: 'a Round receipt, a doubled slash descendant and a public lookalike',
+    should:
+      'guard the real Round area without treating a lookalike as that area',
+    actual: ['/rounds/round-id', '/rounds//round-id', '/roundship'].map(
+      requirementFor,
+    ),
+    expected: ['participant', 'participant', null],
   });
 });

@@ -1,3 +1,17 @@
+import { createMessagingTypingPrivacyPort } from './privacy/typing-rights';
+import { createMessagingTypingStore } from './messaging/typing-store';
+import { createMessagingPreferenceStore } from './messaging/preference-store';
+import { createMessagingFileMaintenance } from './messaging-files/maintenance';
+import { createMessagingGroupIssuanceStore } from './messaging/group-issuance-store';
+import type { MessagingGroupIssuanceFence } from './messaging/group-issuance-contracts';
+import { createMessagingGroupManagementStore } from './messaging/group-management-store';
+import type { MessagingGroupManagementFence } from './messaging/group-management-contracts';
+import { createMessagingGroupCreationStore } from './messaging/group-creation-store';
+import type { MessagingGroupCreationFence } from './messaging/group-creation-contracts';
+import { createMessagingGroupInvitationStore } from './messaging/group-invitation-store';
+import type { MessagingGroupInvitationFence } from './messaging/group-invitation-contracts';
+import { createMessagingInboxStore } from './messaging/inbox-store';
+import { createMessagingChannelAuthority } from './messaging/authority-frame';
 import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { sql } from 'drizzle-orm';
@@ -6,9 +20,15 @@ import {
   subscribeOutbox,
   type OutboxListenHandlers,
 } from './listen';
+import {
+  subscribeRealtimeHints,
+  type RealtimeHintHandlers,
+} from './realtime-hints';
 import { claimUsername } from './username-claim';
 import { authOperations } from './auth-operations';
+import { authorizationSessionOperations } from './authorization-session';
 import { formatOperations } from './format-operations';
+import { roomCommandOperations } from './room-command-operations';
 import { roomOperations } from './room-operations';
 import { roundOperations } from './round-operations';
 import { utteranceOperations } from './utterance-operations';
@@ -16,12 +36,24 @@ import { ballotOperations } from './ballot-operations';
 import { agentOperations } from './agent-operations';
 import { documentOperations } from './document-operations';
 import { onboardingOperations } from './onboarding-operations';
+import {
+  createMessagingStore,
+  createMessagingReactionStore,
+  createMessagingFileStore,
+  createMessagingDmStore,
+  createMessagingFileCleanup,
+  type MessagingAuthorizationFence,
+  createMessagingSocialStore,
+  type MessagingSocialAuthorizationFence,
+} from './messaging';
 import { actorOperations } from './actor-operations';
 import { rateCompletedRound } from './rating-operations';
 import { standingsOperations } from './standings';
 import type { RateDebateInput } from './rating-facts';
 import { emailDeliveryOperations } from './email-delivery-operations';
 import { outboxOperations } from './outbox';
+import { readOutboxCatchup } from './outbox-catchup';
+import { readOutboxRetentionBoundary } from './outbox-retention-boundary';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import {
   runtimeRoleFactsFrom,
@@ -148,15 +180,71 @@ export function createDatabase({
     listenOutbox(handlers: OutboxListenHandlers) {
       return subscribeOutbox(client, handlers);
     },
+    /** Validated transient hints over the same pool; durable drain is independent. */
+    listenRealtimeHints(handlers: RealtimeHintHandlers) {
+      return subscribeRealtimeHints(client, handlers);
+    },
     async close() {
       await client.close({ timeout: 5 });
     },
     ...authOperations({ database, eventSink }),
+    ...authorizationSessionOperations({ database }),
     ...emailDeliveryOperations({ database, eventSink }),
     ...actorOperations({ database, eventSink }),
+    messagingInboxStore: (
+      authorize: Parameters<typeof createMessagingInboxStore>[1],
+    ) => createMessagingInboxStore(database, authorize),
+    messagingDmStore: (
+      authorize: Parameters<typeof createMessagingDmStore>[0]['authorize'],
+    ) => createMessagingDmStore({ database, authorize }),
+    messagingChannelAuthority: createMessagingChannelAuthority(database),
+    messagingFileMaintenance: createMessagingFileMaintenance(database),
+    messagingFileCleanup: (
+      authorize: Parameters<typeof createMessagingFileCleanup>[0]['authorize'],
+    ) => createMessagingFileCleanup({ database, authorize }),
+    messagingFileStore: (
+      authorize: Parameters<typeof createMessagingFileStore>[0]['authorize'],
+    ) => createMessagingFileStore({ database, authorize }),
+    messagingTypingStore: createMessagingTypingStore(database),
+    messagingTypingPrivacyPort: (
+      producer: Parameters<typeof createMessagingTypingPrivacyPort>[1],
+    ) => createMessagingTypingPrivacyPort(database, producer),
+    messagingPreferenceStore: (
+      authorize: Parameters<typeof createMessagingPreferenceStore>[1],
+    ) => createMessagingPreferenceStore(database, authorize),
+    messagingChannelStore: (authorize: MessagingAuthorizationFence) =>
+      createMessagingStore({ database, authorize }),
+    messagingReactionStore: (
+      policy: Parameters<typeof createMessagingReactionStore>[1],
+      authorize: Parameters<typeof createMessagingReactionStore>[2],
+    ) => createMessagingReactionStore(database, policy, authorize),
+    messagingGroupCreationStore: (authorize: MessagingGroupCreationFence) =>
+      createMessagingGroupCreationStore(database, authorize),
+    messagingGroupIssuanceStore: (authorize: MessagingGroupIssuanceFence) =>
+      createMessagingGroupIssuanceStore({ database, authorize }),
+    messagingGroupManagementStore: (authorize: MessagingGroupManagementFence) =>
+      createMessagingGroupManagementStore({ database, authorize }),
+    messagingGroupInvitationStore: (authorize: MessagingGroupInvitationFence) =>
+      createMessagingGroupInvitationStore({ database, authorize }),
+    messagingSocialStore: (authorize: MessagingSocialAuthorizationFence) =>
+      createMessagingSocialStore({ database, authorize }),
     ...outboxOperations({ database, eventSink }),
+    readOutboxRetentionBoundary: () =>
+      instrumented(eventSink, 'readOutboxRetentionBoundary', () =>
+        readOutboxRetentionBoundary(database),
+      ),
+    readOutboxCatchup: (
+      topic: string,
+      since: string,
+      through: import('./outbox').OutboxPosition,
+      limit?: number,
+    ) =>
+      instrumented(eventSink, 'readOutboxCatchup', () =>
+        readOutboxCatchup(database, topic, since, through, limit),
+      ),
     ...formatOperations({ database, eventSink }),
     ...roomOperations({ database, eventSink }),
+    ...roomCommandOperations({ database, eventSink }),
     ...roundOperations({ database, eventSink }),
     ...utteranceOperations({ database, eventSink }),
     ...ballotOperations({ database, eventSink }),
