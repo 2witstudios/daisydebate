@@ -22,11 +22,12 @@ test('trusted maintenance expires real pending reservations and releases quota o
   const fixture = await createMessagingTestFixture(client);
   const directory = await mkdtemp(join(tmpdir(), 'daisy-file-maintenance-'));
   const objectKey = createId();
+  const [firstId, secondId] = [createId(), createId()].sort();
   try {
     const file = await withFileProofFrame(database, fixture, (frame) =>
       frame.reserve(
         {
-          id: createId(),
+          id: firstId!,
           objectKey,
           requestId: createId(),
           filename: 'notes.pdf',
@@ -34,6 +35,20 @@ test('trusted maintenance expires real pending reservations and releases quota o
           bytes: 60,
         },
         fixture.now,
+        fileDatabaseProofPolicy,
+      ),
+    );
+    const later = await withFileProofFrame(database, fixture, (frame) =>
+      frame.reserve(
+        {
+          id: secondId!,
+          objectKey: createId(),
+          requestId: createId(),
+          filename: 'later.pdf',
+          mime: 'application/pdf',
+          bytes: 20,
+        },
+        new Date(Date.parse(fixture.now) + 1).toISOString(),
         fileDatabaseProofPolicy,
       ),
     );
@@ -78,6 +93,23 @@ test('trusted maintenance expires real pending reservations and releases quota o
         await Bun.file(path).exists(),
       ],
       expected: ['deleting', null, null, null, null, 2, 60, true],
+    });
+    const [untouched] = await client.unsafe(
+      'select lifecycle,filename,mime,generation::int,reserved_bytes::int from messaging_files where id=$1',
+      [later.id],
+    );
+    assert({
+      given: 'two expired reservations in one channel and maxItems one',
+      should:
+        'leave the later selected-out reservation metadata/generation/charge intact',
+      actual: untouched,
+      expected: {
+        lifecycle: 'reserved',
+        filename: 'later.pdf',
+        mime: 'application/pdf',
+        generation: 1,
+        reserved_bytes: 20,
+      },
     });
     await maintenance.run({
       now,

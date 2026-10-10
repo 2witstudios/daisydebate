@@ -114,25 +114,38 @@ test('failed physical deletion leaves file and unlinked erasure charges intact',
 
 test('expired reservations fence all discovered owners and reread after account/channel waits', async () => {
   const fact = messagingAuthorityFixture();
-  const owner = { actorId: 'a'.repeat(24), userId: 'u'.repeat(24) };
+  const owner = {
+    fileId: fileFrameCommand.id,
+    actorId: 'a'.repeat(24),
+    userId: 'u'.repeat(24),
+  };
   const accounts = [
     owner,
     { actorId: 'b'.repeat(24), userId: 'v'.repeat(24) },
   ].map((binding) => ({
-    ...binding,
+    actorId: binding.actorId,
+    userId: binding.userId,
     member: true,
     erased: false,
     revision: 1,
   }));
   for (const changed of [false, true]) {
     const { client, queries } = fakeSql([
-      [{ id: fact.channelId }],
+      [{ fileId: fileFrameCommand.id, channelId: fact.channelId }],
       [owner],
       [{ fact }],
       accounts,
       [{ locked: true }],
       [{ fact }],
-      [changed ? { actorId: 'x'.repeat(24), userId: 'y'.repeat(24) } : owner],
+      [
+        changed
+          ? {
+              fileId: fileFrameCommand.id,
+              actorId: 'x'.repeat(24),
+              userId: 'y'.repeat(24),
+            }
+          : owner,
+      ],
       ...(changed ? [] : [[]]),
       [],
     ]);
@@ -150,7 +163,7 @@ test('expired reservations fence all discovered owners and reread after account/
     );
     assert({
       given: changed
-        ? 'new expired owner after the ordered fence waits'
+        ? 'selected file owner changed after the ordered fence waits'
         : 'same expired owner under fresh canonical locks',
       should: changed
         ? 'defer expiry without touching unfenced owner rows'

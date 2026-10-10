@@ -278,16 +278,20 @@ approve privacy, retention or numeric product policies.
 The optional file runtime maintenance configuration supplies explicit cadence and
 batch limits. The existing web process schedules bounded reservation expiry and
 private deletion work, prevents overlapping runs, and awaits current work before
-closing pools. Expiry discovers all due owners for a channel, acquires canonical
-account→pair→channel fences, and rereads owners after waits; unfenced owner drift
-refuses that channel until a later run. Only expired reserved/quarantined rows
+closing pools. Expiry selects at most the configured number of due reservation
+rows globally, acquires canonical account→pair→channel fences for their owners,
+and rereads those same rows after waits. Unfenced owner drift refuses that
+selected work until a later run; a crowded channel cannot expand the batch. Only expired reserved/quarantined rows
 transition to deleting. Current membership, posting or age admission does not
 confer cleanup authority. Missing durable authority is never recreated.
 
 Physical deletion uses the delivered trusted provider: linked deleting files and
 unlinked subject-erasure intents retain their storage charge until the private
 store resolves deletion acknowledgement. An outage preserves the charged row
-for retry. Logs reuse content-free sweep counts/status; object keys and subject
+for retry. Each selected physical deletion is attempted even when an earlier
+object fails; successful acknowledgements commit independently, and any failure
+still makes the batch report infrastructure failure. Logs reuse content-free
+sweep counts/status; object keys and subject
 associations are not logged. Missing runtime/maintenance configuration schedules
 nothing. Deployment approval of vendors, cadence and policy remains outstanding;
 branch composition does not activate collection or approve pending retention.
