@@ -1,3 +1,5 @@
+import { validChannelAuthority } from './authorization-channel-validation';
+import { reactionAssociationOwned } from './authorization-reaction';
 import { preferenceClearAllowed } from './authorization-preferences';
 import { roomAllowed, roundReadable } from './authorization-room';
 import { groupInvitationCreationAllowed } from './authorization-group-invite';
@@ -40,6 +42,7 @@ export type {
   PendingFileAuthorizationFact,
   MessagingCollectionAuthorizationFact,
   MessagingPreferenceAuthorizationFact,
+  MessagingReactionAuthorizationFact,
   GroupInvitationAuthorizationFact,
   GroupCommandResultAuthorizationFact,
   GroupInvitationCreationAuthorizationFact,
@@ -58,6 +61,7 @@ function validResourceKind(
   const specialized = {
     'channel.group.result': 'group_command_result',
     'channel.group.invite': 'group_invitation_creation',
+    'channel.reaction.remove': 'channel_reaction',
     'channel.preferences.clear': 'channel_preference',
     'channel.inbox.read': 'messaging_collection',
     'channel.file.cleanup': 'pending_file',
@@ -95,45 +99,6 @@ function boundMember(
     principal.actorId !== null &&
     positiveRevision(account.revision)
   );
-}
-function validDmAuthority(
-  authority: Extract<ChannelAuthorizationFact['authority'], { kind: 'dm' }>,
-) {
-  return (
-    positiveRevision(authority.revision) &&
-    authority.lowActorId < authority.highActorId &&
-    [authority.lowActorId, authority.highActorId].includes(
-      authority.requestSenderActorId,
-    )
-  );
-}
-function validGroupAuthority(
-  authority: Extract<
-    ChannelAuthorizationFact['authority'],
-    { kind: 'private_group' }
-  >,
-) {
-  if (!['manager', 'member', null].includes(authority.role)) return false;
-  if (!Number.isSafeInteger(authority.generation) || authority.generation < 0)
-    return false;
-  if (
-    authority.role !== null &&
-    (!positiveRevision(authority.generation) ||
-      !authority.activeMemberActorIds.includes(authority.actorId))
-  )
-    return false;
-  return (
-    new Set(authority.activeMemberActorIds).size ===
-    authority.activeMemberActorIds.length
-  );
-}
-function validChannelAuthority(resource: ChannelAuthorizationFact) {
-  if (!positiveRevision(resource.policyRevision)) return false;
-  const authority = resource.authority;
-  return authority.kind === 'dm'
-    ? resource.policyKey === 'social.dm' && validDmAuthority(authority)
-    : resource.policyKey === 'social.private_group' &&
-        validGroupAuthority(authority);
 }
 function channelEntitlement(
   resource: ChannelAuthorizationFact,
@@ -191,6 +156,7 @@ function channelDecision(
       'channel.read',
       'channel.subscribe',
       'channel.message.remove',
+      'channel.reaction.remove',
       'channel.preferences.read',
       'channel.preferences.update',
     ].includes(capability)
@@ -235,7 +201,10 @@ const decision = (allowed: boolean): AuthorizationDecision =>
 function resolveMemberResource(
   actorId: string,
   capability: AuthorizationCapability,
-  resource: Exclude<AuthorizationInput['resource'], { kind: 'foundation' }>,
+  resource: Exclude<
+    AuthorizationInput['resource'],
+    { kind: 'foundation' | 'channel_reaction' }
+  >,
   context: AuthorizationInput['context'],
 ):
   | AuthorizationDecision
@@ -277,6 +246,14 @@ function memberDecision(
   resource: Exclude<AuthorizationInput['resource'], { kind: 'foundation' }>,
   context: AuthorizationInput['context'],
 ): AuthorizationDecision {
+  if (resource.kind === 'channel_reaction') {
+    if (
+      !reactionAssociationOwned(actorId, resource) ||
+      !positiveRevision(resource.channel.revision)
+    )
+      return deny('missing-capability');
+    return channelDecision(actorId, capability, resource.channel, context);
+  }
   const resolved = resolveMemberResource(
     actorId,
     capability,

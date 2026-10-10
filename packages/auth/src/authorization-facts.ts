@@ -188,6 +188,17 @@ export type MessagingPreferenceAuthorizationFact = {
   readonly actorId: string;
   readonly channelId: string;
 };
+/** MSG projects an existing locked reaction joined to its same-channel message. */
+export type MessagingReactionAuthorizationFact = {
+  readonly kind: 'channel_reaction';
+  readonly channel: ChannelAuthorizationFact;
+  readonly reaction: {
+    readonly actorId: string;
+    readonly channelId: string;
+    readonly messageId: string;
+    readonly reaction: string;
+  };
+};
 /** Own-association discovery only; every returned channel needs separate authorization. */
 export type MessagingCollectionAuthorizationFact = {
   readonly kind: 'messaging_collection';
@@ -197,6 +208,7 @@ export type AuthorizationInput = {
   readonly principal: AuthorizationPrincipal;
   readonly capability: AuthorizationCapability;
   readonly resource:
+    | MessagingReactionAuthorizationFact
     | MessagingPreferenceAuthorizationFact
     | GroupInvitationCreationAuthorizationFact
     | GroupCommandResultAuthorizationFact

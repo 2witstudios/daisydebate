@@ -21,6 +21,7 @@ const authorizationCapabilities = [
   'channel.preferences.clear',
   'channel.post',
   'channel.message.remove',
+  'channel.reaction.remove',
   'channel.file.cleanup',
   'channel.manage',
   'channel.leave',
