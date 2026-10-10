@@ -9,5 +9,3 @@ export {
   type PrivacyVerificationBinding,
 } from './operations';
 export { deliverPrivacyJob } from './vendor-jobs';
-
-export { createMessagingTypingPrivacyPort } from './typing-rights';
