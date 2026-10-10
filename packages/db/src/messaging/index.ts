@@ -37,3 +37,8 @@ export type {
   MessagingGroupCreationStore,
   MessagingGroupCreationFence,
 } from './group-creation-contracts';
+
+export type {
+  MessagingGroupManagementStore,
+  MessagingGroupManagementFence,
+} from './group-management-contracts';

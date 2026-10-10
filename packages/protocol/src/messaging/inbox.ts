@@ -4,6 +4,7 @@ const messagingInboxEntrySchema = z.strictObject({
   channelId: idSchema,
   kind: z.enum([
     'conversation',
+    'group_conversation',
     'incoming_request',
     'outgoing_request',
     'incoming_invitation',

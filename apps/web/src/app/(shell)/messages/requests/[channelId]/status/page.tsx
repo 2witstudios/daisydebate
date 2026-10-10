@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import { systemId } from '@daisy/clock';
 import { idSchema, messagingDmResultSchema } from '@daisy/protocol';
 import { requireAccess } from '../../../../../../lib/access';
-import type { SearchParams } from '../../../../../../features/access/decision';
+import type { MessagingChannelPageProps } from '../../../../../../features/messaging/channel-page';
 import { PageHeader } from '../../../../../../ui/components/page-header/page-header';
 import { RequestDecision } from '../../../../../../ui/messaging/request-decision';
 import { GET } from '../../../../../api/messaging/requests/[channelId]/status/route';
@@ -13,10 +13,7 @@ export const metadata = { title: 'Sent request' };
 export default async function SentRequestPage({
   params,
   searchParams,
-}: {
-  params: Promise<{ channelId: string }>;
-  searchParams: Promise<SearchParams>;
-}) {
+}: MessagingChannelPageProps) {
   await requireAccess('/messages', searchParams);
   const id = idSchema.safeParse((await params).channelId);
   if (!id.success) notFound();
