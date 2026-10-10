@@ -149,7 +149,7 @@ export function createApp({
       REALTIME_PUBLIC_URL: config.REALTIME_PUBLIC_URL,
       NODE_ENV: config.NODE_ENV,
     }),
-    roomPolicy: roomPolicy ?? null,
+    roomPolicy: roomPolicy ?? config.ROOM_POLICY ?? null,
     messagingPolicy: messagingPolicy ?? null,
     messagingFiles: messagingFiles ?? null,
     clock,

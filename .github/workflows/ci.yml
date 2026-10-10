@@ -67,6 +67,23 @@ jobs:
         env:
           GH_TOKEN: ${{ matrix.task == 'policy' && github.token || '' }}
 
+  # Exercise the pruned image inputs used by both web and migrator, not
+  # only the full-checkout install in the checks matrix (ISSUE-405).
+  image:
+    name: Web and migrator image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build the shared runtime image with both frozen installs
+        run: docker build --progress=plain -f apps/web/Dockerfile -t daisy-web-ci .
+      - name: Import ingress and media from the production image
+        run: >-
+          docker run --rm --entrypoint bun daisy-web-ci --eval
+          'await import("@daisy/ingress/client-ip"); await import("../../packages/media/src/index.ts");'
+
   audit:
     name: Dependency vulnerability audit
     runs-on: ubuntu-24.04
@@ -164,7 +181,7 @@ jobs:
     name: CI gate
     runs-on: ubuntu-24.04
     timeout-minutes: 5
-    needs: [checks, audit, migrations, integration]
+    needs: [checks, image, audit, migrations, integration]
     if: always()
     steps:
       - name: Require every CI job to pass
@@ -182,7 +199,7 @@ jobs:
     name: Report failure to drive Incidents
     runs-on: ubuntu-24.04
     timeout-minutes: 5
-    needs: [checks, audit, migrations, integration]
+    needs: [checks, image, audit, migrations, integration]
     if: failure()
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

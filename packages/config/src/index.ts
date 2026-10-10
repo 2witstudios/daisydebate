@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { roomPolicyConfig } from './room-policy';
 import { mediaEndpoint } from './media-endpoint';
 import { databaseUrl, redisUrl } from './urls';
 import { realtimePublicUrlSchema } from './realtime-endpoint';
@@ -100,6 +101,7 @@ const withoutMigrationCredential = <Config extends object>(
   return runtime;
 };
 const serverFields = {
+  ROOM_POLICY: roomPolicyConfig,
   ...deploymentIdentityFields,
   FOUNDATION_PROOF_ENABLED: z
     .enum(['true', 'false'])

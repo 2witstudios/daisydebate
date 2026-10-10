@@ -26,7 +26,9 @@ COPY packages/config/package.json packages/config/package.json
 COPY packages/db/package.json packages/db/package.json
 COPY packages/debate-engine/package.json packages/debate-engine/package.json
 COPY packages/errors/package.json packages/errors/package.json
+COPY packages/ingress/package.json packages/ingress/package.json
 COPY packages/logger/package.json packages/logger/package.json
+COPY packages/media/package.json packages/media/package.json
 COPY packages/observability/package.json packages/observability/package.json
 COPY packages/protocol/package.json packages/protocol/package.json
 COPY packages/redis/package.json packages/redis/package.json
@@ -57,7 +59,9 @@ COPY packages/config/package.json packages/config/package.json
 COPY packages/db/package.json packages/db/package.json
 COPY packages/debate-engine/package.json packages/debate-engine/package.json
 COPY packages/errors/package.json packages/errors/package.json
+COPY packages/ingress/package.json packages/ingress/package.json
 COPY packages/logger/package.json packages/logger/package.json
+COPY packages/media/package.json packages/media/package.json
 COPY packages/observability/package.json packages/observability/package.json
 COPY packages/protocol/package.json packages/protocol/package.json
 COPY packages/redis/package.json packages/redis/package.json
@@ -102,7 +106,9 @@ COPY --chown=daisy:daisy packages/db/migrations packages/db/migrations
 COPY --chown=daisy:daisy packages/ai-voice/src packages/ai-voice/src
 COPY --chown=daisy:daisy packages/debate-engine/src packages/debate-engine/src
 COPY --chown=daisy:daisy packages/errors/src packages/errors/src
+COPY --chown=daisy:daisy packages/ingress/src packages/ingress/src
 COPY --chown=daisy:daisy packages/logger/src packages/logger/src
+COPY --chown=daisy:daisy packages/media/src packages/media/src
 COPY --chown=daisy:daisy packages/observability/src packages/observability/src
 COPY --chown=daisy:daisy packages/protocol/src packages/protocol/src
 COPY --chown=daisy:daisy packages/redis/src packages/redis/src
