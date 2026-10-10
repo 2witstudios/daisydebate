@@ -4,8 +4,8 @@ export function browserRuntimeTarget(
   browserDatabaseUrl: string,
   slot: string,
 ): string {
-  const administrator = new URL(testDatabaseUrl);
-  const browser = new URL(browserDatabaseUrl);
+  const administrator = fixtureDatabaseUrl(testDatabaseUrl);
+  const browser = fixtureDatabaseUrl(browserDatabaseUrl);
   if (
     !/^[a-z0-9_]+$/.test(slot) ||
     !['postgres:', 'postgresql:'].includes(administrator.protocol) ||
@@ -20,4 +20,12 @@ export function browserRuntimeTarget(
     throw new Error('Realtime browser fixture administrator slot refused');
   administrator.pathname = browser.pathname;
   return administrator.toString();
+}
+
+function fixtureDatabaseUrl(value: string): URL {
+  try {
+    return new URL(value);
+  } catch {
+    throw new Error('Realtime browser fixture administrator slot refused');
+  }
 }

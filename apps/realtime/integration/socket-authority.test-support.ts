@@ -1,21 +1,18 @@
 import { SQL } from 'bun';
 import { createHash, randomBytes } from 'node:crypto';
 import { requireTestServices } from '@daisy/config';
-import { createDatabase } from '@daisy/db';
 import { systemId } from '@daisy/clock';
-import { testNamespace } from '@daisy/redis/testing';
-import {
-  serverMessageSchema,
-  ENVELOPE_VERSION,
-  PROTOCOL_VERSION,
-  type ServerMessage,
-} from '@daisy/protocol';
-import { createRealtimeApp } from '../src/app';
+import { openAuthorityPeer } from './authority-peer.test-support';
+import { authorityResources } from './authority-resources.test-support';
 import { serveRealtime } from '../src/serve';
-import { testOrigin, waitFor } from './support';
+import { testOrigin } from './support';
 
 /** Durable isolated identity; authority always comes from the actual session/account readers. */
-export async function socketAuthorityFixture() {
+export async function socketAuthorityFixture(
+  serve?: typeof Bun.serve,
+  maxSubscriptions = 64,
+  afterCatchup?: () => Promise<void>,
+) {
   const services = requireTestServices(process.env);
   const client = new SQL(services.databaseUrl);
   const userId = systemId.next(),
@@ -24,25 +21,12 @@ export async function socketAuthorityFixture() {
   const initial = Date.parse('2026-10-09T00:00:00.000Z');
   let elapsed = 0;
   let revalidate: (() => void) | undefined;
-  const runtimeClient = new SQL(services.databaseUrl, { max: 1 });
-  const runtimeDatabase = createDatabase({
-    url: services.databaseUrl,
-    client: runtimeClient,
-    nextActorId: () => systemId.next(),
-  });
-  const resources = createRealtimeApp({
-    database: runtimeDatabase,
-    env: {
-      NODE_ENV: 'test',
-      DATABASE_URL: services.databaseUrl,
-      REDIS_URL: services.redisUrl,
-      REDIS_NAMESPACE: testNamespace(systemId.next()),
-      LOG_LEVEL: 'silent',
-      REALTIME_ALLOWED_ORIGINS: testOrigin,
-    },
-    clock: { now: () => new Date(initial + elapsed).toISOString() },
-    ids: systemId,
-  });
+  const resources = await authorityResources(
+    services,
+    { now: () => new Date(initial + elapsed).toISOString() },
+    maxSubscriptions,
+    afterCatchup,
+  );
   const eraseFixture = async () => {
     await client`delete from session where id=${sessionId}`;
     await client`delete from actors where id=${actorId}`;
@@ -50,19 +34,12 @@ export async function socketAuthorityFixture() {
   };
   let runtime: Awaited<ReturnType<typeof serveRealtime>> | undefined;
   try {
-    await runtimeClient.unsafe('set role daisy_realtime');
-    if ((await resources.database.runtimeRoleProblems()).length !== 0)
-      throw new Error(
-        'Realtime proof requires its actual restricted runtime role',
-      );
-    const [runtimeRole] = await runtimeClient`select current_user as role`;
-    if (runtimeRole?.role !== 'daisy_realtime')
-      throw new Error('Realtime proof runtime role binding refused');
     await client`insert into users(id,username,email_verified) values(${userId},${userId},true)`;
     await client`insert into actors(id,kind,user_id) values(${actorId},'human',${userId})`;
     await client`insert into session(id,user_id,token,expires_at) values(${sessionId},${userId},${randomBytes(32).toString('base64url')},'2026-10-09T01:00:00Z')`;
     runtime = await serveRealtime({
       resources,
+      ...(serve ? { serve } : {}),
       port: 0,
       hostname: '127.0.0.1',
       now: () => elapsed,
@@ -105,6 +82,21 @@ export async function socketAuthorityFixture() {
 
 export async function authenticatedAuthorityPeer(
   fixture: Awaited<ReturnType<typeof socketAuthorityFixture>>,
+  since?: string,
+) {
+  const port = fixture.runtime.server.port;
+  if (port === undefined)
+    throw new Error('Actual authority listener unavailable');
+  const peer = await openAuthorityPeer(
+    port,
+    await issueAuthorityTicket(fixture),
+  );
+  await peer.subscribe('standings:authority-proof', 'authority-proof', since);
+  return peer;
+}
+
+export async function issueAuthorityTicket(
+  fixture: Awaited<ReturnType<typeof socketAuthorityFixture>>,
 ) {
   const ticket = randomBytes(32).toString('base64url');
   await fixture.resources.redis.issueConnectTicket(
@@ -116,37 +108,5 @@ export async function authenticatedAuthorityPeer(
     },
     60,
   );
-  const socket = new WebSocket(
-    `ws://127.0.0.1:${fixture.runtime.server.port}/ws`,
-    { headers: { origin: testOrigin } },
-  );
-  const frames: ServerMessage[] = [];
-  const closed = new Promise<number>((accept) =>
-    socket.addEventListener('close', (event) => accept(event.code)),
-  );
-  socket.addEventListener('message', (event) => {
-    const frame = serverMessageSchema.parse(JSON.parse(String(event.data)));
-    frames.push(frame);
-  });
-  socket.addEventListener('open', () =>
-    socket.send(
-      JSON.stringify({
-        v: ENVELOPE_VERSION,
-        type: 'hello',
-        protocolVersion: PROTOCOL_VERSION,
-        ticket,
-      }),
-    ),
-  );
-  await waitFor(() => frames.some((frame) => frame.type === 'ready'));
-  socket.send(
-    JSON.stringify({
-      v: ENVELOPE_VERSION,
-      type: 'subscribe',
-      id: 'authority-proof',
-      topic: 'standings:authority-proof',
-    }),
-  );
-  await waitFor(() => frames.some((frame) => frame.type === 'subscribed'));
-  return { socket, frames, closed };
+  return ticket;
 }

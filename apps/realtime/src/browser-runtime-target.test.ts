@@ -16,6 +16,7 @@ test('native browser role binding uses only its admitted isolated administrator 
   });
 });
 for (const rejected of [
+  'invalid target',
   administrator.replace('localhost', 'foreign.example'),
   administrator.replace('5432', '5433'),
   administrator.replace('_proof_test', '_foreign_test'),
@@ -23,16 +24,16 @@ for (const rejected of [
   `${administrator}#unexpected`,
 ])
   test('foreign administrator target refuses without a connection', () => {
-    let refused = false;
+    let refusal = '';
     try {
       browserRuntimeTarget(rejected, browser, 'proof');
-    } catch {
-      refused = true;
+    } catch (error) {
+      refusal = error instanceof Error ? error.message : 'unknown';
     }
     assert({
       given: 'a mismatched isolated administrator',
-      should: 'refuse',
-      actual: refused,
-      expected: true,
+      should: 'refuse with a fixed message rather than the input URL',
+      actual: refusal,
+      expected: 'Realtime browser fixture administrator slot refused',
     });
   });
