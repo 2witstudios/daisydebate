@@ -17,7 +17,7 @@ export type MessagingReactionCommand = {
   readonly reaction: string;
   readonly active: boolean;
 };
-export type MessagingReactionResult = {
+type MessagingReactionResult = {
   readonly version: 1;
   readonly channelId: string;
   readonly messageId: string;

@@ -38,6 +38,13 @@ function MessageRow({
           </Link>
           {message.authorActorId === actorId ? (
             <Link
+              href={`/messages/${channelId}/message?messageId=${message.id}${message.sequence < Number.MAX_SAFE_INTEGER ? `&before=${message.sequence + 1}` : ''}`}
+            >
+              Edit or remove your message
+            </Link>
+          ) : null}
+          {message.authorActorId === actorId ? (
+            <Link
               href={`/messages/${channelId}/attachments?messageId=${message.id}&attach=1`}
             >
               Attach file

@@ -31,6 +31,29 @@ export function ReactionForm({
   useMovedOn(answer.next);
   return (
     <form action={post} className="flex items-center gap-3">
+      <ReactionFields
+        answer={answer}
+        pending={pending}
+        reaction={reaction}
+        active={active}
+      />
+    </form>
+  );
+}
+/** Native fields preserve the exact boolean cleanup intent even before hydration. */
+export function ReactionFields({
+  answer,
+  pending,
+  reaction,
+  active,
+}: {
+  readonly answer: ReactionFormState;
+  readonly pending: boolean;
+  readonly reaction: string;
+  readonly active: boolean;
+}) {
+  return (
+    <>
       <input type="hidden" name="requestId" value={answer.requestId} />
       <input type="hidden" name="reaction" value={reaction} />
       <input type="hidden" name="active" value={String(active)} />
@@ -38,6 +61,6 @@ export function ReactionForm({
         {active ? `React ${reaction}` : `Remove ${reaction}`}
       </Button>
       <DraftNotice id={`reaction-${answer.requestId}`} notice={answer.notice} />
-    </form>
+    </>
   );
 }

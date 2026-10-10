@@ -1,5 +1,9 @@
+import {
+  editNativeMessage,
+  messageInHistory,
+  removeNativeMessage,
+} from './support/messaging-message-controls';
 import { manageNativeReactions } from './support/messaging-reactions';
-import type { Page } from '@playwright/test';
 import { proveNativeTyping } from './support/messaging-typing';
 import type { ServerMessage } from '@daisy/protocol';
 import { manageNativePreferences } from './support/messaging-preferences';
@@ -96,6 +100,7 @@ for (const javaScriptEnabled of [true, false]) {
       await attachNativeMessageFile(recipient, sender, journey.channelId, text);
       await manageNativePreferences(sender, journey.channelId);
       await manageNativeReactions(sender, journey.channelId, text);
+      const ownMessage = await editNativeMessage(sender, journey.channelId);
       const foreign = await journey.outsider.request.get(
         `/api/messaging/channels/${journey.channelId}/messages`,
       );
@@ -146,6 +151,7 @@ for (const javaScriptEnabled of [true, false]) {
       await expect(sender.getByRole('status')).toHaveText(
         'You cannot send to this conversation now. Your draft is kept.',
       );
+      await removeNativeMessage(journey.sender, journey.channelId, ownMessage);
       await recipient
         .getByRole('button', { name: 'Unblock contact', exact: true })
         .click();
@@ -290,10 +296,4 @@ for (const javaScriptEnabled of [true, false]) {
       await journey.close();
     }
   });
-}
-
-function messageInHistory(page: Page, text: string) {
-  return page
-    .getByRole('list', { name: 'Message history' })
-    .getByText(text, { exact: true });
 }
