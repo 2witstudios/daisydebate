@@ -44,8 +44,12 @@ test('custom browser creation fixture satisfies the canonical complete request c
   });
 });
 
-test('dedicated config binds server commands and artifacts to their canonical workspace', async () => {
+test('dedicated config refuses shared checkouts and binds dedicated paths', async () => {
   const checkout = resolve(import.meta.dir, '../../..');
+  const folder = basename(checkout);
+  const dedicated = folder.startsWith('wt-');
+  const slot = folder.slice('wt-'.length).replaceAll('-', '_');
+  const namespace = `daisy-wt-${slot.replaceAll('_', '-')}-e2e`;
   const script = `import config from './apps/web/e2e/support/room-launch-config';
     console.log(JSON.stringify({
       servers: config.webServer.map(server => server.cwd ?? null),
@@ -54,7 +58,14 @@ test('dedicated config binds server commands and artifacts to their canonical wo
     }));`;
   const loaded = Bun.spawn(['bun', '--eval', script], {
     cwd: checkout,
-    env: process.env,
+    env: {
+      ...process.env,
+      DATABASE_URL: `postgres://daisy:fixture@127.0.0.1:5432/daisy_wt_${slot}`,
+      E2E_DATABASE_URL: `postgres://daisy_e2e:fixture@127.0.0.1:5432/daisy_wt_${slot}_e2e`,
+      E2E_REDIS_URL: 'redis://127.0.0.1:6379/2',
+      E2E_REDIS_NAMESPACE: namespace,
+      E2E_PORT: '13001',
+    },
     stdout: 'pipe',
     stderr: 'pipe',
   });
@@ -62,6 +73,20 @@ test('dedicated config binds server commands and artifacts to their canonical wo
     loaded.exited,
     new Response(loaded.stdout).text(),
   ]);
+  const errors = await new Response(loaded.stderr).text();
+  if (!dedicated) {
+    assert({
+      given: 'the ordinary shared repository checkout',
+      should: 'refuse before resolving browser servers or artifacts',
+      actual: {
+        output,
+        refused:
+          status !== 0 && errors.includes('dedicated native worktree slot'),
+      },
+      expected: { output: '', refused: true },
+    });
+    return;
+  }
   assert({
     given: 'the actual dedicated config loaded from its nested support folder',
     should:
