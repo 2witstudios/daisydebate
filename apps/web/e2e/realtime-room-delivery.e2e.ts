@@ -53,7 +53,7 @@ test('real HTTP Room mutation reaches its authenticated browser subscriber and r
         },
       },
     });
-    expect(created.status()).toBe(200);
+    expect(created.status()).toBe(201);
     const before = roomViewSchema.parse((await created.json()).view);
     const topic = buildRoomTopic(before.id);
     const hostPage = await openPage(host, 'RT authorized host'),
@@ -141,6 +141,69 @@ test('real HTTP Room mutation reaches its authenticated browser subscriber and r
         ),
       ),
     ).toBe(false);
+    // Hold only the next real ticket HTTP request while a durable command commits.
+    // Reconnection must consume that real ticket and catch up from its stored cursor.
+    let resumeTicket!: () => void;
+    let ticketRequested = false;
+    const ticketGate = new Promise<void>((resolve) => {
+      resumeTicket = resolve;
+    });
+    await hostPage.route('**/api/realtime/ticket', async (route) => {
+      ticketRequested = true;
+      await ticketGate;
+      await route.continue();
+    });
+    await hostPage.evaluate(() => {
+      window.realtimeProof.sockets.at(-1)!.close(4005, 'isolated interruption');
+    });
+    await expect.poll(() => ticketRequested).toBe(true);
+    const offlineMutation = await host.request.post(
+      `/api/rooms/${before.id}/commands`,
+      {
+        headers: { origin },
+        data: {
+          type: 'update-details',
+          commandId: createId(),
+          expectedVersion: changed.version,
+          title: 'Committed while the socket is disconnected',
+          topic: before.topic,
+          visibility: 'private',
+        },
+      },
+    );
+    expect(offlineMutation.status()).toBe(200);
+    const offlineView = roomViewSchema.parse(
+      (await offlineMutation.json()).view,
+    );
+    resumeTicket();
+    await expect
+      .poll(() =>
+        hostPage.evaluate(
+          (version) =>
+            window.realtimeProof.frames.filter(
+              (frame) =>
+                frame.type === 'event' &&
+                frame.payload.kind === 'room.changed' &&
+                frame.payload.entityVersion === version,
+            ).length,
+          offlineView.changeVersion,
+        ),
+      )
+      .toBe(1);
+    await expect
+      .poll(() =>
+        hostPage.evaluate(
+          () =>
+            window.realtimeProof.frames.filter(
+              (frame) => frame.type === 'subscribed',
+            ).length,
+        ),
+      )
+      .toBe(2);
+    expect(
+      await hostPage.evaluate(() => window.realtimeProof.sockets.length),
+    ).toBe(2);
+    await hostPage.unroute('**/api/realtime/ticket');
     const revoked = await host.request.post('/api/auth/revoke-sessions', {
       headers: { origin },
       data: {},
