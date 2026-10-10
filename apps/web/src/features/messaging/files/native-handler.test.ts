@@ -61,6 +61,18 @@ test('multipart attachment authenticates before decode and enforces its independ
     'c'.repeat(24),
     'm'.repeat(24),
   );
+  const malformed = await nativeFileHandler(
+    { ...input, maxMultipartBytes: 1024 },
+    request(),
+    'c'.repeat(24),
+    'm'.repeat(24),
+  );
+  assert({
+    given: 'malformed multipart envelope within its bound',
+    should: 'refuse as input validation before private I/O',
+    actual: [malformed.status, calls],
+    expected: [400, 0],
+  });
   assert({
     given: 'anonymous or oversized multipart body',
     should: 'refuse without reservation/scanner/storage access',
