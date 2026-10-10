@@ -6,6 +6,10 @@ import {
   requireFileScannerPort,
 } from './messaging-files.test-support';
 import { createClamdScanner } from '../src/features/messaging/files/clamd';
+import {
+  fileProofEicar,
+  infectedFilePdf,
+} from './messaging-files-samples.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 // Explicit isolated service, supplied by the scheduled local/CI edge; no public/default scanner.
@@ -17,17 +21,15 @@ test('production INSTREAM scanner proves actual clean, EICAR and recoverable out
   const relay = await openFileScannerRelay({ host: '127.0.0.1', port });
   const scanner = createClamdScanner(relay);
   try {
-    for (const [sample, expected] of [
-      ['%PDF-1.7\nclean document\n%%EOF', 'clean'],
-      [
-        'X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*',
-        'infected',
-      ],
+    for (const [bytes, expected] of [
+      [new TextEncoder().encode('%PDF-1.7\nclean document\n%%EOF'), 'clean'],
+      [new TextEncoder().encode(fileProofEicar), 'infected'],
+      [infectedFilePdf(), 'infected'],
     ] as const) {
       assert({
         given: 'real bytes streamed to local clamd',
         should: 'use actual daemon classification',
-        actual: await scanner.scan(new TextEncoder().encode(sample), limits),
+        actual: await scanner.scan(bytes, limits),
         expected,
       });
     }
