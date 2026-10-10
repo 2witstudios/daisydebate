@@ -76,10 +76,13 @@ export function FormatTemplatePicker({
           id="assembly-format"
           name="selection"
           required
-          value={value}
+          value={selected ? value : ''}
           onChange={(event) => setValue(event.target.value)}
           className={controlClass}
         >
+          {!selected ? (
+            <option value="">Choose an available format</option>
+          ) : null}
           {choices.map((choice) => (
             <option
               key={`${choice.formatId}:${choice.formatVersion}`}
@@ -91,7 +94,11 @@ export function FormatTemplatePicker({
           ))}
         </select>
       </FormField>
-      {selected ? <TemplateSchedule choice={selected} /> : null}
+      {selected ? (
+        <div hidden={!interactive} aria-label="Selected format preview">
+          <TemplateSchedule choice={selected} />
+        </div>
+      ) : null}
       {choices.length > 0 ? (
         <>
           <button

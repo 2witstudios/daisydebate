@@ -58,11 +58,11 @@ test('empty format availability produces no fabricated option or browse action',
     given: 'an authoritative empty catalog',
     should: 'leave native selection empty and omit a browse dialog',
     actual: [
-      html.includes('<option'),
+      html.includes('<option value="" selected=""'),
       html.includes('<dialog'),
       html.includes('name="selection"'),
     ],
-    expected: [false, false, true],
+    expected: [true, false, true],
   });
 });
 
@@ -96,5 +96,40 @@ test('a retained refused selection previews its own exact defaults rather than t
       html.includes('Retained template speech order'),
     ],
     expected: [true, true],
+  });
+});
+
+test('a withdrawn retained template requires a new explicit native choice', () => {
+  const html = renderToStaticMarkup(
+    <FormatTemplatePicker
+      choices={[unequalTemplate]}
+      defaultValue="withdrawn"
+    />,
+  );
+  const selected = html.match(/<option[^>]*selected=""[^>]*>/)?.[0];
+  assert({
+    given: 'a retained selection absent from the current authoritative catalog',
+    should:
+      'select a required empty placeholder instead of silently switching templates',
+    actual: [
+      selected?.includes('value=""'),
+      html.includes('Choose an available format'),
+    ],
+    expected: [true, true],
+  });
+});
+
+test('the changing selected preview is hidden before hydration', () => {
+  const html = renderToStaticMarkup(
+    <FormatTemplatePicker choices={[unequalTemplate]} />,
+  );
+  assert({
+    given: 'a native form that can change format without JavaScript',
+    should:
+      'avoid showing an initial preview that cannot follow native selection changes',
+    actual: html.includes(
+      '<div hidden="" aria-label="Selected format preview">',
+    ),
+    expected: true,
   });
 });
