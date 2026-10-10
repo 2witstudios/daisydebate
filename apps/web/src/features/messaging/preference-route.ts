@@ -23,28 +23,59 @@ export function composeMessagingPreferenceRoutes(app: App) {
         request,
         'messaging.preferences.unavailable',
       );
-    return runMessagingHandler(messagingHttpBoundary(app), request, {
+    return createMessagingPreferenceHandler({
+      boundary: messagingHttpBoundary(app),
+      maxBodyBytes: policy.maxBodyBytes,
+      consume: (actorId) =>
+        consumeOrThrow(
+          app.auth().limiter,
+          `messaging:preferences:${actorId}`,
+          policy.limits.read,
+        ),
+      store: (principal) =>
+        composeMessagingPreferences({
+          database: app.database,
+          principal,
+          policy,
+          clock: app.clock,
+        }),
+    })(request, operation, channelId);
+  };
+}
+/** The real HTTP boundary and persistence port remain injected; no request chooses its authority fence. */
+export function createMessagingPreferenceHandler({
+  boundary,
+  maxBodyBytes,
+  consume,
+  store,
+}: {
+  readonly boundary: Parameters<typeof runMessagingHandler>[0];
+  readonly maxBodyBytes: number;
+  readonly consume: (actorId: string) => Promise<void>;
+  readonly store: (
+    principal: Parameters<
+      Parameters<typeof runMessagingHandler>[2]['operation']
+    >[1],
+  ) => ReturnType<typeof composeMessagingPreferences>;
+}) {
+  return (
+    request: Request,
+    operation: 'read' | 'update' | 'clear',
+    channelId?: string,
+  ) =>
+    runMessagingHandler(boundary, request, {
       name: `messaging.preferences.${operation}`,
       readOnly: operation === 'read',
       readInput: async () => {
-        if (operation !== 'read') return readJson(request, policy.maxBodyBytes);
+        if (operation !== 'read') return readJson(request, maxBodyBytes);
         if ([...new URL(request.url).searchParams.keys()].length)
           throw createAppError('VALIDATION');
         return { version: 1, channelId };
       },
       operation: async (input, principal) => {
         const actor = requireMessagingActor(principal);
-        await consumeOrThrow(
-          app.auth().limiter,
-          `messaging:preferences:${actor.actorId}`,
-          policy.limits.read,
-        );
-        const store = composeMessagingPreferences({
-          database: app.database,
-          principal,
-          policy,
-          clock: app.clock,
-        });
+        await consume(actor.actorId);
+        const preferences = store(principal);
         if (operation === 'update') {
           const command = parseValidated(
             messagingPreferenceSchemas.update,
@@ -53,7 +84,7 @@ export function composeMessagingPreferenceRoutes(app: App) {
           return messagingPreferenceSchemas.result.parse({
             version: 1,
             channelId: command.channelId,
-            ...(await store.update(
+            ...(await preferences.update(
               { ...actor, channelId: command.channelId },
               command,
             )),
@@ -64,13 +95,12 @@ export function composeMessagingPreferenceRoutes(app: App) {
         return operation === 'clear'
           ? messagingPreferenceSchemas.cleared.parse({
               ...command,
-              cleared: await store.clear(scope),
+              cleared: await preferences.clear(scope),
             })
           : messagingPreferenceSchemas.result.parse({
               ...command,
-              ...(await store.read(scope)),
+              ...(await preferences.read(scope)),
             });
       },
     });
-  };
 }
