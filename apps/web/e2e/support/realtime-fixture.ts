@@ -17,6 +17,7 @@ declare global {
       sockets: WebSocket[];
       closeCodes: number[];
       transportFrames: ServerMessage[];
+      nativeFrames: ServerMessage[];
       diagnostics: ConnectionDiagnostic[];
     };
   }
@@ -25,14 +26,18 @@ const adapter = resolve(
   import.meta.dirname,
   '../../src/features/realtime/browser-adapters.ts',
 );
-/** Bundles the actual generic browser adapter; no replacement socket or ticket reader. */
+const parser = resolve(
+  import.meta.dirname,
+  '../../src/features/realtime/topic-subscriptions.ts',
+);
+/** Bundles the actual generic browser adapter and canonical frame parser. */
 export function browserTransportSource() {
   const directory = mkdtempSync(join(tmpdir(), 'daisy-realtime-browser-'));
   try {
     const entry = join(directory, 'entry.ts');
     writeFileSync(
       entry,
-      `import {createBrowserConnectionStore} from ${JSON.stringify(adapter)}; globalThis.createRealtimeProofStore=createBrowserConnectionStore;`,
+      `import {createBrowserConnectionStore} from ${JSON.stringify(adapter)}; globalThis.createRealtimeProofStore=createBrowserConnectionStore; import {parseServerMessage} from ${JSON.stringify(parser)}; globalThis.parseRealtimeProofMessage=parseServerMessage;`,
     );
     return execFileSync(
       'bun',
@@ -56,6 +61,12 @@ export async function connectRoomTransport(
           createRealtimeProofStore: (url: string) => ConnectionStore;
         }
       ).createRealtimeProofStore;
+      const parse = (
+        globalThis as unknown as {
+          parseRealtimeProofMessage: (raw: string) => ServerMessage | null;
+        }
+      ).parseRealtimeProofMessage;
+      const nativeFrames: ServerMessage[] = [];
       const sockets: WebSocket[] = [];
       const closeCodes: number[] = [];
       const NativeSocket = window.WebSocket;
@@ -65,6 +76,10 @@ export async function connectRoomTransport(
         constructor(endpoint: string | URL, protocols?: string | string[]) {
           super(endpoint, protocols);
           sockets.push(this);
+          this.addEventListener('message', (event) => {
+            const frame = parse(String(event.data));
+            if (frame) nativeFrames.push(frame);
+          });
           this.addEventListener('close', (event) =>
             closeCodes.push(event.code),
           );
@@ -86,6 +101,7 @@ export async function connectRoomTransport(
         sockets,
         closeCodes,
         transportFrames,
+        nativeFrames,
         diagnostics,
       };
       store.connect();

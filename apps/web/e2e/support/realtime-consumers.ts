@@ -15,7 +15,7 @@ export async function retainSecondRealtimeConsumer(page: Page, topic: string) {
   expect(
     await page.evaluate(
       () =>
-        window.realtimeProof.transportFrames.filter(
+        window.realtimeProof.nativeFrames.filter(
           (frame) => frame.type === 'unsubscribed',
         ).length,
     ),
@@ -29,7 +29,7 @@ export async function releaseLastRealtimeConsumer(page: Page) {
     .poll(() =>
       page.evaluate(
         () =>
-          window.realtimeProof.transportFrames.filter(
+          window.realtimeProof.nativeFrames.filter(
             (frame) => frame.type === 'unsubscribed',
           ).length,
       ),
