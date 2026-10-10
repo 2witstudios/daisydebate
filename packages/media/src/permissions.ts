@@ -1,7 +1,7 @@
 import { TrackSource } from 'livekit-server-sdk';
 import type { MediaPermissions } from './contracts';
 
-export const trackSources = {
+const trackSources = {
   camera: TrackSource.CAMERA,
   microphone: TrackSource.MICROPHONE,
 } as const;
