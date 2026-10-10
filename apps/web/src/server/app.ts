@@ -1,5 +1,6 @@
 import { readRealtimePublicUrl } from '@daisy/config';
 import type { MessagingRuntimePolicy } from '../features/messaging/composition';
+import type { FileDependencies } from '../features/messaging/files/operations';
 import type { RoomPolicy } from '../features/room-runtime/composition';
 import type { Clock, IdGenerator } from '@daisy/clock';
 import {
@@ -24,6 +25,8 @@ import { createMetricsStore, type MetricsStore } from './metrics-store';
 export type AppDependencies = {
   readonly roomPolicy?: RoomPolicy;
   readonly messagingPolicy?: MessagingRuntimePolicy;
+  /** Explicit attachment runtime ports; absent means attachments are unavailable. */
+  readonly messagingFiles?: FileDependencies;
   /** Raw environment, validated here and nowhere else. */
   readonly env: Readonly<Record<string, string | undefined>>;
   /** Outbound HTTP (the Resend mail transport). */
@@ -59,6 +62,7 @@ export function createApp({
   env,
   roomPolicy,
   messagingPolicy,
+  messagingFiles,
   fetch,
   clock,
   ids,
@@ -147,6 +151,7 @@ export function createApp({
     }),
     roomPolicy: roomPolicy ?? null,
     messagingPolicy: messagingPolicy ?? null,
+    messagingFiles: messagingFiles ?? null,
     clock,
     ids,
     logger,
