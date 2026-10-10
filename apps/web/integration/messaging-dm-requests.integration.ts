@@ -3,7 +3,7 @@ import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
-import { openMessagingFixture } from './messaging-fixture.test-support';
+import { openMessagingParticipants } from './messaging-fixture.test-support';
 import {
   messagingFixturePosting,
   messagingFixtureReading,
@@ -19,17 +19,8 @@ const { databaseUrl } = requireTestServices(process.env);
 const bounds = { introductionUnits: 100, titleUnits: 80, batchActors: 10 };
 
 test('real DM recipient accept opens history/post and binds closed retry through independent reading authority', async () => {
-  const {
-    client,
-    database,
-    fixture,
-    principal: sender,
-  } = await openMessagingFixture(databaseUrl);
-  const recipient = {
-    kind: 'user' as const,
-    userId: fixture.otherUserId,
-    actorId: fixture.otherActorId,
-  };
+  const { client, database, fixture, sender, recipient } =
+    await openMessagingParticipants(databaseUrl);
   const clock = { now: () => fixture.now };
   const requestId = createId();
   const dmStore = (principal: typeof sender) =>
@@ -181,17 +172,8 @@ test('real DM recipient accept opens history/post and binds closed retry through
 
 for (const decision of ['decline', 'cancel'] as const) {
   test(`real pending ${decision} requires its distinct caller and commits only once`, async () => {
-    const {
-      client,
-      database,
-      fixture,
-      principal: sender,
-    } = await openMessagingFixture(databaseUrl);
-    const recipient = {
-      kind: 'user' as const,
-      userId: fixture.otherUserId,
-      actorId: fixture.otherActorId,
-    };
+    const { client, database, fixture, sender, recipient } =
+      await openMessagingParticipants(databaseUrl);
     const clock = { now: () => fixture.now };
     const allowed = decision === 'cancel' ? sender : recipient;
     const denied = decision === 'cancel' ? recipient : sender;
