@@ -1,3 +1,4 @@
+import { preferenceClearAllowed } from './authorization-preferences';
 import { roomAllowed, roundReadable } from './authorization-room';
 import { groupInvitationCreationAllowed } from './authorization-group-invite';
 import { groupSafetyAllowed } from './authorization-group-safety';
@@ -38,6 +39,7 @@ export type {
   ContactPairAuthorizationFact,
   PendingFileAuthorizationFact,
   MessagingCollectionAuthorizationFact,
+  MessagingPreferenceAuthorizationFact,
   GroupInvitationAuthorizationFact,
   GroupCommandResultAuthorizationFact,
   GroupInvitationCreationAuthorizationFact,
@@ -56,6 +58,7 @@ function validResourceKind(
   const specialized = {
     'channel.group.result': 'group_command_result',
     'channel.group.invite': 'group_invitation_creation',
+    'channel.preferences.clear': 'channel_preference',
     'channel.inbox.read': 'messaging_collection',
     'channel.file.cleanup': 'pending_file',
   } as const;
@@ -184,9 +187,13 @@ function channelDecision(
     return deny('missing-capability');
   // Removal still requires the operation's own-author check; this grant is not a content read or edit.
   if (
-    ['channel.read', 'channel.subscribe', 'channel.message.remove'].includes(
-      capability,
-    )
+    [
+      'channel.read',
+      'channel.subscribe',
+      'channel.message.remove',
+      'channel.preferences.read',
+      'channel.preferences.update',
+    ].includes(capability)
   )
     return allow;
   return channelMutation(capability, resource, context);
@@ -236,6 +243,8 @@ function resolveMemberResource(
   | RoundAuthorizationFact
   | ChannelAuthorizationFact {
   switch (resource.kind) {
+    case 'channel_preference':
+      return decision(preferenceClearAllowed(actorId, resource));
     case 'group_invitation_creation':
       return decision(
         groupInvitationCreationAllowed(actorId, resource, context),
