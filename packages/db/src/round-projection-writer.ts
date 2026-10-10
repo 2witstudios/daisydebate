@@ -35,13 +35,23 @@ export async function appendRoundPhaseChanged(
 export async function writeProjectionWithPhaseSignal(
   tx: Tx,
   roundId: string,
-  currentVersion: number,
+  current: Pick<LockedRound, 'version' | 'status' | 'currentStage'>,
   projection: RoundProjection,
 ): Promise<void> {
   await writeProjection(tx, roundId, projection);
-  if (projection.round !== null)
-    await appendRoundPhaseChanged(tx, roundId, currentVersion + 1);
+  if (
+    projection.round !== null &&
+    (projection.round.status !== current.status ||
+      projection.round.currentStage !== current.currentStage)
+  )
+    await appendRoundPhaseChanged(tx, roundId, current.version + 1);
 }
+
+type LockedRound = {
+  readonly version: number;
+  readonly status: typeof rounds.$inferSelect.status;
+  readonly currentStage: typeof rounds.$inferSelect.currentStage;
+};
 
 /**
  * Locks the round row and refuses when it moved on: the optimistic-version
@@ -52,16 +62,20 @@ export async function lockedRoundVersion(
   tx: Tx,
   roundId: string,
   expectedVersion: number,
-): Promise<number> {
+): Promise<LockedRound> {
   const [round] = await tx
-    .select({ version: rounds.version })
+    .select({
+      version: rounds.version,
+      status: rounds.status,
+      currentStage: rounds.currentStage,
+    })
     .from(rounds)
     .where(eq(rounds.id, roundId))
     .for('update');
   if (!round) throw createAppError('NOT_FOUND', 'No such round');
   if (round.version !== expectedVersion)
     throw createAppError('CONFLICT', 'The round moved on');
-  return round.version;
+  return round;
 }
 
 /**
@@ -119,7 +133,7 @@ const lifecycleInstant = (
   projected !== null ? sql`coalesce(${column}, statement_timestamp())` : column;
 
 /** Writes one projection's round row and segment changes inside `tx`. */
-export async function writeProjection(
+async function writeProjection(
   tx: Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0],
   roundId: string,
   projection: RoundProjection,

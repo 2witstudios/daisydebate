@@ -32,6 +32,7 @@ function assertMinimalProjection(
   },
   hostActorId: string,
   guestActorId: string,
+  expectedRevision: number,
 ) {
   const keys =
     resource.kind === 'room'
@@ -61,7 +62,7 @@ function assertMinimalProjection(
       resource.revision,
       resource.participants.map(({ actorId }) => actorId).sort(),
     ],
-    expected: [keys, resource.revision, [hostActorId, guestActorId].sort()],
+    expected: [keys, expectedRevision, [hostActorId, guestActorId].sort()],
   });
 }
 
@@ -80,7 +81,12 @@ test('minimal Room authority facts retain membership without hydrating private c
           resource: facts.resource,
         }).allow,
       );
-      assertMinimalProjection(facts.resource, f.host.actorId, f.guest.actorId);
+      assertMinimalProjection(
+        facts.resource,
+        f.host.actorId,
+        f.guest.actorId,
+        view.version,
+      );
     }
     assert({
       given: 'a seated current member and an outsider reading a private Room',
@@ -94,7 +100,15 @@ test('minimal Room authority facts retain membership without hydrating private c
 
 test('minimal Round authority facts authorize only the persisted private cast', async () => {
   await withRoomRuntime(async (f) => {
-    const view = await setPrivate(f, await f.assemble());
+    let view = await setPrivate(f, await f.assemble());
+    for (const caller of [f.host, f.guest])
+      view = (await f.consent(caller, view, 'ready')).view;
+    assert({
+      given: 'both seated humans consenting after the private Room edit',
+      should: 'retain current-version readiness before the strict Launch',
+      actual: view.participants.map((participant) => participant.ready),
+      expected: ['ready', 'ready'],
+    });
     const launched = await f.command(f.host, view, { type: 'start-round' });
     const roundId = launched.view.roundRef!.id;
     const decisions = [];
@@ -109,7 +123,12 @@ test('minimal Round authority facts authorize only the persisted private cast', 
           resource: facts.resource,
         }).allow,
       );
-      assertMinimalProjection(facts.resource, f.host.actorId, f.guest.actorId);
+      assertMinimalProjection(
+        facts.resource,
+        f.host.actorId,
+        f.guest.actorId,
+        1,
+      );
     }
     assert({
       given: 'the private Round creator, a frozen participant, and an outsider',
