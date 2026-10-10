@@ -1,3 +1,4 @@
+import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   socketAuthorityFixture,
@@ -5,6 +6,7 @@ import {
 } from './socket-authority.test-support';
 
 setupRitewayBun();
+requireTestServices(process.env);
 
 for (const change of ['revoked', 'expired', 'erased'] as const)
   test(`actual periodic authorization closes a ${change} durable session without an outbox event`, async () => {
