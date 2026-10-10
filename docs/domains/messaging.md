@@ -348,3 +348,7 @@ physical deletion acknowledgement. The composed real PostgreSQL/Redis job,
 export and foreign-subject locality proof remains required. Isolated fixtures
 do not activate collection, settle those decisions or establish deployment
 acceptance; no production privacy-worker scheduling is claimed.
+
+### Own reaction removal authority
+
+Addition uses current `channel.post`. Removal uses distinct `channel.reaction.remove` with `MessagingReactionAuthorizationFact` (`kind:channel_reaction`, current `channel`, and existing locked `reaction:{actorId,channelId,messageId,reaction}`). MSG must project this from the persisted reaction joined to its same-channel message; a request intent or absent row is not an association fact. The evaluator requires the caller's current bound non-erased member account, caller-owned association, matching channel, valid message identifier and nonempty canonical reaction value, plus current channel entitlement and approved fresh reading evidence. Archived or posting-ineligible channels may permit this cleanup; it grants no read, post or message-text removal. MSG retains scoped deletion, message/reaction binding, change-version and own receipt checks under the same transaction. No reaction choice or size default is introduced; existing reaction inventory and pending policy declarations apply.
