@@ -1,14 +1,11 @@
+import { authorizationPrincipal as principal } from './authorization.test-support';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { buildRoomTopic } from '@daisy/protocol';
 import type { RealtimeApp } from './app';
 import { createRealtimeAuthorization } from './authorization';
 
 setupRitewayBun();
-const principal = {
-  userId: 'u'.repeat(24),
-  actorId: 'a'.repeat(24),
-  sessionId: 's'.repeat(24),
-};
+
 for (const account of [null, { revision: 9 }])
   test(`Room projection denies unavailable or revised account ${JSON.stringify(account)}`, async () => {
     const resources = {
