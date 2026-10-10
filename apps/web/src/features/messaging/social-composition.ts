@@ -13,12 +13,11 @@ import { parseValidated } from '../../server/http';
 import { consumeOrThrow } from '../auth/abuse/rate-limit';
 import { createMessagingSocialHandlers } from './social-handlers';
 import { composeMessagingDmStore } from './dm-composition';
-import { messagingSocialAuthorizationFence } from './social-authorization';
 import { requestMessagingDm } from './request';
 import { composeMessagingCreationOperation } from './creation-operation';
 import { decideMessagingDm } from './decide-request';
 import { readMessagingDmRequest } from './read-request';
-import { blockMessagingContact } from './block';
+import { composeMessagingBlockOperation } from './block-composition';
 export type MessagingSocialRuntimePolicy = {
   readonly bounds: MessagingSocialBounds;
   readonly creation: SocialCreationPolicy;
@@ -85,19 +84,7 @@ export function composeMessagingSocialRoutes(app: App) {
           store: dm(principal),
           bounds: social.bounds,
         }),
-      block: (input, principal) =>
-        blockMessagingContact(input, principal, {
-          bounds: social.bounds,
-          clock: app.clock,
-          limit,
-          store: app.database.messagingSocialStore(
-            messagingSocialAuthorizationFence({
-              principal,
-              clock: app.clock,
-              operation: { kind: 'block' },
-            }),
-          ),
-        }),
+      block: composeMessagingBlockOperation(app),
     });
     return kind === 'preview' || kind === 'status'
       ? handlers[kind](request, channelId!)

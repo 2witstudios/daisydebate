@@ -125,6 +125,40 @@ for (const javaScriptEnabled of [true, false]) {
           .getByRole('list', { name: 'Message history' })
           .getByText(text, { exact: true }),
       ).toHaveCount(1);
+      await recipient.goto('/messages/contacts');
+      await recipient
+        .getByLabel('Username', { exact: true })
+        .fill(journey.senderUsername);
+      await recipient
+        .getByRole('button', { name: 'Block contact', exact: true })
+        .click();
+      await expect(recipient.getByRole('status')).toHaveText(
+        'Contact blocked.',
+      );
+      await sender
+        .getByLabel('Your message')
+        .fill('Retained retry after unblock');
+      await sender
+        .getByRole('button', { name: 'Send message', exact: true })
+        .click();
+      await expect(sender.getByLabel('Your message')).toHaveValue(
+        'Retained retry after unblock',
+      );
+      await expect(sender.getByRole('status')).toContainText('could not');
+      await recipient
+        .getByRole('button', { name: 'Unblock contact', exact: true })
+        .click();
+      await expect(recipient.getByRole('status')).toHaveText(
+        'Contact unblocked.',
+      );
+      await sender
+        .getByRole('button', { name: 'Send message', exact: true })
+        .click();
+      await expect(
+        sender
+          .getByRole('list', { name: 'Message history' })
+          .getByText('Retained retry after unblock', { exact: true }),
+      ).toHaveCount(1);
     } finally {
       await journey.close();
     }
