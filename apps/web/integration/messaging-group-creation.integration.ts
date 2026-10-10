@@ -59,18 +59,18 @@ test('real group creation installs only creator authority and erases counterpart
       dependencies,
     );
     const grants = await f.client.unsafe(
-      'select actor_id,role,generation from messaging_group_grants where channel_id=$1',
+      'select actor_id,role,generation::int as generation from messaging_group_grants where channel_id=$1',
       [channelId],
     );
     const invitations = await f.client.unsafe(
-      'select invitee_actor_id,state,generation from messaging_group_invitations where channel_id=$1',
+      'select invitee_actor_id,state,generation::int as generation from messaging_group_invitations where channel_id=$1',
       [channelId],
     );
     assert({
       given: 'fresh creation and exact currently read-authorized replay',
       should:
         'create only creator authority and one pending invitee without renewing either generation',
-      actual: [result, replay, grants, invitations],
+      actual: [result, replay, [...grants], [...invitations]],
       expected: [
         { channelId, lifecycle: 'active' },
         { channelId, lifecycle: 'active' },
