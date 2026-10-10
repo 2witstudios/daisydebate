@@ -2,6 +2,7 @@ import { serverMessageSchema } from '@daisy/protocol';
 import { test, expect, openPage } from './support/fixtures';
 import {
   openMessagingJourney,
+  openMessagingGroupJourney,
   acceptMessagingJourney,
 } from './support/messaging-journey';
 
@@ -63,3 +64,147 @@ test('an authenticated DM doorbell refetches current history in the other real b
     await journey.close();
   }
 });
+
+for (const javaScriptEnabled of [true, false]) {
+  test(`a recipient accepts a DM and sends durable history with JavaScript ${javaScriptEnabled ? 'enabled' : 'disabled'}`, async ({
+    browser,
+  }) => {
+    const journey = await openMessagingJourney(browser, javaScriptEnabled);
+    try {
+      const recipient = await acceptMessagingJourney(journey);
+      const text = 'Native browser DM history';
+      await recipient.getByLabel('Your message').fill(text);
+      await recipient
+        .getByRole('button', { name: 'Send message', exact: true })
+        .click();
+      await expect(
+        recipient
+          .getByRole('list', { name: 'Message history' })
+          .getByText(text, { exact: true }),
+      ).toBeVisible();
+      const sender = await openPage(
+        journey.sender,
+        'the sender durable history',
+      );
+      await sender.goto(`/messages/${journey.channelId}`);
+      await expect(
+        sender
+          .getByRole('list', { name: 'Message history' })
+          .getByText(text, { exact: true }),
+      ).toHaveCount(1);
+      const foreign = await journey.outsider.request.get(
+        `/api/messaging/channels/${journey.channelId}/messages`,
+      );
+      expect([403, 404]).toContain(foreign.status());
+      const foreignSearch = await journey.outsider.request.get(
+        `/api/messaging/channels/${journey.channelId}/messages/search?query=browser`,
+      );
+      expect([403, 404]).toContain(foreignSearch.status());
+      await sender
+        .getByRole('searchbox', { name: 'Search messages' })
+        .fill('browser');
+      await sender.getByRole('button', { name: 'Search', exact: true }).click();
+      await expect(
+        sender
+          .getByRole('list', { name: 'Message history' })
+          .getByText(text, { exact: true }),
+      ).toHaveCount(1);
+      await sender
+        .getByRole('searchbox', { name: 'Search messages' })
+        .fill('%');
+      await sender.getByRole('button', { name: 'Search', exact: true }).click();
+      await expect(
+        sender.getByText('No matching messages.', { exact: true }),
+      ).toBeVisible();
+      await sender
+        .getByRole('link', { name: 'Clear search', exact: true })
+        .click();
+      await sender.reload();
+      await expect(
+        sender
+          .getByRole('list', { name: 'Message history' })
+          .getByText(text, { exact: true }),
+      ).toHaveCount(1);
+    } finally {
+      await journey.close();
+    }
+  });
+}
+
+for (const javaScriptEnabled of [true, false]) {
+  test(`native group invitation admission and refusal with JavaScript ${javaScriptEnabled ? 'enabled' : 'disabled'}`, async ({
+    browser,
+  }) => {
+    const journey = await openMessagingGroupJourney(browser, javaScriptEnabled);
+    try {
+      const invited = await openPage(
+        journey.recipient,
+        'the native group invitation',
+      );
+      const refused = await journey.recipient.request.get(
+        `/api/messaging/channels/${journey.channelId}/messages`,
+      );
+      expect(refused.status()).toBe(404);
+      await invited.goto('/messages');
+      await invited
+        .getByRole('link', { name: 'Group invitation', exact: true })
+        .click();
+      await expect(
+        invited.getByRole('heading', { name: 'Group invitation', exact: true }),
+      ).toBeVisible();
+      await expect(
+        invited.getByText('Isolated native group', { exact: true }),
+      ).toHaveCount(0);
+      await invited
+        .getByRole('button', { name: 'Accept invitation', exact: true })
+        .click();
+      await expect(invited).toHaveURL(
+        new RegExp(`/messages/${journey.channelId}$`),
+      );
+      const text = 'Native admitted private group history';
+      await invited.getByLabel('Your message').fill(text);
+      await invited
+        .getByRole('button', { name: 'Send message', exact: true })
+        .click();
+      await expect(
+        invited
+          .getByRole('list', { name: 'Message history' })
+          .getByText(text, { exact: true }),
+      ).toHaveCount(1);
+      const creator = await openPage(
+        journey.sender,
+        'the durable group creator history',
+      );
+      await creator.goto(`/messages/${journey.channelId}`);
+      await expect(
+        creator
+          .getByRole('list', { name: 'Message history' })
+          .getByText(text, { exact: true }),
+      ).toHaveCount(1);
+      const declined = await openPage(
+        journey.outsider,
+        'the native invitation refusal',
+      );
+      await declined.goto('/messages');
+      await declined
+        .getByRole('link', { name: 'Group invitation', exact: true })
+        .click();
+      await declined
+        .getByRole('button', { name: 'Decline', exact: true })
+        .click();
+      await expect(declined).toHaveURL(/\/messages$/);
+      const unavailable = await journey.outsider.request.get(
+        `/api/messaging/channels/${journey.channelId}/messages`,
+      );
+      expect(unavailable.status()).toBe(404);
+      await creator.reload();
+      await expect(
+        creator
+          .getByRole('list', { name: 'Message history' })
+          .getByText(text, { exact: true }),
+      ).toHaveCount(1);
+    } finally {
+      await journey.close();
+    }
+  });
+}
