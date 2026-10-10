@@ -22,15 +22,33 @@ import { waitFor, insertOutboxRow, notifyOutbox } from './support';
 setupRitewayBun();
 requireTestServices(process.env);
 
-test('physical paused TCP reader closes4005 while a healthy real recipient progresses', async () => {
+test('physical paused TCP reader closes4005, preserves healthy delivery and catches up on reconnect', async () => {
   const sockets: Bun.ServerWebSocket<SocketData>[] = [];
   const fixture = await socketAuthorityFixture(
     observeNativeServe((socket) => sockets.push(socket)),
   );
   const topic = 'standings:authority-proof';
   let position: { txid: string; seq: bigint } | undefined;
+  let baseline: { txid: string; seq: bigint } | undefined;
   let peer: Awaited<ReturnType<typeof pausedNativePeer>> | undefined;
   try {
+    const payload = {
+      kind: 'standings.updated' as const,
+      ids: [fixture.actorId],
+      entityVersion: 1,
+    };
+    baseline = await insertOutboxRow(fixture.client, {
+      topic,
+      kind: payload.kind,
+      version: 1,
+      payload,
+    });
+    await notifyOutbox(fixture.client, baseline);
+    await waitFor(
+      () =>
+        encodeOutboxCursor(fixture.runtime.drain.cursor()) ===
+        encodeOutboxCursor(baseline!),
+    );
     const port = fixture.runtime.server.port;
     if (port === undefined)
       throw new Error('Native TCP proof port unavailable');
@@ -50,11 +68,9 @@ test('physical paused TCP reader closes4005 while a healthy real recipient progr
     const native = sockets[0];
     if (!native) throw new Error('Actual paused server socket unavailable');
     peer.pause();
-    const payload = {
-      kind: 'standings.updated' as const,
-      ids: [fixture.actorId],
-      entityVersion: 1,
-    };
+    const before = peer.frames.find((frame) => frame.type === 'subscribed');
+    if (before?.type !== 'subscribed')
+      throw new Error('Actual paused subscriber cursor unavailable');
     const pressureFrame: ServerMessage = {
       v: ENVELOPE_VERSION,
       type: 'event',
@@ -83,6 +99,10 @@ test('physical paused TCP reader closes4005 while a healthy real recipient progr
           frame.position === encodeOutboxCursor(position!),
       ),
     );
+    const reconnected = await authenticatedAuthorityPeer(
+      fixture,
+      before.position,
+    );
     assert({
       given:
         'a real authenticated TCP reader paused beyond the measured soft bound and a healthy native recipient',
@@ -91,6 +111,11 @@ test('physical paused TCP reader closes4005 while a healthy real recipient progr
       actual: {
         physicalBufferExceeded: physicalBuffered > 262_144,
         closeCode: closed,
+        replayEvents: reconnected.frames.filter(
+          (frame) =>
+            frame.type === 'event' &&
+            frame.position === encodeOutboxCursor(position!),
+        ).length,
         healthyEvents: healthy.frames.filter((frame) => frame.type === 'event')
           .length,
       },
@@ -98,12 +123,14 @@ test('physical paused TCP reader closes4005 while a healthy real recipient progr
         physicalBufferExceeded: true,
         closeCode: 4005,
         healthyEvents: 1,
+        replayEvents: 1,
       },
     });
   } finally {
     peer?.destroy();
-    if (position)
-      await fixture.client`delete from outbox where txid=${position.txid}::xid8 and seq=${position.seq}`;
+    for (const row of [position, baseline])
+      if (row)
+        await fixture.client`delete from outbox where txid=${row.txid}::xid8 and seq=${row.seq}`;
     await fixture.close();
   }
 });

@@ -90,6 +90,7 @@ export async function socketAuthorityFixture(serve?: typeof Bun.serve) {
 
 export async function authenticatedAuthorityPeer(
   fixture: Awaited<ReturnType<typeof socketAuthorityFixture>>,
+  since?: string,
 ) {
   const ticket = await issueAuthorityTicket(fixture);
   const socket = new WebSocket(
@@ -121,6 +122,7 @@ export async function authenticatedAuthorityPeer(
       type: 'subscribe',
       id: 'authority-proof',
       topic: 'standings:authority-proof',
+      ...(since ? { since } : {}),
     }),
   );
   await waitFor(() => frames.some((frame) => frame.type === 'subscribed'));
