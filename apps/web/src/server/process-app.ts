@@ -59,22 +59,6 @@ export const processApp = (): App => edge.get().app;
 
 /** Binds a Next route export to this process's route table. */
 export const processRoute = createRouteBinder(() => edge.get().routes);
-/** Two channel-metadata GET bindings share route-param resolution without request-selected authority. */
-export function processMessagingChannelRead(
-  operation: 'typing' | 'preferences',
-) {
-  return (
-    request: Request,
-    context: { params: Promise<{ channelId: string }> },
-  ) =>
-    processRoute((routes) => async (incoming) => {
-      const { channelId } = await context.params;
-      return operation === 'typing'
-        ? routes.messaging.typing(incoming, false, channelId)
-        : routes.messaging.preferences(incoming, 'read', channelId);
-    })(request);
-}
-
 /**
  * For a process entry that composes its own app before the server starts
  * (the browser suite's server, which captures outbound mail): makes it this
