@@ -11,7 +11,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, join, relative, resolve } from 'node:path';
 
 // Only block-to-block boundaries are layout whitespace; inline spaces are text.
 export const canonicalPipeline = (text: string): string =>
@@ -22,9 +22,63 @@ export const canonicalPipeline = (text: string): string =>
       '$1',
     );
 
-export function retirePipelineReference(path: string, apply: boolean): boolean {
+/** Find the highest directory link within the caller's allocated install root. */
+function linkedPipelineDirectory(
+  path: string,
+  installedRoot: string,
+): string | undefined {
+  const root = resolve(installedRoot);
+  const directory = resolve(dirname(path));
+  const offset = relative(root, directory);
+  if (offset === '..' || offset.startsWith('../'))
+    throw new Error('Pipeline target is outside its installed root');
+  let linked: string | undefined;
+  for (let current = directory; ; current = dirname(current)) {
+    if (lstatSync(current, { throwIfNoEntry: false })?.isSymbolicLink())
+      linked = current;
+    if (current === root) return linked;
+  }
+}
+
+function detachPipelineDirectory(linked: string, unchanged: () => void): void {
+  const scratch = mkdtempSync(join(dirname(linked), '.pipeline-install-'));
+  try {
+    const copy = join(scratch, 'installed');
+    cpSync(realpathSync(linked), copy, { recursive: true, dereference: true });
+    unchanged();
+    rmSync(linked);
+    renameSync(copy, linked);
+  } finally {
+    rmSync(scratch, { recursive: true, force: true });
+  }
+}
+
+/** Equal text still needs installation when cleanup would follow a checkout link. */
+export function pipelineSkillNeedsInstall(
+  path: string,
+  desired: string,
+  installedRoot: string,
+): boolean {
+  const info = lstatSync(path, { throwIfNoEntry: false });
+  return (
+    !info ||
+    info.isSymbolicLink() ||
+    readFileSync(path, 'utf8') !== desired ||
+    linkedPipelineDirectory(path, installedRoot) !== undefined
+  );
+}
+
+export function retirePipelineReference(
+  path: string,
+  apply: boolean,
+  installedRoot: string,
+): boolean {
   if (!lstatSync(path, { throwIfNoEntry: false })) return false;
-  if (apply) rmSync(path, { force: true });
+  if (apply) {
+    const linked = linkedPipelineDirectory(path, installedRoot);
+    if (linked) detachPipelineDirectory(linked, () => {});
+    rmSync(path, { force: true });
+  }
   return true;
 }
 
@@ -50,6 +104,7 @@ export function installPipelineSkill(
   path: string,
   desired: string,
   before: string,
+  installedRoot: string,
 ): void {
   const unchanged = () => {
     const current = lstatSync(path, { throwIfNoEntry: false })
@@ -62,21 +117,8 @@ export function installPipelineSkill(
   };
   unchanged();
   const directory = dirname(path);
-  if (lstatSync(directory, { throwIfNoEntry: false })?.isSymbolicLink()) {
-    const scratch = mkdtempSync(join(dirname(directory), '.pipeline-install-'));
-    try {
-      const copy = join(scratch, 'skill');
-      cpSync(realpathSync(directory), copy, {
-        recursive: true,
-        dereference: true,
-      });
-      unchanged();
-      rmSync(directory);
-      renameSync(copy, directory);
-    } finally {
-      rmSync(scratch, { recursive: true, force: true });
-    }
-  }
+  const linked = linkedPipelineDirectory(path, installedRoot);
+  if (linked) detachPipelineDirectory(linked, unchanged);
   mkdirSync(directory, { recursive: true });
   unchanged();
   if (lstatSync(path, { throwIfNoEntry: false })?.isSymbolicLink())

@@ -17,6 +17,7 @@ import {
   retirePipelineReference,
   withPipelineFiles,
   installPipelineSkill,
+  pipelineSkillNeedsInstall,
 } from './pipeline-sync-files';
 setupRitewayBun();
 
@@ -40,9 +41,9 @@ describe('pipeline distribution integrity', () => {
     try {
       const path = join(directory, 'old.md');
       writeFileSync(path, 'contradictory retired instructions');
-      const found = retirePipelineReference(path, false);
+      const found = retirePipelineReference(path, false, directory);
       const stillPresent = existsSync(path);
-      const removed = retirePipelineReference(path, true);
+      const removed = retirePipelineReference(path, true, directory);
       assert({
         given: 'a retired installed reference',
         should: 'report drift in check mode and remove it only in apply mode',
@@ -51,7 +52,7 @@ describe('pipeline distribution integrity', () => {
           stillPresent,
           removed,
           existsSync(path),
-          retirePipelineReference(path, false),
+          retirePipelineReference(path, false, directory),
         ],
         expected: [true, true, true, false, false],
       });
@@ -102,6 +103,7 @@ describe('installed pipeline checkout isolation', () => {
         join(installed, 'SKILL.md'),
         'new branch authority',
         'parent policy',
+        directory,
       );
       assert({
         given: 'an installed skill directory linked to another checkout',
@@ -132,8 +134,13 @@ describe('installed pipeline checkout isolation', () => {
       const missing = join(directory, 'codex-skill', 'SKILL.md');
       writeFileSync(source, 'source contract');
       symlinkSync(source, linked);
-      installPipelineSkill(linked, 'installed contract', 'source contract');
-      installPipelineSkill(missing, 'new Codex contract', '');
+      installPipelineSkill(
+        linked,
+        'installed contract',
+        'source contract',
+        directory,
+      );
+      installPipelineSkill(missing, 'new Codex contract', '', directory);
       assert({
         given: 'a linked SKILL file and an absent Codex skill directory',
         should:
@@ -162,7 +169,7 @@ describe('installed pipeline checkout isolation', () => {
       writeFileSync(path, 'concurrent policy');
       let refused = false;
       try {
-        installPipelineSkill(path, 'replacement', 'previous policy');
+        installPipelineSkill(path, 'replacement', 'previous policy', directory);
       } catch (error) {
         refused = error instanceof Error && error.message.includes('changed');
       }
@@ -171,6 +178,112 @@ describe('installed pipeline checkout isolation', () => {
         should: 'refuse and preserve the concurrent content',
         actual: [refused, readFileSync(path, 'utf8')],
         expected: [true, 'concurrent policy'],
+      });
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('distribution through matching and ancestor links', () => {
+  test('isolates matching linked task references before retirement', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'pipeline-matching-link-'));
+    try {
+      const source = join(directory, 'source-task');
+      const installed = join(directory, 'task');
+      mkdirSync(join(source, 'references'), { recursive: true });
+      writeFileSync(join(source, 'SKILL.md'), 'same');
+      writeFileSync(join(source, 'references', 'old.md'), 'retired');
+      symlinkSync(source, installed);
+      const path = join(installed, 'SKILL.md');
+      // Match the sync command's decision, not merely the standalone writer.
+      if (pipelineSkillNeedsInstall(path, 'same', directory))
+        installPipelineSkill(path, 'same', 'same', directory);
+      retirePipelineReference(
+        join(installed, 'references', 'old.md'),
+        true,
+        directory,
+      );
+      assert({
+        given: 'matching installed content in a linked task skill',
+        should: 'retire only the installed reference and preserve the source',
+        actual: [
+          existsSync(join(source, 'references', 'old.md')),
+          existsSync(join(installed, 'references', 'old.md')),
+        ],
+        expected: [true, false],
+      });
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+  test('detaches a linked shared root before installing one skill', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'pipeline-root-link-'));
+    try {
+      const source = join(directory, 'source-skills');
+      const installedRoot = join(directory, 'installed-skills');
+      mkdirSync(join(source, 'task'), { recursive: true });
+      writeFileSync(join(source, 'task', 'SKILL.md'), 'source');
+      writeFileSync(join(source, 'keep.md'), 'other installed content');
+      symlinkSync(source, installedRoot);
+      installPipelineSkill(
+        join(installedRoot, 'task', 'SKILL.md'),
+        'replacement',
+        'source',
+        installedRoot,
+      );
+      assert({
+        given: 'a shared skills root linked into another checkout',
+        should:
+          'isolate the root, preserve siblings and leave source unchanged',
+        actual: [
+          readFileSync(join(source, 'task', 'SKILL.md'), 'utf8'),
+          readFileSync(join(installedRoot, 'task', 'SKILL.md'), 'utf8'),
+          readFileSync(join(installedRoot, 'keep.md'), 'utf8'),
+          lstatSync(installedRoot).isSymbolicLink(),
+        ],
+        expected: ['source', 'replacement', 'other installed content', false],
+      });
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('allocated installed root boundary', () => {
+  test('refuses installation and retirement outside the allocated root', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'pipeline-root-boundary-'));
+    try {
+      const path = join(directory, 'other-checkout.md');
+      const allocated = join(directory, 'allocated');
+      writeFileSync(path, 'preserve other checkout');
+      const operations = [
+        () =>
+          installPipelineSkill(
+            path,
+            'new',
+            'preserve other checkout',
+            allocated,
+          ),
+        () => retirePipelineReference(path, true, allocated),
+      ];
+      const refused = operations.map((operation) => {
+        try {
+          operation();
+          return false;
+        } catch (error) {
+          return (
+            error instanceof Error &&
+            error.message === 'Pipeline target is outside its installed root'
+          );
+        }
+      });
+      assert({
+        given:
+          'a write or retirement naming another checkout outside the allocated root',
+        should: 'refuse both mutations and preserve the original file',
+        actual: [refused, readFileSync(path, 'utf8')],
+        expected: [[true, true], 'preserve other checkout'],
       });
     } finally {
       rmSync(directory, { recursive: true, force: true });
