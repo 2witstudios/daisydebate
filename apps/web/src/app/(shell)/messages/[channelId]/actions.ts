@@ -89,6 +89,5 @@ export async function changeMessageAction(
     return kept;
   }
   const path = `/messages/${channelId}`;
-  revalidatePath(path);
   return { text: '', requestId: kept.requestId, ...moveOn(incoming, path) };
 }
