@@ -13,6 +13,7 @@ function MessagingLiveSnapshot({
   notice,
   socketUrl,
   snapshotId,
+  typingRefetchMs,
   children,
 }: {
   readonly scope: { readonly kind: 'channel' | 'inbox'; readonly id: string };
@@ -20,6 +21,7 @@ function MessagingLiveSnapshot({
   readonly socketUrl: string | null;
   readonly snapshotId: string;
   readonly children: ReactNode;
+  readonly typingRefetchMs?: number | null;
 }) {
   const router = useRouter();
   const [typing, showTyping] = useState<boolean | null>(null);
@@ -46,7 +48,12 @@ function MessagingLiveSnapshot({
         : attachMessagingInboxDoorbells({ ...observer, actorId: scope.id });
     const typingReader =
       scope.kind === 'channel'
-        ? createBrowserTypingReader(scope.id, connection, showTyping)
+        ? createBrowserTypingReader(
+            scope.id,
+            connection,
+            showTyping,
+            typingRefetchMs ?? null,
+          )
         : null;
     reader.current = attached;
     const unsubscribe = connection.subscribe((state) => {
@@ -63,7 +70,7 @@ function MessagingLiveSnapshot({
       connection.close();
       reader.current = null;
     };
-  }, [scope.kind, scope.id, socketUrl, router]);
+  }, [scope.kind, scope.id, socketUrl, router, typingRefetchMs]);
   return invalidated === snapshotId ? (
     <p role="status" className="text-ink-muted">
       {notice}
@@ -80,6 +87,7 @@ type SnapshotProps = {
   readonly socketUrl: string | null;
   readonly snapshotId: string;
   readonly children: ReactNode;
+  readonly typingRefetchMs?: number | null;
 };
 export function ConversationLive({
   channelId,

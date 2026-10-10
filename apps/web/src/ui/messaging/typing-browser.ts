@@ -12,12 +12,14 @@ export const createBrowserTypingReader = (
   channelId: string,
   connection: ConnectionStore,
   publish: (typing: boolean | null) => void,
+  recoveryAfterMs: number | null,
 ) =>
   attachTypingReader({
     channelId,
     connection,
     timers,
     publish,
+    recoveryAfterMs,
     read: () =>
       fetch(`/api/messaging/channels/${channelId}/typing`, {
         credentials: 'same-origin',

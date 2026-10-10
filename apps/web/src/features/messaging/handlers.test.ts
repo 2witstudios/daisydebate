@@ -102,7 +102,7 @@ test('search HTTP preserves literal text and rejects ambiguous query parameters'
   }
 });
 
-function authorizedHandlers() {
+function authorizedHandlers(typingRefetchMs?: number) {
   const echo = async (input: unknown) => input;
   const operations = {
     send: echo,
@@ -115,6 +115,7 @@ function authorizedHandlers() {
   };
   return createMessagingHandlers({
     ...operations,
+    ...(typingRefetchMs === undefined ? {} : { typingRefetchMs }),
     logger: silentLogger,
     origin: () => 'https://daisy.example',
     maxBodyBytes: 1024,
@@ -130,3 +131,26 @@ function authorizedHandlers() {
     }),
   });
 }
+
+test('actual authorized HTTP adapter emits explicit recovery metadata and omits absent timing', async () => {
+  const request = () =>
+    new Request(
+      'https://daisy.example/api/messaging/channels/example/messages',
+    );
+  const supplied = await authorizedHandlers(700).history(
+      request(),
+      'c'.repeat(24),
+    ),
+    absent = await authorizedHandlers().history(request(), 'c'.repeat(24));
+  assert({
+    given:
+      'configured versus absent recovery input after canonical HTTP identity boundary',
+    should:
+      'emit exactly the configured public timing header without a default',
+    actual: [
+      supplied.headers.get('x-messaging-typing-refetch-ms'),
+      absent.headers.get('x-messaging-typing-refetch-ms'),
+    ],
+    expected: ['700', null],
+  });
+});
