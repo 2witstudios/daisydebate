@@ -47,11 +47,13 @@ async function fixture() {
   let unavailable = false;
   let consentReads = 0;
   let gate: (() => Promise<void>) | null = null;
+  let readyGate: (() => Promise<void>) | null = null;
   const controlled = {
     ...redis,
     setRoomConsent: async (
       ...args: Parameters<typeof redis.setRoomConsent>
     ) => {
+      if (readyGate) await readyGate();
       await redis.setRoomConsent(...args);
       if (failAfterReady) throw new Error('fixture crash after consent write');
     },
@@ -170,6 +172,9 @@ async function fixture() {
       unavailable = value;
     },
     consentReads: () => consentReads,
+    gateReady: (next: typeof readyGate) => {
+      readyGate = next;
+    },
     gateConsent: (next: typeof gate) => {
       gate = next;
     },
@@ -222,9 +227,14 @@ async function fixture() {
   };
 }
 
-export function consentBarrier(f: {
-  gateConsent: (gate: (() => Promise<void>) | null) => void;
-}) {
+export function consentBarrier(
+  f: {
+    gateConsent: (gate: (() => Promise<void>) | null) => void;
+    gateReady: (gate: (() => Promise<void>) | null) => void;
+  },
+  kind: 'read' | 'write' = 'read',
+) {
+  const setGate = kind === 'read' ? f.gateConsent : f.gateReady;
   let enter!: () => void, release!: () => void;
   const entered = new Promise<void>((resolve) => {
       enter = resolve;
@@ -232,8 +242,8 @@ export function consentBarrier(f: {
     released = new Promise<void>((resolve) => {
       release = resolve;
     });
-  f.gateConsent(async () => {
-    f.gateConsent(null);
+  setGate(async () => {
+    setGate(null);
     enter();
     await released;
   });

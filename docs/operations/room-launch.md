@@ -94,6 +94,21 @@ consent, and finished required prep. Bots require server eligibility;
 local device checks never establish server consent. Prep stores its original
 anchor atomically and projects remaining time from the injected clock.
 
+Commands serialize their principal/payload-bound receipt with the command-id
+advisory fence first. Preparation reads current account and Room facts without
+account or Room row locks, then performs Redis consent reads/writes. Exact replay
+skips preparation and never renews a lease. Redis returns remaining lease
+lifetimes; database time captured before the read anchors a conservative expiry
+deadline, and transit plus later lock waits consume that budget.
+
+After preparation, commands acquire ordered account erasure fences and the Room
+row fence, reread authority and cast, and require the prepared `changeVersion`.
+The synchronous domain decision runs against those fresh facts and database time;
+expired prepared consent fails closed. A Ready lease cannot establish consent
+until its matching SQL fence commits; rejection leaves any orphan lease inert.
+All Room command paths acquire the command-id fence before account locks to
+avoid a retry waiting on a command while holding the account needed to commit it.
+
 The account/Room fence serializes Launch with Unready, erasure and cast
 changes. One transaction freezes topic, visibility, configuration, compiler
 rules and all human/bot/judge participant identities into one persisted

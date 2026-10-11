@@ -64,69 +64,46 @@ test('a Redis write followed by transaction failure cannot establish consent aft
 });
 
 test('Start and Unready serialize on the same durable authority fence', async () => {
-  await withRoomRuntime(async (f) => {
-    const view = await f.assemble();
-    const { entered, release } = consentBarrier(f);
-    const start = f.command(f.host, view, { type: 'start-round' });
-    await entered;
-    const unready = f
-      .command(f.guest, view, {
-        type: 'unready',
-        expectedConsentVersion: view.participants.find(
-          (p) => p.actorId === f.guest.actorId,
-        )!.consentVersion,
-      })
-      .then(
+  for (const winner of ['start', 'unready'] as const)
+    await withRoomRuntime(async (f) => {
+      const view = await f.assemble();
+      const { entered, release } = consentBarrier(f);
+      const start = () => f.command(f.host, view, { type: 'start-round' });
+      const unready = () => f.consent(f.guest, view, 'unready');
+      const pending = (winner === 'start' ? unready() : start()).then(
         () => null,
-        (error) => error as Error,
+        (error) => error,
       );
-    release();
-    const accepted = await start;
-    await assertRejects({
-      given: 'Start acquired the account/Room fence before Unready',
-      should:
-        'commit one Round and refuse subsequent Unready on the closed assembly',
-      actual: async () => {
-        const error = await unready;
-        if (error) throw error;
-      },
-      code: 'CONFLICT',
+      await entered;
+      try {
+        const accepted = await (winner === 'start' ? start() : unready());
+        const before = await f.snapshot(view.id);
+        release();
+        await assertRejects({
+          given: `${winner} commits while its competitor prepares consent`,
+          should:
+            'refuse the stale competitor under the final account/Room fence',
+          actual: async () => {
+            const error = await pending;
+            if (error) throw error;
+          },
+          code: 'CONFLICT',
+        });
+        assert({
+          given: `the serialized ${winner} wins`,
+          should:
+            'preserve its complete durable snapshot and scheduled Round decision',
+          actual: [
+            await f.snapshot(view.id),
+            accepted.view.roundRef?.status ?? null,
+          ],
+          expected: [before, winner === 'start' ? 'scheduled' : null],
+        });
+      } finally {
+        release();
+        await pending;
+      }
     });
-    assert({
-      given: 'the serialized Start wins',
-      should: 'expose exactly its scheduled Round reference',
-      actual: accepted.view.roundRef?.status,
-      expected: 'scheduled',
-    });
-  });
-  await withRoomRuntime(async (f) => {
-    const view = await f.assemble();
-    const { entered, release } = consentBarrier(f);
-    const unready = f.consent(f.guest, view, 'unready');
-    await entered;
-    const start = f.command(f.host, view, { type: 'start-round' }).then(
-      () => null,
-      (error) => error as Error,
-    );
-    release();
-    const withdrawn = await unready;
-    const before = await f.snapshot(view.id);
-    await assertRejects({
-      given: 'Unready acquired the fence while Start was concurrently pending',
-      should: 'refuse Start without freezing a Round',
-      actual: async () => {
-        const error = await start;
-        if (error) throw error;
-      },
-      code: 'CONFLICT',
-    });
-    assert({
-      given: 'the serialized Unready wins',
-      should: 'leave all state unchanged on refused Start',
-      actual: [await f.snapshot(view.id), withdrawn.view.roundRef],
-      expected: [before, null],
-    });
-  });
 });
 
 test('a failed replacement Ready preserves the committed readiness and durable snapshot', async () => {

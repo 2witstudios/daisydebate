@@ -38,13 +38,13 @@ export const roomCreateOperations = ({
   }): Promise<RoomCommandReceipt> {
     return instrumented(eventSink, 'createRoomCommand', () =>
       database.transaction(async (tx) => {
+        await lockCommand(tx, input.commandId);
         const account = await lockedAccount(tx, input.caller);
         if (
           input.caller.actorId !== input.room.hostActorId ||
           !input.authorize(account)
         )
           throw createAppError('AUTHORIZATION');
-        await lockCommand(tx, input.commandId);
         const replay = await replayReceipt(
           tx,
           input.commandId,

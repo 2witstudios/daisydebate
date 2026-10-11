@@ -12,9 +12,9 @@ setupRitewayBun();
 test('Room create command writes its receipt and exactly one change event', async () => {
   const account = accountFact();
   const { database, queries } = createTestDatabase([
-    [account],
-    [account],
     [],
+    [account],
+    [account],
     [],
     [],
     [[0]],
@@ -61,7 +61,7 @@ test('Start mutation commits one frozen Round, cast, receipt, and change signal'
   const secondActorId = 'c2a4e6f8h1j3k5m7n9p2r4t6';
   const roundId = 'c3a1d5f7h9j2k4m6n8p1r3t5';
   const readyRoom = { ...room, rules: validRules };
-  const { database, queries } = createTestDatabase([
+  const statements = [
     [[caller.actorId], [secondActorId]],
     [accountFact(), accountFact(secondActorId, 'c4a2b6d8f1h3j5k7m9n2p4r6', 2)],
     [accountFact()],
@@ -117,6 +117,16 @@ test('Start mutation commits one frozen Round, cast, receipt, and change signal'
     [], // command receipt insert follows the Round phase signal
     [[1n, '42']],
     [],
+  ];
+  const { database, queries } = createTestDatabase([
+    [],
+    [accountFact()],
+    ...statements.slice(4, 11),
+    [],
+    statements[12]!,
+    ...statements.slice(0, 3),
+    ...statements.slice(4, 11),
+    ...statements.slice(12),
   ]);
 
   const receipt = await database.executeRoomCommand({
@@ -130,7 +140,7 @@ test('Start mutation commits one frozen Round, cast, receipt, and change signal'
     type: 'start-round',
     targetActorId: null,
     roundId,
-    execute: async (state) => ({
+    prepare: async () => (state) => ({
       ok: true,
       mutation: {
         state: {
