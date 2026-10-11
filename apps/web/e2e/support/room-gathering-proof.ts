@@ -7,19 +7,31 @@ import { assertNoSeriousFindings } from './axe';
 
 /** Enter through actual discovery, including retained duplicate-title pages. */
 export async function enterLobbyRoom(page: Page, view: RoomView) {
-  const room = page
-    .getByRole('list', { name: 'Available rooms' })
-    .locator(`a[href="/rooms/${view.id}"]`);
+  await expect(
+    page.getByRole('heading', { name: 'Lobby', exact: true }),
+  ).toBeVisible();
+  const list = page.getByRole('list', { name: 'Available rooms' });
+  await expect(list).toBeVisible();
+  const room = list.locator(`a[href="/rooms/${view.id}"]`);
+  const next = page.getByRole('link', { name: 'Next page', exact: true });
   const visited = new Set<string>();
-  while (!(await room.isVisible())) {
-    const next = page.getByRole('link', { name: 'Next page', exact: true });
-    await expect(next).toBeVisible();
+  for (;;) {
+    await expect(room.or(next).first()).toBeVisible();
+    // Recheck after the rendered discovery controls arrive, never choose a
+    // page based on a visibility read made before a navigation committed.
+    if (await room.isVisible()) break;
+    const first = list.getByRole('link').first();
+    await expect(first).toBeVisible();
+    const previousFirst = await first.getAttribute('href');
+    expect(previousFirst).not.toBeNull();
     const href = await next.getAttribute('href');
     expect(href).not.toBeNull();
     expect(visited.has(href!)).toBe(false);
     visited.add(href!);
     await next.click();
     await expect(page).toHaveURL(new URL(href!, origin).href);
+    await expect(first).not.toHaveAttribute('href', previousFirst!);
+    await expect(first).toBeVisible();
   }
   await expect(room).toBeVisible();
   await room.click();
