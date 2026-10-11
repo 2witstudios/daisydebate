@@ -1,4 +1,4 @@
-import { proveGathering } from './support/room-gathering-proof';
+import { enterLobbyRoom, proveGathering } from './support/room-gathering-proof';
 import { proveLobbyDiscovery } from './support/room-lobby-discovery';
 import { proveFormatPicker } from './support/room-launch-format';
 import { proveHumanLaunch } from './support/room-launch-human';
@@ -38,10 +38,7 @@ test('canonical browser create, settings, cast, refusals and reread preserve dur
     expect(view.formatVersion).toBeGreaterThan(0);
     expect(view.rules.segments.length).toBeGreaterThan(1);
     await guest.goto('/lobby');
-    await expect(
-      guest.getByRole('link', { name: view.title, exact: true }),
-    ).toBeVisible();
-    await guest.getByRole('link', { name: view.title, exact: true }).click();
+    await enterLobbyRoom(guest, view);
     view = await claim(guest, view, 'Negative 1');
     await expect(
       guest.getByRole('button', { name: 'Save room details' }),

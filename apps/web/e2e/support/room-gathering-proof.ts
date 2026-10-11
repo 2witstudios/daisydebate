@@ -5,6 +5,28 @@ import { origin } from './accounts';
 import { reread } from './room-launch-flow';
 import { assertNoSeriousFindings } from './axe';
 
+/** Enter through actual discovery, including retained duplicate-title pages. */
+export async function enterLobbyRoom(page: Page, view: RoomView) {
+  await page.getByLabel('Search rooms').fill(view.title);
+  await page.getByRole('button', { name: 'Search', exact: true }).click();
+  const room = page
+    .getByRole('list', { name: 'Available rooms' })
+    .locator(`a[href="/rooms/${view.id}"]`);
+  const visited = new Set<string>();
+  while (!(await room.isVisible())) {
+    const next = page.getByRole('link', { name: 'Next page', exact: true });
+    await expect(next).toBeVisible();
+    const href = await next.getAttribute('href');
+    expect(href).not.toBeNull();
+    expect(visited.has(href!)).toBe(false);
+    visited.add(href!);
+    await next.click();
+    await expect(page).toHaveURL(new URL(href!, origin).href);
+  }
+  await expect(room).toBeVisible();
+  await room.click();
+}
+
 async function capture(page: Page, info: TestInfo, name: string) {
   await page.evaluate(() => scrollTo(0, 0));
   expect(
@@ -75,7 +97,7 @@ async function sidebarState(page: Page, view: RoomView) {
       .getByRole('link', { name: '‹ Lobby', exact: true })
       .click();
     await expect(page.locator('[data-nav]')).toHaveAttribute('data-nav', state);
-    await page.locator(`a[href="/rooms/${view.id}"]`).click();
+    await enterLobbyRoom(page, view);
     await expect(
       page.getByRole('heading', { name: view.topic, exact: true }),
     ).toBeVisible();
