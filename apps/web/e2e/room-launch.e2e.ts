@@ -38,6 +38,8 @@ test('canonical browser create, settings, cast, refusals and reread preserve dur
     expect(view.formatVersion).toBeGreaterThan(0);
     expect(view.rules.segments.length).toBeGreaterThan(1);
     await guest.goto('/lobby');
+    await guest.getByLabel('Search rooms').fill(view.title);
+    await guest.getByRole('button', { name: 'Search', exact: true }).click();
     await enterLobbyRoom(guest, view);
     view = await claim(guest, view, 'Negative 1');
     await expect(

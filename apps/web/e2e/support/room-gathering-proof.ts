@@ -7,8 +7,6 @@ import { assertNoSeriousFindings } from './axe';
 
 /** Enter through actual discovery, including retained duplicate-title pages. */
 export async function enterLobbyRoom(page: Page, view: RoomView) {
-  await page.getByLabel('Search rooms').fill(view.title);
-  await page.getByRole('button', { name: 'Search', exact: true }).click();
   const room = page
     .getByRole('list', { name: 'Available rooms' })
     .locator(`a[href="/rooms/${view.id}"]`);
