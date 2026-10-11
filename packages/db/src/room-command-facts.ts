@@ -7,6 +7,7 @@ import type {
   FormatDefinition,
 } from '@daisy/protocol';
 import { buildRoomTopic } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import { authorizationAccountFact } from './authorization-account';
 import {
@@ -44,9 +45,27 @@ export const requireAccount = async (
   caller: Caller,
   authorize: (account: Account) => boolean,
 ) => {
-  const account = await lockedAccount(tx, caller);
+  const account = await sharedAccount(tx, caller);
   if (!authorize(account)) throw createAppError('AUTHORIZATION');
   return account;
+};
+/** Standalone reads only: never upgrade this compatible reader fence to a writer fence. */
+export const sharedAccount = async (
+  tx: Pick<Tx, 'execute'>,
+  caller: Caller,
+): Promise<Account> => {
+  if (
+    !idSchema.safeParse(caller.userId).success ||
+    !idSchema.safeParse(caller.actorId).success
+  )
+    throw createAppError('VALIDATION');
+  const rows = await tx.execute(
+    sql`select * from public.daisy_room_read_account(${caller.actorId}::text, ${caller.userId}::text)`,
+  );
+  return authorizationAccountFact(
+    (rows as unknown as Parameters<typeof authorizationAccountFact>[0][])[0] ??
+      null,
+  );
 };
 export type Actor = {
   readonly actorId: string;

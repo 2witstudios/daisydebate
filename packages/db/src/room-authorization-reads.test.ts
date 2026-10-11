@@ -18,7 +18,6 @@ test('Room assembly read hydrates its pinned definition and current host label',
   const account = accountFact();
   const { database } = createTestDatabase([
     [account],
-    [account],
     [
       roomRow({
         id: room.id,
@@ -54,7 +53,6 @@ test('Room assembly read hydrates its pinned definition and current host label',
 });
 test('Room authority projection keeps collection fields minimal and omits an empty join', async () => {
   const { database } = createTestDatabase([
-    [accountFact()],
     [accountFact()],
     [
       [
@@ -97,7 +95,6 @@ test('Round authority projection returns only frozen audience and seat facts', a
   const roundId = 'c3a1d5f7h9j2k4m6n8p1r3t5';
   const { database, queries } = createTestDatabase([
     [accountFact()],
-    [accountFact()],
     [
       [
         roundId,
@@ -139,10 +136,10 @@ test('Round authority projection returns only frozen audience and seat facts', a
     should:
       'avoid selecting title, resolution, rules, or configuration content',
     actual: [
-      queries[2]?.query.includes('"title"'),
-      queries[2]?.query.includes('"resolution"'),
-      queries[2]?.query.includes('"rules_snapshot"'),
-      queries[2]?.query.includes('"room_config_snapshot"'),
+      queries[1]?.query.includes('"title"'),
+      queries[1]?.query.includes('"resolution"'),
+      queries[1]?.query.includes('"rules_snapshot"'),
+      queries[1]?.query.includes('"room_config_snapshot"'),
     ],
     expected: [false, false, false, false],
   });
@@ -150,7 +147,6 @@ test('Round authority projection returns only frozen audience and seat facts', a
 test('Round authority projection fails closed when persisted visibility is absent', async () => {
   const roundId = 'c3a1d5f7h9j2k4m6n8p1r3t5';
   const { database } = createTestDatabase([
-    [accountFact()],
     [accountFact()],
     [[roundId, caller.actorId, null, 'scheduled', 1, null, null, null]],
   ]);
@@ -167,7 +163,6 @@ test('Round authority projection fails closed when persisted visibility is absen
 test('Round read returns only the stored receipt and current participant identity', async () => {
   const account = accountFact();
   const { database } = createTestDatabase([
-    [account],
     [account],
     [
       roundRow({

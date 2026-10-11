@@ -1,5 +1,5 @@
 import { and, eq, sql } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
+import type { roomCommandTransaction } from './room-command-transaction';
 import type { RoomCommandReceipt, FormatDefinition } from '@daisy/protocol';
 
 import { createAppError } from '@daisy/errors';
@@ -21,10 +21,10 @@ import {
   transactionNow,
 } from './room-command-facts';
 export const roomCreateOperations = ({
-  database,
+  transaction,
   eventSink,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly transaction: ReturnType<typeof roomCommandTransaction>;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   async createRoomCommand(input: {
@@ -37,7 +37,7 @@ export const roomCreateOperations = ({
     readonly authorize: (account: Account) => boolean;
   }): Promise<RoomCommandReceipt> {
     return instrumented(eventSink, 'createRoomCommand', () =>
-      database.transaction(async (tx) => {
+      transaction(async (tx) => {
         await lockCommand(tx, input.commandId);
         const account = await lockedAccount(tx, input.caller);
         if (

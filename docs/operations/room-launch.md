@@ -109,6 +109,10 @@ until its matching SQL fence commits; rejection leaves any orphan lease inert.
 All Room command paths acquire the command-id fence before account locks to
 avoid a retry waiting on a command while holding the account needed to commit it.
 
+Before reserving SQL, the Room adapter admits at most half of the configured pool to create, command and create-receipt operations (rounded down, minimum one). Excess work fails immediately with INFRASTRUCTURE; there is no admission queue. Admitted work reserves from the same pool with a cancellable acquisition deadline equal to the existing 2 s lock bound. A canceled waiter never begins a transaction or later commits. Reservation and admission permits release on every completion/refusal/error, including SQL disconnects. The default ten-slot pool retains five slots for health/session/read work while external preparation pauses. A one-slot test pool deliberately admits one command and cannot retain physical headroom; acquisition remains bounded. This is a per-adapter Room limit, not a guarantee against unrelated workloads or other processes. Pool size and SQL/readiness timeouts are unchanged.
+
+Standalone Room/Round projection, catalog, bot, discovery and authority reads use the canonical `daisy_room_read_account` producer: matching caller IDs, user-id ordered `FOR SHARE OF users`, then fresh minimal membership/tombstone facts. Shared readers coexist while UPDATE/DELETE/NO KEY UPDATE writers remain excluded until commit. These paths never upgrade to writer locks; command/create/receipt, erasure and other mutations retain exclusive fences. The forward SQL migration grants only the existing runtime roles and uses fixed `pg_catalog, pg_temp` search path with PUBLIC execution revoked.
+
 The account/Room fence serializes Launch with Unready, erasure and cast
 changes. One transaction freezes topic, visibility, configuration, compiler
 rules and all human/bot/judge participant identities into one persisted

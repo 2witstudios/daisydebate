@@ -1,7 +1,7 @@
 import { persistRoomMutation } from './room-mutation-persistence';
 
 import { eq } from 'drizzle-orm';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
+import type { roomCommandTransaction } from './room-command-transaction';
 import type {
   RoomAssemblyState,
   RoomCommandReceipt,
@@ -57,15 +57,15 @@ type CommandInput = {
 };
 
 export const roomWriteOperations = ({
-  database,
+  transaction,
   eventSink,
 }: {
-  readonly database: BunSQLDatabase;
+  readonly transaction: ReturnType<typeof roomCommandTransaction>;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   async executeRoomCommand(input: CommandInput): Promise<RoomCommandReceipt> {
     return instrumented(eventSink, 'executeRoomCommand', () =>
-      database.transaction(async (tx) => {
+      transaction(async (tx) => {
         const preparation = await prepareCommand(tx, input);
         if ('replay' in preparation) return preparation.replay;
         const { prepared, execute } = preparation;

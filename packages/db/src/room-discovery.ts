@@ -7,7 +7,7 @@ import {
   type RoomListPage,
 } from '@daisy/protocol';
 import {
-  lockedAccount,
+  sharedAccount,
   type Caller,
   type Account,
   type Tx,
@@ -53,7 +53,7 @@ export async function discoverRooms(
   if (!parsed.success) throw createAppError('VALIDATION');
   const { cursor, pageSize, q } = parsed.data;
   const after = cursor ?? '';
-  let account = await lockedAccount(tx, caller);
+  let account = await sharedAccount(tx, caller);
   if (!authorizeCollection(account)) throw createAppError('AUTHORIZATION');
   const candidates = (await tx.execute(sql`
   select id from (

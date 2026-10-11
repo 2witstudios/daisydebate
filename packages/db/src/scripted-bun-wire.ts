@@ -45,6 +45,9 @@ export function fakeSql(script: ScriptedResult[]): {
       return { unlisten: async () => {} };
     },
     async close() {},
+    async reserve() {
+      return Object.assign(Object.create(client), { release() {} });
+    },
   };
   return { client: client as unknown as SQL, queries };
 }

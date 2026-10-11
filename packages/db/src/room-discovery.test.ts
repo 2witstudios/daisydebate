@@ -34,10 +34,10 @@ test('discovery bounds SQL before Room locks and reads no aggregate', async () =
       'return continuation from last returned accessible entry, lock only two IDs, and avoid full aggregate',
     actual: [
       page,
-      queries.slice(2).length,
-      queries[2]!.query.includes('limit'),
-      queries[2]!.query.includes('for share'),
-      queries[3]!.params.includes(ids[2]),
+      queries.slice(1).length,
+      queries[1]!.query.includes('limit'),
+      queries[1]!.query.includes('for share'),
+      queries[2]!.params.includes(ids[2]),
       queries.some((q) =>
         /format_revisions|readiness_command_id/.test(q.query),
       ),
@@ -88,14 +88,13 @@ test('lock-wait privacy changes never disclose an inaccessible cursor', async ()
       should:
         'continue only from a returned accessible id or request explicit retry',
       actual: [page.nextCursor, page.retry, queries.length],
-      expected: [rows.length ? ids[0] : null, rows.length === 0, 7],
+      expected: [rows.length ? ids[0] : null, rows.length === 0, 6],
     });
   }
 });
 
 function discoveryFixture(rows: readonly Record<string, unknown>[]) {
   return createTestDatabase([
-    [accountFact()],
     [accountFact()],
     ids.map((id) => ({ id })),
     [],
