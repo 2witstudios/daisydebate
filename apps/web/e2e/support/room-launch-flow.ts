@@ -72,6 +72,11 @@ export async function closeRoom(
 
 export async function claim(page: Page, view: RoomView, seat: string) {
   await page.goto(`/rooms/${view.id}`);
+  await page
+    .locator('details')
+    .filter({ has: page.getByText(/^(Manage seats|Choose your place)$/) })
+    .locator('summary')
+    .click();
   await page.getByRole('button', { name: `Take ${seat}`, exact: true }).click();
   const [role, number] = seat.toLowerCase().split(' ');
   await expect(async () => {
@@ -91,6 +96,7 @@ export async function claim(page: Page, view: RoomView, seat: string) {
 /** Real actors from the authenticated catalog; human judge claims its own seat. */
 export async function prepareJudgeRoom(page: Page, title: string) {
   let view = await createFromPlay(page, title, 'one-on-one');
+  await page.getByText('Edit round settings', { exact: true }).click();
   const settings = page.getByRole('form', { name: 'Room settings' });
   await settings.getByLabel('Enable preparation before Launch').uncheck();
   await settings.getByRole('button', { name: 'Save settings' }).click();
@@ -109,6 +115,7 @@ export async function prepareJudgeRoom(page: Page, title: string) {
     (bot: ReturnType<typeof roomCastChoiceSchema.parse>) => bot.eligible,
   );
   expect(eligible.length).toBeGreaterThanOrEqual(2);
+  await page.getByText('Manage seats', { exact: true }).click();
   for (const [index, seat] of ['Affirmative 1', 'Negative 1'].entries()) {
     const select = page.getByLabel(`Assign ${seat}`, { exact: true });
     await select.selectOption(eligible[index]!.actorId);

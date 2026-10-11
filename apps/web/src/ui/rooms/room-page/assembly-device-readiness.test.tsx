@@ -6,6 +6,8 @@ import { AssemblyDeviceReadiness } from './assembly-device-readiness';
 setupRitewayBun();
 const actorId = assemblySnapshot.hostActorId;
 const nativeProps = {
+  lineup: null,
+  settings: null,
   actorId,
   action: async () => ({ values: {} }),
   read: async () => ({ kind: 'found' as const, view: assemblySnapshot }),

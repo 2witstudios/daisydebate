@@ -5,6 +5,7 @@ import type { RoomView } from '@daisy/protocol';
 import { AssemblyCommandFields } from './assembly-command-fields';
 import { buttonClass } from '../../components/button/button-class';
 import { readinessControl, type LocalReadiness } from './assembly-controls';
+import { formatDuration } from '../../../features/rooms/duration-input';
 
 type Control =
   'ready' | 'unready' | 'start-prep' | 'finish-prep' | 'start-round';
@@ -12,6 +13,7 @@ type View = Pick<
   RoomView,
   'participants' | 'version' | 'readiness' | 'startRefusal'
 > & {
+  readonly prep?: RoomView['prep'];
   readonly capabilities: Pick<
     RoomView['capabilities'],
     'canReady' | 'host' | 'canStart' | 'canStartPrep' | 'canFinishPrep'
@@ -82,6 +84,32 @@ function CommandForm({
   );
 }
 
+function ReadinessStatus({
+  view,
+  hasReady,
+}: {
+  readonly view: View;
+  readonly hasReady: boolean;
+}) {
+  return (
+    <div className="w-full">
+      <h2 className="font-strong">Ready to begin?</h2>
+      {view.prep?.startedAt ? (
+        <p className="text-sm text-ink-muted">
+          {view.prep.finished
+            ? 'Preparation finished.'
+            : view.prep.remainingMs === null
+              ? 'Preparation in progress.'
+              : `Preparation: ${formatDuration(view.prep.remainingMs)} remaining.`}
+        </p>
+      ) : null}
+      {!hasReady && !view.capabilities.host ? (
+        <p className="text-sm text-ink-muted">Take a seat to join the round.</p>
+      ) : null}
+    </div>
+  );
+}
+
 /** Native commands use a trusted server action; this renderer grants no authority. */
 export function AssemblyReadiness({
   view,
@@ -115,8 +143,9 @@ export function AssemblyReadiness({
   return (
     <section
       aria-label="Readiness and Launch"
-      className="flex flex-col gap-4 rounded-xl bg-surface p-5 shadow-1"
+      className="flex min-w-0 flex-wrap items-start justify-between gap-4 rounded-xl border border-border bg-surface p-5"
     >
+      <ReadinessStatus view={view} hasReady={ready !== null} />
       {ready ? (
         <div className="flex flex-col gap-2">
           {command(

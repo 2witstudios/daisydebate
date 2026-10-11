@@ -20,18 +20,18 @@ test('settings use the exact persisted sequence and capability-specific controls
     should:
       'render every declared config control and a slot-specific speech rather than one shared speech length',
     actual: [
-      html.includes('name="seconds.N3"'),
-      html.includes('value="98.765"'),
+      html.includes('name="duration.N3.minutes"'),
+      html.includes('value="38.765"'),
       html.includes('Negative 3'),
       [
         'preRoundPrep',
-        'preRoundSeconds',
+        'duration.preRound.minutes',
         'inRoundPrep',
-        'budgetSeconds',
-        'countdown',
+        'duration.budget.seconds',
+        'duration.countdown.seconds',
         'crossExMode',
         'interruptionsMode',
-        'minRemaining',
+        'duration.minRemaining.seconds',
         'yieldAllowed',
         'yieldReturns',
       ].every((name) => html.includes(`name="${name}"`)),
@@ -50,7 +50,8 @@ test('refused settings preserve typed fields and the stale version until explici
         values: {
           expectedVersion: '3',
           commandId: 'old-command',
-          'seconds.N3': '123.456',
+          'duration.N3.minutes': '02',
+          'duration.N3.seconds': '03.456',
         },
         error: 'The room changed.',
       }}
@@ -62,7 +63,7 @@ test('refused settings preserve typed fields and the stale version until explici
     should:
       'preserve the submitted duration/fence/command and provide an explicit latest-room recovery',
     actual: [
-      html.includes('value="123.456"'),
+      html.includes('value="03.456"'),
       html.includes('name="expectedVersion" value="3"'),
       html.includes('old-command'),
       html.includes('The room changed.'),

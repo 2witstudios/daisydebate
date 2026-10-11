@@ -90,7 +90,11 @@ export function AssemblyDetails({
   readonly action: FormAction<MockFormState>;
 }) {
   return (
-    <AssemblyEditForm action={action} label="Room details">
+    <AssemblyEditForm
+      action={action}
+      label="Room details"
+      disclosure="Edit topic and room details"
+    >
       {(state, pending) => (
         <AssemblyDetailsFields
           view={view}

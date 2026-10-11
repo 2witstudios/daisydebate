@@ -8,12 +8,16 @@ const settingsForm = () => {
   for (const [name, value] of Object.entries({
     expectedVersion: '3',
     commandId: 'v'.repeat(24),
-    countdown: '1',
-    'seconds.N3': '90',
-    'seconds.A1': '60',
+    'duration.countdown.minutes': '0',
+    'duration.countdown.seconds': '1',
+    'duration.N3.minutes': '1',
+    'duration.N3.seconds': '30',
+    'duration.A1.minutes': '1',
+    'duration.A1.seconds': '0',
     crossExMode: 'free',
     interruptionsMode: 'disabled',
-    minRemaining: '2',
+    'duration.minRemaining.minutes': '0',
+    'duration.minRemaining.seconds': '2',
     yieldAllowed: 'false',
     yieldReturns: 'true',
   }))
@@ -54,7 +58,7 @@ test('stale, out-of-bounds and non-host settings cannot become a prepared mutati
   const stale = settingsForm();
   stale.set('expectedVersion', '2');
   const illegal = settingsForm();
-  illegal.set('seconds.N3', '900');
+  illegal.set('duration.N3.minutes', '15');
   const forged = settingsForm();
   forged.set('actorId', 'w'.repeat(24));
   const denied = {
@@ -73,5 +77,32 @@ test('stale, out-of-bounds and non-host settings cannot become a prepared mutati
       assemblySnapshot.config.speechTiming.segmentDurationOverrides.N3,
     ],
     expected: ['conflict', 'invalid', 'invalid', 'forbidden', 98765],
+  });
+});
+
+test('combined duration bounds, duplicate components and old seconds grammar are refused', () => {
+  const precision = settingsForm();
+  precision.set('duration.N3.seconds', '38.765');
+  const tooShort = settingsForm();
+  tooShort.set('duration.N3.minutes', '0');
+  tooShort.set('duration.N3.seconds', '59.999');
+  const duplicate = settingsForm();
+  duplicate.append('duration.N3.minutes', '1');
+  const old = settingsForm();
+  old.set('seconds.N3', '98.765');
+  const result = prepareSettings(assemblySnapshot, precision);
+  assert({
+    given:
+      'exact legal precision and invalid combined or duplicate form values',
+    should: 'keep the integer millisecond command and reject malformed forms',
+    actual: [
+      result.kind === 'prepared' && result.command.type === 'update-config'
+        ? result.command.config.speechTiming.segmentDurationOverrides.N3
+        : null,
+      ...[tooShort, duplicate, old].map(
+        (form) => prepareSettings(assemblySnapshot, form).kind,
+      ),
+    ],
+    expected: [98765, 'invalid', 'invalid', 'invalid'],
   });
 });

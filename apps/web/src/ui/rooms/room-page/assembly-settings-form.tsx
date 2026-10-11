@@ -1,7 +1,7 @@
 'use client';
 
 import {
-  NumberField,
+  DurationField,
   PreparationFields,
   InteractionFields,
 } from './assembly-settings-controls';
@@ -45,9 +45,9 @@ export function AssemblySettingsFields({
         if (!bounds)
           throw new Error('Missing authoritative segment timing bounds');
         return (
-          <NumberField
+          <DurationField
             key={segment.key}
-            name={`seconds.${segment.key}`}
+            name={segment.key}
             label={`${segment.label} · ${seatLabel(segment.side, segment.slot)}`}
             ms={segment.durationMs}
             min={bounds.min}
@@ -58,7 +58,7 @@ export function AssemblySettingsFields({
           />
         );
       })}
-      <NumberField
+      <DurationField
         name="countdown"
         label="Countdown"
         ms={view.config.speechTiming.countdownMs}
@@ -95,7 +95,11 @@ export function AssemblySettingsForm({
   readonly action: FormAction<MockFormState>;
 }) {
   return (
-    <AssemblyEditForm action={action} label="Room settings">
+    <AssemblyEditForm
+      action={action}
+      label="Room settings"
+      disclosure="Edit round settings"
+    >
       {(state, pending) => (
         <AssemblySettingsFields
           view={view}
