@@ -8,6 +8,17 @@ import { prepareSettings } from '../../../features/rooms/prepare-settings';
 
 setupRitewayBun();
 
+function nativeInputFields(html: string) {
+  const form = new FormData();
+  for (const [tag] of html.matchAll(/<input\b[^>]*>/g)) {
+    const name = tag.match(/name="([^"]*)"/)?.[1];
+    const value = tag.match(/value="([^"]*)"/)?.[1];
+    if (name && value !== undefined) form.append(name, value);
+    if (name && tag.includes('checked=""')) form.append(name, 'on');
+  }
+  return form;
+}
+
 test('legal speech keys cannot collide with ancillary native duration fields', () => {
   const keys = ['budget', 'preRound'];
   const definition = {
@@ -51,13 +62,7 @@ test('legal speech keys cannot collide with ancillary native duration fields', (
       pending={false}
     />,
   );
-  const form = new FormData();
-  for (const [tag] of html.matchAll(/<input\b[^>]*>/g)) {
-    const name = tag.match(/name="([^"]*)"/)?.[1];
-    const value = tag.match(/value="([^"]*)"/)?.[1];
-    if (name && value !== undefined) form.append(name, value);
-    if (name && tag.includes('checked=""')) form.append(name, 'on');
-  }
+  const form = nativeInputFields(html);
   for (const [name, value] of Object.entries({
     crossExMode: 'free',
     interruptionsMode: 'disabled',
