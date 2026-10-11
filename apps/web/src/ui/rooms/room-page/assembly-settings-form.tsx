@@ -47,7 +47,7 @@ export function AssemblySettingsFields({
         return (
           <DurationField
             key={segment.key}
-            name={segment.key}
+            name={`segment.${segment.key}`}
             label={`${segment.label} · ${seatLabel(segment.side, segment.slot)}`}
             ms={segment.durationMs}
             min={bounds.min}

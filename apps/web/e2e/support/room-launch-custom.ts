@@ -14,7 +14,8 @@ export const launchCustomSelection = {
     segments: [
       {
         key: 'N1',
-        label: 'Negative opening',
+        label:
+          'Negative opening with a detailed motion and an extended explanation of its scope',
         type: 'speech',
         side: 'negative',
         slot: 0,

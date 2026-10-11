@@ -75,7 +75,7 @@ async function sidebarState(page: Page, view: RoomView) {
       .getByRole('link', { name: '‹ Lobby', exact: true })
       .click();
     await expect(page.locator('[data-nav]')).toHaveAttribute('data-nav', state);
-    await page.getByRole('link', { name: view.title, exact: true }).click();
+    await page.locator(`a[href="/rooms/${view.id}"]`).click();
     await expect(
       page.getByRole('heading', { name: view.topic, exact: true }),
     ).toBeVisible();
@@ -103,30 +103,32 @@ export async function proveGathering(
     await room.getByText('Edit round settings', { exact: true }).click();
     const form = room.getByRole('form', { name: 'Room settings' });
     // Both component constraints pass; the combined value exceeds the pinned 60s bound.
-    await form.locator('[name="duration.A2.minutes"]').fill('1');
-    await form.locator('[name="duration.A2.seconds"]').fill('03.456');
+    await form.locator('[name="duration.segment.A2.minutes"]').fill('1');
+    await form.locator('[name="duration.segment.A2.seconds"]').fill('03.456');
     const before = await reread(native.request, view.id);
     await form.getByRole('button', { name: 'Save settings' }).click();
     await expect(form.getByRole('alert')).toBeVisible();
-    await expect(form.locator('[name="duration.A2.seconds"]')).toHaveValue(
-      '03.456',
-    );
+    await expect(
+      form.locator('[name="duration.segment.A2.seconds"]'),
+    ).toHaveValue('03.456');
     expect((await reread(native.request, view.id)).config).toEqual(
       before.config,
     );
     expect(new URL(room.url()).search).toBe('');
-    await form.locator('[name="duration.A2.minutes"]').fill('0');
-    await form.locator('[name="duration.A2.seconds"]').fill('23.456');
+    await form.locator('[name="duration.segment.A2.minutes"]').fill('0');
+    await form.locator('[name="duration.segment.A2.seconds"]').fill('23.456');
     await form.getByRole('button', { name: 'Save settings' }).click();
     const saved = await reread(native.request, view.id);
     expect(saved.rules.segments.map((segment) => segment.durationMs)).toEqual([
       7000, 23456, 11000,
     ]);
     await room.getByText('Edit round settings', { exact: true }).click();
-    await expect(form.locator('[name="duration.A2.minutes"]')).toHaveValue('0');
-    await expect(form.locator('[name="duration.A2.seconds"]')).toHaveValue(
-      '23.456',
-    );
+    await expect(
+      form.locator('[name="duration.segment.A2.minutes"]'),
+    ).toHaveValue('0');
+    await expect(
+      form.locator('[name="duration.segment.A2.seconds"]'),
+    ).toHaveValue('23.456');
     expect(new URL(room.url()).search).toBe('');
   } finally {
     await native.close();

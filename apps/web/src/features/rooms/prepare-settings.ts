@@ -31,7 +31,7 @@ function allowedFields(view: RoomView) {
     ...durationFields('countdown'),
     'crossExMode',
     ...view.definition.segments.flatMap((segment) =>
-      durationFields(segment.key),
+      durationFields(`segment.${segment.key}`),
     ),
     ...(capability.preRoundPrep
       ? ['preRoundPrep', ...durationFields('preRound')]
@@ -61,7 +61,7 @@ function configFields(view: RoomView, form: FormData) {
       segmentDurationOverrides: Object.fromEntries(
         view.definition.segments.map((segment) => [
           segment.key,
-          readDuration(form, segment.key),
+          readDuration(form, `segment.${segment.key}`),
         ]),
       ),
     },

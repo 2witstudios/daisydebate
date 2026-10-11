@@ -233,7 +233,7 @@ test('canonical browser custom-create preserves declared unequal seats and order
       data: {
         commandId: createId(),
         title: 'Custom sequence proof',
-        topic: 'Proof transit motion',
+        topic: `Proof transit motion with ${'longlabel'.repeat(10)}`,
         visibility: 'public',
         selection: launchCustomSelection,
       },
@@ -260,7 +260,7 @@ test('canonical browser custom-create preserves declared unequal seats and order
     ).toBeVisible();
     await page.getByText('Edit round settings', { exact: true }).click();
     const settings = page.getByRole('form', { name: 'Room settings' });
-    await settings.locator('[name="duration.A2.seconds"]').fill('17');
+    await settings.locator('[name="duration.segment.A2.seconds"]').fill('17');
     await settings.getByRole('button', { name: 'Save settings' }).click();
     await expect(async () => {
       view = await reread(context.request, view.id);
@@ -270,9 +270,9 @@ test('canonical browser custom-create preserves declared unequal seats and order
     }).toPass();
     await page.reload();
     await page.getByText('Edit round settings', { exact: true }).click();
-    await expect(settings.locator('[name="duration.A2.seconds"]')).toHaveValue(
-      '17',
-    );
+    await expect(
+      settings.locator('[name="duration.segment.A2.seconds"]'),
+    ).toHaveValue('17');
     view = await claim(page, view, 'Affirmative 2');
     await proveGathering(browser, context, page, view, info);
     await settledLaunchAuth();

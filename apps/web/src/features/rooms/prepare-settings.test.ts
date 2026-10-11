@@ -10,10 +10,10 @@ const settingsForm = () => {
     commandId: 'v'.repeat(24),
     'duration.countdown.minutes': '0',
     'duration.countdown.seconds': '1',
-    'duration.N3.minutes': '1',
-    'duration.N3.seconds': '30',
-    'duration.A1.minutes': '1',
-    'duration.A1.seconds': '0',
+    'duration.segment.N3.minutes': '1',
+    'duration.segment.N3.seconds': '30',
+    'duration.segment.A1.minutes': '1',
+    'duration.segment.A1.seconds': '0',
     crossExMode: 'free',
     interruptionsMode: 'disabled',
     'duration.minRemaining.minutes': '0',
@@ -58,7 +58,7 @@ test('stale, out-of-bounds and non-host settings cannot become a prepared mutati
   const stale = settingsForm();
   stale.set('expectedVersion', '2');
   const illegal = settingsForm();
-  illegal.set('duration.N3.minutes', '15');
+  illegal.set('duration.segment.N3.minutes', '15');
   const forged = settingsForm();
   forged.set('actorId', 'w'.repeat(24));
   const denied = {
@@ -82,12 +82,12 @@ test('stale, out-of-bounds and non-host settings cannot become a prepared mutati
 
 test('combined duration bounds, duplicate components and old seconds grammar are refused', () => {
   const precision = settingsForm();
-  precision.set('duration.N3.seconds', '38.765');
+  precision.set('duration.segment.N3.seconds', '38.765');
   const tooShort = settingsForm();
-  tooShort.set('duration.N3.minutes', '0');
-  tooShort.set('duration.N3.seconds', '59.999');
+  tooShort.set('duration.segment.N3.minutes', '0');
+  tooShort.set('duration.segment.N3.seconds', '59.999');
   const duplicate = settingsForm();
-  duplicate.append('duration.N3.minutes', '1');
+  duplicate.append('duration.segment.N3.minutes', '1');
   const old = settingsForm();
   old.set('seconds.N3', '98.765');
   const result = prepareSettings(assemblySnapshot, precision);
