@@ -1,3 +1,4 @@
+import { enterLobbyRoom, proveGathering } from './support/room-gathering-proof';
 import { proveLobbyDiscovery } from './support/room-lobby-discovery';
 import { proveFormatPicker } from './support/room-launch-format';
 import { proveHumanLaunch } from './support/room-launch-human';
@@ -37,10 +38,9 @@ test('canonical browser create, settings, cast, refusals and reread preserve dur
     expect(view.formatVersion).toBeGreaterThan(0);
     expect(view.rules.segments.length).toBeGreaterThan(1);
     await guest.goto('/lobby');
-    await expect(
-      guest.getByRole('link', { name: view.title, exact: true }),
-    ).toBeVisible();
-    await guest.getByRole('link', { name: view.title, exact: true }).click();
+    await guest.getByLabel('Search rooms').fill(view.title);
+    await guest.getByRole('button', { name: 'Search', exact: true }).click();
+    await enterLobbyRoom(guest, view);
     view = await claim(guest, view, 'Negative 1');
     await expect(
       guest.getByRole('button', { name: 'Save room details' }),
@@ -65,15 +65,19 @@ test('canonical browser create, settings, cast, refusals and reread preserve dur
     expect(stale.status()).toBe(409);
     expect((await launchEvidence(view.id)).hash).toBe(before.hash);
     await host.goto(`/rooms/${view.id}`);
+    await host
+      .getByText('Edit topic and room details', { exact: true })
+      .click();
     const details = host.getByRole('form', { name: 'Room details' });
     await details
       .getByLabel('Room name', { exact: true })
       .fill('Stored Launch proof');
     await details.getByRole('button', { name: 'Save room details' }).click();
     await expect(
-      host.getByRole('heading', { name: 'Stored Launch proof', exact: true }),
+      host.getByText('Stored Launch proof', { exact: true }),
     ).toBeVisible();
     view = await reread(host.request, view.id);
+    await host.getByText('Edit round settings', { exact: true }).click();
     const settings = host.getByRole('form', { name: 'Room settings' });
     const first = view.rules.segments[0]!;
     const second = view.rules.segments[1]!;
@@ -87,11 +91,17 @@ test('canonical browser create, settings, cast, refusals and reread preserve dur
     );
     expect(firstMs).not.toBe(secondMs);
     await settings
-      .locator(`[name="seconds.${first.key}"]`)
-      .fill(String(firstMs / 1000));
+      .locator(`[name="duration.segment.${first.key}.seconds"]`)
+      .fill(String((firstMs % 60000) / 1000));
     await settings
-      .locator(`[name="seconds.${second.key}"]`)
-      .fill(String(secondMs / 1000));
+      .locator(`[name="duration.segment.${second.key}.seconds"]`)
+      .fill(String((secondMs % 60000) / 1000));
+    await settings
+      .locator(`[name="duration.segment.${first.key}.minutes"]`)
+      .fill(String(Math.floor(firstMs / 60000)));
+    await settings
+      .locator(`[name="duration.segment.${second.key}.minutes"]`)
+      .fill(String(Math.floor(secondMs / 60000)));
     await settings.getByRole('button', { name: 'Save settings' }).click();
     await expect(async () => {
       view = await reread(host.request, view.id);
@@ -222,7 +232,7 @@ test('canonical browser custom-create preserves declared unequal seats and order
       data: {
         commandId: createId(),
         title: 'Custom sequence proof',
-        topic: 'Proof transit motion',
+        topic: `Proof transit motion with ${'longlabel'.repeat(10)}`,
         visibility: 'public',
         selection: launchCustomSelection,
       },
@@ -243,11 +253,13 @@ test('canonical browser custom-create preserves declared unequal seats and order
       ['A1', 'affirmative', 0, 11000],
     ]);
     await page.goto(`/rooms/${view.id}`);
+    await page.getByText('Manage seats', { exact: true }).click();
     await expect(
       page.getByLabel('Assign Affirmative 2', { exact: true }),
     ).toBeVisible();
+    await page.getByText('Edit round settings', { exact: true }).click();
     const settings = page.getByRole('form', { name: 'Room settings' });
-    await settings.locator('[name="seconds.A2"]').fill('17');
+    await settings.locator('[name="duration.segment.A2.seconds"]').fill('17');
     await settings.getByRole('button', { name: 'Save settings' }).click();
     await expect(async () => {
       view = await reread(context.request, view.id);
@@ -256,7 +268,12 @@ test('canonical browser custom-create preserves declared unequal seats and order
       ]);
     }).toPass();
     await page.reload();
-    await expect(settings.locator('[name="seconds.A2"]')).toHaveValue('17');
+    await page.getByText('Edit round settings', { exact: true }).click();
+    await expect(
+      settings.locator('[name="duration.segment.A2.seconds"]'),
+    ).toHaveValue('17');
+    view = await claim(page, view, 'Affirmative 2');
+    await proveGathering(browser, context, page, view, info);
     await settledLaunchAuth();
     await info.attach('custom-sequence-evidence', {
       body: JSON.stringify(await launchEvidence(view.id)),

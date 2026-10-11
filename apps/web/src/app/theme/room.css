@@ -206,3 +206,58 @@ img.ProseMirror-separator {
 [data-room-page='dark'] {
   color-scheme: dark;
 }
+
+/* The gathering responds to the page width inside the person's chosen shell. */
+@theme {
+  --spacing-room-portrait: 11rem;
+  --spacing-room-portrait-small: 7rem;
+}
+
+@utility room-page {
+  container-type: inline-size;
+}
+
+@utility room-gathering {
+  grid-template-columns: minmax(0, 1fr);
+  @container (min-width: 780px) {
+    grid-template-columns: minmax(0, 1fr) minmax(250px, 0.4fr);
+  }
+}
+
+@utility room-lineup {
+  @container (min-width: 780px) {
+    grid-column: 1;
+    grid-row: 1;
+  }
+}
+
+@utility room-settings {
+  @container (min-width: 780px) {
+    grid-column: 2;
+    grid-row: 1;
+  }
+}
+
+@utility room-team-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  @container (max-width: 350px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@utility room-duration-units {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  @container (max-width: 300px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@utility room-schedule-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  @container (max-width: 500px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  @container (max-width: 300px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

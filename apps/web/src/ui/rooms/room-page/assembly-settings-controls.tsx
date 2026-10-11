@@ -2,8 +2,12 @@ import type { RoomView } from '@daisy/protocol';
 import type { MockFormState } from '../../../features/mock-form/form';
 import { FormField } from '../../components/form-field/form-field';
 import { controlClass } from '../../components/form-field/form-field-class';
+import {
+  durationParts,
+  formatDuration,
+} from '../../../features/rooms/duration-input';
 
-export function NumberField({
+export function DurationField({
   name,
   label,
   ms,
@@ -22,23 +26,42 @@ export function NumberField({
   readonly disabled: boolean;
   readonly required?: boolean;
 }) {
+  const parts = durationParts(ms);
+  const boundsId = `setting-${name}-bounds`;
   return (
-    <FormField id={`setting-${name}`} label={`${label} (seconds)`}>
-      <input
-        id={`setting-${name}`}
-        name={name}
-        type="number"
-        step="0.001"
-        min={min / 1000}
-        max={max / 1000}
-        required={required}
-        disabled={disabled}
-        defaultValue={
-          state.values[name] ?? (ms === null ? '' : String(ms / 1000))
-        }
-        className={controlClass}
-      />
-    </FormField>
+    <fieldset className="flex min-w-0 flex-col gap-2 border-0 p-0">
+      <legend className="text-sm font-strong">{label}</legend>
+      <div className="grid room-duration-units gap-3">
+        {(['minutes', 'seconds'] as const).map((unit) => {
+          const field = `duration.${name}.${unit}`;
+          return (
+            <FormField
+              key={unit}
+              id={`setting-${field}`}
+              label={unit === 'minutes' ? 'Minutes' : 'Seconds'}
+            >
+              <input
+                id={`setting-${field}`}
+                name={field}
+                type="number"
+                step={unit === 'minutes' ? '1' : '0.001'}
+                min="0"
+                max={unit === 'minutes' ? Math.floor(max / 60000) : '59.999'}
+                required={required}
+                disabled={disabled}
+                aria-describedby={boundsId}
+                aria-label={`${label} ${unit}`}
+                defaultValue={state.values[field] ?? parts[unit]}
+                className={controlClass}
+              />
+            </FormField>
+          );
+        })}
+      </div>
+      <p id={boundsId} className="text-xs text-ink-muted">
+        Total: {formatDuration(min)}–{formatDuration(max)}
+      </p>
+    </fieldset>
   );
 }
 function ChoiceField({
@@ -102,8 +125,8 @@ export function PreparationFields({
             />{' '}
             Enable preparation before Launch
           </label>
-          <NumberField
-            name="preRoundSeconds"
+          <DurationField
+            name="preRound"
             label="Preparation duration"
             ms={
               view.config.preRoundPrep.enabled
@@ -133,8 +156,8 @@ export function PreparationFields({
             />{' '}
             Enable preparation during the Round
           </label>
-          <NumberField
-            name="budgetSeconds"
+          <DurationField
+            name="budget"
             label="Budget per side"
             ms={
               view.config.inRoundPrep.enabled
@@ -182,7 +205,7 @@ export function InteractionFields({
             state={state}
             disabled={disabled}
           />
-          <NumberField
+          <DurationField
             name="minRemaining"
             label="Minimum remaining time"
             ms={view.config.interruptions?.minRemainingMs ?? null}

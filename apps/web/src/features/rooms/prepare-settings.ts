@@ -6,16 +6,11 @@ import {
   type RoomView,
 } from '@daisy/protocol';
 
+import { readDuration } from './duration-input';
+
 type Prepared =
   | { readonly kind: 'prepared'; readonly command: RoomCommand }
   | { readonly kind: 'conflict' | 'invalid' | 'forbidden' };
-const seconds = (form: FormData, key: string) => {
-  const value = form.get(key);
-  if (typeof value !== 'string' || !/^\d+(?:\.\d{1,3})?$/.test(value))
-    return NaN;
-  const [whole = '', fraction = ''] = value.split('.');
-  return Number(whole) * 1000 + Number(fraction.padEnd(3, '0'));
-};
 const flag = (form: FormData, key: string) =>
   form.get(key) === 'true'
     ? true
@@ -23,18 +18,29 @@ const flag = (form: FormData, key: string) =>
       ? false
       : undefined;
 
+const durationFields = (name: string) => [
+  `duration.${name}.minutes`,
+  `duration.${name}.seconds`,
+];
+
 function allowedFields(view: RoomView) {
   const capability = view.definition.configurable;
   return new Set([
     'expectedVersion',
     'commandId',
-    'countdown',
+    ...durationFields('countdown'),
     'crossExMode',
-    ...view.definition.segments.map((segment) => `seconds.${segment.key}`),
-    ...(capability.preRoundPrep ? ['preRoundPrep', 'preRoundSeconds'] : []),
-    ...(capability.inRoundPrep ? ['inRoundPrep', 'budgetSeconds'] : []),
+    ...view.definition.segments.flatMap((segment) =>
+      durationFields(`segment.${segment.key}`),
+    ),
+    ...(capability.preRoundPrep
+      ? ['preRoundPrep', ...durationFields('preRound')]
+      : []),
+    ...(capability.inRoundPrep
+      ? ['inRoundPrep', ...durationFields('budget')]
+      : []),
     ...(capability.interaction.interruptions
-      ? ['interruptionsMode', 'minRemaining']
+      ? ['interruptionsMode', ...durationFields('minRemaining')]
       : []),
     ...(capability.interaction.yield ? ['yieldAllowed', 'yieldReturns'] : []),
   ]);
@@ -44,18 +50,18 @@ function configFields(view: RoomView, form: FormData) {
   return {
     preRoundPrep:
       form.get('preRoundPrep') === 'on'
-        ? { enabled: true, durationMs: seconds(form, 'preRoundSeconds') }
+        ? { enabled: true, durationMs: readDuration(form, 'preRound') }
         : { enabled: false },
     inRoundPrep:
       form.get('inRoundPrep') === 'on'
-        ? { enabled: true, budgetMsPerSide: seconds(form, 'budgetSeconds') }
+        ? { enabled: true, budgetMsPerSide: readDuration(form, 'budget') }
         : { enabled: false },
     speechTiming: {
-      countdownMs: seconds(form, 'countdown'),
+      countdownMs: readDuration(form, 'countdown'),
       segmentDurationOverrides: Object.fromEntries(
         view.definition.segments.map((segment) => [
           segment.key,
-          seconds(form, `seconds.${segment.key}`),
+          readDuration(form, `segment.${segment.key}`),
         ]),
       ),
     },
@@ -63,7 +69,7 @@ function configFields(view: RoomView, form: FormData) {
     interruptions: capability.interaction.interruptions
       ? {
           mode: form.get('interruptionsMode'),
-          minRemainingMs: seconds(form, 'minRemaining'),
+          minRemainingMs: readDuration(form, 'minRemaining'),
         }
       : null,
     yielding: capability.interaction.yield

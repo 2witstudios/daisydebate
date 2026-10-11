@@ -139,3 +139,19 @@ The sidebar's column always runs the page's full height. Its content is
 pinned to the viewport only when the viewport can hold all of it (the
 `tall:` variant); on a shorter one it scrolls with the page. It never
 becomes a scroll box of its own, because that would clip the nav flyouts.
+
+## Pre-round Room
+
+The gathering view uses the saved topic, authoritative team/judge lineup and
+resolved ordered schedule. Settings are an acknowledged summary with explicit
+native Edit disclosures; a refused save opens its disclosure and retains the
+submitted draft and version. The main readiness/start bar follows the schedule,
+with personal device setup beside the saved settings. Entering Room does not
+change the global sidebar state.
+
+Duration forms use integer minutes and decimal seconds (0–59.999). The form
+boundary converts their strings to exact integer milliseconds and checks the
+combined duration against the room's pinned format bounds. Speech order, seat
+identity and structural schedule authority remain with the pinned definition.
+The pre-round Room has no chat composer; existing Messages navigation remains
+available.
