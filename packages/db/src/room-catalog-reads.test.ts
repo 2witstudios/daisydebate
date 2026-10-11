@@ -32,7 +32,7 @@ test('Room catalog joins only current public definitions to active presets', asy
 });
 test('Room create-receipt read preserve collection and command authority', async () => {
   const account = accountFact();
-  const receipt = createTestDatabase([[account], [account], [], []]);
+  const receipt = createTestDatabase([[], [account], [account], []]);
   const absent = await receipt.database.readRoomCreateReceipt({
     caller,
     commandId: 'c4a2b6d8f1h3j5k7m9n2p4r6',

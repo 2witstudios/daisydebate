@@ -1,4 +1,5 @@
 import { roomCommandOperation } from './command';
+import { currentRoomConsent, type PreparedRoomConsent } from './consent';
 import { can, digest } from './authority';
 import { resolveRoomSelection } from './selection';
 import {
@@ -16,7 +17,6 @@ import type {
   RoomCatalogChoice,
   RoomCastChoice,
   RoomCommandResponse,
-  RoomConsent,
   RoomCreate,
   RoomConfig,
 } from '@daisy/protocol';
@@ -89,23 +89,33 @@ export function createRoomRuntimeOperations({
       eligible: p.eligible && (p.kind === 'human' || botsAvailable()),
     })),
   });
-  const consentOf = async (state: RoomAssemblyState): Promise<RoomConsent> => {
+  const consentOf = async (
+    state: RoomAssemblyState,
+    beforeRead: string,
+  ): Promise<PreparedRoomConsent> => {
     try {
+      const leases = await redis.readRoomConsent(
+        state.id,
+        state.version,
+        state.participants
+          .filter((p) => p.kind === 'human')
+          .map((p) => ({
+            actorId: p.actorId,
+            commandId: p.consentCommandId,
+          })),
+      );
       return {
         available: true,
-        readyActorIds: await redis.readRoomConsent(
-          state.id,
-          state.version,
-          state.participants
-            .filter((p) => p.kind === 'human')
-            .map((p) => ({
-              actorId: p.actorId,
-              commandId: p.consentCommandId,
-            })),
-        ),
+        readyActorIds: leases.map((lease) => lease.actorId),
+        validUntil: leases.length
+          ? new Date(
+              Date.parse(beforeRead) +
+                Math.min(...leases.map((lease) => lease.ttlMs)),
+            ).toISOString()
+          : null,
       };
     } catch {
-      return { available: false, readyActorIds: [] };
+      return { available: false, readyActorIds: [], validUntil: null };
     }
   };
   const view = async (caller: Caller, roomId: string) => {
@@ -114,11 +124,13 @@ export function createRoomRuntimeOperations({
         can(caller, 'room.read', account, state),
       ),
     );
+    const consent = await consentOf(state, await store.databaseNow());
+    const now = await store.databaseNow();
     return projectRoom(
       state,
       caller.actorId,
-      await consentOf(state),
-      await store.databaseNow(),
+      currentRoomConsent(consent, now),
+      now,
     );
   };
   const catalog = async (

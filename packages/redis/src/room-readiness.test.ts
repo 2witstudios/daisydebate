@@ -42,7 +42,7 @@ test('Room readiness requires current durable fence and does not mutate on read'
     connect: async () => {},
     send: async (cmd: string, args: string[]) => {
       calls.push(cmd);
-      return args.at(-1) === id ? [1] : [];
+      return args.at(-1) === id ? [[1, 60000]] : [];
     },
   } as unknown as RedisTransport;
   const ready = createRoomReadinessOperations({
@@ -59,7 +59,7 @@ test('Room readiness requires current durable fence and does not mutate on read'
     given: 'stale and matching durable fences',
     should: 'report only matching consent without refreshing expiry',
     actual: [stale, current, calls],
-    expected: [[], [id], ['EVAL', 'EVAL']],
+    expected: [[], [{ actorId: id, ttlMs: 60000 }], ['EVAL', 'EVAL']],
   });
 });
 
@@ -78,7 +78,7 @@ test('a failed replacement Ready cannot overwrite the accepted durable lease', a
       return args.slice(2, 2 + count).flatMap((key, index) => {
         const value = values.get(key);
         return value && JSON.parse(value).commandId === args[2 + count + index]
-          ? [index + 1]
+          ? [[index + 1, 60000]]
           : [];
       });
     },
@@ -108,6 +108,6 @@ test('a failed replacement Ready cannot overwrite the accepted durable lease', a
     actual: await ready.readRoomConsent(id, 1, [
       { actorId: id, commandId: id },
     ]),
-    expected: [id],
+    expected: [{ actorId: id, ttlMs: 60000 }],
   });
 });

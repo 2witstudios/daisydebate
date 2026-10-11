@@ -20,6 +20,7 @@ import { instrumented, type DatabaseEventSink } from './instrumented';
 import { rooms, roomParticipants } from './schema/rooms';
 
 import {
+  type Tx,
   type Caller,
   type Account,
   type AuthorizeRoom,
@@ -31,6 +32,30 @@ import {
   acceptCommand,
   transactionNow,
 } from './room-command-facts';
+type CommandInput = {
+  readonly caller: Caller;
+  readonly authorizeRead: AuthorizeRoom;
+  readonly roomId: string;
+  readonly actorId: string;
+  readonly commandId: string;
+  readonly payloadDigest: string;
+  readonly type: string;
+  readonly targetActorId: string | null;
+  readonly roundId: string;
+  readonly prepare: (
+    state: RoomAssemblyState,
+    now: string,
+    account: Account,
+  ) => Promise<
+    (
+      state: RoomAssemblyState,
+      now: string,
+      target: Actor | null,
+      account: Account,
+    ) => RoomMutationOutcome
+  >;
+};
+
 export const roomWriteOperations = ({
   database,
   eventSink,
@@ -38,25 +63,12 @@ export const roomWriteOperations = ({
   readonly database: BunSQLDatabase;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
-  async executeRoomCommand(input: {
-    readonly caller: Caller;
-    readonly authorizeRead: AuthorizeRoom;
-    readonly roomId: string;
-    readonly actorId: string;
-    readonly commandId: string;
-    readonly payloadDigest: string;
-    readonly type: string;
-    readonly targetActorId: string | null;
-    readonly roundId: string;
-    readonly execute: (
-      state: RoomAssemblyState,
-      now: string,
-      target: Actor | null,
-      account: Account,
-    ) => Promise<RoomMutationOutcome>;
-  }): Promise<RoomCommandReceipt> {
+  async executeRoomCommand(input: CommandInput): Promise<RoomCommandReceipt> {
     return instrumented(eventSink, 'executeRoomCommand', () =>
       database.transaction(async (tx) => {
+        const preparation = await prepareCommand(tx, input);
+        if ('replay' in preparation) return preparation.replay;
+        const { prepared, execute } = preparation;
         const initialSeats = await tx
           .select({ actorId: roomParticipants.actorId })
           .from(roomParticipants)
@@ -72,9 +84,6 @@ export const roomWriteOperations = ({
           maxActors: fencedActors.length,
         });
         const account = await loadAuthorizationAccount(tx, input.caller.userId);
-        if (input.caller.actorId !== input.actorId)
-          throw createAppError('AUTHORIZATION');
-        await lockCommand(tx, input.commandId);
         const [row] = await tx
           .select()
           .from(rooms)
@@ -89,19 +98,16 @@ export const roomWriteOperations = ({
             'CONFLICT',
             'Cast changed while acquiring authority',
           );
-        const replay = await replayReceipt(
-          tx,
-          input.commandId,
-          input.actorId,
-          input.payloadDigest,
-          input.roomId,
-        );
-        if (replay) return replay;
+        if (state.changeVersion !== prepared.changeVersion)
+          throw createAppError(
+            'CONFLICT',
+            'Room changed while preparing consent',
+          );
         const now = await transactionNow(tx);
         const target = input.targetActorId
           ? await actorFact(tx, input.targetActorId)
           : null;
-        const outcome = await input.execute(state, now, target, account);
+        const outcome = execute(state, now, target, account);
         if (!outcome.ok)
           throw createAppError(refusalCode(outcome.refusal), outcome.refusal);
         const next = outcome.mutation.state;
@@ -139,3 +145,37 @@ const refusalCode = (refusal: string) =>
     : refusal === 'readiness-unavailable'
       ? ('INFRASTRUCTURE' as const)
       : ('CONFLICT' as const);
+
+async function prepareCommand(tx: Tx, input: CommandInput) {
+  // Serialize retries first, without holding account or Room row locks
+  // during external preparation. All Room command paths use this order.
+  await lockCommand(tx, input.commandId);
+  const preparationAccount = await loadAuthorizationAccount(
+    tx,
+    input.caller.userId,
+  );
+  const [preparationRow] = await tx
+    .select()
+    .from(rooms)
+    .where(eq(rooms.id, input.roomId));
+  if (!preparationRow) throw createAppError('NOT_FOUND');
+  const prepared = await roomState(tx, preparationRow);
+  if (!input.authorizeRead(prepared, preparationAccount))
+    throw createAppError('NOT_FOUND');
+  if (input.caller.actorId !== input.actorId)
+    throw createAppError('AUTHORIZATION');
+  const replay = await replayReceipt(
+    tx,
+    input.commandId,
+    input.actorId,
+    input.payloadDigest,
+    input.roomId,
+  );
+  if (replay) return { replay } as const;
+  const execute = await input.prepare(
+    prepared,
+    await transactionNow(tx),
+    preparationAccount,
+  );
+  return { prepared, execute } as const;
+}
