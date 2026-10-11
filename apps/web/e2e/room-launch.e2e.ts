@@ -92,16 +92,16 @@ test('canonical browser create, settings, cast, refusals and reread preserve dur
     );
     expect(firstMs).not.toBe(secondMs);
     await settings
-      .locator(`[name="duration.${first.key}.seconds"]`)
+      .locator(`[name="duration.segment.${first.key}.seconds"]`)
       .fill(String((firstMs % 60000) / 1000));
     await settings
-      .locator(`[name="duration.${second.key}.seconds"]`)
+      .locator(`[name="duration.segment.${second.key}.seconds"]`)
       .fill(String((secondMs % 60000) / 1000));
     await settings
-      .locator(`[name="duration.${first.key}.minutes"]`)
+      .locator(`[name="duration.segment.${first.key}.minutes"]`)
       .fill(String(Math.floor(firstMs / 60000)));
     await settings
-      .locator(`[name="duration.${second.key}.minutes"]`)
+      .locator(`[name="duration.segment.${second.key}.minutes"]`)
       .fill(String(Math.floor(secondMs / 60000)));
     await settings.getByRole('button', { name: 'Save settings' }).click();
     await expect(async () => {
