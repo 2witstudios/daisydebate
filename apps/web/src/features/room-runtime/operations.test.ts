@@ -134,7 +134,7 @@ test('Room creation pins resolved rules and replays the accepted receipt before 
     } as unknown as Store,
     redis: {
       setRoomConsent: async () => undefined,
-      readRoomConsent: async () => [caller.actorId],
+      readRoomConsent: async () => [{ actorId: caller.actorId, ttlMs: 60000 }],
     } as never,
     ids: fixedIds(['c8n6p8r2t4v6x8z1k3b5c7d9']),
     maxOpenRooms: () => 5,

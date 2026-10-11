@@ -115,7 +115,7 @@ test('direct domain Launch safety refusal cannot persist a Round or freeze', asy
             targetActorId: null,
             roundId: createId(),
             authorizeRead: () => true,
-            execute: async (room, now) =>
+            prepare: async () => (room, now) =>
               executeRoomCommand(
                 {
                   ...room,

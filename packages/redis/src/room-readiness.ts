@@ -8,7 +8,8 @@ for index, key in ipairs(KEYS) do
   local value = redis.call('GET', key)
   if value then
     local ok, decoded = pcall(cjson.decode, value)
-    if ok and decoded.commandId == ARGV[index] then table.insert(ready, index) end
+    local ttl = redis.call('PTTL', key)
+    if ok and decoded.commandId == ARGV[index] and ttl > 0 then table.insert(ready, {index, ttl}) end
   end
 end
 return ready
@@ -83,8 +84,10 @@ export function createRoomReadinessOperations({
         readonly actorId: string;
         readonly commandId: string | null;
       }[],
-    ): Promise<readonly string[]> {
-      const ready: string[] = [];
+    ): Promise<
+      readonly { readonly actorId: string; readonly ttlMs: number }[]
+    > {
+      const ready: { actorId: string; ttlMs: number }[] = [];
       try {
         await client.connect();
         const current = fences.filter((fence) => fence.commandId !== null);
@@ -106,9 +109,11 @@ export function createRoomReadinessOperations({
         ]);
         if (!Array.isArray(indexes))
           throw new Error('Unreadable Room consent result');
-        for (const index of indexes) {
-          const fence = current[Number(index) - 1];
-          if (fence) ready.push(fence.actorId);
+        for (const lease of indexes) {
+          const [index, ttlMs] = parseConsentLease(lease);
+          const fence = current[index - 1];
+          if (!fence) throw new Error('Unreadable Room consent index');
+          ready.push({ actorId: fence.actorId, ttlMs });
         }
         return ready;
       } catch (error) {
@@ -117,4 +122,17 @@ export function createRoomReadinessOperations({
       }
     },
   };
+}
+
+function parseConsentLease(lease: unknown): readonly [number, number] {
+  if (
+    !Array.isArray(lease) ||
+    lease.length !== 2 ||
+    !Number.isSafeInteger(lease[0]) ||
+    !Number.isSafeInteger(lease[1]) ||
+    lease[0] < 1 ||
+    lease[1] <= 0
+  )
+    throw new Error('Unreadable Room consent lease');
+  return [lease[0], lease[1]];
 }

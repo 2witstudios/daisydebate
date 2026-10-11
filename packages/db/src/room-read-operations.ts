@@ -183,9 +183,9 @@ export const roomReadOperations = ({
   }): Promise<RoomCommandReceipt | null> {
     return instrumented(eventSink, 'readRoomCreateReceipt', () =>
       database.transaction(async (tx) => {
+        await lockCommand(tx, input.commandId);
         const account = await lockedAccount(tx, input.caller);
         if (!input.authorize(account)) throw createAppError('AUTHORIZATION');
-        await lockCommand(tx, input.commandId);
         return replayReceipt(
           tx,
           input.commandId,
