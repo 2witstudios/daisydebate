@@ -13,7 +13,6 @@ test('Room catalog joins only current public definitions to active presets', asy
   const account = accountFact();
   const { database } = createTestDatabase([
     [account],
-    [account],
     [[room.formatId, 'Foundation', 1, foundationDefinition]],
     [],
   ]);
@@ -52,7 +51,6 @@ test('Room bot catalog includes current actor eligibility facts', async () => {
   const availableBotId = 'c6a4e2f8h1j3k5m7n9p2r4t6';
   const unavailableBotId = 'c2a4e6f8h1j3k5m7n9p2r4t6';
   const { database } = createTestDatabase([
-    [account],
     [account],
     [[availableBotId], [unavailableBotId]],
     [[availableBotId, 'bot', null, null, null, 'Debater']],

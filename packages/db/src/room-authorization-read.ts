@@ -5,7 +5,7 @@ import { createAppError } from '@daisy/errors';
 import { rooms, roomParticipants } from './schema/rooms';
 import { rounds } from './schema/rounds';
 import { roundParticipants } from './schema/round-participants';
-import { lockedAccount, type Caller } from './room-command-facts';
+import { sharedAccount, type Caller } from './room-command-facts';
 
 type AuthorizationParticipant = {
   readonly actorId: string | null;
@@ -32,7 +32,7 @@ export function roomAuthorizationRead({
       if (!idSchema.safeParse(roomId).success)
         throw createAppError('VALIDATION');
       return database.transaction(async (tx) => {
-        const account = await lockedAccount(tx, caller);
+        const account = await sharedAccount(tx, caller);
         // One statement snapshot keeps membership and Room revision coherent.
         const rows = await tx
           .select({
@@ -68,7 +68,7 @@ export function roomAuthorizationRead({
       if (!idSchema.safeParse(roundId).success)
         throw createAppError('VALIDATION');
       return database.transaction(async (tx) => {
-        const account = await lockedAccount(tx, caller);
+        const account = await sharedAccount(tx, caller);
         const rows = await tx
           .select({
             roundId: rounds.id,

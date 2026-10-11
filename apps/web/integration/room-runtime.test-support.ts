@@ -11,15 +11,24 @@ import { createRoomRuntimeOperations } from '../src/features/room-runtime/operat
 const services = requireTestServices(process.env);
 export async function withRoomRuntime(
   run: (context: Awaited<ReturnType<typeof fixture>>) => Promise<void>,
+  options: Pick<
+    Parameters<typeof createDatabase>[0],
+    'client' | 'maxConnections'
+  > = {},
 ) {
-  const f = await fixture();
+  const f = await fixture(options);
   try {
     await run(f);
   } finally {
     await f.close();
   }
 }
-async function fixture() {
+async function fixture(
+  options: Pick<
+    Parameters<typeof createDatabase>[0],
+    'client' | 'maxConnections'
+  >,
+) {
   const sql = new SQL(services.databaseUrl),
     client = createBoundedTestClient(services.redisUrl),
     namespace = testNamespace(createId());
@@ -27,6 +36,7 @@ async function fixture() {
   const store = createDatabase({
     url: services.databaseUrl,
     nextActorId: createId,
+    ...options,
   });
   const callers: { userId: string; actorId: string }[] = [],
     rooms: string[] = [];

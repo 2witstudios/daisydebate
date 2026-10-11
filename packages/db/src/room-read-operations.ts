@@ -1,4 +1,5 @@
 import { discoverRooms, type RoomDiscoveryFact } from './room-discovery';
+import type { roomCommandTransaction } from './room-command-transaction';
 import {
   roomListQuerySchema,
   type RoomListQuery,
@@ -33,6 +34,7 @@ import {
   type AuthorizeRoom,
   type Actor,
   lockedAccount,
+  sharedAccount,
   requireAccount,
   actorFact,
   roomState,
@@ -42,9 +44,11 @@ import {
 export const roomReadOperations = ({
   database,
   eventSink,
+  commandTransaction,
 }: {
   readonly database: BunSQLDatabase;
   readonly eventSink?: DatabaseEventSink | undefined;
+  readonly commandTransaction: ReturnType<typeof roomCommandTransaction>;
 }) => ({
   async readLaunchedRound(
     roundId: string,
@@ -53,7 +57,7 @@ export const roomReadOperations = ({
   ): Promise<RoundView> {
     return instrumented(eventSink, 'readLaunchedRound', () =>
       database.transaction(async (tx) => {
-        const account = await lockedAccount(tx, caller);
+        const account = await sharedAccount(tx, caller);
         const [row] = await tx
           .select()
           .from(rounds)
@@ -129,7 +133,7 @@ export const roomReadOperations = ({
   ): Promise<RoomAssemblyState> {
     return instrumented(eventSink, 'readRoomAssembly', () =>
       database.transaction(async (tx) => {
-        const account = await lockedAccount(tx, caller);
+        const account = await sharedAccount(tx, caller);
         const [row] = await tx
           .select()
           .from(rooms)
@@ -182,7 +186,7 @@ export const roomReadOperations = ({
     readonly authorize: (account: Account) => boolean;
   }): Promise<RoomCommandReceipt | null> {
     return instrumented(eventSink, 'readRoomCreateReceipt', () =>
-      database.transaction(async (tx) => {
+      commandTransaction(async (tx) => {
         await lockCommand(tx, input.commandId);
         const account = await lockedAccount(tx, input.caller);
         if (!input.authorize(account)) throw createAppError('AUTHORIZATION');

@@ -29,6 +29,7 @@ import { authOperations } from './auth-operations';
 import { authorizationSessionOperations } from './authorization-session';
 import { formatOperations } from './format-operations';
 import { roomCommandOperations } from './room-command-operations';
+import { roomCommandTransaction } from './room-command-transaction';
 import { roomOperations } from './room-operations';
 import { roundOperations } from './round-operations';
 import { utteranceOperations } from './utterance-operations';
@@ -244,7 +245,11 @@ export function createDatabase({
       ),
     ...formatOperations({ database, eventSink }),
     ...roomOperations({ database, eventSink }),
-    ...roomCommandOperations({ database, eventSink }),
+    ...roomCommandOperations({
+      database,
+      eventSink,
+      commandTransaction: roomCommandTransaction(client, maxConnections),
+    }),
     ...roundOperations({ database, eventSink }),
     ...utteranceOperations({ database, eventSink }),
     ...ballotOperations({ database, eventSink }),

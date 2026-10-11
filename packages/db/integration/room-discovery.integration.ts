@@ -169,7 +169,7 @@ test('discovery uses partial ordered indexes independently of historical Room an
             .filter((q) => q.query.includes('for share'))
             .every((q) => q.params.length <= 2),
         ],
-        expected: [14, true, true, false, true],
+        expected: [12, true, true, false, true],
       });
     } finally {
       await f.sql`delete from rounds where room_id=any(${historyArray}::text[]) or room_id=any(${liveArray}::text[])`;
