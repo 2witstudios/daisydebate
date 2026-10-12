@@ -2,6 +2,8 @@ import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import {
+  MAX_FORMAT_SEATS,
+  MAX_FORMAT_SEGMENTS,
   observationBaseSchema,
   observationHeaderSchema,
   observationProjectionRowBytes,
@@ -105,9 +107,9 @@ export function createObservationProjectionOperations(
             throw createAppError('INFRASTRUCTURE', 'Projection unavailable');
           const body =
             kind === 'room'
-              ? sql`public.daisy_observation_room_body(${id})`
+              ? sql`public.daisy_observation_room_body(${id},${MAX_FORMAT_SEATS})`
               : kind === 'round'
-                ? sql`public.daisy_observation_round_body(${id})`
+                ? sql`public.daisy_observation_round_body(${id},${MAX_FORMAT_SEATS},${MAX_FORMAT_SEGMENTS})`
                 : sql`public.daisy_observation_channel_body(${id},${base.window.after}::bigint,${base.window.limit},${observationProjectionRowBytes})`;
           const [row] = await tx.execute(
             sql`select content_revision as "contentRevision",disclosure_revision as "disclosureRevision",purge_generation as "purgeGeneration",${body} as rows from public.resource_observation_headers where kind=${kind} and resource_id=${id} and disclosure_revision=${base.disclosureRevision} and purge_generation=${input.purgeGeneration} and content_revision>=${input.minimumContentRevision}`,
