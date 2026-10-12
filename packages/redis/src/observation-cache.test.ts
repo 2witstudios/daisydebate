@@ -30,3 +30,30 @@ test('publication is one bounded guarded script and hints contain metadata only'
     expected: { scripts: 1, guarded: true, separatePublish: false },
   });
 });
+test('head reads refuse revisions that are not safe non-negative integers', async () => {
+  const read = async (reply: unknown) => {
+    const { redis, scriptEval } = createTestRedis();
+    scriptEval(reply);
+    return redis
+      .readObservations(observationTestResource, 'inc', [observationTestBase()])
+      .then(
+        (entries) => entries,
+        (error: Error) => error.message,
+      );
+  };
+  assert({
+    given:
+      'a valid head, a non-numeric revision and an unsafe purge generation',
+    should: 'accept only exact integer revisions from Redis',
+    actual: [
+      await read(['0', ['3', 'body']]),
+      await read(['0', ['x', 'body']]),
+      await read(['9007199254740993', ['3', 'body']]),
+    ],
+    expected: [
+      [{ contentRevision: 3, purgeGeneration: 0, body: 'body' }],
+      'Invalid observation heads',
+      'Invalid observation heads',
+    ],
+  });
+});

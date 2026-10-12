@@ -274,13 +274,12 @@ topic.
   written to the outbox (ADR 0033 §1) and is delivered instead as the
   `presence.changed` server message (ADR 0031 §6), which names no `kind`
   and carries no `entityVersion`.
-- **Owner-only topics** (`user:<id>:inbox`) may carry small typed deltas, since
-  only the owner can subscribe.
+- **Owner-only topics** (`user:<id>:inbox`) carry the inbox doorbell and
+  control rows; no content delta kind exists (the dormant notification delta
+  was removed with [ADR 0066](0066-shared-resource-observation.md)).
 - The doorbell kind names, exactly (`@daisy/protocol`'s outbox payload schema):
   `debate.phase-changed` (the `debate:<id>` family) and
-  `standings.updated` (the `standings:<season>` family). The owner-only
-  inbox delta kind is `user.notification-delivered` (the `user:<id>:inbox`
-  family; its content is NOTIF-1's later epic).
+  `standings.updated` (the `standings:<season>` family).
 - **Control rows ride the actor's own inbox.** `session.revoked` (section 5),
   `access.revoked` (section 5) and `actor.presence-preference-changed` (a
   visibility preference change, appended in the settings transaction,

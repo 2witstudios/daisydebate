@@ -82,7 +82,13 @@ installation from an older generation; TTL is only a retention backstop. Redis
 demand, interest and relay keys hold resource identifiers, bases and outbox
 cursors only (`identifier`/`none`, at most 60s, the relay cursor 24h); claim
 tokens and cache incarnations are unguessable fences, never logged. The
-control channel carries only actor and session identifiers. No snapshot body
+control channel carries only actor and session identifiers. Each viewer's
+**own-reactions overlay** (message id and reaction for that viewer's window)
+is `personal`/`private` (identifier plus the viewer's own engagement): it is
+read in the canonical admission or renewal transaction, sent only to that
+viewer on `observation.ready`, never written to Redis, logs or the outbox, and
+discarded with the binding; erasure of the viewer's reactions removes it from
+the next canonical read. No snapshot body
 enters logs, metrics, URLs or `outbox.payload`. Lawful basis and product
 retention for messaging content remain the owning messaging policy gates.
 

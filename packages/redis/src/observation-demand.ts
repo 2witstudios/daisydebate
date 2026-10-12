@@ -18,6 +18,17 @@ import {
   type ObservationRunnerInput,
 } from './observation-runner';
 
+/** Redis replies are untrusted: revisions must be exact safe integers. */
+function revision(value: unknown) {
+  const parsed = Number(value);
+  if (
+    !Number.isSafeInteger(parsed) ||
+    parsed < 0 ||
+    String(parsed) !== String(value)
+  )
+    throw new Error('Invalid observation heads');
+  return parsed;
+}
 export type ObservationCacheEntry = {
   readonly contentRevision: number;
   readonly purgeGeneration: number;
@@ -145,8 +156,8 @@ export function createObservationDemandOperations(
           typeof row[1] === 'string' &&
           purge !== undefined
           ? {
-              contentRevision: Number(row[0]),
-              purgeGeneration: Number(purge),
+              contentRevision: revision(row[0]),
+              purgeGeneration: revision(purge),
               body: row[1],
             }
           : null;
