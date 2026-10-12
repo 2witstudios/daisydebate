@@ -50,6 +50,10 @@ export async function createMessagingTestFixture(client: SQL) {
       userId,
       otherUserId,
     ]);
+    await client.unsafe(
+      'delete from resource_observation_headers where resource_id in ($1,$2,$3)',
+      [channelId, actorId, otherActorId],
+    );
   };
   try {
     await client.unsafe(
