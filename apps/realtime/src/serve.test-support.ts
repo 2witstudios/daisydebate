@@ -16,6 +16,9 @@ export function fakeApp(overrides: {
 }): RealtimeApp {
   return {
     config: { NODE_ENV: overrides.NODE_ENV ?? 'test' },
+    clock: { now: () => '2026-10-12T00:00:00.000Z' },
+    ids: { next: () => 'fakeid000000000000000000' },
+    transport: { maxSubscriptions: 64 },
     isDraining: () => false,
     logger: noopLogger,
     database: {
@@ -28,7 +31,18 @@ export function fakeApp(overrides: {
         (async () => ({ unlisten: async () => {} })),
       readOutboxHighWaterMark: overrides.readOutboxHighWaterMark,
       drainOutbox: async (): Promise<readonly OutboxRow[]> => [],
+      observationAuthority: () => ({
+        admitObservationAuthorityBatch: async () => [],
+        renewObservationAuthorityBatch: async () => [],
+      }),
     },
-    redis: { health: async () => true },
+    redis: {
+      health: async () => true,
+      establishObservationIncarnation: async (candidate: string) => candidate,
+      observationSubscriber: () => ({
+        interest: async () => () => {},
+        close: async () => {},
+      }),
+    },
   } as unknown as RealtimeApp;
 }

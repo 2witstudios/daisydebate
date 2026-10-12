@@ -1,4 +1,9 @@
-import { refuseSchemaAlteringRole } from '@daisy/db';
+import { refuseSchemaAlteringRole, type Database } from '@daisy/db';
+import { createObservationAuthorityDecision } from '@daisy/auth/observation';
+import type { MessagingCoreBounds } from '@daisy/protocol';
+import { createObservationAuthorityReader } from './observation-authority';
+import { createObservationClock } from './observation-clock';
+import { createObservationRuntime } from './observation-runtime';
 import type { RealtimeApp } from './app';
 import { createRealtimeServer } from './server';
 import { createRealtimeDelivery } from './delivery';
@@ -30,6 +35,59 @@ const listenerTls = (tls: Bun.TLSOptions | undefined) =>
 const readerPolicy = (readingPolicy: RealtimeReadingPolicy | undefined) =>
   readingPolicy === undefined ? {} : { readingPolicy };
 
+/** Process-local observation roles; clock uncertainty fails closed. */
+function composeObservation({
+  resources,
+  timers,
+  now,
+  readingPolicy,
+  observation = resources.projection
+    ? { projection: resources.projection }
+    : {},
+}: {
+  readonly resources: RealtimeApp;
+  readonly timers: IntervalTimers;
+  readonly now: () => number;
+  readonly readingPolicy: RealtimeReadingPolicy | undefined;
+  readonly observation: Parameters<typeof serveRealtime>[0]['observation'];
+}) {
+  const owned: { runtime?: ReturnType<typeof createObservationRuntime> } = {};
+  const clock = createObservationClock({
+    monotonicNow: now,
+    wallNow: () => Date.parse(resources.clock.now()),
+    onUncertainty: () => {
+      resources.logger.log(
+        'realtime.observation.clock_uncertain',
+        { operation: 'observation.clock' },
+        'Observation clock left its trusted envelope',
+      );
+      void owned.runtime?.close();
+    },
+  });
+  const runtime = createObservationRuntime({
+    nodeIncarnation: resources.ids.next(),
+    nextToken: () => resources.ids.next(),
+    now: clock.now,
+    timers,
+    redis: resources.redis,
+    authority: createObservationAuthorityReader({
+      now: clock.now,
+      operations: resources.database.observationAuthority(
+        createObservationAuthorityDecision(
+          readingPolicy ? { readingPolicy } : {},
+        ),
+      ),
+    }),
+    maxPerSession: resources.transport.maxSubscriptions,
+    ...(observation.projection ? { projection: observation.projection } : {}),
+    ...(observation.channelBounds
+      ? { channelBounds: observation.channelBounds }
+      : {}),
+  });
+  owned.runtime = runtime;
+  return runtime;
+}
+
 async function completeShutdown(work: readonly Promise<unknown>[]) {
   const shutdown = await Promise.allSettled(work);
   if (shutdown.some((result) => result.status === 'rejected'))
@@ -59,6 +117,7 @@ export async function serveRealtime({
   now = () => performance.now(),
   readingPolicy,
   trustedProxies = [],
+  observation,
 }: {
   readonly resources: RealtimeApp;
   readonly port: number;
@@ -68,6 +127,15 @@ export async function serveRealtime({
   readonly now?: () => number;
   readonly readingPolicy?: RealtimeReadingPolicy;
   readonly trustedProxies?: readonly string[];
+  /** Eligible workers hold the narrow projection allocation; channel bodies
+   * need the owning messaging bounds. Absent inputs leave kinds unavailable. */
+  readonly observation?: {
+    readonly projection?: Pick<
+      Database,
+      'readObservationHeaders' | 'readObservationProjection'
+    >;
+    readonly channelBounds?: MessagingCoreBounds;
+  };
   readonly pollIntervalMs?: number;
   readonly timers?: IntervalTimers;
   readonly onQuery?: () => void;
@@ -101,6 +169,14 @@ export async function serveRealtime({
         throw new Error('Realtime recipient unavailable');
     },
   });
+  const observationRuntime = composeObservation({
+    resources,
+    timers: scheduler,
+    now,
+    readingPolicy,
+    observation,
+  });
+  await observationRuntime.start();
   const drain = await startOutboxDrain({
     database: resources.database,
     sink: (rows) => {
@@ -126,6 +202,7 @@ export async function serveRealtime({
       registry: delivery.registry,
       authenticate: delivery.authenticate,
       validatePrincipal: delivery.validatePrincipal,
+      observation: observationRuntime,
       now,
     },
   });
@@ -149,7 +226,11 @@ export async function serveRealtime({
       ...listenerTls(tls),
     });
   } catch (error) {
-    await Promise.allSettled([drain.stop(), hintSubscription?.unlisten()]);
+    await Promise.allSettled([
+      drain.stop(),
+      hintSubscription?.unlisten(),
+      observationRuntime.close(),
+    ]);
     throw error;
   }
   // Scheduling is transport tuning inside ADR0031's accepted60s bound.
@@ -179,6 +260,7 @@ export async function serveRealtime({
       await completeShutdown([
         Promise.resolve().then(() => server?.stop()),
         drain.stop(),
+        observationRuntime.close(),
         Promise.resolve(hintSubscription?.unlisten()),
         Promise.resolve(validation),
         delivery.registry.settled(),

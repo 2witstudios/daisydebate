@@ -66,12 +66,15 @@ export function createObservationWorker({
       token: string,
     ) => Promise<void>;
   };
+  /** `isCurrent` is rechecked by the executor after every wait. */
   readonly readHeaders: (
     resources: readonly ObservationResource[],
+    isCurrent: () => boolean,
   ) => Promise<readonly ObservationHeader[]>;
   readonly build: (
     base: ObservationBase,
     header: ObservationHeader,
+    isCurrent: () => boolean,
   ) => Promise<Snapshot>;
 }) {
   const owners = new Map<string, Owner>();
@@ -98,7 +101,11 @@ export function createObservationWorker({
     )
       return;
     const work = (async () => {
-      const snapshot = await build(base, header);
+      const snapshot = await build(
+        base,
+        header,
+        () => current(owner) && owner.variants.has(key),
+      );
       if (
         !current(owner) ||
         !owner.variants.has(key) ||
@@ -250,6 +257,7 @@ export function createObservationWorker({
         );
         const headers = await readHeaders(
           currentBatch.map((owner) => owner.resource),
+          () => currentBatch.some(current),
         );
         for (const header of headers) {
           const owner = captured.get(observationResourceKey(header.resource));

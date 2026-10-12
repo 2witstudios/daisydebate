@@ -13,6 +13,13 @@ import type {
 } from './registry';
 import type { AdmissionReservation } from './admission';
 import { closeFor, evaluateFirstMessage } from './handlers/hello';
+import type { createObservationRuntime } from './observation-runtime';
+
+type ObservationRuntime = Pick<
+  ReturnType<typeof createObservationRuntime>,
+  'connect'
+>;
+type ObservationConnection = ReturnType<ObservationRuntime['connect']>;
 
 /** ADR 0031 §11.5: the first message must arrive within 5s or the socket closes 4001. */
 export const HELLO_TIMEOUT_MS = 5_000;
@@ -24,6 +31,7 @@ export type SocketData = {
   helloDeadline?: number;
   principal?: SocketPrincipal;
   connection?: RegistryConnection;
+  observation?: ObservationConnection | undefined;
   helloTimer?: ReturnType<typeof setTimeout> | undefined;
 };
 export type SocketTimers = {
@@ -71,6 +79,7 @@ export function createWebSocketHandlers({
   authenticate,
   registry,
   validatePrincipal,
+  observation,
 }: {
   readonly logger: Logger;
   readonly timers?: SocketTimers;
@@ -81,6 +90,7 @@ export function createWebSocketHandlers({
   ) => Promise<SocketPrincipal | null>;
   readonly registry?: SubscriptionRegistry;
   readonly validatePrincipal?: (principal: SocketPrincipal) => Promise<boolean>;
+  readonly observation?: ObservationRuntime;
 }) {
   function reject(
     ws: ServerWebSocket<SocketData>,
@@ -91,14 +101,18 @@ export function createWebSocketHandlers({
     ws.data.phase = 'closed';
     clearHelloTimer(ws, timers);
     if (ws.data.connection) registry?.remove(ws.data.connection);
+    ws.data.observation?.close();
     ws.data.admission?.release();
     const outcome = closeFor(reason);
     logRejection(logger, cause, outcome.code, outcome.reason);
     ws.close(outcome.code, outcome.reason);
   }
   function send(ws: ServerWebSocket<SocketData>, frame: ServerMessage) {
+    sendText(ws, JSON.stringify(serverMessageSchema.parse(frame)));
+  }
+  /** Snapshot text is pre-encoded from a body validated once per key. */
+  function sendText(ws: ServerWebSocket<SocketData>, text: string) {
     if (ws.data.phase === 'closed') return;
-    const text = JSON.stringify(serverMessageSchema.parse(frame));
     if (ws.send(text) === 0 || ws.getBufferedAmount() > 262_144)
       reject(ws, 'slow_consumer');
   }
@@ -168,6 +182,10 @@ export function createWebSocketHandlers({
         },
         principal,
       );
+    ws.data.observation = observation?.connect(principal, {
+      send: (frame) => send(ws, frame),
+      sendText: (text) => sendText(ws, text),
+    });
     send(ws, { v: ENVELOPE_VERSION, type: 'ready' });
   }
   async function receiveAuthenticated(
@@ -176,13 +194,32 @@ export function createWebSocketHandlers({
   ) {
     const frame = parseFrame(ws, message);
     if (!frame) return;
+    // Observation admission and renewal read the session canonically; a
+    // per-frame check would only turn executor pressure into false denial.
+    if (observe(ws, frame)) return;
     if (!(await currentPrincipal(ws))) return;
     if (frame.type === 'ping')
       send(ws, { v: ENVELOPE_VERSION, type: 'pong', id: frame.id });
-    else if (frame.type === 'subscribe' && ws.data.connection)
+    else await topic(ws, frame);
+  }
+  async function topic(
+    ws: ServerWebSocket<SocketData>,
+    frame: ReturnType<typeof clientMessageSchema.parse>,
+  ) {
+    if (!ws.data.connection) return;
+    if (frame.type === 'subscribe')
       await registry?.subscribe(ws.data.connection, frame);
-    else if (frame.type === 'unsubscribe' && ws.data.connection)
+    else if (frame.type === 'unsubscribe')
       registry?.unsubscribe(ws.data.connection, frame);
+  }
+  function observe(
+    ws: ServerWebSocket<SocketData>,
+    frame: ReturnType<typeof clientMessageSchema.parse>,
+  ) {
+    if (frame.type === 'observe') ws.data.observation?.observe(frame);
+    else if (frame.type === 'unobserve') ws.data.observation?.unobserve(frame);
+    else return false;
+    return true;
   }
   function parseFrame(ws: ServerWebSocket<SocketData>, message: string) {
     let parsed: unknown;
@@ -237,6 +274,7 @@ export function createWebSocketHandlers({
       ws.data.phase = 'closed';
       clearHelloTimer(ws, timers);
       if (ws.data.connection) registry?.remove(ws.data.connection);
+      ws.data.observation?.close();
       ws.data.admission?.release();
     },
   };

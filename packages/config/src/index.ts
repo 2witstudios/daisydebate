@@ -1,7 +1,17 @@
 import { z } from 'zod';
 import { roomPolicyConfig } from './room-policy';
 import { mediaEndpoint } from './media-endpoint';
-import { databaseUrl, redisUrl } from './urls';
+import { databaseUrl } from './urls';
+import {
+  deploymentIdentityFields,
+  requireDeploymentIdentity,
+  secret,
+  secrets,
+  unwrapOptional,
+  withoutMigrationCredential,
+} from './deployment-identity';
+import { realtimeFields } from './realtime-config';
+export { readRealtimeConfig } from './realtime-config';
 import { realtimePublicUrlSchema } from './realtime-endpoint';
 export {
   readRealtimePublicUrl,
@@ -16,17 +26,6 @@ export {
   testRedisRefusal,
 } from './test-redis';
 
-/**
- * Fields whose value is a credential or carries one (a password inside a
- * connection URL). Marked where each field is declared, so the list of
- * secret keys is derived from the schemas rather than kept by hand.
- */
-const secrets = z.registry<{ readonly secret: true }>();
-const secret = <Schema extends z.ZodType>(schema: Schema): Schema => {
-  secrets.add(schema, { secret: true });
-  return schema;
-};
-
 /** `AUTH_TRUSTED_PROXIES` keyword: trust this machine's default gateway. */
 export const TRUSTED_PROXY_GATEWAY = 'gateway';
 
@@ -37,68 +36,6 @@ const requireHttpsOrigin = (url: string, ctx: z.RefinementCtx) => {
       path: ['PUBLIC_APP_URL'],
       message: 'Production requires HTTPS',
     });
-};
-/**
- * Shared across every deployment's config schema (`readServerConfig`,
- * `readRealtimeConfig`): production refuses to boot without a real
- * `APP_VERSION`/`GIT_COMMIT` and never against local-development
- * PostgreSQL credentials.
- */
-const requireDeploymentIdentity = (
-  config: {
-    APP_VERSION: string;
-    GIT_COMMIT: string;
-    DATABASE_URL: string;
-    MIGRATION_DATABASE_URL?: string | undefined;
-  },
-  ctx: z.RefinementCtx,
-) => {
-  // ISSUE-102: the schema owner lives only in the release-only migrator app
-  // (ADR 0041); a runtime machine holding it is a misplaced Fly secret.
-  if (config.MIGRATION_DATABASE_URL !== undefined)
-    ctx.addIssue({
-      code: 'custom',
-      path: ['MIGRATION_DATABASE_URL'],
-      message: 'Production runtime must not hold the migration credential',
-    });
-  if (config.APP_VERSION === 'development' || config.GIT_COMMIT === 'unknown')
-    ctx.addIssue({
-      code: 'custom',
-      path: ['APP_VERSION'],
-      message: 'Production requires deployment identity',
-    });
-  if (new URL(config.DATABASE_URL).password === 'local-development-only')
-    ctx.addIssue({
-      code: 'custom',
-      path: ['DATABASE_URL'],
-      message: 'Production forbids local development credentials',
-    });
-};
-const deploymentIdentityFields = {
-  // Required, no default: an unset NODE_ENV must refuse to start rather than
-  // silently become 'development' and skip every production check below.
-  NODE_ENV: z.enum(['development', 'test', 'production']),
-  DATABASE_URL: secret(databaseUrl),
-  REDIS_URL: secret(redisUrl),
-  REDIS_NAMESPACE: z
-    .string()
-    .regex(/^[a-z][a-z0-9-]{0,40}$/)
-    .default('daisy'),
-  LOG_LEVEL: z
-    .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
-    .default('info'),
-  APP_VERSION: z.string().min(1).default('development'),
-  GIT_COMMIT: z.string().min(1).default('unknown'),
-  // Read only so production can refuse it; never part of the parsed config.
-  MIGRATION_DATABASE_URL: secret(z.string()).optional(),
-};
-/** Drops the migration credential a runtime reads only to refuse it. */
-const withoutMigrationCredential = <Config extends object>(
-  config: Config & { MIGRATION_DATABASE_URL?: string | undefined },
-): Omit<Config, 'MIGRATION_DATABASE_URL'> => {
-  const { MIGRATION_DATABASE_URL: refused, ...runtime } = config;
-  void refused;
-  return runtime;
 };
 const serverFields = {
   ROOM_POLICY: roomPolicyConfig,
@@ -149,30 +86,6 @@ export function readServerConfig(
   if (!result.success)
     throw new Error(
       `Invalid server configuration: ${result.error.issues.map((issue) => issue.path.join('.')).join(', ')}`,
-    );
-  return result.data;
-}
-/**
- * `apps/realtime`'s baseline configuration (ADR 0031): no public origin and
- * no foundation-proof flag, neither of which the realtime deployment has a
- * use for yet.
- */
-const realtimeConfigSchema = z
-  .object(deploymentIdentityFields)
-  .superRefine((config, ctx) => {
-    if (config.NODE_ENV !== 'production') return;
-    requireDeploymentIdentity(config, ctx);
-  })
-  .transform(withoutMigrationCredential);
-export type RealtimeConfig = z.output<typeof realtimeConfigSchema>;
-/** Validation reports field names only: never echo secret values. */
-export function readRealtimeConfig(
-  env: Record<string, string | undefined>,
-): RealtimeConfig {
-  const result = realtimeConfigSchema.safeParse(env);
-  if (!result.success)
-    throw new Error(
-      `Invalid realtime configuration: ${result.error.issues.map((issue) => issue.path.join('.')).join(', ')}`,
     );
   return result.data;
 }
@@ -363,18 +276,18 @@ export function readBrowserConfig(env: Record<string, string | undefined>) {
     .object({ PUBLIC_APP_URL: z.url() })
     .parse({ PUBLIC_APP_URL: env.PUBLIC_APP_URL });
 }
-const unwrapOptional = (schema: z.ZodType): z.ZodType =>
-  schema instanceof z.ZodOptional
-    ? unwrapOptional(schema.unwrap() as z.ZodType)
-    : schema;
-
 /**
  * Every configuration key marked secret in the server, realtime, auth and
  * migration schemas: the list the logger's redaction tests are derived from (ADR 0019).
  */
 export const secretConfigKeys: readonly string[] = [
   ...new Set(
-    Object.entries({ ...serverFields, ...authFields, ...migrationFields })
+    Object.entries({
+      ...serverFields,
+      ...realtimeFields,
+      ...authFields,
+      ...migrationFields,
+    })
       .filter(([, schema]) => secrets.has(unwrapOptional(schema)))
       .map(([key]) => key),
   ),

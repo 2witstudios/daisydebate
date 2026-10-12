@@ -283,6 +283,8 @@ describe('slot .env values', () => {
       expected: {
         DATABASE_URL:
           'postgres://daisy:local-development-only@localhost:15432/daisy',
+        OBSERVATION_DATABASE_URL:
+          'postgres://daisy:local-development-only@localhost:15432/daisy',
         TEST_DATABASE_URL:
           'postgres://daisy:local-development-only@localhost:15432/daisy_test',
         REDIS_NAMESPACE: 'daisy',
@@ -313,6 +315,8 @@ describe('slot .env values', () => {
       }),
       expected: {
         DATABASE_URL: 'postgres://daisy:pw@127.0.0.1:35432/daisy_wt_abc',
+        OBSERVATION_DATABASE_URL:
+          'postgres://daisy:pw@127.0.0.1:35432/daisy_wt_abc',
         TEST_DATABASE_URL:
           'postgres://daisy:pw@127.0.0.1:35432/daisy_wt_abc_test',
         REDIS_NAMESPACE: 'daisy-wt-abc',

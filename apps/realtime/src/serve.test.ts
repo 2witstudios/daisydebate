@@ -157,12 +157,13 @@ test('runtime shutdown cancels both polling and reauthorization timers exactly o
   await running.close();
   await running.close();
   assert({
-    given: 'an injected poll/authorization scheduler and repeated shutdown',
+    given:
+      'an injected poll/authorization/observation scheduler and repeated shutdown',
     should: 'release every runtime resource once',
     actual: { scheduled, cleared: cleared.length, unlistened, stopped },
     expected: {
-      scheduled: [1000, 50000],
-      cleared: 2,
+      scheduled: [500, 500, 1000, 50000],
+      cleared: 4,
       unlistened: 1,
       stopped: 1,
     },
