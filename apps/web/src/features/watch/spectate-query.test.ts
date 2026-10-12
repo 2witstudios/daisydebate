@@ -11,7 +11,7 @@ describe('parseSpectateQuery', () => {
   test('defaults and valid values', () => {
     assert({
       given: 'no parameters, then a pane and a debate report',
-      should: 'default to speeches with no dialog, then read them',
+      should: 'default to the transcript with no dialog, then read them',
       actual: [
         parseSpectateQuery({}),
         parseSpectateQuery({ pane: 'chat', report: 'debate' }),
@@ -20,7 +20,7 @@ describe('parseSpectateQuery', () => {
       expected: [
         defaultSpectateQuery,
         { pane: 'chat', report: { kind: 'debate' } },
-        { pane: 'speeches', report: { kind: 'message', id: 'c4' } },
+        { pane: 'transcript', report: { kind: 'message', id: 'c4' } },
       ],
     });
   });
@@ -54,7 +54,7 @@ describe('spectateHref', () => {
           pane: 'chat',
           report: { kind: 'message', id: 'c4' },
         }),
-        spectateHref('top', { pane: 'speeches', report: { kind: 'debate' } }),
+        spectateHref('top', { pane: 'transcript', report: { kind: 'debate' } }),
       ],
       expected: [
         '/watch/top',

@@ -21,6 +21,8 @@ type SeatView = {
   readonly side: Side;
   readonly label: string;
   readonly handle: string;
+  /** Up to two letters from the handle, shown on the video tile. */
+  readonly initials: string;
   readonly rating: number;
   readonly standing: string;
   /** What they are doing now; null once the debate has ended. */
@@ -99,11 +101,8 @@ export type SpectateView = {
   readonly reportTarget: string | null;
   /** True once a report was sent; nothing can send one yet. */
   readonly reportSent: boolean;
-  readonly about: {
-    readonly rules: string;
-    readonly season: string;
-    readonly delaySeconds: number;
-  };
+  /** How far the audience runs behind the debaters. */
+  readonly delaySeconds: number;
 };
 
 type Input = {
@@ -126,6 +125,14 @@ const STANDINGS = {
   provisional: 'Provisional',
 } as const;
 
+/** "debater-a" reads as DA; a one-word handle gives its first two letters. */
+const initialsOf = (handle: string): string => {
+  const words = handle.split(/[^a-z0-9]+/i).filter(Boolean);
+  const letters =
+    words.length > 1 ? words.map((word) => word[0]).join('') : handle;
+  return letters.slice(0, 2).toUpperCase();
+};
+
 /** A speech still being spoken reads as its first words and an ellipsis. */
 const partial = (text: string): string =>
   `${text.split(' ').slice(0, 8).join(' ')}…`;
@@ -140,6 +147,7 @@ function seatView(
     side,
     label: sideLabel(side),
     handle: debater.handle,
+    initials: initialsOf(debater.handle),
     rating: debater.rating,
     standing: STANDINGS[debater.standing],
     activity:
@@ -283,10 +291,6 @@ export function buildSpectateView(input: Input): SpectateView {
     query,
     reportTarget: reportTargetOf(input),
     reportSent: input.reportSent ?? false,
-    about: {
-      rules: rulesLabel(debate),
-      season: context.season,
-      delaySeconds: context.delaySeconds,
-    },
+    delaySeconds: context.delaySeconds,
   };
 }

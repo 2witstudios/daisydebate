@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { cn } from '../../cn';
 import { paneTabClass } from '../spectate/spectate-class';
 
 export type PaneTabsProps = {
@@ -8,14 +9,25 @@ export type PaneTabsProps = {
     readonly href: string;
     readonly active: boolean;
   }[];
+  /** The navigation's accessible name. */
+  readonly label?: string;
+  /** False keeps the tabs at every width. */
+  readonly phoneOnly?: boolean;
 };
 
-/** Phone-only pane tabs: links that set `?pane=`, so they work with no script. */
-export function PaneTabs({ panes }: PaneTabsProps) {
+/** Pane tabs: links that set `?pane=`, so they work with no script. */
+export function PaneTabs({
+  panes,
+  label = 'Pane',
+  phoneOnly = true,
+}: PaneTabsProps) {
   return (
     <nav
-      aria-label="Pane"
-      className="hidden border-b border-border max-compact:flex"
+      aria-label={label}
+      className={cn(
+        'border-b border-border',
+        phoneOnly ? 'hidden max-compact:flex' : 'flex',
+      )}
     >
       {panes.map((pane) => (
         <Link
