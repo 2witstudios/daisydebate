@@ -71,6 +71,29 @@ test('actual projection role reads coherent restricted ISO history using numeric
           ],
         },
       });
+      await assertRejects({
+        given: 'a descriptor whose disclosure revision was superseded',
+        should: 'refuse rather than serve a body under old disclosure',
+        actual: () =>
+          reader.readObservationProjection({
+            ...input,
+            base: {
+              ...input.base,
+              disclosureRevision: header!.disclosureRevision + 1,
+            },
+          }),
+        code: 'INFRASTRUCTURE',
+      });
+      await assertRejects({
+        given: 'a minimum content revision newer than the committed header',
+        should: 'refuse a body that predates the required content',
+        actual: () =>
+          reader.readObservationProjection({
+            ...input,
+            minimumContentRevision: header!.contentRevision + 1,
+          }),
+        code: 'INFRASTRUCTURE',
+      });
       const empty = await reader.readObservationProjection({
         ...input,
         base: { ...input.base, window: { after: 2147483648, limit: 1 } },

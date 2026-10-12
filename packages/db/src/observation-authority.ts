@@ -1,7 +1,4 @@
-import {
-  sameObservationFactSet,
-  observationFactsWereFenced,
-} from './observation-fenced-facts';
+import { observationFenceStale } from './observation-fenced-facts';
 import { decideObservationBinding } from './observation-authority-decision';
 import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
@@ -70,10 +67,7 @@ export function createObservationAuthorityOperations(
               dependencies.pairs,
             );
             const current = await observationFacts(tx, bindings);
-            if (
-              !sameObservationFactSet(discovered, current) ||
-              !observationFactsWereFenced(current, fenced)
-            )
+            if (observationFenceStale(discovered, current, fenced))
               throw new CastChanged();
             const [edge] = await tx.execute(
               sql`select clock_timestamp() as now`,
