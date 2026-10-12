@@ -76,7 +76,14 @@ for (const mode of [
         if (calls <= 2) return []; // Unknown minimal age facts are not an eligibility grant.
         if (calls === 3) {
           if (mode === 'expired-session') instant = expiry;
-          return [{ userId: principal.userId, expiresAt: new Date(expiry) }];
+          // Session expiry is evaluated against database time after waits.
+          return [
+            {
+              userId: principal.userId,
+              expiresAt: new Date(expiry),
+              databaseNow: new Date(instant),
+            },
+          ];
         }
         return [
           {
@@ -128,7 +135,8 @@ for (const mode of [
       actual: { frames, queries: calls, deadline: result?.validUntil ?? null },
       expected: {
         frames: 1,
-        queries: 4,
+        // An expired session refuses before its account read.
+        queries: mode === 'expired-session' ? 3 : 4,
         deadline: mode === 'approved-test' ? Date.parse(expiry) : null,
       },
     });
