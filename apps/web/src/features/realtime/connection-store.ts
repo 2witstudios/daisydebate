@@ -36,6 +36,7 @@ export function createConnectionStore(
 ): ConnectionStore {
   const diagnostics = createConnectionDiagnostics();
   let generation = 0;
+  let disposed = false;
   let status: ConnectionStatus = 'idle';
   let terminal: TerminalReason | null = null;
   let socket: WebSocketLike | null = null;
@@ -70,7 +71,7 @@ export function createConnectionStore(
     },
   });
 
-  deps.onVisibilityChange((visible) => {
+  const releaseVisibility = deps.onVisibilityChange((visible) => {
     if (visible && status === 'open' && socket) sendVisibilityPing(generation);
   });
 
@@ -264,6 +265,7 @@ export function createConnectionStore(
   }
 
   function connect() {
+    if (disposed) return;
     if (status === 'connecting' || status === 'open') return;
     generation += 1;
     const myGeneration = generation;
@@ -344,6 +346,13 @@ export function createConnectionStore(
     resubscribeTopic: topics.resubscribe,
     connect,
     close,
+    dispose() {
+      if (disposed) return;
+      disposed = true;
+      releaseVisibility();
+      close();
+      listeners.clear();
+    },
     notifyTokenRefreshed: () => {
       // Intentionally a no-op: a token refresh never reconnects a healthy
       // socket (RT-2.6a AC4). The seam exists so a caller has somewhere to
