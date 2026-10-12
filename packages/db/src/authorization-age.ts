@@ -49,7 +49,7 @@ function checkedInstant(input: AgeInput) {
     throw createAppError('VALIDATION');
   return instant;
 }
-function projection(
+export function authorizationAgeProjection(
   row: Record<string, unknown>,
   input: AgeInput,
   instant: Date,
@@ -89,5 +89,9 @@ export async function loadAuthorizationAgeFact(
   )`);
   if (rows.length !== 1 || typeof rows[0] !== 'object' || rows[0] === null)
     return { state: 'unknown' };
-  return projection(rows[0] as Record<string, unknown>, input, instant);
+  return authorizationAgeProjection(
+    rows[0] as Record<string, unknown>,
+    input,
+    instant,
+  );
 }

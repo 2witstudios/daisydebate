@@ -1,4 +1,5 @@
 import { readObservationHeaders } from './observation-headers';
+import { createObservationAuthorityOperations } from './observation-authority';
 import {
   createWorkloadExecutor,
   workloadDatabase,
@@ -158,7 +159,15 @@ export function createDatabase({
     'admission',
   );
   const headersDatabase = workloadDatabase(rawDatabase, executor, 'headers');
+  const renewalDatabase = workloadDatabase(rawDatabase, executor, 'renewal');
   return {
+    observationAuthority: (
+      decide: Parameters<typeof createObservationAuthorityOperations>[1],
+    ) =>
+      createObservationAuthorityOperations(
+        { admission: authorityDatabase, renewal: renewalDatabase },
+        decide,
+      ),
     readObservationHeaders: (
       resources: Parameters<typeof readObservationHeaders>[1],
     ) => readObservationHeaders(headersDatabase, resources),

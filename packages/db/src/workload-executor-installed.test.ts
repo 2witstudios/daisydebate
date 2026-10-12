@@ -21,6 +21,35 @@ test('installed Drizzle descriptors cannot start extra transport work while capa
     'social',
   );
   const admitted = db.execute(sql`select 1`);
+  await assertRejects({
+    given: 'a mutable descriptor injected through the owning surface',
+    should: 'refuse raw-receiver getter injection before it runs',
+    actual: () =>
+      Object.defineProperty(db, 'select', {
+        get() {
+          throw new Error('Raw receiver getter executed');
+        },
+      }),
+    code: 'INFRASTRUCTURE',
+  });
+  assert({
+    given: 'prototype reflection of the owning surface',
+    should: 'expose no raw mutable prototype',
+    actual: Object.getPrototypeOf(db),
+    expected: null,
+  });
+  for (const mutate of [
+    () => Reflect.set(db, 'select', () => 0),
+    () => Reflect.deleteProperty(db, 'select'),
+    () => Reflect.setPrototypeOf(db, {}),
+    () => Reflect.preventExtensions(db),
+  ])
+    await assertRejects({
+      given: 'a held query and a reflective surface mutation',
+      should: 'refuse mutation before touching the raw target',
+      actual: mutate,
+      code: 'INFRASTRUCTURE',
+    });
   for (const capability of ['$client', 'session'])
     await assertRejects({
       given: 'an installed Drizzle object with one actual query held',
