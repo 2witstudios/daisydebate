@@ -1,27 +1,21 @@
 import { createId } from '@paralleldrive/cuid2';
 import { drizzle } from 'drizzle-orm/bun-sql';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import { sql } from 'drizzle-orm';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { requireTestServices } from '@daisy/config';
 import { createObservationProjectionOperations } from '../src/observation-projection';
 import { readObservationHeaders } from '../src/observation-headers';
 import { withFixture, sqlStateOf } from './constraint-helpers';
+import {
+  projectionInput,
+  projectionOwner,
+  readCurrentProjection,
+} from './observation.test-support';
 import { createMessagingTestFixture } from '../src/messaging/test-fixture';
 import { createAuthorizationSubject } from './authorization.test-support';
 import { validConfig, validRules } from './round-fixtures';
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
-const projectionOwner = (
-  db: BunSQLDatabase,
-): Pick<BunSQLDatabase, 'transaction'> => ({
-  transaction: (work, options) =>
-    db.transaction(async (tx) => {
-      await tx.execute(sql`set local role daisy_projection`);
-      return work(tx);
-    }, options),
-});
 test('actual projection role reads coherent restricted ISO history using numeric windows and exact disclosure/purge', async () => {
   await withFixture(url, async (f) => {
     const fixture = await createMessagingTestFixture(f.sql),
@@ -33,20 +27,7 @@ test('actual projection role reads coherent restricted ISO history using numeric
       const [header] = await readObservationHeaders(db, [resource]);
       const owner = projectionOwner(db);
       const reader = createObservationProjectionOperations(owner);
-      const input = {
-        base: {
-          schema: 1 as const,
-          resource,
-          partition: {
-            kind: 'shared' as const,
-            policyKey: 'channel-messages-v1',
-          },
-          disclosureRevision: header!.disclosureRevision,
-          window: { after: 2147483649, limit: 1 },
-        },
-        minimumContentRevision: header!.contentRevision,
-        purgeGeneration: header!.purgeGeneration,
-      };
+      const input = projectionInput(header!, { after: 2147483649, limit: 1 });
       const result = await reader.readObservationProjection(input);
       assert({
         given:
@@ -173,31 +154,12 @@ test('Room and Round providers expose only fixed shared envelopes under the proj
       created_by_actor_id: subject.actorId,
       visibility: 'public',
     });
-    const db = drizzle({ client: f.sql }),
-      reader = createObservationProjectionOperations(projectionOwner(db));
+    const db = drizzle({ client: f.sql });
     const kinds = ['room', 'round'] as const;
     const rows = [];
     for (const kind of kinds) {
       const resource = { kind, id: kind === 'room' ? roomId : roundId };
-      const [header] = await readObservationHeaders(db, [resource]);
-      rows.push(
-        (
-          await reader.readObservationProjection({
-            base: {
-              schema: 1,
-              resource,
-              partition: {
-                kind: 'shared',
-                policyKey: kind === 'room' ? 'room-safe-v1' : 'round-clock-v1',
-              },
-              disclosureRevision: header!.disclosureRevision,
-              window: { after: null, limit: 1 },
-            },
-            minimumContentRevision: header!.contentRevision,
-            purgeGeneration: header!.purgeGeneration,
-          })
-        ).rows[0]!,
-      );
+      rows.push((await readCurrentProjection(db, resource)).rows[0]!);
     }
     const [room, round] = rows;
     assert({

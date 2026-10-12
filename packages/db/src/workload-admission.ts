@@ -17,7 +17,7 @@ type Timers = {
   readonly clearTimeout: (id: never) => void;
 };
 /** Bounded FIFO waiters and the oldest admissible wait before a queued operation is refused unrun. */
-export type WorkloadQueue = {
+type WorkloadQueue = {
   readonly depth: number;
   readonly maxWaitMs: number;
 };
