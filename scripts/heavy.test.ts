@@ -3,14 +3,18 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
+  ancestors,
   claimFile,
   claimPlan,
-  E2E_ENV,
+  HEAVY_ENV,
   keepsClaim,
   lockDir,
+  nestedIn,
   parseHeld,
+  parseProcessTable,
   readLimit,
-} from './e2e-limit';
+  waitingLine,
+} from './heavy';
 
 setupRitewayBun();
 
@@ -138,17 +142,80 @@ describe('claimFile', () => {
   });
 });
 
+describe('nested runs', () => {
+  const table = parseProcessTable(
+    ['  PID  PPID', '    1     0', '  100     1', '  200   100', '  300   200', '  400     1', ''].join('\n'),
+  );
+
+  test('reads ancestry from the process table, nearest first', () => {
+    assert({
+      given: 'a process three levels below init, a sibling tree, and an unknown pid',
+      should: 'list its ancestors up to init, the sibling only init, and nothing',
+      actual: [ancestors(table, 300), ancestors(table, 400), ancestors(table, 999)],
+      expected: [[200, 100, 1], [1], []],
+    });
+  });
+
+  test('stops at a cycle in the process table', () => {
+    assert({
+      given: 'two pids that name each other as parent',
+      should: 'list the other once and stop',
+      actual: ancestors(
+        new Map([
+          [5, 6],
+          [6, 5],
+        ]),
+        5,
+      ),
+      expected: [6, 5],
+    });
+  });
+
+  test('runs inside a live ancestor claim instead of claiming', () => {
+    const held = [{ slot: 0, pid: 100 }];
+    assert({
+      given:
+        'a claim held by a live ancestor, by a dead ancestor, and by a live run outside the lineage',
+      should: 'nest in the first, and claim normally in the other two',
+      actual: [
+        nestedIn(held, ancestors(table, 300), () => true),
+        nestedIn(held, ancestors(table, 300), (pid) => pid !== 100),
+        nestedIn(held, ancestors(table, 400), () => true),
+      ],
+      expected: [{ slot: 0, pid: 100 }, undefined, undefined],
+    });
+  });
+});
+
+describe('waitingLine', () => {
+  test('names the live holders it waits for', () => {
+    assert({
+      given: 'one live holder and one dead claim under a limit of 1',
+      should: 'name only the live holder pid and the limit',
+      actual: waitingLine(
+        [
+          { slot: 0, pid: 4242 },
+          { slot: 1, pid: 77 },
+        ],
+        (pid) => pid === 4242,
+        1,
+      ),
+      expected: 'heavy: waiting for pid 4242 (DAISY_HEAVY_CONCURRENCY=1)\n',
+    });
+  });
+});
+
 describe('readLimit', () => {
-  test('reads a positive DAISY_E2E_CONCURRENCY and defaults to 2', () => {
+  test('reads a positive DAISY_HEAVY_CONCURRENCY and defaults to 1', () => {
     assert({
       given: 'a set value, nothing, and nonsense',
       should: 'use the value, then the default twice',
       actual: [
-        readLimit({ DAISY_E2E_CONCURRENCY: '3' }),
+        readLimit({ DAISY_HEAVY_CONCURRENCY: '3' }),
         readLimit({}),
-        readLimit({ DAISY_E2E_CONCURRENCY: '0' }),
+        readLimit({ DAISY_HEAVY_CONCURRENCY: '0' }),
       ],
-      expected: [3, 2, 2],
+      expected: [3, 1, 1],
     });
   });
 });
@@ -156,49 +223,89 @@ describe('readLimit', () => {
 describe('one machine-wide pool', () => {
   test('uses one fixed lock directory whatever TMPDIR says', () => {
     assert({
-      given: 'two TMPDIRs, and an explicit DAISY_E2E_LOCK_DIR',
+      given: 'two TMPDIRs, and an explicit DAISY_HEAVY_LOCK_DIR',
       should:
-        'use /tmp/daisy-e2e-slots for both, and the explicit one when set',
+        'use /tmp/daisy-heavy-slots for both, and the explicit one when set',
       actual: [
         lockDir({ TMPDIR: '/var/folders/xy/T/' }),
         lockDir({ TMPDIR: '/tmp' }),
-        lockDir({ DAISY_E2E_LOCK_DIR: '/srv/e2e', TMPDIR: '/tmp' }),
+        lockDir({ DAISY_HEAVY_LOCK_DIR: '/srv/heavy', TMPDIR: '/tmp' }),
       ],
-      expected: ['/tmp/daisy-e2e-slots', '/tmp/daisy-e2e-slots', '/srv/e2e'],
+      expected: [
+        '/tmp/daisy-heavy-slots',
+        '/tmp/daisy-heavy-slots',
+        '/srv/heavy',
+      ],
     });
   });
 
-  test('passes the limit settings through turbo to test:e2e', async () => {
+  test('passes the limit settings through turbo to every task', async () => {
     const turbo = (await Bun.file(
       new URL('../turbo.json', import.meta.url),
-    ).json()) as {
-      tasks: Record<string, { passThroughEnv?: string[] }>;
-    };
+    ).json()) as { globalPassThroughEnv?: string[] };
     assert({
-      given: "turbo's strict env mode and the test:e2e task",
-      should: 'pass every DAISY_E2E_* setting through',
-      actual: E2E_ENV.every((name) =>
-        turbo.tasks['test:e2e']?.passThroughEnv?.includes(name),
+      given: "turbo's strict env mode",
+      should: 'pass every DAISY_HEAVY_* setting through globally',
+      actual: HEAVY_ENV.every((name) =>
+        turbo.globalPassThroughEnv?.includes(name),
       ),
       expected: true,
     });
   });
+
+  test('queues every heavy root and web script', async () => {
+    const scripts = async (path: string) =>
+      (
+        (await Bun.file(new URL(path, import.meta.url)).json()) as {
+          scripts: Record<string, string>;
+        }
+      ).scripts;
+    const root = await scripts('../package.json');
+    const web = await scripts('../apps/web/package.json');
+    const queued = (command: string | undefined, prefix: string) =>
+      command?.startsWith(prefix) ?? false;
+    assert({
+      given: 'the root and apps/web package scripts',
+      should: 'start each heavy one through the queue',
+      actual: {
+        root: [
+          'build',
+          'typecheck',
+          'lint',
+          'test',
+          'test:integration',
+          'test:e2e',
+          'check',
+          'check:affected',
+          'verify',
+          'dev',
+          'dev:agent',
+          'knip',
+          'duplication',
+        ].filter((name) => !queued(root[name], 'bun scripts/heavy.ts ')),
+        web: ['dev', 'build', 'typecheck', 'test', 'test:e2e'].filter(
+          (name) => !queued(web[name], 'bun ../../scripts/heavy.ts '),
+        ),
+      },
+      expected: { root: [], web: [] },
+    });
+  });
 });
 
-describe('e2e limit across real processes', () => {
+describe('heavy queue across real processes', () => {
   const root = new URL('..', import.meta.url).pathname;
 
   async function runConcurrently(limit: number): Promise<[number, number][]> {
-    const dir = mkdtempSync(join(tmpdir(), 'grd-6-e2e-limit-'));
+    const dir = mkdtempSync(join(tmpdir(), 'heavy-limit-'));
     const log = join(dir, 'log');
     const job = `const s=Date.now(); await Bun.sleep(300); require('node:fs').appendFileSync(${JSON.stringify(log)}, s + ' ' + Date.now() + '\\n');`;
     const runs = Array.from({ length: 3 }, () =>
-      Bun.spawn(['bun', `${root}scripts/e2e-limit.ts`, 'bun', '-e', job], {
+      Bun.spawn(['bun', `${root}scripts/heavy.ts`, 'bun', '-e', job], {
         env: {
           ...process.env,
-          DAISY_E2E_CONCURRENCY: String(limit),
-          DAISY_E2E_LOCK_DIR: join(dir, 'slots'),
-          DAISY_E2E_POLL_MS: '25',
+          DAISY_HEAVY_CONCURRENCY: String(limit),
+          DAISY_HEAVY_LOCK_DIR: join(dir, 'slots'),
+          DAISY_HEAVY_POLL_MS: '25',
         },
         stdout: 'ignore',
         stderr: 'ignore',
@@ -227,6 +334,39 @@ describe('e2e limit across real processes', () => {
         overlaps(await runConcurrently(3)),
       ],
       expected: [false, true],
+    });
+  });
+
+  test('runs a nested heavy command inside its ancestor's slot', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'heavy-nested-'));
+    const out = join(dir, 'out');
+    const heavy = `${root}scripts/heavy.ts`;
+    const write = `require('node:fs').writeFileSync(${JSON.stringify(out)}, 'ran')`;
+    const outer = Bun.spawn(
+      ['bun', heavy, 'bun', heavy, 'bun', heavy, 'bun', '-e', write],
+      {
+        env: {
+          ...process.env,
+          DAISY_HEAVY_CONCURRENCY: '1',
+          DAISY_HEAVY_LOCK_DIR: join(dir, 'slots'),
+          DAISY_HEAVY_POLL_MS: '25',
+        },
+        stdout: 'ignore',
+        stderr: 'pipe',
+      },
+    );
+    const deadline = setTimeout(() => outer.kill(), 15_000);
+    const code = await outer.exited;
+    clearTimeout(deadline);
+    assert({
+      given: 'a run that holds the only slot and starts two nested runs',
+      should: 'run the innermost command without queueing and exit 0',
+      actual: {
+        code,
+        out: readFileSync(out, 'utf8'),
+        stderr: await new Response(outer.stderr).text(),
+      },
+      expected: { code: 0, out: 'ran', stderr: '' },
     });
   });
 });
