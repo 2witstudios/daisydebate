@@ -166,3 +166,15 @@ the room shows `Mic live` or `Mic closed` and never a Mute control. A
 human judge appears only as `Judge present`; the judge's name never
 reaches the debaters' browsers. Only the video resizes. Controls with no
 backend are shown disabled, never faked.
+
+## Spectator view
+
+The audience's view of a debate (`/watch/[debateId]`) stays inside the app
+shell. The speaker is large with the other debater inset, using the round
+room's video tile, and the phase and clock sit in a strip under the stage;
+once the debate ends both debaters show side by side. The header carries
+Live, the spectator delay and the audience count, with Report and Leave.
+The live column has two tabs, Transcript and Chat, chosen by `?pane=` so
+they work without script, over the chat composer; reactions sit at the top
+of Chat. The report dialog opens from `?report=`. Spectators never see a
+debater's flow document.
