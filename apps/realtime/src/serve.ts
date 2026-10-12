@@ -35,6 +35,20 @@ const listenerTls = (tls: Bun.TLSOptions | undefined) =>
 const readerPolicy = (readingPolicy: RealtimeReadingPolicy | undefined) =>
   readingPolicy === undefined ? {} : { readingPolicy };
 
+type Projection = NonNullable<
+  NonNullable<Parameters<typeof serveRealtime>[0]['observation']>['projection']
+>;
+/** The eligible worker's header/body reads and its relay lane. */
+const eligible = (projection: Projection) => ({
+  projection,
+  relayOutbox: {
+    highWaterMark: () => projection.relayOutbox.readOutboxHighWaterMark(),
+    drain: (
+      position: Parameters<Projection['relayOutbox']['drainOutbox']>[0],
+      limit: number,
+    ) => projection.relayOutbox.drainOutbox(position, limit),
+  },
+});
 /** Process-local observation roles; clock uncertainty fails closed. */
 function composeObservation({
   resources,
@@ -79,7 +93,7 @@ function composeObservation({
       ),
     }),
     maxPerSession: resources.transport.maxSubscriptions,
-    ...(observation.projection ? { projection: observation.projection } : {}),
+    ...(observation.projection ? eligible(observation.projection) : {}),
     ...(observation.channelBounds
       ? { channelBounds: observation.channelBounds }
       : {}),
@@ -132,7 +146,7 @@ export async function serveRealtime({
   readonly observation?: {
     readonly projection?: Pick<
       Database,
-      'readObservationHeaders' | 'readObservationProjection'
+      'readObservationHeaders' | 'readObservationProjection' | 'relayOutbox'
     >;
     readonly channelBounds?: MessagingCoreBounds;
   };

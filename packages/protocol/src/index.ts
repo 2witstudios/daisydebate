@@ -159,6 +159,7 @@ export { createMessagingCoreSchemas } from './messaging/core';
 export { messagingMessageView } from './messaging/message-view';
 export {
   createObservationChannelBody,
+  observationChannelOverlaySchema,
   observationProjectionRowBytes,
 } from './messaging/observation-channel';
 export type { MessagingCoreBounds } from './messaging/core';

@@ -7,6 +7,7 @@ import {
 import { manageNativeReactions } from './support/messaging-reactions';
 import {
   proveDraftAndRevocation,
+  proveLiveReactions,
   proveSnapshotDelivery,
 } from './support/messaging-observation';
 import { manageNativePreferences } from './support/messaging-preferences';
@@ -39,6 +40,17 @@ test('an unsent edit survives another participant posting and revocation removes
   const journey = await openMessagingJourney(browser);
   try {
     await proveDraftAndRevocation(journey);
+  } finally {
+    await journey.close();
+  }
+});
+
+test('another participant reaction updates an open reactions view without a refetch', async ({
+  browser,
+}) => {
+  const journey = await openMessagingJourney(browser);
+  try {
+    await proveLiveReactions(journey);
   } finally {
     await journey.close();
   }

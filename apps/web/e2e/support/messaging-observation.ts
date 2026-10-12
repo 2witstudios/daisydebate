@@ -106,3 +106,38 @@ export async function proveDraftAndRevocation(journey: Journey) {
   await expect(sender.getByLabel('Revise your message')).toHaveCount(0);
   await expect(sender.getByText(own)).toHaveCount(0);
 }
+/** RT-2.3c-arch1-reactions1: another participant's reaction reaches an open
+ * reactions view from the shared snapshot, without navigation or refetch. */
+export async function proveLiveReactions(journey: Journey) {
+  const recipient = await acceptMessagingJourney(journey);
+  const text = 'A message both participants react to';
+  await recipient.getByLabel('Your message').fill(text);
+  await recipient
+    .getByRole('button', { name: 'Send message', exact: true })
+    .click();
+  const sender = await openPage(journey.sender, 'the reactions viewer');
+  await sender.goto(`/messages/${journey.channelId}`);
+  await messageInHistory(sender, text)
+    .locator('xpath=ancestor::li')
+    .getByRole('link', { name: 'Reactions', exact: true })
+    .click();
+  const traffic = observeTraffic(sender);
+  const reactions = sender.getByRole('list', { name: 'Current reactions' });
+  await expect
+    .poll(() =>
+      traffic.frames.some((frame) => frame.type === 'observation.snapshot'),
+    )
+    .toBe(true);
+  traffic.refetches.length = 0;
+  await messageInHistory(recipient, text)
+    .locator('xpath=ancestor::li')
+    .getByRole('link', { name: 'Reactions', exact: true })
+    .click();
+  await recipient
+    .getByRole('button', { name: 'React 👍', exact: true })
+    .click();
+  await expect(reactions).toContainText('👍 · 1');
+  await expect(reactions).not.toContainText('You reacted');
+  expect(traffic.refetches).toEqual([]);
+  expect(traffic.invalidFrames).toEqual([]);
+}

@@ -1,7 +1,10 @@
 'use client';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import type { MessagingCoreBounds } from '@daisy/protocol';
+import {
+  observationChannelOverlaySchema,
+  type MessagingCoreBounds,
+} from '@daisy/protocol';
 import { createBrowserTypingReader } from './typing-browser';
 import { MessageHistory } from './message-history';
 import { createBrowserConnectionStore } from '../../features/realtime/browser-adapters';
@@ -114,6 +117,67 @@ export function MessageEditLive({
   if (view.content !== null && (!current || 'unavailable' in current))
     return <p role="status">Message removed.</p>;
   return <>{children}</>;
+}
+
+type ReactionCount = {
+  readonly reaction: string;
+  readonly count: number;
+  readonly own: boolean;
+};
+export function ReactionList({
+  items,
+}: {
+  readonly items: readonly ReactionCount[];
+}) {
+  return (
+    <ul aria-label="Current reactions">
+      {items.map((item) => (
+        <li key={item.reaction}>
+          {item.reaction} · {item.count}
+          {item.own ? ' · You reacted' : ''}
+        </li>
+      ))}
+    </ul>
+  );
+}
+/** Shared counts from the channel snapshot; the viewer's own reactions from
+ * the actor-private overlay of the same canonical admission. */
+export function ReactionsLive({
+  channelId,
+  messageId,
+  bounds,
+  before,
+  initial,
+}: {
+  readonly channelId: string;
+  readonly messageId: string;
+  readonly bounds: MessagingCoreBounds;
+  readonly before: number | null;
+  readonly initial: readonly ReactionCount[];
+}) {
+  const view = useChannel(channelId, bounds, before);
+  if (view.status === 'denied' || view.withdrawn)
+    return <p role="status">Conversation unavailable.</p>;
+  const message = view.content?.messages.find((item) => item.id === messageId);
+  if (view.content === null || !message)
+    return <ReactionList items={initial} />;
+  if ('unavailable' in message) return <p role="status">Message removed.</p>;
+  const overlay = observationChannelOverlaySchema.safeParse(view.overlay);
+  const own = new Set(
+    overlay.success
+      ? overlay.data.ownReactions
+          .filter((item) => item.messageId === messageId)
+          .map((item) => item.reaction)
+      : [],
+  );
+  return (
+    <ReactionList
+      items={message.reactions.map((item) => ({
+        ...item,
+        own: own.has(item.reaction),
+      }))}
+    />
+  );
 }
 
 export function InboxLive({

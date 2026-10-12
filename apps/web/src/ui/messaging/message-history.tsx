@@ -32,7 +32,7 @@ function MessageRow({
             Attachments
           </Link>
           <Link
-            href={`/messages/${channelId}/reactions?messageId=${message.id}`}
+            href={`/messages/${channelId}/reactions?messageId=${message.id}${message.sequence < Number.MAX_SAFE_INTEGER ? `&before=${message.sequence + 1}` : ''}`}
           >
             Reactions
           </Link>

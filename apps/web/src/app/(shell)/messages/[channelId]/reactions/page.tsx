@@ -5,6 +5,12 @@ import { requireAccess } from '../../../../../lib/access';
 import type { MessagingChannelPageProps } from '../../../../../features/messaging/channel-page';
 import { readReactionResponse } from '../../../../../features/messaging/reaction-response';
 import { ReactionForm } from '../../../../../ui/messaging/reaction-form';
+import {
+  ReactionList,
+  ReactionsLive,
+} from '../../../../../ui/messaging/conversation-live';
+import { readConversationResponse } from '../../../../../features/messaging/conversation';
+import { GET as MESSAGES } from '../../../../api/messaging/channels/[channelId]/messages/route';
 import { GET } from '../../../../api/messaging/channels/[channelId]/reactions/route';
 import { changeReactionAction } from './actions';
 export const metadata = { title: 'Message reactions' };
@@ -13,10 +19,25 @@ export default async function MessageReactionsPage({
   searchParams,
 }: MessagingChannelPageProps) {
   await requireAccess('/messages', searchParams);
-  const { channelId, messageId, incoming } = await messagePageContext({
+  const { channelId, messageId, incoming, intent } = await messagePageContext({
     params,
     searchParams,
   });
+  const position = Number(intent.before);
+  const before =
+    typeof intent.before === 'string' &&
+    Number.isSafeInteger(position) &&
+    position > 1
+      ? position
+      : null;
+  const conversation = await readConversationResponse(
+    await MESSAGES(
+      new Request(
+        `http://in-process.invalid/api/messaging/channels/${channelId}/messages${before === null ? '' : `?before=${before}`}`,
+        { headers: incoming },
+      ),
+    ),
+  );
   const response = await GET(
     new Request(
       `http://in-process.invalid/api/messaging/channels/${channelId}/reactions?messageId=${messageId}`,
@@ -32,14 +53,17 @@ export default async function MessageReactionsPage({
         <p role="status">Reactions are unavailable. Refresh to try again.</p>
       ) : (
         <>
-          <ul aria-label="Current reactions">
-            {current.result.reactions.map((item) => (
-              <li key={item.reaction}>
-                {item.reaction} · {item.count}
-                {item.own ? ' · You reacted' : ''}
-              </li>
-            ))}
-          </ul>
+          {conversation === null ? (
+            <ReactionList items={current.result.reactions} />
+          ) : (
+            <ReactionsLive
+              channelId={channelId}
+              messageId={messageId}
+              bounds={conversation.bounds}
+              before={before}
+              initial={current.result.reactions}
+            />
+          )}
           {[
             ...new Set([
               ...current.policy.choices,

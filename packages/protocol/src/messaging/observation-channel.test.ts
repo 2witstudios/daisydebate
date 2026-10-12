@@ -1,6 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   createObservationChannelBody,
+  observationChannelOverlaySchema,
   observationProjectionRowBytes,
 } from './observation-channel';
 import { observationServerMessageSchema } from '../observation-messages';
@@ -29,6 +30,7 @@ const row = (sequence: number, extra: Record<string, unknown> = {}) => ({
   createdAt: '2026-10-12T00:00:00.000Z',
   editedAt: null,
   removedAt: null,
+  reactions: [],
   ...extra,
 });
 const channel = createObservationChannelBody({
@@ -39,7 +41,10 @@ test('channel projection maps restricted rows into the shared body', () => {
   const projection = {
     base,
     header,
-    rows: [row(5), row(4, { removedAt: '2026-10-12T00:00:01.000Z' })],
+    rows: [
+      row(5, { reactions: [{ reaction: 'up', count: 2 }] }),
+      row(4, { removedAt: '2026-10-12T00:00:01.000Z', text: null }),
+    ],
     continuation: 4,
   };
   assert({
@@ -59,6 +64,7 @@ test('channel projection maps restricted rows into the shared body', () => {
             text: 'm5',
             createdAt: '2026-10-12T00:00:00.000Z',
             editedAt: null,
+            reactions: [{ reaction: 'up', count: 2 }],
           },
           {
             id: row(4).id,
@@ -93,6 +99,7 @@ test('channel projection maps restricted rows into the shared body', () => {
             text: 'm1',
             createdAt: '2026-10-12T00:00:00.000Z',
             editedAt: null,
+            reactions: [],
           },
         ],
         continuation: null,
@@ -112,6 +119,22 @@ test('channel projection refuses incoherent producer output', () => {
     { ...ok, rows: [row(5, { channelId: 'd'.repeat(24) }), row(4)] },
     { ...ok, rows: [row(5, { commandId: 'private' }), row(4)] },
     { ...ok, rows: [row(5, { text: 'x'.repeat(101) }), row(4)] },
+    {
+      ...ok,
+      rows: [
+        row(5, {
+          reactions: [
+            { reaction: 'up', count: 1 },
+            { reaction: 'up', count: 1 },
+          ],
+        }),
+        row(4),
+      ],
+    },
+    {
+      ...ok,
+      rows: [row(5, { reactions: [{ reaction: 'up', count: 0 }] }), row(4)],
+    },
     { ...ok, header: { ...header, disclosureRevision: 4 } },
     {
       ...ok,
@@ -139,7 +162,7 @@ test('channel projection refuses incoherent producer output', () => {
   ];
   assert({
     given:
-      'wrong continuation, ordering, window, channel, private field, oversized text, header or resource kind',
+      'wrong continuation, ordering, window, channel, private field, oversized text, duplicate or empty reactions, header or resource kind',
     should: 'report the projection unavailable rather than disclose it',
     actual: cases.map((input) => channel.fromProjection(input).status),
     expected: cases.map(() => 'unavailable'),
@@ -202,5 +225,23 @@ test('message bounds must fit one worst-case item in a frame', () => {
       }
     })(),
     expected: 'Message units exceed the observation row budget',
+  });
+});
+test('the own-reactions overlay names messages and reactions only', () => {
+  const own = { messageId: 'e'.repeat(24), reaction: 'up' };
+  assert({
+    given: 'an own reaction, an extra field and a malformed message id',
+    should: 'accept only the bounded actor-private shape',
+    actual: [
+      observationChannelOverlaySchema.safeParse({ ownReactions: [own] })
+        .success,
+      observationChannelOverlaySchema.safeParse({
+        ownReactions: [{ ...own, actorId: 'a'.repeat(24) }],
+      }).success,
+      observationChannelOverlaySchema.safeParse({
+        ownReactions: [{ ...own, messageId: 'x' }],
+      }).success,
+    ],
+    expected: [true, false, false],
   });
 });
