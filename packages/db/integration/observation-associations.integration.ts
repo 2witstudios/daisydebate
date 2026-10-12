@@ -1,0 +1,58 @@
+import { drizzle } from 'drizzle-orm/bun-sql';
+import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { requireTestServices } from '@daisy/config';
+import { readObservationHeaders } from '../src/observation-headers';
+import { createMessagingTestFixture } from '../src/messaging/test-fixture';
+import { withFixture } from './constraint-helpers';
+setupRitewayBun();
+const { databaseUrl: url } = requireTestServices(process.env);
+test('durable DM association and contact writers advance actor collection headers without hints', async () => {
+  await withFixture(url, async (f) => {
+    const fixture = await createMessagingTestFixture(f.sql);
+    const resources = [fixture.actorId, fixture.otherActorId].map((id) => ({
+      kind: 'inbox' as const,
+      id,
+    }));
+    const read = () =>
+      readObservationHeaders(drizzle({ client: f.sql }), resources);
+    try {
+      const initial = await read();
+      await f.sql`update messaging_dm_pairs set request_state='pending',decided_at=null where channel_id=${fixture.channelId}`;
+      const pending = await read();
+      await f.sql`update messaging_dm_pairs set introduction='Content alone' where channel_id=${fixture.channelId}`;
+      const same = await read();
+      await f.sql`update messaging_dm_pairs set request_state='accepted',decided_at=clock_timestamp() where channel_id=${fixture.channelId}`;
+      const accepted = await read();
+      await f.sql`update messaging_contact_pairs set low_blocks_high=true,revision=revision+1 where low_actor_id=${fixture.low} and high_actor_id=${fixture.high}`;
+      const blocked = await read();
+      assert({
+        given:
+          'actual DM request/accept and contact restriction writers without any relay',
+        should:
+          'initialize and advance both owning actor collection heads while content alone stays stable',
+        actual: {
+          initial: initial.length,
+          pending: pending.map(
+            (h, i) => h.contentRevision - initial[i]!.contentRevision,
+          ),
+          same,
+          accepted: accepted.map(
+            (h, i) => h.contentRevision - pending[i]!.contentRevision,
+          ),
+          purge: blocked.map(
+            (h, i) => h.purgeGeneration - accepted[i]!.purgeGeneration,
+          ),
+        },
+        expected: {
+          initial: 2,
+          pending: [1, 1],
+          same: pending,
+          accepted: [1, 1],
+          purge: [1, 1],
+        },
+      });
+    } finally {
+      await fixture.cleanup();
+    }
+  });
+});

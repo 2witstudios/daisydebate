@@ -42,10 +42,9 @@ async function authorizationActors(
       : sql`select * from public.daisy_authorization_accounts(${selector}, null::text, true)`,
   );
   const current = rows as unknown as AuthorizationAccountRow[];
+  const byActor = new Map(current.map((row) => [row.actorId, row]));
   return actorIds.map((actorId) =>
-    authorizationAccountFact(
-      current.find((row) => row.actorId === actorId) ?? null,
-    ),
+    authorizationAccountFact(byActor.get(actorId) ?? null),
   );
 }
 /** Read-only requests get fresh rows without keeping a cross-request cache. */

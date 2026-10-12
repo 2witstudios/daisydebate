@@ -95,10 +95,30 @@ export async function readMessagingChannelFact(
   channelId: string,
   actorId: string,
 ): Promise<MessagingChannelFact | null> {
-  idSchema.parse(channelId);
-  idSchema.parse(actorId);
-  const rows = (await tx.execute(sql`
-    select jsonb_build_object(
+  const rows = await queryMessagingChannelFacts(tx, [{ channelId, actorId }]);
+  return rows[0] ? parseMessagingChannelFact(rows[0].fact) : null;
+}
+/** One bounded source cast per channel, reused across principals; overflow is never truncated policy. */
+async function queryMessagingChannelFacts(
+  tx: MessagingTransaction,
+  bindings: readonly { channelId: string; actorId: string }[],
+) {
+  if (
+    bindings.length < 1 ||
+    bindings.length > 256 ||
+    bindings.some(
+      (b) =>
+        !idSchema.safeParse(b.channelId).success ||
+        !idSchema.safeParse(b.actorId).success,
+    )
+  )
+    throw createAppError('VALIDATION');
+  const rows = await tx.execute(sql`
+    with requested as materialized (select distinct * from jsonb_to_recordset(${JSON.stringify(bindings)}::text::jsonb) as b("channelId" text,"actorId" text)),
+    selected as materialized (select c.id,c.kind,c.policy_key,c.policy_revision,c.lifecycle,c.authority_revision from ${messagingChannels} c where c.id in(select "channelId" from requested)),
+    cast_rows as materialized (select g.channel_id,g.actor_id from ${messagingGroupGrants} g join selected c on c.id=g.channel_id and c.kind='private_group' where g.revoked_at is null order by g.channel_id,g.actor_id limit 4097),
+    casts as materialized (select channel_id,jsonb_agg(actor_id order by actor_id) actors from cast_rows group by channel_id)
+    select requested."channelId",requested."actorId",(select count(*)::int from cast_rows) as "castFacts",jsonb_build_object(
       'kind', 'channel', 'channelId', c.id,
       'policyKey', c.policy_key, 'policyRevision', c.policy_revision,
       'lifecycle', c.lifecycle, 'revision', c.authority_revision,
@@ -107,18 +127,39 @@ export async function readMessagingChannelFact(
         'requestSenderActorId', d.request_sender_actor_id, 'state', d.request_state,
         'blocked', p.low_blocks_high or p.high_blocks_low, 'revision', p.revision
       ) else jsonb_build_object(
-        'kind', 'private_group', 'actorId', ${actorId}::text,
+        'kind', 'private_group', 'actorId', requested."actorId",
         'role', case when g.revoked_at is null then g.role else null end,
         'generation', coalesce(g.generation, 0),
-        'activeMemberActorIds', coalesce((select jsonb_agg(actor_id order by actor_id)
-          from ${messagingGroupGrants} where channel_id = c.id and revoked_at is null), '[]'::jsonb)
+        'activeMemberActorIds', coalesce(casts.actors, '[]'::jsonb)
       ) end
     ) as fact
-    from ${messagingChannels} c
+    from requested join selected c on c.id=requested."channelId"
     left join ${messagingDmPairs} d on d.channel_id = c.id
     left join ${messagingContactPairs} p on p.low_actor_id = d.low_actor_id and p.high_actor_id = d.high_actor_id
-    left join ${messagingGroupGrants} g on g.channel_id = c.id and g.actor_id = ${actorId}
-    where c.id = ${channelId} and (c.kind <> 'dm' or d.channel_id is not null)
-  `)) as unknown as Array<{ fact: unknown }>;
-  return rows.length === 0 ? null : parseMessagingChannelFact(rows[0]!.fact);
+    left join ${messagingGroupGrants} g on g.channel_id = c.id and g.actor_id = requested."actorId"
+    left join casts on casts.channel_id=c.id
+    where c.kind <> 'dm' or d.channel_id is not null
+  `);
+  if (rows.some((row) => Number(row.castFacts) > 4096))
+    throw createAppError(
+      'INFRASTRUCTURE',
+      'Authority fact capacity unavailable',
+    );
+  return rows;
+}
+
+export async function readMessagingChannelFacts(
+  tx: MessagingTransaction,
+  bindings: readonly { channelId: string; actorId: string }[],
+): Promise<readonly (MessagingChannelFact | null)[]> {
+  const rows = await queryMessagingChannelFacts(tx, bindings);
+  const byBinding = new Map(
+    rows.map((row) => [
+      `${row.channelId}:${row.actorId}`,
+      parseMessagingChannelFact(row.fact),
+    ]),
+  );
+  return bindings.map(
+    (b) => byBinding.get(`${b.channelId}:${b.actorId}`) ?? null,
+  );
 }
