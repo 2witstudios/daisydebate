@@ -1,9 +1,9 @@
+import type { ObservationAuthorityDecision } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { allowedObservationAuthority } from './observation-authority-state';
 import type {
   ObservationBinding,
   ObservationAuthorityContext,
-  ObservationAuthorityDecision,
 } from './observation-contracts';
 setupRitewayBun();
 const databaseNow = '2026-10-12T00:00:00.000Z';

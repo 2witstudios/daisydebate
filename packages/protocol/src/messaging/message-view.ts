@@ -1,4 +1,4 @@
-type MessageProjectionRecord = {
+export type MessageProjectionRecord = {
   readonly id: string;
   readonly channelId: string;
   readonly authorActorId: string;

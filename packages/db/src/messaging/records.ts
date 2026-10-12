@@ -1,19 +1,10 @@
+import type { MessageProjectionRecord } from '@daisy/protocol';
 import type { AuthorizationTransaction } from '../authorization';
 import type { MessagingChannelFact } from './social';
 import type { authorizationAccountFact } from '../authorization-account';
 
-export type MessagingMessageRecord = {
-  readonly id: string;
-  readonly channelId: string;
-  readonly authorActorId: string;
-  readonly sequence: number;
-  readonly changeVersion: number;
-  readonly text: string | null;
-  readonly createdAt: string;
-  readonly editedAt: string | null;
-  readonly removedAt: string | null;
-  readonly replyToMessageId?: string;
-};
+/** The durable message projection is the protocol's restricted record. */
+export type MessagingMessageRecord = MessageProjectionRecord;
 export type MessagingSendCommand = {
   readonly version: 1;
   readonly channelId: string;

@@ -10,7 +10,8 @@ import type {
   SocialPolicyEvidence,
 } from './authorization';
 import type {
-  ObservationPartition,
+  ObservationAuthorityDecision,
+  ObservationDependency,
   ObservationResource,
 } from '@daisy/protocol';
 export type ObservationAuthorityContext = {
@@ -27,21 +28,6 @@ export type ObservationAuthorityContext = {
   readonly socialAccounts?: readonly SocialAccountFact[];
   readonly databaseNow: string;
 };
-export type ObservationDependency = {
-  readonly scope: 'subject' | 'cohort' | 'entitlement';
-  readonly key: string;
-  readonly revision: string;
-  readonly nextBoundary: string | null;
-};
-export type ObservationAuthorityDecision =
-  | {
-      readonly status: 'allowed';
-      readonly partition: ObservationPartition;
-      readonly dependencies: readonly ObservationDependency[];
-      readonly eligibleUntil: string | null;
-      readonly overlay: unknown;
-    }
-  | { readonly status: 'denied' | 'unavailable' };
 export type ObservationReadingPolicy = (input: {
   readonly channel: ChannelAuthorizationFact;
   readonly accounts: readonly SocialAccountFact[];

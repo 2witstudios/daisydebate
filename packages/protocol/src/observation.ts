@@ -70,6 +70,23 @@ export type ObservationResource = z.infer<typeof observationResourceSchema>;
 export type ObservationPartition = z.infer<typeof observationPartitionSchema>;
 export type ObservationBase = z.infer<typeof observationBaseSchema>;
 export type ObservationHeader = z.infer<typeof observationHeaderSchema>;
+/** One fact an authority decision depends on, partitioned by who shares it. */
+export type ObservationDependency = {
+  readonly scope: 'subject' | 'cohort' | 'entitlement';
+  readonly key: string;
+  readonly revision: string;
+  readonly nextBoundary: string | null;
+};
+/** The pure policy result the authority producer turns into evidence. */
+export type ObservationAuthorityDecision =
+  | {
+      readonly status: 'allowed';
+      readonly partition: ObservationPartition;
+      readonly dependencies: readonly ObservationDependency[];
+      readonly eligibleUntil: string | null;
+      readonly overlay: unknown;
+    }
+  | { readonly status: 'denied' | 'unavailable' };
 export function observationResourceKey(resource: ObservationResource): string {
   const parsed = observationResourceSchema.parse(resource);
   return `${parsed.kind}-${parsed.id}`;
