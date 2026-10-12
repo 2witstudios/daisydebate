@@ -1,5 +1,6 @@
 import {
   observationBaseKey,
+  observationResourceKey,
   observationFrameBytes,
   type ObservationBase,
 } from '@daisy/protocol';
@@ -43,11 +44,24 @@ export function createObservationNode({
   };
 }) {
   const entries = new Map<string, Entry>();
+  const purges = new Map<string, number>();
   const jobs = new Map<Entry, Promise<void>>();
   let bindings = 0,
     encodedBytes = 0,
     closed = false,
     repairing = false;
+  function prunePurge(resourceKey: string) {
+    if (
+      [...entries.values()].some(
+        (entry) => observationResourceKey(entry.base.resource) === resourceKey,
+      ) ||
+      [...jobs.keys()].some(
+        (entry) => observationResourceKey(entry.base.resource) === resourceKey,
+      )
+    )
+      return;
+    purges.delete(resourceKey);
+  }
   function enqueue(entry: Entry) {
     const key = observationBaseKey(entry.base);
     if (jobs.has(entry) || closed || jobs.size >= 1024) return;
@@ -67,6 +81,12 @@ export function createObservationNode({
               sliceStarted = now();
             }
             // Final application enqueue is synchronous after every await.
+            if (
+              snapshot.purgeGeneration !==
+              (purges.get(observationResourceKey(snapshot.base.resource)) ??
+                snapshot.purgeGeneration)
+            )
+              return;
             if (
               closed ||
               entries.get(key) !== entry ||
@@ -94,6 +114,7 @@ export function createObservationNode({
       })
       .finally(() => {
         jobs.delete(entry);
+        prunePurge(observationResourceKey(entry.base.resource));
         const current = entries.get(key);
         if (current?.dirty && !closed) enqueue(current);
       });
@@ -139,6 +160,7 @@ export function createObservationNode({
         if (!current.recipients.size && entries.get(key) === current) {
           entries.delete(key);
           encodedBytes -= current.bytes;
+          prunePurge(observationResourceKey(current.base.resource));
         }
       };
     },
@@ -147,10 +169,12 @@ export function createObservationNode({
       const key = observationBaseKey(snapshot.base),
         entry = entries.get(key);
       if (!entry) return false;
-      if (
-        snapshot.purgeGeneration >
-        (entry.snapshot?.purgeGeneration ?? snapshot.purgeGeneration)
-      ) {
+      const resourceKey = observationResourceKey(snapshot.base.resource);
+      const knownPurge = purges.get(resourceKey);
+      if (knownPurge !== undefined && snapshot.purgeGeneration < knownPurge)
+        return false;
+      purges.set(resourceKey, snapshot.purgeGeneration);
+      if (snapshot.purgeGeneration > (knownPurge ?? snapshot.purgeGeneration)) {
         for (const scoped of entries.values())
           if (
             scoped.base.resource.kind === snapshot.base.resource.kind &&
@@ -210,6 +234,7 @@ export function createObservationNode({
       closed = true;
       api.invalidate();
       entries.clear();
+      purges.clear();
       encodedBytes = 0;
       bindings = 0;
     },

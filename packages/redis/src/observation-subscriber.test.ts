@@ -125,3 +125,89 @@ test('listeners precede baseline and interests arriving during repair are subscr
   releaseSecond();
   await subscriber.close();
 });
+
+test('failed baseline admission unwinds native subscription', async () => {
+  const channels = new Set<string>();
+  const client = {
+    onconnect: undefined as (() => void) | undefined,
+    onclose: undefined as (() => void) | undefined,
+    connect: async () => {},
+    subscribe: async (channel: string) => {
+      channels.add(channel);
+    },
+    unsubscribe: async (channel: string) => {
+      channels.delete(channel);
+    },
+    close: () => {},
+  };
+  let unavailable = true;
+  const subscriber = createObservationSubscriber({
+    namespace: 'test',
+    createClient: () => client,
+    reconcile: async () => {
+      if (unavailable) throw new Error('unavailable');
+    },
+  });
+  try {
+    await subscriber.interest(
+      { kind: 'channel', id: 'a'.repeat(24) },
+      () => {},
+    );
+  } catch {
+    /* Failure is expected; disposal still owns the native subscription. */
+  }
+  unavailable = false;
+  await subscriber.reconnect();
+  assert({
+    given: 'subscribe succeeded but baseline reconciliation rejected',
+    should: 'unwind failed admission before ready can be reported',
+    actual: { channels: channels.size, ready: subscriber.ready() },
+    expected: { channels: 0, ready: true },
+  });
+  await subscriber.close();
+});
+
+test('same-channel rejoin waits out in-flight unsubscribe before baseline', async () => {
+  let mark!: () => void, resume!: () => void;
+  const started = new Promise<void>((resolve) => {
+      mark = resolve;
+    }),
+    wait = new Promise<void>((resolve) => {
+      resume = resolve;
+    });
+  const channels = new Set<string>();
+  const client = {
+    onconnect: undefined as (() => void) | undefined,
+    onclose: undefined as (() => void) | undefined,
+    connect: async () => {},
+    subscribe: async (channel: string) => {
+      channels.add(channel);
+    },
+    unsubscribe: async (channel: string) => {
+      mark();
+      await wait;
+      channels.delete(channel);
+    },
+    close: () => {},
+  };
+  const subscriber = createObservationSubscriber({
+      namespace: 'test',
+      createClient: () => client,
+      reconcile: async () => {},
+    }),
+    resource = { kind: 'channel', id: 'a'.repeat(24) } as const;
+  const release = await subscriber.interest(resource, () => {});
+  release();
+  await started;
+  const rejoining = subscriber.interest(resource, () => {});
+  resume();
+  const final = await rejoining;
+  assert({
+    given: 'an in-flight final unsubscribe overlapping same-resource rejoin',
+    should: 'serialize channel operations and restore baseline before ready',
+    actual: { channels: channels.size, ready: subscriber.ready() },
+    expected: { channels: 1, ready: true },
+  });
+  final();
+  await subscriber.close();
+});

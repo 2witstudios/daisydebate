@@ -34,6 +34,28 @@ export function createObservationSubscriber({
 }) {
   const client = createClient(),
     interests = new Map<string, Interest>();
+  const channelJobs = new Map<string, Promise<void>>();
+  const cleanup = new Set<string>();
+  function channelWork(channel: string, operation: () => Promise<unknown>) {
+    const prior = channelJobs.get(channel) ?? Promise.resolve();
+    const job = prior
+      .catch(() => {})
+      .then(async () => {
+        if (!closed) await operation();
+      })
+      .finally(() => {
+        if (channelJobs.get(channel) === job) channelJobs.delete(channel);
+      });
+    channelJobs.set(channel, job);
+    return job;
+  }
+  async function removeChannel(channel: string) {
+    cleanup.add(channel);
+    await channelWork(channel, async () => {
+      if (!interests.has(channel)) await client.unsubscribe(channel);
+      cleanup.delete(channel);
+    });
+  }
   let closed = false,
     synchronized = false,
     generation = 0,
@@ -56,12 +78,16 @@ export function createObservationSubscriber({
     work = Promise.resolve()
       .then(async () => {
         await client.connect();
+        for (const channel of cleanup) await removeChannel(channel);
         for (let pass = 0; pass < 4; pass++) {
           if (closed || attempt !== generation) return;
           const version = membership;
           for (const [channel, entry] of interests) {
             if (entry.subscribedGeneration === attempt) continue;
-            await client.subscribe(channel, entry.handler);
+            await channelWork(channel, async () => {
+              if (interests.get(channel) === entry)
+                await client.subscribe(channel, entry.handler);
+            });
             if (closed || attempt !== generation) return;
             if (interests.get(channel) === entry)
               entry.subscribedGeneration = attempt;
@@ -107,7 +133,7 @@ export function createObservationSubscriber({
         created = false;
       const registration = () => listener();
       if (!entry) {
-        if (interests.size >= 1024)
+        if (interests.size + channelJobs.size + cleanup.size >= 1024)
           throw new Error('Observation interest capacity exceeded');
         const listeners = new Set<() => void>();
         entry = {
@@ -133,6 +159,10 @@ export function createObservationSubscriber({
         if (!current.listeners.size && interests.get(channel) === current) {
           interests.delete(channel);
           membership++;
+          synchronized = false;
+          await removeChannel(channel).catch(() => {
+            synchronized = false;
+          });
         }
         throw error;
       }
@@ -145,7 +175,7 @@ export function createObservationSubscriber({
           return;
         interests.delete(channel);
         membership++;
-        void client.unsubscribe(channel).catch(() => {
+        void removeChannel(channel).catch(() => {
           synchronized = false;
         });
       };
@@ -159,6 +189,7 @@ export function createObservationSubscriber({
       // Bun 1.4.2 cannot safely clear onclose before native close; callbacks are fenced.
       client.close();
       await work;
+      await Promise.allSettled([...channelJobs.values()]);
     },
   };
 }

@@ -215,3 +215,57 @@ test('a recreated key receives baseline while its disposed predecessor waits', a
     expected: [2],
   });
 });
+
+test('purge from a new window fences an older window of the same resource', async () => {
+  let resume!: () => void;
+  const wait = new Promise<void>((resolve) => {
+    resume = resolve;
+  });
+  const permit = createObservationPermit({
+      now: () => 0,
+      nodeIncarnation: 'node',
+    }),
+    part = observationEvidence({
+      started: 0,
+      remainingMs: 5000,
+      fingerprint: 'same',
+      dependencies: [],
+    });
+  permit.install(permit.begin(), {
+    base,
+    minimumContentRevision: 1,
+    subject: part,
+    cohort: part,
+    entitlement: part,
+  });
+  let last = 0;
+  const node = createObservationNode({
+    nodeIncarnation: 'node',
+    now: () => 0,
+    yieldWork: () => wait,
+    cache: { demand: async () => {}, read: async () => null },
+  });
+  for (let index = 0; index < 129; index++)
+    node.observe(base, permit, () => {
+      if (index === 128) last++;
+    });
+  node.accept({ base, contentRevision: 1, purgeGeneration: 0, body: 'old' });
+  await Promise.resolve();
+  const next = { ...base, window: { after: 'b'.repeat(24), limit: 50 } };
+  node.observe(next, permit, () => {});
+  node.accept({
+    base: next,
+    contentRevision: 2,
+    purgeGeneration: 1,
+    body: 'new',
+  });
+  resume();
+  await node.settled();
+  assert({
+    given:
+      'a new window receives the resource purge while another window yields',
+    should: 'fence every dependent window, including captured prior bodies',
+    actual: last,
+    expected: 0,
+  });
+});
