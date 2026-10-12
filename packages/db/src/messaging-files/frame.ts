@@ -3,6 +3,7 @@ import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { buildChannelTopic, idSchema } from '@daisy/protocol';
 import { appendOutboxEvent } from '../outbox';
+import { advanceMessagingStream } from '../messaging/stream';
 import { messagingChannels } from '../schema/messaging-channels';
 import { messagingMessages } from '../schema/messaging-messages';
 import { messagingFiles } from '../schema/messaging-files';
@@ -46,16 +47,20 @@ export const fileDeletionValues = {
 export function channelFileFrame(
   tx: FileTransaction,
   input: FileScope,
-  counters: { channelId: string; changeVersion: number },
+  counters: {
+    channelId: string;
+    messageSequence: number;
+    changeVersion: number;
+  },
   authorize: () => Promise<void>,
 ): FileFrame {
   const { channelId } = input;
   const changed = async () => {
-    counters.changeVersion += 1;
-    await tx
-      .update(messagingChannels)
-      .set({ changeVersion: counters.changeVersion })
-      .where(eq(messagingChannels.id, channelId));
+    const advanced = await advanceMessagingStream(tx, channelId, counters, {
+      messages: 0,
+      changes: 1,
+    });
+    counters.changeVersion = advanced.changeVersion;
     await appendOutboxEvent(tx, {
       topic: buildChannelTopic(channelId),
       kind: 'channel.changed',

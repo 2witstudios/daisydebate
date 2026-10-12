@@ -7,7 +7,7 @@ import {
   messagingMessages,
   messagingReceipts,
 } from '../schema/messaging-messages';
-import { messagingChannels } from '../schema/messaging-channels';
+import { advanceMessagingStream } from './stream';
 import { appendOutboxEvent } from '../outbox';
 import type {
   MessagingLockedFrame,
@@ -121,10 +121,10 @@ export function channelMutationFrame(
             ),
           );
       }
-      await tx
-        .update(messagingChannels)
-        .set({ changeVersion: plan.message.changeVersion })
-        .where(eq(messagingChannels.id, input.channelId));
+      await advanceMessagingStream(tx, input.channelId, counters, {
+        messages: 0,
+        changes: 1,
+      });
       await appendOutboxEvent(tx, {
         topic: buildChannelTopic(input.channelId),
         kind: 'channel.changed',

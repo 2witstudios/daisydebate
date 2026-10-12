@@ -84,7 +84,7 @@ test('send frame binds receipt to current command and commits one thin bell with
     given: 'the successful write',
     should:
       'persist message, receipt and channel counter before one content-free bell',
-    actual: f.queries.slice(6).map((q) => q.query.split(' ')[0]),
+    actual: f.queries.slice(7).map((q) => q.query.split(' ')[0]),
     expected: ['insert', 'insert', 'update', 'insert', 'select'],
   });
 });
@@ -139,8 +139,9 @@ test('send frame refuses fresh authority loss and malformed command without insp
   });
   assert({
     given: 'both boundary refusals',
-    should: 'perform only the five canonical authority/counter reads',
+    should:
+      'perform only the canonical authority reads and the stream lock, never a receipt query',
     actual: [f.queries.length, available.queries.length],
-    expected: [5, 5],
+    expected: [6, 6],
   });
 });

@@ -19,12 +19,13 @@ export function createMessagingFileStore({
       withMessagingChannel(
         database,
         input,
-        async ({ tx, channel, fact, accounts }) => {
+        async ({ tx, channel, stream, fact, accounts }) => {
           const refresh = () =>
             authorize(capability)(tx, input, { fact, accounts });
           const counters = {
             channelId: channel.id,
-            changeVersion: channel.changeVersion,
+            messageSequence: stream.messageSequence,
+            changeVersion: stream.changeVersion,
           };
           return work(
             scopeFileFrame(

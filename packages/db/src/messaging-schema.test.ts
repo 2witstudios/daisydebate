@@ -2,6 +2,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { getTableConfig } from 'drizzle-orm/pg-core';
 import {
   messagingChannels,
+  messagingChannelStreams,
   messagingActorStates,
 } from './schema/messaging-channels';
 import {
@@ -58,24 +59,31 @@ test('social channels use constrained identity rather than preference grants', (
     },
   });
   assert({
-    given: 'social channel schema',
-    should: 'name the policy and revision and separate sequence from changes',
-    actual: getTableConfig(messagingChannels)
-      .columns.map((column) => column.name)
-      .sort(),
-    expected: [
-      'authority_revision',
-      'change_version',
-      'created_at',
-      'id',
-      'kind',
-      'lifecycle',
-      'message_sequence',
-      'policy_key',
-      'policy_revision',
-      'title',
-      'title_author_actor_id',
-    ],
+    given: 'social channel and stream schemas',
+    should:
+      'keep identity, policy and authority on the channel and its ordering counters on a separate stream row',
+    actual: {
+      channel: getTableConfig(messagingChannels)
+        .columns.map((column) => column.name)
+        .sort(),
+      stream: getTableConfig(messagingChannelStreams)
+        .columns.map((column) => column.name)
+        .sort(),
+    },
+    expected: {
+      channel: [
+        'authority_revision',
+        'created_at',
+        'id',
+        'kind',
+        'lifecycle',
+        'policy_key',
+        'policy_revision',
+        'title',
+        'title_author_actor_id',
+      ],
+      stream: ['change_version', 'channel_id', 'message_sequence'],
+    },
   });
   assert({
     given: 'group access grants',

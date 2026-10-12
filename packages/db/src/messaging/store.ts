@@ -3,11 +3,11 @@ import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { buildChannelTopic, idSchema } from '@daisy/protocol';
 import { withMessagingChannel } from './channel-frame';
+import { advanceMessagingStream } from './stream';
 import { messageRecord } from './message-record';
 import { channelReadFrame } from './read-frame';
 import { channelMutationFrame } from './mutation-frame';
 import { appendOutboxEvent } from '../outbox';
-import { messagingChannels } from '../schema/messaging-channels';
 import {
   messagingMessages,
   messagingReceipts,
@@ -32,11 +32,11 @@ export function createMessagingStore({
       return withMessagingChannel(
         database,
         input,
-        async ({ tx, channel, fact, accounts }) => {
+        async ({ tx, channel, stream, fact, accounts }) => {
           const counters = {
             channelId: channel.id,
-            messageSequence: channel.messageSequence,
-            changeVersion: channel.changeVersion,
+            messageSequence: stream.messageSequence,
+            changeVersion: stream.changeVersion,
           };
           const refreshAuthorization = () =>
             authorize(tx, input, { fact, accounts });
@@ -128,13 +128,17 @@ export function createMessagingStore({
                 requestId: command.requestId,
                 ...plan.receipt,
               });
-              await tx
-                .update(messagingChannels)
-                .set({
-                  messageSequence: plan.message.sequence,
-                  changeVersion: plan.message.changeVersion,
-                })
-                .where(eq(messagingChannels.id, channel.id));
+              const advanced = await advanceMessagingStream(
+                tx,
+                channel.id,
+                counters,
+                { messages: 1, changes: 1 },
+              );
+              if (
+                advanced.messageSequence !== plan.message.sequence ||
+                advanced.changeVersion !== plan.message.changeVersion
+              )
+                throw createAppError('CONFLICT');
               await appendOutboxEvent(tx, {
                 topic: buildChannelTopic(channel.id),
                 kind: 'channel.changed',

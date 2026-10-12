@@ -75,7 +75,7 @@ test('reaction store invokes current operation fence before protected message, r
   });
   assert({
     given: 'the current fence refusal',
-    should: 'perform only discovery/account/pair/channel/counter reads',
+    should: 'perform only discovery/account/pair/channel/stream reads',
     actual: [
       f.queries.length,
       f.queries.some(
@@ -85,6 +85,6 @@ test('reaction store invokes current operation fence before protected message, r
           query.query.includes('messaging_reactions'),
       ),
     ],
-    expected: [5, false],
+    expected: [6, false],
   });
 });

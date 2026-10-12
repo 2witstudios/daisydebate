@@ -109,7 +109,11 @@ export function fileFrameFixture(responses: unknown[][][]) {
     { options: {}, unsafe: answer },
   ) as unknown as SQL;
   const tx = drizzle({ client });
-  const counters = { channelId: fileFrameScope.channelId, changeVersion: 10 };
+  const counters = {
+    channelId: fileFrameScope.channelId,
+    messageSequence: 0,
+    changeVersion: 10,
+  };
   const frame = channelFileFrame(tx, fileFrameScope, counters, async () => {
     state.authorizations++;
     if (

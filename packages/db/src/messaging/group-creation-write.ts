@@ -1,4 +1,5 @@
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
+import { advanceMessagingStream, lockMessagingStream } from './stream';
 import { createAppError } from '@daisy/errors';
 import { buildChannelTopic, idSchema } from '@daisy/protocol';
 import { messagingChannels } from '../schema/messaging-channels';
@@ -16,7 +17,7 @@ import type {
 } from './group-creation-contracts';
 /** Accounts/pairs and fresh canonical prospective admission precede this atomic creation. */
 export async function writeMessagingGroupCreation(
-  tx: Pick<BunSQLDatabase, 'insert' | 'execute'>,
+  tx: Pick<BunSQLDatabase, 'insert' | 'execute' | 'select' | 'update'>,
   scope: MessagingGroupCreationScope,
   command: Parameters<MessagingGroupCreationFrame['commit']>[0],
 ) {
@@ -36,8 +37,14 @@ export async function writeMessagingGroupCreation(
     title: command.title,
     titleAuthorActorId: scope.actorId,
     createdAt: now,
-    changeVersion: 1,
   });
+  // A new channel's first change: its creation.
+  await advanceMessagingStream(
+    tx,
+    command.channelId,
+    await lockMessagingStream(tx, command.channelId),
+    { messages: 0, changes: 1 },
+  );
   await tx.insert(messagingGroupGrants).values({
     channelId: command.channelId,
     actorId: scope.actorId,
