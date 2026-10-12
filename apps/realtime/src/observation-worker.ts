@@ -76,7 +76,13 @@ export function createObservationWorker({
     header: ObservationHeader,
   ) {
     const key = observationBaseKey(base);
-    if (jobs.has(key) || jobs.size >= 2 || !current(owner)) return;
+    if (
+      jobs.has(key) ||
+      jobs.size >= 2 ||
+      !current(owner) ||
+      !owner.variants.has(key)
+    )
+      return;
     const work = (async () => {
       const snapshot = await build(base, header);
       if (
@@ -136,6 +142,7 @@ export function createObservationWorker({
       bases: readonly ObservationBase[],
     ) {
       if (closed) throw new Error('Observation worker disposed');
+      if (!eligible) return false;
       const resourceKey = observationResourceKey(resource);
       if (
         bases.length > 64 ||
@@ -150,7 +157,7 @@ export function createObservationWorker({
           owners.delete(resourceKey);
           await cache.release(resource, owner.token);
         }
-        return;
+        return false;
       }
       const active = new Set(bases.map(observationBaseKey));
       if (owner)
@@ -161,6 +168,20 @@ export function createObservationWorker({
             owner.dirtySince.delete(key);
           }
       for (const base of bases) demand(base);
+      const selected = owners.get(resourceKey)!;
+      if (selected.expiresAt === 0) {
+        const started = now();
+        if (!(await cache.claim(resource, selected.token))) {
+          if (owners.get(resourceKey) === selected) owners.delete(resourceKey);
+          return false;
+        }
+        selected.expiresAt = started + 2000;
+      }
+      if (!current(selected)) {
+        if (owners.get(resourceKey) === selected) owners.delete(resourceKey);
+        return false;
+      }
+      return true;
     },
     async reconcile() {
       if (!eligible || closed || reconciling) return;
@@ -173,17 +194,25 @@ export function createObservationWorker({
             continue;
           }
           if (owner.expiresAt === 0) {
+            const started = now();
             if (!(await cache.claim(owner.resource, owner.token))) continue;
-            owner.expiresAt = now() + 2000;
+            owner.expiresAt = started + 2000;
           }
           if (current(owner)) active.push(owner);
         }
-        if (!active.length) return;
+        const currentBatch = active.filter(current);
+        if (!currentBatch.length) return;
+        const captured = new Map(
+          currentBatch.map((owner) => [
+            observationResourceKey(owner.resource),
+            owner,
+          ]),
+        );
         const headers = await readHeaders(
-          active.map((owner) => owner.resource),
+          currentBatch.map((owner) => owner.resource),
         );
         for (const header of headers) {
-          const owner = owners.get(observationResourceKey(header.resource));
+          const owner = captured.get(observationResourceKey(header.resource));
           if (!owner || !current(owner)) continue;
           if (
             [...owner.dirtySince.values()].some(
@@ -197,6 +226,7 @@ export function createObservationWorker({
             continue;
           }
           // A successful current-state read is useful progress; heartbeat alone is not.
+          const renewalStarted = now();
           if (
             !(await cache.claim(owner.resource, owner.token)) ||
             !current(owner)
@@ -205,7 +235,7 @@ export function createObservationWorker({
               owners.delete(observationResourceKey(owner.resource));
             continue;
           }
-          owner.expiresAt = now() + 2000;
+          owner.expiresAt = renewalStarted + 2000;
           for (const [key, base] of owner.variants) {
             if (base.disclosureRevision !== header.disclosureRevision) continue;
             if (!(await cache.ready(base, header))) owner.delivered.delete(key);

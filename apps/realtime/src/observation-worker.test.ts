@@ -10,6 +10,154 @@ const base: ObservationBase = {
   disclosureRevision: 1,
   window: { after: null, limit: 50 },
 };
+const deferred = <T>() => {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((finish) => {
+    resolve = finish;
+  });
+  return { promise, resolve };
+};
+const healthyCache = () => ({
+  ready: async () => false,
+  claim: async () => true,
+  prepare: async () => true,
+  publish: async () => true,
+  release: async () => {},
+});
+test('removed resource cannot survive a batch assembled before another claim await', async () => {
+  const other = { ...resource, id: 'b'.repeat(24) };
+  const entered = deferred<void>(),
+    finish = deferred<boolean>();
+  let hold = false;
+  const batches: string[][] = [];
+  const worker = createObservationWorker({
+    eligible: true,
+    now: () => 0,
+    nextToken: () => 'token',
+    cache: {
+      ...healthyCache(),
+      claim: async (current) => {
+        if (hold && current.id === other.id) {
+          entered.resolve();
+          return finish.promise;
+        }
+        return true;
+      },
+    },
+    readHeaders: async (resources) => {
+      batches.push(resources.map((row) => row.id));
+      return [];
+    },
+    build: async () => {
+      throw new Error('Unexpected build');
+    },
+  });
+  worker.demand(base);
+  await worker.reconcile();
+  worker.demand({ ...base, resource: other });
+  hold = true;
+  const pending = worker.reconcile();
+  await entered.promise;
+  await worker.replaceDemand(resource, []);
+  finish.resolve(true);
+  await pending;
+  assert({
+    given: 'resource A loses all demand while resource B claim is awaited',
+    should:
+      'exclude the released A owner immediately before batched SQL starts',
+    actual: batches.at(-1),
+    expected: [other.id],
+  });
+  await worker.close();
+});
+test('removed variant cannot start a body build after an awaited ready check', async () => {
+  const entered = deferred<void>(),
+    finish = deferred<boolean>();
+  const builds: (number | string | null)[] = [];
+  const worker = createObservationWorker({
+    eligible: true,
+    now: () => 0,
+    nextToken: () => 'token',
+    cache: {
+      ...healthyCache(),
+      ready: async (value) => {
+        if (value.window.after === null) {
+          entered.resolve();
+          return finish.promise;
+        }
+        return false;
+      },
+    },
+    readHeaders: async () => [
+      {
+        resource,
+        contentRevision: 1,
+        disclosureRevision: 1,
+        purgeGeneration: 0,
+      },
+    ],
+    build: async (value, header) => {
+      builds.push(value.window.after);
+      return { header, body: 'body' };
+    },
+  });
+  worker.demand(base);
+  worker.demand({ ...base, window: { after: 12, limit: 50 } });
+  const pending = worker.reconcile();
+  await entered.promise;
+  await worker.replaceDemand(resource, [
+    { ...base, window: { after: 12, limit: 50 } },
+  ]);
+  finish.resolve(false);
+  await pending;
+  await worker.settled();
+  assert({
+    given: 'window A is removed during ready(A) while window B stays demanded',
+    should: 'start SQL only for the still-demanded window',
+    actual: builds,
+    expected: [12],
+  });
+  await worker.close();
+});
+test('late successful claim cannot invent another lease on response arrival', async () => {
+  let now = 0,
+    reads = 0;
+  const entered = deferred<void>(),
+    finish = deferred<boolean>();
+  const worker = createObservationWorker({
+    eligible: true,
+    now: () => now,
+    nextToken: () => 'token',
+    cache: {
+      ...healthyCache(),
+      claim: async () => {
+        entered.resolve();
+        return finish.promise;
+      },
+    },
+    readHeaders: async () => {
+      reads++;
+      return [];
+    },
+    build: async () => {
+      throw new Error('Unexpected build');
+    },
+  });
+  worker.demand(base);
+  const pending = worker.reconcile();
+  await entered.promise;
+  now = 2001;
+  finish.resolve(true);
+  await pending;
+  assert({
+    given:
+      'a claim executed at zero but its result arrives past the two-second TTL',
+    should: 'start no SQL under a lease that already expired',
+    actual: reads,
+    expected: 0,
+  });
+  await worker.close();
+});
 test('expired fleet demand releases resource ownership and fences pending builds', async () => {
   let reads = 0,
     published = 0,
