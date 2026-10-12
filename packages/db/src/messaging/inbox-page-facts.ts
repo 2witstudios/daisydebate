@@ -5,6 +5,8 @@ import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import { readMessagingChannelFacts, type MessagingChannelFact } from './social';
 import type { MessagingInboxInvitation } from './inbox-page-contracts';
+import { groupInvitationFact } from './group-invitation-facts';
+import { sortedDependencies } from '../observation-fact-boundary';
 
 type Tx = Pick<BunSQLDatabase, 'execute' | 'select'>;
 export type InboxDiscovery = {
@@ -46,30 +48,18 @@ function invitationFact(
     inviter?.authority.kind !== 'private_group'
   )
     return null;
-  return {
-    kind: 'group_invitation',
-    channel: {
-      channelId: channel.channelId,
-      kind: 'private_group',
-      policyKey: 'social.private_group',
-      policyRevision: channel.policyRevision,
-      revision: channel.revision,
-      lifecycle: channel.lifecycle,
-      activeMemberActorIds: channel.authority.activeMemberActorIds,
-    },
-    invitation: {
+  return groupInvitationFact(
+    channel,
+    channel.authority.activeMemberActorIds,
+    inviter.authority,
+    {
       channelId: row.channelId,
       inviterActorId: row.inviterActorId,
       inviteeActorId: actorId,
       generation: row.generation,
       state: 'pending',
     },
-    inviterGrant: {
-      actorId: row.inviterActorId,
-      role: inviter.authority.role,
-      generation: inviter.authority.generation,
-    },
-  };
+  );
 }
 const pairKey = (a: string, b: string) => (a < b ? [a, b] : [b, a]);
 /** Dependencies an entry's own capability needs: a granted cast, a DM pair, or inviter/invitee only. */
@@ -94,12 +84,7 @@ function dependencies(
   for (const invitation of invitations.values())
     if (invitation.invitation.inviterActorId !== actorId)
       pair(invitation.invitation.inviterActorId, actorId);
-  return {
-    actors: [...actors].sort(),
-    pairs: [...pairs.values()].sort(
-      (a, b) => a.low.localeCompare(b.low) || a.high.localeCompare(b.high),
-    ),
-  };
+  return sortedDependencies(actors, pairs);
 }
 export async function discoverInboxFacts(
   tx: Tx,

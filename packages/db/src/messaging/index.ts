@@ -56,6 +56,5 @@ export type {
 
 export type {
   MessagingInboxDecision,
-  MessagingInboxPage,
   MessagingInboxPageFacts,
 } from './inbox-page-contracts';

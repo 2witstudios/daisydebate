@@ -20,7 +20,7 @@ export type ActorRecord = {
  * `Pick<..., 'select'>` so a caller inside `database.transaction` can pass
  * its `tx` and share one connection with whatever it does next.
  */
-export const queryActorByUserId = async (
+const queryActorByUserId = async (
   db: Pick<BunSQLDatabase, 'select'>,
   userId: string,
 ): Promise<ActorRecord | null> => {

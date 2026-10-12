@@ -90,3 +90,42 @@ test('channel bodies count reactions per message and own reactions are read per 
     }
   });
 });
+
+test('own reactions stay inside the overlay contract: at most 8 per message of at most 16 UTF-16 units', async () => {
+  await withFixture(url, async (f) => {
+    const fixture = await createMessagingTestFixture(f.sql);
+    const message = createId();
+    try {
+      await f.sql`insert into messaging_messages(id,channel_id,author_actor_id,sequence,change_version,text,created_at) values(${message},${fixture.channelId},${fixture.actorId},1,1,'Kept','2026-10-09T18:00:00.000Z')`;
+      // Nine short reactions, one of 17 BMP units and one emoji of 9 astral characters (18 UTF-16 units).
+      const reactions = [
+        ...Array.from({ length: 9 }, (_, i) => `r${i}`),
+        'x'.repeat(17),
+        '\u{1F600}'.repeat(9),
+      ];
+      for (const reaction of reactions)
+        await f.sql`insert into messaging_reactions(channel_id,message_id,actor_id,reaction) values(${fixture.channelId},${message},${fixture.actorId},${reaction})`;
+      const own = await f.sql.begin(async (tx) => {
+        await tx`set local role daisy_realtime`;
+        return tx`select reaction from public.daisy_observation_own_reactions(${JSON.stringify(
+          [
+            {
+              channel: fixture.channelId,
+              actor: fixture.actorId,
+              before: null,
+              limit: 50,
+            },
+          ],
+        )}::text::jsonb)`;
+      });
+      assert({
+        given: 'eleven own reactions, two of them longer than 16 UTF-16 units',
+        should: 'return only the first eight short reactions in reaction order',
+        actual: own.map((row: { reaction: string }) => row.reaction),
+        expected: ['r0', 'r1', 'r2', 'r3', 'r4', 'r5', 'r6', 'r7'],
+      });
+    } finally {
+      await fixture.cleanup();
+    }
+  });
+});
