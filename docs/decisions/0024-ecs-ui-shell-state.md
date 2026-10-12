@@ -26,8 +26,8 @@ Decision:
    `no-restricted-imports` ESLint pattern enforce it.
 2. The web shell state lives in an in-house, eval-free store
    (`apps/web/src/ui/store/`): immutable `UiState` snapshots, pure
-   transaction functions grouped into plugin-style modules
-   (`shell-plugin.ts`), deterministic seeding from
+   transaction functions grouped into plugin-style modules, deterministic
+   seeding from
    `src/ui/mock/`, and a `useSyncExternalStore` hook with server snapshots —
    server HTML renders the full state (no hydration gaps).
 3. The organizational model is retained: `types → plugins → components`
@@ -51,3 +51,8 @@ covering the CSP change and its sign-off explicitly.
 Upgrade/removal: nothing to upgrade (no vendor dependency in `apps/web`).
 Removing the store means replacing `store/` and the transaction modules while
 keeping component presentations and their tests green.
+
+Amendment, 2026-10-12 (RRD-1): the shell's only transactions (sidebar and
+friends-column collapse, `shell-plugin.ts`) were deleted with the columns
+they drove; the one navigation rail has no state. The store keeps the seeded
+snapshots and `setUiState`; a future transaction returns as a plugin module.

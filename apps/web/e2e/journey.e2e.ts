@@ -79,14 +79,14 @@ test('anonymous visits are sent to sign-in and the whole loop ends on the protec
   await declineOfferToLobby(page);
   await page.goto('/');
   await expect(
-    page.getByRole('link', { name: `Account settings for ${mine}` }),
+    page.getByRole('link', { name: `Your profile, ${mine}` }),
   ).toBeVisible();
 
   // The durable session and the persisted identity survive a reload and a
   // fresh request: the same account, with the username it claimed.
   await page.reload();
   await expect(
-    page.getByRole('link', { name: `Account settings for ${mine}` }),
+    page.getByRole('link', { name: `Your profile, ${mine}` }),
   ).toBeVisible();
   const session = await page.request.get('/api/auth/get-session');
   const body = (await session.json()) as {
@@ -300,19 +300,23 @@ test('a fresh session makes no refresh call, and neither does a visitor', async 
   expect(calls).toEqual([]);
 });
 
-test('a visitor can reach the logo, and Sign in at the top right', async ({
+test('a visitor can reach the logo, and Sign in at the rail foot', async ({
   page,
 }) => {
   const shell = await watchShellLinks(page, ['Daisy Debate home', 'Sign in']);
   await page.goto('/');
   const signIn = page
-    .getByRole('banner')
+    .getByRole('navigation', { name: 'Primary' })
     .getByRole('link', { name: 'Sign in' });
   await expect(signIn).toBeVisible();
-  // Where a member's avatar is: the right end of the top bar.
-  const box = await signIn.boundingBox();
-  const width = page.viewportSize()?.width ?? 0;
-  expect(box !== null && box.x > width / 2 && box.y < 64).toBe(true);
+  // Where a member's profile is: the foot of the rail, below the logo.
+  const [logo, way] = await Promise.all([
+    page.getByRole('link', { name: 'Daisy Debate home' }).boundingBox(),
+    signIn.boundingBox(),
+  ]);
+  expect(logo !== null && way !== null && way.y > logo.y && way.x < 56).toBe(
+    true,
+  );
   const { covered, inspected } = await shell.settle();
   expect(Object.keys(inspected).sort()).toEqual([
     'Daisy Debate home',

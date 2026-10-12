@@ -116,29 +116,30 @@ the gaps it cannot.
 
 ## App shell
 
-Owner decision, 2026-10-05 ([the shell
-design](https://claude.ai/artifact/BpZVQgWaDZEnuqiS7kejja), option A). The
-bar and the side columns are one frame on the surface colour, with no
-borders between them; the page is one sheet set into it, outlined and
-rounded at the top, so it is the only edge on the screen. The bar never
-collapses: the brand on the left, its logo centred over the nav icons, and
-the account on the right (a member's bell and avatar, name and status as
-one rounded control, or a visitor's Sign in, Finish sign-up mid sign-up).
-Under it, navigation on the left and a member's friends on the right each
-collapse with a panel button at the top of the column, on the side facing
-the page ([the toggle design](https://claude.ai/artifact/Eaa6XtndWDpt6kPUYBujrt),
-option A, owner decision 2026-10-05): a plain icon whose chevron points the
-way the column will move. Collapsed, the sidebar is icons and the rail a
-strip of avatars, each with its button at the top. Collapsed to icons, the
-sidebar's Help, Terms and Privacy sit behind a help icon at its foot. A visitor has
-no rail; their sheet keeps a margin on the right. Both views of the rail
-are in the markup and CSS shows one, so the shell is right before any
-script runs.
+Owner decision, 2026-10-12 (the Round room redesign canvas, Proposal page;
+RRD-1). Every shell page is one 56px navigation rail beside the page. The
+rail never collapses: the logo (home), the eight destinations (Home, Play,
+Tournaments, Leaderboards, Watch, Judge, Train, Prep) and More at the top; at
+the foot a member's Messages, Notifications, Friends (with the online count)
+and their profile avatar, or a visitor's Sign in (Finish sign-up mid
+sign-up). Each rail link is a 44px icon whose name is screen-reader text,
+counts included ("Friends, 5 online"), with a tooltip. Watch (Spectate live,
+Recordings) and More (Settings, Help, Terms, Privacy) reveal their
+sub-links in a flyout on hover and keyboard focus. Friends is its own page,
+`/friends`.
 
-The sidebar's column always runs the page's full height. Its content is
+On a phone (below 641px) a tab bar fixed along the bottom replaces the rail:
+Home, Play, Prep, a member's Inbox (a visitor's way in), and More, a native
+disclosure whose sheet lists every other destination. Both navigations are
+in the markup and CSS shows one, so the shell is right before any script
+runs.
+
+The rail's column always runs the page's full height. Its content is
 pinned to the viewport only when the viewport can hold all of it (the
 `tall:` variant); on a shorter one it scrolls with the page. It never
 becomes a scroll box of its own, because that would clip the nav flyouts.
+
+The live round renders outside the shell, with its own round bar.
 
 ## Pre-round Room
 
@@ -146,15 +147,13 @@ The gathering view uses the saved topic, authoritative team/judge lineup and
 resolved ordered schedule. Settings are an acknowledged summary with explicit
 native Edit disclosures; a refused save opens its disclosure and retains the
 submitted draft and version. The main readiness/start bar follows the schedule,
-with personal device setup beside the saved settings. Entering Room does not
-change the global sidebar state.
+with personal device setup beside the saved settings.
 
 Duration forms use integer minutes and decimal seconds (0–59.999). The form
 boundary converts their strings to exact integer milliseconds and checks the
 combined duration against the room's pinned format bounds. Speech order, seat
 identity and structural schedule authority remain with the pinned definition.
-The pre-round Room has no chat composer; existing Messages navigation remains
-available.
+The pre-round Room has no chat composer; Messages stays in the rail.
 
 ## Round room
 
