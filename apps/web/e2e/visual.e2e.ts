@@ -193,7 +193,7 @@ for (const viewport of viewports) {
             page,
             `${route.name}-${theme}-${viewport.name}.png`,
             [
-              page.getByRole('link', { name: /^Account settings for/ }),
+              page.getByRole('link', { name: /^Your profile, / }),
               page.getByText(/^Signed in as /),
             ],
           );

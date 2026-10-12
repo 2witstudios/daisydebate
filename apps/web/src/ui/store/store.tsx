@@ -64,7 +64,7 @@ export function UiStoreProvider({
   return <UiStoreContext value={store}>{children}</UiStoreContext>;
 }
 
-export const useUiStore = (): UiStore => {
+const useUiStore = (): UiStore => {
   const store = useContext(UiStoreContext);
   if (store === null)
     throw new Error('useUiStore must be used inside UiStoreProvider');

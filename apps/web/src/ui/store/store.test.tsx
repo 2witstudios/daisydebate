@@ -1,9 +1,8 @@
 import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { createInitialState, type NavState, type UiState } from './state';
+import { createInitialState, type UiState } from './state';
 import { createUiStore, useUiState, UiStoreProvider } from './store';
-import { transactions } from '../transactions';
 
 setupRitewayBun();
 
@@ -38,48 +37,10 @@ describe('UI store state', () => {
   });
 });
 
-describe('UI store transactions', () => {
-  test('setNav changes only the sidebar', () => {
-    const state = createInitialState();
-    const next = transactions.setNav(state, 'collapsed');
-    assert({
-      given: 'the seeded state and a sidebar choice',
-      should: 'start on auto, take the choice, and leave the dock alone',
-      actual: [
-        state.resources.nav,
-        next.resources.nav,
-        next.resources.dock === state.resources.dock,
-      ],
-      expected: ['auto', 'collapsed', true],
-    });
-  });
-
-  test('setDock changes only the dock', () => {
-    const state = createInitialState();
-    const next = transactions.setDock(state, 'closed');
-    assert({
-      given: 'the seeded state and a dock choice',
-      should: 'start on auto, take the choice, and leave the rest alone',
-      actual: [
-        state.resources.dock,
-        next.resources.dock,
-        next.resources.nav === state.resources.nav,
-        state.resources.dock,
-      ],
-      expected: ['auto', 'closed', true, 'auto'],
-    });
-  });
-
-  test('are pure: they return new state and leave the original untouched', () => {
-    const state = createInitialState();
-    const next = transactions.setNav(state, 'collapsed');
-    assert({
-      given: 'a nav transaction over seeded state',
-      should: 'update the nav without mutating the original',
-      actual: [next.resources.nav, state.resources.nav, next === state],
-      expected: ['collapsed', 'auto', false],
-    });
-  });
+/** The next snapshot, with a different online count. */
+const withOnline = (state: UiState, onlineCount: number): UiState => ({
+  ...state,
+  resources: { ...state.resources, onlineCount },
 });
 
 describe('UI store snapshot subscription', () => {
@@ -91,10 +52,10 @@ describe('UI store snapshot subscription', () => {
       notifications += 1;
     });
     store.setUiState(state);
-    const next = transactions.setNav(state, 'collapsed');
+    const next = withOnline(state, 7);
     store.setUiState(next);
     unsubscribe();
-    store.setUiState(transactions.setNav(next, 'auto'));
+    store.setUiState(withOnline(next, 8));
     assert({
       given:
         'a subscriber across identical, changed, and post-unsubscribe swaps',
@@ -106,9 +67,9 @@ describe('UI store snapshot subscription', () => {
 });
 
 function Probe() {
-  const nav = useUiState((state) => state.resources.nav);
+  const online = useUiState((state) => state.resources.onlineCount);
   const user = useUiState((state) => state.collections.onlineUsers[0]);
-  return h('p', null, `${user?.name ?? 'none'}:${nav}`);
+  return h('p', null, `${user?.name ?? 'none'}:${online}`);
 }
 
 describe('useUiState SSR snapshot', () => {
@@ -123,7 +84,7 @@ describe('useUiState SSR snapshot', () => {
       given: 'a component reading the store rendered to string',
       should: 'render the seeded content through the server snapshot',
       actual: html,
-      expected: '<p>Alex Chen:auto</p>',
+      expected: '<p>Alex Chen:1248</p>',
     });
   });
 });
@@ -137,27 +98,27 @@ describe('useUiState SSR snapshot', () => {
  */
 async function simulateRequest(
   store: { getUiState: () => UiState; setUiState: (next: UiState) => void },
-  nav: NavState,
-): Promise<NavState> {
+  online: number,
+): Promise<number> {
   await Promise.resolve();
-  store.setUiState(transactions.setNav(store.getUiState(), nav));
+  store.setUiState(withOnline(store.getUiState(), online));
   await Promise.resolve();
-  return store.getUiState().resources.nav;
+  return store.getUiState().resources.onlineCount;
 }
 
 describe('UI store request scoping (ADR 0024)', () => {
   test('two concurrent renders never see each other state', async () => {
     const requestA = createUiStore(createInitialState());
     const requestB = createUiStore(createInitialState());
-    const [navA, navB] = await Promise.all([
-      simulateRequest(requestA, 'collapsed'),
-      simulateRequest(requestB, 'auto'),
+    const [countA, countB] = await Promise.all([
+      simulateRequest(requestA, 7),
+      simulateRequest(requestB, 8),
     ]);
     assert({
       given: 'two concurrent requests, each with its own store instance',
-      should: 'each keep only the nav it wrote itself',
-      actual: [navA, navB],
-      expected: ['collapsed', 'auto'],
+      should: 'each keep only the count it wrote itself',
+      actual: [countA, countB],
+      expected: [7, 8],
     });
   });
 
@@ -173,27 +134,21 @@ describe('UI store request scoping (ADR 0024)', () => {
         globalState = next;
       },
     };
-    const [navA, navB] = await Promise.all([
-      simulateRequest(globalStore, 'collapsed'),
-      simulateRequest(globalStore, 'auto'),
+    const [countA, countB] = await Promise.all([
+      simulateRequest(globalStore, 7),
+      simulateRequest(globalStore, 8),
     ]);
     assert({
       given: 'two concurrent requests sharing one module-global store',
       should: 'cross-contaminate: both observe whichever write ran last',
-      actual: [navA === navB, new Set([navA, navB]).size],
+      actual: [countA === countB, new Set([countA, countB]).size],
       expected: [true, 1],
     });
   });
 
   test('UiStoreProvider gives each render its own store instance', () => {
     const stateA = { ...createInitialState() };
-    const stateB = {
-      ...createInitialState(),
-      resources: {
-        ...createInitialState().resources,
-        nav: 'collapsed' as const,
-      },
-    };
+    const stateB = withOnline(createInitialState(), 7);
     const htmlA = renderToString(
       h(UiStoreProvider, { initialState: stateA, children: h(Probe) }),
     );
@@ -204,7 +159,7 @@ describe('UI store request scoping (ADR 0024)', () => {
       given: 'two provider trees rendered with different seeded state',
       should: 'render each tree from its own store, not a shared one',
       actual: [htmlA, htmlB],
-      expected: ['<p>Alex Chen:auto</p>', '<p>Alex Chen:collapsed</p>'],
+      expected: ['<p>Alex Chen:1248</p>', '<p>Alex Chen:7</p>'],
     });
   });
 });

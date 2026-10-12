@@ -110,15 +110,8 @@ export async function proveHumanLaunch(browser: Browser, info: TestInfo) {
       host.getByRole('button', { name: 'Launch', exact: true }),
     ).toBeEnabled();
     view = await reread(host.request, view.id);
-    await host
-      .getByRole('button', { name: 'Collapse sidebar', exact: true })
-      .click();
     await host.getByRole('button', { name: 'Launch', exact: true }).click();
     await expect(host).toHaveURL(/\/rounds\/[a-z0-9]+$/);
-    await expect(host.locator('[data-nav]')).toHaveAttribute(
-      'data-nav',
-      'collapsed',
-    );
     const proof = await assertFrozenLaunch(view);
     await settledLaunchAuth();
     await info.attach('controlled-input-human-launch-evidence', {
