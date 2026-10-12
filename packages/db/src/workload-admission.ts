@@ -50,13 +50,16 @@ export function createWorkloadExecutor(
     (active.get(lane) ?? 0) < (capacities[lane] ?? 0);
   const queueRoom = (lane: DatabaseWorkload) =>
     (waiting.get(lane)?.length ?? 0) < (queues[lane]?.depth ?? 0);
-  // A settled slot passes directly to the oldest waiter, so arrivals cannot overtake the queue.
+  // A freed slot passes directly to the oldest waiter, so arrivals cannot overtake the queue;
+  // an over-capacity eager settlement frees no slot until the lane is back under capacity.
   const release = (lane: DatabaseWorkload) => () => {
+    active.set(lane, (active.get(lane) ?? 1) - 1);
+    if (!available(lane)) return;
     const next = waiting.get(lane)?.shift();
-    if (next) {
-      timers.clearTimeout(next.timer as never);
-      next.grant();
-    } else active.set(lane, (active.get(lane) ?? 1) - 1);
+    if (!next) return;
+    timers.clearTimeout(next.timer as never);
+    active.set(lane, (active.get(lane) ?? 0) + 1);
+    next.grant();
   };
   const acquire = (lane: DatabaseWorkload) => {
     if (!available(lane)) throw unavailable();
@@ -93,11 +96,18 @@ export function createWorkloadExecutor(
   };
   return {
     invoke,
-    /** Whether a synchronous builder may be constructed now, or must wait for a slot. */
-    deferral: (lane: DatabaseWorkload): 'now' | 'queue' => {
-      if (available(lane)) return 'now';
-      if (queueRoom(lane)) return 'queue';
-      throw unavailable();
+    /**
+     * Construct a statement builder. Builders are lazy, so construction needs no slot while the lane
+     * has queue room; their execution queues. An eager surface that starts work at construction is
+     * counted as active until it settles, even when it briefly exceeds the lane's capacity.
+     */
+    construct: <T>(lane: DatabaseWorkload, build: () => T): T => {
+      if (available(lane)) return invoke(lane, build);
+      if (!queueRoom(lane)) throw unavailable();
+      const result = build();
+      if (!(result instanceof Promise)) return result;
+      active.set(lane, (active.get(lane) ?? 0) + 1);
+      return result.finally(release(lane)) as T;
     },
     /** A free slot starts work synchronously; a saturated lane waits in its bounded queue. */
     run: <T>(lane: DatabaseWorkload, work: () => Promise<T>): Promise<T> => {
