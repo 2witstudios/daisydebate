@@ -11,3 +11,15 @@ export function assertObservationFactBudget(size: number) {
       'Authority fact capacity unavailable',
     );
 }
+/** A fence set in canonical order: accounts by actor id, then contact pairs by (low, high). */
+export function sortedDependencies(
+  actors: ReadonlySet<string>,
+  pairs: ReadonlyMap<string, { readonly low: string; readonly high: string }>,
+) {
+  return {
+    actors: [...actors].sort(),
+    pairs: [...pairs.values()].sort(
+      (a, b) => a.low.localeCompare(b.low) || a.high.localeCompare(b.high),
+    ),
+  };
+}

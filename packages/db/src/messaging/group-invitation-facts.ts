@@ -49,6 +49,40 @@ export async function groupInvitationFacts(
   const state = stateSchema.safeParse(row.state);
   if (!state.success) throw createAppError('INFRASTRUCTURE');
   const invitation: MessagingGroupInvitationFact = {
+    ...groupInvitationFact(
+      channel,
+      channel.authority.activeMemberActorIds,
+      inviter.authority,
+      {
+        channelId: row.channelId,
+        inviterActorId,
+        inviteeActorId: row.inviteeActorId,
+        generation: row.generation,
+        state: state.data,
+      },
+    ),
+    contactPairs: contacts,
+    ...(scope.expectedGeneration === undefined
+      ? {}
+      : { expectedGeneration: scope.expectedGeneration }),
+  };
+  return { row, invitation };
+}
+
+/** The canonical invitation fact over a group channel and its inviter's current grant. */
+export function groupInvitationFact(
+  channel: Pick<
+    MessagingChannelFact,
+    'channelId' | 'policyRevision' | 'revision' | 'lifecycle'
+  >,
+  activeMemberActorIds: readonly string[],
+  inviterGrant: Pick<
+    MessagingGroupInvitationFact['inviterGrant'],
+    'role' | 'generation'
+  >,
+  invitation: MessagingGroupInvitationFact['invitation'],
+): Omit<MessagingGroupInvitationFact, 'contactPairs' | 'expectedGeneration'> {
+  return {
     kind: 'group_invitation',
     channel: {
       channelId: channel.channelId,
@@ -57,24 +91,13 @@ export async function groupInvitationFacts(
       policyRevision: channel.policyRevision,
       revision: channel.revision,
       lifecycle: channel.lifecycle,
-      activeMemberActorIds: channel.authority.activeMemberActorIds,
+      activeMemberActorIds,
     },
-    invitation: {
-      channelId: row.channelId,
-      inviterActorId,
-      inviteeActorId: row.inviteeActorId,
-      generation: row.generation,
-      state: state.data,
-    },
+    invitation,
     inviterGrant: {
-      actorId: inviterActorId,
-      role: inviter.authority.role,
-      generation: inviter.authority.generation,
+      actorId: invitation.inviterActorId,
+      role: inviterGrant.role,
+      generation: inviterGrant.generation,
     },
-    contactPairs: contacts,
-    ...(scope.expectedGeneration === undefined
-      ? {}
-      : { expectedGeneration: scope.expectedGeneration }),
   };
-  return { row, invitation };
 }

@@ -1,21 +1,14 @@
 import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { instrumented, type DatabaseEventSink } from './instrumented';
-import { OUTBOX_ORIGIN, type OutboxPosition, type OutboxRow } from './outbox';
+import {
+  OUTBOX_ORIGIN,
+  outboxRow,
+  type OutboxPosition,
+  type OutboxRow,
+} from './outbox';
 
 type Row = Record<string, unknown>;
-const relayRow = (row: Row): OutboxRow => ({
-  seq: BigInt(row.seq as string | number | bigint),
-  txid: String(row.txid),
-  topic: String(row.topic),
-  kind: String(row.kind),
-  version: Number(row.version),
-  payload: row.payload ?? null,
-  createdAt:
-    row.created_at instanceof Date
-      ? row.created_at.toISOString()
-      : String(row.created_at),
-});
 /**
  * The fleet metadata relay's reads on the projection lane. Fixed functions give the projection role
  * commit-ordered positions and kinds for every row, but a payload only for revocation controls.
@@ -33,9 +26,9 @@ export const relayOutboxOperations = ({
   ): Promise<readonly OutboxRow[]> {
     return instrumented(eventSink, 'drainRelayOutbox', async () => {
       const rows = await database.execute(
-        sql`select * from public.daisy_relay_outbox(${cursor.txid}::xid8, ${cursor.seq.toString()}::bigint, ${limit})`,
+        sql`select seq, txid, topic, kind, version, payload, created_at as "createdAt" from public.daisy_relay_outbox(${cursor.txid}::xid8, ${cursor.seq.toString()}::bigint, ${limit})`,
       );
-      return (rows as unknown as Row[]).map(relayRow);
+      return (rows as unknown as Row[]).map(outboxRow);
     });
   },
   async readOutboxHighWaterMark(): Promise<OutboxPosition> {

@@ -21,7 +21,7 @@ import type {
 } from './inbox-page-contracts';
 
 /** Candidate pages are bounded technical work, not a product limit. */
-export const MESSAGING_INBOX_SCAN_LIMIT = 50;
+const MESSAGING_INBOX_SCAN_LIMIT = 50;
 const ATTEMPTS = 3;
 class CastChanged extends Error {}
 type Owner = Pick<BunSQLDatabase, 'transaction'>;

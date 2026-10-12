@@ -148,19 +148,22 @@ export async function drainOutbox(
     order by txid, seq
     limit ${limit}
   `);
-  return (result as unknown as Record<string, unknown>[]).map((row) => ({
-    seq: BigInt(row.seq as string | number | bigint),
-    txid: String(row.txid),
-    topic: String(row.topic),
-    kind: String(row.kind),
-    version: Number(row.version),
-    payload: row.payload,
-    createdAt:
-      row.createdAt instanceof Date
-        ? row.createdAt.toISOString()
-        : String(row.createdAt),
-  }));
+  return (result as unknown as Record<string, unknown>[]).map(outboxRow);
 }
+
+/** One drained row from a `createdAt`-aliased outbox read. */
+export const outboxRow = (row: Record<string, unknown>): OutboxRow => ({
+  seq: BigInt(row.seq as string | number | bigint),
+  txid: String(row.txid),
+  topic: String(row.topic),
+  kind: String(row.kind),
+  version: Number(row.version),
+  payload: row.payload,
+  createdAt:
+    row.createdAt instanceof Date
+      ? row.createdAt.toISOString()
+      : String(row.createdAt),
+});
 
 /**
  * The greatest final position: the highest `(txid, seq)` whose transaction
