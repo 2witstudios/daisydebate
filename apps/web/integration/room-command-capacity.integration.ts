@@ -3,12 +3,12 @@ import { requireTestServices } from '@daisy/config';
 import { createReadinessHandler } from '../src/server/readiness';
 import { createRecordingLogger } from '../src/server/test-loggers.test-support';
 import { withRoomRuntime, consentBarrier } from './room-runtime.test-support';
-import { SQL } from 'bun';
+import { createDatabase } from '@daisy/db';
 import { createId } from '@paralleldrive/cuid2';
 import { assertRejects } from '@daisy/errors/testing';
 const services = requireTestServices(process.env);
 setupRitewayBun();
-test('Room command admission leaves default-pool readiness capacity during paused preparation', async () => {
+test('paused Room preparations fill only the competitive lane and leave readiness capacity', async () => {
   await withRoomRuntime(async (f) => {
     const view = await f.assemble();
     const before = await f.snapshot(view.id);
@@ -17,7 +17,8 @@ test('Room command admission leaves default-pool readiness capacity during pause
     const { promise: released, resolve: release } =
       Promise.withResolvers<void>();
     f.gateConsent(async () => {
-      if (++enteredCount === 5) enter();
+      // The default 12-connection web pool reserves four competitive slots.
+      if (++enteredCount === 4) enter();
       await released;
     });
     const commands = Array.from({ length: 10 }, () =>
@@ -31,13 +32,13 @@ test('Room command admission leaves default-pool readiness capacity during pause
       assert({
         given: 'bounded preparations waiting on external consent',
         should:
-          'occupy half the default pool without account waiters or durable writes',
+          'occupy only the competitive lane without account waiters or durable writes',
         actual: {
           transactions: occupancy.transactions,
           lockWaiters: occupancy.lock_waiters,
           snapshot: await f.snapshot(view.id),
         },
-        expected: { transactions: 5, lockWaiters: 0, snapshot: before },
+        expected: { transactions: 4, lockWaiters: 0, snapshot: before },
       });
       const health = (
         await createReadinessHandler({
@@ -62,41 +63,46 @@ test('Room command admission leaves default-pool readiness capacity during pause
   });
 });
 
-test('Room command reservation aborts while the actual pool is already occupied', async () => {
-  const client = new SQL(services.databaseUrl, { max: 2 });
+test('a Room command on a saturated competitive lane is refused within its wait and never runs later', async () => {
   await withRoomRuntime(
     async (f) => {
       const view = await f.assemble();
+      const current = (await f.consent(f.guest, view, 'unready')).view;
       const before = await f.snapshot(view.id);
-      const held = [await client.reserve(), await client.reserve()];
+      const { promise: entered, resolve: enter } =
+        Promise.withResolvers<void>();
+      const { promise: released, resolve: release } =
+        Promise.withResolvers<void>();
+      f.gateConsent(async () => {
+        enter();
+        await released;
+      });
+      // The minimum web pool gives the competitive lane its single slot.
+      const holding = f.consent(f.guest, current, 'ready').then(
+        () => 'accepted',
+        (error: { code?: string }) => error.code,
+      );
+      await entered;
       try {
         await assertRejects({
-          given:
-            'every physical SQL slot occupied before a Room command arrives',
-          should:
-            'reject bounded acquisition without later executing the queued mutation',
-          actual: () => f.consent(f.guest, view, 'unready'),
+          given: 'the only competitive slot held by a paused preparation',
+          should: 'refuse another Room command once its lane wait expires',
+          actual: () => f.command(f.host, current, { type: 'start-round' }),
           code: 'INFRASTRUCTURE',
         });
       } finally {
-        for (const reserved of held) reserved.release();
+        f.gateConsent(null);
+        release();
       }
-      await f.operations.view(f.host, view.id);
+      await holding;
       assert({
-        given: 'pool slots released after the acquisition deadline',
-        should: 'discard the canceled waiter and preserve durable state',
-        actual: await f.snapshot(view.id),
-        expected: before,
-      });
-      const accepted = await f.consent(f.guest, view, 'unready');
-      assert({
-        given: 'fresh work after an aborted reservation',
-        should: 'recover the admission permit',
-        actual: accepted.receipt.replayed,
-        expected: false,
+        given: 'the refused command after the held slot settles',
+        should: 'never execute it later: no Round launch reaches durable state',
+        actual: JSON.parse(await f.snapshot(view.id)).rounds,
+        expected: JSON.parse(before).rounds,
       });
     },
-    { client, maxConnections: 2 },
+    { maxConnections: 4 },
   );
 });
 
@@ -120,7 +126,7 @@ test('Room command admission releases permits after repeated preparation refusal
       });
       await f.consent(f.guest, view, 'unready');
     },
-    { maxConnections: 2 },
+    { maxConnections: 4 },
   );
 });
 
@@ -194,7 +200,7 @@ for (const failure of ['redis', 'disconnect'] as const)
           expected: [false, true],
         });
       },
-      { maxConnections: 2 },
+      { maxConnections: 4 },
     );
   });
 
@@ -210,7 +216,8 @@ test('same-command retries retain readiness capacity and never repeat lease prep
       )!.consentVersion,
     };
     const commandId = createId();
-    const attempts = Array.from({ length: 6 }, () =>
+    // Within the four competitive slots, so no attempt waits on the lane queue.
+    const attempts = Array.from({ length: 4 }, () =>
       f.command(f.guest, view, body, commandId),
     );
     const settled = Promise.allSettled(attempts);
@@ -238,9 +245,8 @@ test('same-command retries retain readiness capacity and never repeat lease prep
       r.status === 'fulfilled' ? [r.value.receipt.replayed] : [],
     );
     assert({
-      given: 'six retries and a five-command default admission budget',
-      should:
-        'accept once, replay four times and refuse bounded excess before SQL',
+      given: 'four same-command retries inside the competitive lane',
+      should: 'accept once and replay the rest behind the command fence',
       actual: {
         accepted: receipts.filter((r) => !r).length,
         replayed: receipts.filter(Boolean).length,
@@ -248,23 +254,33 @@ test('same-command retries retain readiness capacity and never repeat lease prep
           .filter((r) => r.status === 'rejected')
           .map((r) => r.reason.code),
       },
-      expected: { accepted: 1, replayed: 4, refused: ['INFRASTRUCTURE'] },
+      expected: { accepted: 1, replayed: 3, refused: [] },
     });
   });
 });
 
-test('a deliberately single-slot Room adapter remains usable with bounded admission', async () => {
+test('a web pool smaller than its lanes is refused and the minimum pool serves Room work', async () => {
+  await assertRejects({
+    given: 'a one-connection web pool',
+    should: 'refuse the configuration rather than leave lanes unable to run',
+    actual: async () =>
+      createDatabase({
+        url: services.databaseUrl,
+        nextActorId: createId,
+        maxConnections: 1,
+      }),
+    code: 'VALIDATION',
+  });
   await withRoomRuntime(
     async (f) => {
       const view = await f.assemble();
       assert({
-        given: 'the configured one-slot pool',
-        should:
-          'complete normal serialized Room work without claiming spare physical capacity',
+        given: 'the minimum four-connection web pool',
+        should: 'complete normal Room work with one slot per lane',
         actual: (await f.operations.view(f.host, view.id)).id,
         expected: view.id,
       });
     },
-    { maxConnections: 1 },
+    { maxConnections: 4 },
   );
 });
