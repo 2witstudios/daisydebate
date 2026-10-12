@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
-import { createWorkloadExecutor } from './workload-executor';
+import { createWorkloadExecutor } from './workload-admission';
 import { deferred } from './workload-executor.test-support';
 setupRitewayBun();
 

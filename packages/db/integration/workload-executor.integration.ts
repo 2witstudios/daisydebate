@@ -4,10 +4,8 @@ import { sql, defineRelations } from 'drizzle-orm';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { requireTestServices } from '@daisy/config';
-import {
-  createWorkloadExecutor,
-  workloadDatabase,
-} from '../src/workload-executor';
+import { createWorkloadExecutor } from '../src/workload-admission';
+import { workloadDatabase } from '../src/workload-executor';
 import { RUNTIME_SESSION } from '../src/session-bounds';
 import { users } from '../src/schema/users';
 import { finishedOrBlockedBehind } from '../src/testing';

@@ -3,7 +3,8 @@ import { drizzle } from 'drizzle-orm/bun-sql';
 import { sql } from 'drizzle-orm';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
-import { createWorkloadExecutor, workloadDatabase } from './workload-executor';
+import { createWorkloadExecutor } from './workload-admission';
+import { workloadDatabase } from './workload-executor';
 import { deferred } from './workload-executor.test-support';
 setupRitewayBun();
 
