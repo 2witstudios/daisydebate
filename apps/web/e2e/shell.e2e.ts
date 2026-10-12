@@ -74,9 +74,12 @@ test.describe('dashboard shell chrome', () => {
     await page.goto('/');
     // Hidden flyout links are outside the accessibility tree until revealed,
     // so the hidden state is asserted with a structural locator.
-    const recordings = page.locator(
-      'nav[aria-label="Primary"] a[href="/recordings"]',
-    );
+    // The rail is the first Primary nav; the phone tab bar, hidden here,
+    // lists Recordings in its More sheet too.
+    const recordings = page
+      .locator('nav[aria-label="Primary"]')
+      .first()
+      .locator('a[href="/recordings"]');
     await expect(recordings).toBeAttached();
     await expect(recordings).not.toBeVisible();
 
