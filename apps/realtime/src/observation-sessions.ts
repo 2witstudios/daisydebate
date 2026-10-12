@@ -132,11 +132,11 @@ export function createObservationSessions({
     attempt: ReturnType<ObservationPermit['begin']>,
     result: Extract<ObservationAuthorityReadResult, { status: 'allowed' }>,
   ) {
+    if (!binding.permit.install(attempt, result.grant)) return false;
+    // An unbounded overlay degrades actor-private extras, never shared delivery.
     const overlay = observationOverlaySchema.safeParse(result.overlay);
-    if (!overlay.success || !binding.permit.install(attempt, result.grant))
-      return false;
     binding.base = result.grant.base;
-    binding.overlay = overlay.data;
+    binding.overlay = overlay.success ? overlay.data : null;
     binding.retryAt = 0;
     for (const recipient of binding.recipients)
       if (!ready(binding, recipient)) state(recipient, 'unavailable');

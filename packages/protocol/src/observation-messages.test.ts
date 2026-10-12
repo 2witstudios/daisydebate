@@ -1,5 +1,9 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { observationServerMessageSchema } from './observation-messages';
+import {
+  observationOverlaySchema,
+  observationServerMessageSchema,
+} from './observation-messages';
+import { observationOverlayBytes } from './observation';
 import { clientMessageSchema } from './realtime';
 import { observationTestBase } from './observation-fixtures.test-support';
 setupRitewayBun();
@@ -69,9 +73,24 @@ test('ready carries a bounded actor-private overlay alongside the shared base', 
       observationServerMessageSchema.safeParse(missing).success,
       observationServerMessageSchema.safeParse({
         ...ready,
-        overlay: { text: 'a'.repeat(16 * 1024) },
+        overlay: { text: 'a'.repeat(observationOverlayBytes) },
       }).success,
     ],
     expected: [true, true, false, false],
+  });
+});
+
+test('the overlay byte bound is exact', () => {
+  const sized = (bytes: number) => ({ text: 'a'.repeat(bytes - 11) });
+  assert({
+    given: 'overlays of exactly the bound and one byte over',
+    should: 'accept the bound and refuse one more byte',
+    actual: [
+      observationOverlaySchema.safeParse(sized(observationOverlayBytes))
+        .success,
+      observationOverlaySchema.safeParse(sized(observationOverlayBytes + 1))
+        .success,
+    ],
+    expected: [true, false],
   });
 });

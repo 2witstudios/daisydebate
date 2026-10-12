@@ -5,6 +5,7 @@ import {
   observationFrameBytes,
   observationHeaderSchema,
   observationJsonBytes,
+  observationOverlayBytes,
   observationResourceKey,
 } from '../observation';
 import { createMessagingCoreSchemas, type MessagingCoreBounds } from './core';
@@ -35,17 +36,26 @@ const reactionCounts = z
 const channelRow = messagingMessageRecordSchema.extend({
   reactions: reactionCounts,
 });
-/** The viewer's own reactions within their window, from the canonical read. */
+/** The viewer's own reactions within their window, from the canonical read:
+ * at most 50 messages × 8 reactions of at most 16 UTF-16 units. */
 export const observationChannelOverlaySchema = z.strictObject({
   ownReactions: z
     .array(
       z.strictObject({
         messageId: idSchema,
-        reaction: z.string().min(1).max(64),
+        reaction: z.string().min(1).max(16),
       }),
     )
-    .max(512),
+    .max(400),
 });
+const worstOverlay = {
+  ownReactions: Array.from({ length: 400 }, () => ({
+    messageId: 'z'.repeat(24),
+    reaction: '\u0001'.repeat(16),
+  })),
+};
+if (observationJsonBytes(worstOverlay) > observationOverlayBytes)
+  throw new RangeError('Channel overlay schema exceeds the overlay byte bound');
 const maxSafe = Number.MAX_SAFE_INTEGER;
 const worstId = 'z'.repeat(24);
 const worstIso = '2026-10-12T00:00:00.000Z';

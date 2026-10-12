@@ -16,7 +16,7 @@ test('actor overlays travel with ready and refresh only from canonical reads', a
   await fixture.flush();
   fixture.admits[0]!.resolve([
     fixture.allowed(base(), dependencies, { own: ['first'] }),
-    fixture.allowed(base(), dependencies, { text: 'x'.repeat(9000) }),
+    fixture.allowed(base(), dependencies, { text: 'x'.repeat(70_000) }),
   ]);
   await fixture.flush();
   fixture.advance(2500);
@@ -30,16 +30,16 @@ test('actor overlays travel with ready and refresh only from canonical reads', a
     given:
       'an admitted overlay, a renewal with a changed overlay and an oversized one',
     should:
-      'send each canonical overlay on ready and refuse an unbounded one as unavailable',
+      'send each canonical overlay on ready and drop an unbounded one without making delivery unavailable',
     actual: {
       overlays: tab.frames
         .filter((frame) => frame.type === 'observation.ready')
         .map((frame) => frame.overlay),
-      oversized: oversized.frames.map((frame) => frame.type),
+      oversized: oversized.frames.map((frame) => [frame.type, frame.overlay]),
     },
     expected: {
       overlays: [{ own: ['first'] }, { own: ['second'] }],
-      oversized: ['observation.state'],
+      oversized: [['observation.ready', null]],
     },
   });
 });

@@ -4,7 +4,10 @@ import {
   observationChannelOverlaySchema,
   observationProjectionRowBytes,
 } from './observation-channel';
-import { observationServerMessageSchema } from '../observation-messages';
+import {
+  observationOverlaySchema,
+  observationServerMessageSchema,
+} from '../observation-messages';
 setupRitewayBun();
 const channelId = 'b'.repeat(24);
 const base = {
@@ -243,5 +246,27 @@ test('the own-reactions overlay names messages and reactions only', () => {
       }).success,
     ],
     expected: [true, false, false],
+  });
+});
+test('the largest valid own-reactions overlay fits the overlay byte bound', () => {
+  const worst = {
+    ownReactions: Array.from({ length: 400 }, (_, index) => ({
+      messageId: index.toString(36).padStart(24, 'z'),
+      reaction: '\u0001'.repeat(16),
+    })),
+  };
+  assert({
+    given:
+      'the most and longest escaped own reactions the channel schema allows, and one more',
+    should:
+      'accept the largest within the generic overlay bound and refuse more entries',
+    actual: [
+      observationChannelOverlaySchema.safeParse(worst).success,
+      observationOverlaySchema.safeParse(worst).success,
+      observationChannelOverlaySchema.safeParse({
+        ownReactions: [...worst.ownReactions, worst.ownReactions[0]],
+      }).success,
+    ],
+    expected: [true, true, false],
   });
 });

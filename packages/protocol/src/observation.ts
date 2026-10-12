@@ -107,8 +107,9 @@ export function observationBaseKey(base: ObservationBase): string {
   ]);
 }
 export const observationFrameBytes = 128 * 1024;
-/** Actor-private overlays stay small: they are recomputed on every renewal. */
-export const observationOverlayBytes = 8 * 1024;
+/** Actor-private overlays are recomputed on every renewal; the bound covers
+ * the largest overlay any adopted resource's schema allows. */
+export const observationOverlayBytes = 64 * 1024;
 /** UTF-8 length of the JSON encoding, without depending on a host TextEncoder. */
 export function observationJsonBytes(value: unknown) {
   let bytes = 0;
