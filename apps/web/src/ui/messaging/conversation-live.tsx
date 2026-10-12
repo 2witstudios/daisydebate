@@ -4,7 +4,6 @@ import { useRouter } from 'next/navigation';
 import type { MessagingCoreBounds } from '@daisy/protocol';
 import { createBrowserTypingReader } from './typing-browser';
 import { MessageHistory } from './message-history';
-import { createBrowserConnectionStore } from '../../features/realtime/browser-adapters';
 import { attachMessagingInboxDoorbells } from '../../features/messaging/doorbells';
 import { channelMessages } from '../../features/messaging/channel-observation';
 import { editVisibility } from '../../features/messaging/edit-visibility';
@@ -24,6 +23,8 @@ function useTyping(channelId: string, refetchMs: number | null) {
   const [typing, showTyping] = useState<boolean | null>(null);
   useEffect(() => {
     if (!connection) return;
+    // Search results observe nothing, so typing must still open the tab socket.
+    connection.connect();
     const reader = createBrowserTypingReader(
       channelId,
       connection,
@@ -122,11 +123,7 @@ export function MessageEditLive({
   return <>{children}</>;
 }
 
-function ReactionList({
-  items,
-}: {
-  readonly items: readonly ReactionCount[];
-}) {
+function ReactionList({ items }: { readonly items: readonly ReactionCount[] }) {
   return (
     <ul aria-label="Current reactions">
       {items.map((item) => (
@@ -187,18 +184,19 @@ export function ReactionsLive({
   );
 }
 
+/** Inbox doorbells ride the tab's one connection until the inbox page
+ * producer is adopted as an observation. */
 export function InboxLive({
   actorId,
-  socketUrl,
   snapshotId,
   children,
 }: {
   readonly actorId: string;
-  readonly socketUrl: string | null;
   readonly snapshotId: string;
   readonly children: ReactNode;
 }) {
   const router = useRouter();
+  const connection = useRealtimeConnection();
   const [invalidated, invalidate] = useState<string | null>(null);
   const currentSnapshot = useRef(snapshotId);
   const reader = useRef<ReturnType<
@@ -209,8 +207,7 @@ export function InboxLive({
     reader.current?.authorizedSnapshot();
   }, [snapshotId]);
   useEffect(() => {
-    if (socketUrl === null) return;
-    const connection = createBrowserConnectionStore(socketUrl);
+    if (!connection) return;
     const attached = attachMessagingInboxDoorbells({
       connection,
       actorId,
@@ -228,10 +225,9 @@ export function InboxLive({
     return () => {
       attached.close();
       unsubscribe();
-      connection.dispose();
       reader.current = null;
     };
-  }, [actorId, socketUrl, router]);
+  }, [actorId, connection, router]);
   return invalidated === snapshotId ? (
     <p role="status" className="text-ink-muted">
       Refreshing messages…
