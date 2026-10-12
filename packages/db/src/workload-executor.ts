@@ -1,52 +1,8 @@
 import { createAppError } from '@daisy/errors';
-
-export type DatabaseWorkload =
-  | 'competitive'
-  | 'social'
-  | 'search'
-  | 'admission'
-  | 'renewal'
-  | 'control'
-  | 'headers'
-  | 'projection'
-  | 'relay'
-  | 'ephemeral';
-
-/** Non-borrowable reservations count actual work through commit/rollback settlement. */
-export function createWorkloadExecutor(
-  capacities: Partial<Record<DatabaseWorkload, number>>,
-) {
-  const active = new Map<DatabaseWorkload, number>();
-  for (const capacity of Object.values(capacities))
-    if (!Number.isSafeInteger(capacity) || capacity < 0)
-      throw createAppError('VALIDATION', 'Invalid database workload capacity');
-  const acquire = (lane: DatabaseWorkload) => {
-    const count = active.get(lane) ?? 0;
-    if (count >= (capacities[lane] ?? 0))
-      throw createAppError('INFRASTRUCTURE', 'Database capacity unavailable');
-    active.set(lane, count + 1);
-    return () => active.set(lane, (active.get(lane) ?? 1) - 1);
-  };
-  const invoke = <T>(lane: DatabaseWorkload, work: () => T): T => {
-    const release = acquire(lane);
-    try {
-      const result = work();
-      if (result instanceof Promise) return result.finally(release) as T;
-      release();
-      return result;
-    } catch (error) {
-      release();
-      throw error;
-    }
-  };
-  return {
-    invoke,
-    run: async <T>(
-      lane: DatabaseWorkload,
-      work: () => Promise<T>,
-    ): Promise<T> => invoke(lane, work),
-  };
-}
+import type {
+  createWorkloadExecutor,
+  DatabaseWorkload,
+} from './workload-admission';
 
 /** Bind an owning adapter once. Transaction children retain that one slot. */
 export function workloadDatabase<T extends object>(
@@ -175,7 +131,8 @@ export function workloadDatabase<T extends object>(
       throw createAppError('INFRASTRUCTURE', 'Unsupported database operation');
     return (...args: unknown[]) => {
       const build = () => Reflect.apply(value, object, args) as unknown;
-      const result = lease ? build() : executor.invoke(lane, build);
+      // Building is pure; only execution (then/execute/transaction) waits for a slot.
+      const result = lease ? build() : executor.construct(lane, build);
       if (key === 'getSQL' || key === 'toSQL') return result;
       if (result instanceof Promise)
         return lease ? track(lease, result) : result;
@@ -258,35 +215,4 @@ export function workloadDatabase<T extends object>(
       },
     });
   return wrap(database) as T;
-}
-
-export type DatabaseWorkloadProfile =
-  'web' | 'realtime' | 'reconciliation' | 'projection';
-/** Physical pool ceilings include every allocated workload, never hidden extra pools. */
-export function workloadCapacities(
-  profile: DatabaseWorkloadProfile,
-  poolSize: number,
-) {
-  if (!Number.isSafeInteger(poolSize) || poolSize < 1)
-    throw createAppError('VALIDATION', 'Invalid database pool capacity');
-  const requested: Partial<Record<DatabaseWorkload, number>> =
-    profile === 'projection'
-      ? { projection: 2, headers: 1, relay: 1 }
-      : profile === 'web'
-        ? { control: 2, competitive: 4, social: 3, search: 1, admission: 2 }
-        : {
-            control: 1,
-            renewal: 2,
-            admission: 1,
-            ...(profile === 'reconciliation'
-              ? { projection: 2, headers: 1, relay: 1 }
-              : {}),
-          };
-  let remaining = poolSize;
-  const capacities: Partial<Record<DatabaseWorkload, number>> = {};
-  for (const [lane, ceiling] of Object.entries(requested)) {
-    capacities[lane as DatabaseWorkload] = Math.min(remaining, ceiling);
-    remaining -= capacities[lane as DatabaseWorkload]!;
-  }
-  return capacities;
 }

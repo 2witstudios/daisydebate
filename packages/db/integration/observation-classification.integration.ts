@@ -4,9 +4,9 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { readObservationHeaders } from '../src/observation-headers';
 import { withFixture } from './constraint-helpers';
+import { withInboxHeaders } from './observation.test-support';
 import { createAuthorizationSubject } from './authorization.test-support';
 import { validConfig, validRules } from './round-fixtures';
-import { createMessagingTestFixture } from '../src/messaging/test-fixture';
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
 test('Room content/readiness and same-actor seat moves preserve disclosure/purge', async () => {
@@ -66,46 +66,35 @@ test('Room content/readiness and same-actor seat moves preserve disclosure/purge
   });
 });
 test('message changes perform zero recipient inbox work and removal retains channel purge', async () => {
-  await withFixture(url, async (f) => {
-    const fixture = await createMessagingTestFixture(f.sql);
-    const resources = [fixture.actorId, fixture.otherActorId].map((id) => ({
-      kind: 'inbox' as const,
-      id,
-    }));
-    const read = () =>
-      readObservationHeaders(drizzle({ client: f.sql }), resources);
-    try {
-      const before = await read(),
-        messageId = createId();
-      const [channelBefore] = await readObservationHeaders(
-        drizzle({ client: f.sql }),
-        [{ kind: 'channel', id: fixture.channelId }],
-      );
-      let inboxPending = -1;
-      await f.sql.begin(async (tx) => {
-        await tx`insert into messaging_messages(id,channel_id,author_actor_id,sequence,change_version,text,created_at) values(${messageId},${fixture.channelId},${fixture.actorId},1,1,'Content',clock_timestamp())`;
-        [{ count: inboxPending }] =
-          await tx`select count(*)::int count from resource_observation_pending where transaction_id=pg_current_xact_id() and kind='inbox'`;
-      });
-      await f.sql`update messaging_messages set text=null,removed_at=clock_timestamp(),change_version=2 where id=${messageId}`;
-      const after = await read();
-      const [channelAfter] = await readObservationHeaders(
-        drizzle({ client: f.sql }),
-        [{ kind: 'channel', id: fixture.channelId }],
-      );
-      assert({
-        given: 'send and removal with actual DM recipients',
-        should:
-          'do zero recipient collection work and preserve channel erasure fence',
-        actual: {
-          inboxPending,
-          inbox: after,
-          purge: channelAfter!.purgeGeneration - channelBefore!.purgeGeneration,
-        },
-        expected: { inboxPending: 0, inbox: before, purge: 1 },
-      });
-    } finally {
-      await fixture.cleanup();
-    }
+  await withInboxHeaders(url, async ({ f, fixture, read }) => {
+    const before = await read(),
+      messageId = createId();
+    const [channelBefore] = await readObservationHeaders(
+      drizzle({ client: f.sql }),
+      [{ kind: 'channel', id: fixture.channelId }],
+    );
+    let inboxPending = -1;
+    await f.sql.begin(async (tx) => {
+      await tx`insert into messaging_messages(id,channel_id,author_actor_id,sequence,change_version,text,created_at) values(${messageId},${fixture.channelId},${fixture.actorId},1,1,'Content',clock_timestamp())`;
+      [{ count: inboxPending }] =
+        await tx`select count(*)::int count from resource_observation_pending where transaction_id=pg_current_xact_id() and kind='inbox'`;
+    });
+    await f.sql`update messaging_messages set text=null,removed_at=clock_timestamp(),change_version=2 where id=${messageId}`;
+    const after = await read();
+    const [channelAfter] = await readObservationHeaders(
+      drizzle({ client: f.sql }),
+      [{ kind: 'channel', id: fixture.channelId }],
+    );
+    assert({
+      given: 'send and removal with actual DM recipients',
+      should:
+        'do zero recipient collection work and preserve channel erasure fence',
+      actual: {
+        inboxPending,
+        inbox: after,
+        purge: channelAfter!.purgeGeneration - channelBefore!.purgeGeneration,
+      },
+      expected: { inboxPending: 0, inbox: before, purge: 1 },
+    });
   });
 });

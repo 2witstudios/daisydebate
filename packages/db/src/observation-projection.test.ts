@@ -27,7 +27,8 @@ test('resource guard refuses before admission and rechecks after parent-fence wa
         execute: async () => {
           queries++;
           current = false;
-          return [];
+          // A successful fence: only the post-wait guard can stop the body read.
+          return [{ locked: true }];
         },
       });
     },

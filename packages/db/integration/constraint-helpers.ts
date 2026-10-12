@@ -252,12 +252,6 @@ export class Fixture {
     for (const [table, key] of purgeOrder) {
       await this.deleteWhere(table, key, this.tracked.get(table));
     }
-    for (const table of ['rounds', 'rooms', 'messaging_channels', 'actors'])
-      await this.deleteWhere(
-        'resource_observation_headers',
-        'resource_id',
-        this.tracked.get(table),
-      );
   }
 
   private async deleteWhere(

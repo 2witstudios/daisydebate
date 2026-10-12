@@ -3,10 +3,11 @@ import { createObservationProjectionOperations } from './observation-projection'
 import { createObservationAuthorityOperations } from './observation-authority';
 import {
   createWorkloadExecutor,
-  workloadDatabase,
   workloadCapacities,
+  workloadQueueOptions,
   type DatabaseWorkloadProfile,
-} from './workload-executor';
+} from './workload-admission';
+import { workloadDatabase } from './workload-executor';
 import { createMessagingTypingPrivacyPort } from './privacy/typing-rights';
 import { createMessagingTypingStore } from './messaging/typing-store';
 import { createMessagingPreferenceStore } from './messaging/preference-store';
@@ -144,8 +145,10 @@ export function createDatabase({
       connection: RUNTIME_SESSION,
     });
   const rawDatabase = drizzle({ client });
+  const capacities = workloadCapacities(workloadProfile, maxConnections);
   const executor = createWorkloadExecutor(
-    workloadCapacities(workloadProfile, maxConnections),
+    capacities,
+    workloadQueueOptions(capacities),
   );
   const database = workloadDatabase(rawDatabase, executor, 'control');
   const competitiveDatabase = workloadDatabase(
@@ -234,7 +237,10 @@ export function createDatabase({
       await client.close({ timeout: 5 });
     },
     ...authOperations({ database, eventSink }),
-    ...authorizationSessionOperations({ database: authorityDatabase }),
+    // Web session reads serve every page render; realtime revalidates on its admission lane.
+    ...authorizationSessionOperations({
+      database: workloadProfile === 'web' ? database : authorityDatabase,
+    }),
     ...emailDeliveryOperations({ database, eventSink }),
     ...actorOperations({ database, eventSink }),
     messagingInboxStore: (

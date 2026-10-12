@@ -259,3 +259,15 @@ export function consentBarrier(
   });
   return { entered, release: () => release() };
 }
+
+/** An assembled Room whose guest has given and withdrawn consent, with its durable snapshot. */
+export async function assembleUnready(
+  f: Pick<
+    Awaited<ReturnType<typeof fixture>>,
+    'assemble' | 'consent' | 'guest' | 'snapshot'
+  >,
+) {
+  const view = await f.assemble();
+  const current = (await f.consent(f.guest, view, 'unready')).view;
+  return { view, current, before: await f.snapshot(view.id) };
+}

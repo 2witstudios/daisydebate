@@ -5,10 +5,8 @@ import { sql } from 'drizzle-orm';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createObservationAuthorityOperations } from '../src/observation-authority';
-import {
-  createWorkloadExecutor,
-  workloadDatabase,
-} from '../src/workload-executor';
+import { createWorkloadExecutor } from '../src/workload-admission';
+import { workloadDatabase } from '../src/workload-executor';
 import { withFixture } from './constraint-helpers';
 import { createAuthorizationSubject } from './authorization.test-support';
 setupRitewayBun();

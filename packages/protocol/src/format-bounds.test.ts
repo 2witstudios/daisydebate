@@ -5,7 +5,10 @@ import {
   roundRulesSchema,
   type FormatDefinition,
 } from './format';
-import { practiceFormatFixture } from './format-fixtures.test-support';
+import {
+  fixtureRules,
+  practiceFormatFixture,
+} from './format-fixtures.test-support';
 
 setupRitewayBun();
 
@@ -32,17 +35,6 @@ const withSegments = (count: number): FormatDefinition => {
     },
   };
 };
-const rulesFor = (definition: FormatDefinition) => ({
-  version: 2,
-  seats: definition.seats,
-  segments: definition.segments.map(({ defaultDurationMs, ...s }) => ({
-    ...s,
-    durationMs: defaultDurationMs,
-  })),
-  inRoundPrep: null,
-  countdownMs: 0,
-  interaction: { crossExMode: 'ordered', yield: null, interruptions: null },
-});
 
 test('accepted formats bound their segment schedule', () => {
   const accepted = withSegments(MAX_FORMAT_SEGMENTS),
@@ -54,11 +46,11 @@ test('accepted formats bound their segment schedule', () => {
       limit: MAX_FORMAT_SEGMENTS,
       accepted: [
         formatDefinitionSchema.safeParse(accepted).success,
-        roundRulesSchema.safeParse(rulesFor(accepted)).success,
+        roundRulesSchema.safeParse(fixtureRules(accepted)).success,
       ],
       refused: [
         formatDefinitionSchema.safeParse(refused).success,
-        roundRulesSchema.safeParse(rulesFor(refused)).success,
+        roundRulesSchema.safeParse(fixtureRules(refused)).success,
       ],
     },
     expected: {
@@ -125,7 +117,7 @@ test('capability choice arrays are bounded sets over their vocabulary', () => {
 
 test('resolved rules refuse a repeated prep choice', () => {
   const rules = {
-    ...rulesFor(practiceFormatFixture),
+    ...fixtureRules(practiceFormatFixture),
     inRoundPrep: {
       budgetMsPerSide: 0,
       spendableBefore: ['speech', 'speech'],

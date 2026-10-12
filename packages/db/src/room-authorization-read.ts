@@ -6,20 +6,11 @@ import { rooms, roomParticipants } from './schema/rooms';
 import { rounds } from './schema/rounds';
 import { roundParticipants } from './schema/round-participants';
 import { sharedAccount, type Caller } from './room-command-facts';
-
-type AuthorizationParticipant = {
-  readonly actorId: string | null;
-  readonly role: string | null;
-  readonly slot: number | null;
-};
-
-function projectParticipants(rows: readonly AuthorizationParticipant[]) {
-  return rows.flatMap(({ actorId, role, slot }) =>
-    actorId === null || role === null || slot === null
-      ? []
-      : [{ actorId, role, slot }],
-  );
-}
+import {
+  audienceParticipants,
+  roomAudienceColumns,
+  roundAudienceColumns,
+} from './audience-facts';
 
 /** Minimal durable authority facts; no Room content, format or display-label hydration. */
 export function roomAuthorizationRead({
@@ -35,16 +26,7 @@ export function roomAuthorizationRead({
         const account = await sharedAccount(tx, caller);
         // One statement snapshot keeps membership and Room revision coherent.
         const rows = await tx
-          .select({
-            roomId: rooms.id,
-            hostActorId: rooms.hostActorId,
-            visibility: rooms.visibility,
-            status: rooms.status,
-            revision: rooms.version,
-            actorId: roomParticipants.actorId,
-            role: roomParticipants.role,
-            slot: roomParticipants.slot,
-          })
+          .select(roomAudienceColumns)
           .from(rooms)
           .leftJoin(roomParticipants, eq(roomParticipants.roomId, rooms.id))
           .where(eq(rooms.id, roomId));
@@ -59,7 +41,7 @@ export function roomAuthorizationRead({
             visibility: room.visibility,
             status: room.status,
             revision: room.revision,
-            participants: projectParticipants(rows),
+            participants: audienceParticipants(rows),
           },
         };
       });
@@ -70,16 +52,7 @@ export function roomAuthorizationRead({
       return database.transaction(async (tx) => {
         const account = await sharedAccount(tx, caller);
         const rows = await tx
-          .select({
-            roundId: rounds.id,
-            createdByActorId: rounds.createdByActorId,
-            visibility: rounds.visibility,
-            status: rounds.status,
-            revision: rounds.version,
-            actorId: roundParticipants.actorId,
-            role: roundParticipants.role,
-            slot: roundParticipants.slot,
-          })
+          .select(roundAudienceColumns)
           .from(rounds)
           .leftJoin(roundParticipants, eq(roundParticipants.roundId, rounds.id))
           .where(eq(rounds.id, roundId));
@@ -102,7 +75,7 @@ export function roomAuthorizationRead({
             visibility: round.visibility,
             status: round.status,
             revision: round.revision,
-            participants: projectParticipants(rows),
+            participants: audienceParticipants(rows),
           },
         };
       });

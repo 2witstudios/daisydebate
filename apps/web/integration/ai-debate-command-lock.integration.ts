@@ -72,9 +72,10 @@ test('a real lock wait crossing into a later same-side speech refuses the origin
             expected: true,
           });
           // Finish setup before approaching a bounded lock window, so the
-          // blocked operation stays inside the database lock timeout.
+          // blocked operation (about 130ms: 100ms plus three 10ms segments)
+          // stays inside the 200ms runtime lock timeout.
           const lockFrom = new Date(
-            Date.parse(opening.startedAt) + opening.durationMs - 500,
+            Date.parse(opening.startedAt) + opening.durationMs - 100,
           );
           await blocker`select pg_sleep_until(${lockFrom})`;
           executing = apply({

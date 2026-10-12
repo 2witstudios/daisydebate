@@ -11,7 +11,7 @@ import type {
   ObservationBinding,
 } from './observation-contracts';
 type Fact = ObservationAuthorityContext['resourceFact'];
-export function observationChannelActors(fact: Fact) {
+function observationChannelActors(fact: Fact) {
   return fact.kind === 'channel'
     ? fact.authority.kind === 'dm'
       ? [fact.authority.lowActorId, fact.authority.highActorId]
