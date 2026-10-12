@@ -13,7 +13,7 @@ type Owner = {
   expiresAt: number;
   readonly variants: Map<string, ObservationBase>;
   readonly delivered: Map<string, number>;
-  dirtySince: number | null;
+  readonly dirtySince: Map<string, number>;
 };
 /** Resource-scoped reader ownership; only the eligible allocation owns SQL.
  * Jobs occupy their actual slot until settlement, including expired ownership.
@@ -30,6 +30,10 @@ export function createObservationWorker({
   readonly now: () => number;
   readonly nextToken: () => string;
   readonly cache: {
+    readonly ready: (
+      base: ObservationBase,
+      header: ObservationHeader,
+    ) => Promise<boolean>;
     readonly claim: (
       resource: ObservationResource,
       token: string,
@@ -88,7 +92,7 @@ export function createObservationWorker({
       ) {
         if (!current(owner)) return;
         owner.delivered.set(key, snapshot.header.contentRevision);
-        owner.dirtySince = null;
+        owner.dirtySince.delete(key);
       }
     })()
       .catch(() => {
@@ -114,7 +118,7 @@ export function createObservationWorker({
           expiresAt: 0,
           variants: new Map(),
           delivered: new Map(),
-          dirtySince: null,
+          dirtySince: new Map(),
         };
         owners.set(key, owner);
       }
@@ -148,7 +152,11 @@ export function createObservationWorker({
         for (const header of headers) {
           const owner = owners.get(observationResourceKey(header.resource));
           if (!owner || !current(owner)) continue;
-          if (owner.dirtySince !== null && now() - owner.dirtySince >= 2000)
+          if (
+            [...owner.dirtySince.values()].some(
+              (started) => now() - started >= 2000,
+            )
+          )
             continue;
           if (!(await cache.prepare(header, owner.token)) || !current(owner))
             continue;
@@ -160,9 +168,11 @@ export function createObservationWorker({
             owner.expiresAt = now() + 2000;
           for (const [key, base] of owner.variants) {
             if (base.disclosureRevision !== header.disclosureRevision) continue;
+            if (!(await cache.ready(base, header))) owner.delivered.delete(key);
+            if (!current(owner)) break;
             if ((owner.delivered.get(key) ?? -1) >= header.contentRevision)
               continue;
-            owner.dirtySince ??= now();
+            if (!owner.dirtySince.has(key)) owner.dirtySince.set(key, now());
             start(owner, base, header);
           }
         }

@@ -45,6 +45,12 @@ export function createObservationStore<T>({
     },
     authorize(attempt: number, authorized: Identity) {
       if (disposed || attempt !== generation) return false;
+      if (
+        !identity ||
+        identity.partition !== authorized.partition ||
+        identity.disclosureRevision !== authorized.disclosureRevision
+      )
+        update({ status: 'pending', content: null, revision: null });
       identity = authorized;
       return true;
     },

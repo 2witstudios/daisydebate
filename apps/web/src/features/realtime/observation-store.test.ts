@@ -67,3 +67,32 @@ test('disposal is final and unavailable recovers without another content event',
     },
   });
 });
+
+test('disclosure identity transition hides old body and resets revision floor', () => {
+  const store = createObservationStore({
+    decode: (value: unknown) => (typeof value === 'string' ? value : null),
+  });
+  const first = store.begin();
+  store.authorize(first, { partition: 'wide', disclosureRevision: 1 });
+  store.snapshot(first, {
+    partition: 'wide',
+    disclosureRevision: 1,
+    contentRevision: 10,
+    body: 'wide',
+  });
+  const next = store.begin();
+  store.authorize(next, { partition: 'narrow', disclosureRevision: 2 });
+  const hidden = store.read().content;
+  store.snapshot(next, {
+    partition: 'narrow',
+    disclosureRevision: 2,
+    contentRevision: 10,
+    body: 'narrow',
+  });
+  assert({
+    given: 'new canonical disclosure with unchanged content revision',
+    should: 'intrinsically hide incompatible bytes and accept its own baseline',
+    actual: { hidden, current: store.read().content },
+    expected: { hidden: null, current: 'narrow' },
+  });
+});

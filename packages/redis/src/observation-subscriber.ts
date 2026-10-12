@@ -3,7 +3,6 @@ import {
   type ObservationResource,
 } from '@daisy/protocol';
 import { redisKey } from './redis-key';
-
 type Listener = (message: string, channel: string) => void;
 export type ObservationSubscriberTransport = {
   onconnect?: (() => void) | null | undefined;
@@ -13,9 +12,14 @@ export type ObservationSubscriberTransport = {
   readonly unsubscribe: (channel: string) => Promise<unknown>;
   readonly close: () => void;
 };
-/** One additional native connection per process, never one per resource/socket.
- * At-most-once hints accelerate reads only; reconnect repairs every interested
- * head before synchronization becomes ready.
+type Interest = {
+  readonly resource: ObservationResource;
+  readonly listeners: Set<() => void>;
+  readonly handler: Listener;
+  subscribedGeneration: number;
+};
+/** One native subscriber per process. Reconnect subscribes and repairs the
+ * complete bounded interest set before declaring synchronization restored.
  */
 export function createObservationSubscriber({
   namespace,
@@ -28,36 +32,54 @@ export function createObservationSubscriber({
     resources: readonly ObservationResource[],
   ) => Promise<void>;
 }) {
-  const client = createClient();
-  const interests = new Map<
-    string,
-    {
-      resource: ObservationResource;
-      listeners: Set<() => void>;
-      handler: Listener;
-    }
-  >();
+  const client = createClient(),
+    interests = new Map<string, Interest>();
   let closed = false,
     synchronized = false,
-    generation = 0;
+    generation = 0,
+    membership = 0;
   let work: Promise<void> | undefined;
+  const notify = (entry: Interest) => {
+    for (const listener of entry.listeners) {
+      try {
+        listener();
+      } catch {
+        /* One reader cannot disrupt head repair. */
+      }
+    }
+  };
   function reconnect(): Promise<void> {
     if (closed) return Promise.resolve();
     if (work) return work;
     const attempt = ++generation;
     synchronized = false;
-    work = (async () => {
-      await client.connect();
-      if (closed || attempt !== generation) return;
-      for (const [channel, entry] of interests) {
-        await client.subscribe(channel, entry.handler);
-        if (closed || attempt !== generation) return;
-      }
-      await reconcile([...interests.values()].map((entry) => entry.resource));
-      if (!closed && attempt === generation) synchronized = true;
-    })().finally(() => {
-      work = undefined;
-    });
+    work = Promise.resolve()
+      .then(async () => {
+        await client.connect();
+        for (let pass = 0; pass < 4; pass++) {
+          if (closed || attempt !== generation) return;
+          const version = membership;
+          for (const [channel, entry] of interests) {
+            if (entry.subscribedGeneration === attempt) continue;
+            await client.subscribe(channel, entry.handler);
+            if (closed || attempt !== generation) return;
+            if (interests.get(channel) === entry)
+              entry.subscribedGeneration = attempt;
+          }
+          await reconcile(
+            [...interests.values()].map((entry) => entry.resource),
+          );
+          if (closed || attempt !== generation) return;
+          if (version !== membership) continue;
+          synchronized = true;
+          for (const entry of interests.values()) notify(entry);
+          return;
+        }
+        // Continuous churn stays degraded. Periodic repair retries bounded work.
+      })
+      .finally(() => {
+        work = undefined;
+      });
     return work;
   }
   client.onclose = () => {
@@ -81,7 +103,9 @@ export function createObservationSubscriber({
         observationResourceKey(resource),
         'hint',
       );
-      let entry = interests.get(channel);
+      let entry = interests.get(channel),
+        created = false;
+      const registration = () => listener();
       if (!entry) {
         if (interests.size >= 1024)
           throw new Error('Observation interest capacity exceeded');
@@ -90,31 +114,37 @@ export function createObservationSubscriber({
           resource,
           listeners,
           handler: () => {
-            for (const notify of listeners) {
-              try {
-                notify();
-              } catch {
-                /* A consumer cannot disrupt repair. */
-              }
-            }
+            const current = interests.get(channel);
+            if (current) notify(current);
           },
+          subscribedGeneration: -1,
         };
         interests.set(channel, entry);
-        if (synchronized) {
-          await client.subscribe(channel, entry.handler);
-          await reconcile([resource]);
-        } else await reconnect();
+        membership++;
+        created = true;
       }
       const current = entry;
-      current.listeners.add(listener);
+      current.listeners.add(registration);
+      try {
+        if (created || !synchronized) await reconnect();
+        else registration();
+      } catch (error) {
+        current.listeners.delete(registration);
+        if (!current.listeners.size && interests.get(channel) === current) {
+          interests.delete(channel);
+          membership++;
+        }
+        throw error;
+      }
       let released = false;
       return () => {
         if (released) return;
         released = true;
-        current.listeners.delete(listener);
+        current.listeners.delete(registration);
         if (current.listeners.size || interests.get(channel) !== current)
           return;
         interests.delete(channel);
+        membership++;
         void client.unsubscribe(channel).catch(() => {
           synchronized = false;
         });
@@ -126,6 +156,7 @@ export function createObservationSubscriber({
       synchronized = false;
       generation++;
       interests.clear();
+      // Bun 1.4.2 cannot safely clear onclose before native close; callbacks are fenced.
       client.close();
       await work;
     },

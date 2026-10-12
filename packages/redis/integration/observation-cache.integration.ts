@@ -101,16 +101,17 @@ test('pinned Bun native PubSub uses one subscriber and metadata hints', async ()
   await withRedis(env.redisUrl, async ({ redis }) => {
     let hints = 0,
       repairs = 0;
-    let received!: () => void;
-    const delivered = new Promise<void>((resolve) => {
-      received = resolve;
-    });
+    let received: () => void = () => {};
     const subscriber = redis.observationSubscriber(async () => {
       repairs++;
     });
     const release = await subscriber.interest(resource, () => {
       hints++;
       received();
+    });
+    hints = 0;
+    const delivered = new Promise<void>((resolve) => {
+      received = resolve;
     });
     try {
       const incarnation = await redis.establishObservationIncarnation('inc');
@@ -202,6 +203,41 @@ test('expired resource demand leaves discovery while live traffic retains global
         cardinality: await raw.send('ZCARD', [key('observation', 'due')]),
       },
       expected: { discovered: ['channel-' + other.id], cardinality: 1 },
+    });
+  });
+});
+
+test('bounded reaping restores admission at the global demand ceiling', async () => {
+  await withRedis(env.redisUrl, async ({ redis, raw, key }) => {
+    await redis.demandObservation(resource, 'node');
+    const historical = Array.from(
+      { length: 9999 },
+      (_, index) => 'channel-' + 'c' + index.toString(36).padStart(23, '0'),
+    );
+    for (let offset = 0; offset < historical.length; offset += 128) {
+      const page = historical.slice(offset, offset + 128);
+      await raw.send('ZADD', [
+        key('observation', 'due'),
+        ...page.flatMap((id) => ['0', id]),
+      ]);
+      await raw.send('ZADD', [
+        key('observation', 'live'),
+        ...page.flatMap((id) => ['1', id]),
+      ]);
+    }
+    const admitted = await redis.demandObservation(
+      { kind: 'channel', id: 'b'.repeat(24) },
+      'node',
+    );
+    assert({
+      given: '10,000 tracked resources with stale historical demand',
+      should:
+        'reap a bounded batch and admit useful work while unrelated live traffic persists',
+      actual: {
+        admitted,
+        count: await raw.send('ZCARD', [key('observation', 'due')]),
+      },
+      expected: { admitted: true, count: 9873 },
     });
   });
 });
