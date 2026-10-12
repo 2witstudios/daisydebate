@@ -126,7 +126,8 @@ test('Start mutation commits one frozen Round, cast, receipt, and change signal'
     statements[12]!,
     ...statements.slice(0, 3),
     ...statements.slice(4, 11),
-    ...statements.slice(12),
+    ...statements.slice(12, 14),
+    ...statements.slice(16),
   ]);
 
   const receipt = await database.executeRoomCommand({
@@ -172,6 +173,11 @@ test('Start mutation commits one frozen Round, cast, receipt, and change signal'
           params.find((value) => typeof value === 'object' && value !== null),
         ),
       queries.filter(({ query }) => query.includes('pg_notify')).length,
+      queries.filter(
+        ({ query }) =>
+          query.startsWith('delete from "room_participants"') ||
+          query.startsWith('insert into "room_participants"'),
+      ).length,
     ],
     expected: [
       {
@@ -196,6 +202,7 @@ test('Start mutation commits one frozen Round, cast, receipt, and change signal'
         },
       ],
       2,
+      0,
     ],
   });
 });

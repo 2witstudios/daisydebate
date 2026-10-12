@@ -8,8 +8,8 @@ DECLARE
   disclose boolean;
 BEGIN
   IF TG_OP='UPDATE' AND (current_row-'updated_at') IS NOT DISTINCT FROM (previous-'updated_at') THEN RETURN NULL; END IF;
-  disclose := TG_OP<>'UPDATE' OR (current_row->>'visibility',current_row->>'status',current_row->>'host_actor_id',current_row->>'created_by_actor_id',current_row->>'policy_revision',current_row->>'authority_revision',current_row->>'lifecycle')
-    IS DISTINCT FROM (previous->>'visibility',previous->>'status',previous->>'host_actor_id',previous->>'created_by_actor_id',previous->>'policy_revision',previous->>'authority_revision',previous->>'lifecycle');
+  disclose := TG_OP<>'UPDATE' OR (current_row->>'visibility',current_row->>'host_actor_id',current_row->>'created_by_actor_id',current_row->>'policy_revision',current_row->>'authority_revision',current_row->>'lifecycle')
+    IS DISTINCT FROM (previous->>'visibility',previous->>'host_actor_id',previous->>'created_by_actor_id',previous->>'policy_revision',previous->>'authority_revision',previous->>'lifecycle');
   PERFORM public.daisy_advance_observation_header(TG_ARGV[0],resource_id,disclose,TG_OP='DELETE');
   RETURN NULL;
 END;
@@ -28,7 +28,9 @@ DECLARE
   resource_id text := COALESCE(current_row->>TG_ARGV[1],previous->>TG_ARGV[1]);
 BEGIN
   IF TG_OP='UPDATE' AND current_row IS NOT DISTINCT FROM previous THEN RETURN NULL; END IF;
-  PERFORM public.daisy_advance_observation_header(TG_ARGV[0],resource_id,true,TG_OP='DELETE');
+  PERFORM public.daisy_advance_observation_header(TG_ARGV[0],resource_id,
+    TG_OP<>'UPDATE' OR TG_TABLE_NAME<>'room_participants' OR
+      (current_row->>'actor_id',current_row->>'room_id') IS DISTINCT FROM (previous->>'actor_id',previous->>'room_id'),TG_OP='DELETE'); 
   RETURN NULL;
 END;
 $observation_audience_changed$;
@@ -57,17 +59,8 @@ BEGIN
       PERFORM public.daisy_advance_observation_header('inbox',subject,true,TG_OP='DELETE');
     END LOOP;
   ELSE
-    FOR subject IN
-      SELECT low_actor_id AS id FROM public.messaging_dm_pairs WHERE channel_id=value->>'channel_id'
-      UNION SELECT high_actor_id FROM public.messaging_dm_pairs WHERE channel_id=value->>'channel_id'
-      UNION SELECT actor_id FROM public.messaging_group_grants WHERE channel_id=value->>'channel_id' AND revoked_at IS NULL
-      ORDER BY id
-    LOOP
-      PERFORM public.daisy_advance_observation_header('inbox',subject,false,TG_OP='DELETE');
-    END LOOP;
-    IF TG_TABLE_NAME='messaging_messages' AND (TG_OP='DELETE' OR (current_row->>'removed_at' IS NOT NULL AND previous->>'removed_at' IS NULL)) THEN
-      PERFORM public.daisy_advance_observation_header('channel',value->>'channel_id',false,true);
-    END IF;
+    PERFORM public.daisy_advance_observation_header('channel',value->>'channel_id',false,
+      TG_OP='DELETE' OR (current_row->>'removed_at' IS NOT NULL AND previous->>'removed_at' IS NULL));
   END IF;
   RETURN NULL;
 END;
@@ -76,7 +69,7 @@ REVOKE ALL ON FUNCTION public.daisy_observation_inbox_changed() FROM PUBLIC;
 CREATE TRIGGER daisy_inbox_preferences AFTER INSERT OR UPDATE OR DELETE ON public.messaging_actor_states FOR EACH ROW EXECUTE FUNCTION public.daisy_observation_inbox_changed();
 CREATE TRIGGER daisy_inbox_membership AFTER INSERT OR UPDATE OR DELETE ON public.messaging_group_grants FOR EACH ROW EXECUTE FUNCTION public.daisy_observation_inbox_changed();
 CREATE TRIGGER daisy_inbox_invitation AFTER INSERT OR UPDATE OR DELETE ON public.messaging_group_invitations FOR EACH ROW EXECUTE FUNCTION public.daisy_observation_inbox_changed();
-CREATE TRIGGER daisy_inbox_messages AFTER INSERT OR UPDATE OR DELETE ON public.messaging_messages FOR EACH ROW EXECUTE FUNCTION public.daisy_observation_inbox_changed();
+CREATE TRIGGER daisy_channel_messages AFTER INSERT OR UPDATE OR DELETE ON public.messaging_messages FOR EACH ROW EXECUTE FUNCTION public.daisy_observation_inbox_changed();
 
 DO $projection_role$ BEGIN
   IF NOT EXISTS(SELECT FROM pg_catalog.pg_roles WHERE rolname='daisy_projection') THEN CREATE ROLE daisy_projection NOLOGIN; END IF;

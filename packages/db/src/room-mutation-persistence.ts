@@ -1,4 +1,5 @@
-import { eq } from 'drizzle-orm';
+import { reconcileRoomParticipants } from './room-participant-reconciliation';
+import { and, eq, inArray } from 'drizzle-orm';
 
 import type { RoomMutationOutcome } from '@daisy/protocol';
 
@@ -13,6 +14,7 @@ export const persistRoomMutation = async (
   mutation: Extract<RoomMutationOutcome, { ok: true }>['mutation'],
   roundId: string,
   now: string,
+  previousParticipants: import('@daisy/protocol').RoomAssemblyState['participants'],
 ) => {
   const next = mutation.state;
   if (mutation.publishDefinition)
@@ -42,10 +44,37 @@ export const persistRoomMutation = async (
       updatedAt: new Date(now),
     })
     .where(eq(rooms.id, next.id));
-  await tx.delete(roomParticipants).where(eq(roomParticipants.roomId, next.id));
-  if (next.participants.length)
+  const seats = reconcileRoomParticipants(
+    previousParticipants,
+    next.participants,
+  );
+  if (seats.removeIds.length)
+    await tx
+      .delete(roomParticipants)
+      .where(
+        and(
+          eq(roomParticipants.roomId, next.id),
+          inArray(roomParticipants.id, seats.removeIds),
+        ),
+      );
+  for (const seat of seats.updatedSeats)
+    await tx
+      .update(roomParticipants)
+      .set({
+        role: seat.role,
+        slot: seat.slot,
+        readinessCommandId: seat.consentCommandId,
+        readinessVersion: seat.consentVersion,
+      })
+      .where(
+        and(
+          eq(roomParticipants.roomId, next.id),
+          eq(roomParticipants.id, seat.id),
+        ),
+      );
+  if (seats.insertSeats.length)
     await tx.insert(roomParticipants).values(
-      next.participants.map((p) => ({
+      seats.insertSeats.map((p) => ({
         id: p.id,
         roomId: next.id,
         actorId: p.actorId,
