@@ -187,7 +187,9 @@ Code in parallel; heavy commands queue machine-wide. `build`, `typecheck`,
 `verify`, `knip`, `duplication`, `dev` and `dev:agent` run through
 `scripts/heavy.ts`, one at a time across every checkout
 (`DAISY_HEAVY_CONCURRENCY`, default 1); commands they start run inside the
-same slot. A dev server holds the slot while it runs: stop idle ones.
+same slot. Every run, dev servers included, is terminated at
+`DAISY_HEAVY_TIMEOUT_MINUTES` (default 45). A dev server holds the slot while
+it runs: stop idle ones.
 
 - `bun doctor`: checks Bun version, environment parsing, PostgreSQL reachability,
   migration currency, Redis reachability, and architecture boundaries. Add

@@ -25,7 +25,8 @@
     "PW_WS_ENDPOINT",
     "DAISY_HEAVY_CONCURRENCY",
     "DAISY_HEAVY_LOCK_DIR",
-    "DAISY_HEAVY_POLL_MS"
+    "DAISY_HEAVY_POLL_MS",
+    "DAISY_HEAVY_TIMEOUT_MINUTES"
   ],
   "tasks": {
     "dev": {

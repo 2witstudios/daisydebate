@@ -114,7 +114,12 @@ AIDD/Vitest guidance is overridden here by Bun and RITEway (ADR 0021).
      `DAISY_HEAVY_CONCURRENCY` runs (default 1) across every checkout on the
      machine, with one slot directory for all of them
      (`/tmp/daisy-heavy-slots`, or `DAISY_HEAVY_LOCK_DIR`). Runs beyond it
-     print the holder's pid once and wait instead of saturating the CPU. A
+     print each holder's pid, command and age (again only when the holders
+     change) and wait instead of saturating the CPU. Every claim carries a
+     wall-clock deadline (`DAISY_HEAVY_TIMEOUT_MINUTES`, default 45, dev
+     servers included): at it the holder terminates its command's process
+     tree and releases the slot with a message, and a holder still alive a
+     minute past its deadline is terminated by the first queued run. A
      command whose ancestor process holds a slot (`bun verify` → `test:e2e` →
      Playwright, or the dedicated room-launch and realtime runners) runs
      inside that slot instead of queueing behind it. Browser runs have no

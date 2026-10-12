@@ -1,10 +1,22 @@
-import { mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
+import {
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
+  admission,
   ancestors,
   claimFile,
+  formatDuration,
+  overdue,
+  OVERDUE_GRACE_MS,
+  overdueLine,
+  processTree,
   claimPlan,
   HEAVY_ENV,
   keepsClaim,
@@ -13,26 +25,30 @@ import {
   parseHeld,
   parseProcessTable,
   readLimit,
+  readTimeoutMs,
+  slotFile,
+  timeoutLine,
   unqueued,
   waitingLine,
 } from './heavy';
 
 setupRitewayBun();
 
+/** A claim started at 0 with a deadline at 1000. */
+const h = (slot: number, pid: number) => ({
+  slot,
+  pid,
+  start: 0,
+  deadline: 1000,
+});
+
 describe('claimPlan', () => {
   test('claims a free slot under the limit and clears slots of dead runs', () => {
     assert({
       given: 'slot 0 held by a live run, slot 1 by a dead one, limit 2',
       should: 'clear the dead run by its own pid and claim slot 1',
-      actual: claimPlan(
-        [
-          { slot: 0, pid: 10 },
-          { slot: 1, pid: 11 },
-        ],
-        2,
-        (pid) => pid === 10,
-      ),
-      expected: { claim: 1, stale: [{ slot: 1, pid: 11 }] },
+      actual: claimPlan([h(0, 10), h(1, 11)], 2, (pid) => pid === 10),
+      expected: { claim: 1, stale: [h(1, 11)] },
     });
   });
 
@@ -40,14 +56,7 @@ describe('claimPlan', () => {
     assert({
       given: 'two live runs and a limit of 2',
       should: 'claim nothing',
-      actual: claimPlan(
-        [
-          { slot: 0, pid: 10 },
-          { slot: 1, pid: 11 },
-        ],
-        2,
-        () => true,
-      ),
+      actual: claimPlan([h(0, 10), h(1, 11)], 2, () => true),
       expected: { claim: undefined, stale: [] },
     });
   });
@@ -59,22 +68,8 @@ describe('claimPlan counts every live run', () => {
       given: 'live claims on slots 1 and 2 and a limit of 1, then of 3',
       should: 'claim nothing at 1, and slot 0 at 3',
       actual: [
-        claimPlan(
-          [
-            { slot: 1, pid: 10 },
-            { slot: 2, pid: 11 },
-          ],
-          1,
-          () => true,
-        ).claim,
-        claimPlan(
-          [
-            { slot: 1, pid: 10 },
-            { slot: 2, pid: 11 },
-          ],
-          3,
-          () => true,
-        ).claim,
+        claimPlan([h(1, 10), h(2, 11)], 1, () => true).claim,
+        claimPlan([h(1, 10), h(2, 11)], 3, () => true).claim,
       ],
       expected: [undefined, 0],
     });
@@ -82,25 +77,23 @@ describe('claimPlan counts every live run', () => {
 });
 
 describe('claims named by pid', () => {
-  test('reads slot and pid from the file name, never from its content', () => {
+  test('reads slot, pid, start and deadline from the file name, never from its content', () => {
+    const claim = { slot: 1, pid: 77, start: 1000, deadline: 2_701_000 };
     assert({
-      given: 'two claims, a legacy empty-content name, and other files',
-      should: 'return the named claims only',
+      given: 'a written claim name, a name without a deadline, and other files',
+      should: 'round-trip the written claim and ignore the rest',
       actual: parseHeld([
+        slotFile(claim),
         'slot-0-4242.pid',
-        'slot-1-77.pid',
         'slot-0.pid',
         '.DS_Store',
       ]),
-      expected: [
-        { slot: 0, pid: 4242 },
-        { slot: 1, pid: 77 },
-      ],
+      expected: [claim],
     });
   });
 
   test('keeps a claim only while no other live run holds the same slot', () => {
-    const mine = { slot: 0, pid: 20 };
+    const mine = h(0, 20);
     assert({
       given:
         'my claim alone, beside a live rival on slot 0, beside a dead rival, and beside a live run on slot 1',
@@ -108,11 +101,11 @@ describe('claims named by pid', () => {
         'keep it, withdraw it, keep it, keep it, and withdraw when the live claims exceed the limit',
       actual: [
         keepsClaim([mine], mine, () => true, 2),
-        keepsClaim([{ slot: 0, pid: 10 }, mine], mine, () => true, 2),
-        keepsClaim([{ slot: 0, pid: 10 }, mine], mine, (pid) => pid === 20, 2),
-        keepsClaim([{ slot: 1, pid: 10 }, mine], mine, () => true, 2),
+        keepsClaim([h(0, 10), mine], mine, () => true, 2),
+        keepsClaim([h(0, 10), mine], mine, (pid) => pid === 20, 2),
+        keepsClaim([h(1, 10), mine], mine, () => true, 2),
         // Two racers on different slots at a limit of 1 both withdraw.
-        keepsClaim([{ slot: 1, pid: 10 }, mine], mine, () => true, 1),
+        keepsClaim([h(1, 10), mine], mine, () => true, 1),
       ],
       expected: [true, false, true, true, false],
     });
@@ -187,7 +180,7 @@ describe('nested runs', () => {
   });
 
   test('runs inside a live ancestor claim instead of claiming', () => {
-    const held = [{ slot: 0, pid: 100 }];
+    const held = [h(0, 100)];
     assert({
       given:
         'a claim held by a live ancestor, by a dead ancestor, and by a live run outside the lineage',
@@ -197,7 +190,104 @@ describe('nested runs', () => {
         nestedIn(held, ancestors(table, 300), (pid) => pid !== 100),
         nestedIn(held, ancestors(table, 400), () => true),
       ],
-      expected: [{ slot: 0, pid: 100 }, undefined, undefined],
+      expected: [h(0, 100), undefined, undefined],
+    });
+  });
+  test('never queues a holder descendant behind its own slot', () => {
+    // The 2026-10-12 deadlock: a wrapper held the only slot of the pool and
+    // the e2e run it started, pointed at the same pool, queued behind it.
+    const held = [h(0, 100)];
+    assert({
+      given:
+        'the only slot (limit 1) held by the ancestor of a run in the same pool, and by an unrelated run',
+      should:
+        'admit the descendant inside that slot, and queue the unrelated run',
+      actual: [
+        admission(held, ancestors(table, 300), 1, () => true),
+        admission(held, ancestors(table, 400), 1, () => true),
+        admission([], ancestors(table, 400), 1, () => true),
+      ],
+      expected: [
+        { kind: 'nested', holder: h(0, 100) },
+        { kind: 'wait' },
+        { kind: 'claim', slot: 0 },
+      ],
+    });
+  });
+
+  test("lists a holder's whole process tree, holder first", () => {
+    assert({
+      given: 'the process table and a holder at pid 100',
+      should: 'list 100 and every process below it, but not its sibling 400',
+      actual: processTree(table, 100),
+      expected: [100, 200, 300],
+    });
+  });
+});
+
+describe('wall-clock limit', () => {
+  test('reads DAISY_HEAVY_TIMEOUT_MINUTES and defaults to 45 minutes', () => {
+    assert({
+      given: 'a set value, a fraction, nothing, and nonsense',
+      should: 'use the value, the fraction, then the default twice',
+      actual: [
+        readTimeoutMs({ DAISY_HEAVY_TIMEOUT_MINUTES: '90' }),
+        readTimeoutMs({ DAISY_HEAVY_TIMEOUT_MINUTES: '0.5' }),
+        readTimeoutMs({}),
+        readTimeoutMs({ DAISY_HEAVY_TIMEOUT_MINUTES: '-1' }),
+      ],
+      expected: [5_400_000, 30_000, 2_700_000, 2_700_000],
+    });
+  });
+
+  test('ends a live holder only once its own deadline is a grace past', () => {
+    const held = [
+      h(0, 10),
+      { slot: 1, pid: 11, start: 0, deadline: 5000 },
+      h(2, 12),
+    ];
+    const now = 1000 + OVERDUE_GRACE_MS + 1;
+    assert({
+      given:
+        'a live holder past deadline and grace, a live holder with a later deadline, and a dead holder past it',
+      should: 'mark only the first overdue',
+      actual: overdue(held, now, (pid) => pid !== 12),
+      expected: [h(0, 10)],
+    });
+  });
+
+  test('keeps a holder at its deadline within the grace', () => {
+    assert({
+      given: 'a live holder exactly at deadline plus grace',
+      should: 'leave it running',
+      actual: overdue([h(0, 10)], 1000 + OVERDUE_GRACE_MS, () => true),
+      expected: [],
+    });
+  });
+
+  test('formats durations as the two largest units', () => {
+    assert({
+      given:
+        'nothing, seconds, minutes and seconds, hours and minutes, and a negative',
+      should: 'read 0s, 5s, 3m 5s, 2h 54m and 0s',
+      actual: [0, 5000, 185_000, 10_440_000, -3000].map(formatDuration),
+      expected: ['0s', '5s', '3m 5s', '2h 54m', '0s'],
+    });
+  });
+
+  test('says what was terminated and why', () => {
+    assert({
+      given:
+        'a dev server past a 45 minute limit, and a hung holder found overdue',
+      should: 'name the command, the limit, and that the slot was released',
+      actual: [
+        timeoutLine('bun dev:agent', 2_700_000),
+        overdueLine(h(0, 4242), 'bun run typecheck', 1000 + 3_600_000),
+      ],
+      expected: [
+        'heavy: "bun dev:agent" ran past its 45m wall-clock limit (DAISY_HEAVY_TIMEOUT_MINUTES); terminated its process tree and released the slot\n',
+        'heavy: pid 4242 (bun run typecheck) ran 1h past its deadline; terminated its process tree and released slot 0\n',
+      ],
     });
   });
 });
@@ -229,16 +319,16 @@ describe('waitingLine', () => {
   test('names the live holders it waits for', () => {
     assert({
       given: 'one live holder and one dead claim under a limit of 1',
-      should: 'name only the live holder pid and the limit',
+      should: 'name the live holder pid, its command, its age and time left',
       actual: waitingLine(
-        [
-          { slot: 0, pid: 4242 },
-          { slot: 1, pid: 77 },
-        ],
+        [{ slot: 0, pid: 4242, start: 0, deadline: 2_700_000 }, h(1, 77)],
         (pid) => pid === 4242,
         1,
+        10_445_000,
+        (pid) => (pid === 4242 ? 'bun run typecheck' : 'other'),
       ),
-      expected: 'heavy: waiting for pid 4242 (DAISY_HEAVY_CONCURRENCY=1)\n',
+      expected:
+        'heavy: waiting for pid 4242 (bun run typecheck, running 2h 54m, ends in 0s) (DAISY_HEAVY_CONCURRENCY=1)\n',
     });
   });
 });
@@ -405,6 +495,41 @@ describe('heavy queue across real processes', () => {
         stderr: await new Response(outer.stderr).text(),
       },
       expected: { code: 0, out: 'ran', stderr: '' },
+    });
+  });
+
+  test('terminates a run past its wall-clock limit and releases the slot', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'heavy-timeout-'));
+    const slots = join(dir, 'slots');
+    const started = Date.now();
+    const runner = Bun.spawn(
+      ['bun', `${root}scripts/heavy.ts`, 'sh', '-c', 'sleep 30; echo late'],
+      {
+        env: {
+          ...process.env,
+          DAISY_HEAVY_LOCK_DIR: slots,
+          DAISY_HEAVY_POLL_MS: '25',
+          DAISY_HEAVY_TIMEOUT_MINUTES: '0.01',
+        },
+        stdout: 'pipe',
+        stderr: 'pipe',
+      },
+    );
+    const code = await runner.exited;
+    assert({
+      given: 'a command that sleeps 30 s under a 0.6 s limit',
+      should:
+        'end it with exit 124 well before 30 s, never print its output, say why, and leave no claim',
+      actual: {
+        code,
+        early: Date.now() - started < 15_000,
+        stdout: await new Response(runner.stdout).text(),
+        said: (await new Response(runner.stderr).text()).includes(
+          'wall-clock limit',
+        ),
+        claims: readdirSync(slots),
+      },
+      expected: { code: 124, early: true, stdout: '', said: true, claims: [] },
     });
   });
 });
