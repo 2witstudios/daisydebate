@@ -177,11 +177,11 @@ const pairLook: Readonly<
 > = {
   stage: {
     look: 'large',
-    tile: 'aspect-video h-full max-w-1/2 shrink',
+    tile: 'aspect-video h-full max-w-1/2 shrink max-narrow:max-w-none',
   },
   conversation: {
     look: 'medium',
-    tile: 'aspect-video h-full max-w-1/2 shrink',
+    tile: 'aspect-video h-full max-w-1/2 shrink max-narrow:max-w-none',
   },
   focus: { look: 'small', tile: 'aspect-video h-full shrink' },
 };
