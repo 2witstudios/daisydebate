@@ -20,6 +20,7 @@ export type {
 } from './primitives';
 export {
   MAX_FORMAT_SEATS,
+  MAX_FORMAT_SEGMENTS,
   formatSeatsSchema,
   formatDefinitionSchema,
   roundRulesSchema,

@@ -73,6 +73,8 @@ export type ObservationProjection = {
   readonly header: ObservationHeader;
   readonly base: ObservationBase;
   readonly rows: readonly Record<string, unknown>[];
+  /** Channel: last included sequence iff older rows remain. Inbox: last scanned id iff more. Room/Round: null. */
+  readonly continuation: number | string | null;
 };
 export type ObservationExecutionGuard = { readonly isCurrent?: () => boolean };
 export type ObservationProjectionInput = ObservationExecutionGuard & {
