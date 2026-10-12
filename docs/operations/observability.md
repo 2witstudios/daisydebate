@@ -90,6 +90,7 @@ diverge:
 | `realtime.outbox.drain_failed`           | error    | A drain pass's range read or sink call failed; the loop stays alive and the next wakeup retries                         |
 | `realtime.outbox.delivery_lag_estimated` | info     | A readiness probe estimated the drain's seq-distance from the outbox high-water mark                                    |
 | `realtime.connection.rejected`           | info     | A realtime socket connection was rejected                                                                               |
+| `realtime.observation.clock_uncertain`   | error    | The observation clock left its trusted envelope; permits and observation delivery stop (fail closed)                    |
 | `request.unhandled`                      | error    | Next reported an unhandled request failure                                                                              |
 | `db.query.failed`                        | error    | A database query or transaction failed                                                                                  |
 | `retention.sweep.completed`              | info     | One retention target (`operation`) swept its bounded batches                                                            |

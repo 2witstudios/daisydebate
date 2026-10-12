@@ -1,5 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { OutboxPosition, OutboxRow } from '@daisy/db';
+import { buildUserInboxTopic } from '@daisy/protocol';
 import { createObservationRelay } from './observation-relay';
 setupRitewayBun();
 const actor = 'a'.repeat(24),
@@ -8,7 +9,7 @@ const row = (seq: number, payload: unknown, kind = 'session.revoked') =>
   ({
     seq: BigInt(seq),
     txid: '10',
-    topic: `user:${actor}:inbox`,
+    topic: buildUserInboxTopic(actor),
     kind,
     version: 1,
     payload,

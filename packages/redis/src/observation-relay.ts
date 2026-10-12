@@ -24,6 +24,11 @@ elseif cursor ~= ARGV[2] then return 0 end
 redis.call('SET', KEYS[2], ARGV[3], 'PX', ARGV[4])
 return 1
 `);
+/** Publication stays a namespaced script like every other observation write. */
+const publishControlScript = defineScript(`
+redis.call('PUBLISH', KEYS[1], ARGV[1])
+return 1
+`);
 const cursorPattern = /^\d{1,20}:\d{1,20}$/;
 const validCursor = (value: string) => {
   if (!cursorPattern.test(value)) throw new Error('Invalid relay cursor');
@@ -110,18 +115,21 @@ export function createObservationRelayOperations(
       );
     },
     async publishObservationControl(control: ObservationControlMessage) {
-      await client.connect();
-      await client.send('PUBLISH', [
-        observationControlChannel(namespace),
-        JSON.stringify({
-          kind: 'session',
-          actorId: idSchema.parse(control.actorId),
-          sessionId:
-            control.sessionId === null
-              ? null
-              : idSchema.parse(control.sessionId),
-        }),
-      ]);
+      await script(
+        'publishObservationControl',
+        publishControlScript,
+        [observationControlChannel(namespace)],
+        [
+          JSON.stringify({
+            kind: 'session',
+            actorId: idSchema.parse(control.actorId),
+            sessionId:
+              control.sessionId === null
+                ? null
+                : idSchema.parse(control.sessionId),
+          }),
+        ],
+      );
     },
   };
 }

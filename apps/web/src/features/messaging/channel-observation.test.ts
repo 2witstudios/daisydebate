@@ -11,6 +11,7 @@ const message = (sequence: number, channel = channelId) => ({
   text: `m${sequence}`,
   createdAt: '2026-10-12T00:00:00.000Z',
   editedAt: null,
+  reactions: [] as { reaction: string; count: number }[],
 });
 test('channel descriptor decodes only bounded bodies of its own channel', () => {
   const descriptor = channelMessages(
