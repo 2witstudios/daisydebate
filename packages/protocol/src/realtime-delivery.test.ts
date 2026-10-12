@@ -11,7 +11,8 @@ test('delivery preserves topic identity and never forwards inbox control rows', 
   assert({
     given:
       'valid Room and channel doorbells, mismatched identities and an unknown payload field',
-    should: 'deliver only validated matching entity doorbells',
+    should:
+      'deliver only validated matching Room doorbells; channels are observed snapshots, never doorbells',
     actual: [
       isPayloadDeliverableOnTopic(`room:${id}`, room),
       isPayloadDeliverableOnTopic(`room:${other}`, room),
@@ -27,7 +28,7 @@ test('delivery preserves topic identity and never forwards inbox control rows', 
         changeVersion: 3,
       }),
     ],
-    expected: [true, false, false, true, false],
+    expected: [true, false, false, false, false],
   });
   assert({
     given: 'three valid durable inbox control kinds',

@@ -150,7 +150,8 @@ export function isPayloadStorableOnTopic(
   );
 }
 
-/** Validated subscriber events exclude durable control rows handled by the drain. */
+/** Validated subscriber events exclude durable control rows handled by the
+ * relay, and channel metadata: conversations are observed snapshots. */
 export function isPayloadDeliverableOnTopic(
   topic: string,
   payload: unknown,
@@ -158,6 +159,7 @@ export function isPayloadDeliverableOnTopic(
   if (!isPayloadStorableOnTopic(topic, payload)) return false;
   const { kind } = outboxPayloadSchema.parse(payload, { jitless: true });
   return (
+    kind !== 'channel.changed' &&
     kind !== 'session.revoked' &&
     kind !== 'access.revoked' &&
     kind !== 'actor.presence-preference-changed'
