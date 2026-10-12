@@ -80,6 +80,18 @@ for index = 1, #rows, 2 do
  end
 end
 `;
+const reapBodies = `
+local fields = redis.call('HKEYS', KEYS[5])
+for _, field in ipairs(fields) do
+ if string.sub(field, 1, 5) == 'head:' then
+  local digest = string.sub(field, 6)
+  if redis.call('HEXISTS', KEYS[4], digest) == 0 then
+   local revision = redis.call('HGET', KEYS[5], field)
+   redis.call('HDEL', KEYS[5], field, 'body:' .. digest .. ':' .. revision)
+  end
+ end
+end
+`;
 const interestScript = defineScript(`
 local time = redis.call('TIME')
 local now = tonumber(time[1]) * 1000 + math.floor(tonumber(time[2]) / 1000)
@@ -93,6 +105,7 @@ local added = 0
 for index = 4, #ARGV, 2 do if redis.call('HEXISTS', KEYS[4], ARGV[index]) == 0 then added = added + 1 end end
 if redis.call('HLEN', KEYS[4]) + added > 64 then return 0 end
 for index = 4, #ARGV, 2 do redis.call('HSET', KEYS[4], ARGV[index], cjson.encode({base=cjson.decode(ARGV[index+1]),expiresAt=now+tonumber(ARGV[2])})) end
+${reapBodies}
 redis.call('PEXPIRE', KEYS[4], ARGV[2])
 redis.call('ZADD', KEYS[1], now + tonumber(ARGV[2]), ARGV[1])
 redis.call('PEXPIRE', KEYS[1], ARGV[2])
@@ -106,6 +119,7 @@ const readDemandScript = defineScript(`
 local time = redis.call('TIME')
 local now = tonumber(time[1]) * 1000 + math.floor(tonumber(time[2]) / 1000)
 ${reapDemand}
+${reapBodies}
 local rows = redis.call('HVALS', KEYS[4])
 local result = {}
 for _, row in ipairs(rows) do table.insert(result, cjson.encode(cjson.decode(row).base)) end
