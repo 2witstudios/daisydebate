@@ -13,6 +13,71 @@ const base: ObservationBase = {
   disclosureRevision: 1,
   window: { after: null, limit: 50 },
 };
+test('fresh authority restores an already delivered unchanged baseline after expiry', async () => {
+  let now = 0,
+    fetches = 0;
+  const received: number[] = [];
+  const permit = createObservationPermit({
+    now: () => now,
+    nodeIncarnation: 'node',
+  });
+  const renew = () => {
+    const evidence = observationEvidence({
+      started: now,
+      remainingMs: 5000,
+      fingerprint: 'same',
+      dependencies: [],
+    });
+    permit.install(permit.begin(), {
+      base,
+      minimumContentRevision: 1,
+      purgeGeneration: 0,
+      subject: evidence,
+      cohort: evidence,
+      entitlement: evidence,
+    });
+  };
+  renew();
+  const node = createObservationNode({
+    nodeIncarnation: 'node',
+    now: () => now,
+    yieldWork: async () => {},
+    cache: {
+      demand: async () => {},
+      read: async () => {
+        fetches++;
+        return { base, contentRevision: 1, purgeGeneration: 0, body: 'body' };
+      },
+    },
+  });
+  const release = node.observe(base, permit, (snapshot) =>
+    received.push(snapshot.contentRevision),
+  );
+  await node.repair();
+  await node.settled();
+  now = 3000;
+  renew();
+  await node.settled();
+  now = 8000;
+  renew();
+  await node.settled();
+  assert({
+    given:
+      'content delivered once, uninterrupted renewal then an expiry gap with fresh canonical authority',
+    should:
+      'restore the same baseline intrinsically after the gap without a mutation, re-observe or cache fetch, while ordinary renewal sends no duplicate body',
+    actual: { received, fetches },
+    expected: { received: [1, 1], fetches: 1 },
+  });
+  node.close();
+  release();
+  assert({
+    given: 'a reader closes after final node disposal',
+    should: 'retain zero active binding liability',
+    actual: node.stats().bindings,
+    expected: 0,
+  });
+});
 test('one changed body fans out locally and second observer receives baseline', async () => {
   let now = 0,
     fetches = 0,
