@@ -2,9 +2,7 @@ import type { Ballot, OpenRouter, TranscriptEntry } from '@daisy/ai-voice';
 import type { IdGenerator } from '@daisy/clock';
 import type { Database, RoundHydration } from '@daisy/db';
 import {
-  advancedClockRowsOf,
-  clockRowsOf,
-  roundPositionOf,
+  roundPositionAt,
   type RoundPosition,
 } from '@daisy/debate-engine/position';
 import type { RoundRules } from '@daisy/protocol';
@@ -256,36 +254,17 @@ export const positionOfView = (
   view: AiDebateView,
   atMs: number,
 ): RoundPosition => {
-  // The client derives its position from the same pure derivation the
-  // server runs, over a read-only view of the durable rows — never through
-  // the runtime, whose ECS codegen needs `unsafe-eval` the nonce CSP
-  // refuses (ADR 0024 §5).
-  const rows = clockRowsOf(view.segments);
-  const closed = rows.filter((row) => row.endedAtMs !== null);
-  const lastClosed = closed[closed.length - 1];
-  const lifecycle = {
-    status: view.status,
-    startedAtMs: view.startedAt,
-    completedAtMs: null,
-    outcome: view.outcome,
-    gapAnchorMs:
-      lastClosed !== undefined ? lastClosed.endedAtMs : view.startedAt,
-  };
-  const advanced = advancedClockRowsOf(
-    rows,
-    view.checkpoint,
-    lifecycle,
-    view.rules,
-    atMs,
-  );
-  return roundPositionOf(
-    {
-      rows: () => advanced.rows,
-      openRow: () => advanced.rows.find((row) => row.endedAtMs === null),
-      checkpoint: () => advanced.checkpoint,
-      lifecycle: () => advanced.lifecycle,
+  return roundPositionAt({
+    round: {
+      status: view.status,
+      startedAt:
+        view.startedAt === null ? null : new Date(view.startedAt).toISOString(),
+      completedAt: null,
+      outcome: view.outcome,
     },
-    atMs,
-    view.rules,
-  );
+    segments: view.segments,
+    checkpoint: view.checkpoint,
+    rules: view.rules,
+    nowMs: atMs,
+  });
 };

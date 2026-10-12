@@ -110,8 +110,11 @@ force-push, history rewrite, reset or dirty-work loss. Resolve symbolic default
 and live branch protection/rulesets before acting; main, default and protected
 release targets retain acceptance/human protections, other protected targets
 follow their policy, and unknown protection facts refuse integration. Before PR
-merge automation, re-read live repository/base/head and verify the intended
-allocated receiving branch and candidate; refuse mismatches or changed targets.
+merge automation, re-read live repository/base/head and verify the candidate
+and intended delivery target: the allocated receiving branch for producer
+integration, or the repository's resolved default branch for main acceptance.
+Compare the live base with that selected target; refuse mismatches or changed
+targets.
 
 Non-main integration needs no global Done, separate producer approval, green
 whole-app CI or per-step root permission. Pin source/integration SHAs and gaps,

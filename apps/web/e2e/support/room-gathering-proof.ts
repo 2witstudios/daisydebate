@@ -59,17 +59,17 @@ async function visualStates(page: Page, info: TestInfo) {
       await page.setViewportSize({ width, height: 1000 });
       await page.reload();
       await expect(
-        page.getByRole('heading', { name: 'Take your places.' }),
+        page.getByRole('heading', { name: 'Seats', exact: true }),
       ).toBeVisible();
       if (width !== 390) await assertNoSeriousFindings(page);
       await capture(page, info, `room-${theme}-${width}`);
-      await page.getByText('Edit round settings', { exact: true }).click();
+      await page.getByText('Edit settings', { exact: true }).click();
       await expect(
         page.getByRole('form', { name: 'Room settings' }),
       ).toBeVisible();
       if (width !== 390) await assertNoSeriousFindings(page);
       await capture(page, info, `room-edit-${theme}-${width}`);
-      await page.getByText('Edit round settings', { exact: true }).click();
+      await page.getByText('Edit settings', { exact: true }).click();
     }
   }
 }
@@ -91,7 +91,7 @@ export async function proveGathering(
   try {
     const room = await openPage(native, 'native exact Room durations');
     await room.goto(`/rooms/${view.id}`);
-    await room.getByText('Edit round settings', { exact: true }).click();
+    await room.getByText('Edit settings', { exact: true }).click();
     const form = room.getByRole('form', { name: 'Room settings' });
     // Both component constraints pass; the combined value exceeds the pinned 60s bound.
     await form.locator('[name="duration.segment.A2.minutes"]').fill('1');
@@ -113,7 +113,7 @@ export async function proveGathering(
     expect(saved.rules.segments.map((segment) => segment.durationMs)).toEqual([
       7000, 23456, 11000,
     ]);
-    await room.getByText('Edit round settings', { exact: true }).click();
+    await room.getByText('Edit settings', { exact: true }).click();
     await expect(
       form.locator('[name="duration.segment.A2.minutes"]'),
     ).toHaveValue('0');

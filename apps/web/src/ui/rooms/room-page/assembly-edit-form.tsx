@@ -65,7 +65,7 @@ export function AssemblyEditForm({
   );
   return disclosure ? (
     <details open={state.error ? true : undefined}>
-      <summary className="cursor-pointer text-sm font-strong">
+      <summary className="flex min-h-12 cursor-pointer items-center text-sm font-strong">
         {disclosure}
       </summary>
       <div className="mt-4">{form}</div>

@@ -5,8 +5,6 @@ import {
   roundStatuses,
   segmentTypes,
   type DebateSide,
-  type RatedOutcome,
-  type RoundStatus,
   type RuntimeCheckpoint,
   type SegmentType,
 } from '@daisy/protocol';
@@ -17,18 +15,10 @@ import {
  * never leave this file.
  */
 
-/** The round row's lifecycle columns, in epoch milliseconds. */
-export type Lifecycle = {
-  readonly status: RoundStatus;
-  readonly startedAtMs: number | null;
-  readonly completedAtMs: number | null;
-  readonly outcome: RatedOutcome | null;
-  readonly gapAnchorMs: number | null;
-};
+import type { Lifecycle } from './round-clock-state';
 
 const plugin = Database.Plugin.create({
   components: {
-    segmentId: { type: 'string' },
     sequence: { type: 'number' },
     segmentType: { enum: segmentTypes },
     segmentKey: { type: 'string' },
@@ -46,7 +36,6 @@ const plugin = Database.Plugin.create({
       }),
       default: null,
     },
-    gapAnchorMs: { ...Schema.Nullable({ type: 'number' }), default: null },
     prepConsumedAffirmativeMs: { type: 'number', default: 0 },
     prepConsumedNegativeMs: { type: 'number', default: 0 },
     activePrepSide: {
@@ -65,7 +54,6 @@ const plugin = Database.Plugin.create({
   },
   archetypes: {
     segment: [
-      'segmentId',
       'sequence',
       'segmentType',
       'segmentKey',
@@ -78,7 +66,6 @@ const plugin = Database.Plugin.create({
     insertSegment: (
       store,
       row: {
-        id: string;
         sequence: number;
         type: SegmentType;
         key: string;
@@ -88,7 +75,6 @@ const plugin = Database.Plugin.create({
       },
     ) => {
       store.archetypes.segment.insert({
-        segmentId: row.id,
         sequence: row.sequence,
         segmentType: row.type,
         segmentKey: row.key,
@@ -97,10 +83,10 @@ const plugin = Database.Plugin.create({
         durationMs: row.durationMs,
       });
     },
-    closeSegment: (store, input: { id: string; endedAtMs: number }) => {
+    closeSegment: (store, input: { sequence: number; endedAtMs: number }) => {
       const entity = store
-        .select(['segmentId'])
-        .find((e) => store.get(e, 'segmentId') === input.id);
+        .select(['sequence'])
+        .find((e) => store.get(e, 'sequence') === input.sequence);
       if (entity !== undefined)
         store.update(entity, { endedAtMs: input.endedAtMs });
     },
@@ -109,7 +95,6 @@ const plugin = Database.Plugin.create({
       store.resources.startedAtMs = lifecycle.startedAtMs;
       store.resources.completedAtMs = lifecycle.completedAtMs;
       store.resources.outcome = lifecycle.outcome;
-      store.resources.gapAnchorMs = lifecycle.gapAnchorMs;
     },
     setCheckpoint: (store, checkpoint: RuntimeCheckpoint) => {
       store.resources.prepConsumedAffirmativeMs =

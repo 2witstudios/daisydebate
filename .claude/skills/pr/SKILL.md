@@ -89,7 +89,7 @@ none => `gh pr create --base <intended-target> --title "<conventional title>" --
 Write the body to a scratch file whose name is unique to this branch (e.g. `<scratchpad>/pr-body-<branch with / replaced by ->.md`); a shared name let one agent publish another's body (PR #9 went up with PR #10's). Never inline multi-line bodies in the shell.
 Verify after writing: `gh pr view <n> --json body --jq .body` must equal the file (ignoring a trailing newline). A mismatch => rewrite it with `gh pr edit` and check again; never report a PR whose published body you did not verify.
 Only after the published body matches the file, if draft was agent-selected without an explicit owner request, run `gh pr ready <n>` and verify `isDraft` is false. Preserve an explicitly owner-requested draft until the owner requests promotion.
-Before any authorized merge automation, re-read the live PR repository, base and head; compare the base with the intended allocated receiving branch and resolve symbolic default plus live protection/rulesets. Refuse mismatches, changed candidates or unknown protection. Allowed unprotected non-main integration follows receiving branch authority below. For main acceptance an autonomous agent requests only `gh pr merge --auto --merge`, after confirming the live `main` ruleset requires `review-record`; otherwise report "ready for owner merge". Never directly merge main/default/protected release targets.
+Before any authorized merge automation, re-read the live PR repository, base and head; resolve symbolic default plus live protection/rulesets and compare the base with the intended delivery target selected above: the allocated receiving integration branch for producer PRs, or the resolved default branch for main acceptance. Refuse mismatches, changed candidates or unknown protection. Allowed unprotected non-main integration follows receiving branch authority below. For main acceptance an autonomous agent requests only `gh pr merge --auto --merge`, after confirming the live ruleset for the resolved default branch requires `review-record`; otherwise report "ready for owner merge". Never directly merge main/default/protected release targets.
 }
 
 ### 5 — Link back
@@ -127,8 +127,11 @@ force-push, history rewrite, reset or dirty-work loss. Resolve symbolic default
 and live branch protection/rulesets before acting; main, default and protected
 release targets retain acceptance/human protections, other protected targets
 follow their policy, and unknown protection facts refuse integration. Before PR
-merge automation, re-read live repository/base/head and verify the intended
-allocated receiving branch and candidate; refuse mismatches or changed targets.
+merge automation, re-read live repository/base/head and verify the candidate
+and intended delivery target: the allocated receiving branch for producer
+integration, or the repository's resolved default branch for main acceptance.
+Compare the live base with that selected target; refuse mismatches or changed
+targets.
 
 Non-main integration needs no global Done, separate producer approval, green
 whole-app CI or per-step root permission. Pin source/integration SHAs and gaps,

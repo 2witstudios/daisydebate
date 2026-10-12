@@ -46,7 +46,7 @@ test('durable rounds survive reconnect; optimistic executions reject stale write
                 roundId,
                 expectedVersion: 1,
                 command,
-                projection: {
+                buildProjection: () => ({
                   round: {
                     status: 'active',
                     currentStage: 'countdown',
@@ -63,7 +63,7 @@ test('durable rounds survive reconnect; optimistic executions reject stale write
                   segmentInserts: [],
                   segmentCloses: [],
                   effects: [],
-                },
+                }),
               })
               .then(() => true)
               .catch(() => false),
