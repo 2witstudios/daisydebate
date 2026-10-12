@@ -148,11 +148,7 @@ export function workloadDatabase<T extends object>(
       const build = () => Reflect.apply(value, object, args) as unknown;
       const result = lease ? build() : executor.invoke(lane, build);
       if (key === 'getSQL' || key === 'toSQL') return result;
-      if (result instanceof Promise)
-        throw createAppError(
-          'INFRASTRUCTURE',
-          'Unsupported eager database operation',
-        );
+      if (result instanceof Promise) return result;
       return result !== null && typeof result === 'object'
         ? wrap(result, lease)
         : result;
@@ -183,7 +179,7 @@ export function workloadDatabase<T extends object>(
               'INFRASTRUCTURE',
               'Database transaction has settled',
             );
-          return bound(...args);
+          return Reflect.apply(bound, undefined, args);
         };
       },
     });
