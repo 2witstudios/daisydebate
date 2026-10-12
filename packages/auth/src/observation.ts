@@ -207,7 +207,17 @@ function channel(
   return {
     status: 'allowed',
     partition: { kind: 'shared', policyKey: 'channel-messages-v1' },
-    dependencies,
+    dependencies: dependencies.sort((left, right) =>
+      left.key < right.key
+        ? -1
+        : left.key > right.key
+          ? 1
+          : left.revision < right.revision
+            ? -1
+            : left.revision > right.revision
+              ? 1
+              : 0,
+    ),
     eligibleUntil: deadline,
     overlay: null,
   } as const;

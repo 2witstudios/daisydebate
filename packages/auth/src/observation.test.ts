@@ -82,6 +82,10 @@ test('the same full cast has identical peer evidence for either reader', () => {
     principal: { kind: 'user', userId: peer, actorId: peer },
     account: account(peer),
   });
+  const reordered = decide({
+    ...context,
+    socialAccounts: [...accounts].reverse(),
+  });
   assert({
     given: 'either member independently reads an identical approved DM cohort',
     should:
@@ -90,7 +94,10 @@ test('the same full cast has identical peer evidence for either reader', () => {
       first.status === 'allowed' &&
       second.status === 'allowed' &&
       JSON.stringify(first.dependencies) ===
-        JSON.stringify(second.dependencies),
+        JSON.stringify(second.dependencies) &&
+      reordered.status === 'allowed' &&
+      JSON.stringify(first.dependencies) ===
+        JSON.stringify(reordered.dependencies),
     expected: true,
   });
 });
