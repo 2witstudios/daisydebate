@@ -29,9 +29,7 @@ export type RoundExecutionWrite = {
     readonly payloadDigest: string;
     readonly result: z.infer<typeof jsonObjectSchema>;
   } | null;
-  readonly buildProjection: (
-    now: string,
-  ) => RoundProjection | Promise<RoundProjection>;
+  readonly buildProjection: (now: string) => RoundProjection;
 };
 
 /** Sample separately after all required locks, never in a lock-waiting statement. */
@@ -189,7 +187,7 @@ export const roundOperations = ({
             'The judge seat belongs to another round',
           );
         const now = await executionNow(tx);
-        const projection = await input.buildProjection(now);
+        const projection = input.buildProjection(now);
         await tx.insert(ballots).values(
           ballotRowOf({
             ballotId: input.ballot.ballotId,
@@ -232,7 +230,7 @@ export const roundOperations = ({
           input.expectedVersion,
         );
         const now = await executionNow(tx);
-        const projection = await input.buildProjection(now);
+        const projection = input.buildProjection(now);
         await persistExecution(tx, input, roundVersion, projection, now);
       });
     });

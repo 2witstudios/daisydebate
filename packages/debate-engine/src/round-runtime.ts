@@ -11,6 +11,8 @@ import {
   type RoundParticipantSeat,
   type RoundPosition,
   type RoundProjection,
+  type SegmentInsert,
+  type SegmentClose,
   type RoundRules,
   type RuntimeCheckpoint,
 } from '@daisy/protocol';
@@ -126,32 +128,34 @@ export function createRoundRuntime(input: {
     for (const change of into.changes)
       if (change.kind === 'open')
         segmentIds.set(change.row.sequence, input.nextSegmentId());
+    const segmentInserts: SegmentInsert[] = into.changes.flatMap((change) =>
+      change.kind === 'open'
+        ? [
+            {
+              id: segmentIds.get(change.row.sequence)!,
+              sequence: change.row.sequence,
+              type: change.row.type,
+              rulesSegmentKey: change.row.key,
+              startedAt: new Date(change.row.startedAtMs).toISOString(),
+              durationMs: change.row.durationMs,
+            },
+          ]
+        : [],
+    );
+    const segmentCloses: SegmentClose[] = into.changes.flatMap((change) =>
+      change.kind === 'close'
+        ? [
+            {
+              id: segmentIds.get(change.sequence)!,
+              endedAt: new Date(change.atMs).toISOString(),
+            },
+          ]
+        : [],
+    );
     return {
       round: roundBlockOf(store),
-      segmentInserts: into.changes.flatMap((change) =>
-        change.kind === 'open'
-          ? [
-              {
-                id: segmentIds.get(change.row.sequence)!,
-                sequence: change.row.sequence,
-                type: change.row.type,
-                rulesSegmentKey: change.row.key,
-                startedAt: new Date(change.row.startedAtMs).toISOString(),
-                durationMs: change.row.durationMs,
-              },
-            ]
-          : [],
-      ),
-      segmentCloses: into.changes.flatMap((change) =>
-        change.kind === 'close'
-          ? [
-              {
-                id: segmentIds.get(change.sequence)!,
-                endedAt: new Date(change.atMs).toISOString(),
-              },
-            ]
-          : [],
-      ),
+      segmentInserts,
+      segmentCloses,
       effects: into.effects,
     };
   };

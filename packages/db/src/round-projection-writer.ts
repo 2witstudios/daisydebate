@@ -159,32 +159,32 @@ async function writeProjection(
   projection: RoundProjection,
   now: string,
 ): Promise<void> {
-  // `null` means no round-row column changed, so there is no lifecycle to
-  // record. A scheduled round that a projection leaves scheduled writes its
-  // `started_at` back unchanged, which is what makes the instant a transition.
-  if (projection.round !== null) {
-    await tx
-      .update(rounds)
-      .set({
-        status: projection.round.status,
-        currentStage: projection.round.currentStage,
-        startedAt: lifecycleInstant(
-          rounds.startedAt,
-          projection.round.startedAt,
-          now,
-        ),
-        completedAt: lifecycleInstant(
-          rounds.completedAt,
-          projection.round.completedAt,
-          now,
-        ),
-        outcome: projection.round.outcome,
-        runtimeState: projection.round.checkpoint,
-        version: sql`${rounds.version} + 1`,
-        updatedAt: sql`statement_timestamp()`,
-      })
-      .where(eq(rounds.id, roundId));
-  }
+  const lifecycle = projection.round;
+  await tx
+    .update(rounds)
+    .set({
+      ...(lifecycle === null
+        ? {}
+        : {
+            status: lifecycle.status,
+            currentStage: lifecycle.currentStage,
+            startedAt: lifecycleInstant(
+              rounds.startedAt,
+              lifecycle.startedAt,
+              now,
+            ),
+            completedAt: lifecycleInstant(
+              rounds.completedAt,
+              lifecycle.completedAt,
+              now,
+            ),
+            outcome: lifecycle.outcome,
+            runtimeState: lifecycle.checkpoint,
+          }),
+      version: sql`${rounds.version} + 1`,
+      updatedAt: sql`statement_timestamp()`,
+    })
+    .where(eq(rounds.id, roundId));
   // The open-segment index is immediate: close the previous interval before
   // opening its successor in the same transaction.
   const insertedIds = new Set(projection.segmentInserts.map((row) => row.id));

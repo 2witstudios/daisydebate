@@ -105,6 +105,18 @@ export const normalizeRoundClock = (input: {
         debateInvariantIds.segmentMatchesRules,
         'A durable segment row disagrees with the resolved rules',
       );
+    const preceding = rows[index - 1];
+    const earliest =
+      preceding === undefined ? lifecycle.startedAtMs : preceding.endedAtMs;
+    if (
+      earliest !== null &&
+      earliest !== undefined &&
+      row.startedAtMs < earliest
+    )
+      throw createInvariantError(
+        debateInvariantIds.segmentMatchesRules,
+        'Durable segment intervals overlap or precede Round start',
+      );
     if (row.endedAtMs === null && index !== rows.length - 1)
       throw createInvariantError(
         debateInvariantIds.liveOpenSegmentCount,

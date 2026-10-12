@@ -24,6 +24,17 @@ const read = (now: number) =>
   roundPositionAt({ ...snapshot, nowMs: origin + now });
 const state = () => normalizeRoundClock(snapshot);
 
+const firstTwoSegments = (secondStartMs: number) =>
+  rules.segments.slice(0, 2).map((segment, sequence) => ({
+    id: `row-${sequence}`,
+    sequence,
+    type: segment.type,
+    rulesSegmentKey: segment.key,
+    durationMs: segment.durationMs,
+    startedAt: roundAt(sequence === 0 ? 10_000 : secondStartMs),
+    endedAt: sequence === 0 ? roundAt(310_000) : null,
+  }));
+
 for (const offset of [-1, 0, 1])
   test(`countdown and speech deadline ${offset}ms`, () => {
     const first = read(10_000 + offset);
@@ -51,15 +62,7 @@ for (const offset of [-1, 0, 1])
   });
 
 test('interrupted CX closes and clears floor before the next speech', () => {
-  const segments = rules.segments.slice(0, 2).map((segment, sequence) => ({
-    id: `row-${sequence}`,
-    sequence,
-    type: segment.type,
-    rulesSegmentKey: segment.key,
-    durationMs: segment.durationMs,
-    startedAt: roundAt(sequence === 0 ? 10_000 : 320_000),
-    endedAt: sequence === 0 ? roundAt(310_000) : null,
-  }));
+  const segments = firstTwoSegments(320_000);
   const checkpoint = {
     ...emptyCheckpoint,
     floor: {
@@ -182,6 +185,32 @@ test('active snapshots require a durable countdown origin', async () => {
         ...snapshot,
         round: { ...round, startedAt: null },
         nowMs: origin,
+      }),
+    code: 'INVARIANT',
+    invariantId: 'round.segment.matches-rules',
+  });
+});
+
+test('hydration rejects overlapping intervals before either reader advances', async () => {
+  const segments = firstTwoSegments(20_000);
+  const malformed = { ...snapshot, segments, nowMs: origin + 25_000 };
+  await assertRejects({
+    given: 'closed AC through310000 followed by CX starting20000',
+    should: 'refuse impossible hydration chronology',
+    actual: () =>
+      roundPositionAt({ ...snapshot, segments, nowMs: origin + 25_000 }),
+    code: 'INVARIANT',
+    invariantId: 'round.segment.matches-rules',
+  });
+  await assertRejects({
+    given: 'the same malformed intervals at server hydration',
+    should: 'reject before creating ECS execution storage',
+    actual: () =>
+      createRoundRuntime({
+        ...malformed,
+        round: { ...round, id: 'round', currentStage: 'live' },
+        participants: practiceSeats,
+        nextSegmentId: () => 'unused',
       }),
     code: 'INVARIANT',
     invariantId: 'round.segment.matches-rules',

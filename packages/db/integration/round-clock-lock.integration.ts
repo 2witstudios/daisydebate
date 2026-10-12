@@ -12,9 +12,20 @@ test('Round lifecycle samples after lock acquisition and survives a delayed writ
     const database = createDatabase({ url, nextActorId: createId });
     const blocker = await fixture.sql.reserve();
     const callbackEntered = Promise.withResolvers<string>();
-    const releaseWrite = Promise.withResolvers<void>();
+    const before = await database.getRound(roundId);
+    if (!before) throw new Error('Round vanished');
+    const trigger = `clock_barrier_${roundId}`;
+    await fixture.sql.unsafe(
+      `create function ${trigger}() returns trigger language plpgsql as $$ begin perform pg_advisory_xact_lock(hashtextextended(new.id, 0)); return new; end $$`,
+    );
+    await fixture.sql.unsafe(
+      `create trigger ${trigger} before update on rounds for each row when (new.id = '${roundId}') execute function ${trigger}()`,
+    );
     let operation: Promise<void> | undefined;
     try {
+      await blocker.unsafe('select pg_advisory_lock(hashtextextended($1, 0))', [
+        roundId,
+      ]);
       await blocker.unsafe('begin');
       await blocker.unsafe('select id from rounds where id = $1 for update', [
         roundId,
@@ -23,11 +34,8 @@ test('Round lifecycle samples after lock acquisition and survives a delayed writ
         roundId,
         expectedVersion: 1,
         command: null,
-        buildProjection: async (now) => {
+        buildProjection: (now) => {
           callbackEntered.resolve(now);
-          await releaseWrite.promise;
-          const before = await database.getRound(roundId);
-          if (!before) throw new Error('Round vanished');
           return {
             round: {
               status: 'active',
@@ -65,11 +73,27 @@ test('Round lifecycle samples after lock acquisition and survives a delayed writ
       const [delayed] = await fixture.sql.unsafe(
         'select clock_timestamp() as now',
       );
-      releaseWrite.resolve();
+      let writeWaiting = false;
+      for (let attempt = 0; attempt < 500 && !writeWaiting; attempt += 1) {
+        const [row] = await fixture.sql.unsafe(
+          "select exists(select 1 from pg_stat_activity where datname = current_database() and wait_event = 'advisory') as waiting",
+        );
+        writeWaiting = row.waiting;
+      }
+      assert({
+        given: 'a synchronous projection followed by a blocked SQL writer',
+        should: 'hold the sampled instant across a real write delay',
+        actual: writeWaiting,
+        expected: true,
+      });
+      await blocker.unsafe(
+        'select pg_advisory_unlock(hashtextextended($1, 0))',
+        [roundId],
+      );
       await operation;
       const hydrated = await database.getRound(roundId);
       assert({
-        given: 'a lock wait followed by callback-held delayed write',
+        given: 'a lock wait followed by SQL-trigger-held delayed write',
         should: 'persist the one post-lock instant unchanged',
         actual: {
           exact: hydrated?.startedAt === sampled,
@@ -79,10 +103,16 @@ test('Round lifecycle samples after lock acquisition and survives a delayed writ
         expected: { exact: true, afterLock: true, beforeWrite: true },
       });
     } finally {
-      releaseWrite.resolve();
+      await blocker.unsafe(
+        'select pg_advisory_unlock(hashtextextended($1, 0))',
+        [roundId],
+      );
       await blocker.unsafe('rollback');
       blocker.release();
       await operation?.catch(() => undefined);
+      await fixture.sql.unsafe(
+        `drop trigger ${trigger} on rounds; drop function ${trigger}()`,
+      );
       await database.close();
     }
   });
