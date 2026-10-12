@@ -88,7 +88,11 @@ function readWire() {
     },
   };
   const store: MessagingChannelStore = {
-    withChannel: async (scope, work) => {
+    // Readers never take the exclusive writer frame.
+    withChannel: async () => {
+      throw new Error('Readers must not lock the stream');
+    },
+    withReadChannel: async (scope, work) => {
       calls.push(['scope', scope]);
       return work(frame);
     },

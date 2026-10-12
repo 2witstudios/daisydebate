@@ -3,7 +3,11 @@ import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { buildChannelTopic, idSchema } from '@daisy/protocol';
 import { withMessagingChannel } from './channel-frame';
-import { advanceMessagingStream } from './stream';
+import { advanceMessagingStream, readMessagingStream } from './stream';
+import {
+  MessagingCastChanged,
+  withSharedMessagingAuthority,
+} from './authority-frame';
 import { messageRecord } from './message-record';
 import { channelReadFrame } from './read-frame';
 import { channelMutationFrame } from './mutation-frame';
@@ -28,6 +32,43 @@ export function createMessagingStore({
   readonly authorize: MessagingAuthorizationFence;
 }): MessagingChannelStore {
   return {
+    withReadChannel: async (input, work) => {
+      for (let attempt = 0; ; attempt++)
+        try {
+          return await database.transaction(
+            (tx) =>
+              withSharedMessagingAuthority(
+                tx,
+                input,
+                async ({ fact, accounts }) => {
+                  const counters = {
+                    channelId: input.channelId,
+                    ...(await readMessagingStream(tx, input.channelId)),
+                  };
+                  const refreshAuthorization = () =>
+                    authorize(tx, input, { fact, accounts });
+                  return work({
+                    authorize: refreshAuthorization,
+                    fact,
+                    accounts,
+                    counters,
+                    ...channelReadFrame(
+                      tx,
+                      input,
+                      counters,
+                      refreshAuthorization,
+                    ),
+                  });
+                },
+              ),
+            { isolationLevel: 'read committed' },
+          );
+        } catch (error) {
+          if (!(error instanceof MessagingCastChanged)) throw error;
+          if (attempt >= 2)
+            throw createAppError('INFRASTRUCTURE', 'Channel unavailable');
+        }
+    },
     withChannel: async (input, work) => {
       return withMessagingChannel(
         database,

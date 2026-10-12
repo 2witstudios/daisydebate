@@ -4,6 +4,7 @@ import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import {
   lockAuthorizationActors,
+  readAuthorizationActors,
   type AuthorizationTransaction,
 } from '../authorization';
 import { readMessagingChannelFact, type MessagingChannelFact } from './social';
@@ -100,4 +101,47 @@ export function createMessagingChannelAuthority(database: BunSQLDatabase) {
     work: (frame: AuthorityFrame) => Promise<T>,
   ): Promise<T> =>
     database.transaction((tx) => withLockedMessagingAuthority(tx, input, work));
+}
+
+/** The cast moved while a shared fence waited; the caller restarts the whole transaction. */
+export class MessagingCastChanged extends Error {}
+/**
+ * Readers: SHARE-fence the current cast's accounts, then the DM pair and channel
+ * (canonical order), reread the fact after the waits and restart on any cast change.
+ * Compatible readers never block each other; exclusive authority writers still do.
+ */
+export async function withSharedMessagingAuthority<T>(
+  tx: AuthorizationTransaction,
+  input: Scope,
+  work: (frame: AuthorityFrame) => Promise<T>,
+): Promise<T> {
+  validateScope(input, []);
+  const discovered = await readMessagingChannelFact(
+    tx,
+    input.channelId,
+    input.actorId,
+  );
+  if (!discovered) throw createAppError('NOT_FOUND');
+  const accounts = await readAuthorizationActors(
+    tx,
+    actorIdsOf(discovered, input.actorId),
+    { maxActors: 65535 },
+  );
+  const pair = discovered.authority.kind === 'dm' ? discovered.authority : null;
+  const fenced = await tx.execute(
+    sql`select resource_id as id from public.daisy_observation_authority_fences(${JSON.stringify([{ kind: 'channel', id: input.channelId }])}::text::jsonb,${JSON.stringify(pair ? [{ low: pair.lowActorId, high: pair.highActorId }] : [])}::text::jsonb)`,
+  );
+  if (fenced[0]?.id !== input.channelId) throw createAppError('NOT_FOUND');
+  const fact = await readMessagingChannelFact(
+    tx,
+    input.channelId,
+    input.actorId,
+  );
+  if (!fact) throw createAppError('NOT_FOUND');
+  if (
+    JSON.stringify(actorIdsOf(discovered, input.actorId)) !==
+    JSON.stringify(actorIdsOf(fact, input.actorId))
+  )
+    throw new MessagingCastChanged();
+  return work({ tx, fact, accounts });
 }

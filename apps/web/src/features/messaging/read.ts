@@ -1,6 +1,6 @@
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type {
-  MessagingLockedFrame,
+  MessagingReadFrame,
   MessagingChannelStore,
 } from '@daisy/db/messaging';
 import {
@@ -22,10 +22,10 @@ export function createMessagingReadOperations({
   const run = <T>(
     channelId: string,
     principal: AuthorizationPrincipal,
-    work: (frame: MessagingLockedFrame) => Promise<T>,
+    work: (frame: MessagingReadFrame) => Promise<T>,
   ) => {
     const identity = requireMessagingActor(principal);
-    return store.withChannel({ channelId, ...identity }, work);
+    return store.withReadChannel({ channelId, ...identity }, work);
   };
   const history = (
     command: {

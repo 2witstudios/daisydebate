@@ -106,13 +106,29 @@ export type MessagingLockedFrame = {
   ) => Promise<MessagingMutationState>;
   readonly commitMutation: (plan: MessagingMutationPlan) => Promise<void>;
 };
+/** Readers: compatible authority fences and the stream's committed high-water mark, never its lock. */
+export type MessagingReadFrame = Pick<
+  MessagingLockedFrame,
+  | 'history'
+  | 'changes'
+  | 'markRead'
+  | 'authorize'
+  | 'fact'
+  | 'accounts'
+  | 'counters'
+>;
+type MessagingChannelScope = {
+  readonly channelId: string;
+  readonly actorId: string;
+  readonly userId: string;
+};
 export type MessagingChannelStore = {
   readonly withChannel: <T>(
-    input: {
-      readonly channelId: string;
-      readonly actorId: string;
-      readonly userId: string;
-    },
+    input: MessagingChannelScope,
     work: (frame: MessagingLockedFrame) => Promise<T>,
+  ) => Promise<T>;
+  readonly withReadChannel: <T>(
+    input: MessagingChannelScope,
+    work: (frame: MessagingReadFrame) => Promise<T>,
   ) => Promise<T>;
 };
