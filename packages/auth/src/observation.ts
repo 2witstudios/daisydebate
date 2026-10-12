@@ -28,6 +28,7 @@ export type ObservationAuthorityContext = {
   readonly databaseNow: string;
 };
 export type ObservationDependency = {
+  readonly scope: 'subject' | 'cohort' | 'entitlement';
   readonly key: string;
   readonly revision: string;
   readonly nextBoundary: string | null;
@@ -61,6 +62,7 @@ export function createObservationAuthorityDecision({
     const dependencies: ObservationDependency[] = [
       {
         key: `account-${input.principal.actorId}`,
+        scope: 'subject',
         revision: String(input.account.revision),
         nextBoundary: null,
       },
@@ -101,6 +103,7 @@ export function createObservationAuthorityDecision({
       return { status: 'denied' };
     dependencies.push({
       key: `${fact.kind}-${id}`,
+      scope: 'entitlement',
       revision: String(fact.revision),
       nextBoundary: null,
     });
@@ -154,11 +157,13 @@ function channel(
     dependencies.push(
       {
         key: `account-${row.account.actorId}`,
+        scope: 'cohort',
         revision: String(row.account.revision),
         nextBoundary: null,
       },
       {
         key: `age-${row.account.actorId}`,
+        scope: 'cohort',
         revision:
           row.age.state === 'known'
             ? JSON.stringify([
@@ -175,11 +180,13 @@ function channel(
   dependencies.push(
     {
       key: `channel-${fact.channelId}`,
+      scope: 'entitlement',
       revision: String(fact.revision),
       nextBoundary: null,
     },
     {
       key: `policy-${fact.policyKey}`,
+      scope: 'cohort',
       revision: String(fact.policyRevision),
       nextBoundary: null,
     },
@@ -187,12 +194,14 @@ function channel(
   if (fact.authority.kind === 'dm')
     dependencies.push({
       key: `contact-${fact.authority.lowActorId}-${fact.authority.highActorId}`,
+      scope: 'cohort',
       revision: String(fact.authority.revision),
       nextBoundary: null,
     });
   else
     dependencies.push({
       key: `grant-${fact.channelId}-${fact.authority.actorId}`,
+      scope: 'entitlement',
       revision: JSON.stringify([
         fact.authority.role,
         fact.authority.generation,
