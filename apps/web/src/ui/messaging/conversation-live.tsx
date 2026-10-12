@@ -10,6 +10,7 @@ import { MessageHistory } from './message-history';
 import { createBrowserConnectionStore } from '../../features/realtime/browser-adapters';
 import { attachMessagingInboxDoorbells } from '../../features/messaging/doorbells';
 import { channelMessages } from '../../features/messaging/channel-observation';
+import { editVisibility } from '../../features/messaging/edit-visibility';
 import {
   useRealtime,
   useRealtimeConnection,
@@ -93,8 +94,8 @@ export function ConversationLive({
   );
 }
 
-/** The edit form stays mounted across content snapshots so a draft survives;
- * revocation or removal of the message unmounts it with its server text. */
+/** The edit form stays mounted across snapshots and transient gaps so a
+ * draft survives; denial or removal of the message unmounts it. */
 export function MessageEditLive({
   channelId,
   messageId,
@@ -108,14 +109,13 @@ export function MessageEditLive({
   readonly before: number | null;
   readonly children: ReactNode;
 }) {
-  const view = useChannel(channelId, bounds, before);
-  if (view.status === 'denied' || view.withdrawn)
-    return <p role="status">Conversation unavailable.</p>;
-  const current = view.content?.messages.find(
-    (message) => message.id === messageId,
+  const visibility = editVisibility(
+    useChannel(channelId, bounds, before),
+    messageId,
   );
-  if (view.content !== null && (!current || 'unavailable' in current))
-    return <p role="status">Message removed.</p>;
+  if (visibility === 'revoked')
+    return <p role="status">Conversation unavailable.</p>;
+  if (visibility === 'removed') return <p role="status">Message removed.</p>;
   return <>{children}</>;
 }
 
