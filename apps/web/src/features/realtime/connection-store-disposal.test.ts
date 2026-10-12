@@ -50,3 +50,26 @@ test('final disposal releases listeners and fences tickets irreversibly', async 
     expected: { listeners: 0, sockets: 1, frames: 0 },
   });
 });
+
+test('final disposal aborts outstanding ticket network work', () => {
+  let signal: AbortSignal | undefined;
+  const store = createConnectionStore({
+    url: 'wss://realtime.test/ws',
+    scheduler: createTimerQueue((clock, ms) => clock + ms),
+    random: () => 0.5,
+    createSocket: () => new FakeSocket(),
+    fetchTicket: async (active) => {
+      signal = active;
+      return new Promise<string>(() => {});
+    },
+    onVisibilityChange: () => () => {},
+  });
+  store.connect();
+  store.dispose();
+  assert({
+    given: 'an outstanding ticket fetch',
+    should: 'abort owned network work during final disposal',
+    actual: signal?.aborted,
+    expected: true,
+  });
+});

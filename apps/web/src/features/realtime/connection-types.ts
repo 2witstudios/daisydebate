@@ -1,5 +1,9 @@
 import type { ConnectionDiagnostic } from './connection-diagnostics';
-import type { ServerMessage } from '@daisy/protocol';
+import type {
+  ServerMessage,
+  ObservationResource,
+  ObservationServerMessage,
+} from '@daisy/protocol';
 import type { TerminalReason } from './close-code-policy';
 
 /**
@@ -40,7 +44,7 @@ export type ConnectionStoreDeps = {
   readonly url: string;
   readonly createSocket: (url: string) => WebSocketLike;
   readonly scheduler: Scheduler;
-  readonly fetchTicket: () => Promise<string>;
+  readonly fetchTicket: (signal: AbortSignal) => Promise<string>;
   readonly random: () => number;
   /** Registers a visibility listener; the callback receives `true` when the
    * tab becomes visible. Returns an unsubscribe function. */
@@ -50,6 +54,16 @@ export type ConnectionStoreDeps = {
 };
 
 export type ConnectionStore = {
+  readonly observe: (
+    descriptor: {
+      readonly resource: ObservationResource;
+      readonly window: {
+        readonly after: string | number | null;
+        readonly limit: number;
+      };
+    },
+    listener: (frame: ObservationServerMessage) => void,
+  ) => () => void;
   readonly onDiagnostic: (
     listener: (event: ConnectionDiagnostic) => void,
   ) => () => void;

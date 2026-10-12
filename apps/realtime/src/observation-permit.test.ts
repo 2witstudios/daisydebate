@@ -29,16 +29,18 @@ test('each evidence component retains its own age through renewals', () => {
   permit.install(permit.begin(), {
     base,
     minimumContentRevision: 1,
+    purgeGeneration: 0,
     subject: evidence(0),
     cohort,
     entitlement: evidence(0),
   });
   now = 3000;
   const attempt = permit.begin();
-  const duringRenewal = permit.allows(base, 1, 'node');
+  const duringRenewal = permit.allows(base, 1, 'node', 0);
   permit.install(attempt, {
     base,
     minimumContentRevision: 1,
+    purgeGeneration: 0,
     subject: evidence(3000),
     cohort,
     entitlement: evidence(3000),
@@ -48,7 +50,7 @@ test('each evidence component retains its own age through renewals', () => {
     given: 'unchanged cohort reused while subject renews',
     should:
       'keep active permission during pending renewal but expire the cohort independently',
-    actual: [duringRenewal, permit.allows(base, 1, 'node')],
+    actual: [duringRenewal, permit.allows(base, 1, 'node', 0)],
     expected: [true, false],
   });
 });
@@ -67,6 +69,7 @@ test('denial, clock uncertainty and stale acquisition cannot restore bytes', () 
   const grant = {
     base,
     minimumContentRevision: 2,
+    purgeGeneration: 0,
     subject: part,
     cohort: part,
     entitlement: part,
@@ -75,14 +78,15 @@ test('denial, clock uncertainty and stale acquisition cannot restore bytes', () 
   permit.invalidate('peer');
   const stale = permit.install(attempt, grant);
   permit.install(permit.begin(), grant);
-  const floor = permit.allows(base, 1, 'node');
+  const floor = permit.allows(base, 1, 'node', 0);
   const disclosure = permit.allows(
     { ...base, disclosureRevision: 2 },
     2,
     'node',
+    0,
   );
   now = -1;
-  const discontinuity = permit.allows(base, 2, 'node');
+  const discontinuity = permit.allows(base, 2, 'node', 0);
   now = 0;
   assert({
     given: 'stale attempts, mismatched bases/floors or a backwards clock',
@@ -92,8 +96,35 @@ test('denial, clock uncertainty and stale acquisition cannot restore bytes', () 
       floor,
       disclosure,
       discontinuity,
-      permit.allows(base, 2, 'node'),
+      permit.allows(base, 2, 'node', 0),
     ],
     expected: [false, false, false, false, false],
+  });
+});
+
+test('purge identity is independent of compatible disclosure and content revision', () => {
+  const permit = createObservationPermit({
+      now: () => 0,
+      nodeIncarnation: 'node',
+    }),
+    part = observationEvidence({
+      started: 0,
+      remainingMs: 5000,
+      fingerprint: 'same',
+      dependencies: [],
+    });
+  permit.install(permit.begin(), {
+    base,
+    minimumContentRevision: 1,
+    purgeGeneration: 0,
+    subject: part,
+    cohort: part,
+    entitlement: part,
+  });
+  assert({
+    given: 'same base with a newer durable purge generation',
+    should: 'refuse enqueue until canonical evidence binds the current purge',
+    actual: permit.allows(base, 2, 'node', 1),
+    expected: false,
   });
 });
