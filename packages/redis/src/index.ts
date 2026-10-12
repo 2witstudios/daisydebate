@@ -1,5 +1,6 @@
 import { createMessagingTypingOperations } from './messaging-typing';
 import { createObservationCacheOperations } from './observation-cache';
+import { createObservationDemandOperations } from './observation-demand';
 import { createObservationSubscriber } from './observation-subscriber';
 import type { ObservationResource } from '@daisy/protocol';
 import { RedisClient } from 'bun';
@@ -217,6 +218,7 @@ export function createRedis({
     },
     ...createRoomReadinessOperations({ client, namespace, reportFailure }),
     ...createObservationCacheOperations({ client, namespace, reportFailure }),
+    ...createObservationDemandOperations({ client, namespace, reportFailure }),
     ...createPresenceOperations({ client, namespace, reportFailure }),
     ...createMessagingTypingOperations({ client, namespace, reportFailure }),
     ...createTicketOperations({ client, namespace, reportFailure }),

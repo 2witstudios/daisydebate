@@ -14,18 +14,18 @@ type Descriptor = {
   };
 };
 type Listener = (frame: ObservationServerMessage) => void;
+type Ready = Extract<ObservationServerMessage, { type: 'observation.ready' }>;
+type Snapshot = Extract<
+  ObservationServerMessage,
+  { type: 'observation.snapshot' }
+>;
+type State = Extract<ObservationServerMessage, { type: 'observation.state' }>;
 type Entry = {
   readonly descriptor: Descriptor;
   readonly listeners: Set<Listener>;
   id: string;
-  ready: Extract<
-    ObservationServerMessage,
-    { type: 'observation.ready' }
-  > | null;
-  snapshot: Extract<
-    ObservationServerMessage,
-    { type: 'observation.snapshot' }
-  > | null;
+  ready: Ready | null;
+  snapshot: Snapshot | null;
   generation: number;
   expiresAt: number;
 };
@@ -66,6 +66,43 @@ export function createObservationSubscriptions({
       }
     }
   };
+  const sameResource = (entry: Entry, resource: ObservationResource) =>
+    resource.kind === entry.descriptor.resource.kind &&
+    resource.id === entry.descriptor.resource.id;
+  function ready(entry: Entry, frame: Ready) {
+    if (
+      !sameResource(entry, frame.base.resource) ||
+      frame.base.window.after !== entry.descriptor.window.after ||
+      frame.base.window.limit !== entry.descriptor.window.limit
+    )
+      return false;
+    entry.generation = frame.generation;
+    entry.expiresAt = now() + frame.validForMs;
+    entry.ready = frame;
+    entry.snapshot = null;
+    return true;
+  }
+  function snapshot(entry: Entry, frame: Snapshot) {
+    if (
+      !entry.ready ||
+      frame.generation !== entry.generation ||
+      observationBaseKey(frame.base) !== observationBaseKey(entry.ready.base) ||
+      frame.contentRevision < entry.ready.minimumContentRevision ||
+      frame.contentRevision <= (entry.snapshot?.contentRevision ?? -1)
+    )
+      return false;
+    entry.snapshot = frame;
+    return true;
+  }
+  function state(entry: Entry, frame: State) {
+    if (!sameResource(entry, frame.resource)) return false;
+    entry.generation = frame.generation;
+    if (frame.state !== 'degraded') {
+      entry.ready = null;
+      entry.snapshot = null;
+    }
+    return true;
+  }
   return {
     observe(descriptor: Descriptor, listener: Listener) {
       if (disposed) throw new Error('Observation subscriptions disposed');
@@ -113,44 +150,14 @@ export function createObservationSubscriptions({
     },
     emit(frame: ObservationServerMessage) {
       const entry = requests.get(frame.id);
-      if (!entry || disposed) return;
-      if (frame.generation < entry.generation) return;
-      if (frame.type === 'observation.ready') {
-        if (
-          frame.base.resource.kind !== entry.descriptor.resource.kind ||
-          frame.base.resource.id !== entry.descriptor.resource.id ||
-          frame.base.window.after !== entry.descriptor.window.after ||
-          frame.base.window.limit !== entry.descriptor.window.limit
-        )
-          return;
-        entry.generation = frame.generation;
-        entry.expiresAt = now() + frame.validForMs;
-        entry.ready = frame;
-        entry.snapshot = null;
-      } else if (frame.type === 'observation.snapshot') {
-        if (
-          !entry.ready ||
-          frame.generation !== entry.generation ||
-          observationBaseKey(frame.base) !==
-            observationBaseKey(entry.ready.base) ||
-          frame.contentRevision < entry.ready.minimumContentRevision ||
-          frame.contentRevision <= (entry.snapshot?.contentRevision ?? -1)
-        )
-          return;
-        entry.snapshot = frame;
-      } else {
-        if (
-          frame.resource.kind !== entry.descriptor.resource.kind ||
-          frame.resource.id !== entry.descriptor.resource.id
-        )
-          return;
-        entry.generation = frame.generation;
-        if (frame.state !== 'degraded') {
-          entry.ready = null;
-          entry.snapshot = null;
-        }
-      }
-      notify(entry.listeners, frame);
+      if (!entry || disposed || frame.generation < entry.generation) return;
+      const accepted =
+        frame.type === 'observation.ready'
+          ? ready(entry, frame)
+          : frame.type === 'observation.snapshot'
+            ? snapshot(entry, frame)
+            : state(entry, frame);
+      if (accepted) notify(entry.listeners, frame);
     },
     reconnect() {
       if (disposed) return;

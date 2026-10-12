@@ -10,6 +10,17 @@ import { createObservationPermit } from '../src/observation-permit';
 import { roundAudienceFixture } from './round-audience.test-support';
 
 setupRitewayBun();
+type ReadResult = Awaited<
+  ReturnType<ReturnType<typeof createObservationAuthorityReader>['admit']>
+>[number];
+const sameSemanticEvidence = (
+  first: ReadResult | undefined,
+  renewed: ReadResult | undefined,
+) =>
+  first?.status === 'allowed' &&
+  renewed?.status === 'allowed' &&
+  first.grant.cohort.fingerprint === renewed.grant.cohort.fingerprint &&
+  JSON.stringify(first.grant.base) === JSON.stringify(renewed.grant.base);
 const { databaseUrl } = requireTestServices(process.env);
 test('restricted realtime role composes canonical batch facts and original-start permits', async () => {
   // One administrative fixture connection plus one restricted physical reader;
@@ -57,35 +68,25 @@ test('restricted realtime role composes canonical batch facts and original-start
       nodeIncarnation: 'node',
     });
     const attempt = permit.begin();
-    const admitted =
-      first?.status === 'allowed' && permit.install(attempt, first.grant);
-    const initiallyAllowed =
-      first?.status === 'allowed' &&
+    const grant = first?.status === 'allowed' ? first.grant : null;
+    const allowed = () =>
+      grant !== null &&
       permit.allows(
-        first.grant.base,
-        first.grant.minimumContentRevision,
+        grant.base,
+        grant.minimumContentRevision,
         'node',
-        first.grant.purgeGeneration,
+        grant.purgeGeneration,
       );
+    const admitted = grant !== null && permit.install(attempt, grant);
+    const initiallyAllowed = allowed();
     await admin`update rounds set resolution='Changed content',version=version+1 where id=${round.id}`;
     now = 3000;
     const [renewed] = await reader.renew([binding]);
-    const sameEvidence =
-      first?.status === 'allowed' &&
-      renewed?.status === 'allowed' &&
-      first.grant.cohort.fingerprint === renewed.grant.cohort.fingerprint &&
-      JSON.stringify(first.grant.base) === JSON.stringify(renewed.grant.base);
+    const sameEvidence = sameSemanticEvidence(first, renewed);
     await admin`delete from round_participants where round_id=${round.id} and actor_id=${principal.actorId}`;
     const [revoked] = await reader.renew([binding]);
     now = 4900;
-    const expired =
-      first?.status === 'allowed' &&
-      permit.allows(
-        first.grant.base,
-        first.grant.minimumContentRevision,
-        'node',
-        first.grant.purgeGeneration,
-      );
+    const expired = allowed();
     assert({
       given:
         'real restricted-role current private Round facts, content update, participant removal and original permit expiry',

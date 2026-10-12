@@ -54,46 +54,60 @@ export function createObservationProvider({
   }
   function receive(entry: Interest, frame: ObservationServerMessage) {
     if (disposed || !transportAvailable) return;
+    // A new correlated request replaces the previous one; hide until it is ready.
     if (frame.type === 'observation.ready' && frame.id !== entry.requestId) {
       clearTimer(entry);
       entry.store.unavailable();
       entry.generation = -1;
       entry.requestId = frame.id;
     }
-    if (frame.type !== 'observation.ready' && frame.id !== entry.requestId)
+    if (frame.id !== entry.requestId || frame.generation < entry.generation)
       return;
-    if (disposed || frame.generation < entry.generation) return;
-    if (frame.type === 'observation.ready') {
-      clearTimer(entry);
-      entry.generation = frame.generation;
-      entry.expiresAt = scheduler.now() + frame.validForMs;
-      entry.attempt = entry.store.begin();
-      entry.store.authorize(entry.attempt, {
-        partition: observationBaseKey(frame.base),
-        disclosureRevision: frame.base.disclosureRevision,
-      });
-      if (disposed || entry.store.read().status === 'disposed') return;
-      entry.timer = scheduler.setTimeout(() => {
-        expired(entry);
-      }, frame.validForMs);
-    } else if (frame.type === 'observation.snapshot') {
-      if (frame.generation !== entry.generation || expired(entry)) return;
-      entry.store.snapshot(entry.attempt, {
-        partition: observationBaseKey(frame.base),
-        disclosureRevision: frame.base.disclosureRevision,
-        contentRevision: frame.contentRevision,
-        body: frame.body,
-      });
-    } else {
-      entry.generation = frame.generation;
-      if (frame.state === 'degraded') {
-        if (!expired(entry)) entry.store.dirty();
-      } else {
-        clearTimer(entry);
-        if (frame.state === 'denied') entry.store.deny();
-        else entry.store.unavailable();
-      }
+    if (frame.type === 'observation.ready') ready(entry, frame);
+    else if (frame.type === 'observation.snapshot') snapshot(entry, frame);
+    else state(entry, frame);
+  }
+  function ready(
+    entry: Interest,
+    frame: Extract<ObservationServerMessage, { type: 'observation.ready' }>,
+  ) {
+    clearTimer(entry);
+    entry.generation = frame.generation;
+    entry.expiresAt = scheduler.now() + frame.validForMs;
+    entry.attempt = entry.store.begin();
+    entry.store.authorize(entry.attempt, {
+      partition: observationBaseKey(frame.base),
+      disclosureRevision: frame.base.disclosureRevision,
+    });
+    if (disposed || entry.store.read().status === 'disposed') return;
+    entry.timer = scheduler.setTimeout(() => {
+      expired(entry);
+    }, frame.validForMs);
+  }
+  function snapshot(
+    entry: Interest,
+    frame: Extract<ObservationServerMessage, { type: 'observation.snapshot' }>,
+  ) {
+    if (frame.generation !== entry.generation || expired(entry)) return;
+    entry.store.snapshot(entry.attempt, {
+      partition: observationBaseKey(frame.base),
+      disclosureRevision: frame.base.disclosureRevision,
+      contentRevision: frame.contentRevision,
+      body: frame.body,
+    });
+  }
+  function state(
+    entry: Interest,
+    frame: Extract<ObservationServerMessage, { type: 'observation.state' }>,
+  ) {
+    entry.generation = frame.generation;
+    if (frame.state === 'degraded') {
+      if (!expired(entry)) entry.store.dirty();
+      return;
     }
+    clearTimer(entry);
+    if (frame.state === 'denied') entry.store.deny();
+    else entry.store.unavailable();
   }
   const releaseConnection = connection.subscribe((state) => {
     transportAvailable = state.status === 'open';

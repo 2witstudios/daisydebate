@@ -5,6 +5,7 @@ import {
   type ObservationBase,
 } from '@daisy/protocol';
 import type { ObservationPermit } from './observation-permit';
+import { createObservationPurges } from './observation-purges';
 export type ObservationSnapshot = {
   readonly base: ObservationBase;
   readonly contentRevision: number;
@@ -45,7 +46,7 @@ export function createObservationNode({
   };
 }) {
   const entries = new Map<string, Entry>();
-  const purges = new Map<string, number>();
+  const purges = createObservationPurges();
   const jobs = new Map<Entry, Promise<void>>();
   const waiting = new Set<Entry>();
   let bindings = 0,
@@ -53,17 +54,40 @@ export function createObservationNode({
     closed = false,
     repairing = false,
     pumping = false;
+  const ofResource = (resourceKey: string) => (entry: Entry) =>
+    observationResourceKey(entry.base.resource) === resourceKey;
   function prunePurge(resourceKey: string) {
-    if (
-      [...entries.values()].some(
-        (entry) => observationResourceKey(entry.base.resource) === resourceKey,
-      ) ||
-      [...jobs.keys()].some(
-        (entry) => observationResourceKey(entry.base.resource) === resourceKey,
-      )
-    )
-      return;
-    purges.delete(resourceKey);
+    const scoped = ofResource(resourceKey);
+    if (![...entries.values(), ...jobs.keys()].some(scoped))
+      purges.forget(resourceKey);
+  }
+  function fenced(entry: Entry, key: string, snapshot: ObservationSnapshot) {
+    return (
+      closed ||
+      entries.get(key) !== entry ||
+      !purges.current(snapshot.base.resource, snapshot.purgeGeneration) ||
+      snapshot.purgeGeneration !== entry.snapshot?.purgeGeneration
+    );
+  }
+  const deliverable = (recipient: Recipient, snapshot: ObservationSnapshot) =>
+    recipient.active &&
+    recipient.delivered < snapshot.contentRevision &&
+    recipient.permit.allows(
+      snapshot.base,
+      snapshot.contentRevision,
+      nodeIncarnation,
+      snapshot.purgeGeneration,
+    );
+  /** A newer purge fences every recipient of the resource; older ones are refused. */
+  function advancePurge(snapshot: ObservationSnapshot) {
+    const { resource } = snapshot.base;
+    const outcome = purges.advance(resource, snapshot.purgeGeneration);
+    if (outcome === 'advanced')
+      for (const scoped of entries.values())
+        if (ofResource(observationResourceKey(resource))(scoped))
+          for (const recipient of scoped.recipients)
+            recipient.permit.uncertain();
+    return outcome !== 'stale';
   }
   function pump() {
     if (closed || pumping) return;
@@ -91,6 +115,30 @@ export function createObservationNode({
     waiting.add(entry);
     pump();
   }
+  /** Bounded slices; false when the entry was fenced mid-fanout. */
+  async function fanout(
+    entry: Entry,
+    key: string,
+    snapshot: ObservationSnapshot,
+  ) {
+    let sends = 0,
+      sliceStarted = now();
+    for (const recipient of entry.recipients) {
+      if (closed || entries.get(key) !== entry) return false;
+      if (sends >= 128 || now() - sliceStarted >= 2) {
+        await yieldWork();
+        sends = 0;
+        sliceStarted = now();
+      }
+      // Final application enqueue is synchronous after every await.
+      if (fenced(entry, key, snapshot)) return false;
+      if (!deliverable(recipient, snapshot)) continue;
+      recipient.send(snapshot);
+      recipient.delivered = snapshot.contentRevision;
+      sends++;
+    }
+    return true;
+  }
   function start(entry: Entry) {
     const key = observationBaseKey(entry.base);
     if (jobs.has(entry) || closed || jobs.size >= 1024) return;
@@ -99,44 +147,7 @@ export function createObservationNode({
         do {
           entry.dirty = false;
           const snapshot = entry.snapshot;
-          if (!snapshot) break;
-          let sends = 0,
-            sliceStarted = now();
-          for (const recipient of entry.recipients) {
-            if (closed || entries.get(key) !== entry) return;
-            if (sends >= 128 || now() - sliceStarted >= 2) {
-              await yieldWork();
-              sends = 0;
-              sliceStarted = now();
-            }
-            // Final application enqueue is synchronous after every await.
-            if (
-              snapshot.purgeGeneration !==
-              (purges.get(observationResourceKey(snapshot.base.resource)) ??
-                snapshot.purgeGeneration)
-            )
-              return;
-            if (
-              closed ||
-              entries.get(key) !== entry ||
-              snapshot.purgeGeneration !== entry.snapshot?.purgeGeneration
-            )
-              return;
-            if (
-              !recipient.active ||
-              recipient.delivered >= snapshot.contentRevision ||
-              !recipient.permit.allows(
-                snapshot.base,
-                snapshot.contentRevision,
-                nodeIncarnation,
-                snapshot.purgeGeneration,
-              )
-            )
-              continue;
-            recipient.send(snapshot);
-            recipient.delivered = snapshot.contentRevision;
-            sends++;
-          }
+          if (!snapshot || !(await fanout(entry, key, snapshot))) return;
         } while (entry.dirty && !closed);
       })
       .catch(() => {
@@ -221,20 +232,7 @@ export function createObservationNode({
       const key = observationBaseKey(snapshot.base),
         entry = entries.get(key);
       if (!entry) return false;
-      const resourceKey = observationResourceKey(snapshot.base.resource);
-      const knownPurge = purges.get(resourceKey);
-      if (knownPurge !== undefined && snapshot.purgeGeneration < knownPurge)
-        return false;
-      purges.set(resourceKey, snapshot.purgeGeneration);
-      if (snapshot.purgeGeneration > (knownPurge ?? snapshot.purgeGeneration)) {
-        for (const scoped of entries.values())
-          if (
-            scoped.base.resource.kind === snapshot.base.resource.kind &&
-            scoped.base.resource.id === snapshot.base.resource.id
-          )
-            for (const recipient of scoped.recipients)
-              recipient.permit.uncertain();
-      }
+      if (!advancePurge(snapshot)) return false;
       if (
         entry.snapshot &&
         (snapshot.contentRevision <= entry.snapshot.contentRevision ||
