@@ -1,4 +1,5 @@
 import { createId } from '@paralleldrive/cuid2';
+import { buildUserInboxTopic } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { withFixture } from './constraint-helpers';
@@ -18,7 +19,7 @@ test('every live session delete appends its revocation control in the deleting t
     await session(expired, '2000-01-01T00:00:00Z');
     await session(rolledBack, '2099-01-01T00:00:00Z');
     const controls = () =>
-      f.sql`select payload->'ids' as ids from outbox where topic=${`user:${actorId}:inbox`} and kind='session.revoked' order by seq`;
+      f.sql`select payload->'ids' as ids from outbox where topic=${buildUserInboxTopic(actorId)} and kind='session.revoked' order by seq`;
     try {
       await f.sql
         .begin(async (tx) => {
@@ -38,7 +39,7 @@ test('every live session delete appends its revocation control in the deleting t
     } finally {
       // Deleting the remaining live session appends its control; remove controls last.
       await f.sql`delete from session where user_id=${userId}`;
-      await f.sql`delete from outbox where topic=${`user:${actorId}:inbox`}`;
+      await f.sql`delete from outbox where topic=${buildUserInboxTopic(actorId)}`;
     }
   });
 });
