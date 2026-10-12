@@ -182,6 +182,13 @@ Run commands from the repository root. Environment-dependent commands use the
 values in `.env`; initialize with `bun install --frozen-lockfile` and
 `cp .env.example .env` when needed.
 
+Code in parallel; heavy commands queue machine-wide. `build`, `typecheck`,
+`lint`, `test`, `test:integration`, `test:e2e`, `check`, `check:affected`,
+`verify`, `knip`, `duplication`, `dev` and `dev:agent` run through
+`scripts/heavy.ts`, one at a time across every checkout
+(`DAISY_HEAVY_CONCURRENCY`, default 1); commands they start run inside the
+same slot. A dev server holds the slot while it runs: stop idle ones.
+
 - `bun doctor`: checks Bun version, environment parsing, PostgreSQL reachability,
   migration currency, Redis reachability, and architecture boundaries. Add
   `--json` for a machine-readable report. It should pass before service-based

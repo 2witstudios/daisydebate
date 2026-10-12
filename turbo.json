@@ -22,7 +22,10 @@
     "E2E_DATABASE_URL",
     "E2E_REDIS_URL",
     "E2E_REDIS_NAMESPACE",
-    "PW_WS_ENDPOINT"
+    "PW_WS_ENDPOINT",
+    "DAISY_HEAVY_CONCURRENCY",
+    "DAISY_HEAVY_LOCK_DIR",
+    "DAISY_HEAVY_POLL_MS"
   ],
   "tasks": {
     "dev": {
@@ -62,12 +65,7 @@
     },
     "test:e2e": {
       "dependsOn": ["build"],
-      "cache": false,
-      "passThroughEnv": [
-        "DAISY_E2E_CONCURRENCY",
-        "DAISY_E2E_LOCK_DIR",
-        "DAISY_E2E_POLL_MS"
-      ]
+      "cache": false
     },
     "check": {
       "dependsOn": ["typecheck", "lint", "test", "build"]
