@@ -114,11 +114,6 @@ const completeWithBallot =
     readonly ballot: Ballot;
     readonly ballotId: string;
   }): Promise<void> => {
-    const completed = input.runtime.execute({
-      command: { type: 'complete', outcome: input.ballot.winner },
-      actorId: null,
-      now: new Date(input.now).toISOString(),
-    });
     const command = {
       commandId: dependencies.ids.next(),
       actorId: null,
@@ -137,7 +132,12 @@ const completeWithBallot =
           ballot: input.ballot,
         },
         command,
-        projection: completed,
+        buildProjection: (now) =>
+          input.runtime.execute({
+            command: { type: 'complete', outcome: input.ballot.winner },
+            actorId: null,
+            now,
+          }),
       })
       .then(() => true)
       .catch(() => false);

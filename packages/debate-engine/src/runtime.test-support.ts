@@ -108,7 +108,7 @@ export const runtimeWorld = ({
       id: 'round-1',
       status,
       currentStage: null,
-      startedAt: null,
+      startedAt: status === 'active' ? roundAt(0) : null,
       completedAt: null,
       outcome: null,
     },
