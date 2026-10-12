@@ -18,6 +18,11 @@ import {
   type ObservationRunnerInput,
 } from './observation-runner';
 
+export type ObservationCacheEntry = {
+  readonly contentRevision: number;
+  readonly purgeGeneration: number;
+  readonly body: string;
+};
 /** Expiring node interest, demanded windows, discovery and head/body reads. */
 export function createObservationDemandOperations(
   input: ObservationRunnerInput,
@@ -108,13 +113,13 @@ export function createObservationDemandOperations(
         throw new Error('Invalid discovery result');
       return result;
     },
+    /** Heads aligned with `bases`; null when absent or unguarded. A body
+     * carries the guard's purge generation so readers can fence it. */
     async readObservations(
       resource: ObservationResource,
       incarnation: string,
       bases: readonly ObservationBase[],
-    ): Promise<
-      readonly { readonly contentRevision: number; readonly body: string }[]
-    > {
+    ): Promise<readonly (ObservationCacheEntry | null)[]> {
       if (
         bases.length < 1 ||
         bases.length > 64 ||
@@ -128,18 +133,24 @@ export function createObservationDemandOperations(
       const result = await script(
         'readObservations',
         readScript,
-        [sentinel, keys(resource)[3]!],
+        [sentinel, keys(resource)[3]!, keys(resource)[2]!],
         [segment(incarnation), ...bases.map(baseDigest)],
       );
-      if (!Array.isArray(result)) throw new Error('Invalid observation heads');
-      return result.flatMap((row) =>
-        Array.isArray(row) &&
-        row[0] !== null &&
-        row[0] !== false &&
-        typeof row[1] === 'string'
-          ? [{ contentRevision: Number(row[0]), body: row[1] }]
-          : [],
-      );
+      if (!Array.isArray(result) || result.length > bases.length + 1)
+        throw new Error('Invalid observation heads');
+      const [purge, ...rows] = result;
+      return bases.map((_, index) => {
+        const row: unknown = rows[index];
+        return Array.isArray(row) &&
+          typeof row[1] === 'string' &&
+          purge !== undefined
+          ? {
+              contentRevision: Number(row[0]),
+              purgeGeneration: Number(purge),
+              body: row[1],
+            }
+          : null;
+      });
     },
   };
 }

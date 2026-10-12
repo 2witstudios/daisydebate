@@ -51,7 +51,7 @@ test('discovery carries bounded demanded windows and reaps historical variants',
         current,
         oldBody: await redis.readObservations(resource, incarnation, [base]),
       },
-      expected: { demanded: [base], current: [next], oldBody: [] },
+      expected: { demanded: [base], current: [next], oldBody: [null] },
     });
   });
 });
@@ -143,8 +143,9 @@ test('whole demand-key expiry frees old body capacity while preserving re-demand
         admitted: true,
         published: 1,
         bodies: [
-          { contentRevision: 1, body: 'old' },
-          { contentRevision: 1, body: 'new' },
+          { contentRevision: 1, purgeGeneration: 0, body: 'old' },
+          { contentRevision: 1, purgeGeneration: 0, body: 'new' },
+          null,
         ],
       },
     });

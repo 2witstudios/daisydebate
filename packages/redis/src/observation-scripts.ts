@@ -131,7 +131,9 @@ return live
 `);
 export const readScript = defineScript(`
 if redis.call('GET', KEYS[1]) ~= ARGV[1] then return {} end
-local result = {}
+local purge = redis.call('HGET', KEYS[3], 'purge')
+if not purge or redis.call('HGET', KEYS[3], 'incarnation') ~= ARGV[1] then return {} end
+local result = {purge}
 for index = 2, #ARGV do
  local revision = redis.call('HGET', KEYS[2], 'head:' .. ARGV[index])
  local body = revision and redis.call('HGET', KEYS[2], 'body:' .. ARGV[index] .. ':' .. revision)

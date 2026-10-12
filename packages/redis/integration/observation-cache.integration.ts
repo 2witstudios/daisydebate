@@ -49,10 +49,10 @@ test('late body installation after purge is refused atomically', async () => {
         owned: true,
         prepared: true,
         installed: 1,
-        before: [{ contentRevision: 1, body: 'protected' }],
+        before: [{ contentRevision: 1, purgeGeneration: 1, body: 'protected' }],
         purged: true,
         delayed: 0,
-        after: [],
+        after: [null],
       },
     });
   });
@@ -179,7 +179,7 @@ test('older disclosure purge cannot erase a newer ready body', async () => {
       },
       expected: {
         delayed: false,
-        body: [{ contentRevision: 3, body: 'current' }],
+        body: [{ contentRevision: 3, purgeGeneration: 1, body: 'current' }],
       },
     });
   });
