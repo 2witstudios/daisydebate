@@ -1,6 +1,6 @@
 import { refuseSchemaAlteringRole, type Database } from '@daisy/db';
 import { createObservationAuthorityDecision } from '@daisy/auth/observation';
-import type { MessagingCoreBounds } from '@daisy/protocol';
+import { ENVELOPE_VERSION, type MessagingCoreBounds } from '@daisy/protocol';
 import { createObservationAuthorityReader } from './observation-authority';
 import { createObservationClock } from './observation-clock';
 import { createObservationRuntime } from './observation-runtime';
@@ -74,6 +74,20 @@ function composeObservation({
   );
   return createObservationSupervisor({
     onRestart,
+    unavailable: (_principal, outbound) => ({
+      observe(request) {
+        outbound.send({
+          v: ENVELOPE_VERSION,
+          type: 'observation.state',
+          id: request.id,
+          generation: 0,
+          resource: request.resource,
+          state: 'unavailable',
+        });
+      },
+      unobserve() {},
+      close() {},
+    }),
     retry: (work) => {
       setTimeout(work, 1000);
     },

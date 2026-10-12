@@ -28,6 +28,7 @@ test('clock uncertainty replaces the runtime and reports unready until it is liv
         connect: () => id,
       };
     },
+    unavailable: () => 0,
     onRestart: () => events.push('sockets-closed'),
     retry: (work) => retries.push(work),
   });
@@ -61,6 +62,40 @@ test('clock uncertainty replaces the runtime and reports unready until it is liv
       ready: true,
       runtime: 3,
     },
+  });
+  await supervisor.close();
+});
+
+test('connections arriving while a replacement is not yet live are answered unavailable', async () => {
+  const uncertain: (() => void)[] = [];
+  const retries: (() => void)[] = [];
+  const supervisor = createObservationSupervisor({
+    create: (onUncertainty) => {
+      const id = uncertain.push(onUncertainty);
+      return {
+        start: async () => {
+          if (id === 2) throw new Error('Redis unavailable');
+        },
+        close: async () => {},
+        connect: () => `runtime-${id}`,
+      };
+    },
+    unavailable: () => 'unavailable',
+    onRestart: () => {},
+    retry: (work) => retries.push(work),
+  });
+  await supervisor.start();
+  uncertain[0]!();
+  await settle();
+  const during = supervisor.connect();
+  retries.shift()!();
+  await settle();
+  assert({
+    given: 'a replacement whose first start failed, then a retried start',
+    should:
+      'hand new sockets an unavailable connection during the gap instead of throwing',
+    actual: { during, after: supervisor.connect() },
+    expected: { during: 'unavailable', after: 'runtime-3' },
   });
   await supervisor.close();
 });

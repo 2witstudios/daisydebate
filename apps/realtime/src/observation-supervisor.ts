@@ -11,10 +11,16 @@ type Runtime = {
  */
 export function createObservationSupervisor<R extends Runtime>({
   create,
+  unavailable,
   onRestart,
   retry,
 }: {
   readonly create: (onUncertainty: () => void) => R;
+  /** A connection whose observations answer unavailable, used while no
+   * runtime is live; a socket is never left without one. */
+  readonly unavailable: (
+    ...args: Parameters<R['connect']>
+  ) => ReturnType<R['connect']>;
   /** Closes current sockets so clients reconnect to the replacement. */
   readonly onRestart: () => void;
   /** Schedules another replacement attempt after a failed start. */
@@ -57,7 +63,7 @@ export function createObservationSupervisor<R extends Runtime>({
     start: launch,
     ready: () => ready && !closed,
     connect(...args: Parameters<R['connect']>): ReturnType<R['connect']> {
-      if (!current) throw new Error('Observation runtime unavailable');
+      if (!current || !ready) return unavailable(...args);
       return current.connect(...(args as never[])) as ReturnType<R['connect']>;
     },
     async close() {
