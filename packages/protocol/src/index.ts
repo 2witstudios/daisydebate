@@ -197,3 +197,18 @@ export {
   createMessagingReactionSchemas,
   type MessagingReactionPolicy,
 } from './messaging/reactions';
+export {
+  observationResourceSchema,
+  observationPartitionSchema,
+  observationWindowSchema,
+  observationBaseSchema,
+  observationHeaderSchema,
+  observationResourceKey,
+  observationBaseKey,
+  observationFrameBytes,
+  createObservationSnapshotSchema,
+  type ObservationResource,
+  type ObservationPartition,
+  type ObservationBase,
+  type ObservationHeader,
+} from './observation';
