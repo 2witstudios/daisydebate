@@ -158,6 +158,7 @@ export type {
 export { createMessagingCoreSchemas } from './messaging/core';
 export { messagingMessageView } from './messaging/message-view';
 export {
+  assertObservableReactionPolicy,
   createObservationChannelBody,
   observationChannelOverlaySchema,
   observationProjectionRowBytes,

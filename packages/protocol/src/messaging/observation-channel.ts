@@ -36,6 +36,22 @@ const reactionCounts = z
 const channelRow = messagingMessageRecordSchema.extend({
   reactions: reactionCounts,
 });
+const ownReactionsPerMessage = 8,
+  ownReactionUnits = 16;
+/** A deployed reaction policy must make every own overlay schema-valid:
+ * at most 8 choices of at most 16 UTF-16 units. Composition refuses others. */
+export function assertObservableReactionPolicy(policy: {
+  readonly reactionUnits: number;
+  readonly choices: readonly string[];
+}) {
+  if (
+    policy.reactionUnits > ownReactionUnits ||
+    policy.choices.length > ownReactionsPerMessage
+  )
+    throw new RangeError(
+      'Reaction policy exceeds the observation overlay contract',
+    );
+}
 /** The viewer's own reactions within their window, from the canonical read:
  * at most 50 messages × 8 reactions of at most 16 UTF-16 units. */
 export const observationChannelOverlaySchema = z.strictObject({
@@ -43,15 +59,15 @@ export const observationChannelOverlaySchema = z.strictObject({
     .array(
       z.strictObject({
         messageId: idSchema,
-        reaction: z.string().min(1).max(16),
+        reaction: z.string().min(1).max(ownReactionUnits),
       }),
     )
-    .max(400),
+    .max(50 * ownReactionsPerMessage),
 });
 const worstOverlay = {
-  ownReactions: Array.from({ length: 400 }, () => ({
+  ownReactions: Array.from({ length: 50 * ownReactionsPerMessage }, () => ({
     messageId: 'z'.repeat(24),
-    reaction: '\u0001'.repeat(16),
+    reaction: '\u0001'.repeat(ownReactionUnits),
   })),
 };
 if (observationJsonBytes(worstOverlay) > observationOverlayBytes)

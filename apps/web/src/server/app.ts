@@ -1,3 +1,4 @@
+import { assertObservableReactionPolicy } from '@daisy/protocol';
 import type { MessagingFileRuntime } from '../features/messaging/files/runtime';
 import { readRealtimePublicUrl } from '@daisy/config';
 import type { MessagingRuntimePolicy } from '../features/messaging/composition';
@@ -71,6 +72,9 @@ export function createApp({
   redisClient,
 }: AppDependencies) {
   const config = readServerConfig(env);
+  // A deployed reaction policy must keep every own overlay within contract.
+  if (messagingPolicy?.reactions)
+    assertObservableReactionPolicy(messagingPolicy.reactions);
   const baseLogger = createLogger({
     service: 'web',
     level: config.LOG_LEVEL,
