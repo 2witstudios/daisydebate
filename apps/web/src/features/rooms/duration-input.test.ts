@@ -1,5 +1,10 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { durationParts, readDuration, formatDuration } from './duration-input';
+import {
+  clockDuration,
+  durationParts,
+  readDuration,
+  formatDuration,
+} from './duration-input';
 
 setupRitewayBun();
 
@@ -47,5 +52,14 @@ test('duration parsing rejects malformed or noncanonical component values', () =
       return Number.isNaN(readDuration(form, 'test'));
     }),
     expected: pairs.map(() => true),
+  });
+});
+
+test('clock durations read as a round clock without losing precision', () => {
+  assert({
+    given: 'whole minutes, residual seconds and a millisecond override',
+    should: 'render minutes and padded seconds, keeping the exact remainder',
+    actual: [300000, 120000, 5000, 98765, 0].map(clockDuration),
+    expected: ['5:00', '2:00', '0:05', '1:38.765', '0:00'],
   });
 });
