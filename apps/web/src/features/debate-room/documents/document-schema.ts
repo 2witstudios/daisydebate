@@ -1,6 +1,7 @@
 import { OrderedList, TaskItem, TaskList } from '@tiptap/extension-list';
 import StarterKit from '@tiptap/starter-kit';
 import { DebateMarkExtension } from './debate-mark';
+import { PageLayoutNode, PagedDocument } from './page-layout';
 
 /**
  * The one document schema: the editor renders with it and the server
@@ -27,6 +28,7 @@ const KnownTypeOrderedList = OrderedList.extend({
 
 export const documentExtensions = [
   StarterKit.configure({
+    document: false,
     link: false,
     code: false,
     codeBlock: false,
@@ -36,4 +38,6 @@ export const documentExtensions = [
   TaskList,
   TaskItem.configure({ nested: true }),
   DebateMarkExtension,
+  PagedDocument,
+  PageLayoutNode,
 ];

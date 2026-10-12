@@ -32,8 +32,8 @@ document. Daisy builds this itself rather than embedding another product.
    speech). On a phone the drawer tabs become bottom round tabs (Doc,
    Files, Chat, AI, Room) and the phase action sits above them.
 2. **Tiptap 3 (MIT) is the document editor**, in `apps/web` only:
-   `@tiptap/react`, `@tiptap/core`, `@tiptap/pm`, `@tiptap/starter-kit`,
-   `@tiptap/extension-list` and `@tiptap/extensions`, pinned together. No
+   `@tiptap/react`, `@tiptap/core`, `@tiptap/pm`, `@tiptap/starter-kit`
+   and `@tiptap/extension-list`, pinned together. No
    Tiptap Pro or cloud packages, plus `@tiptap/html` and `happy-dom` for
    the server-side round trip below.
 3. **HTML is the stored source of truth**, as PageSpace stores its pages,
@@ -71,7 +71,10 @@ document. Daisy builds this itself rather than embedding another product.
    mechanism ADR 0045 gave the brand sheet's preview panels.
 7. **Debate marks** (Aff, Neg, Extend, Dropped, New) are one Tiptap mark
    with a `kind` attribute rendered as `data-debate-mark`, coloured by the
-   area hues and status tokens in `room.css`.
+   area hues and status tokens in `room.css`. A document may open with a
+   page setting, `<div data-page="landscape" data-columns="N">` (N from 2
+   to 6), that lays it out in columns; without one it is portrait. Text
+   size (A−/A+) is the viewer's own and never stored.
 8. **Fair play.** In a rated (ranked) round the drawer has Files, Chat
    and Room only, Chat holds the round's own channel; the AI tab, club
    channels and agents are hidden
