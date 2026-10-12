@@ -20,6 +20,29 @@ describe('initialRoomState', () => {
   });
 });
 
+describe('reduceRoom layout', () => {
+  test('resizing pins, choosing Auto unpins', () => {
+    const reduce = reduceRoom(practice);
+    const resized = reduce(initialRoomState(practice), {
+      type: 'layout/resize',
+      startPx: 130,
+      deltaPx: 70,
+    });
+    assert({
+      given: 'the video dragged 70px taller under Auto during prep',
+      should: 'pin Focus at the new height',
+      actual: resized.layout,
+      expected: { mode: 'focus', videoHeight: 200 },
+    });
+    assert({
+      given: 'the pinned layout and Auto chosen from the menu',
+      should: 'follow the phase again',
+      actual: reduce(resized, { type: 'layout/mode', mode: 'auto' }).layout,
+      expected: { mode: 'auto', videoHeight: null },
+    });
+  });
+});
+
 describe('reduceRoom doc/create', () => {
   test('a new document from the palette', () => {
     const reduce = reduceRoom(practice);

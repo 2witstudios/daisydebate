@@ -12,16 +12,23 @@
   --spacing-round-drawer: 300px;
   --spacing-room-menu: 160px;
   --spacing-room-dialog: 320px;
+  /* The video band: initials discs by tile size, the bot persona card, and
+     a phone's two small tiles. */
+  --spacing-room-disc: 112px;
+  --spacing-room-disc-md: 80px;
+  --spacing-room-disc-sm: 56px;
+  --spacing-room-persona: 340px;
+  --spacing-room-phone-tile: 100px;
+  --aspect-video: 16 / 9;
 }
 
-@utility room-video-tile {
-  height: var(--room-video, 340px);
-  aspect-ratio: 16 / 9;
-  max-width: calc(50% - 4px);
+@utility room-video-band {
+  height: var(--room-video, 300px);
+  box-sizing: content-box;
 
   /* A phone shows both debaters small above the document. */
   @media (width < 641px) {
-    height: 100px;
+    height: auto;
   }
 }
 

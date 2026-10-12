@@ -109,15 +109,15 @@ function TechIssue({ wide = false }: { readonly wide?: boolean }) {
 
 const presetNames: Readonly<Record<LayoutMode, string>> = {
   auto: 'Auto',
+  speaker: 'Speaker',
   stage: 'Stage',
-  split: 'Split',
   focus: 'Focus',
-  custom: 'Custom',
+  conversation: 'Conversation',
 };
 
 /**
- * The video layout: Auto follows the phase, a preset or a manual resize
- * pins it. The video sizes per preset belong to the layout module.
+ * The video layout: Auto follows the phase; a preset, or resizing the
+ * video, pins the preset shown. The sizes belong to the layout module.
  */
 export function LayoutMenu({ round, state, dispatch }: Props) {
   const [open, setOpen] = useState(false);

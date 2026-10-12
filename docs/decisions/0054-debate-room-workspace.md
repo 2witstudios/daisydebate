@@ -61,7 +61,7 @@ document. Daisy builds this itself rather than embedding another product.
    rules live in `app/theme/room.css` instead.
 5. **The video size is a custom property set through the CSSOM**
    (`element.style.setProperty`), which the CSP allows, read by named
-   utilities in `room.css` (`room-video-tile`, `room-workspace`); the
+   utilities in `room.css` (`room-video-band`, `room-workspace`); the
    room's fixed metrics are `--spacing-room-*` and `--spacing-round-*`
    theme tokens there. No style attribute and no
    arbitrary class value is introduced.

@@ -6,15 +6,16 @@ import {
   useReducer,
   useRef,
   type Dispatch,
-  type ReactNode,
 } from 'react';
 import { systemClock, systemId } from '@daisy/clock';
 import {
+  effectivePreset,
   videoBounds,
   videoHeightFor,
   workspaceMinHeight,
 } from '../../features/debate-room/layout';
 import { cn } from '../cn';
+import { BotStage } from './bot-stage';
 import { CommandPalette, type PaletteChoice } from './command-palette';
 import { LayoutMenu, PhoneActions, RoundControls } from './controls';
 import type { DocumentSync } from './document-sync';
@@ -23,12 +24,7 @@ import { chatUnread, RoundDrawer } from './drawer';
 import type { LeaveLinks } from './leave-room';
 import { VideoDivider } from './video-divider';
 import { RoomDocument } from './room-document';
-import {
-  initialRoomState,
-  reduceRoom,
-  type RoomAction,
-  type RoomState,
-} from './room-state';
+import { initialRoomState, reduceRoom, type RoomAction } from './room-state';
 import type { RoundSnapshot } from './round';
 import { RoundBar } from './round-bar';
 import { RoundTabs } from './round-tabs';
@@ -47,13 +43,6 @@ function useVideoVariables(video: number) {
   }, [video]);
   return root;
 }
-
-/** A round with its own stage and controls (a bot round's voice and clock). */
-export type RoomParts = {
-  readonly stage: ReactNode;
-  readonly controls: (layout: ReactNode) => ReactNode;
-  readonly below?: ReactNode;
-};
 
 const noLeave: LeaveLinks = {
   confirming: false,
@@ -91,43 +80,8 @@ function choiceHandler(
   };
 }
 
-/** The video and the controls, or a round's own (a bot round's voice). */
-function RoomStage({
-  round,
-  state,
-  dispatch,
-  parts,
-}: {
-  readonly round: RoundSnapshot;
-  readonly state: RoomState;
-  readonly dispatch: Dispatch<RoomAction>;
-  readonly parts: RoomParts | undefined;
-}) {
-  const layout = <LayoutMenu round={round} state={state} dispatch={dispatch} />;
-  if (parts)
-    return (
-      <>
-        {parts.stage}
-        {parts.controls(layout)}
-        {parts.below}
-      </>
-    );
-  return (
-    <>
-      <VideoStage round={round} />
-      <RoundControls
-        round={round}
-        state={state}
-        dispatch={dispatch}
-        layout={layout}
-      />
-    </>
-  );
-}
-
 type RoomProps = {
   readonly round: RoundSnapshot;
-  readonly parts?: RoomParts;
   /** Server-backed documents; without it the room keeps them in memory. */
   readonly sync?: DocumentSync;
   /** A standing problem the round's owner reports (saves failing). */
@@ -140,10 +94,12 @@ type RoomProps = {
  * The debater's round, outside the app shell: the round bar, the closable
  * drawer, then the video, the controls and the document.
  */
-export function DebateRoom({ round, parts, sync, ...props }: RoomProps) {
+export function DebateRoom({ round, sync, ...props }: RoomProps) {
   const reducer = useMemo(() => reduceRoom(round), [round]);
   const [state, dispatch] = useReducer(reducer, round, initialRoomState);
   const video = videoHeightFor(state.layout, round.phase);
+  const preset = effectivePreset(state.layout, round.phase);
+  const Stage = round.opponent.bot ? BotStage : VideoStage;
   const root = useVideoVariables(video);
   usePaletteShortcut(dispatch);
   const { problem, setProblem } = useDocumentSync(sync, dispatch);
@@ -169,11 +125,14 @@ export function DebateRoom({ round, parts, sync, ...props }: RoomProps) {
             state.phoneDrawer && 'max-narrow:hidden',
           )}
         >
-          <RoomStage
+          <Stage round={round} preset={preset} />
+          <RoundControls
             round={round}
             state={state}
             dispatch={dispatch}
-            parts={parts}
+            layout={
+              <LayoutMenu round={round} state={state} dispatch={dispatch} />
+            }
           />
           {alert ? (
             <p role="alert" className="px-4 py-1 text-sm text-live">
