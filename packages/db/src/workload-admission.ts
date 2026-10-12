@@ -17,7 +17,7 @@ type Timers = {
   readonly clearTimeout: (id: never) => void;
 };
 /** Bounded FIFO waiters and the oldest admissible wait before a queued operation is refused unrun. */
-export type WorkloadQueue = {
+type WorkloadQueue = {
   readonly depth: number;
   readonly maxWaitMs: number;
 };
@@ -50,13 +50,16 @@ export function createWorkloadExecutor(
     (active.get(lane) ?? 0) < (capacities[lane] ?? 0);
   const queueRoom = (lane: DatabaseWorkload) =>
     (waiting.get(lane)?.length ?? 0) < (queues[lane]?.depth ?? 0);
-  // A settled slot passes directly to the oldest waiter, so arrivals cannot overtake the queue.
+  // A freed slot passes directly to the oldest waiter, so arrivals cannot overtake the queue;
+  // an over-capacity eager settlement frees no slot until the lane is back under capacity.
   const release = (lane: DatabaseWorkload) => () => {
+    active.set(lane, (active.get(lane) ?? 1) - 1);
+    if (!available(lane)) return;
     const next = waiting.get(lane)?.shift();
-    if (next) {
-      timers.clearTimeout(next.timer as never);
-      next.grant();
-    } else active.set(lane, (active.get(lane) ?? 1) - 1);
+    if (!next) return;
+    timers.clearTimeout(next.timer as never);
+    active.set(lane, (active.get(lane) ?? 0) + 1);
+    next.grant();
   };
   const acquire = (lane: DatabaseWorkload) => {
     if (!available(lane)) throw unavailable();
@@ -93,11 +96,18 @@ export function createWorkloadExecutor(
   };
   return {
     invoke,
-    /** Whether a synchronous builder may be constructed now, or must wait for a slot. */
-    deferral: (lane: DatabaseWorkload): 'now' | 'queue' => {
-      if (available(lane)) return 'now';
-      if (queueRoom(lane)) return 'queue';
-      throw unavailable();
+    /**
+     * Construct a statement builder. Builders are lazy, so construction needs no slot while the lane
+     * has queue room; their execution queues. An eager surface that starts work at construction is
+     * counted as active until it settles, even when it briefly exceeds the lane's capacity.
+     */
+    construct: <T>(lane: DatabaseWorkload, build: () => T): T => {
+      if (available(lane)) return invoke(lane, build);
+      if (!queueRoom(lane)) throw unavailable();
+      const result = build();
+      if (!(result instanceof Promise)) return result;
+      active.set(lane, (active.get(lane) ?? 0) + 1);
+      return result.finally(release(lane)) as T;
     },
     /** A free slot starts work synchronously; a saturated lane waits in its bounded queue. */
     run: <T>(lane: DatabaseWorkload, work: () => Promise<T>): Promise<T> => {
@@ -120,13 +130,11 @@ export function workloadCapacities(
   profile: DatabaseWorkloadProfile,
   poolSize: number,
 ) {
-  if (!Number.isSafeInteger(poolSize) || poolSize < 1)
-    throw createAppError('VALIDATION', 'Invalid database pool capacity');
   const requested: Partial<Record<DatabaseWorkload, number>> =
     profile === 'projection'
       ? { projection: 2, headers: 1, relay: 1 }
       : profile === 'web'
-        ? { control: 2, competitive: 4, social: 3, search: 1, admission: 2 }
+        ? { control: 4, competitive: 4, social: 3, search: 1 }
         : {
             control: 1,
             renewal: 2,
@@ -135,19 +143,31 @@ export function workloadCapacities(
               ? { projection: 2, headers: 1, relay: 1 }
               : {}),
           };
-  let remaining = poolSize;
-  const capacities: Partial<Record<DatabaseWorkload, number>> = {};
-  for (const [lane, ceiling] of Object.entries(requested)) {
-    capacities[lane as DatabaseWorkload] = Math.min(remaining, ceiling);
-    remaining -= capacities[lane as DatabaseWorkload]!;
+  const lanes = Object.keys(requested) as DatabaseWorkload[];
+  // Every lane must be able to run; a pool that cannot give each one a slot is a configuration error.
+  if (!Number.isSafeInteger(poolSize) || poolSize < lanes.length)
+    throw createAppError('VALIDATION', 'Invalid database pool capacity');
+  const capacities = Object.fromEntries(
+    lanes.map((lane) => [lane, 1]),
+  ) as Partial<Record<DatabaseWorkload, number>>;
+  let remaining = poolSize - lanes.length;
+  for (const lane of lanes) {
+    const grant = Math.min(remaining, requested[lane]! - 1);
+    capacities[lane] = capacities[lane]! + grant;
+    remaining -= grant;
   }
+  // Unreserved connections serve the interactive default lane.
+  capacities.control = capacities.control! + remaining;
   return capacities;
 }
 
 /**
- * Waiters are counted before SQL. Interactive lanes refuse quickly so a saturated node sheds load
- * instead of stacking latency; control hosts non-interactive maintenance (email redelivery, health)
- * where a longer bounded wait is cheaper than a failed retry cycle.
+ * Waiters are counted before SQL. Competitive, social and search refuse quickly so a saturated node
+ * sheds load instead of stacking latency (plan starting calibrations). Control is the interactive
+ * default (sign-in, session reads, account and mail work): bursts of short operations such as a
+ * sign-in flood must queue rather than fail, so it holds a deep but bounded queue. Calibration: a
+ * 1,200-request sign-up flood over 1,000 connections (ISSUE-185) must answer every request; a waiter
+ * costs a promise and a timer, so depth bounds memory cheaply while the 2s age bounds latency.
  */
 const queueProfile: Record<DatabaseWorkload, WorkloadQueue> = {
   competitive: { depth: 16, maxWaitMs: 50 },
@@ -158,7 +178,7 @@ const queueProfile: Record<DatabaseWorkload, WorkloadQueue> = {
   projection: { depth: 64, maxWaitMs: 500 },
   headers: { depth: 64, maxWaitMs: 500 },
   relay: { depth: 16, maxWaitMs: 500 },
-  control: { depth: 16, maxWaitMs: 2_000 },
+  control: { depth: 2_048, maxWaitMs: 2_000 },
   ephemeral: { depth: 16, maxWaitMs: 100 },
 };
 /** Queues for exactly the lanes this pool reserves. */

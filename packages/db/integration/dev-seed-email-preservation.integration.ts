@@ -3,7 +3,6 @@ import { SQL } from 'bun';
 import { requireTestServices } from '@daisy/config';
 import { applyDevSeed } from '../src/dev-seed';
 import { validRules } from './round-fixtures';
-import { deleteObservationHeaders } from './constraint-helpers';
 
 /** The rules every seeded round freezes: the resolved foundation grammar. */
 const seedRules = validRules;
@@ -81,7 +80,6 @@ describe('applyDevSeed preserves email/emailVerified it does not specify', () =>
         await database`delete from actors where id = ${actorId}`;
         await database`delete from users where id = ${userId}`;
         await database`delete from seed_versions where seed_name = 'email-preservation-test'`;
-        await deleteObservationHeaders(database, [roundId, actorId]);
       } finally {
         await database.close();
       }

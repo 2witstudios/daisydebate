@@ -76,48 +76,6 @@ export function workloadDatabase<T extends object>(
     );
     return work;
   };
-  type Step = (statement: object) => unknown;
-  /** A saturated lane replays the builder chain only once its waiter holds a slot. */
-  const deferredStatement = (build: () => unknown, steps: Step[]): object =>
-    new Proxy(
-      {},
-      {
-        get: (_target, key) => {
-          if (key === 'then' || key === 'catch' || key === 'finally') {
-            const settled = executor.run(lane, async () =>
-              steps.reduce<unknown>(
-                (statement, step) => step(statement as object),
-                build(),
-              ),
-            );
-            return (...args: unknown[]) =>
-              Reflect.apply(Reflect.get(Promise.prototype, key), settled, args);
-          }
-          if (
-            typeof key !== 'string' ||
-            !constructors.has(key) ||
-            key === 'getSQL' ||
-            key === 'toSQL'
-          )
-            throw createAppError(
-              'INFRASTRUCTURE',
-              'Unsupported database operation',
-            );
-          return (...args: unknown[]) =>
-            deferredStatement(build, [
-              ...steps,
-              (statement) =>
-                Reflect.apply(
-                  Reflect.get(statement, key, statement) as (
-                    ...a: unknown[]
-                  ) => unknown,
-                  statement,
-                  args,
-                ),
-            ]);
-        },
-      },
-    );
   const bindMethod = (
     object: object,
     key: string | symbol,
@@ -173,9 +131,8 @@ export function workloadDatabase<T extends object>(
       throw createAppError('INFRASTRUCTURE', 'Unsupported database operation');
     return (...args: unknown[]) => {
       const build = () => Reflect.apply(value, object, args) as unknown;
-      if (!lease && executor.deferral(lane) === 'queue')
-        return deferredStatement(build, []);
-      const result = lease ? build() : executor.invoke(lane, build);
+      // Building is pure; only execution (then/execute/transaction) waits for a slot.
+      const result = lease ? build() : executor.construct(lane, build);
       if (key === 'getSQL' || key === 'toSQL') return result;
       if (result instanceof Promise)
         return lease ? track(lease, result) : result;

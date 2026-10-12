@@ -218,7 +218,7 @@ async function drainConcurrently(
   isolatedBefore: string,
 ) {
   const workers = Array.from({ length: 4 }, () =>
-    createDatabase({ url, maxConnections: 2, nextActorId: createId }),
+    createDatabase({ url, maxConnections: 4, nextActorId: createId }),
   );
   const drain = async (database: Database) => {
     let total = 0;

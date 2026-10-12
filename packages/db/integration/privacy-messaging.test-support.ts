@@ -21,7 +21,6 @@ import {
 } from '../src/schema/messaging-messages';
 import { messagingPrivacyExpectedColumns } from '../src/privacy';
 import { now, withPrivacySubject } from './privacy.test-support';
-import { deleteObservationHeaders } from './constraint-helpers';
 
 export const messagingRequiredAdopters = [
   {
@@ -289,12 +288,6 @@ export async function withPrivacyMessaging(
         .delete(messagingChannels)
         .where(eq(messagingChannels.id, groupId));
       await database.delete(actors).where(eq(actors.id, otherActorId));
-      await deleteObservationHeaders(client, [
-        dmId,
-        groupId,
-        actorId,
-        otherActorId,
-      ]);
     }
   });
 }

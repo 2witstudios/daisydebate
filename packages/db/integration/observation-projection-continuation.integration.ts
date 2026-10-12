@@ -1,26 +1,14 @@
 import { createId } from '@paralleldrive/cuid2';
 import { drizzle } from 'drizzle-orm/bun-sql';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import { sql } from 'drizzle-orm';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { requireTestServices } from '@daisy/config';
 import { observationProjectionRowBytes } from '@daisy/protocol';
-import { createObservationProjectionOperations } from '../src/observation-projection';
-import { readObservationHeaders } from '../src/observation-headers';
 import { withFixture } from './constraint-helpers';
+import { readCurrentProjection } from './observation.test-support';
 import { createMessagingTestFixture } from '../src/messaging/test-fixture';
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
-const projectionOwner = (
-  db: BunSQLDatabase,
-): Pick<BunSQLDatabase, 'transaction'> => ({
-  transaction: (work, options) =>
-    db.transaction(async (tx) => {
-      await tx.execute(sql`set local role daisy_projection`);
-      return work(tx);
-    }, options),
-});
 const bytes = (value: unknown) =>
   new TextEncoder().encode(JSON.stringify(value)).byteLength;
 
@@ -35,20 +23,8 @@ test('channel projection returns the complete byte-bounded descending prefix and
       for (const [index, text] of texts.entries())
         await f.sql`insert into messaging_messages(id,channel_id,author_actor_id,sequence,change_version,text,created_at) values(${createId()},${fixture.channelId},${fixture.actorId},${index + 1},${index + 1},${text},'2026-10-09T18:00:00.000Z')`;
       const resource = { kind: 'channel' as const, id: fixture.channelId };
-      const [header] = await readObservationHeaders(db, [resource]);
-      const reader = createObservationProjectionOperations(projectionOwner(db));
       const read = (after: number | null, limit: number) =>
-        reader.readObservationProjection({
-          base: {
-            schema: 1,
-            resource,
-            partition: { kind: 'shared', policyKey: 'channel-messages-v1' },
-            disclosureRevision: header!.disclosureRevision,
-            window: { after, limit },
-          },
-          minimumContentRevision: header!.contentRevision,
-          purgeGeneration: header!.purgeGeneration,
-        });
+        readCurrentProjection(db, resource, { after, limit });
       const shape = (page: Awaited<ReturnType<typeof read>>) => ({
         sequences: page.rows.map((row) => row.sequence),
         continuation: page.continuation,
@@ -80,23 +56,11 @@ test('channel projection returns the complete byte-bounded descending prefix and
         expected: { sequences: [], continuation: null, withinBudget: true },
       });
       await f.sql`update messaging_messages set text=${'x'.repeat(observationProjectionRowBytes)} where channel_id=${fixture.channelId} and sequence=4`;
-      const [changed] = await readObservationHeaders(db, [resource]);
       await assertRejects({
         given: 'a newest row that alone exceeds the byte budget',
         should:
           'refuse the page as unavailable rather than skip or truncate it',
-        actual: () =>
-          reader.readObservationProjection({
-            base: {
-              schema: 1,
-              resource,
-              partition: { kind: 'shared', policyKey: 'channel-messages-v1' },
-              disclosureRevision: changed!.disclosureRevision,
-              window: { after: null, limit: 50 },
-            },
-            minimumContentRevision: changed!.contentRevision,
-            purgeGeneration: changed!.purgeGeneration,
-          }),
+        actual: () => read(null, 50),
         code: 'INFRASTRUCTURE',
       });
     } finally {

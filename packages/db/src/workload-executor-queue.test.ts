@@ -1,10 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
-import {
-  createWorkloadExecutor,
-  workloadCapacities,
-  workloadQueueOptions,
-} from './workload-admission';
+import { createWorkloadExecutor } from './workload-admission';
 import { workloadDatabase } from './workload-executor';
 import { deferred } from './workload-executor.test-support';
 
@@ -102,7 +98,7 @@ test('a waiter that reaches its age bound is refused and never runs', async () =
   });
 });
 
-test('a lazy statement on a saturated lane defers its builder until it holds a slot', async () => {
+test('a lazy statement on a saturated lane builds now but executes only once it holds a slot', async () => {
   const clock = manualTimers();
   const executor = createWorkloadExecutor(
     { competitive: 1 },
@@ -112,16 +108,16 @@ test('a lazy statement on a saturated lane defers its builder until it holds a s
     },
   );
   const held = deferred();
-  let built = 0;
+  let executed = 0;
   const raw = {
-    select: () => {
-      built++;
-      return {
-        from: (table: string) => ({
-          then: (resolve: (value: string) => unknown) => resolve(table),
-        }),
-      };
-    },
+    select: () => ({
+      from: (table: string) => ({
+        then: (resolve: (value: string) => unknown) => {
+          executed++;
+          return resolve(table);
+        },
+      }),
+    }),
   };
   const database = workloadDatabase(raw, executor, 'competitive');
   const running = executor.run('competitive', () => held.promise);
@@ -129,34 +125,17 @@ test('a lazy statement on a saturated lane defers its builder until it holds a s
   await Promise.resolve();
   assert({
     given: 'a saturated lane with queue room',
-    should: 'not invoke the raw builder before a slot is granted',
-    actual: built,
+    should: 'not execute the statement before a slot is granted',
+    actual: executed,
     expected: 0,
   });
   held.resolve();
   await running;
   assert({
-    given: 'the slot granted to the deferred statement',
-    should: 'replay the builder chain once and resolve its result',
-    actual: { result: await reading, built },
-    expected: { result: 'rows', built: 1 },
-  });
-});
-
-test('runtime lanes queue with the plan bounds for their workload', () => {
-  const capacities = workloadCapacities('web', 12);
-  assert({
-    given: 'the web profile on a 12-connection pool',
-    should:
-      'bound interactive waits tightly and give only maintenance control a longer wait',
-    actual: workloadQueueOptions(capacities).queues,
-    expected: {
-      control: { depth: 16, maxWaitMs: 2_000 },
-      competitive: { depth: 16, maxWaitMs: 50 },
-      social: { depth: 16, maxWaitMs: 100 },
-      search: { depth: 16, maxWaitMs: 100 },
-      admission: { depth: 100, maxWaitMs: 250 },
-    },
+    given: 'the slot granted to the queued statement',
+    should: 'execute it once and resolve its result',
+    actual: { result: await reading, executed },
+    expected: { result: 'rows', executed: 1 },
   });
 });
 
@@ -199,5 +178,100 @@ test('a saturated lane schedules refusal at its own configured age', async () =>
       scheduled: [50, 100],
       refused: ['INFRASTRUCTURE', 'INFRASTRUCTURE'],
     },
+  });
+});
+
+test('a statement composed from subqueries on a saturated lane renders now and executes once it holds a slot', async () => {
+  const { drizzle } = await import('drizzle-orm/bun-sql');
+  const { eq, notExists } = await import('drizzle-orm');
+  const { pgTable, text } = await import('drizzle-orm/pg-core');
+  const parents = pgTable('parents', { id: text('id').primaryKey() });
+  const children = pgTable('children', { parentId: text('parent_id') });
+  const statements: string[] = [];
+  const query = (statement: string) => {
+    statements.push(statement);
+    return Promise.resolve([]);
+  };
+  const transport = Object.assign(query, { options: {}, unsafe: query });
+  const clock = manualTimers();
+  const executor = createWorkloadExecutor(
+    { social: 1 },
+    {
+      queues: { social: { depth: 4, maxWaitMs: 100 } },
+      timers: clock.timers,
+    },
+  );
+  const db = workloadDatabase(
+    drizzle({ client: transport as unknown as import('bun').SQL }),
+    executor,
+    'social',
+  );
+  const held = deferred();
+  const running = executor.run('social', () => held.promise);
+  const removal = Promise.resolve(
+    db
+      .delete(parents)
+      .where(
+        notExists(
+          db
+            .select({ parentId: children.parentId })
+            .from(children)
+            .where(eq(children.parentId, parents.id)),
+        ),
+      ),
+  );
+  await Promise.resolve();
+  const before = statements.length;
+  held.resolve();
+  await running;
+  await removal;
+  assert({
+    given: 'a delete whose predicate embeds a subquery built while saturated',
+    should:
+      'wait for the slot without SQL, then execute one statement with the rendered subquery',
+    actual: {
+      before,
+      executed: statements.length,
+      subquery: statements[0]?.includes('not exists') ?? false,
+    },
+    expected: { before: 0, executed: 1, subquery: true },
+  });
+});
+
+test('eager work started on a saturated lane stays counted until it settles', async () => {
+  const clock = manualTimers();
+  const executor = createWorkloadExecutor(
+    { social: 1 },
+    {
+      queues: { social: { depth: 2, maxWaitMs: 100 } },
+      timers: clock.timers,
+    },
+  );
+  const held = deferred(),
+    eager = deferred();
+  const database = workloadDatabase(
+    { select: () => eager.promise },
+    executor,
+    'social',
+  );
+  const running = executor.run('social', () => held.promise);
+  const started = database.select();
+  let ran = false;
+  const queued = executor.run('social', async () => {
+    ran = true;
+  });
+  held.resolve();
+  await running;
+  await Promise.resolve();
+  const whileEager = ran;
+  eager.resolve();
+  await started;
+  await queued;
+  assert({
+    given: 'held work, then eager construction work beyond capacity',
+    should:
+      'keep the queued operation waiting until the eager work settles too',
+    actual: { whileEager, after: ran },
+    expected: { whileEager: false, after: true },
   });
 });

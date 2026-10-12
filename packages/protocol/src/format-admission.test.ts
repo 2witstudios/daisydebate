@@ -1,13 +1,10 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import {
-  formatDefinitionSchema,
-  roundRulesSchema,
-  type FormatDefinition,
-} from './format';
+import { formatDefinitionSchema, roundRulesSchema } from './format';
 import {
   invalidFormatDefinitions,
   unsafeFormatDefinitions,
   practiceFormatFixture,
+  fixtureRules,
 } from './format-fixtures.test-support';
 
 setupRitewayBun();
@@ -21,18 +18,6 @@ test('custom format admission rejects invalid seats, defaults, bounds and unused
     ),
     expected: [false, false, false, false],
   });
-});
-
-const fixtureRules = (definition: FormatDefinition) => ({
-  version: 2,
-  seats: definition.seats,
-  segments: definition.segments.map(({ defaultDurationMs, ...s }) => ({
-    ...s,
-    durationMs: defaultDurationMs,
-  })),
-  inRoundPrep: null,
-  countdownMs: 0,
-  interaction: { crossExMode: 'ordered', yield: null, interruptions: null },
 });
 
 const refusalPaths = [

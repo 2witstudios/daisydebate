@@ -7,7 +7,7 @@ import {
   exportPrivacySubject,
   type PrivacyAdopter,
 } from '../src/privacy';
-import { deleteObservationHeaders, rejectedBy } from './constraint-helpers';
+import { rejectedBy } from './constraint-helpers';
 import { bindings, now } from './privacy.test-support';
 import {
   messagingRequiredAdopters as requiredAdopters,
@@ -216,7 +216,6 @@ test('canonical title erasure retains peer manager data and rolls back all local
         await client.unsafe('delete from messaging_channels where id=$1', [
           authoredId,
         ]);
-        await deleteObservationHeaders(client, [authoredId]);
       }
     },
   );
