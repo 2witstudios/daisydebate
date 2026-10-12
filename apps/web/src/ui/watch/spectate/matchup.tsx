@@ -37,7 +37,7 @@ export function Matchup({ view }: MatchupProps) {
   return (
     <div className="flex flex-wrap items-center gap-4 max-narrow:gap-3">
       <Seat seat={view.seats.aff} />
-      <span className="text-ink-faint">vs</span>
+      <span className="text-ink-faint max-narrow:hidden">vs</span>
       <Seat seat={view.seats.neg} />
       <div className="ml-auto flex items-center gap-2">
         <InertButton action="follow">Follow both</InertButton>

@@ -82,7 +82,7 @@ export function SpectateStage({ view }: SpectateStageProps) {
               state=""
               look="small"
               caption
-              className="size-full border border-border"
+              className="size-full border border-stage-ink-muted/40"
             />
           </div>
         </div>
