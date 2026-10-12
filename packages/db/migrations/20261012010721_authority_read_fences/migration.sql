@@ -1,0 +1,90 @@
+CREATE FUNCTION public.daisy_authorization_read_accounts(actor_ids text[])
+RETURNS TABLE ("userId" text, "actorId" text, "member" boolean, "erased" boolean, "revision" integer)
+LANGUAGE plpgsql VOLATILE PARALLEL UNSAFE SECURITY DEFINER
+SET search_path = pg_catalog, pg_temp
+AS $authorization_read_accounts$
+BEGIN
+  IF pg_catalog.array_ndims(actor_ids) IS DISTINCT FROM 1
+    OR pg_catalog.array_lower(actor_ids, 1) IS DISTINCT FROM 1
+    OR pg_catalog.cardinality(actor_ids) NOT BETWEEN 1 AND 65535
+    OR EXISTS (SELECT 1 FROM pg_catalog.unnest(actor_ids) AS requested(id)
+      WHERE requested.id IS NULL OR requested.id !~ '^[a-z0-9]{24}$')
+    OR (SELECT pg_catalog.count(DISTINCT requested.id) FROM pg_catalog.unnest(actor_ids) AS requested(id)) <> pg_catalog.cardinality(actor_ids)
+  THEN
+    RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Invalid authorization read selector';
+  END IF;
+  PERFORM u.id FROM public.users AS u JOIN public.actors AS a ON a.user_id = u.id
+    WHERE a.id = ANY(actor_ids) ORDER BY u.id FOR SHARE OF u;
+  -- VOLATILE plus READ COMMITTED rereads canonical facts after every lock wait.
+  RETURN QUERY SELECT account.* FROM public.actors AS a
+    CROSS JOIN LATERAL public.daisy_authorization_accounts(NULL::text[], a.user_id, false) AS account
+    WHERE a.id = ANY(actor_ids) AND account."actorId" = a.id ORDER BY account."userId";
+END;
+$authorization_read_accounts$;
+REVOKE ALL ON FUNCTION public.daisy_authorization_read_accounts(text[]) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.daisy_authorization_read_accounts(text[]) TO daisy_web, daisy_realtime;
+
+--> statement-breakpoint
+-- Canonical minimal account-age producer. Classification matches existing ageBand/WAIT4.8.
+-- Bands are facts, not consent, collection authority, contact eligibility or policy approval.
+-- CAP alone installs this input in one atomic reviewed forward migration.
+CREATE OR REPLACE FUNCTION public.daisy_authorization_age(
+  requested_user_id text, requested_actor_id text, account_revision integer, checked_at timestamptz
+) RETURNS TABLE ("actorId" text, band text, revision integer, "accountRevision" integer, "validUntil" timestamptz)
+LANGUAGE plpgsql VOLATILE PARALLEL UNSAFE SECURITY DEFINER
+SET search_path = pg_catalog, pg_temp
+AS $authorization_age$
+BEGIN
+  IF requested_user_id IS NULL OR requested_user_id !~ '^[a-z0-9]{24}$'
+    OR requested_actor_id IS NULL OR requested_actor_id !~ '^[a-z0-9]{24}$'
+    OR account_revision IS NULL OR account_revision <= 0
+    OR checked_at IS NULL OR NOT pg_catalog.isfinite(checked_at)
+    OR EXTRACT(YEAR FROM checked_at AT TIME ZONE 'UTC') NOT BETWEEN 1000 AND 9999
+  THEN
+    RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Invalid authorization age selector';
+  END IF;
+  -- Reuse the sole canonical account fence before reading the private age source.
+  PERFORM 1 FROM public.daisy_authorization_read_accounts(ARRAY[requested_actor_id]);
+  RETURN QUERY
+    SELECT requested_actor_id,
+      CASE WHEN age_months < 156 THEN 'under-13'
+        WHEN age_months < 192 THEN '13-15'
+        WHEN age_months < 216 THEN '16-17' ELSE 'adult' END,
+      age_source.version, account.revision,
+      (pg_catalog.date_trunc('month', checked_at AT TIME ZONE 'UTC') + INTERVAL '1 month') AT TIME ZONE 'UTC'
+    FROM public.daisy_authorization_accounts(NULL::text[], requested_user_id, false) AS account
+    JOIN public.account_age AS age_source ON age_source.user_id = account."userId"
+    CROSS JOIN LATERAL (SELECT
+      EXTRACT(YEAR FROM checked_at AT TIME ZONE 'UTC')::integer * 12
+      + EXTRACT(MONTH FROM checked_at AT TIME ZONE 'UTC')::integer
+      - pg_catalog.split_part(age_source.birth_month, '-', 1)::integer * 12
+      - pg_catalog.split_part(age_source.birth_month, '-', 2)::integer AS age_months
+    ) AS classified
+    WHERE account."actorId" = requested_actor_id AND account.member AND NOT account.erased
+      AND account.revision = account_revision AND age_source.version > 0
+      AND pg_catalog.isfinite(age_source.recorded_at)
+      AND age_source.recorded_at <= checked_at AND classified.age_months >= 0;
+END;
+$authorization_age$;
+REVOKE ALL ON FUNCTION public.daisy_authorization_age(text, text, integer, timestamptz) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.daisy_authorization_age(text, text, integer, timestamptz) TO daisy_web, daisy_realtime;
+
+--> statement-breakpoint
+-- Canonical standalone Room reader fence. Writers retain the exclusive account producer.
+CREATE OR REPLACE FUNCTION public.daisy_room_read_account(requested_actor_id text, requested_user_id text)
+RETURNS TABLE ("userId" text, "actorId" text, "member" boolean, "erased" boolean, "revision" integer)
+LANGUAGE plpgsql VOLATILE PARALLEL UNSAFE SECURITY DEFINER
+SET search_path = pg_catalog, pg_temp
+AS $room_read_account$
+BEGIN
+  IF requested_actor_id IS NULL OR requested_user_id IS NULL
+    OR requested_actor_id !~ '^[a-z0-9]{24}$' OR requested_user_id !~ '^[a-z0-9]{24}$' THEN
+    RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Invalid Room read account selector';
+  END IF;
+  RETURN QUERY SELECT account.*
+    FROM public.daisy_authorization_read_accounts(ARRAY[requested_actor_id]) AS account
+    WHERE account."actorId" = requested_actor_id AND account."userId" = requested_user_id;
+END;
+$room_read_account$;
+REVOKE ALL ON FUNCTION public.daisy_room_read_account(text, text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.daisy_room_read_account(text, text) TO daisy_web, daisy_realtime;
