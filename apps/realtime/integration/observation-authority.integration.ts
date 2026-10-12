@@ -40,14 +40,12 @@ test('restricted realtime role composes canonical batch facts and original-start
     sessionId: systemId.next(),
   };
   const rounds = roundAudienceFixture(admin, principal.actorId);
-  const resourceIds = [principal.actorId];
   try {
     await admin`insert into users(id,username,email_verified) values(${principal.userId},${principal.userId},true)`;
     await admin`insert into actors(id,kind,user_id) values(${principal.actorId},'human',${principal.userId})`;
     const token = createHash('sha3-256').update(randomBytes(32)).digest('hex');
     await admin`insert into session(id,user_id,token,expires_at) values(${principal.sessionId},${principal.userId},${token},'2099-01-01')`;
     const round = await rounds.seed('private', 'affirmative');
-    resourceIds.push(round.id);
     await runtime.unsafe('set role daisy_realtime');
     const [actualRole] = await runtime`select current_user as role`;
     let now = 0;
@@ -115,7 +113,6 @@ test('restricted realtime role composes canonical batch facts and original-start
     await admin`delete from session where id=${principal.sessionId}`;
     await admin`delete from actors where id=${principal.actorId}`;
     await admin`delete from users where id=${principal.userId}`;
-    await admin`delete from resource_observation_headers where resource_id in ${admin(resourceIds)}`;
     await admin.close();
   }
 });

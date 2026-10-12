@@ -3,6 +3,7 @@ import {
   type ObservationResource,
 } from '@daisy/protocol';
 import { redisKey } from './redis-key';
+import { observationControlChannel } from './observation-relay';
 type Listener = (message: string, channel: string) => void;
 export type ObservationSubscriberTransport = {
   onconnect?: (() => void) | null | undefined;
@@ -39,7 +40,7 @@ export function createObservationSubscriber({
   const client = createClient(),
     interests = new Map<string, Interest>();
   if (onControl)
-    interests.set(redisKey(namespace, 'observation', 'control'), {
+    interests.set(observationControlChannel(namespace), {
       resource: null,
       listeners: new Set(),
       handler: (message) => {

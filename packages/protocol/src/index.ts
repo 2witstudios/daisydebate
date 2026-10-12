@@ -205,31 +205,25 @@ export {
 } from './messaging/reactions';
 export {
   observationResourceSchema,
-  observationPartitionSchema,
   observationWindowSchema,
   observationBaseSchema,
   observationHeaderSchema,
   observationResourceKey,
   observationBaseKey,
   observationFrameBytes,
-  createObservationSnapshotSchema,
   type ObservationResource,
-  type ObservationPartition,
   type ObservationBase,
   type ObservationHeader,
   type ObservationDependency,
   type ObservationAuthorityDecision,
 } from './observation';
 export {
-  observationClientMessageSchema,
   observationServerMessageSchema,
   observationOverlaySchema,
   type ObservationOverlay,
-  type ObservationClientMessage,
   type ObservationServerMessage,
 } from './observation-messages';
 export {
   observationDescriptorSchema,
   type ObservationDescriptor,
-  type ObservationWindow,
 } from './observation';

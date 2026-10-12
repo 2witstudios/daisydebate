@@ -6,7 +6,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./authorization": "./src/authorization.ts",
-    "./testing": "./src/format-fixtures.test-support.ts"
+    "./testing": "./src/format-fixtures.test-support.ts",
+    "./observation-testing": "./src/observation-fixtures.test-support.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",

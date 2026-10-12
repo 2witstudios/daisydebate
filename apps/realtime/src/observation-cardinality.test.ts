@@ -8,15 +8,9 @@ import {
   createObservationPermit,
   observationEvidence,
 } from './observation-permit';
-import type { ObservationBase } from '@daisy/protocol';
+import { observationTestBase } from '@daisy/protocol/observation-testing';
 setupRitewayBun();
-const base: ObservationBase = {
-  schema: 1,
-  resource: { kind: 'channel', id: 'a'.repeat(24) },
-  partition: { kind: 'shared', policyKey: 'v1' },
-  disclosureRevision: 1,
-  window: { after: null, limit: 50 },
-};
+const base = observationTestBase();
 for (const audience of [1, 100, 10000, 100000])
   for (const fanout of [1, 4, 40]) {
     test(`shared content work at ${audience} logical sinks across ${fanout} nodes`, async () => {

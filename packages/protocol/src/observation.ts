@@ -5,7 +5,7 @@ export const observationResourceSchema = z.strictObject({
   kind: z.enum(['room', 'round', 'channel', 'inbox']),
   id: idSchema,
 });
-export const observationPartitionSchema = z.discriminatedUnion('kind', [
+const observationPartitionSchema = z.discriminatedUnion('kind', [
   z.strictObject({
     kind: z.literal('shared'),
     policyKey: z.string().regex(/^[a-zA-Z0-9_-]{1,100}$/),
@@ -37,7 +37,7 @@ export const observationBaseSchema = z
       observationWindowMatchesResource(resource, window),
     { message: 'Window cursor must match resource' },
   );
-export function observationWindowMatchesResource(
+function observationWindowMatchesResource(
   resource: { readonly kind: string },
   window: { readonly after: string | number | null },
 ) {
@@ -65,9 +65,8 @@ export const observationDescriptorSchema = z
     observationWindowMatchesResource(resource, window),
   );
 export type ObservationDescriptor = z.infer<typeof observationDescriptorSchema>;
-export type ObservationWindow = z.infer<typeof observationWindowSchema>;
 export type ObservationResource = z.infer<typeof observationResourceSchema>;
-export type ObservationPartition = z.infer<typeof observationPartitionSchema>;
+type ObservationPartition = z.infer<typeof observationPartitionSchema>;
 export type ObservationBase = z.infer<typeof observationBaseSchema>;
 export type ObservationHeader = z.infer<typeof observationHeaderSchema>;
 /** One canonical fact a permit depends on; scope names which evidence it bounds. */
@@ -118,14 +117,6 @@ export function observationJsonBytes(value: unknown) {
     bytes += point <= 0x7f ? 1 : point <= 0x7ff ? 2 : point <= 0xffff ? 3 : 4;
   }
   return bytes;
-}
-export function createObservationSnapshotSchema<T extends z.ZodType>(body: T) {
-  return z.strictObject({
-    base: observationBaseSchema,
-    contentRevision: revision,
-    purgeGeneration: revision,
-    body,
-  });
 }
 /** Kept separate from realtime framing constants to avoid a module cycle. */
 export function createObservationClientMessageSchema(version: number) {

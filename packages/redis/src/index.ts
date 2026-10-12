@@ -12,10 +12,7 @@ import { redisKey } from './redis-key';
 import { defineScript } from './script-registry';
 import type { RedisTransport } from './transport';
 export { redisKey } from './redis-key';
-export {
-  parseObservationControl,
-  type ObservationControlMessage,
-} from './observation-relay';
+export { parseObservationControl } from './observation-relay';
 export type RedisConfig = { readonly url: string; readonly namespace: string };
 export type RedisEventSink = (
   event: 'redis.command.failed',

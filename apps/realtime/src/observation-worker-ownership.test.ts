@@ -1,15 +1,12 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createObservationWorker } from './observation-worker';
-import type { ObservationBase } from '@daisy/protocol';
+import {
+  observationTestBase,
+  observationTestResource,
+} from '@daisy/protocol/observation-testing';
 setupRitewayBun();
-const resource = { kind: 'channel', id: 'a'.repeat(24) } as const;
-const base: ObservationBase = {
-  schema: 1,
-  resource,
-  partition: { kind: 'shared', policyKey: 'v1' },
-  disclosureRevision: 1,
-  window: { after: null, limit: 50 },
-};
+const resource = observationTestResource;
+const base = observationTestBase();
 test('fanout-only allocation cannot execute headers or projections', async () => {
   let sql = 0;
   const worker = createObservationWorker({

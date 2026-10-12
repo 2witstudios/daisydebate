@@ -8,7 +8,7 @@ import { observationEvidence } from './observation-permit';
 import { createObservationSessions } from './observation-sessions';
 import type { ObservationAuthorityReadResult } from './observation-authority';
 
-export const channelId = 'c'.repeat(24);
+const channelId = 'c'.repeat(24);
 export const request = {
   id: 'request-1',
   resource: { kind: 'channel' as const, id: channelId },
@@ -21,7 +21,7 @@ export const base = (disclosureRevision = 1): ObservationBase => ({
   disclosureRevision,
   window: request.window,
 });
-export const principal = (session = 's'.repeat(24)) => ({
+const principal = (session = 's'.repeat(24)) => ({
   userId: 'u'.repeat(24),
   actorId: 'a'.repeat(24),
   sessionId: session,

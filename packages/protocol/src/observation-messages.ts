@@ -4,7 +4,6 @@ import {
   observationResourceSchema,
   observationBaseSchema,
   observationFrameBytes,
-  createObservationClientMessageSchema,
   observationJsonBytes,
   observationOverlayBytes,
 } from './observation';
@@ -21,8 +20,6 @@ export const observationOverlaySchema = z
     message: 'Observation overlay exceeds byte bound',
   });
 export type ObservationOverlay = z.infer<typeof observationOverlaySchema>;
-export const observationClientMessageSchema =
-  createObservationClientMessageSchema(ENVELOPE_VERSION);
 export const observationServerMessageSchema = z.discriminatedUnion('type', [
   z.strictObject({
     ...envelope,
@@ -62,9 +59,6 @@ export const observationServerMessageSchema = z.discriminatedUnion('type', [
     state: z.enum(['denied', 'unavailable', 'degraded']),
   }),
 ]);
-export type ObservationClientMessage = z.infer<
-  typeof observationClientMessageSchema
->;
 export type ObservationServerMessage = z.infer<
   typeof observationServerMessageSchema
 >;

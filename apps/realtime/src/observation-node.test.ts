@@ -1,45 +1,18 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createObservationNode } from './observation-node';
-import {
-  createObservationPermit,
-  observationEvidence,
-} from './observation-permit';
+import { grant, testPermit } from './observation-node.test-support';
 import type { ObservationBase } from '@daisy/protocol';
+import { observationTestBase } from '@daisy/protocol/observation-testing';
 setupRitewayBun();
-const base: ObservationBase = {
-  schema: 1,
-  resource: { kind: 'channel', id: 'a'.repeat(24) },
-  partition: { kind: 'shared', policyKey: 'v1' },
-  disclosureRevision: 1,
-  window: { after: null, limit: 50 },
-};
+const base = observationTestBase();
 test('a recovered baseline remains pending until any occupied job slot settles', async () => {
   let time = 0,
     paused = false;
   const releaseWork: (() => void)[] = [],
     received: number[] = [];
   const clock = () => (paused ? (time += 3) : time);
-  const newPermit = (view: ObservationBase) => {
-    const permit = createObservationPermit({
-      now: () => time,
-      nodeIncarnation: 'node',
-    });
-    const evidence = observationEvidence({
-      started: time,
-      remainingMs: 5000,
-      fingerprint: 'same',
-      dependencies: [],
-    });
-    permit.install(permit.begin(), {
-      base: view,
-      minimumContentRevision: 1,
-      purgeGeneration: 0,
-      subject: evidence,
-      cohort: evidence,
-      entitlement: evidence,
-    });
-    return permit;
-  };
+  const newPermit = (view: ObservationBase) =>
+    testPermit(view, { now: () => time });
   const node = createObservationNode({
     nodeIncarnation: 'node',
     now: clock,
@@ -89,20 +62,7 @@ test('a recovered baseline remains pending until any occupied job slot settles',
   await Promise.resolve();
   const occupied = node.stats().pendingKeys;
   time = 20000;
-  const evidence = observationEvidence({
-    started: time,
-    remainingMs: 5000,
-    fingerprint: 'fresh',
-    dependencies: [],
-  });
-  target.install(target.begin(), {
-    base,
-    minimumContentRevision: 1,
-    purgeGeneration: 0,
-    subject: evidence,
-    cohort: evidence,
-    entitlement: evidence,
-  });
+  grant(target, base, time);
   paused = false;
   for (const release of releaseWork) release();
   await node.settled();
@@ -120,27 +80,8 @@ test('fresh authority restores an already delivered unchanged baseline after exp
   let now = 0,
     fetches = 0;
   const received: number[] = [];
-  const permit = createObservationPermit({
-    now: () => now,
-    nodeIncarnation: 'node',
-  });
-  const renew = () => {
-    const evidence = observationEvidence({
-      started: now,
-      remainingMs: 5000,
-      fingerprint: 'same',
-      dependencies: [],
-    });
-    permit.install(permit.begin(), {
-      base,
-      minimumContentRevision: 1,
-      purgeGeneration: 0,
-      subject: evidence,
-      cohort: evidence,
-      entitlement: evidence,
-    });
-  };
-  renew();
+  const permit = testPermit(base, { now: () => now });
+  const renew = () => grant(permit, base, now);
   const node = createObservationNode({
     nodeIncarnation: 'node',
     now: () => now,
@@ -201,24 +142,7 @@ test('one changed body fans out locally and second observer receives baseline', 
       },
     },
   });
-  const permit = createObservationPermit({
-    now: () => now,
-    nodeIncarnation: 'node',
-  });
-  const evidence = observationEvidence({
-    started: 0,
-    remainingMs: 5000,
-    fingerprint: 'same',
-    dependencies: [],
-  });
-  permit.install(permit.begin(), {
-    base,
-    minimumContentRevision: 1,
-    purgeGeneration: 0,
-    subject: evidence,
-    cohort: evidence,
-    entitlement: evidence,
-  });
+  const permit = testPermit(base, { now: () => now });
   node.observe(base, permit, (snapshot) =>
     received.push(snapshot.contentRevision),
   );

@@ -3,15 +3,12 @@ import {
   createObservationPermit,
   observationEvidence,
 } from './observation-permit';
-import type { ObservationBase } from '@daisy/protocol';
+import { observationTestBase } from '@daisy/protocol/observation-testing';
+import { testPermit } from './observation-node.test-support';
 setupRitewayBun();
-const base: ObservationBase = {
-  schema: 1,
-  resource: { kind: 'channel', id: 'a'.repeat(24) },
+const base = observationTestBase({
   partition: { kind: 'shared', policyKey: 'channel-v1' },
-  disclosureRevision: 1,
-  window: { after: null, limit: 50 },
-};
+});
 test('each evidence component retains its own age through renewals', () => {
   let now = 0;
   const permit = createObservationPermit({
@@ -103,24 +100,7 @@ test('denial, clock uncertainty and stale acquisition cannot restore bytes', () 
 });
 
 test('purge identity is independent of compatible disclosure and content revision', () => {
-  const permit = createObservationPermit({
-      now: () => 0,
-      nodeIncarnation: 'node',
-    }),
-    part = observationEvidence({
-      started: 0,
-      remainingMs: 5000,
-      fingerprint: 'same',
-      dependencies: [],
-    });
-  permit.install(permit.begin(), {
-    base,
-    minimumContentRevision: 1,
-    purgeGeneration: 0,
-    subject: part,
-    cohort: part,
-    entitlement: part,
-  });
+  const permit = testPermit(base);
   assert({
     given: 'same base with a newer durable purge generation',
     should: 'refuse enqueue until canonical evidence binds the current purge',

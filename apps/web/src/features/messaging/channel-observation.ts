@@ -28,4 +28,3 @@ export function channelMessages(
     },
   };
 }
-export type ChannelObservationBody = ChannelBody;

@@ -2,16 +2,14 @@ import { assert, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { redisSuite, withRedis } from './test-support';
 import type { ObservationBase } from '@daisy/protocol';
+import {
+  observationTestBase,
+  observationTestResource,
+} from '@daisy/protocol/observation-testing';
 requireTestServices(process.env);
 const env = redisSuite();
-const resource = { kind: 'channel', id: 'a'.repeat(24) } as const;
-const base: ObservationBase = {
-  schema: 1,
-  resource,
-  partition: { kind: 'shared', policyKey: 'v1' },
-  disclosureRevision: 1,
-  window: { after: null, limit: 50 },
-};
+const resource = observationTestResource;
+const base = observationTestBase();
 test('discovery carries bounded demanded windows and reaps historical variants', async () => {
   await withRedis(env.redisUrl, async ({ redis, raw, key }) => {
     await redis.demandObservation(resource, 'node', [base]);
