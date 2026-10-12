@@ -10,7 +10,7 @@ describe('dedicated Room Launch suite registration', () => {
     webScript: 'bun --env-file=../../.env e2e/support/room-launch-runner.ts',
     defaultConfig: `export default defineConfig({testMatch:'**/*.e2e.ts',projects:[{name:'chromium',testIgnore:['**/visual.e2e.ts','**/room-launch.e2e.ts','**/debate-room.e2e.ts']}]});`,
     dedicatedConfig: `export default defineConfig({testMatch:['**/room-launch.e2e.ts','**/debate-room.e2e.ts'],testIgnore:[],projects:[{name:'chromium',testIgnore:[]}]});`,
-    runner: `Bun.spawn(['bun','../../scripts/e2e-limit.ts','node','cli','test','--config','e2e/support/room-launch-config.ts']);`,
+    runner: `Bun.spawn(['bun','../../scripts/heavy.ts','node','cli','test','--config','e2e/support/room-launch-config.ts']);`,
     workflow:
       'jobs:\n  launch:\n    steps:\n      - run: bun test:e2e:room-launch\n',
   };
