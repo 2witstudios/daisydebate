@@ -259,11 +259,12 @@ img.ProseMirror-separator {
   color-scheme: dark;
 }
 
-/* The gathering responds to the page width inside the person's chosen shell. */
+/* The gathering responds to the page width inside the person's chosen shell:
+   devices beside seats, preparation and settings once there is room. */
 @theme {
+  --spacing-room-avatar: 6rem;
+  --aspect-room-preview: 16 / 9;
   --spacing-room-column: 10rem;
-  --spacing-room-portrait: 11rem;
-  --spacing-room-portrait-small: 7rem;
 }
 
 @utility room-page {
@@ -273,43 +274,26 @@ img.ProseMirror-separator {
 @utility room-gathering {
   grid-template-columns: minmax(0, 1fr);
   @container (min-width: 780px) {
-    grid-template-columns: minmax(0, 1fr) minmax(250px, 0.4fr);
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
   }
 }
 
-@utility room-lineup {
+@utility room-devices {
   @container (min-width: 780px) {
     grid-column: 1;
     grid-row: 1;
   }
 }
 
-@utility room-settings {
+@utility room-side {
   @container (min-width: 780px) {
     grid-column: 2;
     grid-row: 1;
   }
 }
 
-@utility room-team-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  @container (max-width: 350px) {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
 @utility room-duration-units {
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  @container (max-width: 300px) {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-@utility room-schedule-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  @container (max-width: 500px) {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
   @container (max-width: 300px) {
     grid-template-columns: minmax(0, 1fr);
   }

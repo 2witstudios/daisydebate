@@ -1,7 +1,7 @@
 import { AssemblyCommandForm } from './assembly-command-form';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { findElements, byText } from '../../test-support/find-elements';
-import { AssemblyReadiness } from './assembly-readiness';
+import { LaunchControl, ReadyControl } from './assembly-readiness';
 
 setupRitewayBun();
 const base = {
@@ -21,16 +21,14 @@ const base = {
     },
   ],
   readiness: { available: true, version: 7, readyActorIds: [] },
-  capabilities: {
-    canReady: true,
-    host: true,
-    canStart: false,
-    canStartPrep: false,
-    canFinishPrep: false,
-  },
+  definition: { seats: { affirmative: 1, negative: 1, judge: 1 } },
+  prep: { startedAt: null, remainingMs: null, finished: false },
+  capabilities: { canReady: true, host: true, canStart: false },
   startRefusal: 'not-ready' as const,
 };
 const action = async () => ({ values: {} });
+type Props = Parameters<typeof ReadyControl>[0];
+const controls = (props: Props) => [ReadyControl(props), LaunchControl(props)];
 const props = {
   view: base,
   actorId: 'viewer',
@@ -40,14 +38,12 @@ const props = {
     ready: 'ready-id',
     unready: 'unready-id',
     'start-round': 'launch-id',
-    'start-prep': 'prep-id',
-    'finish-prep': 'finish-id',
   },
 };
 
 describe('native room readiness and Launch controls', () => {
   test('judge Ready submits a versioned command through the injected real action', () => {
-    const tree = AssemblyReadiness(props);
+    const tree = controls(props);
     const form = findElements(
       tree,
       (element) => element.type === AssemblyCommandForm,
@@ -77,7 +73,7 @@ describe('native room readiness and Launch controls', () => {
   });
 
   test('Unready carries own consent revision and Launch carries none', () => {
-    const tree = AssemblyReadiness({
+    const tree = controls({
       ...props,
       view: {
         ...base,
@@ -118,9 +114,9 @@ describe('native room readiness and Launch controls', () => {
       given: 'CAP permits Launch, then a local unready remains unacknowledged',
       should: 'block Launch immediately without changing the server projection',
       actual: [
-        byText(AssemblyReadiness(allowed), 'button', 'Launch')?.props.disabled,
+        byText(controls(allowed), 'button', 'Launch')?.props.disabled,
         byText(
-          AssemblyReadiness({
+          controls({
             ...allowed,
             local: { devicesPassed: true, unreadyPending: true },
           }),
@@ -134,7 +130,7 @@ describe('native room readiness and Launch controls', () => {
   });
 
   test('non-host receives no Launch control', () => {
-    const tree = AssemblyReadiness({
+    const tree = controls({
       ...props,
       view: {
         ...base,
@@ -165,7 +161,7 @@ describe('native room readiness and Launch controls', () => {
       capabilities: { ...base.capabilities, canStart: true },
       startRefusal: null,
     };
-    const tree = AssemblyReadiness({ ...props, view });
+    const tree = controls({ ...props, view });
     assert({
       given:
         'CAP still reports ready while the human host has lost device checks',
@@ -176,6 +172,40 @@ describe('native room readiness and Launch controls', () => {
         view.participants[0]?.ready,
       ],
       expected: [true, false, 'ready'],
+    });
+  });
+
+  test('Launch names what it waits on', () => {
+    const bot = (role: 'affirmative' | 'negative') => ({
+      ...base.participants[0]!,
+      id: role,
+      actorId: role,
+      kind: 'bot' as const,
+      role,
+      needsReady: false,
+    });
+    const waiting = controls(props);
+    const clear = controls({
+      ...props,
+      view: {
+        ...base,
+        participants: [
+          { ...base.participants[0]!, ready: 'ready' },
+          bot('affirmative'),
+          bot('negative'),
+        ],
+        capabilities: { ...base.capabilities, canStart: true },
+        startRefusal: null,
+      },
+    });
+    assert({
+      given: 'open debater seats and the unready viewer, then a ready room',
+      should: 'list the seats and the viewer, then nothing',
+      actual: [
+        byText(waiting, 'p', 'Waiting on')?.props.children,
+        byText(clear, 'p', 'Waiting on'),
+      ],
+      expected: ['Waiting on: Affirmative, Negative, You', undefined],
     });
   });
 });
