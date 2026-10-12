@@ -10,6 +10,55 @@ const base: ObservationBase = {
   disclosureRevision: 1,
   window: { after: null, limit: 50 },
 };
+test('expired fleet demand releases resource ownership and fences pending builds', async () => {
+  let reads = 0,
+    published = 0,
+    releases = 0;
+  let finish!: (value: { header: ObservationHeader; body: string }) => void;
+  const header = {
+    resource,
+    contentRevision: 1,
+    disclosureRevision: 1,
+    purgeGeneration: 0,
+  };
+  const worker = createObservationWorker({
+    eligible: true,
+    now: () => 0,
+    nextToken: () => 'token',
+    cache: {
+      ready: async () => false,
+      claim: async () => true,
+      prepare: async () => true,
+      publish: async () => {
+        published++;
+        return true;
+      },
+      release: async () => {
+        releases++;
+      },
+    },
+    readHeaders: async () => {
+      reads++;
+      return [header];
+    },
+    build: () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  });
+  worker.demand(base);
+  await worker.reconcile();
+  await worker.replaceDemand(resource, []);
+  await worker.reconcile();
+  finish({ header, body: 'late' });
+  await worker.settled();
+  assert({
+    given: 'all fleet interest expires while a body query is pending',
+    should: 'release ownership, start no more SQL and discard late publication',
+    actual: { reads, published, releases },
+    expected: { reads: 1, published: 0, releases: 1 },
+  });
+});
 test('completed revisions publish through continuous dirt and lease renewal requires progress', async () => {
   let now = 0,
     revision = 1,
