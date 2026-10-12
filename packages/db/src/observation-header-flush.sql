@@ -7,6 +7,10 @@ BEGIN
     OR requested_id IS NULL OR requested_id !~ '^[a-z0-9]{24}$' OR disclose IS NULL OR purge IS NULL THEN
     RAISE EXCEPTION USING ERRCODE='22023',MESSAGE='Invalid observation resource';
   END IF;
+  -- New dirt re-arms the commit flush, including after an earlier immediate flush.
+  IF pg_catalog.current_setting('daisy.observation_flushed', true) = 'yes' THEN
+    PERFORM pg_catalog.set_config('daisy.observation_flushed', 'no', true);
+  END IF;
   INSERT INTO public.resource_observation_pending(transaction_id,kind,resource_id,disclose,purge)
     VALUES(pg_catalog.pg_current_xact_id(),requested_kind,requested_id,disclose,purge)
   ON CONFLICT(transaction_id,kind,resource_id) DO UPDATE SET
@@ -16,11 +20,14 @@ END;
 $advance_observation_header$;
 REVOKE ALL ON FUNCTION public.daisy_advance_observation_header(text,text,boolean,boolean) FROM PUBLIC;
 
-CREATE FUNCTION public.daisy_flush_observation_headers() RETURNS trigger
+CREATE OR REPLACE FUNCTION public.daisy_flush_observation_headers() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, pg_temp
 AS $flush_observation_headers$
 DECLARE dirty record;
 BEGIN
+  -- One deferred event fires per pending row; only the first flushes. Later events would rescan the
+  -- pending index over the rows just deleted, making a large transaction quadratic.
+  IF pg_catalog.current_setting('daisy.observation_flushed', true) = 'yes' THEN RETURN NULL; END IF;
   -- The complete key union exists now. Only leaf metadata locks remain; acquire them once globally.
   FOR dirty IN SELECT kind,resource_id,disclose,purge FROM public.resource_observation_pending
     WHERE transaction_id=pg_catalog.pg_current_xact_id() ORDER BY kind,resource_id
@@ -33,6 +40,7 @@ BEGIN
       purge_generation=resource_observation_headers.purge_generation+CASE WHEN dirty.purge THEN 1 ELSE 0 END;
   END LOOP;
   DELETE FROM public.resource_observation_pending WHERE transaction_id=pg_catalog.pg_current_xact_id();
+  PERFORM pg_catalog.set_config('daisy.observation_flushed', 'yes', true);
   RETURN NULL;
 END;
 $flush_observation_headers$;
