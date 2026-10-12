@@ -61,7 +61,10 @@ export function MessageHistory({
   searchQuery,
 }: {
   readonly searchQuery?: string;
-  readonly history: MessagingConversation;
+  readonly history: Pick<
+    MessagingConversation,
+    'channelId' | 'messages' | 'nextBefore'
+  >;
   readonly actorId: string | null;
 }) {
   return (

@@ -1,4 +1,3 @@
-import { ConversationLive } from '../../../../../ui/messaging/conversation-live';
 import { messagePageContext } from '../message-page-context';
 import Link from 'next/link';
 import { systemId } from '@daisy/clock';
@@ -32,11 +31,7 @@ export default async function MessageReactionsPage({
       {current === null ? (
         <p role="status">Reactions are unavailable. Refresh to try again.</p>
       ) : (
-        <ConversationLive
-          channelId={channelId}
-          socketUrl={current.socketUrl}
-          snapshotId={systemId.next()}
-        >
+        <>
           <ul aria-label="Current reactions">
             {current.result.reactions.map((item) => (
               <li key={item.reaction}>
@@ -68,7 +63,7 @@ export default async function MessageReactionsPage({
               />
             );
           })}
-        </ConversationLive>
+        </>
       )}
       <Link href={`/messages/${channelId}`}>Back to conversation</Link>
     </main>

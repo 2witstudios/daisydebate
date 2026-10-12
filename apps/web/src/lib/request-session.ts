@@ -15,6 +15,12 @@ const requestSession = cache(async () =>
   resolveSession(processApp().auth(), await headers()),
 );
 
+/** The realtime socket for a signed-in member's tab; none for visitors. */
+export const requestRealtimeSocketUrl = async (): Promise<string | null> =>
+  (await requestIdentity()).state === 'member'
+    ? (processApp().websocketEndpoint ?? null)
+    : null;
+
 /** Who is asking in this server-component render. */
 export const requestIdentity = async (): Promise<Identity> =>
   (await requestSession()).identity;
