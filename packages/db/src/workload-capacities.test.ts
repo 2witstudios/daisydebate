@@ -41,3 +41,29 @@ test('small pools give every lane a slot and refuse pools that cannot', async ()
     code: 'VALIDATION',
   });
 });
+
+test('every profile spends its whole pool on lanes it actually has', () => {
+  const profiles = ['web', 'realtime', 'reconciliation', 'projection'] as const;
+  const totals = profiles.map((profile) => {
+    const capacities = workloadCapacities(profile, 20);
+    return {
+      profile,
+      lanes: Object.values(capacities).every(
+        (slots) => Number.isSafeInteger(slots) && slots! >= 1,
+      ),
+      total: Object.values(capacities).reduce((sum, n) => sum + n!, 0),
+    };
+  });
+  assert({
+    given: 'every profile on a 20-connection pool',
+    should: 'give each of its lanes a whole positive count summing to the pool',
+    actual: totals,
+    expected: profiles.map((profile) => ({ profile, lanes: true, total: 20 })),
+  });
+  assert({
+    given: 'the projection profile, which has no control lane',
+    should: 'give unreserved connections to its first lane',
+    actual: workloadCapacities('projection', 6),
+    expected: { projection: 4, headers: 1, relay: 1 },
+  });
+});

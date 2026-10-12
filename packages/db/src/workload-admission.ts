@@ -166,8 +166,9 @@ export function workloadCapacities(
     capacities[lane] = capacities[lane]! + grant;
     remaining -= grant;
   }
-  // Unreserved connections serve the interactive default lane.
-  capacities.control = capacities.control! + remaining;
+  // Unreserved connections serve the interactive default lane, or the profile's primary lane.
+  const spare = lanes.includes('control') ? 'control' : lanes[0]!;
+  capacities[spare] = capacities[spare]! + remaining;
   return capacities;
 }
 
