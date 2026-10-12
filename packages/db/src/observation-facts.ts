@@ -83,7 +83,8 @@ export async function fenceObservationResources(
       bindings.map((b) => [observationResourceKey(b.resource), b.resource]),
     ).values(),
   ];
-  await tx.execute(
-    sql`select public.daisy_observation_authority_fences(${JSON.stringify(resources)}::text::jsonb,${JSON.stringify(pairs)}::text::jsonb)`,
+  const rows = await tx.execute(
+    sql`select resource_kind as kind,resource_id as id from public.daisy_observation_authority_fences(${JSON.stringify(resources)}::text::jsonb,${JSON.stringify(pairs)}::text::jsonb)`,
   );
+  return new Set(rows.map((row) => `${row.kind}:${row.id}`));
 }

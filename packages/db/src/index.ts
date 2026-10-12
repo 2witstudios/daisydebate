@@ -1,4 +1,5 @@
-import { readObservationHeaders } from './observation-headers';
+import { guardedObservationHeaders } from './observation-header-operation';
+import { createObservationProjectionOperations } from './observation-projection';
 import { createObservationAuthorityOperations } from './observation-authority';
 import {
   createWorkloadExecutor,
@@ -159,6 +160,11 @@ export function createDatabase({
     'admission',
   );
   const headersDatabase = workloadDatabase(rawDatabase, executor, 'headers');
+  const projectionDatabase = workloadDatabase(
+    rawDatabase,
+    executor,
+    'projection',
+  );
   const renewalDatabase = workloadDatabase(rawDatabase, executor, 'renewal');
   return {
     observationAuthority: (
@@ -169,8 +175,10 @@ export function createDatabase({
         decide,
       ),
     readObservationHeaders: (
-      resources: Parameters<typeof readObservationHeaders>[1],
-    ) => readObservationHeaders(headersDatabase, resources),
+      resources: Parameters<typeof guardedObservationHeaders>[1],
+      guard?: Parameters<typeof guardedObservationHeaders>[2],
+    ) => guardedObservationHeaders(headersDatabase, resources, guard),
+    ...createObservationProjectionOperations(projectionDatabase),
     async health() {
       return instrumented(eventSink, 'health', async () => {
         await database.execute(sql`select 1`);

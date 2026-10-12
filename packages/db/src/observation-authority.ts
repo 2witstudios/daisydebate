@@ -1,3 +1,7 @@
+import {
+  sameObservationFactSet,
+  observationFactsWereFenced,
+} from './observation-fenced-facts';
 import { decideObservationBinding } from './observation-authority-decision';
 import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
@@ -39,20 +43,6 @@ function checkedBindings(bindings: readonly ObservationBinding[]) {
   )
     throw createAppError('VALIDATION');
 }
-const castSignature = (facts: Awaited<ReturnType<typeof observationFacts>>) =>
-  JSON.stringify(
-    [...facts.entries()]
-      .filter(([, f]) => f.kind === 'channel')
-      .map(([key, f]) => [
-        key,
-        f.kind === 'channel'
-          ? f.authority.kind === 'dm'
-            ? [f.authority.lowActorId, f.authority.highActorId]
-            : f.authority.activeMemberActorIds
-          : null,
-      ])
-      .sort(([a], [b]) => String(a).localeCompare(String(b))),
-  );
 /** Named read operations own discovery, complete ordered fences, fresh time, retry and policy. */
 export function createObservationAuthorityOperations(
   owners: { admission: Owner; renewal: Owner },
@@ -74,9 +64,16 @@ export function createObservationAuthorityOperations(
               dependencies.actors,
               { maxActors: 4096 },
             );
-            await fenceObservationResources(tx, bindings, dependencies.pairs);
+            const fenced = await fenceObservationResources(
+              tx,
+              bindings,
+              dependencies.pairs,
+            );
             const current = await observationFacts(tx, bindings);
-            if (castSignature(current) !== castSignature(discovered))
+            if (
+              !sameObservationFactSet(discovered, current) ||
+              !observationFactsWereFenced(current, fenced)
+            )
               throw new CastChanged();
             const [edge] = await tx.execute(
               sql`select clock_timestamp() as now`,

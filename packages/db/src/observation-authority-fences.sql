@@ -1,5 +1,5 @@
 CREATE FUNCTION public.daisy_observation_authority_fences(resources jsonb, pairs jsonb)
-RETURNS void LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = pg_catalog, pg_temp
+RETURNS TABLE(resource_kind text,resource_id text) LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = pg_catalog, pg_temp
 AS $observation_authority_fences$
 BEGIN
   IF resources IS NULL OR pg_catalog.jsonb_typeof(resources)<>'array' OR pg_catalog.jsonb_array_length(resources) NOT BETWEEN 1 AND 256
@@ -10,11 +10,11 @@ BEGIN
   -- The complete account set is already SHARE-fenced by the owning operation.
   PERFORM p.low_actor_id FROM public.messaging_contact_pairs p JOIN pg_catalog.jsonb_to_recordset(pairs) wanted(low text,high text)
     ON p.low_actor_id=wanted.low AND p.high_actor_id=wanted.high ORDER BY p.low_actor_id,p.high_actor_id FOR SHARE OF p;
-  PERFORM r.id FROM public.rooms r JOIN pg_catalog.jsonb_to_recordset(resources) wanted(kind text,id text)
+  RETURN QUERY SELECT 'room'::text,r.id FROM public.rooms r JOIN pg_catalog.jsonb_to_recordset(resources) wanted(kind text,id text)
     ON wanted.kind='room' AND r.id=wanted.id ORDER BY r.id FOR SHARE OF r;
-  PERFORM r.id FROM public.rounds r JOIN pg_catalog.jsonb_to_recordset(resources) wanted(kind text,id text)
+  RETURN QUERY SELECT 'round'::text,r.id FROM public.rounds r JOIN pg_catalog.jsonb_to_recordset(resources) wanted(kind text,id text)
     ON wanted.kind='round' AND r.id=wanted.id ORDER BY r.id FOR SHARE OF r;
-  PERFORM c.id FROM public.messaging_channels c JOIN pg_catalog.jsonb_to_recordset(resources) wanted(kind text,id text)
+  RETURN QUERY SELECT 'channel'::text,c.id FROM public.messaging_channels c JOIN pg_catalog.jsonb_to_recordset(resources) wanted(kind text,id text)
     ON wanted.kind='channel' AND c.id=wanted.id ORDER BY c.id FOR SHARE OF c;
 END;
 $observation_authority_fences$;
@@ -22,16 +22,18 @@ REVOKE ALL ON FUNCTION public.daisy_observation_authority_fences(jsonb,jsonb) FR
 GRANT EXECUTE ON FUNCTION public.daisy_observation_authority_fences(jsonb,jsonb) TO daisy_web,daisy_realtime;
 
 CREATE FUNCTION public.daisy_observation_projection_fence(requested_kind text,requested_id text)
-RETURNS void LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = pg_catalog, pg_temp
+RETURNS boolean LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = pg_catalog, pg_temp
 AS $observation_projection_fence$
+DECLARE locked_id text;
 BEGIN
   IF requested_kind IS NULL OR requested_kind NOT IN ('room','round','channel','inbox') OR requested_id IS NULL OR requested_id !~ '^[a-z0-9]{24}$' THEN
     RAISE EXCEPTION USING ERRCODE='22023',MESSAGE='Invalid projection fence selector';
   END IF;
-  IF requested_kind='room' THEN PERFORM id FROM public.rooms WHERE id=requested_id FOR SHARE;
-  ELSIF requested_kind='round' THEN PERFORM id FROM public.rounds WHERE id=requested_id FOR SHARE;
-  ELSIF requested_kind='channel' THEN PERFORM id FROM public.messaging_channels WHERE id=requested_id FOR SHARE;
+  IF requested_kind='room' THEN SELECT id INTO locked_id FROM public.rooms WHERE id=requested_id FOR SHARE;
+  ELSIF requested_kind='round' THEN SELECT id INTO locked_id FROM public.rounds WHERE id=requested_id FOR SHARE;
+  ELSIF requested_kind='channel' THEN SELECT id INTO locked_id FROM public.messaging_channels WHERE id=requested_id FOR SHARE;
   ELSE RAISE EXCEPTION USING ERRCODE='22023',MESSAGE='Inbox requires its owning batched authority operation'; END IF;
+  RETURN locked_id IS NOT NULL;
 END;
 $observation_projection_fence$;
 REVOKE ALL ON FUNCTION public.daisy_observation_projection_fence(text,text) FROM PUBLIC;

@@ -3,7 +3,10 @@ import type {
   ObservationHeader,
   ObservationPartition,
   ObservationResource,
+  RoomAssemblyState,
 } from '@daisy/protocol';
+import type { RoundHydration } from './round-hydration';
+import type { MessagingMessageRecord } from './messaging/records';
 import type { authorizationAccountFact } from './authorization-account';
 import type { roomAuthorizationRead } from './room-authorization-read';
 import type { MessagingChannelFact } from './messaging/social';
@@ -30,6 +33,7 @@ export type ObservationBinding = {
   readonly window: ObservationBase['window'];
 };
 export type ObservationDependency = {
+  readonly scope: 'subject' | 'cohort' | 'entitlement';
   readonly key: string;
   readonly revision: string;
   readonly nextBoundary: string | null;
@@ -87,4 +91,61 @@ export type ObservationProjection = {
   readonly header: ObservationHeader;
   readonly base: ObservationBase;
   readonly rows: readonly Record<string, unknown>[];
+};
+/** Exact restricted SQL aliases. Rows are untrusted until the portable provider validates them. */
+export type ObservationChannelProjectionRow = MessagingMessageRecord;
+export type ObservationRoomProjectionRow = {
+  readonly room: Pick<
+    RoomAssemblyState,
+    | 'id'
+    | 'hostActorId'
+    | 'title'
+    | 'topic'
+    | 'visibility'
+    | 'status'
+    | 'version'
+    | 'changeVersion'
+    | 'formatId'
+    | 'formatVersion'
+    | 'presetVersion'
+    | 'competitionType'
+    | 'length'
+    | 'config'
+    | 'executionPlan'
+    | 'prepStartedAt'
+    | 'prepRemainingMs'
+  >;
+  readonly rules: RoomAssemblyState['rules'];
+  readonly definition: RoomAssemblyState['definition'];
+  readonly participants: readonly (Pick<
+    RoomAssemblyState['participants'][number],
+    'id' | 'actorId' | 'role' | 'slot'
+  > & { readonly readinessVersion: number })[];
+  readonly roundRef: RoomAssemblyState['roundRef'];
+};
+export type ObservationRoundProjectionRow = {
+  readonly round: Pick<
+    RoundHydration,
+    | 'id'
+    | 'competitionType'
+    | 'formatId'
+    | 'formatVersion'
+    | 'resolution'
+    | 'status'
+    | 'currentStage'
+    | 'startedAt'
+    | 'completedAt'
+    | 'outcome'
+    | 'version'
+  >;
+  readonly rules: RoundHydration['rules'];
+  readonly checkpoint: RoundHydration['checkpoint'];
+  readonly participants: RoundHydration['participants'];
+  readonly segments: RoundHydration['segments'];
+};
+export type ObservationExecutionGuard = { readonly isCurrent?: () => boolean };
+export type ObservationProjectionInput = ObservationExecutionGuard & {
+  readonly base: ObservationBase;
+  readonly minimumContentRevision: number;
+  readonly purgeGeneration: number;
 };

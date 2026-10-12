@@ -41,6 +41,7 @@ test('named authority batches preserve semantic evidence across content while ch
         partition: { kind: 'shared', policyKey: 'round-clock-v1' },
         dependencies: [
           {
+            scope: 'entitlement',
             key: 'round',
             revision: String(
               context.resourceFact.kind === 'round'
