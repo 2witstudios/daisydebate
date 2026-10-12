@@ -225,6 +225,15 @@
       "adr": "docs/decisions/0057-planned-readers.md",
       "reason": "Committed runtime authority reader ndmxryde16cuwbgky582fduv injects canonical pure policy into named DB batches; declaration does not approve social policy or protected-payload activation.",
       "reviewBy": "2026-10-16"
+    },
+    {
+      "path": "apps/realtime/src/observation-authority.ts",
+      "export": "createObservationAuthorityReader",
+      "task": "RT-2.5c-arch1",
+      "owner": "ag-ip1hv1dv",
+      "adr": "docs/decisions/0057-planned-readers.md",
+      "reason": "Committed subscription authority runtime reader ndmxryde16cuwbgky582fduv consumes fixed named admission/renewal methods; original-start independent evidence is proven before native cutover. Declaration does not approve the five-second owner policy.",
+      "reviewBy": "2026-10-16"
     }
   ]
 }
