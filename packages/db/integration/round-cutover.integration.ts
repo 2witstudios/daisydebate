@@ -228,7 +228,7 @@ test('one write closes a speech and opens the next under the one-open-row index'
         roundId,
         expectedVersion: 1,
         command: null,
-        projection,
+        buildProjection: () => projection,
       });
       const rows = (await fixture.sql.unsafe(
         'select id, ended_at from round_segments where round_id = $1 order by sequence',

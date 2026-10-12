@@ -130,12 +130,13 @@ describe('round persistence', () => {
   test('applyRoundExecution writes the command, the segments and the round row as one versioned step', async () => {
     const { database, queries } = createTestDatabase([
       [], // command idempotency select
-      [[3, 'scheduled', null]], // version and persisted phase under row lock
+      [[3, 'scheduled', null, null, null, null, checkpoint]], // version and persisted phase under row lock
+      [{ now: new Date('2026-01-01T00:00:00.000Z') }], // fresh clock after lock
       [], // the round-row update
       [[1n, '42']], // the Round phase doorbell, in the same transaction
       [], // pg_notify for the Round doorbell
       [], // the command insert
-      [[9, 'scheduled', null]], // refusing run's locked Round state
+      [[9, 'scheduled', null, null, null, null, checkpoint]], // refusing run's locked Round state
     ]);
     await database.applyRoundExecution({
       roundId: 'c8d4e2f6a1b3k5m7n9p2r4t6',
@@ -148,7 +149,7 @@ describe('round persistence', () => {
         payloadDigest: 'a'.repeat(64),
         result: { ok: true },
       },
-      projection: activeCountdownProjection,
+      buildProjection: () => activeCountdownProjection,
     });
     assert({
       given: 'a start execution at the expected version',
@@ -157,11 +158,11 @@ describe('round persistence', () => {
       actual: [
         queries[0]?.query.includes('"round_commands"'),
         queries[1]?.query.includes('for update'),
-        queries[5]?.query.includes('insert into "round_commands"'),
-        queries[3]?.params.find(
+        queries[6]?.query.includes('insert into "round_commands"'),
+        queries[4]?.params.find(
           (value) => typeof value === 'object' && value !== null,
         ),
-        queries[4]?.query.includes('pg_notify'),
+        queries[5]?.query.includes('pg_notify'),
       ],
       expected: [
         true,
@@ -183,12 +184,12 @@ describe('round persistence', () => {
           roundId: 'c8d4e2f6a1b3k5m7n9p2r4t6',
           expectedVersion: 4,
           command: null,
-          projection: {
+          buildProjection: () => ({
             round: null,
             segmentInserts: [],
             segmentCloses: [],
             effects: [],
-          },
+          }),
         }),
       code: 'CONFLICT',
     });
@@ -202,24 +203,48 @@ describe('round persistence', () => {
     });
   });
 
-  test('applyRoundExecution does not signal when status and stage stay fixed', async () => {
+  test('applyRoundExecution does not write or signal a true no-op', async () => {
     const { database, queries } = createTestDatabase([
-      [[7, 'active', 'countdown']], // locked version and current phase
-      [], // the round-row update
+      [
+        [
+          7,
+          'active',
+          'countdown',
+          new Date('2026-01-01T00:00:00.000Z'),
+          null,
+          null,
+          checkpoint,
+        ],
+      ], // complete locked state
+      [{ now: new Date('2026-01-01T00:00:00.000Z') }], // clock
     ]);
     await database.applyRoundExecution({
       roundId: 'c8d4e2f6a1b3k5m7n9p2r4t6',
       expectedVersion: 7,
       command: null,
-      projection: activeCountdownProjection,
+      buildProjection: () => activeCountdownProjection,
     });
     assert({
       given: 'an accepted Round projection that keeps its current phase',
-      should: 'write the projection without an unrelated phase signal',
+      should: 'leave version and outbox unchanged',
       actual: queries.map(({ query }) =>
         query.startsWith('insert into "outbox"'),
       ),
       expected: [false, false],
     });
+  });
+});
+
+test('Round projection callbacks are synchronous pure execution seams', () => {
+  type BuildProjection = Parameters<
+    ReturnType<typeof createTestDatabase>['database']['applyRoundExecution']
+  >[0]['buildProjection'];
+  // @ts-expect-error A callback cannot perform asynchronous I/O while holding the transaction.
+  const asynchronous: BuildProjection = async () => activeCountdownProjection;
+  assert({
+    given: 'the public Round execution callback type',
+    should: 'exclude async callbacks at compile time',
+    actual: typeof asynchronous,
+    expected: 'function',
   });
 });
