@@ -91,6 +91,8 @@ export type ObservationProjection = {
   readonly header: ObservationHeader;
   readonly base: ObservationBase;
   readonly rows: readonly Record<string, unknown>[];
+  /** Channel: last included sequence iff older rows remain. Inbox: last scanned id iff more. Room/Round: null. */
+  readonly continuation: number | string | null;
 };
 /** Exact restricted SQL aliases. Rows are untrusted until the portable provider validates them. */
 export type ObservationChannelProjectionRow = MessagingMessageRecord;

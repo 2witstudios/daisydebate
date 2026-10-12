@@ -4,6 +4,8 @@ import { debateRoleSchema, debateSideSchema } from './primitives';
 /** Provisional resource budget: bounds expanded seat records and per-seat command work,
  * independent of any league roster policy. Judges consume the same budget. */
 export const MAX_FORMAT_SEATS = 256;
+/** Accepted-format schedule bound; projections and rules carry at most this many segments. */
+export const MAX_FORMAT_SEGMENTS = 64;
 export const formatSeatsSchema = z
   .record(debateRoleSchema, z.int().min(0).max(MAX_FORMAT_SEATS))
   .superRefine((seats, ctx) => {
@@ -71,6 +73,18 @@ export const crossExModeSchema = z.enum(crossExModes);
 const interruptionModes = ['disabled', 'cross_ex_only', 'enabled'] as const;
 export const interruptionModeSchema = z.enum(interruptionModes);
 
+/** A non-empty choice set over a finite vocabulary: each value at most once. */
+function choiceSet<T extends z.ZodType>(value: T, vocabulary: number) {
+  return z
+    .array(value)
+    .min(1)
+    .max(vocabulary)
+    .refine(
+      (choices) => new Set(choices).size === choices.length,
+      'Choices must be unique',
+    );
+}
+
 /** An inclusive millisecond range a room's chosen value must land inside. */
 const boundSchema = z
   .strictObject({
@@ -109,7 +123,7 @@ const formatDefinitionShape = z.strictObject({
   version: z.literal(1),
   /** Exhaustive over the role vocabulary: every role declares its seats. */
   seats: formatSeatsSchema,
-  segments: z.array(segmentSchema).min(1),
+  segments: z.array(segmentSchema).min(1).max(MAX_FORMAT_SEGMENTS),
   configurable: z.strictObject({
     timing: z.strictObject({
       /** Per-segment bounds; keys must correspond exactly to segments. */
@@ -120,7 +134,7 @@ const formatDefinitionShape = z.strictObject({
     inRoundPrep: z
       .strictObject({
         budgetMsPerSide: boundSchema,
-        spendableBefore: z.array(segmentTypeSchema).min(1),
+        spendableBefore: choiceSet(segmentTypeSchema, segmentTypes.length),
         /** Segment key the budget dies at; null = the whole round. */
         expiresAtSegment: z.string().trim().min(1).max(8).nullable(),
       })
@@ -128,18 +142,18 @@ const formatDefinitionShape = z.strictObject({
     /** Room-only: the pre-round product flow, executed before any Round. */
     preRoundPrep: z.strictObject({ durationMs: boundSchema }).nullable(),
     interaction: z.strictObject({
-      crossExModes: z.array(crossExModeSchema).min(1),
+      crossExModes: choiceSet(crossExModeSchema, crossExModes.length),
       interruptions: z
         .strictObject({
-          modes: z.array(interruptionModeSchema).min(1),
+          modes: choiceSet(interruptionModeSchema, interruptionModes.length),
           minRemainingMs: boundSchema,
         })
         .nullable(),
       yield: z
         .strictObject({
           /** e.g. [true] = must yield; [true, false] = the room may choose. */
-          enabledChoices: z.array(z.boolean()).min(1),
-          returnsTimeChoices: z.array(z.boolean()).min(1),
+          enabledChoices: choiceSet(z.boolean(), 2),
+          returnsTimeChoices: choiceSet(z.boolean(), 2),
         })
         .nullable(),
     }),
@@ -219,11 +233,11 @@ export const roundRulesSchema = z
   .strictObject({
     version: z.literal(2),
     seats: formatSeatsSchema,
-    segments: z.array(rulesSegmentSchema).min(1),
+    segments: z.array(rulesSegmentSchema).min(1).max(MAX_FORMAT_SEGMENTS),
     inRoundPrep: z
       .strictObject({
         budgetMsPerSide: z.int().min(0),
-        spendableBefore: z.array(segmentTypeSchema).min(1),
+        spendableBefore: choiceSet(segmentTypeSchema, segmentTypes.length),
         expiresAtSegment: z.string().trim().min(1).max(8).nullable(),
       })
       .nullable(),
