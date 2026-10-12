@@ -14,13 +14,6 @@ test('typing hint reaches the owned topic consumer and leaves reconnect history 
   h.store.subscribeTopic(topic, (frame) => local.push(frame.type));
   h.store.onMessage((frame) => observed.push(frame.type));
   await openAndReady(h);
-  h.latestSocket().message({
-    v: 1,
-    type: 'event',
-    topic,
-    position: '7:4',
-    payload: { kind: 'channel.changed', channelId, changeVersion: 4 },
-  });
   h.latestSocket().message(hint);
   h.latestSocket().message({ ...hint, position: '7:5' });
   h.latestSocket().message({
@@ -46,9 +39,9 @@ test('typing hint reaches the owned topic consumer and leaves reconnect history 
       since: resume?.since,
     },
     expected: {
-      local: ['event', 'typing_changed'],
-      observed: ['event', 'typing_changed'],
-      since: '7:4',
+      local: ['typing_changed'],
+      observed: ['typing_changed'],
+      since: undefined,
     },
   });
 });

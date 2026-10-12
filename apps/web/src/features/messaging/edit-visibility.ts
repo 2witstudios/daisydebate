@@ -1,7 +1,10 @@
 type View = {
   readonly status: string;
   readonly content: {
-    readonly messages: readonly ({ readonly id: string } & object)[];
+    readonly messages: readonly {
+      readonly id: string;
+      readonly unavailable?: true;
+    }[];
   } | null;
 };
 /** An in-progress edit is the user's own draft: it survives transport and
@@ -13,5 +16,5 @@ export function editVisibility(
   if (view.status === 'denied') return 'revoked';
   if (view.content === null) return 'form';
   const message = view.content.messages.find((item) => item.id === messageId);
-  return !message || 'unavailable' in message ? 'removed' : 'form';
+  return !message || message.unavailable ? 'removed' : 'form';
 }
