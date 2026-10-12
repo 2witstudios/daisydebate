@@ -241,3 +241,48 @@ test('bounded reaping restores admission at the global demand ceiling', async ()
     });
   });
 });
+
+test('useful owner reconciliation retains unchanged body without rebuilding or granting evidence', async () => {
+  await withRedis(env.redisUrl, async ({ redis, raw, key }) => {
+    const incarnation = await redis.establishObservationIncarnation('inc'),
+      claim = { resource, incarnation, token: 'owner', ttlMs: 2000 };
+    await redis.claimObservation(claim);
+    await redis.prepareObservation({
+      ...claim,
+      purgeGeneration: 0,
+      disclosureRevision: 1,
+    });
+    await redis.publishObservation({
+      ...claim,
+      base,
+      purgeGeneration: 0,
+      contentRevision: 1,
+      body: 'stable',
+      ttlMs: 30000,
+    });
+    await raw.send('PEXPIRE', [
+      key('observation', 'channel-' + resource.id, 'data'),
+      '5000',
+    ]);
+    const touched = await redis.retainObservation({
+      ...claim,
+      base,
+      purgeGeneration: 0,
+      contentRevision: 1,
+      ttlMs: 30000,
+    });
+    assert({
+      given: 'unchanged coherent header under a current owner token',
+      should:
+        'retain active body TTL independently of permits and avoid steady-state rebuild churn',
+      actual: {
+        touched,
+        retained:
+          (await raw.pttl(
+            key('observation', 'channel-' + resource.id, 'data'),
+          )) > 10000,
+      },
+      expected: { touched: true, retained: true },
+    });
+  });
+});

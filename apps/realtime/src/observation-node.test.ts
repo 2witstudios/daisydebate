@@ -46,6 +46,7 @@ test('one changed body fans out locally and second observer receives baseline', 
   permit.install(permit.begin(), {
     base,
     minimumContentRevision: 1,
+    purgeGeneration: 0,
     subject: evidence,
     cohort: evidence,
     entitlement: evidence,
@@ -105,6 +106,7 @@ test('unchanged head resumes skipped recipient after renewal', async () => {
   permit.install(permit.begin(), {
     base,
     minimumContentRevision: 1,
+    purgeGeneration: 0,
     subject: part,
     cohort: part,
     entitlement: part,
@@ -137,6 +139,7 @@ test('purge during yielded fanout fences captured body', async () => {
     permit.install(permit.begin(), {
       base,
       minimumContentRevision: 1,
+      purgeGeneration: 0,
       subject: part,
       cohort: part,
       entitlement: part,
@@ -183,6 +186,7 @@ test('a recreated key receives baseline while its disposed predecessor waits', a
   permit.install(permit.begin(), {
     base,
     minimumContentRevision: 1,
+    purgeGeneration: 0,
     subject: part,
     cohort: part,
     entitlement: part,
@@ -234,6 +238,7 @@ test('purge from a new window fences an older window of the same resource', asyn
   permit.install(permit.begin(), {
     base,
     minimumContentRevision: 1,
+    purgeGeneration: 0,
     subject: part,
     cohort: part,
     entitlement: part,
@@ -251,7 +256,7 @@ test('purge from a new window fences an older window of the same resource', asyn
     });
   node.accept({ base, contentRevision: 1, purgeGeneration: 0, body: 'old' });
   await Promise.resolve();
-  const next = { ...base, window: { after: 'b'.repeat(24), limit: 50 } };
+  const next = { ...base, window: { after: 12, limit: 50 } };
   node.observe(next, permit, () => {});
   node.accept({
     base: next,

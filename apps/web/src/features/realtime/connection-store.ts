@@ -1,4 +1,5 @@
 import { createConnectionDiagnostics } from './connection-diagnostics';
+import { createObservationSubscriptions } from './observation-subscriptions';
 import {
   ENVELOPE_VERSION,
   PROTOCOL_VERSION,
@@ -40,6 +41,7 @@ export function createConnectionStore(
   let status: ConnectionStatus = 'idle';
   let terminal: TerminalReason | null = null;
   let socket: WebSocketLike | null = null;
+  let ticketAbort: AbortController | null = null;
   let consecutiveAuthFailures = 0;
   let reconnectAttempt = 0;
   /**
@@ -66,6 +68,12 @@ export function createConnectionStore(
   let reconnectTimer: unknown = null;
   const listeners = new Set<(state: ConnectionState) => void>();
   const topics = createTopicSubscriptions({
+    send: (frame) => {
+      if (status === 'open' && socket) socket.send(JSON.stringify(frame));
+    },
+  });
+  const observations = createObservationSubscriptions({
+    now:deps.scheduler.now,
     send: (frame) => {
       if (status === 'open' && socket) socket.send(JSON.stringify(frame));
     },
@@ -226,11 +234,20 @@ export function createConnectionStore(
       reconnectAttempt = 0;
       startHeartbeat(myGeneration);
       topics.reconnect();
+      observations.reconnect();
       notify();
       topics.emit(frame);
       return;
     }
     if (status !== 'open') return;
+    if (
+      frame.type === 'observation.ready' ||
+      frame.type === 'observation.snapshot' ||
+      frame.type === 'observation.state'
+    ) {
+      observations.emit(frame);
+      return;
+    }
     if (type === 'pong') {
       // Only a pong matching the earliest outstanding ping's own id clears
       // it (ADR 0031 §7): a late pong for an older, already-superseded ping
@@ -275,6 +292,8 @@ export function createConnectionStore(
     notify();
 
     const newSocket = deps.createSocket(deps.url);
+    ticketAbort?.abort();
+    ticketAbort = new AbortController();
     socket = newSocket;
     let opened = false;
     let ticket: string | null = null;
@@ -308,7 +327,7 @@ export function createConnectionStore(
       handleClose(myGeneration, code);
     });
     deps
-      .fetchTicket()
+      .fetchTicket(ticketAbort.signal)
       .then((value) => {
         if (myGeneration !== generation) return;
         ticket = value;
@@ -319,6 +338,8 @@ export function createConnectionStore(
   }
 
   function close() {
+    ticketAbort?.abort();
+    ticketAbort = null;
     clearReconnect();
     clearHeartbeat();
     generation += 1;
@@ -340,6 +361,7 @@ export function createConnectionStore(
   }
 
   return {
+    observe: observations.observe,
     onDiagnostic: diagnostics.subscribe,
     subscribeTopic: topics.subscribe,
     onMessage: topics.onMessage,
@@ -351,6 +373,7 @@ export function createConnectionStore(
       disposed = true;
       releaseVisibility();
       close();
+      observations.dispose();
       listeners.clear();
     },
     notifyTokenRefreshed: () => {

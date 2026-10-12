@@ -49,6 +49,13 @@ redis.call('PEXPIRE', KEYS[4], ARGV[8])
 redis.call('PUBLISH', KEYS[5], ARGV[9])
 return 1
 `);
+const retainScript = defineScript(`
+if redis.call('GET', KEYS[1]) ~= ARGV[1] or redis.call('GET', KEYS[2]) ~= ARGV[2] then return 0 end
+if redis.call('HGET', KEYS[3], 'incarnation') ~= ARGV[1] or redis.call('HGET', KEYS[3], 'purge') ~= ARGV[3] or redis.call('HGET', KEYS[3], 'disclosure') ~= ARGV[4] then return 0 end
+if redis.call('HGET', KEYS[4], 'head:' .. ARGV[5]) ~= ARGV[6] or redis.call('HEXISTS', KEYS[4], 'body:' .. ARGV[5] .. ':' .. ARGV[6]) == 0 then return 0 end
+redis.call('PEXPIRE', KEYS[4], ARGV[7])
+return 1
+`);
 const purgeScript = defineScript(`
 if redis.call('GET', KEYS[1]) ~= ARGV[1] then return 0 end
 local purge = redis.call('HGET', KEYS[3], 'purge')
@@ -155,6 +162,45 @@ export function createObservationCacheOperations({
     }
   }
   return {
+    async retainObservation(input: {
+      readonly resource: ObservationResource;
+      readonly incarnation: string;
+      readonly token: string;
+      readonly base: ObservationBase;
+      readonly purgeGeneration: number;
+      readonly contentRevision: number;
+      readonly ttlMs: number;
+    }) {
+      observationHeaderSchema.parse({
+        resource: input.resource,
+        contentRevision: input.contentRevision,
+        disclosureRevision: input.base.disclosureRevision,
+        purgeGeneration: input.purgeGeneration,
+      });
+      if (
+        observationResourceKey(input.resource) !==
+        observationResourceKey(input.base.resource)
+      )
+        throw new Error('Invalid observation retention');
+      return (
+        Number(
+          await script(
+            'retainObservation',
+            retainScript,
+            keys(input.resource).slice(0, 4),
+            [
+              segment(input.incarnation),
+              segment(input.token),
+              String(input.purgeGeneration),
+              String(input.base.disclosureRevision),
+              baseDigest(input.base),
+              String(input.contentRevision),
+              ttl(input.ttlMs),
+            ],
+          ),
+        ) === 1
+      );
+    },
     async establishObservationIncarnation(candidate: string): Promise<string> {
       segment(candidate);
       await client.connect();

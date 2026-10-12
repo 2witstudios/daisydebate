@@ -176,6 +176,8 @@ export function createObservationWorker({
             start(owner, base, header);
           }
         }
+      } catch(error) {
+        generation++;owners.clear();throw error;
       } finally {
         reconciling = false;
       }

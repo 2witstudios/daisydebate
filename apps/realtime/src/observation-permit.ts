@@ -39,6 +39,7 @@ export function observationEvidence({
   };
 }
 export type ObservationGrant = {
+  readonly purgeGeneration: number;
   readonly base: ObservationBase;
   readonly minimumContentRevision: number;
   readonly subject: ObservationEvidence;
@@ -124,12 +125,14 @@ export function createObservationPermit({
       base: ObservationBase,
       contentRevision: number,
       incarnation: string,
+      purgeGeneration: number,
     ) {
       const at = instant();
       return (
         at !== null &&
         incarnation === nodeIncarnation &&
         active !== undefined &&
+        active.purgeGeneration === purgeGeneration &&
         valid(active, at) &&
         observationBaseKey(base) === observationBaseKey(active.base) &&
         contentRevision >= active.minimumContentRevision

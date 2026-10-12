@@ -100,6 +100,7 @@ export function createObservationNode({
                 snapshot.base,
                 snapshot.contentRevision,
                 nodeIncarnation,
+                snapshot.purgeGeneration,
               )
             )
               continue;
