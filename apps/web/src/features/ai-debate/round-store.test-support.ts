@@ -11,6 +11,10 @@ import {
 } from './round-store-state.test-support';
 import { usageMethods } from './round-store-usage.test-support';
 
+type ExecutionInput = Parameters<RoundStore['applyRoundExecution']>[0];
+type ExecutionProjection = ReturnType<ExecutionInput['buildProjection']>;
+type FakeRound = NonNullable<ReturnType<FakeRoundState['rounds']['get']>>;
+
 type FakeLine =
   FakeRoundState['utteranceRows'] extends Map<string, (infer T)[]> ? T : never;
 
@@ -56,13 +60,9 @@ const claimExistingFakeSpeech = (
  * methods that bind them together.
  */
 const noClockChange = (
-  input: Parameters<RoundStore['applyRoundExecution']>[0],
-  projection: Awaited<
-    ReturnType<
-      Parameters<RoundStore['applyRoundExecution']>[0]['buildProjection']
-    >
-  >,
-  row: NonNullable<ReturnType<FakeRoundState['rounds']['get']>>,
+  input: ExecutionInput,
+  projection: ExecutionProjection,
+  row: FakeRound,
 ): boolean => {
   return (
     input.command === null &&
@@ -76,8 +76,41 @@ const noClockChange = (
   );
 };
 
+const applyProjection = (
+  state: FakeRoundState,
+  input: ExecutionInput,
+  projection: ExecutionProjection,
+  row: FakeRound,
+): void => {
+  if (projection.round !== null) {
+    row.status = projection.round.status;
+    row.currentStage = projection.round.currentStage;
+    row.startedAt = projection.round.startedAt;
+    row.completedAt = projection.round.completedAt;
+    row.outcome = projection.round.outcome;
+    row.checkpoint = projection.round.checkpoint;
+  }
+  const rows = state.segments.get(input.roundId) ?? [];
+  for (const insert of projection.segmentInserts)
+    rows.push({
+      id: insert.id,
+      sequence: insert.sequence,
+      type: insert.type,
+      rulesSegmentKey: insert.rulesSegmentKey,
+      startedAt: insert.startedAt,
+      endedAt: null,
+      durationMs: insert.durationMs,
+    });
+  for (const close of projection.segmentCloses) {
+    const rowSegment = rows.find((segment) => segment.id === close.id);
+    if (rowSegment) rowSegment.endedAt = close.endedAt;
+  }
+  row.version += 1;
+};
+
 export function createInMemoryRoundStore(clock?: () => string) {
   const state = createFakeRoundState();
+  const now = () => clock?.() ?? new Date(state.now()).toISOString();
 
   return {
     /** The fake's clock for tests that assert on recorded instants. */
@@ -91,16 +124,14 @@ export function createInMemoryRoundStore(clock?: () => string) {
       ...usageMethods(state),
 
       async databaseNow() {
-        return clock?.() ?? new Date(state.now()).toISOString();
+        return now();
       },
 
       async getRound(id: string) {
         return state.hydrationOf(id);
       },
 
-      async applyRoundExecution(
-        input: Parameters<RoundStore['applyRoundExecution']>[0],
-      ) {
+      async applyRoundExecution(input: ExecutionInput) {
         const row = state.rounds.get(input.roundId);
         if (!row) throw createAppError('NOT_FOUND', 'No such round');
         if (input.command !== null) {
@@ -110,36 +141,11 @@ export function createInMemoryRoundStore(clock?: () => string) {
         }
         if (row.version !== input.expectedVersion)
           throw createAppError('CONFLICT', 'The round moved on');
-        const projection = await input.buildProjection(
-          clock?.() ?? new Date(state.now()).toISOString(),
-        );
+        const projection = await input.buildProjection(now());
         if (row.version !== input.expectedVersion)
           throw createAppError('CONFLICT', 'The round moved on');
         if (noClockChange(input, projection, row)) return;
-        if (projection.round !== null) {
-          row.status = projection.round.status;
-          row.currentStage = projection.round.currentStage;
-          row.startedAt = projection.round.startedAt;
-          row.completedAt = projection.round.completedAt;
-          row.outcome = projection.round.outcome;
-          row.checkpoint = projection.round.checkpoint;
-        }
-        const rows = state.segments.get(input.roundId) ?? [];
-        for (const insert of projection.segmentInserts)
-          rows.push({
-            id: insert.id,
-            sequence: insert.sequence,
-            type: insert.type,
-            rulesSegmentKey: insert.rulesSegmentKey,
-            startedAt: insert.startedAt,
-            endedAt: null,
-            durationMs: insert.durationMs,
-          });
-        for (const close of projection.segmentCloses) {
-          const rowSegment = rows.find((segment) => segment.id === close.id);
-          if (rowSegment) rowSegment.endedAt = close.endedAt;
-        }
-        row.version += 1;
+        applyProjection(state, input, projection, row);
       },
 
       async appendUtterance(

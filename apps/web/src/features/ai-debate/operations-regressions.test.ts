@@ -14,12 +14,19 @@ const clip = {
   format: 'webm' as const,
 };
 
-test('a failed clock write stops a command and leaves the durable speech intact', async () => {
-  const { operations, begin, clock, store } = setup();
+const liveSpeech = async () => {
+  const fixture = setup();
+  const { operations, begin, clock, store } = fixture;
   const id = await begin();
   clock.advance(11);
   const before = await operations.view({ actorId, id });
   const persisted = structuredClone(await store.getRound(id));
+  return { ...fixture, id, before, persisted };
+};
+
+test('a failed clock write stops a command and leaves the durable speech intact', async () => {
+  const { operations, clock, store, id, before, persisted } =
+    await liveSpeech();
   const apply = store.applyRoundExecution;
   let fail = true;
   store.applyRoundExecution = async (input) => {
@@ -238,5 +245,39 @@ test('a delayed yield cannot close a later segment after multi-segment catch-up'
         expectedVersion: after.version,
       }),
     code: 'CONFLICT',
+  });
+});
+
+test('a yield crossing deadlines while waiting for execution time cannot end a later same-side speech', async () => {
+  const {
+    operations,
+    clock,
+    store,
+    id,
+    before,
+    persisted: durable,
+  } = await liveSpeech();
+  const apply = store.applyRoundExecution;
+  store.applyRoundExecution = async (input) => {
+    if (input.command !== null) clock.advance(940); // post-hydration lock wait into affirmative 1AR
+    return apply(input);
+  };
+  await assertRejects({
+    given: 'AC yield admitted before a lock wait crosses into same-side 1AR',
+    should: 'refuse its stale segment identity using trusted execution time',
+    actual: () =>
+      operations.command({
+        actorId,
+        id,
+        command: { type: 'yield', segmentIndex: 0 },
+        expectedVersion: before.version,
+      }),
+    code: 'CONFLICT',
+  });
+  assert({
+    given: 'the refused delayed command and scratch catchup',
+    should: 'leave all durable intervals and revision unchanged',
+    actual: await store.getRound(id),
+    expected: durable,
   });
 });

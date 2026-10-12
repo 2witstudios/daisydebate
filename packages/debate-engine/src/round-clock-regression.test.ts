@@ -100,7 +100,7 @@ test('start-speech refuses exactly at prep expiry without consuming IDs or prep'
 });
 
 test('an interrupter yield credits the scheduled side, never the interrupter', () => {
-  const { runtime, calls } = clockWorld({
+  const { runtime } = clockWorld({
     ...emptyCheckpoint,
     prep_consumed_ms: { affirmative: 100_000, negative: 150_000 },
   });

@@ -234,3 +234,17 @@ describe('round persistence', () => {
     });
   });
 });
+
+test('Round projection callbacks are synchronous pure execution seams', () => {
+  type BuildProjection = Parameters<
+    ReturnType<typeof createTestDatabase>['database']['applyRoundExecution']
+  >[0]['buildProjection'];
+  // @ts-expect-error A callback cannot perform asynchronous I/O while holding the transaction.
+  const asynchronous: BuildProjection = async () => activeCountdownProjection;
+  assert({
+    given: 'the public Round execution callback type',
+    should: 'exclude async callbacks at compile time',
+    actual: typeof asynchronous,
+    expected: 'function',
+  });
+});
