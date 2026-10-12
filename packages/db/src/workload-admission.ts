@@ -16,11 +16,14 @@ type Timers = {
   readonly setTimeout: (callback: () => void, ms: number) => unknown;
   readonly clearTimeout: (id: never) => void;
 };
+/** Bounded FIFO waiters and the oldest admissible wait before a queued operation is refused unrun. */
+export type WorkloadQueue = {
+  readonly depth: number;
+  readonly maxWaitMs: number;
+};
 export type WorkloadQueueOptions = {
-  /** Bounded FIFO waiters per lane; an absent lane refuses as soon as it is saturated. */
-  readonly queues?: Partial<Record<DatabaseWorkload, number>>;
-  /** Oldest admissible wait before a queued operation is refused unrun. */
-  readonly maxWaitMs?: number;
+  /** An absent lane refuses as soon as it is saturated. */
+  readonly queues?: Partial<Record<DatabaseWorkload, WorkloadQueue>>;
   readonly timers?: Timers;
 };
 const unavailable = () =>
@@ -32,7 +35,6 @@ export function createWorkloadExecutor(
   capacities: Partial<Record<DatabaseWorkload, number>>,
   {
     queues = {},
-    maxWaitMs = 0,
     timers = globalThis as unknown as Timers,
   }: WorkloadQueueOptions = {},
 ) {
@@ -40,16 +42,14 @@ export function createWorkloadExecutor(
   const waiting = new Map<DatabaseWorkload, Waiter[]>();
   for (const capacity of [
     ...Object.values(capacities),
-    ...Object.values(queues),
+    ...Object.values(queues).flatMap((q) => [q.depth, q.maxWaitMs]),
   ])
     if (!Number.isSafeInteger(capacity) || capacity < 0)
       throw createAppError('VALIDATION', 'Invalid database workload capacity');
-  if (!Number.isSafeInteger(maxWaitMs) || maxWaitMs < 0)
-    throw createAppError('VALIDATION', 'Invalid database workload wait');
   const available = (lane: DatabaseWorkload) =>
     (active.get(lane) ?? 0) < (capacities[lane] ?? 0);
   const queueRoom = (lane: DatabaseWorkload) =>
-    (waiting.get(lane)?.length ?? 0) < (queues[lane] ?? 0);
+    (waiting.get(lane)?.length ?? 0) < (queues[lane]?.depth ?? 0);
   // A settled slot passes directly to the oldest waiter, so arrivals cannot overtake the queue.
   const release = (lane: DatabaseWorkload) => () => {
     const next = waiting.get(lane)?.shift();
@@ -71,9 +71,10 @@ export function createWorkloadExecutor(
       const waiter: Waiter = {
         grant: () => resolve(release(lane)),
         timer: timers.setTimeout(() => {
-          queue.splice(queue.indexOf(waiter), 1);
+          const index = queue.indexOf(waiter);
+          if (index >= 0) queue.splice(index, 1);
           reject(unavailable());
-        }, maxWaitMs),
+        }, queues[lane]!.maxWaitMs),
       };
       queue.push(waiter);
     });
@@ -143,14 +144,33 @@ export function workloadCapacities(
   return capacities;
 }
 
-/** Waiters are counted before SQL: a bounded multiple of each lane's slots, never unbounded. */
+/**
+ * Waiters are counted before SQL. Interactive lanes refuse quickly so a saturated node sheds load
+ * instead of stacking latency; control hosts non-interactive maintenance (email redelivery, health)
+ * where a longer bounded wait is cheaper than a failed retry cycle.
+ */
+const queueProfile: Record<DatabaseWorkload, WorkloadQueue> = {
+  competitive: { depth: 16, maxWaitMs: 50 },
+  social: { depth: 16, maxWaitMs: 100 },
+  search: { depth: 16, maxWaitMs: 100 },
+  admission: { depth: 100, maxWaitMs: 250 },
+  renewal: { depth: 100, maxWaitMs: 250 },
+  projection: { depth: 64, maxWaitMs: 500 },
+  headers: { depth: 64, maxWaitMs: 500 },
+  relay: { depth: 16, maxWaitMs: 500 },
+  control: { depth: 16, maxWaitMs: 2_000 },
+  ephemeral: { depth: 16, maxWaitMs: 100 },
+};
+/** Queues for exactly the lanes this pool reserves. */
 export function workloadQueueOptions(
   capacities: Partial<Record<DatabaseWorkload, number>>,
-) {
+): WorkloadQueueOptions {
   return {
     queues: Object.fromEntries(
-      Object.entries(capacities).map(([lane, slots]) => [lane, slots * 16]),
-    ) as Partial<Record<DatabaseWorkload, number>>,
-    maxWaitMs: 2_000,
+      Object.keys(capacities).map((lane) => [
+        lane,
+        queueProfile[lane as DatabaseWorkload],
+      ]),
+    ),
   };
 }

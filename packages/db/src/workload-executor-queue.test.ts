@@ -35,7 +35,10 @@ test('saturated work waits in a bounded FIFO queue and receives settled slots in
   const clock = manualTimers();
   const executor = createWorkloadExecutor(
     { control: 1 },
-    { queues: { control: 2 }, maxWaitMs: 1_000, timers: clock.timers },
+    {
+      queues: { control: { depth: 2, maxWaitMs: 1_000 } },
+      timers: clock.timers,
+    },
   );
   const held = deferred();
   const order: string[] = [];
@@ -71,7 +74,10 @@ test('a waiter that reaches its age bound is refused and never runs', async () =
   const clock = manualTimers();
   const executor = createWorkloadExecutor(
     { social: 1 },
-    { queues: { social: 1 }, maxWaitMs: 1_000, timers: clock.timers },
+    {
+      queues: { social: { depth: 1, maxWaitMs: 100 } },
+      timers: clock.timers,
+    },
   );
   const held = deferred();
   let ran = false;
@@ -100,7 +106,10 @@ test('a lazy statement on a saturated lane defers its builder until it holds a s
   const clock = manualTimers();
   const executor = createWorkloadExecutor(
     { competitive: 1 },
-    { queues: { competitive: 1 }, maxWaitMs: 1_000, timers: clock.timers },
+    {
+      queues: { competitive: { depth: 1, maxWaitMs: 50 } },
+      timers: clock.timers,
+    },
   );
   const held = deferred();
   let built = 0;
@@ -134,21 +143,61 @@ test('a lazy statement on a saturated lane defers its builder until it holds a s
   });
 });
 
-test('runtime lanes queue a bounded multiple of their capacity for a bounded age', () => {
+test('runtime lanes queue with the plan bounds for their workload', () => {
   const capacities = workloadCapacities('web', 12);
   assert({
     given: 'the web profile on a 12-connection pool',
-    should: 'queue sixteen waiters per reserved slot for at most two seconds',
-    actual: workloadQueueOptions(capacities),
+    should:
+      'bound interactive waits tightly and give only maintenance control a longer wait',
+    actual: workloadQueueOptions(capacities).queues,
     expected: {
+      control: { depth: 16, maxWaitMs: 2_000 },
+      competitive: { depth: 16, maxWaitMs: 50 },
+      social: { depth: 16, maxWaitMs: 100 },
+      search: { depth: 16, maxWaitMs: 100 },
+      admission: { depth: 100, maxWaitMs: 250 },
+    },
+  });
+});
+
+test('a saturated lane schedules refusal at its own configured age', async () => {
+  const scheduled: number[] = [];
+  const executor = createWorkloadExecutor(
+    { competitive: 1, social: 1 },
+    {
       queues: {
-        control: 32,
-        competitive: 64,
-        social: 48,
-        search: 16,
-        admission: 32,
+        competitive: { depth: 1, maxWaitMs: 50 },
+        social: { depth: 1, maxWaitMs: 100 },
       },
-      maxWaitMs: 2_000,
+      timers: {
+        setTimeout: (callback: () => void, ms: number) => {
+          scheduled.push(ms);
+          queueMicrotask(callback);
+          return 0;
+        },
+        clearTimeout: () => undefined,
+      },
+    },
+  );
+  const held = deferred();
+  const running = [
+    executor.run('competitive', () => held.promise),
+    executor.run('social', () => held.promise),
+  ];
+  const refused = await Promise.all(
+    (['competitive', 'social'] as const).map((lane) =>
+      executor.run(lane, async () => 'ran').catch((error) => error.code),
+    ),
+  );
+  held.resolve();
+  await Promise.all(running);
+  assert({
+    given: 'one waiter per saturated lane whose age elapses',
+    should: 'refuse each at its own lane age without running it',
+    actual: { scheduled, refused },
+    expected: {
+      scheduled: [50, 100],
+      refused: ['INFRASTRUCTURE', 'INFRASTRUCTURE'],
     },
   });
 });
