@@ -7,7 +7,10 @@ import {
   roundAt,
 } from './runtime.test-support';
 setupRitewayBun();
-const clockWorld = (checkpoint: unknown = emptyCheckpoint) => {
+const clockWorld = (
+  checkpoint: unknown = emptyCheckpoint,
+  rules = practiceRules(),
+) => {
   let calls = 0;
   const runtime = createRoundRuntime({
     round: {
@@ -18,7 +21,7 @@ const clockWorld = (checkpoint: unknown = emptyCheckpoint) => {
       completedAt: null,
       outcome: null,
     },
-    rules: practiceRules(),
+    rules,
     participants: practiceSeats,
     checkpoint,
     segments: [],
@@ -123,5 +126,48 @@ test('an interrupter yield credits the scheduled side, never the interrupter', (
       yielded.round?.checkpoint.floor,
     ],
     expected: [{ affirmative: 100_000, negative: 50_000 }, null],
+  });
+});
+
+test('configured prep expiry refuses the first reached speech atomically and permits an earlier speech', async () => {
+  const { assertRejects } = await import('@daisy/errors/testing');
+  const rules = practiceRules();
+  const { runtime, calls } = clockWorld(emptyCheckpoint, {
+    ...rules,
+    inRoundPrep: { ...rules.inRoundPrep!, expiresAtSegment: 'AC' },
+  });
+  const before = runtime.position(roundAt(1_000));
+  await assertRejects({
+    given: 'affirmative prep requested before AC when prep expires at AC',
+    should: 'refuse the configured expiry with the spendable-segment invariant',
+    actual: () =>
+      runtime.execute({
+        command: { type: 'start_prep' },
+        actorId: practiceSeats[0].actorId,
+        now: roundAt(1_000),
+      }),
+    code: 'INVARIANT',
+    invariantId: 'round.prep.requires-spendable-segment',
+  });
+  assert({
+    given: 'the refused configured-expiry command',
+    should: 'preserve the full position and allocate no IDs',
+    actual: [runtime.position(roundAt(1_000)), calls()],
+    expected: [before, 0],
+  });
+  const earlier = clockWorld(emptyCheckpoint, {
+    ...rules,
+    inRoundPrep: { ...rules.inRoundPrep!, expiresAtSegment: 'NC' },
+  });
+  earlier.runtime.execute({
+    command: { type: 'start_prep' },
+    actorId: practiceSeats[0].actorId,
+    now: roundAt(1_000),
+  });
+  assert({
+    given: 'prep before AC with expiry at the later NC segment',
+    should: 'remain spendable before reaching expiry',
+    actual: earlier.runtime.position(roundAt(1_000)).stage,
+    expected: 'prep',
   });
 });
