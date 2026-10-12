@@ -53,3 +53,9 @@ export type {
   MessagingReactionFence,
   MessagingReactionStore,
 } from './reaction-contracts';
+
+export type {
+  MessagingInboxDecision,
+  MessagingInboxPage,
+  MessagingInboxPageFacts,
+} from './inbox-page-contracts';

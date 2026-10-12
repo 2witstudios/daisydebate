@@ -19,7 +19,7 @@ import { createMessagingGroupCreationStore } from './messaging/group-creation-st
 import type { MessagingGroupCreationFence } from './messaging/group-creation-contracts';
 import { createMessagingGroupInvitationStore } from './messaging/group-invitation-store';
 import type { MessagingGroupInvitationFence } from './messaging/group-invitation-contracts';
-import { createMessagingInboxStore } from './messaging/inbox-store';
+import { createMessagingInboxPage } from './messaging/inbox-page';
 import { createMessagingChannelAuthority } from './messaging/authority-frame';
 import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
@@ -237,9 +237,7 @@ export function createDatabase({
     ...authorizationSessionOperations({ database: authorityDatabase }),
     ...emailDeliveryOperations({ database, eventSink }),
     ...actorOperations({ database, eventSink }),
-    messagingInboxStore: (
-      authorize: Parameters<typeof createMessagingInboxStore>[1],
-    ) => createMessagingInboxStore(socialDatabase, authorize),
+    messagingInboxPage: createMessagingInboxPage(socialDatabase),
     messagingDmStore: (
       authorize: Parameters<typeof createMessagingDmStore>[0]['authorize'],
     ) => createMessagingDmStore({ database: socialDatabase, authorize }),
