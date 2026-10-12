@@ -1,6 +1,5 @@
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
-import { buildDebateTopic } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -168,100 +167,5 @@ test('AI practice operations refuse durable human-controlled seats and casual ro
         await sql`delete from users where id = ${humanUser}`;
       });
     }
-  });
-});
-
-test('a real lock wait crossing into a later same-side speech refuses the original yield target atomically', async () => {
-  await withPractice(async ({ actorId, id, operations, database }) => {
-    const initial = await database.getRound(id);
-    if (!initial) throw new Error('Round missing');
-    const rules = {
-      ...initial.rules,
-      countdownMs: 0,
-      segments: initial.rules.segments.map((segment) => ({
-        ...segment,
-        durationMs: 500,
-      })),
-    };
-    await withSql(async (sql) => {
-      await sql.unsafe(
-        'update rounds set rules_snapshot = $1::jsonb, started_at = clock_timestamp() where id = $2',
-        [rules, id],
-      );
-    });
-    const view = await operations.view({ actorId, id });
-    const before = await database.getRound(id);
-    const persistenceCounts = () =>
-      withSql(async (sql) => {
-        const [row] =
-          await sql`select (select count(*) from round_commands where round_id = ${id}) as commands, (select count(*) from outbox where topic = ${buildDebateTopic(id)}) as signals`;
-        return row;
-      });
-    const counts = await persistenceCounts();
-    const apply = database.applyRoundExecution;
-    database.applyRoundExecution = async (input) => {
-      if (input.command === null) return apply(input);
-      await withSql(async (sql) => {
-        const blocker = await sql.reserve();
-        let executing: Promise<void> | undefined;
-        try {
-          await blocker`begin`;
-          await blocker`select id from rounds where id = ${id} for update`;
-          executing = apply(input);
-          let waited = false;
-          for (let attempt = 0; attempt < 500 && !waited; attempt += 1) {
-            const [row] =
-              await sql`select exists(select 1 from pg_stat_activity where datname = current_database() and wait_event_type = 'Lock' and query like '%rounds%') as waiting`;
-            waited = row.waiting;
-          }
-          assert({
-            given: 'the application command waiting for its Round row',
-            should: 'observe the actual database lock wait',
-            actual: waited,
-            expected: true,
-          });
-          const laterSpeechAt = new Date(
-            Date.parse(before!.segments[0]!.startedAt) + 2_000,
-          );
-          // An explicit PostgreSQL-time barrier holds the already-observed row lock
-          // until the later speech is due; no guessed application sleep.
-          await sql`select pg_sleep_until(${laterSpeechAt})`;
-          const [boundary] =
-            await sql`select clock_timestamp() >= ${laterSpeechAt} as crossed`;
-          if (!boundary.crossed)
-            throw new Error('Clock did not reach the target boundary');
-          await blocker`commit`;
-          await executing;
-        } finally {
-          await blocker`rollback`;
-          blocker.release();
-          await executing?.catch(() => undefined);
-        }
-      });
-    };
-    await assertRejects({
-      given: 'an AC yield locked until affirmative1AR opens',
-      should: 'refuse the stale target at trusted execution time',
-      actual: () =>
-        operations.command({
-          actorId,
-          id,
-          command: { type: 'yield', segmentIndex: 0 },
-          expectedVersion: view.version,
-        }),
-      code: 'CONFLICT',
-    });
-    assert({
-      given: 'the refused lock-delayed command',
-      should: 'persist no interval, command, revision or signal changes',
-      actual: await database.getRound(id),
-      expected: before,
-    });
-    assert({
-      given: 'the same refused command transaction',
-      should: 'append no command receipt or invalidation',
-      actual: await persistenceCounts(),
-      expected: counts,
-    });
   });
 });

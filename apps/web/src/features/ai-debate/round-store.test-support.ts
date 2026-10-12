@@ -3,6 +3,7 @@ import {
   referenceAiJudge,
 } from '@daisy/db/reference-formats';
 import { createAppError } from '@daisy/errors';
+import { runtimeCheckpointSchema } from '@daisy/protocol';
 import type { RoundStore } from './context';
 import { assemblyMethods } from './round-store-assembly.test-support';
 import {
@@ -60,20 +61,25 @@ const claimExistingFakeSpeech = (
  * methods that bind them together.
  */
 const noClockChange = (
-  input: ExecutionInput,
   projection: ExecutionProjection,
   row: FakeRound,
 ): boolean => {
-  return (
-    input.command === null &&
-    projection.segmentInserts.length === 0 &&
-    projection.segmentCloses.length === 0 &&
-    projection.round !== null &&
-    projection.round.status === row.status &&
-    projection.round.currentStage === row.currentStage &&
-    JSON.stringify(projection.round.checkpoint) ===
-      JSON.stringify(row.checkpoint)
-  );
+  if (
+    projection.segmentInserts.length > 0 ||
+    projection.segmentCloses.length > 0
+  )
+    return false;
+  const next = projection.round;
+  if (next === null) return true;
+  return [
+    next.status === row.status,
+    next.currentStage === row.currentStage,
+    next.startedAt === row.startedAt,
+    next.completedAt === row.completedAt,
+    next.outcome === row.outcome,
+    JSON.stringify(runtimeCheckpointSchema.parse(next.checkpoint)) ===
+      JSON.stringify(runtimeCheckpointSchema.parse(row.checkpoint)),
+  ].every(Boolean);
 };
 
 const applyProjection = (
@@ -137,14 +143,16 @@ export function createInMemoryRoundStore(clock?: () => string) {
         if (input.command !== null) {
           if (state.commandIds.has(input.command.commandId))
             throw createAppError('CONFLICT', 'Already applied');
-          state.commandIds.add(input.command.commandId);
         }
         if (row.version !== input.expectedVersion)
           throw createAppError('CONFLICT', 'The round moved on');
         const projection = await input.buildProjection(now());
         if (row.version !== input.expectedVersion)
           throw createAppError('CONFLICT', 'The round moved on');
-        if (noClockChange(input, projection, row)) return;
+        const unchanged = noClockChange(projection, row);
+        if (input.command !== null)
+          state.commandIds.add(input.command.commandId);
+        if (unchanged) return;
         applyProjection(state, input, projection, row);
       },
 
