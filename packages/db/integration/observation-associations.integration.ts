@@ -19,6 +19,8 @@ test('durable DM association and contact writers advance actor collection header
       const initial = await read();
       await f.sql`update messaging_dm_pairs set request_state='pending',decided_at=null where channel_id=${fixture.channelId}`;
       const pending = await read();
+      await f.sql`update messaging_dm_pairs set request_sender_actor_id=${fixture.otherActorId} where channel_id=${fixture.channelId}`;
+      const swapped = await read();
       await f.sql`update messaging_dm_pairs set introduction='Content alone' where channel_id=${fixture.channelId}`;
       const same = await read();
       await f.sql`update messaging_dm_pairs set request_state='accepted',decided_at=clock_timestamp() where channel_id=${fixture.channelId}`;
@@ -36,8 +38,11 @@ test('durable DM association and contact writers advance actor collection header
             (h, i) => h.contentRevision - initial[i]!.contentRevision,
           ),
           same,
-          accepted: accepted.map(
+          swapped: swapped.map(
             (h, i) => h.contentRevision - pending[i]!.contentRevision,
+          ),
+          accepted: accepted.map(
+            (h, i) => h.contentRevision - swapped[i]!.contentRevision,
           ),
           purge: blocked.map(
             (h, i) => h.purgeGeneration - accepted[i]!.purgeGeneration,
@@ -46,7 +51,8 @@ test('durable DM association and contact writers advance actor collection header
         expected: {
           initial: 2,
           pending: [1, 1],
-          same: pending,
+          same: swapped,
+          swapped: [1, 1],
           accepted: [1, 1],
           purge: [1, 1],
         },

@@ -5,7 +5,10 @@ import {
   observationBaseSchema,
   type ObservationHeader,
 } from '@daisy/protocol';
-import { observationEvidence } from './observation-evidence';
+import {
+  observationEvidence,
+  requireObservationDependencies,
+} from './observation-evidence';
 import type {
   ObservationAuthorityContext,
   ObservationAuthorityDecision,
@@ -81,26 +84,28 @@ export function allowedObservationAuthority(
   header: ObservationHeader,
   databaseNow: string,
 ): ObservationAuthorityResult {
+  requireObservationDependencies(decision.dependencies);
   const resourceKey = observationResourceKey(binding.resource);
   const subject = observationEvidence(
     [
       {
+        scope: 'subject',
         key: `account-${binding.principal.actorId}`,
         revision: String(session.account.revision),
         nextBoundary: null,
       },
       {
+        scope: 'subject',
         key: `session-${session.sessionId}`,
         revision: JSON.stringify([session.userId, session.expiresAt]),
         nextBoundary: session.expiresAt,
       },
+      ...decision.dependencies.filter((d) => d.scope === 'subject'),
     ],
     databaseNow,
     session.expiresAt,
   );
-  const cohortFacts = decision.dependencies.filter((d) =>
-    /^(account|age|contact|policy)-/.test(d.key),
-  );
+  const cohortFacts = decision.dependencies.filter((d) => d.scope === 'cohort');
   const cohort = observationEvidence(
     cohortFacts,
     databaseNow,
@@ -108,18 +113,21 @@ export function allowedObservationAuthority(
   );
   const entitlement = observationEvidence(
     [
-      ...decision.dependencies.filter((d) => !cohortFacts.includes(d)),
+      ...decision.dependencies.filter((d) => d.scope === 'entitlement'),
       {
+        scope: 'entitlement',
         key: `disclosure-${resourceKey}`,
         revision: String(header.disclosureRevision),
         nextBoundary: null,
       },
       {
+        scope: 'entitlement',
         key: `purge-${resourceKey}`,
         revision: String(header.purgeGeneration),
         nextBoundary: null,
       },
       {
+        scope: 'entitlement',
         key: `partition-${resourceKey}`,
         revision: JSON.stringify(decision.partition),
         nextBoundary: null,

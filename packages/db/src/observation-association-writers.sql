@@ -17,7 +17,7 @@ DECLARE previous jsonb:=CASE WHEN TG_OP='INSERT' THEN NULL ELSE pg_catalog.to_js
   current_row jsonb:=CASE WHEN TG_OP='DELETE' THEN NULL ELSE pg_catalog.to_jsonb(NEW) END;
   subject text;
 BEGIN
-  IF TG_OP='UPDATE' AND (NEW.low_actor_id,NEW.high_actor_id,NEW.channel_id,NEW.request_state) IS NOT DISTINCT FROM (OLD.low_actor_id,OLD.high_actor_id,OLD.channel_id,OLD.request_state) THEN RETURN NULL; END IF;
+  IF TG_OP='UPDATE' AND (NEW.low_actor_id,NEW.high_actor_id,NEW.channel_id,NEW.request_state,NEW.request_sender_actor_id) IS NOT DISTINCT FROM (OLD.low_actor_id,OLD.high_actor_id,OLD.channel_id,OLD.request_state,OLD.request_sender_actor_id) THEN RETURN NULL; END IF;
   FOR subject IN SELECT DISTINCT id FROM pg_catalog.unnest(ARRAY[previous->>'low_actor_id',previous->>'high_actor_id',current_row->>'low_actor_id',current_row->>'high_actor_id']) ids(id) WHERE id IS NOT NULL ORDER BY id LOOP
     PERFORM public.daisy_advance_observation_header('inbox',subject,true,TG_OP='DELETE' OR current_row->>'request_state' IN ('declined','cancelled'));
   END LOOP;
