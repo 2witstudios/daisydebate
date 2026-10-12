@@ -86,7 +86,6 @@ diverge:
 | `auth.email_change.cleanup_failed`       | error    | A scheduled email-change-token cleanup batch failed                                                                                               |
 | `ai_debate.speech.failed`                | error    | An AI debate speech stream failed after it started; the browser ends the speech (`errorCode` only)                                                |
 | `realtime.outbox.append_failed`          | error    | Appending to the transactional outbox failed                                                                                                      |
-| `realtime.outbox.actor_missing`          | warn     | An outbox row referenced an actor that could not be resolved                                                                                      |
 | `realtime.outbox.drain_failed`           | error    | A drain pass's range read or sink call failed; the loop stays alive and the next wakeup retries                                                   |
 | `realtime.outbox.delivery_lag_estimated` | info     | A readiness probe estimated the drain's seq-distance from the outbox high-water mark                                                              |
 | `realtime.connection.rejected`           | info     | A realtime socket connection was rejected                                                                                                         |

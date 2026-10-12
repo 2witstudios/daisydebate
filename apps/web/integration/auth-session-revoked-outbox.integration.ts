@@ -49,37 +49,30 @@ const sessionExists = async (admin: SQL, token: string): Promise<boolean> => {
 };
 
 /**
- * RT-2.2v nit: a real-fault forced-failure proof for every self-service
- * revoke endpoint. `/revoke-session` is Better Auth's own delete, so its
- * doorbell is the best-effort `sessionRevokedOutboxPlugin` append: a failure
- * never fails the call. `/revoke-other-sessions` and `/revoke-sessions` are
- * Daisy's serialized revoke-all (ISSUE-22, `revoke-sessions.ts`), whose
- * append shares the DELETE's transaction (ADR 0032 §5): a failure rolls the
- * whole revocation back and the call reports the outage.
+ * Every session delete appends its `session.revoked` control through the
+ * session table's own trigger, in the deleting transaction. So a forced
+ * outbox failure rolls the delete back on every self-service path: Daisy's
+ * revoke-all, Better Auth's single revoke and Better Auth's sign-out alike.
  */
 const routes: readonly {
   readonly path: string;
-  readonly atomic: boolean;
+  readonly target: 'first' | 'second';
   readonly body: (secondToken: string) => string;
 }[] = [
-  { path: '/revoke-other-sessions', atomic: true, body: () => '{}' },
-  { path: '/revoke-sessions', atomic: true, body: () => '{}' },
+  { path: '/revoke-other-sessions', target: 'second', body: () => '{}' },
+  { path: '/revoke-sessions', target: 'second', body: () => '{}' },
   {
     path: '/revoke-session',
-    atomic: false,
+    target: 'second',
     body: (secondToken) => JSON.stringify({ token: secondToken }),
   },
+  { path: '/sign-out', target: 'first', body: () => '{}' },
 ];
 
 for (const route of routes) {
-  test(`a forced outbox failure on a real ${route.path} call ${route.atomic ? 'rolls the whole revocation back' : 'never fails it, and logs the registered event'}`, async () => {
+  test(`a forced outbox failure on a real ${route.path} call rolls the whole revocation back`, async () => {
     const email = fixtureEmail();
-    const { sent, logged, database, auth } = createDatabaseAuthServer(
-      url,
-      (pool) => ({
-        appendSessionRevoked: (userId) => pool.appendSessionRevoked(userId),
-      }),
-    );
+    const { sent, database, auth } = createDatabaseAuthServer(url);
     const admin = new SQL(url);
     let userId: string | undefined;
     try {
@@ -128,38 +121,21 @@ for (const route of routes) {
         [buildUserInboxTopic(actorId)],
       );
 
+      const target = route.target === 'first' ? first : second;
       assert({
         given: `a real ${route.path} call while its topic's outbox insert is forced to fail`,
-        should: route.atomic
-          ? 'report the outage and keep the target session: the append and the DELETE commit together or not at all'
-          : 'still deny the target session and answer success, appending nothing and logging the registered failure event instead of throwing',
+        should:
+          'fail without deleting the target session: the control and the DELETE commit together or not at all',
         actual: {
-          status: response?.status,
-          failureCode,
-          secondSessionDenied: !(await sessionExists(
-            admin,
-            second.sessionToken,
-          )),
+          succeeded: response?.status === 200 && failureCode === undefined,
+          targetSessionKept: await sessionExists(admin, target.sessionToken),
           outboxRowsAppended: outboxRows.length,
-          loggedAppendFailure: logged.some(
-            ([event]) => event === 'realtime.outbox.append_failed',
-          ),
         },
-        expected: route.atomic
-          ? {
-              status: undefined,
-              failureCode: 'INFRASTRUCTURE',
-              secondSessionDenied: false,
-              outboxRowsAppended: 0,
-              loggedAppendFailure: false,
-            }
-          : {
-              status: 200,
-              failureCode: undefined,
-              secondSessionDenied: true,
-              outboxRowsAppended: 0,
-              loggedAppendFailure: true,
-            },
+        expected: {
+          succeeded: false,
+          targetSessionKept: true,
+          outboxRowsAppended: 0,
+        },
       });
     } finally {
       await database.close();

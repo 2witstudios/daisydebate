@@ -117,7 +117,6 @@ export function createApp({
         isSuppressed: (hash) => database.isRecipientSuppressed(hash),
         record: (input) => database.recordEmailDelivery(input),
       },
-      appendSessionRevoked: (userId) => database.appendSessionRevoked(userId),
       revokeOtherSessions: (userId, keepToken) =>
         database.revokeOtherSessions(userId, keepToken),
       completeEmailChange: (input) => database.completeEmailChange(input),

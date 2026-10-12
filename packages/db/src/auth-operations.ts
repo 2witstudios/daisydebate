@@ -4,7 +4,6 @@ import { drizzleAdapter } from '@better-auth/drizzle-adapter';
 import { accounts, passkeys, sessions, verifications } from './schema/auth';
 import { users } from './schema/users';
 import { instrumented, type DatabaseEventSink } from './instrumented';
-import { appendSessionRevokedFor } from './session-revoked';
 import { deleteExpiredBatch, type RetentionBatch } from './retention';
 import { isUniqueViolation } from './unique-violation';
 
@@ -36,24 +35,6 @@ export const authOperations = ({
   });
   return {
     authAdapter,
-    /**
-     * RT-2.2 (plan revision 4.1, ADR 0032 §5): appends one `session.revoked`
-     * outbox row in its own short transaction, for a caller that has already
-     * confirmed a session delete outside Daisy's control (Better Auth's own
-     * revoke endpoints). Never wraps the delete itself.
-     */
-    async appendSessionRevoked(userId: string): Promise<void> {
-      return instrumented(eventSink, 'appendSessionRevoked', () =>
-        database.transaction((tx) =>
-          appendSessionRevokedFor(
-            tx,
-            userId,
-            eventSink,
-            'appendSessionRevoked',
-          ),
-        ),
-      );
-    },
     /**
      * ISSUE-99 (AUTH-5.6): the email change's final step, in one
      * transaction. It moves the account from `email` to `newEmail` (marked
@@ -162,11 +143,9 @@ export const authOperations = ({
      * endpoints are routed here (`revoke-sessions.ts`), and every future
      * revoke-all (recovery, admin ban) must call it too.
      *
-     * Daisy's own operation, not one of Better Auth's internal deletes, so
-     * the `session.revoked` append happens in the *same* transaction as the
-     * DELETE (ADR 0032 §5, plan revision 4.7): a failed append rolls the
-     * DELETE back too, rather than being swallowed best-effort. Returns the
-     * number of sessions removed.
+     * Each deleted live session appends its own `session.revoked` control
+     * through the session table's trigger, in this transaction: a failed
+     * append rolls the DELETE back. Returns the number of sessions removed.
      */
     async revokeOtherSessions(
       userId: string,
@@ -190,23 +169,15 @@ export const authOperations = ({
                   ),
             )
             .returning({ id: sessions.id });
-          if (rows.length > 0)
-            await appendSessionRevokedFor(
-              tx,
-              userId,
-              eventSink,
-              'revokeOtherSessions',
-            );
           return rows.length;
         }),
       );
     },
     /**
      * Retention (AUTH-7.5): one bounded batch of session rows whose expiry
-     * is before the cutoff. `revokeOtherSessions` and
-     * `revokeSessionUnlessAddressHeld` already delete a revoked session
-     * immediately, so nothing "revoked" is ever left for this sweep to
-     * find; it only drains sessions that ran to their own natural expiry
+     * is before the cutoff. Sign-out and every revoke path delete a session
+     * the moment it ends, so nothing "revoked" is ever left for this sweep
+     * to find; it only drains sessions that ran to their own natural expiry
      * and were never signed out of, which is why it needs the same 24-hour
      * grace as verification rows rather than deleting the moment they
      * expire.
@@ -226,9 +197,9 @@ export const authOperations = ({
      * before it takes traffic, so a pre-restore session cookie or emailed
      * link can never authenticate against the restored copy. Unlike
      * `revokeOtherSessions` this is total and never scoped to one user — a
-     * restore has no live user context to scope to — so it never appends a
-     * `session.revoked` outbox row (no realtime instance watches a copy that
-     * has not taken traffic yet).
+     * restore has no live user context to scope to. The session trigger still
+     * appends a control for each live session it removes; no realtime
+     * instance watches a copy that has not taken traffic, so they are inert.
      */
     async purgeAllForRestore(): Promise<{
       readonly sessions: number;
