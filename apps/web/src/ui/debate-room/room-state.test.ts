@@ -5,8 +5,8 @@ import { initialRoomState, pageToneOf, reduceRoom } from './room-state';
 setupRitewayBun();
 
 const now = '2026-10-05T18:30:00.000Z';
-const practice = sampleRound('prep', 'unrated');
-const rated = sampleRound('prep', 'rated');
+const practice = sampleRound('prep', 'practice');
+const rated = sampleRound('prep', 'ranked');
 
 describe('initialRoomState', () => {
   test('opens the round folder', () => {
@@ -112,15 +112,52 @@ describe('reduceRoom agent/edit', () => {
   });
 });
 
-describe('reduceRoom sidebar/tab', () => {
+describe('reduceRoom drawer', () => {
   test('a rated round has no AI tab', () => {
     const before = initialRoomState(rated);
+    const reduce = reduceRoom(rated);
     assert({
-      given: 'a request for the AI tab in a rated round',
-      should: 'stay on chat',
-      actual: reduceRoom(rated)(before, { type: 'sidebar/tab', tab: 'ai' })
-        .sidebar,
-      expected: 'chat',
+      given: 'a request for the AI tab in a rated round, on either screen',
+      should: 'leave the drawer as it was',
+      actual: [
+        reduce(before, { type: 'drawer/tab', tab: 'ai' }),
+        reduce(before, { type: 'drawer/phone', tab: 'ai' }),
+      ],
+      expected: [before, before],
+    });
+  });
+
+  test('closing and reopening', () => {
+    const reduce = reduceRoom(practice);
+    const closed = reduce(initialRoomState(practice), {
+      type: 'drawer/toggle',
+    });
+    assert({
+      given: 'the open drawer toggled, then a tab chosen',
+      should: 'close it, then reopen it on that tab',
+      actual: [
+        closed.drawerOpen,
+        reduce(closed, { type: 'drawer/tab', tab: 'chat' }),
+      ],
+      expected: [false, { ...closed, drawer: 'chat', drawerOpen: true }],
+    });
+  });
+
+  test('the phone round tabs', () => {
+    const reduce = reduceRoom(practice);
+    const room = reduce(initialRoomState(practice), {
+      type: 'drawer/phone',
+      tab: 'room',
+    });
+    assert({
+      given: 'Room chosen on a phone, then Doc',
+      should:
+        'show the Room tab in place of the document, then the document again',
+      actual: [
+        [room.drawer, room.phoneDrawer, room.drawerOpen],
+        reduce(room, { type: 'drawer/phone', tab: null }).phoneDrawer,
+      ],
+      expected: [['room', true, true], false],
     });
   });
 });

@@ -1,46 +1,9 @@
-import type { SpeechSlot } from '../../features/debate-room/documents/documents';
 import { cn } from '../cn';
 import type { Debater, RoundSnapshot } from './round';
 
 const sideName = { aff: 'Aff', neg: 'Neg' } as const;
 const sideInk = { aff: 'text-hue-sky', neg: 'text-hue-clay' } as const;
 const sideDisc = { aff: 'bg-hue-sky', neg: 'bg-hue-clay' } as const;
-
-function speechTone(index: number, live: number) {
-  if (index === live)
-    return 'bg-stage-accent font-strong text-stage-accent-ink';
-  if (index < live) return 'text-ink-faint';
-  return 'bg-surface-raised text-ink-muted';
-}
-
-/** The resolution and the round's speeches, the live one lit. */
-export function RoundHeader({ round }: { readonly round: RoundSnapshot }) {
-  return (
-    <header className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-border bg-background px-3 py-1">
-      <div className="flex min-w-0 flex-1 items-baseline gap-3">
-        <span className="text-xs tracking-wider whitespace-nowrap text-ink-muted uppercase">
-          {round.kind === 'rated' ? 'Ranked' : 'Practice'} ·{' '}
-          {sideName[round.self.side]}
-        </span>
-        <h1 className="truncate font-display text-md">{round.resolution}</h1>
-      </div>
-      <ol aria-label="Speeches" className="flex flex-wrap gap-1">
-        {round.speeches.map((slot: SpeechSlot, index) => (
-          <li
-            key={slot.id}
-            aria-current={index === round.liveIndex ? 'step' : undefined}
-            className={cn(
-              'rounded-sm px-2 py-1 text-xs',
-              speechTone(index, round.liveIndex),
-            )}
-          >
-            {slot.code}
-          </li>
-        ))}
-      </ol>
-    </header>
-  );
-}
 
 function Tile({
   debater,
@@ -77,9 +40,11 @@ function Tile({
           {sideName[debater.side]}
         </span>
         <span className="font-strong">{you ? 'You' : debater.name}</span>
-        <span className="text-stage-ink-muted tabular-nums">
-          {debater.rating}
-        </span>
+        {debater.rating === null ? null : (
+          <span className="text-stage-ink-muted tabular-nums">
+            {debater.rating}
+          </span>
+        )}
         {state ? (
           <span className="ml-auto font-strong text-stage-accent">{state}</span>
         ) : null}
@@ -91,6 +56,7 @@ function Tile({
 const floorStates: Readonly<
   Record<RoundSnapshot['phase'], { self: string; opponent: string }>
 > = {
+  waiting: { self: '', opponent: '' },
   'opponent-speaking': { self: '', opponent: 'Speaking' },
   'cross-ex': { self: 'Asking', opponent: 'Answering' },
   prep: { self: 'Prepping', opponent: '' },

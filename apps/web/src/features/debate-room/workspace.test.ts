@@ -6,7 +6,7 @@ import {
   closeTab,
   openTab,
   roundKindOf,
-  sidebarTabs,
+  drawerTabs,
   visibleAgents,
   visibleChannels,
   type Agent,
@@ -143,26 +143,26 @@ describe('rated rounds', () => {
   ];
   const agents: readonly Agent[] = [{ id: 'g', title: 'Coach', scope: 'club' }];
 
-  test('sidebar visibility', () => {
+  test('drawer visibility', () => {
     assert({
       given: 'a rated round',
-      should: 'offer chat only, round channels only, and no agents',
+      should: 'offer files, chat and room, round channels only, and no agents',
       actual: [
-        sidebarTabs('rated'),
+        drawerTabs('rated'),
         visibleChannels(channels, 'rated').map((c) => c.id),
         visibleAgents(agents, 'rated'),
       ],
-      expected: [['chat'], ['r'], []],
+      expected: [['files', 'chat', 'room'], ['r'], []],
     });
     assert({
       given: 'an unrated round',
-      should: 'offer chat and AI with every channel and agent',
+      should: 'offer every tab with every channel and agent',
       actual: [
-        sidebarTabs('unrated'),
+        drawerTabs('unrated'),
         visibleChannels(channels, 'unrated').map((c) => c.id),
         visibleAgents(agents, 'unrated').map((a) => a.id),
       ],
-      expected: [['chat', 'ai'], ['r', 'c'], ['g']],
+      expected: [['files', 'chat', 'ai', 'room'], ['r', 'c'], ['g']],
     });
   });
 });
@@ -170,10 +170,14 @@ describe('rated rounds', () => {
 describe('roundKindOf', () => {
   test('the room decides the round', () => {
     assert({
-      given: 'a ranked room and a practice room',
-      should: 'make the ranked round rated and the practice round unrated',
-      actual: [roundKindOf('ranked'), roundKindOf('practice')],
-      expected: ['rated', 'unrated'],
+      given: 'a ranked, a casual and a practice round',
+      should: 'make only the ranked round rated',
+      actual: [
+        roundKindOf('ranked'),
+        roundKindOf('casual'),
+        roundKindOf('practice'),
+      ],
+      expected: ['rated', 'unrated', 'unrated'],
     });
   });
 });

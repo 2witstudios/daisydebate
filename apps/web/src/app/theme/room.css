@@ -1,20 +1,28 @@
-/* The debater's round room (ADR 0054). Pane sizes are person-adjustable, so
-   they live in custom properties the room sets through the CSSOM (never a
-   style attribute, which the nonce CSP refuses); these utilities read them
-   with the defaults the room starts from. */
+/* The debater's round room (ADR 0054). The video height is
+   person-adjustable, so it lives in custom properties the room sets through
+   the CSSOM (never a style attribute, which the nonce CSP refuses); these
+   utilities read them with the defaults the room starts from. */
 
-@utility room-tree-pane {
-  flex: 0 0 var(--room-tree, 220px);
-}
-
-@utility room-sidebar-pane {
-  flex: 0 0 var(--room-sidebar, 340px);
+@theme {
+  /* The round room's fixed metrics: a touch target, the round bar, the
+     controls row, the drawer, the layout menu and the leave confirm. */
+  --spacing-room-target: 44px;
+  --spacing-round-bar: 56px;
+  --spacing-round-controls: 72px;
+  --spacing-round-drawer: 300px;
+  --spacing-room-menu: 160px;
+  --spacing-room-dialog: 320px;
 }
 
 @utility room-video-tile {
   height: var(--room-video, 340px);
   aspect-ratio: 16 / 9;
   max-width: calc(50% - 4px);
+
+  /* A phone shows both debaters small above the document. */
+  @media (width < 641px) {
+    height: 100px;
+  }
 }
 
 @utility room-doc-column {

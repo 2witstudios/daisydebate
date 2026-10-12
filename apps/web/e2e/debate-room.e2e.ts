@@ -32,8 +32,8 @@ const test = base.extend<{ roundFiles: RoundFiles }>({
         page.getByRole('button', { name: 'Not ready', exact: true }),
       ).toBeVisible();
       await page.getByRole('button', { name: 'Launch', exact: true }).click();
-      await expect(page).toHaveURL(/\/rounds\/[a-z0-9]+$/);
-      const roundId = new URL(page.url()).pathname.split('/').at(-1)!;
+      await expect(page).toHaveURL(/\/rounds\/[a-z0-9]+\/room$/);
+      const roundId = new URL(page.url()).pathname.split('/').at(-2)!;
       const created = await page.request.post(`${documentsPath}create`, {
         headers: { origin },
         data: { roundId, folder: 'round', templateId: 'flow' },
@@ -65,7 +65,7 @@ const test = base.extend<{ roundFiles: RoundFiles }>({
   },
 });
 
-test('persisted Round files: palette, editor, marks and dividers', async ({
+test('the round room: palette, editor, marks and the video divider', async ({
   roundFiles,
 }) => {
   const { page, violations } = roundFiles;
@@ -87,24 +87,25 @@ test('persisted Round files: palette, editor, marks and dividers', async ({
   await expect(fresh.locator('[data-debate-mark="dropped"]')).toHaveText(
     'dropped C3',
   );
-  const divider = page.getByRole('separator', { name: 'Resize files' });
+  const divider = page.getByRole('separator', { name: 'Resize video' });
+  await expect(divider).toHaveAttribute('aria-valuenow', '340');
   const box = await divider.boundingBox();
-  if (!box) throw new Error('The files divider has no box');
-  await page.mouse.move(box.x + box.width / 2, box.y + 24);
+  if (!box) throw new Error('The video divider has no box');
+  await page.mouse.move(box.x + 24, box.y + box.height / 2);
   await page.mouse.down();
-  await page.mouse.move(box.x + box.width / 2 + 80, box.y + 24, { steps: 4 });
+  await page.mouse.move(box.x + 24, box.y + box.height / 2 + 80, { steps: 4 });
   await page.mouse.up();
-  await expect(divider).toHaveAttribute('aria-valuenow', '300');
+  await expect(divider).toHaveAttribute('aria-valuenow', '420');
   await divider.focus();
-  await page.keyboard.press('ArrowLeft');
-  await expect(divider).toHaveAttribute('aria-valuenow', '284');
+  await page.keyboard.press('ArrowUp');
+  await expect(divider).toHaveAttribute('aria-valuenow', '404');
   expect(await violations.read()).toEqual({
     eventViolations: [],
     consoleViolations: [],
   });
 });
 
-test('persisted Round workspace has no serious or critical accessibility findings', async ({
+test('the round room has no serious or critical accessibility findings', async ({
   roundFiles,
 }) => {
   await assertNoSeriousFindings(roundFiles.page);
@@ -195,4 +196,29 @@ test('private file rename and stale or cross-account refusal preserve the stored
   await expect(
     page.getByRole('textbox', { name: 'My transit flow', exact: true }),
   ).toBeVisible();
+});
+
+test('the round room: no app shell, the drawer closes, Leave asks first', async ({
+  roundFiles,
+}) => {
+  const { page, roundId } = roundFiles;
+  await expect(page.getByRole('navigation', { name: 'Primary' })).toHaveCount(0);
+  const toggle = page.getByRole('button', { name: 'Hide drawer' });
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  await toggle.click();
+  await expect(page.getByRole('complementary', { name: 'Round drawer' })).toBeHidden();
+  await page.getByRole('button', { name: 'Show drawer' }).click();
+  await page.getByRole('tab', { name: 'Room', exact: true }).click();
+  await expect(
+    page.getByRole('tabpanel').getByText('Off', { exact: true }).first(),
+  ).toBeVisible();
+  await page.getByRole('link', { name: 'Leave room' }).click();
+  const confirm = page.getByRole('dialog', { name: 'Leave the round?' });
+  await expect(confirm).toBeVisible();
+  await confirm.getByRole('link', { name: 'Stay', exact: true }).click();
+  await expect(confirm).toBeHidden();
+  await expect(page).toHaveURL(`/rounds/${roundId}/room`);
+  await page.getByRole('link', { name: 'Leave room' }).click();
+  await confirm.getByRole('link', { name: 'Leave', exact: true }).click();
+  await expect(page).toHaveURL('/lobby');
 });

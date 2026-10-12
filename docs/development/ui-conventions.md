@@ -155,3 +155,15 @@ combined duration against the room's pinned format bounds. Speech order, seat
 identity and structural schedule authority remain with the pinned definition.
 The pre-round Room has no chat composer; existing Messages navigation remains
 available.
+
+## Round room
+
+A debater's live round (`/rounds/[id]/room`, ADR 0054) has no app shell:
+one round bar, one closable drawer (Files, Chat, AI, Room; ranked rounds
+drop AI and club channels), the video, the three-column controls row and
+the document. Leave is alone in the round bar's far corner; every step of
+its confirm is a link, so it works without script. Mics follow the server:
+the room shows `Mic live` or `Mic closed` and never a Mute control. A
+human judge appears only as `Judge present`; the judge's name never
+reaches the debaters' browsers. Only the video resizes. Controls with no
+backend are shown disabled, never faked.
