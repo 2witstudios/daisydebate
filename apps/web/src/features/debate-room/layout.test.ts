@@ -14,17 +14,14 @@ import {
 
 setupRitewayBun();
 
-const custom: LayoutState = {
-  ...initialLayout,
-  mode: 'custom',
-  videoHeight: 200,
-};
+const pinned: LayoutState = { mode: 'speaker', videoHeight: 200 };
 
 describe('presets', () => {
-  test('autoPreset and effectivePreset', () => {
+  test('autoPreset', () => {
     assert({
       given: 'each round phase',
-      should: 'map to its preset',
+      should:
+        'put the opponent’s speech on the speaker, cross-ex on equal tiles, prep and your speech on the document, judging and waiting in conversation',
       actual: (
         [
           'waiting',
@@ -32,42 +29,68 @@ describe('presets', () => {
           'cross-ex',
           'prep',
           'own-speech',
+          'judging',
         ] as const
       ).map(autoPreset),
-      expected: ['split', 'split', 'stage', 'focus', 'focus'],
+      expected: [
+        'conversation',
+        'speaker',
+        'stage',
+        'focus',
+        'focus',
+        'conversation',
+      ],
     });
+  });
+
+  test('effectivePreset', () => {
     assert({
-      given: 'auto mode during cross-ex',
+      given: 'Auto during cross-ex',
       should: 'resolve to stage',
       actual: effectivePreset(initialLayout, 'cross-ex'),
       expected: 'stage',
     });
     assert({
       given: 'a chosen preset',
-      should: 'keep it regardless of phase',
-      actual: effectivePreset(selectMode(initialLayout, 'focus'), 'cross-ex'),
+      should: 'keep it whatever the phase',
+      actual: effectivePreset(selectMode('focus'), 'cross-ex'),
       expected: 'focus',
-    });
-    assert({
-      given: 'custom mode',
-      should: 'report custom',
-      actual: effectivePreset(custom, 'prep'),
-      expected: 'custom',
     });
   });
 
   test('videoHeightFor', () => {
     assert({
-      given: 'auto mode while the opponent speaks',
-      should: 'use the split height',
-      actual: videoHeightFor(initialLayout, 'opponent-speaking'),
-      expected: 340,
+      given: 'Auto while the opponent speaks, and during prep',
+      should: 'use the speaker and focus heights',
+      actual: [
+        videoHeightFor(initialLayout, 'opponent-speaking'),
+        videoHeightFor(initialLayout, 'prep'),
+        videoHeightFor(initialLayout, 'judging'),
+      ],
+      expected: [420, 130, 300],
     });
     assert({
-      given: 'custom mode',
-      should: 'use the stored height',
-      actual: videoHeightFor(custom, 'prep'),
+      given: 'a layout pinned by a resize',
+      should: 'use the height the debater chose',
+      actual: videoHeightFor(pinned, 'prep'),
       expected: 200,
+    });
+  });
+});
+
+describe('selectMode', () => {
+  test('menu choices', () => {
+    assert({
+      given: 'a resized layout and the debater choosing Auto',
+      should: 'unpin it and drop the chosen height',
+      actual: selectMode('auto'),
+      expected: initialLayout,
+    });
+    assert({
+      given: 'a resized layout and the debater choosing a preset',
+      should: 'pin that preset at its own height',
+      actual: videoHeightFor(selectMode('stage'), 'prep'),
+      expected: 420,
     });
   });
 });
@@ -86,10 +109,16 @@ describe('clampVideo', () => {
 describe('resizeVideo', () => {
   test('a drag pins the layout', () => {
     assert({
-      given: 'the video handle dragged down 50px from 130px',
-      should: 'grow the video and switch to custom',
-      actual: resizeVideo(130, 50),
-      expected: { mode: 'custom', videoHeight: 180 },
+      given: 'the handle dragged down 50px from 130px under Auto during prep',
+      should: 'grow the video and pin the preset Auto had chosen',
+      actual: resizeVideo(initialLayout, 'prep', 130, 50),
+      expected: { mode: 'focus', videoHeight: 180 },
+    });
+    assert({
+      given: 'a drag on a layout already pinned to a preset',
+      should: 'keep that preset',
+      actual: resizeVideo(pinned, 'cross-ex', 200, -20),
+      expected: { mode: 'speaker', videoHeight: 180 },
     });
   });
 });
@@ -97,10 +126,10 @@ describe('resizeVideo', () => {
 describe('nudgeVideo', () => {
   test('arrow keys', () => {
     assert({
-      given: 'ArrowUp on the video in auto focus',
-      should: 'shrink from the effective height into custom',
+      given: 'ArrowUp on the video under Auto during prep',
+      should: 'shrink from the shown height and pin focus',
       actual: nudgeVideo(initialLayout, 'prep', 'ArrowUp'),
-      expected: { mode: 'custom', videoHeight: 114 },
+      expected: { mode: 'focus', videoHeight: 114 },
     });
     assert({
       given: 'a horizontal arrow or any other key',

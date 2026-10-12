@@ -38,6 +38,7 @@ const debater = (p: Participant & { role: DebateSide }): Debater => ({
   initials: initialsOf(p.label),
   side: sideOf[p.role],
   rating: null,
+  bot: p.kind === 'bot' ? { level: null } : null,
 });
 
 const isDebater = (p: Participant): p is Participant & { role: DebateSide } =>
@@ -119,6 +120,7 @@ export function liveRoundOf(
     liveIndex: -1,
     ...scheduledClocks(view),
     micLive: false,
+    voiceLevel: 0,
     clubName: null,
     documents: [],
     channels: [{ id: 'round', title: 'round', scope: 'round' }],

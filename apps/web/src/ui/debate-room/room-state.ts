@@ -65,7 +65,7 @@ export type RoomState = {
 export type RoomAction =
   | {
       readonly type: 'layout/mode';
-      readonly mode: Exclude<LayoutMode, 'custom'>;
+      readonly mode: LayoutMode;
     }
   | {
       readonly type: 'layout/resize';
@@ -180,10 +180,10 @@ type Reducer<T extends RoomAction['type']> = (
 ) => RoomState;
 
 const reducers: { readonly [T in RoomAction['type']]: Reducer<T> } = {
-  'layout/mode': (s, a) => ({ ...s, layout: selectMode(s.layout, a.mode) }),
-  'layout/resize': (s, a) => ({
+  'layout/mode': (s, a) => ({ ...s, layout: selectMode(a.mode) }),
+  'layout/resize': (s, a, r) => ({
     ...s,
-    layout: resizeVideo(a.startPx, a.deltaPx),
+    layout: resizeVideo(s.layout, r.phase, a.startPx, a.deltaPx),
   }),
   'layout/nudge': (s, a, r) => ({
     ...s,

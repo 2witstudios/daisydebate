@@ -67,6 +67,7 @@ describe('liveRoundOf', () => {
           initials: 'SR',
           side: 'aff',
           rating: null,
+          bot: null,
         },
         opponent: 'neg',
         judge: 'human',
@@ -77,6 +78,15 @@ describe('liveRoundOf', () => {
         ],
         leaked: false,
       },
+    });
+  });
+
+  test('a bot opponent', () => {
+    assert({
+      given: 'a bot in the opposite seat, in a read that carries no level',
+      should: 'mark the opponent as a bot with no level',
+      actual: room?.opponent.bot,
+      expected: { level: null },
     });
   });
 
@@ -91,6 +101,7 @@ describe('liveRoundOf', () => {
         speeches: room?.speeches.length,
         clock: room?.clock,
         micLive: room?.micLive,
+        voiceLevel: room?.voiceLevel,
         recording: room?.recording,
       },
       expected: {
@@ -102,6 +113,7 @@ describe('liveRoundOf', () => {
           remainingMs: first.durationMs,
         },
         micLive: false,
+        voiceLevel: 0,
         recording: false,
       },
     });

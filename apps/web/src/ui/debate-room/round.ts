@@ -16,6 +16,8 @@ export type Debater = {
   readonly side: Side;
   /** Null when the room has no rating to show beside the name. */
   readonly rating: number | null;
+  /** A bot's persona; its level is null when the round does not carry one. */
+  readonly bot: { readonly level: string | null } | null;
 };
 
 /** Someone seated in the round, as the Room tab lists them. */
@@ -63,6 +65,8 @@ export type RoundSnapshot = {
   /** Each side's prep left; null when the round has no in-round prep. */
   readonly prepMs: Readonly<Record<Side, number>> | null;
   readonly micLive: boolean;
+  /** A bot opponent's voice level, 0 (silent) to 1. */
+  readonly voiceLevel: number;
   readonly clubName: string | null;
   readonly documents: readonly WorkspaceDocument[];
   readonly channels: readonly Channel[];
