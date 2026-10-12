@@ -33,7 +33,7 @@ test('actual projection role reads coherent restricted ISO history using numeric
         given:
           'column-restricted producer functions under actual projection role',
         should:
-          'return safe-number sequence and existing ISO MessageRecord shape only',
+          'return safe-number sequence, the ISO MessageRecord shape and shared reaction counts only',
         actual: { rows: result.rows, header: result.header },
         expected: {
           header,
@@ -48,6 +48,7 @@ test('actual projection role reads coherent restricted ISO history using numeric
               createdAt: '2026-10-09T18:00:00.000Z',
               editedAt: null,
               removedAt: null,
+              reactions: [],
             },
           ],
         },

@@ -20,7 +20,7 @@ import { createMessagingGroupCreationStore } from './messaging/group-creation-st
 import type { MessagingGroupCreationFence } from './messaging/group-creation-contracts';
 import { createMessagingGroupInvitationStore } from './messaging/group-invitation-store';
 import type { MessagingGroupInvitationFence } from './messaging/group-invitation-contracts';
-import { createMessagingInboxStore } from './messaging/inbox-store';
+import { createMessagingInboxPage } from './messaging/inbox-page';
 import { createMessagingChannelAuthority } from './messaging/authority-frame';
 import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
@@ -63,6 +63,7 @@ import { standingsOperations } from './standings';
 import type { RateDebateInput } from './rating-facts';
 import { emailDeliveryOperations } from './email-delivery-operations';
 import { outboxOperations } from './outbox';
+import { relayOutboxOperations } from './outbox-relay';
 import { readOutboxCatchup } from './outbox-catchup';
 import { readOutboxRetentionBoundary } from './outbox-retention-boundary';
 import { instrumented, type DatabaseEventSink } from './instrumented';
@@ -169,6 +170,7 @@ export function createDatabase({
     'projection',
   );
   const renewalDatabase = workloadDatabase(rawDatabase, executor, 'renewal');
+  const relayDatabase = workloadDatabase(rawDatabase, executor, 'relay');
   return {
     observationAuthority: (
       decide: Parameters<typeof createObservationAuthorityOperations>[1],
@@ -243,9 +245,7 @@ export function createDatabase({
     }),
     ...emailDeliveryOperations({ database, eventSink }),
     ...actorOperations({ database, eventSink }),
-    messagingInboxStore: (
-      authorize: Parameters<typeof createMessagingInboxStore>[1],
-    ) => createMessagingInboxStore(socialDatabase, authorize),
+    messagingInboxPage: createMessagingInboxPage(socialDatabase),
     messagingDmStore: (
       authorize: Parameters<typeof createMessagingDmStore>[0]['authorize'],
     ) => createMessagingDmStore({ database: socialDatabase, authorize }),
@@ -290,6 +290,8 @@ export function createDatabase({
     messagingSocialStore: (authorize: MessagingSocialAuthorizationFence) =>
       createMessagingSocialStore({ database: socialDatabase, authorize }),
     ...outboxOperations({ database, eventSink }),
+    /** The fleet metadata relay; only the projection profile reserves its lane. */
+    relayOutbox: relayOutboxOperations({ database: relayDatabase, eventSink }),
     readOutboxRetentionBoundary: () =>
       instrumented(eventSink, 'readOutboxRetentionBoundary', () =>
         readOutboxRetentionBoundary(database),
