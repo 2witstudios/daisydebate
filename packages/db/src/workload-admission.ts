@@ -165,7 +165,9 @@ export function workloadCapacities(
  * Waiters are counted before SQL. Competitive, social and search refuse quickly so a saturated node
  * sheds load instead of stacking latency (plan starting calibrations). Control is the interactive
  * default (sign-in, session reads, account and mail work): bursts of short operations such as a
- * sign-in flood must queue rather than fail, so it holds a deep but bounded queue.
+ * sign-in flood must queue rather than fail, so it holds a deep but bounded queue. Calibration: a
+ * 1,200-request sign-up flood over 1,000 connections (ISSUE-185) must answer every request; a waiter
+ * costs a promise and a timer, so depth bounds memory cheaply while the 2s age bounds latency.
  */
 const queueProfile: Record<DatabaseWorkload, WorkloadQueue> = {
   competitive: { depth: 16, maxWaitMs: 50 },
@@ -176,7 +178,7 @@ const queueProfile: Record<DatabaseWorkload, WorkloadQueue> = {
   projection: { depth: 64, maxWaitMs: 500 },
   headers: { depth: 64, maxWaitMs: 500 },
   relay: { depth: 16, maxWaitMs: 500 },
-  control: { depth: 256, maxWaitMs: 2_000 },
+  control: { depth: 2_048, maxWaitMs: 2_000 },
   ephemeral: { depth: 16, maxWaitMs: 100 },
 };
 /** Queues for exactly the lanes this pool reserves. */

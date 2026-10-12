@@ -14,7 +14,7 @@ test('runtime lanes queue with the plan bounds for their workload', () => {
     expected: {
       capacities: { control: 4, competitive: 4, social: 3, search: 1 },
       queues: {
-        control: { depth: 256, maxWaitMs: 2_000 },
+        control: { depth: 2_048, maxWaitMs: 2_000 },
         competitive: { depth: 16, maxWaitMs: 50 },
         social: { depth: 16, maxWaitMs: 100 },
         search: { depth: 16, maxWaitMs: 100 },
