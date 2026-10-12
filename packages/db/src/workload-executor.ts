@@ -20,18 +20,31 @@ export function createWorkloadExecutor(
   for (const capacity of Object.values(capacities))
     if (!Number.isSafeInteger(capacity) || capacity < 0)
       throw createAppError('VALIDATION', 'Invalid database workload capacity');
+  const acquire = (lane: DatabaseWorkload) => {
+    const count = active.get(lane) ?? 0;
+    if (count >= (capacities[lane] ?? 0))
+      throw createAppError('INFRASTRUCTURE', 'Database capacity unavailable');
+    active.set(lane, count + 1);
+    return () => active.set(lane, (active.get(lane) ?? 1) - 1);
+  };
+  const invoke = <T>(lane: DatabaseWorkload, work: () => T): T => {
+    const release = acquire(lane);
+    try {
+      const result = work();
+      if (result instanceof Promise) return result.finally(release) as T;
+      release();
+      return result;
+    } catch (error) {
+      release();
+      throw error;
+    }
+  };
   return {
-    async run<T>(lane: DatabaseWorkload, work: () => Promise<T>): Promise<T> {
-      const count = active.get(lane) ?? 0;
-      if (count >= (capacities[lane] ?? 0))
-        throw createAppError('INFRASTRUCTURE', 'Database capacity unavailable');
-      active.set(lane, count + 1);
-      try {
-        return await work();
-      } finally {
-        active.set(lane, (active.get(lane) ?? 1) - 1);
-      }
-    },
+    invoke,
+    run: async <T>(
+      lane: DatabaseWorkload,
+      work: () => Promise<T>,
+    ): Promise<T> => invoke(lane, work),
   };
 }
 
@@ -132,7 +145,8 @@ export function workloadDatabase<T extends object>(
     if (typeof key !== 'string' || !constructors.has(key))
       throw createAppError('INFRASTRUCTURE', 'Unsupported database operation');
     return (...args: unknown[]) => {
-      const result: unknown = Reflect.apply(value, object, args);
+      const build = () => Reflect.apply(value, object, args) as unknown;
+      const result = lease ? build() : executor.invoke(lane, build);
       if (key === 'getSQL' || key === 'toSQL') return result;
       if (result instanceof Promise)
         throw createAppError(
@@ -162,7 +176,15 @@ export function workloadDatabase<T extends object>(
           return value !== null && typeof value === 'object'
             ? wrap(value, lease)
             : value;
-        return bindMethod(object, key, value, lease);
+        const bound = bindMethod(object, key, value, lease);
+        return (...args: unknown[]) => {
+          if (lease && !lease.active)
+            throw createAppError(
+              'INFRASTRUCTURE',
+              'Database transaction has settled',
+            );
+          return bound(...args);
+        };
       },
     });
   return wrap(database) as T;

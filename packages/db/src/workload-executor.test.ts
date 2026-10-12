@@ -128,3 +128,77 @@ test('lazy statements and complete transactions share one executor without neste
     expected: [7, 9, 1],
   });
 });
+
+test('captured transaction method closures refuse execution after settlement', async () => {
+  const { workloadDatabase } = await import('./workload-executor');
+  let called = 0;
+  const raw = {
+    transaction: async (
+      work: (tx: {
+        execute: () => Promise<number>;
+        select: () => unknown;
+      }) => Promise<void>,
+    ) => work({ execute: async () => ++called, select: () => ++called }),
+  };
+  const db = workloadDatabase(
+    raw,
+    createWorkloadExecutor({ control: 1 }),
+    'control',
+  );
+  let execute!: () => Promise<number>, select!: () => unknown;
+  await db.transaction(async (tx) => {
+    execute = tx.execute;
+    select = tx.select;
+  });
+  for (const method of [execute, select])
+    await assertRejects({
+      given: 'a captured child method closure after commit',
+      should: 'refuse at invocation before calling the driver',
+      actual: method,
+      code: 'INFRASTRUCTURE',
+    });
+  assert({
+    given: 'expired captured closures',
+    should: 'perform no database work',
+    actual: called,
+    expected: 0,
+  });
+});
+
+test('an eager native Promise is admitted before invocation and remains counted until settlement', async () => {
+  const { workloadDatabase } = await import('./workload-executor');
+  const held = deferred();
+  let calls = 0;
+  const db = workloadDatabase(
+    {
+      select: () => {
+        calls++;
+        return held.promise;
+      },
+    },
+    createWorkloadExecutor({ social: 1 }),
+    'social',
+  );
+  const first = db.select();
+  await assertRejects({
+    given: 'a native Promise still running',
+    should: 'refuse before invoking a second eager operation',
+    actual: () => db.select(),
+    code: 'INFRASTRUCTURE',
+  });
+  assert({
+    given: 'saturated eager work',
+    should: 'invoke the raw entry point once',
+    actual: calls,
+    expected: 1,
+  });
+  held.resolve();
+  await first;
+  await db.select();
+  assert({
+    given: 'actual native work settled',
+    should: 'release capacity for the next invocation',
+    actual: calls,
+    expected: 2,
+  });
+});
