@@ -250,7 +250,6 @@ export function createObservationRuntime({
         },
       };
     },
-    invalidate: (dependencyKey: string) => sessions.invalidate(dependencyKey),
     stats: () => ({ node: node.stats(), sessions: sessions.stats() }),
     async close() {
       if (closed) return;

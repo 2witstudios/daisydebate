@@ -118,8 +118,8 @@ test('an observed control fences delivery immediately until fresh admission', as
   const tab = await fixture.admitted();
   fixture.snapshot(2);
   await fixture.flush();
-  fixture.sessions.invalidate('unrelated-key');
-  fixture.sessions.invalidate('account-x');
+  fixture.sessions.revokeSession('a'.repeat(24), 'x'.repeat(24));
+  fixture.sessions.revokeSession('a'.repeat(24), 's'.repeat(24));
   fixture.snapshot(3);
   await fixture.flush();
   const fenced = summary(tab.frames);
@@ -128,7 +128,8 @@ test('an observed control fences delivery immediately until fresh admission', as
   fixture.snapshot(4, base(2));
   await fixture.flush();
   assert({
-    given: 'a dependency control during delivery, then a new disclosure base',
+    given:
+      'another session revoked, then this session revoked during delivery, then a new disclosure base',
     should:
       'hide and fence the old permit, then rebind with a new generation and the new base',
     actual: { fenced, final: summary(tab.frames).slice(fenced.length) },
@@ -181,7 +182,7 @@ test('a renewal read in flight across a control cannot restore delivery', async 
   fixture.advance(2500);
   fixture.sessions.renewDue();
   await fixture.flush();
-  fixture.sessions.invalidate('account-x');
+  fixture.sessions.revokeSession('a'.repeat(24), null);
   fixture.renews[0]!.resolve([fixture.allowed()]);
   await fixture.flush();
   fixture.snapshot(2);
@@ -221,5 +222,30 @@ test('a session control fences only that session until fresh admission', async (
       revoked: ['ready:1', 'state:unavailable', 'state:denied'],
       other: ['ready:1', 'snapshot:1:2'],
     },
+  });
+});
+
+test('a session control during an in-flight admission refuses its grant', async () => {
+  const fixture = sessionsFixture();
+  const tab = fixture.socket();
+  tab.connection.observe(request);
+  await fixture.flush();
+  fixture.sessions.revokeSession('a'.repeat(24), 's'.repeat(24));
+  fixture.admits[0]!.resolve([fixture.allowed()]);
+  await fixture.flush();
+  fixture.snapshot(2);
+  await fixture.flush();
+  assert({
+    given:
+      'session.revoked arriving while the first canonical admission is pending',
+    should: 'install nothing from the stale read and await a fresh admission',
+    actual: {
+      delivered: summary(tab.frames).filter(
+        (frame) => frame !== 'state:unavailable',
+      ),
+      readmissions: fixture.admits.length,
+      bindings: fixture.node.stats().bindings,
+    },
+    expected: { delivered: [], readmissions: 2, bindings: 0 },
   });
 });

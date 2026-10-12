@@ -15,7 +15,6 @@ import { createObservationAuthorityScheduler } from './observation-authority-sch
 import type { ObservationSnapshot } from './observation-node';
 import {
   bindingKey,
-  dependsOn,
   detach,
   encodeObservationSnapshot,
   evidenceExpiry,
@@ -261,13 +260,6 @@ export function createObservationSessions({
         else if (evidenceExpiry(grant) - at <= renewWithinMs) due.push(binding);
       }
       scheduler.renew(due);
-    },
-    /** Observed controls fence dependent permits immediately and recheck them. */
-    invalidate(dependencyKey: string) {
-      for (const binding of bindings.values()) {
-        const grant = binding.permit.grant();
-        if (grant && dependsOn(grant, dependencyKey)) fence(binding);
-      }
     },
     /** A durable session revocation fences that session's (or actor's) bindings. */
     revokeSession(actorId: string, sessionId: string | null) {

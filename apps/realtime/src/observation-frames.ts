@@ -38,10 +38,6 @@ export const evidenceExpiry = (grant: ObservationGrant) =>
     grant.cohort.expiresAt,
     grant.entitlement.expiresAt,
   );
-export const dependsOn = (grant: ObservationGrant, key: string) =>
-  [grant.subject, grant.cohort, grant.entitlement].some((part) =>
-    part.dependencies.some((dependency) => dependency.key === key),
-  );
 export const bindingKey = (principal: Principal, request: Request) =>
   JSON.stringify([
     principal.userId,
