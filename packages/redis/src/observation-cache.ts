@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import {
   observationBaseKey,
+  observationBaseSchema,
   observationResourceKey,
   observationHeaderSchema,
   observationFrameBytes,
@@ -68,21 +69,47 @@ redis.call('PEXPIRE', KEYS[3], ARGV[4])
 redis.call('PUBLISH', KEYS[5], ARGV[5])
 return 1
 `);
+const reapDemand = `
+local rows = redis.call('HGETALL', KEYS[4])
+for index = 1, #rows, 2 do
+ local value = cjson.decode(rows[index + 1])
+ if tonumber(value.expiresAt) <= now then
+  redis.call('HDEL', KEYS[4], rows[index])
+  local revision = redis.call('HGET', KEYS[5], 'head:' .. rows[index])
+  if revision then redis.call('HDEL', KEYS[5], 'head:' .. rows[index], 'body:' .. rows[index] .. ':' .. revision) end
+ end
+end
+`;
 const interestScript = defineScript(`
 local time = redis.call('TIME')
 local now = tonumber(time[1]) * 1000 + math.floor(tonumber(time[2]) / 1000)
 redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', now)
 if not redis.call('ZSCORE', KEYS[1], ARGV[1]) and redis.call('ZCARD', KEYS[1]) >= 128 then return 0 end
-redis.call('ZADD', KEYS[1], now + tonumber(ARGV[2]), ARGV[1])
-redis.call('PEXPIRE', KEYS[1], ARGV[2])
 local expired = redis.call('ZRANGEBYSCORE', KEYS[3], '-inf', now, 'LIMIT', 0, 128)
 for _, resource in ipairs(expired) do redis.call('ZREM', KEYS[2], resource); redis.call('ZREM', KEYS[3], resource) end
 if not redis.call('ZSCORE', KEYS[2], ARGV[3]) and redis.call('ZCARD', KEYS[2]) >= 10000 then return 0 end
+${reapDemand}
+local added = 0
+for index = 4, #ARGV, 2 do if redis.call('HEXISTS', KEYS[4], ARGV[index]) == 0 then added = added + 1 end end
+if redis.call('HLEN', KEYS[4]) + added > 64 then return 0 end
+for index = 4, #ARGV, 2 do redis.call('HSET', KEYS[4], ARGV[index], cjson.encode({base=cjson.decode(ARGV[index+1]),expiresAt=now+tonumber(ARGV[2])})) end
+redis.call('PEXPIRE', KEYS[4], ARGV[2])
+redis.call('ZADD', KEYS[1], now + tonumber(ARGV[2]), ARGV[1])
+redis.call('PEXPIRE', KEYS[1], ARGV[2])
 redis.call('ZADD', KEYS[2], 'NX', now, ARGV[3])
 redis.call('ZADD', KEYS[3], now + tonumber(ARGV[2]), ARGV[3])
 redis.call('PEXPIRE', KEYS[2], 60000)
 redis.call('PEXPIRE', KEYS[3], 60000)
 return 1
+`);
+const readDemandScript = defineScript(`
+local time = redis.call('TIME')
+local now = tonumber(time[1]) * 1000 + math.floor(tonumber(time[2]) / 1000)
+${reapDemand}
+local rows = redis.call('HVALS', KEYS[4])
+local result = {}
+for _, row in ipairs(rows) do table.insert(result, cjson.encode(cjson.decode(row).base)) end
+return result
 `);
 const discoverScript = defineScript(`
 local time = redis.call('TIME')
@@ -346,8 +373,20 @@ export function createObservationCacheOperations({
     async demandObservation(
       resource: ObservationResource,
       nodeIncarnation: string,
+      bases: readonly ObservationBase[] = [],
     ) {
       const key = observationResourceKey(resource);
+      if (
+        bases.length > 64 ||
+        new Set(bases.map(baseDigest)).size !== bases.length ||
+        bases.some(
+          (base) =>
+            observationResourceKey(
+              observationBaseSchema.parse(base).resource,
+            ) !== key,
+        )
+      )
+        throw new Error('Invalid observation demand');
       return (
         Number(
           await script(
@@ -357,11 +396,46 @@ export function createObservationCacheOperations({
               redisKey(namespace, 'observation', key, 'interest'),
               redisKey(namespace, 'observation', 'due'),
               redisKey(namespace, 'observation', 'live'),
+              redisKey(namespace, 'observation', key, 'demand'),
+              keys(resource)[3]!,
             ],
-            [segment(nodeIncarnation), '5000', key],
+            [
+              segment(nodeIncarnation),
+              '5000',
+              key,
+              ...bases.flatMap((base) => [
+                baseDigest(base),
+                JSON.stringify(base),
+              ]),
+            ],
           ),
         ) === 1
       );
+    },
+    async readObservationDemand(
+      resource: ObservationResource,
+    ): Promise<readonly ObservationBase[]> {
+      const key = observationResourceKey(resource);
+      const result = await script(
+        'readObservationDemand',
+        readDemandScript,
+        [
+          redisKey(namespace, 'observation', key, 'interest'),
+          redisKey(namespace, 'observation', 'due'),
+          redisKey(namespace, 'observation', 'live'),
+          redisKey(namespace, 'observation', key, 'demand'),
+          keys(resource)[3]!,
+        ],
+        [],
+      );
+      if (!Array.isArray(result) || result.length > 64)
+        throw new Error('Invalid observation demand result');
+      return result.map((value) => {
+        const base = observationBaseSchema.parse(JSON.parse(String(value)));
+        if (observationResourceKey(base.resource) !== key)
+          throw new Error('Invalid observation demand resource');
+        return base;
+      });
     },
     async discoverObservations(limit: number): Promise<readonly string[]> {
       if (!Number.isSafeInteger(limit) || limit < 1 || limit > 128)

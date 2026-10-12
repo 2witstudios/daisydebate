@@ -111,3 +111,41 @@ test('cached ACK never grants a new listener another full lifetime', () => {
     expected: { remaining: 25, expired: 0 },
   });
 });
+
+test('equivalent window property order cannot break ACK correlation', () => {
+  const sent: { id: string }[] = [];
+  let ready = 0;
+  const subscriptions = createObservationSubscriptions({
+    now: () => 0,
+    send: (frame) => sent.push(frame as { id: string }),
+  });
+  const resource = { kind: 'channel', id: 'a'.repeat(24) } as const;
+  subscriptions.observe(
+    { resource, window: { limit: 50, after: null } },
+    () => {
+      ready++;
+    },
+  );
+  subscriptions.emit({
+    v: 1 as never,
+    type: 'observation.ready',
+    id: sent[0]!.id,
+    generation: 0,
+    base: {
+      schema: 1,
+      resource,
+      window: { after: null, limit: 50 },
+      partition: { kind: 'shared', policyKey: 'v1' },
+      disclosureRevision: 1,
+    },
+    minimumContentRevision: 1,
+    validForMs: 100,
+  });
+  assert({
+    given:
+      'semantically equal normalized windows with different property order',
+    should: 'correlate by values rather than serialization order',
+    actual: ready,
+    expected: 1,
+  });
+});

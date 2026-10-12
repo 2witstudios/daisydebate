@@ -81,6 +81,7 @@ export function createObservationWorker({
       const snapshot = await build(base, header);
       if (
         !current(owner) ||
+        !owner.variants.has(key) ||
         snapshot.header.disclosureRevision !== base.disclosureRevision ||
         snapshot.header.purgeGeneration !== header.purgeGeneration
       )
@@ -103,31 +104,63 @@ export function createObservationWorker({
       });
     jobs.set(key, work);
   }
+  function demand(base: ObservationBase) {
+    if (closed) throw new Error('Observation worker disposed');
+    const key = observationResourceKey(base.resource);
+    let owner = owners.get(key);
+    if (!owner) {
+      if (owners.size >= 64)
+        throw new Error('Observation owner capacity exceeded');
+      owner = {
+        resource: base.resource,
+        token: nextToken(),
+        generation,
+        expiresAt: 0,
+        variants: new Map(),
+        delivered: new Map(),
+        dirtySince: new Map(),
+      };
+      owners.set(key, owner);
+    }
+    if (
+      !owner.variants.has(observationBaseKey(base)) &&
+      owner.variants.size >= 64
+    )
+      throw new Error('Observation variant capacity exceeded');
+    owner.variants.set(observationBaseKey(base), base);
+  }
   return {
-    demand(base: ObservationBase) {
+    demand,
+    async replaceDemand(
+      resource: ObservationResource,
+      bases: readonly ObservationBase[],
+    ) {
       if (closed) throw new Error('Observation worker disposed');
-      const key = observationResourceKey(base.resource);
-      let owner = owners.get(key);
-      if (!owner) {
-        if (owners.size >= 64)
-          throw new Error('Observation owner capacity exceeded');
-        owner = {
-          resource: base.resource,
-          token: nextToken(),
-          generation,
-          expiresAt: 0,
-          variants: new Map(),
-          delivered: new Map(),
-          dirtySince: new Map(),
-        };
-        owners.set(key, owner);
-      }
+      const resourceKey = observationResourceKey(resource);
       if (
-        !owner.variants.has(observationBaseKey(base)) &&
-        owner.variants.size >= 64
+        bases.length > 64 ||
+        bases.some(
+          (base) => observationResourceKey(base.resource) !== resourceKey,
+        )
       )
-        throw new Error('Observation variant capacity exceeded');
-      owner.variants.set(observationBaseKey(base), base);
+        throw new Error('Invalid observation resource demand');
+      const owner = owners.get(resourceKey);
+      if (!bases.length) {
+        if (owner) {
+          owners.delete(resourceKey);
+          await cache.release(resource, owner.token);
+        }
+        return;
+      }
+      const active = new Set(bases.map(observationBaseKey));
+      if (owner)
+        for (const key of owner.variants.keys())
+          if (!active.has(key)) {
+            owner.variants.delete(key);
+            owner.delivered.delete(key);
+            owner.dirtySince.delete(key);
+          }
+      for (const base of bases) demand(base);
     },
     async reconcile() {
       if (!eligible || closed || reconciling) return;
@@ -158,14 +191,21 @@ export function createObservationWorker({
             )
           )
             continue;
-          if (!(await cache.prepare(header, owner.token)) || !current(owner))
+          if (!(await cache.prepare(header, owner.token)) || !current(owner)) {
+            if (owners.get(observationResourceKey(owner.resource)) === owner)
+              owners.delete(observationResourceKey(owner.resource));
             continue;
+          }
           // A successful current-state read is useful progress; heartbeat alone is not.
           if (
-            (await cache.claim(owner.resource, owner.token)) &&
-            current(owner)
-          )
-            owner.expiresAt = now() + 2000;
+            !(await cache.claim(owner.resource, owner.token)) ||
+            !current(owner)
+          ) {
+            if (owners.get(observationResourceKey(owner.resource)) === owner)
+              owners.delete(observationResourceKey(owner.resource));
+            continue;
+          }
+          owner.expiresAt = now() + 2000;
           for (const [key, base] of owner.variants) {
             if (base.disclosureRevision !== header.disclosureRevision) continue;
             if (!(await cache.ready(base, header))) owner.delivered.delete(key);
@@ -176,8 +216,10 @@ export function createObservationWorker({
             start(owner, base, header);
           }
         }
-      } catch(error) {
-        generation++;owners.clear();throw error;
+      } catch (error) {
+        generation++;
+        owners.clear();
+        throw error;
       } finally {
         reconciling = false;
       }

@@ -49,7 +49,7 @@ export function createObservationProvider({
   function expired(entry: Interest) {
     if (scheduler.now() < entry.expiresAt) return false;
     clearTimer(entry);
-    entry.store.unavailable();
+    if (entry.store.read().status !== 'unavailable') entry.store.unavailable();
     return true;
   }
   function receive(entry: Interest, frame: ObservationServerMessage) {
@@ -66,12 +66,12 @@ export function createObservationProvider({
     if (frame.type === 'observation.ready') {
       clearTimer(entry);
       entry.generation = frame.generation;
+      entry.expiresAt = scheduler.now() + frame.validForMs;
       entry.attempt = entry.store.begin();
       entry.store.authorize(entry.attempt, {
         partition: observationBaseKey(frame.base),
         disclosureRevision: frame.base.disclosureRevision,
       });
-      entry.expiresAt = scheduler.now() + frame.validForMs;
       entry.timer = scheduler.setTimeout(() => {
         expired(entry);
       }, frame.validForMs);
@@ -151,7 +151,15 @@ export function createObservationProvider({
       }
       let released = false;
       return {
-        read: () => current.store.read() as ObservationState<T>,
+        read: () => {
+          if (
+            current.expiresAt > 0 &&
+            current.store.read().status !== 'denied' &&
+            current.store.read().status !== 'disposed'
+          )
+            expired(current);
+          return current.store.read() as ObservationState<T>;
+        },
         subscribe: current.store.subscribe,
         close() {
           if (released) return;

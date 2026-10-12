@@ -60,7 +60,10 @@ const readingPolicy: ObservationReadingPolicy = ({
   policyKey: channel.policyKey,
   policyRevision: channel.policyRevision,
   authorityRevision: channel.revision,
-  relationshipRevision: 2,
+  relationshipRevision:
+    channel.authority.kind === 'dm'
+      ? channel.authority.revision
+      : channel.authority.generation,
   allowed: accounts.every((row) => row.account.member && !row.account.erased),
   evaluatedAt: now,
   validUntil: '2026-11-01T00:00:00.000Z',
@@ -70,6 +73,67 @@ const readingPolicy: ObservationReadingPolicy = ({
     accountRevision: row.account.revision,
     ageRevision: row.age.state === 'known' ? row.age.revision : null,
   })),
+});
+test('approved unknown-age reading follows canonical authority', () => {
+  const decide = createObservationAuthorityDecision({ readingPolicy });
+  const result = decide({
+    ...context,
+    socialAccounts: accounts.map((row) => ({
+      ...row,
+      age: { state: 'unknown' } as const,
+    })),
+  });
+  assert({
+    given:
+      'canonical reading policy approves current accounts with unknown ages',
+    should: 'allow observation without inventing a posting restriction',
+    actual: result.status,
+    expected: 'allowed',
+  });
+});
+test('private group grant generations are independent evidence', () => {
+  const decide = createObservationAuthorityDecision({ readingPolicy });
+  const group = {
+    ...fact,
+    policyKey: 'social.private_group',
+    authority: {
+      kind: 'private_group',
+      actorId: actor,
+      role: 'member',
+      generation: 1,
+      activeMemberActorIds: [actor, peer],
+    },
+  } as const;
+  const first = decide({ ...context, resourceFact: group });
+  const second = decide({
+    ...context,
+    resourceFact: {
+      ...group,
+      authority: { ...group.authority, generation: 2 },
+    },
+  });
+  assert({
+    given:
+      'a current group grant changes generation with unchanged channel/content identity',
+    should: 'change evidence without partitioning identical bytes',
+    actual: {
+      statuses: [first.status, second.status],
+      changed:
+        first.status === 'allowed' &&
+        second.status === 'allowed' &&
+        JSON.stringify(first.dependencies) !==
+          JSON.stringify(second.dependencies),
+      sameBase:
+        first.status === 'allowed' &&
+        second.status === 'allowed' &&
+        JSON.stringify(first.partition) === JSON.stringify(second.partition),
+    },
+    expected: {
+      statuses: ['allowed', 'allowed'],
+      changed: true,
+      sameBase: true,
+    },
+  });
 });
 test('peer policy facts invalidate evidence without changing shared identity', () => {
   const decide = createObservationAuthorityDecision({ readingPolicy });

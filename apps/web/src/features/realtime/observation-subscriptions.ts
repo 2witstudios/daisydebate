@@ -119,8 +119,8 @@ export function createObservationSubscriptions({
         if (
           frame.base.resource.kind !== entry.descriptor.resource.kind ||
           frame.base.resource.id !== entry.descriptor.resource.id ||
-          JSON.stringify(frame.base.window) !==
-            JSON.stringify(entry.descriptor.window)
+          frame.base.window.after !== entry.descriptor.window.after ||
+          frame.base.window.limit !== entry.descriptor.window.limit
         )
           return;
         entry.generation = frame.generation;

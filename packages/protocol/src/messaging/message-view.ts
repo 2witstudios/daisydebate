@@ -1,6 +1,17 @@
-import type { MessagingMessageRecord } from '@daisy/db/messaging';
+type MessageProjectionRecord = {
+  readonly id: string;
+  readonly channelId: string;
+  readonly authorActorId: string;
+  readonly sequence: number;
+  readonly changeVersion: number;
+  readonly text: string | null;
+  readonly createdAt: string;
+  readonly editedAt: string | null;
+  readonly removedAt: string | null;
+  readonly replyToMessageId?: string;
+};
 
-export function messagingMessageView(message: MessagingMessageRecord) {
+export function messagingMessageView(message: MessageProjectionRecord) {
   const { id, channelId, sequence, changeVersion } = message;
   if (message.text === null || message.removedAt !== null)
     return {
