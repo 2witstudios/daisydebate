@@ -34,6 +34,7 @@ export const eventRegistry = {
   'realtime.outbox.delivery_lag_estimated': 'info',
   'realtime.connection.rejected': 'info',
   'db.query.failed': 'error',
+  'db.capacity.refused': 'warn',
   'retention.sweep.completed': 'info',
   'retention.sweep.failed': 'error',
   'redis.command.failed': 'error',

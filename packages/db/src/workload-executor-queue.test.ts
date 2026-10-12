@@ -2,30 +2,9 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { createWorkloadExecutor } from './workload-admission';
 import { workloadDatabase } from './workload-executor';
-import { deferred } from './workload-executor.test-support';
+import { deferred, manualTimers } from './workload-executor.test-support';
 
 setupRitewayBun();
-
-/** Manual timers: waits expire only when the test fires them. */
-const manualTimers = () => {
-  const pending = new Map<number, () => void>();
-  let next = 0;
-  return {
-    timers: {
-      setTimeout: (callback: () => void) => {
-        pending.set(++next, callback);
-        return next;
-      },
-      clearTimeout: (id: number) => void pending.delete(id),
-    },
-    fire: () => {
-      const callbacks = [...pending.values()];
-      pending.clear();
-      for (const callback of callbacks) callback();
-    },
-    size: () => pending.size,
-  };
-};
 
 test('saturated work waits in a bounded FIFO queue and receives settled slots in order', async () => {
   const clock = manualTimers();
