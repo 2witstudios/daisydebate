@@ -234,6 +234,15 @@
       "adr": "docs/decisions/0057-planned-readers.md",
       "reason": "Committed subscription authority runtime reader ndmxryde16cuwbgky582fduv consumes fixed named admission/renewal methods; original-start independent evidence is proven before native cutover. Declaration does not approve the five-second owner policy.",
       "reviewBy": "2026-10-16"
+    },
+    {
+      "path": "apps/realtime/src/observation-clock.ts",
+      "export": "createObservationClock",
+      "task": "RT-2.5c-arch1",
+      "owner": "ag-ip1hv1dv",
+      "adr": "docs/decisions/0057-planned-readers.md",
+      "reason": "Committed native observation runtime reader ndmxryde16cuwbgky582fduv composes the independent monotonic/wall envelope with ownership and permits; production clock/suspend measurement remains an explicit adoption gate.",
+      "reviewBy": "2026-10-16"
     }
   ]
 }
