@@ -1,6 +1,8 @@
 import { assert, test } from 'riteway/bun';
+import { requireTestServices } from '@daisy/config';
 import { redisSuite, withRedis } from './test-support';
 import type { ObservationBase } from '@daisy/protocol';
+requireTestServices(process.env);
 const env = redisSuite();
 const resource = { kind: 'channel', id: 'a'.repeat(24) } as const;
 const base: ObservationBase = {
