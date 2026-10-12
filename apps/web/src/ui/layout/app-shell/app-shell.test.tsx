@@ -11,110 +11,167 @@ const member: ShellAccount = { state: 'member', username: 'ada-byron' };
 const render = (account: ShellAccount = { state: 'anonymous' }): string =>
   renderInStore(h(AppShell, { account, children: h('p', null, 'page') }));
 
+/** The markup of the rail (the first nav) or the tab bar (the second). */
+const navs = (html: string): readonly [string, string] => {
+  const [, rail = '', bar = ''] = html.split('<nav');
+  return [rail, bar];
+};
+
+const hrefsOf = (html: string): readonly string[] =>
+  [...html.matchAll(/href="([^"]*)"/g)].map((match) => match[1] ?? '');
+
 describe('AppShell', () => {
-  test('owns the single main landmark, under one top bar', () => {
-    const html = render();
-    const signedIn = render(member);
+  test('owns the single main landmark beside one rail, with no top bar or side columns', () => {
+    const html = render(member);
     assert({
-      given:
-        'the shell for a visitor and a member, with the root layout rendering no landmark of its own',
+      given: 'the shell for a member',
       should:
-        'render the top bar first, then one primary nav and one main, and the friends rail only for the member',
+        'render the rail, one main and the phone tab bar, both navs named Primary, and no header, aside or collapse control',
       actual: [
-        occurrences(html, '<header'),
-        html.indexOf('<header') < html.indexOf('<nav'),
         occurrences(html, '<nav'),
+        (html.match(/<nav[^>]* aria-label="Primary"/g) ?? []).length,
         occurrences(html, '<main'),
+        occurrences(html, '<header'),
         occurrences(html, '<aside'),
-        occurrences(signedIn, '<aside'),
+        /Collapse|Expand/.test(html),
+        html.indexOf('<nav') < html.indexOf('<main'),
       ],
-      expected: [1, true, 1, 1, 0, 1],
+      expected: [2, 2, 1, 0, 0, false, true],
     });
   });
 
-  test('names its landmarks', () => {
-    const html = render();
-    assert({
-      given: 'the shell landmarks',
-      should: 'label the navigation "Primary"',
-      actual: /<nav[^>]* aria-label="Primary"/.test(html),
-      expected: true,
-    });
-  });
-
-  test('places the page in the content column, with no topic banner', () => {
+  test('places the page in the content column', () => {
     const html = render();
     const main = html.slice(html.indexOf('<main'), html.indexOf('</main>'));
     assert({
       given: 'page content',
-      should: "render the page inside main and no today's topic anywhere",
-      actual: [
-        main.includes('<p>page</p>'),
-        html.includes('Today&#x27;s topic') || html.includes('Today’s topic'),
-        html.includes('Join the discussion'),
-      ],
-      expected: [true, false, false],
+      should: 'render the page inside main',
+      actual: main.includes('<p>page</p>'),
+      expected: true,
     });
   });
 
-  test('has no right column any more', () => {
-    const html = render();
+  test('the rail: logo, eight destinations and More, then the member places', () => {
+    const [rail] = navs(render(member));
     assert({
-      given: 'the shell',
-      should: 'carry no community rail',
-      actual: html.includes('aria-label="Community"'),
-      expected: false,
-    });
-  });
-
-  test('the brand and the account live in the top bar, outside the columns', () => {
-    const visitor = render();
-    const signedIn = render(member);
-    const bar = (html: string) =>
-      html.slice(html.indexOf('<header'), html.indexOf('</header>'));
-    assert({
-      given: 'a visitor and a member',
+      given: 'a member',
       should:
-        'put the brand and the way in or the account in the top bar, and the friends rail only for the member',
+        'link home from the logo, then the destinations and More in order, then Messages, Notifications, Friends and the profile',
       actual: [
-        bar(visitor).includes('aria-label="Daisy Debate home"'),
-        bar(visitor).includes('href="/sign-in"'),
-        bar(signedIn).includes('aria-label="Account settings for ada-byron"'),
-        bar(signedIn).includes('href="/notifications"'),
-        visitor.includes('id="social-rail"'),
-        signedIn.includes('id="social-rail"'),
+        rail.includes('aria-label="Daisy Debate home"'),
+        hrefsOf(rail).filter(
+          (href) =>
+            !['/recordings', '/help', '/terms', '/privacy'].includes(href),
+        ),
       ],
-      expected: [true, true, true, true, false, true],
+      expected: [
+        true,
+        [
+          '/',
+          '/',
+          '/play',
+          '/tournaments',
+          '/leaderboard',
+          '/watch',
+          '/watch',
+          '/judge',
+          '/train',
+          '/prep',
+          '/settings',
+          '/settings',
+          '/messages',
+          '/notifications',
+          '/friends',
+          '/profile/ada-byron',
+        ],
+      ],
     });
   });
 
-  test('the page is one sheet set into the frame', () => {
-    const main = (html: string) =>
-      /<main[^>]*class="([^"]*)"/.exec(html)?.[1] ?? '';
+  test('every rail link has a name, counts included', () => {
+    const [rail] = navs(render(member));
     assert({
-      given: 'a visitor and a member',
+      given: "a member's rail",
       should:
-        'round and outline the page against the frame, with a margin on the right only where no rail sits',
+        'name the icon links as screen-reader text, Friends with its online count, and the profile by username',
       actual: [
-        main(render()).includes('rounded-t-xl'),
-        main(render()).includes('mr-3'),
-        main(render(member)).includes('mr-3'),
+        rail.includes('<span class="sr-only">Messages</span>'),
+        rail.includes('<span class="sr-only">Notifications</span>'),
+        /<span class="sr-only">Friends, \d+ online<\/span>/.test(rail),
+        rail.includes('aria-label="Your profile, ada-byron"'),
+        rail.includes('<span class="sr-only">More</span>'),
+        rail.includes('href="/recordings"'),
+        ['/help', '/terms', '/privacy'].every((href) =>
+          rail.includes(`href="${href}"`),
+        ),
       ],
-      expected: [true, true, false],
+      expected: [true, true, true, true, true, true, true],
     });
   });
 
-  test('the grid carries the dock state for the layout', () => {
+  test('a visitor or someone mid sign-up gets the way in, not member places', () => {
+    const [visitor] = navs(render());
+    const [provisional] = navs(render({ state: 'provisional' }));
     assert({
-      given: 'a visitor and a member',
+      given: 'an anonymous visitor and a provisional account',
       should:
-        'mark the visitor as railless, and follow the screen (auto) for the rail and the sidebar',
+        'end the rail with Sign in or Finish sign-up, and no Messages, Notifications or Friends',
       actual: [
-        render().includes('data-dock="none"'),
-        render(member).includes('data-dock="auto"'),
-        render(member).includes('data-nav="auto"'),
+        visitor.includes('href="/sign-in"'),
+        visitor.includes('<span class="sr-only">Sign in</span>'),
+        provisional.includes('href="/onboarding/username"'),
+        ['/messages', '/notifications', '/friends'].some((href) =>
+          visitor.includes(`href="${href}"`),
+        ),
       ],
-      expected: [true, true, true],
+      expected: [true, true, true, false],
+    });
+  });
+
+  test('the phone tab bar: Home, Play, Prep, Inbox and More', () => {
+    const [, bar] = navs(render(member));
+    const [, visitorBar] = navs(render());
+    const summary = bar.slice(bar.indexOf('<summary'));
+    assert({
+      given: 'a member and a visitor on a phone',
+      should:
+        'offer four tab links and a More disclosure, Inbox for the member and Sign in for the visitor',
+      actual: [
+        hrefsOf(bar.slice(0, bar.indexOf('<details'))),
+        hrefsOf(visitorBar.slice(0, visitorBar.indexOf('<details'))),
+        summary.includes('More'),
+      ],
+      expected: [
+        ['/', '/play', '/prep', '/messages'],
+        ['/', '/play', '/prep', '/sign-in'],
+        true,
+      ],
+    });
+  });
+
+  test('More on a phone reaches every destination the tabs leave out', () => {
+    const [, bar] = navs(render(member));
+    const sheet = hrefsOf(bar.slice(bar.indexOf('<details')));
+    assert({
+      given: "a member's More sheet",
+      should:
+        'list the other destinations, Recordings, their places, Settings and the help and legal pages',
+      actual: sheet,
+      expected: [
+        '/tournaments',
+        '/leaderboard',
+        '/watch',
+        '/recordings',
+        '/judge',
+        '/train',
+        '/notifications',
+        '/friends',
+        '/profile/ada-byron',
+        '/settings',
+        '/help',
+        '/terms',
+        '/privacy',
+      ],
     });
   });
 });

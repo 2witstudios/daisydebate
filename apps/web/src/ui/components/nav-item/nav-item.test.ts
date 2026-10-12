@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { matchesRoute } from './nav-item';
+import { itemActive, matchesRoute } from './nav-item';
 
 setupRitewayBun();
 
@@ -21,6 +21,23 @@ describe('matchesRoute', () => {
         matchesRoute('/settings', '/settings'),
         matchesRoute('/settings/security', '/settings'),
         matchesRoute('/settingsx', '/settings'),
+      ],
+      expected: [true, true, false],
+    });
+  });
+
+  test('marks an item active on one of its sub-items', () => {
+    const more = [
+      { href: '/settings', label: 'Settings' },
+      { href: '/help', label: 'Help' },
+    ];
+    assert({
+      given: 'More with Help among its sub-items',
+      should: 'be active on Help and its descendants, not elsewhere',
+      actual: [
+        itemActive('/help', '/settings', more),
+        itemActive('/help/rules', '/settings', more),
+        itemActive('/watch', '/settings', more),
       ],
       expected: [true, true, false],
     });

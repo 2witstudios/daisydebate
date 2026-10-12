@@ -44,24 +44,53 @@ describe('nav-item presentation', () => {
     });
   });
 
-  test('keeps its label in the accessibility tree at compact widths', () => {
+  test('names an icon-only link with screen-reader text and a tooltip', () => {
     const html = String(
       renderToString(
         h(renderNavItem, {
-          href: '/train',
-          icon: 'bolt',
-          label: 'Train',
+          href: '/friends',
+          icon: 'users',
+          label: 'Friends, 4 online',
+          title: 'Friends',
           active: false,
+          badge: h('span', { 'aria-hidden': true }, '4'),
         }),
       ),
     );
     assert({
-      given:
-        'a link whose icon is aria-hidden and whose label is visually hidden in icons-only mode',
+      given: 'a rail link with a count in its name and a short tooltip',
       should:
-        'keep the label readable to assistive tech (sr-only), never display:none it',
-      actual: [html.includes('icons:sr-only'), html.includes('icons:hidden')],
-      expected: [true, false],
+        'keep the full name readable to assistive tech (sr-only), the short label as its title, and the badge decorative',
+      actual: [
+        html.includes('<span class="sr-only">Friends, 4 online</span>'),
+        html.includes('title="Friends"'),
+        html.includes('<span aria-hidden="true">4</span>'),
+      ],
+      expected: [true, true, true],
+    });
+  });
+
+  test('reveals sub-navigation beside the link', () => {
+    const html = String(
+      renderToString(
+        h(renderNavItem, {
+          href: '/watch',
+          icon: 'eye',
+          label: 'Watch',
+          active: false,
+          subItems: [{ href: '/recordings', label: 'Recordings' }],
+        }),
+      ),
+    );
+    assert({
+      given: 'a rail link with sub-items',
+      should:
+        'render each sub-item as a link in a flyout, tooltip defaulting to the label',
+      actual: [
+        html.includes('href="/recordings"'),
+        html.includes('title="Watch"'),
+      ],
+      expected: [true, true],
     });
   });
 });
