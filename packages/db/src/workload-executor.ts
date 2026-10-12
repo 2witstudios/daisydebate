@@ -214,8 +214,27 @@ export function workloadDatabase<T extends object>(
       return Reflect.apply(bound, undefined, args);
     };
   };
+  const refuseMutation = () => {
+    throw createAppError(
+      'INFRASTRUCTURE',
+      'Database surface mutation unavailable',
+    );
+  };
   const wrap = (target: object, lease?: Lease): object =>
     new Proxy(target, {
+      defineProperty: refuseMutation,
+      set: refuseMutation,
+      deleteProperty: refuseMutation,
+      setPrototypeOf: refuseMutation,
+      preventExtensions: refuseMutation,
+      getPrototypeOf(object) {
+        if (!Reflect.isExtensible(object))
+          throw createAppError(
+            'INFRASTRUCTURE',
+            'Database prototype unavailable',
+          );
+        return null;
+      },
       get: (object, key) => readMember(object, key, lease),
       getOwnPropertyDescriptor(object, key) {
         const value = readMember(object, key, lease);
