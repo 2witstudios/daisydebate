@@ -43,6 +43,7 @@ export function RoundTabs({
       {tabs.map((tab) => {
         const name = tab === null ? 'Doc' : tabNames[tab];
         const dot = tab === 'chat' && current !== 'chat' && unread > 0;
+        const glyph = icons[tab ?? 'doc'];
         return (
           <button
             key={name}
@@ -55,7 +56,7 @@ export function RoundTabs({
               tab === current ? 'font-strong text-accent' : 'text-ink-muted',
             )}
           >
-            <Icon name={icons[tab ?? 'doc']} size={20} />
+            <Icon name={glyph} size={20} />
             {name}
             {dot ? (
               <span className="absolute top-1 right-1/4 size-2 rounded-round bg-live" />
