@@ -29,7 +29,8 @@ export function createObservationSupervisor<R extends Runtime>({
   let current: R | null = null,
     generation = 0,
     ready = false,
-    closed = false;
+    closed = false,
+    stranded = 0;
   async function launch() {
     const attempt = ++generation;
     const runtime = create(() => uncertain(attempt));
@@ -41,7 +42,14 @@ export function createObservationSupervisor<R extends Runtime>({
       await runtime.close();
       throw error;
     }
-    if (attempt === generation && !closed) ready = true;
+    if (attempt !== generation || closed) return;
+    ready = true;
+    // Sockets that arrived during the gap hold unavailable connections:
+    // close them so they reconnect to the live runtime.
+    if (stranded) {
+      stranded = 0;
+      onRestart();
+    }
   }
   function relaunch() {
     if (closed) return;
@@ -63,7 +71,10 @@ export function createObservationSupervisor<R extends Runtime>({
     start: launch,
     ready: () => ready && !closed,
     connect(...args: Parameters<R['connect']>): ReturnType<R['connect']> {
-      if (!current || !ready) return unavailable(...args);
+      if (!current || !ready) {
+        stranded++;
+        return unavailable(...args);
+      }
       return current.connect(...(args as never[])) as ReturnType<R['connect']>;
     },
     async close() {

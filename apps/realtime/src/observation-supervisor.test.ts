@@ -99,3 +99,45 @@ test('connections arriving while a replacement is not yet live are answered unav
   });
   await supervisor.close();
 });
+
+test('sockets admitted during a replacement are cycled once it is live', async () => {
+  const uncertain: (() => void)[] = [];
+  const restarts: string[] = [];
+  let finish!: () => void;
+  const supervisor = createObservationSupervisor({
+    create: (onUncertainty) => {
+      const id = uncertain.push(onUncertainty);
+      return {
+        start: () =>
+          id === 1
+            ? Promise.resolve()
+            : new Promise<void>((resolve) => {
+                finish = resolve;
+              }),
+        close: async () => {},
+        connect: () => `runtime-${id}`,
+      };
+    },
+    unavailable: () => 'unavailable',
+    onRestart: () => restarts.push('sockets-closed'),
+    retry: () => {},
+  });
+  await supervisor.start();
+  uncertain[0]!();
+  await settle();
+  const during = supervisor.connect();
+  finish();
+  await settle();
+  assert({
+    given: 'a socket connecting while the replacement start is still in flight',
+    should:
+      'answer it unavailable, then close sockets again once live so it reconnects to the live runtime',
+    actual: { during, restarts, after: supervisor.connect() },
+    expected: {
+      during: 'unavailable',
+      restarts: ['sockets-closed', 'sockets-closed'],
+      after: 'runtime-2',
+    },
+  });
+  await supervisor.close();
+});

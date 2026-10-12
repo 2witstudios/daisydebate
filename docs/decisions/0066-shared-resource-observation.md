@@ -91,8 +91,11 @@ omitted overlay means unchanged, so steady renewals cost no overlay egress.
 Bounds: the channel overlay schema allows at most 400 own reactions of at
 most 16 UTF-16 units, which fits the 64KiB per-binding overlay limit (asserted
 when the protocol loads); web composition refuses a reaction policy with more
-than 8 choices or longer reactions, so a valid deployment cannot produce an
-out-of-schema overlay. Each node retains at most 32MiB of overlays across its
+than 8 choices or longer reactions, so the current policy alone cannot produce
+an out-of-schema overlay. Own reactions retained from an earlier, broader
+policy stay removable and can still exceed the schema; that overlay degrades
+to none (own reactions then show unflagged until they fit again) rather than
+failing delivery. Each node retains at most 32MiB of overlays across its
 bindings (5,000 bindings at the typical few hundred bytes each use well under
 it); past the budget, or past the per-binding limit, an overlay degrades to
 none while shared delivery continues.

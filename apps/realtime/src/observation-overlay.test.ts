@@ -90,3 +90,40 @@ test('retained overlays stay within the node budget', async () => {
     expected: [{ own: ['a'.repeat(60)] }, undefined],
   });
 });
+
+test('a rebind resends the overlay and dropped bindings return their budget', async () => {
+  const fixture = sessionsFixture({ overlayBudgetBytes: 100 });
+  const overlay = { own: ['a'.repeat(60)] };
+  const tab = fixture.socket();
+  tab.connection.observe(request);
+  await fixture.flush();
+  fixture.admits[0]!.resolve([fixture.allowed(base(), dependencies, overlay)]);
+  await fixture.flush();
+  fixture.sessions.revokeSession('a'.repeat(24), null);
+  await fixture.flush();
+  fixture.admits[1]!.resolve([fixture.allowed(base(2), dependencies, overlay)]);
+  await fixture.flush();
+  const rebound = tab.frames
+    .filter((frame) => frame.type === 'observation.ready')
+    .map((frame) => [frame.generation, frame.overlay]);
+  tab.connection.unobserve(request);
+  const next = fixture.socket('n'.repeat(24));
+  next.connection.observe(request);
+  await fixture.flush();
+  fixture.admits[2]!.resolve([fixture.allowed(base(), dependencies, overlay)]);
+  await fixture.flush();
+  assert({
+    given:
+      'an overlay, a fence and readmission onto a new base, then a released binding and a new one within the budget',
+    should:
+      'send the overlay for the new generation and admit the next overlay after the first binding returns its bytes',
+    actual: { rebound, next: next.frames.at(-1)?.overlay },
+    expected: {
+      rebound: [
+        [1, overlay],
+        [2, overlay],
+      ],
+      next: overlay,
+    },
+  });
+});
