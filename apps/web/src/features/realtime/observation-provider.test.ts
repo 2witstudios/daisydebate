@@ -1,0 +1,239 @@
+import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { createObservationProvider } from './observation-provider';
+import type { ObservationServerMessage } from '@daisy/protocol';
+setupRitewayBun();
+for (const disposal of ['provider', 'reader'] as const)
+  test(`reentrant ${disposal} disposal leaves no deadline timer`, () => {
+    let incoming!: (frame: ObservationServerMessage) => void;
+    const timers = new Set<unknown>();
+    const provider = createObservationProvider({
+      connection: {
+        connect: () => {},
+        dispose: () => {},
+        subscribe: () => () => {},
+        observe: (_descriptor, listener) => {
+          incoming = listener;
+          return () => {};
+        },
+      },
+      scheduler: {
+        now: () => 0,
+        setTimeout: (callback) => {
+          timers.add(callback);
+          return callback;
+        },
+        clearTimeout: (id) => {
+          timers.delete(id);
+        },
+      },
+    });
+    const descriptor = {
+      resource: { kind: 'channel', id: 'a'.repeat(24) },
+      window: { after: null, limit: 50 },
+      schema: 'channel-v1',
+      decode: (body: unknown) => (typeof body === 'string' ? body : null),
+    } as const;
+    const reader = provider.observe(descriptor);
+    reader.subscribe(() => {
+      if (reader.read().status === 'pending') {
+        if (disposal === 'provider') provider.dispose();
+        else reader.close();
+      }
+    });
+    incoming({
+      v: 1 as never,
+      type: 'observation.ready',
+      id: 'id',
+      generation: 1,
+      base: {
+        schema: 1,
+        resource: descriptor.resource,
+        window: descriptor.window,
+        partition: { kind: 'shared', policyKey: 'v1' },
+        disclosureRevision: 1,
+      },
+      minimumContentRevision: 1,
+      validForMs: 100,
+    });
+    assert({
+      given: `${disposal} disposal during synchronous pending notification`,
+      should: 'remain disposed without creating timers after final cleanup',
+      actual: { state: reader.read().status, timers: timers.size },
+      expected: { state: 'disposed', timers: 0 },
+    });
+    provider.dispose();
+  });
+test('provider owns one connection, reference counts and final deadline hiding', () => {
+  let now = 0,
+    connects = 0,
+    disposals = 0;
+  const callbacks = new Set<(frame: ObservationServerMessage) => void>(),
+    timers = new Map<number, () => void>();
+  const provider = createObservationProvider({
+    connection: {
+      connect: () => {
+        connects++;
+      },
+      dispose: () => {
+        disposals++;
+      },
+      subscribe: () => () => {},
+      observe: (_descriptor, listener) => {
+        callbacks.add(listener);
+        return () => {
+          callbacks.delete(listener);
+        };
+      },
+    },
+    scheduler: {
+      now: () => now,
+      setTimeout: (cb) => {
+        timers.set(timers.size + 1, cb);
+        return timers.size;
+      },
+      clearTimeout: (id) => {
+        timers.delete(id as number);
+      },
+    },
+  });
+  const descriptor = {
+    resource: { kind: 'channel', id: 'a'.repeat(24) },
+    window: { after: null, limit: 50 },
+    schema: 'channel-v1',
+    decode: (body: unknown) => (typeof body === 'string' ? body : null),
+  } as const;
+  const first = provider.observe(descriptor),
+    second = provider.observe(descriptor);
+  const base = {
+    schema: 1,
+    resource: descriptor.resource,
+    window: descriptor.window,
+    partition: { kind: 'shared', policyKey: 'v1' },
+    disclosureRevision: 1,
+  } as const;
+  for (const callback of callbacks) {
+    callback({
+      v: 1 as never,
+      type: 'observation.ready',
+      id: 'id',
+      generation: 1,
+      base,
+      minimumContentRevision: 1,
+      validForMs: 100,
+    });
+    callback({
+      v: 1 as never,
+      type: 'observation.snapshot',
+      id: 'id',
+      generation: 1,
+      base,
+      contentRevision: 1,
+      purgeGeneration: 0,
+      body: 'shared',
+    });
+  }
+  first.close();
+  const visible = second.read().content;
+  now = 100;
+  for (const callback of [...timers.values()]) callback();
+  const hidden = second.read().content;
+  provider.dispose();
+  provider.dispose();
+  assert({
+    given: 'two readers and elapsed authority followed by final disposal',
+    should:
+      'share a single connection/interest, hide at deadline, release every resource once',
+    actual: {
+      connects,
+      disposals,
+      visible,
+      hidden,
+      callbacks: callbacks.size,
+      timers: timers.size,
+    },
+    expected: {
+      connects: 1,
+      disposals: 1,
+      visible: 'shared',
+      hidden: null,
+      callbacks: 0,
+      timers: 0,
+    },
+  });
+});
+
+test('correlated reconnect can install a lower generation from a new server incarnation', async () => {
+  const { createObservationSubscriptions } =
+    await import('./observation-subscriptions');
+  const sent: { id: string }[] = [];
+  const subscriptions = createObservationSubscriptions({
+    now: () => 0,
+    send: (frame) => sent.push(frame as { id: string }),
+  });
+  const provider = createObservationProvider({
+    connection: {
+      connect: () => {},
+      dispose: () => subscriptions.dispose(),
+      subscribe: () => () => {},
+      observe: subscriptions.observe,
+    },
+    scheduler: { now: () => 0, setTimeout: () => 0, clearTimeout: () => {} },
+  });
+  const descriptor = {
+    resource: { kind: 'channel', id: 'a'.repeat(24) },
+    window: { after: null, limit: 50 },
+    schema: 'channel-v1',
+    decode: (body: unknown) => (typeof body === 'string' ? body : null),
+  } as const;
+  const reader = provider.observe(descriptor);
+  const base = {
+    schema: 1,
+    resource: descriptor.resource,
+    window: descriptor.window,
+    partition: { kind: 'shared', policyKey: 'v1' },
+    disclosureRevision: 1,
+  } as const;
+  const send = (generation: number, revision: number, body: string) => {
+    const id = sent.at(-1)!.id;
+    subscriptions.emit({
+      v: 1 as never,
+      type: 'observation.ready',
+      id,
+      generation,
+      base,
+      minimumContentRevision: revision,
+      validForMs: 4900,
+    });
+    subscriptions.emit({
+      v: 1 as never,
+      type: 'observation.snapshot',
+      id,
+      generation,
+      base,
+      contentRevision: revision,
+      purgeGeneration: 0,
+      body,
+    });
+  };
+  send(7, 1, 'old');
+  const oldRequest = sent.at(-1)!.id;
+  subscriptions.reconnect();
+  send(0, 2, 'current');
+  subscriptions.emit({
+    v: 1 as never,
+    type: 'observation.snapshot',
+    id: oldRequest,
+    generation: 99,
+    base,
+    contentRevision: 999,
+    purgeGeneration: 0,
+    body: 'stale-incarnation',
+  });
+  assert({
+    given: 'new request ID and a replacement server starting generation zero',
+    should: 'fence the prior request and install current authorized baseline',
+    actual: reader.read().content,
+    expected: 'current',
+  });
+  provider.dispose();
+});

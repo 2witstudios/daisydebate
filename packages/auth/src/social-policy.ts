@@ -66,15 +66,6 @@ function currentAccount(
     row.age.band !== 'under-13'
   );
 }
-function allowsPair(
-  policy: Extract<SocialContactPolicy, { state: 'approved' }>,
-  band: AgeBand,
-  other: AgeBand,
-) {
-  return policy.allowedBandPairs.some(
-    ([a, b]) => (band === a && other === b) || (band === b && other === a),
-  );
-}
 /** No numeric, legal, youth or cross-band defaults. Approved configuration is injected at the edge. */
 export function socialPostingPolicy({
   channel,
@@ -116,14 +107,25 @@ export function socialAccountsEligible(
     !memberSetMatches(members, accounts)
   )
     return false;
-  const current = members.map((actorId) =>
-    accounts.find((row) => row.account.actorId === actorId),
+  const byActor = new Map(accounts.map((row) => [row.account.actorId, row]));
+  const counts = new Map<AgeBand, number>();
+  for (const actorId of members) {
+    const row = byActor.get(actorId);
+    if (!currentAccount(row, instant)) return false;
+    counts.set(row.age.band, (counts.get(row.age.band) ?? 0) + 1);
+  }
+  const approved = new Set(
+    policy.allowedBandPairs.flatMap(([a, b]) => [`${a}:${b}`, `${b}:${a}`]),
   );
-  const valid = current.filter((row) => currentAccount(row, instant));
-  if (valid.length !== current.length) return false;
-  const bands = valid.map((row) => row.age.band);
-  return bands.every((band, i) =>
-    bands.slice(i + 1).every((other) => allowsPair(policy, band, other)),
+  const distinct = [...counts.keys()];
+  return distinct.every((band, i) =>
+    distinct
+      .slice(i)
+      .every(
+        (other) =>
+          (band === other && counts.get(band) === 1) ||
+          approved.has(`${band}:${other}`),
+      ),
   );
 }
 

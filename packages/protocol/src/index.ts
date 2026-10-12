@@ -20,6 +20,7 @@ export type {
 } from './primitives';
 export {
   MAX_FORMAT_SEATS,
+  MAX_FORMAT_SEGMENTS,
   formatSeatsSchema,
   formatDefinitionSchema,
   roundRulesSchema,
@@ -155,6 +156,11 @@ export type {
 
 // Persistent messaging contracts; bounds come from the owning policy.
 export { createMessagingCoreSchemas } from './messaging/core';
+export { messagingMessageView } from './messaging/message-view';
+export {
+  createObservationChannelBody,
+  observationProjectionRowBytes,
+} from './messaging/observation-channel';
 export type { MessagingCoreBounds } from './messaging/core';
 export {
   createMessagingSocialSchemas,
@@ -197,3 +203,31 @@ export {
   createMessagingReactionSchemas,
   type MessagingReactionPolicy,
 } from './messaging/reactions';
+export {
+  observationResourceSchema,
+  observationPartitionSchema,
+  observationWindowSchema,
+  observationBaseSchema,
+  observationHeaderSchema,
+  observationResourceKey,
+  observationBaseKey,
+  observationFrameBytes,
+  createObservationSnapshotSchema,
+  type ObservationResource,
+  type ObservationPartition,
+  type ObservationBase,
+  type ObservationHeader,
+  type ObservationDependency,
+  type ObservationAuthorityDecision,
+} from './observation';
+export {
+  observationClientMessageSchema,
+  observationServerMessageSchema,
+  type ObservationClientMessage,
+  type ObservationServerMessage,
+} from './observation-messages';
+export {
+  observationDescriptorSchema,
+  type ObservationDescriptor,
+  type ObservationWindow,
+} from './observation';

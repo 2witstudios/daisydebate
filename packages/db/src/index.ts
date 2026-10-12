@@ -1,3 +1,13 @@
+import { guardedObservationHeaders } from './observation-header-operation';
+import { createObservationProjectionOperations } from './observation-projection';
+import { createObservationAuthorityOperations } from './observation-authority';
+import {
+  createWorkloadExecutor,
+  workloadCapacities,
+  workloadQueueOptions,
+  type DatabaseWorkloadProfile,
+} from './workload-admission';
+import { workloadDatabase } from './workload-executor';
 import { createMessagingTypingPrivacyPort } from './privacy/typing-rights';
 import { createMessagingTypingStore } from './messaging/typing-store';
 import { createMessagingPreferenceStore } from './messaging/preference-store';
@@ -103,7 +113,7 @@ export { refuseSchemaAlteringRole } from './runtime-role';
  * resolve — the composition root (the app) injects the engine.
  */
 /** Connections in one process's pool unless a caller asks for another size. */
-export const DEFAULT_MAX_CONNECTIONS = 10;
+export const DEFAULT_MAX_CONNECTIONS = 12;
 
 export function createDatabase({
   url,
@@ -111,9 +121,11 @@ export function createDatabase({
   eventSink,
   client: injectedClient,
   nextActorId,
+  workloadProfile = 'web',
 }: {
   url: string;
   maxConnections?: number;
+  workloadProfile?: DatabaseWorkloadProfile;
   eventSink?: DatabaseEventSink;
   /** Overrides dialing `url`; tests inject a scripted client at this seam. */
   client?: SQL;
@@ -132,8 +144,44 @@ export function createDatabase({
       idleTimeout: 20,
       connection: RUNTIME_SESSION,
     });
-  const database = drizzle({ client });
+  const rawDatabase = drizzle({ client });
+  const capacities = workloadCapacities(workloadProfile, maxConnections);
+  const executor = createWorkloadExecutor(
+    capacities,
+    workloadQueueOptions(capacities),
+  );
+  const database = workloadDatabase(rawDatabase, executor, 'control');
+  const competitiveDatabase = workloadDatabase(
+    rawDatabase,
+    executor,
+    'competitive',
+  );
+  const socialDatabase = workloadDatabase(rawDatabase, executor, 'social');
+  const authorityDatabase = workloadDatabase(
+    rawDatabase,
+    executor,
+    'admission',
+  );
+  const headersDatabase = workloadDatabase(rawDatabase, executor, 'headers');
+  const projectionDatabase = workloadDatabase(
+    rawDatabase,
+    executor,
+    'projection',
+  );
+  const renewalDatabase = workloadDatabase(rawDatabase, executor, 'renewal');
   return {
+    observationAuthority: (
+      decide: Parameters<typeof createObservationAuthorityOperations>[1],
+    ) =>
+      createObservationAuthorityOperations(
+        { admission: authorityDatabase, renewal: renewalDatabase },
+        decide,
+      ),
+    readObservationHeaders: (
+      resources: Parameters<typeof guardedObservationHeaders>[1],
+      guard?: Parameters<typeof guardedObservationHeaders>[2],
+    ) => guardedObservationHeaders(headersDatabase, resources, guard),
+    ...createObservationProjectionOperations(projectionDatabase),
     async health() {
       return instrumented(eventSink, 'health', async () => {
         await database.execute(sql`select 1`);
@@ -189,46 +237,58 @@ export function createDatabase({
       await client.close({ timeout: 5 });
     },
     ...authOperations({ database, eventSink }),
-    ...authorizationSessionOperations({ database }),
+    // Web session reads serve every page render; realtime revalidates on its admission lane.
+    ...authorizationSessionOperations({
+      database: workloadProfile === 'web' ? database : authorityDatabase,
+    }),
     ...emailDeliveryOperations({ database, eventSink }),
     ...actorOperations({ database, eventSink }),
     messagingInboxStore: (
       authorize: Parameters<typeof createMessagingInboxStore>[1],
-    ) => createMessagingInboxStore(database, authorize),
+    ) => createMessagingInboxStore(socialDatabase, authorize),
     messagingDmStore: (
       authorize: Parameters<typeof createMessagingDmStore>[0]['authorize'],
-    ) => createMessagingDmStore({ database, authorize }),
-    messagingChannelAuthority: createMessagingChannelAuthority(database),
-    messagingFileMaintenance: createMessagingFileMaintenance(database),
+    ) => createMessagingDmStore({ database: socialDatabase, authorize }),
+    messagingChannelAuthority: createMessagingChannelAuthority(socialDatabase),
+    messagingFileMaintenance: createMessagingFileMaintenance(socialDatabase),
     messagingFileCleanup: (
       authorize: Parameters<typeof createMessagingFileCleanup>[0]['authorize'],
-    ) => createMessagingFileCleanup({ database, authorize }),
+    ) => createMessagingFileCleanup({ database: socialDatabase, authorize }),
     messagingFileStore: (
       authorize: Parameters<typeof createMessagingFileStore>[0]['authorize'],
-    ) => createMessagingFileStore({ database, authorize }),
-    messagingTypingStore: createMessagingTypingStore(database),
+    ) => createMessagingFileStore({ database: socialDatabase, authorize }),
+    messagingTypingStore: createMessagingTypingStore(socialDatabase),
     messagingTypingPrivacyPort: (
       producer: Parameters<typeof createMessagingTypingPrivacyPort>[1],
-    ) => createMessagingTypingPrivacyPort(database, producer),
+    ) => createMessagingTypingPrivacyPort(socialDatabase, producer),
     messagingPreferenceStore: (
       authorize: Parameters<typeof createMessagingPreferenceStore>[1],
-    ) => createMessagingPreferenceStore(database, authorize),
+    ) => createMessagingPreferenceStore(socialDatabase, authorize),
     messagingChannelStore: (authorize: MessagingAuthorizationFence) =>
-      createMessagingStore({ database, authorize }),
+      createMessagingStore({ database: socialDatabase, authorize }),
     messagingReactionStore: (
       policy: Parameters<typeof createMessagingReactionStore>[1],
       authorize: Parameters<typeof createMessagingReactionStore>[2],
-    ) => createMessagingReactionStore(database, policy, authorize),
+    ) => createMessagingReactionStore(socialDatabase, policy, authorize),
     messagingGroupCreationStore: (authorize: MessagingGroupCreationFence) =>
-      createMessagingGroupCreationStore(database, authorize),
+      createMessagingGroupCreationStore(socialDatabase, authorize),
     messagingGroupIssuanceStore: (authorize: MessagingGroupIssuanceFence) =>
-      createMessagingGroupIssuanceStore({ database, authorize }),
+      createMessagingGroupIssuanceStore({
+        database: socialDatabase,
+        authorize,
+      }),
     messagingGroupManagementStore: (authorize: MessagingGroupManagementFence) =>
-      createMessagingGroupManagementStore({ database, authorize }),
+      createMessagingGroupManagementStore({
+        database: socialDatabase,
+        authorize,
+      }),
     messagingGroupInvitationStore: (authorize: MessagingGroupInvitationFence) =>
-      createMessagingGroupInvitationStore({ database, authorize }),
+      createMessagingGroupInvitationStore({
+        database: socialDatabase,
+        authorize,
+      }),
     messagingSocialStore: (authorize: MessagingSocialAuthorizationFence) =>
-      createMessagingSocialStore({ database, authorize }),
+      createMessagingSocialStore({ database: socialDatabase, authorize }),
     ...outboxOperations({ database, eventSink }),
     readOutboxRetentionBoundary: () =>
       instrumented(eventSink, 'readOutboxRetentionBoundary', () =>
@@ -243,20 +303,20 @@ export function createDatabase({
       instrumented(eventSink, 'readOutboxCatchup', () =>
         readOutboxCatchup(database, topic, since, through, limit),
       ),
-    ...formatOperations({ database, eventSink }),
-    ...roomOperations({ database, eventSink }),
+    ...formatOperations({ database: competitiveDatabase, eventSink }),
+    ...roomOperations({ database: competitiveDatabase, eventSink }),
     ...roomCommandOperations({
-      database,
+      database: competitiveDatabase,
       eventSink,
-      commandTransaction: roomCommandTransaction(client, maxConnections),
+      commandTransaction: roomCommandTransaction(competitiveDatabase),
     }),
-    ...roundOperations({ database, eventSink }),
-    ...utteranceOperations({ database, eventSink }),
-    ...ballotOperations({ database, eventSink }),
-    ...agentOperations({ database, eventSink }),
+    ...roundOperations({ database: competitiveDatabase, eventSink }),
+    ...utteranceOperations({ database: competitiveDatabase, eventSink }),
+    ...ballotOperations({ database: competitiveDatabase, eventSink }),
+    ...agentOperations({ database: competitiveDatabase, eventSink }),
     ...documentOperations({ database, eventSink }),
     ...onboardingOperations({ database, eventSink }),
-    ...standingsOperations({ database, eventSink }),
+    ...standingsOperations({ database: competitiveDatabase, eventSink }),
     /**
      * Rates a completed round with the caller's domain decision (ADR 0055,
      * ADR 0058); see `rateCompletedRound`. Its consumer is the ratings
@@ -264,7 +324,7 @@ export function createDatabase({
      */
     rateRound: (input: RateDebateInput) =>
       instrumented(eventSink, 'rateRound', () =>
-        rateCompletedRound(database, input),
+        rateCompletedRound(competitiveDatabase, input),
       ),
     /** Server-owned onboarding claim; see `claimUsername`. */
     claimUsername: (input: { userId: string; username: string }) =>

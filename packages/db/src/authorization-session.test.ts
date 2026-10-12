@@ -11,7 +11,11 @@ test('session authorization binds durable session, user, actor, erasure and expi
     actorId = 'b'.repeat(24),
     sessionId = 'c'.repeat(24);
   const account = { userId, actorId, member: true, erased: false, revision: 1 };
-  const session = { userId, expiresAt: new Date('2026-10-09T00:01:00.000Z') };
+  const session = {
+    userId,
+    databaseNow: new Date('2026-10-09T00:00:00.000Z'),
+    expiresAt: new Date('2026-10-09T00:01:00.000Z'),
+  };
   const cases = [
     { session, account },
     { session: undefined, account },
@@ -109,5 +113,45 @@ test('pool-bound session reader validates every identity before opening a transa
     should: 'leave the pool untouched',
     actual: calls,
     expected: 0,
+  });
+});
+
+test('session expiry fails closed under the later of the injected and post-fence database instants', async () => {
+  const userId = 'a'.repeat(24),
+    actorId = 'b'.repeat(24);
+  const expiresAt = '2026-10-09T00:01:00.000Z';
+  const read = async (requested: string, databaseNow: string) => {
+    let reads = 0;
+    const tx = {
+      execute: async () =>
+        reads++ === 0
+          ? [
+              {
+                userId,
+                expiresAt: new Date(expiresAt),
+                databaseNow: new Date(databaseNow),
+              },
+            ]
+          : [{ userId, actorId, member: true, erased: false, revision: 1 }],
+    } as unknown as AuthorizationTransaction;
+    const session = await loadAuthorizationSession(tx, {
+      userId,
+      actorId,
+      sessionId: 'c'.repeat(24),
+      now: requested,
+    });
+    return session !== null;
+  };
+  assert({
+    given:
+      'database time past expiry after fence waits, an injected instant at expiry while database time lags, and both before expiry',
+    should:
+      'deny under either later clock and allow only when both precede expiry',
+    actual: [
+      await read('2026-10-09T00:00:00.000Z', '2026-10-09T00:02:00.000Z'),
+      await read(expiresAt, '2026-10-09T00:00:00.000Z'),
+      await read('2026-10-09T00:00:00.000Z', '2026-10-09T00:00:30.000Z'),
+    ],
+    expected: [false, false, true],
   });
 });

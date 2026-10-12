@@ -62,15 +62,18 @@ function parseTicket(body: unknown) {
 export async function fetchRealtimeTicket({
   fetchImpl,
   expectedSocketUrl,
+  signal,
 }: {
   readonly fetchImpl: FetchLike;
   readonly expectedSocketUrl?: string;
+  readonly signal?: AbortSignal;
 }): Promise<string> {
   let response: Response;
   try {
     response = await fetchImpl('/api/realtime/ticket', {
       method: 'POST',
       credentials: 'same-origin',
+      ...(signal ? { signal } : {}),
     });
   } catch {
     throw ticketFailure(

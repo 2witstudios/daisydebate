@@ -67,7 +67,7 @@ function MessagingLiveSnapshot({
       typingReader?.close();
       attached.close();
       unsubscribe();
-      connection.close();
+      connection.dispose();
       reader.current = null;
     };
   }, [scope.kind, scope.id, socketUrl, router, typingRefetchMs]);

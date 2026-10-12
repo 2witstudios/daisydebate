@@ -229,3 +229,16 @@ export const unsafeFormatDefinitions: ReadonlyArray<
     },
   ],
 ];
+
+/** The resolved rules a definition's defaults produce, for both-grammar admission tests. */
+export const fixtureRules = (definition: FormatDefinition) => ({
+  version: 2,
+  seats: definition.seats,
+  segments: definition.segments.map(({ defaultDurationMs, ...s }) => ({
+    ...s,
+    durationMs: defaultDurationMs,
+  })),
+  inRoundPrep: null,
+  countdownMs: 0,
+  interaction: { crossExMode: 'ordered', yield: null, interruptions: null },
+});

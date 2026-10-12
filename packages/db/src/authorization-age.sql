@@ -17,7 +17,7 @@ BEGIN
     RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Invalid authorization age selector';
   END IF;
   -- Reuse the sole canonical account fence before reading the private age source.
-  PERFORM 1 FROM public.daisy_authorization_accounts(ARRAY[requested_actor_id], NULL::text, true);
+  PERFORM 1 FROM public.daisy_authorization_read_accounts(ARRAY[requested_actor_id]);
   RETURN QUERY
     SELECT requested_actor_id,
       CASE WHEN age_months < 156 THEN 'under-13'

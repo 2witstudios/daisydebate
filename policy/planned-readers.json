@@ -180,6 +180,78 @@
       "adr": "docs/decisions/0057-planned-readers.md",
       "reason": "Committed seated-actor token/reconcile leaf pye8vaswx0emsq93mw08l9el consumes the isolated LiveKit adapter after actual CAP grants/session producers exist. This declaration authorizes no grants, pre-round joins or human acceptance.",
       "reviewBy": "2026-10-16"
+    },
+    {
+      "path": "apps/realtime/src/observation-discovery.ts",
+      "export": "createObservationDiscovery",
+      "task": "RT-2.3c-arch1",
+      "owner": "ag-ip1hv1dv",
+      "adr": "docs/decisions/0057-planned-readers.md",
+      "reason": "Bounded eligible-worker resource demand discovery; committed observation runtime reader rh0ckvorf5m6nic9y8m0iabx composes Redis-only discovery with named header/body operations.",
+      "reviewBy": "2026-10-16"
+    },
+    {
+      "path": "apps/realtime/src/observation-worker.ts",
+      "export": "createObservationWorker",
+      "task": "RT-2.3c-arch1",
+      "owner": "ag-ip1hv1dv",
+      "adr": "docs/decisions/0057-planned-readers.md",
+      "reason": "Committed runtime reader rh0ckvorf5m6nic9y8m0iabx owns eligible shared projection scheduling; current pure state-machine proof is provisional.",
+      "reviewBy": "2026-10-16"
+    },
+    {
+      "path": "apps/realtime/src/observation-node.ts",
+      "export": "createObservationNode",
+      "task": "RT-2.3c-arch1",
+      "owner": "ag-ip1hv1dv",
+      "adr": "docs/decisions/0057-planned-readers.md",
+      "reason": "Committed native runtime reader rh0ckvorf5m6nic9y8m0iabx composes local permits and Redis snapshots; zero follower SQL remains an acceptance gate.",
+      "reviewBy": "2026-10-16"
+    },
+    {
+      "path": "apps/web/src/features/realtime/observation-provider.ts",
+      "export": "createObservationProvider",
+      "task": "RT-2.6a-arch1",
+      "owner": "ag-ip1hv1dv",
+      "adr": "docs/decisions/0057-planned-readers.md",
+      "reason": "Committed one-tab lifecycle reader w34rgb5b66ifvnoszkv3cc4j and draft carrier u8lnowvne7awxtvhty0geuqi adopt provider after actual producer and policy gates.",
+      "reviewBy": "2026-10-16"
+    },
+    {
+      "path": "packages/auth/src/observation.ts",
+      "export": "createObservationAuthorityDecision",
+      "task": "RT-2.5c-arch1",
+      "owner": "ag-ip1hv1dv",
+      "adr": "docs/decisions/0057-planned-readers.md",
+      "reason": "Committed runtime authority reader ndmxryde16cuwbgky582fduv injects canonical pure policy into named DB batches; declaration does not approve social policy or protected-payload activation.",
+      "reviewBy": "2026-10-16"
+    },
+    {
+      "path": "apps/realtime/src/observation-authority.ts",
+      "export": "createObservationAuthorityReader",
+      "task": "RT-2.5c-arch1",
+      "owner": "ag-ip1hv1dv",
+      "adr": "docs/decisions/0057-planned-readers.md",
+      "reason": "Committed subscription authority runtime reader ndmxryde16cuwbgky582fduv consumes fixed named admission/renewal methods; original-start independent evidence is proven before native cutover. Declaration does not approve the five-second owner policy.",
+      "reviewBy": "2026-10-16"
+    },
+    {
+      "path": "apps/realtime/src/observation-clock.ts",
+      "export": "createObservationClock",
+      "task": "RT-2.5c-arch1",
+      "owner": "ag-ip1hv1dv",
+      "adr": "docs/decisions/0057-planned-readers.md",
+      "reason": "Committed native observation runtime reader ndmxryde16cuwbgky582fduv composes the independent monotonic/wall envelope with ownership and permits; production clock/suspend measurement remains an explicit adoption gate.",
+      "reviewBy": "2026-10-16"
+    },
+    {
+      "path": "packages/protocol/src/messaging/observation-channel.ts",
+      "export": "createObservationChannelBody",
+      "task": "RT-2.3c-arch1",
+      "owner": "ag-5d423i0o",
+      "adr": "docs/decisions/0057-planned-readers.md",
+      "reason": "Owning portable channel body mapper; committed runtime reader rh0ckvorf5m6nic9y8m0iabx builds shared channel snapshots from restricted projection rows and their continuation.",
+      "reviewBy": "2026-10-16"
     }
   ]
 }
