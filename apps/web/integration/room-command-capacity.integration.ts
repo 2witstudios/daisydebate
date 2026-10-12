@@ -2,7 +2,11 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createReadinessHandler } from '../src/server/readiness';
 import { createRecordingLogger } from '../src/server/test-loggers.test-support';
-import { withRoomRuntime, consentBarrier } from './room-runtime.test-support';
+import {
+  withRoomRuntime,
+  consentBarrier,
+  assembleUnready,
+} from './room-runtime.test-support';
 import { createDatabase } from '@daisy/db';
 import { createId } from '@paralleldrive/cuid2';
 import { assertRejects } from '@daisy/errors/testing';
@@ -66,22 +70,12 @@ test('paused Room preparations fill only the competitive lane and leave readines
 test('a Room command on a saturated competitive lane is refused within its wait and never runs later', async () => {
   await withRoomRuntime(
     async (f) => {
-      const view = await f.assemble();
-      const current = (await f.consent(f.guest, view, 'unready')).view;
-      const before = await f.snapshot(view.id);
-      const { promise: entered, resolve: enter } =
-        Promise.withResolvers<void>();
-      const { promise: released, resolve: release } =
-        Promise.withResolvers<void>();
-      f.gateConsent(async () => {
-        enter();
-        await released;
-      });
+      const { view, current, before } = await assembleUnready(f);
+      const { entered, release } = consentBarrier(f);
       // The minimum web pool gives the competitive lane its single slot.
-      const holding = f.consent(f.guest, current, 'ready').then(
-        () => 'accepted',
-        (error: { code?: string }) => error.code,
-      );
+      const holding = f
+        .consent(f.guest, current, 'ready')
+        .catch(() => undefined);
       await entered;
       try {
         await assertRejects({
@@ -91,7 +85,6 @@ test('a Room command on a saturated competitive lane is refused within its wait 
           code: 'INFRASTRUCTURE',
         });
       } finally {
-        f.gateConsent(null);
         release();
       }
       await holding;
@@ -134,9 +127,7 @@ for (const failure of ['redis', 'disconnect'] as const)
   test(`Room command admission recovers after ${failure} failure`, async () => {
     await withRoomRuntime(
       async (f) => {
-        const view = await f.assemble();
-        const current = (await f.consent(f.guest, view, 'unready')).view;
-        const before = await f.snapshot(view.id);
+        const { view, current, before } = await assembleUnready(f);
         let rejected: boolean;
         if (failure === 'redis') {
           f.failAfterReady(true);
