@@ -1,4 +1,7 @@
 import { createMessagingTypingOperations } from './messaging-typing';
+import { createObservationCacheOperations } from './observation-cache';
+import { createObservationSubscriber } from './observation-subscriber';
+import type { ObservationResource } from '@daisy/protocol';
 import { RedisClient } from 'bun';
 import { createRoomReadinessOperations } from './room-readiness';
 import { createPresenceOperations } from './presence';
@@ -87,6 +90,15 @@ export function createRedis({
   const reportFailure = (operation: string) =>
     eventSink?.('redis.command.failed', { operation }, 'Redis command failed');
   return {
+    observationSubscriber(
+      reconcile: (resources: readonly ObservationResource[]) => Promise<void>,
+    ) {
+      return createObservationSubscriber({
+        namespace,
+        reconcile,
+        createClient: () => new RedisClient(url, redisClientOptions),
+      });
+    },
     async health() {
       try {
         await client.connect();
@@ -204,6 +216,7 @@ export function createRedis({
       }
     },
     ...createRoomReadinessOperations({ client, namespace, reportFailure }),
+    ...createObservationCacheOperations({ client, namespace, reportFailure }),
     ...createPresenceOperations({ client, namespace, reportFailure }),
     ...createMessagingTypingOperations({ client, namespace, reportFailure }),
     ...createTicketOperations({ client, namespace, reportFailure }),

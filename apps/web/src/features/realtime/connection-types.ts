@@ -63,6 +63,8 @@ export type ConnectionStore = {
   readonly connect: () => void;
   /** User-initiated close (logout): closes the socket, never reconnects. */
   readonly close: () => void;
+  /** Final, irreversible cleanup. Use for provider/route unmount. */
+  readonly dispose: () => void;
   /**
    * A token refresh never reconnects a healthy socket: this is a documented
    * no-op seam, kept so callers have somewhere to report the refresh without
