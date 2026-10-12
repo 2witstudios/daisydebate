@@ -2,6 +2,67 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createObservationProvider } from './observation-provider';
 import type { ObservationServerMessage } from '@daisy/protocol';
 setupRitewayBun();
+for (const disposal of ['provider', 'reader'] as const)
+  test(`reentrant ${disposal} disposal leaves no deadline timer`, () => {
+    let incoming!: (frame: ObservationServerMessage) => void;
+    const timers = new Set<unknown>();
+    const provider = createObservationProvider({
+      connection: {
+        connect: () => {},
+        dispose: () => {},
+        subscribe: () => () => {},
+        observe: (_descriptor, listener) => {
+          incoming = listener;
+          return () => {};
+        },
+      },
+      scheduler: {
+        now: () => 0,
+        setTimeout: (callback) => {
+          timers.add(callback);
+          return callback;
+        },
+        clearTimeout: (id) => {
+          timers.delete(id);
+        },
+      },
+    });
+    const descriptor = {
+      resource: { kind: 'channel', id: 'a'.repeat(24) },
+      window: { after: null, limit: 50 },
+      schema: 'channel-v1',
+      decode: (body: unknown) => (typeof body === 'string' ? body : null),
+    } as const;
+    const reader = provider.observe(descriptor);
+    reader.subscribe(() => {
+      if (reader.read().status === 'pending') {
+        if (disposal === 'provider') provider.dispose();
+        else reader.close();
+      }
+    });
+    incoming({
+      v: 1 as never,
+      type: 'observation.ready',
+      id: 'id',
+      generation: 1,
+      base: {
+        schema: 1,
+        resource: descriptor.resource,
+        window: descriptor.window,
+        partition: { kind: 'shared', policyKey: 'v1' },
+        disclosureRevision: 1,
+      },
+      minimumContentRevision: 1,
+      validForMs: 100,
+    });
+    assert({
+      given: `${disposal} disposal during synchronous pending notification`,
+      should: 'remain disposed without creating timers after final cleanup',
+      actual: { state: reader.read().status, timers: timers.size },
+      expected: { state: 'disposed', timers: 0 },
+    });
+    provider.dispose();
+  });
 test('provider owns one connection, reference counts and final deadline hiding', () => {
   let now = 0,
     connects = 0,

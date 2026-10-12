@@ -56,6 +56,7 @@ export function createObservationPermit({
   let bindingGeneration = 0;
   let acquisition = 0;
   let active: ObservationGrant | undefined;
+  const listeners = new Set<(recovered: boolean) => void>();
   let lastTime = now();
   function invalidate() {
     bindingGeneration += 1;
@@ -104,7 +105,9 @@ export function createObservationPermit({
         !valid(grant, at)
       )
         return false;
+      const recovered = !active || !valid(active, at);
       active = grant;
+      for (const listener of listeners) listener(recovered);
       return true;
     },
     /** Unknown clock/suspend state and infrastructure authority uncertainty fence all pending results. */
@@ -140,6 +143,12 @@ export function createObservationPermit({
     },
     grant: () => active,
     generation: () => bindingGeneration,
+    subscribe(listener: (recovered: boolean) => void) {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
   };
 }
 export type ObservationPermit = ReturnType<typeof createObservationPermit>;

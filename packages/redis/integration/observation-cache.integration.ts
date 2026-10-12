@@ -367,3 +367,63 @@ test('variant admission recovers after bounded expired window cleanup', async ()
     });
   });
 });
+test('whole demand-key expiry frees old body capacity while preserving re-demanded windows', async () => {
+  await withRedis(env.redisUrl, async ({ redis, raw, key, expireNow }) => {
+    const incarnation = await redis.establishObservationIncarnation('inc');
+    const claim = { resource, incarnation, token: 'owner', ttlMs: 2000 };
+    await redis.claimObservation(claim);
+    await redis.prepareObservation({
+      ...claim,
+      purgeGeneration: 0,
+      disclosureRevision: 1,
+    });
+    const windows = Array.from({ length: 64 }, (_, index) => ({
+      ...base,
+      window: { after: index + 1, limit: 50 },
+    }));
+    await redis.demandObservation(resource, 'node', windows);
+    for (const window of windows)
+      await redis.publishObservation({
+        ...claim,
+        base: window,
+        purgeGeneration: 0,
+        contentRevision: 1,
+        body: 'old',
+        ttlMs: 30000,
+      });
+    await expireNow(key('observation', 'channel-' + resource.id, 'demand'));
+    const next = { ...base, window: { after: 100, limit: 50 } };
+    const admitted = await redis.demandObservation(resource, 'node', [
+      windows[0]!,
+      next,
+    ]);
+    const published = await redis.publishObservation({
+      ...claim,
+      base: next,
+      purgeGeneration: 0,
+      contentRevision: 1,
+      body: 'new',
+      ttlMs: 30000,
+    });
+    const bodies = await redis.readObservations(resource, incarnation, [
+      windows[0]!,
+      next,
+      windows[1]!,
+    ]);
+    assert({
+      given:
+        '64 cached bodies survive the complete expiry of their demand hash',
+      should:
+        'reclaim abandoned cached windows, preserve renewed old content and publish newly admitted demand',
+      actual: { admitted, published, bodies },
+      expected: {
+        admitted: true,
+        published: 1,
+        bodies: [
+          { contentRevision: 1, body: 'old' },
+          { contentRevision: 1, body: 'new' },
+        ],
+      },
+    });
+  });
+});

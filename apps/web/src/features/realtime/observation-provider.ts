@@ -72,6 +72,7 @@ export function createObservationProvider({
         partition: observationBaseKey(frame.base),
         disclosureRevision: frame.base.disclosureRevision,
       });
+      if (disposed || entry.store.read().status === 'disposed') return;
       entry.timer = scheduler.setTimeout(() => {
         expired(entry);
       }, frame.validForMs);

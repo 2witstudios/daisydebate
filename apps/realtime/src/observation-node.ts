@@ -16,6 +16,7 @@ type Recipient = {
   readonly send: (snapshot: ObservationSnapshot) => unknown;
   delivered: number;
   active: boolean;
+  releasePermit: () => void;
 };
 type Entry = {
   readonly base: ObservationBase;
@@ -146,8 +147,26 @@ export function createObservationNode({
         entries.set(key, entry);
       }
       const current = entry,
-        recipient: Recipient = { permit, send, delivered: -1, active: true };
+        recipient: Recipient = {
+          permit,
+          send,
+          delivered: -1,
+          active: true,
+          releasePermit: () => {},
+        };
       current.recipients.add(recipient);
+      recipient.releasePermit = permit.subscribe((recovered) => {
+        if (
+          !recovered ||
+          !recipient.active ||
+          closed ||
+          entries.get(key) !== current
+        )
+          return;
+        recipient.delivered = -1;
+        current.dirty = true;
+        enqueue(current);
+      });
       bindings++;
       current.dirty = true;
       enqueue(current);
@@ -155,7 +174,9 @@ export function createObservationNode({
       return () => {
         if (released) return;
         released = true;
+        if (!recipient.active) return;
         recipient.active = false;
+        recipient.releasePermit();
         current.recipients.delete(recipient);
         bindings--;
         if (!current.recipients.size && entries.get(key) === current) {
@@ -234,6 +255,11 @@ export function createObservationNode({
       if (closed) return;
       closed = true;
       api.invalidate();
+      for (const entry of entries.values())
+        for (const recipient of entry.recipients) {
+          recipient.active = false;
+          recipient.releasePermit();
+        }
       entries.clear();
       purges.clear();
       encodedBytes = 0;

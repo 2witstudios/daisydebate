@@ -74,6 +74,33 @@ const readingPolicy: ObservationReadingPolicy = ({
     ageRevision: row.age.state === 'known' ? row.age.revision : null,
   })),
 });
+test('the same full cast has identical peer evidence for either reader', () => {
+  const decide = createObservationAuthorityDecision({ readingPolicy });
+  const first = decide(context);
+  const second = decide({
+    ...context,
+    principal: { kind: 'user', userId: peer, actorId: peer },
+    account: account(peer),
+  });
+  const reordered = decide({
+    ...context,
+    socialAccounts: [...accounts].reverse(),
+  });
+  assert({
+    given: 'either member independently reads an identical approved DM cohort',
+    should:
+      'return the same full policy dependencies without duplicating the individual subject',
+    actual:
+      first.status === 'allowed' &&
+      second.status === 'allowed' &&
+      JSON.stringify(first.dependencies) ===
+        JSON.stringify(second.dependencies) &&
+      reordered.status === 'allowed' &&
+      JSON.stringify(first.dependencies) ===
+        JSON.stringify(reordered.dependencies),
+    expected: true,
+  });
+});
 test('approved unknown-age reading follows canonical authority', () => {
   const decide = createObservationAuthorityDecision({ readingPolicy });
   const result = decide({
@@ -198,3 +225,56 @@ test('missing policy and non-future producer boundary are unavailable', () => {
     expected: ['unavailable', 'denied'],
   });
 });
+for (const kind of ['room', 'round'] as const)
+  test(`public ${kind} evidence explicitly separates caller subject from the shared cohort`, () => {
+    const decide = createObservationAuthorityDecision({});
+    const resource = { kind, id };
+    const shared = {
+      visibility: 'public',
+      status: 'active',
+      revision: 1,
+      participants: [],
+    } as const;
+    const resourceFact =
+      kind === 'room'
+        ? { ...shared, kind, roomId: id, hostActorId: null }
+        : { ...shared, kind, roundId: id, createdByActorId: null };
+    const first = decide({ ...context, resource, resourceFact });
+    const second = decide({
+      ...context,
+      resource,
+      resourceFact,
+      principal: { kind: 'user', userId: peer, actorId: peer },
+      account: account(peer),
+    });
+    assert({
+      given: 'two independently authorized public Round viewers',
+      should:
+        'name subject and entitlement ownership explicitly and have an identical caller-independent cohort',
+      actual:
+        first.status === 'allowed' && second.status === 'allowed'
+          ? {
+              scopes: first.dependencies.map((row) => row.scope),
+              cohortEqual:
+                JSON.stringify(
+                  first.dependencies.filter((row) => row.scope === 'cohort'),
+                ) ===
+                JSON.stringify(
+                  second.dependencies.filter((row) => row.scope === 'cohort'),
+                ),
+              subjectsDiffer:
+                JSON.stringify(
+                  first.dependencies.filter((row) => row.scope === 'subject'),
+                ) !==
+                JSON.stringify(
+                  second.dependencies.filter((row) => row.scope === 'subject'),
+                ),
+            }
+          : null,
+      expected: {
+        scopes: ['subject', 'entitlement'],
+        cohortEqual: true,
+        subjectsDiffer: true,
+      },
+    });
+  });

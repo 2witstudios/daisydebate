@@ -28,6 +28,7 @@ export type ObservationAuthorityContext = {
   readonly databaseNow: string;
 };
 export type ObservationDependency = {
+  readonly scope: 'subject' | 'cohort' | 'entitlement';
   readonly key: string;
   readonly revision: string;
   readonly nextBoundary: string | null;
@@ -61,6 +62,7 @@ export function createObservationAuthorityDecision({
     const dependencies: ObservationDependency[] = [
       {
         key: `account-${input.principal.actorId}`,
+        scope: 'subject',
         revision: String(input.account.revision),
         nextBoundary: null,
       },
@@ -85,8 +87,7 @@ export function createObservationAuthorityDecision({
         overlay: null,
       };
     }
-    if (fact.kind === 'channel')
-      return channel(input, dependencies, readingPolicy);
+    if (fact.kind === 'channel') return channel(input, [], readingPolicy);
     const id = fact.kind === 'room' ? fact.roomId : fact.roundId;
     if (input.resource.kind !== fact.kind || input.resource.id !== id)
       return { status: 'denied' };
@@ -102,6 +103,7 @@ export function createObservationAuthorityDecision({
       return { status: 'denied' };
     dependencies.push({
       key: `${fact.kind}-${id}`,
+      scope: 'entitlement',
       revision: String(fact.revision),
       nextBoundary: null,
     });
@@ -155,11 +157,13 @@ function channel(
     dependencies.push(
       {
         key: `account-${row.account.actorId}`,
+        scope: 'cohort',
         revision: String(row.account.revision),
         nextBoundary: null,
       },
       {
         key: `age-${row.account.actorId}`,
+        scope: 'cohort',
         revision:
           row.age.state === 'known'
             ? JSON.stringify([
@@ -176,11 +180,13 @@ function channel(
   dependencies.push(
     {
       key: `channel-${fact.channelId}`,
+      scope: 'entitlement',
       revision: String(fact.revision),
       nextBoundary: null,
     },
     {
       key: `policy-${fact.policyKey}`,
+      scope: 'cohort',
       revision: String(fact.policyRevision),
       nextBoundary: null,
     },
@@ -188,12 +194,14 @@ function channel(
   if (fact.authority.kind === 'dm')
     dependencies.push({
       key: `contact-${fact.authority.lowActorId}-${fact.authority.highActorId}`,
+      scope: 'cohort',
       revision: String(fact.authority.revision),
       nextBoundary: null,
     });
   else
     dependencies.push({
       key: `grant-${fact.channelId}-${fact.authority.actorId}`,
+      scope: 'entitlement',
       revision: JSON.stringify([
         fact.authority.role,
         fact.authority.generation,
@@ -208,7 +216,17 @@ function channel(
   return {
     status: 'allowed',
     partition: { kind: 'shared', policyKey: 'channel-messages-v1' },
-    dependencies,
+    dependencies: dependencies.sort((left, right) =>
+      left.key < right.key
+        ? -1
+        : left.key > right.key
+          ? 1
+          : left.revision < right.revision
+            ? -1
+            : left.revision > right.revision
+              ? 1
+              : 0,
+    ),
     eligibleUntil: deadline,
     overlay: null,
   } as const;
