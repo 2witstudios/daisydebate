@@ -130,13 +130,11 @@ export function workloadCapacities(
   profile: DatabaseWorkloadProfile,
   poolSize: number,
 ) {
-  if (!Number.isSafeInteger(poolSize) || poolSize < 1)
-    throw createAppError('VALIDATION', 'Invalid database pool capacity');
   const requested: Partial<Record<DatabaseWorkload, number>> =
     profile === 'projection'
       ? { projection: 2, headers: 1, relay: 1 }
       : profile === 'web'
-        ? { control: 2, competitive: 4, social: 3, search: 1, admission: 2 }
+        ? { control: 4, competitive: 4, social: 3, search: 1 }
         : {
             control: 1,
             renewal: 2,
@@ -145,19 +143,29 @@ export function workloadCapacities(
               ? { projection: 2, headers: 1, relay: 1 }
               : {}),
           };
-  let remaining = poolSize;
-  const capacities: Partial<Record<DatabaseWorkload, number>> = {};
-  for (const [lane, ceiling] of Object.entries(requested)) {
-    capacities[lane as DatabaseWorkload] = Math.min(remaining, ceiling);
-    remaining -= capacities[lane as DatabaseWorkload]!;
+  const lanes = Object.keys(requested) as DatabaseWorkload[];
+  // Every lane must be able to run; a pool that cannot give each one a slot is a configuration error.
+  if (!Number.isSafeInteger(poolSize) || poolSize < lanes.length)
+    throw createAppError('VALIDATION', 'Invalid database pool capacity');
+  const capacities = Object.fromEntries(
+    lanes.map((lane) => [lane, 1]),
+  ) as Partial<Record<DatabaseWorkload, number>>;
+  let remaining = poolSize - lanes.length;
+  for (const lane of lanes) {
+    const grant = Math.min(remaining, requested[lane]! - 1);
+    capacities[lane] = capacities[lane]! + grant;
+    remaining -= grant;
   }
+  // Unreserved connections serve the interactive default lane.
+  capacities.control = capacities.control! + remaining;
   return capacities;
 }
 
 /**
- * Waiters are counted before SQL. Interactive lanes refuse quickly so a saturated node sheds load
- * instead of stacking latency; control hosts non-interactive maintenance (email redelivery, health)
- * where a longer bounded wait is cheaper than a failed retry cycle.
+ * Waiters are counted before SQL. Competitive, social and search refuse quickly so a saturated node
+ * sheds load instead of stacking latency (plan starting calibrations). Control is the interactive
+ * default (sign-in, session reads, account and mail work): bursts of short operations such as a
+ * sign-in flood must queue rather than fail, so it holds a deep but bounded queue.
  */
 const queueProfile: Record<DatabaseWorkload, WorkloadQueue> = {
   competitive: { depth: 16, maxWaitMs: 50 },
@@ -168,7 +176,7 @@ const queueProfile: Record<DatabaseWorkload, WorkloadQueue> = {
   projection: { depth: 64, maxWaitMs: 500 },
   headers: { depth: 64, maxWaitMs: 500 },
   relay: { depth: 16, maxWaitMs: 500 },
-  control: { depth: 16, maxWaitMs: 2_000 },
+  control: { depth: 256, maxWaitMs: 2_000 },
   ephemeral: { depth: 16, maxWaitMs: 100 },
 };
 /** Queues for exactly the lanes this pool reserves. */

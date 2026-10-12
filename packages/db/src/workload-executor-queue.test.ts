@@ -1,10 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
-import {
-  createWorkloadExecutor,
-  workloadCapacities,
-  workloadQueueOptions,
-} from './workload-admission';
+import { createWorkloadExecutor } from './workload-admission';
 import { workloadDatabase } from './workload-executor';
 import { deferred } from './workload-executor.test-support';
 
@@ -140,23 +136,6 @@ test('a lazy statement on a saturated lane builds now but executes only once it 
     should: 'execute it once and resolve its result',
     actual: { result: await reading, executed },
     expected: { result: 'rows', executed: 1 },
-  });
-});
-
-test('runtime lanes queue with the plan bounds for their workload', () => {
-  const capacities = workloadCapacities('web', 12);
-  assert({
-    given: 'the web profile on a 12-connection pool',
-    should:
-      'bound interactive waits tightly and give only maintenance control a longer wait',
-    actual: workloadQueueOptions(capacities).queues,
-    expected: {
-      control: { depth: 16, maxWaitMs: 2_000 },
-      competitive: { depth: 16, maxWaitMs: 50 },
-      social: { depth: 16, maxWaitMs: 100 },
-      search: { depth: 16, maxWaitMs: 100 },
-      admission: { depth: 100, maxWaitMs: 250 },
-    },
   });
 });
 

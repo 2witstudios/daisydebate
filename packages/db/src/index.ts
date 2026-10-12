@@ -237,7 +237,10 @@ export function createDatabase({
       await client.close({ timeout: 5 });
     },
     ...authOperations({ database, eventSink }),
-    ...authorizationSessionOperations({ database: authorityDatabase }),
+    // Web session reads serve every page render; realtime revalidates on its admission lane.
+    ...authorizationSessionOperations({
+      database: workloadProfile === 'web' ? database : authorityDatabase,
+    }),
     ...emailDeliveryOperations({ database, eventSink }),
     ...actorOperations({ database, eventSink }),
     messagingInboxStore: (
