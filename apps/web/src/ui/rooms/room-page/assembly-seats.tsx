@@ -1,116 +1,188 @@
-import type { RoomView } from '@daisy/protocol';
+import { buttonClass } from '../../components/button/button-class';
+import { AssemblyCast, type CastProps, type IntentIds } from './assembly-cast';
+import { AssemblyCommandFields } from './assembly-command-fields';
+import { AssemblyCommandForm } from './assembly-command-form';
 import { declaredSeats, seatLabel } from './assembly-controls';
+import { initials, seatStatus } from './room-labels';
+import { RoomInvite } from './room-invite';
 
-type Props = {
-  readonly seats: RoomView['definition']['seats'];
-  readonly participants: RoomView['participants'];
-  readonly status?: RoomView['status'];
-};
+type Seat = ReturnType<typeof declaredSeats>[number];
+type Props = CastProps;
 
-function seatStatus(occupant: RoomView['participants'][number] | undefined) {
-  return !occupant
-    ? 'Open seat'
-    : !occupant.eligible
-      ? 'Not eligible'
-      : !occupant.needsReady
-        ? 'Server managed'
-        : occupant.ready === 'ready'
-          ? 'Ready'
-          : occupant.ready === 'unavailable'
-            ? 'Readiness unavailable'
-            : 'Not ready';
+const avatarTone = {
+  affirmative: 'bg-hue-sky-soft text-hue-sky',
+  negative: 'bg-hue-clay-soft text-hue-clay',
+  judge: 'bg-hue-teal-soft text-hue-teal',
+} as const;
+
+function SeatCommand({
+  props,
+  type,
+  commandId,
+  fields,
+  label,
+}: {
+  readonly props: Props;
+  readonly type: 'claim-seat' | 'assign-seat';
+  readonly commandId: string;
+  readonly fields: Readonly<Record<string, string>>;
+  readonly label: string;
+}) {
+  return (
+    <AssemblyCommandForm action={props.action}>
+      <AssemblyCommandFields
+        type={type}
+        version={props.view.version}
+        commandId={commandId}
+      />
+      {Object.entries(fields).map(([name, value]) => (
+        <input key={name} type="hidden" name={name} value={value} />
+      ))}
+      <button type="submit" className={buttonClass('secondary')}>
+        {label}
+      </button>
+    </AssemblyCommandForm>
+  );
 }
 
-function Seat({
-  role,
-  slot,
-  participants,
-}: ReturnType<typeof declaredSeats>[number] & Pick<Props, 'participants'>) {
-  const occupant = participants.find(
-    (seat) => seat.role === role && seat.slot === slot,
+/** An open seat: take it, invite someone, or (judge, host) seat an AI judge. */
+function OpenSeatActions({
+  props,
+  seat,
+  ids,
+}: {
+  readonly props: Props;
+  readonly seat: Seat;
+  readonly ids: IntentIds;
+}) {
+  const { view } = props;
+  const position = { role: seat.role, slot: String(seat.slot) };
+  const aiJudge = props.bots.find((bot) => bot.eligible);
+  return (
+    <div className="flex flex-wrap items-start justify-end gap-2">
+      {view.capabilities.canClaimSeat ? (
+        <SeatCommand
+          props={props}
+          type="claim-seat"
+          commandId={ids.claim}
+          fields={position}
+          label={`Take ${seatLabel(seat.role, seat.slot)}`}
+        />
+      ) : null}
+      {seat.role === 'judge' ? (
+        <RoomInvite
+          roomId={view.id}
+          visibility={view.visibility}
+          label="Invite"
+        />
+      ) : null}
+      {seat.role === 'judge' && view.capabilities.host && aiJudge ? (
+        <SeatCommand
+          props={props}
+          type="assign-seat"
+          commandId={ids.ai}
+          fields={{ ...position, actorId: aiJudge.actorId }}
+          label="AI judge"
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function SeatRow({
+  props,
+  seat,
+  ids,
+}: {
+  readonly props: Props;
+  readonly seat: Seat;
+  readonly ids: IntentIds;
+}) {
+  const { view } = props;
+  const occupant = view.participants.find(
+    (member) => member.role === seat.role && member.slot === seat.slot,
   );
   const status = seatStatus(occupant);
-  const judge = role === 'judge';
+  const name = !occupant
+    ? seatLabel(seat.role, seat.slot)
+    : occupant.actorId === props.viewer.actorId
+      ? 'You'
+      : `${occupant.label}${occupant.kind === 'bot' ? ' · AI' : ''}`;
+  const detail = !occupant
+    ? status
+    : [
+        seatLabel(seat.role, seat.slot),
+        ...(occupant.actorId === view.hostActorId ? ['host'] : []),
+      ].join(' · ');
   return (
-    <li
-      className={
-        judge
-          ? 'flex min-w-0 flex-wrap items-center justify-between gap-3 border-t border-stage-accent/40 py-4'
-          : 'flex min-w-0 flex-col gap-3'
-      }
-    >
-      {!judge ? (
-        <div
+    <li className="flex min-w-0 flex-wrap items-center gap-3 border-t border-border py-3 first:border-t-0">
+      {occupant ? (
+        <span
           aria-hidden="true"
-          className={`flex h-room-portrait items-center justify-center rounded-lg ${role === 'affirmative' ? 'bg-stage-accent' : 'bg-stage-accent-strong'} text-stage-accent-ink max-narrow:h-room-portrait-small`}
+          className={`flex size-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${avatarTone[seat.role]}`}
         >
-          <span className="font-display text-display-sm">
-            {occupant ? occupant.label.slice(0, 1).toLocaleUpperCase() : '—'}
-          </span>
-        </div>
-      ) : null}
-      <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <h3 className="text-sm font-semibold wrap-anywhere text-stage-ink-muted">
-          {seatLabel(role, slot)}
-        </h3>
-        {occupant ? (
-          <p className="font-semibold wrap-anywhere text-stage-ink">
-            {occupant.label}
-            {occupant.kind === 'bot' ? ' · AI' : ''}
-          </p>
-        ) : null}
+          {initials(occupant.label)}
+        </span>
+      ) : (
+        <span
+          aria-hidden="true"
+          className="flex size-10 shrink-0 items-center justify-center rounded-full border border-dashed border-border-strong text-ink-muted"
+        >
+          +
+        </span>
+      )}
+      <div className="min-w-0 flex-1">
+        <h3 className="font-semibold wrap-anywhere">{name}</h3>
+        <p className="text-sm wrap-anywhere text-ink-muted">{detail}</p>
       </div>
-      <p className="text-sm wrap-anywhere text-stage-ink-muted">{status}</p>
+      {occupant ? (
+        <span
+          className={`rounded-full px-3 py-1 text-xs font-semibold ${status === 'Ready' ? 'bg-hue-teal-soft text-hue-teal' : 'bg-surface-sunken text-ink-muted'}`}
+        >
+          {status}
+        </span>
+      ) : (
+        <OpenSeatActions props={props} seat={seat} ids={ids} />
+      )}
     </li>
   );
 }
 
-export function AssemblySeats({
-  seats,
-  participants,
-  status = 'assembling',
-}: Props) {
-  const declared = declaredSeats(seats);
+/** Every declared seat as one row; the host's assignment form sits beneath. */
+export function AssemblySeats(props: Props) {
+  const seats = declaredSeats(props.view.definition.seats);
   return (
     <section
-      aria-label="Room seats"
-      className="rounded-xl bg-surface-stage p-6 text-stage-ink max-narrow:p-4"
+      aria-labelledby="room-seats-title"
+      className="flex min-w-0 flex-col rounded-xl border border-border bg-surface px-4 py-3"
     >
-      <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-display text-xl font-semibold">
-          Take your places.
-        </h2>
-        <span className="rounded-full border border-stage-accent px-3 py-1 text-xs text-stage-ink-muted">
-          {status === 'started' ? 'Round started' : 'Before the round'}
-        </span>
-      </header>
-      <div className="grid room-team-grid gap-6 max-narrow:gap-3">
-        {(['affirmative', 'negative'] as const).map((role) => (
-          <section
-            key={role}
-            aria-label={`${role === 'affirmative' ? 'Affirmative' : 'Negative'} lineup`}
-            className="min-w-0"
-          >
-            <h2 className="mb-3 text-sm font-semibold wrap-anywhere">
-              {role === 'affirmative' ? 'Affirmative' : 'Negative'}
-            </h2>
-            <ul className="flex flex-col gap-5">
-              {declared
-                .filter((seat) => seat.role === role)
-                .map((seat) => (
-                  <Seat key={seat.slot} {...seat} participants={participants} />
-                ))}
-            </ul>
-          </section>
-        ))}
-      </div>
-      <ul aria-label="Judges" className="mt-6">
-        {declared
-          .filter((seat) => seat.role === 'judge')
-          .map((seat) => (
-            <Seat key={seat.slot} {...seat} participants={participants} />
-          ))}
+      <h2 id="room-seats-title" className="text-md font-semibold">
+        Seats
+      </h2>
+      <ul className="flex flex-col">
+        {seats.map((seat, index) => {
+          const ids = props.commandIds[index];
+          if (!ids) throw new Error('Missing Room seat command identities');
+          return (
+            <SeatRow
+              key={`${seat.role}:${seat.slot}`}
+              props={props}
+              seat={seat}
+              ids={ids}
+            />
+          );
+        })}
       </ul>
+      {props.view.capabilities.host ? (
+        <details className="border-t border-border pt-3">
+          <summary className="flex min-h-12 cursor-pointer items-center text-sm font-strong">
+            Manage seats
+          </summary>
+          <div className="mt-3">
+            <AssemblyCast {...props} />
+          </div>
+        </details>
+      ) : null}
     </section>
   );
 }

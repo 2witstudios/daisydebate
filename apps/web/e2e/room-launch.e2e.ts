@@ -77,7 +77,7 @@ test('canonical browser create, settings, cast, refusals and reread preserve dur
       host.getByText('Stored Launch proof', { exact: true }),
     ).toBeVisible();
     view = await reread(host.request, view.id);
-    await host.getByText('Edit round settings', { exact: true }).click();
+    await host.getByText('Edit settings', { exact: true }).click();
     const settings = host.getByRole('form', { name: 'Room settings' });
     const first = view.rules.segments[0]!;
     const second = view.rules.segments[1]!;
@@ -257,7 +257,7 @@ test('canonical browser custom-create preserves declared unequal seats and order
     await expect(
       page.getByLabel('Assign Affirmative 2', { exact: true }),
     ).toBeVisible();
-    await page.getByText('Edit round settings', { exact: true }).click();
+    await page.getByText('Edit settings', { exact: true }).click();
     const settings = page.getByRole('form', { name: 'Room settings' });
     await settings.locator('[name="duration.segment.A2.seconds"]').fill('17');
     await settings.getByRole('button', { name: 'Save settings' }).click();
@@ -268,7 +268,7 @@ test('canonical browser custom-create preserves declared unequal seats and order
       ]);
     }).toPass();
     await page.reload();
-    await page.getByText('Edit round settings', { exact: true }).click();
+    await page.getByText('Edit settings', { exact: true }).click();
     await expect(
       settings.locator('[name="duration.segment.A2.seconds"]'),
     ).toHaveValue('17');

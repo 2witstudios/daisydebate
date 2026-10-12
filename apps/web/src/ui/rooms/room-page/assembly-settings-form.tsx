@@ -28,7 +28,6 @@ export function AssemblySettingsFields({
   const disabled = pending || !view.capabilities.canEdit;
   return (
     <>
-      <h2 className="text-lg font-strong">Room settings</h2>
       <input
         type="hidden"
         name="expectedVersion"
@@ -98,7 +97,7 @@ export function AssemblySettingsForm({
     <AssemblyEditForm
       action={action}
       label="Room settings"
-      disclosure="Edit round settings"
+      disclosure="Edit settings"
     >
       {(state, pending) => (
         <AssemblySettingsFields

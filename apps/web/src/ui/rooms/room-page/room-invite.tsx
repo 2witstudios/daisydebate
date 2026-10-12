@@ -8,9 +8,11 @@ const subscribeNever = () => () => undefined;
 export function RoomInvite({
   roomId,
   visibility,
+  label,
 }: {
   readonly roomId: string;
   readonly visibility: string;
+  readonly label: string;
 }) {
   const [notice, setNotice] = useState('');
   const interactive = useSyncExternalStore(
@@ -24,40 +26,36 @@ export function RoomInvite({
       await navigator.clipboard.writeText(
         new URL(href, window.location.origin).href,
       );
-      setNotice('Room link copied.');
+      setNotice(
+        visibility === 'private'
+          ? 'Room link copied · room members only'
+          : 'Room link copied',
+      );
     } catch {
       setNotice('Copy the room link from your browser address bar.');
     }
   };
+  if (!interactive)
+    return (
+      <a href={href} className={buttonClass('secondary')}>
+        {label}
+      </a>
+    );
   return (
-    <details className="min-w-0">
-      <summary className={`${buttonClass('secondary')} list-none`}>
-        Invite
-      </summary>
-      <div className="mt-3 flex max-w-search flex-col gap-3 rounded-lg border border-border bg-surface p-4">
-        <a href={href} className="text-sm wrap-anywhere">
-          Room link
-        </a>
-        {visibility === 'private' ? (
-          <p className="text-sm text-ink-muted">
-            Existing room access is required.
-          </p>
-        ) : null}
-        <button
-          type="button"
-          disabled={!interactive}
-          onClick={() => void copy()}
-          className={buttonClass('secondary')}
-        >
-          Copy room link
-        </button>
-        <noscript>Copy the room link from your browser address bar.</noscript>
-        {notice ? (
-          <p role="status" className="text-sm">
-            {notice}
-          </p>
-        ) : null}
-      </div>
-    </details>
+    <span className="relative inline-flex">
+      <button
+        type="button"
+        onClick={() => void copy()}
+        className={buttonClass('secondary')}
+      >
+        {label}
+      </button>
+      <span
+        role="status"
+        className="absolute top-full right-0 mt-1 text-sm whitespace-nowrap text-ink-muted"
+      >
+        {notice}
+      </span>
+    </span>
   );
 }
