@@ -1,16 +1,19 @@
 'use client';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  observationChannelOverlaySchema,
-  type MessagingCoreBounds,
-} from '@daisy/protocol';
+import type { MessagingCoreBounds } from '@daisy/protocol';
 import { createBrowserTypingReader } from './typing-browser';
 import { MessageHistory } from './message-history';
 import { createBrowserConnectionStore } from '../../features/realtime/browser-adapters';
 import { attachMessagingInboxDoorbells } from '../../features/messaging/doorbells';
 import { channelMessages } from '../../features/messaging/channel-observation';
 import { editVisibility } from '../../features/messaging/edit-visibility';
+import {
+  liveReactions,
+  type ReactionCount,
+} from '../../features/messaging/reaction-view';
+import { ReactionForm, type ReactionFormState } from './reaction-form';
+import type { FormAction } from '../form-action/form-action';
 import {
   useRealtime,
   useRealtimeConnection,
@@ -119,12 +122,7 @@ export function MessageEditLive({
   return <>{children}</>;
 }
 
-type ReactionCount = {
-  readonly reaction: string;
-  readonly count: number;
-  readonly own: boolean;
-};
-export function ReactionList({
+function ReactionList({
   items,
 }: {
   readonly items: readonly ReactionCount[];
@@ -140,43 +138,52 @@ export function ReactionList({
     </ul>
   );
 }
-/** Shared counts from the channel snapshot; the viewer's own reactions from
- * the actor-private overlay of the same canonical admission. */
+/** Live counts and toggle forms for one message. Forms follow the viewer's
+ * own overlay and disappear with the conversation on revocation; without
+ * bounds (no live window) the authorized HTTP read is shown as-is. */
 export function ReactionsLive({
   channelId,
   messageId,
   bounds,
   before,
   initial,
+  forms,
+  action,
 }: {
   readonly channelId: string;
   readonly messageId: string;
-  readonly bounds: MessagingCoreBounds;
+  readonly bounds: MessagingCoreBounds | null;
   readonly before: number | null;
   readonly initial: readonly ReactionCount[];
+  readonly forms: readonly { reaction: string; requestId: string }[];
+  readonly action: FormAction<ReactionFormState>;
 }) {
-  const view = useChannel(channelId, bounds, before);
-  if (view.status === 'denied' || view.withdrawn)
+  const view = useChannel(
+    channelId,
+    bounds ?? { messageUnits: 1, pageItems: 1 },
+    before,
+    bounds !== null,
+  );
+  const state = liveReactions(view, messageId, initial);
+  if (state.kind === 'revoked')
     return <p role="status">Conversation unavailable.</p>;
-  const message = view.content?.messages.find((item) => item.id === messageId);
-  if (view.content === null || !message)
-    return <ReactionList items={initial} />;
-  if ('unavailable' in message) return <p role="status">Message removed.</p>;
-  const overlay = observationChannelOverlaySchema.safeParse(view.overlay);
+  if (state.kind === 'removed') return <p role="status">Message removed.</p>;
   const own = new Set(
-    overlay.success
-      ? overlay.data.ownReactions
-          .filter((item) => item.messageId === messageId)
-          .map((item) => item.reaction)
-      : [],
+    state.items.filter((item) => item.own).map((item) => item.reaction),
   );
   return (
-    <ReactionList
-      items={message.reactions.map((item) => ({
-        ...item,
-        own: own.has(item.reaction),
-      }))}
-    />
+    <>
+      <ReactionList items={state.items} />
+      {forms.map((form) => (
+        <ReactionForm
+          key={form.requestId}
+          action={action}
+          requestId={form.requestId}
+          reaction={form.reaction}
+          active={!own.has(form.reaction)}
+        />
+      ))}
+    </>
   );
 }
 

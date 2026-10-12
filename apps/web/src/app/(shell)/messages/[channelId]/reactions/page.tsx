@@ -4,11 +4,7 @@ import { systemId } from '@daisy/clock';
 import { requireAccess } from '../../../../../lib/access';
 import type { MessagingChannelPageProps } from '../../../../../features/messaging/channel-page';
 import { readReactionResponse } from '../../../../../features/messaging/reaction-response';
-import { ReactionForm } from '../../../../../ui/messaging/reaction-form';
-import {
-  ReactionList,
-  ReactionsLive,
-} from '../../../../../ui/messaging/conversation-live';
+import { ReactionsLive } from '../../../../../ui/messaging/conversation-live';
 import { readConversationResponse } from '../../../../../features/messaging/conversation';
 import { GET as MESSAGES } from '../../../../api/messaging/channels/[channelId]/messages/route';
 import { GET } from '../../../../api/messaging/channels/[channelId]/reactions/route';
@@ -52,42 +48,22 @@ export default async function MessageReactionsPage({
       {current === null ? (
         <p role="status">Reactions are unavailable. Refresh to try again.</p>
       ) : (
-        <>
-          {conversation === null ? (
-            <ReactionList items={current.result.reactions} />
-          ) : (
-            <ReactionsLive
-              channelId={channelId}
-              messageId={messageId}
-              bounds={conversation.bounds}
-              before={before}
-              initial={current.result.reactions}
-            />
-          )}
-          {[
+        <ReactionsLive
+          channelId={channelId}
+          messageId={messageId}
+          bounds={conversation?.bounds ?? null}
+          before={before}
+          initial={current.result.reactions}
+          action={changeReactionAction.bind(null, channelId, messageId)}
+          forms={[
             ...new Set([
               ...current.policy.choices,
               ...current.result.reactions
                 .filter((item) => item.own)
                 .map((item) => item.reaction),
             ]),
-          ].map((reaction) => {
-            const requestId = systemId.next();
-            return (
-              <ReactionForm
-                key={requestId}
-                action={changeReactionAction.bind(null, channelId, messageId)}
-                requestId={requestId}
-                reaction={reaction}
-                active={
-                  !current.result.reactions.some(
-                    (item) => item.reaction === reaction && item.own,
-                  )
-                }
-              />
-            );
-          })}
-        </>
+          ].map((reaction) => ({ reaction, requestId: systemId.next() }))}
+        />
       )}
       <Link href={`/messages/${channelId}`}>Back to conversation</Link>
     </main>
