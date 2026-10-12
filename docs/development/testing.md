@@ -109,12 +109,22 @@ AIDD/Vitest guidance is overridden here by Bun and RITEway (ADR 0021).
      included) that touches only Markdown under `docs/`, ADRs included, it
      skips the browser tier and reports
      `SKIP e2e: skipped: documentation-only diff (N files)`.
-   - **Machine-wide e2e limit.** `apps/web`'s `test:e2e` runs Playwright
-     through `scripts/e2e-limit.ts`, a limit on concurrent browser runs across
-     every checkout on the machine (`DAISY_E2E_CONCURRENCY`, default 2), with
-     one slot directory for all of them (`/tmp/daisy-e2e-slots`, or
-     `DAISY_E2E_LOCK_DIR`). Runs beyond it wait in a queue instead of
-     saturating the CPU.
+   - **Machine-wide heavy queue.** Browser runs share the one queue that
+     every heavy root and `apps/web` script uses: `scripts/heavy.ts` admits
+     `DAISY_HEAVY_CONCURRENCY` runs (default 1) across every checkout on the
+     machine, with one slot directory for all of them
+     (`/tmp/daisy-heavy-slots`, or `DAISY_HEAVY_LOCK_DIR`). Runs beyond it
+     print each holder's pid, command and age (again only when the holders
+     change) and wait instead of saturating the CPU. Every claim carries a
+     wall-clock deadline (`DAISY_HEAVY_TIMEOUT_MINUTES`, default 45, dev
+     servers included): at it the holder terminates its command's process
+     tree and releases the slot with a message, and a holder still alive a
+     minute past its deadline is terminated by the first queued run. A
+     command whose ancestor process holds a slot (`bun verify` → `test:e2e` →
+     Playwright, or the dedicated room-launch and realtime runners) runs
+     inside that slot instead of queueing behind it. Browser runs have no
+     separate pool: a build, typecheck or test suite beside a browser run
+     overloads the machine as much as a second browser run does.
    - **Lint timeout.** `eslint.config.test.ts` shares one ESLint instance and
      runs with `--timeout 180000`. The first typed lint took 5.7 s at load 56,
      and Bun's fixed 5 s default failed it.

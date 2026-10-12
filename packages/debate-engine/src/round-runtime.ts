@@ -11,17 +11,24 @@ import {
   type RoundParticipantSeat,
   type RoundPosition,
   type RoundProjection,
+  type SegmentInsert,
+  type SegmentClose,
   type RoundRules,
   type RuntimeCheckpoint,
 } from '@daisy/protocol';
-import { createRoundClock } from './round-clock';
+import {
+  advanceRoundClock,
+  openClockSegment,
+  closeClockSegment,
+  type ClockTransition,
+} from './round-clock';
+import { closedCount, normalizeRoundClock } from './round-clock-state';
 import { applyRoundCommand, type Queues } from './round-commands';
 import {
-  clockRowsOf,
   lifecycleStampsOf,
-  roundPositionOf,
+  positionAtState,
   stageOf,
-} from './round-position';
+} from './round-position-projection';
 import { debateInvariantIds } from './invariant-ids';
 import {
   captureRoundStore,
@@ -42,7 +49,7 @@ import {
  */
 
 /** The queues the runtime projects from; a scratch run discards its own. */
-const queues = (): Queues => ({ inserts: [], closes: [], effects: [] });
+const queues = (): Queues => ({ changes: [], effects: [] });
 
 /**
  * Creates the runtime from durable rows, the frozen rules and an injected
@@ -73,62 +80,85 @@ export function createRoundRuntime(input: {
   readonly checkpoint: () => RuntimeCheckpoint;
 } {
   const rules = input.rules;
-  const clock = createRoundClock({
-    rules,
-    nextSegmentId: input.nextSegmentId,
-  });
-  const hydratedRows = clockRowsOf(input.segments).sort(
-    (a, b) => a.sequence - b.sequence,
+  let store: RoundStore = createRoundStore(normalizeRoundClock(input));
+  const segmentIds = new Map(
+    input.segments.map((row) => [row.sequence, row.id]),
   );
 
-  // Hydration integrity: rows execute exactly the rules they name.
-  hydratedRows.forEach((row, index) => {
-    const expected = rules.segments[index];
-    if (
-      !expected ||
-      row.sequence !== index ||
-      row.key !== expected.key ||
-      row.type !== expected.type ||
-      row.durationMs !== expected.durationMs
-    )
-      throw createInvariantError(
-        debateInvariantIds.segmentMatchesRules,
-        'A durable segment row disagrees with the resolved rules',
-      );
-    if (row.endedAtMs === null && index !== hydratedRows.length - 1)
-      throw createInvariantError(
-        debateInvariantIds.liveOpenSegmentCount,
-        'An open segment row is followed by another row',
-      );
-  });
-
-  const lastClosed = hydratedRows
-    .filter((row) => row.endedAtMs !== null)
-    .at(-1);
-
-  let store: RoundStore = createRoundStore({
-    lifecycle: {
-      status: input.round.status,
-      startedAtMs:
-        input.round.startedAt === null
-          ? null
-          : Date.parse(input.round.startedAt),
-      completedAtMs:
-        input.round.completedAt === null
-          ? null
-          : Date.parse(input.round.completedAt),
-      outcome: input.round.outcome,
-      gapAnchorMs:
-        lastClosed !== undefined
-          ? lastClosed.endedAtMs
-          : input.round.startedAt === null
-            ? null
-            : Date.parse(input.round.startedAt),
-    },
-    checkpoint: input.checkpoint,
-    rows: hydratedRows,
-  });
-  let pending: Queues = queues();
+  const capture = (on: RoundStore) => captureRoundStore(on);
+  const transitionOn = (
+    on: RoundStore,
+    into: Queues,
+    transition: ClockTransition,
+  ): void => {
+    for (const change of transition.changes) {
+      if (change.kind === 'open') on.insertSegment(change.row);
+      else
+        on.closeSegment({ sequence: change.sequence, endedAtMs: change.atMs });
+    }
+    const checkpoint = transition.state.checkpoint;
+    for (const side of debateSides)
+      on.setPrepConsumed(side, checkpoint.prep_consumed_ms[side]);
+    if (checkpoint.active_prep === null) on.endPrep();
+    if (checkpoint.floor === null) on.clearFloor();
+    into.changes.push(...transition.changes);
+    for (const change of transition.changes) {
+      if (change.kind === 'close')
+        into.effects.push({
+          kind: 'segment_closed',
+          key: change.key,
+          at: new Date(change.atMs).toISOString(),
+        });
+      else {
+        const expected = rules.segments[change.row.sequence]!;
+        into.effects.push({
+          kind: 'segment_opened',
+          key: expected.key,
+          side: expected.side,
+          type: expected.type,
+          at: new Date(change.row.startedAtMs).toISOString(),
+        });
+      }
+    }
+  };
+  const advance = (on: RoundStore, into: Queues, at: number): void =>
+    transitionOn(on, into, advanceRoundClock(capture(on), rules, at));
+  const project = (into: Queues): RoundProjection => {
+    // IDs are allocated only after pure execution has been accepted, once per opening.
+    for (const change of into.changes)
+      if (change.kind === 'open')
+        segmentIds.set(change.row.sequence, input.nextSegmentId());
+    const segmentInserts: SegmentInsert[] = into.changes.flatMap((change) =>
+      change.kind === 'open'
+        ? [
+            {
+              id: segmentIds.get(change.row.sequence)!,
+              sequence: change.row.sequence,
+              type: change.row.type,
+              rulesSegmentKey: change.row.key,
+              startedAt: new Date(change.row.startedAtMs).toISOString(),
+              durationMs: change.row.durationMs,
+            },
+          ]
+        : [],
+    );
+    const segmentCloses: SegmentClose[] = into.changes.flatMap((change) =>
+      change.kind === 'close'
+        ? [
+            {
+              id: segmentIds.get(change.sequence)!,
+              endedAt: new Date(change.atMs).toISOString(),
+            },
+          ]
+        : [],
+    );
+    return {
+      round: roundBlockOf(store),
+      segmentInserts,
+      segmentCloses,
+      effects: into.effects,
+    };
+  };
 
   const seatOf = (actorId: string | null): RoundParticipantSeat | null =>
     actorId === null
@@ -195,26 +225,24 @@ export function createRoundRuntime(input: {
         into,
         actorId,
         now,
-        closedCount: () => clock.closedCountOn(on),
+        closedCount: () => closedCount(capture(on)),
         seatOf,
         sideOf,
         floorHolder: floorHolderSeat,
         assertSeatCompleteness,
-        openRowAt: (at) => clock.openRowOn(on, into, at),
-        closeRowAt: (id, at) => clock.closeRow(on, into, { id }, at),
+        openRowAt: (at) =>
+          transitionOn(on, into, openClockSegment(capture(on), rules, at)),
+        closeRowAt: (sequence, at) =>
+          transitionOn(on, into, closeClockSegment(capture(on), sequence, at)),
       },
       command,
     );
-
-  /** The full position of one store at `now`; pure over its input. */
-  const positionOfStore = (on: RoundStore, now: number): RoundPosition =>
-    roundPositionOf(on, now, rules);
 
   const roundBlockOf = (on: RoundStore): RoundProjection['round'] => {
     const lifecycle = on.lifecycle();
     return {
       status: lifecycle.status,
-      currentStage: stageOf(on, lifecycle.status),
+      currentStage: stageOf(capture(on), lifecycle.status),
       ...lifecycleStampsOf(lifecycle),
       checkpoint: on.checkpoint(),
     };
@@ -222,46 +250,21 @@ export function createRoundRuntime(input: {
 
   return {
     position(now: string): RoundPosition {
-      const at = Date.parse(now);
-      const scratch = restoreRoundStore(captureRoundStore(store));
-      clock.advance(scratch, queues(), at);
-      return positionOfStore(scratch, at);
+      return positionAtState(capture(store), rules, Date.parse(now));
     },
     execute({ command, actorId, now }): RoundProjection {
       const at = Date.parse(now);
-      const before = captureRoundStore(store);
-      const scratch = restoreRoundStore(before);
+      const scratch = restoreRoundStore(capture(store));
       const into = queues();
-      clock.advance(scratch, into, at);
-      try {
-        apply(scratch, into, command, actorId, at);
-      } catch (error) {
-        // A refused command leaves the runtime state unchanged, including
-        // anything the time advancement queued before the refusal.
-        store = restoreRoundStore(before);
-        pending = queues();
-        throw error;
-      }
+      advance(scratch, into, at);
+      apply(scratch, into, command, actorId, at);
       store = scratch;
-      pending = into;
-      return {
-        round: roundBlockOf(store),
-        segmentInserts: pending.inserts,
-        segmentCloses: pending.closes,
-        effects: pending.effects,
-      };
+      return project(into);
     },
     tick(now): RoundProjection {
-      const at = Date.parse(now);
       const into = queues();
-      clock.advance(store, into, at);
-      pending = into;
-      return {
-        round: roundBlockOf(store),
-        segmentInserts: pending.inserts,
-        segmentCloses: pending.closes,
-        effects: pending.effects,
-      };
+      advance(store, into, Date.parse(now));
+      return project(into);
     },
     checkpoint(): RuntimeCheckpoint {
       return runtimeCheckpointSchema.parse(store.checkpoint());

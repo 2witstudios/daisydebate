@@ -133,7 +133,22 @@ definition revision that same Round pins.
 
 ### 6. Postgres is truth; ECS is execution
 
-ECS executes a `RoundRuntime` hydrated from durable state. No ECS entity, storage or
+`advanceRoundClock` owns time-only interval transitions over immutable plain
+lifecycle, checkpoint and sequence-indexed segment values. Commands compose the
+same opening and closing primitives; closing always clears the interaction
+floor. Countdown origin derives from the last closed interval or Round start,
+and active prep uses its checkpoint anchor. There is no mutable gap anchor.
+
+The browser-safe `roundPositionAt` accepts one durable snapshot and explicit
+time, validates and normalizes it, advances the shared clock and derives the
+position. It imports no ECS and has no ID capability. Server execution allocates
+segment IDs once per opening only after pure command acceptance, then maps
+sequence changes into durable projection rows. Refused commands discard scratch
+advancement without consuming IDs. Final-segment time expiry keeps the live
+interval open until completion. New authoritative snapshots replace browser
+predictions by revision.
+
+ECS stores a `RoundRuntime` hydrated from durable state. No ECS entity, storage or
 resource is ever persisted: `@adobe/data` is pre-1.0 and warns that minor versions may
 break APIs, so its representation is never coupled to durable data.
 
