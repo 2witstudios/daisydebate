@@ -47,10 +47,12 @@ export function createObservationNode({
   const entries = new Map<string, Entry>();
   const purges = new Map<string, number>();
   const jobs = new Map<Entry, Promise<void>>();
+  const waiting = new Set<Entry>();
   let bindings = 0,
     encodedBytes = 0,
     closed = false,
-    repairing = false;
+    repairing = false,
+    pumping = false;
   function prunePurge(resourceKey: string) {
     if (
       [...entries.values()].some(
@@ -63,7 +65,33 @@ export function createObservationNode({
       return;
     purges.delete(resourceKey);
   }
+  function pump() {
+    if (closed || pumping) return;
+    pumping = true;
+    try {
+      for (const entry of waiting) {
+        if (
+          entries.get(observationBaseKey(entry.base)) !== entry ||
+          !entry.dirty
+        ) {
+          waiting.delete(entry);
+          continue;
+        }
+        if (jobs.has(entry)) continue;
+        if (jobs.size >= 1024) break;
+        waiting.delete(entry);
+        start(entry);
+      }
+    } finally {
+      pumping = false;
+    }
+  }
   function enqueue(entry: Entry) {
+    if (closed || entries.get(observationBaseKey(entry.base)) !== entry) return;
+    waiting.add(entry);
+    pump();
+  }
+  function start(entry: Entry) {
     const key = observationBaseKey(entry.base);
     if (jobs.has(entry) || closed || jobs.size >= 1024) return;
     const work = Promise.resolve()
@@ -118,7 +146,8 @@ export function createObservationNode({
         jobs.delete(entry);
         prunePurge(observationResourceKey(entry.base.resource));
         const current = entries.get(key);
-        if (current?.dirty && !closed) enqueue(current);
+        if (current?.dirty && !closed) waiting.add(current);
+        pump();
       });
     jobs.set(entry, work);
   }
@@ -181,6 +210,7 @@ export function createObservationNode({
         bindings--;
         if (!current.recipients.size && entries.get(key) === current) {
           entries.delete(key);
+          waiting.delete(current);
           encodedBytes -= current.bytes;
           prunePurge(observationResourceKey(current.base.resource));
         }
@@ -261,6 +291,7 @@ export function createObservationNode({
           recipient.releasePermit();
         }
       entries.clear();
+      waiting.clear();
       purges.clear();
       encodedBytes = 0;
       bindings = 0;

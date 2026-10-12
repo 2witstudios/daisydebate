@@ -13,6 +13,109 @@ const base: ObservationBase = {
   disclosureRevision: 1,
   window: { after: null, limit: 50 },
 };
+test('a recovered baseline remains pending until any occupied job slot settles', async () => {
+  let time = 0,
+    paused = false;
+  const releaseWork: (() => void)[] = [],
+    received: number[] = [];
+  const clock = () => (paused ? (time += 3) : time);
+  const newPermit = (view: ObservationBase) => {
+    const permit = createObservationPermit({
+      now: () => time,
+      nodeIncarnation: 'node',
+    });
+    const evidence = observationEvidence({
+      started: time,
+      remainingMs: 5000,
+      fingerprint: 'same',
+      dependencies: [],
+    });
+    permit.install(permit.begin(), {
+      base: view,
+      minimumContentRevision: 1,
+      purgeGeneration: 0,
+      subject: evidence,
+      cohort: evidence,
+      entitlement: evidence,
+    });
+    return permit;
+  };
+  const node = createObservationNode({
+    nodeIncarnation: 'node',
+    now: clock,
+    yieldWork: () =>
+      new Promise((resolve) => {
+        releaseWork.push(resolve);
+      }),
+    cache: { demand: async () => {}, read: async () => null },
+  });
+  const target = newPermit(base);
+  node.observe(base, target, (snapshot) =>
+    received.push(snapshot.contentRevision),
+  );
+  node.accept({ base, contentRevision: 1, purgeGeneration: 0, body: 'target' });
+  await node.settled();
+  paused = true;
+  let releaseOld!: () => void;
+  for (let index = 1; index <= 1023; index++) {
+    const view = {
+      ...base,
+      resource: { ...base.resource, id: index.toString(36).padStart(24, '0') },
+    };
+    const release = node.observe(view, newPermit(view), () => {});
+    if (index === 1) releaseOld = release;
+    node.accept({
+      base: view,
+      contentRevision: 1,
+      purgeGeneration: 0,
+      body: 'other',
+    });
+  }
+  await Promise.resolve();
+  await Promise.resolve();
+  releaseOld();
+  const replacement = {
+    ...base,
+    resource: { ...base.resource, id: 'z'.repeat(24) },
+  };
+  node.observe(replacement, newPermit(replacement), () => {});
+  node.accept({
+    base: replacement,
+    contentRevision: 1,
+    purgeGeneration: 0,
+    body: 'replacement',
+  });
+  await Promise.resolve();
+  await Promise.resolve();
+  const occupied = node.stats().pendingKeys;
+  time = 20000;
+  const evidence = observationEvidence({
+    started: time,
+    remainingMs: 5000,
+    fingerprint: 'fresh',
+    dependencies: [],
+  });
+  target.install(target.begin(), {
+    base,
+    minimumContentRevision: 1,
+    purgeGeneration: 0,
+    subject: evidence,
+    cohort: evidence,
+    entitlement: evidence,
+  });
+  paused = false;
+  for (const release of releaseWork) release();
+  await node.settled();
+  assert({
+    given:
+      '1024 actual settling jobs with a live recovered target whose enqueue initially cannot get a slot',
+    should:
+      'retain desired baseline state and wake it fairly when other work settles without another event or refetch',
+    actual: { occupied, received, pending: node.stats().pendingKeys },
+    expected: { occupied: 1024, received: [1, 1], pending: 0 },
+  });
+  node.close();
+});
 test('fresh authority restores an already delivered unchanged baseline after expiry', async () => {
   let now = 0,
     fetches = 0;
