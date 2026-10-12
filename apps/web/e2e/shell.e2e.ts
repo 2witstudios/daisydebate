@@ -1,7 +1,7 @@
 import { expect, test } from './support/fixtures';
 
 test.describe('dashboard shell chrome', () => {
-  test('sidebar marks the active route and navigates from the shell', async ({
+  test('the rail marks the active route and navigates from the shell', async ({
     page,
   }) => {
     await page.goto('/');
@@ -16,44 +16,40 @@ test.describe('dashboard shell chrome', () => {
     await expect(page).toHaveURL(/\/sign-in\?next=%2Fplay$/);
   });
 
-  test('the sidebar foot stays reachable on a short viewport', async ({
+  test('the rail foot stays reachable on a short viewport', async ({
     page,
   }) => {
-    // 200% zoom of a 1280 by 800 window: the sidebar is taller than the
+    // 200% zoom of a 1280 by 800 window: the rail is taller than the
     // viewport, so pinning it would strand its foot below it.
     await page.setViewportSize({ width: 1280, height: 400 });
     await page.goto('/');
-    const privacy = page
+    const signIn = page
       .getByRole('navigation', { name: 'Primary' })
-      .getByRole('link', { name: 'Privacy' });
-    await privacy.scrollIntoViewIfNeeded();
-    await expect(privacy).toBeInViewport();
+      .getByRole('link', { name: 'Sign in' });
+    await signIn.scrollIntoViewIfNeeded();
+    await expect(signIn).toBeInViewport();
   });
 
-  test('the sidebar column runs from the top bar to the foot of the page', async ({
-    page,
-  }) => {
+  test('the rail column runs the full height of the page', async ({ page }) => {
     for (const height of [400, 900]) {
       await page.setViewportSize({ width: 1280, height });
       await page.goto('/');
-      const [top, bottom, bar, document] = await page
+      const [top, bottom, width, document] = await page
         .getByRole('navigation', { name: 'Primary' })
         .evaluate((nav) => {
           // The column is the shell grid's own child.
-          const column = nav
-            .closest('[data-dock] > *')
-            ?.getBoundingClientRect();
+          const column = nav.parentElement?.getBoundingClientRect();
           return [
-            column?.top ?? 0,
+            column?.top ?? -1,
             (column?.bottom ?? 0) + window.scrollY,
-            nav.ownerDocument.getElementById('topbar')?.getBoundingClientRect()
-              .bottom ?? -1,
+            column?.width ?? 0,
             nav.ownerDocument.documentElement.scrollHeight,
           ];
         });
-      expect([Math.round(top), Math.round(bottom)]).toEqual([
-        Math.round(bar),
+      expect([Math.round(top), Math.round(bottom), Math.round(width)]).toEqual([
+        0,
         document,
+        56,
       ]);
     }
   });
@@ -72,7 +68,7 @@ test.describe('dashboard shell chrome', () => {
     expect(spread).toBeLessThanOrEqual(1);
   });
 
-  test('sidebar flyouts reveal sub-navigation on hover and focus', async ({
+  test('rail flyouts reveal sub-navigation on hover and focus', async ({
     page,
   }) => {
     await page.goto('/');
@@ -110,8 +106,37 @@ test.describe('dashboard shell chrome', () => {
 
   test('interactive controls carry accessible names', async ({ page }) => {
     await page.goto('/');
+    const rail = page.getByRole('navigation', { name: 'Primary' });
     await expect(
-      page.getByRole('banner').getByRole('link', { name: 'Sign in' }),
+      rail.getByRole('link', { name: 'Daisy Debate home' }),
     ).toBeVisible();
+    await expect(rail.getByRole('link', { name: 'Sign in' })).toBeVisible();
+  });
+
+  test('a phone gets a bottom tab bar in place of the rail', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/');
+    const tabs = page.getByRole('navigation', { name: 'Primary' });
+    // Only the tab bar is laid out: the rail is hidden, not just covered.
+    await expect(tabs).toHaveCount(1);
+    for (const name of ['Home', 'Play', 'Prep', 'Sign in'])
+      await expect(tabs.getByRole('link', { name, exact: true })).toBeVisible();
+    const bar = await tabs.boundingBox();
+    expect(bar !== null && Math.round(bar.y + bar.height)).toBe(844);
+    // More is a native disclosure: it opens on the sheet of everything else.
+    const recordings = tabs.getByRole('link', { name: 'Recordings' });
+    await expect(recordings).not.toBeVisible();
+    await tabs.getByText('More', { exact: true }).click();
+    await expect(recordings).toBeVisible();
+    await tabs.getByRole('link', { name: 'Leaderboards' }).click();
+    await expect(page).toHaveURL(/\/leaderboard$/);
+    await expect(recordings).not.toBeVisible();
+    // Nothing reaches past the screen's edge.
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - window.innerWidth,
+    );
+    expect(overflow).toBe(0);
   });
 });

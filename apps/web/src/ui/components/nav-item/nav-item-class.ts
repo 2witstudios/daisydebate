@@ -1,34 +1,23 @@
 import { cn } from '../../cn';
 
 const navItemBase =
-  'flex items-center gap-3 rounded-md px-4 py-3 text-md font-semibold no-underline transition-colors duration-120 ease-standard hover:no-underline icons:justify-center icons:px-0';
+  'relative flex size-nav-target items-center justify-center rounded-md no-underline transition-colors duration-120 ease-standard hover:no-underline';
 
-/** Classes for the primary link; each state owns its colors. */
+/** Classes for a rail link; each state owns its colors. */
 export const navItemClass = (active: boolean): string =>
   cn(
     navItemBase,
     active
-      ? 'bg-accent-soft text-accent-strong hover:bg-accent-soft hover:text-accent-strong'
+      ? 'bg-accent text-accent-ink hover:bg-accent-strong hover:text-accent-ink'
       : 'text-ink-muted hover:bg-surface-overlay hover:text-ink',
   );
 
-/** Classes for the flyout caret; it shows while the wrapper is hovered or focused. */
-export const navCaretClass = (active: boolean): string =>
-  cn(
-    'inline-flex opacity-0 transition-opacity duration-120 ease-standard group-focus-within:opacity-100 group-hover:opacity-100 icons:hidden',
-    active ? 'text-accent-strong' : 'text-ink-faint',
-  );
-
 /**
- * Classes for a flyout panel beside its row, shown while the wrapper is
- * hovered or focused. It hangs from the row's top, or rises from its bottom
- * at the foot of the sidebar.
+ * Classes for a flyout panel beside its rail link, shown while the wrapper is
+ * hovered or focused. It hangs from the link's top.
  */
-export const navFlyoutClass = (anchor: 'top' | 'bottom'): string =>
-  cn(
-    'invisible absolute left-full z-30 ml-2 flex min-w-flyout -translate-x-flyout-shift flex-col gap-1 rounded-md border border-border bg-surface-raised p-2 opacity-0 shadow-3 transition-all duration-120 ease-standard group-focus-within:visible group-focus-within:translate-x-0 group-focus-within:opacity-100 group-hover:visible group-hover:translate-x-0 group-hover:opacity-100',
-    anchor === 'top' ? 'top-0' : 'bottom-0',
-  );
+export const navFlyoutClass =
+  'invisible absolute top-0 left-full z-30 ml-2 flex min-w-flyout -translate-x-flyout-shift flex-col gap-1 rounded-md border border-border bg-surface-raised p-2 opacity-0 shadow-3 transition-all duration-120 ease-standard group-focus-within:visible group-focus-within:translate-x-0 group-focus-within:opacity-100 group-hover:visible group-hover:translate-x-0 group-hover:opacity-100';
 
 /** Classes for a link inside a flyout. */
 export const navFlyoutLinkClass =

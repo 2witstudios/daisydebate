@@ -21,19 +21,8 @@ type LiveDebateRow = {
   readonly defenderRating: number;
 };
 
-/**
- * The friends dock: `auto` follows the screen (open when wide, closed when
- * narrow); a visitor's own choice, `open` or `closed`, wins over it.
- */
-export type DockState = 'auto' | 'open' | 'closed';
-
-/** The left sidebar: `auto` follows the screen; `collapsed` is icons only. */
-export type NavState = 'auto' | 'collapsed';
-
 type UiResources = {
   readonly onlineCount: number;
-  readonly dock: DockState;
-  readonly nav: NavState;
   readonly tournament: TournamentSummary;
 };
 
@@ -51,8 +40,6 @@ export type UiState = {
 export const createInitialState = (): UiState => ({
   resources: {
     onlineCount: 1248,
-    dock: 'auto',
-    nav: 'auto',
     tournament,
   },
   collections: {

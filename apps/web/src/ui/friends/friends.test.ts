@@ -1,7 +1,7 @@
 import { parseUsername } from '@daisy/auth';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { users } from '../../../../mock/users';
-import { dockGroups, onlineNow } from './dock-people';
+import { users } from '../mock/users';
+import { friendGroups, onlineNow } from './friends';
 
 setupRitewayBun();
 
@@ -13,12 +13,12 @@ const sample = [
   { name: 'Daniel Kim', presence: 'online' as const },
 ];
 
-describe('dockGroups', () => {
+describe('friendGroups', () => {
   test('grouped by what people are doing, debating first, offline left out', () => {
     assert({
       given: 'online, in-debate, away and offline people',
       should: 'list in a debate, then online, then away, and skip offline',
-      actual: dockGroups(sample).map((group) => [
+      actual: friendGroups(sample).map((group) => [
         group.label,
         group.people.map((person) => person.name),
       ]),
@@ -31,7 +31,7 @@ describe('dockGroups', () => {
   });
 
   test('what you can do with each', () => {
-    const people = dockGroups(sample).flatMap((group) => group.people);
+    const people = friendGroups(sample).flatMap((group) => group.people);
     assert({
       given: 'the people',
       should:
@@ -42,7 +42,7 @@ describe('dockGroups', () => {
   });
 
   test('profile links are valid usernames', () => {
-    const hrefs = dockGroups(users).flatMap((group) =>
+    const hrefs = friendGroups(users).flatMap((group) =>
       group.people.map((person) => person.profileHref),
     );
     assert({
