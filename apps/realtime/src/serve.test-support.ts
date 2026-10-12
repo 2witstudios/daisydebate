@@ -41,6 +41,7 @@ export function fakeApp(overrides: {
       establishObservationIncarnation: async (candidate: string) => candidate,
       observationSubscriber: () => ({
         interest: async () => () => {},
+        reconnect: async () => {},
         close: async () => {},
       }),
     },

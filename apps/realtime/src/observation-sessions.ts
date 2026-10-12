@@ -153,6 +153,14 @@ export function createObservationSessions({
     binding.base = null;
     hide(binding, 'unavailable');
   }
+  /** Hide now, refuse every in-flight result, and readmit from fresh facts. */
+  function fence(binding: Binding) {
+    binding.permit.invalidate();
+    binding.base = null;
+    binding.retryAt = 0;
+    hide(binding, 'unavailable');
+    scheduler.admit(binding);
+  }
   const scheduler = createObservationAuthorityScheduler<Binding>({
     now,
     authority,
@@ -249,12 +257,18 @@ export function createObservationSessions({
     invalidate(dependencyKey: string) {
       for (const binding of bindings.values()) {
         const grant = binding.permit.grant();
-        if (!grant || !dependsOn(grant, dependencyKey)) continue;
-        binding.permit.invalidate(dependencyKey);
-        binding.base = null;
-        binding.retryAt = 0;
-        hide(binding, 'unavailable');
-        scheduler.admit(binding);
+        if (grant && dependsOn(grant, dependencyKey)) fence(binding);
+      }
+    },
+    /** A durable session revocation fences that session's (or actor's) bindings. */
+    revokeSession(actorId: string, sessionId: string | null) {
+      for (const binding of bindings.values()) {
+        const { principal } = binding.input;
+        if (
+          principal.actorId === actorId &&
+          (sessionId === null || principal.sessionId === sessionId)
+        )
+          fence(binding);
       }
     },
     stats: () => ({ bindings: bindings.size, ...scheduler.stats() }),

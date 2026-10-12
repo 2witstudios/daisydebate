@@ -3,8 +3,6 @@ import {
   createObservationChannelBody,
   observationResourceKey,
   type MessagingCoreBounds,
-  type ObservationBase,
-  type ObservationHeader,
   type ObservationResource,
 } from '@daisy/protocol';
 import type { Database } from '@daisy/db';
@@ -13,8 +11,11 @@ import { createObservationNode } from './observation-node';
 import { createObservationSessions } from './observation-sessions';
 import { createObservationWorker } from './observation-worker';
 import { createObservationDiscovery } from './observation-discovery';
+import { createObservationRelay } from './observation-relay';
+import { parseObservationControl } from '@daisy/redis';
 import type { createObservationAuthorityReader } from './observation-authority';
 import type { IntervalTimers } from './outbox-drain';
+import { workerCache } from './observation-worker-cache';
 
 type Redis = RealtimeApp['redis'];
 type Projection = Pick<
@@ -25,8 +26,8 @@ const ownerReconcileMs = 100,
   discoveryMs = 250,
   repairMs = 500,
   renewalTickMs = 500,
-  bodyTtlMs = 60_000,
-  claimTtlMs = 2000;
+  relayMs = 250,
+  relayClaimMs = 2000;
 
 /** Portable bodies adopted by this runtime; other kinds stay unavailable
  * until their projection producer and consumer are both ready. */
@@ -60,6 +61,7 @@ export function createObservationRuntime({
   redis,
   authority,
   projection,
+  relayOutbox,
   channelBounds,
   maxPerSession,
   nextToken,
@@ -71,6 +73,8 @@ export function createObservationRuntime({
   readonly redis: Redis;
   readonly authority: ReturnType<typeof createObservationAuthorityReader>;
   readonly projection?: Projection;
+  /** Eligible relay lane over finalized outbox metadata. */
+  readonly relayOutbox?: Parameters<typeof createObservationRelay>[0]['outbox'];
   readonly channelBounds?: MessagingCoreBounds;
   readonly maxPerSession: number;
   readonly nextToken: () => string;
@@ -98,10 +102,16 @@ export function createObservationRuntime({
       },
     },
   });
-  const subscriber = redis.observationSubscriber(async (resources) => {
-    for (const resource of resources)
-      await node.repair(observationResourceKey(resource));
-  });
+  const subscriber = redis.observationSubscriber(
+    async (resources) => {
+      for (const resource of resources)
+        await node.repair(observationResourceKey(resource));
+    },
+    (message) => {
+      const fence = parseObservationControl(message);
+      if (fence) sessions.revokeSession(fence.actorId, fence.sessionId);
+    },
+  );
   const interests = new Map<
     string,
     { count: number; release: Promise<(() => void) | null> }
@@ -168,6 +178,19 @@ export function createObservationRuntime({
       },
       cache: workerCache(redis, () => cacheIncarnation),
     });
+  const relay =
+    relayOutbox &&
+    createObservationRelay({
+      nextToken,
+      outbox: relayOutbox,
+      cache: {
+        claim: (token) => redis.claimObservationRelay(token, relayClaimMs),
+        readCursor: () => redis.readObservationRelayCursor(),
+        advance: (token, from, to) =>
+          redis.advanceObservationRelayCursor(token, from, to),
+        publish: (control) => redis.publishObservationControl(control),
+      },
+    });
   const discovery =
     worker &&
     createObservationDiscovery({
@@ -195,6 +218,7 @@ export function createObservationRuntime({
   return {
     async start() {
       await establish();
+      await subscriber.reconnect();
       every(renewalTickMs, () => sessions.renewDue());
       every(repairMs, async () => {
         await establish();
@@ -204,6 +228,7 @@ export function createObservationRuntime({
         every(ownerReconcileMs, () => worker.reconcile());
         every(discoveryMs, () => discovery.reconcile());
       }
+      if (relay) every(relayMs, async () => void (await relay.tick()));
     },
     /** Socket edge: kinds without an adopted producer are unavailable, never denied. */
     connect(...args: Parameters<typeof sessions.connect>) {
@@ -238,58 +263,5 @@ export function createObservationRuntime({
       await subscriber.close();
       await node.settled();
     },
-  };
-}
-function workerCache(redis: Redis, incarnation: () => string | null) {
-  const current = () => {
-    const value = incarnation();
-    if (value === null)
-      throw new Error('Observation cache incarnation unknown');
-    return value;
-  };
-  return {
-    claim: (resource: ObservationResource, token: string) =>
-      redis.claimObservation({
-        resource,
-        incarnation: current(),
-        token,
-        ttlMs: claimTtlMs,
-      }),
-    release: async (resource: ObservationResource, token: string) => {
-      await redis.releaseObservation(resource, token);
-    },
-    prepare: (header: ObservationHeader, token: string) =>
-      redis.prepareObservation({
-        resource: header.resource,
-        incarnation: current(),
-        token,
-        purgeGeneration: header.purgeGeneration,
-        disclosureRevision: header.disclosureRevision,
-      }),
-    ready: (base: ObservationBase, header: ObservationHeader, token: string) =>
-      redis.retainObservation({
-        resource: header.resource,
-        incarnation: current(),
-        token,
-        base,
-        purgeGeneration: header.purgeGeneration,
-        contentRevision: header.contentRevision,
-        ttlMs: bodyTtlMs,
-      }),
-    publish: async (
-      snapshot: { readonly header: ObservationHeader; readonly body: string },
-      base: ObservationBase,
-      token: string,
-    ) =>
-      (await redis.publishObservation({
-        resource: snapshot.header.resource,
-        incarnation: current(),
-        token,
-        purgeGeneration: snapshot.header.purgeGeneration,
-        base,
-        contentRevision: snapshot.header.contentRevision,
-        body: snapshot.body,
-        ttlMs: bodyTtlMs,
-      })) === 1,
   };
 }

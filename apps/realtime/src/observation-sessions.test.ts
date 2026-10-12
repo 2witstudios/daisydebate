@@ -210,3 +210,28 @@ test('a renewal read in flight across a control cannot restore delivery', async 
     expected: { frames: ['ready:1'], bindings: 0 },
   });
 });
+
+test('a session control fences only that session until fresh admission', async () => {
+  const fixture = sessionsFixture();
+  const revoked = fixture.socket('r'.repeat(24)),
+    other = fixture.socket('o'.repeat(24));
+  revoked.connection.observe(request);
+  other.connection.observe(request);
+  await fixture.flush();
+  fixture.admits[0]!.resolve([fixture.allowed(), fixture.allowed()]);
+  await fixture.flush();
+  fixture.sessions.revokeSession('a'.repeat(24), 'r'.repeat(24));
+  fixture.snapshot(2);
+  await fixture.flush();
+  fixture.admits[1]!.resolve([{ status: 'denied' }]);
+  await fixture.flush();
+  assert({
+    given: 'a durable revocation of one of two sessions of the same actor',
+    should: 'hide and deny the revoked session while the other keeps delivery',
+    actual: { revoked: summary(revoked.frames), other: summary(other.frames) },
+    expected: {
+      revoked: ['ready:1', 'state:unavailable', 'state:denied'],
+      other: ['ready:1', 'snapshot:1:2'],
+    },
+  });
+});
