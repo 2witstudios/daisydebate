@@ -21,6 +21,7 @@ test('fanout-only allocation cannot execute headers or projections', async () =>
       claim: async () => true,
       prepare: async () => true,
       publish: async () => true,
+      drop: async () => true,
       release: async () => {},
     },
     readHeaders: async () => {
@@ -60,6 +61,7 @@ test('missing cache head rebuilds unchanged canonical revision', async () => {
       prepare: async () => true,
       ready: async () => ready,
       publish: async () => true,
+      drop: async () => true,
       release: async () => {},
     },
     readHeaders: async () => [header],
@@ -99,6 +101,7 @@ test('healthy variants cannot renew ownership of a stuck projection forever', as
       prepare: async () => true,
       ready: async () => true,
       publish: async () => true,
+      drop: async () => true,
       release: async () => {},
     },
     readHeaders: async () => [
@@ -146,6 +149,7 @@ test('Redis uncertainty invalidates local ownership before another header read',
       },
       ready: async () => true,
       publish: async () => true,
+      drop: async () => true,
       release: async () => {},
     },
     readHeaders: async () => {
@@ -197,6 +201,7 @@ for (const fence of ['prepare', 'renew'] as const)
         prepare: async () => !(lost && fence === 'prepare'),
         ready: async () => true,
         publish: async () => true,
+        drop: async () => true,
         release: async () => {},
       },
       readHeaders: async () => {

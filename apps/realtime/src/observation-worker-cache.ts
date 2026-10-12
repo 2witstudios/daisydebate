@@ -4,7 +4,39 @@ import type {
   ObservationResource,
 } from '@daisy/protocol';
 import type { RealtimeApp } from './app';
+import type { ObservationSnapshotBuild as Snapshot } from './observation-worker';
 
+/** What a resource owner may do to the shared cache; every write is token-fenced. */
+export type ObservationWorkerCache = {
+  /** Retains an unchanged installed body; false when it must be rebuilt. */
+  readonly ready: (
+    base: ObservationBase,
+    header: ObservationHeader,
+    token: string,
+  ) => Promise<boolean>;
+  readonly claim: (
+    resource: ObservationResource,
+    token: string,
+  ) => Promise<boolean>;
+  readonly prepare: (
+    header: ObservationHeader,
+    token: string,
+  ) => Promise<boolean>;
+  readonly publish: (
+    snapshot: Snapshot,
+    base: ObservationBase,
+    token: string,
+  ) => Promise<boolean>;
+  readonly release: (
+    resource: ObservationResource,
+    token: string,
+  ) => Promise<void>;
+  /** Removes a deleted resource's heads and bodies under the owner token. */
+  readonly drop: (
+    resource: ObservationResource,
+    token: string,
+  ) => Promise<boolean>;
+};
 const bodyTtlMs = 60_000,
   claimTtlMs = 2000;
 /** Worker cache port over guarded Redis publication in the current cache
@@ -27,6 +59,8 @@ export function workerCache(
         token,
         ttlMs: claimTtlMs,
       }),
+    drop: (resource: ObservationResource, token: string) =>
+      redis.dropObservation({ resource, incarnation: current(), token }),
     release: async (resource: ObservationResource, token: string) => {
       await redis.releaseObservation(resource, token);
     },

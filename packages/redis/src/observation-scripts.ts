@@ -141,3 +141,11 @@ for index = 2, #ARGV do
 end
 return result
 `);
+/** A deleted resource's owner removes its claim, guard, heads and bodies at
+ * once; without an owner or guard no later job can publish into it. */
+export const dropScript = defineScript(`
+if redis.call('GET', KEYS[1]) ~= ARGV[1] or redis.call('GET', KEYS[2]) ~= ARGV[2] then return 0 end
+redis.call('DEL', KEYS[2], KEYS[3], KEYS[4])
+redis.call('PUBLISH', KEYS[5], ARGV[3])
+return 1
+`);

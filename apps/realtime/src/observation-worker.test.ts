@@ -22,6 +22,7 @@ const healthyCache = () => ({
   claim: async () => true,
   prepare: async () => true,
   publish: async () => true,
+  drop: async () => true,
   release: async () => {},
 });
 test('removed resource cannot survive a batch assembled before another claim await', async () => {
@@ -181,6 +182,7 @@ test('expired fleet demand releases resource ownership and fences pending builds
         published++;
         return true;
       },
+      drop: async () => true,
       release: async () => {
         releases++;
       },
@@ -230,6 +232,7 @@ test('completed revisions publish through continuous dirt and lease renewal requ
         published.push(snapshot.header.contentRevision);
         return true;
       },
+      drop: async () => true,
       release: async () => {},
     },
     readHeaders: async () => {

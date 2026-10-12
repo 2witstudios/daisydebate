@@ -5,7 +5,12 @@ import {
   type ObservationHeader,
   type ObservationResource,
 } from '@daisy/protocol';
-type Snapshot = { readonly header: ObservationHeader; readonly body: string };
+import type { ObservationWorkerCache } from './observation-worker-cache';
+export type ObservationSnapshotBuild = {
+  readonly header: ObservationHeader;
+  readonly body: string;
+};
+type Snapshot = ObservationSnapshotBuild;
 type Owner = {
   readonly resource: ObservationResource;
   readonly token: string;
@@ -41,31 +46,7 @@ export function createObservationWorker({
   readonly eligible: boolean;
   readonly now: () => number;
   readonly nextToken: () => string;
-  readonly cache: {
-    /** Retains an unchanged installed body; false when it must be rebuilt. */
-    readonly ready: (
-      base: ObservationBase,
-      header: ObservationHeader,
-      token: string,
-    ) => Promise<boolean>;
-    readonly claim: (
-      resource: ObservationResource,
-      token: string,
-    ) => Promise<boolean>;
-    readonly prepare: (
-      header: ObservationHeader,
-      token: string,
-    ) => Promise<boolean>;
-    readonly publish: (
-      snapshot: Snapshot,
-      base: ObservationBase,
-      token: string,
-    ) => Promise<boolean>;
-    readonly release: (
-      resource: ObservationResource,
-      token: string,
-    ) => Promise<void>;
-  };
+  readonly cache: ObservationWorkerCache;
   /** `isCurrent` is rechecked by the executor after every wait. */
   readonly readHeaders: (
     resources: readonly ObservationResource[],
@@ -130,6 +111,25 @@ export function createObservationWorker({
         jobs.delete(key);
       });
     jobs.set(key, work);
+  }
+  async function apply(
+    captured: Map<string, Owner>,
+    headers: readonly ObservationHeader[],
+  ) {
+    for (const header of headers) {
+      const key = observationResourceKey(header.resource);
+      const owner = captured.get(key);
+      captured.delete(key);
+      if (owner && current(owner) && !stuck(owner))
+        await progress(owner, header);
+    }
+    // A header follows its resource: absence is deletion, never "unchanged".
+    for (const owner of captured.values()) await deleted(owner);
+  }
+  async function deleted(owner: Owner) {
+    if (!current(owner)) return;
+    forget(owner);
+    await cache.drop(owner.resource, owner.token);
   }
   function forget(owner: Owner) {
     const key = observationResourceKey(owner.resource);
@@ -259,11 +259,7 @@ export function createObservationWorker({
           currentBatch.map((owner) => owner.resource),
           () => currentBatch.some(current),
         );
-        for (const header of headers) {
-          const owner = captured.get(observationResourceKey(header.resource));
-          if (owner && current(owner) && !stuck(owner))
-            await progress(owner, header);
-        }
+        await apply(captured, headers);
       } catch (error) {
         generation++;
         owners.clear();

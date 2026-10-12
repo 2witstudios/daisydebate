@@ -79,6 +79,7 @@ for (const audience of [1, 100, 10000, 100000])
             shared = { base: variant, ...snapshot.header, body: snapshot.body };
             return true;
           },
+          drop: async () => true,
           release: async () => {},
         },
         readHeaders: async (resources) => {
