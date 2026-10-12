@@ -90,6 +90,13 @@ test('installed Drizzle raw/prepared/relational execution paths retain reservati
       actual: () => child!.execute(sql`select 1`),
       code: 'INFRASTRUCTURE',
     });
+    for (const capability of ['$client', 'session'])
+      await assertRejects({
+        given: 'reflection against the installed Drizzle own properties',
+        should: `refuse descriptor extraction of ${capability}`,
+        actual: () => Object.getOwnPropertyDescriptor(social, capability),
+        code: 'INFRASTRUCTURE',
+      });
     await assertRejects({
       given: 'a scoped database',
       should: 'refuse raw driver access',

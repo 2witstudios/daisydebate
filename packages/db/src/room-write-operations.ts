@@ -116,6 +116,7 @@ export const roomWriteOperations = ({
           outcome.mutation,
           input.roundId,
           now,
+          state.participants,
         );
         const receipt: RoomCommandReceipt = {
           commandId: input.commandId,
