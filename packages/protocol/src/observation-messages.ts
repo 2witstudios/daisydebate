@@ -28,15 +28,7 @@ export const observationServerMessageSchema = z.discriminatedUnion('type', [
     base: observationBaseSchema,
     minimumContentRevision: revision,
     validForMs: z.number().int().min(1).max(4900),
-    /** Small actor-private facts from the same canonical admission read. */
-    overlay: z
-      .json()
-      .refine(
-        (value) => observationJsonBytes(value) <= observationOverlayBytes,
-        {
-          message: 'Observation overlay exceeds byte bound',
-        },
-      ),
+    overlay: observationOverlaySchema,
   }),
   z
     .strictObject({

@@ -75,7 +75,7 @@ test('a recovered baseline remains pending until any occupied job slot settles',
     expected: { occupied: 1024, received: [1, 1], pending: 0 },
   });
   node.close();
-});
+}, 60_000); // Fills all 1,024 job slots; deterministic but slow under coverage.
 test('fresh authority restores an already delivered unchanged baseline after expiry', async () => {
   let now = 0,
     fetches = 0;

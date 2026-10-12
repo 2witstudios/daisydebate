@@ -117,5 +117,5 @@ for (const audience of [1, 100, 10000, 100000])
       });
       for (const node of nodes) node.close();
       await worker.close();
-    });
+    }, 60_000); // 100,000 logical sinks are deterministic but slow under coverage.
   }

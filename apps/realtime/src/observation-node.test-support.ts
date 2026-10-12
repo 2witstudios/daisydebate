@@ -10,7 +10,7 @@ import {
 } from './observation-permit';
 
 /** Five-second evidence for one component, started at `started`. */
-export const testEvidence = (started = 0, fingerprint = 'same') =>
+const testEvidence = (started = 0, fingerprint = 'same') =>
   observationEvidence({
     started,
     remainingMs: 5000,

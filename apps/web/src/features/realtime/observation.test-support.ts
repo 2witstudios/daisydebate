@@ -19,7 +19,7 @@ export const testDescriptor = {
   schema: 'channel-v1',
   decode: (body: unknown) => (typeof body === 'string' ? body : null),
 } as const;
-export const testBase = observationTestBase();
+const testBase = observationTestBase();
 export const readyFrame = (
   overrides: Partial<Frame<'observation.ready'>> = {},
 ): Frame<'observation.ready'> => ({

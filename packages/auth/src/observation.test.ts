@@ -1,79 +1,16 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { createObservationAuthorityDecision } from './observation';
 import {
-  createObservationAuthorityDecision,
-  type ObservationAuthorityContext,
-  type ObservationReadingPolicy,
-} from './observation';
-setupRitewayBun();
-const actor = 'a'.repeat(24),
-  peer = 'b'.repeat(24),
-  id = 'c'.repeat(24);
-const account = (actorId: string) => ({
-  userId: actorId,
-  actorId,
-  revision: 1,
-  member: true,
-  erased: false,
-});
-const fact = {
-  kind: 'channel',
-  channelId: id,
-  policyKey: 'social.dm',
-  policyRevision: 1,
-  lifecycle: 'active',
-  revision: 1,
-  authority: {
-    kind: 'dm',
-    lowActorId: actor,
-    highActorId: peer,
-    requestSenderActorId: actor,
-    state: 'accepted',
-    blocked: false,
-    revision: 2,
-  },
-} as const;
-const accounts = [actor, peer].map((actorId) => ({
-  account: account(actorId),
-  age: {
-    state: 'known',
-    actorId,
-    revision: 1,
-    accountRevision: 1,
-    band: 'adult',
-    validUntil: '2026-11-01T00:00:00.000Z',
-  } as const,
-}));
-const context: ObservationAuthorityContext = {
-  principal: { kind: 'user', userId: actor, actorId: actor },
-  account: account(actor),
-  resource: { kind: 'channel', id },
-  resourceFact: fact,
-  socialAccounts: accounts,
-  databaseNow: '2026-10-12T00:00:00.000Z',
-};
-const readingPolicy: ObservationReadingPolicy = ({
-  channel,
+  account,
   accounts,
-  now,
-}) => ({
-  channelId: channel.channelId,
-  policyKey: channel.policyKey,
-  policyRevision: channel.policyRevision,
-  authorityRevision: channel.revision,
-  relationshipRevision:
-    channel.authority.kind === 'dm'
-      ? channel.authority.revision
-      : channel.authority.generation,
-  allowed: accounts.every((row) => row.account.member && !row.account.erased),
-  evaluatedAt: now,
-  validUntil: '2026-11-01T00:00:00.000Z',
-  accounts: accounts.map((row) => ({
-    actorId: row.account.actorId!,
-    userId: row.account.userId,
-    accountRevision: row.account.revision,
-    ageRevision: row.age.state === 'known' ? row.age.revision : null,
-  })),
-});
+  actor,
+  context,
+  fact,
+  id,
+  peer,
+  readingPolicy,
+} from './observation.test-support';
+setupRitewayBun();
 test('the same full cast has identical peer evidence for either reader', () => {
   const decide = createObservationAuthorityDecision({ readingPolicy });
   const first = decide(context);
