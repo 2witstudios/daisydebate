@@ -77,3 +77,22 @@ test('reading after elapsed permission hides despite a delayed timer', () => {
   release();
   provider.dispose();
 });
+
+test('the canonical overlay reaches the reader with content and leaves with it', () => {
+  const { provider, reader, incoming } = providerFixture();
+  const overlay = {
+    ownReactions: [{ messageId: 'e'.repeat(24), reaction: 'up' }],
+  };
+  incoming(readyFrame({ overlay }));
+  incoming(snapshotFrame({ body: 'private' }));
+  const shown = reader.read().overlay;
+  incoming(readyFrame({ overlay: null }));
+  const renewed = reader.read().overlay;
+  assert({
+    given: 'a ready overlay, its snapshot, then a renewal without one',
+    should: 'expose exactly the latest canonical overlay',
+    actual: { shown, renewed },
+    expected: { shown: overlay, renewed: undefined },
+  });
+  provider.dispose();
+});

@@ -73,6 +73,7 @@ export async function proveSnapshotDelivery(journey: Journey) {
 export async function proveDraftAndRevocation(journey: Journey) {
   const recipient = await acceptMessagingJourney(journey);
   const sender = await openPage(journey.sender, 'the drafting sender');
+  const traffic = observeTraffic(sender);
   await sender.goto(`/messages/${journey.channelId}`);
   const own = 'Message about to be revised';
   await sender.getByLabel('Your message').fill(own);
@@ -85,12 +86,21 @@ export async function proveDraftAndRevocation(journey: Journey) {
     .click();
   const draft = 'An unsent revision the sender is still typing';
   await sender.getByLabel('Revise your message').fill(draft);
-  const posted = 'Another participant keeps talking';
-  await recipient.getByLabel('Your message').fill(posted);
-  await recipient
-    .getByRole('button', { name: 'Send message', exact: true })
+  const snapshots = () =>
+    traffic.frames.filter((frame) => frame.type === 'observation.snapshot')
+      .length;
+  await expect.poll(snapshots).toBeGreaterThan(0);
+  const before = snapshots();
+  // A reaction to the edited message changes the edit page's own window.
+  await recipient.goto(`/messages/${journey.channelId}`);
+  await messageInHistory(recipient, own)
+    .locator('xpath=ancestor::li')
+    .getByRole('link', { name: 'Reactions', exact: true })
     .click();
-  await expect(messageInHistory(recipient, posted)).toHaveCount(1);
+  await recipient
+    .getByRole('button', { name: 'React 👍', exact: true })
+    .click();
+  await expect.poll(snapshots).toBeGreaterThan(before);
   await expect(sender.getByLabel('Revise your message')).toHaveValue(draft);
   const other = await openPage(journey.sender, 'the signing-out tab');
   await other.goto('/lobby');
@@ -116,12 +126,13 @@ export async function proveLiveReactions(journey: Journey) {
     .getByRole('button', { name: 'Send message', exact: true })
     .click();
   const sender = await openPage(journey.sender, 'the reactions viewer');
+  // The tab's one socket opens with the shell, so record from the first load.
+  const traffic = observeTraffic(sender);
   await sender.goto(`/messages/${journey.channelId}`);
   await messageInHistory(sender, text)
     .locator('xpath=ancestor::li')
     .getByRole('link', { name: 'Reactions', exact: true })
     .click();
-  const traffic = observeTraffic(sender);
   const reactions = sender.getByRole('list', { name: 'Current reactions' });
   await expect
     .poll(() =>
