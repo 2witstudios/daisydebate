@@ -8,24 +8,14 @@ import {
   observationResourceKey,
 } from '../observation';
 import { createMessagingCoreSchemas, type MessagingCoreBounds } from './core';
-import { messagingMessageView } from './message-view';
+import {
+  messagingMessageRecordSchema,
+  messagingMessageView,
+} from './message-view';
 
 /** Cumulative UTF-8 JSON budget for restricted projection rows; the remainder of a frame is envelope. */
 export const observationProjectionRowBytes = 96 * 1024;
 const order = z.number().int().positive().safe();
-const iso = z.iso.datetime();
-const restrictedRow = z.strictObject({
-  id: idSchema,
-  channelId: idSchema,
-  authorActorId: idSchema,
-  sequence: order,
-  changeVersion: order,
-  text: z.string().nullable(),
-  createdAt: iso,
-  editedAt: iso.nullable(),
-  removedAt: iso.nullable(),
-  replyToMessageId: idSchema.optional(),
-});
 const maxSafe = Number.MAX_SAFE_INTEGER;
 const worstId = 'z'.repeat(24);
 const worstIso = '2026-10-12T00:00:00.000Z';
@@ -86,7 +76,7 @@ function coherentRows(projection: ChannelProjection) {
     observationJsonBytes(projection.rows) > observationProjectionRowBytes
   )
     return null;
-  const rows = z.array(restrictedRow).safeParse(projection.rows);
+  const rows = z.array(messagingMessageRecordSchema).safeParse(projection.rows);
   const { id } = base.data.resource,
     { after } = base.data.window;
   return rows.success &&

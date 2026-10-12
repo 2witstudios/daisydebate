@@ -216,6 +216,8 @@ export {
   type ObservationPartition,
   type ObservationBase,
   type ObservationHeader,
+  type ObservationDependency,
+  type ObservationAuthorityDecision,
 } from './observation';
 export {
   observationClientMessageSchema,

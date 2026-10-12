@@ -21,6 +21,37 @@ import {
   type ObservationRunnerInput,
 } from './observation-runner';
 
+type Fence = {
+  readonly resource: ObservationResource;
+  readonly purgeGeneration: number;
+  readonly disclosureRevision: number;
+};
+/** Validates a resource fence; throws on malformed revisions. */
+const fence = ({ resource, purgeGeneration, disclosureRevision }: Fence) =>
+  observationHeaderSchema.parse({
+    resource,
+    purgeGeneration,
+    disclosureRevision,
+    contentRevision: 0,
+  });
+/** A body revision must be a valid header for, and belong to, its base's resource. */
+function baseRevision(input: {
+  readonly resource: ObservationResource;
+  readonly base: ObservationBase;
+  readonly purgeGeneration: number;
+  readonly contentRevision: number;
+}) {
+  observationHeaderSchema.parse({
+    resource: input.resource,
+    contentRevision: input.contentRevision,
+    disclosureRevision: input.base.disclosureRevision,
+    purgeGeneration: input.purgeGeneration,
+  });
+  return (
+    observationResourceKey(input.resource) ===
+    observationResourceKey(input.base.resource)
+  );
+}
 /** Guarded publication: claims, fences, bodies, heads and purges. */
 export function createObservationCacheOperations(
   input: ObservationRunnerInput,
@@ -36,16 +67,7 @@ export function createObservationCacheOperations(
       readonly contentRevision: number;
       readonly ttlMs: number;
     }) {
-      observationHeaderSchema.parse({
-        resource: input.resource,
-        contentRevision: input.contentRevision,
-        disclosureRevision: input.base.disclosureRevision,
-        purgeGeneration: input.purgeGeneration,
-      });
-      if (
-        observationResourceKey(input.resource) !==
-        observationResourceKey(input.base.resource)
-      )
+      if (!baseRevision(input))
         throw new Error('Invalid observation retention');
       return (
         Number(
@@ -114,12 +136,7 @@ export function createObservationCacheOperations(
       readonly purgeGeneration: number;
       readonly disclosureRevision: number;
     }) {
-      observationHeaderSchema.parse({
-        resource: input.resource,
-        contentRevision: 0,
-        disclosureRevision: input.disclosureRevision,
-        purgeGeneration: input.purgeGeneration,
-      });
+      fence(input);
       return (
         Number(
           await script(
@@ -147,15 +164,8 @@ export function createObservationCacheOperations(
       readonly body: string;
       readonly ttlMs: number;
     }) {
-      observationHeaderSchema.parse({
-        resource: input.resource,
-        contentRevision: input.contentRevision,
-        disclosureRevision: input.base.disclosureRevision,
-        purgeGeneration: input.purgeGeneration,
-      });
       if (
-        observationResourceKey(input.resource) !==
-          observationResourceKey(input.base.resource) ||
+        !baseRevision(input) ||
         Buffer.byteLength(input.body) > observationFrameBytes
       )
         throw new Error('Invalid observation body');
@@ -187,12 +197,7 @@ export function createObservationCacheOperations(
       readonly purgeGeneration: number;
       readonly disclosureRevision: number;
     }) {
-      observationHeaderSchema.parse({
-        resource: input.resource,
-        contentRevision: 0,
-        disclosureRevision: input.disclosureRevision,
-        purgeGeneration: input.purgeGeneration,
-      });
+      fence(input);
       return (
         Number(
           await script('purgeObservation', purgeScript, keys(input.resource), [

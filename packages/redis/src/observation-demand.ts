@@ -23,6 +23,16 @@ export function createObservationDemandOperations(
   input: ObservationRunnerInput,
 ) {
   const { sentinel, keys, script, namespace } = createObservationRunner(input);
+  const demandKeys = (resource: ObservationResource) => {
+    const key = observationResourceKey(resource);
+    return [
+      redisKey(namespace, 'observation', key, 'interest'),
+      redisKey(namespace, 'observation', 'due'),
+      redisKey(namespace, 'observation', 'live'),
+      redisKey(namespace, 'observation', key, 'demand'),
+      keys(resource)[3]!,
+    ];
+  };
   return {
     async demandObservation(
       resource: ObservationResource,
@@ -46,13 +56,7 @@ export function createObservationDemandOperations(
           await script(
             'demandObservation',
             interestScript,
-            [
-              redisKey(namespace, 'observation', key, 'interest'),
-              redisKey(namespace, 'observation', 'due'),
-              redisKey(namespace, 'observation', 'live'),
-              redisKey(namespace, 'observation', key, 'demand'),
-              keys(resource)[3]!,
-            ],
+            demandKeys(resource),
             [
               segment(nodeIncarnation),
               '5000',
@@ -73,13 +77,7 @@ export function createObservationDemandOperations(
       const result = await script(
         'readObservationDemand',
         readDemandScript,
-        [
-          redisKey(namespace, 'observation', key, 'interest'),
-          redisKey(namespace, 'observation', 'due'),
-          redisKey(namespace, 'observation', 'live'),
-          redisKey(namespace, 'observation', key, 'demand'),
-          keys(resource)[3]!,
-        ],
+        demandKeys(resource),
         [],
       );
       if (!Array.isArray(result) || result.length > 64)
