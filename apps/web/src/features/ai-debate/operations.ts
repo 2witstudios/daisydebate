@@ -142,14 +142,14 @@ export function createAiDebateOperations(dependencies: AiDebateDependencies) {
     roundId: string,
     expectedVersion: number,
     command: Parameters<RoundStore['applyRoundExecution']>[0]['command'],
-    projection: RoundProjection,
+    buildProjection: (now: string) => RoundProjection,
   ): Promise<boolean> => {
     try {
       await store.applyRoundExecution({
         roundId,
         expectedVersion,
         command,
-        projection,
+        buildProjection,
       });
       return true;
     } catch (error) {
@@ -171,12 +171,19 @@ export function createAiDebateOperations(dependencies: AiDebateDependencies) {
       const { round, runtime } = await ownedBy(store, actorId, id, () =>
         ids.next(),
       );
-      const now = Date.parse(await store.databaseNow());
-      const ticked = runtime.tick(new Date(now).toISOString());
-      const moved =
-        ticked.segmentInserts.length > 0 || ticked.segmentCloses.length > 0;
+      let now = 0;
+      let moved = false;
+      if (
+        !(await persist(round.id, round.version, null, (trustedNow) => {
+          now = Date.parse(trustedNow);
+          const ticked = runtime.tick(trustedNow);
+          moved =
+            ticked.segmentInserts.length > 0 || ticked.segmentCloses.length > 0;
+          return ticked;
+        }))
+      )
+        continue;
       if (!moved) return { round, runtime, now, tickedFromVersion: null };
-      if (!(await persist(round.id, round.version, null, ticked))) continue;
       const fresh = await store.getRound(id);
       if (!fresh) throw createAppError('NOT_FOUND');
       return {
@@ -257,11 +264,6 @@ export function createAiDebateOperations(dependencies: AiDebateDependencies) {
       const acting = actingActorOf(round, actorId, mapped, position);
       const botCommand = acting !== actorId;
       if (botCommand) await requireBotLine(store, round, position, acting);
-      const executed = runtime.execute({
-        command: mapped,
-        actorId: command.type === 'start' ? null : acting,
-        now: new Date(now).toISOString(),
-      });
       const applied = await persist(
         round.id,
         round.version,
@@ -278,7 +280,12 @@ export function createAiDebateOperations(dependencies: AiDebateDependencies) {
           payloadDigest: digestOf(mapped),
           result: { ok: true },
         },
-        executed,
+        (trustedNow) =>
+          runtime.execute({
+            command: mapped,
+            actorId: command.type === 'start' ? null : acting,
+            now: trustedNow,
+          }),
       );
       if (!applied) throw createAppError('CONFLICT', 'The round moved on');
     },

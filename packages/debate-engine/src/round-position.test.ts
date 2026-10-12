@@ -1,140 +1,189 @@
-import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { advancedClockRowsOf, clockRowsOf } from './round-position';
+import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { assertRejects } from '@daisy/errors/testing';
+import { roundPositionAt } from './round-position';
+import { advanceRoundClock } from './round-clock';
+import { normalizeRoundClock, type ClockState } from './round-clock-state';
+import { createRoundRuntime } from './round-runtime';
 import {
   emptyCheckpoint,
   practiceRules,
+  practiceSeats,
   roundAt,
 } from './runtime.test-support';
-
 setupRitewayBun();
-
 const rules = practiceRules();
-const started = Date.parse(roundAt(0));
-const active = {
+const origin = Date.parse(roundAt(0));
+const round = {
   status: 'active' as const,
-  startedAtMs: started,
-  completedAtMs: null,
+  startedAt: roundAt(0),
+  completedAt: null,
   outcome: null,
-  gapAnchorMs: started,
 };
+const snapshot = { round, rules, checkpoint: emptyCheckpoint, segments: [] };
+const read = (now: number) =>
+  roundPositionAt({ ...snapshot, nowMs: origin + now });
+const state = () => normalizeRoundClock(snapshot);
 
-describe('browser clock projection', () => {
-  test('converts durable stamps and virtually crosses expired segments without mutating them', () => {
-    const persisted = [
-      {
-        id: 'first',
-        sequence: 0,
-        type: 'speech' as const,
-        rulesSegmentKey: 'AC',
-        startedAt: roundAt(10_000),
-        endedAt: null,
-        durationMs: 300_000,
-      },
-    ];
-    const rows = clockRowsOf(persisted);
-    const projected = advancedClockRowsOf(
-      rows,
-      emptyCheckpoint,
-      active,
-      rules,
-      started + 440_000,
-    );
+for (const offset of [-1, 0, 1])
+  test(`countdown and speech deadline ${offset}ms`, () => {
+    const first = read(10_000 + offset);
+    const close = read(310_000 + offset);
     assert({
-      given:
-        'a durable opening speech and a clock past the next segment deadline',
-      should:
-        'close the speech at its exact deadline and virtually open the next segment',
-      actual: projected.rows.map((row) => [
-        row.key,
-        row.startedAtMs - started,
-        row.endedAtMs === null ? null : row.endedAtMs - started,
-      ]),
-      expected: [
-        ['AC', 10_000, 310_000],
-        ['CX1', 320_000, 440_000],
-      ],
+      given: `countdown deadline ${offset}ms`,
+      should: 'open exactly at the deadline',
+      actual: [first.stage, first.openSegment?.sequence ?? null],
+      expected:
+        offset < 0
+          ? ['countdown', null]
+          : (['live', 0] as (string | number | null)[]),
     });
     assert({
-      given: 'a read-only browser projection',
-      should: 'leave the hydrated database rows unchanged',
-      actual: rows[0]?.endedAtMs,
-      expected: null,
-    });
-  });
-
-  test('expires active prep into the next segment without another countdown', () => {
-    const checkpoint = {
-      ...emptyCheckpoint,
-      active_prep: {
-        side: 'affirmative' as const,
-        started_at: roundAt(945_000),
-      },
-      prep_consumed_ms: { affirmative: 60_000, negative: 0 },
-    };
-    const prior = rules.segments.slice(0, 4).map((segment, sequence) => ({
-      id: `closed-${sequence}`,
-      sequence,
-      type: segment.type,
-      key: segment.key,
-      startedAtMs: started,
-      endedAtMs: started + 940_000,
-      durationMs: segment.durationMs,
-    }));
-    const projected = advancedClockRowsOf(
-      prior,
-      checkpoint,
-      active,
-      rules,
-      started + 1_125_000,
-    );
-    assert({
-      given:
-        'preparation whose remaining budget expired at the current instant',
-      should: 'open the spendable speech at expiry and consume the full budget',
+      given: `speech deadline ${offset}ms`,
+      should: 'close exactly at the deadline',
       actual: [
-        projected.rows.at(-1)?.key,
-        projected.rows.at(-1)?.startedAtMs,
-        projected.checkpoint.active_prep,
-        projected.checkpoint.prep_consumed_ms.affirmative,
+        close.stage,
+        close.openSegment?.sequence ?? null,
+        close.countdownRemainingMs,
       ],
-      expected: ['1AR', started + 1_125_000, null, 240_000],
+      expected:
+        offset < 0 ? ['live', 0, null] : ['countdown', null, 10_000 - offset],
     });
   });
 
-  test('keeps the final segment open for the ballot and leaves a scheduled round inert', () => {
-    const final = rules.segments.at(-1)!;
-    const row = {
-      id: 'last',
-      sequence: rules.segments.length - 1,
-      type: final.type,
-      key: final.key,
-      startedAtMs: started,
-      endedAtMs: null,
-      durationMs: final.durationMs,
-    };
+test('interrupted CX closes and clears floor before the next speech', () => {
+  const segments = rules.segments.slice(0, 2).map((segment, sequence) => ({
+    id: `row-${sequence}`,
+    sequence,
+    type: segment.type,
+    rulesSegmentKey: segment.key,
+    durationMs: segment.durationMs,
+    startedAt: roundAt(sequence === 0 ? 10_000 : 320_000),
+    endedAt: sequence === 0 ? roundAt(310_000) : null,
+  }));
+  const checkpoint = {
+    ...emptyCheckpoint,
+    floor: {
+      holder_participant_id: practiceSeats[0].id,
+      granted_at: roundAt(330_000),
+    },
+  };
+  const input = { round, segments, rules, checkpoint, nowMs: origin + 450_000 };
+  const runtime = createRoundRuntime({
+    ...input,
+    round: { ...round, id: 'round', currentStage: 'live' },
+    participants: practiceSeats,
+    nextSegmentId: () => {
+      throw new Error('read allocated an ID');
+    },
+  });
+  const position = roundPositionAt(input);
+  assert({
+    given: 'an affirmative interruption in CX1 then NC at 450000ms',
+    should: 'drop the previous floor',
+    actual: [
+      position.openSegment?.key,
+      position.openSegment?.floorParticipantId,
+    ],
+    expected: ['NC', null],
+  });
+  assert({
+    given: 'the identical durable server and browser snapshot',
+    should: 'produce equal positions',
+    actual: runtime.position(roundAt(450_000)),
+    expected: position,
+  });
+  assert({
+    given: 'pure prediction',
+    should: 'preserve the persisted interruption',
+    actual: checkpoint.floor.holder_participant_id,
+    expected: practiceSeats[0].id,
+  });
+});
+
+test('frozen input, multi-segment catchup, staged composition and repeated time', () => {
+  const initial = state();
+  Object.freeze(initial.lifecycle);
+  Object.freeze(initial.checkpoint.prep_consumed_ms);
+  Object.freeze(initial.checkpoint);
+  Object.freeze(initial.rows);
+  Object.freeze(initial);
+  const first = advanceRoundClock(initial, rules, origin + 440_000);
+  const second = advanceRoundClock(first.state, rules, origin + 1_300_000);
+  const direct = advanceRoundClock(initial, rules, origin + 1_300_000);
+  assert({
+    given: 'monotonic staged time versus direct catchup',
+    should: 'produce the same state and ordered changes',
+    actual: {
+      state: second.state,
+      changes: [...first.changes, ...second.changes],
+    },
+    expected: direct,
+  });
+  assert({
+    given: 'the same time repeated',
+    should: 'emit no extra changes',
+    actual: advanceRoundClock(direct.state, rules, origin + 1_300_000).changes,
+    expected: [],
+  });
+  assert({
+    given: 'frozen clock input',
+    should: 'remain empty and active',
+    actual: initial.rows,
+    expected: [],
+  });
+});
+
+test('prep expiry opens directly and final segment stays live awaiting ballot', () => {
+  const prior = advanceRoundClock(state(), rules, origin + 940_000).state;
+  const prep: ClockState = {
+    ...prior,
+    checkpoint: {
+      ...prior.checkpoint,
+      active_prep: { side: 'affirmative', started_at: roundAt(945_000) },
+      prep_consumed_ms: { affirmative: 60_000, negative: 0 },
+    },
+  };
+  for (const offset of [-1, 0, 1]) {
+    const advanced = advanceRoundClock(
+      prep,
+      rules,
+      origin + 1_125_000 + offset,
+    );
     assert({
-      given: 'the final segment after its deadline',
-      should: 'keep its row open until completion records a ballot',
-      actual: advancedClockRowsOf(
-        [row],
-        emptyCheckpoint,
-        active,
-        rules,
-        started + final.durationMs + 1,
-      ).rows,
-      expected: [row],
+      given: `prep expiry ${offset}ms`,
+      should: 'consume budget and open at expiry without countdown',
+      actual: [
+        advanced.state.checkpoint.active_prep === null,
+        advanced.state.rows.at(-1)?.key,
+        advanced.state.checkpoint.prep_consumed_ms.affirmative,
+      ],
+      expected: offset < 0 ? [false, 'CX2', 60_000] : [true, '1AR', 240_000],
     });
-    assert({
-      given: 'a scheduled round before any start command',
-      should: 'materialize no virtual segments',
-      actual: advancedClockRowsOf(
-        [],
-        emptyCheckpoint,
-        { ...active, status: 'scheduled' },
-        rules,
-        started + 1_000_000,
-      ).rows,
-      expected: [],
-    });
+  }
+  const final = read(99_000_000);
+  assert({
+    given: 'time past the final segment',
+    should: 'keep the final live interval for ballot',
+    actual: [
+      final.openSegment?.sequence,
+      final.openSegment?.remainingMs,
+      final.awaitingBallot,
+    ],
+    expected: [rules.segments.length - 1, 0, true],
+  });
+});
+
+test('active snapshots require a durable countdown origin', async () => {
+  await assertRejects({
+    given: 'an active snapshot without startedAt',
+    should: 'reject missing lifecycle authority',
+    actual: () =>
+      roundPositionAt({
+        ...snapshot,
+        round: { ...round, startedAt: null },
+        nowMs: origin,
+      }),
+    code: 'INVARIANT',
+    invariantId: 'round.segment.matches-rules',
   });
 });

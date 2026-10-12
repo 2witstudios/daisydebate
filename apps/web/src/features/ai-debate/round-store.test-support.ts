@@ -55,7 +55,28 @@ const claimExistingFakeSpeech = (
  * their own modules; this file holds the round execution and transcript
  * methods that bind them together.
  */
-export function createInMemoryRoundStore() {
+const noClockChange = (
+  input: Parameters<RoundStore['applyRoundExecution']>[0],
+  projection: Awaited<
+    ReturnType<
+      Parameters<RoundStore['applyRoundExecution']>[0]['buildProjection']
+    >
+  >,
+  row: NonNullable<ReturnType<FakeRoundState['rounds']['get']>>,
+): boolean => {
+  return (
+    input.command === null &&
+    projection.segmentInserts.length === 0 &&
+    projection.segmentCloses.length === 0 &&
+    projection.round !== null &&
+    projection.round.status === row.status &&
+    projection.round.currentStage === row.currentStage &&
+    JSON.stringify(projection.round.checkpoint) ===
+      JSON.stringify(row.checkpoint)
+  );
+};
+
+export function createInMemoryRoundStore(clock?: () => string) {
   const state = createFakeRoundState();
 
   return {
@@ -70,7 +91,7 @@ export function createInMemoryRoundStore() {
       ...usageMethods(state),
 
       async databaseNow() {
-        return new Date(state.now()).toISOString();
+        return clock?.() ?? new Date(state.now()).toISOString();
       },
 
       async getRound(id: string) {
@@ -89,7 +110,12 @@ export function createInMemoryRoundStore() {
         }
         if (row.version !== input.expectedVersion)
           throw createAppError('CONFLICT', 'The round moved on');
-        const { projection } = input;
+        const projection = await input.buildProjection(
+          clock?.() ?? new Date(state.now()).toISOString(),
+        );
+        if (row.version !== input.expectedVersion)
+          throw createAppError('CONFLICT', 'The round moved on');
+        if (noClockChange(input, projection, row)) return;
         if (projection.round !== null) {
           row.status = projection.round.status;
           row.currentStage = projection.round.currentStage;
@@ -237,7 +263,7 @@ export function createInMemoryRoundStore() {
           roundId: input.roundId,
           expectedVersion: input.expectedVersion,
           command: input.command,
-          projection: input.projection,
+          buildProjection: input.buildProjection,
         });
       },
     },

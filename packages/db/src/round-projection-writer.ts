@@ -2,7 +2,7 @@ import { createAppError } from '@daisy/errors';
 import { and, eq, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { RoundProjection } from '@daisy/protocol';
-import { buildDebateTopic } from '@daisy/protocol';
+import { runtimeCheckpointSchema, buildDebateTopic } from '@daisy/protocol';
 import type { z } from 'zod';
 import { appendOutboxEvent } from './outbox';
 import { jsonObjectSchema } from './schema/columns';
@@ -31,26 +31,58 @@ export async function appendRoundPhaseChanged(
   });
 }
 
+const projectionChanged = (
+  current: LockedRound,
+  projection: RoundProjection,
+): boolean => {
+  const projected = projection.round;
+  if (
+    projection.segmentInserts.length > 0 ||
+    projection.segmentCloses.length > 0
+  )
+    return true;
+  if (projected === null) return false;
+  const previous = {
+    status: current.status,
+    currentStage: current.currentStage,
+    startedAt: current.startedAt?.toISOString() ?? null,
+    completedAt: current.completedAt?.toISOString() ?? null,
+    outcome: current.outcome,
+    checkpoint: runtimeCheckpointSchema.parse(current.runtimeState),
+  };
+  const next = {
+    ...projected,
+    checkpoint: runtimeCheckpointSchema.parse(projected.checkpoint),
+  };
+  return Object.entries(previous).some(
+    ([key, value]) =>
+      JSON.stringify(value) !== JSON.stringify(next[key as keyof typeof next]),
+  );
+};
+
 /** Persist a projection and announce exactly the revision it advances to. */
 export async function writeProjectionWithPhaseSignal(
   tx: Tx,
   roundId: string,
-  current: Pick<LockedRound, 'version' | 'status' | 'currentStage'>,
+  current: LockedRound,
   projection: RoundProjection,
-): Promise<void> {
-  await writeProjection(tx, roundId, projection);
-  if (
-    projection.round !== null &&
-    (projection.round.status !== current.status ||
-      projection.round.currentStage !== current.currentStage)
-  )
-    await appendRoundPhaseChanged(tx, roundId, current.version + 1);
+  now: string,
+): Promise<boolean> {
+  const changed = projectionChanged(current, projection);
+  if (!changed) return false;
+  await writeProjection(tx, roundId, projection, now);
+  await appendRoundPhaseChanged(tx, roundId, current.version + 1);
+  return true;
 }
 
 type LockedRound = {
   readonly version: number;
   readonly status: typeof rounds.$inferSelect.status;
   readonly currentStage: typeof rounds.$inferSelect.currentStage;
+  readonly startedAt: Date | null;
+  readonly completedAt: Date | null;
+  readonly outcome: typeof rounds.$inferSelect.outcome;
+  readonly runtimeState: typeof rounds.$inferSelect.runtimeState;
 };
 
 /**
@@ -68,6 +100,10 @@ export async function lockedRoundVersion(
       version: rounds.version,
       status: rounds.status,
       currentStage: rounds.currentStage,
+      startedAt: rounds.startedAt,
+      completedAt: rounds.completedAt,
+      outcome: rounds.outcome,
+      runtimeState: rounds.runtimeState,
     })
     .from(rounds)
     .where(eq(rounds.id, roundId))
@@ -109,34 +145,19 @@ export async function insertCommandRow(
   });
 }
 
-/**
- * The durable instant for a lifecycle column (ADR 0033 §3.2, ISSUE-37):
- * `coalesce` on the *stored* column, so only the write that fills it in
- * chooses an instant and every write after it keeps the one already recorded.
- *
- * The previous form took the transition from the projection's status, which
- * meant any write made while the round was active re-stamped `started_at` — a
- * segment closing halfway through a debate moved the round's start forward,
- * and the timetable and rating window read exactly this column. Comparing
- * against the stored column is what makes it a transition again: the round
- * that opens at T keeps its start at T however many commands follow, and two
- * concurrent writers cannot both claim to be the one that started it.
- *
- * The projected value is never written. These columns are PostgreSQL's alone,
- * so no caller chooses them: hydration reads them back into the runtime and
- * the runtime carries them through.
- */
+/** Lifecycle instants belong to the post-lock database sample. Existing stamps remain fixed. */
 const lifecycleInstant = (
   column: typeof rounds.startedAt,
   projected: string | null,
-) =>
-  projected !== null ? sql`coalesce(${column}, statement_timestamp())` : column;
+  now: string,
+) => (projected !== null ? sql`coalesce(${column}, ${new Date(now)})` : column);
 
 /** Writes one projection's round row and segment changes inside `tx`. */
 async function writeProjection(
   tx: Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0],
   roundId: string,
   projection: RoundProjection,
+  now: string,
 ): Promise<void> {
   // `null` means no round-row column changed, so there is no lifecycle to
   // record. A scheduled round that a projection leaves scheduled writes its
@@ -147,17 +168,15 @@ async function writeProjection(
       .set({
         status: projection.round.status,
         currentStage: projection.round.currentStage,
-        // The runtime is still pure — it receives `now` from
-        // `databaseNow()`, the same clock — so segment instants agree with
-        // the lifecycle columns to within the request's latency rather than
-        // drifting onto a second clock.
         startedAt: lifecycleInstant(
           rounds.startedAt,
           projection.round.startedAt,
+          now,
         ),
         completedAt: lifecycleInstant(
           rounds.completedAt,
           projection.round.completedAt,
+          now,
         ),
         outcome: projection.round.outcome,
         runtimeState: projection.round.checkpoint,
