@@ -1,4 +1,5 @@
 import type { MessagingFileRuntime } from '../features/messaging/files/runtime';
+import { currentFairnessKey } from './fairness';
 import { readRealtimePublicUrl } from '@daisy/config';
 import type { MessagingRuntimePolicy } from '../features/messaging/composition';
 import type { RoomPolicy } from '../features/room-runtime/composition';
@@ -94,6 +95,7 @@ export function createApp({
     url: config.DATABASE_URL,
     eventSink: logger.log,
     nextActorId: () => ids.next(),
+    fairnessKey: currentFairnessKey,
   });
   let authConfig: AuthConfig | undefined;
   let auth: AuthServer | undefined;
