@@ -4,6 +4,7 @@ import type { MessagingCoreBounds } from '@daisy/protocol';
 import { createObservationAuthorityReader } from './observation-authority';
 import { createObservationClock } from './observation-clock';
 import { createObservationRuntime } from './observation-runtime';
+import { createObservationSupervisor } from './observation-supervisor';
 import type { RealtimeApp } from './app';
 import { createRealtimeServer } from './server';
 import { createRealtimeDelivery } from './delivery';
@@ -49,12 +50,14 @@ const eligible = (projection: Projection) => ({
     ) => projection.relayOutbox.drainOutbox(position, limit),
   },
 });
-/** Process-local observation roles; clock uncertainty fails closed. */
+/** Process-local observation roles. Clock uncertainty fails the runtime
+ * closed and the supervisor replaces it with a fresh clock and incarnation. */
 function composeObservation({
   resources,
   timers,
   now,
   readingPolicy,
+  onRestart,
   observation = resources.projection
     ? { projection: resources.projection }
     : {},
@@ -63,43 +66,48 @@ function composeObservation({
   readonly timers: IntervalTimers;
   readonly now: () => number;
   readonly readingPolicy: RealtimeReadingPolicy | undefined;
+  readonly onRestart: () => void;
   readonly observation: Parameters<typeof serveRealtime>[0]['observation'];
 }) {
-  const owned: { runtime?: ReturnType<typeof createObservationRuntime> } = {};
-  const clock = createObservationClock({
-    monotonicNow: now,
-    wallNow: () => Date.parse(resources.clock.now()),
-    onUncertainty: () => {
-      resources.logger.log(
-        'realtime.observation.clock_uncertain',
-        { operation: 'observation.clock' },
-        'Observation clock left its trusted envelope',
-      );
-      void owned.runtime?.close();
+  const authority = resources.database.observationAuthority(
+    createObservationAuthorityDecision(readingPolicy ? { readingPolicy } : {}),
+  );
+  return createObservationSupervisor({
+    onRestart,
+    retry: (work) => {
+      setTimeout(work, 1000);
+    },
+    create: (onUncertainty) => {
+      const clock = createObservationClock({
+        monotonicNow: now,
+        wallNow: () => Date.parse(resources.clock.now()),
+        onUncertainty: () => {
+          resources.logger.log(
+            'realtime.observation.clock_uncertain',
+            { operation: 'observation.clock' },
+            'Observation clock left its trusted envelope',
+          );
+          onUncertainty();
+        },
+      });
+      return createObservationRuntime({
+        nodeIncarnation: resources.ids.next(),
+        nextToken: () => resources.ids.next(),
+        now: clock.now,
+        timers,
+        redis: resources.redis,
+        authority: createObservationAuthorityReader({
+          now: clock.now,
+          operations: authority,
+        }),
+        maxPerSession: resources.transport.maxSubscriptions,
+        ...(observation.projection ? eligible(observation.projection) : {}),
+        ...(observation.channelBounds
+          ? { channelBounds: observation.channelBounds }
+          : {}),
+      });
     },
   });
-  const runtime = createObservationRuntime({
-    nodeIncarnation: resources.ids.next(),
-    nextToken: () => resources.ids.next(),
-    now: clock.now,
-    timers,
-    redis: resources.redis,
-    authority: createObservationAuthorityReader({
-      now: clock.now,
-      operations: resources.database.observationAuthority(
-        createObservationAuthorityDecision(
-          readingPolicy ? { readingPolicy } : {},
-        ),
-      ),
-    }),
-    maxPerSession: resources.transport.maxSubscriptions,
-    ...(observation.projection ? eligible(observation.projection) : {}),
-    ...(observation.channelBounds
-      ? { channelBounds: observation.channelBounds }
-      : {}),
-  });
-  owned.runtime = runtime;
-  return runtime;
 }
 
 async function completeShutdown(work: readonly Promise<unknown>[]) {
@@ -189,6 +197,8 @@ export async function serveRealtime({
     now,
     readingPolicy,
     observation,
+    // Clients reconnect and re-observe through the replacement runtime.
+    onRestart: () => delivery.registry.closeAll(),
   });
   await observationRuntime.start();
   const drain = await startOutboxDrain({
@@ -204,6 +214,7 @@ export async function serveRealtime({
   const { fetch, websocket } = createRealtimeServer({
     resources: {
       ...resources,
+      observation: { ready: observationRuntime.ready },
       outbox: {
         cursor: drain.cursor,
         highWaterMark: resources.database.readOutboxHighWaterMark,

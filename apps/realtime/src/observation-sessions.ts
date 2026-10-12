@@ -286,7 +286,10 @@ export function createObservationSessions({
       if (closed) return;
       closed = true;
       scheduler.close();
-      for (const binding of [...bindings.values()]) drop(binding);
+      for (const binding of [...bindings.values()]) {
+        hide(binding, 'unavailable');
+        drop(binding);
+      }
     },
   };
 }

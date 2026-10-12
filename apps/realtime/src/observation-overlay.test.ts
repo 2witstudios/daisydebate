@@ -43,3 +43,17 @@ test('actor overlays travel with ready and refresh only from canonical reads', a
     },
   });
 });
+
+test('closing the runtime tells every current observer delivery is unavailable', async () => {
+  const fixture = sessionsFixture();
+  const tab = await fixture.admitted();
+  fixture.sessions.close();
+  fixture.snapshot(2);
+  await fixture.flush();
+  assert({
+    given: 'an admitted observer when the runtime fails closed',
+    should: 'report unavailable and deliver nothing afterwards',
+    actual: tab.frames.map((frame) => frame.type).slice(1),
+    expected: ['observation.state'],
+  });
+});
