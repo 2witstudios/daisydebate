@@ -158,14 +158,21 @@ export function createObservationWorker({
             )
           )
             continue;
-          if (!(await cache.prepare(header, owner.token)) || !current(owner))
+          if (!(await cache.prepare(header, owner.token)) || !current(owner)) {
+            if (owners.get(observationResourceKey(owner.resource)) === owner)
+              owners.delete(observationResourceKey(owner.resource));
             continue;
+          }
           // A successful current-state read is useful progress; heartbeat alone is not.
           if (
-            (await cache.claim(owner.resource, owner.token)) &&
-            current(owner)
-          )
-            owner.expiresAt = now() + 2000;
+            !(await cache.claim(owner.resource, owner.token)) ||
+            !current(owner)
+          ) {
+            if (owners.get(observationResourceKey(owner.resource)) === owner)
+              owners.delete(observationResourceKey(owner.resource));
+            continue;
+          }
+          owner.expiresAt = now() + 2000;
           for (const [key, base] of owner.variants) {
             if (base.disclosureRevision !== header.disclosureRevision) continue;
             if (!(await cache.ready(base, header))) owner.delivered.delete(key);
@@ -176,8 +183,10 @@ export function createObservationWorker({
             start(owner, base, header);
           }
         }
-      } catch(error) {
-        generation++;owners.clear();throw error;
+      } catch (error) {
+        generation++;
+        owners.clear();
+        throw error;
       } finally {
         reconciling = false;
       }

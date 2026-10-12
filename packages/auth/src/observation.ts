@@ -151,8 +151,7 @@ function channel(
   if (!allowed) return { status: 'denied' } as const;
   const boundaries = [reading.validUntil];
   for (const row of accounts) {
-    if (row.account.actorId === null || row.age.state !== 'known')
-      return { status: 'unavailable' } as const;
+    if (row.account.actorId === null) return { status: 'unavailable' } as const;
     dependencies.push(
       {
         key: `account-${row.account.actorId}`,
@@ -161,15 +160,18 @@ function channel(
       },
       {
         key: `age-${row.account.actorId}`,
-        revision: JSON.stringify([
-          row.age.revision,
-          row.age.band,
-          row.age.accountRevision,
-        ]),
-        nextBoundary: row.age.validUntil,
+        revision:
+          row.age.state === 'known'
+            ? JSON.stringify([
+                row.age.revision,
+                row.age.band,
+                row.age.accountRevision,
+              ])
+            : JSON.stringify(['unknown', row.account.revision]),
+        nextBoundary: row.age.state === 'known' ? row.age.validUntil : null,
       },
     );
-    boundaries.push(row.age.validUntil);
+    if (row.age.state === 'known') boundaries.push(row.age.validUntil);
   }
   dependencies.push(
     {
@@ -187,6 +189,15 @@ function channel(
     dependencies.push({
       key: `contact-${fact.authority.lowActorId}-${fact.authority.highActorId}`,
       revision: String(fact.authority.revision),
+      nextBoundary: null,
+    });
+  else
+    dependencies.push({
+      key: `grant-${fact.channelId}-${fact.authority.actorId}`,
+      revision: JSON.stringify([
+        fact.authority.role,
+        fact.authority.generation,
+      ]),
       nextBoundary: null,
     });
   const deadline = boundaries.reduce((left, right) =>

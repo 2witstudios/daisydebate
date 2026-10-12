@@ -196,12 +196,101 @@ test('healthy variants cannot renew ownership of a stuck projection forever', as
   });
 });
 
-test('Redis uncertainty invalidates local ownership before another header read',async()=>{
- let fail=false,reads=0;
- const worker=createObservationWorker({eligible:true,now:()=>0,nextToken:()=> 'owner',cache:{claim:async()=>{if(fail)throw new Error('cache unavailable');return true;},prepare:async()=>{if(fail)throw new Error('cache unavailable');return true;},ready:async()=>true,publish:async()=>true,release:async()=>{}},readHeaders:async()=>{reads++;return[{resource,contentRevision:1,disclosureRevision:1,purgeGeneration:0}];},build:async(_base,header)=>({header,body:'body'})});
- worker.demand(base);await worker.reconcile();await worker.settled();
- fail=true;
- try{await worker.reconcile();}catch{/* Uncertainty is unavailable, not permission. */}
- try{await worker.reconcile();}catch{/* No new SQL may bypass unavailable claim. */}
- assert({given:'Redis fails after a current header read',should:'invalidate owned resources immediately and stop subsequent header SQL',actual:reads,expected:2});
+test('Redis uncertainty invalidates local ownership before another header read', async () => {
+  let fail = false,
+    reads = 0;
+  const worker = createObservationWorker({
+    eligible: true,
+    now: () => 0,
+    nextToken: () => 'owner',
+    cache: {
+      claim: async () => {
+        if (fail) throw new Error('cache unavailable');
+        return true;
+      },
+      prepare: async () => {
+        if (fail) throw new Error('cache unavailable');
+        return true;
+      },
+      ready: async () => true,
+      publish: async () => true,
+      release: async () => {},
+    },
+    readHeaders: async () => {
+      reads++;
+      return [
+        {
+          resource,
+          contentRevision: 1,
+          disclosureRevision: 1,
+          purgeGeneration: 0,
+        },
+      ];
+    },
+    build: async (_base, header) => ({ header, body: 'body' }),
+  });
+  worker.demand(base);
+  await worker.reconcile();
+  await worker.settled();
+  fail = true;
+  try {
+    await worker.reconcile();
+  } catch {
+    /* Uncertainty is unavailable, not permission. */
+  }
+  try {
+    await worker.reconcile();
+  } catch {
+    /* No new SQL may bypass unavailable claim. */
+  }
+  assert({
+    given: 'Redis fails after a current header read',
+    should:
+      'invalidate owned resources immediately and stop subsequent header SQL',
+    actual: reads,
+    expected: 2,
+  });
 });
+
+for (const fence of ['prepare', 'renew'] as const)
+  test(`false ${fence} fence stops future headers`, async () => {
+    let lost = false,
+      reads = 0;
+    const worker = createObservationWorker({
+      eligible: true,
+      now: () => 0,
+      nextToken: () => 'owner',
+      cache: {
+        claim: async () => !(lost && fence === 'renew'),
+        prepare: async () => !(lost && fence === 'prepare'),
+        ready: async () => true,
+        publish: async () => true,
+        release: async () => {},
+      },
+      readHeaders: async () => {
+        reads++;
+        return [
+          {
+            resource,
+            contentRevision: 1,
+            disclosureRevision: 1,
+            purgeGeneration: 0,
+          },
+        ];
+      },
+      build: async (_base, header) => ({ header, body: 'body' }),
+    });
+    worker.demand(base);
+    await worker.reconcile();
+    await worker.settled();
+    lost = true;
+    await worker.reconcile();
+    await worker.reconcile();
+    assert({
+      given:
+        'a warm owner observes an exact Redis guard/token mismatch without exception',
+      should: 'discard local ownership before any subsequent header query',
+      actual: reads,
+      expected: 2,
+    });
+  });

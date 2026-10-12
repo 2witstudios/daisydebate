@@ -251,3 +251,61 @@ test('logout transport loss fences a late snapshot immediately', () => {
   });
   provider.dispose();
 });
+
+test('reading after elapsed permission hides despite a delayed timer', () => {
+  let now = 0,
+    incoming!: (frame: ObservationServerMessage) => void;
+  const provider = createObservationProvider({
+    connection: {
+      connect: () => {},
+      dispose: () => {},
+      subscribe: () => () => {},
+      observe: (_descriptor, listener) => {
+        incoming = listener;
+        return () => {};
+      },
+    },
+    scheduler: { now: () => now, setTimeout: () => 0, clearTimeout: () => {} },
+  });
+  const descriptor = {
+    resource: { kind: 'channel', id: 'a'.repeat(24) },
+    window: { after: null, limit: 50 },
+    schema: 'channel-v1',
+    decode: (body: unknown) => (typeof body === 'string' ? body : null),
+  } as const;
+  const reader = provider.observe(descriptor),
+    base = {
+      schema: 1,
+      resource: descriptor.resource,
+      window: descriptor.window,
+      partition: { kind: 'shared', policyKey: 'v1' },
+      disclosureRevision: 1,
+    } as const;
+  incoming({
+    v: 1 as never,
+    type: 'observation.ready',
+    id: 'id',
+    generation: 1,
+    base,
+    minimumContentRevision: 1,
+    validForMs: 100,
+  });
+  incoming({
+    v: 1 as never,
+    type: 'observation.snapshot',
+    id: 'id',
+    generation: 1,
+    base,
+    contentRevision: 1,
+    purgeGeneration: 0,
+    body: 'private',
+  });
+  now = 101;
+  assert({
+    given: 'the clock passes expiry before the scheduled timer executes',
+    should: 'synchronously hide on read, independent of timer timing',
+    actual: reader.read().content,
+    expected: null,
+  });
+  provider.dispose();
+});
