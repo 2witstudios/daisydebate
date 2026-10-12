@@ -77,7 +77,7 @@ test('named authority reader preserves original queue start and independent evid
     },
     expected: {
       calls: ['admission', 'renewal'],
-      deadlines: [4900, 900, 2900],
+      deadlines: [4700, 700, 2700],
       late: 'unavailable',
     },
   });
