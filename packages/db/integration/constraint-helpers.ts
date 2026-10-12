@@ -252,6 +252,12 @@ export class Fixture {
     for (const [table, key] of purgeOrder) {
       await this.deleteWhere(table, key, this.tracked.get(table));
     }
+    // Deleting a live session appends its revocation control to the actor's inbox topic.
+    await this.deleteWhere(
+      'outbox',
+      'topic',
+      this.tracked.get('actors')?.map((actorId) => `user:${actorId}:inbox`),
+    );
   }
 
   private async deleteWhere(

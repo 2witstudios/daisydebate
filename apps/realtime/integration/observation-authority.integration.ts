@@ -113,6 +113,8 @@ test('restricted realtime role composes canonical batch facts and original-start
     await database.close();
     await rounds.close();
     await admin`delete from session where id=${principal.sessionId}`;
+    // Deleting the live session appended its revocation control.
+    await admin`delete from outbox where topic=${`user:${principal.actorId}:inbox`}`;
     await admin`delete from actors where id=${principal.actorId}`;
     await admin`delete from users where id=${principal.userId}`;
     await admin`delete from resource_observation_headers where resource_id in ${admin(resourceIds)}`;

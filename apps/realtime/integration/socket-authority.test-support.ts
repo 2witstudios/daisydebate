@@ -31,6 +31,8 @@ export async function socketAuthorityFixture(
   );
   const eraseFixture = async () => {
     await client`delete from session where id=${sessionId}`;
+    // Deleting the live session appended its revocation control.
+    await client`delete from outbox where topic=${`user:${actorId}:inbox`}`;
     await client`delete from actors where id=${actorId}`;
     await client`delete from users where id=${userId}`;
   };
