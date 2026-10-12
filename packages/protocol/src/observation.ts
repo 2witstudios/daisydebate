@@ -91,6 +91,15 @@ export function observationBaseKey(base: ObservationBase): string {
   ]);
 }
 export const observationFrameBytes = 128 * 1024;
+/** UTF-8 length of the JSON encoding, without depending on a host TextEncoder. */
+export function observationJsonBytes(value: unknown) {
+  let bytes = 0;
+  for (const char of JSON.stringify(value)) {
+    const point = char.codePointAt(0)!;
+    bytes += point <= 0x7f ? 1 : point <= 0x7ff ? 2 : point <= 0xffff ? 3 : 4;
+  }
+  return bytes;
+}
 export function createObservationSnapshotSchema<T extends z.ZodType>(body: T) {
   return z.strictObject({
     base: observationBaseSchema,
