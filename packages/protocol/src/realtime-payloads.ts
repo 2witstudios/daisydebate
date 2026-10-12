@@ -44,19 +44,6 @@ const doorbellPayloadSchema = z.strictObject({
 });
 
 /**
- * Only the owner-only `user:inbox` family may carry a small delta beyond
- * the doorbell fields (ADR 0032 §6). Notification content itself is
- * NOTIF-1's later epic; this is the envelope shape it will fill in.
- */
-const inboxDeltaPayloadSchema = z.strictObject({
-  entityVersion: entityVersionSchema,
-  kind: z.literal('user.notification-delivered'),
-  ids: z.array(idSchema).min(1).max(1),
-  notificationType: z.string().trim().min(1).max(64),
-  occurredAt: z.iso.datetime(),
-});
-
-/**
  * Revocations are outbox rows too (ADR 0032 §5), so every instance applies
  * them durably. They ride the actor's own `user:<actorId>:inbox` topic as
  * control rows (plan revision 4.11, ADR 0032 §6): storable there, but never
@@ -98,7 +85,6 @@ export const outboxPayloadSchema = z.discriminatedUnion('kind', [
   messagingInboxChangedPayloadSchema,
   doorbellPayloadSchema,
   roomChangedPayloadSchema,
-  inboxDeltaPayloadSchema,
   sessionRevokedPayloadSchema,
   accessRevokedPayloadSchema,
   actorPresencePreferenceChangedPayloadSchema,
@@ -111,7 +97,7 @@ type OutboxPayloadKind = OutboxPayload['kind'];
  * (`debate`, `standings`) carry only their own doorbell. `debate:presence`
  * and `debate:chat` carry nothing: presence is never written to the outbox
  * (ADR 0033 §1) and chat delivery is CHAT-1's later epic. The owner-only
- * `user:inbox` carries its delta plus the three control kinds realtime
+ * `user:inbox` carries its inbox doorbell plus the three control kinds realtime
  * consumes from the drain and never forwards to a client (plan revision
  * 4.11). `@daisy/db`'s append validates each row against this rule.
  */
@@ -125,7 +111,6 @@ const storageFamilyPayloadKinds: Readonly<
   'debate:chat': [],
   'user:inbox': [
     'messaging.inbox.changed',
-    'user.notification-delivered',
     'session.revoked',
     'access.revoked',
     'actor.presence-preference-changed',

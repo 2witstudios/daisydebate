@@ -58,13 +58,9 @@ needs no separate storage entry — and two different exposure surfaces ride
 it (`packages/protocol/src/realtime-payloads.ts`):
 
 - **Delivered to a subscribed browser** (the delivery-side rule, added to
-  `@daisy/protocol` with the first `event` sender): `debate.phase-changed` on `debate`,
-  `standings.updated` on `standings`, and `user.notification-delivered` on
-  `user:inbox`. The first two carry only ids and a projected competitive
-  state (`identifier`/`none`). `user.notification-delivered` also carries
-  `notificationType` (a controlled vocabulary string, category `none` —
-  never free text) and `occurredAt` (a timestamp, category `none`);
-  neither is personal, but both still need their own inventory entry.
+  `@daisy/protocol` with the first `event` sender): `debate.phase-changed` on
+  `debate` and `standings.updated` on `standings`. Both carry only ids and a
+  projected competitive state (`identifier`/`none`).
 - **Storage-only, never delivered as an `event` to any client**
   (storable through `isPayloadStorableOnTopic` only): the three `user:inbox` control kinds
   (`session.revoked`, `access.revoked`,

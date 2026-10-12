@@ -30,29 +30,19 @@ test('delivery preserves topic identity and never forwards inbox control rows', 
     expected: [true, false, false, true, false],
   });
   assert({
-    given: 'three valid durable inbox control kinds and one notification delta',
-    should: 'deliver only the notification and keep control handling internal',
+    given: 'three valid durable inbox control kinds',
+    should: 'keep control handling internal and deliver none of them',
     actual: [
       'session.revoked',
       'access.revoked',
       'actor.presence-preference-changed',
-    ]
-      .map((kind) =>
-        isPayloadDeliverableOnTopic(`user:${id}:inbox`, {
-          kind,
-          ids: kind === 'access.revoked' ? [id, other] : [id],
-          entityVersion: 3,
-        }),
-      )
-      .concat(
-        isPayloadDeliverableOnTopic(`user:${id}:inbox`, {
-          kind: 'user.notification-delivered',
-          ids: [id],
-          entityVersion: 3,
-          notificationType: 'test',
-          occurredAt: '2026-10-09T00:00:00.000Z',
-        }),
-      ),
-    expected: [false, false, false, true],
+    ].map((kind) =>
+      isPayloadDeliverableOnTopic(`user:${id}:inbox`, {
+        kind,
+        ids: kind === 'access.revoked' ? [id, other] : [id],
+        entityVersion: 3,
+      }),
+    ),
+    expected: [false, false, false],
   });
 });
