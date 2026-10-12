@@ -4,6 +4,7 @@ import { createAppError } from '@daisy/errors';
 import {
   observationBaseSchema,
   observationHeaderSchema,
+  observationProjectionRowBytes,
   type ObservationBase,
 } from '@daisy/protocol';
 import { requireCurrentObservation } from './observation-guard';
@@ -42,8 +43,27 @@ function projectionRows(
     rows.some((v) => v === null || typeof v !== 'object' || Array.isArray(v))
   )
     throw createAppError('INFRASTRUCTURE', 'Projection unavailable');
-  if (new TextEncoder().encode(JSON.stringify(rows)).byteLength > 96 * 1024)
+  if (
+    new TextEncoder().encode(JSON.stringify(rows)).byteLength >
+    observationProjectionRowBytes
+  )
     throw createAppError('INFRASTRUCTURE', 'Projection unavailable');
+}
+/** A channel page is the complete fitting prefix; an oversized newest row is unavailable, never skipped. */
+function channelPage(page: unknown) {
+  const { rows, scanned, included } = (page ?? {}) as Record<string, unknown>;
+  projectionRows(rows);
+  if (
+    typeof scanned !== 'number' ||
+    included !== rows.length ||
+    (scanned > 0 && rows.length === 0)
+  )
+    throw createAppError('INFRASTRUCTURE', 'Projection unavailable');
+  const last = rows.at(-1)?.sequence;
+  if (scanned === rows.length) return { rows, continuation: null };
+  if (typeof last !== 'number')
+    throw createAppError('INFRASTRUCTURE', 'Projection unavailable');
+  return { rows, continuation: last };
 }
 function projectionRow(
   base: ObservationBase,
@@ -57,9 +77,11 @@ function projectionRow(
   });
   if (!header.success)
     throw createAppError('INFRASTRUCTURE', 'Projection unavailable');
+  if (base.resource.kind === 'channel')
+    return { base, header: header.data, ...channelPage(row?.rows) };
   const rows = row?.rows;
   projectionRows(rows);
-  return { base, header: header.data, rows };
+  return { base, header: header.data, rows, continuation: null };
 }
 /** The role sees fixed restricted producers; header and body share one post-fence MVCC statement. */
 export function createObservationProjectionOperations(
@@ -86,7 +108,7 @@ export function createObservationProjectionOperations(
               ? sql`public.daisy_observation_room_body(${id})`
               : kind === 'round'
                 ? sql`public.daisy_observation_round_body(${id})`
-                : sql`public.daisy_observation_channel_body(${id},${base.window.after}::bigint,${base.window.limit})`;
+                : sql`public.daisy_observation_channel_body(${id},${base.window.after}::bigint,${base.window.limit},${observationProjectionRowBytes})`;
           const [row] = await tx.execute(
             sql`select content_revision as "contentRevision",disclosure_revision as "disclosureRevision",purge_generation as "purgeGeneration",${body} as rows from public.resource_observation_headers where kind=${kind} and resource_id=${id} and disclosure_revision=${base.disclosureRevision} and purge_generation=${input.purgeGeneration} and content_revision>=${input.minimumContentRevision}`,
           );
