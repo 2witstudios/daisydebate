@@ -212,3 +212,14 @@ export {
   type ObservationBase,
   type ObservationHeader,
 } from './observation';
+export {
+  observationClientMessageSchema,
+  observationServerMessageSchema,
+  type ObservationClientMessage,
+  type ObservationServerMessage,
+} from './observation-messages';
+export {
+  observationDescriptorSchema,
+  type ObservationDescriptor,
+  type ObservationWindow,
+} from './observation';

@@ -43,3 +43,27 @@ test('inbox partition binds the actor and bounded windows', () => {
     expected: [false, false, false],
   });
 });
+
+test('windows retain owning sequence and identifier cursor contracts', () => {
+  assert({
+    given: 'channel sequence history and actor inbox keysets',
+    should: 'accept each owning cursor only for its own resource',
+    actual: [
+      observationBaseSchema.safeParse({
+        ...base,
+        window: { after: 12, limit: 50 },
+      }).success,
+      observationBaseSchema.safeParse({
+        ...base,
+        window: { after: 'b'.repeat(24), limit: 50 },
+      }).success,
+      observationBaseSchema.safeParse({
+        ...base,
+        resource: { kind: 'inbox', id: base.resource.id },
+        partition: { kind: 'actor', actorId: base.resource.id },
+        window: { after: 12, limit: 50 },
+      }).success,
+    ],
+    expected: [true, false, false],
+  });
+});

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { observationServerMessageSchema } from './observation-messages';
 import {
   ENVELOPE_VERSION,
   cursorSchema,
@@ -28,6 +29,7 @@ const eventSchema = z
 
 /** Portable framing only. HTTP remains the authority for commands and reads. */
 export const serverMessageSchema = z.discriminatedUnion('type', [
+  ...observationServerMessageSchema.options,
   z.strictObject({ ...envelope, type: z.literal('ready') }),
   z.strictObject({ ...envelope, type: z.literal('pong'), id: requestId }),
   z.strictObject({

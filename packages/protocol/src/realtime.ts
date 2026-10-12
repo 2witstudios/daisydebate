@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { topicStringSchema } from './topics';
+import { createObservationClientMessageSchema } from './observation';
 
 /**
  * Nominal branding (a phantom marker, erased at runtime) so
@@ -154,6 +155,7 @@ export function buildClientMessageSchema(
 ) {
   const envelope = buildEnvelope(envelopeVersion);
   return z.discriminatedUnion('type', [
+    ...createObservationClientMessageSchema(envelopeVersion).options,
     buildHelloMessageSchema(envelopeVersion, protocolVersion),
     z.strictObject({
       ...envelope,
