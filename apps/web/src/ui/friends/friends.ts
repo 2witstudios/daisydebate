@@ -5,39 +5,39 @@ type OnlineUser = {
   readonly presence: PresenceStatus;
 };
 
-export type DockStatus = Exclude<PresenceStatus, 'offline'>;
+export type FriendStatus = Exclude<PresenceStatus, 'offline'>;
 
-type DockAction = { readonly label: string; readonly href: string };
+type FriendAction = { readonly label: string; readonly href: string };
 
-type DockPerson = {
+type Friend = {
   readonly name: string;
-  readonly status: DockStatus;
+  readonly status: FriendStatus;
   readonly profileHref: string;
   /** What you can do with them right now, if anything. */
-  readonly action: DockAction | null;
+  readonly action: FriendAction | null;
 };
 
-export type DockGroup = {
-  readonly status: DockStatus;
+export type FriendGroup = {
+  readonly status: FriendStatus;
   readonly label: string;
-  readonly people: readonly DockPerson[];
+  readonly people: readonly Friend[];
 };
 
 /** Your own status, as the pill reads it. Sample until presence is real. */
-export const viewerStatus: DockStatus = 'online';
+export const viewerStatus: FriendStatus = 'online';
 
-export const statusLabel: Readonly<Record<DockStatus, string>> = {
+const statusLabel: Readonly<Record<FriendStatus, string>> = {
   online: 'Online',
   'in-debate': 'In a debate',
   away: 'Away',
 };
 
-const groupOrder: readonly DockStatus[] = ['in-debate', 'online', 'away'];
+const groupOrder: readonly FriendStatus[] = ['in-debate', 'online', 'away'];
 
 const handleOf = (name: string): string =>
   name.toLowerCase().trim().replace(/\s+/g, '-');
 
-const actionFor = (status: DockStatus): DockAction | null =>
+const actionFor = (status: FriendStatus): FriendAction | null =>
   status === 'in-debate'
     ? { label: 'Watch', href: '/watch' }
     : status === 'online'
@@ -51,10 +51,12 @@ export const onlineNow = (users: readonly OnlineUser[]): number =>
   ).length;
 
 /**
- * The dock's list: people who are around, grouped by what they are doing
+ * The Friends list: people who are around, grouped by what they are doing
  * (debating first, then online, then away). Offline people are not shown.
  */
-export function dockGroups(users: readonly OnlineUser[]): readonly DockGroup[] {
+export function friendGroups(
+  users: readonly OnlineUser[],
+): readonly FriendGroup[] {
   return groupOrder
     .map((status) => ({
       status,

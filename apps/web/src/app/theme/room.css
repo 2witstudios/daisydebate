@@ -170,14 +170,6 @@ img.ProseMirror-separator {
   accent-color: var(--hue-teal);
 }
 
-.room-doc p.is-editor-empty:first-child::before {
-  content: attr(data-placeholder);
-  float: left;
-  height: 0;
-  pointer-events: none;
-  color: var(--text-faint);
-}
-
 .room-doc [data-debate-mark] {
   padding: 1px 5px;
   border-radius: 4px;
@@ -212,6 +204,66 @@ img.ProseMirror-separator {
   color: var(--gold);
 }
 
+/* The viewer's text size (A− / A+), never saved with the document. */
+[data-doc-size='sm'] .room-doc {
+  font-size: var(--text-sm);
+}
+
+[data-doc-size='lg'] .room-doc {
+  font-size: var(--text-lg);
+}
+
+[data-doc-size='xl'] .room-doc {
+  font-size: var(--text-xl);
+}
+
+/* A landscape page: the document opens with its page setting, an empty
+   leaf the editor never shows, and flows into that many columns. Each
+   section heading after the first starts a column; the title spans them. */
+.room-doc > [data-page] {
+  display: none;
+}
+
+.room-doc-column:has(> * > .room-doc > [data-page='landscape']) {
+  max-width: none;
+}
+
+.room-doc:has(> [data-page='landscape']) {
+  column-count: var(--room-columns);
+  column-gap: var(--spacing-8);
+  column-rule: 1px solid var(--border);
+  /* Narrow screens scroll the page sideways rather than crush columns. */
+  min-width: calc(var(--room-columns) * var(--spacing-room-column));
+}
+
+.room-doc:has(> [data-columns='2']) {
+  --room-columns: 2;
+}
+
+.room-doc:has(> [data-columns='3']) {
+  --room-columns: 3;
+}
+
+.room-doc:has(> [data-columns='4']) {
+  --room-columns: 4;
+}
+
+.room-doc:has(> [data-columns='5']) {
+  --room-columns: 5;
+}
+
+.room-doc:has(> [data-columns='6']) {
+  --room-columns: 6;
+}
+
+.room-doc:has(> [data-page='landscape']) > h1 {
+  column-span: all;
+}
+
+.room-doc:has(> [data-page='landscape']) > h2 ~ h2 {
+  break-before: column;
+}
+
 /* A light page inside a dark room, or the reverse: the page carries its own
    scheme so light-dark() tokens resolve for it alone. */
 [data-room-page='light'] {
@@ -224,6 +276,7 @@ img.ProseMirror-separator {
 
 /* The gathering responds to the page width inside the person's chosen shell. */
 @theme {
+  --spacing-room-column: 10rem;
   --spacing-room-portrait: 11rem;
   --spacing-room-portrait-small: 7rem;
 }

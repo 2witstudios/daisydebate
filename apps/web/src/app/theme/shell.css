@@ -1,116 +1,52 @@
 /* Shell-owned size and motion tokens (ADR 0028). Theme variables only; classes stay in the markup. */
 @theme {
   --spacing-0: 0px;
-  --spacing-shell-hair: 2px;
   --spacing-shell-count: 16px;
   --spacing-shell-logo: 34px;
-  --spacing-shell-icons: 64px;
+  /* The navigation rail, and each of its targets. */
+  --spacing-nav-rail: 56px;
+  --spacing-nav-target: 44px;
+  /* The phone's bottom tab bar, safe area excluded: 4 + 48 + 8. */
+  --spacing-tab-bar: 60px;
+  --spacing-tab: 48px;
   --spacing-flyout: 190px;
   --spacing-flyout-shift: 6px;
-  --text-shell-tagline: 9.5px;
   --text-shell-count: 10px;
   --leading-shell-brand: 1;
-  --leading-shell-tagline: 1.5;
   --leading-shell-count: 16px;
 }
 
 /* Named grid areas and minmax() tracks have no token-locked utility.
-   The top bar across the page, and under it three columns: navigation, the
-   page, and the social rail. The rail is a strip of icons unless open; a
-   visitor has no rail (`data-dock="none"`). */
+   One navigation rail beside the page; on a phone the rail gives way to a
+   tab bar fixed along the bottom, and the page keeps clear of it. */
 @utility grid-shell {
-  --nav-width: var(--spacing-sidebar);
-  --social-width: var(--spacing-shell-icons);
-  grid-template-columns: var(--nav-width) minmax(0, 1fr) var(--social-width);
-  grid-template-rows: var(--spacing-topbar) minmax(0, 1fr);
-  grid-template-areas:
-    'topbar topbar topbar'
-    'sidebar main dock';
+  grid-template-columns: var(--spacing-nav-rail) minmax(0, 1fr);
+  grid-template-areas: 'rail main';
 
-  /* The sidebar is icons only on a narrow screen, or when collapsed. */
-  &[data-nav='collapsed'] {
-    --nav-width: var(--spacing-shell-icons);
-  }
-
-  @media (width < 901px) {
-    --nav-width: var(--spacing-shell-icons);
-  }
-
-  &[data-dock='none'] {
-    --social-width: var(--spacing-0);
-  }
-
-  /* Open beside the page on a wide screen: by default, or by choice. */
-  @media (width >= 1101px) {
-    &[data-dock='auto'],
-    &[data-dock='open'] {
-      --social-width: var(--spacing-dock);
-    }
+  @media (width < 641px) {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'main';
+    padding-bottom: calc(var(--spacing-tab-bar) + env(safe-area-inset-bottom));
   }
 }
 
-@utility area-topbar {
-  grid-area: topbar;
-}
-
-/* A side column pinned under the top bar fills the rest of the screen. */
-@utility h-below-topbar {
-  height: calc(100vh - var(--spacing-topbar));
-}
-
-@utility area-sidebar {
-  grid-area: sidebar;
+@utility area-rail {
+  grid-area: rail;
 }
 
 @utility area-main {
   grid-area: main;
 }
 
-/* The social rail: pinned under the top bar, as tall as the rest of the
-   screen. It holds
-   two views and shows one. Open (`social-full`): wide, the column itself;
-   narrower, a panel over the page's right edge while the strip keeps its
-   column. Collapsed (`social-strip`): a column of icons. */
-@utility social-rail {
-  grid-area: dock;
-  position: sticky;
-  top: var(--spacing-topbar);
-  z-index: 30;
-  height: calc(100vh - var(--spacing-topbar));
-  display: flex;
+/* The bottom tab bar keeps its tabs above the phone's home indicator. */
+@utility tab-bar-safe {
+  padding-bottom: calc(var(--spacing-2) + env(safe-area-inset-bottom));
 }
 
-@utility social-full {
-  display: none;
-  width: var(--spacing-dock);
-  height: 100%;
-
-  [data-dock='open'] & {
-    display: flex;
-  }
-
-  @media (width >= 1101px) {
-    [data-dock='auto'] & {
-      display: flex;
-    }
-  }
-
-  @media (width < 1101px) {
-    position: fixed;
-    inset: var(--spacing-topbar) 0 0 auto;
-    z-index: 40;
-    box-shadow: var(--shadow-3);
-  }
-}
-
-@utility social-strip {
-  display: flex;
-  width: var(--spacing-shell-icons);
-
-  @media (width >= 1101px) {
-    [data-dock='auto'] &,
-    [data-dock='open'] & {
-      display: none;
-    }
-  }
+/* The phone's More sheet: everything else, rising from the tab bar. */
+@utility more-sheet {
+  bottom: calc(var(--spacing-tab-bar) + env(safe-area-inset-bottom));
+  max-height: calc(
+    100dvh - var(--spacing-tab-bar) - env(safe-area-inset-bottom)
+  );
 }

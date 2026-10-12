@@ -150,14 +150,16 @@ describe('normalizeDocumentHtml bounds', () => {
 
   test('editor output passes the strict scan', () => {
     const editor =
-      '<h1>Flow</h1><ul><li><p><strong>FW</strong> harm <span data-debate-mark="dropped">C3</span></p></li></ul>' +
+      '<div data-page="landscape" data-columns="5"></div><h1>Flow</h1><ul><li><p><strong>FW</strong> harm <span data-debate-mark="dropped">C3</span></p></li></ul>' +
       '<ul data-type="taskList"><li data-checked="true" data-type="taskItem"><label><input type="checkbox" checked="checked"><span></span></label><div><p>Q</p></div></li></ul>' +
       '<blockquote><p>quote</p></blockquote><ol type="a"><li><p>one<br>two</p></li></ol><hr><p></p>';
     assert({
       given: 'HTML shaped as the editor writes it',
       should: 'normalize, and stay stable when normalized again',
       actual: ((once: string) => [
-        once.startsWith('<h1>'),
+        once.startsWith(
+          '<div data-page="landscape" data-columns="5">\n</div>\n<h1>',
+        ),
         html(once) === once,
       ])(html(editor)),
       expected: [true, true],

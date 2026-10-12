@@ -75,6 +75,7 @@ const rendered: Readonly<Record<string, () => Promise<{ default: unknown }>>> =
       import('../../app/(shell)/play/room/page'),
     '(shell)/notifications/page.tsx': () =>
       import('../../app/(shell)/notifications/page'),
+    '(shell)/friends/page.tsx': () => import('../../app/(shell)/friends/page'),
     '(shell)/judge/page.tsx': () => import('../../app/(shell)/judge/page'),
     '(shell)/judge/ballot/[debateId]/page.tsx': () =>
       import('../../app/(shell)/judge/ballot/[debateId]/page'),
@@ -243,6 +244,7 @@ describe('guarded pages', () => {
       ].sort(),
       expected: [
         '/debates',
+        '/friends',
         '/judge',
         '/lobby',
         '/messages',
