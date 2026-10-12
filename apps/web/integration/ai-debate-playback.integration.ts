@@ -25,7 +25,7 @@ const appendAiQuestion = async (
     text: 'An AI question.',
     requireOpen: true,
   });
-  return { round, segment, utteranceId };
+  return { round, utteranceId };
 };
 
 for (const state of ['expired', 'completed'] as const) {
@@ -34,7 +34,7 @@ for (const state of ['expired', 'completed'] as const) {
       async ({ actorId, id, operations, database, expireAt }) => {
         await expireAt(321);
         const view = await operations.view({ actorId, id });
-        const { segment, utteranceId } = await appendAiQuestion(database, id);
+        const { utteranceId } = await appendAiQuestion(database, id);
         await operations.command({
           actorId,
           id,
@@ -51,7 +51,10 @@ for (const state of ['expired', 'completed'] as const) {
           });
         } else {
           await withSql(async (sql) => {
-            await sql`update round_segments set started_at = started_at - interval '31 seconds', ended_at = ended_at - interval '31 seconds' where id = ${segment.id}`;
+            await sql.begin(async (tx) => {
+              await tx`update rounds set started_at = started_at - interval '31 seconds' where id = ${id}`;
+              await tx`update round_segments set started_at = started_at - interval '31 seconds', ended_at = ended_at - interval '31 seconds' where round_id = ${id}`;
+            });
           });
         }
         const before = await database.listRoundUtterances(id);

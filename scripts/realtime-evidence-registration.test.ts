@@ -24,7 +24,7 @@ const registered = {
   roomConfig: config('realtime-room-delivery'),
   messagingConfig: config('messaging-realtime'),
   runner:
-    "import { realtimeProofProfile } from './realtime-profile';const profile=realtimeProofProfile(Bun.argv[2]);Bun.spawn(['bun','../../scripts/e2e-limit.ts','node','cli','test','--config',profile.config]);",
+    "import { realtimeProofProfile } from './realtime-profile';const profile=realtimeProofProfile(Bun.argv[2]);Bun.spawn(['bun','../../scripts/heavy.ts','node','cli','test','--config',profile.config]);",
   profileSource:
     "export function realtimeProofProfile(name){switch(name){case 'room':return {config:'e2e/support/realtime-config.ts'};case 'messaging':return {config:'e2e/support/messaging-realtime-config.ts'};default:throw new Error('refused');}}",
   workflow:

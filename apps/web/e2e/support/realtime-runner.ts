@@ -29,7 +29,7 @@ if (!Bun.spawnSync([node, '--version']).stdout.toString().startsWith('v24.'))
 const child = Bun.spawn(
   [
     'bun',
-    '../../scripts/e2e-limit.ts',
+    '../../scripts/heavy.ts',
     node,
     'node_modules/@playwright/test/cli.js',
     'test',

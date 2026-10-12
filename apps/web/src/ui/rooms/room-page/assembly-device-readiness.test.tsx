@@ -6,8 +6,7 @@ import { AssemblyDeviceReadiness } from './assembly-device-readiness';
 setupRitewayBun();
 const actorId = assemblySnapshot.hostActorId;
 const nativeProps = {
-  lineup: null,
-  settings: null,
+  side: null,
   actorId,
   action: async () => ({ values: {} }),
   read: async () => ({ kind: 'found' as const, view: assemblySnapshot }),
@@ -16,8 +15,6 @@ const nativeProps = {
     ready: 'r',
     unready: 'u',
     'start-round': 's',
-    'start-prep': 'p',
-    'finish-prep': 'f',
   },
 };
 for (const role of ['affirmative', 'judge'] as const) {
@@ -53,8 +50,10 @@ for (const role of ['affirmative', 'judge'] as const) {
           'disabled=""',
         ),
         html.includes('<video'),
+        html.includes('Camera and microphone checks require JavaScript.'),
+        html.includes('aria-label="Launch"'),
       ],
-      expected: [true, role !== 'judge', false],
+      expected: [true, role !== 'judge', false, role !== 'judge', true],
     });
   });
 }

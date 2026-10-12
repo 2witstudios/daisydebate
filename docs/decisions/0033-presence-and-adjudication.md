@@ -129,13 +129,19 @@ leaf that adds them (RT-4.4) adds a lint rule that fails if they do.
 2. **Every competitive time uses the same clock**: debate start
    (`debates.started_at`), check-in receipts, `service_instances` renewals
    and availability samples are all PostgreSQL time. The snapshot write
-   path stamps `started_at` (the save that activates a debate),
-   `completed_at` and a newly seated participant's `joined_at` with the
-   `statement_timestamp()` of that write, never the caller's `updatedAt`
-   (ISSUE-37), and the timetable reads that column, never a snapshot or
-   client value. The engine receives these
-   values as explicit inputs (UTC ISO strings, integer millisecond
-   durations) and stays pure.
+   path owns lifecycle time. Round execution acquires its Round lock and any
+   required completion-seat lock, then samples `clock_timestamp()` in a
+   separate statement. It passes that single UTC ISO millisecond instant to
+   the pure transition callback and persists it unchanged for newly started
+   or completed lifecycle columns and command-driven segment boundaries.
+   Existing lifecycle stamps remain fixed. Reads may sample the database
+   wall clock for prediction, but cannot supply lifecycle authority.
+   `now()` is transaction-start time and `statement_timestamp()` is
+   statement-start time: neither establishes a post-lock instant when
+   embedded in a statement that waits for a lock. Check-in receipt timing
+   remains the pre-lock contract in §3.1. See PostgreSQL's
+   [current time functions](https://www.postgresql.org/docs/18/functions-datetime.html#FUNCTIONS-DATETIME-CURRENT).
+   The engine receives time explicitly and stays pure.
 3. **A check-in commits or aborts within a bound.** The check-in
    transaction is bounded by `transaction_timeout` (PostgreSQL 17+) to
    `checkInCommitBudgetMs` (a protocol constant, 2 000 ms), which must be

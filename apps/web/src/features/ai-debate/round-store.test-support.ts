@@ -3,6 +3,7 @@ import {
   referenceAiJudge,
 } from '@daisy/db/reference-formats';
 import { createAppError } from '@daisy/errors';
+import { runtimeCheckpointSchema } from '@daisy/protocol';
 import type { RoundStore } from './context';
 import { assemblyMethods } from './round-store-assembly.test-support';
 import {
@@ -10,6 +11,10 @@ import {
   type FakeRoundState,
 } from './round-store-state.test-support';
 import { usageMethods } from './round-store-usage.test-support';
+
+type ExecutionInput = Parameters<RoundStore['applyRoundExecution']>[0];
+type ExecutionProjection = ReturnType<ExecutionInput['buildProjection']>;
+type FakeRound = NonNullable<ReturnType<FakeRoundState['rounds']['get']>>;
 
 type FakeLine =
   FakeRoundState['utteranceRows'] extends Map<string, (infer T)[]> ? T : never;
@@ -55,8 +60,63 @@ const claimExistingFakeSpeech = (
  * their own modules; this file holds the round execution and transcript
  * methods that bind them together.
  */
-export function createInMemoryRoundStore() {
+const noClockChange = (
+  projection: ExecutionProjection,
+  row: FakeRound,
+): boolean => {
+  if (
+    projection.segmentInserts.length > 0 ||
+    projection.segmentCloses.length > 0
+  )
+    return false;
+  const next = projection.round;
+  if (next === null) return true;
+  return [
+    next.status === row.status,
+    next.currentStage === row.currentStage,
+    next.startedAt === row.startedAt,
+    next.completedAt === row.completedAt,
+    next.outcome === row.outcome,
+    JSON.stringify(runtimeCheckpointSchema.parse(next.checkpoint)) ===
+      JSON.stringify(runtimeCheckpointSchema.parse(row.checkpoint)),
+  ].every(Boolean);
+};
+
+const applyProjection = (
+  state: FakeRoundState,
+  input: ExecutionInput,
+  projection: ExecutionProjection,
+  row: FakeRound,
+): void => {
+  if (projection.round !== null) {
+    row.status = projection.round.status;
+    row.currentStage = projection.round.currentStage;
+    row.startedAt = projection.round.startedAt;
+    row.completedAt = projection.round.completedAt;
+    row.outcome = projection.round.outcome;
+    row.checkpoint = projection.round.checkpoint;
+  }
+  const rows = state.segments.get(input.roundId) ?? [];
+  for (const insert of projection.segmentInserts)
+    rows.push({
+      id: insert.id,
+      sequence: insert.sequence,
+      type: insert.type,
+      rulesSegmentKey: insert.rulesSegmentKey,
+      startedAt: insert.startedAt,
+      endedAt: null,
+      durationMs: insert.durationMs,
+    });
+  for (const close of projection.segmentCloses) {
+    const rowSegment = rows.find((segment) => segment.id === close.id);
+    if (rowSegment) rowSegment.endedAt = close.endedAt;
+  }
+  row.version += 1;
+};
+
+export function createInMemoryRoundStore(clock?: () => string) {
   const state = createFakeRoundState();
+  const now = () => clock?.() ?? new Date(state.now()).toISOString();
 
   return {
     /** The fake's clock for tests that assert on recorded instants. */
@@ -70,50 +130,30 @@ export function createInMemoryRoundStore() {
       ...usageMethods(state),
 
       async databaseNow() {
-        return new Date(state.now()).toISOString();
+        return now();
       },
 
       async getRound(id: string) {
         return state.hydrationOf(id);
       },
 
-      async applyRoundExecution(
-        input: Parameters<RoundStore['applyRoundExecution']>[0],
-      ) {
+      async applyRoundExecution(input: ExecutionInput) {
         const row = state.rounds.get(input.roundId);
         if (!row) throw createAppError('NOT_FOUND', 'No such round');
         if (input.command !== null) {
           if (state.commandIds.has(input.command.commandId))
             throw createAppError('CONFLICT', 'Already applied');
-          state.commandIds.add(input.command.commandId);
         }
         if (row.version !== input.expectedVersion)
           throw createAppError('CONFLICT', 'The round moved on');
-        const { projection } = input;
-        if (projection.round !== null) {
-          row.status = projection.round.status;
-          row.currentStage = projection.round.currentStage;
-          row.startedAt = projection.round.startedAt;
-          row.completedAt = projection.round.completedAt;
-          row.outcome = projection.round.outcome;
-          row.checkpoint = projection.round.checkpoint;
-        }
-        const rows = state.segments.get(input.roundId) ?? [];
-        for (const insert of projection.segmentInserts)
-          rows.push({
-            id: insert.id,
-            sequence: insert.sequence,
-            type: insert.type,
-            rulesSegmentKey: insert.rulesSegmentKey,
-            startedAt: insert.startedAt,
-            endedAt: null,
-            durationMs: insert.durationMs,
-          });
-        for (const close of projection.segmentCloses) {
-          const rowSegment = rows.find((segment) => segment.id === close.id);
-          if (rowSegment) rowSegment.endedAt = close.endedAt;
-        }
-        row.version += 1;
+        const projection = await input.buildProjection(now());
+        if (row.version !== input.expectedVersion)
+          throw createAppError('CONFLICT', 'The round moved on');
+        const unchanged = noClockChange(projection, row);
+        if (input.command !== null)
+          state.commandIds.add(input.command.commandId);
+        if (unchanged) return;
+        applyProjection(state, input, projection, row);
       },
 
       async appendUtterance(
@@ -237,7 +277,7 @@ export function createInMemoryRoundStore() {
           roundId: input.roundId,
           expectedVersion: input.expectedVersion,
           command: input.command,
-          projection: input.projection,
+          buildProjection: input.buildProjection,
         });
       },
     },

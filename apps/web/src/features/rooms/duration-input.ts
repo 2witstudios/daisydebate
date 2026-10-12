@@ -44,3 +44,10 @@ export function formatDuration(ms: number): string {
     .filter(Boolean)
     .join(' ');
 }
+
+/** "5:00": the round clock's own reading, keeping any exact remainder. */
+export function clockDuration(ms: number): string {
+  const parts = durationParts(ms);
+  const [whole = '0', fraction] = parts.seconds.split('.');
+  return `${parts.minutes}:${whole.padStart(2, '0')}${fraction ? `.${fraction}` : ''}`;
+}
