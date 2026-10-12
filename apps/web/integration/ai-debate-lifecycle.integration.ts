@@ -1,5 +1,6 @@
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
+import { buildDebateTopic } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -193,7 +194,7 @@ test('a real lock wait crossing into a later same-side speech refuses the origin
     const persistenceCounts = () =>
       withSql(async (sql) => {
         const [row] =
-          await sql`select (select count(*) from round_commands where round_id = ${id}) as commands, (select count(*) from outbox where topic = ${'debate:' + id}) as signals`;
+          await sql`select (select count(*) from round_commands where round_id = ${id}) as commands, (select count(*) from outbox where topic = ${buildDebateTopic(id)}) as signals`;
         return row;
       });
     const counts = await persistenceCounts();
