@@ -42,9 +42,11 @@ export function createObservationWorker({
   readonly now: () => number;
   readonly nextToken: () => string;
   readonly cache: {
+    /** Retains an unchanged installed body; false when it must be rebuilt. */
     readonly ready: (
       base: ObservationBase,
       header: ObservationHeader,
+      token: string,
     ) => Promise<boolean>;
     readonly claim: (
       resource: ObservationResource,
@@ -171,7 +173,8 @@ export function createObservationWorker({
   async function schedule(owner: Owner, header: ObservationHeader) {
     for (const [key, base] of owner.variants) {
       if (base.disclosureRevision !== header.disclosureRevision) continue;
-      if (!(await cache.ready(base, header))) owner.delivered.delete(key);
+      if (!(await cache.ready(base, header, owner.token)))
+        owner.delivered.delete(key);
       if (!current(owner)) break;
       if ((owner.delivered.get(key) ?? -1) >= header.contentRevision) continue;
       if (!owner.dirtySince.has(key)) owner.dirtySince.set(key, now());
