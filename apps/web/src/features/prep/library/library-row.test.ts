@@ -1,6 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { sampleLibrary } from '../../../ui/mock/prep';
-import { toRow, usedLabel } from './library-row';
+import { toPreview, toRow, usedLabel } from './library-row';
 
 setupRitewayBun();
 
@@ -50,6 +50,30 @@ describe('toRow', () => {
       should: 'show its motion, side and version',
       actual: toRow(item('aff-rights'), now).subtitle,
       expected: '[Motion A] · Aff · v4',
+    });
+  });
+});
+
+describe('toPreview', () => {
+  test('a card and a brief', () => {
+    const card = toPreview(item('cost-estimates'), now);
+    const brief = toPreview(item('rights-framework'), now);
+    assert({
+      given: 'a card and a brief',
+      should:
+        'carry the card passage, no passage for the brief, and both usage lines',
+      actual: [
+        card.passage?.startsWith('[The passage'),
+        brief.passage,
+        card.usage,
+        brief.usage,
+      ],
+      expected: [
+        true,
+        undefined,
+        'Edited 2 days ago · Used in 3',
+        'Edited 2 days ago · Used in 2',
+      ],
     });
   });
 });

@@ -38,3 +38,19 @@ export function toRow(item: LibraryItem, now: string): LibraryRow {
         : `Edited ${ago(now, item.editedAt)}`,
   };
 }
+
+/** The item open in the library's preview pane. */
+export type LibraryPreview = LibraryRow & {
+  /** A card's read-aloud passage; briefs and cases have none. */
+  readonly passage: string | undefined;
+  /** "Edited 2 days ago · Used in 3". */
+  readonly usage: string;
+};
+
+export function toPreview(item: LibraryItem, now: string): LibraryPreview {
+  return {
+    ...toRow(item, now),
+    passage: item.kind === 'card' ? item.passage : undefined,
+    usage: `Edited ${ago(now, item.editedAt)} · ${usedLabel(item.usedIn)}`,
+  };
+}

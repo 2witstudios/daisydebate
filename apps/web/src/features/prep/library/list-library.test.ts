@@ -31,6 +31,33 @@ describe('listLibrary', () => {
     });
   });
 
+  test('the preview', () => {
+    const first = run({});
+    const chosen = run({ view: 'cards', item: 'pilot-results' });
+    const gone = run({ view: 'cases', item: 'pilot-results' });
+    assert({
+      given: 'no item, a listed item, and an item the view hides',
+      should:
+        'preview the first row, the chosen row, or fall back to the first, and mark one row selected',
+      actual: [
+        first.preview?.id,
+        chosen.preview?.id,
+        gone.preview?.id,
+        chosen.rows.filter((row) => row.selected).map((row) => row.id),
+        chosen.rows[0]?.previewHref,
+        run({ q: 'zzz' }).preview,
+      ],
+      expected: [
+        'rights-framework',
+        'pilot-results',
+        'aff-rights',
+        ['pilot-results'],
+        `/prep?view=cards&item=${chosen.rows[0]?.id}`,
+        undefined,
+      ],
+    });
+  });
+
   test('a view tab', () => {
     assert({
       given: 'the cases tab',
