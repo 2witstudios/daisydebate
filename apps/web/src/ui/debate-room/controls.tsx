@@ -52,7 +52,7 @@ type Props = {
 };
 
 /** The phase's own action: start a speech after prep, or end your speech. */
-export function PhaseActions({
+function PhaseActions({
   round,
   state,
   dispatch,
@@ -99,7 +99,7 @@ export function PhaseActions({
 }
 
 /** Tech issue has no backend yet (DEC-100): shown, never faked. */
-export function TechIssue({ wide = false }: { readonly wide?: boolean }) {
+function TechIssue({ wide = false }: { readonly wide?: boolean }) {
   return (
     <button type="button" disabled className={cn(quiet, wide && 'h-12')}>
       Tech issue
