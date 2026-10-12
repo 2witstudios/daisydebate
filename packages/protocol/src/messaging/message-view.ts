@@ -8,7 +8,7 @@ type MessageProjectionRecord = {
   readonly createdAt: string;
   readonly editedAt: string | null;
   readonly removedAt: string | null;
-  readonly replyToMessageId?: string;
+  readonly replyToMessageId?: string | undefined;
 };
 
 export function messagingMessageView(message: MessageProjectionRecord) {

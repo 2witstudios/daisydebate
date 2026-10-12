@@ -243,6 +243,15 @@
       "adr": "docs/decisions/0057-planned-readers.md",
       "reason": "Committed native observation runtime reader ndmxryde16cuwbgky582fduv composes the independent monotonic/wall envelope with ownership and permits; production clock/suspend measurement remains an explicit adoption gate.",
       "reviewBy": "2026-10-16"
+    },
+    {
+      "path": "packages/protocol/src/messaging/observation-channel.ts",
+      "export": "createObservationChannelBody",
+      "task": "RT-2.3c-arch1",
+      "owner": "ag-5d423i0o",
+      "adr": "docs/decisions/0057-planned-readers.md",
+      "reason": "Owning portable channel body mapper; committed runtime reader rh0ckvorf5m6nic9y8m0iabx builds shared channel snapshots from restricted projection rows and their continuation.",
+      "reviewBy": "2026-10-16"
     }
   ]
 }

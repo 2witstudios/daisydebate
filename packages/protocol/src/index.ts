@@ -156,6 +156,10 @@ export type {
 // Persistent messaging contracts; bounds come from the owning policy.
 export { createMessagingCoreSchemas } from './messaging/core';
 export { messagingMessageView } from './messaging/message-view';
+export {
+  createObservationChannelBody,
+  observationProjectionRowBytes,
+} from './messaging/observation-channel';
 export type { MessagingCoreBounds } from './messaging/core';
 export {
   createMessagingSocialSchemas,

@@ -10,7 +10,9 @@ export type ObservationEvidence = {
   readonly fingerprint: string;
   readonly dependencies: readonly ObservationDependency[];
 };
-/** Proposed five-second policy, with 100ms reserved for clock/settlement error.
+const safetyMarginMs = 300;
+/** Proposed five-second policy: 200ms for both +/-100ms clock-envelope edges,
+ * plus 100ms for sampling and final enqueue settlement.
  * This candidate does not authorize protected-payload activation.
  */
 export function observationEvidence({
@@ -27,13 +29,13 @@ export function observationEvidence({
   if (
     !Number.isFinite(started) ||
     !Number.isFinite(remainingMs) ||
-    remainingMs <= 100 ||
+    remainingMs <= safetyMarginMs ||
     !fingerprint
   )
     throw new Error('Unavailable observation evidence');
   return {
     started,
-    expiresAt: started + Math.min(5000, remainingMs) - 100,
+    expiresAt: started + Math.min(5000, remainingMs) - safetyMarginMs,
     fingerprint,
     dependencies,
   };
@@ -83,7 +85,7 @@ export function createObservationPermit({
         Number.isFinite(part.expiresAt) &&
         part.started <= at &&
         at < part.expiresAt &&
-        part.expiresAt <= part.started + 4900,
+        part.expiresAt <= part.started + 5000 - safetyMarginMs,
     );
   }
   return {

@@ -15,12 +15,16 @@ test('shared message mapping discloses only permitted content fields', () => {
     commandId: 'private-command',
     ownReaction: true,
   };
-  const {
-    removedAt: _removed,
-    commandId: _command,
-    ownReaction: _own,
-    ...expected
-  } = record;
+  const expected = {
+    id: record.id,
+    channelId: record.channelId,
+    authorActorId: record.authorActorId,
+    sequence: 1,
+    changeVersion: 2,
+    text: 'hello',
+    createdAt: record.createdAt,
+    editedAt: null,
+  };
   assert({
     given: 'restricted current message rows with accidental private fields',
     should: 'map explicit disclosed fields and erase all content on removal',
