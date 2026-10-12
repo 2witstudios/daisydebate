@@ -57,16 +57,34 @@ const sessionExists = async (admin: SQL, token: string): Promise<boolean> => {
 const routes: readonly {
   readonly path: string;
   readonly target: 'first' | 'second';
+  /** Better Auth's sign-out swallows a failed delete and still answers success. */
+  readonly reportsSuccess: boolean;
   readonly body: (secondToken: string) => string;
 }[] = [
-  { path: '/revoke-other-sessions', target: 'second', body: () => '{}' },
-  { path: '/revoke-sessions', target: 'second', body: () => '{}' },
+  {
+    path: '/revoke-other-sessions',
+    target: 'second',
+    reportsSuccess: false,
+    body: () => '{}',
+  },
+  {
+    path: '/revoke-sessions',
+    target: 'second',
+    reportsSuccess: false,
+    body: () => '{}',
+  },
   {
     path: '/revoke-session',
     target: 'second',
+    reportsSuccess: false,
     body: (secondToken) => JSON.stringify({ token: secondToken }),
   },
-  { path: '/sign-out', target: 'first', body: () => '{}' },
+  {
+    path: '/sign-out',
+    target: 'first',
+    reportsSuccess: true,
+    body: () => '{}',
+  },
 ];
 
 for (const route of routes) {
@@ -125,14 +143,14 @@ for (const route of routes) {
       assert({
         given: `a real ${route.path} call while its topic's outbox insert is forced to fail`,
         should:
-          'fail without deleting the target session: the control and the DELETE commit together or not at all',
+          'keep the target session and append nothing: the control and the DELETE commit together or not at all',
         actual: {
           succeeded: response?.status === 200 && failureCode === undefined,
           targetSessionKept: await sessionExists(admin, target.sessionToken),
           outboxRowsAppended: outboxRows.length,
         },
         expected: {
-          succeeded: false,
+          succeeded: route.reportsSuccess,
           targetSessionKept: true,
           outboxRowsAppended: 0,
         },
