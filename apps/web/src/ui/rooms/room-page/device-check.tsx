@@ -98,7 +98,7 @@ export function DeviceChoice({
             </option>
           ))}
       </select>
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex flex-col items-start gap-2">
         <p
           role="status"
           className={`text-sm ${state.status === 'passed' ? 'text-online' : 'text-ink-muted'}`}

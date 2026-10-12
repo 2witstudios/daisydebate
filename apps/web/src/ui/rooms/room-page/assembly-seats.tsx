@@ -131,9 +131,9 @@ function SeatRow({
           +
         </span>
       )}
-      <div className="min-w-0 flex-1">
+      <div className="flex-1">
         <h3 className="font-semibold wrap-anywhere">{name}</h3>
-        <p className="text-sm wrap-anywhere text-ink-muted">{detail}</p>
+        <p className="text-sm text-ink-muted">{detail}</p>
       </div>
       {occupant ? (
         <span
