@@ -8,6 +8,7 @@ import { createObservationAuthorityDecision } from '@daisy/auth/observation';
 import { createObservationAuthorityReader } from '../src/observation-authority';
 import { createObservationPermit } from '../src/observation-permit';
 import { roundAudienceFixture } from './round-audience.test-support';
+import { removeSessionControls } from './support';
 
 setupRitewayBun();
 type ReadResult = Awaited<
@@ -111,6 +112,7 @@ test('restricted realtime role composes canonical batch facts and original-start
     await database.close();
     await rounds.close();
     await admin`delete from session where id=${principal.sessionId}`;
+    await removeSessionControls(admin, [principal.actorId]);
     await admin`delete from actors where id=${principal.actorId}`;
     await admin`delete from users where id=${principal.userId}`;
     await admin.close();

@@ -10,7 +10,7 @@ import { ENVELOPE_VERSION } from '@daisy/protocol';
 import { openAuthorityPeer } from './authority-peer.test-support';
 import { createRealtimeApp } from '../src/app';
 import { serveRealtime } from '../src/serve';
-import { testOrigin } from './support';
+import { removeSessionControls, testOrigin } from './support';
 
 type Frame = Record<string, unknown> & { readonly type: string };
 /** A pool bound to one restricted runtime role; never the fixture owner. */
@@ -113,6 +113,7 @@ export async function observationRuntimeFixture() {
       await projection.close();
       await admin`delete from messaging_messages where channel_id=${messaging.channelId}`;
       await admin`delete from session where id=${sessionId}`;
+      await removeSessionControls(admin, [messaging.actorId]);
       await messaging.cleanup();
       await admin.close();
     },
