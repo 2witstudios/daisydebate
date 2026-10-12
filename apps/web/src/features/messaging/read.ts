@@ -8,7 +8,7 @@ import {
   type MessagingCoreBounds,
 } from '@daisy/protocol';
 import { parseValidated } from '../../server/http';
-import { messagingMessageView } from './message-view';
+import { messagingMessageView } from '@daisy/protocol';
 import { requireMessagingActor } from './principal';
 
 export function createMessagingReadOperations({

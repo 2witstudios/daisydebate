@@ -28,7 +28,7 @@ import { createMessagingHandlers } from './handlers';
 import { createMessagingReadOperations } from './read';
 import { sendMessagingMessage } from './send';
 import { mutateMessagingMessage } from './mutate';
-import { messagingMessageView } from './message-view';
+import { messagingMessageView } from '@daisy/protocol';
 
 /** Explicit approved edge inputs; tests never supply production policy authority. */
 export type MessagingRuntimePolicy = {
