@@ -92,6 +92,58 @@ export function workloadDatabase<T extends object>(
     'setTransaction',
   ]);
   type Lease = { active: boolean };
+  const bindMethod = (
+    object: object,
+    key: string | symbol,
+    value: (...args: unknown[]) => unknown,
+    lease?: Lease,
+  ) => {
+    const run = <R>(work: () => Promise<R>) =>
+      lease ? work() : executor.run(lane, work);
+    if (key === 'transaction') {
+      if (lease)
+        throw createAppError(
+          'INFRASTRUCTURE',
+          'Nested database transaction unavailable',
+        );
+      return (work: (tx: object) => Promise<unknown>, ...options: unknown[]) =>
+        run(async () => {
+          const child = { active: true };
+          try {
+            return await Reflect.apply(value, object, [
+              (tx: object) => work(wrap(tx, child)),
+              ...options,
+            ]);
+          } finally {
+            child.active = false;
+          }
+        });
+    }
+    if (key === 'execute')
+      return (...args: unknown[]) =>
+        run(async () => Reflect.apply(value, object, args));
+    if (key === 'then' || key === 'catch' || key === 'finally')
+      return (...args: unknown[]) =>
+        Reflect.apply(
+          Reflect.get(Promise.prototype, key),
+          run(() => Promise.resolve(object)),
+          args,
+        );
+    if (typeof key !== 'string' || !constructors.has(key))
+      throw createAppError('INFRASTRUCTURE', 'Unsupported database operation');
+    return (...args: unknown[]) => {
+      const result: unknown = Reflect.apply(value, object, args);
+      if (key === 'getSQL' || key === 'toSQL') return result;
+      if (result instanceof Promise)
+        throw createAppError(
+          'INFRASTRUCTURE',
+          'Unsupported eager database operation',
+        );
+      return result !== null && typeof result === 'object'
+        ? wrap(result, lease)
+        : result;
+    };
+  };
   const wrap = (target: object, lease?: Lease): object =>
     new Proxy(target, {
       get(object, key) {
@@ -110,57 +162,7 @@ export function workloadDatabase<T extends object>(
           return value !== null && typeof value === 'object'
             ? wrap(value, lease)
             : value;
-        const run = <R>(work: () => Promise<R>) =>
-          lease ? work() : executor.run(lane, work);
-        if (key === 'transaction') {
-          if (lease)
-            throw createAppError(
-              'INFRASTRUCTURE',
-              'Nested database transaction unavailable',
-            );
-          return (
-            work: (tx: object) => Promise<unknown>,
-            ...options: unknown[]
-          ) =>
-            run(async () => {
-              const child = { active: true };
-              try {
-                return await Reflect.apply(value, object, [
-                  (tx: object) => work(wrap(tx, child)),
-                  ...options,
-                ]);
-              } finally {
-                child.active = false;
-              }
-            });
-        }
-        if (key === 'execute')
-          return (...args: unknown[]) =>
-            run(async () => Reflect.apply(value, object, args));
-        if (key === 'then' || key === 'catch' || key === 'finally')
-          return (...args: unknown[]) =>
-            Reflect.apply(
-              Reflect.get(Promise.prototype, key),
-              run(() => Promise.resolve(object)),
-              args,
-            );
-        if (typeof key !== 'string' || !constructors.has(key))
-          throw createAppError(
-            'INFRASTRUCTURE',
-            'Unsupported database operation',
-          );
-        return (...args: unknown[]) => {
-          const result: unknown = Reflect.apply(value, object, args);
-          if (key === 'getSQL' || key === 'toSQL') return result;
-          if (result instanceof Promise)
-            throw createAppError(
-              'INFRASTRUCTURE',
-              'Unsupported eager database operation',
-            );
-          return result !== null && typeof result === 'object'
-            ? wrap(result, lease)
-            : result;
-        };
+        return bindMethod(object, key, value, lease);
       },
     });
   return wrap(database) as T;

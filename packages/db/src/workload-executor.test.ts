@@ -69,11 +69,17 @@ test('failed work releases the lane and an unallocated workload is refused', asy
     actual: () => executor.run('projection', async () => true),
     code: 'INFRASTRUCTURE',
   });
-  try {
-    await executor.run('control', async () => {
+  const failure = await executor
+    .run('control', async () => {
       throw new Error('rollback settled');
-    });
-  } catch {}
+    })
+    .catch((error: Error) => error.message);
+  assert({
+    given: 'failed actual work',
+    should: 'preserve the failure through settlement',
+    actual: failure,
+    expected: 'rollback settled',
+  });
   assert({
     given: 'rollback has settled',
     should: 'allow the next control operation',
