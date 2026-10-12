@@ -5,18 +5,16 @@ import type {
   RoundParticipantSeat,
   RoundRules,
   RatedOutcome,
-  SegmentClose,
-  SegmentInsert,
   SegmentType,
   RoundEffect,
 } from '@daisy/protocol';
 import { debateInvariantIds } from './invariant-ids';
 import type { RoundStore } from './round-ecs-store';
+import type { ClockChange } from './round-clock';
 
 /** The durable writes a command or tick queues for the caller to persist. */
 export type Queues = {
-  inserts: SegmentInsert[];
-  closes: SegmentClose[];
+  changes: ClockChange[];
   effects: RoundEffect[];
 };
 
@@ -43,7 +41,7 @@ export type CommandContext = {
   /** Seat completeness against `rules.seats`; a write-path invariant (ADR 0058 §8). */
   readonly assertSeatCompleteness: () => void;
   readonly openRowAt: (at: number) => void;
-  readonly closeRowAt: (id: string, at: number) => void;
+  readonly closeRowAt: (sequence: number, at: number) => void;
 };
 
 const iso = (ms: number): string => new Date(ms).toISOString();
@@ -75,7 +73,6 @@ const start = (c: CommandContext): void => {
   c.on.setLifecycle({
     status: 'active',
     startedAtMs: c.now,
-    gapAnchorMs: c.now,
   });
   c.into.effects.push({ kind: 'round_started', at: iso(c.now) });
 };
@@ -148,7 +145,6 @@ const startPrep = (c: CommandContext): void => {
   // Prep supersedes the rest of the countdown: the gap anchor hands over to
   // the prep clock anchored now.
   c.on.startPrep({ side, startedAtMs: c.now });
-  c.on.setLifecycle({ gapAnchorMs: null });
   c.into.effects.push({ kind: 'prep_started', side, at: iso(c.now) });
 };
 
@@ -205,7 +201,7 @@ const yieldFloor = (c: CommandContext): void => {
         Math.max(0, c.on.checkpoint().prep_consumed_ms[side] - unused),
       );
   }
-  c.closeRowAt(open.id, c.now);
+  c.closeRowAt(open.sequence, c.now);
 };
 
 /** The floor moves only where the resolved policy permits it. */
@@ -256,7 +252,7 @@ const forfeit = (c: CommandContext): void => {
     return;
   }
   const open = c.on.openRow();
-  if (open !== undefined) c.closeRowAt(open.id, c.now);
+  if (open !== undefined) c.closeRowAt(open.sequence, c.now);
   c.on.endPrep();
   completeWith(c, other(side));
 };
@@ -276,7 +272,7 @@ const complete = (c: CommandContext, outcome: RatedOutcome): void => {
       debateInvariantIds.completeAfterFinalSegment,
       'Completion follows the final segment’s time',
     );
-  if (open !== undefined) c.closeRowAt(open.id, c.now);
+  if (open !== undefined) c.closeRowAt(open.sequence, c.now);
   c.on.endPrep();
   completeWith(c, outcome);
 };

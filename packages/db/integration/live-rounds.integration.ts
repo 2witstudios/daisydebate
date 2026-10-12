@@ -82,7 +82,7 @@ test('countLiveRounds counts unfinished rounds and stops counting finished ones'
             payloadDigest: (to === 'active' ? 'e' : 'f').repeat(64),
             result: { outcome: 'affirmative' },
           },
-          projection: {
+          buildProjection: () => ({
             round: {
               status: to,
               currentStage: to === 'active' ? 'countdown' : null,
@@ -94,7 +94,7 @@ test('countLiveRounds counts unfinished rounds and stops counting finished ones'
             segmentInserts: [],
             segmentCloses: [],
             effects: [],
-          },
+          }),
         });
       };
       await advance('active');

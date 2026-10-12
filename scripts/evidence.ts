@@ -4,6 +4,7 @@ import { readFile, readdir, stat } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import ts from 'typescript';
 import { claimsIntegrationSuite } from './test-integration';
+import { unqueued } from './heavy';
 
 const root = resolve(import.meta.dir, '..');
 const skipDirectories = new Set([
@@ -256,7 +257,7 @@ const workspaceClaimProblems = async (
         : 'bun test src';
     if (
       (bucket.unit.length > 0 || bucket.workspaceScript.length > 0) &&
-      scripts.test !== requiredTestScript
+      unqueued(scripts.test ?? '') !== requiredTestScript
     )
       problems.push({
         code: 'UNRUN_SUITE',

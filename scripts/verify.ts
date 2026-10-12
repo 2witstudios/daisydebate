@@ -17,7 +17,7 @@ const gateNames = [
   'migration-idempotency',
 ] as const;
 
-export type VerifyGateName = (typeof gateNames)[number];
+type VerifyGateName = (typeof gateNames)[number];
 type VerifyStatus = 'pass' | 'fail' | 'skip';
 
 export type VerifyGate = {
