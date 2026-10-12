@@ -18,13 +18,13 @@ test('account authorization locks fence erasure and return fresh durable members
     const { userId, actorId } = await createAuthorizationSubject(fixture);
     const sessionId = createId();
     fixture.track('session', sessionId);
-    await fixture.sql`insert into session(id,user_id,token,expires_at) values(${sessionId},${userId},${createId()},'2026-10-09T00:01:00Z')`;
+    await fixture.sql`insert into session(id,user_id,token,expires_at) values(${sessionId},${userId},${createId()},'2099-01-01T00:01:00Z')`;
     const db = drizzle({ client: fixture.sql });
     const sessionInput = {
       sessionId,
       userId,
       actorId,
-      now: '2026-10-09T00:00:00.000Z',
+      now: '2099-01-01T00:00:00.000Z',
     };
     const sessionReader = authorizationSessionOperations({ database: db });
     assert({
@@ -74,7 +74,7 @@ test('account authorization locks fence erasure and return fresh durable members
           }),
           await loadAuthorizationSession(tx, {
             ...sessionInput,
-            now: '2026-10-09T00:01:00.000Z',
+            now: '2099-01-01T00:01:00.000Z',
           }),
         ],
         expected: [1, null, null, null],

@@ -36,7 +36,7 @@ test('actual restricted-role SQL hint listener publishes only to a current authe
   try {
     messaging = await createMessagingTestFixture(fixture.client);
     await fixture.client`insert into session(id,user_id,token,expires_at)
-      values(${sessionId},${messaging.userId},${randomBytes(32).toString('base64url')},'2026-10-09T01:00:00Z')`;
+      values(${sessionId},${messaging.userId},${randomBytes(32).toString('base64url')},'2099-01-01T01:00:00Z')`;
     const port = fixture.runtime.server.port;
     if (port === undefined) throw new Error('Actual hint listener unavailable');
     const peer = await openAuthorityPeer(

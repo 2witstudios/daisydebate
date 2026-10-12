@@ -38,7 +38,7 @@ export async function socketAuthorityFixture(
   try {
     await client`insert into users(id,username,email_verified) values(${userId},${userId},true)`;
     await client`insert into actors(id,kind,user_id) values(${actorId},'human',${userId})`;
-    await client`insert into session(id,user_id,token,expires_at) values(${sessionId},${userId},${randomBytes(32).toString('base64url')},'2026-10-09T01:00:00Z')`;
+    await client`insert into session(id,user_id,token,expires_at) values(${sessionId},${userId},${randomBytes(32).toString('base64url')},'2099-01-01T01:00:00Z')`;
     runtime = await serveRealtime({
       resources,
       ...(serve ? { serve } : {}),

@@ -144,3 +144,32 @@ test('session expiry uses post-fence database time rather than the request start
     expected: null,
   });
 });
+
+test('session expiry fails closed under the later of the injected and database instants', async () => {
+  const userId = 'a'.repeat(24),
+    actorId = 'b'.repeat(24);
+  let reads = 0;
+  const tx = {
+    execute: async () =>
+      reads++ === 0
+        ? [
+            {
+              userId,
+              expiresAt: new Date('2026-10-09T00:01:00.000Z'),
+              databaseNow: new Date('2026-10-09T00:00:00.000Z'),
+            },
+          ]
+        : [{ userId, actorId, member: true, erased: false, revision: 1 }],
+  } as unknown as AuthorizationTransaction;
+  assert({
+    given: 'an injected edge instant at expiry while database time lags',
+    should: 'deny rather than extend eligibility to the earlier clock',
+    actual: await loadAuthorizationSession(tx, {
+      userId,
+      actorId,
+      sessionId: 'c'.repeat(24),
+      now: '2026-10-09T00:01:00.000Z',
+    }),
+    expected: null,
+  });
+});
