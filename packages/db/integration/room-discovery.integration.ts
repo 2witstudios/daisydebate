@@ -172,8 +172,14 @@ test('discovery uses partial ordered indexes independently of historical Room an
         expected: [12, true, true, false, true],
       });
     } finally {
-      await f.sql`delete from rounds where room_id=any(${historyArray}::text[]) or room_id=any(${liveArray}::text[])`;
+      const roundIds = (
+        await f.sql`select id from rounds where room_id=any(${historyArray}::text[]) or room_id=any(${liveArray}::text[])`
+      ).map((row: { id: string }) => row.id);
+      const rounds = `{${roundIds.join(',')}}`;
+      await f.sql`delete from rounds where id=any(${rounds}::text[])`;
       await f.sql`delete from rooms where id=any(${historyArray}::text[]) or id=any(${liveArray}::text[])`;
+      // Deletes advance headers at commit; headers have no FK, so remove them last.
+      await f.sql`delete from resource_observation_headers where resource_id=any(${historyArray}::text[]) or resource_id=any(${liveArray}::text[]) or resource_id=any(${rounds}::text[])`;
     }
   });
 });
