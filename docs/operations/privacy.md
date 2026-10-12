@@ -74,6 +74,22 @@ it (`packages/protocol/src/realtime-payloads.ts`):
   `event` message, so their exposure is narrower than the delivered kinds
   above, not equivalent to them.
 
+**Observation snapshots ([ADR 0066](../decisions/0066-shared-resource-observation.md))
+are a protected delivery surface with Redis storage.** Snapshot bodies carry
+the same fields as the owning HTTP read and inherit their classification:
+message text is `sensitive`/`private`, author and participant identifiers are
+`identifier`, and timestamps and revisions are `none`. They are stored only in
+Redis (`storage: redis`) under `<namespace>:observation:<resource>:data`, for at
+most 60s, behind a per-resource purge generation: erasure advances the durable
+purge state, deletes the resource's heads and bodies, and refuses any later
+installation from an older generation; TTL is only a retention backstop. Redis
+demand, interest and relay keys hold resource identifiers, bases and outbox
+cursors only (`identifier`/`none`, at most 60s, the relay cursor 24h); claim
+tokens and cache incarnations are unguessable fences, never logged. The
+control channel carries only actor and session identifiers. No snapshot body
+enters logs, metrics, URLs or `outbox.payload`. Lawful basis and product
+retention for messaging content remain the owning messaging policy gates.
+
 Both surfaces still need inventory entries — the point of this section is
 that neither is an exemption, delivered or storage-only. Any payload kind
 made storable (`isPayloadStorableOnTopic`) or deliverable (the delivery-side rule) must
