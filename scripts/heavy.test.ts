@@ -7,22 +7,22 @@ import {
   ancestors,
   claimFile,
   formatDuration,
+  isClaimant,
   overdue,
   OVERDUE_GRACE_MS,
   overdueLine,
   processTree,
   claimPlan,
-  HEAVY_ENV,
   keepsClaim,
-  lockDir,
   nestedIn,
   parseHeld,
+  parseElapsed,
+  parseElapsedTable,
   parseProcessTable,
   readLimit,
   readTimeoutMs,
   slotFile,
   timeoutLine,
-  unqueued,
   waitingLine,
 } from './heavy';
 
@@ -286,29 +286,6 @@ describe('wall-clock limit', () => {
   });
 });
 
-describe('unqueued', () => {
-  test('strips the queue prefix and any leading env assignment', () => {
-    assert({
-      given: 'a root, a web, an env-prefixed web, and an unqueued script',
-      should: 'return each command without the queue',
-      actual: [
-        unqueued("bun scripts/heavy.ts sh -c 'bun test scripts'"),
-        unqueued('bun ../../scripts/heavy.ts bun test src scripts'),
-        unqueued(
-          'NODE_ENV=production bun ../../scripts/heavy.ts bun --bun next build',
-        ),
-        unqueued('bun test src'),
-      ],
-      expected: [
-        "sh -c 'bun test scripts'",
-        'bun test src scripts',
-        'bun --bun next build',
-        'bun test src',
-      ],
-    });
-  });
-});
-
 describe('waitingLine', () => {
   test('names the live holders it waits for', () => {
     assert({
@@ -342,74 +319,54 @@ describe('readLimit', () => {
   });
 });
 
-describe('one machine-wide pool', () => {
-  test('uses one fixed lock directory whatever TMPDIR says', () => {
+describe('reused pids', () => {
+  test('reads elapsed run time from ps etime', () => {
     assert({
-      given: 'two TMPDIRs, and an explicit DAISY_HEAVY_LOCK_DIR',
-      should:
-        'use /tmp/daisy-heavy-slots for both, and the explicit one when set',
+      given: 'seconds, minutes, hours, days, and nonsense',
+      should: 'convert each to milliseconds and reject the nonsense',
+      actual: ['00:05', '03:05', '02:54:00', '1-00:00:01', 'soon'].map(
+        parseElapsed,
+      ),
+      expected: [5000, 185_000, 10_440_000, 86_401_000, undefined],
+    });
+  });
+
+  test('reads elapsed times from the process table', () => {
+    assert({
+      given: 'a three-column ps table with a header',
+      should: 'map each pid to its elapsed time',
       actual: [
-        lockDir({ TMPDIR: '/var/folders/xy/T/' }),
-        lockDir({ TMPDIR: '/tmp' }),
-        lockDir({ DAISY_HEAVY_LOCK_DIR: '/srv/heavy', TMPDIR: '/tmp' }),
+        ...parseElapsedTable(
+          [
+            '  PID  PPID ELAPSED',
+            '  100     1   02:00',
+            '  200   100   00:01',
+          ].join('\n'),
+        ),
       ],
       expected: [
-        '/tmp/daisy-heavy-slots',
-        '/tmp/daisy-heavy-slots',
-        '/srv/heavy',
+        [100, 120_000],
+        [200, 1000],
       ],
     });
   });
 
-  test('passes the limit settings through turbo to every task', async () => {
-    const turbo = (await Bun.file(
-      new URL('../turbo.json', import.meta.url),
-    ).json()) as { globalPassThroughEnv?: string[] };
+  test('trusts a pid only while its process predates the claim', () => {
+    // A holder that died without cleanup leaves its claim; once the OS
+    // reuses the pid, the new process must never be taken for the holder.
+    const claim = { slot: 0, pid: 4242, start: 1_000_000, deadline: 2_000_000 };
+    const now = 5_000_000;
     assert({
-      given: "turbo's strict env mode",
-      should: 'pass every DAISY_HEAVY_* setting through globally',
-      actual: HEAVY_ENV.every((name) =>
-        turbo.globalPassThroughEnv?.includes(name),
-      ),
-      expected: true,
-    });
-  });
-
-  test('queues every heavy root and web script', async () => {
-    const scripts = async (path: string) =>
-      (
-        (await Bun.file(new URL(path, import.meta.url)).json()) as {
-          scripts: Record<string, string>;
-        }
-      ).scripts;
-    const root = await scripts('../package.json');
-    const web = await scripts('../apps/web/package.json');
-    const queued = (command: string | undefined) =>
-      command !== undefined && unqueued(command) !== command;
-    assert({
-      given: 'the root and apps/web package scripts',
-      should: 'start each heavy one through the queue',
-      actual: {
-        root: [
-          'build',
-          'typecheck',
-          'lint',
-          'test',
-          'test:integration',
-          'test:e2e',
-          'check',
-          'check:affected',
-          'verify',
-          'dev',
-          'dev:agent',
-          'knip',
-          'duplication',
-        ].filter((name) => !queued(root[name])),
-        web: ['dev', 'build', 'typecheck', 'test', 'test:e2e'].filter(
-          (name) => !queued(web[name]),
-        ),
-      },
-      expected: { root: [], web: [] },
+      given:
+        'the claimant (started before claiming), a process started within etime rounding, a pid reused after the claim, and a pid ps no longer lists',
+      should: 'trust the first two only',
+      actual: [
+        isClaimant(claim, now - 990_000, now),
+        isClaimant(claim, now - 1_000_000 - 1500, now),
+        isClaimant(claim, now - 1_060_000, now),
+        isClaimant(claim, undefined, now),
+      ],
+      expected: [true, true, false, false],
     });
   });
 });

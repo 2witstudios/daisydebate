@@ -81,7 +81,7 @@ async function gitOutput(args: readonly string[]): Promise<string> {
 const nonEmptyLines = (output: string): readonly string[] =>
   output.length === 0 ? [] : output.split('\n');
 
-export async function collectChangedFiles(
+async function collectChangedFiles(
   mergeBase: string,
 ): Promise<readonly string[]> {
   const [committed, working, untracked] = await Promise.all([
@@ -148,7 +148,7 @@ export function planGates(
   return gates;
 }
 
-export function formatAffectedReport(
+function formatAffectedReport(
   changedFiles: readonly string[],
   results: readonly { readonly name: string; readonly ok: boolean }[],
   json: boolean,

@@ -110,10 +110,47 @@ export const parseHeld = (names: readonly string[]): Held[] =>
 export const parseProcessTable = (text: string): ReadonlyMap<number, number> =>
   new Map(
     text.split('\n').flatMap((line) => {
-      const match = /^\s*(\d+)\s+(\d+)\s*$/.exec(line);
+      const match = /^\s*(\d+)\s+(\d+)(?:\s+\S+)?\s*$/.exec(line);
       return match ? [[Number(match[1]), Number(match[2])] as const] : [];
     }),
   );
+
+/** Elapsed run time by pid, from `ps -A -o pid=,ppid=,etime=` output. */
+export const parseElapsedTable = (text: string): ReadonlyMap<number, number> =>
+  new Map(
+    text.split('\n').flatMap((line) => {
+      const match = /^\s*(\d+)\s+\d+\s+(\S+)\s*$/.exec(line);
+      const elapsed = match ? parseElapsed(match[2]) : undefined;
+      return match && elapsed !== undefined
+        ? [[Number(match[1]), elapsed] as const]
+        : [];
+    }),
+  );
+
+/** `ps` etime, `[[dd-]hh:]mm:ss`, in milliseconds. */
+export function parseElapsed(etime: string): number | undefined {
+  const match = /^(?:(?:(\d+)-)?(\d+):)?(\d+):(\d+)$/.exec(etime);
+  if (!match) return undefined;
+  const [days, hours, minutes, seconds] = match
+    .slice(1)
+    .map((part) => Number(part ?? 0));
+  return (((days * 24 + hours) * 60 + minutes) * 60 + seconds) * 1000;
+}
+
+/** etime counts whole seconds, so a claimant may seem to start this late. */
+const START_TOLERANCE_MS = 2000;
+
+/**
+ * Whether the live process behind a claim's pid is the run that wrote the
+ * claim: a claimant starts before it claims, so a process that started
+ * after the claim is a stranger that reused a dead run's pid.
+ */
+export const isClaimant = (
+  held: Held,
+  elapsedMs: number | undefined,
+  now: number,
+): boolean =>
+  elapsedMs !== undefined && now - elapsedMs <= held.start + START_TOLERANCE_MS;
 
 /** A process's ancestors, nearest first, stopping at a cycle or the root. */
 export function ancestors(
@@ -271,12 +308,40 @@ function isAlive(pid: number): boolean {
   }
 }
 
-function processTable(): ReadonlyMap<number, number> {
-  const ps = Bun.spawnSync(['ps', '-A', '-o', 'pid=,ppid=']);
+/** Thrown where `ps` is not installed, as in the slim Docker build image. */
+class NoProcessTable extends Error {}
+
+function readProcesses(): string {
+  let ps;
+  try {
+    ps = Bun.spawnSync(['ps', '-A', '-o', 'pid=,ppid=,etime=']);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT')
+      throw new NoProcessTable('ps is not installed');
+    throw error;
+  }
   // Failing loudly beats guessing: a nested run that claimed would deadlock.
   if (ps.exitCode !== 0)
     throw new Error(`heavy: ps exited ${ps.exitCode}; cannot read processes`);
-  return parseProcessTable(ps.stdout.toString());
+  return ps.stdout.toString();
+}
+
+const processTable = () => parseProcessTable(readProcesses());
+
+/**
+ * Which claims' pids still belong to their claimants: a dead pid, or a live
+ * one reused by a process that started after the claim, holds nothing, so
+ * it is cleared and never terminated.
+ */
+function claimantCheck(held: readonly Held[]): (pid: number) => boolean {
+  const elapsed = parseElapsedTable(readProcesses());
+  const now = Date.now();
+  return (pid) =>
+    pid === process.pid ||
+    (isAlive(pid) &&
+      held
+        .filter((h) => h.pid === pid)
+        .every((h) => isClaimant(h, elapsed.get(pid), now)));
 }
 
 function commandOf(pid: number): string {
@@ -325,10 +390,11 @@ export function claimFile(file: string): boolean {
 
 async function clearDeadAndOverdue(dir: string): Promise<void> {
   const held = parseHeld(readdirSync(dir));
-  for (const h of held.filter((h) => !isAlive(h.pid)))
+  const alive = claimantCheck(held);
+  for (const h of held.filter((h) => !alive(h.pid)))
     rmSync(join(dir, slotFile(h)), { force: true });
   const now = Date.now();
-  for (const h of overdue(held, now, isAlive)) {
+  for (const h of overdue(held, now, alive)) {
     process.stderr.write(overdueLine(h, commandOf(h.pid), now));
     await terminateTree(h.pid);
     rmSync(join(dir, slotFile(h)), { force: true });
@@ -350,8 +416,8 @@ function tryClaim(
   };
   const file = join(dir, slotFile(mine));
   if (!claimFile(file)) return undefined;
-  if (keepsClaim(parseHeld(readdirSync(dir)), mine, isAlive, limit))
-    return file;
+  const held = parseHeld(readdirSync(dir));
+  if (keepsClaim(held, mine, claimantCheck(held), limit)) return file;
   rmSync(file, { force: true }); // another run took this slot too; look again
   return undefined;
 }
@@ -381,6 +447,23 @@ async function run(
 }
 
 async function main(command: readonly string[]): Promise<number> {
+  let lineage: number[];
+  try {
+    lineage = ancestors(processTable(), process.pid);
+  } catch (error) {
+    if (!(error instanceof NoProcessTable)) throw error;
+    // Without a process table nesting cannot be told apart, and queueing
+    // blind could deadlock; such hosts (the Docker build) run one job.
+    process.stderr.write(`heavy: ${error.message}; running unqueued\n`);
+    return run(command, undefined);
+  }
+  return queued(command, lineage);
+}
+
+async function queued(
+  command: readonly string[],
+  lineage: readonly number[],
+): Promise<number> {
   const env = process.env;
   const limit = readLimit(env);
   const timeoutMs = readTimeoutMs(env);
@@ -388,12 +471,12 @@ async function main(command: readonly string[]): Promise<number> {
   // Offset by pid so two runs that withdrew from one slot retry apart.
   const pollMs = Number(env.DAISY_HEAVY_POLL_MS ?? 5000) + (process.pid % 97);
   mkdirSync(dir, { recursive: true });
-  const lineage = ancestors(processTable(), process.pid);
   let announced = '';
   for (;;) {
     await clearDeadAndOverdue(dir);
     const held = parseHeld(readdirSync(dir));
-    const admitted = admission(held, lineage, limit, isAlive);
+    const alive = claimantCheck(held);
+    const admitted = admission(held, lineage, limit, alive);
     // The holder's own deadline bounds a nested run.
     if (admitted.kind === 'nested') return run(command, undefined);
     if (admitted.kind === 'claim') {
@@ -407,13 +490,13 @@ async function main(command: readonly string[]): Promise<number> {
     } else {
       // One line per change of holders, quiet otherwise.
       const holders = held
-        .filter((h) => isAlive(h.pid))
+        .filter((h) => alive(h.pid))
         .map((h) => h.pid)
         .join(',');
       if (holders !== announced) {
         announced = holders;
         process.stderr.write(
-          waitingLine(held, isAlive, limit, Date.now(), commandOf),
+          waitingLine(held, alive, limit, Date.now(), commandOf),
         );
       }
     }

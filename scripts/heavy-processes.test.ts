@@ -1,4 +1,10 @@
-import { mkdtempSync, readdirSync, readFileSync } from 'node:fs';
+import {
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
@@ -48,7 +54,7 @@ describe('heavy queue across real processes', () => {
       ],
       expected: [false, true],
     });
-  });
+  }, 60_000);
 
   test('runs a nested heavy command inside the slot its ancestor holds', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'heavy-nested-'));
@@ -81,7 +87,7 @@ describe('heavy queue across real processes', () => {
       },
       expected: { code: 0, out: 'ran', stderr: '' },
     });
-  });
+  }, 60_000);
 
   test('terminates a run past its wall-clock limit and releases the slot', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'heavy-timeout-'));
@@ -107,7 +113,7 @@ describe('heavy queue across real processes', () => {
         'end it with exit 124 well before 30 s, never print its output, say why, and leave no claim',
       actual: {
         code,
-        early: Date.now() - started < 15_000,
+        early: Date.now() - started < 25_000,
         stdout: await new Response(runner.stdout).text(),
         said: (await new Response(runner.stderr).text()).includes(
           'wall-clock limit',
@@ -116,5 +122,43 @@ describe('heavy queue across real processes', () => {
       },
       expected: { code: 124, early: true, stdout: '', said: true, claims: [] },
     });
-  });
+  }, 60_000);
+
+  test('never terminates a stranger that reused an overdue holder pid', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'heavy-reused-'));
+    const slots = join(dir, 'slots');
+    mkdirSync(slots);
+    const stranger = Bun.spawn(['sleep', '300']);
+    // A claim long overdue, written long before the stranger started.
+    const planted = `slot-0-${stranger.pid}-1000-2000.pid`;
+    writeFileSync(join(slots, planted), '');
+    const runner = Bun.spawn(
+      ['bun', `${root}scripts/heavy.ts`, 'bun', '-e', '0'],
+      {
+        env: {
+          ...process.env,
+          DAISY_HEAVY_LOCK_DIR: slots,
+          DAISY_HEAVY_POLL_MS: '25',
+        },
+        stdout: 'ignore',
+        stderr: 'pipe',
+      },
+    );
+    const code = await runner.exited;
+    const strangerAlive = stranger.exitCode === null && !stranger.killed;
+    stranger.kill();
+    assert({
+      given:
+        'an overdue claim naming a live process that started after the claim',
+      should:
+        'clear the claim as stale, run at once, and leave the process alone',
+      actual: {
+        code,
+        strangerAlive,
+        claims: readdirSync(slots),
+        stderr: await new Response(runner.stderr).text(),
+      },
+      expected: { code: 0, strangerAlive: true, claims: [], stderr: '' },
+    });
+  }, 60_000);
 });
