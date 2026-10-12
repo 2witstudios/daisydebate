@@ -8,7 +8,6 @@ import { createMessagingTestFixture } from '../src/testing';
 import { lockAuthorizationActors } from '../src/authorization';
 import { createMessagingPrivacyAdopter } from '../src/messaging';
 import { readMessagingChannelFact } from '../src/messaging/social';
-import { deleteObservationHeaders } from './constraint-helpers';
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
@@ -217,7 +216,6 @@ test('messaging rights erase subject associations atomically and preserve other 
       [channelId, groupId],
     );
     await fixture.cleanup();
-    await deleteObservationHeaders(client, [channelId, groupId]);
     await client.close();
   }
 });

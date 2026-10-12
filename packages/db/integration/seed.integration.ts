@@ -2,7 +2,6 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { SQL } from 'bun';
 import { resolve } from 'node:path';
 import { requireTestServices } from '@daisy/config';
-import { deleteObservationHeaders } from './constraint-helpers';
 
 setupRitewayBun();
 
@@ -24,7 +23,6 @@ const removeSeedRows = async (database: SQL) => {
   await database`delete from actors where id in (${seedActorIds[0]}, ${seedActorIds[1]})`;
   await database`delete from users where id in (${seedIds[0]}, ${seedIds[1]})`;
   await database`delete from seed_versions where seed_name in ('agent', 'formats')`;
-  await deleteObservationHeaders(database, [...seedIds, ...seedActorIds]);
 };
 
 // A filesystem path, not URL.pathname: that stays percent-encoded, so a
