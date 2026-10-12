@@ -46,6 +46,7 @@ test('logout transport loss fences a late snapshot immediately', () => {
     base,
     minimumContentRevision: 1,
     validForMs: 4900,
+    overlay: null,
   });
   incoming({
     v: 1 as never,
@@ -114,6 +115,7 @@ test('reading after elapsed permission hides despite a delayed timer', () => {
     base,
     minimumContentRevision: 1,
     validForMs: 100,
+    overlay: null,
   });
   incoming({
     v: 1 as never,
@@ -141,6 +143,7 @@ test('reading after elapsed permission hides despite a delayed timer', () => {
     base,
     minimumContentRevision: 1,
     validForMs: 100,
+    overlay: null,
   });
   incoming({
     v: 1 as never,

@@ -32,6 +32,7 @@ test('one interest owns wire subscription and second observer gets acknowledged 
     base,
     minimumContentRevision: 1,
     validForMs: 4900,
+    overlay: null,
   };
   const snapshot: ObservationServerMessage = {
     v: 1 as never,
@@ -91,6 +92,7 @@ test('cached ACK never grants a new listener another full lifetime', () => {
     base,
     minimumContentRevision: 1,
     validForMs: 100,
+    overlay: null,
   });
   now = 75;
   let remaining = 0;
@@ -140,6 +142,7 @@ test('equivalent window property order cannot break ACK correlation', () => {
     },
     minimumContentRevision: 1,
     validForMs: 100,
+    overlay: null,
   });
   assert({
     given:

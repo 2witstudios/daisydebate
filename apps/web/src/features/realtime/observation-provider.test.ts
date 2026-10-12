@@ -54,6 +54,7 @@ for (const disposal of ['provider', 'reader'] as const)
       },
       minimumContentRevision: 1,
       validForMs: 100,
+      overlay: null,
     });
     assert({
       given: `${disposal} disposal during synchronous pending notification`,
@@ -120,6 +121,7 @@ test('provider owns one connection, reference counts and final deadline hiding',
       base,
       minimumContentRevision: 1,
       validForMs: 100,
+      overlay: null,
     });
     callback({
       v: 1 as never,
@@ -203,6 +205,7 @@ test('correlated reconnect can install a lower generation from a new server inca
       base,
       minimumContentRevision: revision,
       validForMs: 4900,
+      overlay: null,
     });
     subscriptions.emit({
       v: 1 as never,

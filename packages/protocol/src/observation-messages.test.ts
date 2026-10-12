@@ -46,3 +46,40 @@ test('snapshot protocol carries bounded replacements without replay positions', 
     expected: [true, false, true, false],
   });
 });
+
+test('ready carries a bounded actor-private overlay alongside the shared base', () => {
+  const ready = {
+    v: 1,
+    type: 'observation.ready',
+    id: 'request',
+    generation: 1,
+    base: {
+      schema: 1,
+      resource: { kind: 'channel', id: 'a'.repeat(24) },
+      partition: { kind: 'shared', policyKey: 'v1' },
+      disclosureRevision: 1,
+      window: { after: null, limit: 50 },
+    },
+    minimumContentRevision: 1,
+    validForMs: 4700,
+    overlay: { ownReactions: [] },
+  };
+  const missing: Record<string, unknown> = { ...ready };
+  delete missing.overlay;
+  assert({
+    given:
+      'an overlay, an explicit empty overlay, a missing one and an oversized one',
+    should: 'require the field and bound its size',
+    actual: [
+      observationServerMessageSchema.safeParse(ready).success,
+      observationServerMessageSchema.safeParse({ ...ready, overlay: null })
+        .success,
+      observationServerMessageSchema.safeParse(missing).success,
+      observationServerMessageSchema.safeParse({
+        ...ready,
+        overlay: { text: 'a'.repeat(16 * 1024) },
+      }).success,
+    ],
+    expected: [true, true, false, false],
+  });
+});

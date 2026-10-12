@@ -6,6 +6,7 @@ import {
   observationFrameBytes,
   createObservationClientMessageSchema,
   observationJsonBytes,
+  observationOverlayBytes,
 } from './observation';
 const envelope = {
   v: z.literal(ENVELOPE_VERSION),
@@ -13,6 +14,13 @@ const envelope = {
 };
 const generation = z.number().int().nonnegative().safe();
 const revision = z.number().int().nonnegative().safe();
+/** Small actor-private facts from the same canonical admission read. */
+export const observationOverlaySchema = z
+  .json()
+  .refine((value) => observationJsonBytes(value) <= observationOverlayBytes, {
+    message: 'Observation overlay exceeds byte bound',
+  });
+export type ObservationOverlay = z.infer<typeof observationOverlaySchema>;
 export const observationClientMessageSchema =
   createObservationClientMessageSchema(ENVELOPE_VERSION);
 export const observationServerMessageSchema = z.discriminatedUnion('type', [
@@ -23,6 +31,15 @@ export const observationServerMessageSchema = z.discriminatedUnion('type', [
     base: observationBaseSchema,
     minimumContentRevision: revision,
     validForMs: z.number().int().min(1).max(4900),
+    /** Small actor-private facts from the same canonical admission read. */
+    overlay: z
+      .json()
+      .refine(
+        (value) => observationJsonBytes(value) <= observationOverlayBytes,
+        {
+          message: 'Observation overlay exceeds byte bound',
+        },
+      ),
   }),
   z
     .strictObject({

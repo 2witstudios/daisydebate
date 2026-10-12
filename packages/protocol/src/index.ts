@@ -223,6 +223,8 @@ export {
 export {
   observationClientMessageSchema,
   observationServerMessageSchema,
+  observationOverlaySchema,
+  type ObservationOverlay,
   type ObservationClientMessage,
   type ObservationServerMessage,
 } from './observation-messages';

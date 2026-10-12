@@ -58,6 +58,7 @@ export function sessionsFixture({ maxPerSession = 8 } = {}) {
   const allowed = (
     view = base(),
     dependencies = [{ key: 'account-x', revision: '1' }],
+    overlay: unknown = null,
   ): ObservationAuthorityReadResult => {
     const evidence = observationEvidence({
       started: time,
@@ -67,7 +68,7 @@ export function sessionsFixture({ maxPerSession = 8 } = {}) {
     });
     return {
       status: 'allowed',
-      overlay: null,
+      overlay,
       grant: {
         base: view,
         minimumContentRevision: 1,

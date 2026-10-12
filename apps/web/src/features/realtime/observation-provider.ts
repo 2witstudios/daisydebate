@@ -75,10 +75,14 @@ export function createObservationProvider({
     entry.generation = frame.generation;
     entry.expiresAt = scheduler.now() + frame.validForMs;
     entry.attempt = entry.store.begin();
-    entry.store.authorize(entry.attempt, {
-      partition: observationBaseKey(frame.base),
-      disclosureRevision: frame.base.disclosureRevision,
-    });
+    entry.store.authorize(
+      entry.attempt,
+      {
+        partition: observationBaseKey(frame.base),
+        disclosureRevision: frame.base.disclosureRevision,
+      },
+      frame.overlay,
+    );
     if (disposed || entry.store.read().status === 'disposed') return;
     entry.timer = scheduler.setTimeout(() => {
       expired(entry);

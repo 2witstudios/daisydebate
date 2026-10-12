@@ -1,7 +1,9 @@
 import {
   ENVELOPE_VERSION,
   observationBaseKey,
+  observationOverlaySchema,
   type ObservationBase,
+  type ObservationOverlay,
 } from '@daisy/protocol';
 import type { ObservationBinding } from '@daisy/db/observation';
 import {
@@ -30,6 +32,8 @@ type Binding = {
   readonly permit: ObservationPermit;
   readonly recipients: Set<Recipient>;
   base: ObservationBase | null;
+  /** Actor-private facts from the latest canonical read; never shared. */
+  overlay: ObservationOverlay;
   retryAt: number;
 };
 type AuthorityRead = (
@@ -102,6 +106,7 @@ export function createObservationSessions({
       base: binding.base,
       minimumContentRevision: grant.minimumContentRevision,
       validForMs,
+      overlay: binding.overlay,
     });
     install();
     return true;
@@ -127,8 +132,11 @@ export function createObservationSessions({
     attempt: ReturnType<ObservationPermit['begin']>,
     result: Extract<ObservationAuthorityReadResult, { status: 'allowed' }>,
   ) {
-    if (!binding.permit.install(attempt, result.grant)) return false;
+    const overlay = observationOverlaySchema.safeParse(result.overlay);
+    if (!overlay.success || !binding.permit.install(attempt, result.grant))
+      return false;
     binding.base = result.grant.base;
+    binding.overlay = overlay.data;
     binding.retryAt = 0;
     for (const recipient of binding.recipients)
       if (!ready(binding, recipient)) state(recipient, 'unavailable');
@@ -176,6 +184,7 @@ export function createObservationSessions({
       permit: createObservationPermit({ now, nodeIncarnation }),
       recipients: new Set(),
       base: null,
+      overlay: null,
       retryAt: 0,
     };
     bindings.set(key, binding);

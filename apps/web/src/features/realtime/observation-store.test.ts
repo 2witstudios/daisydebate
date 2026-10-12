@@ -96,3 +96,37 @@ test('disclosure identity transition hides old body and resets revision floor', 
     expected: { hidden: null, current: 'narrow' },
   });
 });
+test('actor overlays follow authorization and disappear with authority', () => {
+  const store = createObservationStore({
+    decode: (value: unknown) => (typeof value === 'string' ? value : null),
+  });
+  const identity = { partition: 'same', disclosureRevision: 1 };
+  const attempt = store.begin();
+  store.authorize(attempt, identity, { own: ['a'] });
+  store.snapshot(attempt, { ...identity, contentRevision: 1, body: 'one' });
+  const first = store.read();
+  store.authorize(attempt, identity, { own: ['b'] });
+  const renewed = store.read();
+  store.deny();
+  assert({
+    given: 'an overlay, a snapshot, a renewed overlay and then denial',
+    should:
+      'keep content with the latest canonical overlay and hide both together',
+    actual: { first, renewed, denied: store.read() },
+    expected: {
+      first: {
+        status: 'ready',
+        content: 'one',
+        revision: 1,
+        overlay: { own: ['a'] },
+      },
+      renewed: {
+        status: 'ready',
+        content: 'one',
+        revision: 1,
+        overlay: { own: ['b'] },
+      },
+      denied: { status: 'denied', content: null, revision: null },
+    },
+  });
+});
