@@ -76,9 +76,16 @@ export function createObservationSubscriptions({
       frame.base.window.limit !== entry.descriptor.window.limit
     )
       return false;
+    // Replayed to later listeners: keep the generation's overlay when omitted.
+    const previous = entry.ready;
+    entry.ready =
+      frame.overlay === undefined &&
+      previous?.generation === frame.generation &&
+      previous.overlay !== undefined
+        ? { ...frame, overlay: previous.overlay }
+        : frame;
     entry.generation = frame.generation;
     entry.expiresAt = now() + frame.validForMs;
-    entry.ready = frame;
     entry.snapshot = null;
     return true;
   }

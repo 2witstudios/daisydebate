@@ -1,6 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createObservationSubscriptions } from './observation-subscriptions';
 import type { ObservationServerMessage } from '@daisy/protocol';
+import { readyFrame, testDescriptor } from './observation.test-support';
 setupRitewayBun();
 test('one interest owns wire subscription and second observer gets acknowledged baseline', () => {
   const sent: object[] = [],
@@ -151,4 +152,31 @@ test('equivalent window property order cannot break ACK correlation', () => {
     actual: ready,
     expected: 1,
   });
+});
+
+test('a later listener replays the generation’s overlay even after an omitting renewal', () => {
+  const sent: { id: string }[] = [];
+  const subscriptions = createObservationSubscriptions({
+    now: () => 0,
+    send: (frame) => sent.push(frame as { id: string }),
+  });
+  const replayed: unknown[] = [];
+  subscriptions.observe(testDescriptor, () => {});
+  const id = sent.at(-1)!.id;
+  const overlay = { ownReactions: [] };
+  subscriptions.emit(readyFrame({ id, overlay }));
+  const { overlay: _omitted, ...renewal } = readyFrame({ id });
+  void _omitted;
+  subscriptions.emit(renewal);
+  subscriptions.observe(testDescriptor, (frame) =>
+    replayed.push(frame.type === 'observation.ready' ? frame.overlay : null),
+  );
+  assert({
+    given:
+      'an overlay, a same-generation renewal without one, then a second listener',
+    should: 'replay the ready with the generation’s overlay',
+    actual: replayed,
+    expected: [overlay],
+  });
+  subscriptions.dispose();
 });

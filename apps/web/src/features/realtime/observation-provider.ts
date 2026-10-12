@@ -24,6 +24,8 @@ type Interest = {
   requestId: string | null;
   expiresAt: number;
   timer: unknown;
+  /** The overlay the server last sent for this request generation. */
+  overlay: unknown;
 };
 /** One tab/session composition owns transport, deadlines and replaceable views.
  * Features supply a schema-bound descriptor, never refetch or repair callbacks.
@@ -72,6 +74,9 @@ export function createObservationProvider({
     frame: Extract<ObservationServerMessage, { type: 'observation.ready' }>,
   ) {
     clearTimer(entry);
+    // An omitted overlay is unchanged within a generation; a new one starts empty.
+    if (frame.overlay !== undefined) entry.overlay = frame.overlay;
+    else if (frame.generation !== entry.generation) entry.overlay = null;
     entry.generation = frame.generation;
     entry.expiresAt = scheduler.now() + frame.validForMs;
     entry.attempt = entry.store.begin();
@@ -81,7 +86,7 @@ export function createObservationProvider({
         partition: observationBaseKey(frame.base),
         disclosureRevision: frame.base.disclosureRevision,
       },
-      frame.overlay,
+      entry.overlay,
     );
     if (disposed || entry.store.read().status === 'disposed') return;
     entry.timer = scheduler.setTimeout(() => {
@@ -155,6 +160,7 @@ export function createObservationProvider({
           requestId: null,
           expiresAt: 0,
           timer: null,
+          overlay: null,
         };
         interests.set(key, entry);
         const owned = entry;

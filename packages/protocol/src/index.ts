@@ -213,6 +213,7 @@ export {
   observationResourceKey,
   observationBaseKey,
   observationFrameBytes,
+  observationJsonBytes,
   type ObservationResource,
   type ObservationBase,
   type ObservationHeader,

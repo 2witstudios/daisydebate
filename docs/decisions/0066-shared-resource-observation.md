@@ -82,7 +82,22 @@ socket, reference counts, deadlines and disposal; features supply a descriptor
 and render the current view. Drafts and forms live outside replaceable views.
 Commands and no-JavaScript rendering stay HTTP.
 
-### 6. Privacy
+### 6. Actor-private overlays and their budget
+
+A canonical admission or renewal may return a small actor-private overlay
+(today the viewer's own reactions in the channel window). It travels on
+`observation.ready` only when it changed for that request generation; an
+omitted overlay means unchanged, so steady renewals cost no overlay egress.
+Bounds: the channel overlay schema allows at most 400 own reactions of at
+most 16 UTF-16 units, which fits the 64KiB per-binding overlay limit (asserted
+when the protocol loads); web composition refuses a reaction policy with more
+than 8 choices or longer reactions, so a valid deployment cannot produce an
+out-of-schema overlay. Each node retains at most 32MiB of overlays across its
+bindings (5,000 bindings at the typical few hundred bytes each use well under
+it); past the budget, or past the per-binding limit, an overlay degrades to
+none while shared delivery continues.
+
+### 7. Privacy
 
 Snapshot bodies are personal or sensitive data in transit and in Redis. Redis
 holds them under namespaced keys for at most 60s, with explicit purge fences

@@ -28,6 +28,8 @@ export type Recipient = {
   generation: number;
   base: ObservationBase | null;
   closed: boolean;
+  /** JSON of the overlay this request generation's client holds. */
+  overlaySent: string;
   release: () => void;
   /** Removes the recipient from its socket once its binding ends. */
   readonly forget: () => void;

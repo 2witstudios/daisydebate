@@ -28,7 +28,8 @@ export const observationServerMessageSchema = z.discriminatedUnion('type', [
     base: observationBaseSchema,
     minimumContentRevision: revision,
     validForMs: z.number().int().min(1).max(4900),
-    overlay: observationOverlaySchema,
+    /** Present only when the overlay changed for this request generation. */
+    overlay: observationOverlaySchema.optional(),
   }),
   z
     .strictObject({

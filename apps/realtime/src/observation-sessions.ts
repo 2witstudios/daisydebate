@@ -1,6 +1,7 @@
 import {
   ENVELOPE_VERSION,
   observationBaseKey,
+  observationJsonBytes,
   observationOverlaySchema,
   type ObservationBase,
   type ObservationOverlay,
@@ -33,6 +34,7 @@ type Binding = {
   base: ObservationBase | null;
   /** Actor-private facts from the latest canonical read; never shared. */
   overlay: ObservationOverlay;
+  overlayBytes: number;
   retryAt: number;
 };
 type AuthorityRead = (
@@ -52,6 +54,7 @@ export function createObservationSessions({
   authority,
   node,
   maxPerSession,
+  overlayBudgetBytes = 32 * 1024 * 1024,
 }: {
   readonly now: () => number;
   readonly nodeIncarnation: string;
@@ -67,14 +70,19 @@ export function createObservationSessions({
     ) => () => void;
   };
   readonly maxPerSession: number;
+  /** Bytes of actor-private overlays one node retains across bindings. */
+  readonly overlayBudgetBytes?: number;
 }) {
   const bindings = new Map<string, Binding>();
-  let closed = false;
+  let closed = false,
+    overlayBytes = 0;
   function attach(binding: Binding, recipient: Recipient) {
     const base = binding.base!;
     detach(recipient);
     const generation = ++recipient.generation;
     recipient.base = base;
+    // A new request generation starts without an overlay on the client.
+    recipient.overlaySent = 'null';
     return () => {
       recipient.release = node.observe(base, binding.permit, (snapshot) => {
         if (recipient.closed || recipient.generation !== generation) return;
@@ -97,6 +105,10 @@ export function createObservationSessions({
       recipient.base === null ||
       observationBaseKey(recipient.base) !== observationBaseKey(binding.base);
     const install = rebind ? attach(binding, recipient) : () => {};
+    // The overlay travels only when it changed for this request generation.
+    const overlayKey = JSON.stringify(binding.overlay);
+    const overlayChanged = overlayKey !== recipient.overlaySent;
+    recipient.overlaySent = overlayKey;
     recipient.outbound.send({
       v: ENVELOPE_VERSION,
       type: 'observation.ready',
@@ -105,7 +117,7 @@ export function createObservationSessions({
       base: binding.base,
       minimumContentRevision: grant.minimumContentRevision,
       validForMs,
-      overlay: binding.overlay,
+      ...(overlayChanged ? { overlay: binding.overlay } : {}),
     });
     install();
     return true;
@@ -116,7 +128,21 @@ export function createObservationSessions({
       state(recipient, value);
     }
   }
+  /** Retained overlays share one node budget; past it an overlay degrades to
+   * none rather than growing memory with bindings. */
+  function retainOverlay(binding: Binding, value: unknown) {
+    const parsed = observationOverlaySchema.safeParse(value);
+    const bytes = parsed.success ? observationJsonBytes(parsed.data) : 0;
+    const fits =
+      overlayBytes - binding.overlayBytes + bytes <= overlayBudgetBytes;
+    overlayBytes -= binding.overlayBytes;
+    binding.overlay = parsed.success && fits ? parsed.data : null;
+    binding.overlayBytes = parsed.success && fits ? bytes : 0;
+    overlayBytes += binding.overlayBytes;
+  }
   function drop(binding: Binding) {
+    overlayBytes -= binding.overlayBytes;
+    binding.overlayBytes = 0;
     if (bindings.get(binding.key) === binding) bindings.delete(binding.key);
     scheduler.forget(binding);
     binding.permit.invalidate();
@@ -133,9 +159,8 @@ export function createObservationSessions({
   ) {
     if (!binding.permit.install(attempt, result.grant)) return false;
     // An unbounded overlay degrades actor-private extras, never shared delivery.
-    const overlay = observationOverlaySchema.safeParse(result.overlay);
+    retainOverlay(binding, result.overlay);
     binding.base = result.grant.base;
-    binding.overlay = overlay.success ? overlay.data : null;
     binding.retryAt = 0;
     for (const recipient of binding.recipients)
       if (!ready(binding, recipient)) state(recipient, 'unavailable');
@@ -184,6 +209,7 @@ export function createObservationSessions({
       recipients: new Set(),
       base: null,
       overlay: null,
+      overlayBytes: 0,
       retryAt: 0,
     };
     bindings.set(key, binding);
@@ -215,6 +241,7 @@ export function createObservationSessions({
         generation: 0,
         base: null,
         closed: false,
+        overlaySent: 'null',
         release: () => {},
         forget: () => {
           if (recipients.get(request.id) === recipient)

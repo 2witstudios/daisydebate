@@ -64,8 +64,8 @@ test('ready carries a bounded actor-private overlay alongside the shared base', 
   delete missing.overlay;
   assert({
     given:
-      'an overlay, an explicit empty overlay, a missing one and an oversized one',
-    should: 'require the field and bound its size',
+      'an overlay, an explicit empty overlay, an omitted (unchanged) one and an oversized one',
+    should: 'accept omission as unchanged and bound its size',
     actual: [
       observationServerMessageSchema.safeParse(ready).success,
       observationServerMessageSchema.safeParse({ ...ready, overlay: null })
@@ -76,7 +76,7 @@ test('ready carries a bounded actor-private overlay alongside the shared base', 
         overlay: { text: 'a'.repeat(observationOverlayBytes) },
       }).success,
     ],
-    expected: [true, true, false, false],
+    expected: [true, true, true, false],
   });
 });
 

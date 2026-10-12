@@ -78,7 +78,7 @@ test('reading after elapsed permission hides despite a delayed timer', () => {
   provider.dispose();
 });
 
-test('the canonical overlay reaches the reader with content and leaves with it', () => {
+test('an omitted overlay keeps the generation’s last one; a new generation starts without', () => {
   const { provider, reader, incoming } = providerFixture();
   const overlay = {
     ownReactions: [{ messageId: 'e'.repeat(24), reaction: 'up' }],
@@ -86,13 +86,18 @@ test('the canonical overlay reaches the reader with content and leaves with it',
   incoming(readyFrame({ overlay }));
   incoming(snapshotFrame({ body: 'private' }));
   const shown = reader.read().overlay;
-  incoming(readyFrame({ overlay: null }));
-  const renewed = reader.read().overlay;
+  const { overlay: _omitted, ...renewal } = readyFrame();
+  void _omitted;
+  incoming(renewal);
+  const unchanged = reader.read().overlay;
+  incoming({ ...renewal, generation: 2 });
+  const replaced = reader.read().overlay;
   assert({
-    given: 'a ready overlay, its snapshot, then a renewal without one',
-    should: 'expose exactly the latest canonical overlay',
-    actual: { shown, renewed },
-    expected: { shown: overlay, renewed: undefined },
+    given:
+      'a ready overlay, a same-generation renewal without one, then a new generation without one',
+    should: 'keep the overlay through renewal and drop it with the generation',
+    actual: { shown, unchanged, replaced },
+    expected: { shown: overlay, unchanged: overlay, replaced: undefined },
   });
   provider.dispose();
 });

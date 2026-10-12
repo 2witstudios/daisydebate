@@ -33,7 +33,10 @@ type Read = {
   ) => void;
 };
 /** Manual clock, deferred canonical reads and a real node with an inert cache. */
-export function sessionsFixture({ maxPerSession = 8 } = {}) {
+export function sessionsFixture({
+  maxPerSession = 8,
+  overlayBudgetBytes = 32 * 1024 * 1024,
+} = {}) {
   let time = 1000;
   const admits: Read[] = [],
     renews: Read[] = [];
@@ -54,6 +57,7 @@ export function sessionsFixture({ maxPerSession = 8 } = {}) {
     authority: { admit: deferredRead(admits), renew: deferredRead(renews) },
     node,
     maxPerSession,
+    overlayBudgetBytes,
   });
   const allowed = (
     view = base(),
