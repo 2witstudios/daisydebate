@@ -2,6 +2,7 @@ import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { document, withOwner } from './debate-documents.test-support';
+import { deleteObservationHeaders } from './constraint-helpers';
 
 setupRitewayBun();
 requireTestServices(process.env);
@@ -50,6 +51,7 @@ test('a workspace includes library documents and only its referenced scratch doc
       roundId,
     });
     await fixture.sql.unsafe('delete from rounds where id = $1', [otherRound]);
+    await deleteObservationHeaders(fixture.sql, [otherRound]);
     assert({
       given:
         'two rounds’ scratch flows and a library document also referenced here',
