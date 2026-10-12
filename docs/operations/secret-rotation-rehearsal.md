@@ -141,13 +141,14 @@ rm -f "$revoke_sql"
 ```
 
 Staging: 4 sessions before, 0 after; `/api/health/live` and `/ready` stayed
-healthy, and a fresh sign-in immediately afterward succeeded. This is raw
-SQL, not `revokeOtherSessions`, so it never appends the `session.revoked`
-outbox row that operation adds — a realtime instance watching for that
-event is not notified. That is an accepted consequence of an emergency,
-database-wide revoke, not a defect: the point is removing every session
-row immediately, and no realtime consumer needs to react to a compromise
-response the same way it reacts to a user's own sign-out.
+healthy, and a fresh sign-in immediately afterward succeeded. Even as raw
+SQL, the delete appends a `session.revoked` control for every live session
+it removes: the `session` table's own trigger
+(`daisy_session_revoked_control`, ADR 0032 §5) writes it in the deleting
+transaction, so realtime instances close those sessions' sockets at once.
+A database-wide revoke therefore appends one control per live session.
+That is bounded by the session count and is retained only as long as the
+outbox retention window.
 
 **Recovery/rollback**: Fly secrets are write-only and the safe pattern above
 pipes a fresh CSPRNG value straight into `fly secrets import` without ever
