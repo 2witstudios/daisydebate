@@ -26,7 +26,8 @@ const realtimeConfigSchema = z
     const projection = config.OBSERVATION_DATABASE_URL;
     if (
       projection !== undefined &&
-      (projection === config.DATABASE_URL ||
+      // The narrow credential is a different role, not a reworded URL.
+      (new URL(projection).username === new URL(config.DATABASE_URL).username ||
         new URL(projection).password === 'local-development-only')
     )
       ctx.addIssue({

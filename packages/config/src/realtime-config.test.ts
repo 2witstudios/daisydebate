@@ -111,6 +111,9 @@ describe('realtime configuration', () => {
         shared: refused(production.DATABASE_URL).includes(
           'OBSERVATION_DATABASE_URL',
         ),
+        sameRole: refused(
+          `${production.DATABASE_URL}?sslmode=require`,
+        ).includes('OBSERVATION_DATABASE_URL'),
         local: refused(
           'postgres://daisy:local-development-only@localhost:15432/daisy',
         ).includes('OBSERVATION_DATABASE_URL'),
@@ -119,6 +122,7 @@ describe('realtime configuration', () => {
         fanout: undefined,
         eligible: projection,
         shared: true,
+        sameRole: true,
         local: true,
       },
     });

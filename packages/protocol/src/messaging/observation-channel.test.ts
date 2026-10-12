@@ -136,6 +136,31 @@ test('channel projection refuses incoherent producer output', () => {
     },
     {
       ...ok,
+      rows: [
+        row(5, {
+          reactions: [
+            { reaction: 'b', count: 1 },
+            { reaction: 'a', count: 1 },
+          ],
+        }),
+        row(4),
+      ],
+    },
+    {
+      ...ok,
+      rows: [
+        row(5, {
+          reactions: [
+            { reaction: 'a', count: 1 },
+            { reaction: 'b', count: 1 },
+            { reaction: 'a', count: 1 },
+          ],
+        }),
+        row(4),
+      ],
+    },
+    {
+      ...ok,
       rows: [row(5, { reactions: [{ reaction: 'up', count: 0 }] }), row(4)],
     },
     { ...ok, header: { ...header, disclosureRevision: 4 } },
@@ -165,7 +190,7 @@ test('channel projection refuses incoherent producer output', () => {
   ];
   assert({
     given:
-      'wrong continuation, ordering, window, channel, private field, oversized text, duplicate or empty reactions, header or resource kind',
+      'wrong continuation, ordering, window, channel, private field, oversized text, duplicate, unsorted or empty reactions, header or resource kind',
     should: 'report the projection unavailable rather than disclose it',
     actual: cases.map((input) => channel.fromProjection(input).status),
     expected: cases.map(() => 'unavailable'),
