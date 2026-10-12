@@ -104,7 +104,22 @@ export function workloadDatabase<T extends object>(
     'reserve',
     'setTransaction',
   ]);
-  type Lease = { active: boolean };
+  type Lease = {
+    active: boolean;
+    pending: Set<Promise<unknown>>;
+    failures: unknown[];
+  };
+  const track = <R>(lease: Lease, work: Promise<R>): Promise<R> => {
+    lease.pending.add(work);
+    void work.then(
+      () => lease.pending.delete(work),
+      (error) => {
+        lease.pending.delete(work);
+        lease.failures.push(error);
+      },
+    );
+    return work;
+  };
   const bindMethod = (
     object: object,
     key: string | symbol,
@@ -112,7 +127,7 @@ export function workloadDatabase<T extends object>(
     lease?: Lease,
   ) => {
     const run = <R>(work: () => Promise<R>) =>
-      lease ? work() : executor.run(lane, work);
+      lease ? track(lease, work()) : executor.run(lane, work);
     if (key === 'transaction') {
       if (lease)
         throw createAppError(
@@ -121,10 +136,24 @@ export function workloadDatabase<T extends object>(
         );
       return (work: (tx: object) => Promise<unknown>, ...options: unknown[]) =>
         run(async () => {
-          const child = { active: true };
+          const child: Lease = {
+            active: true,
+            pending: new Set(),
+            failures: [],
+          };
           try {
             return await Reflect.apply(value, object, [
-              (tx: object) => work(wrap(tx, child)),
+              async (tx: object) => {
+                let result: unknown;
+                try {
+                  result = await work(wrap(tx, child));
+                } finally {
+                  child.active = false;
+                  await Promise.allSettled([...child.pending]);
+                }
+                if (child.failures.length) throw child.failures[0];
+                return result;
+              },
               ...options,
             ]);
           } finally {
@@ -148,38 +177,64 @@ export function workloadDatabase<T extends object>(
       const build = () => Reflect.apply(value, object, args) as unknown;
       const result = lease ? build() : executor.invoke(lane, build);
       if (key === 'getSQL' || key === 'toSQL') return result;
-      if (result instanceof Promise) return result;
+      if (result instanceof Promise)
+        return lease ? track(lease, result) : result;
       return result !== null && typeof result === 'object'
         ? wrap(result, lease)
         : result;
     };
   };
+  const readMember = (
+    object: object,
+    key: string | symbol,
+    lease?: Lease,
+  ): unknown => {
+    if (typeof key === 'string' && forbidden.has(key))
+      throw createAppError(
+        'INFRASTRUCTURE',
+        'Database driver access unavailable',
+      );
+    if (lease && !lease.active)
+      throw createAppError(
+        'INFRASTRUCTURE',
+        'Database transaction has settled',
+      );
+    const value = Reflect.get(object, key, object);
+    if (typeof value !== 'function')
+      return value !== null && typeof value === 'object'
+        ? wrap(value, lease)
+        : value;
+    const bound = bindMethod(object, key, value, lease);
+    return (...args: unknown[]) => {
+      if (lease && !lease.active)
+        throw createAppError(
+          'INFRASTRUCTURE',
+          'Database transaction has settled',
+        );
+      return Reflect.apply(bound, undefined, args);
+    };
+  };
   const wrap = (target: object, lease?: Lease): object =>
     new Proxy(target, {
-      get(object, key) {
-        if (typeof key === 'string' && forbidden.has(key))
+      get: (object, key) => readMember(object, key, lease),
+      getOwnPropertyDescriptor(object, key) {
+        const value = readMember(object, key, lease);
+        const descriptor = Reflect.getOwnPropertyDescriptor(object, key);
+        if (!descriptor) return undefined;
+        if (
+          !descriptor.configurable &&
+          descriptor.writable === false &&
+          descriptor.value !== value
+        )
           throw createAppError(
             'INFRASTRUCTURE',
-            'Database driver access unavailable',
+            'Unsupported database reflection',
           );
-        if (lease && !lease.active)
-          throw createAppError(
-            'INFRASTRUCTURE',
-            'Database transaction has settled',
-          );
-        const value = Reflect.get(object, key, object);
-        if (typeof value !== 'function')
-          return value !== null && typeof value === 'object'
-            ? wrap(value, lease)
-            : value;
-        const bound = bindMethod(object, key, value, lease);
-        return (...args: unknown[]) => {
-          if (lease && !lease.active)
-            throw createAppError(
-              'INFRASTRUCTURE',
-              'Database transaction has settled',
-            );
-          return Reflect.apply(bound, undefined, args);
+        if ('value' in descriptor) return { ...descriptor, value };
+        return {
+          configurable: descriptor.configurable ?? false,
+          enumerable: descriptor.enumerable ?? false,
+          get: () => readMember(object, key, lease),
         };
       },
     });
