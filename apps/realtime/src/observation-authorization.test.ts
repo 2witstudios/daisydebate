@@ -27,7 +27,9 @@ const context: ObservationAuthorityContext = {
     createdByActorId: 'b'.repeat(24),
     status: 'active',
     revision: 1,
-    participants: [{ actorId: principal.actorId, role: 'speaker', slot: 0 }],
+    participants: [
+      { actorId: principal.actorId, role: 'affirmative', slot: 0 },
+    ],
   },
   databaseNow: '2026-10-12T00:00:00.000Z',
 };

@@ -34,6 +34,14 @@ export function createObservationStore<T>({
     state = next;
     for (const listener of listeners) listener();
   }
+  const matches = (snapshot: Identity) =>
+    identity !== null &&
+    identity.partition === snapshot.partition &&
+    identity.disclosureRevision === snapshot.disclosureRevision;
+  const advances = (revision: number) =>
+    Number.isSafeInteger(revision) &&
+    revision >= 0 &&
+    (state.revision === null || revision > state.revision);
   function hide(status: ObservationState<T>['status']) {
     generation++;
     identity = null;
@@ -55,20 +63,9 @@ export function createObservationStore<T>({
       return true;
     },
     snapshot(attempt: number, snapshot: Incoming) {
-      if (
-        disposed ||
-        attempt !== generation ||
-        !identity ||
-        identity.partition !== snapshot.partition ||
-        identity.disclosureRevision !== snapshot.disclosureRevision
-      )
+      if (disposed || attempt !== generation || !matches(snapshot))
         return false;
-      if (
-        !Number.isSafeInteger(snapshot.contentRevision) ||
-        snapshot.contentRevision < 0 ||
-        (state.revision !== null && snapshot.contentRevision <= state.revision)
-      )
-        return false;
+      if (!advances(snapshot.contentRevision)) return false;
       const content = decode(snapshot.body);
       if (content === null) return false;
       update({ status: 'ready', content, revision: snapshot.contentRevision });

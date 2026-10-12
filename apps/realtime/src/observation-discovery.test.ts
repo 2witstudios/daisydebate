@@ -50,15 +50,21 @@ test('fleet discovery installs and expires shared demand with no follower SQL fa
   demand = [];
   await owner.reconcile();
   failed = true;
-  try {
-    await owner.reconcile();
-  } catch {}
+  const failure = await owner.reconcile().then(
+    () => null,
+    (error: Error) => error.message,
+  );
   assert({
     given:
       'eligible discovery, expired demand, then Redis failure while fanout allocation also runs',
     should:
       'discover bounded shared bases, release empty demand and invalidate uncertain ownership with no follower discovery',
-    actual: { discoveries, changes, uncertainties },
-    expected: { discoveries: 3, changes: [1, 0], uncertainties: 1 },
+    actual: { discoveries, changes, uncertainties, failure },
+    expected: {
+      discoveries: 3,
+      changes: [1, 0],
+      uncertainties: 1,
+      failure: 'Redis unavailable',
+    },
   });
 });

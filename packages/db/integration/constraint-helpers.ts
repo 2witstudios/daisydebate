@@ -11,6 +11,18 @@ import { buildDebateTopic } from '@daisy/protocol';
 
 type PostgresFailure = { errno?: unknown; constraint?: unknown };
 
+/** Observation headers have no FK: remove deleted resources' headers after their deletes commit. */
+export const deleteObservationHeaders = async (
+  client: Pick<SQL, 'unsafe'>,
+  ids: readonly string[],
+) => {
+  if (ids.length === 0) return;
+  await client.unsafe(
+    `delete from resource_observation_headers where resource_id in (${ids.map((_, index) => `$${index + 1}`).join(', ')})`,
+    [...ids],
+  );
+};
+
 /**
  * The constraint PostgreSQL named when refusing the statement (SQLSTATE class
  * 23, integrity constraint violation), or null when it was accepted. Any

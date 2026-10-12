@@ -29,3 +29,11 @@ function signature(facts: Facts) {
 }
 export const sameObservationFactSet = (discovered: Facts, current: Facts) =>
   signature(discovered) === signature(current);
+/** Restart the whole transaction when the cast moved or any current resource was not actually fenced. */
+export const observationFenceStale = (
+  discovered: Facts,
+  current: Facts,
+  fenced: ReadonlySet<string>,
+) =>
+  !sameObservationFactSet(discovered, current) ||
+  !observationFactsWereFenced(current, fenced);

@@ -26,7 +26,7 @@ async function checkedSession(
   tx: AuthorizationTransaction,
   input: RealtimeSessionInput & { readonly userId?: string },
 ) {
-  sessionInstant(input);
+  const requested = sessionInstant(input);
   const rows = (await tx.execute(
     sql`select user_id as "userId",expires_at as "expiresAt", clock_timestamp() as "databaseNow" from session where id=${input.sessionId}`,
   )) as unknown as { userId: string; expiresAt: Date; databaseNow: Date }[];
@@ -37,7 +37,11 @@ async function checkedSession(
     !(session.expiresAt instanceof Date) ||
     !(session.databaseNow instanceof Date) ||
     !Number.isFinite(session.databaseNow.getTime()) ||
-    !(session.expiresAt.getTime() > session.databaseNow.getTime())
+    // Neither the injected edge instant nor database time may extend eligibility.
+    !(
+      session.expiresAt.getTime() >
+      Math.max(session.databaseNow.getTime(), requested)
+    )
   )
     return null;
   const account = await loadAuthorizationAccount(tx, session.userId);

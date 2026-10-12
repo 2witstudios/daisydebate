@@ -1,3 +1,4 @@
+import type { ObservationAuthorityDecision } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import {
@@ -11,7 +12,6 @@ import {
 } from './observation-evidence';
 import type {
   ObservationAuthorityContext,
-  ObservationAuthorityDecision,
   ObservationAuthorityResult,
   ObservationBinding,
 } from './observation-contracts';

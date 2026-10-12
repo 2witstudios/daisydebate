@@ -226,6 +226,13 @@ test('daisy_web has the exact runtime DML scope on every public table and sequen
           and has_column_privilege('daisy_web', c.oid, 'txid', 'UPDATE')
           and has_column_privilege('daisy_web', c.oid, 'seq', 'UPDATE')
           and not has_column_privilege('daisy_web', c.oid, 'singleton', 'UPDATE')
+        -- Observation headers are written only by SECURITY DEFINER producers; web reads them.
+        when c.relname = 'resource_observation_headers' then
+          has_table_privilege('daisy_web', c.oid, 'SELECT')
+          and not has_table_privilege('daisy_web', c.oid, 'INSERT,UPDATE,DELETE')
+        -- Transaction-scoped header dirt is invisible to every runtime role.
+        when c.relname = 'resource_observation_pending' then
+          not has_table_privilege('daisy_web', c.oid, 'SELECT,INSERT,UPDATE,DELETE')
         else
           has_table_privilege('daisy_web', c.oid, 'SELECT')
           and has_table_privilege('daisy_web', c.oid, 'INSERT')

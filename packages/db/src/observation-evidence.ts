@@ -1,9 +1,7 @@
+import type { ObservationDependency } from '@daisy/protocol';
 import { CryptoHasher } from 'bun';
 import { createAppError } from '@daisy/errors';
-import type {
-  ObservationDependency,
-  ObservationEvidence,
-} from './observation-contracts';
+import type { ObservationEvidence } from './observation-contracts';
 export function requireObservationDependencies(
   dependencies: readonly ObservationDependency[],
 ) {
