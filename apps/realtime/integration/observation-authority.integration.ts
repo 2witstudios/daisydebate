@@ -21,6 +21,7 @@ test('restricted realtime role composes canonical batch facts and original-start
     client: runtime,
     workloadProfile: 'realtime',
     maxConnections: 4,
+    nextActorId: () => systemId.next(),
   });
   const principal = {
     userId: systemId.next(),
