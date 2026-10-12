@@ -63,6 +63,7 @@ import { standingsOperations } from './standings';
 import type { RateDebateInput } from './rating-facts';
 import { emailDeliveryOperations } from './email-delivery-operations';
 import { outboxOperations } from './outbox';
+import { relayOutboxOperations } from './outbox-relay';
 import { readOutboxCatchup } from './outbox-catchup';
 import { readOutboxRetentionBoundary } from './outbox-retention-boundary';
 import { instrumented, type DatabaseEventSink } from './instrumented';
@@ -169,6 +170,7 @@ export function createDatabase({
     'projection',
   );
   const renewalDatabase = workloadDatabase(rawDatabase, executor, 'renewal');
+  const relayDatabase = workloadDatabase(rawDatabase, executor, 'relay');
   return {
     observationAuthority: (
       decide: Parameters<typeof createObservationAuthorityOperations>[1],
@@ -288,6 +290,8 @@ export function createDatabase({
     messagingSocialStore: (authorize: MessagingSocialAuthorizationFence) =>
       createMessagingSocialStore({ database: socialDatabase, authorize }),
     ...outboxOperations({ database, eventSink }),
+    /** The fleet metadata relay; only the projection profile reserves its lane. */
+    relayOutbox: relayOutboxOperations({ database: relayDatabase, eventSink }),
     readOutboxRetentionBoundary: () =>
       instrumented(eventSink, 'readOutboxRetentionBoundary', () =>
         readOutboxRetentionBoundary(database),
