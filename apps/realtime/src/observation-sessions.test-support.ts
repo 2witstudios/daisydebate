@@ -101,9 +101,19 @@ export function sessionsFixture({ maxPerSession = 8 } = {}) {
       purgeGeneration: 0,
       body: JSON.stringify({ messages: [], continuation: null }),
     });
+  /** One tab observing the channel with its admission already allowed. */
+  const admitted = async () => {
+    const tab = socket();
+    tab.connection.observe(request);
+    await flush();
+    admits.at(-1)!.resolve([allowed()]);
+    await flush();
+    return tab;
+  };
   return {
     sessions,
     node,
+    admitted,
     admits,
     renews,
     allowed,

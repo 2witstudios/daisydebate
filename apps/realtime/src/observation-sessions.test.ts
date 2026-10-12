@@ -76,11 +76,7 @@ test('denial and unavailability resolve the subscription without a node binding'
 
 test('renewal refreshes validity without rebinding and denial removes delivery', async () => {
   const fixture = sessionsFixture();
-  const tab = fixture.socket();
-  tab.connection.observe(request);
-  await fixture.flush();
-  fixture.admits[0]!.resolve([fixture.allowed()]);
-  await fixture.flush();
+  const tab = await fixture.admitted();
   fixture.advance(1500);
   fixture.sessions.renewDue();
   const early = fixture.renews.length;
@@ -119,11 +115,7 @@ test('renewal refreshes validity without rebinding and denial removes delivery',
 
 test('an observed control fences delivery immediately until fresh admission', async () => {
   const fixture = sessionsFixture();
-  const tab = fixture.socket();
-  tab.connection.observe(request);
-  await fixture.flush();
-  fixture.admits[0]!.resolve([fixture.allowed()]);
-  await fixture.flush();
+  const tab = await fixture.admitted();
   fixture.snapshot(2);
   await fixture.flush();
   fixture.sessions.invalidate('unrelated-key');
@@ -185,11 +177,7 @@ test('aged admission, capacity and disposal never deliver late results', async (
 
 test('a renewal read in flight across a control cannot restore delivery', async () => {
   const fixture = sessionsFixture();
-  const tab = fixture.socket();
-  tab.connection.observe(request);
-  await fixture.flush();
-  fixture.admits[0]!.resolve([fixture.allowed()]);
-  await fixture.flush();
+  const tab = await fixture.admitted();
   fixture.advance(2500);
   fixture.sessions.renewDue();
   await fixture.flush();

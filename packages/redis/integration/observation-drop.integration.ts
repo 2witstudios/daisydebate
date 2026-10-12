@@ -1,27 +1,14 @@
 import { assert, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
-import type { ObservationBase } from '@daisy/protocol';
-import { redisSuite, withRedis } from './test-support';
-import {
-  observationTestBase,
-  observationTestResource,
-} from '@daisy/protocol/observation-testing';
+import { observationSuite, ownObservation, withRedis } from './test-support';
 
 requireTestServices(process.env);
-const env = redisSuite();
-const resource = observationTestResource;
-const base = observationTestBase();
+const { env, resource, base } = observationSuite();
 
 test('a deleted resource is dropped by its owner and stays unpublishable', async () => {
   await withRedis(env.redisUrl, async ({ redis }) => {
-    const incarnation = await redis.establishObservationIncarnation('inc');
-    const claim = { resource, incarnation, token: 'owner', ttlMs: 2000 };
-    await redis.claimObservation(claim);
-    await redis.prepareObservation({
-      ...claim,
-      purgeGeneration: 0,
-      disclosureRevision: 1,
-    });
+    const claim = await ownObservation(redis, resource);
+    const { incarnation } = claim;
     const publish = {
       ...claim,
       base,

@@ -6,10 +6,11 @@ import { createDatabase } from '@daisy/db';
 import { createMessagingTestFixture } from '@daisy/db/testing';
 import { messagingTestReading } from '@daisy/auth/testing';
 import { testNamespace } from '@daisy/redis/testing';
-import { ENVELOPE_VERSION, PROTOCOL_VERSION } from '@daisy/protocol';
+import { ENVELOPE_VERSION } from '@daisy/protocol';
+import { openAuthorityPeer } from './authority-peer.test-support';
 import { createRealtimeApp } from '../src/app';
 import { serveRealtime } from '../src/serve';
-import { testOrigin, waitFor } from './support';
+import { testOrigin } from './support';
 
 type Frame = Record<string, unknown> & { readonly type: string };
 /** A pool bound to one restricted runtime role; never the fixture owner. */
@@ -71,25 +72,9 @@ export async function observationRuntimeFixture() {
       { actorId: messaging.actorId, sessionId, origin: testOrigin },
       60,
     );
-    const socket = new WebSocket(
-      `ws://127.0.0.1:${String(runtime.server.port)}/ws`,
-      { headers: { origin: testOrigin } },
-    );
-    const frames: Frame[] = [];
-    socket.addEventListener('message', (event) =>
-      frames.push(JSON.parse(String(event.data)) as Frame),
-    );
-    socket.addEventListener('open', () =>
-      socket.send(
-        JSON.stringify({
-          v: ENVELOPE_VERSION,
-          type: 'hello',
-          protocolVersion: PROTOCOL_VERSION,
-          ticket,
-        }),
-      ),
-    );
-    await waitFor(() => frames.some((frame) => frame.type === 'ready'));
+    const peer = await openAuthorityPeer(Number(runtime.server.port), ticket);
+    const { socket } = peer;
+    const frames = peer.frames as unknown as Frame[];
     return {
       frames,
       observe(id: string) {

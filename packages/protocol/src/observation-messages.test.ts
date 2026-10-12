@@ -1,6 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { observationServerMessageSchema } from './observation-messages';
 import { clientMessageSchema } from './realtime';
+import { observationTestBase } from './observation-fixtures.test-support';
 setupRitewayBun();
 test('snapshot protocol carries bounded replacements without replay positions', () => {
   const resource = { kind: 'channel', id: 'a'.repeat(24) };
@@ -50,13 +51,7 @@ test('ready carries a bounded actor-private overlay alongside the shared base', 
     type: 'observation.ready',
     id: 'request',
     generation: 1,
-    base: {
-      schema: 1,
-      resource: { kind: 'channel', id: 'a'.repeat(24) },
-      partition: { kind: 'shared', policyKey: 'v1' },
-      disclosureRevision: 1,
-      window: { after: null, limit: 50 },
-    },
+    base: observationTestBase(),
     minimumContentRevision: 1,
     validForMs: 4700,
     overlay: { ownReactions: [] },

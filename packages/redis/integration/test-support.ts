@@ -4,6 +4,10 @@ import { createId } from '@paralleldrive/cuid2';
 import { createRedis, redisKey } from '../src';
 import { deleteNamespace } from '../src/namespaces';
 import {
+  observationTestBase,
+  observationTestResource,
+} from '@daisy/protocol/observation-testing';
+import {
   createBoundedTestClient,
   openTestRedis,
   testNamespace,
@@ -81,3 +85,28 @@ export const redisSuite = () => {
   setupRitewayBun();
   return requireTestServices(process.env);
 };
+
+type Redis = ReturnType<typeof createRedis>;
+/** Establishes the cache incarnation, claims the shared test resource as
+ * `owner` and prepares its guard: the opening of every publication test. */
+export async function ownObservation(
+  redis: Redis,
+  resource: Parameters<Redis['claimObservation']>[0]['resource'],
+  { purgeGeneration = 0, disclosureRevision = 1 } = {},
+) {
+  const incarnation = await redis.establishObservationIncarnation('inc');
+  const claim = { resource, incarnation, token: 'owner', ttlMs: 2000 };
+  await redis.claimObservation(claim);
+  await redis.prepareObservation({
+    ...claim,
+    purgeGeneration,
+    disclosureRevision,
+  });
+  return claim;
+}
+/** One file's Redis services plus the shared observation resource and base. */
+export const observationSuite = () => ({
+  env: redisSuite(),
+  resource: observationTestResource,
+  base: observationTestBase(),
+});

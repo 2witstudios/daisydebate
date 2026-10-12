@@ -1,31 +1,39 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createObservationSubscriber } from './observation-subscriber';
 setupRitewayBun();
-test('one subscriber owns reconnect repair and disposal', async () => {
-  let creates = 0,
-    repairs = 0,
-    closes = 0;
-  const subscriptions = new Map<
+/** A native subscriber transport that records subscribed channels. */
+function channelClient(
+  beforeUnsubscribe: () => Promise<void> = async () => {},
+) {
+  const channels = new Map<
     string,
     (message: string, channel: string) => void
   >();
+  let closes = 0;
   const client = {
     onconnect: undefined as (() => void) | undefined,
     onclose: undefined as (() => void) | undefined,
     connect: async () => {},
     subscribe: async (
       channel: string,
-      listener: (message: string, channel: string) => void,
+      listener: (message: string, channel: string) => void = () => {},
     ) => {
-      subscriptions.set(channel, listener);
+      channels.set(channel, listener);
     },
     unsubscribe: async (channel: string) => {
-      subscriptions.delete(channel);
+      await beforeUnsubscribe();
+      channels.delete(channel);
     },
     close: () => {
       closes++;
     },
   };
+  return { client, channels, closes: () => closes };
+}
+test('one subscriber owns reconnect repair and disposal', async () => {
+  let creates = 0,
+    repairs = 0;
+  const { client, closes } = channelClient();
   const subscriber = createObservationSubscriber({
     namespace: 'test',
     createClient: () => {
@@ -46,7 +54,7 @@ test('one subscriber owns reconnect repair and disposal', async () => {
     given: 'reconnect and repeated disposal',
     should:
       'reuse one native connection and reconcile before becoming synchronized',
-    actual: { creates, repairs, closes, ready: subscriber.ready() },
+    actual: { creates, repairs, closes: closes(), ready: subscriber.ready() },
     expected: { creates: 1, repairs: 2, closes: 1, ready: false },
   });
 });
@@ -127,19 +135,7 @@ test('listeners precede baseline and interests arriving during repair are subscr
 });
 
 test('failed baseline admission unwinds native subscription', async () => {
-  const channels = new Set<string>();
-  const client = {
-    onconnect: undefined as (() => void) | undefined,
-    onclose: undefined as (() => void) | undefined,
-    connect: async () => {},
-    subscribe: async (channel: string) => {
-      channels.add(channel);
-    },
-    unsubscribe: async (channel: string) => {
-      channels.delete(channel);
-    },
-    close: () => {},
-  };
+  const { client, channels } = channelClient();
   let unavailable = true;
   const subscriber = createObservationSubscriber({
     namespace: 'test',
@@ -175,21 +171,10 @@ test('same-channel rejoin waits out in-flight unsubscribe before baseline', asyn
     wait = new Promise<void>((resolve) => {
       resume = resolve;
     });
-  const channels = new Set<string>();
-  const client = {
-    onconnect: undefined as (() => void) | undefined,
-    onclose: undefined as (() => void) | undefined,
-    connect: async () => {},
-    subscribe: async (channel: string) => {
-      channels.add(channel);
-    },
-    unsubscribe: async (channel: string) => {
-      mark();
-      await wait;
-      channels.delete(channel);
-    },
-    close: () => {},
-  };
+  const { client, channels } = channelClient(async () => {
+    mark();
+    await wait;
+  });
   const subscriber = createObservationSubscriber({
       namespace: 'test',
       createClient: () => client,
