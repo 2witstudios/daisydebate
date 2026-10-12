@@ -70,39 +70,45 @@ export function createObservationSubscriber({
       }
     }
   };
+  /** Subscribes every not-yet-installed channel; false once superseded. */
+  async function subscribeAll(stale: () => boolean, attempt: number) {
+    for (const [channel, entry] of interests) {
+      if (entry.subscribedGeneration === attempt) continue;
+      await channelWork(channel, async () => {
+        if (interests.get(channel) === entry)
+          await client.subscribe(channel, entry.handler);
+      });
+      if (stale()) return false;
+      if (interests.get(channel) === entry)
+        entry.subscribedGeneration = attempt;
+    }
+    return true;
+  }
+  async function synchronize(attempt: number) {
+    const stale = () => closed || attempt !== generation;
+    await client.connect();
+    for (const channel of cleanup) await removeChannel(channel);
+    for (let pass = 0; pass < 4; pass++) {
+      if (stale()) return;
+      const version = membership;
+      if (!(await subscribeAll(stale, attempt))) return;
+      await reconcile([...interests.values()].map((entry) => entry.resource));
+      if (stale()) return;
+      if (version !== membership) continue;
+      synchronized = true;
+      for (const entry of interests.values()) notify(entry);
+      return;
+    }
+    // Continuous churn stays degraded. Periodic repair retries bounded work.
+  }
   function reconnect(): Promise<void> {
     if (closed) return Promise.resolve();
     if (work) return work;
     const attempt = ++generation;
     synchronized = false;
+    // Assign work before any client callback can observe it.
     work = Promise.resolve()
-      .then(async () => {
-        await client.connect();
-        for (const channel of cleanup) await removeChannel(channel);
-        for (let pass = 0; pass < 4; pass++) {
-          if (closed || attempt !== generation) return;
-          const version = membership;
-          for (const [channel, entry] of interests) {
-            if (entry.subscribedGeneration === attempt) continue;
-            await channelWork(channel, async () => {
-              if (interests.get(channel) === entry)
-                await client.subscribe(channel, entry.handler);
-            });
-            if (closed || attempt !== generation) return;
-            if (interests.get(channel) === entry)
-              entry.subscribedGeneration = attempt;
-          }
-          await reconcile(
-            [...interests.values()].map((entry) => entry.resource),
-          );
-          if (closed || attempt !== generation) return;
-          if (version !== membership) continue;
-          synchronized = true;
-          for (const entry of interests.values()) notify(entry);
-          return;
-        }
-        // Continuous churn stays degraded. Periodic repair retries bounded work.
-      })
+      .then(() => synchronize(attempt))
       .finally(() => {
         work = undefined;
       });

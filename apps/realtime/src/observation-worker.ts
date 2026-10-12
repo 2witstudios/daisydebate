@@ -15,6 +15,18 @@ type Owner = {
   readonly delivered: Map<string, number>;
   readonly dirtySince: Map<string, number>;
 };
+function validDemand(
+  resource: ObservationResource,
+  bases: readonly ObservationBase[],
+) {
+  const resourceKey = observationResourceKey(resource);
+  if (
+    bases.length > 64 ||
+    bases.some((base) => observationResourceKey(base.resource) !== resourceKey)
+  )
+    throw new Error('Invalid observation resource demand');
+  return resourceKey;
+}
 /** Resource-scoped reader ownership; only the eligible allocation owns SQL.
  * Jobs occupy their actual slot until settlement, including expired ownership.
  */
@@ -110,6 +122,62 @@ export function createObservationWorker({
       });
     jobs.set(key, work);
   }
+  function forget(owner: Owner) {
+    const key = observationResourceKey(owner.resource);
+    if (owners.get(key) === owner) owners.delete(key);
+  }
+  function retainVariants(owner: Owner, bases: readonly ObservationBase[]) {
+    const active = new Set(bases.map(observationBaseKey));
+    for (const key of owner.variants.keys())
+      if (!active.has(key)) {
+        owner.variants.delete(key);
+        owner.delivered.delete(key);
+        owner.dirtySince.delete(key);
+      }
+  }
+  /** Lease lifetime starts before the claim await, never on response arrival. */
+  async function claim(owner: Owner) {
+    const started = now();
+    if (!(await cache.claim(owner.resource, owner.token))) return false;
+    owner.expiresAt = started + 2000;
+    return true;
+  }
+  async function claimed() {
+    const active: Owner[] = [];
+    for (const owner of owners.values()) {
+      if (owner.expiresAt !== 0 && !current(owner)) {
+        owners.delete(observationResourceKey(owner.resource));
+        continue;
+      }
+      if (owner.expiresAt === 0 && !(await claim(owner))) continue;
+      if (current(owner)) active.push(owner);
+    }
+    return active;
+  }
+  const stuck = (owner: Owner) =>
+    [...owner.dirtySince.values()].some((started) => now() - started >= 2000);
+  /** A successful current-state read is useful progress; heartbeat alone is not. */
+  async function progress(owner: Owner, header: ObservationHeader) {
+    if (!(await cache.prepare(header, owner.token)) || !current(owner)) {
+      forget(owner);
+      return;
+    }
+    if (!(await claim(owner)) || !current(owner)) {
+      forget(owner);
+      return;
+    }
+    await schedule(owner, header);
+  }
+  async function schedule(owner: Owner, header: ObservationHeader) {
+    for (const [key, base] of owner.variants) {
+      if (base.disclosureRevision !== header.disclosureRevision) continue;
+      if (!(await cache.ready(base, header))) owner.delivered.delete(key);
+      if (!current(owner)) break;
+      if ((owner.delivered.get(key) ?? -1) >= header.contentRevision) continue;
+      if (!owner.dirtySince.has(key)) owner.dirtySince.set(key, now());
+      start(owner, base, header);
+    }
+  }
   function demand(base: ObservationBase) {
     if (closed) throw new Error('Observation worker disposed');
     const key = observationResourceKey(base.resource);
@@ -143,14 +211,7 @@ export function createObservationWorker({
     ) {
       if (closed) throw new Error('Observation worker disposed');
       if (!eligible) return false;
-      const resourceKey = observationResourceKey(resource);
-      if (
-        bases.length > 64 ||
-        bases.some(
-          (base) => observationResourceKey(base.resource) !== resourceKey,
-        )
-      )
-        throw new Error('Invalid observation resource demand');
+      const resourceKey = validDemand(resource, bases);
       const owner = owners.get(resourceKey);
       if (!bases.length) {
         if (owner) {
@@ -159,26 +220,15 @@ export function createObservationWorker({
         }
         return false;
       }
-      const active = new Set(bases.map(observationBaseKey));
-      if (owner)
-        for (const key of owner.variants.keys())
-          if (!active.has(key)) {
-            owner.variants.delete(key);
-            owner.delivered.delete(key);
-            owner.dirtySince.delete(key);
-          }
+      if (owner) retainVariants(owner, bases);
       for (const base of bases) demand(base);
       const selected = owners.get(resourceKey)!;
-      if (selected.expiresAt === 0) {
-        const started = now();
-        if (!(await cache.claim(resource, selected.token))) {
-          if (owners.get(resourceKey) === selected) owners.delete(resourceKey);
-          return false;
-        }
-        selected.expiresAt = started + 2000;
+      if (selected.expiresAt === 0 && !(await claim(selected))) {
+        forget(selected);
+        return false;
       }
       if (!current(selected)) {
-        if (owners.get(resourceKey) === selected) owners.delete(resourceKey);
+        forget(selected);
         return false;
       }
       return true;
@@ -187,20 +237,7 @@ export function createObservationWorker({
       if (!eligible || closed || reconciling) return;
       reconciling = true;
       try {
-        const active: Owner[] = [];
-        for (const owner of owners.values()) {
-          if (owner.expiresAt !== 0 && !current(owner)) {
-            owners.delete(observationResourceKey(owner.resource));
-            continue;
-          }
-          if (owner.expiresAt === 0) {
-            const started = now();
-            if (!(await cache.claim(owner.resource, owner.token))) continue;
-            owner.expiresAt = started + 2000;
-          }
-          if (current(owner)) active.push(owner);
-        }
-        const currentBatch = active.filter(current);
+        const currentBatch = (await claimed()).filter(current);
         if (!currentBatch.length) return;
         const captured = new Map(
           currentBatch.map((owner) => [
@@ -213,38 +250,8 @@ export function createObservationWorker({
         );
         for (const header of headers) {
           const owner = captured.get(observationResourceKey(header.resource));
-          if (!owner || !current(owner)) continue;
-          if (
-            [...owner.dirtySince.values()].some(
-              (started) => now() - started >= 2000,
-            )
-          )
-            continue;
-          if (!(await cache.prepare(header, owner.token)) || !current(owner)) {
-            if (owners.get(observationResourceKey(owner.resource)) === owner)
-              owners.delete(observationResourceKey(owner.resource));
-            continue;
-          }
-          // A successful current-state read is useful progress; heartbeat alone is not.
-          const renewalStarted = now();
-          if (
-            !(await cache.claim(owner.resource, owner.token)) ||
-            !current(owner)
-          ) {
-            if (owners.get(observationResourceKey(owner.resource)) === owner)
-              owners.delete(observationResourceKey(owner.resource));
-            continue;
-          }
-          owner.expiresAt = renewalStarted + 2000;
-          for (const [key, base] of owner.variants) {
-            if (base.disclosureRevision !== header.disclosureRevision) continue;
-            if (!(await cache.ready(base, header))) owner.delivered.delete(key);
-            if (!current(owner)) break;
-            if ((owner.delivered.get(key) ?? -1) >= header.contentRevision)
-              continue;
-            if (!owner.dirtySince.has(key)) owner.dirtySince.set(key, now());
-            start(owner, base, header);
-          }
+          if (owner && current(owner) && !stuck(owner))
+            await progress(owner, header);
         }
       } catch (error) {
         generation++;

@@ -70,14 +70,14 @@ export type ObservationResource = z.infer<typeof observationResourceSchema>;
 export type ObservationPartition = z.infer<typeof observationPartitionSchema>;
 export type ObservationBase = z.infer<typeof observationBaseSchema>;
 export type ObservationHeader = z.infer<typeof observationHeaderSchema>;
-/** One fact an authority decision depends on, partitioned by who shares it. */
+/** One canonical fact a permit depends on; scope names which evidence it bounds. */
 export type ObservationDependency = {
   readonly scope: 'subject' | 'cohort' | 'entitlement';
   readonly key: string;
   readonly revision: string;
   readonly nextBoundary: string | null;
 };
-/** The pure policy result the authority producer turns into evidence. */
+/** Pure policy outcome; storage and transport never decide grants. */
 export type ObservationAuthorityDecision =
   | {
       readonly status: 'allowed';
@@ -108,6 +108,15 @@ export function observationBaseKey(base: ObservationBase): string {
   ]);
 }
 export const observationFrameBytes = 128 * 1024;
+/** UTF-8 length of the JSON encoding, without depending on a host TextEncoder. */
+export function observationJsonBytes(value: unknown) {
+  let bytes = 0;
+  for (const char of JSON.stringify(value)) {
+    const point = char.codePointAt(0)!;
+    bytes += point <= 0x7f ? 1 : point <= 0x7ff ? 2 : point <= 0xffff ? 3 : 4;
+  }
+  return bytes;
+}
 export function createObservationSnapshotSchema<T extends z.ZodType>(body: T) {
   return z.strictObject({
     base: observationBaseSchema,

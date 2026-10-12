@@ -1,15 +1,21 @@
-export type MessageProjectionRecord = {
-  readonly id: string;
-  readonly channelId: string;
-  readonly authorActorId: string;
-  readonly sequence: number;
-  readonly changeVersion: number;
-  readonly text: string | null;
-  readonly createdAt: string;
-  readonly editedAt: string | null;
-  readonly removedAt: string | null;
-  readonly replyToMessageId?: string;
-};
+import { z } from 'zod';
+import { idSchema } from '../primitives';
+const order = z.number().int().positive().safe();
+const iso = z.iso.datetime();
+/** Restricted current message row: shape only; text bounds belong to the owning policy. */
+export const messagingMessageRecordSchema = z.strictObject({
+  id: idSchema,
+  channelId: idSchema,
+  authorActorId: idSchema,
+  sequence: order,
+  changeVersion: order,
+  text: z.string().nullable(),
+  createdAt: iso,
+  editedAt: iso.nullable(),
+  removedAt: iso.nullable(),
+  replyToMessageId: idSchema.optional(),
+});
+type MessageProjectionRecord = z.infer<typeof messagingMessageRecordSchema>;
 
 export function messagingMessageView(message: MessageProjectionRecord) {
   const { id, channelId, sequence, changeVersion } = message;

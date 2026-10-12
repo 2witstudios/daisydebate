@@ -1,5 +1,6 @@
-/** The candidate's 100ms safety margin also bounds trusted wall/monotonic
- * disagreement. A process must reconstruct its incarnation and authority after
+/** Trust is limited to +/-100ms wall/monotonic disagreement. Permit expiry
+ * reserves both envelope edges plus a separate settlement margin.
+ * A process must reconstruct its incarnation and authority after
  * uncertainty; an old clock or permit cannot become trusted by realigning.
  */
 export function createObservationClock({

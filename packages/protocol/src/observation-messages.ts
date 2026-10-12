@@ -5,6 +5,7 @@ import {
   observationBaseSchema,
   observationFrameBytes,
   createObservationClientMessageSchema,
+  observationJsonBytes,
 } from './observation';
 const envelope = {
   v: z.literal(ENVELOPE_VERSION),
@@ -33,7 +34,7 @@ export const observationServerMessageSchema = z.discriminatedUnion('type', [
       purgeGeneration: revision,
       body: z.json(),
     })
-    .refine((frame) => frameByteLength(frame) <= observationFrameBytes, {
+    .refine((frame) => observationJsonBytes(frame) <= observationFrameBytes, {
       message: 'Observation frame exceeds byte bound',
     }),
   z.strictObject({
@@ -50,12 +51,3 @@ export type ObservationClientMessage = z.infer<
 export type ObservationServerMessage = z.infer<
   typeof observationServerMessageSchema
 >;
-
-function frameByteLength(frame: unknown) {
-  let bytes = 0;
-  for (const char of JSON.stringify(frame)) {
-    const point = char.codePointAt(0)!;
-    bytes += point <= 0x7f ? 1 : point <= 0x7ff ? 2 : point <= 0xffff ? 3 : 4;
-  }
-  return bytes;
-}
