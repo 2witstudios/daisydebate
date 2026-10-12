@@ -196,3 +196,46 @@ test('private file rename and stale or cross-account refusal preserve the stored
     page.getByRole('textbox', { name: 'My transit flow', exact: true }),
   ).toBeVisible();
 });
+
+test('a landscape page and the debate marks from the keyboard', async ({
+  roundFiles,
+}) => {
+  const { page, violations } = roundFiles;
+  const flow = page.getByRole('textbox', { name: 'Flow', exact: true });
+  const columns = () =>
+    flow.evaluate((node) => getComputedStyle(node).columnCount);
+  const saved = () =>
+    page.waitForResponse(
+      (response) =>
+        response.url().endsWith(`${documentsPath}save`) && response.ok(),
+    );
+  await flow.locator('li p').first().click();
+  await page.keyboard.type('Kenya');
+  await flow.locator('li p').first().click({ clickCount: 3 });
+  const formatting = page.getByRole('toolbar', { name: 'Formatting' });
+  await formatting.getByRole('button', { name: 'Bold' }).focus();
+  await page.keyboard.press('End');
+  const marks = formatting.getByRole('group', { name: 'Debate marks' });
+  await expect(marks.getByRole('button', { name: 'New' })).toBeFocused();
+  await page.keyboard.press('ArrowLeft');
+  await expect(marks.getByRole('button', { name: 'Dropped' })).toBeFocused();
+  await page.keyboard.press('ArrowLeft');
+  const marked = saved();
+  await page.keyboard.press('Enter');
+  await expect(flow.locator('[data-debate-mark="extend"]')).toHaveText('Kenya');
+  await marked;
+  const laidOut = saved();
+  await page.getByRole('combobox', { name: 'Page' }).selectOption({
+    label: 'Landscape · 3 columns',
+  });
+  await laidOut;
+  expect(await columns()).toBe('3');
+  await page.reload();
+  await expect(page.getByRole('combobox', { name: 'Page' })).toHaveValue('3');
+  expect(await columns()).toBe('3');
+  await expect(flow.locator('[data-debate-mark="extend"]')).toHaveText('Kenya');
+  expect(await violations.read()).toEqual({
+    eventViolations: [],
+    consoleViolations: [],
+  });
+});
