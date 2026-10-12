@@ -301,11 +301,40 @@ test('reading after elapsed permission hides despite a delayed timer', () => {
     body: 'private',
   });
   now = 101;
+  const release = reader.subscribe(() => reader.read());
   assert({
     given: 'the clock passes expiry before the scheduled timer executes',
     should: 'synchronously hide on read, independent of timer timing',
     actual: reader.read().content,
     expected: null,
   });
+  incoming({
+    v: 1 as never,
+    type: 'observation.ready',
+    id: 'id',
+    generation: 2,
+    base,
+    minimumContentRevision: 1,
+    validForMs: 100,
+  });
+  incoming({
+    v: 1 as never,
+    type: 'observation.snapshot',
+    id: 'id',
+    generation: 2,
+    base,
+    contentRevision: 1,
+    purgeGeneration: 0,
+    body: 'private',
+  });
+  assert({
+    given:
+      'a synchronous snapshot reader reenters during fresh authorization after expiry',
+    should:
+      'restore unchanged content under the fresh deadline without invalidating its attempt',
+    actual: reader.read().content,
+    expected: 'private',
+  });
+  release();
   provider.dispose();
 });

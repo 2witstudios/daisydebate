@@ -66,12 +66,12 @@ export function createObservationProvider({
     if (frame.type === 'observation.ready') {
       clearTimer(entry);
       entry.generation = frame.generation;
+      entry.expiresAt = scheduler.now() + frame.validForMs;
       entry.attempt = entry.store.begin();
       entry.store.authorize(entry.attempt, {
         partition: observationBaseKey(frame.base),
         disclosureRevision: frame.base.disclosureRevision,
       });
-      entry.expiresAt = scheduler.now() + frame.validForMs;
       entry.timer = scheduler.setTimeout(() => {
         expired(entry);
       }, frame.validForMs);
