@@ -1,5 +1,6 @@
 import { observationFenceStale } from './observation-fenced-facts';
 import { decideObservationBinding } from './observation-authority-decision';
+import { attachOwnReactions } from './observation-own-reactions';
 import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
@@ -117,8 +118,12 @@ export function createObservationAuthorityOperations(
               social: byActor,
               databaseNow,
             };
-            return bindings.map((binding) =>
-              decideObservationBinding(binding, state, decide),
+            return attachOwnReactions(
+              tx,
+              bindings,
+              bindings.map((binding) =>
+                decideObservationBinding(binding, state, decide),
+              ),
             );
           },
           { isolationLevel: 'read committed' },
