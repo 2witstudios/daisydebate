@@ -25,6 +25,11 @@ export type WorkloadQueueOptions = {
   /** An absent lane refuses as soon as it is saturated. */
   readonly queues?: Partial<Record<DatabaseWorkload, WorkloadQueue>>;
   readonly timers?: Timers;
+  /** Every refusal is observable: the lane and whether its queue was full or the wait expired. */
+  readonly onRefused?: (
+    lane: DatabaseWorkload,
+    reason: 'saturated' | 'expired',
+  ) => void;
 };
 const unavailable = () =>
   createAppError('INFRASTRUCTURE', 'Database capacity unavailable');
@@ -36,8 +41,13 @@ export function createWorkloadExecutor(
   {
     queues = {},
     timers = globalThis as unknown as Timers,
+    onRefused,
   }: WorkloadQueueOptions = {},
 ) {
+  const refuse = (lane: DatabaseWorkload, reason: 'saturated' | 'expired') => {
+    onRefused?.(lane, reason);
+    return unavailable();
+  };
   const active = new Map<DatabaseWorkload, number>();
   const waiting = new Map<DatabaseWorkload, Waiter[]>();
   for (const capacity of [
@@ -62,12 +72,12 @@ export function createWorkloadExecutor(
     next.grant();
   };
   const acquire = (lane: DatabaseWorkload) => {
-    if (!available(lane)) throw unavailable();
+    if (!available(lane)) throw refuse(lane, 'saturated');
     active.set(lane, (active.get(lane) ?? 0) + 1);
     return release(lane);
   };
   const admit = (lane: DatabaseWorkload): Promise<() => void> => {
-    if (!queueRoom(lane)) return Promise.reject(unavailable());
+    if (!queueRoom(lane)) return Promise.reject(refuse(lane, 'saturated'));
     return new Promise((resolve, reject) => {
       const queue = waiting.get(lane) ?? [];
       waiting.set(lane, queue);
@@ -76,7 +86,7 @@ export function createWorkloadExecutor(
         timer: timers.setTimeout(() => {
           const index = queue.indexOf(waiter);
           if (index >= 0) queue.splice(index, 1);
-          reject(unavailable());
+          reject(refuse(lane, 'expired'));
         }, queues[lane]!.maxWaitMs),
       };
       queue.push(waiter);
@@ -103,7 +113,7 @@ export function createWorkloadExecutor(
      */
     construct: <T>(lane: DatabaseWorkload, build: () => T): T => {
       if (available(lane)) return invoke(lane, build);
-      if (!queueRoom(lane)) throw unavailable();
+      if (!queueRoom(lane)) throw refuse(lane, 'saturated');
       const result = build();
       if (!(result instanceof Promise)) return result;
       active.set(lane, (active.get(lane) ?? 0) + 1);
@@ -156,8 +166,9 @@ export function workloadCapacities(
     capacities[lane] = capacities[lane]! + grant;
     remaining -= grant;
   }
-  // Unreserved connections serve the interactive default lane.
-  capacities.control = capacities.control! + remaining;
+  // Unreserved connections serve the interactive default lane, or the profile's primary lane.
+  const spare = lanes.includes('control') ? 'control' : lanes[0]!;
+  capacities[spare] = capacities[spare]! + remaining;
   return capacities;
 }
 

@@ -1,5 +1,5 @@
 export type DatabaseEventSink = (
-  event: 'db.query.failed' | 'realtime.outbox.actor_missing',
+  event: 'db.query.failed' | 'db.capacity.refused',
   fields: Readonly<Record<string, unknown>>,
   message: string,
 ) => void;

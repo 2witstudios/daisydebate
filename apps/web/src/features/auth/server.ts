@@ -22,7 +22,6 @@ import { browserSessionShapePlugin } from './sessions/browser-session-shape';
 import { passkeyDeviceHintPlugin } from './passkeys/passkey-device-hint';
 import { passkeyNotificationsPlugin } from './passkeys/passkey-notifications';
 import { passkeyOwnershipGuardPlugin } from './passkeys/passkey-ownership-guard';
-import { sessionRevokedOutboxPlugin } from './sessions/session-revoked-outbox';
 import { revokeOthersOnEmailChangePlugin } from './email-change/revoke-others-on-email-change';
 import {
   revokeSessionsPlugin,
@@ -83,7 +82,6 @@ const composeBetterAuth = (dependencies: {
   readonly logger: Logger;
   readonly ids: IdGenerator;
   readonly clock: Clock;
-  readonly appendSessionRevoked: (userId: string) => Promise<void>;
   readonly revokeOtherSessions: RevokeSessions;
   readonly completeEmailChange: CompleteEmailChange;
   readonly revokeSessionUnlessAddressHeld: RevokeSessionUnlessAddressHeld;
@@ -222,10 +220,6 @@ const composeBetterAuth = (dependencies: {
         checkSuppression,
       }),
       freshSessionGatePlugin,
-      sessionRevokedOutboxPlugin(
-        dependencies.appendSessionRevoked,
-        dependencies.logger,
-      ),
       revokeOthersOnEmailChangePlugin(
         dependencies.revokeOtherSessions,
         dependencies.logger,
@@ -301,8 +295,6 @@ export function createAuthServer<
   readonly ledger?: AuthDeliveryLedger | undefined;
   /** The handed-off work's bounds; the production sizes unless a test narrows them. */
   readonly afterResponseLimits?: AfterResponseLimits | undefined;
-  /** RT-2.2: appends `session.revoked` after a confirmed self-service revoke. */
-  readonly appendSessionRevoked: (userId: string) => Promise<void>;
   /**
    * ISSUE-22: the one serialized revoke-all (`@daisy/db`), behind the email
    * change's revocation and both self-service revoke-all endpoints.
@@ -350,7 +342,6 @@ export function createAuthServer<
       logger: dependencies.logger,
       ids: dependencies.ids,
       clock: dependencies.clock,
-      appendSessionRevoked: dependencies.appendSessionRevoked,
       revokeOtherSessions: dependencies.revokeOtherSessions,
       completeEmailChange: dependencies.completeEmailChange,
       revokeSessionUnlessAddressHeld:

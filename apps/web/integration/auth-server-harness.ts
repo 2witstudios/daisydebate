@@ -41,8 +41,6 @@ export const createTestAuthServer = (
     readonly sent: SentMessages;
     readonly deliveryFailure?: Error;
     readonly recordedLogs?: RecordedLogs;
-    /** Defaults to a no-op; a suite proving RT-2.2's outbox append wires the real one. */
-    readonly appendSessionRevoked?: (userId: string) => Promise<void>;
     /** Defaults to a no-op; a suite proving ISSUE-3 AC3 wires the real one. */
     readonly revokeOtherSessions?: RevokeSessions;
     /** Defaults to refusing; a suite completing an email change wires the real one. */
@@ -69,7 +67,6 @@ export const createTestAuthServer = (
     // The composition mints entity ids from this injection; the durable
     // suites share one database, so they need the real cuid2 edge generator.
     ids: systemId,
-    appendSessionRevoked: options.appendSessionRevoked ?? (async () => {}),
     revokeOtherSessions: options.revokeOtherSessions ?? (async () => 0),
     completeEmailChange:
       options.completeEmailChange ?? (async () => 'stale' as const),

@@ -147,10 +147,15 @@ export function createDatabase({
     });
   const rawDatabase = drizzle({ client });
   const capacities = workloadCapacities(workloadProfile, maxConnections);
-  const executor = createWorkloadExecutor(
-    capacities,
-    workloadQueueOptions(capacities),
-  );
+  const executor = createWorkloadExecutor(capacities, {
+    ...workloadQueueOptions(capacities),
+    onRefused: (lane, reason) =>
+      eventSink?.(
+        'db.capacity.refused',
+        { scope: lane, cause: reason },
+        'Database lane refused work',
+      ),
+  });
   const database = workloadDatabase(rawDatabase, executor, 'control');
   const competitiveDatabase = workloadDatabase(
     rawDatabase,
