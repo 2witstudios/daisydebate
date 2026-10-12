@@ -16,10 +16,11 @@ export type AuthorizationTransaction = Pick<
  * user-id order, independent of actor input order. Re-read after downstream lock
  * waits; a revision is an invalidation hint, not permission or a cache lease.
  */
-export async function lockAuthorizationActors(
+async function authorizationActors(
   tx: AuthorizationTransaction,
   actorIds: readonly string[],
   limits: { readonly maxActors: number },
+  shared: boolean,
 ) {
   if (
     actorIds.length === 0 ||
@@ -31,14 +32,15 @@ export async function lockAuthorizationActors(
     actorIds.some((id) => !idSchema.safeParse(id).success)
   )
     throw createAppError('VALIDATION');
-  const rows = await tx.execute(sql`
-    select * from public.daisy_authorization_accounts(
-      array[${sql.join(
-        actorIds.map((id) => sql`${id}`),
-        sql`, `,
-      )}]::text[], null::text, true
-    )
-  `);
+  const selector = sql`array[${sql.join(
+    actorIds.map((id) => sql`${id}`),
+    sql`, `,
+  )}]::text[]`;
+  const rows = await tx.execute(
+    shared
+      ? sql`select * from public.daisy_authorization_read_accounts(${selector})`
+      : sql`select * from public.daisy_authorization_accounts(${selector}, null::text, true)`,
+  );
   const current = rows as unknown as AuthorizationAccountRow[];
   return actorIds.map((actorId) =>
     authorizationAccountFact(
@@ -62,3 +64,16 @@ export async function loadAuthorizationAccount(
 }
 
 export { loadAuthorizationSession } from './authorization-session';
+
+/** Exclusive subject fence for account and authority writers. */
+export const lockAuthorizationActors = (
+  tx: AuthorizationTransaction,
+  actorIds: readonly string[],
+  limits: { readonly maxActors: number },
+) => authorizationActors(tx, actorIds, limits, false);
+/** Compatible account dependency fence; callers discover the complete ordered set first. */
+export const readAuthorizationActors = (
+  tx: AuthorizationTransaction,
+  actorIds: readonly string[],
+  limits: { readonly maxActors: number },
+) => authorizationActors(tx, actorIds, limits, true);

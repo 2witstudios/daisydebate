@@ -3,7 +3,7 @@ import { idSchema } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import {
   loadAuthorizationAccount,
-  lockAuthorizationActors,
+  readAuthorizationActors,
   type AuthorizationTransaction,
 } from './authorization';
 import type { authorizationAccountFact } from './authorization-account';
@@ -26,16 +26,18 @@ async function checkedSession(
   tx: AuthorizationTransaction,
   input: RealtimeSessionInput & { readonly userId?: string },
 ) {
-  const instant = sessionInstant(input);
+  sessionInstant(input);
   const rows = (await tx.execute(
-    sql`select user_id as "userId",expires_at as "expiresAt" from session where id=${input.sessionId}`,
-  )) as unknown as { userId: string; expiresAt: Date }[];
+    sql`select user_id as "userId",expires_at as "expiresAt", clock_timestamp() as "databaseNow" from session where id=${input.sessionId}`,
+  )) as unknown as { userId: string; expiresAt: Date; databaseNow: Date }[];
   const session = rows[0];
   if (
     !session ||
     !sessionUserMatches(session.userId, input) ||
     !(session.expiresAt instanceof Date) ||
-    !(session.expiresAt.getTime() > instant)
+    !(session.databaseNow instanceof Date) ||
+    !Number.isFinite(session.databaseNow.getTime()) ||
+    !(session.expiresAt.getTime() > session.databaseNow.getTime())
   )
     return null;
   const account = await loadAuthorizationAccount(tx, session.userId);
@@ -105,7 +107,7 @@ export function authorizationSessionOperations({
   ) => {
     sessionInstant(input);
     return database.transaction(async (tx) => {
-      await lockAuthorizationActors(tx, [input.actorId], { maxActors: 1 });
+      await readAuthorizationActors(tx, [input.actorId], { maxActors: 1 });
       return checkedSession(tx, input);
     });
   };
