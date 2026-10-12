@@ -1,3 +1,4 @@
+import { readObservationHeaders } from './observation-headers';
 import {
   createWorkloadExecutor,
   workloadDatabase,
@@ -156,7 +157,11 @@ export function createDatabase({
     executor,
     'admission',
   );
+  const headersDatabase = workloadDatabase(rawDatabase, executor, 'headers');
   return {
+    readObservationHeaders: (
+      resources: Parameters<typeof readObservationHeaders>[1],
+    ) => readObservationHeaders(headersDatabase, resources),
     async health() {
       return instrumented(eventSink, 'health', async () => {
         await database.execute(sql`select 1`);

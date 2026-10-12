@@ -65,7 +65,7 @@ describe('the ruling and the completion are one write', () => {
           payloadDigest: 'a'.repeat(64),
           result: { outcome: 'affirmative' },
         },
-        projection: {
+        buildProjection: () => ({
           round: {
             status: 'completed',
             currentStage: null,
@@ -77,7 +77,7 @@ describe('the ruling and the completion are one write', () => {
           segmentInserts: [],
           segmentCloses: [],
           effects: [],
-        },
+        }),
       })
       .then(() => 'accepted')
       .catch(() => 'refused');

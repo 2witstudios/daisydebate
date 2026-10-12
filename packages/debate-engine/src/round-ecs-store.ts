@@ -6,7 +6,8 @@ import {
   type RuntimeCheckpoint,
   type SegmentType,
 } from '@daisy/protocol';
-import { plugin, type Lifecycle } from './round-ecs-plugin';
+import { plugin } from './round-ecs-plugin';
+import type { Lifecycle, ClockSegment } from './round-clock-state';
 
 /**
  * The runtime's execution substrate (ADR 0058 §6): Adobe ECS storage inside
@@ -18,15 +19,7 @@ import { plugin, type Lifecycle } from './round-ecs-plugin';
  * The API speaks only Daisy data. Vendor types never cross it.
  */
 
-type StoreRow = {
-  readonly id: string;
-  readonly sequence: number;
-  readonly type: SegmentType;
-  readonly key: string;
-  readonly startedAtMs: number;
-  readonly endedAtMs: number | null;
-  readonly durationMs: number;
-};
+type StoreRow = ClockSegment;
 
 export type RoundStore = {
   readonly rows: () => readonly StoreRow[];
@@ -34,7 +27,6 @@ export type RoundStore = {
   readonly checkpoint: () => RuntimeCheckpoint;
   readonly openRow: () => StoreRow | undefined;
   readonly insertSegment: (row: {
-    readonly id: string;
     readonly sequence: number;
     readonly type: SegmentType;
     readonly key: string;
@@ -42,7 +34,7 @@ export type RoundStore = {
     readonly durationMs: number;
   }) => void;
   readonly closeSegment: (input: {
-    readonly id: string;
+    readonly sequence: number;
     readonly endedAtMs: number;
   }) => void;
   readonly setLifecycle: (lifecycle: Partial<Lifecycle>) => void;
@@ -69,7 +61,6 @@ const hydrate = (
   db.transactions.setCheckpoint(checkpoint);
   for (const row of rows)
     db.transactions.insertSegment({
-      id: row.id,
       sequence: row.sequence,
       type: row.type,
       key: row.key,
@@ -80,7 +71,6 @@ const hydrate = (
   const readRows = (): readonly StoreRow[] =>
     db
       .select([
-        'segmentId',
         'sequence',
         'segmentType',
         'segmentKey',
@@ -89,7 +79,6 @@ const hydrate = (
         'durationMs',
       ])
       .map((entity) => {
-        const segmentId = db.get(entity, 'segmentId');
         const sequence = db.get(entity, 'sequence');
         const segmentType = db.get(entity, 'segmentType');
         const segmentKey = db.get(entity, 'segmentKey');
@@ -97,7 +86,6 @@ const hydrate = (
         const endedAtMs = db.get(entity, 'endedAtMs');
         const durationMs = db.get(entity, 'durationMs');
         if (
-          segmentId === undefined ||
           sequence === undefined ||
           segmentType === undefined ||
           segmentKey === undefined ||
@@ -107,7 +95,6 @@ const hydrate = (
         )
           throw new Error('ECS segment storage is incomplete');
         return {
-          id: segmentId,
           sequence,
           type: segmentType,
           key: segmentKey,
@@ -124,7 +111,6 @@ const hydrate = (
       startedAtMs: db.resources.startedAtMs,
       completedAtMs: db.resources.completedAtMs,
       outcome: db.resources.outcome,
-      gapAnchorMs: db.resources.gapAnchorMs,
     }),
     checkpoint: () => {
       const side = db.resources.activePrepSide;
@@ -153,7 +139,6 @@ const hydrate = (
     openRow: () => readRows().find((row) => row.endedAtMs === null),
     insertSegment: (row) =>
       db.transactions.insertSegment({
-        id: row.id,
         sequence: row.sequence,
         type: row.type,
         key: row.key,
@@ -167,7 +152,6 @@ const hydrate = (
         startedAtMs: db.resources.startedAtMs,
         completedAtMs: db.resources.completedAtMs,
         outcome: db.resources.outcome,
-        gapAnchorMs: db.resources.gapAnchorMs,
       };
       db.transactions.setLifecycle({ ...current, ...lifecycle });
     },

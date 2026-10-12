@@ -98,8 +98,8 @@ export function setup(
   limits?: { readonly speechCharacters?: number },
   transcribe?: () => Promise<{ text: string }>,
 ) {
-  const memory = createInMemoryRoundStore();
   const clock = testClock();
+  const memory = createInMemoryRoundStore(() => clock.now());
   const { voice, calls, prompts } = fakeVoice(transcribe);
   // The fake database's clock is the test's: the operations read the
   // database instant exactly as production reads PostgreSQL's.

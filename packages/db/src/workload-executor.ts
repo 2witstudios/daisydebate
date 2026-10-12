@@ -186,7 +186,8 @@ export function workloadDatabase<T extends object>(
   return wrap(database) as T;
 }
 
-export type DatabaseWorkloadProfile = 'web' | 'realtime' | 'reconciliation';
+export type DatabaseWorkloadProfile =
+  'web' | 'realtime' | 'reconciliation' | 'projection';
 /** Physical pool ceilings include every allocated workload, never hidden extra pools. */
 export function workloadCapacities(
   profile: DatabaseWorkloadProfile,
@@ -195,16 +196,18 @@ export function workloadCapacities(
   if (!Number.isSafeInteger(poolSize) || poolSize < 1)
     throw createAppError('VALIDATION', 'Invalid database pool capacity');
   const requested: Partial<Record<DatabaseWorkload, number>> =
-    profile === 'web'
-      ? { control: 2, competitive: 4, social: 3, search: 1, admission: 2 }
-      : {
-          control: 1,
-          renewal: 2,
-          admission: 1,
-          ...(profile === 'reconciliation'
-            ? { projection: 2, headers: 1, relay: 1 }
-            : {}),
-        };
+    profile === 'projection'
+      ? { projection: 2, headers: 1, relay: 1 }
+      : profile === 'web'
+        ? { control: 2, competitive: 4, social: 3, search: 1, admission: 2 }
+        : {
+            control: 1,
+            renewal: 2,
+            admission: 1,
+            ...(profile === 'reconciliation'
+              ? { projection: 2, headers: 1, relay: 1 }
+              : {}),
+          };
   let remaining = poolSize;
   const capacities: Partial<Record<DatabaseWorkload, number>> = {};
   for (const [lane, ceiling] of Object.entries(requested)) {
