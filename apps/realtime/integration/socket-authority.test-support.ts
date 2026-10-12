@@ -33,6 +33,7 @@ export async function socketAuthorityFixture(
     await client`delete from session where id=${sessionId}`;
     await client`delete from actors where id=${actorId}`;
     await client`delete from users where id=${userId}`;
+    await client`delete from resource_observation_headers where resource_id=${actorId}`;
   };
   let runtime: Awaited<ReturnType<typeof serveRealtime>> | undefined;
   try {

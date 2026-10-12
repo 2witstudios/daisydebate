@@ -23,6 +23,8 @@ export function roundAudienceFixture(client: SQL, actorId: string) {
       for (const id of ids) {
         await client`delete from round_participants where round_id=${id}`;
         await client`delete from rounds where id=${id}`;
+        // Headers have no FK; the round delete re-advances its header at commit.
+        await client`delete from resource_observation_headers where resource_id=${id}`;
       }
     },
   };
