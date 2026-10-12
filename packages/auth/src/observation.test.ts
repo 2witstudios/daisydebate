@@ -74,6 +74,26 @@ const readingPolicy: ObservationReadingPolicy = ({
     ageRevision: row.age.state === 'known' ? row.age.revision : null,
   })),
 });
+test('the same full cast has identical peer evidence for either reader', () => {
+  const decide = createObservationAuthorityDecision({ readingPolicy });
+  const first = decide(context);
+  const second = decide({
+    ...context,
+    principal: { kind: 'user', userId: peer, actorId: peer },
+    account: account(peer),
+  });
+  assert({
+    given: 'either member independently reads an identical approved DM cohort',
+    should:
+      'return the same full policy dependencies without duplicating the individual subject',
+    actual:
+      first.status === 'allowed' &&
+      second.status === 'allowed' &&
+      JSON.stringify(first.dependencies) ===
+        JSON.stringify(second.dependencies),
+    expected: true,
+  });
+});
 test('approved unknown-age reading follows canonical authority', () => {
   const decide = createObservationAuthorityDecision({ readingPolicy });
   const result = decide({

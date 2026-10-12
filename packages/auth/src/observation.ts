@@ -85,8 +85,7 @@ export function createObservationAuthorityDecision({
         overlay: null,
       };
     }
-    if (fact.kind === 'channel')
-      return channel(input, dependencies, readingPolicy);
+    if (fact.kind === 'channel') return channel(input, [], readingPolicy);
     const id = fact.kind === 'room' ? fact.roomId : fact.roundId;
     if (input.resource.kind !== fact.kind || input.resource.id !== id)
       return { status: 'denied' };
