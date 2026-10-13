@@ -4,7 +4,7 @@ import type {
   MessagingPreferenceAuthorizationFact,
 } from '@daisy/auth/authorization';
 import type { Database } from '@daisy/db';
-import type { MessagingRuntimePolicy } from './composition';
+import type { MessagingRuntimePolicy } from './messaging';
 import type { Clock } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import { requireMessagingAuthorization } from './authorization';

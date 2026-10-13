@@ -4,7 +4,7 @@ import {
 } from '@daisy/auth/testing';
 import { accountAgeFact } from '@daisy/auth/account-age';
 import type { MessagingChannelFact } from '@daisy/db/messaging-social';
-import type { MessagingRuntimePolicy } from './composition';
+import type { MessagingRuntimePolicy } from './messaging';
 import { typingAuthority } from './typing-authority';
 export function typingWorld() {
   const now = '2026-10-10T12:00:00.000Z';

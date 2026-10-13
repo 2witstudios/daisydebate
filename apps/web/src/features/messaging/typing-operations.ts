@@ -12,7 +12,7 @@ import {
   typingAggregate,
   typingProjectionChanged,
 } from './typing-authority';
-import type { MessagingRuntimePolicy } from './composition';
+import type { MessagingRuntimePolicy } from './messaging';
 /** All Redis/vendor awaits remain within the actual SQL authority fence; no lease grants authority. */
 export function composeMessagingTyping({
   database,

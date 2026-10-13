@@ -2,7 +2,6 @@ import {
   messagingHttpBoundary,
   unavailableMessagingHandler,
 } from './handler-boundary';
-import { composeMessagingInbox } from './inbox-composition';
 import type { SocialCreationPolicy } from '@daisy/auth/authorization';
 import {
   createMessagingSocialSchemas,
@@ -43,7 +42,9 @@ export function composeMessagingSocialRoutes(app: App) {
   ) => {
     const policy = app.messagingPolicy,
       social = policy?.social;
-    if (!policy || !social) return unavailableMessagingHandler(app, request);
+    const messaging = app.messaging;
+    if (!policy || !social || !messaging)
+      return unavailableMessagingHandler(app, request);
     const limit = (actorId: string) =>
       consumeOrThrow(
         app.auth().limiter,
@@ -75,13 +76,7 @@ export function composeMessagingSocialRoutes(app: App) {
           createMessagingSocialSchemas(social.bounds).previewDm,
           input,
         );
-        return composeMessagingInbox({
-          database: app.database,
-          principal,
-          clock: app.clock,
-          postingPolicy: policy.posting,
-          readingPolicy: policy.reading,
-        }).status(command.channelId);
+        return messaging.requestStatus(principal, command.channelId);
       },
       preview: (input, principal) =>
         readMessagingDmRequest(input, principal, {

@@ -9,10 +9,7 @@ import {
   unavailableMessagingHandler,
 } from './handler-boundary';
 import { composeMessagingGroupInvitationStore } from './group-invitation-composition';
-import {
-  readMessagingGroupInvitation,
-  decideMessagingGroupInvitation,
-} from './group-invitation';
+import { decideMessagingGroupInvitation } from './group-invitation';
 /** Refusal and minimal reads do not depend on group admission approval. */
 export function composeMessagingGroupInvitationRoutes(app: App) {
   const run = (
@@ -22,7 +19,9 @@ export function composeMessagingGroupInvitationRoutes(app: App) {
   ) => {
     const policy = app.messagingPolicy,
       social = policy?.social;
-    if (!policy || !social) return unavailableMessagingHandler(app, request);
+    const messaging = app.messaging;
+    if (!policy || !social || !messaging)
+      return unavailableMessagingHandler(app, request);
     return runMessagingHandler(messagingHttpBoundary(app), request, {
       name: `messaging.invitation.${mode}`,
       readOnly: mode === 'read',
@@ -62,7 +61,7 @@ export function composeMessagingGroupInvitationRoutes(app: App) {
         };
         const result =
           mode === 'read'
-            ? await readMessagingGroupInvitation(input, principal, dependencies)
+            ? await messaging.invitationPreview(principal, input)
             : await decideMessagingGroupInvitation(
                 mode,
                 input,
