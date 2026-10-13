@@ -3,6 +3,7 @@ import { serverMessageSchema, type ServerMessage } from '@daisy/protocol';
 import { messageInHistory } from './messaging-message-controls';
 import { proveNativeTyping } from './messaging-typing';
 import { expect, openPage } from './fixtures';
+import { hydrated } from './hydration';
 import {
   acceptMessagingJourney,
   type openMessagingJourney,
@@ -112,11 +113,12 @@ export async function proveDraftAndRevocation(journey: Journey) {
   await expect.poll(snapshots).toBeGreaterThan(before);
   await expect(sender.getByLabel('Revise your message')).toHaveValue(draft);
   const other = await openPage(journey.sender, 'the signing-out tab');
-  await other.goto('/lobby');
+  await other.goto('/settings/security');
   const signOut = other.getByRole('button', {
     name: 'Sign out',
     exact: true,
   });
+  await hydrated(signOut);
   await signOut.click();
   await other.waitForURL(/\/sign-in$/);
   await expect(sender.getByText('Conversation unavailable.')).toBeVisible({
