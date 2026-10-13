@@ -161,7 +161,11 @@ export function ReactionsLive({
     before,
     bounds !== null,
   );
-  const state = liveReactions(view, messageId, initial);
+  // A new server read (after this viewer's own toggle) outranks the overlay
+  // current at that moment, until a newer overlay arrives.
+  const [read, setRead] = useState({ initial, overlay: view.overlay });
+  if (read.initial !== initial) setRead({ initial, overlay: view.overlay });
+  const state = liveReactions(view, messageId, initial, read.overlay);
   if (state.kind === 'revoked')
     return <p role="status">Conversation unavailable.</p>;
   if (state.kind === 'removed') return <p role="status">Message removed.</p>;

@@ -17,12 +17,15 @@ type View = {
   readonly overlay?: unknown;
   readonly content: { readonly messages: readonly Message[] } | null;
 };
-/** Shared counts from the snapshot, own flags from this viewer's overlay;
- * the authorized HTTP read stands in until the live window arrives. */
+/** Shared counts from the snapshot; own flags from whichever arrived last,
+ * the authorized HTTP read (which follows the viewer's own toggle) or a newer
+ * overlay. `overlayAtRead` is the overlay that was current when the read
+ * arrived; the read stands in entirely until the live window arrives. */
 export function liveReactions(
   view: View,
   messageId: string,
   initial: readonly ReactionCount[],
+  overlayAtRead: unknown,
 ):
   | { readonly kind: 'revoked' }
   | { readonly kind: 'removed' }
@@ -31,15 +34,10 @@ export function liveReactions(
   const message = view.content?.messages.find((item) => item.id === messageId);
   if (!message) return { kind: 'list', items: initial };
   if ('unavailable' in message) return { kind: 'removed' };
-  const overlay = observationChannelOverlaySchema.safeParse(view.overlay, {
-    jitless: true,
-  });
   const own = new Set(
-    overlay.success
-      ? overlay.data.ownReactions
-          .filter((item) => item.messageId === messageId)
-          .map((item) => item.reaction)
-      : [],
+    view.overlay === overlayAtRead
+      ? initial.filter((item) => item.own).map((item) => item.reaction)
+      : overlayReactions(view.overlay, messageId),
   );
   return {
     kind: 'list',
@@ -48,4 +46,14 @@ export function liveReactions(
       own: own.has(item.reaction),
     })),
   };
+}
+function overlayReactions(overlay: unknown, messageId: string) {
+  const parsed = observationChannelOverlaySchema.safeParse(overlay, {
+    jitless: true,
+  });
+  return parsed.success
+    ? parsed.data.ownReactions
+        .filter((item) => item.messageId === messageId)
+        .map((item) => item.reaction)
+    : [];
 }
