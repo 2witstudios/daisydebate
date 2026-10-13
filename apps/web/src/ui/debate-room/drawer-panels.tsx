@@ -29,7 +29,7 @@ const pill = (on: boolean, ink: string) =>
 export function Badge({ count }: { readonly count: number }) {
   if (count === 0) return null;
   return (
-    <span className="min-w-4 rounded-round bg-live px-1 text-center text-2xs font-bold text-background tabular-nums">
+    <span className="min-w-4 rounded-round bg-live px-1 text-center text-xs font-bold text-background tabular-nums">
       {count}
     </span>
   );

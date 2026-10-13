@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { expect, type Page } from '@playwright/test';
 
 /**
@@ -78,10 +80,18 @@ export async function watchShellLinks(page: Page, names: readonly string[]) {
 }
 
 /**
- * Below the `narrow` breakpoint (`--breakpoint-narrow` in globals.css) the
- * rail gives way to the phone's bottom tabs.
+ * Below the `narrow` breakpoint the rail gives way to the phone's bottom
+ * tabs. Read from `--breakpoint-narrow` in globals.css, its one definition.
  */
-const narrowBreakpoint = 641;
+const narrowBreakpoint = (() => {
+  const css = readFileSync(
+    resolve(import.meta.dirname, '../../src/app/globals.css'),
+    'utf8',
+  );
+  const px = /--breakpoint-narrow:\s*(\d+)px;/.exec(css)?.[1];
+  if (!px) throw new Error('globals.css defines no --breakpoint-narrow in px');
+  return Number(px);
+})();
 
 /** True when the page lays out the phone shell: bottom tabs, no logo. */
 export const onPhone = (page: Page): boolean =>

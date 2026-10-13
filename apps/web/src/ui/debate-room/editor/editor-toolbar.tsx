@@ -184,7 +184,7 @@ export function EditorToolbar({
               type="button"
               aria-pressed={Boolean(active.marks[m])}
               className={cn(
-                'h-room-target shrink-0 cursor-pointer rounded-sm px-3 text-sm font-strong',
+                'h-room-target min-w-room-target shrink-0 cursor-pointer rounded-sm px-3 text-sm font-strong',
                 markTone[m],
                 active.marks[m] && 'ring-2 ring-current',
               )}
