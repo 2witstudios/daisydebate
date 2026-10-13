@@ -1,3 +1,4 @@
+import { messagingOf } from './messaging';
 import { composeMessagingReactionRoute } from './reaction-route';
 import { composeMessagingTypingRoutes } from './typing-route';
 import { composeMessagingPreferenceRoutes } from './preference-route';
@@ -33,7 +34,7 @@ export function composeMessagingRoutes(app: App) {
       | 'markRead',
     channelId?: string,
   ) => {
-    const messaging = app.messaging;
+    const messaging = messagingOf(app);
     if (!policy || !messaging)
       return handleOperation(
         app.logger,

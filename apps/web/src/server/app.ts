@@ -1,10 +1,7 @@
 import type { MessagingFileRuntime } from '../features/messaging/files/runtime';
 import { currentFairnessKey } from './fairness';
 import { readRealtimePublicUrl } from '@daisy/config';
-import {
-  composeMessaging,
-  type MessagingRuntimePolicy,
-} from '../features/messaging/messaging';
+import type { MessagingRuntimePolicy } from '../features/messaging/messaging';
 import type { RoomPolicy } from '../features/room-runtime/composition';
 import type { Clock, IdGenerator } from '@daisy/clock';
 import {
@@ -155,16 +152,6 @@ export function createApp({
     }),
     roomPolicy: roomPolicy ?? config.ROOM_POLICY ?? null,
     messagingPolicy: messagingPolicy ?? null,
-    /** The named messaging operations, when this deploy enables messaging. */
-    messaging: messagingPolicy
-      ? composeMessaging({
-          database,
-          clock,
-          ids,
-          policy: messagingPolicy,
-          limiter: () => (auth ??= composeAuth()).limiter,
-        })
-      : null,
     messagingFiles: messagingFiles ?? null,
     clock,
     ids,

@@ -169,4 +169,21 @@ export function composeMessaging({
     },
   };
 }
-export type Messaging = ReturnType<typeof composeMessaging>;
+/** The app's named messaging operations under its current policy; null when messaging is off. */
+export function messagingOf(app: {
+  readonly database: Database;
+  readonly clock: Clock;
+  readonly ids: IdGenerator;
+  readonly messagingPolicy: MessagingRuntimePolicy | null;
+  readonly auth: () => { readonly limiter: AuthRateLimiter };
+}) {
+  const policy = app.messagingPolicy;
+  if (!policy) return null;
+  return composeMessaging({
+    database: app.database,
+    clock: app.clock,
+    ids: app.ids,
+    policy,
+    limiter: () => app.auth().limiter,
+  });
+}

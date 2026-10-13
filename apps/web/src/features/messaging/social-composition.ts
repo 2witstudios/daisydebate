@@ -1,3 +1,4 @@
+import { messagingOf } from './messaging';
 import {
   messagingHttpBoundary,
   unavailableMessagingHandler,
@@ -42,7 +43,7 @@ export function composeMessagingSocialRoutes(app: App) {
   ) => {
     const policy = app.messagingPolicy,
       social = policy?.social;
-    const messaging = app.messaging;
+    const messaging = messagingOf(app);
     if (!policy || !social || !messaging)
       return unavailableMessagingHandler(app, request);
     const limit = (actorId: string) =>

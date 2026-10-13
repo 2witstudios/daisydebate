@@ -1,3 +1,4 @@
+import { messagingOf } from './messaging';
 import { createAppError } from '@daisy/errors';
 import { createMessagingSocialSchemas } from '@daisy/protocol';
 import type { App } from '../../server/app';
@@ -19,7 +20,7 @@ export function composeMessagingGroupInvitationRoutes(app: App) {
   ) => {
     const policy = app.messagingPolicy,
       social = policy?.social;
-    const messaging = app.messaging;
+    const messaging = messagingOf(app);
     if (!policy || !social || !messaging)
       return unavailableMessagingHandler(app, request);
     return runMessagingHandler(messagingHttpBoundary(app), request, {

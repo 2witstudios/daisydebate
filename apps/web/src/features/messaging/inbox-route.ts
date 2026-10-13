@@ -1,3 +1,4 @@
+import { messagingOf } from './messaging';
 import type { App } from '../../server/app';
 import { createMessagingInboxSchemas } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
@@ -10,7 +11,7 @@ import {
 export function composeMessagingInboxRoute(app: App) {
   return (request: Request) => {
     const policy = app.messagingPolicy,
-      messaging = app.messaging;
+      messaging = messagingOf(app);
     if (!policy || !messaging)
       return unavailableMessagingHandler(
         app,
