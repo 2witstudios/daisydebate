@@ -21,6 +21,10 @@ const icons: Readonly<Record<DrawerTab | 'doc', IconName>> = {
   room: 'users',
 };
 
+/** The phone round tab that is showing, the target a focus return lands on. */
+export const CURRENT_ROUND_TAB =
+  'nav[aria-label="Round"] [aria-current="page"]';
+
 /** A phone's round tabs: the document, then each drawer tab in its place. */
 export function RoundTabs({
   round,

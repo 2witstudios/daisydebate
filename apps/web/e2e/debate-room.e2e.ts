@@ -282,3 +282,67 @@ test('a landscape page and the debate marks from the keyboard', async ({
     consoleViolations: [],
   });
 });
+
+const targetSize = 44;
+
+test('the round editor’s targets, the phone toolbar row and focus return', async ({
+  roundFiles,
+}) => {
+  const { page } = roundFiles;
+  const formatting = page.getByRole('toolbar', { name: 'Formatting' });
+  const controls = [
+    ...(await formatting.getByRole('button').all()),
+    page.getByRole('combobox', { name: 'Page' }),
+    page.getByRole('button', { name: 'Smaller text' }),
+    page.getByRole('button', { name: 'Larger text' }),
+    page.getByRole('button', { name: 'Dark page' }),
+    page.getByRole('button', { name: 'Light page' }),
+  ];
+  expect(controls.length).toBe(14);
+  for (const control of controls) {
+    const box = await control.boundingBox();
+    expect(box?.height).toBeGreaterThanOrEqual(targetSize);
+    expect(box?.width).toBeGreaterThanOrEqual(targetSize);
+  }
+
+  const toggle = page.getByRole('button', { name: 'Hide drawer' });
+  await page.getByRole('tab', { name: 'Files', exact: true }).focus();
+  await toggle.dispatchEvent('click');
+  await expect(
+    page.getByRole('complementary', { name: 'Round drawer' }),
+  ).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Show drawer' })).toBeFocused();
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  const row = await formatting.evaluate((node) => {
+    const bar = node.parentElement!;
+    const tops = new Set(
+      [...bar.querySelectorAll('button, select')].map((tool) =>
+        Math.round(tool.getBoundingClientRect().top),
+      ),
+    );
+    return { rows: tops.size, scrolls: bar.scrollWidth > bar.clientWidth };
+  });
+  expect(row).toEqual({ rows: 1, scrolls: true });
+
+  const tabs = page.getByRole('navigation', { name: 'Round' });
+  await tabs.getByRole('button', { name: 'Files', exact: true }).click();
+  await page
+    .getByRole('tabpanel')
+    .getByRole('button', { name: 'Flow', exact: true })
+    .first()
+    .focus();
+  await tabs
+    .getByRole('button', { name: 'Doc', exact: true })
+    .dispatchEvent('click');
+  await expect(
+    tabs.getByRole('button', { name: 'Doc', exact: true }),
+  ).toBeFocused();
+  await page.getByRole('textbox', { name: 'Flow', exact: true }).focus();
+  await tabs
+    .getByRole('button', { name: 'Room', exact: true })
+    .dispatchEvent('click');
+  await expect(
+    tabs.getByRole('button', { name: 'Room', exact: true }),
+  ).toBeFocused();
+});

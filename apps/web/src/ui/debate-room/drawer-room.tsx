@@ -52,7 +52,7 @@ export function DrawerRoom({ round }: { readonly round: RoundSnapshot }) {
         if (people.length === 0) return null;
         return (
           <section key={role} aria-label={title} className="flex flex-col">
-            <h2 className="px-2 pb-1 text-2xs font-strong tracking-wider text-ink-muted uppercase">
+            <h2 className="px-2 pb-1 text-xs font-strong tracking-wider text-ink-muted uppercase">
               {title}
             </h2>
             <ul className="flex flex-col">

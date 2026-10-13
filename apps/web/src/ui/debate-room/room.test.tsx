@@ -232,6 +232,29 @@ describe('DebateRoom', () => {
     });
   });
 
+  test('44px targets and 12px drawer text', () => {
+    const html = render('judging', 'practice');
+    const drawer = html.slice(
+      html.indexOf('aria-label="Round drawer"'),
+      html.indexOf('id="round-column"'),
+    );
+    assert({
+      given: 'the judging window with its transcript open',
+      should:
+        'size the filter chips, Add to Flow and the video divider at the target, ring the divider on focus, and keep drawer text at 12px or more',
+      actual: [
+        count(html, /aria-pressed="(?:true|false)" class="h-room-target /g) > 1,
+        count(html, /aria-label="Add to Flow" class="flex size-room-target /g) >
+          0,
+        /role="separator"[^>]*class="[^"]*h-room-target[^"]*focus-visible:ring-2/.test(
+          html,
+        ),
+        drawer.length > 0 && !drawer.includes('text-2xs'),
+      ],
+      expected: [true, true, true, true],
+    });
+  });
+
   test('the Room tab while the ballots are written', () => {
     const html = renderToString(
       h(DrawerRoom, { round: sampleRound('judging', 'practice') }),

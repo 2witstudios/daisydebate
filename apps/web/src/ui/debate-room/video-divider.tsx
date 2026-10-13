@@ -50,7 +50,7 @@ export function VideoDivider({ value, min, max, onResize, onNudge }: Props) {
       onPointerUp={up}
       onPointerCancel={up}
       onKeyDown={key}
-      className="group flex h-3 shrink-0 cursor-row-resize touch-none items-center justify-center bg-background outline-none focus-visible:bg-surface-overlay max-narrow:hidden"
+      className="group flex h-room-target shrink-0 cursor-row-resize touch-none items-center justify-center bg-background focus-visible:bg-surface-overlay focus-visible:shadow-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset max-narrow:hidden"
     >
       <span className="h-1 w-10 rounded-round bg-border-strong transition-colors group-hover:bg-ink-faint" />
     </div>

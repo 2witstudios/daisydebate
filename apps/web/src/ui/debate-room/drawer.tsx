@@ -32,6 +32,7 @@ type Props = {
 };
 
 export const DRAWER_ID = 'round-drawer';
+export const DRAWER_TOGGLE_ID = 'round-drawer-toggle';
 
 export const tabNames: Readonly<Record<DrawerTab, string>> = {
   files: 'Files',
