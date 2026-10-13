@@ -18,7 +18,7 @@ export function BallotStatus({ round }: { readonly round: RoundSnapshot }) {
           <span
             aria-hidden="true"
             className={cn(
-              'size-2.5 shrink-0 rounded-round',
+              'size-2 shrink-0 rounded-round',
               line.ready ? 'bg-online' : 'bg-gold',
             )}
           />
