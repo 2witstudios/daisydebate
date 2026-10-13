@@ -38,6 +38,7 @@ import { claimUsername } from './username-claim';
 import { authOperations } from './auth-operations';
 import { authorizationSessionOperations } from './authorization-session';
 import { formatOperations } from './format-operations';
+import { roomAuthorizationRead } from './room-authorization-read';
 import { roomCommandOperations } from './room-command-operations';
 import { roomCommandTransaction } from './room-command-transaction';
 import { roomOperations } from './room-operations';
@@ -176,6 +177,9 @@ export function createDatabase({
   );
   const renewalDatabase = workloadDatabase(rawDatabase, executor, 'renewal');
   const relayDatabase = workloadDatabase(rawDatabase, executor, 'relay');
+  // Realtime pools reserve no social or competitive lane: socket topic authorization admits on its admission lane.
+  const topicAuthority = (web: typeof database) =>
+    workloadProfile === 'web' ? web : authorityDatabase;
   return {
     observationAuthority: (
       decide: Parameters<typeof createObservationAuthorityOperations>[1],
@@ -254,7 +258,9 @@ export function createDatabase({
     messagingDmStore: (
       authorize: Parameters<typeof createMessagingDmStore>[0]['authorize'],
     ) => createMessagingDmStore({ database: socialDatabase, authorize }),
-    messagingChannelAuthority: createMessagingChannelAuthority(socialDatabase),
+    messagingChannelAuthority: createMessagingChannelAuthority(
+      topicAuthority(socialDatabase),
+    ),
     messagingFileMaintenance: createMessagingFileMaintenance(socialDatabase),
     messagingFileCleanup: (
       authorize: Parameters<typeof createMessagingFileCleanup>[0]['authorize'],
@@ -317,6 +323,7 @@ export function createDatabase({
       eventSink,
       commandTransaction: roomCommandTransaction(competitiveDatabase),
     }),
+    ...roomAuthorizationRead({ database: topicAuthority(competitiveDatabase) }),
     ...roundOperations({ database: competitiveDatabase, eventSink }),
     ...utteranceOperations({ database: competitiveDatabase, eventSink }),
     ...ballotOperations({ database: competitiveDatabase, eventSink }),
