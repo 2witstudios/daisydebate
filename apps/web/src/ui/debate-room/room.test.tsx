@@ -169,8 +169,21 @@ describe('DebateRoom', () => {
         html.includes('>Report a problem<'),
         html.includes('>Tech issue<'),
         html.includes('>End speech<'),
+        html.includes('Your prep'),
       ],
-      expected: [true, true, true, true, true, true, true, true, false, false],
+      expected: [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        false,
+        false,
+        false,
+      ],
     });
   });
 

@@ -218,9 +218,10 @@ export function LayoutMenu({ round, state, dispatch }: Props) {
   );
 }
 
+/** Both sides' prep left, until the speeches end. */
 function PrepClocks({ round }: { readonly round: RoundSnapshot }) {
   const prep = round.prepMs;
-  if (!prep) return null;
+  if (!prep || round.phase === 'judging') return null;
   return (
     <span className="text-sm text-ink-muted tabular-nums">
       Your prep{' '}
