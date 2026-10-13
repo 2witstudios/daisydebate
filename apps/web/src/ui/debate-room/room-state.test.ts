@@ -18,6 +18,26 @@ describe('initialRoomState', () => {
       expected: { open: ['doc-flow', 'doc-cx', 'doc-nr'], active: 'doc-flow' },
     });
   });
+  test('opens on the transcript while the ballots are written', () => {
+    const judging = sampleRound('judging', 'practice');
+    assert({
+      given:
+        'the judging window of a transcribed round, then one with no transcript',
+      should:
+        'put the transcript first and show it, else open the round folder as usual',
+      actual: [
+        initialRoomState(judging).tabs,
+        initialRoomState({ ...judging, transcribing: false }).tabs,
+      ],
+      expected: [
+        {
+          open: ['transcript', 'doc-flow', 'doc-cx', 'doc-nr'],
+          active: 'transcript',
+        },
+        { open: ['doc-flow', 'doc-cx', 'doc-nr'], active: 'doc-flow' },
+      ],
+    });
+  });
 });
 
 describe('reduceRoom layout', () => {

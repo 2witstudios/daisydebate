@@ -1,9 +1,11 @@
 'use client';
 
 import { useMemo, type Dispatch } from 'react';
-import { groupTranscript } from '../../features/debate-room/transcript';
+import {
+  groupTranscript,
+  TRANSCRIPT_ID,
+} from '../../features/debate-room/transcript';
 import { DocumentPane, type SaveState } from './document-pane';
-import { TRANSCRIPT_ID } from './drawer-files';
 import type { RoomAction, RoomState } from './room-state';
 import type { RoundSnapshot } from './round';
 import { TranscriptView } from './transcript-view';

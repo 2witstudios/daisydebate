@@ -15,6 +15,7 @@ import {
   workspaceMinHeight,
 } from '../../features/debate-room/layout';
 import { cn } from '../cn';
+import { BallotStatus } from './ballot-status';
 import { BotStage } from './bot-stage';
 import { CommandPalette, type PaletteChoice } from './command-palette';
 import { LayoutMenu, PhoneActions, RoundControls } from './controls';
@@ -139,6 +140,7 @@ export function DebateRoom({ round, sync, ...props }: RoomProps) {
               {alert}
             </p>
           ) : null}
+          <BallotStatus round={round} />
           <VideoDivider
             value={video}
             min={videoBounds.min}

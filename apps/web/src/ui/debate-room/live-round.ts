@@ -7,6 +7,10 @@ import type {
   Side,
   SpeechSlot,
 } from '../../features/debate-room/documents/documents';
+import {
+  judgingBallotsOf,
+  judgingClockOf,
+} from '../../features/debate-room/judging';
 import type { RoundPhase } from '../../features/debate-room/layout';
 import { roundKindOf } from '../../features/debate-room/workspace';
 import type { Debater, RoundPerson, RoundSnapshot } from './round';
@@ -167,6 +171,18 @@ function liveIndexOf(view: RoundView, position: RoundPosition): number {
   return position.nextSegment?.sequence ?? -1;
 }
 
+/**
+ * When the last speech ended: its close, or, while its expired interval
+ * stays open until completion (ADR 0058 §6), its scheduled end.
+ */
+const finalCloseMs = (view: RoundView): number => {
+  const last = view.segments.at(-1);
+  if (!last) return Date.parse(view.startedAt ?? '');
+  return last.endedAt === null
+    ? Date.parse(last.startedAt) + last.durationMs
+    : Date.parse(last.endedAt);
+};
+
 const prepOf = (position: RoundPosition): RoundSnapshot['prepMs'] => {
   const budget = position.prepBudgetRemainingMs;
   return budget ? { aff: budget.affirmative, neg: budget.negative } : null;
@@ -199,12 +215,16 @@ export function liveRoundOf(
     opponent: debater(opponent),
     people: view.participants.map(person),
     judge: judgeOf(view),
+    ballots: judgingBallotsOf(judgeOf(view)),
     stakes: null,
     recording: false,
     transcribing: false,
     speeches: speechesOf(view),
     liveIndex: liveIndexOf(view, position),
-    clock: phase === 'judging' ? null : clockOf(view, position, seat.role),
+    clock:
+      phase === 'judging'
+        ? judgingClockOf(finalCloseMs(view), nowMs)
+        : clockOf(view, position, seat.role),
     prepMs: prepOf(position),
     micLive: phase === 'own-speech' || phase === 'cross-ex',
     voiceLevel: 0,

@@ -74,9 +74,22 @@ export function RoundBar({
         ) : null}
       </button>
       {round.recording ? (
-        <span className={cn(chip, 'bg-live-soft text-live narrow:order-last')}>
-          ● Rec
-        </span>
+        round.phase === 'judging' ? (
+          <span
+            className={cn(
+              chip,
+              'border border-border-strong text-ink-muted narrow:order-last',
+            )}
+          >
+            Rec stopped
+          </span>
+        ) : (
+          <span
+            className={cn(chip, 'bg-live-soft text-live narrow:order-last')}
+          >
+            ● Rec
+          </span>
+        )
       ) : null}
       <span className={cn(chip, kind.tone, 'max-narrow:hidden')}>
         {kind.label}

@@ -1,3 +1,4 @@
+import { Fragment } from 'react';
 import type { RoundPerson, RoundSnapshot } from './round';
 
 const groups: readonly {
@@ -17,6 +18,26 @@ function personName(round: RoundSnapshot, person: RoundPerson) {
   if (person.role === 'judge') return person.bot ? 'AI judge' : 'Judge';
   if (person.id === round.self.id) return `${person.name} (you)`;
   return person.name;
+}
+
+/** What the round keeps: live while the speeches run, kept once they end. */
+function keptRows(round: RoundSnapshot) {
+  const after = round.phase === 'judging';
+  return [
+    {
+      term: 'Recording',
+      value: round.recording ? (after ? 'Saved' : 'On') : 'Off',
+      live: round.recording && !after,
+    },
+    {
+      term: 'Transcript',
+      value: round.transcribing ? (after ? 'Complete' : 'Live') : 'Off',
+      live: false,
+    },
+    ...(after && round.recording
+      ? [{ term: 'This room now', value: 'Not recorded', live: false }]
+      : []),
+  ];
 }
 
 const stakesLabel = (stakes: NonNullable<RoundSnapshot['stakes']>) =>
@@ -43,8 +64,15 @@ export function DrawerRoom({ round }: { readonly round: RoundSnapshot }) {
                     key={person.id}
                     className="flex min-h-room-target items-center gap-2 px-2 text-sm"
                   >
-                    <span className="min-w-0 flex-1 truncate">
-                      {personName(round, person)}
+                    <span className="flex min-w-0 flex-1 flex-col">
+                      <span className="truncate">
+                        {personName(round, person)}
+                      </span>
+                      {role === 'judge' && round.phase === 'judging' ? (
+                        <span className="text-xs text-ink-muted">
+                          Writing ballot
+                        </span>
+                      ) : null}
                     </span>
                     {person.bot && role !== 'judge' ? (
                       <span className="text-xs text-ink-muted">AI</span>
@@ -62,12 +90,12 @@ export function DrawerRoom({ round }: { readonly round: RoundSnapshot }) {
         );
       })}
       <dl className="grid grid-cols-2 gap-x-3 gap-y-2 border-t border-border px-2 pt-4 text-sm">
-        <dt className="text-ink-muted">Recording</dt>
-        <dd className={round.recording ? 'text-live' : undefined}>
-          {round.recording ? 'On' : 'Off'}
-        </dd>
-        <dt className="text-ink-muted">Transcript</dt>
-        <dd>{round.transcribing ? 'Live' : 'Off'}</dd>
+        {keptRows(round).map((row) => (
+          <Fragment key={row.term}>
+            <dt className="text-ink-muted">{row.term}</dt>
+            <dd className={row.live ? 'text-live' : undefined}>{row.value}</dd>
+          </Fragment>
+        ))}
         {round.stakes ? (
           <>
             <dt className="text-ink-muted">Stakes</dt>

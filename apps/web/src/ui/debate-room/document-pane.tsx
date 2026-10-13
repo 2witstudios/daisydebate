@@ -3,10 +3,10 @@
 import type { Dispatch, ReactNode } from 'react';
 import { systemClock } from '@daisy/clock';
 import type { WorkspaceDocument } from '../../features/debate-room/documents/documents';
+import { TRANSCRIPT_ID } from '../../features/debate-room/transcript';
 import type { TabsState } from '../../features/debate-room/workspace';
 import { cn } from '../cn';
 import { Icon } from '../components/icon/icon';
-import { TRANSCRIPT_ID } from './drawer-files';
 import { DocumentEditor } from './editor/document-editor';
 import type { RoomAction, PageTone } from './room-state';
 

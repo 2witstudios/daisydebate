@@ -95,6 +95,7 @@ describe('liveRoundOf before the start', () => {
         self: room?.self,
         opponent: [room?.opponent.side, room?.opponent.bot],
         judge: room?.judge,
+        ballots: room?.ballots,
         names: room?.people.map((p) => `${p.role}:${p.name}:${p.bot}`),
         leaked: JSON.stringify(room).includes('Riley'),
       },
@@ -109,6 +110,7 @@ describe('liveRoundOf before the start', () => {
         },
         opponent: ['neg', { level: null }],
         judge: 'human',
+        ballots: { judge: 'human', ai: null },
         names: [
           'aff:Sam Reyes:false',
           'neg:Practice bot:true',
@@ -272,17 +274,41 @@ describe('liveRoundOf during the round', () => {
   });
 
   test('after the last speech', () => {
+    const closedAt = startOf(rules.length);
     const room = liveRoundOf(
       ran(rules.length, true),
       aff.actorId,
-      origin + startOf(rules.length) + 1_000,
+      origin + closedAt + 60_000,
     );
     assert({
-      given: 'every speech closed and no outcome yet',
+      given: 'every speech closed a minute ago and no outcome yet',
       should:
-        'enter judging with every speech past, no running clock and closed mics',
+        'enter judging with every speech past, the window clock 29 minutes from its end and closed mics',
       actual: [room?.phase, room?.liveIndex, room?.clock, room?.micLive],
-      expected: ['judging', rules.length, null, false],
+      expected: [
+        'judging',
+        rules.length,
+        { label: 'Judging window', remainingMs: 29 * 60_000 },
+        false,
+      ],
+    });
+  });
+
+  test('a final speech that ran out', () => {
+    const room = liveRoundOf(
+      ran(rules.length),
+      aff.actorId,
+      origin + startOf(rules.length) + 120_000,
+    );
+    assert({
+      given:
+        'the last speech’s time expired two minutes ago, its interval still open',
+      should: 'enter judging with the window counted from the scheduled end',
+      actual: [room?.phase, room?.clock],
+      expected: [
+        'judging',
+        { label: 'Judging window', remainingMs: 28 * 60_000 },
+      ],
     });
   });
 });

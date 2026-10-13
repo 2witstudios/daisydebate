@@ -51,6 +51,12 @@ export function chatUnread(round: RoundSnapshot, state: RoomState): number {
   );
 }
 
+/** The transcript is written while the speeches run, complete once they end. */
+const transcriptOf = (round: RoundSnapshot) => {
+  if (!round.transcribing) return null;
+  return round.phase === 'judging' ? 'complete' : 'live';
+};
+
 const tabId = (tab: DrawerTab) => `round-drawer-tab-${tab}`;
 
 function DrawerTabs({
@@ -127,7 +133,7 @@ function DrawerPanel(props: PanelProps) {
           tree={tree}
           active={state.tabs.active}
           dispatch={dispatch}
-          transcriptAvailable={round.transcribing}
+          transcript={transcriptOf(round)}
         />
       );
     case 'chat':

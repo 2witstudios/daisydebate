@@ -2,6 +2,7 @@ import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { sampleRound } from '../mock/debate-room';
+import { DrawerRoom } from './drawer-room';
 import { DebateRoom } from './room';
 import type { RoundSnapshot } from './round';
 
@@ -148,6 +149,106 @@ describe('DebateRoom', () => {
         ),
       ],
       expected: [true, true],
+    });
+  });
+
+  test('the judging window', () => {
+    const html = render('judging', 'ranked');
+    assert({
+      given: 'a ranked round after the last speech, a human judge writing',
+      should:
+        'count down the judging window, list each ballot with its status, keep the judge anonymous and offer Report a problem',
+      actual: [
+        html.includes('role="timer" aria-label="Judging window 24:10"'),
+        html.includes('aria-label="Ballots"'),
+        html.includes('>Judge’s ballot<'),
+        html.includes('>Writing · decides the rating<'),
+        html.includes('>AI ballot<'),
+        html.includes('>Ready · opens with the judge’s<'),
+        html.includes('>Judge present<'),
+        html.includes('>Report a problem<'),
+        html.includes('>Tech issue<'),
+        html.includes('>End speech<'),
+        html.includes('Your prep'),
+      ],
+      expected: [
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        true,
+        false,
+        false,
+        false,
+      ],
+    });
+  });
+
+  test('no ballots outside judging', () => {
+    assert({
+      given: 'the opponent speaking',
+      should: 'show no ballot section',
+      actual: render('opponent-speaking', 'ranked').includes(
+        'aria-label="Ballots"',
+      ),
+      expected: false,
+    });
+  });
+
+  test('the AI judges', () => {
+    const round = sampleRound('judging', 'practice');
+    const html = renderRound({
+      ...round,
+      judge: 'ai',
+      ballots: { judge: 'ai', ai: null },
+    });
+    assert({
+      given: 'a practice round the AI judges, after the last speech',
+      should: 'show the AI judge’s ballot alone, deciding the result',
+      actual: [
+        html.includes('>AI judge’s ballot<'),
+        html.includes('>Writing · decides the result<'),
+        html.includes('>AI ballot<'),
+      ],
+      expected: [true, true, false],
+    });
+  });
+
+  test('the transcript after the last speech', () => {
+    const html = render('judging', 'practice');
+    assert({
+      given: 'the judging window of a transcribed, recorded round',
+      should: 'mark the transcript complete and the recording stopped',
+      actual: [
+        html.includes('● Live'),
+        html.includes('>Complete<'),
+        html.includes('>Rec stopped<'),
+        html.includes('● Rec'),
+      ],
+      expected: [false, true, true, false],
+    });
+  });
+
+  test('the Room tab while the ballots are written', () => {
+    const html = renderToString(
+      h(DrawerRoom, { round: sampleRound('judging', 'practice') }),
+    );
+    assert({
+      given: 'the judging window of a recorded, transcribed round',
+      should:
+        'keep the judge anonymous and writing, and say what was kept and that this room is not',
+      actual: [
+        html.includes('>Judge<'),
+        html.includes('>Writing ballot<'),
+        html.includes('>Saved<'),
+        html.includes('>Complete<'),
+        html.includes('>This room now<'),
+        html.includes('>Not recorded<'),
+      ],
+      expected: [true, true, true, true, true, true],
     });
   });
 
