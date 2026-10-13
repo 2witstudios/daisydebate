@@ -2,8 +2,8 @@ import { z } from 'zod';
 import type { SearchParams } from '../access/decision';
 import { liveHref } from './routes';
 
-/** The phone shows one pane at a time; desktop shows them together. */
-const panes = ['speeches', 'chat', 'about'] as const;
+/** The live column shows one pane at a time: the transcript or the chat. */
+const panes = ['transcript', 'chat'] as const;
 export type SpectatePane = (typeof panes)[number];
 
 /** What the open report dialog is about: the debate or one chat message. */
@@ -17,7 +17,7 @@ export type SpectateQuery = {
 };
 
 export const defaultSpectateQuery: SpectateQuery = {
-  pane: 'speeches',
+  pane: 'transcript',
   report: null,
 };
 

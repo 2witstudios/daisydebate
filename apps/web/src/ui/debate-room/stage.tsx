@@ -73,7 +73,7 @@ function TileCaption({
   );
 }
 
-function Tile({
+export function Tile({
   debater,
   you,
   state,

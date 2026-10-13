@@ -28,20 +28,39 @@ describe('Spectate: live', () => {
   test('header, notice and clock', () => {
     assert({
       given: 'a live debate',
-      should: 'show the title, the delay notice and a static clock',
+      should: 'show the title, the delay, the audience and a static clock',
       actual: [
         html.includes('<h1'),
         html.includes('Top of the ladder'),
-        html.includes('30 s delay'),
         html.includes('03:48'),
         html.includes('142 watching'),
         html.includes('Delayed 30 s'),
+        html.includes('Speech [3]'),
       ],
       expected: [true, true, true, true, true, true],
     });
   });
 
+  test('the speaker large, the other debater inset', () => {
+    assert({
+      given: 'Aff speaking',
+      should:
+        'mark the Aff tile speaking and show Neg without a state, then the seats',
+      actual: [
+        html.includes('aria-label="@debater-a, speaking"'),
+        html.includes('aria-label="@debater-b"'),
+        html.includes('Follow both'),
+        html.includes('Copy link'),
+        html.includes('S3 · now'),
+      ],
+      expected: [true, true, true, true, true],
+    });
+  });
+
   test('every action is a link or a sample action, none disabled', () => {
+    const chat = render(
+      view('top-of-the-ladder', { pane: 'chat', report: null }),
+    );
     assert({
       given: 'the live view',
       should:
@@ -52,27 +71,33 @@ describe('Spectate: live', () => {
         html.includes('href="/watch"'),
         /<input id="chat-draft"/.test(html) &&
           !/<input id="chat-draft"[^>]*disabled/.test(html),
-        (html.match(/href="\?did=/g) ?? []).length >= 5 &&
-          !html.includes('disabled=""'),
+        (chat.match(/href="\?did=/g) ?? []).length >= 6 &&
+          !chat.includes('disabled=""'),
         html.includes('role="dialog"'),
       ],
       expected: [true, true, true, true, false],
     });
   });
 
-  test('phone panes come from the URL', () => {
+  test('the live column pane comes from the URL', () => {
     const chat = render(
       view('top-of-the-ladder', { pane: 'chat', report: null }),
     );
     assert({
-      given: 'the chat pane selected',
-      should: 'hide the speeches pane on the phone and mark the tab current',
+      given: 'the transcript by default, then the chat pane selected',
+      should:
+        'show one pane at a time with its tab current, the composer under both',
       actual: [
-        chat.includes('max-compact:hidden'),
+        html.includes('Speech transcript'),
+        html.includes('Chat messages'),
+        /aria-current="page"[^>]*>Transcript/.test(html),
+        html.includes('href="/watch/top-of-the-ladder?pane=chat"'),
+        chat.includes('Speech transcript'),
+        chat.includes('Chat messages'),
         /aria-current="page"[^>]*>Chat/.test(chat),
-        html.includes('href="/watch/top-of-the-ladder?pane=about"'),
+        html.includes('chat-draft') && chat.includes('chat-draft'),
       ],
-      expected: [true, true, true],
+      expected: [true, false, true, true, false, true, true, true],
     });
   });
 });
@@ -81,7 +106,7 @@ describe('Spectate: report dialog', () => {
   test('open from the URL', () => {
     const html = render(
       view('top-of-the-ladder', {
-        pane: 'speeches',
+        pane: 'transcript',
         report: { kind: 'debate' },
       }),
     );
@@ -152,20 +177,23 @@ describe('Spectate: connection lost', () => {
 describe('Spectate: ended', () => {
   test('ballots pending', () => {
     const html = render(view('evening-round'));
+    const chat = render(view('evening-round', { pane: 'chat', report: null }));
     assert({
       given: 'an ended debate waiting on ballots',
-      should: 'explain, link to the recording, close reactions and chat',
+      should:
+        'say so, link to the recording, show both debaters, close reactions and chat',
       actual: [
+        html.includes('speaking"'),
+        chat.includes('Reactions are closed.'),
         html.includes('This debate has ended.'),
         html.includes('href="/recordings/evening-round"'),
         html.includes('Open the recording'),
-        html.includes('Reactions are closed.'),
         html.includes('Chat closed'),
         html.includes('Final transcript'),
         html.includes('Ballots are being collected'),
         html.includes('03:48'),
       ],
-      expected: [true, true, true, true, true, true, true, false],
+      expected: [false, true, true, true, true, true, true, true, false],
     });
   });
 

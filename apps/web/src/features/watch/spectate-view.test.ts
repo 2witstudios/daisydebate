@@ -62,6 +62,20 @@ describe('buildSpectateView: a live debate', () => {
     });
   });
 
+  test('stage tiles and delay', () => {
+    assert({
+      given: 'debaters with hyphenated and single-word handles',
+      should: 'give each tile its initials and carry the spectator delay',
+      actual: [
+        view.seats.aff.initials,
+        view.seats.neg.initials,
+        viewOf('your-own-debate').seats.aff.initials,
+        view.delaySeconds,
+      ],
+      expected: ['DA', 'DB', 'YO', 30],
+    });
+  });
+
   test('timeline and speeches', () => {
     assert({
       given: 'the turn in progress is the 5th of twelve',
@@ -92,11 +106,11 @@ describe('buildSpectateView: a live debate', () => {
       should: 'name what is reported',
       actual: [
         viewOf('top-of-the-ladder', {
-          pane: 'speeches',
+          pane: 'transcript',
           report: { kind: 'debate' },
         }).reportTarget,
         viewOf('top-of-the-ladder', {
-          pane: 'speeches',
+          pane: 'transcript',
           report: { kind: 'message', id: 'c1' },
         }).reportTarget,
         view.reportTarget,
