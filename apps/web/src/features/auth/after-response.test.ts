@@ -1,6 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { Logger } from '@daisy/logger';
+import { capacityRefusal } from '@daisy/db/testing';
 import { silentLogger } from '../../server/test-loggers.test-support';
 import {
   AFTER_RESPONSE_MAX_QUEUED,
@@ -117,6 +118,29 @@ describe('createAfterResponse', () => {
           'Authentication work after the answer failed',
         ],
       ],
+    });
+  });
+
+  test('leaves a piece of work refused by database capacity to its refusal log', async () => {
+    const logged: unknown[][] = [];
+    const logger: Logger = {
+      log: (...entry) => void logged.push(entry),
+      child: () => logger,
+    };
+    const { defer, around, settled } = createAfterResponse(logger);
+    const refusal = await capacityRefusal();
+    await around(async () =>
+      defer(async () => {
+        throw refusal;
+      }),
+    );
+    await settled();
+    assert({
+      given: 'queued work whose database lane refused it',
+      should:
+        'log nothing more: the lane already logged db.capacity.refused, and nothing is unhandled',
+      actual: logged,
+      expected: [],
     });
   });
 
