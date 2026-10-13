@@ -5,21 +5,15 @@ import {
   ballotSchema,
   isLowPointWin,
   speakerTotal,
-  type BallotCategory,
 } from './ballot';
+import { ballotScoresAt } from './format-fixtures.test-support';
 
 setupRitewayBun();
-
-const allAt = (score: number): Record<BallotCategory, number> =>
-  Object.fromEntries(ballotCategories.map((c) => [c, score])) as Record<
-    BallotCategory,
-    number
-  >;
 
 const valid = {
   rubricVersion: 'speaker-10@1',
   winner: 'affirmative',
-  scores: { affirmative: allAt(4), negative: allAt(3) },
+  scores: { affirmative: ballotScoresAt(4), negative: ballotScoresAt(3) },
   reason: 'The affirmative weighed exclusion against a fine.',
   feedback: { negative: 'Weigh liberty against exclusion.' },
 };
@@ -62,9 +56,12 @@ describe('ballotSchema', () => {
     const refused = [
       { winner: 'draw' },
       {
-        scores: { affirmative: allAt(4), negative: { ...allAt(3), thesis: 6 } },
+        scores: {
+          affirmative: ballotScoresAt(4),
+          negative: { ...ballotScoresAt(3), thesis: 6 },
+        },
       },
-      { scores: { affirmative: allAt(4), negative: { thesis: 3 } } },
+      { scores: { affirmative: ballotScoresAt(4), negative: { thesis: 3 } } },
       { reason: '   ' },
       { reason: 'x'.repeat(601) },
       { feedback: { affirmative: 'x'.repeat(281) } },
@@ -100,7 +97,7 @@ describe('speakerTotal', () => {
     assert({
       given: 'ten scores of 3',
       should: 'total 30',
-      actual: speakerTotal(allAt(3)),
+      actual: speakerTotal(ballotScoresAt(3)),
       expected: 30,
     });
   });
@@ -108,7 +105,10 @@ describe('speakerTotal', () => {
 
 describe('isLowPointWin', () => {
   test('winner scored lower', () => {
-    const scores = { affirmative: allAt(3), negative: allAt(4) };
+    const scores = {
+      affirmative: ballotScoresAt(3),
+      negative: ballotScoresAt(4),
+    };
     assert({
       given: 'a winner whose total is lower than the loser’s',
       should: 'be a low-point win, and not when the other side wins',
@@ -125,8 +125,8 @@ describe('isLowPointWin', () => {
       given: 'equal totals',
       should: 'not be a low-point win',
       actual: isLowPointWin('affirmative', {
-        affirmative: allAt(3),
-        negative: allAt(3),
+        affirmative: ballotScoresAt(3),
+        negative: ballotScoresAt(3),
       }),
       expected: false,
     });
