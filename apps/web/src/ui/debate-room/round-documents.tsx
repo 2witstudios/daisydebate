@@ -48,7 +48,7 @@ export function RoundDocuments({ roundId }: { readonly roundId: string }) {
             tree={buildTree(state.documents, null)}
             active={state.tabs.active}
             dispatch={dispatch}
-            transcriptAvailable={false}
+            transcript={null}
           />
         </div>
         <div className="flex min-w-0 flex-1 flex-col bg-surface-raised">

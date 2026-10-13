@@ -24,6 +24,7 @@ import {
   type LayoutMode,
   type LayoutState,
 } from '../../features/debate-room/layout';
+import { TRANSCRIPT_ID } from '../../features/debate-room/transcript';
 import {
   activateTab,
   loadWorkspaceDocuments,
@@ -135,14 +136,20 @@ const CHAT_MAX_LENGTH = 2000;
 const firstRoundDocument = (round: RoundSnapshot) =>
   round.documents.find((doc) => doc.folder === 'round')?.id ?? null;
 
-export function initialRoomState(round: RoundSnapshot): RoomState {
-  const first = firstRoundDocument(round);
+/** While the ballots are written, the transcript opens first. */
+function initialTabs(round: RoundSnapshot): TabsState {
   const roundDocs = round.documents
     .filter((doc) => doc.folder === 'round')
     .map((doc) => doc.id);
+  if (round.phase === 'judging' && round.transcribing)
+    return { open: [TRANSCRIPT_ID, ...roundDocs], active: TRANSCRIPT_ID };
+  return { open: roundDocs, active: firstRoundDocument(round) };
+}
+
+export function initialRoomState(round: RoundSnapshot): RoomState {
   return {
     layout: initialLayout,
-    tabs: { open: roundDocs, active: first },
+    tabs: initialTabs(round),
     documents: round.documents,
     drawer: 'files',
     drawerOpen: true,

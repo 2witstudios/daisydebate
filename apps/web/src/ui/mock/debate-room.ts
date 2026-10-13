@@ -1,6 +1,7 @@
 import type { CompetitionType } from '@daisy/protocol';
 import type { ChatMessage } from '../../features/debate-room/chat';
 import type { SpeechSlot } from '../../features/debate-room/documents/documents';
+import { judgingClockOf } from '../../features/debate-room/judging';
 import type { RoundPhase } from '../../features/debate-room/layout';
 import type { TranscriptSegment } from '../../features/debate-room/transcript';
 import type { Debater, RoundSnapshot } from '../debate-room/round';
@@ -193,7 +194,7 @@ const phases: Readonly<
   },
   judging: {
     liveIndex: 7,
-    clock: { label: 'Judging window', remainingMs: 1_450_000 },
+    clock: judgingClockOf(0, 350_000),
     micLive: true,
     prepMs: 0,
   },
@@ -217,6 +218,7 @@ export function sampleRound(
       { id: 'u-judge', name: 'Judge', role: 'judge', bot: false },
     ],
     judge: 'human',
+    ballots: { judge: 'human', ai: 'ready' },
     stakes: competition === 'ranked' ? { win: 14, loss: 12 } : null,
     recording: true,
     transcribing: true,

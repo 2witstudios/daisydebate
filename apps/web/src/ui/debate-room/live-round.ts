@@ -3,6 +3,7 @@ import type {
   Side,
   SpeechSlot,
 } from '../../features/debate-room/documents/documents';
+import { judgingBallotsOf } from '../../features/debate-room/judging';
 import { roundKindOf } from '../../features/debate-room/workspace';
 import type { Debater, RoundPerson, RoundSnapshot } from './round';
 
@@ -113,6 +114,7 @@ export function liveRoundOf(
     opponent: debater(opponent),
     people: view.participants.map(person),
     judge: judgeOf(view),
+    ballots: judgingBallotsOf(judgeOf(view)),
     stakes: null,
     recording: false,
     transcribing: false,

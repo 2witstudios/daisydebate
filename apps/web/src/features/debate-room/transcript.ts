@@ -1,6 +1,9 @@
 import { formatClock as formatSeconds } from '../judge/clock';
 import type { SpeechSlot } from './documents/documents';
 
+/** The round's transcript is a file of the round, opened like a document. */
+export const TRANSCRIPT_ID = 'transcript';
+
 export type TranscriptSegment = {
   readonly id: string;
   readonly speechId: string;
