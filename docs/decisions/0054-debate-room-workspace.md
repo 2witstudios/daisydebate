@@ -38,13 +38,13 @@ document. Daisy builds this itself rather than embedding another product.
    height), and Conversation for the judging window (both debaters with the
    human and AI ballot status). The judge never has a tile. A bot opponent
    has no video tile: a persona card with its level, a voice-level meter and
-   live captions in an `aria-live` log. On a phone the drawer tabs become bottom round tabs (Doc,
-   Files, Chat, AI, Room) and the phase action sits above them. After
-   the last speech the room holds the judging window: the window's clock,
-   Report a problem, a Ballots section with each ballot's status, the
-   judge anonymous and writing in the Room tab, and the transcript open
-   first; the deciding ballot completes the round and the debaters move
-   to the receipt.
+   live captions in an `aria-live` log. On a phone the drawer tabs become
+   bottom round tabs (Doc, Files, Chat, AI, Room) and the phase action sits
+   above them. After the last speech the room holds the judging window: the
+   window's clock, Report a problem, a Ballots section with each ballot's
+   status, the judge anonymous and writing in the Room tab, and the
+   transcript open first; the deciding ballot completes the round and the
+   debaters move to the receipt.
 2. **Tiptap 3 (MIT) is the document editor**, in `apps/web` only:
    `@tiptap/react`, `@tiptap/core`, `@tiptap/pm`, `@tiptap/starter-kit`
    and `@tiptap/extension-list`, pinned together. No
