@@ -3,6 +3,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { createId } from '@paralleldrive/cuid2';
 import { withRoomRuntime } from './room-runtime.test-support';
+import { isNamedSeat } from '@daisy/protocol';
 requireTestServices(process.env);
 setupRitewayBun();
 
@@ -58,9 +59,9 @@ test('Room refusals preserve durable state and Ready retries cannot revive withd
         commandId: readyId,
         expectedVersion: view.version,
         type: 'ready' as const,
-        expectedConsentVersion: view.participants.find(
-          (p) => p.actorId === f.guest.actorId,
-        )!.consentVersion,
+        expectedConsentVersion: view.participants
+          .filter(isNamedSeat)
+          .find((p) => p.actorId === f.guest.actorId)!.consentVersion,
       };
     view = (await f.operations.command(f.guest, view.id, ready)).view;
     view = (await f.consent(f.guest, view, 'unready')).view;
@@ -71,8 +72,9 @@ test('Room refusals preserve durable state and Ready retries cannot revive withd
       should: 'replay its receipt without restoring consent or writing',
       actual: [
         replay.receipt.replayed,
-        replay.view.participants.find((p) => p.actorId === f.guest.actorId)!
-          .ready,
+        replay.view.participants
+          .filter(isNamedSeat)
+          .find((p) => p.actorId === f.guest.actorId)!.ready,
         await f.snapshot(view.id),
       ],
       expected: [true, 'not-ready', withdrawn],

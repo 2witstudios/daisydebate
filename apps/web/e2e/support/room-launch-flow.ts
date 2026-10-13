@@ -1,6 +1,7 @@
 import { launchEvidence } from './room-launch-evidence';
 import type { APIRequestContext, Page } from '@playwright/test';
 import {
+  isNamedSeat,
   roomCastChoiceSchema,
   roomViewSchema,
   type RoomView,
@@ -77,12 +78,14 @@ export async function claim(page: Page, view: RoomView, seat: string) {
   await expect(async () => {
     view = await reread(page.request, view.id);
     expect(
-      view.participants.some(
-        (participant) =>
-          participant.kind === 'human' &&
-          participant.role === role &&
-          participant.slot === Number(number) - 1,
-      ),
+      view.participants
+        .filter(isNamedSeat)
+        .some(
+          (participant) =>
+            participant.kind === 'human' &&
+            participant.role === role &&
+            participant.slot === Number(number) - 1,
+        ),
     ).toBe(true);
   }).toPass({ timeout: 10_000 });
   return view;
@@ -132,12 +135,14 @@ export async function prepareRoomAs(
     await expect(async () => {
       view = await reread(page.request, view.id);
       expect(
-        view.participants.some(
-          (participant) =>
-            participant.actorId === eligible[index]!.actorId &&
-            participant.role === seatRole[seat] &&
-            participant.slot === 0,
-        ),
+        view.participants
+          .filter(isNamedSeat)
+          .some(
+            (participant) =>
+              participant.actorId === eligible[index]!.actorId &&
+              participant.role === seatRole[seat] &&
+              participant.slot === 0,
+          ),
       ).toBe(true);
     }).toPass({ timeout: 10_000 });
     await expect(
@@ -160,7 +165,10 @@ export async function assertFrozenLaunch(view: RoomView) {
       topic: view.topic,
       config: view.config,
       rules: view.rules,
-      cast: view.participants.map((participant) => participant.actorId).sort(),
+      cast: view.participants
+        .filter(isNamedSeat)
+        .map((participant) => participant.actorId)
+        .sort(),
     },
   ]);
   expect(proof.launchDoorbells).toBe(1);

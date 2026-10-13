@@ -1,4 +1,4 @@
-import { formatSeatsSchema } from '@daisy/protocol';
+import { isNamedSeat, formatSeatsSchema } from '@daisy/protocol';
 import type { RoomView } from '@daisy/protocol';
 
 type Role = RoomView['participants'][number]['role'];
@@ -45,7 +45,9 @@ export function readinessControl(
   enabled: boolean;
   reason: string | null;
 } | null {
-  const own = view.participants.find((seat) => seat.actorId === actorId);
+  const own = view.participants
+    .filter(isNamedSeat)
+    .find((seat) => seat.actorId === actorId);
   if (!own || own.kind === 'bot' || !own.needsReady) return null;
   if (local.unreadyPending)
     return {

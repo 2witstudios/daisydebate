@@ -5,6 +5,7 @@ import {
   type FormatDefinition,
 } from './format';
 import {
+  fixtureRules,
   invalidFormatDefinitions,
   unsafeFormatDefinitions,
   practiceFormatFixture,
@@ -21,18 +22,6 @@ test('custom format admission rejects invalid seats, defaults, bounds and unused
     ),
     expected: [false, false, false, false],
   });
-});
-
-const fixtureRules = (definition: FormatDefinition) => ({
-  version: 2,
-  seats: definition.seats,
-  segments: definition.segments.map(({ defaultDurationMs, ...s }) => ({
-    ...s,
-    durationMs: defaultDurationMs,
-  })),
-  inRoundPrep: null,
-  countdownMs: 0,
-  interaction: { crossExMode: 'ordered', yield: null, interruptions: null },
 });
 
 const refusalPaths = [

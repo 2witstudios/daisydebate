@@ -1,7 +1,10 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type { RoundView } from '@daisy/protocol';
-import { round as launched } from '../../features/room-runtime/operations.test-support';
-import { debaterView, isLiveDebater, liveRoundOf } from './live-round';
+import { emptyRuntimeCheckpoint, type RoundView } from '@daisy/protocol';
+import {
+  launched,
+  round,
+} from '../../features/room-runtime/operations.test-support';
+import { isLiveDebater, liveRoundOf } from './live-round';
 
 setupRitewayBun();
 
@@ -22,9 +25,14 @@ const judge = {
   role: 'judge',
   slot: 0,
 } as const;
+/** What a debater receives: the human judge's seat is anonymous at the source. */
 const view: RoundView = {
-  ...launched,
-  participants: [{ ...aff, label: 'Sam Reyes' }, neg, judge],
+  ...round,
+  participants: [
+    { ...aff, label: 'Sam Reyes' },
+    neg,
+    { role: 'judge', kind: 'human', slot: 0, anonymous: true },
+  ],
 };
 const rules = view.rules.segments;
 const origin = Date.parse('2026-10-12T18:00:00.000Z');
@@ -64,20 +72,6 @@ describe('isLiveDebater', () => {
         isLiveDebater({ ...view, status: 'abandoned' }, aff.actorId),
       ],
       expected: [true, false, false, false, false],
-    });
-  });
-});
-
-describe('debaterView', () => {
-  test('the judge stays anonymous', () => {
-    assert({
-      given: 'a round with a named human judge',
-      should: 'send the debater no judge name and keep the debaters’ names',
-      actual: [
-        JSON.stringify(debaterView(view)).includes('Riley'),
-        debaterView(view).participants.map((p) => p.label),
-      ],
-      expected: [false, ['Sam Reyes', 'Practice bot', '']],
     });
   });
 });
@@ -244,7 +238,7 @@ describe('liveRoundOf during the round', () => {
     const prepping: RoundView = {
       ...ran(4, true),
       checkpoint: {
-        ...view.checkpoint,
+        ...emptyRuntimeCheckpoint,
         active_prep: { side: 'affirmative', started_at: at(startOf(4)) },
       },
     };
@@ -309,6 +303,21 @@ describe('liveRoundOf during the round', () => {
         'judging',
         { label: 'Judging window', remainingMs: 28 * 60_000 },
       ],
+    });
+  });
+
+  test('an unreadable checkpoint', () => {
+    const room = liveRoundOf(
+      { ...ran(1), checkpoint: null },
+      aff.actorId,
+      origin + startOf(0) + 60_000,
+    );
+    assert({
+      given: 'an active round whose stored checkpoint could not be read',
+      should:
+        'still open the room, waiting with nothing lit, no clock and no prep, rather than guess',
+      actual: [room?.phase, room?.liveIndex, room?.clock, room?.prepMs],
+      expected: ['waiting', -1, null, null],
     });
   });
 });

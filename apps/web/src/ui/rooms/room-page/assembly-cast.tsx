@@ -1,7 +1,11 @@
 import { AssemblyCommandForm } from './assembly-command-form';
 import type { MockFormState } from '../../../features/mock-form/form';
 import type { FormAction } from '../../form-action/form-action';
-import type { RoomCastChoice, RoomView } from '@daisy/protocol';
+import {
+  isNamedSeat,
+  type RoomCastChoice,
+  type RoomView,
+} from '@daisy/protocol';
 import { declaredSeats, seatLabel } from './assembly-controls';
 import { AssemblyCommandFields } from './assembly-command-fields';
 import { buttonClass } from '../../components/button/button-class';
@@ -39,7 +43,9 @@ function SeatActions({
     ...new Map(
       [
         props.viewer,
-        ...view.participants.filter((member) => member.kind === 'human'),
+        ...view.participants
+          .filter(isNamedSeat)
+          .filter((member) => member.kind === 'human'),
       ].map((member) => [member.actorId, member]),
     ).values(),
   ];
@@ -86,7 +92,7 @@ function SeatActions({
           </button>
         </AssemblyCommandForm>
       ) : null}
-      {view.capabilities.host && occupant ? (
+      {view.capabilities.host && occupant && isNamedSeat(occupant) ? (
         <AssemblyCommandForm action={action}>
           <AssemblyCommandFields
             type="remove-seat"

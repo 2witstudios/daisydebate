@@ -5,10 +5,7 @@ import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import type { SearchParams } from '../../../../../features/access/decision';
 import { requireAccess } from '../../../../../lib/access';
-import {
-  debaterView,
-  isLiveDebater,
-} from '../../../../../ui/debate-room/live-round';
+import { isLiveDebater } from '../../../../../ui/debate-room/live-round';
 import { LiveRoundRoom } from '../../../../../ui/debate-room/live-round-room';
 import { readPersistedRound } from '../../../../(shell)/rounds/[id]/actions';
 
@@ -35,7 +32,7 @@ export default async function RoundRoomPage({
   const here = `/rounds/${id}/room`;
   return (
     <LiveRoundRoom
-      view={debaterView(result.round)}
+      view={result.round}
       actorId={actorId}
       renderedAtMs={Date.parse(systemClock.now())}
       leave={{

@@ -2,6 +2,7 @@ import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
 import {
+  isNamedSeat,
   roomViewSchema,
   roomCatalogChoiceSchema,
   roundViewSchema,
@@ -157,20 +158,20 @@ test('real authenticated HTTP and native-form transport share principal, origin,
       slot: 0,
     });
     const hostActor = view.hostActorId,
-      guestActor = view.participants.find(
-        (p) => p.actorId !== hostActor,
-      )!.actorId;
+      guestActor = view.participants
+        .filter(isNamedSeat)
+        .find((p) => p.actorId !== hostActor)!.actorId;
     view = await command(host, view, {
       type: 'ready',
-      expectedConsentVersion: view.participants.find(
-        (p) => p.actorId === hostActor,
-      )!.consentVersion,
+      expectedConsentVersion: view.participants
+        .filter(isNamedSeat)
+        .find((p) => p.actorId === hostActor)!.consentVersion,
     });
     view = await command(guest, view, {
       type: 'ready',
-      expectedConsentVersion: view.participants.find(
-        (p) => p.actorId === guestActor,
-      )!.consentVersion,
+      expectedConsentVersion: view.participants
+        .filter(isNamedSeat)
+        .find((p) => p.actorId === guestActor)!.consentVersion,
     });
     const before = await routes.rooms.read(
       new Request(`${f.origin}/api/rooms/${roomId}`, {
@@ -214,7 +215,10 @@ test('real authenticated HTTP and native-form transport share principal, origin,
         round.startedAt,
         round.topic,
         round.config,
-        round.participants.map((p) => p.actorId).sort(),
+        round.participants
+          .filter(isNamedSeat)
+          .map((p) => p.actorId)
+          .sort(),
       ],
       expected: [
         200,

@@ -3,6 +3,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 
 import { withRoomRuntime } from './room-runtime.test-support';
+import { isNamedSeat } from '@daisy/protocol';
 requireTestServices(process.env);
 setupRitewayBun();
 
@@ -143,9 +144,9 @@ test('custom unequal casts and ordered timing freeze alongside canonical quota a
       view = (
         await f.command(who, view, {
           type: 'ready',
-          expectedConsentVersion: view.participants.find(
-            (p) => p.actorId === who.actorId,
-          )!.consentVersion,
+          expectedConsentVersion: view.participants
+            .filter(isNamedSeat)
+            .find((p) => p.actorId === who.actorId)!.consentVersion,
         })
       ).view;
     const joined = await f.operations.list(f.guest, { pageSize: 20, q: '' });
@@ -169,7 +170,9 @@ test('custom unequal casts and ordered timing freeze alongside canonical quota a
         round.rules.segments.map((s) => [s.key, s.side, s.slot, s.durationMs]),
         round.config,
         round.participants.length,
-        round.participants.find((p) => p.actorId === judge.actorId)?.kind,
+        round.participants
+          .filter(isNamedSeat)
+          .find((p) => p.actorId === judge.actorId)?.kind,
         round.visibility,
       ],
       expected: [

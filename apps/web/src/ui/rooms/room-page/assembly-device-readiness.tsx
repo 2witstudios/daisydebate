@@ -11,7 +11,7 @@ import {
   type ReactNode,
 } from 'react';
 import { systemId } from '@daisy/clock';
-import type { RoomView } from '@daisy/protocol';
+import { isNamedSeat, type RoomView } from '@daisy/protocol';
 import { createLocalConsent } from '../../../features/rooms/local-consent';
 import { createBrowserDeviceChecks } from '../../../features/video/browser-device-checks';
 import type { DeviceKind } from '../../../features/video/device-check-controller';
@@ -99,9 +99,9 @@ function LiveDevices({
       setInputs([]);
     }
   };
-  const own = props.view.participants.find(
-    (seat) => seat.actorId === props.actorId,
-  );
+  const own = props.view.participants
+    .filter(isNamedSeat)
+    .find((seat) => seat.actorId === props.actorId);
   return (
     <GatheringLayout
       props={props}
@@ -152,7 +152,9 @@ function LiveDevices({
 
 /** SSR remains failclosed for human devices; judge native forms need no JS. */
 export function AssemblyDeviceReadiness(props: Props) {
-  const own = props.view.participants.find((p) => p.actorId === props.actorId);
+  const own = props.view.participants
+    .filter(isNamedSeat)
+    .find((p) => p.actorId === props.actorId);
   const needsDevices = own?.kind === 'human' && own.role !== 'judge';
   const latest = useRef(props);
   useEffect(() => {

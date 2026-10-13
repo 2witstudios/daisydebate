@@ -218,11 +218,11 @@ test('Round read returns only the stored receipt and current participant identit
     actual: [
       view.topic,
       view.status,
-      view.participants.map((participant) => [
-        participant.actorId,
-        participant.label,
-        participant.role,
-      ]),
+      view.participants.map((participant) =>
+        'anonymous' in participant
+          ? []
+          : [participant.actorId, participant.label, participant.role],
+      ),
     ],
     expected: [
       room.topic,

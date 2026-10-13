@@ -1,7 +1,7 @@
 import { fixedIds } from '@daisy/clock';
 import type { AccountAuthorizationFact } from '@daisy/auth/authorization';
 import { createAppError } from '@daisy/errors';
-import type { RoomCreate, RoundView } from '@daisy/protocol';
+import type { LaunchedRound, RoomCreate } from '@daisy/protocol';
 import { oneOnOneFullConfig } from '@daisy/db/reference-formats';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createRoomRuntimeOperations, type Store } from './operations';
@@ -10,6 +10,7 @@ import {
   caller,
   makeOperations,
   now,
+  launched,
   round,
   state,
 } from './operations.test-support';
@@ -68,10 +69,16 @@ test('Room runtime distinguishes Redis consent loss and authorizes the canonical
     readLaunchedRound: async (
       _id: string,
       _caller: typeof caller,
-      authorize: (view: RoundView, fact: AccountAuthorizationFact) => boolean,
+      authorize: (
+        candidate: LaunchedRound,
+        fact: AccountAuthorizationFact,
+      ) => boolean,
     ) => {
       if (
-        !authorize({ ...round, hostActorId: null, participants: [] }, account)
+        !authorize(
+          { ...launched, hostActorId: null, participants: [] },
+          account,
+        )
       )
         throw createAppError('NOT_FOUND');
       return round;

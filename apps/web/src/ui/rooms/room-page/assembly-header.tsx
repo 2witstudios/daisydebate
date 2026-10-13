@@ -1,4 +1,4 @@
-import type { RoomView } from '@daisy/protocol';
+import { isNamedSeat, type RoomView } from '@daisy/protocol';
 import Link from 'next/link';
 import type { MockFormState } from '../../../features/mock-form/form';
 import type { FormAction } from '../../form-action/form-action';
@@ -29,7 +29,9 @@ export function AssemblyHeader({
   readonly commandAction: FormAction<MockFormState>;
 }) {
   const [status, shape, competition] = roomChips(view);
-  const seated = view.participants.some((seat) => seat.actorId === actorId);
+  const seated = view.participants
+    .filter(isNamedSeat)
+    .some((seat) => seat.actorId === actorId);
   return (
     <header className="flex flex-col gap-3">
       <Link
