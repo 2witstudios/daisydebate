@@ -1,7 +1,11 @@
 # 0054: the debater's round room and its document editor
 
 Status: accepted (owner request, 2026-10-05; design
-[Debate Room](https://claude.ai/artifact/Y32dLCZuXTwyruTfQFoUFn)). Extends
+[Debate Room](https://claude.ai/artifact/Y32dLCZuXTwyruTfQFoUFn)). Amended
+2026-10-12 (owner-approved redesign, design
+[Daisy Room Redesign](https://claude.ai/artifact/TStKrFHBxGakPERdMwwYey),
+Proposal page): round bar and one drawer, speaker-primary video, voice-only
+bots. Extends
 [ADR 0028](0028-tailwind-v4.md) and [ADR 0045](0045-daisy-brand-system.md)
 for two narrow styling cases.
 
@@ -27,9 +31,14 @@ document. Daisy builds this itself rather than embedding another product.
    the phase action, Tech issue and the layout menu) and the tabbed
    document. There is no Mute: the server controls the mics. Only the
    video resizes, by one divider; a manual resize pins the layout, and
-   Auto picks a preset from the round phase (Split while the opponent
-   speaks, Stage for cross-examination, Focus for prep and one's own
-   speech). On a phone the drawer tabs become bottom round tabs (Doc,
+   Auto picks a preset from the round phase: Speaker while the opponent
+   speaks (the speaker large, oneself small, with the next speeches beside
+   it), Stage for cross-examination (equal Asking and Answering tiles),
+   Focus for prep and one's own speech (small tiles, the document takes the
+   height), and Conversation for the judging window (both debaters with the
+   human and AI ballot status). The judge never has a tile. A bot opponent
+   has no video tile: a persona card with its level, a voice-level meter and
+   live captions in an `aria-live` log. On a phone the drawer tabs become bottom round tabs (Doc,
    Files, Chat, AI, Room) and the phase action sits above them.
 2. **Tiptap 3 (MIT) is the document editor**, in `apps/web` only:
    `@tiptap/react`, `@tiptap/core`, `@tiptap/pm`, `@tiptap/starter-kit`
