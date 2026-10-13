@@ -123,10 +123,8 @@ export const normalizeRoundClock = (input: {
         'An open segment row is followed by another row',
       );
   });
-  // Jitless: the browser's nonce CSP refuses Zod's Function() probe.
   const checkpoint = runtimeCheckpointSchema.parse(
     input.checkpoint ?? emptyRuntimeCheckpoint,
-    { jitless: true },
   );
   if (
     checkpoint.active_prep !== null &&

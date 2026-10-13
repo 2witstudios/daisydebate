@@ -1,5 +1,6 @@
 'use client';
 
+import './zod-jitless';
 import { useEffect, useMemo, useState } from 'react';
 import { systemClock } from '@daisy/clock';
 import type { RoundView } from '@daisy/protocol';
