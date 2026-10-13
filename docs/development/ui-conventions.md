@@ -167,6 +167,16 @@ human judge appears only as `Judge present`; the judge's name never
 reaches the debaters' browsers. Only the video resizes. Controls with no
 backend are shown disabled, never faked.
 
+After the last speech the room is in its judging window (30 minutes,
+ADR 0053): the clock counts the window down, the controls offer Report a
+problem instead of Tech issue, a Ballots section lists each ballot with its
+status (the deciding ballot `Writing`, any AI ballot beside a human judge
+`Ready` or `Writing`), the Room tab lists the judge as `Judge · Writing
+ballot`, and the document opens on the completed transcript. The judge's
+ballot completes the round (DEC-80), so the room's refresh hands the
+debaters to the receipt at `/rounds/[id]`, which shows the result and keeps
+a human judge's seat unnamed.
+
 ## Spectator view
 
 The audience's view of a debate (`/watch/[debateId]`) stays inside the app

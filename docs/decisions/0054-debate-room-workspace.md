@@ -30,7 +30,12 @@ document. Daisy builds this itself rather than embedding another product.
    Auto picks a preset from the round phase (Split while the opponent
    speaks, Stage for cross-examination, Focus for prep and one's own
    speech). On a phone the drawer tabs become bottom round tabs (Doc,
-   Files, Chat, AI, Room) and the phase action sits above them.
+   Files, Chat, AI, Room) and the phase action sits above them. After
+   the last speech the room holds the judging window: the window's clock,
+   Report a problem, a Ballots section with each ballot's status, the
+   judge anonymous and writing in the Room tab, and the transcript open
+   first; the deciding ballot completes the round and the debaters move
+   to the receipt.
 2. **Tiptap 3 (MIT) is the document editor**, in `apps/web` only:
    `@tiptap/react`, `@tiptap/core`, `@tiptap/pm`, `@tiptap/starter-kit`
    and `@tiptap/extension-list`, pinned together. No
