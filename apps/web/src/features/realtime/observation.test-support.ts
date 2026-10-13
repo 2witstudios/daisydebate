@@ -7,6 +7,7 @@ import {
   observationTestResource,
 } from '@daisy/protocol/observation-testing';
 import type { Scheduler } from './connection-types';
+import { createObservationSubscriptions } from './observation-subscriptions';
 
 type Frame<T extends ObservationServerMessage['type']> = Extract<
   ObservationServerMessage,
@@ -67,4 +68,13 @@ export function testTimers(now: () => number = () => 0) {
       for (const callback of [...timers.values()]) callback();
     },
   };
+}
+/** Subscriptions that record every request sent on the tab socket. */
+export function recordingSubscriptions() {
+  const sent: { id: string }[] = [];
+  const subscriptions = createObservationSubscriptions({
+    now: () => 0,
+    send: (frame) => sent.push(frame as { id: string }),
+  });
+  return { subscriptions, sent };
 }

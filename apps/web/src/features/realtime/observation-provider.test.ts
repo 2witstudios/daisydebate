@@ -1,11 +1,11 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createObservationProvider } from './observation-provider';
-import { createObservationSubscriptions } from './observation-subscriptions';
 import type { ObservationServerMessage } from '@daisy/protocol';
 import {
   readyFrame,
   snapshotFrame,
   testDescriptor,
+  recordingSubscriptions,
   testTimers,
 } from './observation.test-support';
 setupRitewayBun();
@@ -102,11 +102,7 @@ test('provider owns one connection, reference counts and final deadline hiding',
 });
 
 test('correlated reconnect can install a lower generation from a new server incarnation', () => {
-  const sent: { id: string }[] = [];
-  const subscriptions = createObservationSubscriptions({
-    now: () => 0,
-    send: (frame) => sent.push(frame as { id: string }),
-  });
+  const { subscriptions, sent } = recordingSubscriptions();
   const provider = createObservationProvider({
     connection: {
       connect: () => {},

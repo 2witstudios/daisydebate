@@ -17,6 +17,15 @@ async function reactTo(page: Page, text: string) {
     .click();
   await page.getByRole('button', { name: 'React 👍', exact: true }).click();
 }
+/** Observation frame summary, readable when a delivery assertion fails. */
+const observationLog = (frames: readonly ServerMessage[]) =>
+  frames
+    .filter((frame) => frame.type.startsWith('observation.'))
+    .map((frame) =>
+      frame.type === 'observation.state'
+        ? `${frame.type}:${frame.state}`
+        : frame.type,
+    );
 /** Records every socket frame and every page/RSC refetch the page makes. */
 function observeTraffic(page: Page) {
   const frames: ServerMessage[] = [];
@@ -56,10 +65,8 @@ export async function proveSnapshotDelivery(journey: Journey) {
   const traffic = observeTraffic(sender);
   await sender.goto(`/messages/${journey.channelId}`);
   await expect
-    .poll(() =>
-      traffic.frames.some((frame) => frame.type === 'observation.snapshot'),
-    )
-    .toBe(true);
+    .poll(() => observationLog(traffic.frames), { timeout: 10_000 })
+    .toContain('observation.snapshot');
   await proveNativeTyping(
     sender,
     recipient,
@@ -137,10 +144,8 @@ export async function proveLiveReactions(journey: Journey) {
     .click();
   const reactions = sender.getByRole('list', { name: 'Current reactions' });
   await expect
-    .poll(() =>
-      traffic.frames.some((frame) => frame.type === 'observation.snapshot'),
-    )
-    .toBe(true);
+    .poll(() => observationLog(traffic.frames), { timeout: 10_000 })
+    .toContain('observation.snapshot');
   traffic.refetches.length = 0;
   await reactTo(recipient, text);
   await expect(reactions).toContainText('👍 · 1');

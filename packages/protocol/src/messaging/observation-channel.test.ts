@@ -108,6 +108,16 @@ test('channel projection maps restricted rows into the shared body', () => {
 });
 test('channel projection refuses incoherent producer output', () => {
   const ok = { base, header, rows: [row(5), row(4)], continuation: 4 };
+  /** A window whose newest message carries these reaction counts. */
+  const reacted = (counts: [string, number][]) => ({
+    ...ok,
+    rows: [
+      row(5, {
+        reactions: counts.map(([reaction, count]) => ({ reaction, count })),
+      }),
+      row(4),
+    ],
+  });
   const cases = [
     { ...ok, continuation: 5 },
     { ...ok, continuation: 'd'.repeat(24) },
@@ -118,47 +128,12 @@ test('channel projection refuses incoherent producer output', () => {
     { ...ok, rows: [row(5, { channelId: 'd'.repeat(24) }), row(4)] },
     { ...ok, rows: [row(5, { commandId: 'private' }), row(4)] },
     { ...ok, rows: [row(5, { text: 'x'.repeat(101) }), row(4)] },
-    {
-      ...ok,
-      rows: [
-        row(5, {
-          reactions: [
-            { reaction: 'up', count: 1 },
-            { reaction: 'up', count: 1 },
-          ],
-        }),
-        row(4),
-      ],
-    },
-    {
-      ...ok,
-      rows: [
-        row(5, {
-          reactions: [
-            { reaction: 'b', count: 1 },
-            { reaction: 'a', count: 1 },
-          ],
-        }),
-        row(4),
-      ],
-    },
-    {
-      ...ok,
-      rows: [
-        row(5, {
-          reactions: [
-            { reaction: 'a', count: 1 },
-            { reaction: 'b', count: 1 },
-            { reaction: 'a', count: 1 },
-          ],
-        }),
-        row(4),
-      ],
-    },
-    {
-      ...ok,
-      rows: [row(5, { reactions: [{ reaction: 'up', count: 0 }] }), row(4)],
-    },
+    ...[
+      ['up', 'up'],
+      ['b', 'a'],
+      ['a', 'b', 'a'],
+    ].map((order) => reacted(order.map((reaction) => [reaction, 1]))),
+    reacted([['up', 0]]),
     { ...ok, header: { ...header, disclosureRevision: 4 } },
     {
       ...ok,
