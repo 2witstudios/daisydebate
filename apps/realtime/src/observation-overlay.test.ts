@@ -14,26 +14,22 @@ test('actor overlays travel with ready and refresh only from canonical reads', a
   tab.connection.observe(request);
   oversized.connection.observe(request);
   await fixture.flush();
-  fixture.admits[0]!.resolve([
-    fixture.allowed(base(), dependencies, { own: ['first'] }),
+  // The tab's canonical overlay beside an oversized one for the other session.
+  const pair = (own: string) => [
+    fixture.allowed(base(), dependencies, { own: [own] }),
     fixture.allowed(base(), dependencies, { text: 'x'.repeat(70_000) }),
-  ]);
+  ];
+  fixture.admits[0]!.resolve(pair('first'));
   await fixture.flush();
   fixture.advance(2500);
   fixture.sessions.renewDue();
   await fixture.flush();
-  fixture.renews[0]!.resolve([
-    fixture.allowed(base(), dependencies, { own: ['first'] }),
-    fixture.allowed(base(), dependencies, { text: 'x'.repeat(70_000) }),
-  ]);
+  fixture.renews[0]!.resolve(pair('first'));
   await fixture.flush();
   fixture.advance(2500);
   fixture.sessions.renewDue();
   await fixture.flush();
-  fixture.renews[1]!.resolve([
-    fixture.allowed(base(), dependencies, { own: ['second'] }),
-    fixture.allowed(base(), dependencies, { text: 'x'.repeat(70_000) }),
-  ]);
+  fixture.renews[1]!.resolve(pair('second'));
   await fixture.flush();
   assert({
     given:

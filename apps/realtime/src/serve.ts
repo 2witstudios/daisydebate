@@ -72,7 +72,9 @@ function composeObservation({
   const authority = resources.database.observationAuthority(
     createObservationAuthorityDecision(readingPolicy ? { readingPolicy } : {}),
   );
-  return createObservationSupervisor({
+  return createObservationSupervisor<
+    ReturnType<typeof createObservationRuntime>
+  >({
     onRestart,
     unavailable: (_principal, outbound) => ({
       observe(request) {

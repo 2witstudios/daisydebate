@@ -113,7 +113,9 @@ const projectionDatabase = createDatabase({
 });
 const resources = createRealtimeApp({
   database: runtimeDatabase,
-  env: process.env,
+  // The fixture injects its own restricted projection pool below; the slot's
+  // local OBSERVATION_DATABASE_URL is not a production credential.
+  env: { ...process.env, OBSERVATION_DATABASE_URL: undefined },
   clock: systemClock,
   ids: systemId,
 });

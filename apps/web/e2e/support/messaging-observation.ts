@@ -9,6 +9,14 @@ import {
 } from './messaging-journey';
 
 type Journey = Awaited<ReturnType<typeof openMessagingJourney>>;
+/** Opens a message's reactions from the conversation and adds 👍. */
+async function reactTo(page: Page, text: string) {
+  await messageInHistory(page, text)
+    .locator('xpath=ancestor::li')
+    .getByRole('link', { name: 'Reactions', exact: true })
+    .click();
+  await page.getByRole('button', { name: 'React 👍', exact: true }).click();
+}
 /** Records every socket frame and every page/RSC refetch the page makes. */
 function observeTraffic(page: Page) {
   const frames: ServerMessage[] = [];
@@ -93,13 +101,7 @@ export async function proveDraftAndRevocation(journey: Journey) {
   const before = snapshots();
   // A reaction to the edited message changes the edit page's own window.
   await recipient.goto(`/messages/${journey.channelId}`);
-  await messageInHistory(recipient, own)
-    .locator('xpath=ancestor::li')
-    .getByRole('link', { name: 'Reactions', exact: true })
-    .click();
-  await recipient
-    .getByRole('button', { name: 'React 👍', exact: true })
-    .click();
+  await reactTo(recipient, own);
   await expect.poll(snapshots).toBeGreaterThan(before);
   await expect(sender.getByLabel('Revise your message')).toHaveValue(draft);
   const other = await openPage(journey.sender, 'the signing-out tab');
@@ -140,13 +142,7 @@ export async function proveLiveReactions(journey: Journey) {
     )
     .toBe(true);
   traffic.refetches.length = 0;
-  await messageInHistory(recipient, text)
-    .locator('xpath=ancestor::li')
-    .getByRole('link', { name: 'Reactions', exact: true })
-    .click();
-  await recipient
-    .getByRole('button', { name: 'React 👍', exact: true })
-    .click();
+  await reactTo(recipient, text);
   await expect(reactions).toContainText('👍 · 1');
   await expect(reactions).not.toContainText('You reacted');
   expect(traffic.refetches).toEqual([]);
