@@ -55,6 +55,30 @@ function validateScope(input: Scope, additional: readonly string[]) {
     if (!idSchema.safeParse(id).success) throw createAppError('VALIDATION');
 }
 
+async function readChannelFact(tx: AuthorizationTransaction, input: Scope) {
+  const fact = await readMessagingChannelFact(
+    tx,
+    input.channelId,
+    input.actorId,
+  );
+  if (!fact) throw createAppError('NOT_FOUND');
+  return fact;
+}
+/** Rereads the fact after the fences waited; a changed cast throws `changed()`. */
+async function rereadSameCast(
+  tx: AuthorizationTransaction,
+  input: Scope,
+  discovered: Awaited<ReturnType<typeof readChannelFact>>,
+  changed: () => Error,
+) {
+  const fact = await readChannelFact(tx, input);
+  if (
+    JSON.stringify(actorIdsOf(discovered, input.actorId)) !==
+    JSON.stringify(actorIdsOf(fact, input.actorId))
+  )
+    throw changed();
+  return fact;
+}
 /** Authority only: canonical accounts -> pair -> id-only channel lock -> fresh cast/facts. */
 export async function withLockedMessagingAuthority<T>(
   tx: AuthorizationTransaction,
@@ -67,12 +91,7 @@ export async function withLockedMessagingAuthority<T>(
 ): Promise<T> {
   const additional = extension?.additionalActors ?? [];
   validateScope(input, additional);
-  const discovered = await readMessagingChannelFact(
-    tx,
-    input.channelId,
-    input.actorId,
-  );
-  if (!discovered) throw createAppError('NOT_FOUND');
+  const discovered = await readChannelFact(tx, input);
   const actors = actorIdsOf(discovered, input.actorId, additional);
   const accounts = await lockAuthorizationActors(tx, actors, {
     maxActors: 65535,
@@ -81,17 +100,9 @@ export async function withLockedMessagingAuthority<T>(
     await extension.beforeChannel({ tx, fact: discovered, accounts });
   if (!(await lockChannel(tx, input.channelId, discovered.authority)))
     throw createAppError('NOT_FOUND');
-  const fact = await readMessagingChannelFact(
-    tx,
-    input.channelId,
-    input.actorId,
+  const fact = await rereadSameCast(tx, input, discovered, () =>
+    createAppError('CONFLICT'),
   );
-  if (!fact) throw createAppError('NOT_FOUND');
-  if (
-    JSON.stringify(actorIdsOf(discovered, input.actorId)) !==
-    JSON.stringify(actorIdsOf(fact, input.actorId))
-  )
-    throw createAppError('CONFLICT');
   return work({ tx, fact, accounts });
 }
 /** Public database factory binds its pool; the consumer evaluates policy in this same tx. */
@@ -116,12 +127,7 @@ export async function withSharedMessagingAuthority<T>(
   work: (frame: AuthorityFrame) => Promise<T>,
 ): Promise<T> {
   validateScope(input, []);
-  const discovered = await readMessagingChannelFact(
-    tx,
-    input.channelId,
-    input.actorId,
-  );
-  if (!discovered) throw createAppError('NOT_FOUND');
+  const discovered = await readChannelFact(tx, input);
   const accounts = await readAuthorizationActors(
     tx,
     actorIdsOf(discovered, input.actorId),
@@ -132,16 +138,11 @@ export async function withSharedMessagingAuthority<T>(
     sql`select resource_id as id from public.daisy_observation_authority_fences(${JSON.stringify([{ kind: 'channel', id: input.channelId }])}::text::jsonb,${JSON.stringify(pair ? [{ low: pair.lowActorId, high: pair.highActorId }] : [])}::text::jsonb)`,
   );
   if (fenced[0]?.id !== input.channelId) throw createAppError('NOT_FOUND');
-  const fact = await readMessagingChannelFact(
+  const fact = await rereadSameCast(
     tx,
-    input.channelId,
-    input.actorId,
+    input,
+    discovered,
+    () => new MessagingCastChanged(),
   );
-  if (!fact) throw createAppError('NOT_FOUND');
-  if (
-    JSON.stringify(actorIdsOf(discovered, input.actorId)) !==
-    JSON.stringify(actorIdsOf(fact, input.actorId))
-  )
-    throw new MessagingCastChanged();
   return work({ tx, fact, accounts });
 }
