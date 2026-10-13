@@ -53,10 +53,7 @@ export function LibraryPreview({ preview }: { readonly preview: Preview }) {
             Share
           </Link>
         ) : (
-          <InertActionButton
-            action={inertActions.share}
-            className={action}
-          />
+          <InertActionButton action={inertActions.share} className={action} />
         )}
         {preview.kind === 'card' ? (
           <InertActionButton

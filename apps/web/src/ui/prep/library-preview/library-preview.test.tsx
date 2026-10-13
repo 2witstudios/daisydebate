@@ -38,7 +38,8 @@ describe('LibraryPreview', () => {
     const html = render('rights-framework');
     assert({
       given: 'a brief',
-      should: 'share through its review page and offer no add to brief or passage',
+      should:
+        'share through its review page and offer no add to brief or passage',
       actual: [
         html.includes('href="/prep/briefs/rights-framework/review?share=open"'),
         html.includes('Add to brief'),
