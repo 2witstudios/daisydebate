@@ -84,7 +84,7 @@ export function LibraryFilters({ query, listing }: LibraryFiltersProps) {
             className="min-w-0 flex-1 bg-transparent text-base text-ink"
           />
         </label>
-        <div className="flex min-w-0 flex-wrap items-center gap-2 max-compact:w-full max-compact:flex-nowrap max-compact:overflow-x-auto">
+        <div className="relative flex min-w-0 flex-wrap items-center gap-2 max-compact:w-full max-compact:flex-nowrap max-compact:overflow-x-auto">
           <Filter
             name="tag"
             label="Tag"
