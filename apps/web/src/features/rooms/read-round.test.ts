@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import type { RoundView } from '@daisy/protocol';
+import { emptyRuntimeCheckpoint, type RoundView } from '@daisy/protocol';
 import { readRoundReceipt } from './read-round';
 
 setupRitewayBun();
@@ -55,6 +55,7 @@ test('Round receipt accepts only the requested persisted identity and legal froz
     completedAt: null,
     outcome: null,
     status: 'scheduled',
+    competitionType: 'casual',
     topic: 'Frozen launch topic',
     participants: [
       {
@@ -99,6 +100,8 @@ test('Round receipt accepts only the requested persisted identity and legal froz
       countdownMs: 731,
       interaction: { crossExMode: 'ordered', yield: null, interruptions: null },
     },
+    checkpoint: emptyRuntimeCheckpoint,
+    segments: [],
   } satisfies RoundView;
   const variants = [
     frozen,

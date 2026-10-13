@@ -1,7 +1,11 @@
 import { fixedIds } from '@daisy/clock';
 import type { AccountAuthorizationFact } from '@daisy/auth/authorization';
 import { createAppError } from '@daisy/errors';
-import type { RoomAssemblyState, RoundView } from '@daisy/protocol';
+import {
+  emptyRuntimeCheckpoint,
+  type RoomAssemblyState,
+  type RoundView,
+} from '@daisy/protocol';
 import {
   foundationDefinition,
   oneOnOneDefinition,
@@ -95,6 +99,7 @@ export const round: RoundView = {
   roomId: state.id,
   version: 1,
   status: 'scheduled',
+  competitionType: 'practice',
   topic: state.topic,
   visibility: 'private',
   hostActorId: caller.actorId,
@@ -113,6 +118,8 @@ export const round: RoundView = {
   startedAt: null,
   completedAt: null,
   outcome: null,
+  checkpoint: emptyRuntimeCheckpoint,
+  segments: [],
 };
 
 export function makeOperations(overrides: Partial<Store> = {}) {

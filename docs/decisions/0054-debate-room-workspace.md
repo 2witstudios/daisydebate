@@ -83,13 +83,15 @@ document. Daisy builds this itself rather than embedding another product.
 
 ## Consequences
 
-- The room reads the durable Launch view (`/api/rounds/[roundId]`) and
-  the room's competition type. That view carries no live position, so the
-  room shows a waiting round: no speech lit, the first speech's length on
-  the clock before the round starts, closed mics, nothing recorded.
-  Ratings, stakes, chat delivery, the AI agents, media and Tech issue
-  have no server yet: chat and agent turns stay in the client, and Tech
-  issue is shown disabled (DEC-100).
+- The room reads `/api/rounds/[roundId]` (`RoundView`, with its runtime
+  snapshot) and derives the phase, the lit speech, the clock and both prep
+  clocks with `roundPositionAt` once a second in the browser, rereading
+  the view every five seconds; an ended round leaves for its receipt.
+  After the last speech the room enters judging. The mic shows live while
+  the debater holds the floor. A human judge's name is removed before the
+  view reaches the debater's browser. Ratings, stakes, chat delivery, the
+  AI agents, media and Tech issue have no server yet: chat and agent turns
+  stay in the client, and Tech issue is shown disabled (DEC-100).
 - Account erasure keeps the `users` row, so `ON DELETE CASCADE` does not
   remove a person's documents on erasure; the erasure transaction must
   delete them explicitly.

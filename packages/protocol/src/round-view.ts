@@ -1,14 +1,26 @@
 import { z } from 'zod';
 import { idSchema, debateRoleSchema } from './primitives';
 import { roomConfigSchema } from './room';
-import { roundRulesSchema } from './format';
-import { roundStatusSchema } from './round';
-/** Durable Launch read grammar; scheduled rounds have no fabricated runtime clock. */
+import { roundRulesSchema, segmentTypes } from './format';
+import {
+  competitionTypes,
+  roundStatusSchema,
+  runtimeCheckpointSchema,
+} from './round';
+
+const instant = z.iso.datetime({ offset: true });
+
+/**
+ * Durable Launch read grammar plus the runtime snapshot (checkpoint and
+ * segment rows) a client derives the live position from with the shared
+ * reader (`@daisy/debate-engine/position`); no position is precomputed.
+ */
 export const roundViewSchema = z.strictObject({
   id: idSchema,
   roomId: idSchema,
   version: z.int().positive(),
   status: roundStatusSchema,
+  competitionType: z.enum(competitionTypes),
   topic: z.string().min(1),
   visibility: z.enum(['public', 'unlisted', 'private']),
   hostActorId: idSchema.nullable(),
@@ -26,8 +38,22 @@ export const roundViewSchema = z.strictObject({
       }),
     )
     .readonly(),
-  startedAt: z.iso.datetime({ offset: true }).nullable(),
-  completedAt: z.iso.datetime({ offset: true }).nullable(),
+  startedAt: instant.nullable(),
+  completedAt: instant.nullable(),
   outcome: z.enum(['affirmative', 'negative', 'draw']).nullable(),
+  checkpoint: runtimeCheckpointSchema,
+  segments: z
+    .array(
+      z.strictObject({
+        id: idSchema,
+        sequence: z.int().nonnegative(),
+        type: z.enum(segmentTypes),
+        rulesSegmentKey: z.string().min(1),
+        startedAt: instant,
+        endedAt: instant.nullable(),
+        durationMs: z.int().positive(),
+      }),
+    )
+    .readonly(),
 });
 export type RoundView = z.infer<typeof roundViewSchema>;

@@ -1,7 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { RoundView } from '@daisy/protocol';
 import { round as launched } from '../../features/room-runtime/operations.test-support';
-import { isLiveDebater, liveRoundOf } from './live-round';
+import { debaterView, isLiveDebater, liveRoundOf } from './live-round';
 
 setupRitewayBun();
 
@@ -26,6 +26,30 @@ const view: RoundView = {
   ...launched,
   participants: [{ ...aff, label: 'Sam Reyes' }, neg, judge],
 };
+const rules = view.rules.segments;
+const origin = Date.parse('2026-10-12T18:00:00.000Z');
+const at = (ms: number) => new Date(origin + ms).toISOString();
+const countdown = view.rules.countdownMs;
+
+/** Milliseconds from the start to segment `sequence`, after the countdown. */
+const startOf = (sequence: number) =>
+  countdown +
+  rules.slice(0, sequence).reduce((sum, s) => sum + s.durationMs, 0);
+
+/** The first `count` segments back to back; the last stays open unless `closed`. */
+function ran(count: number, closed = false): RoundView {
+  const segments = rules.slice(0, count).map((segment, sequence) => ({
+    id: `${'s'.repeat(23)}${sequence}`,
+    sequence,
+    type: segment.type,
+    rulesSegmentKey: segment.key,
+    startedAt: at(startOf(sequence)),
+    endedAt:
+      sequence === count - 1 && !closed ? null : at(startOf(sequence + 1)),
+    durationMs: segment.durationMs,
+  }));
+  return { ...view, status: 'active', startedAt: at(0), segments };
+}
 
 describe('isLiveDebater', () => {
   test('who the round room is for', () => {
@@ -44,9 +68,23 @@ describe('isLiveDebater', () => {
   });
 });
 
-describe('liveRoundOf', () => {
-  const room = liveRoundOf(view, 'practice', aff.actorId);
-  const first = view.rules.segments[0]!;
+describe('debaterView', () => {
+  test('the judge stays anonymous', () => {
+    assert({
+      given: 'a round with a named human judge',
+      should: 'send the debater no judge name and keep the debaters’ names',
+      actual: [
+        JSON.stringify(debaterView(view)).includes('Riley'),
+        debaterView(view).participants.map((p) => p.label),
+      ],
+      expected: [false, ['Sam Reyes', 'Practice bot', '']],
+    });
+  });
+});
+
+describe('liveRoundOf before the start', () => {
+  const room = liveRoundOf(view, aff.actorId, origin);
+  const first = rules[0]!;
 
   test('the debaters and the anonymous judge', () => {
     assert({
@@ -55,7 +93,7 @@ describe('liveRoundOf', () => {
         'seat you and the bot opposite, and list the judge without a name',
       actual: {
         self: room?.self,
-        opponent: room?.opponent.side,
+        opponent: [room?.opponent.side, room?.opponent.bot],
         judge: room?.judge,
         names: room?.people.map((p) => `${p.role}:${p.name}:${p.bot}`),
         leaked: JSON.stringify(room).includes('Riley'),
@@ -69,7 +107,7 @@ describe('liveRoundOf', () => {
           rating: null,
           bot: null,
         },
-        opponent: 'neg',
+        opponent: ['neg', { level: null }],
         judge: 'human',
         names: [
           'aff:Sam Reyes:false',
@@ -81,25 +119,16 @@ describe('liveRoundOf', () => {
     });
   });
 
-  test('a bot opponent', () => {
+  test('a scheduled round', () => {
     assert({
-      given: 'a bot in the opposite seat, in a read that carries no level',
-      should: 'mark the opponent as a bot with no level',
-      actual: room?.opponent.bot,
-      expected: { level: null },
-    });
-  });
-
-  test('a waiting round', () => {
-    assert({
-      given: 'the durable read, which carries no live position',
+      given: 'a round whose clock has not started',
       should:
-        'light no speech, show the first speech’s length, close the mic and record nothing',
+        'light no speech, show the first speech’s length and full prep, close the mic and record nothing',
       actual: {
         phase: room?.phase,
         liveIndex: room?.liveIndex,
-        speeches: room?.speeches.length,
         clock: room?.clock,
+        prepMs: room?.prepMs,
         micLive: room?.micLive,
         voiceLevel: room?.voiceLevel,
         recording: room?.recording,
@@ -107,26 +136,15 @@ describe('liveRoundOf', () => {
       expected: {
         phase: 'waiting',
         liveIndex: -1,
-        speeches: view.rules.segments.length,
         clock: {
           label: `${first.key} · ${first.label}`,
           remainingMs: first.durationMs,
         },
+        prepMs: { aff: 240_000, neg: 240_000 },
         micLive: false,
         voiceLevel: 0,
         recording: false,
       },
-    });
-  });
-
-  test('a running round', () => {
-    assert({
-      given: 'an active round the room cannot read the position of',
-      should: 'show no clock and no prep rather than a guess',
-      actual: (({ clock, prepMs }) => ({ clock, prepMs }))(
-        liveRoundOf({ ...view, status: 'active' }, 'practice', aff.actorId)!,
-      ),
-      expected: { clock: null, prepMs: null },
     });
   });
 
@@ -135,7 +153,8 @@ describe('liveRoundOf', () => {
       given: 'the same round, ranked and then practice',
       should: 'give the ranked round no agents and the practice round one',
       actual: [
-        liveRoundOf(view, 'ranked', aff.actorId)?.agents.length,
+        liveRoundOf({ ...view, competitionType: 'ranked' }, aff.actorId, origin)
+          ?.agents.length,
         room?.agents.map((a) => a.title),
       ],
       expected: [0, ['Assistant']],
@@ -147,14 +166,123 @@ describe('liveRoundOf', () => {
       given: 'the judge, and a round with no opponent seated',
       should: 'give no room',
       actual: [
-        liveRoundOf(view, 'practice', judge.actorId),
+        liveRoundOf(view, judge.actorId, origin),
         liveRoundOf(
           { ...view, participants: [view.participants[0]!] },
-          'practice',
           aff.actorId,
+          origin,
         ),
       ],
       expected: [null, null],
+    });
+  });
+});
+
+describe('liveRoundOf during the round', () => {
+  test('the countdown', () => {
+    const room = liveRoundOf(ran(0), aff.actorId, origin + 4_000);
+    assert({
+      given: 'a started round 4 seconds into its countdown',
+      should: 'wait, light the first speech and count down to it',
+      actual: [room?.phase, room?.liveIndex, room?.clock],
+      expected: [
+        'waiting',
+        0,
+        { label: 'Starts in', remainingMs: countdown - 4_000 },
+      ],
+    });
+  });
+
+  test('a speech, from both sides', () => {
+    const now = origin + startOf(0) + 60_000;
+    const mine = liveRoundOf(ran(1), aff.actorId, now);
+    const theirs = liveRoundOf(ran(1), neg.actorId, now);
+    assert({
+      given: 'the affirmative constructive a minute in',
+      should:
+        'give the affirmative its own speech with a live mic and the negative the opponent’s speech with a closed one',
+      actual: [
+        mine?.phase,
+        mine?.micLive,
+        mine?.liveIndex,
+        mine?.clock,
+        theirs?.phase,
+        theirs?.micLive,
+      ],
+      expected: [
+        'own-speech',
+        true,
+        0,
+        {
+          label: `${rules[0]!.key} · ${rules[0]!.label}`,
+          remainingMs: rules[0]!.durationMs - 60_000,
+        },
+        'opponent-speaking',
+        false,
+      ],
+    });
+  });
+
+  test('cross-examination', () => {
+    const now = origin + startOf(1) + 30_000;
+    assert({
+      given: 'the negative’s cross-examination half a minute in',
+      should: 'put both in cross-ex, the affirmative answering',
+      actual: [
+        liveRoundOf(ran(2), aff.actorId, now)?.phase,
+        liveRoundOf(ran(2), aff.actorId, now)?.clock?.label,
+        liveRoundOf(ran(2), neg.actorId, now)?.clock?.label,
+      ],
+      expected: ['cross-ex', 'CX1 · You answer', 'CX1 · You ask'],
+    });
+  });
+
+  test('prep', () => {
+    const now = origin + startOf(4) + 20_000;
+    const prepping: RoundView = {
+      ...ran(4, true),
+      checkpoint: {
+        ...view.checkpoint,
+        active_prep: { side: 'affirmative', started_at: at(startOf(4)) },
+      },
+    };
+    const mine = liveRoundOf(prepping, aff.actorId, now);
+    const theirs = liveRoundOf(prepping, neg.actorId, now);
+    assert({
+      given: 'the affirmative 20 seconds into prep before the 1AR',
+      should:
+        'put the affirmative in prep on its prep clock with the 1AR lit, and show the negative waiting on Aff prep',
+      actual: [
+        mine?.phase,
+        mine?.clock,
+        mine?.liveIndex,
+        mine?.prepMs,
+        theirs?.phase,
+        theirs?.clock?.label,
+      ],
+      expected: [
+        'prep',
+        { label: 'Your prep', remainingMs: 220_000 },
+        4,
+        { aff: 220_000, neg: 240_000 },
+        'waiting',
+        'Aff prep',
+      ],
+    });
+  });
+
+  test('after the last speech', () => {
+    const room = liveRoundOf(
+      ran(rules.length, true),
+      aff.actorId,
+      origin + startOf(rules.length) + 1_000,
+    );
+    assert({
+      given: 'every speech closed and no outcome yet',
+      should:
+        'enter judging with every speech past, no running clock and closed mics',
+      actual: [room?.phase, room?.liveIndex, room?.clock, room?.micLive],
+      expected: ['judging', rules.length, null, false],
     });
   });
 });
