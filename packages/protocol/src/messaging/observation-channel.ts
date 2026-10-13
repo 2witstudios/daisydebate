@@ -10,6 +10,10 @@ import {
 } from '../observation';
 import { createMessagingCoreSchemas, type MessagingCoreBounds } from './core';
 import {
+  MAX_MESSAGING_REACTION_CHOICES,
+  MAX_MESSAGING_REACTION_UNITS,
+} from './reactions';
+import {
   messagingMessageRecordSchema,
   messagingMessageView,
 } from './message-view';
@@ -36,22 +40,8 @@ const reactionCounts = z
 const channelRow = messagingMessageRecordSchema.extend({
   reactions: reactionCounts,
 });
-const ownReactionsPerMessage = 8,
-  ownReactionUnits = 16;
-/** A deployed reaction policy must make every own overlay schema-valid:
- * at most 8 choices of at most 16 UTF-16 units. Composition refuses others. */
-export function assertObservableReactionPolicy(policy: {
-  readonly reactionUnits: number;
-  readonly choices: readonly string[];
-}) {
-  if (
-    policy.reactionUnits > ownReactionUnits ||
-    policy.choices.length > ownReactionsPerMessage
-  )
-    throw new RangeError(
-      'Reaction policy exceeds the observation overlay contract',
-    );
-}
+const ownReactionsPerMessage = MAX_MESSAGING_REACTION_CHOICES,
+  ownReactionUnits = MAX_MESSAGING_REACTION_UNITS;
 /** The viewer's own reactions within their window, from the canonical read:
  * at most 50 messages × 8 reactions of at most 16 UTF-16 units. */
 export const observationChannelOverlaySchema = z.strictObject({

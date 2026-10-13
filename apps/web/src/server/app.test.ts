@@ -221,8 +221,8 @@ test('refuses a reaction policy whose own overlay could exceed its contract', ()
     should: 'compose only a policy every own overlay can represent',
     actual: [
       errorOf(compose(policy(8))),
-      errorOf(compose(policy(9))).includes('overlay contract'),
-      errorOf(compose(policy(2, 17))).includes('overlay contract'),
+      errorOf(compose(policy(9))).includes('Too big'),
+      errorOf(compose(policy(2, 17))).includes('Too big'),
     ],
     expected: ['', true, true],
   });
