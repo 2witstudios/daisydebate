@@ -5,6 +5,7 @@ import type {
   SpeechSlot,
   WorkspaceDocument,
 } from '../../features/debate-room/documents/documents';
+import type { JudgingBallots } from '../../features/debate-room/judging';
 import type { RoundPhase } from '../../features/debate-room/layout';
 import type { TranscriptSegment } from '../../features/debate-room/transcript';
 import type { Agent, Channel } from '../../features/debate-room/workspace';
@@ -51,9 +52,13 @@ export type RoundSnapshot = {
   readonly people: readonly RoundPerson[];
   /** Who judges: a seated human, the AI judge, or nobody. */
   readonly judge: 'human' | 'ai' | null;
+  /** The ballots the judging window waits on; null without a judge. */
+  readonly ballots: JudgingBallots | null;
   /** Rating won and lost on this result, in a ranked round. */
   readonly stakes: { readonly win: number; readonly loss: number } | null;
+  /** The round is recorded; once the speeches end, the recording is saved. */
   readonly recording: boolean;
+  /** The round is transcribed; once the speeches end, the transcript is complete. */
   readonly transcribing: boolean;
   readonly speeches: readonly SpeechSlot[];
   readonly liveIndex: number;

@@ -57,6 +57,7 @@ describe('liveRoundOf', () => {
         self: room?.self,
         opponent: room?.opponent.side,
         judge: room?.judge,
+        ballots: room?.ballots,
         names: room?.people.map((p) => `${p.role}:${p.name}:${p.bot}`),
         leaked: JSON.stringify(room).includes('Riley'),
       },
@@ -71,6 +72,7 @@ describe('liveRoundOf', () => {
         },
         opponent: 'neg',
         judge: 'human',
+        ballots: { judge: 'human', ai: null },
         names: [
           'aff:Sam Reyes:false',
           'neg:Practice bot:true',

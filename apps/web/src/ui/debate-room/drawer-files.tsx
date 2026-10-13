@@ -2,13 +2,11 @@
 
 import type { Dispatch } from 'react';
 import type { WorkspaceDocument } from '../../features/debate-room/documents/documents';
+import { TRANSCRIPT_ID } from '../../features/debate-room/transcript';
 import type { TreeNode } from '../../features/debate-room/workspace';
 import { cn } from '../cn';
 import { Icon } from '../components/icon/icon';
 import type { RoomAction } from './room-state';
-
-/** The live transcript is a file of the round, opened like a document. */
-export const TRANSCRIPT_ID = 'transcript';
 
 const row = (current: boolean) =>
   cn(
@@ -22,16 +20,12 @@ type Props = {
   readonly tree: readonly TreeNode[];
   readonly active: string | null;
   readonly dispatch: Dispatch<RoomAction>;
-  readonly transcriptAvailable: boolean;
+  /** The round's transcript: being written, complete, or none kept. */
+  readonly transcript: 'live' | 'complete' | null;
 };
 
 /** Open or create, then This round, My library and the club's shared files. */
-export function DrawerFiles({
-  tree,
-  active,
-  dispatch,
-  transcriptAvailable,
-}: Props) {
+export function DrawerFiles({ tree, active, dispatch, transcript }: Props) {
   const open = (id: string) => dispatch({ type: 'tabs/open', id });
   return (
     <nav aria-label="Files" className="flex min-h-0 flex-1 flex-col gap-4">
@@ -63,7 +57,7 @@ export function DrawerFiles({
               ) : null}
             </h2>
             <ul className="flex flex-col gap-px">
-              {node.folder.id === 'round' && transcriptAvailable ? (
+              {node.folder.id === 'round' && transcript !== null ? (
                 <li>
                   <button
                     type="button"
@@ -72,9 +66,13 @@ export function DrawerFiles({
                     onClick={() => open(TRANSCRIPT_ID)}
                   >
                     <span className="min-w-0 flex-1 truncate">Transcript</span>
-                    <span className="text-2xs font-strong text-live">
-                      ● Live
-                    </span>
+                    {transcript === 'live' ? (
+                      <span className="text-2xs font-strong text-live">
+                        ● Live
+                      </span>
+                    ) : (
+                      <span className="text-2xs text-ink-muted">Complete</span>
+                    )}
                   </button>
                 </li>
               ) : null}

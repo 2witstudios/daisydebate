@@ -98,11 +98,20 @@ function PhaseActions({
   );
 }
 
-/** Tech issue has no backend yet (DEC-100): shown, never faked. */
-function TechIssue({ wide = false }: { readonly wide?: boolean }) {
+/**
+ * Tech issue during the speeches, Report a problem while the ballots are
+ * written. Neither has a backend yet (DEC-100): shown, never faked.
+ */
+function TechIssue({
+  round,
+  wide = false,
+}: {
+  readonly round: RoundSnapshot;
+  readonly wide?: boolean;
+}) {
   return (
     <button type="button" disabled className={cn(quiet, wide && 'h-12')}>
-      Tech issue
+      {round.phase === 'judging' ? 'Report a problem' : 'Tech issue'}
     </button>
   );
 }
@@ -209,9 +218,10 @@ export function LayoutMenu({ round, state, dispatch }: Props) {
   );
 }
 
+/** Both sides' prep left, until the speeches end. */
 function PrepClocks({ round }: { readonly round: RoundSnapshot }) {
   const prep = round.prepMs;
-  if (!prep) return null;
+  if (!prep || round.phase === 'judging') return null;
   return (
     <span className="text-sm text-ink-muted tabular-nums">
       Your prep{' '}
@@ -295,7 +305,7 @@ export function RoundControls({
       <MainClock clock={round.clock} />
       <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 max-narrow:hidden">
         <PhaseActions round={round} state={state} dispatch={dispatch} />
-        <TechIssue />
+        <TechIssue round={round} />
         {layout}
       </div>
     </nav>
@@ -306,7 +316,7 @@ export function RoundControls({
 export function PhoneActions(props: Props) {
   return (
     <div className="flex shrink-0 gap-2 border-t border-border bg-surface-raised px-4 py-2 narrow:hidden">
-      <TechIssue wide />
+      <TechIssue round={props.round} wide />
       <PhaseActions {...props} wide />
     </div>
   );
