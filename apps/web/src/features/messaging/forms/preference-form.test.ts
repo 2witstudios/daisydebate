@@ -1,10 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
-import {
-  parsePreferenceForm,
-  preferenceUnavailable,
-  preferenceFormState,
-} from './preference-form';
+import { parsePreferenceForm } from './preference-command';
+import { preferenceUnavailable, preferenceFormState } from './preference-form';
 setupRitewayBun();
 const channelId = 'c'.repeat(24);
 test('native preferences require explicit choices and keep retry state', () => {
