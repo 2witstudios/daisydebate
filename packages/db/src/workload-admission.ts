@@ -217,3 +217,15 @@ export function workloadQueueOptions(
     ),
   };
 }
+/** The executor for one process's pool: the profile's lanes, each with its queue. */
+export function createProfileExecutor(
+  profile: DatabaseWorkloadProfile,
+  maxConnections: number,
+  options: Pick<WorkloadQueueOptions, 'fairnessKey' | 'onRefused'>,
+) {
+  const capacities = workloadCapacities(profile, maxConnections);
+  return createWorkloadExecutor(capacities, {
+    ...workloadQueueOptions(capacities),
+    ...options,
+  });
+}

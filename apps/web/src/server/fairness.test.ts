@@ -1,10 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
-import {
-  currentFairnessKey,
-  fairnessKeyOf,
-  withFairnessKey,
-} from './fairness';
+import { currentFairnessKey, fairnessKeyOf, withFairnessKey } from './fairness';
 
 setupRitewayBun();
 const from = (client?: string) =>
@@ -18,7 +14,8 @@ test('a request is keyed by its client network and the key follows its async wor
     return currentFairnessKey();
   });
   assert({
-    given: 'IPv6, IPv4 and missing client addresses, and work inside a keyed request',
+    given:
+      'IPv6, IPv4 and missing client addresses, and work inside a keyed request',
     should:
       'key by the /48 or /24 network, share one key without an address, and keep the key across awaits',
     actual: {
