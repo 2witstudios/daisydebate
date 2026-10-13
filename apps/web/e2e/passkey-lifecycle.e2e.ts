@@ -282,9 +282,12 @@ test('a passkey ceremony that never completes leaves a visible busy state the pe
     page.getByRole('button', { name: 'Waiting for your device…' }),
   ).toBeDisabled();
 
-  // A beforeunload hold would be dismissed and keep the page; the link
-  // must actually take the person away.
-  await page.getByRole('link', { name: 'Daisy Debate home' }).click();
+  // A beforeunload hold would be dismissed and keep the page; Home, in the
+  // rail or the phone's bottom tabs, must actually take the person away.
+  await page
+    .getByRole('navigation', { name: 'Primary' })
+    .getByRole('link', { name: 'Home', exact: true })
+    .click();
   await expect(page).toHaveURL(/\/$/);
 });
 

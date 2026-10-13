@@ -76,3 +76,27 @@ export async function watchShellLinks(page: Page, names: readonly string[]) {
   };
   return { settle };
 }
+
+/**
+ * Below the `narrow` breakpoint (`--breakpoint-narrow` in globals.css) the
+ * rail gives way to the phone's bottom tabs.
+ */
+const narrowBreakpoint = 641;
+
+/** True when the page lays out the phone shell: bottom tabs, no logo. */
+export const onPhone = (page: Page): boolean =>
+  (page.viewportSize()?.width ?? narrowBreakpoint) < narrowBreakpoint;
+
+/**
+ * A member's link to their own profile: the avatar at the rail's foot, or
+ * Profile in the phone's More sheet, which this opens.
+ */
+export async function profileLink(page: Page, username: string) {
+  const nav = page.getByRole('navigation', { name: 'Primary' });
+  if (!onPhone(page))
+    return nav.getByRole('link', { name: `Your profile, ${username}` });
+  await nav.locator('summary').click();
+  return nav
+    .getByRole('list', { name: 'More' })
+    .getByRole('link', { name: 'Profile', exact: true });
+}
