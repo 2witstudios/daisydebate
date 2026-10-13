@@ -4,6 +4,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { sampleRound } from '../mock/debate-room';
 import { DrawerRoom } from './drawer-room';
 import { DebateRoom } from './room';
+import { Composer } from './threads';
 import type { RoundSnapshot } from './round';
 
 setupRitewayBun();
@@ -77,22 +78,41 @@ describe('DebateRoom', () => {
     const html = render('prep', 'ranked');
     assert({
       given: 'a ranked round',
-      should: 'show the Ranked badge and offer Files, Chat and Room only',
+      should:
+        'show the Ranked badge, offer Files, Chat and Room only, and list no club folder',
       actual: [
         html.includes('>Ranked<'),
         count(html, /role="tab"/g),
         />AI</.test(html),
+        html.includes('Riverside Debate'),
+        render('prep', 'practice').includes('Riverside Debate'),
       ],
-      expected: [true, 3, false],
+      expected: [true, 3, false, false, true],
     });
   });
 
-  test('own speech', () => {
+  test('controls with no server command (DEC-178)', () => {
+    const disabled = (html: string, label: string) =>
+      new RegExp(`<button[^>]*disabled=""[^>]*>${label}<`).test(html);
+    const prep = render('prep', 'practice');
+    const speech = render('own-speech', 'practice');
+    const cx = render('cross-ex', 'practice');
+    const chat = renderToString(
+      h(Composer, { label: 'Message # round', tone: 'chat' }),
+    );
     assert({
-      given: 'the debater’s own speech',
-      should: 'offer the two-press end of speech',
-      actual: render('own-speech', 'practice').includes('End speech'),
-      expected: true,
+      given: 'prep, the debater’s own speech and cross-examination',
+      should:
+        'show Save the rest, Start, End speech and Interrupt, each disabled, and a disabled chat box',
+      actual: [
+        disabled(prep, 'Save the rest'),
+        disabled(prep, 'Start (<!-- -->)?NR'),
+        disabled(speech, 'End speech'),
+        disabled(cx, 'Interrupt'),
+        /<input[^>]*aria-label="Message # round"[^>]*disabled=""/.test(chat),
+        /aria-label="Send"[^>]*disabled=""/.test(chat),
+      ],
+      expected: [true, true, true, true, true, true],
     });
   });
 

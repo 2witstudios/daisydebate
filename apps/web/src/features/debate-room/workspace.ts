@@ -92,6 +92,12 @@ export function visibleChannels(
     : channels;
 }
 
+/** A rated round shows no club folder: the club's files are outside help (DEC-175). */
+export const visibleClub = (
+  clubName: string | null,
+  kind: RoundKind,
+): string | null => (kind === 'rated' ? null : clubName);
+
 export type Agent = {
   readonly id: string;
   readonly title: string;

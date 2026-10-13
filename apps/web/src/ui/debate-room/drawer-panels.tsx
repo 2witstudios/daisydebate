@@ -29,7 +29,7 @@ const pill = (on: boolean, ink: string) =>
 export function Badge({ count }: { readonly count: number }) {
   if (count === 0) return null;
   return (
-    <span className="min-w-4 rounded-round bg-live px-1 text-center text-2xs font-bold text-background tabular-nums">
+    <span className="min-w-4 rounded-round bg-live px-1 text-center text-xs font-bold text-background tabular-nums">
       {count}
     </span>
   );
@@ -40,17 +40,10 @@ export function AgentPanel({
   state,
   dispatch,
   clock,
-  ids,
   agents,
 }: PanelProps & { readonly agents: readonly Agent[] }) {
   const agent = agents.find((a) => a.id === state.agentId) ?? agents[0];
   if (!agent) return null;
-  const ask = (text: string) =>
-    dispatch({
-      type: 'agent/ask',
-      agentId: agent.id,
-      turn: { id: ids.next(), from: 'you', text },
-    });
   return (
     <>
       {agents.length > 1 ? (
@@ -73,10 +66,7 @@ export function AgentPanel({
         </div>
       ) : null}
       <AgentThread
-        turns={[
-          ...(round.agentThreads[agent.id] ?? []),
-          ...(state.asked[agent.id] ?? []),
-        ]}
+        turns={round.agentThreads[agent.id] ?? []}
         agentName={agent.title}
         edits={state.edits}
         titleOf={(id) => state.documents.find((d) => d.id === id)?.title ?? ''}
@@ -98,14 +88,14 @@ export function AgentPanel({
           <button
             key={prompt}
             type="button"
-            className="h-room-target cursor-pointer rounded-round border border-border-strong px-3 text-xs"
-            onClick={() => ask(prompt)}
+            className="h-room-target cursor-not-allowed rounded-round border border-border-strong px-3 text-xs opacity-60"
+            disabled
           >
             {prompt}
           </button>
         ))}
       </div>
-      <Composer label={`Ask ${agent.title}`} tone="ai" onSend={ask} />
+      <Composer label={`Ask ${agent.title}`} tone="ai" />
     </>
   );
 }
@@ -115,7 +105,6 @@ export function ChatPanel({
   state,
   dispatch,
   clock,
-  ids,
   channels,
 }: PanelProps & { readonly channels: readonly Channel[] }) {
   const channel = channels.find((c) => c.id === state.channelId) ?? channels[0];
@@ -126,17 +115,6 @@ export function ChatPanel({
     state.readMarkers,
     round.self.id,
   );
-  const send = (text: string) =>
-    dispatch({
-      type: 'chat/send',
-      message: {
-        id: ids.next(),
-        channelId: channel.id,
-        author: { id: round.self.id, name: round.self.name, role: 'debater' },
-        text,
-        sentAt: clock.now(),
-      },
-    });
   return (
     <>
       {channels.length > 1 ? (
@@ -171,11 +149,7 @@ export function ChatPanel({
         messages={state.messages.filter((m) => m.channelId === channel.id)}
         selfId={round.self.id}
       />
-      <Composer
-        label={`Message # ${channel.title}`}
-        tone="chat"
-        onSend={send}
-      />
+      <Composer label={`Message # ${channel.title}`} tone="chat" />
     </>
   );
 }

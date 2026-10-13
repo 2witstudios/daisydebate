@@ -1,13 +1,4 @@
-import {
-  appendMessage,
-  markRead,
-  type ChatMessage,
-} from '../../features/debate-room/chat';
-import {
-  cancelEndSpeech,
-  pressEndSpeech,
-  type EndSpeechState,
-} from '../../features/debate-room/clock';
+import { markRead, type ChatMessage } from '../../features/debate-room/chat';
 import { applyProposal } from '../../features/debate-room/documents/document-edits';
 import {
   createDocument,
@@ -36,7 +27,7 @@ import {
   type DrawerTab,
   type TabsState,
 } from '../../features/debate-room/workspace';
-import type { AgentTurn, RoundSnapshot } from './round';
+import type { RoundSnapshot } from './round';
 
 export type PageTone = 'dark' | 'light';
 export type EditOutcome = 'applied' | 'discarded';
@@ -55,10 +46,8 @@ export type RoomState = {
   readonly messages: readonly ChatMessage[];
   readonly readMarkers: Readonly<Record<string, string>>;
   readonly edits: Readonly<Record<string, EditOutcome>>;
-  readonly asked: Readonly<Record<string, readonly AgentTurn[]>>;
   readonly transcriptFilter: string;
   readonly paletteOpen: boolean;
-  readonly endSpeech: EndSpeechState;
   /** Each document's page tone; a document not listed is dark. */
   readonly pages: Readonly<Record<string, PageTone>>;
 };
@@ -105,12 +94,6 @@ export type RoomAction =
       readonly now: string;
     }
   | { readonly type: 'drawer/agent'; readonly agentId: string }
-  | { readonly type: 'chat/send'; readonly message: ChatMessage }
-  | {
-      readonly type: 'agent/ask';
-      readonly agentId: string;
-      readonly turn: AgentTurn;
-    }
   | {
       readonly type: 'agent/edit';
       readonly turnId: string;
@@ -123,15 +106,11 @@ export type RoomAction =
   | { readonly type: 'transcript/filter'; readonly speechId: string }
   | { readonly type: 'palette/open' }
   | { readonly type: 'palette/close' }
-  | { readonly type: 'end/press' }
-  | { readonly type: 'end/cancel' }
   | {
       readonly type: 'page/tone';
       readonly documentId: string;
       readonly tone: PageTone;
     };
-
-const CHAT_MAX_LENGTH = 2000;
 
 const firstRoundDocument = (round: RoundSnapshot) =>
   round.documents.find((doc) => doc.folder === 'round')?.id ?? null;
@@ -159,10 +138,8 @@ export function initialRoomState(round: RoundSnapshot): RoomState {
     messages: round.messages,
     readMarkers: {},
     edits: {},
-    asked: {},
     transcriptFilter: 'all',
     paletteOpen: false,
-    endSpeech: 'idle',
     pages: {},
   };
 }
@@ -241,20 +218,6 @@ const reducers: { readonly [T in RoomAction['type']]: Reducer<T> } = {
     readMarkers: markRead(s.readMarkers, a.channelId, a.now),
   }),
   'drawer/agent': (s, a) => ({ ...s, agentId: a.agentId }),
-  'chat/send': (s, a) => ({
-    ...s,
-    messages: appendMessage(s.messages, a.message, CHAT_MAX_LENGTH),
-  }),
-  'agent/ask': (s, a) =>
-    a.turn.text.trim() === ''
-      ? s
-      : {
-          ...s,
-          asked: {
-            ...s.asked,
-            [a.agentId]: [...(s.asked[a.agentId] ?? []), a.turn],
-          },
-        },
   'agent/edit': (s, a) => {
     if (s.edits[a.turnId]) return s;
     const marked = { ...s, edits: { ...s.edits, [a.turnId]: a.outcome } };
@@ -267,8 +230,6 @@ const reducers: { readonly [T in RoomAction['type']]: Reducer<T> } = {
   'transcript/filter': (s, a) => ({ ...s, transcriptFilter: a.speechId }),
   'palette/open': (s) => ({ ...s, paletteOpen: true }),
   'palette/close': (s) => ({ ...s, paletteOpen: false }),
-  'end/press': (s) => ({ ...s, endSpeech: pressEndSpeech(s.endSpeech) }),
-  'end/cancel': (s) => ({ ...s, endSpeech: cancelEndSpeech(s.endSpeech) }),
   'page/tone': (s, a) => ({
     ...s,
     pages: { ...s.pages, [a.documentId]: a.tone },

@@ -39,63 +39,49 @@ const primary = `${button} border-transparent bg-accent text-accent-ink hover:bg
 const sideInk = { aff: 'text-hue-sky', neg: 'text-hue-clay' } as const;
 const sideName = { aff: 'Aff', neg: 'Neg' } as const;
 
-const endLabels = {
-  idle: 'End speech',
-  armed: 'Press again to end',
-  ended: 'Speech ended',
-} as const;
-
 type Props = {
   readonly round: RoundSnapshot;
   readonly state: RoomState;
   readonly dispatch: Dispatch<RoomAction>;
 };
 
-/** The phase's own action: start a speech after prep, or end your speech. */
+/**
+ * The phase's own action: start the speech after prep, end your own speech,
+ * or interrupt in cross-examination. No Round command reaches the server
+ * yet, so each is shown and disabled, like Tech issue (DEC-153, DEC-178).
+ */
 function PhaseActions({
   round,
-  state,
-  dispatch,
   wide = false,
-}: Props & { readonly wide?: boolean }) {
+}: {
+  readonly round: RoundSnapshot;
+  readonly wide?: boolean;
+}) {
   const grow = wide ? 'flex-1 h-12 text-md' : '';
   if (round.phase === 'prep')
     return (
       <>
-        <button type="button" className={quiet}>
+        <button type="button" disabled className={quiet}>
           Save the rest
         </button>
-        <button type="button" className={cn(primary, grow)}>
+        <button type="button" disabled className={cn(primary, grow)}>
           Start {round.speeches[round.liveIndex]?.code}
         </button>
       </>
     );
-  if (round.phase !== 'own-speech') return null;
-  return (
-    <>
-      <button
-        type="button"
-        disabled={state.endSpeech === 'ended'}
-        onClick={() => dispatch({ type: 'end/press' })}
-        className={cn(
-          primary,
-          grow,
-          state.endSpeech === 'armed' && 'bg-live hover:bg-live',
-        )}
-      >
-        {endLabels[state.endSpeech]}
+  if (round.phase === 'own-speech')
+    return (
+      <button type="button" disabled className={cn(primary, grow)}>
+        End speech
       </button>
-      {state.endSpeech === 'armed' ? (
-        <button
-          type="button"
-          className={quiet}
-          onClick={() => dispatch({ type: 'end/cancel' })}
-        >
-          Keep speaking
-        </button>
-      ) : null}
-    </>
-  );
+    );
+  if (round.phase === 'cross-ex')
+    return (
+      <button type="button" disabled className={cn(quiet, grow)}>
+        Interrupt
+      </button>
+    );
+  return null;
 }
 
 /**
@@ -285,8 +271,6 @@ function MainClock({
  */
 export function RoundControls({
   round,
-  state,
-  dispatch,
   layout,
 }: Props & { readonly layout?: ReactNode }) {
   return (
@@ -310,7 +294,7 @@ export function RoundControls({
       </div>
       <MainClock clock={round.clock} phase={round.phase} />
       <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 max-narrow:hidden">
-        <PhaseActions round={round} state={state} dispatch={dispatch} />
+        <PhaseActions round={round} />
         <TechIssue round={round} />
         {layout}
       </div>
@@ -323,7 +307,7 @@ export function PhoneActions(props: Props) {
   return (
     <div className="flex shrink-0 gap-2 border-t border-border bg-surface-raised px-4 py-2 narrow:hidden">
       <TechIssue round={props.round} wide />
-      <PhaseActions {...props} wide />
+      <PhaseActions round={props.round} wide />
     </div>
   );
 }

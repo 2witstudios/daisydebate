@@ -161,7 +161,6 @@ export function CommandPalette({ open, documents, onChoose, onClose }: Props) {
               : undefined
           }
           aria-label="Search commands"
-          placeholder="New document or open a file"
           value={query}
           onChange={(event) => {
             setQuery(event.target.value);

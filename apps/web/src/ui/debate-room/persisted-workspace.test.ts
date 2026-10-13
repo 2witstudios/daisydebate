@@ -33,7 +33,7 @@ test('persisted workspace loads actual documents and keeps valid active tabs', (
 });
 test('scheduled workspace ignores competitive floor and fabricated chat actions', () => {
   const unchanged = reducePersistedWorkspace(initialPersistedWorkspace, {
-    type: 'end/press',
+    type: 'drawer/toggle',
   });
   assert({
     given: 'a scheduled document workspace',

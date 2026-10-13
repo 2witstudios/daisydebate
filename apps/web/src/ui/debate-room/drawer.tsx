@@ -14,6 +14,7 @@ import {
   roundKindOf,
   visibleAgents,
   visibleChannels,
+  visibleClub,
   type DrawerTab,
 } from '../../features/debate-room/workspace';
 import { cn } from '../cn';
@@ -123,8 +124,8 @@ function DrawerPanel(props: PanelProps) {
   const { round, state, dispatch } = props;
   const kind = roundKindOf(round.competition);
   const tree = useMemo(
-    () => buildTree(state.documents, round.clubName),
-    [state.documents, round.clubName],
+    () => buildTree(state.documents, visibleClub(round.clubName, kind)),
+    [state.documents, round.clubName, kind],
   );
   switch (state.drawer) {
     case 'files':
