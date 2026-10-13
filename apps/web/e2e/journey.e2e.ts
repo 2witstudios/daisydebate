@@ -16,7 +16,7 @@ import {
   skipOnboarding,
 } from './support/forms';
 import { effectsRan } from './support/hydration';
-import { watchShellLinks } from './support/shell-links';
+import { onPhone, profileLink, watchShellLinks } from './support/shell-links';
 
 // The whole sign-in journey in a real browser against the production build:
 // request a link on /sign-in, open the emailed link, get a session, pick a
@@ -78,16 +78,18 @@ test('anonymous visits are sent to sign-in and the whole loop ends on the protec
   // The safe return destination survived, and the username is the identity.
   await declineOfferToLobby(page);
   await page.goto('/');
-  await expect(
-    page.getByRole('link', { name: `Your profile, ${mine}` }),
-  ).toBeVisible();
+  await expect(await profileLink(page, mine)).toHaveAttribute(
+    'href',
+    `/profile/${mine}`,
+  );
 
   // The durable session and the persisted identity survive a reload and a
   // fresh request: the same account, with the username it claimed.
   await page.reload();
-  await expect(
-    page.getByRole('link', { name: `Your profile, ${mine}` }),
-  ).toBeVisible();
+  await expect(await profileLink(page, mine)).toHaveAttribute(
+    'href',
+    `/profile/${mine}`,
+  );
   const session = await page.request.get('/api/auth/get-session');
   const body = (await session.json()) as {
     user: { email: string; username: string; emailVerified: boolean };
@@ -300,28 +302,32 @@ test('a fresh session makes no refresh call, and neither does a visitor', async 
   expect(calls).toEqual([]);
 });
 
-test('a visitor can reach the logo, and Sign in at the rail foot', async ({
+test('a visitor can reach home, and Sign in at the rail foot or in the bottom tabs', async ({
   page,
 }) => {
-  const shell = await watchShellLinks(page, ['Daisy Debate home', 'Sign in']);
+  // The rail leads with the logo; the phone's bottom tabs with Home.
+  const phone = onPhone(page);
+  const home = phone ? 'Home' : 'Daisy Debate home';
+  const shell = await watchShellLinks(page, [home, 'Sign in']);
   await page.goto('/');
-  const signIn = page
-    .getByRole('navigation', { name: 'Primary' })
-    .getByRole('link', { name: 'Sign in' });
+  const nav = page.getByRole('navigation', { name: 'Primary' });
+  const signIn = nav.getByRole('link', { name: 'Sign in' });
   await expect(signIn).toBeVisible();
-  // Where a member's profile is: the foot of the rail, below the logo.
-  const [logo, way] = await Promise.all([
-    page.getByRole('link', { name: 'Daisy Debate home' }).boundingBox(),
+  // Where a member's own places are: the foot of the rail, below the logo;
+  // on a phone, the tab after Prep, on Home's line.
+  const [start, way] = await Promise.all([
+    nav.getByRole('link', { name: home, exact: true }).boundingBox(),
     signIn.boundingBox(),
   ]);
-  expect(logo !== null && way !== null && way.y > logo.y && way.x < 56).toBe(
-    true,
-  );
+  expect(
+    start !== null &&
+      way !== null &&
+      (phone
+        ? Math.abs(way.y - start.y) < 2 && way.x > start.x
+        : way.y > start.y && way.x < 56),
+  ).toBe(true);
   const { covered, inspected } = await shell.settle();
-  expect(Object.keys(inspected).sort()).toEqual([
-    'Daisy Debate home',
-    'Sign in',
-  ]);
+  expect(Object.keys(inspected).sort()).toEqual([home, 'Sign in'].sort());
   expect(covered).toEqual([]);
   await signIn.click();
   await expect(page).toHaveURL(/\/sign-in$/);

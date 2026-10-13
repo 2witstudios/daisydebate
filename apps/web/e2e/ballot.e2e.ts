@@ -139,9 +139,23 @@ test('no winner: the refusal names both debaters', async ({ page }) => {
 const sheet = (page: Page) =>
   page.locator('section[aria-labelledby="ballot-scores"]');
 
+/**
+ * Whether the score sheet sets both sides beside the category: the rule the
+ * sheet itself follows, its own width against `--container-ballot-sheet`,
+ * since the page around it decides how much of the viewport it gets.
+ */
+const sheetIsWide = (page: Page): Promise<boolean> =>
+  sheet(page)
+    .locator('.\\@container')
+    .evaluate((node) => {
+      const root = getComputedStyle(document.documentElement);
+      const token = root.getPropertyValue('--container-ballot-sheet').trim();
+      if (!token.endsWith('rem'))
+        throw new Error(`--container-ballot-sheet is "${token}", not rem`);
+      return node.clientWidth >= parseFloat(token) * parseFloat(root.fontSize);
+    });
+
 for (const width of [320, 360, 641, 768, 1024, 1280]) {
-  // From 1024 px the sheet has room to set both sides beside the category.
-  const wide = width >= 1024;
   test(`at ${width} px every slider is usable and the names are whole`, async ({
     page,
   }) => {
@@ -161,7 +175,9 @@ for (const width of [320, 360, 641, 768, 1024, 1280]) {
       expect(fits).toBe(true);
     }
     // Side by side when wide, one row per side when narrow.
-    expect(Math.abs((boxes[0]?.y ?? 0) - (boxes[1]?.y ?? 0)) < 2).toBe(wide);
+    expect(Math.abs((boxes[0]?.y ?? 0) - (boxes[1]?.y ?? 0)) < 2).toBe(
+      await sheetIsWide(page),
+    );
     // Every name, number and "/ 50" sits inside its own cell.
     expect(await overflowing(sheet(page), 'label, p')).toEqual([]);
     // Scanned with a winner picked, so the unpicked card is in the scan too.
