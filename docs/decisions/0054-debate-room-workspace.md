@@ -15,12 +15,22 @@ document. Daisy builds this itself rather than embedding another product.
 
 ## Decision
 
-1. **Layout.** `/rooms/[id]/round` renders outside the shell: the two
-   debaters side by side, the round controls with the clock large and
-   centred, then a workspace of file tree, tabbed editor and a sidebar with
-   Chat and AI tabs. Three draggable dividers size the panes; Auto picks a
-   preset from the round phase (Split while the opponent speaks, Stage for
-   cross-examination, Focus for prep and one's own speech).
+1. **Layout.** `/rounds/[id]/room` renders outside the shell for a
+   debater of a round that has not ended (everyone else, and every ended
+   round, gets the receipt at `/rounds/[id]`). One round bar: a drawer
+   toggle (the unread chat count when closed), the round kind, the motion,
+   the speeches with the live one as the current step, the judge chip
+   (`Judge present`, anonymous, or `AI judge`), `Rec` while recording, and
+   Leave alone in the far corner behind a confirm. Below it, one closable
+   drawer with Files, Chat, AI and Room tabs beside the video, the
+   three-column controls row (mic status and both prep clocks; the clock;
+   the phase action, Tech issue and the layout menu) and the tabbed
+   document. There is no Mute: the server controls the mics. Only the
+   video resizes, by one divider; a manual resize pins the layout, and
+   Auto picks a preset from the round phase (Split while the opponent
+   speaks, Stage for cross-examination, Focus for prep and one's own
+   speech). On a phone the drawer tabs become bottom round tabs (Doc,
+   Files, Chat, AI, Room) and the phase action sits above them.
 2. **Tiptap 3 (MIT) is the document editor**, in `apps/web` only:
    `@tiptap/react`, `@tiptap/core`, `@tiptap/pm`, `@tiptap/starter-kit`
    and `@tiptap/extension-list`, pinned together. No
@@ -49,10 +59,11 @@ document. Daisy builds this itself rather than embedding another product.
 4. **Tiptap's injected stylesheet is off** (`injectCSS: false`): its style
    tag carries no nonce, so the CSP would refuse it. The ProseMirror base
    rules live in `app/theme/room.css` instead.
-5. **Pane sizes are custom properties set through the CSSOM**
+5. **The video size is a custom property set through the CSSOM**
    (`element.style.setProperty`), which the CSP allows, read by named
-   utilities in `room.css` (`room-tree-pane`, `room-sidebar-pane`,
-   `room-video-tile`, `room-workspace`). No style attribute and no
+   utilities in `room.css` (`room-video-band`, `room-workspace`); the
+   room's fixed metrics are `--spacing-room-*` and `--spacing-round-*`
+   theme tokens there. No style attribute and no
    arbitrary class value is introduced.
 6. **The document page may carry its own scheme.** A debater can keep a
    dark page in a light app or the reverse. `[data-room-page]` joins
@@ -64,18 +75,21 @@ document. Daisy builds this itself rather than embedding another product.
    page setting, `<div data-page="landscape" data-columns="N">` (N from 2
    to 6), that lays it out in columns; without one it is portrait. Text
    size (A−/A+) is the viewer's own and never stored.
-8. **Fair play.** In a rated round the sidebar has Chat only, with the
-   round's own channel; club channels and agents are hidden
+8. **Fair play.** In a rated (ranked) round the drawer has Files, Chat
+   and Room only, Chat holds the round's own channel; the AI tab, club
+   channels and agents are hidden
    (`features/debate-room/workspace.ts`). Recorded as DEC-108,
    open until the owner confirms or overrules it.
 
 ## Consequences
 
-- Bot rounds (`/ai-debate/[id]`) run in this room over their real state:
-  turns, clock, transcript from the persisted utterances, and saved
-  documents. The human-round room (`/rooms/[id]/round`) still runs over
-  sample data (`ui/mock/debate-room.ts`); chat and the AI agents need
-  their own backend work, and their requests stay in the client.
+- The room reads the durable Launch view (`/api/rounds/[roundId]`) and
+  the room's competition type. That view carries no live position, so the
+  room shows a waiting round: no speech lit, the first speech's length on
+  the clock before the round starts, closed mics, nothing recorded.
+  Ratings, stakes, chat delivery, the AI agents, media and Tech issue
+  have no server yet: chat and agent turns stay in the client, and Tech
+  issue is shown disabled (DEC-100).
 - Account erasure keeps the `users` row, so `ON DELETE CASCADE` does not
   remove a person's documents on erasure; the erasure transaction must
   delete them explicitly.

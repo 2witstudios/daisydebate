@@ -6,171 +6,64 @@ import {
   useReducer,
   useRef,
   type Dispatch,
-  type ReactNode,
 } from 'react';
 import { systemClock, systemId } from '@daisy/clock';
 import {
+  effectivePreset,
+  videoBounds,
   videoHeightFor,
   workspaceMinHeight,
-  type Pane,
 } from '../../features/debate-room/layout';
-import { groupTranscript } from '../../features/debate-room/transcript';
-import { buildTree } from '../../features/debate-room/workspace';
+import { cn } from '../cn';
+import { BotStage } from './bot-stage';
 import { CommandPalette, type PaletteChoice } from './command-palette';
-import { LayoutGroup, RoundControls } from './controls';
+import { LayoutMenu, PhoneActions, RoundControls } from './controls';
 import type { DocumentSync } from './document-sync';
-import { DocumentPane } from './document-pane';
-import { FileTree, TRANSCRIPT_ID } from './file-tree';
-import { PaneDivider } from './pane-divider';
-import {
-  initialRoomState,
-  reduceRoom,
-  type RoomAction,
-  type RoomState,
-} from './room-state';
+import type { SaveState } from './document-pane';
+import { chatUnread, RoundDrawer } from './drawer';
+import type { LeaveLinks } from './leave-room';
+import { VideoDivider } from './video-divider';
+import { RoomDocument } from './room-document';
+import { initialRoomState, reduceRoom, type RoomAction } from './room-state';
 import type { RoundSnapshot } from './round';
-import { RoomSidebar } from './sidebar';
-import { RoundHeader, VideoStage } from './stage';
-import { TranscriptView } from './transcript-view';
+import { RoundBar } from './round-bar';
+import { RoundTabs } from './round-tabs';
+import { VideoStage } from './stage';
 import { usePaletteShortcut } from './use-palette-shortcut';
 import { useDocumentSync } from './use-document-sync';
 
-/** Writes the pane sizes as custom properties (CSSOM, so the CSP allows it). */
-function usePaneVariables(round: RoundSnapshot, state: RoomState) {
+/** Writes the video size as custom properties (CSSOM, so the CSP allows it). */
+function useVideoVariables(video: number) {
   const root = useRef<HTMLDivElement>(null);
-  const video = videoHeightFor(state.layout, round.phase);
   useLayoutEffect(() => {
     const style = root.current?.style;
     if (!style) return;
-    style.setProperty('--room-tree', `${state.layout.treeWidth}px`);
-    style.setProperty('--room-sidebar', `${state.layout.sidebarWidth}px`);
     style.setProperty('--room-video', `${video}px`);
     style.setProperty('--room-workspace', `${workspaceMinHeight(video)}px`);
-  }, [state.layout.treeWidth, state.layout.sidebarWidth, video]);
-  return { root, video };
+  }, [video]);
+  return root;
 }
 
-/** The sidebar exists when the round has channels or agents to show. */
-const hasSidebar = (round: RoundSnapshot) =>
-  round.channels.length > 0 || round.agents.length > 0;
-
-function Workspace({
-  round,
-  state,
-  dispatch,
-  onEdit,
-}: {
-  readonly round: RoundSnapshot;
-  readonly state: RoomState;
-  readonly dispatch: Dispatch<RoomAction>;
-  readonly onEdit?: ((id: string, html: string) => void) | undefined;
-}) {
-  const tree = useMemo(
-    () => buildTree(state.documents, round.clubName),
-    [state.documents, round.clubName],
-  );
-  const sections = useMemo(
-    () =>
-      groupTranscript(round.transcript, round.speeches, (slot) =>
-        slot.side === round.self.side ? 'You' : round.opponent.name,
-      ),
-    [round],
-  );
-  const active = state.tabs.active;
-  const resize = (pane: Pane) => (startPx: number, deltaPx: number) =>
-    dispatch({ type: 'layout/resize', pane, startPx, deltaPx });
-  const nudge = (pane: Pane) => (key: string) =>
-    dispatch({ type: 'layout/nudge', pane, key });
-  const live =
-    round.phase === 'opponent-speaking'
-      ? (round.speeches[round.liveIndex]?.id ?? null)
-      : null;
-
-  return (
-    <div className="flex room-workspace flex-1 border-t border-border">
-      {state.layout.treeOpen ? (
-        <>
-          <div className="flex min-w-0 room-tree-pane">
-            <FileTree tree={tree} active={active} dispatch={dispatch} />
-          </div>
-          <PaneDivider
-            pane="tree"
-            label="Resize files"
-            value={state.layout.treeWidth}
-            onResize={resize('tree')}
-            onNudge={nudge('tree')}
-          />
-        </>
-      ) : null}
-      <section
-        aria-label="Document"
-        className="flex min-w-0 flex-1 flex-col bg-surface-raised"
-      >
-        <DocumentPane
-          documents={state.documents}
-          tabs={state.tabs}
-          pages={state.pages}
-          dispatch={dispatch}
-          onEdit={onEdit}
-        >
-          {active === TRANSCRIPT_ID ? (
-            <TranscriptView
-              sections={sections}
-              liveSpeechId={live}
-              filter={state.transcriptFilter}
-              dispatch={dispatch}
-            />
-          ) : null}
-        </DocumentPane>
-      </section>
-      {state.layout.sidebarOpen && hasSidebar(round) ? (
-        <>
-          <PaneDivider
-            pane="sidebar"
-            label="Resize sidebar"
-            value={state.layout.sidebarWidth}
-            onResize={resize('sidebar')}
-            onNudge={nudge('sidebar')}
-          />
-          <div className="flex min-w-0 room-sidebar-pane">
-            <RoomSidebar round={round} state={state} dispatch={dispatch} />
-          </div>
-        </>
-      ) : null}
-    </div>
-  );
-}
-
-/** A round with its own stage and controls (a bot round's voice and clock). */
-export type RoomParts = {
-  readonly stage: ReactNode;
-  readonly controls: (layout: ReactNode) => ReactNode;
-  readonly below?: ReactNode;
+const noLeave: LeaveLinks = {
+  confirming: false,
+  stayHref: '',
+  confirmHref: '?leave',
+  leaveHref: '/lobby',
 };
 
-/** The debater's round: videos, controls with the clock, then the workspace. */
-export function DebateRoom({
-  round,
-  parts,
-  sync,
-  notice = null,
-}: {
-  readonly round: RoundSnapshot;
-  readonly parts?: RoomParts;
-  /** Server-backed documents; without it the room keeps them in memory. */
-  readonly sync?: DocumentSync;
-  /** A standing problem the round's owner reports (saves failing). */
-  readonly notice?: string | null;
-}) {
-  const reducer = useMemo(() => reduceRoom(round), [round]);
-  const [state, dispatch] = useReducer(reducer, round, initialRoomState);
-  const { root, video } = usePaneVariables(round, state);
-  usePaletteShortcut(dispatch);
-  const { problem, setProblem } = useDocumentSync(sync, dispatch);
+type Problem = (message: string) => void;
 
-  const choose = (choice: PaletteChoice) => {
-    if (choice.kind === 'open')
-      return dispatch({ type: 'tabs/open', id: choice.documentId });
+/** A palette choice: open a file, or create one on the server or in memory. */
+function choiceHandler(
+  sync: DocumentSync | undefined,
+  dispatch: Dispatch<RoomAction>,
+  setProblem: Problem,
+) {
+  return (choice: PaletteChoice) => {
+    if (choice.kind === 'open') {
+      dispatch({ type: 'tabs/open', id: choice.documentId });
+      return dispatch({ type: 'palette/close' });
+    }
     if (!sync)
       return dispatch({
         type: 'doc/create',
@@ -185,62 +78,96 @@ export function DebateRoom({
       .then((document) => dispatch({ type: 'doc/add', document }))
       .catch(() => setProblem('That file was not created. Try again.'));
   };
-  const layout = (
-    <LayoutGroup
-      round={round}
-      state={state}
-      dispatch={dispatch}
-      sidebar={hasSidebar(round)}
-    />
-  );
+}
 
+type RoomProps = {
+  readonly round: RoundSnapshot;
+  /** Server-backed documents; without it the room keeps them in memory. */
+  readonly sync?: DocumentSync;
+  /** A standing problem the round's owner reports (saves failing). */
+  readonly notice?: string | null;
+  readonly save?: SaveState | null;
+  readonly leave?: LeaveLinks;
+};
+
+/**
+ * The debater's round, outside the app shell: the round bar, the closable
+ * drawer, then the video, the controls and the document.
+ */
+export function DebateRoom({ round, sync, ...props }: RoomProps) {
+  const reducer = useMemo(() => reduceRoom(round), [round]);
+  const [state, dispatch] = useReducer(reducer, round, initialRoomState);
+  const video = videoHeightFor(state.layout, round.phase);
+  const preset = effectivePreset(state.layout, round.phase);
+  const Stage = round.opponent.bot ? BotStage : VideoStage;
+  const root = useVideoVariables(video);
+  usePaletteShortcut(dispatch);
+  const { problem, setProblem } = useDocumentSync(sync, dispatch);
+  const unread = chatUnread(round, state);
+  const alert = problem ?? props.notice ?? null;
   return (
     <div
       ref={root}
-      className="flex min-h-screen flex-col bg-background text-ink"
+      className="flex h-dvh flex-col overflow-hidden bg-background text-ink"
     >
-      <RoundHeader round={round} />
-      {parts ? parts.stage : <VideoStage round={round} />}
-      {parts ? (
-        parts.controls(layout)
-      ) : (
-        <RoundControls
-          round={round}
-          state={state}
-          dispatch={dispatch}
-          layout={layout}
-        />
-      )}
-      {parts?.below}
-      {(problem ?? notice) ? (
-        <p role="alert" className="px-3 py-1 text-sm text-live">
-          {problem ?? notice}
-        </p>
-      ) : null}
-      <PaneDivider
-        pane="video"
-        label="Resize video and workspace"
-        value={video}
-        onResize={(startPx, deltaPx) =>
-          dispatch({ type: 'layout/resize', pane: 'video', startPx, deltaPx })
-        }
-        onNudge={(key) =>
-          dispatch({ type: 'layout/nudge', pane: 'video', key })
-        }
+      <RoundBar
+        round={round}
+        drawerOpen={state.drawerOpen}
+        unread={unread}
+        onToggleDrawer={() => dispatch({ type: 'drawer/toggle' })}
+        leave={props.leave ?? noLeave}
       />
-      <Workspace
+      <div className="flex min-h-0 flex-1">
+        <RoundDrawer round={round} state={state} dispatch={dispatch} />
+        <div
+          className={cn(
+            'flex min-w-0 flex-1 flex-col overflow-y-auto',
+            state.phoneDrawer && 'max-narrow:hidden',
+          )}
+        >
+          <Stage round={round} preset={preset} />
+          <RoundControls
+            round={round}
+            state={state}
+            dispatch={dispatch}
+            layout={
+              <LayoutMenu round={round} state={state} dispatch={dispatch} />
+            }
+          />
+          {alert ? (
+            <p role="alert" className="px-4 py-1 text-sm text-live">
+              {alert}
+            </p>
+          ) : null}
+          <VideoDivider
+            value={video}
+            min={videoBounds.min}
+            max={videoBounds.max}
+            onResize={(startPx, deltaPx) =>
+              dispatch({ type: 'layout/resize', startPx, deltaPx })
+            }
+            onNudge={(key) => dispatch({ type: 'layout/nudge', key })}
+          />
+          <RoomDocument
+            round={round}
+            state={state}
+            dispatch={dispatch}
+            onEdit={sync?.change}
+            save={props.save ?? null}
+          />
+        </div>
+      </div>
+      <PhoneActions round={round} state={state} dispatch={dispatch} />
+      <RoundTabs
         round={round}
         state={state}
         dispatch={dispatch}
-        onEdit={sync?.change}
+        unread={unread}
       />
       <CommandPalette
         open={state.paletteOpen}
         documents={state.documents}
-        onChoose={(choice) => {
-          choose(choice);
-          if (choice.kind === 'open') dispatch({ type: 'palette/close' });
-        }}
+        onChoose={choiceHandler(sync, dispatch, setProblem)}
         onClose={() => dispatch({ type: 'palette/close' })}
       />
     </div>

@@ -72,14 +72,14 @@ function EditCard({ turn, outcome, documentTitle, onDecide }: EditCardProps) {
         <div className="flex gap-2 pt-1">
           <button
             type="button"
-            className="h-8 cursor-pointer rounded-sm bg-hue-plum px-3 text-sm font-strong text-background"
+            className="h-room-target cursor-pointer rounded-sm bg-hue-plum px-3 text-sm font-strong text-background"
             onClick={() => onDecide('applied')}
           >
             Apply
           </button>
           <button
             type="button"
-            className="h-8 cursor-pointer rounded-sm border border-border-strong px-3 text-sm text-ink-muted"
+            className="h-room-target cursor-pointer rounded-sm border border-border-strong px-3 text-sm text-ink-muted"
             onClick={() => onDecide('discarded')}
           >
             Discard
@@ -137,7 +137,7 @@ export function AgentThread({
 }
 
 type ComposerProps = {
-  readonly placeholder: string;
+  readonly label: string;
   readonly tone: 'chat' | 'ai';
   readonly onSend: (text: string) => void;
 };
@@ -146,7 +146,7 @@ type ComposerProps = {
  * The message box. Not a form: with no backend a native submit would put
  * the draft in the URL; Enter or the button hands it to the room.
  */
-export function Composer({ placeholder, tone, onSend }: ComposerProps) {
+export function Composer({ label, tone, onSend }: ComposerProps) {
   const [draft, setDraft] = useState('');
   const send = () => {
     if (draft.trim() === '') return;
@@ -161,19 +161,18 @@ export function Composer({ placeholder, tone, onSend }: ComposerProps) {
   return (
     <div className="flex gap-2 border-t border-border p-2">
       <input
-        aria-label={placeholder}
-        placeholder={placeholder}
+        aria-label={label}
         value={draft}
         onChange={(event) => setDraft(event.target.value)}
         onKeyDown={key}
-        className="h-10 min-w-0 flex-1 rounded-sm border border-border-strong bg-background px-3 text-sm"
+        className="h-room-target min-w-0 flex-1 rounded-sm border border-border-strong bg-background px-3 text-sm"
       />
       <button
         type="button"
         aria-label="Send"
         onClick={send}
         className={cn(
-          'flex size-10 cursor-pointer items-center justify-center rounded-sm text-background',
+          'flex size-room-target cursor-pointer items-center justify-center rounded-sm text-background',
           tone === 'ai' ? 'bg-hue-plum' : 'bg-accent',
         )}
       >

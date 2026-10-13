@@ -1,54 +1,64 @@
+/**
+ * Where the round is for this debater. `waiting` is a round whose live
+ * position the room cannot read: nobody holds the floor and no phase
+ * action is offered.
+ */
 export type RoundPhase =
-  'opponent-speaking' | 'cross-ex' | 'prep' | 'own-speech';
-export type LayoutPreset = 'stage' | 'split' | 'focus';
-export type LayoutMode = 'auto' | LayoutPreset | 'custom';
-export type Pane = 'tree' | 'sidebar' | 'video';
-export type Panel = 'tree' | 'sidebar';
+  | 'waiting'
+  | 'opponent-speaking'
+  | 'cross-ex'
+  | 'prep'
+  | 'own-speech'
+  | 'judging';
 
+/**
+ * How the video band arranges the debaters: the speaker large beside a
+ * small self view, two equal tiles for cross-ex, small tiles above a large
+ * document, or a face-to-face conversation while the ballots are written.
+ */
+export type LayoutPreset = 'speaker' | 'stage' | 'focus' | 'conversation';
+export type LayoutMode = 'auto' | LayoutPreset;
+
+/**
+ * Only the video resizes; the document takes the rest (owner decision 2).
+ * `videoHeight` is the debater's own height once they resize, else null.
+ */
 export type LayoutState = {
   readonly mode: LayoutMode;
-  readonly videoHeight: number;
-  readonly treeWidth: number;
-  readonly sidebarWidth: number;
-  readonly treeOpen: boolean;
-  readonly sidebarOpen: boolean;
+  readonly videoHeight: number | null;
 };
 
-export const paneBounds: Readonly<
-  Record<Pane, { readonly min: number; readonly max: number }>
-> = {
-  tree: { min: 160, max: 420 },
-  sidebar: { min: 260, max: 560 },
-  video: { min: 100, max: 480 },
-};
+export const videoBounds = { min: 100, max: 480 } as const;
 
 const presetVideoHeight: Readonly<Record<LayoutPreset, number>> = {
-  stage: 460,
-  split: 340,
+  speaker: 420,
+  stage: 420,
   focus: 130,
+  conversation: 300,
 };
 
-export const initialLayout: LayoutState = {
-  mode: 'auto',
-  videoHeight: 340,
-  treeWidth: 220,
-  sidebarWidth: 340,
-  treeOpen: true,
-  sidebarOpen: true,
-};
+export const initialLayout: LayoutState = { mode: 'auto', videoHeight: null };
 
 const phasePreset: Readonly<Record<RoundPhase, LayoutPreset>> = {
-  'opponent-speaking': 'split',
+  waiting: 'conversation',
+  'opponent-speaking': 'speaker',
   'cross-ex': 'stage',
   prep: 'focus',
   'own-speech': 'focus',
+  judging: 'conversation',
 };
+
+/** The presets the layout menu offers, after Auto. */
+export const layoutPresets: readonly LayoutPreset[] = [
+  'speaker',
+  'stage',
+  'focus',
+  'conversation',
+];
 
 const nudgeStep = 16;
 const nudgeKeys: Readonly<Record<string, number>> = {
-  ArrowLeft: -nudgeStep,
   ArrowUp: -nudgeStep,
-  ArrowRight: nudgeStep,
   ArrowDown: nudgeStep,
 };
 
@@ -59,66 +69,44 @@ export function autoPreset(phase: RoundPhase): LayoutPreset {
 export function effectivePreset(
   state: LayoutState,
   phase: RoundPhase,
-): LayoutPreset | 'custom' {
+): LayoutPreset {
   return state.mode === 'auto' ? autoPreset(phase) : state.mode;
 }
 
 export function videoHeightFor(state: LayoutState, phase: RoundPhase): number {
-  const preset = effectivePreset(state, phase);
-  return preset === 'custom' ? state.videoHeight : presetVideoHeight[preset];
+  return state.videoHeight ?? presetVideoHeight[effectivePreset(state, phase)];
 }
 
-export function clampPane(pane: Pane, px: number): number {
-  const { min, max } = paneBounds[pane];
-  return Math.min(max, Math.max(min, Math.round(px)));
+export function clampVideo(px: number): number {
+  return Math.min(videoBounds.max, Math.max(videoBounds.min, Math.round(px)));
 }
 
-export function resizePane(
+/** A manual resize pins the preset on screen: Auto stops following the phase. */
+export function resizeVideo(
   state: LayoutState,
-  _phase: RoundPhase,
-  pane: Pane,
+  phase: RoundPhase,
   startPx: number,
   deltaPx: number,
 ): LayoutState {
-  if (pane === 'tree')
-    return { ...state, treeWidth: clampPane(pane, startPx + deltaPx) };
-  if (pane === 'sidebar')
-    return { ...state, sidebarWidth: clampPane(pane, startPx - deltaPx) };
   return {
-    ...state,
-    mode: 'custom',
-    videoHeight: clampPane(pane, startPx + deltaPx),
+    mode: effectivePreset(state, phase),
+    videoHeight: clampVideo(startPx + deltaPx),
   };
 }
 
-const currentSize = (state: LayoutState, phase: RoundPhase, pane: Pane) => {
-  if (pane === 'tree') return state.treeWidth;
-  if (pane === 'sidebar') return state.sidebarWidth;
-  return videoHeightFor(state, phase);
-};
-
-export function nudgePane(
+export function nudgeVideo(
   state: LayoutState,
   phase: RoundPhase,
-  pane: Pane,
   key: string,
 ): LayoutState {
   const delta = Object.hasOwn(nudgeKeys, key) ? nudgeKeys[key] : undefined;
   if (delta === undefined) return state;
-  return resizePane(state, phase, pane, currentSize(state, phase, pane), delta);
+  return resizeVideo(state, phase, videoHeightFor(state, phase), delta);
 }
 
-export function selectMode(
-  state: LayoutState,
-  mode: Exclude<LayoutMode, 'custom'>,
-): LayoutState {
-  return { ...state, mode };
-}
-
-export function togglePanel(state: LayoutState, panel: Panel): LayoutState {
-  return panel === 'tree'
-    ? { ...state, treeOpen: !state.treeOpen }
-    : { ...state, sidebarOpen: !state.sidebarOpen };
+/** Choosing Auto or a preset from the menu drops a resized height. */
+export function selectMode(mode: LayoutMode): LayoutState {
+  return { mode, videoHeight: null };
 }
 
 export function workspaceMinHeight(videoHeight: number): number {

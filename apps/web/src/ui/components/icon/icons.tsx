@@ -93,19 +93,11 @@ export const iconPaths: Record<string, ReactNode> = {
     </>
   ),
   chevronLeft: <path d="m15 18-6-6 6-6" />,
-  /* Panel openers: the chevron points the way the panel will move. */
-  panelLeftOpen: (
+  /* The round drawer: a panel along the left edge. */
+  drawer: (
     <>
       <rect x="3" y="4" width="18" height="16" rx="2" />
       <path d="M9 4v16" />
-      <path d="m13 9 3 3-3 3" />
-    </>
-  ),
-  panelRightOpen: (
-    <>
-      <rect x="3" y="4" width="18" height="16" rx="2" />
-      <path d="M15 4v16" />
-      <path d="m11 15-3-3 3-3" />
     </>
   ),
   chevronRight: <path d="m9 18 6-6-6-6" />,

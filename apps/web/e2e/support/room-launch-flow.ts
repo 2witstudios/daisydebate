@@ -88,8 +88,19 @@ export async function claim(page: Page, view: RoomView, seat: string) {
   return view;
 }
 
-/** Real actors from the authenticated catalog; human judge claims its own seat. */
-export async function prepareJudgeRoom(page: Page, title: string) {
+const seats = ['Affirmative 1', 'Negative 1', 'Judge 1'] as const;
+const seatRole = {
+  'Affirmative 1': 'affirmative',
+  'Negative 1': 'negative',
+  'Judge 1': 'judge',
+} as const;
+
+/** Real actors from the authenticated catalog: bots in every seat but the member's own. */
+export async function prepareRoomAs(
+  page: Page,
+  title: string,
+  own: (typeof seats)[number],
+) {
   let view = await createFromPlay(page, title, 'one-on-one');
   await page.getByText('Edit settings', { exact: true }).click();
   const settings = page.getByRole('form', { name: 'Room settings' });
@@ -111,7 +122,7 @@ export async function prepareJudgeRoom(page: Page, title: string) {
   );
   expect(eligible.length).toBeGreaterThanOrEqual(2);
   await page.getByText('Manage seats', { exact: true }).click();
-  for (const [index, seat] of ['Affirmative 1', 'Negative 1'].entries()) {
+  for (const [index, seat] of seats.filter((s) => s !== own).entries()) {
     const select = page.getByLabel(`Assign ${seat}`, { exact: true });
     await select.selectOption(eligible[index]!.actorId);
     await select
@@ -124,7 +135,7 @@ export async function prepareJudgeRoom(page: Page, title: string) {
         view.participants.some(
           (participant) =>
             participant.actorId === eligible[index]!.actorId &&
-            participant.role === (index === 0 ? 'affirmative' : 'negative') &&
+            participant.role === seatRole[seat] &&
             participant.slot === 0,
         ),
       ).toBe(true);
@@ -133,8 +144,11 @@ export async function prepareJudgeRoom(page: Page, title: string) {
       select.locator('..').locator('[name="expectedVersion"]'),
     ).toHaveValue(String(view.version));
   }
-  return claim(page, view, 'Judge 1');
+  return claim(page, view, own);
 }
+
+export const prepareJudgeRoom = (page: Page, title: string) =>
+  prepareRoomAs(page, title, 'Judge 1');
 
 /** Both Launch paths assert the same complete frozen durable projection. */
 export async function assertFrozenLaunch(view: RoomView) {

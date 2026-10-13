@@ -8,7 +8,6 @@
 @import './theme/brand.css';
 @import './theme/portrait.css';
 @import './theme/bracket.css';
-@import './theme/stage.css';
 @import './theme/room.css';
 
 /* Tailwind v4 is configured here and nowhere else (ADR 0028): no

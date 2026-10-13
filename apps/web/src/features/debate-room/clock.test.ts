@@ -1,6 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   cancelEndSpeech,
+  clockMilestone,
   clockUrgency,
   formatClock,
   pressEndSpeech,
@@ -97,6 +98,23 @@ describe('end speech confirmation', () => {
       should: 'stay ended',
       actual: cancelEndSpeech('ended'),
       expected: 'ended',
+    });
+  });
+});
+
+describe('clockMilestone', () => {
+  test('the marks a screen reader hears', () => {
+    assert({
+      given: 'two minutes, one minute, 30 seconds, 10 seconds and zero',
+      should: 'stay silent until a minute, then name each mark once crossed',
+      actual: [120_000, 60_000, 30_000, 10_000, 0].map(clockMilestone),
+      expected: [
+        null,
+        '1 minute left',
+        '30 seconds left',
+        '30 seconds left',
+        'Time',
+      ],
     });
   });
 });

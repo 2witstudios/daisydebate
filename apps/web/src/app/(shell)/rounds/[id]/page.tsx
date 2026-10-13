@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import type { SearchParams } from '../../../../features/access/decision';
 import { requireAccess } from '../../../../lib/access';
+import { isLiveDebater } from '../../../../ui/debate-room/live-round';
 import { RoundDocuments } from '../../../../ui/debate-room/round-documents';
 import { RoundReceipt } from '../../../../ui/rooms/round-receipt/round-receipt';
 
@@ -23,6 +24,12 @@ export default async function RoundPage({
   const result = await readPersistedRound(id);
   if (result.kind === 'missing') notFound();
   if (result.kind !== 'found') throw createAppError('INFRASTRUCTURE');
+  if (
+    identity.state === 'member' &&
+    identity.principal.actorId !== null &&
+    isLiveDebater(result.round, identity.principal.actorId)
+  )
+    redirect(`/rounds/${id}/room`);
   const ownsFiles =
     identity.state === 'member' &&
     result.round.participants.some(

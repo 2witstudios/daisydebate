@@ -1,8 +1,8 @@
+import type { CompetitionType } from '@daisy/protocol';
 import type { ChatMessage } from '../../features/debate-room/chat';
 import type { SpeechSlot } from '../../features/debate-room/documents/documents';
 import type { RoundPhase } from '../../features/debate-room/layout';
 import type { TranscriptSegment } from '../../features/debate-room/transcript';
-import type { RoundKind } from '../../features/debate-room/workspace';
 import type { Debater, RoundSnapshot } from '../debate-room/round';
 import { sampleRoomDocuments } from './debate-room-docs';
 
@@ -48,6 +48,7 @@ const self: Debater = {
   initials: 'SR',
   side: 'neg',
   rating: 1702,
+  bot: null,
 };
 const opponent: Debater = {
   id: 'u-maya',
@@ -55,6 +56,7 @@ const opponent: Debater = {
   initials: 'MO',
   side: 'aff',
   rating: 1684,
+  bot: null,
 };
 
 const message = (
@@ -159,7 +161,7 @@ const transcript: readonly TranscriptSegment[] = [
 
 const phases: Readonly<
   Record<
-    RoundPhase,
+    Exclude<RoundPhase, 'waiting'>,
     Pick<RoundSnapshot, 'liveIndex' | 'clock' | 'micLive'> & {
       readonly prepMs: number;
     }
@@ -189,22 +191,41 @@ const phases: Readonly<
     micLive: true,
     prepMs: 0,
   },
+  judging: {
+    liveIndex: 7,
+    clock: { label: 'Judging window', remainingMs: 1_450_000 },
+    micLive: true,
+    prepMs: 0,
+  },
 };
 
 /** The sample round, as the negative debater sees it in the given phase. */
-export function sampleRound(phase: RoundPhase, kind: RoundKind): RoundSnapshot {
+export function sampleRound(
+  phase: Exclude<RoundPhase, 'waiting'>,
+  competition: CompetitionType,
+): RoundSnapshot {
   const at = phases[phase];
   return {
     resolution: 'This house would ban single-use plastics',
-    kind,
+    competition,
     phase,
     self,
     opponent,
+    people: [
+      { id: opponent.id, name: opponent.name, role: 'aff', bot: false },
+      { id: self.id, name: self.name, role: 'neg', bot: false },
+      { id: 'u-judge', name: 'Judge', role: 'judge', bot: false },
+    ],
+    judge: 'human',
+    stakes: competition === 'ranked' ? { win: 14, loss: 12 } : null,
+    recording: true,
+    transcribing: true,
     speeches,
     liveIndex: at.liveIndex,
     clock: at.clock,
     prepMs: { neg: at.prepMs, aff: 120_000 },
     micLive: at.micLive,
+    voiceLevel: 0,
     clubName: 'Riverside Debate',
     documents: sampleRoomDocuments,
     channels: [
