@@ -5,8 +5,8 @@ import { messagingPreferenceSchemas } from '@daisy/protocol';
 import { processRoute } from '../../../../../server/process-app';
 import { inProcessFetch } from '../../../../../server/in-process-fetch';
 import { moveOn } from '../../../../../server/form-action';
+import { parsePreferenceForm } from '../../../../../features/messaging/forms/preference-command';
 import {
-  parsePreferenceForm,
   preferenceUnavailable,
   preferenceFormState,
   type PreferenceFormState,

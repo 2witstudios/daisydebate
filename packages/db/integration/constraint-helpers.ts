@@ -7,7 +7,7 @@ import {
 import { createId } from '@paralleldrive/cuid2';
 import { createDatabase } from '../src';
 import { createTestOnlyOperations } from '../src/test-only-operations';
-import { buildDebateTopic } from '@daisy/protocol';
+import { buildDebateTopic, buildUserInboxTopic } from '@daisy/protocol';
 
 type PostgresFailure = { errno?: unknown; constraint?: unknown };
 
@@ -252,6 +252,14 @@ export class Fixture {
     for (const [table, key] of purgeOrder) {
       await this.deleteWhere(table, key, this.tracked.get(table));
     }
+    // Deleting a live session appends its revocation control to the actor's inbox topic.
+    await this.deleteWhere(
+      'outbox',
+      'topic',
+      this.tracked
+        .get('actors')
+        ?.map((actorId) => buildUserInboxTopic(actorId)),
+    );
   }
 
   private async deleteWhere(

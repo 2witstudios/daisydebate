@@ -102,6 +102,24 @@ describe('AUTH-3.10 aggregate magic-link limits per network', () => {
       .slice(before)
       .filter(({ to }) => existing.includes(to)).length;
     const floodStatuses = statuses(await Promise.all(flood));
+    const signInStatuses = statuses(await Promise.all(signIns));
+    // A lost sign-in must name its cause: an outage, a refused lane or a failed mail.
+    const failures = events
+      .filter((event) =>
+        [
+          'db.capacity.refused',
+          'db.query.failed',
+          'http.request.failed',
+          'request.unhandled',
+          'auth.rate_limit.unavailable',
+          'auth.mail.failed',
+          'auth.mail.abandoned',
+        ].includes(event),
+      )
+      .reduce<Record<string, number>>(
+        (counts, event) => ({ ...counts, [event]: (counts[event] ?? 0) + 1 }),
+        {},
+      );
 
     assert({
       given: `${total} magic-link requests from every /64 of one /48 at ${SINGLE_48_RATE}/s (achieved ${achievedRate.toFixed(0)}/s), a ${PROVIDER_ROUND_TRIP_MS} ms provider, and 10 real sign-ins from outside it`,
@@ -113,6 +131,8 @@ describe('AUTH-3.10 aggregate magic-link limits per network', () => {
         shed: events.filter((event) => event === 'auth.mail.shed').length,
         poolNeverNearFull: peak < 64,
         signInsMailed: mailed,
+        signInStatuses,
+        failures,
       },
       expected: {
         floodAdmittedWithinLimit: true,
@@ -120,6 +140,8 @@ describe('AUTH-3.10 aggregate magic-link limits per network', () => {
         shed: 0,
         poolNeverNearFull: true,
         signInsMailed: 10,
+        signInStatuses: { 200: 10 },
+        failures: {},
       },
     });
   }, 600_000);

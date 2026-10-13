@@ -1,6 +1,7 @@
 import {
   observationFactKey,
   assertObservationFactBudget,
+  sortedDependencies,
 } from './observation-fact-boundary';
 import { observationParentFacts } from './observation-parent-facts';
 import { sql } from 'drizzle-orm';
@@ -66,12 +67,7 @@ export function observationDependencies(
           actors.add(actorId);
     }
   assertObservationFactBudget(actors.size + pairs.size + bindings.length);
-  return {
-    actors: [...actors].sort(),
-    pairs: [...pairs.values()].sort(
-      (a, b) => a.low.localeCompare(b.low) || a.high.localeCompare(b.high),
-    ),
-  };
+  return sortedDependencies(actors, pairs);
 }
 export async function fenceObservationResources(
   tx: Reader,

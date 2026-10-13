@@ -1,4 +1,5 @@
 import { createAppError } from '@daisy/errors';
+import { createFairQueue } from './workload-fair-queue';
 
 export type DatabaseWorkload =
   | 'competitive'
@@ -25,6 +26,16 @@ export type WorkloadQueueOptions = {
   /** An absent lane refuses as soon as it is saturated. */
   readonly queues?: Partial<Record<DatabaseWorkload, WorkloadQueue>>;
   readonly timers?: Timers;
+  /**
+   * The current caller's fairness key (for web, the client's network), read when work queues.
+   * Waiters are served round-robin across keys; absent keys share one FIFO.
+   */
+  readonly fairnessKey?: () => string | undefined;
+  /** Every refusal is observable: the lane and whether its queue was full or the wait expired. */
+  readonly onRefused?: (
+    lane: DatabaseWorkload,
+    reason: 'saturated' | 'expired',
+  ) => void;
 };
 const unavailable = () =>
   createAppError('INFRASTRUCTURE', 'Database capacity unavailable');
@@ -36,10 +47,19 @@ export function createWorkloadExecutor(
   {
     queues = {},
     timers = globalThis as unknown as Timers,
+    onRefused,
+    fairnessKey = () => undefined,
   }: WorkloadQueueOptions = {},
 ) {
+  const refuse = (lane: DatabaseWorkload, reason: 'saturated' | 'expired') => {
+    onRefused?.(lane, reason);
+    return unavailable();
+  };
   const active = new Map<DatabaseWorkload, number>();
-  const waiting = new Map<DatabaseWorkload, Waiter[]>();
+  const waiting = new Map<
+    DatabaseWorkload,
+    ReturnType<typeof createFairQueue<Waiter>>
+  >();
   for (const capacity of [
     ...Object.values(capacities),
     ...Object.values(queues).flatMap((q) => [q.depth, q.maxWaitMs]),
@@ -49,8 +69,8 @@ export function createWorkloadExecutor(
   const available = (lane: DatabaseWorkload) =>
     (active.get(lane) ?? 0) < (capacities[lane] ?? 0);
   const queueRoom = (lane: DatabaseWorkload) =>
-    (waiting.get(lane)?.length ?? 0) < (queues[lane]?.depth ?? 0);
-  // A freed slot passes directly to the oldest waiter, so arrivals cannot overtake the queue;
+    (waiting.get(lane)?.size ?? 0) < (queues[lane]?.depth ?? 0);
+  // A freed slot passes directly to the next waiter in rotation, so arrivals cannot overtake the queue;
   // an over-capacity eager settlement frees no slot until the lane is back under capacity.
   const release = (lane: DatabaseWorkload) => () => {
     active.set(lane, (active.get(lane) ?? 1) - 1);
@@ -62,24 +82,24 @@ export function createWorkloadExecutor(
     next.grant();
   };
   const acquire = (lane: DatabaseWorkload) => {
-    if (!available(lane)) throw unavailable();
+    if (!available(lane)) throw refuse(lane, 'saturated');
     active.set(lane, (active.get(lane) ?? 0) + 1);
     return release(lane);
   };
   const admit = (lane: DatabaseWorkload): Promise<() => void> => {
-    if (!queueRoom(lane)) return Promise.reject(unavailable());
+    if (!queueRoom(lane)) return Promise.reject(refuse(lane, 'saturated'));
+    const key = fairnessKey() ?? '';
     return new Promise((resolve, reject) => {
-      const queue = waiting.get(lane) ?? [];
+      const queue = waiting.get(lane) ?? createFairQueue<Waiter>();
       waiting.set(lane, queue);
       const waiter: Waiter = {
         grant: () => resolve(release(lane)),
         timer: timers.setTimeout(() => {
-          const index = queue.indexOf(waiter);
-          if (index >= 0) queue.splice(index, 1);
-          reject(unavailable());
+          queue.remove(key, waiter);
+          reject(refuse(lane, 'expired'));
         }, queues[lane]!.maxWaitMs),
       };
-      queue.push(waiter);
+      queue.push(key, waiter);
     });
   };
   const invoke = <T>(lane: DatabaseWorkload, work: () => T): T => {
@@ -103,7 +123,7 @@ export function createWorkloadExecutor(
      */
     construct: <T>(lane: DatabaseWorkload, build: () => T): T => {
       if (available(lane)) return invoke(lane, build);
-      if (!queueRoom(lane)) throw unavailable();
+      if (!queueRoom(lane)) throw refuse(lane, 'saturated');
       const result = build();
       if (!(result instanceof Promise)) return result;
       active.set(lane, (active.get(lane) ?? 0) + 1);
@@ -156,8 +176,9 @@ export function workloadCapacities(
     capacities[lane] = capacities[lane]! + grant;
     remaining -= grant;
   }
-  // Unreserved connections serve the interactive default lane.
-  capacities.control = capacities.control! + remaining;
+  // Unreserved connections serve the interactive default lane, or the profile's primary lane.
+  const spare = lanes.includes('control') ? 'control' : lanes[0]!;
+  capacities[spare] = capacities[spare]! + remaining;
   return capacities;
 }
 
@@ -166,8 +187,10 @@ export function workloadCapacities(
  * sheds load instead of stacking latency (plan starting calibrations). Control is the interactive
  * default (sign-in, session reads, account and mail work): bursts of short operations such as a
  * sign-in flood must queue rather than fail, so it holds a deep but bounded queue. Calibration: a
- * 1,200-request sign-up flood over 1,000 connections (ISSUE-185) must answer every request; a waiter
- * costs a promise and a timer, so depth bounds memory cheaply while the 2s age bounds latency.
+ * 1,200-request sign-up flood over 1,000 connections (ISSUE-185) must answer every request, and a
+ * real sign-in behind a single-/48 flood's admitted burst (AUTH-3.10: about 120 suppression checks
+ * draining slowly on a saturated event loop, measured past 2s) must still be mailed. A waiter costs
+ * a promise and a timer, so depth bounds memory cheaply while the 5s age bounds latency.
  */
 const queueProfile: Record<DatabaseWorkload, WorkloadQueue> = {
   competitive: { depth: 16, maxWaitMs: 50 },
@@ -178,7 +201,7 @@ const queueProfile: Record<DatabaseWorkload, WorkloadQueue> = {
   projection: { depth: 64, maxWaitMs: 500 },
   headers: { depth: 64, maxWaitMs: 500 },
   relay: { depth: 16, maxWaitMs: 500 },
-  control: { depth: 2_048, maxWaitMs: 2_000 },
+  control: { depth: 2_048, maxWaitMs: 5_000 },
   ephemeral: { depth: 16, maxWaitMs: 100 },
 };
 /** Queues for exactly the lanes this pool reserves. */
@@ -193,4 +216,16 @@ export function workloadQueueOptions(
       ]),
     ),
   };
+}
+/** The executor for one process's pool: the profile's lanes, each with its queue. */
+export function createProfileExecutor(
+  profile: DatabaseWorkloadProfile,
+  maxConnections: number,
+  options: Pick<WorkloadQueueOptions, 'fairnessKey' | 'onRefused'>,
+) {
+  const capacities = workloadCapacities(profile, maxConnections);
+  return createWorkloadExecutor(capacities, {
+    ...workloadQueueOptions(capacities),
+    ...options,
+  });
 }

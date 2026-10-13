@@ -39,36 +39,47 @@ export async function loadMessagingAuthorizationInput(
   input: Parameters<MessagingAuthorizationFence>[1],
   frame: Parameters<MessagingAuthorizationFence>[2],
   options: FenceOptions,
-): Promise<
-  Omit<AuthorizationInput, 'capability' | 'resource'> & {
-    readonly resource: ChannelAuthorizationFact;
-  }
-> {
-  const { principal, clock, postingPolicy, groupPostingPolicy, readingPolicy } =
-    options;
-  requireBoundFrame(principal, input, frame.fact.channelId);
+): Promise<ChannelAuthorizationInput> {
+  requireBoundFrame(options.principal, input, frame.fact.channelId);
   const accounts = await loadAccountPolicyFacts(
     tx,
     frame.accounts,
-    clock.now(),
+    options.clock.now(),
   );
-  const now = clock.now();
-  const policyInput = { channel: frame.fact, accounts, now };
+  return messagingAuthorizationInput(
+    { channel: frame.fact, accounts, now: options.clock.now() },
+    options,
+  );
+}
+type ChannelAuthorizationInput = Omit<
+  AuthorizationInput,
+  'capability' | 'resource'
+> & { readonly resource: ChannelAuthorizationFact };
+/** Pure core over already-fenced account and age facts; batched readers share it. */
+export function messagingAuthorizationInput(
+  policyInput: PolicyInput,
+  options: Omit<FenceOptions, 'clock'>,
+): ChannelAuthorizationInput {
+  const { principal, postingPolicy, groupPostingPolicy, readingPolicy } =
+    options;
+  const { channel, accounts } = policyInput;
   const reading = readingPolicy?.(policyInput);
   return {
     principal,
-    resource: frame.fact,
+    resource: channel,
     context: {
       account:
-        accounts.find((row) => row.account.actorId === input.actorId)
-          ?.account ?? null,
-      now,
+        principal.kind === 'user'
+          ? (accounts.find((row) => row.account.actorId === principal.actorId)
+              ?.account ?? null)
+          : null,
+      now: policyInput.now,
       socialAccounts: accounts,
       ...(reading === undefined ? {} : { socialReading: reading }),
       socialPosting: socialPostingPolicy({
         ...policyInput,
         policy:
-          frame.fact.authority.kind === 'private_group'
+          channel.authority.kind === 'private_group'
             ? (groupPostingPolicy ?? postingPolicy)
             : postingPolicy,
       }),

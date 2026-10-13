@@ -93,8 +93,8 @@ export function retentionTargets({
         }),
     },
     /**
-     * AUTH-7.5: a session is deleted the instant it is revoked
-     * (`revokeOtherSessions`, `revokeSessionUnlessAddressHeld`), so this
+     * AUTH-7.5: a session is deleted the instant it is signed out of or
+     * revoked, so this
      * sweep only ever finds sessions that ran to their own `expires_at` and
      * were never signed out of; it keeps the same 24-hour grace as
      * verification rows.

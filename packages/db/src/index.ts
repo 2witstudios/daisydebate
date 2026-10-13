@@ -2,9 +2,7 @@ import { guardedObservationHeaders } from './observation-header-operation';
 import { createObservationProjectionOperations } from './observation-projection';
 import { createObservationAuthorityOperations } from './observation-authority';
 import {
-  createWorkloadExecutor,
-  workloadCapacities,
-  workloadQueueOptions,
+  createProfileExecutor,
   type DatabaseWorkloadProfile,
 } from './workload-admission';
 import { workloadDatabase } from './workload-executor';
@@ -20,7 +18,7 @@ import { createMessagingGroupCreationStore } from './messaging/group-creation-st
 import type { MessagingGroupCreationFence } from './messaging/group-creation-contracts';
 import { createMessagingGroupInvitationStore } from './messaging/group-invitation-store';
 import type { MessagingGroupInvitationFence } from './messaging/group-invitation-contracts';
-import { createMessagingInboxStore } from './messaging/inbox-store';
+import { createMessagingInboxPage } from './messaging/inbox-page';
 import { createMessagingChannelAuthority } from './messaging/authority-frame';
 import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
@@ -63,6 +61,7 @@ import { standingsOperations } from './standings';
 import type { RateDebateInput } from './rating-facts';
 import { emailDeliveryOperations } from './email-delivery-operations';
 import { outboxOperations } from './outbox';
+import { relayOutboxOperations } from './outbox-relay';
 import { readOutboxCatchup } from './outbox-catchup';
 import { readOutboxRetentionBoundary } from './outbox-retention-boundary';
 import { instrumented, type DatabaseEventSink } from './instrumented';
@@ -122,11 +121,14 @@ export function createDatabase({
   client: injectedClient,
   nextActorId,
   workloadProfile = 'web',
+  fairnessKey,
 }: {
   url: string;
   maxConnections?: number;
   workloadProfile?: DatabaseWorkloadProfile;
   eventSink?: DatabaseEventSink;
+  /** The current caller's fairness key; queued lane work is served round-robin across keys. */
+  fairnessKey?: () => string | undefined;
   /** Overrides dialing `url`; tests inject a scripted client at this seam. */
   client?: SQL;
   /**
@@ -145,11 +147,15 @@ export function createDatabase({
       connection: RUNTIME_SESSION,
     });
   const rawDatabase = drizzle({ client });
-  const capacities = workloadCapacities(workloadProfile, maxConnections);
-  const executor = createWorkloadExecutor(
-    capacities,
-    workloadQueueOptions(capacities),
-  );
+  const executor = createProfileExecutor(workloadProfile, maxConnections, {
+    ...(fairnessKey ? { fairnessKey } : {}),
+    onRefused: (lane, reason) =>
+      eventSink?.(
+        'db.capacity.refused',
+        { scope: lane, cause: reason },
+        'Database lane refused work',
+      ),
+  });
   const database = workloadDatabase(rawDatabase, executor, 'control');
   const competitiveDatabase = workloadDatabase(
     rawDatabase,
@@ -169,6 +175,7 @@ export function createDatabase({
     'projection',
   );
   const renewalDatabase = workloadDatabase(rawDatabase, executor, 'renewal');
+  const relayDatabase = workloadDatabase(rawDatabase, executor, 'relay');
   return {
     observationAuthority: (
       decide: Parameters<typeof createObservationAuthorityOperations>[1],
@@ -243,9 +250,7 @@ export function createDatabase({
     }),
     ...emailDeliveryOperations({ database, eventSink }),
     ...actorOperations({ database, eventSink }),
-    messagingInboxStore: (
-      authorize: Parameters<typeof createMessagingInboxStore>[1],
-    ) => createMessagingInboxStore(socialDatabase, authorize),
+    messagingInboxPage: createMessagingInboxPage(socialDatabase),
     messagingDmStore: (
       authorize: Parameters<typeof createMessagingDmStore>[0]['authorize'],
     ) => createMessagingDmStore({ database: socialDatabase, authorize }),
@@ -290,6 +295,8 @@ export function createDatabase({
     messagingSocialStore: (authorize: MessagingSocialAuthorizationFence) =>
       createMessagingSocialStore({ database: socialDatabase, authorize }),
     ...outboxOperations({ database, eventSink }),
+    /** The fleet metadata relay; only the projection profile reserves its lane. */
+    relayOutbox: relayOutboxOperations({ database: relayDatabase, eventSink }),
     readOutboxRetentionBoundary: () =>
       instrumented(eventSink, 'readOutboxRetentionBoundary', () =>
         readOutboxRetentionBoundary(database),
