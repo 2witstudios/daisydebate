@@ -46,6 +46,33 @@ export type RoundHydration = {
   }[];
 };
 
+type Reader = Pick<BunSQLDatabase, 'select'>;
+
+/** A Round's segment rows in order, timestamps as ISO strings. */
+export async function segmentRows(
+  tx: Reader,
+  roundId: string,
+): Promise<RoundHydration['segments']> {
+  const rows = await tx
+    .select({
+      id: roundSegments.id,
+      sequence: roundSegments.sequence,
+      type: roundSegments.type,
+      rulesSegmentKey: roundSegments.rulesSegmentKey,
+      startedAt: roundSegments.startedAt,
+      endedAt: roundSegments.endedAt,
+      durationMs: roundSegments.durationMs,
+    })
+    .from(roundSegments)
+    .where(eq(roundSegments.roundId, roundId))
+    .orderBy(roundSegments.sequence);
+  return rows.map((segment) => ({
+    ...segment,
+    startedAt: segment.startedAt.toISOString(),
+    endedAt: segment.endedAt?.toISOString() ?? null,
+  }));
+}
+
 /** One consistent PostgreSQL snapshot for the Round and its child rows. */
 export async function hydrateRound(
   database: BunSQLDatabase,
@@ -68,19 +95,7 @@ export async function hydrateRound(
         })
         .from(roundParticipants)
         .where(eq(roundParticipants.roundId, id));
-      const segments = await tx
-        .select({
-          id: roundSegments.id,
-          sequence: roundSegments.sequence,
-          type: roundSegments.type,
-          rulesSegmentKey: roundSegments.rulesSegmentKey,
-          startedAt: roundSegments.startedAt,
-          endedAt: roundSegments.endedAt,
-          durationMs: roundSegments.durationMs,
-        })
-        .from(roundSegments)
-        .where(eq(roundSegments.roundId, id))
-        .orderBy(roundSegments.sequence);
+      const segments = await segmentRows(tx, id);
       return {
         id: row.id,
         competitionType: row.competitionType,
@@ -96,11 +111,7 @@ export async function hydrateRound(
         checkpoint: row.runtimeState as RoundHydration['checkpoint'],
         version: row.version,
         participants,
-        segments: segments.map((segment) => ({
-          ...segment,
-          startedAt: segment.startedAt.toISOString(),
-          endedAt: segment.endedAt?.toISOString() ?? null,
-        })),
+        segments,
       };
     },
     { isolationLevel: 'repeatable read', accessMode: 'read only' },
