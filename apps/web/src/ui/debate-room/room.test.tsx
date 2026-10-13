@@ -171,7 +171,9 @@ describe('DebateRoom', () => {
         html.includes('>Bot · Intermediate · Aff<'),
         html.includes('role="meter" aria-label="Voice level"'),
         html.includes('aria-valuenow="50"'),
-        html.includes('aria-live="polite" aria-label="Live captions"'),
+        html.includes(
+          'role="log" aria-live="polite" aria-label="Live captions"',
+        ),
         html.includes('Fibers degrade within months.'),
         html.includes('aria-label="Debaters"'),
       ],

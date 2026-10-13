@@ -5,7 +5,7 @@ import { assertNoSeriousFindings } from './support/axe';
 import { watchCspViolations } from './support/csp';
 import { expect, test as base, openPage } from './support/fixtures';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
-import { prepareJudgeRoom } from './support/room-launch-flow';
+import { prepareRoomAs } from './support/room-launch-flow';
 import { settledLaunchAuth } from './support/room-launch-settled';
 
 const documentsPath = '/api/debate-room/documents/';
@@ -20,11 +20,24 @@ const test = base.extend<{ roundFiles: RoundFiles }>({
   roundFiles: async ({ browser }, provide) => {
     const accounts = await createRoomLaunchAccounts(browser, 2);
     try {
+      await accounts.members[0]!.context.grantPermissions(
+        ['camera', 'microphone'],
+        { origin },
+      );
       const page = await openPage(
         accounts.members[0]!.context,
         'persisted Round files',
       );
-      await prepareJudgeRoom(page, `Round files ${createId().slice(0, 8)}`);
+      await prepareRoomAs(
+        page,
+        `Round files ${createId().slice(0, 8)}`,
+        'Affirmative 1',
+      );
+      await page.reload();
+      for (const device of ['camera', 'microphone'])
+        await page
+          .getByRole('button', { name: `Check ${device}`, exact: true })
+          .click();
       await page
         .getByRole('button', { name: 'I am ready', exact: true })
         .click();
@@ -88,17 +101,17 @@ test('the round room: palette, editor, marks and the video divider', async ({
     'dropped C3',
   );
   const divider = page.getByRole('separator', { name: 'Resize video' });
-  await expect(divider).toHaveAttribute('aria-valuenow', '340');
+  const start = Number(await divider.getAttribute('aria-valuenow'));
   const box = await divider.boundingBox();
   if (!box) throw new Error('The video divider has no box');
   await page.mouse.move(box.x + 24, box.y + box.height / 2);
   await page.mouse.down();
   await page.mouse.move(box.x + 24, box.y + box.height / 2 + 80, { steps: 4 });
   await page.mouse.up();
-  await expect(divider).toHaveAttribute('aria-valuenow', '420');
+  await expect(divider).toHaveAttribute('aria-valuenow', String(start + 80));
   await divider.focus();
   await page.keyboard.press('ArrowUp');
-  await expect(divider).toHaveAttribute('aria-valuenow', '404');
+  await expect(divider).toHaveAttribute('aria-valuenow', String(start + 64));
   expect(await violations.read()).toEqual({
     eventViolations: [],
     consoleViolations: [],

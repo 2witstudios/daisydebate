@@ -93,6 +93,7 @@ function Captions({
   );
   return (
     <div
+      role="log"
       aria-live="polite"
       aria-label="Live captions"
       className={cn(
