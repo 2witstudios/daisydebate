@@ -20,6 +20,16 @@ const gate = () => {
   return { opened, open };
 };
 
+/** A logger that keeps every entry it was given. */
+const capturingLogger = () => {
+  const logged: unknown[][] = [];
+  const logger: Logger = {
+    log: (...entry) => void logged.push(entry),
+    child: () => logger,
+  };
+  return { logged, logger };
+};
+
 describe('createAfterResponse', () => {
   test('starts the work a request queued only once its handler has returned', async () => {
     const steps: string[] = [];
@@ -95,11 +105,7 @@ describe('createAfterResponse', () => {
   });
 
   test('logs a failed piece of work instead of rejecting unhandled', async () => {
-    const logged: unknown[][] = [];
-    const logger: Logger = {
-      log: (...entry) => void logged.push(entry),
-      child: () => logger,
-    };
+    const { logged, logger } = capturingLogger();
     const { defer, around, settled } = createAfterResponse(logger);
     await around(async () =>
       defer(async () => {
@@ -122,11 +128,7 @@ describe('createAfterResponse', () => {
   });
 
   test('leaves a piece of work refused by database capacity to its refusal log', async () => {
-    const logged: unknown[][] = [];
-    const logger: Logger = {
-      log: (...entry) => void logged.push(entry),
-      child: () => logger,
-    };
+    const { logged, logger } = capturingLogger();
     const { defer, around, settled } = createAfterResponse(logger);
     const refusal = await capacityRefusal();
     await around(async () =>
@@ -146,11 +148,7 @@ describe('createAfterResponse', () => {
 
   test('holds at most the bound and sheds, logs and never starts what arrives past it', async () => {
     const { opened, open } = gate();
-    const logged: unknown[][] = [];
-    const logger: Logger = {
-      log: (...entry) => void logged.push(entry),
-      child: () => logger,
-    };
+    const { logged, logger } = capturingLogger();
     const { defer, settled, pending } = createAfterResponse(logger);
     const bound = AFTER_RESPONSE_MAX_RUNNING + AFTER_RESPONSE_MAX_QUEUED;
     let started = 0;
