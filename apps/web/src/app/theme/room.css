@@ -133,6 +133,13 @@ img.ProseMirror-separator {
   margin: 0;
 }
 
+.room-doc blockquote {
+  margin: 6px 0;
+  padding-left: 12px;
+  border-left: 2px solid var(--border-strong);
+  color: var(--text-muted);
+}
+
 .room-doc ul,
 .room-doc ol {
   margin: 2px 0;
