@@ -19,41 +19,31 @@ const filler = (label: string, n: number): string =>
     () => '[Sample sentence standing in for spoken words.]',
   ).join(' ')}`.trim();
 
-const ref = (
-  cardId: string,
-  title: string,
-  cite: string,
-  words: number,
-): BriefCardRef => ({
+const ref = (cardId: string, title: string, cite: string): BriefCardRef => ({
   cardId,
   title,
   cite,
-  words,
 });
 
 const institutions = ref(
   'framework-institutions',
   'The framework applies to institutions, not only persons',
   '[Author C] [year]',
-  34,
 );
 const survive = ref(
   'rights-survive-policy',
   'Rights claims survive changes in policy',
   '[Author D] [year]',
-  41,
 );
 const costs = ref(
   'cost-estimates',
   'Cost estimates depend on assumed take-up',
   '[Author A] [year]',
-  29,
 );
 const pilot = ref(
   'pilot-results',
   'Pilot results do not transfer across regions',
   '[Author B] [year]',
-  36,
 );
 
 const responses = (

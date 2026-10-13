@@ -1,0 +1,25 @@
+/* Prep-owned size tokens and layouts (ADR 0028). */
+@theme {
+  /* The library list beside its preview pane. */
+  --spacing-prep-list: 520px;
+  --spacing-prep-search: 300px;
+  /* A control that is still a 44px target. */
+  --spacing-prep-control: 44px;
+  /* The brief editor's margins around the document. */
+  --spacing-prep-outline: 240px;
+  --spacing-prep-evidence: 300px;
+}
+
+/* Outline · document · evidence; the evidence drops under the document on
+   a mid-width screen and everything stacks on a phone. */
+@utility prep-brief-grid {
+  grid-template-columns:
+    var(--spacing-prep-outline) minmax(0, 1fr)
+    var(--spacing-prep-evidence);
+  @media (width < 1181px) {
+    grid-template-columns: var(--spacing-prep-outline) minmax(0, 1fr);
+  }
+  @media (width < 901px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

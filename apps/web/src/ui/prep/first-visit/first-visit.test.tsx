@@ -10,15 +10,18 @@ describe('FirstVisit', () => {
     const html = renderToString(h(FirstVisit));
     assert({
       given: 'a library with nothing in it',
-      should: 'lead with one h1 and offer the three starts as links',
+      should:
+        'lead with one h1, offer the three starts as links, a team start and the privacy note',
       actual: [
         html.match(/<h1 /g)?.length,
         html.includes('Start your debate library'),
         html.includes('href="/prep/cards/new"'),
         html.includes('href="/prep/briefs/new"'),
         html.includes('href="/prep/cards/new?src=file"'),
+        html.includes('Create or join a team'),
+        html.includes('href="/prep/privacy"'),
       ],
-      expected: [1, true, true, true, true],
+      expected: [1, true, true, true, true, true, true],
     });
   });
 });

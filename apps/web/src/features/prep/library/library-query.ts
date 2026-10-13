@@ -22,6 +22,8 @@ export type LibraryQuery = {
   readonly source: string;
   readonly in: SearchScope;
   readonly sort: LibrarySort;
+  /** The item open in the preview pane; empty previews the first row. */
+  readonly item: string;
 };
 
 export const defaultLibraryQuery: LibraryQuery = {
@@ -33,6 +35,7 @@ export const defaultLibraryQuery: LibraryQuery = {
   source: '',
   in: 'titles',
   sort: 'recent',
+  item: '',
 };
 
 /** Longest value the library reads from one field. */
@@ -53,6 +56,10 @@ const schema = z.object({
   source: text.catch(defaultLibraryQuery.source),
   in: z.enum(scopes).catch(defaultLibraryQuery.in),
   sort: z.enum(librarySorts).catch(defaultLibraryQuery.sort),
+  item: z
+    .string()
+    .regex(/^[a-z0-9-]{1,40}$/)
+    .catch(defaultLibraryQuery.item),
 });
 
 const first = (value: string | readonly string[] | undefined) =>
@@ -78,9 +85,10 @@ export function libraryHref(query: LibraryQuery): string {
   return search === '' ? '/prep' : `/prep?${search}`;
 }
 
-/** Filters reset; the view and sort stay. */
+/** Filters reset; the view and sort stay, and the preview closes. */
 const withoutFilters = (query: LibraryQuery): LibraryQuery => ({
   ...query,
+  item: '',
   tag: '',
   side: 'any',
   motion: '',
@@ -96,7 +104,7 @@ export const clearSearchHref = (query: LibraryQuery): string =>
 
 /** True when a tag, side, motion or source filter is set. */
 export const hasFilters = (query: LibraryQuery): boolean =>
-  libraryHref(withoutFilters(query)) !== libraryHref(query);
+  activeFilterCount(query) > 0;
 
 /** Number of the four select filters that are set (the phone badge). */
 export const activeFilterCount = (query: LibraryQuery): number =>

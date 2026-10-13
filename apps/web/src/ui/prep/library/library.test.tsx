@@ -24,20 +24,21 @@ describe('Library', () => {
     assert({
       given: 'the default library',
       should:
-        'have one h1, the three header actions, tabs with counts, the toolbar inside the one list card, and no side column or jump-back strip',
+        'have one h1, the three header actions, tabs with counts, the filter row above the list, saved searches and teams in it, and the first item previewed',
       actual: [
         html.match(/<h1 /g)?.length,
         /href="\/prep\/cards\/new\?src=file"[^>]*>.*Import source/.test(html),
         /href="\/prep\/briefs\/new"[^>]*>.*New brief/.test(html),
         /href="\/prep\/cards\/new"[^>]*>.*Add evidence/.test(html),
         html.includes('href="/prep?view=cards"'),
-        html.indexOf('aria-label="Your library"') <
-          html.indexOf('aria-label="Search your library"'),
-        html.includes('Jump back in'),
-        html.includes('Saved searches'),
-        html.includes('aria-label="Library"'),
+        html.indexOf('aria-label="Search your library"') <
+          html.indexOf('aria-label="Your library"'),
+        html.includes('aria-label="Saved searches"'),
+        html.includes('href="/prep/teams/'),
+        html.includes('aria-label="Preview"'),
+        html.includes('>Affirmative case: rights-based framework</h2>'),
       ],
-      expected: [1, true, true, true, true, true, false, true, false],
+      expected: [1, true, true, true, true, true, true, true, true, true],
     });
   });
 
@@ -53,10 +54,9 @@ describe('Library', () => {
         ),
         html.includes('name="view" value="cards"'),
         html.includes('<option value="costs" selected=""'),
-        html.includes('Jump back in'),
         html.includes('1 card'),
       ],
-      expected: [true, true, true, false, true],
+      expected: [true, true, true, true],
     });
   });
 
