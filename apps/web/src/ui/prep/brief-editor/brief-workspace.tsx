@@ -59,7 +59,7 @@ export function BriefWorkspace({ view }: { readonly view: BriefEditorView }) {
 
   return (
     <div className="grid min-h-0 flex-1 prep-brief-grid gap-8 px-6 max-compact:gap-5 max-compact:px-4">
-      <div className="flex flex-col gap-6 pt-10 max-compact:pt-5">
+      <div className="flex flex-col gap-6 pt-10 max-compact:order-last max-compact:pt-0 max-compact:pb-8">
         <nav aria-label="Outline" className="flex flex-col gap-1">
           <h2 className={heading}>Outline</h2>
           <ul className="flex flex-col">
@@ -161,7 +161,7 @@ export function BriefWorkspace({ view }: { readonly view: BriefEditorView }) {
 
       <aside
         aria-label="Evidence"
-        className="flex flex-col gap-3 pt-10 max-reflow:col-start-2 max-reflow:pt-0 max-compact:col-start-1 max-compact:pb-8"
+        className="flex flex-col gap-3 pt-10 max-reflow:col-start-2 max-reflow:pt-0 max-compact:col-start-1"
       >
         <label className="flex h-prep-control items-center gap-2 rounded-md border border-border-strong bg-surface-raised px-3 text-ink-muted">
           <Icon name="search" size={16} />

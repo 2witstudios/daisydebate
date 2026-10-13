@@ -19,11 +19,11 @@ const sortLabels: Readonly<Record<LibrarySort, string>> = {
 };
 
 const pill =
-  'inline-flex h-prep-control min-w-0 items-center gap-1 rounded-round border border-border-strong bg-surface-raised px-3 text-sm text-ink no-underline hover:no-underline';
+  'inline-flex h-prep-control min-w-0 shrink-0 items-center gap-1 rounded-round border border-border-strong bg-surface-raised px-3 text-sm text-ink no-underline hover:no-underline';
 const savedPill =
-  'inline-flex h-prep-control items-center gap-2 rounded-round bg-hue-sky-soft px-3 text-sm font-strong text-hue-sky no-underline hover:no-underline';
+  'inline-flex h-prep-control shrink-0 items-center gap-2 rounded-round bg-hue-sky-soft px-3 text-sm font-strong text-hue-sky no-underline hover:no-underline';
 const teamPill =
-  'inline-flex h-prep-control items-center gap-1 rounded-round bg-hue-teal-soft px-3 text-sm font-strong text-hue-teal no-underline hover:no-underline';
+  'inline-flex h-prep-control shrink-0 items-center gap-1 rounded-round bg-hue-teal-soft px-3 text-sm font-strong text-hue-teal no-underline hover:no-underline';
 
 function Filter(props: {
   readonly name: string;
@@ -69,7 +69,7 @@ export function LibraryFilters({ query, listing }: LibraryFiltersProps) {
         method="get"
         role="search"
         aria-label="Search your library"
-        className="flex flex-wrap items-center gap-2 max-compact:w-full"
+        className="flex min-w-0 flex-wrap items-center gap-2 max-compact:w-full"
       >
         <input type="hidden" name="view" value={query.view} />
         <input type="hidden" name="in" value={query.in} />
@@ -84,59 +84,64 @@ export function LibraryFilters({ query, listing }: LibraryFiltersProps) {
             className="min-w-0 flex-1 bg-transparent text-base text-ink"
           />
         </label>
-        <Filter
-          name="tag"
-          label="Tag"
-          value={query.tag}
-          options={anyOf('Any tag', options.tags)}
-        />
-        <Filter
-          name="side"
-          label="Side"
-          value={query.side}
-          options={[
-            { value: 'any', label: 'Either side' },
-            { value: 'aff', label: 'Aff' },
-            { value: 'neg', label: 'Neg' },
-          ]}
-        />
-        <Filter
-          name="motion"
-          label="Motion"
-          value={query.motion}
-          options={anyOf('All motions', options.motions)}
-        />
-        <Filter
-          name="source"
-          label="Source"
-          value={query.source}
-          options={anyOf('Any source', options.sources)}
-        />
-        <Filter
-          name="sort"
-          label="Sort"
-          value={query.sort}
-          options={librarySorts.map((sort) => ({
-            value: sort,
-            label: sortLabels[sort],
-          }))}
-        />
-        <button type="submit" className={`${pill} cursor-pointer font-strong`}>
-          <PrepIcon name="filter" size={16} />
-          Apply
-        </button>
-        {hasFilters(query) || query.q !== '' ? (
-          <Link href={clearSearchHref(query)} className={pill}>
-            Clear
-          </Link>
-        ) : null}
+        <div className="flex min-w-0 flex-wrap items-center gap-2 max-compact:w-full max-compact:flex-nowrap max-compact:overflow-x-auto">
+          <Filter
+            name="tag"
+            label="Tag"
+            value={query.tag}
+            options={anyOf('Any tag', options.tags)}
+          />
+          <Filter
+            name="side"
+            label="Side"
+            value={query.side}
+            options={[
+              { value: 'any', label: 'Either side' },
+              { value: 'aff', label: 'Aff' },
+              { value: 'neg', label: 'Neg' },
+            ]}
+          />
+          <Filter
+            name="motion"
+            label="Motion"
+            value={query.motion}
+            options={anyOf('All motions', options.motions)}
+          />
+          <Filter
+            name="source"
+            label="Source"
+            value={query.source}
+            options={anyOf('Any source', options.sources)}
+          />
+          <Filter
+            name="sort"
+            label="Sort"
+            value={query.sort}
+            options={librarySorts.map((sort) => ({
+              value: sort,
+              label: sortLabels[sort],
+            }))}
+          />
+          <button
+            type="submit"
+            className={`${pill} cursor-pointer font-strong`}
+          >
+            <PrepIcon name="filter" size={16} />
+            Apply
+          </button>
+          {hasFilters(query) || query.q !== '' ? (
+            <Link href={clearSearchHref(query)} className={pill}>
+              Clear
+            </Link>
+          ) : null}
+        </div>
       </form>
       {savedSearches.length > 0 ? (
         <nav
           aria-label="Saved searches"
-          className="flex flex-wrap items-center gap-2 border-l border-border pl-3 text-xs text-ink-faint max-compact:border-l-0 max-compact:pl-0"
+          className="flex min-w-0 flex-wrap items-center gap-2 border-l border-border pl-3 text-xs text-ink-faint max-compact:w-full max-compact:flex-nowrap max-compact:overflow-x-auto max-compact:border-l-0 max-compact:pl-0"
         >
-          <span>Saved:</span>
+          <span className="shrink-0">Saved:</span>
           {savedSearches.map((saved) => (
             <Link key={saved.id} href={saved.href} className={savedPill}>
               {saved.name}

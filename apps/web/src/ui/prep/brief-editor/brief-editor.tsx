@@ -19,7 +19,7 @@ export function BriefEditor({ view }: { readonly view: BriefEditorView }) {
   return (
     <div className="flex w-full flex-col">
       <header className="flex min-h-12 flex-wrap items-center gap-3 border-b border-border bg-surface px-5 py-2 max-compact:px-4">
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 max-compact:basis-full">
           <Breadcrumb
             crumbs={[
               { label: 'Prep', href: '/prep' },
