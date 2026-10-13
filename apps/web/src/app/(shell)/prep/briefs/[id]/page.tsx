@@ -1,9 +1,8 @@
 import type { Metadata } from 'next';
 import type { SearchParams } from '../../../../../features/access/decision';
-import {
-  briefEditorView,
-  parseBriefEditorQuery,
-} from '../../../../../features/prep/briefs/brief-editor';
+import { systemClock } from '@daisy/clock';
+import { briefEditorView } from '../../../../../features/prep/briefs/brief-editor';
+import { listBriefEvidence } from '../../../../../features/prep/briefs/brief-evidence';
 import {
   getBrief,
   speechLimitSeconds,
@@ -33,10 +32,14 @@ export default async function BriefPage({
         backLabel="Back to briefs"
       />
     );
-  const query = parseBriefEditorQuery(await searchParams);
   return (
     <BriefEditor
-      view={briefEditorView(brief, query, readingPace(), speechLimitSeconds())}
+      view={briefEditorView(
+        brief,
+        listBriefEvidence(systemClock.now()),
+        readingPace(),
+        speechLimitSeconds(),
+      )}
     />
   );
 }

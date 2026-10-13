@@ -27,4 +27,20 @@ describe('PaneTabs', () => {
       expected: [2, 1, true, true],
     });
   });
+
+  test('every width', () => {
+    const html = renderToString(
+      h(PaneTabs, {
+        panes: [{ id: 'a', label: 'A', href: '/x', active: true }],
+        label: 'Live',
+        phoneOnly: false,
+      }),
+    );
+    assert({
+      given: 'tabs shown at every width under a label',
+      should: 'never hide them and name the navigation',
+      actual: [html.includes('hidden'), html.includes('aria-label="Live"')],
+      expected: [false, true],
+    });
+  });
 });

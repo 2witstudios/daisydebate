@@ -36,6 +36,7 @@ describe('parseLibraryQuery', () => {
         source: '[Journal]',
         in: 'text',
         sort: 'used',
+        item: 'cost-estimates',
       }),
       expected: {
         view: 'cards',
@@ -46,6 +47,7 @@ describe('parseLibraryQuery', () => {
         source: '[Journal]',
         in: 'text',
         sort: 'used',
+        item: 'cost-estimates',
       },
     });
   });
@@ -85,6 +87,28 @@ describe('libraryHref', () => {
         libraryHref({ ...defaultLibraryQuery, view: 'cards', tag: 'costs' }),
       ],
       expected: ['/prep', '/prep?view=cards&tag=costs'],
+    });
+  });
+});
+
+describe('the preview item', () => {
+  test('parse and carry', () => {
+    assert({
+      given:
+        'a valid item id, a hostile one, and a filtered query with an item',
+      should:
+        'read the valid id, drop the hostile one, keep it in the URL, and close it when filters clear',
+      actual: [
+        parseLibraryQuery({ item: 'cost-estimates' }).item,
+        parseLibraryQuery({ item: '../<script>' }).item,
+        libraryHref({ ...defaultLibraryQuery, item: 'cost-estimates' }),
+        clearFiltersHref({
+          ...defaultLibraryQuery,
+          tag: 'costs',
+          item: 'cost-estimates',
+        }),
+      ],
+      expected: ['cost-estimates', '', '/prep?item=cost-estimates', '/prep'],
     });
   });
 });

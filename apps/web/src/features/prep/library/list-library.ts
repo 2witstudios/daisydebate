@@ -14,16 +14,27 @@ import {
   type LibraryQuery,
 } from './library-query';
 import { listTeams } from '../teams/get-team';
-import { toRow, type LibraryRow } from './library-row';
+import {
+  toPreview,
+  toRow,
+  type LibraryPreview,
+  type LibraryRow,
+} from './library-row';
 
-export type SavedSearch = {
+/** A row as the library lists it: it opens in the preview pane. */
+export type ListedRow = LibraryRow & {
+  readonly previewHref: string;
+  readonly selected: boolean;
+};
+
+type SavedSearch = {
   readonly id: string;
   readonly name: string;
   readonly href: string;
   readonly count: number;
 };
 
-export type TeamSummary = {
+type TeamSummary = {
   readonly id: string;
   readonly name: string;
   readonly memberHandles: readonly string[];
@@ -35,7 +46,9 @@ export type LibraryListing = {
   readonly total: number;
   /** Counts under the current search and filters, one per tab. */
   readonly counts: ViewCounts;
-  readonly rows: readonly LibraryRow[];
+  readonly rows: readonly ListedRow[];
+  /** The selected row, or the first; undefined when nothing is listed. */
+  readonly preview: LibraryPreview | undefined;
   /** Items the search finds before the filters narrow it. */
   readonly searchMatches: number;
   readonly options: ReturnType<typeof filterOptions>;
@@ -51,12 +64,17 @@ export type LibraryListing = {
 export function listLibrary(query: LibraryQuery, now: string): LibraryListing {
   const all = sampleLibrary(now);
   const found = matching(all, query);
+  const shown = sortItems(inView(found, query.view), query.sort);
+  const selected = shown.find((item) => item.id === query.item) ?? shown[0];
   return {
     total: all.length,
     counts: viewCounts(found),
-    rows: sortItems(inView(found, query.view), query.sort).map((item) =>
-      toRow(item, now),
-    ),
+    rows: shown.map((item) => ({
+      ...toRow(item, now),
+      previewHref: libraryHref({ ...query, item: item.id }),
+      selected: item.id === selected?.id,
+    })),
+    preview: selected === undefined ? undefined : toPreview(selected, now),
     searchMatches: matchingSearch(all, query).length,
     options: filterOptions(all),
     savedSearches: sampleSavedSearches.map((saved) => {

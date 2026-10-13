@@ -2,6 +2,7 @@ import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { briefEditorView } from '../../../features/prep/briefs/brief-editor';
+import { listBriefEvidence } from '../../../features/prep/briefs/brief-evidence';
 import {
   getBrief,
   speechLimitSeconds,
@@ -10,97 +11,74 @@ import { BriefEditor } from './brief-editor';
 
 setupRitewayBun();
 
-const render = (id: string, section = '') => {
+const render = (id: string) => {
   const brief = getBrief(id);
   if (brief === undefined) throw new Error(`no sample ${id}`);
   return renderToString(
     h(BriefEditor, {
-      view: briefEditorView(brief, { section }, 160, speechLimitSeconds()),
+      view: briefEditorView(
+        brief,
+        listBriefEvidence('2026-09-30T12:00:00.000Z'),
+        160,
+        speechLimitSeconds(),
+      ),
     }),
   );
 };
 
 describe('BriefEditor', () => {
-  test('contention 1 by default', () => {
+  test('the bar and the margins', () => {
     const html = render('rights-framework');
     assert({
       given: 'a saved brief',
       should:
-        'name the brief in an input, outline every section, show the open contention and its fields',
+        'trail to it, show the save state, outline every section with its cards, and search evidence beside the document',
       actual: [
-        html.includes('aria-label="Outline"') || html.includes('>Outline<'),
-        /value="Affirmative case: rights-based framework"/.test(html),
-        html.includes('Contention 1'),
-        html.includes('for="wa-c1"'),
-        html.includes('Last saved 12:04'),
-        html.includes('aria-label="Add contention"'),
-        html.includes('Anticipated responses'),
-        html.includes('Find in library'),
+        html.includes('aria-label="Breadcrumb"'),
+        html.includes('Saved 12:04'),
+        html.includes('aria-label="Outline"'),
+        html.includes('>Overview<'),
+        html.includes('>Anticipated responses<'),
+        html.includes('aria-label="Evidence"'),
+        html.includes('>Find evidence<'),
+        html.includes(
+          'Add “Cost estimates depend on assumed take-up” to the brief',
+        ),
+        html.includes('href="/prep/cards/new"'),
       ],
-      expected: [true, true, true, true, true, true, true, true],
-    });
-  });
-
-  test('outline entries are links that mark the open one', () => {
-    const html = render('rights-framework', 'c2');
-    assert({
-      given: 'contention 2 open',
-      should: 'link the outline with section params and mark one current',
-      actual: [
-        html.includes('href="/prep/briefs/rights-framework?section=c3"'),
-        html.includes('href="/prep/briefs/rights-framework?section=responses"'),
-        html.match(/aria-current="page"/g)?.length,
-        html.includes('for="wa-c2"'),
-      ],
-      expected: [true, true, 2, true],
+      expected: [true, true, true, true, true, true, true, true, true],
     });
   });
 
   test('time against the debate rules, over budget', () => {
     const html = render('rights-framework');
     assert({
-      given: 'the sample brief',
+      given: 'the sample brief at 160 words a minute',
       should: 'warn how far over it is and how much to cut',
       actual: [
-        html.includes('Time against the debate rules'),
+        html.includes('aria-label="Time against the debate rules"'),
         /\d+:\d\d over · cut about \d+ words/.test(html),
         html.includes('Whole brief, read as one speech'),
         html.includes('160 words a minute'),
-        html.includes('Framing'),
       ],
-      expected: [true, true, true, true, true],
+      expected: [true, true, true, true],
     });
   });
 
-  test('framing and responses sections', () => {
-    const framing = render('rights-framework', 'framing');
-    const responses = render('rights-framework', 'responses');
-    assert({
-      given: 'the framing and responses sections',
-      should: 'show the motion and burden fields, and the grouped responses',
-      actual: [
-        framing.includes('Resolved: [motion text]'),
-        framing.includes('for="burden"'),
-        framing.includes('Value') || framing.includes('Criterion'),
-        responses.includes('Contention 2'),
-        responses.includes('They say'),
-      ],
-      expected: [true, true, false, true, true],
-    });
-  });
-
-  test('mutations are sample actions; Share goes to the review page', () => {
+  test('actions', () => {
     const html = render('rights-framework');
     assert({
-      given: 'the editor header',
+      given: 'the editor bar',
       should:
-        'answer save and add to case as sample actions, and link Share to the share dialog',
+        'answer save and add to case as sample actions, and link Share and Review to the review page',
       actual: [
         html.includes('href="/prep/briefs/rights-framework/review?share=open"'),
+        html.includes('href="/prep/briefs/rights-framework/review"'),
         html.includes('href="?did=Add+to+case"'),
         html.includes('href="?did=Save+changes"'),
+        html.includes('>Section<'),
       ],
-      expected: [true, true, true],
+      expected: [true, true, true, true, true],
     });
   });
 
@@ -108,14 +86,15 @@ describe('BriefEditor', () => {
     const html = render('new');
     assert({
       given: 'the blank brief',
-      should: 'say it is not saved, start on framing and show an empty title',
+      should:
+        'say it is not saved, trail to New brief, and outline one section',
       actual: [
         html.includes('Not saved yet'),
-        html.includes('Motion and framing'),
-        html.includes('New brief'),
-        html.includes('placeholder="Name this brief"'),
+        html.includes('>New brief<'),
+        html.includes('>1 ·<'),
+        html.includes('placeholder='),
       ],
-      expected: [true, true, true, true],
+      expected: [true, true, true, false],
     });
   });
 });

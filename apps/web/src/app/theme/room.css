@@ -19,6 +19,11 @@
   --spacing-room-disc-sm: 56px;
   --spacing-room-persona: 340px;
   --spacing-room-phone-tile: 100px;
+  /* The spectator view: the speaker's stage, the other debater's inset
+     tile and the live column (transcript and chat). */
+  --spacing-watch-stage: 520px;
+  --spacing-watch-inset: 240px;
+  --spacing-watch-live: 340px;
   --aspect-video: 16 / 9;
 }
 
@@ -126,6 +131,13 @@ img.ProseMirror-separator {
 
 .room-doc p {
   margin: 0;
+}
+
+.room-doc blockquote {
+  margin: 6px 0;
+  padding-left: 12px;
+  border-left: 2px solid var(--border-strong);
+  color: var(--text-muted);
 }
 
 .room-doc ul,

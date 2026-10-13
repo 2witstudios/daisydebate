@@ -36,13 +36,6 @@ export const inertActions = {
   },
   share: { label: 'Share' },
   edit: { label: 'Edit' },
-  attachCard: { label: 'Attach a card' },
-  addContention: {
-    label: 'Add contention',
-  },
-  addResponse: {
-    label: 'Add a response',
-  },
   addToCase: {
     label: 'Add to case',
   },
