@@ -10,7 +10,23 @@ test('a launched Round names its human judge only to that judge and the host', a
   await withRoomRuntime(async (f) => {
     const judge = f.outsider;
     const spectator = await f.member();
-    let view: RoomView = (await f.create()).view;
+    const choice = (await f.operations.catalog(f.host)).find(
+      (c) => c.formatId === 'foundation',
+    )!;
+    let view: RoomView = (
+      await f.create({
+        selection: {
+          kind: 'custom',
+          definition: {
+            ...choice.definition,
+            seats: { affirmative: 1, negative: 1, judge: 1 },
+          },
+          config: choice.defaultConfig,
+          length: 'full',
+          competitionType: 'casual',
+        },
+      })
+    ).view;
     for (const [who, role] of [
       [f.host, 'affirmative'],
       [f.guest, 'negative'],

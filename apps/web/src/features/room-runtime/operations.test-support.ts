@@ -123,8 +123,10 @@ export const launched: LaunchedRound = {
   checkpoint: emptyRuntimeCheckpoint,
   segments: [],
 };
-const { hostActorId: _host, ...viewed } = launched;
-export const round: RoundView = viewed;
+export const round: RoundView = (({ hostActorId, ...viewed }) => {
+  void hostActorId;
+  return viewed;
+})(launched);
 
 export function makeOperations(overrides: Partial<Store> = {}) {
   let createInput: Parameters<Store['createRoomCommand']>[0] | null = null;

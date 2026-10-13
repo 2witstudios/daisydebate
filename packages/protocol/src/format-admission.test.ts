@@ -2,7 +2,6 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   formatDefinitionSchema,
   roundRulesSchema,
-  type FormatDefinition,
 } from './format';
 import {
   fixtureRules,

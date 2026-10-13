@@ -1,63 +1,20 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { emptyRuntimeCheckpoint, type RoundView } from '@daisy/protocol';
-import {
-  launched,
-  round,
-} from '../../features/room-runtime/operations.test-support';
 import { isLiveDebater, liveRoundOf } from './live-round';
+import {
+  aff,
+  at,
+  countdown,
+  judge,
+  neg,
+  origin,
+  ran,
+  rules,
+  startOf,
+  view,
+} from './live-round.test-support';
 
 setupRitewayBun();
-
-const aff = launched.participants[0]!;
-const neg = {
-  id: 'n4n6p8r2t4v6x8z1k3b5c7d9',
-  actorId: 'o4n6p8r2t4v6x8z1k3b5c7d9',
-  kind: 'bot',
-  label: 'Practice bot',
-  role: 'negative',
-  slot: 0,
-} as const;
-const judge = {
-  id: 'j4n6p8r2t4v6x8z1k3b5c7d9',
-  actorId: 'k4n6p8r2t4v6x8z1k3b5c7d9',
-  kind: 'human',
-  label: 'Riley Judge',
-  role: 'judge',
-  slot: 0,
-} as const;
-/** What a debater receives: the human judge's seat is anonymous at the source. */
-const view: RoundView = {
-  ...round,
-  participants: [
-    { ...aff, label: 'Sam Reyes' },
-    neg,
-    { role: 'judge', kind: 'human', slot: 0, anonymous: true },
-  ],
-};
-const rules = view.rules.segments;
-const origin = Date.parse('2026-10-12T18:00:00.000Z');
-const at = (ms: number) => new Date(origin + ms).toISOString();
-const countdown = view.rules.countdownMs;
-
-/** Milliseconds from the start to segment `sequence`, after the countdown. */
-const startOf = (sequence: number) =>
-  countdown +
-  rules.slice(0, sequence).reduce((sum, s) => sum + s.durationMs, 0);
-
-/** The first `count` segments back to back; the last stays open unless `closed`. */
-function ran(count: number, closed = false): RoundView {
-  const segments = rules.slice(0, count).map((segment, sequence) => ({
-    id: `${'s'.repeat(23)}${sequence}`,
-    sequence,
-    type: segment.type,
-    rulesSegmentKey: segment.key,
-    startedAt: at(startOf(sequence)),
-    endedAt:
-      sequence === count - 1 && !closed ? null : at(startOf(sequence + 1)),
-    durationMs: segment.durationMs,
-  }));
-  return { ...view, status: 'active', startedAt: at(0), segments };
-}
 
 describe('isLiveDebater', () => {
   test('who the round room is for', () => {
