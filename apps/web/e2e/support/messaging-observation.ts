@@ -27,7 +27,7 @@ const observationLog = (frames: readonly ServerMessage[]) =>
         ? `${frame.type}:${frame.state}`
         : frame.type,
     );
-/** Records every socket frame and every page/RSC refetch the page makes. */
+/** Records every socket frame and every page/RSC refetch (not prefetch) the page makes. */
 function observeTraffic(page: Page) {
   const frames: ServerMessage[] = [];
   const invalidFrames: string[] = [];
@@ -52,6 +52,8 @@ function observeTraffic(page: Page) {
     }),
   );
   page.on('request', (request) => {
+    // Link prefetches warm navigation; they never re-read the open view.
+    if (request.headers()['next-router-prefetch']) return;
     const url = new URL(request.url());
     if (url.pathname.startsWith('/messages') || url.searchParams.has('_rsc'))
       refetches.push(url.pathname);
