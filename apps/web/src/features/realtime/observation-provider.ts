@@ -134,10 +134,13 @@ export function createObservationProvider({
   return {
     observe<T>(descriptor: RealtimeDescriptor<T>) {
       if (disposed) throw new Error('Observation provider disposed');
-      const parsed = observationDescriptorSchema.parse({
-        resource: descriptor.resource,
-        window: descriptor.window,
-      });
+      const parsed = observationDescriptorSchema.parse(
+        {
+          resource: descriptor.resource,
+          window: descriptor.window,
+        },
+        { jitless: true },
+      );
       const key = JSON.stringify([
         parsed.resource.kind,
         parsed.resource.id,

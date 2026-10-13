@@ -87,12 +87,14 @@ export type ObservationAuthorityDecision =
     }
   | { readonly status: 'denied' | 'unavailable' };
 export function observationResourceKey(resource: ObservationResource): string {
-  const parsed = observationResourceSchema.parse(resource);
+  const parsed = observationResourceSchema.parse(resource, {
+    jitless: true,
+  });
   return `${parsed.kind}-${parsed.id}`;
 }
 /** Unambiguous stable identity; evidence timestamps and acquisition attempts cannot enter it. */
 export function observationBaseKey(base: ObservationBase): string {
-  const value = observationBaseSchema.parse(base);
+  const value = observationBaseSchema.parse(base, { jitless: true });
   return JSON.stringify([
     value.schema,
     value.resource.kind,

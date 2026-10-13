@@ -20,7 +20,7 @@ export function channelMessages(
     window: { after: before, limit: Math.min(50, bounds.pageItems) },
     schema: 'channel-messages-v1',
     decode: (body) => {
-      const parsed = bodySchema.safeParse(body);
+      const parsed = bodySchema.safeParse(body, { jitless: true });
       return parsed.success &&
         parsed.data.messages.every((message) => message.channelId === channelId)
         ? parsed.data

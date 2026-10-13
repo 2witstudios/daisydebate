@@ -113,8 +113,8 @@ export function createObservationSubscriptions({
   return {
     observe(descriptor: Descriptor, listener: Listener) {
       if (disposed) throw new Error('Observation subscriptions disposed');
-      observationResourceSchema.parse(descriptor.resource);
-      observationWindowSchema.parse(descriptor.window);
+      observationResourceSchema.parse(descriptor.resource, { jitless: true });
+      observationWindowSchema.parse(descriptor.window, { jitless: true });
       const key = keyFor(descriptor);
       let entry = entries.get(key);
       const registration: Listener = (frame) => listener(frame);

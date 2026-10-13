@@ -31,7 +31,9 @@ export function liveReactions(
   const message = view.content?.messages.find((item) => item.id === messageId);
   if (!message) return { kind: 'list', items: initial };
   if ('unavailable' in message) return { kind: 'removed' };
-  const overlay = observationChannelOverlaySchema.safeParse(view.overlay);
+  const overlay = observationChannelOverlaySchema.safeParse(view.overlay, {
+    jitless: true,
+  });
   const own = new Set(
     overlay.success
       ? overlay.data.ownReactions
