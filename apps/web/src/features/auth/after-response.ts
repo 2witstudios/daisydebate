@@ -1,4 +1,4 @@
-import { AsyncLocalStorage } from 'node:async_hooks';
+import { AsyncLocalStorage, AsyncResource } from 'node:async_hooks';
 import { DEFAULT_MAX_CONNECTIONS } from '@daisy/db';
 import type { Logger } from '@daisy/logger';
 
@@ -69,7 +69,8 @@ export function createAfterResponse(
   /** Set while a handed-off task runs, so `dbStep` gates only its steps. */
   const inTask = new AsyncLocalStorage<true>();
   const running = new Set<Promise<void>>();
-  const waiting: Work[] = [];
+  /** Each waiter starts its work in the context it was queued from, bound when it queued. */
+  const waiting: Array<() => void> = [];
   const pending = () => running.size + waiting.length;
   const run = (work: Work) => {
     const task: Promise<void> = inTask
@@ -84,13 +85,14 @@ export function createAfterResponse(
       .finally(() => {
         running.delete(task);
         const next = waiting.shift();
-        if (next) run(next);
+        if (next) next();
       });
     running.add(task);
   };
   const start = (work: Work) => {
     if (running.size < limits.maxRunning) run(work);
-    else if (waiting.length < limits.maxQueued) waiting.push(work);
+    else if (waiting.length < limits.maxQueued)
+      waiting.push(AsyncResource.bind(() => run(work)));
     else
       logger.log(
         'auth.mail.shed',
