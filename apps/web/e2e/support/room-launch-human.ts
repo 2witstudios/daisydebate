@@ -109,7 +109,7 @@ export async function proveHumanLaunch(browser: Browser, info: TestInfo) {
     ).toBeEnabled();
     view = await reread(host.request, view.id);
     await host.getByRole('button', { name: 'Launch', exact: true }).click();
-    await expect(host).toHaveURL(/\/rounds\/[a-z0-9]+$/);
+    await expect(host).toHaveURL(/\/rounds\/[a-z0-9]+\/room$/);
     const proof = await assertFrozenLaunch(view);
     await settledLaunchAuth();
     await info.attach('controlled-input-human-launch-evidence', {
