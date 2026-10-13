@@ -1,4 +1,5 @@
 import { createAppError, toPublicError } from '@daisy/errors';
+import { withFairnessKey } from './fairness';
 import {
   currentTraceId,
   extractTraceContext,
@@ -60,7 +61,9 @@ export async function handleOperation(
       });
       try {
         request.signal.throwIfAborted();
-        const response = await handler(id, logger);
+        const response = await withFairnessKey(request, () =>
+          handler(id, logger),
+        );
         response.headers.set('x-request-id', id);
         response.headers.set('Cache-Control', 'no-store');
         logger.log(

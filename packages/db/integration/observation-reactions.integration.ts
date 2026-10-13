@@ -97,11 +97,13 @@ test('own reactions stay inside the overlay contract: at most 8 per message of a
     const message = createId();
     try {
       await f.sql`insert into messaging_messages(id,channel_id,author_actor_id,sequence,change_version,text,created_at) values(${message},${fixture.channelId},${fixture.actorId},1,1,'Kept','2026-10-09T18:00:00.000Z')`;
-      // Nine short reactions, one of 17 BMP units and one emoji of 9 astral characters (18 UTF-16 units).
+      // Nine short reactions, plus two over 16 UTF-16 units that sort before them, so only the
+      // length filter (never the per-message limit) can exclude them: 17 BMP units, and '!' with
+      // eight astral emoji (9 code points, 17 UTF-16 units).
       const reactions = [
         ...Array.from({ length: 9 }, (_, i) => `r${i}`),
-        'x'.repeat(17),
-        '\u{1F600}'.repeat(9),
+        'a'.repeat(17),
+        `!${'\u{1F600}'.repeat(8)}`,
       ];
       for (const reaction of reactions)
         await f.sql`insert into messaging_reactions(channel_id,message_id,actor_id,reaction) values(${fixture.channelId},${message},${fixture.actorId},${reaction})`;

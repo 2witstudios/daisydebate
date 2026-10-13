@@ -2,9 +2,7 @@ import { guardedObservationHeaders } from './observation-header-operation';
 import { createObservationProjectionOperations } from './observation-projection';
 import { createObservationAuthorityOperations } from './observation-authority';
 import {
-  createWorkloadExecutor,
-  workloadCapacities,
-  workloadQueueOptions,
+  createProfileExecutor,
   type DatabaseWorkloadProfile,
 } from './workload-admission';
 import { workloadDatabase } from './workload-executor';
@@ -124,11 +122,14 @@ export function createDatabase({
   client: injectedClient,
   nextActorId,
   workloadProfile = 'web',
+  fairnessKey,
 }: {
   url: string;
   maxConnections?: number;
   workloadProfile?: DatabaseWorkloadProfile;
   eventSink?: DatabaseEventSink;
+  /** The current caller's fairness key; queued lane work is served round-robin across keys. */
+  fairnessKey?: () => string | undefined;
   /** Overrides dialing `url`; tests inject a scripted client at this seam. */
   client?: SQL;
   /**
@@ -147,9 +148,8 @@ export function createDatabase({
       connection: RUNTIME_SESSION,
     });
   const rawDatabase = drizzle({ client });
-  const capacities = workloadCapacities(workloadProfile, maxConnections);
-  const executor = createWorkloadExecutor(capacities, {
-    ...workloadQueueOptions(capacities),
+  const executor = createProfileExecutor(workloadProfile, maxConnections, {
+    ...(fairnessKey ? { fairnessKey } : {}),
     onRefused: (lane, reason) =>
       eventSink?.(
         'db.capacity.refused',

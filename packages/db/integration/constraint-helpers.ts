@@ -7,7 +7,7 @@ import {
 import { createId } from '@paralleldrive/cuid2';
 import { createDatabase } from '../src';
 import { createTestOnlyOperations } from '../src/test-only-operations';
-import { buildDebateTopic } from '@daisy/protocol';
+import { buildDebateTopic, buildUserInboxTopic } from '@daisy/protocol';
 
 type PostgresFailure = { errno?: unknown; constraint?: unknown };
 
@@ -256,7 +256,9 @@ export class Fixture {
     await this.deleteWhere(
       'outbox',
       'topic',
-      this.tracked.get('actors')?.map((actorId) => `user:${actorId}:inbox`),
+      this.tracked
+        .get('actors')
+        ?.map((actorId) => buildUserInboxTopic(actorId)),
     );
   }
 

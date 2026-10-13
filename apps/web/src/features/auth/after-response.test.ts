@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { Logger } from '@daisy/logger';
 import { silentLogger } from '../../server/test-loggers.test-support';
@@ -195,6 +196,36 @@ describe('createAfterResponse', () => {
         'hold 9, run 2 steps at once, and queue no more steps than the 6 slot holders',
       actual: { ...held, steppingPeak, after: dbSteps() },
       expected: { pending: 9, steps: 6, steppingPeak: 2, after: 0 },
+    });
+  });
+
+  test('starts queued work in the context of the request that queued it', async () => {
+    const network = new AsyncLocalStorage<string>();
+    const { defer, settled } = createAfterResponse(silentLogger, {
+      maxRunning: 1,
+      maxQueued: 4,
+      dbSteps: 1,
+    });
+    const held = gate();
+    const ran: Array<string | undefined> = [];
+    network.run('203.0.113.0/24', () =>
+      defer(async () => {
+        await held.opened;
+        ran.push(network.getStore());
+      }),
+    );
+    network.run('198.51.100.0/24', () =>
+      defer(async () => void ran.push(network.getStore())),
+    );
+    held.open();
+    await settled();
+    assert({
+      given:
+        'work queued by one network behind work from another holding the only slot',
+      should:
+        'run each piece under its own network, not the one that freed the slot',
+      actual: ran,
+      expected: ['203.0.113.0/24', '198.51.100.0/24'],
     });
   });
 });

@@ -1,4 +1,5 @@
 import { createId } from '@paralleldrive/cuid2';
+import { buildChannelTopic, buildUserInboxTopic } from '@daisy/protocol';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
@@ -25,8 +26,8 @@ test('the projection role relays outbox positions and only revocation control pa
       channelId = createId();
     const inserted = await f.sql`
       insert into outbox (topic, kind, version, payload) values
-        (${`user:${actorId}:inbox`}, 'session.revoked', 1, ${{ kind: 'session.revoked', entityVersion: 1, ids: [] }}),
-        (${`channel:${channelId}`}, 'channel.changed', 1, ${{ kind: 'channel.changed', channelId, changeVersion: 1 }})
+        (${buildUserInboxTopic(actorId)}, 'session.revoked', 1, ${{ kind: 'session.revoked', entityVersion: 1, ids: [] }}),
+        (${buildChannelTopic(channelId)}, 'channel.changed', 1, ${{ kind: 'channel.changed', channelId, changeVersion: 1 }})
       returning seq`;
     try {
       const rows = await relay.drainOutbox(start, 256);

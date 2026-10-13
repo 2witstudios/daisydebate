@@ -78,12 +78,12 @@ async function fence(tx: Tx, discovery: InboxDiscovery) {
     kind: 'channel',
     id,
   }));
-  const fenced = resources.length
-    ? await tx.execute(
-        sql`select resource_id as id from public.daisy_observation_authority_fences(${JSON.stringify(resources)}::text::jsonb,${JSON.stringify(discovery.pairs)}::text::jsonb)`,
-      )
-    : [];
-  return { accounts, fenced: new Set(fenced.map((row) => String(row.id))) };
+  // Pairs only arise from present channels, so an empty channel set fences nothing more.
+  if (resources.length)
+    await tx.execute(
+      sql`select resource_id from public.daisy_observation_authority_fences(${JSON.stringify(resources)}::text::jsonb,${JSON.stringify(discovery.pairs)}::text::jsonb)`,
+    );
+  return accounts;
 }
 async function databaseInstant(tx: Tx) {
   const [edge] = await tx.execute(sql`select clock_timestamp() as now`);
@@ -120,13 +120,11 @@ async function pageFacts(
   );
   const locked = await fence(tx, discovered);
   const current = await discoverInboxFacts(tx, scope.actorId, ids);
-  if (
-    inboxFactSignature(discovered) !== inboxFactSignature(current) ||
-    [...current.channels.keys()].some((id) => !locked.fenced.has(id))
-  )
+  // A channel, pair or invitation that appeared or vanished during the waits changes the signature.
+  if (inboxFactSignature(discovered) !== inboxFactSignature(current))
     throw new CastChanged();
   const now = await databaseInstant(tx);
-  const present = locked.accounts.flatMap((a) => (a ? [a] : []));
+  const present = locked.flatMap((a) => (a ? [a] : []));
   const accounts = await authorizationAgeFacts(tx, present, now);
   return {
     principal: { userId: scope.userId, actorId: scope.actorId },
