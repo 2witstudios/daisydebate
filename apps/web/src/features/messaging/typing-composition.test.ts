@@ -2,7 +2,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import type { Database } from '@daisy/db';
 import { composeMessagingTyping } from './typing-operations';
-import { typingWorld } from './typing.test-support';
+import { typingWorld, type TypingFrameTransaction } from './typing.test-support';
 import { loadAccountPolicyFacts } from '../authorization/account-policy-facts';
 setupRitewayBun();
 test('actual typing composition refuses current unavailable members before Redis and never uses a second transaction', async () => {
@@ -17,11 +17,13 @@ test('actual typing composition refuses current unavailable members before Redis
       throw new Error('No insert allowed');
     },
   };
+  // Inert double: the frame's transaction type, typed, never runs SQL.
+  const typedTx = tx as unknown as TypingFrameTransaction;
   const database: Pick<Database, 'messagingTypingStore'> = {
     messagingTypingStore: async (scope, budget, work) => {
       observed.push([scope, budget]);
       return work({
-        tx,
+        tx: typedTx,
         fact: f.channel,
         accounts: f.accounts.map((row) => ({ ...row.account, member: false })),
         channels: f.channels,

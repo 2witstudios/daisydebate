@@ -1,52 +1,103 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { createAppError } from '@daisy/errors';
+import { drizzle } from 'drizzle-orm/bun-sql';
+import { fakeSql } from '../scripted-bun-wire';
 import { channelWire } from './channel-wire.test-support';
+import { messagingAuthorityFixture } from './social.test-support';
 import { createMessagingReactionStore } from './reaction-store';
 setupRitewayBun();
 const messageId = 'm'.repeat(24),
   policy = { reactionUnits: 8, choices: ['👍'] };
-test('reaction store extends ordered authority discovery with scoped metadata on the same transaction handle', async () => {
-  const f = channelWire([
+test('reaction read takes shared fences and the stream high-water mark, never the exclusive writer fence', async () => {
+  const fact = messagingAuthorityFixture();
+  const scope = {
+    actorId: 'a'.repeat(24),
+    userId: 'u'.repeat(24),
+    channelId: fact.channelId,
+  };
+  const accounts = ['a'.repeat(24), 'b'.repeat(24)].map((actorId, i) => ({
+    actorId,
+    userId: (i ? 'v' : 'u').repeat(24),
+    member: true,
+    erased: false,
+    revision: 1,
+  }));
+  const { client, queries } = fakeSql([
+    [],
+    [{ fact }],
+    accounts,
+    [{ id: scope.channelId }],
+    [{ fact }],
+    [[0, 1]],
     [{ id: messageId }],
     [{ reaction: '👍', count: '2', own: true }],
   ]);
-  const calls: unknown[] = [],
-    transactions: unknown[] = [];
+  const calls: unknown[] = [];
+  const transactions: unknown[] = [];
   const store = createMessagingReactionStore(
-    f.database,
+    drizzle({ client }),
     policy,
-    async (tx, scope, authority, operation) => {
+    async (tx, current, authority, operation) => {
       transactions.push(tx);
-      calls.push([scope, authority.fact, authority.accounts.length, operation]);
+      calls.push([
+        (current as { channelId: string }).channelId,
+        authority.fact.channelId,
+        authority.accounts.length,
+        operation,
+      ]);
     },
   );
-  const result = await store.read(f.scope, messageId);
+  const result = await store.read(scope, messageId);
   assert({
-    given: 'actual Drizzle authority/channel mapping and a current summary',
+    given: 'a reaction summary read',
     should:
-      'lock accounts before the canonical pair/channel fence, pass current facts and retain the exact transaction for both reading checks',
-    actual: [
-      f.queries[1]?.query.includes('daisy_authorization_accounts'),
-      f.queries[2]?.query.includes('daisy_messaging_channel_fence'),
-      calls,
-      transactions[0] === transactions[1],
+      'read accounts through the shared reader under compatible fences with the unlocked stream high-water mark, pass current facts on one transaction, never an exclusive lock',
+    actual: {
       result,
-    ],
-    expected: [
-      true,
-      true,
-      Array(2).fill([f.scope, f.fact, 2, 'read']),
-      true,
-      {
+      sharedReader: queries.some((row) =>
+        row.query.includes('daisy_authorization_read_accounts'),
+      ),
+      sharedChannelFence: queries.some((row) =>
+        row.query.includes('daisy_observation_authority_fences'),
+      ),
+      // The authority and stream fences must be shared; the summary read's
+      // own message-row lock is the reaction frame's pre-existing child-row
+      // behavior, not part of the authority fence contract.
+      exclusive:
+        queries.some((row) =>
+          /daisy_authorization_accounts\(|daisy_messaging_channel_fence/.test(
+            row.query,
+          ),
+        ) ||
+        queries.some(
+          (row) =>
+            row.query.includes('messaging_channel_streams') &&
+            /for update/.test(row.query),
+        ),
+      calls,
+      oneTransaction: transactions[0] === transactions[1],
+    },
+    expected: {
+      result: {
         version: 1,
-        channelId: f.scope.channelId,
+        channelId: scope.channelId,
         messageId,
         changeVersion: 1,
         replayed: false,
         reactions: [{ reaction: '👍', count: 2, own: true }],
       },
-    ],
+      sharedReader: true,
+      sharedChannelFence: true,
+      exclusive: false,
+      calls: Array(2).fill([
+        scope.channelId,
+        fact.channelId,
+        2,
+        'read',
+      ]),
+      oneTransaction: true,
+    },
   });
 });
 test('reaction store invokes current operation fence before protected message, receipt or association SQL', async () => {

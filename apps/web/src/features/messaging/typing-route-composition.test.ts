@@ -5,7 +5,7 @@ import { messagingUnitPolicy } from './typing.test-support';
 import { composeMessagingTypingRoutes } from './typing-route';
 import { composeMessagingPreferenceRoutes } from './preference-route';
 import { signedMessagingAuth } from './signed-messaging.test-support';
-import { typingWorld } from './typing.test-support';
+import { typingWorld, type TypingFrameTransaction } from './typing.test-support';
 setupRitewayBun();
 test('actual optional typing/preference app routes authenticate before configured stores and fail unavailable without explicit typing policy', async () => {
   const policy = messagingUnitPolicy(),
@@ -84,6 +84,7 @@ test('signed-in app typing routes bind the principal and current account fence b
       typing: { ttlMs: 5000, refetchMs: 1000, maxActors: 2 },
     },
   });
+  // Inert double: the frame's transaction type, typed, never runs SQL.
   const tx = {
     execute: () => {
       throw new Error('Nonmember age lookup forbidden');
@@ -91,7 +92,7 @@ test('signed-in app typing routes bind the principal and current account fence b
     insert: () => {
       throw new Error('No insert');
     },
-  };
+  } as unknown as TypingFrameTransaction;
   const bound: typeof app = {
     ...app,
     auth: () => auth,
