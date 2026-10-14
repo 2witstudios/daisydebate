@@ -2,6 +2,7 @@ import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { deleteExpiredOutboxPrefix } from '../src/outbox-retention';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { isAppError } from '@daisy/errors';
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { buildRoomTopic } from '@daisy/protocol';
@@ -11,11 +12,24 @@ import {
   type OutboxPosition,
 } from '../src';
 import { waitForOutboxFinality } from '../src/testing';
-import { sqlStateOf } from './constraint-helpers';
 
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
 const cutoff = '2001-01-01T00:00:00.000Z';
+
+/** The PostgreSQL SQLSTATE carried anywhere in a refusal's cause chain. */
+const refusalSqlState = (error: unknown): string | null => {
+  for (
+    let current: unknown = error, depth = 0;
+    depth < 8 && current instanceof Object;
+    depth += 1
+  ) {
+    const { errno } = current as { readonly errno?: unknown };
+    if (typeof errno === 'string') return errno;
+    current = (current as { readonly cause?: unknown }).cause;
+  }
+  return null;
+};
 async function closePools(
   database: ReturnType<typeof createDatabase>,
   sql: SQL,
@@ -73,28 +87,34 @@ test('a locked oldest row refuses the entire prefix without deleting later histo
     const before = await f.database.readOutboxRetentionBoundary();
     await f.sql.begin(async (lock) => {
       await lock`select seq from outbox where seq=${first.seq.toString()}::bigint for update`;
-      const refusal = await sqlStateOf(async () => {
-        try {
-          await f.database.purgeExpiredOutboxEvents({
-            before: cutoff,
-            limit: 500,
-          });
-        } catch (error) {
-          // Drizzle preserves the actual PostgreSQL SQLSTATE in Error.cause.
-          throw error instanceof Error && error.cause ? error.cause : error;
-        }
-      });
+      // Overload is explicit and retryable: the refusal surfaces as
+      // INFRASTRUCTURE, with the PostgreSQL SQLSTATE kept as its cause.
+      let refused: unknown;
+      try {
+        await f.database.purgeExpiredOutboxEvents({
+          before: cutoff,
+          limit: 500,
+        });
+      } catch (error) {
+        refused = error;
+      }
       const [remaining] =
         await f.sql`select count(*)::int as count from outbox where topic=${f.topic}`;
       assert({
         given: 'an older locked expired row and a later expired row',
-        should: 'fail promptly without a hole or boundary advancement',
+        should: 'refuse promptly as retryable INFRASTRUCTURE with 55P03 provenance, without a hole or boundary advance',
         actual: {
-          refusal,
+          code: isAppError(refused) ? refused.code : 'raw',
+          overloaded: refusalSqlState(refused),
           count: remaining?.count,
           boundary: await f.database.readOutboxRetentionBoundary(),
         },
-        expected: { refusal: '55P03', count: 2, boundary: before },
+        expected: {
+          code: 'INFRASTRUCTURE',
+          overloaded: '55P03',
+          count: 2,
+          boundary: before,
+        },
       });
     });
     assert({
