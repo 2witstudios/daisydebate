@@ -13,7 +13,12 @@ const command = {
   text: ' Hello ',
 };
 const counters = { channelId, messageSequence: 3, changeVersion: 8 };
-const resources = { actorId, messageId, now: '2026-10-09T18:00:00.000Z' };
+const resources = {
+  actorId,
+  messageId,
+  now: '2026-10-09T18:00:00.000Z',
+  payloadDigest: sendPayloadDigest(command),
+};
 const context = { counters, receipt: null, existingMessage: null, reply: null };
 
 test('an accepted send allocates independent ordering and one content-free change', () => {
@@ -75,7 +80,10 @@ test('receipts replay current available content without allocating another mutat
     given: 'an unequal payload with the same request key',
     should: 'conflict',
     actual: () =>
-      planMessageSend({ ...command, text: 'Changed' }, retry, resources),
+      planMessageSend({ ...command, text: 'Changed' }, retry, {
+        ...resources,
+        payloadDigest: sendPayloadDigest({ ...command, text: 'Changed' }),
+      }),
     code: 'CONFLICT',
   });
   for (const unavailable of [
@@ -155,6 +163,7 @@ test('deleted consumed requests refuse before comparing discarded payload proof'
         },
         {
           actorId: 'a'.repeat(24),
+          payloadDigest: sendPayloadDigest(command),
           messageId: 'm'.repeat(24),
           now: '2026-10-09T18:00:00.000Z',
         },

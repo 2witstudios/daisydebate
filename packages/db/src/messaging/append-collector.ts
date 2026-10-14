@@ -35,6 +35,7 @@ export function createAppendCollector<C, R>({
     cancel?: () => void;
   };
   const channels = new Map<string, Channel>();
+  const actors = new Map<string, number>();
   let count = 0,
     bytes = 0;
   const unavailable = () =>
@@ -45,44 +46,57 @@ export function createAppendCollector<C, R>({
     outcome: AppendOutcome<R>,
   ) => {
     entry.cancelExpiry?.();
+    const actorCount = actors.get(entry.actor)! - 1;
+    if (actorCount) actors.set(entry.actor, actorCount);
+    else actors.delete(entry.actor);
     count--;
     bytes -= entry.bytes;
     channel.count--;
     if ('error' in outcome) entry.reject(outcome.error);
     else entry.resolve(outcome.value);
   };
+  const takeActor = (
+    actor: string,
+    channel: Channel,
+    room: number,
+  ): Pending<C, R> | 'full' | null => {
+    const index = channel.pending.findIndex((entry) => entry.actor === actor);
+    if (index < 0) return null;
+    const entry = channel.pending[index]!;
+    if (now() - entry.at >= 3000) {
+      channel.pending.splice(index, 1);
+      settle(channel, entry, { error: unavailable() });
+      return null;
+    }
+    if (entry.bytes > room) return 'full';
+    channel.pending.splice(index, 1);
+    entry.cancelExpiry?.();
+    return entry;
+  };
+  const collectBatch = (channel: Channel) => {
+    const batch: Pending<C, R>[] = [];
+    let size = 0;
+    const actors = [...new Set(channel.pending.map((entry) => entry.actor))];
+    while (batch.length < 32 && channel.pending.length) {
+      const before = channel.pending.length;
+      for (const actor of actors) {
+        if (batch.length === 32) return batch;
+        const entry = takeActor(actor, channel, 128 * 1024 - size);
+        if (entry === 'full') return batch;
+        if (!entry) continue;
+        batch.push(entry);
+        size += entry.bytes;
+      }
+      if (before === channel.pending.length) break;
+    }
+    return batch;
+  };
   const flush = async (id: string, channel: Channel) => {
     if (channel.running || !channel.ready) return;
     channel.cancel?.();
     delete channel.cancel;
     channel.ready = false;
-    const batch: Pending<C, R>[] = [];
-    let size = 0;
-    // Round-robin actors within this channel, preserving each actor's FIFO order.
-    const actors = [...new Set(channel.pending.map((entry) => entry.actor))];
-    while (batch.length < 32 && channel.pending.length) {
-      let progressed = false;
-      for (const actor of actors) {
-        const index = channel.pending.findIndex(
-          (entry) => entry.actor === actor,
-        );
-        if (index < 0) continue;
-        const entry = channel.pending[index]!;
-        if (now() - entry.at >= 3000) {
-          channel.pending.splice(index, 1);
-          settle(channel, entry, { error: unavailable() });
-          progressed = true;
-          continue;
-        }
-        if (batch.length === 32 || size + entry.bytes > 128 * 1024) break;
-        channel.pending.splice(index, 1);
-        entry.cancelExpiry?.();
-        batch.push(entry);
-        size += entry.bytes;
-        progressed = true;
-      }
-      if (!progressed || batch.length === 32) break;
-    }
+    const batch = collectBatch(channel);
     channel.running = true;
     try {
       if (batch.length) {
@@ -106,6 +120,30 @@ export function createAppendCollector<C, R>({
       } else channels.delete(id);
     }
   };
+  const requireBytes = (size: number) => {
+    if (!Number.isSafeInteger(size) || size < 1 || size > 128 * 1024)
+      throw createAppError('VALIDATION');
+  };
+  const admission = (
+    channelId: string,
+    actor: string,
+    size: number,
+  ): Channel => {
+    requireBytes(size);
+    let channel = channels.get(channelId);
+    if (
+      (actors.get(actor) ?? 0) >= 128 ||
+      count >= 2048 ||
+      bytes + size > 16 * 1024 * 1024 ||
+      (channel?.count ?? 0) >= 1024
+    )
+      throw unavailable();
+    if (!channel) {
+      channel = { pending: [], count: 0, running: false, ready: false };
+      channels.set(channelId, channel);
+    }
+    return channel;
+  };
   return {
     append(
       channelId: string,
@@ -113,20 +151,14 @@ export function createAppendCollector<C, R>({
       command: C,
       size: number,
     ): Promise<R> {
-      if (!Number.isSafeInteger(size) || size < 1 || size > 128 * 1024)
-        return Promise.reject(createAppError('VALIDATION'));
-      let channel = channels.get(channelId);
-      if (
-        count >= 2048 ||
-        bytes + size > 16 * 1024 * 1024 ||
-        (channel?.count ?? 0) >= 1024
-      )
-        return Promise.reject(unavailable());
-      if (!channel) {
-        channel = { pending: [], count: 0, running: false, ready: false };
-        channels.set(channelId, channel);
+      let channel: Channel;
+      try {
+        channel = admission(channelId, actor, size);
+      } catch (error) {
+        return Promise.reject(error);
       }
       const queue = channel;
+      actors.set(actor, (actors.get(actor) ?? 0) + 1);
       count++;
       bytes += size;
       queue.count++;

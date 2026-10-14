@@ -62,13 +62,14 @@ export function planMessageSend(
   state: MessagingSendState,
   resources: {
     readonly actorId: string;
+    readonly payloadDigest: string;
     readonly messageId: string;
     readonly now: string;
   },
 ) {
   if (command.channelId !== state.counters.channelId)
     throw createAppError('NOT_FOUND');
-  const payloadDigest = sendPayloadDigest(command);
+  const { payloadDigest } = resources;
   if (state.receipt) {
     const message = availableMessage(
       state.existingMessage,

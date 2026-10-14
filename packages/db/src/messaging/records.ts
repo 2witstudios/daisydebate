@@ -1,4 +1,7 @@
-import type { MessagingSendAttempt, MessagingMutationAttempt } from './append';
+import type {
+  MessagingSendAttempt,
+  MessagingMutationAttempt,
+} from './append-contracts';
 import type { messagingMessageView } from '@daisy/protocol';
 import type { AuthorizationTransaction } from '../authorization';
 import type { MessagingChannelFact } from './social';

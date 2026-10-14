@@ -5,7 +5,7 @@ import {
   type MessagingCoreBounds,
 } from '@daisy/protocol';
 import { parseValidated } from '../../server/http';
-import { planMessageSend } from './send-plan';
+import { planMessageSend, sendPayloadDigest } from './send-plan';
 import { requireMessagingActor } from './principal';
 import type { MessagingSendCommand } from '@daisy/db/messaging';
 
@@ -41,6 +41,7 @@ export async function sendMessagingMessage(
     ...(replyToMessageId === undefined ? {} : { replyToMessageId }),
   };
   const messageId = dependencies.ids.next();
+  const payloadDigest = sendPayloadDigest(command);
   return dependencies.store.send({
     scope: { channelId: command.channelId, actorId, userId },
     command,
@@ -49,6 +50,7 @@ export async function sendMessagingMessage(
     decide: (state) =>
       planMessageSend(command, state, {
         actorId,
+        payloadDigest,
         messageId: state.receipt?.messageId ?? messageId,
         now: dependencies.clock.now(),
       }),

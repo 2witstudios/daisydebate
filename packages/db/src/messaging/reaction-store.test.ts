@@ -1,42 +1,27 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { createAppError } from '@daisy/errors';
-import { drizzle } from 'drizzle-orm/bun-sql';
-import { fakeSql } from '../scripted-bun-wire';
-import { contentWire } from './channel-wire.test-support';
-import { messagingAuthorityFixture } from './social.test-support';
+import {
+  contentWire,
+  messagingAuthorityWire,
+} from './channel-wire.test-support';
 import { createMessagingReactionStore } from './reaction-store';
 setupRitewayBun();
 const messageId = 'm'.repeat(24),
   policy = { reactionUnits: 8, choices: ['👍'] };
 test('reaction read takes shared fences and the stream high-water mark, never the exclusive writer fence', async () => {
-  const fact = messagingAuthorityFixture();
-  const scope = {
-    actorId: 'a'.repeat(24),
-    userId: 'u'.repeat(24),
-    channelId: fact.channelId,
-  };
-  const accounts = ['a'.repeat(24), 'b'.repeat(24)].map((actorId, i) => ({
-    actorId,
-    userId: (i ? 'v' : 'u').repeat(24),
-    member: true,
-    erased: false,
-    revision: 1,
-  }));
-  const { client, queries } = fakeSql([
-    [],
-    [{ fact }],
-    accounts,
-    [{ id: scope.channelId }],
-    [{ fact }],
-    [{ messageSequence: 0, changeVersion: 1 }],
-    [{ id: messageId }],
-    [{ reaction: '👍', count: '2', own: true }],
-  ]);
+  const { database, queries, scope, fact } = messagingAuthorityWire(
+    [
+      [{ messageSequence: 0, changeVersion: 1 }],
+      [{ id: messageId }],
+      [{ reaction: '👍', count: '2', own: true }],
+    ],
+    true,
+  );
   const calls: unknown[] = [];
   const transactions: unknown[] = [];
   const store = createMessagingReactionStore(
-    drizzle({ client }),
+    database,
     policy,
     async (tx, current, authority, operation) => {
       transactions.push(tx);

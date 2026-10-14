@@ -3,16 +3,24 @@ import { assertRejects } from '@daisy/errors/testing';
 import { createAppendCollector } from './append-collector';
 setupRitewayBun();
 
-test('append collection flushes by count and holds one executing batch per channel', async () => {
+function collectorTimers() {
   const timers: { run: () => void; ms: number }[] = [];
-  const batches: number[][] = [];
-  const releases: (() => void)[] = [];
-  const collector = createAppendCollector<number, number>({
+  return {
+    timers,
     now: () => 0,
-    schedule: (run, ms) => {
+    schedule: (run: () => void, ms: number) => {
       timers.push({ run, ms });
       return () => {};
     },
+  };
+}
+test('append collection flushes by count and holds one executing batch per channel', async () => {
+  const timing = collectorTimers();
+  const { timers } = timing;
+  const batches: number[][] = [];
+  const releases: (() => void)[] = [];
+  const collector = createAppendCollector<number, number>({
+    ...timing,
     execute: async (_channel, items) => {
       batches.push([...items]);
       await new Promise<void>((resolve) => releases.push(resolve));
@@ -50,15 +58,12 @@ test('append collection flushes by count and holds one executing batch per chann
 });
 
 test('byte-limited batches never overflow and independent channels execute while a hot channel waits', async () => {
-  const timers: { run: () => void; ms: number }[] = [];
+  const timing = collectorTimers();
+  const { timers } = timing;
   const batches: { channel: string; count: number }[] = [];
   let release!: () => void;
   const collector = createAppendCollector<number, number>({
-    now: () => 0,
-    schedule: (run, ms) => {
-      timers.push({ run, ms });
-      return () => {};
-    },
+    ...timing,
     execute: async (channel, items) => {
       batches.push({ channel, count: items.length });
       if (channel === 'hot' && batches.length === 1)
@@ -96,14 +101,11 @@ test('byte-limited batches never overflow and independent channels execute while
 });
 
 test('pending work expires explicitly without releasing an executing batch', async () => {
-  const timers: { run: () => void; ms: number }[] = [];
+  const timing = collectorTimers();
+  const { timers } = timing;
   let release!: () => void;
   const collector = createAppendCollector<number, number>({
-    now: () => 0,
-    schedule: (run, ms) => {
-      timers.push({ run, ms });
-      return () => {};
-    },
+    ...timing,
     execute: async (_channel, items) => {
       await new Promise<void>((resolve) => {
         release = resolve;
@@ -128,5 +130,33 @@ test('pending work expires explicitly without releasing an executing batch', asy
     should: 'resolve its own result',
     actual: await executing,
     expected: 1,
+  });
+});
+
+test('successor batches preserve every admitted command across the 32-command boundary', async () => {
+  const timing = collectorTimers();
+  const sizes: number[] = [];
+  let release!: () => void;
+  const collector = createAppendCollector<number, number>({
+    ...timing,
+    execute: async (_channel, commands) => {
+      sizes.push(commands.length);
+      if (sizes.length === 1)
+        await new Promise<void>((resolve) => {
+          release = resolve;
+        });
+      return commands.map((value) => ({ value }));
+    },
+  });
+  const promises = Array.from({ length: 65 }, (_, index) =>
+    collector.append('channel', String(index), index, 1),
+  );
+  release();
+  assert({
+    given:
+      '65 admitted commands from distinct actors while the first batch executes',
+    should: 'retain all successor entries and never exceed the batch count',
+    actual: [await Promise.all(promises), sizes],
+    expected: [Array.from({ length: 65 }, (_, index) => index), [32, 32, 1]],
   });
 });

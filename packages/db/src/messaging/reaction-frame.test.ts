@@ -203,16 +203,7 @@ test('reaction removal cannot invent an absent association or accept a foreign r
       scenario.own,
       scenario.receipt,
     ]);
-    const guards: string[] = [];
-    const frame = channelReactionFrame(
-      drizzle({ client }),
-      scope,
-      { messageSequence: 1, changeVersion: 8 },
-      policy,
-      async (operation) => {
-        guards.push(operation);
-      },
-    );
+    const { frame, guards } = readableFrame(client);
     await assertRejects({
       given: 'missing, foreign or mismatched authoritative state',
       should: 'refuse before association/receipt/counter writes',

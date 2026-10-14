@@ -84,7 +84,7 @@ async function rereadSameCast(
   return fact;
 }
 /** Extra fenced actors, and the operation's own fences between the accounts and the channel. */
-export type AuthorityExtension = {
+type AuthorityExtension = {
   readonly additionalActors: readonly string[];
   readonly beforeChannel: (frame: AuthorityFrame) => Promise<void>;
 };
