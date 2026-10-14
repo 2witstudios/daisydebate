@@ -22,20 +22,10 @@ test('authorization refusal never inspects a receipt or allocates protected writ
         {
           bounds: { messageUnits: 4000, pageItems: 100 },
           store: {
-            withChannel: async (_input, work) =>
-              work({
-                authorize: async () => {
-                  calls.push('authorize');
-                  throw createAppError('AUTHORIZATION');
-                },
-                readSendState: async () => {
-                  calls.push('receipt');
-                  throw new Error('Receipt must remain unread');
-                },
-                commitSend: async () => {
-                  calls.push('write');
-                },
-              }),
+            send: async () => {
+              calls.push('authorize');
+              throw createAppError('AUTHORIZATION');
+            },
           },
           ids: { next: () => 'm'.repeat(24) },
           clock: { now: () => '2026-10-09T18:00:00.000Z' },

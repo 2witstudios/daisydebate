@@ -59,3 +59,5 @@ export type {
   MessagingInboxDecision,
   MessagingInboxPageFacts,
 } from './inbox-page-contracts';
+
+export type { MessagingSendAttempt } from './append';

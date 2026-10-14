@@ -67,6 +67,12 @@ export const MAGIC_LINK_NETWORK_RULES: Readonly<
 
 /** Atomic multi-instance limiter contract backed by @daisy/redis. */
 export type AuthRateLimiter = {
+  readonly reserveMessagingSend?: (
+    input: import('@daisy/redis').MessagingSendReservation,
+  ) => Promise<{
+    readonly allowed: boolean;
+    readonly retryAfterSeconds: number;
+  }>;
   readonly consume: (
     key: string,
     rule: RateRule,

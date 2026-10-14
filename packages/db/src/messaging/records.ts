@@ -1,3 +1,4 @@
+import type { MessagingSendAttempt } from './append';
 import type { messagingMessageView } from '@daisy/protocol';
 import type { AuthorizationTransaction } from '../authorization';
 import type { MessagingChannelFact } from './social';
@@ -123,6 +124,9 @@ type MessagingChannelScope = {
   readonly userId: string;
 };
 export type MessagingChannelStore = {
+  readonly send: (
+    attempt: Omit<MessagingSendAttempt, 'authorize'>,
+  ) => Promise<MessagingMessageRecord>;
   readonly withChannel: <T>(
     input: MessagingChannelScope,
     work: (frame: MessagingLockedFrame) => Promise<T>,

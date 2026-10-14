@@ -1,3 +1,4 @@
+import { createMessagingAppend } from './append';
 import { and, eq } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
@@ -24,11 +25,14 @@ import type {
 export function createMessagingStore({
   database,
   authorize,
+  append = createMessagingAppend(database),
 }: {
   readonly database: BunSQLDatabase;
   readonly authorize: MessagingAuthorizationFence;
+  readonly append?: ReturnType<typeof createMessagingAppend>;
 }): MessagingChannelStore {
   return {
+    send: (attempt) => append.send({ ...attempt, authorize }),
     withReadChannel: (input, work) =>
       readMessagingAuthority(
         database,

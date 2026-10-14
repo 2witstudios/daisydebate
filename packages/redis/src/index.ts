@@ -1,3 +1,5 @@
+import { createMessagingReservation } from './messaging-reservation';
+export type { MessagingSendReservation } from './messaging-reservation';
 import { createMessagingTypingOperations } from './messaging-typing';
 import { createObservationCacheOperations } from './observation-cache';
 import { createObservationDemandOperations } from './observation-demand';
@@ -225,6 +227,7 @@ export function createRedis({
     ...createObservationDemandOperations({ client, namespace, reportFailure }),
     ...createObservationRelayOperations({ client, namespace, reportFailure }),
     ...createPresenceOperations({ client, namespace, reportFailure }),
+    ...createMessagingReservation({ client, namespace, reportFailure }),
     ...createMessagingTypingOperations({ client, namespace, reportFailure }),
     ...createTicketOperations({ client, namespace, reportFailure }),
     close() {

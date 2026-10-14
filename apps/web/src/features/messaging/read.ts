@@ -16,7 +16,7 @@ export function createMessagingReadOperations({
   store,
 }: {
   readonly bounds: MessagingCoreBounds;
-  readonly store: MessagingChannelStore;
+  readonly store: Pick<MessagingChannelStore, 'withReadChannel'>;
 }) {
   const schemas = createMessagingCoreSchemas(bounds);
   const run = <T>(

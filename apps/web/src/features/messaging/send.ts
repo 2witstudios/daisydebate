@@ -7,35 +7,22 @@ import {
 import { parseValidated } from '../../server/http';
 import { planMessageSend } from './send-plan';
 import { requireMessagingActor } from './principal';
-import type {
-  MessagingCreateSendPlan,
-  MessagingSendCommand,
-  MessagingSendState,
-} from '@daisy/db/messaging';
+import type { MessagingSendCommand } from '@daisy/db/messaging';
 
-type MessagingSendFrame = {
-  readonly authorize: () => Promise<void>;
-  readonly readSendState: (
-    command: MessagingSendCommand,
-  ) => Promise<MessagingSendState>;
-  readonly commitSend: (plan: MessagingCreateSendPlan) => Promise<void>;
-};
-type MessagingSendStore = {
-  readonly withChannel: <T>(
-    input: {
-      readonly channelId: string;
-      readonly actorId: string;
-      readonly userId: string;
-    },
-    work: (frame: MessagingSendFrame) => Promise<T>,
-  ) => Promise<T>;
-};
+type MessagingSendStore = Pick<
+  import('@daisy/db/messaging').MessagingChannelStore,
+  'send'
+>;
 export type MessagingSendDependencies = {
   readonly bounds: MessagingCoreBounds;
   readonly store: MessagingSendStore;
   readonly clock: Clock;
   readonly ids: IdGenerator;
-  readonly limit: (actorId: string, channelId: string) => Promise<void>;
+  readonly limit: (
+    actorId: string,
+    channelId: string,
+    requestId: string,
+  ) => Promise<void>;
 };
 
 /** Current authorization precedes protected replay, then one atomic send. */
@@ -53,21 +40,17 @@ export async function sendMessagingMessage(
     ...required,
     ...(replyToMessageId === undefined ? {} : { replyToMessageId }),
   };
-  return dependencies.store.withChannel(
-    { channelId: command.channelId, actorId, userId },
-    async (frame) => {
-      await frame.authorize();
-      const state = await frame.readSendState(command);
-      const plan = planMessageSend(command, state, {
+  const messageId = dependencies.ids.next();
+  return dependencies.store.send({
+    scope: { channelId: command.channelId, actorId, userId },
+    command,
+    admit: () =>
+      dependencies.limit(actorId, command.channelId, command.requestId),
+    decide: (state) =>
+      planMessageSend(command, state, {
         actorId,
-        messageId: state.receipt?.messageId ?? dependencies.ids.next(),
+        messageId: state.receipt?.messageId ?? messageId,
         now: dependencies.clock.now(),
-      });
-      if (plan.kind === 'create') {
-        await dependencies.limit(actorId, command.channelId);
-        await frame.commitSend(plan);
-      }
-      return plan.message;
-    },
-  );
+      }),
+  });
 }

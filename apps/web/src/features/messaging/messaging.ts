@@ -2,7 +2,7 @@ import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { SocialContactPolicy } from '@daisy/auth/social-policy';
 import type { Clock, IdGenerator } from '@daisy/clock';
 import type { Database } from '@daisy/db';
-import { createAppError } from '@daisy/errors';
+import { createAppError, isAppError } from '@daisy/errors';
 import {
   messagingMessageView,
   type MessagingCoreBounds,
@@ -135,12 +135,25 @@ export function composeMessaging({
           bounds: policy.bounds,
           clock,
           ids,
-          limit: async (actorId, channelId) => {
-            await consume(`messaging:send:${actorId}`, policy.limits.actorSend);
-            await consume(
-              `messaging:send:${actorId}:${channelId}`,
-              policy.limits.channelSend,
-            );
+          limit: async (actorId, channelId, requestId) => {
+            try {
+              const reserve = limiter().reserveMessagingSend;
+              if (!reserve) throw createAppError('INFRASTRUCTURE');
+              const decision = await reserve({
+                actor: actorId,
+                channel: channelId,
+                request: requestId,
+                actorRule: policy.limits.actorSend,
+                channelRule: policy.limits.channelSend,
+              });
+              if (decision.allowed === false)
+                throw createAppError('RATE_LIMIT');
+              if (decision.allowed !== true)
+                throw createAppError('INFRASTRUCTURE');
+            } catch (error) {
+              if (isAppError(error)) throw error;
+              throw createAppError('INFRASTRUCTURE', undefined, error);
+            }
           },
         }),
       ),

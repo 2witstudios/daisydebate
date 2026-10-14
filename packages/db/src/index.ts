@@ -1,3 +1,4 @@
+import { createMessagingAppend } from './messaging/append';
 import { guardedObservationHeaders } from './observation-header-operation';
 import { createObservationProjectionOperations } from './observation-projection';
 import { createObservationAuthorityOperations } from './observation-authority';
@@ -163,6 +164,7 @@ export function createDatabase({
     'competitive',
   );
   const socialDatabase = workloadDatabase(rawDatabase, executor, 'social');
+  const messagingAppend = createMessagingAppend(socialDatabase);
   const authorityDatabase = workloadDatabase(
     rawDatabase,
     executor,
@@ -271,7 +273,11 @@ export function createDatabase({
       authorize: Parameters<typeof createMessagingPreferenceStore>[1],
     ) => createMessagingPreferenceStore(socialDatabase, authorize),
     messagingChannelStore: (authorize: MessagingAuthorizationFence) =>
-      createMessagingStore({ database: socialDatabase, authorize }),
+      createMessagingStore({
+        database: socialDatabase,
+        authorize,
+        append: messagingAppend,
+      }),
     messagingReactionStore: (
       policy: Parameters<typeof createMessagingReactionStore>[1],
       authorize: Parameters<typeof createMessagingReactionStore>[2],
