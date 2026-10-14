@@ -185,19 +185,9 @@ function channelDependencies(fact: ChannelAuthorizationFact) {
     authority,
   ] satisfies ObservationDependency[];
 }
-const byKeyThenRevision = (
-  left: ObservationDependency,
-  right: ObservationDependency,
-) =>
-  left.key < right.key
-    ? -1
-    : left.key > right.key
-      ? 1
-      : left.revision < right.revision
-        ? -1
-        : left.revision > right.revision
-          ? 1
-          : 0;
+/** Dependency keys are unique per decision; code-point order is canonical. */
+const byKey = (left: ObservationDependency, right: ObservationDependency) =>
+  left.key < right.key ? -1 : left.key > right.key ? 1 : 0;
 function channel(
   input: ObservationAuthorityContext,
   dependencies: ObservationDependency[],
@@ -242,7 +232,7 @@ function channel(
   return {
     status: 'allowed',
     partition: { kind: 'shared', policyKey: 'channel-messages-v1' },
-    dependencies: dependencies.sort(byKeyThenRevision),
+    dependencies: dependencies.sort(byKey),
     eligibleUntil: deadline,
     overlay: null,
   } as const;

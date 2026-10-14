@@ -1,11 +1,18 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createObservationProvider } from './observation-provider';
 import type { ObservationServerMessage } from '@daisy/protocol';
+import {
+  readyFrame,
+  snapshotFrame,
+  testDescriptor,
+  recordingSubscriptions,
+  testTimers,
+} from './observation.test-support';
 setupRitewayBun();
 for (const disposal of ['provider', 'reader'] as const)
   test(`reentrant ${disposal} disposal leaves no deadline timer`, () => {
     let incoming!: (frame: ObservationServerMessage) => void;
-    const timers = new Set<unknown>();
+    const clock = testTimers();
     const provider = createObservationProvider({
       connection: {
         connect: () => {},
@@ -16,49 +23,20 @@ for (const disposal of ['provider', 'reader'] as const)
           return () => {};
         },
       },
-      scheduler: {
-        now: () => 0,
-        setTimeout: (callback) => {
-          timers.add(callback);
-          return callback;
-        },
-        clearTimeout: (id) => {
-          timers.delete(id);
-        },
-      },
+      scheduler: clock.scheduler,
     });
-    const descriptor = {
-      resource: { kind: 'channel', id: 'a'.repeat(24) },
-      window: { after: null, limit: 50 },
-      schema: 'channel-v1',
-      decode: (body: unknown) => (typeof body === 'string' ? body : null),
-    } as const;
-    const reader = provider.observe(descriptor);
+    const reader = provider.observe(testDescriptor);
     reader.subscribe(() => {
       if (reader.read().status === 'pending') {
         if (disposal === 'provider') provider.dispose();
         else reader.close();
       }
     });
-    incoming({
-      v: 1 as never,
-      type: 'observation.ready',
-      id: 'id',
-      generation: 1,
-      base: {
-        schema: 1,
-        resource: descriptor.resource,
-        window: descriptor.window,
-        partition: { kind: 'shared', policyKey: 'v1' },
-        disclosureRevision: 1,
-      },
-      minimumContentRevision: 1,
-      validForMs: 100,
-    });
+    incoming(readyFrame({ validForMs: 100 }));
     assert({
       given: `${disposal} disposal during synchronous pending notification`,
       should: 'remain disposed without creating timers after final cleanup',
-      actual: { state: reader.read().status, timers: timers.size },
+      actual: { state: reader.read().status, timers: clock.timers.size },
       expected: { state: 'disposed', timers: 0 },
     });
     provider.dispose();
@@ -67,8 +45,8 @@ test('provider owns one connection, reference counts and final deadline hiding',
   let now = 0,
     connects = 0,
     disposals = 0;
-  const callbacks = new Set<(frame: ObservationServerMessage) => void>(),
-    timers = new Map<number, () => void>();
+  const callbacks = new Set<(frame: ObservationServerMessage) => void>();
+  const clock = testTimers(() => now);
   const provider = createObservationProvider({
     connection: {
       connect: () => {
@@ -85,57 +63,18 @@ test('provider owns one connection, reference counts and final deadline hiding',
         };
       },
     },
-    scheduler: {
-      now: () => now,
-      setTimeout: (cb) => {
-        timers.set(timers.size + 1, cb);
-        return timers.size;
-      },
-      clearTimeout: (id) => {
-        timers.delete(id as number);
-      },
-    },
+    scheduler: clock.scheduler,
   });
-  const descriptor = {
-    resource: { kind: 'channel', id: 'a'.repeat(24) },
-    window: { after: null, limit: 50 },
-    schema: 'channel-v1',
-    decode: (body: unknown) => (typeof body === 'string' ? body : null),
-  } as const;
-  const first = provider.observe(descriptor),
-    second = provider.observe(descriptor);
-  const base = {
-    schema: 1,
-    resource: descriptor.resource,
-    window: descriptor.window,
-    partition: { kind: 'shared', policyKey: 'v1' },
-    disclosureRevision: 1,
-  } as const;
+  const first = provider.observe(testDescriptor),
+    second = provider.observe(testDescriptor);
   for (const callback of callbacks) {
-    callback({
-      v: 1 as never,
-      type: 'observation.ready',
-      id: 'id',
-      generation: 1,
-      base,
-      minimumContentRevision: 1,
-      validForMs: 100,
-    });
-    callback({
-      v: 1 as never,
-      type: 'observation.snapshot',
-      id: 'id',
-      generation: 1,
-      base,
-      contentRevision: 1,
-      purgeGeneration: 0,
-      body: 'shared',
-    });
+    callback(readyFrame({ validForMs: 100 }));
+    callback(snapshotFrame());
   }
   first.close();
   const visible = second.read().content;
   now = 100;
-  for (const callback of [...timers.values()]) callback();
+  clock.fire();
   const hidden = second.read().content;
   provider.dispose();
   provider.dispose();
@@ -149,7 +88,7 @@ test('provider owns one connection, reference counts and final deadline hiding',
       visible,
       hidden,
       callbacks: callbacks.size,
-      timers: timers.size,
+      timers: clock.timers.size,
     },
     expected: {
       connects: 1,
@@ -162,14 +101,8 @@ test('provider owns one connection, reference counts and final deadline hiding',
   });
 });
 
-test('correlated reconnect can install a lower generation from a new server incarnation', async () => {
-  const { createObservationSubscriptions } =
-    await import('./observation-subscriptions');
-  const sent: { id: string }[] = [];
-  const subscriptions = createObservationSubscriptions({
-    now: () => 0,
-    send: (frame) => sent.push(frame as { id: string }),
-  });
+test('correlated reconnect can install a lower generation from a new server incarnation', () => {
+  const { subscriptions, sent } = recordingSubscriptions();
   const provider = createObservationProvider({
     connection: {
       connect: () => {},
@@ -177,58 +110,30 @@ test('correlated reconnect can install a lower generation from a new server inca
       subscribe: () => () => {},
       observe: subscriptions.observe,
     },
-    scheduler: { now: () => 0, setTimeout: () => 0, clearTimeout: () => {} },
+    scheduler: testTimers().scheduler,
   });
-  const descriptor = {
-    resource: { kind: 'channel', id: 'a'.repeat(24) },
-    window: { after: null, limit: 50 },
-    schema: 'channel-v1',
-    decode: (body: unknown) => (typeof body === 'string' ? body : null),
-  } as const;
-  const reader = provider.observe(descriptor);
-  const base = {
-    schema: 1,
-    resource: descriptor.resource,
-    window: descriptor.window,
-    partition: { kind: 'shared', policyKey: 'v1' },
-    disclosureRevision: 1,
-  } as const;
+  const reader = provider.observe(testDescriptor);
   const send = (generation: number, revision: number, body: string) => {
     const id = sent.at(-1)!.id;
-    subscriptions.emit({
-      v: 1 as never,
-      type: 'observation.ready',
-      id,
-      generation,
-      base,
-      minimumContentRevision: revision,
-      validForMs: 4900,
-    });
-    subscriptions.emit({
-      v: 1 as never,
-      type: 'observation.snapshot',
-      id,
-      generation,
-      base,
-      contentRevision: revision,
-      purgeGeneration: 0,
-      body,
-    });
+    subscriptions.emit(
+      readyFrame({ id, generation, minimumContentRevision: revision }),
+    );
+    subscriptions.emit(
+      snapshotFrame({ id, generation, contentRevision: revision, body }),
+    );
   };
   send(7, 1, 'old');
   const oldRequest = sent.at(-1)!.id;
   subscriptions.reconnect();
   send(0, 2, 'current');
-  subscriptions.emit({
-    v: 1 as never,
-    type: 'observation.snapshot',
-    id: oldRequest,
-    generation: 99,
-    base,
-    contentRevision: 999,
-    purgeGeneration: 0,
-    body: 'stale-incarnation',
-  });
+  subscriptions.emit(
+    snapshotFrame({
+      id: oldRequest,
+      generation: 99,
+      contentRevision: 999,
+      body: 'stale-incarnation',
+    }),
+  );
   assert({
     given: 'new request ID and a replacement server starting generation zero',
     should: 'fence the prior request and install current authorized baseline',

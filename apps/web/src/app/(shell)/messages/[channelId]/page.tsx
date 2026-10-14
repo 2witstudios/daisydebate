@@ -58,9 +58,11 @@ export default async function ConversationPage({
           />
           <ConversationLive
             channelId={id.data}
-            socketUrl={conversation.socketUrl}
-            typingRefetchMs={conversation.typingRefetchMs}
-            snapshotId={systemId.next()}
+            bounds={conversation.bounds}
+            before={searchQuery === undefined ? historyPosition(query) : null}
+            live={searchQuery === undefined}
+            actorId={actorId}
+            typingRefetchMs={conversation.typingRefetchMs ?? null}
           >
             <MessageHistory
               history={conversation.history}
@@ -81,6 +83,15 @@ export default async function ConversationPage({
   );
 }
 
+/** The live window starts before this sequence; invalid input stays static. */
+function historyPosition(query: SearchParams) {
+  const before = Number(query.before);
+  return typeof query.before === 'string' &&
+    Number.isSafeInteger(before) &&
+    before > 0
+    ? before
+    : null;
+}
 async function readPageConversation(channelId: string, query: SearchParams) {
   const searchQuery = typeof query.query === 'string' ? query.query : undefined;
   const input = new URLSearchParams();

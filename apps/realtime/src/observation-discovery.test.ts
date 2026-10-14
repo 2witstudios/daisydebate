@@ -1,16 +1,14 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createObservationDiscovery } from './observation-discovery';
 import type { ObservationBase } from '@daisy/protocol';
+import {
+  observationTestBase,
+  observationTestResource,
+} from '@daisy/protocol/observation-testing';
 setupRitewayBun();
 test('fleet discovery installs and expires shared demand with no follower SQL fallback', async () => {
-  const resource = { kind: 'channel', id: 'a'.repeat(24) } as const;
-  const base: ObservationBase = {
-    schema: 1,
-    resource,
-    partition: { kind: 'shared', policyKey: 'v1' },
-    disclosureRevision: 1,
-    window: { after: null, limit: 50 },
-  };
+  const resource = observationTestResource;
+  const base = observationTestBase();
   let demand: readonly ObservationBase[] = [base],
     discoveries = 0,
     uncertainties = 0,

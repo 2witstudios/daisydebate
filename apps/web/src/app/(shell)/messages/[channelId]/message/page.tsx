@@ -1,4 +1,4 @@
-import { ConversationLive } from '../../../../../ui/messaging/conversation-live';
+import { MessageEditLive } from '../../../../../ui/messaging/conversation-live';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { systemId } from '@daisy/clock';
@@ -40,10 +40,13 @@ export default async function OwnMessagePage(props: MessagingChannelPageProps) {
     <main className="mx-auto flex w-full max-w-reading flex-col gap-6 p-6">
       <h1>Your message</h1>
       <p>Revise your message or remove it from the conversation.</p>
-      <ConversationLive
+      <MessageEditLive
         channelId={channelId}
-        socketUrl={conversation.socketUrl}
-        snapshotId={requestId}
+        messageId={messageId}
+        bounds={conversation.bounds}
+        before={
+          typeof intent.before === 'string' ? Number(intent.before) : null
+        }
       >
         <MessageMutationForm
           action={changeMessageAction.bind(null, channelId, messageId)}
@@ -51,7 +54,7 @@ export default async function OwnMessagePage(props: MessagingChannelPageProps) {
           removeRequestId={systemId.next()}
           maxUnits={conversation.bounds.messageUnits}
         />
-      </ConversationLive>
+      </MessageEditLive>
       <Link href={`/messages/${channelId}`}>Back to conversation</Link>
     </main>
   );

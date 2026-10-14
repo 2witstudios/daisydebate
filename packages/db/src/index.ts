@@ -19,7 +19,6 @@ import type { MessagingGroupCreationFence } from './messaging/group-creation-con
 import { createMessagingGroupInvitationStore } from './messaging/group-invitation-store';
 import type { MessagingGroupInvitationFence } from './messaging/group-invitation-contracts';
 import { createMessagingInboxPage } from './messaging/inbox-page';
-import { createMessagingChannelAuthority } from './messaging/authority-frame';
 import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { sql } from 'drizzle-orm';
@@ -34,9 +33,9 @@ import {
 } from './realtime-hints';
 import { claimUsername } from './username-claim';
 import { authOperations } from './auth-operations';
-import { authorizationSessionOperations } from './authorization-session';
 import { formatOperations } from './format-operations';
 import { roomCommandOperations } from './room-command-operations';
+import { socketAuthorityOperations } from './socket-authority-lanes';
 import { roomCommandTransaction } from './room-command-transaction';
 import { roomOperations } from './room-operations';
 import { roundOperations } from './round-operations';
@@ -245,9 +244,11 @@ export function createDatabase({
       await client.close({ timeout: 5 });
     },
     ...authOperations({ database, eventSink }),
-    // Web session reads serve every page render; realtime revalidates on its admission lane.
-    ...authorizationSessionOperations({
-      database: workloadProfile === 'web' ? database : authorityDatabase,
+    ...socketAuthorityOperations(workloadProfile, {
+      control: database,
+      social: socialDatabase,
+      competitive: competitiveDatabase,
+      admission: authorityDatabase,
     }),
     ...emailDeliveryOperations({ database, eventSink }),
     ...actorOperations({ database, eventSink }),
@@ -255,7 +256,6 @@ export function createDatabase({
     messagingDmStore: (
       authorize: Parameters<typeof createMessagingDmStore>[0]['authorize'],
     ) => createMessagingDmStore({ database: socialDatabase, authorize }),
-    messagingChannelAuthority: createMessagingChannelAuthority(socialDatabase),
     messagingFileMaintenance: createMessagingFileMaintenance(socialDatabase),
     messagingFileCleanup: (
       authorize: Parameters<typeof createMessagingFileCleanup>[0]['authorize'],

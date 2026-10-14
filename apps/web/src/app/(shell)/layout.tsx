@@ -3,7 +3,11 @@ import { SampleActionNotice } from '../../ui/components/sample-action/sample-act
 import { AppShell } from '../../ui/layout/app-shell/app-shell';
 import { UiStoreProvider } from '../../ui/store/store';
 import { shellAccount } from '../../lib/shell-account';
-import { requestIdentity } from '../../lib/request-session';
+import {
+  requestIdentity,
+  requestRealtimeSocketUrl,
+} from '../../lib/request-session';
+import { RealtimeProvider } from '../../ui/realtime/realtime-provider';
 
 /**
  * The signed-in product shell: renders AppShell's landmarks once (header,
@@ -17,14 +21,17 @@ export default async function ShellLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const identity = await requestIdentity();
+  const socketUrl = await requestRealtimeSocketUrl();
   return (
     <UiStoreProvider>
-      <AppShell account={shellAccount(identity)}>
-        <Suspense fallback={null}>
-          <SampleActionNotice />
-        </Suspense>
-        {children}
-      </AppShell>
+      <RealtimeProvider socketUrl={socketUrl}>
+        <AppShell account={shellAccount(identity)}>
+          <Suspense fallback={null}>
+            <SampleActionNotice />
+          </Suspense>
+          {children}
+        </AppShell>
+      </RealtimeProvider>
     </UiStoreProvider>
   );
 }

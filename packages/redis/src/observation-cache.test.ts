@@ -1,21 +1,19 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createTestRedis } from './test-support';
+import {
+  observationTestBase,
+  observationTestResource,
+} from '@daisy/protocol/observation-testing';
 setupRitewayBun();
 test('publication is one bounded guarded script and hints contain metadata only', async () => {
   const { redis, commands, scriptEval } = createTestRedis();
   scriptEval(1);
   await redis.publishObservation({
-    resource: { kind: 'channel', id: 'a'.repeat(24) },
+    resource: observationTestResource,
     incarnation: 'inc',
     token: 'token',
     purgeGeneration: 1,
-    base: {
-      schema: 1,
-      resource: { kind: 'channel', id: 'a'.repeat(24) },
-      partition: { kind: 'shared', policyKey: 'v1' },
-      disclosureRevision: 1,
-      window: { after: null, limit: 50 },
-    },
+    base: observationTestBase(),
     contentRevision: 2,
     body: 'private message',
     ttlMs: 30000,
@@ -30,5 +28,32 @@ test('publication is one bounded guarded script and hints contain metadata only'
       separatePublish: commands.some((item) => item.command === 'PUBLISH'),
     },
     expected: { scripts: 1, guarded: true, separatePublish: false },
+  });
+});
+test('head reads refuse revisions that are not safe non-negative integers', async () => {
+  const read = async (reply: unknown) => {
+    const { redis, scriptEval } = createTestRedis();
+    scriptEval(reply);
+    return redis
+      .readObservations(observationTestResource, 'inc', [observationTestBase()])
+      .then(
+        (entries) => entries,
+        (error: Error) => error.message,
+      );
+  };
+  assert({
+    given:
+      'a valid head, a non-numeric revision and an unsafe purge generation',
+    should: 'accept only exact integer revisions from Redis',
+    actual: [
+      await read(['0', ['3', 'body']]),
+      await read(['0', ['x', 'body']]),
+      await read(['9007199254740993', ['3', 'body']]),
+    ],
+    expected: [
+      [{ contentRevision: 3, purgeGeneration: 0, body: 'body' }],
+      'Invalid observation heads',
+      'Invalid observation heads',
+    ],
   });
 });

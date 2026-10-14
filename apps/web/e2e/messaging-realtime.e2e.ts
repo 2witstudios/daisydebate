@@ -5,11 +5,13 @@ import {
   testMessageControlFocus,
 } from './support/messaging-message-controls';
 import { manageNativeReactions } from './support/messaging-reactions';
-import { proveNativeTyping } from './support/messaging-typing';
-import type { ServerMessage } from '@daisy/protocol';
+import {
+  proveDraftAndRevocation,
+  proveLiveReactions,
+  proveSnapshotDelivery,
+} from './support/messaging-observation';
 import { manageNativePreferences } from './support/messaging-preferences';
 import { attachNativeMessageFile } from './support/messaging-attachments';
-import { serverMessageSchema } from '@daisy/protocol';
 import { test, expect, openPage } from './support/fixtures';
 import {
   openMessagingJourney,
@@ -21,61 +23,34 @@ import {
 
 testMessageControlFocus();
 
-test('an authenticated DM doorbell refetches current history in the other real browser', async ({
+test('a committed DM reaches the other real browser as a shared snapshot without a refetch', async ({
   browser,
 }) => {
   const journey = await openMessagingJourney(browser);
   try {
-    const recipient = await acceptMessagingJourney(journey);
-    const sender = await openPage(journey.sender, 'the realtime DM recipient');
-    const subscribed: string[] = [];
-    const typingHints: Extract<ServerMessage, { type: 'typing_changed' }>[] =
-      [];
-    const bells: unknown[] = [];
-    const invalidFrames: string[] = [];
-    sender.on('websocket', (socket) =>
-      socket.on('framereceived', (frame) => {
-        let raw: unknown;
-        try {
-          raw = JSON.parse(String(frame.payload));
-        } catch {
-          invalidFrames.push('invalid JSON');
-          return;
-        }
-        const result = serverMessageSchema.safeParse(raw);
-        if (!result.success) {
-          invalidFrames.push('invalid framing');
-          return;
-        }
-        if (result.data.type === 'subscribed')
-          subscribed.push(result.data.topic);
-        if (result.data.type === 'event') bells.push(result.data.payload);
-        if (result.data.type === 'typing_changed')
-          typingHints.push(result.data);
-      }),
-    );
-    await sender.goto(`/messages/${journey.channelId}`);
-    await expect
-      .poll(() => subscribed.includes(`channel:${journey.channelId}`))
-      .toBe(true);
-    await proveNativeTyping(sender, recipient, journey.channelId, typingHints);
-    const text = 'Delivered through a real authenticated socket';
-    await recipient.getByLabel('Your message').fill(text);
-    await recipient
-      .getByRole('button', { name: 'Send message', exact: true })
-      .click();
-    await expect(messageInHistory(sender, text)).toHaveCount(1);
-    expect(
-      bells.some(
-        (payload) =>
-          typeof payload === 'object' &&
-          payload !== null &&
-          'kind' in payload &&
-          payload.kind === 'channel.changed',
-      ),
-    ).toBe(true);
-    expect(JSON.stringify(bells)).not.toContain(text);
-    expect(invalidFrames).toEqual([]);
+    await proveSnapshotDelivery(journey);
+  } finally {
+    await journey.close();
+  }
+});
+
+test('an unsent edit survives another participant posting and revocation removes the conversation', async ({
+  browser,
+}) => {
+  const journey = await openMessagingJourney(browser);
+  try {
+    await proveDraftAndRevocation(journey);
+  } finally {
+    await journey.close();
+  }
+});
+
+test('another participant reaction updates an open reactions view without a refetch', async ({
+  browser,
+}) => {
+  const journey = await openMessagingJourney(browser);
+  try {
+    await proveLiveReactions(journey);
   } finally {
     await journey.close();
   }

@@ -11,7 +11,18 @@ export type ObservationState<T> = {
     'pending' | 'ready' | 'degraded' | 'denied' | 'unavailable' | 'disposed';
   readonly content: T | null;
   readonly revision: number | null;
+  /** Actor-private facts from the latest authorization; hidden with content. */
+  readonly overlay?: unknown;
 };
+/** No overlay key at all when there is none, so content-only states stay unchanged. */
+function withOverlay<T>(
+  state: ObservationState<T>,
+  overlay: unknown,
+): ObservationState<T> {
+  const { overlay: _previous, ...rest } = state;
+  void _previous;
+  return overlay === null ? rest : { ...rest, overlay };
+}
 /** Replaceable server content only. Forms/drafts/files live outside this store.
  * Content dirt preserves the last authorized view; authority loss fences every
  * result, regardless of its larger content revision.
@@ -51,15 +62,21 @@ export function createObservationStore<T>({
     begin() {
       return ++generation;
     },
-    authorize(attempt: number, authorized: Identity) {
+    authorize(attempt: number, authorized: Identity, overlay: unknown = null) {
       if (disposed || attempt !== generation) return false;
-      if (
-        !identity ||
-        identity.partition !== authorized.partition ||
-        identity.disclosureRevision !== authorized.disclosureRevision
-      )
-        update({ status: 'pending', content: null, revision: null });
+      const same =
+        identity !== null &&
+        identity.partition === authorized.partition &&
+        identity.disclosureRevision === authorized.disclosureRevision;
       identity = authorized;
+      update(
+        same
+          ? withOverlay(state, overlay)
+          : withOverlay<T>(
+              { status: 'pending', content: null, revision: null },
+              overlay,
+            ),
+      );
       return true;
     },
     snapshot(attempt: number, snapshot: Incoming) {
@@ -68,7 +85,12 @@ export function createObservationStore<T>({
       if (!advances(snapshot.contentRevision)) return false;
       const content = decode(snapshot.body);
       if (content === null) return false;
-      update({ status: 'ready', content, revision: snapshot.contentRevision });
+      update(
+        withOverlay(
+          { status: 'ready', content, revision: snapshot.contentRevision },
+          state.overlay ?? null,
+        ),
+      );
       return true;
     },
     dirty() {

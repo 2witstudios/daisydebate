@@ -1,3 +1,4 @@
+import { createMessagingReactionSchemas } from '@daisy/protocol';
 import type { MessagingFileRuntime } from '../features/messaging/files/runtime';
 import { currentFairnessKey } from './fairness';
 import { readRealtimePublicUrl } from '@daisy/config';
@@ -72,6 +73,9 @@ export function createApp({
   redisClient,
 }: AppDependencies) {
   const config = readServerConfig(env);
+  // A deployed reaction policy must keep every own overlay within contract.
+  if (messagingPolicy?.reactions)
+    createMessagingReactionSchemas(messagingPolicy.reactions);
   const baseLogger = createLogger({
     service: 'web',
     level: config.LOG_LEVEL,

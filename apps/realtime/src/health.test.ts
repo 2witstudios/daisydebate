@@ -25,6 +25,26 @@ describe('checkReadiness', () => {
     });
   });
 
+  test('reports unready while the observation runtime is being replaced', async () => {
+    assert({
+      given: 'healthy dependencies and a failed-closed observation runtime',
+      should: 'leave rotation until the replacement runtime is live',
+      actual: await checkReadiness({
+        ...healthyResources,
+        observation: { ready: () => false },
+      }),
+      expected: {
+        ready: false,
+        checks: {
+          database: true,
+          listen: true,
+          redis: true,
+          observation: false,
+        },
+      },
+    });
+  });
+
   test('reports unready when draining, even with every check healthy', async () => {
     assert({
       given: 'a draining process',

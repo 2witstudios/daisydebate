@@ -6,6 +6,7 @@ import {
 } from '@daisy/protocol';
 import type { ObservationPermit } from './observation-permit';
 import { createObservationPurges } from './observation-purges';
+import { createObservationRepair } from './observation-repair';
 export type ObservationSnapshot = {
   readonly base: ObservationBase;
   readonly contentRevision: number;
@@ -52,7 +53,6 @@ export function createObservationNode({
   let bindings = 0,
     encodedBytes = 0,
     closed = false,
-    repairing = false,
     pumping = false;
   const ofResource = (resourceKey: string) => (entry: Entry) =>
     observationResourceKey(entry.base.resource) === resourceKey;
@@ -162,6 +162,20 @@ export function createObservationNode({
       });
     jobs.set(entry, work);
   }
+  const repair = createObservationRepair({
+    keys: () => [...entries].map(([key, entry]) => [key, entry.base] as const),
+    current: (key, base) => entries.get(key)?.base === base,
+    accept: (snapshot) => api.accept(snapshot),
+    touch: (key) => {
+      const entry = entries.get(key);
+      if (!entry) return;
+      entry.dirty = true;
+      enqueue(entry);
+    },
+    yieldWork,
+    closed: () => closed,
+    cache,
+  });
   const api = {
     observe(
       base: ObservationBase,
@@ -252,25 +266,7 @@ export function createObservationNode({
       enqueue(entry);
       return true;
     },
-    async repair() {
-      if (closed || repairing) return;
-      repairing = true;
-      try {
-        let count = 0;
-        for (const [key, entry] of entries) {
-          if (closed) return;
-          await cache.demand(entry.base);
-          const snapshot = await cache.read(entry.base);
-          if (closed || entries.get(key) !== entry) continue;
-          if (snapshot) api.accept(snapshot);
-          entry.dirty = true;
-          enqueue(entry);
-          if (++count % 128 === 0) await yieldWork();
-        }
-      } finally {
-        repairing = false;
-      }
-    },
+    repair: (resourceKey?: string) => repair(resourceKey),
     invalidate(dependencyKey?: string) {
       for (const entry of entries.values())
         for (const recipient of entry.recipients)

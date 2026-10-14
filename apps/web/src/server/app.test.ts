@@ -198,3 +198,32 @@ test('ordinary app configuration activates canonical Room authentication and ori
     expected: [404, 401, 403, 9],
   });
 });
+test('refuses a reaction policy whose own overlay could exceed its contract', () => {
+  const policy = (choices: number, reactionUnits = 8) =>
+    ({
+      reactions: {
+        reactionUnits,
+        choices: Array.from({ length: choices }, (_, index) => `r${index}`),
+      },
+    }) as unknown as NonNullable<
+      Parameters<typeof createApp>[0]['messagingPolicy']
+    >;
+  const compose = (messagingPolicy: ReturnType<typeof policy>) => () =>
+    createApp({
+      env: baseEnv,
+      messagingPolicy,
+      fetch: recordingFetch().fetch,
+      clock: fixedClock('2026-09-23T00:00:00.000Z'),
+      ids: sequentialId('app'),
+    });
+  assert({
+    given: 'eight choices, nine choices and 17-unit reactions',
+    should: 'compose only a policy every own overlay can represent',
+    actual: [
+      errorOf(compose(policy(8))),
+      errorOf(compose(policy(9))).includes('Too big'),
+      errorOf(compose(policy(2, 17))).includes('Too big'),
+    ],
+    expected: ['', true, true],
+  });
+});

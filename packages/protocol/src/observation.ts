@@ -5,7 +5,7 @@ export const observationResourceSchema = z.strictObject({
   kind: z.enum(['room', 'round', 'channel', 'inbox']),
   id: idSchema,
 });
-export const observationPartitionSchema = z.discriminatedUnion('kind', [
+const observationPartitionSchema = z.discriminatedUnion('kind', [
   z.strictObject({
     kind: z.literal('shared'),
     policyKey: z.string().regex(/^[a-zA-Z0-9_-]{1,100}$/),
@@ -37,7 +37,7 @@ export const observationBaseSchema = z
       observationWindowMatchesResource(resource, window),
     { message: 'Window cursor must match resource' },
   );
-export function observationWindowMatchesResource(
+function observationWindowMatchesResource(
   resource: { readonly kind: string },
   window: { readonly after: string | number | null },
 ) {
@@ -65,9 +65,8 @@ export const observationDescriptorSchema = z
     observationWindowMatchesResource(resource, window),
   );
 export type ObservationDescriptor = z.infer<typeof observationDescriptorSchema>;
-export type ObservationWindow = z.infer<typeof observationWindowSchema>;
 export type ObservationResource = z.infer<typeof observationResourceSchema>;
-export type ObservationPartition = z.infer<typeof observationPartitionSchema>;
+type ObservationPartition = z.infer<typeof observationPartitionSchema>;
 export type ObservationBase = z.infer<typeof observationBaseSchema>;
 export type ObservationHeader = z.infer<typeof observationHeaderSchema>;
 /** One canonical fact a permit depends on; scope names which evidence it bounds. */
@@ -88,12 +87,14 @@ export type ObservationAuthorityDecision =
     }
   | { readonly status: 'denied' | 'unavailable' };
 export function observationResourceKey(resource: ObservationResource): string {
-  const parsed = observationResourceSchema.parse(resource);
+  const parsed = observationResourceSchema.parse(resource, {
+    jitless: true,
+  });
   return `${parsed.kind}-${parsed.id}`;
 }
 /** Unambiguous stable identity; evidence timestamps and acquisition attempts cannot enter it. */
 export function observationBaseKey(base: ObservationBase): string {
-  const value = observationBaseSchema.parse(base);
+  const value = observationBaseSchema.parse(base, { jitless: true });
   return JSON.stringify([
     value.schema,
     value.resource.kind,
@@ -108,6 +109,9 @@ export function observationBaseKey(base: ObservationBase): string {
   ]);
 }
 export const observationFrameBytes = 128 * 1024;
+/** Actor-private overlays are recomputed on every renewal; the bound covers
+ * the largest overlay any adopted resource's schema allows. */
+export const observationOverlayBytes = 64 * 1024;
 /** UTF-8 length of the JSON encoding, without depending on a host TextEncoder. */
 export function observationJsonBytes(value: unknown) {
   let bytes = 0;
@@ -116,14 +120,6 @@ export function observationJsonBytes(value: unknown) {
     bytes += point <= 0x7f ? 1 : point <= 0x7ff ? 2 : point <= 0xffff ? 3 : 4;
   }
   return bytes;
-}
-export function createObservationSnapshotSchema<T extends z.ZodType>(body: T) {
-  return z.strictObject({
-    base: observationBaseSchema,
-    contentRevision: revision,
-    purgeGeneration: revision,
-    body,
-  });
 }
 /** Kept separate from realtime framing constants to avoid a module cycle. */
 export function createObservationClientMessageSchema(version: number) {

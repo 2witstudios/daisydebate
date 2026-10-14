@@ -1,5 +1,4 @@
 import { SQL } from 'bun';
-import { buildUserInboxTopic } from '@daisy/protocol';
 import { createHash, randomBytes } from 'node:crypto';
 import { requireTestServices } from '@daisy/config';
 import { systemId } from '@daisy/clock';
@@ -7,7 +6,7 @@ import { openAuthorityPeer } from './authority-peer.test-support';
 import { authorityResources } from './authority-resources.test-support';
 import { serveRealtime } from '../src/serve';
 import type { RealtimeReadingPolicy } from '../src/authorization';
-import { testOrigin } from './support';
+import { removeSessionControls, testOrigin } from './support';
 
 /** Durable isolated identity; authority always comes from the actual session/account readers. */
 export async function socketAuthorityFixture(
@@ -32,8 +31,7 @@ export async function socketAuthorityFixture(
   );
   const eraseFixture = async () => {
     await client`delete from session where id=${sessionId}`;
-    // Deleting the live session appended its revocation control.
-    await client`delete from outbox where topic=${buildUserInboxTopic(actorId)}`;
+    await removeSessionControls(client, [actorId]);
     await client`delete from actors where id=${actorId}`;
     await client`delete from users where id=${userId}`;
   };

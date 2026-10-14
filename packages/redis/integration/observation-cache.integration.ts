@@ -1,15 +1,8 @@
 import { assert, test } from 'riteway/bun';
-import { redisSuite, withRedis } from './test-support';
-import type { ObservationBase } from '@daisy/protocol';
-const env = redisSuite();
-const resource = { kind: 'channel', id: 'a'.repeat(24) } as const;
-const base: ObservationBase = {
-  schema: 1,
-  resource,
-  partition: { kind: 'shared', policyKey: 'v1' },
-  disclosureRevision: 1,
-  window: { after: null, limit: 50 },
-};
+import { requireTestServices } from '@daisy/config';
+import { observationSuite, ownObservation, withRedis } from './test-support';
+requireTestServices(process.env);
+const { env, resource, base } = observationSuite();
 test('late body installation after purge is refused atomically', async () => {
   await withRedis(env.redisUrl, async ({ redis }) => {
     const incarnation = await redis.establishObservationIncarnation('inc');
@@ -49,10 +42,10 @@ test('late body installation after purge is refused atomically', async () => {
         owned: true,
         prepared: true,
         installed: 1,
-        before: [{ contentRevision: 1, body: 'protected' }],
+        before: [{ contentRevision: 1, purgeGeneration: 1, body: 'protected' }],
         purged: true,
         delayed: 0,
-        after: [],
+        after: [null],
       },
     });
   });
@@ -114,13 +107,8 @@ test('pinned Bun native PubSub uses one subscriber and metadata hints', async ()
       received = resolve;
     });
     try {
-      const incarnation = await redis.establishObservationIncarnation('inc');
-      const claim = { resource, incarnation, token: 'owner', ttlMs: 2000 };
-      await redis.claimObservation(claim);
-      await redis.prepareObservation({
-        ...claim,
+      const claim = await ownObservation(redis, resource, {
         purgeGeneration: 1,
-        disclosureRevision: 1,
       });
       await redis.publishObservation({
         ...claim,
@@ -179,7 +167,7 @@ test('older disclosure purge cannot erase a newer ready body', async () => {
       },
       expected: {
         delayed: false,
-        body: [{ contentRevision: 3, body: 'current' }],
+        body: [{ contentRevision: 3, purgeGeneration: 1, body: 'current' }],
       },
     });
   });
@@ -244,14 +232,7 @@ test('bounded reaping restores admission at the global demand ceiling', async ()
 
 test('useful owner reconciliation retains unchanged body without rebuilding or granting evidence', async () => {
   await withRedis(env.redisUrl, async ({ redis, raw, key }) => {
-    const incarnation = await redis.establishObservationIncarnation('inc'),
-      claim = { resource, incarnation, token: 'owner', ttlMs: 2000 };
-    await redis.claimObservation(claim);
-    await redis.prepareObservation({
-      ...claim,
-      purgeGeneration: 0,
-      disclosureRevision: 1,
-    });
+    const claim = await ownObservation(redis, resource);
     await redis.publishObservation({
       ...claim,
       base,

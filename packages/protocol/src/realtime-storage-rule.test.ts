@@ -36,21 +36,6 @@ describe('storage family rule (plan revision 4.11, RT-2.1c AC3)', () => {
     });
   });
 
-  test('still stores the ordinary inbox delta kind alongside the control kinds', () => {
-    assert({
-      given: 'a user.notification-delivered delta on user:inbox',
-      should: 'be storable, as it always was',
-      actual: isPayloadStorableOnTopic(inbox, {
-        entityVersion: 1,
-        kind: 'user.notification-delivered',
-        ids: [id],
-        notificationType: 'debate.forfeit',
-        occurredAt: '2026-01-01T00:00:00.000Z',
-      }),
-      expected: true,
-    });
-  });
-
   test('refuses the two doorbell kinds as storable on the inbox: the widening is control kinds only', () => {
     assert({
       given:

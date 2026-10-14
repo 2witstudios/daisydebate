@@ -79,10 +79,14 @@ test('two actual instances consume durable access and session revocations withou
       target: string,
     ) => {
       const rows = await fixture.client.begin(async (tx) => {
-        if (kind === 'access.revoked') {
-          await tx`delete from round_participants where round_id=${round.id} and actor_id=${fixture.actorId}`;
-          await tx`update rounds set version=version+1 where id=${round.id}`;
-        } else await tx`delete from session where id=${fixture.sessionId}`;
+        if (kind === 'session.revoked') {
+          // The session table appends this control in the deleting transaction.
+          await tx`delete from session where id=${fixture.sessionId}`;
+          return tx`select txid::text as txid,seq from outbox
+            where txid=pg_current_xact_id() and kind='session.revoked'`;
+        }
+        await tx`delete from round_participants where round_id=${round.id} and actor_id=${fixture.actorId}`;
+        await tx`update rounds set version=version+1 where id=${round.id}`;
         return tx`insert into outbox(topic,kind,version,payload) values(
           ${buildUserInboxTopic(fixture.actorId)},${kind},1,
           ${{ kind, ids: [fixture.actorId, target], entityVersion: 1 }}::jsonb

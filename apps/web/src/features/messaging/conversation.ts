@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { realtimePublicUrlSchema } from '@daisy/config';
 import { createAppError } from '@daisy/errors';
 import {
   createMessagingCoreSchemas,
@@ -26,9 +25,6 @@ export async function readConversationResponse(response: Response) {
     await response.json(),
   );
   if (!history.success) throw createAppError('INFRASTRUCTURE');
-  const endpoint = response.headers.get('x-realtime-socket-url');
-  const socketUrl =
-    endpoint === null ? null : realtimePublicUrlSchema.parse(endpoint);
   const configured = response.headers.get('x-messaging-typing-refetch-ms');
   const recovery =
     configured === null
@@ -42,7 +38,6 @@ export async function readConversationResponse(response: Response) {
   return {
     history: history.data,
     bounds,
-    socketUrl,
     typingRefetchMs: recovery?.data ?? null,
   };
 }

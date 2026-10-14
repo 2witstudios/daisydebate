@@ -1,4 +1,3 @@
-import { realtimePublicUrlSchema } from '@daisy/config';
 import { z } from 'zod';
 import { createMessagingReactionSchemas } from '@daisy/protocol';
 /** The reaction page accepts only the requested current aggregate and explicit deployment choices. */
@@ -26,13 +25,7 @@ export async function readReactionResponse(
       parsed.data.messageId !== messageId
     )
       return null;
-    const endpoint = response.headers.get('x-realtime-socket-url');
-    return {
-      result: parsed.data,
-      policy,
-      socketUrl:
-        endpoint === null ? null : realtimePublicUrlSchema.parse(endpoint),
-    };
+    return { result: parsed.data, policy };
   } catch {
     return null;
   }

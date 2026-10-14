@@ -39,9 +39,25 @@ export function createRealtimeApp({
     injectedDatabase ??
     createDatabase({
       url: config.DATABASE_URL,
+      // Fanout/authority allocation: renewal 2, admission 1, control 1.
+      // Header, projection and relay work never run on this pool.
+      workloadProfile: 'realtime',
+      maxConnections: 4,
       eventSink: logger.log,
       nextActorId: () => ids.next(),
     });
+  // Only the bounded eligible subset holds the narrow projection credential;
+  // its own 4-slot pool runs headers, shared bodies and the metadata relay.
+  const projection =
+    config.OBSERVATION_DATABASE_URL === undefined
+      ? undefined
+      : createDatabase({
+          url: config.OBSERVATION_DATABASE_URL,
+          workloadProfile: 'projection',
+          maxConnections: 4,
+          eventSink: logger.log,
+          nextActorId: () => ids.next(),
+        });
   const redis = createRedis({
     url: config.REDIS_URL,
     namespace: config.REDIS_NAMESPACE,
@@ -54,11 +70,15 @@ export function createRealtimeApp({
       trustedProxyEntries: readTrustedProxyConfig(env),
     },
     clock,
+    ids,
     database,
+    ...(projection ? { projection } : {}),
     redis,
     logger,
     /** isDraining, drain, and close (drains, then closes both pools). */
-    ...createDrainState([database, redis]),
+    ...createDrainState(
+      projection ? [database, projection, redis] : [database, redis],
+    ),
   };
 }
 export type RealtimeApp = ReturnType<typeof createRealtimeApp>;

@@ -1,28 +1,12 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createObservationWorker } from './observation-worker';
-import type { ObservationBase } from '@daisy/protocol';
+import { observationTestBase } from '@daisy/protocol/observation-testing';
+import { testHeader, testWorker } from './observation-worker.test-support';
 setupRitewayBun();
-const resource = { kind: 'channel', id: 'a'.repeat(24) } as const;
-const base: ObservationBase = {
-  schema: 1,
-  resource,
-  partition: { kind: 'shared', policyKey: 'v1' },
-  disclosureRevision: 1,
-  window: { after: null, limit: 50 },
-};
+const base = observationTestBase();
 test('fanout-only allocation cannot execute headers or projections', async () => {
   let sql = 0;
-  const worker = createObservationWorker({
+  const worker = testWorker({
     eligible: false,
-    now: () => 0,
-    nextToken: () => 'owner',
-    cache: {
-      ready: async () => true,
-      claim: async () => true,
-      prepare: async () => true,
-      publish: async () => true,
-      release: async () => {},
-    },
     readHeaders: async () => {
       sql++;
       return [];
@@ -45,27 +29,11 @@ test('fanout-only allocation cannot execute headers or projections', async () =>
 test('missing cache head rebuilds unchanged canonical revision', async () => {
   let ready = true,
     builds = 0;
-  const header = {
-    resource,
-    contentRevision: 1,
-    disclosureRevision: 1,
-    purgeGeneration: 0,
-  };
-  const worker = createObservationWorker({
-    eligible: true,
-    now: () => 0,
-    nextToken: () => 'owner',
-    cache: {
-      claim: async () => true,
-      prepare: async () => true,
-      ready: async () => ready,
-      publish: async () => true,
-      release: async () => {},
-    },
-    readHeaders: async () => [header],
+  const worker = testWorker({
+    cache: { ready: async () => ready },
     build: async () => {
       builds++;
-      return { header, body: 'body' };
+      return { header: testHeader, body: 'body' };
     },
   });
   worker.demand(base);
@@ -87,28 +55,15 @@ test('healthy variants cannot renew ownership of a stuck projection forever', as
     claims = 0;
   const other = { ...base, window: { after: 12, limit: 50 } };
   const pending = new Promise<never>(() => {});
-  const worker = createObservationWorker({
-    eligible: true,
+  const worker = testWorker({
     now: () => now,
-    nextToken: () => 'owner',
     cache: {
       claim: async () => {
         claims++;
         return true;
       },
-      prepare: async () => true,
-      ready: async () => true,
-      publish: async () => true,
-      release: async () => {},
     },
-    readHeaders: async () => [
-      {
-        resource,
-        contentRevision: ++version,
-        disclosureRevision: 1,
-        purgeGeneration: 0,
-      },
-    ],
+    readHeaders: async () => [{ ...testHeader, contentRevision: ++version }],
     build: async (variant, header) =>
       variant.window.after === null ? pending : { header, body: 'healthy' },
   });
@@ -131,35 +86,16 @@ test('healthy variants cannot renew ownership of a stuck projection forever', as
 test('Redis uncertainty invalidates local ownership before another header read', async () => {
   let fail = false,
     reads = 0;
-  const worker = createObservationWorker({
-    eligible: true,
-    now: () => 0,
-    nextToken: () => 'owner',
-    cache: {
-      claim: async () => {
-        if (fail) throw new Error('cache unavailable');
-        return true;
-      },
-      prepare: async () => {
-        if (fail) throw new Error('cache unavailable');
-        return true;
-      },
-      ready: async () => true,
-      publish: async () => true,
-      release: async () => {},
-    },
+  const unavailable = async () => {
+    if (fail) throw new Error('cache unavailable');
+    return true;
+  };
+  const worker = testWorker({
+    cache: { claim: unavailable, prepare: unavailable },
     readHeaders: async () => {
       reads++;
-      return [
-        {
-          resource,
-          contentRevision: 1,
-          disclosureRevision: 1,
-          purgeGeneration: 0,
-        },
-      ];
+      return [testHeader];
     },
-    build: async (_base, header) => ({ header, body: 'body' }),
   });
   worker.demand(base);
   await worker.reconcile();
@@ -188,29 +124,15 @@ for (const fence of ['prepare', 'renew'] as const)
   test(`false ${fence} fence stops future headers`, async () => {
     let lost = false,
       reads = 0;
-    const worker = createObservationWorker({
-      eligible: true,
-      now: () => 0,
-      nextToken: () => 'owner',
+    const worker = testWorker({
       cache: {
         claim: async () => !(lost && fence === 'renew'),
         prepare: async () => !(lost && fence === 'prepare'),
-        ready: async () => true,
-        publish: async () => true,
-        release: async () => {},
       },
       readHeaders: async () => {
         reads++;
-        return [
-          {
-            resource,
-            contentRevision: 1,
-            disclosureRevision: 1,
-            purgeGeneration: 0,
-          },
-        ];
+        return [testHeader];
       },
-      build: async (_base, header) => ({ header, body: 'body' }),
     });
     worker.demand(base);
     await worker.reconcile();

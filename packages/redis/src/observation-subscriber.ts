@@ -3,6 +3,7 @@ import {
   type ObservationResource,
 } from '@daisy/protocol';
 import { redisKey } from './redis-key';
+import { observationControlChannel } from './observation-relay';
 type Listener = (message: string, channel: string) => void;
 export type ObservationSubscriberTransport = {
   onconnect?: (() => void) | null | undefined;
@@ -13,7 +14,8 @@ export type ObservationSubscriberTransport = {
   readonly close: () => void;
 };
 type Interest = {
-  readonly resource: ObservationResource;
+  /** Null for the fixed control channel, which needs no head repair. */
+  readonly resource: ObservationResource | null;
   readonly listeners: Set<() => void>;
   readonly handler: Listener;
   subscribedGeneration: number;
@@ -25,15 +27,31 @@ export function createObservationSubscriber({
   namespace,
   createClient,
   reconcile,
+  onControl,
 }: {
   readonly namespace: string;
   readonly createClient: () => ObservationSubscriberTransport;
+  /** Expendable fences; each raw message is parsed by the caller. */
+  readonly onControl?: (message: string) => void;
   readonly reconcile: (
     resources: readonly ObservationResource[],
   ) => Promise<void>;
 }) {
   const client = createClient(),
     interests = new Map<string, Interest>();
+  if (onControl)
+    interests.set(observationControlChannel(namespace), {
+      resource: null,
+      listeners: new Set(),
+      handler: (message) => {
+        try {
+          onControl(message);
+        } catch {
+          /* A fence consumer cannot disrupt the shared subscriber. */
+        }
+      },
+      subscribedGeneration: -1,
+    });
   const channelJobs = new Map<string, Promise<void>>();
   const cleanup = new Set<string>();
   function channelWork(channel: string, operation: () => Promise<unknown>) {
@@ -92,7 +110,11 @@ export function createObservationSubscriber({
       if (stale()) return;
       const version = membership;
       if (!(await subscribeAll(stale, attempt))) return;
-      await reconcile([...interests.values()].map((entry) => entry.resource));
+      await reconcile(
+        [...interests.values()].flatMap((entry) =>
+          entry.resource ? [entry.resource] : [],
+        ),
+      );
       if (stale()) return;
       if (version !== membership) continue;
       synchronized = true;

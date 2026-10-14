@@ -1,15 +1,13 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createObservationWorker } from './observation-worker';
-import type { ObservationBase, ObservationHeader } from '@daisy/protocol';
+import type { ObservationHeader } from '@daisy/protocol';
+import {
+  observationTestBase,
+  observationTestResource,
+} from '@daisy/protocol/observation-testing';
 setupRitewayBun();
-const resource = { kind: 'channel', id: 'a'.repeat(24) } as const;
-const base: ObservationBase = {
-  schema: 1,
-  resource,
-  partition: { kind: 'shared', policyKey: 'v1' },
-  disclosureRevision: 1,
-  window: { after: null, limit: 50 },
-};
+const resource = observationTestResource;
+const base = observationTestBase();
 const deferred = <T>() => {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((finish) => {
@@ -22,6 +20,7 @@ const healthyCache = () => ({
   claim: async () => true,
   prepare: async () => true,
   publish: async () => true,
+  drop: async () => true,
   release: async () => {},
 });
 test('removed resource cannot survive a batch assembled before another claim await', async () => {
@@ -181,6 +180,7 @@ test('expired fleet demand releases resource ownership and fences pending builds
         published++;
         return true;
       },
+      drop: async () => true,
       release: async () => {
         releases++;
       },
@@ -230,6 +230,7 @@ test('completed revisions publish through continuous dirt and lease renewal requ
         published.push(snapshot.header.contentRevision);
         return true;
       },
+      drop: async () => true,
       release: async () => {},
     },
     readHeaders: async () => {

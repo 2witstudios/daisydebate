@@ -24,6 +24,8 @@ type Interest = {
   requestId: string | null;
   expiresAt: number;
   timer: unknown;
+  /** The overlay the server last sent for this request generation. */
+  overlay: unknown;
 };
 /** One tab/session composition owns transport, deadlines and replaceable views.
  * Features supply a schema-bound descriptor, never refetch or repair callbacks.
@@ -72,13 +74,20 @@ export function createObservationProvider({
     frame: Extract<ObservationServerMessage, { type: 'observation.ready' }>,
   ) {
     clearTimer(entry);
+    // An omitted overlay is unchanged within a generation; a new one starts empty.
+    if (frame.overlay !== undefined) entry.overlay = frame.overlay;
+    else if (frame.generation !== entry.generation) entry.overlay = null;
     entry.generation = frame.generation;
     entry.expiresAt = scheduler.now() + frame.validForMs;
     entry.attempt = entry.store.begin();
-    entry.store.authorize(entry.attempt, {
-      partition: observationBaseKey(frame.base),
-      disclosureRevision: frame.base.disclosureRevision,
-    });
+    entry.store.authorize(
+      entry.attempt,
+      {
+        partition: observationBaseKey(frame.base),
+        disclosureRevision: frame.base.disclosureRevision,
+      },
+      entry.overlay,
+    );
     if (disposed || entry.store.read().status === 'disposed') return;
     entry.timer = scheduler.setTimeout(() => {
       expired(entry);
@@ -125,10 +134,13 @@ export function createObservationProvider({
   return {
     observe<T>(descriptor: RealtimeDescriptor<T>) {
       if (disposed) throw new Error('Observation provider disposed');
-      const parsed = observationDescriptorSchema.parse({
-        resource: descriptor.resource,
-        window: descriptor.window,
-      });
+      const parsed = observationDescriptorSchema.parse(
+        {
+          resource: descriptor.resource,
+          window: descriptor.window,
+        },
+        { jitless: true },
+      );
       const key = JSON.stringify([
         parsed.resource.kind,
         parsed.resource.id,
@@ -151,6 +163,7 @@ export function createObservationProvider({
           requestId: null,
           expiresAt: 0,
           timer: null,
+          overlay: null,
         };
         interests.set(key, entry);
         const owned = entry;

@@ -32,6 +32,7 @@ export const eventRegistry = {
   'realtime.outbox.drain_failed': 'error',
   'realtime.outbox.delivery_lag_estimated': 'info',
   'realtime.connection.rejected': 'info',
+  'realtime.observation.clock_uncertain': 'error',
   'db.query.failed': 'error',
   'db.capacity.refused': 'warn',
   'retention.sweep.completed': 'info',
