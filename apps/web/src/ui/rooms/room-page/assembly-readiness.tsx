@@ -1,7 +1,7 @@
 import { AssemblyCommandForm } from './assembly-command-form';
 import type { MockFormState } from '../../../features/mock-form/form';
 import type { FormAction } from '../../form-action/form-action';
-import type { RoomView } from '@daisy/protocol';
+import { isNamedSeat, type RoomView } from '@daisy/protocol';
 import { AssemblyCommandFields } from './assembly-command-fields';
 import { buttonClass } from '../../components/button/button-class';
 import { readinessControl, type LocalReadiness } from './assembly-controls';
@@ -33,7 +33,9 @@ function launchFence(
   local: LocalReadiness,
 ): boolean {
   if (local.unreadyPending) return true;
-  const own = view.participants.find((seat) => seat.actorId === actorId);
+  const own = view.participants
+    .filter(isNamedSeat)
+    .find((seat) => seat.actorId === actorId);
   return own?.kind === 'human' && own.role !== 'judge' && !local.devicesPassed;
 }
 
@@ -84,7 +86,9 @@ export function ReadyControl({
 }: Props) {
   const ready = readinessControl(view, actorId, local);
   if (!ready) return null;
-  const own = view.participants.find((seat) => seat.actorId === actorId);
+  const own = view.participants
+    .filter(isNamedSeat)
+    .find((seat) => seat.actorId === actorId);
   const isReady = ready.type === 'unready' && !local.unreadyPending;
   return (
     <div className="flex flex-wrap items-center justify-end gap-3">

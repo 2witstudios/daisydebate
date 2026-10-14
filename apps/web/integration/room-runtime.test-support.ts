@@ -6,7 +6,12 @@ import { createDatabase } from '@daisy/db';
 import { createRedis, redisKey } from '@daisy/redis';
 import { createBoundedTestClient, testNamespace } from '@daisy/redis/testing';
 import { deleteNamespace } from '@daisy/redis/namespaces';
-import type { RoomCommand, RoomCreate, RoomView } from '@daisy/protocol';
+import {
+  isNamedSeat,
+  type RoomCommand,
+  type RoomCreate,
+  type RoomView,
+} from '@daisy/protocol';
 import { createRoomRuntimeOperations } from '../src/features/room-runtime/operations';
 const services = requireTestServices(process.env);
 export async function withRoomRuntime(
@@ -146,9 +151,9 @@ async function fixture(
       view = (
         await command(c, view, {
           type: 'ready',
-          expectedConsentVersion: view.participants.find(
-            (p) => p.actorId === c.actorId,
-          )!.consentVersion,
+          expectedConsentVersion: view.participants
+            .filter(isNamedSeat)
+            .find((p) => p.actorId === c.actorId)!.consentVersion,
         })
       ).view;
     return operations.view(host, view.id);
@@ -161,14 +166,16 @@ async function fixture(
     host,
     guest,
     outsider,
+    /** Another member, cleaned up with the rest. */
+    member: caller,
     create,
     command,
     consent: (caller: typeof host, view: RoomView, type: 'ready' | 'unready') =>
       command(caller, view, {
         type,
-        expectedConsentVersion: view.participants.find(
-          (p) => p.actorId === caller.actorId,
-        )!.consentVersion,
+        expectedConsentVersion: view.participants
+          .filter(isNamedSeat)
+          .find((p) => p.actorId === caller.actorId)!.consentVersion,
       }),
     snapshot,
     assemble,

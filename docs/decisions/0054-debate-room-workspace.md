@@ -102,10 +102,15 @@ document. Daisy builds this itself rather than embedding another product.
   clocks with `roundPositionAt` once a second in the browser, rereading
   the view every five seconds; an ended round leaves for its receipt.
   After the last speech the room enters judging. The mic shows live while
-  the debater holds the floor. A human judge's name is removed before the
-  view reaches the debater's browser. Ratings, stakes, chat delivery, the
-  AI agents, media and Tech issue have no server yet: chat and agent turns
-  stay in the client, and Tech issue is shown disabled (DEC-100).
+  the debater holds the floor. The Round read and the Room view are
+  projected per viewer at the server (DEC-98, DEC-174): a human judge's
+  seat is anonymous to everyone but that judge and the host, with no name,
+  actor or seat id, and the Round read never carries the host's actor. An
+  unreadable stored checkpoint reads as none, so the room shows no live
+  position instead of failing. Ratings, stakes, Round commands, chat
+  delivery, the AI agents, media and Tech issue have no server yet: their
+  controls are shown disabled (DEC-100, DEC-178), and a ranked round lists
+  no club folder (DEC-175).
 - Account erasure keeps the `users` row, so `ON DELETE CASCADE` does not
   remove a person's documents on erasure; the erasure transaction must
   delete them explicitly.

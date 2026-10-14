@@ -169,7 +169,13 @@ export type {
   RoomCastChoice,
 } from './room-contract';
 
-export { roundViewSchema, type RoundView } from './round-view';
+export {
+  isNamedSeat,
+  roundViewSchema,
+  type LaunchedRound,
+  type RoundSeat,
+  type RoundView,
+} from './round-view';
 
 export {
   roomViewSchema,

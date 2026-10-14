@@ -1,55 +1,20 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type { RoundView } from '@daisy/protocol';
-import { round as launched } from '../../features/room-runtime/operations.test-support';
-import { debaterView, isLiveDebater, liveRoundOf } from './live-round';
+import { emptyRuntimeCheckpoint, type RoundView } from '@daisy/protocol';
+import { isLiveDebater, liveRoundOf } from './live-round';
+import {
+  aff,
+  at,
+  countdown,
+  judge,
+  neg,
+  origin,
+  ran,
+  rules,
+  startOf,
+  view,
+} from './live-round.test-support';
 
 setupRitewayBun();
-
-const aff = launched.participants[0]!;
-const neg = {
-  id: 'n4n6p8r2t4v6x8z1k3b5c7d9',
-  actorId: 'o4n6p8r2t4v6x8z1k3b5c7d9',
-  kind: 'bot',
-  label: 'Practice bot',
-  role: 'negative',
-  slot: 0,
-} as const;
-const judge = {
-  id: 'j4n6p8r2t4v6x8z1k3b5c7d9',
-  actorId: 'k4n6p8r2t4v6x8z1k3b5c7d9',
-  kind: 'human',
-  label: 'Riley Judge',
-  role: 'judge',
-  slot: 0,
-} as const;
-const view: RoundView = {
-  ...launched,
-  participants: [{ ...aff, label: 'Sam Reyes' }, neg, judge],
-};
-const rules = view.rules.segments;
-const origin = Date.parse('2026-10-12T18:00:00.000Z');
-const at = (ms: number) => new Date(origin + ms).toISOString();
-const countdown = view.rules.countdownMs;
-
-/** Milliseconds from the start to segment `sequence`, after the countdown. */
-const startOf = (sequence: number) =>
-  countdown +
-  rules.slice(0, sequence).reduce((sum, s) => sum + s.durationMs, 0);
-
-/** The first `count` segments back to back; the last stays open unless `closed`. */
-function ran(count: number, closed = false): RoundView {
-  const segments = rules.slice(0, count).map((segment, sequence) => ({
-    id: `${'s'.repeat(23)}${sequence}`,
-    sequence,
-    type: segment.type,
-    rulesSegmentKey: segment.key,
-    startedAt: at(startOf(sequence)),
-    endedAt:
-      sequence === count - 1 && !closed ? null : at(startOf(sequence + 1)),
-    durationMs: segment.durationMs,
-  }));
-  return { ...view, status: 'active', startedAt: at(0), segments };
-}
 
 describe('isLiveDebater', () => {
   test('who the round room is for', () => {
@@ -64,20 +29,6 @@ describe('isLiveDebater', () => {
         isLiveDebater({ ...view, status: 'abandoned' }, aff.actorId),
       ],
       expected: [true, false, false, false, false],
-    });
-  });
-});
-
-describe('debaterView', () => {
-  test('the judge stays anonymous', () => {
-    assert({
-      given: 'a round with a named human judge',
-      should: 'send the debater no judge name and keep the debaters’ names',
-      actual: [
-        JSON.stringify(debaterView(view)).includes('Riley'),
-        debaterView(view).participants.map((p) => p.label),
-      ],
-      expected: [false, ['Sam Reyes', 'Practice bot', '']],
     });
   });
 });
@@ -244,7 +195,7 @@ describe('liveRoundOf during the round', () => {
     const prepping: RoundView = {
       ...ran(4, true),
       checkpoint: {
-        ...view.checkpoint,
+        ...emptyRuntimeCheckpoint,
         active_prep: { side: 'affirmative', started_at: at(startOf(4)) },
       },
     };
@@ -309,6 +260,21 @@ describe('liveRoundOf during the round', () => {
         'judging',
         { label: 'Judging window', remainingMs: 28 * 60_000 },
       ],
+    });
+  });
+
+  test('an unreadable checkpoint', () => {
+    const room = liveRoundOf(
+      { ...ran(1), checkpoint: null },
+      aff.actorId,
+      origin + startOf(0) + 60_000,
+    );
+    assert({
+      given: 'an active round whose stored checkpoint could not be read',
+      should:
+        'still open the room, waiting with nothing lit, no clock and no prep, rather than guess',
+      actual: [room?.phase, room?.liveIndex, room?.clock, room?.prepMs],
+      expected: ['waiting', -1, null, null],
     });
   });
 });

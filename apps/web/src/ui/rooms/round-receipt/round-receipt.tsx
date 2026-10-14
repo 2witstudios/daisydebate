@@ -35,7 +35,11 @@ type Participant = RoundReceiptView['participants'][number];
  */
 const participantLine = (participant: Participant) => {
   const seat = seatLabel(participant.role, participant.slot);
-  if (participant.role === 'judge' && participant.kind === 'human') return seat;
+  if (
+    'anonymous' in participant ||
+    (participant.role === 'judge' && participant.kind === 'human')
+  )
+    return seat;
   return `${seat} · ${participant.label}${participant.kind === 'bot' ? ' · AI' : ''}`;
 };
 
@@ -68,7 +72,9 @@ export function RoundReceipt({ round }: { readonly round: RoundReceiptView }) {
         <h2 className="font-strong">Participants</h2>
         <ul>
           {round.participants.map((participant) => (
-            <li key={participant.id}>{participantLine(participant)}</li>
+            <li key={`${participant.role}-${participant.slot}`}>
+              {participantLine(participant)}
+            </li>
           ))}
         </ul>
       </section>

@@ -2,7 +2,7 @@ import {
   roundPositionAt,
   type RoundPosition,
 } from '@daisy/debate-engine/position';
-import type { DebateSide, RoundView } from '@daisy/protocol';
+import type { DebateSide, RoundSeat, RoundView } from '@daisy/protocol';
 import type {
   Side,
   SpeechSlot,
@@ -16,7 +16,7 @@ import { roundKindOf } from '../../features/debate-room/workspace';
 import type { Debater, RoundPerson, RoundSnapshot } from './round';
 
 type Participant = RoundView['participants'][number];
-type Seat = Participant & { role: DebateSide };
+type Seat = RoundSeat & { role: DebateSide };
 
 const sideOf: Readonly<Record<DebateSide, Side>> = {
   affirmative: 'aff',
@@ -38,16 +38,6 @@ const debaterSeat = (view: RoundView, actorId: string) =>
 /** The round room is for a debater of a round that has not ended. */
 export function isLiveDebater(view: RoundView, actorId: string): boolean {
   return live(view) && debaterSeat(view, actorId) !== undefined;
-}
-
-/** What a debater's browser may hold: a human judge's name never (DEC-98). */
-export function debaterView(view: RoundView): RoundView {
-  return {
-    ...view,
-    participants: view.participants.map((p) =>
-      p.role === 'judge' ? { ...p, label: '' } : p,
-    ),
-  };
 }
 
 const initialsOf = (name: string) =>
@@ -75,7 +65,12 @@ const person = (p: Participant): RoundPerson =>
         role: sideOf[p.role],
         bot: p.kind === 'bot',
       }
-    : { id: p.id, name: 'Judge', role: 'judge', bot: p.kind === 'bot' };
+    : {
+        id: 'anonymous' in p ? `judge-${p.slot}` : p.id,
+        name: 'Judge',
+        role: 'judge',
+        bot: p.kind === 'bot',
+      };
 
 const speechesOf = (view: RoundView): readonly SpeechSlot[] =>
   view.rules.segments.map((segment, index) => ({
@@ -189,6 +184,31 @@ const prepOf = (position: RoundPosition): RoundSnapshot['prepMs'] => {
 };
 
 /**
+ * The phase, lit speech and clocks at one instant. An active round whose
+ * checkpoint could not be read has no live position: waiting, nothing lit,
+ * no clock, rather than a position guessed from an empty checkpoint.
+ */
+function liveParts(
+  view: RoundView,
+  side: DebateSide,
+  nowMs: number,
+): Pick<RoundSnapshot, 'phase' | 'liveIndex' | 'clock' | 'prepMs'> {
+  if (view.status === 'active' && view.checkpoint === null)
+    return { phase: 'waiting', liveIndex: -1, clock: null, prepMs: null };
+  const position = positionOf(view, nowMs);
+  const phase = phaseOf(view, position, side);
+  return {
+    phase,
+    liveIndex: liveIndexOf(view, position),
+    clock:
+      phase === 'judging'
+        ? judgingClockOf(finalCloseMs(view), nowMs)
+        : clockOf(view, position, side),
+    prepMs: prepOf(position),
+  };
+}
+
+/**
  * One debater's room at one instant, derived from the round's durable
  * snapshot with the same reader the server uses. The mic follows the
  * floor (DEC-97). Chat, agents and media have no server yet and start
@@ -205,8 +225,7 @@ export function liveRoundOf(
     .filter(isDebater)
     .find((p) => p.role !== seat.role);
   if (!opponent) return null;
-  const position = positionOf(view, nowMs);
-  const phase = phaseOf(view, position, seat.role);
+  const { phase, ...clocks } = liveParts(view, seat.role, nowMs);
   return {
     resolution: view.topic,
     competition: view.competitionType,
@@ -220,12 +239,7 @@ export function liveRoundOf(
     recording: false,
     transcribing: false,
     speeches: speechesOf(view),
-    liveIndex: liveIndexOf(view, position),
-    clock:
-      phase === 'judging'
-        ? judgingClockOf(finalCloseMs(view), nowMs)
-        : clockOf(view, position, seat.role),
-    prepMs: prepOf(position),
+    ...clocks,
     micLive: phase === 'own-speech' || phase === 'cross-ex',
     voiceLevel: 0,
     clubName: null,

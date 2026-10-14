@@ -229,3 +229,16 @@ export const unsafeFormatDefinitions: ReadonlyArray<
     },
   ],
 ];
+
+/** Rules resolved from a definition at its default timing. */
+export const fixtureRules = (definition: FormatDefinition) => ({
+  version: 2,
+  seats: definition.seats,
+  segments: definition.segments.map(({ defaultDurationMs, ...s }) => ({
+    ...s,
+    durationMs: defaultDurationMs,
+  })),
+  inRoundPrep: null,
+  countdownMs: 0,
+  interaction: { crossExMode: 'ordered', yield: null, interruptions: null },
+});

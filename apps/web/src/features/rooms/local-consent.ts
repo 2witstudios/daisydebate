@@ -1,4 +1,4 @@
-import type { RoomCommand, RoomView } from '@daisy/protocol';
+import { isNamedSeat, type RoomCommand, type RoomView } from '@daisy/protocol';
 import type { readAssembly } from './read-assembly';
 import type { submitAssembly } from './submit-assembly';
 
@@ -34,14 +34,18 @@ export function createLocalConsent({
   let disposed = false;
   const listeners = new Set<() => void>();
   const own = () =>
-    snapshot.view.participants.find((p) => p.actorId === actorId);
+    snapshot.view.participants
+      .filter(isNamedSeat)
+      .find((p) => p.actorId === actorId);
   const effective = () => own()?.ready === 'ready';
   const publish = (patch: Partial<Snapshot>) => {
     snapshot = { ...snapshot, ...patch };
     for (const listener of listeners) listener();
   };
   const adopt = (next: RoomView) => {
-    const nextOwn = next.participants.find((p) => p.actorId === actorId);
+    const nextOwn = next.participants
+      .filter(isNamedSeat)
+      .find((p) => p.actorId === actorId);
     if (
       next.id !== view.id ||
       next.version < snapshot.view.version ||

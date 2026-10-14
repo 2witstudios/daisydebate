@@ -105,3 +105,38 @@ test('open judge seat offers invite and, to the host, an AI judge', () => {
     expected: [true, true, true, true, true, true, true, false, false],
   });
 });
+
+test('an anonymous human judge (DEC-174)', () => {
+  const html = renderToStaticMarkup(
+    <AssemblySeats
+      view={{
+        ...occupied,
+        participants: [
+          occupied.participants[0]!,
+          {
+            role: 'judge',
+            kind: 'human',
+            slot: 0,
+            anonymous: true,
+            needsReady: true,
+            ready: 'ready',
+            eligible: true,
+          },
+        ],
+      }}
+      viewer={viewer}
+      bots={[]}
+      {...intents}
+    />,
+  );
+  assert({
+    given: 'a debater’s view of a seated, ready human judge',
+    should: 'show the seat as Judge with its ready state and no name',
+    actual: [
+      html.includes('>Judge<'),
+      (html.match(/>Ready</g) ?? []).length,
+      html.includes('undefined'),
+    ],
+    expected: [true, 2, false],
+  });
+});

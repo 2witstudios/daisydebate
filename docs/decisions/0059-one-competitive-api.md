@@ -99,7 +99,9 @@ roundRef. `RoundView`: id, version, status, competition type, participants,
 rules, lifecycle stamps, outcome, and the durable runtime snapshot (the
 checkpoint and the segment rows) that ADR 0058 §6's browser-safe
 `roundPositionAt` derives stage, current segment, prep remaining and floor
-from at an explicit instant.
+from at an explicit instant. Both views are projected for their viewer at the
+server: a human judge's seat names the judge only to that judge and the
+host, and `RoundView` never carries the host's actor.
 
 `projectRoom` and `projectRound` compose the durable rows with the expendable
 Redis state — ready flags keyed to the room version — and the hydrated engine

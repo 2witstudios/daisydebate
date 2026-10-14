@@ -1,4 +1,4 @@
-import type { RoomView } from '@daisy/protocol';
+import { isNamedSeat, type RoomView } from '@daisy/protocol';
 import { clockDuration } from '../../../features/rooms/duration-input';
 import { declaredSeats, seatLabel } from './assembly-controls';
 
@@ -29,6 +29,7 @@ export function waitingOn(
       );
       if (!occupant) return [seatName(view.definition.seats, role, slot)];
       if (!occupant.needsReady || occupant.ready === 'ready') return [];
+      if (!isNamedSeat(occupant)) return ['Judge'];
       return [occupant.actorId === actorId ? 'You' : occupant.label];
     },
   );

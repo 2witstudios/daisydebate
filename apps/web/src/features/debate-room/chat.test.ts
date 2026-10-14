@@ -1,6 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
-  appendMessage,
   markRead,
   totalUnread,
   unreadByChannel,
@@ -85,36 +84,6 @@ describe('markRead', () => {
       should: 'set its marker without touching others',
       actual: markRead(markers, 'round', t3),
       expected: { club: t1, round: t3 },
-    });
-  });
-});
-
-describe('appendMessage', () => {
-  test('accepting and rejecting', () => {
-    const next = message('m5', 'round', 'me', t3, '  good round  ');
-    assert({
-      given: 'a padded message',
-      should: 'append it trimmed',
-      actual: appendMessage(messages, next, 20).at(-1),
-      expected: { ...next, text: 'good round' },
-    });
-    assert({
-      given: 'a blank message',
-      should: 'return the messages unchanged',
-      actual: appendMessage(messages, { ...next, text: '   ' }, 20),
-      expected: messages,
-    });
-    assert({
-      given: 'a message over the limit',
-      should: 'return the messages unchanged',
-      actual: appendMessage(messages, { ...next, text: 'x'.repeat(21) }, 20),
-      expected: messages,
-    });
-    assert({
-      given: 'a message whose id is already present',
-      should: 'return the messages unchanged',
-      actual: appendMessage(messages, { ...next, id: 'm1' }, 20),
-      expected: messages,
     });
   });
 });

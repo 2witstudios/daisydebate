@@ -1,3 +1,4 @@
+import { isNamedSeat } from '@daisy/protocol';
 import { buttonClass } from '../../components/button/button-class';
 import { AssemblyCast, type CastProps, type IntentIds } from './assembly-cast';
 import { AssemblyCommandFields } from './assembly-command-fields';
@@ -89,6 +90,32 @@ function OpenSeatActions({
   );
 }
 
+type Occupant = Props['view']['participants'][number];
+
+/** A seat's name and detail line; a human judge may be anonymous (DEC-174). */
+function seatText(
+  seat: Seat,
+  occupant: Occupant | undefined,
+  named: Extract<Occupant, { actorId: string }> | null,
+  who: { readonly viewerActorId: string; readonly hostActorId: string },
+) {
+  if (!occupant)
+    return {
+      name: seatLabel(seat.role, seat.slot),
+      detail: seatStatus(occupant),
+    };
+  const name = !named
+    ? 'Judge'
+    : named.actorId === who.viewerActorId
+      ? 'You'
+      : `${named.label}${named.kind === 'bot' ? ' · AI' : ''}`;
+  const host = named?.actorId === who.hostActorId ? ['host'] : [];
+  return {
+    name,
+    detail: [seatLabel(seat.role, seat.slot), ...host].join(' · '),
+  };
+}
+
 function SeatRow({
   props,
   seat,
@@ -103,17 +130,11 @@ function SeatRow({
     (member) => member.role === seat.role && member.slot === seat.slot,
   );
   const status = seatStatus(occupant);
-  const name = !occupant
-    ? seatLabel(seat.role, seat.slot)
-    : occupant.actorId === props.viewer.actorId
-      ? 'You'
-      : `${occupant.label}${occupant.kind === 'bot' ? ' · AI' : ''}`;
-  const detail = !occupant
-    ? status
-    : [
-        seatLabel(seat.role, seat.slot),
-        ...(occupant.actorId === view.hostActorId ? ['host'] : []),
-      ].join(' · ');
+  const named = occupant && isNamedSeat(occupant) ? occupant : null;
+  const { name, detail } = seatText(seat, occupant, named, {
+    viewerActorId: props.viewer.actorId,
+    hostActorId: view.hostActorId,
+  });
   return (
     <li className="flex min-w-0 flex-wrap items-center gap-3 border-t border-border py-3 first:border-t-0">
       {occupant ? (
@@ -121,7 +142,7 @@ function SeatRow({
           aria-hidden="true"
           className={`flex size-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${avatarTone[seat.role]}`}
         >
-          {initials(occupant.label)}
+          {initials(named?.label ?? 'Judge')}
         </span>
       ) : (
         <span

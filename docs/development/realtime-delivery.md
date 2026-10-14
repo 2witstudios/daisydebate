@@ -52,7 +52,13 @@ The optional public WebSocket endpoint is configured explicitly; absence leaves
 ticket issuance unavailable. Browser ticket responses must bind to that exact
 endpoint. Origin admission and trusted-peer resolution are separate server
 checks. Canonical browser validation uses Zod's explicit jitless parsing without
-relaxing CSP. Logs and diagnostics expose fixed phase/error classifications,
+relaxing CSP. Per-call `jitless` is not enough wherever the browser builds
+schemas: Zod probes `Function()` when it constructs an object schema, and the
+nonce CSP reports that probe as a `script-src` violation. A client entry that
+loads protocol schemas into the browser therefore imports a module that turns
+JIT off globally before them, guarded to the browser so the server keeps JIT
+(the round room's `ui/debate-room/zod-jitless.ts`, imported first by its client
+entry). A browser e2e that watches CSP violations proves each such entry. Logs and diagnostics expose fixed phase/error classifications,
 never ticket contents, cookies or raw exceptions.
 
 ## Verification

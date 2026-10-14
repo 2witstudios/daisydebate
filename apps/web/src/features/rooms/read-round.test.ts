@@ -50,7 +50,6 @@ test('Round receipt accepts only the requested persisted identity and legal froz
     roomId: 'd'.repeat(24),
     version: 1,
     visibility: 'unlisted',
-    hostActorId: 'l'.repeat(24),
     startedAt: null,
     completedAt: null,
     outcome: null,

@@ -14,16 +14,6 @@ export function clockUrgency(remainingMs: number): ClockUrgency {
   return 'normal';
 }
 
-export type EndSpeechState = 'idle' | 'armed' | 'ended';
-
-export function pressEndSpeech(state: EndSpeechState): EndSpeechState {
-  return state === 'idle' ? 'armed' : 'ended';
-}
-
-export function cancelEndSpeech(state: EndSpeechState): EndSpeechState {
-  return state === 'armed' ? 'idle' : state;
-}
-
 /** What a screen reader hears as the clock crosses a mark; null between marks. */
 export function clockMilestone(remainingMs: number): string | null {
   if (remainingMs <= 0) return 'Time';

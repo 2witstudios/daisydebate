@@ -33,7 +33,7 @@ export default async function RoundPage({
   const ownsFiles =
     identity.state === 'member' &&
     result.round.participants.some(
-      (p) => p.actorId === identity.principal.actorId,
+      (p) => !('anonymous' in p) && p.actorId === identity.principal.actorId,
     );
   return (
     <>

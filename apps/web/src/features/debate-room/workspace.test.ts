@@ -9,6 +9,7 @@ import {
   drawerTabs,
   visibleAgents,
   visibleChannels,
+  visibleClub,
   type Agent,
   type Channel,
   type TabsState,
@@ -146,23 +147,31 @@ describe('rated rounds', () => {
   test('drawer visibility', () => {
     assert({
       given: 'a rated round',
-      should: 'offer files, chat and room, round channels only, and no agents',
+      should:
+        'offer files, chat and room, round channels only, no agents and no club folder',
       actual: [
         drawerTabs('rated'),
         visibleChannels(channels, 'rated').map((c) => c.id),
         visibleAgents(agents, 'rated'),
+        visibleClub('Riverside', 'rated'),
       ],
-      expected: [['files', 'chat', 'room'], ['r'], []],
+      expected: [['files', 'chat', 'room'], ['r'], [], null],
     });
     assert({
       given: 'an unrated round',
-      should: 'offer every tab with every channel and agent',
+      should: 'offer every tab with every channel, agent and the club folder',
       actual: [
         drawerTabs('unrated'),
         visibleChannels(channels, 'unrated').map((c) => c.id),
         visibleAgents(agents, 'unrated').map((a) => a.id),
+        visibleClub('Riverside', 'unrated'),
       ],
-      expected: [['files', 'chat', 'ai', 'room'], ['r', 'c'], ['g']],
+      expected: [
+        ['files', 'chat', 'ai', 'room'],
+        ['r', 'c'],
+        ['g'],
+        'Riverside',
+      ],
     });
   });
 });
