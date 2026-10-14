@@ -78,4 +78,53 @@ describe('realtime configuration', () => {
       expected: '1.0.0',
     });
   });
+
+  test('an eligible worker holds a distinct narrow projection credential', () => {
+    const production = {
+      NODE_ENV: 'production',
+      DATABASE_URL: 'postgres://realtime:production@db.example.com:5432/daisy',
+      REDIS_URL: 'redis://cache.example.com:6379',
+      APP_VERSION: '1.0.0',
+      GIT_COMMIT: 'abc1234',
+    };
+    const projection =
+      'postgres://projection:production@db.example.com:5432/daisy';
+    const refused = (value: string) => {
+      try {
+        readRealtimeConfig({ ...production, OBSERVATION_DATABASE_URL: value });
+        return '';
+      } catch (error) {
+        return String(error);
+      }
+    };
+    assert({
+      given:
+        'fanout-only, eligible, shared-credential and local-credential projection settings',
+      should:
+        'leave fanout nodes unchanged, accept a distinct credential and refuse a reused or local one',
+      actual: {
+        fanout: readRealtimeConfig(production).OBSERVATION_DATABASE_URL,
+        eligible: readRealtimeConfig({
+          ...production,
+          OBSERVATION_DATABASE_URL: projection,
+        }).OBSERVATION_DATABASE_URL,
+        shared: refused(production.DATABASE_URL).includes(
+          'OBSERVATION_DATABASE_URL',
+        ),
+        sameRole: refused(
+          `${production.DATABASE_URL}?sslmode=require`,
+        ).includes('OBSERVATION_DATABASE_URL'),
+        local: refused(
+          'postgres://daisy:local-development-only@localhost:15432/daisy',
+        ).includes('OBSERVATION_DATABASE_URL'),
+      },
+      expected: {
+        fanout: undefined,
+        eligible: projection,
+        shared: true,
+        sameRole: true,
+        local: true,
+      },
+    });
+  });
 });

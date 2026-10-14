@@ -282,6 +282,7 @@ const requireEnv = (env: Env, key: string): string => {
 /** Every .env key `bun slot:up` owns (see slotEnvValues). */
 const slotEnvKeys = [
   'DATABASE_URL',
+  'OBSERVATION_DATABASE_URL',
   'TEST_DATABASE_URL',
   'REDIS_NAMESPACE',
   'E2E_DATABASE_URL',
@@ -320,6 +321,9 @@ export function slotEnvValues({
         })();
   return {
     DATABASE_URL: withPath(databaseUrl, slot.database),
+    // Local development makes the realtime process an eligible observation
+    // worker on the slot's own database; deployment uses a narrow role.
+    OBSERVATION_DATABASE_URL: withPath(databaseUrl, slot.database),
     // Every slot URL shares DATABASE_URL's server, so a stale test URL left
     // on an old per-session server cannot split the slot across two stacks.
     TEST_DATABASE_URL: withPath(databaseUrl, slot.testDatabase),

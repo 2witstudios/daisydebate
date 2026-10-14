@@ -1,8 +1,4 @@
-import {
-  buildChannelTopic,
-  buildUserInboxTopic,
-  type ServerMessage,
-} from '@daisy/protocol';
+import { buildUserInboxTopic, type ServerMessage } from '@daisy/protocol';
 import type { ConnectionStore } from '../realtime/connection-store';
 
 /** Doorbells invalidate a snapshot; they never carry content or authority. */
@@ -54,18 +50,6 @@ type Observer = Omit<
   Parameters<typeof attachInvalidationTopic>[0],
   'topic' | 'matches'
 >;
-export function attachMessagingDoorbells(
-  input: Observer & { readonly channelId: string },
-) {
-  return attachInvalidationTopic({
-    ...input,
-    topic: buildChannelTopic(input.channelId),
-    matches: (frame) =>
-      frame.type === 'event' &&
-      frame.payload.kind === 'channel.changed' &&
-      frame.payload.channelId === input.channelId,
-  });
-}
 export function attachMessagingInboxDoorbells(
   input: Observer & { readonly actorId: string },
 ) {

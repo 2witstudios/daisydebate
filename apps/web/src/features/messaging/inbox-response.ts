@@ -1,4 +1,3 @@
-import { realtimePublicUrlSchema } from '@daisy/config';
 import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
 import { createMessagingInboxSchemas } from '@daisy/protocol';
@@ -15,10 +14,5 @@ export async function readMessagingInboxResponse(response: Response) {
     await response.json(),
   );
   if (!result.success) throw createAppError('INFRASTRUCTURE');
-  const endpoint = response.headers.get('x-realtime-socket-url');
-  return {
-    ...result.data,
-    socketUrl:
-      endpoint === null ? null : realtimePublicUrlSchema.parse(endpoint),
-  };
+  return result.data;
 }

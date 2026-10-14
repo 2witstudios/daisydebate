@@ -38,7 +38,6 @@ export function composeMessagingReactionRoute(app: App) {
     if (request.method === 'GET')
       return createMessagingReactionReader({
         boundary: messagingHttpBoundary(app),
-        websocketEndpoint: app.websocketEndpoint,
         read: (value, principal) =>
           readMessagingReactions(value, principal, {
             policy: reactionPolicy,
@@ -97,7 +96,6 @@ export function readReactionQuery(
 
 export function createMessagingReactionReader(input: {
   readonly boundary: ReturnType<typeof messagingHttpBoundary>;
-  readonly websocketEndpoint: string | null;
   readonly read: (
     value: unknown,
     principal: AuthorizationPrincipal,
@@ -107,10 +105,6 @@ export function createMessagingReactionReader(input: {
     runMessagingHandler(input.boundary, request, {
       name: 'messaging.reaction.read',
       readOnly: true,
-      headers:
-        input.websocketEndpoint === null
-          ? {}
-          : { 'x-realtime-socket-url': input.websocketEndpoint },
       readInput: async () => readReactionQuery(request, channelId),
       operation: input.read,
     });

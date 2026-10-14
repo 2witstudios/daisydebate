@@ -159,6 +159,7 @@ export { createMessagingCoreSchemas } from './messaging/core';
 export { messagingMessageView } from './messaging/message-view';
 export {
   createObservationChannelBody,
+  observationChannelOverlaySchema,
   observationProjectionRowBytes,
 } from './messaging/observation-channel';
 export type { MessagingCoreBounds } from './messaging/core';
@@ -205,29 +206,26 @@ export {
 } from './messaging/reactions';
 export {
   observationResourceSchema,
-  observationPartitionSchema,
   observationWindowSchema,
   observationBaseSchema,
   observationHeaderSchema,
   observationResourceKey,
   observationBaseKey,
   observationFrameBytes,
-  createObservationSnapshotSchema,
+  observationJsonBytes,
   type ObservationResource,
-  type ObservationPartition,
   type ObservationBase,
   type ObservationHeader,
   type ObservationDependency,
   type ObservationAuthorityDecision,
 } from './observation';
 export {
-  observationClientMessageSchema,
   observationServerMessageSchema,
-  type ObservationClientMessage,
+  observationOverlaySchema,
+  type ObservationOverlay,
   type ObservationServerMessage,
 } from './observation-messages';
 export {
   observationDescriptorSchema,
   type ObservationDescriptor,
-  type ObservationWindow,
 } from './observation';

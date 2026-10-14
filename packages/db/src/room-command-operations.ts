@@ -1,4 +1,3 @@
-import { roomAuthorizationRead } from './room-authorization-read';
 import { commandRetention } from './command-retention';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { DatabaseEventSink } from './instrumented';
@@ -14,8 +13,6 @@ export const roomCommandOperations = (input: {
 }) => ({
   ...commandRetention(input),
   ...roomReadOperations(input),
-  ...roomAuthorizationRead(input),
-
   ...roomCreateOperations({
     transaction: input.commandTransaction,
     eventSink: input.eventSink,

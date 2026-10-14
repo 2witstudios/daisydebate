@@ -16,6 +16,7 @@ describe('secret configuration keys', () => {
         'LIVEKIT_API_KEY',
         'LIVEKIT_API_SECRET',
         'MIGRATION_DATABASE_URL',
+        'OBSERVATION_DATABASE_URL',
         'OPENROUTER_API_KEY',
         'OPS_PROBE_TOKEN',
         'RECIPIENT_HASH_SECRET',

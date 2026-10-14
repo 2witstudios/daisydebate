@@ -276,6 +276,13 @@ export default defineConfig({
         DATABASE_URL: resolveE2EServices(process.env).DATABASE_URL,
         REDIS_URL: resolveE2EServices(process.env).REDIS_URL,
         REDIS_NAMESPACE: resolveRealtimeNamespace(process.env),
+        // Playwright layers this over process.env: unset the slot's local
+        // projection URL, which production configuration refuses, so this
+        // process runs fanout-only.
+        ...({ OBSERVATION_DATABASE_URL: undefined } as unknown as Record<
+          string,
+          string
+        >),
         LOG_LEVEL: 'info',
       },
     },

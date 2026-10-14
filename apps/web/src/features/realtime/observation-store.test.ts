@@ -1,10 +1,12 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createObservationStore } from './observation-store';
 setupRitewayBun();
-test('content dirt retains progress and authority loss fences all late results', () => {
-  const store = createObservationStore({
+const stringStore = () =>
+  createObservationStore({
     decode: (value: unknown) => (typeof value === 'string' ? value : null),
   });
+test('content dirt retains progress and authority loss fences all late results', () => {
+  const store = stringStore();
   const first = store.begin();
   store.authorize(first, { partition: 'same', disclosureRevision: 1 });
   store.snapshot(first, {
@@ -42,9 +44,7 @@ test('content dirt retains progress and authority loss fences all late results',
   });
 });
 test('disposal is final and unavailable recovers without another content event', () => {
-  const store = createObservationStore({
-    decode: (value: unknown) => (typeof value === 'string' ? value : null),
-  });
+  const store = stringStore();
   store.unavailable();
   const attempt = store.begin();
   store.authorize(attempt, { partition: 'same', disclosureRevision: 1 });
@@ -69,9 +69,7 @@ test('disposal is final and unavailable recovers without another content event',
 });
 
 test('disclosure identity transition hides old body and resets revision floor', () => {
-  const store = createObservationStore({
-    decode: (value: unknown) => (typeof value === 'string' ? value : null),
-  });
+  const store = stringStore();
   const first = store.begin();
   store.authorize(first, { partition: 'wide', disclosureRevision: 1 });
   store.snapshot(first, {
@@ -94,5 +92,37 @@ test('disclosure identity transition hides old body and resets revision floor', 
     should: 'intrinsically hide incompatible bytes and accept its own baseline',
     actual: { hidden, current: store.read().content },
     expected: { hidden: null, current: 'narrow' },
+  });
+});
+test('actor overlays follow authorization and disappear with authority', () => {
+  const store = stringStore();
+  const identity = { partition: 'same', disclosureRevision: 1 };
+  const attempt = store.begin();
+  store.authorize(attempt, identity, { own: ['a'] });
+  store.snapshot(attempt, { ...identity, contentRevision: 1, body: 'one' });
+  const first = store.read();
+  store.authorize(attempt, identity, { own: ['b'] });
+  const renewed = store.read();
+  store.deny();
+  assert({
+    given: 'an overlay, a snapshot, a renewed overlay and then denial',
+    should:
+      'keep content with the latest canonical overlay and hide both together',
+    actual: { first, renewed, denied: store.read() },
+    expected: {
+      first: {
+        status: 'ready',
+        content: 'one',
+        revision: 1,
+        overlay: { own: ['a'] },
+      },
+      renewed: {
+        status: 'ready',
+        content: 'one',
+        revision: 1,
+        overlay: { own: ['b'] },
+      },
+      denied: { status: 'denied', content: null, revision: null },
+    },
   });
 });

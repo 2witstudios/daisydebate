@@ -8,6 +8,8 @@ export type ReadinessResources = {
     readonly checkListen: () => Promise<boolean>;
   };
   readonly redis: { readonly health: () => Promise<boolean> };
+  /** False while a failed-closed observation runtime is being replaced. */
+  readonly observation?: { readonly ready: () => boolean };
   /**
    * The RT-2.3b drain loop's own cursor against a fresh high-water-mark
    * read (ADR 0031/0032: "delivery lag exposed for readiness"). Optional so
@@ -27,6 +29,7 @@ export type ReadinessReport = {
     readonly database: boolean;
     readonly listen: boolean;
     readonly redis: boolean;
+    readonly observation?: boolean;
   };
   /**
    * A seq-distance *estimate*, not a row count: the high-water mark's
@@ -73,6 +76,9 @@ export async function checkReadiness(
     database: settledOk(database),
     listen: settledOk(listen),
     redis: settledOk(redis),
+    ...(resources.observation
+      ? { observation: resources.observation.ready() }
+      : {}),
   };
   const lag =
     deliverySeqLagEstimate.status === 'fulfilled'

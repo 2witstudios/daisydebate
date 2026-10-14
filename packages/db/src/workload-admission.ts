@@ -37,8 +37,27 @@ export type WorkloadQueueOptions = {
     reason: 'saturated' | 'expired',
   ) => void;
 };
-const unavailable = () =>
-  createAppError('INFRASTRUCTURE', 'Database capacity unavailable');
+const refusals = new WeakSet<object>();
+const unavailable = () => {
+  const refusal = createAppError(
+    'INFRASTRUCTURE',
+    'Database capacity unavailable',
+  );
+  refusals.add(refusal);
+  return refusal;
+};
+/**
+ * Whether `error`, or anything in its cause chain, is a lane's capacity
+ * refusal: work refused unrun, already logged as `db.capacity.refused`.
+ */
+export function isCapacityRefusal(error: unknown): boolean {
+  let current = error;
+  for (let depth = 0; depth < 8 && current instanceof Object; depth += 1) {
+    if (refusals.has(current)) return true;
+    current = (current as { readonly cause?: unknown }).cause;
+  }
+  return false;
+}
 type Waiter = { readonly grant: () => void; readonly timer: unknown };
 
 /** SQLSTATEs PostgreSQL raises when the session bounds cut work short under load. */

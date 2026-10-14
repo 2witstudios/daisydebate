@@ -1,5 +1,10 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { observationBaseSchema, observationBaseKey } from './observation';
+import {
+  createObservationClientMessageSchema,
+  observationBaseKey,
+  observationBaseSchema,
+  observationDescriptorSchema,
+} from './observation';
 setupRitewayBun();
 const base = {
   schema: 1,
@@ -65,5 +70,36 @@ test('windows retain owning sequence and identifier cursor contracts', () => {
       }).success,
     ],
     expected: [true, false, false],
+  });
+});
+test('descriptors and unobserve requests bind each cursor to its resource kind', () => {
+  const channel = { kind: 'channel', id: base.resource.id };
+  const inbox = { kind: 'inbox', id: base.resource.id };
+  const client = createObservationClientMessageSchema(1);
+  const unobserve = (resource: object, after: string | number | null) => ({
+    v: 1,
+    id: 'request',
+    type: 'unobserve',
+    resource,
+    window: { after, limit: 50 },
+  });
+  assert({
+    given: 'channel sequence and inbox id cursors, then crossed cursors',
+    should: 'accept only the cursor shape each resource pages by',
+    actual: [
+      observationDescriptorSchema.safeParse({
+        resource: channel,
+        window: { after: 7, limit: 50 },
+      }).success,
+      observationDescriptorSchema.safeParse({
+        resource: inbox,
+        window: { after: 7, limit: 50 },
+      }).success,
+      client.safeParse(unobserve(inbox, 'b'.repeat(24))).success,
+      client.safeParse(unobserve(channel, 'b'.repeat(24))).success,
+      client.safeParse(unobserve({ kind: 'room', id: base.resource.id }, 3))
+        .success,
+    ],
+    expected: [true, false, true, false, false],
   });
 });

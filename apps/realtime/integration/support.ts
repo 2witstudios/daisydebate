@@ -1,5 +1,6 @@
 import { SQL } from 'bun';
 import { requireTestServices } from '@daisy/config';
+import { buildUserInboxTopic } from '@daisy/protocol';
 import { systemClock, systemId } from '@daisy/clock';
 import { waitForOutboxFinality } from '@daisy/db/testing';
 import { testNamespace } from '@daisy/redis/testing';
@@ -162,3 +163,13 @@ export async function insertAndNotifyBurst(
     for (const position of positions) await tx.notify('outbox', position);
   });
 }
+
+/** Deleting a live session appends its revocation control; fixtures that
+ * delete sessions remove those rows so suites leave no outbox behind. */
+export const removeSessionControls = (
+  client: SQL,
+  actorIds: readonly string[],
+) =>
+  client`delete from outbox where kind='session.revoked' and topic in ${client(
+    actorIds.map(buildUserInboxTopic),
+  )}`;

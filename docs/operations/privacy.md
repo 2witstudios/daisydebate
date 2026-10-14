@@ -58,13 +58,9 @@ needs no separate storage entry — and two different exposure surfaces ride
 it (`packages/protocol/src/realtime-payloads.ts`):
 
 - **Delivered to a subscribed browser** (the delivery-side rule, added to
-  `@daisy/protocol` with the first `event` sender): `debate.phase-changed` on `debate`,
-  `standings.updated` on `standings`, and `user.notification-delivered` on
-  `user:inbox`. The first two carry only ids and a projected competitive
-  state (`identifier`/`none`). `user.notification-delivered` also carries
-  `notificationType` (a controlled vocabulary string, category `none` —
-  never free text) and `occurredAt` (a timestamp, category `none`);
-  neither is personal, but both still need their own inventory entry.
+  `@daisy/protocol` with the first `event` sender): `debate.phase-changed` on
+  `debate` and `standings.updated` on `standings`. Both carry only ids and a
+  projected competitive state (`identifier`/`none`).
 - **Storage-only, never delivered as an `event` to any client**
   (storable through `isPayloadStorableOnTopic` only): the three `user:inbox` control kinds
   (`session.revoked`, `access.revoked`,
@@ -73,6 +69,28 @@ it (`packages/protocol/src/realtime-payloads.ts`):
   sockets or re-project presence; they never ride a subscribed topic as an
   `event` message, so their exposure is narrower than the delivered kinds
   above, not equivalent to them.
+
+**Observation snapshots ([ADR 0066](../decisions/0066-shared-resource-observation.md))
+are a protected delivery surface with Redis storage.** Snapshot bodies carry
+the same fields as the owning HTTP read and inherit their classification:
+message text is `sensitive`/`private`, author and participant identifiers are
+`identifier`, and timestamps and revisions are `none`. They are stored only in
+Redis (`storage: redis`) under `<namespace>:observation:<resource>:data`, for at
+most 60s, behind a per-resource purge generation: erasure advances the durable
+purge state, deletes the resource's heads and bodies, and refuses any later
+installation from an older generation; TTL is only a retention backstop. Redis
+demand, interest and relay keys hold resource identifiers, bases and outbox
+cursors only (`identifier`/`none`, at most 60s, the relay cursor 24h); claim
+tokens and cache incarnations are unguessable fences, never logged. The
+control channel carries only actor and session identifiers. Each viewer's
+**own-reactions overlay** (message id and reaction for that viewer's window)
+is `personal`/`private` (identifier plus the viewer's own engagement): it is
+read in the canonical admission or renewal transaction, sent only to that
+viewer on `observation.ready`, never written to Redis, logs or the outbox, and
+discarded with the binding; erasure of the viewer's reactions removes it from
+the next canonical read. No snapshot body
+enters logs, metrics, URLs or `outbox.payload`. Lawful basis and product
+retention for messaging content remain the owning messaging policy gates.
 
 Both surfaces still need inventory entries — the point of this section is
 that neither is an exemption, delivered or storage-only. Any payload kind

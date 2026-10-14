@@ -1,11 +1,12 @@
-import { ConversationLive } from '../../../../../ui/messaging/conversation-live';
 import { messagePageContext } from '../message-page-context';
 import Link from 'next/link';
 import { systemId } from '@daisy/clock';
 import { requireAccess } from '../../../../../lib/access';
 import type { MessagingChannelPageProps } from '../../../../../features/messaging/channel-page';
 import { readReactionResponse } from '../../../../../features/messaging/reaction-response';
-import { ReactionForm } from '../../../../../ui/messaging/reaction-form';
+import { ReactionsLive } from '../../../../../ui/messaging/conversation-live';
+import { readConversationResponse } from '../../../../../features/messaging/conversation';
+import { GET as MESSAGES } from '../../../../api/messaging/channels/[channelId]/messages/route';
 import { GET } from '../../../../api/messaging/channels/[channelId]/reactions/route';
 import { changeReactionAction } from './actions';
 export const metadata = { title: 'Message reactions' };
@@ -14,10 +15,25 @@ export default async function MessageReactionsPage({
   searchParams,
 }: MessagingChannelPageProps) {
   await requireAccess('/messages', searchParams);
-  const { channelId, messageId, incoming } = await messagePageContext({
+  const { channelId, messageId, incoming, intent } = await messagePageContext({
     params,
     searchParams,
   });
+  const position = Number(intent.before);
+  const before =
+    typeof intent.before === 'string' &&
+    Number.isSafeInteger(position) &&
+    position > 1
+      ? position
+      : null;
+  const conversation = await readConversationResponse(
+    await MESSAGES(
+      new Request(
+        `http://in-process.invalid/api/messaging/channels/${channelId}/messages${before === null ? '' : `?before=${before}`}`,
+        { headers: incoming },
+      ),
+    ),
+  );
   const response = await GET(
     new Request(
       `http://in-process.invalid/api/messaging/channels/${channelId}/reactions?messageId=${messageId}`,
@@ -32,43 +48,22 @@ export default async function MessageReactionsPage({
       {current === null ? (
         <p role="status">Reactions are unavailable. Refresh to try again.</p>
       ) : (
-        <ConversationLive
+        <ReactionsLive
           channelId={channelId}
-          socketUrl={current.socketUrl}
-          snapshotId={systemId.next()}
-        >
-          <ul aria-label="Current reactions">
-            {current.result.reactions.map((item) => (
-              <li key={item.reaction}>
-                {item.reaction} · {item.count}
-                {item.own ? ' · You reacted' : ''}
-              </li>
-            ))}
-          </ul>
-          {[
+          messageId={messageId}
+          bounds={conversation?.bounds ?? null}
+          before={before}
+          initial={current.result.reactions}
+          action={changeReactionAction.bind(null, channelId, messageId)}
+          forms={[
             ...new Set([
               ...current.policy.choices,
               ...current.result.reactions
                 .filter((item) => item.own)
                 .map((item) => item.reaction),
             ]),
-          ].map((reaction) => {
-            const requestId = systemId.next();
-            return (
-              <ReactionForm
-                key={requestId}
-                action={changeReactionAction.bind(null, channelId, messageId)}
-                requestId={requestId}
-                reaction={reaction}
-                active={
-                  !current.result.reactions.some(
-                    (item) => item.reaction === reaction && item.own,
-                  )
-                }
-              />
-            );
-          })}
-        </ConversationLive>
+          ].map((reaction) => ({ reaction, requestId: systemId.next() }))}
+        />
       )}
       <Link href={`/messages/${channelId}`}>Back to conversation</Link>
     </main>

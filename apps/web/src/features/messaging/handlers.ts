@@ -15,7 +15,6 @@ type Dependencies = {
   readonly origin: () => string;
   readonly maxBodyBytes: number;
   readonly bounds: MessagingCoreBounds;
-  readonly websocketEndpoint?: string | null;
   readonly typingRefetchMs?: number;
   readonly identify: (request: Request) => Promise<Identity>;
   readonly send: Operation;
@@ -54,9 +53,6 @@ export function createMessagingHandlers(dependencies: Dependencies) {
                 dependencies.typingRefetchMs,
               ),
             }),
-        ...(dependencies.websocketEndpoint
-          ? { 'x-realtime-socket-url': dependencies.websocketEndpoint }
-          : {}),
       },
     });
   const query = (

@@ -64,10 +64,6 @@ test('actual browser frame bundle validates after dynamic-code permission change
       payload: { kind: 'debate.phase-changed', ids: [id], entityVersion: 1 },
     },
     {
-      topic: buildChannelTopic(id),
-      payload: { kind: 'channel.changed', channelId: id, changeVersion: 1 },
-    },
-    {
       topic: buildUserInboxTopic(id),
       payload: { kind: 'messaging.inbox.changed' },
     },

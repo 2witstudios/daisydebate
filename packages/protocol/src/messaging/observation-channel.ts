@@ -5,9 +5,14 @@ import {
   observationFrameBytes,
   observationHeaderSchema,
   observationJsonBytes,
+  observationOverlayBytes,
   observationResourceKey,
 } from '../observation';
 import { createMessagingCoreSchemas, type MessagingCoreBounds } from './core';
+import {
+  MAX_MESSAGING_REACTION_CHOICES,
+  MAX_MESSAGING_REACTION_UNITS,
+} from './reactions';
 import {
   messagingMessageRecordSchema,
   messagingMessageView,
@@ -16,6 +21,47 @@ import {
 /** Cumulative UTF-8 JSON budget for restricted projection rows; the remainder of a frame is envelope. */
 export const observationProjectionRowBytes = 96 * 1024;
 const order = z.number().int().positive().safe();
+/** Shared per-message counts in reaction order; whose reactions they are is
+ * each viewer's own overlay, never part of the shared body. */
+const reactionCounts = z
+  .array(
+    z.strictObject({
+      reaction: z.string().min(1).max(64),
+      count: z.number().int().positive().safe(),
+    }),
+  )
+  .max(64)
+  .refine((items) =>
+    items.every(
+      (item, index) =>
+        index === 0 || items[index - 1]!.reaction < item.reaction,
+    ),
+  );
+const channelRow = messagingMessageRecordSchema.extend({
+  reactions: reactionCounts,
+});
+const ownReactionsPerMessage = MAX_MESSAGING_REACTION_CHOICES,
+  ownReactionUnits = MAX_MESSAGING_REACTION_UNITS;
+/** The viewer's own reactions within their window, from the canonical read:
+ * at most 50 messages × 8 reactions of at most 16 UTF-16 units. */
+export const observationChannelOverlaySchema = z.strictObject({
+  ownReactions: z
+    .array(
+      z.strictObject({
+        messageId: idSchema,
+        reaction: z.string().min(1).max(ownReactionUnits),
+      }),
+    )
+    .max(50 * ownReactionsPerMessage),
+});
+const worstOverlay = {
+  ownReactions: Array.from({ length: 50 * ownReactionsPerMessage }, () => ({
+    messageId: 'z'.repeat(24),
+    reaction: '\u0001'.repeat(ownReactionUnits),
+  })),
+};
+if (observationJsonBytes(worstOverlay) > observationOverlayBytes)
+  throw new RangeError('Channel overlay schema exceeds the overlay byte bound');
 const maxSafe = Number.MAX_SAFE_INTEGER;
 const worstId = 'z'.repeat(24);
 const worstIso = '2026-10-12T00:00:00.000Z';
@@ -32,6 +78,7 @@ function assertRowBudget(messageUnits: number) {
     editedAt: worstIso,
     removedAt: worstIso,
     replyToMessageId: worstId,
+    reactions: [],
   };
   const envelope = {
     v: 1,
@@ -76,7 +123,7 @@ function coherentRows(projection: ChannelProjection) {
     observationJsonBytes(projection.rows) > observationProjectionRowBytes
   )
     return null;
-  const rows = z.array(messagingMessageRecordSchema).safeParse(projection.rows);
+  const rows = z.array(channelRow).safeParse(projection.rows);
   const { id } = base.data.resource,
     { after } = base.data.window;
   return rows.success &&
@@ -87,6 +134,10 @@ function coherentRows(projection: ChannelProjection) {
     )
     ? rows.data
     : null;
+}
+function withReactions(row: z.infer<typeof channelRow>) {
+  const view = messagingMessageView(row);
+  return 'unavailable' in view ? view : { ...view, reactions: row.reactions };
 }
 /** Owning channel mapper shared by realtime builds and authorized HTTP reads.
  * Continuation is the last included sequence iff older history remains.
@@ -103,7 +154,11 @@ export function createObservationChannelBody(bounds: MessagingCoreBounds) {
   });
   const bodySchema = z
     .strictObject({
-      messages: z.array(z.union([message, unavailable])).max(50),
+      messages: z
+        .array(
+          z.union([message.extend({ reactions: reactionCounts }), unavailable]),
+        )
+        .max(50),
       continuation: order.nullable(),
     })
     .refine(
@@ -121,7 +176,7 @@ export function createObservationChannelBody(bounds: MessagingCoreBounds) {
       const body =
         rows &&
         bodySchema.safeParse({
-          messages: rows.map(messagingMessageView),
+          messages: rows.map(withReactions),
           continuation: projection.continuation,
         });
       return body && body.success

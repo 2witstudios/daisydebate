@@ -88,11 +88,34 @@ try {
 const runtimeDatabase = createDatabase({
   url: runtimeUrl,
   client: runtimeClient,
+  workloadProfile: 'realtime',
+  maxConnections: 4,
+  nextActorId: () => systemId.next(),
+});
+// This process is the slot's eligible observation worker: a separate pool
+// bound to the narrow projection role, never the runtime role.
+const projectionClient = new SQL(runtimeUrl, { max: 1 });
+try {
+  await projectionClient.unsafe('set role daisy_projection');
+  const [binding] = await projectionClient`select current_user as role`;
+  if (binding?.role !== 'daisy_projection')
+    throw new Error('Realtime browser projection role binding refused');
+} catch {
+  await projectionClient.close();
+  throw new Error('Realtime browser projection role unavailable');
+}
+const projectionDatabase = createDatabase({
+  url: runtimeUrl,
+  client: projectionClient,
+  workloadProfile: 'projection',
+  maxConnections: 4,
   nextActorId: () => systemId.next(),
 });
 const resources = createRealtimeApp({
   database: runtimeDatabase,
-  env: process.env,
+  // The fixture injects its own restricted projection pool below; the slot's
+  // local OBSERVATION_DATABASE_URL is not a production credential.
+  env: { ...process.env, OBSERVATION_DATABASE_URL: undefined },
   clock: systemClock,
   ids: systemId,
 });
@@ -102,17 +125,26 @@ const runtime = await serveRealtime({
     input.channel.authority.kind === 'private_group'
       ? messagingTestGroupReading(input)
       : messagingTestReading(input),
+  // The browser messaging policy's bounds (apps/web e2e messaging-policy).
+  observation: {
+    projection: projectionDatabase,
+    channelBounds: { messageUnits: 1000, pageItems: 20 },
+  },
   port,
   hostname: '127.0.0.1',
   tls: { key, cert },
 }).catch(async () => {
   await resources.close();
+  await projectionDatabase.close();
   throw new Error('Realtime browser listener unavailable');
 });
 let closing: Promise<void> | undefined;
 for (const signal of ['SIGTERM', 'SIGINT'] as const)
   process.once(signal, () => {
-    closing ??= runtime.close().then(() => resources.close());
+    closing ??= runtime
+      .close()
+      .then(() => resources.close())
+      .then(() => projectionDatabase.close());
     void closing.catch(() => {
       process.exitCode = 1;
     });

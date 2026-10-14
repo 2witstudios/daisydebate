@@ -3,16 +3,16 @@ import { ENVELOPE_VERSION } from '@daisy/protocol';
 import { harness, openAndReady } from './connection-store.test-support';
 
 setupRitewayBun();
-const topic = `channel:${'b'.repeat(24)}`;
+const topic = `room:${'b'.repeat(24)}`;
 const event = {
   v: ENVELOPE_VERSION,
   type: 'event',
   topic,
   position: '1:2',
   payload: {
-    kind: 'channel.changed',
-    channelId: 'b'.repeat(24),
-    changeVersion: 2,
+    kind: 'room.changed',
+    ids: ['b'.repeat(24)],
+    entityVersion: 2,
   },
 };
 test('topic consumers receive only validated coupled frames and reconnect cursors', async () => {
@@ -24,7 +24,7 @@ test('topic consumers receive only validated coupled frames and reconnect cursor
   await openAndReady(h);
   h.latestSocket().message({
     ...event,
-    payload: { ...event.payload, channelId: 'c'.repeat(24) },
+    payload: { ...event.payload, ids: ['c'.repeat(24)] },
   });
   h.latestSocket().message(event);
   h.latestSocket().remoteClose(1006);

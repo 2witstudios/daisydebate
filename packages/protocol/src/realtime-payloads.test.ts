@@ -137,29 +137,6 @@ describe('outbox payload schema', () => {
     });
   });
 
-  test('lets the owner-only inbox family carry a small delta beyond ids, kind and version', () => {
-    assert({
-      given: 'a notification delta payload for the owner-only inbox family',
-      should: 'accept it',
-      actual: parseOutcome(outboxPayloadSchema, {
-        entityVersion: 1,
-        kind: 'user.notification-delivered',
-        ids: [id],
-        notificationType: 'debate.forfeit',
-        occurredAt: '2026-01-01T00:00:00.000Z',
-      }),
-      expected: {
-        data: {
-          entityVersion: 1,
-          kind: 'user.notification-delivered',
-          ids: [id],
-          notificationType: 'debate.forfeit',
-          occurredAt: '2026-01-01T00:00:00.000Z',
-        },
-      },
-    });
-  });
-
   test('accepts the two revocation kinds so the drain never meets an unparseable row', () => {
     assert({
       given: 'session.revoked and access.revoked payloads',
@@ -214,21 +191,6 @@ describe('payload-to-topic-family storage binding', () => {
         ids: [id],
       }),
       expected: true,
-    });
-  });
-
-  test('rejects an owner-only inbox delta stored on a public debate topic', () => {
-    assert({
-      given: 'a user.notification-delivered payload on a debate topic',
-      should: 'be refused: only debate.phase-changed belongs to that family',
-      actual: isPayloadStorableOnTopic(`debate:${id}`, {
-        entityVersion: 1,
-        kind: 'user.notification-delivered',
-        ids: [id],
-        notificationType: 'debate.forfeit',
-        occurredAt: '2026-01-01T00:00:00.000Z',
-      }),
-      expected: false,
     });
   });
 

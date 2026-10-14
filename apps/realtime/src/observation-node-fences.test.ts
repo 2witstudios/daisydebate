@@ -1,58 +1,32 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createObservationNode } from './observation-node';
+import { observationTestBase } from '@daisy/protocol/observation-testing';
 import {
-  createObservationPermit,
-  observationEvidence,
-} from './observation-permit';
-import type { ObservationBase } from '@daisy/protocol';
+  grant,
+  testBarrier,
+  testNode,
+  testPermit,
+} from './observation-node.test-support';
 setupRitewayBun();
-const base: ObservationBase = {
-  schema: 1,
-  resource: { kind: 'channel', id: 'a'.repeat(24) },
-  partition: { kind: 'shared', policyKey: 'v1' },
-  disclosureRevision: 1,
-  window: { after: null, limit: 50 },
-};
+const base = observationTestBase();
 test('unchanged head resumes skipped recipient after renewal', async () => {
-  const now = 4900;
-  const permit = createObservationPermit({
-    now: () => now,
-    nodeIncarnation: 'node',
-  });
+  const now = () => 4900;
+  const permit = testPermit(base, { now, granted: false });
   const received: number[] = [];
-  const node = createObservationNode({
-    nodeIncarnation: 'node',
-    now: () => now,
-    yieldWork: async () => {},
-    cache: {
-      demand: async () => {},
-      read: async () => ({
-        base,
-        contentRevision: 1,
-        purgeGeneration: 0,
-        body: 'body',
-      }),
-    },
+  const node = testNode({
+    now,
+    read: async () => ({
+      base,
+      contentRevision: 1,
+      purgeGeneration: 0,
+      body: 'body',
+    }),
   });
   node.observe(base, permit, (snapshot) =>
     received.push(snapshot.contentRevision),
   );
   await node.repair();
   await node.settled();
-  const part = observationEvidence({
-    started: now,
-    remainingMs: 5000,
-    fingerprint: 'same',
-    dependencies: [],
-  });
-  permit.install(permit.begin(), {
-    base,
-    minimumContentRevision: 1,
-    purgeGeneration: 0,
-    subject: part,
-    cohort: part,
-    entitlement: part,
-  });
+  grant(permit, base, now());
   await node.repair();
   await node.settled();
   assert({
@@ -64,35 +38,10 @@ test('unchanged head resumes skipped recipient after renewal', async () => {
   });
 });
 test('purge during yielded fanout fences captured body', async () => {
-  let resume!: () => void;
-  const barrier = new Promise<void>((resolve) => {
-    resume = resolve;
-  });
-  const permits = Array.from({ length: 129 }, () =>
-    createObservationPermit({ now: () => 0, nodeIncarnation: 'node' }),
-  );
-  const part = observationEvidence({
-    started: 0,
-    remainingMs: 5000,
-    fingerprint: 'same',
-    dependencies: [],
-  });
-  for (const permit of permits)
-    permit.install(permit.begin(), {
-      base,
-      minimumContentRevision: 1,
-      purgeGeneration: 0,
-      subject: part,
-      cohort: part,
-      entitlement: part,
-    });
+  const barrier = testBarrier();
+  const permits = Array.from({ length: 129 }, () => testPermit(base));
   let last = 0;
-  const node = createObservationNode({
-    nodeIncarnation: 'node',
-    now: () => 0,
-    yieldWork: () => barrier,
-    cache: { demand: async () => {}, read: async () => null },
-  });
+  const node = testNode({ yieldWork: () => barrier.wait });
   for (const [index, permit] of permits.entries())
     node.observe(base, permit, () => {
       if (index === 128) last++;
@@ -100,7 +49,7 @@ test('purge during yielded fanout fences captured body', async () => {
   node.accept({ base, contentRevision: 1, purgeGeneration: 0, body: 'before' });
   await Promise.resolve();
   node.accept({ base, contentRevision: 2, purgeGeneration: 1, body: 'after' });
-  resume();
+  barrier.resume();
   await node.settled();
   assert({
     given: 'a resource purge while the send slice waits',
@@ -111,34 +60,9 @@ test('purge during yielded fanout fences captured body', async () => {
 });
 
 test('a recreated key receives baseline while its disposed predecessor waits', async () => {
-  let resume!: () => void;
-  const wait = new Promise<void>((resolve) => {
-    resume = resolve;
-  });
-  const permit = createObservationPermit({
-    now: () => 0,
-    nodeIncarnation: 'node',
-  });
-  const part = observationEvidence({
-    started: 0,
-    remainingMs: 5000,
-    fingerprint: 'same',
-    dependencies: [],
-  });
-  permit.install(permit.begin(), {
-    base,
-    minimumContentRevision: 1,
-    purgeGeneration: 0,
-    subject: part,
-    cohort: part,
-    entitlement: part,
-  });
-  const node = createObservationNode({
-    nodeIncarnation: 'node',
-    now: () => 0,
-    yieldWork: () => wait,
-    cache: { demand: async () => {}, read: async () => null },
-  });
+  const barrier = testBarrier();
+  const permit = testPermit(base);
+  const node = testNode({ yieldWork: () => barrier.wait });
   const releases = Array.from({ length: 129 }, () =>
     node.observe(base, permit, () => {}),
   );
@@ -152,7 +76,7 @@ test('a recreated key receives baseline while its disposed predecessor waits', a
   node.accept({ base, contentRevision: 2, purgeGeneration: 0, body: 'new' });
   await Promise.resolve();
   const before = [...baseline];
-  resume();
+  barrier.resume();
   await node.settled();
   assert({
     given: 'same-key recreation while an old slice remains pending',
@@ -163,35 +87,10 @@ test('a recreated key receives baseline while its disposed predecessor waits', a
 });
 
 test('purge from a new window fences an older window of the same resource', async () => {
-  let resume!: () => void;
-  const wait = new Promise<void>((resolve) => {
-    resume = resolve;
-  });
-  const permit = createObservationPermit({
-      now: () => 0,
-      nodeIncarnation: 'node',
-    }),
-    part = observationEvidence({
-      started: 0,
-      remainingMs: 5000,
-      fingerprint: 'same',
-      dependencies: [],
-    });
-  permit.install(permit.begin(), {
-    base,
-    minimumContentRevision: 1,
-    purgeGeneration: 0,
-    subject: part,
-    cohort: part,
-    entitlement: part,
-  });
+  const barrier = testBarrier();
+  const permit = testPermit(base);
   let last = 0;
-  const node = createObservationNode({
-    nodeIncarnation: 'node',
-    now: () => 0,
-    yieldWork: () => wait,
-    cache: { demand: async () => {}, read: async () => null },
-  });
+  const node = testNode({ yieldWork: () => barrier.wait });
   for (let index = 0; index < 129; index++)
     node.observe(base, permit, () => {
       if (index === 128) last++;
@@ -206,7 +105,7 @@ test('purge from a new window fences an older window of the same resource', asyn
     purgeGeneration: 1,
     body: 'new',
   });
-  resume();
+  barrier.resume();
   await node.settled();
   assert({
     given:

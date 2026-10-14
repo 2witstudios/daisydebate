@@ -34,6 +34,8 @@ const PROVIDER_ROUND_TRIP_MS = 300;
 /** 65,536 /64s × 3 a minute ÷ 60: what one /48 can send past the /64 buckets. */
 const SINGLE_48_RATE = 3_277;
 const FLOOD_SECONDS = 10;
+/** Requests sent per event-loop turn: unpaced, so the host's own speed sets the rate. */
+const FLOOD_BURST = 16;
 
 /** One magic-link request from a given client, built directly (no harness client). */
 const fromClient = (email: string, client: string) =>
@@ -83,10 +85,12 @@ describe('AUTH-3.10 aggregate magic-link limits per network', () => {
     const signIns: Promise<Response>[] = [];
     const started = performance.now();
     const { events } = await testApp.withLoggedEvents(async () => {
+      // No pacing: the flood goes as fast as this host can send it (CI
+      // runners reached 2,900/s), yielding to the event loop between
+      // requests so responses and handed-off work still progress.
       for (let index = 0; index < total; index += 1) {
-        const due = started + (index * 1000) / SINGLE_48_RATE;
-        const wait = due - performance.now();
-        if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+        if (index % FLOOD_BURST === 0)
+          await new Promise((resolve) => setImmediate(resolve));
         flood.push(fromClient(fresh(), in48(index)));
         // One real sign-in a second, from a client outside the /48.
         if (index % SINGLE_48_RATE === Math.floor(SINGLE_48_RATE / 2))
@@ -103,32 +107,35 @@ describe('AUTH-3.10 aggregate magic-link limits per network', () => {
       .filter(({ to }) => existing.includes(to)).length;
     const floodStatuses = statuses(await Promise.all(flood));
     const signInStatuses = statuses(await Promise.all(signIns));
-    // A lost sign-in must name its cause: an outage, a refused lane or a failed mail.
-    const failures = events
-      .filter((event) =>
-        [
-          'db.capacity.refused',
-          'db.query.failed',
-          'http.request.failed',
-          'request.unhandled',
-          'auth.rate_limit.unavailable',
-          'auth.mail.failed',
-          'auth.mail.abandoned',
-        ].includes(event),
-      )
-      .reduce<Record<string, number>>(
-        (counts, event) => ({ ...counts, [event]: (counts[event] ?? 0) + 1 }),
-        {},
-      );
-
+    const count = (name: string) =>
+      events.filter((event) => event === name).length;
+    // Anything that is neither an answer nor an explicit capacity refusal.
+    const failures = Object.fromEntries(
+      [
+        'db.query.failed',
+        'request.unhandled',
+        'auth.rate_limit.unavailable',
+        'auth.mail.failed',
+        'auth.mail.abandoned',
+      ]
+        .map((event) => [event, count(event)] as const)
+        .filter(([, n]) => n > 0),
+    );
     assert({
-      given: `${total} magic-link requests from every /64 of one /48 at ${SINGLE_48_RATE}/s (achieved ${achievedRate.toFixed(0)}/s), a ${PROVIDER_ROUND_TRIP_MS} ms provider, and 10 real sign-ins from outside it`,
-      should: `admit at most ${MAGIC_LINK_NETWORK_RULES.ipv6_48.max} of the flood in its minute and refuse the rest at the gate, shed nothing, and mail all 10 sign-ins`,
+      given: `${total} magic-link requests from every /64 of one /48, unpaced (achieved ${achievedRate.toFixed(0)}/s), a ${PROVIDER_ROUND_TRIP_MS} ms provider, and 10 real sign-ins from outside it`,
+      should: `admit at most ${MAGIC_LINK_NETWORK_RULES.ipv6_48.max} of the flood in its minute, answer the rest only 429 or an explicit capacity 503, shed nothing, fail nothing, and mail all 10 sign-ins`,
       actual: {
         floodAdmittedWithinLimit:
           (floodStatuses[200] ?? 0) <= MAGIC_LINK_NETWORK_RULES.ipv6_48.max,
         floodRefused: (floodStatuses[429] ?? 0) > 0,
-        shed: events.filter((event) => event === 'auth.mail.shed').length,
+        floodAnswers: Object.keys(floodStatuses).every((status) =>
+          ['200', '429', '503'].includes(status),
+        ),
+        // Every failed request is a flood 503 backed by a capacity refusal.
+        failedRequestsAreRefusals:
+          count('http.request.failed') === (floodStatuses[503] ?? 0) &&
+          (floodStatuses[503] ?? 0) <= count('db.capacity.refused'),
+        shed: count('auth.mail.shed'),
         poolNeverNearFull: peak < 64,
         signInsMailed: mailed,
         signInStatuses,
@@ -137,6 +144,8 @@ describe('AUTH-3.10 aggregate magic-link limits per network', () => {
       expected: {
         floodAdmittedWithinLimit: true,
         floodRefused: true,
+        floodAnswers: true,
+        failedRequestsAreRefusals: true,
         shed: 0,
         poolNeverNearFull: true,
         signInsMailed: 10,

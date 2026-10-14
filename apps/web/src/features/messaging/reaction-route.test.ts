@@ -90,7 +90,6 @@ test('reaction GET carries only validated message scope and server-configured en
   };
   const reader = createMessagingReactionReader({
     boundary,
-    websocketEndpoint: 'wss://daisy.example/ws',
     read: async (scope) => {
       scopes.push(scope);
       return { accepted: true };
@@ -108,18 +107,10 @@ test('reaction GET carries only validated message scope and server-configured en
   );
   assert({
     given: 'canonical read selection and a forged actor query',
-    should:
-      'bind only route channel/message and expose only the injected endpoint after current identity',
-    actual: [
-      response.status,
-      response.headers.get('x-realtime-socket-url'),
-      await response.json(),
-      invalid.status,
-      scopes,
-    ],
+    should: 'bind only route channel/message after current identity',
+    actual: [response.status, await response.json(), invalid.status, scopes],
     expected: [
       200,
-      'wss://daisy.example/ws',
       { accepted: true },
       400,
       [{ version: 1, channelId, messageId }],

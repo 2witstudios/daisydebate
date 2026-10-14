@@ -1,26 +1,13 @@
 import { assert, test } from 'riteway/bun';
-import { redisSuite, withRedis } from './test-support';
-import type { ObservationBase } from '@daisy/protocol';
-const env = redisSuite();
-const resource = { kind: 'channel', id: 'a'.repeat(24) } as const;
-const base: ObservationBase = {
-  schema: 1,
-  resource,
-  partition: { kind: 'shared', policyKey: 'v1' },
-  disclosureRevision: 1,
-  window: { after: null, limit: 50 },
-};
+import { requireTestServices } from '@daisy/config';
+import { observationSuite, ownObservation, withRedis } from './test-support';
+requireTestServices(process.env);
+const { env, resource, base } = observationSuite();
 test('discovery carries bounded demanded windows and reaps historical variants', async () => {
   await withRedis(env.redisUrl, async ({ redis, raw, key }) => {
     await redis.demandObservation(resource, 'node', [base]);
-    const incarnation = await redis.establishObservationIncarnation('inc');
-    const claim = { resource, incarnation, token: 'owner', ttlMs: 2000 };
-    await redis.claimObservation(claim);
-    await redis.prepareObservation({
-      ...claim,
-      purgeGeneration: 0,
-      disclosureRevision: 1,
-    });
+    const claim = await ownObservation(redis, resource);
+    const { incarnation } = claim;
     await redis.publishObservation({
       ...claim,
       base,
@@ -51,7 +38,7 @@ test('discovery carries bounded demanded windows and reaps historical variants',
         current,
         oldBody: await redis.readObservations(resource, incarnation, [base]),
       },
-      expected: { demanded: [base], current: [next], oldBody: [] },
+      expected: { demanded: [base], current: [next], oldBody: [null] },
     });
   });
 });
@@ -92,14 +79,8 @@ test('variant admission recovers after bounded expired window cleanup', async ()
 });
 test('whole demand-key expiry frees old body capacity while preserving re-demanded windows', async () => {
   await withRedis(env.redisUrl, async ({ redis, key, expireNow }) => {
-    const incarnation = await redis.establishObservationIncarnation('inc');
-    const claim = { resource, incarnation, token: 'owner', ttlMs: 2000 };
-    await redis.claimObservation(claim);
-    await redis.prepareObservation({
-      ...claim,
-      purgeGeneration: 0,
-      disclosureRevision: 1,
-    });
+    const claim = await ownObservation(redis, resource);
+    const { incarnation } = claim;
     const windows = Array.from({ length: 64 }, (_, index) => ({
       ...base,
       window: { after: index + 1, limit: 50 },
@@ -143,8 +124,9 @@ test('whole demand-key expiry frees old body capacity while preserving re-demand
         admitted: true,
         published: 1,
         bodies: [
-          { contentRevision: 1, body: 'old' },
-          { contentRevision: 1, body: 'new' },
+          { contentRevision: 1, purgeGeneration: 0, body: 'old' },
+          { contentRevision: 1, purgeGeneration: 0, body: 'new' },
+          null,
         ],
       },
     });

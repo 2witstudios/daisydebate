@@ -1,5 +1,5 @@
 import { AsyncLocalStorage, AsyncResource } from 'node:async_hooks';
-import { DEFAULT_MAX_CONNECTIONS } from '@daisy/db';
+import { DEFAULT_MAX_CONNECTIONS, isCapacityRefusal } from '@daisy/db';
 import type { Logger } from '@daisy/logger';
 
 /**
@@ -53,7 +53,8 @@ export type AfterResponseLimits = {
  * `settled` resolves when every piece has finished, so a shutdown can wait
  * for it before the pools close. Work logs its own delivery failures. One
  * that still rejects (a database outage during a saturated request's
- * account lookup or token delete) is logged without its error, as the auth
+ * account lookup or token delete) is logged without its error, unless a
+ * database lane refused it unrun, which the lane already logged, as the auth
  * handler logs one, never an unhandled rejection; its unmailed token
  * expires unused.
  */
@@ -75,13 +76,15 @@ export function createAfterResponse(
   const run = (work: Work) => {
     const task: Promise<void> = inTask
       .run(true, () => Promise.resolve().then(work))
-      .catch(() =>
+      .catch((error: unknown) => {
+        // A database lane refused it unrun and logged db.capacity.refused.
+        if (isCapacityRefusal(error)) return;
         logger.log(
           'request.unhandled',
           { source: 'auth.after-response' },
           'Authentication work after the answer failed',
-        ),
-      )
+        );
+      })
       .finally(() => {
         running.delete(task);
         const next = waiting.shift();

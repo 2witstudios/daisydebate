@@ -1,6 +1,7 @@
 import { createMessagingTypingOperations } from './messaging-typing';
 import { createObservationCacheOperations } from './observation-cache';
 import { createObservationDemandOperations } from './observation-demand';
+import { createObservationRelayOperations } from './observation-relay';
 import { createObservationSubscriber } from './observation-subscriber';
 import type { ObservationResource } from '@daisy/protocol';
 import { RedisClient } from 'bun';
@@ -11,6 +12,7 @@ import { redisKey } from './redis-key';
 import { defineScript } from './script-registry';
 import type { RedisTransport } from './transport';
 export { redisKey } from './redis-key';
+export { parseObservationControl } from './observation-relay';
 export type RedisConfig = { readonly url: string; readonly namespace: string };
 export type RedisEventSink = (
   event: 'redis.command.failed',
@@ -93,10 +95,12 @@ export function createRedis({
   return {
     observationSubscriber(
       reconcile: (resources: readonly ObservationResource[]) => Promise<void>,
+      onControl?: (message: string) => void,
     ) {
       return createObservationSubscriber({
         namespace,
         reconcile,
+        ...(onControl ? { onControl } : {}),
         createClient: () => new RedisClient(url, redisClientOptions),
       });
     },
@@ -219,6 +223,7 @@ export function createRedis({
     ...createRoomReadinessOperations({ client, namespace, reportFailure }),
     ...createObservationCacheOperations({ client, namespace, reportFailure }),
     ...createObservationDemandOperations({ client, namespace, reportFailure }),
+    ...createObservationRelayOperations({ client, namespace, reportFailure }),
     ...createPresenceOperations({ client, namespace, reportFailure }),
     ...createMessagingTypingOperations({ client, namespace, reportFailure }),
     ...createTicketOperations({ client, namespace, reportFailure }),

@@ -5,7 +5,12 @@ import {
   type ObservationHeader,
   type ObservationResource,
 } from '@daisy/protocol';
-type Snapshot = { readonly header: ObservationHeader; readonly body: string };
+import type { ObservationWorkerCache } from './observation-worker-cache';
+export type ObservationSnapshotBuild = {
+  readonly header: ObservationHeader;
+  readonly body: string;
+};
+type Snapshot = ObservationSnapshotBuild;
 type Owner = {
   readonly resource: ObservationResource;
   readonly token: string;
@@ -41,35 +46,16 @@ export function createObservationWorker({
   readonly eligible: boolean;
   readonly now: () => number;
   readonly nextToken: () => string;
-  readonly cache: {
-    readonly ready: (
-      base: ObservationBase,
-      header: ObservationHeader,
-    ) => Promise<boolean>;
-    readonly claim: (
-      resource: ObservationResource,
-      token: string,
-    ) => Promise<boolean>;
-    readonly prepare: (
-      header: ObservationHeader,
-      token: string,
-    ) => Promise<boolean>;
-    readonly publish: (
-      snapshot: Snapshot,
-      base: ObservationBase,
-      token: string,
-    ) => Promise<boolean>;
-    readonly release: (
-      resource: ObservationResource,
-      token: string,
-    ) => Promise<void>;
-  };
+  readonly cache: ObservationWorkerCache;
+  /** `isCurrent` is rechecked by the executor after every wait. */
   readonly readHeaders: (
     resources: readonly ObservationResource[],
+    isCurrent: () => boolean,
   ) => Promise<readonly ObservationHeader[]>;
   readonly build: (
     base: ObservationBase,
     header: ObservationHeader,
+    isCurrent: () => boolean,
   ) => Promise<Snapshot>;
 }) {
   const owners = new Map<string, Owner>();
@@ -96,7 +82,11 @@ export function createObservationWorker({
     )
       return;
     const work = (async () => {
-      const snapshot = await build(base, header);
+      const snapshot = await build(
+        base,
+        header,
+        () => current(owner) && owner.variants.has(key),
+      );
       if (
         !current(owner) ||
         !owner.variants.has(key) ||
@@ -121,6 +111,25 @@ export function createObservationWorker({
         jobs.delete(key);
       });
     jobs.set(key, work);
+  }
+  async function apply(
+    captured: Map<string, Owner>,
+    headers: readonly ObservationHeader[],
+  ) {
+    for (const header of headers) {
+      const key = observationResourceKey(header.resource);
+      const owner = captured.get(key);
+      captured.delete(key);
+      if (owner && current(owner) && !stuck(owner))
+        await progress(owner, header);
+    }
+    // A header follows its resource: absence is deletion, never "unchanged".
+    for (const owner of captured.values()) await deleted(owner);
+  }
+  async function deleted(owner: Owner) {
+    if (!current(owner)) return;
+    forget(owner);
+    await cache.drop(owner.resource, owner.token);
   }
   function forget(owner: Owner) {
     const key = observationResourceKey(owner.resource);
@@ -171,7 +180,8 @@ export function createObservationWorker({
   async function schedule(owner: Owner, header: ObservationHeader) {
     for (const [key, base] of owner.variants) {
       if (base.disclosureRevision !== header.disclosureRevision) continue;
-      if (!(await cache.ready(base, header))) owner.delivered.delete(key);
+      if (!(await cache.ready(base, header, owner.token)))
+        owner.delivered.delete(key);
       if (!current(owner)) break;
       if ((owner.delivered.get(key) ?? -1) >= header.contentRevision) continue;
       if (!owner.dirtySince.has(key)) owner.dirtySince.set(key, now());
@@ -247,12 +257,9 @@ export function createObservationWorker({
         );
         const headers = await readHeaders(
           currentBatch.map((owner) => owner.resource),
+          () => currentBatch.some(current),
         );
-        for (const header of headers) {
-          const owner = captured.get(observationResourceKey(header.resource));
-          if (owner && current(owner) && !stuck(owner))
-            await progress(owner, header);
-        }
+        await apply(captured, headers);
       } catch (error) {
         generation++;
         owners.clear();

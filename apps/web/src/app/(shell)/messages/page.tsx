@@ -52,11 +52,7 @@ export default async function MessagesPage({
       {inbox === null ? (
         <p role="status">Messages are unavailable. Refresh to try again.</p>
       ) : (
-        <InboxLive
-          actorId={actorId}
-          socketUrl={inbox.socketUrl}
-          snapshotId={systemId.next()}
-        >
+        <InboxLive actorId={actorId} snapshotId={systemId.next()}>
           {inbox.entries.length === 0 ? (
             <p className="text-ink-muted">
               No conversations or requests on this page.

@@ -12,7 +12,7 @@ import {
 } from './socket-authority.test-support';
 import { openAuthorityPeer } from './authority-peer.test-support';
 import { observeNativeServe } from './paused-reader.test-support';
-import { waitFor } from './support';
+import { removeSessionControls, waitFor } from './support';
 
 setupRitewayBun();
 requireTestServices(process.env);
@@ -96,6 +96,8 @@ test('actual restricted-role SQL hint listener publishes only to a current authe
   } finally {
     await fixture.runtime.close();
     await fixture.client`delete from session where id=${sessionId}`;
+    if (messaging)
+      await removeSessionControls(fixture.client, [messaging.actorId]);
     await messaging?.cleanup();
     await fixture.close();
   }

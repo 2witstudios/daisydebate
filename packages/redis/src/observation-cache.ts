@@ -12,6 +12,7 @@ import {
   publishScript,
   retainScript,
   purgeScript,
+  dropScript,
 } from './observation-scripts';
 import {
   baseDigest,
@@ -189,6 +190,21 @@ export function createObservationCacheOperations(
             }),
           ],
         ),
+      );
+    },
+    async dropObservation(input: {
+      readonly resource: ObservationResource;
+      readonly incarnation: string;
+      readonly token: string;
+    }) {
+      return (
+        Number(
+          await script('dropObservation', dropScript, keys(input.resource), [
+            segment(input.incarnation),
+            segment(input.token),
+            JSON.stringify({ resource: input.resource, deleted: true }),
+          ]),
+        ) === 1
       );
     },
     async purgeObservation(input: {
