@@ -1,8 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import {
-  formatDefinitionSchema,
-  roundRulesSchema,
-} from './format';
+import { formatDefinitionSchema, roundRulesSchema } from './format';
 import {
   fixtureRules,
   invalidFormatDefinitions,
