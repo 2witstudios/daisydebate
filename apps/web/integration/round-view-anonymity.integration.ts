@@ -1,5 +1,5 @@
 import { requireTestServices } from '@daisy/config';
-import { isNamedSeat, type RoomView, type RoundView } from '@daisy/protocol';
+import { isNamedSeat, type RoomView } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { withRoomRuntime } from './room-runtime.test-support';
 
