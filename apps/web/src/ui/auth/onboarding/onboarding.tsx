@@ -41,7 +41,7 @@ export function Onboarding({
     claim,
     initialUsernameForm,
     claimUnavailable,
-    moved,
+    (answered) => moved.navigate(answered.next),
   );
   const [local, setLocal] = useState<LocalNotice>(undefined);
   useMovedOnRemainder(answered.next, moved);

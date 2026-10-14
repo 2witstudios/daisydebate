@@ -25,7 +25,7 @@ export function SkipForm({
     action,
     initialStepForm,
     skipUnavailable,
-    moved,
+    (answered) => moved.navigate(answered.next),
   );
   useMovedOnRemainder(answered.next, moved);
   const pending = posting || answered.next !== undefined;

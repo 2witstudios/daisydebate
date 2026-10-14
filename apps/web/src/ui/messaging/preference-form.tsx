@@ -23,7 +23,7 @@ export function PreferenceForm({
     action,
     state,
     preferenceUnavailable,
-    moved,
+    (answer) => moved.navigate(answer.next),
   );
   useMovedOnRemainder(answer.next, moved);
   useFocusAfterAnswer(

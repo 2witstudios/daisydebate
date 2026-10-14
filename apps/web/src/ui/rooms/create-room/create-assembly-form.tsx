@@ -110,7 +110,7 @@ export function CreateAssemblyForm({
       values: formValues(form),
       error: 'Unable to create the room. Try again.',
     }),
-    moved,
+    (state) => moved.navigate(state.next),
   );
   useMovedOnRemainder(state.next, moved);
   return (

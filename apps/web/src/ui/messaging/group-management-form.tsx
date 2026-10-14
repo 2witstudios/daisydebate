@@ -27,7 +27,7 @@ export function GroupManagementForm({
     action,
     { requestId, memberUsername: '' },
     groupManagementUnavailable,
-    moved,
+    (answer) => moved.navigate(answer.next),
   );
   useMovedOnRemainder(answer.next, moved);
   useFocusAfterAnswer(

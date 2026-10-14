@@ -2,7 +2,10 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import type { Database } from '@daisy/db';
 import { composeMessagingTyping } from './typing-operations';
-import { typingWorld, type TypingFrameTransaction } from './typing.test-support';
+import {
+  typingWorld,
+  type TypingFrameTransaction,
+} from './typing.test-support';
 setupRitewayBun();
 test('typing factory threads one fenced transaction through canonical facts and rereads trusted time after producer awaits', async () => {
   const f = typingWorld(),

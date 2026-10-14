@@ -1,7 +1,6 @@
 'use client';
 
 import { useActionState, useEffect, useRef } from 'react';
-import type { MovedOn } from './use-moved-on';
 
 /** A form's server action, as `useActionState` calls it. */
 export type FormAction<S> = (state: Awaited<S>, form: FormData) => Promise<S>;
@@ -18,17 +17,17 @@ export type FormAction<S> = (state: Awaited<S>, form: FormData) => Promise<S>;
 export const answerUnavailableOnThrow =
   <S>(
     action: FormAction<S>,
-    unavailable: (form: FormData) => S,
-    moved?: (answer: S) => void,
+    unavailable: (form: FormData) => Awaited<S>,
+    onAnswer?: (answer: Awaited<S>) => void,
   ): FormAction<S> =>
   async (state, form) => {
-    let answer: S;
+    let answer: Awaited<S>;
     try {
       answer = await action(state, form);
     } catch {
       answer = unavailable(form);
     }
-    moved?.(answer);
+    onAnswer?.(answer);
     return answer;
   };
 
@@ -38,18 +37,18 @@ export const answerUnavailableOnThrow =
  * keeps the server action itself: React renders the form's no-JavaScript
  * POST, and adopts a posted form's answer, only from a server action, which
  * a wrapper is not. The browser only ever calls the wrapper, which reports
- * every settled answer to `moved` at answer time.
+ * every settled answer to `onAnswer` at answer time.
  */
 export function useFormAction<S>(
   action: FormAction<S>,
   initial: Awaited<S>,
-  unavailable: (form: FormData) => S,
-  moved?: MovedOn,
+  unavailable: (form: FormData) => Awaited<S>,
+  onAnswer?: (answer: Awaited<S>) => void,
 ) {
   return useActionState(
     typeof window === 'undefined'
       ? action
-      : answerUnavailableOnThrow(action, unavailable, moved?.navigate),
+      : answerUnavailableOnThrow(action, unavailable, onAnswer),
     initial,
   );
 }

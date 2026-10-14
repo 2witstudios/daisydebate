@@ -22,17 +22,18 @@ export function MessageMutationForm({
   readonly maxUnits: number;
 }) {
   const moved = useMovedOnce();
+  const navigate = (answer: MessageFormState) => moved.navigate(answer.next);
   const [answer, postEdit, editPending] = useFormAction(
     action,
     state,
     messageMutationUnavailable,
-    moved,
+    navigate,
   );
   const [removeAnswer, postRemove, removePending] = useFormAction(
     action,
     { requestId: removeRequestId, text: '' },
     messageMutationUnavailable,
-    moved,
+    navigate,
   );
   useMovedOnRemainder(answer.next ?? removeAnswer.next, moved);
   useFocusAfterAnswer(

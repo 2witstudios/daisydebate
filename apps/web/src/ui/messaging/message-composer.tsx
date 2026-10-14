@@ -30,7 +30,7 @@ export function MessageComposer({
     action,
     { text: '', requestId },
     messageFormUnavailable,
-    moved,
+    (answer) => moved.navigate(answer.next),
   );
   const typing = useRef<ReturnType<typeof createBrowserTypingWriter> | null>(
     null,

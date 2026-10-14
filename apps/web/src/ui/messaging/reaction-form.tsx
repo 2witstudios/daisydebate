@@ -32,7 +32,7 @@ export function ReactionForm({
     action,
     { requestId },
     unavailable,
-    moved,
+    (answer) => moved.navigate(answer.next),
   );
   useMovedOnRemainder(answer.next, moved);
   useFocusAfterAnswer(

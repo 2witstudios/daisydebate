@@ -46,7 +46,7 @@ export function MockForm({
     action,
     initialMockForm,
     mockFormUnavailable,
-    moved,
+    (answered) => moved.navigate(answered.next),
   );
   useMovedOnRemainder(answered.next, moved);
   const pending = posting || answered.next !== undefined;

@@ -29,7 +29,7 @@ export function AssemblyCommandForm({
     action,
     { values: {} },
     commandUnavailable,
-    moved,
+    (state) => moved.navigate(state.next),
   );
   const controlsId = useId();
   const feedbackId = useId();

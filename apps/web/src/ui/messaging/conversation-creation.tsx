@@ -27,7 +27,7 @@ export function ConversationCreation({
     action,
     { requestId, recipients: '', title: '', introduction: '' },
     creationFormUnavailable,
-    moved,
+    (answer) => moved.navigate(answer.next),
   );
   useMovedOnRemainder(answer.next, moved);
   useFocusAfterAnswer(

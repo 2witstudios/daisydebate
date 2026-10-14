@@ -102,7 +102,8 @@ test('a locked oldest row refuses the entire prefix without deleting later histo
         await f.sql`select count(*)::int as count from outbox where topic=${f.topic}`;
       assert({
         given: 'an older locked expired row and a later expired row',
-        should: 'refuse promptly as retryable INFRASTRUCTURE with 55P03 provenance, without a hole or boundary advance',
+        should:
+          'refuse promptly as retryable INFRASTRUCTURE with 55P03 provenance, without a hole or boundary advance',
         actual: {
           code: isAppError(refused) ? refused.code : 'raw',
           overloaded: refusalSqlState(refused),

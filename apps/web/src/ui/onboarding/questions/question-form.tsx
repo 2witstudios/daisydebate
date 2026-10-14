@@ -49,7 +49,7 @@ export function QuestionForm({
     action,
     initialStepForm,
     refusedStep(step),
-    moved,
+    (answered) => moved.navigate(answered.next),
   );
   useMovedOnRemainder(answered.next, moved);
   const pending = posting || answered.next !== undefined;

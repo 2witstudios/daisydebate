@@ -5,7 +5,10 @@ import { messagingUnitPolicy } from './typing.test-support';
 import { composeMessagingTypingRoutes } from './typing-route';
 import { composeMessagingPreferenceRoutes } from './preference-route';
 import { signedMessagingAuth } from './signed-messaging.test-support';
-import { typingWorld, type TypingFrameTransaction } from './typing.test-support';
+import {
+  typingWorld,
+  type TypingFrameTransaction,
+} from './typing.test-support';
 setupRitewayBun();
 test('actual optional typing/preference app routes authenticate before configured stores and fail unavailable without explicit typing policy', async () => {
   const policy = messagingUnitPolicy(),

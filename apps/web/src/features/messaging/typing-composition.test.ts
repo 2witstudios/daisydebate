@@ -2,7 +2,10 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import type { Database } from '@daisy/db';
 import { composeMessagingTyping } from './typing-operations';
-import { typingWorld, type TypingFrameTransaction } from './typing.test-support';
+import {
+  typingWorld,
+  type TypingFrameTransaction,
+} from './typing.test-support';
 import { loadAccountPolicyFacts } from '../authorization/account-policy-facts';
 setupRitewayBun();
 test('actual typing composition refuses current unavailable members before Redis and never uses a second transaction', async () => {

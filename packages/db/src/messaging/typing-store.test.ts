@@ -93,7 +93,10 @@ test('typing read takes shared fences, never the exclusive writer fence, and nev
       [{ fact }],
       [{ fact }],
     ]);
-    return { store: createMessagingTypingStore(drizzle({ client })), sharedQueries };
+    return {
+      store: createMessagingTypingStore(drizzle({ client })),
+      sharedQueries,
+    };
   };
   const first = readOnce();
   const value = await first.store(

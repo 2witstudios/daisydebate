@@ -90,12 +90,7 @@ test('reaction read takes shared fences and the stream high-water mark, never th
       sharedReader: true,
       sharedChannelFence: true,
       exclusive: false,
-      calls: Array(2).fill([
-        scope.channelId,
-        fact.channelId,
-        2,
-        'read',
-      ]),
+      calls: Array(2).fill([scope.channelId, fact.channelId, 2, 'read']),
       oneTransaction: true,
     },
   });

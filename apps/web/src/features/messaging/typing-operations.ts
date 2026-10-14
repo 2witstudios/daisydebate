@@ -39,7 +39,8 @@ export function composeMessagingTyping({
     const project = await database.messagingTypingStore(
       { ...actor, channelId },
       bounds.maxActors,
-      async (frame) => {        return runTypingFrame({
+      async (frame) => {
+        return runTypingFrame({
           actor,
           principal,
           channelId,

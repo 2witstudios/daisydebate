@@ -51,7 +51,7 @@ export function AssemblyEditForm({
       values: formValues(form),
       error: 'These changes are not saved. Try again.',
     }),
-    moved,
+    (state) => moved.navigate(state.next),
   );
   useMovedOnRemainder(state.next, moved);
   const feedbackId = useId();
