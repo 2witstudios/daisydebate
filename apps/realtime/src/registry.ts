@@ -144,7 +144,6 @@ export function createSubscriptionRegistry({
     },
     remove,
     revalidate: delivery.revalidate,
-    hint: delivery.hint,
     closeAll() {
       for (const connection of connections) {
         remove(connection);
@@ -195,7 +194,6 @@ export function createSubscriptionRegistry({
     },
     async settled() {
       await pending;
-      await delivery.settledHints();
     },
   };
 }

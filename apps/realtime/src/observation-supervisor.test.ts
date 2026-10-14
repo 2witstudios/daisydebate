@@ -26,6 +26,7 @@ test('clock uncertainty replaces the runtime and reports unready until it is liv
           events.push(`close:${id}`);
         },
         connect: () => id,
+        hint: () => {},
       };
     },
     unavailable: () => 0,
@@ -78,6 +79,7 @@ test('connections arriving while a replacement is not yet live are answered unav
         },
         close: async () => {},
         connect: () => `runtime-${id}`,
+        hint: () => {},
       };
     },
     unavailable: () => 'unavailable',
@@ -116,6 +118,7 @@ test('sockets admitted during a replacement are cycled once it is live', async (
               }),
         close: async () => {},
         connect: () => `runtime-${id}`,
+        hint: () => {},
       };
     },
     unavailable: () => 'unavailable',
@@ -140,4 +143,37 @@ test('sockets admitted during a replacement are cycled once it is live', async (
     },
   });
   await supervisor.close();
+});
+test('hints reach only a live runtime', async () => {
+  const uncertain: (() => void)[] = [];
+  const hinted: string[] = [];
+  const supervisor = createObservationSupervisor({
+    create: (onUncertainty) => {
+      const id = uncertain.push(onUncertainty);
+      return {
+        start: async () => {},
+        close: async () => {},
+        connect: () => id,
+        hint: (frame: string) => hinted.push(`${id}:${frame}`),
+      };
+    },
+    unavailable: () => 0,
+    onRestart: () => {},
+    retry: () => {},
+  });
+  supervisor.hint('before-start');
+  await supervisor.start();
+  supervisor.hint('live');
+  uncertain[0]!();
+  supervisor.hint('replacing');
+  await settle();
+  supervisor.hint('replaced');
+  await supervisor.close();
+  supervisor.hint('closed');
+  assert({
+    given: 'hints before start, while live, during replacement and after close',
+    should: 'forward only those that arrive while a runtime is live',
+    actual: hinted,
+    expected: ['1:live', '2:replaced'],
+  });
 });

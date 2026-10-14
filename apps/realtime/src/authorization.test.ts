@@ -1,11 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { buildChannelTopic } from '@daisy/protocol';
-import type { ChannelAuthorizationFact } from '@daisy/auth/authorization';
 import type { RealtimeApp } from './app';
-import {
-  createRealtimeAuthorization,
-  type RealtimeReadingPolicy,
-} from './authorization';
+import { createRealtimeAuthorization } from './authorization';
 
 setupRitewayBun();
 const principal = {
@@ -13,131 +9,39 @@ const principal = {
   actorId: 'a'.repeat(24),
   sessionId: 's'.repeat(24),
 };
-const account = { ...principal, member: true, erased: false, revision: 2 };
-const peer = {
-  userId: 'v'.repeat(24),
-  actorId: 'b'.repeat(24),
-  member: true,
-  erased: false,
-  revision: 3,
-};
-const fact: ChannelAuthorizationFact = {
-  kind: 'channel',
-  channelId: 'c'.repeat(24),
-  policyKey: 'social.dm',
-  policyRevision: 1,
-  lifecycle: 'active',
-  revision: 4,
-  authority: {
-    kind: 'dm',
-    lowActorId: principal.actorId,
-    highActorId: peer.actorId,
-    requestSenderActorId: principal.actorId,
-    state: 'accepted',
-    blocked: false,
-    revision: 5,
-  },
-};
-// Explicit fixture evidence, never a production policy default or activation.
-const approvedTestReading: RealtimeReadingPolicy = ({
-  channel,
-  accounts,
-  now,
-}) => ({
-  channelId: channel.channelId,
-  policyKey: channel.policyKey,
-  policyRevision: channel.policyRevision,
-  authorityRevision: channel.revision,
-  relationshipRevision: 5,
-  allowed: true,
-  evaluatedAt: now,
-  validUntil: '2026-10-09T00:00:30.000Z',
-  accounts: accounts.map(({ account: row, age }) => ({
-    actorId: row.actorId!,
-    userId: row.userId,
-    accountRevision: row.revision,
-    ageRevision: age.state === 'known' ? age.revision : null,
-  })),
-});
-for (const mode of [
-  'approved-test',
-  'missing-policy',
-  'expired-session',
-  'changed-account',
-] as const)
-  test(`minimal channel authority composition ${mode}`, async () => {
-    let instant = '2026-10-09T00:00:00.000Z';
-    let calls = 0,
-      frames = 0;
-    const expiry = '2026-10-09T00:00:01.000Z';
-    const tx = {
-      execute: async () => {
-        calls += 1;
-        if (calls <= 2) return []; // Unknown minimal age facts are not an eligibility grant.
-        if (calls === 3) {
-          if (mode === 'expired-session') instant = expiry;
-          // Session expiry is evaluated against database time after waits.
-          return [
-            {
-              userId: principal.userId,
-              expiresAt: new Date(expiry),
-              databaseNow: new Date(instant),
-            },
-          ];
-        }
-        return [
-          {
-            ...account,
-            revision: mode === 'changed-account' ? 9 : account.revision,
-          },
-        ];
+
+test('channel topics are refused without any database authorization', async () => {
+  const calls: string[] = [];
+  const database = new Proxy(
+    {},
+    {
+      get: (_target, name) => async () => {
+        calls.push(String(name));
+        return null;
       },
-    };
-    const resources = {
-      clock: { now: () => instant },
-      database: {
-        readAuthorizationSession: async () => ({
-          ...principal,
-          account,
-          expiresAt: expiry,
-        }),
-        messagingChannelAuthority: async (
-          input: unknown,
-          work: (frame: unknown) => Promise<unknown>,
-        ) => {
-          frames += 1;
-          assert({
-            given: 'the public minimal authority port',
-            should: 'receive the exact principal and channel',
-            actual: input,
-            expected: { ...principal, channelId: fact.channelId },
-          });
-          return work({ tx, fact, accounts: [account, peer] });
-        },
-      },
-    } as unknown as RealtimeApp;
-    const auth = createRealtimeAuthorization({
-      resources,
-      now: () => Date.parse(instant),
-      ...(mode === 'missing-policy'
-        ? {}
-        : { readingPolicy: approvedTestReading }),
-    });
-    const result = await auth.authorizeTopic(
-      principal,
-      buildChannelTopic(fact.channelId),
-    );
-    assert({
-      given:
-        'same-transaction minimal age/session/account facts and explicit test-only evidence',
-      should:
-        'bind current facts and preserve session expiry, otherwise refuse',
-      actual: { frames, queries: calls, deadline: result?.validUntil ?? null },
-      expected: {
-        frames: 1,
-        // An expired session refuses before its account read.
-        queries: mode === 'expired-session' ? 3 : 4,
-        deadline: mode === 'approved-test' ? Date.parse(expiry) : null,
-      },
-    });
+    },
+  );
+  const auth = createRealtimeAuthorization({
+    resources: {
+      clock: { now: () => '2026-10-13T00:00:00.000Z' },
+      database,
+    } as unknown as RealtimeApp,
+    now: () => 0,
   });
+  const subscribers = Array.from({ length: 5 }, (_, index) => ({
+    ...principal,
+    sessionId: `${index}`.repeat(24),
+  }));
+  const results = await Promise.all(
+    subscribers.map((subscriber) =>
+      auth.authorizeTopic(subscriber, buildChannelTopic('c'.repeat(24))),
+    ),
+  );
+  assert({
+    given:
+      'five sockets asking for a channel topic, whose live signals ride the channel observation',
+    should: 'refuse every one and read nothing from the database',
+    actual: { results, calls },
+    expected: { results: [null, null, null, null, null], calls: [] },
+  });
+});

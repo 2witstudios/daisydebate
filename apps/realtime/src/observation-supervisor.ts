@@ -2,6 +2,7 @@ type Runtime = {
   readonly start: () => Promise<void>;
   readonly close: () => Promise<void>;
   readonly connect: (...args: never[]) => unknown;
+  readonly hint: (frame: never) => void;
 };
 
 /** Owns the process's observation runtime. Clock uncertainty cannot be
@@ -76,6 +77,10 @@ export function createObservationSupervisor<R extends Runtime>({
         return unavailable(...args);
       }
       return current.connect(...(args as never[])) as ReturnType<R['connect']>;
+    },
+    /** Lossy hints reach only a live runtime; a gap drops them. */
+    hint(frame: Parameters<R['hint']>[0]) {
+      if (current && ready && !closed) current.hint(frame as never);
     },
     async close() {
       if (closed) return;

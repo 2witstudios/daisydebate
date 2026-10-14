@@ -144,6 +144,11 @@ export function createObservationPermit({
       );
     },
     grant: () => active,
+    /** Whether the held grant is valid at a trusted instant now. */
+    current() {
+      const at = instant();
+      return at !== null && active !== undefined && valid(active, at);
+    },
     generation: () => bindingGeneration,
     subscribe(listener: (recovered: boolean) => void) {
       listeners.add(listener);

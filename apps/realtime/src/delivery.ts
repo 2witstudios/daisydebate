@@ -1,10 +1,7 @@
 import { createHash } from 'node:crypto';
 import type { ServerMessage } from '@daisy/protocol';
 import type { RealtimeApp } from './app';
-import {
-  createRealtimeAuthorization,
-  type RealtimeReadingPolicy,
-} from './authorization';
+import { createRealtimeAuthorization } from './authorization';
 import { createSubscriptionRegistry } from './registry';
 import type { SocketPrincipal } from './registry';
 import { createAdmission } from './admission';
@@ -18,19 +15,16 @@ export function createRealtimeDelivery({
   resources,
   now,
   publish,
-  readingPolicy,
   timers,
 }: {
   readonly timers: IntervalTimers;
   readonly resources: RealtimeApp;
   readonly now: () => number;
   readonly publish: (topic: string, frame: ServerMessage) => void;
-  readonly readingPolicy?: RealtimeReadingPolicy;
 }) {
   const authority = createRealtimeAuthorization({
     resources,
     now,
-    ...(readingPolicy ? { readingPolicy } : {}),
   });
   const tuning = resources.transport ?? {
     maxPerIp: 20,

@@ -1,5 +1,8 @@
 import { refuseSchemaAlteringRole, type Database } from '@daisy/db';
-import { createObservationAuthorityDecision } from '@daisy/auth/observation';
+import {
+  createObservationAuthorityDecision,
+  type ObservationReadingPolicy,
+} from '@daisy/auth/observation';
 import { ENVELOPE_VERSION, type MessagingCoreBounds } from '@daisy/protocol';
 import { createObservationAuthorityReader } from './observation-authority';
 import { createObservationClock } from './observation-clock';
@@ -8,7 +11,6 @@ import { createObservationSupervisor } from './observation-supervisor';
 import type { RealtimeApp } from './app';
 import { createRealtimeServer } from './server';
 import { createRealtimeDelivery } from './delivery';
-import type { RealtimeReadingPolicy } from './authorization';
 import {
   startOutboxDrain,
   type IntervalTimers,
@@ -32,9 +34,6 @@ function drainOptions(
 
 const listenerTls = (tls: Bun.TLSOptions | undefined) =>
   tls === undefined ? {} : { tls };
-
-const readerPolicy = (readingPolicy: RealtimeReadingPolicy | undefined) =>
-  readingPolicy === undefined ? {} : { readingPolicy };
 
 type Projection = NonNullable<
   NonNullable<Parameters<typeof serveRealtime>[0]['observation']>['projection']
@@ -65,7 +64,7 @@ function composeObservation({
   readonly resources: RealtimeApp;
   readonly timers: IntervalTimers;
   readonly now: () => number;
-  readonly readingPolicy: RealtimeReadingPolicy | undefined;
+  readonly readingPolicy: ObservationReadingPolicy | undefined;
   readonly onRestart: () => void;
   readonly observation: Parameters<typeof serveRealtime>[0]['observation'];
 }) {
@@ -163,7 +162,7 @@ export async function serveRealtime({
   readonly tls?: Bun.TLSOptions;
   readonly sink?: OutboxRowsSink;
   readonly now?: () => number;
-  readonly readingPolicy?: RealtimeReadingPolicy;
+  readonly readingPolicy?: ObservationReadingPolicy;
   readonly trustedProxies?: readonly string[];
   /** Eligible workers hold the narrow projection allocation; channel bodies
    * need the owning messaging bounds. Absent inputs leave kinds unavailable. */
@@ -201,7 +200,6 @@ export async function serveRealtime({
     resources,
     timers: scheduler,
     now,
-    ...readerPolicy(readingPolicy),
     publish: (topic, frame) => {
       if (!server || server.publish(topic, JSON.stringify(frame)) <= 0)
         throw new Error('Realtime recipient unavailable');
@@ -253,7 +251,7 @@ export async function serveRealtime({
   try {
     hintSubscription = await resources.database.listenRealtimeHints({
       onNotify: (frame) => {
-        void delivery.registry.hint(frame).catch(() => {});
+        observationRuntime.hint(frame);
       },
       // Lost hints and natural expiry use MSG's bounded HTTP refresh contract.
       // Reconnecting LISTEN must not manufacture a projection-change signal.

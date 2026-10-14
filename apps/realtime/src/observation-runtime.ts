@@ -2,6 +2,7 @@ import {
   ENVELOPE_VERSION,
   createObservationChannelBody,
   observationResourceKey,
+  parseTopic,
   type MessagingCoreBounds,
   type ObservationResource,
 } from '@daisy/protocol';
@@ -16,6 +17,7 @@ import { parseObservationControl } from '@daisy/redis';
 import type { createObservationAuthorityReader } from './observation-authority';
 import type { IntervalTimers } from './outbox-drain';
 import { workerCache } from './observation-worker-cache';
+import type { TypingHint } from './observation-frames';
 
 type Redis = RealtimeApp['redis'];
 type Projection = Pick<
@@ -249,6 +251,12 @@ export function createObservationRuntime({
           });
         },
       };
+    },
+    /** Typing hints reach the channel's current observers; no topic subscription. */
+    hint(frame: TypingHint) {
+      const topic = parseTopic(frame.topic);
+      if (topic?.family === 'channel')
+        sessions.hint({ kind: 'channel', id: topic.channelId }, frame);
     },
     stats: () => ({ node: node.stats(), sessions: sessions.stats() }),
     async close() {

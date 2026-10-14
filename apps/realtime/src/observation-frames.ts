@@ -4,6 +4,7 @@ import {
   type ObservationBase,
   type ObservationResource,
   type ObservationServerMessage,
+  type ServerMessage,
 } from '@daisy/protocol';
 import type { ObservationBinding } from '@daisy/db/observation';
 import type { ObservationGrant } from './observation-permit';
@@ -16,9 +17,10 @@ export type Request = {
   readonly resource: ObservationResource;
   readonly window: ObservationBase['window'];
 };
+export type TypingHint = Extract<ServerMessage, { type: 'typing_changed' }>;
 export type Outbound = {
-  /** Small control frames; validated by the socket. */
-  readonly send: (frame: ObservationServerMessage) => void;
+  /** Small control frames and resource hints; validated by the socket. */
+  readonly send: (frame: ObservationServerMessage | TypingHint) => void;
   /** Pre-encoded snapshot text; the shared body is validated once per key. */
   readonly sendText: (text: string) => void;
 };
