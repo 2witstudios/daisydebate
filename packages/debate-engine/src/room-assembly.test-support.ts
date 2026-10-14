@@ -1,4 +1,5 @@
 import type { RoomAssemblyState } from '@daisy/protocol';
+import { bareRoomConfig } from '@daisy/protocol/testing';
 const rules = {
   version: 2 as const,
   seats: { affirmative: 1, negative: 1, judge: 0 },
@@ -67,14 +68,7 @@ export const state = (): RoomAssemblyState => ({
       },
     },
   },
-  config: {
-    preRoundPrep: { enabled: false },
-    inRoundPrep: { enabled: false },
-    speechTiming: { countdownMs: 0, segmentDurationOverrides: {} },
-    crossExamination: { crossExMode: 'ordered' },
-    interruptions: null,
-    yielding: null,
-  },
+  config: bareRoomConfig,
   executionPlan: { preRoundPrep: { enabled: false } },
   rules,
   participants: [

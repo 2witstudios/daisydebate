@@ -1,6 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { emptyRuntimeCheckpoint, isNamedSeat, roundViewSchema } from './index';
 import {
+  bareRoomConfig,
   fixtureRules,
   practiceFormatFixture,
 } from './format-fixtures.test-support';
@@ -42,14 +43,7 @@ const view = {
   competitionType: 'ranked',
   topic: 'A topic',
   visibility: 'public',
-  config: {
-    preRoundPrep: { enabled: false },
-    inRoundPrep: { enabled: false },
-    speechTiming: { countdownMs: 0, segmentDurationOverrides: {} },
-    crossExamination: { crossExMode: 'ordered' },
-    interruptions: null,
-    yielding: null,
-  },
+  config: bareRoomConfig,
   rules,
   participants: [debater, anonymousJudge],
   startedAt: at(0),

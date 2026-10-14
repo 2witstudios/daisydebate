@@ -242,3 +242,13 @@ export const fixtureRules = (definition: FormatDefinition) => ({
   countdownMs: 0,
   interaction: { crossExMode: 'ordered', yield: null, interruptions: null },
 });
+
+/** The smallest valid resolved room config: every optional interaction off. */
+export const bareRoomConfig = {
+  preRoundPrep: { enabled: false },
+  inRoundPrep: { enabled: false },
+  speechTiming: { countdownMs: 0, segmentDurationOverrides: {} },
+  crossExamination: { crossExMode: 'ordered' },
+  interruptions: null,
+  yielding: null,
+} as const;
