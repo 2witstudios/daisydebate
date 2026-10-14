@@ -20,21 +20,31 @@ const base: MessagingGroupInvitationScope = {
 };
 const fact = channel(invitee, null, 0, 2);
 const manager = channel(inviter, 'manager', 2, 2);
-function wire(tail: Parameters<typeof fakeSql>[0], state = 'pending') {
+function wire(
+  tail: Parameters<typeof fakeSql>[0],
+  state = 'pending',
+  reading = false,
+) {
+  const fence = reading ? [{ id: channelId }] : [{ locked: true }];
   return fakeSql([
+    ...(reading ? [[]] : []),
     [invitation(state)],
     [{ fact }],
     accounts,
     [invitation(state)],
     [{ low_blocks_high: false, high_blocks_low: true, revision: 4 }],
-    [{ locked: true }],
+    fence,
     [{ fact }],
     ...tail,
   ]);
 }
 
 test('pending preview exposes only invitation state after ordered fresh authority, never title/history/grant', async () => {
-  const { client, queries } = wire([[invitation()], [{ fact: manager }]]);
+  const { client, queries } = wire(
+    [[invitation()], [{ fact: manager }]],
+    'pending',
+    true,
+  );
   let projected: unknown;
   const result = await createMessagingGroupInvitationStore({
     database: drizzle({ client }),
@@ -87,19 +97,27 @@ test('pending preview exposes only invitation state after ordered fresh authorit
       ],
     ],
   });
+  const order = queries.flatMap((q) =>
+    q.query.includes('daisy_authorization_read_accounts')
+      ? ['accounts']
+      : q.query.includes('for share')
+        ? ['pairs']
+        : q.query.includes('daisy_observation_authority_fences')
+          ? ['channel']
+          : [],
+  );
   assert({
     given: 'metadata-only reader',
     should:
-      'lock accounts then pairs then channel without content or grant writes',
+      'share-fence accounts, pairs and channel in order, never exclusively, with no content or grant writes',
     actual: [
-      queries[2]?.query.includes('daisy_authorization_accounts'),
-      queries[4]?.query.includes('for update'),
-      queries[5]?.query.includes('daisy_messaging_channel_fence'),
+      order,
+      queries.some((q) => /for update/.test(q.query)),
       queries.some((q) =>
         /messaging_messages|insert into|update /.test(q.query),
       ),
     ],
-    expected: [true, true, true, false],
+    expected: [['accounts', 'pairs', 'channel'], false, false],
   });
 });
 
@@ -200,6 +218,7 @@ for (const scenario of [
       scenario === 'absent'
         ? [[]]
         : [
+            [],
             [invitation()],
             [{ fact }],
             accounts,

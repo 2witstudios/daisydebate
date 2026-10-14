@@ -4,11 +4,15 @@ import { createAppError } from '@daisy/errors';
 import type { AuthorizationTransaction } from '../authorization';
 import { messagingContactPairs } from '../schema/messaging-social';
 import type { MessagingGroupInvitationFact } from './group-invitation-contracts';
-/** Only requested admission may materialize a pair; all refusals roll the same tx back. */
+/**
+ * Only requested admission may materialize a pair; all refusals roll the same
+ * tx back. Readers SHARE-lock the pairs, so they never block each other.
+ */
 export async function lockGroupContacts(
   tx: AuthorizationTransaction,
   actors: readonly string[],
   materialize: boolean,
+  mode: 'update' | 'share' = 'update',
 ): Promise<MessagingGroupInvitationFact['contactPairs']> {
   const members = [...new Set(actors)].sort();
   if ((members.length * (members.length - 1)) / 2 > 65535)
@@ -23,7 +27,7 @@ export async function lockGroupContacts(
           .values({ lowActorId, highActorId })
           .onConflictDoNothing();
       const rows = await tx.execute(
-        sql`select low_blocks_high,high_blocks_low,revision from public.messaging_contact_pairs where low_actor_id=${lowActorId} and high_actor_id=${highActorId} for update`,
+        sql`select low_blocks_high,high_blocks_low,revision from public.messaging_contact_pairs where low_actor_id=${lowActorId} and high_actor_id=${highActorId} for ${sql.raw(mode === 'share' ? 'share' : 'update')}`,
       );
       const pair = rows[0];
       if (!pair) continue;

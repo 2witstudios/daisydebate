@@ -3,7 +3,12 @@ import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import { messagingSocialCommands } from '../schema/messaging-social';
-import { withLockedMessagingAuthority } from './authority-frame';
+import {
+  retrySharedRead,
+  withLockedMessagingAuthority,
+  withSharedMessagingAuthority,
+  type MessagingOperationTransaction,
+} from './authority-frame';
 import {
   readGroupInvitationRow,
   groupInvitationFacts,
@@ -28,10 +33,14 @@ export function createMessagingGroupInvitationStore({
     withInvitation: (scope, work) => {
       if (!idSchema.safeParse(scope.inviteeActorId).success)
         throw createAppError('VALIDATION');
-      return database.transaction(async (tx) => {
+      // A preview only reads: compatible fences, restarted if the cast moved.
+      const reading = scope.operation === 'read';
+      const run = async (tx: MessagingOperationTransaction) => {
         const discovered = await readGroupInvitationRow(tx, scope);
         let contacts: MessagingGroupInvitationFact['contactPairs'] = [];
-        return withLockedMessagingAuthority(
+        return (
+          reading ? withSharedMessagingAuthority : withLockedMessagingAuthority
+        )(
           tx,
           scope,
           async (authority) => {
@@ -144,11 +153,15 @@ export function createMessagingGroupInvitationStore({
                     ]
                   : [discovered.invitedByActorId, scope.inviteeActorId],
                 admitting,
+                reading ? 'share' : 'update',
               );
             },
           },
         );
-      });
+      };
+      return reading
+        ? retrySharedRead(database, run)
+        : database.transaction(run);
     },
   };
 }

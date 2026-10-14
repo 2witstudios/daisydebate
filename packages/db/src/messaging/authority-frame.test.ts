@@ -57,7 +57,18 @@ for (const [changed, locked, extended] of [
       transaction: async (work: (value: typeof tx) => Promise<unknown>) =>
         work(tx),
     } as unknown as BunSQLDatabase;
-    const base = createMessagingChannelAuthority(database);
+    // Exclusive authority writers keep this frame; readers take the shared one below.
+    const base = <T>(
+      scope: Parameters<typeof withLockedMessagingAuthority>[1],
+      work: (
+        frame: Parameters<
+          Parameters<typeof withLockedMessagingAuthority>[2]
+        >[0],
+      ) => Promise<T>,
+    ) =>
+      database.transaction((current) =>
+        withLockedMessagingAuthority(current, scope, work),
+      );
     const read: typeof base = extended
       ? (scope, work) =>
           database.transaction((current) =>
@@ -142,3 +153,87 @@ for (const [changed, locked, extended] of [
     });
   });
 }
+
+for (const drifting of [false, true])
+  test(`the public channel authority reads under shared fences${drifting ? ' and gives up after bounded restarts' : ''}`, async () => {
+    const fact = messagingAuthorityFixture();
+    if (fact.authority.kind !== 'dm') throw new Error('DM fixture required');
+    const actorId = fact.authority.lowActorId;
+    const userId = 'u'.repeat(24);
+    const statements: string[] = [];
+    let reads = 0,
+      transactions = 0,
+      used = 0;
+    const dialect = new PgDialect();
+    const tx = {
+      execute: async (query: SQL) => {
+        const text = dialect.sqlToQuery(query).sql;
+        statements.push(text);
+        if (text.includes('jsonb_build_object')) {
+          reads += 1;
+          // A drifting cast differs on every post-fence reread.
+          return [
+            {
+              fact:
+                drifting && reads % 2 === 0
+                  ? {
+                      ...fact,
+                      authority: {
+                        ...fact.authority,
+                        highActorId: 'd'.repeat(24),
+                      },
+                    }
+                  : fact,
+            },
+          ];
+        }
+        if (text.includes('daisy_authorization_read_accounts'))
+          return [
+            { actorId, userId, member: true, erased: false, revision: 9 },
+          ];
+        return [{ id: fact.channelId }];
+      },
+    };
+    const database = {
+      transaction: async (work: (value: typeof tx) => Promise<unknown>) => {
+        transactions += 1;
+        return work(tx);
+      },
+    } as unknown as BunSQLDatabase;
+    const read = () =>
+      createMessagingChannelAuthority(database)(
+        { actorId, userId, channelId: fact.channelId },
+        async () => {
+          used += 1;
+        },
+      );
+    if (drifting)
+      await assertRejects({
+        given: 'a cast that moves during every shared fence wait',
+        should: 'restart at most twice, then refuse as INFRASTRUCTURE',
+        actual: read,
+        code: 'INFRASTRUCTURE',
+      });
+    else await read();
+    assert({
+      given: 'the public (realtime and web) channel authority',
+      should:
+        'take only compatible fences, never an exclusive lock, and bound its restarts',
+      actual: {
+        exclusive: statements.some((text) =>
+          /for update|daisy_authorization_accounts\(/.test(text),
+        ),
+        shared: statements.some((text) =>
+          text.includes('daisy_observation_authority_fences'),
+        ),
+        transactions,
+        used,
+      },
+      expected: {
+        exclusive: false,
+        shared: true,
+        transactions: drifting ? 3 : 1,
+        used: drifting ? 0 : 1,
+      },
+    });
+  });
