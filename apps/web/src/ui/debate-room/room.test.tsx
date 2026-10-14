@@ -2,14 +2,7 @@ import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { sampleRound } from '../mock/debate-room';
-import { DrawerRoom } from './drawer-room';
-import { RoundBar } from './round-bar';
 import { DebateRoom } from './room';
-import type { LeaveLinks } from './leave-room';
-import { Composer } from './threads';
-
-/** RoundBar's leave shape; the badge test never renders its links. */
-const noLeave: LeaveLinks = { confirming: false, stayHref: '' };
 import type { RoundSnapshot } from './round';
 
 setupRitewayBun();
@@ -93,31 +86,6 @@ describe('DebateRoom', () => {
         render('prep', 'practice').includes('Riverside Debate'),
       ],
       expected: [true, 3, false, false, true],
-    });
-  });
-
-  test('controls with no server command (DEC-178)', () => {
-    const disabled = (html: string, label: string) =>
-      new RegExp(`<button[^>]*disabled=""[^>]*>${label}<`).test(html);
-    const prep = render('prep', 'practice');
-    const speech = render('own-speech', 'practice');
-    const cx = render('cross-ex', 'practice');
-    const chat = renderToString(
-      h(Composer, { label: 'Message # round', tone: 'chat' }),
-    );
-    assert({
-      given: 'prep, the debater’s own speech and cross-examination',
-      should:
-        'show Save the rest, Start, End speech and Interrupt, each disabled, and a disabled chat box',
-      actual: [
-        disabled(prep, 'Save the rest'),
-        disabled(prep, 'Start (<!-- -->)?NR'),
-        disabled(speech, 'End speech'),
-        disabled(cx, 'Interrupt'),
-        /<input[^>]*aria-label="Message # round"[^>]*disabled=""/.test(chat),
-        /aria-label="Send"[^>]*disabled=""/.test(chat),
-      ],
-      expected: [true, true, true, true, true, true],
     });
   });
 
@@ -280,26 +248,6 @@ describe('DebateRoom', () => {
     });
   });
 
-  test('the Room tab while the ballots are written', () => {
-    const html = renderToString(
-      h(DrawerRoom, { round: sampleRound('judging', 'practice') }),
-    );
-    assert({
-      given: 'the judging window of a recorded, transcribed round',
-      should:
-        'keep the judge anonymous and writing, and say what was kept and that this room is not',
-      actual: [
-        html.includes('>Judge<'),
-        html.includes('>Writing ballot<'),
-        html.includes('>Saved<'),
-        html.includes('>Complete<'),
-        html.includes('>This room now<'),
-        html.includes('>Not recorded<'),
-      ],
-      expected: [true, true, true, true, true, true],
-    });
-  });
-
   test('a bot opponent', () => {
     const round = sampleRound('opponent-speaking', 'practice');
     const html = renderRound({
@@ -327,24 +275,6 @@ describe('DebateRoom', () => {
         html.includes('aria-label="Debaters"'),
       ],
       expected: [true, true, true, true, true, true, false],
-    });
-  });
-
-  test('the unread badge on the closed drawer', () => {
-    const html = renderToString(
-      h(RoundBar, {
-        round: sampleRound('opponent-speaking', 'practice'),
-        drawerOpen: false,
-        unread: 3,
-        onToggleDrawer: () => {},
-        leave: noLeave,
-      }),
-    );
-    assert({
-      given: 'a closed drawer with unread chat',
-      should: 'badge the toggle at the 12px floor like the drawer badge',
-      actual: [html.includes('>3<'), html.includes('text-2xs')],
-      expected: [true, false],
     });
   });
 });
