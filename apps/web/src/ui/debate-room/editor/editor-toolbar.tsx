@@ -83,7 +83,7 @@ const toneIcon = { dark: 'moon', light: 'sun' } as const;
 
 const tool = (on: boolean) =>
   cn(
-    'flex size-8 cursor-pointer items-center justify-center rounded-sm transition-colors',
+    'flex size-room-target shrink-0 cursor-pointer items-center justify-center rounded-sm transition-colors',
     on ? 'bg-surface-overlay text-ink' : 'text-ink-muted hover:text-ink',
   );
 
@@ -152,11 +152,11 @@ export function EditorToolbar({
     tools.current[next]?.focus();
   };
   return (
-    <div className="flex flex-wrap items-center gap-1 border-b border-border bg-surface-raised px-2 py-1">
+    <div className="flex flex-wrap items-center gap-1 border-b border-border bg-surface-raised px-2 py-1 max-narrow:flex-nowrap max-narrow:overflow-x-auto">
       <div
         role="toolbar"
         aria-label="Formatting"
-        className="flex flex-wrap items-center gap-1"
+        className="flex shrink-0 flex-wrap items-center gap-1 max-narrow:flex-nowrap"
         onKeyDown={onKeyDown}
       >
         {formats.map((f, index) => (
@@ -172,7 +172,7 @@ export function EditorToolbar({
             <Icon name={f.icon} size={16} />
           </button>
         ))}
-        <span aria-hidden="true" className="mx-1 h-5 w-px bg-border" />
+        <span aria-hidden="true" className="mx-1 h-5 w-px shrink-0 bg-border" />
         <div
           role="group"
           aria-label="Debate marks"
@@ -184,7 +184,7 @@ export function EditorToolbar({
               type="button"
               aria-pressed={Boolean(active.marks[m])}
               className={cn(
-                'h-8 cursor-pointer rounded-sm px-3 text-sm font-strong',
+                'h-room-target min-w-room-target shrink-0 cursor-pointer rounded-sm px-3 text-sm font-strong',
                 markTone[m],
                 active.marks[m] && 'ring-2 ring-current',
               )}
@@ -196,14 +196,14 @@ export function EditorToolbar({
           ))}
         </div>
       </div>
-      <span className="ml-auto inline-flex items-center gap-1 text-xs text-ink-faint">
+      <span className="ml-auto inline-flex shrink-0 items-center gap-1 text-xs whitespace-nowrap text-ink-faint">
         <Icon name="lock" size={13} />
         {access}
       </span>
       <select
         aria-label="Page"
         value={layoutValue(active.layout)}
-        className="h-8 cursor-pointer rounded-sm border border-border-strong bg-surface-raised px-2 text-sm text-ink"
+        className="h-room-target shrink-0 cursor-pointer rounded-sm border border-border-strong bg-surface-raised px-2 text-sm text-ink"
         onChange={(event) =>
           editor
             .chain()
@@ -219,12 +219,12 @@ export function EditorToolbar({
           </option>
         ))}
       </select>
-      <div role="group" aria-label="Text size" className="flex gap-px">
+      <div role="group" aria-label="Text size" className="flex shrink-0 gap-px">
         <button
           type="button"
           aria-label="Smaller text"
           disabled={textSize === textSizes[0]}
-          className={cn(tool(false), 'w-10 text-xs disabled:opacity-50')}
+          className={cn(tool(false), 'text-xs disabled:opacity-50')}
           onClick={() => onTextSize(stepTextSize(textSize, -1))}
         >
           A−
@@ -233,7 +233,7 @@ export function EditorToolbar({
           type="button"
           aria-label="Larger text"
           disabled={textSize === textSizes.at(-1)}
-          className={cn(tool(false), 'w-10 text-md disabled:opacity-50')}
+          className={cn(tool(false), 'text-md disabled:opacity-50')}
           onClick={() => onTextSize(stepTextSize(textSize, 1))}
         >
           A+
@@ -242,7 +242,7 @@ export function EditorToolbar({
       <div
         role="group"
         aria-label="Page tone"
-        className="flex gap-px rounded-sm border border-border p-px"
+        className="flex shrink-0 gap-px rounded-sm border border-border p-px"
       >
         {(['dark', 'light'] as const).map((tone) => (
           <button

@@ -37,7 +37,7 @@ export function DrawerFiles({ tree, active, dispatch, transcript }: Props) {
       >
         <Icon name="search" size={16} />
         <span className="min-w-0 flex-1 text-left">Open or create</span>
-        <kbd className="rounded-sm border border-border-strong px-1 font-body text-2xs">
+        <kbd className="rounded-sm border border-border-strong px-1 font-body text-xs">
           ⌘K
         </kbd>
       </button>
@@ -48,7 +48,7 @@ export function DrawerFiles({ tree, active, dispatch, transcript }: Props) {
             aria-label={node.folder.title}
             className="flex flex-col gap-px"
           >
-            <h2 className="flex items-center gap-1 px-2 pb-1 text-2xs font-strong tracking-wider text-ink-muted uppercase">
+            <h2 className="flex items-center gap-1 px-2 pb-1 text-xs font-strong tracking-wider text-ink-muted uppercase">
               <span className="min-w-0 flex-1 truncate">
                 {node.folder.title}
               </span>
@@ -67,11 +67,11 @@ export function DrawerFiles({ tree, active, dispatch, transcript }: Props) {
                   >
                     <span className="min-w-0 flex-1 truncate">Transcript</span>
                     {transcript === 'live' ? (
-                      <span className="text-2xs font-strong text-live">
+                      <span className="text-xs font-strong text-live">
                         ● Live
                       </span>
                     ) : (
-                      <span className="text-2xs text-ink-muted">Complete</span>
+                      <span className="text-xs text-ink-muted">Complete</span>
                     )}
                   </button>
                 </li>

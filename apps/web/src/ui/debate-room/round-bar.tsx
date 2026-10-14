@@ -3,7 +3,7 @@
 import type { CompetitionType } from '@daisy/protocol';
 import { cn } from '../cn';
 import { Icon } from '../components/icon/icon';
-import { DRAWER_ID } from './drawer';
+import { DRAWER_ID, DRAWER_TOGGLE_ID } from './drawer';
 import { LeaveRoom, type LeaveLinks } from './leave-room';
 import type { RoundSnapshot } from './round';
 
@@ -56,6 +56,7 @@ export function RoundBar({
   return (
     <header className="flex min-h-round-bar shrink-0 items-center gap-3 border-b border-border px-4 py-1 max-narrow:gap-2">
       <button
+        id={DRAWER_TOGGLE_ID}
         type="button"
         aria-label={drawerLabel(drawerOpen, unread)}
         aria-expanded={drawerOpen}

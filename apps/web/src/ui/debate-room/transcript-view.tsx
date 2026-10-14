@@ -41,7 +41,7 @@ export function TranscriptView({
             type="button"
             aria-pressed={filter === f.id}
             className={cn(
-              'h-6 cursor-pointer rounded-round border px-3 text-xs font-strong',
+              'h-room-target cursor-pointer rounded-round border px-3 text-xs font-strong',
               filter === f.id
                 ? 'border-transparent bg-surface-overlay text-ink'
                 : 'border-border text-ink-muted',
@@ -89,7 +89,7 @@ export function TranscriptView({
                   <button
                     type="button"
                     aria-label="Add to Flow"
-                    className="flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-sm border border-border text-hue-teal"
+                    className="flex size-room-target shrink-0 cursor-pointer items-center justify-center rounded-sm border border-border text-hue-teal"
                   >
                     <Icon name="plus" size={13} />
                   </button>

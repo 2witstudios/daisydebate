@@ -78,18 +78,16 @@ test('anonymous visits are sent to sign-in and the whole loop ends on the protec
   // The safe return destination survived, and the username is the identity.
   await declineOfferToLobby(page);
   await page.goto('/');
-  await expect(await profileLink(page, mine)).toHaveAttribute(
-    'href',
-    `/profile/${mine}`,
-  );
+  const own = await profileLink(page, mine);
+  await expect(own).toBeVisible();
+  await expect(own).toHaveAttribute('href', `/profile/${mine}`);
 
   // The durable session and the persisted identity survive a reload and a
   // fresh request: the same account, with the username it claimed.
   await page.reload();
-  await expect(await profileLink(page, mine)).toHaveAttribute(
-    'href',
-    `/profile/${mine}`,
-  );
+  const reloaded = await profileLink(page, mine);
+  await expect(reloaded).toBeVisible();
+  await expect(reloaded).toHaveAttribute('href', `/profile/${mine}`);
   const session = await page.request.get('/api/auth/get-session');
   const body = (await session.json()) as {
     user: { email: string; username: string; emailVerified: boolean };

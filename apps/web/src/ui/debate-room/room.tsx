@@ -21,14 +21,15 @@ import { CommandPalette, type PaletteChoice } from './command-palette';
 import { LayoutMenu, PhoneActions, RoundControls } from './controls';
 import type { DocumentSync } from './document-sync';
 import type { SaveState } from './document-pane';
-import { chatUnread, RoundDrawer } from './drawer';
+import { chatUnread, DRAWER_ID, DRAWER_TOGGLE_ID, RoundDrawer } from './drawer';
+import { focusReturnTarget } from './focus-return';
 import type { LeaveLinks } from './leave-room';
 import { VideoDivider } from './video-divider';
 import { RoomDocument } from './room-document';
 import { initialRoomState, reduceRoom, type RoomAction } from './room-state';
 import type { RoundSnapshot } from './round';
 import { RoundBar } from './round-bar';
-import { RoundTabs } from './round-tabs';
+import { CURRENT_ROUND_TAB, RoundTabs } from './round-tabs';
 import { VideoStage } from './stage';
 import { usePaletteShortcut } from './use-palette-shortcut';
 import { useDocumentSync } from './use-document-sync';
@@ -43,6 +44,27 @@ function useVideoVariables(video: number) {
     style.setProperty('--room-workspace', `${workspaceMinHeight(video)}px`);
   }, [video]);
   return root;
+}
+
+const COLUMN_ID = 'round-column';
+
+/**
+ * Focus inside the drawer when it closes, or inside the column a phone tab
+ * hides, goes back to the drawer toggle or the phone tab now showing.
+ */
+function useFocusReturn(drawerOpen: boolean, phoneDrawer: boolean) {
+  useLayoutEffect(() => {
+    const active = document.activeElement;
+    const target = focusReturnTarget(
+      active,
+      [document.getElementById(DRAWER_ID), document.getElementById(COLUMN_ID)],
+      [
+        document.getElementById(DRAWER_TOGGLE_ID),
+        document.querySelector<HTMLElement>(CURRENT_ROUND_TAB),
+      ],
+    );
+    target?.focus();
+  }, [drawerOpen, phoneDrawer]);
 }
 
 const noLeave: LeaveLinks = {
@@ -103,6 +125,7 @@ export function DebateRoom({ round, sync, ...props }: RoomProps) {
   const Stage = round.opponent.bot ? BotStage : VideoStage;
   const root = useVideoVariables(video);
   usePaletteShortcut(dispatch);
+  useFocusReturn(state.drawerOpen, state.phoneDrawer);
   const { problem, setProblem } = useDocumentSync(sync, dispatch);
   const unread = chatUnread(round, state);
   const alert = problem ?? props.notice ?? null;
@@ -121,6 +144,7 @@ export function DebateRoom({ round, sync, ...props }: RoomProps) {
       <div className="flex min-h-0 flex-1">
         <RoundDrawer round={round} state={state} dispatch={dispatch} />
         <div
+          id={COLUMN_ID}
           className={cn(
             'flex min-w-0 flex-1 flex-col overflow-y-auto',
             state.phoneDrawer && 'max-narrow:hidden',
