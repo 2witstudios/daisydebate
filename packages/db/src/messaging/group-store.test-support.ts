@@ -47,7 +47,20 @@ export function groupStoreFacts() {
 
 /** Real driver responses for channel advancement and two recipient outbox inserts. */
 export function groupWriteBellRows() {
-  return [[], [], [[1, '9']], [], [], [[2, '9']], [], [[3, '9']], []];
+  // Receipt, authority update, then the stream row locked and advanced before the bells.
+  return [
+    [],
+    [],
+    [[0, 3]],
+    [],
+    [[1, '9']],
+    [],
+    [],
+    [[2, '9']],
+    [],
+    [[3, '9']],
+    [],
+  ];
 }
 export function groupWrittenBells(
   queries: readonly {

@@ -8,7 +8,7 @@ import {
 } from '@daisy/auth/authorization';
 import { socialPostingPolicy } from '@daisy/auth/social-policy';
 import { messagingTypingSchemas } from '@daisy/protocol';
-import type { MessagingRuntimePolicy } from './composition';
+import type { MessagingRuntimePolicy } from './messaging';
 type Lease = ReturnType<typeof messagingTypingSchemas.lease.parse>;
 export function typingAuthority({
   channels,

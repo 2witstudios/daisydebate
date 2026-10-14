@@ -3,12 +3,15 @@ import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { messagingChannels } from '../schema/messaging-channels';
 import { withLockedMessagingAuthority } from './authority-frame';
+import { lockMessagingStream, type MessagingStreamCounters } from './stream';
 import type { MessagingChannelStore } from './records';
 type Input = Parameters<MessagingChannelStore['withChannel']>[0];
 type AuthorityWork = Parameters<typeof withLockedMessagingAuthority>[2];
 type Frame = Parameters<AuthorityWork>[0] & {
   readonly tx: Pick<BunSQLDatabase, 'select' | 'insert' | 'update' | 'execute'>;
   readonly channel: typeof messagingChannels.$inferSelect;
+  /** Locked after every authority fence: account -> pair -> channel -> stream. */
+  readonly stream: MessagingStreamCounters;
 };
 
 /** Message/file readers extend the shared authority fence with their own counters. */
@@ -24,7 +27,8 @@ export async function withMessagingChannel<T>(
         .from(messagingChannels)
         .where(eq(messagingChannels.id, input.channelId));
       if (!channel) throw createAppError('NOT_FOUND');
-      return work({ ...authority, tx, channel });
+      const stream = await lockMessagingStream(tx, channel.id);
+      return work({ ...authority, tx, channel, stream });
     }),
   );
 }

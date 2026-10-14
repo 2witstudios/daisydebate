@@ -6,7 +6,7 @@ import {
   messagingTestPosting,
   messagingTestReading,
 } from '@daisy/auth/testing';
-import type { MessagingRuntimePolicy } from '../src/features/messaging/composition';
+import type { MessagingRuntimePolicy } from '../src/features/messaging/messaging';
 import { requireMessagingActor } from '../src/features/messaging/principal';
 import { createAccountFlows, uniqueName } from './auth-account-helpers';
 import { createTestApp } from './fixtures';

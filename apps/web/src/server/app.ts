@@ -2,7 +2,7 @@ import { createMessagingReactionSchemas } from '@daisy/protocol';
 import type { MessagingFileRuntime } from '../features/messaging/files/runtime';
 import { currentFairnessKey } from './fairness';
 import { readRealtimePublicUrl } from '@daisy/config';
-import type { MessagingRuntimePolicy } from '../features/messaging/composition';
+import type { MessagingRuntimePolicy } from '../features/messaging/messaging';
 import type { RoomPolicy } from '../features/room-runtime/composition';
 import type { Clock, IdGenerator } from '@daisy/clock';
 import {

@@ -26,7 +26,7 @@ test('messaging rights erase subject associations atomically and preserve other 
   const adopter = createMessagingPrivacyAdopter();
   try {
     await client.unsafe(
-      'update messaging_channels set message_sequence=2,change_version=2 where id=$1',
+      'update messaging_channel_streams set message_sequence=2,change_version=2 where channel_id=$1',
       [channelId],
     );
     await client.unsafe(

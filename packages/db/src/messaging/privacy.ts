@@ -63,16 +63,28 @@ async function lockSubjectMessaging(
   `);
 }
 
+/**
+ * The erasure's channel rows are already locked (ordered by id); each stream row
+ * is taken next, in channel order, and its change version advanced once per change.
+ */
 async function advanceChannel(
   tx: AuthorizationTransaction,
   channelId: string,
   authority: boolean,
 ) {
+  if (authority) {
+    const channels = rowsOf<{ id: string }>(
+      await tx.execute(sql`
+      update messaging_channels set authority_revision=authority_revision+1
+      where id=${channelId} and authority_revision < 9007199254740991 returning id
+    `),
+    );
+    if (!channels[0]) throw createAppError('CONFLICT');
+  }
   const rows = rowsOf<{ changeVersion: number }>(
     await tx.execute(sql`
-    update messaging_channels set change_version=change_version+1,
-      authority_revision=authority_revision+${authority ? 1 : 0}
-    where id=${channelId} and change_version < 9007199254740991 and authority_revision < 9007199254740991
+    update messaging_channel_streams set change_version=change_version+1
+    where channel_id=${channelId} and change_version < 9007199254740991
     returning change_version as "changeVersion"
   `),
   );

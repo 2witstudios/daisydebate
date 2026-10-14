@@ -12,7 +12,7 @@ import {
   typingAggregate,
   typingProjectionChanged,
 } from './typing-authority';
-import type { MessagingRuntimePolicy } from './composition';
+import type { MessagingRuntimePolicy } from './messaging';
 /** All Redis/vendor awaits remain within the actual SQL authority fence; no lease grants authority. */
 export function composeMessagingTyping({
   database,
@@ -39,8 +39,7 @@ export function composeMessagingTyping({
     const project = await database.messagingTypingStore(
       { ...actor, channelId },
       bounds.maxActors,
-      async (frame) => {
-        return runTypingFrame({
+      async (frame) => {        return runTypingFrame({
           actor,
           principal,
           channelId,
@@ -74,6 +73,9 @@ export function composeMessagingTyping({
           notify: frame.notify,
         });
       },
+      // The operation names itself; the store chooses the fence: a read takes
+      // shared authority fences, only a lease mutation the exclusive frame.
+      typing === undefined ? 'read' : 'write',
     );
     return project(clock.now());
   };

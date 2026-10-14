@@ -173,8 +173,8 @@ async function advanceReactionVersion(
   if (!Number.isSafeInteger(next) || previous < 0)
     throw createAppError('CONFLICT');
   const channels = await tx.execute(sql`
-    update messaging_channels set change_version=${next} where id=${channelId} and change_version=${previous}
-    returning id
+    update messaging_channel_streams set change_version=${next} where channel_id=${channelId} and change_version=${previous}
+    returning channel_id as id
   `);
   if (channels.length !== 1 || channels[0]?.id !== channelId)
     throw createAppError('CONFLICT');

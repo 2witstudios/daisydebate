@@ -70,12 +70,15 @@ test('protected history and changes preserve bounded pagination and authority-on
     actual: [
       queries[0]?.query.includes('strpos(lower('),
       queries[0]?.params.includes(channelId),
+      // One consistent cut: no message created after the stream high-water mark.
+      /"sequence" <= \$\d+/.test(queries[0]?.query ?? '') &&
+        queries[0]?.params.includes(counters.messageSequence),
       queries[3]?.query.includes('greatest('),
       queries[3]?.query
         .split('do update set')[1]
         ?.includes('notification_level'),
     ],
-    expected: [true, true, true, false],
+    expected: [true, true, true, true, false],
   });
 });
 test('each channel read refuses fresh authority loss before driver access', async () => {

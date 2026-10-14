@@ -26,7 +26,7 @@ test('mounted messaging composition uses real signed-in actors and shared HTTP g
   try {
     await seedMessagingRouteDm(client, me, peer, channelId, now);
     await client.unsafe(
-      'update messaging_channels set change_version=1 where id=$1',
+      'update messaging_channel_streams set change_version=1 where channel_id=$1',
       [channelId],
     );
     const sent = await routes.messaging.send(
@@ -177,7 +177,7 @@ test('mounted messaging composition uses real signed-in actors and shared HTTP g
       expected: 404,
     });
     await client.unsafe(
-      'update messaging_channels set change_version=change_version+1 where id=$1',
+      'update messaging_channel_streams set change_version=change_version+1 where channel_id=$1',
       [channelId],
     );
     const exhausted = await routes.messaging.changes(

@@ -1,4 +1,5 @@
 import { invalidateMessagingInboxes } from './inbox-change';
+import { advanceMessagingStream, lockMessagingStream } from './stream';
 import { and, eq, gte, or, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
@@ -87,8 +88,14 @@ export function dmRequestFrame(
           policyRevision: command.policyRevision,
           lifecycle: 'active',
           createdAt: new Date(command.now),
-          changeVersion: 1,
         });
+        // A new channel's first change: its creation.
+        await advanceMessagingStream(
+          tx,
+          channelId,
+          await lockMessagingStream(tx, channelId),
+          { messages: 0, changes: 1 },
+        );
         await tx.insert(messagingDmPairs).values({
           lowActorId: pair.lowActorId,
           highActorId: pair.highActorId,

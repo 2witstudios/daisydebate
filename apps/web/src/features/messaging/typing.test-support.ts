@@ -3,9 +3,16 @@ import {
   messagingTestReading,
 } from '@daisy/auth/testing';
 import { accountAgeFact } from '@daisy/auth/account-age';
+import type { Database } from '@daisy/db';
 import type { MessagingChannelFact } from '@daisy/db/messaging-social';
-import type { MessagingRuntimePolicy } from './composition';
+import type { MessagingRuntimePolicy } from './messaging';
 import { typingAuthority } from './typing-authority';
+
+/** The transaction type a typing frame hands its caller, for inert test doubles. */
+export type TypingFrameTransaction = Parameters<
+  Parameters<Database['messagingTypingStore']>[2]
+>[0]['tx'];
+
 export function typingWorld() {
   const now = '2026-10-10T12:00:00.000Z';
   const ids = ['a'.repeat(24), 'b'.repeat(24)];

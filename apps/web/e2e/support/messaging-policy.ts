@@ -4,7 +4,7 @@ import {
   messagingTestGroupReading,
   messagingTestReading,
 } from '@daisy/auth/testing';
-import type { MessagingRuntimePolicy } from '../../src/features/messaging/composition';
+import type { MessagingRuntimePolicy } from '../../src/features/messaging/messaging';
 /** Explicit isolated browser proof inputs; never a production policy/default. */
 export const messagingBrowserPolicy: MessagingRuntimePolicy = {
   reactions: { reactionUnits: 8, choices: ['👍', '❤️'] },
