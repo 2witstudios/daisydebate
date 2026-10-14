@@ -3,8 +3,13 @@ import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { sampleRound } from '../mock/debate-room';
 import { DrawerRoom } from './drawer-room';
+import { RoundBar } from './round-bar';
 import { DebateRoom } from './room';
+import type { LeaveLinks } from './leave-room';
 import { Composer } from './threads';
+
+/** RoundBar's leave shape; the badge test never renders its links. */
+const noLeave: LeaveLinks = { confirming: false, stayHref: '' };
 import type { RoundSnapshot } from './round';
 
 setupRitewayBun();
@@ -322,6 +327,24 @@ describe('DebateRoom', () => {
         html.includes('aria-label="Debaters"'),
       ],
       expected: [true, true, true, true, true, true, false],
+    });
+  });
+
+  test('the unread badge on the closed drawer', () => {
+    const html = renderToString(
+      h(RoundBar, {
+        round: sampleRound('opponent-speaking', 'practice'),
+        drawerOpen: false,
+        unread: 3,
+        onToggleDrawer: () => {},
+        leave: noLeave,
+      }),
+    );
+    assert({
+      given: 'a closed drawer with unread chat',
+      should: 'badge the toggle at the 12px floor like the drawer badge',
+      actual: [html.includes('>3<'), html.includes('text-2xs')],
+      expected: [true, false],
     });
   });
 });

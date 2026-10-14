@@ -69,7 +69,7 @@ export function RoundBar({
       >
         <Icon name="drawer" size={18} />
         {!drawerOpen && unread > 0 ? (
-          <span className="absolute -top-1 -right-1 min-w-4 rounded-round bg-live px-1 text-center text-2xs font-bold text-background tabular-nums">
+          <span className="absolute -top-1 -right-1 min-w-4 rounded-round bg-live px-1 text-center text-xs font-bold text-background tabular-nums">
             {unread}
           </span>
         ) : null}
