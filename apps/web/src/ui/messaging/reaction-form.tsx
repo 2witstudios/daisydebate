@@ -4,7 +4,7 @@ import {
   useFocusAfterAnswer,
   type FormAction,
 } from '../form-action/form-action';
-import { useMovedOn } from '../form-action/use-moved-on';
+import { useMovedOnce, useMovedOnRemainder } from '../form-action/use-moved-on';
 import { Button } from '../components/button/button';
 import { DraftNotice } from './draft-notice';
 export type ReactionFormState = {
@@ -27,12 +27,14 @@ export function ReactionForm({
   readonly reaction: string;
   readonly active: boolean;
 }) {
+  const moved = useMovedOnce();
   const [answer, post, pending] = useFormAction(
     action,
     { requestId },
     unavailable,
+    moved,
   );
-  useMovedOn(answer.next);
+  useMovedOnRemainder(answer.next, moved);
   useFocusAfterAnswer(
     answer,
     answer.notice ? `reaction-${answer.requestId}` : undefined,

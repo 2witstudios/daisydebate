@@ -4,7 +4,7 @@ import {
   useFocusAfterAnswer,
   type FormAction,
 } from '../form-action/form-action';
-import { useMovedOn } from '../form-action/use-moved-on';
+import { useMovedOnce, useMovedOnRemainder } from '../form-action/use-moved-on';
 import { Button } from '../components/button/button';
 import { DraftNotice } from './draft-notice';
 import {
@@ -18,12 +18,14 @@ export function PreferenceForm({
   readonly state: PreferenceFormState;
   readonly action: FormAction<PreferenceFormState>;
 }) {
+  const moved = useMovedOnce();
   const [answer, post, pending] = useFormAction(
     action,
     state,
     preferenceUnavailable,
+    moved,
   );
-  useMovedOn(answer.next);
+  useMovedOnRemainder(answer.next, moved);
   useFocusAfterAnswer(
     answer,
     answer.notice ? 'preference-notice' : 'preference-save',

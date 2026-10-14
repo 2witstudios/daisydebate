@@ -8,13 +8,12 @@ import {
   type FormAction,
 } from '../../form-action/form-action';
 import { commandUnavailable } from '../../../features/rooms/command-answer';
-import { useMovedOn } from '../../form-action/use-moved-on';
+import {
+  useMovedOnce,
+  useMovedOnRemainder,
+} from '../../form-action/use-moved-on';
 import { FormError } from '../../components/form-field/form-field';
 
-function CommandNavigation({ next }: { readonly next: string }) {
-  useMovedOn(next);
-  return null;
-}
 /** Native POST keeps the server action; hydrated transport failures preserve a retryable form. */
 export function AssemblyCommandForm({
   action,
@@ -25,13 +24,16 @@ export function AssemblyCommandForm({
   readonly children: ReactNode;
   readonly className?: string;
 }) {
+  const moved = useMovedOnce();
   const [state, post, pending] = useFormAction(
     action,
     { values: {} },
     commandUnavailable,
+    moved,
   );
   const controlsId = useId();
   const feedbackId = useId();
+  useMovedOnRemainder(state.next, moved);
   useFocusAfterAnswer(
     state,
     state.error ? feedbackId : controlsId,
@@ -39,7 +41,6 @@ export function AssemblyCommandForm({
   );
   return (
     <form action={post} className={className} aria-busy={pending}>
-      {state.next ? <CommandNavigation next={state.next} /> : null}
       <fieldset
         id={controlsId}
         tabIndex={-1}

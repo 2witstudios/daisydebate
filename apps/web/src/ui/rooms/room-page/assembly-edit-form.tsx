@@ -10,7 +10,10 @@ import {
   useFormAction,
   type FormAction,
 } from '../../form-action/form-action';
-import { useMovedOn } from '../../form-action/use-moved-on';
+import {
+  useMovedOnce,
+  useMovedOnRemainder,
+} from '../../form-action/use-moved-on';
 import { FormError } from '../../components/form-field/form-field';
 
 export function AssemblyEditFeedback({
@@ -40,6 +43,7 @@ export function AssemblyEditForm({
   readonly disclosure?: string;
   readonly children: (state: MockFormState, pending: boolean) => ReactNode;
 }) {
+  const moved = useMovedOnce();
   const [state, post, pending] = useFormAction(
     action,
     { values: {} },
@@ -47,8 +51,9 @@ export function AssemblyEditForm({
       values: formValues(form),
       error: 'These changes are not saved. Try again.',
     }),
+    moved,
   );
-  useMovedOn(state.next);
+  useMovedOnRemainder(state.next, moved);
   const feedbackId = useId();
   useFocusAfterAnswer(state, feedbackId, !pending && state.next === undefined);
   const form = (

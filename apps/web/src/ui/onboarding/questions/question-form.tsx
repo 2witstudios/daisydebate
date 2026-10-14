@@ -10,7 +10,10 @@ import {
   useFormAction,
   type FormAction,
 } from '../../form-action/form-action';
-import { useMovedOn } from '../../form-action/use-moved-on';
+import {
+  useMovedOnce,
+  useMovedOnRemainder,
+} from '../../form-action/use-moved-on';
 import { AboutStep, ExperienceStep, TopicsStep } from './questions';
 import { initialStepForm, type StepFormState } from './step-form-state';
 import { refusedStep } from './submit-step';
@@ -41,12 +44,14 @@ export function QuestionForm({
   readonly backHref: string;
   readonly skip: ReactNode;
 }) {
+  const moved = useMovedOnce();
   const [answered, post, posting] = useFormAction(
     action,
     initialStepForm,
     refusedStep(step),
+    moved,
   );
-  useMovedOn(answered.next);
+  useMovedOnRemainder(answered.next, moved);
   const pending = posting || answered.next !== undefined;
   useFocusAfterAnswer(answered, 'onboarding-title', !pending);
   const Step = steps[step];

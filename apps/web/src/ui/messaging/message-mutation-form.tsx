@@ -4,7 +4,7 @@ import {
   useFocusAfterAnswer,
   type FormAction,
 } from '../form-action/form-action';
-import { useMovedOn } from '../form-action/use-moved-on';
+import { useMovedOnce, useMovedOnRemainder } from '../form-action/use-moved-on';
 import { Button } from '../components/button/button';
 import { DraftNotice } from './draft-notice';
 import { messageMutationUnavailable } from '../../features/messaging/forms/message-mutation-form';
@@ -21,17 +21,20 @@ export function MessageMutationForm({
   readonly removeRequestId: string;
   readonly maxUnits: number;
 }) {
+  const moved = useMovedOnce();
   const [answer, postEdit, editPending] = useFormAction(
     action,
     state,
     messageMutationUnavailable,
+    moved,
   );
   const [removeAnswer, postRemove, removePending] = useFormAction(
     action,
     { requestId: removeRequestId, text: '' },
     messageMutationUnavailable,
+    moved,
   );
-  useMovedOn(answer.next ?? removeAnswer.next);
+  useMovedOnRemainder(answer.next ?? removeAnswer.next, moved);
   useFocusAfterAnswer(
     answer,
     answer.notice ? `message-mutation-${answer.requestId}` : undefined,

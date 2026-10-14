@@ -8,7 +8,10 @@ import { FormError, FormField } from '../../components/form-field/form-field';
 import { controlClass } from '../../components/form-field/form-field-class';
 import { buttonClass } from '../../components/button/button-class';
 import { useFormAction, type FormAction } from '../../form-action/form-action';
-import { useMovedOn } from '../../form-action/use-moved-on';
+import {
+  useMovedOnce,
+  useMovedOnRemainder,
+} from '../../form-action/use-moved-on';
 
 type CreateState = {
   readonly values: Readonly<Record<string, string>>;
@@ -99,6 +102,7 @@ export function CreateAssemblyForm({
   readonly commandId: string;
   readonly choices: readonly RoomTemplate[];
 }) {
+  const moved = useMovedOnce();
   const [state, post, pending] = useFormAction(
     action,
     { values: {} },
@@ -106,8 +110,9 @@ export function CreateAssemblyForm({
       values: formValues(form),
       error: 'Unable to create the room. Try again.',
     }),
+    moved,
   );
-  useMovedOn(state.next);
+  useMovedOnRemainder(state.next, moved);
   return (
     <form
       action={post}

@@ -1,7 +1,10 @@
 'use client';
 
 import { useFormAction, type FormAction } from '../../form-action/form-action';
-import { useMovedOn } from '../../form-action/use-moved-on';
+import {
+  useMovedOnce,
+  useMovedOnRemainder,
+} from '../../form-action/use-moved-on';
 import { skipClass } from '../frame/frame';
 import { initialStepForm, type StepFormState } from './step-form-state';
 
@@ -17,12 +20,14 @@ export function SkipForm({
 }: {
   readonly action: FormAction<StepFormState>;
 }) {
+  const moved = useMovedOnce();
   const [answered, post, posting] = useFormAction(
     action,
     initialStepForm,
     skipUnavailable,
+    moved,
   );
-  useMovedOn(answered.next);
+  useMovedOnRemainder(answered.next, moved);
   const pending = posting || answered.next !== undefined;
   return (
     <form action={post} aria-busy={pending}>

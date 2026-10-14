@@ -4,7 +4,7 @@ import {
   useFocusAfterAnswer,
   type FormAction,
 } from '../form-action/form-action';
-import { useMovedOn } from '../form-action/use-moved-on';
+import { useMovedOnce, useMovedOnRemainder } from '../form-action/use-moved-on';
 import { Button } from '../components/button/button';
 import { DraftNotice } from './draft-notice';
 import {
@@ -22,12 +22,14 @@ export function GroupManagementForm({
   readonly requestId: string;
   readonly action: FormAction<GroupManagementFormState>;
 }) {
+  const moved = useMovedOnce();
   const [answer, post, pending] = useFormAction(
     action,
     { requestId, memberUsername: '' },
     groupManagementUnavailable,
+    moved,
   );
-  useMovedOn(answer.next);
+  useMovedOnRemainder(answer.next, moved);
   useFocusAfterAnswer(
     answer,
     answer.notice ? 'group-management-notice' : 'group-management-submit',

@@ -4,7 +4,7 @@ import {
   useFocusAfterAnswer,
   type FormAction,
 } from '../form-action/form-action';
-import { useMovedOn } from '../form-action/use-moved-on';
+import { useMovedOnce, useMovedOnRemainder } from '../form-action/use-moved-on';
 import { Button } from '../components/button/button';
 import { Notice } from '../components/notice/notice';
 import {
@@ -22,12 +22,14 @@ export function RequestDecision({
   readonly mode?: 'recipient' | 'sender';
   readonly subject?: 'request' | 'invitation';
 }) {
+  const moved = useMovedOnce();
   const [answer, post, pending] = useFormAction<DmDecisionFormState>(
     action,
     { requestId },
     dmDecisionUnavailable,
+    moved,
   );
-  useMovedOn(answer.next);
+  useMovedOnRemainder(answer.next, moved);
   useFocusAfterAnswer(
     answer,
     answer.notice ? 'request-notice' : 'request-primary',

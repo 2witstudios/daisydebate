@@ -2,7 +2,10 @@
 
 import { useState } from 'react';
 import { useFormAction } from '../../form-action/form-action';
-import { useMovedOn } from '../../form-action/use-moved-on';
+import {
+  useMovedOnce,
+  useMovedOnRemainder,
+} from '../../form-action/use-moved-on';
 import {
   claimUnavailable,
   initialUsernameForm,
@@ -33,13 +36,15 @@ export function Onboarding({
   readonly claim: ClaimAction;
   readonly signInHref: string;
 }) {
+  const moved = useMovedOnce();
   const [answered, post, posting] = useFormAction(
     claim,
     initialUsernameForm,
     claimUnavailable,
+    moved,
   );
   const [local, setLocal] = useState<LocalNotice>(undefined);
-  useMovedOn(answered.next);
+  useMovedOnRemainder(answered.next, moved);
   // Moving on keeps the form busy until the next page replaces it.
   const pending = posting || answered.next !== undefined;
   return (

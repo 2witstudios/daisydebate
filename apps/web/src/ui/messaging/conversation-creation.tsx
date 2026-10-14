@@ -5,7 +5,7 @@ import {
   useFocusAfterAnswer,
   type FormAction,
 } from '../form-action/form-action';
-import { useMovedOn } from '../form-action/use-moved-on';
+import { useMovedOnce, useMovedOnRemainder } from '../form-action/use-moved-on';
 import { Button } from '../components/button/button';
 import {
   creationFormUnavailable,
@@ -22,12 +22,14 @@ export function ConversationCreation({
   readonly requestId: string;
   readonly action: FormAction<CreationFormState>;
 }) {
+  const moved = useMovedOnce();
   const [answer, post, pending] = useFormAction(
     action,
     { requestId, recipients: '', title: '', introduction: '' },
     creationFormUnavailable,
+    moved,
   );
-  useMovedOn(answer.next);
+  useMovedOnRemainder(answer.next, moved);
   useFocusAfterAnswer(
     answer,
     answer.notice ? 'creation-notice' : 'creation-recipient',

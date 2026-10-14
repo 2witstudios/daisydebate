@@ -7,7 +7,7 @@ import {
   useFocusAfterAnswer,
   type FormAction,
 } from '../form-action/form-action';
-import { useMovedOn } from '../form-action/use-moved-on';
+import { useMovedOnce, useMovedOnRemainder } from '../form-action/use-moved-on';
 import { Button } from '../components/button/button';
 import {
   messageFormUnavailable,
@@ -25,10 +25,12 @@ export function MessageComposer({
   readonly channelId: string;
   readonly maxUnits: number;
 }) {
+  const moved = useMovedOnce();
   const [answer, post, pending] = useFormAction<MessageFormState>(
     action,
     { text: '', requestId },
     messageFormUnavailable,
+    moved,
   );
   const typing = useRef<ReturnType<typeof createBrowserTypingWriter> | null>(
     null,
@@ -44,7 +46,7 @@ export function MessageComposer({
   useEffect(() => {
     if (pending) void typing.current?.activity(false);
   }, [pending]);
-  useMovedOn(answer.next);
+  useMovedOnRemainder(answer.next, moved);
   useFocusAfterAnswer(
     answer,
     answer.notice ? 'message-notice' : 'message-text',

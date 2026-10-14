@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState, useEffect, useRef } from 'react';
+import type { MovedOn } from './use-moved-on';
 
 /** A form's server action, as `useActionState` calls it. */
 export type FormAction<S> = (state: Awaited<S>, form: FormData) => Promise<S>;
@@ -10,19 +11,25 @@ export type FormAction<S> = (state: Awaited<S>, form: FormData) => Promise<S>;
  * JavaScript on, a server action is a fetch the page makes; a dropped
  * connection rejects it before the action's own catch ever runs, and a
  * rejection inside `useActionState` replaces the page with the root error
- * screen (ISSUE-94).
+ * screen (ISSUE-94). Each settled answer is reported to `moved` from this
+ * continuation — before React commits — so a live update unmounting the
+ * form in the same commit cannot cancel the navigation it owes.
  */
 export const answerUnavailableOnThrow =
   <S>(
     action: FormAction<S>,
     unavailable: (form: FormData) => S,
+    moved?: (answer: S) => void,
   ): FormAction<S> =>
   async (state, form) => {
+    let answer: S;
     try {
-      return await action(state, form);
+      answer = await action(state, form);
     } catch {
-      return unavailable(form);
+      answer = unavailable(form);
     }
+    moved?.(answer);
+    return answer;
   };
 
 /**
@@ -30,17 +37,19 @@ export const answerUnavailableOnThrow =
  * answers `unavailable(form)` when it fails in transport. The server render
  * keeps the server action itself: React renders the form's no-JavaScript
  * POST, and adopts a posted form's answer, only from a server action, which
- * a wrapper is not. The browser only ever calls the wrapper.
+ * a wrapper is not. The browser only ever calls the wrapper, which reports
+ * every settled answer to `moved` at answer time.
  */
 export function useFormAction<S>(
   action: FormAction<S>,
   initial: Awaited<S>,
   unavailable: (form: FormData) => S,
+  moved?: MovedOn,
 ) {
   return useActionState(
     typeof window === 'undefined'
       ? action
-      : answerUnavailableOnThrow(action, unavailable),
+      : answerUnavailableOnThrow(action, unavailable, moved?.navigate),
     initial,
   );
 }

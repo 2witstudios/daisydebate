@@ -7,7 +7,7 @@ import {
   type MockFormState,
 } from '../../features/mock-form/form';
 import { useFocusAfterAnswer, useFormAction } from './form-action';
-import { useMovedOn } from './use-moved-on';
+import { useMovedOnce, useMovedOnRemainder } from './use-moved-on';
 
 export type MockFormAction = (
   state: MockFormState,
@@ -41,12 +41,14 @@ export function MockForm({
   readonly focusOnRefusal?: string;
   readonly children: (body: MockFormBody) => ReactNode;
 }) {
+  const moved = useMovedOnce();
   const [answered, post, posting] = useFormAction(
     action,
     initialMockForm,
     mockFormUnavailable,
+    moved,
   );
-  useMovedOn(answered.next);
+  useMovedOnRemainder(answered.next, moved);
   const pending = posting || answered.next !== undefined;
   useFocusAfterAnswer(
     answered,
