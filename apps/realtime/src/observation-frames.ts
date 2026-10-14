@@ -2,12 +2,13 @@ import {
   ENVELOPE_VERSION,
   observationResourceKey,
   type ObservationBase,
+  type ObservationOverlay,
   type ObservationResource,
   type ObservationServerMessage,
   type ServerMessage,
 } from '@daisy/protocol';
 import type { ObservationBinding } from '@daisy/db/observation';
-import type { ObservationGrant } from './observation-permit';
+import type { ObservationGrant, ObservationPermit } from './observation-permit';
 import type { ObservationSnapshot } from './observation-node';
 
 /** Socket-side observation frames and per-recipient helpers. */
@@ -35,6 +36,19 @@ export type Recipient = {
   release: () => void;
   /** Removes the recipient from its socket once its binding ends. */
   readonly forget: () => void;
+};
+/** One identical session binding on the node: its permit, its socket
+ * recipients, and the snapshot position every recipient shares. */
+export type SessionBinding = {
+  readonly key: string;
+  readonly input: ObservationBinding;
+  readonly permit: ObservationPermit;
+  readonly recipients: Set<Recipient>;
+  base: ObservationBase | null;
+  /** Actor-private facts from the latest canonical read; never shared. */
+  overlay: ObservationOverlay;
+  overlayBytes: number;
+  retryAt: number;
 };
 export const evidenceExpiry = (grant: ObservationGrant) =>
   Math.min(

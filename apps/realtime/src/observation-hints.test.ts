@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { buildChannelTopic, ENVELOPE_VERSION } from '@daisy/protocol';
+import { ENVELOPE_VERSION } from '@daisy/protocol';
 import { request, sessionsFixture } from './observation-sessions.test-support';
 setupRitewayBun();
 

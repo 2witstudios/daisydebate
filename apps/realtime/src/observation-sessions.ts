@@ -4,7 +4,6 @@ import {
   observationJsonBytes,
   observationOverlaySchema,
   type ObservationBase,
-  type ObservationOverlay,
 } from '@daisy/protocol';
 import type { ObservationBinding } from '@daisy/db/observation';
 import {
@@ -14,6 +13,8 @@ import {
 import type { ObservationAuthorityReadResult } from './observation-authority';
 import { createObservationAuthorityScheduler } from './observation-authority-scheduler';
 import type { ObservationSnapshot } from './observation-node';
+import { createObservationConnection } from './observation-connection';
+import { deliverObservationHint } from './observation-hints';
 import {
   bindingKey,
   detach,
@@ -24,20 +25,11 @@ import {
   type Principal,
   type Recipient,
   type Request,
+  type SessionBinding,
   type TypingHint,
 } from './observation-frames';
 
-type Binding = {
-  readonly key: string;
-  readonly input: ObservationBinding;
-  readonly permit: ObservationPermit;
-  readonly recipients: Set<Recipient>;
-  base: ObservationBase | null;
-  /** Actor-private facts from the latest canonical read; never shared. */
-  overlay: ObservationOverlay;
-  overlayBytes: number;
-  retryAt: number;
-};
+type Binding = SessionBinding;
 type AuthorityRead = (
   bindings: readonly ObservationBinding[],
 ) => Promise<readonly ObservationAuthorityReadResult[]>;
@@ -223,56 +215,16 @@ export function createObservationSessions({
     if (!binding.recipients.size) drop(binding);
   }
   function connect(principal: Principal, outbound: Outbound) {
-    const recipients = new Map<string, Recipient>();
-    let ended = false;
-    function unobserve(request: Request) {
-      const key = bindingKey(principal, request);
-      for (const [id, recipient] of recipients)
-        if (bindingKey(principal, recipient.request) === key) {
-          recipients.delete(id);
-          release(principal, recipient);
-        }
-    }
-    function observe(request: Request) {
-      if (ended || closed) return;
-      unobserve(request);
-      const recipient: Recipient = {
-        outbound,
-        request,
-        generation: 0,
-        base: null,
-        closed: false,
-        overlaySent: 'null',
-        release: () => {},
-        forget: () => {
-          if (recipients.get(request.id) === recipient)
-            recipients.delete(request.id);
-        },
-      };
-      const binding =
-        recipients.size < maxPerSession ? bind(principal, request) : null;
-      if (!binding) return state(recipient, 'unavailable');
-      binding.recipients.add(recipient);
-      recipients.set(request.id, recipient);
-      if (binding.permit.grant() && ready(binding, recipient)) return;
-      if (scheduler.admit(binding)) return;
-      state(recipient, 'unavailable');
-      recipients.delete(request.id);
-      release(principal, recipient);
-    }
-    return {
-      observe,
-      unobserve,
-      close() {
-        if (ended) return;
-        ended = true;
-        for (const recipient of recipients.values()) {
-          recipient.closed = true;
-          release(principal, recipient);
-        }
-        recipients.clear();
-      },
-    };
+    return createObservationConnection({
+      principal,
+      outbound,
+      maxPerSession,
+      isClosed: () => closed,
+      bind,
+      ready,
+      admit: (binding) => scheduler.admit(binding),
+      release,
+    });
   }
   return {
     connect,
@@ -293,21 +245,7 @@ export function createObservationSessions({
      * resource under a current permit, once; it carries no content and
      * needs no authority read of its own. */
     hint(resource: ObservationBinding['resource'], frame: TypingHint) {
-      const reached = new Set<Outbound>();
-      for (const binding of bindings.values()) {
-        const observed = binding.input.resource;
-        if (
-          observed.kind !== resource.kind ||
-          observed.id !== resource.id ||
-          !binding.permit.current()
-        )
-          continue;
-        for (const recipient of binding.recipients)
-          if (!recipient.closed && !reached.has(recipient.outbound)) {
-            reached.add(recipient.outbound);
-            recipient.outbound.send(frame);
-          }
-      }
+      deliverObservationHint(bindings.values(), resource, frame);
     },
     /** A durable session revocation fences that session's (or actor's) bindings. */
     revokeSession(actorId: string, sessionId: string | null) {
