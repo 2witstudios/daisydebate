@@ -1,4 +1,14 @@
-import type { FormatDefinition } from './index';
+import type { FormatDefinition, RoomConfig } from './index';
+
+/** A room config with no prep, timing overrides, interruptions or yielding. */
+export const plainRoomConfig: RoomConfig = {
+  preRoundPrep: { enabled: false },
+  inRoundPrep: { enabled: false },
+  speechTiming: { countdownMs: 0, segmentDurationOverrides: {} },
+  crossExamination: { crossExMode: 'ordered' },
+  interruptions: null,
+  yielding: null,
+};
 
 /** Shared practice-format fixture for protocol and engine contract tests. */
 export const practiceFormatFixture: FormatDefinition = {
