@@ -54,7 +54,7 @@ test('request decisions require observation and matching operation before writes
     [],
     [],
     // The decision's authority advance locks and advances the stream row.
-    [[0, 1]],
+    [{ messageSequence: 0, changeVersion: 1 }],
     [],
     [[1, '7']],
     [],

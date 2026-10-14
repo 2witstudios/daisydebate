@@ -51,7 +51,7 @@ export function groupWriteBellRows() {
   return [
     [],
     [],
-    [[0, 3]],
+    [{ messageSequence: 0, changeVersion: 3 }],
     [],
     [[1, '9']],
     [],

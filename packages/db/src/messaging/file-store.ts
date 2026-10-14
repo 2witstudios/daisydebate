@@ -1,7 +1,7 @@
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { channelFileFrame, type FileStore } from '../messaging-files';
 import { scopeFileFrame } from './file-capability';
-import { withMessagingChannel } from './channel-frame';
+import { withMessagingContent } from './channel-frame';
 import type { MessagingAuthorizationFence } from './records';
 
 /** Files share the message transaction fence, never a nested transaction. */
@@ -16,7 +16,7 @@ export function createMessagingFileStore({
 }): FileStore {
   return {
     withChannel: (input, capability, work) =>
-      withMessagingChannel(
+      withMessagingContent(
         database,
         input,
         async ({ tx, channel, stream, fact, accounts }) => {

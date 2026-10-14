@@ -7,6 +7,7 @@ type Pending<C, R> = {
   readonly actor: string;
   readonly bytes: number;
   readonly at: number;
+  cancelExpiry?: () => void;
   readonly resolve: (value: R) => void;
   readonly reject: (error: unknown) => void;
 };
@@ -43,6 +44,7 @@ export function createAppendCollector<C, R>({
     entry: Pending<C, R>,
     outcome: AppendOutcome<R>,
   ) => {
+    entry.cancelExpiry?.();
     count--;
     bytes -= entry.bytes;
     channel.count--;
@@ -74,6 +76,7 @@ export function createAppendCollector<C, R>({
         }
         if (batch.length === 32 || size + entry.bytes > 128 * 1024) break;
         channel.pending.splice(index, 1);
+        entry.cancelExpiry?.();
         batch.push(entry);
         size += entry.bytes;
         progressed = true;
@@ -127,16 +130,27 @@ export function createAppendCollector<C, R>({
       count++;
       bytes += size;
       queue.count++;
-      const result = new Promise<R>((resolve, reject) =>
-        queue.pending.push({
+      const result = new Promise<R>((resolve, reject) => {
+        const entry: Pending<C, R> = {
           command,
           actor,
           bytes: size,
           at: now(),
           resolve,
           reject,
-        }),
-      );
+        };
+        queue.pending.push(entry);
+        entry.cancelExpiry = schedule(() => {
+          const index = queue.pending.indexOf(entry);
+          if (index < 0) return;
+          queue.pending.splice(index, 1);
+          settle(queue, entry, { error: unavailable() });
+          if (!queue.pending.length && !queue.running) {
+            queue.cancel?.();
+            channels.delete(channelId);
+          }
+        }, 3000);
+      });
       const pendingBytes = queue.pending.reduce(
         (total, entry) => total + entry.bytes,
         0,

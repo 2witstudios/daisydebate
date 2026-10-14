@@ -5,7 +5,6 @@ import type {
   MessagingChannelStore,
   MessagingMutationCommand,
   MessagingMutationState,
-  MessagingMutationPlan,
 } from '@daisy/db/messaging';
 import { createAppError } from '@daisy/errors';
 import {
@@ -57,7 +56,7 @@ export async function mutateMessagingMessage(
   dependencies: {
     readonly bounds: MessagingCoreBounds;
     readonly editWindowMs: number;
-    readonly store: MessagingChannelStore;
+    readonly store: Pick<MessagingChannelStore, 'mutate'>;
     readonly clock: Clock;
     readonly limit: (actorId: string, channelId: string) => Promise<void>;
   },
@@ -71,26 +70,20 @@ export async function mutateMessagingMessage(
     kind,
   } as MessagingMutationCommand;
   const payloadDigest = digest(command);
-  return dependencies.store.withChannel(
-    { channelId: command.channelId, actorId, userId },
-    async (frame) => {
-      const state = await frame.readMutationState(command);
+  return dependencies.store.mutate({
+    scope: { channelId: command.channelId, actorId, userId },
+    command,
+    admit: () => dependencies.limit(actorId, command.channelId),
+    decide: (state) => {
       const existing = replay(command, state, actorId, payloadDigest);
-      if (existing) return existing;
-      // Avoid consuming a limit for foreign/unavailable/expired author operations.
-      const planAt = (current: MessagingMutationState) =>
-        planMessageMutation(command, current.message, {
-          actorId,
-          now: dependencies.clock.now(),
-          editWindowMs: dependencies.editWindowMs,
-          changeVersion: current.counters.changeVersion,
-        });
-      planAt(state);
-      await dependencies.limit(actorId, command.channelId);
-      const plan = planAt(await frame.readMutationState(command));
-      const mutation: MessagingMutationPlan = { ...plan, payloadDigest };
-      await frame.commitMutation(mutation);
-      return plan.message;
+      if (existing) return { kind: 'replay', message: existing };
+      const plan = planMessageMutation(command, state.message, {
+        actorId,
+        now: dependencies.clock.now(),
+        editWindowMs: dependencies.editWindowMs,
+        changeVersion: state.counters.changeVersion,
+      });
+      return { ...plan, kind: 'change', payloadDigest };
     },
-  );
+  });
 }

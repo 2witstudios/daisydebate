@@ -3,7 +3,7 @@ import { and, eq } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { buildChannelTopic, idSchema } from '@daisy/protocol';
-import { withMessagingChannel } from './channel-frame';
+import { withMessagingContent } from './channel-frame';
 import { advanceMessagingStream, readMessagingStream } from './stream';
 import { readMessagingAuthority } from './authority-frame';
 import { messageRecord } from './message-record';
@@ -32,6 +32,7 @@ export function createMessagingStore({
   readonly append?: ReturnType<typeof createMessagingAppend>;
 }): MessagingChannelStore {
   return {
+    mutate: (attempt) => append.mutate({ ...attempt, authorize }),
     send: (attempt) => append.send({ ...attempt, authorize }),
     withReadChannel: (input, work) =>
       readMessagingAuthority(
@@ -54,7 +55,7 @@ export function createMessagingStore({
         },
       ),
     withChannel: async (input, work) => {
-      return withMessagingChannel(
+      return withMessagingContent(
         database,
         input,
         async ({ tx, channel, stream, fact, accounts }) => {

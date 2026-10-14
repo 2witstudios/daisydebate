@@ -1,7 +1,7 @@
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { MessagingReactionPolicy } from '@daisy/protocol';
 import { readMessagingAuthority } from './authority-frame';
-import { withMessagingChannel } from './channel-frame';
+import { withMessagingContent } from './channel-frame';
 import { readMessagingStream } from './stream';
 import { channelReactionFrame } from './reaction-frame';
 import type {
@@ -21,12 +21,12 @@ export function createMessagingReactionStore(
       value: ReturnType<typeof channelReactionFrame>,
     ) => Promise<Awaited<ReturnType<MessagingReactionStore['read']>>>,
   ) =>
-    withMessagingChannel(database, scope, ({ tx, stream, fact, accounts }) =>
+    withMessagingContent(database, scope, ({ tx, stream, fact, accounts }) =>
       work(
         channelReactionFrame(
           tx,
           scope,
-          stream.changeVersion,
+          stream,
           policy,
           (operation, association) =>
             authorize(tx, scope, { fact, accounts }, operation, association),
@@ -36,21 +36,22 @@ export function createMessagingReactionStore(
   return {
     /** A summary read takes shared authority fences and the stream high-water mark. */
     read: (scope, messageId) =>
-      readMessagingAuthority(database, scope, async ({ tx, fact, accounts }) => {
-        const { changeVersion } = await readMessagingStream(
-          tx,
-          scope.channelId,
-        );
-        const value = channelReactionFrame(
-          tx,
-          scope,
-          changeVersion,
-          policy,
-          (operation, association) =>
-            authorize(tx, scope, { fact, accounts }, operation, association),
-        );
-        return value.read(messageId);
-      }),
+      readMessagingAuthority(
+        database,
+        scope,
+        async ({ tx, fact, accounts }) => {
+          const stream = await readMessagingStream(tx, scope.channelId);
+          const value = channelReactionFrame(
+            tx,
+            scope,
+            stream,
+            policy,
+            (operation, association) =>
+              authorize(tx, scope, { fact, accounts }, operation, association),
+          );
+          return value.read(messageId);
+        },
+      ),
     change: (scope, command, payloadDigest) =>
       frame(scope, (value) => value.change(command, payloadDigest)),
   };

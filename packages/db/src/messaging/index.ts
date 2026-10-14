@@ -7,10 +7,8 @@ export type {
   MessagingMessageRecord,
   MessagingSendCommand,
   MessagingSendState,
-  MessagingCreateSendPlan,
   MessagingMutationCommand,
   MessagingMutationState,
-  MessagingMutationPlan,
 } from './records';
 
 export { createMessagingPrivacyAdopter } from './privacy';
@@ -59,5 +57,3 @@ export type {
   MessagingInboxDecision,
   MessagingInboxPageFacts,
 } from './inbox-page-contracts';
-
-export type { MessagingSendAttempt } from './append';

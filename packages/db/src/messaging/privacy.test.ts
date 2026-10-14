@@ -138,14 +138,15 @@ test('subject export removes other-direction private state and serializes dates/
 test('erasure fences every subject channel before file cleanup and publishes final combined content-free version', async () => {
   const { client, queries } = fakeSql([
     [],
-    [],
+    [{ id: channelId }],
+    [{ messageSequence: 0, changeVersion: 1 }],
     [
       { id: 'm'.repeat(24), channelId, authorActorId: actorId },
       { id: 'n'.repeat(24), channelId, authorActorId: peerId },
     ],
-    [{ changeVersion: 2 }],
     [],
-    [{ changeVersion: 3 }],
+    [],
+    [],
     [],
     [],
     [],
@@ -161,7 +162,7 @@ test('erasure fences every subject channel before file cleanup and publishes fin
     [],
     [],
     [{ id: channelId }],
-    [{ changeVersion: 4 }],
+    [],
     [[1, '9']],
     [],
   ]);
@@ -223,9 +224,9 @@ test('erasure fences every subject channel before file cleanup and publishes fin
 test('exhausted erase version refuses before association or file deletion', async () => {
   const { client, queries } = fakeSql([
     [],
-    [],
+    [{ id: channelId }],
+    [{ messageSequence: 0, changeVersion: Number.MAX_SAFE_INTEGER }],
     [{ id: 'm'.repeat(24), channelId, authorActorId: actorId }],
-    [],
   ]);
   await assertRejects({
     given: 'a channel unable to advance current version',
@@ -235,7 +236,7 @@ test('exhausted erase version refuses before association or file deletion', asyn
       createMessagingPrivacyAdopter().erase(drizzle({ client }), subject, {
         now,
       }),
-    code: 'CONFLICT',
+    code: 'INFRASTRUCTURE',
   });
   assert({
     given: 'the refusal',

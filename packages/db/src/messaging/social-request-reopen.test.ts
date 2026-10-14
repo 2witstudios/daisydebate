@@ -32,7 +32,7 @@ test('a cooled down closed DM reopens the durable channel and invalidates curren
     [channelRow('active')],
     [],
     // The stream row is locked after the authority row, then advanced once.
-    [[0, 4]],
+    [{ messageSequence: 0, changeVersion: 4 }],
     [],
     [[1, '9']],
     [],
@@ -74,7 +74,7 @@ test('a cooled down closed DM reopens the durable channel and invalidates curren
         .map((entry) => entry.params[0]),
       queries
         .filter((entry) =>
-          entry.query.startsWith('update "messaging_channel_streams"'),
+          entry.query.startsWith('update messaging_channel_streams'),
         )
         .map((entry) => entry.params.slice(0, 2)),
     ],

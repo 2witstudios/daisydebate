@@ -1,3 +1,8 @@
+import {
+  lockMessagingStream,
+  advanceMessagingStream,
+  type MessagingStreamCounters,
+} from './stream';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { createAppError } from '@daisy/errors';
@@ -41,12 +46,13 @@ function omitPrivateColumns(
 async function lockSubjectMessaging(
   tx: AuthorizationTransaction,
   actorId: string,
+  lockStreams = true,
 ) {
   idSchema.parse(actorId);
   await tx.execute(
     sql`select low_actor_id from messaging_contact_pairs where low_actor_id=${actorId} or high_actor_id=${actorId} order by low_actor_id,high_actor_id for update`,
   );
-  await tx.execute(sql`
+  const channels = await tx.execute(sql`
     select id from messaging_channels where id in (
       select channel_id from messaging_dm_pairs where low_actor_id=${actorId} or high_actor_id=${actorId}
       union select id from messaging_channels where title_author_actor_id=${actorId}
@@ -61,6 +67,13 @@ async function lockSubjectMessaging(
       union select c.result_channel_id from messaging_social_commands c join messaging_social_command_subjects s on s.actor_id=c.actor_id and s.request_id=c.request_id where s.subject_actor_id=${actorId}
     ) order by id for update
   `);
+  const streams = new Map<string, MessagingStreamCounters>();
+  if (!lockStreams) return streams;
+  for (const channel of channels) {
+    const id = String(channel.id);
+    streams.set(id, await lockMessagingStream(tx, id));
+  }
+  return streams;
 }
 
 /**
@@ -71,6 +84,7 @@ async function advanceChannel(
   tx: AuthorizationTransaction,
   channelId: string,
   authority: boolean,
+  streams: Map<string, MessagingStreamCounters>,
 ) {
   if (authority) {
     const channels = rowsOf<{ id: string }>(
@@ -81,15 +95,14 @@ async function advanceChannel(
     );
     if (!channels[0]) throw createAppError('CONFLICT');
   }
-  const rows = rowsOf<{ changeVersion: number }>(
-    await tx.execute(sql`
-    update messaging_channel_streams set change_version=change_version+1
-    where channel_id=${channelId} and change_version < 9007199254740991
-    returning change_version as "changeVersion"
-  `),
-  );
-  if (!rows[0]) throw createAppError('CONFLICT');
-  return Number(rows[0].changeVersion);
+  const locked = streams.get(channelId);
+  if (!locked) throw createAppError('CONFLICT');
+  const next = await advanceMessagingStream(tx, channelId, locked, {
+    messages: 0,
+    changes: 1,
+  });
+  streams.set(channelId, next);
+  return next.changeVersion;
 }
 
 async function scrubSubjectMessages(
@@ -97,6 +110,7 @@ async function scrubSubjectMessages(
   actorId: string,
   now: string,
   versions: Map<string, number>,
+  streams: Map<string, MessagingStreamCounters>,
 ) {
   const messages = rowsOf<ChangedMessage>(
     await tx.execute(sql`
@@ -108,7 +122,7 @@ async function scrubSubjectMessages(
   `),
   );
   for (const message of messages) {
-    const version = await advanceChannel(tx, message.channelId, false);
+    const version = await advanceChannel(tx, message.channelId, false, streams);
     await tx.execute(sql`
       update messaging_messages set
         text=case when author_actor_id=${actorId} then null else text end,
@@ -124,6 +138,7 @@ async function eraseSubjectTitles(
   tx: AuthorizationTransaction,
   actorId: string,
   versions: Map<string, number>,
+  streams: Map<string, MessagingStreamCounters>,
 ) {
   const channels = rowsOf<{ channelId: string }>(
     await tx.execute(
@@ -131,7 +146,7 @@ async function eraseSubjectTitles(
     ),
   );
   for (const { channelId } of channels) {
-    const version = await advanceChannel(tx, channelId, false);
+    const version = await advanceChannel(tx, channelId, false, streams);
     await tx.execute(
       sql`update messaging_channels set title=null,title_author_actor_id=null where id=${channelId} and title_author_actor_id=${actorId}`,
     );
@@ -143,6 +158,7 @@ async function eraseAssociations(
   tx: AuthorizationTransaction,
   actorId: string,
   versions: Map<string, number>,
+  streams: Map<string, MessagingStreamCounters>,
 ) {
   const authorityChannels = rowsOf<{ channelId: string }>(
     await tx.execute(sql`
@@ -179,7 +195,7 @@ async function eraseAssociations(
     await tx.execute(
       sql`update messaging_channels c set lifecycle='archived' where c.id=${channelId} and c.kind='private_group' and not exists(select 1 from messaging_group_grants g where g.channel_id=c.id and g.role='manager' and g.revoked_at is null)`,
     );
-    versions.set(channelId, await advanceChannel(tx, channelId, true));
+    versions.set(channelId, await advanceChannel(tx, channelId, true, streams));
   }
 }
 
@@ -191,12 +207,12 @@ export function createMessagingPrivacyAdopter(): PrivacyAdopter {
     fields: messagingPrivacyFields,
     async erase(tx, subject, context) {
       const now = z.iso.datetime().parse(context.now);
-      await lockSubjectMessaging(tx, subject.actorId);
+      const streams = await lockSubjectMessaging(tx, subject.actorId);
       const versions = new Map<string, number>();
-      await scrubSubjectMessages(tx, subject.actorId, now, versions);
-      await eraseSubjectTitles(tx, subject.actorId, versions);
+      await scrubSubjectMessages(tx, subject.actorId, now, versions, streams);
+      await eraseSubjectTitles(tx, subject.actorId, versions, streams);
       await eraseSubjectFiles(tx, subject.actorId);
-      await eraseAssociations(tx, subject.actorId, versions);
+      await eraseAssociations(tx, subject.actorId, versions, streams);
       for (const [channelId, version] of versions)
         await appendOutboxEvent(tx, {
           topic: buildChannelTopic(channelId),
@@ -210,7 +226,7 @@ export function createMessagingPrivacyAdopter(): PrivacyAdopter {
         });
     },
     async export(tx, subject): Promise<PrivacyExport> {
-      await lockSubjectMessaging(tx, subject.actorId);
+      await lockSubjectMessaging(tx, subject.actorId, false);
       const actorId = subject.actorId;
       const messages = rowsOf<Record<string, unknown>>(
         await tx.execute(

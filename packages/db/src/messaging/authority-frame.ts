@@ -88,29 +88,50 @@ export type AuthorityExtension = {
   readonly additionalActors: readonly string[];
   readonly beforeChannel: (frame: AuthorityFrame) => Promise<void>;
 };
-/** Authority only: canonical accounts -> pair -> id-only channel lock -> fresh cast/facts. */
-export async function withLockedMessagingAuthority<T>(
+async function discoverAuthority(
   tx: MessagingOperationTransaction,
   input: Scope,
-  work: (frame: AuthorityFrame) => Promise<T>,
-  extension?: AuthorityExtension,
-): Promise<T> {
+  extension: AuthorityExtension | undefined,
+  shared: boolean,
+) {
   const additional = extension?.additionalActors ?? [];
   validateScope(input, additional);
   const discovered = await readChannelFact(tx, input);
-  const actors = actorIdsOf(discovered, input.actorId, additional);
-  const accounts = await lockAuthorizationActors(tx, actors, {
+  const accounts = await (
+    shared ? readAuthorizationActors : lockAuthorizationActors
+  )(tx, actorIdsOf(discovered, input.actorId, additional), {
     maxActors: 65535,
   });
   if (extension)
     await extension.beforeChannel({ tx, fact: discovered, accounts });
+  return { discovered, accounts };
+}
+type AuthorityOperation = <T>(
+  tx: MessagingOperationTransaction,
+  input: Scope,
+  work: (frame: AuthorityFrame) => Promise<T>,
+  extension?: AuthorityExtension,
+) => Promise<T>;
+/** Authority only: canonical accounts -> pair -> id-only channel lock -> fresh cast/facts. */
+export const withLockedMessagingAuthority: AuthorityOperation = async (
+  tx,
+  input,
+  work,
+  extension,
+) => {
+  const { discovered, accounts } = await discoverAuthority(
+    tx,
+    input,
+    extension,
+    false,
+  );
   if (!(await lockChannel(tx, input.channelId, discovered.authority)))
     throw createAppError('NOT_FOUND');
   const fact = await rereadSameCast(tx, input, discovered, () =>
     createAppError('CONFLICT'),
   );
   return work({ tx, fact, accounts });
-}
+};
 /**
  * A read under shared authority fences in its own READ COMMITTED transaction,
  * restarted (at most twice, then INFRASTRUCTURE) when the cast moved while a
@@ -150,28 +171,24 @@ export function createMessagingChannelAuthority(database: BunSQLDatabase) {
 }
 
 /** The cast moved while a shared fence waited; the caller restarts the whole transaction. */
-export class MessagingCastChanged extends Error {}
+class MessagingCastChanged extends Error {}
 /**
  * Readers: SHARE-fence the current cast's accounts, then the DM pair and channel
  * (canonical order), reread the fact after the waits and restart on any cast change.
  * Compatible readers never block each other; exclusive authority writers still do.
  */
-export async function withSharedMessagingAuthority<T>(
-  tx: MessagingOperationTransaction,
-  input: Scope,
-  work: (frame: AuthorityFrame) => Promise<T>,
-  extension?: AuthorityExtension,
-): Promise<T> {
-  const additional = extension?.additionalActors ?? [];
-  validateScope(input, additional);
-  const discovered = await readChannelFact(tx, input);
-  const accounts = await readAuthorizationActors(
+export const withSharedMessagingAuthority: AuthorityOperation = async (
+  tx,
+  input,
+  work,
+  extension,
+) => {
+  const { discovered, accounts } = await discoverAuthority(
     tx,
-    actorIdsOf(discovered, input.actorId, additional),
-    { maxActors: 65535 },
+    input,
+    extension,
+    true,
   );
-  if (extension)
-    await extension.beforeChannel({ tx, fact: discovered, accounts });
   const pair = discovered.authority.kind === 'dm' ? discovered.authority : null;
   const fenced = await tx.execute(
     sql`select resource_id as id from public.daisy_observation_authority_fences(${JSON.stringify([{ kind: 'channel', id: input.channelId }])}::text::jsonb,${JSON.stringify(pair ? [{ low: pair.lowActorId, high: pair.highActorId }] : [])}::text::jsonb)`,
@@ -184,4 +201,4 @@ export async function withSharedMessagingAuthority<T>(
     () => new MessagingCastChanged(),
   );
   return work({ tx, fact, accounts });
-}
+};

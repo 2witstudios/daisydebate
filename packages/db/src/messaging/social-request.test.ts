@@ -20,7 +20,7 @@ test('a new admitted DM persists pending authority once and emits only content-f
     [[0, 0]],
     [],
     // The new channel's stream row: locked, then advanced for its creation.
-    [[0, 0]],
+    [{ messageSequence: 0, changeVersion: 0 }],
     [],
     [],
     [[1, '9']],

@@ -1,4 +1,5 @@
-import { and, eq, inArray } from 'drizzle-orm';
+import { authorizationAgeFacts } from '../authorization-age-batch';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError, isAppError } from '@daisy/errors';
 import { buildChannelTopic } from '@daisy/protocol';
@@ -18,6 +19,8 @@ import {
   messagingMessages,
   messagingReceipts,
 } from '../schema/messaging-messages';
+import { messagingFiles } from '../schema/messaging-files';
+import { fileDeletionValues } from '../messaging-files/frame';
 import { outbox } from '../schema/outbox';
 import type {
   MessagingAuthorizationFence,
@@ -25,23 +28,40 @@ import type {
   MessagingMessageRecord,
   MessagingSendCommand,
   MessagingSendState,
+  MessagingMutationCommand,
+  MessagingMutationState,
+  MessagingMutationPlan,
 } from './records';
 
-export type MessagingSendAttempt = {
+type Attempt = {
   readonly scope: {
     readonly actorId: string;
     readonly userId: string;
     readonly channelId: string;
   };
-  readonly command: MessagingSendCommand;
   readonly authorize: MessagingAuthorizationFence;
   readonly admit: () => Promise<void>;
+};
+export type MessagingSendAttempt = Attempt & {
+  readonly command: MessagingSendCommand;
   readonly decide: (
     state: MessagingSendState,
   ) =>
     | MessagingCreateSendPlan
     | { readonly kind: 'replay'; readonly message: MessagingMessageRecord };
 };
+export type MessagingMutationAttempt = Attempt & {
+  readonly command: MessagingMutationCommand;
+  readonly decide: (
+    state: MessagingMutationState,
+  ) =>
+    | (MessagingMutationPlan & { readonly kind: 'change' })
+    | { readonly kind: 'replay'; readonly message: MessagingMessageRecord };
+};
+type ContentAttempt = MessagingSendAttempt | MessagingMutationAttempt;
+const isMutation = (
+  attempt: ContentAttempt,
+): attempt is MessagingMutationAttempt => 'kind' in attempt.command;
 const expected = (error: unknown) =>
   isAppError(error) &&
   [
@@ -55,7 +75,7 @@ const expected = (error: unknown) =>
 /** One node-local collector, one authoritative transaction per batch, no limiter under a fence. */
 export function createMessagingAppend(database: BunSQLDatabase) {
   const transaction = async (
-    attempts: readonly MessagingSendAttempt[],
+    attempts: readonly ContentAttempt[],
     final: boolean,
     admissions: readonly AppendOutcome<void>[] = [],
   ) =>
@@ -69,22 +89,35 @@ export function createMessagingAppend(database: BunSQLDatabase) {
             tx,
             attempts.map(({ scope }) => scope),
           );
+          const locked = await (final
+            ? lockMessagingStream(tx, channelId)
+            : readMessagingStream(tx, channelId));
+          const counters = { channelId, ...locked };
+          const nowRows = await tx.execute(
+            sql`select clock_timestamp() as now`,
+          );
+          const now = new Date(nowRows[0]!.now as string | Date).toISOString();
+          const policyAccounts = await authorizationAgeFacts(
+            tx,
+            accounts.filter((account) => account !== null),
+            now,
+          );
           const authorized: AppendOutcome<void>[] = [];
           for (const [index, attempt] of attempts.entries()) {
             try {
               const fact = facts[index];
               if (!fact) throw createAppError('NOT_FOUND');
-              await attempt.authorize(tx, attempt.scope, { fact, accounts });
+              await attempt.authorize(tx, attempt.scope, {
+                fact,
+                accounts,
+                policyAccounts,
+              });
               authorized.push({ value: undefined });
             } catch (error) {
               if (!expected(error)) throw error;
               authorized.push({ error });
             }
           }
-          const locked = await (final
-            ? lockMessagingStream(tx, channelId)
-            : readMessagingStream(tx, channelId));
-          const counters = { channelId, ...locked };
           const receipts = await tx
             .select()
             .from(messagingReceipts)
@@ -109,7 +142,11 @@ export function createMessagingAppend(database: BunSQLDatabase) {
             ...new Set(
               [
                 ...receipts.map((row) => row.messageId),
-                ...attempts.map(({ command }) => command.replyToMessageId),
+                ...attempts.map((attempt) =>
+                  isMutation(attempt)
+                    ? attempt.command.messageId
+                    : attempt.command.replyToMessageId,
+                ),
               ].filter((id): id is string => typeof id === 'string'),
             ),
           ];
@@ -128,6 +165,10 @@ export function createMessagingAppend(database: BunSQLDatabase) {
             rows.map((row) => [row.id, messageRecord(row)]),
           );
           const creates: MessagingCreateSendPlan[] = [];
+          const changed = new Map<string, MessagingMessageRecord>();
+          const removed = new Set<string>();
+          const bells: MessagingCreateSendPlan['doorbell'][] = [];
+          const replayed = new Set<number>();
           const insertedReceipts: (typeof messagingReceipts.$inferInsert)[] =
             [];
           const outcomes: AppendOutcome<MessagingMessageRecord | null>[] = [];
@@ -147,28 +188,39 @@ export function createMessagingAppend(database: BunSQLDatabase) {
               existingMessage: receipt?.messageId
                 ? (messages.get(receipt.messageId) ?? null)
                 : null,
-              reply: command.replyToMessageId
-                ? (messages.get(command.replyToMessageId) ?? null)
-                : null,
+              reply:
+                !isMutation(attempt) && attempt.command.replyToMessageId
+                  ? (messages.get(attempt.command.replyToMessageId) ?? null)
+                  : null,
             };
+            const decide = () =>
+              isMutation(attempt)
+                ? attempt.decide({
+                    counters,
+                    receipt,
+                    message: messages.get(attempt.command.messageId) ?? null,
+                  })
+                : attempt.decide(state);
             try {
               // Replay/invalid reuse has precedence over admission, even after Redis refusal/outage.
               if (!receipt && !final) {
-                attempt.decide(state);
+                decide();
                 outcomes.push({ value: null });
                 continue;
               }
               if (
                 !receipt &&
-                (counters.messageSequence === Number.MAX_SAFE_INTEGER ||
+                ((!isMutation(attempt) &&
+                  counters.messageSequence === Number.MAX_SAFE_INTEGER) ||
                   counters.changeVersion === Number.MAX_SAFE_INTEGER)
               )
                 throw createAppError(
                   'INFRASTRUCTURE',
                   'Messaging stream exhausted',
                 );
-              const plan = attempt.decide(state);
+              const plan = decide();
               if (plan.kind === 'replay') {
+                replayed.add(index);
                 outcomes.push({ value: plan.message });
                 continue;
               }
@@ -180,23 +232,44 @@ export function createMessagingAppend(database: BunSQLDatabase) {
               if (
                 plan.message.channelId !== channelId ||
                 plan.message.authorActorId !== scope.actorId ||
-                plan.message.sequence !== counters.messageSequence + 1 ||
-                plan.message.changeVersion !== counters.changeVersion + 1 ||
-                plan.receipt.messageId !== plan.message.id ||
-                plan.message.text !== command.text
+                plan.message.changeVersion !== counters.changeVersion + 1
               )
                 throw new Error('Invalid append decision');
-              creates.push(plan);
+              const payloadDigest =
+                plan.kind === 'create'
+                  ? plan.receipt.payloadDigest
+                  : plan.payloadDigest;
               const row = {
                 channelId,
                 actorId: scope.actorId,
                 requestId: command.requestId,
-                ...plan.receipt,
+                messageId: plan.message.id,
+                payloadDigest,
               };
+              if (plan.kind === 'create') {
+                if (
+                  isMutation(attempt) ||
+                  plan.message.sequence !== counters.messageSequence + 1 ||
+                  plan.message.text !== attempt.command.text ||
+                  plan.receipt.messageId !== plan.message.id
+                )
+                  throw new Error('Invalid send decision');
+                creates.push(plan);
+                counters.messageSequence = plan.message.sequence;
+              } else {
+                if (
+                  !isMutation(attempt) ||
+                  plan.message.id !== attempt.command.messageId
+                )
+                  throw new Error('Invalid mutation decision');
+                changed.set(plan.message.id, plan.message);
+                if (plan.message.removedAt !== null)
+                  removed.add(plan.message.id);
+              }
               insertedReceipts.push(row);
               byReceipt.set(receiptKey(scope.actorId, command.requestId), row);
               messages.set(plan.message.id, plan.message);
-              counters.messageSequence = plan.message.sequence;
+              bells.push(plan.doorbell);
               counters.changeVersion = plan.message.changeVersion;
               outcomes.push({ value: plan.message });
             } catch (error) {
@@ -204,33 +277,85 @@ export function createMessagingAppend(database: BunSQLDatabase) {
               outcomes.push({ error });
             }
           }
-          if (creates.length) {
-            // Checked allocation precedes all child writes; every unexpected failure rolls back the batch.
+          if (bells.length) {
             await advanceMessagingStream(tx, channelId, locked, {
               messages: creates.length,
-              changes: creates.length,
+              changes: bells.length,
             });
-            await tx
-              .insert(messagingMessages)
-              .values(
-                creates.map(({ message }) => ({
-                  ...message,
-                  createdAt: new Date(message.createdAt),
-                  editedAt: null,
-                  removedAt: null,
-                })),
+            if (creates.length)
+              await tx.insert(messagingMessages).values(
+                creates.map(({ message }) => {
+                  const current = messages.get(message.id)!;
+                  return {
+                    ...current,
+                    createdAt: new Date(current.createdAt),
+                    editedAt: current.editedAt
+                      ? new Date(current.editedAt)
+                      : null,
+                    removedAt: current.removedAt
+                      ? new Date(current.removedAt)
+                      : null,
+                  };
+                }),
               );
-            await tx.insert(messagingReceipts).values(insertedReceipts);
-            await tx
-              .insert(outbox)
-              .values(
-                creates.map(({ doorbell }) => ({
-                  topic: buildChannelTopic(channelId),
-                  kind: 'channel.changed',
-                  version: 1,
-                  payload: doorbell,
-                })),
-              );
+            const existingChanges = [...changed.values()].filter(
+              (message) =>
+                !creates.some((plan) => plan.message.id === message.id),
+            );
+            if (existingChanges.length)
+              await tx.execute(sql`
+              update messaging_messages m set text=v.text, change_version=v."changeVersion", edited_at=v."editedAt", removed_at=v."removedAt"
+              from jsonb_to_recordset(${JSON.stringify(existingChanges)}::text::jsonb) as v(id text,text text,"changeVersion" bigint,"editedAt" timestamptz,"removedAt" timestamptz)
+              where m.channel_id=${channelId} and m.id=v.id
+            `);
+            if (removed.size) {
+              await tx
+                .update(messagingFiles)
+                .set(fileDeletionValues)
+                .where(
+                  and(
+                    eq(messagingFiles.channelId, channelId),
+                    inArray(messagingFiles.messageId, [...removed]),
+                    eq(messagingFiles.lifecycle, 'attached'),
+                  ),
+                );
+              await tx
+                .update(messagingReceipts)
+                .set({ payloadDigest: null })
+                .where(
+                  and(
+                    eq(messagingReceipts.channelId, channelId),
+                    inArray(messagingReceipts.messageId, [...removed]),
+                  ),
+                );
+            }
+            await tx.insert(messagingReceipts).values(
+              insertedReceipts.map((row) => ({
+                ...row,
+                payloadDigest:
+                  row.messageId && removed.has(row.messageId)
+                    ? null
+                    : row.payloadDigest,
+              })),
+            );
+            await tx.insert(outbox).values(
+              bells.map((doorbell) => ({
+                topic: buildChannelTopic(channelId),
+                kind: 'channel.changed',
+                version: 1,
+                payload: doorbell,
+              })),
+            );
+          }
+          // All response bytes come from final scratch state, including earlier accepted sends/edits.
+          for (const [index, outcome] of outcomes.entries()) {
+            if ('error' in outcome || !outcome.value) continue;
+            const current = messages.get(outcome.value.id)!;
+            outcomes[index] =
+              replayed.has(index) &&
+              (current.text === null || current.removedAt !== null)
+                ? { error: createAppError('NOT_FOUND') }
+                : { value: current };
           }
           return outcomes;
         },
@@ -241,7 +366,7 @@ export function createMessagingAppend(database: BunSQLDatabase) {
       ),
     );
   const collector = createAppendCollector<
-    MessagingSendAttempt,
+    ContentAttempt,
     MessagingMessageRecord
   >({
     execute: async (_channel, attempts) => {
@@ -274,13 +399,12 @@ export function createMessagingAppend(database: BunSQLDatabase) {
       });
     },
   });
-  return {
-    send: (attempt: MessagingSendAttempt) =>
-      collector.append(
-        attempt.scope.channelId,
-        attempt.scope.actorId,
-        attempt,
-        new TextEncoder().encode(JSON.stringify(attempt.command)).byteLength,
-      ),
-  };
+  const enqueue = (attempt: ContentAttempt) =>
+    collector.append(
+      attempt.scope.channelId,
+      attempt.scope.actorId,
+      attempt,
+      new TextEncoder().encode(JSON.stringify(attempt.command)).byteLength,
+    );
+  return { send: enqueue, mutate: enqueue };
 }

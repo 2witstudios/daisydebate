@@ -27,7 +27,7 @@ test('reaction additions refuse before protected SQL and forbid cross-channel co
   const frame = channelReactionFrame(
     drizzle({ client }),
     scope,
-    8,
+    { messageSequence: 1, changeVersion: 8 },
     policy,
     async () => {
       throw createAppError('AUTHORIZATION');
@@ -106,7 +106,7 @@ test('adding and removing an own reaction atomically advance changes and emit on
     const frame = channelReactionFrame(
       drizzle({ client }),
       scope,
-      8,
+      { messageSequence: 1, changeVersion: 8 },
       policy,
       async (operation, association) => {
         guards.push([operation, association ?? null]);
@@ -207,7 +207,7 @@ test('reaction removal cannot invent an absent association or accept a foreign r
     const frame = channelReactionFrame(
       drizzle({ client }),
       scope,
-      8,
+      { messageSequence: 1, changeVersion: 8 },
       policy,
       async (operation) => {
         guards.push(operation);
@@ -266,7 +266,7 @@ test('reaction summary authorizes both sides of scoped protected discovery and r
       channelReactionFrame(
         drizzle({ client: removed.client }),
         scope,
-        8,
+        { messageSequence: 1, changeVersion: 8 },
         policy,
         async () => {},
       ).read(command.messageId),
@@ -285,7 +285,7 @@ function readableFrame(client: ReturnType<typeof fakeSql>['client']) {
   const frame = channelReactionFrame(
     drizzle({ client }),
     scope,
-    8,
+    { messageSequence: 1, changeVersion: 8 },
     policy,
     async (operation) => {
       guards.push(operation);

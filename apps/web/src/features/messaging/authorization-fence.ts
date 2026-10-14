@@ -41,11 +41,9 @@ export async function loadMessagingAuthorizationInput(
   options: FenceOptions,
 ): Promise<ChannelAuthorizationInput> {
   requireBoundFrame(options.principal, input, frame.fact.channelId);
-  const accounts = await loadAccountPolicyFacts(
-    tx,
-    frame.accounts,
-    options.clock.now(),
-  );
+  const accounts =
+    frame.policyAccounts ??
+    (await loadAccountPolicyFacts(tx, frame.accounts, options.clock.now()));
   return messagingAuthorizationInput(
     { channel: frame.fact, accounts, now: options.clock.now() },
     options,

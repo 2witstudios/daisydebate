@@ -1,7 +1,8 @@
-import type { MessagingSendAttempt } from './append';
+import type { MessagingSendAttempt, MessagingMutationAttempt } from './append';
 import type { messagingMessageView } from '@daisy/protocol';
 import type { AuthorizationTransaction } from '../authorization';
 import type { MessagingChannelFact } from './social';
+import type { authorizationAgeFacts } from '../authorization-age-batch';
 import type { authorizationAccountFact } from '../authorization-account';
 
 /** The durable message projection is the protocol's restricted record. */
@@ -65,7 +66,9 @@ export type MessagingAuthorizationFence = (
     readonly userId: string;
     readonly actorId: string;
   },
-  authority: Pick<MessagingLockedFrame, 'fact' | 'accounts'>,
+  authority: Pick<MessagingLockedFrame, 'fact' | 'accounts'> & {
+    readonly policyAccounts?: Awaited<ReturnType<typeof authorizationAgeFacts>>;
+  },
 ) => Promise<void>;
 type MessagingHistoryPage = {
   readonly messages: readonly MessagingMessageRecord[];
@@ -124,6 +127,9 @@ type MessagingChannelScope = {
   readonly userId: string;
 };
 export type MessagingChannelStore = {
+  readonly mutate: (
+    attempt: Omit<MessagingMutationAttempt, 'authorize'>,
+  ) => Promise<MessagingMessageRecord>;
   readonly send: (
     attempt: Omit<MessagingSendAttempt, 'authorize'>,
   ) => Promise<MessagingMessageRecord>;

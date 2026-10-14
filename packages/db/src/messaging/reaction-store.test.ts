@@ -3,7 +3,7 @@ import { assertRejects } from '@daisy/errors/testing';
 import { createAppError } from '@daisy/errors';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { fakeSql } from '../scripted-bun-wire';
-import { channelWire } from './channel-wire.test-support';
+import { contentWire } from './channel-wire.test-support';
 import { messagingAuthorityFixture } from './social.test-support';
 import { createMessagingReactionStore } from './reaction-store';
 setupRitewayBun();
@@ -29,7 +29,7 @@ test('reaction read takes shared fences and the stream high-water mark, never th
     accounts,
     [{ id: scope.channelId }],
     [{ fact }],
-    [[0, 1]],
+    [{ messageSequence: 0, changeVersion: 1 }],
     [{ id: messageId }],
     [{ reaction: '👍', count: '2', own: true }],
   ]);
@@ -90,18 +90,13 @@ test('reaction read takes shared fences and the stream high-water mark, never th
       sharedReader: true,
       sharedChannelFence: true,
       exclusive: false,
-      calls: Array(2).fill([
-        scope.channelId,
-        fact.channelId,
-        2,
-        'read',
-      ]),
+      calls: Array(2).fill([scope.channelId, fact.channelId, 2, 'read']),
       oneTransaction: true,
     },
   });
 });
 test('reaction store invokes current operation fence before protected message, receipt or association SQL', async () => {
-  const f = channelWire([]);
+  const f = contentWire([]);
   const store = createMessagingReactionStore(f.database, policy, async () => {
     throw createAppError('AUTHORIZATION');
   });
@@ -136,6 +131,6 @@ test('reaction store invokes current operation fence before protected message, r
           query.query.includes('messaging_reactions'),
       ),
     ],
-    expected: [6, false],
+    expected: [7, false],
   });
 });

@@ -2,13 +2,13 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { createAppError } from '@daisy/errors';
 import { createMessagingStore } from './store';
-import { channelWire } from './channel-wire.test-support';
+import { contentWire } from './channel-wire.test-support';
 setupRitewayBun();
 const requestId = 'r'.repeat(24),
   messageId = 'm'.repeat(24);
 
 test('send frame binds receipt to current command and commits one thin bell with monotonic counters', async () => {
-  const f = channelWire([[], [], [], [], [[1, '5']], []]);
+  const f = contentWire([[], [], [], [], [[1, '5']], []]);
   let authorizationCalls = 0;
   const store = createMessagingStore({
     database: f.database,
@@ -84,12 +84,12 @@ test('send frame binds receipt to current command and commits one thin bell with
     given: 'the successful write',
     should:
       'persist message, receipt and channel counter before one content-free bell',
-    actual: f.queries.slice(7).map((q) => q.query.split(' ')[0]),
+    actual: f.queries.slice(8).map((q) => q.query.split(' ')[0]),
     expected: ['insert', 'insert', 'update', 'insert', 'select'],
   });
 });
 test('send frame refuses fresh authority loss and malformed command without inspecting private receipts', async () => {
-  const f = channelWire([]);
+  const f = contentWire([]);
   const denied = createMessagingStore({
     database: f.database,
     authorize: async () => {
@@ -110,7 +110,7 @@ test('send frame refuses fresh authority loss and malformed command without insp
       code: 'AUTHORIZATION',
     });
   });
-  const available = channelWire([]);
+  const available = contentWire([]);
   const store = createMessagingStore({
     database: available.database,
     authorize: async () => {},
@@ -142,6 +142,6 @@ test('send frame refuses fresh authority loss and malformed command without insp
     should:
       'perform only the canonical authority reads and the stream lock, never a receipt query',
     actual: [f.queries.length, available.queries.length],
-    expected: [6, 6],
+    expected: [7, 7],
   });
 });

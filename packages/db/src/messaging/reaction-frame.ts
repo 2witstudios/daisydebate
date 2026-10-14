@@ -1,3 +1,4 @@
+import { advanceMessagingStream, type MessagingStreamCounters } from './stream';
 import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
@@ -12,7 +13,7 @@ import type {
   MessagingReactionAssociation,
   MessagingReactionCommand,
 } from './reaction-contracts';
-type Tx = Pick<BunSQLDatabase, 'execute' | 'insert'>;
+type Tx = Pick<BunSQLDatabase, 'execute' | 'insert' | 'select' | 'update'>;
 type Scope = { readonly actorId: string; readonly channelId: string };
 type Guard = (
   operation: 'read' | 'add' | 'remove',
@@ -23,12 +24,12 @@ type Guard = (
 export function channelReactionFrame(
   tx: Tx,
   scope: Scope,
-  initialVersion: number,
+  stream: MessagingStreamCounters,
   policy: MessagingReactionPolicy,
   authorize: Guard,
 ) {
   const schemas = createMessagingReactionSchemas(policy);
-  let changeVersion = initialVersion;
+  let changeVersion = stream.changeVersion;
   const result = async (
     command: Pick<MessagingReactionCommand, 'messageId'>,
     replayed: boolean,
@@ -95,7 +96,7 @@ export function channelReactionFrame(
           tx,
           scope.channelId,
           command.messageId,
-          changeVersion,
+          { ...stream, changeVersion },
         );
       }
       await tx.execute(sql`
@@ -167,17 +168,16 @@ async function advanceReactionVersion(
   tx: Tx,
   channelId: string,
   messageId: string,
-  previous: number,
+  stream: MessagingStreamCounters,
 ) {
+  const previous = stream.changeVersion;
   const next = previous + 1;
   if (!Number.isSafeInteger(next) || previous < 0)
     throw createAppError('CONFLICT');
-  const channels = await tx.execute(sql`
-    update messaging_channel_streams set change_version=${next} where channel_id=${channelId} and change_version=${previous}
-    returning channel_id as id
-  `);
-  if (channels.length !== 1 || channels[0]?.id !== channelId)
-    throw createAppError('CONFLICT');
+  await advanceMessagingStream(tx, channelId, stream, {
+    messages: 0,
+    changes: 1,
+  });
   const messages = await tx.execute(sql`
     update messaging_messages set change_version=${next} where id=${messageId} and channel_id=${channelId}
       and change_version <= ${previous} returning id
