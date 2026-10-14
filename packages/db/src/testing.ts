@@ -1,5 +1,6 @@
 import type { SQL } from 'bun';
 import type { RoundRules } from '@daisy/protocol';
+import { createWorkloadExecutor } from './workload-admission';
 
 /** The resolved rules every fixture round freezes, for tests that write rounds. */
 export const validRules: RoundRules = {
@@ -149,3 +150,9 @@ export {
 } from './messaging/browser-fixture';
 
 export { createScriptedAuthorizationTransaction } from './testing-authorization';
+
+/** A real lane capacity refusal, as an operation refused unrun would reject with. */
+export const capacityRefusal = (): Promise<unknown> =>
+  createWorkloadExecutor({ control: 0 })
+    .run('control', async () => undefined)
+    .catch((error: unknown) => error);

@@ -102,6 +102,7 @@ export {
   type OutboxRow,
 } from './outbox';
 export { refuseSchemaAlteringRole } from './runtime-role';
+export { isCapacityRefusal } from './workload-admission';
 
 /**
  * Composes the auth, format, room, round, utterance, ballot, agent,

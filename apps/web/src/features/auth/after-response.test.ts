@@ -1,6 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { Logger } from '@daisy/logger';
+import { capacityRefusal } from '@daisy/db/testing';
 import { silentLogger } from '../../server/test-loggers.test-support';
 import {
   AFTER_RESPONSE_MAX_QUEUED,
@@ -17,6 +18,16 @@ const gate = () => {
     open = resolve;
   });
   return { opened, open };
+};
+
+/** A logger that keeps every entry it was given. */
+const capturingLogger = () => {
+  const logged: unknown[][] = [];
+  const logger: Logger = {
+    log: (...entry) => void logged.push(entry),
+    child: () => logger,
+  };
+  return { logged, logger };
 };
 
 describe('createAfterResponse', () => {
@@ -94,11 +105,7 @@ describe('createAfterResponse', () => {
   });
 
   test('logs a failed piece of work instead of rejecting unhandled', async () => {
-    const logged: unknown[][] = [];
-    const logger: Logger = {
-      log: (...entry) => void logged.push(entry),
-      child: () => logger,
-    };
+    const { logged, logger } = capturingLogger();
     const { defer, around, settled } = createAfterResponse(logger);
     await around(async () =>
       defer(async () => {
@@ -120,13 +127,28 @@ describe('createAfterResponse', () => {
     });
   });
 
+  test('leaves a piece of work refused by database capacity to its refusal log', async () => {
+    const { logged, logger } = capturingLogger();
+    const { defer, around, settled } = createAfterResponse(logger);
+    const refusal = await capacityRefusal();
+    await around(async () =>
+      defer(async () => {
+        throw refusal;
+      }),
+    );
+    await settled();
+    assert({
+      given: 'queued work whose database lane refused it',
+      should:
+        'log nothing more: the lane already logged db.capacity.refused, and nothing is unhandled',
+      actual: logged,
+      expected: [],
+    });
+  });
+
   test('holds at most the bound and sheds, logs and never starts what arrives past it', async () => {
     const { opened, open } = gate();
-    const logged: unknown[][] = [];
-    const logger: Logger = {
-      log: (...entry) => void logged.push(entry),
-      child: () => logger,
-    };
+    const { logged, logger } = capturingLogger();
     const { defer, settled, pending } = createAfterResponse(logger);
     const bound = AFTER_RESPONSE_MAX_RUNNING + AFTER_RESPONSE_MAX_QUEUED;
     let started = 0;
