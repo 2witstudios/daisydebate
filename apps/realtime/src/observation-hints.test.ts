@@ -1,9 +1,10 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { buildChannelTopic, ENVELOPE_VERSION } from '@daisy/protocol';
 import { request, sessionsFixture } from './observation-sessions.test-support';
 setupRitewayBun();
 
 const hint = {
-  v: 1 as const,
+  v: ENVELOPE_VERSION,
   type: 'typing_changed' as const,
   topic: `channel:${request.resource.id}`,
 };

@@ -90,6 +90,12 @@ export async function observationRuntimeFixture() {
       },
       snapshots: () =>
         frames.filter((frame) => frame.type === 'observation.snapshot'),
+      ping: () =>
+        socket.send(
+          JSON.stringify({ v: ENVELOPE_VERSION, type: 'ping', id: 'ping-1' }),
+        ),
+      /** The socket's own close code, once the peer closes it. */
+      closed: peer.closed,
       close: () => socket.close(),
     };
   }
@@ -97,6 +103,8 @@ export async function observationRuntimeFixture() {
     messaging,
     admin,
     runtime,
+    resources,
+    sessionId,
     connect,
     /** One durable message commit, advancing the channel's content revision. */
     async post(text: string) {
