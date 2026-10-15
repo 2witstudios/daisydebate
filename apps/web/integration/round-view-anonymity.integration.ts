@@ -53,6 +53,16 @@ const usernameOf = async (f: Runtime, userId: string) => {
 const leaks = (value: object, hidden: readonly string[]) =>
   hidden.filter((secret) => JSON.stringify(value).includes(secret));
 
+/** The two readers who must not know: a seated debater and a spectator. */
+const blindReads = async (
+  f: Runtime,
+  ownView: (who: Caller) => Promise<RoomView>,
+  spectator: Caller,
+) => ({
+  guest: await ownView(f.guest),
+  spectator: await ownView(spectator),
+});
+
 const readyAllThenStart = async (
   f: Runtime,
   view: RoomView,
@@ -86,10 +96,7 @@ test('a launched Round names its human judge only to that judge and the host', a
     ];
     const ownView = (who: Caller) => f.operations.view(who, roomId);
 
-    const lobby = {
-      guest: await ownView(f.guest),
-      spectator: await ownView(spectator),
-    };
+    const lobby = await blindReads(f, ownView, spectator);
     assert({
       given:
         'a seated human judge, the assembly read by a debater and a spectator',
@@ -180,10 +187,7 @@ test('a host who sits as the human judge stays anonymous with their seat (DEC-17
     ];
     const ownView = (who: Caller) => f.operations.view(who, roomId);
 
-    const lobby = {
-      guest: await ownView(f.guest),
-      spectator: await ownView(spectator),
-    };
+    const lobby = await blindReads(f, ownView, spectator);
     assert({
       given:
         'the host seated as the human judge, the assembly read by a debater and a spectator',
