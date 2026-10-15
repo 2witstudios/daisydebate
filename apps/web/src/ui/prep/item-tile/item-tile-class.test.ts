@@ -1,5 +1,9 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { itemTileClass } from './item-tile-class';
+import {
+  itemBadgeClass,
+  itemKindClass,
+  itemTileClass,
+} from './item-tile-class';
 
 setupRitewayBun();
 
@@ -20,6 +24,21 @@ describe('itemTileClass', () => {
         `${base} bg-gold-soft text-gold`,
         `${base} bg-surface-overlay text-ink-muted`,
       ],
+    });
+  });
+});
+
+describe('itemKindClass and itemBadgeClass', () => {
+  test('one hue per kind', () => {
+    assert({
+      given: 'a brief, a card and a case',
+      should: 'colour the kind word and badge sky, clay and plum',
+      actual: [
+        itemKindClass('brief').endsWith('text-hue-sky'),
+        itemKindClass('card').endsWith('text-hue-clay'),
+        itemBadgeClass('case').endsWith('bg-hue-plum-soft text-hue-plum'),
+      ],
+      expected: [true, true, true],
     });
   });
 });

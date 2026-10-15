@@ -1,6 +1,5 @@
 'use client';
 
-import { useState, type KeyboardEvent } from 'react';
 import type { ChatMessage } from '../../features/debate-room/chat';
 import { cn } from '../cn';
 import { Icon } from '../components/icon/icon';
@@ -72,14 +71,14 @@ function EditCard({ turn, outcome, documentTitle, onDecide }: EditCardProps) {
         <div className="flex gap-2 pt-1">
           <button
             type="button"
-            className="h-8 cursor-pointer rounded-sm bg-hue-plum px-3 text-sm font-strong text-background"
+            className="h-room-target cursor-pointer rounded-sm bg-hue-plum px-3 text-sm font-strong text-background"
             onClick={() => onDecide('applied')}
           >
             Apply
           </button>
           <button
             type="button"
-            className="h-8 cursor-pointer rounded-sm border border-border-strong px-3 text-sm text-ink-muted"
+            className="h-room-target cursor-pointer rounded-sm border border-border-strong px-3 text-sm text-ink-muted"
             onClick={() => onDecide('discarded')}
           >
             Discard
@@ -137,43 +136,28 @@ export function AgentThread({
 }
 
 type ComposerProps = {
-  readonly placeholder: string;
+  readonly label: string;
   readonly tone: 'chat' | 'ai';
-  readonly onSend: (text: string) => void;
 };
 
 /**
- * The message box. Not a form: with no backend a native submit would put
- * the draft in the URL; Enter or the button hands it to the room.
+ * The message box. Nothing delivers a round message or answers an ask yet
+ * (CHAT-1, ISSUE-420), so the field and Send are shown disabled (DEC-178).
  */
-export function Composer({ placeholder, tone, onSend }: ComposerProps) {
-  const [draft, setDraft] = useState('');
-  const send = () => {
-    if (draft.trim() === '') return;
-    onSend(draft);
-    setDraft('');
-  };
-  const key = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key !== 'Enter') return;
-    event.preventDefault();
-    send();
-  };
+export function Composer({ label, tone }: ComposerProps) {
   return (
     <div className="flex gap-2 border-t border-border p-2">
       <input
-        aria-label={placeholder}
-        placeholder={placeholder}
-        value={draft}
-        onChange={(event) => setDraft(event.target.value)}
-        onKeyDown={key}
-        className="h-10 min-w-0 flex-1 rounded-sm border border-border-strong bg-background px-3 text-sm"
+        aria-label={label}
+        disabled
+        className="h-room-target min-w-0 flex-1 rounded-sm border border-border-strong bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
       />
       <button
         type="button"
         aria-label="Send"
-        onClick={send}
+        disabled
         className={cn(
-          'flex size-10 cursor-pointer items-center justify-center rounded-sm text-background',
+          'flex size-room-target cursor-not-allowed items-center justify-center rounded-sm text-background opacity-60',
           tone === 'ai' ? 'bg-hue-plum' : 'bg-accent',
         )}
       >

@@ -1,13 +1,4 @@
-import {
-  appendMessage,
-  markRead,
-  type ChatMessage,
-} from '../../features/debate-room/chat';
-import {
-  cancelEndSpeech,
-  pressEndSpeech,
-  type EndSpeechState,
-} from '../../features/debate-room/clock';
+import { markRead, type ChatMessage } from '../../features/debate-room/chat';
 import { applyProposal } from '../../features/debate-room/documents/document-edits';
 import {
   createDocument,
@@ -18,26 +9,25 @@ import {
 } from '../../features/debate-room/documents/documents';
 import {
   initialLayout,
-  nudgePane,
-  resizePane,
+  nudgeVideo,
+  resizeVideo,
   selectMode,
-  togglePanel,
   type LayoutMode,
   type LayoutState,
-  type Pane,
-  type Panel,
 } from '../../features/debate-room/layout';
+import { TRANSCRIPT_ID } from '../../features/debate-room/transcript';
 import {
   activateTab,
   loadWorkspaceDocuments,
   appendWorkspaceDocument,
   closeTab,
+  drawerTabs,
   openTab,
-  sidebarTabs,
-  type SidebarTab,
+  roundKindOf,
+  type DrawerTab,
   type TabsState,
 } from '../../features/debate-room/workspace';
-import type { AgentTurn, RoundSnapshot } from './round';
+import type { RoundSnapshot } from './round';
 
 export type PageTone = 'dark' | 'light';
 export type EditOutcome = 'applied' | 'discarded';
@@ -46,16 +36,18 @@ export type RoomState = {
   readonly layout: LayoutState;
   readonly tabs: TabsState;
   readonly documents: readonly WorkspaceDocument[];
-  readonly sidebar: SidebarTab;
+  readonly drawer: DrawerTab;
+  /** Beside the document on a wide screen; open by default. */
+  readonly drawerOpen: boolean;
+  /** In place of the document on a phone; closed by default. */
+  readonly phoneDrawer: boolean;
   readonly channelId: string;
   readonly agentId: string;
   readonly messages: readonly ChatMessage[];
   readonly readMarkers: Readonly<Record<string, string>>;
   readonly edits: Readonly<Record<string, EditOutcome>>;
-  readonly asked: Readonly<Record<string, readonly AgentTurn[]>>;
   readonly transcriptFilter: string;
   readonly paletteOpen: boolean;
-  readonly endSpeech: EndSpeechState;
   /** Each document's page tone; a document not listed is dark. */
   readonly pages: Readonly<Record<string, PageTone>>;
 };
@@ -63,16 +55,14 @@ export type RoomState = {
 export type RoomAction =
   | {
       readonly type: 'layout/mode';
-      readonly mode: Exclude<LayoutMode, 'custom'>;
+      readonly mode: LayoutMode;
     }
-  | { readonly type: 'layout/panel'; readonly panel: Panel }
   | {
       readonly type: 'layout/resize';
-      readonly pane: Pane;
       readonly startPx: number;
       readonly deltaPx: number;
     }
-  | { readonly type: 'layout/nudge'; readonly pane: Pane; readonly key: string }
+  | { readonly type: 'layout/nudge'; readonly key: string }
   | { readonly type: 'tabs/open'; readonly id: string }
   | { readonly type: 'tabs/activate'; readonly id: string }
   | { readonly type: 'tabs/close'; readonly id: string }
@@ -94,19 +84,16 @@ export type RoomAction =
       readonly documents: readonly WorkspaceDocument[];
     }
   | { readonly type: 'doc/add'; readonly document: WorkspaceDocument }
-  | { readonly type: 'sidebar/tab'; readonly tab: SidebarTab }
+  | { readonly type: 'drawer/tab'; readonly tab: DrawerTab }
+  | { readonly type: 'drawer/toggle' }
+  /** A phone's round tabs: a drawer tab, or null for the document. */
+  | { readonly type: 'drawer/phone'; readonly tab: DrawerTab | null }
   | {
-      readonly type: 'sidebar/channel';
+      readonly type: 'drawer/channel';
       readonly channelId: string;
       readonly now: string;
     }
-  | { readonly type: 'sidebar/agent'; readonly agentId: string }
-  | { readonly type: 'chat/send'; readonly message: ChatMessage }
-  | {
-      readonly type: 'agent/ask';
-      readonly agentId: string;
-      readonly turn: AgentTurn;
-    }
+  | { readonly type: 'drawer/agent'; readonly agentId: string }
   | {
       readonly type: 'agent/edit';
       readonly turnId: string;
@@ -119,38 +106,40 @@ export type RoomAction =
   | { readonly type: 'transcript/filter'; readonly speechId: string }
   | { readonly type: 'palette/open' }
   | { readonly type: 'palette/close' }
-  | { readonly type: 'end/press' }
-  | { readonly type: 'end/cancel' }
   | {
       readonly type: 'page/tone';
       readonly documentId: string;
       readonly tone: PageTone;
     };
 
-const CHAT_MAX_LENGTH = 2000;
-
 const firstRoundDocument = (round: RoundSnapshot) =>
   round.documents.find((doc) => doc.folder === 'round')?.id ?? null;
 
-export function initialRoomState(round: RoundSnapshot): RoomState {
-  const first = firstRoundDocument(round);
+/** While the ballots are written, the transcript opens first. */
+function initialTabs(round: RoundSnapshot): TabsState {
   const roundDocs = round.documents
     .filter((doc) => doc.folder === 'round')
     .map((doc) => doc.id);
+  if (round.phase === 'judging' && round.transcribing)
+    return { open: [TRANSCRIPT_ID, ...roundDocs], active: TRANSCRIPT_ID };
+  return { open: roundDocs, active: firstRoundDocument(round) };
+}
+
+export function initialRoomState(round: RoundSnapshot): RoomState {
   return {
     layout: initialLayout,
-    tabs: { open: roundDocs, active: first },
+    tabs: initialTabs(round),
     documents: round.documents,
-    sidebar: sidebarTabs(round.kind)[0] ?? 'chat',
+    drawer: 'files',
+    drawerOpen: true,
+    phoneDrawer: false,
     channelId: 'round',
     agentId: round.agents[0]?.id ?? '',
     messages: round.messages,
     readMarkers: {},
     edits: {},
-    asked: {},
     transcriptFilter: 'all',
     paletteOpen: false,
-    endSpeech: 'idle',
     pages: {},
   };
 }
@@ -175,15 +164,14 @@ type Reducer<T extends RoomAction['type']> = (
 ) => RoomState;
 
 const reducers: { readonly [T in RoomAction['type']]: Reducer<T> } = {
-  'layout/mode': (s, a) => ({ ...s, layout: selectMode(s.layout, a.mode) }),
-  'layout/panel': (s, a) => ({ ...s, layout: togglePanel(s.layout, a.panel) }),
+  'layout/mode': (s, a) => ({ ...s, layout: selectMode(a.mode) }),
   'layout/resize': (s, a, r) => ({
     ...s,
-    layout: resizePane(s.layout, r.phase, a.pane, a.startPx, a.deltaPx),
+    layout: resizeVideo(s.layout, r.phase, a.startPx, a.deltaPx),
   }),
   'layout/nudge': (s, a, r) => ({
     ...s,
-    layout: nudgePane(s.layout, r.phase, a.pane, a.key),
+    layout: nudgeVideo(s.layout, r.phase, a.key),
   }),
   'tabs/open': (s, a) => ({ ...s, tabs: openTab(s.tabs, a.id) }),
   'tabs/activate': (s, a) => ({ ...s, tabs: activateTab(s.tabs, a.id) }),
@@ -213,28 +201,23 @@ const reducers: { readonly [T in RoomAction['type']]: Reducer<T> } = {
     withDocument(s, a.id, (doc) => updateDocumentHtml(doc, a.html, a.now)),
   'doc/loaded': (s, a) => loadWorkspaceDocuments(s, a.documents),
   'doc/add': (s, a) => appendWorkspaceDocument(s, a.document),
-  'sidebar/tab': (s, a, r) =>
-    sidebarTabs(r.kind).includes(a.tab) ? { ...s, sidebar: a.tab } : s,
-  'sidebar/channel': (s, a) => ({
+  'drawer/tab': (s, a, r) =>
+    drawerTabs(roundKindOf(r.competition)).includes(a.tab)
+      ? { ...s, drawer: a.tab, drawerOpen: true }
+      : s,
+  'drawer/toggle': (s) => ({ ...s, drawerOpen: !s.drawerOpen }),
+  'drawer/phone': (s, a, r) => {
+    if (a.tab === null) return { ...s, phoneDrawer: false };
+    return drawerTabs(roundKindOf(r.competition)).includes(a.tab)
+      ? { ...s, drawer: a.tab, phoneDrawer: true }
+      : s;
+  },
+  'drawer/channel': (s, a) => ({
     ...s,
     channelId: a.channelId,
     readMarkers: markRead(s.readMarkers, a.channelId, a.now),
   }),
-  'sidebar/agent': (s, a) => ({ ...s, agentId: a.agentId }),
-  'chat/send': (s, a) => ({
-    ...s,
-    messages: appendMessage(s.messages, a.message, CHAT_MAX_LENGTH),
-  }),
-  'agent/ask': (s, a) =>
-    a.turn.text.trim() === ''
-      ? s
-      : {
-          ...s,
-          asked: {
-            ...s.asked,
-            [a.agentId]: [...(s.asked[a.agentId] ?? []), a.turn],
-          },
-        },
+  'drawer/agent': (s, a) => ({ ...s, agentId: a.agentId }),
   'agent/edit': (s, a) => {
     if (s.edits[a.turnId]) return s;
     const marked = { ...s, edits: { ...s.edits, [a.turnId]: a.outcome } };
@@ -247,8 +230,6 @@ const reducers: { readonly [T in RoomAction['type']]: Reducer<T> } = {
   'transcript/filter': (s, a) => ({ ...s, transcriptFilter: a.speechId }),
   'palette/open': (s) => ({ ...s, paletteOpen: true }),
   'palette/close': (s) => ({ ...s, paletteOpen: false }),
-  'end/press': (s) => ({ ...s, endSpeech: pressEndSpeech(s.endSpeech) }),
-  'end/cancel': (s) => ({ ...s, endSpeech: cancelEndSpeech(s.endSpeech) }),
   'page/tone': (s, a) => ({
     ...s,
     pages: { ...s.pages, [a.documentId]: a.tone },

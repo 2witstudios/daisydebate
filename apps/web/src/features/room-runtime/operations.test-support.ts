@@ -1,7 +1,12 @@
 import { fixedIds } from '@daisy/clock';
 import type { AccountAuthorizationFact } from '@daisy/auth/authorization';
 import { createAppError } from '@daisy/errors';
-import type { RoomAssemblyState, RoundView } from '@daisy/protocol';
+import {
+  emptyRuntimeCheckpoint,
+  type LaunchedRound,
+  type RoomAssemblyState,
+  type RoundView,
+} from '@daisy/protocol';
 import {
   foundationDefinition,
   oneOnOneDefinition,
@@ -90,11 +95,13 @@ const catalog = [
   },
 ];
 
-export const round: RoundView = {
+/** The stored Round its host reads; `round` is what a viewer receives. */
+export const launched: LaunchedRound = {
   id: 'd4n6p8r2t4v6x8z1k3b5c7d9',
   roomId: state.id,
   version: 1,
   status: 'scheduled',
+  competitionType: 'practice',
   topic: state.topic,
   visibility: 'private',
   hostActorId: caller.actorId,
@@ -113,7 +120,13 @@ export const round: RoundView = {
   startedAt: null,
   completedAt: null,
   outcome: null,
+  checkpoint: emptyRuntimeCheckpoint,
+  segments: [],
 };
+export const round: RoundView = (({ hostActorId, ...viewed }) => {
+  void hostActorId;
+  return viewed;
+})(launched);
 
 export function makeOperations(overrides: Partial<Store> = {}) {
   let createInput: Parameters<Store['createRoomCommand']>[0] | null = null;

@@ -18,6 +18,22 @@ const participantReady = (
     p.kind === 'bot' ? p.eligible : consent.readyActorIds.includes(p.actorId);
   return ready ? 'ready' : 'not-ready';
 };
+/**
+ * The human judges this viewer may not name (DEC-98, DEC-174): every one,
+ * unless the viewer is that judge or the host who seats them.
+ */
+const hiddenJudges = (room: RoomAssemblyState, actorId: string) =>
+  new Set(
+    room.hostActorId === actorId
+      ? []
+      : room.participants
+          .filter(
+            (p) =>
+              p.role === 'judge' && p.kind === 'human' && p.actorId !== actorId,
+          )
+          .map((p) => p.actorId),
+  );
+
 /** Server projection: consumers never infer startability or consent from local device state. */
 export function projectRoom(
   room: RoomAssemblyState,
@@ -26,22 +42,38 @@ export function projectRoom(
   now: string,
 ): RoomView {
   const blocker = startBlocker(room, consent, now);
-  const { prepStartedAt: _anchor, prepRemainingMs: _remaining, ...base } = room;
+  const hidden = hiddenJudges(room, actorId);
+  const { prepStartedAt: _anchor, prepRemainingMs: _remaining, ...rest } = room;
   void _anchor;
   void _remaining;
   return {
-    ...base,
+    // When the host occupies a judge seat this viewer may not name, the host
+    // identity is that judge's identity and is redacted with it (DEC-174).
+    ...(hidden.has(room.hostActorId)
+      ? { ...rest, hostActorId: null, hostLabel: null }
+      : rest),
     participants: room.participants.map(
-      ({ consentCommandId: _fence, ...p }) => ({
-        ...p,
-        needsReady: p.kind === 'human',
-        ready: participantReady(p, consent),
-      }),
+      ({ consentCommandId: _fence, ...p }) => {
+        const state = {
+          needsReady: p.kind === 'human',
+          ready: participantReady(p, consent),
+          eligible: p.eligible,
+        };
+        return hidden.has(p.actorId)
+          ? {
+              role: 'judge' as const,
+              kind: 'human' as const,
+              slot: p.slot,
+              anonymous: true as const,
+              ...state,
+            }
+          : { ...p, ...state };
+      },
     ),
     readiness: {
       available: consent.available,
       version: room.version,
-      readyActorIds: consent.readyActorIds,
+      readyActorIds: consent.readyActorIds.filter((id) => !hidden.has(id)),
     },
     prep: prepView(room, now),
     capabilities: roomCapabilities(room, actorId, blocker, now),

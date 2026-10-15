@@ -1,25 +1,29 @@
 import { AssemblyCommandForm } from './assembly-command-form';
 import type { MockFormState } from '../../../features/mock-form/form';
 import type { FormAction } from '../../form-action/form-action';
-import type { RoomCastChoice, RoomView } from '@daisy/protocol';
+import {
+  isNamedSeat,
+  type RoomCastChoice,
+  type RoomView,
+} from '@daisy/protocol';
 import { declaredSeats, seatLabel } from './assembly-controls';
 import { AssemblyCommandFields } from './assembly-command-fields';
 import { buttonClass } from '../../components/button/button-class';
 import { controlClass } from '../../components/form-field/form-field-class';
 
 type Seat = ReturnType<typeof declaredSeats>[number];
-type IntentIds = {
+export type IntentIds = {
   readonly claim: string;
   readonly assign: string;
   readonly remove: string;
+  readonly ai: string;
 };
-type Props = {
+export type CastProps = {
   readonly view: RoomView;
   readonly viewer: { readonly actorId: string; readonly label: string };
   readonly bots: readonly RoomCastChoice[];
   readonly action: FormAction<MockFormState>;
   readonly commandIds: readonly IntentIds[];
-  readonly leaveId: string;
 };
 
 function SeatActions({
@@ -27,7 +31,7 @@ function SeatActions({
   seat,
   ids,
 }: {
-  readonly props: Props;
+  readonly props: CastProps;
   readonly seat: Seat;
   readonly ids: IntentIds;
 }) {
@@ -39,27 +43,15 @@ function SeatActions({
     ...new Map(
       [
         props.viewer,
-        ...view.participants.filter((member) => member.kind === 'human'),
+        ...view.participants
+          .filter(isNamedSeat)
+          .filter((member) => member.kind === 'human'),
       ].map((member) => [member.actorId, member]),
     ).values(),
   ];
   return (
     <fieldset className="flex flex-wrap items-center gap-3 rounded-lg border border-border p-4">
       <legend>{seatLabel(seat.role, seat.slot)}</legend>
-      {!occupant && view.capabilities.canClaimSeat ? (
-        <AssemblyCommandForm action={action}>
-          <AssemblyCommandFields
-            type="claim-seat"
-            version={view.version}
-            commandId={ids.claim}
-          />
-          <input type="hidden" name="role" value={seat.role} />
-          <input type="hidden" name="slot" value={String(seat.slot)} />
-          <button type="submit" className={buttonClass('secondary')}>
-            Take {seatLabel(seat.role, seat.slot)}
-          </button>
-        </AssemblyCommandForm>
-      ) : null}
       {view.capabilities.host ? (
         <AssemblyCommandForm action={action} className="flex gap-2">
           <AssemblyCommandFields
@@ -100,7 +92,7 @@ function SeatActions({
           </button>
         </AssemblyCommandForm>
       ) : null}
-      {view.capabilities.host && occupant ? (
+      {view.capabilities.host && occupant && isNamedSeat(occupant) ? (
         <AssemblyCommandForm action={action}>
           <AssemblyCommandFields
             type="remove-seat"
@@ -117,7 +109,8 @@ function SeatActions({
   );
 }
 
-export function AssemblyCast(props: Props) {
+/** Host assignment and removal for every declared seat. */
+export function AssemblyCast(props: CastProps) {
   return (
     <section aria-label="Seat controls" className="flex flex-col gap-3">
       {declaredSeats(props.view.definition.seats).map((seat, index) => {
@@ -132,20 +125,6 @@ export function AssemblyCast(props: Props) {
           />
         );
       })}
-      {props.view.participants.some(
-        (member) => member.actorId === props.viewer.actorId,
-      ) ? (
-        <AssemblyCommandForm action={props.action}>
-          <AssemblyCommandFields
-            type="leave-seat"
-            version={props.view.version}
-            commandId={props.leaveId}
-          />
-          <button type="submit" className={buttonClass('secondary')}>
-            Leave seat
-          </button>
-        </AssemblyCommandForm>
-      ) : null}
     </section>
   );
 }

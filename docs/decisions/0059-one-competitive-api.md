@@ -95,14 +95,19 @@ log; it reads projections.
 ### 3. Reads return server-owned projections
 
 `RoomView`: id, status, seats, config, preRoundPrep, readyState, canStart,
-roundRef. `RoundView`: id, status, stage, participants, rules,
-currentSegment, clockAnchors, prepRemaining, floor, outcome.
+roundRef. `RoundView`: id, version, status, competition type, participants,
+rules, lifecycle stamps, outcome, and the durable runtime snapshot (the
+checkpoint and the segment rows) that ADR 0058 §6's browser-safe
+`roundPositionAt` derives stage, current segment, prep remaining and floor
+from at an explicit instant. Both views are projected for their viewer at the
+server: a human judge's seat names the judge only to that judge and the
+host, and `RoundView` never carries the host's actor.
 
 `projectRoom` and `projectRound` compose the durable rows with the expendable
 Redis state — ready flags keyed to the room version — and the hydrated engine
-runtime is authoritative for what is happening now (ADR 0058 §6). The runtime
-checkpoint is internal: `RoundView` exposes the derived `prepRemaining`,
-never the checkpoint itself.
+runtime is authoritative for what is happening now (ADR 0058 §6). The client never
+computes legality from the snapshot; it only predicts the clock between
+reads, and a newer `RoundView` version replaces its prediction.
 
 ### 4. Realtime stays thin
 

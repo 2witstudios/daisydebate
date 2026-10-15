@@ -59,59 +59,18 @@ async function visualStates(page: Page, info: TestInfo) {
       await page.setViewportSize({ width, height: 1000 });
       await page.reload();
       await expect(
-        page.getByRole('heading', { name: 'Take your places.' }),
+        page.getByRole('heading', { name: 'Seats', exact: true }),
       ).toBeVisible();
-      for (const state of width === 1440 ? ['open', 'collapsed'] : ['open']) {
-        if (state === 'collapsed') {
-          await page
-            .getByRole('button', { name: 'Collapse sidebar', exact: true })
-            .click();
-          await page
-            .getByRole('button', { name: 'Collapse friends', exact: true })
-            .click();
-          await expect(page.locator('[data-nav]')).toHaveAttribute(
-            'data-nav',
-            'collapsed',
-          );
-          await expect(page.locator('[data-dock]')).toHaveAttribute(
-            'data-dock',
-            'closed',
-          );
-        }
-        if (width !== 390) await assertNoSeriousFindings(page);
-        await capture(page, info, `room-${theme}-${width}-${state}`);
-        await page.getByText('Edit round settings', { exact: true }).click();
-        await expect(
-          page.getByRole('form', { name: 'Room settings' }),
-        ).toBeVisible();
-        if (width !== 390) await assertNoSeriousFindings(page);
-        await capture(page, info, `room-edit-${theme}-${width}-${state}`);
-        await page.getByText('Edit round settings', { exact: true }).click();
-      }
+      if (width !== 390) await assertNoSeriousFindings(page);
+      await capture(page, info, `room-${theme}-${width}`);
+      await page.getByText('Edit settings', { exact: true }).click();
+      await expect(
+        page.getByRole('form', { name: 'Room settings' }),
+      ).toBeVisible();
+      if (width !== 390) await assertNoSeriousFindings(page);
+      await capture(page, info, `room-edit-${theme}-${width}`);
+      await page.getByText('Edit settings', { exact: true }).click();
     }
-  }
-}
-
-async function sidebarState(page: Page, view: RoomView) {
-  await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.goto(`/rooms/${view.id}`);
-  for (const state of ['collapsed', 'auto']) {
-    await page
-      .getByRole('button', {
-        name: state === 'collapsed' ? 'Collapse sidebar' : 'Expand sidebar',
-        exact: true,
-      })
-      .click();
-    await page
-      .locator('.room-page')
-      .getByRole('link', { name: '‹ Lobby', exact: true })
-      .click();
-    await expect(page.locator('[data-nav]')).toHaveAttribute('data-nav', state);
-    await enterLobbyRoom(page, view);
-    await expect(
-      page.getByRole('heading', { name: view.topic, exact: true }),
-    ).toBeVisible();
-    await expect(page.locator('[data-nav]')).toHaveAttribute('data-nav', state);
   }
 }
 
@@ -132,7 +91,7 @@ export async function proveGathering(
   try {
     const room = await openPage(native, 'native exact Room durations');
     await room.goto(`/rooms/${view.id}`);
-    await room.getByText('Edit round settings', { exact: true }).click();
+    await room.getByText('Edit settings', { exact: true }).click();
     const form = room.getByRole('form', { name: 'Room settings' });
     // Both component constraints pass; the combined value exceeds the pinned 60s bound.
     await form.locator('[name="duration.segment.A2.minutes"]').fill('1');
@@ -154,7 +113,7 @@ export async function proveGathering(
     expect(saved.rules.segments.map((segment) => segment.durationMs)).toEqual([
       7000, 23456, 11000,
     ]);
-    await room.getByText('Edit round settings', { exact: true }).click();
+    await room.getByText('Edit settings', { exact: true }).click();
     await expect(
       form.locator('[name="duration.segment.A2.minutes"]'),
     ).toHaveValue('0');
@@ -165,6 +124,5 @@ export async function proveGathering(
   } finally {
     await native.close();
   }
-  await sidebarState(page, view);
   await visualStates(page, info);
 }

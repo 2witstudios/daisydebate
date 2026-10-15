@@ -383,13 +383,13 @@ RT-4.5b proves the check-in-versus-evaluator race against real PostgreSQL.
 
 ### 10. Where the pure functions live
 
-| Function                                                                                                   | Module                                       | Leaf            | Consumers                                                         |
-| ---------------------------------------------------------------------------------------------------------- | -------------------------------------------- | --------------- | ----------------------------------------------------------------- |
-| `derivePresence`, `projectPresence`, `countVisible`                                                        | `packages/presence/src/index.ts`             | RT-3.2a         | `apps/web` (HTTP reads, top bar), `apps/realtime` (1 s doorbells) |
-| rules validation (the three `debate.rules.*` guards)                                                       | `packages/debate-engine/src/rules.ts`        | RT-4.1          | `createDebateRuntime`, `restoreDebateRuntime`                     |
-| `turnTimetable`, `turnStartedAt`, `currentTurn`                                                            | `packages/debate-engine/src/timetable.ts`    | RT-4.2          | check-in handler, adjudicator, web client scheduler               |
-| `deriveOutageIntervals`, `settledHorizon`                                                                  | `packages/debate-engine/src/availability.ts` | RT-4.3c         | adjudicator, check-in handler                                     |
-| `effectiveDeadline`, `recordCheckIn`, `adjudicateTurn`, `applyAdjudication` (attended, forfeit, abandoned) | `packages/debate-engine/src/adjudication.ts` | RT-4.4, RT-4.5a | maintenance evaluator, check-in handler                           |
+| Function                                                                                                   | Module                                       | Leaf            | Consumers                                                            |
+| ---------------------------------------------------------------------------------------------------------- | -------------------------------------------- | --------------- | -------------------------------------------------------------------- |
+| `derivePresence`, `projectPresence`, `countVisible`                                                        | `packages/presence/src/index.ts`             | RT-3.2a         | `apps/web` (HTTP reads, shell rail), `apps/realtime` (1 s doorbells) |
+| rules validation (the three `debate.rules.*` guards)                                                       | `packages/debate-engine/src/rules.ts`        | RT-4.1          | `createDebateRuntime`, `restoreDebateRuntime`                        |
+| `turnTimetable`, `turnStartedAt`, `currentTurn`                                                            | `packages/debate-engine/src/timetable.ts`    | RT-4.2          | check-in handler, adjudicator, web client scheduler                  |
+| `deriveOutageIntervals`, `settledHorizon`                                                                  | `packages/debate-engine/src/availability.ts` | RT-4.3c         | adjudicator, check-in handler                                        |
+| `effectiveDeadline`, `recordCheckIn`, `adjudicateTurn`, `applyAdjudication` (attended, forfeit, abandoned) | `packages/debate-engine/src/adjudication.ts` | RT-4.4, RT-4.5a | maintenance evaluator, check-in handler                              |
 
 - **`@daisy/presence` is a new package** (`packages/presence`), because two
   real consumers (`apps/web` and `apps/realtime`) run the same derivation

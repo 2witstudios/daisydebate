@@ -1,66 +1,65 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { RoundReceipt } from './round-receipt';
+import { RoundReceipt, type RoundReceiptView } from './round-receipt';
 
 setupRitewayBun();
 
+const scheduled: RoundReceiptView = {
+  id: 'round-owned',
+  roomId: 'room-owned',
+  status: 'scheduled',
+  outcome: null,
+  topic: '<Frozen topic>',
+  config: { preRoundPrep: { enabled: true, durationMs: 45000 } },
+  rules: {
+    countdownMs: 2000,
+    inRoundPrep: null,
+    interaction: {
+      crossExMode: 'free',
+      yield: null,
+      interruptions: null,
+    },
+    segments: [
+      {
+        key: 'A2',
+        label: 'Aff reply',
+        type: 'speech',
+        side: 'affirmative',
+        slot: 1,
+        durationMs: 125000,
+      },
+      {
+        key: 'N1',
+        label: 'Neg closing',
+        type: 'speech',
+        side: 'negative',
+        slot: 0,
+        durationMs: 90000,
+      },
+    ],
+  },
+  participants: [
+    {
+      id: 'seat-a',
+      actorId: 'actor-a',
+      kind: 'human',
+      label: 'Alice',
+      role: 'affirmative',
+      slot: 1,
+    },
+    {
+      id: 'seat-j',
+      actorId: 'actor-j',
+      kind: 'bot',
+      label: 'Judge Sage',
+      role: 'judge',
+      slot: 0,
+    },
+  ],
+};
+
 test('persisted scheduled Round renders the frozen asymmetric schedule and cast', () => {
-  const html = renderToStaticMarkup(
-    <RoundReceipt
-      round={{
-        id: 'round-owned',
-        roomId: 'room-owned',
-        status: 'scheduled',
-        topic: '<Frozen topic>',
-        config: { preRoundPrep: { enabled: true, durationMs: 45000 } },
-        rules: {
-          countdownMs: 2000,
-          inRoundPrep: null,
-          interaction: {
-            crossExMode: 'free',
-            yield: null,
-            interruptions: null,
-          },
-          segments: [
-            {
-              key: 'A2',
-              label: 'Aff reply',
-              type: 'speech',
-              side: 'affirmative',
-              slot: 1,
-              durationMs: 125000,
-            },
-            {
-              key: 'N1',
-              label: 'Neg closing',
-              type: 'speech',
-              side: 'negative',
-              slot: 0,
-              durationMs: 90000,
-            },
-          ],
-        },
-        participants: [
-          {
-            id: 'seat-a',
-            actorId: 'actor-a',
-            kind: 'human',
-            label: 'Alice',
-            role: 'affirmative',
-            slot: 1,
-          },
-          {
-            id: 'seat-j',
-            actorId: 'actor-j',
-            kind: 'bot',
-            label: 'Judge Sage',
-            role: 'judge',
-            slot: 0,
-          },
-        ],
-      }}
-    />,
-  );
+  const html = renderToStaticMarkup(<RoundReceipt round={scheduled} />);
   assert({
     given:
       'a scheduled Round with unequal frozen speech lengths and an AI judge',
@@ -78,7 +77,8 @@ test('persisted scheduled Round renders the frozen asymmetric schedule and cast'
       html.includes('Judge Sage'),
       html.includes('AI'),
       html.includes('/rooms/room-owned'),
-      html.includes('Media and judging are not available yet.'),
+      html.includes('Media is not available yet.'),
+      html.includes('Result'),
     ],
     expected: [
       true,
@@ -93,6 +93,40 @@ test('persisted scheduled Round renders the frozen asymmetric schedule and cast'
       true,
       true,
       true,
+      false,
     ],
+  });
+});
+
+const judged: RoundReceiptView = {
+  ...scheduled,
+  status: 'completed',
+  outcome: 'negative',
+  participants: [
+    ...scheduled.participants.filter((p) => p.role !== 'judge'),
+    {
+      id: 'seat-h',
+      actorId: 'actor-h',
+      kind: 'human',
+      label: 'Riley Judge',
+      role: 'judge',
+      slot: 0,
+    },
+  ],
+};
+
+test('a judged Round hands its result to the receipt', () => {
+  const html = renderToStaticMarkup(<RoundReceipt round={judged} />);
+  assert({
+    given: 'a Round the human judge’s ballot completed for the negative',
+    should:
+      'show it completed with the result, and the judge seat without the judge’s name',
+    actual: [
+      html.includes('Round · Completed'),
+      html.includes('Negative won'),
+      html.includes('Judge 1'),
+      html.includes('Riley'),
+    ],
+    expected: [true, true, true, false],
   });
 });

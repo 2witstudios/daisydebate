@@ -1,4 +1,14 @@
-import type { FormatDefinition } from './index';
+import type { FormatDefinition, RoomConfig } from './index';
+
+/** A room config with no prep, timing overrides, interruptions or yielding. */
+export const plainRoomConfig: RoomConfig = {
+  preRoundPrep: { enabled: false },
+  inRoundPrep: { enabled: false },
+  speechTiming: { countdownMs: 0, segmentDurationOverrides: {} },
+  crossExamination: { crossExMode: 'ordered' },
+  interruptions: null,
+  yielding: null,
+};
 
 /** Shared practice-format fixture for protocol and engine contract tests. */
 export const practiceFormatFixture: FormatDefinition = {
@@ -229,3 +239,16 @@ export const unsafeFormatDefinitions: ReadonlyArray<
     },
   ],
 ];
+
+/** Rules resolved from a definition at its default timing. */
+export const fixtureRules = (definition: FormatDefinition) => ({
+  version: 2,
+  seats: definition.seats,
+  segments: definition.segments.map(({ defaultDurationMs, ...s }) => ({
+    ...s,
+    durationMs: defaultDurationMs,
+  })),
+  inRoundPrep: null,
+  countdownMs: 0,
+  interaction: { crossExMode: 'ordered', yield: null, interruptions: null },
+});

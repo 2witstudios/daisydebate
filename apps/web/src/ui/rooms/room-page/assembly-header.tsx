@@ -1,46 +1,97 @@
-import type { RoomView } from '@daisy/protocol';
+import { isNamedSeat, type RoomView } from '@daisy/protocol';
 import Link from 'next/link';
 import type { MockFormState } from '../../../features/mock-form/form';
 import type { FormAction } from '../../form-action/form-action';
+import { buttonClass } from '../../components/button/button-class';
+import { AssemblyCommandFields } from './assembly-command-fields';
+import { AssemblyCommandForm } from './assembly-command-form';
+import { roomChips } from './room-labels';
 import { AssemblyDetails } from './assembly-details';
 import { RoomInvite } from './room-invite';
 
+const visibilityLabels = {
+  public: 'Public',
+  unlisted: 'Unlisted',
+  private: 'Private',
+} as const;
+
 export function AssemblyHeader({
   view,
-  commandId,
-  action,
+  actorId,
+  commandIds,
+  detailsAction,
+  commandAction,
 }: {
   readonly view: RoomView;
-  readonly commandId: string;
-  readonly action: FormAction<MockFormState>;
+  readonly actorId: string;
+  readonly commandIds: { readonly details: string; readonly leave: string };
+  readonly detailsAction: FormAction<MockFormState>;
+  readonly commandAction: FormAction<MockFormState>;
 }) {
+  const [status, shape, competition] = roomChips(view);
+  const seated = view.participants
+    .filter(isNamedSeat)
+    .some((seat) => seat.actorId === actorId);
   return (
-    <header className="flex flex-col gap-5">
-      <Link href="/lobby" className="text-sm text-ink-muted">
+    <header className="flex flex-col gap-3">
+      <Link
+        href="/lobby"
+        className="inline-flex min-h-12 items-center self-start text-sm text-ink-muted"
+      >
         ‹ Lobby
       </Link>
-      <div className="flex flex-wrap items-start justify-between gap-4 max-narrow:flex-col">
-        <div className="min-w-0 flex-1 max-narrow:w-full">
-          <h1 className="font-display text-3xl leading-tight font-semibold tracking-tight wrap-anywhere max-narrow:text-2xl">
+      <div className="flex flex-wrap items-end gap-4">
+        <div className="min-w-0 flex-1">
+          <p className="mb-2 flex flex-wrap gap-2 text-xs font-semibold">
+            <span className="rounded-full bg-hue-teal-soft px-3 py-1 text-hue-teal">
+              {status}
+            </span>
+            <span className="rounded-full border border-border-strong px-3 py-1 text-ink-muted">
+              {shape}
+            </span>
+            <span className="rounded-full border border-border-strong px-3 py-1 text-ink-muted">
+              {competition}
+            </span>
+          </p>
+          <h1 className="font-display text-2xl leading-tight font-semibold tracking-tight wrap-anywhere">
             {view.topic}
           </h1>
-          <p className="mt-3 text-sm wrap-anywhere text-ink-muted">
-            {view.title}
-          </p>
-          <p className="mt-2 flex flex-wrap gap-3 text-sm text-ink-muted">
-            <span className="min-w-0 wrap-anywhere">
-              Hosted by {view.hostLabel}
-            </span>
-            <span>{view.visibility}</span>
-            <span>
-              {view.competitionType} · {view.status}
-            </span>
+          <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-sm text-ink-muted">
+            <span className="min-w-0 wrap-anywhere">{view.title}</span>
+            {view.hostLabel !== null ? (
+              <span className="min-w-0 wrap-anywhere">
+                Hosted by {view.hostLabel}
+              </span>
+            ) : null}
+            <span>{visibilityLabels[view.visibility]}</span>
           </p>
         </div>
-        <RoomInvite roomId={view.id} visibility={view.visibility} />
+        <div className="flex flex-wrap items-start gap-2">
+          <RoomInvite
+            roomId={view.id}
+            visibility={view.visibility}
+            label="Copy invite link"
+          />
+          {seated ? (
+            <AssemblyCommandForm action={commandAction}>
+              <AssemblyCommandFields
+                type="leave-seat"
+                version={view.version}
+                commandId={commandIds.leave}
+              />
+              <button type="submit" className={buttonClass('secondary')}>
+                Leave seat
+              </button>
+            </AssemblyCommandForm>
+          ) : null}
+        </div>
       </div>
       {view.capabilities.canEdit ? (
-        <AssemblyDetails view={view} commandId={commandId} action={action} />
+        <AssemblyDetails
+          view={view}
+          commandId={commandIds.details}
+          action={detailsAction}
+        />
       ) : null}
     </header>
   );

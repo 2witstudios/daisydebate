@@ -2,7 +2,6 @@ import {
   updateDocumentHtml,
   type WorkspaceDocument,
 } from '../../features/debate-room/documents/documents';
-import { initialLayout, clampPane } from '../../features/debate-room/layout';
 import {
   activateTab,
   closeTab,
@@ -18,14 +17,12 @@ type State = {
   readonly tabs: TabsState;
   readonly pages: Readonly<Record<string, PageTone>>;
   readonly paletteOpen: boolean;
-  readonly treeWidth: number;
 };
 export const initialPersistedWorkspace: State = {
   documents: [],
   tabs: { open: [], active: null },
   pages: {},
   paletteOpen: false,
-  treeWidth: initialLayout.treeWidth,
 };
 function tabs(state: State, action: RoomAction): State | null {
   switch (action.type) {
@@ -39,30 +36,12 @@ function tabs(state: State, action: RoomAction): State | null {
       return null;
   }
 }
-function layout(state: State, action: RoomAction): State | null {
-  if (action.type === 'layout/resize' && action.pane === 'tree')
-    return {
-      ...state,
-      treeWidth: clampPane('tree', action.startPx + action.deltaPx),
-    };
-  if (action.type === 'layout/nudge' && action.pane === 'tree') {
-    const steps: Readonly<Record<string, number>> = {
-      ArrowLeft: -16,
-      ArrowUp: -16,
-      ArrowRight: 16,
-      ArrowDown: 16,
-    };
-    const delta = steps[action.key] ?? 0;
-    return { ...state, treeWidth: clampPane('tree', state.treeWidth + delta) };
-  }
-  return null;
-}
 /** Document-only state; never invents a floor, clock, speaker or assistant. */
 export function reducePersistedWorkspace(
   state: State,
   action: RoomAction,
 ): State {
-  const changed = tabs(state, action) ?? layout(state, action);
+  const changed = tabs(state, action);
   if (changed) return changed;
   switch (action.type) {
     case 'doc/loaded':

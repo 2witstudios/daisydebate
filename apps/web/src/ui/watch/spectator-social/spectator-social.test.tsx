@@ -6,7 +6,7 @@ import {
   findDebate,
 } from '../../../features/watch/debate-source';
 import { defaultSpectateQuery } from '../../../features/watch/spectate-query';
-import { Chat, Reactions } from './spectator-social';
+import { ChatComposer, ChatMessages, Reactions } from './spectator-social';
 
 setupRitewayBun();
 
@@ -44,46 +44,79 @@ describe('Reactions', () => {
   });
 });
 
-describe('Chat', () => {
-  test('open: messages, report links and a composer', () => {
+describe('ChatMessages', () => {
+  test('open: messages and report links', () => {
     const html = renderToString(
-      h(Chat, {
+      h(ChatMessages, {
         id: 'top-of-the-ladder',
         query: defaultSpectateQuery,
-        social,
+        messages: social.messages,
         open: true,
       }),
     );
     assert({
       given: 'open chat',
-      should:
-        'list messages, a removed one, report links and an enabled composer',
+      should: 'list messages, a removed one and report links',
       actual: [
         html.includes('The criterion fight is the whole round.'),
         html.includes('A message was removed by a moderator.'),
         html.includes('href="/watch/top-of-the-ladder?report=message%3Ac1"'),
-        /<input id="chat-draft"/.test(html) &&
-          !/<input id="chat-draft"[^>]*disabled/.test(html),
-        html.includes('Slow mode'),
-        html.includes(social.chatRules),
       ],
-      expected: [true, true, true, true, true, true],
+      expected: [true, true, true],
     });
   });
 
   test('closed', () => {
     const html = renderToString(
-      h(Chat, { id: 'x', query: defaultSpectateQuery, social, open: false }),
+      h(ChatMessages, {
+        id: 'x',
+        query: defaultSpectateQuery,
+        messages: social.messages,
+        open: false,
+      }),
     );
     assert({
       given: 'chat after the debate ends',
-      should: 'say it closed and offer no composer or report links',
+      should: 'keep the messages and offer no report links',
       actual: [
-        html.includes('Chat closed'),
-        html.includes('chat-draft'),
+        html.includes('The criterion fight is the whole round.'),
         html.includes('Report this message'),
       ],
-      expected: [true, false, false],
+      expected: [true, false],
+    });
+  });
+});
+
+describe('ChatComposer', () => {
+  test('open: a labelled composer under slow mode', () => {
+    const html = renderToString(
+      h(ChatComposer, { chatRules: social.chatRules, open: true }),
+    );
+    assert({
+      given: 'open chat',
+      should:
+        'offer an enabled, labelled composer with no placeholder, slow mode and the rules',
+      actual: [
+        /<input id="chat-draft"/.test(html) &&
+          !/<input id="chat-draft"[^>]*disabled/.test(html),
+        html.includes('Message spectators'),
+        html.includes('placeholder'),
+        html.includes('Slow mode'),
+        html.includes(social.chatRules),
+      ],
+      expected: [true, true, false, true, true],
+    });
+  });
+
+  test('closed', () => {
+    const html = renderToString(
+      h(ChatComposer, { chatRules: social.chatRules, open: false }),
+    );
+    assert({
+      given: 'chat after the debate ends',
+      should: 'say it closed and offer no composer',
+      actual: [html.includes('Chat closed'), html.includes('chat-draft')],
+      expected: [true, false],
     });
   });
 });

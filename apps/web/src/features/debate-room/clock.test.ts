@@ -1,10 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import {
-  cancelEndSpeech,
-  clockUrgency,
-  formatClock,
-  pressEndSpeech,
-} from './clock';
+import { clockMilestone, clockUrgency, formatClock } from './clock';
 
 setupRitewayBun();
 
@@ -66,37 +61,19 @@ describe('clockUrgency', () => {
   });
 });
 
-describe('end speech confirmation', () => {
-  test('press and cancel', () => {
+describe('clockMilestone', () => {
+  test('the marks a screen reader hears', () => {
     assert({
-      given: 'an idle button pressed',
-      should: 'arm it',
-      actual: pressEndSpeech('idle'),
-      expected: 'armed',
-    });
-    assert({
-      given: 'an armed button pressed',
-      should: 'end the speech',
-      actual: pressEndSpeech('armed'),
-      expected: 'ended',
-    });
-    assert({
-      given: 'an ended speech pressed again',
-      should: 'stay ended',
-      actual: pressEndSpeech('ended'),
-      expected: 'ended',
-    });
-    assert({
-      given: 'an armed button cancelled',
-      should: 'return to idle',
-      actual: cancelEndSpeech('armed'),
-      expected: 'idle',
-    });
-    assert({
-      given: 'an ended speech cancelled',
-      should: 'stay ended',
-      actual: cancelEndSpeech('ended'),
-      expected: 'ended',
+      given: 'two minutes, one minute, 30 seconds, 10 seconds and zero',
+      should: 'stay silent until a minute, then name each mark once crossed',
+      actual: [120_000, 60_000, 30_000, 10_000, 0].map(clockMilestone),
+      expected: [
+        null,
+        '1 minute left',
+        '30 seconds left',
+        '30 seconds left',
+        'Time',
+      ],
     });
   });
 });

@@ -62,15 +62,3 @@ export function markRead(
 ): ReadMarkers {
   return { ...readMarkers, [channelId]: now };
 }
-
-/** Appends a trimmed message; empty, over-long or duplicate messages are rejected. */
-export function appendMessage(
-  messages: readonly ChatMessage[],
-  message: ChatMessage,
-  maxLength: number,
-): readonly ChatMessage[] {
-  const text = message.text.trim();
-  if (text === '' || text.length > maxLength) return messages;
-  if (messages.some((m) => m.id === message.id)) return messages;
-  return [...messages, { ...message, text }];
-}

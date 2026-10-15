@@ -26,6 +26,7 @@
     "@daisy/db": "workspace:*",
     "@daisy/debate-engine": "workspace:*",
     "@daisy/errors": "workspace:*",
+    "@daisy/ingress": "workspace:*",
     "@daisy/logger": "workspace:*",
     "@daisy/observability": "workspace:*",
     "@daisy/protocol": "workspace:*",
@@ -33,7 +34,6 @@
     "@paralleldrive/cuid2": "3.3.0",
     "@tiptap/core": "3.31.4",
     "@tiptap/extension-list": "3.31.4",
-    "@tiptap/extensions": "3.31.4",
     "@tiptap/html": "3.31.4",
     "@tiptap/pm": "3.31.4",
     "@tiptap/react": "3.31.4",
@@ -45,8 +45,7 @@
     "react-dom": "19.3.0",
     "resend": "6.28.1",
     "sharp": "0.35.5",
-    "zod": "4.6.5",
-    "@daisy/ingress": "workspace:*"
+    "zod": "4.6.5"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",

@@ -140,8 +140,9 @@ const sheet = (page: Page) =>
   page.locator('section[aria-labelledby="ballot-scores"]');
 
 for (const width of [320, 360, 641, 768, 1024, 1280]) {
-  // From 1024 px the sheet has room to set both sides beside the category.
-  const wide = width >= 1024;
+  // Beside the 56 px rail, from 768 px the sheet has room to set both sides
+  // beside the category; below it, and on a phone, one row per side.
+  const wide = width >= 768;
   test(`at ${width} px every slider is usable and the names are whole`, async ({
     page,
   }) => {

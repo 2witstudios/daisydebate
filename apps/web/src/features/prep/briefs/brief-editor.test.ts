@@ -1,119 +1,45 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import {
-  briefEditorView,
-  briefHref,
-  parseBriefEditorQuery,
-} from './brief-editor';
-import { speechLimitSeconds } from './get-brief';
+import { briefOutline } from './brief-document';
+import { briefEditorView } from './brief-editor';
+import { listBriefEvidence } from './brief-evidence';
 import { requireBrief } from './brief.test-support';
 
 setupRitewayBun();
 
-const view = (id: string, section = '') =>
-  briefEditorView(requireBrief(id), { section }, 160, speechLimitSeconds());
-
-describe('parseBriefEditorQuery', () => {
-  test('values and junk', () => {
-    assert({
-      given: 'a section, nothing, and junk',
-      should: 'keep a clean id and blank out the rest',
-      actual: [
-        parseBriefEditorQuery({ section: 'c2' }),
-        parseBriefEditorQuery({}),
-        parseBriefEditorQuery({ section: '../x' }),
-        parseBriefEditorQuery({ section: 'a'.repeat(40) }),
-      ],
-      expected: [
-        { section: 'c2' },
-        { section: '' },
-        { section: '' },
-        { section: '' },
-      ],
-    });
-  });
-
-  test('hrefs', () => {
-    assert({
-      given: 'a blank and a named section',
-      should: 'omit the query for blank',
-      actual: [briefHref('b', ''), briefHref('b', 'c2')],
-      expected: ['/prep/briefs/b', '/prep/briefs/b?section=c2'],
-    });
-  });
-});
+const evidence = listBriefEvidence('2026-09-30T12:00:00.000Z');
+const view = (id: string) =>
+  briefEditorView(requireBrief(id), evidence, 160, 300);
 
 describe('briefEditorView', () => {
-  test('default section and outline', () => {
+  test('a saved team brief', () => {
     const v = view('rights-framework');
+    const outline = briefOutline(v.html, v.pace, v.limitSeconds);
     assert({
-      given: 'a saved brief with no section asked',
+      given: 'a saved brief shared with a team, at 160 words a minute',
       should:
-        'open contention 1 and outline framing, three contentions and responses',
+        'carry its document, saved time and access, and read over the limit',
       actual: [
-        v.section.kind,
-        v.outline.map((o) => [o.id, o.current]),
+        v.title,
         v.savedLabel,
-        v.sideLabel,
-        v.outline.at(-1)?.detail,
+        v.accessLabel,
+        outline.sections.map((s) => s.label.slice(0, 12)),
+        outline.budget.over,
+        v.evidence.length,
       ],
       expected: [
-        'contention',
+        'Affirmative case: rights-based framework',
+        'Saved 12:04',
+        'Shared with [Team name]',
         [
-          ['framing', false],
-          ['c1', true],
-          ['c2', false],
-          ['c3', false],
-          ['responses', false],
+          'Overview',
+          '1 · The fram',
+          '2 · Costs do',
+          '3 · Implemen',
+          'Anticipated ',
         ],
-        'Last saved 12:04',
-        'Aff',
-        '4 responses',
+        true,
+        5,
       ],
-    });
-  });
-
-  test('framing, responses and an unknown section', () => {
-    assert({
-      given: 'the framing, responses and a bad section',
-      should: 'resolve each; the bad one falls back to contention 1',
-      actual: [
-        view('rights-framework', 'framing').section.kind,
-        view('rights-framework', 'responses').section.kind,
-        view('rights-framework', 'c9').section.kind,
-      ],
-      expected: ['framing', 'responses', 'contention'],
-    });
-  });
-
-  test('the responses are grouped by contention', () => {
-    const v = view('rights-framework', 'responses');
-    assert({
-      given: 'the responses section',
-      should: 'group by contention, skipping those with none',
-      actual:
-        v.section.kind === 'responses'
-          ? v.section.groups.map((g) => [g.label, g.responses.length])
-          : null,
-      expected: [
-        ['Contention 1', 1],
-        ['Contention 2', 2],
-        ['Contention 3', 1],
-      ],
-    });
-  });
-
-  test('time against the limit', () => {
-    const v = view('rights-framework');
-    assert({
-      given: 'the sample brief at 160 words a minute',
-      should: 'read it as one speech, go over the limit and suggest a trim',
-      actual: [
-        v.time.budget.over,
-        v.time.trimWords > 0,
-        v.paceLabel,
-        v.time.sections.length,
-      ],
-      expected: [true, true, '160', 4],
     });
   });
 
@@ -121,14 +47,13 @@ describe('briefEditorView', () => {
     const v = view('new');
     assert({
       given: 'the blank brief',
-      should: 'start on framing, be unsaved, and have no time',
+      should: 'be unsaved, private, and read no time',
       actual: [
-        v.section.kind,
         v.savedLabel,
-        v.time.whole.clock,
-        v.time.budget.over,
+        v.accessLabel,
+        briefOutline(v.html, v.pace, v.limitSeconds).clock,
       ],
-      expected: ['framing', 'Not saved yet', '0:00', false],
+      expected: ['Not saved yet', 'Private to you', '0:00'],
     });
   });
 

@@ -4,7 +4,7 @@ import { seatLabel } from '../room-page/assembly-controls';
 
 export type RoundReceiptView = Pick<
   RoundView,
-  'id' | 'roomId' | 'status' | 'topic' | 'participants'
+  'id' | 'roomId' | 'status' | 'topic' | 'participants' | 'outcome'
 > & {
   readonly config: Pick<RoundView['config'], 'preRoundPrep'>;
   readonly rules: Pick<
@@ -13,23 +13,56 @@ export type RoundReceiptView = Pick<
   >;
 };
 
+const statusLabel: Readonly<Record<RoundView['status'], string>> = {
+  scheduled: 'Scheduled',
+  active: 'Active',
+  completed: 'Completed',
+  abandoned: 'Abandoned',
+};
+
+const resultLabel: Readonly<Record<NonNullable<RoundView['outcome']>, string>> =
+  {
+    affirmative: 'Affirmative won',
+    negative: 'Negative won',
+    draw: 'Draw',
+  };
+
+type Participant = RoundReceiptView['participants'][number];
+
+/**
+ * A seat's line. A human judge stays anonymous until both debaters have
+ * reviewed the ballot, which nothing records yet (DEC-98).
+ */
+const participantLine = (participant: Participant) => {
+  const seat = seatLabel(participant.role, participant.slot);
+  if (
+    'anonymous' in participant ||
+    (participant.role === 'judge' && participant.kind === 'human')
+  )
+    return seat;
+  return `${seat} · ${participant.label}${participant.kind === 'bot' ? ' · AI' : ''}`;
+};
+
 const duration = (ms: number) => {
   const seconds = ms / 1000;
   return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
 };
 
-/** A receipt of durable Launch, with no invented floor, media or outcome. */
+/** A receipt of durable Launch and, once the ballot lands, the result. */
 export function RoundReceipt({ round }: { readonly round: RoundReceiptView }) {
   return (
     <main className="mx-auto flex w-full max-w-dash-column flex-col gap-6 px-6 py-8">
       <header>
         <p className="text-sm text-ink-muted">
-          Round · {round.status === 'scheduled' ? 'Scheduled' : round.status}
+          Round · {statusLabel[round.status]}
         </p>
         <h1 className="text-2xl font-strong text-ink">{round.topic}</h1>
-        <p className="text-ink-muted">
-          Media and judging are not available yet.
-        </p>
+        {round.outcome ? (
+          <p className="text-lg font-strong text-ink">
+            Result · {resultLabel[round.outcome]}
+          </p>
+        ) : null}
+        <p className="text-ink-muted">Media is not available yet.</p>
         <Link href={`/rooms/${round.roomId}`}>Return to room</Link>
       </header>
       <section
@@ -39,10 +72,8 @@ export function RoundReceipt({ round }: { readonly round: RoundReceiptView }) {
         <h2 className="font-strong">Participants</h2>
         <ul>
           {round.participants.map((participant) => (
-            <li key={participant.id}>
-              {seatLabel(participant.role, participant.slot)} ·{' '}
-              {participant.label}
-              {participant.kind === 'bot' ? ' · AI' : ''}
+            <li key={`${participant.role}-${participant.slot}`}>
+              {participantLine(participant)}
             </li>
           ))}
         </ul>

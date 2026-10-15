@@ -9,7 +9,6 @@ export type PhaseTimelineProps = {
 export function PhaseTimeline({ timeline }: PhaseTimelineProps) {
   return (
     <section aria-label="Phase timeline" className="flex flex-col gap-2">
-      <p className="text-sm text-ink-muted">{timeline.caption}</p>
       <ol className="flex gap-1">
         {timeline.steps.map((step) => (
           <li
@@ -18,10 +17,13 @@ export function PhaseTimeline({ timeline }: PhaseTimelineProps) {
             aria-current={step.state === 'current' ? 'step' : undefined}
             className={timelineStepClass(step.state)}
           >
-            {step.abbreviation}
+            {step.state === 'current'
+              ? `${step.abbreviation} · now`
+              : step.abbreviation}
           </li>
         ))}
       </ol>
+      <p className="text-sm text-ink-muted">{timeline.caption}</p>
     </section>
   );
 }

@@ -1,3 +1,4 @@
+import type { CompetitionType } from '@daisy/protocol';
 import type { FolderId, WorkspaceDocument } from './documents/documents';
 
 export type RoundKind = 'rated' | 'unrated';
@@ -63,14 +64,17 @@ export function activateTab(tabs: TabsState, id: string): TabsState {
   return tabs.open.includes(id) ? { ...tabs, active: id } : tabs;
 }
 
-/** A ranked room plays rated rounds; every other room plays unrated ones. */
-export const roundKindOf = (mode: 'practice' | 'ranked'): RoundKind =>
-  mode === 'ranked' ? 'rated' : 'unrated';
+/** A ranked round is rated; casual and practice rounds are not. */
+export const roundKindOf = (competition: CompetitionType): RoundKind =>
+  competition === 'ranked' ? 'rated' : 'unrated';
 
-export type SidebarTab = 'chat' | 'ai';
+export type DrawerTab = 'files' | 'chat' | 'ai' | 'room';
 
-export function sidebarTabs(kind: RoundKind): readonly SidebarTab[] {
-  return kind === 'rated' ? ['chat'] : ['chat', 'ai'];
+/** A rated round has no AI: outside help would make the result unfair. */
+export function drawerTabs(kind: RoundKind): readonly DrawerTab[] {
+  return kind === 'rated'
+    ? ['files', 'chat', 'room']
+    : ['files', 'chat', 'ai', 'room'];
 }
 
 export type Channel = {
@@ -87,6 +91,12 @@ export function visibleChannels(
     ? channels.filter((c) => c.scope === 'round')
     : channels;
 }
+
+/** A rated round shows no club folder: the club's files are outside help (DEC-175). */
+export const visibleClub = (
+  clubName: string | null,
+  kind: RoundKind,
+): string | null => (kind === 'rated' ? null : clubName);
 
 export type Agent = {
   readonly id: string;

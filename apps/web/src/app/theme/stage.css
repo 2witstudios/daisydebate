@@ -1,9 +1,0 @@
-/* The live round's video tiles are sized by the round room (room.css,
-   room-video-tile). */
-
-/* A bot's own portrait, blurred and enlarged behind it to fill its tile,
-   the way a video call softens a background. */
-@utility video-backdrop {
-  filter: blur(24px);
-  transform: scale(2.5);
-}

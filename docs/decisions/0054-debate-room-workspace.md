@@ -1,7 +1,11 @@
 # 0054: the debater's round room and its document editor
 
 Status: accepted (owner request, 2026-10-05; design
-[Debate Room](https://claude.ai/artifact/Y32dLCZuXTwyruTfQFoUFn)). Extends
+[Debate Room](https://claude.ai/artifact/Y32dLCZuXTwyruTfQFoUFn)). Amended
+2026-10-12 (owner-approved redesign, design
+[Daisy Room Redesign](https://claude.ai/artifact/TStKrFHBxGakPERdMwwYey),
+Proposal page): round bar and one drawer, speaker-primary video, voice-only
+bots. Extends
 [ADR 0028](0028-tailwind-v4.md) and [ADR 0045](0045-daisy-brand-system.md)
 for two narrow styling cases.
 
@@ -15,15 +19,35 @@ document. Daisy builds this itself rather than embedding another product.
 
 ## Decision
 
-1. **Layout.** `/rooms/[id]/round` renders outside the shell: the two
-   debaters side by side, the round controls with the clock large and
-   centred, then a workspace of file tree, tabbed editor and a sidebar with
-   Chat and AI tabs. Three draggable dividers size the panes; Auto picks a
-   preset from the round phase (Split while the opponent speaks, Stage for
-   cross-examination, Focus for prep and one's own speech).
+1. **Layout.** `/rounds/[id]/room` renders outside the shell for a
+   debater of a round that has not ended (everyone else, and every ended
+   round, gets the receipt at `/rounds/[id]`). One round bar: a drawer
+   toggle (the unread chat count when closed), the round kind, the motion,
+   the speeches with the live one as the current step, the judge chip
+   (`Judge present`, anonymous, or `AI judge`), `Rec` while recording, and
+   Leave alone in the far corner behind a confirm. Below it, one closable
+   drawer with Files, Chat, AI and Room tabs beside the video, the
+   three-column controls row (mic status and both prep clocks; the clock;
+   the phase action, Tech issue and the layout menu) and the tabbed
+   document. There is no Mute: the server controls the mics. Only the
+   video resizes, by one divider; a manual resize pins the layout, and
+   Auto picks a preset from the round phase: Speaker while the opponent
+   speaks (the speaker large, oneself small, with the next speeches beside
+   it), Stage for cross-examination (equal Asking and Answering tiles),
+   Focus for prep and one's own speech (small tiles, the document takes the
+   height), and Conversation for the judging window (both debaters with the
+   human and AI ballot status). The judge never has a tile. A bot opponent
+   has no video tile: a persona card with its level, a voice-level meter and
+   live captions in an `aria-live` log. On a phone the drawer tabs become
+   bottom round tabs (Doc, Files, Chat, AI, Room) and the phase action sits
+   above them. After the last speech the room holds the judging window: the
+   window's clock, Report a problem, a Ballots section with each ballot's
+   status, the judge anonymous and writing in the Room tab, and the
+   transcript open first; the deciding ballot completes the round and the
+   debaters move to the receipt.
 2. **Tiptap 3 (MIT) is the document editor**, in `apps/web` only:
-   `@tiptap/react`, `@tiptap/core`, `@tiptap/pm`, `@tiptap/starter-kit`,
-   `@tiptap/extension-list` and `@tiptap/extensions`, pinned together. No
+   `@tiptap/react`, `@tiptap/core`, `@tiptap/pm`, `@tiptap/starter-kit`
+   and `@tiptap/extension-list`, pinned together. No
    Tiptap Pro or cloud packages, plus `@tiptap/html` and `happy-dom` for
    the server-side round trip below.
 3. **HTML is the stored source of truth**, as PageSpace stores its pages,
@@ -49,10 +73,11 @@ document. Daisy builds this itself rather than embedding another product.
 4. **Tiptap's injected stylesheet is off** (`injectCSS: false`): its style
    tag carries no nonce, so the CSP would refuse it. The ProseMirror base
    rules live in `app/theme/room.css` instead.
-5. **Pane sizes are custom properties set through the CSSOM**
+5. **The video size is a custom property set through the CSSOM**
    (`element.style.setProperty`), which the CSP allows, read by named
-   utilities in `room.css` (`room-tree-pane`, `room-sidebar-pane`,
-   `room-video-tile`, `room-workspace`). No style attribute and no
+   utilities in `room.css` (`room-video-band`, `room-workspace`); the
+   room's fixed metrics are `--spacing-room-*` and `--spacing-round-*`
+   theme tokens there. No style attribute and no
    arbitrary class value is introduced.
 6. **The document page may carry its own scheme.** A debater can keep a
    dark page in a light app or the reverse. `[data-room-page]` joins
@@ -60,19 +85,32 @@ document. Daisy builds this itself rather than embedding another product.
    mechanism ADR 0045 gave the brand sheet's preview panels.
 7. **Debate marks** (Aff, Neg, Extend, Dropped, New) are one Tiptap mark
    with a `kind` attribute rendered as `data-debate-mark`, coloured by the
-   area hues and status tokens in `room.css`.
-8. **Fair play.** In a rated round the sidebar has Chat only, with the
-   round's own channel; club channels and agents are hidden
+   area hues and status tokens in `room.css`. A document may open with a
+   page setting, `<div data-page="landscape" data-columns="N">` (N from 2
+   to 6), that lays it out in columns; without one it is portrait. Text
+   size (A−/A+) is the viewer's own and never stored.
+8. **Fair play.** In a rated (ranked) round the drawer has Files, Chat
+   and Room only, Chat holds the round's own channel; the AI tab, club
+   channels and agents are hidden
    (`features/debate-room/workspace.ts`). Recorded as DEC-108,
    open until the owner confirms or overrules it.
 
 ## Consequences
 
-- Bot rounds (`/ai-debate/[id]`) run in this room over their real state:
-  turns, clock, transcript from the persisted utterances, and saved
-  documents. The human-round room (`/rooms/[id]/round`) still runs over
-  sample data (`ui/mock/debate-room.ts`); chat and the AI agents need
-  their own backend work, and their requests stay in the client.
+- The room reads `/api/rounds/[roundId]` (`RoundView`, with its runtime
+  snapshot) and derives the phase, the lit speech, the clock and both prep
+  clocks with `roundPositionAt` once a second in the browser, rereading
+  the view every five seconds; an ended round leaves for its receipt.
+  After the last speech the room enters judging. The mic shows live while
+  the debater holds the floor. The Round read and the Room view are
+  projected per viewer at the server (DEC-98, DEC-174): a human judge's
+  seat is anonymous to everyone but that judge and the host, with no name,
+  actor or seat id, and the Round read never carries the host's actor. An
+  unreadable stored checkpoint reads as none, so the room shows no live
+  position instead of failing. Ratings, stakes, Round commands, chat
+  delivery, the AI agents, media and Tech issue have no server yet: their
+  controls are shown disabled (DEC-100, DEC-178), and a ranked round lists
+  no club folder (DEC-175).
 - Account erasure keeps the `users` row, so `ON DELETE CASCADE` does not
   remove a person's documents on erasure; the erasure transaction must
   delete them explicitly.

@@ -8,12 +8,15 @@ import { createAiDebateOperations } from '../src/features/ai-debate/operations';
 import type { AiDebateDependencies } from '../src/features/ai-debate/context';
 import { opponentFor } from '../src/features/ai-debate/opponents';
 import { withRoomRuntime } from './room-runtime.test-support';
+import { isNamedSeat } from '@daisy/protocol';
 type Voice = ReturnType<AiDebateDependencies['voice']>;
 /** Existing bot runtime proof starts from the same canonical persisted Room Launch. */
 export const withPractice = async (
   run: (fixture: {
     database: Database;
     actorId: string;
+    /** The host's full caller, for store-level reads that take a Caller. */
+    host: { readonly userId: string; readonly actorId: string };
     id: string;
     operations: ReturnType<typeof createAiDebateOperations>;
     expireAt: (seconds: number) => Promise<void>;
@@ -68,9 +71,9 @@ export const withPractice = async (
     view = (
       await f.command(f.host, view, {
         type: 'ready',
-        expectedConsentVersion: view.participants.find(
-          (p) => p.actorId === actorId,
-        )!.consentVersion,
+        expectedConsentVersion: view.participants
+          .filter(isNamedSeat)
+          .find((p) => p.actorId === actorId)!.consentVersion,
       })
     ).view;
     view = (await f.command(f.host, view, { type: 'start-round' })).view;
@@ -104,6 +107,7 @@ export const withPractice = async (
     await run({
       database: f.store,
       actorId,
+      host: f.host,
       id,
       operations,
       expireAt: async (seconds) => {

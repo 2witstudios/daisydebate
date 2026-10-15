@@ -1,6 +1,7 @@
 import { launchEvidence } from './room-launch-evidence';
 import type { APIRequestContext, Page } from '@playwright/test';
 import {
+  isNamedSeat,
   roomCastChoiceSchema,
   roomViewSchema,
   type RoomView,
@@ -72,31 +73,39 @@ export async function closeRoom(
 
 export async function claim(page: Page, view: RoomView, seat: string) {
   await page.goto(`/rooms/${view.id}`);
-  await page
-    .locator('details')
-    .filter({ has: page.getByText(/^(Manage seats|Choose your place)$/) })
-    .locator('summary')
-    .click();
   await page.getByRole('button', { name: `Take ${seat}`, exact: true }).click();
   const [role, number] = seat.toLowerCase().split(' ');
   await expect(async () => {
     view = await reread(page.request, view.id);
     expect(
-      view.participants.some(
-        (participant) =>
-          participant.kind === 'human' &&
-          participant.role === role &&
-          participant.slot === Number(number) - 1,
-      ),
+      view.participants
+        .filter(isNamedSeat)
+        .some(
+          (participant) =>
+            participant.kind === 'human' &&
+            participant.role === role &&
+            participant.slot === Number(number) - 1,
+        ),
     ).toBe(true);
   }).toPass({ timeout: 10_000 });
   return view;
 }
 
-/** Real actors from the authenticated catalog; human judge claims its own seat. */
-export async function prepareJudgeRoom(page: Page, title: string) {
+const seats = ['Affirmative 1', 'Negative 1', 'Judge 1'] as const;
+const seatRole = {
+  'Affirmative 1': 'affirmative',
+  'Negative 1': 'negative',
+  'Judge 1': 'judge',
+} as const;
+
+/** Real actors from the authenticated catalog: bots in every seat but the member's own. */
+export async function prepareRoomAs(
+  page: Page,
+  title: string,
+  own: (typeof seats)[number],
+) {
   let view = await createFromPlay(page, title, 'one-on-one');
-  await page.getByText('Edit round settings', { exact: true }).click();
+  await page.getByText('Edit settings', { exact: true }).click();
   const settings = page.getByRole('form', { name: 'Room settings' });
   await settings.getByLabel('Enable preparation before Launch').uncheck();
   await settings.getByRole('button', { name: 'Save settings' }).click();
@@ -116,7 +125,7 @@ export async function prepareJudgeRoom(page: Page, title: string) {
   );
   expect(eligible.length).toBeGreaterThanOrEqual(2);
   await page.getByText('Manage seats', { exact: true }).click();
-  for (const [index, seat] of ['Affirmative 1', 'Negative 1'].entries()) {
+  for (const [index, seat] of seats.filter((s) => s !== own).entries()) {
     const select = page.getByLabel(`Assign ${seat}`, { exact: true });
     await select.selectOption(eligible[index]!.actorId);
     await select
@@ -126,20 +135,25 @@ export async function prepareJudgeRoom(page: Page, title: string) {
     await expect(async () => {
       view = await reread(page.request, view.id);
       expect(
-        view.participants.some(
-          (participant) =>
-            participant.actorId === eligible[index]!.actorId &&
-            participant.role === (index === 0 ? 'affirmative' : 'negative') &&
-            participant.slot === 0,
-        ),
+        view.participants
+          .filter(isNamedSeat)
+          .some(
+            (participant) =>
+              participant.actorId === eligible[index]!.actorId &&
+              participant.role === seatRole[seat] &&
+              participant.slot === 0,
+          ),
       ).toBe(true);
     }).toPass({ timeout: 10_000 });
     await expect(
       select.locator('..').locator('[name="expectedVersion"]'),
     ).toHaveValue(String(view.version));
   }
-  return claim(page, view, 'Judge 1');
+  return claim(page, view, own);
 }
+
+export const prepareJudgeRoom = (page: Page, title: string) =>
+  prepareRoomAs(page, title, 'Judge 1');
 
 /** Both Launch paths assert the same complete frozen durable projection. */
 export async function assertFrozenLaunch(view: RoomView) {
@@ -151,7 +165,10 @@ export async function assertFrozenLaunch(view: RoomView) {
       topic: view.topic,
       config: view.config,
       rules: view.rules,
-      cast: view.participants.map((participant) => participant.actorId).sort(),
+      cast: view.participants
+        .filter(isNamedSeat)
+        .map((participant) => participant.actorId)
+        .sort(),
     },
   ]);
   expect(proof.launchDoorbells).toBe(1);

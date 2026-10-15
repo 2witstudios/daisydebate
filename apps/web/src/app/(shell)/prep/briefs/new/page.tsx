@@ -1,9 +1,8 @@
 import type { Metadata } from 'next';
 import type { SearchParams } from '../../../../../features/access/decision';
-import {
-  briefEditorView,
-  parseBriefEditorQuery,
-} from '../../../../../features/prep/briefs/brief-editor';
+import { systemClock } from '@daisy/clock';
+import { briefEditorView } from '../../../../../features/prep/briefs/brief-editor';
+import { listBriefEvidence } from '../../../../../features/prep/briefs/brief-evidence';
 import {
   getBrief,
   NEW_BRIEF_ID,
@@ -24,10 +23,14 @@ export default async function NewBriefPage({
   await requireAccess('/prep/briefs/new', searchParams);
   const brief = getBrief(NEW_BRIEF_ID);
   if (brief === undefined) throw new Error('the blank brief is missing');
-  const query = parseBriefEditorQuery(await searchParams);
   return (
     <BriefEditor
-      view={briefEditorView(brief, query, readingPace(), speechLimitSeconds())}
+      view={briefEditorView(
+        brief,
+        listBriefEvidence(systemClock.now()),
+        readingPace(),
+        speechLimitSeconds(),
+      )}
     />
   );
 }

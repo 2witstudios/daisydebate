@@ -9,6 +9,7 @@ import { currentFormatRevisions } from './format-operations';
 import { eq, isNull } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type {
+  LaunchedRound,
   RoundView,
   RoomAssemblyState,
   RoomCommandReceipt,
@@ -23,6 +24,8 @@ import { botProfiles } from './schema/bot-profiles';
 
 import { rooms } from './schema/rooms';
 import { rounds } from './schema/rounds';
+import { segmentRows } from './round-hydration';
+import { readableCheckpoint, roundViewFor } from './round-view-projection';
 import { roundParticipants } from './schema/round-participants';
 import { formats } from './schema/formats';
 
@@ -53,7 +56,7 @@ export const roomReadOperations = ({
   async readLaunchedRound(
     roundId: string,
     caller: Caller,
-    authorize: (view: RoundView, account: Account) => boolean,
+    authorize: (round: LaunchedRound, account: Account) => boolean,
   ): Promise<RoundView> {
     return instrumented(eventSink, 'readLaunchedRound', () =>
       database.transaction(async (tx) => {
@@ -83,11 +86,12 @@ export const roomReadOperations = ({
             };
           }),
         );
-        const view: RoundView = {
+        const round: LaunchedRound = {
           id: row.id,
           roomId: row.roomId,
           version: row.version,
           status: row.status,
+          competitionType: row.competitionType,
           topic: row.resolution,
           visibility: row.visibility,
           hostActorId: row.createdByActorId,
@@ -97,9 +101,11 @@ export const roomReadOperations = ({
           startedAt: row.startedAt?.toISOString() ?? null,
           completedAt: row.completedAt?.toISOString() ?? null,
           outcome: row.outcome,
+          checkpoint: readableCheckpoint(row.runtimeState),
+          segments: await segmentRows(tx, roundId),
         };
-        if (!authorize(view, account)) throw createAppError('NOT_FOUND');
-        return view;
+        if (!authorize(round, account)) throw createAppError('NOT_FOUND');
+        return roundViewFor(round, caller.actorId);
       }),
     );
   },

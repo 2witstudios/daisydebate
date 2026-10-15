@@ -1,4 +1,4 @@
-import type { RoomView } from '@daisy/protocol';
+import { isNamedSeat, type RoomView } from '@daisy/protocol';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
@@ -45,9 +45,9 @@ test('a Redis write followed by transaction failure cannot establish consent aft
     });
     const revoked = await f.command(f.host, lost, {
       type: 'unready',
-      expectedConsentVersion: lost.participants.find(
-        (p) => p.actorId === f.host.actorId,
-      )!.consentVersion,
+      expectedConsentVersion: lost.participants
+        .filter(isNamedSeat)
+        .find((p) => p.actorId === f.host.actorId)!.consentVersion,
     });
     f.unavailable(false);
     const recovered = await f.operations.view(f.host, view.id);
@@ -56,7 +56,9 @@ test('a Redis write followed by transaction failure cannot establish consent aft
       should: 'remain withdrawn after reconnect',
       actual: [
         revoked.receipt.replayed,
-        recovered.participants.find((p) => p.actorId === f.host.actorId)!.ready,
+        recovered.participants
+          .filter(isNamedSeat)
+          .find((p) => p.actorId === f.host.actorId)!.ready,
       ],
       expected: [false, 'not-ready'],
     });

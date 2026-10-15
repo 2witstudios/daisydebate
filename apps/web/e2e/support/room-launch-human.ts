@@ -63,9 +63,7 @@ export async function proveHumanLaunch(browser: Browser, info: TestInfo) {
       await page
         .getByRole('button', { name: 'Check camera', exact: true })
         .click();
-      await expect(
-        page.getByText('Camera: passed', { exact: true }),
-      ).toBeVisible();
+      await expect(page.getByText('✓ Camera', { exact: true })).toBeVisible();
       await expect(
         page.getByRole('button', { name: 'I am ready', exact: true }),
       ).toBeDisabled();
@@ -73,7 +71,7 @@ export async function proveHumanLaunch(browser: Browser, info: TestInfo) {
         .getByRole('button', { name: 'Check microphone', exact: true })
         .click();
       await expect(
-        page.getByText('Microphone: passed', { exact: true }),
+        page.getByText('✓ Microphone', { exact: true }),
       ).toBeVisible();
       await expect(page.getByLabel('Your local camera preview')).toBeVisible();
       await expect(
@@ -110,15 +108,8 @@ export async function proveHumanLaunch(browser: Browser, info: TestInfo) {
       host.getByRole('button', { name: 'Launch', exact: true }),
     ).toBeEnabled();
     view = await reread(host.request, view.id);
-    await host
-      .getByRole('button', { name: 'Collapse sidebar', exact: true })
-      .click();
     await host.getByRole('button', { name: 'Launch', exact: true }).click();
-    await expect(host).toHaveURL(/\/rounds\/[a-z0-9]+$/);
-    await expect(host.locator('[data-nav]')).toHaveAttribute(
-      'data-nav',
-      'collapsed',
-    );
+    await expect(host).toHaveURL(/\/rounds\/[a-z0-9]+\/room$/);
     const proof = await assertFrozenLaunch(view);
     await settledLaunchAuth();
     await info.attach('controlled-input-human-launch-evidence', {

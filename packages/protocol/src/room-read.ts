@@ -15,6 +15,11 @@ const participant = z.strictObject({
   role: debateRoleSchema,
   slot: z.int().nonnegative(),
 });
+const seatState = {
+  needsReady: z.boolean(),
+  ready: z.enum(['ready', 'not-ready', 'unavailable']),
+  eligible: z.boolean(),
+};
 const roundRef = z
   .strictObject({ id: idSchema, status: roundStatusSchema })
   .nullable();
@@ -42,8 +47,9 @@ export const roomViewSchema = z.strictObject({
   title: z.string().min(1),
   topic: z.string().min(1),
   visibility,
-  hostActorId: idSchema,
-  hostLabel: z.string(),
+  /** Redacted to null for a viewer who may not name a judge seat the host occupies (DEC-174). */
+  hostActorId: idSchema.nullable(),
+  hostLabel: z.string().nullable(),
   status: z.enum(['assembling', 'ready', 'started', 'abandoned']),
   formatId: z.string().min(1),
   formatVersion: version,
@@ -56,11 +62,17 @@ export const roomViewSchema = z.strictObject({
   rules: roundRulesSchema,
   participants: z
     .array(
-      participant.extend({
-        needsReady: z.boolean(),
-        ready: z.enum(['ready', 'not-ready', 'unavailable']),
-        eligible: z.boolean(),
-      }),
+      z.union([
+        participant.extend(seatState),
+        /** A human judge for a viewer who is neither that judge nor the host (DEC-174). */
+        z.strictObject({
+          role: z.literal('judge'),
+          kind: z.literal('human'),
+          slot: z.int().nonnegative(),
+          anonymous: z.literal(true),
+          ...seatState,
+        }),
+      ]),
     )
     .readonly(),
   readiness: z.strictObject({

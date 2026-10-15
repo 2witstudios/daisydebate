@@ -11,82 +11,64 @@ import {
   type ReactNode,
 } from 'react';
 import { systemId } from '@daisy/clock';
-import type { RoomView } from '@daisy/protocol';
+import { isNamedSeat, type RoomView } from '@daisy/protocol';
 import { createLocalConsent } from '../../../features/rooms/local-consent';
 import { createBrowserDeviceChecks } from '../../../features/video/browser-device-checks';
 import type { DeviceKind } from '../../../features/video/device-check-controller';
 import type { readAssembly } from '../../../features/rooms/read-assembly';
 import type { submitAssembly } from '../../../features/rooms/submit-assembly';
-import { AssemblyReadiness } from './assembly-readiness';
+import { LaunchControl, ReadyControl } from './assembly-readiness';
 import { createLocalCommandAction } from '../../../features/rooms/local-command-action';
-import { controlClass } from '../../components/form-field/form-field-class';
 import { buttonClass } from '../../components/button/button-class';
+import type { LocalReadiness } from './assembly-controls';
+import { CameraPreview, DeviceChoice } from './device-check';
 
 type Props = {
-  readonly lineup: ReactNode;
-  readonly settings: ReactNode;
+  /** Seats, preparation and settings: the right-hand column above Launch. */
+  readonly side: ReactNode;
   readonly view: RoomView;
   readonly actorId: string;
   readonly action: FormAction<MockFormState>;
   readonly send: (form: FormData) => ReturnType<typeof submitAssembly>;
   readonly read: () => ReturnType<typeof readAssembly>;
-  readonly commandIds: Parameters<typeof AssemblyReadiness>[0]['commandIds'];
+  readonly commandIds: Parameters<typeof ReadyControl>[0]['commandIds'];
 };
 type Devices = ReturnType<typeof createBrowserDeviceChecks>;
 type Consent = ReturnType<typeof createLocalConsent>;
 
 function GatheringLayout({
   props,
-  setup,
-  readiness,
+  view,
+  action,
+  local,
+  devices,
 }: {
   readonly props: Props;
-  readonly setup: ReactNode;
-  readonly readiness: ReactNode;
+  readonly view: RoomView;
+  readonly action: FormAction<MockFormState>;
+  readonly local: LocalReadiness;
+  readonly devices: ReactNode;
 }) {
-  return (
-    <div className="grid room-gathering items-start gap-6">
-      <div className="room-lineup flex min-w-0 flex-col gap-6">
-        {props.lineup}
-        {readiness}
-      </div>
-      <aside
-        className="room-settings flex min-w-0 flex-col gap-6"
-        aria-label="Round setup"
-      >
-        {props.settings}
-        {setup}
-      </aside>
+  const controls = { ...props, view, action, local };
+  const ready = ReadyControl(controls);
+  const side = (
+    <div className="room-side flex min-w-0 flex-col gap-4">
+      {props.side}
+      {LaunchControl(controls)}
     </div>
   );
-}
-
-function CameraPreview({
-  devices,
-  generation,
-  status,
-}: {
-  readonly devices: Devices;
-  readonly generation: number;
-  readonly status: string;
-}) {
-  const video = useRef<HTMLVideoElement>(null);
-  useEffect(() => {
-    const element = video.current;
-    if (element) element.srcObject = devices.preview('camera');
-    return () => {
-      if (element) element.srcObject = null;
-    };
-  }, [devices, generation, status]);
+  if (!devices && !ready) return side;
   return (
-    <video
-      ref={video}
-      muted
-      autoPlay
-      playsInline
-      aria-label="Your local camera preview"
-      className="w-full rounded-xl"
-    />
+    <div className="grid room-gathering items-start gap-6">
+      <section
+        aria-label="Your devices"
+        className="room-devices flex min-w-0 flex-col gap-3"
+      >
+        {devices}
+        {ready}
+      </section>
+      {side}
+    </div>
   );
 }
 
@@ -117,69 +99,40 @@ function LiveDevices({
       setInputs([]);
     }
   };
-  const action = createLocalCommandAction(consent, props.action);
+  const own = props.view.participants
+    .filter(isNamedSeat)
+    .find((seat) => seat.actorId === props.actorId);
   return (
     <GatheringLayout
       props={props}
-      setup={
-        <section
-          aria-label="Local device checks"
-          className="flex min-w-0 flex-col gap-4 border-b border-border pb-5"
-        >
-          <h2 className="font-display text-xl font-semibold">Your setup</h2>
-          <p className="text-sm text-ink-muted">
-            Your preview stays on this device.
-          </p>
-          {(['camera', 'microphone'] as const).map((kind: DeviceKind) => (
-            <div key={kind} className="flex flex-col gap-2">
-              <p role="status">
-                {kind === 'camera' ? 'Camera' : 'Microphone'}:{' '}
-                {snapshot[kind].status}
-                {snapshot[kind].reason
-                  ? ` · ${snapshot[kind].reason.replaceAll('-', ' ')}`
-                  : ''}
-              </p>
-              <label>
-                {kind === 'camera' ? 'Camera input' : 'Microphone input'}
-                <select
-                  className={controlClass}
-                  value={snapshot[kind].selectedDeviceId ?? ''}
-                  onChange={(event) =>
-                    devices.select(kind, event.target.value || null)
-                  }
-                >
-                  <option value="">System default</option>
-                  {inputs
-                    .filter(
-                      (input) =>
-                        input.kind ===
-                        (kind === 'camera' ? 'videoinput' : 'audioinput'),
-                    )
-                    .map((input, index) => (
-                      <option key={input.deviceId} value={input.deviceId}>
-                        {input.label || `Input ${index + 1}`}
-                      </option>
-                    ))}
-                </select>
-              </label>
-              <button
-                type="button"
-                className={buttonClass('secondary')}
-                onClick={() => void check(kind)}
-                disabled={snapshot[kind].status === 'checking'}
-              >
-                Check {kind}
-              </button>
-            </div>
-          ))}
+      view={local.view}
+      action={createLocalCommandAction(consent, props.action)}
+      local={{
+        devicesPassed: snapshot.devicesPassed,
+        unreadyPending: local.pending,
+      }}
+      devices={
+        <>
           <CameraPreview
             devices={devices}
-            generation={snapshot.camera.generation}
-            status={snapshot.camera.status}
+            snapshot={snapshot}
+            label={own?.label ?? ''}
           />
+          <div className="grid grid-cols-2 gap-3 max-tiny:grid-cols-1">
+            {(['microphone', 'camera'] as const).map((kind) => (
+              <DeviceChoice
+                key={kind}
+                kind={kind}
+                devices={devices}
+                snapshot={snapshot}
+                inputs={inputs}
+                check={(next) => void check(next)}
+              />
+            ))}
+          </div>
           {local.problem ? (
-            <div role="alert">
-              <p>
+            <div role="alert" className="flex flex-wrap items-center gap-3">
+              <p className="text-sm text-live">
                 Your readiness update is not acknowledged. Launch stays blocked.
               </p>
               <button
@@ -191,18 +144,7 @@ function LiveDevices({
               </button>
             </div>
           ) : null}
-        </section>
-      }
-      readiness={
-        <AssemblyReadiness
-          {...props}
-          view={local.view}
-          action={action}
-          local={{
-            devicesPassed: snapshot.devicesPassed,
-            unreadyPending: local.pending,
-          }}
-        />
+        </>
       }
     />
   );
@@ -210,7 +152,9 @@ function LiveDevices({
 
 /** SSR remains failclosed for human devices; judge native forms need no JS. */
 export function AssemblyDeviceReadiness(props: Props) {
-  const own = props.view.participants.find((p) => p.actorId === props.actorId);
+  const own = props.view.participants
+    .filter(isNamedSeat)
+    .find((p) => p.actorId === props.actorId);
   const needsDevices = own?.kind === 'human' && own.role !== 'judge';
   const latest = useRef(props);
   useEffect(() => {
@@ -257,24 +201,15 @@ export function AssemblyDeviceReadiness(props: Props) {
     return (
       <GatheringLayout
         props={props}
-        setup={
+        view={props.view}
+        action={props.action}
+        local={{ devicesPassed: false, unreadyPending: false }}
+        devices={
           needsDevices ? (
-            <section
-              aria-label="Local device checks"
-              className="flex min-w-0 flex-col gap-3 border-b border-border pb-5"
-            >
-              <h2 className="font-display text-xl font-semibold">Your setup</h2>
-              <p className="text-sm text-ink-muted">
-                Camera and microphone checks require JavaScript.
-              </p>
-            </section>
+            <p className="rounded-xl bg-surface-sunken p-4 text-sm text-ink-muted">
+              Camera and microphone checks require JavaScript.
+            </p>
           ) : null
-        }
-        readiness={
-          <AssemblyReadiness
-            {...props}
-            local={{ devicesPassed: false, unreadyPending: false }}
-          />
         }
       />
     );

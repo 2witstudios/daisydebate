@@ -1,23 +1,30 @@
 import { AssemblyCommandForm } from './assembly-command-form';
 import type { MockFormState } from '../../../features/mock-form/form';
 import type { FormAction } from '../../form-action/form-action';
-import type { RoomView } from '@daisy/protocol';
+import { isNamedSeat, type RoomView } from '@daisy/protocol';
 import { AssemblyCommandFields } from './assembly-command-fields';
 import { buttonClass } from '../../components/button/button-class';
 import { readinessControl, type LocalReadiness } from './assembly-controls';
-import { formatDuration } from '../../../features/rooms/duration-input';
+import { waitingOn } from './room-labels';
 
-type Control =
-  'ready' | 'unready' | 'start-prep' | 'finish-prep' | 'start-round';
+type Control = 'ready' | 'unready' | 'start-round';
 type View = Pick<
   RoomView,
   'participants' | 'version' | 'readiness' | 'startRefusal'
 > & {
-  readonly prep?: RoomView['prep'];
+  readonly definition: Pick<RoomView['definition'], 'seats'>;
+  readonly prep: RoomView['prep'];
   readonly capabilities: Pick<
     RoomView['capabilities'],
-    'canReady' | 'host' | 'canStart' | 'canStartPrep' | 'canFinishPrep'
+    'canReady' | 'host' | 'canStart'
   >;
+};
+type Props = {
+  readonly view: View;
+  readonly actorId: string;
+  readonly local: LocalReadiness;
+  readonly action: FormAction<MockFormState>;
+  readonly commandIds: Readonly<Record<Control, string>>;
 };
 
 function launchFence(
@@ -26,42 +33,31 @@ function launchFence(
   local: LocalReadiness,
 ): boolean {
   if (local.unreadyPending) return true;
-  const own = view.participants.find((seat) => seat.actorId === actorId);
+  const own = view.participants
+    .filter(isNamedSeat)
+    .find((seat) => seat.actorId === actorId);
   return own?.kind === 'human' && own.role !== 'judge' && !local.devicesPassed;
 }
 
-function launchNotice(blocked: boolean, refusal: View['startRefusal']) {
-  if (blocked)
-    return (
-      <p role="status" className="text-sm text-ink-muted">
-        Confirm your current readiness before Launch.
-      </p>
-    );
-  if (refusal)
-    return (
-      <p className="text-sm text-ink-muted">
-        Launch is waiting: {refusal.replaceAll('-', ' ')}.
-      </p>
-    );
-  return null;
-}
-
-function CommandForm({
+/** One native versioned room command; CAP validates every value again. */
+export function CommandForm({
   type,
   version,
   commandId,
   action,
   label,
   enabled,
-  expectedConsentVersion,
+  expectedConsentVersion = null,
+  className,
 }: {
-  readonly type: Control;
+  readonly type: Control | 'start-prep' | 'finish-prep';
   readonly version: number;
   readonly commandId: string;
   readonly action: FormAction<MockFormState>;
   readonly label: string;
   readonly enabled: boolean;
-  readonly expectedConsentVersion: number | null;
+  readonly expectedConsentVersion?: number | null;
+  readonly className: string;
 }) {
   return (
     <AssemblyCommandForm action={action}>
@@ -73,109 +69,97 @@ function CommandForm({
           value={String(expectedConsentVersion)}
         />
       ) : null}
-      <button
-        type="submit"
-        disabled={!enabled}
-        className={buttonClass(type === 'unready' ? 'secondary' : 'primary')}
-      >
+      <button type="submit" disabled={!enabled} className={className}>
         {label}
       </button>
     </AssemblyCommandForm>
   );
 }
 
-function ReadinessStatus({
-  view,
-  hasReady,
-}: {
-  readonly view: View;
-  readonly hasReady: boolean;
-}) {
-  return (
-    <div className="w-full">
-      <h2 className="font-strong">Ready to begin?</h2>
-      {view.prep?.startedAt ? (
-        <p className="text-sm text-ink-muted">
-          {view.prep.finished
-            ? 'Preparation finished.'
-            : view.prep.remainingMs === null
-              ? 'Preparation in progress.'
-              : `Preparation: ${formatDuration(view.prep.remainingMs)} remaining.`}
-        </p>
-      ) : null}
-      {!hasReady && !view.capabilities.host ? (
-        <p className="text-sm text-ink-muted">Take a seat to join the round.</p>
-      ) : null}
-    </div>
-  );
-}
-
-/** Native commands use a trusted server action; this renderer grants no authority. */
-export function AssemblyReadiness({
+/** The viewer's own Ready or Not ready; null for bots, spectators and unseated members. */
+export function ReadyControl({
   view,
   actorId,
   local,
   action,
   commandIds,
-}: {
-  readonly view: View;
-  readonly actorId: string;
-  readonly local: LocalReadiness;
-  readonly action: FormAction<MockFormState>;
-  readonly commandIds: Readonly<Record<Control, string>>;
-}) {
+}: Props) {
   const ready = readinessControl(view, actorId, local);
-  const launchBlocked = launchFence(view, actorId, local);
-  const own = view.participants.find((seat) => seat.actorId === actorId);
-  const command = (type: Control, label: string, enabled: boolean) =>
-    CommandForm({
-      type,
-      label,
-      enabled,
-      version: view.version,
-      commandId: commandIds[type],
-      action,
-      expectedConsentVersion:
-        type === 'ready' || type === 'unready'
-          ? (own?.consentVersion ?? null)
-          : null,
-    });
+  if (!ready) return null;
+  const own = view.participants
+    .filter(isNamedSeat)
+    .find((seat) => seat.actorId === actorId);
+  const isReady = ready.type === 'unready' && !local.unreadyPending;
+  return (
+    <div className="flex flex-wrap items-center justify-end gap-3">
+      {ready.reason ? (
+        <p role="status" className="mr-auto text-sm text-ink-muted">
+          {ready.reason}
+        </p>
+      ) : null}
+      {isReady ? (
+        <span className="rounded-full bg-hue-teal-soft px-3 py-1 text-sm font-semibold text-hue-teal">
+          ✓ Ready
+        </span>
+      ) : null}
+      {CommandForm({
+        type: ready.type,
+        label: ready.type === 'ready' ? 'I am ready' : 'Not ready',
+        enabled: ready.enabled,
+        version: view.version,
+        commandId: commandIds[ready.type],
+        action,
+        expectedConsentVersion: own?.consentVersion ?? null,
+        className: buttonClass(
+          ready.type === 'ready' ? 'primary' : 'secondary',
+        ),
+      })}
+    </div>
+  );
+}
+
+function launchNotice(
+  view: View,
+  actorId: string,
+  blocked: boolean,
+): string | null {
+  const waiting = waitingOn(view, actorId);
+  if (waiting.length > 0) return `Waiting on: ${waiting.join(', ')}`;
+  if (blocked) return 'Waiting on: your readiness update';
+  if (view.startRefusal)
+    return `Waiting on: ${view.startRefusal.replaceAll('-', ' ')}`;
+  return null;
+}
+
+/** "Waiting on" for everyone; the Launch submission for the host alone. */
+export function LaunchControl({
+  view,
+  actorId,
+  local,
+  action,
+  commandIds,
+}: Props) {
+  const blocked = launchFence(view, actorId, local);
+  const notice = launchNotice(view, actorId, blocked);
   return (
     <section
-      aria-label="Readiness and Launch"
-      className="flex min-w-0 flex-wrap items-start justify-between gap-4 rounded-xl border border-border bg-surface p-5"
+      aria-label="Launch"
+      className="flex flex-wrap items-center justify-end gap-3"
     >
-      <ReadinessStatus view={view} hasReady={ready !== null} />
-      {ready ? (
-        <div className="flex flex-col gap-2">
-          {command(
-            ready.type,
-            ready.type === 'ready' ? 'I am ready' : 'Not ready',
-            ready.enabled,
-          )}
-          {ready.reason ? (
-            <p role="status" className="text-sm text-ink-muted">
-              {ready.reason}
-            </p>
-          ) : null}
-        </div>
-      ) : null}
-      {view.capabilities.host ? (
-        <div className="flex flex-col gap-2">
-          {view.capabilities.canStartPrep
-            ? command('start-prep', 'Start preparation', true)
-            : null}
-          {view.capabilities.canFinishPrep
-            ? command('finish-prep', 'Finish preparation', true)
-            : null}
-          {command(
-            'start-round',
-            'Launch',
-            view.capabilities.canStart && !launchBlocked,
-          )}
-          {launchNotice(launchBlocked, view.startRefusal)}
-        </div>
-      ) : null}
+      <p role="status" className="mr-auto text-sm text-ink-muted">
+        {notice}
+      </p>
+      {view.capabilities.host
+        ? CommandForm({
+            type: 'start-round',
+            label: 'Launch',
+            enabled: view.capabilities.canStart && !blocked,
+            version: view.version,
+            commandId: commandIds['start-round'],
+            action,
+            className: buttonClass('primary'),
+          })
+        : null}
     </section>
   );
 }

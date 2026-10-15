@@ -6,6 +6,7 @@ import { withRoomRuntime, consentBarrier } from './room-runtime.test-support';
 import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { assertRejects } from '@daisy/errors/testing';
+import { isNamedSeat } from '@daisy/protocol';
 const services = requireTestServices(process.env);
 setupRitewayBun();
 test('Room command admission leaves default-pool readiness capacity during paused preparation', async () => {
@@ -181,9 +182,9 @@ for (const failure of ['redis', 'disconnect'] as const)
           current,
           {
             type: 'ready',
-            expectedConsentVersion: current.participants.find(
-              (p) => p.actorId === f.guest.actorId,
-            )!.consentVersion,
+            expectedConsentVersion: current.participants
+              .filter(isNamedSeat)
+              .find((p) => p.actorId === f.guest.actorId)!.consentVersion,
           },
           ready.receipt.commandId,
         );
@@ -205,9 +206,9 @@ test('same-command retries retain readiness capacity and never repeat lease prep
     const { entered, release } = consentBarrier(f, 'write');
     const body = {
       type: 'ready',
-      expectedConsentVersion: view.participants.find(
-        (p) => p.actorId === f.guest.actorId,
-      )!.consentVersion,
+      expectedConsentVersion: view.participants
+        .filter(isNamedSeat)
+        .find((p) => p.actorId === f.guest.actorId)!.consentVersion,
     };
     const commandId = createId();
     const attempts = Array.from({ length: 6 }, () =>

@@ -1,19 +1,17 @@
 'use client';
 
-import { useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { useReducer } from 'react';
 import { buildTree } from '../../features/debate-room/workspace';
 import { CommandPalette, type PaletteChoice } from './command-palette';
-import { createDocumentsApi } from './documents-api';
-import { createDocumentSync } from './document-sync';
 import { DocumentPane } from './document-pane';
-import { FileTree } from './file-tree';
-import { PaneDivider } from './pane-divider';
+import { DrawerFiles } from './drawer-files';
 import {
   initialPersistedWorkspace,
   reducePersistedWorkspace,
 } from './persisted-workspace';
 import { usePaletteShortcut } from './use-palette-shortcut';
 import { useDocumentSync } from './use-document-sync';
+import { useRoundSync } from './use-round-sync';
 
 /** Private files backed by the persisted Round's participant-scoped document API. */
 export function RoundDocuments({ roundId }: { readonly roundId: string }) {
@@ -21,29 +19,8 @@ export function RoundDocuments({ roundId }: { readonly roundId: string }) {
     reducePersistedWorkspace,
     initialPersistedWorkspace,
   );
-  const [notice, setNotice] = useState<string | null>(null);
-  const sync = useMemo(
-    () =>
-      createDocumentSync({
-        roundId,
-        api: createDocumentsApi(),
-        onConflict: () =>
-          setNotice(
-            'This file changed in another tab. Reload before editing it again.',
-          ),
-        onSaveFailed: () =>
-          setNotice('Your changes are not saved yet. Retrying.'),
-        onSaveRefused: () =>
-          setNotice('These changes were not saved. Reload and try again.'),
-        onSaved: () => setNotice(null),
-      }),
-    [roundId],
-  );
+  const { sync, notice, save } = useRoundSync(roundId);
   const { problem, setProblem } = useDocumentSync(sync, dispatch);
-  const root = useRef<HTMLDivElement>(null);
-  useLayoutEffect(() => {
-    root.current?.style.setProperty('--room-tree', `${state.treeWidth}px`);
-  }, [state.treeWidth]);
   usePaletteShortcut(dispatch);
   const choose = async (choice: PaletteChoice) => {
     if (choice.kind === 'open') {
@@ -65,26 +42,15 @@ export function RoundDocuments({ roundId }: { readonly roundId: string }) {
     <section aria-label="Your Round files" className="flex flex-col gap-2">
       <h2 className="font-strong">Your files</h2>
       {(problem ?? notice) ? <p role="alert">{problem ?? notice}</p> : null}
-      <div ref={root} className="flex room-workspace border-t border-border">
-        <div className="flex min-w-0 room-tree-pane">
-          <FileTree
+      <div className="flex room-workspace border-t border-border max-narrow:flex-col">
+        <div className="flex w-round-drawer shrink-0 flex-col border-r border-border bg-surface p-3 max-narrow:w-full max-narrow:border-r-0">
+          <DrawerFiles
             tree={buildTree(state.documents, null)}
             active={state.tabs.active}
             dispatch={dispatch}
-            transcriptAvailable={false}
+            transcript={null}
           />
         </div>
-        <PaneDivider
-          pane="tree"
-          label="Resize files"
-          value={state.treeWidth}
-          onResize={(startPx, deltaPx) =>
-            dispatch({ type: 'layout/resize', pane: 'tree', startPx, deltaPx })
-          }
-          onNudge={(key) =>
-            dispatch({ type: 'layout/nudge', pane: 'tree', key })
-          }
-        />
         <div className="flex min-w-0 flex-1 flex-col bg-surface-raised">
           <DocumentPane
             documents={state.documents}
@@ -92,11 +58,8 @@ export function RoundDocuments({ roundId }: { readonly roundId: string }) {
             pages={state.pages}
             dispatch={dispatch}
             onEdit={sync.change}
-            empty={
-              <p className="p-4 text-ink-muted">
-                Choose New document to create your first file.
-              </p>
-            }
+            save={save}
+            empty={<p className="p-4 text-ink-muted">No files yet.</p>}
           />
         </div>
       </div>
