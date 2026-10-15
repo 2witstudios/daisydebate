@@ -1,0 +1,22 @@
+diff --git a/apps/web/src/server/http.ts b/apps/web/src/server/http.ts
+index 0e1830e7..be08cd29 100644
+--- a/apps/web/src/server/http.ts
++++ b/apps/web/src/server/http.ts
+@@ -81,6 +81,17 @@ export async function handleOperation(
+         );
+         return response;
+       } catch (error) {
++        if (!(error instanceof Error && (error as {code?: unknown}).code)) {
++          const { appendFileSync } = await import('node:fs');
++          const causes: string[] = [];
++          let cause: unknown = error;
++          for (let depth = 0; depth < 6 && cause instanceof Error; depth++) {
++            causes.push(`cause[${depth}] ${cause.name}: ${cause.message}`);
++            cause = (cause as { cause?: unknown }).cause;
++          }
++          if (cause !== undefined && cause !== null) causes.push(`cause[leaf] ${String(cause)}`);
++          appendFileSync('/private/var/folders/np/tf0z_dyj4hgfdq118gh3wrkr0000gn/T/opencode/pr244-raw.log', `${operation} ${String((error as Error)?.stack ?? error)}\n${causes.join('\n')}\n---\n`);
++        }
+         // Client cancellation is expected traffic, not a failure signal.
+         if (request.signal.aborted) {
+           logger.log(

@@ -5,12 +5,31 @@
   // Scenario documents are loaded by the `bun scenario <name>` CLI.
   "ignore": ["scenarios/*.ts"],
   "includeEntryExports": true,
+  // Their binaries run behind the heavy queue (`bun scripts/heavy.ts turbo
+  // …`, `… sh -c 'bunx --bun jscpd …'`), where knip does not look.
+  "ignoreDependencies": ["turbo", "jscpd"],
   "workspaces": {
+    // Heavy scripts run through `bun scripts/heavy.ts <command…>`, and knip
+    // reads only the queue as their entry; these are the commands behind it.
+    ".": {
+      "entry": [
+        "scripts/**/*.test.ts",
+        "eslint.config.test.ts",
+        "scripts/check-boundaries.ts",
+        "scripts/check-styling.ts",
+        "scripts/check-affected.ts",
+        "scripts/dev-agent.ts",
+        "scripts/verify.ts",
+      ],
+    },
     // The e2e production server is started by Playwright's webServer command.
     // Integration suites are globbed by scripts/test-integration.ts, which
     // each workspace's test:integration runs instead of listing files.
     "apps/web": {
       "entry": [
+        // `test` runs `bun test src scripts` through the heavy queue.
+        "src/**/*.test.{ts,tsx}",
+        "scripts/**/*.test.ts",
         "e2e/support/server.ts",
         "e2e/support/realtime-config.ts",
         "e2e/support/realtime-runner.ts",

@@ -19,12 +19,7 @@ import { ballots } from './schema/ballots';
 import { rounds } from './schema/rounds';
 import { jsonObjectSchema } from './schema/columns';
 
-/**
- * A runtime projection plus the command that produced it, persisted as one
- * transaction: the command row for idempotency and audit, the projection's
- * segment inserts and closes, and the round-row columns the projection
- * carries. The caller composes the pure runtime; this is only the write.
- */
+/** Server-owned pure projection builder, invoked with the post-lock PostgreSQL instant. */
 export type RoundExecutionWrite = {
   readonly command: {
     readonly commandId: string;
@@ -34,13 +29,41 @@ export type RoundExecutionWrite = {
     readonly payloadDigest: string;
     readonly result: z.infer<typeof jsonObjectSchema>;
   } | null;
-  readonly projection: RoundProjection;
+  readonly buildProjection: (now: string) => RoundProjection;
 };
 
-/**
- * The durable instant for a lifecycle column (ADR 0033 §3.2, ISSUE-37)
- * lives with the write that stamps it: `round-projection-writer.ts`.
- */
+/** Sample separately after all required locks, never in a lock-waiting statement. */
+const executionNow = async (
+  tx: Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0],
+): Promise<string> => {
+  const [row] = (await tx.execute(
+    sql`select clock_timestamp() as now`,
+  )) as unknown as Array<{ now: Date }>;
+  if (!row) throw createAppError('INFRASTRUCTURE', 'The clock is unreadable');
+  return row.now.toISOString();
+};
+
+const persistExecution = async (
+  tx: Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0],
+  input: RoundExecutionWrite & { readonly roundId: string },
+  current: Awaited<ReturnType<typeof lockedRoundVersion>>,
+  projection: RoundProjection,
+  now: string,
+): Promise<void> => {
+  const changed = await writeProjectionWithPhaseSignal(
+    tx,
+    input.roundId,
+    current,
+    projection,
+    now,
+  );
+  await insertCommandRow(
+    tx,
+    input.roundId,
+    input.command,
+    current.version + (changed ? 1 : 0),
+  );
+};
 
 export const roundOperations = ({
   database,
@@ -49,17 +72,11 @@ export const roundOperations = ({
   readonly database: BunSQLDatabase;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
-  /**
-   * One PostgreSQL instant for a whole execution (ADR 0033 §3.2, as amended
-   * by ADR 0058): the caller reads it once, injects it as the runtime's
-   * `now`, and every durable row that execution writes — the round row's
-   * lifecycle columns and its segments — derives from it, so one aggregate
-   * is never written from two clocks.
-   */
+  /** Read-only wall-clock prediction; lifecycle authority is sampled inside execution. */
   async databaseNow(): Promise<string> {
     return instrumented(eventSink, 'databaseNow', async () => {
       const [row] = (await database.execute(
-        sql`select statement_timestamp() as now`,
+        sql`select clock_timestamp() as now`,
       )) as unknown as Array<{ now: Date }>;
       if (!row)
         throw createAppError('INFRASTRUCTURE', 'The clock is unreadable');
@@ -169,6 +186,8 @@ export const roundOperations = ({
             'INVARIANT',
             'The judge seat belongs to another round',
           );
+        const now = await executionNow(tx);
+        const projection = input.buildProjection(now);
         await tx.insert(ballots).values(
           ballotRowOf({
             ballotId: input.ballot.ballotId,
@@ -176,18 +195,7 @@ export const roundOperations = ({
             ballot: parsed,
           }),
         );
-        await writeProjectionWithPhaseSignal(
-          tx,
-          input.roundId,
-          roundVersion,
-          input.projection,
-        );
-        await insertCommandRow(
-          tx,
-          input.roundId,
-          input.command,
-          roundVersion.version + 1,
-        );
+        await persistExecution(tx, input, roundVersion, projection, now);
       });
     });
   },
@@ -221,18 +229,9 @@ export const roundOperations = ({
           input.roundId,
           input.expectedVersion,
         );
-        await writeProjectionWithPhaseSignal(
-          tx,
-          input.roundId,
-          roundVersion,
-          input.projection,
-        );
-        await insertCommandRow(
-          tx,
-          input.roundId,
-          input.command,
-          roundVersion.version + 1,
-        );
+        const now = await executionNow(tx);
+        const projection = input.buildProjection(now);
+        await persistExecution(tx, input, roundVersion, projection, now);
       });
     });
   },

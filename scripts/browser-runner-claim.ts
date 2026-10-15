@@ -91,7 +91,7 @@ export function browserRunnerClaimsConfig(
       .filter(ts.isStringLiteral)
       .map((value) => value.text);
     if (
-      !literals.includes('../../scripts/e2e-limit.ts') ||
+      !literals.includes('../../scripts/heavy.ts') ||
       !literals.includes('--config')
     )
       return false;

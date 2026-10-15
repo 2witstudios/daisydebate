@@ -182,6 +182,16 @@ Run commands from the repository root. Environment-dependent commands use the
 values in `.env`; initialize with `bun install --frozen-lockfile` and
 `cp .env.example .env` when needed.
 
+Code in parallel; heavy commands queue machine-wide. The scripts `build`,
+`typecheck`, `lint`, `test`, `test:integration`, `test:e2e`, `check`,
+`check:affected`, `verify`, `knip`, `duplication`, `dev` and `dev:agent` run
+through `scripts/heavy.ts` (use `bun run test` and `bun run build`: the
+built-ins `bun test` and `bun build` bypass it), one at a time across every
+checkout (`DAISY_HEAVY_CONCURRENCY`, default 1); commands they start run
+inside the same slot. Every run, dev servers included, is terminated at
+`DAISY_HEAVY_TIMEOUT_MINUTES` (default 45). A dev server holds the slot while
+it runs: stop idle ones.
+
 - `bun doctor`: checks Bun version, environment parsing, PostgreSQL reachability,
   migration currency, Redis reachability, and architecture boundaries. Add
   `--json` for a machine-readable report. It should pass before service-based
@@ -209,7 +219,7 @@ values in `.env`; initialize with `bun install --frozen-lockfile` and
 - `bun invariants`: validates `spec/invariants.json` against the engine registry,
   referenced test source names, and registered negative fixtures. Add `--json`
   for a report.
-- `bun test`: fast deterministic tests. `bun test:integration` requires
+- `bun run test`: fast deterministic tests, queued. `bun test:integration` requires
   `bun slot:up` (shared services, this checkout's migrated databases). `bun test:e2e` runs Playwright
   against the production build and uses Node 24 only as its driver runtime.
 

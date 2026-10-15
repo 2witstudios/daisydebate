@@ -1,0 +1,16 @@
+diff --git a/packages/db/src/round-view-projection.ts b/packages/db/src/round-view-projection.ts
+index b87ab558..22b89bfd 100644
+--- a/packages/db/src/round-view-projection.ts
++++ b/packages/db/src/round-view-projection.ts
+@@ -28,9 +28,10 @@ export function roundViewFor(
+ ): RoundView {
+   const { hostActorId, ...view } = round;
+   const knowsJudges = viewerActorId !== null && viewerActorId === hostActorId;
++  void knowsJudges;
+   return {
+     ...view,
+-    participants: round.participants.map((seat) =>
++    participants: round.participants.map((seat) => seat) as typeof round.participants,
+       seat.role !== 'judge' ||
+       seat.kind === 'bot' ||
+       knowsJudges ||

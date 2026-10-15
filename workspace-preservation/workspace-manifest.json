@@ -1,0 +1,148 @@
+{
+  "capturedAt": "2026-10-14",
+  "purpose": "Owner-requested remote preservation before stopping sessions and removing stale/review worktrees. Unfinished candidates, not approved changes.",
+  "worktrees": [
+    {
+      "path": "/Users/jono/dev/daisydebate",
+      "head": "031e3951e05db307fd62b34341123e7418ce7050",
+      "branch": "refs/heads/main",
+      "status": ""
+    },
+    {
+      "path": "/private/tmp/daisy-rev-11b67acd",
+      "head": "11b67acdd035a07ed06e2949e2992c95baf2332d",
+      "branch": null,
+      "status": ""
+    },
+    {
+      "path": "/private/tmp/daisy-rev-b4add6d6",
+      "head": "adbc6a4c424d52527630b604089cd75bf4cae4a4",
+      "branch": null,
+      "status": ""
+    },
+    {
+      "path": "/private/var/folders/np/tf0z_dyj4hgfdq118gh3wrkr0000gn/T/opencode/wt-pr244cand",
+      "head": "2c2c7f8e0a504965cc9a3043c083fe2222b2da30",
+      "branch": null,
+      "status": "M apps/web/src/server/http.ts"
+    },
+    {
+      "path": "/private/var/folders/np/tf0z_dyj4hgfdq118gh3wrkr0000gn/T/opencode/wt-tc4a25",
+      "head": "4a2546b97facaac286ae75fc0af130a963697317",
+      "branch": null,
+      "status": ""
+    },
+    {
+      "path": "/Users/jono/dev/daisydebate-pr-codex-launch",
+      "head": "e689157c3a15bf7b529946afa753ca5ad98d7a48",
+      "branch": "refs/heads/chore/codex-launch-config",
+      "status": ""
+    },
+    {
+      "path": "/Users/jono/dev/daisydebate/.pu/worktrees/aidb",
+      "head": "54bc12cfc0428434f253afaa8c1fd97efa9948bd",
+      "branch": "refs/heads/aidb/bot-voices",
+      "status": ""
+    },
+    {
+      "path": "/Users/jono/dev/daisydebate/.pu/worktrees/mock-app",
+      "head": "f7446feb662e1b6615db62126c3ed50521bcc1ee",
+      "branch": "refs/heads/fix/ci-green",
+      "status": ""
+    },
+    {
+      "path": "/Users/jono/dev/daisydebate/.pu/worktrees/sidebar",
+      "head": "79f427fb2b31050e188dd536887feed33896faec",
+      "branch": "refs/heads/feat/sidebar-toggles-and-legal-foot",
+      "status": ""
+    },
+    {
+      "path": "/Users/jono/dev/daisydebate/.pu/worktrees/wt-1yqst36g",
+      "head": "bc974dae8c2219bb9ed5a5649c7fecb04f0a3f7d",
+      "branch": "refs/heads/pu/append-kernel",
+      "status": ""
+    },
+    {
+      "path": "/Users/jono/dev/daisydebate/.pu/worktrees/wt-24s89b2w",
+      "head": "ace90c4c9e66e441ec3ac990688ea55da165a0d6",
+      "branch": "refs/heads/pu/rrd-a11y-review",
+      "status": ""
+    },
+    {
+      "path": "/Users/jono/dev/daisydebate/.pu/worktrees/wt-4mc5ui50",
+      "head": "ace90c4c9e66e441ec3ac990688ea55da165a0d6",
+      "branch": "refs/heads/pu/rrd-a11y-review2",
+      "status": ""
+    },
+    {
+      "path": "/Users/jono/dev/daisydebate/.pu/worktrees/wt-7vi0y7f8",
+      "head": "ace90c4c9e66e441ec3ac990688ea55da165a0d6",
+      "branch": "refs/heads/pu/rrd-a11y-review3",
+      "status": ""
+    },
+    {
+      "path": "/Users/jono/dev/daisydebate/.pu/worktrees/wt-arch-receiver",
+      "head": "792d80496e54cd95150750ae302bb801ce889703",
+      "branch": "refs/heads/pu/architecture-repair",
+      "status": ""
+    },
+    {
+      "path": "/Users/jono/dev/daisydebate/.pu/worktrees/wt-gbskx8yv",
+      "head": "ace90c4c9e66e441ec3ac990688ea55da165a0d6",
+      "branch": "refs/heads/pu/rrd-a11y",
+      "status": ""
+    },
+    {
+      "path": "/Users/jono/dev/daisydebate/.pu/worktrees/wt-h3ojvaeo",
+      "head": "19055e433c1f8f24a45a765b53bb5b552cd455c4",
+      "branch": "refs/heads/pu/designs",
+      "status": ""
+    },
+    {
+      "path": "/Users/jono/dev/daisydebate/.pu/worktrees/wt-hwjunoti",
+      "head": "338440c73743ceff66d0192e1ce64b848a8dcfb7",
+      "branch": "refs/heads/pu/review-pr252",
+      "status": ""
+    },
+    {
+      "path": "/Users/jono/dev/daisydebate/.pu/worktrees/wt-jbyftx17",
+      "head": "2c2c7f8e0a504965cc9a3043c083fe2222b2da30",
+      "branch": "refs/heads/pu/architecture-realtime",
+      "status": ""
+    },
+    {
+      "path": "/Users/jono/dev/daisydebate/.pu/worktrees/wt-review-base-f4",
+      "head": "b17fa0f6efab8edd778986d0ad2408363ba4ae64",
+      "branch": "refs/heads/pu/review-base-f4-wip",
+      "status": ""
+    },
+    {
+      "path": "/Users/jono/dev/daisydebate/.pu/worktrees/wt-rof4u3dq",
+      "head": "ded7de3e384ea0c033333699f0bf303c50bbb739",
+      "branch": "refs/heads/pu/authority-stream-split",
+      "status": ""
+    },
+    {
+      "path": "/Users/jono/dev/daisydebate/.pu/worktrees/wt-s4bs8knx",
+      "head": "cd09a267871ea4426c459cdb7db5edaefbd75220",
+      "branch": "refs/heads/pu/rrd-round-review",
+      "status": "M packages/db/src/round-view-projection.ts"
+    },
+    {
+      "path": "/Users/jono/dev/daisydebate/.pu/worktrees/wt-tt53781y",
+      "head": "cd09a267871ea4426c459cdb7db5edaefbd75220",
+      "branch": "refs/heads/pu/rrd-round",
+      "status": ""
+    },
+    {
+      "path": "/Users/jono/Documents/GitHub/.pu/config",
+      "head": "4d406eb7d4a90966b8180384165d1abce90906de",
+      "branch": "refs/heads/pu/config",
+      "status": ""
+    }
+  ],
+  "patches": {
+    "round-review-mutation.patch": "Temporary negative-control mutation; NOT product implementation.",
+    "realtime-scratch-diagnostic.patch": "Temporary raw-error diagnostic code; NOT production-safe implementation. No diagnostic output/log data archived."
+  }
+}

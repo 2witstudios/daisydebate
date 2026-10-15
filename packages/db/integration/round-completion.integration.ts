@@ -31,7 +31,7 @@ test('a scheduled forfeit persists abandonment without a start instant or ballot
         roundId,
         expectedVersion: before.version,
         command: null,
-        projection: {
+        buildProjection: () => ({
           round: {
             status: 'abandoned',
             currentStage: null,
@@ -43,7 +43,7 @@ test('a scheduled forfeit persists abandonment without a start instant or ballot
           segmentInserts: [],
           segmentCloses: [],
           effects: [],
-        },
+        }),
       });
       const after = await database.getRound(roundId);
       assert({
@@ -87,12 +87,12 @@ test('completion refuses a judge seat from another round without writing a ballo
               ballot: ballot(),
             },
             command: null,
-            projection: {
+            buildProjection: () => ({
               round: null,
               segmentCloses: [],
               segmentInserts: [],
               effects: [],
-            },
+            }),
           }),
         code: 'INVARIANT',
       });
