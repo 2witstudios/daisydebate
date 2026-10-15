@@ -7,11 +7,12 @@ import { RoundBar } from './round-bar';
 
 setupRitewayBun();
 
+/** RoundBar's leave shape; the badge test never renders its links. */
 const noLeave: LeaveLinks = {
   confirming: false,
   stayHref: '',
-  confirmHref: '',
-  leaveHref: '',
+  confirmHref: '?leave',
+  leaveHref: '/lobby',
 };
 
 describe('RoundBar', () => {

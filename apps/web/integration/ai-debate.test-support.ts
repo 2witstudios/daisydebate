@@ -15,6 +15,8 @@ export const withPractice = async (
   run: (fixture: {
     database: Database;
     actorId: string;
+    /** The host's full caller, for store-level reads that take a Caller. */
+    host: { readonly userId: string; readonly actorId: string };
     id: string;
     operations: ReturnType<typeof createAiDebateOperations>;
     expireAt: (seconds: number) => Promise<void>;
@@ -105,6 +107,7 @@ export const withPractice = async (
     await run({
       database: f.store,
       actorId,
+      host: f.host,
       id,
       operations,
       expireAt: async (seconds) => {
