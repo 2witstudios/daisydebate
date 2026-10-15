@@ -1,3 +1,4 @@
+import { messagingOf } from './messaging';
 import type { App } from '../../server/app';
 import { createMessagingInboxSchemas } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
@@ -7,11 +8,11 @@ import {
   messagingHttpBoundary,
   unavailableMessagingHandler,
 } from './handler-boundary';
-import { composeMessagingInbox } from './inbox-composition';
 export function composeMessagingInboxRoute(app: App) {
   return (request: Request) => {
-    const policy = app.messagingPolicy;
-    if (!policy)
+    const policy = app.messagingPolicy,
+      messaging = messagingOf(app);
+    if (!policy || !messaging)
       return unavailableMessagingHandler(
         app,
         request,
@@ -39,13 +40,7 @@ export function composeMessagingInboxRoute(app: App) {
       },
       operation: async (value, principal) => {
         const query = parseValidated(schemas.query, value);
-        const result = await composeMessagingInbox({
-          database: app.database,
-          principal,
-          clock: app.clock,
-          postingPolicy: policy.posting,
-          readingPolicy: policy.reading,
-        }).read({
+        const result = await messaging.inbox(principal, {
           limit: policy.bounds.pageItems,
           ...(query.after === undefined ? {} : { after: query.after }),
         });

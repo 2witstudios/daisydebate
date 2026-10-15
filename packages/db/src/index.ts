@@ -1,10 +1,8 @@
 import { guardedObservationHeaders } from './observation-header-operation';
 import { createObservationProjectionOperations } from './observation-projection';
 import { createObservationAuthorityOperations } from './observation-authority';
-import {
-  createProfileExecutor,
-  type DatabaseWorkloadProfile,
-} from './workload-admission';
+import { createProfileExecutor } from './workload-admission';
+import type { DatabaseWorkloadProfile } from './workload-admission';
 import { workloadDatabase } from './workload-executor';
 import { createMessagingTypingPrivacyPort } from './privacy/typing-rights';
 import { createMessagingTypingStore } from './messaging/typing-store';

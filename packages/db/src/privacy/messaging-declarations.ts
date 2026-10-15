@@ -10,11 +10,14 @@ const messagingColumns = {
       'policy_key',
       'policy_revision',
       'lifecycle',
-      'message_sequence',
-      'change_version',
       'authority_revision',
       'created_at',
     ],
+  },
+  messaging_channel_streams: {
+    identifier: ['channel_id'],
+    personal: [],
+    none: ['message_sequence', 'change_version'],
   },
   messaging_actor_states: {
     identifier: [],
@@ -225,7 +228,9 @@ export const messagingPrivacyFields: readonly PrivacyFieldDeclaration[] =
           ((table === 'messaging_files' ||
             table === 'messaging_file_deletion_intents') &&
             column === 'object_key') ||
-          table === 'messaging_file_deletion_intents'
+          table === 'messaging_file_deletion_intents' ||
+          // Ordering counters carry nothing about the subject.
+          table === 'messaging_channel_streams'
         ),
       })),
     ),

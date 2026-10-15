@@ -3,37 +3,24 @@ import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { buildChannelTopic, idSchema } from '@daisy/protocol';
 import { appendOutboxEvent } from '../outbox';
+import { advanceMessagingStream } from '../messaging/stream';
 import { messagingChannels } from '../schema/messaging-channels';
 import { messagingMessages } from '../schema/messaging-messages';
 import { messagingFiles } from '../schema/messaging-files';
 import { requireFilePolicy } from './policy';
 import { requireReservation } from './reservation-input';
 import { createFileListing } from './message-files';
-import type {
-  FileFrame,
-  FileReservation,
-  FileScope,
-  FileToken,
+import {
+  fileReservationOf,
+  type FileFrame,
+  type FileScope,
+  type FileToken,
 } from './records';
 
 type FileTransaction = Pick<
   BunSQLDatabase,
   'select' | 'insert' | 'update' | 'execute'
 >;
-type Row = typeof messagingFiles.$inferSelect;
-const reservation = (row: Row): FileReservation => ({
-  lifecycle: row.lifecycle as FileReservation['lifecycle'],
-  id: row.id,
-  channelId: row.channelId,
-  ownerActorId: row.ownerActorId,
-  objectKey: row.objectKey,
-  filename: row.filename!,
-  mime: row.mime as FileReservation['mime'],
-  reservedBytes: row.reservedBytes,
-  generation: row.generation,
-  authorityRevision: row.authorityRevision,
-  expiresAt: row.expiresAt.toISOString(),
-});
 export const fileDeletionValues = {
   lifecycle: 'deleting',
   filename: null,
@@ -46,16 +33,20 @@ export const fileDeletionValues = {
 export function channelFileFrame(
   tx: FileTransaction,
   input: FileScope,
-  counters: { channelId: string; changeVersion: number },
+  counters: {
+    channelId: string;
+    messageSequence: number;
+    changeVersion: number;
+  },
   authorize: () => Promise<void>,
 ): FileFrame {
   const { channelId } = input;
   const changed = async () => {
-    counters.changeVersion += 1;
-    await tx
-      .update(messagingChannels)
-      .set({ changeVersion: counters.changeVersion })
-      .where(eq(messagingChannels.id, channelId));
+    const advanced = await advanceMessagingStream(tx, channelId, counters, {
+      messages: 0,
+      changes: 1,
+    });
+    counters.changeVersion = advanced.changeVersion;
     await appendOutboxEvent(tx, {
       topic: buildChannelTopic(channelId),
       kind: 'channel.changed',
@@ -102,7 +93,7 @@ export function channelFileFrame(
     if (row.generation !== token.generation) throw createAppError('CONFLICT');
     return row;
   };
-  const live = async (row: Row, now: string) => {
+  const live = async (row: typeof messagingFiles.$inferSelect, now: string) => {
     if (
       !Number.isFinite(Date.parse(now)) ||
       row.expiresAt.getTime() <= Date.parse(now) ||
@@ -131,7 +122,7 @@ export function channelFileFrame(
     )
       throw createAppError('NOT_FOUND');
     return {
-      ...reservation(row),
+      ...fileReservationOf(row),
       messageId: row.messageId,
       storedBytes: row.storedBytes!,
       accessExpiresAt: new Date(
@@ -163,7 +154,7 @@ export function channelFileFrame(
           existing.mime !== command.mime
         )
           throw createAppError('CONFLICT');
-        return reservation(existing);
+        return fileReservationOf(existing);
       }
       const [quota] = await tx
         .select({
@@ -201,19 +192,19 @@ export function channelFileFrame(
         .insert(messagingFiles)
         .values(row)
         .returning();
-      return reservation(inserted!);
+      return fileReservationOf(inserted!);
     },
     async upload(token, now) {
       const row = await read(token, true);
       if (row.lifecycle !== 'attached') await live(row, now);
-      return reservation(row);
+      return fileReservationOf(row);
     },
     async scan(token, now) {
       const row = await read(token, true);
       if (row.lifecycle !== 'attached') await live(row, now);
       if (!['quarantined', 'attached'].includes(row.lifecycle))
         throw createAppError('CONFLICT');
-      return reservation(row);
+      return fileReservationOf(row);
     },
     async quarantine(token, bytes, now) {
       const row = await read(token, true);
@@ -244,7 +235,7 @@ export function channelFileFrame(
         })
         .where(eq(messagingFiles.id, row.id))
         .returning();
-      return reservation(updated!);
+      return fileReservationOf(updated!);
     },
     async finalize(token, messageId, now, supplied) {
       const policy = requireFilePolicy(supplied);

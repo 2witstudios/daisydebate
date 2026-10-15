@@ -145,7 +145,7 @@ test('mounted reactions retain current aggregates, replay immutability and own c
       [channelId, message.id],
     );
     const counters = await client.unsafe(
-      'select message_sequence::int as sequence,change_version::int as version from messaging_channels where id=$1',
+      'select message_sequence::int as sequence,change_version::int as version from messaging_channel_streams where channel_id=$1',
       [channelId],
     );
     const bells = await client.unsafe(

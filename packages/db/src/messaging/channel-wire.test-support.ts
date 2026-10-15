@@ -44,10 +44,9 @@ export function channelWire(script: Parameters<typeof fakeSql>[0]) {
     'active',
     null,
     null,
-    0,
-    1,
     1,
     new Date('2026-10-09T18:00:00.000Z'),
   ];
-  return messagingAuthorityWire([[channel], ...script]);
+  // The channel authority row, then its locked stream row (message sequence, change version).
+  return messagingAuthorityWire([[channel], [[0, 1]], ...script]);
 }

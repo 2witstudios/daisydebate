@@ -14,7 +14,7 @@ import {
   request,
 } from './social-request.test-support';
 setupRitewayBun();
-const channelRow = (lifecycle: string, changeVersion = 4, revision = 2) => [
+const channelRow = (lifecycle: string, revision = 2) => [
   channelId,
   'dm',
   'social.dm',
@@ -22,8 +22,6 @@ const channelRow = (lifecycle: string, changeVersion = 4, revision = 2) => [
   lifecycle,
   null,
   null,
-  0,
-  changeVersion,
   revision,
   new Date(now),
 ];
@@ -32,6 +30,9 @@ test('a cooled down closed DM reopens the durable channel and invalidates curren
     [request('declined', new Date('2026-10-09T17:00:00Z'))],
     [[0, 0]],
     [channelRow('active')],
+    [],
+    // The stream row is locked after the authority row, then advanced once.
+    [[0, 4]],
     [],
     [[1, '9']],
     [],
@@ -70,9 +71,14 @@ test('a cooled down closed DM reopens the durable channel and invalidates curren
         .filter((entry) =>
           entry.query.startsWith('update "messaging_channels"'),
         )
+        .map((entry) => entry.params[0]),
+      queries
+        .filter((entry) =>
+          entry.query.startsWith('update "messaging_channel_streams"'),
+        )
         .map((entry) => entry.params.slice(0, 2)),
     ],
-    expected: [{ channelId, state: 'pending' }, false, true, [[5, 3]]],
+    expected: [{ channelId, state: 'pending' }, false, true, [3], [[0, 5]]],
   });
 });
 for (const channel of [
@@ -80,7 +86,7 @@ for (const channel of [
   channelRow('archived'),
   channelRow('active', Number.MAX_SAFE_INTEGER),
 ])
-  test(`closed request cannot reopen ${channel === null ? 'absent' : channel[4]} exhausted=${channel?.[8] === Number.MAX_SAFE_INTEGER}`, async () => {
+  test(`closed request cannot reopen ${channel === null ? 'absent' : channel[4]} exhausted=${channel?.[7] === Number.MAX_SAFE_INTEGER}`, async () => {
     const { client, queries } = fakeSql([
       [request('cancelled', new Date('2026-10-09T17:00:00Z'))],
       [[0, 0]],
@@ -97,7 +103,7 @@ for (const channel of [
       should: 'refuse reopening before any mutation',
       actual: () => frame.commitDmRequest(command),
       code:
-        channel?.[8] === Number.MAX_SAFE_INTEGER ? 'CONFLICT' : 'AUTHORIZATION',
+        channel?.[7] === Number.MAX_SAFE_INTEGER ? 'CONFLICT' : 'AUTHORIZATION',
     });
     assert({
       given: 'the refusal',

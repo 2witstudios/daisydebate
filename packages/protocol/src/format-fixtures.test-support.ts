@@ -1,3 +1,4 @@
+import { ballotCategories, type BallotCategory } from './ballot';
 import type { FormatDefinition } from './index';
 
 /** Shared practice-format fixture for protocol and engine contract tests. */
@@ -242,3 +243,9 @@ export const fixtureRules = (definition: FormatDefinition) => ({
   countdownMs: 0,
   interaction: { crossExMode: 'ordered', yield: null, interruptions: null },
 });
+
+/** One side's ballot scores with every rubric category at `score`. */
+export const ballotScoresAt = (score: number): Record<BallotCategory, number> =>
+  Object.fromEntries(
+    ballotCategories.map((category) => [category, score]),
+  ) as Record<BallotCategory, number>;

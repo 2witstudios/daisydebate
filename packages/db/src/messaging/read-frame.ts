@@ -46,6 +46,8 @@ export function channelReadFrame(
         .where(
           and(
             channel,
+            // Bounded by the stream high-water mark read after the fences.
+            lte(messagingMessages.sequence, counters.messageSequence),
             query === undefined
               ? undefined
               : and(

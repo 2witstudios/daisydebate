@@ -160,14 +160,18 @@ test('erasure fences every subject channel before file cleanup and publishes fin
     [],
     [],
     [],
+    [{ id: channelId }],
     [{ changeVersion: 4 }],
     [[1, '9']],
     [],
   ]);
   const adopter = createMessagingPrivacyAdopter();
   await adopter.erase(drizzle({ client }), subject, { now });
-  const channelUpdates = queries.filter((query) =>
-    query.query.includes('authority_revision=authority_revision+'),
+  const authorityUpdates = queries.filter((query) =>
+    query.query.includes('authority_revision=authority_revision+1'),
+  );
+  const streamUpdates = queries.filter((query) =>
+    query.query.includes('update messaging_channel_streams'),
   );
   const messageUpdates = queries.filter((query) =>
     query.query.startsWith('\n      update messaging_messages'),
@@ -179,10 +183,10 @@ test('erasure fences every subject channel before file cleanup and publishes fin
     given:
       'own content and peer message with subject reaction plus authority association',
     should:
-      'scrub only own text and combine authority advance into one latest bell after all cleanup',
+      'scrub only own text, advance the stream per change and authority once, and publish one latest bell after all cleanup',
     actual: [
       adopter.phase,
-      channelUpdates.map((query) => query.params[0]),
+      [streamUpdates.length, authorityUpdates.length],
       messageUpdates.length,
       bells.length,
       bells[0]?.params.find(
@@ -191,7 +195,7 @@ test('erasure fences every subject channel before file cleanup and publishes fin
     ],
     expected: [
       'before-auth',
-      [0, 0, 1],
+      [3, 1],
       2,
       1,
       { kind: 'channel.changed', channelId, changeVersion: 4 },

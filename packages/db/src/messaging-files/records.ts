@@ -1,3 +1,4 @@
+import type { messagingFiles } from '../schema/messaging-files';
 export type FileMime =
   'image/png' | 'image/jpeg' | 'image/webp' | 'application/pdf';
 export type FilePolicy = Readonly<{
@@ -88,3 +89,19 @@ export type FileStore = {
     work: (frame: FileFrame) => Promise<T>,
   ): Promise<T>;
 };
+
+type Row = typeof messagingFiles.$inferSelect;
+/** A stored file row as its reservation record. */
+export const fileReservationOf = (row: Row): FileReservation => ({
+  lifecycle: row.lifecycle as FileReservation['lifecycle'],
+  id: row.id,
+  channelId: row.channelId,
+  ownerActorId: row.ownerActorId,
+  objectKey: row.objectKey,
+  filename: row.filename!,
+  mime: row.mime as FileReservation['mime'],
+  reservedBytes: row.reservedBytes,
+  generation: row.generation,
+  authorityRevision: row.authorityRevision,
+  expiresAt: row.expiresAt.toISOString(),
+});

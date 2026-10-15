@@ -60,6 +60,29 @@ export function isCapacityRefusal(error: unknown): boolean {
 }
 type Waiter = { readonly grant: () => void; readonly timer: unknown };
 
+/** SQLSTATEs PostgreSQL raises when the session bounds cut work short under load. */
+const overloadStates = new Set([
+  '55P03', // lock_not_available: lock_timeout
+  '57014', // query_canceled: statement_timeout
+  '25P03', // idle_in_transaction_session_timeout
+  '25P04', // transaction_timeout
+]);
+/**
+ * Overload is explicit and retryable: a statement the session bounds cut short
+ * is INFRASTRUCTURE (a 503), never an internal failure. Anything else is
+ * rethrown unchanged.
+ */
+const rethrowOverload = (error: unknown): never => {
+  let current = error;
+  for (let depth = 0; depth < 8 && current instanceof Object; depth += 1) {
+    const { errno } = current as { readonly errno?: unknown };
+    if (typeof errno === 'string' && overloadStates.has(errno))
+      throw createAppError('INFRASTRUCTURE', 'Database overloaded', error);
+    current = (current as { readonly cause?: unknown }).cause;
+  }
+  throw error;
+};
+
 /** Non-borrowable reservations count actual work through commit/rollback settlement. */
 export function createWorkloadExecutor(
   capacities: Partial<Record<DatabaseWorkload, number>>,
@@ -150,10 +173,11 @@ export function createWorkloadExecutor(
     },
     /** A free slot starts work synchronously; a saturated lane waits in its bounded queue. */
     run: <T>(lane: DatabaseWorkload, work: () => Promise<T>): Promise<T> => {
-      if (available(lane)) return invoke(lane, work);
+      const guarded = () => work().catch(rethrowOverload);
+      if (available(lane)) return invoke(lane, guarded);
       return admit(lane).then(async (settle) => {
         try {
-          return await work();
+          return await guarded();
         } finally {
           settle();
         }

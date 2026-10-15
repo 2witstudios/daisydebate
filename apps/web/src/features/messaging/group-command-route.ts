@@ -7,7 +7,7 @@ import {
   runMessagingHandler,
   unavailableMessagingHandler,
 } from './handler-boundary';
-import type { MessagingRuntimePolicy } from './composition';
+import type { MessagingRuntimePolicy } from './messaging';
 import type { MessagingSocialRuntimePolicy } from './social-composition';
 type Context = {
   readonly policy: MessagingRuntimePolicy;

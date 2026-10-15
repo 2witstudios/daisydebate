@@ -2,7 +2,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import type { Database } from '@daisy/db';
 import { composeMessagingTyping } from './typing-operations';
-import { typingWorld } from './typing.test-support';
+import { typingWorld, type TypingFrameTransaction } from './typing.test-support';
 setupRitewayBun();
 test('typing factory threads one fenced transaction through canonical facts and rereads trusted time after producer awaits', async () => {
   const f = typingWorld(),
@@ -19,6 +19,8 @@ test('typing factory threads one fenced transaction through canonical facts and 
       throw new Error('No insert allowed');
     },
   };
+  // Inert double: the frame's transaction type, typed, never runs SQL.
+  const typedTx = tx as unknown as TypingFrameTransaction;
   const database: Pick<Database, 'messagingTypingStore'> = {
     messagingTypingStore: async (scope, budget, work) => {
       if (
@@ -28,7 +30,7 @@ test('typing factory threads one fenced transaction through canonical facts and 
       )
         throw new Error('Misbound typing factory');
       return work({
-        tx,
+        tx: typedTx,
         fact: f.channel,
         accounts: f.accounts.map((row) => row.account),
         channels: f.channels,
@@ -91,6 +93,15 @@ function completingTransaction(completedAt: string) {
     self = f.accounts[0]!.account;
   let now = f.now;
   const evaluatedAt: string[] = [];
+  // Inert double: the frame's transaction type, typed, never runs SQL.
+  const typedTx = {
+    execute: () => {
+      throw new Error('No SQL through injected fact reader');
+    },
+    insert: () => {
+      throw new Error('No insert');
+    },
+  } as unknown as TypingFrameTransaction;
   const database: Pick<Database, 'messagingTypingStore'> = {
     messagingTypingStore: async (scope, budget, work) => {
       if (
@@ -101,14 +112,7 @@ function completingTransaction(completedAt: string) {
       )
         throw new Error('Foreign completion scope');
       const result = await work({
-        tx: {
-          execute: () => {
-            throw new Error('No SQL through injected fact reader');
-          },
-          insert: () => {
-            throw new Error('No insert');
-          },
-        },
+        tx: typedTx,
         fact: f.channel,
         accounts: f.accounts.map((row) => row.account),
         channels: f.channels,
