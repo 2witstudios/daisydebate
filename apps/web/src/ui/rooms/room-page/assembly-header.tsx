@@ -58,9 +58,11 @@ export function AssemblyHeader({
           </h1>
           <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-sm text-ink-muted">
             <span className="min-w-0 wrap-anywhere">{view.title}</span>
-            <span className="min-w-0 wrap-anywhere">
-              Hosted by {view.hostLabel}
-            </span>
+            {view.hostLabel !== null ? (
+              <span className="min-w-0 wrap-anywhere">
+                Hosted by {view.hostLabel}
+              </span>
+            ) : null}
             <span>{visibilityLabels[view.visibility]}</span>
           </p>
         </div>

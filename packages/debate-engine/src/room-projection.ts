@@ -43,11 +43,15 @@ export function projectRoom(
 ): RoomView {
   const blocker = startBlocker(room, consent, now);
   const hidden = hiddenJudges(room, actorId);
-  const { prepStartedAt: _anchor, prepRemainingMs: _remaining, ...base } = room;
+  const { prepStartedAt: _anchor, prepRemainingMs: _remaining, ...rest } = room;
   void _anchor;
   void _remaining;
   return {
-    ...base,
+    // When the host occupies a judge seat this viewer may not name, the host
+    // identity is that judge's identity and is redacted with it (DEC-174).
+    ...(hidden.has(room.hostActorId)
+      ? { ...rest, hostActorId: null, hostLabel: null }
+      : rest),
     participants: room.participants.map(
       ({ consentCommandId: _fence, ...p }) => {
         const state = {

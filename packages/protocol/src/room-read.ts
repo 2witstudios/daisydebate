@@ -47,8 +47,9 @@ export const roomViewSchema = z.strictObject({
   title: z.string().min(1),
   topic: z.string().min(1),
   visibility,
-  hostActorId: idSchema,
-  hostLabel: z.string(),
+  /** Redacted to null for a viewer who may not name a judge seat the host occupies (DEC-174). */
+  hostActorId: idSchema.nullable(),
+  hostLabel: z.string().nullable(),
   status: z.enum(['assembling', 'ready', 'started', 'abandoned']),
   formatId: z.string().min(1),
   formatVersion: version,

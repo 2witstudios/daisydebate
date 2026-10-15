@@ -97,7 +97,7 @@ function seatText(
   seat: Seat,
   occupant: Occupant | undefined,
   named: Extract<Occupant, { actorId: string }> | null,
-  who: { readonly viewerActorId: string; readonly hostActorId: string },
+  who: { readonly viewerActorId: string; readonly hostActorId: string | null },
 ) {
   if (!occupant)
     return {
@@ -109,7 +109,10 @@ function seatText(
     : named.actorId === who.viewerActorId
       ? 'You'
       : `${named.label}${named.kind === 'bot' ? ' · AI' : ''}`;
-  const host = named?.actorId === who.hostActorId ? ['host'] : [];
+  const host =
+    who.hostActorId !== null && named?.actorId === who.hostActorId
+      ? ['host']
+      : [];
   return {
     name,
     detail: [seatLabel(seat.role, seat.slot), ...host].join(' · '),

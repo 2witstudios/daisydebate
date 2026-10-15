@@ -133,3 +133,91 @@ test('a launched Round names its human judge only to that judge and the host', a
     });
   });
 });
+
+test('a host who sits as the human judge stays anonymous with their seat (DEC-174)', async () => {
+  await withRoomRuntime(async (f) => {
+    const spectator = await f.member();
+    const choice = (await f.operations.catalog(f.host)).find(
+      (c) => c.formatId === 'foundation',
+    )!;
+    let view: RoomView = (
+      await f.create({
+        selection: {
+          kind: 'custom',
+          definition: {
+            ...choice.definition,
+            seats: { affirmative: 1, negative: 1, judge: 1 },
+          },
+          config: choice.defaultConfig,
+          length: 'full',
+          competitionType: 'casual',
+        },
+      })
+    ).view;
+    for (const [who, role] of [
+      [f.guest, 'affirmative'],
+      [f.outsider, 'negative'],
+      [f.host, 'judge'],
+    ] as const)
+      view = (await f.command(who, view, { type: 'claim-seat', role, slot: 0 }))
+        .view;
+    const roomId = view.id;
+    const [judgeRoomSeat] = await f.sql<{ id: string }[]>`
+      select id from room_participants where room_id=${roomId} and role='judge'`;
+    const [hostUser] = await f.sql<{ username: string }[]>`
+      select username from users where id=${f.host.userId}`;
+    const hostSecrets = [f.host.actorId, judgeRoomSeat!.id, hostUser!.username];
+    const leaks = (value: object, hidden: readonly string[]) =>
+      hidden.filter((secret) => JSON.stringify(value).includes(secret));
+    const ownView = (who: typeof f.host) => f.operations.view(who, roomId);
+
+    const lobby = {
+      guest: await ownView(f.guest),
+      spectator: await ownView(spectator),
+    };
+    assert({
+      given:
+        'the host seated as the human judge, the assembly read by a debater and a spectator',
+      should:
+        'redact the host identity with the anonymous judge seat: no host actor or label and no judge identity',
+      actual: [
+        lobby.guest.hostActorId,
+        lobby.guest.hostLabel,
+        lobby.spectator.hostActorId,
+        lobby.spectator.hostLabel,
+        leaks(lobby.guest, hostSecrets),
+        leaks(lobby.spectator, hostSecrets),
+      ],
+      expected: [null, null, null, null, [], []],
+    });
+    const hostLobby = await ownView(f.host);
+    assert({
+      given:
+        'the same assembly read by the host who sits as its judge (negative control)',
+      should: 'keep their host identity and name their own judge seat',
+      actual: [
+        hostLobby.hostActorId,
+        hostLobby.hostLabel,
+        leaks(hostLobby, hostSecrets).length > 0,
+      ],
+      expected: [f.host.actorId, hostUser!.username, true],
+    });
+
+    for (const who of [f.host, f.guest, f.outsider]) {
+      const own = await ownView(who);
+      const seat = own.participants
+        .filter(isNamedSeat)
+        .find((p) => p.actorId === who.actorId)!;
+      if (seat.needsReady) view = (await f.consent(who, own, 'ready')).view;
+    }
+    view = (await f.command(f.host, view, { type: 'start-round' })).view;
+    const roundId = view.roundRef!.id;
+    const read = (who: typeof f.host) => f.operations.roundView(who, roundId);
+    assert({
+      given: 'a launched Round whose judge is its host, read by a debater',
+      should: 'carry no judge actor and no host actor at all',
+      actual: [leaks(await read(f.guest), [...hostSecrets, 'hostActorId'])],
+      expected: [[]],
+    });
+  });
+});
