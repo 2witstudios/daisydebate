@@ -10,7 +10,9 @@ const shown = (node: Region) => node.getClientRects().length > 0;
 export function firstShown<T extends Region>(
   targets: readonly (T | null)[],
 ): T | null {
-  return targets.find((target): target is T => !!target && shown(target)) ?? null;
+  return (
+    targets.find((target): target is T => !!target && shown(target)) ?? null
+  );
 }
 
 /**

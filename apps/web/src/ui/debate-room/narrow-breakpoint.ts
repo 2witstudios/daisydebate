@@ -11,8 +11,7 @@ import { useLayoutEffect, useState } from 'react';
 export const narrowMediaQuery = (computed: {
   getPropertyValue: (name: string) => string;
 }): string => {
-  const px =
-    computed.getPropertyValue('--breakpoint-narrow').trim() || '641px';
+  const px = computed.getPropertyValue('--breakpoint-narrow').trim() || '641px';
   return `(width < ${px})`;
 };
 
@@ -40,6 +39,5 @@ export const useNarrowBreakpoint = (): boolean => {
 const liveBelowBreakpoint = () =>
   typeof window === 'undefined'
     ? false
-    : matchMedia(
-        narrowMediaQuery(getComputedStyle(document.documentElement)),
-      ).matches;
+    : matchMedia(narrowMediaQuery(getComputedStyle(document.documentElement)))
+        .matches;
