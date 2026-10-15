@@ -25,6 +25,12 @@ const icons: Readonly<Record<DrawerTab | 'doc', IconName>> = {
 export const CURRENT_ROUND_TAB =
   'nav[aria-label="Round"] [aria-current="page"]';
 
+/** The phone round tab bar's Doc tab: the drawer's way back when none is current. */
+export const FIRST_ROUND_TAB = 'nav[aria-label="Round"] button';
+
+/** The phone round tab bar itself: a breakpoint crossing can hide it under focus. */
+export const ROUND_TAB_BAR = 'nav[aria-label="Round"]';
+
 /** A phone's round tabs: the document, then each drawer tab in its place. */
 export function RoundTabs({
   round,

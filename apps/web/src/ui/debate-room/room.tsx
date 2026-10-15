@@ -22,14 +22,20 @@ import { LayoutMenu, PhoneActions, RoundControls } from './controls';
 import type { DocumentSync } from './document-sync';
 import type { SaveState } from './document-pane';
 import { chatUnread, DRAWER_ID, DRAWER_TOGGLE_ID, RoundDrawer } from './drawer';
-import { focusReturnTarget } from './focus-return';
+import { focusReturnTarget, firstShown } from './focus-return';
 import type { LeaveLinks } from './leave-room';
+import { useNarrowBreakpoint } from './narrow-breakpoint';
 import { VideoDivider } from './video-divider';
 import { RoomDocument } from './room-document';
 import { initialRoomState, reduceRoom, type RoomAction } from './room-state';
 import type { RoundSnapshot } from './round';
 import { RoundBar } from './round-bar';
-import { CURRENT_ROUND_TAB, RoundTabs } from './round-tabs';
+import {
+  CURRENT_ROUND_TAB,
+  FIRST_ROUND_TAB,
+  ROUND_TAB_BAR,
+  RoundTabs,
+} from './round-tabs';
 import { VideoStage } from './stage';
 import { usePaletteShortcut } from './use-palette-shortcut';
 import { useDocumentSync } from './use-document-sync';
@@ -51,22 +57,51 @@ const COLUMN_ID = 'round-column';
 /**
  * Focus inside the drawer when it closes, or inside the column a phone tab
  * hides, goes back to the drawer toggle or the phone tab now showing.
+ * A breakpoint crossing hides or returns the drawer and the tab bar through
+ * the media query alone, without a state change: the browser strands any
+ * focus the hidden region held on the body, so the crossing brings it back
+ * to the visible way back itself.
  */
 function useFocusReturn(drawerOpen: boolean, phoneDrawer: boolean) {
+  const narrow = useNarrowBreakpoint();
   useLayoutEffect(() => {
     const active = document.activeElement;
     const target = focusReturnTarget(
       active,
-      [document.getElementById(DRAWER_ID), document.getElementById(COLUMN_ID)],
+      [
+        document.getElementById(DRAWER_ID),
+        document.getElementById(COLUMN_ID),
+        document.querySelector(ROUND_TAB_BAR),
+      ],
       [
         document.getElementById(DRAWER_TOGGLE_ID),
         document.querySelector<HTMLElement>(CURRENT_ROUND_TAB),
+        document.querySelector<HTMLElement>(FIRST_ROUND_TAB),
       ],
     );
     target?.focus();
   }, [drawerOpen, phoneDrawer]);
+  const crossed = useRef(narrow);
+  useLayoutEffect(() => {
+    if (crossed.current === narrow) return;
+    crossed.current = narrow;
+    const active = document.activeElement;
+    const regions = [
+      document.getElementById(DRAWER_ID),
+      document.getElementById(COLUMN_ID),
+      document.querySelector(ROUND_TAB_BAR),
+    ];
+    const targets = [
+      document.getElementById(DRAWER_TOGGLE_ID),
+      document.querySelector<HTMLElement>(CURRENT_ROUND_TAB),
+      document.querySelector<HTMLElement>(FIRST_ROUND_TAB),
+    ];
+    const target =
+      focusReturnTarget(active, regions, targets) ??
+      (active === document.body ? firstShown(targets) : null);
+    target?.focus();
+  }, [narrow]);
 }
-
 const noLeave: LeaveLinks = {
   confirming: false,
   stayHref: '',

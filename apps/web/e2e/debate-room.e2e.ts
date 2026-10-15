@@ -135,6 +135,27 @@ test('private file rename and stale or cross-account refusal preserve the stored
   ).toBeVisible();
 });
 
+test('a resize across the narrow breakpoint returns focus from the hidden drawer', async ({
+  roundFiles,
+}) => {
+  const { page } = roundFiles;
+  const phoneTab = page
+    .getByRole('navigation', { name: 'Round' })
+    .getByRole('button', { name: 'Doc', exact: true });
+  await page
+    .getByRole('navigation', { name: 'Files' })
+    .getByRole('button', { name: 'Flow', exact: true })
+    .focus();
+  await page.setViewportSize({ width: 390, height: 800 });
+  await expect(phoneTab).toBeVisible();
+  await expect(phoneTab).toBeFocused();
+  // Back up: the tab bar itself hides, so focus lands on the drawer toggle.
+  const toggle = page.getByRole('button', { name: /drawer/ });
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await expect(toggle).toBeVisible();
+  await expect(toggle).toBeFocused();
+});
+
 test('the round room: no app shell, the drawer closes, Leave asks first', async ({
   roundFiles,
 }) => {
