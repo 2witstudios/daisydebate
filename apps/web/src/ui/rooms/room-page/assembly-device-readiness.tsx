@@ -1,9 +1,10 @@
 'use client';
 
-import type { MockFormState } from '../../../features/mock-form/form';
+import type { RoomFormState } from '../../../features/rooms/command-answer';
 import type { FormAction } from '../../form-action/form-action';
 
 import {
+  useContext,
   useEffect,
   useState,
   useSyncExternalStore,
@@ -15,22 +16,23 @@ import { isNamedSeat, type RoomView } from '@daisy/protocol';
 import { createLocalConsent } from '../../../features/rooms/local-consent';
 import { createBrowserDeviceChecks } from '../../../features/video/browser-device-checks';
 import type { DeviceKind } from '../../../features/video/device-check-controller';
-import type { readAssembly } from '../../../features/rooms/read-assembly';
+import type { RoomRead } from '../../../features/rooms/read-assembly';
 import type { submitAssembly } from '../../../features/rooms/submit-assembly';
 import { LaunchControl, ReadyControl } from './assembly-readiness';
 import { createLocalCommandAction } from '../../../features/rooms/local-command-action';
 import { buttonClass } from '../../components/button/button-class';
 import type { LocalReadiness } from './assembly-controls';
 import { CameraPreview, DeviceChoice } from './device-check';
+import { RoomSyncContext } from './room-sync-context';
 
 type Props = {
   /** Seats, preparation and settings: the right-hand column above Launch. */
   readonly side: ReactNode;
   readonly view: RoomView;
   readonly actorId: string;
-  readonly action: FormAction<MockFormState>;
+  readonly action: FormAction<RoomFormState>;
   readonly send: (form: FormData) => ReturnType<typeof submitAssembly>;
-  readonly read: () => ReturnType<typeof readAssembly>;
+  readonly read: () => Promise<RoomRead>;
   readonly commandIds: Parameters<typeof ReadyControl>[0]['commandIds'];
 };
 type Devices = ReturnType<typeof createBrowserDeviceChecks>;
@@ -45,7 +47,7 @@ function GatheringLayout({
 }: {
   readonly props: Props;
   readonly view: RoomView;
-  readonly action: FormAction<MockFormState>;
+  readonly action: FormAction<RoomFormState>;
   readonly local: LocalReadiness;
   readonly devices: ReactNode;
 }) {
@@ -157,9 +159,12 @@ export function AssemblyDeviceReadiness(props: Props) {
     .find((p) => p.actorId === props.actorId);
   const needsDevices = own?.kind === 'human' && own.role !== 'judge';
   const latest = useRef(props);
+  const sync = useContext(RoomSyncContext);
+  const latestSync = useRef(sync);
   useEffect(() => {
     latest.current = props;
-  }, [props]);
+    latestSync.current = sync;
+  }, [props, sync]);
   const roomId = props.view.id;
   const actorId = props.actorId;
   const [resources, setResources] = useState<{
@@ -174,11 +179,15 @@ export function AssemblyDeviceReadiness(props: Props) {
       actorId,
       nextId: systemId.next,
       read: () => latest.current.read(),
-      send: (command) => {
+      send: async (command) => {
         const form = new FormData();
         for (const [key, value] of Object.entries(command))
           form.set(key, String(value));
-        return latest.current.send(form);
+        const result = await latest.current.send(form);
+        // The consent answer is the room's canonical view: room sync adopts it.
+        if (result.kind === 'accepted')
+          latestSync.current?.accepted(result.view);
+        return result;
       },
     });
     const unsubscribe = devices.subscribe((snapshot) => {

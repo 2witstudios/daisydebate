@@ -120,7 +120,7 @@ test('Round receipt accepts only the requested persisted identity and legal froz
       'preserve the valid persisted fields and refuse substitution or malformed cast',
     actual: results,
     expected: [
-      { kind: 'found', round: frozen },
+      { kind: 'found', round: frozen, socketUrl: null },
       { kind: 'unavailable' },
       { kind: 'unavailable' },
     ],

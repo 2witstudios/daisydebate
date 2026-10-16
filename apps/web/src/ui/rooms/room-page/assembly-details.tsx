@@ -2,6 +2,7 @@
 
 import type { RoomView } from '@daisy/protocol';
 import type { MockFormState } from '../../../features/mock-form/form';
+import type { RoomFormState } from '../../../features/rooms/command-answer';
 import { type FormAction } from '../../form-action/form-action';
 import { FormField } from '../../components/form-field/form-field';
 import { controlClass } from '../../components/form-field/form-field-class';
@@ -87,7 +88,7 @@ export function AssemblyDetails({
 }: {
   readonly view: View;
   readonly commandId: string;
-  readonly action: FormAction<MockFormState>;
+  readonly action: FormAction<RoomFormState>;
 }) {
   return (
     <AssemblyEditForm

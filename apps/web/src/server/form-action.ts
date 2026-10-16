@@ -14,6 +14,10 @@ export type MovedOn = { readonly next: string };
  * `Next-Action` header, which a native form post never carries.
  */
 export function moveOn(incoming: Headers, to: string): MovedOn {
-  if (!incoming.has('next-action')) redirect(to, RedirectType.replace);
+  if (!hydratedPost(incoming)) redirect(to, RedirectType.replace);
   return { next: to };
 }
+
+/** Whether the hydrated page, not a native form post, made this call. */
+export const hydratedPost = (incoming: Headers): boolean =>
+  incoming.has('next-action');

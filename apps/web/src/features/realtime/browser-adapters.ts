@@ -17,7 +17,7 @@ import { fetchRealtimeTicket } from './ticket-client';
  * make ambient time an explicit, injected seam) does not restrict it, so
  * this file needs no exemption from that rule.
  */
-const systemScheduler: Scheduler = {
+export const systemScheduler: Scheduler = {
   now: () => performance.now(),
   setTimeout: (callback, ms) => setTimeout(callback, ms),
   clearTimeout: (id) => clearTimeout(id as ReturnType<typeof setTimeout>),
@@ -36,7 +36,7 @@ function secureRandom(): number {
 }
 
 /** The real `document.visibilitychange` event, wrapped to the store's seam. */
-function onDocumentVisibilityChange(
+export function onDocumentVisibilityChange(
   callback: (visible: boolean) => void,
 ): () => void {
   const handler = () => callback(document.visibilityState === 'visible');

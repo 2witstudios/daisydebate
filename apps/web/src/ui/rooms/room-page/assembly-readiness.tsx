@@ -1,5 +1,5 @@
 import { AssemblyCommandForm } from './assembly-command-form';
-import type { MockFormState } from '../../../features/mock-form/form';
+import type { RoomFormState } from '../../../features/rooms/command-answer';
 import type { FormAction } from '../../form-action/form-action';
 import { isNamedSeat, type RoomView } from '@daisy/protocol';
 import { AssemblyCommandFields } from './assembly-command-fields';
@@ -23,7 +23,7 @@ type Props = {
   readonly view: View;
   readonly actorId: string;
   readonly local: LocalReadiness;
-  readonly action: FormAction<MockFormState>;
+  readonly action: FormAction<RoomFormState>;
   readonly commandIds: Readonly<Record<Control, string>>;
 };
 
@@ -53,7 +53,7 @@ export function CommandForm({
   readonly type: Control | 'start-prep' | 'finish-prep';
   readonly version: number;
   readonly commandId: string;
-  readonly action: FormAction<MockFormState>;
+  readonly action: FormAction<RoomFormState>;
   readonly label: string;
   readonly enabled: boolean;
   readonly expectedConsentVersion?: number | null;

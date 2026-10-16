@@ -47,7 +47,7 @@ test('canonical room reads reject malformed or substituted projections', async (
     should: 'render only the exact validated canonical projection',
     actual: results,
     expected: [
-      { kind: 'found', view: assemblySnapshot },
+      { kind: 'found', view: assemblySnapshot, socketUrl: null },
       { kind: 'unavailable' },
       { kind: 'unavailable' },
     ],
@@ -101,5 +101,28 @@ test('discovery consumer rejects overflow and substituted cursor order without t
     should: 'refuse the entire response without silently truncating',
     actual: results,
     expected: Array(4).fill('unavailable'),
+  });
+});
+
+test('a room read names the realtime endpoint its doorbell rings on', async () => {
+  const read = (headers: Record<string, string>) =>
+    readAssembly(
+      async () => Response.json(assemblySnapshot, { headers }),
+      assemblySnapshot.id,
+    );
+  assert({
+    given:
+      'a read with a realtime endpoint header, one without, and one with a malformed endpoint',
+    should: 'return the endpoint, then none, then none rather than trust it',
+    actual: [
+      await read({
+        'x-realtime-socket-url': 'wss://socket.daisy.invalid/realtime',
+      }),
+      await read({}),
+      await read({ 'x-realtime-socket-url': 'javascript:alert(1)' }),
+    ].map((result) =>
+      result.kind === 'found' ? result.socketUrl : result.kind,
+    ),
+    expected: ['wss://socket.daisy.invalid/realtime', null, null],
   });
 });

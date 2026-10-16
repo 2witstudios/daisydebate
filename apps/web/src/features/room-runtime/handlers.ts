@@ -35,6 +35,8 @@ type Dependencies = {
     readonly read: Rule;
     readonly command: Rule;
   };
+  /** Named on room and round reads, where their doorbells ring. */
+  readonly websocketEndpoint?: string | null;
 };
 /** Canonical HTTP gates also execute for native form callers through inProcessFetch. */
 export function createRoomHandlers(dependencies: Dependencies) {
@@ -61,6 +63,7 @@ export function createRoomHandlers(dependencies: Dependencies) {
     operation: keyof Dependencies['limits'],
     mutate: boolean,
     action: (caller: Awaited<ReturnType<typeof callerOf>>) => Promise<unknown>,
+    headers: Readonly<Record<string, string>> = {},
   ) =>
     handleOperation(
       dependencies.logger,
@@ -74,6 +77,7 @@ export function createRoomHandlers(dependencies: Dependencies) {
         try {
           return Response.json(await action(caller), {
             status: operation === 'create' ? 201 : 200,
+            headers,
           });
         } catch (error) {
           // Refusal reasons are closed domain vocabulary; public errors never expose exception details.
@@ -103,6 +107,9 @@ export function createRoomHandlers(dependencies: Dependencies) {
         }
       },
     );
+  const doorbell = dependencies.websocketEndpoint
+    ? { 'x-realtime-socket-url': dependencies.websocketEndpoint }
+    : {};
   return {
     create: (request: Request) =>
       run(request, 'create', true, async (caller) =>
@@ -140,8 +147,16 @@ export function createRoomHandlers(dependencies: Dependencies) {
         bots: await dependencies.operations.castChoices(caller),
       })),
     read: (request: Request, roomId: string) =>
-      run(request, 'read', false, (caller) =>
-        dependencies.operations.view(caller, parseValidated(idSchema, roomId)),
+      run(
+        request,
+        'read',
+        false,
+        (caller) =>
+          dependencies.operations.view(
+            caller,
+            parseValidated(idSchema, roomId),
+          ),
+        doorbell,
       ),
     commands: (request: Request, roomId: string) =>
       run(request, 'command', true, async (caller) =>
@@ -155,11 +170,16 @@ export function createRoomHandlers(dependencies: Dependencies) {
         ),
       ),
     roundRead: (request: Request, roundId: string) =>
-      run(request, 'read', false, (caller) =>
-        dependencies.operations.roundView(
-          caller,
-          parseValidated(idSchema, roundId),
-        ),
+      run(
+        request,
+        'read',
+        false,
+        (caller) =>
+          dependencies.operations.roundView(
+            caller,
+            parseValidated(idSchema, roundId),
+          ),
+        doorbell,
       ),
     roundRef: (request: Request, roomId: string) =>
       run(request, 'read', false, async (caller) => {

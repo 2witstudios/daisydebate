@@ -99,8 +99,9 @@ document. Daisy builds this itself rather than embedding another product.
 
 - The room reads `/api/rounds/[roundId]` (`RoundView`, with its runtime
   snapshot) and derives the phase, the lit speech, the clock and both prep
-  clocks with `roundPositionAt` once a second in the browser, rereading
-  the view every five seconds; an ended round leaves for its receipt.
+  clocks with `roundPositionAt` once a second in the browser, keeping the
+  view current with round sync ([ADR 0066](0066-room-state-sync.md)); an
+  ended round leaves for its receipt.
   After the last speech the room enters judging. The mic shows live while
   the debater holds the floor. The Round read and the Room view are
   projected per viewer at the server (DEC-98, DEC-174): a human judge's

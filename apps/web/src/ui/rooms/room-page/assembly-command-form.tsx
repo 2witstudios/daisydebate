@@ -1,35 +1,44 @@
 'use client';
 
 import { useId, type ReactNode } from 'react';
-import type { MockFormState } from '../../../features/mock-form/form';
 import {
   useFocusAfterAnswer,
   useFormAction,
   type FormAction,
 } from '../../form-action/form-action';
-import { commandUnavailable } from '../../../features/rooms/command-answer';
+import {
+  commandUnavailable,
+  type RoomFormState,
+} from '../../../features/rooms/command-answer';
 import { useMovedOn } from '../../form-action/use-moved-on';
 import { FormError } from '../../components/form-field/form-field';
+import { useRoomAnswer } from './room-sync-context';
+
+const unanswered: RoomFormState = { values: {} };
 
 function CommandNavigation({ next }: { readonly next: string }) {
   useMovedOn(next);
   return null;
 }
-/** Native POST keeps the server action; hydrated transport failures preserve a retryable form. */
+/**
+ * Native POST keeps the server action; hydrated transport failures preserve a
+ * retryable form. A hydrated answer goes to room sync; only Launch navigates.
+ */
 export function AssemblyCommandForm({
   action,
   children,
   className,
 }: {
-  readonly action: FormAction<MockFormState>;
+  readonly action: FormAction<RoomFormState>;
   readonly children: ReactNode;
   readonly className?: string;
 }) {
   const [state, post, pending] = useFormAction(
     action,
-    { values: {} },
+    unanswered,
     commandUnavailable,
   );
+  useRoomAnswer(state, unanswered);
   const controlsId = useId();
   const feedbackId = useId();
   useFocusAfterAnswer(

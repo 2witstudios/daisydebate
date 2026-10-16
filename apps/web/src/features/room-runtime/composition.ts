@@ -38,6 +38,7 @@ export function composeRoomRoutes(app: App) {
       active: () => true,
       maxBodyBytes: policy.maxBodyBytes,
       limits: policy.limits,
+      websocketEndpoint: app.websocketEndpoint,
       operations: createRoomRuntimeOperations({
         store: app.database,
         redis: app.redis,

@@ -1,54 +1,5 @@
-import {
-  buildChannelTopic,
-  buildUserInboxTopic,
-  type ServerMessage,
-} from '@daisy/protocol';
-import type { ConnectionStore } from '../realtime/connection-store';
-
-/** Doorbells invalidate a snapshot; they never carry content or authority. */
-function attachInvalidationTopic({
-  topic,
-  matches,
-  connection,
-  invalidate,
-  refetch,
-}: {
-  readonly topic: string;
-  readonly matches: (frame: ServerMessage) => boolean;
-  readonly connection: Pick<
-    ConnectionStore,
-    'subscribeTopic' | 'onMessage' | 'resubscribeTopic'
-  >;
-  readonly invalidate: () => void;
-  readonly refetch: () => void;
-}) {
-  let resync = false;
-  const refresh = () => {
-    invalidate();
-    refetch();
-  };
-  const unsubscribe = connection.subscribeTopic(topic, (frame) => {
-    if (frame.type === 'resync_required') {
-      resync = true;
-      refresh();
-    } else if (matches(frame)) refresh();
-  });
-  const stopErrors = connection.onMessage((frame) => {
-    if (frame.type === 'error') refresh();
-  });
-  return {
-    authorizedSnapshot() {
-      if (resync) {
-        resync = false;
-        connection.resubscribeTopic(topic);
-      }
-    },
-    close() {
-      unsubscribe();
-      stopErrors();
-    },
-  };
-}
+import { buildChannelTopic, buildUserInboxTopic } from '@daisy/protocol';
+import { attachInvalidationTopic } from '../realtime/invalidation-topic';
 
 type Observer = Omit<
   Parameters<typeof attachInvalidationTopic>[0],
