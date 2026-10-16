@@ -47,12 +47,16 @@ const UNAVAILABLE: Identity = { state: 'unavailable', principal: anonymous };
  * unreadable store resolves `unavailable`: no authority (the gate fails
  * closed) and distinguishable from a signed-out visitor, so callers can
  * answer 503 and report the outage instead of sending members to sign-in.
+ * A store read that throws is tried once more after the injected `pause`,
+ * so a momentary connection blip does not refuse the request; only a
+ * thrown read is retried, never a refusal the store actually returned.
  */
 export async function resolveIdentity({
   cookie,
   readSession,
   readActor,
   now,
+  pause,
 }: {
   readonly cookie: string | null;
   readonly readSession: SessionReader;
@@ -60,25 +64,42 @@ export async function resolveIdentity({
     userId: string,
   ) => Promise<{ readonly id: string; readonly userId: string | null } | null>;
   readonly now: () => string;
+  /** Waits before the single retry of a thrown store read. */
+  readonly pause: () => Promise<void>;
 }): Promise<Identity> {
   if (!cookie) return ANONYMOUS;
-  let found: VerifiedSession | null;
-  try {
-    found = await readSession(cookie);
-  } catch {
-    return UNAVAILABLE;
-  }
+  const found = await retryOnce(() => readSession(cookie), pause);
+  if (found === FAILED) return UNAVAILABLE;
   if (!found || found.emailVerified !== true) return ANONYMOUS;
   const instant = Date.parse(now());
   if (!Number.isFinite(instant)) return UNAVAILABLE;
   const expires = Date.parse(found.expiresAt);
   if (Number.isNaN(expires) || expires <= instant) return ANONYMOUS;
-  return identityFromSession(found, readActor);
+  return identityFromSession(found, readActor, pause);
+}
+
+const FAILED = Symbol('failed');
+
+async function retryOnce<T>(
+  read: () => Promise<T>,
+  pause: () => Promise<void>,
+): Promise<T | typeof FAILED> {
+  try {
+    return await read();
+  } catch {
+    await pause();
+    try {
+      return await read();
+    } catch {
+      return FAILED;
+    }
+  }
 }
 
 async function identityFromSession(
   found: VerifiedSession,
   readActor: Parameters<typeof resolveIdentity>[0]['readActor'],
+  pause: () => Promise<void>,
 ): Promise<Identity> {
   // The reader is an adapter boundary: only a non-empty string username
   // makes a member, whatever else the lookup returned.
@@ -89,21 +110,18 @@ async function identityFromSession(
       state: 'provisional',
       principal: { kind: 'user', userId, actorId: null },
     };
-  try {
-    const actor = await readActor(userId);
-    if (
-      !actor ||
-      actor.userId !== userId ||
-      typeof actor.id !== 'string' ||
-      !actor.id
-    )
-      return UNAVAILABLE;
-    return {
-      state: 'member',
-      username,
-      principal: { kind: 'user', userId, actorId: actor.id },
-    };
-  } catch {
+  const actor = await retryOnce(() => readActor(userId), pause);
+  if (
+    actor === FAILED ||
+    !actor ||
+    actor.userId !== userId ||
+    typeof actor.id !== 'string' ||
+    !actor.id
+  )
     return UNAVAILABLE;
-  }
+  return {
+    state: 'member',
+    username,
+    principal: { kind: 'user', userId, actorId: actor.id },
+  };
 }

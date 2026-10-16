@@ -4,6 +4,7 @@ import { resolveIdentity, type VerifiedSession } from './identity';
 setupRitewayBun();
 
 const now = () => '2026-01-01T12:00:00.000Z';
+const pause = async () => undefined;
 const session = (
   overrides: Partial<VerifiedSession> = {},
 ): VerifiedSession => ({
@@ -19,6 +20,7 @@ const resolveWith = (found: VerifiedSession | null, cookie = 'c=1') =>
     readSession: async () => found,
     readActor: async (userId) => ({ id: 'actor1', userId }),
     now,
+    pause,
   });
 
 describe('resolveIdentity', () => {
@@ -60,6 +62,7 @@ describe('resolveIdentity', () => {
         readSession: async () => session(),
         readActor: async () => ({ id: 'actor1', userId: 'foreign' }),
         now,
+        pause,
       }),
       expected: { state: 'unavailable', principal: { kind: 'anonymous' } },
     });
@@ -89,6 +92,7 @@ describe('resolveIdentity', () => {
         return session();
       },
       now,
+      pause,
     });
     assert({
       given: 'a request with no cookie header',
@@ -106,6 +110,7 @@ describe('resolveIdentity', () => {
         throw new Error('database down');
       },
       now,
+      pause,
     });
     assert({
       given: 'a session store that throws',
@@ -141,8 +146,93 @@ describe('resolveIdentity', () => {
           throw new Error('private store failure');
         },
         now,
+        pause,
       }),
       expected: { state: 'unavailable', principal: { kind: 'anonymous' } },
+    });
+  });
+
+  test('a store read that throws once is retried after the pause', async () => {
+    const steps: string[] = [];
+    let sessionReads = 0;
+    let actorReads = 0;
+    const result = await resolveIdentity({
+      cookie: 'c=1',
+      readSession: async () => {
+        sessionReads += 1;
+        steps.push(`session${sessionReads}`);
+        if (sessionReads === 1) throw new Error('connection reset');
+        return session();
+      },
+      readActor: async (userId) => {
+        actorReads += 1;
+        steps.push(`actor${actorReads}`);
+        if (actorReads === 1) throw new Error('connection reset');
+        return { id: 'actor1', userId };
+      },
+      now,
+      pause: async () => {
+        steps.push('pause');
+      },
+    });
+    assert({
+      given: 'a session read and an actor read that each fail once',
+      should: 'pause, read again, and resolve the member',
+      actual: { state: result.state, steps },
+      expected: {
+        state: 'member',
+        steps: ['session1', 'pause', 'session2', 'actor1', 'pause', 'actor2'],
+      },
+    });
+  });
+
+  test('a store that keeps throwing is tried twice, then fails closed', async () => {
+    let reads = 0;
+    let pauses = 0;
+    const result = await resolveIdentity({
+      cookie: 'c=1',
+      readSession: async () => {
+        reads += 1;
+        throw new Error('database down');
+      },
+      readActor: async (userId) => ({ id: 'actor1', userId }),
+      now,
+      pause: async () => {
+        pauses += 1;
+      },
+    });
+    assert({
+      given: 'a session store that throws on every read',
+      should: 'read twice with one pause between, then resolve unavailable',
+      actual: { result, reads, pauses },
+      expected: {
+        result: { state: 'unavailable', principal: { kind: 'anonymous' } },
+        reads: 2,
+        pauses: 1,
+      },
+    });
+  });
+
+  test('a refusal the store returns is not retried', async () => {
+    let reads = 0;
+    let pauses = 0;
+    const result = await resolveIdentity({
+      cookie: 'c=1',
+      readSession: async () => {
+        reads += 1;
+        return session();
+      },
+      readActor: async () => ({ id: 'actor1', userId: 'foreign' }),
+      now,
+      pause: async () => {
+        pauses += 1;
+      },
+    });
+    assert({
+      given: 'a foreign actor row returned without an error',
+      should: 'resolve unavailable at once, without pausing or rereading',
+      actual: { state: result.state, reads, pauses },
+      expected: { state: 'unavailable', reads: 1, pauses: 0 },
     });
   });
 });

@@ -2,6 +2,13 @@ import { resolveIdentity, type Identity } from '@daisy/auth';
 import { hasSessionCookie } from '../features/auth/sessions/session-cookie';
 import type { AuthServer } from '../features/auth/server';
 
+/**
+ * How long a session read waits before its one retry after a thrown store
+ * read: long enough to ride out a dropped pooled connection, short enough
+ * that a real outage still answers 503 promptly.
+ */
+const SESSION_RETRY_PAUSE_MS = 250;
+
 /** The slice of the composed auth server a session read needs. */
 export type SessionReader = Pick<
   AuthServer,
@@ -46,6 +53,8 @@ export async function resolveSession(
     readActor: auth.getActorByUserId,
     cookie: hasSessionCookie(requestHeaders) ? cookie : null,
     now: () => clock.now(),
+    pause: () =>
+      new Promise((resolve) => setTimeout(resolve, SESSION_RETRY_PAUSE_MS)),
     readSession: async (header) => {
       const found = await instance.api.getSession({
         // A server Principal read: the rate-limit gate does not budget it

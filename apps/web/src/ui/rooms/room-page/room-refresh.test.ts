@@ -1,28 +1,17 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { startRoomRefresh, type RoomVisibility } from './room-refresh';
+import { fakeVisibility } from '../../test-support/fake-visibility';
+import { startRoomRefresh } from './room-refresh';
 
 setupRitewayBun();
 
 function harness(hidden = false) {
-  let changed: (() => void) | undefined;
   let tick: (() => void) | undefined;
   let refreshes = 0;
   const delays: number[] = [];
   let timers = 0;
-  let listeners = 0;
-  const visibility: RoomVisibility = {
-    hidden,
-    addEventListener: (_type, listener) => {
-      changed = listener;
-      listeners += 1;
-    },
-    removeEventListener: (_type, listener) => {
-      if (changed === listener) changed = undefined;
-      listeners -= 1;
-    },
-  };
+  const page = fakeVisibility(hidden);
   const stop = startRoomRefresh({
-    visibility,
+    visibility: page.visibility,
     every: (callback, delay) => {
       delays.push(delay);
       tick = callback;
@@ -39,11 +28,13 @@ function harness(hidden = false) {
   return {
     stop,
     tick: () => tick?.(),
-    change: (next: boolean) => {
-      visibility.hidden = next;
-      changed?.();
-    },
-    snapshot: () => ({ refreshes, timers, listeners, delays }),
+    change: page.change,
+    snapshot: () => ({
+      refreshes,
+      timers,
+      listeners: page.listeners(),
+      delays,
+    }),
     lateTick: () => tick,
   };
 }
