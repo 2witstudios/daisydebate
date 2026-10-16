@@ -1,4 +1,5 @@
 import { type ZodType } from 'zod';
+import { realtimeEndpointOf } from '../realtime/endpoint-header';
 import {
   idSchema,
   roomViewSchema,
@@ -11,7 +12,11 @@ import {
 
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
 type Read<T> =
-  | { readonly kind: 'found'; readonly value: T }
+  | {
+      readonly kind: 'found';
+      readonly value: T;
+      readonly socketUrl: string | null;
+    }
   | { readonly kind: 'missing' | 'unavailable' };
 
 async function readProjection<T>(
@@ -25,18 +30,32 @@ async function readProjection<T>(
     if (!response.ok) return { kind: 'unavailable' };
     const parsed = schema.safeParse(await response.json());
     return parsed.success
-      ? { kind: 'found', value: parsed.data }
+      ? {
+          kind: 'found',
+          value: parsed.data,
+          socketUrl: realtimeEndpointOf(response),
+        }
       : { kind: 'unavailable' };
   } catch {
     return { kind: 'unavailable' };
   }
 }
 
+/** What a room read must answer for a consumer that needs only the view. */
+export type RoomRead =
+  | { readonly kind: 'found'; readonly view: RoomView }
+  | { readonly kind: 'missing' | 'unavailable' };
+
 export async function readAssembly(
   fetch: FetchLike,
   id: string,
 ): Promise<
-  | { readonly kind: 'found'; readonly view: RoomView }
+  | {
+      readonly kind: 'found';
+      readonly view: RoomView;
+      /** Where the room's doorbell rings, when realtime is configured. */
+      readonly socketUrl: string | null;
+    }
   | { readonly kind: 'missing' | 'unavailable' }
 > {
   if (!idSchema.safeParse(id).success) return { kind: 'missing' };
@@ -47,7 +66,7 @@ export async function readAssembly(
   );
   if (result.kind !== 'found') return result;
   return result.value.id === id
-    ? { kind: 'found', view: result.value }
+    ? { kind: 'found', view: result.value, socketUrl: result.socketUrl }
     : { kind: 'unavailable' };
 }
 

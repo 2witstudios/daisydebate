@@ -1,6 +1,6 @@
 import type { RoomView } from '@daisy/protocol';
 import Link from 'next/link';
-import type { MockFormState } from '../../../features/mock-form/form';
+import type { RoomFormState } from '../../../features/rooms/command-answer';
 import type { FormAction } from '../../form-action/form-action';
 import { clockDuration } from '../../../features/rooms/duration-input';
 import { buttonClass } from '../../components/button/button-class';
@@ -23,7 +23,7 @@ export function RoomPrep({
   commandIds,
 }: {
   readonly view: RoomView;
-  readonly action: FormAction<MockFormState>;
+  readonly action: FormAction<RoomFormState>;
   readonly commandIds: { readonly start: string; readonly finish: string };
 }) {
   const command = (

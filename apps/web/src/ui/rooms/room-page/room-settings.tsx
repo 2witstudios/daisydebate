@@ -1,5 +1,5 @@
 import type { RoomView } from '@daisy/protocol';
-import type { MockFormState } from '../../../features/mock-form/form';
+import type { RoomFormState } from '../../../features/rooms/command-answer';
 import type { FormAction } from '../../form-action/form-action';
 import { clockDuration } from '../../../features/rooms/duration-input';
 import { seatLabel } from './assembly-controls';
@@ -36,7 +36,7 @@ export function RoomSettings({
 }: {
   readonly view: RoomView;
   readonly commandId: string;
-  readonly action: FormAction<MockFormState>;
+  readonly action: FormAction<RoomFormState>;
 }) {
   return (
     <section

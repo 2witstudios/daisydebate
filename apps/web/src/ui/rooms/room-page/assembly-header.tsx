@@ -1,6 +1,6 @@
 import { isNamedSeat, type RoomView } from '@daisy/protocol';
 import Link from 'next/link';
-import type { MockFormState } from '../../../features/mock-form/form';
+import type { RoomFormState } from '../../../features/rooms/command-answer';
 import type { FormAction } from '../../form-action/form-action';
 import { buttonClass } from '../../components/button/button-class';
 import { AssemblyCommandFields } from './assembly-command-fields';
@@ -25,8 +25,8 @@ export function AssemblyHeader({
   readonly view: RoomView;
   readonly actorId: string;
   readonly commandIds: { readonly details: string; readonly leave: string };
-  readonly detailsAction: FormAction<MockFormState>;
-  readonly commandAction: FormAction<MockFormState>;
+  readonly detailsAction: FormAction<RoomFormState>;
+  readonly commandAction: FormAction<RoomFormState>;
 }) {
   const [status, shape, competition] = roomChips(view);
   const seated = view.participants

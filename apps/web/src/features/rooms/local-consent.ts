@@ -1,5 +1,5 @@
 import { isNamedSeat, type RoomCommand, type RoomView } from '@daisy/protocol';
-import type { readAssembly } from './read-assembly';
+import type { RoomRead } from './read-assembly';
 import type { submitAssembly } from './submit-assembly';
 
 type ConsentCommand = Extract<RoomCommand, { type: 'ready' | 'unready' }>;
@@ -20,7 +20,7 @@ export function createLocalConsent({
   readonly view: RoomView;
   readonly actorId: string;
   readonly nextId: () => string;
-  readonly read: () => ReturnType<typeof readAssembly>;
+  readonly read: () => Promise<RoomRead>;
   readonly send: (command: ConsentCommand) => ReturnType<typeof submitAssembly>;
 }) {
   let snapshot: Snapshot = {

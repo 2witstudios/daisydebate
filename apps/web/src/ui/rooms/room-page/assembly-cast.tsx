@@ -1,5 +1,5 @@
 import { AssemblyCommandForm } from './assembly-command-form';
-import type { MockFormState } from '../../../features/mock-form/form';
+import type { RoomFormState } from '../../../features/rooms/command-answer';
 import type { FormAction } from '../../form-action/form-action';
 import {
   isNamedSeat,
@@ -22,7 +22,7 @@ export type CastProps = {
   readonly view: RoomView;
   readonly viewer: { readonly actorId: string; readonly label: string };
   readonly bots: readonly RoomCastChoice[];
-  readonly action: FormAction<MockFormState>;
+  readonly action: FormAction<RoomFormState>;
   readonly commandIds: readonly IntentIds[];
 };
 

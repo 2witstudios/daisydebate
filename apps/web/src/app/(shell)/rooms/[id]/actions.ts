@@ -9,8 +9,11 @@ import {
   type MockFormState,
 } from '../../../../features/mock-form/form';
 import { inProcessFetch } from '../../../../server/in-process-fetch';
-import { moveOn } from '../../../../server/form-action';
-import { commandAnswer } from '../../../../features/rooms/command-answer';
+import { hydratedPost, moveOn } from '../../../../server/form-action';
+import {
+  commandAnswer,
+  type RoomFormState,
+} from '../../../../features/rooms/command-answer';
 import { processRoute } from '../../../../server/process-app';
 
 const read = processRoute(
@@ -46,10 +49,12 @@ export async function submitRoomFormAction(
   id: string,
   _state: MockFormState,
   form: FormData,
-): Promise<MockFormState> {
+): Promise<RoomFormState> {
   const { incoming, result } = await submitRoomCommand(id, form);
   if (result.kind === 'accepted')
-    return { values: {}, ...moveOn(incoming, `/rooms/${result.view.id}`) };
+    return hydratedPost(incoming)
+      ? { values: {}, view: result.view }
+      : { values: {}, ...moveOn(incoming, `/rooms/${result.view.id}`) };
   return refused(
     form,
     result.kind === 'refused' && result.reason === 'version-conflict'
@@ -60,16 +65,17 @@ export async function submitRoomFormAction(
   );
 }
 
-/** Native cast/consent intents always return to a fresh canonical projection. */
+/** Native posts return to a fresh projection; the hydrated room adopts the answer. */
 export async function roomCommandAction(
   id: string,
   _state: MockFormState,
   form: FormData,
-): Promise<MockFormState> {
+): Promise<RoomFormState> {
   const { incoming, result } = await submitRoomCommand(id, form);
-  return commandAnswer(result, id, form, (destination) =>
-    moveOn(incoming, destination),
-  );
+  return commandAnswer(result, id, form, {
+    hydrated: hydratedPost(incoming),
+    move: (destination) => moveOn(incoming, destination),
+  });
 }
 
 /** Form conversions use the fresh canonical source, preserving the submitted version fence. */
@@ -77,7 +83,7 @@ export async function saveRoomSettingsAction(
   id: string,
   state: MockFormState,
   form: FormData,
-): Promise<MockFormState> {
+): Promise<RoomFormState> {
   const current = await roomAssembly(id);
   if (current.kind !== 'found')
     return refused(form, 'Settings are unavailable. Try again.');

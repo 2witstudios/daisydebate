@@ -14,12 +14,10 @@ test('accepted Launch returns only the persisted Round destination', () => {
   assert({
     given: 'a canonical accepted Launch with a persisted Round reference',
     should: 'return navigation action state through the supplied moveOn edge',
-    actual: commandAnswer(
-      { kind: 'accepted', view },
-      view.id,
-      form,
-      (next) => ({ next }),
-    ).next,
+    actual: commandAnswer({ kind: 'accepted', view }, view.id, form, {
+      hydrated: true,
+      move: (next) => ({ next }),
+    }).next,
     expected: `/rounds/${view.roundRef.id}`,
   });
 });
@@ -36,12 +34,10 @@ test('refusal and broken transport never answer as acknowledged commands', async
     should:
       'reread refusals and retain retry inputs without leaking internals or claiming success',
     actual: [
-      commandAnswer(
-        { kind: 'unavailable' },
-        assemblySnapshot.id,
-        form,
-        (next) => ({ next }),
-      ).next,
+      commandAnswer({ kind: 'unavailable' }, assemblySnapshot.id, form, {
+        hydrated: false,
+        move: (next) => ({ next }),
+      }).next,
       state.values.actorId,
       Boolean(state.error),
       state.next,
@@ -53,6 +49,69 @@ test('refusal and broken transport never answer as acknowledged commands', async
       true,
       undefined,
       false,
+    ],
+  });
+});
+
+test('a hydrated room command answers with the canonical view instead of navigating', () => {
+  const form = new FormData();
+  form.set('type', 'claim-seat');
+  const view = { ...assemblySnapshot, changeVersion: 4, version: 4 };
+  const moves: string[] = [];
+  const move = (next: string) => {
+    moves.push(next);
+    return { next };
+  };
+  assert({
+    given:
+      'an accepted seat claim posted by the hydrated page, and the same without JavaScript',
+    should:
+      'hand the hydrated page the view with no navigation, and move the native post to the room',
+    actual: {
+      hydrated: commandAnswer({ kind: 'accepted', view }, view.id, form, {
+        hydrated: true,
+        move,
+      }),
+      native: commandAnswer({ kind: 'accepted', view }, view.id, form, {
+        hydrated: false,
+        move,
+      }).next,
+      moves,
+    },
+    expected: {
+      hydrated: { values: {}, view },
+      native: `/rooms/${view.id}`,
+      moves: [`/rooms/${view.id}`],
+    },
+  });
+});
+
+test('a hydrated refusal stays on the room with its reason', () => {
+  const form = new FormData();
+  form.set('type', 'claim-seat');
+  form.set('role', 'negative');
+  const answer = (result: Parameters<typeof commandAnswer>[0]) =>
+    commandAnswer(result, assemblySnapshot.id, form, {
+      hydrated: true,
+      move: (next) => ({ next }),
+    });
+  assert({
+    given:
+      'a version conflict, another refusal and an unreachable room, posted by the hydrated page',
+    should:
+      'answer each in place, keeping the posted values and never navigating',
+    actual: [
+      answer({ kind: 'refused', reason: 'version-conflict' }),
+      answer({ kind: 'refused', reason: 'seat-unavailable' }).error,
+      answer({ kind: 'unavailable' }).next,
+    ],
+    expected: [
+      {
+        values: { type: 'claim-seat', role: 'negative' },
+        error: 'The room changed. Review the latest room and try again.',
+      },
+      'The command was not acknowledged. Review the current room and try again.',
+      undefined,
     ],
   });
 });

@@ -173,7 +173,7 @@ problem instead of Tech issue, a Ballots section lists each ballot with its
 status (the deciding ballot `Writing`, any AI ballot beside a human judge
 `Ready` or `Writing`), the Room tab lists the judge as `Judge · Writing
 ballot`, and the document opens on the completed transcript. The judge's
-ballot completes the round (DEC-80), so the room's refresh hands the
+ballot completes the round (DEC-80), so round sync hands the
 debaters to the receipt at `/rounds/[id]`, which shows the result and keeps
 a human judge's seat unnamed.
 

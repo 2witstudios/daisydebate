@@ -35,6 +35,8 @@ export default async function RoundRoomPage({
       view={result.round}
       actorId={actorId}
       renderedAtMs={Date.parse(systemClock.now())}
+      read={readPersistedRound.bind(null, id)}
+      socketUrl={result.socketUrl}
       leave={{
         confirming: 'leave' in (await searchParams),
         stayHref: here,
