@@ -86,10 +86,10 @@ describe('resource sync driver', () => {
     down.answer({ kind: 'unavailable' });
     await down.flush();
     const stale = down.held();
-    down.advance(RESOURCE_POLL_MS.stale);
+    down.advance(RESOURCE_POLL_MS.alone);
     down.answer(new Error('network down'));
     await down.flush();
-    down.advance(RESOURCE_POLL_MS.stale);
+    down.advance(RESOURCE_POLL_MS.alone);
     down.answer({ kind: 'found', value: doc(4) });
     await down.flush();
     assert({
@@ -108,7 +108,7 @@ describe('resource sync driver', () => {
   test('the backstop reads only while the page is visible', async () => {
     const tab = harness();
     tab.hide();
-    tab.advance(RESOURCE_POLL_MS.current);
+    tab.advance(RESOURCE_POLL_MS.alone);
     const hidden = tab.reads();
     tab.show();
     assert({
@@ -122,6 +122,7 @@ describe('resource sync driver', () => {
 
   test('the resource is read again at its deadline', async () => {
     const timed = harness({ deadline: (state) => state.readAt + 12000 });
+    timed.connectionState({ status: 'open', generation: 1, terminal: null });
     timed.advance(11999);
     const early = timed.reads();
     timed.advance(1);
@@ -168,14 +169,38 @@ describe('resource sync driver', () => {
 
   test('without realtime the backstop alone keeps the resource current', async () => {
     const polled = harness({ realtime: false });
-    polled.advance(RESOURCE_POLL_MS.current);
+    polled.advance(RESOURCE_POLL_MS.alone);
     polled.answer({ kind: 'found', value: doc(6) });
     await polled.flush();
     assert({
       given: 'no realtime endpoint and one backstop interval',
-      should: 'read on the backstop and adopt the answer',
+      should: 'read on the fast backstop and adopt the answer',
       actual: [polled.log, polled.held().value.version],
       expected: [['read'], 6],
+    });
+  });
+
+  test('the backstop slows only while a doorbell can ring', async () => {
+    const paced = harness();
+    paced.advance(RESOURCE_POLL_MS.alone);
+    const beforeOpen = paced.reads();
+    paced.answer({ kind: 'found', value: doc(3) });
+    await paced.flush();
+    paced.connectionState({ status: 'open', generation: 1, terminal: null });
+    paced.advance(RESOURCE_POLL_MS.alone);
+    const whileOpen = paced.reads();
+    paced.advance(RESOURCE_POLL_MS.doorbell - RESOURCE_POLL_MS.alone);
+    const afterSlowInterval = paced.reads();
+    paced.answer({ kind: 'found', value: doc(3) });
+    await paced.flush();
+    paced.connectionState({ status: 'closed', generation: 1, terminal: null });
+    paced.advance(RESOURCE_POLL_MS.alone);
+    assert({
+      given: 'a connection not yet open, then open, then dropped',
+      should:
+        'poll fast before it opens, slow while it is open, and fast again once it drops',
+      actual: [beforeOpen, whileOpen, afterSlowInterval, paced.reads()],
+      expected: [1, 1, 2, 3],
     });
   });
 

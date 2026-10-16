@@ -74,10 +74,13 @@ rules:
 dispatches events. It subscribes to the resource's doorbell, reads through
 an injected reader, re-signals on `resync_required`, on a realtime error,
 when the realtime connection reopens or ends and when the tab becomes
-visible, reads again at a deadline the resource names (a room's running
-prep), and polls as a backstop (thirty seconds while current, five while
-stale) because doorbells have no delivery guarantee yet. Without a
-configured realtime endpoint it polls alone. Rooms and rounds are thin
+visible, and reads again at a deadline the resource names (a room's
+running prep). It also polls as a backstop. While the realtime connection
+is open it looks every thirty seconds, because doorbells have no delivery
+guarantee yet. With no connection (realtime not configured, not yet open,
+or dropped) or while stale it looks every five seconds, so a page without
+realtime stays as fresh as route refresh kept it, at the cost of one
+resource read rather than a route render. Rooms and rounds are thin
 consumers: `createRoomSyncDriver` and `createRoundSyncDriver`.
 
 ### 4. Reads name where their doorbell rings
@@ -125,7 +128,8 @@ a navigation itself fails.
   five-second steps, and the read at its deadline picks up the finished
   prep and the capabilities that depend on it.
 - Background load drops from a full route render every five seconds to one
-  resource read per change, plus a thirty-second backstop.
+  resource read per change plus a thirty-second backstop while realtime is
+  connected, and to one resource read every five seconds without it.
 - Room sections render on the client after hydration. They already were
   client-compatible components and gain no server-only dependency.
 - `attachInvalidationTopic` lives in `features/realtime`, used by messaging

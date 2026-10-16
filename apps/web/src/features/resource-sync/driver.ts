@@ -8,10 +8,12 @@ import {
 } from './resource-sync';
 
 /**
- * Backstop reads: doorbells have no delivery guarantee yet, so a current
- * resource still looks every thirty seconds, and a stale one every five.
+ * Backstop reads. While a doorbell can ring (the realtime connection is
+ * open) a current resource still looks every thirty seconds, because
+ * doorbells have no delivery guarantee yet. Without one (no realtime, not
+ * yet open, dropped) or while stale, it looks every five.
  */
-export const RESOURCE_POLL_MS = { current: 30000, stale: 5000 } as const;
+export const RESOURCE_POLL_MS = { doorbell: 30000, alone: 5000 } as const;
 
 /** What a read answers; a thrown read counts as `unavailable`. */
 export type ResourceRead<T> =
@@ -74,6 +76,8 @@ export function createResourceSyncDriver<T>({
   let disposed = false;
   const listeners = new Set<() => void>();
   let poll: unknown = null;
+  /** The realtime connection is open, so a doorbell can ring. */
+  let ringing = false;
   let timedOut: { readonly at: number; readonly timer: unknown } | null = null;
 
   const armPoll = () => {
@@ -84,9 +88,9 @@ export function createResourceSyncDriver<T>({
         if (visibility.isVisible()) signal(null);
         if (poll === null) armPoll();
       },
-      state.freshness === 'stale'
-        ? RESOURCE_POLL_MS.stale
-        : RESOURCE_POLL_MS.current,
+      ringing && state.freshness === 'current'
+        ? RESOURCE_POLL_MS.doorbell
+        : RESOURCE_POLL_MS.alone,
     );
   };
   const armDeadline = () => {
@@ -136,8 +140,13 @@ export function createResourceSyncDriver<T>({
   const bell = connection ? doorbell(connection, signal) : null;
   let opened: number | null = null;
   const stopConnection = connection?.subscribe((next) => {
+    const open = next.status === 'open' && next.terminal === null;
+    if (open !== ringing) {
+      ringing = open;
+      armPoll();
+    }
     if (next.terminal !== null) signal(null);
-    else if (next.status === 'open') {
+    else if (open) {
       if (opened !== null && opened !== next.generation) signal(null);
       opened = next.generation;
     }

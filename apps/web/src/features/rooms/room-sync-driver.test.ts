@@ -94,6 +94,7 @@ describe('room sync driver', () => {
       prep: { startedAt: '2026-01-01T00:00:00.000Z', remainingMs, finished },
     });
     const room = harness(view(3, prep(12000, false)));
+    room.connectionState({ status: 'open', generation: 1, terminal: null });
     room.advance(11999);
     const early = room.reads();
     room.advance(1);
