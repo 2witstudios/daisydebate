@@ -41,10 +41,16 @@ const runningPrep = (view: RoomView) =>
     ? view.prep.remainingMs
     : null;
 
-/** When the reported prep time runs out, the room must be read again. */
+/**
+ * When the reported prep time runs out, the room must be read again. A prep
+ * with no time left has nothing more to wait for: the backstop picks up its
+ * finish, so a read at zero never schedules another.
+ */
 export function prepDeadline(state: RoomSync): number | null {
   const remaining = runningPrep(state.value.view);
-  return remaining === null ? null : state.readAt + remaining;
+  return remaining === null || remaining === 0
+    ? null
+    : state.readAt + remaining;
 }
 
 /** The held view as of `now`: a running prep counts down from its read. */

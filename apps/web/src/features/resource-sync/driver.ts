@@ -79,6 +79,8 @@ export function createResourceSyncDriver<T>({
   /** The realtime connection is open, so a doorbell can ring. */
   let ringing = false;
   let timedOut: { readonly at: number; readonly timer: unknown } | null = null;
+  /** A deadline fires once; until a read moves it, the backstop paces retries. */
+  let firedAt: number | null = null;
 
   const armPoll = () => {
     if (poll !== null) scheduler.clearTimeout(poll);
@@ -95,7 +97,7 @@ export function createResourceSyncDriver<T>({
   };
   const armDeadline = () => {
     const at = deadline(state);
-    if (timedOut?.at === at) return;
+    if (timedOut?.at === at || (at !== null && at === firedAt)) return;
     if (timedOut) scheduler.clearTimeout(timedOut.timer);
     timedOut =
       at === null
@@ -105,6 +107,7 @@ export function createResourceSyncDriver<T>({
             timer: scheduler.setTimeout(
               () => {
                 timedOut = null;
+                firedAt = at;
                 signal(null);
               },
               Math.max(0, at - scheduler.now()),

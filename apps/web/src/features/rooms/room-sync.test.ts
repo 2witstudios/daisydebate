@@ -75,14 +75,17 @@ describe('room sync time', () => {
 
   test('a running prep has a read deadline; any other room has none', () => {
     assert({
-      given: 'a running prep, then rooms without prep and with finished prep',
-      should: 'schedule a read when the reported time runs out, otherwise none',
+      given:
+        'a running prep, rooms without prep and with finished prep, and a prep with no time left not yet marked finished',
+      should:
+        'schedule a read when the reported time runs out, otherwise none, so no read loops at zero',
       actual: [
         prepDeadline(prepping),
         prepDeadline(seeded),
         prepDeadline(seedRoomSync(view(3, running(0, true)), ids('a'), 1000)),
+        prepDeadline(seedRoomSync(view(3, running(0)), ids('a'), 1000)),
       ],
-      expected: [61000, null, null],
+      expected: [61000, null, null, null],
     });
   });
 

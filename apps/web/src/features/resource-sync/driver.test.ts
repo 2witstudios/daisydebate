@@ -134,6 +134,23 @@ describe('resource sync driver', () => {
     });
   });
 
+  test('a deadline fires once, so a failed read at it is paced, not looped', async () => {
+    const timed = harness({ deadline: (state) => state.readAt + 12000 });
+    timed.connectionState({ status: 'open', generation: 1, terminal: null });
+    timed.advance(12000);
+    timed.answer({ kind: 'unavailable' });
+    await timed.flush();
+    timed.advance(1);
+    const afterFailure = timed.reads();
+    timed.advance(RESOURCE_POLL_MS.alone);
+    assert({
+      given: 'a deadline whose read fails, with the held value still past it',
+      should: 'not read again until the stale backstop, then read once',
+      actual: [afterFailure, timed.reads()],
+      expected: [1, 2],
+    });
+  });
+
   test('an accepted answer is adopted without a read', () => {
     const answered = harness();
     answered.driver.accepted(doc(5, 'accepted'));
