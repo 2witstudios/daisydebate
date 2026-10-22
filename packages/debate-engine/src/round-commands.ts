@@ -15,6 +15,7 @@ import type { ClockChange } from './round-clock';
 /** The durable writes a command or tick queues for the caller to persist. */
 export type Queues = {
   changes: ClockChange[];
+  finalPlayedEnd: string | null;
   floorChange: {
     readonly sequence: number;
     readonly at: string;
@@ -264,6 +265,9 @@ const forfeit = (c: CommandContext): void => {
   const open = c.on.openRow();
   if (open !== undefined) c.closeRowAt(open.sequence, c.now);
   c.on.endPrep();
+  const lastPlayed = c.on.rows().at(-1)?.endedAtMs;
+  if (lastPlayed !== undefined && lastPlayed !== null)
+    c.into.finalPlayedEnd = iso(lastPlayed);
   completeWith(c, other(side));
 };
 
