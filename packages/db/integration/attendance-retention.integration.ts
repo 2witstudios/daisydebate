@@ -66,7 +66,7 @@ test('bounded retention prunes old leases/samples and preserves durable attendan
         ops.purgeExpiredAvailabilitySamples({ before, limit: 1 }),
         commands.purgeExpiredRoundCommands({ before, limit: 10 }),
       ]);
-      const left =
+      const left: { command_id: string }[] =
         await f.sql`select command_id from round_commands where round_id=${roundId} order by command_id`;
       const [pending] =
         await f.sql`select state from round_check_in_attempts where round_id=${roundId}`;
