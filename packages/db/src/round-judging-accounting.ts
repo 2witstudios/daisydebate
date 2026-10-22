@@ -22,7 +22,15 @@ export function recordJudgingUsage(
       id: scope.agentRunId,
       participantId: scope.judgeParticipantId,
       token,
-      bindings: scope,
+      bindings: {
+        roundId: scope.roundId,
+        judgeParticipantId: scope.judgeParticipantId,
+        agentRunId: scope.agentRunId,
+        serviceId: scope.serviceId,
+        commandId: scope.commandId,
+        freezeRevision: scope.freezeRevision,
+        jobEpoch: scope.jobEpoch,
+      },
     });
     if (execution.kind !== 'judging') throw createAppError('AUTHORIZATION');
     const outcome = execution.configurationSnapshot.providerOutcome;
