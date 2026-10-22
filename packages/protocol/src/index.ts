@@ -203,3 +203,12 @@ export {
   createMessagingReactionSchemas,
   type MessagingReactionPolicy,
 } from './messaging/reactions';
+
+export { roundCommandEnvelopeSchema } from './round-command';
+export type {
+  RoundCommandEnvelope,
+  RoundCommandPrincipal,
+  RoundCommandReceipt,
+  RoundCommandResponse,
+  RoundRefusal,
+} from './round-command';

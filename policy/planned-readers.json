@@ -180,6 +180,78 @@
       "adr": "docs/decisions/0057-planned-readers.md",
       "reason": "Committed seated-actor token/reconcile leaf pye8vaswx0emsq93mw08l9el consumes the isolated LiveKit adapter after actual CAP grants/session producers exist. This declaration authorizes no grants, pre-round joins or human acceptance.",
       "reviewBy": "2026-10-16"
+    },
+    {
+      "path": "packages/protocol/src/round-command.ts",
+      "export": "roundCommandEnvelopeSchema",
+      "task": "CAP-C.5",
+      "owner": "ag-i9ukzkph",
+      "adr": "docs/decisions/0059-one-competitive-api.md",
+      "reason": "Shared Round contract producer; executor CAP-C.2 and HTTP/read consumers CAP-C.3/CAP-C.5 are committed delivery leaves in manifest d0v3a4d2fgazxg2zz6dxxfwc.",
+      "reviewBy": "2026-11-05"
+    },
+    {
+      "path": "packages/protocol/src/round-command.ts",
+      "export": "RoundCommandEnvelope",
+      "task": "CAP-C.5",
+      "owner": "ag-i9ukzkph",
+      "adr": "docs/decisions/0059-one-competitive-api.md",
+      "reason": "Shared Round contract producer; executor CAP-C.2 and HTTP/read consumers CAP-C.3/CAP-C.5 are committed delivery leaves in manifest d0v3a4d2fgazxg2zz6dxxfwc.",
+      "reviewBy": "2026-11-05"
+    },
+    {
+      "path": "packages/protocol/src/round-command.ts",
+      "export": "RoundCommandPrincipal",
+      "task": "CAP-C.5",
+      "owner": "ag-i9ukzkph",
+      "adr": "docs/decisions/0059-one-competitive-api.md",
+      "reason": "Shared Round contract producer; executor CAP-C.2 and HTTP/read consumers CAP-C.3/CAP-C.5 are committed delivery leaves in manifest d0v3a4d2fgazxg2zz6dxxfwc.",
+      "reviewBy": "2026-11-05"
+    },
+    {
+      "path": "packages/protocol/src/round-command.ts",
+      "export": "RoundCommandReceipt",
+      "task": "CAP-C.5",
+      "owner": "ag-i9ukzkph",
+      "adr": "docs/decisions/0059-one-competitive-api.md",
+      "reason": "Shared Round contract producer; executor CAP-C.2 and HTTP/read consumers CAP-C.3/CAP-C.5 are committed delivery leaves in manifest d0v3a4d2fgazxg2zz6dxxfwc.",
+      "reviewBy": "2026-11-05"
+    },
+    {
+      "path": "packages/protocol/src/round-command.ts",
+      "export": "RoundCommandResponse",
+      "task": "CAP-C.5",
+      "owner": "ag-i9ukzkph",
+      "adr": "docs/decisions/0059-one-competitive-api.md",
+      "reason": "Shared Round contract producer; executor CAP-C.2 and HTTP/read consumers CAP-C.3/CAP-C.5 are committed delivery leaves in manifest d0v3a4d2fgazxg2zz6dxxfwc.",
+      "reviewBy": "2026-11-05"
+    },
+    {
+      "path": "packages/protocol/src/round-command.ts",
+      "export": "RoundRefusal",
+      "task": "CAP-C.5",
+      "owner": "ag-i9ukzkph",
+      "adr": "docs/decisions/0059-one-competitive-api.md",
+      "reason": "Shared Round contract producer; executor CAP-C.2 and HTTP/read consumers CAP-C.3/CAP-C.5 are committed delivery leaves in manifest d0v3a4d2fgazxg2zz6dxxfwc.",
+      "reviewBy": "2026-11-05"
+    },
+    {
+      "path": "packages/auth/src/round-command.ts",
+      "export": "bindRoundCommandPrincipal",
+      "task": "CAP-C.2",
+      "owner": "ag-i9ukzkph",
+      "adr": "docs/decisions/0059-one-competitive-api.md",
+      "reason": "Shared Round contract producer; executor CAP-C.2 and HTTP/read consumers CAP-C.3/CAP-C.5 are committed delivery leaves in manifest d0v3a4d2fgazxg2zz6dxxfwc.",
+      "reviewBy": "2026-11-05"
+    },
+    {
+      "path": "packages/auth/src/round-command.ts",
+      "export": "RoundCommandAuthority",
+      "task": "CAP-C.2",
+      "owner": "ag-i9ukzkph",
+      "adr": "docs/decisions/0059-one-competitive-api.md",
+      "reason": "Shared Round contract producer; executor CAP-C.2 and HTTP/read consumers CAP-C.3/CAP-C.5 are committed delivery leaves in manifest d0v3a4d2fgazxg2zz6dxxfwc.",
+      "reviewBy": "2026-11-05"
     }
   ]
 }
