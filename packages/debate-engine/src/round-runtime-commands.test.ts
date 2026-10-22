@@ -206,9 +206,11 @@ describe('round runtime lifecycle', () => {
         should: 'close the segment and hand the round to the negative',
         actual: {
           round: forfeited.round,
+          actualFinalEnd: forfeited.finalSegmentEndedAt,
           close: forfeited.segmentCloses[0]?.id,
         },
         expected: {
+          actualFinalEnd: at(20_000),
           round: {
             status: 'completed',
             currentStage: null,
