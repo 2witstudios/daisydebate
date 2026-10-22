@@ -12,10 +12,11 @@ export type RoundMediaGrants = {
   readonly capture: false;
 };
 
-const denied = (): RoundMediaGrants => ({
+// A judge stays hidden even when denied; a revocation must never reveal it.
+const denied = (hidden = false): RoundMediaGrants => ({
   publish: [],
   subscribe: false,
-  hidden: false,
+  hidden,
   capture: false,
 });
 
@@ -74,7 +75,7 @@ export function mediaGrants(input: MediaGrantInput): RoundMediaGrants {
     !['scheduled', 'active'].includes(position.status) ||
     !withinJudgingWindow(input)
   )
-    return denied();
+    return denied(seat?.role === 'judge');
   if (seat.role === 'judge')
     return { publish: [], subscribe: true, hidden: true, capture: false };
   const microphone =

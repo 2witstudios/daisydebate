@@ -4,6 +4,7 @@ import {
   type RoundMediaState,
 } from '@daisy/protocol';
 import {
+  admissionRevoked,
   mediaEnded,
   mediaRuntime,
   projectMedia,
@@ -89,6 +90,8 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
     const claim = await acquire(binding.sessionId);
     await run(claim, principal);
     const state = await snapshot(roundId);
+    if (admissionRevoked(state))
+      throw createAppError('CONFLICT', 'Round media admission is closed');
     if (
       state.session.unsafeAt ||
       state.unresolved ||
@@ -100,6 +103,9 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
       principal,
       buildProjection,
       sign: async (context) => {
+        // Post-lock PostgreSQL eligibility, not the earlier unlocked read.
+        if (admissionRevoked(context))
+          throw createAppError('CONFLICT', 'Round media admission is closed');
         const grants = seatGrants(context, context.participantId, input.nextId);
         const token = await input.media.joinToken({
           room: context.binding.roomName,
