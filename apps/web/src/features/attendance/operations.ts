@@ -103,46 +103,58 @@ export function createAttendanceFeature(deps: {
   readonly nextId: () => string;
   readonly instanceId: string;
 }) {
-  return {
-    async targets(principal: AttendancePrincipal, roundId: string) {
-      const facts = await deps.checkIns.readRoundAttendanceTargets({
-        principal,
-        roundId,
-      });
-      const nowMs = Date.parse(facts.now);
-      const availability = availabilityFor(facts);
-      return facts.round.segments
-        .filter(
-          (segment) =>
-            segment.type === 'speech' &&
-            !facts.finalizedSegmentIds.includes(segment.id) &&
-            !facts.recordedSegmentIds.includes(segment.id),
-        )
-        .flatMap((segment) => {
-          const window = attendanceWindowFor(
-            facts.round,
-            segment.id,
-            facts.eligibleParticipantIds,
-          );
-          const deadlineMs = effectiveAttendanceDeadline({
-            openedAtMs: window.openedAtMs,
-            graceMs: attendanceTimingPolicy.graceMs,
-            availability,
-          });
-          return nowMs >= window.openedAtMs - attendanceTimingPolicy.leadMs &&
-            (deadlineMs === null || nowMs <= deadlineMs)
-            ? [
-                {
-                  segmentId: segment.id,
-                  openedAt: segment.startedAt,
-                  effectiveDeadline:
-                    deadlineMs === null
-                      ? null
-                      : attendanceTimestamp(deadlineMs),
-                },
-              ]
-            : [];
+  const readState = async (principal: AttendancePrincipal, roundId: string) => {
+    const facts = await deps.checkIns.readRoundAttendanceTargets({
+      principal,
+      roundId,
+    });
+    const nowMs = Date.parse(facts.now);
+    const availability = availabilityFor(facts);
+    const targets = facts.round.segments
+      .filter(
+        (segment) =>
+          segment.type === 'speech' &&
+          !facts.finalizedSegmentIds.includes(segment.id) &&
+          !facts.receipts.some((receipt) => receipt.segmentId === segment.id),
+      )
+      .flatMap((segment) => {
+        const window = attendanceWindowFor(
+          facts.round,
+          segment.id,
+          facts.eligibleParticipantIds,
+        );
+        const deadlineMs = effectiveAttendanceDeadline({
+          openedAtMs: window.openedAtMs,
+          graceMs: attendanceTimingPolicy.graceMs,
+          availability,
         });
+        return nowMs >= window.openedAtMs - attendanceTimingPolicy.leadMs &&
+          (deadlineMs === null || nowMs <= deadlineMs)
+          ? [
+              {
+                segmentId: segment.id,
+                openedAt: segment.startedAt,
+                effectiveDeadline:
+                  deadlineMs === null ? null : attendanceTimestamp(deadlineMs),
+              },
+            ]
+          : [];
+      });
+
+    return { roundId, recorded: facts.receipts, targets };
+  };
+  return {
+    targets: async (principal: AttendancePrincipal, roundId: string) =>
+      (await readState(principal, roundId)).targets,
+    nativeState: async (principal: AttendancePrincipal, roundId: string) => {
+      const state = await readState(principal, roundId);
+      return {
+        ...state,
+        targets: state.targets.map((target) => ({
+          ...target,
+          commandId: deps.nextId(),
+        })),
+      };
     },
     async checkIn(
       principal: AttendancePrincipal,
@@ -172,3 +184,7 @@ export function createAttendanceFeature(deps: {
       }),
   };
 }
+
+export type NativeAttendanceState = Awaited<
+  ReturnType<ReturnType<typeof createAttendanceFeature>['nativeState']>
+>;
