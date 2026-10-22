@@ -15,6 +15,7 @@ export const roundCommandTypes = [
   'interrupt',
   'forfeit',
   'complete',
+  'submit_ballot',
 ] as const;
 
 /**
