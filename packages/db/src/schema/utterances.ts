@@ -54,7 +54,7 @@ export const utterances = pgTable(
       name: 'utterances_participant_round_fk',
       columns: [table.roundParticipantId, table.roundId],
       foreignColumns: [roundParticipants.id, roundParticipants.roundId],
-    }).onDelete('restrict'),
+    }).onDelete('no action'),
     uniqueIndex('utterances_segment_sequence_unique').on(
       table.segmentId,
       table.sequence,
