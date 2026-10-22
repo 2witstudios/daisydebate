@@ -147,8 +147,17 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
       admit(scope.roundId, { kind: 'bot', scope, token }),
     reconcile,
     async recoverActiveSessions() {
-      for (const session of await input.store.activeMediaSessions())
-        await reconcile(session.roundId);
+      for (const session of await input.store.activeMediaSessions()) {
+        try {
+          await reconcile(session.roundId);
+        } catch (error) {
+          input.reporter.capture(error, {
+            requestId: input.nextId(),
+            route: '/api/rounds/:id/media/reconcile',
+            errorCode: 'INFRASTRUCTURE',
+          });
+        }
+      }
     },
   };
 }
