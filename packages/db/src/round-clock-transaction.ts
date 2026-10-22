@@ -11,7 +11,7 @@ import {
 import { sampleRoundExecutionTime } from './round-execution-time';
 import { writeSpeakingProjection } from './round-speaking-writer';
 
-type Tx = Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0];
+type Tx = Pick<BunSQLDatabase, 'select' | 'update' | 'insert' | 'execute'>;
 export type LockedRoundTickInput = {
   readonly roundId: string;
   readonly buildProjection: (context: {

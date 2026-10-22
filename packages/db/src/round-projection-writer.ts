@@ -11,7 +11,7 @@ import { roundCommands } from './schema/round-commands';
 import { roundSegments } from './schema/round-segments';
 import { rounds } from './schema/rounds';
 
-type Tx = Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0];
+type Tx = Pick<BunSQLDatabase, 'select' | 'update' | 'insert' | 'execute'>;
 
 /** Append the canonical content-free invalidation for a persisted Round revision. */
 export async function appendRoundPhaseChanged(
@@ -166,7 +166,7 @@ const lifecycleInstant = (
 
 /** Writes one projection's round row and segment changes inside `tx`. */
 async function writeProjection(
-  tx: Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0],
+  tx: Tx,
   roundId: string,
   projection: RoundProjection,
   now: string,
