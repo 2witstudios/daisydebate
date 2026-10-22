@@ -66,12 +66,7 @@ export function createRoundRuntimeOperations(input: {
           });
           try {
             return runtime.execute({
-              command: {
-                type:
-                  envelope.command.type === 'end_prep'
-                    ? 'start_speech'
-                    : envelope.command.type,
-              },
+              command: { type: envelope.command.type },
               actorId: bound.actorId,
               now: context.now,
             });

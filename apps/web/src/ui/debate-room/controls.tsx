@@ -61,9 +61,6 @@ function PhaseActions({
   if (round.phase === 'prep')
     return (
       <>
-        <button type="button" disabled className={quiet}>
-          Save the rest
-        </button>
         <button type="button" disabled className={cn(primary, grow)}>
           Start {round.speeches[round.liveIndex]?.code}
         </button>

@@ -1,10 +1,10 @@
-import { readRoundCommand } from './command-body';
 import {
   idSchema,
+  roundCommandEnvelopeSchema,
   type RoundCommandResponse,
   type RoundView,
 } from '@daisy/protocol';
-import { parseValidated } from '../../server/http';
+import { parseValidated, readJson } from '../../server/http';
 import {
   createRoundMemberGate,
   type RoundMemberRouteDependencies,
@@ -24,7 +24,7 @@ type Dependencies = RoundMemberRouteDependencies & {
     segmentId: string,
   ) => Promise<unknown>;
 };
-/** Shared HTTP gates for browser JSON and native POST callers; bots call the same operation server-side. */
+/** Shared HTTP gates for the JSON command envelope; native forms reach it through the server action, and bots call the same operation server-side. */
 export function createRoundHandlers(d: Dependencies) {
   const run = createRoundMemberGate(d);
   const read = (
@@ -63,9 +63,9 @@ export function createRoundHandlers(d: Dependencies) {
     commands: (request: Request, roundId: string) =>
       run(request, 'command', async (caller) => {
         const id = parseValidated(idSchema, roundId);
-        const { envelope, native } = await readRoundCommand(
-          request,
-          d.maxBodyBytes,
+        const envelope = parseValidated(
+          roundCommandEnvelopeSchema,
+          await readJson(request, d.maxBodyBytes),
         );
         const receipt = await d.operations.command(
           { kind: 'human', actorId: caller.actorId },
@@ -76,12 +76,7 @@ export function createRoundHandlers(d: Dependencies) {
           receipt,
           view: await d.view(caller, id),
         };
-        return native
-          ? new Response(null, {
-              status: 303,
-              headers: { location: `/rounds/${id}` },
-            })
-          : Response.json(response);
+        return Response.json(response);
       }),
   };
 }

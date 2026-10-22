@@ -1,7 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { sampleNotifications } from '../../ui/mock/notifications';
-import { getDebateInfo } from '../debates/get-debate';
-import { getRoomInfo } from '../rooms/get-room';
+import { existsSync } from 'node:fs';
 import { getNotifications } from './get-notifications';
 import {
   notificationRows,
@@ -103,19 +102,18 @@ describe('getNotifications', () => {
 
 describe('sample notification links', () => {
   test('every link leads somewhere that exists', () => {
-    const now = '2026-10-03T12:00:00.000Z';
     const broken = sampleNotifications
       .map((item) => new URL(item.href, 'https://x').pathname)
-      .filter((path) => {
-        if (path.startsWith('/debates/'))
-          return getDebateInfo(path.replace('/debates/', ''), now) === null;
-        if (path.startsWith('/rooms/'))
-          return getRoomInfo(path.replace('/rooms/', ''), now) === null;
-        return false;
-      });
+      .filter(
+        (path) =>
+          path.split('/').length !== 2 ||
+          !existsSync(
+            new URL(`../../app/(shell)${path}/page.tsx`, import.meta.url),
+          ),
+      );
     assert({
       given: 'the sample notifications',
-      should: 'point every debate and room link at a known one',
+      should: 'point every link at an existing top-level page',
       actual: broken,
       expected: [],
     });

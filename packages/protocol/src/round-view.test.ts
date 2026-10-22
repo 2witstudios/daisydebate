@@ -49,6 +49,7 @@ const view = {
   startedAt: at(0),
   completedAt: null,
   outcome: null,
+  viewerIsHost: false,
   checkpoint: emptyRuntimeCheckpoint,
   segments: [segment(0), segment(1)],
 };

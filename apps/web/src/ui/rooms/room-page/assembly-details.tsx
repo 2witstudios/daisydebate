@@ -62,7 +62,10 @@ export function AssemblyDetailsFields({
         >
           <option value="public">Public</option>
           <option value="unlisted">Unlisted</option>
-          <option value="private">Private</option>
+          {/* No invite path seats a second human yet (ISSUE-443, DEC-206). */}
+          {view.visibility === 'private' ? (
+            <option value="private">Private</option>
+          ) : null}
         </select>
       </FormField>
       <AssemblyEditFeedback state={state} roomId={view.id} />

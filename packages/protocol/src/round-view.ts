@@ -52,6 +52,8 @@ export const roundViewSchema = z.strictObject({
   startedAt: instant.nullable(),
   completedAt: instant.nullable(),
   outcome: z.enum(['affirmative', 'negative', 'draw']).nullable(),
+  /** Whether this viewer hosts the Round; never which actor does. */
+  viewerIsHost: z.boolean(),
   /** Null when the stored checkpoint is unreadable: no live position, not an error. */
   checkpoint: runtimeCheckpointSchema.nullable(),
   segments: z
@@ -79,7 +81,7 @@ export type RoundSeat = z.infer<typeof seatSchema>;
  * The Round as stored, before projection for a viewer: every seat named
  * and the host's actor. Authorization reads it; it never leaves the server.
  */
-export type LaunchedRound = Omit<RoundView, 'participants'> & {
+export type LaunchedRound = Omit<RoundView, 'participants' | 'viewerIsHost'> & {
   readonly hostActorId: string | null;
   readonly participants: readonly RoundSeat[];
 };

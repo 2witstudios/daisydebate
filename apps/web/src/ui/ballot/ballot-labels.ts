@@ -1,4 +1,4 @@
-import type { Side } from '../../features/debates/turns';
+import type { DebateSide as Side } from '@daisy/protocol';
 
 export const sideNames: Readonly<Record<Side, string>> = {
   affirmative: 'Affirmative',

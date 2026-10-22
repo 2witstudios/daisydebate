@@ -62,3 +62,23 @@ test('native template selection carries the immutable revision and exact default
     expected: [true, true, true, true, false, true, true, false],
   });
 });
+test('a new Room cannot be made private while no invite path exists', () => {
+  const html = renderToStaticMarkup(
+    <CreateAssemblyFields
+      state={{ values: {} }}
+      pending={false}
+      commandId={'q'.repeat(24)}
+      choices={[unequalTemplate]}
+    />,
+  );
+  assert({
+    given: 'the create form',
+    should: 'offer unlisted and public, not private (ISSUE-443)',
+    actual: [
+      html.includes('value="unlisted"'),
+      html.includes('value="public"'),
+      html.includes('value="private"'),
+    ],
+    expected: [true, true, false],
+  });
+});

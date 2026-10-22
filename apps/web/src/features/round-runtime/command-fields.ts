@@ -1,13 +1,13 @@
 import { roundCommandEnvelopeSchema } from '@daisy/protocol';
 import { collectRoundFormFields, positiveFormInteger } from './posted-fields';
+/** The server action's flat form encoding of the command envelope. */
 export function roundCommandFields(
   entries: Iterable<readonly [string, unknown]>,
-  serverAction = false,
 ) {
   const fields = collectRoundFormFields(
     entries,
     ['version', 'commandId', 'expectedVersion', 'type', 'participantId'],
-    serverAction,
+    true,
     ['confirmed'],
   );
   if (!fields) return null;

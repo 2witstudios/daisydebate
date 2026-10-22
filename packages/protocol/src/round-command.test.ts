@@ -13,9 +13,16 @@ test('shared Round commands validate their complete trust boundary', () => {
     [
       {
         ...envelope,
-        command: { type: 'end_prep', participantId: 'p'.repeat(24) },
+        command: { type: 'start_speech', participantId: 'p'.repeat(24) },
       },
       true,
+    ],
+    [
+      {
+        ...envelope,
+        command: { type: 'end_prep', participantId: 'p'.repeat(24) },
+      },
+      false,
     ],
     [{ ...envelope, actorId: 'a'.repeat(24) }, false],
     [

@@ -7,7 +7,7 @@ for (const command of ['yield', 'forfeit'] as const)
     roundFiles,
   }) => {
     const { page, roundId } = roundFiles;
-    for (const name of ['Start round', 'Use prep', 'Save the rest'])
+    for (const name of ['Start round', 'Use prep', 'Start AC'])
       await page.getByRole('button', { name, exact: true }).click();
     const label = command === 'yield' ? 'End speech' : 'Forfeit round';
     await page.getByRole('button', { name: label, exact: true }).click();
@@ -124,12 +124,7 @@ test('native browser retry resubmits the original accepted command after a lost 
   try {
     const formPage = await openPage(native, 'native command replay');
     await formPage.goto(`/rounds/${roundId}/room`);
-    for (const name of [
-      'Start round',
-      'Use prep',
-      'Save the rest',
-      'End speech',
-    ])
+    for (const name of ['Start round', 'Use prep', 'Start AC', 'End speech'])
       await formPage.getByRole('button', { name, exact: true }).click();
     const confirm = formPage.getByRole('button', {
       name: 'Confirm end speech',

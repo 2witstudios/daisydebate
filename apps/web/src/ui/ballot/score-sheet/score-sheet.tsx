@@ -7,7 +7,7 @@ import {
   speakerTotal,
   type BallotCategory,
 } from '@daisy/protocol';
-import type { Side } from '../../../features/debates/turns';
+import type { DebateSide as Side } from '@daisy/protocol';
 import type { BallotDebaters } from '../../../features/judge/ballot';
 import { scoreField } from '../../../features/judge/ballot';
 import { cn } from '../../cn';
