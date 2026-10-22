@@ -41,7 +41,7 @@ export function AssignedDebates({
                 href={debate.ballotHref}
                 className={cn(buttonClass('primary'), linkButton)}
               >
-                Open ballot
+                {debate.ballotLabel}
               </Link>
             </div>
           </li>

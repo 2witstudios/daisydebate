@@ -107,7 +107,7 @@ export async function attendanceEvidence(
   const from = round.segments[0]?.startedAt ?? round.startedAt;
   const samples = from
     ? await tx.execute(
-        sql`select to_char(at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as at,healthy,cause from availability_samples where at >= ${from}::timestamptz or at=(select max(at) from availability_samples where at < ${from}::timestamptz) order by at`,
+        sql`select to_char(at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as at,healthy,cause from availability_samples order by at`,
       )
     : [];
   const resolved = await tx.execute(

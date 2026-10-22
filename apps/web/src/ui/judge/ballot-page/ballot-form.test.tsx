@@ -18,7 +18,6 @@ const refused = {
   reason: 'Daniel answered every argument.',
   'feedback-affirmative': 'Slow down in the rebuttal.',
   'feedback-negative': 'Weigh the impacts.',
-  conduct: 'report',
   'low-point': 'negative:40:30',
 };
 
@@ -48,7 +47,7 @@ describe('BallotFields', () => {
     assert({
       given: 'the values of a refused ballot and its message',
       should:
-        'render the message, the picked winner, every score, the reason, both pieces of feedback, the conduct report and the confirmation as posted',
+        'render the message, the picked winner, every score, the reason, both pieces of feedback and the confirmation as posted, without an unavailable reporting control',
       actual: [
         html.includes('Write the reason for your decision.'),
         inputFor(html, 'winner', 'negative').includes('checked'),
@@ -61,10 +60,10 @@ describe('BallotFields', () => {
         html.includes('Daniel answered every argument.'),
         html.includes('Slow down in the rebuttal.') &&
           html.includes('Weigh the impacts.'),
-        inputFor(html, 'conduct', 'report').includes('checked'),
+        html.includes('name="conduct"'),
         inputFor(html, 'low-point', 'negative:40:30').includes('checked'),
       ],
-      expected: [true, true, false, 10, true, true, true, true],
+      expected: [true, true, false, 10, true, true, false, true],
     });
   });
 

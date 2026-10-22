@@ -152,6 +152,38 @@
         "path": "packages/debate-engine/src/attendance.test.ts",
         "name": "finalized decisions cannot be recomputed"
       }
+    },
+    {
+      "id": "debate.adjudication.failure-postpones-only",
+      "check": "attendance-failure-postpones-only",
+      "testReference": {
+        "path": "packages/debate-engine/src/attendance-decision.test.ts",
+        "name": "attendance application guards reject unsettled timestamps finalized windows and excluded segments"
+      }
+    },
+    {
+      "id": "debate.adjudication.timestamp-decides",
+      "check": "attendance-timestamp-decides",
+      "testReference": {
+        "path": "packages/debate-engine/src/attendance-decision.test.ts",
+        "name": "attendance application guards reject unsettled timestamps finalized windows and excluded segments"
+      }
+    },
+    {
+      "id": "debate.adjudication.speech-turns-only",
+      "check": "attendance-speech-turns-only",
+      "testReference": {
+        "path": "packages/debate-engine/src/attendance-decision.test.ts",
+        "name": "attendance application guards reject unsettled timestamps finalized windows and excluded segments"
+      }
+    },
+    {
+      "id": "debate.adjudication.last-speech-never-forfeits",
+      "check": "attendance-last-speech-never-forfeits",
+      "testReference": {
+        "path": "packages/debate-engine/src/attendance-decision.test.ts",
+        "name": "attendance application guards reject unsettled timestamps finalized windows and excluded segments"
+      }
     }
   ]
 }

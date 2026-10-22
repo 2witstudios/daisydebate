@@ -6,14 +6,17 @@ export type OwnedBackend = { readonly pid: number; readonly started: string };
 export async function recoverTransactionBackend(
   control: ReservedSQL,
   backend: OwnedBackend,
+  budgetMs = 1000,
 ): Promise<boolean> {
+  const backstop = String(Math.max(1, Math.floor(Math.min(800, budgetMs))));
+  const terminateMs = Math.max(1, Math.floor(Math.min(500, budgetMs)));
   let timer: ReturnType<typeof setTimeout> | undefined;
   const recovery = async () => {
-    await control`begin`;
-    await control`set local statement_timeout='800ms'`;
-    await control`set local lock_timeout='800ms'`;
-    await control`set local idle_in_transaction_session_timeout='800ms'`;
-    await control`select pg_terminate_backend(pid, 500) from pg_stat_activity
+    await control`begin isolation level read committed`;
+    await control`select set_config('statement_timeout', ${backstop}, true),
+      set_config('lock_timeout', ${backstop}, true),
+      set_config('idle_in_transaction_session_timeout', ${backstop}, true)`;
+    await control`select pg_terminate_backend(pid, ${terminateMs}) from pg_stat_activity
       where pid=${backend.pid} and backend_start::text=${backend.started}
       and datname=current_database() and usename=current_user and backend_type='client backend'`;
     await control`select pg_stat_clear_snapshot()`;
@@ -31,7 +34,7 @@ export async function recoverTransactionBackend(
         timer = setTimeout(() => {
           void control.close({ timeout: 0 }).catch(() => undefined);
           resolve(false);
-        }, 1000);
+        }, budgetMs);
       }),
     ]);
   } catch {

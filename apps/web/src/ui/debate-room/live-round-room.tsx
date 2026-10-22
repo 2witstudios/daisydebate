@@ -1,6 +1,8 @@
 'use client';
 
 import './zod-jitless';
+import { useRoundAttendance } from '../../features/attendance/use-round-attendance';
+import { createAttendanceReconnect } from '../../features/attendance/reconnect';
 import {
   useCallback,
   useEffect,
@@ -62,10 +64,12 @@ export function LiveRoundRoom({
   commandAction,
   commandIds: seedIds,
   mediaSlot,
+  attendanceSlot,
 }: {
   readonly view: RoundView;
   readonly commandIds: RoundCommandIds;
   readonly commandAction: FormAction<RoundFormState>;
+  readonly attendanceSlot?: ReactNode;
   readonly mediaSlot?: (view: RoundView) => ReactNode;
   readonly renderedAtMs: number;
   readonly actorId: string;
@@ -74,17 +78,20 @@ export function LiveRoundRoom({
   /** The realtime endpoint, or null when realtime is not configured. */
   readonly socketUrl: string | null;
 }) {
+  const reconnect = useMemo(() => createAttendanceReconnect(), []);
   const start = useCallback(
     () =>
       createRoundSyncDriver({
         seed: seedRoundSync(seed, 0),
         read,
         ...browserSyncEdges(socketUrl),
+        onConnectionOpen: reconnect.opened,
       }),
-    [seed, read, socketUrl],
+    [seed, read, socketUrl, reconnect],
   );
   const [synced, driver] = useResourceSync(() => seedRoundSync(seed, 0), start);
   const view = synced.value;
+  useRoundAttendance({ view, actorId, reconnect });
   const ids = useMemo(
     () =>
       view.version === seed.version
@@ -115,6 +122,7 @@ export function LiveRoundRoom({
           {outcome}
         </p>
       ) : null}
+      {attendanceSlot}
       <RoundCommandActions
         view={view}
         actorId={actorId}

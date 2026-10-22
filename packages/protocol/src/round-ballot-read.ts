@@ -39,3 +39,17 @@ export const roundBallotReadSchema = z.strictObject({
   ),
 });
 export type RoundBallotRead = z.infer<typeof roundBallotReadSchema>;
+/** Only the caller's own judge assignments; no other judge identity is included. */
+export const roundJudgeAssignmentsSchema = z.array(
+  z.strictObject({
+    roundId: idSchema,
+    resolution: z.string(),
+    status: roundViewSchema.shape.status,
+    outcome: roundViewSchema.shape.outcome,
+    ballotStatus: ballotStatus.nullable(),
+    freezeRevision: z.int().positive().nullable(),
+  }),
+);
+export type RoundJudgeAssignment = z.infer<
+  typeof roundJudgeAssignmentsSchema
+>[number];

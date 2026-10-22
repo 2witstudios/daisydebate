@@ -83,51 +83,6 @@
       "reviewBy": "2026-11-05"
     },
     {
-      "path": "packages/protocol/src/round-ballot.ts",
-      "export": "roundBallotEnvelopeSchema",
-      "task": "CAP-D.1",
-      "owner": "runtime / ag-i9ukzkph",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Shared ballot foundation precedes committed CAP-D.1 durable submission reader c8h1cstkes8ksiog91fiiqhx and its real human/bot consumers. Adoption requires actual D2 frozen input and sole-writer schema; tests do not establish production submission.",
-      "reviewBy": "2026-11-05"
-    },
-    {
-      "path": "packages/protocol/src/round-ballot.ts",
-      "export": "RoundBallotEnvelope",
-      "task": "CAP-D.1",
-      "owner": "runtime / ag-i9ukzkph",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Shared ballot foundation precedes committed CAP-D.1 durable submission reader c8h1cstkes8ksiog91fiiqhx and its real human/bot consumers. Adoption requires actual D2 frozen input and sole-writer schema; tests do not establish production submission.",
-      "reviewBy": "2026-11-05"
-    },
-    {
-      "path": "packages/protocol/src/round-ballot.ts",
-      "export": "RoundBallotReceipt",
-      "task": "CAP-D.1",
-      "owner": "runtime / ag-i9ukzkph",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Shared ballot foundation precedes committed CAP-D.1 durable submission reader c8h1cstkes8ksiog91fiiqhx and its real human/bot consumers. Adoption requires actual D2 frozen input and sole-writer schema; tests do not establish production submission.",
-      "reviewBy": "2026-11-05"
-    },
-    {
-      "path": "packages/auth/src/round-ballot.ts",
-      "export": "bindRoundBallotPrincipal",
-      "task": "CAP-D.1",
-      "owner": "runtime / ag-i9ukzkph",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Shared ballot foundation precedes committed CAP-D.1 durable submission reader c8h1cstkes8ksiog91fiiqhx and its real human/bot consumers. Adoption requires actual D2 frozen input and sole-writer schema; tests do not establish production submission.",
-      "reviewBy": "2026-11-05"
-    },
-    {
-      "path": "packages/debate-engine/src/round-outcome.ts",
-      "export": "deriveRoundOutcome",
-      "task": "CAP-D.1",
-      "owner": "runtime / ag-i9ukzkph",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Shared ballot foundation precedes committed CAP-D.1 durable submission reader c8h1cstkes8ksiog91fiiqhx and its real human/bot consumers. Adoption requires actual D2 frozen input and sole-writer schema; tests do not establish production submission.",
-      "reviewBy": "2026-11-05"
-    },
-    {
       "path": "packages/debate-engine/src/availability.ts",
       "export": "deriveOutageIntervals",
       "task": "RT-4.3c",
@@ -179,6 +134,15 @@
       "owner": "VIDEO / ag-294zgpzv",
       "adr": "docs/decisions/0057-planned-readers.md",
       "reason": "ADR0053 capture foundation precedes committed worker readers VIDEO-3.8 tz1d7obvmg0rnhzfhyllifjl and VIDEO-3.1 r66b11i8v4jilp3o29uu2b49. Real PostgreSQL store proof does not establish production capture or worker acceptance.",
+      "reviewBy": "2026-11-05"
+    },
+    {
+      "path": "packages/media/src/worker-auth.ts",
+      "export": "createMediaWorkerAuthentication",
+      "task": "VIDEO-3.8",
+      "owner": "VIDEO / ag-294zgpzv",
+      "adr": "docs/decisions/0057-planned-readers.md",
+      "reason": "ADR0053 signed worker ingress foundation precedes committed VIDEO-3.8 reader tz1d7obvmg0rnhzfhyllifjl and the browser token broker. Producer 8fabf6b9 authenticates exact method/path/timestamp/raw body with an injected secret and clock; authentication unit proof does not establish mounted ingress or worker acceptance.",
       "reviewBy": "2026-11-05"
     }
   ]

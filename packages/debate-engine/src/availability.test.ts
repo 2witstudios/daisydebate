@@ -8,6 +8,24 @@ setupRitewayBun();
 const samples = (entries: readonly (readonly [number, boolean])[]) =>
   entries.map(([atMs, healthy]) => ({ atMs, healthy }));
 
+test('distinct native microsecond samples do not collapse at a millisecond boundary', () => {
+  assert({
+    given: 'two increasing PG samples inside the same millisecond',
+    should: 'retain strict ordering and the native settled horizon',
+    actual: deriveOutageIntervals(
+      samples([
+        [1000.001, true],
+        [1000.002, true],
+      ]),
+    ),
+    expected: {
+      historyStartsAtMs: 1000.001,
+      settledHorizonMs: 1000.002,
+      intervals: [],
+    },
+  });
+});
+
 test('outage starts after settled horizon and closes only on third healthy sample', () => {
   const evidence = samples([
     [0, true],
@@ -24,7 +42,7 @@ test('outage starts after settled horizon and closes only on third healthy sampl
     expected: {
       historyStartsAtMs: 0,
       settledHorizonMs: 6000,
-      intervals: [{ startMs: 1001, endMs: 6000 }],
+      intervals: [{ startMs: 1000.001, endMs: 6000 }],
     },
   });
 });
@@ -142,5 +160,33 @@ test('appending any healthy or unhealthy suffix preserves the settled prefix', (
           expected: true,
         });
       }
+  }
+});
+
+test('additional failed samples never shorten healthy elapsed grace', () => {
+  const base = Array.from({ length: 121 }, (_, i) => ({
+    atMs: i * 1000,
+    healthy: true,
+  }));
+  const deadline = (evidence: typeof base) =>
+    effectiveAttendanceDeadline({
+      openedAtMs: 0,
+      graceMs: 40000,
+      availability: deriveOutageIntervals(evidence),
+    });
+  const original = deadline(base)!;
+  for (let mask = 0; mask < 256; mask++) {
+    const failed = base.map((sample, i) => ({
+      ...sample,
+      healthy: !(i <= 70 && i % 10 === 0 && mask & (1 << (i / 10))),
+    }));
+    const later = deadline(failed);
+    assert({
+      given: `additional failure mask ${mask}`,
+      should:
+        'postpone or leave deadline undetermined and never turn an on-time stamp late',
+      actual: later === null || later >= original,
+      expected: true,
+    });
   }
 });

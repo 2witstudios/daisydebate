@@ -1,9 +1,18 @@
 import { createMediaSessionStore } from './media-session';
+import {
+  roundWorkerEntrypoints,
+  type JudgingOptions,
+  type BotPublicationOptions,
+} from './round-worker-entrypoints';
+import { attendanceEntrypoints } from './attendance-entrypoints';
+import { availabilityOperations } from './availability-operations';
 import { databaseHealthOperations } from './database-health';
 import { roundBallotOperations } from './round-ballot-operations';
 import { roundBotAdmissionEntrypoints } from './round-bot-admission-entrypoints';
 import { mediaCaptureOperations } from './media-capture';
 import { roundSpeakingRead } from './round-speaking-read';
+import { createBoundedTransaction } from './bounded-transaction';
+import { readUnratedAttendanceForfeits } from './attendance-rating';
 import { roundProtectedReads } from './round-protected-reads';
 import { createMessagingTypingPrivacyPort } from './privacy/typing-rights';
 import { createMessagingTypingStore } from './messaging/typing-store';
@@ -35,7 +44,6 @@ import { roomCommandTransaction } from './room-command-transaction';
 import { roomOperations } from './room-operations';
 import { roundCommandOperations } from './round-command-operations';
 import { roundOperations } from './round-operations';
-import { createBoundedTransaction } from './bounded-transaction';
 import { transcriptFinalizationOperations } from './transcript-finalization';
 import { utteranceOperations } from './utterance-operations';
 import { ballotOperations } from './ballot-operations';
@@ -111,11 +119,15 @@ export function createDatabase({
   client: injectedClient,
   nextActorId,
   botBusyCap,
+  judging,
+  botPublication,
 }: {
   url: string;
   maxConnections?: number;
   /** No implicit bot capacity: absence truthfully refuses bot admission. */
   botBusyCap?: number | undefined;
+  judging?: JudgingOptions | undefined;
+  botPublication?: BotPublicationOptions | undefined;
   eventSink?: DatabaseEventSink;
   /** Overrides dialing `url`; tests inject a scripted client at this seam. */
   client?: SQL;
@@ -144,11 +156,25 @@ export function createDatabase({
     });
   return {
     ...botAdmissionOperations,
+    ...roundWorkerEntrypoints({
+      run: transcriptTransaction,
+      nextId: nextActorId,
+      judging,
+      botPublication,
+    }),
     mediaSessions: createMediaSessionStore({
       database,
       run: transcriptTransaction,
       nextId: nextActorId,
     }),
+    ...attendanceEntrypoints({
+      run: transcriptTransaction,
+      nextId: nextActorId,
+    }),
+    ...availabilityOperations(client),
+    readUnratedAttendanceForfeits: (
+      input: Parameters<typeof readUnratedAttendanceForfeits>[1],
+    ) => readUnratedAttendanceForfeits(database, input),
     ...databaseHealthOperations({ database, client, eventSink }),
     /**
      * The RT-2.3b drain loop's LISTEN subscription (ADR 0032 §2, §3): the
@@ -291,3 +317,8 @@ export type {
   CheckInAttempt,
   CheckInAttemptMetadata,
 } from './check-in-attempts';
+
+export type {
+  AttendanceStore,
+  AttendanceEvaluator,
+} from './attendance-entrypoints';

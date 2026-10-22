@@ -1,19 +1,12 @@
-import { systemClock } from '@daisy/clock';
+import { systemId } from '@daisy/clock';
+import { createAppError } from '@daisy/errors';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import type { SearchParams } from '../../../../../features/access/decision';
-import { getDebateInfo } from '../../../../../features/debates/get-debate';
-import { getBallotDebaters } from '../../../../../features/judge/get-ballots';
-import {
-  ballotView,
-  parseBallotState,
-} from '../../../../../features/judge/ballot';
 import { requireAccess } from '../../../../../lib/access';
 import { BallotPage } from '../../../../../ui/judge/ballot-page/ballot-page';
-import { submitBallotAction } from './actions';
-
+import { readPersistedBallot, submitBallotAction } from './actions';
 export const metadata: Metadata = { title: 'Your ballot' };
-
 export default async function BallotRoute({
   params,
   searchParams,
@@ -23,16 +16,14 @@ export default async function BallotRoute({
 }) {
   const { debateId } = await params;
   await requireAccess(`/judge/ballot/${debateId}`, searchParams);
-  const info = getDebateInfo(debateId, systemClock.now());
-  if (info === null) notFound();
+  const result = await readPersistedBallot(debateId);
+  if (result.kind === 'missing') notFound();
+  if (result.kind !== 'found') throw createAppError('INFRASTRUCTURE');
+  if (!result.view.own) notFound();
   return (
     <BallotPage
-      view={ballotView(
-        debateId,
-        info.title,
-        parseBallotState(await searchParams),
-        getBallotDebaters(debateId),
-      )}
+      view={result.view}
+      commandId={systemId.next()}
       action={submitBallotAction.bind(null, debateId)}
     />
   );

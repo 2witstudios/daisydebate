@@ -1,6 +1,12 @@
 import type { ReservedSQL, SQL } from 'bun';
 import { createAppError, isAppError } from '@daisy/errors';
 import { drizzle } from 'drizzle-orm/bun-sql';
+import {
+  runTransactionLifecycle,
+  type TransactionLifecycle,
+  type TransactionMetadata,
+} from './transaction-lifecycle';
+import { transactionSettlement } from './transaction-settlement';
 import { synchronizedTransactionClient } from './transaction-client';
 import {
   transactionContext,
@@ -12,11 +18,20 @@ import {
 } from './transaction-watchdog';
 
 const TRANSACTION_MS = 3000;
+export type TransactionReceipt = TransactionMetadata;
+export type TransactionOptions = {
+  readonly lifecycle?: TransactionLifecycle;
+  readonly executionMs?: number;
+};
 type TransactionWork<T> = (
   tx: BoundedTransactionContext,
   signal: AbortSignal,
+  receipt: TransactionReceipt,
 ) => Promise<T>;
-export type BoundedTransaction = <T>(run: TransactionWork<T>) => Promise<T>;
+export type BoundedTransaction = <T>(
+  run: TransactionWork<T>,
+  options?: TransactionOptions,
+) => Promise<T>;
 
 class TransactionAttempt {
   private readonly controller = new AbortController();
@@ -36,12 +51,18 @@ class TransactionAttempt {
   );
   private destroyed = false;
   private controlRecovered = true;
+  private controlInUse = false;
+  private metadata: TransactionMetadata | undefined;
+  private lifecycleOpened = false;
+  private lifecycleClosed = false;
 
   constructor(
     private readonly client: SQL,
     private readonly now: () => number,
+    private readonly executionMs: number,
+    private readonly lifecycle: TransactionLifecycle | undefined,
   ) {
-    this.deadline = now() + TRANSACTION_MS;
+    this.deadline = now() + executionMs;
   }
 
   private checkBudget() {
@@ -68,17 +89,31 @@ class TransactionAttempt {
     this.checkBudget();
     this.work = await this.client.reserve(options);
     this.checkBudget();
-    [this.backend] = await this.work<
-      OwnedBackend[]
+    const [identity] = await this.work<
+      (OwnedBackend & { receivedAt: string })[]
     >`select pg_backend_pid() as pid,
-      backend_start::text as started from pg_stat_activity where pid=pg_backend_pid()`;
-    if (!this.backend)
+      backend_start::text as started,
+      to_char(statement_timestamp() at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as "receivedAt"
+      from pg_stat_activity where pid=pg_backend_pid()`;
+    if (!identity)
       throw createAppError('INFRASTRUCTURE', 'Transaction backend unavailable');
+    this.backend = { pid: identity.pid, started: identity.started };
+    this.metadata = Object.freeze({
+      receivedAt: identity.receivedAt,
+      writer: Object.freeze({
+        pid: identity.pid,
+        backendStart: identity.started,
+      }),
+    });
+    await this.runLifecycle('open');
+    this.lifecycleOpened = this.lifecycle !== undefined;
     this.checkBudget();
-    await this.work`begin`;
-    await this.work`select set_config('statement_timeout', '2000', true),
-      set_config('lock_timeout', '2000', true),
-      set_config('idle_in_transaction_session_timeout', '2000', true),
+    await this.work`begin isolation level read committed`;
+    const backstop = String(Math.min(2000, this.executionMs));
+    await this.work`select
+      set_config('statement_timeout', ${backstop}, true),
+      set_config('lock_timeout', ${backstop}, true),
+      set_config('idle_in_transaction_session_timeout', ${backstop}, true),
       set_config('standard_conforming_strings', 'on', true)`;
     this.checkBudget();
     const database = drizzle({
@@ -91,6 +126,7 @@ class TransactionAttempt {
     const result = await run(
       transactionContext(database, this.checkLifetime, this.refuseControl),
       this.controller.signal,
+      this.metadata,
     );
     this.scopeClosed = true;
     this.checkBudget();
@@ -103,21 +139,58 @@ class TransactionAttempt {
         'Transcript transaction did not commit',
       );
     }
+    await this.runLifecycle('committed');
+    this.lifecycleClosed = true;
     this.checkBudget();
     return result;
   }
 
+  private async runLifecycle(
+    outcome: 'open' | 'committed' | 'aborted',
+    deadline = this.deadline,
+  ) {
+    if (!this.lifecycle) return;
+    this.controlInUse = true;
+    await runTransactionLifecycle({
+      control: this.watchdog!,
+      now: this.now,
+      deadline,
+      refuse: this.refuseControl,
+      run: (tx) =>
+        outcome === 'open'
+          ? this.lifecycle!.open(tx, this.metadata!)
+          : this.lifecycle!.close(tx, this.metadata!, outcome),
+    });
+    this.controlInUse = false;
+  }
+
   private async recover(error: unknown): Promise<never> {
+    const recoveryDeadline = this.now() + 1000;
     this.controller.abort(error);
     this.destroyed = this.work !== undefined;
-    // Bun1.4.2 closes/cancels only this reserved socket, never the pool.
+    // Never release an uncertain writer for another logical attempt on the same backend.
     void this.work?.close({ timeout: 0 }).catch(() => undefined);
-    this.controlRecovered = await this.confirmRollback();
-    if (!this.controlRecovered || this.committing)
+    const absent = await this.confirmRollback(recoveryDeadline);
+    this.controlRecovered = absent;
+    await this.closeAbortedLifecycle(absent, recoveryDeadline);
+    if (
+      !absent ||
+      this.committing ||
+      (this.lifecycleOpened && !this.lifecycleClosed)
+    )
       throw createAppError(
         'INFRASTRUCTURE',
         'Transcript transaction recovery pending',
-        { recovery: 'pending', cause: error },
+        {
+          recovery: 'pending',
+          cause: error,
+          settlement: transactionSettlement({
+            client: this.client,
+            backend: this.backend,
+            absent,
+            now: this.now,
+          }),
+        },
       );
     if (error === this.expired)
       throw createAppError('INFRASTRUCTURE', this.expired.message, {
@@ -131,11 +204,34 @@ class TransactionAttempt {
     );
   }
 
-  private confirmRollback(): Promise<boolean> {
+  private async closeAbortedLifecycle(
+    absent: boolean,
+    recoveryDeadline: number,
+  ) {
+    if (absent && this.lifecycleOpened && !this.committing) {
+      try {
+        await this.runLifecycle('aborted', recoveryDeadline);
+        this.lifecycleClosed = true;
+      } catch {
+        this.controlRecovered = false;
+      }
+    }
+  }
+
+  private confirmRollback(deadline: number): Promise<boolean> {
     if (this.work === undefined) return Promise.resolve(true);
-    if (this.backend === undefined || this.watchdog === undefined)
+    if (this.controlInUse) {
+      void this.watchdog?.close({ timeout: 0 }).catch(() => undefined);
       return Promise.resolve(false);
-    return recoverTransactionBackend(this.watchdog, this.backend);
+    }
+    const remaining = deadline - this.now();
+    if (
+      this.backend === undefined ||
+      this.watchdog === undefined ||
+      remaining <= 0
+    )
+      return Promise.resolve(false);
+    return recoverTransactionBackend(this.watchdog, this.backend, remaining);
   }
 
   async run<T>(work: TransactionWork<T>): Promise<T> {
@@ -170,14 +266,26 @@ export function createBoundedTransaction({
   client,
   maxConnections,
   now,
+  executionMs = TRANSACTION_MS,
 }: {
   readonly client: SQL;
   readonly maxConnections: number;
   /** Monotonic milliseconds, injected by the composition root. */
   readonly now: () => number;
+  /** Execution slice including reservations/setup/commit; recovery may need another1000ms. */
+  readonly executionMs?: number;
 }): BoundedTransaction {
+  if (
+    !Number.isSafeInteger(executionMs) ||
+    executionMs < 1 ||
+    executionMs > TRANSACTION_MS
+  )
+    throw createAppError('INVARIANT', 'Invalid transaction execution budget');
   let active = 0;
-  return async <T>(run: TransactionWork<T>): Promise<T> => {
+  return async <T>(
+    run: TransactionWork<T>,
+    options?: TransactionOptions,
+  ): Promise<T> => {
     if (
       !Number.isSafeInteger(maxConnections) ||
       maxConnections < 2 ||
@@ -187,9 +295,17 @@ export function createBoundedTransaction({
         'INFRASTRUCTURE',
         'Transcript transaction capacity unavailable',
       );
+    const slice = options?.executionMs ?? executionMs;
+    if (!Number.isSafeInteger(slice) || slice < 1 || slice > executionMs)
+      throw createAppError('INVARIANT', 'Invalid transaction execution budget');
     active += 1;
     try {
-      return await new TransactionAttempt(client, now).run(run);
+      return await new TransactionAttempt(
+        client,
+        now,
+        slice,
+        options?.lifecycle,
+      ).run(run);
     } finally {
       active -= 1;
     }
