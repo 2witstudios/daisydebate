@@ -18,34 +18,45 @@ function quoteLiteral(value: string, pattern: RegExp, label: string): string {
   return `'${value}'`;
 }
 
-export type SlotRole = { readonly user: string; readonly password: string };
+export type SlotRole = {
+  readonly user: string;
+  readonly password: string;
+  /** The runtime role whose grants this loopback login inherits. */
+  readonly memberOf: 'daisy_web' | 'daisy_media_worker';
+};
+const runtimeRoles = new Set<string>(['daisy_web', 'daisy_media_worker']);
 
 /**
  * The one place the local and CI test logins are provisioned (ISSUE-6):
  * `bun slot:up`, `bun db:reset` and CI's `bun db:roles` all call it after
- * migrating. The browser suite's loopback-only login is a member of the
- * baseline's `daisy_web` runtime role and holds no grant of its own, so it
- * runs the production server with exactly production's privileges, and
- * nothing is lost when a reset drops the schema: membership is cluster-wide
- * and the baseline re-grants `daisy_web`. Idempotent and safe to run
- * concurrently with another checkout's call.
+ * migrating. Each loopback-only login is a member of one migration-created
+ * runtime role (`daisy_web` for the browser suite's server,
+ * `daisy_media_worker` for the capture worker) and holds no grant of its own,
+ * so it runs with exactly production's privileges, and nothing is lost when a
+ * reset drops the schema: membership is cluster-wide and the migrations
+ * re-grant the runtime roles. Idempotent and safe to run concurrently with
+ * another checkout's call.
  */
 export async function provisionTestRoles(
   admin: SQL,
-  role: SlotRole,
+  logins: readonly SlotRole[],
 ): Promise<void> {
-  const user = quoteIdentifier(role.user);
-  const password = quoteLiteral(role.password, passwordPattern, 'password');
-  const [existing] =
-    await admin`select 1 from pg_roles where rolname = ${role.user}`;
-  if (!existing)
-    try {
-      await admin.unsafe(`create role ${user} login password ${password}`);
-    } catch (error) {
-      // A concurrent slot:up created it first.
-      if ((error as { errno?: string }).errno !== '42710') throw error;
-    }
-  await admin.unsafe(`grant daisy_web to ${user}`);
+  for (const login of logins) {
+    if (!runtimeRoles.has(login.memberOf))
+      throw new Error('Invalid runtime role');
+    const user = quoteIdentifier(login.user);
+    const password = quoteLiteral(login.password, passwordPattern, 'password');
+    const [existing] =
+      await admin`select 1 from pg_roles where rolname = ${login.user}`;
+    if (!existing)
+      try {
+        await admin.unsafe(`create role ${user} login password ${password}`);
+      } catch (error) {
+        // A concurrent slot:up created it first.
+        if ((error as { errno?: string }).errno !== '42710') throw error;
+      }
+    await admin.unsafe(`grant ${login.memberOf} to ${user}`);
+  }
 }
 
 /** Drops every table and the migration log, leaving an empty `public`. */

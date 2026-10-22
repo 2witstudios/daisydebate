@@ -52,6 +52,7 @@ export function createLaunchProcess(input: {
     }
   };
   return {
+    running: () => child !== null && child.exitCode === null,
     start: () => serialize(start),
     stop: () => serialize(stop),
     restart: () =>

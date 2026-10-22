@@ -114,6 +114,13 @@ speaker/present opponent forfeits the speaker, both missing abandons, and missin
 only the non-speaker does nothing. Final outcomes are irreversible. Media/PCM/STT
 failure is never outage evidence sufficient to assign a competitive loss.
 
+Bot worker control is never a system availability cause (DEC-193, revised by DEC-197).
+A bot seat's attendance is infrastructure: a live worker checks in through its
+control pulse, so a bot's missing receipt is durable evidence of worker loss for
+that window, whatever the lease says when the evaluator runs. When a missing bot
+receipt would change a window's decision, the window resolves `abandoned` with no
+winner or rating. A bot seat never forfeits, and never wins a forfeit, by attendance.
+
 RT-4.3d's real public-path check-in probe remains required for the full recovery
 journey: process leases alone cannot prove public ingress reachability. Do not
 claim the historical accepted lease-only risk as proof of ingress-outage fairness.

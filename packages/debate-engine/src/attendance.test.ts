@@ -20,10 +20,12 @@ const availability = {
   settledHorizonMs: 60000,
   intervals: [],
 };
+const botSeatIds: readonly string[] = [];
 const decide = (ids: readonly string[], lastSpeech = false) =>
   adjudicateAttendance({
     window: { ...window, lastSpeech },
     availability,
+    botSeatIds,
     checkIns: ids.map((participantId) => ({
       participantId,
       receivedAtMs: 50000,
@@ -69,7 +71,7 @@ test('actual required speaker and all opposing seats determine absence', () => {
 });
 
 test('timestamp decides including equality and duplicate arrivals', () => {
-  const base = { window, availability, finalized: false };
+  const base = { window, availability, botSeatIds, finalized: false };
   const checkIns = [
     { participantId: 'a0', receivedAtMs: 50001 },
     { participantId: 'n0', receivedAtMs: 50000 },
@@ -100,6 +102,7 @@ test('horizon and open outage prevent adjudication', () => {
       actual: adjudicateAttendance({
         window,
         availability: evidence,
+        botSeatIds,
         checkIns: [],
         finalized: false,
       }),
@@ -157,6 +160,7 @@ test('finalized decisions cannot be recomputed', async () => {
       adjudicateAttendance({
         window,
         availability,
+        botSeatIds,
         checkIns: [],
         finalized: true,
       }),
@@ -176,9 +180,60 @@ test('ineligible scheduled speaker never creates a competitive attendance loss',
       actual: adjudicateAttendance({
         window: { ...window, eligibleSeats },
         availability,
+        botSeatIds,
         checkIns: [],
         finalized: false,
       }),
       expected: { decision: 'none', effectiveDeadlineMs: 50000 },
     });
+});
+
+test('a bot seat missing receipt never forfeits: decisions it would change abandon', () => {
+  const decideWith = (ids: readonly string[], bots: readonly string[]) =>
+    adjudicateAttendance({
+      window,
+      availability,
+      botSeatIds: bots,
+      checkIns: ids.map((participantId) => ({
+        participantId,
+        receivedAtMs: 50000,
+      })),
+      finalized: false,
+    });
+  assert({
+    given:
+      'an absent bot speaker and a present human opponent, whatever its worker lease says now',
+    should: 'abandon without a winner instead of forfeiting the bot',
+    actual: decideWith(['n0'], ['a0']),
+    expected: { decision: 'abandoned', effectiveDeadlineMs: 50000 },
+  });
+  assert({
+    given: 'an absent human speaker whose only present-able opponent is a bot',
+    should:
+      'abandon rather than let the bot infrastructure decide a forfeit either way',
+    actual: decideWith([], ['n0']),
+    expected: { decision: 'abandoned', effectiveDeadlineMs: 50000 },
+  });
+  assert({
+    given: 'a bot speaker with an on-time receipt',
+    should: 'record attendance from the durable receipt',
+    actual: decideWith(['a0'], ['a0']),
+    expected: { decision: 'attended', effectiveDeadlineMs: 50000 },
+  });
+  assert({
+    given: 'a present human speaker and an absent bot opponent',
+    should: 'record attendance because the bot receipt cannot change it',
+    actual: decideWith(['a0'], ['n0', 'n1']),
+    expected: { decision: 'attended', effectiveDeadlineMs: 50000 },
+  });
+  assert({
+    given: 'a bot id outside the current eligible debaters',
+    should: 'ignore it and forfeit the absent human speaker',
+    actual: decideWith(['n0'], ['judge']),
+    expected: {
+      decision: 'forfeit',
+      winner: 'negative',
+      effectiveDeadlineMs: 50000,
+    },
+  });
 });

@@ -59,6 +59,7 @@ function resolveAttendanceWindow(
         participantId: stamp.participantId,
         receivedAtMs: attendanceReceiptTime(stamp.receivedAt),
       })),
+    botSeatIds: facts.botSeatIds,
     finalized: false,
     segmentType: target.type,
   };

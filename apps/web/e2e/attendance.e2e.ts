@@ -12,9 +12,12 @@ import {
   actualSpeech,
   enterSpeech,
   nextReceipt,
+  closeAttendedFixture,
 } from './support/attendance-browser';
 import { nativeAttendanceOutage } from './support/native-attendance-proof';
 import { serviceAttendanceOutage } from './support/service-attendance-proof';
+import { rollingAttendancePeer } from './support/rolling-attendance-proof';
+import { authenticatedAttendanceSocket } from './support/attendance-socket';
 
 test('actual speech check-in survives refresh and a real browser network disconnect without changing its first stamp', async ({
   browser,
@@ -31,6 +34,11 @@ test('actual speech check-in survives refresh and a real browser network disconn
         ),
     );
     expect(speaker!.receipt.segmentId).toBe(opponent!.receipt.segmentId);
+    await Promise.all(
+      [speaker!, opponent!].map((seat) =>
+        authenticatedAttendanceSocket(seat.connections, round.id),
+      ),
+    );
     expect(speaker!.receipt.participantId).not.toBe(
       opponent!.receipt.participantId,
     );
@@ -117,6 +125,11 @@ test('actual speech check-in survives refresh and a real browser network disconn
       (await readBallotRound(accounts.members[1]!.context.request, round.id))
         .status,
     ).toBe('active');
+    await closeAttendedFixture(
+      accounts.members[0]!.context.request,
+      round.id,
+      speaker!.receipt.participantId,
+    );
   } finally {
     await accounts.closeContexts();
   }
@@ -171,3 +184,8 @@ for (const service of ['web', 'realtime'] as const)
     test.setTimeout(180_000);
     await serviceAttendanceOutage(browser, service);
   });
+
+test(
+  'a real healthy web peer preserves public receipts and uninterrupted availability during rolling restart',
+  rollingAttendancePeer,
+);

@@ -38,7 +38,11 @@
       "version": "0.0.0",
       "dependencies": {
         "@daisy/ai-voice": "workspace:*",
+        "@daisy/clock": "workspace:*",
+        "@daisy/config": "workspace:*",
+        "@daisy/db": "workspace:*",
         "@daisy/errors": "workspace:*",
+        "@daisy/logger": "workspace:*",
         "@daisy/media": "workspace:*",
         "@daisy/protocol": "workspace:*",
       },
@@ -102,6 +106,7 @@
       "devDependencies": {
         "@axe-core/playwright": "^4.13.0",
         "@better-auth/memory-adapter": "1.7.5",
+        "@livekit/rtc-node": "1.2.0",
         "@playwright/test": "1.63.0",
         "@simplewebauthn/server": "13.3.2",
         "@tailwindcss/postcss": "4.3.3",

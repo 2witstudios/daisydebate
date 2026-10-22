@@ -90,6 +90,8 @@ diverge:
 | `round.control.failed`                   | error    | A bot control receipt pass failed; the receipt work stays recoverable                                                                                            |
 | `round.maintenance.failed`               | error    | A competitive maintenance pass (openings, attendance, finalization) failed; the next tick retries                                                                |
 | `round.media.recovery_failed`            | error    | Startup or periodic media session recovery failed; recovery stays pending for the next cycle                                                                     |
+| `media.discovery.failed`                 | error    | The capture worker could not read sessions needing capture; the next scan retries (`errorCode` only)                                                             |
+| `media.capture.failed`                   | error    | A capture process exited unsuccessfully; its session backs off and is retried by a fresh worker (`status` only)                                                  |
 | `realtime.outbox.append_failed`          | error    | Appending to the transactional outbox failed                                                                                                                     |
 | `realtime.outbox.actor_missing`          | warn     | An outbox row referenced an actor that could not be resolved                                                                                                     |
 | `realtime.outbox.drain_failed`           | error    | A drain pass's range read or sink call failed; the loop stays alive and the next wakeup retries                                                                  |

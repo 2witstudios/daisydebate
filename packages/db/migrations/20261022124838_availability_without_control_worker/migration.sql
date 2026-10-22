@@ -1,0 +1,1 @@
+ALTER TABLE "availability_samples" DROP CONSTRAINT "availability_samples_cause_check", ADD CONSTRAINT "availability_samples_cause_check" CHECK (("healthy" and "cause" is null) or (not "healthy" and "cause" is not null and "cause" in ('web_stale', 'realtime_stale', 'delivery_lag', 'public_probe_failed', 'check_in_pending')));

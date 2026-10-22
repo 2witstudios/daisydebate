@@ -121,10 +121,7 @@ test('canonical Round contention keeps actual check-in admission visible to the 
         role: 'realtime',
         deliveredThrough: { txid: cursor.txid, seq: BigInt(cursor.seq) },
       });
-      const baseline = await sampler.sample({
-        publicProbeHealthy: true,
-        controlWorkersHealthy: true,
-      });
+      const baseline = await sampler.sample({ publicProbeHealthy: true });
       if (baseline) stamps.push(baseline.at);
       await holder`begin`;
       const [backend] = await holder`select pg_backend_pid() as pid`;
@@ -150,10 +147,7 @@ test('canonical Round contention keeps actual check-in admission visible to the 
       );
       const [admitted] =
         await f.sql`select state from round_check_in_attempts where command_id=${commandId}`;
-      const sample = await sampler.sample({
-        publicProbeHealthy: true,
-        controlWorkersHealthy: true,
-      });
+      const sample = await sampler.sample({ publicProbeHealthy: true });
       if (sample) stamps.push(sample.at);
       assert({
         given:

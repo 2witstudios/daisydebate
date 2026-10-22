@@ -3,10 +3,10 @@ import { createOpenRouter } from '@daisy/ai-voice';
 import { createMediaWorkerClient } from '@daisy/media/worker';
 import { createMediaWorkerAuthentication } from '@daisy/media/internal';
 import { idSchema } from '@daisy/protocol';
-import { createAppError } from '@daisy/errors';
 import { runCaptureSession } from './capture-session';
 
-// Native SDK stdout/stderr are isolated by start.ts. No PCM, text or raw errors leave this process.
+// Native SDK stdout/stderr are isolated by start.ts. No PCM, text or raw errors
+// leave this process: refusals exit quietly with status 1.
 const [roundId, sessionId, workerId] = process.argv.slice(2);
 if (
   ![roundId, sessionId, workerId].every(
@@ -16,15 +16,11 @@ if (
   !sessionId ||
   !workerId
 )
-  throw createAppError('VALIDATION');
+  process.exit(1);
 const url = process.env.PUBLIC_APP_URL,
   secret = process.env.MEDIA_WORKER_SECRET,
   apiKey = process.env.OPENROUTER_API_KEY;
-if (!url || !secret || !apiKey)
-  throw createAppError(
-    'INFRASTRUCTURE',
-    'Capture capability is not configured',
-  );
+if (!url || !secret || !apiKey) process.exit(1);
 const authentication = createMediaWorkerAuthentication({
   secret,
   now: Date.now,

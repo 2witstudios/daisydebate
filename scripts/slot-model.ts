@@ -5,6 +5,7 @@
  * effectful CLI lives in slot.ts.
  */
 import { basename } from 'node:path';
+import { e2eRole, mediaWorkerRole } from './test-logins';
 import {
   expectedTestRedisDatabase,
   testRedisDatabase,
@@ -36,7 +37,6 @@ const slotIdPattern = /^[a-z0-9]+(?:_[a-z0-9]+)*$/;
 // `_test_run_<8 hex>` names one integration run's database (ISSUE-238).
 const reservedSuffix = /_(?:test|e2e)$|_test_run_[0-9a-f]{8}$/;
 
-export const e2eRole = { user: 'daisy_e2e', password: 'e2e-loopback-only' };
 const e2eRedisDatabase = 2;
 // realtime (ADR 0031): a dev port distinct from `app`, and an e2e port at
 // `e2e + 3` (the fourth of the browser suite's four consecutive ports).
@@ -262,7 +262,7 @@ export function slotMismatches(slot: Slot, env: Env): readonly string[] {
 const withPath = (
   url: string,
   path: string,
-  credentials?: typeof e2eRole,
+  credentials?: { readonly user: string; readonly password: string },
 ): string => {
   const next = new URL(url);
   next.pathname = `/${path}`;
@@ -292,6 +292,7 @@ const slotEnvKeys = [
   'PUBLIC_APP_URL',
   'E2E_PORT',
   'REALTIME_PORT',
+  'MEDIA_WORKER_DATABASE_URL',
 ] as const;
 
 /**
@@ -335,6 +336,11 @@ export function slotEnvValues({
     PUBLIC_APP_URL: `http://localhost:${ports.app}`,
     E2E_PORT: String(ports.e2e),
     REALTIME_PORT: String(ports.realtime),
+    MEDIA_WORKER_DATABASE_URL: withPath(
+      databaseUrl,
+      slot.database,
+      mediaWorkerRole,
+    ),
   };
 }
 

@@ -1,7 +1,6 @@
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
-import { createBotSeat } from './bot-seat.test-support';
 import { withBotPublication } from './bot-publication.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
@@ -169,11 +168,10 @@ test('idle control heartbeat survives a closed floor independently of publicatio
     });
   });
 });
-test('actual control health is unknown until every active bot worker is freshly scoped', async () => {
+test('worker principal authority survives a closed floor and ended segment, and refuses an expired lease', async () => {
   await withBotPublication(async ({ operations, target, fixture, run }) => {
-    const { readBotControlHealth, verifyBotWorkerPrincipalLocked } =
+    const { verifyBotWorkerPrincipalLocked } =
       await import('../src/bot-worker-authority');
-    const before = await run((tx) => readBotControlHealth(tx, target.roundId));
     const claim = await operations.claimWorker(target);
     const principal = {
       kind: 'agent' as const,
@@ -183,29 +181,17 @@ test('actual control health is unknown until every active bot worker is freshly 
       publicationEpoch: claim.scope.publicationEpoch,
     };
     await fixture.sql`update round_speaking_intervals set ended_at=clock_timestamp(),ended_version=2 where round_id=${target.roundId}`;
-    const healthy = await run(async (tx) => {
-      await verifyBotWorkerPrincipalLocked(tx, principal, target.roundId);
-      return readBotControlHealth(tx, target.roundId);
-    });
-    const peer = await createBotSeat(fixture, target.roundId, 'negative');
-    const partial = await run((tx) => readBotControlHealth(tx, target.roundId));
-    await operations.claimWorker({ ...target, roundParticipantId: peer.id });
-    const all = await run((tx) => readBotControlHealth(tx, target.roundId));
     await fixture.sql`update round_segments set ended_at=clock_timestamp() where id=${target.segmentId}`;
-    await run((tx) =>
-      verifyBotWorkerPrincipalLocked(tx, principal, target.roundId),
-    );
-    const closed = await run((tx) => readBotControlHealth(tx, target.roundId));
     assert({
       given:
-        'the last actual speech ended while the controller remains healthy',
-      should:
-        'retain independent control health for unresolved historical attendance',
-      actual: closed.healthy,
-      expected: true,
+        'a scoped idle controller after its floor closed and the last actual speech ended',
+      should: 'keep check-in authority for unresolved historical attendance',
+      actual: await run((tx) =>
+        verifyBotWorkerPrincipalLocked(tx, principal, target.roundId),
+      ),
+      expected: undefined,
     });
     await fixture.sql`update round_bot_publications set lease_expires_at=clock_timestamp()-interval '1 second' where round_id=${target.roundId} and round_participant_id=${target.roundParticipantId}`;
-    const expired = await run((tx) => readBotControlHealth(tx, target.roundId));
     await assertRejects({
       given: 'an expired control lease',
       should: 'refuse check-in authority without guessing absence',
@@ -215,27 +201,11 @@ test('actual control health is unknown until every active bot worker is freshly 
         ),
       code: 'CONFLICT',
     });
-    assert({
-      given:
-        'no controller, healthy idle controller with closed floor, and expired controller',
-      should:
-        'report conservative current control health separately from media',
-      actual: [
-        before.healthy,
-        healthy.healthy,
-        partial.healthy,
-        all.healthy,
-        expired.healthy,
-      ],
-      expected: [false, true, false, true, false],
-    });
   });
 });
 
 test('controller restart after the final actual segment grants no new publication window', async () => {
-  await withBotPublication(async ({ operations, target, fixture, run }) => {
-    const { readBotControlHealth } =
-      await import('../src/bot-worker-authority');
+  await withBotPublication(async ({ operations, target, fixture }) => {
     const old = await operations.claimWorker(target);
     await fixture.sql`update round_segments set ended_at=clock_timestamp() where id=${target.segmentId}`;
     await operations.revoke(old.scope, old.token);
@@ -247,16 +217,14 @@ test('controller restart after the final actual segment grants no new publicatio
       actual: () => operations.verifyBotPublication(fresh.scope, fresh.token),
       code: 'CONFLICT',
     });
-    const health = await run((tx) => readBotControlHealth(tx, target.roundId));
     assert({
       given: 'an active Round with unresolved historical attendance',
-      should: 'recover control health with a fresh epoch and no transcript',
+      should: 'recover verified control with a fresh epoch and no transcript',
       actual: [
         fresh.scope.publicationEpoch,
-        health.healthy,
         await fixture.count('utterances', 'round_id', target.roundId),
       ],
-      expected: [2, true, 0],
+      expected: [2, 0],
     });
   });
 });

@@ -5,15 +5,22 @@
  */
 import { SQL } from 'bun';
 import { provisionTestRoles } from '@daisy/db/slots';
-import { e2eRole, isLoopbackUrl } from './slot-model';
+import { isLoopbackUrl } from './slot-model';
+import { testLogins } from './test-logins';
 
 const url = process.env.DATABASE_URL;
 if (!url || !isLoopbackUrl(url))
   throw new Error('DATABASE_URL must name a loopback server');
 const admin = new SQL(url, { max: 1 });
 try {
-  await provisionTestRoles(admin, e2eRole);
+  await provisionTestRoles(admin, testLogins);
 } finally {
   await admin.close();
 }
-process.stdout.write(`Provisioned ${e2eRole.user} as a member of daisy_web\n`);
+process.stdout.write(
+  testLogins
+    .map(
+      (login) => `Provisioned ${login.user} as a member of ${login.memberOf}\n`,
+    )
+    .join(''),
+);

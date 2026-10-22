@@ -86,6 +86,19 @@ test('terminal and ineligible participants have no grants', () => {
     }).subscribe,
     expected: false,
   });
+  assert({
+    given: 'a judge whose canonical eligibility was revoked',
+    should: 'deny all media while staying hidden from debaters',
+    actual: mediaGrants({
+      participants: seats.map((seat) => ({ ...seat, eligible: false })),
+      participantId: seats[2]!.id,
+      rules: practiceRules(),
+      position: world.position(roundAt(0)),
+      now: roundAt(0),
+      finalSegmentEndedAt: null,
+    }),
+    expected: { publish: [], subscribe: false, hidden: true, capture: false },
+  });
 });
 
 test('prep and closed between-segment floor keep cameras without speech rights', () => {

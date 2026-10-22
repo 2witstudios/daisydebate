@@ -38,10 +38,25 @@ there is no application default or quota bypass.
 Feature proofs call `controlLaunch(operation)` from
 `apps/web/e2e/support/room-launch-settled.ts`. The owner-only Unix socket accepts
 `settled`, `block-check-in`, `restore-check-in`, `stop-realtime`,
-`start-realtime` and `restart-web`. Check-in outage control returns 503 from the
+`start-realtime`, `stop-web`, `start-web` and `restart-web`. Check-in outage control returns 503 from the
 actual TLS ingress. Process controls stop/restart only the exact children owned
 by this fixture and await their real shutdown/readiness. These controls are not
 public application routes and do not change competitive authority.
+
+Rolling-peer controls are `start-web-peer`, `use-web-peer`,
+`use-primary-web` and `stop-web-peer`. The peer is another actual production
+web process in the same slot, with its own availability instance and the same
+configured public probe. Ingress switches only after the selected child's
+real readiness endpoint responds. `settled` drains auth work in both running
+children. A single fixture mailbox outlives either child; only captured mail
+payloads cross its owner-only Unix socket. Vendor credentials are never sent
+through that transport. Stop/start controls preserve every retained Round.
+
+For a healthy-peer rolling proof, start the peer, witness its real service
+lease and healthy sampling through the normal public probe, switch ingress,
+then stop the original web process. Restore the original process and ingress
+before stopping the peer. Process readiness alone is not availability proof;
+the attendance evidence reader must witness durable samples and receipts.
 
 The dedicated runner claims launch, ballot, shared Round command and attendance
 suites; canonical Chromium excludes that cohort. All cases use normal accounts

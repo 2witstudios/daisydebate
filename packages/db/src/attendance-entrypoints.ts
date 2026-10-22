@@ -7,10 +7,7 @@ import {
   checkInAttemptLifecycle,
   reconcileCheckInAttempts,
 } from './check-in-attempts';
-import {
-  readBotControlHealth,
-  verifyBotWorkerPrincipalLocked,
-} from './bot-publication';
+import { verifyBotWorkerPrincipalLocked } from './bot-publication';
 import type { BoundedTransaction } from './bounded-transaction';
 
 /** Shares the existing writer/watchdog admission counter and pool with transcript work. */
@@ -29,14 +26,9 @@ export function attendanceEntrypoints(input: {
       nextAttemptId: input.nextId,
       verifyWorker: verifyBotWorkerPrincipalLocked,
     }),
-    evaluateRoundAttendance: createAttendanceEvaluator(
-      transaction,
-      readBotControlHealth,
-    ),
+    evaluateRoundAttendance: createAttendanceEvaluator(transaction),
     reconcileRoundCheckInAttempts: (limit: number) =>
       transaction((tx) => reconcileCheckInAttempts(tx, limit)),
-    readRoundBotControlHealth: (roundId?: string) =>
-      transaction((tx) => readBotControlHealth(tx, roundId)),
   };
 }
 export type AttendanceStore = ReturnType<typeof createAttendanceOperations>;
