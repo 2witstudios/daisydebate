@@ -1,7 +1,10 @@
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
-import { createBotSeat, withBotPublication } from './bot-publication.test-support';
+import {
+  createBotSeat,
+  withBotPublication,
+} from './bot-publication.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 
