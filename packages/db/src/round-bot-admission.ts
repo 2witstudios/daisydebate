@@ -29,7 +29,7 @@ async function lockSponsor(tx: BoundedTransactionContext, target: Target) {
     .select()
     .from(rounds)
     .where(eq(rounds.id, target.roundId))
-    .for('update');
+    .for('no key update');
   if (!round || round.createdByActorId !== target.actorId)
     throw createAppError('AUTHORIZATION');
   if (round.competitionType === 'ranked') throw createAppError('AUTHORIZATION');
