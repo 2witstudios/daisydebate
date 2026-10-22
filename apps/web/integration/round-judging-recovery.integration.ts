@@ -1,20 +1,13 @@
 import { randomBytes } from 'node:crypto';
 import { requireTestServices } from '@daisy/config';
-import {
-  oneOnOneDefinition,
-  practiceRoomConfig,
-} from '@daisy/db/reference-formats';
 import { assertRejects } from '@daisy/errors/testing';
 import { isAppError } from '@daisy/errors';
 import { ballotCategories, type Ballot } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createRoundJudgingOperations } from '../src/features/round-judging/operations';
-import { createRoundFinalizationOperations } from '../src/features/round-finalization/operations';
-import {
-  startRuntimeRound,
-  withRoomRuntime,
-} from './round-runtime.test-support';
+import { withRoomRuntime } from './round-runtime.test-support';
+import { freezeBotJudge } from './round-judging.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 const ballot: Ballot = {
@@ -32,47 +25,7 @@ const ballot: Ballot = {
 test('cached judging response retries actual shared completion without redispatch during unresolved attendance', async () => {
   await withRoomRuntime(
     async (f) => {
-      const judge = await f.bot();
-      let room = await f.assemble({
-        selection: {
-          kind: 'custom',
-          definition: {
-            ...oneOnOneDefinition,
-            seats: { ...oneOnOneDefinition.seats, judge: 1 },
-          },
-          config: practiceRoomConfig,
-          length: 'full',
-          competitionType: 'casual',
-        },
-      });
-      room = (
-        await f.command(f.host, room, {
-          type: 'assign-seat',
-          role: 'judge',
-          slot: 0,
-          actorId: judge.actorId,
-        })
-      ).view;
-      for (const caller of [f.host, f.guest])
-        room = (
-          await f.consent(
-            caller,
-            await f.operations.view(caller, room.id),
-            'ready',
-          )
-        ).view;
-      const { roundId } = await startRuntimeRound(f, room);
-      const round = (await f.store.getRound(roundId))!;
-      const elapsed = round.rules.segments.reduce(
-        (n, s) => n + s.durationMs + round.rules.countdownMs,
-        125000,
-      );
-      await f.sql`update rounds set started_at=clock_timestamp()-${elapsed}*interval '1 millisecond' where id=${roundId}`;
-      await createRoundFinalizationOperations({
-        store: f.store,
-        nextSegmentId: createId,
-      }).finalize(roundId);
-      const target = (await f.store.scanRoundJudgingJobs(1))[0]!;
+      const { roundId, target } = await freezeBotJudge(f);
       const first = await f.store.claimRoundJudgingJob(target);
       await f.store.beginRoundJudgingModelCall(first.scope, first.token);
       await f.store.saveRoundJudgingResult(first.scope, first.token, ballot, {
