@@ -108,20 +108,15 @@ for (const revoke of ['lease', 'run'] as const)
         const live = (await f.store.getRound(roundId))!;
         const segment = live.segments.find((s) => s.endedAt === null)!;
         const serviceId = `agent-run:${runId}`;
-        await f.store.recordAgentRun({
-          id: runId,
+        const configuration = {
+          roundId,
           roundParticipantId: seat.id,
-          kind: 'speech',
-          model: null,
-          provider: 'fixture',
-          configurationSnapshot: {
-            roundId,
-            roundParticipantId: seat.id,
-            segmentId: segment.id,
-            serviceId,
-            publicationEpoch: 1,
-          },
-        });
+          segmentId: segment.id,
+          serviceId,
+          publicationEpoch: 1,
+        };
+        // Storage setup only; production run creation belongs to the scoped worker.
+        await f.sql`insert into agent_runs(id,round_participant_id,kind,model,provider,configuration_snapshot,started_at) values(${runId},${seat.id},'speech',null,'fixture',${configuration},clock_timestamp())`;
         await f.sql`insert into round_bot_publications(round_id,round_participant_id,segment_id,agent_run_id,service_id,publication_epoch,lease_token_digest,lease_expires_at) values(${roundId},${seat.id},${segment.id},${runId},${serviceId},1,${'a'.repeat(64)},clock_timestamp()+interval '1 minute')`;
         const agent = {
           kind: 'agent' as const,
