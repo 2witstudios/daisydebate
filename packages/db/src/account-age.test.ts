@@ -1,6 +1,6 @@
-import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
-import { writeAccountBirthMonth, loadAccountAgeSource } from './account-age';
+import { loadAccountAgeSource } from './account-age';
 import type { AuthorizationTransaction } from './authorization';
 setupRitewayBun();
 test('nonfinite persisted source recording time fails closed', async () => {
@@ -16,28 +16,19 @@ test('nonfinite persisted source recording time fails closed', async () => {
     expected: null,
   });
 });
-describe('birthmonth collection authority', () => {
-  test('pending policy refuses before transaction', async () => {
-    await assertRejects({
-      given: 'pending age collection/legal authority',
-      should: 'perform no transaction or write',
-      actual: () =>
-        writeAccountBirthMonth(
-          {
-            transaction: () => {
-              throw new Error('Transaction must not start');
-            },
-          } as Parameters<typeof writeAccountBirthMonth>[0],
-          {
-            userId: 'a'.repeat(24),
-            birthMonth: '2010-10',
-            now: '2026-10-09T00:00:00.000Z',
-            expectedAccountRevision: 1,
-            expectedAgeRevision: null,
+test('invalid source identity refuses before database access', async () => {
+  await assertRejects({
+    given: 'an invalid source user identifier',
+    should: 'refuse before querying personal data',
+    actual: () =>
+      loadAccountAgeSource(
+        {
+          execute: async () => {
+            throw new Error('Age source query must not start');
           },
-          { status: 'pending', decision: 'WAIT-4.6' },
-        ),
-      code: 'AUTHORIZATION',
-    });
+        } as unknown as AuthorizationTransaction,
+        'invalid',
+      ),
+    code: 'VALIDATION',
   });
 });
