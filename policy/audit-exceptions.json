@@ -50,6 +50,16 @@
       "owner": "platform",
       "adr": "docs/decisions/0056-tinypool-audit-exceptions.md",
       "reviewBy": "2026-12-23"
+    },
+    {
+      "advisory": "GHSA-qxg6-89mg-rqv8",
+      "packages": ["@vitest/mocker"],
+      "dependencyPath": "riteway 9.3.0 (devDependency of every testing workspace) > vitest 3.2.7 > @vitest/mocker 3.2.7. better-auth lists vitest only as an optional peer.",
+      "reason": "Unauthenticated manual mock registration interpolates unescaped URLs into generated modules on the Vitest Vite development server (moderate). Fixed in Vitest 4.1.12 and 5.0.3; RITEway 9.3.0 requires Vitest ^3.2.4.",
+      "unreachable": "Dev-only and never loaded: tests use riteway/bun backed by bun:test, no source imports riteway/vitest, vitest or better-auth/test or starts the affected server, and production installs omit dev dependencies.",
+      "owner": "platform",
+      "adr": "docs/decisions/0068-vitest-manual-mock-audit-exception.md",
+      "reviewBy": "2026-12-23"
     }
   ]
 }
