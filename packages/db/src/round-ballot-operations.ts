@@ -1,4 +1,5 @@
 import { roundBallotReads } from './round-ballot-reads';
+import { assertRoundAttendanceSettled } from './attendance-settlement';
 import { createAppError } from '@daisy/errors';
 import {
   idSchema,
@@ -182,6 +183,11 @@ async function persistBallotResult(
   ballotId: string,
   projection: RoundProjection | null,
 ): Promise<RoundBallotReceipt> {
+  if (projection?.round?.status === 'completed')
+    await assertRoundAttendanceSettled(tx, {
+      roundId: input.roundId,
+      now: context.now,
+    });
   const changed = projection
     ? await writeProjectionWithPhaseSignal(
         tx,

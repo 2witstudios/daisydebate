@@ -1,3 +1,4 @@
+import { seedSettledAttendanceLedger } from './round-attendance-fixture.test-support';
 import { canReadRound } from '../src/features/round-runtime/reads';
 import { requireTestServices } from '@daisy/config';
 import {
@@ -151,16 +152,60 @@ test('all actual human judges submit one shared ballot against actual frozen inp
       ],
       expected: [null, fresh.version, 'active'],
     });
-    const last = await operation.submit(
-      { kind: 'human', actorId: judges[1]!.actorId },
-      roundId,
-      {
-        ...first,
-        commandId: createId(),
-        judgeParticipantId: seats[1]!.id,
-        ballot: ruling('negative'),
-      },
-    );
+    const finalEnvelope = {
+      ...first,
+      commandId: createId(),
+      judgeParticipantId: seats[1]!.id,
+      ballot: ruling('negative'),
+    };
+    const finalPrincipal = {
+      kind: 'human' as const,
+      actorId: judges[1]!.actorId,
+    };
+    await assertRejects({
+      given:
+        'a last judge ballot while earlier actual speech attendance remains unresolved',
+      should: 'refuse completion and roll back the final ballot',
+      actual: () => operation.submit(finalPrincipal, roundId, finalEnvelope),
+      code: 'CONFLICT',
+    });
+    await seedSettledAttendanceLedger(f, roundId);
+    const attemptId = createId();
+    await f.sql`insert into round_check_in_attempts(attempt_id,command_id,round_id,payload_digest,actor_id,received_at,backend_pid,backend_started_at) select ${attemptId},${createId()},${roundId},${'b'.repeat(64)},${f.host.actorId},statement_timestamp(),pid,backend_start from pg_stat_activity where pid=pg_backend_pid()`;
+    await assertRejects({
+      given:
+        'settled actual speech ledger but a durable pending check-in marker',
+      should: 'still refuse the final ballot',
+      actual: () => operation.submit(finalPrincipal, roundId, finalEnvelope),
+      code: 'CONFLICT',
+    });
+    assert({
+      given: 'both failed final-ballot transactions',
+      should:
+        'retain only the first ballot and its command with unchanged Round version',
+      actual: [
+        (await f.sql`select id from ballots where round_id=${roundId}`).length,
+        (
+          await f.sql`select command_id from round_commands where command_id=${finalEnvelope.commandId}`
+        ).length,
+        (await f.store.getRound(roundId))?.version,
+      ],
+      expected: [1, 0, fresh.version],
+    });
+    await f.sql`update round_check_in_attempts set state='aborted',resolved_at=clock_timestamp() where attempt_id=${attemptId}`;
+    const [last, replayedLast] = await Promise.all([
+      operation.submit(finalPrincipal, roundId, finalEnvelope),
+      operation.submit(finalPrincipal, roundId, finalEnvelope),
+    ]);
+    if (!last) throw Error('Missing committed final ballot receipt');
+    assert({
+      given:
+        'concurrent identical final submissions after actual durable settlement',
+      should:
+        'recover exactly one receipt through the shared global command fence',
+      actual: replayedLast,
+      expected: last,
+    });
     const done = (await f.store.getRound(roundId))!;
     assert({
       given: 'every required judge supplied a valid split ruling',
@@ -197,10 +242,27 @@ test('all actual human judges submit one shared ballot against actual frozen inp
         }),
       code: 'CONFLICT',
     });
+    await assertRejects({
+      given: 'the same accepted final command with a changed ballot',
+      should: 'reject changed-payload replay without changing result',
+      actual: () =>
+        operation.submit(finalPrincipal, roundId, {
+          ...finalEnvelope,
+          ballot: ruling('affirmative'),
+        }),
+      code: 'CONFLICT',
+    });
     await f.sql`update users set username='' where id=${judges[0]!.userId}`;
     await assertRejects({
       given: 'the accepted judge loses canonical membership',
       should: 'refuse exact replay after fresh reauthorization',
+      actual: () => operation.submit(principal, roundId, first),
+      code: 'AUTHORIZATION',
+    });
+    await f.sql`update users set username=null,email_verified=false,deleted_at=clock_timestamp() where id=${judges[0]!.userId}`;
+    await assertRejects({
+      given: 'an erased assigned judge retries the accepted ballot',
+      should: 'refuse canonical erasure before replay',
       actual: () => operation.submit(principal, roundId, first),
       code: 'AUTHORIZATION',
     });
