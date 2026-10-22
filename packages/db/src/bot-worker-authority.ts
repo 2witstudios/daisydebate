@@ -2,11 +2,7 @@ import { and, eq, sql } from 'drizzle-orm';
 import { idSchema } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import {
-  requireBotControlSegment,
-  requireClaimScope,
-  requireRunScope,
-} from './bot-publication-context';
+import { requireClaimScope, requireRunScope } from './bot-publication-context';
 import { roundAgentNow } from './round-agent-runs';
 import { agentRuns } from './schema/agent-runs';
 import { roundBotPublications } from './schema/round-bot-publications';
@@ -69,7 +65,6 @@ export async function verifyBotWorkerPrincipalLocked(
   const now = await roundAgentNow(tx);
   if (claim.leaseExpiresAt.getTime() <= now.getTime())
     throw createAppError('CONFLICT', 'Worker lease expired');
-  await requireBotControlSegment(tx, scope);
 }
 /** Missing control evidence postpones attendance; it never establishes competitive absence. */
 export async function readBotControlHealth(
@@ -91,7 +86,8 @@ export async function readBotControlHealth(
       where c.round_id=e.round_id and c.round_participant_id=e.seat
         and c.lease_expires_at>n.at and c.service_id='agent-run:'||run.id
         and run.ended_at is null and run.kind=s.type
-        and s.started_at<=n.at and s.ended_at is null and n.at<s.started_at+s.duration_ms*interval '1 millisecond'
+        and s.started_at<=n.at and not exists(select 1 from round_segments later where later.round_id=s.round_id
+          and later.sequence>s.sequence and later.started_at is not null)
         and run.configuration_snapshot->>'roundId'=e.round_id
         and run.configuration_snapshot->>'roundParticipantId'=e.seat
         and run.configuration_snapshot->>'segmentId'=s.id
