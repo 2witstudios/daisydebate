@@ -23,7 +23,11 @@ export function createBotPublisher(input: {
   readonly monotonicNowMs: () => number;
   readonly waitUntilMs: (due: number, signal: AbortSignal) => Promise<void>;
 }) {
-  return async (job: Job, signal: AbortSignal) => {
+  return async (
+    job: Job,
+    signal: AbortSignal,
+    onSent?: (samples: number) => void,
+  ) => {
     if (
       !(job.pcm instanceof Int16Array) ||
       job.sampleRate !== 24000 ||
@@ -73,6 +77,7 @@ export function createBotPublisher(input: {
         });
         return true;
       },
+      onAccepted: (eligibleSamples) => onSent?.(eligibleSamples * job.channels),
     });
     const result = await write(job.pcm.subarray(0, transportSamples), signal);
     return {

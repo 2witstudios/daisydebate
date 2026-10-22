@@ -1,5 +1,45 @@
+import type { SQL } from 'bun';
 import type { Database } from '@daisy/db';
+import { createId } from '@paralleldrive/cuid2';
 import { startAvailabilityService } from '../src/features/availability/service';
+import { roundTickProjection } from '../src/features/round-finalization/operations';
+
+type WebFinalizerFixture = {
+  readonly store: Pick<
+    Database,
+    'renewServiceInstance' | 'finalizeDueRoundTranscript'
+  >;
+  readonly sql: SQL;
+};
+/**
+ * The production finalizer under a fresh web instance lease and the Round
+ * lock; the lease row is removed afterwards. Take the lease before a race so
+ * the finalizer queues for the lock when the work calls it.
+ */
+export async function withWebFinalizer<T>(
+  f: WebFinalizerFixture,
+  work: (
+    finalize: (
+      roundId: string,
+    ) => ReturnType<Database['finalizeDueRoundTranscript']>,
+  ) => Promise<T>,
+) {
+  const instanceId = createId();
+  await f.store.renewServiceInstance({ instanceId, role: 'web' });
+  try {
+    return await work((roundId) =>
+      f.store.finalizeDueRoundTranscript({
+        instanceId,
+        roundId,
+        buildProjection: roundTickProjection(createId),
+      }),
+    );
+  } finally {
+    await f.sql`delete from service_instances where instance_id=${instanceId}`;
+  }
+}
+export const finalizeAsWeb = (f: WebFinalizerFixture, roundId: string) =>
+  withWebFinalizer(f, (finalize) => finalize(roundId));
 
 export const maintenanceTestTimers = {
   setInterval: (pulse: () => void, ms: number) => {

@@ -217,7 +217,10 @@ export async function proveMediaWorker(f: Fixture, key: string, root: string) {
     const logged = await events;
     if (code !== 0 || logged.join() !== 'server.ready,server.shutdown')
       throw Error('Discovered capture process failed to drain safely');
-    const frozen = await f.store.finalizeRoundTranscript({
+    const instanceId = nextId();
+    await f.store.renewServiceInstance({ instanceId, role: 'web' });
+    const frozen = await f.store.finalizeDueRoundTranscript({
+      instanceId,
       roundId,
       buildProjection: (context) =>
         mediaRuntime(context, nextId).tick(context.now),

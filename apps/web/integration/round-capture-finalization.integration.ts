@@ -1,4 +1,5 @@
 import { requireTestServices } from '@daisy/config';
+import { finalizeAsWeb } from './round-maintenance.test-support';
 import { assertRejects } from '@daisy/errors/testing';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -95,10 +96,7 @@ test('late actual capture cannot bypass a missing cutoff after the scheduler has
         facts: { utterances: 0, streams: 0, frontiers: 0 },
       },
     });
-    const result = await f.store.finalizeRoundTranscript({
-      roundId,
-      buildProjection: roundTickProjection(createId),
-    });
+    const result = await finalizeAsWeb(f, roundId);
     const [end] =
       await f.sql`select extract(epoch from transcript_admission_cutoff-final_segment_ended_at)*1000 delta,transcript_admission_cutoff<=clock_timestamp() due from rounds where id=${roundId}`;
     assert({

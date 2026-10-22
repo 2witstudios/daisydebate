@@ -49,7 +49,6 @@ import { roundCommandOperations } from './round-command-operations';
 import { roundOperations } from './round-operations';
 import { transcriptFinalizationOperations } from './transcript-finalization';
 import { utteranceOperations } from './utterance-operations';
-import { ballotOperations } from './ballot-operations';
 import { documentOperations } from './document-operations';
 import { onboardingOperations } from './onboarding-operations';
 import {
@@ -272,7 +271,6 @@ export function createDatabase({
       database,
       transaction: transcriptTransaction,
     }),
-    ...ballotOperations({ database, eventSink }),
     ...documentOperations({ database, eventSink }),
     ...onboardingOperations({ database, eventSink }),
     ...standingsOperations({ database, eventSink }),

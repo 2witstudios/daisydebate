@@ -10,7 +10,7 @@ import { ballotCategories, type Ballot } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createRoundBallotOperations } from '../src/features/round-ballots/operations';
-import { createRoundFinalizationOperations } from '../src/features/round-finalization/operations';
+import { finalizeAsWeb } from './round-maintenance.test-support';
 import {
   startRuntimeRound,
   withRoomRuntime,
@@ -92,10 +92,7 @@ test('all actual human judges submit one shared ballot against actual frozen inp
       125_000,
     );
     await f.sql`update rounds set started_at=clock_timestamp()-${elapsedMs}*interval '1 millisecond' where id=${roundId}`;
-    const finalized = await createRoundFinalizationOperations({
-      store: f.store,
-      nextSegmentId: createId,
-    }).finalize(roundId);
+    const finalized = await finalizeAsWeb(f, roundId);
     if (finalized.status !== 'frozen')
       throw Error('Expected actual finalizer freeze');
     const fresh = (await f.store.getRound(roundId))!;

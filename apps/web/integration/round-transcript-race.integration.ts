@@ -1,4 +1,5 @@
 import { requireTestServices } from '@daisy/config';
+import { withWebFinalizer } from './round-maintenance.test-support';
 import { finishedOrBlockedBehind } from '@daisy/db/testing';
 import { isAppError } from '@daisy/errors';
 import { createId } from '@paralleldrive/cuid2';
@@ -109,6 +110,7 @@ const appendAt = (
 async function raceBehindRoundLock(
   f: Fixture,
   { roundId, capture, last }: Awaited<ReturnType<typeof capturedRound>>,
+  finalizeRound: (roundId: string) => Promise<unknown>,
 ) {
   const holder = await f.sql.reserve();
   let races: Promise<unknown>[] = [];
@@ -116,10 +118,7 @@ async function raceBehindRoundLock(
     await holder`begin`;
     const [backend] = await holder`select pg_backend_pid() as pid`;
     await holder`select id from rounds where id=${roundId} for no key update`;
-    const finalize = f.store.finalizeRoundTranscript({
-      roundId,
-      buildProjection,
-    });
+    const finalize = finalizeRound(roundId);
     races = [
       appendAt(capture, last, 300, 'Concurrent final clip'),
       capture.sealCapturedStream({ ...last.stream, expectedChunkCount: 1 }),
@@ -155,17 +154,20 @@ test('actual append seal and finalizer contention freezes one truthful committed
   withRoomRuntime(async (f) => {
     const round = await capturedRound(f);
     const { roundId } = round;
-    const { blocked, accepted } = await raceBehindRoundLock(f, round);
-    // The worker seals with the count of its own accepted appends.
-    if (accepted)
-      await round.capture.sealCapturedStream({
-        ...round.last.stream,
-        expectedChunkCount: 2,
-      });
-    const frozen = await f.store.finalizeRoundTranscript({
-      roundId,
-      buildProjection,
-    });
+    // The lease is taken before the race, so the finalizer queues for the lock in order.
+    const { blocked, accepted, frozen } = await withWebFinalizer(
+      f,
+      async (finalize) => {
+        const raced = await raceBehindRoundLock(f, round, finalize);
+        // The worker seals with the count of its own accepted appends.
+        if (raced.accepted)
+          await round.capture.sealCapturedStream({
+            ...round.last.stream,
+            expectedChunkCount: 2,
+          });
+        return { ...raced, frozen: await finalize(roundId) };
+      },
+    );
     const read = await f.store.readFrozenRoundTranscript(roundId);
     const [revision] =
       await f.sql`select revision from round_transcripts where round_id=${roundId}`;

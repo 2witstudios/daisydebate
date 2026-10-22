@@ -1,6 +1,9 @@
 import type { ServerMessage } from '@daisy/protocol';
 import type { ConnectionStore } from './connection-store';
 
+/** Refusals in a row retried before the topic waits for a reconnect. */
+const MAX_REFUSAL_RETRIES = 3;
+
 /** Doorbells invalidate a snapshot; they never carry content or authority. */
 export function attachInvalidationTopic({
   topic,
@@ -20,6 +23,7 @@ export function attachInvalidationTopic({
   readonly refetch: (frame: ServerMessage | null) => void;
 }) {
   let resync = false;
+  let refusals = 0;
   const refresh = (frame: ServerMessage | null) => {
     invalidate();
     refetch(frame);
@@ -28,6 +32,14 @@ export function attachInvalidationTopic({
     if (frame.type === 'resync_required') {
       resync = true;
       refresh(frame);
+    } else if (frame.type === 'subscribed') refusals = 0;
+    else if (frame.type === 'error') {
+      // A refusal of this topic's subscription can be transient: the read the
+      // error triggers proves authority again, then the topic resubscribes.
+      if (refusals < MAX_REFUSAL_RETRIES) {
+        refusals += 1;
+        resync = true;
+      }
     } else if (matches(frame)) refresh(frame);
   });
   const stopErrors = connection.onMessage((frame) => {

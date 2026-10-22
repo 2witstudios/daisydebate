@@ -27,12 +27,6 @@ export const transcriptFinalizationOperations = (input: {
   /** Callers enforce private transcript/judge authorization before this internal read. */
   readFrozenRoundTranscript: (roundId: string) =>
     readLockedFrozenRoundTranscript(input.database, roundId),
-
-  async finalizeRoundTranscript(request: LockedRoundTickInput) {
-    return input.transaction((tx) =>
-      finalizeLockedRoundTranscript(tx, request),
-    );
-  },
 });
 
 /** Existing Round/lease/stream operation; a service consumer can recheck its lease after waits. */
