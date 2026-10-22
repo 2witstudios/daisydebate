@@ -1,0 +1,4 @@
+ALTER TABLE "round_judging_jobs" RENAME COLUMN "lease_token" TO "lease_token_digest";--> statement-breakpoint
+CREATE INDEX "round_judging_jobs_freeze_revision_idx" ON "round_judging_jobs" ("round_id","freeze_revision");--> statement-breakpoint
+ALTER TABLE "round_judging_jobs" ADD CONSTRAINT "round_judging_jobs_token_digest_check" CHECK ("lease_token_digest" is null or "lease_token_digest" ~ '^[0-9a-f]{64}$');--> statement-breakpoint
+ALTER TABLE "round_judging_jobs" DROP CONSTRAINT "round_judging_jobs_lease_check", ADD CONSTRAINT "round_judging_jobs_lease_check" CHECK (("status" = 'leased' and "lease_token_digest" is not null and "lease_expires_at" is not null) or ("status" <> 'leased' and "lease_token_digest" is null and "lease_expires_at" is null));

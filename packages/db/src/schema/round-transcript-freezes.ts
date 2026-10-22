@@ -55,7 +55,7 @@ export const roundJudgingJobs = pgTable(
     status: text('status')
       .$type<'queued' | 'leased' | 'succeeded' | 'failed'>()
       .notNull(),
-    leaseToken: text('lease_token'),
+    leaseTokenDigest: text('lease_token_digest'),
     leaseExpiresAt: timestampColumn('lease_expires_at'),
     attempts: integer('attempts').notNull().default(0),
     resultBallotId: text('result_ballot_id'),
@@ -80,6 +80,10 @@ export const roundJudgingJobs = pgTable(
       columns: [table.resultBallotId, table.judgeParticipantId],
       foreignColumns: [ballots.id, ballots.judgeParticipantId],
     }).onDelete('restrict'),
+    index('round_judging_jobs_freeze_revision_idx').on(
+      table.roundId,
+      table.freezeRevision,
+    ),
     index('round_judging_jobs_judge_round_idx').on(
       table.judgeParticipantId,
       table.roundId,
@@ -102,7 +106,11 @@ export const roundJudgingJobs = pgTable(
     ),
     check(
       'round_judging_jobs_lease_check',
-      sql`(${table.status} = 'leased' and ${table.leaseToken} is not null and ${table.leaseExpiresAt} is not null) or (${table.status} <> 'leased' and ${table.leaseToken} is null and ${table.leaseExpiresAt} is null)`,
+      sql`(${table.status} = 'leased' and ${table.leaseTokenDigest} is not null and ${table.leaseExpiresAt} is not null) or (${table.status} <> 'leased' and ${table.leaseTokenDigest} is null and ${table.leaseExpiresAt} is null)`,
+    ),
+    check(
+      'round_judging_jobs_token_digest_check',
+      sql`${table.leaseTokenDigest} is null or ${table.leaseTokenDigest} ~ '^[0-9a-f]{64}$'`,
     ),
     check(
       'round_judging_jobs_result_check',
