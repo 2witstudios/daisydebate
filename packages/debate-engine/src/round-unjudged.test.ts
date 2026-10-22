@@ -24,6 +24,28 @@ const played = () => {
   return world;
 };
 
+/** Rehydrate actual engine projections with deliberately inconsistent cast evidence. */
+const closedWith = (overrides: Parameters<typeof runtimeWorld>[0]) => {
+  const source = runtimeWorld({ rules, participants });
+  source.execute({
+    command: { type: 'start' },
+    actorId: null,
+    now: roundAt(0),
+  });
+  const projected = source.tick(roundAt(total));
+  return runtimeWorld({
+    rules,
+    participants,
+    status: 'active',
+    segments: projected.segmentInserts.map((row) => ({
+      ...row,
+      endedAt: projected.segmentCloses.find((close) => close.id === row.id)!
+        .endedAt,
+    })),
+    ...overrides,
+  });
+};
+
 test('zero-judge casual completion projects an unjudged terminal result in the shared engine', () => {
   const world = played();
   const result = world.completeUnjudged({
@@ -60,6 +82,14 @@ test('unjudged completion refuses with the zero-judge casual invariant and prese
   const cases = [
     { world: played(), competitionType: 'ranked' as const },
     { world: played(), competitionType: 'practice' as const },
+    {
+      world: closedWith({ participants: practiceSeats }),
+      competitionType: 'casual' as const,
+    },
+    {
+      world: closedWith({ rules: practiceRules() }),
+      competitionType: 'casual' as const,
+    },
     {
       world: runtimeWorld({ rules, participants, status: 'active' }),
       competitionType: 'casual' as const,
@@ -98,6 +128,26 @@ test('unjudged completion refuses with the zero-judge casual invariant and prese
       given: competitionType,
       should: 'preserve every refused runtime fact',
       actual: world.position(roundAt(total + 120_000)),
+      expected: before,
+    });
+  }
+});
+
+test('unjudged completion does not accept a clock before the actual final end', async () => {
+  for (const now of [roundAt(total - 1), 'invalid']) {
+    const world = played();
+    const before = world.position(roundAt(total));
+    await assertRejects({
+      given: now,
+      should: 'refuse time preceding actual final closure',
+      actual: () => world.completeUnjudged({ competitionType: 'casual', now }),
+      code: 'INVARIANT',
+      invariantId: 'round.complete.unjudged-casual-only',
+    });
+    assert({
+      given: now,
+      should: 'preserve terminal eligibility after refusal',
+      actual: world.position(roundAt(total)),
       expected: before,
     });
   }
