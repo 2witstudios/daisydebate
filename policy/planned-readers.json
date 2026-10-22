@@ -180,6 +180,15 @@
       "adr": "docs/decisions/0057-planned-readers.md",
       "reason": "ADR0033/0067 pure settled-availability and actual-speech attendance producer precedes committed durable reader unq0eq7kj1sz7tgb9wv46kmr. Unit proof is not public-path or adjudication acceptance; actual adapter removes this allowance on adoption.",
       "reviewBy": "2026-11-05"
+    },
+    {
+      "path": "packages/db/src/media-capture.ts",
+      "export": "mediaCaptureOperations",
+      "task": "VIDEO-3.8",
+      "owner": "VIDEO / ag-294zgpzv",
+      "adr": "docs/decisions/0057-planned-readers.md",
+      "reason": "ADR0053 capture foundation precedes committed worker readers VIDEO-3.8 tz1d7obvmg0rnhzfhyllifjl and VIDEO-3.1 r66b11i8v4jilp3o29uu2b49. Real PostgreSQL store proof does not establish production capture or worker acceptance.",
+      "reviewBy": "2026-11-05"
     }
   ]
 }
