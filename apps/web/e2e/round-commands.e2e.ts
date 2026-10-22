@@ -1,7 +1,10 @@
 import { maintainHumanBallotFixtures } from './support/human-ballot-maintenance';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
-import { createHumanBallotRound } from './support/human-ballot-round';
-import { roundViewSchema, isNamedSeat } from '@daisy/protocol';
+import {
+  ballotRoundCommand,
+  createHumanBallotRound,
+} from './support/human-ballot-round';
+import { roomViewSchema, roundViewSchema, isNamedSeat } from '@daisy/protocol';
 import { origin } from './support/accounts';
 import { expect, test } from './support/round-files';
 import { openPage } from './support/fixtures';
@@ -208,3 +211,70 @@ test('the mounted private capture boundary rejects GET, oversized bodies and inv
     error: { code: 'VALIDATION' },
   });
 });
+
+for (const javaScriptEnabled of [false, true])
+  test(`${javaScriptEnabled ? 'enhanced' : 'native'} fresh Room creates a new cast after an actual result`, async ({
+    browser,
+  }) => {
+    const accounts = await createRoomLaunchAccounts(browser, 4);
+    let context: Awaited<ReturnType<typeof browser.newContext>> | undefined;
+    try {
+      const host = accounts.members[0]!.context;
+      const live = await createHumanBallotRound(accounts.members);
+      const seat = live.participants
+        .filter(isNamedSeat)
+        .find((p) => p.role === 'affirmative')!;
+      const ended = await ballotRoundCommand(host.request, live, {
+        type: 'forfeit',
+        participantId: seat.id,
+      });
+      context = await browser.newContext({
+        baseURL: origin,
+        ignoreHTTPSErrors: true,
+        javaScriptEnabled,
+        storageState: await host.storageState(),
+      });
+      const page = await openPage(context, 'fresh Room after durable result');
+      await page.goto(`/rooms/${live.roomId}`);
+      await page
+        .getByRole('link', { name: 'Create a fresh Room', exact: true })
+        .click();
+      await expect(page).toHaveURL(`/rooms/${live.roomId}/rematch`);
+      await expect(
+        page.getByRole('heading', { name: 'Create a fresh Room', exact: true }),
+      ).toBeVisible();
+      const form = page.getByRole('form', {
+        name: 'Create a room',
+        exact: true,
+      });
+      await expect(form.getByLabel('Room name', { exact: true })).toHaveValue(
+        '',
+      );
+      await expect(form.getByLabel('Debate topic')).toHaveValue('');
+      await form
+        .getByLabel('Room name', { exact: true })
+        .fill('A genuinely fresh Room');
+      await form
+        .getByLabel('Debate topic')
+        .fill('Libraries should remain public');
+      await form
+        .getByRole('button', { name: 'Create room', exact: true })
+        .click();
+      await expect(page).toHaveURL(/\/rooms\/[a-z0-9]+$/);
+      const newId = new URL(page.url()).pathname.split('/').at(-1)!;
+      expect(newId).not.toBe(live.roomId);
+      const freshResponse = await context.request.get(`/api/rooms/${newId}`);
+      expect(freshResponse.status()).toBe(200);
+      const fresh = roomViewSchema.parse(await freshResponse.json());
+      expect([
+        fresh.participants.length,
+        fresh.readiness.readyActorIds.length,
+        fresh.roundRef,
+      ]).toEqual([0, 0, null]);
+      const oldResponse = await host.request.get(`/api/rounds/${live.id}`);
+      expect(roundViewSchema.parse(await oldResponse.json())).toEqual(ended);
+    } finally {
+      await context?.close();
+      await accounts.closeContexts();
+    }
+  });

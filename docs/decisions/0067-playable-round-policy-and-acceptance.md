@@ -72,6 +72,13 @@ cast and fresh human Ready consent. This preserves another-match capability
 without mutating competitive provenance or reusing old leases. No automatic
 copy of membership, judge assignment, private access or consent is authorized.
 
+After the actual Round is completed or abandoned, its current human Room host
+can explicitly open the fresh-Room form. Both native and enhanced submissions
+recheck the source host and terminal reference before using the normal create
+operation with the submitted current catalog selection. This creates a separate
+assembly with empty seats and no Ready leases; the source Room is never reopened
+or modified. Exact retries retain the normal creation command identity.
+
 ROOM-6.2's placeholder AI judge is replaced by a real shared-rubric AI judge over
 the frozen transcript revision. A random result or simulated ballot is not proof.
 Keep the original criteria in PageSpace as history; link this replacement rather
