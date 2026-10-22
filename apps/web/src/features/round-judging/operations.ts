@@ -8,6 +8,7 @@ type Store = Pick<
   Database,
   | 'verifyRoundJudgingJob'
   | 'beginRoundJudgingModelCall'
+  | 'recordRoundJudgingUsage'
   | 'saveRoundJudgingResult'
   | 'submitRoundJudgingResult'
 >;
@@ -47,14 +48,16 @@ export function createRoundJudgingOperations(input: {
             reasoning: 'medium',
             signal,
           });
+          const usage = {
+            inputTokens: answer.promptTokens,
+            outputTokens: answer.completionTokens,
+          };
+          await input.store.recordRoundJudgingUsage(scope, token, usage);
           await input.store.saveRoundJudgingResult(
             scope,
             token,
             parseBallot(answer.text),
-            {
-              inputTokens: answer.promptTokens,
-              outputTokens: answer.completionTokens,
-            },
+            usage,
           );
         });
       }
