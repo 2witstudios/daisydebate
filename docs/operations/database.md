@@ -111,7 +111,11 @@ reservation exhaustion, pool recovery and backend identity reuse.
 
 Callback SQL is lexed using PostgreSQL identifier/literal boundaries before it
 reaches the prepared driver. Schema qualification, quoted identifiers and comments
-cannot hide `set_config`. Single-quoted, escaped, continued and dollar-quoted
+cannot hide `set_config` or the writable `pg_settings` configuration view.
+Both CR and LF terminate line comments. The view is excluded entirely from callback
+SQL, including nested/CTE and EXPLAIN forms: its UPDATE has session-setting effects
+that persist after COMMIT ([PostgreSQL 18 pg_settings](https://www.postgresql.org/docs/18/view-pg-settings.html)).
+Single-quoted, escaped, continued and dollar-quoted
 literal data is skipped rather than treated as SQL identifiers. The adapter pins
 `standard_conforming_strings=on`; Unicode-escaped **SQL identifiers** (`U&"..."`,
 including custom `UESCAPE`) are refused in this canonical-schema adapter rather
