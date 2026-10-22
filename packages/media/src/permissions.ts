@@ -31,10 +31,10 @@ export function publicationPermission(
   const permission = participant.permission;
   const sources = permission.canPublishSources;
   const publish: ('camera' | 'microphone')[] = [];
-  if (permission.canPublish && sources.includes(TrackSource.CAMERA))
-    publish.push('camera');
-  if (permission.canPublish && sources.includes(TrackSource.MICROPHONE))
-    publish.push('microphone');
+  const allowed = (source: TrackSource) =>
+    permission.canPublish && (sources.length === 0 || sources.includes(source));
+  if (allowed(TrackSource.CAMERA)) publish.push('camera');
+  if (allowed(TrackSource.MICROPHONE)) publish.push('microphone');
   return {
     identity: participant.identity,
     grants: {
