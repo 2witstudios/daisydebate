@@ -1,3 +1,4 @@
+import { mediaCaptureOperations } from './media-capture';
 import { roundSpeakingRead } from './round-speaking-read';
 import { roundProtectedReads } from './round-protected-reads';
 import { createMessagingTypingPrivacyPort } from './privacy/typing-rights';
@@ -265,6 +266,10 @@ export function createDatabase({
     ...roundProtectedReads({ database }),
     ...roundSpeakingRead({ database }),
     ...utteranceOperations({ database, eventSink }),
+    createMediaCaptureOperations: (
+      input: Omit<Parameters<typeof mediaCaptureOperations>[0], 'transaction'>,
+    ) =>
+      mediaCaptureOperations({ ...input, transaction: transcriptTransaction }),
     ...transcriptFinalizationOperations({
       database,
       transaction: transcriptTransaction,
