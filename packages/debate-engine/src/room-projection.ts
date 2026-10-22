@@ -78,6 +78,7 @@ export function projectRoom(
     prep: prepView(room, now),
     capabilities: roomCapabilities(room, actorId, blocker, now),
     startRefusal: blocker,
+    botAdmission: null,
   };
 }
 

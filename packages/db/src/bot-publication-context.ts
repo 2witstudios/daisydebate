@@ -18,15 +18,14 @@ export type PublicationWindow = {
   readonly beforeMs: number;
   readonly afterMs: number;
 };
-/** Claiming a controller does not grant a speaking interval. */
+/** Latest actual played scope authenticates control, including unresolved historical attendance. */
 export async function requireBotControlSegment(
-  tx: BoundedTransactionContext,
+  tx: Pick<BoundedTransactionContext, 'execute'>,
   target: Pick<BotPublicationScope, 'roundId' | 'segmentId'>,
 ) {
   const rows = await tx.execute(sql`select 1 from round_segments s
     where s.round_id=${target.roundId} and s.id=${target.segmentId}
-      and s.started_at<=clock_timestamp() and s.ended_at is null
-      and clock_timestamp()<s.started_at+s.duration_ms*interval '1 millisecond'
+      and s.started_at<=clock_timestamp()
       and not exists(select 1 from round_segments later where later.round_id=s.round_id
         and later.sequence>s.sequence and later.started_at is not null) limit 1`);
   if (rows.length !== 1)
@@ -62,7 +61,7 @@ export async function requireBotSpeakingWindow(
   if (rows.length !== 1)
     throw createAppError('CONFLICT', 'Bot speaking authority changed');
 }
-function requireClaimScope(
+export function requireClaimScope(
   claim: typeof roundBotPublications.$inferSelect | undefined,
   scope: BotPublicationScope,
 ): asserts claim is typeof roundBotPublications.$inferSelect {
@@ -74,7 +73,7 @@ function requireClaimScope(
   )
     throw createAppError('CONFLICT');
 }
-function requireRunScope(
+export function requireRunScope(
   run: typeof agentRuns.$inferSelect | undefined,
   scope: BotPublicationScope,
 ): asserts run is typeof agentRuns.$inferSelect {

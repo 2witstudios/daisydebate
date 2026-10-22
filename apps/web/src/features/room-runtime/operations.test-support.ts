@@ -132,6 +132,7 @@ export function makeOperations(overrides: Partial<Store> = {}) {
   let createInput: Parameters<Store['createRoomCommand']>[0] | null = null;
   const base = {
     databaseNow: async () => now,
+    readRoundBotAdmissionStatus: async () => null,
     listRoomCatalogSources: async (
       _caller: typeof caller,
       authorize: (fact: AccountAuthorizationFact) => boolean,

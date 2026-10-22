@@ -1,28 +1,18 @@
 import { createId } from '@paralleldrive/cuid2';
 import { randomBytes } from 'node:crypto';
+import { createBotSeat } from './bot-seat.test-support';
 import { withBoundedRound } from './bounded-transaction.test-support';
 import { createBotPublicationOperations } from '../src/bot-publication';
 export const withBotPublication = (
   work: (value: {
+    run: Parameters<Parameters<typeof withBoundedRound>[0]>[1];
     fixture: Parameters<Parameters<typeof withBoundedRound>[0]>[0];
     operations: ReturnType<typeof createBotPublicationOperations>;
     target: { roundId: string; roundParticipantId: string; segmentId: string };
   }) => Promise<void>,
 ) =>
   withBoundedRound(async (fixture, run, roundId) => {
-    const bot = createId();
-    await fixture.insert('actors', { id: bot, kind: 'bot' });
-    await fixture.insert(
-      'bot_profiles',
-      {
-        actor_id: bot,
-        name: 'Fixture bot',
-        persona: 'Test',
-        voice: 'aura-2-thalia-en',
-      },
-      'actor_id',
-    );
-    const seat = await fixture.seat(roundId, 'affirmative', 0, bot);
+    const seat = await createBotSeat(fixture, roundId, 'affirmative');
     const segmentId = createId();
     fixture.track('round_segments', segmentId);
     await fixture.sql`update rounds set status='active',current_stage='live',started_at=clock_timestamp()-interval '1 second' where id=${roundId}`;
@@ -39,6 +29,7 @@ export const withBotPublication = (
     try {
       await work({
         fixture,
+        run,
         target: { roundId, roundParticipantId: seat.id, segmentId },
         operations: createBotPublicationOperations({
           run,
