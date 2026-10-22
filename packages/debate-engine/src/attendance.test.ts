@@ -188,7 +188,7 @@ test('ineligible scheduled speaker never creates a competitive attendance loss',
     });
 });
 
-test('a bot seat missing receipt never forfeits: decisions it would change abandon', () => {
+test('bot worker loss never produces a forfeit: decisions a missing bot receipt would change abandon', () => {
   const decideWith = (ids: readonly string[], bots: readonly string[]) =>
     adjudicateAttendance({
       window,
@@ -225,6 +225,16 @@ test('a bot seat missing receipt never forfeits: decisions it would change aband
     should: 'record attendance because the bot receipt cannot change it',
     actual: decideWith(['a0'], ['n0', 'n1']),
     expected: { decision: 'attended', effectiveDeadlineMs: 50000 },
+  });
+  assert({
+    given: 'a present bot opponent and an absent human speaker',
+    should: 'forfeit the human by the ordinary rule (DEC-200)',
+    actual: decideWith(['n0'], ['n0']),
+    expected: {
+      decision: 'forfeit',
+      winner: 'negative',
+      effectiveDeadlineMs: 50000,
+    },
   });
   assert({
     given: 'a bot id outside the current eligible debaters',
