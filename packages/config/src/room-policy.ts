@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { optionalJsonConfig } from './json-config';
 
 const positiveInteger = z.number().int().positive();
 const rate = z.strictObject({
@@ -13,15 +14,4 @@ const policy = z.strictObject({
 });
 
 /** Explicit deployment policy; absence is inert, never filled with proof values. */
-export const roomPolicyConfig = z
-  .string()
-  .transform((value, ctx): unknown => {
-    try {
-      return JSON.parse(value);
-    } catch {
-      ctx.addIssue({ code: 'custom', message: 'Invalid JSON' });
-      return z.NEVER;
-    }
-  })
-  .pipe(policy)
-  .optional();
+export const roomPolicyConfig = optionalJsonConfig(policy);
