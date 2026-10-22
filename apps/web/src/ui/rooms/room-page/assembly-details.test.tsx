@@ -62,24 +62,23 @@ test('non-host details remain visible but cannot submit an edit', () => {
   });
 });
 
-test('the edit form offers private only to a Room that already is', () => {
-  const render = (visibility: 'public' | 'private') =>
-    renderToStaticMarkup(
-      <AssemblyDetailsFields
-        view={{ ...assemblySnapshot, visibility }}
-        commandId="fresh-command"
-        state={{ values: {} }}
-        pending={false}
-      />,
-    );
+test('the edit form never offers private', () => {
+  const html = renderToStaticMarkup(
+    <AssemblyDetailsFields
+      view={assemblySnapshot}
+      commandId="fresh-command"
+      state={{ values: {} }}
+      pending={false}
+    />,
+  );
   assert({
-    given: 'a public Room and an existing private Room',
-    should:
-      'hide private from the public Room and keep it selectable for the private one (ISSUE-443)',
+    given: 'the Room details form',
+    should: 'offer public and unlisted only (ISSUE-443, DEC-206)',
     actual: [
-      render('public').includes('value="private"'),
-      render('private').includes('value="private"'),
+      html.includes('value="public"'),
+      html.includes('value="unlisted"'),
+      html.includes('value="private"'),
     ],
-    expected: [false, true],
+    expected: [true, true, false],
   });
 });

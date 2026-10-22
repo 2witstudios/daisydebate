@@ -2,6 +2,7 @@ import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { isNamedSeat, roundViewSchema } from '@daisy/protocol';
+import { submitRoundForm } from '../src/features/round-runtime/command-form';
 import {
   createRoomHttpFixture,
   withHumanJudgeHttpRound,
@@ -10,7 +11,7 @@ requireTestServices(process.env);
 setupRitewayBun();
 const http = createRoomHttpFixture();
 const { f, routes, headers, member } = http;
-test('real authenticated Round responses and JSON/native replays keep hidden judge identity private', async () => {
+test('real authenticated Round responses and JSON and server-action form replays keep hidden judge identity private', async () => {
   const host = await member(),
     guest = await member(),
     judge = await member();
@@ -54,23 +55,25 @@ test('real authenticated Round responses and JSON/native replays keep hidden jud
         retry = await post();
       const firstBody = await first.json(),
         retryBody = await retry.json();
-      const native = await routes.rounds.commands(
-        new Request(`${f.origin}/api/rounds/${roundId}/commands`, {
-          method: 'POST',
-          headers: {
-            cookie: guest,
-            origin: f.origin,
-            'content-type': 'application/x-www-form-urlencoded',
-          },
-          body: new URLSearchParams({
-            version: '1',
-            commandId: envelope.commandId,
-            expectedVersion: String(envelope.expectedVersion),
-            type: 'forfeit',
-            participantId: seat.id,
-          }),
-        }),
-        roundId,
+      // The no-JS form reaches the route through the server action's JSON post.
+      const form = new FormData();
+      for (const [name, value] of Object.entries({
+        version: '1',
+        commandId: envelope.commandId,
+        expectedVersion: String(envelope.expectedVersion),
+        type: 'forfeit',
+        participantId: seat.id,
+        confirmed: 'true',
+      }))
+        form.set(name, value);
+      const native = await submitRoundForm(
+        (path, init) =>
+          routes.rounds.commands(
+            f.jsonPost(path, JSON.parse(String(init.body)), { cookie: guest }),
+            roundId!,
+          ),
+        roundId!,
+        form,
       );
       const refused = await post({ ...envelope, commandId: createId() });
       const refusal = await refused.json();
@@ -78,34 +81,43 @@ test('real authenticated Round responses and JSON/native replays keep hidden jud
         given:
           'a nonhost seated debater, hidden human judge and accepted/replayed/refused shared commands',
         should:
-          'return truthful receipts without judge identifiers or names and replay native encoding without mutation',
+          'return truthful receipts without judge identifiers or names and replay the native form encoding without mutation',
         actual: {
           statuses: [
             started.status,
             first.status,
             retry.status,
-            native.status,
             refused.status,
           ],
           versions: [
             firstBody.view.version,
             retryBody.view.version,
+            native.view?.version,
             (await f.app.database.getRound(roundId))!.version,
           ],
           replayed: retryBody.receipt.replayed,
           leaks: hidden.filter((value) =>
-            JSON.stringify([own, firstBody, retryBody, refusal]).includes(
-              value,
-            ),
+            JSON.stringify([
+              own,
+              firstBody,
+              retryBody,
+              native,
+              refusal,
+            ]).includes(value),
           ),
-          nativeDestination: native.headers.get('location'),
+          nativeAcknowledged: native.acknowledged,
         },
         expected: {
-          statuses: [200, 200, 200, 303, 409],
-          versions: [own.version + 1, own.version + 1, own.version + 1],
+          statuses: [200, 200, 200, 409],
+          versions: [
+            own.version + 1,
+            own.version + 1,
+            own.version + 1,
+            own.version + 1,
+          ],
           replayed: true,
           leaks: [],
-          nativeDestination: `/rounds/${roundId}`,
+          nativeAcknowledged: true,
         },
       });
     },
