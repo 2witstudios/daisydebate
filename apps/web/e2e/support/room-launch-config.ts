@@ -19,6 +19,7 @@ export default defineConfig({
     '**/room-launch.e2e.ts',
     '**/debate-room.e2e.ts',
     '**/round-commands.e2e.ts',
+    '**/round-command-recovery.e2e.ts',
   ],
   testIgnore: [],
   timeout: 120_000,
