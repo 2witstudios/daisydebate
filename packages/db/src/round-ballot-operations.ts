@@ -38,6 +38,12 @@ import {
   requireFencedParticipants,
   requireSameCommand,
 } from './round-command-replay';
+import {
+  ballotReceipt,
+  requireBallotAdmission,
+  requireFrozenRevision,
+  requireJudgingRun,
+} from './round-ballot-decisions';
 
 export type RoundBallotLeaseContext = {
   readonly roundId: string;
@@ -90,23 +96,6 @@ async function replayBallot(
   });
   return roundBallotReceiptSchema.parse(previous.result);
 }
-function requireJudgingRun(
-  input: LockedRoundBallotInput,
-  context: Awaited<ReturnType<typeof readRoundWriteContext>>,
-) {
-  if (input.principal.kind !== 'agent') return;
-  const config = context.runConfiguration;
-  if (
-    !input.assertLease ||
-    context.runKind !== 'judging' ||
-    config?.roundId !== input.roundId ||
-    config.judgeParticipantId !== input.envelope.judgeParticipantId ||
-    config.freezeRevision !== input.envelope.freezeRevision ||
-    !Number.isSafeInteger(config.jobEpoch) ||
-    Number(config.jobEpoch) <= 0
-  )
-    throw createAppError('AUTHORIZATION');
-}
 async function lockedBallotContext(
   tx: RoundWriteTransaction,
   input: LockedRoundBallotInput,
@@ -125,12 +114,16 @@ async function lockedBallotContext(
   );
   requireFencedParticipants(fresh.round.participants, fenced.actorIds);
   requireHumanRoundPrincipal(input.principal, fenced.accounts);
-  const frozen = await readLockedFrozenRoundTranscript(tx, input.roundId);
-  if (!frozen || frozen.revision !== input.envelope.freezeRevision)
-    throw createAppError('CONFLICT', 'freeze-not-ready');
+  const frozen = requireFrozenRevision(
+    await readLockedFrozenRoundTranscript(tx, input.roundId),
+    input.envelope.freezeRevision,
+  );
   const context = { ...fresh, frozen };
   input.authorize(context);
-  requireJudgingRun(input, fresh);
+  requireJudgingRun(
+    { ...input, leased: input.assertLease !== undefined },
+    fresh,
+  );
   if (input.assertLease)
     await input.assertLease(tx, {
       roundId: input.roundId,
@@ -146,25 +139,22 @@ export async function executeLockedRoundBallot(
   tx: RoundWriteTransaction,
   input: LockedRoundBallotInput,
 ): Promise<RoundBallotReceipt> {
-  validateBallotInput(input);
+  requireCommandInput(input, roundBallotEnvelopeSchema);
   const { current, context } = await lockedBallotContext(tx, input);
   const fresh = context;
   const replay = await replayBallot(tx, input);
   if (replay) return replay;
-  if (current.version !== input.envelope.expectedVersion)
-    throw createAppError('CONFLICT', 'stale-version');
-  if (fresh.round.status !== 'active' || fresh.round.outcome !== null)
-    throw createAppError('CONFLICT', 'round-decided');
   const existing = await tx
     .select()
     .from(ballots)
     .where(eq(ballots.roundId, input.roundId));
-  if (
-    existing.some(
-      (b) => b.judgeParticipantId === input.envelope.judgeParticipantId,
-    )
-  )
-    throw createAppError('CONFLICT', 'ballot-already-submitted');
+  requireBallotAdmission({
+    version: current.version,
+    expectedVersion: input.envelope.expectedVersion,
+    round: fresh.round,
+    submittedJudgeIds: existing.map((b) => b.judgeParticipantId),
+    judgeParticipantId: input.envelope.judgeParticipantId,
+  });
   const stored = await insertFrozenBallot(tx, input, context);
   const ballotId = stored.id;
   const projection = input.buildProjection({
@@ -195,16 +185,17 @@ async function persistBallotResult(
         context.now,
       )
     : false;
-  const resultingVersion = current.version + (changed ? 1 : 0);
-  const receipt: RoundBallotReceipt = {
+  const receipt = ballotReceipt({
     commandId: input.envelope.commandId,
     roundId: input.roundId,
     ballotId,
     judgeParticipantId: input.envelope.judgeParticipantId,
     freezeRevision: context.frozen.revision,
-    resultingVersion,
-    outcome: projection?.round?.outcome ?? null,
-  };
+    version: current.version,
+    changed,
+    outcome: projection?.round?.outcome,
+  });
+  const { resultingVersion } = receipt;
   await insertCommandRow(
     tx,
     input.roundId,
@@ -227,9 +218,6 @@ async function persistBallotResult(
   return receipt;
 }
 
-function validateBallotInput(input: LockedRoundBallotInput) {
-  requireCommandInput(input, roundBallotEnvelopeSchema);
-}
 async function insertFrozenBallot(
   tx: RoundWriteTransaction,
   input: LockedRoundBallotInput,

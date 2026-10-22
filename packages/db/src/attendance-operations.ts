@@ -32,6 +32,11 @@ import {
   requireSameCommand,
 } from './round-command-replay';
 import { eligibleCompetitorIds } from './seat-eligibility';
+import {
+  requireCheckInSegment,
+  requireSameCheckIn,
+  selectAttendanceSeat,
+} from './attendance-decisions';
 
 type WorkerVerifier = (
   tx: AttendanceTransactionContext,
@@ -52,25 +57,11 @@ async function authorizeSeat(
   fenced: Fenced,
   verifyWorker: WorkerVerifier,
 ) {
-  const seat = fenced.seats.find((seat) =>
-    principal.kind === 'human'
-      ? seat.actorId === principal.actorId
-      : seat.id === principal.participantId,
-  );
-  if (!seat?.eligible || seat.role === 'judge')
-    throw createAppError('AUTHORIZATION');
-  if (principal.kind === 'human') {
-    if (seat.kind !== 'human') throw createAppError('AUTHORIZATION');
-  } else {
-    if (
-      seat.kind !== 'bot' ||
-      principal.serviceId !== `agent-run:${principal.agentRunId}`
-    )
-      throw createAppError('AUTHORIZATION');
-    // The required canonical verifier SHARE-locks the exact seat/run and
-    // checks active kind, config, epoch and lease in this same transaction.
+  const seat = selectAttendanceSeat(principal, fenced.seats);
+  // The required canonical verifier SHARE-locks the exact seat/run and
+  // checks active kind, config, epoch and lease in this same transaction.
+  if (principal.kind === 'agent')
     await verifyWorker(tx, principal, fenced.round.id);
-  }
   return seat;
 }
 async function readReplay(
@@ -91,11 +82,10 @@ async function readReplay(
     type: 'check_in',
   });
   const receipt = attendanceReceiptSchema.parse(previous.result);
-  if (
-    receipt.segmentId !== input.envelope.segmentId ||
-    receipt.participantId !== participantId
-  )
-    throw createAppError('CONFLICT', 'command-conflict');
+  requireSameCheckIn(receipt, {
+    segmentId: input.envelope.segmentId,
+    participantId,
+  });
   return { ...receipt, replayed: true };
 }
 /** Attendance stores facts only; competitive decisions/projections remain pure engine work. */
@@ -163,14 +153,12 @@ export function createAttendanceOperations(deps: {
             fenced,
             deps.verifyWorker,
           );
-          const segment = round.segments.find(
-            (segment) => segment.id === input.envelope.segmentId,
-          );
-          if (!segment || segment.type !== 'speech')
-            throw createAppError('CONFLICT', 'attendance-segment');
           const evidence = await attendanceEvidence(tx, round);
-          if (evidence.finalizedSegmentIds.includes(segment.id))
-            throw createAppError('CONFLICT', 'attendance-finalized');
+          const segment = requireCheckInSegment(
+            round.segments,
+            input.envelope.segmentId,
+            evidence.finalizedSegmentIds,
+          );
           const facts = {
             round,
             ...evidence,
