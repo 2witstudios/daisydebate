@@ -30,3 +30,8 @@ export type {
   OutageInterval,
   SettledAvailability,
 } from './availability';
+
+export {
+  assertAttendanceRules,
+  type AttendanceTimingPolicy,
+} from './attendance-policy';
