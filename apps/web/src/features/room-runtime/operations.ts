@@ -1,3 +1,5 @@
+import { createAppError } from '@daisy/errors';
+import { canOfferFreshRoom } from './fresh-room';
 import { roomBotAdmission } from './bot-admission';
 import { authorize } from '@daisy/auth/authorization';
 import { roomCommandOperation } from './command';
@@ -159,6 +161,58 @@ export function createRoomRuntimeOperations({
         config: p.config,
       })),
     }));
+  const create = async (
+    caller: Caller,
+    body: RoomCreate,
+  ): Promise<RoomCommandResponse> => {
+    const previous = await store.readRoomCreateReceipt({
+      caller,
+      commandId: body.commandId,
+      payloadDigest: digest(body),
+      authorize: (account) => can(caller, 'room.create', account),
+    });
+    if (previous)
+      return { receipt: previous, view: await view(caller, previous.roomId) };
+    const {
+      selection,
+      definition,
+      config,
+      formatId,
+      formatVersion,
+      presetVersion,
+      competitionType,
+      resolved,
+    } = await resolveRoomSelection(
+      body,
+      body.selection.kind === 'custom' ? [] : await catalog(caller),
+      store,
+      ids,
+    );
+    const receipt = await store.createRoomCommand({
+      caller,
+      authorize: (account) => can(caller, 'room.create', account),
+      maxOpenRooms: maxOpenRooms(),
+      commandId: body.commandId,
+      payloadDigest: digest(body),
+      definition: selection.kind === 'custom' ? definition : null,
+      room: {
+        id: ids.next(),
+        hostActorId: caller.actorId,
+        title: body.title,
+        topic: body.topic,
+        visibility: body.visibility,
+        formatId,
+        formatVersion,
+        presetVersion,
+        competitionType,
+        length: selection.length,
+        config,
+        executionPlan: resolved.roomPlan,
+        rules: resolved.rules,
+      },
+    });
+    return { receipt, view: await view(caller, receipt.roomId) };
+  };
   return {
     view,
     roundView: (caller: Caller, roundId: string) =>
@@ -196,57 +250,18 @@ export function createRoomRuntimeOperations({
         (account) => can(caller, 'room.list', account),
       );
     },
-    async create(
-      caller: Caller,
-      body: RoomCreate,
-    ): Promise<RoomCommandResponse> {
-      const previous = await store.readRoomCreateReceipt({
+    create,
+    async rematch(caller: Caller, sourceRoomId: string, body: RoomCreate) {
+      const source = await store.readRoomAssembly(
+        sourceRoomId,
         caller,
-        commandId: body.commandId,
-        payloadDigest: digest(body),
-        authorize: (account) => can(caller, 'room.create', account),
-      });
-      if (previous)
-        return { receipt: previous, view: await view(caller, previous.roomId) };
-      const {
-        selection,
-        definition,
-        config,
-        formatId,
-        formatVersion,
-        presetVersion,
-        competitionType,
-        resolved,
-      } = await resolveRoomSelection(
-        body,
-        body.selection.kind === 'custom' ? [] : await catalog(caller),
-        store,
-        ids,
+        (state, account) => can(caller, 'room.read', account, state),
       );
-      const receipt = await store.createRoomCommand({
-        caller,
-        authorize: (account) => can(caller, 'room.create', account),
-        maxOpenRooms: maxOpenRooms(),
-        commandId: body.commandId,
-        payloadDigest: digest(body),
-        definition: selection.kind === 'custom' ? definition : null,
-        room: {
-          id: ids.next(),
-          hostActorId: caller.actorId,
-          title: body.title,
-          topic: body.topic,
-          visibility: body.visibility,
-          formatId,
-          formatVersion,
-          presetVersion,
-          competitionType,
-          length: selection.length,
-          config,
-          executionPlan: resolved.roomPlan,
-          rules: resolved.rules,
-        },
-      });
-      return { receipt, view: await view(caller, receipt.roomId) };
+      if (source.hostActorId !== caller.actorId)
+        throw createAppError('AUTHORIZATION');
+      if (!canOfferFreshRoom(source, caller.actorId))
+        throw createAppError('CONFLICT');
+      return create(caller, body);
     },
     command: roomCommandOperation({
       store,
