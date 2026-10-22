@@ -1,4 +1,4 @@
-import { checkLivekit } from './doctor-media';
+import { checkLivekit, checkMediaWorker } from './doctor-media';
 import { puLauncherProblem, readPuLauncher } from './doctor-launcher';
 import { SQL, RedisClient } from 'bun';
 import { readServerConfig } from '@daisy/config';
@@ -27,6 +27,7 @@ const checkNames = [
   'migration-currency',
   'redis',
   'livekit',
+  'media-worker',
   'boundaries',
   'slot',
   'slot-orphans',
@@ -384,6 +385,7 @@ export async function runDoctor(): Promise<DoctorReport> {
     migrations,
     redis,
     livekit,
+    mediaWorker,
     boundaries,
     slots,
     identity,
@@ -393,6 +395,7 @@ export async function runDoctor(): Promise<DoctorReport> {
     checkMigrationCurrency(process.env.DATABASE_URL),
     checkRedis(process.env.REDIS_URL),
     checkLivekit(),
+    checkMediaWorker(process.env),
     checkBoundaries(),
     checkSlots(),
     checkGithubIdentity(),
@@ -404,6 +407,7 @@ export async function runDoctor(): Promise<DoctorReport> {
     migrations,
     redis,
     livekit,
+    mediaWorker,
     boundaries,
     ...slots,
     identity,

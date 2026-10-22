@@ -1,15 +1,42 @@
 # Capture worker runtime
 
-`apps/media-worker` owns the separate hidden capture process described by ADR 0053. `bun run --cwd apps/media-worker start -- ROUND_ID SESSION_ID WORKER_ID`
-starts one assigned session. IDs are scope, never credentials. The process edge
-requires the existing `PUBLIC_APP_URL`, `MEDIA_WORKER_SECRET` and
-`OPENROUTER_API_KEY` capabilities; it creates no credentials and activates no
-production service. STT preserves `openai/whisper-large-v3-turbo` explicitly at
-that edge. The app calls public media and AI adapters; it opens no database or
-Redis connection. Discovery/supervision across sessions remains a separate
-incomplete implementation obligation, not an implied deployed scheduler.
+`apps/media-worker` owns the separate hidden capture deployment described by
+ADR 0053. `bun run --cwd apps/media-worker start` is the supervisor. It reads
+`readMediaWorkerConfig` (`MEDIA_WORKER_DATABASE_URL`, `PUBLIC_APP_URL`,
+`MEDIA_WORKER_SECRET`, `OPENROUTER_API_KEY`, optional
+`MEDIA_WORKER_MAX_SESSIONS` 1..64, default 8) and refuses to start when any is
+missing. It then refuses a database login broader than `daisy_media_worker`
+(a superuser, a non-member, or one holding INSERT, UPDATE, DELETE or TRUNCATE
+on any table).
 
-The launcher isolates native SDK stdout/stderr and passes only those three
+That role (VIDEO-3.13) has SELECT on `rounds`, `round_participants`,
+`round_segments`, `media_sessions`, `media_participants` and
+`media_worker_leases`, and no write privilege. Leases, utterances,
+observations and seals move only through the signed web path, under the
+Round -> lease -> stream lock order. Locally `bun slot:up` provisions the
+`daisy_media_worker_local` loopback login and writes the slot's
+`MEDIA_WORKER_DATABASE_URL`; production provisions its own credential
+(VIDEO-4.2). `bun doctor` reports `media-worker`: a warning naming the missing
+fields when unconfigured, a pass for a role-scoped login, and a failure for a
+broader login or an unreachable database. The worker creates no credentials and activates no production
+service. STT preserves `openai/whisper-large-v3-turbo` explicitly at the
+capture edge.
+
+Every second the supervisor discovers sessions needing capture: not ended,
+not unsafe, no deletion requested, Round scheduled or active, and no live
+lease. Discovery is advisory; the per-session process claims the lease
+through the signed path, which rechecks everything under locks. Each session
+gets one capture process with a fresh worker id, so a relaunch after a crash
+or exit takes the expired lease over at a new epoch instead of reusing stale
+authority. A session that was just launched is never launched twice while its
+lease is still pending. A failing session backs off exponentially from 1 s to
+30 s without blocking other sessions. SIGTERM stops discovery, sends SIGTERM
+to every capture process, kills any that are still running after 20 s, and
+exits once all have exited. The supervisor logs only `server.ready`,
+`server.shutdown`, `media.discovery.failed` (`errorCode`) and
+`media.capture.failed` (`status`).
+
+The supervisor isolates each capture process's native SDK stdout/stderr and passes only those three
 configuration fields to its child. It returns a process exit status, never raw
 vendor diagnostics, audio or text. A stop sends SIGTERM and awaits exit; a
 20-second deadline kills an unresponsive child. Competitive status and bot
@@ -65,10 +92,18 @@ isolated, fully migrated run database and fails when the configured provider
 capability is absent. It uses a real custom Room with two legal forty-second
 speeches, the shared engine's actual clock, a connected publishing peer, actual
 Aura PCM, hidden native capture, Whisper transcription and signed durable ingress.
-The observed run committed fifteen captured chunks and froze incomplete at
-frontier seventeen. Empty/missing required streams close partial from committed
-nonempty speaking history; no nominal/possible window becomes coverage. This
+The worker runs as the supervisor under the worker login and discovers the
+session itself. It passes only when the supervisor drains cleanly (exit 0,
+logging exactly `server.ready` then `server.shutdown`) and the finalized
+transcript is frozen, `incomplete`, has at least one captured utterance and no
+`open` coverage stream. Chunk counts vary per run and are not part of the
+predicate. Expected streams come from `createStreamTracker` (unit-tested in
+`capture-streams.test.ts`): every committed nonempty in-segment speaking
+interval is expected, so a silent seat seals partial instead of staying open,
+and no nominal/possible window becomes coverage. A seal below the stored chunk
+count is refused, so a takeover worker that knows only its own epoch's chunks
+leaves that stream open for finalization rather than under-reporting it. This
 scoped result does not claim human browser recording, bot generation admission,
-judging, discovery, soak or all race acceptance. The publishing peer stays
+judging, soak or all race acceptance. The publishing peer stays
 connected until the actual Round end so normal empty-room departure does not
 prematurely end the fixture's capture process.

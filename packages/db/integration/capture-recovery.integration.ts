@@ -1,4 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { assertRejects } from '@daisy/errors/testing';
 import { requireTestServices } from '@daisy/config';
 import { historicalCapture } from './media-capture.test-support';
 import { withBoundedRound } from './bounded-transaction.test-support';
@@ -53,3 +54,42 @@ for (const mode of ['old-observation', 'old-chunk', 'current-silence']) {
     });
   });
 }
+
+test('a takeover seal never records fewer chunks than are stored', async () => {
+  await withBoundedRound(async (fixture, transaction, roundId) => {
+    const f = await historicalCapture(fixture, transaction, roundId);
+    try {
+      await f.store.claimMediaWorkerLease({ ...f.lease, leaseMs: 15000 });
+      await f.store.appendCapturedTranscript(f.clip);
+      await fixture.sql`update media_worker_leases set expires_at=clock_timestamp()-interval '1 second' where session_id=${f.lease.sessionId}`;
+      const { epoch } = await f.store.claimMediaWorkerLease({
+        ...f.lease,
+        leaseMs: 15000,
+      });
+      await assertRejects({
+        given:
+          'a new epoch sealing a remembered stream with only its own zero count',
+        should: 'refuse a seal below the stored chunk count',
+        code: 'CONFLICT',
+        actual: () =>
+          f.store.sealCapturedStream({
+            ...f.stream,
+            epoch,
+            expectedChunkCount: 0,
+          }),
+      });
+      const [stream] = await fixture.sql`
+        select state, chunk_count, sealed_chunk_count from transcript_segments
+        where segment_id=${f.stream.segmentId}
+          and round_participant_id=${f.stream.roundParticipantId}`;
+      assert({
+        given: 'the refused under-count seal',
+        should: 'leave the stream open for finalization with its stored count',
+        actual: { ...stream },
+        expected: { state: 'open', chunk_count: 1, sealed_chunk_count: null },
+      });
+    } finally {
+      await fixture.sql`delete from rounds where id=${roundId}`;
+    }
+  });
+});
