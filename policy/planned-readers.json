@@ -162,6 +162,15 @@
       "adr": "docs/decisions/0057-planned-readers.md",
       "reason": "ADR0053 raw capture subscription producer 089efbef7732986c45b4ac3c39f896d9d5eb6063 precedes committed VIDEO-3.8 worker reader tz1d7obvmg0rnhzfhyllifjl. Real native 16k callback/lifecycle and callback-removal sabotage proof does not establish worker clock calibration, coverage, STT or relay acceptance.",
       "reviewBy": "2026-11-05"
+    },
+    {
+      "path": "packages/media/src/capture-clips.ts",
+      "export": "cutCaptureClips",
+      "task": "VIDEO-3.7",
+      "owner": "VIDEO / ag-294zgpzv",
+      "adr": "docs/decisions/0057-planned-readers.md",
+      "reason": "ADR0053 clipper producer ea10dd15 precedes committed VIDEO-3.7 ra82u76kiby44gpk7ibd3nl5 and VIDEO-3.8 tz1d7obvmg0rnhzfhyllifjl worker readers. It requires calibrated 16k mono capture, full historical windows and a fresh PostgreSQL horizon; unit proof does not establish calibration, STT or a production worker.",
+      "reviewBy": "2026-11-05"
     }
   ]
 }
