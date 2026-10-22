@@ -69,10 +69,10 @@ coverage or authorize freezing on silence.
 
 `round_judging_jobs` binds one durable intent to that exact Round/revision. Its
 judge seat has a scoped Round foreign key; its optional result ballot is scoped
-to the same judge seat. A leased intent requires a token, expiry and positive
-attempt count; only a succeeded intent can carry a result. Tokens are secret
-fencing values and must never be logged. Runtime claim/renew/finish operations
-must compare the token and unexpired lease in their write transaction. Existing
+to the same judge seat. A leased intent requires a SHA3-256 token digest, expiry and positive
+attempt count; only a succeeded intent can carry a result. Bearer tokens use OS CSPRNG entropy, never cuid2. Only their SHA3-256
+digests are persisted; neither bearer nor digest is logged. Runtime claim/renew/finish operations
+must compare the supplied token digest and unexpired lease in their write transaction. Existing
 `agent_runs` continues to own provider/model usage for judging attempts.
 
 | Table                    | Columns                                                         | Category   | Purpose                                                       |
@@ -80,7 +80,7 @@ must compare the token and unexpired lease in their write transaction. Existing
 | round_transcript_freezes | round_id                                                        | identifier | Bind the one immutable input to its Round                     |
 | round_transcript_freezes | revision, frontier, frozen_at, completeness                     | none       | Pin transcript frontier, closure time and honest completeness |
 | round_judging_jobs       | round_id, judge_participant_id, result_ballot_id                | identifier | Bind a durable intent and result to the Round judge           |
-| round_judging_jobs       | lease_token                                                     | secret     | Fence the active judging attempt                              |
+| round_judging_jobs       | lease_token_digest                                              | secret     | Fence the active judging attempt                              |
 | round_judging_jobs       | freeze_revision, status, lease_expires_at, attempts, created_at | none       | Track the exact frozen input and retryable execution          |
 
 Frozen inputs and jobs follow Round erasure. Jobs are deleted before their
