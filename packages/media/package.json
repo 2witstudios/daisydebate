@@ -8,7 +8,8 @@
     "./audio": "./src/audio-publication.ts",
     "./publication": "./src/paced-publication.ts",
     "./internal": "./src/worker-auth.ts",
-    "./capture": "./src/native-capture.ts"
+    "./capture": "./src/native-capture.ts",
+    "./clips": "./src/capture-clips.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
