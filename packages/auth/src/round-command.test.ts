@@ -62,3 +62,69 @@ test('principal binding refuses seat theft and escaped AgentRun scope', () => {
       expected,
     });
 });
+
+test('start and missing eligibility refuse closed without fabricating an actor', () => {
+  const human = { kind: 'human', actorId: 'host' } as const;
+  const agent = {
+    kind: 'agent',
+    serviceId: 'worker',
+    agentRunId: 'run',
+    roundId: 'round',
+    participantId: 'bot-seat',
+  } as const;
+  for (const [principal, expected] of [
+    [human, true],
+    [{ ...human, actorId: 'outsider' }, false],
+    [agent, false],
+  ] as const)
+    assert({
+      given: JSON.stringify(principal),
+      should: 'allow only the host to start',
+      actual: bindRoundCommandPrincipal({
+        principal,
+        authority,
+        command: { type: 'start' },
+      }).ok,
+      expected,
+    });
+  for (const agentRun of [
+    null,
+    { ...authority.agentRun!, active: false },
+    { ...authority.agentRun!, participantId: 'other-seat' },
+  ])
+    assert({
+      given: 'missing, finished or foreign assigned run',
+      should: 'refuse its service principal',
+      actual: bindRoundCommandPrincipal({
+        principal: agent,
+        authority: { ...authority, agentRun },
+        command: { type: 'yield', participantId: 'bot-seat' },
+      }),
+      expected: { ok: false, refusal: 'not-authorized' },
+    });
+  for (const participants of [
+    [],
+    [{ ...authority.participants[0]!, eligible: false }],
+    [{ ...authority.participants[0]!, role: 'judge' as const }],
+  ])
+    assert({
+      given: 'missing, ineligible or judge seat',
+      should: 'refuse competitive acting authority',
+      actual: bindRoundCommandPrincipal({
+        principal: { kind: 'human', actorId: 'person' },
+        authority: { ...authority, participants },
+        command: { type: 'forfeit', participantId: 'human-seat' },
+      }),
+      expected: { ok: false, refusal: 'not-seated' },
+    });
+  assert({
+    given: 'the eligible host',
+    should: 'start without a participant impersonation',
+    actual: bindRoundCommandPrincipal({
+      principal: human,
+      authority,
+      command: { type: 'start' },
+    }),
+    expected: { ok: true, actorId: null, participantId: null },
+  });
+});

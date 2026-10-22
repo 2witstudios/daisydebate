@@ -101,6 +101,17 @@ test('concurrent identical commands commit once and replay before stale-version 
         actual: { executions, version: (await db.getRound(roundId))?.version },
         expected: { executions: 1, version: 2 },
       });
+      await fixture.sql.unsafe(
+        'update users set username = $1 where id = (select user_id from actors where id = $2)',
+        ['', actorId],
+      );
+      await assertRejects({
+        given:
+          'a canonical nonmember with an empty username retrying an accepted command',
+        should: 'reauthorize and refuse replay',
+        actual: () => db.executeRoundCommand(input),
+        code: 'AUTHORIZATION',
+      });
     } finally {
       await db.close();
     }
