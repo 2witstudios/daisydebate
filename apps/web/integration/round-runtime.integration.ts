@@ -79,22 +79,7 @@ for (const revoke of ['lease', 'run'] as const)
         const bot = (await f.operations.castChoices(f.host)).find(
           (p) => p.kind === 'bot',
         )!;
-        room = (
-          await f.command(f.host, room, {
-            type: 'claim-seat',
-            role: 'affirmative',
-            slot: 0,
-          })
-        ).view;
-        room = (
-          await f.command(f.host, room, {
-            type: 'assign-seat',
-            actorId: bot.actorId,
-            role: 'negative',
-            slot: 0,
-          })
-        ).view;
-        room = (await f.consent(f.host, room, 'ready')).view;
+        room = await f.seatBotOpponent(room, bot.actorId);
         const { roundId, operations, principal } = await startRuntimeRound(
           f,
           room,

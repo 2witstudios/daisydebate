@@ -111,6 +111,57 @@ RT-4.3d's real public-path check-in probe remains required for the full recovery
 journey: process leases alone cannot prove public ingress reachability. Do not
 claim the historical accepted lease-only risk as proof of ingress-outage fairness.
 
+## Capture proof applicability (DEC-190)
+
+[DEC-190](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/plem8tqexq7oonyq0jnwpfap)
+is recorded under delegated authority and remains open for owner confirmation or
+reversal. Its narrow applicability change follows the independent
+[capability audit](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/m5btrfnrfkp9yo2v6j6kgucs)
+and is carried by
+[VIDEO-3.1-r3](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/jojis5n01vpb3sqt4gbkelcp).
+The historical integrated clause is “It proves both complete coverage and honest
+partial coverage reaching judging.” Original PageSpace leaf criteria and review
+history remain preserved. Only that clause's requirement for a native whole-grant
+complete path is replaced by the two proof obligations below. No requested cast,
+provider, browser journey, worker or race is removed.
+
+1. **Durable complete storage proof:** real PostgreSQL transactions with accepted
+   engine history must prove the unchanged complete-coverage predicate, immutable
+   complete seal, committed transcript frontier and frozen reader ordering. Exact
+   whole-grant coverage, including silence with zero chunks, must be evidenced;
+   lease ownership or sample/chunk totals alone cannot supply it. Removing a
+   historical-window guard or required observation must turn the proof RED.
+2. **Native integrated proof:** actual human microphone PCM and configured STT,
+   bot provider PCM over the shared LiveKit path, and calibrated full-frame
+   eligibility must produce real retained transcript content. Discovery delays,
+   uncertain edges, stalls, dropped clips and cancellation stay explicit gaps;
+   their streams seal partial and freeze incomplete. Real human and AI judges
+   consume the same immutable revision and actual retained content, with truthful
+   partial/frozen browser state. Provider errors, takeover, cutoff/freeze races,
+   teardown and restart recovery still require actual service proof.
+
+The existing `packages/db/integration/media-capture.integration.ts` complete seal
+and full-window refusal proofs, and `packages/media/integration/native-publication.integration.ts`
+native source proofs have distinct scope. Neither alone discharges the integrated
+journey. Required composed tests must independently verify:
+
+| Boundary                     | Required positive and negative evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Complete storage             | Actual accepted history plus continuous retained coverage seals complete; deleting coverage or widening across a grant boundary refuses or seals partial, without mutation on refusal.                                                                                                                                                                                                                                                                                                                                                                           |
+| Native human and bot         | Real human STT and bot PCM create retained eligible content; refreshed calibration, full uncertainty containment and consumed cadence are required. Stall, stale calibration, burst credit, cancellation and uncertain edges never admit rejected PCM or unearned generated text to the transcript; refuse subsequent dispatch and credit after cancellation. Native handoff precedes acknowledgement-window authorization, so refusal cannot undo PCM already handed to the source. Native permission enforcement and cancellation obligations remain required. |
+| Partial freeze and judging   | Native gaps remain partial through immutable incomplete freeze, shared human ballot and actual AI judge provider result; a later retry cannot heal the frozen revision or redispatch a cached validated result.                                                                                                                                                                                                                                                                                                                                                  |
+| Concurrent durable writers   | Actual append/seal versus lease takeover, cutoff, paused scheduler and freeze preserves admission fences and idempotency; removing the owning fence fails the test.                                                                                                                                                                                                                                                                                                                                                                                              |
+| Browser and provider journey | Required real human/human, human/AI and judge casts retain camera, shared media, authority, transcript privacy and actual result/teardown behavior.                                                                                                                                                                                                                                                                                                                                                                                                              |
+
+A raw callback bracket observes producer delivery before the SDK queue. It is not
+an acoustic/network/prior-native-queue latency bound. A conservative outer possible
+time window proves eligibility only when fully contained; it does not prove
+retained PCM throughout that entire window. Continuous raw observations cannot
+heal rejected uncertain edge PCM. A future native complete claim needs a valid
+whole-grant edge witness under all allowed calibration worlds. The audit does not
+establish global impossibility, and the complete predicate, runtime statuses,
+full-window authorization, privacy and immutable freeze remain unchanged.
+
 ## Replacement test obligations and existing carriers
 
 | Historical clause / decision                                    | Required replacement and negative proof                                                                                                                                                                                                                          | Existing owner leaves                                    |

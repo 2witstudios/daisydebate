@@ -1,4 +1,12 @@
-import { createAppError } from '@daisy/errors';
+import {
+  bindMediaParticipant,
+  mediaBindingFields as bindingFields,
+} from './media-participant-binding';
+import {
+  verifyLockedBotWorker,
+  requireBotSpeakingWindow,
+  type BotPublicationScope,
+} from './bot-publication-context';
 import { and, eq } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { BoundedTransaction } from './bounded-transaction';
@@ -14,14 +22,12 @@ import {
 import { sampleRoundExecutionTime } from './round-execution-time';
 import { mediaParticipants, mediaSessions } from './schema/media-sessions';
 import { rounds } from './schema/rounds';
-
-const bindingFields = {
-  sessionId: mediaSessions.id,
-  roomName: mediaSessions.roomName,
-  roundId: mediaSessions.roundId,
-  roundParticipantId: mediaParticipants.roundParticipantId,
-  identity: mediaParticipants.identity,
-};
+import { createMediaReconcileStore } from './media-reconcile-store';
+import {
+  lockedMediaSnapshot,
+  type MediaSessionRead,
+} from './media-session-snapshot';
+import { createMediaAdmissionStore } from './media-admission-store';
 
 /** One application SQL pool and its bounded transaction runner; no owned connection lifecycle. */
 export function createMediaSessionStore({
@@ -34,6 +40,10 @@ export function createMediaSessionStore({
   readonly nextId: () => string;
 }) {
   return {
+    ...createMediaReconcileStore({ database, run, nextId }),
+    ...createMediaAdmissionStore(run),
+    readMediaSession: (input: MediaSessionRead) =>
+      run((tx) => lockedMediaSnapshot(tx, input)),
     async ensureBinding(input: {
       readonly roundId: string;
       readonly actorId: string;
@@ -56,55 +66,38 @@ export function createMediaSessionStore({
           await sampleRoundExecutionTime(tx),
           current!.finalSegmentEndedAt?.toISOString() ?? null,
         );
-        await tx
-          .insert(mediaSessions)
-          .values({
-            id: parseId(nextId()),
-            roundId,
-            roomName: parseId(nextId()),
-          })
-          .onConflictDoNothing({ target: mediaSessions.roundId });
-        const [session] = await tx
-          .select()
-          .from(mediaSessions)
-          .where(eq(mediaSessions.roundId, roundId))
-          .for('update');
-        if (!session || session.endedAt)
-          throw createAppError('CONFLICT', 'Round media has ended');
+        const binding = await bindMediaParticipant(tx, {
+          roundId,
+          roundParticipantId,
+          nextId,
+        });
         const tick = await executeLockedRoundTick(tx, {
           roundId,
           buildProjection: input.buildProjection,
         });
         requireMediaWindow(current!.status, tick.now, tick.finalSegmentEndedAt);
-        await tx
-          .insert(mediaParticipants)
-          .values({
-            id: parseId(nextId()),
-            sessionId: session.id,
-            roundId,
-            roundParticipantId,
-            identity: parseId(nextId()),
-          })
-          .onConflictDoNothing({
-            target: [
-              mediaParticipants.sessionId,
-              mediaParticipants.roundParticipantId,
-            ],
-          });
-        const [binding] = await tx
-          .select(bindingFields)
-          .from(mediaSessions)
-          .innerJoin(
-            mediaParticipants,
-            eq(mediaParticipants.sessionId, mediaSessions.id),
-          )
-          .where(
-            and(
-              eq(mediaSessions.id, session.id),
-              eq(mediaParticipants.roundParticipantId, roundParticipantId),
-            ),
-          );
-        if (!binding) throw createAppError('INTERNAL', 'Media binding missing');
+        return binding;
+      });
+    },
+    async ensureBotBinding(input: {
+      readonly scope: BotPublicationScope;
+      readonly token: string;
+      readonly buildProjection: LockedRoundTickInput['buildProjection'];
+    }) {
+      return run(async (tx) => {
+        await verifyLockedBotWorker(tx, input.scope, input.token);
+        const binding = await bindMediaParticipant(tx, {
+          roundId: input.scope.roundId,
+          roundParticipantId: input.scope.roundParticipantId,
+          nextId,
+        });
+        const tick = await executeLockedRoundTick(tx, {
+          roundId: input.scope.roundId,
+          buildProjection: input.buildProjection,
+        });
+        await verifyLockedBotWorker(tx, input.scope, input.token);
+        await requireBotSpeakingWindow(tx, input.scope);
+        requireMediaWindow('active', tick.now, tick.finalSegmentEndedAt);
         return binding;
       });
     },

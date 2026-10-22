@@ -1,5 +1,7 @@
 import { and, asc, eq, or, sql } from 'drizzle-orm';
+import { isDeepStrictEqual } from 'node:util';
 import { createAppError } from '@daisy/errors';
+import { ballotSchema } from '@daisy/protocol';
 import type { BoundedTransactionContext } from './transaction-context';
 import type { BoundedTransaction } from './bounded-transaction';
 import { agentRuns } from './schema/agent-runs';
@@ -12,6 +14,12 @@ import {
   type JudgingScope,
 } from './round-judging-context';
 import { claimLockedJudgingJob } from './round-judging-claim';
+import { submitLockedJudgingResult } from './round-judging-result';
+import type { LockedRoundBallotInput } from './round-ballot-operations';
+import {
+  lockBotAdmission,
+  markLockedRoundBotModelCall,
+} from './round-bot-admission';
 export type { JudgingScope } from './round-judging-context';
 /** Durable intents use the same injected bounded transaction; no provider I/O occurs under locks. */
 export function createRoundJudgingJobs(input: {
@@ -33,10 +41,14 @@ export function createRoundJudgingJobs(input: {
     token: string,
     work: (
       tx: BoundedTransactionContext,
-      lease: Awaited<ReturnType<typeof assertLockedJudgingLease>>,
+      lease: Awaited<ReturnType<typeof assertLockedJudgingLease>> & {
+        round: Awaited<ReturnType<typeof lockRoundAgentContext>>['round'];
+      },
     ) => T | Promise<T>,
+    billable = false,
   ) =>
     input.run(async (tx) => {
+      if (billable) await lockBotAdmission(tx);
       await tx.execute(
         sql`select pg_advisory_xact_lock(hashtextextended(${scope.commandId},59002))`,
       );
@@ -47,7 +59,7 @@ export function createRoundJudgingJobs(input: {
       );
       if (context.seat.role !== 'judge') throw createAppError('AUTHORIZATION');
       const lease = await assertLockedJudgingLease(tx, scope, token);
-      return work(tx, lease);
+      return work(tx, { ...lease, round: context.round });
     });
   return {
     scan: (limit: number) => {
@@ -83,24 +95,93 @@ export function createRoundJudgingJobs(input: {
     },
     claim: (target: Pick<JudgingScope, 'roundId' | 'judgeParticipantId'>) =>
       input.run((tx) => claimLockedJudgingJob(tx, target, input)),
-    verify: async (scope: JudgingScope, token: string) => {
-      await withLease(scope, token, () => undefined);
-    },
+    submitResult: (
+      scope: JudgingScope,
+      token: string,
+      prepared: LockedRoundBallotInput,
+    ) =>
+      input.run((tx) => submitLockedJudgingResult(tx, scope, token, prepared)),
+    verify: (scope: JudgingScope, token: string) =>
+      withLease(scope, token, (_tx, { round, job }) => ({
+        expectedVersion: round.version,
+        pendingBallot: job.pendingBallot,
+      })),
     beginModelCall: (scope: JudgingScope, token: string) =>
-      withLease(scope, token, async (tx, { run }) => {
-        if (run.configurationSnapshot.providerOutcome !== 'not_started')
-          throw createAppError('CONFLICT', 'Model call already dispatched');
+      withLease(
+        scope,
+        token,
+        async (tx, { run, job }) => {
+          if (
+            job.pendingBallot ||
+            run.configurationSnapshot.providerOutcome !== 'not_started'
+          )
+            throw createAppError('CONFLICT', 'Model call already dispatched');
+          const reservation = await markLockedRoundBotModelCall(
+            tx,
+            scope.roundId,
+          );
+          await tx
+            .update(agentRuns)
+            .set({
+              requests: run.requests + 1,
+              configurationSnapshot: {
+                ...run.configurationSnapshot,
+                providerOutcome: 'unknown',
+              },
+            })
+            .where(eq(agentRuns.id, run.id));
+          return reservation;
+        },
+        true,
+      ),
+    saveResult: (
+      scope: JudgingScope,
+      token: string,
+      response: unknown,
+      usage: { readonly inputTokens: number; readonly outputTokens: number },
+    ) => {
+      if (
+        ![usage.inputTokens, usage.outputTokens].every(
+          (value) =>
+            Number.isSafeInteger(value) && value >= 0 && value <= 2147483647,
+        )
+      )
+        throw createAppError('INFRASTRUCTURE', 'Invalid model usage');
+      const parsed = ballotSchema.safeParse(response);
+      if (!parsed.success) throw createAppError('VALIDATION');
+      return withLease(scope, token, async (tx, { run, job, now }) => {
+        if (job.pendingBallot) {
+          if (!isDeepStrictEqual(job.pendingBallot, parsed.data))
+            throw createAppError(
+              'CONFLICT',
+              'Judging response already recorded',
+            );
+          return;
+        }
+        if (run.configurationSnapshot.providerOutcome !== 'unknown')
+          throw createAppError('CONFLICT', 'Model call not dispatched');
+        await tx
+          .update(roundJudgingJobs)
+          .set({
+            pendingBallot: parsed.data,
+            pendingBallotAgentRunId: run.id,
+            pendingBallotEpoch: scope.jobEpoch,
+            pendingBallotReceivedAt: now,
+          })
+          .where(judgingJobWhere(scope));
         await tx
           .update(agentRuns)
           .set({
-            requests: run.requests + 1,
+            inputTokens: usage.inputTokens,
+            outputTokens: usage.outputTokens,
             configurationSnapshot: {
               ...run.configurationSnapshot,
-              providerOutcome: 'unknown',
+              providerOutcome: 'received',
             },
           })
           .where(eq(agentRuns.id, run.id));
-      }),
+      });
+    },
     renew: (scope: JudgingScope, token: string) =>
       withLease(scope, token, async (tx, { now }) => {
         const expires = new Date(now.getTime() + input.leaseMs);

@@ -3,10 +3,11 @@
 The media adapter stores one opaque LiveKit room name per Round and one opaque
 identity per authoritative Round participant. It does not copy actor, role or
 slot authority. Composite foreign keys bind a media participant to both the
-session's Round and its competitive seat. `createMediaSessionStore` in
-`@daisy/db/media-session` serializes binding creation on the Round row; terminal
-Rounds and ended sessions refuse admission. Its caller must resolve fresh
-application authorization and the judging window before requesting a binding.
+session's Round and its competitive seat. The rooted `database.mediaSessions` adapter serializes binding creation on the
+Round row using the existing application pool and bounded transaction. It resolves
+fresh canonical account and Round seat authority under locks, runs the shared
+engine tick, and rejects terminal Rounds, expired judging windows and ended
+sessions before admission.
 This storage operation alone neither creates a vendor room nor mints credentials.
 
 ## Privacy classification
@@ -275,3 +276,20 @@ coverage gaps and count mismatch, epoch expiry/takeover, cutoff/freeze refusal
 and unchanged state after rejected writes. Native worker observation production,
 signed ingress, paused-scheduler engine composition and append/finalizer races
 remain separate required integration evidence.
+
+### Round maintenance
+
+The web startup composes `createRoundMaintenanceOperations` with the existing
+availability instance ID and the database's bound maintenance methods. A 500ms
+injected timer discovers all active Rounds using stable keyset pages, including
+human-only Rounds and Rounds without media sessions. Each Round runs the shared
+engine tick, attendance evaluation and transcript finalization in order. Work
+for one Round cannot block discovery or committed attendance-rating recovery.
+The service drains its own work before the application closes the existing pool.
+
+Maintenance mutations require a current durable web lease, canonical Round
+locking, and a fresh lease check after lock waits and before commit. Finalization
+also rechecks after stream waits. No second clock model, SQL pool or media lease
+is introduced. Attendance terminal races stop that Round's maintenance cycle;
+unexpected failures remain observable. Completed ranked attendance forfeits have
+a separate durable unrated scan using the existing idempotent rating operation.

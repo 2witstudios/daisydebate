@@ -37,6 +37,9 @@ describe('media room service boundary', () => {
         calls.push(['update', ...args]);
         return new ParticipantInfo({ identity });
       },
+      removeParticipant: async () => {
+        throw new Error('Unexpected removal');
+      },
       listParticipants: async () => [
         new ParticipantInfo({
           identity,
@@ -56,6 +59,7 @@ describe('media room service boundary', () => {
       | 'deleteRoom'
       | 'updateParticipant'
       | 'listParticipants'
+      | 'removeParticipant'
     >;
     const service = createMediaService({ config, rooms });
     await service.createRoom(room);

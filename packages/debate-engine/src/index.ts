@@ -18,27 +18,12 @@ export {
   requireAttendanceWindow,
   adjudicateAttendance,
 } from './attendance';
-export type {
-  AttendanceWindow,
-  AttendanceStamp,
-  AttendanceDecision,
-} from './attendance';
+export type { AttendanceWindow } from './attendance';
 export {
   deriveOutageIntervals,
   effectiveAttendanceDeadline,
 } from './availability';
-export type {
-  AvailabilitySample,
-  OutageInterval,
-  SettledAvailability,
-} from './availability';
 
-export {
-  assertAttendanceRules,
-  type AttendanceTimingPolicy,
-} from './attendance-policy';
+export { assertAttendanceRules } from './attendance-policy';
 
-export {
-  requireAttendanceDecision,
-  type AttendanceDecisionEvidence,
-} from './attendance-decision';
+export { requireAttendanceDecision } from './attendance-decision';

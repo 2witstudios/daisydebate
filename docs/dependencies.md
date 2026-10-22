@@ -153,3 +153,19 @@ and advertises loopback RTC candidates on fixed 7880/7881/7882 ports. Its fixed
 development credentials have no production use. Real local native transport
 proof is distinct from CI service wiring (VIDEO-1.5), browser qualification and
 full capture/worker acceptance.
+
+### Round browser media client
+
+`livekit-client` **2.22.0** is pinned directly in `apps/web` for VIDEO-2.5
+and VIDEO-2.8. It owns browser WebRTC camera/microphone publication and
+subscription for the shared Round controller. Server credentials, token minting
+and native PCM remain outside the browser graph. Version-matched official source:
+[Room lifecycle](https://github.com/livekit/client-sdk-js/blob/v2.22.0/src/room/Room.ts),
+[local tracks](https://github.com/livekit/client-sdk-js/blob/v2.22.0/src/room/participant/LocalParticipant.ts),
+[capture and simulcast options](https://github.com/livekit/client-sdk-js/blob/v2.22.0/src/room/track/options.ts),
+[logging](https://github.com/livekit/client-sdk-js/blob/v2.22.0/src/logger.ts).
+Reviewed before installation on 2026-10-22. Capture uses 360p with 180p/360p
+simulcast; SDK logging is silenced to avoid exposing private media identifiers.
+Local tracks must stop on teardown and failed admission. A token or native source
+acknowledgement does not prove remote audibility. The existing Vite **7.3.7**
+security patch remains pinned in the lockfile.

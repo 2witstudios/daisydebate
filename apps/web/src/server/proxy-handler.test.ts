@@ -274,3 +274,37 @@ test('production CSP permits only the configured websocket origin', () => {
     },
   });
 });
+
+test('LiveKit origins are restricted to Ready and live Round presentations', () => {
+  const connect = (path: string) =>
+    proxy(new NextRequest(`https://daisy.invalid${path}`), {
+      mediaPublicUrl: 'wss://media.daisy.invalid:9443/rtc',
+    }).headers.get('Content-Security-Policy') ?? '';
+  assert({
+    given: 'the configured secure media endpoint',
+    should:
+      'permit HTTPS/WSS on feature pages and retain upgrade-insecure-requests',
+    actual: ['/rooms/abc', '/rounds/abc', '/rounds/abc/room'].map((path) => {
+      const policy = connect(path);
+      return [
+        policy.includes(
+          'wss://media.daisy.invalid:9443 https://media.daisy.invalid:9443',
+        ),
+        policy.includes('upgrade-insecure-requests'),
+      ];
+    }),
+    expected: [
+      [true, true],
+      [true, true],
+      [true, true],
+    ],
+  });
+  assert({
+    given: 'unrelated pages and API routes',
+    should: 'retain the existing CSP without media origins',
+    actual: ['/', '/watch', '/api/rounds/abc', '/rounds/abc/docs'].map((path) =>
+      connect(path).includes('media.daisy.invalid'),
+    ),
+    expected: [false, false, false, false],
+  });
+});

@@ -158,7 +158,7 @@ async function rateOnce(
     .select()
     .from(rounds)
     .where(eq(rounds.id, roundId))
-    .for('update');
+    .for('no key update');
   if (!round) throw createAppError('NOT_FOUND', 'No such round');
   assertRatedRoundIntegrity(round);
   const [rated] = await tx

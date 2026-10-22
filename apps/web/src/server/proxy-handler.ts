@@ -1,3 +1,4 @@
+import { roundMediaOrigins } from '../features/round-media/browser-policy';
 import { createHash } from 'node:crypto';
 import { NextResponse, type NextRequest } from 'next/server';
 import type { IdGenerator } from '@daisy/clock';
@@ -26,6 +27,7 @@ export type ProxySettings = {
   /** `PUBLIC_APP_URL`. */
   readonly publicAppUrl: string;
   readonly websocketEndpoint?: string | null;
+  readonly mediaPublicUrl?: string | null;
   /** `NODE_ENV === 'development'`: the permissive dev-server policy. */
   readonly development: boolean;
   readonly ids: IdGenerator;
@@ -77,9 +79,17 @@ function signInHint(
   return response;
 }
 
-/** Policy construction stays separate from request routing and correlation. */
-function contentSecurityPolicy(settings: ProxySettings, nonce: string): string {
+function contentSecurityPolicy(
+  pathname: string,
+  settings: ProxySettings,
+  nonce: string,
+): string {
   const { development } = settings;
+  const mediaOrigins = roundMediaOrigins(
+    pathname,
+    settings.mediaPublicUrl,
+    development,
+  );
   return [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${development ? " 'unsafe-eval'" : ''}`,
@@ -93,7 +103,7 @@ function contentSecurityPolicy(settings: ProxySettings, nonce: string): string {
     "base-uri 'self'",
     "form-action 'self'",
     "frame-ancestors 'none'",
-    `connect-src 'self'${settings.websocketEndpoint ? ` ${new URL(settings.websocketEndpoint).origin}` : ''}${development ? ' ws:' : ''}`,
+    `connect-src 'self'${settings.websocketEndpoint ? ` ${new URL(settings.websocketEndpoint).origin}` : ''}${mediaOrigins.length ? ` ${mediaOrigins.join(' ')}` : ''}${development ? ' ws:' : ''}`,
     ...(development ? [] : ['upgrade-insecure-requests']),
   ].join('; ');
 }
@@ -117,7 +127,7 @@ export function handleProxy(request: NextRequest, settings: ProxySettings) {
   const nonce = Buffer.from(
     crypto.getRandomValues(new Uint8Array(16)),
   ).toString('base64');
-  const policy = contentSecurityPolicy(settings, nonce);
+  const policy = contentSecurityPolicy(pathname, settings, nonce);
   const hint = signInHint(request, policy, requestId, settings.publicAppUrl);
   if (hint) return hint;
   const headers = new Headers(request.headers);

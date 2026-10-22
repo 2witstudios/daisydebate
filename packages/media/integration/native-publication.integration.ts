@@ -1,95 +1,26 @@
 import {
+  proveNativeCapture,
+  proveCaptureRoomDeletion,
+} from './native-capture.test-support';
+import {
   withHistoricalSeat,
   waitForCadence,
   pcmJob,
 } from './native-fixtures.test-support';
 import { createPacedAudioWriter } from '../src/paced-publication';
 import { afterAll } from 'bun:test';
-import { once } from 'node:events';
 import { assertRejects } from '@daisy/errors/testing';
 import { requireTestServices } from '@daisy/config';
-import { createId } from '@paralleldrive/cuid2';
-import { AudioStream, Room, RoomEvent, dispose } from '@livekit/rtc-node';
+import { dispose } from '@livekit/rtc-node';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createMediaService } from '../src/service';
-import {
-  createAudioPublication,
-  type SourceProgress,
-} from '../src/audio-publication';
+import type { SourceProgress } from '../src/audio-publication';
+import { withNativePublication } from './native-room.test-support';
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 afterAll(async () => {
   await dispose();
 });
-const config = {
-  url: 'http://127.0.0.1:7880',
-  apiKey: 'daisy-local',
-  apiSecret: 'local-development-only-livekit-secret',
-};
-
-type NativePublication = Awaited<ReturnType<typeof createAudioPublication>>;
-async function withNativePublication(
-  work: (input: {
-    publisher: NativePublication;
-    reader: import('node:stream/web').ReadableStreamDefaultReader<
-      import('@livekit/rtc-node').AudioFrame
-    >;
-  }) => Promise<void>,
-  binding?: { roomName: string; identity: string },
-) {
-  const service = createMediaService({ config });
-  const roomName = binding?.roomName ?? createId();
-  const subscriber = new Room();
-  await service.createRoom(roomName);
-  let publisher: Awaited<ReturnType<typeof createAudioPublication>> | undefined;
-  try {
-    await subscriber.connect(
-      'ws://127.0.0.1:7880',
-      await service.joinToken({
-        room: roomName,
-        identity: createId(),
-        publish: [],
-        subscribe: true,
-        capture: true,
-      }),
-    );
-    const subscribed = once(subscriber, RoomEvent.TrackSubscribed, {
-      signal: AbortSignal.timeout(5000),
-    });
-    publisher = await createAudioPublication({
-      url: 'ws://127.0.0.1:7880',
-      token: await service.joinToken({
-        room: roomName,
-        identity: binding?.identity ?? createId(),
-        publish: ['microphone'],
-        subscribe: false,
-        capture: false,
-      }),
-      trackName: createId(),
-      sampleRate: 48000,
-      channels: 1,
-      monotonicNowMs: () => performance.now(),
-    });
-    const [track] = await subscribed;
-    const stream = new AudioStream(track, {
-      sampleRate: 48000,
-      numChannels: 1,
-      frameSizeMs: 10,
-    });
-    const reader = stream.getReader();
-    try {
-      await work({ publisher, reader });
-    } finally {
-      await reader.cancel();
-      reader.releaseLock();
-    }
-  } finally {
-    await publisher?.close();
-    await subscriber.disconnect();
-    await service.deleteRoom(roomName);
-  }
-}
 
 test(
   'Bun zero-buffer native publication acknowledges actual 10ms source handoffs',
@@ -285,3 +216,15 @@ test('burst handoff, stalled callback and revoked history cannot credit queued f
     });
   }
 }, 30000);
+
+test(
+  'real hidden capture receives callback-stamped 16k mono PCM and closes unpublished streams',
+  () => withNativePublication(proveNativeCapture),
+  15000,
+);
+
+test(
+  'deleted room disconnects real hidden capture and ends every microphone stream',
+  () => withNativePublication(proveCaptureRoomDeletion),
+  15000,
+);

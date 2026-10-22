@@ -11,7 +11,11 @@ import {
   type MediaJoin,
   type MediaPermissions,
 } from './contracts';
-import { roomPermissions, vendorPermissions } from './permissions';
+import {
+  roomPermissions,
+  vendorPermissions,
+  publicationPermission,
+} from './permissions';
 
 type RoomService = Pick<
   RoomServiceClient,
@@ -20,6 +24,7 @@ type RoomService = Pick<
   | 'deleteRoom'
   | 'listParticipants'
   | 'updateParticipant'
+  | 'removeParticipant'
 >;
 
 /** All credentials are injected; the SDK's environment fallback is never used. */
@@ -44,7 +49,29 @@ export function createMediaService({
       throw createAppError('INFRASTRUCTURE', 'Media service operation failed');
     }
   };
+  const participants = async (room: string) => {
+    const name = parseMedia(idSchema, room);
+    return operation(async () =>
+      (await client.listParticipants(name)).map((participant) =>
+        parseMedia(participantSchema, participant),
+      ),
+    );
+  };
   return {
+    async exists(room: string) {
+      const name = parseMedia(idSchema, room);
+      return operation(async () =>
+        (await client.listRooms([name])).some((room) => room.name === name),
+      );
+    },
+    async remove(room: string, identity: string) {
+      const name = parseMedia(idSchema, room),
+        actor = parseMedia(idSchema, identity);
+      await operation(() => client.removeParticipant(name, actor));
+    },
+    async publicationPermissions(room: string) {
+      return (await participants(room)).map(publicationPermission);
+    },
     async joinToken(input: MediaJoin) {
       const value = parseMedia(joinSchema, input);
       return operation(async () => {
@@ -84,13 +111,6 @@ export function createMediaService({
         }),
       );
     },
-    async participants(room: string) {
-      const name = parseMedia(idSchema, room);
-      return operation(async () =>
-        (await client.listParticipants(name)).map((participant) =>
-          parseMedia(participantSchema, participant),
-        ),
-      );
-    },
+    participants,
   };
 }

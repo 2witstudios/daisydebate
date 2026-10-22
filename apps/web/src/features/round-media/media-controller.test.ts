@@ -1,0 +1,137 @@
+import { assert, setupRitewayBun, test } from 'riteway/bun';
+import type { RoundMediaAdmission } from '@daisy/protocol';
+import { createMediaController } from './media-controller';
+setupRitewayBun();
+const roundId = 'r'.repeat(24);
+const admission: RoundMediaAdmission = {
+  version: 1,
+  roundId,
+  state: 'ready',
+  grants: {
+    publish: ['camera', 'microphone'],
+    subscribe: true,
+    hidden: false,
+    capture: false,
+  },
+  peers: [],
+  identity: 'p'.repeat(24),
+  token: 'private-token',
+  url: 'wss://media.invalid',
+  expiresAt: '2026-10-22T09:01:00.000Z',
+};
+
+const snapshot = {
+  version: admission.version,
+  roundId,
+  state: admission.state,
+  grants: admission.grants,
+  peers: admission.peers,
+};
+
+test('terminal stop closes tracks immediately while admission is pending', async () => {
+  let finish!: (value: RoundMediaAdmission) => void;
+  let created = 0;
+  const controller = createMediaController({
+    roundId,
+    api: {
+      admit: () =>
+        new Promise((accept) => {
+          finish = accept;
+        }),
+      reconcile: async () => snapshot,
+    },
+    transport: () => {
+      created++;
+      throw new Error('must never create');
+    },
+    changed: () => undefined,
+  });
+  const starting = controller.join();
+  controller.stop();
+  finish(admission);
+  await starting;
+  assert({
+    given: 'admission resolves after committed terminal stop',
+    should: 'never create a transport or reopen media',
+    actual: [created, controller.state()],
+    expected: [0, 'ended'],
+  });
+});
+
+test('cleanup never waits for an unfinished publication request', async () => {
+  let publish!: () => void;
+  const entered = Promise.withResolvers<void>();
+  let stopped = 0;
+  let disconnected = 0;
+  const controller = createMediaController({
+    roundId,
+    api: { admit: async () => admission, reconcile: async () => snapshot },
+    transport: () => ({
+      connect: async () => undefined,
+      apply: () =>
+        new Promise<void>((accept) => {
+          publish = accept;
+          entered.resolve();
+        }),
+      stopTracks: () => {
+        stopped++;
+      },
+      disconnect: async () => {
+        disconnected++;
+      },
+    }),
+    changed: () => undefined,
+  });
+  const starting = controller.join();
+  await entered.promise;
+  controller.stop();
+  publish();
+  await starting;
+  assert({
+    given: 'stop during a pending browser device operation',
+    should: 'close immediately and again after late completion',
+    actual: [stopped >= 2, disconnected >= 1, controller.state()],
+    expected: [true, true, 'ended'],
+  });
+});
+
+test('reconnect obtains a fresh admission and teardown leaves no old transport', async () => {
+  let minted = 0;
+  const transports: { stopped: number }[] = [];
+  const controller = createMediaController({
+    roundId,
+    api: {
+      admit: async () => {
+        minted++;
+        return admission;
+      },
+      reconcile: async () => snapshot,
+    },
+    transport: () => {
+      const transport = { stopped: 0 };
+      transports.push(transport);
+      return {
+        connect: async () => undefined,
+        apply: async () => undefined,
+        stopTracks: () => {
+          transport.stopped++;
+        },
+        disconnect: async () => undefined,
+      };
+    },
+    changed: () => undefined,
+  });
+  await controller.join();
+  await controller.reconnect();
+  controller.stop();
+  assert({
+    given: 'a transport reconnect after admission expiry',
+    should: 'mint again and stop every old transport',
+    actual: [
+      minted,
+      transports.length,
+      transports.every((transport) => transport.stopped > 0),
+    ],
+    expected: [2, 2, true],
+  });
+});

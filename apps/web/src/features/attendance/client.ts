@@ -9,6 +9,7 @@ type Pending = {
 };
 /** An exact HTTP command survives an unknown acknowledgement. Socket state is deliberately absent. */
 export function createAttendanceClient(deps: {
+  readonly read: () => Promise<Snapshot | null>;
   readonly nextCommandId: () => string;
   readonly send: (command: {
     readonly commandId: string;
@@ -18,6 +19,8 @@ export function createAttendanceClient(deps: {
   const pending = new Map<string, Pending>();
   const retired = new Set<string>();
   let active = true;
+  let stopped = false;
+  let terminal = false;
   let inFlight: Promise<void> | null = null;
   let forceQueued = false;
   const send = async (force: boolean): Promise<void> => {
@@ -55,29 +58,43 @@ export function createAttendanceClient(deps: {
       }
     }
   };
+  const adopt = (snapshot: Snapshot) => {
+    if (stopped || terminal) return;
+    active = snapshot.status === 'active';
+    if (!active) {
+      terminal =
+        snapshot.status === 'completed' || snapshot.status === 'abandoned';
+      pending.clear();
+      return;
+    }
+    for (const segment of snapshot.segments)
+      if (
+        segment.type === 'speech' &&
+        !pending.has(segment.id) &&
+        !retired.has(segment.id)
+      )
+        pending.set(segment.id, {
+          segmentId: segment.id,
+          commandId: deps.nextCommandId(),
+          acknowledged: false,
+        });
+  };
+  const refresh = async (force: boolean) => {
+    if (stopped || terminal) return;
+    const snapshot = await deps.read().catch(() => null);
+    if (stopped || terminal) return;
+    if (snapshot) adopt(snapshot);
+    await send(force);
+  };
   return {
     async update(snapshot: Snapshot) {
-      active = snapshot.status === 'active';
-      if (!active) {
-        pending.clear();
-        return;
-      }
-      for (const segment of snapshot.segments)
-        if (
-          segment.type === 'speech' &&
-          !pending.has(segment.id) &&
-          !retired.has(segment.id)
-        )
-          pending.set(segment.id, {
-            segmentId: segment.id,
-            commandId: deps.nextCommandId(),
-            acknowledged: false,
-          });
+      adopt(snapshot);
       await send(false);
     },
-    reconnect: () => send(true),
-    heartbeat: () => send(false),
+    reconnect: () => refresh(true),
+    heartbeat: () => refresh(false),
     stop() {
+      stopped = true;
       active = false;
       pending.clear();
     },

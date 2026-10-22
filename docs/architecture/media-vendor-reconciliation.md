@@ -48,3 +48,20 @@ Monotonic send/receive brackets must surround the actual call when using the
 stamp for native calibration. The broker additionally enforces the actual media
 window and hidden capture-only permissions. Verification is not browser access,
 room creation, competitive speaking authority or vendor cleanup proof.
+
+`readMediaCaptureState` on that same rooted capture factory is an internal signed
+worker read, not a public Round read. It advances the shared locked engine and
+verifies the exact live capture lease in the same bounded transaction. Default
+selection returns only a currently open competitive segment; no open segment
+returns null and no intervals, so conversation cannot be queued for later
+capture. An explicit scoped segmentId reads closed historical grants for valid
+late flushing before cutoff/freeze. Only debater seat IDs, actor kind and opaque
+media identity are returned; judge bindings and actor/account IDs are excluded.
+
+History pages contain at most512 actual rows and a nextIntervalId cursor. Every
+continuation requires the explicit segmentId and first page's expectedVersion;
+a changed version refuses the page. The worker restarts that snapshot on conflict
+and marks uncertain or missing observations as gaps. It must read all pages;
+there is no silent history truncation or assumption that only one floor change
+occurred between polls. Fresh serverNow remains a bracketed calibration sample,
+not permission or an exact frame timestamp.
