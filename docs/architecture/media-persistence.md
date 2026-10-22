@@ -319,3 +319,10 @@ Application code receives no general transcript-edit, speech-claim, execution
 recording or voice-budget writer. Root-surface tests enforce that boundary while
 ordered transcript reader tests and actual capture/private-read integrations
 retain their behavioral assertions.
+
+Transcript rows store captured content, ordering and scoped clip provenance;
+execution bearer credentials do not belong in transcript storage. Scoped bot
+publication/generation authority lives in its dedicated lease and execution
+producers. This separation adds no personal-data field, retention extension or
+production/legal activation. Captured text and retry digests retain the declared
+private transcript purpose, human basis gate and owning-Round erasure contract.
