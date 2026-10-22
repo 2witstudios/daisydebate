@@ -1,7 +1,9 @@
+import { readPersistedBallot } from '../../judge/ballot/[debateId]/actions';
+import { RoundBallotResults } from '../../../../ui/ballot/round-ballot-results';
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema, type RoundView } from '@daisy/protocol';
 import type { SearchParams } from '../../../../features/access/decision';
 import { requireAccess } from '../../../../lib/access';
 import { isLiveDebater } from '../../../../ui/debate-room/live-round';
@@ -11,6 +13,11 @@ import { RoundReceipt } from '../../../../ui/rooms/round-receipt/round-receipt';
 import { readPersistedRound } from './actions';
 
 export const metadata: Metadata = { title: 'Round' };
+async function completedBallots(round: RoundView, member: boolean) {
+  if (!member || round.status !== 'completed') return null;
+  const result = await readPersistedBallot(round.id);
+  return result.kind === 'found' ? result.view : null;
+}
 export default async function RoundPage({
   params,
   searchParams,
@@ -35,9 +42,14 @@ export default async function RoundPage({
     result.round.participants.some(
       (p) => !('anonymous' in p) && p.actorId === identity.principal.actorId,
     );
+  const ballots = await completedBallots(
+    result.round,
+    identity.state === 'member',
+  );
   return (
     <>
       <RoundReceipt round={result.round} />
+      {ballots ? <RoundBallotResults view={ballots} /> : null}
       {ownsFiles ? <RoundDocuments roundId={result.round.id} /> : null}
     </>
   );
