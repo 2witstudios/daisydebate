@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import { roomPolicyConfig } from './room-policy';
+import { botWorkerPolicyConfig } from './bot-worker-policy';
+export type { RoundBotWorkerPolicy } from './bot-worker-policy';
 import { mediaEndpoint } from './media-endpoint';
 import { databaseUrl, redisUrl } from './urls';
 import { realtimePublicUrlSchema } from './realtime-endpoint';
@@ -95,6 +97,7 @@ const deploymentIdentityFields = {
 };
 const serverFields = {
   AI_ROUND_BUSY_CAP: z.coerce.number().int().positive().optional(),
+  ROUND_BOT_WORKER_POLICY: botWorkerPolicyConfig,
   ROOM_POLICY: roomPolicyConfig,
   /** Configured isolated member/session resource for the actual public check-in probe. */
   ATTENDANCE_PUBLIC_PROBE: secret(z.string()).optional(),

@@ -1,10 +1,10 @@
 import { createInvariantError } from '@daisy/errors';
 
-export type AvailabilitySample = {
+type AvailabilitySample = {
   readonly atMs: number;
   readonly healthy: boolean;
 };
-export type OutageInterval = {
+type OutageInterval = {
   readonly startMs: number;
   readonly endMs: number | null;
 };

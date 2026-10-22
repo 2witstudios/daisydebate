@@ -115,6 +115,30 @@ const judged: RoundReceiptView = {
   ],
 };
 
+test('a completed zero-judge Round presents an unjudged result without inventing a winner', () => {
+  const html = renderToStaticMarkup(
+    <RoundReceipt
+      round={{
+        ...scheduled,
+        status: 'completed',
+        outcome: null,
+        participants: scheduled.participants.filter((p) => p.role !== 'judge'),
+      }}
+    />,
+  );
+  assert({
+    given: 'the shared completed Round with null outcome',
+    should: 'label its unjudged result truthfully in native HTML',
+    actual: [
+      html.includes('Result · Unjudged'),
+      html.includes('Draw'),
+      html.includes('won'),
+      html.includes('Abandoned'),
+    ],
+    expected: [true, false, false, false],
+  });
+});
+
 test('a judged Round hands its result to the receipt', () => {
   const html = renderToStaticMarkup(<RoundReceipt round={judged} />);
   assert({

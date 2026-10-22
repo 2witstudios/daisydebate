@@ -1,0 +1,55 @@
+import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { requireTestServices } from '@daisy/config';
+import { historicalCapture } from './media-capture.test-support';
+import { withBoundedRound } from './bounded-transaction.test-support';
+setupRitewayBun();
+requireTestServices(process.env);
+
+for (const mode of ['old-observation', 'old-chunk', 'current-silence']) {
+  test(`capture recovery preserves uncertainty: ${mode}`, async () => {
+    await withBoundedRound(async (fixture, transaction, roundId) => {
+      const f = await historicalCapture(fixture, transaction, roundId);
+      const observe = (epoch: number) =>
+        f.store.observeCapturedStream({
+          ...f.stream,
+          epoch,
+          trackId: f.clip.trackId,
+          observedFrom: f.start.toISOString(),
+          observedUntil: f.end.toISOString(),
+        });
+      try {
+        let epoch = (
+          await f.store.claimMediaWorkerLease({ ...f.lease, leaseMs: 15000 })
+        ).epoch;
+        if (mode === 'old-chunk')
+          await f.store.appendCapturedTranscript(f.clip);
+        else await observe(epoch);
+        if (mode !== 'current-silence') {
+          // A process can die after observing audio but before queued STT returns.
+          await fixture.sql`update media_worker_leases set expires_at=clock_timestamp()-interval '1 second' where session_id=${f.lease.sessionId}`;
+          epoch = (
+            await f.store.claimMediaWorkerLease({ ...f.lease, leaseMs: 15000 })
+          ).epoch;
+          if (mode === 'old-chunk') await observe(epoch);
+        }
+        const seal = await f.store.sealCapturedStream({
+          ...f.stream,
+          epoch,
+          expectedChunkCount: mode === 'old-chunk' ? 1 : 0,
+        });
+        assert({
+          given:
+            mode === 'current-silence'
+              ? 'genuine whole-grant current-epoch silence evidence'
+              : `takeover retaining ${mode} evidence`,
+          should:
+            'preserve complete silence only with current-epoch provenance and classify recovery uncertainty partial',
+          actual: seal.state,
+          expected: mode === 'current-silence' ? 'complete' : 'partial',
+        });
+      } finally {
+        await fixture.sql`delete from rounds where id=${roundId}`;
+      }
+    });
+  });
+}

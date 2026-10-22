@@ -20,6 +20,7 @@
         "scripts/check-affected.ts",
         "scripts/dev-agent.ts",
         "scripts/verify.ts",
+        "scripts/prove-round-judging.ts",
       ],
     },
     // The e2e production server is started by Playwright's webServer command.
@@ -45,6 +46,8 @@
         "e2e/support/launch-browser-network.mjs",
         "e2e/support/room-launch-evidence-process.ts",
         "e2e/support/room-launch-release.ts",
+        // Spawned by the native ballot fixture under Bun, never imported by the Node driver.
+        "e2e/support/human-ballot-maintenance-process.ts",
         "integration/**/*.integration.ts",
         // AUTH-6.7 load harness: run.ts and abuse-run.ts are CLI entries;
         // instance-process.ts is spawned as a subprocess, never imported.

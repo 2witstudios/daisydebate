@@ -1,9 +1,9 @@
 import { createInvariantError } from '@daisy/errors';
 import { adjudicateAttendance, type AttendanceDecision } from './attendance';
 import { debateInvariantIds } from './invariant-ids';
-export type AttendanceDecisionEvidence = Parameters<
-  typeof adjudicateAttendance
->[0] & { readonly segmentType: 'speech' | 'cross_ex' | 'prep' };
+type AttendanceDecisionEvidence = Parameters<typeof adjudicateAttendance>[0] & {
+  readonly segmentType: 'speech' | 'cross_ex' | 'prep';
+};
 /** Refuse a supplied result that disagrees with settled, irreversible attendance evidence. */
 export function requireAttendanceDecision(
   input: AttendanceDecisionEvidence,

@@ -6,6 +6,7 @@
  */
 export { createOpenRouter, type OpenRouter } from './openrouter';
 export { roundJudgeMessages } from './round-judge';
+export { createTurnTaking, defaultTurnTakingSettings } from './turn-taking';
 export {
   cxMessages,
   debaterPersona,

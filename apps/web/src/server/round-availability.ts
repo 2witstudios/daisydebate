@@ -10,8 +10,9 @@ export function startRoundAvailability(input: {
   readonly timers: Parameters<typeof startAvailabilityService>[0]['timers'];
 }) {
   const { app } = input;
-  return startAvailabilityService({
-    instanceId: app.ids.next(),
+  const instanceId = app.ids.next();
+  const lifecycle = startAvailabilityService({
+    instanceId,
     store: app.database,
     timers: input.timers,
     probe: createPublicCheckInProbe({
@@ -26,4 +27,5 @@ export function startRoundAvailability(input: {
         'Availability evidence unavailable',
       ),
   });
+  return { ...lifecycle, instanceId } as const;
 }

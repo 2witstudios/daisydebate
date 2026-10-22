@@ -4,6 +4,7 @@ import { deleteExpiredBatch, type RetentionBatch } from './retention';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { roomCommands } from './schema/room-commands';
 import { roundCommands } from './schema/round-commands';
+import { roundCheckInAttempts } from './schema/round-attendance';
 /** Accepted DEC-81 window is applied by the injected-clock sweep; durable attendance facts retain their referenced receipts until owning Round erasure. */
 export const commandRetention = ({
   database,
@@ -20,6 +21,19 @@ export const commandRetention = ({
           table: roomCommands,
           key: roomCommands.commandId,
           at: roomCommands.appliedAt,
+        },
+        batch,
+      ),
+    ),
+  purgeExpiredRoundCheckInAttempts: (batch: RetentionBatch) =>
+    instrumented(eventSink, 'purgeExpiredRoundCheckInAttempts', () =>
+      deleteExpiredBatch(
+        database,
+        {
+          table: roundCheckInAttempts,
+          key: roundCheckInAttempts.attemptId,
+          at: roundCheckInAttempts.resolvedAt,
+          eligible: sql`${roundCheckInAttempts.state} <> 'pending'`,
         },
         batch,
       ),
