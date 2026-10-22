@@ -12,6 +12,7 @@ import { createRoomLaunchAccounts } from './room-launch-accounts';
 import {
   claim,
   createFromPlay,
+  readyUp,
   reread,
   submitCreateRoom,
 } from './room-launch-flow';
@@ -40,15 +41,7 @@ async function assemble(players: readonly Player[], room: RoomView) {
   for (const { page, seat } of players) room = await claim(page, room, seat);
   for (const { page, seat } of players) {
     await page.goto(`/rooms/${room.id}`);
-    if (seat !== 'Judge 1')
-      for (const device of ['camera', 'microphone'])
-        await page
-          .getByRole('button', { name: `Check ${device}`, exact: true })
-          .click();
-    await page.getByRole('button', { name: 'I am ready', exact: true }).click();
-    await expect(
-      page.getByRole('button', { name: 'Not ready', exact: true }),
-    ).toBeVisible();
+    await readyUp(page, seat === 'Judge 1' ? [] : undefined);
   }
   await expect(async () => {
     room = await reread(players[0]!.page.request, room.id);

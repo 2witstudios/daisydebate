@@ -182,3 +182,17 @@ export async function assertFrozenLaunch(view: RoomView) {
   expect(proof.launchDoorbells).toBe(1);
   return proof;
 }
+/** The member's own device checks, then Ready, through the Room page. */
+export async function readyUp(
+  page: Page,
+  devices: readonly string[] = ['camera', 'microphone'],
+) {
+  for (const device of devices)
+    await page
+      .getByRole('button', { name: `Check ${device}`, exact: true })
+      .click();
+  await page.getByRole('button', { name: 'I am ready', exact: true }).click();
+  await expect(
+    page.getByRole('button', { name: 'Not ready', exact: true }),
+  ).toBeVisible();
+}

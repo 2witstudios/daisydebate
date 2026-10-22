@@ -4,7 +4,7 @@ import { origin } from './accounts';
 import { watchCspViolations } from './csp';
 import { expect, test as base, openPage } from './fixtures';
 import { createRoomLaunchAccounts } from './room-launch-accounts';
-import { prepareRoomAs } from './room-launch-flow';
+import { prepareRoomAs, readyUp } from './room-launch-flow';
 import { settledLaunchAuth } from './room-launch-settled';
 
 export { expect };
@@ -64,16 +64,7 @@ export const test = base.extend<{
         expect(configured.status()).toBe(200);
       }
       await page.reload();
-      for (const device of ['camera', 'microphone'])
-        await page
-          .getByRole('button', { name: `Check ${device}`, exact: true })
-          .click();
-      await page
-        .getByRole('button', { name: 'I am ready', exact: true })
-        .click();
-      await expect(
-        page.getByRole('button', { name: 'Not ready', exact: true }),
-      ).toBeVisible();
+      await readyUp(page);
       await page.getByRole('button', { name: 'Launch', exact: true }).click();
       await expect(page).toHaveURL(/\/rounds\/[a-z0-9]+\/room$/);
       const roundId = new URL(page.url()).pathname.split('/').at(-2)!;
