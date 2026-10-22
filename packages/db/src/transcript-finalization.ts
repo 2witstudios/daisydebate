@@ -76,9 +76,10 @@ export async function finalizeLockedRoundTranscript(
       completeness: state,
     })
     .returning();
-  // One durable intent for every actual bot judge. Human-only freezes have none.
+  // Canonical bot eligibility requires its profile, as in actorFact; kind alone is insufficient.
+  // One durable intent per eligible assigned judge; human-only freezes have none.
   await tx.execute(sql`insert into round_judging_jobs (round_id,freeze_revision,judge_participant_id,status,attempts)
-    select ${request.roundId},1,p.id,'queued',0 from round_participants p join actors a on a.id=p.actor_id
+    select ${request.roundId},1,p.id,'queued',0 from round_participants p join actors a on a.id=p.actor_id join bot_profiles b on b.actor_id=a.id
     where p.round_id=${request.roundId} and p.role='judge' and a.kind='bot'
     on conflict (round_id,judge_participant_id) do nothing`);
   return {

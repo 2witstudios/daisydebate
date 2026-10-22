@@ -1,3 +1,4 @@
+import { assembleJudgedRoom } from './round-judges.test-support';
 import { requireTestServices } from '@daisy/config';
 import { createRoundRuntime } from '@daisy/debate-engine';
 import { assertRejects } from '@daisy/errors/testing';
@@ -186,21 +187,7 @@ test('internal zerojudge completion preserves a prior competitive abandonment an
 
 test('an actual frozen human-judged Room cannot enter internal unjudged completion', async () =>
   withRoomRuntime(async (f) => {
-    const choice = (await f.operations.catalog(f.host)).find(
-      (c) => c.formatId === 'foundation',
-    )!;
-    let room = await f.assemble({
-      selection: {
-        kind: 'custom',
-        definition: {
-          ...choice.definition,
-          seats: { ...choice.definition.seats, judge: 1 },
-        },
-        config: choice.defaultConfig,
-        length: 'full',
-        competitionType: 'casual',
-      },
-    });
+    let room = await assembleJudgedRoom(f, 1);
     room = (
       await f.command(f.outsider, room, {
         type: 'claim-seat',
