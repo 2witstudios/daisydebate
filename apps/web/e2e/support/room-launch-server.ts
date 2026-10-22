@@ -73,6 +73,8 @@ const control = createLaunchControl({
     },
     'stop-realtime': realtime.stop,
     'start-realtime': realtime.start,
+    'stop-web': web.stop,
+    'start-web': web.start,
     'restart-web': web.restart,
   },
 });

@@ -6,6 +6,8 @@ export type LaunchControlOperation =
   | 'restore-check-in'
   | 'stop-realtime'
   | 'start-realtime'
+  | 'stop-web'
+  | 'start-web'
   | 'restart-web';
 /** An owner-only Unix capability, never mounted on the app's public HTTP ingress. */
 export function createLaunchControl(input: {
