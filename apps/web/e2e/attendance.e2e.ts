@@ -14,6 +14,7 @@ import {
   nextReceipt,
 } from './support/attendance-browser';
 import { nativeAttendanceOutage } from './support/native-attendance-proof';
+import { serviceAttendanceOutage } from './support/service-attendance-proof';
 
 test('actual speech check-in survives refresh and a real browser network disconnect without changing its first stamp', async ({
   browser,
@@ -162,3 +163,11 @@ test(
   'native explicit attendance crosses the original grace during a real public outage and refuses a finalized stale form',
   nativeAttendanceOutage,
 );
+
+for (const service of ['web', 'realtime'] as const)
+  test(`whole ${service} outage postpones an actual speech and recovers without a false forfeit`, async ({
+    browser,
+  }) => {
+    test.setTimeout(180_000);
+    await serviceAttendanceOutage(browser, service);
+  });

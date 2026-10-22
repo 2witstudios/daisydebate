@@ -9,7 +9,13 @@ import {
   ballotRoundCommand,
 } from './human-ballot-round';
 import { attendanceEvidence } from './attendance-evidence';
-import { actualSpeech, enterSpeech } from './attendance-browser';
+import {
+  actualSpeech,
+  enterSpeech,
+  healthyAttendance,
+  pastOriginalAttendanceGrace,
+  attendedResolution,
+} from './attendance-browser';
 import {
   controlLaunch,
   closeSettledLaunchContexts,
@@ -51,15 +57,7 @@ export async function nativeAttendanceOutage({
       .locator('form', { has: button })
       .locator('input[name="commandId"]')
       .inputValue();
-    await expect
-      .poll(
-        async () =>
-          (await attendanceEvidence(round.id)).samples
-            .slice(-3)
-            .map((sample) => sample.healthy),
-        { timeout: 10_000 },
-      )
-      .toEqual([true, true, true]);
+    await healthyAttendance(round.id);
     await controlLaunch('block-check-in');
     await expect
       .poll(
@@ -67,17 +65,7 @@ export async function nativeAttendanceOutage({
         { timeout: 10_000 },
       )
       .toBe('public_probe_failed');
-    await expect
-      .poll(
-        async () =>
-          Date.parse((await attendanceEvidence(round.id)).observedAt) -
-          Date.parse(speech.startedAt),
-        {
-          timeout: 50_000,
-          intervals: [500],
-        },
-      )
-      .toBeGreaterThan(45_000);
+    await pastOriginalAttendanceGrace(round.id, speech.startedAt);
     const postponed = await attendanceEvidence(round.id);
     expect(postponed.status).toBe('active');
     expect(postponed.adjudications).toEqual([]);
@@ -107,15 +95,7 @@ export async function nativeAttendanceOutage({
         exact: true,
       }),
     ).toBeVisible();
-    await expect
-      .poll(
-        async () =>
-          (await attendanceEvidence(round.id)).adjudications.find(
-            (row) => row.segmentId === speech.id,
-          )?.decision,
-        { timeout: 50_000, intervals: [500] },
-      )
-      .toBe('attended');
+    await attendedResolution(round.id, speech.id);
     const before = await attendanceEvidence(round.id);
     expect(before.status).toBe('active');
     expect(before.samples.slice(-3).map((sample) => sample.healthy)).toEqual([
