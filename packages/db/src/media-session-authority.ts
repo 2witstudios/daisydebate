@@ -14,6 +14,20 @@ export const mediaId = (value: string) => {
   return parsed.data;
 };
 
+const mediaActorIds = (
+  seats: readonly { readonly actorId: string }[],
+  hostActorId: string | null,
+  actorId?: string,
+) => {
+  return [
+    ...new Set([
+      ...seats.map((seat) => seat.actorId),
+      ...(hostActorId ? [hostActorId] : []),
+      ...(actorId ? [actorId] : []),
+    ]),
+  ];
+};
+
 /** Account fences precede the Round fence, matching competitive writes and erasure. */
 export async function lockMediaRound(
   tx: BoundedTransactionContext,
@@ -31,13 +45,7 @@ export async function lockMediaRound(
     .from(rounds)
     .where(eq(rounds.id, roundId));
   if (!initial) throw createAppError('NOT_FOUND');
-  const actorIds = [
-    ...new Set([
-      ...seats.map((seat) => seat.actorId),
-      ...(initial.hostActorId ? [initial.hostActorId] : []),
-      ...(actorId ? [actorId] : []),
-    ]),
-  ];
+  const actorIds = mediaActorIds(seats, initial.hostActorId, actorId);
   const accounts = actorIds.length
     ? await lockAuthorizationActors(tx, actorIds, {
         maxActors: actorIds.length,
@@ -77,15 +85,20 @@ export async function lockMediaRound(
   return { participants, caller };
 }
 
+export const mediaWindowClosed = (
+  status: string,
+  now: string,
+  finalEndedAt: string | null,
+) =>
+  !['scheduled', 'active'].includes(status) ||
+  (finalEndedAt !== null &&
+    Date.parse(now) >= Date.parse(finalEndedAt) + 30 * 60_000);
+
 export function requireMediaWindow(
   status: string,
   now: string,
   finalEndedAt: string | null,
 ) {
-  if (
-    !['scheduled', 'active'].includes(status) ||
-    (finalEndedAt !== null &&
-      Date.parse(now) >= Date.parse(finalEndedAt) + 30 * 60_000)
-  )
+  if (mediaWindowClosed(status, now, finalEndedAt))
     throw createAppError('CONFLICT', 'Round media has ended');
 }

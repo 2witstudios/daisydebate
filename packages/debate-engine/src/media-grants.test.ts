@@ -244,3 +244,29 @@ test('unchanged grants never dispatch redundant vendor updates', async () => {
     expected: ['opaque-seat'],
   });
 });
+
+test('competitive bot rights remain publish-only through reconciliation', () => {
+  const botSeats = seats.map((seat, index) => ({
+    ...seat,
+    kind: index === 0 ? ('bot' as const) : seat.kind,
+  }));
+  assert({
+    given: 'an eligible competitive bot seat before the first segment',
+    should:
+      'allow at most conversation microphone without camera, subscription or capture',
+    actual: mediaGrants({
+      participants: botSeats,
+      participantId: botSeats[0]!.id,
+      rules: practiceRules(),
+      position: runtimeWorld().position(roundAt(0)),
+      now: roundAt(0),
+      finalSegmentEndedAt: null,
+    }),
+    expected: {
+      publish: ['microphone'],
+      subscribe: false,
+      hidden: false,
+      capture: false,
+    },
+  });
+});
