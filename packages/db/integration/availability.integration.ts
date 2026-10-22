@@ -6,6 +6,30 @@ import { availabilityOperations } from '../src/availability-operations';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 
+test('speech evidence retains incoming outage recovery, not just the preceding sample', async () => {
+  const client = new SQL(databaseUrl, { max: 2 });
+  try {
+    await client.begin(async (tx) => {
+      await tx`select pg_advisory_xact_lock(59003)`;
+      await tx`insert into availability_samples(at,healthy,cause)
+        select '2100-01-01T00:00:00Z'::timestamptz+n*interval '1 second',n>0,case when n=0 then 'public_probe_failed' else null end
+        from generate_series(0,46) n order by n`;
+    });
+    const samples = await availabilityOperations(
+      client,
+    ).readAvailabilitySamples('2100-01-01T00:00:01.500Z');
+    assert({
+      given: 'outage then only one recovery sample before speech opens',
+      should: 'include the unhealthy start and every recovery sample',
+      actual: [samples[0]?.healthy, samples[0]?.at, samples.length],
+      expected: [false, '2100-01-01T00:00:00.000000Z', 47],
+    });
+  } finally {
+    await client`delete from availability_samples where at >= '2100-01-01T00:00:00Z'::timestamptz`;
+    await client.close();
+  }
+});
+
 test('PG-time leases and elected same-session sampler preserve real availability evidence', async () => {
   const client = new SQL(databaseUrl, { max: 6 });
   const ops = availabilityOperations(client);
@@ -90,7 +114,7 @@ test('realtime role has the service lease write exception and no competitive or 
   try {
     const accepted = await client.begin(async (tx) => {
       await tx`set local role daisy_realtime`;
-      await tx`insert into service_instances(instance_id,role,renewed_at,delivered_through,delivered_through_txid) values(${id},'realtime',statement_timestamp(),0,0)`;
+      await tx`insert into service_instances(instance_id,role,renewed_at,delivered_through,delivered_through_txid) values(${id},'realtime',statement_timestamp(),0,'0'::xid8)`;
       return (
         await tx`update service_instances set renewed_at=statement_timestamp() where instance_id=${id} returning instance_id`
       ).length;

@@ -135,15 +135,16 @@ export function availabilityOperations(client: SQL) {
       if (!Number.isFinite(Date.parse(from)))
         throw createAppError('VALIDATION');
       const rows =
-        await client`select at,healthy,cause from availability_samples where at >= ${from}::timestamptz
-        or at=(select max(at) from availability_samples where at < ${from}::timestamptz) order by at`;
+        await client`select to_char(at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as at,healthy,cause from availability_samples order by at`;
+      // Recovery needs its full incoming prefix. Retention bounds this to 24h;
+      // a speech older than the retained prefix remains undetermined.
       return rows.map(
         (row: {
-          at: Date;
+          at: string;
           healthy: boolean;
           cause: AvailabilityCause | null;
         }) => ({
-          at: new Date(row.at).toISOString(),
+          at: row.at,
           healthy: row.healthy,
           cause: row.cause,
         }),
