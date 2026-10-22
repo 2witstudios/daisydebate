@@ -224,8 +224,11 @@ export type {
   RoundBallotAuthority,
 } from './round-ballot';
 export {
+  attendanceTimingPolicy,
   attendanceEnvelopeSchema,
   attendanceReceiptSchema,
   type AttendanceEnvelope,
   type AttendanceReceipt,
 } from './attendance';
+export { roundBallotReadSchema } from './round-ballot-read';
+export type { RoundBallotRead } from './round-ballot-read';

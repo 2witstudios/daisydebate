@@ -5,14 +5,8 @@ import {
   type SettledAvailability,
 } from './availability';
 
-export const attendancePolicy = {
-  heartbeatMs: 15000,
-  reconnectBudgetMs: 10000,
-  graceMs: 40000,
-  leadMs: 5000,
-  commitBudgetMs: 2000,
-  finalizationBufferMs: 5000,
-} as const;
+export { attendanceTimingPolicy as attendancePolicy } from '@daisy/protocol';
+import { attendanceTimingPolicy as attendancePolicy } from '@daisy/protocol';
 
 /** Derived from an actual speech row and its frozen rules speaker slot, never a media floor. */
 export type AttendanceWindow = {
@@ -96,8 +90,18 @@ export function adjudicateAttendance(
       effectiveDeadlineMs + attendancePolicy.finalizationBufferMs
   )
     return null;
+  return decisionForStamps(window, input.checkIns, effectiveDeadlineMs);
+}
+
+function decisionForStamps(
+  window: AttendanceWindow,
+  checkIns: readonly AttendanceStamp[],
+  effectiveDeadlineMs: number,
+): AttendanceDecision {
+  if (!window.eligibleSeats.some((seat) => seat.id === window.speakerId))
+    return { decision: 'none', effectiveDeadlineMs };
   const present = new Set(
-    input.checkIns
+    checkIns
       .filter(
         (stamp) =>
           stamp.receivedAtMs >= window.openedAtMs - attendancePolicy.leadMs &&
