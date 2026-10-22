@@ -190,3 +190,12 @@ remains scoped to the Round's one immutable freeze. Enqueuers must insert every
 eligible bot judge; selecting only the first judge is invalid for admitted
 multi-judge formats. The table module is `schema/round-judging-jobs.ts`; the
 freeze module has no ballot import, avoiding a schema import cycle.
+
+A judging job's nullable `command_id` (category identifier) is allocated once
+with an actual cuid2 at first claim. Queued intent creation may omit it. A unique
+index prevents sharing it with another intent; the UPDATE trigger refuses later
+replacement or clearing, and refuses changing the Round/judge/freeze identity.
+Retries and takeovers preserve that identifier and reuse the shared global
+command receipt. It is an identifier, never a bearer token. Provider uncertainty
+belongs in the actual AgentRun configuration snapshot before dispatch, separately
+from job scheduling status; no provider result is inferred from a lease timeout.
