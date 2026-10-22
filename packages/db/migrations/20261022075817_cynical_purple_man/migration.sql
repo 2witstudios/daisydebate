@@ -1,0 +1,1 @@
+ALTER TABLE "media_vendor_mutations" ADD CONSTRAINT "media_vendor_mutations_payload_is_object" CHECK (jsonb_typeof("payload") = 'object');
