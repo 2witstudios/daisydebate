@@ -16,7 +16,9 @@ observations and seals move only through the signed web path, under the
 Round -> lease -> stream lock order. Locally `bun slot:up` provisions the
 `daisy_media_worker_local` loopback login and writes the slot's
 `MEDIA_WORKER_DATABASE_URL`; production provisions its own credential
-(VIDEO-4.2). The worker creates no credentials and activates no production
+(VIDEO-4.2). `bun doctor` reports `media-worker`: a warning naming the missing
+fields when unconfigured, a pass for a role-scoped login, and a failure for a
+broader login or an unreachable database. The worker creates no credentials and activates no production
 service. STT preserves `openai/whisper-large-v3-turbo` explicitly at the
 capture edge.
 
