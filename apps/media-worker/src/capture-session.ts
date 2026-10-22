@@ -5,6 +5,11 @@ import { createClipQueue } from './clip-queue';
 import { readCaptureHistory, type CaptureClient } from './capture-history';
 import { createCaptureStaging } from './capture-staging';
 import { validateCaptureBatch } from './capture-batch';
+import {
+  ACTIVITY_RELAY_INTERVAL_MS,
+  activityWanted,
+  createActivityRelay,
+} from './capture-activity';
 import { consumeCaptureClips, type QueuedClip } from './capture-consumer';
 import { createStreamTracker } from './capture-streams';
 type Dependencies = {
@@ -28,6 +33,7 @@ export async function runCaptureSession(
     transcribedClips: 0,
     appendedChunks: 0,
     sealedStreams: 0,
+    relayedBatches: 0,
   };
   const dropped = (n: number) => {
     stats.droppedFrames += n;
@@ -50,6 +56,7 @@ export async function runCaptureSession(
     maxBytes: 20 * 1024 * 1024,
     maxDurationMs: 120000,
   });
+  const activity = createActivityRelay();
   const streams = createStreamTracker(16384);
   streams.remember(current.state);
   const capture = await createCaptureSubscription({
@@ -58,7 +65,9 @@ export async function runCaptureSession(
     identities: identities(current),
     nowMs: input.nowMs,
     onFrame: (raw) => {
-      if (!signal.aborted) staging.observe(raw);
+      if (signal.aborted) return;
+      const frame = staging.observe(raw);
+      if (frame && activityWanted(current.state)) activity.observe(frame);
     },
     onTrackClosed: (track) => staging.closeTrack(track.trackId),
   });
@@ -86,6 +95,20 @@ export async function runCaptureSession(
       stop.abort();
     }
   });
+  const relaying = (async () => {
+    while (!signal.aborted) {
+      const due = input.nowMs() + ACTIVITY_RELAY_INTERVAL_MS;
+      if (activityWanted(current.state))
+        stats.relayedBatches += await relayActivity(
+          input.client,
+          epoch,
+          activity.take(),
+          signal,
+        );
+      else activity.clear();
+      await input.waitUntilMs(due, signal).catch(() => undefined);
+    }
+  })();
   try {
     while (!signal.aborted) {
       const due = input.nowMs() + 250;
@@ -121,6 +144,8 @@ export async function runCaptureSession(
     stop.abort();
     await capture.close();
     await consuming;
+    await relaying;
+    activity.clear();
     staging.clear();
     queue.clear();
     stats.sealedStreams = await sealCaptureStreams(
@@ -138,6 +163,18 @@ export async function runCaptureSession(
 }
 const identities = (snapshot: Awaited<ReturnType<CaptureClient['read']>>) =>
   snapshot.state.participants.flatMap((p) => (p.identity ? [p.identity] : []));
+/** Heuristic only: a refused or lost batch is unknown activity, never a capture failure. */
+async function relayActivity(
+  client: CaptureClient,
+  epoch: number,
+  batches: ReturnType<ReturnType<typeof createActivityRelay>['take']>,
+  signal: AbortSignal,
+) {
+  const results = await Promise.allSettled(
+    batches.map((batch) => client.activity({ epoch, ...batch }, signal)),
+  );
+  return results.filter((r) => r.status === 'fulfilled').length;
+}
 async function sealCaptureStreams(
   client: CaptureClient,
   epoch: number,

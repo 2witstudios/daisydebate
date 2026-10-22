@@ -10,6 +10,12 @@ export type StagedFrame = {
   readonly seat: string;
   readonly segmentId: string;
   readonly frame: Parameters<typeof cutCaptureClips>[0]['frames'][number];
+  /** Native callback sequence and brackets, kept for the activity relay. */
+  readonly original: {
+    readonly sequence: number;
+    readonly beforeMs: number;
+    readonly afterMs: number;
+  };
   readonly observedAtMs: number;
 };
 /** Private validation staging only. No WAV, coverage, text or future-grant replay. */
@@ -49,6 +55,11 @@ export function createCaptureStaging(input: {
       seat: peer.roundParticipantId,
       segmentId: current.state.segment.id,
       observedAtMs: raw.afterMs,
+      original: {
+        sequence: raw.sequence,
+        beforeMs: raw.beforeMs,
+        afterMs: raw.afterMs,
+      },
       frame: {
         pcm: raw.pcm,
         trackId: raw.trackId,
@@ -59,11 +70,12 @@ export function createCaptureStaging(input: {
     };
   };
   return {
-    observe(raw: Raw) {
+    /** The frame it retained, or null when refused. */
+    observe(raw: Raw): StagedFrame | null {
       const frame = candidate(raw);
       if (!frame) {
         input.dropped(1);
-        return;
+        return null;
       }
       if (pending.length === 4096) {
         pending.shift();
@@ -71,6 +83,7 @@ export function createCaptureStaging(input: {
       }
       pending.push(frame);
       input.retained();
+      return frame;
     },
     refresh(calibration: Snapshot['calibration']) {
       for (const clock of clocks.values()) clock.refresh(calibration);

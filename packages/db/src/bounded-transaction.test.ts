@@ -1,8 +1,12 @@
+import type { SQL } from 'bun';
 import { createAppError } from '@daisy/errors';
 import { assertRejects } from '@daisy/errors/testing';
 import { sql } from 'drizzle-orm';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createBoundedTransaction } from './bounded-transaction';
+import {
+  createBoundedTransaction,
+  isTransactionCapacityRefusal,
+} from './bounded-transaction';
 import type { TransactionLifecycle } from './transaction-lifecycle';
 import { fakeSql } from './scripted-bun-wire';
 import { bounded, causeOf } from './bounded-transaction.test-support';
@@ -199,5 +203,35 @@ test('lifecycle hooks open before begin and close with the actual outcome', asyn
       'open:4242',
       'close:aborted',
     ],
+  });
+});
+
+test('an admission refusal is recognisable as backpressure', async () => {
+  const run = createBoundedTransaction({
+    client: {} as SQL,
+    maxConnections: 1,
+    now: () => 0,
+  });
+  let refusal: unknown = null;
+  try {
+    await run(async () => undefined);
+  } catch (error) {
+    refusal = error;
+  }
+  assert({
+    given: 'a pool with no admissible writer reservation',
+    should:
+      'refuse with an identifiable capacity error, distinct from any lookalike',
+    actual: [
+      isTransactionCapacityRefusal(refusal),
+      isTransactionCapacityRefusal(
+        createAppError(
+          'INFRASTRUCTURE',
+          'Transcript transaction capacity unavailable',
+        ),
+      ),
+      isTransactionCapacityRefusal(new Error('other')),
+    ],
+    expected: [true, false, false],
   });
 });

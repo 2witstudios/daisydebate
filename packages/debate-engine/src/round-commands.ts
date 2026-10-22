@@ -1,4 +1,3 @@
-import { createAppError, createInvariantError } from '@daisy/errors';
 import type {
   DebateSide,
   RoundCommand,
@@ -11,6 +10,8 @@ import type {
 import { debateInvariantIds } from './invariant-ids';
 import type { RoundStore } from './round-ecs-store';
 import type { ClockChange } from './round-clock';
+import { interrupt, yieldFloor } from './round-floor';
+import { invariant, refuse } from './round-refusals';
 
 /** The durable writes a command or tick queues for the caller to persist. */
 export type Queues = {
@@ -19,7 +20,8 @@ export type Queues = {
   floorChange: {
     readonly sequence: number;
     readonly at: string;
-    readonly holder: string;
+    /** Null when the floor returns to the segment's scheduled seat. */
+    readonly holder: string | null;
   } | null;
   effects: RoundEffect[];
 };
@@ -54,22 +56,6 @@ const iso = (ms: number): string => new Date(ms).toISOString();
 
 const other = (side: DebateSide): DebateSide =>
   side === 'affirmative' ? 'negative' : 'affirmative';
-
-// Annotated as `never`-returning so a refusal narrows the code after it;
-// without the explicit type the compiler cannot see that these never return.
-const refuse: (
-  code: Parameters<typeof createAppError>[0],
-  message: string,
-) => never = (code, message) => {
-  throw createAppError(code, message);
-};
-
-const invariant: (id: string, message: string) => never = (id, message) => {
-  throw createInvariantError(
-    id as Parameters<typeof createInvariantError>[0],
-    message,
-  );
-};
 
 /** `scheduled` is the only status that starts; the clock anchors here. */
 const start = (c: CommandContext): void => {
@@ -176,79 +162,6 @@ const startSpeech = (c: CommandContext): void => {
   );
   c.on.endPrep();
   c.openRowAt(c.now);
-};
-
-/** Only the floor holder ends their own control, and unused time comes back. */
-const yieldFloor = (c: CommandContext): void => {
-  const open = c.on.openRow();
-  if (open === undefined)
-    invariant(
-      debateInvariantIds.yieldRequiresFloor,
-      'Yielding requires a live segment',
-    );
-  const seat = c.seatOf(c.actorId);
-  const holder = c.floorHolder(c.on);
-  if (seat === null || holder === null || seat.id !== holder.id)
-    invariant(
-      debateInvariantIds.yieldRequiresFloor,
-      'Only the floor holder ends their own control',
-    );
-  if (c.rules.interaction.yield?.allowed !== true)
-    invariant(
-      debateInvariantIds.yieldRequiresFloor,
-      'The resolved rules forbid yielding',
-    );
-  if (c.rules.interaction.yield.returnsTime && c.rules.inRoundPrep !== null) {
-    const side = c.rules.segments[open.sequence]!.side;
-    const unused = open.startedAtMs + open.durationMs - c.now;
-    if (unused > 0)
-      c.on.setPrepConsumed(
-        side,
-        Math.max(0, c.on.checkpoint().prep_consumed_ms[side] - unused),
-      );
-  }
-  c.closeRowAt(open.sequence, c.now);
-};
-
-/** The floor moves only where the resolved policy permits it. */
-const requireInterruptWindow = (c: CommandContext) => {
-  const open = c.on.openRow();
-  const policy = c.rules.interaction.interruptions;
-  if (open === undefined || policy === null || policy.allowed === 'disabled')
-    invariant(
-      debateInvariantIds.interruptRequiresPolicy,
-      'The resolved rules forbid interruptions here',
-    );
-  if (policy.allowed === 'cross_ex_only' && open.type !== 'cross_ex')
-    invariant(
-      debateInvariantIds.interruptRequiresPolicy,
-      'Interruptions are confined to cross-examination',
-    );
-  const remaining = open.startedAtMs + open.durationMs - c.now;
-  if (remaining < policy.minRemainingMs)
-    invariant(
-      debateInvariantIds.interruptRequiresPolicy,
-      'Too little of the segment remains to interrupt',
-    );
-};
-
-const interrupt = (c: CommandContext): void => {
-  requireInterruptWindow(c);
-  const seat = c.seatOf(c.actorId);
-  if (seat === null || c.sideOf(c.actorId) === null)
-    refuse('CONFLICT', 'Only a seated debater interrupts');
-  const holder = c.floorHolder(c.on);
-  if (holder !== null && holder.id === seat.id)
-    invariant(
-      debateInvariantIds.interruptRequiresPolicy,
-      'The floor holder cannot interrupt themselves',
-    );
-  c.on.setFloor({ participantId: seat.id, grantedAtMs: c.now });
-  c.into.floorChange = {
-    sequence: c.on.openRow()!.sequence,
-    at: iso(c.now),
-    holder: seat.id,
-  };
 };
 
 /** Forfeiting closes the round with the other side's outcome. */

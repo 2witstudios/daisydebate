@@ -164,12 +164,20 @@ export const roomReadOperations = ({
     query: RoomListQuery,
     authorize: (fact: RoomDiscoveryFact, account: Account) => boolean,
     authorizeCollection: (account: Account) => boolean,
+    hostHidden: (fact: RoomDiscoveryFact) => boolean,
   ): Promise<RoomListPage> {
     if (!roomListQuerySchema.safeParse(query).success)
       throw createAppError('VALIDATION');
     return instrumented(eventSink, 'listRoomPage', () =>
       database.transaction((tx) =>
-        discoverRooms(tx, caller, query, authorize, authorizeCollection),
+        discoverRooms(
+          tx,
+          caller,
+          query,
+          authorize,
+          authorizeCollection,
+          hostHidden,
+        ),
       ),
     );
   },

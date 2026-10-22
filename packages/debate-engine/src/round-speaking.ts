@@ -37,7 +37,7 @@ export function speakingChangesOf(input: {
   readonly floorChange: {
     readonly sequence: number;
     readonly at: string;
-    readonly holder: string;
+    readonly holder: string | null;
   } | null;
 }): NonNullable<RoundProjection['speakingChanges']> {
   const result: RoundSpeakingChange[] = input.changes.map((change) =>

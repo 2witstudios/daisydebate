@@ -37,7 +37,8 @@ export function startBotControlService<C extends Claim>(input: {
     readonly renewMs: number;
   };
   readonly timers: WorkerTimers;
-  readonly failed: () => void;
+  /** `stage` names the work that failed: pulse or discover. */
+  readonly failed: (error: unknown, stage: string) => void;
 }) {
   const owned = new Map<string, Owned<C>>();
   let stopped = false,
@@ -59,12 +60,14 @@ export function startBotControlService<C extends Claim>(input: {
     entry.pending = (async () => {
       try {
         await entry.control.pulse();
-      } catch {
+      } catch (error) {
         if (!(await valid(entry))) {
           owned.delete(entry.claim.scope.roundParticipantId);
           await entry.control.stop?.();
+          // Authority ended (Round completed or claim rotated): a release, not a fault.
+          return;
         }
-        input.failed();
+        input.failed(error, 'pulse');
       } finally {
         entry.pending = null;
       }
@@ -109,8 +112,8 @@ export function startBotControlService<C extends Claim>(input: {
             /* Another controller may claim or rotate this target first. */
           }
         }
-      } catch {
-        input.failed();
+      } catch (error) {
+        input.failed(error, 'discover');
       } finally {
         discovering = null;
       }

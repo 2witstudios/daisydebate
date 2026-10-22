@@ -1,8 +1,10 @@
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import type { z } from 'zod';
+import type { botActivityRelaySchema } from '@daisy/protocol/bot-activity';
 import type { createMediaWorkerAuthentication } from './worker-auth';
 import {
+  activityReply,
   captureStateReply,
   captureMutationReply,
   leaseReply,
@@ -20,6 +22,7 @@ type Stream = {
   readonly segmentId: string;
   readonly roundParticipantId: string;
 };
+type ActivityFrame = z.infer<typeof botActivityRelaySchema>['frames'][number];
 type Dependencies = {
   readonly scope: Scope;
   readonly url: string;
@@ -217,5 +220,16 @@ export function createMediaWorkerClient(input: Dependencies) {
       stream: Stream & { readonly expectedChunkCount: number },
       signal?: AbortSignal,
     ) => (await call('seal', stream, sealReply, signal)).value,
+    /** Expendable heuristic relay; the server attaches the receipt and owns admission. */
+    activity: async (
+      batch: {
+        readonly epoch: number;
+        readonly roundParticipantId: string;
+        readonly frames: readonly ActivityFrame[];
+      },
+      signal?: AbortSignal,
+    ) => {
+      await call('activity', { ...batch, version: 1 }, activityReply, signal);
+    },
   };
 }

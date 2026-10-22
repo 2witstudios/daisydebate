@@ -1,3 +1,5 @@
+import type { ErrorReporter } from '@daisy/observability';
+import { workerFailures } from './recoverable-failure';
 import { createAttendanceFeature } from '../features/attendance/operations';
 import { createBotControl } from '../features/round-bots/control';
 import { startBotControlService } from '../features/round-bots/control-service';
@@ -15,10 +17,13 @@ export function startRoundWorkers(input: {
   /** Media broker grant; without configured media, seats keep receipts only. */
   readonly botToken:
     Parameters<typeof createSpeakingBotControl>[0]['botToken'] | null;
+  /** Scrubbed raw-error destination (ADR 0037); inert until configured. */
+  readonly reporter?: ErrorReporter;
 }) {
   const { app } = input;
   const policy = app.config.ROUND_BOT_WORKER_POLICY;
   if (!policy) return null;
+  const failure = workerFailures(app, input.reporter);
   const withProvider = createProviderCapacity(policy.providerConcurrency);
   const operations = createRoundJudgingOperations({
     store: app.database,
@@ -40,12 +45,11 @@ export function startRoundWorkers(input: {
       renewMs: policy.renewMs,
     },
     timers: input.timers,
-    failed: () =>
-      app.logger.log(
-        'round.judging.failed',
-        { operation: 'round.judging', errorCode: 'INFRASTRUCTURE' },
-        'Judging work remains recoverable',
-      ),
+    failed: failure(
+      'round.judging.failed',
+      'round.judging',
+      'Judging work remains recoverable',
+    ),
   });
   const attendance = createAttendanceFeature({
     checkIns: app.database,
@@ -64,12 +68,11 @@ export function startRoundWorkers(input: {
         nextId: () => app.ids.next(),
         nowMs: () => Date.parse(app.clock.now()),
         callTimeoutMs: policy.callTimeoutMs,
-        failed: () =>
-          app.logger.log(
-            'round.speaking.failed',
-            { operation: 'round.speaking', errorCode: 'INFRASTRUCTURE' },
-            'Bot speech stays uncredited',
-          ),
+        failed: failure(
+          'round.speaking.failed',
+          'round.speaking',
+          'Bot speech stays uncredited',
+        ),
       })
     : null;
   const control = startBotControlService({
@@ -90,12 +93,11 @@ export function startRoundWorkers(input: {
       renewMs: policy.renewMs,
     },
     timers: input.timers,
-    failed: () =>
-      app.logger.log(
-        'round.control.failed',
-        { operation: 'round.control', errorCode: 'INFRASTRUCTURE' },
-        'Control receipt work remains recoverable',
-      ),
+    failed: failure(
+      'round.control.failed',
+      'round.control',
+      'Control receipt work remains recoverable',
+    ),
   });
   return {
     started: Promise.all([judging.started, control.started]),

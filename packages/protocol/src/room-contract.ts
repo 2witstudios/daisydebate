@@ -205,8 +205,9 @@ const roomListEntrySchema = z.strictObject({
   title: z.string().min(1),
   topic: z.string().min(1),
   visibility: z.enum(['public', 'unlisted', 'private']),
-  hostActorId: idSchema,
-  hostLabel: z.string(),
+  /** Null when the host sits as a judge this viewer may not name (DEC-174). */
+  hostActorId: idSchema.nullable(),
+  hostLabel: z.string().nullable(),
   status: z.enum(['assembling', 'ready', 'started']),
   competitionType: z.enum(['casual', 'practice', 'ranked']),
   length: z.enum(['full', 'quick']),

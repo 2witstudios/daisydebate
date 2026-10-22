@@ -115,3 +115,4 @@ export {
 } from './messaging/browser-fixture';
 
 export { createScriptedAuthorizationTransaction } from './testing-authorization';
+export { refuseCapacity } from './bounded-transaction';

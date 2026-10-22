@@ -15,21 +15,25 @@ type MaintenancePorts<Handle> = {
     readonly setInterval: (pulse: () => void, ms: number) => Handle;
     readonly clearInterval: (handle: Handle) => void;
   };
-  readonly failed: (error: unknown) => void;
+  /** `stage` names the work that failed: discover, tick, evaluate, finalize or rate. */
+  readonly failed: (error: unknown, stage: string) => void;
 };
 
 async function maintainRound<Handle>(
   input: MaintenancePorts<Handle>,
   roundId: string,
 ) {
+  let stage = 'tick';
   try {
     await input.tick(roundId);
+    stage = 'evaluate';
     const resolution = await input.evaluate(roundId);
     if (
       resolution?.decision === 'forfeit' ||
       resolution?.decision === 'abandoned'
     )
       return;
+    stage = 'finalize';
     await input.finalize(roundId);
   } catch (error) {
     if (
@@ -38,7 +42,7 @@ async function maintainRound<Handle>(
       error.message === 'attendance-terminal'
     )
       return;
-    input.failed(error);
+    input.failed(error, stage);
   }
 }
 
@@ -78,7 +82,7 @@ export function startRoundMaintenance<Handle>(input: MaintenancePorts<Handle>) {
       const ids = await input.discover();
       if (!stopped) remember(ids);
     } catch (error) {
-      input.failed(error);
+      input.failed(error, 'discover');
     } finally {
       discovering = false;
     }
@@ -89,7 +93,7 @@ export function startRoundMaintenance<Handle>(input: MaintenancePorts<Handle>) {
     try {
       await input.rateUnrated();
     } catch (error) {
-      input.failed(error);
+      input.failed(error, 'rate');
     } finally {
       rating = false;
     }

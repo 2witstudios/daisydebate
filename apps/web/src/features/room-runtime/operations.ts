@@ -8,7 +8,7 @@ import { can, digest } from './authority';
 import { resolveRoomSelection } from './selection';
 import { canReadRound } from '../round-runtime/reads';
 import type { Database } from '@daisy/db';
-import { projectRoom } from '@daisy/debate-engine';
+import { hostIdentityHidden, projectRoom } from '@daisy/debate-engine';
 import type { IdGenerator } from '@daisy/clock';
 import type { createRedis } from '@daisy/redis';
 import type {
@@ -248,6 +248,7 @@ export function createRoomRuntimeOperations({
               resource: fact.round,
             }).allow),
         (account) => can(caller, 'room.list', account),
+        (fact) => hostIdentityHidden(fact, caller.actorId),
       );
     },
     create,

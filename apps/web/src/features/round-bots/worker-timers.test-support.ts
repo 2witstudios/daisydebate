@@ -13,3 +13,14 @@ export function manualTimers() {
   };
   return { tasks, timers };
 }
+
+/** Records each worker failure as [error, stage]. */
+export function failureLog() {
+  const failures: unknown[] = [];
+  return {
+    failures,
+    failed: (error: unknown, stage: string) => {
+      failures.push([error, stage]);
+    },
+  };
+}
