@@ -10,7 +10,7 @@ import { readLaunchTls } from './launch-certificates';
 import { requireLaunchSlot } from './room-launch-slot';
 import { createLaunchProcess } from './launch-process';
 import { createLaunchProbeResource } from './launch-probe-room';
-import { createLaunchMediaEdge } from './launch-media-edge';
+import { createLaunchSocketEdge } from './launch-socket-edge';
 import { createLaunchMail, launchMailPath } from './launch-mail';
 import { resolveRealtimeNamespace } from '../../playwright.config';
 
@@ -36,7 +36,18 @@ const edge = createSelfSignedTlsEdge({
     return null;
   },
 });
-const mediaEdge = createLaunchMediaEdge({ port: slot.port + 4, tls });
+const mediaEdge = createLaunchSocketEdge({
+  port: slot.port + 4,
+  upstreamPort: 7880,
+  tls,
+});
+const realtimeEdge = createLaunchSocketEdge({
+  port: slot.port + 6,
+  upstreamPort: slot.port + 3,
+  socketPath: '/ws',
+  allowedOrigin: origin,
+  tls,
+});
 const mail = createLaunchMail({
   path: launchMailPath(slot.id),
   port: slot.port + 2,
@@ -130,6 +141,7 @@ const shutdown = () =>
     await mail.stop();
     edge.stop(true);
     mediaEdge.stop(true);
+    realtimeEdge.stop(true);
     await new Promise<void>((accept) => {
       control.close(() => accept());
       control.closeAllConnections();
