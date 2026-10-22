@@ -5,7 +5,7 @@ import { noopErrorReporter, withTimeout } from '@daisy/observability';
 import { createRoundMediaOperations } from '../src/features/round-media/operations';
 import { withRoomRuntime } from './room-runtime.test-support';
 
-export const localMediaConfig = {
+const localMediaConfig = {
   url: 'http://127.0.0.1:7880',
   apiKey: 'daisy-local',
   apiSecret: 'local-development-only-livekit-secret',
@@ -28,6 +28,7 @@ export const withMediaRound = (
   work: (
     fixture: Parameters<Parameters<typeof withRoomRuntime>[0]>[0] & {
       readonly roundId: string;
+      readonly mediaConfig: typeof localMediaConfig;
       readonly media: ReturnType<typeof createMediaService>;
       readonly mediaOperations: ReturnType<typeof createRoundMediaOperations>;
     },
@@ -44,6 +45,7 @@ export const withMediaRound = (
       await work({
         ...fixture,
         roundId,
+        mediaConfig: localMediaConfig,
         media: deps.media,
         mediaOperations: createRoundMediaOperations(deps),
       });
@@ -64,8 +66,22 @@ export const tokenClaims = (token: string) =>
     video: Record<string, unknown>;
   };
 
-/** Delay an actual provider acknowledgement after its committed effect, without replacing the vendor. */
-export function delayedMediaCreation() {
+/** Actual vendor/DB binding for the signed ingress and application composition proofs. */
+export async function captureWorkerScope(
+  fixture: Parameters<Parameters<typeof withMediaRound>[0]>[0],
+) {
+  await fixture.mediaOperations.session(fixture.roundId, fixture.host.actorId);
+  const [session] =
+    await fixture.sql`select id from media_sessions where round_id=${fixture.roundId}`;
+  return {
+    roundId: fixture.roundId,
+    sessionId: String(session!.id),
+    workerId: createId(),
+  };
+}
+
+/** Hold actual provider creation before its effect or after acknowledgement, without replacing the vendor. */
+export function delayedMediaCreation(phase: 'before' | 'after' = 'after') {
   const entered = Promise.withResolvers<void>();
   const release = Promise.withResolvers<void>();
   let delayed = false;
@@ -74,13 +90,18 @@ export function delayedMediaCreation() {
     port: 0,
     async fetch(request) {
       const url = new URL(request.url);
+      const creation = !delayed && url.pathname.endsWith('/CreateRoom');
+      if (creation) delayed = true;
+      if (creation && phase === 'before') {
+        entered.resolve();
+        await release.promise;
+      }
       const response = await fetch(`${localMediaConfig.url}${url.pathname}`, {
         method: request.method,
         headers: request.headers,
         body: await request.arrayBuffer(),
       });
-      if (!delayed && url.pathname.endsWith('/CreateRoom') && response.ok) {
-        delayed = true;
+      if (creation && phase === 'after' && response.ok) {
         entered.resolve();
         await release.promise;
       }
