@@ -321,6 +321,23 @@ with zero data retention, held in bounded memory and never stored on disk.
 The privacy processor inventory and retention erasure obligations remain
 tracked work (ISSUE-333 and ISSUE-322); this ADR does not claim either shipped.
 
+## Native publication adapter
+
+Use the pinned prebuilt `@livekit/rtc-node` 1.2.0 / FFI 0.13.1 zero-buffer
+source path for exact 10ms PCM frames. Official version sources and dependency
+rationale are recorded in [the dependency registry](../dependencies.md#round-media-vendor-adapter).
+Its native acknowledgement follows synchronous source sink handoff. Buffered
+queue duration, drain timers and subscriber totals provide no publication
+eligibility evidence. No repository Rust implementation is introduced.
+
+The actual Bun consumer paces frames and requires their complete conservative
+server-clock uncertainty window to fit committed historical speaking authority.
+[Native publication timing](../architecture/native-audio-publication.md) defines
+the calibration endpoint extrema, 100ppm drift, refresh bounds, gaps and
+cancellation rules. Raw handoff progress never directly creates transcript
+credit. Independent clock-delta branch feedback is zero findings at edfc3038;
+full capture, provider composition, browser and worker acceptance remain separate.
+
 ## Consequences
 
 - Media sessions extend the existing Round model. No second lifecycle,
