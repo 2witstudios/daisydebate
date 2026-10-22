@@ -13,7 +13,7 @@ export async function assertRoundAttendanceSettled(
   )
     throw createAppError('VALIDATION');
   const locked = await tx.execute(
-    sql`select id from rounds where id=${input.roundId} for update`,
+    sql`select id from rounds where id=${input.roundId} for no key update`,
   );
   if (locked.length !== 1) throw createAppError('NOT_FOUND');
   const [row] = await tx.execute(sql`select exists(
