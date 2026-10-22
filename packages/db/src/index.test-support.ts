@@ -116,7 +116,9 @@ export const roundRow = (record: {
   record.completedAt === null ? null : new Date(record.completedAt),
   record.checkpoint,
   record.finalSegmentEndedAt ? new Date(record.finalSegmentEndedAt) : null,
-  record.transcriptAdmissionCutoff ? new Date(record.transcriptAdmissionCutoff) : null,
+  record.transcriptAdmissionCutoff
+    ? new Date(record.transcriptAdmissionCutoff)
+    : null,
   new Date(record.createdAt),
   new Date(record.updatedAt),
   record.version,
