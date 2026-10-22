@@ -13,6 +13,7 @@ import {
 } from './round-agent-runs';
 import { judgingJobWhere, type JudgingScope } from './round-judging-context';
 import { nextEpoch } from './lease-policy';
+import { requireClaimableJob } from './round-judging-decisions';
 
 export async function claimLockedJudgingJob(
   tx: BoundedTransactionContext,
@@ -107,18 +108,4 @@ export async function claimLockedJudgingJob(
     frozen,
     round,
   };
-}
-
-function requireClaimableJob(
-  job: typeof roundJudgingJobs.$inferSelect | undefined,
-  commandId: string,
-  now: Date,
-): asserts job is typeof roundJudgingJobs.$inferSelect {
-  if (
-    !job ||
-    (job.commandId !== null && job.commandId !== commandId) ||
-    !['queued', 'leased'].includes(job.status) ||
-    (job.leaseExpiresAt && job.leaseExpiresAt.getTime() > now.getTime())
-  )
-    throw createAppError('CONFLICT', 'Judging intent unavailable');
 }

@@ -1,5 +1,4 @@
 import { and, asc, eq, or, sql } from 'drizzle-orm';
-import { isDeepStrictEqual } from 'node:util';
 import { createAppError } from '@daisy/errors';
 import { ballotSchema } from '@daisy/protocol';
 import type { BoundedTransactionContext } from './transaction-context';
@@ -22,6 +21,10 @@ import {
   markLockedRoundBotModelCall,
 } from './round-bot-admission';
 import { requireLeaseMs } from './lease-policy';
+import {
+  pendingBallotAction,
+  requireUndispatched,
+} from './round-judging-decisions';
 export type { JudgingScope } from './round-judging-context';
 /** Durable intents use the same injected bounded transaction; no provider I/O occurs under locks. */
 export function createRoundJudgingJobs(input: {
@@ -108,11 +111,7 @@ export function createRoundJudgingJobs(input: {
         scope,
         token,
         async (tx, { run, job }) => {
-          if (
-            job.pendingBallot ||
-            run.configurationSnapshot.providerOutcome !== 'not_started'
-          )
-            throw createAppError('CONFLICT', 'Model call already dispatched');
+          requireUndispatched(job, run);
           const reservation = await markLockedRoundBotModelCall(
             tx,
             scope.roundId,
@@ -146,16 +145,7 @@ export function createRoundJudgingJobs(input: {
       const parsed = ballotSchema.safeParse(response);
       if (!parsed.success) throw createAppError('VALIDATION');
       return withLease(scope, token, async (tx, { run, job, now }) => {
-        if (job.pendingBallot) {
-          if (!isDeepStrictEqual(job.pendingBallot, parsed.data))
-            throw createAppError(
-              'CONFLICT',
-              'Judging response already recorded',
-            );
-          return;
-        }
-        if (run.configurationSnapshot.providerOutcome !== 'received')
-          throw createAppError('CONFLICT', 'Model response not accounted');
+        if (pendingBallotAction(job, run, parsed.data) === 'kept') return;
         await tx
           .update(roundJudgingJobs)
           .set({
