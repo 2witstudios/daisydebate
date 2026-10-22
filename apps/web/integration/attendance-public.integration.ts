@@ -5,6 +5,7 @@ import { createAccountFlows, uniqueName } from './auth-account-helpers';
 import { withAttendanceRound } from './attendance.test-support';
 import { composeAttendanceRoutes } from '../src/features/attendance/composition';
 import { createPublicCheckInProbe } from '../src/features/availability/public-probe';
+import { identify } from '../src/lib/identity';
 setupRitewayBun();
 
 test('real public ingress probe uses ordinary signed session, scoped seat and durable receipt aliases', async () => {
@@ -49,7 +50,13 @@ test('real public ingress probe uses ordinary signed session, scoped seat and du
     await withAttendanceRound(async ({ f, roundId, segmentId }) => {
       // Isolated resource setup: canonical Round seat belongs to the actual signed member.
       await f.sql`update round_participants set actor_id=${identity.principal.actorId} where round_id=${roundId} and role='affirmative'`;
-      const mounted = composeAttendanceRoutes(app.app);
+      const mounted = composeAttendanceRoutes(app.app, {
+        logger: app.app.logger,
+        origin: () => origin,
+        identify: (request) => identify(app.app.auth(), request.headers),
+        getActorByUserId: (id) => app.app.database.getActorByUserId(id),
+        limiter: () => app.app.auth().limiter,
+      });
       handler = (request) =>
         new URL(request.url).pathname === `/api/rounds/${roundId}/check-in` &&
         request.method === 'POST'

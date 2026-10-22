@@ -67,7 +67,7 @@ test('existing rating feature rediscovers only committed ranked RT forfeits and 
         const resolved = await attendance.evaluate(roundId);
         const committed = await f.store.getRound(roundId);
         await Promise.all([sweep(), sweep()]);
-        const ledger =
+        const ledger: { rating_after: number; calculation_version: string }[] =
           await f.sql`select rating_before,rating_after,calculation_version from rating_changes where round_id=${roundId}`;
         assert({
           given: `${kind} historical actual speech evidence through real evaluator`,

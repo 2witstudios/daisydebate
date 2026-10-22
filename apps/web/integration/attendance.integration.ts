@@ -10,11 +10,17 @@ test('actual attendance operation preserves first receipt before Round contentio
     const principal = { kind: 'human', actorId: f.host.actorId } as const;
     const envelope = { version: 1, commandId: createId(), segmentId } as const;
     const targets = await attendance.targets(principal, roundId);
+    const ready = await attendance.nativeState(principal, roundId);
     assert({
       given: 'actual shared clock speech opening',
       should: 'discover the scoped unrecorded speech',
-      actual: targets.map((t) => t.segmentId),
-      expected: [segmentId],
+      actual: [
+        targets.map((t) => t.segmentId),
+        ready.roundId,
+        ready.targets.map((t) => t.segmentId),
+        ready.recorded,
+      ],
+      expected: [[segmentId], roundId, [segmentId], []],
     });
     const holder = await f.sql.reserve();
     let pending: Promise<unknown> | undefined;
@@ -39,7 +45,7 @@ test('actual attendance operation preserves first receipt before Round contentio
       });
       await holder`commit`;
       const first = await receipt;
-      const firstElapsed = performance.now()-began;
+      const firstElapsed = performance.now() - began;
       const replay = await attendance.checkIn(principal, roundId, envelope);
       const alias = await attendance.checkIn(principal, roundId, {
         ...envelope,
@@ -74,6 +80,13 @@ test('actual attendance operation preserves first receipt before Round contentio
         should: 'stop rediscovering that target',
         actual: await attendance.targets(principal, roundId),
         expected: [],
+      });
+      const recorded = await attendance.nativeState(principal, roundId);
+      assert({
+        given: 'native read after first durable receipt and idempotent aliases',
+        should: 'show original recorded fact with no invented unresolved form',
+        actual: [recorded.recorded, recorded.targets],
+        expected: [[{ segmentId, receivedAt: first.receivedAt }], []],
       });
       await f.sql`update users set deleted_at=statement_timestamp(),username=null where id=${f.host.userId}`;
       await assertRejects({
