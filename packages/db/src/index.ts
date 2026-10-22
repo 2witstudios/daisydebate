@@ -101,6 +101,7 @@ export {
   type OutboxRow,
 } from './outbox';
 export { refuseSchemaAlteringRole } from './runtime-role';
+export { runAsBackgroundWork } from './transaction-capacity';
 
 /**
  * Composes the auth, format, room, round, utterance, ballot, agent,

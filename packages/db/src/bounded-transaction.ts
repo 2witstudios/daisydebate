@@ -1,4 +1,5 @@
 import type { ReservedSQL, SQL } from 'bun';
+import { createTransactionCapacity } from './transaction-capacity';
 import { createAppError, isAppError } from '@daisy/errors';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import {
@@ -281,24 +282,15 @@ export function createBoundedTransaction({
     executionMs > TRANSACTION_MS
   )
     throw createAppError('INVARIANT', 'Invalid transaction execution budget');
-  let active = 0;
+  const admit = createTransactionCapacity(maxConnections);
   return async <T>(
     run: TransactionWork<T>,
     options?: TransactionOptions,
   ): Promise<T> => {
-    if (
-      !Number.isSafeInteger(maxConnections) ||
-      maxConnections < 2 ||
-      active >= Math.floor(maxConnections / 2)
-    )
-      throw createAppError(
-        'INFRASTRUCTURE',
-        'Transcript transaction capacity unavailable',
-      );
     const slice = options?.executionMs ?? executionMs;
     if (!Number.isSafeInteger(slice) || slice < 1 || slice > executionMs)
       throw createAppError('INVARIANT', 'Invalid transaction execution budget');
-    active += 1;
+    const release = admit();
     try {
       return await new TransactionAttempt(
         client,
@@ -307,7 +299,7 @@ export function createBoundedTransaction({
         options?.lifecycle,
       ).run(run);
     } finally {
-      active -= 1;
+      release();
     }
   };
 }

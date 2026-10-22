@@ -6,7 +6,7 @@ import { startMessagingFileMaintenance } from './file-maintenance';
 import { startRoundAvailability } from './round-availability';
 import { readFileSync } from 'node:fs';
 import next from 'next';
-import { refuseSchemaAlteringRole } from '@daisy/db';
+import { refuseSchemaAlteringRole, runAsBackgroundWork } from '@daisy/db';
 import {
   drainWithDeadline,
   installShutdownSignals,
@@ -63,50 +63,58 @@ const mediaRuntime = [
   ? createRoundMediaRuntime(app)
   : null;
 const mediaRecovery = mediaRuntime
-  ? startRoundMediaRecovery({
-      recover: () => mediaRuntime.operations().recoverActiveSessions(),
-      failed: () =>
-        app.logger.log(
-          'round.media.recovery_failed',
-          { operation: 'round.media.recovery', errorCode: 'INFRASTRUCTURE' },
-          'Media recovery remains pending',
-        ),
-      every: (ms, tick) => {
-        const handle = setInterval(tick, ms).unref();
-        return { stop: () => clearInterval(handle) };
-      },
-    })
+  ? runAsBackgroundWork(() =>
+      startRoundMediaRecovery({
+        recover: () => mediaRuntime.operations().recoverActiveSessions(),
+        failed: () =>
+          app.logger.log(
+            'round.media.recovery_failed',
+            { operation: 'round.media.recovery', errorCode: 'INFRASTRUCTURE' },
+            'Media recovery remains pending',
+          ),
+        every: (ms, tick) => {
+          const handle = setInterval(tick, ms).unref();
+          return { stop: () => clearInterval(handle) };
+        },
+      }),
+    )
   : null;
-const availability = startRoundAvailability({
-  app,
-  fetch: fetchPublicAttendanceProbe,
-  timers: {
-    setInterval: (tick, ms) => setInterval(tick, ms).unref(),
-    clearInterval: (handle) =>
-      clearInterval(handle as ReturnType<typeof setInterval>),
-  },
-});
-const roundMaintenance = startRoundCompetitiveMaintenance({
-  app,
-  instanceId: availability.instanceId,
-  timers: {
-    setInterval: (tick, ms) => setInterval(tick, ms).unref(),
-    clearInterval: (handle) =>
-      clearInterval(handle as ReturnType<typeof setInterval>),
-  },
-});
-const roundWorkers = startRoundWorkers({
-  app,
-  instanceId: availability.instanceId,
-  timers: {
-    setInterval: (tick, ms) =>
-      setInterval(() => {
-        void tick();
-      }, ms).unref(),
-    clearInterval: (handle) =>
-      clearInterval(handle as ReturnType<typeof setInterval>),
-  },
-});
+const availability = runAsBackgroundWork(() =>
+  startRoundAvailability({
+    app,
+    fetch: fetchPublicAttendanceProbe,
+    timers: {
+      setInterval: (tick, ms) => setInterval(tick, ms).unref(),
+      clearInterval: (handle) =>
+        clearInterval(handle as ReturnType<typeof setInterval>),
+    },
+  }),
+);
+const roundMaintenance = runAsBackgroundWork(() =>
+  startRoundCompetitiveMaintenance({
+    app,
+    instanceId: availability.instanceId,
+    timers: {
+      setInterval: (tick, ms) => setInterval(tick, ms).unref(),
+      clearInterval: (handle) =>
+        clearInterval(handle as ReturnType<typeof setInterval>),
+    },
+  }),
+);
+const roundWorkers = runAsBackgroundWork(() =>
+  startRoundWorkers({
+    app,
+    instanceId: availability.instanceId,
+    timers: {
+      setInterval: (tick, ms) =>
+        setInterval(() => {
+          void tick();
+        }, ms).unref(),
+      clearInterval: (handle) =>
+        clearInterval(handle as ReturnType<typeof setInterval>),
+    },
+  }),
+);
 // The one bounded retention sweep runs at start and then hourly in this
 // process; `unref` never holds it open. The start-up run waits for Redis to
 // answer first (ISSUE-146): a freshly started Fly machine's Redis connection
@@ -114,39 +122,45 @@ const roundWorkers = startRoundWorkers({
 // readiness already reports 503 correctly during that window (a live check
 // per request, never a boot flag) — this only stops the sweep from logging
 // a spurious retention.sweep.failed on every cold boot.
-const retention = startRetentionSweep({
-  sweep: createRetentionSweep({
-    targets: retentionTargets({ database: app.database, redis: app.redis }),
-    clock: app.clock,
-    logger: app.logger,
-  }),
-  runOnStart: true,
-  waitUntilReady: () =>
-    waitForHealthy({
-      health: () => app.redis.health(),
-      sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
-      timeout: (ms) =>
-        new Promise((resolve) => setTimeout(resolve, ms).unref()),
-    }),
-  timers: {
-    setInterval: (tick, ms) => setInterval(tick, ms).unref(),
-    clearInterval: (handle) => clearInterval(handle as NodeJS.Timeout),
-  },
-});
-const fileRuntime = app.messagingFiles;
-const fileMaintenance = fileRuntime?.maintenance
-  ? startMessagingFileMaintenance({
-      maintenance: app.database.messagingFileMaintenance,
-      config: fileRuntime.maintenance,
-      remove: (key) => fileRuntime.objects.remove(key),
+const retention = runAsBackgroundWork(() =>
+  startRetentionSweep({
+    sweep: createRetentionSweep({
+      targets: retentionTargets({ database: app.database, redis: app.redis }),
       clock: app.clock,
       logger: app.logger,
-      timers: {
-        setInterval: (tick, ms) => setInterval(tick, ms).unref(),
-        clearInterval: (handle) => clearInterval(handle as NodeJS.Timeout),
-      },
-    })
-  : null;
+    }),
+    runOnStart: true,
+    waitUntilReady: () =>
+      waitForHealthy({
+        health: () => app.redis.health(),
+        sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+        timeout: (ms) =>
+          new Promise((resolve) => setTimeout(resolve, ms).unref()),
+      }),
+    timers: {
+      setInterval: (tick, ms) => setInterval(tick, ms).unref(),
+      clearInterval: (handle) => clearInterval(handle as NodeJS.Timeout),
+    },
+  }),
+);
+const fileRuntime = app.messagingFiles;
+const fileConfig = fileRuntime?.maintenance;
+const fileMaintenance =
+  fileRuntime && fileConfig
+    ? runAsBackgroundWork(() =>
+        startMessagingFileMaintenance({
+          maintenance: app.database.messagingFileMaintenance,
+          config: fileConfig,
+          remove: (key) => fileRuntime.objects.remove(key),
+          clock: app.clock,
+          logger: app.logger,
+          timers: {
+            setInterval: (tick, ms) => setInterval(tick, ms).unref(),
+            clearInterval: (handle) => clearInterval(handle as NodeJS.Timeout),
+          },
+        }),
+      )
+    : null;
 async function shutdown() {
   if (app.isDraining()) return;
   app.drain();
