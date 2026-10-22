@@ -2,7 +2,7 @@ import { createInvariantError } from '@daisy/errors';
 import type { RoundRules } from '@daisy/protocol';
 import { attendancePolicy } from './attendance';
 import { debateInvariantIds } from './invariant-ids';
-export type AttendanceTimingPolicy = {
+type AttendanceTimingPolicy = {
   readonly heartbeatMs: number;
   readonly reconnectBudgetMs: number;
   readonly graceMs: number;
