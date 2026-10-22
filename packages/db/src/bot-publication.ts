@@ -183,3 +183,8 @@ export function createBotPublicationOperations(input: {
       }),
   };
 }
+
+export {
+  verifyBotWorkerPrincipalLocked,
+  readBotControlHealth,
+} from './bot-worker-authority';

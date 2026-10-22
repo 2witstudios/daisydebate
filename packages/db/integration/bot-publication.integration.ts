@@ -1,6 +1,7 @@
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
+import { createBotSeat } from './bot-seat.test-support';
 import { withBotPublication } from './bot-publication.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
@@ -165,6 +166,55 @@ test('idle control heartbeat survives a closed floor independently of publicatio
       should: 'refuse attendance authority',
       actual: () => operations.verifyBotWorker(claim.scope, claim.token),
       code: 'CONFLICT',
+    });
+  });
+});
+test('actual control health is unknown until every active bot worker is freshly scoped', async () => {
+  await withBotPublication(async ({ operations, target, fixture, run }) => {
+    const { readBotControlHealth, verifyBotWorkerPrincipalLocked } =
+      await import('../src/bot-worker-authority');
+    const before = await run((tx) => readBotControlHealth(tx, target.roundId));
+    const claim = await operations.claimWorker(target);
+    const principal = {
+      kind: 'agent' as const,
+      serviceId: claim.scope.serviceId,
+      agentRunId: claim.scope.agentRunId,
+      participantId: claim.scope.roundParticipantId,
+      publicationEpoch: claim.scope.publicationEpoch,
+    };
+    await fixture.sql`update round_speaking_intervals set ended_at=clock_timestamp(),ended_version=2 where round_id=${target.roundId}`;
+    const healthy = await run(async (tx) => {
+      await verifyBotWorkerPrincipalLocked(tx, principal, target.roundId);
+      return readBotControlHealth(tx, target.roundId);
+    });
+    const peer = await createBotSeat(fixture, target.roundId, 'negative');
+    const partial = await run((tx) => readBotControlHealth(tx, target.roundId));
+    await operations.claimWorker({ ...target, roundParticipantId: peer.id });
+    const all = await run((tx) => readBotControlHealth(tx, target.roundId));
+    await fixture.sql`update round_bot_publications set lease_expires_at=clock_timestamp()-interval '1 second' where round_id=${target.roundId} and round_participant_id=${target.roundParticipantId}`;
+    const expired = await run((tx) => readBotControlHealth(tx, target.roundId));
+    await assertRejects({
+      given: 'an expired control lease',
+      should: 'refuse check-in authority without guessing absence',
+      actual: () =>
+        run((tx) =>
+          verifyBotWorkerPrincipalLocked(tx, principal, target.roundId),
+        ),
+      code: 'CONFLICT',
+    });
+    assert({
+      given:
+        'no controller, healthy idle controller with closed floor, and expired controller',
+      should:
+        'report conservative current control health separately from media',
+      actual: [
+        before.healthy,
+        healthy.healthy,
+        partial.healthy,
+        all.healthy,
+        expired.healthy,
+      ],
+      expected: [false, true, false, true, false],
     });
   });
 });
