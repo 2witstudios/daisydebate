@@ -35,3 +35,16 @@ existing privacy/legal human gates are unchanged.
 The schema producer is separate from browser, provider and background-worker
 implementation acceptance. Actual room creation/permission/cleanup and concurrent
 recovery must be proven by their consuming operations.
+
+The internal capture broker consumes
+`db.createMediaCaptureOperations({nextId,buildProjection}).verifyMediaWorkerLease`
+with `{roundId,sessionId,workerId,epoch}` after authenticating its server worker.
+Those identifiers are scoped witnesses, never bearer credentials. Verification
+uses the existing bounded transaction, shared locked engine advancement and exact
+lease row. It refuses missing/stale/expired leases, terminal Rounds, ended/unsafe
+sessions and pending vendor operations. It returns that scope, `expiresAt`, and
+fresh post-lock `serverNow` (ISO milliseconds, calibration precision 1ms).
+Monotonic send/receive brackets must surround the actual call when using the
+stamp for native calibration. The broker additionally enforces the actual media
+window and hidden capture-only permissions. Verification is not browser access,
+room creation, competitive speaking authority or vendor cleanup proof.
