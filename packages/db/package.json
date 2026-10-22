@@ -17,7 +17,8 @@
     "./privacy": "./src/privacy/index.ts",
     "./messaging": "./src/messaging/index.ts",
     "./account-age": "./src/account-age.ts",
-    "./messaging-files": "./src/messaging-files/index.ts"
+    "./messaging-files": "./src/messaging-files/index.ts",
+    "./media-session": "./src/media-session.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
