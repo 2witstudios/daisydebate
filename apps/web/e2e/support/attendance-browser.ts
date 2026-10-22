@@ -10,6 +10,45 @@ import {
 } from '@daisy/protocol';
 import { expect, openPage } from './fixtures';
 import { readBallotRound } from './human-ballot-round';
+import { attendanceEvidence } from './attendance-evidence';
+
+export async function healthyAttendance(roundId: string) {
+  await expect
+    .poll(
+      async () =>
+        (await attendanceEvidence(roundId)).samples
+          .slice(-3)
+          .map((sample) => sample.healthy),
+      { timeout: 15_000 },
+    )
+    .toEqual([true, true, true]);
+}
+
+export async function pastOriginalAttendanceGrace(
+  roundId: string,
+  startedAt: string,
+) {
+  await expect
+    .poll(
+      async () =>
+        Date.parse((await attendanceEvidence(roundId)).observedAt) -
+        Date.parse(startedAt),
+      { timeout: 50_000, intervals: [500] },
+    )
+    .toBeGreaterThan(45_000);
+}
+
+export async function attendedResolution(roundId: string, segmentId: string) {
+  await expect
+    .poll(
+      async () =>
+        (await attendanceEvidence(roundId)).adjudications.find(
+          (row) => row.segmentId === segmentId,
+        )?.decision,
+      { timeout: 50_000, intervals: [500] },
+    )
+    .toBe('attended');
+}
 
 export const receiptResponse = (roundId: string) => (response: Response) =>
   new URL(response.url()).pathname === `/api/rounds/${roundId}/check-in` &&
