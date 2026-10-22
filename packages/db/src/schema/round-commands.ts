@@ -16,6 +16,8 @@ export const roundCommandTypes = [
   'forfeit',
   'complete',
   'submit_ballot',
+  'check_in',
+  'adjudicate',
 ] as const;
 
 /**
@@ -60,5 +62,9 @@ export const roundCommands = pgTable(
       sql`${table.payloadDigest} ~ '^[0-9a-f]{64}$'`,
     ),
     check('round_commands_type_check', oneOf(table.type, roundCommandTypes)),
+    check(
+      'round_commands_attendance_principal_check',
+      sql`${table.type} <> 'adjudicate' or (${table.actorId} is null and ${table.serviceId} ~ '^round-attendance:[a-z0-9]{24}$')`,
+    ),
   ],
 );
