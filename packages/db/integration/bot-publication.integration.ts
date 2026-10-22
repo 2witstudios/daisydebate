@@ -174,6 +174,16 @@ test('actual control health is unknown until every active bot worker is freshly 
     const { readBotControlHealth, verifyBotWorkerPrincipalLocked } =
       await import('../src/bot-worker-authority');
     const before = await run((tx) => readBotControlHealth(tx, target.roundId));
+    const [opening] =
+      await fixture.sql`select to_char(started_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as at from round_segments where id=${target.segmentId}`;
+    assert({
+      given: 'a bot seat that never held a lease for the actual segment',
+      should: 'be unknown since that segment opened',
+      actual: before.unknownSeats,
+      expected: [
+        { participantId: target.roundParticipantId, unknownSince: opening.at },
+      ],
+    });
     const claim = await operations.claimWorker(target);
     const principal = {
       kind: 'agent' as const,
@@ -206,6 +216,16 @@ test('actual control health is unknown until every active bot worker is freshly 
     });
     await fixture.sql`update round_bot_publications set lease_expires_at=clock_timestamp()-interval '1 second' where round_id=${target.roundId} and round_participant_id=${target.roundParticipantId}`;
     const expired = await run((tx) => readBotControlHealth(tx, target.roundId));
+    const [lease] =
+      await fixture.sql`select to_char(lease_expires_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as at from round_bot_publications where round_id=${target.roundId} and round_participant_id=${target.roundParticipantId}`;
+    assert({
+      given: 'one seat whose current-segment lease expired',
+      should: 'name only that seat, unknown since its exact PG lease expiry',
+      actual: expired.unknownSeats,
+      expected: [
+        { participantId: target.roundParticipantId, unknownSince: lease.at },
+      ],
+    });
     await assertRejects({
       given: 'an expired control lease',
       should: 'refuse check-in authority without guessing absence',

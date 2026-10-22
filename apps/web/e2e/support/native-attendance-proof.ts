@@ -3,11 +3,7 @@ import { attendanceReceiptSchema } from '@daisy/protocol';
 import { expect, openPage } from './fixtures';
 import { createRoomLaunchAccounts } from './room-launch-accounts';
 import { origin } from './accounts';
-import {
-  createHumanBallotRound,
-  readBallotRound,
-  ballotRoundCommand,
-} from './human-ballot-round';
+import { createHumanBallotRound } from './human-ballot-round';
 import { attendanceEvidence } from './attendance-evidence';
 import {
   actualSpeech,
@@ -15,6 +11,7 @@ import {
   healthyAttendance,
   pastOriginalAttendanceGrace,
   attendedResolution,
+  closeAttendedFixture,
 } from './attendance-browser';
 import {
   controlLaunch,
@@ -141,11 +138,7 @@ export async function nativeAttendanceOutage({
       before.receipts,
     ]);
     // Explicit participant forfeit is separate from attendance settlement and remains available.
-    const current = await readBallotRound(host.request, round.id);
-    await ballotRoundCommand(host.request, current, {
-      type: 'forfeit',
-      participantId: received.participantId,
-    });
+    await closeAttendedFixture(host.request, round.id, received.participantId);
   } finally {
     try {
       await controlLaunch('restore-check-in');
