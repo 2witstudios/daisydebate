@@ -13,6 +13,12 @@ const streamFields = {
   segmentId: idSchema,
   roundParticipantId: idSchema,
 };
+export const captureWorkerIdentitySchema = z
+  .object({
+    ...leaseFields,
+    epoch: z.number().int().positive().max(2147483647),
+  })
+  .strict();
 export const captureLeaseSchema = z
   .object({ ...leaseFields, leaseMs: z.number().int().min(1000).max(30000) })
   .strict();
