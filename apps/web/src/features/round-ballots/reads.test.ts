@@ -47,7 +47,7 @@ test('judge assignments parse strictly and fail closed', async () => {
   const assignment = {
     roundId,
     resolution: 'Cities should make transit free',
-    status: 'active',
+    status: 'active' as const,
     outcome: null,
     ballotStatus: null,
     freezeRevision: null,

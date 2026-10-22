@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { silentLogger } from '../../server/test-loggers.test-support';
+import { memberGate } from './member-gate.test-support';
 import { createRoundHandlers } from './handlers';
 setupRitewayBun();
 const id = 'a'.repeat(24),
@@ -13,23 +13,7 @@ const envelope = {
 const fixture = () => {
   let calls = 0;
   const handlers = createRoundHandlers({
-    logger: silentLogger,
-    identify: async () => ({
-      state: 'member',
-      username: 'Member',
-      principal: { kind: 'user', userId: id, actorId: id },
-    }),
-    origin: () => origin,
-    getActorByUserId: async () => ({ id }),
-    limiter: () => ({
-      consume: async () => ({ allowed: true, retryAfterSeconds: 0 }),
-    }),
-    limits: {
-      read: { max: 10, windowSeconds: 60 },
-      command: { max: 10, windowSeconds: 60 },
-    },
-    active: () => true,
-    maxBodyBytes: 4096,
+    ...memberGate(id, origin),
     operations: {
       command: async () => {
         calls++;
