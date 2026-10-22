@@ -66,7 +66,14 @@ export function resolveAttendanceWindow(
   if (!decision || availability.settledHorizonMs === null) return null;
   requireAttendanceDecision(evidence, decision);
   const terminalDecision =
-    decision.decision === 'forfeit' || decision.decision === 'abandoned';
+    decision.decision === 'forfeit'
+      ? decision
+      : decision.decision === 'abandoned'
+        ? {
+            decision: 'abandoned' as const,
+            effectiveDeadlineMs: decision.effectiveDeadlineMs,
+          }
+        : null;
   const projection = terminalDecision
     ? createRoundRuntime({
         round: facts.round,
@@ -75,8 +82,27 @@ export function resolveAttendanceWindow(
         checkpoint: facts.round.checkpoint,
         segments: facts.round.segments,
         nextSegmentId,
-      }).adjudicate({ segmentId: target.id, decision, now: facts.now })
+      }).adjudicate({
+        segmentId: target.id,
+        decision: terminalDecision,
+        now: facts.now,
+      })
     : null;
+  return {
+    segmentId: target.id,
+    decision: decision.decision,
+    effectiveDeadline: new Date(decision.effectiveDeadlineMs).toISOString(),
+    settledHorizon: new Date(availability.settledHorizonMs).toISOString(),
+    projection,
+  };
+}
+
+export function createAttendanceFeature(deps: {
+  readonly checkIns: AttendanceStore;
+  readonly evaluate: AttendanceEvaluator;
+  readonly nextId: () => string;
+  readonly instanceId: string;
+}) {
   return {
     async targets(principal: AttendancePrincipal, roundId: string) {
       const facts = await deps.checkIns.readRoundAttendanceTargets({
@@ -118,21 +144,6 @@ export function resolveAttendanceWindow(
             : [];
         });
     },
-    segmentId: target.id,
-    decision: decision.decision,
-    effectiveDeadline: new Date(decision.effectiveDeadlineMs).toISOString(),
-    settledHorizon: new Date(availability.settledHorizonMs).toISOString(),
-    projection,
-  };
-}
-
-export function createAttendanceFeature(deps: {
-  readonly checkIns: AttendanceStore;
-  readonly evaluate: AttendanceEvaluator;
-  readonly nextId: () => string;
-  readonly instanceId: string;
-}) {
-  return {
     async checkIn(
       principal: AttendancePrincipal,
       roundId: string,
