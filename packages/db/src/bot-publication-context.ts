@@ -20,7 +20,7 @@ export type PublicationWindow = {
 };
 /** Claiming a controller does not grant a speaking interval. */
 export async function requireBotControlSegment(
-  tx: BoundedTransactionContext,
+  tx: Pick<BoundedTransactionContext, 'execute'>,
   target: Pick<BotPublicationScope, 'roundId' | 'segmentId'>,
 ) {
   const rows = await tx.execute(sql`select 1 from round_segments s
@@ -62,7 +62,7 @@ export async function requireBotSpeakingWindow(
   if (rows.length !== 1)
     throw createAppError('CONFLICT', 'Bot speaking authority changed');
 }
-function requireClaimScope(
+export function requireClaimScope(
   claim: typeof roundBotPublications.$inferSelect | undefined,
   scope: BotPublicationScope,
 ): asserts claim is typeof roundBotPublications.$inferSelect {
@@ -74,7 +74,7 @@ function requireClaimScope(
   )
     throw createAppError('CONFLICT');
 }
-function requireRunScope(
+export function requireRunScope(
   run: typeof agentRuns.$inferSelect | undefined,
   scope: BotPublicationScope,
 ): asserts run is typeof agentRuns.$inferSelect {

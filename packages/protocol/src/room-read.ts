@@ -50,6 +50,20 @@ export const roomViewSchema = z.strictObject({
   /** Redacted to null for a viewer who may not name a judge seat the host occupies (DEC-174). */
   hostActorId: idSchema.nullable(),
   hostLabel: z.string().nullable(),
+  /** Host-only display metadata; admission is rechecked atomically at freeze. */
+  botAdmission: z
+    .union([
+      z.strictObject({ kind: z.literal('unavailable') }),
+      z.strictObject({
+        kind: z.literal('allowance'),
+        limit: z.union([z.literal(1), z.literal(10)]),
+        remaining: z.int().min(0).max(10),
+        periodStart: z.iso.datetime({ offset: true }),
+        periodEnd: z.iso.datetime({ offset: true }),
+        refusal: z.enum(['provenance', 'allowance', 'capacity']).nullable(),
+      }),
+    ])
+    .nullable(),
   status: z.enum(['assembling', 'ready', 'started', 'abandoned']),
   formatId: z.string().min(1),
   formatVersion: version,
