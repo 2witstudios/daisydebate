@@ -97,14 +97,41 @@ describe('round runtime lifecycle', () => {
           granted_at: at(330_000),
         },
       });
-      const yielded = world.execute({
+      const returned = world.execute({
         command: { type: 'yield' },
         actorId: person,
         now: at(340_000),
       });
       assert({
-        given: 'the interrupter yielding the floor they took',
-        should: 'end the segment early',
+        given: 'the interrupter yielding the floor they took (DEC-203)',
+        should:
+          "hand the floor back to the questioner and keep the questioner's segment and clock running",
+        actual: {
+          closes: returned.segmentCloses,
+          floor: returned.round?.checkpoint.floor,
+          speaking: returned.speakingChanges?.at(-1),
+          live: world.position(at(340_000)).openSegment?.key,
+        },
+        expected: {
+          closes: [],
+          floor: null,
+          speaking: {
+            kind: 'open',
+            segmentId: 'segment-2',
+            at: at(340_000),
+            participantIds: ['q5x2v8t0r4p6n2b8c1z7k3m9w'],
+          },
+          live: 'CX1',
+        },
+      });
+      const yielded = world.execute({
+        command: { type: 'yield' },
+        actorId: opponent,
+        now: at(350_000),
+      });
+      assert({
+        given: 'the questioner, the scheduled speaker, yielding',
+        should: 'end the cross-examination early',
         actual: yielded.segmentCloses[0]?.id,
         expected: 'segment-2',
       });
