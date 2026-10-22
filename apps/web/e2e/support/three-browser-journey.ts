@@ -1,4 +1,4 @@
-import type { Browser, Page } from '@playwright/test';
+import type { Browser, BrowserContext, Page } from '@playwright/test';
 import { createId } from '@paralleldrive/cuid2';
 import {
   isNamedSeat,
@@ -20,19 +20,17 @@ import { readBallotRound } from './human-ballot-round';
 type Seat = 'Affirmative 1' | 'Negative 1' | 'Judge 1';
 type Player = { readonly page: Page; readonly seat: Seat };
 
-/** Both preparation phases off through the Room settings form, so every turn ends on its holder's command. */
-async function disablePreparation(host: Page, room: RoomView) {
+/** Pre-Launch preparation off through the Room settings form; in-Round prep stays on. */
+async function skipPreRoundPrep(host: Page, room: RoomView) {
   await host.getByText('Edit settings', { exact: true }).click();
   const settings = host.getByRole('form', { name: 'Room settings' });
   await settings.getByLabel('Enable preparation before Launch').uncheck();
-  await settings.getByLabel('Enable preparation during the Round').uncheck();
   await settings.getByRole('button', { name: 'Save settings' }).click();
   await expect(async () => {
     room = await reread(host.request, room.id);
-    expect([room.config.preRoundPrep, room.config.inRoundPrep]).toEqual([
-      { enabled: false },
-      { enabled: false },
-    ]);
+    expect([room.config.preRoundPrep, room.config.inRoundPrep.enabled]).toEqual(
+      [{ enabled: false }, true],
+    );
   }).toPass({ timeout: 10_000 });
   return room;
 }
@@ -81,34 +79,77 @@ async function launch(host: Page) {
 const readRound = async (page: Page, id: string): Promise<RoundView> =>
   readBallotRound(page.request, id);
 
-/** Each open turn is ended by its own floor holder's End speech control. */
+type Debaters = Record<'affirmative' | 'negative', Page>;
+
+/** Waits on the persisted Round until `key`'s segment is open (`ended` false) or closed. */
+async function untilSegment(
+  page: Page,
+  roundId: string,
+  key: string,
+  ended: boolean,
+) {
+  await expect(async () => {
+    const view = await readRound(page, roundId);
+    const segment = view.segments.find((s) => s.rulesSegmentKey === key);
+    expect(segment && segment.endedAt !== null).toBe(ended);
+  }).toPass({ timeout: 30_000 });
+}
+
+/** The floor holder's own End speech control, through its confirmation. */
+async function endSpeech(page: Page) {
+  await page.getByRole('button', { name: 'End speech', exact: true }).click();
+  await page
+    .getByRole('button', { name: 'Confirm end speech', exact: true })
+    .click();
+}
+
+/**
+ * Every turn through the debaters' own controls: the affirmative interrupts
+ * the first cross-examination and ends it, the negative spends prep before
+ * its constructive and refreshes mid-speech, and the affirmative reconnects
+ * from a new tab before its first rebuttal. Returns the pages still open.
+ */
 async function playEveryTurn(
-  debaters: Readonly<Record<'affirmative' | 'negative', Page>>,
+  debaters: Debaters,
+  contexts: Readonly<Record<keyof Debaters, BrowserContext>>,
   roundId: string,
 ) {
-  const host = debaters.affirmative;
-  await host.getByRole('button', { name: 'Start round', exact: true }).click();
-  let view = await readRound(host, roundId);
-  for (const scheduled of view.rules.segments) {
-    await expect(async () => {
-      view = await readRound(host, roundId);
-      expect(
-        view.segments.find((s) => s.endedAt === null)?.rulesSegmentKey,
-      ).toBe(scheduled.key);
-    }).toPass({ timeout: 30_000 });
-    const page = debaters[scheduled.side];
-    await page.getByRole('button', { name: 'End speech', exact: true }).click();
-    await page
-      .getByRole('button', { name: 'Confirm end speech', exact: true })
-      .click();
-    await expect(async () => {
-      view = await readRound(host, roundId);
-      expect(
-        view.segments.find((s) => s.rulesSegmentKey === scheduled.key)?.endedAt,
-      ).not.toBeNull();
-    }).toPass({ timeout: 15_000 });
+  const players = { ...debaters };
+  await players.affirmative
+    .getByRole('button', { name: 'Start round', exact: true })
+    .click();
+  const { rules } = await readRound(players.affirmative, roundId);
+  for (const scheduled of rules.segments) {
+    let holder = players[scheduled.side];
+    if (scheduled.key === 'NC') {
+      await holder
+        .getByRole('button', { name: 'Use prep', exact: true })
+        .click();
+      await holder
+        .getByRole('button', { name: 'Start NC', exact: true })
+        .click();
+    }
+    await untilSegment(holder, roundId, scheduled.key, false);
+    if (scheduled.key === 'CX1') {
+      holder = players.affirmative;
+      await holder
+        .getByRole('button', { name: 'Interrupt', exact: true })
+        .click();
+      await expect(
+        holder.getByRole('button', { name: 'End speech', exact: true }),
+      ).toBeVisible();
+    }
+    if (scheduled.key === 'NC') await holder.reload();
+    if (scheduled.key === '1AR') {
+      const fresh = await openPage(contexts.affirmative, 'ROOM-6.2 reconnect');
+      await fresh.goto(`/rounds/${roundId}/room`);
+      await holder.close();
+      holder = players.affirmative = fresh;
+    }
+    await endSpeech(holder);
+    await untilSegment(holder, roundId, scheduled.key, true);
   }
-  return view;
+  return players;
 }
 
 /** The judge's own enhanced ballot after the autonomous freeze. */
@@ -159,7 +200,7 @@ export async function proveThreeBrowserRound(browser: Browser) {
       `ROOM-6.2 ${createId().slice(0, 8)}`,
       'one-on-one',
     );
-    room = await disablePreparation(aff!, room);
+    room = await skipPreRoundPrep(aff!, room);
     room = await assemble(players, room);
     const first = await launch(aff!);
     // The members who did not press Launch follow the live Room page's link.
@@ -169,29 +210,40 @@ export async function proveThreeBrowserRound(browser: Browser) {
     await expect(judge!).toHaveURL(
       new RegExp(`/rounds/${first.roundId}(/room)?$`),
     );
-    await playEveryTurn({ affirmative: aff!, negative: neg! }, first.roundId);
+    const played = await playEveryTurn(
+      { affirmative: aff!, negative: neg! },
+      {
+        affirmative: accounts.members[0]!.context,
+        negative: accounts.members[1]!.context,
+      },
+      first.roundId,
+    );
+    const host = played.affirmative;
     await judgeBallot(judge!, first.roundId);
-    await expect(aff!).toHaveURL(`/rounds/${first.roundId}`, {
+    await expect(host).toHaveURL(`/rounds/${first.roundId}`, {
       timeout: 15_000,
     });
-    await expect(
-      aff!.getByText('Result · Negative won', { exact: true }),
-    ).toBeVisible();
-    const finished = await readRound(aff!, first.roundId);
+    await expect(played.negative).toHaveURL(`/rounds/${first.roundId}`);
+    await judge!.goto(`/rounds/${first.roundId}`);
+    for (const page of [host, played.negative, judge!])
+      await expect(
+        page.getByText('Result · Negative won', { exact: true }),
+      ).toBeVisible();
+    const finished = await readRound(host, first.roundId);
     expect([finished.status, finished.outcome]).toEqual([
       'completed',
       'negative',
     ]);
-    const started = await reread(aff!.request, room.id);
+    const started = await reread(host.request, room.id);
     expect(started.roundRef?.id).toBe(first.roundId);
 
-    await aff!.goto(`/rooms/${room.id}`);
-    await aff!
+    await host.goto(`/rooms/${room.id}`);
+    await host
       .getByRole('link', { name: 'Create a fresh Room', exact: true })
       .click();
-    await expect(aff!).toHaveURL(`/rooms/${room.id}/rematch`);
+    await expect(host).toHaveURL(`/rooms/${room.id}/rematch`);
     let next = await submitCreateRoom(
-      aff!,
+      host,
       `ROOM-6.2 next ${createId().slice(0, 8)}`,
       'one-on-one',
     );
@@ -200,22 +252,25 @@ export async function proveThreeBrowserRound(browser: Browser) {
       0,
       [],
     ]);
-    next = await disablePreparation(aff!, next);
-    next = await assemble(players, next);
-    const second = await launch(aff!);
+    next = await skipPreRoundPrep(host, next);
+    next = await assemble(
+      [{ page: host, seat: 'Affirmative 1' }, ...players.slice(1)],
+      next,
+    );
+    const second = await launch(host);
     expect(second.roundId).not.toBe(first.roundId);
 
-    const replay = await aff!.request.post(`/api/rooms/${room.id}/commands`, {
+    const replay = await host.request.post(`/api/rooms/${room.id}/commands`, {
       headers: { origin },
       data: { type: 'start-round', ...first.replay },
     });
     expect(replay.status()).toBe(200);
     expect((await replay.json()).receipt.replayed).toBe(true);
-    expect(await reread(aff!.request, room.id)).toEqual(started);
-    expect(roundViewSchema.parse(await readRound(aff!, first.roundId))).toEqual(
+    expect(await reread(host.request, room.id)).toEqual(started);
+    expect(roundViewSchema.parse(await readRound(host, first.roundId))).toEqual(
       finished,
     );
-    const seats = (await readRound(aff!, second.roundId)).participants.filter(
+    const seats = (await readRound(host, second.roundId)).participants.filter(
       isNamedSeat,
     );
     expect(seats.map((seat) => seat.role).sort()).toEqual([
