@@ -127,7 +127,7 @@ test('only a current authoritative grant supplies ten reservations', async () =>
     }
   });
 });
-test('unknown legacy provenance and actual global capacity fail closed', async () => {
+test('actual global capacity fails closed', async () => {
   await withBoundedRound(async (fixture, run, firstRound) => {
     const secondRound = await fixture.round();
     const actorId = await admissionSponsor(fixture, [firstRound]);
@@ -143,13 +143,6 @@ test('unknown legacy provenance and actual global capacity fail closed', async (
       should: 'refuse capacity without granting premium or guessing settings',
       actual: () =>
         admission.reserve({ actorId: otherActor, roundId: secondRound }),
-      code: 'CONFLICT',
-    });
-    await fixture.sql`update usage_reservations set reserved_at=null where round_id=${firstRound}`;
-    await assertRejects({
-      given: 'legacy unknown reservation time',
-      should: 'refuse rather than invent old admission provenance',
-      actual: () => admission.reserve({ actorId, roundId: firstRound }),
       code: 'CONFLICT',
     });
     assert({

@@ -44,9 +44,9 @@ export const ballots = pgTable(
   {
     id: text('id').primaryKey(),
     judgeParticipantId: text('judge_participant_id').notNull(),
-    /** Provisional null pair is removed with the CAP-E legacy writer cutover. */
-    roundId: text('round_id'),
-    freezeRevision: integer('freeze_revision'),
+    /** The owning Round and the immutable transcript freeze the ballot judged. */
+    roundId: text('round_id').notNull(),
+    freezeRevision: integer('freeze_revision').notNull(),
     rubricVersion: text('rubric_version').notNull(),
     /** The winner: a side. There are no draws (ADR 0058 §6, DEC-116). */
     winner: text('winner').notNull(),
@@ -99,10 +99,7 @@ export const ballots = pgTable(
       table.roundId,
       table.freezeRevision,
     ),
-    check(
-      'ballots_freeze_pair_check',
-      sql`(${table.roundId} is null and ${table.freezeRevision} is null) or (${table.roundId} is not null and ${table.freezeRevision} is not null and ${table.freezeRevision} > 0)`,
-    ),
+    check('ballots_freeze_revision_positive', sql`${table.freezeRevision} > 0`),
     uniqueIndex('ballots_id_judge_unique').on(
       table.id,
       table.judgeParticipantId,
