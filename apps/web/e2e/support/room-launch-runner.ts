@@ -20,7 +20,14 @@ export async function runLaunchProof() {
     browser = await createLaunchBrowserContainer({
       checkout,
       ca: certificates.ca,
-      ports: [slot.port + 1, slot.port + 2, slot.port + 3, slot.port + 4, 7881],
+      ports: [
+        slot.port + 1,
+        slot.port + 2,
+        slot.port + 3,
+        slot.port + 4,
+        slot.port + 6,
+        7881,
+      ],
     });
     const env = {
       ...process.env,
