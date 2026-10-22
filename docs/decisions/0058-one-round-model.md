@@ -193,8 +193,21 @@ depends on one, and nothing in a Round's history would change if Rooms were dele
   practices with no execution for two hours become abandoned. Reclamation locks
   their round rows, closes open segments, clears transient prep/floor state, records
   completion on the database clock and increments the version before counting live
-  capacity. Reservations remain for the rolling daily allowance; only scheduled and
-  active status consumes global capacity.
+  capacity. Reservations remain for the allowance period; only scheduled and active
+  status consumes global capacity. DEC183 (2026-10-22) supersedes the former
+  rolling-daily allowance: free members receive one admission per UTC calendar
+  month; a current authoritative, nonrevoked grant supplies ten per its exact
+  durable period. Missing, invalid or expired grants never imply premium.
+  Reservations serialize per actor and across global capacity. The first model
+  call of any kind counts, and a known vendor failure refunds; an uncertain
+  external outcome is retained rather than fabricated as success or refund.
+  Server composition must supply an explicit trusted positive integer busy cap;
+  a local proof value of four is capacity configuration, not entitlement.
+  Existing reservations with unknown admission time fail closed and must be
+  removed before the forward NOT NULL cutover; Round creation time is not a
+  substitute. No public grant setter, billing workflow or admin surface follows
+  from this read authority. The 15-minute and two-hour reclamation horizons above
+  are unchanged.
 - **Captured speech has a bounded server finalization window.** The shared engine
   closes the actual final played interval at its elapsed deadline or accepted
   early end. The same durable transaction fixes that end and an immutable
@@ -222,9 +235,16 @@ depends on one, and nothing in a Round's history would change if Rooms were dele
   participant; one expiring, fenced AI speech generation claim per segment;
   the compiler's refusal set.
 
-AI-practice orchestration admits only practice rounds with a member debater,
-one roster AI opponent and the configured AI judge. A debater's seat in a
-human or ranked round grants no right to drive it through practice operations.
+DEC186 (2026-10-22) applies one AI-practice reservation to each bot-containing
+non-ranked shared Round, whether the bot debates or judges. Its sponsor is the
+current canonical human Room host. Freeze reserves atomically once; replay never
+charges again. An invalid, erased or unauthorized sponsor refuses the whole
+freeze. Human-only Rounds are unaffected. The host sees current quota and the
+allowance consequence before freeze. A reservation grants no bot command,
+publication or ballot authority. Ranked construction and bot eligibility remain
+unchanged; this allowance does not activate ranked bots. Global capacity counts
+admitted live Rounds; bounded provider-worker concurrency is separate explicit
+server configuration.
 Media publication uses the shared LiveKit session and current runtime authority;
 browser playback/heard-report endpoints are removed at cutover. A hydration tick may waive a browser's stale
 version only when its reread observes exactly its own next version; intervening
