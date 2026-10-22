@@ -201,6 +201,14 @@ test('unknown real vendor outcomes survive restart and absence probes until actu
       await refused;
       const [session] =
         await f.sql`select id,room_name,unsafe_at from media_sessions where round_id=${f.roundId}`;
+      assert({
+        given:
+          'a timed-out real provider creation with no browser or later scheduler request',
+        should:
+          'attempt real room cleanup before returning the refused admission',
+        actual: await f.media.exists(session!.room_name),
+        expected: false,
+      });
       const freshProcess = createRoundMediaOperations(mediaDependencies(f));
       await freshProcess.recoverActiveSessions();
       const [unresolved] =
