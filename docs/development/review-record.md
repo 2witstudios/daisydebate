@@ -47,8 +47,8 @@ credentials. Without it, tokenless local reads fail closed; an explicit API
 token remains the other supported route. The root workspace's exact
 `ignoreBinaries: ["pagespace"]` entry in `knip.jsonc` records this external
 binary contract rather than adding an unused package dependency. It applies
-only to that binary in the tooling workspace; other unlisted binaries remain
-reported. Knip 6.37.0's installed schema and
+only to the named external binary (Knip also consults root binary entries
+for child workspaces); other unlisted binaries remain reported. Knip 6.37.0's installed schema and
 [configuration reference](https://knip.dev/reference/configuration#ignorebinaries)
 define this option.
 
