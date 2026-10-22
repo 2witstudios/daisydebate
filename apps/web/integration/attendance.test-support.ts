@@ -53,11 +53,17 @@ export const withAttendanceRound = (
     );
     if (!segment)
       throw new Error('Actual shared clock did not open the first speech');
+    const instanceId = createId();
+    await f.store.renewServiceInstance({ instanceId, role: 'web' });
     const attendance = createAttendanceFeature({
       checkIns: f.store,
       evaluate: f.store.evaluateRoundAttendance,
       nextId: createId,
-      instanceId: createId(),
+      instanceId,
     });
-    await run({ f, attendance, roundId, segmentId: segment.id });
+    try {
+      await run({ f, attendance, roundId, segmentId: segment.id });
+    } finally {
+      await f.sql`delete from service_instances where instance_id=${instanceId}`;
+    }
   });
