@@ -1,4 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { assertRejects } from '@daisy/errors/testing';
 import { createTestDatabase } from './index.test-support';
 
 setupRitewayBun();
@@ -8,81 +9,38 @@ const segmentId = 's3e8g2m6e1n4t9i2d6c4b8k2';
 const speakerId = 'p4a7r1t9i3c6i2p8a5n7t1d4';
 
 describe('utteranceOperations', () => {
-  test('appends a line under a lock on its segment row', async () => {
-    const { database, queries } = createTestDatabase([[['segment-1']], []]);
-    await database.appendUtterance({
-      id: 'u1',
-      roundId,
-      segmentId,
-      roundParticipantId: speakerId,
-      text: 'The first constructive.',
-      requireOpen: false,
-    });
+  test('refuses unscoped transcript writes before issuing SQL', async () => {
+    const { database, queries } = createTestDatabase([]);
+    const common = { id: 'u1', roundId, text: 'Untrusted words.' };
+    const mutations = [
+      () =>
+        database.appendUtterance({
+          ...common,
+          segmentId,
+          roundParticipantId: speakerId,
+        }),
+      () => database.replaceUtterance({ ...common, requireOpen: false }),
+      () => database.replaceUtterance({ ...common, complete: true }),
+      () =>
+        database.replaceUtterance({
+          ...common,
+          requireOpen: true,
+          speechToken: 'untrusted-claim',
+        }),
+    ];
+    for (const mutation of mutations)
+      await assertRejects({
+        given:
+          'an unscoped append or replacement including a purported speech claim',
+        should: 'require signed capture authority',
+        actual: mutation,
+        code: 'CONFLICT',
+      });
     assert({
-      given: 'an appended line',
-      should: 'lock the segment row, then insert with the next sequence',
-      actual: [
-        queries[0]?.query.includes('for update'),
-        queries[1]?.query.includes('insert into "utterances"'),
-        queries[1]?.query.includes('coalesce(max'),
-      ],
-      expected: [true, true, true],
-    });
-  });
-
-  test('replaces a line within its round, with or without completeness', async () => {
-    const { database, queries } = createTestDatabase([[], []]);
-    await database.replaceUtterance({
-      id: 'u1',
-      roundId,
-      text: 'The heard words.',
-      requireOpen: false,
-    });
-    await database.replaceUtterance({
-      id: 'u1',
-      roundId,
-      text: 'The whole line.',
-      complete: true,
-      requireOpen: false,
-    });
-    assert({
-      given: 'a replace without complete',
-      should: 'set only the text',
-      actual: queries[0]?.query.includes('"complete"'),
-      expected: false,
-    });
-    assert({
-      given: 'a replace with complete',
-      should: 'set the text and completeness',
-      actual: queries[1]?.query.includes('"complete"'),
-      expected: true,
-    });
-  });
-
-  test('renews a speech claim only while its token owns the open segment', async () => {
-    const { database, queries } = createTestDatabase([
-      [[segmentId]],
-      [[null]],
-      [['writer-1', new Date('2026-10-08T00:02:00.000Z')]],
-      [{ now: new Date('2026-10-08T00:00:00.000Z') }],
-      [['u1']],
-    ]);
-    await database.replaceUtterance({
-      id: 'u1',
-      roundId,
-      text: 'The next phrase.',
-      requireOpen: true,
-      speechToken: 'writer-1',
-    });
-    assert({
-      given: 'the current speech writer on an open segment',
-      should: 'lock the segment and guard the update by token and expiry',
-      actual: {
-        locked: queries[1]?.query.includes('for update'),
-        guarded: queries[4]?.query.includes('generation_token'),
-        expires: queries[4]?.query.includes('generation_expires_at'),
-      },
-      expected: { locked: true, guarded: true, expires: true },
+      given: 'all refused unscoped transcript writes',
+      should: 'leave the SQL connection untouched',
+      actual: queries,
+      expected: [],
     });
   });
 
