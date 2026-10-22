@@ -50,3 +50,12 @@ export async function submitBallotAction(
     };
   return answer;
 }
+
+/** Every judge live refresh rechecks the actual own assignment, even before freeze. */
+export async function readPersistedJudgeRound(roundId: string) {
+  const result = await readPersistedBallot(roundId);
+  if (result.kind !== 'found') return result;
+  return result.view.own
+    ? { kind: 'found' as const, round: result.view.round }
+    : { kind: 'missing' as const };
+}

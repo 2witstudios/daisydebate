@@ -26,12 +26,13 @@ test('real Judge hub projects own stored states and empty waiting without synthe
     actual: [
       html.match(/<h1 /g)?.length,
       html.includes(`/judge/ballot/${'r'.repeat(24)}`),
+      html.includes(`/rounds/${'r'.repeat(24)}/room`),
       html.includes('The recorded transcript is frozen'),
       html.includes('Start judging'),
       html.includes('Your judge rating'),
       empty.includes('No assigned Rounds'),
       empty.includes('aria-label="Assigned to you"'),
     ],
-    expected: [1, true, true, false, false, true, false],
+    expected: [1, true, true, true, false, false, true, false],
   });
 });
