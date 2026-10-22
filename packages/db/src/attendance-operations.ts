@@ -19,6 +19,7 @@ import { roundParticipants } from './schema/round-participants';
 import { roundCommands } from './schema/round-commands';
 import { agentRuns } from './schema/agent-runs';
 import type { AvailabilityEvidence } from './availability-operations';
+import type { CheckInAttempt } from './check-in-attempts';
 
 export type AttendanceTransactionContext = Pick<
   BunSQLDatabase,
@@ -30,6 +31,7 @@ export type AttendanceTransaction = <T>(
     tx: AttendanceTransactionContext,
     receipt: { readonly receivedAt: string },
   ) => Promise<T>,
+  attempt?: CheckInAttempt,
 ) => Promise<T>;
 export type AttendancePrincipal =
   | { readonly kind: 'human'; readonly actorId: string }
@@ -143,6 +145,7 @@ export async function attendanceEvidence(
 /** Attendance stores facts only; competitive decisions/projections remain pure caller-owned engine work. */
 export function createAttendanceOperations(deps: {
   readonly transaction: AttendanceTransaction;
+  readonly nextAttemptId: () => string;
   readonly verifyWorker: (
     tx: AttendanceTransactionContext,
     principal: Extract<AttendancePrincipal, { kind: 'agent' }>,
@@ -163,77 +166,95 @@ export function createAttendanceOperations(deps: {
         !/^[0-9a-f]{64}$/.test(input.payloadDigest)
       )
         throw createAppError('VALIDATION');
-      return deps.transaction(async (tx, first) => {
-        const columns = principalColumns(input.principal);
-        const { current, round, seats } = await fenceAttendance(
-          tx,
-          input.roundId,
-          input.envelope.commandId,
-          columns.actorId,
-        );
-        const seat = seats.find((seat) =>
-          input.principal.kind === 'human'
-            ? seat.actorId === input.principal.actorId
-            : seat.id === input.principal.participantId,
-        );
-        if (
-          !seat?.eligible ||
-          seat.role === 'judge' ||
-          (input.principal.kind === 'human' && seat.kind !== 'human')
-        )
-          throw createAppError('AUTHORIZATION');
-        if (input.principal.kind === 'agent') {
+      return deps.transaction(
+        async (tx, first) => {
+          const columns = principalColumns(input.principal);
+          const { current, round, seats } = await fenceAttendance(
+            tx,
+            input.roundId,
+            input.envelope.commandId,
+            columns.actorId,
+          );
+          const seat = seats.find((seat) =>
+            input.principal.kind === 'human'
+              ? seat.actorId === input.principal.actorId
+              : seat.id === input.principal.participantId,
+          );
           if (
-            seat.kind !== 'bot' ||
-            input.principal.serviceId !==
-              `agent-run:${input.principal.agentRunId}`
+            !seat?.eligible ||
+            seat.role === 'judge' ||
+            (input.principal.kind === 'human' && seat.kind !== 'human')
           )
             throw createAppError('AUTHORIZATION');
-          const [run] = await tx
-            .select()
-            .from(agentRuns)
-            .where(
-              and(
-                eq(agentRuns.id, input.principal.agentRunId),
-                eq(agentRuns.roundParticipantId, seat.id),
-              ),
+          if (input.principal.kind === 'agent') {
+            if (
+              seat.kind !== 'bot' ||
+              input.principal.serviceId !==
+                `agent-run:${input.principal.agentRunId}`
             )
-            .for('share');
-          if (
-            !run ||
-            run.endedAt !== null ||
-            !['speech', 'cross_ex'].includes(run.kind)
-          )
-            throw createAppError('AUTHORIZATION');
-          await deps.verifyWorker(tx, input.principal, round.id);
-        }
-        const segment = round.segments.find(
-          (segment) => segment.id === input.envelope.segmentId,
-        );
-        if (!segment || segment.type !== 'speech')
-          throw createAppError('CONFLICT', 'attendance-segment');
-        const evidence = await attendanceEvidence(tx, round);
-        if (evidence.finalizedSegmentIds.includes(segment.id))
-          throw createAppError('CONFLICT', 'attendance-finalized');
-        const [previous] = await tx
-          .select()
-          .from(roundCommands)
-          .where(eq(roundCommands.commandId, input.envelope.commandId));
-        if (previous) {
-          if (
-            previous.roundId !== round.id ||
-            previous.actorId !== columns.actorId ||
-            previous.serviceId !== columns.serviceId ||
-            previous.type !== 'check_in' ||
-            previous.payloadDigest !== input.payloadDigest
-          )
-            throw createAppError('CONFLICT', 'command-conflict');
-          const receipt = attendanceReceiptSchema.parse(previous.result);
-          if (
-            receipt.segmentId !== segment.id ||
-            receipt.participantId !== seat.id
-          )
-            throw createAppError('CONFLICT', 'command-conflict');
+              throw createAppError('AUTHORIZATION');
+            const [run] = await tx
+              .select()
+              .from(agentRuns)
+              .where(
+                and(
+                  eq(agentRuns.id, input.principal.agentRunId),
+                  eq(agentRuns.roundParticipantId, seat.id),
+                ),
+              )
+              .for('share');
+            if (
+              !run ||
+              run.endedAt !== null ||
+              !['speech', 'cross_ex'].includes(run.kind)
+            )
+              throw createAppError('AUTHORIZATION');
+            await deps.verifyWorker(tx, input.principal, round.id);
+          }
+          const segment = round.segments.find(
+            (segment) => segment.id === input.envelope.segmentId,
+          );
+          if (!segment || segment.type !== 'speech')
+            throw createAppError('CONFLICT', 'attendance-segment');
+          const evidence = await attendanceEvidence(tx, round);
+          if (evidence.finalizedSegmentIds.includes(segment.id))
+            throw createAppError('CONFLICT', 'attendance-finalized');
+          const [previous] = await tx
+            .select()
+            .from(roundCommands)
+            .where(eq(roundCommands.commandId, input.envelope.commandId));
+          if (previous) {
+            if (
+              previous.roundId !== round.id ||
+              previous.actorId !== columns.actorId ||
+              previous.serviceId !== columns.serviceId ||
+              previous.type !== 'check_in' ||
+              previous.payloadDigest !== input.payloadDigest
+            )
+              throw createAppError('CONFLICT', 'command-conflict');
+            const receipt = attendanceReceiptSchema.parse(previous.result);
+            if (
+              receipt.segmentId !== segment.id ||
+              receipt.participantId !== seat.id
+            )
+              throw createAppError('CONFLICT', 'command-conflict');
+            input.acceptWindow({
+              round,
+              ...evidence,
+              eligibleParticipantIds: seats
+                .filter((seat) => seat.eligible && seat.role !== 'judge')
+                .map((seat) => seat.id),
+              participantId: seat.id,
+              receivedAt: receipt.receivedAt,
+            });
+            return { ...receipt, replayed: true };
+          }
+          const existing = await tx.execute(
+            sql`select to_char(received_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as received_at from round_check_ins where round_id=${round.id} and segment_id=${segment.id} and participant_id=${seat.id}`,
+          );
+          const stamp =
+            (existing as unknown as { received_at: string }[])[0]
+              ?.received_at ?? first.receivedAt;
           input.acceptWindow({
             round,
             ...evidence,
@@ -241,53 +262,44 @@ export function createAttendanceOperations(deps: {
               .filter((seat) => seat.eligible && seat.role !== 'judge')
               .map((seat) => seat.id),
             participantId: seat.id,
-            receivedAt: receipt.receivedAt,
+            receivedAt: stamp,
           });
-          return { ...receipt, replayed: true };
-        }
-        const existing = await tx.execute(
-          sql`select to_char(received_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as received_at from round_check_ins where round_id=${round.id} and segment_id=${segment.id} and participant_id=${seat.id}`,
-        );
-        const stamp =
-          (existing as unknown as { received_at: string }[])[0]?.received_at ??
-          first.receivedAt;
-        input.acceptWindow({
-          round,
-          ...evidence,
-          eligibleParticipantIds: seats
-            .filter((seat) => seat.eligible && seat.role !== 'judge')
-            .map((seat) => seat.id),
-          participantId: seat.id,
-          receivedAt: stamp,
-        });
-        const receipt: AttendanceReceipt = {
-          version: 1,
-          commandId: input.envelope.commandId,
-          roundId: round.id,
-          segmentId: segment.id,
-          participantId: seat.id,
-          receivedAt: stamp,
-          resultingVersion: current.version,
-          replayed: existing.length > 0,
-        };
-        await insertCommandRow(
-          tx,
-          round.id,
-          {
+          const receipt: AttendanceReceipt = {
+            version: 1,
             commandId: input.envelope.commandId,
-            ...columns,
-            type: 'check_in',
-            payloadDigest: input.payloadDigest,
-            result: { ...receipt },
-          },
-          current.version,
-        );
-        if (existing.length === 0)
-          await tx.execute(
-            sql`insert into round_check_ins(command_id,round_id,segment_id,participant_id,received_at) values(${input.envelope.commandId},${round.id},${segment.id},${seat.id},${stamp}::timestamptz)`,
+            roundId: round.id,
+            segmentId: segment.id,
+            participantId: seat.id,
+            receivedAt: stamp,
+            resultingVersion: current.version,
+            replayed: existing.length > 0,
+          };
+          await insertCommandRow(
+            tx,
+            round.id,
+            {
+              commandId: input.envelope.commandId,
+              ...columns,
+              type: 'check_in',
+              payloadDigest: input.payloadDigest,
+              result: { ...receipt },
+            },
+            current.version,
           );
-        return receipt;
-      });
+          if (existing.length === 0)
+            await tx.execute(
+              sql`insert into round_check_ins(command_id,round_id,segment_id,participant_id,received_at) values(${input.envelope.commandId},${round.id},${segment.id},${seat.id},${stamp}::timestamptz)`,
+            );
+          return receipt;
+        },
+        {
+          attemptId: deps.nextAttemptId(),
+          commandId: input.envelope.commandId,
+          roundId: input.roundId,
+          payloadDigest: input.payloadDigest,
+          ...principalColumns(input.principal),
+        },
+      );
     },
   };
 }
