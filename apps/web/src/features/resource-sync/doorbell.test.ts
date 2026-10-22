@@ -135,4 +135,38 @@ describe('attachVersionDoorbell', () => {
       ],
     });
   });
+
+  test('a refused subscription is retried after an authorized read, a bounded number of times in a row', () => {
+    const topic = buildDebateTopic(roundId);
+    const round = harness(topic, 'debate.phase-changed', roundId);
+    const refused: ServerMessage = {
+      v: ENVELOPE_VERSION,
+      type: 'error',
+      id: 'rt1',
+      code: 'AUTHORIZATION',
+      message: 'Subscription refused',
+    };
+    const refuseThenRead = () => {
+      round.emit(refused);
+      round.error(refused);
+      round.doorbell.authorizedSnapshot();
+    };
+    refuseThenRead();
+    round.emit({
+      v: ENVELOPE_VERSION,
+      type: 'subscribed',
+      id: 'rt2',
+      topic,
+      position: '1:2',
+    });
+    for (let i = 0; i < 4; i++) refuseThenRead();
+    assert({
+      given:
+        'a refused subscription, an accepted retry, then four refusals in a row, each followed by an authorized read',
+      should:
+        'resubscribe after each read for the first three refusals in a row, then stop',
+      actual: round.calls.filter((call) => call === `retry:${topic}`).length,
+      expected: 4,
+    });
+  });
 });
