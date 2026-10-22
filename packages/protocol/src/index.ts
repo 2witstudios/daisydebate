@@ -220,3 +220,9 @@ export type {
   RoundBallotReceipt,
   RoundBallotAuthority,
 } from './round-ballot';
+export {
+  attendanceEnvelopeSchema,
+  attendanceReceiptSchema,
+  type AttendanceEnvelope,
+  type AttendanceReceipt,
+} from './attendance';
