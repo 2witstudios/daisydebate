@@ -25,10 +25,14 @@ export async function readBotAllowance(
     throw createAppError('INFRASTRUCTURE', 'Ambiguous allowance grant');
   const grant = grants[0];
   if (grant)
-    return { start: grant.periodStart, end: grant.periodEnd, limit: 10 };
+    return {
+      start: grant.periodStart,
+      end: grant.periodEnd,
+      limit: 10 as const,
+    };
   return {
     start: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)),
     end: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)),
-    limit: 1,
+    limit: 1 as const,
   };
 }

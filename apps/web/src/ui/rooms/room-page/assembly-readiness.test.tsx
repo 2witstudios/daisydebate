@@ -5,6 +5,7 @@ import { LaunchControl, ReadyControl } from './assembly-readiness';
 
 setupRitewayBun();
 const base = {
+  botAdmission: null,
   version: 7,
   participants: [
     {
@@ -207,5 +208,23 @@ describe('native room readiness and Launch controls', () => {
       ],
       expected: ['Waiting on: Affirmative, Negative, You', undefined],
     });
+  });
+});
+
+test('host Launch refuses unavailable admission without changing Ready or command authority', () => {
+  const tree = LaunchControl({
+    ...props,
+    view: {
+      ...base,
+      botAdmission: { kind: 'unavailable' },
+      capabilities: { ...base.capabilities, canStart: true },
+    },
+  });
+  const button = findElements(tree, (element) => element.type === 'button')[0];
+  assert({
+    given: 'an otherwise startable host Room with unavailable bot admission',
+    should: 'disable only the Launch submission',
+    actual: button?.props.disabled,
+    expected: true,
   });
 });
