@@ -151,3 +151,42 @@ personal/private under DEC-101, with deletion tracked by ISSUE-322. These rows
 follow Round/segment erasure; the scoped seat reference checks at transaction end
 so aggregate deletion can cascade without allowing orphan references. No new
 legal basis, production consent or provider activation is inferred.
+
+The `utterances.capture_body_digest` declaration is category `personal`, visibility
+`private`, purpose detecting conflicting captured-transcript retries. Lawful basis
+is **pending** the existing PRIV-H human production sign-off; synthetic local
+proof does not grant legal approval. Retention is 180 days alongside transcript
+text; subject erasure and owning Round erasure delete it. It is derived personal
+transcript data and is not anonymized.
+
+### Frozen ballot witness
+
+CAP-D.1 ballot writes carry `ballots.round_id` (category identifier) and
+`freeze_revision` (category none). Composite references bind the judge seat to
+that Round and bind the revision to its immutable transcript freeze. Both fields
+are immutable on every UPDATE, including a provisional null pair; an older
+ballot cannot acquire invented frozen provenance. Voiding preserves the pair.
+No new transcript content is copied into the ballot witness. Existing ballot
+privacy, retention and erasure policy applies to the owning record.
+
+The pair is temporarily nullable only while CAP-E removes uncutover writers and
+fixtures on the branch. Every actual shared human/bot submit writer must supply
+both fields. CAP-E must generate a forward NOT NULL migration after replacing
+those writers and fixtures, before main acceptance. Command deduplication uses
+the existing global `round_commands.command_id` key with type `submit_ballot`.
+
+The freeze witness uses `NO ACTION DEFERRABLE INITIALLY DEFERRED`; deleting a
+freeze alone cannot erase submitted ballots. Judge-seat references use deferred
+NO ACTION rather than immediate RESTRICT semantics so the owning Round's
+`ballots_round_fk ON DELETE CASCADE` can finish all child cascades. Direct seat
+or freeze deletion is refused at commit and rolls back. This changes technical
+constraint timing, not ballot voiding or replacement policy. Real PostgreSQL
+proof checks both commit refusals and zero remaining ballots, jobs, freezes,
+participants and utterances after owning Round erasure.
+
+`round_judging_jobs` is keyed by `(round_id, judge_participant_id)`, preserving
+one independent lease/attempt/result per actual judge seat. Its freeze revision
+remains scoped to the Round's one immutable freeze. Enqueuers must insert every
+eligible bot judge; selecting only the first judge is invalid for admitted
+multi-judge formats. The table module is `schema/round-judging-jobs.ts`; the
+freeze module has no ballot import, avoiding a schema import cycle.

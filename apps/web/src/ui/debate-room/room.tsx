@@ -6,6 +6,7 @@ import {
   useReducer,
   useRef,
   type Dispatch,
+  type ReactNode,
 } from 'react';
 import { systemClock, systemId } from '@daisy/clock';
 import {
@@ -140,6 +141,8 @@ function choiceHandler(
 
 type RoomProps = {
   readonly round: RoundSnapshot;
+  readonly media?: ReactNode;
+  readonly actions?: ReactNode;
   /** Server-backed documents; without it the room keeps them in memory. */
   readonly sync?: DocumentSync;
   /** A standing problem the round's owner reports (saves failing). */
@@ -185,8 +188,9 @@ export function DebateRoom({ round, sync, ...props }: RoomProps) {
             state.phoneDrawer && 'max-narrow:hidden',
           )}
         >
-          <Stage round={round} preset={preset} />
+          {props.media ?? <Stage round={round} preset={preset} />}
           <RoundControls
+            actions={props.actions}
             round={round}
             state={state}
             dispatch={dispatch}
@@ -218,7 +222,12 @@ export function DebateRoom({ round, sync, ...props }: RoomProps) {
           />
         </div>
       </div>
-      <PhoneActions round={round} state={state} dispatch={dispatch} />
+      <PhoneActions
+        round={round}
+        state={state}
+        dispatch={dispatch}
+        actions={props.actions}
+      />
       <RoundTabs
         round={round}
         state={state}

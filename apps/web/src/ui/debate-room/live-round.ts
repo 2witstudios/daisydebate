@@ -167,8 +167,9 @@ function liveIndexOf(view: RoundView, position: RoundPosition): number {
 }
 
 /**
- * When the last speech ended: its close, or, while its expired interval
- * stays open until completion (ADR 0058 §6), its scheduled end.
+ * Judging-clock display uses the persisted final close when available.
+ * Before a durable tick arrives, the scheduled end is a display prediction;
+ * capture admission and finalization use the committed database anchor.
  */
 const finalCloseMs = (view: RoundView): number => {
   const last = view.segments.at(-1);

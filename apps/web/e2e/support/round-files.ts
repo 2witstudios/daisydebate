@@ -18,8 +18,12 @@ type RoundFiles = {
   readonly violations: Awaited<ReturnType<typeof watchCspViolations>>;
 };
 /** A launched round with one server-saved Flow, opened by its first debater. */
-export const test = base.extend<{ roundFiles: RoundFiles }>({
-  roundFiles: async ({ browser }, provide) => {
+export const test = base.extend<{
+  roundFiles: RoundFiles;
+  roundCommands: boolean;
+}>({
+  roundCommands: [false, { option: true }],
+  roundFiles: async ({ browser, roundCommands }, provide) => {
     const accounts = await createRoomLaunchAccounts(browser, 2);
     try {
       await accounts.members[0]!.context.grantPermissions(
@@ -30,11 +34,35 @@ export const test = base.extend<{ roundFiles: RoundFiles }>({
         accounts.members[0]!.context,
         'persisted Round files',
       );
-      await prepareRoomAs(
+      const prepared = await prepareRoomAs(
         page,
         `Round files ${createId().slice(0, 8)}`,
         'Affirmative 1',
       );
+      if (roundCommands) {
+        const configured = await page.request.post(
+          `/api/rooms/${prepared.id}/commands`,
+          {
+            headers: { origin },
+            data: {
+              commandId: createId(),
+              expectedVersion: prepared.version,
+              type: 'update-config',
+              config: {
+                ...prepared.config,
+                inRoundPrep: { enabled: true, budgetMsPerSide: 120000 },
+                speechTiming: {
+                  ...prepared.config.speechTiming,
+                  countdownMs: 30000,
+                },
+                interruptions: { mode: 'cross_ex_only', minRemainingMs: 0 },
+                yielding: { allowed: true, returnsTime: true },
+              },
+            },
+          },
+        );
+        expect(configured.status()).toBe(200);
+      }
       await page.reload();
       for (const device of ['camera', 'microphone'])
         await page
