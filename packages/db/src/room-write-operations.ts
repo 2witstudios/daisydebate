@@ -1,3 +1,4 @@
+import type { RoundBotAdmission } from './round-bot-admission';
 import { persistRoomMutation } from './room-mutation-persistence';
 
 import { eq } from 'drizzle-orm';
@@ -59,9 +60,11 @@ type CommandInput = {
 export const roomWriteOperations = ({
   transaction,
   eventSink,
+  botAdmission,
 }: {
   readonly transaction: ReturnType<typeof roomCommandTransaction>;
   readonly eventSink?: DatabaseEventSink | undefined;
+  readonly botAdmission?: RoundBotAdmission | undefined;
 }) => ({
   async executeRoomCommand(input: CommandInput): Promise<RoomCommandReceipt> {
     return instrumented(eventSink, 'executeRoomCommand', () =>
@@ -69,6 +72,7 @@ export const roomWriteOperations = ({
         const preparation = await prepareCommand(tx, input);
         if ('replay' in preparation) return preparation.replay;
         const { prepared, execute } = preparation;
+        await lockBotFreeze(tx, input.type, botAdmission);
         const initialSeats = await tx
           .select({ actorId: roomParticipants.actorId })
           .from(roomParticipants)
@@ -116,6 +120,12 @@ export const roomWriteOperations = ({
           outcome.mutation,
           input.roundId,
           now,
+        );
+        await reserveBotFreeze(
+          tx,
+          outcome.mutation,
+          input.roundId,
+          botAdmission,
         );
         const receipt: RoomCommandReceipt = {
           commandId: input.commandId,
@@ -178,4 +188,29 @@ async function prepareCommand(tx: Tx, input: CommandInput) {
     preparationAccount,
   );
   return { prepared, execute } as const;
+}
+
+async function lockBotFreeze(
+  tx: Tx,
+  command: string,
+  admission: RoundBotAdmission | undefined,
+) {
+  if (command === 'start-round') await admission?.lock(tx);
+}
+async function reserveBotFreeze(
+  tx: Tx,
+  mutation: Extract<RoomMutationOutcome, { ok: true }>['mutation'],
+  roundId: string,
+  admission: RoundBotAdmission | undefined,
+) {
+  const state = mutation.state;
+  if (
+    !mutation.freeze ||
+    state.competitionType === 'ranked' ||
+    !state.participants.some((p) => p.kind === 'bot')
+  )
+    return;
+  if (!admission)
+    throw createAppError('INFRASTRUCTURE', 'Bot admission unavailable');
+  await admission.reserveLocked(tx, { actorId: state.hostActorId, roundId });
 }
