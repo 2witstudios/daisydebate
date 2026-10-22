@@ -91,9 +91,16 @@ capability is absent. It uses a real custom Room with two legal forty-second
 speeches, the shared engine's actual clock, a connected publishing peer, actual
 Aura PCM, hidden native capture, Whisper transcription and signed durable ingress.
 The worker runs as the supervisor under the worker login and discovers the
-session itself. The observed run committed twenty-one captured chunks and froze
-incomplete at frontier twenty-three. Empty/missing required streams close partial from committed
-nonempty speaking history; no nominal/possible window becomes coverage. This
+session itself. It passes only when the supervisor drains cleanly (exit 0,
+logging exactly `server.ready` then `server.shutdown`) and the finalized
+transcript is frozen, `incomplete`, has at least one captured utterance and no
+`open` coverage stream. Chunk counts vary per run and are not part of the
+predicate. Expected streams come from `createStreamTracker` (unit-tested in
+`capture-streams.test.ts`): every committed nonempty in-segment speaking
+interval is expected, so a silent seat seals partial instead of staying open,
+and no nominal/possible window becomes coverage. A seal below the stored chunk
+count is refused, so a takeover worker that knows only its own epoch's chunks
+leaves that stream open for finalization rather than under-reporting it. This
 scoped result does not claim human browser recording, bot generation admission,
 judging, soak or all race acceptance. The publishing peer stays
 connected until the actual Round end so normal empty-room departure does not

@@ -6,6 +6,7 @@ import { readCaptureHistory, type CaptureClient } from './capture-history';
 import { createCaptureStaging } from './capture-staging';
 import { validateCaptureBatch } from './capture-batch';
 import { consumeCaptureClips, type QueuedClip } from './capture-consumer';
+import { createStreamTracker } from './capture-streams';
 type Dependencies = {
   readonly roundId: string;
   readonly client: CaptureClient;
@@ -49,54 +50,8 @@ export async function runCaptureSession(
     maxBytes: 20 * 1024 * 1024,
     maxDurationMs: 120000,
   });
-  const streams = new Map<
-    string,
-    { segmentId: string; roundParticipantId: string; count: number }
-  >();
-  const streamFor = (clip: QueuedClip) => {
-    const key = JSON.stringify([clip.segmentId, clip.roundParticipantId]);
-    let stream = streams.get(key);
-    if (!stream) {
-      if (streams.size >= 16384)
-        throw createAppError(
-          'INFRASTRUCTURE',
-          'Capture stream capacity exceeded',
-        );
-      stream = {
-        segmentId: clip.segmentId,
-        roundParticipantId: clip.roundParticipantId,
-        count: 0,
-      };
-      streams.set(key, stream);
-    }
-    return stream;
-  };
-  const rememberExpected = () => {
-    const segment = current.state.segment;
-    if (!segment) return;
-    for (const interval of current.state.intervals) {
-      const end = Math.min(
-        Date.parse(interval.endedAt ?? current.state.serverNow),
-        Date.parse(segment.endedAt ?? current.state.serverNow),
-        Date.parse(segment.startedAt) + segment.durationMs,
-      );
-      if (Date.parse(interval.startedAt) >= end) continue;
-      const key = JSON.stringify([segment.id, interval.roundParticipantId]);
-      if (!streams.has(key)) {
-        if (streams.size >= 16384)
-          throw createAppError(
-            'INFRASTRUCTURE',
-            'Capture stream capacity exceeded',
-          );
-        streams.set(key, {
-          segmentId: segment.id,
-          roundParticipantId: interval.roundParticipantId,
-          count: 0,
-        });
-      }
-    }
-  };
-  rememberExpected();
+  const streams = createStreamTracker(16384);
+  streams.remember(current.state);
   const capture = await createCaptureSubscription({
     url: token.url,
     token: token.token,
@@ -122,7 +77,7 @@ export async function runCaptureSession(
       stats.transcribedClips++;
     },
     committed: (clip) => {
-      streamFor(clip).count++;
+      streams.forClip(clip).count++;
       stats.appendedChunks++;
     },
   }).catch((error) => {
@@ -141,7 +96,7 @@ export async function runCaptureSession(
         nextRenewal = input.nowMs() + 5000;
       }
       current = await readCaptureHistory(input.client, epoch, signal);
-      rememberExpected();
+      streams.remember(current.state);
       staging.refresh(current.calibration);
       await capture.setIdentities(identities(current));
       await validateCaptureBatch({
@@ -153,7 +108,7 @@ export async function runCaptureSession(
         dropped,
         clip: (clip) => {
           const queued = { ...clip, bytes: clip.wav.byteLength };
-          streamFor(queued);
+          streams.forClip(queued);
           for (const discarded of queue.push(queued))
             dropped(discarded.durationMs / 10);
         },
