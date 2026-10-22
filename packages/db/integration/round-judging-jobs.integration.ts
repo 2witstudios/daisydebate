@@ -89,16 +89,22 @@ test('durable judging claims fence epochs and preserve one command across recove
           ]),
         ),
       });
-      await jobs.saveResult(first.scope, first.token, ballot);
-      await jobs.saveResult(first.scope, first.token, ballot);
+      const usage = { inputTokens: 11, outputTokens: 5 };
+      await jobs.saveResult(first.scope, first.token, ballot, usage);
+      await jobs.saveResult(first.scope, first.token, ballot, usage);
       await assertRejects({
         given: 'a different result after a durable response',
         should: 'preserve the first validated response',
         actual: () =>
-          jobs.saveResult(first.scope, first.token, {
-            ...ballot,
-            winner: 'negative',
-          }),
+          jobs.saveResult(
+            first.scope,
+            first.token,
+            {
+              ...ballot,
+              winner: 'negative',
+            },
+            usage,
+          ),
         code: 'CONFLICT',
       });
       await fixture.sql`update round_judging_jobs set lease_expires_at=clock_timestamp()-interval '1 second' where round_id=${roundId}`;
@@ -110,7 +116,7 @@ test('durable judging claims fence epochs and preserve one command across recove
         code: 'CONFLICT',
       });
       const [oldRun] =
-        await fixture.sql`select ended_at,configuration_snapshot from agent_runs where id=${first.scope.agentRunId}`;
+        await fixture.sql`select ended_at,configuration_snapshot,input_tokens,output_tokens from agent_runs where id=${first.scope.agentRunId}`;
       assert({
         given: 'recovered durable uncertain dispatch',
         should:
@@ -125,8 +131,20 @@ test('durable judging claims fence epochs and preserve one command across recove
           second.frozen.revision,
           await fixture.count('ballots', 'round_id', roundId),
           second.pendingBallot,
+          [oldRun!.input_tokens, oldRun!.output_tokens],
         ],
-        expected: [2, true, true, true, 'received', false, 1, 0, ballot],
+        expected: [
+          2,
+          true,
+          true,
+          true,
+          'received',
+          false,
+          1,
+          0,
+          ballot,
+          [11, 5],
+        ],
       });
       await assertRejects({
         given: 'a takeover with a durable response waiting for submission',
