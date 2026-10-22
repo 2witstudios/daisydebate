@@ -28,6 +28,7 @@ export const withMediaRound = (
   work: (
     fixture: Parameters<Parameters<typeof withRoomRuntime>[0]>[0] & {
       readonly roundId: string;
+      readonly mediaConfig: typeof localMediaConfig;
       readonly media: ReturnType<typeof createMediaService>;
       readonly mediaOperations: ReturnType<typeof createRoundMediaOperations>;
     },
@@ -44,6 +45,7 @@ export const withMediaRound = (
       await work({
         ...fixture,
         roundId,
+        mediaConfig: localMediaConfig,
         media: deps.media,
         mediaOperations: createRoundMediaOperations(deps),
       });
@@ -63,6 +65,20 @@ export const tokenClaims = (token: string) =>
     nbf: number;
     video: Record<string, unknown>;
   };
+
+/** Actual vendor/DB binding for the signed ingress and application composition proofs. */
+export async function captureWorkerScope(
+  fixture: Parameters<Parameters<typeof withMediaRound>[0]>[0],
+) {
+  await fixture.mediaOperations.session(fixture.roundId, fixture.host.actorId);
+  const [session] =
+    await fixture.sql`select id from media_sessions where round_id=${fixture.roundId}`;
+  return {
+    roundId: fixture.roundId,
+    sessionId: String(session!.id),
+    workerId: createId(),
+  };
+}
 
 /** Hold actual provider creation before its effect or after acknowledgement, without replacing the vendor. */
 export function delayedMediaCreation(phase: 'before' | 'after' = 'after') {

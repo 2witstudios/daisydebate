@@ -2,24 +2,6 @@
   "version": 1,
   "readers": [
     {
-      "path": "apps/web/src/features/realtime/browser-adapters.ts",
-      "export": "createBrowserConnectionStore",
-      "task": "RT-2.6a",
-      "owner": "realtime",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "The production-wired browser WebSocket store has no page that constructs it yet; only the e2e harness references it. Its reader is the room that subscribes to realtime instead of polling.",
-      "reviewBy": "2026-12-01"
-    },
-    {
-      "path": "apps/realtime/src/outbox-drain.ts",
-      "export": "startOutboxDrain",
-      "task": "RT-2.3c",
-      "owner": "realtime",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "The outbox drain runs with a no-op sink; fan-out to subscribed sockets is the reader (RT-2.3c). Until then the drain drains nothing.",
-      "reviewBy": "2026-12-01"
-    },
-    {
       "path": "packages/protocol/src/messaging/core.ts",
       "export": "createMessagingCoreSchemas",
       "task": "MSG-2.2",
@@ -63,60 +45,6 @@
       "adr": "docs/decisions/0057-planned-readers.md",
       "reason": "MSG-1.4 channel doorbells precede the committed transactional send reader; integration proves append shape and rollback independently of socket fanout.",
       "reviewBy": "2026-12-01"
-    },
-    {
-      "path": "packages/media/src/audio-publication.ts",
-      "export": "createAudioPublication",
-      "task": "VIDEO-3.16",
-      "owner": "VIDEO / ag-294zgpzv",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "ADR 0053 native audio producer precedes the committed VIDEO-3.16 worker reader (waa4xl8ecs1a285lrzn9o2rz). Native publication and pacing proofs do not establish a production worker consumer or browser delivery.",
-      "reviewBy": "2026-11-05"
-    },
-    {
-      "path": "packages/media/src/paced-publication.ts",
-      "export": "createPacedAudioWriter",
-      "task": "VIDEO-3.16",
-      "owner": "VIDEO / ag-294zgpzv",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "ADR 0053 native audio producer precedes the committed VIDEO-3.16 worker reader (waa4xl8ecs1a285lrzn9o2rz). Native publication and pacing proofs do not establish a production worker consumer or browser delivery.",
-      "reviewBy": "2026-11-05"
-    },
-    {
-      "path": "packages/db/src/media-capture.ts",
-      "export": "mediaCaptureOperations",
-      "task": "VIDEO-3.8",
-      "owner": "VIDEO / ag-294zgpzv",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "ADR0053 capture foundation precedes committed worker readers VIDEO-3.8 tz1d7obvmg0rnhzfhyllifjl and VIDEO-3.1 r66b11i8v4jilp3o29uu2b49. Real PostgreSQL store proof does not establish production capture or worker acceptance.",
-      "reviewBy": "2026-11-05"
-    },
-    {
-      "path": "packages/media/src/worker-auth.ts",
-      "export": "createMediaWorkerAuthentication",
-      "task": "VIDEO-3.8",
-      "owner": "VIDEO / ag-294zgpzv",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "ADR0053 signed worker ingress foundation precedes committed VIDEO-3.8 reader tz1d7obvmg0rnhzfhyllifjl and the browser token broker. Producer 8fabf6b9 authenticates exact method/path/timestamp/raw body with an injected secret and clock; authentication unit proof does not establish mounted ingress or worker acceptance.",
-      "reviewBy": "2026-11-05"
-    },
-    {
-      "path": "packages/media/src/native-capture.ts",
-      "export": "createCaptureSubscription",
-      "task": "VIDEO-3.8",
-      "owner": "VIDEO / ag-294zgpzv",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "ADR0053 raw capture subscription producer 089efbef7732986c45b4ac3c39f896d9d5eb6063 precedes committed VIDEO-3.8 worker reader tz1d7obvmg0rnhzfhyllifjl. Real native 16k callback/lifecycle and callback-removal sabotage proof does not establish worker clock calibration, coverage, STT or relay acceptance.",
-      "reviewBy": "2026-11-05"
-    },
-    {
-      "path": "packages/media/src/capture-clips.ts",
-      "export": "cutCaptureClips",
-      "task": "VIDEO-3.7",
-      "owner": "VIDEO / ag-294zgpzv",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "ADR0053 clipper producer ea10dd15 precedes committed VIDEO-3.7 ra82u76kiby44gpk7ibd3nl5 and VIDEO-3.8 tz1d7obvmg0rnhzfhyllifjl worker readers. It requires calibrated 16k mono capture, full historical windows and a fresh PostgreSQL horizon; unit proof does not establish calibration, STT or a production worker.",
-      "reviewBy": "2026-11-05"
     }
   ]
 }

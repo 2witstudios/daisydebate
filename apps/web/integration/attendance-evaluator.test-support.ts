@@ -1,3 +1,4 @@
+import { buildDebateTopic } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import type { withAttendanceRound } from './attendance.test-support';
 
@@ -34,7 +35,7 @@ export async function settleAttendanceFixture(
       await f.sql`delete from ratings where actor_id=${participant.actorId}`;
     for (const sample of samples)
       await f.sql`delete from availability_samples where at=${sample.at}::timestamptz`;
-    await f.sql`delete from outbox where topic=${`debate:${roundId}`}`;
+    await f.sql`delete from outbox where topic=${buildDebateTopic(roundId)}`;
     await f.sql`delete from rounds where id=${roundId}`;
     await f.sql`delete from seasons where id=${seasonId}`;
     if (preset.length)

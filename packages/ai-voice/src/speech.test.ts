@@ -1,8 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
-  createPhraseBuffer,
-  createSentenceBuffer,
-  heardText,
   phrasesOf,
   splitSentences,
   wordBudget,
@@ -41,56 +38,6 @@ describe('wordBudget', () => {
       should: 'aim a little under the slot (90 percent)',
       actual: wordBudget(300_000),
       expected: 675,
-    });
-  });
-});
-
-describe('createSentenceBuffer', () => {
-  test('emits sentences as streamed text completes them', () => {
-    const buffer = createSentenceBuffer();
-    const first = buffer.push('Thank you, judge. My first');
-    const second = buffer.push(' contention is safety. Second');
-    const rest = buffer.flush();
-    assert({
-      given: 'a delta that completes one sentence',
-      should: 'emit only the completed sentence',
-      actual: first,
-      expected: ['Thank you, judge.'],
-    });
-    assert({
-      given: 'a delta that completes the next sentence',
-      should: 'emit it and hold the unfinished tail',
-      actual: second,
-      expected: ['My first contention is safety.'],
-    });
-    assert({
-      given: 'the end of the stream',
-      should: 'flush the unfinished tail as a sentence',
-      actual: rest,
-      expected: ['Second'],
-    });
-  });
-});
-
-describe('heardText', () => {
-  test('keeps the words played before an interruption', () => {
-    assert({
-      given: 'half of a reply played',
-      should: 'keep the first half, cut at a word boundary',
-      actual: heardText('One two three four five six', 500, 1000),
-      expected: 'One two three',
-    });
-    assert({
-      given: 'the whole reply played',
-      should: 'keep all of it',
-      actual: heardText('One two.', 1000, 1000),
-      expected: 'One two.',
-    });
-    assert({
-      given: 'nothing played',
-      should: 'keep nothing',
-      actual: heardText('One two.', 0, 1000),
-      expected: '',
     });
   });
 });
@@ -136,20 +83,6 @@ describe('phrases', () => {
       should: 'give the same phrases again',
       actual: phrasesOf(phrases.join(' '), 80),
       expected: phrases,
-    });
-  });
-
-  test('streamed sentences group exactly as the saved speech does', () => {
-    const buffer = createPhraseBuffer(80);
-    const streamed = [
-      ...splitSentences(text).flatMap((sentence) => buffer.push(sentence)),
-      ...buffer.flush(),
-    ];
-    assert({
-      given: 'the same sentences arriving one by one',
-      should: 'emit the same phrases as grouping the finished text',
-      actual: streamed,
-      expected: phrasesOf(text, 80),
     });
   });
 });

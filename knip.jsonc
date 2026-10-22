@@ -24,6 +24,7 @@
         "scripts/dev-agent.ts",
         "scripts/verify.ts",
         "scripts/prove-round-judging.ts",
+        "scripts/prove-media-worker.ts",
       ],
     },
     // The e2e production server is started by Playwright's webServer command.
@@ -62,6 +63,10 @@
     },
     "packages/db": { "entry": ["integration/**/*.integration.ts"] },
     "packages/media": { "entry": ["integration/**/*.integration.ts"] },
+    "apps/media-worker": {
+      // Bun.resolveSync selects this isolated native subprocess entry.
+      "entry": ["src/capture-process.ts", "src/**/*.test.ts"],
+    },
     "apps/realtime": {
       "entry": [
         "integration/**/*.integration.ts",

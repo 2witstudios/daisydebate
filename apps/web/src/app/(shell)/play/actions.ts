@@ -1,10 +1,9 @@
 'use server';
 
 import { headers } from 'next/headers';
-import { createAssembly } from '../../../features/rooms/create-assembly';
+import { submitRoomCreation } from '../../../features/rooms/create-room-form';
 import { readRoomTemplates } from '../../../features/rooms/read-catalog';
-import { refused, type MockFormState } from '../../../features/mock-form/form';
-import { moveOn } from '../../../server/form-action';
+import type { MockFormState } from '../../../features/mock-form/form';
 import { inProcessFetch } from '../../../server/in-process-fetch';
 import { processRoute } from '../../../server/process-app';
 
@@ -22,20 +21,6 @@ export async function createRoomAction(
   _state: MockFormState,
   form: unknown,
 ): Promise<MockFormState> {
-  const submitted = form instanceof FormData ? form : new FormData();
   const incoming = new Headers(await headers());
-  const result = await createAssembly(
-    inProcessFetch(create, incoming),
-    submitted,
-  );
-  if (result.kind === 'created')
-    return { values: {}, ...moveOn(incoming, `/rooms/${result.roomId}`) };
-  return refused(
-    submitted,
-    result.kind === 'invalid'
-      ? 'Check the room name, topic and format template.'
-      : result.kind === 'refused'
-        ? 'The room could not be created. Review your settings and try again.'
-        : 'Room creation is unavailable. Try again.',
-  );
+  return submitRoomCreation(inProcessFetch(create, incoming), incoming, form);
 }

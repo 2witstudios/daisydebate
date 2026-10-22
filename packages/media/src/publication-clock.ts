@@ -26,7 +26,7 @@ export function publicationClock(input: {
     eligibleSamples: 0,
     valid:
       [anchorMs, ...Object.values(calibration)].every(Number.isFinite) &&
-      [24000, 48000].includes(sampleRate) &&
+      [16000, 24000, 48000].includes(sampleRate) &&
       rtt >= 0 &&
       rtt <= 100 &&
       (calibration.precisionMs ?? 0) >= 0 &&

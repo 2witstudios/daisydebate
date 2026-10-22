@@ -202,17 +202,9 @@ test('protected Round reads preserve hidden judges and keep transcript content p
       },
     });
     const segment = view.segments[0]!;
-    await f.store.appendUtterance({
-      id: createId(),
-      roundId,
-      segmentId: segment.id,
-      roundParticipantId: raw.participants.find(
-        (p) => p.role === 'affirmative',
-      )!.id,
-      text: 'Private transcript',
-      complete: true,
-      requireOpen: false,
-    });
+    const speaker = raw.participants.find((p) => p.role === 'affirmative')!;
+    // Private-reader storage fixture, not a capture or generation producer.
+    await f.sql`insert into utterances(id,round_id,segment_id,round_participant_id,sequence,text,complete) values(${createId()},${roundId},${segment.id},${speaker.id},0,'Private transcript',true)`;
     const read = (caller: typeof f.host, segmentId = segment.id) =>
       f.store.readRoundSegmentUtterances({
         caller,

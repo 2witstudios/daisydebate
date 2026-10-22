@@ -6,7 +6,9 @@
   "exports": {
     ".": "./src/index.ts",
     "./authorization": "./src/authorization.ts",
-    "./testing": "./src/format-fixtures.test-support.ts"
+    "./testing": "./src/format-fixtures.test-support.ts",
+    "./bot-activity": "./src/bot-activity.ts",
+    "./bot-activity-testing": "./src/bot-activity.test-support.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
