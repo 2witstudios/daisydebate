@@ -2,8 +2,8 @@ import { createAppError } from '@daisy/errors';
 import { idSchema, type LaunchedRound } from '@daisy/protocol';
 import { and, eq } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import { sharedAccount, type Caller, type Account } from './room-command-facts';
-import { launchedRoundRows } from './room-read-operations';
+import { type Caller, type Account } from './room-command-facts';
+import { readAuthorizedRound } from './round-read-authority';
 import { utterances } from './schema/utterances';
 
 export const roundProtectedReads = ({
@@ -23,10 +23,8 @@ export const roundProtectedReads = ({
     )
       throw createAppError('VALIDATION');
     return database.transaction(async (tx) => {
-      const account = await sharedAccount(tx, input.caller);
-      const round = await launchedRoundRows(tx, input.roundId);
+      const round = await readAuthorizedRound(tx, input);
       if (
-        !input.authorize(round, account) ||
         !round.participants.some((p) => p.actorId === input.caller.actorId) ||
         !round.segments.some((s) => s.id === input.segmentId)
       )
