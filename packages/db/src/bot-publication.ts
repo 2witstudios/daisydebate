@@ -142,7 +142,16 @@ export function createBotPublicationOperations(input: {
           publicationEpoch: epoch,
         };
         const leaseExpiresAt = value.leaseExpiresAt;
-        return { scope, token, leaseExpiresAt: leaseExpiresAt.toISOString() };
+        return {
+          scope,
+          token,
+          leaseExpiresAt: leaseExpiresAt.toISOString(),
+          segmentType: segment.type,
+          /** Activity peers only; grants no authority over another seat. */
+          peerParticipantIds: round.participants
+            .filter((row) => row.role !== 'judge' && row.id !== seat.id)
+            .map((row) => row.id),
+        };
       }),
     verifyBotPublication: (
       scope: BotPublicationScope,

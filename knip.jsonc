@@ -50,6 +50,7 @@
         "e2e/support/launch-browser-network.mjs",
         "e2e/support/room-launch-evidence-process.ts",
         "e2e/support/attendance-evidence-process.ts",
+        "e2e/support/bot-speech-evidence-process.ts",
         "e2e/support/room-launch-release.ts",
         // Spawned by the native ballot fixture under Bun, never imported by the Node driver.
         "e2e/support/human-ballot-maintenance-process.ts",

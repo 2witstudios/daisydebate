@@ -1,4 +1,3 @@
-import { proveHumanJudgedJourney } from './support/human-judged-journey';
 import { holdScripts, overflowing } from './support/ballot-layout-probes';
 import { proveBallotRecovery } from './support/ballot-recovery-proof';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
@@ -316,11 +315,4 @@ test('actual assigned Round waits for its frozen input and query strings cannot 
   } finally {
     await accounts.closeContexts();
   }
-});
-
-test('actual shared human judging completes through autonomous maintenance and native/enhanced ballots', async ({
-  browser,
-}) => {
-  test.setTimeout(240_000);
-  await proveHumanJudgedJourney(browser);
 });

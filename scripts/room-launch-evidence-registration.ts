@@ -14,6 +14,7 @@ export function roomLaunchClaimProblems(input: BrowserRegistration) {
     suites: [
       '**/room-launch.e2e.ts',
       '**/ballot.e2e.ts',
+      '**/round-journeys.e2e.ts',
       '**/attendance.e2e.ts',
       '**/round-media.e2e.ts',
       '**/debate-room.e2e.ts',

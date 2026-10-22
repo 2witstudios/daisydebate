@@ -105,6 +105,9 @@ const roundWorkers = runAsBackgroundWork(() =>
   startRoundWorkers({
     app,
     instanceId: availability.instanceId,
+    botToken: mediaRuntime
+      ? (scope, token) => mediaRuntime.operations().botToken(scope, token)
+      : null,
     timers: {
       setInterval: (tick, ms) =>
         setInterval(() => {
