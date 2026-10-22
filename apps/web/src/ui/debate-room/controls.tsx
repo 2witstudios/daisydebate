@@ -222,20 +222,20 @@ function PrepClocks({ round }: { readonly round: RoundSnapshot }) {
   );
 }
 
-function MainClock({
-  clock,
-  phase,
-}: {
-  readonly clock: RoundSnapshot['clock'];
-  readonly phase: RoundSnapshot['phase'];
-}) {
+const idleLabel = (round: RoundSnapshot) => {
+  if (round.phase !== 'judging') return 'Live';
+  return round.judge ? 'Judging' : 'Finished';
+};
+
+function MainClock({ round }: { readonly round: RoundSnapshot }) {
+  const { clock } = round;
   const center =
     'flex flex-col items-center leading-tight max-narrow:items-end';
   if (!clock)
     return (
       <div className={center}>
         <span className="text-xs font-strong tracking-wider text-ink-muted uppercase">
-          {phase === 'judging' ? 'Judging' : 'Live'}
+          {idleLabel(round)}
         </span>
       </div>
     );
@@ -293,7 +293,7 @@ export function RoundControls({
         </span>
         <PrepClocks round={round} />
       </div>
-      <MainClock clock={round.clock} phase={round.phase} />
+      <MainClock round={round} />
       <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 max-narrow:hidden">
         {actions ?? <PhaseActions round={round} />}
         <TechIssue round={round} />

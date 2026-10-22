@@ -219,6 +219,19 @@ test('durable judging claims fence epochs and preserve one command across recove
       await fixture.sql`update rounds set status='abandoned',current_stage=null,completed_at=clock_timestamp() where id=${roundId}`;
       await jobs.recordUsage(first.scope, first.token, usage);
       await jobs.recordUsage(first.scope, first.token, usage);
+      const incompleteScope: Partial<typeof first.scope> = { ...first.scope };
+      Reflect.deleteProperty(incompleteScope, 'roundId');
+      await assertRejects({
+        given: 'an original bearer with omitted Round scope at runtime',
+        should: 'require every original execution binding',
+        actual: () =>
+          jobs.recordUsage(
+            incompleteScope as typeof first.scope,
+            first.token,
+            usage,
+          ),
+        code: 'AUTHORIZATION',
+      });
       await assertRejects({
         given: 'a changed late usage tuple after takeover and terminal',
         should: 'refuse rewriting the authenticated original execution',

@@ -2,12 +2,26 @@ import {
   oneOnOneDefinition,
   practiceRoomConfig,
 } from '@daisy/db/reference-formats';
+import { ballotCategories, type Ballot } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import { createRoundFinalizationOperations } from '../src/features/round-finalization/operations';
 import {
   startRuntimeRound,
   type withRoomRuntime,
 } from './round-runtime.test-support';
+/** Controlled valid rubric response; never provider evidence. */
+export const fixtureBallot = (reason: string): Ballot => ({
+  rubricVersion: 'speaker-10@1',
+  winner: 'affirmative',
+  reason,
+  feedback: {},
+  scores: Object.fromEntries(
+    ['affirmative', 'negative'].map((side) => [
+      side,
+      Object.fromEntries(ballotCategories.map((key) => [key, 3])),
+    ]),
+  ) as Ballot['scores'],
+});
 /** Real Room/engine/finalizer storage fixture. Silence stays incomplete; attendance is never fabricated. */
 export async function freezeBotJudge(
   f: Parameters<Parameters<typeof withRoomRuntime>[0]>[0],
