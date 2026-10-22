@@ -216,6 +216,45 @@ test('durable judging claims fence epochs and preserve one command across recove
         ],
         expected: [null, 'succeeded', null, receipt.ballotId, true],
       });
+      await fixture.sql`update rounds set status='abandoned',current_stage=null,completed_at=clock_timestamp() where id=${roundId}`;
+      await jobs.recordUsage(first.scope, first.token, usage);
+      await jobs.recordUsage(first.scope, first.token, usage);
+      await assertRejects({
+        given: 'a changed late usage tuple after takeover and terminal',
+        should: 'refuse rewriting the authenticated original execution',
+        actual: () =>
+          jobs.recordUsage(first.scope, first.token, {
+            inputTokens: 12,
+            outputTokens: 5,
+          }),
+        code: 'CONFLICT',
+      });
+      await assertRejects({
+        given: 'a foreign usage bearer after terminal',
+        should: 'refuse without accounting or competitive writes',
+        actual: () => jobs.recordUsage(first.scope, 'x'.repeat(43), usage),
+        code: 'AUTHORIZATION',
+      });
+      await assertRejects({
+        given:
+          'a scoped takeover run that never dispatched the cached response',
+        should: 'refuse invented second-run consumption',
+        actual: () => jobs.recordUsage(second.scope, second.token, usage),
+        code: 'CONFLICT',
+      });
+      const [accounted] =
+        await fixture.sql`select input_tokens,output_tokens from agent_runs where id=${first.scope.agentRunId}`;
+      assert({
+        given:
+          'the exact original execution usage settled twice after actual terminal',
+        should: 'retain actual counters and the one prior ballot',
+        actual: [
+          accounted.input_tokens,
+          accounted.output_tokens,
+          await fixture.count('ballots', 'round_id', roundId),
+        ],
+        expected: [11, 5, 1],
+      });
     } finally {
       await fixture.sql`delete from rounds where id=${roundId}`;
     }

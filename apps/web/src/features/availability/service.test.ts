@@ -2,63 +2,72 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { startAvailabilityService } from './service';
 setupRitewayBun();
 
+function fixture(
+  elected: boolean,
+  control?: () => Promise<{ healthy: boolean }>,
+) {
+  let tick = () => {};
+  const evidence: unknown[] = [];
+  const events: string[] = [];
+  const state = { probeHealthy: false, unhealthyControl: true, probes: 0 };
+  const service = startAvailabilityService({
+    instanceId: 'a'.repeat(24),
+    store: {
+      reconcileRoundCheckInAttempts: async () => 0,
+      renewServiceInstance: async () => {
+        events.push('renew');
+      },
+      readRoundBotControlHealth:
+        control ??
+        (async () => {
+          if (state.unhealthyControl)
+            throw new Error('Unavailable controller read');
+          return { healthy: true };
+        }),
+      availabilitySampler: () => ({
+        elect: async () => elected,
+        sample: async (input) => {
+          evidence.push(input);
+        },
+        close: async () => {
+          events.push('close');
+        },
+      }),
+    },
+    probe: async () => {
+      state.probes += 1;
+      return state.probeHealthy;
+    },
+    timers: {
+      setInterval: (callback, ms) => {
+        tick = callback;
+        events.push(`interval:${ms}`);
+        return 1;
+      },
+      clearInterval: () => {
+        events.push('clear');
+      },
+    },
+    failed: () => {
+      events.push('failed');
+    },
+  });
+  return { service, tick: () => tick(), state, evidence, events };
+}
+
 for (const elected of [true, false])
   test(`availability loop election=${elected} renews its lease and awaits only elected sampling work on shutdown`, async () => {
-    let tick = () => {};
-    const evidence: unknown[] = [];
-    const events: string[] = [];
-    let probeHealthy = false;
-    let unhealthyControl = true;
-    let probes = 0;
-    const service = startAvailabilityService({
-      instanceId: 'a'.repeat(24),
-      store: {
-        reconcileRoundCheckInAttempts: async () => 0,
-        renewServiceInstance: async () => {
-          events.push('renew');
-        },
-        readRoundBotControlHealth: async () => {
-          if (unhealthyControl) throw new Error('Unavailable controller read');
-          return { healthy: true };
-        },
-        availabilitySampler: () => ({
-          elect: async () => elected,
-          sample: async (input) => {
-            evidence.push(input);
-          },
-          close: async () => {
-            events.push('close');
-          },
-        }),
-      },
-      probe: async () => {
-        probes += 1;
-        return probeHealthy;
-      },
-      timers: {
-        setInterval: (callback, ms) => {
-          tick = callback;
-          events.push(`interval:${ms}`);
-          return 1;
-        },
-        clearInterval: () => {
-          events.push('clear');
-        },
-      },
-      failed: () => {
-        events.push('failed');
-      },
-    });
+    const { service, tick, state, evidence, events } = fixture(elected);
     await service.stop();
-    probeHealthy = true;
-    unhealthyControl = false;
+    state.probeHealthy = true;
+    state.unhealthyControl = false;
     tick();
     assert({
       given:
         'failed actual probe and unknown own bot controller, then shutdown',
       should:
         'sample unhealthy and stop renewal/sampling before releasing election',
-      actual: { evidence, events, probes },
+      actual: { evidence, events, probes: state.probes },
       expected: {
         evidence: elected
           ? [{ publicProbeHealthy: false, controlWorkersHealthy: false }]
@@ -68,3 +77,29 @@ for (const elected of [true, false])
       },
     });
   });
+
+test('pending elected sampling cannot suppress the same peer lease cadence', async () => {
+  const held = Promise.withResolvers<void>();
+  const release = Promise.withResolvers<void>();
+  const { service, tick, events, state } = fixture(true, async () => {
+    held.resolve();
+    await release.promise;
+    return { healthy: true };
+  });
+  try {
+    await held.promise;
+    tick();
+    assert({
+      given: 'elected control work held across the next one-second callback',
+      should: 'renew again without a second probe or concurrent sample',
+      actual: [
+        events.filter((event) => event === 'renew').length,
+        state.probes,
+      ],
+      expected: [2, 1],
+    });
+  } finally {
+    release.resolve();
+    await service.stop();
+  }
+});

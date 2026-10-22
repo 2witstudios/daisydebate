@@ -1,0 +1,21 @@
+{
+  "name": "@daisy/media-worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "bun test src",
+    "test:integration": "bun ../../scripts/test-integration.ts",
+    "start": "bun src/start.ts"
+  },
+  "dependencies": {
+    "@daisy/media": "workspace:*",
+    "@daisy/ai-voice": "workspace:*",
+    "@daisy/errors": "workspace:*",
+    "@daisy/protocol": "workspace:*"
+  },
+  "devDependencies": {
+    "riteway": "9.3.0"
+  }
+}

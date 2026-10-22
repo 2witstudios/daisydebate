@@ -121,7 +121,6 @@ describe('competitive schema child tables', () => {
           checks: [
             'utterances_capture_metadata_check',
             'utterances_capture_pair_check',
-            'utterances_generation_pair',
             'utterances_sequence_check',
             'utterances_text_length',
           ],

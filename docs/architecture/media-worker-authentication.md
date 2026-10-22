@@ -61,3 +61,23 @@ outer temporal union and the supplied expected chunk count appear complete.
 This provenance fence preserves the existing continuous-coverage predicate and
 genuine current-epoch complete-silence storage proof. It does not heal gaps or
 claim that a native producer covered whole-grant edges.
+
+## Worker HTTP client
+
+`@daisy/media/worker` exposes `createMediaWorkerClient`. Its injected transport,
+monotonic clock, deadline signal, authentication and fixed Round/session/worker
+scope call the six signed capture operations. Reply schemas, a 1 MiB response
+limit, redirect refusal and cancellation bound the transport. Credentials and
+transcript replies remain in memory; transport errors contain no response body.
+An internal deadline reports infrastructure uncertainty, while explicit caller
+cancellation reports conflict. Neither result proves that a dispatched mutation
+was rolled back; retries must retain the operation's durable dedupe identity.
+
+`read` brackets the full HTTP request and body read using the injected monotonic
+clock and returns the actual post-lock database sample with 1 ms precision. This
+is calibration input, not a timestamp assigned to PCM. The native observation
+consumer must independently enforce the calibration RTT/age/drift bounds,
+original callback cadence and full historical window containment. No retry,
+clock extrapolation, attendance change or provider cleanup is implicit in this
+client. The real HTTP/PostgreSQL/LiveKit integration proves the signed client
+seam; native capture, STT and worker lifecycle acceptance remain separate.

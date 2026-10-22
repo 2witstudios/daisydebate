@@ -11,6 +11,10 @@ export const withBotPublication = (
     operations: ReturnType<typeof createBotPublicationOperations>;
     target: { roundId: string; roundParticipantId: string; segmentId: string };
   }) => Promise<void>,
+  speech?: Pick<
+    Parameters<typeof createBotPublicationOperations>[0],
+    'ttsModel' | 'speechBudget'
+  >,
 ) =>
   withBoundedRound(async (fixture, run, roundId) => {
     const seat = await createBotSeat(fixture, roundId, 'affirmative');
@@ -33,6 +37,7 @@ export const withBotPublication = (
         run,
         target: { roundId, roundParticipantId: seat.id, segmentId },
         operations: createBotPublicationOperations({
+          ...speech,
           run,
           nextId: createId,
           nextToken: () => randomBytes(32).toString('base64url'),

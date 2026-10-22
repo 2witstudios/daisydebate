@@ -215,3 +215,24 @@ describe('Lua: a test can run only the scripts the adapter registered (ISSUE-274
     });
   });
 });
+
+test('memory-only capability inspection allows only exact nonmutating CONFIG GET fields', () => {
+  const args = [
+    ['GET', 'appendonly', 'save'],
+    ['SET', 'save', ''],
+    ['GET', '*'],
+    ['GET', 'requirepass'],
+    ['GET', 'appendonly', 'save', 'requirepass'],
+  ];
+  assert({
+    given:
+      'the exact persistence capability read or broader configuration access',
+    should:
+      'permit only appendonly/save inspection while refusing mutation and credential reads',
+    actual: args.map(
+      (value) =>
+        commandRefusal('CONFIG', value, { scripts: true }) === undefined,
+    ),
+    expected: [true, false, false, false, false],
+  });
+});

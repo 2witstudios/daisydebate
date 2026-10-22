@@ -1,3 +1,4 @@
+import { createBotActivityOperations } from './bot-activity';
 import { createMessagingTypingOperations } from './messaging-typing';
 import { RedisClient } from 'bun';
 import { createRoomReadinessOperations } from './room-readiness';
@@ -203,6 +204,7 @@ export function createRedis({
         throw error;
       }
     },
+    ...createBotActivityOperations({ client, namespace, reportFailure }),
     ...createRoomReadinessOperations({ client, namespace, reportFailure }),
     ...createPresenceOperations({ client, namespace, reportFailure }),
     ...createMessagingTypingOperations({ client, namespace, reportFailure }),

@@ -1,3 +1,4 @@
+import { buildDebateTopic } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
@@ -13,7 +14,7 @@ test('competing attendance sweeps commit one shared-engine decision and exactly 
     const cleanup = await settleAttendanceFixture(input, true, false);
     try {
       const before =
-        await f.sql`select seq from outbox where topic=${`debate:${roundId}`}`;
+        await f.sql`select seq from outbox where topic=${buildDebateTopic(roundId)}`;
       const results = await Promise.allSettled([
         attendance.evaluate(roundId),
         attendance.evaluate(roundId),
@@ -23,7 +24,7 @@ test('competing attendance sweeps commit one shared-engine decision and exactly 
       );
       const rejected = results.filter((result) => result.status === 'rejected');
       const [facts] =
-        await f.sql`select (select count(*)::int from round_attendance_adjudications where round_id=${roundId}) as decisions,(select count(*)::int from round_commands where round_id=${roundId} and type='adjudicate') as receipts,(select count(*)::int from outbox where topic=${`debate:${roundId}`}) as announcements`;
+        await f.sql`select (select count(*)::int from round_attendance_adjudications where round_id=${roundId}) as decisions,(select count(*)::int from round_commands where round_id=${roundId} and type='adjudicate') as receipts,(select count(*)::int from outbox where topic=${buildDebateTopic(roundId)}) as announcements`;
       assert({
         given:
           'two actual same-Round evaluator transactions with settled historical evidence',
@@ -62,17 +63,20 @@ test('failed shared announcement rolls back adjudication lifecycle, receipt, spe
     try {
       const before = await f.store.getRound(roundId);
       const snapshot = () =>
-        f.sql`select (select count(*)::int from round_attendance_adjudications where round_id=${roundId}) as decisions,(select count(*)::int from round_commands where round_id=${roundId} and type='adjudicate') as receipts,(select count(*)::int from outbox where topic=${`debate:${roundId}`}) as announcements,(select final_segment_ended_at::text from rounds where id=${roundId}) as anchor`;
+        f.sql`select (select count(*)::int from round_attendance_adjudications where round_id=${roundId}) as decisions,(select count(*)::int from round_commands where round_id=${roundId} and type='adjudicate') as receipts,(select count(*)::int from outbox where topic=${buildDebateTopic(roundId)}) as announcements,(select final_segment_ended_at::text from rounds where id=${roundId}) as anchor`;
       const prior = await snapshot();
-      await withOutboxInsertBlockedForTopic(`debate:${roundId}`, async () => {
-        await assertRejects({
-          given:
-            'actual PG outbox rejection after proposed competitive projection',
-          should: 'abort the evaluator transaction',
-          actual: () => attendance.evaluate(roundId),
-          code: 'INFRASTRUCTURE',
-        });
-      });
+      await withOutboxInsertBlockedForTopic(
+        buildDebateTopic(roundId),
+        async () => {
+          await assertRejects({
+            given:
+              'actual PG outbox rejection after proposed competitive projection',
+            should: 'abort the evaluator transaction',
+            actual: () => attendance.evaluate(roundId),
+            code: 'INFRASTRUCTURE',
+          });
+        },
+      );
       assert({
         given: 'the actual writer transaction failed',
         should:

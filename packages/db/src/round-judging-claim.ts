@@ -82,10 +82,8 @@ export async function claimLockedJudgingJob(
     kind: 'judging',
     model: input.model,
     configuration: {
-      roundId: round.id,
-      judgeParticipantId: seat.id,
-      freezeRevision: frozen.revision,
-      jobEpoch: epoch,
+      ...scope,
+      executionTokenDigest: agentLeaseDigest(token),
       providerOutcome: 'not_started',
     },
   });

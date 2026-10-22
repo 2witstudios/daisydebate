@@ -1,6 +1,7 @@
 import { and, eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import type { BoundedTransaction } from './bounded-transaction';
+import { createBotGenerationOperations } from './bot-generation';
 import { agentLeaseDigest } from './round-agent-lease';
 import {
   endLockedRoundAgentRun,
@@ -41,6 +42,8 @@ export function createBotPublicationOperations(input: {
   readonly nextToken: () => string;
   readonly leaseMs: number;
   readonly models: { readonly speech: string; readonly cross_ex: string };
+  readonly ttsModel?: string;
+  readonly speechBudget?: number;
 }) {
   if (
     !Number.isSafeInteger(input.leaseMs) ||
@@ -56,6 +59,7 @@ export function createBotPublicationOperations(input: {
       eq(roundBotPublications.roundParticipantId, scope.roundParticipantId),
     );
   return {
+    ...createBotGenerationOperations(input),
     scanWorkers: (limit: number) =>
       input.run((tx) => scanBotWorkers(tx, limit)),
     claimWorker: (target: Target) =>

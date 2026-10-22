@@ -99,7 +99,7 @@ export async function lockCaptureLease(tx: CaptureTx, input: CaptureIdentity) {
     throw createAppError('CONFLICT', 'Capture worker lease is stale');
   return lease;
 }
-export async function lockCaptureStream(
+async function lockCaptureStream(
   tx: CaptureTx,
   input: CaptureIdentity & CaptureStream,
 ) {

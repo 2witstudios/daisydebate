@@ -9,7 +9,9 @@
     "./publication": "./src/paced-publication.ts",
     "./internal": "./src/worker-auth.ts",
     "./capture": "./src/native-capture.ts",
-    "./clips": "./src/capture-clips.ts"
+    "./clips": "./src/capture-clips.ts",
+    "./worker": "./src/worker-client.ts",
+    "./observation": "./src/capture-clock.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

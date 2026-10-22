@@ -35,6 +35,7 @@ when `bun slot:up` has already run; integration tests need nothing more.
 | A product feature (ranked, lobby, …) | `apps/web/src/features/<feature>/` + routes in `src/app`   |
 | Domain rules of debate               | `packages/debate-engine` (contracts via `@daisy/protocol`) |
 | Portable messages/snapshots          | `packages/protocol`                                        |
+| Hidden server audio capture and STT  | `apps/media-worker`                                        |
 | Durable records, migrations          | `packages/db`                                              |
 | Ephemeral coordination               | `packages/redis`                                           |
 | Cross-cutting platform concerns      | `config`, `errors`, `logger`, `observability`, `auth`      |

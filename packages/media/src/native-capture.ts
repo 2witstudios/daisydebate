@@ -2,6 +2,7 @@ import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import {
   AudioStream,
+  dispose,
   Room,
   RoomEvent,
   TrackSource,
@@ -193,4 +194,9 @@ export async function createCaptureSubscription(input: CaptureInput) {
       return shutdown;
     },
   };
+}
+
+/** Process owner only: all native rooms must already be closed. */
+export async function disposeCaptureRuntime() {
+  await dispose();
 }

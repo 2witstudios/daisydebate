@@ -1,6 +1,5 @@
 import { createAppError, isAppError } from '@daisy/errors';
 import { z } from 'zod';
-import { readLines } from './lines';
 import { readPcmSpeech, requireSpeechNotCancelled } from './pcm';
 import { requireProviderNotCancelled } from './cancellation';
 
@@ -41,11 +40,6 @@ const completionSchema = z.object({
   usage: z
     .object({ prompt_tokens: z.number(), completion_tokens: z.number() })
     .optional(),
-});
-const deltaSchema = z.object({
-  choices: z.array(
-    z.object({ delta: z.object({ content: z.string().nullish() }) }),
-  ),
 });
 const transcriptionSchema = z.object({ text: z.string() });
 
@@ -131,30 +125,7 @@ export function createOpenRouter({
       );
     }
   };
-  /** The text deltas in a chat completion's server-sent event lines. */
-  async function* deltasOf(lines: AsyncGenerator<string>) {
-    for (;;) {
-      const next = await reading('/chat/completions', () => lines.next());
-      if (next.done) return;
-      const line = next.value;
-      if (!line.startsWith('data: ')) continue;
-      const data = line.slice('data: '.length).trim();
-      if (data === '[DONE]') return;
-      let event: unknown;
-      try {
-        event = JSON.parse(data);
-      } catch {
-        throw createAppError(
-          'INFRASTRUCTURE',
-          'OpenRouter stream sent malformed data',
-        );
-      }
-      const delta = parse(deltaSchema, event, '/chat/completions').choices[0]
-        ?.delta.content;
-      if (delta) yield delta;
-    }
-  }
-  const chatBody = (request: CompletionRequest, stream: boolean) => ({
+  const chatBody = (request: CompletionRequest) => ({
     model: request.model,
     messages: request.messages,
     max_tokens: request.maxTokens,
@@ -165,14 +136,13 @@ export function createOpenRouter({
     ...(request.reasoning
       ? { reasoning: { effort: request.reasoning, exclude: true } }
       : {}),
-    ...(stream ? { stream: true } : {}),
     provider: DATA_POLICY,
   });
   return {
     async complete(request: CompletionRequest) {
       const response = await post(
         '/chat/completions',
-        chatBody(request, false),
+        chatBody(request),
         request.signal,
       );
       const body = parse(
@@ -188,45 +158,6 @@ export function createOpenRouter({
         text: body.choices[0]!.message.content ?? '',
         promptTokens: body.usage?.prompt_tokens ?? 0,
         completionTokens: body.usage?.completion_tokens ?? 0,
-      };
-    },
-    /** The completion's text deltas as the model writes them. */
-    async *stream(
-      request: CompletionRequest & { readonly signal?: AbortSignal },
-    ) {
-      const response = await post(
-        '/chat/completions',
-        chatBody(request, true),
-        request.signal,
-      );
-      if (!response.body)
-        throw createAppError('INFRASTRUCTURE', 'OpenRouter stream had no body');
-      const lines = readLines(response.body);
-      try {
-        yield* deltasOf(lines);
-      } finally {
-        await lines.return(undefined);
-      }
-    },
-    async speak({
-      model,
-      voice,
-      text,
-    }: {
-      readonly model: string;
-      readonly voice: string;
-      readonly text: string;
-    }) {
-      const response = await post('/audio/speech', {
-        model,
-        input: text,
-        voice,
-        response_format: 'mp3',
-        provider: DATA_POLICY,
-      });
-      return {
-        audio: await reading('/audio/speech', () => response.arrayBuffer()),
-        characters: text.length,
       };
     },
     /** Validated in-memory PCM for the server publication worker, never a transcript. */
