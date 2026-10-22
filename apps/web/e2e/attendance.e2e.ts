@@ -1,41 +1,19 @@
-import type { BrowserContext, Page, Response } from '@playwright/test';
-import {
-  attendanceReceiptSchema,
-  type AttendanceReceipt,
-} from '@daisy/protocol';
-import { test, expect, openPage } from './support/fixtures';
+import { test, expect } from './support/fixtures';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
+import { attendanceEvidence } from './support/attendance-evidence';
 import {
   createHumanBallotRound,
   readBallotRound,
   ballotRoundCommand,
 } from './support/human-ballot-round';
-
-const receiptResponse = (roundId: string) => (response: Response) =>
-  new URL(response.url()).pathname === `/api/rounds/${roundId}/check-in` &&
-  response.request().method() === 'POST' &&
-  response.status() === 200;
-const receiptFrom = async (response: Response): Promise<AttendanceReceipt> =>
-  attendanceReceiptSchema.parse(await response.json());
-async function enterSpeech(
-  context: BrowserContext,
-  roundId: string,
-  label: string,
-) {
-  const page = await openPage(context, label);
-  const response = page.waitForResponse(receiptResponse(roundId));
-  await page.goto(`/rounds/${roundId}/room`);
-  return { page, receipt: await receiptFrom(await response) };
-}
-async function nextReceipt(
-  page: Page,
-  roundId: string,
-  action: () => Promise<unknown>,
-) {
-  const pending = page.waitForResponse(receiptResponse(roundId));
-  await action();
-  return receiptFrom(await pending);
-}
+import {
+  receiptResponse,
+  receiptFrom,
+  actualSpeech,
+  enterSpeech,
+  nextReceipt,
+} from './support/attendance-browser';
+import { nativeAttendanceOutage } from './support/native-attendance-proof';
 
 test('actual speech check-in survives refresh and a real browser network disconnect without changing its first stamp', async ({
   browser,
@@ -43,18 +21,7 @@ test('actual speech check-in survives refresh and a real browser network disconn
   const accounts = await createRoomLaunchAccounts(browser, 4);
   try {
     const round = await createHumanBallotRound(accounts.members);
-    await expect
-      .poll(
-        async () =>
-          (
-            await readBallotRound(
-              accounts.members[0]!.context.request,
-              round.id,
-            )
-          ).segments.some((segment) => segment.type === 'speech'),
-        { timeout: 10_000 },
-      )
-      .toBe(true);
+    await actualSpeech(accounts.members[0]!.context.request, round.id);
     const [speaker, opponent] = await Promise.all(
       accounts.members
         .slice(0, 2)
@@ -136,6 +103,15 @@ test('actual speech check-in survives refresh and a real browser network disconn
     const nextStamp = await receiptFrom(await joined);
     expect(nextStamp.segmentId).toBe(target);
     expect(nextStamp.participantId).toBe(speaker!.receipt.participantId);
+    const facts = await attendanceEvidence(round.id);
+    expect(
+      facts.receipts.some(
+        (receipt) =>
+          receipt.segmentId === target &&
+          receipt.participantId === speaker!.receipt.participantId &&
+          receipt.receivedAt === nextStamp.receivedAt,
+      ),
+    ).toBe(true);
     expect(
       (await readBallotRound(accounts.members[1]!.context.request, round.id))
         .status,
@@ -153,15 +129,7 @@ for (const attendance of ['opponent-only', 'neither'] as const)
     try {
       const host = accounts.members[0]!.context;
       const round = await createHumanBallotRound(accounts.members);
-      await expect
-        .poll(
-          async () =>
-            (await readBallotRound(host.request, round.id)).segments.some(
-              (segment) => segment.type === 'speech',
-            ),
-          { timeout: 10_000 },
-        )
-        .toBe(true);
+      await actualSpeech(host.request, round.id);
       if (attendance === 'opponent-only')
         await enterSpeech(
           accounts.members[1]!.context,
@@ -179,7 +147,18 @@ for (const attendance of ['opponent-only', 'neither'] as const)
         attendance === 'neither' ? null : 'negative',
       );
       expect(completed.segments.at(-1)?.endedAt).toEqual(expect.any(String));
+      const facts = await attendanceEvidence(round.id);
+      expect(facts.adjudications.map((row) => row.decision)).toEqual([
+        attendance === 'neither' ? 'abandoned' : 'forfeit',
+      ]);
+      expect(facts.ratingChanges).toBe(0);
+      expect(facts.samples.some((sample) => sample.healthy)).toBe(true);
     } finally {
       await accounts.closeContexts();
     }
   });
+
+test(
+  'native explicit attendance crosses the original grace during a real public outage and refuses a finalized stale form',
+  nativeAttendanceOutage,
+);
