@@ -246,3 +246,26 @@ policy. Only the web deployment reads this setting.
 Changing configuration does not provision a compatible database or authorize
 activation. A deployment must complete its separately authorized schema and
 human sign-off requirements before configuring Room policy.
+
+## Shared local media service
+
+The shared Compose stack includes LiveKit 1.13.7 with loopback signalling on
+7880, TCP RTC on 7881 and UDP RTC on 7882. Existing running stacks need a one-time
+`docker compose -f infra/compose.yaml up -d livekit`; `slot:up` deliberately avoids
+recreating another checkout's healthy PostgreSQL/Redis stack. `bun doctor` checks
+the local LiveKit health endpoint and prints that recovery command on failure.
+
+`infra/livekit.yaml` contains public, local-only development credentials. Set the
+optional LIVEKIT variables from that file only for local shared Round work; real
+credentials remain outside Git and production activation stays human-held.
+Rooms are created explicitly with opaque Round session names; automatic room
+creation is disabled. Synthetic native integration tests allocate unique CSPRNG
+room and participant identities and delete only their own room. They require
+the normal isolated integration runner, PostgreSQL/Redis, and this real SFU.
+
+The native publisher uses exact 10ms zero-buffer handoffs. Raw acknowledged sample
+counts prove source handoff only; accepted publication additionally needs injected
+monotonic pacing, fresh bounded server-clock calibration and full historical
+window containment. Stalls, early bursts, discontinuity and cancellation stop
+credit. These probes do not prove human camera/microphone UI, provider TTS,
+continuous capture, a working worker or terminal teardown.
