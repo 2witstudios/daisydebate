@@ -17,6 +17,7 @@ import {
 import { nativeAttendanceOutage } from './support/native-attendance-proof';
 import { serviceAttendanceOutage } from './support/service-attendance-proof';
 import { rollingAttendancePeer } from './support/rolling-attendance-proof';
+import { authenticatedAttendanceSocket } from './support/attendance-socket';
 
 test('actual speech check-in survives refresh and a real browser network disconnect without changing its first stamp', async ({
   browser,
@@ -33,6 +34,11 @@ test('actual speech check-in survives refresh and a real browser network disconn
         ),
     );
     expect(speaker!.receipt.segmentId).toBe(opponent!.receipt.segmentId);
+    await Promise.all(
+      [speaker!, opponent!].map((seat) =>
+        authenticatedAttendanceSocket(seat.connections, round.id),
+      ),
+    );
     expect(speaker!.receipt.participantId).not.toBe(
       opponent!.receipt.participantId,
     );
