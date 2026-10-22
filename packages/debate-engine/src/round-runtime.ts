@@ -153,7 +153,15 @@ export function createRoundRuntime(input: {
           ]
         : [],
     );
+    const finalClose = into.changes.find(
+      (change) =>
+        change.kind === 'close' &&
+        change.sequence === rules.segments.length - 1,
+    );
     return {
+      ...(finalClose?.kind === 'close'
+        ? { finalSegmentEndedAt: new Date(finalClose.atMs).toISOString() }
+        : {}),
       speakingChanges: speakingChangesOf({
         rules,
         participants: input.participants,
@@ -250,7 +258,11 @@ export function createRoundRuntime(input: {
     const lifecycle = on.lifecycle();
     return {
       status: lifecycle.status,
-      currentStage: stageOf(capture(on), lifecycle.status),
+      currentStage: stageOf(
+        capture(on),
+        lifecycle.status,
+        rules.segments.length,
+      ),
       ...lifecycleStampsOf(lifecycle),
       checkpoint: on.checkpoint(),
     };

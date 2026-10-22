@@ -1,3 +1,4 @@
+import { sampleRoundExecutionTime } from './round-execution-time';
 import { writeSpeakingProjection } from './round-speaking-writer';
 import { createAppError } from '@daisy/errors';
 import {
@@ -90,11 +91,7 @@ async function commandContext(
         active: run.endedAt === null,
       };
   }
-  // This separate statement follows every lock wait above.
-  const [clock] = (await tx.execute(
-    sql`select clock_timestamp() as now`,
-  )) as unknown as { now: Date }[];
-  if (!clock) throw createAppError('INFRASTRUCTURE');
+  const now = await sampleRoundExecutionTime(tx);
   return {
     round,
     authority: {
@@ -103,7 +100,7 @@ async function commandContext(
       participants,
       agentRun,
     },
-    now: clock.now.toISOString(),
+    now,
   };
 }
 
@@ -182,6 +179,43 @@ export const roundCommandOperations = ({
   readonly database: BunSQLDatabase;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
+  /** Internal time-only producer; no public route or read invokes this operation. */
+  async executeRoundTick(input: {
+    readonly roundId: string;
+    readonly buildProjection: (context: {
+      readonly round: RoundHydration;
+      readonly now: string;
+    }) => RoundProjection;
+  }): Promise<{ readonly roundId: string; readonly resultingVersion: number }> {
+    if (!idSchema.safeParse(input.roundId).success)
+      throw createAppError('VALIDATION');
+    return instrumented(eventSink, 'executeRoundTick', () =>
+      database.transaction(async (tx) => {
+        const current = await lockedRoundVersion(tx, input.roundId);
+        const round = await hydrateRoundRows(tx, input.roundId);
+        if (!round) throw createAppError('NOT_FOUND');
+        if (round.status !== 'active')
+          return { roundId: round.id, resultingVersion: current.version };
+        const now = await sampleRoundExecutionTime(tx);
+        const projection = input.buildProjection({ round, now });
+        const changed = await writeProjectionWithPhaseSignal(
+          tx,
+          input.roundId,
+          current,
+          projection,
+          now,
+        );
+        const resultingVersion = current.version + (changed ? 1 : 0);
+        await writeSpeakingProjection(tx, {
+          roundId: input.roundId,
+          projection,
+          resultingVersion,
+          commandId: null,
+        });
+        return { roundId: input.roundId, resultingVersion };
+      }),
+    );
+  },
   async executeRoundCommand(input: CommandInput): Promise<RoundCommandReceipt> {
     if (
       !idSchema.safeParse(input.roundId).success ||

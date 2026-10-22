@@ -10,10 +10,23 @@ import {
 
 /** One shared command operation for session callers and seat-scoped AgentRuns. */
 export function createRoundRuntimeOperations(input: {
-  readonly store: Pick<Database, 'executeRoundCommand'>;
+  readonly store: Pick<Database, 'executeRoundCommand' | 'executeRoundTick'>;
   readonly nextSegmentId: () => string;
 }) {
   return {
+    tick: (roundId: string) =>
+      input.store.executeRoundTick({
+        roundId,
+        buildProjection: ({ round, now }) =>
+          createRoundRuntime({
+            round,
+            rules: round.rules,
+            participants: round.participants,
+            checkpoint: round.checkpoint,
+            segments: round.segments,
+            nextSegmentId: input.nextSegmentId,
+          }).tick(now),
+      }),
     async command(
       principal: RoundCommandPrincipal,
       roundId: string,

@@ -1,3 +1,4 @@
+import { sampleRoundExecutionTime } from './round-execution-time';
 import { writeSpeakingProjection } from './round-speaking-writer';
 import type { Ballot, RoundProjection, RoundRules } from '@daisy/protocol';
 import { eq, sql } from 'drizzle-orm';
@@ -31,17 +32,6 @@ export type RoundExecutionWrite = {
     readonly result: z.infer<typeof jsonObjectSchema>;
   } | null;
   readonly buildProjection: (now: string) => RoundProjection;
-};
-
-/** Sample separately after all required locks, never in a lock-waiting statement. */
-const executionNow = async (
-  tx: Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0],
-): Promise<string> => {
-  const [row] = (await tx.execute(
-    sql`select clock_timestamp() as now`,
-  )) as unknown as Array<{ now: Date }>;
-  if (!row) throw createAppError('INFRASTRUCTURE', 'The clock is unreadable');
-  return row.now.toISOString();
 };
 
 const persistExecution = async (
@@ -193,7 +183,7 @@ export const roundOperations = ({
             'INVARIANT',
             'The judge seat belongs to another round',
           );
-        const now = await executionNow(tx);
+        const now = await sampleRoundExecutionTime(tx);
         const projection = input.buildProjection(now);
         await tx.insert(ballots).values(
           ballotRowOf({
@@ -236,7 +226,7 @@ export const roundOperations = ({
           input.roundId,
           input.expectedVersion,
         );
-        const now = await executionNow(tx);
+        const now = await sampleRoundExecutionTime(tx);
         const projection = input.buildProjection(now);
         await persistExecution(tx, input, roundVersion, projection, now);
       });
