@@ -80,7 +80,7 @@ must compare the supplied token digest and unexpired lease in their write transa
 | round_transcript_freezes | round_id                                                        | identifier | Bind the one immutable input to its Round                     |
 | round_transcript_freezes | revision, frontier, frozen_at, completeness                     | none       | Pin transcript frontier, closure time and honest completeness |
 | round_judging_jobs       | round_id, judge_participant_id, result_ballot_id                | identifier | Bind a durable intent and result to the Round judge           |
-| round_judging_jobs       | lease_token                                                     | secret     | Fence the active judging attempt                              |
+| round_judging_jobs       | lease_token_digest                                              | secret     | Fence the active judging attempt                              |
 | round_judging_jobs       | freeze_revision, status, lease_expires_at, attempts, created_at | none       | Track the exact frozen input and retryable execution          |
 
 Frozen inputs and jobs follow Round erasure. Jobs are deleted before their
