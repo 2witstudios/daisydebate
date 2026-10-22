@@ -78,7 +78,8 @@ class TransactionAttempt {
     await this.work`begin`;
     await this.work`select set_config('statement_timeout', '2000', true),
       set_config('lock_timeout', '2000', true),
-      set_config('idle_in_transaction_session_timeout', '2000', true)`;
+      set_config('idle_in_transaction_session_timeout', '2000', true),
+      set_config('standard_conforming_strings', 'on', true)`;
     this.checkBudget();
     const database = drizzle({
       client: synchronizedTransactionClient(
