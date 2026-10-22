@@ -1,4 +1,5 @@
 import { formatDefinitionSchema } from '@daisy/protocol';
+import { attendancePolicy } from './attendance';
 import type {
   FormatDefinition,
   RoomConfig,
@@ -291,6 +292,16 @@ export function resolveRoomConfiguration(
     config.speechTiming.segmentDurationOverrides,
   );
   if (!schedule.ok) return schedule;
+  const shortSpeech = schedule.value.find(
+    (segment) =>
+      segment.type === 'speech' &&
+      segment.durationMs < attendancePolicy.graceMs,
+  );
+  if (shortSpeech)
+    return refused(
+      'out-of-range',
+      `Speech ${shortSpeech.key} must cover ${attendancePolicy.graceMs}ms attendance grace`,
+    );
   const preRoundPrep = resolvePreRoundPrep(definition, config);
   if (!preRoundPrep.ok) return preRoundPrep;
   const inRoundPrep = resolveInRoundPrep(definition, config);
