@@ -1,6 +1,7 @@
 import { createId } from '@paralleldrive/cuid2';
 import { randomBytes } from 'node:crypto';
 import { createBotSeat } from './bot-seat.test-support';
+export { createBotSeat } from './bot-seat.test-support';
 import { withBoundedRound } from './bounded-transaction.test-support';
 import { createBotPublicationOperations } from '../src/bot-publication';
 export const withBotPublication = (
