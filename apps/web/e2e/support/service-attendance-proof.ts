@@ -73,11 +73,8 @@ export async function serviceAttendanceOutage(
     if (service === 'realtime')
       expect(during.samples.at(-1)?.cause).toBe('realtime_stale');
     else expect(during.samples.at(-1)?.at).toBe(lastSample.at);
-    const replay = await nextReceipt(opponent.page, round.id, () =>
-      controlLaunch(start),
-    );
+    await restartService(service, start, opponent, round.id);
     stopped = false;
-    expect(replay.receivedAt).toBe(opponent.receipt.receivedAt);
     await authenticatedAttendanceSocket(
       opponent.connections,
       round.id,
@@ -97,9 +94,12 @@ export async function serviceAttendanceOutage(
     ).toBeGreaterThan(40_000_000n);
     await healthyAttendance(round.id);
     await attendedResolution(round.id, speech.id);
+    // The per-second public probe may hold a transient attempt; a stuck marker never clears.
+    await expect
+      .poll(async () => (await attendanceEvidence(round.id)).pendingAttempts)
+      .toBe(0);
     const recovered = await attendanceEvidence(round.id);
     expect(recovered.status).toBe('active');
-    expect(recovered.pendingAttempts).toBe(0);
     expect(
       recovered.receipts.some(
         (row) =>
@@ -126,4 +126,18 @@ export async function serviceAttendanceOutage(
       await closeSettledLaunchContexts(accounts);
     }
   }
+}
+
+/** Only a socket reconnect replays the recorded receipt; a web-only outage leaves the realtime socket up. */
+async function restartService(
+  service: 'web' | 'realtime',
+  start: 'start-web' | 'start-realtime',
+  opponent: Awaited<ReturnType<typeof enterSpeech>>,
+  roundId: string,
+) {
+  if (service === 'web') return controlLaunch(start);
+  const replay = await nextReceipt(opponent.page, roundId, () =>
+    controlLaunch(start),
+  );
+  expect(replay.receivedAt).toBe(opponent.receipt.receivedAt);
 }
