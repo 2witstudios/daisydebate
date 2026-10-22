@@ -58,6 +58,12 @@ export function roundWorkerEntrypoints(input: {
       configured(jobs).saveResult(...args),
     submitRoundJudgingResult: (...args: Parameters<Jobs['submitResult']>) =>
       configured(jobs).submitResult(...args),
+    beginRoundBotGeneration: (
+      ...args: Parameters<Workers['beginGeneration']>
+    ) => configured(workers).beginGeneration(...args),
+    finishRoundBotGeneration: (
+      ...args: Parameters<Workers['finishGeneration']>
+    ) => configured(workers).finishGeneration(...args),
     scanRoundBotWorkers: (limit: number) =>
       workers ? workers.scanWorkers(limit) : Promise.resolve([]),
     claimRoundBotWorker: (...args: Parameters<Workers['claimWorker']>) =>
