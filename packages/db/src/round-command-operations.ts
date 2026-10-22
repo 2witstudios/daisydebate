@@ -1,3 +1,7 @@
+import {
+  executeLockedRoundTick,
+  type LockedRoundTickInput,
+} from './round-clock-transaction';
 import { sampleRoundExecutionTime } from './round-execution-time';
 import { writeSpeakingProjection } from './round-speaking-writer';
 import { createAppError } from '@daisy/errors';
@@ -180,40 +184,11 @@ export const roundCommandOperations = ({
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   /** Internal time-only producer; no public route or read invokes this operation. */
-  async executeRoundTick(input: {
-    readonly roundId: string;
-    readonly buildProjection: (context: {
-      readonly round: RoundHydration;
-      readonly now: string;
-    }) => RoundProjection;
-  }): Promise<{ readonly roundId: string; readonly resultingVersion: number }> {
+  async executeRoundTick(input: LockedRoundTickInput) {
     if (!idSchema.safeParse(input.roundId).success)
       throw createAppError('VALIDATION');
     return instrumented(eventSink, 'executeRoundTick', () =>
-      database.transaction(async (tx) => {
-        const current = await lockedRoundVersion(tx, input.roundId);
-        const round = await hydrateRoundRows(tx, input.roundId);
-        if (!round) throw createAppError('NOT_FOUND');
-        if (round.status !== 'active')
-          return { roundId: round.id, resultingVersion: current.version };
-        const now = await sampleRoundExecutionTime(tx);
-        const projection = input.buildProjection({ round, now });
-        const changed = await writeProjectionWithPhaseSignal(
-          tx,
-          input.roundId,
-          current,
-          projection,
-          now,
-        );
-        const resultingVersion = current.version + (changed ? 1 : 0);
-        await writeSpeakingProjection(tx, {
-          roundId: input.roundId,
-          projection,
-          resultingVersion,
-          commandId: null,
-        });
-        return { roundId: input.roundId, resultingVersion };
-      }),
+      database.transaction((tx) => executeLockedRoundTick(tx, input)),
     );
   },
   async executeRoundCommand(input: CommandInput): Promise<RoundCommandReceipt> {
