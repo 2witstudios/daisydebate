@@ -21,6 +21,7 @@ export default defineConfig({
     '**/debate-room.e2e.ts',
     '**/round-commands.e2e.ts',
     '**/round-command-recovery.e2e.ts',
+    '**/attendance.e2e.ts',
     '**/ballot.e2e.ts',
   ],
   testIgnore: [],
