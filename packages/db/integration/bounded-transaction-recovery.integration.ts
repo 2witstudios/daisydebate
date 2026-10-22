@@ -6,6 +6,7 @@ import { sql } from 'drizzle-orm';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createBoundedTransaction } from '../src/bounded-transaction';
 import type { OwnedBackend } from '../src/transaction-watchdog';
+import { withFixture } from './constraint-helpers';
 import { backendOf, withPool } from './bounded-transaction.test-support';
 
 setupRitewayBun();
@@ -111,6 +112,19 @@ test(
       } finally {
         for (const connection of held) connection.release();
       }
+      const recovered = await Promise.all([
+        client.reserve(),
+        client.reserve(),
+        client.reserve(),
+        client.reserve(),
+      ]);
+      assert({
+        given: 'released capacity after a timed-out queued reservation',
+        should: 'leave all pool connections available to new callers',
+        actual: recovered.length,
+        expected: 4,
+      });
+      for (const connection of recovered) connection.release();
     }),
   15000,
 );
@@ -142,13 +156,15 @@ test(
       const start = performance.now();
       try {
         for (;;) {
+          await client`select pg_stat_clear_snapshot()`;
           const [row] =
             await client`select not exists(select 1 from pg_stat_activity where pid=${pid}) as absent`;
           if (row!.absent) break;
-          if (performance.now() - start > 2800)
+          if (performance.now() - start > 2800) {
             throw new Error(
               'Idle transaction was not terminated by PostgreSQL',
             );
+          }
           await new Promise<void>((resolve) => setTimeout(resolve, 10));
         }
       } finally {
@@ -164,3 +180,57 @@ test(
     }),
   15000,
 );
+
+test('a detached callback cannot write after cancellation and disposal', async () => {
+  await withFixture(process.env.TEST_DATABASE_URL!, async (fixture) =>
+    withPool(async (client) => {
+      const roundId = await fixture.round();
+      const entered = Promise.withResolvers<void>();
+      const resume = Promise.withResolvers<void>();
+      const resumed = Promise.withResolvers<boolean>();
+      const run = createBoundedTransaction({
+        client,
+        maxConnections: 4,
+        now: performance.now,
+      });
+      const attempt = run(async (tx, signal) => {
+        await tx.execute(
+          sql`update rounds set resolution='before abort' where id=${roundId}`,
+        );
+        entered.resolve();
+        await resume.promise;
+        try {
+          await tx.execute(
+            sql`update rounds set resolution='detached write' where id=${roundId}`,
+          );
+          resumed.resolve(false);
+        } catch {
+          resumed.resolve(signal.aborted);
+        }
+      });
+      const refused = assertRejects({
+        given: 'a callback detached across transaction cancellation',
+        should: 'refuse the expired transaction',
+        actual: () => attempt,
+        code: 'INFRASTRUCTURE',
+      });
+      await entered.promise;
+      await refused;
+      resume.resolve();
+      const blocked = await resumed.promise;
+      const [row] =
+        await fixture.sql`select resolution from rounds where id=${roundId}`;
+      assert({
+        given: 'a late callback resuming with its disposed transaction handle',
+        should: 'refuse its query and preserve rollback of every write',
+        actual: {
+          blocked,
+          unchanged: !['before abort', 'detached write'].includes(
+            row!.resolution,
+          ),
+        },
+        expected: { blocked: true, unchanged: true },
+      });
+    }),
+  );
+}, 15000);

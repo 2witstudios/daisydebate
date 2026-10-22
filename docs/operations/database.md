@@ -88,7 +88,11 @@ PID and server `backend_start`, restricted to the same database and login role.
 A reused PID is never sufficient authority to terminate. No additional SQL pool
 or role privilege is introduced. The implementation follows the pinned
 [Bun 1.4.2 SQL documentation](https://github.com/oven-sh/bun/blob/bun-v1.4.2/docs/runtime/sql.mdx)
-and its reserved-connection implementation.
+and its reserved-connection implementation. Drizzle statements without parameters
+use the same reserved connection's tagged prepared path: Bun's `unsafe(text, [])`
+simple-query path sends a trailing Flush after ReadyForQuery, disarming the
+PostgreSQL idle timer. The tagged path ends with Sync and preserves the actual
+server idle backstop; the real idle-session regression test must stay green.
 
 An unavailable watchdog or ambiguous commit produces an infrastructure refusal
 with recovery pending. Callers leave the durable operation pending and retry its

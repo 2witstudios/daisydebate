@@ -1,6 +1,7 @@
 import type { ReservedSQL, SQL } from 'bun';
 import { createAppError, isAppError } from '@daisy/errors';
 import { drizzle } from 'drizzle-orm/bun-sql';
+import { synchronizedTransactionClient } from './transaction-client';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import {
   recoverTransactionBackend,
@@ -8,7 +9,6 @@ import {
 } from './transaction-watchdog';
 
 const TRANSACTION_MS = 3000;
-const BACKSTOP_MS = 2000;
 type TransactionWork<T> = (
   tx: BunSQLDatabase,
   signal: AbortSignal,
@@ -56,13 +56,17 @@ class TransactionAttempt {
       throw createAppError('INFRASTRUCTURE', 'Transaction backend unavailable');
     this.checkBudget();
     await this.work`begin`;
-    await this
-      .work`select set_config('statement_timeout', ${String(BACKSTOP_MS)}, true),
-      set_config('lock_timeout', ${String(BACKSTOP_MS)}, true),
-      set_config('idle_in_transaction_session_timeout', ${String(BACKSTOP_MS)}, true)`;
+    await this.work`select set_config('statement_timeout', '2000', true),
+      set_config('lock_timeout', '2000', true),
+      set_config('idle_in_transaction_session_timeout', '2000', true)`;
     this.checkBudget();
     const result = await run(
-      drizzle({ client: this.work }),
+      drizzle({
+        client: synchronizedTransactionClient(
+          this.work,
+          this.controller.signal,
+        ),
+      }),
       this.controller.signal,
     );
     this.checkBudget();

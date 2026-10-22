@@ -41,7 +41,7 @@ test('the whole transcript transaction expires across individually short stateme
         should:
           'abort the whole transaction within3s plus1s recovery and roll back its earlier write',
         actual: {
-          withinBudget: elapsed < 4100,
+          withinBudget: elapsed >= 2950 && elapsed < 4100,
           rolledBack: row!.resolution !== 'uncommitted transcript',
         },
         expected: { withinBudget: true, rolledBack: true },

@@ -169,7 +169,7 @@ test(
             'verify owned termination by4s and preserve an unrelated live backend',
           actual: {
             absent: row!.absent,
-            bounded: elapsed < 4100,
+            bounded: elapsed >= 2950 && elapsed < 4100,
             survivor: current.pid === survivorIdentity.pid,
           },
           expected: { absent: true, bounded: true, survivor: true },
