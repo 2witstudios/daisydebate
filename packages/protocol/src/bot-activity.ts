@@ -30,9 +30,14 @@ export const botActivityBatchSchema = z.strictObject({
   roundParticipantId: idSchema,
   frames: z.array(frame).min(1).max(20),
 });
-/** Signed worker body: Round comes from the signature, receipt from fresh PostgreSQL time. */
+/**
+ * Signed worker body: Round comes from the signature, receipt from fresh
+ * PostgreSQL time. The segment names the phase the frames belong to; it is
+ * checked against the current segment on admission, never trusted.
+ */
 export const botActivityRelaySchema = z.strictObject({
   version: z.literal(1),
   roundParticipantId: idSchema,
+  segmentId: idSchema,
   frames: z.array(z.strictObject(original).refine(ordered)).min(1).max(20),
 });

@@ -119,7 +119,7 @@ describe('round runtime lifecycle', () => {
             kind: 'open',
             segmentId: 'segment-2',
             at: at(340_000),
-            participantIds: ['q5x2v8t0r4p6n2b8c1z7k3m9w'],
+            participantIds: ['q5x2v8t0r4p6n2b8c1z7k3m9'],
           },
           live: 'CX1',
         },
