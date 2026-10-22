@@ -28,10 +28,10 @@ test('HTTP attendance covers actual speech openings and historical unresolved wi
       'send both actual speech windows over HTTP, preserve exact command retries, and omit CX',
     actual: sent,
     expected: [
-      { segmentId: 'speech-a', commandId: 'command-1' },
       { segmentId: 'speech-b', commandId: 'command-2' },
       { segmentId: 'speech-a', commandId: 'command-1' },
       { segmentId: 'speech-b', commandId: 'command-2' },
+      { segmentId: 'speech-a', commandId: 'command-1' },
     ],
   });
   await client.update({ ...snapshot, status: 'completed' });
@@ -63,5 +63,28 @@ test('unknown acknowledgement retries exact identity until receipt', async () =>
       'retry same command identity then stop periodic sends after durable receipt',
     actual: sent,
     expected: ['same-command', 'same-command'],
+  });
+});
+
+test('closed historical windows retire permanently while current opening receives priority', async () => {
+  const sent: string[] = [];
+  let next = 0;
+  const consumer = createAttendanceClient({
+    nextCommandId: () => String(++next),
+    send: async (c) => {
+      sent.push(c.segmentId);
+      return c.segmentId === 'speech-a' ? 'closed' : true;
+    },
+  });
+  await consumer.update(snapshot);
+  await consumer.update(snapshot);
+  await consumer.heartbeat();
+  await consumer.reconnect();
+  assert({
+    given: 'old attendance window finalized before refresh',
+    should:
+      'prioritize current actual speech and never retry the retired historical window',
+    actual: sent,
+    expected: ['speech-b', 'speech-a', 'speech-b'],
   });
 });

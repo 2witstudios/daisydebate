@@ -2,42 +2,14 @@ import { assertRejects } from '@daisy/errors/testing';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createMediaSessionStore } from '../src/media-session';
-import { drizzle } from 'drizzle-orm/bun-sql';
-import { createBoundedTransaction } from '../src/bounded-transaction';
-import type { LockedRoundTickInput } from '../src/round-clock-transaction';
+import {
+  mediaTestTick as buildProjection,
+  mediaTestStore as storeFor,
+} from './media-session.test-support';
 import { withFixture, rejectedBy } from './constraint-helpers';
 
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
-const buildProjection: LockedRoundTickInput['buildProjection'] = ({
-  round,
-}) => ({
-  round: {
-    status: round.status,
-    currentStage: round.currentStage,
-    startedAt: round.startedAt,
-    completedAt: round.completedAt,
-    outcome: round.outcome,
-    checkpoint: round.checkpoint,
-  },
-  segmentInserts: [],
-  segmentCloses: [],
-  effects: [],
-});
-const storeFor = (
-  client: Parameters<typeof createBoundedTransaction>[0]['client'],
-) =>
-  createMediaSessionStore({
-    database: drizzle({ client }),
-    run: createBoundedTransaction({
-      client,
-      maxConnections: 10,
-      now: performance.now,
-    }),
-    nextId: createId,
-  });
-
 test('concurrent media admission reuses one opaque session and seat identity', async () => {
   await withFixture(url, async (fixture) => {
     const roundId = await fixture.round({

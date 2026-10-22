@@ -26,9 +26,15 @@ export async function lockMediaRound(
     .select({ actorId: roundParticipants.actorId })
     .from(roundParticipants)
     .where(eq(roundParticipants.roundId, roundId));
+  const [initial] = await tx
+    .select({ hostActorId: rounds.createdByActorId })
+    .from(rounds)
+    .where(eq(rounds.id, roundId));
+  if (!initial) throw createAppError('NOT_FOUND');
   const actorIds = [
     ...new Set([
       ...seats.map((seat) => seat.actorId),
+      ...(initial.hostActorId ? [initial.hostActorId] : []),
       ...(actorId ? [actorId] : []),
     ]),
   ];
@@ -41,7 +47,7 @@ export async function lockMediaRound(
     .select({ status: rounds.status })
     .from(rounds)
     .where(eq(rounds.id, roundId))
-    .for('update');
+    .for('no key update');
   if (!row) throw createAppError('NOT_FOUND');
   const round = await hydrateRoundRows(tx, roundId);
   if (!round) throw createAppError('NOT_FOUND');

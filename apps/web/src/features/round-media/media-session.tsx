@@ -1,0 +1,171 @@
+'use client';
+import '../../ui/debate-room/zod-jitless';
+import { useEffect, useRef, useState } from 'react';
+import type { RoundMediaState, RoundView } from '@daisy/protocol';
+import {
+  createBrowserMediaTransport,
+  type MediaTrack,
+} from './browser-transport';
+import {
+  createMediaController,
+  type MediaConnectionState,
+} from './media-controller';
+import { MediaStage } from './media-stage';
+
+const messages: Record<MediaConnectionState, string> = {
+  connecting: 'Connecting camera and sound…',
+  reconnecting: 'Reconnecting camera and sound…',
+  live: 'Connected',
+  'device-blocked':
+    'Camera or microphone access is blocked. Check your browser permissions, then retry.',
+  unavailable: 'Camera and sound are unavailable. Retry to reconnect.',
+  ended: 'The call has ended.',
+};
+const requestMedia = async (
+  roundId: string,
+  operation: 'session' | 'reconcile',
+  signal: AbortSignal,
+) => {
+  const response = await fetch(
+    `/api/rounds/${encodeURIComponent(roundId)}/media/${operation}`,
+    {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}',
+      signal,
+      cache: 'no-store',
+    },
+  );
+  if (!response.ok) throw new Error('Media unavailable');
+  return response.json() as Promise<unknown>;
+};
+
+/** Mount once per Round; changing projections never resets command or media lifetimes. */
+export function RoundMediaSession({
+  view,
+  onRefresh,
+}: {
+  readonly view: RoundView;
+  readonly onRefresh: () => void;
+}) {
+  const [connection, setConnection] =
+    useState<MediaConnectionState>('connecting');
+  const [media, setMedia] = useState<RoundMediaState | null>(null);
+  const [tracks, setTracks] = useState<readonly MediaTrack[]>([]);
+  const controller = useRef<ReturnType<typeof createMediaController> | null>(
+    null,
+  );
+  const sound = useRef<(() => Promise<void>) | null>(null);
+  const refresh = useRef(onRefresh);
+  useEffect(() => {
+    refresh.current = onRefresh;
+  }, [onRefresh]);
+  useEffect(() => {
+    const mounted = createMediaController({
+      roundId: view.id,
+      api: {
+        admit: (id, signal) => requestMedia(id, 'session', signal),
+        reconcile: (id, signal) => requestMedia(id, 'reconcile', signal),
+      },
+      changed: setConnection,
+      received: setMedia,
+      transport: () => {
+        const browser = createBrowserMediaTransport({
+          tracks: setTracks,
+          invalidated: () => {
+            refresh.current();
+            void mounted.reconcile();
+          },
+          reconnect: () => {
+            refresh.current();
+            void mounted.reconnect();
+          },
+        });
+        sound.current = browser.startAudio;
+        return browser.transport;
+      },
+    });
+    controller.current = mounted;
+    void mounted.join();
+    return () => {
+      mounted.stop();
+      controller.current = null;
+      sound.current = null;
+    };
+  }, [view.id]);
+  useEffect(() => {
+    if (view.status === 'completed' || view.status === 'abandoned') {
+      controller.current?.stop();
+      return;
+    }
+    void controller.current?.reconcile();
+    const last = view.segments.at(-1);
+    const deadlines = [
+      last?.endedAt === null
+        ? Date.parse(last.startedAt) + last.durationMs
+        : NaN,
+      view.checkpoint?.active_prep && view.rules.inRoundPrep
+        ? Date.parse(view.checkpoint.active_prep.started_at) +
+          view.rules.inRoundPrep.budgetMsPerSide -
+          view.checkpoint.prep_consumed_ms[view.checkpoint.active_prep.side]
+        : NaN,
+      last?.endedAt && view.segments.length === view.rules.segments.length
+        ? Date.parse(last.endedAt) + 30 * 60_000
+        : NaN,
+    ].filter(Number.isFinite);
+    const next = deadlines.length ? Math.min(...deadlines) : NaN;
+    if (!Number.isFinite(next)) return;
+    const timer = window.setTimeout(
+      () => {
+        refresh.current();
+        void controller.current?.reconcile();
+      },
+      Math.max(0, next - Date.now()),
+    );
+    return () => window.clearTimeout(timer);
+  }, [view]);
+  return (
+    <section aria-label="Live camera and sound">
+      <MediaStage view={view} media={media} tracks={tracks} />
+      <div className="flex flex-wrap items-center gap-3 bg-surface-sunken px-3 py-2">
+        <p role="status" className="m-0 text-sm text-ink-muted">
+          {messages[connection]}
+        </p>
+        {connection === 'live' ? (
+          <button
+            type="button"
+            className="min-h-11 rounded-md border border-border px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2"
+            onClick={() => {
+              void sound
+                .current?.()
+                .catch(() => setConnection('device-blocked'));
+            }}
+          >
+            Enable sound
+          </button>
+        ) : null}
+        {connection === 'unavailable' || connection === 'device-blocked' ? (
+          <button
+            type="button"
+            className="min-h-11 rounded-md border border-border px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2"
+            onClick={() => {
+              refresh.current();
+              void controller.current?.reconnect();
+            }}
+          >
+            Retry camera and sound
+          </button>
+        ) : null}
+      </div>
+      <noscript>
+        Live camera and sound require JavaScript. Round controls and judge forms
+        remain available.
+      </noscript>
+    </section>
+  );
+}
+
+export const roundMediaSlot = (onRefresh: () => void) => (view: RoundView) => (
+  <RoundMediaSession key={view.id} view={view} onRefresh={onRefresh} />
+);
