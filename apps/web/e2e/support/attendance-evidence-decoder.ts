@@ -2,6 +2,22 @@ import { z } from 'zod';
 import { idSchema, roundStatusSchema, segmentTypes } from '@daisy/protocol';
 
 const instant = z.iso.datetime({ precision: 6 });
+const viewOrNativeInstant = z.union([
+  instant,
+  z.iso.datetime({ precision: 3 }),
+]);
+const observationUs = (value: string) => {
+  const parsed = viewOrNativeInstant.parse(value);
+  const fraction = parsed.slice(parsed.indexOf('.') + 1, -1).padEnd(6, '0');
+  return BigInt(Date.parse(parsed)) * 1_000n + BigInt(fraction.slice(3));
+};
+
+/** Compare observations only; competitive timing remains inside the PG adapter. */
+export const elapsedAttendanceObservationUs = (
+  later: string,
+  earlier: string,
+) => observationUs(later) - observationUs(earlier);
+
 const count = z.int().nonnegative();
 const sample = z
   .strictObject({

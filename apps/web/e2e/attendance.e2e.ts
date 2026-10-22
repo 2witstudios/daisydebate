@@ -15,6 +15,7 @@ import {
 } from './support/attendance-browser';
 import { nativeAttendanceOutage } from './support/native-attendance-proof';
 import { serviceAttendanceOutage } from './support/service-attendance-proof';
+import { rollingAttendancePeer } from './support/rolling-attendance-proof';
 
 test('actual speech check-in survives refresh and a real browser network disconnect without changing its first stamp', async ({
   browser,
@@ -171,3 +172,8 @@ for (const service of ['web', 'realtime'] as const)
     test.setTimeout(180_000);
     await serviceAttendanceOutage(browser, service);
   });
+
+test(
+  'a real healthy web peer preserves public receipts and uninterrupted availability during rolling restart',
+  rollingAttendancePeer,
+);

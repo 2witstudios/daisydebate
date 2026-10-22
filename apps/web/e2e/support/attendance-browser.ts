@@ -9,8 +9,20 @@ import {
   type AttendanceReceipt,
 } from '@daisy/protocol';
 import { expect, openPage } from './fixtures';
-import { readBallotRound } from './human-ballot-round';
+import { readBallotRound, ballotRoundCommand } from './human-ballot-round';
 import { attendanceEvidence } from './attendance-evidence';
+
+export async function closeAttendedFixture(
+  request: APIRequestContext,
+  roundId: string,
+  participantId: string,
+) {
+  const current = await readBallotRound(request, roundId);
+  await ballotRoundCommand(request, current, {
+    type: 'forfeit',
+    participantId,
+  });
+}
 
 export async function healthyAttendance(roundId: string) {
   await expect

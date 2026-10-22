@@ -1,19 +1,17 @@
 import type { Browser } from '@playwright/test';
 import { expect } from './fixtures';
 import { createRoomLaunchAccounts } from './room-launch-accounts';
-import {
-  createHumanBallotRound,
-  readBallotRound,
-  ballotRoundCommand,
-} from './human-ballot-round';
+import { createHumanBallotRound } from './human-ballot-round';
 import {
   actualSpeech,
   enterSpeech,
   healthyAttendance,
   pastOriginalAttendanceGrace,
   attendedResolution,
+  closeAttendedFixture,
 } from './attendance-browser';
 import { attendanceEvidence } from './attendance-evidence';
+import { elapsedAttendanceObservationUs } from './attendance-evidence-decoder';
 import {
   controlLaunch,
   closeSettledLaunchContexts,
@@ -73,8 +71,11 @@ export async function serviceAttendanceOutage(
     );
     expect(joined.receipt.segmentId).toBe(speech.id);
     expect(
-      Date.parse(joined.receipt.receivedAt) - Date.parse(speech.startedAt),
-    ).toBeGreaterThan(40_000);
+      elapsedAttendanceObservationUs(
+        joined.receipt.receivedAt,
+        speech.startedAt,
+      ),
+    ).toBeGreaterThan(40_000_000n);
     await healthyAttendance(round.id);
     await attendedResolution(round.id, speech.id);
     const recovered = await attendanceEvidence(round.id);
@@ -90,15 +91,15 @@ export async function serviceAttendanceOutage(
     if (service === 'web') {
       const next = recovered.samples.find((row) => row.at > lastSample.at);
       expect(next).toBeDefined();
-      expect(Date.parse(next!.at) - Date.parse(lastSample.at)).toBeGreaterThan(
-        2_000,
-      );
+      expect(
+        elapsedAttendanceObservationUs(next!.at, lastSample.at),
+      ).toBeGreaterThan(2_000_000n);
     }
-    const current = await readBallotRound(host.request, round.id);
-    await ballotRoundCommand(host.request, current, {
-      type: 'forfeit',
-      participantId: joined.receipt.participantId,
-    });
+    await closeAttendedFixture(
+      host.request,
+      round.id,
+      joined.receipt.participantId,
+    );
   } finally {
     try {
       if (stopped) await controlLaunch(start);
