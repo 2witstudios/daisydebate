@@ -28,6 +28,14 @@ type WindowEvidence = {
   readonly window: AttendanceWindow;
   readonly availability: SettledAvailability;
 };
+/** Seats whose bot worker control is currently unknown, from PG lease evidence. */
+export type AttendanceControl = {
+  readonly nowMs: number;
+  readonly unknownSeats: readonly {
+    readonly participantId: string;
+    readonly unknownSinceMs: number;
+  }[];
+};
 
 export function requireAttendanceWindow(
   input: WindowEvidence & {
@@ -68,6 +76,7 @@ export type AttendanceDecision =
 export function adjudicateAttendance(
   input: WindowEvidence & {
     readonly checkIns: readonly AttendanceStamp[];
+    readonly control: AttendanceControl;
     readonly finalized: boolean;
   },
 ): AttendanceDecision | null {
@@ -90,7 +99,75 @@ export function adjudicateAttendance(
       effectiveDeadlineMs + attendancePolicy.finalizationBufferMs
   )
     return null;
-  return decisionForStamps(window, input.checkIns, effectiveDeadlineMs);
+  const decision = decisionForStamps(
+    window,
+    input.checkIns,
+    effectiveDeadlineMs,
+  );
+  return controlledDecision(input, decision, effectiveDeadlineMs);
+}
+
+/** Control loss never establishes absence: postpone within the bound, then abandon. */
+function controlledDecision(
+  input: {
+    readonly window: AttendanceWindow;
+    readonly checkIns: readonly AttendanceStamp[];
+    readonly control: AttendanceControl;
+  },
+  decision: AttendanceDecision,
+  effectiveDeadlineMs: number,
+): AttendanceDecision | null {
+  const present = presentSeats(
+    input.window,
+    input.checkIns,
+    effectiveDeadlineMs,
+  );
+  const lost = input.control.unknownSeats.filter(
+    (seat) =>
+      !present.has(seat.participantId) &&
+      input.window.eligibleSeats.some((e) => e.id === seat.participantId),
+  );
+  if (lost.length === 0) return decision;
+  const ifPresent = decisionForStamps(
+    input.window,
+    [
+      ...input.checkIns,
+      ...lost.map((seat) => ({
+        participantId: seat.participantId,
+        receivedAtMs: input.window.openedAtMs,
+      })),
+    ],
+    effectiveDeadlineMs,
+  );
+  if (
+    ifPresent.decision === decision.decision &&
+    (ifPresent.decision !== 'forfeit' ||
+      (decision.decision === 'forfeit' && ifPresent.winner === decision.winner))
+  )
+    return decision;
+  return lost.every(
+    (seat) =>
+      input.control.nowMs - seat.unknownSinceMs >=
+      attendancePolicy.controlLossBoundMs,
+  )
+    ? { decision: 'abandoned', effectiveDeadlineMs }
+    : null;
+}
+
+function presentSeats(
+  window: AttendanceWindow,
+  checkIns: readonly AttendanceStamp[],
+  effectiveDeadlineMs: number,
+): ReadonlySet<string> {
+  return new Set(
+    checkIns
+      .filter(
+        (stamp) =>
+          stamp.receivedAtMs >= window.openedAtMs - attendancePolicy.leadMs &&
+          stamp.receivedAtMs <= effectiveDeadlineMs,
+      )
+      .map((stamp) => stamp.participantId),
+  );
 }
 
 function decisionForStamps(
@@ -100,15 +177,7 @@ function decisionForStamps(
 ): AttendanceDecision {
   if (!window.eligibleSeats.some((seat) => seat.id === window.speakerId))
     return { decision: 'none', effectiveDeadlineMs };
-  const present = new Set(
-    checkIns
-      .filter(
-        (stamp) =>
-          stamp.receivedAtMs >= window.openedAtMs - attendancePolicy.leadMs &&
-          stamp.receivedAtMs <= effectiveDeadlineMs,
-      )
-      .map((stamp) => stamp.participantId),
-  );
+  const present = presentSeats(window, checkIns, effectiveDeadlineMs);
   if (present.has(window.speakerId))
     return { decision: 'attended', effectiveDeadlineMs };
   const opponentPresent = window.eligibleSeats.some(

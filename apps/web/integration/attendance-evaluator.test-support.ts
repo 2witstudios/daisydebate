@@ -4,9 +4,13 @@ import type { withAttendanceRound } from './attendance.test-support';
 
 /** Historical PG fixture only: tests settlement/rating, not live public-probe health. */
 export async function settleAttendanceFixture(
-  input: Parameters<Parameters<typeof withAttendanceRound>[0]>[0],
+  input: Pick<
+    Parameters<Parameters<typeof withAttendanceRound>[0]>[0],
+    'f' | 'roundId' | 'segmentId'
+  >,
   present: boolean,
   ranked: boolean,
+  presentActorId = input.f.guest.actorId,
 ) {
   const { f, roundId, segmentId } = input;
   const round = (await f.store.getRound(roundId))!;
@@ -25,7 +29,7 @@ export async function settleAttendanceFixture(
   });
   if (present) {
     const commandId = createId();
-    const seat = round.participants.find((p) => p.actorId === f.guest.actorId)!;
+    const seat = round.participants.find((p) => p.actorId === presentActorId)!;
     await f.sql`insert into round_commands(command_id,round_id,actor_id,type,payload_digest,result,resulting_version,applied_at) values(${commandId},${roundId},${seat.actorId},'check_in',${'a'.repeat(64)},${{}},1,statement_timestamp())`;
     await f.sql`insert into round_check_ins(command_id,round_id,segment_id,participant_id,received_at) select ${commandId},${roundId},id,${seat.id},started_at+interval '1 second' from round_segments where id=${segmentId}`;
   }

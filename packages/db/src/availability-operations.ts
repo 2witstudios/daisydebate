@@ -13,7 +13,6 @@ export type AvailabilityCause =
   | 'realtime_stale'
   | 'delivery_lag'
   | 'public_probe_failed'
-  | 'control_worker_unknown'
   | 'check_in_pending';
 export type AvailabilityEvidence = {
   readonly at: string;
@@ -22,7 +21,6 @@ export type AvailabilityEvidence = {
 };
 type ProbeEvidence = {
   readonly publicProbeHealthy: boolean;
-  readonly controlWorkersHealthy: boolean;
 };
 
 /** One session owns election AND insertion. Closing it releases election on process death. */
@@ -75,8 +73,7 @@ export function createAvailabilitySampler(client: SQL) {
             from instant
           ), assessment as (
             select at,case when exists(select 1 from round_check_in_attempts where state='pending') then 'check_in_pending' when not web then 'web_stale' when not realtime then 'realtime_stale'
-              when not delivered then 'delivery_lag' when not ${evidence.publicProbeHealthy} then 'public_probe_failed'
-              when not ${evidence.controlWorkersHealthy} then 'control_worker_unknown' else null end as cause from facts
+              when not delivered then 'delivery_lag' when not ${evidence.publicProbeHealthy} then 'public_probe_failed' else null end as cause from facts
           )
           insert into availability_samples(at,healthy,cause)
           select at,cause is null,cause from assessment

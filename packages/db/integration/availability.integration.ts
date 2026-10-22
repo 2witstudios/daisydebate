@@ -28,7 +28,7 @@ test('sampler crash takeover and delayed actual outbox delivery remain observabl
     realtime = createId(),
     topic = `availability:${createId()}`;
   const samples: string[] = [];
-  const flags = { publicProbeHealthy: true, controlWorkersHealthy: true };
+  const flags = { publicProbeHealthy: true };
   try {
     await ops.renewServiceInstance({ instanceId: web, role: 'web' });
     const [outbox] =
@@ -150,10 +150,7 @@ test('PG-time leases and elected same-session sampler preserve real availability
       },
     });
     await client`insert into service_instances(instance_id,role,renewed_at) values(${stale},'web',statement_timestamp()-interval '4 seconds')`;
-    const healthy = await first.sample({
-      publicProbeHealthy: true,
-      controlWorkersHealthy: true,
-    });
+    const healthy = await first.sample({ publicProbeHealthy: true });
     if (healthy) sampled.push(healthy.at);
     assert({
       given: 'fresh web/realtime peers and a dead web peer',
@@ -164,16 +161,10 @@ test('PG-time leases and elected same-session sampler preserve real availability
     assert({
       given: 'a second sampler while first session holds election',
       should: 'refuse insertion',
-      actual: await second.sample({
-        publicProbeHealthy: true,
-        controlWorkersHealthy: true,
-      }),
+      actual: await second.sample({ publicProbeHealthy: true }),
       expected: null,
     });
-    const broken = await first.sample({
-      publicProbeHealthy: false,
-      controlWorkersHealthy: true,
-    });
+    const broken = await first.sample({ publicProbeHealthy: false });
     if (broken) sampled.push(broken.at);
     assert({
       given: 'public route failure despite fresh process leases',
@@ -187,16 +178,13 @@ test('PG-time leases and elected same-session sampler preserve real availability
       expected: { healthy: false, cause: 'public_probe_failed', ordered: true },
     });
     await first.close();
-    const takeover = await second.sample({
-      publicProbeHealthy: true,
-      controlWorkersHealthy: false,
-    });
+    const takeover = await second.sample({ publicProbeHealthy: false });
     if (takeover) sampled.push(takeover.at);
     assert({
-      given: 'first elected session released and unknown bot control health',
+      given: 'first elected session released while public probing still fails',
       should: 'take over without advertising healthy',
       actual: takeover && { healthy: takeover.healthy, cause: takeover.cause },
-      expected: { healthy: false, cause: 'control_worker_unknown' },
+      expected: { healthy: false, cause: 'public_probe_failed' },
     });
   } finally {
     await first.close();

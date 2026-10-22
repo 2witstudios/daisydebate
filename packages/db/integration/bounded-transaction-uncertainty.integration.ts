@@ -71,7 +71,6 @@ for (const fault of ['cleanup-failure', 'lost-commit-reply']) {
       try {
         const sample = await sampler.sample({
           publicProbeHealthy: true,
-          controlWorkersHealthy: true,
         });
         if (sample === null) throw new Error('Sampler was not elected');
         stamp = sample.at;

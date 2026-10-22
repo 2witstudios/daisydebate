@@ -2,7 +2,6 @@ type Sampler = {
   readonly elect: () => Promise<boolean>;
   readonly sample: (evidence: {
     readonly publicProbeHealthy: boolean;
-    readonly controlWorkersHealthy: boolean;
   }) => Promise<unknown>;
   readonly close: () => Promise<void>;
 };
@@ -18,9 +17,6 @@ export function startAvailabilityService(deps: {
       readonly instanceId: string;
       readonly role: 'web';
     }) => Promise<void>;
-    readonly readRoundBotControlHealth: () => Promise<{
-      readonly healthy: boolean;
-    }>;
     readonly reconcileRoundCheckInAttempts: (limit: number) => Promise<number>;
     readonly availabilitySampler: () => Sampler;
   };
@@ -34,9 +30,8 @@ export function startAvailabilityService(deps: {
   let renewing: Promise<boolean> | null = null;
   const cycle = async () => {
     if (!(await sampler.elect())) return;
-    const [probe, control, reconciliation] = await Promise.allSettled([
+    const [probe, reconciliation] = await Promise.allSettled([
       deps.probe(),
-      deps.store.readRoundBotControlHealth(),
       deps.store.reconcileRoundCheckInAttempts(100),
     ]);
     await sampler.sample({
@@ -44,8 +39,6 @@ export function startAvailabilityService(deps: {
         reconciliation.status === 'fulfilled' &&
         probe.status === 'fulfilled' &&
         probe.value,
-      controlWorkersHealthy:
-        control.status === 'fulfilled' && control.value.healthy,
     });
   };
   const renew = () => {

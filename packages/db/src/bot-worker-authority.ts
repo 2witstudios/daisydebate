@@ -66,18 +66,19 @@ export async function verifyBotWorkerPrincipalLocked(
   if (claim.leaseExpiresAt.getTime() <= now.getTime())
     throw createAppError('CONFLICT', 'Worker lease expired');
 }
-/** Missing control evidence postpones attendance; it never establishes competitive absence. */
+/** Round-scoped: missing control evidence postpones that Round's attendance; it never establishes competitive absence. */
 export async function readBotControlHealth(
   tx: Pick<Reader, 'execute'>,
-  roundId?: string,
+  roundId: string,
 ) {
+  if (!idSchema.safeParse(roundId).success) throw createAppError('VALIDATION');
   const rows =
     await tx.execute(sql`with observed as materialized (select clock_timestamp() as at), eligible as (
-    select p.id as seat,r.id as round_id from round_participants p
+    select p.id as seat,r.id as round_id,coalesce(r.started_at,r.created_at) as round_at from round_participants p
     join actors a on a.id=p.actor_id and a.kind='bot'
     join bot_profiles b on b.actor_id=a.id
     join rounds r on r.id=p.round_id and r.status='active'
-    where p.role in ('affirmative','negative') ${roundId === undefined ? sql`` : sql`and r.id=${roundId}`}
+    where p.role in ('affirmative','negative') and r.id=${roundId}
   ), health as (
     select e.seat,exists(select 1 from round_bot_publications c
       join agent_runs run on run.id=c.agent_run_id and run.round_participant_id=e.seat
@@ -93,18 +94,26 @@ export async function readBotControlHealth(
         and run.configuration_snapshot->>'segmentId'=s.id
         and run.configuration_snapshot->>'serviceId'=c.service_id
         and run.configuration_snapshot->>'publicationEpoch'=c.publication_epoch::text
-    ) as healthy from eligible e
-  ) select (select at from observed) as observed_at,count(*)::int as eligible,
-    count(*) filter(where healthy)::int as healthy from health`);
-  const row = rows[0] as {
-    observed_at: Date;
-    eligible: number;
-    healthy: number;
-  };
+    ) as healthy,
+    coalesce(case when claim.segment_id=latest.id then claim.lease_expires_at else latest.started_at end,e.round_at) as unknown_since
+    from eligible e cross join observed n
+    left join lateral (select id,started_at from round_segments where round_id=e.round_id and started_at<=n.at
+      order by sequence desc limit 1) latest on true
+    left join round_bot_publications claim on claim.round_id=e.round_id and claim.round_participant_id=e.seat
+  ) select seat,healthy,to_char(unknown_since at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as unknown_since
+    from health order by seat`);
+  const seats = rows as unknown as {
+    seat: string;
+    healthy: boolean;
+    unknown_since: string;
+  }[];
   return {
-    healthy: row.eligible === row.healthy,
-    eligibleSeats: row.eligible,
-    healthySeats: row.healthy,
-    observedAt: row.observed_at.toISOString(),
+    healthy: seats.every((seat) => seat.healthy),
+    unknownSeats: seats
+      .filter((seat) => !seat.healthy)
+      .map((seat) => ({
+        participantId: seat.seat,
+        unknownSince: seat.unknown_since,
+      })),
   };
 }
