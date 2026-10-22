@@ -77,6 +77,27 @@ function signInHint(
   return response;
 }
 
+/** Policy construction stays separate from request routing and correlation. */
+function contentSecurityPolicy(settings: ProxySettings, nonce: string): string {
+  const { development } = settings;
+  return [
+    "default-src 'self'",
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${development ? " 'unsafe-eval'" : ''}`,
+    `style-src 'self' ${development ? "'unsafe-inline'" : `'nonce-${nonce}'`}`,
+    ...(development
+      ? []
+      : [`style-src-attr 'unsafe-hashes' ${styleAttributeSources}`]),
+    "img-src 'self' data: blob:",
+    "font-src 'self'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+    `connect-src 'self'${settings.websocketEndpoint ? ` ${new URL(settings.websocketEndpoint).origin}` : ''}${development ? ' ws:' : ''}`,
+    ...(development ? [] : ['upgrade-insecure-requests']),
+  ].join('; ');
+}
+
 /**
  * Every request's first stop (bound in `proxy.ts`): the foundation gate,
  * the CSP nonce and policy, the early sign-in hint, and trusted
@@ -96,23 +117,7 @@ export function handleProxy(request: NextRequest, settings: ProxySettings) {
   const nonce = Buffer.from(
     crypto.getRandomValues(new Uint8Array(16)),
   ).toString('base64');
-  const { development } = settings;
-  const policy = [
-    "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${development ? " 'unsafe-eval'" : ''}`,
-    `style-src 'self' ${development ? "'unsafe-inline'" : `'nonce-${nonce}'`}`,
-    ...(development
-      ? []
-      : [`style-src-attr 'unsafe-hashes' ${styleAttributeSources}`]),
-    "img-src 'self' data: blob:",
-    "font-src 'self'",
-    "object-src 'none'",
-    "base-uri 'self'",
-    "form-action 'self'",
-    "frame-ancestors 'none'",
-    `connect-src 'self'${settings.websocketEndpoint ? ` ${new URL(settings.websocketEndpoint).origin}` : ''}${development ? ' ws:' : ''}`,
-    ...(development ? [] : ['upgrade-insecure-requests']),
-  ].join('; ');
+  const policy = contentSecurityPolicy(settings, nonce);
   const hint = signInHint(request, policy, requestId, settings.publicAppUrl);
   if (hint) return hint;
   const headers = new Headers(request.headers);
