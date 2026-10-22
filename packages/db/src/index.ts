@@ -35,6 +35,8 @@ import { roomCommandTransaction } from './room-command-transaction';
 import { roomOperations } from './room-operations';
 import { roundCommandOperations } from './round-command-operations';
 import { roundOperations } from './round-operations';
+import { createBoundedTransaction } from './bounded-transaction';
+import { transcriptFinalizationOperations } from './transcript-finalization';
 import { utteranceOperations } from './utterance-operations';
 import { ballotOperations } from './ballot-operations';
 import { agentOperations } from './agent-operations';
@@ -136,6 +138,11 @@ export function createDatabase({
       connection: RUNTIME_SESSION,
     });
   const database = drizzle({ client });
+  const transcriptTransaction = createBoundedTransaction({
+    client,
+    maxConnections,
+    now: performance.now,
+  });
   return {
     async health() {
       return instrumented(eventSink, 'health', async () => {
@@ -258,6 +265,10 @@ export function createDatabase({
     ...roundProtectedReads({ database }),
     ...roundSpeakingRead({ database }),
     ...utteranceOperations({ database, eventSink }),
+    ...transcriptFinalizationOperations({
+      database,
+      transaction: transcriptTransaction,
+    }),
     ...ballotOperations({ database, eventSink }),
     ...agentOperations({ database, eventSink }),
     ...documentOperations({ database, eventSink }),
@@ -280,3 +291,5 @@ export function createDatabase({
 export type Database = ReturnType<typeof createDatabase>;
 
 export type { LockedRoundCommandContext } from './round-command-operations';
+
+export type { FrozenRoundTranscript } from './frozen-transcript';
