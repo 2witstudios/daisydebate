@@ -38,7 +38,7 @@ test(
         try {
           await run(async (tx) => {
             identity = await backendOf(connections[1]!);
-            await tx.execute(sql`set local statement_timeout=0`);
+            await connections[1]!`set local statement_timeout=0`;
             await tx.execute(sql`select pg_sleep(30)`);
           });
         } catch (error) {

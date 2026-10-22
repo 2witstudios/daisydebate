@@ -151,10 +151,8 @@ test(
           actual: () =>
             run(async (tx) => {
               identity = await backendOf(writer!);
-              await tx.execute(sql`set local statement_timeout=0`);
-              await tx.execute(
-                sql`set local idle_in_transaction_session_timeout=0`,
-              );
+              await writer!`set local statement_timeout=0`;
+              await writer!`set local idle_in_transaction_session_timeout=0`;
               await tx.execute(sql`select pg_sleep(30)`);
             }),
           code: 'INFRASTRUCTURE',
