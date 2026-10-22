@@ -39,6 +39,9 @@ const fixture = () => {
       calls.push(['token', scope]);
       return { token: 'media-token' };
     }) as never,
+    activity: async (identity, body) => {
+      calls.push(['activity', { identity, body }]);
+    },
   });
   return { handlers, calls };
 };
@@ -97,6 +100,32 @@ test('a signed token request is validated against its strict scope', async () =>
       { token: 'media-token' },
       400,
       [['token', { ...scope, roundId: id('r') }]],
+    ],
+  });
+});
+
+test('signed activity separates the validated worker scope from its body', async () => {
+  const f = fixture();
+  const scope = { sessionId: id('s'), workerId: id('w'), epoch: 2 };
+  const response = await f.handlers.handle(
+    signed('activity', JSON.stringify({ ...scope, speaking: true })),
+  );
+  assert({
+    given: 'a signed activity report for the worker scope',
+    should:
+      'relay the body apart from the scope bound to the verified Round, answering null',
+    actual: [await response.json(), f.calls],
+    expected: [
+      null,
+      [
+        [
+          'activity',
+          {
+            identity: { ...scope, roundId: id('r') },
+            body: { speaking: true },
+          },
+        ],
+      ],
     ],
   });
 });

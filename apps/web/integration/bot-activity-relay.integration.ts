@@ -3,13 +3,13 @@ import { assertRejects } from '@daisy/errors/testing';
 import { createLogger } from '@daisy/logger';
 import { createMediaWorkerAuthentication } from '@daisy/media/internal';
 import { createMediaWorkerClient } from '@daisy/media/worker';
-import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createMediaCaptureHandlers } from '../src/features/media-capture/handlers';
 import { createBotActivityRelay } from '../src/features/round-bots/activity-relay';
+import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   captureOperations,
   captureWorkerScope,
   withMediaRound,
+  serveCaptureIngress,
 } from './round-media.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
@@ -133,20 +133,11 @@ test('signed worker activity crosses the actual ingress into the expiring relay 
       secret: Buffer.alloc(32, 7).toString('base64url'),
       now: Date.now,
     });
-    const handlers = createMediaCaptureHandlers({
+    const server = serveCaptureIngress(f, {
       logger: createLogger({ service: 'activity-proof', level: 'silent' }),
       authentication: () => authentication,
-      capture: () => capture,
+      capture,
       token: () => Promise.reject(Error('token is not part of relay')),
-      activity: createBotActivityRelay({
-        readCapture: (value) => capture.readMediaCaptureState(value),
-        write: f.redis.writeBotActivity,
-      }),
-    });
-    const server = Bun.serve({
-      hostname: '127.0.0.1',
-      port: 0,
-      fetch: handlers.handle,
     });
     try {
       const client = createMediaWorkerClient({

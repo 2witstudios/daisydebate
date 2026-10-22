@@ -3,8 +3,6 @@ import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { createMediaWorkerAuthentication } from '@daisy/media/internal';
 import { createMediaWorkerClient } from '@daisy/media/worker';
-import { createMediaCaptureHandlers } from '../src/features/media-capture/handlers';
-import { createBotActivityRelay } from '../src/features/round-bots/activity-relay';
 import { createMediaWorkerTokenBroker } from '../src/features/round-media/worker-token';
 import {
   withMediaRound,
@@ -12,6 +10,7 @@ import {
   tokenClaims,
   captureWorkerScope,
   captureOperations,
+  serveCaptureIngress,
 } from './round-media.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
@@ -33,20 +32,11 @@ test('signed native HTTP ingress uses actual lease, snapshot and vendor token pr
       secret: Buffer.alloc(32, 9).toString('base64url'),
       now: Date.now,
     });
-    const handlers = createMediaCaptureHandlers({
+    const server = serveCaptureIngress(f, {
       logger: deps.logger,
       authentication: () => authentication,
-      capture: () => capture,
+      capture,
       token: (input, principal) => broker.captureToken(input, principal),
-      activity: createBotActivityRelay({
-        readCapture: (value) => capture.readMediaCaptureState(value),
-        write: f.redis.writeBotActivity,
-      }),
-    });
-    const server = Bun.serve({
-      hostname: '127.0.0.1',
-      port: 0,
-      fetch: handlers.handle,
     });
     const post = (
       operation: string,

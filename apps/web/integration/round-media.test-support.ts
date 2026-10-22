@@ -4,6 +4,8 @@ import { createLogger } from '@daisy/logger';
 import { noopErrorReporter, withTimeout } from '@daisy/observability';
 import { createRoundMediaOperations } from '../src/features/round-media/operations';
 import { mediaRuntime } from '../src/features/round-media/projection';
+import { createMediaCaptureHandlers } from '../src/features/media-capture/handlers';
+import { createBotActivityRelay } from '../src/features/round-bots/activity-relay';
 import { withRoomRuntime } from './room-runtime.test-support';
 
 const localMediaConfig = {
@@ -90,6 +92,25 @@ export const captureOperations = (
     buildProjection: (context) =>
       mediaRuntime(context, createId).tick(context.now),
   });
+
+/** The signed capture ingress on a loopback server, relaying bot activity to the fixture's Redis. */
+export function serveCaptureIngress(
+  fixture: Parameters<Parameters<typeof withMediaRound>[0]>[0],
+  input: Pick<
+    Parameters<typeof createMediaCaptureHandlers>[0],
+    'logger' | 'authentication' | 'token'
+  > & { readonly capture: ReturnType<typeof captureOperations> },
+) {
+  const handlers = createMediaCaptureHandlers({
+    ...input,
+    capture: () => input.capture,
+    activity: createBotActivityRelay({
+      readCapture: (value) => input.capture.readMediaCaptureState(value),
+      write: fixture.redis.writeBotActivity,
+    }),
+  });
+  return Bun.serve({ hostname: '127.0.0.1', port: 0, fetch: handlers.handle });
+}
 
 /** Hold actual provider creation before its effect or after acknowledgement, without replacing the vendor. */
 export function delayedMediaCreation(phase: 'before' | 'after' = 'after') {
