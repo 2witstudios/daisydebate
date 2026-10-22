@@ -7,6 +7,7 @@ const isClosedZeroJudgeRound = (c: CommandContext, actualJudgeCount: number) =>
   c.rules.seats.judge === 0 &&
   actualJudgeCount === 0 &&
   c.on.lifecycle().status === 'active' &&
+  c.on.lifecycle().outcome === null &&
   c.on.openRow() === undefined &&
   c.closedCount() === c.rules.segments.length;
 
@@ -41,6 +42,6 @@ export function applyUnjudgedCompletion(
   c.into.effects.push({
     kind: 'round_completed',
     outcome: null,
-    at: input.now,
+    at: new Date(c.now).toISOString(),
   });
 }
