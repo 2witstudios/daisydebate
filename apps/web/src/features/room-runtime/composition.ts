@@ -52,6 +52,8 @@ export function composeRoomRoutes(app: App) {
   };
   return {
     create: (request: Request) => run(request, (h) => h.create(request)),
+    rematch: (request: Request, roomId: string) =>
+      run(request, (h) => h.rematch(request, roomId)),
     list: (request: Request) => run(request, (h) => h.list(request)),
     catalog: (request: Request) => run(request, (h) => h.catalog(request)),
     read: (request: Request, roomId: string) =>

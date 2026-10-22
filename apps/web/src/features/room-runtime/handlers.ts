@@ -118,6 +118,17 @@ export function createRoomHandlers(dependencies: Dependencies) {
           ),
         ),
       ),
+    rematch: (request: Request, sourceRoomId: string) =>
+      run(request, 'create', true, async (caller) =>
+        dependencies.operations.rematch(
+          caller,
+          parseValidated(idSchema, sourceRoomId),
+          parseValidated(
+            roomCreateSchema,
+            await readJson(request, dependencies.maxBodyBytes),
+          ),
+        ),
+      ),
     list: (request: Request) =>
       run(request, 'read', false, async (caller) => {
         const params = new URL(request.url).searchParams;
