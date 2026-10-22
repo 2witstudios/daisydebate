@@ -57,6 +57,15 @@ test('concurrent media admission reuses one opaque session and seat identity', a
         ),
         expected: 'media_participants_participant_round_fk',
       });
+      assert({
+        given: 'the owning Round is deleted with its media seat binding',
+        should:
+          'cascade dependent media rows before checking the seat reference',
+        actual: await rejectedBy(() =>
+          fixture.sql.unsafe('delete from rounds where id=$1', [roundId]),
+        ),
+        expected: null,
+      });
     } finally {
       const [table] =
         await fixture.sql`select to_regclass('public.media_sessions') as name`;

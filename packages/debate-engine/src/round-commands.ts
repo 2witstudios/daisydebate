@@ -15,6 +15,11 @@ import type { ClockChange } from './round-clock';
 /** The durable writes a command or tick queues for the caller to persist. */
 export type Queues = {
   changes: ClockChange[];
+  floorChange: {
+    readonly sequence: number;
+    readonly at: string;
+    readonly holder: string;
+  } | null;
   effects: RoundEffect[];
 };
 
@@ -238,6 +243,11 @@ const interrupt = (c: CommandContext): void => {
       'The floor holder cannot interrupt themselves',
     );
   c.on.setFloor({ participantId: seat.id, grantedAtMs: c.now });
+  c.into.floorChange = {
+    sequence: c.on.openRow()!.sequence,
+    at: iso(c.now),
+    holder: seat.id,
+  };
 };
 
 /** Forfeiting closes the round with the other side's outcome. */

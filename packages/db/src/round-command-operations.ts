@@ -1,3 +1,4 @@
+import { writeSpeakingProjection } from './round-speaking-writer';
 import { createAppError } from '@daisy/errors';
 import {
   roundCommandEnvelopeSchema,
@@ -5,7 +6,7 @@ import {
   type RoundCommandEnvelope,
   type RoundCommandPrincipal,
   type RoundCommandReceipt,
-  type RoundParticipantSeat,
+  type RoundCommandAuthority,
   type RoundProjection,
 } from '@daisy/protocol';
 import { and, eq, sql } from 'drizzle-orm';
@@ -28,20 +29,7 @@ type Tx = Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0];
 /** Facts read after authorization and Round fences; callbacks are pure and synchronous. */
 export type LockedRoundCommandContext = {
   readonly round: RoundHydration;
-  readonly authority: {
-    readonly roundId: string;
-    readonly hostActorId: string | null;
-    readonly participants: readonly (RoundParticipantSeat & {
-      readonly kind: 'human' | 'bot';
-      readonly eligible: boolean;
-    })[];
-    readonly agentRun: {
-      readonly id: string;
-      readonly participantId: string;
-      readonly serviceId: string;
-      readonly active: boolean;
-    } | null;
-  };
+  readonly authority: RoundCommandAuthority;
   readonly now: string;
 };
 type CommandInput = {
@@ -247,6 +235,12 @@ export const roundCommandOperations = ({
           },
           resultingVersion,
         );
+        await writeSpeakingProjection(tx, {
+          roundId: input.roundId,
+          projection,
+          resultingVersion,
+          commandId: input.envelope.commandId,
+        });
         return receipt;
       }),
     );

@@ -1,11 +1,9 @@
+import { authorize } from '@daisy/auth/authorization';
 import { roomCommandOperation } from './command';
 import { currentRoomConsent, type PreparedRoomConsent } from './consent';
 import { can, digest } from './authority';
 import { resolveRoomSelection } from './selection';
-import {
-  authorize,
-  type RoundAuthorizationFact,
-} from '@daisy/auth/authorization';
+import { canReadRound } from '../round-runtime/reads';
 import type { Database } from '@daisy/db';
 import { projectRoom } from '@daisy/debate-engine';
 import type { IdGenerator } from '@daisy/clock';
@@ -157,24 +155,8 @@ export function createRoomRuntimeOperations({
   return {
     view,
     roundView: (caller: Caller, roundId: string) =>
-      store.readLaunchedRound(
-        roundId,
-        caller,
-        (view, account) =>
-          authorize({
-            principal: { kind: 'user', ...caller },
-            capability: 'round.read',
-            context: { account },
-            resource: {
-              kind: 'round',
-              roundId: view.id,
-              createdByActorId: view.hostActorId,
-              visibility: view.visibility,
-              status: view.status,
-              participants: view.participants,
-              revision: view.version,
-            } satisfies RoundAuthorizationFact,
-          }).allow,
+      store.readLaunchedRound(roundId, caller, (view, account) =>
+        canReadRound(caller, view, account),
       ),
     catalog,
     async castChoices(caller: Caller): Promise<readonly RoomCastChoice[]> {
