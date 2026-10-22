@@ -221,3 +221,25 @@ CAP-E.1's actual bounded adapter still owns bot-seat admission, active-run and
 fresh historical floor verification, ending the previous run, secret comparison,
 usage recording and output cancellation. Schema integrity alone authorizes no
 provider call, source frame or transcript credit.
+
+### Authoritative AI allowance periods
+
+DEC-183 uses `ai_allowance_grants` as durable READ authority, with no participant,
+admin, billing or public grant setter. `id` and `actor_id` are category identifier;
+`period_start`, `period_end` and `revoked_at` are category none. Actor deletion is
+restricted while grants reference it. A positive exact period and a partial GiST
+exclusion prevent overlapping nonrevoked periods for one actor. The admission
+adapter still selects current authority using fresh PostgreSQL time under its
+actor lock; premium allowance is the fixed ten from DEC-183, never inferred from
+a username or role. Revoked or absent authority cannot grant premium capacity.
+
+`usage_reservations.reserved_at` and `refunded_at` are category none. Future
+reservations receive a PostgreSQL `clock_timestamp()` default; the migration
+adds the nullable column before setting that default so existing records retain
+unknown admission provenance. A refund requires a recorded first vendor call
+and cannot predate it; a known reservation time cannot follow its first call.
+Actor/kind/reservation-time indexing supports serialized actor/period accounting.
+Legacy null admission timestamps must fail closed and be removed with legacy
+writers before a forward NOT NULL migration; Round creation time is not an
+admission timestamp. These records add no generated text or PCM. Production
+identity, entitlement provisioning and legal activation remain human gates.
