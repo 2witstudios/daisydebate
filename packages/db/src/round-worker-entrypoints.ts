@@ -54,6 +54,8 @@ export function roundWorkerEntrypoints(input: {
       configured(jobs).renew(...args),
     beginRoundJudgingModelCall: (...args: Parameters<Jobs['beginModelCall']>) =>
       configured(jobs).beginModelCall(...args),
+    recordRoundJudgingUsage: (...args: Parameters<Jobs['recordUsage']>) =>
+      configured(jobs).recordUsage(...args),
     saveRoundJudgingResult: (...args: Parameters<Jobs['saveResult']>) =>
       configured(jobs).saveResult(...args),
     submitRoundJudgingResult: (...args: Parameters<Jobs['submitResult']>) =>

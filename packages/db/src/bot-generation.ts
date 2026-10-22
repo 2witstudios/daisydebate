@@ -2,7 +2,8 @@ import { and, eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import type { BoundedTransactionContext } from './transaction-context';
 import type { BoundedTransaction } from './bounded-transaction';
-import { agentLeaseDigest, requireAgentLeaseToken } from './round-agent-lease';
+import { agentLeaseDigest } from './round-agent-lease';
+import { lockAgentAccounting, validAgentCounter } from './agent-accounting';
 import { startLockedRoundAgentRun } from './round-agent-runs';
 import {
   lockBotAdmission,
@@ -27,15 +28,7 @@ type Usage = {
   readonly characters: number;
 };
 type Outcome = 'received' | 'failed' | 'unknown';
-const scopeKeys = [
-  'roundId',
-  'roundParticipantId',
-  'segmentId',
-  'serviceId',
-  'publicationEpoch',
-] as const;
-const validCount = (value: number) =>
-  Number.isSafeInteger(value) && value >= 0 && value <= 2147483647;
+const validCount = validAgentCounter;
 
 function requireRequest(request: GenerationRequest) {
   if (!request || !['language', 'tts'].includes(request.kind))
@@ -52,23 +45,6 @@ function requireUsage(outcome: Outcome, usage: Usage) {
     ![usage.inputTokens, usage.outputTokens, usage.characters].every(validCount)
   )
     throw createAppError('VALIDATION');
-}
-function requireExecution(
-  run: typeof agentRuns.$inferSelect | undefined,
-  scope: BotPublicationScope,
-  token: string,
-): asserts run is typeof agentRuns.$inferSelect {
-  const configuration = run?.configurationSnapshot;
-  if (
-    !run ||
-    !configuration ||
-    run.roundParticipantId !== scope.roundParticipantId ||
-    configuration.parentAgentRunId !== scope.agentRunId ||
-    scopeKeys.some((key) => configuration[key] !== scope[key]) ||
-    typeof configuration.executionTokenDigest !== 'string'
-  )
-    throw createAppError('AUTHORIZATION');
-  requireAgentLeaseToken(token, configuration.executionTokenDigest);
 }
 function requireRunUsage(run: typeof agentRuns.$inferSelect, usage: Usage) {
   if (run.kind === 'tts') {
@@ -206,12 +182,20 @@ export function createBotGenerationOperations(input: {
     ) =>
       input.run(async (tx) => {
         requireUsage(outcome, usage);
-        const [run] = await tx
-          .select()
-          .from(agentRuns)
-          .where(eq(agentRuns.id, execution.id))
-          .for('update');
-        requireExecution(run, scope, execution.token);
+        const run = await lockAgentAccounting(tx, {
+          id: execution.id,
+          participantId: scope.roundParticipantId,
+          token: execution.token,
+          bindings: {
+            roundId: scope.roundId,
+            roundParticipantId: scope.roundParticipantId,
+            segmentId: scope.segmentId,
+            agentRunId: scope.agentRunId,
+            serviceId: scope.serviceId,
+            publicationEpoch: scope.publicationEpoch,
+            parentAgentRunId: scope.agentRunId,
+          },
+        });
         requireRunUsage(run, usage);
         if (run.endedAt) {
           requireSameSettlement(run, outcome, usage);

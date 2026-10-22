@@ -2,26 +2,16 @@ import { randomBytes } from 'node:crypto';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import { isAppError } from '@daisy/errors';
-import { ballotCategories, type Ballot } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createRoundJudgingOperations } from '../src/features/round-judging/operations';
 import { withRoomRuntime } from './round-runtime.test-support';
-import { freezeBotJudge } from './round-judging.test-support';
+import { fixtureBallot, freezeBotJudge } from './round-judging.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
-const ballot: Ballot = {
-  rubricVersion: 'speaker-10@1',
-  winner: 'affirmative',
-  reason: 'Fixture response for durable recovery, not provider evidence.',
-  feedback: {},
-  scores: Object.fromEntries(
-    ['affirmative', 'negative'].map((side) => [
-      side,
-      Object.fromEntries(ballotCategories.map((key) => [key, 3])),
-    ]),
-  ) as Ballot['scores'],
-};
+const ballot = fixtureBallot(
+  'Fixture response for durable recovery, not provider evidence.',
+);
 test('cached judging response retries actual shared completion without redispatch during unresolved attendance', async () => {
   await withRoomRuntime(
     async (f) => {
