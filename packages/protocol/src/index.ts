@@ -244,3 +244,8 @@ export type {
   RoundBallotRead,
   RoundJudgeAssignment,
 } from './round-ballot-read';
+export {
+  roundUnjudgedReceiptSchema,
+  type RoundUnjudgedReceipt,
+  type RoundUnjudgedCompletion,
+} from './round-unjudged';
