@@ -57,6 +57,7 @@ export function createResourceSyncDriver<T>({
   connection,
   doorbell,
   deadline = () => null,
+  onConnectionOpen,
 }: {
   readonly identity: ResourceIdentity<T>;
   readonly seed: ResourceSync<T>;
@@ -69,6 +70,7 @@ export function createResourceSyncDriver<T>({
     signal: (version: number | null) => void,
   ) => Doorbell;
   /** When the held value goes out of date by itself, if it does. */
+  readonly onConnectionOpen?: () => void;
   readonly deadline?: (state: ResourceSync<T>) => number | null;
 }) {
   const transition = resourceSync(identity);
@@ -151,6 +153,7 @@ export function createResourceSyncDriver<T>({
     if (next.terminal !== null) signal(null);
     else if (open) {
       if (opened !== null && opened !== next.generation) signal(null);
+      if (opened !== next.generation) onConnectionOpen?.();
       opened = next.generation;
     }
   });

@@ -1,3 +1,4 @@
+import { composeAttendanceRoutes } from '../features/attendance/composition';
 import { composeRoundBallotRoutes } from '../features/round-ballots/composition';
 import { composeRoundRoutes } from '../features/round-runtime/composition';
 import { composeMessagingRoutes } from '../features/messaging/composition';
@@ -50,6 +51,7 @@ export function createRoutes(app: App) {
   const rooms = composeRoomRoutes(app);
   return {
     rooms,
+    attendance: composeAttendanceRoutes(app, memberGates),
     messaging: composeMessagingRoutes(app),
     rounds: {
       read: rooms.roundRead,

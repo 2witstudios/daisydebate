@@ -129,16 +129,19 @@ export function createAttendanceOperations(deps: {
         );
         const evidence = await attendanceEvidence(tx, fenced.round);
         const recorded = await tx.execute(
-          sql`select segment_id from round_check_ins where round_id=${input.roundId} and participant_id=${seat.id}`,
+          sql`select segment_id,to_char(received_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as received_at from round_check_ins where round_id=${input.roundId} and participant_id=${seat.id} order by received_at,segment_id`,
         );
         return {
           round: fenced.round,
           ...evidence,
           participantId: seat.id,
           eligibleParticipantIds: eligibleSeats(fenced.seats),
-          recordedSegmentIds: (
-            recorded as unknown as { segment_id: string }[]
-          ).map((row) => row.segment_id),
+          receipts: (
+            recorded as unknown as { segment_id: string; received_at: string }[]
+          ).map((row) => ({
+            segmentId: row.segment_id,
+            receivedAt: row.received_at,
+          })),
           now: await sampleRoundExecutionTime(tx),
         };
       });
