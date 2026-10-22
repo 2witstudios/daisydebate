@@ -181,23 +181,9 @@ jobs:
     defaults:
       run:
         working-directory: .pu/worktrees/wt-roomlaunchci
+    # PostgreSQL, Redis and LiveKit are the local compose stack, which
+    # `bun slot:up` starts exactly as on a development machine.
     services:
-      postgres:
-        image: postgres:18.3-alpine
-        env:
-          POSTGRES_DB: daisy
-          POSTGRES_USER: daisy
-          POSTGRES_PASSWORD: local-development-only
-        ports: ['15432:5432']
-        options: >-
-          --health-cmd "pg_isready -U daisy -d daisy"
-          --health-interval 3s --health-timeout 3s --health-retries 20
-      redis:
-        image: redis:8.6.1-alpine
-        ports: ['6379:6379']
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 3s --health-timeout 3s --health-retries 20
       clamd:
         image: clamav/clamav:1.4.6
         ports: ['3310:3310']

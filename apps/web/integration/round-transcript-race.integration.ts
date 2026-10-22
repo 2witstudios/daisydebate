@@ -134,10 +134,15 @@ async function raceBehindRoundLock(
     );
     await holder`commit`;
     const [appended, sealed, finalized] = await settled;
-    for (const required of [sealed, finalized])
-      if (required!.status === 'rejected') throw required!.reason;
-    if (appended!.status === 'rejected' && !isConflict(appended))
-      throw appended!.reason;
+    if (finalized!.status === 'rejected') throw finalized!.reason;
+    // Exactly one of the append and the one-chunk seal wins the stream: a
+    // sealed stream refuses the append, and a stored second chunk refuses
+    // the seal, which leaves the stream open for finalization.
+    const loser = appended!.status === 'fulfilled' ? sealed : appended;
+    if (!isConflict(loser))
+      throw loser!.status === 'rejected'
+        ? loser!.reason
+        : new Error('Both the append and the seal were accepted');
     return { blocked, accepted: appended!.status === 'fulfilled' };
   } finally {
     await holder`rollback`;
@@ -151,6 +156,12 @@ test('actual append seal and finalizer contention freezes one truthful committed
     const round = await capturedRound(f);
     const { roundId } = round;
     const { blocked, accepted } = await raceBehindRoundLock(f, round);
+    // The worker seals with the count of its own accepted appends.
+    if (accepted)
+      await round.capture.sealCapturedStream({
+        ...round.last.stream,
+        expectedChunkCount: 2,
+      });
     const frozen = await f.store.finalizeRoundTranscript({
       roundId,
       buildProjection,
@@ -169,7 +180,7 @@ test('actual append seal and finalizer contention freezes one truthful committed
       given:
         'actual bounded append/seal/freeze transactions queued behind the same canonical Round lock',
       should:
-        'serialize accepted text into one sorted immutable revision and signal any count uncertainty honestly',
+        'serialize accepted text into one sorted immutable revision once every stream seals at its true count',
       actual: {
         blocked,
         status: frozen.status,
@@ -196,7 +207,7 @@ test('actual append seal and finalizer contention freezes one truthful committed
       expected: {
         blocked: 'blocked',
         status: 'frozen',
-        completeness: accepted ? 'incomplete' : 'complete',
+        completeness: 'complete',
         frontier: lines + 4,
         revision: lines + 4,
         lines,

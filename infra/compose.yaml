@@ -42,5 +42,10 @@ services:
       - '127.0.0.1:7882:7882/udp'
     volumes:
       - ./livekit.yaml:/etc/livekit.yaml:ro
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:7880/']
+      interval: 3s
+      timeout: 3s
+      retries: 20
 volumes:
   postgres-data:
