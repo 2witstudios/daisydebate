@@ -136,7 +136,7 @@ test('frozen input, multi-segment catchup, staged composition and repeated time'
   });
 });
 
-test('prep expiry opens directly and final segment stays live awaiting ballot', () => {
+test('prep expiry opens directly and final segment closes awaiting ballot', () => {
   const prior = advanceRoundClock(state(), rules, origin + 940_000).state;
   const prep: ClockState = {
     ...prior,
@@ -166,13 +166,13 @@ test('prep expiry opens directly and final segment stays live awaiting ballot', 
   const final = read(99_000_000);
   assert({
     given: 'time past the final segment',
-    should: 'keep the final live interval for ballot',
+    should: 'close the final interval while awaiting ballot',
     actual: [
       final.openSegment?.sequence,
       final.openSegment?.remainingMs,
       final.awaitingBallot,
     ],
-    expected: [rules.segments.length - 1, 0, true],
+    expected: [undefined, undefined, true],
   });
 });
 
