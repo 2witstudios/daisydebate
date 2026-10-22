@@ -1,7 +1,7 @@
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
-import type { AttendanceTransactionContext } from './attendance-operations';
+import type { AttendanceTransactionContext } from './attendance-facts';
 export type CheckInAttempt = {
   readonly attemptId: string;
   readonly commandId: string;

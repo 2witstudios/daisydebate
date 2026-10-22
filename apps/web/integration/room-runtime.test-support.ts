@@ -18,7 +18,7 @@ export async function withRoomRuntime(
   run: (context: Awaited<ReturnType<typeof fixture>>) => Promise<void>,
   options: Pick<
     Parameters<typeof createDatabase>[0],
-    'client' | 'maxConnections'
+    'client' | 'maxConnections' | 'botBusyCap'
   > = {},
 ) {
   const f = await fixture(options);
@@ -31,7 +31,7 @@ export async function withRoomRuntime(
 async function fixture(
   options: Pick<
     Parameters<typeof createDatabase>[0],
-    'client' | 'maxConnections'
+    'client' | 'maxConnections' | 'botBusyCap'
   >,
 ) {
   const sql = new SQL(services.databaseUrl),
@@ -222,7 +222,6 @@ async function fixture(
           await sql`delete from outbox where topic=${`room:${id}`}`;
           await sql`delete from ballots where judge_participant_id in (select id from round_participants where round_id in (select id from rounds where room_id=${id}))`;
           await sql`delete from utterances where round_id in (select id from rounds where room_id=${id})`;
-          await sql`delete from agent_runs where round_participant_id in (select id from round_participants where round_id in (select id from rounds where room_id=${id}))`;
           await sql`delete from outbox where topic in (select 'debate:' || id from rounds where room_id=${id})`;
           await sql`delete from rounds where room_id=${id}`;
           await sql`delete from rooms where id=${id}`;

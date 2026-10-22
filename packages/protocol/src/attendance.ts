@@ -18,3 +18,12 @@ export const attendanceReceiptSchema = z.strictObject({
   replayed: z.boolean(),
 });
 export type AttendanceReceipt = z.infer<typeof attendanceReceiptSchema>;
+
+export const attendanceTimingPolicy = {
+  heartbeatMs: 15000,
+  reconnectBudgetMs: 10000,
+  graceMs: 40000,
+  leadMs: 5000,
+  commitBudgetMs: 2000,
+  finalizationBufferMs: 5000,
+} as const;
