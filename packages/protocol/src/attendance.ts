@@ -26,4 +26,5 @@ export const attendanceTimingPolicy = {
   leadMs: 5000,
   commitBudgetMs: 2000,
   finalizationBufferMs: 5000,
+  controlLossBoundMs: 30000,
 } as const;

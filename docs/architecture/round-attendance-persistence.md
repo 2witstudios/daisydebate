@@ -20,8 +20,9 @@ SET ROLE on a pool is not sufficient to establish the query principal.
 
 `availability_samples` has an immutable timestamp primary key, health boolean
 and a cause null exactly when healthy. Unhealthy causes are bounded to
-`web_stale`, `realtime_stale`, `delivery_lag`, `public_probe_failed`,
-`control_worker_unknown` and `check_in_pending`. A sampler holds session advisory
+`web_stale`, `realtime_stale`, `delivery_lag`, `public_probe_failed` and
+`check_in_pending`. Bot worker control is not a system availability cause: it is
+Round-scoped evidence the evaluator reads under the Round fence (DEC-193). A sampler holds session advisory
 lock 59003; the insert trigger takes the same transaction lock reentrantly and
 requires time strictly greater than the committed maximum. The producer uses
 PG statement time and a monotone insert predicate; history is not rewritten.

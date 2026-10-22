@@ -20,10 +20,12 @@ const availability = {
   settledHorizonMs: 60000,
   intervals: [],
 };
+const control = { nowMs: 60000, unknownSeats: [] };
 const decide = (ids: readonly string[], lastSpeech = false) =>
   adjudicateAttendance({
     window: { ...window, lastSpeech },
     availability,
+    control,
     checkIns: ids.map((participantId) => ({
       participantId,
       receivedAtMs: 50000,
@@ -69,7 +71,7 @@ test('actual required speaker and all opposing seats determine absence', () => {
 });
 
 test('timestamp decides including equality and duplicate arrivals', () => {
-  const base = { window, availability, finalized: false };
+  const base = { window, availability, control, finalized: false };
   const checkIns = [
     { participantId: 'a0', receivedAtMs: 50001 },
     { participantId: 'n0', receivedAtMs: 50000 },
@@ -100,6 +102,7 @@ test('horizon and open outage prevent adjudication', () => {
       actual: adjudicateAttendance({
         window,
         availability: evidence,
+        control,
         checkIns: [],
         finalized: false,
       }),
@@ -157,6 +160,7 @@ test('finalized decisions cannot be recomputed', async () => {
       adjudicateAttendance({
         window,
         availability,
+        control,
         checkIns: [],
         finalized: true,
       }),
@@ -176,9 +180,74 @@ test('ineligible scheduled speaker never creates a competitive attendance loss',
       actual: adjudicateAttendance({
         window: { ...window, eligibleSeats },
         availability,
+        control,
         checkIns: [],
         finalized: false,
       }),
       expected: { decision: 'none', effectiveDeadlineMs: 50000 },
     });
+});
+
+test('lost bot control postpones only a decision its receipt could change, then abandons', () => {
+  const lost = (participantId: string, unknownSinceMs: number) => ({
+    nowMs: 60000,
+    unknownSeats: [{ participantId, unknownSinceMs }],
+  });
+  const decideWith = (
+    ids: readonly string[],
+    evidence: ReturnType<typeof lost>,
+  ) =>
+    adjudicateAttendance({
+      window,
+      availability,
+      control: evidence,
+      checkIns: ids.map((participantId) => ({
+        participantId,
+        receivedAtMs: 50000,
+      })),
+      finalized: false,
+    });
+  assert({
+    given:
+      'absent speaker seat whose worker control is unknown for less than the bound',
+    should: 'postpone instead of forfeiting the uncontrolled seat',
+    actual: decideWith(['n0'], lost('a0', 30001)),
+    expected: null,
+  });
+  assert({
+    given:
+      'absent speaker seat whose worker control is unknown for exactly the bound',
+    should: 'abandon without a winner instead of forfeiting',
+    actual: decideWith(['n0'], lost('a0', 30000)),
+    expected: { decision: 'abandoned', effectiveDeadlineMs: 50000 },
+  });
+  assert({
+    given:
+      'absent opponent seat with unknown control that could make a forfeit',
+    should: 'postpone the absent human speaker decision within the bound',
+    actual: decideWith([], lost('n0', 59999)),
+    expected: null,
+  });
+  assert({
+    given: 'uncontrolled seat that already holds an on-time receipt',
+    should: 'decide from the durable receipt',
+    actual: decideWith(['a0'], lost('a0', 59999)),
+    expected: { decision: 'attended', effectiveDeadlineMs: 50000 },
+  });
+  assert({
+    given: 'present speaker and an uncontrolled absent opponent',
+    should: 'record attendance because the opponent receipt cannot change it',
+    actual: decideWith(['a0'], lost('n0', 59999)),
+    expected: { decision: 'attended', effectiveDeadlineMs: 50000 },
+  });
+  assert({
+    given: 'unknown control on a seat outside the current eligible debaters',
+    should: 'ignore it',
+    actual: decideWith(['n0'], lost('judge', 59999)),
+    expected: {
+      decision: 'forfeit',
+      winner: 'negative',
+      effectiveDeadlineMs: 50000,
+    },
+  });
 });

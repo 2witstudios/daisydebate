@@ -22,6 +22,7 @@ const input = {
   finalized: false,
   segmentType: 'speech' as const,
   checkIns: [{ participantId: 'a', receivedAtMs: 40000 }],
+  control: { nowMs: 45000, unknownSeats: [] },
 };
 const forfeit = {
   decision: 'forfeit' as const,
@@ -34,6 +35,17 @@ test('attendance application guards reject unsettled timestamps finalized window
       {
         ...input,
         availability: { ...input.availability, settledHorizonMs: 44999 },
+      },
+      'debate.adjudication.failure-postpones-only',
+    ],
+    [
+      {
+        ...input,
+        checkIns: [{ participantId: 'n', receivedAtMs: 40000 }],
+        control: {
+          nowMs: 45000,
+          unknownSeats: [{ participantId: 'a', unknownSinceMs: 20000 }],
+        },
       },
       'debate.adjudication.failure-postpones-only',
     ],

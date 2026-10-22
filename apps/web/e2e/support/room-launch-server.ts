@@ -10,19 +10,21 @@ import { readLaunchTls } from './launch-certificates';
 import { requireLaunchSlot } from './room-launch-slot';
 import { createLaunchProcess } from './launch-process';
 import { createLaunchProbeResource } from './launch-probe-room';
-import { createLaunchMediaEdge } from './launch-media-edge';
-import { resolveRealtimeNamespace } from '../../playwright.config';
+import { createLaunchSocketEdge } from './launch-socket-edge';
+import { createLaunchMail, launchMailPath } from './launch-mail';
 
 const checkout = resolve(import.meta.dir, '../../../..');
 const slot = requireLaunchSlot(checkout, process.env);
 const origin = `https://localhost:${slot.port + 1}`;
 const tls = readLaunchTls(process.env);
 let blocked = false,
-  ready = false;
+  ready = false,
+  ingressPort = slot.port;
 const edge = createSelfSignedTlsEdge({
   appPort: slot.port,
   edgePort: slot.port + 1,
   tls,
+  selectAppPort: () => ingressPort,
   beforeForward: (request) => {
     const path = new URL(request.url).pathname;
     if (
@@ -33,7 +35,24 @@ const edge = createSelfSignedTlsEdge({
     return null;
   },
 });
-const mediaEdge = createLaunchMediaEdge({ port: slot.port + 4, tls });
+const mediaEdge = createLaunchSocketEdge({
+  port: slot.port + 4,
+  upstreamPort: 7880,
+  tls,
+});
+const realtimeEdge = createLaunchSocketEdge({
+  port: slot.port + 6,
+  upstreamPort: slot.port + 3,
+  socketPath: '/ws',
+  allowedOrigin: origin,
+  tls,
+});
+const mail = createLaunchMail({
+  path: launchMailPath(slot.id),
+  port: slot.port + 2,
+  redisUrl: process.env.E2E_REDIS_URL!,
+  redisNamespace: slot.namespace,
+});
 const health = async (url: string) => {
   try {
     return (await fetch(url, { signal: AbortSignal.timeout(1000) })).ok;
@@ -49,6 +68,24 @@ const web = createLaunchProcess({
   env: webEnv,
   ready: () => health(`http://127.0.0.1:${slot.port}/api/health/ready`),
 });
+const peerEnv: Record<string, string | undefined> = {
+  ...webEnv,
+  PORT: String(slot.port + 5),
+};
+const peer = createLaunchProcess({
+  command: [...appCommand, 'peer'],
+  cwd: resolve(checkout, 'apps/web'),
+  env: peerEnv,
+  ready: () => health(`http://127.0.0.1:${slot.port + 5}/api/health/ready`),
+});
+const selectWebIngress = async (process: typeof web, port: number) => {
+  if (
+    !process.running() ||
+    !(await health(`http://127.0.0.1:${port}/api/health/ready`))
+  )
+    throw new Error('Owned web peer is not ready');
+  ingressPort = port;
+};
 const realtime = createLaunchProcess({
   command: ['bun', 'src/start.ts'],
   cwd: resolve(checkout, 'apps/realtime'),
@@ -56,13 +93,23 @@ const realtime = createLaunchProcess({
     ...process.env,
     REALTIME_PORT: String(slot.port + 3),
     REALTIME_ALLOWED_ORIGINS: origin,
-    REDIS_NAMESPACE: resolveRealtimeNamespace(process.env),
+    // Tickets the web processes issue must be redeemable by this realtime process.
+    REDIS_NAMESPACE: slot.namespace,
   },
   ready: () => health(`http://127.0.0.1:${slot.port + 3}/health/live`),
 });
 const control = createLaunchControl({
   path: launchControlPath(slot.id),
-  settled: () => callLaunchControl(launchAppControlPath(slot.id), 'settled'),
+  settled: async () => {
+    await Promise.all([
+      ...(web.running()
+        ? [callLaunchControl(launchAppControlPath(slot.id), 'settled')]
+        : []),
+      ...(peer.running()
+        ? [callLaunchControl(launchAppControlPath(slot.id, true), 'settled')]
+        : []),
+    ]);
+  },
   pending: () => 0,
   actions: {
     'block-check-in': async () => {
@@ -75,6 +122,10 @@ const control = createLaunchControl({
     'start-realtime': realtime.start,
     'stop-web': web.stop,
     'start-web': web.start,
+    'start-web-peer': peer.start,
+    'stop-web-peer': peer.stop,
+    'use-web-peer': () => selectWebIngress(peer, slot.port + 5),
+    'use-primary-web': () => selectWebIngress(web, slot.port),
     'restart-web': web.restart,
   },
 });
@@ -82,9 +133,15 @@ let closing: Promise<void> | null = null;
 const shutdown = () =>
   (closing ??= (async () => {
     ready = false;
-    const outcomes = await Promise.allSettled([web.stop(), realtime.stop()]);
+    const outcomes = await Promise.allSettled([
+      web.stop(),
+      peer.stop(),
+      realtime.stop(),
+    ]);
+    await mail.stop();
     edge.stop(true);
     mediaEdge.stop(true);
+    realtimeEdge.stop(true);
     await new Promise<void>((accept) => {
       control.close(() => accept());
       control.closeAllConnections();
@@ -97,11 +154,13 @@ for (const signal of ['SIGTERM', 'SIGINT'] as const)
     void shutdown();
   });
 try {
+  await mail.started;
   await Promise.all([web.start(), realtime.start()]);
   const probe = await createLaunchProbeResource(origin, slot.port + 2);
   // A normal temporary production instance created the signed resource; the final instance receives it before createApp.
   await web.stop();
   webEnv.ATTENDANCE_PUBLIC_PROBE = JSON.stringify(probe);
+  peerEnv.ATTENDANCE_PUBLIC_PROBE = webEnv.ATTENDANCE_PUBLIC_PROBE;
   await web.start();
   ready = true;
 } catch {

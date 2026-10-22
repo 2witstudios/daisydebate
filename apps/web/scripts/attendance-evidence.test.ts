@@ -1,5 +1,8 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { decodeAttendanceEvidence } from '../e2e/support/attendance-evidence-decoder';
+import {
+  decodeAttendanceEvidence,
+  elapsedAttendanceObservationUs,
+} from '../e2e/support/attendance-evidence-decoder';
 setupRitewayBun();
 const roundId = 'r'.repeat(24);
 const at = '2026-10-22T00:00:00.000001Z';
@@ -17,6 +20,15 @@ const observation = {
   receipts: [],
   adjudications: [],
 };
+
+test('browser outage witnesses never floor a native microsecond beyond the allowed gap', () => {
+  assert({
+    given: 'native PG samples exactly two seconds and one microsecond apart',
+    should: 'observe the gap beyond two seconds rather than floor it closed',
+    actual: elapsedAttendanceObservationUs('2026-10-22T00:00:02.000002Z', at),
+    expected: 2_000_001n,
+  });
+});
 
 test('attendance observations retain native PG precision and actual unhealthy cause', () => {
   assert({

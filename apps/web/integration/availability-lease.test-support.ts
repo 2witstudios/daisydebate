@@ -5,7 +5,7 @@ import { startRoundAvailability } from '../src/server/round-availability';
 
 type Fixture = Parameters<Parameters<typeof withAttendanceRound>[0]>[0];
 
-/** Real PG/HTTP ports; only completion of an actual control read is held. */
+/** Real PG/HTTP ports; only completion of an actual reconciliation read is held. */
 export async function verifyAvailabilityLeaseCadence(input: {
   readonly app: Parameters<typeof startRoundAvailability>[0]['app'];
   readonly sql: Fixture['f']['sql'];
@@ -40,8 +40,9 @@ export async function verifyAvailabilityLeaseCadence(input: {
           await app.database.renewServiceInstance(lease);
           if (++renewals === 2) renewed.resolve();
         },
-        readRoundBotControlHealth: async () => {
-          const actual = await app.database.readRoundBotControlHealth();
+        reconcileRoundCheckInAttempts: async (limit: number) => {
+          const actual =
+            await app.database.reconcileRoundCheckInAttempts(limit);
           held.resolve();
           await release.promise;
           return actual;
@@ -72,7 +73,7 @@ export async function verifyAvailabilityLeaseCadence(input: {
       await sql`select renewed_at>${before.at}::timestamptz as renewed from service_instances where instance_id=${service.instanceId}`;
     assert({
       given:
-        'actual elected sampler held after its real control read completes',
+        'actual elected sampler held after its real reconciliation read completes',
       should:
         'renew its same PG lease on the next cadence without another public probe',
       actual: [after.renewed, renewals, probes, failures],

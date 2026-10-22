@@ -8,6 +8,10 @@ export type LaunchControlOperation =
   | 'start-realtime'
   | 'stop-web'
   | 'start-web'
+  | 'start-web-peer'
+  | 'stop-web-peer'
+  | 'use-web-peer'
+  | 'use-primary-web'
   | 'restart-web';
 /** An owner-only Unix capability, never mounted on the app's public HTTP ingress. */
 export function createLaunchControl(input: {

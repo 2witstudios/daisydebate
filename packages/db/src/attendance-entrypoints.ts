@@ -35,8 +35,6 @@ export function attendanceEntrypoints(input: {
     ),
     reconcileRoundCheckInAttempts: (limit: number) =>
       transaction((tx) => reconcileCheckInAttempts(tx, limit)),
-    readRoundBotControlHealth: (roundId?: string) =>
-      transaction((tx) => readBotControlHealth(tx, roundId)),
   };
 }
 export type AttendanceStore = ReturnType<typeof createAttendanceOperations>;
