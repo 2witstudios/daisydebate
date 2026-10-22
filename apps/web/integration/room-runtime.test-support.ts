@@ -139,6 +139,36 @@ async function fixture(
       (select coalesce(json_agg(o order by seq),'[]'::json) from outbox o where topic=${`room:${id}`}) outbox`;
     return JSON.stringify(r);
   };
+  const consent = (
+    who: typeof host,
+    view: RoomView,
+    type: 'ready' | 'unready',
+  ) =>
+    command(who, view, {
+      type,
+      expectedConsentVersion: view.participants
+        .filter(isNamedSeat)
+        .find((p) => p.actorId === who.actorId)!.consentVersion,
+    });
+  const seatBotOpponent = async (view: RoomView, actorId: string) => {
+    view = (
+      await command(host, view, {
+        type: 'claim-seat',
+        role: 'affirmative',
+        slot: 0,
+      })
+    ).view;
+    view = (
+      await command(host, view, {
+        type: 'assign-seat',
+        actorId,
+        role: 'negative',
+        slot: 0,
+      })
+    ).view;
+    return (await consent(host, await operations.view(host, view.id), 'ready'))
+      .view;
+  };
   const assemble = async (overrides: Partial<RoomCreate> = {}) => {
     let view = (await create(overrides)).view;
     view = (
@@ -156,14 +186,7 @@ async function fixture(
       })
     ).view;
     for (const c of [host, guest])
-      view = (
-        await command(c, view, {
-          type: 'ready',
-          expectedConsentVersion: view.participants
-            .filter(isNamedSeat)
-            .find((p) => p.actorId === c.actorId)!.consentVersion,
-        })
-      ).view;
+      view = (await consent(c, view, 'ready')).view;
     return operations.view(host, view.id);
   };
   return {
@@ -179,13 +202,8 @@ async function fixture(
     bot,
     create,
     command,
-    consent: (caller: typeof host, view: RoomView, type: 'ready' | 'unready') =>
-      command(caller, view, {
-        type,
-        expectedConsentVersion: view.participants
-          .filter(isNamedSeat)
-          .find((p) => p.actorId === caller.actorId)!.consentVersion,
-      }),
+    consent,
+    seatBotOpponent,
     snapshot,
     assemble,
     openRoomLimit: (value: number) => {

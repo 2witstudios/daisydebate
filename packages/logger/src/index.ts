@@ -30,6 +30,7 @@ export const eventRegistry = {
   'ai_debate.speech.failed': 'error',
   'round.media.unsafe': 'error',
   'round.judging.failed': 'error',
+  'round.control.failed': 'error',
   'round.media.recovered': 'info',
   'round.media.recovery_failed': 'error',
   'realtime.outbox.append_failed': 'error',

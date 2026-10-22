@@ -53,17 +53,6 @@ const { server, started } = startProductionServer({
   host: '0.0.0.0',
 });
 await started;
-const roundWorkers = startRoundWorkers({
-  app,
-  timers: {
-    setInterval: (tick, ms) =>
-      setInterval(() => {
-        void tick();
-      }, ms).unref(),
-    clearInterval: (handle) =>
-      clearInterval(handle as ReturnType<typeof setInterval>),
-  },
-});
 const mediaRuntime = [
   app.config.LIVEKIT_URL,
   app.config.LIVEKIT_PUBLIC_URL,
@@ -92,6 +81,18 @@ const availability = startRoundAvailability({
   fetch: fetchPublicAttendanceProbe,
   timers: {
     setInterval: (tick, ms) => setInterval(tick, ms).unref(),
+    clearInterval: (handle) =>
+      clearInterval(handle as ReturnType<typeof setInterval>),
+  },
+});
+const roundWorkers = startRoundWorkers({
+  app,
+  instanceId: availability.instanceId,
+  timers: {
+    setInterval: (tick, ms) =>
+      setInterval(() => {
+        void tick();
+      }, ms).unref(),
     clearInterval: (handle) =>
       clearInterval(handle as ReturnType<typeof setInterval>),
   },

@@ -1,3 +1,6 @@
+import { createAttendanceFeature } from '../features/attendance/operations';
+import { createBotControl } from '../features/round-bots/control';
+import { startBotControlService } from '../features/round-bots/control-service';
 import type { App } from './app';
 import { createProviderCapacity } from '../features/round-bots/provider-capacity';
 import { createRoundJudgingOperations } from '../features/round-judging/operations';
@@ -6,6 +9,7 @@ import { startRoundJudgingService } from '../features/round-judging/service';
 /** Provider work owns an independent lifecycle; availability/competitive maintenance never await it. */
 export function startRoundWorkers(input: {
   readonly app: App;
+  readonly instanceId: string;
   readonly timers: Parameters<typeof startRoundJudgingService>[0]['timers'];
 }) {
   const { app } = input;
@@ -17,7 +21,7 @@ export function startRoundWorkers(input: {
     voice: app.aiVoice,
     withProvider: createProviderCapacity(policy.providerConcurrency),
   });
-  return startRoundJudgingService({
+  const judging = startRoundJudgingService({
     store: app.database,
     execute: (claim, signal) =>
       operations.executeClaim(
@@ -38,4 +42,39 @@ export function startRoundWorkers(input: {
         'Judging work remains recoverable',
       ),
   });
+  const attendance = createAttendanceFeature({
+    checkIns: app.database,
+    evaluate: app.database.evaluateRoundAttendance,
+    nextId: () => app.ids.next(),
+    instanceId: input.instanceId,
+  });
+  const control = startBotControlService({
+    store: app.database,
+    control: (claim) =>
+      createBotControl({
+        claim,
+        store: app.database,
+        attendance,
+        nextId: () => app.ids.next(),
+      }),
+    limits: {
+      maxControllers: policy.maxControllers,
+      scanBatch: policy.scanBatch,
+      scanMs: policy.scanMs,
+      renewMs: policy.renewMs,
+    },
+    timers: input.timers,
+    failed: () =>
+      app.logger.log(
+        'round.control.failed',
+        { operation: 'round.control', errorCode: 'INFRASTRUCTURE' },
+        'Control receipt work remains recoverable',
+      ),
+  });
+  return {
+    started: Promise.all([judging.started, control.started]),
+    stop: async () => {
+      await Promise.all([judging.stop(), control.stop()]);
+    },
+  };
 }

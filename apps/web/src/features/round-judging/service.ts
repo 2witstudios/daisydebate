@@ -1,3 +1,4 @@
+import type { WorkerTimers } from '../round-bots/worker-timers';
 type Target = { readonly roundId: string; readonly judgeParticipantId: string };
 type Claim = { readonly scope: Target; readonly token: string };
 type Entry<C> = {
@@ -29,10 +30,7 @@ export function startRoundJudgingService<C extends Claim>(input: {
     readonly scanMs: number;
     readonly renewMs: number;
   };
-  readonly timers: {
-    readonly setInterval: (task: () => Promise<void>, ms: number) => unknown;
-    readonly clearInterval: (handle: unknown) => void;
-  };
+  readonly timers: WorkerTimers;
   readonly failed: () => void;
 }) {
   const entries = new Map<string, Entry<C>>();
