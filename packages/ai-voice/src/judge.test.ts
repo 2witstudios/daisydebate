@@ -1,38 +1,26 @@
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { parseBallot } from './judge';
-import type { Ballot } from '@daisy/protocol';
+import {
+  ballotCategories,
+  type Ballot,
+  type BallotCategory,
+} from '@daisy/protocol';
 
 setupRitewayBun();
+
+const allAt = (score: number): Record<BallotCategory, number> =>
+  Object.fromEntries(ballotCategories.map((c) => [c, score])) as Record<
+    BallotCategory,
+    number
+  >;
 
 const ballot: Ballot = {
   rubricVersion: 'speaker-10@1',
   winner: 'negative',
   scores: {
-    affirmative: {
-      thesis: 3,
-      framework: 3,
-      analysis: 3,
-      refutation: 3,
-      impact: 3,
-      weighing: 3,
-      questioning: 3,
-      answering: 3,
-      organization: 3,
-      delivery: 3,
-    },
-    negative: {
-      thesis: 4,
-      framework: 3,
-      analysis: 3,
-      refutation: 3,
-      impact: 3,
-      weighing: 3,
-      questioning: 3,
-      answering: 3,
-      organization: 3,
-      delivery: 3,
-    },
+    affirmative: allAt(3),
+    negative: { ...allAt(3), thesis: 4 },
   },
   reason:
     'The negative extended its safety contention, which the affirmative dropped.',
