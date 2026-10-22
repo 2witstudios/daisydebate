@@ -1,6 +1,5 @@
-import type { EventName } from '@daisy/logger';
-import { noopErrorReporter, type ErrorReporter } from '@daisy/observability';
-import { recoverableFailure } from './recoverable-failure';
+import type { ErrorReporter } from '@daisy/observability';
+import { workerFailures } from './recoverable-failure';
 import { createAttendanceFeature } from '../features/attendance/operations';
 import { createBotControl } from '../features/round-bots/control';
 import { startBotControlService } from '../features/round-bots/control-service';
@@ -24,15 +23,7 @@ export function startRoundWorkers(input: {
   const { app } = input;
   const policy = app.config.ROUND_BOT_WORKER_POLICY;
   if (!policy) return null;
-  const failure = (event: EventName, operation: string, message: string) =>
-    recoverableFailure({
-      logger: app.logger,
-      reporter: input.reporter ?? noopErrorReporter,
-      nextId: () => app.ids.next(),
-      event,
-      operation,
-      message,
-    });
+  const failure = workerFailures(app, input.reporter);
   const withProvider = createProviderCapacity(policy.providerConcurrency);
   const operations = createRoundJudgingOperations({
     store: app.database,

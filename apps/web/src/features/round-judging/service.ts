@@ -1,3 +1,4 @@
+import { isAppError } from '@daisy/errors';
 import type { WorkerTimers } from '../round-bots/worker-timers';
 type Target = { readonly roundId: string; readonly judgeParticipantId: string };
 type Claim = { readonly scope: Target; readonly token: string };
@@ -116,7 +117,9 @@ export function startRoundJudgingService<C extends Claim>(input: {
           );
         } catch (error) {
           release(entry);
-          input.failed(error, 'renew');
+          // A lease lost to completion or another claimant is a release, not a fault.
+          if (!isAppError(error) || error.code !== 'CONFLICT')
+            input.failed(error, 'renew');
         }
       }),
     ).then(() => {

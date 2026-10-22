@@ -1,4 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { createAppError } from '@daisy/errors';
 import { startBotControlService } from './control-service';
 import { manualTimers } from './worker-timers.test-support';
 setupRitewayBun();
@@ -164,5 +165,56 @@ test('failed control discovery and receipt pulses report their stages', async ()
       [pulseFault, 'pulse'],
       [scanFault, 'discover'],
     ],
+  });
+});
+
+test('a control lease lost at completion stops its seat without a failure', async () => {
+  const failures: unknown[] = [];
+  const stopped: string[] = [];
+  const target = {
+    roundId: 'round',
+    roundParticipantId: 'seat',
+    segmentId: 's',
+  };
+  const { timers } = manualTimers();
+  const service = startBotControlService({
+    store: {
+      scanRoundBotWorkers: async () => [target],
+      claimRoundBotWorker: async () => ({
+        scope: {
+          ...target,
+          agentRunId: 'run',
+          serviceId: 'agent-run:run',
+          publicationEpoch: 1,
+        },
+        token: 'memory-only',
+        leaseExpiresAt: '2026-10-22T00:00:30Z',
+      }),
+      revokeRoundBotWorker: async () => {},
+      verifyRoundBotWorker: async () => {
+        throw createAppError('CONFLICT', 'Worker lease expired');
+      },
+    },
+    control: () => ({
+      pulse: async () => {
+        throw createAppError('CONFLICT', 'Round is no longer active');
+      },
+      stop: async () => {
+        stopped.push('seat');
+      },
+    }),
+    limits: { maxControllers: 1, scanBatch: 4, scanMs: 500, renewMs: 3000 },
+    timers,
+    failed: (error, stage) => {
+      failures.push([error, stage]);
+    },
+  });
+  await service.started;
+  await service.stop();
+  assert({
+    given: 'a refused pulse whose claim no longer verifies',
+    should: 'stop the seat once and report no worker failure',
+    actual: { failures, stopped },
+    expected: { failures: [], stopped: ['seat'] },
   });
 });

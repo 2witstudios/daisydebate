@@ -3,10 +3,13 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { recoverableFailure } from './recoverable-failure';
 setupRitewayBun();
 
-const record = () => {
+const record = (isCapacity: (error: unknown) => boolean = () => false) => {
   const lines: unknown[][] = [];
   const captured: unknown[][] = [];
+  let now = 0;
   const failed = recoverableFailure({
+    isCapacity,
+    nowMs: () => now,
     logger: { log: (...line) => lines.push(line) },
     reporter: { capture: (...call) => captured.push(call) },
     nextId: () => 'r4n6p8r2t4v6x8z1k3b5c7d9',
@@ -14,7 +17,14 @@ const record = () => {
     operation: 'round.maintenance',
     message: 'Competitive maintenance remains recoverable',
   });
-  return { lines, captured, failed };
+  return {
+    lines,
+    captured,
+    failed,
+    at: (ms: number) => {
+      now = ms;
+    },
+  };
 };
 
 test('a recoverable worker failure keeps its code and stage', () => {
@@ -62,5 +72,47 @@ test('an untyped failure never claims a code it does not carry', () => {
         'Competitive maintenance remains recoverable',
       ],
     ],
+  });
+});
+
+test('capacity backpressure stays silent within its bound', () => {
+  const capacity = createAppError(
+    'INFRASTRUCTURE',
+    'Transcript transaction capacity unavailable',
+  );
+  const { lines, captured, failed, at } = record((error) => error === capacity);
+  for (let i = 0; i < 8; i++) {
+    at(i * 1_000);
+    failed(capacity, 'tick');
+  }
+  const withinBound = lines.length;
+  at(9_000);
+  failed(capacity, 'tick');
+  at(9_500);
+  failed(capacity, 'tick');
+  const starved = lines.length;
+  at(30_000);
+  failed(capacity, 'tick');
+  assert({
+    given:
+      'eight admission refusals in ten seconds, then more, then a quiet window',
+    should:
+      'log nothing within the bound, one starvation line past it, and reset after the window',
+    actual: { withinBound, starved, lines, captured: captured.length },
+    expected: {
+      withinBound: 0,
+      starved: 1,
+      lines: [
+        [
+          'round.maintenance.failed',
+          {
+            operation: 'round.maintenance.tick.capacity',
+            errorCode: 'INFRASTRUCTURE',
+          },
+          'Competitive maintenance remains recoverable',
+        ],
+      ],
+      captured: 1,
+    },
   });
 });

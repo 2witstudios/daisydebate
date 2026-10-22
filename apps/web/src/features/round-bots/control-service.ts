@@ -64,6 +64,8 @@ export function startBotControlService<C extends Claim>(input: {
         if (!(await valid(entry))) {
           owned.delete(entry.claim.scope.roundParticipantId);
           await entry.control.stop?.();
+          // Authority ended (Round completed or claim rotated): a release, not a fault.
+          return;
         }
         input.failed(error, 'pulse');
       } finally {

@@ -104,6 +104,15 @@ diverge:
 | `service.lease_failed`                   | error    | A realtime service lease renewal failed; the interval retries on its next tick                                                                                   |
 | `telemetry.unknown_event`                | warn     | An unregistered runtime event name was normalized                                                                                                                |
 
+The four round worker failure events (`round.maintenance.failed`,
+`round.judging.failed`, `round.control.failed`, `round.speaking.failed`) carry
+the worker stage in `operation` and the error's own code (`INTERNAL` when
+untyped). The raw error goes only to the scrubbed `ErrorReporter`. Two outcomes
+are not failures: a lost lease (`CONFLICT` once the Round completes or the claim
+rotates) releases silently, and shared-pool admission backpressure (ISSUE-431)
+is a deferral. A stage logs `<operation>.capacity` only when it is refused more
+than 8 times within 10 seconds.
+
 Lifecycle events describe runtime, server, and request progress. Failure events
 describe invariant violations, unhandled requests, and adapter failures;
 `http.request.cancelled` is an expected client-abort signal and is intentionally

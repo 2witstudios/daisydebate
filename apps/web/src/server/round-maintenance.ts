@@ -1,5 +1,5 @@
-import { noopErrorReporter, type ErrorReporter } from '@daisy/observability';
-import { recoverableFailure } from './recoverable-failure';
+import type { ErrorReporter } from '@daisy/observability';
+import { workerFailures } from './recoverable-failure';
 import type { App } from './app';
 import { createAttendanceFeature } from '../features/attendance/operations';
 import { createRoundMaintenanceOperations } from '../features/round-finalization/maintenance';
@@ -27,13 +27,10 @@ export function startRoundCompetitiveMaintenance(input: {
       evaluate: attendance.evaluate,
     }),
     timers: input.timers,
-    failed: recoverableFailure({
-      logger: app.logger,
-      reporter: input.reporter ?? noopErrorReporter,
-      nextId: () => app.ids.next(),
-      event: 'round.maintenance.failed',
-      operation: 'round.maintenance',
-      message: 'Competitive maintenance remains recoverable',
-    }),
+    failed: workerFailures(app, input.reporter)(
+      'round.maintenance.failed',
+      'round.maintenance',
+      'Competitive maintenance remains recoverable',
+    ),
   });
 }
