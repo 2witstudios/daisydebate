@@ -60,3 +60,20 @@ claim full played-Round, browser, media, or final-completion acceptance.
 Worker failure events contain only operation and error code (privacy `none`).
 No credential, bearer, raw exception, response text, transcript, or PCM is
 written to logs or proof artifacts.
+
+## Idle bot control and attendance
+
+The control lifecycle claims each actual non-judge bot seat independently of
+model and media work. Its pulse renews the current worker lease, asks the shared
+attendance feature for actual unresolved targets, and records shared check-ins
+using the exact service/run/seat/epoch principal. Targets may include historical
+unresolved speech; the target is not required to equal the control segment or
+the bot's speaking window. Receipt authorization remains the canonical same-pool
+attendance verifier and first PostgreSQL receipt time.
+
+Control discovery and pulses have separate timers from judging/provider work.
+A changed actual segment rotates the owned claim; a media or model failure does
+not revoke it. Startup uses the existing availability instance identity rather
+than creating another service lease. Shutdown awaits pulses and revokes only
+its own current claims before pools close. Worker control is not floor-command,
+media-publication or transcript authority and does not consume a model allowance.
