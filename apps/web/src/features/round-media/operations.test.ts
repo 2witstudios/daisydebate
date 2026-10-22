@@ -4,6 +4,13 @@ import { createRoundMediaOperations } from './operations';
 import { createMediaWorld } from './media-world.test-support';
 setupRitewayBun();
 
+/** A world whose affirmative debater already holds a live admission. */
+const admitted = async () => {
+  const world = createMediaWorld();
+  const operations = createRoundMediaOperations(world.input);
+  await operations.session(world.roundId, world.seats[0].actorId);
+  return { world, operations, affirmative: world.seats[0] };
+};
 const conversation = {
   publish: ['camera', 'microphone'] as ('camera' | 'microphone')[],
   subscribe: true,
@@ -107,10 +114,7 @@ test('revoked human eligibility closes admission until it is restored', async ()
 });
 
 test('a terminal Round is cleaned up once and then reads as ended', async () => {
-  const world = createMediaWorld();
-  const operations = createRoundMediaOperations(world.input);
-  const [affirmative] = world.seats;
-  await operations.session(world.roundId, affirmative.actorId);
+  const { world, operations, affirmative } = await admitted();
   world.end();
   await operations.recoverActiveSessions();
   await operations.recoverActiveSessions();
@@ -163,10 +167,7 @@ test('a failed vendor update leaves the session unsafe until cleanup proves abse
 });
 
 test('a reachable vendor failure during cleanup is retried on the next run', async () => {
-  const world = createMediaWorld();
-  const operations = createRoundMediaOperations(world.input);
-  const [affirmative] = world.seats;
-  await operations.session(world.roundId, affirmative.actorId);
+  const { world, operations } = await admitted();
   world.end();
   world.fail('listRooms');
   await operations.recoverActiveSessions();
