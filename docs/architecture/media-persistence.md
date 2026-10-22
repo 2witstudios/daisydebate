@@ -291,15 +291,21 @@ is introduced. Attendance terminal races stop that Round's maintenance cycle;
 unexpected failures remain observable. Completed ranked attendance forfeits have
 a separate durable unrated scan using the existing idempotent rating operation.
 
-Casual Rounds with zero required and actual judges finish through the same
-maintenance path after immutable transcript freeze and settled attendance.
-`completeUnjudgedRound` holds the global command fence, canonical account and
-Round fences, then consumes the shared engine's `completeUnjudged` projection.
-It refuses incomplete play, pending check-in attempts, inconsistent cast facts,
-judged/ranked inputs and existing ballots or ratings. The existing command
-ledger stores one internal service receipt bound to the exact frozen revision;
-concurrent attempts and a new service instance replay that original receipt.
-The result is completed with a NULL outcome, without a ballot or rating.
+Casual Rounds without a full set of ballots finish through the same maintenance
+path after immutable transcript freeze and settled attendance: zero-judge Rounds
+at once, judged Rounds once their ballot deadline (default 30 minutes after the
+freeze, DEC-201) passes. `completeUnjudgedRound` holds the global command fence,
+canonical account and Round fences, reads the stored ballots and freeze time, and
+consumes the shared engine's `completeUnjudged` projection, whose
+`decideUnjudgedCompletion` decides eligibility and outcome. It refuses
+incomplete play, pending check-in attempts, inconsistent cast facts, ranked or
+practice inputs, existing ratings and judged Rounds inside their deadline. The
+existing command ledger stores one internal service receipt bound to the exact
+frozen revision, with its ruling (`unjudged`, `judges-did-not-rule` or
+`partial`) and the judge seats that gave no ruling; concurrent attempts and a new
+service instance replay that original receipt. Open judging jobs become
+`failed`. The outcome comes from submitted ballots, or is NULL; no ballot or
+rating is fabricated.
 Existing forfeit and abandonment decisions remain terminal. This operation has
 no public completion-mode envelope and performs no model work.
 

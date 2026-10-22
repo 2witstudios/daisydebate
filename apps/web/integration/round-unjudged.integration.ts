@@ -1,10 +1,12 @@
-import { assembleJudgedRoom } from './round-judges.test-support';
 import { requireTestServices } from '@daisy/config';
-import { createRoundRuntime } from '@daisy/debate-engine';
 import { assertRejects } from '@daisy/errors/testing';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createRoundMaintenanceOperations } from '../src/features/round-finalization/maintenance';
+import {
+  createRoundMaintenanceOperations,
+  DEFAULT_BALLOT_DEADLINE_MS,
+  unjudgedCompletion,
+} from '../src/features/round-finalization/maintenance';
 import { roundTickProjection } from '../src/features/round-finalization/operations';
 import { seedSettledAttendanceLedger } from './round-attendance-fixture.test-support';
 import {
@@ -26,17 +28,7 @@ test('internal zerojudge completion requires real freeze and settled attendance 
       commandId: createId(),
       freezeRevision: 1,
       buildProjection: roundTickProjection(createId),
-      buildCompletion: ({
-        round,
-        now,
-      }: Parameters<
-        Parameters<typeof f.store.completeUnjudgedRound>[0]['buildCompletion']
-      >[0]) =>
-        createRoundRuntime({
-          ...round,
-          round,
-          nextSegmentId: createId,
-        }).completeUnjudged({ competitionType: round.competitionType, now }),
+      buildCompletion: unjudgedCompletion(createId, DEFAULT_BALLOT_DEADLINE_MS),
     };
     try {
       await assertRejects({
@@ -149,7 +141,7 @@ test('internal zerojudge completion preserves a prior competitive abandonment an
       commandId: envelope.commandId,
       freezeRevision: 1,
       buildProjection: roundTickProjection(createId),
-      buildCompletion: roundTickProjection(createId),
+      buildCompletion: unjudgedCompletion(createId, DEFAULT_BALLOT_DEADLINE_MS),
     };
     try {
       const active = await f.store.getRound(roundId);
@@ -179,68 +171,6 @@ test('internal zerojudge completion preserves a prior competitive abandonment an
         should: 'retain complete terminal state',
         actual: await f.store.getRound(roundId),
         expected: abandoned,
-      });
-    } finally {
-      await f.sql`delete from service_instances where instance_id=${instanceId}`;
-    }
-  }));
-
-test('an actual frozen human-judged Room cannot enter internal unjudged completion', async () =>
-  withRoomRuntime(async (f) => {
-    let room = await assembleJudgedRoom(f, 1);
-    room = (
-      await f.command(f.outsider, room, {
-        type: 'claim-seat',
-        role: 'judge',
-        slot: 0,
-      })
-    ).view;
-    for (const who of [f.host, f.guest, f.outsider])
-      room = (
-        await f.consent(who, await f.operations.view(who, room.id), 'ready')
-      ).view;
-    const { roundId } = await startRuntimeRound(f, room),
-      instanceId = createId();
-    await f.store.renewServiceInstance({ instanceId, role: 'web' });
-    let callbacks = 0;
-    try {
-      await f.sql`update rounds set started_at=clock_timestamp()-interval '20 minutes' where id=${roundId}`;
-      const buildProjection = roundTickProjection(createId);
-      await f.store.finalizeDueRoundTranscript({
-        instanceId,
-        roundId,
-        buildProjection,
-      });
-      await seedSettledAttendanceLedger(f, roundId);
-      const before = await f.store.getRound(roundId);
-      await assertRejects({
-        given: 'actual frozen required and seated human judge',
-        should: 'refuse unjudged completion before its projection callback',
-        actual: () =>
-          f.store.completeUnjudgedRound({
-            roundId,
-            instanceId,
-            commandId: createId(),
-            freezeRevision: 1,
-            buildProjection,
-            buildCompletion: () => {
-              callbacks += 1;
-              throw new Error('Judged input reached unjudged projection');
-            },
-          }),
-        code: 'CONFLICT',
-      });
-      assert({
-        given: 'a judged-format refusal',
-        should: 'preserve full active projection and no terminal receipt',
-        actual: {
-          round: await f.store.getRound(roundId),
-          callbacks,
-          receipts: (
-            await f.sql`select command_id from round_commands where round_id=${roundId} and type='complete'`
-          ).length,
-        },
-        expected: { round: before, callbacks: 0, receipts: 0 },
       });
     } finally {
       await f.sql`delete from service_instances where instance_id=${instanceId}`;

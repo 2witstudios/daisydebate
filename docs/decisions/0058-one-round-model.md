@@ -195,7 +195,15 @@ depends on one, and nothing in a Round's history would change if Rooms were dele
   verifies these facts before projecting the shared runtime completion and its
   durable receipt; callers cannot select this mode in a public command body.
   The common result says “Unjudged”, with no fabricated ballot, draw or rating.
-  Ranked, nonzero-judge, forfeit and abandonment rules retain their own guards.
+  Ranked, forfeit and abandonment rules retain their own guards.
+- **Judges rule within a ballot deadline (DEC-201).** A judged casual Round whose
+  judges have not all ruled 30 minutes (injected policy) after its immutable
+  freeze completes through the same finalizer. Missing ballots are recorded as no
+  ruling in the receipt. Submitted ballots decide the outcome by the existing
+  rule; with none, the outcome is null and the result says “Judges did not rule”.
+  There is no winner, draw, forfeit or rating for an absent ruling, and judging
+  jobs still open become known failures. This supersedes DEC-191's zero-judge
+  witness on completed rows with a null outcome.
 - **AI practice capacity is reclaimed durably at admission.** Under the global
   admission lock, scheduled practices with no execution for 15 minutes and active
   practices with no execution for two hours become abandoned. Reclamation locks

@@ -17,6 +17,17 @@ const total = rules.segments.reduce(
   (sum, s) => sum + s.durationMs + rules.countdownMs,
   0,
 );
+/** Completion facts with no ballots and a deadline that has long passed. */
+const facts = (
+  competitionType: 'casual' | 'practice' | 'ranked',
+  now: string,
+) => ({
+  competitionType,
+  now,
+  ballots: [],
+  frozenAt: roundAt(0),
+  ballotDeadlineMs: 0,
+});
 const played = () => {
   const world = runtimeWorld({ rules, participants });
   world.execute({ command: { type: 'start' }, actorId: null, now: roundAt(0) });
@@ -48,10 +59,9 @@ const closedWith = (overrides: Parameters<typeof runtimeWorld>[0]) => {
 
 test('zero-judge casual completion projects an unjudged terminal result in the shared engine', () => {
   const world = played();
-  const result = world.completeUnjudged({
-    competitionType: 'casual',
-    now: roundAt(total + 120_000),
-  });
+  const result = world.completeUnjudged(
+    facts('casual', roundAt(total + 120_000)),
+  );
   assert({
     given: 'the actual closed zero-judge schedule',
     should: 'complete with no competitive outcome or fabricated ballot',
@@ -117,10 +127,9 @@ test('unjudged completion refuses with the zero-judge casual invariant and prese
       given: competitionType,
       should: 'refuse an ineligible completion',
       actual: () =>
-        world.completeUnjudged({
-          competitionType,
-          now: roundAt(total + 120_000),
-        }),
+        world.completeUnjudged(
+          facts(competitionType, roundAt(total + 120_000)),
+        ),
       code: 'INVARIANT',
       invariantId: 'round.complete.unjudged-casual-only',
     });
@@ -140,7 +149,7 @@ test('unjudged completion does not accept a clock before the actual final end', 
     await assertRejects({
       given: now,
       should: 'refuse time preceding actual final closure',
-      actual: () => world.completeUnjudged({ competitionType: 'casual', now }),
+      actual: () => world.completeUnjudged(facts('casual', now)),
       code: 'INVARIANT',
       invariantId: 'round.complete.unjudged-casual-only',
     });

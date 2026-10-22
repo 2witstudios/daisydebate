@@ -1,10 +1,49 @@
 import type { IdGenerator } from '@daisy/clock';
 import type { AttendanceResolution, Database } from '@daisy/db';
-import { createRoundRuntime } from '@daisy/debate-engine';
+import {
+  createRoundRuntime,
+  decideUnjudgedCompletion,
+} from '@daisy/debate-engine';
 import { createAppError, isAppError } from '@daisy/errors';
 import { createAttendanceRatingSweep } from '../attendance/rating';
 import { roundTickProjection } from './operations';
 
+/** Judges may rule for 30 minutes after the immutable freeze (DEC-201). */
+export const DEFAULT_BALLOT_DEADLINE_MS = 30 * 60_000;
+type CompletionBuilder = Parameters<
+  Database['completeUnjudgedRound']
+>[0]['buildCompletion'];
+/** The engine decides; a judged Round inside its ballot deadline is not yet eligible. */
+export const unjudgedCompletion =
+  (nextId: () => string, ballotDeadlineMs: number): CompletionBuilder =>
+  ({ round, now, ballots, frozenAt }) => {
+    const decision = decideUnjudgedCompletion({
+      judgeSeatIds: round.participants
+        .filter((seat) => seat.role === 'judge')
+        .map((seat) => seat.id),
+      ballots,
+      frozenAtMs: Date.parse(frozenAt),
+      ballotDeadlineMs,
+      nowMs: Date.parse(now),
+    });
+    if (decision.kind === 'pending')
+      throw createAppError('CONFLICT', 'unjudged-ineligible');
+    return {
+      ruling: decision.ruling,
+      noRuling: decision.noRuling,
+      projection: createRoundRuntime({
+        ...round,
+        round,
+        nextSegmentId: nextId,
+      }).completeUnjudged({
+        competitionType: round.competitionType,
+        now,
+        ballots,
+        frozenAt,
+        ballotDeadlineMs,
+      }),
+    };
+  };
 /** Bound internal ports; the startup owner supplies the existing availability instance. */
 export function createRoundMaintenanceOperations(input: {
   readonly store: Pick<
@@ -19,7 +58,10 @@ export function createRoundMaintenanceOperations(input: {
   readonly instanceId: string;
   readonly ids: IdGenerator;
   readonly evaluate: (roundId: string) => Promise<AttendanceResolution | null>;
+  /** Injected policy: how long after the freeze judges may rule (DEC-201). */
+  readonly ballotDeadlineMs?: number;
 }) {
+  const ballotDeadlineMs = input.ballotDeadlineMs ?? DEFAULT_BALLOT_DEADLINE_MS;
   const buildProjection = roundTickProjection(() => input.ids.next());
   const ratings = createAttendanceRatingSweep({
     database: input.store,
@@ -67,15 +109,10 @@ export function createRoundMaintenanceOperations(input: {
           commandId: input.ids.next(),
           freezeRevision: result.freeze.revision,
           buildProjection,
-          buildCompletion: ({ round, now }) =>
-            createRoundRuntime({
-              ...round,
-              round,
-              nextSegmentId: () => input.ids.next(),
-            }).completeUnjudged({
-              competitionType: round.competitionType,
-              now,
-            }),
+          buildCompletion: unjudgedCompletion(
+            () => input.ids.next(),
+            ballotDeadlineMs,
+          ),
         });
       } catch (error) {
         if (

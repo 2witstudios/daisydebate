@@ -154,3 +154,20 @@ test('a judged Round hands its result to the receipt', () => {
     expected: [true, true, true, false],
   });
 });
+
+test('a judged Round whose judges did not rule by the deadline says so (DEC-201)', () => {
+  const html = renderToStaticMarkup(
+    <RoundReceipt round={{ ...judged, outcome: null }} />,
+  );
+  assert({
+    given: 'a completed Round with judge seats and no outcome',
+    should: 'say the judges did not rule, never Unjudged, a draw or a winner',
+    actual: [
+      html.includes('Result · Judges did not rule'),
+      html.includes('Unjudged'),
+      html.includes('Draw'),
+      html.includes('won'),
+    ],
+    expected: [true, false, false, false],
+  });
+});
