@@ -11,6 +11,7 @@ type EntryProps = {
   readonly display: BallotDisplay;
   readonly view: RoundBallotRead;
   readonly answer: RoundBallotFormState;
+  readonly fieldsRevision: number;
   readonly post: (form: FormData) => void;
   readonly pending: boolean;
   readonly commandId: string;
@@ -21,6 +22,10 @@ export function BallotEntry(props: EntryProps) {
     case 'retry':
       return (
         <RetryBallot
+          ended={
+            props.view.round.status === 'completed' ||
+            props.view.round.status === 'abandoned'
+          }
           answer={props.answer}
           post={props.post}
           pending={props.pending}
@@ -56,16 +61,24 @@ export function BallotEntry(props: EntryProps) {
   }
 }
 function RetryBallot({
+  ended,
   answer,
   post,
   pending,
-}: Pick<EntryProps, 'answer' | 'post' | 'pending'>) {
+}: Pick<EntryProps, 'answer' | 'post' | 'pending'> & {
+  readonly ended: boolean;
+}) {
   return (
     <form
       action={post}
       aria-label="Retry unacknowledged ballot"
       aria-busy={pending}
     >
+      {ended ? (
+        <p>
+          This Round has ended. Your original submission can still be retried.
+        </p>
+      ) : null}
       <p id={roundBallotErrorId} tabIndex={-1} role="alert">
         {answer.error}
       </p>
@@ -91,6 +104,7 @@ function OpenBallot({
   pending,
   debaters,
   answer,
+  fieldsRevision,
 }: EntryProps) {
   if (!view.own || !view.freeze) throw createAppError('INVARIANT');
   return (
@@ -111,6 +125,7 @@ function OpenBallot({
       <input type="hidden" name="freezeRevision" value={view.freeze.revision} />
       <fieldset disabled={pending} className="contents">
         <BallotFields
+          key={fieldsRevision}
           debaters={debaters}
           values={answer.values}
           error={answer.error}

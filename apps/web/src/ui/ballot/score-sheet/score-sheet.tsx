@@ -190,7 +190,7 @@ export function ScoreSheet({
               <span
                 className={cn(
                   ballotEyebrowClass,
-                  'basis-full break-words @ballot-sheet:hidden',
+                  'min-w-0 basis-full wrap-anywhere @ballot-sheet:hidden',
                   sideTextClass(side),
                 )}
                 aria-hidden="true"
