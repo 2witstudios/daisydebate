@@ -1,7 +1,7 @@
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { rejectedBy, withFixture } from './constraint-helpers';
+import { rejectedBy, withFixture, sqlStateOf } from './constraint-helpers';
 
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
@@ -70,6 +70,78 @@ test('historical speaking authority excludes overlapping seat intervals but perm
           'delete from round_speaking_intervals where round_id = $1',
           [roundId],
         );
+    }
+  });
+});
+
+test('Round deletion cascades history before checking its scoped command references', async () => {
+  await withFixture(url, async (fixture) => {
+    const roundId = await fixture.round();
+    const seat = await fixture.seat(roundId, 'affirmative');
+    const segmentId = createId();
+    const commandId = createId();
+    await fixture.insert('round_segments', {
+      id: segmentId,
+      round_id: roundId,
+      sequence: 0,
+      type: 'speech',
+      rules_segment_key: 'AC',
+      started_at: new Date(1000),
+      duration_ms: 1000,
+    });
+    await fixture.insert(
+      'round_commands',
+      {
+        command_id: commandId,
+        round_id: roundId,
+        actor_id: seat.actorId,
+        type: 'start',
+        payload_digest: 'a'.repeat(64),
+        result: {},
+        resulting_version: 1,
+        applied_at: new Date(1000),
+      },
+      'command_id',
+    );
+    await fixture.sql.unsafe(
+      'insert into round_speaking_intervals (id, round_id, segment_id, round_participant_id, started_at, ended_at, started_version, ended_version, started_command_id, ended_command_id) values ($1,$2,$3,$4,$5,$6,1,2,$7,$7)',
+      [
+        createId(),
+        roundId,
+        segmentId,
+        seat.id,
+        new Date(1000),
+        new Date(2000),
+        commandId,
+      ],
+    );
+    try {
+      assert({
+        given: 'a command still referenced by accepted speaking history',
+        should:
+          'refuse a direct deletion even though aggregate cascades are allowed',
+        actual: await sqlStateOf(() =>
+          fixture.sql.unsafe('delete from round_commands where command_id=$1', [
+            commandId,
+          ]),
+        ),
+        expected: '23503',
+      });
+      assert({
+        given:
+          'a Round with scoped speaking history naming an accepted command',
+        should:
+          'allow the parent cascade while retaining child reference integrity',
+        actual: await rejectedBy(() =>
+          fixture.sql.unsafe('delete from rounds where id=$1', [roundId]),
+        ),
+        expected: null,
+      });
+    } finally {
+      await fixture.sql.unsafe(
+        'delete from round_speaking_intervals where round_id=$1',
+        [roundId],
+      );
     }
   });
 });

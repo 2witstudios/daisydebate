@@ -37,17 +37,17 @@ export const roundSpeakingIntervals = pgTable(
       name: 'round_speaking_intervals_participant_round_fk',
       columns: [table.roundParticipantId, table.roundId],
       foreignColumns: [roundParticipants.id, roundParticipants.roundId],
-    }).onDelete('restrict'),
+    }).onDelete('no action'),
     foreignKey({
       name: 'round_speaking_intervals_started_command_round_fk',
       columns: [table.startedCommandId, table.roundId],
       foreignColumns: [roundCommands.commandId, roundCommands.roundId],
-    }).onDelete('restrict'),
+    }).onDelete('no action'),
     foreignKey({
       name: 'round_speaking_intervals_ended_command_round_fk',
       columns: [table.endedCommandId, table.roundId],
       foreignColumns: [roundCommands.commandId, roundCommands.roundId],
-    }).onDelete('restrict'),
+    }).onDelete('no action'),
     index('round_speaking_intervals_segment_round_idx').on(
       table.segmentId,
       table.roundId,
