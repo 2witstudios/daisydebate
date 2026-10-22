@@ -11,7 +11,11 @@ export function roomLaunchClaimProblems(input: BrowserRegistration) {
     runnerPath: 'e2e/support/room-launch-runner.ts',
     configPath: 'e2e/support/room-launch-config.ts',
     command: 'test:e2e:room-launch',
-    suites: ['**/room-launch.e2e.ts', '**/debate-room.e2e.ts'],
+    suites: [
+      '**/room-launch.e2e.ts',
+      '**/debate-room.e2e.ts',
+      '**/round-commands.e2e.ts',
+    ],
   });
 }
 

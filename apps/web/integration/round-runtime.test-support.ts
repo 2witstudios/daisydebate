@@ -3,7 +3,7 @@ import type { RoomView } from '@daisy/protocol';
 import type { withRoomRuntime } from './room-runtime.test-support';
 import { createRoundRuntimeOperations } from '../src/features/round-runtime/operations';
 
-export async function launchRuntimeRound(
+async function launchRuntimeRound(
   f: Parameters<Parameters<typeof withRoomRuntime>[0]>[0],
   room: RoomView,
 ) {

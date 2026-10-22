@@ -43,12 +43,12 @@ type Props = {
   readonly round: RoundSnapshot;
   readonly state: RoomState;
   readonly dispatch: Dispatch<RoomAction>;
+  readonly actions?: ReactNode;
 };
 
 /**
- * The phase's own action: start the speech after prep, end your own speech,
- * or interrupt in cross-examination. No Round command reaches the server
- * yet, so each is shown and disabled, like Tech issue (DEC-153, DEC-178).
+ * Snapshot-only previews have no command authority. The live Round page
+ * supplies its canonical command forms through the actions slot.
  */
 function PhaseActions({
   round,
@@ -272,6 +272,7 @@ function MainClock({
 export function RoundControls({
   round,
   layout,
+  actions,
 }: Props & { readonly layout?: ReactNode }) {
   return (
     <nav
@@ -294,7 +295,7 @@ export function RoundControls({
       </div>
       <MainClock clock={round.clock} phase={round.phase} />
       <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 max-narrow:hidden">
-        <PhaseActions round={round} />
+        {actions ?? <PhaseActions round={round} />}
         <TechIssue round={round} />
         {layout}
       </div>
@@ -307,7 +308,7 @@ export function PhoneActions(props: Props) {
   return (
     <div className="flex shrink-0 gap-2 border-t border-border bg-surface-raised px-4 py-2 narrow:hidden">
       <TechIssue round={props.round} wide />
-      <PhaseActions round={props.round} wide />
+      {props.actions ?? <PhaseActions round={props.round} wide />}
     </div>
   );
 }

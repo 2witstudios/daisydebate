@@ -1,4 +1,6 @@
-import { systemClock } from '@daisy/clock';
+import { roundCommandAction } from './actions';
+import { roundCommandIds } from '../../../../../features/round-runtime/command-ids';
+import { systemClock, systemId } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import type { Metadata } from 'next';
@@ -32,6 +34,8 @@ export default async function RoundRoomPage({
   const here = `/rounds/${id}/room`;
   return (
     <LiveRoundRoom
+      commandAction={roundCommandAction.bind(null, id)}
+      commandIds={roundCommandIds(() => systemId.next())}
       view={result.round}
       actorId={actorId}
       renderedAtMs={Date.parse(systemClock.now())}
