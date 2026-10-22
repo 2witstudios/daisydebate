@@ -3,7 +3,7 @@ import {
   mediaPublicationParticipants,
 } from './media-publication-authority';
 import { createAppError } from '@daisy/errors';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, count, eq, isNull } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { BoundedTransaction } from './bounded-transaction';
 import type { BoundedTransactionContext } from './transaction-context';
@@ -25,32 +25,12 @@ import { mediaVendorMutations } from './schema/media-vendor-mutations';
 import { rounds } from './schema/rounds';
 
 type Session = typeof mediaSessions.$inferSelect;
-export type MediaVendorIntent =
-  | {
-      readonly kind: 'create' | 'delete';
-      readonly identity: null;
-      readonly payload: Record<string, never>;
-    }
-  | {
-      readonly kind: 'remove';
-      readonly identity: string;
-      readonly payload: Record<string, never>;
-    }
-  | {
-      readonly kind: 'permissions';
-      readonly identity: string;
-      readonly payload: {
-        readonly publish: ('camera' | 'microphone')[];
-        readonly subscribe: boolean;
-        readonly hidden: boolean;
-        readonly capture: false;
-      };
-    };
-export type MediaReconcileFence = {
-  readonly sessionId: string;
-  readonly owner: string;
-  readonly epoch: number;
-};
+import {
+  proofMatches,
+  type MediaVendorIntent,
+  type MediaReconcileFence,
+  type MediaAbsenceProof,
+} from './media-reconcile-contracts';
 import {
   createMediaReconcileClaims,
   MEDIA_RECONCILE_LEASE_MS as LEASE_MS,
@@ -93,6 +73,16 @@ export function createMediaReconcileStore(input: {
           isNull(mediaVendorMutations.settledAt),
         ),
       );
+  const mutationCount = async (
+    tx: BoundedTransactionContext,
+    sessionId: string,
+  ) => {
+    const [row] = await tx
+      .select({ count: count() })
+      .from(mediaVendorMutations)
+      .where(eq(mediaVendorMutations.sessionId, sessionId));
+    return row!.count;
+  };
   const locked = async (tx: BoundedTransactionContext, sessionId: string) => {
     const [initial] = await tx
       .select({ roundId: mediaSessions.roundId })
@@ -250,9 +240,21 @@ export function createMediaReconcileStore(input: {
           .where(eq(mediaSessions.id, session.id));
       });
     },
+    /** Obtain the settled immutable-intent horizon BEFORE observing provider absence. */
+    async prepareMediaAbsenceProof(
+      request: MediaReconcileFence,
+    ): Promise<MediaAbsenceProof | null> {
+      return withFence(request, async (tx, session) => {
+        if ((await pending(tx, session.id)).length) return null;
+        return {
+          ...request,
+          settledMutationCount: await mutationCount(tx, session.id),
+        };
+      });
+    },
     async finishMediaReconcile(
       request: MediaReconcileFence & {
-        readonly absenceVerified: boolean;
+        readonly absenceProof: MediaAbsenceProof | null;
       },
     ) {
       return withFence(request, async (tx, session, now) => {
@@ -270,7 +272,13 @@ export function createMediaReconcileStore(input: {
           round.finalSegmentEndedAt?.toISOString() ?? null,
         );
         const unresolved = (await pending(tx, session.id)).length > 0;
-        const cleaned = request.absenceVerified && !unresolved;
+        const cleaned =
+          !unresolved &&
+          proofMatches(
+            request.absenceProof,
+            request,
+            await mutationCount(tx, session.id),
+          );
         await tx
           .update(mediaSessions)
           .set({

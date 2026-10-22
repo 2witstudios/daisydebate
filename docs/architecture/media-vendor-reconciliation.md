@@ -24,6 +24,16 @@ settlement additionally requires actual verified vendor cleanup in the adapter;
 the database does not claim that verification from a timestamp or a failed call.
 Token/open admission must refuse unsafe or pending sessions independently.
 
+Cleanup first calls `prepareMediaAbsenceProof` under the current session owner
+and epoch. It returns no proof while any intent is pending. Otherwise it records
+the settled immutable-intent count with that fence. Only after that transaction
+commits may the provider absence observation run. `finishMediaReconcile` accepts
+the proof only if its session, owner, epoch and mutation count still match and
+no intent is pending. An absence observed before a late creation settles cannot
+be reused after settlement; another run must clean up and observe absence anew.
+These proof fields are transient witnesses, not stored credentials or new
+columns. Provider I/O remains outside every database transaction.
+
 These fields contain no personal transcript or credentials. Timestamps, counters,
 kind, outcome and strict permission payload have privacy category none. Session,
 mutation, owner and opaque participant identity are category identifier, scoped
