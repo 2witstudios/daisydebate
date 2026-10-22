@@ -1,4 +1,5 @@
 import type { BotPublicationScope } from '@daisy/db/bot-publication';
+import { isTransactionCapacityRefusal } from '@daisy/db';
 import { isAppError } from '@daisy/errors';
 
 type Job = {
@@ -10,12 +11,33 @@ type Job = {
   readonly sampleRate: 24000;
   readonly channels: 1;
 };
+/** A provider answer held in memory until its usage and authority settle. */
+type Answer<T> = {
+  readonly value: T;
+  /** Idempotent: safe to call again after a refusal. */
+  readonly settle: () => Promise<void>;
+};
+/** How far one turn got; kept across deferrals so no step is bought twice. */
+type Progress = {
+  generated: Answer<{ readonly phrases: readonly string[] }> | null;
+  settled: boolean;
+  spoken: number;
+  synthesized: Answer<Job> | null;
+};
+const freshProgress = (): Progress => ({
+  generated: null,
+  settled: false,
+  spoken: 0,
+  synthesized: null,
+});
 export type PeerActivity =
   'speech-start' | 'end-of-turn' | 'barge-in' | 'unknown';
 /**
  * One speaking turn at a time per owned claim. Phrases stay in memory; capture
- * alone credits transcript. Refused authority waits for the next wake; it never
- * issues floor commands or touches control receipts.
+ * alone credits transcript. Refused authority and refused pool admission wait
+ * for the next wake without spending an attempt; a pool refusal resumes the turn
+ * where it stopped, so no answer is bought and no phrase is spoken twice. The
+ * speaker never issues floor commands or touches control receipts.
  */
 export function createBotSpeaker(input: {
   readonly claim: {
@@ -27,21 +49,24 @@ export function createBotSpeaker(input: {
     scope: BotPublicationScope,
     token: string,
     signal: AbortSignal,
-  ) => Promise<{ readonly text: string; readonly phrases: readonly string[] }>;
+  ) => Promise<
+    Answer<{ readonly text: string; readonly phrases: readonly string[] }>
+  >;
   readonly synthesize: (
     scope: BotPublicationScope,
     token: string,
     phraseId: string,
     text: string,
     signal: AbortSignal,
-  ) => Promise<Job>;
+  ) => Promise<Answer<Job>>;
   readonly publish: (
     job: Job,
     signal: AbortSignal,
   ) => Promise<{ readonly complete: boolean }>;
   readonly nextId: () => string;
   readonly maxAttempts: number;
-  readonly failed: () => void;
+  /** `stage` names the work that failed: generate, synthesize or publish. */
+  readonly failed: (error: unknown, stage: string) => void;
 }) {
   const { scope, token, segmentType } = input.claim;
   const crossEx = segmentType === 'cross_ex';
@@ -52,37 +77,59 @@ export function createBotSpeaker(input: {
     attempts = 0,
     /** Cross-examination opens once, then answers each ended peer turn once. */
     owed = true;
+  let stage = 'generate';
+  let progress = freshProgress();
+  /** Resumes the turn at its first unfinished step. */
   const deliver = async (signal: AbortSignal) => {
-    const { phrases } = await input.generate(scope, token, signal);
-    for (const text of phrases) {
-      const job = await input.synthesize(
+    stage = 'generate';
+    progress.generated ??= await input.generate(scope, token, signal);
+    if (!progress.settled) {
+      await progress.generated.settle();
+      progress.settled = true;
+    }
+    const { phrases } = progress.generated.value;
+    while (progress.spoken < phrases.length) {
+      stage = 'synthesize';
+      progress.synthesized ??= await input.synthesize(
         scope,
         token,
         input.nextId(),
-        text,
+        phrases[progress.spoken]!,
         signal,
       );
+      await progress.synthesized.settle();
       playing = true;
+      stage = 'publish';
       try {
-        if (!(await input.publish(job, signal)).complete) return;
+        if (!(await input.publish(progress.synthesized.value, signal)).complete)
+          return;
       } finally {
         playing = false;
       }
+      progress.spoken += 1;
+      progress.synthesized = null;
     }
   };
   const turn = async (abort: AbortController) => {
     try {
       await deliver(abort.signal);
+      progress = freshProgress();
       if (!crossEx) delivered = true;
     } catch (error) {
-      if (abort.signal.aborted) return;
+      if (abort.signal.aborted) return void (progress = freshProgress());
+      // Pool backpressure is a deferral: the next wake resumes at the refused step.
+      if (isTransactionCapacityRefusal(error)) {
+        if (crossEx) owed = true;
+        return input.failed(error, stage);
+      }
+      progress = freshProgress();
       if (isAppError(error) && error.code === 'CONFLICT') {
         if (crossEx) owed = true;
         return;
       }
       attempts += 1;
       if (crossEx) owed = attempts < input.maxAttempts;
-      input.failed();
+      input.failed(error, stage);
     } finally {
       running = null;
     }

@@ -1,3 +1,4 @@
+import { isAppError } from '@daisy/errors';
 import type { WorkerTimers } from '../round-bots/worker-timers';
 type Target = { readonly roundId: string; readonly judgeParticipantId: string };
 type Claim = { readonly scope: Target; readonly token: string };
@@ -31,7 +32,8 @@ export function startRoundJudgingService<C extends Claim>(input: {
     readonly renewMs: number;
   };
   readonly timers: WorkerTimers;
-  readonly failed: () => void;
+  /** `stage` names the work that failed: execute, scan or renew. */
+  readonly failed: (error: unknown, stage: string) => void;
 }) {
   const entries = new Map<string, Entry<C>>();
   let stopped = false,
@@ -50,7 +52,7 @@ export function startRoundJudgingService<C extends Claim>(input: {
       try {
         await input.execute(entry.claim, entry.abort.signal);
         release(entry);
-      } catch {
+      } catch (error) {
         if (entry.abort.signal.aborted) return;
         try {
           const state = await input.store.verifyRoundJudgingJob(
@@ -62,7 +64,7 @@ export function startRoundJudgingService<C extends Claim>(input: {
           /* A lost authority never becomes a retry permission. */
         }
         release(entry);
-        input.failed();
+        input.failed(error, 'execute');
       } finally {
         entry.running = false;
         if (entry.abort.signal.aborted) entries.delete(key(entry.claim.scope));
@@ -95,8 +97,8 @@ export function startRoundJudgingService<C extends Claim>(input: {
             /* Discovery is advisory; another process may win the claim. */
           }
         }
-      } catch {
-        input.failed();
+      } catch (error) {
+        input.failed(error, 'scan');
       } finally {
         scanning = null;
       }
@@ -113,9 +115,11 @@ export function startRoundJudgingService<C extends Claim>(input: {
             entry.claim.scope,
             entry.claim.token,
           );
-        } catch {
+        } catch (error) {
           release(entry);
-          input.failed();
+          // A lease lost to completion or another claimant is a release, not a fault.
+          if (!isAppError(error) || error.code !== 'CONFLICT')
+            input.failed(error, 'renew');
         }
       }),
     ).then(() => {

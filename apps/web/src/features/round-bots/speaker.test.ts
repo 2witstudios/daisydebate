@@ -1,5 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError } from '@daisy/errors';
+import { refuseCapacity } from '@daisy/db/testing';
 import { createBotSpeaker } from './speaker';
 setupRitewayBun();
 const scope = {
@@ -10,15 +11,28 @@ const scope = {
   serviceId: 'agent-run:run',
   publicationEpoch: 1,
 };
+/** A provider answer whose settlement always succeeds. */
+const answered = <T>(value: T) => ({ value, settle: async () => undefined });
+const job = (phraseId: string, text: string) => ({
+  scope,
+  token: 'memory-only',
+  phraseId,
+  text,
+  pcm: new Int16Array(240),
+  sampleRate: 24000 as const,
+  channels: 1 as const,
+});
 function harness(
   segmentType: 'speech' | 'cross_ex',
   options: {
-    readonly generate?: () => Promise<{ text: string; phrases: string[] }>;
+    readonly generate?: () => Promise<
+      ReturnType<typeof answered<{ text: string; phrases: string[] }>>
+    >;
   } = {},
 ) {
   const log: string[] = [];
-  let failures = 0,
-    ids = 0;
+  const failures: unknown[] = [];
+  let ids = 0;
   const gates: ReturnType<typeof Promise.withResolvers<void>>[] = [];
   const speaker = createBotSpeaker({
     claim: { scope, token: 'memory-only', segmentType },
@@ -26,19 +40,11 @@ function harness(
       options.generate ??
       (async () => {
         log.push('generate');
-        return { text: 'One. Two.', phrases: ['One.', 'Two.'] };
+        return answered({ text: 'One. Two.', phrases: ['One.', 'Two.'] });
       }),
     synthesize: async (_scope, _token, phraseId, text) => {
       log.push(`tts:${text}`);
-      return {
-        scope,
-        token: 'memory-only',
-        phraseId,
-        text,
-        pcm: new Int16Array(240),
-        sampleRate: 24000 as const,
-        channels: 1 as const,
-      };
+      return answered(job(phraseId, text));
     },
     publish: async (job, signal) => {
       const gate = Promise.withResolvers<void>();
@@ -50,8 +56,8 @@ function harness(
     },
     nextId: () => `phrase-${++ids}`,
     maxAttempts: 2,
-    failed: () => {
-      failures++;
+    failed: (_error, stage) => {
+      failures.push(stage);
     },
   });
   const settle = async () => {
@@ -62,7 +68,14 @@ function harness(
     gates.shift()?.resolve();
     await settle();
   };
-  return { speaker, log, release, settle, failures: () => failures };
+  return {
+    speaker,
+    log,
+    release,
+    settle,
+    failures: () => failures.length,
+    stages: () => failures,
+  };
 }
 test('a speech claim delivers its generated phrases once without overlapping turns', async () => {
   const { speaker, log, release, settle } = harness('speech');
@@ -113,9 +126,99 @@ test('refused speaking authority waits without consuming delivery attempts', asy
   });
   await speaker.stop();
 });
+test('pool capacity refusals defer the speech without spending attempts', async () => {
+  for (const segmentType of ['speech', 'cross_ex'] as const) {
+    let calls = 0;
+    const { speaker, settle, log, stages } = harness(segmentType, {
+      generate: async () => {
+        calls++;
+        if (calls <= 3) throw refuseCapacity();
+        log.push('generate');
+        return answered({ text: 'One.', phrases: ['One.'] });
+      },
+    });
+    for (let i = 0; i < 4; i++) {
+      speaker.wake();
+      await settle();
+    }
+    assert({
+      given: `a ${segmentType} claim whose shared pool refuses admission three times`,
+      should:
+        'hand each refusal to the failure sink and deliver on the next wake',
+      actual: [calls, stages(), log],
+      expected: [
+        4,
+        ['generate', 'generate', 'generate'],
+        ['generate', 'tts:One.', 'publish:One.'],
+      ],
+    });
+    await speaker.stop();
+  }
+});
+test('a deferred turn resumes at its refused step without buying or speaking anything twice', async () => {
+  const refusals = new Map([
+    ['settle:generate', 2],
+    ['settle:Two.', 1],
+    ['publish:Two.', 2],
+  ]);
+  const refuse = (step: string) => {
+    const left = refusals.get(step) ?? 0;
+    if (left === 0) return;
+    refusals.set(step, left - 1);
+    throw refuseCapacity();
+  };
+  const calls = { language: 0, speech: 0 };
+  const spoken: string[] = [];
+  const stages: string[] = [];
+  let ids = 0;
+  const speaker = createBotSpeaker({
+    claim: { scope, token: 'memory-only', segmentType: 'speech' },
+    generate: async () => {
+      calls.language++;
+      return {
+        value: { text: 'One. Two.', phrases: ['One.', 'Two.'] },
+        settle: async () => refuse('settle:generate'),
+      };
+    },
+    synthesize: async (_scope, _token, phraseId, text) => {
+      calls.speech++;
+      return {
+        value: job(phraseId, text),
+        settle: async () => refuse(`settle:${text}`),
+      };
+    },
+    publish: async (job) => {
+      refuse(`publish:${job.text}`);
+      spoken.push(job.text);
+      return { complete: true };
+    },
+    nextId: () => `phrase-${++ids}`,
+    maxAttempts: 2,
+    failed: (_error, stage) => {
+      stages.push(stage);
+    },
+  });
+  for (let i = 0; i < 8; i++) {
+    speaker.wake();
+    for (let j = 0; j < 20; j++) await Promise.resolve();
+  }
+  assert({
+    given:
+      'a speech whose shared pool refuses the language settlement twice, the second phrase settlement once and its publication twice',
+    should:
+      'call the language provider once, synthesize each phrase once and speak each phrase once',
+    actual: { calls, spoken, stages },
+    expected: {
+      calls: { language: 1, speech: 2 },
+      spoken: ['One.', 'Two.'],
+      stages: ['generate', 'generate', 'synthesize', 'publish', 'publish'],
+    },
+  });
+  await speaker.stop();
+});
 test('provider failures stop after the bounded attempt count', async () => {
   let calls = 0;
-  const { speaker, settle, failures } = harness('speech', {
+  const { speaker, settle, stages } = harness('speech', {
     generate: async () => {
       calls++;
       throw createAppError('INFRASTRUCTURE', 'provider');
@@ -127,9 +230,9 @@ test('provider failures stop after the bounded attempt count', async () => {
   }
   assert({
     given: 'a provider that keeps failing',
-    should: 'stop after maxAttempts and report each failure',
-    actual: [calls, failures()],
-    expected: [2, 2],
+    should: 'stop after maxAttempts and report each failure with its stage',
+    actual: [calls, stages()],
+    expected: [2, ['generate', 'generate']],
   });
   await speaker.stop();
 });

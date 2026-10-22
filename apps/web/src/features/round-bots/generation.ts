@@ -100,34 +100,45 @@ export function createBotGeneration(input: {
         token,
         request,
       );
-      let settled = false;
-      try {
-        requireActive(signal);
-        const result = await work(voice, context);
-        await input.store.finishRoundBotGeneration(
+      const finish = (
+        outcome: 'received' | 'unknown',
+        usage: Parameters<Store['finishRoundBotGeneration']>[3],
+      ) =>
+        input.store.finishRoundBotGeneration(
           scope,
           context.execution,
-          'received',
-          result.usage,
+          outcome,
+          usage,
         );
-        settled = true;
+      let result: Awaited<ReturnType<typeof work>>;
+      try {
         requireActive(signal);
-        await input.store.verifyRoundBotPublication(scope, token);
-        return result.value;
+        result = await work(voice, context);
       } catch (error) {
-        if (!settled)
-          await input.store.finishRoundBotGeneration(
-            scope,
-            context.execution,
-            'unknown',
-            {
-              inputTokens: 0,
-              outputTokens: 0,
-              characters: request.kind === 'tts' ? request.characters : 0,
-            },
-          );
+        await finish('unknown', {
+          inputTokens: 0,
+          outputTokens: 0,
+          characters: request.kind === 'tts' ? request.characters : 0,
+        });
         throw error;
       }
+      let finished = false;
+      return {
+        value: result.value,
+        /**
+         * Records the received usage once, then re-verifies authority. A
+         * refused settlement is retried alone: the provider is never asked
+         * again for an answer it already gave (ISSUE-431-r4).
+         */
+        settle: async () => {
+          if (!finished) {
+            await finish('received', result.usage);
+            finished = true;
+          }
+          requireActive(signal);
+          await input.store.verifyRoundBotPublication(scope, token);
+        },
+      };
     });
   return {
     generate: (
@@ -162,11 +173,15 @@ export function createBotGeneration(input: {
             },
           };
         },
-      ).then((text) => {
-        if (!text.trim())
-          throw createAppError('INFRASTRUCTURE', 'Empty bot phrase');
-        return { text, phrases: phrasesOf(text) };
-      }),
+      ).then(({ value: text, settle }) => ({
+        value: { text, phrases: phrasesOf(text) },
+        // An empty answer is still paid for: its usage settles before it fails the attempt.
+        settle: async () => {
+          await settle();
+          if (!text.trim())
+            throw createAppError('INFRASTRUCTURE', 'Empty bot phrase');
+        },
+      })),
     synthesize: (
       scope: BotPublicationScope,
       token: string,

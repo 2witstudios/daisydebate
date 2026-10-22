@@ -150,8 +150,8 @@ test('terminal attendance races do not freeze and unexpected failures stay obser
       frozen.push(id);
       finalized.resolve();
     },
-    failed: (error) => {
-      failures.push(error);
+    failed: (error, stage) => {
+      failures.push([error instanceof Error && error.message, stage]);
       failed.resolve();
     },
   });
@@ -162,9 +162,12 @@ test('terminal attendance races do not freeze and unexpected failures stay obser
     given:
       'a concurrent terminal result, a committed forfeit, pending attendance and an unrelated error',
     should:
-      'finalize only the remaining active candidate and report only the unexpected failure',
-    actual: { frozen, failures: failures.length },
-    expected: { frozen: ['pending'], failures: 1 },
+      'finalize only the remaining active candidate and report only the unexpected failure with its stage',
+    actual: { frozen, failures },
+    expected: {
+      frozen: ['pending'],
+      failures: [['actual maintenance failure', 'evaluate']],
+    },
   });
 });
 
