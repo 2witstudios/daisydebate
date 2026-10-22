@@ -1,25 +1,20 @@
 import { requireTestServices } from '@daisy/config';
-import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { rejectedBy, withFixture } from './constraint-helpers';
+import {
+  captureSchemaStream,
+  capturedSchemaUtterance,
+} from './capture-schema.test-support';
 
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
 
 test('an expected missing stream can close partial and its closure cannot be rewritten complete', async () => {
   await withFixture(url, async (fixture) => {
-    const roundId = await fixture.round();
-    const seat = await fixture.seat(roundId, 'affirmative');
-    const segmentId = createId();
-    await fixture.insert('round_segments', {
-      id: segmentId,
-      round_id: roundId,
-      sequence: 0,
-      type: 'speech',
-      rules_segment_key: 'AC',
-      started_at: new Date(1000),
-      duration_ms: 1000,
-    });
+    const { roundId, seat, segmentId } = await captureSchemaStream(
+      fixture,
+      false,
+    );
     try {
       await fixture.sql.unsafe(
         "insert into transcript_segments (round_id, segment_id, round_participant_id, state, chunk_count, sealed_chunk_count, sealed_at) values ($1,$2,$3,'partial',0,0,clock_timestamp())",
@@ -50,32 +45,11 @@ test('an expected missing stream can close partial and its closure cannot be rew
 
 test('owning Round erasure removes captured text while direct seat deletion stays fenced', async () => {
   await withFixture(url, async (fixture) => {
-    const roundId = await fixture.round();
-    const seat = await fixture.seat(roundId, 'affirmative');
-    const segmentId = createId();
-    await fixture.insert('round_segments', {
-      id: segmentId,
-      round_id: roundId,
-      sequence: 0,
-      type: 'speech',
-      rules_segment_key: 'AC',
-      started_at: new Date(1000),
-      ended_at: new Date(2000),
-      duration_ms: 1000,
-    });
-    await fixture.insert('utterances', {
-      id: createId(),
-      round_id: roundId,
-      segment_id: segmentId,
-      round_participant_id: seat.id,
-      sequence: 0,
-      text: 'Synthetic capture',
-      clip_key: 'a'.repeat(64),
-      capture_track_id: createId(),
-      capture_start_offset_ms: 0,
-      capture_duration_ms: 500,
-      capture_worker_epoch: 1,
-      capture_body_digest: 'b'.repeat(64),
+    const { roundId, seat, segmentId } = await captureSchemaStream(fixture);
+    await capturedSchemaUtterance(fixture, {
+      roundId,
+      segmentId,
+      seatId: seat.id,
     });
     assert({
       given: 'captured text still referencing a durable Round seat',
