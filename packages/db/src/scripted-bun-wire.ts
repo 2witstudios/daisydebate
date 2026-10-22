@@ -107,9 +107,11 @@ export function fakeSql(
       reservations.reserved += 1;
       const reserved = (strings: readonly string[], ...params: unknown[]) =>
         run(strings.join('$n'), params);
-      return Object.assign(reserved, {
+      const connection = Object.assign(reserved, {
         options: {},
         unsafe: (query: string, params: unknown[] = []) => run(query, params),
+        begin: (operation: (inner: unknown) => Promise<unknown>) =>
+          operation(connection),
         release() {
           reservations.released += 1;
         },
@@ -117,6 +119,7 @@ export function fakeSql(
           reservations.closed += 1;
         },
       });
+      return connection;
     },
   };
   return { client: client as unknown as SQL, queries, reservations };
