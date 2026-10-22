@@ -276,3 +276,20 @@ coverage gaps and count mismatch, epoch expiry/takeover, cutoff/freeze refusal
 and unchanged state after rejected writes. Native worker observation production,
 signed ingress, paused-scheduler engine composition and append/finalizer races
 remain separate required integration evidence.
+
+### Round maintenance
+
+The web startup composes `createRoundMaintenanceOperations` with the existing
+availability instance ID and the database's bound maintenance methods. A 500ms
+injected timer discovers all active Rounds using stable keyset pages, including
+human-only Rounds and Rounds without media sessions. Each Round runs the shared
+engine tick, attendance evaluation and transcript finalization in order. Work
+for one Round cannot block discovery or committed attendance-rating recovery.
+The service drains its own work before the application closes the existing pool.
+
+Maintenance mutations require a current durable web lease, canonical Round
+locking, and a fresh lease check after lock waits and before commit. Finalization
+also rechecks after stream waits. No second clock model, SQL pool or media lease
+is introduced. Attendance terminal races stop that Round's maintenance cycle;
+unexpected failures remain observable. Completed ranked attendance forfeits have
+a separate durable unrated scan using the existing idempotent rating operation.
