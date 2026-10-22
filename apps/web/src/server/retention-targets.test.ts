@@ -35,6 +35,8 @@ describe('retention targets', () => {
         purgeExpiredSessions: record('session'),
         purgeExpiredRoomCommands: record('room_commands'),
         purgeExpiredRoundCommands: record('round_commands'),
+        purgeExpiredServiceInstances: record('service_instances'),
+        purgeExpiredAvailabilitySamples: record('availability_samples'),
       },
       redis: {
         sweepOnlinePresence: async (limit: number) => {
@@ -75,6 +77,16 @@ describe('retention targets', () => {
           { name: 'retention.room_commands', batchSize: 500, maxBatches: 20 },
           { name: 'retention.round_commands', batchSize: 500, maxBatches: 20 },
           {
+            name: 'retention.service_instances',
+            batchSize: 500,
+            maxBatches: 20,
+          },
+          {
+            name: 'retention.availability_samples',
+            batchSize: 500,
+            maxBatches: 20,
+          },
+          {
             name: 'retention.email_delivery_event',
             batchSize: 500,
             maxBatches: 20,
@@ -91,6 +103,12 @@ describe('retention targets', () => {
           session: [{ before: '2026-09-19T12:00:00.000Z', limit: 500 }],
           room_commands: [{ before: '2026-09-19T12:00:00.000Z', limit: 500 }],
           round_commands: [{ before: '2026-09-19T12:00:00.000Z', limit: 500 }],
+          service_instances: [
+            { before: '2026-09-19T12:00:00.000Z', limit: 500 },
+          ],
+          availability_samples: [
+            { before: '2026-09-19T12:00:00.000Z', limit: 500 },
+          ],
           outbox: [{ before: '2026-09-19T12:00:00.000Z', limit: 200 }],
           email_delivery_event: [
             { before: '2026-08-21T12:00:00.000Z', limit: 500 },
@@ -113,7 +131,7 @@ describe('retention targets', () => {
     assert({
       given: 'a clock that returns an unparsable timestamp',
       should:
-        'report ok:false for the seven database targets with no purge issued, and sweep the Redis online set by its own clock',
+        'report ok:false for the nine database targets with no purge issued, and sweep the Redis online set by its own clock',
       actual: {
         ok: results.map(({ operation, ok }) => [operation, ok]),
         calls,
@@ -128,13 +146,15 @@ describe('retention targets', () => {
           ['retention.session', false],
           ['retention.room_commands', false],
           ['retention.round_commands', false],
+          ['retention.service_instances', false],
+          ['retention.availability_samples', false],
           ['retention.email_delivery_event', false],
           ['retention.email_delivery', false],
           ['retention.presence_online', true],
         ],
         calls: {},
         sweeps: [1000],
-        failed: 7,
+        failed: 9,
       },
     });
   });

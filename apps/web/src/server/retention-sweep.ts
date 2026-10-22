@@ -52,6 +52,8 @@ export function retentionTargets({
     readonly purgeExpiredEmailDeliveries: (batch: Batch) => Promise<number>;
     readonly purgeExpiredRoomCommands: (batch: Batch) => Promise<number>;
     readonly purgeExpiredRoundCommands: (batch: Batch) => Promise<number>;
+    readonly purgeExpiredServiceInstances: (batch: Batch) => Promise<number>;
+    readonly purgeExpiredAvailabilitySamples: (batch: Batch) => Promise<number>;
     readonly purgeExpiredSessions: (batch: Batch) => Promise<number>;
   };
   readonly redis: {
@@ -110,7 +112,7 @@ export function retentionTargets({
         }),
     },
     // ADR0059/DEC-81: accepted command receipts dedupe for 24 hours.
-    ...commandTargets(database),
+    ...dailyTargets(database),
     /** ADR 0025: webhook dedupe rows are kept 30 days after receipt. */
     {
       name: 'retention.email_delivery_event',
@@ -294,25 +296,22 @@ export function startRetentionSweep({
   };
 }
 
-const commandTargets = (database: {
+const dailyTargets = (database: {
   purgeExpiredRoomCommands: (batch: Batch) => Promise<number>;
   purgeExpiredRoundCommands: (batch: Batch) => Promise<number>;
-}): readonly RetentionTarget[] => [
-  {
-    name: 'retention.room_commands',
+  purgeExpiredServiceInstances: (batch: Batch) => Promise<number>;
+  purgeExpiredAvailabilitySamples: (batch: Batch) => Promise<number>;
+}): readonly RetentionTarget[] =>
+  (
+    [
+      ['room_commands', database.purgeExpiredRoomCommands],
+      ['round_commands', database.purgeExpiredRoundCommands],
+      ['service_instances', database.purgeExpiredServiceInstances],
+      ['availability_samples', database.purgeExpiredAvailabilitySamples],
+    ] as const
+  ).map(([name, purge]) => ({
+    name: `retention.${name}`,
     batchSize: 500,
     maxBatches: 20,
-    purge: ({ now, limit }) =>
-      database.purgeExpiredRoomCommands({ before: cutoff(now, DAY_MS), limit }),
-  },
-  {
-    name: 'retention.round_commands',
-    batchSize: 500,
-    maxBatches: 20,
-    purge: ({ now, limit }) =>
-      database.purgeExpiredRoundCommands({
-        before: cutoff(now, DAY_MS),
-        limit,
-      }),
-  },
-];
+    purge: ({ now, limit }) => purge({ before: cutoff(now, DAY_MS), limit }),
+  }));
