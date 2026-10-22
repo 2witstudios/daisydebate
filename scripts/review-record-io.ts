@@ -5,6 +5,7 @@
  * verifier and its self-check command (`bun review:check`, ISSUE-122) both
  * read through this module, so there is exactly one copy of each call.
  */
+import { execFileSync } from 'node:child_process';
 import type { ReviewDiff } from './review-diff';
 import { pagespaceApi } from './pagespace-docs';
 
@@ -151,27 +152,95 @@ export function fetchPullRequest(
   };
 }
 
-/** A linked page, or undefined when it cannot be read or is not Daisy's. */
-async function readRecord(id: string): Promise<RecordPage | undefined> {
-  const { apiUrl, headers } = pagespaceApi();
+type RecordReadOptions = {
+  /** Only the local self-check opts in; CI always remains token-only. */
+  readonly localCli?: boolean;
+  readonly env?: Readonly<Record<string, string | undefined>>;
+  readonly fetch?: (url: URL, init: RequestInit) => Promise<Response>;
+  /** Throws on missing CLI, nonzero exit, timeout or excessive output. */
+  readonly cli?: (args: readonly string[]) => string;
+};
+
+const MAX_RECORD_BYTES = 1_048_576;
+
+const pagespaceDetails = (args: readonly string[]): string =>
+  execFileSync('pagespace', [...args], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'ignore'],
+    timeout: 15_000,
+    killSignal: 'SIGKILL',
+    maxBuffer: MAX_RECORD_BYTES,
+  });
+
+/** Validate full details from either transport before trusting record content. */
+function fetchedRecord(id: string, page: unknown): RecordPage | undefined {
+  if (
+    typeof page !== 'object' ||
+    page === null ||
+    !('id' in page) ||
+    page.id !== id ||
+    !('driveId' in page) ||
+    page.driveId !== DAISY_DRIVE ||
+    !('title' in page) ||
+    typeof page.title !== 'string' ||
+    !('content' in page) ||
+    typeof page.content !== 'string'
+  )
+    return undefined;
+  return { id, title: page.title, content: page.content };
+}
+
+/** A linked page, or undefined on any transport, identity or scope failure. */
+async function readRecord(
+  id: string,
+  options: RecordReadOptions,
+): Promise<RecordPage | undefined> {
+  const env = options.env ?? process.env;
   try {
-    const response = await fetch(new URL(`/api/pages/${id}`, apiUrl), {
-      headers,
-      redirect: 'error',
+    // IDs are positional CLI arguments and API path segments, never flags/paths.
+    if (!/^[a-z0-9]{20,32}$/.test(id)) return undefined;
+    if (
+      !env.PAGESPACE_TOKEN &&
+      options.localCli &&
+      !env.CI &&
+      !env.GITHUB_ACTIONS
+    ) {
+      const stdout = (options.cli ?? pagespaceDetails)([
+        'pages',
+        'read-details',
+        id,
+        '--json',
+      ]);
+      if (Buffer.byteLength(stdout) > MAX_RECORD_BYTES) return undefined;
+      return fetchedRecord(id, JSON.parse(stdout));
+    }
+    const { apiUrl, headers } = pagespaceApi({
+      token: env.PAGESPACE_TOKEN ?? '',
+      apiUrl: env.PAGESPACE_API_URL ?? 'https://pagespace.ai',
     });
+    const response = await (options.fetch ?? fetch)(
+      new URL(`/api/pages/${id}`, apiUrl),
+      {
+        headers,
+        redirect: 'error',
+      },
+    );
     if (!response.ok) return undefined;
-    return recordFromPage(id, (await response.json()) as FetchedPage);
+    return fetchedRecord(id, await response.json());
   } catch {
     return undefined;
   }
 }
 
 /** Every id's record, and which ids could not be read at all. */
-export async function readRecords(ids: readonly string[]): Promise<{
+export async function readRecords(
+  ids: readonly string[],
+  options: RecordReadOptions = {},
+): Promise<{
   readonly records: readonly RecordPage[];
   readonly unreadable: readonly string[];
 }> {
-  const read = await Promise.all(ids.map(readRecord));
+  const read = await Promise.all(ids.map((id) => readRecord(id, options)));
   return {
     records: read.filter(
       (record): record is RecordPage => record !== undefined,

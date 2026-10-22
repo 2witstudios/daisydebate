@@ -1,5 +1,7 @@
 export { debateInvariantIds } from './invariant-ids';
 export { createRoundRuntime } from './round-runtime';
+export { mediaGrants, changedMediaGrants } from './media-grants';
+export type { RoundMediaGrants } from './media-grants';
 export type {
   RoundCommand,
   RoundPosition,
@@ -35,3 +37,8 @@ export {
   assertAttendanceRules,
   type AttendanceTimingPolicy,
 } from './attendance-policy';
+
+export {
+  requireAttendanceDecision,
+  type AttendanceDecisionEvidence,
+} from './attendance-decision';

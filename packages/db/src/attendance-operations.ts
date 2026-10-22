@@ -9,6 +9,7 @@ import {
 import { eq, sql } from 'drizzle-orm';
 import { insertCommandRow } from './round-projection-writer';
 import { roundCommands } from './schema/round-commands';
+import { sampleRoundExecutionTime } from './round-execution-time';
 import {
   attendanceEvidence,
   fenceAttendance,
@@ -40,6 +41,10 @@ type CheckInInput = {
   readonly acceptWindow: (facts: LockedAttendanceCheckIn) => void;
 };
 type Fenced = Awaited<ReturnType<typeof fenceAttendance>>;
+const eligibleSeats = (seats: Fenced['seats']) =>
+  seats
+    .filter((seat) => seat.eligible && seat.role !== 'judge')
+    .map((seat) => seat.id);
 async function authorizeSeat(
   tx: AttendanceTransactionContext,
   principal: AttendancePrincipal,
@@ -101,6 +106,43 @@ export function createAttendanceOperations(deps: {
   readonly verifyWorker: WorkerVerifier;
 }) {
   return {
+    /** Fresh scoped controller/human authority; timing hints never manufacture a receipt. */
+    async readRoundAttendanceTargets(input: {
+      readonly roundId: string;
+      readonly principal: AttendancePrincipal;
+    }) {
+      if (!idSchema.safeParse(input.roundId).success)
+        throw createAppError('VALIDATION');
+      return deps.transaction(async (tx) => {
+        const columns = principalColumns(input.principal);
+        const fenced = await fenceAttendance(
+          tx,
+          input.roundId,
+          deps.nextAttemptId(),
+          columns.actorId,
+        );
+        const seat = await authorizeSeat(
+          tx,
+          input.principal,
+          fenced,
+          deps.verifyWorker,
+        );
+        const evidence = await attendanceEvidence(tx, fenced.round);
+        const recorded = await tx.execute(
+          sql`select segment_id from round_check_ins where round_id=${input.roundId} and participant_id=${seat.id}`,
+        );
+        return {
+          round: fenced.round,
+          ...evidence,
+          participantId: seat.id,
+          eligibleParticipantIds: eligibleSeats(fenced.seats),
+          recordedSegmentIds: (
+            recorded as unknown as { segment_id: string }[]
+          ).map((row) => row.segment_id),
+          now: await sampleRoundExecutionTime(tx),
+        };
+      });
+    },
     async recordRoundCheckIn(input: CheckInInput): Promise<AttendanceReceipt> {
       if (
         !idSchema.safeParse(input.roundId).success ||
@@ -135,9 +177,7 @@ export function createAttendanceOperations(deps: {
           const facts = {
             round,
             ...evidence,
-            eligibleParticipantIds: seats
-              .filter((seat) => seat.eligible && seat.role !== 'judge')
-              .map((seat) => seat.id),
+            eligibleParticipantIds: eligibleSeats(seats),
             participantId: seat.id,
           };
           const replay = await readReplay(tx, input, columns, seat.id);
