@@ -1,3 +1,4 @@
+import type { RoundParticipantSeat } from './runtime';
 import { z } from 'zod';
 import { idSchema } from './primitives';
 import type { RoundView } from './round-view';
@@ -55,3 +56,18 @@ export type RoundCommandPrincipal =
       readonly roundId: string;
       readonly participantId: string;
     };
+
+export type RoundCommandAuthority = {
+  readonly roundId: string;
+  readonly hostActorId: string | null;
+  readonly participants: readonly (RoundParticipantSeat & {
+    readonly kind: 'human' | 'bot';
+    readonly eligible: boolean;
+  })[];
+  readonly agentRun: {
+    readonly id: string;
+    readonly participantId: string;
+    readonly serviceId: string;
+    readonly active: boolean;
+  } | null;
+};

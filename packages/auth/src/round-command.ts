@@ -1,24 +1,10 @@
 import type {
   RoundCommandEnvelope,
   RoundCommandPrincipal,
-  RoundParticipantSeat,
+  RoundCommandAuthority,
   RoundRefusal,
 } from '@daisy/protocol';
 
-export type RoundCommandAuthority = {
-  readonly roundId: string;
-  readonly hostActorId: string | null;
-  readonly participants: readonly (RoundParticipantSeat & {
-    readonly kind: 'human' | 'bot';
-    readonly eligible: boolean;
-  })[];
-  readonly agentRun: {
-    readonly id: string;
-    readonly participantId: string;
-    readonly serviceId: string;
-    readonly active: boolean;
-  } | null;
-};
 function runScopeMatches(
   principal: Extract<RoundCommandPrincipal, { kind: 'agent' }>,
   authority: RoundCommandAuthority,

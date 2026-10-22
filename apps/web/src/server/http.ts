@@ -1,4 +1,4 @@
-import { createAppError, toPublicError } from '@daisy/errors';
+import { createAppError, isAppError, toPublicError } from '@daisy/errors';
 import {
   currentTraceId,
   extractTraceContext,
@@ -233,4 +233,18 @@ export async function readJson(
   } catch {
     throw createAppError('VALIDATION');
   }
+}
+
+/** Closed refusal vocabularies expose stable domain reasons while keeping internal exceptions private. */
+export function refusalResponse(
+  error: unknown,
+  requestId: string,
+  reasons: readonly string[],
+): Response | null {
+  if (!isAppError(error) || !reasons.includes(error.message)) return null;
+  const mapped = toPublicError(error, requestId);
+  return Response.json(
+    { ...mapped.body, refusal: error.message },
+    { status: mapped.status },
+  );
 }
