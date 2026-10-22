@@ -1,6 +1,6 @@
-import { createAppError } from '@daisy/errors';
+import { databaseHealthOperations } from './database-health';
 import { roundBallotOperations } from './round-ballot-operations';
-import { createRoundBotAdmission } from './round-bot-admission';
+import { roundBotAdmissionEntrypoints } from './round-bot-admission-entrypoints';
 import { mediaCaptureOperations } from './media-capture';
 import { roundSpeakingRead } from './round-speaking-read';
 import { roundProtectedReads } from './round-protected-reads';
@@ -20,12 +20,7 @@ import { createMessagingInboxStore } from './messaging/inbox-store';
 import { createMessagingChannelAuthority } from './messaging/authority-frame';
 import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
-import { sql } from 'drizzle-orm';
-import {
-  probeListen,
-  subscribeOutbox,
-  type OutboxListenHandlers,
-} from './listen';
+import { subscribeOutbox, type OutboxListenHandlers } from './listen';
 import {
   subscribeRealtimeHints,
   type RealtimeHintHandlers,
@@ -65,12 +60,6 @@ import { outboxOperations } from './outbox';
 import { readOutboxCatchup } from './outbox-catchup';
 import { readOutboxRetentionBoundary } from './outbox-retention-boundary';
 import { instrumented, type DatabaseEventSink } from './instrumented';
-import {
-  runtimeRoleFactsFrom,
-  runtimeRoleFactsQuery,
-  runtimeRoleProblems,
-  type RuntimeRoleFactsRow,
-} from './runtime-role';
 import { RUNTIME_SESSION } from './session-bounds';
 export type {
   RateDebateInput,
@@ -129,11 +118,7 @@ export function createDatabase({
   eventSink?: DatabaseEventSink;
   /** Overrides dialing `url`; tests inject a scripted client at this seam. */
   client?: SQL;
-  /**
-   * The cuid2 source for actor rows created at onboarding (ACTOR-1). Required,
-   * not defaulted: every caller states its id strategy explicitly rather than
-   * silently falling back to an ambient one.
-   */
+  /** Required cuid2 source for onboarding actors and durable Round usage IDs. */
   nextActorId: () => string;
 }) {
   const client =
@@ -150,76 +135,15 @@ export function createDatabase({
     maxConnections,
     now: performance.now,
   });
-  const botAdmission =
-    botBusyCap === undefined
-      ? undefined
-      : createRoundBotAdmission({
-          run: transcriptTransaction,
-          nextId: nextActorId,
-          busyCap: botBusyCap,
-        });
-  const configuredBotAdmission = () => {
-    if (!botAdmission)
-      throw createAppError('INFRASTRUCTURE', 'Bot admission is not configured');
-    return botAdmission;
-  };
+  const { admission: botAdmission, operations: botAdmissionOperations } =
+    roundBotAdmissionEntrypoints({
+      run: transcriptTransaction,
+      nextId: nextActorId,
+      busyCap: botBusyCap,
+    });
   return {
-    readRoundBotAdmissionStatus: async (actorId: string) =>
-      botAdmission ? botAdmission.readStatus(actorId) : null,
-    reserveRoundBotUsage: (
-      input: Parameters<
-        ReturnType<typeof createRoundBotAdmission>['reserve']
-      >[0],
-    ) => configuredBotAdmission().reserve(input),
-    markRoundBotModelCall: (
-      input: Parameters<
-        ReturnType<typeof createRoundBotAdmission>['markFirstModelCall']
-      >[0],
-    ) => configuredBotAdmission().markFirstModelCall(input),
-    refundRoundBotVendorFailure: (
-      input: Parameters<
-        ReturnType<typeof createRoundBotAdmission>['refundVendorFailure']
-      >[0],
-    ) => configuredBotAdmission().refundVendorFailure(input),
-    async health() {
-      return instrumented(eventSink, 'health', async () => {
-        await database.execute(sql`select 1`);
-        return true;
-      });
-    },
-    /**
-     * The database this connection actually landed on, from the server
-     * itself (`current_database()`), never parsed back out of `url`.
-     */
-    async currentDatabaseName(): Promise<string> {
-      return instrumented(eventSink, 'currentDatabaseName', async () => {
-        const [row] = (await database.execute(
-          sql`select current_database() as name`,
-        )) as unknown as Array<{ name: string }>;
-        return row!.name;
-      });
-    },
-    async checkListen() {
-      return instrumented(eventSink, 'checkListen', async () => {
-        await probeListen(client);
-        return true;
-      });
-    },
-    /**
-     * How the connected role could create or alter schema objects in
-     * `public` (ISSUE-39); empty for the DML-only runtime role. Production
-     * startup refuses to serve unless it is empty.
-     */
-    async runtimeRoleProblems() {
-      return instrumented(eventSink, 'runtimeRoleProblems', async () => {
-        const [row] = (await database.execute(
-          runtimeRoleFactsQuery,
-        )) as unknown as RuntimeRoleFactsRow[];
-        // No row means no schema public: nothing proves the role is safe.
-        if (row === undefined) throw new Error('Schema public is missing');
-        return runtimeRoleProblems(runtimeRoleFactsFrom(row));
-      });
-    },
+    ...botAdmissionOperations,
+    ...databaseHealthOperations({ database, client, eventSink }),
     /**
      * The RT-2.3b drain loop's LISTEN subscription (ADR 0032 §2, §3): the
      * raw client only `createDatabase` holds, never handed out as the
@@ -337,13 +261,11 @@ export type { LockedRoundCommandContext } from './round-command-operations';
 
 export type { FrozenRoundTranscript } from './frozen-transcript';
 
-export { executeLockedRoundBallot } from './round-ballot-operations';
 export type {
   LockedRoundBallotInput,
   LockedRoundBallotContext,
   RoundBallotLeaseContext,
 } from './round-ballot-operations';
-export { createAttendanceOperations } from './attendance-operations';
 export type {
   AttendanceTransactionContext,
   AttendanceTransaction,
@@ -351,20 +273,14 @@ export type {
   AttendanceFacts,
   LockedAttendanceCheckIn,
 } from './attendance-operations';
-export { createAttendanceEvaluator } from './attendance-evaluator';
 export type {
   AttendanceResolution,
   AttendanceEvaluationFacts,
 } from './attendance-evaluator';
-export { availabilityOperations } from './availability-operations';
 export type {
   AvailabilityEvidence,
   AvailabilityCause,
 } from './availability-operations';
-export {
-  checkInAttemptLifecycle,
-  reconcileCheckInAttempts,
-} from './check-in-attempts';
 export type {
   CheckInAttempt,
   CheckInAttemptMetadata,
