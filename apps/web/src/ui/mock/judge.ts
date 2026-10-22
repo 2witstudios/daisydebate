@@ -1,6 +1,5 @@
 import type { Ballot } from '@daisy/protocol';
 import type { BallotDebaters } from '../../features/judge/ballot';
-import type { PoolStatus } from '../../features/judge/flow';
 import type { JudgeRating } from '../../features/judge/rating';
 import type { JudgeResource } from '../../features/judge/resources';
 
@@ -116,12 +115,6 @@ export const sampleResources: readonly JudgeResource[] = [
     onHub: true,
   },
 ];
-
-/** Sample matchmaking: 14 seconds in the pool, a two minute offer window. */
-export const samplePoolStatus: PoolStatus = {
-  waitedSeconds: 14,
-  offerWindowSeconds: 120,
-};
 
 /** The two debaters every sample ballot names. */
 export const sampleBallotDebaters: BallotDebaters = {

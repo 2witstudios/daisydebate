@@ -1,39 +1,73 @@
 import { createElement as h } from 'react';
 import { renderToString } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import type { RoundBallotRead } from '@daisy/protocol';
 import { mockNextRouter } from '../../../lib/testing/mock-router';
-import { ballotView } from '../../../features/judge/ballot';
-import { initialMockForm } from '../../../features/mock-form/form';
-
+import {
+  view,
+  judge,
+  aff,
+  neg,
+} from '../../debate-room/live-round.test-support';
+import { sampleJudgeBallot } from '../../mock/judge';
 setupRitewayBun();
-
-// The form reads the Next router, which only exists in a running app.
 await mockNextRouter();
 const { BallotPage } = await import('./ballot-page');
-
-const debaters = {
-  affirmative: { name: 'Maya Singh' },
-  negative: { name: 'Daniel Kim' },
+const input: RoundBallotRead = {
+  round: {
+    ...view,
+    status: 'active',
+    participants: [
+      { ...aff, label: 'Maya Singh' },
+      { ...neg, label: 'Daniel Kim' },
+      judge,
+    ],
+  },
+  own: {
+    participantId: judge.id,
+    status: null,
+    ballot: null,
+    freezeRevision: null,
+  },
+  freeze: {
+    revision: 1,
+    frontier: 0,
+    frozenAt: '2026-10-22T00:00:00.000Z',
+    completeness: 'incomplete',
+    utterances: [],
+  },
+  ballots: [],
 };
-
 const render = (state: 'waiting' | 'open' | 'submitted') =>
   renderToString(
     h(BallotPage, {
-      view: ballotView('started', 'Evening round', state, debaters),
-      action: async () => initialMockForm,
+      view:
+        state === 'waiting'
+          ? { ...input, freeze: null }
+          : state === 'submitted'
+            ? {
+                ...input,
+                own: {
+                  participantId: judge.id,
+                  status: 'submitted',
+                  ballot: sampleJudgeBallot,
+                  freezeRevision: 1,
+                },
+              }
+            : input,
+      commandId: 'c'.repeat(24),
+      action: async () => ({ values: {} }),
     }),
   );
-
 const count = (html: string, pattern: RegExp) =>
   (html.match(pattern) ?? []).length;
-
-describe('BallotPage', () => {
+describe('persisted BallotPage', () => {
   test('open', () => {
     const html = render('open');
     assert({
-      given: 'an open ballot',
+      given: 'an assigned judge and actual frozen input',
       should:
-        'offer both debaters by name, twenty sliders, a reason, feedback for each and a conduct report in one real form',
+        'render one principal-bound native form with real names, all twenty rubric controls, reason, feedback and exact revision while reporting missing coverage honestly',
       actual: [
         count(html, /<h1 /g),
         count(html, /<form/g),
@@ -44,22 +78,36 @@ describe('BallotPage', () => {
         html.includes('name="feedback-affirmative"'),
         html.includes('name="feedback-negative"'),
         html.includes('name="conduct"'),
-        html.includes('name="decision"'),
+        html.includes('name="freezeRevision"'),
+        html.includes('name="judgeParticipantId"'),
         html.includes('Submit ballot'),
-        html.includes('Ballot submitted'),
+        html.includes('Some recorded coverage is missing'),
       ],
-      expected: [1, 1, 2, true, 20, true, true, true, true, false, true, false],
+      expected: [
+        1,
+        1,
+        2,
+        true,
+        20,
+        true,
+        true,
+        true,
+        false,
+        true,
+        true,
+        true,
+        true,
+      ],
     });
   });
-
   test('a fresh sheet', () => {
     const html = render('open');
     assert({
-      given: 'an open ballot before anything is entered',
+      given: 'a fresh authoritative ballot',
       should:
-        'start every score at 3, leave the totals and the vote to script, and ask for no low-point confirmation',
+        'default every rubric score to3 without stale noJS totals, a selected vote or a lowpoint confirmation',
       actual: [
-        count(html, /value="3"/g),
+        count(html, /type="range"[^>]*value="3"/g),
         count(html, />30</g),
         html.includes('No winner picked'),
         html.includes('name="low-point"'),
@@ -67,34 +115,35 @@ describe('BallotPage', () => {
       expected: [20, 0, false, false],
     });
   });
-
-  test('not open yet', () => {
+  test('not frozen yet', () => {
     const html = render('waiting');
     assert({
-      given: 'a ballot before the last turn ends',
-      should: 'say it opens when the last turn ends and offer no form',
+      given: 'an actual judge before input freeze',
+      should:
+        'wait for immutable recorded input and offer a refresh without a ballot or a demo-state link',
       actual: [
-        html.includes('opens when the last turn ends'),
+        html.includes('opens when the recorded transcript is frozen'),
         html.includes('<form'),
-        html.includes('Follow the debate'),
+        html.includes('Refresh Round'),
+        html.includes('Demo:'),
       ],
-      expected: [true, false, true],
+      expected: [true, false, true, false],
     });
   });
-
   test('submitted', () => {
     const html = render('submitted');
     assert({
-      given: 'a submitted ballot',
+      given: 'an actual stored own ballot while another vote is pending',
       should:
-        'confirm, say it cannot be sent again, offer no form and link to the result',
+        'show stored vote without a second form or fabricated final outcome',
       actual: [
         html.includes('Ballot submitted'),
-        html.includes('cannot be sent again'),
+        html.includes('Other votes or attendance settlement are still pending'),
         html.includes('<form'),
-        html.includes('See the result'),
+        html.includes('Your recorded ballot'),
+        html.includes('Round outcome:'),
       ],
-      expected: [true, true, false, true],
+      expected: [true, true, false, true, false],
     });
   });
 });
