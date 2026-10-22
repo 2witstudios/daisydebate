@@ -13,9 +13,10 @@ export function createAttendanceClient(deps: {
   readonly send: (command: {
     readonly commandId: string;
     readonly segmentId: string;
-  }) => Promise<boolean>;
+  }) => Promise<boolean | 'closed'>;
 }) {
   const pending = new Map<string, Pending>();
+  const retired = new Set<string>();
   let active = true;
   let inFlight: Promise<void> | null = null;
   let forceQueued = false;
@@ -27,14 +28,18 @@ export function createAttendanceClient(deps: {
       return;
     }
     inFlight = (async () => {
-      for (const item of pending.values()) {
+      for (const item of [...pending.values()].reverse()) {
         if (!active) break;
         if (item.acknowledged && !force) continue;
         try {
-          item.acknowledged = await deps.send({
+          const result = await deps.send({
             commandId: item.commandId,
             segmentId: item.segmentId,
           });
+          if (result === 'closed') {
+            pending.delete(item.segmentId);
+            retired.add(item.segmentId);
+          } else item.acknowledged = result;
         } catch {
           item.acknowledged = false;
         }
@@ -58,7 +63,11 @@ export function createAttendanceClient(deps: {
         return;
       }
       for (const segment of snapshot.segments)
-        if (segment.type === 'speech' && !pending.has(segment.id))
+        if (
+          segment.type === 'speech' &&
+          !pending.has(segment.id) &&
+          !retired.has(segment.id)
+        )
           pending.set(segment.id, {
             segmentId: segment.id,
             commandId: deps.nextCommandId(),
