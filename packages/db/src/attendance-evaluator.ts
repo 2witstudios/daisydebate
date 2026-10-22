@@ -6,7 +6,7 @@ import {
   fenceAttendance,
   type AttendanceFacts,
   type AttendanceTransaction,
-} from './attendance-operations';
+} from './attendance-facts';
 import {
   insertCommandRow,
   writeProjectionWithPhaseSignal,
@@ -95,20 +95,7 @@ export function createAttendanceEvaluator(transaction: AttendanceTransaction) {
           'INVARIANT',
           'Attendance windows must resolve in actual speech order',
         );
-      if (
-        resolution.decision === 'forfeit' ||
-        resolution.decision === 'abandoned'
-      ) {
-        if (!resolution.projection)
-          throw createAppError(
-            'INVARIANT',
-            'Competitive attendance completion requires shared engine projection',
-          );
-      } else if (resolution.projection !== null)
-        throw createAppError(
-          'INVARIANT',
-          'Noncompetitive attendance cannot mutate Round lifecycle',
-        );
+      requireResolutionProjection(resolution);
       const changed = resolution.projection
         ? await writeProjectionWithPhaseSignal(
             tx,
@@ -157,4 +144,21 @@ export function createAttendanceEvaluator(transaction: AttendanceTransaction) {
       return resolution;
     });
   };
+}
+
+function requireResolutionProjection(resolution: AttendanceResolution): void {
+  if (
+    resolution.decision === 'forfeit' ||
+    resolution.decision === 'abandoned'
+  ) {
+    if (!resolution.projection)
+      throw createAppError(
+        'INVARIANT',
+        'Competitive attendance completion requires shared engine projection',
+      );
+  } else if (resolution.projection !== null)
+    throw createAppError(
+      'INVARIANT',
+      'Noncompetitive attendance cannot mutate Round lifecycle',
+    );
 }
