@@ -57,9 +57,9 @@ export function RoundReceipt({ round }: { readonly round: RoundReceiptView }) {
           Round · {statusLabel[round.status]}
         </p>
         <h1 className="text-2xl font-strong text-ink">{round.topic}</h1>
-        {round.outcome ? (
+        {round.outcome || round.status === 'completed' ? (
           <p className="text-lg font-strong text-ink">
-            Result · {resultLabel[round.outcome]}
+            Result · {round.outcome ? resultLabel[round.outcome] : 'Unjudged'}
           </p>
         ) : null}
         <p className="text-ink-muted">Media is not available yet.</p>
