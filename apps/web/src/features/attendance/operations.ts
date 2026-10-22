@@ -30,7 +30,7 @@ const availabilityFor = (facts: Pick<LockedAttendanceCheckIn, 'samples'>) =>
     })),
   );
 /** Actual ordered openings, current eligible seats, durable stamps and settled evidence are the only inputs. */
-export function resolveAttendanceWindow(
+function resolveAttendanceWindow(
   facts: AttendanceEvaluationFacts,
   nextSegmentId: () => string,
 ): AttendanceResolution | null {

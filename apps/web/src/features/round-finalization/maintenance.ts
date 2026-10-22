@@ -1,6 +1,7 @@
 import type { IdGenerator } from '@daisy/clock';
 import type { AttendanceResolution, Database } from '@daisy/db';
-import { createAppError } from '@daisy/errors';
+import { createRoundRuntime } from '@daisy/debate-engine';
+import { createAppError, isAppError } from '@daisy/errors';
 import { createAttendanceRatingSweep } from '../attendance/rating';
 import { roundTickProjection } from './operations';
 
@@ -13,6 +14,7 @@ export function createRoundMaintenanceOperations(input: {
     | 'finalizeDueRoundTranscript'
     | 'readUnratedAttendanceForfeits'
     | 'rateRound'
+    | 'completeUnjudgedRound'
   >;
   readonly instanceId: string;
   readonly ids: IdGenerator;
@@ -51,12 +53,44 @@ export function createRoundMaintenanceOperations(input: {
         buildProjection,
       }),
     evaluate: input.evaluate,
-    finalize: (roundId: string) =>
-      input.store.finalizeDueRoundTranscript({
+    async finalize(roundId: string) {
+      const result = await input.store.finalizeDueRoundTranscript({
         instanceId: input.instanceId,
         roundId,
         buildProjection,
-      }),
+      });
+      if (result.status !== 'frozen') return result;
+      try {
+        await input.store.completeUnjudgedRound({
+          instanceId: input.instanceId,
+          roundId,
+          commandId: input.ids.next(),
+          freezeRevision: result.freeze.revision,
+          buildProjection,
+          buildCompletion: ({ round, now }) =>
+            createRoundRuntime({
+              ...round,
+              round,
+              nextSegmentId: () => input.ids.next(),
+            }).completeUnjudged({
+              competitionType: round.competitionType,
+              now,
+            }),
+        });
+      } catch (error) {
+        if (
+          !isAppError(error) ||
+          error.code !== 'CONFLICT' ||
+          ![
+            'unjudged-ineligible',
+            'attendance-unsettled',
+            'attendance-terminal',
+          ].includes(error.message)
+        )
+          throw error;
+      }
+      return result;
+    },
     async rateUnrated() {
       const page = await ratings({
         limit: 64,

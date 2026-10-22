@@ -19,7 +19,9 @@ export async function maintainHumanBallotFixtures(
       timeout: 160_000,
       maxBuffer: 4096,
     },
-  );
+  ).catch(() => {
+    throw new Error('Actual ballot maintenance fixture refused');
+  });
   const result = JSON.parse(stdout);
   if (JSON.stringify(result.roundIds) !== JSON.stringify(roundIds))
     throw new Error('Actual frozen fixture scope mismatch');

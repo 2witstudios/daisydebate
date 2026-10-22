@@ -44,7 +44,7 @@ const requestMedia = async (
 };
 
 /** Mount once per Round; changing projections never resets command or media lifetimes. */
-export function RoundMediaSession({
+function RoundMediaSession({
   view,
   onRefresh,
 }: {
@@ -97,6 +97,7 @@ export function RoundMediaSession({
     };
   }, [view.id]);
   useEffect(() => {
+    if (controller.current?.state() === 'ended') return;
     if (view.status === 'completed' || view.status === 'abandoned') {
       controller.current?.stop();
       return;

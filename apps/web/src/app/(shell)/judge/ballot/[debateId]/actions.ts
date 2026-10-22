@@ -1,5 +1,6 @@
 'use server';
 import { headers } from 'next/headers';
+import { ballotDebaters } from '../../../../../features/round-ballots/presentation';
 import { readRoundBallot } from '../../../../../features/round-ballots/reads';
 import {
   submitRoundBallotForm,
@@ -35,10 +36,12 @@ export async function submitBallotAction(
   form: FormData,
 ): Promise<RoundBallotFormState> {
   const incoming = new Headers(await headers());
+  const current = await readPersistedBallot(roundId);
   const answer = await submitRoundBallotForm(
     inProcessFetch(post, incoming),
     roundId,
     form,
+    current.kind === 'found' ? ballotDebaters(current.view) : undefined,
   );
   if (answer.receipt && !hydratedPost(incoming))
     return {
@@ -46,4 +49,13 @@ export async function submitBallotAction(
       ...moveOn(incoming, `/judge/ballot/${answer.receipt.roundId}`),
     };
   return answer;
+}
+
+/** Every judge live refresh rechecks the actual own assignment, even before freeze. */
+export async function readPersistedJudgeRound(roundId: string) {
+  const result = await readPersistedBallot(roundId);
+  if (result.kind !== 'found') return result;
+  return result.view.own
+    ? { kind: 'found' as const, round: result.view.round }
+    : { kind: 'missing' as const };
 }

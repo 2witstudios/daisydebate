@@ -37,7 +37,7 @@ export async function proveHumanLaunch(browser: Browser, info: TestInfo) {
     await host.reload();
     const native = await browser.newContext({
       baseURL: origin,
-      ignoreHTTPSErrors: true,
+      ignoreHTTPSErrors: false,
       javaScriptEnabled: false,
       storageState: await accounts.members[0]!.context.storageState(),
     });
@@ -60,6 +60,40 @@ export async function proveHumanLaunch(browser: Browser, info: TestInfo) {
       await expect(
         page.getByRole('button', { name: 'I am ready', exact: true }),
       ).toBeDisabled();
+      await info.attach('secure-camera-diagnostic', {
+        body: JSON.stringify(
+          await page.evaluate(async () => {
+            let stream: MediaStream | undefined;
+            const video = document.createElement('video');
+            try {
+              stream = await navigator.mediaDevices.getUserMedia({
+                video: true,
+              });
+              video.muted = true;
+              video.playsInline = true;
+              video.srcObject = stream;
+              await video.play();
+              return {
+                secure: isSecureContext,
+                playback: true,
+                frames: typeof video.requestVideoFrameCallback,
+                width: video.videoWidth,
+              };
+            } catch (error) {
+              return {
+                secure: isSecureContext,
+                playback: false,
+                name: error instanceof Error ? error.name : 'unknown',
+                mediaCode: video.error?.code ?? null,
+              };
+            } finally {
+              stream?.getTracks().forEach((track) => track.stop());
+              video.srcObject = null;
+            }
+          }),
+        ),
+        contentType: 'application/json',
+      });
       await page
         .getByRole('button', { name: 'Check camera', exact: true })
         .click();

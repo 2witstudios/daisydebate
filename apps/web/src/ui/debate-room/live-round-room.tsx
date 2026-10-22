@@ -1,6 +1,7 @@
 'use client';
 
 import './zod-jitless';
+import { roundMediaSlot } from '../../features/round-media/media-session';
 import { useRoundAttendance } from '../../features/attendance/use-round-attendance';
 import { createAttendanceReconnect } from '../../features/attendance/reconnect';
 import {
@@ -12,14 +13,9 @@ import {
 } from 'react';
 import { systemClock, systemId } from '@daisy/clock';
 import type { RoundView } from '@daisy/protocol';
-import { browserSyncEdges } from '../../features/resource-sync/browser';
 import type { RoundRead } from '../../features/rooms/read-round';
-import {
-  createRoundSyncDriver,
-  seedRoundSync,
-} from '../../features/rooms/round-sync-driver';
 import { FreshnessNotice } from '../resource-sync/freshness-notice';
-import { useResourceSync } from '../resource-sync/use-resource-sync';
+import { useLiveRoundView } from './use-live-round-view';
 import type { LeaveLinks } from './leave-room';
 import { liveRoundOf } from './live-round';
 import { DebateRoom } from './room';
@@ -79,18 +75,15 @@ export function LiveRoundRoom({
   readonly socketUrl: string | null;
 }) {
   const reconnect = useMemo(() => createAttendanceReconnect(), []);
-  const start = useCallback(
-    () =>
-      createRoundSyncDriver({
-        seed: seedRoundSync(seed, 0),
-        read,
-        ...browserSyncEdges(socketUrl),
-        onConnectionOpen: reconnect.opened,
-      }),
-    [seed, read, socketUrl, reconnect],
-  );
-  const [synced, driver] = useResourceSync(() => seedRoundSync(seed, 0), start);
+  const [synced, driver] = useLiveRoundView({
+    view: seed,
+    read,
+    socketUrl,
+    onConnectionOpen: reconnect.opened,
+  });
   const view = synced.value;
+  const refresh = useCallback(() => driver?.signal(), [driver]);
+  const defaultMedia = useMemo(() => roundMediaSlot(refresh), [refresh]);
   useRoundAttendance({ view, actorId, reconnect });
   const ids = useMemo(
     () =>
@@ -134,7 +127,7 @@ export function LiveRoundRoom({
         {(actions) =>
           round ? (
             <DebateRoom
-              media={mediaSlot?.(view)}
+              media={(mediaSlot ?? defaultMedia)(view)}
               actions={actions}
               round={round}
               sync={sync}

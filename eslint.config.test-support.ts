@@ -84,9 +84,10 @@ export const escapeRule = (code: string) =>
   code.startsWith('import {') ? imports : ['no-restricted-syntax'];
 
 /** Exact Launch entry positives and adjacent import/load refusals share the process-edge table. */
-const launchEntry = 'apps/web/e2e/support/room-launch-server.ts';
+const launchEntry = 'apps/web/e2e/support/room-launch-app.ts';
 export const launchEntryCases: readonly Case[] = [
   launchEntry,
+  'apps/web/e2e/support/room-launch-server.ts',
   'apps/web/e2e/support/room-launch-adjacent.ts',
 ].flatMap((path): Case[] => [
   [

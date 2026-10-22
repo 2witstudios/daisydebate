@@ -1,17 +1,10 @@
 'use client';
 import { useEffect, useRef } from 'react';
-import { z } from 'zod';
 import { systemId } from '@daisy/clock';
-import { attendanceReceiptSchema, type RoundView } from '@daisy/protocol';
+import type { RoundView } from '@daisy/protocol';
+import { createAttendanceHttpClient } from './http-client';
 import { createAttendanceClient } from './client';
 
-const closedWindow = z.object({
-  refusal: z.enum([
-    'attendance-finalized',
-    'attendance-terminal',
-    'attendance-window-closed',
-  ]),
-});
 /** HTTP receipt production is independent of realtime, visibility and microphone permission. */
 export function useRoundAttendance({
   view,
@@ -34,34 +27,15 @@ export function useRoundAttendance({
   const client = useRef<ReturnType<typeof createAttendanceClient> | null>(null);
   useEffect(() => {
     if (!eligible) return;
+    const http = createAttendanceHttpClient({
+      roundId: view.id,
+      fetch: (url, init) => fetch(url, init),
+      timeout: (ms) => AbortSignal.timeout(ms),
+    });
     const consumer = createAttendanceClient({
       nextCommandId: () => systemId.next(),
-      send: async (command) => {
-        const response = await fetch(`/api/rounds/${view.id}/check-in`, {
-          method: 'POST',
-          credentials: 'same-origin',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ version: 1, ...command }),
-        });
-        if (
-          response.status === 409 &&
-          closedWindow.safeParse(
-            await response
-              .clone()
-              .json()
-              .catch(() => null),
-          ).success
-        )
-          return 'closed';
-        if (!response.ok) return false;
-        const parsed = attendanceReceiptSchema.safeParse(await response.json());
-        return (
-          parsed.success &&
-          parsed.data.commandId === command.commandId &&
-          parsed.data.segmentId === command.segmentId &&
-          parsed.data.roundId === view.id
-        );
-      },
+      read: http.read,
+      send: http.send,
     });
     client.current = consumer;
     const reconnect = () => {

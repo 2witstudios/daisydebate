@@ -12,6 +12,9 @@
     // Heavy scripts run through `bun scripts/heavy.ts <command…>`, and knip
     // reads only the queue as their entry; these are the commands behind it.
     ".": {
+      // Optional host-provisioned PageSpace CLI for local review self-checks,
+      // not a workspace dependency. Provisioning: docs/development/review-record.md.
+      "ignoreBinaries": ["pagespace"],
       "entry": [
         "scripts/**/*.test.ts",
         "eslint.config.test.ts",
@@ -40,8 +43,15 @@
         // evidence/release are Bun subprocess CLI entries, never browser imports.
         "e2e/support/room-launch-config.ts",
         "e2e/support/room-launch-server.ts",
+        // Explicit subprocess/container entries, with no browser import edge.
+        "e2e/support/room-launch-app.ts",
+        "e2e/support/room-launch-queued.ts",
+        "e2e/support/launch-browser-network.mjs",
         "e2e/support/room-launch-evidence-process.ts",
+        "e2e/support/attendance-evidence-process.ts",
         "e2e/support/room-launch-release.ts",
+        // Spawned by the native ballot fixture under Bun, never imported by the Node driver.
+        "e2e/support/human-ballot-maintenance-process.ts",
         "integration/**/*.integration.ts",
         // AUTH-6.7 load harness: run.ts and abuse-run.ts are CLI entries;
         // instance-process.ts is spawned as a subprocess, never imported.
@@ -52,6 +62,10 @@
     },
     "packages/db": { "entry": ["integration/**/*.integration.ts"] },
     "packages/media": { "entry": ["integration/**/*.integration.ts"] },
+    "apps/media-worker": {
+      // Bun.resolveSync selects this isolated native subprocess entry.
+      "entry": ["src/capture-process.ts", "src/**/*.test.ts"],
+    },
     "apps/realtime": {
       "entry": [
         "integration/**/*.integration.ts",

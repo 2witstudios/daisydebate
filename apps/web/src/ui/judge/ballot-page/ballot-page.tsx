@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import { StoredBallotScores } from '../../ballot/stored-ballot-scores';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import type { RoundBallotRead } from '@daisy/protocol';
@@ -37,6 +38,11 @@ export function BallotPage({
     { values: {} },
     ballotUnavailable,
   );
+  const [rendered, setRendered] = useState({ answer, revision: 0 });
+  // A settled refusal restores the submitted controls, including the native range inputs.
+  // Keep the command/retry owner mounted while replacing only that editable field tree.
+  if (rendered.answer !== answer)
+    setRendered({ answer, revision: rendered.revision + 1 });
   useFocusAfterAnswer(answer, answer.error ? errorId : undefined, !pending);
   useEffect(() => {
     if (answer.receipt) router.refresh();
@@ -63,6 +69,7 @@ export function BallotPage({
         display={display}
         view={view}
         answer={answer}
+        fieldsRevision={rendered.revision}
         post={post}
         pending={pending}
         commandId={commandId}
@@ -75,6 +82,13 @@ export function BallotPage({
           debaters={debaters}
         />
       ) : null}
+      {own ? (
+        <StoredBallotScores
+          title="Your recorded scores"
+          ballot={own}
+          debaters={debaters}
+        />
+      ) : null}
       {display !== 'retry' && view.round.status === 'completed' ? (
         <p role="status">
           Round outcome: {view.round.outcome ?? 'No competitive outcome'}
@@ -82,6 +96,11 @@ export function BallotPage({
       ) : null}
       <Link
         href={`/judge/ballot/${view.round.id}`}
+        prefetch={false}
+        onClick={(event) => {
+          event.preventDefault();
+          router.refresh();
+        }}
         className="inline-flex min-h-10 items-center text-base font-strong"
       >
         Refresh Round

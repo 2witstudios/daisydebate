@@ -1,3 +1,4 @@
+import { humanRoundSelection } from './human-round-selection';
 import type { APIRequestContext, BrowserContext } from '@playwright/test';
 import {
   roomCatalogChoiceSchema,
@@ -69,32 +70,7 @@ export async function createHumanBallotRound(members: readonly Member[]) {
       title: 'Actual human judge ballot proof',
       topic: 'Cities should fund transit',
       visibility: 'public',
-      selection: {
-        kind: 'custom',
-        length: 'full',
-        competitionType: 'casual',
-        definition: {
-          ...choice.definition,
-          seats: { affirmative: 1, negative: 1, judge: 2 },
-          configurable: {
-            ...choice.definition.configurable,
-            interaction: {
-              ...choice.definition.configurable.interaction,
-              yield: {
-                enabledChoices: [true, false],
-                returnsTimeChoices: [true, false],
-              },
-            },
-          },
-        },
-        config: {
-          ...choice.defaultConfig,
-          preRoundPrep: { enabled: false },
-          inRoundPrep: { enabled: false },
-          speechTiming: { countdownMs: 0, segmentDurationOverrides: {} },
-          yielding: { allowed: true, returnsTime: false },
-        },
-      },
+      selection: humanRoundSelection(choice, 2),
     },
   });
   expect(created.status()).toBe(201);
@@ -132,4 +108,40 @@ export async function createHumanBallotRound(members: readonly Member[]) {
   if (!room.roundRef) throw new Error('Round was not durably admitted');
   const initial = await readBallotRound(host.context.request, room.roundRef.id);
   return ballotRoundCommand(host.context.request, initial, { type: 'start' });
+}
+
+/** Real first receipt and both voluntary speech endings; scheduler invocation is a separately labelled fixture edge. */
+export async function playHumanBallotRound(
+  members: readonly Member[],
+  tick: (ids: readonly string[]) => Promise<void>,
+) {
+  let view = await createHumanBallotRound(members);
+  for (const [index, role] of (
+    ['affirmative', 'negative'] as const
+  ).entries()) {
+    await tick([view.id]);
+    const request = members[index]!.context.request;
+    view = await readBallotRound(request, view.id);
+    const participant = view.participants.find(
+      (seat) => seat.role === role && 'id' in seat,
+    );
+    if (!participant || !('id' in participant))
+      throw new Error('Actual debater seat missing');
+    if (index === 0) {
+      const segment = view.segments.find(
+        (segment) => segment.type === 'speech' && segment.endedAt === null,
+      );
+      if (!segment) throw new Error('Actual speech opening missing');
+      const receipt = await request.post(`/api/rounds/${view.id}/check-in`, {
+        headers: { origin },
+        data: { version: 1, commandId: createId(), segmentId: segment.id },
+      });
+      expect(receipt.status()).toBe(200);
+    }
+    view = await ballotRoundCommand(request, view, {
+      type: 'yield',
+      participantId: participant.id,
+    });
+  }
+  return view;
 }
