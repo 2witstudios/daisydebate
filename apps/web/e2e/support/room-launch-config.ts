@@ -2,6 +2,7 @@ import { resolve } from 'node:path';
 import { defineConfig } from '@playwright/test';
 import canonical from '../../playwright.config';
 import { requireLaunchSlot } from './room-launch-slot';
+import { launchWorkerPolicy } from './room-launch-worker-policy';
 
 const slot = requireLaunchSlot(
   resolve(import.meta.dirname, '../../../..'),
@@ -75,6 +76,7 @@ export default defineConfig({
         E2E_REDIS_NAMESPACE: process.env.E2E_REDIS_NAMESPACE!,
         E2E_PORT: process.env.E2E_PORT!,
         AI_ROUND_BUSY_CAP: '4',
+        ROUND_BOT_WORKER_POLICY: launchWorkerPolicy,
         NODE_EXTRA_CA_CERTS: process.env.NODE_EXTRA_CA_CERTS!,
         E2E_LOCAL_TLS_CERT: process.env.E2E_LOCAL_TLS_CERT!,
         E2E_LOCAL_TLS_KEY: process.env.E2E_LOCAL_TLS_KEY!,
