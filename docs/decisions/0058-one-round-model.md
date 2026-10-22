@@ -211,9 +211,8 @@ depends on one, and nothing in a Round's history would change if Rooms were dele
   external outcome is retained rather than fabricated as success or refund.
   Server composition must supply an explicit trusted positive integer busy cap;
   a local proof value of four is capacity configuration, not entitlement.
-  Existing reservations with unknown admission time fail closed and must be
-  removed before the forward NOT NULL cutover; Round creation time is not a
-  substitute. No public grant setter, billing workflow or admin surface follows
+  Every reservation records its PostgreSQL admission time (NOT NULL); Round
+  creation time is never a substitute. No public grant setter, billing workflow or admin surface follows
   from this read authority. The 15-minute and two-hour reclamation horizons above
   are unchanged.
 - **Captured speech has a bounded server finalization window.** The shared engine

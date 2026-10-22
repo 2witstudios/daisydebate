@@ -11,7 +11,8 @@ export function createBotSeat(input: {
   readonly feed: { readonly poll: () => Promise<void> } | null;
   readonly pollMs: number;
   readonly timers: WorkerTimers;
-  readonly failed: () => void;
+  /** `stage` is always poll: the peer activity feed failed. */
+  readonly failed: (error: unknown, stage: string) => void;
 }) {
   let polling: Promise<void> | null = null;
   const poll = (): Promise<void> => {
@@ -19,8 +20,8 @@ export function createBotSeat(input: {
       try {
         await input.feed?.poll();
         input.speaker.wake();
-      } catch {
-        input.failed();
+      } catch (error) {
+        input.failed(error, 'poll');
       } finally {
         polling = null;
       }

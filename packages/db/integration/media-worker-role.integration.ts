@@ -166,6 +166,55 @@ test('the worker refuses a database login broader than its role', async () => {
       await problemsAs('daisy_web'),
       await problemsAs('daisy_media_worker'),
     ],
-    expected: [true, ['not a capture worker', 'writes'], []],
+    expected: [true, ['not a capture worker', 'writes', 'reads'], []],
   });
+});
+
+test('the worker refuses a capture login with any broader privilege', async () => {
+  const admin = new SQL(url, { max: 1 });
+  const problemsWith = async (grant: (role: string) => string) => {
+    const role = `media_worker_probe_${createId()}`;
+    await admin.unsafe(
+      `create role ${role} nologin in role daisy_media_worker`,
+    );
+    try {
+      await admin.unsafe(grant(role));
+      const client = new SQL(url, { max: 1 });
+      await client.unsafe(`set role ${role}`);
+      const worker = createMediaWorkerDatabase({ url, client });
+      try {
+        return await worker.privilegeProblems();
+      } finally {
+        await worker.close();
+      }
+    } finally {
+      await admin.unsafe(`drop owned by ${role}`);
+      await admin.unsafe(`drop role ${role}`);
+    }
+  };
+  try {
+    assert({
+      given:
+        'a capture worker login that can create roles or databases, bypass RLS, replicate, read beyond its six tables, or belongs to pg_read_all_data',
+      should: 'name each broader privilege so startup and doctor refuse it',
+      actual: [
+        await problemsWith((r) => `alter role ${r} createrole`),
+        await problemsWith((r) => `alter role ${r} createdb`),
+        await problemsWith((r) => `alter role ${r} bypassrls`),
+        await problemsWith((r) => `alter role ${r} replication`),
+        await problemsWith((r) => `grant select on users to ${r}`),
+        await problemsWith((r) => `grant pg_read_all_data to ${r}`),
+      ],
+      expected: [
+        ['createrole'],
+        ['createdb'],
+        ['bypassrls'],
+        ['replication'],
+        ['reads'],
+        ['reads', 'other roles'],
+      ],
+    });
+  } finally {
+    await admin.close();
+  }
 });

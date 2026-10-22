@@ -63,11 +63,8 @@ async function existingReservation(
     .from(usageReservations)
     .where(reservationWhere(target))
     .for('update');
-  if (row && (!row.reservedAt || (row.refundedAt && !allowRefunded)))
-    throw createAppError(
-      'CONFLICT',
-      'Reservation provenance unavailable or refunded',
-    );
+  if (row?.refundedAt && !allowRefunded)
+    throw createAppError('CONFLICT', 'Reservation refunded');
   return row;
 }
 async function mutateLockedReservation(
@@ -115,25 +112,22 @@ async function admissionStatus(
 ) {
   const allowance = await readBotAllowance(tx, actorId, now);
   const [facts] = await tx.execute(sql`select
-    (select count(*)::int from usage_reservations where actor_id=${actorId} and kind='ai_practice' and reserved_at is null) as unknown,
     (select count(*)::int from usage_reservations where actor_id=${actorId} and kind='ai_practice' and refunded_at is null
       and reserved_at>=${allowance.start} and reserved_at<${allowance.end}) as spent,
     (select count(distinct u.round_id)::int from usage_reservations u join rounds r on r.id=u.round_id
       where u.kind='ai_practice' and r.status in ('scheduled','active')) as busy`);
-  const value = facts as { unknown: number; spent: number; busy: number };
+  const value = facts as { spent: number; busy: number };
   return {
     limit: allowance.limit,
     remaining: Math.max(0, allowance.limit - value.spent),
     periodStart: allowance.start.toISOString(),
     periodEnd: allowance.end.toISOString(),
     refusal:
-      value.unknown !== 0
-        ? ('provenance' as const)
-        : value.spent >= allowance.limit
-          ? ('allowance' as const)
-          : value.busy >= busyCap
-            ? ('capacity' as const)
-            : null,
+      value.spent >= allowance.limit
+        ? ('allowance' as const)
+        : value.busy >= busyCap
+          ? ('capacity' as const)
+          : null,
   };
 }
 /** Trusted composition supplies a real bound; no environment/default entitlement is inferred. */

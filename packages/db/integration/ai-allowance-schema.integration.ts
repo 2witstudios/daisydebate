@@ -77,24 +77,19 @@ test('authoritative allowance periods cannot overlap and reservation timestamps 
         [reservationId],
       );
       const otherRound = await fixture.round();
-      const oldReservation = createId();
-      await fixture.insert('usage_reservations', {
-        id: oldReservation,
-        actor_id: actorId,
-        round_id: otherRound,
-        kind: 'ai_practice',
-        reserved_at: null,
-      });
       assert({
-        given: 'a provisional reservation with unknown historic admission time',
-        should: 'preserve unknown provenance instead of inventing a timestamp',
-        actual: (
-          await fixture.sql.unsafe(
-            'select reserved_at from usage_reservations where id=$1',
-            [oldReservation],
-          )
-        )[0],
-        expected: { reserved_at: null },
+        given: 'a reservation with unknown admission time',
+        should: 'refuse it rather than store or invent provenance',
+        actual: await rejectedBy(() =>
+          fixture.insert('usage_reservations', {
+            id: createId(),
+            actor_id: actorId,
+            round_id: otherRound,
+            kind: 'ai_practice',
+            reserved_at: null,
+          }),
+        ),
+        expected: '23502',
       });
     } finally {
       const [table] =
@@ -104,56 +99,6 @@ test('authoritative allowance periods cannot overlap and reservation timestamps 
           'delete from ai_allowance_grants where actor_id=$1',
           [actorId],
         );
-    }
-  });
-});
-
-test('the actual admission migration gives only future rows a database timestamp', async () => {
-  const migration = await Bun.file(
-    new URL(
-      '../migrations/20261022065033_flashy_sage/migration.sql',
-      import.meta.url,
-    ),
-  ).text();
-  const statements = migration
-    .split('--> statement-breakpoint')
-    .filter((statement) =>
-      /ALTER TABLE "usage_reservations" (ADD COLUMN "reserved_at"|ALTER COLUMN "reserved_at")/.test(
-        statement,
-      ),
-    );
-  await withFixture(url, async (fixture) => {
-    await fixture.sql.unsafe(
-      'create temporary table admission_migration_probe (id text primary key)',
-    );
-    try {
-      await fixture.sql.unsafe(
-        "insert into admission_migration_probe(id) values('existing')",
-      );
-      for (const statement of statements)
-        await fixture.sql.unsafe(
-          statement.replaceAll(
-            '"usage_reservations"',
-            'pg_temp.admission_migration_probe',
-          ),
-        );
-      await fixture.sql.unsafe(
-        "insert into admission_migration_probe(id) values('new')",
-      );
-      assert({
-        given: 'a real row predating the actual forward migration',
-        should:
-          'keep historic provenance unknown while new rows receive PG time',
-        actual: await fixture.sql.unsafe(
-          'select id,reserved_at is null as unknown from admission_migration_probe order by id',
-        ),
-        expected: [
-          { id: 'existing', unknown: true },
-          { id: 'new', unknown: false },
-        ],
-      });
-    } finally {
-      await fixture.sql.unsafe('drop table admission_migration_probe');
     }
   });
 });

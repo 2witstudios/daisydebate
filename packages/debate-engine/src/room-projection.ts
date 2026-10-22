@@ -34,6 +34,16 @@ const hiddenJudges = (room: RoomAssemblyState, actorId: string) =>
           .map((p) => p.actorId),
   );
 
+/**
+ * Whether this viewer may not name the host: a host seated as a human judge
+ * shares that judge's anonymity (DEC-174), except with themselves. Room reads
+ * and lobby discovery both apply this one rule.
+ */
+export const hostIdentityHidden = (
+  room: { readonly hostActorId: string; readonly hostIsHumanJudge: boolean },
+  viewerActorId: string,
+) => room.hostIsHumanJudge && room.hostActorId !== viewerActorId;
+
 /** Server projection: consumers never infer startability or consent from local device state. */
 export function projectRoom(
   room: RoomAssemblyState,
@@ -47,9 +57,18 @@ export function projectRoom(
   void _anchor;
   void _remaining;
   return {
-    // When the host occupies a judge seat this viewer may not name, the host
-    // identity is that judge's identity and is redacted with it (DEC-174).
-    ...(hidden.has(room.hostActorId)
+    ...(hostIdentityHidden(
+      {
+        hostActorId: room.hostActorId,
+        hostIsHumanJudge: room.participants.some(
+          (p) =>
+            p.actorId === room.hostActorId &&
+            p.role === 'judge' &&
+            p.kind === 'human',
+        ),
+      },
+      actorId,
+    )
       ? { ...rest, hostActorId: null, hostLabel: null }
       : rest),
     participants: room.participants.map(

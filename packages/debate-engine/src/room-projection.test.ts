@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { projectRoom } from './room-projection';
+import { hostIdentityHidden, projectRoom } from './room-projection';
 import { edges, state } from './room-assembly.test-support';
 
 setupRitewayBun();
@@ -122,5 +122,24 @@ describe('projectRoom judge anonymity when the host judges (DEC-174)', () => {
       ],
       expected: ['host', 'Host', true],
     });
+  });
+});
+
+test('a judge-host is hidden from everyone but themselves', () => {
+  const host = 'h'.repeat(24),
+    viewer = 'v'.repeat(24);
+  assert({
+    given:
+      'a host in a human judge seat, a non-judge host, and the host reading',
+    should: 'hide only the judge-host and only from other viewers',
+    actual: [
+      hostIdentityHidden({ hostActorId: host, hostIsHumanJudge: true }, viewer),
+      hostIdentityHidden(
+        { hostActorId: host, hostIsHumanJudge: false },
+        viewer,
+      ),
+      hostIdentityHidden({ hostActorId: host, hostIsHumanJudge: true }, host),
+    ],
+    expected: [true, false, false],
   });
 });

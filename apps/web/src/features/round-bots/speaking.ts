@@ -33,7 +33,7 @@ export function createSpeakingBotControl(input: {
   readonly nextId: () => string;
   readonly nowMs: () => number;
   readonly callTimeoutMs: number;
-  readonly failed: () => void;
+  readonly failed: (error: unknown, stage: string) => void;
 }) {
   const generation = createBotGeneration({
     store: input.store,

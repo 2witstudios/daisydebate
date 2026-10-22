@@ -100,6 +100,7 @@ test('discovery uses partial ordered indexes independently of historical Room an
             { q: token, pageSize: 2, ...(cursor ? { cursor } : {}) },
             () => true,
             () => true,
+            () => false,
           ),
         );
       const first = await list(),
