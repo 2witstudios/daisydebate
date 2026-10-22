@@ -115,6 +115,7 @@ function ingress(f: Fixture, deps: ReturnType<typeof mediaDependencies>) {
     token: (scope, principal) => broker.captureToken(scope, principal),
     activity: createBotActivityRelay({
       readCapture: (value) => capture.readMediaCaptureState(value),
+      readLease: (value) => capture.readCurrentCaptureLease(value),
       write: f.redis.writeBotActivity,
     }),
   });

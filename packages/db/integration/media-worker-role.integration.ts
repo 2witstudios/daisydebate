@@ -172,6 +172,7 @@ test('the worker refuses a database login broader than its role', async () => {
 
 test('the worker refuses a capture login with any broader privilege', async () => {
   const admin = new SQL(url, { max: 1 });
+  const [{ database }] = await admin`select current_database() as database`;
   const problemsWith = async (grant: (role: string) => string) => {
     const role = `media_worker_probe_${createId()}`;
     await admin.unsafe(
@@ -195,7 +196,7 @@ test('the worker refuses a capture login with any broader privilege', async () =
   try {
     assert({
       given:
-        'a capture worker login that can create roles or databases, bypass RLS, replicate, read beyond its six tables, or belongs to pg_read_all_data',
+        'a capture worker login that can create roles or databases, bypass RLS, replicate, read beyond its six tables, belongs to pg_read_all_data, writes a non-public table or a sequence, or creates in the database or a schema',
       should: 'name each broader privilege so startup and doctor refuse it',
       actual: [
         await problemsWith((r) => `alter role ${r} createrole`),
@@ -204,6 +205,17 @@ test('the worker refuses a capture login with any broader privilege', async () =
         await problemsWith((r) => `alter role ${r} replication`),
         await problemsWith((r) => `grant select on users to ${r}`),
         await problemsWith((r) => `grant pg_read_all_data to ${r}`),
+        await problemsWith(
+          (r) =>
+            `grant usage on schema drizzle to ${r}; grant insert on drizzle.__drizzle_migrations to ${r}`,
+        ),
+        await problemsWith(
+          (r) => `grant update on all sequences in schema public to ${r}`,
+        ),
+        await problemsWith(
+          (r) => `grant create on database "${database}" to ${r}`,
+        ),
+        await problemsWith((r) => `grant create on schema public to ${r}`),
       ],
       expected: [
         ['createrole'],
@@ -212,6 +224,10 @@ test('the worker refuses a capture login with any broader privilege', async () =
         ['replication'],
         ['reads'],
         ['reads', 'other roles'],
+        ['writes'],
+        ['writes'],
+        ['creates'],
+        ['creates'],
       ],
     });
   } finally {

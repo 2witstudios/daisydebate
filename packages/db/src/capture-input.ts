@@ -19,6 +19,9 @@ export const captureWorkerIdentitySchema = z
     epoch: z.number().int().positive().max(2147483647),
   })
   .strict();
+export const captureLeaseCheckSchema = captureWorkerIdentitySchema.safeExtend({
+  segmentId: idSchema,
+});
 export const captureReadSchema = captureWorkerIdentitySchema
   .safeExtend({
     segmentId: idSchema.optional(),

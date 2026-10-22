@@ -21,6 +21,7 @@ const PRIVILEGE_PROBLEMS = {
   replication: 'replication',
   outsider: 'not a capture worker',
   writes: 'writes',
+  creates: 'creates',
   reads: 'reads',
   others: 'other roles',
 } as const;
@@ -72,11 +73,23 @@ export function createMediaWorkerDatabase(input: {
           r.rolcreatedb as createdb, r.rolbypassrls as bypassrls,
           r.rolreplication as replication,
           not pg_has_role(current_user, 'daisy_media_worker', 'usage') as outsider,
-          (select bool_or(has_table_privilege(c.oid, p.privilege))
-            from pg_class c
-            cross join unnest(array['INSERT','UPDATE','DELETE','TRUNCATE']) p(privilege)
-            where c.relnamespace = 'public'::regnamespace and c.relkind = 'r'
+          exists (select 1 from pg_class c
+            join pg_namespace n on n.oid = c.relnamespace
+            where n.nspname <> 'information_schema'
+              and left(n.nspname, 3) <> 'pg_'
+              and ((c.relkind in ('r', 'p', 'v', 'f')
+                  and (has_any_column_privilege(c.oid, 'INSERT')
+                    or has_any_column_privilege(c.oid, 'UPDATE')
+                    or has_table_privilege(c.oid, 'DELETE')
+                    or has_table_privilege(c.oid, 'TRUNCATE')))
+                or (c.relkind = 'S' and has_sequence_privilege(c.oid, 'UPDATE')))
           ) as writes,
+          has_database_privilege(current_database(), 'CREATE')
+            or exists (select 1 from pg_namespace n
+              where n.nspname <> 'information_schema'
+                and left(n.nspname, 3) <> 'pg_'
+                and has_schema_privilege(n.oid, 'CREATE')
+            ) as creates,
           exists (select 1 from pg_class c
             join pg_namespace n on n.oid = c.relnamespace
             where c.relkind in ('r', 'p', 'v', 'm', 'f')

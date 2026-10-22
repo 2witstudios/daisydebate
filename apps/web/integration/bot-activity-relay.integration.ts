@@ -1,3 +1,4 @@
+import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import { createLogger } from '@daisy/logger';
@@ -5,10 +6,11 @@ import { createMediaWorkerAuthentication } from '@daisy/media/internal';
 import { createMediaWorkerClient } from '@daisy/media/worker';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createMediaCaptureHandlers } from '../src/features/media-capture/handlers';
-import { createBotActivityRelay } from '../src/features/round-bots/activity-relay';
 import {
+  captureActivityRelay,
   captureOperations,
   captureWorkerScope,
+  startCaptureSpeech,
   withMediaRound,
 } from './round-media.test-support';
 setupRitewayBun();
@@ -22,10 +24,10 @@ test('actual capture lease relays a bound seat with fresh PG receipt and no body
       leaseMs: 15000,
     });
     const identity = { ...scope, epoch: lease.epoch };
-    const relay = createBotActivityRelay({
-      readCapture: (value) => capture.readMediaCaptureState(value),
-      write: f.redis.writeBotActivity,
-    });
+    await startCaptureSpeech(f);
+    const segmentId = (await capture.readMediaCaptureState(identity)).segment!
+      .id;
+    const relay = captureActivityRelay(f, capture);
     const seats: { id: string; host: boolean }[] =
       await f.sql`select p.id, a.id = ${f.host.actorId} as host from round_participants p join actors a on a.id=p.actor_id where p.round_id=${f.roundId} and p.role<>'judge'`;
     const host = String(seats.find((row) => row.host)!.id);
@@ -46,6 +48,7 @@ test('actual capture lease relays a bound seat with fresh PG receipt and no body
     await relay(identity, {
       version: 1,
       roundParticipantId: host,
+      segmentId,
       frames: [original],
     });
     const stored = await f.redis.readBotActivity(f.roundId, host);
@@ -71,6 +74,7 @@ test('actual capture lease relays a bound seat with fresh PG receipt and no body
         body: {
           version: 1,
           roundParticipantId: host,
+          segmentId,
           frames: [{ ...original, receivedAt: new Date(nowMs).toISOString() }],
         },
         code: 'VALIDATION',
@@ -78,13 +82,34 @@ test('actual capture lease relays a bound seat with fresh PG receipt and no body
       {
         given: 'an unbound guest seat',
         identity,
-        body: { version: 1, roundParticipantId: guest, frames: [original] },
+        body: {
+          version: 1,
+          roundParticipantId: guest,
+          segmentId,
+          frames: [original],
+        },
         code: 'AUTHORIZATION',
       },
       {
         given: 'a stale capture epoch',
         identity: { ...identity, epoch: identity.epoch + 1 },
-        body: { version: 1, roundParticipantId: host, frames: [original] },
+        body: {
+          version: 1,
+          roundParticipantId: host,
+          segmentId,
+          frames: [original],
+        },
+        code: 'CONFLICT',
+      },
+      {
+        given: 'a segment that is not the current one',
+        identity,
+        body: {
+          version: 1,
+          roundParticipantId: host,
+          segmentId: createId(),
+          frames: [original],
+        },
         code: 'CONFLICT',
       },
       {
@@ -93,6 +118,7 @@ test('actual capture lease relays a bound seat with fresh PG receipt and no body
         body: {
           version: 1,
           roundParticipantId: host,
+          segmentId,
           frames: [
             {
               ...original,
@@ -138,10 +164,7 @@ test('signed worker activity crosses the actual ingress into the expiring relay 
       authentication: () => authentication,
       capture: () => capture,
       token: () => Promise.reject(Error('token is not part of relay')),
-      activity: createBotActivityRelay({
-        readCapture: (value) => capture.readMediaCaptureState(value),
-        write: f.redis.writeBotActivity,
-      }),
+      activity: captureActivityRelay(f, capture),
     });
     const server = Bun.serve({
       hostname: '127.0.0.1',
@@ -158,6 +181,8 @@ test('signed worker activity crosses the actual ingress into the expiring relay 
         deadlineSignal: () => AbortSignal.timeout(5000),
       });
       const { epoch } = await client.lease(15000);
+      await startCaptureSpeech(f);
+      const segmentId = (await client.read({ epoch })).state.segment!.id;
       const [{ id: host }] =
         await f.sql`select p.id from round_participants p where p.round_id=${f.roundId} and p.actor_id=${f.host.actorId}`;
       const [{ now }] = await f.sql`select clock_timestamp() as now`;
@@ -176,6 +201,7 @@ test('signed worker activity crosses the actual ingress into the expiring relay 
       await client.activity({
         epoch,
         roundParticipantId: String(host),
+        segmentId,
         frames: [frame],
       });
       const stored = await f.redis.readBotActivity(f.roundId, String(host));
@@ -186,6 +212,7 @@ test('signed worker activity crosses the actual ingress into the expiring relay 
           client.activity({
             epoch: epoch + 1,
             roundParticipantId: String(host),
+            segmentId,
             frames: [{ ...frame, sequence: 4 }],
           }),
         code: 'CONFLICT',

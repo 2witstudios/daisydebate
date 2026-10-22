@@ -2,7 +2,9 @@ import { createId } from '@paralleldrive/cuid2';
 import { createMediaService } from '@daisy/media';
 import { createLogger } from '@daisy/logger';
 import { noopErrorReporter, withTimeout } from '@daisy/observability';
+import { createBotActivityRelay } from '../src/features/round-bots/activity-relay';
 import { createRoundMediaOperations } from '../src/features/round-media/operations';
+import { createRoundRuntimeOperations } from '../src/features/round-runtime/operations';
 import { mediaRuntime } from '../src/features/round-media/projection';
 import { withRoomRuntime } from './room-runtime.test-support';
 
@@ -133,4 +135,36 @@ export async function waitForMediaFact(fact: () => Promise<boolean>) {
       throw new Error('Media fact was not observed before its deadline');
     await Bun.sleep(10);
   }
+}
+
+/** The production activity relay over the fixture's capture operations and Redis. */
+export const captureActivityRelay = (
+  fixture: Parameters<Parameters<typeof withMediaRound>[0]>[0],
+  capture: ReturnType<typeof captureOperations>,
+) =>
+  createBotActivityRelay({
+    readCapture: (identity) => capture.readMediaCaptureState(identity),
+    readLease: (identity) => capture.readCurrentCaptureLease(identity),
+    write: fixture.redis.writeBotActivity,
+  });
+
+/** Starts the launched Round and moves its clock past the countdown into the first speech. */
+export async function startCaptureSpeech(
+  fixture: Parameters<Parameters<typeof withMediaRound>[0]>[0],
+) {
+  const round = (await fixture.store.getRound(fixture.roundId))!;
+  await createRoundRuntimeOperations({
+    store: fixture.store,
+    nextSegmentId: createId,
+  }).command(
+    { kind: 'human', actorId: fixture.host.actorId },
+    fixture.roundId,
+    {
+      version: 1,
+      commandId: createId(),
+      expectedVersion: round.version,
+      command: { type: 'start' },
+    },
+  );
+  await fixture.sql`update rounds set started_at=clock_timestamp()-${round.rules.countdownMs + 1000}*interval '1 millisecond' where id=${fixture.roundId}`;
 }
