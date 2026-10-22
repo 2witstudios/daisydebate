@@ -1,5 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError } from '@daisy/errors';
+import { refuseCapacity } from '@daisy/db/testing';
 import { createBotSpeaker } from './speaker';
 setupRitewayBun();
 const scope = {
@@ -119,6 +120,35 @@ test('refused speaking authority waits without consuming delivery attempts', asy
     expected: [4, 0],
   });
   await speaker.stop();
+});
+test('pool capacity refusals defer the speech without spending attempts', async () => {
+  for (const segmentType of ['speech', 'cross_ex'] as const) {
+    let calls = 0;
+    const { speaker, settle, log, stages } = harness(segmentType, {
+      generate: async () => {
+        calls++;
+        if (calls <= 3) throw refuseCapacity();
+        log.push('generate');
+        return { text: 'One.', phrases: ['One.'] };
+      },
+    });
+    for (let i = 0; i < 4; i++) {
+      speaker.wake();
+      await settle();
+    }
+    assert({
+      given: `a ${segmentType} claim whose shared pool refuses admission three times`,
+      should:
+        'hand each refusal to the failure sink and deliver on the next wake',
+      actual: [calls, stages(), log],
+      expected: [
+        4,
+        ['generate', 'generate', 'generate'],
+        ['generate', 'tts:One.', 'publish:One.'],
+      ],
+    });
+    await speaker.stop();
+  }
 });
 test('provider failures stop after the bounded attempt count', async () => {
   let calls = 0;

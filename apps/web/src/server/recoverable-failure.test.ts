@@ -6,10 +6,8 @@ setupRitewayBun();
 const record = (isCapacity: (error: unknown) => boolean = () => false) => {
   const lines: unknown[][] = [];
   const captured: unknown[][] = [];
-  let now = 0;
   const failed = recoverableFailure({
     isCapacity,
-    nowMs: () => now,
     logger: { log: (...line) => lines.push(line) },
     reporter: { capture: (...call) => captured.push(call) },
     nextId: () => 'r4n6p8r2t4v6x8z1k3b5c7d9',
@@ -17,14 +15,7 @@ const record = (isCapacity: (error: unknown) => boolean = () => false) => {
     operation: 'round.maintenance',
     message: 'Competitive maintenance remains recoverable',
   });
-  return {
-    lines,
-    captured,
-    failed,
-    at: (ms: number) => {
-      now = ms;
-    },
-  };
+  return { lines, captured, failed };
 };
 
 test('a recoverable worker failure keeps its code and stage', () => {
@@ -80,28 +71,20 @@ test('capacity backpressure stays silent within its bound', () => {
     'INFRASTRUCTURE',
     'Transcript transaction capacity unavailable',
   );
-  const { lines, captured, failed, at } = record((error) => error === capacity);
-  for (let i = 0; i < 8; i++) {
-    at(i * 1_000);
-    failed(capacity, 'tick');
-  }
+  const { lines, captured, failed } = record((error) => error === capacity);
+  for (let i = 0; i < 8; i++) failed(capacity, 'tick');
   const withinBound = lines.length;
-  at(9_000);
   failed(capacity, 'tick');
-  at(9_500);
   failed(capacity, 'tick');
-  const starved = lines.length;
-  at(30_000);
-  failed(capacity, 'tick');
+  failed(capacity, 'other');
   assert({
     given:
-      'eight admission refusals in ten seconds, then more, then a quiet window',
+      'eight admission refusals of one stage, two more, and one of another stage',
     should:
-      'log nothing within the bound, one starvation line past it, and reset after the window',
-    actual: { withinBound, starved, lines, captured: captured.length },
+      'log nothing within the bound, one starvation line past it, and count each stage on its own',
+    actual: { withinBound, lines, captured: captured.length },
     expected: {
       withinBound: 0,
-      starved: 1,
       lines: [
         [
           'round.maintenance.failed',
@@ -114,5 +97,30 @@ test('capacity backpressure stays silent within its bound', () => {
       ],
       captured: 1,
     },
+  });
+});
+
+test('a slow stage that keeps being refused is still reported', () => {
+  const capacity = createAppError(
+    'INFRASTRUCTURE',
+    'Transcript transaction capacity unavailable',
+  );
+  const { lines, failed } = record((error) => error === capacity);
+  for (let i = 0; i < 18; i++) failed(capacity, 'renew');
+  assert({
+    given:
+      'eighteen admission refusals of a stage on a slow cadence (no clock is consulted)',
+    should: 'report the starvation once per nine refusals',
+    actual: lines.map(([, fields]) => fields),
+    expected: [
+      {
+        operation: 'round.maintenance.renew.capacity',
+        errorCode: 'INFRASTRUCTURE',
+      },
+      {
+        operation: 'round.maintenance.renew.capacity',
+        errorCode: 'INFRASTRUCTURE',
+      },
+    ],
   });
 });

@@ -1,4 +1,5 @@
 import type { BotPublicationScope } from '@daisy/db/bot-publication';
+import { isTransactionCapacityRefusal } from '@daisy/db';
 import { isAppError } from '@daisy/errors';
 
 type Job = {
@@ -14,8 +15,9 @@ export type PeerActivity =
   'speech-start' | 'end-of-turn' | 'barge-in' | 'unknown';
 /**
  * One speaking turn at a time per owned claim. Phrases stay in memory; capture
- * alone credits transcript. Refused authority waits for the next wake; it never
- * issues floor commands or touches control receipts.
+ * alone credits transcript. Refused authority and refused pool admission wait
+ * for the next wake without spending an attempt; the speaker never issues floor
+ * commands or touches control receipts.
  */
 export function createBotSpeaker(input: {
   readonly claim: {
@@ -84,6 +86,11 @@ export function createBotSpeaker(input: {
       if (isAppError(error) && error.code === 'CONFLICT') {
         if (crossEx) owed = true;
         return;
+      }
+      // Pool backpressure is a deferral: the next wake retries, and the sink bounds the reporting.
+      if (isTransactionCapacityRefusal(error)) {
+        if (crossEx) owed = true;
+        return input.failed(error, stage);
       }
       attempts += 1;
       if (crossEx) owed = attempts < input.maxAttempts;

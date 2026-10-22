@@ -261,10 +261,17 @@ class TransactionAttempt {
   }
 }
 
+const CAPACITY_UNAVAILABLE = 'Transcript transaction capacity unavailable';
 const capacityRefusals = new WeakSet<Error>();
 /** Admission backpressure only: the pool had no writer reservation free; nothing ran. */
 export const isTransactionCapacityRefusal = (error: unknown): boolean =>
   error instanceof Error && capacityRefusals.has(error);
+/** The one admission refusal `isTransactionCapacityRefusal` recognises. */
+export function refuseCapacity() {
+  const refusal = createAppError('INFRASTRUCTURE', CAPACITY_UNAVAILABLE);
+  capacityRefusals.add(refusal);
+  return refusal;
+}
 
 /** One existing pool; two reservations per admitted writer retain recovery capacity. */
 export function createBoundedTransaction({
@@ -295,14 +302,8 @@ export function createBoundedTransaction({
       !Number.isSafeInteger(maxConnections) ||
       maxConnections < 2 ||
       active >= Math.floor(maxConnections / 2)
-    ) {
-      const refusal = createAppError(
-        'INFRASTRUCTURE',
-        'Transcript transaction capacity unavailable',
-      );
-      capacityRefusals.add(refusal);
-      throw refusal;
-    }
+    )
+      throw refuseCapacity();
     const slice = options?.executionMs ?? executionMs;
     if (!Number.isSafeInteger(slice) || slice < 1 || slice > executionMs)
       throw createAppError('INVARIANT', 'Invalid transaction execution budget');
