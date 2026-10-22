@@ -1,6 +1,8 @@
 import { createAppError, isAppError } from '@daisy/errors';
 import { z } from 'zod';
 import { readLines } from './lines';
+import { readPcmSpeech, requireSpeechNotCancelled } from './pcm';
+import { requireProviderNotCancelled } from './cancellation';
 
 export type Fetch = (url: string, init: RequestInit) => Promise<Response>;
 
@@ -10,6 +12,7 @@ export type ChatMessage = {
 };
 
 export type CompletionRequest = {
+  readonly signal?: AbortSignal;
   readonly model: string;
   readonly messages: readonly ChatMessage[];
   readonly maxTokens: number;
@@ -70,6 +73,7 @@ export function createOpenRouter({
     ...(appUrl ? { 'HTTP-Referer': appUrl } : {}),
   };
   const post = async (path: string, body: unknown, signal?: AbortSignal) => {
+    requireProviderNotCancelled(signal);
     let response: Response;
     try {
       response = await fetch(`${BASE}${path}`, {
@@ -81,6 +85,7 @@ export function createOpenRouter({
           : AbortSignal.timeout(timeoutMs),
       });
     } catch (cause) {
+      requireProviderNotCancelled(signal);
       throw createAppError(
         'INFRASTRUCTURE',
         `OpenRouter ${path} unreachable`,
@@ -106,10 +111,18 @@ export function createOpenRouter({
     return result.data;
   };
   /** Reads an answer's body; a failure mid-read is an INFRASTRUCTURE error. */
-  const reading = async <T>(path: string, read: () => Promise<T>) => {
+  const reading = async <T>(
+    path: string,
+    read: () => Promise<T>,
+    signal?: AbortSignal,
+  ) => {
     try {
-      return await read();
+      requireProviderNotCancelled(signal);
+      const result = await read();
+      requireProviderNotCancelled(signal);
+      return result;
     } catch (cause) {
+      requireProviderNotCancelled(signal);
       if (isAppError(cause)) throw cause;
       throw createAppError(
         'INFRASTRUCTURE',
@@ -160,10 +173,15 @@ export function createOpenRouter({
       const response = await post(
         '/chat/completions',
         chatBody(request, false),
+        request.signal,
       );
       const body = parse(
         completionSchema,
-        await reading('/chat/completions', () => response.json()),
+        await reading(
+          '/chat/completions',
+          () => response.json(),
+          request.signal,
+        ),
         '/chat/completions',
       );
       return {
@@ -211,24 +229,58 @@ export function createOpenRouter({
         characters: text.length,
       };
     },
+    /** Validated in-memory PCM for the server publication worker, never a transcript. */
+    async speakPcm({
+      model,
+      voice,
+      text,
+      signal,
+    }: {
+      readonly model: string;
+      readonly voice: string;
+      readonly text: string;
+      readonly signal?: AbortSignal;
+    }) {
+      requireSpeechNotCancelled(signal);
+      const response = await post(
+        '/audio/speech',
+        {
+          model,
+          input: text,
+          voice,
+          response_format: 'pcm',
+          provider: DATA_POLICY,
+        },
+        signal,
+      );
+      return reading('/audio/speech', () =>
+        readPcmSpeech(response, text.length, signal),
+      );
+    },
     async transcribe({
       model,
       audioBase64,
       format,
+      signal,
     }: {
       readonly model: string;
       readonly audioBase64: string;
       readonly format: 'webm' | 'ogg' | 'mp4' | 'wav';
+      readonly signal?: AbortSignal;
     }) {
-      const response = await post('/audio/transcriptions', {
-        model,
-        input_audio: { data: audioBase64, format },
-        language: 'en',
-        provider: DATA_POLICY,
-      });
+      const response = await post(
+        '/audio/transcriptions',
+        {
+          model,
+          input_audio: { data: audioBase64, format },
+          language: 'en',
+          provider: DATA_POLICY,
+        },
+        signal,
+      );
       const body = parse(
         transcriptionSchema,
-        await reading('/audio/transcriptions', () => response.json()),
+        await reading('/audio/transcriptions', () => response.json(), signal),
         '/audio/transcriptions',
       );
       return { text: body.text.trim() };

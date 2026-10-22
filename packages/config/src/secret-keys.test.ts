@@ -15,6 +15,7 @@ describe('secret configuration keys', () => {
         'DATABASE_URL',
         'LIVEKIT_API_KEY',
         'LIVEKIT_API_SECRET',
+        'MEDIA_WORKER_SECRET',
         'MIGRATION_DATABASE_URL',
         'OPENROUTER_API_KEY',
         'OPS_PROBE_TOKEN',

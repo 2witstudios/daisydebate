@@ -214,12 +214,21 @@ export type {
   RoundCommandResponse,
   RoundRefusal,
 } from './round-command';
-export { roundBallotEnvelopeSchema } from './round-ballot';
+export {
+  roundBallotEnvelopeSchema,
+  roundBallotReceiptSchema,
+} from './round-ballot';
 export type {
   RoundBallotEnvelope,
   RoundBallotReceipt,
   RoundBallotAuthority,
 } from './round-ballot';
+export {
+  roundMediaGrantsSchema,
+  roundMediaStateSchema,
+  roundMediaAdmissionSchema,
+} from './round-media';
+export type { RoundMediaState, RoundMediaAdmission } from './round-media';
 export {
   attendanceTimingPolicy,
   attendanceEnvelopeSchema,
@@ -227,3 +236,11 @@ export {
   type AttendanceEnvelope,
   type AttendanceReceipt,
 } from './attendance';
+export {
+  roundBallotReadSchema,
+  roundJudgeAssignmentsSchema,
+} from './round-ballot-read';
+export type {
+  RoundBallotRead,
+  RoundJudgeAssignment,
+} from './round-ballot-read';

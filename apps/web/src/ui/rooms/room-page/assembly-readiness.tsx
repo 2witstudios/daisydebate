@@ -1,3 +1,4 @@
+import { BotAdmissionNotice } from './bot-admission-notice';
 import { AssemblyCommandForm } from './assembly-command-form';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
 import type { FormAction } from '../../form-action/form-action';
@@ -10,7 +11,7 @@ import { waitingOn } from './room-labels';
 type Control = 'ready' | 'unready' | 'start-round';
 type View = Pick<
   RoomView,
-  'participants' | 'version' | 'readiness' | 'startRefusal'
+  'participants' | 'version' | 'readiness' | 'startRefusal' | 'botAdmission'
 > & {
   readonly definition: Pick<RoomView['definition'], 'seats'>;
   readonly prep: RoomView['prep'];
@@ -140,6 +141,10 @@ export function LaunchControl({
   commandIds,
 }: Props) {
   const blocked = launchFence(view, actorId, local);
+  const admissionBlocked =
+    view.botAdmission !== null &&
+    (view.botAdmission.kind === 'unavailable' ||
+      view.botAdmission.refusal !== null);
   const notice = launchNotice(view, actorId, blocked);
   return (
     <section
@@ -149,11 +154,15 @@ export function LaunchControl({
       <p role="status" className="mr-auto text-sm text-ink-muted">
         {notice}
       </p>
+      {view.capabilities.host ? (
+        <BotAdmissionNotice admission={view.botAdmission} />
+      ) : null}
       {view.capabilities.host
         ? CommandForm({
             type: 'start-round',
             label: 'Launch',
-            enabled: view.capabilities.canStart && !blocked,
+            enabled:
+              view.capabilities.canStart && !blocked && !admissionBlocked,
             version: view.version,
             commandId: commandIds['start-round'],
             action,

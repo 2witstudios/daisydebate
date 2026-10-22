@@ -1,108 +1,104 @@
-import { SQL } from 'bun';
+import {
+  bindMediaParticipant,
+  mediaBindingFields as bindingFields,
+} from './media-participant-binding';
+import {
+  verifyLockedBotWorker,
+  requireBotSpeakingWindow,
+  type BotPublicationScope,
+} from './bot-publication-context';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
 import { and, eq } from 'drizzle-orm';
-import { drizzle } from 'drizzle-orm/bun-sql';
+import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
+import type { BoundedTransaction } from './bounded-transaction';
+import {
+  executeLockedRoundTick,
+  type LockedRoundTickInput,
+} from './round-clock-transaction';
+import {
+  lockMediaRound,
+  mediaId as parseId,
+  requireMediaWindow,
+} from './media-session-authority';
+import { sampleRoundExecutionTime } from './round-execution-time';
 import { mediaParticipants, mediaSessions } from './schema/media-sessions';
-import { roundParticipants } from './schema/round-participants';
 import { rounds } from './schema/rounds';
+import { createMediaReconcileStore } from './media-reconcile-store';
+import {
+  lockedMediaSnapshot,
+  type MediaSessionRead,
+} from './media-session-snapshot';
+import { createMediaAdmissionStore } from './media-admission-store';
 
-const bindingFields = {
-  sessionId: mediaSessions.id,
-  roomName: mediaSessions.roomName,
-  roundId: mediaSessions.roundId,
-  roundParticipantId: mediaParticipants.roundParticipantId,
-  identity: mediaParticipants.identity,
-};
-
-const parseId = (value: string) => {
-  const parsed = idSchema.safeParse(value);
-  if (!parsed.success)
-    throw createAppError('VALIDATION', 'Invalid media identifier');
-  return parsed.data;
-};
-
-/** Persistence only: callers supply fresh authorization before requesting admission. */
+/** One application SQL pool and its bounded transaction runner; no owned connection lifecycle. */
 export function createMediaSessionStore({
-  url,
+  database,
+  run,
   nextId,
 }: {
-  readonly url: string;
+  readonly database: BunSQLDatabase;
+  readonly run: BoundedTransaction;
   readonly nextId: () => string;
 }) {
-  const client = new SQL(url);
-  const database = drizzle({ client });
   return {
+    ...createMediaReconcileStore({ database, run, nextId }),
+    ...createMediaAdmissionStore(run),
+    readMediaSession: (input: MediaSessionRead) =>
+      run((tx) => lockedMediaSnapshot(tx, input)),
     async ensureBinding(input: {
       readonly roundId: string;
-      readonly roundParticipantId: string;
+      readonly actorId: string;
+      readonly buildProjection: LockedRoundTickInput['buildProjection'];
     }) {
       const roundId = parseId(input.roundId);
-      const roundParticipantId = parseId(input.roundParticipantId);
-      return database.transaction(async (tx) => {
-        // The Round lock also serializes admission against terminal competitive commits.
-        const [round] = await tx
-          .select({ status: rounds.status })
+      const actorId = parseId(input.actorId);
+      return run(async (tx) => {
+        const authority = await lockMediaRound(tx, roundId, actorId);
+        const roundParticipantId = authority.caller!.id;
+        const [current] = await tx
+          .select({
+            status: rounds.status,
+            finalSegmentEndedAt: rounds.finalSegmentEndedAt,
+          })
           .from(rounds)
-          .where(eq(rounds.id, roundId))
-          .for('update');
-        if (!round) throw createAppError('NOT_FOUND', 'No such Round');
-        if (round.status === 'completed' || round.status === 'abandoned')
-          throw createAppError('CONFLICT', 'Round media has ended');
-        const [seat] = await tx
-          .select({ id: roundParticipants.id })
-          .from(roundParticipants)
-          .where(
-            and(
-              eq(roundParticipants.id, roundParticipantId),
-              eq(roundParticipants.roundId, roundId),
-            ),
-          );
-        if (!seat) throw createAppError('NOT_FOUND', 'No such Round seat');
-        await tx
-          .insert(mediaSessions)
-          .values({
-            id: parseId(nextId()),
-            roundId,
-            roomName: parseId(nextId()),
-          })
-          .onConflictDoNothing({ target: mediaSessions.roundId });
-        const [session] = await tx
-          .select()
-          .from(mediaSessions)
-          .where(eq(mediaSessions.roundId, roundId))
-          .for('update');
-        if (!session || session.endedAt)
-          throw createAppError('CONFLICT', 'Round media has ended');
-        await tx
-          .insert(mediaParticipants)
-          .values({
-            id: parseId(nextId()),
-            sessionId: session.id,
-            roundId,
-            roundParticipantId,
-            identity: parseId(nextId()),
-          })
-          .onConflictDoNothing({
-            target: [
-              mediaParticipants.sessionId,
-              mediaParticipants.roundParticipantId,
-            ],
-          });
-        const [binding] = await tx
-          .select(bindingFields)
-          .from(mediaSessions)
-          .innerJoin(
-            mediaParticipants,
-            eq(mediaParticipants.sessionId, mediaSessions.id),
-          )
-          .where(
-            and(
-              eq(mediaSessions.id, session.id),
-              eq(mediaParticipants.roundParticipantId, roundParticipantId),
-            ),
-          );
-        if (!binding) throw createAppError('INTERNAL', 'Media binding missing');
+          .where(eq(rounds.id, roundId));
+        requireMediaWindow(
+          current!.status,
+          await sampleRoundExecutionTime(tx),
+          current!.finalSegmentEndedAt?.toISOString() ?? null,
+        );
+        const binding = await bindMediaParticipant(tx, {
+          roundId,
+          roundParticipantId,
+          nextId,
+        });
+        const tick = await executeLockedRoundTick(tx, {
+          roundId,
+          buildProjection: input.buildProjection,
+        });
+        requireMediaWindow(current!.status, tick.now, tick.finalSegmentEndedAt);
+        return binding;
+      });
+    },
+    async ensureBotBinding(input: {
+      readonly scope: BotPublicationScope;
+      readonly token: string;
+      readonly buildProjection: LockedRoundTickInput['buildProjection'];
+    }) {
+      return run(async (tx) => {
+        await verifyLockedBotWorker(tx, input.scope, input.token);
+        const binding = await bindMediaParticipant(tx, {
+          roundId: input.scope.roundId,
+          roundParticipantId: input.scope.roundParticipantId,
+          nextId,
+        });
+        const tick = await executeLockedRoundTick(tx, {
+          roundId: input.scope.roundId,
+          buildProjection: input.buildProjection,
+        });
+        await verifyLockedBotWorker(tx, input.scope, input.token);
+        await requireBotSpeakingWindow(tx, input.scope);
+        requireMediaWindow('active', tick.now, tick.finalSegmentEndedAt);
         return binding;
       });
     },
@@ -125,6 +121,5 @@ export function createMediaSessionStore({
         );
       return binding ?? null;
     },
-    close: () => client.close(),
   };
 }

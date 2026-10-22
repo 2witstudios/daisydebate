@@ -1,4 +1,5 @@
 import type { NextConfig } from 'next';
+import { roundMediaPages } from './src/features/round-media/browser-policy';
 const config: NextConfig = {
   poweredByHeader: false,
   // The repo forbids a second agent doc (root AGENTS.md); stop `next dev` generating them.
@@ -56,15 +57,15 @@ const config: NextConfig = {
       },
       // Local room checks need self camera/microphone. All other routes deny
       // capture; this grants neither publication nor server readiness.
-      {
-        source: '/rooms/:id',
+      ...roundMediaPages.map((source) => ({
+        source,
         headers: [
           {
             key: 'Permissions-Policy',
             value: 'camera=(self), microphone=(self), geolocation=()',
           },
         ],
-      },
+      })),
     ];
   },
 };

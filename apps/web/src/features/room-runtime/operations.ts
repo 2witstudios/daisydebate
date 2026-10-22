@@ -1,3 +1,4 @@
+import { roomBotAdmission } from './bot-admission';
 import { authorize } from '@daisy/auth/authorization';
 import { roomCommandOperation } from './command';
 import { currentRoomConsent, type PreparedRoomConsent } from './consent';
@@ -22,6 +23,7 @@ import type {
 export type Caller = { readonly userId: string; readonly actorId: string };
 export type Store = Pick<
   Database,
+  | 'readRoundBotAdmissionStatus'
   | 'readLaunchedRound'
   | 'databaseNow'
   | 'listRoomCatalogSources'
@@ -124,12 +126,17 @@ export function createRoomRuntimeOperations({
     );
     const consent = await consentOf(state, await store.databaseNow());
     const now = await store.databaseNow();
-    return projectRoom(
-      state,
-      caller.actorId,
-      currentRoomConsent(consent, now),
-      now,
-    );
+    return {
+      ...projectRoom(
+        state,
+        caller.actorId,
+        currentRoomConsent(consent, now),
+        now,
+      ),
+      botAdmission: await roomBotAdmission(state, caller.actorId, (actorId) =>
+        store.readRoundBotAdmissionStatus(actorId),
+      ),
+    };
   };
   const catalog = async (
     caller: Caller,

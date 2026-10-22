@@ -1,9 +1,11 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import { createId } from '@paralleldrive/cuid2';
 import { finishedOrBlockedBehind } from '@daisy/db/testing';
 import { withAttendanceRound } from './attendance.test-support';
 setupRitewayBun();
+requireTestServices(process.env);
 
 test('actual attendance operation preserves first receipt before Round contention and deduplicates both identities', async () =>
   withAttendanceRound(async ({ f, attendance, roundId, segmentId }) => {

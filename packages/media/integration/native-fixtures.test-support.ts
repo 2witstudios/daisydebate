@@ -1,7 +1,6 @@
 import { SQL } from 'bun';
 import { createDatabase } from '@daisy/db';
 import { validRules } from '@daisy/db/testing';
-import { createMediaSessionStore } from '@daisy/db/media-session';
 import { createId } from '@paralleldrive/cuid2';
 
 export async function withHistoricalSeat(
@@ -20,7 +19,6 @@ export async function withHistoricalSeat(
 ) {
   const db = createDatabase({ url: databaseUrl, nextActorId: createId });
   const fixture = new SQL(databaseUrl);
-  const media = createMediaSessionStore({ url: databaseUrl, nextId: createId });
   const roundId = createId(),
     actorId = createId(),
     seatId = createId(),
@@ -42,10 +40,11 @@ export async function withHistoricalSeat(
     await fixture`update rounds set status='active',current_stage='live',started_at=clock_timestamp()-interval '1 second' where id=${roundId}`;
     await fixture`insert into round_segments (id,round_id,sequence,type,rules_segment_key,started_at,duration_ms) values (${segmentId},${roundId},0,'speech','AC',clock_timestamp()-interval '1 second',60000)`;
     await fixture`insert into round_speaking_intervals (id,round_id,segment_id,round_participant_id,started_at,started_version) values (${createId()},${roundId},${segmentId},${seatId},clock_timestamp()-interval '1 second',1)`;
-    const binding = await media.ensureBinding({
-      roundId,
-      roundParticipantId: seatId,
-    });
+    const sessionId = createId();
+    const binding = { roomName: createId(), identity: createId() };
+    // Synthetic native/history fixture only; admission and job leases have separate integration proofs.
+    await fixture`insert into media_sessions (id,round_id,room_name) values (${sessionId},${roundId},${binding.roomName})`;
+    await fixture`insert into media_participants (id,session_id,round_id,round_participant_id,identity) values (${createId()},${sessionId},${roundId},${seatId},${binding.identity})`;
     await work({
       binding,
       calibrate: async () => {
@@ -75,7 +74,6 @@ export async function withHistoricalSeat(
   } finally {
     await fixture`delete from rounds where id=${roundId}`;
     await fixture`delete from actors where id=${actorId}`;
-    await media.close();
     await db.close();
     await fixture.close();
   }

@@ -3,6 +3,7 @@ import { roomPolicyConfig } from './room-policy';
 import { mediaEndpoint } from './media-endpoint';
 import { databaseUrl, redisUrl } from './urls';
 import { realtimePublicUrlSchema } from './realtime-endpoint';
+import { mediaWorkerSecret, withoutMigrationCredential } from './credentials';
 export {
   readRealtimePublicUrl,
   realtimePublicUrlSchema,
@@ -92,15 +93,8 @@ const deploymentIdentityFields = {
   // Read only so production can refuse it; never part of the parsed config.
   MIGRATION_DATABASE_URL: secret(z.string()).optional(),
 };
-/** Drops the migration credential a runtime reads only to refuse it. */
-const withoutMigrationCredential = <Config extends object>(
-  config: Config & { MIGRATION_DATABASE_URL?: string | undefined },
-): Omit<Config, 'MIGRATION_DATABASE_URL'> => {
-  const { MIGRATION_DATABASE_URL: refused, ...runtime } = config;
-  void refused;
-  return runtime;
-};
 const serverFields = {
+  AI_ROUND_BUSY_CAP: z.coerce.number().int().positive().optional(),
   ROOM_POLICY: roomPolicyConfig,
   ...deploymentIdentityFields,
   FOUNDATION_PROOF_ENABLED: z
@@ -113,6 +107,7 @@ const serverFields = {
   LIVEKIT_PUBLIC_URL: mediaEndpoint(/^wss?$/).optional(),
   LIVEKIT_API_KEY: secret(z.string().regex(/^\S+$/)).optional(),
   LIVEKIT_API_SECRET: secret(z.string().regex(/^\S+$/)).optional(),
+  MEDIA_WORKER_SECRET: secret(mediaWorkerSecret).optional(),
   // AIDB: OpenRouter for AI debates (chat, TTS, STT). Optional: without it
   // AI debates are unavailable and nothing calls out.
   OPENROUTER_API_KEY: secret(z.string().regex(/^\S+$/)).optional(),

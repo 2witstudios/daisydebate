@@ -19,6 +19,8 @@ export default defineConfig({
     '**/room-launch.e2e.ts',
     '**/debate-room.e2e.ts',
     '**/round-commands.e2e.ts',
+    '**/round-command-recovery.e2e.ts',
+    '**/ballot.e2e.ts',
   ],
   testIgnore: [],
   timeout: 120_000,
@@ -55,6 +57,7 @@ export default defineConfig({
             E2E_REDIS_URL: process.env.E2E_REDIS_URL!,
             E2E_REDIS_NAMESPACE: process.env.E2E_REDIS_NAMESPACE!,
             E2E_PORT: process.env.E2E_PORT!,
+            AI_ROUND_BUSY_CAP: '4',
           },
         }
       : anchored;

@@ -62,12 +62,14 @@ describe('jsonb columns (ISSUE-24)', () => {
         'ballots.scores',
         'format_presets.config',
         'format_revisions.definition',
+        'media_vendor_mutations.payload',
         'outbox.payload',
         'room_commands.result',
         'rooms.config',
         'rooms.execution_plan',
         'rooms.rules_snapshot',
         'round_commands.result',
+        'round_judging_jobs.pending_ballot',
         'rounds.room_config_snapshot',
         'rounds.rules_snapshot',
         'rounds.runtime_state',
@@ -84,7 +86,9 @@ describe('jsonb columns (ISSUE-24)', () => {
       expected: jsonb.map(({ name }) => ({
         name,
         refusals:
-          name === 'ballots.feedback' || name === 'ballots.citations'
+          name === 'ballots.feedback' ||
+          name === 'ballots.citations' ||
+          name === 'round_judging_jobs.pending_ballot'
             ? ['VALIDATION', 'VALIDATION', 'VALIDATION', 'accepted']
             : ['VALIDATION', 'VALIDATION', 'VALIDATION', 'VALIDATION'],
       })),

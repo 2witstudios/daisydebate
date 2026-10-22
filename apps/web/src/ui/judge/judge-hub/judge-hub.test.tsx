@@ -1,37 +1,37 @@
 import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
-import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { getAssignedDebates } from '../../../features/judge/get-assigned';
-import { getJudgeRating } from '../../../features/judge/get-judge-rating';
-import { listJudgeResources } from '../../../features/judge/list-judge-resources';
 import { JudgeHub } from './judge-hub';
-
 setupRitewayBun();
-
-describe('JudgeHub', () => {
-  test('the hub', () => {
-    const html = renderToString(
-      h(JudgeHub, {
-        rating: getJudgeRating(),
-        resources: listJudgeResources(),
-        assigned: getAssignedDebates(),
-      }),
-    );
-    assert({
-      given: 'the sample judge and resources',
-      should:
-        'have one h1, the assigned debate, the start panel, the rating card and the four hub resources',
-      actual: [
-        html.match(/<h1 /g)?.length,
-        html.includes('aria-label="Assigned to you"'),
-        html.includes('href="/judge/ballot/started"'),
-        html.includes('aria-label="Start judging"'),
-        html.includes('aria-label="Your judge rating"'),
-        html.includes('aria-label="Resources"'),
-        html.includes('Judging guide'),
-        html.includes('The ballot, criterion by criterion'),
-      ],
-      expected: [1, true, true, true, true, true, true, false],
-    });
+test('real Judge hub projects own stored states and empty waiting without synthetic assignments', () => {
+  const assigned = getAssignedDebates([
+    {
+      roundId: 'r'.repeat(24),
+      resolution: 'Cities should fund transit',
+      status: 'active',
+      outcome: null,
+      ballotStatus: null,
+      freezeRevision: 1,
+    },
+  ]);
+  const html = renderToString(h(JudgeHub, { assigned }));
+  const empty = renderToString(
+    h(JudgeHub, { assigned: getAssignedDebates([]) }),
+  );
+  assert({
+    given: 'one actual assignment or no judge seats',
+    should:
+      'offer the real frozen ballot or truthful waiting, never a sample match/rating',
+    actual: [
+      html.match(/<h1 /g)?.length,
+      html.includes(`/judge/ballot/${'r'.repeat(24)}`),
+      html.includes('The recorded transcript is frozen'),
+      html.includes('Start judging'),
+      html.includes('Your judge rating'),
+      empty.includes('No assigned Rounds'),
+      empty.includes('aria-label="Assigned to you"'),
+    ],
+    expected: [1, true, true, false, false, true, false],
   });
 });

@@ -18,10 +18,10 @@ describe('local room media Permissions-Policy', () => {
           source: '/:path*',
           value: 'camera=(), microphone=(), geolocation=()',
         },
-        {
-          source: '/rooms/:id',
+        ...['/rooms/:id', '/rounds/:id', '/rounds/:id/room'].map((source) => ({
+          source,
           value: 'camera=(self), microphone=(self), geolocation=()',
-        },
+        })),
       ],
     });
     assert({
