@@ -44,3 +44,32 @@ RIFF/WAVE, a sixteen-byte PCM format chunk, mono 16kHz, sixteen-bit little-endia
 signed sample data, no metadata chunks. No additional dependency is introduced.
 Unit fixtures prove boundaries and encoded bytes; actual native calibration,
 configured provider STT and worker composition remain separate service obligations.
+
+## Native observation cadence
+
+`@daisy/media/observation` exports `createCaptureClock` for one native track and
+one monotonic clock origin. It consumes the original sequence and copy brackets
+from `createCaptureSubscription`; the caller retains their associated 160-sample
+PCM. The first callback anchors and is dropped. A subsequent callback must follow
+the exact sequence and a ten-millisecond cadence: no receipt before its nominal
+due time, no receipt more than 100 ms late. Burst, stall, invalid bracket or
+sequence gap drops the current frame and reanchors at that actual callback;
+queued callbacks never acquire a new arrival timestamp. No raw sample total is
+coverage. Track closure destroys its clock.
+
+The common clock bounds both calibration endpoints, sample quantization and
+100 ppm drift. RTT must be at most 100 ms and calibration age at most 30 s;
+the worker refreshes at most every 15 s. An invalid or disjoint refresh rejects
+the next frame before establishing a fresh observation anchor. Returned bounds
+cover the nominal ten-millisecond period and the actual callback bracket.
+Outward integer rounding and full committed history containment remain mandatory
+before clip encoding or durable append. The possible window is never itself a
+guaranteed coverage observation. Acoustic time and network transit are not
+claimed (ADR 0053 section 8).
+
+The real Bun/LiveKit/PostgreSQL probe retains at least ten genuine nonzero 16 kHz
+frames after bootstrap, refreshes actual database calibration and checks every
+full outward window against durable speaking history. Its source is synthetic
+PCM; it proves observation cadence and the historical read seam, not human STT,
+complete stream coverage or an accepted worker deployment. Unit negative controls
+remove sequence and burst guards separately and must fail before restored GREEN.
