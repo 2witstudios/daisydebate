@@ -56,7 +56,7 @@ test('target discovery authenticates fresh seats and returns actual unresolved h
         facts.round.segments.map((s) => s.id),
         facts.participantId,
         facts.eligibleParticipantIds,
-        facts.recordedSegmentIds,
+        facts.receipts,
         facts.finalizedSegmentIds,
       ],
       expected: [[segmentId], seat.id, [seat.id], [], []],

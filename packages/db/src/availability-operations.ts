@@ -28,27 +28,41 @@ type ProbeEvidence = {
 /** One session owns election AND insertion. Closing it releases election on process death. */
 export function createAvailabilitySampler(client: SQL) {
   let session: ReservedSQL | null = null;
-  let electedPid: number | null = null;
   let running = false;
   let stopped = false;
+  const electSession = async () => {
+    session ??= await client.reserve({ signal: AbortSignal.timeout(900) });
+    const [election] =
+      await session`select case when exists(select 1 from pg_locks
+        where locktype='advisory' and pid=pg_backend_pid() and classid=0
+          and objid=${SAMPLER_LOCK}::oid and objsubid=1 and granted)
+        then true else pg_try_advisory_lock(${SAMPLER_LOCK}::bigint) end as elected`;
+    return election.elected === true;
+  };
   return {
+    /** Election is evidence from the SAME reserved producer session, never a process flag. */
+    async elect(): Promise<boolean> {
+      if (stopped || running) return false;
+      running = true;
+      try {
+        return await electSession();
+      } catch (error) {
+        throw createAppError(
+          'INFRASTRUCTURE',
+          'Availability election unavailable',
+          error,
+        );
+      } finally {
+        running = false;
+      }
+    },
     async sample(
       evidence: ProbeEvidence,
     ): Promise<AvailabilityEvidence | null> {
       if (stopped || running) return null;
       running = true;
       try {
-        session ??= await client.reserve({ signal: AbortSignal.timeout(900) });
-        const [backend] = await session`select pg_backend_pid() as pid`;
-        if (electedPid !== Number(backend.pid)) {
-          const [election] =
-            await session`select case when exists(select 1 from pg_locks
-              where locktype='advisory' and pid=pg_backend_pid() and classid=0
-                and objid=${SAMPLER_LOCK}::oid and objsubid=1 and granted)
-              then true else pg_try_advisory_lock(${SAMPLER_LOCK}::bigint) end as elected`;
-          if (!election.elected) return null;
-          electedPid = Number(backend.pid);
-        }
+        if (!(await electSession()) || !session) return null;
         const [row] = await session`
           with instant as (select statement_timestamp() as at),
           facts as (
@@ -78,7 +92,6 @@ export function createAvailabilitySampler(client: SQL) {
             }
           : null;
       } catch (error) {
-        electedPid = null;
         throw createAppError(
           'INFRASTRUCTURE',
           'Availability sampling unavailable',
@@ -97,7 +110,6 @@ export function createAvailabilitySampler(client: SQL) {
         try {
           await held`select pg_advisory_unlock(${SAMPLER_LOCK}::bigint)`;
         } finally {
-          electedPid = null;
           held.release();
         }
       }

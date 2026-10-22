@@ -96,6 +96,8 @@ const deploymentIdentityFields = {
 const serverFields = {
   AI_ROUND_BUSY_CAP: z.coerce.number().int().positive().optional(),
   ROOM_POLICY: roomPolicyConfig,
+  /** Configured isolated member/session resource for the actual public check-in probe. */
+  ATTENDANCE_PUBLIC_PROBE: secret(z.string()).optional(),
   ...deploymentIdentityFields,
   FOUNDATION_PROOF_ENABLED: z
     .enum(['true', 'false'])

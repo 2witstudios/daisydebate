@@ -28,6 +28,15 @@ PG statement time and a monotone insert predicate; history is not rewritten.
 The timestamp key supports the 24-hour prune. Pending check-ins override current
 peer health and gate the owning Round evaluator conservatively.
 
+Every web peer renews its own lease each second. Before public probing, the
+sampler checks lock ownership on that same reserved PostgreSQL session; only
+the elected producer performs the synthetic route check and inserts a sample.
+The insert independently rechecks election. This prevents rolling web peers
+from multiplying requests against the probe member's ordinary shared rate
+limit. No probe bypasses session, origin, seat or receipt authorization. Each
+probe uses a new global command alias while preserving the operation's first
+receipt stamp. Missing configuration or unsuccessful probing remains unhealthy.
+
 ## Receipts, facts and uncertain attempts
 
 `round_check_ins` retains one first stamp per Round/segment/participant, with a
