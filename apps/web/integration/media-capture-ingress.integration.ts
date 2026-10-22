@@ -9,20 +9,14 @@ import {
   withMediaRound,
   mediaDependencies,
   tokenClaims,
+  captureWorkerScope,
 } from './round-media.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 
 test('signed native HTTP ingress uses actual lease, snapshot and vendor token producers', async () => {
   await withMediaRound(async (f) => {
-    await f.mediaOperations.session(f.roundId, f.host.actorId);
-    const [session] =
-      await f.sql`select id from media_sessions where round_id=${f.roundId}`;
-    const scope = {
-      roundId: f.roundId,
-      sessionId: String(session!.id),
-      workerId: createId(),
-    };
+    const scope = await captureWorkerScope(f);
     const capture = f.store.createMediaCaptureOperations({
       nextId: createId,
       buildProjection: (context) =>
