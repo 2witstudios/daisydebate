@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-type Tx = Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0];
+type Tx = Pick<BunSQLDatabase, 'execute'>;
 /** One separately sampled instant after every required transaction lock. */
 export async function sampleRoundExecutionTime(tx: Tx): Promise<string> {
   const [row] = (await tx.execute(
