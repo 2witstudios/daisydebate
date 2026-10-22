@@ -1,4 +1,5 @@
-import { roundCommandAction } from './actions';
+import { roundCommandAction, readPersistedAttendance } from './actions';
+import { RoundNativeAttendance } from '../../../../../features/attendance/native-state';
 import { roundCommandIds } from '../../../../../features/round-runtime/command-ids';
 import { systemClock, systemId } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
@@ -34,6 +35,12 @@ export default async function RoundRoomPage({
   const here = `/rounds/${id}/room`;
   return (
     <LiveRoundRoom
+      attendanceSlot={
+        <RoundNativeAttendance
+          view={result.round}
+          state={await readPersistedAttendance(id)}
+        />
+      }
       commandAction={roundCommandAction.bind(null, id)}
       commandIds={roundCommandIds(() => systemId.next())}
       view={result.round}

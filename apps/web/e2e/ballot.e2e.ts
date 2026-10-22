@@ -1,3 +1,5 @@
+import { createRoomLaunchAccounts } from './support/room-launch-accounts';
+import { createHumanBallotRound } from './support/human-ballot-round';
 import { type Locator, type Page } from '@playwright/test';
 import { expect, test } from './support/fixtures';
 import { assertNoSeriousFindings } from './support/axe';
@@ -263,4 +265,47 @@ test('the ballot and the result pass axe in the light theme', async ({
   );
   await expect(page.getByText('Split')).toBeVisible();
   await assertNoSeriousFindings(page);
+});
+
+test('actual assigned Round waits for its frozen input and query strings cannot invent a submitted ballot', async ({
+  browser,
+}) => {
+  const accounts = await createRoomLaunchAccounts(browser, 4);
+  try {
+    const round = await createHumanBallotRound(accounts.members);
+    const judge = accounts.members[2]!;
+    const judgePage = await judge.context.newPage();
+    await judgePage.goto('/judge');
+    await expect(
+      judgePage.getByText('Cities should fund transit', { exact: true }),
+    ).toBeVisible();
+    await judgePage.goto(`/judge/ballot/${round.id}?state=submitted`);
+    await expect(
+      judgePage.getByText(
+        'Your ballot opens when the recorded transcript is frozen.',
+      ),
+    ).toBeVisible();
+    await expect(
+      judgePage.getByRole('button', { name: 'Submit ballot' }),
+    ).toHaveCount(0);
+    await expect(
+      judgePage.getByText('Ballot submitted.', { exact: false }),
+    ).toHaveCount(0);
+    const debater = accounts.members[1]!;
+    const unassigned = await debater.context.newPage();
+    await unassigned.goto('/judge');
+    await expect(
+      unassigned.getByRole('heading', { name: 'No assigned Rounds' }),
+    ).toBeVisible();
+    const protectedRead = await debater.context.request.get(
+      `/api/rounds/${round.id}/ballots`,
+    );
+    expect(protectedRead.status()).toBe(200);
+    const blind = await protectedRead.json();
+    expect(blind.own).toBeNull();
+    expect(blind.freeze).toBeNull();
+    expect(JSON.stringify(blind)).not.toContain(judge.username);
+  } finally {
+    await accounts.closeContexts();
+  }
 });

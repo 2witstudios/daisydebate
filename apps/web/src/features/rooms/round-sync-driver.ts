@@ -35,11 +35,13 @@ export function createRoundSyncDriver({
   scheduler,
   visibility,
   connection,
+  onConnectionOpen,
 }: {
   readonly seed: RoundSync;
   readonly read: () => Promise<RoundRead>;
   readonly scheduler: Scheduler;
   readonly visibility: SyncVisibility;
+  readonly onConnectionOpen?: () => void;
   readonly connection: SyncConnection | null;
 }) {
   return createResourceSyncDriver({
@@ -54,6 +56,7 @@ export function createRoundSyncDriver({
     scheduler,
     visibility,
     connection,
+    ...(onConnectionOpen ? { onConnectionOpen } : {}),
     doorbell: (subscribed, signal) =>
       attachVersionDoorbell({
         topic: buildDebateTopic(seed.value.id),
