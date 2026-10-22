@@ -31,11 +31,8 @@ export function startAvailabilityService(deps: {
   const sampler = deps.store.availabilitySampler();
   let stopped = false;
   let running: Promise<void> | null = null;
+  let renewing: Promise<boolean> | null = null;
   const cycle = async () => {
-    await deps.store.renewServiceInstance({
-      instanceId: deps.instanceId,
-      role: 'web',
-    });
     if (!(await sampler.elect())) return;
     const [probe, control, reconciliation] = await Promise.allSettled([
       deps.probe(),
@@ -51,9 +48,27 @@ export function startAvailabilityService(deps: {
         control.status === 'fulfilled' && control.value.healthy,
     });
   };
+  const renew = () => {
+    renewing ??= deps.store
+      .renewServiceInstance({ instanceId: deps.instanceId, role: 'web' })
+      .then(
+        () => true,
+        () => {
+          deps.failed();
+          return false;
+        },
+      )
+      .finally(() => {
+        renewing = null;
+      });
+    return renewing;
+  };
   const tick = () => {
-    if (stopped || running) return;
-    running = cycle()
+    if (stopped) return;
+    const lease = renew();
+    if (running) return;
+    running = lease
+      .then((renewed) => (renewed ? cycle() : undefined))
       .catch(() => {
         deps.failed();
       })
@@ -67,7 +82,7 @@ export function startAvailabilityService(deps: {
     async stop() {
       stopped = true;
       deps.timers.clearInterval(timer);
-      await running;
+      await Promise.all([running, renewing]);
       await sampler.close();
     },
   };
