@@ -136,7 +136,8 @@ export async function fenceRoundWrite(tx: Tx, input: RoundWriteScope) {
   return { actorIds: fenced, accounts };
 }
 
-function commandRunAuthority(
+/** A ballot keeps its run as read; a command run is active only while its worker is. */
+export function commandRunAuthority(
   agentRun: RoundCommandAuthority['agentRun'],
   purpose: 'command' | 'ballot',
   context: Parameters<typeof roundCommandWorkerActive>[0],
