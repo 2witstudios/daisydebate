@@ -2,6 +2,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { createMediaWorkerAuthentication } from '@daisy/media/internal';
+import { createMediaWorkerClient } from '@daisy/media/worker';
 import { createMediaCaptureHandlers } from '../src/features/media-capture/handlers';
 import { createMediaWorkerTokenBroker } from '../src/features/round-media/worker-token';
 import { mediaRuntime } from '../src/features/round-media/projection';
@@ -115,6 +116,30 @@ test('signed native HTTP ingress uses actual lease, snapshot and vendor token pr
             hidden: true,
           },
         ],
+      });
+      const client = createMediaWorkerClient({
+        scope,
+        url: `http://127.0.0.1:${server.port}`,
+        authentication,
+        fetch,
+        nowMs: performance.now,
+        deadlineSignal: () => AbortSignal.timeout(5000),
+      });
+      const renewed = await client.lease(30000);
+      const snapshot = await client.read({ epoch: renewed.epoch });
+      const actualToken = await client.token(renewed.epoch);
+      assert({
+        given: 'the actual worker transport signing requests to real ingress',
+        should:
+          'renew, calibrate the PG receipt and mint through the same authority path',
+        actual: [
+          snapshot.state.roundId,
+          snapshot.calibration.receivedAtMs >= snapshot.calibration.sentAtMs,
+          snapshot.calibration.serverNowMs ===
+            Date.parse(snapshot.state.serverNow),
+          tokenClaims(actualToken.token).video.hidden,
+        ],
+        expected: [scope.roundId, true, true, true],
       });
       const changedScope = await post('read', {
         ...scope,
