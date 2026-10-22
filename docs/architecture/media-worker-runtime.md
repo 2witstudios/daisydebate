@@ -6,8 +6,10 @@ ADR 0053. `bun run --cwd apps/media-worker start` is the supervisor. It reads
 `MEDIA_WORKER_SECRET`, `OPENROUTER_API_KEY`, optional
 `MEDIA_WORKER_MAX_SESSIONS` 1..64, default 8) and refuses to start when any is
 missing. It then refuses a database login broader than `daisy_media_worker`
-(a superuser, a non-member, or one holding INSERT, UPDATE, DELETE or TRUNCATE
-on any table).
+(a superuser; a login with CREATEROLE, CREATEDB, BYPASSRLS or REPLICATION; a
+non-member; a member of any other role such as `pg_read_all_data`; or one
+holding INSERT, UPDATE, DELETE or TRUNCATE on any table or SELECT outside the
+six tables below).
 
 That role (VIDEO-3.13) has SELECT on `rounds`, `round_participants`,
 `round_segments`, `media_sessions`, `media_participants` and
