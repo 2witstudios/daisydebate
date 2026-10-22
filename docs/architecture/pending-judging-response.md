@@ -14,7 +14,7 @@ requires the same update to mark success and reference an actual submitted ballo
 with that Round, judge and freeze revision. The caller must perform actual shared
 ballot submission and cache clearing in one bounded transaction. A later retry
 consumes this validated cache, never an unvalidated provider envelope or a usage
-counter. Owning Round erasure cascades the job and its cache; the scoped origin
+counter. Direct job deletion or deletion through its freeze is refused while a validated response remains and its owning Round exists. Owning Round erasure cascades the job and its cache; the scoped origin
 run FK is deferred NO ACTION so whole-aggregate erasure remains possible.
 
 Privacy: pending ballot reason, feedback, scores and citations are personal,

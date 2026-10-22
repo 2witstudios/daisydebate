@@ -6,10 +6,9 @@ import {
   type AttendanceEnvelope,
   type AttendanceReceipt,
 } from '@daisy/protocol';
-import { and, eq, sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { insertCommandRow } from './round-projection-writer';
 import { roundCommands } from './schema/round-commands';
-import { agentRuns } from './schema/agent-runs';
 import {
   attendanceEvidence,
   fenceAttendance,
@@ -41,33 +40,6 @@ type CheckInInput = {
   readonly acceptWindow: (facts: LockedAttendanceCheckIn) => void;
 };
 type Fenced = Awaited<ReturnType<typeof fenceAttendance>>;
-async function requireActiveAgent(
-  tx: AttendanceTransactionContext,
-  principal: Extract<AttendancePrincipal, { kind: 'agent' }>,
-  seat: Fenced['seats'][number],
-): Promise<void> {
-  if (
-    seat.kind !== 'bot' ||
-    principal.serviceId !== `agent-run:${principal.agentRunId}`
-  )
-    throw createAppError('AUTHORIZATION');
-  const [run] = await tx
-    .select()
-    .from(agentRuns)
-    .where(
-      and(
-        eq(agentRuns.id, principal.agentRunId),
-        eq(agentRuns.roundParticipantId, seat.id),
-      ),
-    )
-    .for('share');
-  if (
-    !run ||
-    run.endedAt !== null ||
-    !['speech', 'cross_ex'].includes(run.kind)
-  )
-    throw createAppError('AUTHORIZATION');
-}
 async function authorizeSeat(
   tx: AttendanceTransactionContext,
   principal: AttendancePrincipal,
@@ -84,7 +56,13 @@ async function authorizeSeat(
   if (principal.kind === 'human') {
     if (seat.kind !== 'human') throw createAppError('AUTHORIZATION');
   } else {
-    await requireActiveAgent(tx, principal, seat);
+    if (
+      seat.kind !== 'bot' ||
+      principal.serviceId !== `agent-run:${principal.agentRunId}`
+    )
+      throw createAppError('AUTHORIZATION');
+    // The required canonical verifier SHARE-locks the exact seat/run and
+    // checks active kind, config, epoch and lease in this same transaction.
     await verifyWorker(tx, principal, fenced.round.id);
   }
   return seat;

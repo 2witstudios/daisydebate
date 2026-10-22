@@ -2,6 +2,7 @@ import { createAppError } from '@daisy/errors';
 import { eq } from 'drizzle-orm';
 import {
   captureClipSchema,
+  captureWorkerIdentitySchema,
   captureLeaseSchema,
   captureObservationSchema,
   captureSealSchema,
@@ -14,11 +15,18 @@ import {
   type CaptureDependencies,
 } from './media-capture-context';
 import { mediaWorkerLeases } from './schema/transcript-segments';
+import { verifyMediaWorkerLease } from './media-worker-lease';
 import { appendCapturedTranscript } from './captured-transcript';
 import { observeCapturedStream, sealCapturedStream } from './capture-stream';
 
 /** Internal composition: inject the existing pool's actual bounded transaction. */
 export const mediaCaptureOperations = (dependencies: CaptureDependencies) => ({
+  verifyMediaWorkerLease(raw: unknown) {
+    const input = parseCapture(captureWorkerIdentitySchema, raw);
+    return dependencies.transaction((tx) =>
+      verifyMediaWorkerLease(tx, input, dependencies),
+    );
+  },
   async claimMediaWorkerLease(raw: unknown) {
     const input = parseCapture(captureLeaseSchema, raw);
     return dependencies.transaction(async (tx) => {
