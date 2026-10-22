@@ -2,6 +2,11 @@ import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { rejectedBy, withFixture } from './constraint-helpers';
+import {
+  captureSchemaSegment,
+  capturedSchemaUtterance,
+  queueSchemaJudge,
+} from './capture-schema.test-support';
 
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
@@ -128,10 +133,7 @@ test('every judge has a separate job and only owning Round erasure removes froze
           status: 'submitted',
           submitted_at: new Date(1000),
         });
-        await fixture.sql.unsafe(
-          "insert into round_judging_jobs(round_id,freeze_revision,judge_participant_id,status) values($1,1,$2,'queued')",
-          [roundId, judge.id],
-        );
+        await queueSchemaJudge(fixture, roundId, judge.id);
       }
       assert({
         given: 'two legally admitted judge seats',
@@ -182,24 +184,11 @@ test('every judge has a separate job and only owning Round erasure removes froze
           seats: 2,
         },
       });
-      const segmentId = createId();
-      await fixture.insert('round_segments', {
-        id: segmentId,
-        round_id: roundId,
-        sequence: 0,
-        type: 'speech',
-        rules_segment_key: 'AC',
-        started_at: new Date(1000),
-        ended_at: new Date(2000),
-        duration_ms: 1000,
-      });
-      await fixture.insert('utterances', {
-        id: createId(),
-        round_id: roundId,
-        segment_id: segmentId,
-        round_participant_id: judges[0]!.id,
-        sequence: 0,
-        text: 'Synthetic private text',
+      const segmentId = await captureSchemaSegment(fixture, roundId);
+      await capturedSchemaUtterance(fixture, {
+        roundId,
+        segmentId,
+        seatId: judges[0]!.id,
       });
       await fixture.sql.unsafe('delete from rounds where id=$1', [roundId]);
       const tables = [

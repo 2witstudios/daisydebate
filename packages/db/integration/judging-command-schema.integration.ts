@@ -2,6 +2,7 @@ import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { rejectedBy, withFixture } from './constraint-helpers';
+import { queueSchemaJudge } from './capture-schema.test-support';
 
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
@@ -20,10 +21,7 @@ test('a judging intent acquires one actual command identifier and preserves it a
         [roundId],
       );
       for (const judge of judges)
-        await fixture.sql.unsafe(
-          "insert into round_judging_jobs(round_id,freeze_revision,judge_participant_id,status) values($1,1,$2,'queued')",
-          [roundId, judge.id],
-        );
+        await queueSchemaJudge(fixture, roundId, judge.id);
       await fixture.sql.unsafe(
         'update round_judging_jobs set command_id=$1 where round_id=$2 and judge_participant_id=$3',
         [commandId, roundId, judges[0]!.id],
