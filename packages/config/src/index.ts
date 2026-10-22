@@ -101,6 +101,7 @@ const withoutMigrationCredential = <Config extends object>(
   return runtime;
 };
 const serverFields = {
+  AI_ROUND_BUSY_CAP: z.coerce.number().int().positive().optional(),
   ROOM_POLICY: roomPolicyConfig,
   ...deploymentIdentityFields,
   FOUNDATION_PROOF_ENABLED: z

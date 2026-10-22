@@ -77,6 +77,7 @@ export const assemblySnapshot = {
   visibility: 'unlisted',
   hostActorId: 'o'.repeat(24),
   hostLabel: 'Host member',
+  botAdmission: null,
   status: 'assembling',
   formatId: unequalTemplate.formatId,
   formatVersion: unequalTemplate.formatVersion,
