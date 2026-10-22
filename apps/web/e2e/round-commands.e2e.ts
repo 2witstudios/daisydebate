@@ -1,3 +1,6 @@
+import { maintainHumanBallotFixtures } from './support/human-ballot-maintenance';
+import { createRoomLaunchAccounts } from './support/room-launch-accounts';
+import { createHumanBallotRound } from './support/human-ballot-round';
 import { roundViewSchema, isNamedSeat } from '@daisy/protocol';
 import { origin } from './support/accounts';
 import { expect, test } from './support/round-files';
@@ -128,3 +131,57 @@ for (const prepAction of ['Save the rest', 'Start AC'])
       await native.close();
     }
   });
+
+test('native attendance records an actual opened speech through the mounted production POST', async ({
+  browser,
+}) => {
+  const accounts = await createRoomLaunchAccounts(browser, 4);
+  const host = accounts.members[0]!;
+  const native = await browser.newContext({
+    baseURL: origin,
+    ignoreHTTPSErrors: true,
+    javaScriptEnabled: false,
+    storageState: await host.context.storageState(),
+  });
+  try {
+    const round = await createHumanBallotRound(accounts.members);
+    await maintainHumanBallotFixtures([round.id]);
+    const page = await openPage(native, 'native actual attendance');
+    await page.goto(`/rounds/${round.id}/room`);
+    const button = page.getByRole('button', {
+      name: 'Record attendance for this speech',
+      exact: true,
+    });
+    await expect(button).toBeVisible();
+    const form = page.locator('form', { has: button });
+    await expect(form).toHaveAttribute(
+      'action',
+      `/api/rounds/${round.id}/check-in`,
+    );
+    expect(await form.locator('input[name="commandId"]').inputValue()).toMatch(
+      /^[a-z0-9]{20,32}$/,
+    );
+    await button.click();
+    await expect(
+      page.getByRole('heading', { name: 'Attendance recorded', exact: true }),
+    ).toBeVisible();
+    await page
+      .getByRole('link', { name: 'Return to the round', exact: true })
+      .click();
+    await expect(page).toHaveURL(`/rounds/${round.id}/room`);
+    await expect(
+      page.getByText('Attendance recorded for Affirmative constructive.', {
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', {
+        name: 'Record attendance for this speech',
+        exact: true,
+      }),
+    ).toHaveCount(0);
+  } finally {
+    await native.close();
+    await accounts.closeContexts();
+  }
+});

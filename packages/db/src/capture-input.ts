@@ -19,6 +19,17 @@ export const captureWorkerIdentitySchema = z
     epoch: z.number().int().positive().max(2147483647),
   })
   .strict();
+export const captureReadSchema = captureWorkerIdentitySchema
+  .safeExtend({
+    segmentId: idSchema.optional(),
+    expectedVersion: z.number().int().nonnegative().max(2147483647).optional(),
+    afterIntervalId: idSchema.optional(),
+  })
+  .refine(
+    (value) =>
+      !value.afterIntervalId ||
+      (value.expectedVersion !== undefined && value.segmentId !== undefined),
+  );
 export const captureLeaseSchema = z
   .object({ ...leaseFields, leaseMs: z.number().int().min(1000).max(30000) })
   .strict();

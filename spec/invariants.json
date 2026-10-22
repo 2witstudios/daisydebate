@@ -2,6 +2,14 @@
   "version": 1,
   "invariants": [
     {
+      "id": "round.complete.unjudged-casual-only",
+      "check": "unjudged-casual-only",
+      "testReference": {
+        "path": "packages/debate-engine/src/round-unjudged.test.ts",
+        "name": "unjudged completion refuses with the zero-judge casual invariant and preserves state"
+      }
+    },
+    {
       "id": "round.seats.complete",
       "check": "seats-complete",
       "testReference": {

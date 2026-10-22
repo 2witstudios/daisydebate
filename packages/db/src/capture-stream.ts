@@ -89,6 +89,15 @@ export async function observeCapturedStream(
     revision: await advanceTranscriptRevision(tx, input.roundId),
   };
 }
+// A new worker cannot recover in-memory PCM/STT intent from old coverage.
+const currentEpochEvidence = (
+  observations: readonly { readonly epoch: number }[],
+  chunks: { readonly otherEpochChunks: number } | undefined,
+  epoch: number,
+) =>
+  chunks?.otherEpochChunks === 0 &&
+  observations.every((row) => row.epoch === epoch);
+
 export async function sealCapturedStream(
   tx: CaptureTx,
   input: z.infer<typeof captureSealSchema>,
@@ -114,6 +123,7 @@ export async function sealCapturedStream(
     .select({
       start: transcriptObservations.observedFrom,
       end: transcriptObservations.observedUntil,
+      epoch: transcriptObservations.workerEpoch,
     })
     .from(transcriptObservations)
     .where(
@@ -123,7 +133,10 @@ export async function sealCapturedStream(
       ),
     );
   const [chunks] = await tx
-    .select({ count: sql<number>`count(*)::integer` })
+    .select({
+      count: sql<number>`count(*)::integer`,
+      otherEpochChunks: sql<number>`count(*) filter (where ${utterances.captureWorkerEpoch} is distinct from ${input.epoch}::integer)::integer`,
+    })
     .from(utterances)
     .where(
       and(
@@ -133,6 +146,7 @@ export async function sealCapturedStream(
       ),
     );
   const complete =
+    currentEpochEvidence(observations, chunks, input.epoch) &&
     stream.chunkCount === chunks?.count &&
     hasCompleteCaptureCoverage({
       required,

@@ -66,3 +66,30 @@ lease fencing, durable append/freeze races, browser media, teardown recovery or
 CI service availability. Those remain delivery obligations. Worker composition
 must also isolate SDK logging through Daisy's privacy-aware adapters before
 production use. No production service, credentials or deployment is activated.
+
+## Native receive callback foundation
+
+`createCaptureSubscription` uses the same pinned rtc-node1.2.0 public
+AudioStream FrameProcessor extension, with16kHz mono160-sample frames. The SDK
+invokes that processor synchronously in its FFI frameReceived handler before
+its readable controller enqueues the frame. The adapter copies PCM and records
+an injected monotonic before/after bracket in that callback. Its asynchronous
+reader pump discards queued transport frames and never assigns timestamps.
+Per-track sequence is raw callback progress, not coverage or eligible duration.
+
+Only explicitly mapped opaque debater identities and microphone publications
+receive processors. Unpublish, participant/room disconnect, removed identity or
+callback failure closes the stream. The public closed promise reports connection
+closure; a closed subscription cannot rescan stale native handles. This is the
+single hidden capture subscriber; bot clients need no additional subscription
+for activity heuristics. Actual consumer mapping must bind Round/session/seat and
+lease epoch, preserve native sequence/brackets, calibrate server time and mark
+unknown/gap on stale, discontinuous or uncertain input. Monotonic clocks from
+different processes are not interchangeable.
+
+Real Bun/LiveKit tests receive nonzero16kHz mono PCM, demonstrate processor
+callbacks while no readable reader exists, and verify stream closure on actual
+unpublish and actual room deletion. That establishes the raw receive primitive,
+not complete grant coverage, clipping, STT, bot barge-in relay or publication
+credit. SDK default logs still require isolation/suppression at the worker edge;
+this foundation does not claim production logging acceptance.

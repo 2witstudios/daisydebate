@@ -352,7 +352,12 @@ full capture, provider composition, browser and worker acceptance remain separat
 - Integrated proof uses durable human/bot/judge casts and actual CAP start:
   human camera, bot portrait/LiveKit voice, runtime grants, human capture,
   eligible bot transcript, frozen input and real ballot, then media teardown.
-  It proves both complete coverage and honest partial coverage reaching judging.
+  Under [DEC-190](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/plem8tqexq7oonyq0jnwpfap),
+  genuine complete storage/seal proof is separate from native integration proof.
+  Native integration must carry real retained eligible audio and honest partial
+  coverage through immutable freeze and real shared judging. The exact replacement
+  obligations and retained historical clause are in
+  [ADR 0067](0067-playable-round-policy-and-acceptance.md#capture-proof-applicability-dec-190).
 - Capture-policy proofs distinguish grants from segment membership: pre-first,
   inter-segment and awaiting-ballot microphones may publish but never produce
   clips, STT calls or utterances. Reject forged adjacent segment IDs and

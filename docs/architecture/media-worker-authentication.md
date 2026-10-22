@@ -37,3 +37,27 @@ transcript text is personal/private under existing capture retention and erasure
 raw bodies and audio never enter logs. This module does not mount an HTTP route
 or claim actual capture/provider/browser acceptance. The real web ingress owns
 strict request limits, signed-handler composition and durable mutation admission.
+
+The web feature `features/media-capture/composition.ts` composes
+`composeMediaCaptureRoutes(app).handle(request)` from the injected application
+clock, optional secret, existing database pool and actual media token broker.
+The handler bounds the raw stream and rejects invalid UTF-8, authenticates the
+exact request including any query string, then dispatches strict capture inputs.
+Lease/read/append/observe/seal use the rooted capture operations; token uses the
+broker's fresh lease checks around actual provider existence. The shared router
+must mount this feature separately; adding the factory does not activate it.
+
+A real Bun HTTP/PostgreSQL/LiveKit integration proves lease-less token refusal,
+body tampering refusal before lease creation, scoped snapshot reads and hidden
+receive-only credentials, and rejects body principal or foreign Round claims.
+This boundary proof does not establish native clock eligibility, actual audio
+transcription, worker recovery, coverage completeness or production provisioning.
+
+A capture lease takeover cannot recover the previous process's in-memory PCM or
+queued transcription intent. A complete seal therefore additionally requires
+that every retained coverage observation and captured transcript chunk belongs
+to the sealing epoch. Old-epoch evidence keeps the stream partial even when its
+outer temporal union and the supplied expected chunk count appear complete.
+This provenance fence preserves the existing continuous-coverage predicate and
+genuine current-epoch complete-silence storage proof. It does not heal gaps or
+claim that a native producer covered whole-grant edges.
