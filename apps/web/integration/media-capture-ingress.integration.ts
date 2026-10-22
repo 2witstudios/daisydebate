@@ -5,12 +5,12 @@ import { createMediaWorkerAuthentication } from '@daisy/media/internal';
 import { createMediaWorkerClient } from '@daisy/media/worker';
 import { createMediaCaptureHandlers } from '../src/features/media-capture/handlers';
 import { createMediaWorkerTokenBroker } from '../src/features/round-media/worker-token';
-import { mediaRuntime } from '../src/features/round-media/projection';
 import {
   withMediaRound,
   mediaDependencies,
   tokenClaims,
   captureWorkerScope,
+  captureOperations,
 } from './round-media.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
@@ -18,11 +18,7 @@ requireTestServices(process.env);
 test('signed native HTTP ingress uses actual lease, snapshot and vendor token producers', async () => {
   await withMediaRound(async (f) => {
     const scope = await captureWorkerScope(f);
-    const capture = f.store.createMediaCaptureOperations({
-      nextId: createId,
-      buildProjection: (context) =>
-        mediaRuntime(context, createId).tick(context.now),
-    });
+    const capture = captureOperations(f);
     const deps = mediaDependencies(f, f.media);
     const broker = createMediaWorkerTokenBroker({
       sessions: deps.store,

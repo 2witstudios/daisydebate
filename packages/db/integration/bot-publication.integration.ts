@@ -21,6 +21,14 @@ test('concurrent bot claims preserve one active run and epochs through takeover'
       actual: attempts.map((a) => a.status).sort(),
       expected: ['fulfilled', 'rejected'],
     });
+    const [seats] =
+      await fixture.sql`select coalesce(array_agg(id order by id) filter (where role<>'judge' and id<>${target.roundParticipantId}),'{}') peers,(select type from round_segments where id=${target.segmentId}) kind from round_participants where round_id=${target.roundId}`;
+    assert({
+      given: 'an actual claim on the latest started segment',
+      should: 'name its segment kind and every other debater seat',
+      actual: [claim.segmentType, [...claim.peerParticipantIds].sort()],
+      expected: [seats.kind, seats.peers],
+    });
     await operations.verifyBotPublication(claim.scope, claim.token);
     await operations.renewWorker(claim.scope, claim.token);
     for (const [scope, token] of [

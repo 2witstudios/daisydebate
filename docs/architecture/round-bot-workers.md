@@ -160,3 +160,41 @@ gapped, stale or unavailable activity becomes unknown and cancels only the
 active phrase. It cannot stop control receipts or adjudicate absence, floor,
 transcript credit or outcomes. Cross-peer Redis and actual cancellation proof
 remain required before this transport is accepted.
+
+## Speaking turns
+
+When media is configured, each owned control claim also gets one speaker
+(`round-bots/speaking.ts`). The control pulse wakes the speaker but never awaits
+it, so receipts continue through model, voice or media failure. One turn runs
+at a time per claim. A turn generates text, then voices and publishes one phrase
+at a time. The next phrase is voiced only after the previous one finishes
+publishing. A partial publication ends the turn. Phrases and PCM stay in memory;
+only capture credits transcript.
+
+A refused speaking window (`CONFLICT`) waits for the next wake and consumes no
+attempt. Other failures count toward a bound of two attempts per claim and log
+`round.speaking.failed`. A speech claim delivers its speech once. Bots issue no
+floor commands; the runtime clock opens and closes segments.
+
+In cross-examination the speaker opens the exchange once. After that it
+answers once per ended peer turn, and repeated end-of-turn reports for the same
+turn start nothing. Its activity feed polls each peer's relay key every 50 ms
+against fresh PostgreSQL time. It skips frames already delivered and treats
+frames older than 250 ms, missing keys and Redis failures as unknown. A barge-in
+or unknown aborts only the active turn. A changed, invalid or shut-down claim
+stops its speaker before the lease is revoked or abandoned.
+
+The claim returns its segment type and the other non-judge seats. These are
+activity peers only and grant no authority over those seats.
+
+## Activity relay owner hook
+
+`createBotActivityRelay` (`round-bots/activity-relay.ts`) is the hook the signed
+capture ingress calls with the worker's capture identity and body. The body
+(`botActivityRelaySchema`) carries the speaker seat and original frames only. It
+has no Round, receipt, bearer or service claim. The hook reads capture state
+under the current lease and requires the seat to be an actually bound non-judge
+participant of that session. It attaches that transaction's PostgreSQL time as
+`receivedAt` and writes the validated batch through the existing Redis
+adapter. Bounds later than PostgreSQL time are refused. The signed route and
+worker transport belong to media.
