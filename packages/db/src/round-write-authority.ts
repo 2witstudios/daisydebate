@@ -1,3 +1,7 @@
+import {
+  lockRoundCommandWorker,
+  roundCommandWorkerActive,
+} from './round-command-worker';
 import { createAppError } from '@daisy/errors';
 import type {
   RoundCommandPrincipal,
@@ -26,6 +30,7 @@ export async function readRoundWriteContext(
   tx: Tx,
   input: RoundWriteScope,
   accounts: Awaited<ReturnType<typeof lockAuthorizationActors>>,
+  purpose: 'command' | 'ballot' = 'command',
 ) {
   const round = await hydrateRoundRows(tx, input.roundId);
   if (!round) throw createAppError('NOT_FOUND');
@@ -73,6 +78,10 @@ export async function readRoundWriteContext(
       };
     }
   }
+  const claim =
+    purpose === 'ballot'
+      ? null
+      : await lockRoundCommandWorker(tx, input.principal);
   const now = await sampleRoundExecutionTime(tx);
   return {
     round,
@@ -82,7 +91,14 @@ export async function readRoundWriteContext(
       roundId: round.id,
       hostActorId: row?.hostActorId ?? null,
       participants,
-      agentRun,
+      agentRun: commandRunAuthority(agentRun, purpose, {
+        principal: input.principal,
+        claim,
+        kind: runKind,
+        configuration: runConfiguration,
+        round,
+        now,
+      }),
     },
     now,
   };
@@ -127,4 +143,16 @@ export async function fenceRoundWrite(tx: Tx, input: RoundWriteScope) {
     ? await lockAuthorizationActors(tx, fenced, { maxActors: fenced.length })
     : [];
   return { actorIds: fenced, accounts };
+}
+
+function commandRunAuthority(
+  agentRun: RoundCommandAuthority['agentRun'],
+  purpose: 'command' | 'ballot',
+  context: Parameters<typeof roundCommandWorkerActive>[0],
+) {
+  if (!agentRun || purpose === 'ballot') return agentRun;
+  return {
+    ...agentRun,
+    active: agentRun.active && roundCommandWorkerActive(context),
+  };
 }

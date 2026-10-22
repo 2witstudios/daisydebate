@@ -5,6 +5,7 @@
  * Self-hosted adapters can replace OpenRouter behind the same shapes later.
  */
 export { createOpenRouter, type OpenRouter } from './openrouter';
+export { roundJudgeMessages } from './round-judge';
 export {
   cxMessages,
   debaterPersona,

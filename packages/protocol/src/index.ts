@@ -224,6 +224,7 @@ export type {
   RoundBallotAuthority,
 } from './round-ballot';
 export {
+  attendanceTimingPolicy,
   attendanceEnvelopeSchema,
   attendanceReceiptSchema,
   type AttendanceEnvelope,
@@ -235,3 +236,5 @@ export {
   roundMediaAdmissionSchema,
 } from './round-media';
 export type { RoundMediaState, RoundMediaAdmission } from './round-media';
+export { roundBallotReadSchema } from './round-ballot-read';
+export type { RoundBallotRead } from './round-ballot-read';
