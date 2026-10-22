@@ -10,18 +10,13 @@ setupRitewayBun();
 
 type RuntimeFixture = Parameters<Parameters<typeof withRoomRuntime>[0]>[0];
 
+/** Requests cannot make a Room private (DEC-206); the stored state still exists. */
 async function setPrivate(
   f: RuntimeFixture,
   view: RoomView,
 ): Promise<RoomView> {
-  return (
-    await f.command(f.host, view, {
-      type: 'update-details',
-      title: view.title,
-      topic: view.topic,
-      visibility: 'private',
-    })
-  ).view;
+  await f.sql`update rooms set visibility='private' where id=${view.id}`;
+  return f.operations.view(f.host, view.id);
 }
 
 function assertMinimalProjection(

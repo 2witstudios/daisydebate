@@ -1,10 +1,35 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { roomCommandSchema } from './room-contract';
+import { roomCommandSchema, roomCreateSchema } from './room-contract';
 
 setupRitewayBun();
 const commandId = 'abcdefghijklmnopqrstuvwx';
 
 describe('Room command boundary', () => {
+  test('refuses private visibility from every request (DEC-206)', () => {
+    const details = (visibility: string) => ({
+      commandId,
+      expectedVersion: 3,
+      type: 'update-details',
+      title: 'Title',
+      topic: 'Topic',
+      visibility,
+    });
+    const create = (visibility: string) =>
+      roomCreateSchema.shape.visibility.safeParse(visibility).success;
+    assert({
+      given: 'create and update-details requests naming each visibility',
+      should: 'accept public and unlisted and refuse private in both',
+      actual: ['public', 'unlisted', 'private'].map((visibility) => [
+        create(visibility),
+        roomCommandSchema.safeParse(details(visibility)).success,
+      ]),
+      expected: [
+        [true, true],
+        [true, true],
+        [false, false],
+      ],
+    });
+  });
   test('requires version and refuses caller identity claims', () => {
     const valid = {
       commandId,

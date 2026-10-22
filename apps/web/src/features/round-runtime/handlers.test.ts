@@ -59,7 +59,7 @@ test('shared boundary refuses actor claims and foreign origins before mutation',
     expected: { statuses: [400, 403], calls: 0 },
   });
 });
-test('native POST uses the same command gates and redirects without submitted values', async () => {
+test('the command route takes only the JSON envelope; no form-encoded side door skips confirmation', async () => {
   const f = fixture();
   const response = await f.handlers.commands(
     new Request(`${origin}/api/rounds/${id}/commands`, {
@@ -69,19 +69,16 @@ test('native POST uses the same command gates and redirects without submitted va
         version: '1',
         commandId: id,
         expectedVersion: '1',
-        type: 'start',
+        type: 'forfeit',
+        participantId: id,
       }),
     }),
     id,
   );
   assert({
-    given: 'a native HTML form POST',
-    should: 'commit through the shared operation and move to its Round receipt',
-    actual: {
-      status: response.status,
-      location: response.headers.get('location'),
-      calls: f.calls(),
-    },
-    expected: { status: 303, location: `/rounds/${id}`, calls: 1 },
+    given: 'a form-encoded forfeit POST without the confirmation step',
+    should: 'refuse it before any operation runs',
+    actual: { status: response.status, calls: f.calls() },
+    expected: { status: 400, calls: 0 },
   });
 });

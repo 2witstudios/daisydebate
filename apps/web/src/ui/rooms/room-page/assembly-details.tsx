@@ -62,7 +62,6 @@ export function AssemblyDetailsFields({
         >
           <option value="public">Public</option>
           <option value="unlisted">Unlisted</option>
-          <option value="private">Private</option>
         </select>
       </FormField>
       <AssemblyEditFeedback state={state} roomId={view.id} />

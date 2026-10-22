@@ -21,7 +21,7 @@ export function UnacknowledgedCommand({
 }) {
   if (
     !answer.unacknowledged ||
-    !roundCommandFields(Object.entries(answer.values), true)
+    !roundCommandFields(Object.entries(answer.values))
   )
     return null;
   return (

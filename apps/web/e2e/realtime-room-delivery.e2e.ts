@@ -1,3 +1,4 @@
+import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { readRealtimeTransportConfig } from '@daisy/config';
 import type { BrowserContext, Page } from '@playwright/test';
@@ -30,6 +31,16 @@ import {
 
 requireLaunchSlot(resolve(import.meta.dirname, '../../..'), process.env);
 
+/** Requests cannot make a Room private (DEC-206); the stored state still refuses outsiders. */
+async function storePrivate(roomId: string) {
+  const sql = new SQL(process.env.E2E_DATABASE_URL!, { max: 1 });
+  try {
+    await sql`update rooms set visibility='private' where id=${roomId}`;
+  } finally {
+    await sql.close();
+  }
+}
+
 function changeDetails(context: BrowserContext, view: RoomView, title: string) {
   return context.request.post(`/api/rooms/${view.id}/commands`, {
     headers: { origin },
@@ -39,7 +50,8 @@ function changeDetails(context: BrowserContext, view: RoomView, title: string) {
       expectedVersion: view.version,
       title,
       topic: view.topic,
-      visibility: 'private',
+      // The outsider was refused at subscribe time and never resubscribes.
+      visibility: 'unlisted',
     },
   });
 }
@@ -79,7 +91,7 @@ test('real HTTP Room mutation reaches its authenticated browser subscriber and r
         commandId: createId(),
         title: 'Realtime isolated proof',
         topic: 'Cities should fund public transit',
-        visibility: 'private',
+        visibility: 'unlisted',
         selection: {
           kind: 'catalog',
           formatId: choice.formatId,
@@ -92,6 +104,7 @@ test('real HTTP Room mutation reaches its authenticated browser subscriber and r
     });
     expect(created.status()).toBe(201);
     const before = roomViewSchema.parse((await created.json()).view);
+    await storePrivate(before.id);
     const topic = buildRoomTopic(before.id);
     const hostPage = await openPage(host, 'RT authorized host'),
       outsiderPage = await openPage(outsider, 'RT private outsider');

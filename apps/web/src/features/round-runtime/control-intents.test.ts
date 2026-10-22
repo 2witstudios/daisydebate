@@ -11,12 +11,33 @@ import {
 setupRitewayBun();
 test('Round controls follow existing runtime position and preserve floor command ownership', () => {
   assert({
-    given: 'a scheduled seated participant',
-    should: 'offer a server-authorized start intent',
-    actual: roundControlIntents(view, aff.actorId, Date.parse(at(0))).map(
-      (c) => c.type,
+    given: 'a scheduled Round read by its host and by a seated non-host',
+    should: 'offer the host-only start intent to the host alone',
+    actual: [true, false].map((viewerIsHost) =>
+      roundControlIntents(
+        { ...view, viewerIsHost },
+        aff.actorId,
+        Date.parse(at(0)),
+      ).map((c) => c.type),
     ),
-    expected: ['start'],
+    expected: [['start'], []],
+  });
+  const prepping = {
+    ...ran(0),
+    checkpoint: {
+      ...ran(0).checkpoint!,
+      active_prep: { side: 'affirmative' as const, started_at: at(1000) },
+    },
+  };
+  assert({
+    given: 'the affirmative running prep before its speech',
+    should: 'offer one Start intent and no separate save-the-rest command',
+    actual: roundControlIntents(
+      prepping,
+      aff.actorId,
+      Date.parse(at(2000)),
+    ).map((c) => c.type),
+    expected: ['start_speech', 'forfeit'],
   });
   const active = ran(1);
   assert({

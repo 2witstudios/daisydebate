@@ -73,7 +73,6 @@ test('custom unequal casts and ordered timing freeze alongside canonical quota a
       };
       let view = (
         await f.create({
-          visibility: 'private',
           selection: {
             kind: 'custom',
             definition,
@@ -83,6 +82,9 @@ test('custom unequal casts and ordered timing freeze alongside canonical quota a
           },
         })
       ).view;
+      // Requests cannot make a Room private (DEC-206); the stored state still masks.
+      await f.sql`update rooms set visibility='private' where id=${view.id}`;
+      view = await f.operations.view(f.host, view.id);
       const initial = await f.snapshot(view.id);
       await assertRejects({
         given: 'the configured one-open-Room quota is reached',
@@ -133,14 +135,8 @@ test('custom unequal casts and ordered timing freeze alongside canonical quota a
           slot: 0,
         })
       ).view;
-      view = (
-        await f.command(f.host, view, {
-          type: 'update-details',
-          title: view.title,
-          topic: view.topic,
-          visibility: 'private',
-        })
-      ).view;
+      await f.sql`update rooms set visibility='private' where id=${view.id}`;
+      view = await f.operations.view(f.host, view.id);
       for (const who of [f.host, f.guest, f.outsider])
         view = (
           await f.command(who, view, {

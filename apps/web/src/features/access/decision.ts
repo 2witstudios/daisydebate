@@ -23,7 +23,6 @@ const GUARDED_AREAS: Readonly<Record<string, Requirement>> = {
   '/lobby': 'participant',
   '/rooms': 'participant',
   '/rounds': 'participant',
-  '/debates': 'participant',
   '/judge': 'participant',
   '/notifications': 'participant',
   '/friends': 'participant',
