@@ -1,6 +1,6 @@
 import { acceptedCommandColumns } from './command-columns';
 import { sql } from 'drizzle-orm';
-import { check, index, pgTable, text } from 'drizzle-orm/pg-core';
+import { check, index, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
 import { actors } from './actors';
 import { jsonbIsObject, oneOf } from './columns';
 import { rounds } from './rounds';
@@ -9,6 +9,7 @@ import { rounds } from './rounds';
 export const roundCommandTypes = [
   'start',
   'start_prep',
+  'end_prep',
   'start_speech',
   'yield',
   'interrupt',
@@ -39,6 +40,10 @@ export const roundCommands = pgTable(
     ...acceptedCommandColumns(),
   },
   (table) => [
+    uniqueIndex('round_commands_id_round_unique').on(
+      table.commandId,
+      table.roundId,
+    ),
     index('round_commands_round_version_idx').on(
       table.roundId,
       table.resultingVersion,
