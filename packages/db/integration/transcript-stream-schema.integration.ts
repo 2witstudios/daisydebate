@@ -71,3 +71,17 @@ test('owning Round erasure removes captured text while direct seat deletion stay
     });
   });
 });
+
+test('captured transcript storage exposes no retired generation-claim columns or check', async () => {
+  await withFixture(url, async (fixture) => {
+    const [catalog] =
+      await fixture.sql`select (select count(*)::int from pg_attribute where attrelid='utterances'::regclass and attname in ('generation_token','generation_expires_at') and not attisdropped) columns,(select count(*)::int from pg_constraint where conrelid='utterances'::regclass and conname='utterances_generation_pair') checks`;
+    assert({
+      given:
+        'the total cutover to captured transcript ingress and scoped bot generation',
+      should: 'remove the abandoned bearer-claim storage surface',
+      actual: catalog,
+      expected: { columns: 0, checks: 0 },
+    });
+  });
+});

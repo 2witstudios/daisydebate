@@ -1,5 +1,4 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { assertRejects } from '@daisy/errors/testing';
 import { createTestDatabase } from './index.test-support';
 
 setupRitewayBun();
@@ -9,43 +8,34 @@ const segmentId = 's3e8g2m6e1n4t9i2d6c4b8k2';
 const speakerId = 'p4a7r1t9i3c6i2p8a5n7t1d4';
 
 describe('utteranceOperations', () => {
-  test('refuses unscoped transcript writes before issuing SQL', async () => {
+  test('exposes transcript reads without retired unscoped write or usage authority', () => {
     const { database, queries } = createTestDatabase([]);
-    const common = {
-      id: 'u1',
-      roundId,
-      text: 'Untrusted words.',
-      requireOpen: true,
-    };
-    const mutations = [
-      () =>
-        database.appendUtterance({
-          ...common,
-          segmentId,
-          roundParticipantId: speakerId,
-        }),
-      () => database.replaceUtterance({ ...common, requireOpen: false }),
-      () => database.replaceUtterance({ ...common, complete: true }),
-      () =>
-        database.replaceUtterance({
-          ...common,
-          requireOpen: true,
-          speechToken: 'untrusted-claim',
-        }),
+    const retired = [
+      'appendUtterance',
+      'replaceUtterance',
+      'claimSpeech',
+      'releaseSpeech',
+      'reserveAiPractice',
+      'markReservationCounted',
+      'countRecentAiPractice',
+      'countLiveRounds',
+      'recordAgentRun',
+      'spokenCharactersFor',
+      'reserveSpokenCharacters',
     ];
-    for (const mutation of mutations)
-      await assertRejects({
-        given:
-          'an unscoped append or replacement including a purported speech claim',
-        should: 'require signed capture authority',
-        actual: mutation,
-        code: 'CONFLICT',
-      });
     assert({
-      given: 'all refused unscoped transcript writes',
-      should: 'leave the SQL connection untouched',
-      actual: queries,
-      expected: [],
+      given: 'the shared database root after signed capture/scoped bot cutover',
+      should:
+        'expose only the retained transcript readers and no retired authority',
+      actual: {
+        retired: retired.filter((name) => Object.hasOwn(database, name)),
+        readers: [
+          typeof database.listSegmentUtterances,
+          typeof database.listRoundUtterances,
+        ],
+        queries,
+      },
+      expected: { retired: [], readers: ['function', 'function'], queries: [] },
     });
   });
 
