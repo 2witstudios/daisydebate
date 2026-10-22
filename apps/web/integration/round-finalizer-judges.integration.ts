@@ -1,3 +1,4 @@
+import { buildDebateTopic } from '@daisy/protocol';
 import { assembleJudgedRoom } from './round-judges.test-support';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
@@ -89,7 +90,7 @@ for (const revoked of [false, true])
           });
         } finally {
           if (roundId) {
-            await f.sql`delete from outbox where topic=${`debate:${roundId}`}`;
+            await f.sql`delete from outbox where topic=${buildDebateTopic(roundId)}`;
             await f.sql`delete from rounds where id=${roundId}`;
           }
           if (roomId) {

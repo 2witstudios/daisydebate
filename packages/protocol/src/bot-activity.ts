@@ -25,4 +25,3 @@ export const botActivityBatchSchema = z.strictObject({
   roundParticipantId: idSchema,
   frames: z.array(frame).min(1).max(20),
 });
-export type BotActivityBatch = z.infer<typeof botActivityBatchSchema>;
