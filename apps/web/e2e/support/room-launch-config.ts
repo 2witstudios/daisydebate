@@ -56,6 +56,7 @@ export default defineConfig({
             E2E_REDIS_URL: process.env.E2E_REDIS_URL!,
             E2E_REDIS_NAMESPACE: process.env.E2E_REDIS_NAMESPACE!,
             E2E_PORT: process.env.E2E_PORT!,
+            AI_ROUND_BUSY_CAP: '4',
           },
         }
       : anchored;
