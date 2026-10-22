@@ -141,7 +141,15 @@ export function createBotGenerationOperations(input: {
           id: execution.id,
           participantId: scope.roundParticipantId,
           token: execution.token,
-          bindings: { ...scope, parentAgentRunId: scope.agentRunId },
+          bindings: {
+            roundId: scope.roundId,
+            roundParticipantId: scope.roundParticipantId,
+            segmentId: scope.segmentId,
+            agentRunId: scope.agentRunId,
+            serviceId: scope.serviceId,
+            publicationEpoch: scope.publicationEpoch,
+            parentAgentRunId: scope.agentRunId,
+          },
         });
         requireRunUsage(run, usage);
         if (run.endedAt) {
