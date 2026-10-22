@@ -36,7 +36,7 @@ export const ballotOperations = ({
           .select({ id: rounds.id })
           .from(rounds)
           .where(eq(rounds.id, seat.roundId))
-          .for('update');
+          .for('no key update');
         const updated = await tx
           .update(ballots)
           .set({

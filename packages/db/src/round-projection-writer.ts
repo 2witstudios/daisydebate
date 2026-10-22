@@ -99,7 +99,9 @@ type LockedRound = {
 
 /**
  * Locks the round row and refuses when it moved on: the optimistic-version
- * gate every durable round write shares, so a round that moved under a
+ * gate every durable round write shares. Non-key locking admits durable child
+ * evidence through FK KEY SHARE while excluding competing writers and erasure.
+ * A round that moved under a
  * concurrent write refuses with CONFLICT and writes nothing.
  */
 export async function lockedRoundVersion(
@@ -119,7 +121,7 @@ export async function lockedRoundVersion(
     })
     .from(rounds)
     .where(eq(rounds.id, roundId))
-    .for('update');
+    .for('no key update');
   if (!round) throw createAppError('NOT_FOUND', 'No such round');
   if (expectedVersion !== undefined && round.version !== expectedVersion)
     throw createAppError('CONFLICT', 'The round moved on');
