@@ -1,9 +1,12 @@
+import { closeSync, openSync } from 'node:fs';
 /** Handles only processes this fixture actually spawns; no PID discovery or foreign service mutation. */
 export function createLaunchProcess(input: {
   readonly command: readonly string[];
   readonly cwd: string;
   readonly env: Readonly<Record<string, string | undefined>>;
   readonly ready: () => Promise<boolean>;
+  /** Appends the process's stdout and stderr, so a failed proof is diagnosable. */
+  readonly log?: string;
 }) {
   let child: ReturnType<typeof Bun.spawn> | null = null;
   let chain = Promise.resolve();
@@ -34,11 +37,14 @@ export function createLaunchProcess(input: {
   };
   const start = async () => {
     if (child && child.exitCode === null) return;
+    const output = input.log ? openSync(input.log, 'a') : 'inherit';
     child = Bun.spawn([...input.command], {
       cwd: input.cwd,
       env: input.env,
-      stdio: ['ignore', 'inherit', 'inherit'],
+      stdio: ['ignore', output, output],
     });
+    if (typeof output === 'number')
+      void child.exited.finally(() => closeSync(output));
     const deadline = performance.now() + 60000;
     for (;;) {
       if (child.exitCode !== null)
