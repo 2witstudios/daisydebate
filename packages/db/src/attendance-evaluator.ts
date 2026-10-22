@@ -6,7 +6,8 @@ import {
   fenceAttendance,
   type AttendanceFacts,
   type AttendanceTransaction,
-} from './attendance-operations';
+  type AttendanceTransactionContext,
+} from './attendance-facts';
 import {
   insertCommandRow,
   writeProjectionWithPhaseSignal,
@@ -30,7 +31,13 @@ export type AttendanceEvaluationFacts = AttendanceFacts & {
   }[];
 };
 /** One Round fence, immutable ordered receipts, and the SAME engine projection/history/outbox writer. */
-export function createAttendanceEvaluator(transaction: AttendanceTransaction) {
+export function createAttendanceEvaluator(
+  transaction: AttendanceTransaction,
+  controlHealth: (
+    tx: AttendanceTransactionContext,
+    roundId: string,
+  ) => Promise<{ readonly healthy: boolean }>,
+) {
   return async (input: {
     readonly roundId: string;
     readonly commandId: string;
@@ -56,6 +63,7 @@ export function createAttendanceEvaluator(transaction: AttendanceTransaction) {
         sql`select attempt_id from round_check_in_attempts where round_id=${round.id} and state='pending' limit 1`,
       );
       if (pending.length > 0) return null;
+      if (!(await controlHealth(tx, round.id)).healthy) return null;
       const evidence = await attendanceEvidence(tx, round);
       const rows = await tx.execute(
         sql`select participant_id,segment_id,to_char(received_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as received_at from round_check_ins where round_id=${round.id}`,
@@ -95,20 +103,7 @@ export function createAttendanceEvaluator(transaction: AttendanceTransaction) {
           'INVARIANT',
           'Attendance windows must resolve in actual speech order',
         );
-      if (
-        resolution.decision === 'forfeit' ||
-        resolution.decision === 'abandoned'
-      ) {
-        if (!resolution.projection)
-          throw createAppError(
-            'INVARIANT',
-            'Competitive attendance completion requires shared engine projection',
-          );
-      } else if (resolution.projection !== null)
-        throw createAppError(
-          'INVARIANT',
-          'Noncompetitive attendance cannot mutate Round lifecycle',
-        );
+      requireResolutionProjection(resolution);
       const changed = resolution.projection
         ? await writeProjectionWithPhaseSignal(
             tx,
@@ -157,4 +152,21 @@ export function createAttendanceEvaluator(transaction: AttendanceTransaction) {
       return resolution;
     });
   };
+}
+
+function requireResolutionProjection(resolution: AttendanceResolution): void {
+  if (
+    resolution.decision === 'forfeit' ||
+    resolution.decision === 'abandoned'
+  ) {
+    if (!resolution.projection)
+      throw createAppError(
+        'INVARIANT',
+        'Competitive attendance completion requires shared engine projection',
+      );
+  } else if (resolution.projection !== null)
+    throw createAppError(
+      'INVARIANT',
+      'Noncompetitive attendance cannot mutate Round lifecycle',
+    );
 }

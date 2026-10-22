@@ -57,6 +57,7 @@ describe('competitive schema child tables', () => {
         },
         commands: {
           checks: [
+            'round_commands_attendance_principal_check',
             'round_commands_digest_check',
             'round_commands_one_principal',
             'round_commands_result_is_object',
