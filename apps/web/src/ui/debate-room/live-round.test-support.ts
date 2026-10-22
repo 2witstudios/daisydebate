@@ -55,3 +55,12 @@ export function ran(count: number, closed = false): RoundView {
   }));
   return { ...view, status: 'active', startedAt: at(0), segments };
 }
+
+/** A zero-judge Round with every speech closed (DEC-191). */
+export const unjudgedClosed = (): RoundView => {
+  const closed = ran(rules.length, true);
+  return {
+    ...closed,
+    participants: closed.participants.filter((p) => p.role !== 'judge'),
+  };
+};

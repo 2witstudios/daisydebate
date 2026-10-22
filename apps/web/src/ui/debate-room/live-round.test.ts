@@ -11,6 +11,7 @@ import {
   ran,
   rules,
   startOf,
+  unjudgedClosed,
   view,
 } from './live-round.test-support';
 
@@ -242,6 +243,20 @@ describe('liveRoundOf during the round', () => {
         { label: 'Judging window', remainingMs: 29 * 60_000 },
         false,
       ],
+    });
+  });
+
+  test('after the last speech with no judge seat', () => {
+    const room = liveRoundOf(
+      unjudgedClosed(),
+      aff.actorId,
+      origin + startOf(rules.length) + 60_000,
+    );
+    assert({
+      given: 'a zero-judge Round whose speeches closed a minute ago',
+      should: 'close the speeches with no judge, ballots or judging clock',
+      actual: [room?.phase, room?.judge, room?.ballots, room?.clock],
+      expected: ['judging', null, null, null],
     });
   });
 
