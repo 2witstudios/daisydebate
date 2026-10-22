@@ -2,43 +2,50 @@ import { invariantIdOf as invariantId } from './invariant-error';
 import { fixedIds, type IdGenerator } from '@daisy/clock';
 import {
   foundationConfig,
+  oneOnOneFullConfig,
   referenceFormats,
 } from '@daisy/db/reference-formats';
 import {
   createRoundRuntime,
+  deriveRoundOutcome,
   resolveRoomConfiguration,
   type RoundCommand,
   type RoundPosition,
   type RoundRules,
 } from '@daisy/debate-engine';
 import type {
+  DebateSide,
   HydratedSegment,
+  RatedOutcome,
   RoundParticipantSeat,
   RoundProjection,
 } from '@daisy/protocol';
 
-const foundation = referenceFormats.find(
-  (format) => format.id === 'foundation',
-);
-if (!foundation) throw new Error('foundation format seed missing');
+/** The reference formats a scenario plays, each with its sanctioned config. */
+const scenarioConfigs = {
+  foundation: foundationConfig,
+  'one-on-one': oneOnOneFullConfig,
+} as const;
+type ScenarioFormat = keyof typeof scenarioConfigs;
 
-/** The one compiler, resolved once: the scenario's rules and seat order. */
-const resolved = (() => {
+/** The one compiler: a format's rules and its seat order, sides then judges. */
+function resolveFormat(formatId: ScenarioFormat) {
+  const format = referenceFormats.find((row) => row.id === formatId);
+  if (!format) throw new Error(`${formatId} format seed missing`);
   const outcome = resolveRoomConfiguration(
-    foundation.definition,
-    foundationConfig,
+    format.definition,
+    scenarioConfigs[formatId],
   );
   if (!outcome.ok) throw new Error(outcome.refusal.message);
-  return outcome.rules;
-})();
-
-/** The actor order the seats are held in: sides first, then the judge. */
-const seatRoles = Object.entries(resolved.seats).flatMap(([role, count]) =>
-  Array.from(
-    { length: count },
-    () => role as 'affirmative' | 'negative' | 'judge',
-  ),
-);
+  const seatRoles = Object.entries(outcome.rules.seats).flatMap(
+    ([role, count]) =>
+      Array.from(
+        { length: count },
+        () => role as 'affirmative' | 'negative' | 'judge',
+      ),
+  );
+  return { rules: outcome.rules, seatRoles };
+}
 
 export type ScenarioAction =
   | {
@@ -48,6 +55,15 @@ export type ScenarioAction =
       readonly actor: number | null;
     }
   | { readonly type: 'tick'; readonly atMs: number }
+  | {
+      /** Each judge's submitted ruling; the engine derives the outcome that completes the Round. */
+      readonly type: 'ballots';
+      readonly rulings: readonly {
+        /** The judge's seat, 1-based in seat order. */
+        readonly judge: number;
+        readonly winner: DebateSide;
+      }[];
+    }
   | {
       readonly type: 'expect-rejection';
       readonly operation: Exclude<
@@ -80,6 +96,7 @@ export type ScenarioObservation = {
   readonly id: string;
   readonly status: 'scheduled' | 'active' | 'completed' | 'abandoned';
   readonly stage: 'countdown' | 'prep' | 'live' | null;
+  readonly outcome: RatedOutcome | null;
   /** The segment keys that opened, in order. */
   readonly opened: readonly string[];
 };
@@ -87,6 +104,8 @@ export type ScenarioObservation = {
 export type DebateScenario = {
   readonly name: string;
   readonly given: {
+    /** The reference format played; foundation when omitted. */
+    readonly format?: ScenarioFormat;
     /** Round id, then the seat actors, the seat ids, then the segments. */
     readonly ids: readonly [string, ...string[]];
   };
@@ -125,8 +144,7 @@ export class ScenarioExpectationError extends Error {
 
 type Run = {
   readonly id: string;
-  /** The actor id in each seat, in seat order. */
-  readonly actorIds: readonly string[];
+  readonly participants: readonly RoundParticipantSeat[];
   readonly position: (now: string) => RoundPosition;
   readonly execute: (input: {
     readonly command: RoundCommand;
@@ -142,6 +160,9 @@ type Run = {
 
 /** One deterministic run: fixed ids, a movable clock, the real runtime. */
 function startRun(scenario: DebateScenario): Run {
+  const { rules, seatRoles } = resolveFormat(
+    scenario.given.format ?? 'foundation',
+  );
   const ids: IdGenerator = fixedIds(scenario.given.ids);
   const id = ids.next();
   const actorIds = seatRoles.map(() => ids.next());
@@ -160,7 +181,7 @@ function startRun(scenario: DebateScenario): Run {
       completedAt: null,
       outcome: null,
     },
-    rules: resolved as RoundRules,
+    rules: rules as RoundRules,
     participants,
     checkpoint: {
       version: 1,
@@ -191,7 +212,7 @@ function startRun(scenario: DebateScenario): Run {
   };
   return {
     id,
-    actorIds,
+    participants,
     position: (now) => runtime.position(now),
     execute: (input) => collect(runtime.execute(input)),
     tick: (now) => collect(runtime.tick(now)),
@@ -200,7 +221,7 @@ function startRun(scenario: DebateScenario): Run {
     advanceTo: (target) => {
       atMs = target;
     },
-    facts: () => ({ rules: resolved, participants, segments, nowMs: atMs }),
+    facts: () => ({ rules, participants, segments, nowMs: atMs }),
   };
 }
 
@@ -218,7 +239,25 @@ export function runScenario(scenario: DebateScenario): ScenarioObservation {
       run.tick(new Date(action.atMs).toISOString());
       return;
     }
-    const actor = action.actor === null ? null : seatActor(run, action.actor);
+    if (action.type === 'ballots') {
+      // As the ballot operation: every judge's ruling, then the service completes.
+      const outcome = deriveRoundOutcome(
+        run.participants,
+        action.rulings.map(({ judge, winner }) => ({
+          judgeParticipantId: seatOf(run, judge).id,
+          winner,
+          status: 'submitted' as const,
+        })),
+      );
+      run.execute({
+        command: { type: 'complete', outcome },
+        actorId: null,
+        now: new Date(run.nowMs()).toISOString(),
+      });
+      return;
+    }
+    const actor =
+      action.actor === null ? null : seatOf(run, action.actor).actorId;
     run.execute({
       command: action.command,
       actorId: actor,
@@ -248,12 +287,12 @@ export function runScenario(scenario: DebateScenario): ScenarioObservation {
   return assertScenario(scenario, run);
 }
 
-/** The actor id in seat order; the acting participant is 1-based. */
-function seatActor(run: Run, actor: number): string {
-  const id = run.actorIds[actor - 1];
-  if (id === undefined)
-    throw new Error(`Scenario actor index ${actor} is not configured`);
-  return id;
+/** The seat in seat order; the acting participant is 1-based. */
+function seatOf(run: Run, seat: number): RoundParticipantSeat {
+  const found = run.participants[seat - 1];
+  if (found === undefined)
+    throw new Error(`Scenario seat ${seat} is not configured`);
+  return found;
 }
 
 function assertScenario(
@@ -266,9 +305,10 @@ function assertScenario(
     id: run.id,
     status: position.status,
     stage: position.stage,
+    outcome: position.outcome,
     opened: run.opened(),
   };
-  const step = (['id', 'status', 'stage', 'opened'] as const).find(
+  const step = (['id', 'status', 'stage', 'outcome', 'opened'] as const).find(
     (candidate) =>
       JSON.stringify(expected[candidate]) !== JSON.stringify(actual[candidate]),
   );

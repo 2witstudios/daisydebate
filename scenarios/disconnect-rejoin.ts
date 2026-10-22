@@ -105,6 +105,7 @@ const scenario: DebateScenario = {
     id: foundationScenarioIds[0],
     status: 'active',
     stage: 'live',
+    outcome: null,
     opened: ['AC'],
   },
 };
