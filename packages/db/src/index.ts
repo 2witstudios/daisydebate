@@ -1,6 +1,5 @@
 import { createMediaSessionStore } from './media-session';
 import { roundMaintenanceOperations } from './round-maintenance';
-import { readUnratedAttendanceForfeits } from './attendance-rating';
 import {
   roundWorkerEntrypoints,
   type JudgingOptions,
@@ -159,9 +158,6 @@ export function createDatabase({
   return {
     ...botAdmissionOperations,
     ...roundMaintenanceOperations(transcriptTransaction),
-    readUnratedAttendanceForfeits: (
-      input: Parameters<typeof readUnratedAttendanceForfeits>[1],
-    ) => readUnratedAttendanceForfeits(database, input),
     ...roundWorkerEntrypoints({
       run: transcriptTransaction,
       nextId: nextActorId,
