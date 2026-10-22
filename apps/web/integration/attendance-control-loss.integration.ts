@@ -8,7 +8,7 @@ import { settleAttendanceFixture } from './attendance-evaluator.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 
-test('a bot speaker whose worker never returns postpones, then abandons once across evaluator takeover', async () =>
+test('a bot speaker missing its whole window abandons once even after a relaunched worker reclaims', async () =>
   withRoomRuntime(async (f) => {
     const { roundId, claim } = await ownSpeech(f);
     const instances = [createId(), createId()];
@@ -31,29 +31,20 @@ test('a bot speaker whose worker never returns postpones, then abandons once acr
     const facts = async () =>
       (
         await f.sql`select (select status from rounds where id=${roundId}) as status,
+        (select outcome from rounds where id=${roundId}) as outcome,
         (select coalesce(string_agg(decision,','),'') from round_attendance_adjudications where round_id=${roundId}) as decisions,
         (select count(*)::int from round_commands where round_id=${roundId} and type='adjudicate') as receipts,
         (select count(*)::int from rating_changes where round_id=${roundId}) as ratings`
       )[0];
-    const loseControl = (seconds: number) =>
-      f.sql`update round_bot_publications set lease_expires_at=clock_timestamp()-make_interval(secs=>${seconds}) where round_id=${roundId} and round_participant_id=${claim.scope.roundParticipantId}`;
     try {
-      await loseControl(10);
-      const postponed = await evaluators[0]!.evaluate(roundId);
-      assert({
-        given:
-          'an absent bot speaker, a present human opponent and worker control lost 10 s ago',
-        should: 'postpone durably instead of forfeiting the uncontrolled bot',
-        actual: { postponed, ...(await facts()) },
-        expected: {
-          postponed: null,
-          status: 'active',
-          decisions: '',
-          receipts: 0,
-          ratings: 0,
-        },
-      });
-      await loseControl(31);
+      await f.sql`update round_bot_publications set lease_expires_at=clock_timestamp()-interval '55 seconds' where round_id=${roundId} and round_participant_id=${claim.scope.roundParticipantId}`;
+      const target = (await f.store.scanRoundBotWorkers(64)).find(
+        (candidate) => candidate.roundId === roundId,
+      );
+      if (!target)
+        throw Error('Expected the lapsed bot seat to be reclaimable');
+      const reclaimed = await f.store.claimRoundBotWorker(target);
+      await f.store.verifyRoundBotWorker(reclaimed.scope, reclaimed.token);
       for (const instanceId of instances)
         await f.store.renewServiceInstance({ instanceId, role: 'web' });
       const results = await Promise.allSettled(
@@ -61,10 +52,12 @@ test('a bot speaker whose worker never returns postpones, then abandons once acr
       );
       assert({
         given:
-          'the same worker control unknown beyond the bound and two evaluator instances racing',
+          'a bot speaker with no receipt for its whole window, reclaimed by a relaunched worker before two evaluators race',
         should:
-          'abandon once with no winner or rating; the other instance changes nothing',
+          'abandon once with no winner or rating, never forfeit the bot on current lease state',
         actual: {
+          epoch:
+            reclaimed.scope.publicationEpoch > claim.scope.publicationEpoch,
           abandoned: results.filter(
             (result) =>
               result.status === 'fulfilled' &&
@@ -73,8 +66,10 @@ test('a bot speaker whose worker never returns postpones, then abandons once acr
           ...(await facts()),
         },
         expected: {
+          epoch: true,
           abandoned: 1,
           status: 'abandoned',
+          outcome: null,
           decisions: 'abandoned',
           receipts: 1,
           ratings: 0,

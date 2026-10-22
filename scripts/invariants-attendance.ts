@@ -39,7 +39,7 @@ export function attendanceInvariantFixtures(
         finalized: false,
         segmentType: 'speech',
         checkIns: [{ participantId: seats[0]!.id, receivedAtMs: 40000 }],
-        control: { nowMs: 45000, unknownSeats: [] },
+        botSeatIds: [],
         ...overrides,
       },
       { decision: 'forfeit', winner: 'negative', effectiveDeadlineMs: 40000 },
@@ -90,7 +90,7 @@ export function attendanceInvariantFixtures(
         window: attendanceWindow,
         availability: attendanceAvailability,
         checkIns: [],
-        control: { nowMs: 45000, unknownSeats: [] },
+        botSeatIds: [],
         finalized: true,
       });
     },

@@ -37,7 +37,6 @@ const failureCauses = [
   'realtime_stale',
   'delivery_lag',
   'public_probe_failed',
-  'control_worker_unknown',
   'check_in_pending',
 ] as const;
 export const availabilitySamples = pgTable(

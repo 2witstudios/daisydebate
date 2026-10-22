@@ -11,7 +11,8 @@ import {
   resetPublicSchema,
   withSlotLock,
 } from '@daisy/db/slots';
-import { e2eRole, resetRefusal } from './slot-model';
+import { resetRefusal } from './slot-model';
+import { testLogins } from './test-logins';
 import { migrate, resolveCheckout } from './slot';
 
 const root = resolve(import.meta.dir, '..');
@@ -31,7 +32,7 @@ try {
   await withSlotLock(admin, async () => {
     await resetPublicSchema(client);
     await migrate(url, checkout.path);
-    await provisionTestRoles(admin, e2eRole);
+    await provisionTestRoles(admin, testLogins);
   });
 } finally {
   await client.close();

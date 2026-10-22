@@ -23,7 +23,8 @@
     "./round-judging-jobs": "./src/round-judging-jobs.ts",
     "./bot-publication": "./src/bot-publication.ts",
     "./round-agent-runs": "./src/round-agent-runs.ts",
-    "./frozen-transcript": "./src/frozen-transcript.ts"
+    "./frozen-transcript": "./src/frozen-transcript.ts",
+    "./media-worker": "./src/media-worker-database.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

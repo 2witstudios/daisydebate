@@ -35,6 +35,7 @@ describe('doctor report', () => {
           { name: 'migration-currency', status: 'fail', detail: 'not checked' },
           { name: 'redis', status: 'pass', detail: 'PONG' },
           { name: 'livekit', status: 'fail', detail: 'not checked' },
+          { name: 'media-worker', status: 'fail', detail: 'not checked' },
           { name: 'boundaries', status: 'fail', detail: 'not checked' },
           { name: 'slot', status: 'fail', detail: 'not checked' },
           { name: 'slot-orphans', status: 'fail', detail: 'not checked' },
@@ -55,6 +56,7 @@ describe('doctor report', () => {
       { name: 'migration-currency', status: 'pass', detail: '1 migration' },
       { name: 'redis', status: 'pass', detail: 'PONG' },
       { name: 'livekit', status: 'pass', detail: 'reachable' },
+      { name: 'media-worker', status: 'warn', detail: 'not configured' },
       { name: 'boundaries', status: 'pass', detail: 'verified' },
       { name: 'slot', status: 'pass', detail: 'daisy' },
       { name: 'slot-orphans', status: 'warn', detail: 'orphaned slots: gone' },
@@ -87,7 +89,7 @@ describe('doctor report', () => {
       should: 'render a passing text summary',
       actual: formatDoctorReport(report, false),
       expected:
-        'Daisy doctor: PASS\nPASS bun-version: 1.4.2\nPASS env: valid\nPASS postgres: reachable\nPASS migration-currency: 1 migration\nPASS redis: PONG\nPASS livekit: reachable\nPASS boundaries: verified\nPASS slot: daisy\nWARN slot-orphans: orphaned slots: gone\nPASS github-identity: autonomous as daisy-agent (GH_TOKEN, HTTPS push)\nPASS identity-regime: identity regime active (agent)\nPASS pu-config: agents start through scripts/agent-launch.sh\nPASS checkout: worktree on pu/x\n',
+        'Daisy doctor: PASS\nPASS bun-version: 1.4.2\nPASS env: valid\nPASS postgres: reachable\nPASS migration-currency: 1 migration\nPASS redis: PONG\nPASS livekit: reachable\nWARN media-worker: not configured\nPASS boundaries: verified\nPASS slot: daisy\nWARN slot-orphans: orphaned slots: gone\nPASS github-identity: autonomous as daisy-agent (GH_TOKEN, HTTPS push)\nPASS identity-regime: identity regime active (agent)\nPASS pu-config: agents start through scripts/agent-launch.sh\nPASS checkout: worktree on pu/x\n',
     });
   });
 });
@@ -161,6 +163,7 @@ describe('slot checks', () => {
             'migration-currency',
             'redis',
             'livekit',
+            'media-worker',
             'boundaries',
             'slot',
             'github-identity',

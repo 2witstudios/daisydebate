@@ -191,7 +191,4 @@ export function createBotPublicationOperations(input: {
   };
 }
 
-export {
-  verifyBotWorkerPrincipalLocked,
-  readBotControlHealth,
-} from './bot-worker-authority';
+export { verifyBotWorkerPrincipalLocked } from './bot-worker-authority';

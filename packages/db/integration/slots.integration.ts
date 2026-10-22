@@ -20,7 +20,16 @@ const { databaseUrl: url } = requireTestServices(process.env);
 // A unique prefix outside `daisy_wt_*`: slot pruning can never select these,
 // and these tests never touch another slot's databases.
 const prefix = `slotit_${createId()}`;
-const e2e = { user: 'daisy_e2e', password: 'e2e-loopback-only' };
+const e2e = {
+  user: 'daisy_e2e',
+  password: 'e2e-loopback-only',
+  memberOf: 'daisy_web',
+} as const;
+const worker = {
+  user: 'daisy_media_worker_local',
+  password: 'media-worker-loopback-only',
+  memberOf: 'daisy_media_worker',
+} as const;
 const connect = (database: string) => {
   const next = new URL(url);
   next.pathname = `/${database}`;
@@ -49,7 +58,7 @@ const migrateAndProvision = async (database: string) => {
   const target = new URL(url);
   target.pathname = `/${database}`;
   await runMigrations({ databaseUrl: target.toString(), migrationsFolder });
-  await provisionTestRoles(admin, e2e);
+  await provisionTestRoles(admin, [e2e, worker]);
 };
 
 /** Whether the e2e login can append to the outbox (a bigserial default). */
@@ -87,12 +96,28 @@ test(
       expected: [true, false],
     });
     await migrateAndProvision(database);
-    await provisionTestRoles(admin, e2e);
+    await provisionTestRoles(admin, [e2e, worker]);
     assert({
       given: 'the baseline applied and the test logins provisioned twice',
       should: 'let the e2e login insert into a bigserial table',
       actual: await e2eCanWrite(database),
       expected: 'written',
+    });
+    assert({
+      given: 'the provisioned capture worker login',
+      should:
+        'read capture authority through daisy_media_worker and write nothing',
+      actual: await withDatabase(database, async (client) => {
+        await client.unsafe(`set role ${worker.user}`);
+        await client`select id from media_sessions limit 1`;
+        try {
+          await client`delete from media_worker_leases`;
+          return 'written';
+        } catch (error) {
+          return (error as { errno?: string }).errno ?? 'failed';
+        }
+      }),
+      expected: '42501',
     });
   },
   ddlTimeoutMs,
@@ -248,6 +273,6 @@ test('refuses identifiers and literals that are not on the allowlist', async () 
     setSlotDatabaseComment(admin, `${prefix}_a`, "x'; drop database daisy; --"),
   ).rejects.toThrow(/comment/);
   await expect(
-    provisionTestRoles(admin, { user: 'daisy_e2e', password: "p'w" }),
+    provisionTestRoles(admin, [{ ...e2e, password: "p'w" }]),
   ).rejects.toThrow(/password/);
 });

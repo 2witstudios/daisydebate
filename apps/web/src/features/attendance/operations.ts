@@ -59,13 +59,7 @@ function resolveAttendanceWindow(
         participantId: stamp.participantId,
         receivedAtMs: attendanceReceiptTime(stamp.receivedAt),
       })),
-    control: {
-      nowMs: attendanceReceiptTime(facts.now),
-      unknownSeats: facts.control.unknownSeats.map((seat) => ({
-        participantId: seat.participantId,
-        unknownSinceMs: attendanceReceiptTime(seat.unknownSince),
-      })),
-    },
+    botSeatIds: facts.botSeatIds,
     finalized: false,
     segmentType: target.type,
   };

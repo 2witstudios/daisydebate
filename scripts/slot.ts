@@ -35,7 +35,6 @@ import { deleteNamespace, listNamespaces } from '@daisy/redis/namespaces';
 import {
   deriveSlot,
   e2eRedisUrl,
-  e2eRole,
   findOrphans,
   liveWorktreeIds,
   parsePortBlockComment,
@@ -49,6 +48,7 @@ import {
   slotEnvValues,
   type Slot,
 } from './slot-model';
+import { testLogins } from './test-logins';
 import { stackReachable, withDatabase } from './slot-stack';
 import {
   clearTestNamespaces,
@@ -313,7 +313,7 @@ async function up(checkout: Checkout, envPath: string) {
             withDatabase(env.DATABASE_URL ?? '', database),
             checkout.path,
           );
-        await provisionTestRoles(services.admin, e2eRole);
+        await provisionTestRoles(services.admin, testLogins);
         return { pruned, created, values };
       },
     );
@@ -383,7 +383,7 @@ async function resetE2E(checkout: Checkout, envPath: string) {
         withDatabase(env.DATABASE_URL ?? '', slot.e2eDatabase),
         checkout.path,
       );
-      await provisionTestRoles(services.admin, e2eRole);
+      await provisionTestRoles(services.admin, testLogins);
       let removed = 0;
       for (const client of services.redis)
         removed += await deleteNamespace(client, slot.e2eNamespace);

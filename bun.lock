@@ -38,7 +38,11 @@
       "version": "0.0.0",
       "dependencies": {
         "@daisy/ai-voice": "workspace:*",
+        "@daisy/clock": "workspace:*",
+        "@daisy/config": "workspace:*",
+        "@daisy/db": "workspace:*",
         "@daisy/errors": "workspace:*",
+        "@daisy/logger": "workspace:*",
         "@daisy/media": "workspace:*",
         "@daisy/protocol": "workspace:*",
       },
