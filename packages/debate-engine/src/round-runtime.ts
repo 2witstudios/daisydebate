@@ -1,4 +1,8 @@
 import { speakingChangesOf } from './round-speaking';
+import {
+  applyRoundAdjudication,
+  type RoundAdjudication,
+} from './round-adjudication';
 import { assertAttendanceRules } from './attendance-policy';
 import { createInvariantError } from '@daisy/errors';
 import {
@@ -25,7 +29,11 @@ import {
   type ClockTransition,
 } from './round-clock';
 import { closedCount, normalizeRoundClock } from './round-clock-state';
-import { applyRoundCommand, type Queues } from './round-commands';
+import {
+  applyRoundCommand,
+  type Queues,
+  type CommandContext,
+} from './round-commands';
 import {
   lifecycleStampsOf,
   positionAtState,
@@ -81,6 +89,8 @@ export function createRoundRuntime(input: {
     readonly actorId: string | null;
     readonly now: string;
   }) => RoundProjection;
+  /** Internal durable attendance decision; never a public command. */
+  readonly adjudicate: (input: RoundAdjudication) => RoundProjection;
   /** Advances time alone, projecting whatever the clock moved. */
   readonly tick: (now: string) => RoundProjection;
   /** The current checkpoint. */
@@ -238,33 +248,27 @@ export function createRoundRuntime(input: {
     }
   };
 
-  /** Applies one command through the extracted dispatcher (ADR 0058 §6). */
-  const apply = (
+  const contextOn = (
     on: RoundStore,
     into: Queues,
-    command: RoundCommand,
     actorId: string | null,
     now: number,
-  ): void =>
-    applyRoundCommand(
-      {
-        rules,
-        on,
-        into,
-        actorId,
-        now,
-        closedCount: () => closedCount(capture(on)),
-        seatOf,
-        sideOf,
-        floorHolder: floorHolderSeat,
-        assertSeatCompleteness,
-        openRowAt: (at) =>
-          transitionOn(on, into, openClockSegment(capture(on), rules, at)),
-        closeRowAt: (sequence, at) =>
-          transitionOn(on, into, closeClockSegment(capture(on), sequence, at)),
-      },
-      command,
-    );
+  ): CommandContext => ({
+    rules,
+    on,
+    into,
+    actorId,
+    now,
+    closedCount: () => closedCount(capture(on)),
+    seatOf,
+    sideOf,
+    floorHolder: floorHolderSeat,
+    assertSeatCompleteness,
+    openRowAt: (at) =>
+      transitionOn(on, into, openClockSegment(capture(on), rules, at)),
+    closeRowAt: (sequence, at) =>
+      transitionOn(on, into, closeClockSegment(capture(on), sequence, at)),
+  });
 
   const roundBlockOf = (on: RoundStore): RoundProjection['round'] => {
     const lifecycle = on.lifecycle();
@@ -289,7 +293,21 @@ export function createRoundRuntime(input: {
       const scratch = restoreRoundStore(capture(store));
       const into = queues();
       advance(scratch, into, at);
-      apply(scratch, into, command, actorId, at);
+      applyRoundCommand(contextOn(scratch, into, actorId, at), command);
+      store = scratch;
+      return project(into);
+    },
+    adjudicate(decision): RoundProjection {
+      const at = Date.parse(decision.now);
+      const scratch = restoreRoundStore(capture(store));
+      const into = queues();
+      advance(scratch, into, at);
+      applyRoundAdjudication(
+        contextOn(scratch, into, null, at),
+        decision,
+        input.segments,
+        input.participants,
+      );
       store = scratch;
       return project(into);
     },
