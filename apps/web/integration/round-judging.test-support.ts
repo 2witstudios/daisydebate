@@ -3,8 +3,7 @@ import {
   practiceRoomConfig,
 } from '@daisy/db/reference-formats';
 import { ballotCategories, type Ballot } from '@daisy/protocol';
-import { createId } from '@paralleldrive/cuid2';
-import { createRoundFinalizationOperations } from '../src/features/round-finalization/operations';
+import { finalizeAsWeb } from './round-maintenance.test-support';
 import {
   startRuntimeRound,
   type withRoomRuntime,
@@ -63,10 +62,7 @@ export async function freezeBotJudge(
     125000,
   );
   await f.sql`update rounds set started_at=clock_timestamp()-${elapsed}*interval '1 millisecond' where id=${roundId}`;
-  const finalized = await createRoundFinalizationOperations({
-    store: f.store,
-    nextSegmentId: createId,
-  }).finalize(roundId);
+  const finalized = await finalizeAsWeb(f, roundId);
   if (
     finalized.status !== 'frozen' ||
     finalized.freeze.completeness !== 'incomplete'
