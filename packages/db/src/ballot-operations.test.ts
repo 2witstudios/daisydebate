@@ -26,7 +26,7 @@ describe('ballotOperations', () => {
     assert({
       given: 'the void transaction',
       should: 'lock the round row before updating',
-      actual: queries[1]?.query.includes('for update'),
+      actual: queries[1]?.query.includes('for no key update'),
       expected: true,
     });
     const empty = createTestDatabase([[['round-1']], [['round-1']], []]);

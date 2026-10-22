@@ -3,6 +3,7 @@ import {
   ballotSchema,
   idSchema,
   roundBallotReadSchema,
+  roundJudgeAssignmentsSchema,
   type LaunchedRound,
   type RoundBallotRead,
 } from '@daisy/protocol';
@@ -10,7 +11,7 @@ import { and, desc, eq } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { readLockedFrozenRoundTranscript } from './frozen-transcript';
 import { sharedAccount, type Caller, type Account } from './room-command-facts';
-import { launchedRoundRows } from './room-read-operations';
+import { readAuthorizedRound } from './round-read-authority';
 import { roundViewFor } from './round-view-projection';
 import { ballots } from './schema/ballots';
 import { rounds } from './schema/rounds';
@@ -37,7 +38,7 @@ export const roundBallotReads = ({
       const account = await sharedAccount(tx, caller);
       if (!account?.member || account.erased)
         throw createAppError('AUTHORIZATION');
-      return tx
+      const assignments = await tx
         .select({
           roundId: rounds.id,
           resolution: rounds.resolution,
@@ -60,6 +61,7 @@ export const roundBallotReads = ({
           ),
         )
         .orderBy(desc(rounds.createdAt));
+      return roundJudgeAssignmentsSchema.parse(assignments);
     });
   },
   async readRoundBallot(input: {
@@ -70,9 +72,7 @@ export const roundBallotReads = ({
     if (!idSchema.safeParse(input.roundId).success)
       throw createAppError('VALIDATION');
     return database.transaction(async (tx) => {
-      const account = await sharedAccount(tx, input.caller);
-      const round = await launchedRoundRows(tx, input.roundId);
-      if (!input.authorize(round, account)) throw createAppError('NOT_FOUND');
+      const round = await readAuthorizedRound(tx, input);
       const ownSeat = round.participants.find(
         (p) =>
           p.actorId === input.caller.actorId &&

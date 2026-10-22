@@ -230,5 +230,11 @@ export {
   type AttendanceEnvelope,
   type AttendanceReceipt,
 } from './attendance';
-export { roundBallotReadSchema } from './round-ballot-read';
-export type { RoundBallotRead } from './round-ballot-read';
+export {
+  roundBallotReadSchema,
+  roundJudgeAssignmentsSchema,
+} from './round-ballot-read';
+export type {
+  RoundBallotRead,
+  RoundJudgeAssignment,
+} from './round-ballot-read';
