@@ -164,6 +164,7 @@ export default defineConfig({
         '**/room-launch.e2e.ts',
         '**/debate-room.e2e.ts',
         '**/round-commands.e2e.ts',
+        '**/round-command-recovery.e2e.ts',
         '**/realtime-room-delivery.e2e.ts',
         '**/messaging-realtime.e2e.ts',
       ],
