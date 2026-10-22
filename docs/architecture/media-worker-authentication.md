@@ -52,3 +52,12 @@ body tampering refusal before lease creation, scoped snapshot reads and hidden
 receive-only credentials, and rejects body principal or foreign Round claims.
 This boundary proof does not establish native clock eligibility, actual audio
 transcription, worker recovery, coverage completeness or production provisioning.
+
+A capture lease takeover cannot recover the previous process's in-memory PCM or
+queued transcription intent. A complete seal therefore additionally requires
+that every retained coverage observation and captured transcript chunk belongs
+to the sealing epoch. Old-epoch evidence keeps the stream partial even when its
+outer temporal union and the supplied expected chunk count appear complete.
+This provenance fence preserves the existing continuous-coverage predicate and
+genuine current-epoch complete-silence storage proof. It does not heal gaps or
+claim that a native producer covered whole-grant edges.
