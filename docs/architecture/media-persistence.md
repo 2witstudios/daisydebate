@@ -151,3 +151,10 @@ personal/private under DEC-101, with deletion tracked by ISSUE-322. These rows
 follow Round/segment erasure; the scoped seat reference checks at transaction end
 so aggregate deletion can cascade without allowing orphan references. No new
 legal basis, production consent or provider activation is inferred.
+
+The `utterances.capture_body_digest` declaration is category `personal`, visibility
+`private`, purpose detecting conflicting captured-transcript retries. Lawful basis
+is **pending** the existing PRIV-H human production sign-off; synthetic local
+proof does not grant legal approval. Retention is 180 days alongside transcript
+text; subject erasure and owning Round erasure delete it. It is derived personal
+transcript data and is not anonymized.
