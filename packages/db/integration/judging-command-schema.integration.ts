@@ -158,6 +158,41 @@ test('pending judging response survives takeover with immutable origin until ato
         'update round_judging_jobs set attempts=1,pending_ballot=$1,pending_ballot_agent_run_id=$2,pending_ballot_epoch=1,pending_ballot_received_at=clock_timestamp() where round_id=$3 and judge_participant_id=$4',
         [pending, runId, roundId, judge.id],
       );
+      assert({
+        given: 'a durable validated response awaiting attendance settlement',
+        should:
+          'refuse direct deletion and freeze-cascade deletion while Round survives',
+        actual: await Promise.all([
+          rejectedBy(() =>
+            fixture.sql.unsafe(
+              'delete from round_judging_jobs where round_id=$1 and judge_participant_id=$2',
+              [roundId, judge.id],
+            ),
+          ),
+          rejectedBy(() =>
+            fixture.sql.unsafe(
+              'delete from round_transcript_freezes where round_id=$1',
+              [roundId],
+            ),
+          ),
+        ]),
+        expected: [
+          'round_judging_jobs_pending_delete',
+          'round_judging_jobs_pending_delete',
+        ],
+      });
+      assert({
+        given: 'the exact origin run of a pending response',
+        should:
+          'refuse direct deletion at deferred commit and preserve recovery after rollback',
+        actual: await rejectedBy(() =>
+          fixture.sql.begin(async (tx) => {
+            await tx.unsafe('delete from agent_runs where id=$1', [runId]);
+          }),
+        ),
+        expected: 'round_judging_jobs_pending_run_judge_fk',
+      });
+
       await fixture.sql.unsafe(
         'update round_judging_jobs set attempts=2 where round_id=$1 and judge_participant_id=$2',
         [roundId, judge.id],
