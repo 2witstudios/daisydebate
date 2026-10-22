@@ -1,4 +1,9 @@
 import { createMediaSessionStore } from './media-session';
+import {
+  roundWorkerEntrypoints,
+  type JudgingOptions,
+  type BotPublicationOptions,
+} from './round-worker-entrypoints';
 import { attendanceEntrypoints } from './attendance-entrypoints';
 import { availabilityOperations } from './availability-operations';
 import { databaseHealthOperations } from './database-health';
@@ -113,11 +118,15 @@ export function createDatabase({
   client: injectedClient,
   nextActorId,
   botBusyCap,
+  judging,
+  botPublication,
 }: {
   url: string;
   maxConnections?: number;
   /** No implicit bot capacity: absence truthfully refuses bot admission. */
   botBusyCap?: number | undefined;
+  judging?: JudgingOptions | undefined;
+  botPublication?: BotPublicationOptions | undefined;
   eventSink?: DatabaseEventSink;
   /** Overrides dialing `url`; tests inject a scripted client at this seam. */
   client?: SQL;
@@ -146,6 +155,12 @@ export function createDatabase({
     });
   return {
     ...botAdmissionOperations,
+    ...roundWorkerEntrypoints({
+      run: transcriptTransaction,
+      nextId: nextActorId,
+      judging,
+      botPublication,
+    }),
     mediaSessions: createMediaSessionStore({
       database,
       run: transcriptTransaction,

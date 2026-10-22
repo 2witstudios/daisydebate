@@ -4,6 +4,7 @@ export async function createBotSeat(
   fixture: Fixture,
   roundId: string,
   role: 'affirmative' | 'negative' | 'judge',
+  slot = 0,
 ) {
   const actorId = createId();
   await fixture.insert('actors', { id: actorId, kind: 'bot' });
@@ -17,5 +18,5 @@ export async function createBotSeat(
     },
     'actor_id',
   );
-  return fixture.seat(roundId, role, 0, actorId);
+  return fixture.seat(roundId, role, slot, actorId);
 }
