@@ -47,7 +47,7 @@ test('internal zerojudge completion requires real freeze and settled attendance 
       });
       // Component boundary: rebase before the engine creates actual segment/end/cutoff rows.
       await f.sql`update rounds set started_at=clock_timestamp()-interval '20 minutes' where id=${roundId}`;
-      await f.store.finalizeRoundTranscript(request);
+      await f.store.finalizeDueRoundTranscript(request);
       await assertRejects({
         given: 'an immutable freeze with unresolved historical attendance',
         should: 'refuse completion',
@@ -206,7 +206,11 @@ test('an actual frozen human-judged Room cannot enter internal unjudged completi
     try {
       await f.sql`update rounds set started_at=clock_timestamp()-interval '20 minutes' where id=${roundId}`;
       const buildProjection = roundTickProjection(createId);
-      await f.store.finalizeRoundTranscript({ roundId, buildProjection });
+      await f.store.finalizeDueRoundTranscript({
+        instanceId,
+        roundId,
+        buildProjection,
+      });
       await seedSettledAttendanceLedger(f, roundId);
       const before = await f.store.getRound(roundId);
       await assertRejects({

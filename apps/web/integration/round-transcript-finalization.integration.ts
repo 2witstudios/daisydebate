@@ -1,7 +1,6 @@
 import { requireTestServices } from '@daisy/config';
-import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createRoundFinalizationOperations } from '../src/features/round-finalization/operations';
+import { finalizeAsWeb } from './round-maintenance.test-support';
 import {
   startRuntimeRound,
   withRoomRuntime,
@@ -14,17 +13,13 @@ test('silent human-only Round with no media session finalizes missing streams ho
   await withRoomRuntime(async (f) => {
     const { roundId } = await startRuntimeRound(f, await f.assemble());
     await f.sql`update rounds set started_at=clock_timestamp()-interval '20 minutes' where id=${roundId}`;
-    const operation = createRoundFinalizationOperations({
-      store: f.store,
-      nextSegmentId: createId,
-    });
-    const result = await operation.finalize(roundId);
+    const result = await finalizeAsWeb(f, roundId);
     const freeze =
       await f.sql`select revision,frontier,completeness from round_transcript_freezes where round_id=${roundId}`;
     const streams =
       await f.sql`select state,chunk_count,sealed_chunk_count from transcript_segments where round_id=${roundId} order by segment_id,round_participant_id`;
     const frozenInput = await f.store.readFrozenRoundTranscript(roundId);
-    const repeated = await operation.finalize(roundId);
+    const repeated = await finalizeAsWeb(f, roundId);
     const jobs =
       await f.sql`select round_id from round_judging_jobs where round_id=${roundId}`;
     assert({

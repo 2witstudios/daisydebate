@@ -2,11 +2,11 @@ import { resolve } from 'node:path';
 import { createDatabase } from '@daisy/db';
 import { createId } from '@paralleldrive/cuid2';
 import { idSchema } from '@daisy/protocol';
-import { createRoundFinalizationOperations } from '../../src/features/round-finalization/operations';
+import { createRoundMaintenanceOperations } from '../../src/features/round-finalization/maintenance';
 import { requireLaunchSlot } from './room-launch-slot';
 import { admitLaunchCheckout } from './room-launch-admission';
 
-/** Fixture invocation of the actual finalizer, not proof of the pending D5 public scheduler. */
+/** Drives the production maintenance finalizer for named Rounds under its own renewed web instance lease. */
 if (import.meta.main) {
   const checkout = resolve(import.meta.dir, '../../../..');
   const slot = requireLaunchSlot(checkout, process.env);
@@ -23,13 +23,17 @@ if (import.meta.main) {
     maxConnections: 4,
   });
   try {
-    const operation = createRoundFinalizationOperations({
+    const instanceId = createId();
+    const operation = createRoundMaintenanceOperations({
       store: database,
-      nextSegmentId: createId,
+      instanceId,
+      ids: { next: createId },
+      evaluate: async () => null,
     });
     const pending = new Set(roundIds);
     const deadline = performance.now() + 150_000;
     while (pending.size) {
+      await database.renewServiceInstance({ instanceId, role: 'web' });
       for (const roundId of pending) {
         const result = await operation.finalize(roundId);
         if (!freeze || result.status === 'frozen') pending.delete(roundId);

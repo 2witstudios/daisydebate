@@ -9,7 +9,7 @@ import {
 } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createRoundFinalizationOperations } from '../src/features/round-finalization/operations';
+import { finalizeAsWeb } from './round-maintenance.test-support';
 import {
   createRoomHttpFixture,
   withHumanJudgeHttpRound,
@@ -36,10 +36,9 @@ test('authenticated ballot JSON/native POST and protected GET share actual froze
       await withSql(async (sql) => {
         await sql`update rounds set started_at=clock_timestamp()-${elapsed}*interval '1 millisecond' where id=${roundId}`;
       });
-      const finalized = await createRoundFinalizationOperations({
-        store: f.app.database,
-        nextSegmentId: createId,
-      }).finalize(roundId);
+      const finalized = await withSql((sql) =>
+        finalizeAsWeb({ store: f.app.database, sql }, roundId),
+      );
       if (finalized.status !== 'frozen')
         throw Error('Expected actual frozen input');
       const get = (cookie: string) =>

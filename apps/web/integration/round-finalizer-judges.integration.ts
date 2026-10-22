@@ -1,9 +1,9 @@
 import { buildDebateTopic } from '@daisy/protocol';
+import { finalizeAsWeb } from './round-maintenance.test-support';
 import { assembleJudgedRoom } from './round-judges.test-support';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { roundTickProjection } from '../src/features/round-finalization/operations';
 import {
   startRuntimeRound,
   withRoomRuntime,
@@ -46,12 +46,8 @@ for (const revoked of [false, true])
           if (revoked)
             await f.sql`delete from bot_profiles where actor_id=${bots[1]!}`;
           await f.sql`update rounds set started_at=clock_timestamp()-interval '20 minutes' where id=${roundId}`;
-          const request = {
-            roundId,
-            buildProjection: roundTickProjection(createId),
-          };
-          const result = await f.store.finalizeRoundTranscript(request);
-          await f.store.finalizeRoundTranscript(request);
+          const result = await finalizeAsWeb(f, roundId);
+          await finalizeAsWeb(f, roundId);
           const jobs =
             await f.sql`select judge_participant_id,freeze_revision,status,attempts from round_judging_jobs where round_id=${roundId} order by judge_participant_id`;
           const expected = round.participants
