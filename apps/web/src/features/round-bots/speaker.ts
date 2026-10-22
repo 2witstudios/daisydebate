@@ -23,12 +23,15 @@ type Progress = {
   settled: boolean;
   spoken: number;
   synthesized: Answer<Job> | null;
+  /** Samples of the held phrase already sent, so a refused publication resumes there. */
+  sent: number;
 };
 const freshProgress = (): Progress => ({
   generated: null,
   settled: false,
   spoken: 0,
   synthesized: null,
+  sent: 0,
 });
 export type PeerActivity =
   'speech-start' | 'end-of-turn' | 'barge-in' | 'unknown';
@@ -59,9 +62,11 @@ export function createBotSpeaker(input: {
     text: string,
     signal: AbortSignal,
   ) => Promise<Answer<Job>>;
+  /** `onSent` reports the samples of `job` sent so far, after each accepted frame. */
   readonly publish: (
     job: Job,
     signal: AbortSignal,
+    onSent?: (samples: number) => void,
   ) => Promise<{ readonly complete: boolean }>;
   readonly nextId: () => string;
   readonly maxAttempts: number;
@@ -100,14 +105,23 @@ export function createBotSpeaker(input: {
       await progress.synthesized.settle();
       playing = true;
       stage = 'publish';
+      const phrase = progress.synthesized.value;
+      const from = progress.sent;
       try {
-        if (!(await input.publish(progress.synthesized.value, signal)).complete)
-          return;
+        const { complete } = await input.publish(
+          { ...phrase, pcm: phrase.pcm.subarray(from) },
+          signal,
+          (samples) => {
+            progress.sent = from + samples;
+          },
+        );
+        if (!complete) return;
       } finally {
         playing = false;
       }
       progress.spoken += 1;
       progress.synthesized = null;
+      progress.sent = 0;
     }
   };
   const turn = async (abort: AbortController) => {
