@@ -1,3 +1,4 @@
+import { createMediaSessionStore } from './media-session';
 import { databaseHealthOperations } from './database-health';
 import { roundBallotOperations } from './round-ballot-operations';
 import { roundBotAdmissionEntrypoints } from './round-bot-admission-entrypoints';
@@ -143,6 +144,11 @@ export function createDatabase({
     });
   return {
     ...botAdmissionOperations,
+    mediaSessions: createMediaSessionStore({
+      database,
+      run: transcriptTransaction,
+      nextId: nextActorId,
+    }),
     ...databaseHealthOperations({ database, client, eventSink }),
     /**
      * The RT-2.3b drain loop's LISTEN subscription (ADR 0032 §2, §3): the
