@@ -1,6 +1,6 @@
 import { requireCurrentWeb } from './round-service-authority';
 import { createAppError } from '@daisy/errors';
-import { idSchema, type RoundProjection } from '@daisy/protocol';
+import { idSchema } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import {
   attendanceEvidence,
@@ -16,14 +16,13 @@ import {
 import { writeSpeakingProjection } from './round-speaking-writer';
 import { sampleRoundExecutionTime } from './round-execution-time';
 import { eligibleCompetitorIds } from './seat-eligibility';
+import {
+  adjudicationCommand,
+  requireAttendanceTarget,
+  requireResolutionProjection,
+  type AttendanceResolution,
+} from './attendance-adjudication';
 
-export type AttendanceResolution = {
-  readonly segmentId: string;
-  readonly decision: 'attended' | 'none' | 'forfeit' | 'abandoned';
-  readonly effectiveDeadline: string;
-  readonly settledHorizon: string;
-  readonly projection: RoundProjection | null;
-};
 export type AttendanceEvaluationFacts = AttendanceFacts & {
   readonly now: string;
   readonly checkIns: readonly {
@@ -93,20 +92,14 @@ export function createAttendanceEvaluator(
         })),
       });
       if (!resolution) return null;
-      const lastSpeech = round.rules.segments
-        .filter((segment) => segment.type === 'speech')
-        .at(-1)?.key;
-      const target = round.segments.find(
-        (segment) =>
-          segment.type === 'speech' &&
-          segment.rulesSegmentKey !== lastSpeech &&
-          !evidence.finalizedSegmentIds.includes(segment.id),
+      const target = requireAttendanceTarget(
+        {
+          ruleSegments: round.rules.segments,
+          segments: round.segments,
+          finalizedSegmentIds: evidence.finalizedSegmentIds,
+        },
+        resolution,
       );
-      if (!target || target.id !== resolution.segmentId)
-        throw createAppError(
-          'INVARIANT',
-          'Attendance windows must resolve in actual speech order',
-        );
       requireResolutionProjection(resolution);
       await requireCurrentWeb(tx, input.instanceId);
       const changed = resolution.projection
@@ -127,21 +120,7 @@ export function createAttendanceEvaluator(
           actorId: null,
           serviceId: `round-attendance:${input.instanceId}`,
           type: 'adjudicate',
-          payloadDigest: new Bun.CryptoHasher('sha3-256')
-            .update(
-              JSON.stringify({
-                roundId: round.id,
-                segmentId: target.id,
-                decision: resolution.decision,
-              }),
-            )
-            .digest('hex'),
-          result: {
-            segmentId: target.id,
-            decision: resolution.decision,
-            effectiveDeadline: resolution.effectiveDeadline,
-            settledHorizon: resolution.settledHorizon,
-          },
+          ...adjudicationCommand(round.id, target.id, resolution),
         },
         resultingVersion,
       );
@@ -158,21 +137,4 @@ export function createAttendanceEvaluator(
       return resolution;
     });
   };
-}
-
-function requireResolutionProjection(resolution: AttendanceResolution): void {
-  if (
-    resolution.decision === 'forfeit' ||
-    resolution.decision === 'abandoned'
-  ) {
-    if (!resolution.projection)
-      throw createAppError(
-        'INVARIANT',
-        'Competitive attendance completion requires shared engine projection',
-      );
-  } else if (resolution.projection !== null)
-    throw createAppError(
-      'INVARIANT',
-      'Noncompetitive attendance cannot mutate Round lifecycle',
-    );
 }
