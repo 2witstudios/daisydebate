@@ -1,5 +1,12 @@
 # 0033: Presence and adjudication
 
+Current Round adaptation: [ADR 0058](0058-one-round-model.md) supersedes the
+historical fixed timetable and snapshot participant authority below.
+[ADR 0067](0067-playable-round-policy-and-acceptance.md) preserves the fairness,
+timestamp and durable settled-horizon rules using actual persisted segment
+openings. Public ingress-outage proof includes RT-4.3d's synthetic check-in probe;
+process leases alone do not establish that proof.
+
 Status: accepted. Extends [ADR 0008](0008-redis-ephemeral.md) (presence is
 Redis state), [ADR 0016](0016-injected-clock-and-identity.md) (time is an
 input), [ADR 0029](0029-competitive-schema-foundation.md) (debate outcomes)
