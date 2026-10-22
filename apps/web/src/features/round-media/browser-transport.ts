@@ -87,6 +87,33 @@ export function createBrowserMediaTransport(events: {
       events.reconnect();
     }
   });
+  const publishSource = async (source: 'camera' | 'microphone') => {
+    const captured = await createLocalTracks({
+      audio: source === 'microphone',
+      video:
+        source === 'camera'
+          ? { resolution: VideoPresets.h360.resolution }
+          : false,
+    });
+    for (const track of captured) {
+      if (stopped) {
+        track.stop();
+        continue;
+      }
+      tracks.set(source, track);
+      try {
+        await room.localParticipant.publishTrack(track, {
+          source:
+            source === 'camera' ? Track.Source.Camera : Track.Source.Microphone,
+        });
+      } catch (error) {
+        track.stop();
+        tracks.delete(source);
+        throw error;
+      }
+      if (stopped) track.stop();
+    }
+  };
   let work = Promise.resolve();
   const apply = (state: RoundMediaState) => {
     work = work.then(async () => {
@@ -98,34 +125,7 @@ export function createBrowserMediaTransport(events: {
           await room.localParticipant.unpublishTrack(track, true);
         }
       for (const source of state.grants.publish) {
-        if (stopped || tracks.has(source)) continue;
-        const captured = await createLocalTracks({
-          audio: source === 'microphone',
-          video:
-            source === 'camera'
-              ? { resolution: VideoPresets.h360.resolution }
-              : false,
-        });
-        for (const track of captured) {
-          if (stopped) {
-            track.stop();
-            continue;
-          }
-          tracks.set(source, track);
-          try {
-            await room.localParticipant.publishTrack(track, {
-              source:
-                source === 'camera'
-                  ? Track.Source.Camera
-                  : Track.Source.Microphone,
-            });
-          } catch (error) {
-            track.stop();
-            tracks.delete(source);
-            throw error;
-          }
-          if (stopped) track.stop();
-        }
+        if (!stopped && !tracks.has(source)) await publishSource(source);
       }
       if (!stopped) emit();
     });

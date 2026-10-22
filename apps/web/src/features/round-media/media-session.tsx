@@ -1,5 +1,7 @@
 'use client';
 import '../../ui/debate-room/zod-jitless';
+import { systemClock } from '@daisy/clock';
+import { nextMediaRefreshAt } from './refresh-deadline';
 import { useEffect, useRef, useState } from 'react';
 import type { RoundMediaState, RoundView } from '@daisy/protocol';
 import {
@@ -100,28 +102,14 @@ export function RoundMediaSession({
       return;
     }
     void controller.current?.reconcile();
-    const last = view.segments.at(-1);
-    const deadlines = [
-      last?.endedAt === null
-        ? Date.parse(last.startedAt) + last.durationMs
-        : NaN,
-      view.checkpoint?.active_prep && view.rules.inRoundPrep
-        ? Date.parse(view.checkpoint.active_prep.started_at) +
-          view.rules.inRoundPrep.budgetMsPerSide -
-          view.checkpoint.prep_consumed_ms[view.checkpoint.active_prep.side]
-        : NaN,
-      last?.endedAt && view.segments.length === view.rules.segments.length
-        ? Date.parse(last.endedAt) + 30 * 60_000
-        : NaN,
-    ].filter(Number.isFinite);
-    const next = deadlines.length ? Math.min(...deadlines) : NaN;
-    if (!Number.isFinite(next)) return;
+    const next = nextMediaRefreshAt(view);
+    if (next === null) return;
     const timer = window.setTimeout(
       () => {
         refresh.current();
         void controller.current?.reconcile();
       },
-      Math.max(0, next - Date.now()),
+      Math.max(0, next - Date.parse(systemClock.now())),
     );
     return () => window.clearTimeout(timer);
   }, [view]);
@@ -135,7 +123,7 @@ export function RoundMediaSession({
         {connection === 'live' ? (
           <button
             type="button"
-            className="min-h-11 rounded-md border border-border px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2"
+            className="min-h-room-target rounded-md border border-border px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2"
             onClick={() => {
               void sound
                 .current?.()
@@ -148,7 +136,7 @@ export function RoundMediaSession({
         {connection === 'unavailable' || connection === 'device-blocked' ? (
           <button
             type="button"
-            className="min-h-11 rounded-md border border-border px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2"
+            className="min-h-room-target rounded-md border border-border px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2"
             onClick={() => {
               refresh.current();
               void controller.current?.reconnect();
@@ -166,6 +154,9 @@ export function RoundMediaSession({
   );
 }
 
-export const roundMediaSlot = (onRefresh: () => void) => (view: RoundView) => (
-  <RoundMediaSession key={view.id} view={view} onRefresh={onRefresh} />
-);
+export const roundMediaSlot = (onRefresh: () => void) =>
+  function RoundMediaSlot(view: RoundView) {
+    return (
+      <RoundMediaSession key={view.id} view={view} onRefresh={onRefresh} />
+    );
+  };

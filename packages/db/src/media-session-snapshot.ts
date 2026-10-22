@@ -1,3 +1,7 @@
+import {
+  readMediaBotLeases,
+  mediaPublicationParticipants,
+} from './media-publication-authority';
 import { mediaVendorMutations } from './schema/media-vendor-mutations';
 import { createAppError } from '@daisy/errors';
 import { and, eq, isNull } from 'drizzle-orm';
@@ -29,6 +33,11 @@ export async function lockedMediaSnapshot(
     .where(eq(mediaSessions.roundId, roundId))
     .for('update');
   if (!session) return null;
+  const botLeases = await readMediaBotLeases(
+    tx,
+    roundId,
+    authority.participants,
+  );
   const tick = await executeLockedRoundTick(tx, {
     roundId,
     buildProjection: input.buildProjection,
@@ -56,6 +65,12 @@ export async function lockedMediaSnapshot(
     session,
     round,
     ...authority,
+    participants: mediaPublicationParticipants(
+      authority.participants,
+      botLeases,
+      round,
+      tick.now,
+    ),
     bindings,
     now: tick.now,
     finalSegmentEndedAt: tick.finalSegmentEndedAt,

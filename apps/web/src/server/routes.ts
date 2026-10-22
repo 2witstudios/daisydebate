@@ -1,5 +1,7 @@
 import { composeAttendanceRoutes } from '../features/attendance/composition';
 import { composeRoundBallotRoutes } from '../features/round-ballots/composition';
+import { createRoundMediaHandlers } from '../features/round-media/handlers';
+import { createRoundMediaRuntime } from '../features/round-media/composition';
 import { composeRoundRoutes } from '../features/round-runtime/composition';
 import { composeMessagingRoutes } from '../features/messaging/composition';
 import { composeRoomRoutes } from '../features/room-runtime/composition';
@@ -50,6 +52,11 @@ export function createRoutes(app: App) {
   };
   const rooms = composeRoomRoutes(app);
   return {
+    roundMedia: createRoundMediaHandlers({
+      ...memberGates,
+      active: () => Boolean(app.roomPolicy),
+      operations: createRoundMediaRuntime(app).operations,
+    }),
     rooms,
     attendance: composeAttendanceRoutes(app, memberGates),
     messaging: composeMessagingRoutes(app),

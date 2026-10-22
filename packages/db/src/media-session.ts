@@ -7,7 +7,6 @@ import {
   requireBotSpeakingWindow,
   type BotPublicationScope,
 } from './bot-publication-context';
-import { createAppError } from '@daisy/errors';
 import { and, eq } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { BoundedTransaction } from './bounded-transaction';
