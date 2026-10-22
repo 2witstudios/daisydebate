@@ -31,7 +31,6 @@ import {
 import { WinnerChoice } from '../../ballot/winner-choice/winner-choice';
 import { buttonClass } from '../../components/button/button-class';
 import { FormError, FormField } from '../../components/form-field/form-field';
-import { MockForm, type MockFormAction } from '../../form-action/mock-form';
 
 const textareaClass =
   'w-full min-w-0 rounded-md border border-border bg-surface-raised p-3 text-base text-ink';
@@ -71,11 +70,13 @@ export function BallotFields({
   values,
   error,
   pending,
+  errorId = REFUSAL_ID,
 }: {
   readonly debaters: BallotDebaters;
   readonly values: Readonly<Record<string, string>>;
   readonly error: string | undefined;
   readonly pending: boolean;
+  readonly errorId?: string;
 }) {
   const live = useSyncExternalStore(
     noSubscription,
@@ -106,7 +107,7 @@ export function BallotFields({
   const confirmed = values['low-point'] === result;
   return (
     <div ref={root} className="contents">
-      <div id={REFUSAL_ID} tabIndex={-1} className="empty:hidden">
+      <div id={errorId} tabIndex={-1} className="empty:hidden">
         <FormError error={error} />
       </div>
       <section aria-labelledby="ballot-winner" className={ballotSectionClass}>
@@ -190,16 +191,6 @@ export function BallotFields({
             </FormField>
           ))}
         </div>
-        <label className="flex w-fit items-center gap-3 font-strong text-ink">
-          <input
-            type="checkbox"
-            name="conduct"
-            value="report"
-            defaultChecked={values['conduct'] === 'report'}
-            className={checkClass}
-          />
-          Report a conduct issue
-        </label>
       </section>
 
       <div className="flex flex-wrap items-center gap-4">
@@ -224,29 +215,5 @@ export function BallotFields({
         ) : null}
       </div>
     </div>
-  );
-}
-
-/**
- * The ballot, a real POST: it works before hydration and without
- * JavaScript, and a refusal keeps what was entered. One ballot per judge
- * seat; it cannot be sent twice.
- */
-export function BallotForm({
-  action,
-  debaters,
-}: {
-  readonly action: MockFormAction;
-  readonly debaters: BallotDebaters;
-}) {
-  return (
-    <MockForm
-      action={action}
-      label="Your ballot"
-      className="flex flex-col gap-6"
-      focusOnRefusal={REFUSAL_ID}
-    >
-      {(body) => <BallotFields debaters={debaters} {...body} />}
-    </MockForm>
   );
 }

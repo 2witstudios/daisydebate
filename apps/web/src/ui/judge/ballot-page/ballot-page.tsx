@@ -1,82 +1,98 @@
+'use client';
 import Link from 'next/link';
-import type { BallotView } from '../../../features/judge/ballot';
-import { buttonClass } from '../../components/button/button-class';
-import { Notice } from '../../components/notice/notice';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import type { RoundBallotRead } from '@daisy/protocol';
+import {
+  ballotDebaters,
+  ballotDisplay,
+} from '../../../features/round-ballots/presentation';
+import {
+  ballotUnavailable,
+  type RoundBallotFormState,
+} from '../../../features/round-ballots/form';
+import {
+  useFocusAfterAnswer,
+  useFormAction,
+  type FormAction,
+} from '../../form-action/form-action';
+import { BallotSummary } from '../../ballot/ballot-summary/ballot-summary';
 import { PageHeader } from '../../components/page-header/page-header';
-import type { MockFormAction } from '../../form-action/mock-form';
-import { cn } from '../../cn';
-import { BallotForm } from './ballot-form';
-
-const linkButton = 'no-underline hover:no-underline';
-
-/** The judge's ballot: not open yet, open to fill in, or submitted. */
+import { BallotEntry, roundBallotErrorId as errorId } from './ballot-entry';
+import { BallotEvidence } from './ballot-evidence';
+/** Mounted above every canonical state, so an unknown acknowledgement always keeps its original retry. */
 export function BallotPage({
   view,
+  commandId: seedId,
   action,
 }: {
-  readonly view: BallotView;
-  readonly action: MockFormAction;
+  readonly view: RoundBallotRead;
+  readonly commandId: string;
+  readonly action: FormAction<RoundBallotFormState>;
 }) {
+  const router = useRouter();
+  const [commandId] = useState(seedId);
+  const [answer, post, pending] = useFormAction<RoundBallotFormState>(
+    action,
+    { values: {} },
+    ballotUnavailable,
+  );
+  useFocusAfterAnswer(answer, answer.error ? errorId : undefined, !pending);
+  useEffect(() => {
+    if (answer.receipt) router.refresh();
+  }, [answer.receipt, router]);
+  useEffect(() => {
+    if (view.round.status !== 'active' || view.freeze || answer.unacknowledged)
+      return;
+    const timer = window.setInterval(() => router.refresh(), 5000);
+    return () => window.clearInterval(timer);
+  }, [view.round.status, view.freeze, answer.unacknowledged, router]);
+  const debaters = ballotDebaters(view);
+  const display = ballotDisplay(view, answer);
+  const own = display === 'retry' ? null : view.own?.ballot;
   return (
     <div className="mx-auto flex w-full max-w-reading flex-col gap-6 px-6 pt-5 pb-8 max-compact:gap-4 max-compact:px-4">
       <Link
         href="/judge"
-        className="inline-flex min-h-10 w-fit items-center gap-2 text-base font-strong text-ink-muted no-underline hover:text-ink hover:no-underline"
+        className="inline-flex min-h-10 items-center text-base font-strong"
       >
-        <span aria-hidden="true">&lsaquo;</span>
-        Judge
+        Back to Judge
       </Link>
-      <PageHeader title="Your ballot" lede={view.title} />
-      {view.kind === 'waiting' ? (
-        <>
-          <Notice
-            tone="gold"
-            icon="clock"
-            title="The ballot opens when the last turn ends"
-          />
-          <div className="flex flex-wrap gap-3">
-            <Link
-              href={view.debateHref}
-              className={cn(buttonClass('primary'), linkButton)}
-            >
-              Follow the debate
-            </Link>
-            <Link
-              href={view.demoOpenHref}
-              className={cn(buttonClass('ghost'), linkButton)}
-            >
-              Demo: the speaking ends
-            </Link>
-          </div>
-        </>
-      ) : view.kind === 'open' ? (
-        <BallotForm action={action} debaters={view.debaters} />
-      ) : (
-        <>
-          <Notice
-            tone="accent"
-            icon="check"
-            title="Ballot submitted"
-            role="status"
-          >
-            It cannot be sent again.
-          </Notice>
-          <div className="flex flex-wrap gap-3">
-            <Link
-              href={view.resultHref}
-              className={cn(buttonClass('primary'), linkButton)}
-            >
-              See the result
-            </Link>
-            <Link
-              href={view.hubHref}
-              className={cn(buttonClass('secondary'), linkButton)}
-            >
-              Back to Judge
-            </Link>
-          </div>
-        </>
-      )}
+      <PageHeader title="Your ballot" lede={view.round.topic} />
+      <BallotEntry
+        display={display}
+        view={view}
+        answer={answer}
+        post={post}
+        pending={pending}
+        commandId={commandId}
+        debaters={debaters}
+      />
+      {own ? (
+        <BallotSummary
+          title="Your recorded ballot"
+          ballot={own}
+          debaters={debaters}
+        />
+      ) : null}
+      {display !== 'retry' && view.round.status === 'completed' ? (
+        <p role="status">
+          Round outcome: {view.round.outcome ?? 'No competitive outcome'}
+        </p>
+      ) : null}
+      <Link
+        href={`/judge/ballot/${view.round.id}`}
+        className="inline-flex min-h-10 items-center text-base font-strong"
+      >
+        Refresh Round
+      </Link>
+      <Link
+        href={`/rounds/${view.round.id}`}
+        className="inline-flex min-h-10 items-center text-base font-strong"
+      >
+        View Round
+      </Link>
+      <BallotEvidence view={view} />
     </div>
   );
 }
