@@ -101,7 +101,7 @@ export async function main(
     args.recordPageId,
     linkedPageIds([pr.body, ...fetched.comments]),
   );
-  const { records, unreadable } = await readRecords(ids);
+  const { records, unreadable } = await readRecords(ids, { localCli: true });
   const verdict = verifyReviewRecord(pr, records, unreadable);
   if (verdict.state !== 'success') {
     process.stdout.write(`${verdict.description}\n`);

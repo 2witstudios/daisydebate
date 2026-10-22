@@ -38,6 +38,15 @@ written) does not linger as the final state. A merged PR whose branch no
 longer carries the reviewed SHA can be checked with `--sha <sha>` to compare
 against the record's own SHA instead of the PR's current head.
 
+Local self-checks without `PAGESPACE_TOKEN` use the installed `pagespace` CLI's
+existing authorized credential through `pages read-details --json`. Returned
+page IDs and the Daisy drive must match before content reaches the verifier.
+The subprocess uses argv, suppresses stderr, and is limited to 15 seconds and
+1 MiB of output; failures remain unreadable records. No credentials are copied
+into the checkout. Explicit tokens retain the HTTPS API path with redirects
+refused. CI (`CI` or `GITHUB_ACTIONS` set) and the shared check never fall back
+to ambient CLI credentials. Branch feedback and stale heads still cannot approve.
+
 ```markdown
 # Review: <task or PR title> (<branch>)
 
