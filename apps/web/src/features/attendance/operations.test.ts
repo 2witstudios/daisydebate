@@ -63,7 +63,7 @@ const facts = (
     finalizedSegmentIds: [],
     now: iso(openedAtMs + 50000),
     checkIns: [],
-    control: { unknownSeats: [] },
+    botSeatIds: [],
     ...overrides,
   }) as unknown as AttendanceEvaluationFacts;
 const stamp = (participantId: string) => ({
@@ -113,17 +113,6 @@ test('evaluation resolves only settled actual-speech evidence', async () => {
   });
   for (const [given, read] of [
     [
-      'the speaker absent while its bot control is unknown inside the bound',
-      {
-        checkIns: [stamp(opponent)],
-        control: {
-          unknownSeats: [
-            { participantId: speaker, unknownSince: iso(openedAtMs + 30000) },
-          ],
-        },
-      },
-    ],
-    [
       'availability settled only before deadline plus buffer',
       { samples: healthyThrough(openedAtMs + 44000) },
     ],
@@ -140,21 +129,16 @@ test('evaluation resolves only settled actual-speech evidence', async () => {
     });
 });
 
-test('control lost beyond the bound abandons through the shared engine projection', async () => {
+test('a missing bot speaker receipt abandons through the shared engine projection', async () => {
   const resolution = (await feature({
     checkIns: [stamp(opponent)],
-    control: {
-      unknownSeats: [
-        { participantId: speaker, unknownSince: iso(openedAtMs + 20000) },
-      ],
-    },
+    botSeatIds: [speaker],
   }).instance.evaluate('round')) as {
     decision: string;
     projection: { round: { status: string; outcome: string | null } | null };
   } | null;
   assert({
-    given:
-      'an absent speaker whose worker control has been unknown for 30 s with a present opponent',
+    given: 'an absent bot speaker and a present human opponent',
     should: 'abandon with a terminal engine projection instead of a forfeit',
     actual: [
       resolution?.decision,

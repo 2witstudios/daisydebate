@@ -56,7 +56,7 @@ function verifyDisconnectRejoin(facts: ScenarioFacts): void {
       samples.filter((sample) => sample.atMs <= opening + 40000),
     ),
     checkIns: [opponentStamp],
-    control: { nowMs: facts.nowMs, unknownSeats: [] },
+    botSeatIds: [],
     finalized: false,
   });
   if (unsettled !== null)
@@ -76,7 +76,7 @@ function verifyDisconnectRejoin(facts: ScenarioFacts): void {
     window,
     availability,
     checkIns: [opponentStamp, rejoined],
-    control: { nowMs: facts.nowMs, unknownSeats: [] },
+    botSeatIds: [],
     finalized: false,
     segmentType: 'speech' as const,
   };

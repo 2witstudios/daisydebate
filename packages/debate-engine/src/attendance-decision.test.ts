@@ -22,7 +22,7 @@ const input = {
   finalized: false,
   segmentType: 'speech' as const,
   checkIns: [{ participantId: 'a', receivedAtMs: 40000 }],
-  control: { nowMs: 45000, unknownSeats: [] },
+  botSeatIds: [] as readonly string[],
 };
 const forfeit = {
   decision: 'forfeit' as const,
@@ -42,12 +42,9 @@ test('attendance application guards reject unsettled timestamps finalized window
       {
         ...input,
         checkIns: [{ participantId: 'n', receivedAtMs: 40000 }],
-        control: {
-          nowMs: 45000,
-          unknownSeats: [{ participantId: 'a', unknownSinceMs: 20000 }],
-        },
+        botSeatIds: ['a'],
       },
-      'debate.adjudication.failure-postpones-only',
+      'debate.adjudication.timestamp-decides',
     ],
     [
       { ...input, finalized: true },
