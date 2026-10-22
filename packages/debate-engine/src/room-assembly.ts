@@ -7,7 +7,7 @@ import type {
 } from '@daisy/protocol';
 
 import { assemblyOpen, complete, type Edges } from './room-assembly-facts';
-export { projectRoom } from './room-projection';
+export { hostIdentityHidden, projectRoom } from './room-projection';
 import {
   updateConfig,
   updateDetails,

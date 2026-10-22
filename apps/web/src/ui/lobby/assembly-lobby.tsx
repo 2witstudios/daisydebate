@@ -67,7 +67,8 @@ export function AssemblyLobby({
               </div>
               <p>{room.topic}</p>
               <p className="text-sm text-ink-muted">
-                Host: {room.hostLabel} · {room.competitionType}
+                {room.hostLabel !== null ? `Host: ${room.hostLabel} · ` : null}
+                {room.competitionType}
               </p>
               {room.roundRef ? (
                 <Link href={`/rounds/${room.roundRef.id}`}>View Round</Link>
