@@ -1,5 +1,11 @@
 # 0049: Room, debate and turn
 
+Current authority: [ADR 0058](0058-one-round-model.md) replaces the historical
+Debate/Turn representation below. [ADR 0067](0067-playable-round-policy-and-acceptance.md)
+supersedes section 4's same-Room reopening: a started Room retains its unique
+Round; another match uses a newly created Room and fresh readiness. Historical
+criteria remain preserved; this record is not implementation acceptance.
+
 Status: proposed. Extends [ADR 0029](0029-competitive-schema-foundation.md)
 (the debate is the durable competitive record) and
 [ADR 0033](0033-presence-and-adjudication.md) (turns are computed from the
