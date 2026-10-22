@@ -305,3 +305,9 @@ concurrent attempts and a new service instance replay that original receipt.
 The result is completed with a NULL outcome, without a ballot or rating.
 Existing forfeit and abandonment decisions remain terminal. This operation has
 no public completion-mode envelope and performs no model work.
+
+Attendance evaluation enforces the same current web service authority inside its
+own transaction. It checks after the Round fence and control waits, before
+competitive writes, and again before commit. An expired lease rolls back the
+projection, speaking history, outbox, receipt and adjudication together; a prior
+successful maintenance tick cannot authorize a later evaluator transaction.

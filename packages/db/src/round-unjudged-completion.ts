@@ -1,6 +1,10 @@
 import { CryptoHasher } from 'bun';
 import { createAppError, isAppError } from '@daisy/errors';
-import { idSchema, roundUnjudgedReceiptSchema } from '@daisy/protocol';
+import {
+  idSchema,
+  roundUnjudgedReceiptSchema,
+  type RoundUnjudgedReceipt,
+} from '@daisy/protocol';
 import { and, eq, sql } from 'drizzle-orm';
 import type { BoundedTransaction } from './bounded-transaction';
 import type { BoundedTransactionContext } from './transaction-context';
@@ -11,7 +15,7 @@ import {
   type LockedRoundTickInput,
 } from './round-clock-transaction';
 import { hydrateRoundRows } from './round-hydration';
-import { requireCurrentWeb } from './round-maintenance';
+import { requireCurrentWeb } from './round-service-authority';
 import { readTranscriptFreeze } from './frozen-transcript';
 import { sampleRoundExecutionTime } from './round-execution-time';
 import {
@@ -223,7 +227,7 @@ async function complete(tx: BoundedTransactionContext, input: Request) {
 
 export function roundUnjudgedCompletionOperations(run: BoundedTransaction) {
   return {
-    completeUnjudgedRound(input: Request) {
+    completeUnjudgedRound(input: Request): Promise<RoundUnjudgedReceipt> {
       if (
         ![input.instanceId, input.commandId, input.roundId].every(
           (id) => idSchema.safeParse(id).success,
