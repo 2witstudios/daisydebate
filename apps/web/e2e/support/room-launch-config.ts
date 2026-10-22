@@ -25,7 +25,6 @@ export default defineConfig({
     '**/round-commands.e2e.ts',
     '**/round-command-recovery.e2e.ts',
     '**/attendance.e2e.ts',
-    '**/ballot.e2e.ts',
   ],
   testIgnore: [],
   use: {
