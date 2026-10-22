@@ -8,6 +8,7 @@ import { createRoomLaunchAccounts } from './support/room-launch-accounts';
 import {
   createHumanBallotRound,
   readBallotRound,
+  ballotRoundCommand,
 } from './support/human-ballot-round';
 
 const receiptResponse = (roundId: string) => (response: Response) =>
@@ -91,6 +92,54 @@ test('actual speech check-in survives refresh and a real browser network disconn
       },
     );
     expect(judge.status()).toBe(403);
+    await accounts.members[0]!.context.setOffline(true);
+    const current = await readBallotRound(
+      accounts.members[1]!.context.request,
+      round.id,
+    );
+    // An independent authenticated HTTP client ends the actual speech while this page is disconnected.
+    await ballotRoundCommand(accounts.members[0]!.context.request, current, {
+      type: 'yield',
+      participantId: speaker!.receipt.participantId,
+    });
+    let target: string | undefined;
+    await expect
+      .poll(
+        async () => {
+          const next = await readBallotRound(
+            accounts.members[1]!.context.request,
+            round.id,
+          );
+          const speech = next.segments.find(
+            (segment) =>
+              segment.type === 'speech' &&
+              segment.endedAt === null &&
+              segment.id !== speaker!.receipt.segmentId,
+          );
+          target = speech?.id;
+          return speech
+            ? next.rules.segments.find(
+                (rule) => rule.key === speech.rulesSegmentKey,
+              )?.side
+            : null;
+        },
+        { timeout: 10_000 },
+      )
+      .toBe('negative');
+    if (!target) throw new Error('Actual opponent speech missing');
+    const joined = speaker!.page.waitForResponse(
+      (response) =>
+        receiptResponse(round.id)(response) &&
+        response.request().postDataJSON().segmentId === target,
+    );
+    await accounts.members[0]!.context.setOffline(false);
+    const nextStamp = await receiptFrom(await joined);
+    expect(nextStamp.segmentId).toBe(target);
+    expect(nextStamp.participantId).toBe(speaker!.receipt.participantId);
+    expect(
+      (await readBallotRound(accounts.members[1]!.context.request, round.id))
+        .status,
+    ).toBe('active');
   } finally {
     await accounts.closeContexts();
   }
