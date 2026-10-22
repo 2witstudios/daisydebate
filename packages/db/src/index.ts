@@ -1,4 +1,8 @@
 import { roundSpeakingRead } from './round-speaking-read';
+import { createBoundedTransaction } from './bounded-transaction';
+import { attendanceEntrypoints } from './attendance-entrypoints';
+import { availabilityOperations } from './availability-operations';
+import { readUnratedAttendanceForfeits } from './attendance-rating';
 import { roundProtectedReads } from './round-protected-reads';
 import { createMessagingTypingPrivacyPort } from './privacy/typing-rights';
 import { createMessagingTypingStore } from './messaging/typing-store';
@@ -136,7 +140,20 @@ export function createDatabase({
       connection: RUNTIME_SESSION,
     });
   const database = drizzle({ client });
+  const transcriptTransaction = createBoundedTransaction({
+    client,
+    maxConnections,
+    now: performance.now,
+  });
   return {
+    ...attendanceEntrypoints({
+      run: transcriptTransaction,
+      nextId: nextActorId,
+    }),
+    ...availabilityOperations(client),
+    readUnratedAttendanceForfeits: (
+      input: Parameters<typeof readUnratedAttendanceForfeits>[1],
+    ) => readUnratedAttendanceForfeits(database, input),
     async health() {
       return instrumented(eventSink, 'health', async () => {
         await database.execute(sql`select 1`);
@@ -280,3 +297,16 @@ export function createDatabase({
 export type Database = ReturnType<typeof createDatabase>;
 
 export type { LockedRoundCommandContext } from './round-command-operations';
+
+export type {
+  AttendanceStore,
+  AttendanceEvaluator,
+} from './attendance-entrypoints';
+export type {
+  AttendancePrincipal,
+  LockedAttendanceCheckIn,
+} from './attendance-facts';
+export type {
+  AttendanceEvaluationFacts,
+  AttendanceResolution,
+} from './attendance-evaluator';
