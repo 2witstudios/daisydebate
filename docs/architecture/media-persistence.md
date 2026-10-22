@@ -104,3 +104,89 @@ atomically with accepted history. A planned schedule or a client clock cannot
 assign it. Both columns have category `none`: they bound transcript admission,
 contain no audio/text and follow Round erasure. The separate judging window ends
 30 minutes after that same actual final-end anchor.
+
+## Capture storage producer
+
+Expected streams use the stable `(segment_id, round_participant_id)` key from
+nonempty actual historical speaking intervals. They must be discovered from
+history, never merely from seal rows that happen to exist. `transcript_segments`
+stores `open`, `complete` or `partial`, with received and declared chunk counts.
+A finalizer can insert a missing stream directly as partial with zero chunks.
+Closed complete/partial records are immutable. Matching counts is necessary for
+complete but insufficient: the sealing operation must also prove continuous
+trusted observation coverage over every required interval. Missing tracks,
+takeovers, dropped clips, calibration loss and stalls cannot establish silence.
+
+`transcript_observations` stores trusted server observation intervals per stream,
+track and lease epoch; raw PCM remains in worker memory. A current worker lease
+is identified by `media_worker_leases.session_id`, `worker_id` and rising `epoch`.
+`worker_id` is an identifier, never a bearer credential. Ingress must verify its
+signed principal and active epoch under the same locks as append/seal.
+
+`utterances` remains the only transcript text store. Capture metadata identifies
+a clip by its segment, seat, track and start offset, plus a deterministic clip
+key. A body digest detects conflicting retries. `round_transcripts.revision`
+records the committed transcript frontier under the owning Round lock. Duplicate
+clips must not advance it. Every transcript writer, including bot publication,
+must adopt the same bounded transaction and freeze/cutoff fences before full
+acceptance. These schema tables alone do not prove a working capture producer.
+
+| Table                   | Columns                                                            | Category         | Purpose                                                  |
+| ----------------------- | ------------------------------------------------------------------ | ---------------- | -------------------------------------------------------- |
+| round_transcripts       | round_id                                                           | identifier       | Bind the committed frontier to its Round                 |
+| round_transcripts       | revision                                                           | none             | Monotonic committed transcript frontier                  |
+| transcript_segments     | round_id, segment_id, round_participant_id                         | identifier       | Bind a stream to authoritative segment and seat          |
+| transcript_segments     | state, chunk_count, sealed_chunk_count, sealed_at                  | none             | Preserve honest complete/partial write closure           |
+| transcript_observations | id, round_id, segment_id, round_participant_id, track_id           | identifier       | Bind trusted observation coverage to the media stream    |
+| transcript_observations | worker_epoch, observed_from, observed_until                        | none             | Prove continuous coverage without persisting PCM         |
+| media_worker_leases     | session_id, worker_id                                              | identifier       | Identify the active capture worker                       |
+| media_worker_leases     | epoch, expires_at                                                  | none             | Fence takeover and stale ingress                         |
+| utterances              | clip_key, capture_track_id                                         | identifier       | Deduplicate the captured clip                            |
+| utterances              | capture_start_offset_ms, capture_duration_ms, capture_worker_epoch | none             | Bind clip placement and worker epoch                     |
+| utterances              | capture_body_digest                                                | personal/private | Detect conflicting retries of private transcript content |
+
+Capture body digests follow transcript retention of 180 days and subject erasure;
+hashing does not anonymize transcript-derived data. Raw transcript text remains
+personal/private under DEC-101, with deletion tracked by ISSUE-322. These rows
+follow Round/segment erasure; the scoped seat reference checks at transaction end
+so aggregate deletion can cascade without allowing orphan references. No new
+legal basis, production consent or provider activation is inferred.
+
+The `utterances.capture_body_digest` declaration is category `personal`, visibility
+`private`, purpose detecting conflicting captured-transcript retries. Lawful basis
+is **pending** the existing PRIV-H human production sign-off; synthetic local
+proof does not grant legal approval. Retention is 180 days alongside transcript
+text; subject erasure and owning Round erasure delete it. It is derived personal
+transcript data and is not anonymized.
+
+### Frozen ballot witness
+
+CAP-D.1 ballot writes carry `ballots.round_id` (category identifier) and
+`freeze_revision` (category none). Composite references bind the judge seat to
+that Round and bind the revision to its immutable transcript freeze. Both fields
+are immutable on every UPDATE, including a provisional null pair; an older
+ballot cannot acquire invented frozen provenance. Voiding preserves the pair.
+No new transcript content is copied into the ballot witness. Existing ballot
+privacy, retention and erasure policy applies to the owning record.
+
+The pair is temporarily nullable only while CAP-E removes uncutover writers and
+fixtures on the branch. Every actual shared human/bot submit writer must supply
+both fields. CAP-E must generate a forward NOT NULL migration after replacing
+those writers and fixtures, before main acceptance. Command deduplication uses
+the existing global `round_commands.command_id` key with type `submit_ballot`.
+
+The freeze witness uses `NO ACTION DEFERRABLE INITIALLY DEFERRED`; deleting a
+freeze alone cannot erase submitted ballots. Judge-seat references use deferred
+NO ACTION rather than immediate RESTRICT semantics so the owning Round's
+`ballots_round_fk ON DELETE CASCADE` can finish all child cascades. Direct seat
+or freeze deletion is refused at commit and rolls back. This changes technical
+constraint timing, not ballot voiding or replacement policy. Real PostgreSQL
+proof checks both commit refusals and zero remaining ballots, jobs, freezes,
+participants and utterances after owning Round erasure.
+
+`round_judging_jobs` is keyed by `(round_id, judge_participant_id)`, preserving
+one independent lease/attempt/result per actual judge seat. Its freeze revision
+remains scoped to the Round's one immutable freeze. Enqueuers must insert every
+eligible bot judge; selecting only the first judge is invalid for admitted
+multi-judge formats. The table module is `schema/round-judging-jobs.ts`; the
+freeze module has no ballot import, avoiding a schema import cycle.

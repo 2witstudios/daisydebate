@@ -10,6 +10,7 @@ import {
   check,
   foreignKey,
   index,
+  integer,
   pgTable,
   text,
   uniqueIndex,
@@ -26,13 +27,15 @@ import {
 } from './columns';
 import { actors } from './actors';
 import { roundParticipants } from './round-participants';
+import { rounds } from './rounds';
+import { roundTranscriptFreezes } from './round-transcript-freezes';
 
 export const ballotStatuses = ['submitted', 'voided'] as const;
 
 /**
  * One ballot per judge seat (ADR 0058 §6): the contract's shape, decomposed
  * into columns a write path validates with the full `ballotSchema` before
- * filling. The judge-seat FK is RESTRICT — a seat carrying a submitted
+ * filling. The deferred NO ACTION judge-seat FK means a seat carrying a submitted
  * ballot cannot be deleted; retirement is voiding, which records who and
  * when. Human and AI judges produce exactly this contract.
  */
@@ -41,6 +44,9 @@ export const ballots = pgTable(
   {
     id: text('id').primaryKey(),
     judgeParticipantId: text('judge_participant_id').notNull(),
+    /** Provisional null pair is removed with the CAP-E legacy writer cutover. */
+    roundId: text('round_id'),
+    freezeRevision: integer('freeze_revision'),
     rubricVersion: text('rubric_version').notNull(),
     /** The winner: a side. There are no draws (ADR 0058 §6, DEC-116). */
     winner: text('winner').notNull(),
@@ -56,7 +62,7 @@ export const ballots = pgTable(
     updatedAt: updatedAtColumn(),
   },
   (table) => [
-    // RESTRICT: a seat carrying a submitted ballot cannot be deleted.
+    // Direct seat deletion is refused; the owning Round may erase its aggregate.
     foreignKey({
       name: 'ballots_judge_seat_fk',
       columns: [table.judgeParticipantId],
@@ -67,6 +73,36 @@ export const ballots = pgTable(
       columns: [table.voidedByActorId],
       foreignColumns: [actors.id],
     }).onDelete('restrict'),
+    foreignKey({
+      name: 'ballots_round_fk',
+      columns: [table.roundId],
+      foreignColumns: [rounds.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      name: 'ballots_judge_round_fk',
+      columns: [table.judgeParticipantId, table.roundId],
+      foreignColumns: [roundParticipants.id, roundParticipants.roundId],
+    }),
+    foreignKey({
+      name: 'ballots_freeze_revision_fk',
+      columns: [table.roundId, table.freezeRevision],
+      foreignColumns: [
+        roundTranscriptFreezes.roundId,
+        roundTranscriptFreezes.revision,
+      ],
+    }),
+    index('ballots_judge_round_idx').on(
+      table.judgeParticipantId,
+      table.roundId,
+    ),
+    index('ballots_freeze_revision_idx').on(
+      table.roundId,
+      table.freezeRevision,
+    ),
+    check(
+      'ballots_freeze_pair_check',
+      sql`(${table.roundId} is null and ${table.freezeRevision} is null) or (${table.roundId} is not null and ${table.freezeRevision} is not null and ${table.freezeRevision} > 0)`,
+    ),
     uniqueIndex('ballots_id_judge_unique').on(
       table.id,
       table.judgeParticipantId,

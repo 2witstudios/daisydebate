@@ -17,7 +17,7 @@ describe('competitive schema child tables', () => {
     assert({
       given: 'the round children',
       should:
-        'declare seat uniqueness, the live-interval index, one principal, the digest CHECK and the RESTRICT judge-seat key on ballots',
+        'declare seat uniqueness, the live-interval index, one principal, the digest CHECK and scoped immutable-freeze witness keys on ballots',
       actual: {
         participants: rules(roundParticipants),
         segments: rules(roundSegments),
@@ -74,6 +74,7 @@ describe('competitive schema child tables', () => {
           checks: [
             'ballots_citations_is_object',
             'ballots_feedback_is_object',
+            'ballots_freeze_pair_check',
             'ballots_rubric_version_check',
             'ballots_scores_is_object',
             'ballots_status_check',
@@ -82,12 +83,20 @@ describe('competitive schema child tables', () => {
             'ballots_winner_check',
           ],
           indexes: [
+            'ballots_freeze_revision_idx',
+            'ballots_judge_round_idx',
             'ballots_voided_by_actor_idx',
             'unique ballots_id_judge_unique',
             'unique ballots_judge_seat_unique',
           ],
           uniques: [],
-          namedKeys: ['ballots_judge_seat_fk', 'ballots_voided_by_actor_fk'],
+          namedKeys: [
+            'ballots_freeze_revision_fk',
+            'ballots_judge_round_fk',
+            'ballots_judge_seat_fk',
+            'ballots_round_fk',
+            'ballots_voided_by_actor_fk',
+          ],
         },
       },
     });
@@ -109,11 +118,15 @@ describe('competitive schema child tables', () => {
       expected: {
         utterances: {
           checks: [
+            'utterances_capture_metadata_check',
+            'utterances_capture_pair_check',
             'utterances_generation_pair',
             'utterances_sequence_check',
             'utterances_text_length',
           ],
           indexes: [
+            'unique utterances_capture_clip_unique',
+            'unique utterances_capture_position_unique',
             'unique utterances_segment_sequence_unique',
             'utterances_participant_idx',
             'utterances_participant_round_idx',

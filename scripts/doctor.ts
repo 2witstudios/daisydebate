@@ -1,3 +1,4 @@
+import { checkLivekit } from './doctor-media';
 import { puLauncherProblem, readPuLauncher } from './doctor-launcher';
 import { SQL, RedisClient } from 'bun';
 import { readServerConfig } from '@daisy/config';
@@ -25,6 +26,7 @@ const checkNames = [
   'postgres',
   'migration-currency',
   'redis',
+  'livekit',
   'boundaries',
   'slot',
   'slot-orphans',
@@ -376,22 +378,32 @@ export function checkoutCheck(checkout: {
 
 export async function runDoctor(): Promise<DoctorReport> {
   const env = checkEnvironment();
-  const [bunVersion, postgres, migrations, redis, boundaries, slots, identity] =
-    await Promise.all([
-      checkBunVersion(),
-      checkPostgres(process.env.DATABASE_URL),
-      checkMigrationCurrency(process.env.DATABASE_URL),
-      checkRedis(process.env.REDIS_URL),
-      checkBoundaries(),
-      checkSlots(),
-      checkGithubIdentity(),
-    ]);
+  const [
+    bunVersion,
+    postgres,
+    migrations,
+    redis,
+    livekit,
+    boundaries,
+    slots,
+    identity,
+  ] = await Promise.all([
+    checkBunVersion(),
+    checkPostgres(process.env.DATABASE_URL),
+    checkMigrationCurrency(process.env.DATABASE_URL),
+    checkRedis(process.env.REDIS_URL),
+    checkLivekit(),
+    checkBoundaries(),
+    checkSlots(),
+    checkGithubIdentity(),
+  ]);
   return createDoctorReport([
     bunVersion,
     env,
     postgres,
     migrations,
     redis,
+    livekit,
     boundaries,
     ...slots,
     identity,

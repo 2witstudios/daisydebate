@@ -96,6 +96,8 @@ one whose advisory reaches a package it does not list.
 | [GHSA-qpx9-hpmf-5gmw](https://github.com/advisories/GHSA-qpx9-hpmf-5gmw) (high)     | `underscore` 1.13.6              | `@adobe/data` 0.10.19 → `jsonpath` 1.3.0 → underscore        | Only `@adobe/data`'s `schema/dynamic` imports jsonpath; Daisy imports `@adobe/data/ecs` alone, whose module graph excludes both                                   | `2026-12-23` |
 | [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm) (high)     | `braces` 3.0.3                   | `eslint-config-next` (dev) → fast-glob → micromatch → braces | Dev-only lint tooling over Daisy's own files; no patched release exists; production images omit dev dependencies (ADR 0052)                                       | `2026-12-23` |
 
+| [GHSA-qxg6-89mg-rqv8](https://github.com/advisories/GHSA-qxg6-89mg-rqv8) (moderate) | `@vitest/mocker` 3.2.7 | RITEway 9.3.0 (dev) → vitest → @vitest/mocker | Dev-only unloaded mocker development server; tests use `riteway/bun` and production omits dev dependencies (ADR 0068) | `2026-12-23` |
+
 Remove an entry by upgrading past the fix (RITEway without a hard vitest
 dependency, which clears the vitest and tinypool entries together, or an `@adobe/data` release off jsonpath's underscore pin);
 `bun policy` then fails until the stale entry is deleted.
@@ -123,10 +125,32 @@ competitive state remain CAP-owned. The version-matched
 [room-service source](https://github.com/livekit/node-sdks/blob/livekit-server-sdk%402.19.0/packages/livekit-server-sdk/src/RoomServiceClient.ts)
 and client options were read before adding it. Server requests use a five-second
 SDK timeout and no regional failover. No browser import of this credential-bearing
-package is allowed. Human ADR0053/design and production activation remain open.
+package is allowed. ADR0053 architecture is accepted under ADR0067; implementation proof and human production activation remain separate.
 
 `livekit-client` **2.22.0** remains the task's browser candidate for the shared
 Round controller. It is not installed by this server adapter; the actual browser
 consumer must read its pinned official docs and declare it when implemented.
 The LiveKit server **1.13.7** local/CI service and SDK/network qualification remain
 VIDEO-1.1/VIDEO-1.5 obligations, rather than an inferred pass from token unit tests.
+
+`@livekit/rtc-node` **1.2.0** is pinned for server-side native PCM transport,
+with `@livekit/rtc-ffi-bindings` **0.13.1**. Official version sources read before
+installation: [Node SDK AudioSource](https://github.com/livekit/node-sdks/blob/d39f94a17447b81096041da38765853a20c735eb/packages/livekit-rtc/src/audio_source.ts),
+[native source](https://github.com/livekit/rust-sdks/blob/7187f6a42ca6382b73c631b75a9d560253f5b90f/libwebrtc/src/native/audio_source.rs),
+and [native sink implementation](https://github.com/livekit/rust-sdks/blob/7187f6a42ca6382b73c631b75a9d560253f5b90f/webrtc-sys/src/audio_track.cpp).
+The selected zero-buffer path synchronously hands exact 10ms frames to native
+sinks before acknowledgement. Buffered queue duration and drain are timer-based
+and supply no consumption evidence. The adapter preserves raw monotonic
+before/after brackets; the paced consumer separately checks cadence, conservative
+server-clock calibration and historical speaking eligibility. This is an existing
+prebuilt native dependency, not new repository Rust or a provider activation.
+It must stay outside browser bundles; SDK output isolation remains a worker
+composition obligation before deployment.
+
+LiveKit server **1.13.7** runs only on loopback in the shared local stack. Its
+[version-matched configuration sample](https://github.com/livekit/livekit/blob/v1.13.7/config-sample.yaml)
+was read before adding the local service. It disables automatic room creation
+and advertises loopback RTC candidates on fixed 7880/7881/7882 ports. Its fixed
+development credentials have no production use. Real local native transport
+proof is distinct from CI service wiring (VIDEO-1.5), browser qualification and
+full capture/worker acceptance.

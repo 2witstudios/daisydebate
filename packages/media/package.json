@@ -4,19 +4,26 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./audio": "./src/audio-publication.ts",
+    "./publication": "./src/paced-publication.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "bun test src"
+    "test": "bun test src",
+    "test:integration": "bun ../../scripts/test-integration.ts"
   },
   "dependencies": {
     "@daisy/errors": "workspace:*",
     "@daisy/protocol": "workspace:*",
+    "@livekit/rtc-node": "1.2.0",
     "livekit-server-sdk": "2.19.0",
     "zod": "4.6.5"
   },
   "devDependencies": {
+    "@daisy/config": "workspace:*",
+    "@daisy/db": "workspace:*",
+    "@paralleldrive/cuid2": "3.3.0",
     "riteway": "9.3.0"
   }
 }
