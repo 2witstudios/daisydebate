@@ -41,7 +41,8 @@ export function createBotSpeaker(input: {
   ) => Promise<{ readonly complete: boolean }>;
   readonly nextId: () => string;
   readonly maxAttempts: number;
-  readonly failed: () => void;
+  /** `stage` names the work that failed: generate, synthesize or publish. */
+  readonly failed: (error: unknown, stage: string) => void;
 }) {
   const { scope, token, segmentType } = input.claim;
   const crossEx = segmentType === 'cross_ex';
@@ -52,9 +53,12 @@ export function createBotSpeaker(input: {
     attempts = 0,
     /** Cross-examination opens once, then answers each ended peer turn once. */
     owed = true;
+  let stage = 'generate';
   const deliver = async (signal: AbortSignal) => {
+    stage = 'generate';
     const { phrases } = await input.generate(scope, token, signal);
     for (const text of phrases) {
+      stage = 'synthesize';
       const job = await input.synthesize(
         scope,
         token,
@@ -63,6 +67,7 @@ export function createBotSpeaker(input: {
         signal,
       );
       playing = true;
+      stage = 'publish';
       try {
         if (!(await input.publish(job, signal)).complete) return;
       } finally {
@@ -82,7 +87,7 @@ export function createBotSpeaker(input: {
       }
       attempts += 1;
       if (crossEx) owed = attempts < input.maxAttempts;
-      input.failed();
+      input.failed(error, stage);
     } finally {
       running = null;
     }

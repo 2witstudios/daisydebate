@@ -110,3 +110,59 @@ test('a rotated or stopped claim stops its speaking work before revocation', asy
     expected: ['stop:first', 'revoke:first', 'stop:second', 'revoke:second'],
   });
 });
+
+test('failed control discovery and receipt pulses report their stages', async () => {
+  const failures: unknown[] = [];
+  const target = {
+    roundId: 'round',
+    roundParticipantId: 'seat',
+    segmentId: 's',
+  };
+  const pulseFault = new Error('pulse outage');
+  const scanFault = new Error('scan outage');
+  let scans = 0;
+  const { tasks, timers } = manualTimers();
+  const service = startBotControlService({
+    store: {
+      scanRoundBotWorkers: async () => {
+        scans++;
+        if (scans > 1) throw scanFault;
+        return [target];
+      },
+      claimRoundBotWorker: async () => ({
+        scope: {
+          ...target,
+          agentRunId: 'run',
+          serviceId: 'agent-run:run',
+          publicationEpoch: 1,
+        },
+        token: 'memory-only',
+        leaseExpiresAt: '2026-10-22T00:00:30Z',
+      }),
+      revokeRoundBotWorker: async () => {},
+      verifyRoundBotWorker: async () => {},
+    },
+    control: () => ({
+      pulse: async () => {
+        throw pulseFault;
+      },
+    }),
+    limits: { maxControllers: 1, scanBatch: 4, scanMs: 500, renewMs: 3000 },
+    timers,
+    failed: (error, stage) => {
+      failures.push([error, stage]);
+    },
+  });
+  await service.started;
+  await tasks.get(500)!();
+  await service.stop();
+  assert({
+    given: 'a receipt pulse that throws, then a scan that throws',
+    should: 'report each raw error with its stage',
+    actual: failures,
+    expected: [
+      [pulseFault, 'pulse'],
+      [scanFault, 'discover'],
+    ],
+  });
+});

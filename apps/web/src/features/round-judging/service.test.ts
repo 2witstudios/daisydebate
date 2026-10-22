@@ -71,3 +71,34 @@ test('judging renewal and discovery do not wait for a provider operation', async
     expected: [true, 0],
   });
 });
+
+test('a failed judging scan reports its stage', async () => {
+  const failures: unknown[] = [];
+  const outage = new Error('scan outage');
+  const service = startRoundJudgingService({
+    store: {
+      scanRoundJudgingJobs: async () => {
+        throw outage;
+      },
+      claimRoundJudgingJob: async () => {
+        throw new Error('no claim expected');
+      },
+      renewRoundJudgingJob: async () => {},
+      verifyRoundJudgingJob: async () => ({ pendingBallot: null }),
+    },
+    execute: async () => {},
+    limits: { parallel: 1, scanBatch: 4, scanMs: 500, renewMs: 3000 },
+    timers: { setInterval: () => 1, clearInterval: () => {} },
+    failed: (error, stage) => {
+      failures.push([error, stage]);
+    },
+  });
+  await service.started;
+  await service.stop();
+  assert({
+    given: 'a judging job scan that throws',
+    should: 'report the raw error with the scan stage',
+    actual: failures,
+    expected: [[outage, 'scan']],
+  });
+});

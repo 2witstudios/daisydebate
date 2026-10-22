@@ -17,8 +17,8 @@ function harness(
   } = {},
 ) {
   const log: string[] = [];
-  let failures = 0,
-    ids = 0;
+  const failures: unknown[] = [];
+  let ids = 0;
   const gates: ReturnType<typeof Promise.withResolvers<void>>[] = [];
   const speaker = createBotSpeaker({
     claim: { scope, token: 'memory-only', segmentType },
@@ -50,8 +50,8 @@ function harness(
     },
     nextId: () => `phrase-${++ids}`,
     maxAttempts: 2,
-    failed: () => {
-      failures++;
+    failed: (_error, stage) => {
+      failures.push(stage);
     },
   });
   const settle = async () => {
@@ -62,7 +62,14 @@ function harness(
     gates.shift()?.resolve();
     await settle();
   };
-  return { speaker, log, release, settle, failures: () => failures };
+  return {
+    speaker,
+    log,
+    release,
+    settle,
+    failures: () => failures.length,
+    stages: () => failures,
+  };
 }
 test('a speech claim delivers its generated phrases once without overlapping turns', async () => {
   const { speaker, log, release, settle } = harness('speech');
@@ -115,7 +122,7 @@ test('refused speaking authority waits without consuming delivery attempts', asy
 });
 test('provider failures stop after the bounded attempt count', async () => {
   let calls = 0;
-  const { speaker, settle, failures } = harness('speech', {
+  const { speaker, settle, stages } = harness('speech', {
     generate: async () => {
       calls++;
       throw createAppError('INFRASTRUCTURE', 'provider');
@@ -127,9 +134,9 @@ test('provider failures stop after the bounded attempt count', async () => {
   }
   assert({
     given: 'a provider that keeps failing',
-    should: 'stop after maxAttempts and report each failure',
-    actual: [calls, failures()],
-    expected: [2, 2],
+    should: 'stop after maxAttempts and report each failure with its stage',
+    actual: [calls, stages()],
+    expected: [2, ['generate', 'generate']],
   });
   await speaker.stop();
 });
