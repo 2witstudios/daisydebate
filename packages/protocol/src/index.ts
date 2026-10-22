@@ -229,3 +229,9 @@ export {
   type AttendanceEnvelope,
   type AttendanceReceipt,
 } from './attendance';
+export {
+  roundMediaGrantsSchema,
+  roundMediaStateSchema,
+  roundMediaAdmissionSchema,
+} from './round-media';
+export type { RoundMediaState, RoundMediaAdmission } from './round-media';
