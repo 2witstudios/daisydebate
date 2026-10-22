@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { sql } from 'drizzle-orm';
-import { createScriptedAuthorizationTransaction } from './testing';
+import { createScriptedAuthorizationTransaction } from './testing-authorization';
 
 setupRitewayBun();
 

@@ -38,7 +38,7 @@ const backend = {
 function protocolRows(
   query: string,
   protocol: ScriptedProtocol,
-): readonly unknown[] | undefined {
+): ScriptedResult | undefined {
   const text = query.trim();
   if (text.startsWith('select pg_backend_pid()')) return [backend];
   if (text.startsWith('begin isolation level read committed')) return [];

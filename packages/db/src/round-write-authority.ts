@@ -16,6 +16,7 @@ import { sampleRoundExecutionTime } from './round-execution-time';
 import { rounds } from './schema/rounds';
 import { roundParticipants } from './schema/round-participants';
 import { agentRuns } from './schema/agent-runs';
+import { fencedActorIds, seatEligibility } from './seat-eligibility';
 export type RoundWriteTransaction = Pick<
   BunSQLDatabase,
   'select' | 'insert' | 'update' | 'execute'
@@ -42,15 +43,7 @@ export async function readRoundWriteContext(
     round.participants.map(async (seat) => {
       const actor = await actorFact(tx, seat.actorId);
       if (!actor) throw createAppError('AUTHORIZATION');
-      const account = accounts.find((a) => a?.actorId === seat.actorId);
-      return {
-        ...seat,
-        kind: actor.kind,
-        eligible:
-          actor.kind === 'bot'
-            ? actor.eligible
-            : account?.member === true && !account.erased,
-      };
+      return { ...seat, ...seatEligibility(actor, accounts, seat.actorId) };
     }),
   );
   let agentRun: RoundCommandAuthority['agentRun'] = null;
@@ -132,13 +125,11 @@ export async function fenceRoundWrite(tx: Tx, input: RoundWriteScope) {
   if (!initialRound) throw createAppError('NOT_FOUND');
   const principalActor =
     input.principal.kind === 'human' ? input.principal.actorId : null;
-  const fenced = [
-    ...new Set([
-      ...initialSeats.map((p) => p.actorId),
-      ...(initialRound.hostActorId ? [initialRound.hostActorId] : []),
-      ...(principalActor ? [principalActor] : []),
-    ]),
-  ];
+  const fenced = fencedActorIds(
+    initialSeats,
+    initialRound.hostActorId,
+    principalActor,
+  );
   const accounts = fenced.length
     ? await lockAuthorizationActors(tx, fenced, { maxActors: fenced.length })
     : [];

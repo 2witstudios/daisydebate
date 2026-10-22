@@ -1,6 +1,6 @@
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { validRules } from './testing';
+import { validRules } from './testing-rules';
 import { practiceRoomConfig } from './reference-formats';
 import { createTestDatabase, roomRow } from './index.test-support';
 

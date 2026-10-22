@@ -7,25 +7,12 @@ import { actorFact } from './room-command-facts';
 import { hydrateRoundRows } from './round-hydration';
 import { rounds } from './schema/rounds';
 import { roundParticipants } from './schema/round-participants';
+import { fencedActorIds, seatEligibility } from './seat-eligibility';
 
 export const mediaId = (value: string) => {
   const parsed = idSchema.safeParse(value);
   if (!parsed.success) throw createAppError('VALIDATION');
   return parsed.data;
-};
-
-const mediaActorIds = (
-  seats: readonly { readonly actorId: string }[],
-  hostActorId: string | null,
-  actorId?: string,
-) => {
-  return [
-    ...new Set([
-      ...seats.map((seat) => seat.actorId),
-      ...(hostActorId ? [hostActorId] : []),
-      ...(actorId ? [actorId] : []),
-    ]),
-  ];
 };
 
 /** Account fences precede the Round fence, matching competitive writes and erasure. */
@@ -45,7 +32,7 @@ export async function lockMediaRound(
     .from(rounds)
     .where(eq(rounds.id, roundId));
   if (!initial) throw createAppError('NOT_FOUND');
-  const actorIds = mediaActorIds(seats, initial.hostActorId, actorId);
+  const actorIds = fencedActorIds(seats, initial.hostActorId, actorId);
   const accounts = actorIds.length
     ? await lockAuthorizationActors(tx, actorIds, {
         maxActors: actorIds.length,
@@ -63,15 +50,7 @@ export async function lockMediaRound(
     round.participants.map(async (seat) => {
       if (!actorIds.includes(seat.actorId)) throw createAppError('CONFLICT');
       const actor = await actorFact(tx, seat.actorId);
-      const account = accounts.find((entry) => entry?.actorId === seat.actorId);
-      return {
-        ...seat,
-        kind: actor?.kind ?? 'human',
-        eligible:
-          actor?.kind === 'bot'
-            ? actor.eligible
-            : account?.member === true && !account.erased,
-      };
+      return { ...seat, ...seatEligibility(actor, accounts, seat.actorId) };
     }),
   );
   const caller =

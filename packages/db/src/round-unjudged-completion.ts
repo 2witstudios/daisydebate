@@ -1,10 +1,5 @@
-import { CryptoHasher } from 'bun';
 import { createAppError, isAppError } from '@daisy/errors';
-import {
-  idSchema,
-  roundUnjudgedReceiptSchema,
-  type RoundUnjudgedReceipt,
-} from '@daisy/protocol';
+import type { RoundUnjudgedReceipt } from '@daisy/protocol';
 import { and, eq, sql } from 'drizzle-orm';
 import type { BoundedTransaction } from './bounded-transaction';
 import type { BoundedTransactionContext } from './transaction-context';
@@ -25,6 +20,17 @@ import {
 } from './round-projection-writer';
 import { writeSpeakingProjection } from './round-speaking-writer';
 import { roundCommands } from './schema/round-commands';
+import {
+  requireCompletionProjection,
+  requireUnjudgedFacts,
+  requireUnjudgedRequest,
+  requireUnjudgedRound,
+  requireUnjudgedTerminal,
+  unjudgedDigest,
+  unjudgedReceipt,
+  validateUnjudgedReceipt,
+  type UnjudgedDurableFacts,
+} from './round-unjudged-decisions';
 
 type Request = LockedRoundTickInput & {
   readonly instanceId: string;
@@ -32,48 +38,6 @@ type Request = LockedRoundTickInput & {
   readonly freezeRevision: number;
   readonly buildCompletion: LockedRoundTickInput['buildProjection'];
 };
-const digestOf = (input: Request) =>
-  new CryptoHasher('sha3-256')
-    .update(
-      JSON.stringify({
-        purpose: 'complete-unjudged',
-        roundId: input.roundId,
-        freezeRevision: input.freezeRevision,
-      }),
-    )
-    .digest('hex');
-
-function requireReceiptCommand(
-  row: typeof roundCommands.$inferSelect,
-  input: Request,
-  digest: string,
-) {
-  if (
-    row.roundId !== input.roundId ||
-    row.type !== 'complete' ||
-    row.actorId !== null ||
-    !row.serviceId?.startsWith('round-finalization:') ||
-    row.payloadDigest !== digest
-  )
-    throw createAppError('CONFLICT', 'unjudged-receipt-conflict');
-}
-function validateReceipt(
-  row: typeof roundCommands.$inferSelect,
-  input: Request,
-  digest: string,
-) {
-  requireReceiptCommand(row, input, digest);
-  const receipt = roundUnjudgedReceiptSchema.parse(row.result);
-  if (
-    receipt.roundId !== input.roundId ||
-    receipt.freezeRevision !== input.freezeRevision ||
-    receipt.commandId !== row.commandId ||
-    receipt.resultingVersion !== row.resultingVersion
-  )
-    throw createAppError('CONFLICT', 'unjudged-receipt-conflict');
-  return receipt;
-}
-
 async function replay(
   tx: BoundedTransactionContext,
   input: Request,
@@ -93,26 +57,12 @@ async function replay(
     )
     .limit(1);
   if (!row) return null;
-  const receipt = validateReceipt(row, input, digest);
-  const terminal = await lockedRoundVersion(tx, input.roundId);
-  if (terminal.status !== 'completed' || terminal.outcome !== null)
-    throw createAppError('CONFLICT', 'unjudged-receipt-conflict');
+  const receipt = validateUnjudgedReceipt(row, input, digest);
+  requireUnjudgedTerminal(await lockedRoundVersion(tx, input.roundId));
   await requireCurrentWeb(tx, input.instanceId);
   return { ...receipt, replayed: true };
 }
 
-function requireUnjudgedRound(
-  round: Awaited<ReturnType<typeof hydrateRoundRows>>,
-): asserts round is NonNullable<typeof round> {
-  if (
-    !round ||
-    round.competitionType !== 'casual' ||
-    round.rules.seats.judge !== 0 ||
-    round.segments.some((p) => p.endedAt === null) ||
-    round.participants.some((p) => p.role === 'judge')
-  )
-    throw createAppError('CONFLICT', 'unjudged-ineligible');
-}
 async function readCompletionFacts(
   tx: BoundedTransactionContext,
   input: Request,
@@ -129,37 +79,19 @@ async function readCompletionFacts(
     from rounds where id=${input.roundId}`);
   const now = await sampleRoundExecutionTime(tx);
   requireUnjudgedRound(round);
-  if (!freeze || freeze.revision !== input.freezeRevision)
-    throw createAppError('CONFLICT', 'unjudged-ineligible');
-  if (facts.seats.some((p) => !p.eligible))
-    throw createAppError('CONFLICT', 'unjudged-ineligible');
-  if (
-    !durable ||
-    durable.ladder_id !== null ||
-    !durable.final_segment_ended_at ||
-    !durable.transcript_admission_cutoff ||
-    durable.ballots ||
-    durable.ratings
-  )
-    throw createAppError('CONFLICT', 'unjudged-ineligible');
+  const frozen = requireUnjudgedFacts({
+    freezeRevision: input.freezeRevision,
+    freeze,
+    seats: facts.seats,
+    durable: durable as UnjudgedDurableFacts | undefined,
+  });
   await assertRoundAttendanceSettled(tx, { roundId: input.roundId, now });
-  return { round, freeze, now };
+  return { round, freeze: frozen, now };
 }
 
-function requireCompletionProjection(
-  projection: ReturnType<Request['buildCompletion']>,
-) {
-  if (
-    projection.round?.status !== 'completed' ||
-    projection.round.outcome !== null ||
-    projection.segmentInserts.length ||
-    projection.segmentCloses.length
-  )
-    throw createAppError('CONFLICT', 'unjudged-projection');
-}
 async function complete(tx: BoundedTransactionContext, input: Request) {
   await requireCurrentWeb(tx, input.instanceId);
-  const digest = digestOf(input);
+  const digest = unjudgedDigest(input);
   await tx.execute(
     sql`select pg_advisory_xact_lock(hashtextextended(${input.commandId},59002))`,
   );
@@ -192,15 +124,11 @@ async function complete(tx: BoundedTransactionContext, input: Request) {
     now,
   );
   if (!changed) throw createAppError('CONFLICT', 'unjudged-projection');
-  const receipt = roundUnjudgedReceiptSchema.parse({
-    version: 1,
+  const receipt = unjudgedReceipt({
     commandId: input.commandId,
     roundId: input.roundId,
     freezeRevision: freeze.revision,
     resultingVersion: current.version + 1,
-    status: 'completed',
-    outcome: null,
-    replayed: false,
   });
   await insertCommandRow(
     tx,
@@ -228,14 +156,7 @@ async function complete(tx: BoundedTransactionContext, input: Request) {
 export function roundUnjudgedCompletionOperations(run: BoundedTransaction) {
   return {
     completeUnjudgedRound(input: Request): Promise<RoundUnjudgedReceipt> {
-      if (
-        ![input.instanceId, input.commandId, input.roundId].every(
-          (id) => idSchema.safeParse(id).success,
-        ) ||
-        !Number.isSafeInteger(input.freezeRevision) ||
-        input.freezeRevision < 1
-      )
-        throw createAppError('VALIDATION');
+      requireUnjudgedRequest(input);
       return run((tx) => complete(tx, input));
     },
   };
