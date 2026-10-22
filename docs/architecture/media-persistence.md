@@ -284,7 +284,11 @@ injected timer discovers all active Rounds using stable keyset pages, including
 human-only Rounds and Rounds without media sessions. Each Round runs the shared
 engine tick, attendance evaluation and transcript finalization in order. Work
 for one Round cannot block discovery or committed attendance-rating recovery.
-The service drains its own work before the application closes the existing pool.
+An ordered, deduplicated queue admits at most two Rounds concurrently, leaving
+capacity in the default pool for public receipts, media and availability work.
+Discovery removes obsolete queued candidates and preserves waiting candidates'
+order. Shutdown drops queued work and drains admitted work before the application
+closes the existing pool.
 
 Maintenance mutations require a current durable web lease, canonical Round
 locking, and a fresh lease check after lock waits and before commit. Finalization

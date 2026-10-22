@@ -135,6 +135,8 @@ test('a held Round does not stop discovery or rating recovery and shutdown drain
 test('terminal attendance races do not freeze and unexpected failures stay observable', async () => {
   const frozen: string[] = [],
     failures: unknown[] = [];
+  const finalized = gate(),
+    failed = gate();
   const service = startRoundMaintenance({
     ...ports(),
     discover: async () => ['terminal', 'forfeit', 'pending', 'fault'],
@@ -146,12 +148,15 @@ test('terminal attendance races do not freeze and unexpected failures stay obser
     },
     finalize: async (id) => {
       frozen.push(id);
+      finalized.resolve();
     },
     failed: (error) => {
       failures.push(error);
+      failed.resolve();
     },
   });
   await service.ready;
+  await Promise.all([finalized.promise, failed.promise]);
   await service.stop();
   assert({
     given:
@@ -161,4 +166,85 @@ test('terminal attendance races do not freeze and unexpected failures stay obser
     actual: { frozen, failures: failures.length },
     expected: { frozen: ['pending'], failures: 1 },
   });
+});
+
+test('a five-Round fleet leaves capacity for public work and advances queued Rounds fairly', async () => {
+  const held = gate(),
+    calls: string[] = [];
+  let running = 0,
+    maximum = 0,
+    pulse = () => {};
+  const service = startRoundMaintenance({
+    ...ports(),
+    discover: async () => ['a', 'b', 'c', 'd', 'e'],
+    tick: async (id) => {
+      running += 1;
+      maximum = Math.max(maximum, running);
+      calls.push(id);
+      await held.promise;
+      running -= 1;
+    },
+    timers: {
+      setInterval: (next) => {
+        pulse = next;
+        return 1;
+      },
+      clearInterval: () => {},
+    },
+  });
+  await service.ready;
+  assert({
+    given:
+      'five current active Rounds discovered on the same maintenance pulse',
+    should:
+      'admit at most two Round pipelines and queue the rest in discovery order',
+    actual: { calls: [...calls], maximum },
+    expected: { calls: ['a', 'b'], maximum: 2 },
+  });
+  pulse();
+  await service.ready;
+  held.resolve();
+  // Drain only admitted work; queued work must never start after shutdown.
+  await service.stop();
+  assert({
+    given: 'shutdown with a queued fleet',
+    should:
+      'drain admitted Rounds without starting queued work or duplicate discoveries',
+    actual: { calls, maximum },
+    expected: { calls: ['a', 'b'], maximum: 2 },
+  });
+});
+
+test('one held Round cannot monopolize the bounded fleet queue', async () => {
+  const held = gate(),
+    advanced = gate(),
+    calls: string[] = [];
+  let running = 0,
+    maximum = 0;
+  const service = startRoundMaintenance({
+    ...ports(),
+    discover: async () => ['held', 'b', 'c', 'd', 'e'],
+    tick: async (id) => {
+      running += 1;
+      maximum = Math.max(maximum, running);
+      calls.push(id);
+      if (id === 'held') await held.promise;
+      running -= 1;
+      if (id === 'e') advanced.resolve();
+    },
+  });
+  try {
+    await service.ready;
+    await advanced.promise;
+    assert({
+      given: 'one contended Round and four independent queued candidates',
+      should:
+        'advance every other candidate fairly through the second lane without filling public capacity',
+      actual: { calls, maximum },
+      expected: { calls: ['held', 'b', 'c', 'd', 'e'], maximum: 2 },
+    });
+  } finally {
+    held.resolve();
+    await service.stop();
+  }
 });
