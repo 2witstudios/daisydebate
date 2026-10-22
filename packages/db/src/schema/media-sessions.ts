@@ -53,7 +53,7 @@ export const mediaParticipants = pgTable(
       name: 'media_participants_participant_round_fk',
       columns: [table.roundParticipantId, table.roundId],
       foreignColumns: [roundParticipants.id, roundParticipants.roundId],
-    }).onDelete('restrict'),
+    }).onDelete('no action'),
     uniqueIndex('media_participants_seat_unique').on(
       table.sessionId,
       table.roundParticipantId,

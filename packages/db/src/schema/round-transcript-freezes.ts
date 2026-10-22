@@ -74,12 +74,12 @@ export const roundJudgingJobs = pgTable(
       name: 'round_judging_jobs_judge_round_fk',
       columns: [table.judgeParticipantId, table.roundId],
       foreignColumns: [roundParticipants.id, roundParticipants.roundId],
-    }).onDelete('restrict'),
+    }).onDelete('no action'),
     foreignKey({
       name: 'round_judging_jobs_result_judge_fk',
       columns: [table.resultBallotId, table.judgeParticipantId],
       foreignColumns: [ballots.id, ballots.judgeParticipantId],
-    }).onDelete('restrict'),
+    }).onDelete('no action'),
     index('round_judging_jobs_freeze_revision_idx').on(
       table.roundId,
       table.freezeRevision,
