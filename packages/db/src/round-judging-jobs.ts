@@ -14,6 +14,8 @@ import {
   type JudgingScope,
 } from './round-judging-context';
 import { claimLockedJudgingJob } from './round-judging-claim';
+import { submitLockedJudgingResult } from './round-judging-result';
+import type { LockedRoundBallotInput } from './round-ballot-operations';
 export type { JudgingScope } from './round-judging-context';
 /** Durable intents use the same injected bounded transaction; no provider I/O occurs under locks. */
 export function createRoundJudgingJobs(input: {
@@ -85,6 +87,12 @@ export function createRoundJudgingJobs(input: {
     },
     claim: (target: Pick<JudgingScope, 'roundId' | 'judgeParticipantId'>) =>
       input.run((tx) => claimLockedJudgingJob(tx, target, input)),
+    submitResult: (
+      scope: JudgingScope,
+      token: string,
+      prepared: LockedRoundBallotInput,
+    ) =>
+      input.run((tx) => submitLockedJudgingResult(tx, scope, token, prepared)),
     verify: async (scope: JudgingScope, token: string) => {
       await withLease(scope, token, () => undefined);
     },

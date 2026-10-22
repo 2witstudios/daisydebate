@@ -4,6 +4,7 @@ import { requireTestServices } from '@daisy/config';
 import { ballotCategories, ballotSchema } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
+import { createAppError } from '@daisy/errors';
 import { createBotSeat } from './bot-seat.test-support';
 import { withBoundedRound } from './bounded-transaction.test-support';
 import { createRoundJudgingJobs } from '../src/round-judging-jobs';
@@ -104,6 +105,70 @@ test('durable judging claims fence epochs and preserve one command across recove
         should: 'refuse another provider call',
         actual: () => jobs.beginModelCall(second.scope, second.token),
         code: 'CONFLICT',
+      });
+      await createBotSeat(fixture, roundId, 'judge', 1);
+      const prepared = {
+        roundId,
+        principal: {
+          kind: 'agent' as const,
+          serviceId: second.scope.serviceId,
+          agentRunId: second.scope.agentRunId,
+          participantId: seat.id,
+          roundId,
+        },
+        envelope: {
+          version: 1 as const,
+          commandId: second.scope.commandId,
+          expectedVersion: second.expectedVersion,
+          judgeParticipantId: seat.id,
+          freezeRevision: second.frozen.revision,
+          ballot,
+        },
+        payloadDigest: 'c'.repeat(64),
+        nextBallotId: createId,
+        authorize: (
+          context: import('../src/round-ballot-operations').LockedRoundBallotContext,
+        ) => {
+          if (context.authority.agentRun?.id !== second.scope.agentRunId)
+            throw createAppError('AUTHORIZATION');
+        },
+        // This adapter component proof deliberately leaves the other actual judge pending.
+        buildProjection: () => null,
+      };
+      await assertRejects({
+        given: 'a substituted ballot body after a validated durable response',
+        should: 'refuse before any ballot or cache mutation',
+        actual: () =>
+          jobs.submitResult(second.scope, second.token, {
+            ...prepared,
+            envelope: {
+              ...prepared.envelope,
+              ballot: { ...ballot, winner: 'negative' },
+            },
+          }),
+        code: 'CONFLICT',
+      });
+      const receipt = await jobs.submitResult(
+        second.scope,
+        second.token,
+        prepared,
+      );
+      const [settled] =
+        await fixture.sql`select status,pending_ballot,result_ballot_id from round_judging_jobs where round_id=${roundId}`;
+      const [ended] =
+        await fixture.sql`select ended_at from agent_runs where id=${second.scope.agentRunId}`;
+      assert({
+        given: 'the actual locked nonfinal shared ballot writer',
+        should:
+          'atomically submit, clear only the matched response, and end its run',
+        actual: [
+          receipt.outcome,
+          settled!.status,
+          settled!.pending_ballot,
+          settled!.result_ballot_id,
+          ended!.ended_at !== null,
+        ],
+        expected: [null, 'succeeded', null, receipt.ballotId, true],
       });
     } finally {
       await fixture.sql`delete from rounds where id=${roundId}`;
