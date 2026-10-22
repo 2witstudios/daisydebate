@@ -153,13 +153,7 @@ export function availabilityOperations(client: SQL) {
       readonly before: string;
       readonly limit: number;
     }) {
-      if (
-        !Number.isFinite(Date.parse(input.before)) ||
-        !Number.isSafeInteger(input.limit) ||
-        input.limit < 1 ||
-        input.limit > 1000
-      )
-        throw createAppError('VALIDATION');
+      requireRetentionBounds(input);
       const rows =
         await client`delete from service_instances where instance_id in
         (select instance_id from service_instances where renewed_at < ${input.before}::timestamptz order by renewed_at limit ${input.limit}) returning instance_id`;
@@ -169,16 +163,23 @@ export function availabilityOperations(client: SQL) {
       readonly before: string;
       readonly limit: number;
     }) {
-      if (
-        !Number.isFinite(Date.parse(input.before)) ||
-        !Number.isSafeInteger(input.limit) ||
-        input.limit < 1 ||
-        input.limit > 1000
-      )
-        throw createAppError('VALIDATION');
+      requireRetentionBounds(input);
       const rows = await client`delete from availability_samples where at in
         (select at from availability_samples where at < ${input.before}::timestamptz order by at limit ${input.limit}) returning at`;
       return rows.length;
     },
   };
+}
+
+function requireRetentionBounds(input: {
+  readonly before: string;
+  readonly limit: number;
+}): void {
+  if (
+    !Number.isFinite(Date.parse(input.before)) ||
+    !Number.isSafeInteger(input.limit) ||
+    input.limit < 1 ||
+    input.limit > 1000
+  )
+    throw createAppError('VALIDATION');
 }
