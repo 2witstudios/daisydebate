@@ -49,9 +49,8 @@ POST /api/rooms/:roomId/commands     → claim-seat · leave-seat · ready ·
 GET  /api/rooms/:roomId/round        → the Round ref once start-round ran
 
 GET  /api/rounds/:roundId            → RoundView
-POST /api/rounds/:roundId/commands   → start · start-prep · end-prep ·
-                                       start-speech · yield · interrupt ·
-                                       forfeit · complete
+POST /api/rounds/:roundId/commands   → start · start-prep · start-speech ·
+                                       yield · interrupt · forfeit
 GET  /api/rounds/:roundId/participants         → seats
 GET  /api/rounds/:roundId/segments             → segment history
 GET  /api/rounds/:roundId/segments/:segmentId/utterances → transcript

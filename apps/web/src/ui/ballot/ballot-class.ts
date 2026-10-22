@@ -1,4 +1,4 @@
-import type { Side } from '../../features/debates/turns';
+import type { DebateSide as Side } from '@daisy/protocol';
 
 /**
  * One grid for the score sheet's rows and total. Its tracks follow the

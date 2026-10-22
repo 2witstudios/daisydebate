@@ -99,6 +99,7 @@ test('Round receipt accepts only the requested persisted identity and legal froz
       countdownMs: 731,
       interaction: { crossExMode: 'ordered', yield: null, interruptions: null },
     },
+    viewerIsHost: false,
     checkpoint: emptyRuntimeCheckpoint,
     segments: [],
   } satisfies RoundView;

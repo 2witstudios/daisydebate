@@ -29,28 +29,32 @@ test('real authenticated HTTP and native-form transport share principal, origin,
     const choice = catalog.find(
       (c: { formatId: string }) => c.formatId === 'foundation',
     )!;
+    const createBody = (visibility: string) => ({
+      commandId: createId(),
+      title: 'Authenticated Launch',
+      topic: 'Cities should fund transit',
+      visibility,
+      selection: {
+        kind: 'catalog',
+        formatId: choice.formatId,
+        formatVersion: choice.formatVersion,
+        length: 'full',
+        competitionType: 'casual',
+        config: choice.defaultConfig,
+      },
+    });
+    const privateRequest = await routes.rooms.create(
+      f.jsonPost('/api/rooms', createBody('private'), { cookie: host }),
+    );
     const created = await routes.rooms.create(
-      f.jsonPost(
-        '/api/rooms',
-        {
-          commandId: createId(),
-          title: 'Authenticated Launch',
-          topic: 'Cities should fund transit',
-          visibility: 'private',
-          selection: {
-            kind: 'catalog',
-            formatId: choice.formatId,
-            formatVersion: choice.formatVersion,
-            length: 'full',
-            competitionType: 'casual',
-            config: choice.defaultConfig,
-          },
-        },
-        { cookie: host },
-      ),
+      f.jsonPost('/api/rooms', createBody('unlisted'), { cookie: host }),
     );
     let view = roomViewSchema.parse((await created.json()).view);
     roomId = view.id;
+    // No request may create a private Room (DEC-206); stored ones still mask.
+    await withSql(
+      (sql) => sql`update rooms set visibility='private' where id=${roomId}`,
+    );
     const anonymous = await routes.rooms.read(
       new Request(`${f.origin}/api/rooms/${roomId}`),
       roomId,
@@ -83,17 +87,18 @@ test('real authenticated HTTP and native-form transport share principal, origin,
     );
     assert({
       given:
-        'anonymous, foreign origin and private outsider requests through canonical routes',
+        'a private create request, then anonymous, foreign origin and outsider requests against a stored private Room',
       should:
         'refuse and mask the private resource even for native-form transport',
       actual: [
+        privateRequest.status,
         created.status,
         anonymous.status,
         denied.status,
         badOrigin.status,
         notHost.status,
       ],
-      expected: [201, 401, 404, 403, 404],
+      expected: [400, 201, 401, 404, 403, 404],
     });
     view = await command(host, view, {
       type: 'update-details',

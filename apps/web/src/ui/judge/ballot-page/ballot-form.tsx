@@ -10,7 +10,7 @@ import {
   type BallotCategory,
 } from '@daisy/protocol';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import type { Side } from '../../../features/debates/turns';
+import type { DebateSide as Side } from '@daisy/protocol';
 import {
   feedbackField,
   lowPointKey,

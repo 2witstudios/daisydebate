@@ -49,7 +49,7 @@ export async function submitRoundForm(
   roundId: string,
   form: FormData,
 ): Promise<RoundFormState> {
-  const envelope = roundCommandFields(form, true);
+  const envelope = roundCommandFields(form);
   if (!idSchema.safeParse(roundId).success || !envelope)
     return {
       values: formValues(form),

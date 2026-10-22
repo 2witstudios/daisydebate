@@ -4,13 +4,7 @@ import { idSchema } from './primitives';
 import type { RoundView } from './round-view';
 
 const seated = (
-  type:
-    | 'start_prep'
-    | 'end_prep'
-    | 'start_speech'
-    | 'yield'
-    | 'interrupt'
-    | 'forfeit',
+  type: 'start_prep' | 'start_speech' | 'yield' | 'interrupt' | 'forfeit',
 ) => z.strictObject({ type: z.literal(type), participantId: idSchema });
 /** Completion belongs to the ballot transaction, never a caller-supplied outcome. */
 export const roundCommandEnvelopeSchema = z.strictObject({
@@ -20,7 +14,6 @@ export const roundCommandEnvelopeSchema = z.strictObject({
   command: z.discriminatedUnion('type', [
     z.strictObject({ type: z.literal('start') }),
     seated('start_prep'),
-    seated('end_prep'),
     seated('start_speech'),
     seated('yield'),
     seated('interrupt'),

@@ -6,7 +6,6 @@ export type RoundCommandIds = Readonly<
 export const roundCommandIds = (nextId: () => string): RoundCommandIds => ({
   start: nextId(),
   start_prep: nextId(),
-  end_prep: nextId(),
   start_speech: nextId(),
   yield: nextId(),
   interrupt: nextId(),

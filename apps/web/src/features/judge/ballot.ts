@@ -11,7 +11,7 @@ import {
   type BallotCategory,
 } from '@daisy/protocol';
 import { accept, field, refuse, type Parsed } from '../mock-form/form';
-import type { Side } from '../debates/turns';
+import type { DebateSide as Side } from '@daisy/protocol';
 
 /** A debater as the ballot shows them: their name and, when set, a photo. */
 type BallotDebater = {

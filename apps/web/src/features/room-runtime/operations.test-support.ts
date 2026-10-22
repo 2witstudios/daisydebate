@@ -123,9 +123,10 @@ export const launched: LaunchedRound = {
   checkpoint: emptyRuntimeCheckpoint,
   segments: [],
 };
+/** The host's own reading of the launched Round. */
 export const round: RoundView = (({ hostActorId, ...viewed }) => {
   void hostActorId;
-  return viewed;
+  return { ...viewed, viewerIsHost: true };
 })(launched);
 
 export function makeOperations(overrides: Partial<Store> = {}) {

@@ -20,7 +20,11 @@ export const roomStatuses = [
   'started',
   'abandoned',
 ] as const;
-const roomVisibilitySchema = z.enum(['public', 'unlisted', 'private']);
+/**
+ * What a host may choose when creating or editing a Room. Private is refused
+ * until an invite path can seat a second human (ISSUE-443, DEC-206).
+ */
+const roomVisibilitySchema = z.enum(['public', 'unlisted']);
 const versionSchema = z.int().positive();
 const textSchema = z.string().trim().min(1);
 const seat = { role: debateRoleSchema, slot: z.int().min(0) };

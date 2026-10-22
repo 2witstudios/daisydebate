@@ -103,7 +103,6 @@ function activeIntents(
   const forfeit = own(self, 'forfeit', 'Forfeit round', true, true);
   if (position.prep?.side === self.role)
     return [
-      own(self, 'end_prep', 'Save the rest'),
       own(
         self,
         'start_speech',
@@ -123,14 +122,17 @@ export function roundControlIntents(
   actorId: string,
   nowMs: number,
 ): readonly RoundControlIntent[] {
+  // Start is host-only, whatever seat the host holds.
+  if (view.status === 'scheduled')
+    return view.viewerIsHost
+      ? [{ type: 'start', label: 'Start round', enabled: true }]
+      : [];
   const self = view.participants
     .filter(isNamedSeat)
     .find(
       (p) => p.actorId === actorId && p.kind === 'human' && p.role !== 'judge',
     );
   if (!self) return [];
-  if (view.status === 'scheduled')
-    return [{ type: 'start', label: 'Start round', enabled: true }];
   if (view.status !== 'active' || view.checkpoint === null) return [];
   return activeIntents(
     view,
