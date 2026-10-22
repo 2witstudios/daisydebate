@@ -2,6 +2,7 @@ import { test } from './support/fixtures';
 import { proveHumanJudgedJourney } from './support/human-judged-journey';
 import { proveUnjudgedJourney } from './support/unjudged-journey';
 import { proveHumanBotJourney } from './support/bot-journey';
+import { proveThreeBrowserRound } from './support/three-browser-journey';
 
 /**
  * Whole Rounds through the production server's autonomous services: no
@@ -26,4 +27,11 @@ test('actual human against a bot is spoken by the provider and decided by the AI
 }) => {
   test.setTimeout(420_000);
   await proveHumanBotJourney(browser);
+});
+
+test('three browsers play one human Round to a ballot and start the next match in a distinct Room', async ({
+  browser,
+}) => {
+  test.setTimeout(480_000);
+  await proveThreeBrowserRound(browser);
 });

@@ -23,14 +23,12 @@ export const deniedCommand = (
     headers: { origin },
     data: { ...body, commandId: createId(), expectedVersion: view.version },
   });
-export async function createFromPlay(
+/** Fills and submits the shared create-Room form, from /play/room or a fresh-Room page. */
+export async function submitCreateRoom(
   page: Page,
   title: string,
   formatId = 'foundation',
 ) {
-  await page.goto('/play');
-  await page.getByRole('link', { name: /^Open a practice room\b/ }).click();
-  await expect(page).toHaveURL('/play/room');
   const form = page.getByRole('form', { name: 'Create a room' });
   await expect(form).toBeVisible();
   const templates = form.getByLabel('Format template');
@@ -53,6 +51,16 @@ export async function createFromPlay(
   await expect(page).toHaveURL(/\/rooms\/[a-z0-9]+$/);
   const id = new URL(page.url()).pathname.split('/').at(-1)!;
   return reread(page.request, id);
+}
+export async function createFromPlay(
+  page: Page,
+  title: string,
+  formatId = 'foundation',
+) {
+  await page.goto('/play');
+  await page.getByRole('link', { name: /^Open a practice room\b/ }).click();
+  await expect(page).toHaveURL('/play/room');
+  return submitCreateRoom(page, title, formatId);
 }
 
 export async function closeRoom(
