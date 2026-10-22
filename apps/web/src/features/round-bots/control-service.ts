@@ -5,7 +5,11 @@ type Target = {
   readonly segmentId: string;
 };
 type Claim = { readonly scope: Target; readonly token: string };
-type Control = { readonly pulse: () => Promise<unknown> };
+type Control = {
+  readonly pulse: () => Promise<unknown>;
+  /** Ends speaking work before its lease is revoked or abandoned. */
+  readonly stop?: () => Promise<void>;
+};
 type Owned<C> = {
   readonly claim: C;
   readonly control: Control;
@@ -56,8 +60,10 @@ export function startBotControlService<C extends Claim>(input: {
       try {
         await entry.control.pulse();
       } catch {
-        if (!(await valid(entry)))
+        if (!(await valid(entry))) {
           owned.delete(entry.claim.scope.roundParticipantId);
+          await entry.control.stop?.();
+        }
         input.failed();
       } finally {
         entry.pending = null;
@@ -70,6 +76,7 @@ export function startBotControlService<C extends Claim>(input: {
     if (old?.claim.scope.segmentId === target.segmentId) return;
     if (old) {
       await old.pending;
+      await old.control.stop?.();
       await input.store.revokeRoundBotWorker(old.claim.scope, old.claim.token);
       owned.delete(target.roundParticipantId);
     }
@@ -130,6 +137,7 @@ export function startBotControlService<C extends Claim>(input: {
       await Promise.allSettled(
         [...owned.values()].map(async (entry) => {
           await entry.pending;
+          await entry.control.stop?.();
           await input.store.revokeRoundBotWorker(
             entry.claim.scope,
             entry.claim.token,

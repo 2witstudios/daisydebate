@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { botActivityBatchSchema } from './bot-activity';
+import { botActivityBatchSchema, botActivityRelaySchema } from './bot-activity';
 import { botActivityFixture } from './bot-activity.test-support';
 setupRitewayBun();
 test('activity transport bounds original frames and rejects body authority or unpaired windows', () => {
@@ -41,6 +41,34 @@ test('activity transport bounds original frames and rejects body authority or un
     should: 'refuse every variation before routing',
     actual: invalid.map(
       (value) => botActivityBatchSchema.safeParse(value).success,
+    ),
+    expected: Array(invalid.length).fill(false),
+  });
+});
+test('relay ingress carries only original frames, never a receipt or Round claim', () => {
+  const { roundParticipantId, frames } = botActivityFixture(
+    'abcdefghijklmnopqrstuvwx',
+    'mnopqrstuvwxabcdefghijkl',
+  );
+  const { receivedAt, ...original } = frames[0]!;
+  const relay = { version: 1, roundParticipantId, frames: [original] };
+  assert({
+    given: 'a signed worker body with original brackets and calibrated bounds',
+    should: 'accept it for server-side receipt attachment',
+    actual: botActivityRelaySchema.safeParse(relay).success,
+    expected: true,
+  });
+  const invalid = [
+    { ...relay, frames: [{ ...original, receivedAt }] },
+    { ...relay, roundId: 'abcdefghijklmnopqrstuvwx' },
+    { ...relay, frames: [{ ...original, beforeMs: 12 }] },
+    { ...relay, frames: Array(21).fill(original) },
+  ];
+  assert({
+    given: 'a body-supplied receipt, Round claim, inverted bracket or oversize',
+    should: 'refuse each before admission',
+    actual: invalid.map(
+      (value) => botActivityRelaySchema.safeParse(value).success,
     ),
     expected: Array(invalid.length).fill(false),
   });

@@ -1,0 +1,44 @@
+import type { WorkerTimers } from './worker-timers';
+
+/** Joins one owned claim's receipts and speech; receipts never await model, media or relay work. */
+export function createBotSeat(input: {
+  readonly control: { readonly pulse: () => Promise<unknown> };
+  readonly speaker: {
+    readonly wake: () => void;
+    readonly stop: () => Promise<void>;
+  };
+  /** Present only for cross-examination, where peer activity can cancel a phrase. */
+  readonly feed: { readonly poll: () => Promise<void> } | null;
+  readonly pollMs: number;
+  readonly timers: WorkerTimers;
+  readonly failed: () => void;
+}) {
+  let polling: Promise<void> | null = null;
+  const poll = (): Promise<void> => {
+    polling ??= (async () => {
+      try {
+        await input.feed?.poll();
+        input.speaker.wake();
+      } catch {
+        input.failed();
+      } finally {
+        polling = null;
+      }
+    })();
+    return polling;
+  };
+  const timer = input.feed
+    ? input.timers.setInterval(poll, input.pollMs)
+    : null;
+  return {
+    pulse: () => {
+      input.speaker.wake();
+      return input.control.pulse();
+    },
+    async stop() {
+      if (timer !== null) input.timers.clearInterval(timer);
+      await polling;
+      await input.speaker.stop();
+    },
+  };
+}
