@@ -7,6 +7,12 @@ setupRitewayBun();
 requireTestServices(process.env);
 
 const forbidden = [
+  "UPDATE pg_catalog.pg_settings SET setting='0' WHERE name='statement_timeout'",
+  'UPDATE "pg_catalog"."pg_settings" SET setting=\'0\' WHERE name=\'idle_in_transaction_session_timeout\'',
+  "WITH changed AS (UPDATE pg_settings SET setting='0' WHERE name='lock_timeout' RETURNING name) SELECT * FROM changed",
+  "EXPLAIN ANALYZE UPDATE pg_catalog.pg_settings SET setting='0' WHERE name='statement_timeout'",
+  "SELECT 1 -- carriage return ends comment\r, pg_catalog.set_config('statement_timeout','0',true)",
+  "SELECT 1 -- CRLF ends comment\r\n, pg_catalog.set_config('idle_in_transaction_session_timeout','0',true)",
   "SELECT pg_catalog.\"set_config\"('statement_timeout','0',true)",
   "SELECT pg_catalog.set_config /* documented whitespace */ ('idle_in_transaction_session_timeout','0',true)",
   'SELECT "pg_catalog"."set_config" /* nested /* inner */ outer */ (\'lock_timeout\',\'0\',true)',
@@ -21,7 +27,7 @@ for (const command of forbidden) {
     withBoundedRound(async (f, run, roundId) => {
       await assertRejects({
         given:
-          'quoted, qualified, commented or Unicode-escaped configuration calls',
+          'configuration functions or writable settings views through SQL lexical variants',
         should:
           'refuse and roll back earlier writes even if the callback catches it',
         code: 'INVARIANT',

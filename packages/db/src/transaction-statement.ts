@@ -50,8 +50,8 @@ class SqlIdentifiers {
     const whitespace = /^\s+/.exec(rest)?.[0];
     if (whitespace) this.at += whitespace.length;
     else if (rest.startsWith('--')) {
-      const end = this.text.indexOf('\n', this.at);
-      this.at = end < 0 ? this.text.length : end + 1;
+      const end = /[\r\n]/.exec(rest)?.index;
+      this.at = end === undefined ? this.text.length : this.at + end + 1;
     } else if (rest.startsWith('/*')) this.at = blockEnd(this.text, this.at);
     else return false;
     return true;
@@ -131,7 +131,7 @@ export function assertTransactionStatement(text: string, refuse: Refuse): void {
       'show',
       'explain',
     ].includes(names[0] ?? '') ||
-    names.includes('set_config')
+    names.some((name) => ['set_config', 'pg_settings'].includes(name))
   )
     refuse(control);
 }
