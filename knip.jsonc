@@ -20,6 +20,7 @@
         "scripts/check-affected.ts",
         "scripts/dev-agent.ts",
         "scripts/verify.ts",
+        "scripts/prove-round-judging.ts",
       ],
     },
     // The e2e production server is started by Playwright's webServer command.

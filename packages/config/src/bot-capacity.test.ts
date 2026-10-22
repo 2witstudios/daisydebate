@@ -24,3 +24,45 @@ test('AI Round admission requires an explicit server capacity bound', () => {
       readServerConfig({ ...env, AI_ROUND_BUSY_CAP: value }),
     ).toThrow('Invalid server configuration: AI_ROUND_BUSY_CAP');
 });
+test('bot workers require a complete explicit bounded resource policy', () => {
+  const policy = {
+    maxControllers: 8,
+    providerConcurrency: 2,
+    scanBatch: 8,
+    scanMs: 250,
+    leaseMs: 30000,
+    renewMs: 5000,
+    callTimeoutMs: 60000,
+    models: {
+      speech: 'anthropic/claude-sonnet-5.5',
+      cross_ex: 'openai/gpt-6-luna',
+      judge: 'anthropic/claude-sonnet-5.5',
+      tts: 'deepgram/aura-2',
+    },
+  };
+  assert({
+    given: 'missing or explicitly configured worker resources',
+    should: 'remain absent or retain every validated bound without defaults',
+    actual: [
+      readServerConfig(env).ROUND_BOT_WORKER_POLICY,
+      readServerConfig({
+        ...env,
+        ROUND_BOT_WORKER_POLICY: JSON.stringify(policy),
+      }).ROUND_BOT_WORKER_POLICY,
+    ],
+    expected: [undefined, policy],
+  });
+  for (const value of [
+    '',
+    '{}',
+    JSON.stringify({ ...policy, scanMs: 501 }),
+    JSON.stringify({ ...policy, renewMs: 15000 }),
+    JSON.stringify({ ...policy, providerConcurrency: 0 }),
+    JSON.stringify({ ...policy, models: { ...policy.models, judge: '' } }),
+    JSON.stringify({ ...policy, inferredPremium: true }),
+  ]) {
+    expect(() =>
+      readServerConfig({ ...env, ROUND_BOT_WORKER_POLICY: value }),
+    ).toThrow('Invalid server configuration: ROUND_BOT_WORKER_POLICY');
+  }
+});

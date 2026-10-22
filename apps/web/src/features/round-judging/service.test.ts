@@ -1,0 +1,73 @@
+import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { startRoundJudgingService } from './service';
+setupRitewayBun();
+test('judging renewal and discovery do not wait for a provider operation', async () => {
+  const tasks = new Map<number, () => Promise<void>>();
+  let renewals = 0,
+    scans = 0,
+    stopped = false;
+  const entered = Promise.withResolvers<void>();
+  const finished = Promise.withResolvers<void>();
+  const service = startRoundJudgingService({
+    store: {
+      scanRoundJudgingJobs: async () => {
+        scans++;
+        return [{ roundId: 'round', judgeParticipantId: 'judge' }];
+      },
+      claimRoundJudgingJob: async () => ({
+        scope: { roundId: 'round', judgeParticipantId: 'judge' },
+        token: 'memory-only',
+      }),
+      renewRoundJudgingJob: async () => {
+        renewals++;
+      },
+      verifyRoundJudgingJob: async () => ({ pendingBallot: null }),
+    },
+    execute: async (_claim, signal) => {
+      entered.resolve();
+      await new Promise<void>((resolve) =>
+        signal.addEventListener(
+          'abort',
+          () => {
+            stopped = true;
+            resolve();
+          },
+          { once: true },
+        ),
+      );
+      finished.resolve();
+    },
+    limits: { parallel: 1, scanBatch: 4, scanMs: 500, renewMs: 3000 },
+    timers: {
+      setInterval: (task, ms) => {
+        tasks.set(ms, task);
+        return ms;
+      },
+      clearInterval: (handle) => {
+        tasks.delete(handle as number);
+      },
+    },
+    failed: () => {
+      throw Error('unexpected lifecycle failure');
+    },
+  });
+  await service.started;
+  await entered.promise;
+  await tasks.get(3000)!();
+  await tasks.get(500)!();
+  assert({
+    given: 'a provider operation still pending',
+    should:
+      'renew its lease and keep discovery independent without a second claim',
+    actual: [renewals, scans],
+    expected: [1, 2],
+  });
+  await service.stop();
+  await finished.promise;
+  assert({
+    given: 'shutdown before owned pools close',
+    should: 'abort and await work, then remove both timers',
+    actual: [stopped, tasks.size],
+    expected: [true, 0],
+  });
+});

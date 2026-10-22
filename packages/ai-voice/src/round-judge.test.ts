@@ -18,7 +18,14 @@ test('shared judging prompt uses only scoped sides and honest frozen coverage', 
     revision: 2,
     completeness: 'incomplete',
     coverage: [
-      { sequence: 1, state: 'partial', chunkCount: 2, sealedChunkCount: 1 },
+      {
+        sequence: 1,
+        side: 'affirmative',
+        slot: 0,
+        state: 'partial',
+        chunkCount: 2,
+        sealedChunkCount: 1,
+      },
     ],
     utterances: [
       negative,

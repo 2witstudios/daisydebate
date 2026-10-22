@@ -188,6 +188,14 @@ depends on one, and nothing in a Round's history would change if Rooms were dele
 - **Abandonment is lifecycle, not outcome.** A `rounds_lifecycle_check` constrains status,
   stage, outcome and both timestamps together; `abandoned` deliberately leaves
   `started_at` nullable for a round abandoned before starting.
+- **Approved casual zero-judge Rounds finish unjudged (DEC-191).** The same Round
+  becomes `completed` with a null outcome after its actual final played end,
+  immutable transcript freeze and settled attendance. Both frozen required judge
+  count and actual judge seats must be zero. The internal finalizer locks and
+  verifies these facts before projecting the shared runtime completion and its
+  durable receipt; callers cannot select this mode in a public command body.
+  The common result says “Unjudged”, with no fabricated ballot, draw or rating.
+  Ranked, nonzero-judge, forfeit and abandonment rules retain their own guards.
 - **AI practice capacity is reclaimed durably at admission.** Under the global
   admission lock, scheduled practices with no execution for 15 minutes and active
   practices with no execution for two hours become abandoned. Reclamation locks

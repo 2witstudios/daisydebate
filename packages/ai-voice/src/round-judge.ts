@@ -9,9 +9,11 @@ export function roundJudgeMessages(input: {
   readonly completeness: 'complete' | 'incomplete';
   readonly coverage: readonly {
     readonly sequence: number;
+    readonly side: DebateSide;
+    readonly slot: number;
     readonly state: string;
     readonly chunkCount: number;
-    readonly sealedChunkCount: number;
+    readonly sealedChunkCount: number | null;
   }[];
   readonly utterances: readonly {
     readonly segmentSequence: number;
@@ -26,8 +28,10 @@ export function roundJudgeMessages(input: {
     revision: input.revision,
     completeness: input.completeness,
     coverage: input.coverage
-      .map(({ sequence, state, chunkCount, sealedChunkCount }) => ({
+      .map(({ sequence, side, slot, state, chunkCount, sealedChunkCount }) => ({
         sequence,
+        side,
+        slot,
         state,
         chunkCount,
         sealedChunkCount,
