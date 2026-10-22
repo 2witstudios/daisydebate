@@ -32,7 +32,7 @@ async function lockSponsor(
     .select()
     .from(rounds)
     .where(eq(rounds.id, target.roundId))
-    .for('update');
+    .for('no key update');
   if (!round || round.createdByActorId !== target.actorId)
     throw createAppError('AUTHORIZATION');
   if (purpose === 'admission') requireAdmissionSponsor(account ?? null, round);
