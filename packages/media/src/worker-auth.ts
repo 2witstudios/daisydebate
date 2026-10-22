@@ -37,6 +37,31 @@ const message = (input: Omit<SignedRequest, 'signature'>) => {
   return `${input.method}\n${input.path}\n${input.timestamp}\n${input.body}`;
 };
 
+function workerPrincipal(body: string, roundId: string) {
+  let payload: unknown;
+  try {
+    payload = JSON.parse(body);
+  } catch {
+    throw unauthorized();
+  }
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload))
+    throw unauthorized();
+  const fields = payload as Record<string, unknown>;
+  const worker = idSchema.safeParse(fields.workerId);
+  if (
+    !worker.success ||
+    (fields.roundId !== undefined && fields.roundId !== roundId) ||
+    'serviceId' in fields ||
+    'actorId' in fields
+  )
+    throw unauthorized();
+  return {
+    serviceId: `media-capture:${worker.data}`,
+    workerId: worker.data,
+    roundId,
+  };
+}
+
 /** Server-only HMAC capability; no credentials or raw request data are logged. */
 export function createMediaWorkerAuthentication(input: {
   readonly secret: string;
@@ -91,28 +116,7 @@ export function createMediaWorkerAuthentication(input: {
       )
         throw unauthorized();
       const roundId = route(request.path);
-      let payload: unknown;
-      try {
-        payload = JSON.parse(request.body);
-      } catch {
-        throw unauthorized();
-      }
-      if (!payload || typeof payload !== 'object' || Array.isArray(payload))
-        throw unauthorized();
-      const fields = payload as Record<string, unknown>;
-      const worker = idSchema.safeParse(fields.workerId);
-      if (
-        !worker.success ||
-        (fields.roundId !== undefined && fields.roundId !== roundId) ||
-        'serviceId' in fields ||
-        'actorId' in fields
-      )
-        throw unauthorized();
-      return {
-        serviceId: `media-capture:${worker.data}`,
-        workerId: worker.data,
-        roundId,
-      };
+      return workerPrincipal(request.body, roundId);
     },
   };
 }
