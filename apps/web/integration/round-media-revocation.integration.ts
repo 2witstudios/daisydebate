@@ -5,10 +5,7 @@ import { Room, RoomEvent } from '@livekit/rtc-node';
 import { once } from 'node:events';
 import { createRoundMediaOperations } from '../src/features/round-media/operations';
 import { mediaDependencies } from './round-media.test-support';
-import {
-  oneOnOneDefinition,
-  practiceRoomConfig,
-} from '@daisy/db/reference-formats';
+import { assembleJudgedRoom } from './round-judging.test-support';
 import {
   startRuntimeRound,
   withRoomRuntime,
@@ -33,18 +30,7 @@ const join = async (token: string) => {
 test('canonical revocation of a hidden human judge closes actual self-hosted admission until fresh eligibility', async () => {
   await withRoomRuntime(async (f) => {
     const judge = await f.member();
-    let room = await f.assemble({
-      selection: {
-        kind: 'custom',
-        definition: {
-          ...oneOnOneDefinition,
-          seats: { ...oneOnOneDefinition.seats, judge: 1 },
-        },
-        config: practiceRoomConfig,
-        length: 'full',
-        competitionType: 'casual',
-      },
-    });
+    let room = await assembleJudgedRoom(f);
     room = (
       await f.command(judge, room, {
         type: 'claim-seat',
