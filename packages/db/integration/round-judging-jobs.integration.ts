@@ -1,6 +1,7 @@
 import { createId } from '@paralleldrive/cuid2';
 import { randomBytes } from 'node:crypto';
 import { requireTestServices } from '@daisy/config';
+import { ballotCategories, ballotSchema } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { createBotSeat } from './bot-seat.test-support';
@@ -45,6 +46,32 @@ test('durable judging claims fence epochs and preserve one command across recove
         actual: () => jobs.beginModelCall(first.scope, first.token),
         code: 'CONFLICT',
       });
+      const ballot = ballotSchema.parse({
+        rubricVersion: 'speaker-10@1',
+        winner: 'affirmative',
+        reason: 'Affirmative answered the decisive comparison.',
+        feedback: {},
+        scores: Object.fromEntries(
+          ['affirmative', 'negative'].map((side) => [
+            side,
+            Object.fromEntries(
+              ballotCategories.map((category) => [category, 3]),
+            ),
+          ]),
+        ),
+      });
+      await jobs.saveResult(first.scope, first.token, ballot);
+      await jobs.saveResult(first.scope, first.token, ballot);
+      await assertRejects({
+        given: 'a different result after a durable response',
+        should: 'preserve the first validated response',
+        actual: () =>
+          jobs.saveResult(first.scope, first.token, {
+            ...ballot,
+            winner: 'negative',
+          }),
+        code: 'CONFLICT',
+      });
       await fixture.sql`update round_judging_jobs set lease_expires_at=clock_timestamp()-interval '1 second' where round_id=${roundId}`;
       const second = await jobs.claim(target);
       await assertRejects({
@@ -68,8 +95,15 @@ test('durable judging claims fence epochs and preserve one command across recove
           JSON.stringify(oldRun!.configuration_snapshot).includes(first.token),
           second.frozen.revision,
           await fixture.count('ballots', 'round_id', roundId),
+          second.pendingBallot,
         ],
-        expected: [2, true, true, true, 'unknown', false, 1, 0],
+        expected: [2, true, true, true, 'received', false, 1, 0, ballot],
+      });
+      await assertRejects({
+        given: 'a takeover with a durable response waiting for submission',
+        should: 'refuse another provider call',
+        actual: () => jobs.beginModelCall(second.scope, second.token),
+        code: 'CONFLICT',
       });
     } finally {
       await fixture.sql`delete from rounds where id=${roundId}`;

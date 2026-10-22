@@ -1,5 +1,7 @@
 import { and, asc, eq, or, sql } from 'drizzle-orm';
+import { isDeepStrictEqual } from 'node:util';
 import { createAppError } from '@daisy/errors';
+import { ballotSchema } from '@daisy/protocol';
 import type { BoundedTransactionContext } from './transaction-context';
 import type { BoundedTransaction } from './bounded-transaction';
 import { agentRuns } from './schema/agent-runs';
@@ -87,8 +89,11 @@ export function createRoundJudgingJobs(input: {
       await withLease(scope, token, () => undefined);
     },
     beginModelCall: (scope: JudgingScope, token: string) =>
-      withLease(scope, token, async (tx, { run }) => {
-        if (run.configurationSnapshot.providerOutcome !== 'not_started')
+      withLease(scope, token, async (tx, { run, job }) => {
+        if (
+          job.pendingBallot ||
+          run.configurationSnapshot.providerOutcome !== 'not_started'
+        )
           throw createAppError('CONFLICT', 'Model call already dispatched');
         await tx
           .update(agentRuns)
@@ -101,6 +106,40 @@ export function createRoundJudgingJobs(input: {
           })
           .where(eq(agentRuns.id, run.id));
       }),
+    saveResult: (scope: JudgingScope, token: string, response: unknown) => {
+      const parsed = ballotSchema.safeParse(response);
+      if (!parsed.success) throw createAppError('VALIDATION');
+      return withLease(scope, token, async (tx, { run, job, now }) => {
+        if (job.pendingBallot) {
+          if (!isDeepStrictEqual(job.pendingBallot, parsed.data))
+            throw createAppError(
+              'CONFLICT',
+              'Judging response already recorded',
+            );
+          return;
+        }
+        if (run.configurationSnapshot.providerOutcome !== 'unknown')
+          throw createAppError('CONFLICT', 'Model call not dispatched');
+        await tx
+          .update(roundJudgingJobs)
+          .set({
+            pendingBallot: parsed.data,
+            pendingBallotAgentRunId: run.id,
+            pendingBallotEpoch: scope.jobEpoch,
+            pendingBallotReceivedAt: now,
+          })
+          .where(judgingJobWhere(scope));
+        await tx
+          .update(agentRuns)
+          .set({
+            configurationSnapshot: {
+              ...run.configurationSnapshot,
+              providerOutcome: 'received',
+            },
+          })
+          .where(eq(agentRuns.id, run.id));
+      });
+    },
     renew: (scope: JudgingScope, token: string) =>
       withLease(scope, token, async (tx, { now }) => {
         const expires = new Date(now.getTime() + input.leaseMs);
