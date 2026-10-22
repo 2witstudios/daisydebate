@@ -61,6 +61,10 @@
     },
     "packages/db": { "entry": ["integration/**/*.integration.ts"] },
     "packages/media": { "entry": ["integration/**/*.integration.ts"] },
+    "apps/media-worker": {
+      // Bun.resolveSync selects this isolated native subprocess entry.
+      "entry": ["src/capture-process.ts", "src/**/*.test.ts"],
+    },
     "apps/realtime": {
       "entry": [
         "integration/**/*.integration.ts",
