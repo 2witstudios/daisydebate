@@ -8,7 +8,6 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { useRouter } from 'next/navigation';
 import { systemClock, systemId } from '@daisy/clock';
 import type { RoundView } from '@daisy/protocol';
 import { browserSyncEdges } from '../../features/resource-sync/browser';
@@ -20,7 +19,7 @@ import {
 import { FreshnessNotice } from '../resource-sync/freshness-notice';
 import { useResourceSync } from '../resource-sync/use-resource-sync';
 import type { LeaveLinks } from './leave-room';
-import { isLiveDebater, liveRoundOf } from './live-round';
+import { liveRoundOf } from './live-round';
 import { DebateRoom } from './room';
 import { useRoundSync } from './use-round-sync';
 import {
@@ -102,11 +101,6 @@ export function LiveRoundRoom({
     },
     [driver],
   );
-  const router = useRouter();
-  const ended = !isLiveDebater(view, actorId);
-  useEffect(() => {
-    if (ended) router.replace(`/rounds/${view.id}`);
-  }, [ended, router, view.id]);
   const now = useSecond(renderedAtMs);
   const round = useMemo(
     () => liveRoundOf(view, actorId, now),
@@ -121,26 +115,28 @@ export function LiveRoundRoom({
           {outcome}
         </p>
       ) : null}
-      {round ? (
-        <DebateRoom
-          media={mediaSlot?.(view)}
-          actions={
-            <RoundCommandActions
-              view={view}
-              actorId={actorId}
-              nowMs={now}
-              ids={ids}
-              action={commandAction}
-              onAnswer={onAnswer}
+      <RoundCommandActions
+        view={view}
+        actorId={actorId}
+        nowMs={now}
+        ids={ids}
+        action={commandAction}
+        onAnswer={onAnswer}
+      >
+        {(actions) =>
+          round ? (
+            <DebateRoom
+              media={mediaSlot?.(view)}
+              actions={actions}
+              round={round}
+              sync={sync}
+              notice={notice}
+              save={save}
+              leave={leave}
             />
-          }
-          round={round}
-          sync={sync}
-          notice={notice}
-          save={save}
-          leave={leave}
-        />
-      ) : null}
+          ) : null
+        }
+      </RoundCommandActions>
     </>
   );
 }

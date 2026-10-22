@@ -18,7 +18,8 @@
     "./messaging": "./src/messaging/index.ts",
     "./account-age": "./src/account-age.ts",
     "./messaging-files": "./src/messaging-files/index.ts",
-    "./media-session": "./src/media-session.ts"
+    "./media-session": "./src/media-session.ts",
+    "./round-ballot": "./src/round-ballot-operations.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

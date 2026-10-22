@@ -5,28 +5,7 @@ import type {
   RoundRefusal,
 } from '@daisy/protocol';
 
-function runScopeMatches(
-  principal: Extract<RoundCommandPrincipal, { kind: 'agent' }>,
-  authority: RoundCommandAuthority,
-): boolean {
-  const run = authority.agentRun;
-  return (
-    principal.roundId === authority.roundId &&
-    run !== null &&
-    run.active &&
-    run.id === principal.agentRunId &&
-    run.participantId === principal.participantId &&
-    run.serviceId === principal.serviceId
-  );
-}
-function ownsSeat(
-  principal: RoundCommandPrincipal,
-  seat: RoundCommandAuthority['participants'][number],
-): boolean {
-  return principal.kind === 'human'
-    ? seat.kind === 'human' && seat.actorId === principal.actorId
-    : seat.kind === 'bot' && seat.id === principal.participantId;
-}
+import { bindOwnedRoundSeat, runScopeMatches } from './round-principal';
 /** Fresh locked facts bind a human session or scoped AgentRun to exactly its seat. */
 export function bindRoundCommandPrincipal(input: {
   readonly principal: RoundCommandPrincipal;
@@ -55,7 +34,5 @@ export function bindRoundCommandPrincipal(input: {
   );
   if (!seat || !seat.eligible || seat.role === 'judge')
     return { ok: false, refusal: 'not-seated' };
-  return ownsSeat(principal, seat)
-    ? { ok: true, actorId: seat.actorId, participantId: seat.id }
-    : { ok: false, refusal: 'not-authorized' };
+  return bindOwnedRoundSeat(principal, seat);
 }

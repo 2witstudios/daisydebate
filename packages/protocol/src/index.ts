@@ -214,3 +214,12 @@ export type {
   RoundCommandResponse,
   RoundRefusal,
 } from './round-command';
+export {
+  roundBallotEnvelopeSchema,
+  roundBallotReceiptSchema,
+} from './round-ballot';
+export type {
+  RoundBallotEnvelope,
+  RoundBallotReceipt,
+  RoundBallotAuthority,
+} from './round-ballot';
