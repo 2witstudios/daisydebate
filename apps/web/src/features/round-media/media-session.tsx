@@ -97,6 +97,7 @@ export function RoundMediaSession({
     };
   }, [view.id]);
   useEffect(() => {
+    if (controller.current?.state() === 'ended') return;
     if (view.status === 'completed' || view.status === 'abandoned') {
       controller.current?.stop();
       return;

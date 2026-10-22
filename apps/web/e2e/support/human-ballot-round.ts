@@ -1,3 +1,4 @@
+import { humanRoundSelection } from './human-round-selection';
 import type { APIRequestContext, BrowserContext } from '@playwright/test';
 import {
   roomCatalogChoiceSchema,
@@ -69,32 +70,7 @@ export async function createHumanBallotRound(members: readonly Member[]) {
       title: 'Actual human judge ballot proof',
       topic: 'Cities should fund transit',
       visibility: 'public',
-      selection: {
-        kind: 'custom',
-        length: 'full',
-        competitionType: 'casual',
-        definition: {
-          ...choice.definition,
-          seats: { affirmative: 1, negative: 1, judge: 2 },
-          configurable: {
-            ...choice.definition.configurable,
-            interaction: {
-              ...choice.definition.configurable.interaction,
-              yield: {
-                enabledChoices: [true, false],
-                returnsTimeChoices: [true, false],
-              },
-            },
-          },
-        },
-        config: {
-          ...choice.defaultConfig,
-          preRoundPrep: { enabled: false },
-          inRoundPrep: { enabled: false },
-          speechTiming: { countdownMs: 0, segmentDurationOverrides: {} },
-          yielding: { allowed: true, returnsTime: false },
-        },
-      },
+      selection: humanRoundSelection(choice, 2),
     },
   });
   expect(created.status()).toBe(201);

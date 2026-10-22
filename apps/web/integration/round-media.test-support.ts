@@ -5,7 +5,7 @@ import { noopErrorReporter, withTimeout } from '@daisy/observability';
 import { createRoundMediaOperations } from '../src/features/round-media/operations';
 import { withRoomRuntime } from './room-runtime.test-support';
 
-export const localMediaConfig = {
+const localMediaConfig = {
   url: 'http://127.0.0.1:7880',
   apiKey: 'daisy-local',
   apiSecret: 'local-development-only-livekit-secret',
@@ -64,8 +64,8 @@ export const tokenClaims = (token: string) =>
     video: Record<string, unknown>;
   };
 
-/** Delay an actual provider acknowledgement after its committed effect, without replacing the vendor. */
-export function delayedMediaCreation() {
+/** Hold actual provider creation before its effect or after acknowledgement, without replacing the vendor. */
+export function delayedMediaCreation(phase: 'before' | 'after' = 'after') {
   const entered = Promise.withResolvers<void>();
   const release = Promise.withResolvers<void>();
   let delayed = false;
@@ -74,13 +74,18 @@ export function delayedMediaCreation() {
     port: 0,
     async fetch(request) {
       const url = new URL(request.url);
+      const creation = !delayed && url.pathname.endsWith('/CreateRoom');
+      if (creation) delayed = true;
+      if (creation && phase === 'before') {
+        entered.resolve();
+        await release.promise;
+      }
       const response = await fetch(`${localMediaConfig.url}${url.pathname}`, {
         method: request.method,
         headers: request.headers,
         body: await request.arrayBuffer(),
       });
-      if (!delayed && url.pathname.endsWith('/CreateRoom') && response.ok) {
-        delayed = true;
+      if (creation && phase === 'after' && response.ok) {
         entered.resolve();
         await release.promise;
       }
