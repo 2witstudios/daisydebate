@@ -1,9 +1,11 @@
+import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { withRoomRuntime } from './room-runtime.test-support';
 import { createRoundRuntimeOperations } from '../src/features/round-runtime/operations';
 setupRitewayBun();
+requireTestServices(process.env);
 
 test('shared human commands run the engine with atomic refusals and recover lost responses', async () => {
   await withRoomRuntime(async (f) => {
