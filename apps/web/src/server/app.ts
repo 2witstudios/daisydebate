@@ -94,6 +94,9 @@ export function createApp({
     url: config.DATABASE_URL,
     eventSink: logger.log,
     nextActorId: () => ids.next(),
+    ...(config.AI_ROUND_BUSY_CAP === undefined
+      ? {}
+      : { botBusyCap: config.AI_ROUND_BUSY_CAP }),
   });
   let authConfig: AuthConfig | undefined;
   let auth: AuthServer | undefined;

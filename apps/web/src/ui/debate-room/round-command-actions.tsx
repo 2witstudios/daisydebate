@@ -1,5 +1,8 @@
 'use client';
-import { useEffect, useId } from 'react';
+import { useEffect, useId, type ReactNode } from 'react';
+import { useRouter } from 'next/navigation';
+import { isLiveDebater } from './live-round';
+import { UnacknowledgedCommand } from './unacknowledged-command';
 import type { RoundView } from '@daisy/protocol';
 import {
   roundControlIntents,
@@ -79,7 +82,9 @@ export function RoundCommandActions({
   ids,
   action,
   onAnswer,
+  children,
 }: {
+  readonly children: (actions: ReactNode) => ReactNode;
   readonly view: RoundView;
   readonly actorId: string;
   readonly nowMs: number;
@@ -92,6 +97,11 @@ export function RoundCommandActions({
     unanswered,
     roundCommandUnavailable,
   );
+  const router = useRouter();
+  useEffect(() => {
+    if (!pending && !answer.unacknowledged && !isLiveDebater(view, actorId))
+      router.replace(`/rounds/${view.id}`);
+  }, [pending, answer.unacknowledged, view, actorId, router]);
   const feedback = useId(),
     control = useId();
   useEffect(() => {
@@ -103,7 +113,7 @@ export function RoundCommandActions({
     answer.error ? feedback : `${control}-${answer.values.type}`,
     !pending,
   );
-  return (
+  const actions = !answer.unacknowledged ? (
     <>
       {roundControlIntents(view, actorId, nowMs).map((intent) => (
         <CommandForm
@@ -117,9 +127,17 @@ export function RoundCommandActions({
           control={control}
         />
       ))}
+    </>
+  ) : (
+    <></>
+  );
+  return (
+    <>
       <div id={feedback} tabIndex={-1}>
         <FormError error={answer.error} />
       </div>
+      <UnacknowledgedCommand answer={answer} post={post} pending={pending} />
+      {children(actions)}
     </>
   );
 }

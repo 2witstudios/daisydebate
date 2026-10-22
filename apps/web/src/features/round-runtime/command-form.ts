@@ -9,6 +9,7 @@ export type RoundFormState = {
   readonly next?: string;
   readonly confirmation?: boolean;
   readonly acknowledged?: boolean;
+  readonly unacknowledged?: boolean;
 };
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
 const responseSchema = z.strictObject({
@@ -22,6 +23,7 @@ const responseSchema = z.strictObject({
 });
 export const roundCommandUnavailable = (form: FormData): RoundFormState => ({
   values: formValues(form),
+  unacknowledged: true,
   error:
     'The command is not acknowledged. Review the current round before trying again.',
 });

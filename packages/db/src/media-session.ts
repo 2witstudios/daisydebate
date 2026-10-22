@@ -1,10 +1,18 @@
-import { SQL } from 'bun';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
 import { and, eq } from 'drizzle-orm';
-import { drizzle } from 'drizzle-orm/bun-sql';
+import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
+import type { BoundedTransaction } from './bounded-transaction';
+import {
+  executeLockedRoundTick,
+  type LockedRoundTickInput,
+} from './round-clock-transaction';
+import {
+  lockMediaRound,
+  mediaId as parseId,
+  requireMediaWindow,
+} from './media-session-authority';
+import { sampleRoundExecutionTime } from './round-execution-time';
 import { mediaParticipants, mediaSessions } from './schema/media-sessions';
-import { roundParticipants } from './schema/round-participants';
 import { rounds } from './schema/rounds';
 
 const bindingFields = {
@@ -15,50 +23,39 @@ const bindingFields = {
   identity: mediaParticipants.identity,
 };
 
-const parseId = (value: string) => {
-  const parsed = idSchema.safeParse(value);
-  if (!parsed.success)
-    throw createAppError('VALIDATION', 'Invalid media identifier');
-  return parsed.data;
-};
-
-/** Persistence only: callers supply fresh authorization before requesting admission. */
+/** One application SQL pool and its bounded transaction runner; no owned connection lifecycle. */
 export function createMediaSessionStore({
-  url,
+  database,
+  run,
   nextId,
 }: {
-  readonly url: string;
+  readonly database: BunSQLDatabase;
+  readonly run: BoundedTransaction;
   readonly nextId: () => string;
 }) {
-  const client = new SQL(url);
-  const database = drizzle({ client });
   return {
     async ensureBinding(input: {
       readonly roundId: string;
-      readonly roundParticipantId: string;
+      readonly actorId: string;
+      readonly buildProjection: LockedRoundTickInput['buildProjection'];
     }) {
       const roundId = parseId(input.roundId);
-      const roundParticipantId = parseId(input.roundParticipantId);
-      return database.transaction(async (tx) => {
-        // The Round lock also serializes admission against terminal competitive commits.
-        const [round] = await tx
-          .select({ status: rounds.status })
+      const actorId = parseId(input.actorId);
+      return run(async (tx) => {
+        const authority = await lockMediaRound(tx, roundId, actorId);
+        const roundParticipantId = authority.caller!.id;
+        const [current] = await tx
+          .select({
+            status: rounds.status,
+            finalSegmentEndedAt: rounds.finalSegmentEndedAt,
+          })
           .from(rounds)
-          .where(eq(rounds.id, roundId))
-          .for('update');
-        if (!round) throw createAppError('NOT_FOUND', 'No such Round');
-        if (round.status === 'completed' || round.status === 'abandoned')
-          throw createAppError('CONFLICT', 'Round media has ended');
-        const [seat] = await tx
-          .select({ id: roundParticipants.id })
-          .from(roundParticipants)
-          .where(
-            and(
-              eq(roundParticipants.id, roundParticipantId),
-              eq(roundParticipants.roundId, roundId),
-            ),
-          );
-        if (!seat) throw createAppError('NOT_FOUND', 'No such Round seat');
+          .where(eq(rounds.id, roundId));
+        requireMediaWindow(
+          current!.status,
+          await sampleRoundExecutionTime(tx),
+          current!.finalSegmentEndedAt?.toISOString() ?? null,
+        );
         await tx
           .insert(mediaSessions)
           .values({
@@ -74,6 +71,11 @@ export function createMediaSessionStore({
           .for('update');
         if (!session || session.endedAt)
           throw createAppError('CONFLICT', 'Round media has ended');
+        const tick = await executeLockedRoundTick(tx, {
+          roundId,
+          buildProjection: input.buildProjection,
+        });
+        requireMediaWindow(current!.status, tick.now, tick.finalSegmentEndedAt);
         await tx
           .insert(mediaParticipants)
           .values({
@@ -125,6 +127,5 @@ export function createMediaSessionStore({
         );
       return binding ?? null;
     },
-    close: () => client.close(),
   };
 }
