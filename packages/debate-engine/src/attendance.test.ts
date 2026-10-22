@@ -164,3 +164,21 @@ test('finalized decisions cannot be recomputed', async () => {
     invariantId: 'debate.adjudication.finalized-irreversible',
   });
 });
+
+test('ineligible scheduled speaker never creates a competitive attendance loss', () => {
+  for (const eligibleSeats of [
+    [],
+    window.eligibleSeats.filter((seat) => seat.id !== 'a0'),
+  ])
+    assert({
+      given: 'actual scheduled speaker lost canonical eligibility',
+      should: 'resolve none before forfeit or vacuous abandonment',
+      actual: adjudicateAttendance({
+        window: { ...window, eligibleSeats },
+        availability,
+        checkIns: [],
+        finalized: false,
+      }),
+      expected: { decision: 'none', effectiveDeadlineMs: 50000 },
+    });
+});
