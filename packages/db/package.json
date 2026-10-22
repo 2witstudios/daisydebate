@@ -21,6 +21,7 @@
     "./media-session": "./src/media-session.ts",
     "./round-ballot": "./src/round-ballot-operations.ts",
     "./round-bot-admission": "./src/round-bot-admission.ts",
+    "./round-judging-jobs": "./src/round-judging-jobs.ts",
     "./bot-publication": "./src/bot-publication.ts",
     "./round-agent-runs": "./src/round-agent-runs.ts",
     "./frozen-transcript": "./src/frozen-transcript.ts"
