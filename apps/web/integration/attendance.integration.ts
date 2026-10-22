@@ -21,7 +21,8 @@ test('actual attendance operation preserves first receipt before Round contentio
     try {
       await holder`begin`;
       const [backend] = await holder`select pg_backend_pid() as pid`;
-      await holder`select id from rounds where id=${roundId} for update`;
+      await holder`select id from rounds where id=${roundId} for no key update`;
+      const began = performance.now();
       const receipt = attendance.checkIn(principal, roundId, envelope);
       pending = receipt;
       const state = await finishedOrBlockedBehind(receipt, f.sql, backend.pid, {
@@ -38,6 +39,7 @@ test('actual attendance operation preserves first receipt before Round contentio
       });
       await holder`commit`;
       const first = await receipt;
+      const firstElapsed = performance.now()-began;
       const replay = await attendance.checkIn(principal, roundId, envelope);
       const alias = await attendance.checkIn(principal, roundId, {
         ...envelope,
@@ -56,6 +58,7 @@ test('actual attendance operation preserves first receipt before Round contentio
           alias.receivedAt,
           alias.replayed,
           facts,
+          firstElapsed <= 2000,
         ],
         expected: [
           marker.stamp,
@@ -63,6 +66,7 @@ test('actual attendance operation preserves first receipt before Round contentio
           marker.stamp,
           true,
           { facts: 1, aliases: 2, pending: 0 },
+          true,
         ],
       });
       assert({
@@ -77,6 +81,71 @@ test('actual attendance operation preserves first receipt before Round contentio
         should: 'freshly reject instead of granting receipt authority',
         actual: () => attendance.checkIn(principal, roundId, envelope),
         code: 'AUTHORIZATION',
+      });
+    } finally {
+      await holder`rollback`;
+      holder.release();
+      if (pending) await Promise.allSettled([pending]);
+    }
+  }));
+
+test('actual check-in aborts before two seconds behind an existing canonical Round writer', async () =>
+  withAttendanceRound(async ({ f, attendance, roundId, segmentId }) => {
+    const holder = await f.sql.reserve();
+    const envelope = { version: 1, commandId: createId(), segmentId } as const;
+    let pending: Promise<unknown> | undefined;
+    try {
+      await holder`begin`;
+      const [backend] = await holder`select pg_backend_pid() as pid`;
+      await holder`select id from rounds where id=${roundId} for no key update`;
+      const began = performance.now();
+      pending = attendance.checkIn(
+        { kind: 'human', actorId: f.host.actorId },
+        roundId,
+        envelope,
+      );
+      const refused = assertRejects({
+        given: 'pre-existing canonical Round writer exceeds execution slice',
+        should: 'abort actual receipt operation rather than committing late',
+        actual: () => pending!,
+        code: 'INFRASTRUCTURE',
+      });
+      const blocked = await finishedOrBlockedBehind(
+        pending,
+        f.sql,
+        backend.pid,
+        { now: performance.now, deadlineMs: 800 },
+      );
+      const [admitted] =
+        await f.sql`select state from round_check_in_attempts where command_id=${envelope.commandId}`;
+      await refused;
+      const elapsed = performance.now() - began;
+      const [marker] =
+        await f.sql`select state,backend_pid,backend_started_at::text as incarnation from round_check_in_attempts where command_id=${envelope.commandId}`;
+      const [evidence] =
+        await f.sql`select exists(select 1 from pg_stat_activity where pid=${marker.backend_pid} and backend_start::text=${marker.incarnation}) as writer_present,exists(select 1 from round_commands where command_id=${envelope.commandId}) as committed`;
+      const [alive] = await holder`select pg_backend_pid() as pid`;
+      assert({
+        given: 'actual durable first receipt before existing Round wait',
+        should:
+          'durably abort and verify writer absence within2000ms while preserving the competing holder',
+        actual: {
+          blocked,
+          admitted: admitted?.state,
+          state: marker.state,
+          bounded: elapsed <= 2000,
+          holder: alive.pid === backend.pid,
+          ...evidence,
+        },
+        expected: {
+          blocked: 'blocked',
+          admitted: 'pending',
+          state: 'aborted',
+          bounded: true,
+          holder: true,
+          writer_present: false,
+          committed: false,
+        },
       });
     } finally {
       await holder`rollback`;
