@@ -108,10 +108,18 @@ async function lockedBallotContext(
   tx: RoundWriteTransaction,
   input: LockedRoundBallotInput,
 ) {
-  const scope = { ...input, commandId: input.envelope.commandId };
+  const scope = {
+    ...input,
+    commandId: input.envelope.commandId,
+  };
   const fenced = await fenceRoundWrite(tx, scope);
   const current = await lockedRoundVersion(tx, input.roundId);
-  const fresh = await readRoundWriteContext(tx, scope, fenced.accounts);
+  const fresh = await readRoundWriteContext(
+    tx,
+    scope,
+    fenced.accounts,
+    'ballot',
+  );
   if (
     fresh.round.participants.some((p) => !fenced.actorIds.includes(p.actorId))
   )
