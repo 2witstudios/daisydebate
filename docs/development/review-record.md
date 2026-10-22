@@ -38,6 +38,20 @@ written) does not linger as the final state. A merged PR whose branch no
 longer carries the reviewed SHA can be checked with `--sha <sha>` to compare
 against the record's own SHA instead of the PR's current head.
 
+The optional local CLI is host-provisioned: the operator installs
+`@pagespace/cli` outside this workspace so `pagespace` resolves on `PATH`, and
+supplies an already authorized drive-scoped credential through that CLI.
+The adapter was verified with CLI 1.11.0 and its packaged README's content-key
+contract. Repository installation and CI do not provision this tool or its
+credentials. Without it, tokenless local reads fail closed; an explicit API
+token remains the other supported route. The root workspace's exact
+`ignoreBinaries: ["pagespace"]` entry in `knip.jsonc` records this external
+binary contract rather than adding an unused package dependency. It applies
+only to the named external binary (Knip also consults root binary entries
+for child workspaces); other unlisted binaries remain reported. Knip 6.37.0's installed schema and
+[configuration reference](https://knip.dev/reference/configuration#ignorebinaries)
+define this option.
+
 Local self-checks without `PAGESPACE_TOKEN` use the installed `pagespace` CLI's
 existing authorized credential through `pages read-details --json`. Returned
 page IDs and the Daisy drive must match before content reaches the verifier.

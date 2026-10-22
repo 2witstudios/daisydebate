@@ -31,5 +31,3 @@ export function parseBallot(answer: string): Ballot {
     );
   return result.data;
 }
-
-export type { Ballot };

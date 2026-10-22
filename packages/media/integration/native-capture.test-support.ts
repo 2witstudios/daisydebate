@@ -243,6 +243,23 @@ export async function proveCalibratedCapture(
       await capture.close();
     }
   }, history.binding);
+  let longest = 0,
+    contiguous = 0,
+    previous = -2;
+  for (const frame of retained) {
+    contiguous = frame.sequence === previous + 1 ? contiguous + 1 : 1;
+    longest = Math.max(longest, contiguous);
+    previous = frame.sequence;
+  }
+  // Test proof metadata only: no participant IDs, PCM, text or credentials.
+  process.stdout.write(
+    JSON.stringify({
+      event: 'native.observation.proof',
+      retainedFrames: retained.length,
+      droppedFrames: dropped,
+      longestContinuousSamples: longest * 160,
+    }) + '\n',
+  );
   let authorized = 0;
   for (const frame of retained) {
     if (

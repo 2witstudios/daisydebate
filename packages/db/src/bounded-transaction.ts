@@ -18,8 +18,8 @@ import {
 } from './transaction-watchdog';
 
 const TRANSACTION_MS = 3000;
-export type TransactionReceipt = TransactionMetadata;
-export type TransactionOptions = {
+type TransactionReceipt = TransactionMetadata;
+type TransactionOptions = {
   readonly lifecycle?: TransactionLifecycle;
   readonly executionMs?: number;
 };

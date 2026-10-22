@@ -141,6 +141,8 @@ export function commandRefusal(
   const command = String(rawCommand).toUpperCase();
   const refuse = (what: string) =>
     `Test Redis client refuses ${what}: a test reaches only its own namespace (packages/redis/src/testing.ts)`;
+  if (command === 'CONFIG')
+    return memoryCapabilityRead(args) ? undefined : refuse(command);
   if (command === 'SCAN' || command === 'KEYS')
     return scanRefusal(command, args, refuse);
   if (command === 'EVAL' || command === 'EVALSHA' || command === 'SCRIPT')
@@ -149,6 +151,12 @@ export function commandRefusal(
     ? undefined
     : refuse(command);
 }
+
+const memoryCapabilityRead = (args: readonly string[]) =>
+  args.length === 3 &&
+  args[0] === 'GET' &&
+  args[1] === 'appendonly' &&
+  args[2] === 'save';
 
 type Refuse = (what: string) => string;
 

@@ -6,7 +6,7 @@ import { createLaunchContexts } from './room-launch-contexts';
 export function createRoomLaunchAccounts(browser: Browser, count: number) {
   return createLaunchContexts(
     count,
-    () => browser.newContext({ baseURL: origin, ignoreHTTPSErrors: true }),
+    () => browser.newContext({ baseURL: origin, ignoreHTTPSErrors: false }),
     (context) => signUpMember(context.request),
   );
 }

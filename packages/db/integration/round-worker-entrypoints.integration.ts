@@ -38,6 +38,36 @@ test('configured root judging aliases share the owned pool and claim actual froz
           inert.claimRoundJudgingJob({ roundId, judgeParticipantId: seat.id }),
         code: 'INFRASTRUCTURE',
       });
+      const generationScope = {
+        roundId,
+        agentRunId: createId(),
+        roundParticipantId: seat.id,
+        segmentId: createId(),
+        serviceId: createId(),
+        publicationEpoch: 1,
+      };
+      for (const attempt of [
+        () =>
+          inert.beginRoundBotGeneration(
+            generationScope,
+            'unconfigured-bearer',
+            { kind: 'language' },
+          ),
+        () =>
+          inert.finishRoundBotGeneration(
+            generationScope,
+            { id: createId(), token: 'unconfigured-execution' },
+            'unknown',
+            { inputTokens: 0, outputTokens: 0, characters: 0 },
+          ),
+      ])
+        await assertRejects({
+          given:
+            'generation or usage settlement without explicit worker policy',
+          should: 'expose a bound alias that truthfully refuses execution',
+          actual: attempt,
+          code: 'INFRASTRUCTURE',
+        });
       const store = createDatabase({
         url: services.databaseUrl,
         client,

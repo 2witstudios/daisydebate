@@ -8,16 +8,21 @@ import { mediaTestStore, mediaTestTick } from './media-session.test-support';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 
+async function reconcileFixture(fixture: Parameters<typeof mediaTestHuman>[0]) {
+  const { roundId, seat } = await mediaTestHuman(fixture);
+  const store = mediaTestStore(fixture.sql);
+  const binding = await store.ensureBinding({
+    roundId,
+    actorId: seat.actorId,
+    buildProjection: mediaTestTick,
+  });
+  return { roundId, seat, store, binding };
+}
+
 test('durable reconcile claims serve only the request horizon they actually started with', async () => {
   await withFixture(databaseUrl, async (fixture) => {
-    const { roundId, seat } = await mediaTestHuman(fixture);
-    const store = mediaTestStore(fixture.sql),
-      otherProcess = mediaTestStore(fixture.sql);
-    const binding = await store.ensureBinding({
-      roundId,
-      actorId: seat.actorId,
-      buildProjection: mediaTestTick,
-    });
+    const { roundId, seat, store, binding } = await reconcileFixture(fixture);
+    const otherProcess = mediaTestStore(fixture.sql);
     try {
       const first = await store.requestMediaReconcile({
         roundId,
@@ -39,7 +44,7 @@ test('durable reconcile claims serve only the request horizon they actually star
       });
       await store.finishMediaReconcile({
         ...claim.fence,
-        absenceVerified: true,
+        absenceProof: await store.prepareMediaAbsenceProof(claim.fence),
       });
       const progress = await store.mediaReconcileProgress(binding.sessionId);
       assert({
@@ -76,13 +81,7 @@ test('durable reconcile claims serve only the request horizon they actually star
 
 test('restart, verified absence and late acknowledgement never erase unknown vendor outcomes', async () => {
   await withFixture(databaseUrl, async (fixture) => {
-    const { roundId, seat } = await mediaTestHuman(fixture);
-    const store = mediaTestStore(fixture.sql);
-    const binding = await store.ensureBinding({
-      roundId,
-      actorId: seat.actorId,
-      buildProjection: mediaTestTick,
-    });
+    const { roundId, seat, store, binding } = await reconcileFixture(fixture);
     try {
       await store.requestMediaReconcile({ roundId, actorId: seat.actorId });
       const claim = await store.claimMediaReconcile({
@@ -138,7 +137,7 @@ test('restart, verified absence and late acknowledgement never erase unknown ven
       });
       const result = await restarted.finishMediaReconcile({
         ...recovery.fence,
-        absenceVerified: true,
+        absenceProof: await restarted.prepareMediaAbsenceProof(recovery.fence),
       });
       assert({
         given:
@@ -166,6 +165,66 @@ test('restart, verified absence and late acknowledgement never erase unknown ven
       await fixture.sql.unsafe('delete from media_sessions where id=$1', [
         binding.sessionId,
       ]);
+    }
+  });
+});
+
+test('absence proof cannot cross a different reconciliation fence or later mutation horizon', async () => {
+  await withFixture(databaseUrl, async (fixture) => {
+    const { store, binding } = await reconcileFixture(fixture);
+    try {
+      const claim = await store.claimMediaReconcile({
+        sessionId: binding.sessionId,
+        owner: createId(),
+      });
+      if (claim.kind !== 'claimed') throw new Error('Missing proof claim');
+      const proof = await store.prepareMediaAbsenceProof(claim.fence);
+      const intent = await store.beginMediaMutation({
+        ...claim.fence,
+        intent: { kind: 'create', identity: null, payload: {} },
+        buildProjection: mediaTestTick,
+        authorize: () => undefined,
+      });
+      await store.markMediaUnsafe(claim.fence);
+      assert({
+        given: 'an outstanding actual durable intent',
+        should: 'refuse an absence proof before it settles',
+        actual: await store.prepareMediaAbsenceProof(claim.fence),
+        expected: null,
+      });
+      await store.settleMediaMutation(intent);
+      const result = await store.finishMediaReconcile({
+        ...claim.fence,
+        absenceProof: proof,
+      });
+      assert({
+        given:
+          'an old proof followed by a newly dispatched and settled mutation',
+        should:
+          'retain uncertainty because the immutable mutation horizon changed',
+        actual: result.safe,
+        expected: false,
+      });
+      await fixture.sql`update media_sessions set reconcile_started_at=reconcile_started_at-interval '1 second' where id=${binding.sessionId}`;
+      const next = await store.claimMediaReconcile({
+        sessionId: binding.sessionId,
+        owner: createId(),
+      });
+      if (next.kind !== 'claimed') throw new Error('Missing next proof claim');
+      const current = await store.prepareMediaAbsenceProof(next.fence);
+      if (!current) throw new Error('Settled horizon missing');
+      const refused = await store.finishMediaReconcile({
+        ...next.fence,
+        absenceProof: { ...current, owner: claim.fence.owner },
+      });
+      assert({
+        given: 'a settled horizon bearing a different owner fence',
+        should: 'retain uncertainty',
+        actual: refused.safe,
+        expected: false,
+      });
+    } finally {
+      await fixture.sql`delete from media_sessions where id=${binding.sessionId}`;
     }
   });
 });

@@ -17,6 +17,8 @@ export function roundWorkerDatabaseOptions(
         speech: policy.models.speech,
         cross_ex: policy.models.cross_ex,
       },
+      ttsModel: policy.models.tts,
+      speechBudget: 30_000,
       nextToken,
     },
   };
