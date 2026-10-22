@@ -19,59 +19,69 @@ const denied = (): RoundMediaGrants => ({
   capture: false,
 });
 
-/** Fresh authoritative seats and a server-ticked position; never a browser clock or timetable. */
-export function mediaGrants(input: {
+type MediaGrantInput = {
   readonly participants: RoundCommandAuthority['participants'];
   readonly participantId: string;
   readonly rules: RoundRules;
   readonly position: RoundPosition;
   readonly now: string;
   readonly finalSegmentEndedAt: string | null;
-}): RoundMediaGrants {
-  const { position, rules } = input;
+};
+const withinJudgingWindow = (input: MediaGrantInput) => {
+  if (!input.position.awaitingBallot) return true;
+  const finalEnd = Date.parse(input.finalSegmentEndedAt ?? '');
   const now = Date.parse(input.now);
+  return (
+    Number.isFinite(finalEnd) && now >= finalEnd && now < finalEnd + 30 * 60_000
+  );
+};
+const speakingNow = (input: MediaGrantInput) => {
+  const open = input.position.openSegment;
+  if (!open) return false;
+  const now = Date.parse(input.now);
+  return (
+    now >= Date.parse(open.startedAt) &&
+    now < Date.parse(open.endsAt) &&
+    input.rules.segments[open.sequence]?.key === open.key &&
+    speakingParticipants(
+      input.rules,
+      input.participants,
+      open.sequence,
+      open.floorParticipantId,
+    ).includes(input.participantId)
+  );
+};
+const publishSources = (
+  human: boolean,
+  microphone: boolean,
+): RoundMediaGrants['publish'] => [
+  ...(human ? ['camera' as const] : []),
+  ...(microphone ? ['microphone' as const] : []),
+];
+const conversational = (position: RoundPosition) =>
+  position.awaitingBallot ||
+  (position.openSegment === null && position.nextSegment?.sequence === 0);
+
+/** Fresh authoritative seats and a server-ticked position; never a browser clock or timetable. */
+export function mediaGrants(input: MediaGrantInput): RoundMediaGrants {
+  const { position } = input;
   const seat = input.participants.find(
     (participant) => participant.id === input.participantId,
   );
   if (
     !seat?.eligible ||
-    !Number.isFinite(now) ||
-    !['scheduled', 'active'].includes(position.status)
+    !Number.isFinite(Date.parse(input.now)) ||
+    !['scheduled', 'active'].includes(position.status) ||
+    !withinJudgingWindow(input)
   )
     return denied();
-  if (position.awaitingBallot) {
-    const finalEnd = Date.parse(input.finalSegmentEndedAt ?? '');
-    if (
-      !Number.isFinite(finalEnd) ||
-      now < finalEnd ||
-      now >= finalEnd + 30 * 60_000
-    )
-      return denied();
-  }
   if (seat.role === 'judge')
     return { publish: [], subscribe: true, hidden: true, capture: false };
-  const open = position.openSegment;
-  const conversation =
-    position.awaitingBallot ||
-    (open === null && position.nextSegment?.sequence === 0);
-  const speaking =
-    open !== null &&
-    now >= Date.parse(open.startedAt) &&
-    now < Date.parse(open.endsAt) &&
-    rules.segments[open.sequence]?.key === open.key &&
-    speakingParticipants(
-      rules,
-      input.participants,
-      open.sequence,
-      open.floorParticipantId,
-    ).includes(seat.id);
-  const microphone = position.prep === null && (conversation || speaking);
+  const microphone =
+    position.prep === null && (conversational(position) || speakingNow(input));
   return {
-    publish: [
-      ...(seat.kind === 'human' ? ['camera' as const] : []),
-      ...(microphone ? ['microphone' as const] : []),
-    ],
-    subscribe: true,
+    publish: publishSources(seat.kind === 'human', microphone),
+    subscribe: seat.kind === 'human',
     hidden: false,
     capture: false,
   };

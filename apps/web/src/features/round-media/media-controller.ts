@@ -20,6 +20,15 @@ export type BrowserMediaTransport = {
   readonly disconnect: () => Promise<void>;
 };
 
+const deviceBlocked = (error: unknown) =>
+  error instanceof Error &&
+  [
+    'NotAllowedError',
+    'SecurityError',
+    'NotFoundError',
+    'NotReadableError',
+  ].includes(error.name);
+
 /** One controller per committed Round, independent of competitive command acknowledgement lifetime. */
 export function createMediaController(input: {
   readonly roundId: string;
@@ -58,6 +67,43 @@ export function createMediaController(input: {
     transport = null;
     change('ended');
   };
+  const stale = (generation: number) => ended || generation !== epoch;
+  const closeStale = (current: BrowserMediaTransport, generation: number) => {
+    if (!stale(generation)) return false;
+    release(current);
+    return true;
+  };
+  const announce = (snapshot: RoundMediaState) => input.received?.(snapshot);
+  const fail = (
+    current: BrowserMediaTransport | null,
+    generation: number,
+    error: unknown,
+  ) => {
+    release(current);
+    if (stale(generation)) return;
+    transport = null;
+    change(deviceBlocked(error) ? 'device-blocked' : 'unavailable');
+  };
+  const synchronize = async (
+    current: BrowserMediaTransport,
+    generation: number,
+  ) => {
+    const snapshot = roundMediaStateSchema.parse(
+      await input.api.reconcile(input.roundId, abort.signal),
+    );
+    if (closeStale(current, generation)) return false;
+    if (snapshot.roundId !== input.roundId)
+      throw new Error('Media Round mismatch');
+    if (snapshot.state === 'ended') {
+      stop();
+      return false;
+    }
+    if (snapshot.state !== 'ready') throw new Error('Media unavailable');
+    await current.apply(snapshot);
+    if (closeStale(current, generation)) return false;
+    announce(snapshot);
+    return true;
+  };
   const join = async (reconnect = false) => {
     if (ended) return;
     const generation = ++epoch;
@@ -67,50 +113,21 @@ export function createMediaController(input: {
     transport = null;
     change(reconnect ? 'reconnecting' : 'connecting');
     let current: BrowserMediaTransport | null = null;
-    let devices = false;
-    const stale = () => ended || generation !== epoch;
     try {
       const admission = roundMediaAdmissionSchema.parse(
         await input.api.admit(input.roundId, abort.signal),
       );
-      if (stale()) return;
+      if (stale(generation)) return;
       if (admission.roundId !== input.roundId)
         throw new Error('Media Round mismatch');
       current = input.transport();
       transport = current;
       await current.connect(admission);
-      if (stale()) {
-        release(current);
-        return;
-      }
-      const snapshot = roundMediaStateSchema.parse(
-        await input.api.reconcile(input.roundId, abort.signal),
-      );
-      if (stale()) {
-        release(current);
-        return;
-      }
-      if (snapshot.roundId !== input.roundId)
-        throw new Error('Media Round mismatch');
-      if (snapshot.state === 'ended') {
-        stop();
-        return;
-      }
-      if (snapshot.state !== 'ready') throw new Error('Media unavailable');
-      devices = true;
-      await current.apply(snapshot);
-      if (stale()) {
-        release(current);
-        return;
-      }
-      input.received?.(snapshot);
+      if (closeStale(current, generation)) return;
+      if (!(await synchronize(current, generation))) return;
       change('live');
-    } catch {
-      release(current);
-      if (!stale()) {
-        transport = null;
-        change(devices ? 'device-blocked' : 'unavailable');
-      }
+    } catch (error) {
+      fail(current, generation, error);
     }
   };
   const reconcile = () => {
@@ -123,34 +140,9 @@ export function createMediaController(input: {
         const generation = epoch,
           current = transport;
         try {
-          const snapshot = roundMediaStateSchema.parse(
-            await input.api.reconcile(input.roundId, abort.signal),
-          );
-          if (ended || generation !== epoch) return;
-          if (snapshot.roundId !== input.roundId)
-            throw new Error('Media Round mismatch');
-          if (snapshot.state === 'ended') {
-            stop();
-            return;
-          }
-          if (snapshot.state !== 'ready') {
-            release(current);
-            transport = null;
-            change('unavailable');
-            return;
-          }
-          await current.apply(snapshot);
-          if (ended || generation !== epoch) {
-            release(current);
-            return;
-          }
-          input.received?.(snapshot);
-        } catch {
-          release(current);
-          if (!ended && generation === epoch) {
-            transport = null;
-            change('unavailable');
-          }
+          if (!(await synchronize(current, generation))) return;
+        } catch (error) {
+          fail(current, generation, error);
           return;
         }
       }

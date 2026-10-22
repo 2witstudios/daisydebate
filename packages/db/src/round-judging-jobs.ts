@@ -41,7 +41,9 @@ export function createRoundJudgingJobs(input: {
     token: string,
     work: (
       tx: BoundedTransactionContext,
-      lease: Awaited<ReturnType<typeof assertLockedJudgingLease>>,
+      lease: Awaited<ReturnType<typeof assertLockedJudgingLease>> & {
+        round: Awaited<ReturnType<typeof lockRoundAgentContext>>['round'];
+      },
     ) => T | Promise<T>,
     billable = false,
   ) =>
@@ -57,7 +59,7 @@ export function createRoundJudgingJobs(input: {
       );
       if (context.seat.role !== 'judge') throw createAppError('AUTHORIZATION');
       const lease = await assertLockedJudgingLease(tx, scope, token);
-      return work(tx, lease);
+      return work(tx, { ...lease, round: context.round });
     });
   return {
     scan: (limit: number) => {
@@ -99,9 +101,11 @@ export function createRoundJudgingJobs(input: {
       prepared: LockedRoundBallotInput,
     ) =>
       input.run((tx) => submitLockedJudgingResult(tx, scope, token, prepared)),
-    verify: async (scope: JudgingScope, token: string) => {
-      await withLease(scope, token, () => undefined);
-    },
+    verify: (scope: JudgingScope, token: string) =>
+      withLease(scope, token, (_tx, { round, job }) => ({
+        expectedVersion: round.version,
+        pendingBallot: job.pendingBallot,
+      })),
     beginModelCall: (scope: JudgingScope, token: string) =>
       withLease(
         scope,
@@ -130,7 +134,19 @@ export function createRoundJudgingJobs(input: {
         },
         true,
       ),
-    saveResult: (scope: JudgingScope, token: string, response: unknown) => {
+    saveResult: (
+      scope: JudgingScope,
+      token: string,
+      response: unknown,
+      usage: { readonly inputTokens: number; readonly outputTokens: number },
+    ) => {
+      if (
+        ![usage.inputTokens, usage.outputTokens].every(
+          (value) =>
+            Number.isSafeInteger(value) && value >= 0 && value <= 2147483647,
+        )
+      )
+        throw createAppError('INFRASTRUCTURE', 'Invalid model usage');
       const parsed = ballotSchema.safeParse(response);
       if (!parsed.success) throw createAppError('VALIDATION');
       return withLease(scope, token, async (tx, { run, job, now }) => {
@@ -156,6 +172,8 @@ export function createRoundJudgingJobs(input: {
         await tx
           .update(agentRuns)
           .set({
+            inputTokens: usage.inputTokens,
+            outputTokens: usage.outputTokens,
             configurationSnapshot: {
               ...run.configurationSnapshot,
               providerOutcome: 'received',

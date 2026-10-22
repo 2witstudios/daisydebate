@@ -31,3 +31,17 @@ export const mediaTestStore = (
     }),
     nextId: createId,
   });
+
+export async function mediaTestHuman(
+  fixture: Parameters<
+    Parameters<typeof import('./constraint-helpers').withFixture>[1]
+  >[0],
+) {
+  const roundId = await fixture.round();
+  const seat = await fixture.seat(roundId, 'affirmative');
+  await fixture.sql.unsafe(
+    'update users set email_verified=true where id=(select user_id from actors where id=$1)',
+    [seat.actorId],
+  );
+  return { roundId, seat };
+}

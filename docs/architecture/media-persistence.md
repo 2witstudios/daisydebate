@@ -3,10 +3,11 @@
 The media adapter stores one opaque LiveKit room name per Round and one opaque
 identity per authoritative Round participant. It does not copy actor, role or
 slot authority. Composite foreign keys bind a media participant to both the
-session's Round and its competitive seat. `createMediaSessionStore` in
-`@daisy/db/media-session` serializes binding creation on the Round row; terminal
-Rounds and ended sessions refuse admission. Its caller must resolve fresh
-application authorization and the judging window before requesting a binding.
+session's Round and its competitive seat. The rooted `database.mediaSessions` adapter serializes binding creation on the
+Round row using the existing application pool and bounded transaction. It resolves
+fresh canonical account and Round seat authority under locks, runs the shared
+engine tick, and rejects terminal Rounds, expired judging windows and ended
+sessions before admission.
 This storage operation alone neither creates a vendor room nor mints credentials.
 
 ## Privacy classification
