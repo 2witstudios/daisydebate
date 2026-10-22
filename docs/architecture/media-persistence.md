@@ -292,3 +292,15 @@ also rechecks after stream waits. No second clock model, SQL pool or media lease
 is introduced. Attendance terminal races stop that Round's maintenance cycle;
 unexpected failures remain observable. Completed ranked attendance forfeits have
 a separate durable unrated scan using the existing idempotent rating operation.
+
+Casual Rounds with zero required and actual judges finish through the same
+maintenance path after immutable transcript freeze and settled attendance.
+`completeUnjudgedRound` holds the global command fence, canonical account and
+Round fences, then consumes the shared engine's `completeUnjudged` projection.
+It refuses incomplete play, pending check-in attempts, inconsistent cast facts,
+judged/ranked inputs and existing ballots or ratings. The existing command
+ledger stores one internal service receipt bound to the exact frozen revision;
+concurrent attempts and a new service instance replay that original receipt.
+The result is completed with a NULL outcome, without a ballot or rating.
+Existing forfeit and abandonment decisions remain terminal. This operation has
+no public completion-mode envelope and performs no model work.

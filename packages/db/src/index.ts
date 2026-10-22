@@ -1,4 +1,5 @@
 import { createMediaSessionStore } from './media-session';
+import { roundUnjudgedCompletionOperations } from './round-unjudged-completion';
 import { roundMaintenanceOperations } from './round-maintenance';
 import { readUnratedAttendanceForfeits } from './attendance-rating';
 import {
@@ -158,6 +159,7 @@ export function createDatabase({
   return {
     ...botAdmissionOperations,
     ...roundMaintenanceOperations(transcriptTransaction),
+    ...roundUnjudgedCompletionOperations(transcriptTransaction),
     readUnratedAttendanceForfeits: (
       input: Parameters<typeof readUnratedAttendanceForfeits>[1],
     ) => readUnratedAttendanceForfeits(database, input),

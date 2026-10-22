@@ -11,7 +11,7 @@ import { lockedRoundVersion } from './round-projection-writer';
 import { finalizeLockedRoundTranscript } from './transcript-finalization';
 import { rounds } from './schema/rounds';
 
-async function requireCurrentWeb(
+export async function requireCurrentWeb(
   tx: BoundedTransactionContext,
   instanceId: string,
   lock = false,
