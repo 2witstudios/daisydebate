@@ -84,7 +84,7 @@ export async function startLockedRoundAgentRun(
   input: {
     readonly id: string;
     readonly participantId: string;
-    readonly kind: 'speech' | 'cross_ex' | 'judging';
+    readonly kind: 'speech' | 'cross_ex' | 'judging' | 'tts';
     readonly model: string;
     readonly configuration: Record<string, string | number | boolean>;
   },

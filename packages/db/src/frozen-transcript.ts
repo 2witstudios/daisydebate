@@ -4,7 +4,7 @@ import { createAppError } from '@daisy/errors';
 import { roundTranscriptFreezes } from './schema/round-transcript-freezes';
 import { transcriptSegments } from './schema/transcript-segments';
 import { roundSegments } from './schema/round-segments';
-import { utterances } from './schema/utterances';
+import { readOrderedRoundUtterances } from './round-utterance-projection';
 
 type Reader = Pick<BunSQLDatabase, 'select'>;
 export const readTranscriptFreeze = async (reader: Reader, roundId: string) => {
@@ -49,30 +49,7 @@ export async function readLockedFrozenRoundTranscript(
       'INVARIANT',
       'Frozen transcript has unresolved coverage',
     );
-  const lines = await reader
-    .select({
-      id: utterances.id,
-      segmentId: utterances.segmentId,
-      segmentSequence: roundSegments.sequence,
-      sequence: utterances.sequence,
-      roundParticipantId: utterances.roundParticipantId,
-      text: utterances.text,
-      complete: utterances.complete,
-    })
-    .from(utterances)
-    .innerJoin(
-      roundSegments,
-      and(
-        eq(roundSegments.id, utterances.segmentId),
-        eq(roundSegments.roundId, utterances.roundId),
-      ),
-    )
-    .where(eq(utterances.roundId, roundId))
-    .orderBy(
-      asc(roundSegments.sequence),
-      asc(utterances.sequence),
-      asc(utterances.id),
-    );
+  const lines = await readOrderedRoundUtterances(reader, roundId, 'frozen');
   return {
     ...freeze,
     coverage: coverage.map((stream) => ({
