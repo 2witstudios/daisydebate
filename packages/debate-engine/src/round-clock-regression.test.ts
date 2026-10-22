@@ -102,7 +102,7 @@ test('start-speech refuses exactly at prep expiry without consuming IDs or prep'
   });
 });
 
-test('an interrupter yield credits the scheduled side, never the interrupter', () => {
+test('an interrupter yield returns the floor without closing the segment or crediting prep (DEC-203)', () => {
   const { runtime } = clockWorld({
     ...emptyCheckpoint,
     prep_consumed_ms: { affirmative: 100_000, negative: 150_000 },
@@ -119,13 +119,15 @@ test('an interrupter yield credits the scheduled side, never the interrupter', (
     now: roundAt(340_000),
   });
   assert({
-    given: 'affirmative yields interrupted negative CX with 100000ms unused',
-    should: 'credit negative and clear floor',
+    given: 'affirmative yields the floor it took in negative CX',
+    should:
+      'clear the floor, leave both prep budgets untouched and close nothing',
     actual: [
       yielded.round?.checkpoint.prep_consumed_ms,
       yielded.round?.checkpoint.floor,
+      yielded.segmentCloses,
     ],
-    expected: [{ affirmative: 100_000, negative: 50_000 }, null],
+    expected: [{ affirmative: 100_000, negative: 150_000 }, null, []],
   });
 });
 
