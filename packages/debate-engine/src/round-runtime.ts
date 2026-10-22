@@ -1,4 +1,5 @@
 import { speakingChangesOf } from './round-speaking';
+import { assertAttendanceRules } from './attendance-policy';
 import { createInvariantError } from '@daisy/errors';
 import {
   debateSides,
@@ -86,6 +87,7 @@ export function createRoundRuntime(input: {
   readonly checkpoint: () => RuntimeCheckpoint;
 } {
   const rules = input.rules;
+  assertAttendanceRules(rules);
   let store: RoundStore = createRoundStore(normalizeRoundClock(input));
   const segmentIds = new Map(
     input.segments.map((row) => [row.sequence, row.id]),
