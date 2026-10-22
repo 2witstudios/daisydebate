@@ -47,7 +47,7 @@ export async function lockMediaRound(
     .select({ status: rounds.status })
     .from(rounds)
     .where(eq(rounds.id, roundId))
-    .for('update');
+    .for('no key update');
   if (!row) throw createAppError('NOT_FOUND');
   const round = await hydrateRoundRows(tx, roundId);
   if (!round) throw createAppError('NOT_FOUND');
