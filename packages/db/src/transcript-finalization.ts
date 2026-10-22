@@ -1,6 +1,7 @@
 import { eq, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { BoundedTransaction } from './bounded-transaction';
+import type { BoundedTransactionContext } from './transaction-context';
 import {
   executeLockedRoundTick,
   type LockedRoundTickInput,
@@ -28,56 +29,63 @@ export const transcriptFinalizationOperations = (input: {
     readLockedFrozenRoundTranscript(input.database, roundId),
 
   async finalizeRoundTranscript(request: LockedRoundTickInput) {
-    return input.transaction(async (tx) => {
-      const clock = await executeLockedRoundTick(tx, request);
-      const existing = await readTranscriptFreeze(tx, request.roundId);
-      if (existing) return { status: 'frozen' as const, freeze: existing };
-      const [round] = await tx
-        .select({ status: rounds.status })
-        .from(rounds)
-        .where(eq(rounds.id, request.roundId));
-      if (round?.status !== 'active') return { status: 'terminal' as const };
-      if (
-        clock.finalSegmentEndedAt === null ||
-        clock.transcriptAdmissionCutoff === null
-      )
-        return { status: 'pending' as const, reason: 'final-segment' as const };
-      const facts = await lockFinalizationStreams(tx, request.roundId);
-      const now = await sampleRoundExecutionTime(tx);
-      const state = finalizationState(
-        facts,
-        now,
-        clock.transcriptAdmissionCutoff,
-      );
-      if (state === 'capture')
-        return { status: 'pending' as const, reason: 'capture' as const };
-      // No network/provider work: serialize all committed text before closing its frontier.
-      await closeUnresolvedStreams(tx, request.roundId, facts);
-      const [frontier] = await tx
-        .select()
-        .from(roundTranscripts)
-        .where(eq(roundTranscripts.roundId, request.roundId));
-      const [freeze] = await tx
-        .insert(roundTranscriptFreezes)
-        .values({
-          roundId: request.roundId,
-          revision: 1,
-          frontier: frontier?.revision ?? 0,
-          completeness: state,
-        })
-        .returning();
-      // One durable intent for every actual bot judge. Human-only freezes have none.
-      await tx.execute(sql`insert into round_judging_jobs (round_id,freeze_revision,judge_participant_id,status,attempts)
-        select ${request.roundId},1,p.id,'queued',0 from round_participants p join actors a on a.id=p.actor_id
-        where p.round_id=${request.roundId} and p.role='judge' and a.kind='bot'
-        on conflict (round_id,judge_participant_id) do nothing`);
-      return {
-        status: 'frozen' as const,
-        freeze: { ...freeze!, frozenAt: freeze!.frozenAt.toISOString() },
-      };
-    });
+    return input.transaction((tx) =>
+      finalizeLockedRoundTranscript(tx, request),
+    );
   },
 });
+
+/** Existing Round/lease/stream operation; a service consumer can recheck its lease after waits. */
+export async function finalizeLockedRoundTranscript(
+  tx: BoundedTransactionContext,
+  request: LockedRoundTickInput,
+  assertCurrent: () => Promise<void> = async () => {},
+) {
+  const clock = await executeLockedRoundTick(tx, request);
+  await assertCurrent();
+  const existing = await readTranscriptFreeze(tx, request.roundId);
+  if (existing) return { status: 'frozen' as const, freeze: existing };
+  const [round] = await tx
+    .select({ status: rounds.status })
+    .from(rounds)
+    .where(eq(rounds.id, request.roundId));
+  if (round?.status !== 'active') return { status: 'terminal' as const };
+  if (
+    clock.finalSegmentEndedAt === null ||
+    clock.transcriptAdmissionCutoff === null
+  )
+    return { status: 'pending' as const, reason: 'final-segment' as const };
+  const facts = await lockFinalizationStreams(tx, request.roundId);
+  const now = await sampleRoundExecutionTime(tx);
+  await assertCurrent();
+  const state = finalizationState(facts, now, clock.transcriptAdmissionCutoff);
+  if (state === 'capture')
+    return { status: 'pending' as const, reason: 'capture' as const };
+  // No network/provider work: serialize all committed text before closing its frontier.
+  await closeUnresolvedStreams(tx, request.roundId, facts);
+  const [frontier] = await tx
+    .select()
+    .from(roundTranscripts)
+    .where(eq(roundTranscripts.roundId, request.roundId));
+  const [freeze] = await tx
+    .insert(roundTranscriptFreezes)
+    .values({
+      roundId: request.roundId,
+      revision: 1,
+      frontier: frontier?.revision ?? 0,
+      completeness: state,
+    })
+    .returning();
+  // One durable intent for every actual bot judge. Human-only freezes have none.
+  await tx.execute(sql`insert into round_judging_jobs (round_id,freeze_revision,judge_participant_id,status,attempts)
+    select ${request.roundId},1,p.id,'queued',0 from round_participants p join actors a on a.id=p.actor_id
+    where p.round_id=${request.roundId} and p.role='judge' and a.kind='bot'
+    on conflict (round_id,judge_participant_id) do nothing`);
+  return {
+    status: 'frozen' as const,
+    freeze: { ...freeze!, frozenAt: freeze!.frozenAt.toISOString() },
+  };
+}
 
 function finalizationState(
   facts: Awaited<ReturnType<typeof lockFinalizationStreams>>,
