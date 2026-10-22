@@ -17,7 +17,7 @@ export const getAssignedDebates = (
     status: assignmentStatus(assignment),
     ballotHref: `/judge/ballot/${assignment.roundId}`,
     ballotLabel: assignment.ballotStatus ? 'View ballot' : 'Open ballot',
-    followHref: `/rounds/${assignment.roundId}`,
+    followHref: `/rounds/${assignment.roundId}${assignment.status === 'active' || assignment.status === 'scheduled' ? '/room' : ''}`,
   }));
 function assignmentStatus(a: RoundJudgeAssignment): string {
   if (a.ballotStatus === 'voided')

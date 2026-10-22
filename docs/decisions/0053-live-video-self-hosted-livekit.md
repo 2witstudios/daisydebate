@@ -67,6 +67,8 @@ A pure policy in `@daisy/debate-engine` receives authoritative participant seats
 - Judge seats subscribe hidden and publish nothing. Data, own metadata updates, screen sharing and room administration are never granted.
 - Completed or abandoned rounds, and sessions beyond the judging window, grant nothing.
 
+The live Round route admits human judges through the fresh protected own-seat read, including before transcript freeze. Its judge view follows canonical Round revisions and the same media session factory, with debater tiles only, no competitive command or attendance controls, and a native ballot link. The media admission service independently derives subscribe-only grants from the current assigned seat; a client view never chooses judge authority.
+
 VIDEO-2.2 hydrates and ticks at injected `now` before diffing grants. Segment opening/closure and runtime effects exist durably; clients receive projections, never authority to grant themselves a microphone. Reconcile is triggered by connect, another participant connecting, accepted commands (including yield and interruption), segment/prep/floor changes, projected clock expiry and judging-window expiry. A projected expiry triggers a server reread/tick; it is not a precomputed timetable for the whole Round. Client calls remain needed for token refresh/reconnect races. Do not claim that a human judge browser is present in AI practice.
 
 Reconcile serializes across web instances using a session-scoped PostgreSQL
