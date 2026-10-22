@@ -148,20 +148,22 @@ test('actual bot generation fences speaking before admission and separately sett
       'received',
       usage,
     );
-    const incompleteScope: Partial<typeof claim.scope> = { ...claim.scope };
-    Reflect.deleteProperty(incompleteScope, 'roundId');
-    await assertRejects({
-      given: 'a generation bearer with an omitted Round binding at runtime',
-      should: 'refuse incomplete original execution scope',
-      actual: () =>
-        operations.finishGeneration(
-          incompleteScope as typeof claim.scope,
-          call.execution,
-          'received',
-          usage,
-        ),
-      code: 'AUTHORIZATION',
-    });
+    for (const key of Object.keys(claim.scope)) {
+      const incompleteScope: Partial<typeof claim.scope> = { ...claim.scope };
+      Reflect.deleteProperty(incompleteScope, key);
+      await assertRejects({
+        given: `a generation bearer with omitted ${key} at runtime`,
+        should: 'refuse incomplete original execution scope',
+        actual: () =>
+          operations.finishGeneration(
+            incompleteScope as typeof claim.scope,
+            call.execution,
+            'received',
+            usage,
+          ),
+        code: 'AUTHORIZATION',
+      });
+    }
     await operations.finishGeneration(
       claim.scope,
       call.execution,
