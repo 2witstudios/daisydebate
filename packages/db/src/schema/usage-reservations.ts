@@ -25,7 +25,9 @@ export const usageReservations = pgTable(
       .references(() => rounds.id, { onDelete: 'cascade' }),
     kind: text('kind').notNull(),
     countedAt: timestampColumn('counted_at'),
-    reservedAt: timestampColumn('reserved_at').default(sql`clock_timestamp()`),
+    reservedAt: timestampColumn('reserved_at')
+      .notNull()
+      .default(sql`clock_timestamp()`),
     refundedAt: timestampColumn('refunded_at'),
   },
   (table) => [
@@ -45,7 +47,7 @@ export const usageReservations = pgTable(
     ),
     check(
       'usage_reservations_admission_check',
-      sql`${table.reservedAt} is null or ${table.countedAt} is null or ${table.countedAt} >= ${table.reservedAt}`,
+      sql`${table.countedAt} is null or ${table.countedAt} >= ${table.reservedAt}`,
     ),
     index('usage_reservations_counted_idx').on(table.countedAt),
     index('usage_reservations_round_idx').on(table.roundId),

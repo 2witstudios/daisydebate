@@ -17,10 +17,13 @@ const allAt = (score: number) =>
  */
 const ballot = (
   judgeSeatId: string,
+  roundId: string,
   overrides: Record<string, unknown> = {},
 ) => ({
   id: createId(),
   judge_participant_id: judgeSeatId,
+  round_id: roundId,
+  freeze_revision: 1,
   rubric_version: 'speaker-10@1',
   winner: 'affirmative',
   scores: { affirmative: allAt(3), negative: allAt(2) },
@@ -36,33 +39,43 @@ describe('ballots (DATA-3.1)', () => {
   test('one ballot per judge seat and voiding fields tied to status', async () => {
     await withFixture(url, async (fixture) => {
       const roundId = await fixture.round();
+      await fixture.freeze(roundId);
       const seat = await fixture.seat(roundId, 'judge');
       const voider = await fixture.actor();
-      const submitted = !(await fixture.rejects('ballots', ballot(seat.id)));
-      const secondForSeat = await fixture.rejects('ballots', ballot(seat.id));
+      const submitted = !(await fixture.rejects(
+        'ballots',
+        ballot(seat.id, roundId),
+      ));
+      const secondForSeat = await fixture.rejects(
+        'ballots',
+        ballot(seat.id, roundId),
+      );
       const otherJudge = await fixture.seat(roundId, 'judge', 1);
       const voidedWithoutVoider = await fixture.rejects(
         'ballots',
-        ballot(otherJudge.id, { status: 'voided', voided_at: at }),
+        ballot(otherJudge.id, roundId, { status: 'voided', voided_at: at }),
       );
       const voidedWithoutTime = await fixture.rejects(
         'ballots',
-        ballot(otherJudge.id, {
+        ballot(otherJudge.id, roundId, {
           status: 'voided',
           voided_by_actor_id: voider,
         }),
       );
       const submittedWithVoidFields = await fixture.rejects(
         'ballots',
-        ballot(otherJudge.id, { voided_at: at, voided_by_actor_id: voider }),
+        ballot(otherJudge.id, roundId, {
+          voided_at: at,
+          voided_by_actor_id: voider,
+        }),
       );
       const badWinner = await fixture.rejects(
         'ballots',
-        ballot(otherJudge.id, { winner: 'abstain' }),
+        ballot(otherJudge.id, roundId, { winner: 'abstain' }),
       );
       const voidedBeforeSubmitted = await fixture.rejects(
         'ballots',
-        ballot(otherJudge.id, {
+        ballot(otherJudge.id, roundId, {
           status: 'voided',
           voided_at: new Date(at.getTime() - 60_000),
           voided_by_actor_id: voider,
@@ -70,7 +83,7 @@ describe('ballots (DATA-3.1)', () => {
       );
       const voided = !(await fixture.rejects(
         'ballots',
-        ballot(otherJudge.id, {
+        ballot(otherJudge.id, roundId, {
           status: 'voided',
           voided_at: at,
           voided_by_actor_id: voider,
@@ -107,15 +120,16 @@ describe('ballots (DATA-3.1)', () => {
   test('a ballot cannot borrow a seat from another round', async () => {
     await withFixture(url, async (fixture) => {
       const roundA = await fixture.round();
+      await fixture.freeze(roundA);
       const seatInA = await fixture.seat(roundA, 'judge');
-      // The seat id is unique per round, so naming round A's seat is what
-      // makes the ballot belong to round A; there is no round column to
-      // contradict it with.
       const foreignSeat = await fixture.rejectedBy(
         'ballots',
-        ballot(createId()),
+        ballot(createId(), roundA),
       );
-      const ownSeat = await fixture.rejectedBy('ballots', ballot(seatInA.id));
+      const ownSeat = await fixture.rejectedBy(
+        'ballots',
+        ballot(seatInA.id, roundA),
+      );
       assert({
         given: 'a judge seat in round A, and an id belonging to no seat',
         should: 'accept the seat and refuse the stranger outright',

@@ -235,6 +235,15 @@ export class Fixture {
     return { id, actorId: seated };
   }
 
+  /** Commits a transcript freeze a ballot or judging job can name; erased with its Round. */
+  async freeze(roundId: string, revision = 1) {
+    await this.sql.unsafe(
+      "insert into round_transcript_freezes(round_id,revision,frontier,completeness) values($1,$2,0,'incomplete')",
+      [roundId, revision],
+    );
+    return revision;
+  }
+
   async purge() {
     // A round may append canonical phase events through an accepted write.
     // Remove only this fixture's topics before deleting their owning rows.
