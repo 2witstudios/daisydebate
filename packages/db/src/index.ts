@@ -1,3 +1,5 @@
+import { roundSpeakingRead } from './round-speaking-read';
+import { roundProtectedReads } from './round-protected-reads';
 import { createMessagingTypingPrivacyPort } from './privacy/typing-rights';
 import { createMessagingTypingStore } from './messaging/typing-store';
 import { createMessagingPreferenceStore } from './messaging/preference-store';
@@ -253,6 +255,8 @@ export function createDatabase({
     }),
     ...roundOperations({ database, eventSink }),
     ...roundCommandOperations({ database, eventSink }),
+    ...roundProtectedReads({ database }),
+    ...roundSpeakingRead({ database }),
     ...utteranceOperations({ database, eventSink }),
     ...ballotOperations({ database, eventSink }),
     ...agentOperations({ database, eventSink }),

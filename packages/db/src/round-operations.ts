@@ -1,3 +1,4 @@
+import { writeSpeakingProjection } from './round-speaking-writer';
 import type { Ballot, RoundProjection, RoundRules } from '@daisy/protocol';
 import { eq, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
@@ -63,6 +64,12 @@ const persistExecution = async (
     input.command,
     current.version + (changed ? 1 : 0),
   );
+  await writeSpeakingProjection(tx, {
+    roundId: input.roundId,
+    projection,
+    resultingVersion: current.version + (changed ? 1 : 0),
+    commandId: input.command?.commandId ?? null,
+  });
 };
 
 export const roundOperations = ({

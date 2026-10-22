@@ -1,3 +1,4 @@
+import { speakingChangesOf } from './round-speaking';
 import { createInvariantError } from '@daisy/errors';
 import {
   debateSides,
@@ -49,7 +50,7 @@ import {
  */
 
 /** The queues the runtime projects from; a scratch run discards its own. */
-const queues = (): Queues => ({ changes: [], effects: [] });
+const queues = (): Queues => ({ changes: [], effects: [], floorChange: null });
 
 /**
  * Creates the runtime from durable rows, the frozen rules and an injected
@@ -153,6 +154,13 @@ export function createRoundRuntime(input: {
         : [],
     );
     return {
+      speakingChanges: speakingChangesOf({
+        rules,
+        participants: input.participants,
+        changes: into.changes,
+        segmentIds,
+        floorChange: into.floorChange,
+      }),
       round: roundBlockOf(store),
       segmentInserts,
       segmentCloses,

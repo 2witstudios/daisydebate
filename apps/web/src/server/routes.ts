@@ -1,3 +1,4 @@
+import { composeRoundRoutes } from '../features/round-runtime/composition';
 import { composeMessagingRoutes } from '../features/messaging/composition';
 import { composeRoomRoutes } from '../features/room-runtime/composition';
 import {
@@ -49,7 +50,7 @@ export function createRoutes(app: App) {
   return {
     rooms,
     messaging: composeMessagingRoutes(app),
-    rounds: { read: rooms.roundRead },
+    rounds: { read: rooms.roundRead, ...composeRoundRoutes(app) },
     auth: createAuthRouteHandlers(confirmAuth, logger),
     confirm: createConfirmHandlers({ auth: confirmAuth, logger }),
     confirmEmail: createConfirmEmailHandlers({ auth: confirmAuth, logger }),
