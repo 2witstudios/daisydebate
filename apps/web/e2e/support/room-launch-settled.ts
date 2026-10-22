@@ -7,8 +7,8 @@ import type { LaunchControlOperation } from './room-launch-control';
 
 export const launchControlPath = (id: string) =>
   join(tmpdir(), `drl-${id}.sock`);
-export const launchAppControlPath = (id: string) =>
-  join(tmpdir(), `dra-${id}.sock`);
+export const launchAppControlPath = (id: string, peer = false) =>
+  join(tmpdir(), `${peer ? 'drp' : 'dra'}-${id}.sock`);
 /** Close owned browser contexts even when the auth control refuses settlement. */
 export async function closeSettledLaunchContexts(
   accounts: { closeContexts(): Promise<void> },
