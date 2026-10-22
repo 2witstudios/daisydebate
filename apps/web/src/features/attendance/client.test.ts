@@ -13,6 +13,7 @@ test('HTTP attendance covers actual speech openings and historical unresolved wi
   const sent: Array<{ segmentId: string; commandId: string }> = [];
   let next = 0;
   const client = createAttendanceClient({
+    read: async () => null,
     nextCommandId: () => `command-${++next}`,
     send: async (command) => {
       sent.push(command);
@@ -47,6 +48,7 @@ test('unknown acknowledgement retries exact identity until receipt', async () =>
   const sent: string[] = [];
   let ready = false;
   const client = createAttendanceClient({
+    read: async () => null,
     nextCommandId: () => 'same-command',
     send: async (c) => {
       sent.push(c.commandId);
@@ -70,6 +72,7 @@ test('closed historical windows retire permanently while current opening receive
   const sent: string[] = [];
   let next = 0;
   const consumer = createAttendanceClient({
+    read: async () => null,
     nextCommandId: () => String(++next),
     send: async (c) => {
       sent.push(c.segmentId);
@@ -86,5 +89,86 @@ test('closed historical windows retire permanently while current opening receive
       'prioritize current actual speech and never retry the retired historical window',
     actual: sent,
     expected: ['speech-b', 'speech-a', 'speech-b'],
+  });
+});
+
+test('heartbeat discovers a persisted opening without a socket or resource-view update', async () => {
+  const sent: string[] = [];
+  const client = createAttendanceClient({
+    read: async () => snapshot,
+    nextCommandId: () => 'actual-opening-command',
+    send: async (command) => {
+      sent.push(command.segmentId);
+      return true;
+    },
+  });
+  await client.update({ status: 'active', segments: [] });
+  await client.heartbeat();
+  assert({
+    given: 'a new actual speech only available through an authorized HTTP read',
+    should:
+      'discover and check in both actual historical speech rows without a doorbell',
+    actual: sent,
+    expected: ['speech-b', 'speech-a'],
+  });
+});
+
+test('a late discovery response cannot restart a stopped or terminal consumer', async () => {
+  for (const ending of ['stop', 'completed'] as const) {
+    const sent: string[] = [];
+    let answer!: (value: typeof snapshot) => void;
+    let reading!: () => void;
+    const opened = new Promise<void>((resolve) => {
+      reading = resolve;
+    });
+    const client = createAttendanceClient({
+      read: () => {
+        reading();
+        return new Promise((resolve) => {
+          answer = resolve;
+        });
+      },
+      nextCommandId: () => 'late-command',
+      send: async (command) => {
+        sent.push(command.segmentId);
+        return true;
+      },
+    });
+    const refresh = client.reconnect();
+    await opened;
+    if (ending === 'stop') client.stop();
+    else await client.update({ status: ending, segments: [] });
+    answer(snapshot);
+    await refresh;
+    await client.heartbeat();
+    assert({
+      given: `a pending read then ${ending}`,
+      should: 'ignore late actual rows without creating post-lifetime requests',
+      actual: sent,
+      expected: [],
+    });
+  }
+});
+
+test('failed discovery preserves unknown command identity and historical receipt retries', async () => {
+  const sent: string[] = [];
+  const client = createAttendanceClient({
+    read: async () => {
+      throw new Error('Unavailable actual read');
+    },
+    nextCommandId: () => 'same-command',
+    send: async (command) => {
+      sent.push(command.commandId);
+      return false;
+    },
+  });
+  await client.update({ status: 'active', segments: [snapshot.segments[0]!] });
+  await client.reconnect();
+  assert({
+    given: 'a failed snapshot refresh after an unknown check-in reply',
+    should:
+      'retain the same actual command rather than infer attendance or abandon retry',
+    actual: sent,
+    expected: ['same-command', 'same-command'],
   });
 });
