@@ -19,6 +19,12 @@ import {
 import { agentRuns } from './schema/agent-runs';
 import { scanBotWorkers } from './bot-worker-discovery';
 import { roundBotPublications } from './schema/round-bot-publications';
+import { requireLeaseMs } from './lease-policy';
+import {
+  nextPublicationClaim,
+  publicationClaim,
+  requirePublishingSeat,
+} from './bot-publication-rules';
 export type {
   BotPublicationScope,
   PublicationWindow,
@@ -27,14 +33,6 @@ type Target = Pick<
   BotPublicationScope,
   'roundId' | 'roundParticipantId' | 'segmentId'
 >;
-function nextPublicationEpoch(
-  current: typeof roundBotPublications.$inferSelect | undefined,
-) {
-  return nextEpoch(
-    current?.publicationEpoch ?? 0,
-    'Publication epoch exhausted',
-  );
-}
 /** Server-only capability; entropy and IDs are supplied by the authenticated composition edge. */
 export function createBotPublicationOperations(input: {
   readonly run: BoundedTransaction;
@@ -64,8 +62,7 @@ export function createBotPublicationOperations(input: {
           target.roundId,
           target.roundParticipantId,
         );
-        if (round.status !== 'active' || seat.role === 'judge')
-          throw createAppError('AUTHORIZATION');
+        requirePublishingSeat(round, seat);
         const [previous] = await tx
           .select()
           .from(roundBotPublications)
@@ -83,16 +80,21 @@ export function createBotPublicationOperations(input: {
           .for('update');
         const now = await roundAgentNow(tx);
         await requireBotControlSegment(tx, target);
-        if (current && current.leaseExpiresAt.getTime() > now.getTime())
-          throw createAppError('CONFLICT', 'Publication already claimed');
-        const epoch = nextPublicationEpoch(current);
+        const epoch = nextPublicationClaim(current, now);
         const segment = round.segments.find(
           (candidate) => candidate.id === target.segmentId,
         );
         if (!segment) throw createAppError('CONFLICT');
         const agentRunId = input.nextId(),
           token = input.nextToken();
-        const digest = agentLeaseDigest(token);
+        const claim = publicationClaim({
+          target,
+          agentRunId,
+          epoch,
+          leaseTokenDigest: agentLeaseDigest(token),
+          now,
+          leaseMs: input.leaseMs,
+        });
         if (current)
           await endLockedRoundAgentRun(
             tx,
@@ -104,22 +106,9 @@ export function createBotPublicationOperations(input: {
           participantId: target.roundParticipantId,
           kind: segment.type,
           model: input.models[segment.type],
-          configuration: {
-            roundId: target.roundId,
-            roundParticipantId: target.roundParticipantId,
-            segmentId: target.segmentId,
-            serviceId: `agent-run:${agentRunId}`,
-            publicationEpoch: epoch,
-          },
+          configuration: claim.configuration,
         });
-        const value = {
-          ...target,
-          agentRunId,
-          serviceId: `agent-run:${agentRunId}`,
-          publicationEpoch: epoch,
-          leaseTokenDigest: digest,
-          leaseExpiresAt: new Date(now.getTime() + input.leaseMs),
-        };
+        const value = claim.row;
         await tx
           .insert(roundBotPublications)
           .values(value)
@@ -130,14 +119,12 @@ export function createBotPublicationOperations(input: {
             ],
             set: value,
           });
-        const scope: BotPublicationScope = {
-          ...target,
-          agentRunId,
-          serviceId: value.serviceId,
-          publicationEpoch: epoch,
+        const { scope } = claim;
+        return {
+          scope,
+          token,
+          leaseExpiresAt: value.leaseExpiresAt.toISOString(),
         };
-        const leaseExpiresAt = value.leaseExpiresAt;
-        return { scope, token, leaseExpiresAt: leaseExpiresAt.toISOString() };
       }),
     verifyBotPublication: (
       scope: BotPublicationScope,
@@ -190,4 +177,3 @@ export {
   verifyBotWorkerPrincipalLocked,
   readBotControlHealth,
 } from './bot-worker-authority';
-import { nextEpoch, requireLeaseMs } from './lease-policy';
