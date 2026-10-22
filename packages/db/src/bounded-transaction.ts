@@ -2,7 +2,10 @@ import type { ReservedSQL, SQL } from 'bun';
 import { createAppError, isAppError } from '@daisy/errors';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { synchronizedTransactionClient } from './transaction-client';
-import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
+import {
+  transactionContext,
+  type BoundedTransactionContext,
+} from './transaction-context';
 import {
   recoverTransactionBackend,
   type OwnedBackend,
@@ -10,7 +13,7 @@ import {
 
 const TRANSACTION_MS = 3000;
 type TransactionWork<T> = (
-  tx: BunSQLDatabase,
+  tx: BoundedTransactionContext,
   signal: AbortSignal,
 ) => Promise<T>;
 export type BoundedTransaction = <T>(run: TransactionWork<T>) => Promise<T>;
@@ -26,6 +29,11 @@ class TransactionAttempt {
   private work: ReservedSQL | undefined;
   private backend: OwnedBackend | undefined;
   private committing = false;
+  private scopeClosed = false;
+  private readonly disposed = createAppError(
+    'INVARIANT',
+    'Transaction callback lifetime has ended',
+  );
   private destroyed = false;
   private controlRecovered = true;
 
@@ -37,9 +45,21 @@ class TransactionAttempt {
   }
 
   private checkBudget() {
-    if (this.controller.signal.aborted || this.now() >= this.deadline)
-      throw this.expired;
+    this.controller.signal.throwIfAborted();
+    if (this.now() >= this.deadline) throw this.expired;
   }
+
+  private readonly refuseControl = (message: string): never => {
+    const error = createAppError('INVARIANT', message);
+    this.controller.abort(error);
+    throw error;
+  };
+
+  private readonly checkLifetime = () => {
+    if (this.scopeClosed) throw this.disposed;
+    this.controller.signal.throwIfAborted();
+    this.checkBudget();
+  };
 
   private async execute<T>(run: TransactionWork<T>): Promise<T> {
     // No writer can hold a lock without its separately owned control connection.
@@ -60,18 +80,28 @@ class TransactionAttempt {
       set_config('lock_timeout', '2000', true),
       set_config('idle_in_transaction_session_timeout', '2000', true)`;
     this.checkBudget();
+    const database = drizzle({
+      client: synchronizedTransactionClient(
+        this.work,
+        this.checkLifetime,
+        this.refuseControl,
+      ),
+    });
     const result = await run(
-      drizzle({
-        client: synchronizedTransactionClient(
-          this.work,
-          this.controller.signal,
-        ),
-      }),
+      transactionContext(database, this.checkLifetime, this.refuseControl),
       this.controller.signal,
     );
+    this.scopeClosed = true;
     this.checkBudget();
     this.committing = true;
-    await this.work`commit`;
+    const completion = await this.work<{ command: string }>`commit`;
+    if (completion.command !== 'COMMIT') {
+      this.committing = false;
+      throw createAppError(
+        'INFRASTRUCTURE',
+        'Transcript transaction did not commit',
+      );
+    }
     this.checkBudget();
     return result;
   }
@@ -123,6 +153,8 @@ class TransactionAttempt {
     } catch (error) {
       return await this.recover(error);
     } finally {
+      this.scopeClosed = true;
+      this.controller.abort(this.disposed);
       if (timer !== undefined) clearTimeout(timer);
       // A destroyed connection returns via Bun's onClose, never as a reusable socket.
       if (!this.destroyed) this.work?.release();

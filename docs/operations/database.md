@@ -74,7 +74,10 @@ Database availability is necessary but not sufficient readiness. Deployers must 
 
 Transcript append, sealing and freeze adapters share `createBoundedTransaction`
 (`packages/db/src/bounded-transaction.ts`) over their existing Bun SQL pool.
-Inject a monotonic millisecond clock. Each admitted attempt reserves a watchdog
+Inject a monotonic millisecond clock. The callback receives a runtime-enforced
+`select`/`insert`/`update`/`delete`/`execute` facade. Nested transactions, raw client
+access and manual transaction/session controls are refused; refusal poisons the
+attempt even if the callback catches it. Each admitted attempt reserves a watchdog
 connection before its writer; the 3,000 ms whole budget includes pool acquisition,
 setup, locks, callback and commit. Admission uses at most half the configured
 pool capacity in writers, with two connections per attempt. Callbacks perform
@@ -97,7 +100,11 @@ server idle backstop; the real idle-session regression test must stay green.
 An unavailable watchdog or ambiguous commit produces an infrastructure refusal
 with recovery pending. Callers leave the durable operation pending and retry its
 idempotent identity after recovery; an error never proves transcript freeze or
-successful rollback. Only a confirmed commit returns the callback result.
+successful rollback. Only an actual `COMMIT` completion tag returns the callback result: PostgreSQL
+answers COMMIT with ROLLBACK when a callback has swallowed an earlier SQL error.
+The callback scope closes before commit starts, and all exits dispose the signal
+and native query lifetime, including success; retained handles and lazy queries
+cannot later mutate the released connection.
 Focused real PostgreSQL integration suites cover cumulative statements, lock and
 statement stalls, idle callbacks, lost cancellation, unavailable recovery,
 reservation exhaustion, pool recovery and backend identity reuse.

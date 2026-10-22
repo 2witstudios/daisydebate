@@ -1,27 +1,68 @@
-import type { ReservedSQL } from 'bun';
+import type { ReservedSQL, SQL } from 'bun';
+import { assertTransactionStatement } from './transaction-statement';
+
+type CheckLifetime = () => void;
+
+/** Fence lazy native execution as well as construction and query modifiers. */
+function lifetimeQuery<T>(
+  query: SQL.Query<T>,
+  check: CheckLifetime,
+  refuse: (message: string) => never,
+): SQL.Query<T> {
+  const guarded = new Proxy(query, {
+    get(target, property) {
+      const member = Reflect.get(target, property, target);
+      if (typeof member !== 'function') return member;
+      return (...parameters: unknown[]) => {
+        check();
+        if (property === 'simple')
+          refuse('Bounded queries require prepared protocol');
+        const result = Reflect.apply(member, target, parameters);
+        return result === target ? guarded : result;
+      };
+    },
+  });
+  return guarded;
+}
 
 /**
- * Bun1.4.2 unsafe(text, []) selects simple protocol (Query+Flush). The trailing
- * Flush disarms PostgreSQL's idle timer after ReadyForQuery. Use the same native
- * reserved connection's prepared/tagged path (Parse/Bind/Execute/Flush/Sync) for
- * parameterless Drizzle statements so the server re-arms its idle backstop.
+ * Bun1.4.2 unsafe(text, []) selects Query+Flush, whose trailing Flush disarms
+ * PostgreSQL's idle timer. Keep the SAME reservation on prepared protocol ending
+ * Sync; bind parameters natively, and refuse callback-owned transaction controls.
  */
 export function synchronizedTransactionClient(
   client: ReservedSQL,
-  signal: AbortSignal,
+  check: CheckLifetime,
+  refuse: (message: string) => never,
 ): ReservedSQL {
+  client.options.bigint = true;
+  const options = { bigint: true };
   return new Proxy(client, {
     apply(target, receiver, parameters) {
-      signal.throwIfAborted();
-      return Reflect.apply(target, receiver, parameters);
+      check();
+      const [strings] = parameters;
+      const text =
+        typeof strings === 'string' ? strings : strings.join('$parameter');
+      assertTransactionStatement(text, refuse);
+      return lifetimeQuery(
+        Reflect.apply(target, receiver, parameters),
+        check,
+        refuse,
+      );
     },
     get(target, property) {
-      if (property !== 'unsafe') return Reflect.get(target, property);
+      if (property === 'options') return options;
+      if (property !== 'unsafe')
+        refuse('Raw transaction controls are adapter-owned');
       return (text: string, parameters: unknown[] = []) => {
-        signal.throwIfAborted();
-        if (parameters.length > 0) return target.unsafe(text, parameters);
+        check();
+        assertTransactionStatement(text, refuse);
         const literal = Object.assign([text], { raw: [text] });
-        return target(literal as unknown as TemplateStringsArray);
+        const query =
+          parameters.length > 0
+            ? target.unsafe(text, parameters)
+            : target(literal as unknown as TemplateStringsArray);
+        return lifetimeQuery(query, check, refuse);
       };
     },
   });
