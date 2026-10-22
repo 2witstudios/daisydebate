@@ -58,6 +58,14 @@ test('owned process supervisor serializes real restart and awaits graceful child
       actual: reachable,
       expected: false,
     });
+    await owned.start();
+    const third = await read();
+    assert({
+      given: 'an explicitly stopped owned process',
+      should: 'start a new ready child independently of restart',
+      actual: [third.pid !== second.pid, (await fetch(third.url)).ok],
+      expected: [true, true],
+    });
   } finally {
     await owned.stop();
     await rm(directory, { recursive: true, force: true });
