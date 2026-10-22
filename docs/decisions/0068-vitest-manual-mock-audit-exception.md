@@ -26,8 +26,12 @@ platform with review by 2026-12-23. The affected code is unreachable:
 - Tests import `riteway/bun`, whose entry imports `bun:test`.
 - Application, test and script sources do not import `riteway/vitest`,
   `vitest` or `better-auth/test`, or start the affected mocker development server.
-- The production image installs dependencies with `--production` and omits
-  the RITEway development dependency.
+- The production image's `--production` install omits RITEway, but retains
+  Vitest and mocker in `node_modules/.bun` through the resolved dependency
+  graph. Physical absence is not the rationale: the Next application imports
+  no Vitest runner, mocker plugin or Better Auth test entry, and starts no
+  Vite development server or mock-registration WebSocket. The advisory needs
+  that active interceptor; package presence alone does not activate it.
 
 Keep ADR 0039's expiry, package drift and stale-entry gates. This decision
 does not permit a blanket ignore or an override. Remove this entry with the
@@ -39,7 +43,10 @@ or development server.
 
 The live audit was red before the repair. Vite 7.3.7 removes five findings;
 the remaining finding is this named advisory. Reachability was checked against
-the installed RITEway entry, repository imports and production Dockerfile.
+the installed RITEway entry, repository imports and an install using the
+production Dockerfile's exact manifest set. Independent review reproduced the
+retained Vitest/mocker packages; this decision explicitly does not assert
+their absence from the image.
 The official [Vite 7.3.7 release](https://github.com/vitejs/vite/releases/tag/v7.3.7)
 and advisory identify the patched versions. Final composed acceptance still
 requires the normal audit, policy and independent review gates.

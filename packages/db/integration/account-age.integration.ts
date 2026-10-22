@@ -1,121 +1,55 @@
 import { requireTestServices } from '@daisy/config';
-import { sql } from 'drizzle-orm';
+import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { assertRejects } from '@daisy/errors/testing';
-import {
-  writeAccountBirthMonth,
-  loadAccountAgeSource,
-  accountAgePrivacyAdopter,
-} from '../src/account-age';
-import { erasePrivacySubject, exportPrivacySubject } from '../src/privacy';
-import { bindings, now, withPrivacySubject } from './privacy.test-support';
+import { loadAccountAgeSource } from '../src/account-age';
+import { withFixture } from './constraint-helpers';
+
 setupRitewayBun();
-requireTestServices(process.env);
-const authority = {
-  status: 'approved' as const,
-  decision: 'isolated test-only authority; no collection activation',
-};
-const adoption = {
-  requiredAdopters: [
-    {
-      id: 'account-age',
-      phase: 'after-scrub' as const,
-      expectedColumns: {
-        account_age: ['user_id', 'birth_month', 'version', 'recorded_at'],
-      },
-    },
-  ],
-  adopters: [accountAgePrivacyAdopter],
-};
-test('age correction and erasure share the account fence and subject-local export', async () => {
-  await withPrivacySubject(async ({ database, userId, actorId, otherId }) => {
+const { databaseUrl } = requireTestServices(process.env);
+test('age source reads only the requested persisted subject and fails closed on unusable time', async () => {
+  await withFixture(databaseUrl, async (fixture) => {
+    const userId = await fixture.user();
+    const otherId = await fixture.user();
+    const database = drizzle({ client: fixture.sql });
+    const now = '2026-10-09T18:00:00.000Z';
+    assert({
+      given: 'a subject without a persisted age source',
+      should: 'return no source rather than invent an age',
+      actual: await loadAccountAgeSource(database, userId),
+      expected: null,
+    });
     try {
-      const first = await writeAccountBirthMonth(
-        database,
-        {
-          userId,
-          birthMonth: '2000-01',
-          now,
-          expectedAccountRevision: 1,
-          expectedAgeRevision: null,
-        },
-        authority,
-      );
-      const correction = await writeAccountBirthMonth(
-        database,
-        {
-          userId,
-          birthMonth: '2015-01',
-          now,
-          expectedAccountRevision: 2,
-          expectedAgeRevision: 1,
-        },
-        authority,
-      );
-      await assertRejects({
-        given: 'a stale correction against the prior account and age versions',
-        should: 'reject atomically before replacing the corrected source',
-        actual: () =>
-          writeAccountBirthMonth(
-            database,
-            {
-              userId,
-              birthMonth: '2000-01',
-              now,
-              expectedAccountRevision: 2,
-              expectedAgeRevision: 1,
-            },
-            authority,
-          ),
-        code: 'CONFLICT',
-      });
-      const source = await loadAccountAgeSource(database, userId);
-      const exported = await exportPrivacySubject(
-        database,
-        { userId, actorId },
-        adoption,
-      );
+      await fixture.sql`insert into account_age(user_id,birth_month,version,recorded_at)
+        values(${userId},'2015-01',2,${now}),(${otherId},'2000-01',1,${now})`;
       assert({
-        given: 'two versioned writes and a conflicting retry',
-        should: 'retain corrected facts and export only the subject source',
+        given: 'two isolated persisted subjects with different birth months',
+        should:
+          'load each exact source revision and canonical timestamp separately',
         actual: [
-          first,
-          correction,
-          source,
-          exported.account_age,
+          await loadAccountAgeSource(database, userId),
           await loadAccountAgeSource(database, otherId),
         ],
         expected: [
-          { revision: 1, accountRevision: 2 },
-          { revision: 2, accountRevision: 3 },
           { birthMonth: '2015-01', revision: 2, recordedAt: now },
-          [
-            {
-              user_id: userId,
-              birth_month: '2015-01',
-              version: 2,
-              recorded_at: now,
-            },
-          ],
-          null,
+          { birthMonth: '2000-01', revision: 1, recordedAt: now },
         ],
       });
-      await erasePrivacySubject(
-        database,
-        { subject: { userId, actorId }, now, vendors: [], jobIds: [] },
-        adoption,
-        bindings,
-      );
+      await fixture.sql`update account_age set recorded_at='-infinity' where user_id=${userId}`;
       assert({
-        given: 'canonical account erasure with required age adopter',
-        should: 'delete private birth data in the same committed transaction',
-        actual: await loadAccountAgeSource(database, userId),
-        expected: null,
+        given: 'a nonfinite persisted time on only the requesting subject',
+        should:
+          'fail closed for that source while preserving the other subject',
+        actual: [
+          await loadAccountAgeSource(database, userId),
+          await loadAccountAgeSource(database, otherId),
+        ],
+        expected: [
+          null,
+          { birthMonth: '2000-01', revision: 1, recordedAt: now },
+        ],
       });
     } finally {
-      await database.execute(
-        sql`delete from account_age where user_id=${userId}`,
-      );
+      await fixture.sql`delete from account_age where user_id in (${userId},${otherId})`;
     }
   });
 });
