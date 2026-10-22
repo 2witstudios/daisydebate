@@ -12,7 +12,6 @@ import { createLaunchProcess } from './launch-process';
 import { createLaunchProbeResource } from './launch-probe-room';
 import { createLaunchSocketEdge } from './launch-socket-edge';
 import { createLaunchMail, launchMailPath } from './launch-mail';
-import { resolveRealtimeNamespace } from '../../playwright.config';
 
 const checkout = resolve(import.meta.dir, '../../../..');
 const slot = requireLaunchSlot(checkout, process.env);
@@ -94,7 +93,8 @@ const realtime = createLaunchProcess({
     ...process.env,
     REALTIME_PORT: String(slot.port + 3),
     REALTIME_ALLOWED_ORIGINS: origin,
-    REDIS_NAMESPACE: resolveRealtimeNamespace(process.env),
+    // Tickets the web processes issue must be redeemable by this realtime process.
+    REDIS_NAMESPACE: slot.namespace,
   },
   ready: () => health(`http://127.0.0.1:${slot.port + 3}/health/live`),
 });

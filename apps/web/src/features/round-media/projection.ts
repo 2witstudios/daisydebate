@@ -22,6 +22,15 @@ export const mediaEnded = (
   (snapshot.finalSegmentEndedAt !== null &&
     Date.parse(snapshot.now) >=
       Date.parse(snapshot.finalSegmentEndedAt) + 30 * 60_000);
+/**
+ * Self-hosted LiveKit keeps issued tokens valid after removal or permission
+ * changes, so a revoked human seat closes the whole session's admission until
+ * fresh canonical eligibility returns. Erasure never returns.
+ */
+export const admissionRevoked = (
+  snapshot: Pick<MediaSnapshot, 'participants'>,
+) =>
+  snapshot.participants.some((seat) => seat.kind === 'human' && !seat.eligible);
 export const seatGrants = (
   snapshot: Pick<
     MediaSnapshot,
@@ -47,7 +56,10 @@ export function projectMedia(
   const ended = mediaEnded(snapshot) || snapshot.session.endedAt !== null;
   const state = ended
     ? 'ended'
-    : ready && !snapshot.session.unsafeAt && !snapshot.unresolved
+    : ready &&
+        !snapshot.session.unsafeAt &&
+        !snapshot.unresolved &&
+        !admissionRevoked(snapshot)
       ? 'ready'
       : 'unavailable';
   const denied: RoundMediaState['grants'] = {
