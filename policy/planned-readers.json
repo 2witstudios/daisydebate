@@ -189,6 +189,15 @@
       "adr": "docs/decisions/0057-planned-readers.md",
       "reason": "ADR0053 capture foundation precedes committed worker readers VIDEO-3.8 tz1d7obvmg0rnhzfhyllifjl and VIDEO-3.1 r66b11i8v4jilp3o29uu2b49. Real PostgreSQL store proof does not establish production capture or worker acceptance.",
       "reviewBy": "2026-11-05"
+    },
+    {
+      "path": "packages/media/src/worker-auth.ts",
+      "export": "createMediaWorkerAuthentication",
+      "task": "VIDEO-3.8",
+      "owner": "VIDEO / ag-294zgpzv",
+      "adr": "docs/decisions/0057-planned-readers.md",
+      "reason": "ADR0053 signed worker ingress foundation precedes committed VIDEO-3.8 reader tz1d7obvmg0rnhzfhyllifjl and the browser token broker. Producer 8fabf6b9 authenticates exact method/path/timestamp/raw body with an injected secret and clock; authentication unit proof does not establish mounted ingress or worker acceptance.",
+      "reviewBy": "2026-11-05"
     }
   ]
 }
