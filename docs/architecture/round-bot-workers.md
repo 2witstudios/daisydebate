@@ -33,6 +33,23 @@ An attendance refusal retains the cached response across retries and lease
 takeover. Unknown external outcomes remain recorded uncertainty; external
 exactly-once execution is not promised.
 
+Known response accounting authenticates the original dispatched run and exact
+scope with its immutable SHA3-256 execution-token digest. It settles counters
+independently of ballot parsing, current job ownership and Round lifecycle.
+An ended run or lease takeover cannot discard known vendor usage. Exact repeated
+counters are idempotent; altered counters, foreign capabilities and runs without
+a dispatch intent are refused. This accounting transaction grants no ballot,
+cache, publication or Round mutation authority. Result caching and submission
+still require their fresh competitive fences. A provider failure with unknown
+usage retains zero known counters rather than fabricating vendor usage.
+
+For judging runs, the execution digest is secret/private, retained and erased
+with its AgentRun solely to authenticate usage settlement. Scope fields are
+private identifiers and provider outcome/counters are operational metadata.
+The bearer stays in memory; neither it nor the digest enters prompts, public
+responses, participant exports or telemetry. No new collection authority or
+production activation is asserted.
+
 Production startup begins the judging lifecycle only after public ingress is
 ready. Shutdown aborts and awaits it before closing owned pools. Availability
 keeps its separate lifecycle and existing service identity. Configured media

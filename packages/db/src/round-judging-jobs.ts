@@ -13,6 +13,7 @@ import {
   judgingJobWhere,
   type JudgingScope,
 } from './round-judging-context';
+import { recordJudgingUsage } from './round-judging-accounting';
 import { claimLockedJudgingJob } from './round-judging-claim';
 import { submitLockedJudgingResult } from './round-judging-result';
 import type { LockedRoundBallotInput } from './round-ballot-operations';
@@ -134,19 +135,18 @@ export function createRoundJudgingJobs(input: {
         },
         true,
       ),
-    saveResult: (
+    recordUsage: (
+      scope: JudgingScope,
+      token: string,
+      usage: { readonly inputTokens: number; readonly outputTokens: number },
+    ) => recordJudgingUsage(input.run, scope, token, usage),
+    saveResult: async (
       scope: JudgingScope,
       token: string,
       response: unknown,
       usage: { readonly inputTokens: number; readonly outputTokens: number },
     ) => {
-      if (
-        ![usage.inputTokens, usage.outputTokens].every(
-          (value) =>
-            Number.isSafeInteger(value) && value >= 0 && value <= 2147483647,
-        )
-      )
-        throw createAppError('INFRASTRUCTURE', 'Invalid model usage');
+      await recordJudgingUsage(input.run, scope, token, usage);
       const parsed = ballotSchema.safeParse(response);
       if (!parsed.success) throw createAppError('VALIDATION');
       return withLease(scope, token, async (tx, { run, job, now }) => {
@@ -158,8 +158,8 @@ export function createRoundJudgingJobs(input: {
             );
           return;
         }
-        if (run.configurationSnapshot.providerOutcome !== 'unknown')
-          throw createAppError('CONFLICT', 'Model call not dispatched');
+        if (run.configurationSnapshot.providerOutcome !== 'received')
+          throw createAppError('CONFLICT', 'Model response not accounted');
         await tx
           .update(roundJudgingJobs)
           .set({
@@ -169,17 +169,6 @@ export function createRoundJudgingJobs(input: {
             pendingBallotReceivedAt: now,
           })
           .where(judgingJobWhere(scope));
-        await tx
-          .update(agentRuns)
-          .set({
-            inputTokens: usage.inputTokens,
-            outputTokens: usage.outputTokens,
-            configurationSnapshot: {
-              ...run.configurationSnapshot,
-              providerOutcome: 'received',
-            },
-          })
-          .where(eq(agentRuns.id, run.id));
       });
     },
     renew: (scope: JudgingScope, token: string) =>
