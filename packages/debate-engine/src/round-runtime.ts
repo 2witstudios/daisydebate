@@ -1,4 +1,5 @@
 import { speakingChangesOf } from './round-speaking';
+import { applyUnjudgedCompletion } from './round-unjudged';
 import {
   applyRoundAdjudication,
   type RoundAdjudication,
@@ -16,6 +17,7 @@ import {
   type RoundCommand,
   type RoundParticipantSeat,
   type RoundPosition,
+  type RoundUnjudgedCompletion,
   type RoundProjection,
   type SegmentInsert,
   type SegmentClose,
@@ -91,6 +93,10 @@ export function createRoundRuntime(input: {
   }) => RoundProjection;
   /** Internal durable attendance decision; never a public command. */
   readonly adjudicate: (input: RoundAdjudication) => RoundProjection;
+  /** Internal completion after durable freeze/attendance verification; does not advance time. */
+  readonly completeUnjudged: (
+    input: RoundUnjudgedCompletion,
+  ) => RoundProjection;
   /** Advances time alone, projecting whatever the clock moved. */
   readonly tick: (now: string) => RoundProjection;
   /** The current checkpoint. */
@@ -307,6 +313,17 @@ export function createRoundRuntime(input: {
         decision,
         input.segments,
         input.participants,
+      );
+      store = scratch;
+      return project(into);
+    },
+    completeUnjudged(completion): RoundProjection {
+      const scratch = restoreRoundStore(capture(store));
+      const into = queues();
+      applyUnjudgedCompletion(
+        contextOn(scratch, into, null, Date.parse(completion.now)),
+        completion,
+        input.participants.filter((seat) => seat.role === 'judge').length,
       );
       store = scratch;
       return project(into);

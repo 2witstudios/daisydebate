@@ -86,7 +86,7 @@ export type RoundEffect =
     }
   | {
       readonly kind: 'round_completed';
-      readonly outcome: RatedOutcome;
+      readonly outcome: RatedOutcome | null;
       readonly at: string;
     };
 
