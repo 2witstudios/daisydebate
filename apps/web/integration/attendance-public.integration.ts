@@ -1,3 +1,4 @@
+import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
 import { createTestApp } from './fixtures';
@@ -5,6 +6,7 @@ import { createAccountFlows, uniqueName } from './auth-account-helpers';
 import { withAttendanceRound } from './attendance.test-support';
 import { createPublicCheckInProbe } from '../src/features/availability/public-probe';
 setupRitewayBun();
+requireTestServices(process.env);
 
 test('real public ingress probe uses ordinary signed session, scoped seat and durable receipt aliases', async () => {
   let handler: ((request: Request) => Promise<Response>) | undefined;
