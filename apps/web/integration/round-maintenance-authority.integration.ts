@@ -1,3 +1,4 @@
+import { buildDebateTopic } from '@daisy/protocol';
 import { finishedOrBlockedBehind } from '@daisy/db/testing';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
@@ -20,7 +21,7 @@ async function evaluationState(
     'speaking',(select jsonb_agg(to_jsonb(i) order by id) from round_speaking_intervals i where round_id=${roundId}),
     'commands',(select jsonb_agg(to_jsonb(c) order by command_id) from round_commands c where round_id=${roundId}),
     'adjudications',(select jsonb_agg(to_jsonb(a) order by segment_id) from round_attendance_adjudications a where round_id=${roundId}),
-    'outbox',(select jsonb_agg(to_jsonb(o) order by seq) from outbox o where topic=${`debate:${roundId}`})
+    'outbox',(select jsonb_agg(to_jsonb(o) order by seq) from outbox o where topic=${buildDebateTopic(roundId)})
   ) state`;
   return row.state;
 }

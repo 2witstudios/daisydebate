@@ -1,3 +1,4 @@
+import { buildDebateTopic } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
@@ -115,7 +116,7 @@ test('actual scoped receipts share one global command fence and refuse foreign s
         // Refused attempts retain their true foreign principal; erase the owning
         // Round aggregate before the nested fixture removes that foreign actor.
         await own.f
-          .sql`delete from outbox where topic=${`debate:${own.roundId}`}`;
+          .sql`delete from outbox where topic=${buildDebateTopic(own.roundId)}`;
         await own.f.sql`delete from rounds where id=${own.roundId}`;
       }
     }),

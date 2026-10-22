@@ -11,6 +11,7 @@ describe('secret configuration keys', () => {
         'derive the secret-bearing keys from the fields themselves, each once',
       actual: [...secretConfigKeys].sort(),
       expected: [
+        'ATTENDANCE_PUBLIC_PROBE',
         'BETTER_AUTH_SECRET',
         'DATABASE_URL',
         'LIVEKIT_API_KEY',

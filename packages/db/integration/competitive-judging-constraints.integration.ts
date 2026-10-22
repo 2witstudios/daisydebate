@@ -2,10 +2,14 @@ import { createId } from '@paralleldrive/cuid2';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { at, digest, rejected, withFixture } from './constraint-helpers';
 import { requireTestServices } from '@daisy/config';
+import { ballotCategories } from '@daisy/protocol';
 
 setupRitewayBun();
 
 const { databaseUrl: url } = requireTestServices(process.env);
+
+const allAt = (score: number) =>
+  Object.fromEntries(ballotCategories.map((category) => [category, score]));
 
 /**
  * A ballot row in the shared contract (ADR 0058 §6): it names its judge
@@ -19,32 +23,7 @@ const ballot = (
   judge_participant_id: judgeSeatId,
   rubric_version: 'speaker-10@1',
   winner: 'affirmative',
-  scores: {
-    affirmative: {
-      thesis: 3,
-      framework: 3,
-      analysis: 3,
-      refutation: 3,
-      impact: 3,
-      weighing: 3,
-      questioning: 3,
-      answering: 3,
-      organization: 3,
-      delivery: 3,
-    },
-    negative: {
-      thesis: 2,
-      framework: 2,
-      analysis: 2,
-      refutation: 2,
-      impact: 2,
-      weighing: 2,
-      questioning: 2,
-      answering: 2,
-      organization: 2,
-      delivery: 2,
-    },
-  },
+  scores: { affirmative: allAt(3), negative: allAt(2) },
   reason: 'Stronger evidence',
   status: 'submitted',
   submitted_at: at,

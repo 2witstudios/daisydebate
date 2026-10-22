@@ -59,3 +59,16 @@ only. Transcribed text persists solely through the declared private utterance
 storage purpose, existing human PRIV-H basis gate and 180-day/owning-Round erasure
 policy. Scope identifiers do not leave this process through diagnostics. Queue,
 cadence and test proof counts have category `none`; no personal content is logged.
+
+The explicit `bun --env-file=.env run proof:media-worker` CLI creates and drops an
+isolated, fully migrated run database and fails when the configured provider
+capability is absent. It uses a real custom Room with two legal forty-second
+speeches, the shared engine's actual clock, a connected publishing peer, actual
+Aura PCM, hidden native capture, Whisper transcription and signed durable ingress.
+The observed run committed fifteen captured chunks and froze incomplete at
+frontier seventeen. Empty/missing required streams close partial from committed
+nonempty speaking history; no nominal/possible window becomes coverage. This
+scoped result does not claim human browser recording, bot generation admission,
+judging, discovery, soak or all race acceptance. The publishing peer stays
+connected until the actual Round end so normal empty-room departure does not
+prematurely end the fixture's capture process.
