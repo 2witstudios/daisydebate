@@ -50,7 +50,12 @@ import {
  */
 
 /** The queues the runtime projects from; a scratch run discards its own. */
-const queues = (): Queues => ({ changes: [], effects: [], floorChange: null });
+const queues = (): Queues => ({
+  changes: [],
+  effects: [],
+  floorChange: null,
+  finalPlayedEnd: null,
+});
 
 /**
  * Creates the runtime from durable rows, the frozen rules and an injected
@@ -158,9 +163,14 @@ export function createRoundRuntime(input: {
         change.kind === 'close' &&
         change.sequence === rules.segments.length - 1,
     );
+    const finalEndedAt =
+      into.finalPlayedEnd ??
+      (finalClose?.kind === 'close'
+        ? new Date(finalClose.atMs).toISOString()
+        : undefined);
     return {
-      ...(finalClose?.kind === 'close'
-        ? { finalSegmentEndedAt: new Date(finalClose.atMs).toISOString() }
+      ...(finalEndedAt !== undefined
+        ? { finalSegmentEndedAt: finalEndedAt }
         : {}),
       speakingChanges: speakingChangesOf({
         rules,

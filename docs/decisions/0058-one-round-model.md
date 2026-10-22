@@ -195,15 +195,19 @@ depends on one, and nothing in a Round's history would change if Rooms were dele
   completion on the database clock and increments the version before counting live
   capacity. Reservations remain for the rolling daily allowance; only scheduled and
   active status consumes global capacity.
-- **Captured speech has a bounded finalization window.**
-  [ADR 0053](0053-live-video-self-hosted-livekit.md) and
-  [ADR 0067](0067-playable-round-policy-and-acceptance.md) replace browser recording,
-  heard reports and the earlier thirty-second admission rule. Server-observed human
-  PCM and eligible bot publication prefixes must fit actual historical segment and
-  speaking intervals. Signed ingress, fenced leases, stream closure, database-time
-  cutoff at actual final end plus 120,000 ms and one immutable transcript revision
-  govern all writes. Judging consumes that revision; partial coverage stays partial.
-  Completed forfeits carry the terminal outcome and never request judging.
+- **Captured speech has a bounded server finalization window.** The shared engine
+  closes the actual final played interval at its elapsed deadline or accepted
+  early end. The same durable transaction fixes that end and an immutable
+  transcript admission cutoff 120000ms later; ballot completion cannot move it.
+  Server-observed human PCM and eligible bot publication prefixes must fit actual
+  historical segment and speaking intervals. Signed ingress, fenced leases,
+  stream closure and one immutable transcript revision govern writes; partial
+  coverage stays partial. Finalization separately fences admission and freeze,
+  and judging consumes that revision. Internal server reconciliation advances
+  silent Rounds through the same engine. Completed forfeits already carry the
+  outcome and never dispatch judging; abandonment before any played interval
+  invents no capture anchor. See [ADR 0053](0053-live-video-self-hosted-livekit.md)
+  and [ADR 0067](0067-playable-round-policy-and-acceptance.md).
 - **A submitted ballot cannot be erased by seat deletion.** The judge-participant FK is
   `RESTRICT`; retirement is voiding, which records who and when. This ships in the same
   migration as the participant surrogate id, so no intermediate model exists where uniform
