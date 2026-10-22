@@ -74,7 +74,7 @@ export type Actor = {
   readonly eligible: boolean;
 };
 export const actorFact = async (
-  tx: Tx,
+  tx: Pick<BunSQLDatabase, 'select'>,
   actorId: string,
 ): Promise<Actor | null> => {
   const [row] = await tx

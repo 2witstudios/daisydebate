@@ -104,6 +104,54 @@
         "path": "packages/debate-engine/src/glicko2.test.ts",
         "name": "refuse with debate.rating.volatility-converges"
       }
+    },
+    {
+      "id": "debate.rules.check-in-grace-covers-reconnect",
+      "check": "grace-covers-reconnect",
+      "testReference": {
+        "path": "packages/debate-engine/src/attendance-policy.test.ts",
+        "name": "attendance rule guards preserve reconnect grace speech coverage and transaction buffer"
+      }
+    },
+    {
+      "id": "debate.rules.speech-covers-grace",
+      "check": "speech-covers-grace",
+      "testReference": {
+        "path": "packages/debate-engine/src/attendance-policy.test.ts",
+        "name": "attendance rule guards preserve reconnect grace speech coverage and transaction buffer"
+      }
+    },
+    {
+      "id": "debate.rules.finalization-buffer-covers-commit",
+      "check": "finalization-buffer-covers-commit",
+      "testReference": {
+        "path": "packages/debate-engine/src/attendance-policy.test.ts",
+        "name": "attendance rule guards preserve reconnect grace speech coverage and transaction buffer"
+      }
+    },
+    {
+      "id": "debate.availability.settled-prefix-stable",
+      "check": "settled-prefix-stable",
+      "testReference": {
+        "path": "packages/debate-engine/src/availability.test.ts",
+        "name": "appending any healthy or unhealthy suffix preserves the settled prefix"
+      }
+    },
+    {
+      "id": "debate.check-in.window-open",
+      "check": "check-in-window-open",
+      "testReference": {
+        "path": "packages/debate-engine/src/attendance.test.ts",
+        "name": "receipt window permits open historical speech but refuses early late and finalized stamps"
+      }
+    },
+    {
+      "id": "debate.adjudication.finalized-irreversible",
+      "check": "attendance-finalized-irreversible",
+      "testReference": {
+        "path": "packages/debate-engine/src/attendance.test.ts",
+        "name": "finalized decisions cannot be recomputed"
+      }
     }
   ]
 }

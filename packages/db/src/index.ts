@@ -1,3 +1,7 @@
+import { createAppError } from '@daisy/errors';
+import { roundBallotOperations } from './round-ballot-operations';
+import { createRoundBotAdmission } from './round-bot-admission';
+import { mediaCaptureOperations } from './media-capture';
 import { roundSpeakingRead } from './round-speaking-read';
 import { roundProtectedReads } from './round-protected-reads';
 import { createMessagingTypingPrivacyPort } from './privacy/typing-rights';
@@ -35,6 +39,8 @@ import { roomCommandTransaction } from './room-command-transaction';
 import { roomOperations } from './room-operations';
 import { roundCommandOperations } from './round-command-operations';
 import { roundOperations } from './round-operations';
+import { createBoundedTransaction } from './bounded-transaction';
+import { transcriptFinalizationOperations } from './transcript-finalization';
 import { utteranceOperations } from './utterance-operations';
 import { ballotOperations } from './ballot-operations';
 import { agentOperations } from './agent-operations';
@@ -114,9 +120,12 @@ export function createDatabase({
   eventSink,
   client: injectedClient,
   nextActorId,
+  botBusyCap,
 }: {
   url: string;
   maxConnections?: number;
+  /** No implicit bot capacity: absence truthfully refuses bot admission. */
+  botBusyCap?: number | undefined;
   eventSink?: DatabaseEventSink;
   /** Overrides dialing `url`; tests inject a scripted client at this seam. */
   client?: SQL;
@@ -136,7 +145,42 @@ export function createDatabase({
       connection: RUNTIME_SESSION,
     });
   const database = drizzle({ client });
+  const transcriptTransaction = createBoundedTransaction({
+    client,
+    maxConnections,
+    now: performance.now,
+  });
+  const botAdmission =
+    botBusyCap === undefined
+      ? undefined
+      : createRoundBotAdmission({
+          run: transcriptTransaction,
+          nextId: nextActorId,
+          busyCap: botBusyCap,
+        });
+  const configuredBotAdmission = () => {
+    if (!botAdmission)
+      throw createAppError('INFRASTRUCTURE', 'Bot admission is not configured');
+    return botAdmission;
+  };
   return {
+    readRoundBotAdmissionStatus: async (actorId: string) =>
+      botAdmission ? botAdmission.readStatus(actorId) : null,
+    reserveRoundBotUsage: (
+      input: Parameters<
+        ReturnType<typeof createRoundBotAdmission>['reserve']
+      >[0],
+    ) => configuredBotAdmission().reserve(input),
+    markRoundBotModelCall: (
+      input: Parameters<
+        ReturnType<typeof createRoundBotAdmission>['markFirstModelCall']
+      >[0],
+    ) => configuredBotAdmission().markFirstModelCall(input),
+    refundRoundBotVendorFailure: (
+      input: Parameters<
+        ReturnType<typeof createRoundBotAdmission>['refundVendorFailure']
+      >[0],
+    ) => configuredBotAdmission().refundVendorFailure(input),
     async health() {
       return instrumented(eventSink, 'health', async () => {
         await database.execute(sql`select 1`);
@@ -250,14 +294,24 @@ export function createDatabase({
     ...roomOperations({ database, eventSink }),
     ...roomCommandOperations({
       database,
+      botAdmission,
       eventSink,
       commandTransaction: roomCommandTransaction(client, maxConnections),
     }),
     ...roundOperations({ database, eventSink }),
     ...roundCommandOperations({ database, eventSink }),
+    ...roundBallotOperations({ database, eventSink }),
     ...roundProtectedReads({ database }),
     ...roundSpeakingRead({ database }),
     ...utteranceOperations({ database, eventSink }),
+    createMediaCaptureOperations: (
+      input: Omit<Parameters<typeof mediaCaptureOperations>[0], 'transaction'>,
+    ) =>
+      mediaCaptureOperations({ ...input, transaction: transcriptTransaction }),
+    ...transcriptFinalizationOperations({
+      database,
+      transaction: transcriptTransaction,
+    }),
     ...ballotOperations({ database, eventSink }),
     ...agentOperations({ database, eventSink }),
     ...documentOperations({ database, eventSink }),
@@ -280,3 +334,38 @@ export function createDatabase({
 export type Database = ReturnType<typeof createDatabase>;
 
 export type { LockedRoundCommandContext } from './round-command-operations';
+
+export type { FrozenRoundTranscript } from './frozen-transcript';
+
+export { executeLockedRoundBallot } from './round-ballot-operations';
+export type {
+  LockedRoundBallotInput,
+  LockedRoundBallotContext,
+  RoundBallotLeaseContext,
+} from './round-ballot-operations';
+export { createAttendanceOperations } from './attendance-operations';
+export type {
+  AttendanceTransactionContext,
+  AttendanceTransaction,
+  AttendancePrincipal,
+  AttendanceFacts,
+  LockedAttendanceCheckIn,
+} from './attendance-operations';
+export { createAttendanceEvaluator } from './attendance-evaluator';
+export type {
+  AttendanceResolution,
+  AttendanceEvaluationFacts,
+} from './attendance-evaluator';
+export { availabilityOperations } from './availability-operations';
+export type {
+  AvailabilityEvidence,
+  AvailabilityCause,
+} from './availability-operations';
+export {
+  checkInAttemptLifecycle,
+  reconcileCheckInAttempts,
+} from './check-in-attempts';
+export type {
+  CheckInAttempt,
+  CheckInAttemptMetadata,
+} from './check-in-attempts';

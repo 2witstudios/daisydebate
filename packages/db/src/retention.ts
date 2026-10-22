@@ -1,5 +1,5 @@
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import { sql, type Column, type Table } from 'drizzle-orm';
+import { sql, type Column, type Table, type SQL } from 'drizzle-orm';
 
 /**
  * The most rows one retention call may delete. Each call is one short
@@ -32,7 +32,12 @@ export type RetentionBatch = {
  */
 export async function deleteExpiredBatch(
   db: Pick<BunSQLDatabase, 'execute'>,
-  target: { readonly table: Table; readonly key: Column; readonly at: Column },
+  target: {
+    readonly table: Table;
+    readonly key: Column;
+    readonly at: Column;
+    readonly eligible?: SQL;
+  },
   { before, limit }: RetentionBatch,
 ): Promise<number> {
   if (
@@ -46,7 +51,7 @@ export async function deleteExpiredBatch(
   const deleted = await db.execute(sql`
     delete from ${table} where ${key} in (
       select ${key} from ${table}
-      where ${at} < ${before}::timestamptz
+      where ${at} < ${before}::timestamptz and (${target.eligible ?? sql`true`})
       order by ${at}
       limit ${limit}
       for update skip locked

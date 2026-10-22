@@ -1,12 +1,35 @@
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { practiceSeats, roundAt, runtimeWorld } from './runtime.test-support';
+import {
+  practiceRules,
+  practiceSeats,
+  roundAt,
+  runtimeWorld,
+} from './runtime.test-support';
 
 setupRitewayBun();
 
 const at = roundAt;
 
 describe('round runtime lifecycle', () => {
+  test('refuses corrupt frozen speech timing before allocating runtime state', async () => {
+    const rules = practiceRules();
+    await assertRejects({
+      given: 'frozen rules containing a speech shorter than attendance grace',
+      should: 'refuse hydration with the registered speech timing invariant',
+      actual: () =>
+        runtimeWorld({
+          rules: {
+            ...rules,
+            segments: rules.segments.map((segment, index) =>
+              index === 0 ? { ...segment, durationMs: 39_999 } : segment,
+            ),
+          },
+        }),
+      code: 'INVARIANT',
+      invariantId: 'debate.rules.speech-covers-grace',
+    });
+  });
   test('starts a scheduled round into the countdown with the clock anchored', () => {
     const world = runtimeWorld();
     assert({
