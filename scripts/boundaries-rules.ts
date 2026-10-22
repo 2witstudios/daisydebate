@@ -30,8 +30,18 @@ export const allowedWorkspaceDependencies: Record<string, readonly string[]> = {
   'ai-voice': ['debate-engine', 'errors', 'protocol'],
   // VIDEO-1.4: isolated LiveKit vendor adapter; no competitive authority.
   media: ['errors', 'protocol'],
-  // ADR 0053: capture deployment uses signed web ingress, never direct DB writes.
-  'media-worker': ['media', 'ai-voice', 'errors', 'protocol'],
+  // ADR 0053: capture deployment discovers sessions read-only under
+  // daisy_media_worker and writes only through signed web ingress.
+  'media-worker': [
+    'media',
+    'ai-voice',
+    'clock',
+    'config',
+    'db',
+    'errors',
+    'logger',
+    'protocol',
+  ],
   protocol: [],
   // ADR 0048: pure capability evaluation consumes portable vocabulary only.
   auth: ['errors', 'protocol'],

@@ -139,6 +139,16 @@ test('availability samples are immutable and strictly ordered with honest bounde
         ),
         expected: 'availability_samples_cause_check',
       });
+      assert({
+        given: 'the retired global control worker cause (DEC-193)',
+        should: 'refuse it as a reason for unhealthy availability',
+        actual: await rejectedBy(() =>
+          fixture.sql.unsafe(
+            "insert into availability_samples(at,healthy,cause) values('2002-01-01',false,'control_worker_unknown')",
+          ),
+        ),
+        expected: 'availability_samples_cause_check',
+      });
       await fixture.sql.unsafe(
         "insert into availability_samples(at,healthy,cause) values('2002-01-01',false,'check_in_pending')",
       );

@@ -10,6 +10,7 @@ import { mediaRuntime } from '../apps/web/src/features/round-media/projection';
 import { createMediaWorkerTokenBroker } from '../apps/web/src/features/round-media/worker-token';
 import { createMediaCaptureHandlers } from '../apps/web/src/features/media-capture/handlers';
 import { mediaDependencies } from '../apps/web/integration/round-media.test-support';
+import { mediaWorkerRole } from './test-logins';
 import type { withRoomRuntime } from '../apps/web/integration/room-runtime.test-support';
 
 type Fixture = Parameters<Parameters<typeof withRoomRuntime>[0]>[0];
@@ -142,30 +143,33 @@ export async function proveMediaWorker(f: Fixture, key: string, root: string) {
   const { roundId, deps, speech } = await startShortRound(f, voice);
   const [binding] =
     await f.sql`select s.id,s.room_name,p.identity from media_sessions s join media_participants p on p.session_id=s.id join round_participants r on r.id=p.round_participant_id where s.round_id=${roundId} and r.actor_id=${f.host.actorId}`;
-  const workerId = nextId(),
-    server = ingress(f, deps);
+  const server = ingress(f, deps);
+  // The supervisor discovers the session itself under the worker login.
+  const workerUrl = new URL(process.env.TEST_DATABASE_URL!);
+  workerUrl.username = mediaWorkerRole.user;
+  workerUrl.password = mediaWorkerRole.password;
   const worker = Bun.spawn(
-    [
-      process.execPath,
-      'run',
-      '--cwd',
-      'apps/media-worker',
-      'start',
-      roundId,
-      String(binding.id),
-      workerId,
-    ],
+    [process.execPath, 'run', '--cwd', 'apps/media-worker', 'start'],
     {
       cwd: root,
       env: {
+        NODE_ENV: 'development',
+        MEDIA_WORKER_DATABASE_URL: workerUrl.toString(),
         PUBLIC_APP_URL: `http://127.0.0.1:${server.port}`,
         MEDIA_WORKER_SECRET: secret,
         OPENROUTER_API_KEY: key,
       },
       stdin: 'ignore',
-      stdout: 'ignore',
+      stdout: 'pipe',
       stderr: 'ignore',
     },
+  );
+  const events = new Response(worker.stdout).text().then((text) =>
+    text
+      .trim()
+      .split('\n')
+      .filter(Boolean)
+      .map((line) => (JSON.parse(line) as { event: string }).event),
   );
   let publisher: Awaited<ReturnType<typeof createAudioPublication>> | undefined;
   try {
@@ -205,8 +209,9 @@ export async function proveMediaWorker(f: Fixture, key: string, root: string) {
     );
     worker.kill('SIGTERM');
     const code = await worker.exited;
-    if (code !== 0)
-      throw Error('Assigned capture process failed to drain safely');
+    const logged = await events;
+    if (code !== 0 || logged.join() !== 'server.ready,server.shutdown')
+      throw Error('Discovered capture process failed to drain safely');
     const frozen = await f.store.finalizeRoundTranscript({
       roundId,
       buildProjection: (context) =>
@@ -225,7 +230,7 @@ export async function proveMediaWorker(f: Fixture, key: string, root: string) {
       );
     process.stdout.write(
       JSON.stringify({
-        proof: 'actual-native-stt-signed-capture-freeze',
+        proof: 'discovered-native-stt-signed-capture-freeze',
         providerPcmSamples: speech.pcm.length,
         capturedChunks: transcript.utterances.length,
         frontier: transcript.frontier,

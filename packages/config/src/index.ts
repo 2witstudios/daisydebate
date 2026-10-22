@@ -6,6 +6,12 @@ import { mediaEndpoint } from './media-endpoint';
 import { databaseUrl, redisUrl } from './urls';
 import { realtimePublicUrlSchema } from './realtime-endpoint';
 import { mediaWorkerSecret, withoutMigrationCredential } from './credentials';
+import { secret, secretKeysOf } from './secrets';
+import { mediaWorkerFields } from './media-worker-config';
+export {
+  readMediaWorkerConfig,
+  type MediaWorkerConfig,
+} from './media-worker-config';
 export {
   readRealtimePublicUrl,
   realtimePublicUrlSchema,
@@ -18,17 +24,6 @@ export {
   testRedisDatabase,
   testRedisRefusal,
 } from './test-redis';
-
-/**
- * Fields whose value is a credential or carries one (a password inside a
- * connection URL). Marked where each field is declared, so the list of
- * secret keys is derived from the schemas rather than kept by hand.
- */
-const secrets = z.registry<{ readonly secret: true }>();
-const secret = <Schema extends z.ZodType>(schema: Schema): Schema => {
-  secrets.add(schema, { secret: true });
-  return schema;
-};
 
 /** `AUTH_TRUSTED_PROXIES` keyword: trust this machine's default gateway. */
 export const TRUSTED_PROXY_GATEWAY = 'gateway';
@@ -363,19 +358,14 @@ export function readBrowserConfig(env: Record<string, string | undefined>) {
     .object({ PUBLIC_APP_URL: z.url() })
     .parse({ PUBLIC_APP_URL: env.PUBLIC_APP_URL });
 }
-const unwrapOptional = (schema: z.ZodType): z.ZodType =>
-  schema instanceof z.ZodOptional
-    ? unwrapOptional(schema.unwrap() as z.ZodType)
-    : schema;
-
 /**
- * Every configuration key marked secret in the server, realtime, auth and
- * migration schemas: the list the logger's redaction tests are derived from (ADR 0019).
+ * Every configuration key marked secret in the server, realtime, auth,
+ * media worker and migration schemas: the list the logger's redaction tests
+ * are derived from (ADR 0019).
  */
-export const secretConfigKeys: readonly string[] = [
-  ...new Set(
-    Object.entries({ ...serverFields, ...authFields, ...migrationFields })
-      .filter(([, schema]) => secrets.has(unwrapOptional(schema)))
-      .map(([key]) => key),
-  ),
-];
+export const secretConfigKeys = secretKeysOf({
+  ...serverFields,
+  ...authFields,
+  ...mediaWorkerFields,
+  ...migrationFields,
+});
