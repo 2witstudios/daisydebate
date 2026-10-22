@@ -133,6 +133,7 @@ describe('competitive schema rules', () => {
             'rounds_rules_snapshot_is_object',
             'rounds_runtime_state_is_object',
             'rounds_status_check',
+            'rounds_transcript_cutoff_check',
             'rounds_version_positive',
             'rounds_visibility_check',
           ],
