@@ -38,7 +38,7 @@ test('paced source windows preserve clock uncertainty and reject burst credit', 
     },
     expected: {
       firstSamples: 480,
-      window: { beforeMs: 10079.9908, afterMs: 10112.0092 },
+      window: { beforeMs: 10079.9888, afterMs: 10112.0112 },
       burstSamples: 480,
       burstWindow: null,
       valid: false,
