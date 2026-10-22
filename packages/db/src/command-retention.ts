@@ -1,9 +1,10 @@
+import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { deleteExpiredBatch, type RetentionBatch } from './retention';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { roomCommands } from './schema/room-commands';
 import { roundCommands } from './schema/round-commands';
-/** Accepted DEC-81 window is applied by the injected-clock sweep; rows never retain forever. */
+/** Accepted DEC-81 window is applied by the injected-clock sweep; durable attendance facts retain their referenced receipts until owning Round erasure. */
 export const commandRetention = ({
   database,
   eventSink,
@@ -31,6 +32,9 @@ export const commandRetention = ({
           table: roundCommands,
           key: roundCommands.commandId,
           at: roundCommands.appliedAt,
+          eligible: sql`not exists(select 1 from round_check_ins a where a.command_id=${roundCommands.commandId})
+            and not exists(select 1 from round_attendance_adjudications a where a.command_id=${roundCommands.commandId})
+            and not exists(select 1 from round_check_in_attempts a where a.command_id=${roundCommands.commandId} and a.state='pending')`,
         },
         batch,
       ),
