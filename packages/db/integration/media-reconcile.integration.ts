@@ -1,3 +1,4 @@
+import { mediaTestHuman } from './media-session.test-support';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { requireTestServices } from '@daisy/config';
@@ -9,12 +10,7 @@ const { databaseUrl } = requireTestServices(process.env);
 
 test('durable reconcile claims serve only the request horizon they actually started with', async () => {
   await withFixture(databaseUrl, async (fixture) => {
-    const roundId = await fixture.round();
-    const seat = await fixture.seat(roundId, 'affirmative');
-    await fixture.sql.unsafe(
-      'update users set email_verified=true where id=(select user_id from actors where id=$1)',
-      [seat.actorId],
-    );
+    const { roundId, seat } = await mediaTestHuman(fixture);
     const store = mediaTestStore(fixture.sql),
       otherProcess = mediaTestStore(fixture.sql);
     const binding = await store.ensureBinding({
@@ -43,8 +39,7 @@ test('durable reconcile claims serve only the request horizon they actually star
       });
       await store.finishMediaReconcile({
         ...claim.fence,
-        absenceVerified: false,
-        terminal: false,
+        absenceVerified: true,
       });
       const progress = await store.mediaReconcileProgress(binding.sessionId);
       assert({
@@ -57,8 +52,9 @@ test('durable reconcile claims serve only the request horizon they actually star
           claim.runningVersion,
           competing.kind,
           progress.servedVersion,
+          progress.endedAt,
         ],
-        expected: [1, 2, 1, 'wait', 1],
+        expected: [1, 2, 1, 'wait', 1, null],
       });
       const immediate = await store.claimMediaReconcile({
         sessionId: binding.sessionId,
@@ -80,12 +76,7 @@ test('durable reconcile claims serve only the request horizon they actually star
 
 test('restart, verified absence and late acknowledgement never erase unknown vendor outcomes', async () => {
   await withFixture(databaseUrl, async (fixture) => {
-    const roundId = await fixture.round();
-    const seat = await fixture.seat(roundId, 'affirmative');
-    await fixture.sql.unsafe(
-      'update users set email_verified=true where id=(select user_id from actors where id=$1)',
-      [seat.actorId],
-    );
+    const { roundId, seat } = await mediaTestHuman(fixture);
     const store = mediaTestStore(fixture.sql);
     const binding = await store.ensureBinding({
       roundId,
@@ -148,7 +139,6 @@ test('restart, verified absence and late acknowledgement never erase unknown ven
       const result = await restarted.finishMediaReconcile({
         ...recovery.fence,
         absenceVerified: true,
-        terminal: true,
       });
       assert({
         given:

@@ -1,3 +1,4 @@
+import { mediaTestHuman } from './media-session.test-support';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
@@ -9,12 +10,7 @@ const { databaseUrl } = requireTestServices(process.env);
 
 test('media authority fence permits durable attendance marker FK admission while excluding Round writers', async () => {
   await withFixture(databaseUrl, async (fixture) => {
-    const roundId = await fixture.round();
-    const seat = await fixture.seat(roundId, 'affirmative');
-    await fixture.sql.unsafe(
-      'update users set email_verified=true where id=(select user_id from actors where id=$1)',
-      [seat.actorId],
-    );
+    const { roundId, seat } = await mediaTestHuman(fixture);
     const entered = Promise.withResolvers<void>(),
       release = Promise.withResolvers<void>();
     const run = createBoundedTransaction({

@@ -1,9 +1,17 @@
+import {
+  readMediaBotLeases,
+  mediaPublicationParticipants,
+} from './media-publication-authority';
 import { createAppError } from '@daisy/errors';
 import { and, eq, isNull } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { BoundedTransaction } from './bounded-transaction';
 import type { BoundedTransactionContext } from './transaction-context';
-import { lockMediaRound, mediaId } from './media-session-authority';
+import {
+  lockMediaRound,
+  mediaId,
+  mediaWindowClosed,
+} from './media-session-authority';
 import {
   executeLockedRoundTick,
   type LockedRoundTickInput,
@@ -14,6 +22,7 @@ import { mediaParticipants } from './schema/media-sessions';
 import { sampleRoundExecutionTime } from './round-execution-time';
 import { mediaSessions } from './schema/media-sessions';
 import { mediaVendorMutations } from './schema/media-vendor-mutations';
+import { rounds } from './schema/rounds';
 
 type Session = typeof mediaSessions.$inferSelect;
 export type MediaVendorIntent =
@@ -42,7 +51,31 @@ export type MediaReconcileFence = {
   readonly owner: string;
   readonly epoch: number;
 };
-const LEASE_MS = 15_000;
+import {
+  createMediaReconcileClaims,
+  MEDIA_RECONCILE_LEASE_MS as LEASE_MS,
+} from './media-reconcile-claims';
+
+const completionFields = (
+  session: Session,
+  now: Date,
+  terminal: boolean,
+  cleaned: boolean,
+) => ({
+  reconcileOwner: null,
+  reconcileLeaseUntil: null,
+  reconcileCompletedAt: now,
+  reconcileServedVersion: session.reconcileRunningVersion,
+  ...(cleaned
+    ? {
+        unsafeAt: null,
+        ...(terminal ? { endedAt: session.endedAt ?? now } : {}),
+      }
+    : {}),
+  ...(terminal
+    ? { deletionRequestedAt: session.deletionRequestedAt ?? now }
+    : {}),
+});
 
 /** Durable serialization only; every provider call happens after these bounded transactions commit. */
 export function createMediaReconcileStore(input: {
@@ -84,76 +117,27 @@ export function createMediaReconcileStore(input: {
     )
       throw createAppError('CONFLICT', 'Media reconciliation lease changed');
   };
+  const withFence = <T>(
+    request: MediaReconcileFence,
+    work: (
+      tx: BoundedTransactionContext,
+      session: Session,
+      now: Date,
+    ) => Promise<T>,
+  ) =>
+    input.run(async (tx) => {
+      const session = await locked(tx, request.sessionId);
+      const now = new Date(await sampleRoundExecutionTime(tx));
+      fence(session, request, now);
+      return work(tx, session, now);
+    });
   return {
-    async requestMediaReconcile(request: {
-      readonly roundId: string;
-      readonly actorId?: string;
-    }) {
-      return input.run(async (tx) => {
-        await lockMediaRound(tx, mediaId(request.roundId), request.actorId);
-        const [session] = await tx
-          .select()
-          .from(mediaSessions)
-          .where(eq(mediaSessions.roundId, request.roundId))
-          .for('update');
-        if (!session) throw createAppError('NOT_FOUND');
-        const now = new Date(await sampleRoundExecutionTime(tx));
-        const version = session.reconcileRequestVersion + 1;
-        await tx
-          .update(mediaSessions)
-          .set({ reconcileRequestedAt: now, reconcileRequestVersion: version })
-          .where(eq(mediaSessions.id, session.id));
-        return { sessionId: session.id, version };
-      });
-    },
-    async claimMediaReconcile(request: {
-      readonly sessionId: string;
-      readonly owner: string;
-    }) {
-      mediaId(request.owner);
-      return input.run(async (tx) => {
-        const session = await locked(tx, request.sessionId);
-        const now = new Date(await sampleRoundExecutionTime(tx));
-        if (
-          session.reconcileOwner &&
-          session.reconcileLeaseUntil &&
-          session.reconcileLeaseUntil > now
-        )
-          return {
-            kind: 'wait' as const,
-            retryAt: session.reconcileLeaseUntil.toISOString(),
-          };
-        const earliest =
-          (session.reconcileStartedAt?.getTime() ?? -Infinity) + 500;
-        if (now.getTime() < earliest)
-          return {
-            kind: 'wait' as const,
-            retryAt: new Date(earliest).toISOString(),
-          };
-        const outstanding = await pending(tx, session.id);
-        const epoch = session.reconcileEpoch + 1;
-        const unsafeAt = session.unsafeAt ?? (outstanding.length ? now : null);
-        await tx
-          .update(mediaSessions)
-          .set({
-            reconcileEpoch: epoch,
-            reconcileOwner: request.owner,
-            reconcileLeaseUntil: new Date(now.getTime() + LEASE_MS),
-            reconcileStartedAt: now,
-            reconcileRunningVersion: session.reconcileRequestVersion,
-            unsafeAt,
-          })
-          .where(eq(mediaSessions.id, session.id));
-        return {
-          kind: 'claimed' as const,
-          fence: { sessionId: session.id, owner: request.owner, epoch },
-          roundId: session.roundId,
-          roomName: session.roomName,
-          unsafe: unsafeAt !== null,
-          runningVersion: session.reconcileRequestVersion,
-        };
-      });
-    },
+    ...createMediaReconcileClaims({
+      database: input.database,
+      run: input.run,
+      locked,
+      pending,
+    }),
     async beginMediaMutation(
       request: MediaReconcileFence & {
         readonly intent: MediaVendorIntent;
@@ -167,10 +151,7 @@ export function createMediaReconcileStore(input: {
         }) => void;
       },
     ) {
-      return input.run(async (tx) => {
-        const session = await locked(tx, request.sessionId);
-        const now = new Date(await sampleRoundExecutionTime(tx));
-        fence(session, request, now);
+      return withFence(request, async (tx, session) => {
         const outstanding = await pending(tx, session.id);
         if (
           (session.unsafeAt || outstanding.length) &&
@@ -178,6 +159,11 @@ export function createMediaReconcileStore(input: {
         )
           throw createAppError('CONFLICT', 'Media recovery is unresolved');
         const authority = await lockMediaRound(tx, session.roundId);
+        const botLeases = await readMediaBotLeases(
+          tx,
+          session.roundId,
+          authority.participants,
+        );
         const tick = await executeLockedRoundTick(tx, {
           roundId: session.roundId,
           buildProjection: request.buildProjection,
@@ -203,7 +189,12 @@ export function createMediaReconcileStore(input: {
         }
         request.authorize({
           round,
-          participants: authority.participants,
+          participants: mediaPublicationParticipants(
+            authority.participants,
+            botLeases,
+            round,
+            tick.now,
+          ),
           now: tick.now,
           finalSegmentEndedAt: tick.finalSegmentEndedAt,
           participantId,
@@ -262,58 +253,35 @@ export function createMediaReconcileStore(input: {
     async finishMediaReconcile(
       request: MediaReconcileFence & {
         readonly absenceVerified: boolean;
-        readonly terminal: boolean;
       },
     ) {
-      return input.run(async (tx) => {
-        const session = await locked(tx, request.sessionId);
-        const now = new Date(await sampleRoundExecutionTime(tx));
-        fence(session, request, now);
+      return withFence(request, async (tx, session, now) => {
+        const [round] = await tx
+          .select({
+            status: rounds.status,
+            finalSegmentEndedAt: rounds.finalSegmentEndedAt,
+          })
+          .from(rounds)
+          .where(eq(rounds.id, session.roundId));
+        if (!round) throw createAppError('NOT_FOUND');
+        const terminal = mediaWindowClosed(
+          round.status,
+          now.toISOString(),
+          round.finalSegmentEndedAt?.toISOString() ?? null,
+        );
         const unresolved = (await pending(tx, session.id)).length > 0;
         const cleaned = request.absenceVerified && !unresolved;
         await tx
           .update(mediaSessions)
           .set({
-            reconcileOwner: null,
-            reconcileLeaseUntil: null,
-            reconcileCompletedAt: now,
-            reconcileServedVersion: session.reconcileRunningVersion,
-            ...(cleaned
-              ? {
-                  unsafeAt: null,
-                  ...(request.terminal
-                    ? { endedAt: session.endedAt ?? now }
-                    : {}),
-                }
-              : {}),
-            ...(request.terminal
-              ? { deletionRequestedAt: session.deletionRequestedAt ?? now }
-              : {}),
+            ...completionFields(session, now, terminal, cleaned),
           })
           .where(eq(mediaSessions.id, session.id));
         return {
           safe: !unresolved && (session.unsafeAt === null || cleaned),
-          ended: request.terminal && cleaned,
+          ended: terminal && cleaned,
         };
       });
-    },
-    async mediaReconcileProgress(sessionId: string) {
-      const [session] = await input.database
-        .select({
-          servedVersion: mediaSessions.reconcileServedVersion,
-          unsafeAt: mediaSessions.unsafeAt,
-          endedAt: mediaSessions.endedAt,
-        })
-        .from(mediaSessions)
-        .where(eq(mediaSessions.id, mediaId(sessionId)));
-      if (!session) throw createAppError('NOT_FOUND');
-      return session;
-    },
-    async activeMediaSessions() {
-      return input.database
-        .select({ id: mediaSessions.id, roundId: mediaSessions.roundId })
-        .from(mediaSessions)
-        .where(isNull(mediaSessions.endedAt));
     },
   };
 }

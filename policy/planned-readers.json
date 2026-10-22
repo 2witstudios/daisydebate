@@ -65,15 +65,6 @@
       "reviewBy": "2026-12-01"
     },
     {
-      "path": "packages/media/src/index.ts",
-      "export": "createMediaService",
-      "task": "VIDEO-2.1",
-      "owner": "VIDEO / ag-f41q0moq",
-      "adr": "docs/decisions/0057-planned-readers.md",
-      "reason": "Committed seated-actor token/reconcile leaf pye8vaswx0emsq93mw08l9el consumes the isolated LiveKit adapter after actual CAP grants/session producers exist. This declaration authorizes no grants, pre-round joins or human acceptance.",
-      "reviewBy": "2026-10-16"
-    },
-    {
       "path": "packages/media/src/audio-publication.ts",
       "export": "createAudioPublication",
       "task": "VIDEO-3.16",
