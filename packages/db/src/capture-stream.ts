@@ -117,6 +117,10 @@ export async function sealCapturedStream(
       revision: await transcriptRevision(tx, input.roundId),
     };
   }
+  // A takeover worker knows only its own epoch's chunks; never seal below the
+  // stored count. The stream stays open for finalization instead.
+  if (input.expectedChunkCount < stream.chunkCount)
+    throw createAppError('CONFLICT', 'Capture seal is below stored chunks');
   if (segment.endedAt === null || required.some((grant) => grant.end === null))
     throw createAppError('CONFLICT', 'Capture timeline is still open');
   const observations = await tx
