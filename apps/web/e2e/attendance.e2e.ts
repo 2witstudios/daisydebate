@@ -12,6 +12,7 @@ import {
   actualSpeech,
   enterSpeech,
   nextReceipt,
+  closeAttendedFixture,
 } from './support/attendance-browser';
 import { nativeAttendanceOutage } from './support/native-attendance-proof';
 import { serviceAttendanceOutage } from './support/service-attendance-proof';
@@ -118,6 +119,11 @@ test('actual speech check-in survives refresh and a real browser network disconn
       (await readBallotRound(accounts.members[1]!.context.request, round.id))
         .status,
     ).toBe('active');
+    await closeAttendedFixture(
+      accounts.members[0]!.context.request,
+      round.id,
+      speaker!.receipt.participantId,
+    );
   } finally {
     await accounts.closeContexts();
   }
