@@ -147,14 +147,20 @@ describe('competitive schema child tables', () => {
           indexes: [
             'agent_runs_participant_kind_idx',
             'agent_runs_started_idx',
+            'unique agent_runs_id_participant_unique',
           ],
           uniques: [],
           namedKeys: [],
         },
         reservations: {
-          checks: ['usage_reservations_kind_check'],
+          checks: [
+            'usage_reservations_admission_check',
+            'usage_reservations_kind_check',
+            'usage_reservations_refund_check',
+          ],
           indexes: [
             'unique usage_reservations_actor_round_kind_unique',
+            'usage_reservations_actor_period_idx',
             'usage_reservations_counted_idx',
             'usage_reservations_round_idx',
           ],

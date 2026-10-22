@@ -1,6 +1,7 @@
 import { createAppError, isAppError } from '@daisy/errors';
 import { z } from 'zod';
 import { readLines } from './lines';
+import { readPcmSpeech, requireSpeechNotCancelled } from './pcm';
 
 export type Fetch = (url: string, init: RequestInit) => Promise<Response>;
 
@@ -210,6 +211,34 @@ export function createOpenRouter({
         audio: await reading('/audio/speech', () => response.arrayBuffer()),
         characters: text.length,
       };
+    },
+    /** Validated in-memory PCM for the server publication worker, never a transcript. */
+    async speakPcm({
+      model,
+      voice,
+      text,
+      signal,
+    }: {
+      readonly model: string;
+      readonly voice: string;
+      readonly text: string;
+      readonly signal?: AbortSignal;
+    }) {
+      requireSpeechNotCancelled(signal);
+      const response = await post(
+        '/audio/speech',
+        {
+          model,
+          input: text,
+          voice,
+          response_format: 'pcm',
+          provider: DATA_POLICY,
+        },
+        signal,
+      );
+      return reading('/audio/speech', () =>
+        readPcmSpeech(response, text.length, signal),
+      );
     },
     async transcribe({
       model,

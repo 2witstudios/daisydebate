@@ -7,6 +7,7 @@ import {
   pgTable,
   primaryKey,
   text,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core';
 import { createdAtColumn, oneOf, timestampColumn } from './columns';
 import { ballots } from './ballots';
@@ -19,6 +20,7 @@ export const roundJudgingJobs = pgTable(
   {
     roundId: text('round_id').notNull(),
     freezeRevision: integer('freeze_revision').notNull(),
+    commandId: text('command_id'),
     judgeParticipantId: text('judge_participant_id').notNull(),
     status: text('status')
       .$type<'queued' | 'leased' | 'succeeded' | 'failed'>()
@@ -31,6 +33,7 @@ export const roundJudgingJobs = pgTable(
   },
   (table) => [
     primaryKey({ columns: [table.roundId, table.judgeParticipantId] }),
+    uniqueIndex('round_judging_jobs_command_unique').on(table.commandId),
     foreignKey({
       name: 'round_judging_jobs_freeze_revision_fk',
       columns: [table.roundId, table.freezeRevision],
