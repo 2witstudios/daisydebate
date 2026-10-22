@@ -23,14 +23,15 @@ and receives m1. Reject negative RTT or RTT above 100ms. The initial server offs
 interval is [D-m1, D-m0+p], where p is the timestamp quantization uncertainty
 (1ms for the database ISO representation). Refresh at most every 15 seconds;
 receipts or refreshes older than 30 seconds are rejected. A refreshed interval
-must intersect the previous interval widened by 100ppm drift. A discontinuity
+must intersect the previous interval; both intervals are widened by 100ppm drift
+across both endpoints of the new calibration bracket. A discontinuity
 invalidates the existing publication anchor; calibration cannot revive a gap.
 
 For acknowledged prefix n at sample rate r, the next nominal period starts at
 s = anchor + 1000*n/r and ends at s+10ms. Dispatch waits for that end. Reject an
 early dispatch, noncontiguous sample count, non-10ms frame, reversed native
 bracket or acknowledgement later than the due time plus 100ms. For acknowledgement
-time a and calibration receive m1, use drift d = 0.0001*max(a-m1, abs(s-m1)).
+time a, use drift d = 0.0001*max(abs(s-m0), abs(s-m1), abs(a-m0), abs(a-m1)).
 The full uncertainty window is [s+D-m1-d, a+D-m0+p+d], rounded outward to ISO
 milliseconds. This covers the nominal frame and native handoff bracket, including
 a frame beginning before a refreshed calibration. It is not a point timestamp.

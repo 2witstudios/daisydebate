@@ -68,10 +68,11 @@ export function observeSourceProgress(
   ) {
     return { clock: { ...clock, valid: false }, window: null };
   }
-  const drift =
-    Math.max(age, Math.abs(periodStart - clock.calibration.receivedAtMs)) *
-    0.0001;
-  const offsets = calibrationOffsets(clock.calibration, drift);
+  const offsets = calibrationOffsets(
+    clock.calibration,
+    periodStart,
+    receipt.afterMs,
+  );
   return {
     clock: { ...clock, eligibleSamples: receipt.endSample },
     window: {
@@ -92,20 +93,42 @@ export function refreshPublicationClock(
     anchorMs: calibration.receivedAtMs,
     sampleRate: clock.sampleRate,
   });
-  const drift = Math.max(age, 0) * 0.0001;
-  const previous = calibrationOffsets(clock.calibration, drift);
-  const next = calibrationOffsets(calibration, 0);
+  const previous = calibrationOffsets(
+    clock.calibration,
+    calibration.sentAtMs,
+    calibration.receivedAtMs,
+  );
+  const next = calibrationOffsets(
+    calibration,
+    calibration.sentAtMs,
+    calibration.receivedAtMs,
+  );
   const valid =
     clock.valid &&
     checked.valid &&
     age >= 0 &&
+    calibration.sentAtMs >= clock.calibration.receivedAtMs &&
     age <= 30000 &&
     next.lower <= previous.upper &&
     next.upper >= previous.lower;
   return { ...clock, calibration, valid };
 }
 
-function calibrationOffsets(calibration: ClockCalibration, drift: number) {
+function calibrationOffsets(
+  calibration: ClockCalibration,
+  start: number,
+  end: number,
+) {
+  // The database sample may be anywhere in the request bracket. Bound both
+  // frame endpoints against both possible calibration endpoints, including
+  // periods that began before a refreshed calibration.
+  const drift =
+    Math.max(
+      Math.abs(start - calibration.sentAtMs),
+      Math.abs(start - calibration.receivedAtMs),
+      Math.abs(end - calibration.sentAtMs),
+      Math.abs(end - calibration.receivedAtMs),
+    ) * 0.0001;
   return {
     lower: calibration.serverNowMs - calibration.receivedAtMs - drift,
     upper:

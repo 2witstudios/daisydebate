@@ -158,3 +158,66 @@ is **pending** the existing PRIV-H human production sign-off; synthetic local
 proof does not grant legal approval. Retention is 180 days alongside transcript
 text; subject erasure and owning Round erasure delete it. It is derived personal
 transcript data and is not anonymized.
+
+### Frozen ballot witness
+
+CAP-D.1 ballot writes carry `ballots.round_id` (category identifier) and
+`freeze_revision` (category none). Composite references bind the judge seat to
+that Round and bind the revision to its immutable transcript freeze. Both fields
+are immutable on every UPDATE, including a provisional null pair; an older
+ballot cannot acquire invented frozen provenance. Voiding preserves the pair.
+No new transcript content is copied into the ballot witness. Existing ballot
+privacy, retention and erasure policy applies to the owning record.
+
+The pair is temporarily nullable only while CAP-E removes uncutover writers and
+fixtures on the branch. Every actual shared human/bot submit writer must supply
+both fields. CAP-E must generate a forward NOT NULL migration after replacing
+those writers and fixtures, before main acceptance. Command deduplication uses
+the existing global `round_commands.command_id` key with type `submit_ballot`.
+
+The freeze witness uses `NO ACTION DEFERRABLE INITIALLY DEFERRED`; deleting a
+freeze alone cannot erase submitted ballots. Judge-seat references use deferred
+NO ACTION rather than immediate RESTRICT semantics so the owning Round's
+`ballots_round_fk ON DELETE CASCADE` can finish all child cascades. Direct seat
+or freeze deletion is refused at commit and rolls back. This changes technical
+constraint timing, not ballot voiding or replacement policy. Real PostgreSQL
+proof checks both commit refusals and zero remaining ballots, jobs, freezes,
+participants and utterances after owning Round erasure.
+
+`round_judging_jobs` is keyed by `(round_id, judge_participant_id)`, preserving
+one independent lease/attempt/result per actual judge seat. Its freeze revision
+remains scoped to the Round's one immutable freeze. Enqueuers must insert every
+eligible bot judge; selecting only the first judge is invalid for admitted
+multi-judge formats. The table module is `schema/round-judging-jobs.ts`; the
+freeze module has no ballot import, avoiding a schema import cycle.
+
+A judging job's nullable `command_id` (category identifier) is allocated once
+with an actual cuid2 at first claim. Queued intent creation may omit it. A unique
+index prevents sharing it with another intent; the UPDATE trigger refuses later
+replacement or clearing, and refuses changing the Round/judge/freeze identity.
+Retries and takeovers preserve that identifier and reuse the shared global
+command receipt. It is an identifier, never a bearer token. Provider uncertainty
+belongs in the actual AgentRun configuration snapshot before dispatch, separately
+from job scheduling status; no provider result is inferred from a lease timeout.
+
+### Bot publication claim
+
+`round_bot_publications` stores one current claim per `(round_id,
+round_participant_id)`, independent of utterance rows. `round_id`,
+`round_participant_id`, `segment_id`, `agent_run_id` and `service_id` have category
+identifier; `publication_epoch` and `lease_expires_at` have category none;
+`lease_token_digest` has category secret. The digest stores SHA3-256 of an OS
+CSPRNG bearer, never a cuid2 or raw token, and must never enter logs. Canonical
+service identity is exactly `agent-run:<agent_run_id>`. Scoped segment/seat/run
+references prevent cross-Round or cross-seat claims and have leading indexes.
+Claim records remain through revocation to preserve epochs, then erase with the
+owning Round. They contain no PCM, generated phrase or transcript text.
+
+The schema refuses seat identity mutation, epoch decrease or skipped epochs,
+and identity replacement at the same epoch. A takeover advances exactly once
+with a new AgentRun and token digest. Same-epoch renewal cannot resurrect an
+expired or revoked lease; revocation shortens the expiry and preserves the row.
+CAP-E.1's actual bounded adapter still owns bot-seat admission, active-run and
+fresh historical floor verification, ending the previous run, secret comparison,
+usage recording and output cancellation. Schema integrity alone authorizes no
+provider call, source frame or transcript credit.
