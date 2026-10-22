@@ -1,4 +1,3 @@
-import { randomBytes } from 'node:crypto';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -6,7 +5,7 @@ import { assertRejects } from '@daisy/errors/testing';
 import { createAttendanceFeature } from '../src/features/attendance/operations';
 import { createBotControl } from '../src/features/round-bots/control';
 import { withRoomRuntime } from './round-runtime.test-support';
-import { opponentSpeech } from './bot-control.test-support';
+import { opponentSpeech, botControlOptions } from './bot-control.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 test('idle bot control records actual opponent-speech attendance despite refused publication', async () => {
@@ -98,13 +97,6 @@ test('idle bot control records actual opponent-speech attendance despite refused
         expected: [0, 1],
       });
     },
-    {
-      botBusyCap: 4,
-      botPublication: {
-        leaseMs: 30000,
-        models: { speech: 'explicit-speech', cross_ex: 'explicit-cross' },
-        nextToken: () => randomBytes(32).toString('base64url'),
-      },
-    },
+    botControlOptions,
   );
 });
