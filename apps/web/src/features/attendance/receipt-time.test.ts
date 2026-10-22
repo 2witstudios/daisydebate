@@ -1,6 +1,20 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { attendanceReceiptTime } from './receipt-time';
+import { attendanceReceiptTime, attendanceTimestamp } from './receipt-time';
 setupRitewayBun();
+test('native deadline and horizon timestamps round trip without flooring microseconds', () => {
+  const instants = [
+    '2026-10-22T00:00:40.000001Z',
+    '2026-10-22T00:00:39.999999Z',
+  ];
+  assert({
+    given: 'deadline or horizon inherited from PG microsecond boundary',
+    should: 'preserve all six digits on durable serialization',
+    actual: instants.map((iso) =>
+      attendanceTimestamp(attendanceReceiptTime(iso)),
+    ),
+    expected: instants,
+  });
+});
 test('PostgreSQL receipt microseconds do not move a late stamp onto the deadline', () => {
   const exact = '2026-10-22T00:00:40.000000Z';
   assert({

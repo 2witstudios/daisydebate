@@ -15,7 +15,10 @@ export type SettledAvailability = {
 };
 
 function assertSampleTime(atMs: number, previous: number | null): void {
-  if (!Number.isSafeInteger(atMs) || (previous !== null && atMs <= previous))
+  if (
+    !Number.isSafeInteger(Math.round(atMs * 1000)) ||
+    (previous !== null && atMs <= previous)
+  )
     throw createInvariantError(
       'debate.availability.settled-prefix-stable',
       'Availability samples must strictly increase',
@@ -36,7 +39,7 @@ function recoverOutage(
   return { open: null, healthyCount: 0 };
 }
 
-/** Millisecond instants: a gap begins at H+1, so H remains settled forever. */
+/** PG instants retain microseconds: gap starts at the next native tick after H. */
 export function deriveOutageIntervals(
   samples: readonly AvailabilitySample[],
 ): SettledAvailability {
@@ -48,7 +51,7 @@ export function deriveOutageIntervals(
     assertSampleTime(sample.atMs, previous);
     const gap = previous !== null && sample.atMs - previous > 2000;
     if (gap) {
-      open ??= previous! + 1;
+      open ??= (Math.round(previous! * 1000) + 1) / 1000;
       healthyCount = 0;
     }
     const next = recoverOutage({ open, healthyCount }, sample, intervals);

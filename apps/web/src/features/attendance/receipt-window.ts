@@ -24,7 +24,7 @@ export function acceptAttendanceReceipt(
       receivedAtMs,
       availability: deriveOutageIntervals(
         facts.samples.map((s) => ({
-          atMs: Date.parse(s.at),
+          atMs: attendanceReceiptTime(s.at),
           healthy: s.healthy,
         })),
       ),

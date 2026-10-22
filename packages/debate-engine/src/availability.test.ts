@@ -8,6 +8,24 @@ setupRitewayBun();
 const samples = (entries: readonly (readonly [number, boolean])[]) =>
   entries.map(([atMs, healthy]) => ({ atMs, healthy }));
 
+test('distinct native microsecond samples do not collapse at a millisecond boundary', () => {
+  assert({
+    given: 'two increasing PG samples inside the same millisecond',
+    should: 'retain strict ordering and the native settled horizon',
+    actual: deriveOutageIntervals(
+      samples([
+        [1000.001, true],
+        [1000.002, true],
+      ]),
+    ),
+    expected: {
+      historyStartsAtMs: 1000.001,
+      settledHorizonMs: 1000.002,
+      intervals: [],
+    },
+  });
+});
+
 test('outage starts after settled horizon and closes only on third healthy sample', () => {
   const evidence = samples([
     [0, true],
@@ -24,7 +42,7 @@ test('outage starts after settled horizon and closes only on third healthy sampl
     expected: {
       historyStartsAtMs: 0,
       settledHorizonMs: 6000,
-      intervals: [{ startMs: 1001, endMs: 6000 }],
+      intervals: [{ startMs: 1000.001, endMs: 6000 }],
     },
   });
 });

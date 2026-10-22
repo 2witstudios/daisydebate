@@ -21,11 +21,11 @@ import {
 import { createAppError } from '@daisy/errors';
 import { acceptAttendanceReceipt } from './receipt-window';
 import { attendanceWindowFor } from './windows';
-import { attendanceReceiptTime } from './receipt-time';
+import { attendanceReceiptTime, attendanceTimestamp } from './receipt-time';
 const availabilityFor = (facts: Pick<LockedAttendanceCheckIn, 'samples'>) =>
   deriveOutageIntervals(
     facts.samples.map((sample) => ({
-      atMs: Date.parse(sample.at),
+      atMs: attendanceReceiptTime(sample.at),
       healthy: sample.healthy,
     })),
   );
@@ -91,8 +91,8 @@ export function resolveAttendanceWindow(
   return {
     segmentId: target.id,
     decision: decision.decision,
-    effectiveDeadline: new Date(decision.effectiveDeadlineMs).toISOString(),
-    settledHorizon: new Date(availability.settledHorizonMs).toISOString(),
+    effectiveDeadline: attendanceTimestamp(decision.effectiveDeadlineMs),
+    settledHorizon: attendanceTimestamp(availability.settledHorizonMs),
     projection,
   };
 }
@@ -138,7 +138,7 @@ export function createAttendanceFeature(deps: {
                   effectiveDeadline:
                     deadlineMs === null
                       ? null
-                      : new Date(deadlineMs).toISOString(),
+                      : attendanceTimestamp(deadlineMs),
                 },
               ]
             : [];
