@@ -104,3 +104,50 @@ atomically with accepted history. A planned schedule or a client clock cannot
 assign it. Both columns have category `none`: they bound transcript admission,
 contain no audio/text and follow Round erasure. The separate judging window ends
 30 minutes after that same actual final-end anchor.
+
+## Capture storage producer
+
+Expected streams use the stable `(segment_id, round_participant_id)` key from
+nonempty actual historical speaking intervals. They must be discovered from
+history, never merely from seal rows that happen to exist. `transcript_segments`
+stores `open`, `complete` or `partial`, with received and declared chunk counts.
+A finalizer can insert a missing stream directly as partial with zero chunks.
+Closed complete/partial records are immutable. Matching counts is necessary for
+complete but insufficient: the sealing operation must also prove continuous
+trusted observation coverage over every required interval. Missing tracks,
+takeovers, dropped clips, calibration loss and stalls cannot establish silence.
+
+`transcript_observations` stores trusted server observation intervals per stream,
+track and lease epoch; raw PCM remains in worker memory. A current worker lease
+is identified by `media_worker_leases.session_id`, `worker_id` and rising `epoch`.
+`worker_id` is an identifier, never a bearer credential. Ingress must verify its
+signed principal and active epoch under the same locks as append/seal.
+
+`utterances` remains the only transcript text store. Capture metadata identifies
+a clip by its segment, seat, track and start offset, plus a deterministic clip
+key. A body digest detects conflicting retries. `round_transcripts.revision`
+records the committed transcript frontier under the owning Round lock. Duplicate
+clips must not advance it. Every transcript writer, including bot publication,
+must adopt the same bounded transaction and freeze/cutoff fences before full
+acceptance. These schema tables alone do not prove a working capture producer.
+
+| Table                   | Columns                                                            | Category         | Purpose                                                  |
+| ----------------------- | ------------------------------------------------------------------ | ---------------- | -------------------------------------------------------- |
+| round_transcripts       | round_id                                                           | identifier       | Bind the committed frontier to its Round                 |
+| round_transcripts       | revision                                                           | none             | Monotonic committed transcript frontier                  |
+| transcript_segments     | round_id, segment_id, round_participant_id                         | identifier       | Bind a stream to authoritative segment and seat          |
+| transcript_segments     | state, chunk_count, sealed_chunk_count, sealed_at                  | none             | Preserve honest complete/partial write closure           |
+| transcript_observations | id, round_id, segment_id, round_participant_id, track_id           | identifier       | Bind trusted observation coverage to the media stream    |
+| transcript_observations | worker_epoch, observed_from, observed_until                        | none             | Prove continuous coverage without persisting PCM         |
+| media_worker_leases     | session_id, worker_id                                              | identifier       | Identify the active capture worker                       |
+| media_worker_leases     | epoch, expires_at                                                  | none             | Fence takeover and stale ingress                         |
+| utterances              | clip_key, capture_track_id                                         | identifier       | Deduplicate the captured clip                            |
+| utterances              | capture_start_offset_ms, capture_duration_ms, capture_worker_epoch | none             | Bind clip placement and worker epoch                     |
+| utterances              | capture_body_digest                                                | personal/private | Detect conflicting retries of private transcript content |
+
+Capture body digests follow transcript retention of 180 days and subject erasure;
+hashing does not anonymize transcript-derived data. Raw transcript text remains
+personal/private under DEC-101, with deletion tracked by ISSUE-322. These rows
+follow Round/segment erasure; the scoped seat reference checks at transaction end
+so aggregate deletion can cascade without allowing orphan references. No new
+legal basis, production consent or provider activation is inferred.
