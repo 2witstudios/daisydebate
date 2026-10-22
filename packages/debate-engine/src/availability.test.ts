@@ -144,3 +144,31 @@ test('appending any healthy or unhealthy suffix preserves the settled prefix', (
       }
   }
 });
+
+test('additional failed samples never shorten healthy elapsed grace', () => {
+  const base = Array.from({ length: 121 }, (_, i) => ({
+    atMs: i * 1000,
+    healthy: true,
+  }));
+  const deadline = (evidence: typeof base) =>
+    effectiveAttendanceDeadline({
+      openedAtMs: 0,
+      graceMs: 40000,
+      availability: deriveOutageIntervals(evidence),
+    });
+  const original = deadline(base)!;
+  for (let mask = 0; mask < 256; mask++) {
+    const failed = base.map((sample, i) => ({
+      ...sample,
+      healthy: !(i <= 70 && i % 10 === 0 && mask & (1 << (i / 10))),
+    }));
+    const later = deadline(failed);
+    assert({
+      given: `additional failure mask ${mask}`,
+      should:
+        'postpone or leave deadline undetermined and never turn an on-time stamp late',
+      actual: later === null || later >= original,
+      expected: true,
+    });
+  }
+});

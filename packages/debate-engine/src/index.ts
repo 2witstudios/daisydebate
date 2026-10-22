@@ -35,3 +35,8 @@ export {
   assertAttendanceRules,
   type AttendanceTimingPolicy,
 } from './attendance-policy';
+
+export {
+  requireAttendanceDecision,
+  type AttendanceDecisionEvidence,
+} from './attendance-decision';

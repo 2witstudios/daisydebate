@@ -5,6 +5,10 @@
  * registers each id with a fixture and a test (`bun invariants`).
  */
 export const debateInvariantIds = {
+  failurePostponesOnly: 'debate.adjudication.failure-postpones-only',
+  timestampDecides: 'debate.adjudication.timestamp-decides',
+  speechTurnsOnly: 'debate.adjudication.speech-turns-only',
+  lastSpeechNeverForfeits: 'debate.adjudication.last-speech-never-forfeits',
   graceCoversReconnect: 'debate.rules.check-in-grace-covers-reconnect',
   speechCoversGrace: 'debate.rules.speech-covers-grace',
   finalizationBufferCoversCommit:
