@@ -276,3 +276,38 @@ coverage gaps and count mismatch, epoch expiry/takeover, cutoff/freeze refusal
 and unchanged state after rejected writes. Native worker observation production,
 signed ingress, paused-scheduler engine composition and append/finalizer races
 remain separate required integration evidence.
+
+### Round maintenance
+
+The web startup composes `createRoundMaintenanceOperations` with the existing
+availability instance ID and the database's bound maintenance methods. A 500ms
+injected timer discovers all active Rounds using stable keyset pages, including
+human-only Rounds and Rounds without media sessions. Each Round runs the shared
+engine tick, attendance evaluation and transcript finalization in order. Work
+for one Round cannot block discovery or committed attendance-rating recovery.
+The service drains its own work before the application closes the existing pool.
+
+Maintenance mutations require a current durable web lease, canonical Round
+locking, and a fresh lease check after lock waits and before commit. Finalization
+also rechecks after stream waits. No second clock model, SQL pool or media lease
+is introduced. Attendance terminal races stop that Round's maintenance cycle;
+unexpected failures remain observable. Completed ranked attendance forfeits have
+a separate durable unrated scan using the existing idempotent rating operation.
+
+Casual Rounds with zero required and actual judges finish through the same
+maintenance path after immutable transcript freeze and settled attendance.
+`completeUnjudgedRound` holds the global command fence, canonical account and
+Round fences, then consumes the shared engine's `completeUnjudged` projection.
+It refuses incomplete play, pending check-in attempts, inconsistent cast facts,
+judged/ranked inputs and existing ballots or ratings. The existing command
+ledger stores one internal service receipt bound to the exact frozen revision;
+concurrent attempts and a new service instance replay that original receipt.
+The result is completed with a NULL outcome, without a ballot or rating.
+Existing forfeit and abandonment decisions remain terminal. This operation has
+no public completion-mode envelope and performs no model work.
+
+Attendance evaluation enforces the same current web service authority inside its
+own transaction. It checks after the Round fence and control waits, before
+competitive writes, and again before commit. An expired lease rolls back the
+projection, speaking history, outbox, receipt and adjudication together; a prior
+successful maintenance tick cannot authorize a later evaluator transaction.

@@ -5,6 +5,7 @@ import { createTestApp } from './fixtures';
 import { createAccountFlows, uniqueName } from './auth-account-helpers';
 import { withAttendanceRound } from './attendance.test-support';
 import { createPublicCheckInProbe } from '../src/features/availability/public-probe';
+import { verifyAvailabilityLeaseCadence } from './availability-lease.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 
@@ -126,6 +127,17 @@ test('real public ingress probe uses ordinary signed session, scoped seat and du
             (await native.text()).includes('Attendance recorded'),
           ],
           expected: [200, true],
+        });
+        await verifyAvailabilityLeaseCadence({
+          app: app.app,
+          sql: f.sql,
+          configuration: {
+            origin,
+            roundId,
+            segmentId,
+            participantId: participant.id,
+            cookie: signed.cookie,
+          },
         });
         await f.sql`delete from session where user_id=${identity.principal.userId}`;
         const [before] =

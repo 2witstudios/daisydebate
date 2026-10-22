@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { idSchema } from './primitives';
 
-export const roundMediaGrantsSchema = z.strictObject({
+const roundMediaGrantsSchema = z.strictObject({
   publish: z
     .array(z.enum(['camera', 'microphone']))
     .max(2)
@@ -28,10 +28,9 @@ export const roundMediaStateSchema = z.strictObject({
 export const roundMediaAdmissionSchema = roundMediaStateSchema.safeExtend({
   state: z.literal('ready'),
   identity: idSchema,
-  url: z.url({ protocol: /^wss$/ }).refine((value) => {
-    const url = new URL(value);
-    return !url.username && !url.password;
-  }),
+  url: z
+    .url({ protocol: /^wss$/ })
+    .refine((value) => /^wss:\/\/[^/?#@\\]+(?:[/?#]|$)/.test(value)),
   token: z.string().min(1).max(16384),
   expiresAt: z.iso.datetime({ offset: true }),
 });

@@ -27,6 +27,15 @@ const differs = (
     [{ identity, grants: current }],
     [{ identity, grants: desired }],
   ).length > 0;
+const needsCleanup = (state: MediaSnapshot, claim: Claim) =>
+  Boolean(
+    claim.unsafe ||
+    state.session.unsafeAt ||
+    state.unresolved ||
+    mediaEnded(state),
+  );
+const uncertain = (state: MediaSnapshot) =>
+  Boolean(state.session.unsafeAt || state.unresolved);
 
 export function createMediaReconcileRun(
   input: MediaOperationInput,
@@ -42,8 +51,11 @@ export function createMediaReconcileRun(
         () => undefined,
       );
     }
-    // The durable store also requires every earlier dispatched operation to have settled.
-    return !(await input.deadline(input.media.exists(claim.roomName)));
+    // A pending mutation could apply after an absence read. It must settle BEFORE that read.
+    const proof = await input.store.prepareMediaAbsenceProof(claim.fence);
+    if (!proof || (await input.deadline(input.media.exists(claim.roomName))))
+      return null;
+    return proof;
   };
   const createRoom = async (claim: Claim, admission: Principal) => {
     if (admission.kind === 'bot')
@@ -166,19 +178,15 @@ export function createMediaReconcileRun(
     if (await closeStale(claim, known)) await applyPermissions(claim, known);
   };
   return async (claim: Claim, admission?: Principal) => {
-    let absenceVerified = false;
-    let terminal = false;
+    let absenceProof: Awaited<ReturnType<Store['prepareMediaAbsenceProof']>> =
+      null;
+    let cleanupAttempted = false;
     try {
       const state = await snapshot(claim.roundId);
-      terminal = mediaEnded(state);
-      if (
-        claim.unsafe ||
-        state.session.unsafeAt ||
-        state.unresolved ||
-        terminal
-      )
-        absenceVerified = await removeRoom(claim);
-      else await reconcileRoom(claim, admission);
+      if (needsCleanup(state, claim)) {
+        cleanupAttempted = true;
+        absenceProof = await removeRoom(claim);
+      } else await reconcileRoom(claim, admission);
     } catch (error) {
       if (
         !isAppError(error) ||
@@ -186,9 +194,16 @@ export function createMediaReconcileRun(
       )
         await unsafe(claim, error);
     } finally {
+      try {
+        const state = await snapshot(claim.roundId);
+        if (!cleanupAttempted && uncertain(state))
+          absenceProof = await removeRoom(claim);
+      } catch (error) {
+        await unsafe(claim, error);
+      }
       await input.store.finishMediaReconcile({
         ...claim.fence,
-        absenceVerified,
+        absenceProof,
       });
     }
   };

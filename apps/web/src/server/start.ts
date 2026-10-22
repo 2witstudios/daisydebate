@@ -1,3 +1,4 @@
+import { startRoundCompetitiveMaintenance } from './round-maintenance';
 import { createRoundMediaRuntime } from '../features/round-media/composition';
 import { startRoundMediaRecovery } from './round-media-recovery';
 import { startRoundWorkers } from './round-workers';
@@ -85,6 +86,15 @@ const availability = startRoundAvailability({
       clearInterval(handle as ReturnType<typeof setInterval>),
   },
 });
+const roundMaintenance = startRoundCompetitiveMaintenance({
+  app,
+  instanceId: availability.instanceId,
+  timers: {
+    setInterval: (tick, ms) => setInterval(tick, ms).unref(),
+    clearInterval: (handle) =>
+      clearInterval(handle as ReturnType<typeof setInterval>),
+  },
+});
 const roundWorkers = startRoundWorkers({
   app,
   instanceId: availability.instanceId,
@@ -146,6 +156,7 @@ async function shutdown() {
   const availabilityStopped = availability.stop();
   const workersStopped = roundWorkers?.stop();
   const mediaRecoveryStopped = mediaRecovery?.stop();
+  const roundMaintenanceStopped = roundMaintenance.stop();
   app.logger.log(
     'server.shutdown',
     { operation: 'server.shutdown' },
@@ -172,6 +183,7 @@ async function shutdown() {
         availabilityStopped,
         workersStopped,
         mediaRecoveryStopped,
+        roundMaintenanceStopped,
       ]);
       await closeProcessApp();
     },

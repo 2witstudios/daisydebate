@@ -1,6 +1,5 @@
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { createLaunchCertificates } from './launch-certificates';
 
 /**
  * A loopback TLS edge in front of a plain-HTTP production app instance:
@@ -8,7 +7,7 @@ import { join } from 'node:path';
  * cookies need one in a real client), so every local production-mode
  * server this repo starts — the browser suite's server and the AUTH-6.7
  * load harness's instances — fronts itself with one of these. The
- * certificate is self-signed per call, generated into a private temporary
+ * certificate is issued by a per-call local CA in a private temporary
  * directory and deleted once loaded, so the private key never sits on disk
  * under any directory a test artifact upload could pick up (ISSUE-78).
  *
@@ -21,10 +20,14 @@ export function createSelfSignedTlsEdge({
   appPort,
   edgePort,
   hostname = '127.0.0.1',
+  tls: suppliedTls,
+  beforeForward,
 }: {
   readonly appPort: number | readonly number[];
   readonly edgePort: number;
   readonly hostname?: string;
+  readonly tls?: { readonly key: Buffer; readonly cert: Buffer };
+  readonly beforeForward?: (request: Request) => Response | null;
 }) {
   const appPorts = Array.isArray(appPort) ? appPort : [appPort as number];
   let next = 0;
@@ -33,38 +36,26 @@ export function createSelfSignedTlsEdge({
     next += 1;
     return port;
   };
-  const certDir = mkdtempSync(join(tmpdir(), 'daisy-tls-edge-'));
-  const made = Bun.spawnSync([
-    'openssl',
-    'req',
-    '-x509',
-    '-newkey',
-    'rsa:2048',
-    '-nodes',
-    '-days',
-    '1',
-    '-keyout',
-    join(certDir, 'key.pem'),
-    '-out',
-    join(certDir, 'cert.pem'),
-    '-subj',
-    '/CN=localhost',
-    '-addext',
-    'subjectAltName=DNS:localhost',
-  ]);
-  const tls = {
-    key: made.exitCode === 0 ? readFileSync(join(certDir, 'key.pem')) : null,
-    cert: made.exitCode === 0 ? readFileSync(join(certDir, 'cert.pem')) : null,
+  const generateTls = () => {
+    const certificates = createLaunchCertificates();
+    try {
+      return {
+        key: readFileSync(certificates.key),
+        cert: readFileSync(certificates.cert),
+      };
+    } finally {
+      certificates.close();
+    }
   };
-  rmSync(certDir, { recursive: true, force: true });
-  if (tls.key === null || tls.cert === null)
-    throw new Error('openssl could not create the cert');
+  const tls = suppliedTls ?? generateTls();
 
   const server = Bun.serve({
     hostname,
     port: edgePort,
     tls: { key: tls.key, cert: tls.cert },
     async fetch(request) {
+      const blocked = beforeForward?.(request);
+      if (blocked) return blocked;
       const url = new URL(request.url);
       const headers = new Headers(request.headers);
       headers.set('x-forwarded-proto', 'https');
