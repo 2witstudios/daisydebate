@@ -4,7 +4,7 @@ import {
   admissionRefusal,
   requireAdmissionTarget,
   requireBusyCap,
-  requireReservationProvenance,
+  requireUnrefundedReservation,
   requireSponsor,
   reservationMutation,
 } from './round-bot-admission-rules';
@@ -116,27 +116,24 @@ test('settlement needs only the host, after the account or Round ended', async (
   });
 });
 
-test('reservations without admission time or already refunded are not reused', async () => {
+test('a refunded reservation is reused only by its own refund', async () => {
   assert({
     given: 'no reservation, a live one and a refunded one during refund',
     should: 'return each as found',
     actual: [
-      requireReservationProvenance(undefined, false),
-      requireReservationProvenance(reservation(), false)?.id,
-      requireReservationProvenance(reservation({ refundedAt: at }), true)?.id,
+      requireUnrefundedReservation(undefined, false),
+      requireUnrefundedReservation(reservation(), false)?.id,
+      requireUnrefundedReservation(reservation({ refundedAt: at }), true)?.id,
     ],
     expected: [undefined, 'reservation', 'reservation'],
   });
-  for (const row of [
-    reservation({ reservedAt: null }),
-    reservation({ refundedAt: at }),
-  ])
-    await assertRejects({
-      given: `a reservation ${JSON.stringify(row)} outside a refund`,
-      should: 'refuse it',
-      actual: () => requireReservationProvenance(row, false),
-      code: 'CONFLICT',
-    });
+  await assertRejects({
+    given: 'a refunded reservation outside a refund',
+    should: 'refuse it',
+    actual: () =>
+      requireUnrefundedReservation(reservation({ refundedAt: at }), false),
+    code: 'CONFLICT',
+  });
 });
 
 test('counting is idempotent and a counted reservation refunds once', async () => {
@@ -173,17 +170,16 @@ test('counting is idempotent and a counted reservation refunds once', async () =
   });
 });
 
-test('admission refuses provenance, then allowance, then capacity', async () => {
+test('admission refuses the allowance, then capacity', async () => {
   assert({
     given: 'facts that trip each check in turn, and none',
     should: 'report the first refusal in order',
     actual: [
-      admissionRefusal({ unknown: 1, spent: 5, busy: 9 }, 5, 4),
-      admissionRefusal({ unknown: 0, spent: 5, busy: 9 }, 5, 4),
-      admissionRefusal({ unknown: 0, spent: 4, busy: 4 }, 5, 4),
-      admissionRefusal({ unknown: 0, spent: 4, busy: 3 }, 5, 4),
+      admissionRefusal({ spent: 5, busy: 9 }, 5, 4),
+      admissionRefusal({ spent: 4, busy: 4 }, 5, 4),
+      admissionRefusal({ spent: 4, busy: 3 }, 5, 4),
     ],
-    expected: ['provenance', 'allowance', 'capacity', null],
+    expected: ['allowance', 'capacity', null],
   });
   for (const busyCap of [0, -1, 1.5])
     await assertRejects({

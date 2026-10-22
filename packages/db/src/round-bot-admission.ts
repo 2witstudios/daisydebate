@@ -11,7 +11,7 @@ import {
   admissionRefusal,
   requireAdmissionTarget,
   requireBusyCap,
-  requireReservationProvenance,
+  requireUnrefundedReservation,
   requireSponsor,
   reservationMutation,
 } from './round-bot-admission-rules';
@@ -54,7 +54,7 @@ async function existingReservation(
     .from(usageReservations)
     .where(reservationWhere(target))
     .for('update');
-  return requireReservationProvenance(row, allowRefunded);
+  return requireUnrefundedReservation(row, allowRefunded);
 }
 async function mutateLockedReservation(
   tx: BoundedTransactionContext,
@@ -99,12 +99,11 @@ async function admissionStatus(
 ) {
   const allowance = await readBotAllowance(tx, actorId, now);
   const [facts] = await tx.execute(sql`select
-    (select count(*)::int from usage_reservations where actor_id=${actorId} and kind='ai_practice' and reserved_at is null) as unknown,
     (select count(*)::int from usage_reservations where actor_id=${actorId} and kind='ai_practice' and refunded_at is null
       and reserved_at>=${allowance.start} and reserved_at<${allowance.end}) as spent,
     (select count(distinct u.round_id)::int from usage_reservations u join rounds r on r.id=u.round_id
       where u.kind='ai_practice' and r.status in ('scheduled','active')) as busy`);
-  const value = facts as { unknown: number; spent: number; busy: number };
+  const value = facts as { spent: number; busy: number };
   return {
     limit: allowance.limit,
     remaining: Math.max(0, allowance.limit - value.spent),

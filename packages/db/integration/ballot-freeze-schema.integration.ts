@@ -11,16 +11,13 @@ import {
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
 
-test('ballots keep immutable scoped frozen provenance while provisional null rows cannot acquire it', async () => {
+test('every ballot names its own Round and an immutable committed freeze revision', async () => {
   await withFixture(url, async (fixture) => {
     const roundId = await fixture.round();
     const judge = await fixture.seat(roundId, 'judge');
     const otherRound = await fixture.round();
     const otherJudge = await fixture.seat(otherRound, 'judge');
-    await fixture.sql.unsafe(
-      "insert into round_transcript_freezes(round_id,revision,frontier,completeness) values($1,1,0,'incomplete')",
-      [roundId],
-    );
+    await fixture.freeze(roundId);
     const insert = (
       seat: string,
       round: string | null,
@@ -51,13 +48,22 @@ test('ballots keep immutable scoped frozen provenance while provisional null row
       expected: 'ballots_freeze_revision_fk',
     });
     assert({
-      given: 'a partially absent provenance pair',
+      given: 'a ballot without its Round, its freeze revision, or either',
+      should: 'reject it as not null rather than accept unknown provenance',
+      actual: await Promise.all([
+        rejectedBy(() => insert(judge.id, null, 1)),
+        rejectedBy(() => insert(judge.id, roundId, null)),
+        rejectedBy(() => insert(judge.id, null, null)),
+      ]),
+      expected: ['23502', '23502', '23502'],
+    });
+    assert({
+      given: 'a non-positive freeze revision',
       should: 'reject it',
-      actual: await rejectedBy(() => insert(judge.id, roundId, null)),
-      expected: 'ballots_freeze_pair_check',
+      actual: await rejectedBy(() => insert(judge.id, roundId, 0)),
+      expected: 'ballots_freeze_revision_positive',
     });
     await insert(judge.id, roundId, 1);
-    await insert(otherJudge.id, null, null);
     const rewrite = (
       seat: string,
       round: string | null,
@@ -68,11 +74,11 @@ test('ballots keep immutable scoped frozen provenance while provisional null row
         [round, revision, seat],
       );
     assert({
-      given: 'pinned or provisional legacy provenance',
-      should: 'refuse clearing or inventing frozen input on every UPDATE',
+      given: 'pinned frozen provenance',
+      should: 'refuse clearing or replacing it on every UPDATE',
       actual: await Promise.all([
         rejectedBy(() => rewrite(judge.id, null, null)),
-        rejectedBy(() => rewrite(otherJudge.id, roundId, 1)),
+        rejectedBy(() => rewrite(judge.id, roundId, 2)),
       ]),
       expected: ['ballots_freeze_immutable', 'ballots_freeze_immutable'],
     });

@@ -60,7 +60,7 @@ export const roomViewSchema = z.strictObject({
         remaining: z.int().min(0).max(10),
         periodStart: z.iso.datetime({ offset: true }),
         periodEnd: z.iso.datetime({ offset: true }),
-        refusal: z.enum(['provenance', 'allowance', 'capacity']).nullable(),
+        refusal: z.enum(['allowance', 'capacity']).nullable(),
       }),
     ])
     .nullable(),

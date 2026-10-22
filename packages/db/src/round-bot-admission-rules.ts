@@ -12,7 +12,7 @@ type Round = {
 };
 type ReservationRow = {
   readonly id: string;
-  readonly reservedAt: Date | null;
+  readonly reservedAt: Date;
   readonly countedAt: Date | null;
   readonly refundedAt: Date | null;
 };
@@ -48,16 +48,13 @@ export function requireSponsor(
     throw createAppError('CONFLICT');
 }
 
-/** A reservation without admission time, or already refunded, is never reused. */
-export function requireReservationProvenance<R extends ReservationRow>(
+/** A refunded reservation is never reused outside its own refund. */
+export function requireUnrefundedReservation<R extends ReservationRow>(
   row: R | undefined,
   allowRefunded: boolean,
 ): R | undefined {
-  if (row && (!row.reservedAt || (row.refundedAt && !allowRefunded)))
-    throw createAppError(
-      'CONFLICT',
-      'Reservation provenance unavailable or refunded',
-    );
+  if (row?.refundedAt && !allowRefunded)
+    throw createAppError('CONFLICT', 'Reservation refunded');
   return row;
 }
 
@@ -77,17 +74,12 @@ export function reservationMutation(
   return current.refundedAt ? 'none' : 'refund';
 }
 
-/** Refusal order: unknown provenance, then the sponsor's allowance, then global capacity. */
+/** Refusal order: the sponsor's allowance, then global capacity. */
 export function admissionRefusal(
-  facts: {
-    readonly unknown: number;
-    readonly spent: number;
-    readonly busy: number;
-  },
+  facts: { readonly spent: number; readonly busy: number },
   limit: number,
   busyCap: number,
-): 'provenance' | 'allowance' | 'capacity' | null {
-  if (facts.unknown !== 0) return 'provenance';
+): 'allowance' | 'capacity' | null {
   if (facts.spent >= limit) return 'allowance';
   return facts.busy >= busyCap ? 'capacity' : null;
 }

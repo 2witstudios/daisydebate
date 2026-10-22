@@ -162,18 +162,14 @@ transcript data and is not anonymized.
 
 ### Frozen ballot witness
 
-CAP-D.1 ballot writes carry `ballots.round_id` (category identifier) and
-`freeze_revision` (category none). Composite references bind the judge seat to
-that Round and bind the revision to its immutable transcript freeze. Both fields
-are immutable on every UPDATE, including a provisional null pair; an older
-ballot cannot acquire invented frozen provenance. Voiding preserves the pair.
+Every ballot carries `ballots.round_id` (category identifier) and a positive
+`freeze_revision` (category none), both NOT NULL. Composite references bind the
+judge seat to that Round and bind the revision to its immutable transcript
+freeze. Both fields are immutable on every UPDATE. Voiding preserves the pair.
 No new transcript content is copied into the ballot witness. Existing ballot
 privacy, retention and erasure policy applies to the owning record.
 
-The pair is temporarily nullable only while CAP-E removes uncutover writers and
-fixtures on the branch. Every actual shared human/bot submit writer must supply
-both fields. CAP-E must generate a forward NOT NULL migration after replacing
-those writers and fixtures, before main acceptance. Command deduplication uses
+The shared human/bot submit writer is the only ballot writer. Command deduplication uses
 the existing global `round_commands.command_id` key with type `submit_ballot`.
 
 The freeze witness uses `NO ACTION DEFERRABLE INITIALLY DEFERRED`; deleting a
@@ -234,15 +230,12 @@ adapter still selects current authority using fresh PostgreSQL time under its
 actor lock; premium allowance is the fixed ten from DEC-183, never inferred from
 a username or role. Revoked or absent authority cannot grant premium capacity.
 
-`usage_reservations.reserved_at` and `refunded_at` are category none. Future
-reservations receive a PostgreSQL `clock_timestamp()` default; the migration
-adds the nullable column before setting that default so existing records retain
-unknown admission provenance. A refund requires a recorded first vendor call
-and cannot predate it; a known reservation time cannot follow its first call.
-Actor/kind/reservation-time indexing supports serialized actor/period accounting.
-Legacy null admission timestamps must fail closed and be removed with legacy
-writers before a forward NOT NULL migration; Round creation time is not an
-admission timestamp. These records add no generated text or PCM. Production
+`usage_reservations.reserved_at` and `refunded_at` are category none.
+`reserved_at` is NOT NULL with a PostgreSQL `clock_timestamp()` default; no
+admission time is ever invented, and Round creation time is not one. A refund
+requires a recorded first vendor call and cannot predate it; the reservation
+time cannot follow its first call. Actor/kind/reservation-time indexing
+supports serialized actor/period accounting. These records add no generated text or PCM. Production
 identity, entitlement provisioning and legal activation remain human gates.
 
 ### Bounded capture producer
