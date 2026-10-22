@@ -37,3 +37,24 @@ test('media admission accepts only secure credential-free websocket URLs', () =>
     ],
   });
 });
+
+test('media grants publish each source at most once', () => {
+  const grants = roundMediaAdmissionSchema.shape.grants;
+  const withPublish = (publish: readonly string[]) => ({
+    publish,
+    subscribe: true,
+    hidden: false,
+    capture: false,
+  });
+  assert({
+    given: 'distinct, empty and repeated publish sources',
+    should: 'accept distinct sources and refuse a repeated one',
+    actual: [
+      ['camera', 'microphone'],
+      [],
+      ['camera', 'camera'],
+      ['microphone', 'microphone'],
+    ].map((publish) => grants.safeParse(withPublish(publish)).success),
+    expected: [true, true, false, false],
+  });
+});

@@ -17,7 +17,12 @@ describe('heavy queue across real processes', () => {
   async function runConcurrently(limit: number): Promise<[number, number][]> {
     const dir = mkdtempSync(join(tmpdir(), 'heavy-limit-'));
     const log = join(dir, 'log');
-    const job = `const s=Date.now(); await Bun.sleep(300); require('node:fs').appendFileSync(${JSON.stringify(log)}, s + ' ' + Date.now() + '\\n');`;
+    const starts = join(dir, 'starts');
+    mkdirSync(starts);
+    // A start barrier makes overlap independent of machine load: each run
+    // waits (bounded) until all three have started, so runs the queue admits
+    // together always overlap and runs it serialises time out alone.
+    const job = `const fs=require('node:fs'); const s=Date.now(); fs.writeFileSync(${JSON.stringify(starts)} + '/' + process.pid, ''); while (fs.readdirSync(${JSON.stringify(starts)}).length < 3 && Date.now() - s < 3000) await Bun.sleep(10); fs.appendFileSync(${JSON.stringify(log)}, s + ' ' + Date.now() + '\\n');`;
     const runs = Array.from({ length: 3 }, () =>
       Bun.spawn(['bun', `${root}scripts/heavy.ts`, 'bun', '-e', job], {
         env: {

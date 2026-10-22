@@ -71,6 +71,32 @@ export async function runCaptureSession(
     }
     return stream;
   };
+  const rememberExpected = () => {
+    const segment = current.state.segment;
+    if (!segment) return;
+    for (const interval of current.state.intervals) {
+      const end = Math.min(
+        Date.parse(interval.endedAt ?? current.state.serverNow),
+        Date.parse(segment.endedAt ?? current.state.serverNow),
+        Date.parse(segment.startedAt) + segment.durationMs,
+      );
+      if (Date.parse(interval.startedAt) >= end) continue;
+      const key = JSON.stringify([segment.id, interval.roundParticipantId]);
+      if (!streams.has(key)) {
+        if (streams.size >= 16384)
+          throw createAppError(
+            'INFRASTRUCTURE',
+            'Capture stream capacity exceeded',
+          );
+        streams.set(key, {
+          segmentId: segment.id,
+          roundParticipantId: interval.roundParticipantId,
+          count: 0,
+        });
+      }
+    }
+  };
+  rememberExpected();
   const capture = await createCaptureSubscription({
     url: token.url,
     token: token.token,
@@ -115,6 +141,7 @@ export async function runCaptureSession(
         nextRenewal = input.nowMs() + 5000;
       }
       current = await readCaptureHistory(input.client, epoch, signal);
+      rememberExpected();
       staging.refresh(current.calibration);
       await capture.setIdentities(identities(current));
       await validateCaptureBatch({
