@@ -91,24 +91,41 @@ test('actual attendance operation preserves first receipt before Round contentio
     }
   }));
 
-test('actual check-in aborts before two seconds behind an existing canonical Round writer', async () =>
+test('canonical Round contention keeps actual check-in admission visible to the availability sampler', async () =>
   withAttendanceRound(async ({ f, attendance, roundId, segmentId }) => {
+    const web = createId(),
+      realtime = createId(),
+      stamps: string[] = [];
+    const sampler = f.store.availabilitySampler();
     const holder = await f.sql.reserve();
-    const envelope = { version: 1, commandId: createId(), segmentId } as const;
     let pending: Promise<unknown> | undefined;
     try {
+      const [cursor] =
+        await f.sql`select txid::text as txid,seq::text as seq from outbox order by txid desc,seq desc limit 1`;
+      await f.store.renewServiceInstance({ instanceId: web, role: 'web' });
+      await f.store.renewServiceInstance({
+        instanceId: realtime,
+        role: 'realtime',
+        deliveredThrough: { txid: cursor.txid, seq: BigInt(cursor.seq) },
+      });
+      const baseline = await sampler.sample({
+        publicProbeHealthy: true,
+        controlWorkersHealthy: true,
+      });
+      if (baseline) stamps.push(baseline.at);
       await holder`begin`;
       const [backend] = await holder`select pg_backend_pid() as pid`;
       await holder`select id from rounds where id=${roundId} for no key update`;
-      const began = performance.now();
+      const commandId = createId(),
+        started = performance.now();
       pending = attendance.checkIn(
         { kind: 'human', actorId: f.host.actorId },
         roundId,
-        envelope,
+        { version: 1, commandId, segmentId },
       );
       const refused = assertRejects({
-        given: 'pre-existing canonical Round writer exceeds execution slice',
-        should: 'abort actual receipt operation rather than committing late',
+        given: 'an existing canonical Round writer exceeds the execution slice',
+        should: 'refuse the actual check-in',
         actual: () => pending!,
         code: 'INFRASTRUCTURE',
       });
@@ -119,39 +136,63 @@ test('actual check-in aborts before two seconds behind an existing canonical Rou
         { now: performance.now, deadlineMs: 800 },
       );
       const [admitted] =
-        await f.sql`select state from round_check_in_attempts where command_id=${envelope.commandId}`;
-      await refused;
-      const elapsed = performance.now() - began;
-      const [marker] =
-        await f.sql`select state,backend_pid,backend_started_at::text as incarnation from round_check_in_attempts where command_id=${envelope.commandId}`;
-      const [evidence] =
-        await f.sql`select exists(select 1 from pg_stat_activity where pid=${marker.backend_pid} and backend_start::text=${marker.incarnation}) as writer_present,exists(select 1 from round_commands where command_id=${envelope.commandId}) as committed`;
-      const [alive] = await holder`select pg_backend_pid() as pid`;
+        await f.sql`select state from round_check_in_attempts where command_id=${commandId}`;
+      const sample = await sampler.sample({
+        publicProbeHealthy: true,
+        controlWorkersHealthy: true,
+      });
+      if (sample) stamps.push(sample.at);
       assert({
-        given: 'actual durable first receipt before existing Round wait',
-        should:
-          'durably abort and verify writer absence within2000ms while preserving the competing holder',
+        given:
+          'healthy services and actual check-in waiting behind a pre-existing canonical writer',
+        should: 'expose its durable marker and postpone healthy availability',
         actual: {
+          baseline: baseline?.healthy,
           blocked,
-          admitted: admitted?.state,
-          state: marker.state,
-          bounded: elapsed <= 2000,
-          holder: alive.pid === backend.pid,
-          ...evidence,
+          marker: admitted?.state,
+          sample: sample && { healthy: sample.healthy, cause: sample.cause },
         },
         expected: {
+          baseline: true,
           blocked: 'blocked',
-          admitted: 'pending',
-          state: 'aborted',
+          marker: 'pending',
+          sample: { healthy: false, cause: 'check_in_pending' },
+        },
+      });
+      await refused;
+      const elapsed = performance.now() - started;
+      const [marker] =
+        await f.sql`select state,backend_pid,backend_started_at::text as incarnation from round_check_in_attempts where command_id=${commandId}`;
+      const [facts] =
+        await f.sql`select exists(select 1 from pg_stat_activity where pid=${marker.backend_pid} and backend_start::text=${marker.incarnation}) as writer_present,(select count(*)::int from round_commands where command_id=${commandId}) as ledger,(select count(*)::int from round_check_ins where command_id=${commandId}) as checkins`;
+      const [alive] = await holder`select pg_backend_pid() as pid`;
+      assert({
+        given:
+          'the actual bounded operation finishes while the competing writer remains',
+        should:
+          'confirm abort and exact backend absence within two seconds without a competitive write',
+        actual: {
+          bounded: elapsed <= 2000,
+          state: marker.state,
+          holder: alive.pid === backend.pid,
+          ...facts,
+        },
+        expected: {
           bounded: true,
+          state: 'aborted',
           holder: true,
           writer_present: false,
-          committed: false,
+          ledger: 0,
+          checkins: 0,
         },
       });
     } finally {
       await holder`rollback`;
       holder.release();
       if (pending) await Promise.allSettled([pending]);
+      await sampler.close();
+      for (const stamp of stamps)
+        await f.sql`delete from availability_samples where at=${stamp}::timestamptz`;
+      await f.sql`delete from service_instances where instance_id in (${web},${realtime})`;
     }
   }));
