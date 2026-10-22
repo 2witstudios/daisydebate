@@ -4,7 +4,10 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { withBoundedRound } from './bounded-transaction.test-support';
 import { createRoundBotAdmission } from '../src/round-bot-admission';
-import { admissionSponsor } from './bot-admission.test-support';
+import {
+  admissionSponsor,
+  refundAcrossTerminal,
+} from './bot-admission.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 
@@ -44,6 +47,12 @@ test('calendar-month allowance serializes actual reservations and refunds vendor
     const winner = attempts.find((a) => a.status === 'fulfilled');
     if (winner?.status !== 'fulfilled') throw new Error('Expected reservation');
     const reservation = winner.value;
+    await assertRejects({
+      given: 'a reservation with no recorded model call',
+      should: 'refuse fabricated vendor-failure refund',
+      actual: () => admission.refundVendorFailure(reservation),
+      code: 'CONFLICT',
+    });
     await admission.markFirstModelCall(reservation);
     await admission.markFirstModelCall(reservation);
     const [before] =
@@ -58,6 +67,7 @@ test('calendar-month allowance serializes actual reservations and refunds vendor
       ],
       expected: [true, true, null],
     });
+    await admission.refundVendorFailure(reservation);
     await admission.refundVendorFailure(reservation);
     await admission.reserve({
       actorId,
@@ -157,3 +167,65 @@ test('unknown legacy provenance and actual global capacity fail closed', async (
     });
   });
 });
+for (const terminal of ['abandoned', 'completed'] as const)
+  test(`known vendor failure refunds after ${terminal} without competitive mutation`, async () => {
+    await withBoundedRound(async (fixture, run, roundId) => {
+      const actorId = await admissionSponsor(fixture, [roundId]);
+      const admission = createRoundBotAdmission({
+        run,
+        nextId: createId,
+        busyCap: 4,
+      });
+      const otherRound = await fixture.round();
+      const otherActor = await admissionSponsor(fixture, [otherRound]);
+      const unrelated = await admission.reserve({
+        actorId: otherActor,
+        roundId: otherRound,
+      });
+      await admission.markFirstModelCall(unrelated);
+      const [unrelatedBefore] =
+        await fixture.sql`select * from usage_reservations where id=${unrelated.id}`;
+      const reservation = await admission.reserve({ actorId, roundId });
+      await admission.markFirstModelCall(reservation);
+      const before = await refundAcrossTerminal(
+        fixture,
+        roundId,
+        terminal,
+        () => admission.refundVendorFailure(reservation),
+      );
+      await admission.refundVendorFailure(reservation);
+      await admission.refundVendorFailure(reservation);
+      const [after] =
+        await fixture.sql`select status,version,outcome,started_at,completed_at from rounds where id=${roundId}`;
+      const [unrelatedAfter] =
+        await fixture.sql`select * from usage_reservations where id=${unrelated.id}`;
+      const [usage] =
+        await fixture.sql`select refunded_at,counted_at from usage_reservations where id=${reservation.id}`;
+      assert({
+        given:
+          'a known server vendor failure arriving after the terminal commit',
+        should:
+          'idempotently settle the recorded reservation and preserve exact competitive state',
+        actual: [
+          after,
+          usage!.refunded_at !== null,
+          usage!.counted_at !== null,
+          unrelatedAfter,
+        ],
+        expected: [before, true, true, unrelatedBefore],
+      });
+      await assertRejects({
+        given: 'the same terminal/refunded reservation',
+        should: 'grant no new model dispatch',
+        actual: () => admission.markFirstModelCall(reservation),
+        code: 'CONFLICT',
+      });
+      await assertRejects({
+        given: 'a foreign reservation identity',
+        should: 'refuse refund without altering another record',
+        actual: () =>
+          admission.refundVendorFailure({ ...reservation, id: unrelated.id }),
+        code: 'AUTHORIZATION',
+      });
+    });
+  });

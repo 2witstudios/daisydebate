@@ -7,7 +7,7 @@ import type {
 import type { ClockChange } from './round-clock';
 
 /** Speaking eligibility is distinct from command/floor control in free CX. */
-const speakers = (
+export const speakingParticipants = (
   rules: RoundRules,
   seats: readonly RoundParticipantSeat[],
   sequence: number,
@@ -51,7 +51,7 @@ export function speakingChangesOf(input: {
           kind: 'open',
           segmentId: input.segmentIds.get(change.row.sequence)!,
           at: new Date(change.row.startedAtMs).toISOString(),
-          participantIds: speakers(
+          participantIds: speakingParticipants(
             input.rules,
             input.participants,
             change.row.sequence,
@@ -74,7 +74,7 @@ export function speakingChangesOf(input: {
         kind: 'open',
         segmentId,
         at: floor.at,
-        participantIds: speakers(
+        participantIds: speakingParticipants(
           input.rules,
           input.participants,
           floor.sequence,

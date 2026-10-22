@@ -122,3 +122,37 @@ including custom `UESCAPE`) are refused in this canonical-schema adapter rather
 than partially decoded. Unicode application text remains bound data. See
 [PostgreSQL 18 lexical structure](https://www.postgresql.org/docs/18/sql-syntax-lexical.html).
 Only the adapter's own setup can configure its backstops.
+
+Attendance uses the same factory instance, pool and writer/watchdog admission
+counter with a per-attempt `executionMs: 900` slice. Overrides can only shorten
+the configured execution budget. Its server backstops are at most 900 ms;
+exact-backend recovery and known-abort marker closure share another 1,000 ms.
+The remaining 100 ms is overhead margin against attendance's 2,000 ms bound.
+The transcript default remains 3,000 ms. A factory name or validated option is
+not timing evidence: the actual marked Round-contention integration test must
+prove the complete path finishes within 2,000 ms.
+
+The first writer identity SELECT, before BEGIN or application locks, returns
+PostgreSQL `statement_timestamp()` as a UTC string with all six fractional digits,
+plus PID and unmodified `backend_start::text`. This is the admission receipt;
+callbacks consume it without resampling or converting it through a millisecond
+Date. An optional per-attempt lifecycle writes the RT owner's pending marker on
+the separately reserved control connection. The adapter owns that control
+transaction and its scoped DML facade: `open(control, metadata)` must COMMIT
+before writer BEGIN, and `close(control, metadata, outcome)` must COMMIT after a
+known writer outcome before a reusable writer reservation is released. Control
+callbacks have the same SQL/lifetime/refusal and truthful COMMIT protections as
+writer callbacks. Transactions explicitly use READ COMMITTED.
+
+Unknown COMMIT or failed marker cleanup leaves durable pending evidence. The
+adapter destroys/quarantines the writer rather than releasing it to a later
+logical attempt. Internal pending errors provide a settlement handle: `confirm()`
+uses the same pool and exact original backend incarnation; `settled` resolves
+only to `backend-absent` after positive verification. Absence never proves COMMIT
+versus rollback. RT reconciliation then reads the command ledger in a fresh
+READ COMMITTED statement before closing the marker. Samplers and adjudicators
+must postpone while pending markers remain; expiry, process flags or an elapsed
+recovery timer cannot establish healthy availability. Provider work remains
+outside these transactions. RT owns complete receipt-window, durable marker,
+availability and adjudication acceptance; primitive integration fixtures alone
+do not establish that full consumer behavior.

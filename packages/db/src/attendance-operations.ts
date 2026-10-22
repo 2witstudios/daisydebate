@@ -6,10 +6,10 @@ import {
   type AttendanceEnvelope,
   type AttendanceReceipt,
 } from '@daisy/protocol';
-import { and, eq, sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { insertCommandRow } from './round-projection-writer';
 import { roundCommands } from './schema/round-commands';
-import { agentRuns } from './schema/agent-runs';
+import { sampleRoundExecutionTime } from './round-execution-time';
 import {
   attendanceEvidence,
   fenceAttendance,
@@ -41,33 +41,10 @@ type CheckInInput = {
   readonly acceptWindow: (facts: LockedAttendanceCheckIn) => void;
 };
 type Fenced = Awaited<ReturnType<typeof fenceAttendance>>;
-async function requireActiveAgent(
-  tx: AttendanceTransactionContext,
-  principal: Extract<AttendancePrincipal, { kind: 'agent' }>,
-  seat: Fenced['seats'][number],
-): Promise<void> {
-  if (
-    seat.kind !== 'bot' ||
-    principal.serviceId !== `agent-run:${principal.agentRunId}`
-  )
-    throw createAppError('AUTHORIZATION');
-  const [run] = await tx
-    .select()
-    .from(agentRuns)
-    .where(
-      and(
-        eq(agentRuns.id, principal.agentRunId),
-        eq(agentRuns.roundParticipantId, seat.id),
-      ),
-    )
-    .for('share');
-  if (
-    !run ||
-    run.endedAt !== null ||
-    !['speech', 'cross_ex'].includes(run.kind)
-  )
-    throw createAppError('AUTHORIZATION');
-}
+const eligibleSeats = (seats: Fenced['seats']) =>
+  seats
+    .filter((seat) => seat.eligible && seat.role !== 'judge')
+    .map((seat) => seat.id);
 async function authorizeSeat(
   tx: AttendanceTransactionContext,
   principal: AttendancePrincipal,
@@ -84,7 +61,13 @@ async function authorizeSeat(
   if (principal.kind === 'human') {
     if (seat.kind !== 'human') throw createAppError('AUTHORIZATION');
   } else {
-    await requireActiveAgent(tx, principal, seat);
+    if (
+      seat.kind !== 'bot' ||
+      principal.serviceId !== `agent-run:${principal.agentRunId}`
+    )
+      throw createAppError('AUTHORIZATION');
+    // The required canonical verifier SHARE-locks the exact seat/run and
+    // checks active kind, config, epoch and lease in this same transaction.
     await verifyWorker(tx, principal, fenced.round.id);
   }
   return seat;
@@ -123,6 +106,43 @@ export function createAttendanceOperations(deps: {
   readonly verifyWorker: WorkerVerifier;
 }) {
   return {
+    /** Fresh scoped controller/human authority; timing hints never manufacture a receipt. */
+    async readRoundAttendanceTargets(input: {
+      readonly roundId: string;
+      readonly principal: AttendancePrincipal;
+    }) {
+      if (!idSchema.safeParse(input.roundId).success)
+        throw createAppError('VALIDATION');
+      return deps.transaction(async (tx) => {
+        const columns = principalColumns(input.principal);
+        const fenced = await fenceAttendance(
+          tx,
+          input.roundId,
+          deps.nextAttemptId(),
+          columns.actorId,
+        );
+        const seat = await authorizeSeat(
+          tx,
+          input.principal,
+          fenced,
+          deps.verifyWorker,
+        );
+        const evidence = await attendanceEvidence(tx, fenced.round);
+        const recorded = await tx.execute(
+          sql`select segment_id from round_check_ins where round_id=${input.roundId} and participant_id=${seat.id}`,
+        );
+        return {
+          round: fenced.round,
+          ...evidence,
+          participantId: seat.id,
+          eligibleParticipantIds: eligibleSeats(fenced.seats),
+          recordedSegmentIds: (
+            recorded as unknown as { segment_id: string }[]
+          ).map((row) => row.segment_id),
+          now: await sampleRoundExecutionTime(tx),
+        };
+      });
+    },
     async recordRoundCheckIn(input: CheckInInput): Promise<AttendanceReceipt> {
       if (
         !idSchema.safeParse(input.roundId).success ||
@@ -157,9 +177,7 @@ export function createAttendanceOperations(deps: {
           const facts = {
             round,
             ...evidence,
-            eligibleParticipantIds: seats
-              .filter((seat) => seat.eligible && seat.role !== 'judge')
-              .map((seat) => seat.id),
+            eligibleParticipantIds: eligibleSeats(seats),
             participantId: seat.id,
           };
           const replay = await readReplay(tx, input, columns, seat.id);
