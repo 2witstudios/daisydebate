@@ -1,5 +1,6 @@
 import {
   proveNativeCapture,
+  proveCalibratedCapture,
   proveCaptureRoomDeletion,
 } from './native-capture.test-support';
 import {
@@ -227,4 +228,10 @@ test(
   'deleted room disconnects real hidden capture and ends every microphone stream',
   () => withNativePublication(proveCaptureRoomDeletion),
   15000,
+);
+
+test(
+  'actual 16k callback cadence retains calibrated historical PCM without source-time claims',
+  () => withHistoricalSeat(databaseUrl, proveCalibratedCapture),
+  20000,
 );
