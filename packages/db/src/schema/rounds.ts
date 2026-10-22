@@ -94,6 +94,8 @@ export const rounds = pgTable(
     runtimeState: jsonbColumn('runtime_state', runtimeCheckpointSchema)
       .notNull()
       .default(emptyRuntimeCheckpoint),
+    finalSegmentEndedAt: timestampColumn('final_segment_ended_at'),
+    transcriptAdmissionCutoff: timestampColumn('transcript_admission_cutoff'),
     createdAt: createdAtColumn(),
     updatedAt: updatedAtColumn(),
     version: versionColumn(),
@@ -135,6 +137,10 @@ export const rounds = pgTable(
         table.formatVersion,
       ),
       versionPositive('rounds', table.version),
+      check(
+        'rounds_transcript_cutoff_check',
+        sql`(${table.finalSegmentEndedAt} is null and ${table.transcriptAdmissionCutoff} is null) or (${table.finalSegmentEndedAt} is not null and ${table.transcriptAdmissionCutoff} is not null and ${table.transcriptAdmissionCutoff} = ${table.finalSegmentEndedAt} + interval '120 seconds')`,
+      ),
       check(
         'rounds_visibility_check',
         sql`${table.visibility} is null or ${oneOf(table.visibility, ['public', 'unlisted', 'private'])}`,
