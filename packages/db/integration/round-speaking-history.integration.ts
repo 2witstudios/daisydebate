@@ -38,6 +38,7 @@ test('historical speaking authority excludes overlapping seat intervals but perm
       await insert(firstSeat.id, 1000, 2000);
       const overlap = await rejectedBy(() => insert(firstSeat.id, 1500, 2500));
       await insert(firstSeat.id, 2000, 3000);
+      await insert(firstSeat.id, 2000, 2000);
       await insert(secondSeat.id, 1000, 3000);
       assert({
         given:
@@ -51,7 +52,7 @@ test('historical speaking authority excludes overlapping seat intervals but perm
             roundId,
           ),
         },
-        expected: { overlap: 'round_speaking_intervals_no_overlap', rows: 3 },
+        expected: { overlap: 'round_speaking_intervals_no_overlap', rows: 4 },
       });
       const otherRoundId = await fixture.round();
       const otherSeat = await fixture.seat(otherRoundId, 'affirmative');
