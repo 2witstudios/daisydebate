@@ -52,6 +52,9 @@ export function retentionTargets({
     readonly purgeExpiredEmailDeliveries: (batch: Batch) => Promise<number>;
     readonly purgeExpiredRoomCommands: (batch: Batch) => Promise<number>;
     readonly purgeExpiredRoundCommands: (batch: Batch) => Promise<number>;
+    readonly purgeExpiredRoundCheckInAttempts: (
+      batch: Batch,
+    ) => Promise<number>;
     readonly purgeExpiredServiceInstances: (batch: Batch) => Promise<number>;
     readonly purgeExpiredAvailabilitySamples: (batch: Batch) => Promise<number>;
     readonly purgeExpiredSessions: (batch: Batch) => Promise<number>;
@@ -299,6 +302,7 @@ export function startRetentionSweep({
 const dailyTargets = (database: {
   purgeExpiredRoomCommands: (batch: Batch) => Promise<number>;
   purgeExpiredRoundCommands: (batch: Batch) => Promise<number>;
+  readonly purgeExpiredRoundCheckInAttempts: (batch: Batch) => Promise<number>;
   purgeExpiredServiceInstances: (batch: Batch) => Promise<number>;
   purgeExpiredAvailabilitySamples: (batch: Batch) => Promise<number>;
 }): readonly RetentionTarget[] =>
@@ -306,6 +310,7 @@ const dailyTargets = (database: {
     [
       ['room_commands', database.purgeExpiredRoomCommands],
       ['round_commands', database.purgeExpiredRoundCommands],
+      ['round_check_in_attempts', database.purgeExpiredRoundCheckInAttempts],
       ['service_instances', database.purgeExpiredServiceInstances],
       ['availability_samples', database.purgeExpiredAvailabilitySamples],
     ] as const

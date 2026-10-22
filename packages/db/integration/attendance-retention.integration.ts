@@ -48,7 +48,21 @@ test('bounded retention prunes old leases/samples and preserves durable attendan
         'command_id',
       );
     await f.sql`insert into round_check_ins(command_id,round_id,segment_id,participant_id,received_at) values(${protectedId},${roundId},${segmentId},${seat.id},'2026-10-21T00:00:01Z')`;
-    await f.sql`insert into round_check_in_attempts(attempt_id,command_id,round_id,payload_digest,actor_id,received_at,backend_pid,backend_started_at) select ${createId()},${pendingId},${roundId},${'a'.repeat(64)},${seat.actorId},'2026-10-21T00:00:01Z',pid,backend_start from pg_stat_activity where pid=pg_backend_pid()`;
+    for (const attempt of [
+      { commandId: pendingId, state: 'pending', resolvedAt: null },
+      {
+        commandId: createId(),
+        state: 'aborted',
+        resolvedAt: '2026-10-21T00:00:02Z',
+      },
+      {
+        commandId: createId(),
+        state: 'committed',
+        resolvedAt: '2026-10-21T00:00:03Z',
+      },
+      { commandId: createId(), state: 'committed', resolvedAt: before },
+    ])
+      await f.sql`insert into round_check_in_attempts(attempt_id,command_id,round_id,payload_digest,actor_id,received_at,backend_pid,backend_started_at,state,resolved_at) select ${createId()},${attempt.commandId},${roundId},${'a'.repeat(64)},${seat.actorId},'2026-10-21T00:00:01Z',pid,backend_start,${attempt.state},${attempt.resolvedAt}::timestamptz from pg_stat_activity where pid=pg_backend_pid()`;
     const oldLease = createId(),
       boundaryLease = createId();
     try {
@@ -65,11 +79,29 @@ test('bounded retention prunes old leases/samples and preserves durable attendan
         ops.purgeExpiredServiceInstances({ before, limit: 1 }),
         ops.purgeExpiredAvailabilitySamples({ before, limit: 1 }),
         commands.purgeExpiredRoundCommands({ before, limit: 10 }),
+        commands.purgeExpiredRoundCheckInAttempts({ before, limit: 1 }),
       ]);
       const left: { command_id: string }[] =
         await f.sql`select command_id from round_commands where round_id=${roundId} order by command_id`;
       const [pending] =
-        await f.sql`select state from round_check_in_attempts where round_id=${roundId}`;
+        await f.sql`select state from round_check_in_attempts where round_id=${roundId} and state='pending'`;
+      const more = [
+        await commands.purgeExpiredRoundCheckInAttempts({ before, limit: 1 }),
+        await commands.purgeExpiredRoundCheckInAttempts({ before, limit: 1 }),
+      ];
+      const remaining =
+        await f.sql`select state,resolved_at::text as resolved from round_check_in_attempts where round_id=${roundId} order by state`;
+      assert({
+        given:
+          'bounded batches and both closed outcomes with an exact cutoff marker',
+        should:
+          'prune both old closed outcomes in separate batches while retaining pending and boundary',
+        actual: {
+          more,
+          states: remaining.map((row: { state: string }) => row.state),
+        },
+        expected: { more: [1, 0], states: ['committed', 'pending'] },
+      });
       assert({
         given:
           'old first receipt, disposable alias and unresolved attempt ledger plus retention boundary rows',
@@ -84,7 +116,7 @@ test('bounded retention prunes old leases/samples and preserves durable attendan
           ),
         },
         expected: {
-          deleted: [1, 1, 1],
+          deleted: [1, 1, 1, 1],
           commands: [protectedId, pendingId].sort(),
           pending: 'pending',
           samples: [before],
