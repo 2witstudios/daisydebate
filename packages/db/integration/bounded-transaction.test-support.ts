@@ -26,6 +26,7 @@ export const withBoundedRound = async (
     fixture: Fixture,
     run: BoundedTransaction,
     roundId: string,
+    client: SQL,
   ) => Promise<void>,
 ) =>
   withFixture(process.env.TEST_DATABASE_URL!, (fixture) =>
@@ -39,6 +40,7 @@ export const withBoundedRound = async (
           now: performance.now,
         }),
         roundId,
+        client,
       );
     }),
   );

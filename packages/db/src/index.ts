@@ -1,4 +1,6 @@
 import { createMediaSessionStore } from './media-session';
+import { attendanceEntrypoints } from './attendance-entrypoints';
+import { availabilityOperations } from './availability-operations';
 import { databaseHealthOperations } from './database-health';
 import { roundBallotOperations } from './round-ballot-operations';
 import { roundBotAdmissionEntrypoints } from './round-bot-admission-entrypoints';
@@ -149,6 +151,11 @@ export function createDatabase({
       run: transcriptTransaction,
       nextId: nextActorId,
     }),
+    ...attendanceEntrypoints({
+      run: transcriptTransaction,
+      nextId: nextActorId,
+    }),
+    ...availabilityOperations(client),
     ...databaseHealthOperations({ database, client, eventSink }),
     /**
      * The RT-2.3b drain loop's LISTEN subscription (ADR 0032 §2, §3): the
@@ -291,3 +298,8 @@ export type {
   CheckInAttempt,
   CheckInAttemptMetadata,
 } from './check-in-attempts';
+
+export type {
+  AttendanceStore,
+  AttendanceEvaluator,
+} from './attendance-entrypoints';
