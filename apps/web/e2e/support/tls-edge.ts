@@ -22,12 +22,14 @@ export function createSelfSignedTlsEdge({
   hostname = '127.0.0.1',
   tls: suppliedTls,
   beforeForward,
+  selectAppPort,
 }: {
   readonly appPort: number | readonly number[];
   readonly edgePort: number;
   readonly hostname?: string;
   readonly tls?: { readonly key: Buffer; readonly cert: Buffer };
   readonly beforeForward?: (request: Request) => Response | null;
+  readonly selectAppPort?: () => number;
 }) {
   const appPorts = Array.isArray(appPort) ? appPort : [appPort as number];
   let next = 0;
@@ -60,7 +62,7 @@ export function createSelfSignedTlsEdge({
       const headers = new Headers(request.headers);
       headers.set('x-forwarded-proto', 'https');
       const upstream = await fetch(
-        `http://127.0.0.1:${nextAppPort()}${url.pathname}${url.search}`,
+        `http://127.0.0.1:${selectAppPort?.() ?? nextAppPort()}${url.pathname}${url.search}`,
         {
           method: request.method,
           headers,

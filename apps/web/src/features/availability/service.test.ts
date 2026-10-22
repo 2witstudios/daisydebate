@@ -2,28 +2,18 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { startAvailabilityService } from './service';
 setupRitewayBun();
 
-function fixture(
-  elected: boolean,
-  control?: () => Promise<{ healthy: boolean }>,
-) {
+function fixture(elected: boolean, reconcile?: () => Promise<number>) {
   let tick = () => {};
   const evidence: unknown[] = [];
   const events: string[] = [];
-  const state = { probeHealthy: false, unhealthyControl: true, probes: 0 };
+  const state = { probeHealthy: false, probes: 0 };
   const service = startAvailabilityService({
     instanceId: 'a'.repeat(24),
     store: {
-      reconcileRoundCheckInAttempts: async () => 0,
+      reconcileRoundCheckInAttempts: reconcile ?? (async () => 0),
       renewServiceInstance: async () => {
         events.push('renew');
       },
-      readRoundBotControlHealth:
-        control ??
-        (async () => {
-          if (state.unhealthyControl)
-            throw new Error('Unavailable controller read');
-          return { healthy: true };
-        }),
       availabilitySampler: () => ({
         elect: async () => elected,
         sample: async (input) => {
@@ -60,18 +50,14 @@ for (const elected of [true, false])
     const { service, tick, state, evidence, events } = fixture(elected);
     await service.stop();
     state.probeHealthy = true;
-    state.unhealthyControl = false;
     tick();
     assert({
-      given:
-        'failed actual probe and unknown own bot controller, then shutdown',
+      given: 'failed actual probe, then shutdown',
       should:
         'sample unhealthy and stop renewal/sampling before releasing election',
       actual: { evidence, events, probes: state.probes },
       expected: {
-        evidence: elected
-          ? [{ publicProbeHealthy: false, controlWorkersHealthy: false }]
-          : [],
+        evidence: elected ? [{ publicProbeHealthy: false }] : [],
         probes: elected ? 1 : 0,
         events: ['interval:1000', 'renew', 'clear', 'close'],
       },
@@ -84,13 +70,14 @@ test('pending elected sampling cannot suppress the same peer lease cadence', asy
   const { service, tick, events, state } = fixture(true, async () => {
     held.resolve();
     await release.promise;
-    return { healthy: true };
+    return 0;
   });
   try {
     await held.promise;
     tick();
     assert({
-      given: 'elected control work held across the next one-second callback',
+      given:
+        'elected reconciliation work held across the next one-second callback',
       should: 'renew again without a second probe or concurrent sample',
       actual: [
         events.filter((event) => event === 'renew').length,

@@ -22,12 +22,11 @@ export const fixtureBallot = (reason: string): Ballot => ({
     ]),
   ) as Ballot['scores'],
 });
-/** Real Room/engine/finalizer storage fixture. Silence stays incomplete; attendance is never fabricated. */
-export async function freezeBotJudge(
+/** A ready one-on-one practice Room with one open judge seat. */
+export const assembleJudgedRoom = (
   f: Parameters<Parameters<typeof withRoomRuntime>[0]>[0],
-) {
-  const judge = await f.bot();
-  let room = await f.assemble({
+) =>
+  f.assemble({
     selection: {
       kind: 'custom',
       definition: {
@@ -39,6 +38,12 @@ export async function freezeBotJudge(
       competitionType: 'casual',
     },
   });
+/** Real Room/engine/finalizer storage fixture. Silence stays incomplete; attendance is never fabricated. */
+export async function freezeBotJudge(
+  f: Parameters<Parameters<typeof withRoomRuntime>[0]>[0],
+) {
+  const judge = await f.bot();
+  let room = await assembleJudgedRoom(f);
   room = (
     await f.command(f.host, room, {
       type: 'assign-seat',

@@ -3,6 +3,7 @@ import { createMediaService } from '@daisy/media';
 import { createLogger } from '@daisy/logger';
 import { noopErrorReporter, withTimeout } from '@daisy/observability';
 import { createRoundMediaOperations } from '../src/features/round-media/operations';
+import { mediaRuntime } from '../src/features/round-media/projection';
 import { withRoomRuntime } from './room-runtime.test-support';
 
 const localMediaConfig = {
@@ -79,6 +80,16 @@ export async function captureWorkerScope(
     workerId: createId(),
   };
 }
+
+/** Actual capture operations over the fixture's same-pool store. */
+export const captureOperations = (
+  fixture: Parameters<Parameters<typeof withMediaRound>[0]>[0],
+) =>
+  fixture.store.createMediaCaptureOperations({
+    nextId: createId,
+    buildProjection: (context) =>
+      mediaRuntime(context, createId).tick(context.now),
+  });
 
 /** Hold actual provider creation before its effect or after acknowledgement, without replacing the vendor. */
 export function delayedMediaCreation(phase: 'before' | 'after' = 'after') {

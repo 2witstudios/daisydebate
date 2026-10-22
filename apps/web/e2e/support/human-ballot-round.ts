@@ -2,6 +2,7 @@ import { humanRoundSelection } from './human-round-selection';
 import type { APIRequestContext, BrowserContext } from '@playwright/test';
 import {
   roomCatalogChoiceSchema,
+  type RoomCatalogChoice,
   roomViewSchema,
   roundViewSchema,
   type RoomView,
@@ -49,11 +50,12 @@ export async function ballotRoundCommand(
   expect(response.status()).toBe(200);
   return roundViewSchema.parse((await response.json()).view);
 }
-/** Actual authenticated Room admission and fresh consent; no fixture rows or invented authority. */
-export async function createHumanBallotRound(members: readonly Member[]) {
-  if (members.length !== 4)
-    throw new Error('Human ballot proof needs two debaters and two judges');
-  const host = members[0]!;
+type Selection = ReturnType<typeof humanRoundSelection>;
+/** A public Room from the actual catalog foundation, shaped by `select`. */
+export async function createFoundationRoom(
+  host: Member,
+  select: (choice: RoomCatalogChoice) => Selection,
+) {
   const catalog = await host.context.request.get('/api/rooms/catalog');
   expect(catalog.status()).toBe(200);
   const choices = (await catalog.json()).choices.map((choice: unknown) =>
@@ -67,47 +69,74 @@ export async function createHumanBallotRound(members: readonly Member[]) {
     headers: { origin },
     data: {
       commandId: createId(),
-      title: 'Actual human judge ballot proof',
+      title: 'Actual Round proof',
       topic: 'Cities should fund transit',
       visibility: 'public',
-      selection: humanRoundSelection(choice, 2),
+      selection: select(choice),
     },
   });
   expect(created.status()).toBe(201);
-  let room = roomViewSchema.parse((await created.json()).view);
+  return roomViewSchema.parse((await created.json()).view);
+}
+export const claimSeat = (member: Member, room: RoomView, seat: object) =>
+  roomCommand(member.context.request, room, { type: 'claim-seat', ...seat });
+export const assignSeat = (host: Member, room: RoomView, seat: object) =>
+  roomCommand(host.context.request, room, { type: 'assign-seat', ...seat });
+/** The member's own fresh consent version, then Ready. */
+export async function readyOwnSeat(
+  member: Member,
+  room: RoomView,
+  seat: { readonly role: string; readonly slot: number },
+) {
+  const response = await member.context.request.get(`/api/rooms/${room.id}`);
+  expect(response.status()).toBe(200);
+  const own = roomViewSchema.parse(await response.json());
+  const participant = own.participants.find(
+    (p) =>
+      p.role === seat.role && p.slot === seat.slot && 'consentVersion' in p,
+  );
+  if (!participant || !('consentVersion' in participant))
+    throw new Error('Own actual consent missing');
+  return roomCommand(member.context.request, own, {
+    type: 'ready',
+    expectedConsentVersion: participant.consentVersion,
+  });
+}
+/** Launch, then the host's start command. */
+export async function startAdmittedRound(host: Member, room: RoomView) {
+  const launched = await roomCommand(host.context.request, room, {
+    type: 'start-round',
+  });
+  if (!launched.roundRef) throw new Error('Round was not durably admitted');
+  const initial = await readBallotRound(
+    host.context.request,
+    launched.roundRef.id,
+  );
+  return ballotRoundCommand(host.context.request, initial, { type: 'start' });
+}
+/** Actual authenticated Room admission and fresh consent; no fixture rows or invented authority. */
+export async function createHumanBallotRound(
+  members: readonly Member[],
+  judgeSeats: 0 | 2 = 2,
+) {
+  if (members.length !== 2 + judgeSeats)
+    throw new Error('Human Round proof needs one member per seat');
+  const host = members[0]!;
+  let room = await createFoundationRoom(host, (choice) =>
+    humanRoundSelection(choice, judgeSeats),
+  );
   const seats = [
     { member: members[0]!, role: 'affirmative', slot: 0 },
     { member: members[1]!, role: 'negative', slot: 0 },
-    { member: members[2]!, role: 'judge', slot: 0 },
-    { member: members[3]!, role: 'judge', slot: 1 },
+    ...members
+      .slice(2)
+      .map((member, slot) => ({ member, role: 'judge', slot })),
   ];
-  for (const seat of seats)
-    room = await roomCommand(seat.member.context.request, room, {
-      type: 'claim-seat',
-      role: seat.role,
-      slot: seat.slot,
-    });
-  for (const seat of seats) {
-    const response = await seat.member.context.request.get(
-      `/api/rooms/${room.id}`,
-    );
-    expect(response.status()).toBe(200);
-    const own = roomViewSchema.parse(await response.json());
-    const participant = own.participants.find(
-      (p) =>
-        p.role === seat.role && p.slot === seat.slot && 'consentVersion' in p,
-    );
-    if (!participant || !('consentVersion' in participant))
-      throw new Error('Own actual consent missing');
-    room = await roomCommand(seat.member.context.request, own, {
-      type: 'ready',
-      expectedConsentVersion: participant.consentVersion,
-    });
-  }
-  room = await roomCommand(host.context.request, room, { type: 'start-round' });
-  if (!room.roundRef) throw new Error('Round was not durably admitted');
-  const initial = await readBallotRound(host.context.request, room.roundRef.id);
-  return ballotRoundCommand(host.context.request, initial, { type: 'start' });
+  for (const { member, ...seat } of seats)
+    room = await claimSeat(member, room, seat);
+  for (const { member, ...seat } of seats)
+    room = await readyOwnSeat(member, room, seat);
+  return startAdmittedRound(host, room);
 }
 
 /** Real first receipt and both voluntary speech endings; scheduler invocation is a separately labelled fixture edge. */

@@ -1,31 +1,66 @@
-import type { ServerWebSocket } from 'bun';
+import type { ServerWebSocket, WebSocketOptions } from 'bun';
 
 type Bridge = {
   upstream: WebSocket | null;
   url: string;
+  origin: string | null;
   closed: boolean;
   queue: (string | Buffer)[];
 };
 const wire = (message: string | Buffer) =>
   typeof message === 'string' ? message : Uint8Array.from(message);
-const closeBridge = (socket: ServerWebSocket<Bridge>) => {
+// Only 1000 and application codes may be sent; the realtime client policy reads them.
+const sendable = (code: number) =>
+  code === 1000 || (code >= 3000 && code < 5000);
+const closeBridge = (
+  socket: ServerWebSocket<Bridge>,
+  code = 1001,
+  reason = 'Connection closed',
+) => {
   socket.data.closed = true;
   socket.data.queue = [];
   socket.data.upstream?.close();
-  socket.close(1001, 'Media connection closed');
+  if (sendable(code)) socket.close(code, reason);
+  else socket.close(1001, 'Connection closed');
 };
-/** TLS signalling to the real local LiveKit server; media still traverses its actual ICE transport. */
-export function createLaunchMediaEdge(input: {
-  readonly port: number;
-  readonly tls: { key: Buffer; cert: Buffer };
-}) {
+// The web tsconfig's DOM lib hides Bun's client options; the bridge runs under Bun.
+const UpstreamSocket = WebSocket as unknown as new (
+  url: string,
+  options: WebSocketOptions,
+) => WebSocket;
+type EdgeScope = {
+  readonly socketPath?: string;
+  readonly allowedOrigin?: string;
+};
+const refusal = (scope: EdgeScope, request: Request, path: string) => {
+  if (scope.socketPath && path !== scope.socketPath)
+    return new Response('Not found', { status: 404 });
+  if (
+    scope.allowedOrigin &&
+    request.headers.get('origin') !== scope.allowedOrigin
+  )
+    return new Response('Forbidden', { status: 403 });
+  return null;
+};
+/** Trusted TLS forwarding to actual suite-owned signalling and realtime services. */
+export function createLaunchSocketEdge(
+  input: EdgeScope & {
+    readonly port: number;
+    readonly upstreamPort: number;
+    readonly tls: { key: Buffer; cert: Buffer };
+  },
+) {
   return Bun.serve<Bridge>({
     hostname: '127.0.0.1',
     port: input.port,
     tls: input.tls,
     async fetch(request, server) {
       const url = new URL(request.url),
-        target = new URL(`http://127.0.0.1:7880${url.pathname}${url.search}`);
+        target = new URL(
+          `http://127.0.0.1:${input.upstreamPort}${url.pathname}${url.search}`,
+        );
+      const refused = refusal(input, request, url.pathname);
+      if (refused) return refused;
       if (request.headers.get('upgrade')?.toLowerCase() === 'websocket') {
         target.protocol = 'ws:';
         if (
@@ -33,13 +68,14 @@ export function createLaunchMediaEdge(input: {
             data: {
               upstream: null,
               url: target.href,
+              origin: request.headers.get('origin'),
               closed: false,
               queue: [],
             },
           })
         )
           return;
-        return new Response('Media unavailable', { status: 503 });
+        return new Response('Connection unavailable', { status: 503 });
       }
       try {
         const response = await fetch(target, {
@@ -58,12 +94,14 @@ export function createLaunchMediaEdge(input: {
           headers,
         });
       } catch {
-        return new Response('Media unavailable', { status: 503 });
+        return new Response('Connection unavailable', { status: 503 });
       }
     },
     websocket: {
       open(socket) {
-        const upstream = new WebSocket(socket.data.url);
+        const upstream = new UpstreamSocket(socket.data.url, {
+          headers: socket.data.origin ? { origin: socket.data.origin } : {},
+        });
         upstream.binaryType = 'arraybuffer';
         socket.data.upstream = upstream;
         upstream.onopen = () => {
@@ -79,7 +117,8 @@ export function createLaunchMediaEdge(input: {
             socket.send(event.data as string | ArrayBuffer);
         };
         upstream.onerror = () => closeBridge(socket);
-        upstream.onclose = () => closeBridge(socket);
+        upstream.onclose = (event) =>
+          closeBridge(socket, event.code, event.reason);
       },
       message(socket, message) {
         const upstream = socket.data.upstream;
@@ -88,10 +127,11 @@ export function createLaunchMediaEdge(input: {
         else if (socket.data.queue.length < 64) socket.data.queue.push(message);
         else closeBridge(socket);
       },
-      close(socket) {
+      close(socket, code, reason) {
         socket.data.closed = true;
         socket.data.queue = [];
-        socket.data.upstream?.close();
+        if (sendable(code)) socket.data.upstream?.close(code, reason);
+        else socket.data.upstream?.close();
       },
     },
   });

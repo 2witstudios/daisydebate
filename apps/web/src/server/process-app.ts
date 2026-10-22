@@ -1,4 +1,3 @@
-import { randomBytes } from 'node:crypto';
 import { systemClock, systemId } from '@daisy/clock';
 import { createApp, type App } from './app';
 import type { Fetch } from '../features/auth/mail/mail';
@@ -7,6 +6,7 @@ import { createProcessEdge, type ProcessHolder } from './process-edge';
 import { createRouteBinder } from './route-binding';
 import { createRoutes, type Routes } from './routes';
 import { readStartOptions } from './start-options';
+import { nextWorkerToken } from './worker-token';
 
 /**
  * The web process edge, and the only module that reads `process.env` or
@@ -55,7 +55,7 @@ const edge = createProcessEdge(
         fetch: outboundFetch(process.env),
         clock: systemClock,
         ids: systemId,
-        nextWorkerToken: () => randomBytes(32).toString('base64url'),
+        nextWorkerToken,
       }),
     ),
 );

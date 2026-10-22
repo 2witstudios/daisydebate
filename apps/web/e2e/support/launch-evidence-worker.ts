@@ -4,7 +4,10 @@ import { resolve } from 'node:path';
 
 /** Node driver invokes only these admitted, read-only Bun observation processes. */
 export async function executeLaunchEvidence(
-  entry: 'room-launch-evidence-process.ts' | 'attendance-evidence-process.ts',
+  entry:
+    | 'room-launch-evidence-process.ts'
+    | 'attendance-evidence-process.ts'
+    | 'bot-speech-evidence-process.ts',
   scopeId: string,
 ) {
   try {

@@ -3,7 +3,12 @@ import {
   changedMediaGrants,
   type RoundMediaGrants,
 } from '@daisy/debate-engine';
-import { mediaEnded, seatGrants, type MediaSnapshot } from './projection';
+import {
+  admissionRevoked,
+  mediaEnded,
+  seatGrants,
+  type MediaSnapshot,
+} from './projection';
 import type {
   Claim,
   Principal,
@@ -32,6 +37,7 @@ const needsCleanup = (state: MediaSnapshot, claim: Claim) =>
     claim.unsafe ||
     state.session.unsafeAt ||
     state.unresolved ||
+    admissionRevoked(state) ||
     mediaEnded(state),
   );
 const uncertain = (state: MediaSnapshot) =>
@@ -68,7 +74,8 @@ export function createMediaReconcileRun(
       claim,
       { kind: 'create', identity: null, payload: {} },
       (context) => {
-        if (mediaEnded(context)) throw createAppError('CONFLICT');
+        if (mediaEnded(context) || admissionRevoked(context))
+          throw createAppError('CONFLICT');
         const seat = context.participants.find((seat) =>
           admission.kind === 'human'
             ? seat.actorId === admission.actorId && seat.kind === 'human'

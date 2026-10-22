@@ -1,8 +1,9 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { startBotControlService } from './control-service';
+import { manualTimers } from './worker-timers.test-support';
 setupRitewayBun();
 test('idle control discovery and receipt pulses have no provider or media prerequisite', async () => {
-  const timers = new Map<number, () => Promise<void>>();
+  const { tasks: timers, timers: worker } = manualTimers();
   let pulses = 0,
     revoked = 0;
   const target = {
@@ -36,15 +37,7 @@ test('idle control discovery and receipt pulses have no provider or media prereq
       },
     }),
     limits: { maxControllers: 1, scanBatch: 4, scanMs: 500, renewMs: 3000 },
-    timers: {
-      setInterval: (task, ms) => {
-        timers.set(ms, task);
-        return ms;
-      },
-      clearInterval: (handle) => {
-        timers.delete(handle as number);
-      },
-    },
+    timers: worker,
     failed: () => {
       throw Error('unexpected');
     },
@@ -63,5 +56,57 @@ test('idle control discovery and receipt pulses have no provider or media prereq
     should: 'stop both timers and release only its own lease',
     actual: [timers.size, revoked],
     expected: [0, 1],
+  });
+});
+test('a rotated or stopped claim stops its speaking work before revocation', async () => {
+  const log: string[] = [];
+  let segment = 'first';
+  const claimFor = (segmentId: string) => ({
+    scope: {
+      roundId: 'round',
+      roundParticipantId: 'seat',
+      segmentId,
+      agentRunId: segmentId,
+      serviceId: `agent-run:${segmentId}`,
+      publicationEpoch: 1,
+    },
+    token: 'memory-only',
+  });
+  const tasks: (() => Promise<void>)[] = [];
+  const service = startBotControlService({
+    store: {
+      scanRoundBotWorkers: async () => [
+        { roundId: 'round', roundParticipantId: 'seat', segmentId: segment },
+      ],
+      claimRoundBotWorker: async (target) => claimFor(target.segmentId),
+      revokeRoundBotWorker: async (scope) => {
+        log.push(`revoke:${scope.segmentId}`);
+      },
+      verifyRoundBotWorker: async () => {},
+    },
+    control: (claim) => ({
+      pulse: async () => [],
+      stop: async () => {
+        log.push(`stop:${claim.scope.segmentId}`);
+      },
+    }),
+    limits: { maxControllers: 1, scanBatch: 4, scanMs: 500, renewMs: 3000 },
+    timers: {
+      setInterval: (task) => tasks.push(task),
+      clearInterval: () => {},
+    },
+    failed: () => {
+      throw Error('unexpected');
+    },
+  });
+  await service.started;
+  segment = 'second';
+  await tasks[0]!();
+  await service.stop();
+  assert({
+    given: 'a claim rotated to a new segment and then shutdown',
+    should: 'stop each speaker before revoking its lease',
+    actual: log,
+    expected: ['stop:first', 'revoke:first', 'stop:second', 'revoke:second'],
   });
 });

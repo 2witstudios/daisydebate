@@ -124,6 +124,11 @@ export function createBotPublicationOperations(input: {
           scope,
           token,
           leaseExpiresAt: value.leaseExpiresAt.toISOString(),
+          segmentType: segment.type,
+          /** Activity peers only; grants no authority over another seat. */
+          peerParticipantIds: round.participants
+            .filter((row) => row.role !== 'judge' && row.id !== seat.id)
+            .map((row) => row.id),
         };
       }),
     verifyBotPublication: (
@@ -173,7 +178,4 @@ export function createBotPublicationOperations(input: {
   };
 }
 
-export {
-  verifyBotWorkerPrincipalLocked,
-  readBotControlHealth,
-} from './bot-worker-authority';
+export { verifyBotWorkerPrincipalLocked } from './bot-worker-authority';
