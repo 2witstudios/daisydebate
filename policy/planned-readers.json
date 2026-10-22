@@ -81,6 +81,24 @@
       "adr": "docs/decisions/0057-planned-readers.md",
       "reason": "Committed seated-actor token/reconcile leaf pye8vaswx0emsq93mw08l9el consumes the isolated LiveKit adapter after actual CAP grants/session producers exist. This declaration authorizes no grants, pre-round joins or human acceptance.",
       "reviewBy": "2026-10-16"
+    },
+    {
+      "path": "packages/media/src/audio-publication.ts",
+      "export": "createAudioPublication",
+      "task": "VIDEO-3.16",
+      "owner": "VIDEO / ag-294zgpzv",
+      "adr": "docs/decisions/0057-planned-readers.md",
+      "reason": "ADR 0053 native audio producer precedes the committed VIDEO-3.16 worker reader (waa4xl8ecs1a285lrzn9o2rz). Native publication and pacing proofs do not establish a production worker consumer or browser delivery.",
+      "reviewBy": "2026-11-05"
+    },
+    {
+      "path": "packages/media/src/paced-publication.ts",
+      "export": "createPacedAudioWriter",
+      "task": "VIDEO-3.16",
+      "owner": "VIDEO / ag-294zgpzv",
+      "adr": "docs/decisions/0057-planned-readers.md",
+      "reason": "ADR 0053 native audio producer precedes the committed VIDEO-3.16 worker reader (waa4xl8ecs1a285lrzn9o2rz). Native publication and pacing proofs do not establish a production worker consumer or browser delivery.",
+      "reviewBy": "2026-11-05"
     }
   ]
 }

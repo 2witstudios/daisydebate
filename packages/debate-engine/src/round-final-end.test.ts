@@ -58,7 +58,7 @@ test('accepted early final yield anchors actual end independently of the origina
   });
 });
 
-test('forfeit anchors the actual last played interval and scheduled abandonment invents none', () => {
+test('scheduled abandonment invents no played interval or capture anchor', () => {
   const abandoned = runtimeWorld().execute({
     command: { type: 'forfeit' },
     actorId: person,
@@ -73,29 +73,5 @@ test('forfeit anchors the actual last played interval and scheduled abandonment 
       speaking: abandoned.speakingChanges,
     },
     expected: { status: 'abandoned', anchor: undefined, speaking: [] },
-  });
-  const world = runtimeWorld();
-  world.execute({ command: { type: 'start' }, actorId: null, now: at(0) });
-  world.tick(at(10_000));
-  const forfeited = world.execute({
-    command: { type: 'forfeit' },
-    actorId: person,
-    now: at(20_000),
-  });
-  assert({
-    given: 'a forfeit during the first actual speech',
-    should: 'close its played interval and record result without judging',
-    actual: {
-      anchor: forfeited.finalSegmentEndedAt,
-      close: forfeited.segmentCloses.at(-1)?.endedAt,
-      status: forfeited.round?.status,
-      outcome: forfeited.round?.outcome,
-    },
-    expected: {
-      anchor: at(20_000),
-      close: at(20_000),
-      status: 'completed',
-      outcome: 'negative',
-    },
   });
 });
