@@ -96,6 +96,8 @@ one whose advisory reaches a package it does not list.
 | [GHSA-qpx9-hpmf-5gmw](https://github.com/advisories/GHSA-qpx9-hpmf-5gmw) (high)     | `underscore` 1.13.6              | `@adobe/data` 0.10.19 → `jsonpath` 1.3.0 → underscore        | Only `@adobe/data`'s `schema/dynamic` imports jsonpath; Daisy imports `@adobe/data/ecs` alone, whose module graph excludes both                                   | `2026-12-23` |
 | [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm) (high)     | `braces` 3.0.3                   | `eslint-config-next` (dev) → fast-glob → micromatch → braces | Dev-only lint tooling over Daisy's own files; no patched release exists; production images omit dev dependencies (ADR 0052)                                       | `2026-12-23` |
 
+| [GHSA-qxg6-89mg-rqv8](https://github.com/advisories/GHSA-qxg6-89mg-rqv8) (moderate) | `@vitest/mocker` 3.2.7 | RITEway 9.3.0 (dev) → vitest → @vitest/mocker | Dev-only unloaded mocker development server; tests use `riteway/bun` and production omits dev dependencies (ADR 0068) | `2026-12-23` |
+
 Remove an entry by upgrading past the fix (RITEway without a hard vitest
 dependency, which clears the vitest and tinypool entries together, or an `@adobe/data` release off jsonpath's underscore pin);
 `bun policy` then fails until the stale entry is deleted.
