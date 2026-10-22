@@ -84,7 +84,8 @@
     "test:e2e:room-launch": "bun --env-file=.env apps/web/e2e/support/room-launch-runner.ts",
     "test:e2e:realtime": "bun --env-file=.env apps/web/e2e/support/realtime-runner.ts room",
     "test:e2e:messaging-realtime": "bun --env-file=.env apps/web/e2e/support/realtime-runner.ts messaging",
-    "proof:round-judging": "bun scripts/heavy.ts bun scripts/prove-round-judging.ts"
+    "proof:round-judging": "bun scripts/heavy.ts bun scripts/prove-round-judging.ts",
+    "proof:media-worker": "bun scripts/heavy.ts bun scripts/prove-media-worker.ts"
   },
   "devDependencies": {
     "@eslint/js": "9.39.5",
@@ -110,6 +111,7 @@
     "@daisy/debate-engine": "workspace:*",
     "@daisy/errors": "workspace:*",
     "@daisy/logger": "workspace:*",
+    "@daisy/media": "workspace:*",
     "@daisy/protocol": "workspace:*",
     "@daisy/redis": "workspace:*"
   }

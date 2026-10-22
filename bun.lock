@@ -12,6 +12,7 @@
         "@daisy/debate-engine": "workspace:*",
         "@daisy/errors": "workspace:*",
         "@daisy/logger": "workspace:*",
+        "@daisy/media": "workspace:*",
         "@daisy/protocol": "workspace:*",
         "@daisy/redis": "workspace:*",
       },
