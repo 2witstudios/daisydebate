@@ -3,6 +3,7 @@ import {
   deriveOutageIntervals,
   adjudicateAttendance,
   requireAttendanceDecision,
+  effectiveAttendanceDeadline,
 } from '@daisy/debate-engine';
 import type {
   AttendanceStore,
@@ -14,6 +15,7 @@ import type {
 } from '@daisy/db';
 import {
   attendanceEnvelopeSchema,
+  attendanceTimingPolicy,
   type AttendanceEnvelope,
 } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
@@ -76,6 +78,46 @@ export function resolveAttendanceWindow(
       }).adjudicate({ segmentId: target.id, decision, now: facts.now })
     : null;
   return {
+    async targets(principal: AttendancePrincipal, roundId: string) {
+      const facts = await deps.checkIns.readRoundAttendanceTargets({
+        principal,
+        roundId,
+      });
+      const nowMs = Date.parse(facts.now);
+      const availability = availabilityFor(facts);
+      return facts.round.segments
+        .filter(
+          (segment) =>
+            segment.type === 'speech' &&
+            !facts.finalizedSegmentIds.includes(segment.id) &&
+            !facts.recordedSegmentIds.includes(segment.id),
+        )
+        .flatMap((segment) => {
+          const window = attendanceWindowFor(
+            facts.round,
+            segment.id,
+            facts.eligibleParticipantIds,
+          );
+          const deadlineMs = effectiveAttendanceDeadline({
+            openedAtMs: window.openedAtMs,
+            graceMs: attendanceTimingPolicy.graceMs,
+            availability,
+          });
+          return nowMs >= window.openedAtMs - attendanceTimingPolicy.leadMs &&
+            (deadlineMs === null || nowMs <= deadlineMs)
+            ? [
+                {
+                  segmentId: segment.id,
+                  openedAt: segment.startedAt,
+                  effectiveDeadline:
+                    deadlineMs === null
+                      ? null
+                      : new Date(deadlineMs).toISOString(),
+                },
+              ]
+            : [];
+        });
+    },
     segmentId: target.id,
     decision: decision.decision,
     effectiveDeadline: new Date(decision.effectiveDeadlineMs).toISOString(),
