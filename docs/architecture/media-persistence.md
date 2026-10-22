@@ -55,3 +55,36 @@ These rows follow Round erasure. Seat deletion is restricted until dependent
 intervals are removed; segment deletion cascades its intervals. They contain
 neither transcript text nor raw audio. Runtime accepted-command atomicity,
 coverage, freeze and judging integration require their own real-service proof.
+
+## Frozen transcript and judging intent
+
+`round_transcript_freezes` has one immutable row per Round. Its positive
+`revision` identifies the frozen input; `frontier` is the nonnegative committed
+transcript revision, never a timestamp. `completeness` is `complete` or
+`incomplete`. A database trigger rejects updates; subject erasure may delete the
+row. The finalizer must lock the owning Round, close admission, establish terminal
+speaking history and classify every required stream before inserting the freeze.
+`frozen_at` uses the database clock at insertion. Storage alone does not prove
+coverage or authorize freezing on silence.
+
+`round_judging_jobs` binds one durable intent to that exact Round/revision. Its
+judge seat has a scoped Round foreign key; its optional result ballot is scoped
+to the same judge seat. A leased intent requires a token, expiry and positive
+attempt count; only a succeeded intent can carry a result. Tokens are secret
+fencing values and must never be logged. Runtime claim/renew/finish operations
+must compare the token and unexpired lease in their write transaction. Existing
+`agent_runs` continues to own provider/model usage for judging attempts.
+
+| Table                    | Columns                                                         | Category   | Purpose                                                       |
+| ------------------------ | --------------------------------------------------------------- | ---------- | ------------------------------------------------------------- |
+| round_transcript_freezes | round_id                                                        | identifier | Bind the one immutable input to its Round                     |
+| round_transcript_freezes | revision, frontier, frozen_at, completeness                     | none       | Pin transcript frontier, closure time and honest completeness |
+| round_judging_jobs       | round_id, judge_participant_id, result_ballot_id                | identifier | Bind a durable intent and result to the Round judge           |
+| round_judging_jobs       | lease_token                                                     | secret     | Fence the active judging attempt                              |
+| round_judging_jobs       | freeze_revision, status, lease_expires_at, attempts, created_at | none       | Track the exact frozen input and retryable execution          |
+
+Frozen inputs and jobs follow Round erasure. Jobs are deleted before their
+referenced ballots/seats; freeze deletion cascades the job. These tables add no
+text/audio copy and do not activate a provider or production privacy policy.
+Empty speaking intervals `[t,t)` preserve accepted command provenance only;
+consumer containment must require a nonempty calibrated uncertainty window.

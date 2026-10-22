@@ -72,7 +72,7 @@ export const roundSpeakingIntervals = pgTable(
     ),
     check(
       'round_speaking_intervals_time_check',
-      sql`${table.endedAt} is null or ${table.endedAt} > ${table.startedAt}`,
+      sql`${table.endedAt} is null or ${table.endedAt} >= ${table.startedAt}`,
     ),
     check(
       'round_speaking_intervals_version_check',

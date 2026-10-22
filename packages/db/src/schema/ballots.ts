@@ -67,6 +67,10 @@ export const ballots = pgTable(
       columns: [table.voidedByActorId],
       foreignColumns: [actors.id],
     }).onDelete('restrict'),
+    uniqueIndex('ballots_id_judge_unique').on(
+      table.id,
+      table.judgeParticipantId,
+    ),
     uniqueIndex('ballots_judge_seat_unique').on(table.judgeParticipantId),
     index('ballots_voided_by_actor_idx').on(table.voidedByActorId),
     check('ballots_status_check', oneOf(table.status, ballotStatuses)),
