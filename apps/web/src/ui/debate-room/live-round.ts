@@ -185,7 +185,9 @@ const prepOf = (position: RoundPosition): RoundSnapshot['prepMs'] => {
 };
 
 /**
- * The phase, lit speech and clocks at one instant. An active round whose
+ * The phase, lit speech and clocks at one instant. A Round with no judge
+ * seat has no judging window: it finishes unjudged after the speeches
+ * (DEC-191). An active round whose
  * checkpoint could not be read has no live position: waiting, nothing lit,
  * no clock, rather than a position guessed from an empty checkpoint.
  */
@@ -202,9 +204,11 @@ function liveParts(
     phase,
     liveIndex: liveIndexOf(view, position),
     clock:
-      phase === 'judging'
-        ? judgingClockOf(finalCloseMs(view), nowMs)
-        : clockOf(view, position, side),
+      phase !== 'judging'
+        ? clockOf(view, position, side)
+        : judgeOf(view)
+          ? judgingClockOf(finalCloseMs(view), nowMs)
+          : null,
     prepMs: prepOf(position),
   };
 }
