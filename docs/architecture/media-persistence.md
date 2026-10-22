@@ -310,3 +310,11 @@ own transaction. It checks after the Round fence and control waits, before
 competitive writes, and again before commit. An expired lease rolls back the
 projection, speaking history, outbox, receipt and adjudication together; a prior
 successful maintenance tick cannot authorize a later evaluator transaction.
+
+The database root exposes transcript readers and bound authenticated capture
+operations. Per-seat model and voice usage is recorded by scoped generation
+executions; Round admission owns reservations and initial-call accounting.
+Application code receives no general transcript-edit, speech-claim, execution
+recording or voice-budget writer. Root-surface tests enforce that boundary while
+ordered transcript reader tests and actual capture/private-read integrations
+retain their behavioral assertions.
