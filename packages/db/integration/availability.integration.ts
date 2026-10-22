@@ -2,9 +2,109 @@ import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
-import { availabilityOperations } from '../src/availability-operations';
+import {
+  availabilityOperations,
+  type AvailabilityEvidence,
+} from '../src/availability-operations';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
+
+function remember(
+  sample: AvailabilityEvidence | null,
+  samples: string[],
+): AvailabilityEvidence {
+  if (!sample)
+    throw new Error('The elected sampler must persist actual evidence');
+  samples.push(sample.at);
+  return sample;
+}
+
+test('sampler crash takeover and delayed actual outbox delivery remain observable', async () => {
+  const client = new SQL(databaseUrl, { max: 5 });
+  const ops = availabilityOperations(client);
+  const first = ops.availabilitySampler(),
+    second = ops.availabilitySampler();
+  const web = createId(),
+    realtime = createId(),
+    topic = `availability:${createId()}`;
+  const samples: string[] = [];
+  const flags = { publicProbeHealthy: true, controlWorkersHealthy: true };
+  try {
+    await ops.renewServiceInstance({ instanceId: web, role: 'web' });
+    const [outbox] =
+      await client`insert into outbox(topic,kind,version,payload,created_at) values(${topic},'phase',1,${{}},statement_timestamp()-interval '3 seconds') returning txid::text as txid,seq`;
+    await ops.renewServiceInstance({
+      instanceId: realtime,
+      role: 'realtime',
+      deliveredThrough: { txid: '0', seq: 0n },
+    });
+    assert({
+      given: 'two actual reserved producer sessions',
+      should: 'elect only one public-probe producer',
+      actual: [await first.elect(), await second.elect()],
+      expected: [true, false],
+    });
+    const lagged = remember(await first.sample(flags), samples);
+    assert({
+      given: 'fresh realtime lease whose cursor trails actual old outbox row',
+      should: 'report delivery lag',
+      actual: lagged.cause,
+      expected: 'delivery_lag',
+    });
+    const [owner] =
+      await client`select l.pid,a.backend_start::text as incarnation from pg_locks l join pg_stat_activity a on a.pid=l.pid where l.locktype='advisory' and l.classid=0 and l.objid=59003 and l.objsubid=1 and l.granted and a.datname=current_database()`;
+    if (!owner) throw new Error('The actual sampler must own its session lock');
+    const [terminated] =
+      await client`select pg_terminate_backend(pid) as terminated from pg_stat_activity where pid=${owner.pid} and backend_start=${owner.incarnation}::timestamptz and datname=current_database()`;
+    if (!terminated?.terminated)
+      throw new Error('Owned sampler backend was not terminated');
+    const deadline = performance.now() + 2000;
+    while (
+      (
+        await client`select 1 from pg_locks where locktype='advisory' and pid=${owner.pid} and classid=0 and objid=59003 and granted`
+      ).length
+    ) {
+      if (performance.now() > deadline)
+        throw new Error('Owned sampler crash did not release election');
+    }
+    await ops.renewServiceInstance({
+      instanceId: realtime,
+      role: 'realtime',
+      deliveredThrough: { txid: outbox.txid, seq: BigInt(outbox.seq) },
+    });
+    assert({
+      given: 'the exact old sampler backend is confirmed absent',
+      should: 'elect the healthy peer before its actual next public probe',
+      actual: await second.elect(),
+      expected: true,
+    });
+    const recovered = remember(await second.sample(flags), samples);
+    assert({
+      given: 'elected process crashes then actual delivery catches up',
+      should: 'elect a different session and record a later healthy sample',
+      actual: {
+        healthy: recovered.healthy,
+        later: recovered.at > lagged.at,
+      },
+      expected: { healthy: true, later: true },
+    });
+    await client`update service_instances set renewed_at=statement_timestamp()-interval '4 seconds' where instance_id=${realtime}`;
+    const stale = remember(await second.sample(flags), samples);
+    assert({
+      given: 'whole realtime service has no fresh peer',
+      should: 'report realtime outage instead of presence',
+      actual: stale.cause,
+      expected: 'realtime_stale',
+    });
+  } finally {
+    await Promise.allSettled([first.close(), second.close()]);
+    await client`delete from outbox where topic=${topic}`;
+    await client`delete from service_instances where instance_id in (${web},${realtime})`;
+    for (const at of samples)
+      await client`delete from availability_samples where at=${at}::timestamptz`;
+    await client.close();
+  }
+});
 
 test('speech evidence retains incoming outage recovery, not just the preceding sample', async () => {
   const client = new SQL(databaseUrl, { max: 2 });
