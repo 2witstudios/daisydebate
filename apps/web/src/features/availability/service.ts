@@ -1,4 +1,5 @@
 type Sampler = {
+  readonly elect: () => Promise<boolean>;
   readonly sample: (evidence: {
     readonly publicProbeHealthy: boolean;
     readonly controlWorkersHealthy: boolean;
@@ -9,7 +10,7 @@ type Timers = {
   readonly setInterval: (tick: () => void, ms: number) => unknown;
   readonly clearInterval: (handle: unknown) => void;
 };
-/** One process lease and public-path evidence feed the existing elected PG sampler. */
+/** Every peer renews its lease; only the actual elected session probes public ingress. */
 export function startAvailabilityService(deps: {
   readonly instanceId: string;
   readonly store: {
@@ -31,18 +32,18 @@ export function startAvailabilityService(deps: {
   let stopped = false;
   let running: Promise<void> | null = null;
   const cycle = async () => {
-    const [lease, probe, control, reconciliation] = await Promise.allSettled([
-      deps.store.renewServiceInstance({
-        instanceId: deps.instanceId,
-        role: 'web',
-      }),
+    await deps.store.renewServiceInstance({
+      instanceId: deps.instanceId,
+      role: 'web',
+    });
+    if (!(await sampler.elect())) return;
+    const [probe, control, reconciliation] = await Promise.allSettled([
       deps.probe(),
       deps.store.readRoundBotControlHealth(),
       deps.store.reconcileRoundCheckInAttempts(100),
     ]);
     await sampler.sample({
       publicProbeHealthy:
-        lease.status === 'fulfilled' &&
         reconciliation.status === 'fulfilled' &&
         probe.status === 'fulfilled' &&
         probe.value,
