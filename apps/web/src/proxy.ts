@@ -8,6 +8,7 @@ export function proxy(request: NextRequest) {
     foundationProofEnabled: app.config.FOUNDATION_PROOF_ENABLED,
     publicAppUrl: app.config.PUBLIC_APP_URL,
     websocketEndpoint: app.websocketEndpoint,
+    mediaPublicUrl: app.config.LIVEKIT_PUBLIC_URL ?? null,
     development: app.config.NODE_ENV === 'development',
     ids: app.ids,
   });

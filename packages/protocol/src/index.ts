@@ -224,6 +224,12 @@ export type {
   RoundBallotAuthority,
 } from './round-ballot';
 export {
+  roundMediaGrantsSchema,
+  roundMediaStateSchema,
+  roundMediaAdmissionSchema,
+} from './round-media';
+export type { RoundMediaState, RoundMediaAdmission } from './round-media';
+export {
   attendanceTimingPolicy,
   attendanceEnvelopeSchema,
   attendanceReceiptSchema,

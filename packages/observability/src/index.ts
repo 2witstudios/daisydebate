@@ -158,3 +158,4 @@ export function installShutdownSignals(
   for (const signal of ['SIGTERM', 'SIGINT'] as const)
     target.once(signal, () => void shutdown().catch(() => process.exit(1)));
 }
+export { noopErrorReporter, type ErrorReporter } from './error-reporter';
