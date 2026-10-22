@@ -1,5 +1,12 @@
 import { sql } from 'drizzle-orm';
-import { check, index, integer, pgTable, text } from 'drizzle-orm/pg-core';
+import {
+  check,
+  index,
+  integer,
+  pgTable,
+  text,
+  uniqueIndex,
+} from 'drizzle-orm/pg-core';
 import {
   jsonbColumn,
   jsonbIsObject,
@@ -48,6 +55,10 @@ export const agentRuns = pgTable(
     endedAt: timestampColumn('ended_at'),
   },
   (table) => [
+    uniqueIndex('agent_runs_id_participant_unique').on(
+      table.id,
+      table.roundParticipantId,
+    ),
     index('agent_runs_participant_kind_idx').on(
       table.roundParticipantId,
       table.kind,

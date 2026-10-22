@@ -147,6 +147,7 @@ describe('competitive schema child tables', () => {
           indexes: [
             'agent_runs_participant_kind_idx',
             'agent_runs_started_idx',
+            'unique agent_runs_id_participant_unique',
           ],
           uniques: [],
           namedKeys: [],
