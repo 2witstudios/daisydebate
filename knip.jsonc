@@ -39,6 +39,10 @@
         // evidence/release are Bun subprocess CLI entries, never browser imports.
         "e2e/support/room-launch-config.ts",
         "e2e/support/room-launch-server.ts",
+        // Explicit subprocess/container entries, with no browser import edge.
+        "e2e/support/room-launch-app.ts",
+        "e2e/support/room-launch-queued.ts",
+        "e2e/support/launch-browser-network.mjs",
         "e2e/support/room-launch-evidence-process.ts",
         "e2e/support/room-launch-release.ts",
         "integration/**/*.integration.ts",
