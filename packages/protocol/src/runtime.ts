@@ -102,6 +102,8 @@ export type RoundSpeakingChange =
 
 /** The durable writes that materialize the runtime's state. */
 export type RoundProjection = {
+  /** Actual final segment close, independent of ballot completion. */
+  readonly finalSegmentEndedAt?: string;
   readonly speakingChanges?: readonly RoundSpeakingChange[];
   /** Null when no round-row column changed. */
   readonly round: {

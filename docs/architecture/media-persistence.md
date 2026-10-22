@@ -93,3 +93,14 @@ Scoped child references use PostgreSQL `NO ACTION DEFERRABLE INITIALLY DEFERRED`
 rather than `RESTRICT` before owning-parent cascades finish. Direct deletion of a
 referenced seat, command or ballot still fails. This allows a Round cascade to
 remove its session/history/queued intent without depending on trigger order.
+
+## Actual final-end anchor
+
+`rounds.final_segment_ended_at` and `rounds.transcript_admission_cutoff` are nullable
+as a pair. The cutoff is exactly 120 seconds after the actual final segment close.
+Once assigned, a trigger rejects changes or clearing, including moving both
+columns together. Runtime closes the actual final segment and writes this pair
+atomically with accepted history. A planned schedule or a client clock cannot
+assign it. Both columns have category `none`: they bound transcript admission,
+contain no audio/text and follow Round erasure. The separate judging window ends
+30 minutes after that same actual final-end anchor.

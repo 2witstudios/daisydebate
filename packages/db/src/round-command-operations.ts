@@ -1,3 +1,8 @@
+import {
+  executeLockedRoundTick,
+  type LockedRoundTickInput,
+} from './round-clock-transaction';
+import { sampleRoundExecutionTime } from './round-execution-time';
 import { writeSpeakingProjection } from './round-speaking-writer';
 import { createAppError } from '@daisy/errors';
 import {
@@ -90,11 +95,7 @@ async function commandContext(
         active: run.endedAt === null,
       };
   }
-  // This separate statement follows every lock wait above.
-  const [clock] = (await tx.execute(
-    sql`select clock_timestamp() as now`,
-  )) as unknown as { now: Date }[];
-  if (!clock) throw createAppError('INFRASTRUCTURE');
+  const now = await sampleRoundExecutionTime(tx);
   return {
     round,
     authority: {
@@ -103,7 +104,7 @@ async function commandContext(
       participants,
       agentRun,
     },
-    now: clock.now.toISOString(),
+    now,
   };
 }
 
@@ -182,6 +183,14 @@ export const roundCommandOperations = ({
   readonly database: BunSQLDatabase;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
+  /** Internal time-only producer; no public route or read invokes this operation. */
+  async executeRoundTick(input: LockedRoundTickInput) {
+    if (!idSchema.safeParse(input.roundId).success)
+      throw createAppError('VALIDATION');
+    return instrumented(eventSink, 'executeRoundTick', () =>
+      database.transaction((tx) => executeLockedRoundTick(tx, input)),
+    );
+  },
   async executeRoundCommand(input: CommandInput): Promise<RoundCommandReceipt> {
     if (
       !idSchema.safeParse(input.roundId).success ||

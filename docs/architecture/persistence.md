@@ -26,6 +26,17 @@ Every status and vocabulary column is text with a CHECK derived from the protoco
 
 Competitive instants come from the database clock. The application passes one database-sourced instant to the pure Round runtime, then persists its projection under the expected Round version. Segment closes precede inserts in the same transaction. An accepted completion writes the judge ballot and Round result atomically. Redis loss cannot change a result, ballot, rating, or recording reference.
 
+The internal Round tick operation locks and hydrates the current Round before
+sampling `clock_timestamp()` separately. It runs the same pure engine as participant
+commands and atomically persists segment closes/openings, speaking grants, the
+Round revision and its outbox signal. A reconciler can advance a silent Round;
+HTTP reads remain side-effect free. The final segment closes at its actual elapsed
+deadline or accepted early yield while the Round remains active awaiting judging.
+That close fixes `final_segment_ended_at` and the immutable
+`transcript_admission_cutoff` 120 seconds later. Ballot arrival never moves the
+capture deadline. Historical speaking eligibility remains a separate requirement
+from admission cutoff and transcript freeze.
+
 ## Roles and migration baseline
 
 The single greenfield baseline ([ADR 0038](../decisions/0038-drizzle-1-baseline.md)) creates `daisy_web` with DML but no schema, `TRUNCATE`, or migration-log privilege. `daisy_realtime` gets only explicit read models and outbox access; it cannot read authentication secrets or private user fields. `daisy_e2e` is a local loopback login and member of `daisy_web`. Migrations run through a separate owner credential. A baseline squash requires the recorded policy entry and a one-time reset of local and test databases; deployed migrations are never rewritten.

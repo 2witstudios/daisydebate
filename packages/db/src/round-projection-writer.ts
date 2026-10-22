@@ -11,7 +11,7 @@ import { roundCommands } from './schema/round-commands';
 import { roundSegments } from './schema/round-segments';
 import { rounds } from './schema/rounds';
 
-type Tx = Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0];
+type Tx = Pick<BunSQLDatabase, 'select' | 'update' | 'insert' | 'execute'>;
 
 /** Append the canonical content-free invalidation for a persisted Round revision. */
 export async function appendRoundPhaseChanged(
@@ -71,6 +71,18 @@ export async function writeProjectionWithPhaseSignal(
   const changed = projectionChanged(current, projection);
   if (!changed) return false;
   await writeProjection(tx, roundId, projection, now);
+  if (projection.finalSegmentEndedAt !== undefined)
+    await tx
+      .update(rounds)
+      .set({
+        finalSegmentEndedAt: new Date(projection.finalSegmentEndedAt),
+        transcriptAdmissionCutoff: new Date(
+          Date.parse(projection.finalSegmentEndedAt) + 120_000,
+        ),
+      })
+      .where(
+        and(eq(rounds.id, roundId), sql`${rounds.finalSegmentEndedAt} is null`),
+      );
   await appendRoundPhaseChanged(tx, roundId, current.version + 1);
   return true;
 }
@@ -154,7 +166,7 @@ const lifecycleInstant = (
 
 /** Writes one projection's round row and segment changes inside `tx`. */
 async function writeProjection(
-  tx: Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0],
+  tx: Tx,
   roundId: string,
   projection: RoundProjection,
   now: string,

@@ -119,7 +119,7 @@ export const advanceRoundClock = (
     let transition: ClockTransition;
     if (open) {
       const due = open.startedAtMs + open.durationMs;
-      if (nowMs < due || open.sequence === rules.segments.length - 1) break;
+      if (nowMs < due) break;
       transition = closeClockSegment(state, open.sequence, due);
     } else {
       if (closedCount(state) >= rules.segments.length) break;

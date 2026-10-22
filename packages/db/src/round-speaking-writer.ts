@@ -3,7 +3,7 @@ import { and, eq, isNull } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { RoundProjection } from '@daisy/protocol';
 import { roundSpeakingIntervals } from './schema/round-speaking-intervals';
-type Tx = Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0];
+type Tx = Pick<BunSQLDatabase, 'update' | 'insert'>;
 
 /** Called after command/segment insertion in the same transaction; replay never calls it. */
 export async function writeSpeakingProjection(
@@ -33,17 +33,15 @@ export async function writeSpeakingProjection(
         );
     } else {
       for (const participantId of change.participantIds)
-        await tx
-          .insert(roundSpeakingIntervals)
-          .values({
-            id: createId(),
-            roundId: input.roundId,
-            segmentId: change.segmentId,
-            roundParticipantId: participantId,
-            startedAt: new Date(change.at),
-            startedVersion: input.resultingVersion,
-            startedCommandId: input.commandId,
-          });
+        await tx.insert(roundSpeakingIntervals).values({
+          id: createId(),
+          roundId: input.roundId,
+          segmentId: change.segmentId,
+          roundParticipantId: participantId,
+          startedAt: new Date(change.at),
+          startedVersion: input.resultingVersion,
+          startedCommandId: input.commandId,
+        });
     }
   }
 }

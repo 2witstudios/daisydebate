@@ -30,7 +30,10 @@ type Dependencies = {
   readonly limits: { readonly read: Rule; readonly command: Rule };
   readonly maxBodyBytes: number;
   readonly active: () => boolean;
-  readonly operations: ReturnType<typeof createRoundRuntimeOperations>;
+  readonly operations: Pick<
+    ReturnType<typeof createRoundRuntimeOperations>,
+    'command'
+  >;
   readonly view: (caller: Caller, roundId: string) => Promise<RoundView>;
   readonly utterances: (
     caller: Caller,

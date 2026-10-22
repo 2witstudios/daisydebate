@@ -50,7 +50,12 @@ import {
  */
 
 /** The queues the runtime projects from; a scratch run discards its own. */
-const queues = (): Queues => ({ changes: [], effects: [], floorChange: null });
+const queues = (): Queues => ({
+  changes: [],
+  effects: [],
+  floorChange: null,
+  finalPlayedEnd: null,
+});
 
 /**
  * Creates the runtime from durable rows, the frozen rules and an injected
@@ -153,7 +158,20 @@ export function createRoundRuntime(input: {
           ]
         : [],
     );
+    const finalClose = into.changes.find(
+      (change) =>
+        change.kind === 'close' &&
+        change.sequence === rules.segments.length - 1,
+    );
+    const finalEndedAt =
+      into.finalPlayedEnd ??
+      (finalClose?.kind === 'close'
+        ? new Date(finalClose.atMs).toISOString()
+        : undefined);
     return {
+      ...(finalEndedAt !== undefined
+        ? { finalSegmentEndedAt: finalEndedAt }
+        : {}),
       speakingChanges: speakingChangesOf({
         rules,
         participants: input.participants,
@@ -250,7 +268,11 @@ export function createRoundRuntime(input: {
     const lifecycle = on.lifecycle();
     return {
       status: lifecycle.status,
-      currentStage: stageOf(capture(on), lifecycle.status),
+      currentStage: stageOf(
+        capture(on),
+        lifecycle.status,
+        rules.segments.length,
+      ),
       ...lifecycleStampsOf(lifecycle),
       checkpoint: on.checkpoint(),
     };

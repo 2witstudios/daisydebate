@@ -130,11 +130,18 @@ describe('round runtime lifecycle', () => {
 
     test("completes only after the final segment's time, with an outcome, and is then terminal", async () => {
       const { world, totalMs } = completedSchedule(rules);
+      const beforeDeadline = runtime();
+      beforeDeadline.execute({
+        command: { type: 'start' },
+        actorId: null,
+        now: at(0),
+      });
+      beforeDeadline.tick(at(totalMs - 1));
       await assertRejects({
         given: "a completion one millisecond before the last segment's end",
         should: 'refuse with the final-segment invariant',
         actual: () =>
-          world.execute({
+          beforeDeadline.execute({
             command: { type: 'complete', outcome: 'affirmative' },
             actorId: null,
             now: at(totalMs - 1),
@@ -168,7 +175,7 @@ describe('round runtime lifecycle', () => {
               floor: null,
             },
           },
-          close: 'segment-7',
+          close: undefined,
         },
       });
       await assertRejects({
