@@ -27,3 +27,18 @@ test('strict native ballot preserves one envelope and refuses impersonation, dup
     expected: [true, [false, false, false, false]],
   });
 });
+
+test('a missing winner names the actual Round debaters without accepting them as authority', () => {
+  const form = fields();
+  form.delete('winner');
+  const result = ballotFields(form, true, {
+    affirmative: { name: 'Actual Affirmative' },
+    negative: { name: 'Actual Negative' },
+  });
+  assert({
+    given: 'fresh canonical display names and no chosen side',
+    should: 'name both actual debaters in the refusal',
+    actual: result.ok ? null : result.error,
+    expected: 'Pick who won: Actual Affirmative or Actual Negative.',
+  });
+});

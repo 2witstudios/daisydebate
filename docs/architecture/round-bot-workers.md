@@ -77,3 +77,27 @@ not revoke it. Startup uses the existing availability instance identity rather
 than creating another service lease. Shutdown awaits pulses and revokes only
 its own current claims before pools close. Worker control is not floor-command,
 media-publication or transcript authority and does not consume a model allowance.
+
+## Scoped generation dispatch and settlement
+
+The bot publication factory also owns generation admission. `beginGeneration`
+requires the current memory bearer, fresh scoped control claim and current
+speaking authority. It counts the existing admitted Round reservation and
+creates a separate child AgentRun with one uncertain provider request. It reads
+only captured utterances in actual segment order; generated text never becomes
+an utterance. TTS additionally requires an explicit model and per-seat character
+budget. It reserves the input character count before the external call; unknown
+provider outcomes retain that reservation.
+
+The returned execution capability settles only usage. Its OS-CSPRNG bearer
+stays in memory; `configuration_snapshot.executionTokenDigest` stores SHA3-256
+(secret, private) solely to authenticate usage settlement. The scope and parent
+run fields are private identifiers; `providerOutcome` and counters are operational
+metadata. These inherit AgentRun retention and owning Round erasure, and no new
+legal collection authority is asserted. Neither bearer nor digest is exposed in
+participant exports, telemetry, prompts or public responses. `finishGeneration`
+authenticates the exact execution and scope even after lease rotation or Round
+termination. An exact repeated outcome/counter tuple is idempotent; a changed
+repeat is refused. Settlement cannot reopen a Round, publish audio, command a
+seat or write transcript text. This storage producer alone does not establish
+actual provider-to-native publication or full played-Round acceptance.

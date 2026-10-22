@@ -1,3 +1,4 @@
+import { requireCurrentWeb } from './round-service-authority';
 import { createAppError } from '@daisy/errors';
 import { idSchema, type RoundProjection } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
@@ -53,17 +54,21 @@ export function createAttendanceEvaluator(
     )
       throw createAppError('VALIDATION');
     return transaction(async (tx) => {
+      await requireCurrentWeb(tx, input.instanceId);
       const { current, round, seats } = await fenceAttendance(
         tx,
         input.roundId,
         input.commandId,
         null,
       );
+      await requireCurrentWeb(tx, input.instanceId, true);
       const pending = await tx.execute(
         sql`select attempt_id from round_check_in_attempts where round_id=${round.id} and state='pending' limit 1`,
       );
       if (pending.length > 0) return null;
-      if (!(await controlHealth(tx, round.id)).healthy) return null;
+      const health = await controlHealth(tx, round.id);
+      await requireCurrentWeb(tx, input.instanceId);
+      if (!health.healthy) return null;
       const evidence = await attendanceEvidence(tx, round);
       const rows = await tx.execute(
         sql`select participant_id,segment_id,to_char(received_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as received_at from round_check_ins where round_id=${round.id}`,
@@ -104,6 +109,7 @@ export function createAttendanceEvaluator(
           'Attendance windows must resolve in actual speech order',
         );
       requireResolutionProjection(resolution);
+      await requireCurrentWeb(tx, input.instanceId);
       const changed = resolution.projection
         ? await writeProjectionWithPhaseSignal(
             tx,
@@ -149,6 +155,7 @@ export function createAttendanceEvaluator(
           resultingVersion,
           commandId: input.commandId,
         });
+      await requireCurrentWeb(tx, input.instanceId);
       return resolution;
     });
   };

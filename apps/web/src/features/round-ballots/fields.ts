@@ -1,5 +1,10 @@
 import { ballotCategories, roundBallotEnvelopeSchema } from '@daisy/protocol';
-import { parseBallot, scoreField, feedbackField } from '../judge/ballot';
+import {
+  parseBallot,
+  scoreField,
+  feedbackField,
+  type BallotDebaters,
+} from '../judge/ballot';
 import {
   collectRoundFormFields,
   positiveFormInteger,
@@ -28,6 +33,10 @@ const allowed = [
 export function ballotFields(
   entries: Iterable<readonly [string, unknown]>,
   serverAction = false,
+  debaters: BallotDebaters = {
+    affirmative: { name: 'Affirmative' },
+    negative: { name: 'Negative' },
+  },
 ) {
   const fields = collectRoundFormFields(entries, allowed, serverAction);
   if (!fields)
@@ -38,10 +47,7 @@ export function ballotFields(
     };
   const form = new FormData();
   for (const [key, value] of Object.entries(fields)) form.set(key, value);
-  const parsed = parseBallot(form, {
-    affirmative: { name: 'Affirmative' },
-    negative: { name: 'Negative' },
-  });
+  const parsed = parseBallot(form, debaters);
   if (!parsed.ok) return parsed;
   const result = roundBallotEnvelopeSchema.safeParse({
     version: positiveFormInteger(fields.version),

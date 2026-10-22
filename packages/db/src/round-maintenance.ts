@@ -1,4 +1,5 @@
-import { and, asc, eq, gt, sql } from 'drizzle-orm';
+import { requireCurrentWeb } from './round-service-authority';
+import { and, asc, eq, gt } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import type { BoundedTransaction } from './bounded-transaction';
@@ -11,17 +12,6 @@ import { lockedRoundVersion } from './round-projection-writer';
 import { finalizeLockedRoundTranscript } from './transcript-finalization';
 import { rounds } from './schema/rounds';
 
-async function requireCurrentWeb(
-  tx: BoundedTransactionContext,
-  instanceId: string,
-  lock = false,
-) {
-  const rows =
-    await tx.execute(sql`select instance_id from service_instances where instance_id=${instanceId} and role='web'
-    and renewed_at>clock_timestamp()-interval '3 seconds' ${lock ? sql`for share` : sql``}`);
-  if (rows.length !== 1)
-    throw createAppError('AUTHORIZATION', 'Maintenance service is not current');
-}
 type DueInput = LockedRoundTickInput & { readonly instanceId: string };
 /** Internal service authority, one canonical clock and the existing bounded pool. */
 export function roundMaintenanceOperations(run: BoundedTransaction) {
