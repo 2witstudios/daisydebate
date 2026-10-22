@@ -1,9 +1,11 @@
+import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createId } from '@paralleldrive/cuid2';
 import { createAttendanceRatingSweep } from '../src/features/attendance/rating';
 import { withAttendanceRound } from './attendance.test-support';
 import { rateDebate, ratingPolicy } from '@daisy/debate-engine';
 setupRitewayBun();
+requireTestServices(process.env);
 
 /** Historical PG fixture only: tests settlement/rating, not live public-probe health. */
 async function settleFixture(

@@ -83,7 +83,8 @@
     "pipeline:sync": "bun scripts/pipeline-sync.ts",
     "test:e2e:room-launch": "bun --env-file=.env apps/web/e2e/support/room-launch-runner.ts",
     "test:e2e:realtime": "bun --env-file=.env apps/web/e2e/support/realtime-runner.ts room",
-    "test:e2e:messaging-realtime": "bun --env-file=.env apps/web/e2e/support/realtime-runner.ts messaging"
+    "test:e2e:messaging-realtime": "bun --env-file=.env apps/web/e2e/support/realtime-runner.ts messaging",
+    "proof:round-judging": "bun scripts/heavy.ts bun scripts/prove-round-judging.ts"
   },
   "devDependencies": {
     "@eslint/js": "9.39.5",
@@ -102,6 +103,7 @@
     "typescript-eslint": "8.70.0"
   },
   "dependencies": {
+    "@daisy/ai-voice": "workspace:*",
     "@daisy/clock": "workspace:*",
     "@daisy/config": "workspace:*",
     "@daisy/db": "workspace:*",

@@ -38,6 +38,12 @@ test('sampler crash takeover and delayed actual outbox delivery remain observabl
       role: 'realtime',
       deliveredThrough: { txid: '0', seq: 0n },
     });
+    assert({
+      given: 'two actual reserved producer sessions',
+      should: 'elect only one public-probe producer',
+      actual: [await first.elect(), await second.elect()],
+      expected: [true, false],
+    });
     const lagged = remember(await first.sample(flags), samples);
     assert({
       given: 'fresh realtime lease whose cursor trails actual old outbox row',
@@ -65,6 +71,12 @@ test('sampler crash takeover and delayed actual outbox delivery remain observabl
       instanceId: realtime,
       role: 'realtime',
       deliveredThrough: { txid: outbox.txid, seq: BigInt(outbox.seq) },
+    });
+    assert({
+      given: 'the exact old sampler backend is confirmed absent',
+      should: 'elect the healthy peer before its actual next public probe',
+      actual: await second.elect(),
+      expected: true,
     });
     const recovered = remember(await second.sample(flags), samples);
     assert({

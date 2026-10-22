@@ -6,6 +6,7 @@ import {
 import { createRealtimeApp } from './app';
 import { DEFAULT_REALTIME_PORT, parsePort } from './port';
 import { serveRealtime } from './serve';
+import { startRealtimeServiceLease } from './service-lease';
 import { readFile } from 'node:fs/promises';
 import {
   defaultGateway,
@@ -43,10 +44,26 @@ if (gatewayUnresolved)
     { operation: 'server.start' },
     'No single default gateway was found, so no proxy is trusted for it',
   );
-const { close } = await serveRealtime({
+const { close, drain } = await serveRealtime({
   resources,
   port,
   trustedProxies,
+});
+const lease = startRealtimeServiceLease({
+  instanceId: systemId.next(),
+  renew: resources.database.renewServiceInstance,
+  deliveredThrough: drain.cursor,
+  failed: () =>
+    resources.logger.log(
+      'service.lease_failed',
+      { operation: 'realtime.lease', errorCode: 'INFRASTRUCTURE' },
+      'Realtime lease renewal unavailable',
+    ),
+  timers: {
+    setInterval: (tick, ms) => setInterval(tick, ms).unref(),
+    clearInterval: (handle) =>
+      clearInterval(handle as ReturnType<typeof setInterval>),
+  },
 });
 resources.logger.log(
   'server.start',
@@ -71,6 +88,7 @@ async function shutdown() {
     deadlineMs: 25_000,
     onDeadlineExceeded: () => process.exit(1),
     close: async () => {
+      await lease.stop();
       await close();
       await resources.close();
     },

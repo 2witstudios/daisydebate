@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { systemClock, systemId } from '@daisy/clock';
 import { createApp, type App } from './app';
 import type { Fetch } from '../features/auth/mail/mail';
@@ -41,6 +42,10 @@ const outboundFetch = (env: Record<string, string | undefined>): Fetch => {
       });
 };
 
+/** Public probe reaches real ingress, independently of captured outbound mail. */
+export const fetchPublicAttendanceProbe = (url: string, init: RequestInit) =>
+  globalThis.fetch(url, init);
+
 const edge = createProcessEdge(
   globalThis as typeof globalThis & ProcessHolder<ProcessState>,
   () =>
@@ -50,6 +55,7 @@ const edge = createProcessEdge(
         fetch: outboundFetch(process.env),
         clock: systemClock,
         ids: systemId,
+        nextWorkerToken: () => randomBytes(32).toString('base64url'),
       }),
     ),
 );
