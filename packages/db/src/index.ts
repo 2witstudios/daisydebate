@@ -1,4 +1,5 @@
 import { createMediaSessionStore } from './media-session';
+import { roundMaintenanceOperations } from './round-maintenance';
 import {
   roundWorkerEntrypoints,
   type JudgingOptions,
@@ -156,6 +157,7 @@ export function createDatabase({
     });
   return {
     ...botAdmissionOperations,
+    ...roundMaintenanceOperations(transcriptTransaction),
     ...roundWorkerEntrypoints({
       run: transcriptTransaction,
       nextId: nextActorId,
