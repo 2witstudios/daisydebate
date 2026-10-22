@@ -29,6 +29,7 @@ export const eventRegistry = {
   'auth.email_change.cleanup_failed': 'error',
   'ai_debate.speech.failed': 'error',
   'round.media.unsafe': 'error',
+  'round.judging.failed': 'error',
   'round.media.recovered': 'info',
   'realtime.outbox.append_failed': 'error',
   'realtime.outbox.actor_missing': 'warn',

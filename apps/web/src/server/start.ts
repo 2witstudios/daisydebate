@@ -1,3 +1,4 @@
+import { startRoundWorkers } from './round-workers';
 import { startMessagingFileMaintenance } from './file-maintenance';
 import { startRoundAvailability } from './round-availability';
 import { readFileSync } from 'node:fs';
@@ -50,6 +51,17 @@ const { server, started } = startProductionServer({
   host: '0.0.0.0',
 });
 await started;
+const roundWorkers = startRoundWorkers({
+  app,
+  timers: {
+    setInterval: (tick, ms) =>
+      setInterval(() => {
+        void tick();
+      }, ms).unref(),
+    clearInterval: (handle) =>
+      clearInterval(handle as ReturnType<typeof setInterval>),
+  },
+});
 const availability = startRoundAvailability({
   app,
   fetch: fetchPublicAttendanceProbe,
@@ -106,6 +118,7 @@ async function shutdown() {
   const retentionStopped = retention.stop();
   const filesStopped = fileMaintenance?.stop();
   const availabilityStopped = availability.stop();
+  const workersStopped = roundWorkers?.stop();
   app.logger.log(
     'server.shutdown',
     { operation: 'server.shutdown' },
@@ -126,7 +139,12 @@ async function shutdown() {
         server.close((error) => (error ? reject(error) : resolve())),
       );
       await nextApp.close();
-      await Promise.all([retentionStopped, filesStopped, availabilityStopped]);
+      await Promise.all([
+        retentionStopped,
+        filesStopped,
+        availabilityStopped,
+        workersStopped,
+      ]);
       await closeProcessApp();
     },
   });
