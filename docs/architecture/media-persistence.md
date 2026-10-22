@@ -88,3 +88,8 @@ referenced ballots/seats; freeze deletion cascades the job. These tables add no
 text/audio copy and do not activate a provider or production privacy policy.
 Empty speaking intervals `[t,t)` preserve accepted command provenance only;
 consumer containment must require a nonempty calibrated uncertainty window.
+
+Scoped child references use PostgreSQL `NO ACTION DEFERRABLE INITIALLY DEFERRED`, checked at transaction end,
+rather than `RESTRICT` before owning-parent cascades finish. Direct deletion of a
+referenced seat, command or ballot still fails. This allows a Round cascade to
+remove its session/history/queued intent without depending on trigger order.
