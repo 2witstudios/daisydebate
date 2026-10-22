@@ -44,7 +44,7 @@ const requestMedia = async (
 };
 
 /** Mount once per Round; changing projections never resets command or media lifetimes. */
-export function RoundMediaSession({
+function RoundMediaSession({
   view,
   onRefresh,
 }: {
