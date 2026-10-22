@@ -1,4 +1,5 @@
 import { startMessagingFileMaintenance } from './file-maintenance';
+import { startRoundAvailability } from './round-availability';
 import { readFileSync } from 'node:fs';
 import next from 'next';
 import { refuseSchemaAlteringRole } from '@daisy/db';
@@ -10,6 +11,7 @@ import {
   closeProcessApp,
   processApp,
   processStartOptions,
+  fetchPublicAttendanceProbe,
 } from './process-app';
 import {
   createRetentionSweep,
@@ -48,6 +50,15 @@ const { server, started } = startProductionServer({
   host: '0.0.0.0',
 });
 await started;
+const availability = startRoundAvailability({
+  app,
+  fetch: fetchPublicAttendanceProbe,
+  timers: {
+    setInterval: (tick, ms) => setInterval(tick, ms).unref(),
+    clearInterval: (handle) =>
+      clearInterval(handle as ReturnType<typeof setInterval>),
+  },
+});
 // The one bounded retention sweep runs at start and then hourly in this
 // process; `unref` never holds it open. The start-up run waits for Redis to
 // answer first (ISSUE-146): a freshly started Fly machine's Redis connection
@@ -94,6 +105,7 @@ async function shutdown() {
   // Ends any sweep between batches; awaited before the pools close below.
   const retentionStopped = retention.stop();
   const filesStopped = fileMaintenance?.stop();
+  const availabilityStopped = availability.stop();
   app.logger.log(
     'server.shutdown',
     { operation: 'server.shutdown' },
@@ -114,7 +126,7 @@ async function shutdown() {
         server.close((error) => (error ? reject(error) : resolve())),
       );
       await nextApp.close();
-      await Promise.all([retentionStopped, filesStopped]);
+      await Promise.all([retentionStopped, filesStopped, availabilityStopped]);
       await closeProcessApp();
     },
   });

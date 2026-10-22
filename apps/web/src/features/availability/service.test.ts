@@ -15,6 +15,7 @@ test('availability loop samples actual probe/control results and awaits its own 
   const service = startAvailabilityService({
     instanceId: 'a'.repeat(24),
     store: {
+      reconcileRoundCheckInAttempts: async () => 0,
       renewServiceInstance: async () => {
         events.push('renew');
       },

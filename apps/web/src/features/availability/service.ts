@@ -20,6 +20,7 @@ export function startAvailabilityService(deps: {
     readonly readRoundBotControlHealth: () => Promise<{
       readonly healthy: boolean;
     }>;
+    readonly reconcileRoundCheckInAttempts: (limit: number) => Promise<number>;
     readonly availabilitySampler: () => Sampler;
   };
   readonly probe: () => Promise<boolean>;
@@ -30,17 +31,19 @@ export function startAvailabilityService(deps: {
   let stopped = false;
   let running: Promise<void> | null = null;
   const cycle = async () => {
-    const [lease, probe, control] = await Promise.allSettled([
+    const [lease, probe, control, reconciliation] = await Promise.allSettled([
       deps.store.renewServiceInstance({
         instanceId: deps.instanceId,
         role: 'web',
       }),
       deps.probe(),
       deps.store.readRoundBotControlHealth(),
+      deps.store.reconcileRoundCheckInAttempts(100),
     ]);
     await sampler.sample({
       publicProbeHealthy:
         lease.status === 'fulfilled' &&
+        reconciliation.status === 'fulfilled' &&
         probe.status === 'fulfilled' &&
         probe.value,
       controlWorkersHealthy:

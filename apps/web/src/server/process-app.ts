@@ -41,6 +41,10 @@ const outboundFetch = (env: Record<string, string | undefined>): Fetch => {
       });
 };
 
+/** Public probe reaches real ingress, independently of captured outbound mail. */
+export const fetchPublicAttendanceProbe = (url: string, init: RequestInit) =>
+  globalThis.fetch(url, init);
+
 const edge = createProcessEdge(
   globalThis as typeof globalThis & ProcessHolder<ProcessState>,
   () =>
