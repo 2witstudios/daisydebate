@@ -1,5 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { activityBatches } from './capture-activity';
+import { activityWanted, createActivityRelay } from './capture-activity';
+import type { CaptureState } from './capture-history';
 import type { StagedFrame } from './capture-staging';
 setupRitewayBun();
 const staged = (seat: string, sequence: number): StagedFrame => ({
@@ -15,33 +16,44 @@ const staged = (seat: string, sequence: number): StagedFrame => ({
     afterMs: 1011 + sequence * 10,
   },
 });
-test('activity batches relay the freshest original frames per seat with calibrated windows', () => {
-  const host = 'h'.repeat(24),
-    guest = 'q'.repeat(24);
-  const frames = [
-    ...Array.from({ length: 22 }, (_, i) => staged(host, i)),
-    staged(guest, 40),
-  ];
-  const batches = activityBatches(frames);
-  const hostBatch = batches.find((b) => b.roundParticipantId === host)!;
+const host = 'h'.repeat(24),
+  guest = 'q'.repeat(24);
+test('the activity relay repeats each seat window and sends only seats with new frames', () => {
+  const relay = createActivityRelay();
+  for (let i = 0; i < 22; i++) relay.observe(staged(host, i));
+  relay.observe(staged(guest, 40));
+  const first = relay.take();
+  relay.observe(staged(host, 22));
+  const second = relay.take();
   assert({
-    given: 'more staged frames for one seat than a relay batch holds',
+    given: 'more frames for one seat than a batch holds, then one more frame',
     should:
-      'send one batch per seat keeping only the freshest twenty in callback order',
+      'send the newest twenty per seat, then the sliding window for only the seat that moved',
     actual: {
-      seats: batches.map((b) => b.roundParticipantId),
-      sequences: hostBatch.frames.map((f) => f.sequence),
+      first: first.map((b) => [
+        b.roundParticipantId,
+        b.frames.map((f) => f.sequence),
+      ]),
+      second: second.map((b) => [
+        b.roundParticipantId,
+        b.frames.map((f) => f.sequence),
+      ]),
+      idle: relay.take(),
     },
     expected: {
-      seats: [host, guest],
-      sequences: Array.from({ length: 20 }, (_, i) => i + 2),
+      first: [
+        [host, Array.from({ length: 20 }, (_, i) => i + 2)],
+        [guest, [40]],
+      ],
+      second: [[host, Array.from({ length: 20 }, (_, i) => i + 3)]],
+      idle: [],
     },
   });
   assert({
     given: 'one staged guest frame',
     should:
       'carry its original native brackets and plain PCM with the calibrated server window',
-    actual: batches.find((b) => b.roundParticipantId === guest)!.frames,
+    actual: first[1]!.frames,
     expected: [
       {
         trackId: 'q-track',
@@ -56,10 +68,30 @@ test('activity batches relay the freshest original frames per seat with calibrat
       },
     ],
   });
+});
+test('peer activity is relayed only while a bot may speak in cross-examination', () => {
+  const state = (type: 'speech' | 'cross_ex' | null, bot: boolean) =>
+    ({
+      segment: type === null ? null : { type },
+      participants: [
+        { roundParticipantId: host, identity: 'i', kind: 'human' },
+        {
+          roundParticipantId: guest,
+          identity: 'j',
+          kind: bot ? 'bot' : 'human',
+        },
+      ],
+    }) as unknown as CaptureState;
   assert({
-    given: 'no staged frames',
-    should: 'relay nothing',
-    actual: activityBatches([]),
-    expected: [],
+    given:
+      'cross-ex with a bot, cross-ex between humans, a bot speech and no segment',
+    should: 'want activity only in the bot cross-ex',
+    actual: [
+      activityWanted(state('cross_ex', true)),
+      activityWanted(state('cross_ex', false)),
+      activityWanted(state('speech', true)),
+      activityWanted(state(null, true)),
+    ],
+    expected: [true, false, false, false],
   });
 });

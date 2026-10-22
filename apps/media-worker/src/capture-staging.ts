@@ -70,11 +70,12 @@ export function createCaptureStaging(input: {
     };
   };
   return {
-    observe(raw: Raw) {
+    /** The frame it retained, or null when refused. */
+    observe(raw: Raw): StagedFrame | null {
       const frame = candidate(raw);
       if (!frame) {
         input.dropped(1);
-        return;
+        return null;
       }
       if (pending.length === 4096) {
         pending.shift();
@@ -82,6 +83,7 @@ export function createCaptureStaging(input: {
       }
       pending.push(frame);
       input.retained();
+      return frame;
     },
     refresh(calibration: Snapshot['calibration']) {
       for (const clock of clocks.values()) clock.refresh(calibration);
