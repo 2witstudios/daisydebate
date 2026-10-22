@@ -36,15 +36,21 @@ test('real Redis peer activity with fresh PG time cancels only the active cross-
     let aborted = 0;
     const speaker = createBotSpeaker({
       claim: { scope, token: 'memory-only', segmentType: 'cross_ex' },
-      generate: async () => ({ text: 'Question?', phrases: ['Question?'] }),
+      generate: async () => ({
+        value: { text: 'Question?', phrases: ['Question?'] },
+        settle: async () => undefined,
+      }),
       synthesize: async (_s, _t, phraseId, text) => ({
-        scope,
-        token: 'memory-only',
-        phraseId,
-        text,
-        pcm: new Int16Array(240),
-        sampleRate: 24000,
-        channels: 1,
+        value: {
+          scope,
+          token: 'memory-only',
+          phraseId,
+          text,
+          pcm: new Int16Array(240),
+          sampleRate: 24000,
+          channels: 1,
+        },
+        settle: async () => undefined,
       }),
       /** Holds playback open until cancelled; native publication is proven separately. */
       publish: (_job, signal) =>

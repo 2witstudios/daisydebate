@@ -112,7 +112,9 @@ are not failures: a lost lease (`CONFLICT` once the Round completes or the claim
 rotates) releases silently, and shared-pool admission backpressure (ISSUE-431)
 is a deferral that the next pass retries. A stage logs `<operation>.capacity`
 on every ninth refusal, whatever its cadence, so a starved slow stage is still
-reported. A bot speech refused admission keeps its delivery attempts.
+reported. A bot speech refused admission keeps its delivery attempts and
+resumes at the refused step: the provider answer and the phrases already spoken
+are never bought or spoken again.
 
 Lifecycle events describe runtime, server, and request progress. Failure events
 describe invariant violations, unhandled requests, and adapter failures;

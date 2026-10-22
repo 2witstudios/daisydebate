@@ -11,10 +11,23 @@ const scope = {
   serviceId: 'agent-run:run',
   publicationEpoch: 1,
 };
+/** A provider answer whose settlement always succeeds. */
+const answered = <T>(value: T) => ({ value, settle: async () => undefined });
+const job = (phraseId: string, text: string) => ({
+  scope,
+  token: 'memory-only',
+  phraseId,
+  text,
+  pcm: new Int16Array(240),
+  sampleRate: 24000 as const,
+  channels: 1 as const,
+});
 function harness(
   segmentType: 'speech' | 'cross_ex',
   options: {
-    readonly generate?: () => Promise<{ text: string; phrases: string[] }>;
+    readonly generate?: () => Promise<
+      ReturnType<typeof answered<{ text: string; phrases: string[] }>>
+    >;
   } = {},
 ) {
   const log: string[] = [];
@@ -27,19 +40,11 @@ function harness(
       options.generate ??
       (async () => {
         log.push('generate');
-        return { text: 'One. Two.', phrases: ['One.', 'Two.'] };
+        return answered({ text: 'One. Two.', phrases: ['One.', 'Two.'] });
       }),
     synthesize: async (_scope, _token, phraseId, text) => {
       log.push(`tts:${text}`);
-      return {
-        scope,
-        token: 'memory-only',
-        phraseId,
-        text,
-        pcm: new Int16Array(240),
-        sampleRate: 24000 as const,
-        channels: 1 as const,
-      };
+      return answered(job(phraseId, text));
     },
     publish: async (job, signal) => {
       const gate = Promise.withResolvers<void>();
@@ -129,7 +134,7 @@ test('pool capacity refusals defer the speech without spending attempts', async 
         calls++;
         if (calls <= 3) throw refuseCapacity();
         log.push('generate');
-        return { text: 'One.', phrases: ['One.'] };
+        return answered({ text: 'One.', phrases: ['One.'] });
       },
     });
     for (let i = 0; i < 4; i++) {
@@ -149,6 +154,67 @@ test('pool capacity refusals defer the speech without spending attempts', async 
     });
     await speaker.stop();
   }
+});
+test('a deferred turn resumes at its refused step without buying or speaking anything twice', async () => {
+  const refusals = new Map([
+    ['settle:generate', 2],
+    ['settle:Two.', 1],
+    ['publish:Two.', 2],
+  ]);
+  const refuse = (step: string) => {
+    const left = refusals.get(step) ?? 0;
+    if (left === 0) return;
+    refusals.set(step, left - 1);
+    throw refuseCapacity();
+  };
+  const calls = { language: 0, speech: 0 };
+  const spoken: string[] = [];
+  const stages: string[] = [];
+  let ids = 0;
+  const speaker = createBotSpeaker({
+    claim: { scope, token: 'memory-only', segmentType: 'speech' },
+    generate: async () => {
+      calls.language++;
+      return {
+        value: { text: 'One. Two.', phrases: ['One.', 'Two.'] },
+        settle: async () => refuse('settle:generate'),
+      };
+    },
+    synthesize: async (_scope, _token, phraseId, text) => {
+      calls.speech++;
+      return {
+        value: job(phraseId, text),
+        settle: async () => refuse(`settle:${text}`),
+      };
+    },
+    publish: async (job) => {
+      refuse(`publish:${job.text}`);
+      spoken.push(job.text);
+      return { complete: true };
+    },
+    nextId: () => `phrase-${++ids}`,
+    maxAttempts: 2,
+    failed: (_error, stage) => {
+      stages.push(stage);
+    },
+  });
+  for (let i = 0; i < 8; i++) {
+    speaker.wake();
+    for (let j = 0; j < 20; j++) await Promise.resolve();
+  }
+  assert({
+    given:
+      'a speech whose shared pool refuses the language settlement twice, the second phrase settlement once and its publication twice',
+    should:
+      'call the language provider once, synthesize each phrase once and speak each phrase once',
+    actual: { calls, spoken, stages },
+    expected: {
+      calls: { language: 1, speech: 2 },
+      spoken: ['One.', 'Two.'],
+      stages: ['generate', 'generate', 'synthesize', 'publish', 'publish'],
+    },
+  });
+  await speaker.stop();
 });
 test('provider failures stop after the bounded attempt count', async () => {
   let calls = 0;
