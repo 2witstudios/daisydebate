@@ -14,12 +14,16 @@ import {
   type CaptureDependencies,
   type CaptureTx,
 } from './media-capture-context';
-import { hasCompleteCaptureCoverage } from './capture-coverage';
 import {
   transcriptObservations,
   transcriptSegments,
 } from './schema/transcript-segments';
 import { utterances } from './schema/utterances';
+import {
+  requireObservationWindow,
+  sealAction,
+  sealState,
+} from './capture-rules';
 
 export async function observeCapturedStream(
   tx: CaptureTx,
@@ -29,25 +33,12 @@ export async function observeCapturedStream(
   const context = await captureWriteContext(tx, input, dependencies);
   const { segment, stream, now } = context;
   const required = await captureHistory(tx, input, segment);
-  const from = Date.parse(input.observedFrom),
-    until = Date.parse(input.observedUntil);
-  if (
-    from >= until ||
-    until > now.getTime() ||
-    until >
-      Math.min(
-        segment.endedAt?.getTime() ?? Infinity,
-        segment.startedAt.getTime() + segment.durationMs,
-      ) ||
-    !required.some(
-      (grant) =>
-        grant.start <= from && (grant.end === null || until <= grant.end),
-    )
-  )
-    throw createAppError(
-      'CONFLICT',
-      'Observation is outside capture authority',
-    );
+  const { from, until } = requireObservationWindow(
+    input,
+    segment,
+    now,
+    required,
+  );
   const matches = await tx
     .select({ id: transcriptObservations.id })
     .from(transcriptObservations)
@@ -89,15 +80,6 @@ export async function observeCapturedStream(
     revision: await advanceTranscriptRevision(tx, input.roundId),
   };
 }
-// A new worker cannot recover in-memory PCM/STT intent from old coverage.
-const currentEpochEvidence = (
-  observations: readonly { readonly epoch: number }[],
-  chunks: { readonly otherEpochChunks: number } | undefined,
-  epoch: number,
-) =>
-  chunks?.otherEpochChunks === 0 &&
-  observations.every((row) => row.epoch === epoch);
-
 export async function sealCapturedStream(
   tx: CaptureTx,
   input: z.infer<typeof captureSealSchema>,
@@ -109,20 +91,15 @@ export async function sealCapturedStream(
   const context = await captureWriteContext(tx, input, dependencies);
   const { segment, stream } = context;
   const required = await captureHistory(tx, input, segment);
-  if (stream.state !== 'open') {
-    if (stream.sealedChunkCount !== input.expectedChunkCount)
-      throw createAppError('CONFLICT', 'Conflicting capture seal retry');
+  const action = sealAction(stream, input.expectedChunkCount, {
+    segmentEnded: segment.endedAt !== null,
+    required,
+  });
+  if (action === 'retry')
     return {
-      state: stream.state,
+      state: stream.state as 'complete' | 'partial',
       revision: await transcriptRevision(tx, input.roundId),
     };
-  }
-  // A takeover worker knows only its own epoch's chunks; never seal below the
-  // stored count. The stream stays open for finalization instead.
-  if (input.expectedChunkCount < stream.chunkCount)
-    throw createAppError('CONFLICT', 'Capture seal is below stored chunks');
-  if (segment.endedAt === null || required.some((grant) => grant.end === null))
-    throw createAppError('CONFLICT', 'Capture timeline is still open');
   const observations = await tx
     .select({
       start: transcriptObservations.observedFrom,
@@ -149,19 +126,14 @@ export async function sealCapturedStream(
         isNotNull(utterances.clipKey),
       ),
     );
-  const complete =
-    currentEpochEvidence(observations, chunks, input.epoch) &&
-    stream.chunkCount === chunks?.count &&
-    hasCompleteCaptureCoverage({
-      required,
-      observed: observations.map((row) => ({
-        start: row.start.getTime(),
-        end: row.end.getTime(),
-      })),
-      storedChunks: stream.chunkCount,
-      expectedChunks: input.expectedChunkCount,
-    });
-  const state = complete ? 'complete' : 'partial';
+  const state = sealState({
+    epoch: input.epoch,
+    observations,
+    chunks,
+    storedChunks: stream.chunkCount,
+    expectedChunks: input.expectedChunkCount,
+    required,
+  });
   const mutationNow = await freshCaptureMutation(tx, input.roundId, context);
   await tx
     .update(transcriptSegments)

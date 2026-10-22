@@ -16,6 +16,10 @@ import {
 } from './schema/transcript-segments';
 import { rounds } from './schema/rounds';
 import { roundSegments } from './schema/round-segments';
+import {
+  captureAdmissionClosed,
+  requireLiveCaptureLease,
+} from './capture-rules';
 
 export type CaptureIdentity = {
   readonly roundId: string;
@@ -74,10 +78,12 @@ export async function captureAdmission(
     .where(eq(rounds.id, roundId));
   const now = await sampleRoundExecutionTime(tx);
   if (
-    freeze ||
-    !round ||
-    (cutoff !== null && now >= cutoff) ||
-    (cutoff === null && ['completed', 'abandoned'].includes(round.status))
+    captureAdmissionClosed({
+      frozen: freeze !== undefined,
+      roundStatus: round?.status,
+      now,
+      cutoff,
+    })
   )
     throw createAppError('CONFLICT', 'Capture admission is closed');
   return new Date(now);
@@ -150,8 +156,7 @@ export async function captureWriteContext(
     input.roundId,
     tick.transcriptAdmissionCutoff,
   );
-  if (lease.expiresAt <= now)
-    throw createAppError('CONFLICT', 'Capture worker lease expired');
+  requireLiveCaptureLease(lease.expiresAt, now);
   return {
     ...stream,
     now,
@@ -170,7 +175,6 @@ export async function freshCaptureMutation(
   },
 ) {
   const now = await captureAdmission(tx, roundId, context.cutoff);
-  if (context.leaseExpiresAt <= now)
-    throw createAppError('CONFLICT', 'Capture worker lease expired');
+  requireLiveCaptureLease(context.leaseExpiresAt, now);
   return now;
 }
