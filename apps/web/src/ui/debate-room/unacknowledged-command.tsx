@@ -1,3 +1,4 @@
+import { HiddenFields } from '../form-action/hidden-fields';
 import type { RoundFormState } from '../../features/round-runtime/command-form';
 import { roundCommandFields } from '../../features/round-runtime/command-fields';
 const fields = new Set([
@@ -30,11 +31,11 @@ export function UnacknowledgedCommand({
       aria-busy={pending}
       className="px-4 py-2"
     >
-      {Object.entries(answer.values)
-        .filter(([name]) => fields.has(name))
-        .map(([name, value]) => (
-          <input key={name} type="hidden" name={name} value={value} />
-        ))}
+      <HiddenFields
+        entries={Object.entries(answer.values).filter(([name]) =>
+          fields.has(name),
+        )}
+      />
       <button
         type="submit"
         disabled={pending}

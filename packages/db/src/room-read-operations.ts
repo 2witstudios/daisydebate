@@ -45,7 +45,7 @@ import {
   replayReceipt,
 } from './room-command-facts';
 export async function launchedRoundRows(
-  tx: import('./room-command-facts').Tx,
+  tx: Pick<BunSQLDatabase, 'select'>,
   roundId: string,
 ): Promise<LaunchedRound> {
   const [row] = await tx

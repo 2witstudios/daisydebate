@@ -16,6 +16,7 @@ import {
   type PublicationWindow,
 } from './bot-publication-context';
 import { agentRuns } from './schema/agent-runs';
+import { scanBotWorkers } from './bot-worker-discovery';
 import { roundBotPublications } from './schema/round-bot-publications';
 export type {
   BotPublicationScope,
@@ -55,6 +56,8 @@ export function createBotPublicationOperations(input: {
       eq(roundBotPublications.roundParticipantId, scope.roundParticipantId),
     );
   return {
+    scanWorkers: (limit: number) =>
+      input.run((tx) => scanBotWorkers(tx, limit)),
     claimWorker: (target: Target) =>
       input.run(async (tx) => {
         const { round, seat } = await lockRoundAgentContext(

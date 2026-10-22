@@ -14,7 +14,11 @@ type Reservation = Target & { readonly id: string };
 /** Acquire before account/Room/Round locks in both admission and billable-call composition. */
 export const lockBotAdmission = (tx: BoundedTransactionContext) =>
   tx.execute(sql`select pg_advisory_xact_lock(59003, 1)`);
-async function lockSponsor(tx: BoundedTransactionContext, target: Target) {
+async function lockSponsor(
+  tx: BoundedTransactionContext,
+  target: Target,
+  purpose: 'admission' | 'settlement' = 'admission',
+) {
   if (
     ![target.actorId, target.roundId].every(
       (id) => idSchema.safeParse(id).success,
@@ -24,7 +28,6 @@ async function lockSponsor(tx: BoundedTransactionContext, target: Target) {
   const [account] = await lockAuthorizationActors(tx, [target.actorId], {
     maxActors: 1,
   });
-  if (!account?.member || account.erased) throw createAppError('AUTHORIZATION');
   const [round] = await tx
     .select()
     .from(rounds)
@@ -32,7 +35,14 @@ async function lockSponsor(tx: BoundedTransactionContext, target: Target) {
     .for('no key update');
   if (!round || round.createdByActorId !== target.actorId)
     throw createAppError('AUTHORIZATION');
-  if (round.competitionType === 'ranked') throw createAppError('AUTHORIZATION');
+  if (purpose === 'admission') requireAdmissionSponsor(account ?? null, round);
+}
+function requireAdmissionSponsor(
+  account: Awaited<ReturnType<typeof lockAuthorizationActors>>[number],
+  round: typeof rounds.$inferSelect,
+) {
+  if (!account?.member || account.erased || round.competitionType === 'ranked')
+    throw createAppError('AUTHORIZATION');
   if (!['scheduled', 'active'].includes(round.status))
     throw createAppError('CONFLICT');
 }
@@ -46,18 +56,56 @@ function reservationWhere(target: Target) {
 async function existingReservation(
   tx: BoundedTransactionContext,
   target: Target,
+  allowRefunded = false,
 ) {
   const [row] = await tx
     .select()
     .from(usageReservations)
     .where(reservationWhere(target))
     .for('update');
-  if (row && (!row.reservedAt || row.refundedAt))
+  if (row && (!row.reservedAt || (row.refundedAt && !allowRefunded)))
     throw createAppError(
       'CONFLICT',
       'Reservation provenance unavailable or refunded',
     );
   return row;
+}
+async function mutateLockedReservation(
+  tx: BoundedTransactionContext,
+  reservation: Reservation,
+  refund: boolean,
+) {
+  await lockSponsor(tx, reservation, refund ? 'settlement' : 'admission');
+  const current = await existingReservation(tx, reservation, refund);
+  if (!current || current.id !== reservation.id)
+    throw createAppError('AUTHORIZATION');
+  if (refund && !current.countedAt) throw createAppError('CONFLICT');
+  if (refund && current.refundedAt) return;
+  await tx
+    .update(usageReservations)
+    .set(
+      refund
+        ? { refundedAt: sql`clock_timestamp()` }
+        : { countedAt: current.countedAt ?? sql`clock_timestamp()` },
+    )
+    .where(eq(usageReservations.id, current.id));
+}
+/** Caller acquires admission serialization before command/account/Round fences. Never creates a reservation. */
+export async function markLockedRoundBotModelCall(
+  tx: BoundedTransactionContext,
+  roundId: string,
+) {
+  const [round] = await tx
+    .select({ actorId: rounds.createdByActorId })
+    .from(rounds)
+    .where(eq(rounds.id, roundId));
+  if (!round?.actorId) throw createAppError('AUTHORIZATION');
+  const target = { roundId, actorId: round.actorId };
+  const current = await existingReservation(tx, target);
+  if (!current) throw createAppError('CONFLICT', 'Bot reservation missing');
+  const reservation = { ...target, id: current.id };
+  await mutateLockedReservation(tx, reservation, false);
+  return reservation;
 }
 async function admissionStatus(
   tx: BoundedTransactionContext,
@@ -102,19 +150,7 @@ export function createRoundBotAdmission(input: {
   const mutate = (reservation: Reservation, refund: boolean) =>
     input.run(async (tx) => {
       await lockBotAdmission(tx);
-      await lockSponsor(tx, reservation);
-      const current = await existingReservation(tx, reservation);
-      if (!current || current.id !== reservation.id)
-        throw createAppError('AUTHORIZATION');
-      if (refund && !current.countedAt) throw createAppError('CONFLICT');
-      await tx
-        .update(usageReservations)
-        .set(
-          refund
-            ? { refundedAt: sql`clock_timestamp()` }
-            : { countedAt: current.countedAt ?? sql`clock_timestamp()` },
-        )
-        .where(eq(usageReservations.id, current.id));
+      await mutateLockedReservation(tx, reservation, refund);
     });
   const reserveLocked = async (
     tx: BoundedTransactionContext,
@@ -164,6 +200,7 @@ export function createRoundBotAdmission(input: {
       }),
     markFirstModelCall: (reservation: Reservation) =>
       mutate(reservation, false),
+    /** Trusted server known-vendor-abort settlement, never a public client reason or new model authorization. */
     refundVendorFailure: (reservation: Reservation) =>
       mutate(reservation, true),
   };

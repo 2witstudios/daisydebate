@@ -17,6 +17,7 @@ export default defineConfig({
   testDir: resolve(import.meta.dirname, '..'),
   testMatch: [
     '**/room-launch.e2e.ts',
+    '**/ballot.e2e.ts',
     '**/debate-room.e2e.ts',
     '**/round-commands.e2e.ts',
     '**/round-command-recovery.e2e.ts',

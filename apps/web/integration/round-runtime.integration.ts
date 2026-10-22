@@ -71,95 +71,128 @@ test('shared human commands run the engine with atomic refusals and recover lost
   });
 });
 
-test('bot commands bind the active AgentRun to its own seat and replay rechecks run revocation', async () => {
-  await withRoomRuntime(async (f) => {
-    let room = (await f.create()).view;
-    const bot = (await f.operations.castChoices(f.host)).find(
-      (p) => p.kind === 'bot',
-    )!;
-    room = (
-      await f.command(f.host, room, {
-        type: 'claim-seat',
-        role: 'affirmative',
-        slot: 0,
-      })
-    ).view;
-    room = (
-      await f.command(f.host, room, {
-        type: 'assign-seat',
-        actorId: bot.actorId,
-        role: 'negative',
-        slot: 0,
-      })
-    ).view;
-    room = (await f.consent(f.host, room, 'ready')).view;
-    const { roundId, operations, principal } = await startRuntimeRound(f, room);
+for (const revoke of ['lease', 'run'] as const)
+  test(`bot commands bind the current worker and replay rechecks ${revoke} revocation`, async () => {
+    await withRoomRuntime(
+      async (f) => {
+        let room = (await f.create()).view;
+        const bot = (await f.operations.castChoices(f.host)).find(
+          (p) => p.kind === 'bot',
+        )!;
+        room = (
+          await f.command(f.host, room, {
+            type: 'claim-seat',
+            role: 'affirmative',
+            slot: 0,
+          })
+        ).view;
+        room = (
+          await f.command(f.host, room, {
+            type: 'assign-seat',
+            actorId: bot.actorId,
+            role: 'negative',
+            slot: 0,
+          })
+        ).view;
+        room = (await f.consent(f.host, room, 'ready')).view;
+        const { roundId, operations, principal } = await startRuntimeRound(
+          f,
+          room,
+        );
 
-    const round = (await f.store.getRound(roundId))!;
-    const seat = round.participants.find((p) => p.actorId === bot.actorId)!;
-    const runId = createId();
-    await f.store.recordAgentRun({
-      id: runId,
-      roundParticipantId: seat.id,
-      kind: 'speech',
-      model: null,
-      provider: 'fixture',
-    });
-    const agent = {
-      kind: 'agent' as const,
-      serviceId: `agent-run:${runId}`,
-      agentRunId: runId,
-      roundId,
-      participantId: seat.id,
-    };
-    const envelope = {
-      version: 1 as const,
-      commandId: createId(),
-      expectedVersion: 2,
-      command: { type: 'forfeit' as const, participantId: seat.id },
-    };
-    await assertRejects({
-      given: 'a host session naming a bot seat',
-      should: 'refuse human impersonation',
-      actual: () => operations.command(principal, roundId, envelope),
-      code: 'AUTHORIZATION',
-    });
-    await assertRejects({
-      given: 'the right run with an unscoped service name',
-      should: 'refuse forged service identity',
-      actual: () =>
-        operations.command(
-          { ...agent, serviceId: 'worker' },
+        const round = (await f.store.getRound(roundId))!;
+        const seat = round.participants.find((p) => p.actorId === bot.actorId)!;
+        const runId = createId();
+        await f.sql`update rounds set started_at=clock_timestamp()-interval '20 seconds' where id=${roundId}`;
+        await operations.tick(roundId);
+        const live = (await f.store.getRound(roundId))!;
+        const segment = live.segments.find((s) => s.endedAt === null)!;
+        const serviceId = `agent-run:${runId}`;
+        await f.store.recordAgentRun({
+          id: runId,
+          roundParticipantId: seat.id,
+          kind: 'speech',
+          model: null,
+          provider: 'fixture',
+          configurationSnapshot: {
+            roundId,
+            roundParticipantId: seat.id,
+            segmentId: segment.id,
+            serviceId,
+            publicationEpoch: 1,
+          },
+        });
+        await f.sql`insert into round_bot_publications(round_id,round_participant_id,segment_id,agent_run_id,service_id,publication_epoch,lease_token_digest,lease_expires_at) values(${roundId},${seat.id},${segment.id},${runId},${serviceId},1,${'a'.repeat(64)},clock_timestamp()+interval '1 minute')`;
+        const agent = {
+          kind: 'agent' as const,
+          serviceId: `agent-run:${runId}`,
+          agentRunId: runId,
           roundId,
-          envelope,
-        ),
-      code: 'AUTHORIZATION',
-    });
-    const receipt = await operations.command(agent, roundId, envelope);
-    const [audit] =
-      await f.sql`select actor_id,service_id from round_commands where command_id=${envelope.commandId}`;
-    assert({
-      given: 'a correctly scoped active AgentRun',
-      should: 'execute through the same engine and attribute service only',
-      actual: {
-        version: receipt.resultingVersion,
-        outcome: (await f.store.getRound(roundId))?.outcome,
-        actor: audit.actor_id,
-        service: audit.service_id,
+          participantId: seat.id,
+        };
+        const envelope = {
+          version: 1 as const,
+          commandId: createId(),
+          expectedVersion: live.version,
+          command: { type: 'forfeit' as const, participantId: seat.id },
+        };
+        await assertRejects({
+          given: 'a host session naming a bot seat',
+          should: 'refuse human impersonation',
+          actual: () => operations.command(principal, roundId, envelope),
+          code: 'AUTHORIZATION',
+        });
+        await assertRejects({
+          given: 'the right run with an unscoped service name',
+          should: 'refuse forged service identity',
+          actual: () =>
+            operations.command(
+              { ...agent, serviceId: 'worker' },
+              roundId,
+              envelope,
+            ),
+          code: 'AUTHORIZATION',
+        });
+        const receipt = await operations.command(agent, roundId, envelope);
+        const [audit] =
+          await f.sql`select actor_id,service_id from round_commands where command_id=${envelope.commandId}`;
+        assert({
+          given: 'a correctly scoped active AgentRun',
+          should: 'execute through the same engine and attribute service only',
+          actual: {
+            version: receipt.resultingVersion,
+            outcome: (await f.store.getRound(roundId))?.outcome,
+            actor: audit.actor_id,
+            service: audit.service_id,
+          },
+          expected: {
+            version: live.version + 1,
+            outcome: 'affirmative',
+            actor: null,
+            service: agent.serviceId,
+          },
+        });
+        assert({
+          given:
+            'a terminal command replayed while its worker lease is still valid',
+          should: 'recover its receipt without a new engine transition',
+          actual: await operations.command(agent, roundId, envelope),
+          expected: { ...receipt, replayed: true },
+        });
+        if (revoke === 'lease')
+          await f.sql`update round_bot_publications set lease_expires_at=clock_timestamp()-interval '1 second' where round_id=${roundId}`;
+        else
+          await f.sql`update agent_runs set ended_at=clock_timestamp() where id=${runId}`;
+        await assertRejects({
+          given:
+            revoke === 'lease'
+              ? 'an unended run with an expired publication lease'
+              : 'an ended run with an otherwise valid publication lease',
+          should: 'refuse replay from the revoked worker',
+          actual: () => operations.command(agent, roundId, envelope),
+          code: 'AUTHORIZATION',
+        });
       },
-      expected: {
-        version: 3,
-        outcome: 'affirmative',
-        actor: null,
-        service: agent.serviceId,
-      },
-    });
-    await f.sql`update agent_runs set ended_at=clock_timestamp() where id=${runId}`;
-    await assertRejects({
-      given: 'the accepted command retried after its run ends',
-      should: 'reauthorize and refuse replay without changing state',
-      actual: () => operations.command(agent, roundId, envelope),
-      code: 'AUTHORIZATION',
-    });
+      { botBusyCap: 4 },
+    );
   });
-});

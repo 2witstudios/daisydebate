@@ -10,6 +10,7 @@ import {
   attendancePolicy,
   deriveOutageIntervals,
   requireAttendanceWindow,
+  requireAttendanceDecision,
   adjudicateAttendance,
   createRoundRuntime,
   debateInvariantIds,
@@ -144,7 +145,33 @@ const attendanceAvailability = {
   settledHorizonMs: 45000,
   intervals: [],
 };
+const attendanceApplication = (
+  overrides: Partial<Parameters<typeof requireAttendanceDecision>[0]>,
+) =>
+  requireAttendanceDecision(
+    {
+      window: attendanceWindow,
+      availability: attendanceAvailability,
+      finalized: false,
+      segmentType: 'speech',
+      checkIns: [{ participantId: seats[0]!.id, receivedAtMs: 40000 }],
+      ...overrides,
+    },
+    { decision: 'forfeit', winner: 'negative', effectiveDeadlineMs: 40000 },
+  );
 const fixtures: Readonly<Record<string, Fixture>> = {
+  'attendance-failure-postpones-only': () =>
+    attendanceApplication({
+      availability: { ...attendanceAvailability, settledHorizonMs: 44999 },
+    }),
+  'attendance-timestamp-decides': () => attendanceApplication({}),
+  'attendance-speech-turns-only': () =>
+    attendanceApplication({ segmentType: 'prep' }),
+  'attendance-last-speech-never-forfeits': () =>
+    attendanceApplication({
+      window: { ...attendanceWindow, lastSpeech: true },
+    }),
+
   'grace-covers-reconnect': () =>
     assertAttendanceRules(rules(), { ...attendancePolicy, graceMs: 39999 }),
   'speech-covers-grace': () =>

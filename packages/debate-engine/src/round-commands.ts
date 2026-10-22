@@ -262,14 +262,19 @@ const forfeit = (c: CommandContext): void => {
     });
     return;
   }
+  closePlayedRound(c);
+  completeWith(c, other(side));
+};
+
+/** Close actual played capture authority for either terminal decision. */
+export function closePlayedRound(c: CommandContext): void {
   const open = c.on.openRow();
   if (open !== undefined) c.closeRowAt(open.sequence, c.now);
   c.on.endPrep();
   const lastPlayed = c.on.rows().at(-1)?.endedAtMs;
   if (lastPlayed !== undefined && lastPlayed !== null)
     c.into.finalPlayedEnd = iso(lastPlayed);
-  completeWith(c, other(side));
-};
+}
 
 /** Completion follows the final segment's spent time, and carries an outcome. */
 const complete = (c: CommandContext, outcome: RatedOutcome): void => {

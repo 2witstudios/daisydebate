@@ -11,6 +11,11 @@ import {
   type RoundPosition,
   type RoundRules,
 } from '@daisy/debate-engine';
+import type {
+  HydratedSegment,
+  RoundParticipantSeat,
+  RoundProjection,
+} from '@daisy/protocol';
 
 const foundation = referenceFormats.find(
   (format) => format.id === 'foundation',
@@ -88,6 +93,14 @@ export type DebateScenario = {
   readonly when: readonly ScenarioAction[];
   readonly unsupported?: string;
   readonly expect: ScenarioObservation;
+  readonly verify?: (facts: ScenarioFacts) => void;
+};
+
+export type ScenarioFacts = {
+  readonly rules: RoundRules;
+  readonly participants: readonly RoundParticipantSeat[];
+  readonly segments: readonly HydratedSegment[];
+  readonly nowMs: number;
 };
 
 export type ScenarioExpectationReport = {
@@ -124,6 +137,7 @@ type Run = {
   readonly opened: () => readonly string[];
   readonly nowMs: () => number;
   readonly advanceTo: (atMs: number) => void;
+  readonly facts: () => ScenarioFacts;
 };
 
 /** One deterministic run: fixed ids, a movable clock, the real runtime. */
@@ -131,6 +145,12 @@ function startRun(scenario: DebateScenario): Run {
   const ids: IdGenerator = fixedIds(scenario.given.ids);
   const id = ids.next();
   const actorIds = seatRoles.map(() => ids.next());
+  const participants = seatRoles.map((role, index) => ({
+    id: ids.next(),
+    actorId: actorIds[index]!,
+    role,
+    slot: 0,
+  }));
   const runtime = createRoundRuntime({
     round: {
       id,
@@ -141,12 +161,7 @@ function startRun(scenario: DebateScenario): Run {
       outcome: null,
     },
     rules: resolved as RoundRules,
-    participants: seatRoles.map((role, index) => ({
-      id: ids.next(),
-      actorId: actorIds[index]!,
-      role,
-      slot: 0,
-    })),
+    participants,
     checkpoint: {
       version: 1,
       prep_consumed_ms: { affirmative: 0, negative: 0 },
@@ -157,12 +172,22 @@ function startRun(scenario: DebateScenario): Run {
     nextSegmentId: () => ids.next(),
   });
   const opened: string[] = [];
+  let segments: HydratedSegment[] = [];
   let atMs = 0;
-  const collect = (writes: {
-    segmentInserts: readonly { rulesSegmentKey: string }[];
-  }) => {
+  const collect = (
+    writes: Pick<RoundProjection, 'segmentInserts' | 'segmentCloses'>,
+  ) => {
     for (const insert of writes.segmentInserts)
       opened.push(insert.rulesSegmentKey);
+    segments.push(
+      ...writes.segmentInserts.map((insert) => ({ ...insert, endedAt: null })),
+    );
+    segments = segments.map((segment) => ({
+      ...segment,
+      endedAt:
+        writes.segmentCloses.find((close) => close.id === segment.id)
+          ?.endedAt ?? segment.endedAt,
+    }));
   };
   return {
     id,
@@ -175,6 +200,7 @@ function startRun(scenario: DebateScenario): Run {
     advanceTo: (target) => {
       atMs = target;
     },
+    facts: () => ({ rules: resolved, participants, segments, nowMs: atMs }),
   };
 }
 
@@ -218,6 +244,7 @@ export function runScenario(scenario: DebateScenario): ScenarioObservation {
         );
     } else apply(action);
   });
+  scenario.verify?.(run.facts());
   return assertScenario(scenario, run);
 }
 
