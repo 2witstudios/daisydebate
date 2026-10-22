@@ -27,3 +27,31 @@ subject erasure must remove dependent media routing records first. Production
 privacy policy activation remains human-held. Transcript text remains personal,
 private to seated debaters/judges and retained for 180 days under DEC-101;
 retention deletion is tracked by ISSUE-322. This change stores no transcript text.
+
+## Historical speaking authority
+
+`round_speaking_intervals` records accepted eligibility as half-open
+`[started_at, ended_at)` intervals for a durable segment and Round seat. A null
+end remains open. Simultaneous cross-examination seats are allowed; overlapping
+intervals for the same segment and seat are rejected by a PostgreSQL GiST
+exclusion constraint. This uses PostgreSQL 18's bundled trusted `btree_gist`
+extension for text equality. The SQL constraint is handwritten alongside the
+generated migration because Drizzle 1.0.0-rc.4 has no exclusion schema builder.
+
+The command executor must close/open intervals in the same transaction as its
+accepted checkpoint/version and segment writes, using the authoritative accepted
+instant. Positive start versions and paired end/version fields prevent partly
+closed rows. Optional start/end command IDs carry scoped Round foreign keys;
+automatic clock transitions use versions without inventing client commands.
+The history is competitive authority, not proof that any audio was observed.
+Calibrated capture coverage and uncertainty are separate producer obligations.
+
+| Table                    | Columns                                                                              | Category   | Purpose                                                                    |
+| ------------------------ | ------------------------------------------------------------------------------------ | ---------- | -------------------------------------------------------------------------- |
+| round_speaking_intervals | id, round_id, segment_id, round_participant_id, started_command_id, ended_command_id | identifier | Bind accepted speaking authority to its segment, seat and optional command |
+| round_speaking_intervals | started_at, ended_at, started_version, ended_version                                 | none       | Reconstruct accepted eligibility boundaries and versions                   |
+
+These rows follow Round erasure. Seat deletion is restricted until dependent
+intervals are removed; segment deletion cascades its intervals. They contain
+neither transcript text nor raw audio. Runtime accepted-command atomicity,
+coverage, freeze and judging integration require their own real-service proof.
