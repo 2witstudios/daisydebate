@@ -19,6 +19,28 @@ export type RoundCommandAuthority = {
     readonly active: boolean;
   } | null;
 };
+function runScopeMatches(
+  principal: Extract<RoundCommandPrincipal, { kind: 'agent' }>,
+  authority: RoundCommandAuthority,
+): boolean {
+  const run = authority.agentRun;
+  return (
+    principal.roundId === authority.roundId &&
+    run !== null &&
+    run.active &&
+    run.id === principal.agentRunId &&
+    run.participantId === principal.participantId &&
+    run.serviceId === principal.serviceId
+  );
+}
+function ownsSeat(
+  principal: RoundCommandPrincipal,
+  seat: RoundCommandAuthority['participants'][number],
+): boolean {
+  return principal.kind === 'human'
+    ? seat.kind === 'human' && seat.actorId === principal.actorId
+    : seat.kind === 'bot' && seat.id === principal.participantId;
+}
 /** Fresh locked facts bind a human session or scoped AgentRun to exactly its seat. */
 export function bindRoundCommandPrincipal(input: {
   readonly principal: RoundCommandPrincipal;
@@ -32,17 +54,8 @@ export function bindRoundCommandPrincipal(input: {
     }
   | { readonly ok: false; readonly refusal: RoundRefusal } {
   const { principal, command, authority } = input;
-  if (principal.kind === 'agent') {
-    const run = authority.agentRun;
-    if (
-      principal.roundId !== authority.roundId ||
-      !run?.active ||
-      run.id !== principal.agentRunId ||
-      run.participantId !== principal.participantId ||
-      run.serviceId !== principal.serviceId
-    )
-      return { ok: false, refusal: 'not-authorized' };
-  }
+  if (principal.kind === 'agent' && !runScopeMatches(principal, authority))
+    return { ok: false, refusal: 'not-authorized' };
   if (command.type === 'start') {
     if (
       principal.kind !== 'human' ||
@@ -56,11 +69,7 @@ export function bindRoundCommandPrincipal(input: {
   );
   if (!seat || !seat.eligible || seat.role === 'judge')
     return { ok: false, refusal: 'not-seated' };
-  const bound =
-    principal.kind === 'human'
-      ? seat.kind === 'human' && seat.actorId === principal.actorId
-      : seat.kind === 'bot' && seat.id === principal.participantId;
-  return bound
+  return ownsSeat(principal, seat)
     ? { ok: true, actorId: seat.actorId, participantId: seat.id }
     : { ok: false, refusal: 'not-authorized' };
 }

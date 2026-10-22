@@ -59,6 +59,7 @@ type CommandInput = {
 async function commandContext(
   tx: Tx,
   input: CommandInput,
+  accounts: Awaited<ReturnType<typeof lockAuthorizationActors>>,
 ): Promise<LockedRoundCommandContext> {
   const round = await hydrateRoundRows(tx, input.roundId);
   if (!round) throw createAppError('NOT_FOUND');
@@ -70,7 +71,15 @@ async function commandContext(
     round.participants.map(async (seat) => {
       const actor = await actorFact(tx, seat.actorId);
       if (!actor) throw createAppError('AUTHORIZATION');
-      return { ...seat, kind: actor.kind, eligible: actor.eligible };
+      const account = accounts.find((a) => a?.actorId === seat.actorId);
+      return {
+        ...seat,
+        kind: actor.kind,
+        eligible:
+          actor.kind === 'bot'
+            ? actor.eligible
+            : account?.member === true && !account.erased,
+      };
     }),
   );
   let agentRun: LockedRoundCommandContext['authority']['agentRun'] = null;
@@ -114,11 +123,13 @@ const commandPrincipalColumns = (principal: RoundCommandPrincipal) => ({
   actorId: principal.kind === 'human' ? principal.actorId : null,
   serviceId: principal.kind === 'agent' ? principal.serviceId : null,
 });
-async function requireHumanPrincipal(tx: Tx, principal: RoundCommandPrincipal) {
+function requireHumanPrincipal(
+  principal: RoundCommandPrincipal,
+  accounts: Awaited<ReturnType<typeof lockAuthorizationActors>>,
+) {
   if (principal.kind !== 'human') return;
-  const actor = await actorFact(tx, principal.actorId);
-  if (!actor?.eligible || actor.kind !== 'human')
-    throw createAppError('AUTHORIZATION');
+  const account = accounts.find((a) => a?.actorId === principal.actorId);
+  if (!account?.member || account.erased) throw createAppError('AUTHORIZATION');
 }
 async function fenceCommand(tx: Tx, input: CommandInput) {
   // Global command id lock serializes replays even when a reused id names another Round.
@@ -143,11 +154,10 @@ async function fenceCommand(tx: Tx, input: CommandInput) {
       ...(principalActor ? [principalActor] : []),
     ]),
   ];
-  if (fenced.length)
-    await lockAuthorizationActors(tx, fenced, {
-      maxActors: fenced.length,
-    });
-  return fenced;
+  const accounts = fenced.length
+    ? await lockAuthorizationActors(tx, fenced, { maxActors: fenced.length })
+    : [];
+  return { actorIds: fenced, accounts };
 }
 async function replayCommand(
   tx: Tx,
@@ -195,10 +205,14 @@ export const roundCommandOperations = ({
       database.transaction(async (tx) => {
         const fenced = await fenceCommand(tx, input);
         const current = await lockedRoundVersion(tx, input.roundId);
-        const context = await commandContext(tx, input);
-        if (context.round.participants.some((p) => !fenced.includes(p.actorId)))
+        const context = await commandContext(tx, input, fenced.accounts);
+        if (
+          context.round.participants.some(
+            (p) => !fenced.actorIds.includes(p.actorId),
+          )
+        )
           throw createAppError('CONFLICT');
-        await requireHumanPrincipal(tx, input.principal);
+        requireHumanPrincipal(input.principal, fenced.accounts);
         input.authorize(context);
         const { actorId, serviceId } = commandPrincipalColumns(input.principal);
         const replay = await replayCommand(tx, input);
