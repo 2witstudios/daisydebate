@@ -1,3 +1,4 @@
+import { appendFileSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
   launchControlPath,
@@ -16,6 +17,9 @@ import { createLaunchMail, launchMailPath } from './launch-mail';
 const checkout = resolve(import.meta.dir, '../../../..');
 const slot = requireLaunchSlot(checkout, process.env);
 const origin = `https://localhost:${slot.port + 1}`;
+const logs = resolve(checkout, 'apps/web/test-results/launch');
+mkdirSync(logs, { recursive: true });
+const logOf = (name: string) => resolve(logs, `${name}.log`);
 const tls = readLaunchTls(process.env);
 let blocked = false,
   ready = false,
@@ -67,6 +71,7 @@ const web = createLaunchProcess({
   cwd: resolve(checkout, 'apps/web'),
   env: webEnv,
   ready: () => health(`http://127.0.0.1:${slot.port}/api/health/ready`),
+  log: logOf('web'),
 });
 const peerEnv: Record<string, string | undefined> = {
   ...webEnv,
@@ -77,6 +82,7 @@ const peer = createLaunchProcess({
   cwd: resolve(checkout, 'apps/web'),
   env: peerEnv,
   ready: () => health(`http://127.0.0.1:${slot.port + 5}/api/health/ready`),
+  log: logOf('peer'),
 });
 const selectWebIngress = async (process: typeof web, port: number) => {
   if (
@@ -97,6 +103,7 @@ const realtime = createLaunchProcess({
     REDIS_NAMESPACE: slot.namespace,
   },
   ready: () => health(`http://127.0.0.1:${slot.port + 3}/health/live`),
+  log: logOf('realtime'),
 });
 const control = createLaunchControl({
   path: launchControlPath(slot.id),
@@ -163,9 +170,16 @@ try {
   peerEnv.ATTENDANCE_PUBLIC_PROBE = webEnv.ATTENDANCE_PUBLIC_PROBE;
   await web.start();
   ready = true;
-} catch {
-  process.stderr.write(
-    `${JSON.stringify({ event: 'room.launch.startup', outcome: 'refused' })}\n`,
+} catch (error) {
+  const refusal = JSON.stringify({
+    event: 'room.launch.startup',
+    outcome: 'refused',
+  });
+  process.stderr.write(`${refusal}\n`);
+  // Fixture-only diagnostics file; the owned processes' output sits beside it.
+  appendFileSync(
+    logOf('supervisor'),
+    `${refusal} ${error instanceof Error ? error.message : 'unknown'}\n`,
   );
   process.exitCode = 1;
   await shutdown();
