@@ -11,6 +11,7 @@ import {
 import { expect, openPage } from './fixtures';
 import { readBallotRound, ballotRoundCommand } from './human-ballot-round';
 import { attendanceEvidence } from './attendance-evidence';
+import { observeAttendanceSockets } from './attendance-socket';
 
 export async function closeAttendedFixture(
   request: APIRequestContext,
@@ -96,9 +97,10 @@ export async function enterSpeech(
   label: string,
 ) {
   const page = await openPage(context, label);
+  const connections = observeAttendanceSockets(page);
   const response = page.waitForResponse(receiptResponse(roundId));
   await page.goto(`/rounds/${roundId}/room`);
-  return { page, receipt: await receiptFrom(await response) };
+  return { page, connections, receipt: await receiptFrom(await response) };
 }
 export async function nextReceipt(
   page: Page,

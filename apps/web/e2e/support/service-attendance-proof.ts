@@ -9,9 +9,11 @@ import {
   pastOriginalAttendanceGrace,
   attendedResolution,
   closeAttendedFixture,
+  nextReceipt,
 } from './attendance-browser';
 import { attendanceEvidence } from './attendance-evidence';
 import { elapsedAttendanceObservationUs } from './attendance-evidence-decoder';
+import { authenticatedAttendanceSocket } from './attendance-socket';
 import {
   controlLaunch,
   closeSettledLaunchContexts,
@@ -29,14 +31,23 @@ export async function serviceAttendanceOutage(
   try {
     const round = await createHumanBallotRound(accounts.members);
     const speech = await actualSpeech(host.request, round.id);
-    await enterSpeech(
+    const opponent = await enterSpeech(
       accounts.members[1]!.context,
       round.id,
       `opponent present before ${service} outage`,
     );
+    await authenticatedAttendanceSocket(opponent.connections, round.id);
     await healthyAttendance(round.id);
     await controlLaunch(stop);
     stopped = true;
+    if (service === 'realtime')
+      await expect
+        .poll(() =>
+          opponent.connections
+            .filter((row) => row.ready)
+            .every((row) => row.closed),
+        )
+        .toBe(true);
     const lastSample = (await attendanceEvidence(round.id)).samples.at(-1)!;
     await expect
       .poll(
@@ -62,8 +73,16 @@ export async function serviceAttendanceOutage(
     if (service === 'realtime')
       expect(during.samples.at(-1)?.cause).toBe('realtime_stale');
     else expect(during.samples.at(-1)?.at).toBe(lastSample.at);
-    await controlLaunch(start);
+    const replay = await nextReceipt(opponent.page, round.id, () =>
+      controlLaunch(start),
+    );
     stopped = false;
+    expect(replay.receivedAt).toBe(opponent.receipt.receivedAt);
+    await authenticatedAttendanceSocket(
+      opponent.connections,
+      round.id,
+      service === 'realtime' ? 2 : 1,
+    );
     const joined = await enterSpeech(
       host,
       round.id,
