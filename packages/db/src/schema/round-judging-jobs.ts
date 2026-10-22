@@ -1,3 +1,4 @@
+import { ballotSchema } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import {
   check,
@@ -9,7 +10,14 @@ import {
   text,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
-import { createdAtColumn, oneOf, timestampColumn } from './columns';
+import {
+  createdAtColumn,
+  jsonbColumnNullable,
+  jsonbIsObject,
+  oneOf,
+  timestampColumn,
+} from './columns';
+import { agentRuns } from './agent-runs';
 import { ballots } from './ballots';
 import { roundParticipants } from './round-participants';
 import { roundTranscriptFreezes } from './round-transcript-freezes';
@@ -29,9 +37,27 @@ export const roundJudgingJobs = pgTable(
     leaseExpiresAt: timestampColumn('lease_expires_at'),
     attempts: integer('attempts').notNull().default(0),
     resultBallotId: text('result_ballot_id'),
+    pendingBallot: jsonbColumnNullable('pending_ballot', ballotSchema),
+    pendingBallotAgentRunId: text('pending_ballot_agent_run_id'),
+    pendingBallotEpoch: integer('pending_ballot_epoch'),
+    pendingBallotReceivedAt: timestampColumn('pending_ballot_received_at'),
     createdAt: createdAtColumn(),
   },
   (table) => [
+    jsonbIsObject('round_judging_jobs', table.pendingBallot),
+    foreignKey({
+      name: 'round_judging_jobs_pending_run_judge_fk',
+      columns: [table.pendingBallotAgentRunId, table.judgeParticipantId],
+      foreignColumns: [agentRuns.id, agentRuns.roundParticipantId],
+    }).onDelete('no action'),
+    index('round_judging_jobs_pending_run_judge_idx').on(
+      table.pendingBallotAgentRunId,
+      table.judgeParticipantId,
+    ),
+    check(
+      'round_judging_jobs_pending_check',
+      sql`(${table.pendingBallot} is null and ${table.pendingBallotAgentRunId} is null and ${table.pendingBallotEpoch} is null and ${table.pendingBallotReceivedAt} is null) or (${table.pendingBallot} is not null and ${table.pendingBallotAgentRunId} is not null and ${table.pendingBallotEpoch} is not null and ${table.pendingBallotEpoch} > 0 and ${table.pendingBallotEpoch} <= ${table.attempts} and ${table.pendingBallotReceivedAt} is not null and ${table.status} <> 'succeeded')`,
+    ),
     primaryKey({ columns: [table.roundId, table.judgeParticipantId] }),
     uniqueIndex('round_judging_jobs_command_unique').on(table.commandId),
     foreignKey({
