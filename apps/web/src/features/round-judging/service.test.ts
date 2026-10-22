@@ -1,7 +1,10 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError } from '@daisy/errors';
 import { startRoundJudgingService } from './service';
-import { manualTimers } from '../round-bots/worker-timers.test-support';
+import {
+  failureLog,
+  manualTimers,
+} from '../round-bots/worker-timers.test-support';
 setupRitewayBun();
 test('judging renewal and discovery do not wait for a provider operation', async () => {
   const tasks = new Map<number, () => Promise<void>>();
@@ -75,7 +78,7 @@ test('judging renewal and discovery do not wait for a provider operation', async
 });
 
 test('a failed judging scan reports its stage', async () => {
-  const failures: unknown[] = [];
+  const { failures, failed } = failureLog();
   const outage = new Error('scan outage');
   const service = startRoundJudgingService({
     store: {
@@ -91,9 +94,7 @@ test('a failed judging scan reports its stage', async () => {
     execute: async () => {},
     limits: { parallel: 1, scanBatch: 4, scanMs: 500, renewMs: 3000 },
     timers: { setInterval: () => 1, clearInterval: () => {} },
-    failed: (error, stage) => {
-      failures.push([error, stage]);
-    },
+    failed,
   });
   await service.started;
   await service.stop();
@@ -106,7 +107,7 @@ test('a failed judging scan reports its stage', async () => {
 });
 
 test('a judging lease lost at completion releases without a failure', async () => {
-  const failures: unknown[] = [];
+  const { failures, failed } = failureLog();
   const { tasks, timers } = manualTimers();
   const finished = Promise.withResolvers<void>();
   const service = startRoundJudgingService({
@@ -132,9 +133,7 @@ test('a judging lease lost at completion releases without a failure', async () =
       ),
     limits: { parallel: 1, scanBatch: 4, scanMs: 500, renewMs: 3000 },
     timers,
-    failed: (error, stage) => {
-      failures.push([error, stage]);
-    },
+    failed,
   });
   await service.started;
   await tasks.get(3000)!();

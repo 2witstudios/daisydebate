@@ -1,8 +1,23 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError } from '@daisy/errors';
 import { startBotControlService } from './control-service';
-import { manualTimers } from './worker-timers.test-support';
+import { failureLog, manualTimers } from './worker-timers.test-support';
 setupRitewayBun();
+
+const ownedClaim = (target: {
+  readonly roundId: string;
+  readonly roundParticipantId: string;
+  readonly segmentId: string;
+}) => ({
+  scope: {
+    ...target,
+    agentRunId: 'run',
+    serviceId: 'agent-run:run',
+    publicationEpoch: 1,
+  },
+  token: 'memory-only',
+  leaseExpiresAt: '2026-10-22T00:00:30Z',
+});
 test('idle control discovery and receipt pulses have no provider or media prerequisite', async () => {
   const { tasks: timers, timers: worker } = manualTimers();
   let pulses = 0,
@@ -113,7 +128,7 @@ test('a rotated or stopped claim stops its speaking work before revocation', asy
 });
 
 test('failed control discovery and receipt pulses report their stages', async () => {
-  const failures: unknown[] = [];
+  const { failures, failed } = failureLog();
   const target = {
     roundId: 'round',
     roundParticipantId: 'seat',
@@ -130,16 +145,7 @@ test('failed control discovery and receipt pulses report their stages', async ()
         if (scans > 1) throw scanFault;
         return [target];
       },
-      claimRoundBotWorker: async () => ({
-        scope: {
-          ...target,
-          agentRunId: 'run',
-          serviceId: 'agent-run:run',
-          publicationEpoch: 1,
-        },
-        token: 'memory-only',
-        leaseExpiresAt: '2026-10-22T00:00:30Z',
-      }),
+      claimRoundBotWorker: async () => ownedClaim(target),
       revokeRoundBotWorker: async () => {},
       verifyRoundBotWorker: async () => {},
     },
@@ -150,9 +156,7 @@ test('failed control discovery and receipt pulses report their stages', async ()
     }),
     limits: { maxControllers: 1, scanBatch: 4, scanMs: 500, renewMs: 3000 },
     timers,
-    failed: (error, stage) => {
-      failures.push([error, stage]);
-    },
+    failed,
   });
   await service.started;
   await tasks.get(500)!();
@@ -169,7 +173,7 @@ test('failed control discovery and receipt pulses report their stages', async ()
 });
 
 test('a control lease lost at completion stops its seat without a failure', async () => {
-  const failures: unknown[] = [];
+  const { failures, failed } = failureLog();
   const stopped: string[] = [];
   const target = {
     roundId: 'round',
@@ -180,16 +184,7 @@ test('a control lease lost at completion stops its seat without a failure', asyn
   const service = startBotControlService({
     store: {
       scanRoundBotWorkers: async () => [target],
-      claimRoundBotWorker: async () => ({
-        scope: {
-          ...target,
-          agentRunId: 'run',
-          serviceId: 'agent-run:run',
-          publicationEpoch: 1,
-        },
-        token: 'memory-only',
-        leaseExpiresAt: '2026-10-22T00:00:30Z',
-      }),
+      claimRoundBotWorker: async () => ownedClaim(target),
       revokeRoundBotWorker: async () => {},
       verifyRoundBotWorker: async () => {
         throw createAppError('CONFLICT', 'Worker lease expired');
@@ -205,9 +200,7 @@ test('a control lease lost at completion stops its seat without a failure', asyn
     }),
     limits: { maxControllers: 1, scanBatch: 4, scanMs: 500, renewMs: 3000 },
     timers,
-    failed: (error, stage) => {
-      failures.push([error, stage]);
-    },
+    failed,
   });
   await service.started;
   await service.stop();

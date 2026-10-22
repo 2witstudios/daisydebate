@@ -10,8 +10,8 @@ import type { App } from './app';
  * work is refused and retried on the next tick (ISSUE-431). A starved stage
  * ticking every 500ms or faster exceeds this within one window.
  */
-export const CAPACITY_DEFERRAL_LIMIT = 8;
-export const CAPACITY_WINDOW_MS = 10_000;
+const CAPACITY_DEFERRAL_LIMIT = 8;
+const CAPACITY_WINDOW_MS = 10_000;
 
 /**
  * A background worker's recoverable failure: the log line names the stage
