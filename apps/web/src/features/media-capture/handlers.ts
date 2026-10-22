@@ -10,7 +10,7 @@ import type { createMediaWorkerTokenBroker } from '../round-media/worker-token';
 type Authentication = ReturnType<typeof createMediaWorkerAuthentication>;
 type Broker = ReturnType<typeof createMediaWorkerTokenBroker>;
 type Capture = ReturnType<Database['createMediaCaptureOperations']>;
-const tokenScope = z.strictObject({
+const captureScope = z.strictObject({
   roundId: idSchema,
   sessionId: idSchema,
   workerId: idSchema,
@@ -23,6 +23,10 @@ export function createMediaCaptureHandlers(input: {
   readonly authentication: () => Authentication;
   readonly capture: () => Capture;
   readonly token: Broker['captureToken'];
+  readonly activity: (
+    identity: z.infer<typeof captureScope>,
+    body: unknown,
+  ) => Promise<void>;
 }) {
   return {
     handle: (request: Request) =>
@@ -47,8 +51,21 @@ export function createMediaCaptureHandlers(input: {
         const operation = url.pathname.split('/').at(-1);
         if (operation === 'token')
           return Response.json(
-            await input.token(parseValidated(tokenScope, payload), principal),
+            await input.token(parseValidated(captureScope, payload), principal),
           );
+        if (operation === 'activity') {
+          const { roundId, sessionId, workerId, epoch, ...body } = payload;
+          await input.activity(
+            parseValidated(captureScope, {
+              roundId,
+              sessionId,
+              workerId,
+              epoch,
+            }),
+            body,
+          );
+          return Response.json(null);
+        }
         const capture = input.capture();
         const operations = {
           lease: capture.claimMediaWorkerLease,

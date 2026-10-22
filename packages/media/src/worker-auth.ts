@@ -21,7 +21,15 @@ const route = (path: string) => {
     parts[3] !== 'media' ||
     !idSchema.safeParse(parts[4]).success ||
     parts[5] !== 'capture' ||
-    !['token', 'lease', 'read', 'append', 'observe', 'seal'].includes(parts[6]!)
+    ![
+      'token',
+      'lease',
+      'read',
+      'append',
+      'observe',
+      'seal',
+      'activity',
+    ].includes(parts[6]!)
   )
     throw unauthorized();
   return parts[4]!;

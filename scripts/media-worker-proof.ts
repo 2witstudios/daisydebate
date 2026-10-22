@@ -9,6 +9,7 @@ import { createRoundMediaOperations } from '../apps/web/src/features/round-media
 import { mediaRuntime } from '../apps/web/src/features/round-media/projection';
 import { createMediaWorkerTokenBroker } from '../apps/web/src/features/round-media/worker-token';
 import { createMediaCaptureHandlers } from '../apps/web/src/features/media-capture/handlers';
+import { createBotActivityRelay } from '../apps/web/src/features/round-bots/activity-relay';
 import { mediaDependencies } from '../apps/web/integration/round-media.test-support';
 import { mediaWorkerRole } from './test-logins';
 import type { withRoomRuntime } from '../apps/web/integration/room-runtime.test-support';
@@ -112,6 +113,10 @@ function ingress(f: Fixture, deps: ReturnType<typeof mediaDependencies>) {
     authentication: () => authentication,
     capture: () => capture,
     token: (scope, principal) => broker.captureToken(scope, principal),
+    activity: createBotActivityRelay({
+      readCapture: (value) => capture.readMediaCaptureState(value),
+      write: f.redis.writeBotActivity,
+    }),
   });
   return Bun.serve({ hostname: '127.0.0.1', port: 0, fetch: handlers.handle });
 }
