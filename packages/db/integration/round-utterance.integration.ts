@@ -1,276 +1,133 @@
 import { createId } from '@paralleldrive/cuid2';
+import { randomBytes } from 'node:crypto';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createDatabase } from '../src';
-import { withFixture } from './constraint-helpers';
-
+import { createDatabase } from '../src/index';
+import { withFixture, type Fixture } from './constraint-helpers';
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
-const instant = '2026-10-07T12:00:00.000Z';
-type Fixture = Parameters<Parameters<typeof withFixture>[1]>[0];
 
-const liveSegment = async (
-  fixture: Fixture,
-  role: 'affirmative' | 'negative',
-  type: 'speech' | 'cross_ex',
-  key: string,
-  durationMs: number,
-) => {
+async function seedTranscript(fixture: Fixture, frozen: boolean) {
   const roundId = await fixture.round({
     status: 'active',
     current_stage: 'live',
-    started_at: new Date(instant),
+    started_at: new Date(),
   });
-  const seat = await fixture.seat(roundId, role);
-  const segmentId = createId();
+  const seat = await fixture.seat(roundId, 'affirmative');
+  const segmentId = createId(),
+    id = createId(),
+    appendedId = createId();
+  const token = randomBytes(32).toString('base64url');
   await fixture.insert('round_segments', {
     id: segmentId,
     round_id: roundId,
     sequence: 0,
-    type,
-    rules_segment_key: key,
-    started_at: new Date(instant),
-    duration_ms: durationMs,
+    type: 'speech',
+    rules_segment_key: 'AC',
+    started_at: new Date(),
+    duration_ms: 240000,
   });
-  return { roundId, seat, segmentId };
-};
+  await fixture.insert('utterances', {
+    id,
+    round_id: roundId,
+    segment_id: segmentId,
+    round_participant_id: seat.id,
+    sequence: 0,
+    text: 'Durable capture',
+    complete: false,
+    generation_token: token,
+    generation_expires_at: new Date(Date.now() + 120000),
+  });
+  await fixture.sql`insert into round_transcripts(round_id,revision) values(${roundId},1)`;
+  if (frozen)
+    await fixture.sql`insert into round_transcript_freezes(round_id,revision,frontier,completeness) values(${roundId},1,1,'incomplete')`;
+  fixture.track('utterances', appendedId);
+  return { roundId, seat, segmentId, id, appendedId, token };
+}
 
-test('a delayed AI phrase cannot land on or replace a closed segment', async () => {
-  await withFixture(url, async (fixture) => {
-    const { roundId, seat, segmentId } = await liveSegment(
-      fixture,
-      'affirmative',
-      'speech',
-      'AC',
-      240_000,
-    );
-    const utteranceId = createId();
-    fixture.track('utterances', utteranceId);
-    const database = createDatabase({ url, nextActorId: createId });
-    try {
-      await database.appendUtterance({
-        id: utteranceId,
-        roundId,
-        segmentId,
-        roundParticipantId: seat.id,
-        text: 'Heard while live.',
-        requireOpen: true,
-      });
-      await fixture.sql.unsafe(
-        'update round_segments set ended_at = statement_timestamp() where id = $1',
-        [segmentId],
-      );
-      await assertRejects({
-        given: 'a model phrase produced after the segment closed',
-        should: 'refuse an append under the segment row lock',
-        actual: () =>
-          database.appendUtterance({
-            id: createId(),
-            roundId,
-            segmentId,
-            roundParticipantId: seat.id,
-            text: 'Too late.',
-            requireOpen: true,
-          }),
-        code: 'CONFLICT',
-      });
-      await assertRejects({
-        given: 'a later model phrase for an existing line',
-        should: 'refuse a replacement under the same lock',
-        actual: () =>
-          database.replaceUtterance({
-            id: utteranceId,
-            roundId,
-            text: 'Overwritten too late.',
-            requireOpen: true,
-          }),
-        code: 'CONFLICT',
-      });
-      const [line] = (await fixture.sql.unsafe(
-        'select text from utterances where id = $1',
-        [utteranceId],
-      )) as Array<{ text: string }>;
-      assert({
-        given: 'both late writes refused',
-        should: 'preserve the words recorded while live',
-        actual: line?.text,
-        expected: 'Heard while live.',
-      });
-    } finally {
-      await database.close();
-    }
-  });
-});
-
-test('concurrent AI openings leave one durable line in a segment', async () => {
-  await withFixture(url, async (fixture) => {
-    const { roundId, seat, segmentId } = await liveSegment(
-      fixture,
-      'negative',
-      'cross_ex',
-      'CX',
-      120_000,
-    );
-    const ids = [createId(), createId()];
-    for (const id of ids) fixture.track('utterances', id);
-    const database = createDatabase({ url, nextActorId: createId });
-    try {
-      const results = await Promise.all(
-        ids.map((id) =>
-          database.appendUtterance({
-            id,
-            roundId,
-            segmentId,
-            roundParticipantId: seat.id,
-            text: 'An opening question.',
-            requireOpen: true,
-            requireEmptySegment: true,
-          }),
-        ),
-      );
-      const rows = await fixture.sql.unsafe(
-        'select id from utterances where segment_id = $1',
-        [segmentId],
-      );
-      assert({
-        given: 'two openings for the same live segment',
-        should: 'store exactly one while the other reports the lost race',
-        actual: { results: results.sort(), count: rows.length },
-        expected: { results: [false, true], count: 1 },
-      });
-    } finally {
-      await database.close();
-    }
-  });
-});
-
-test('speech claims fence concurrent and expired writers', async () => {
-  await withFixture(url, async (fixture) => {
-    const { roundId, seat, segmentId } = await liveSegment(
-      fixture,
-      'negative',
-      'speech',
-      'NC',
-      240_000,
-    );
-    const ids = [createId(), createId()];
-    for (const id of ids) fixture.track('utterances', id);
-    const database = createDatabase({ url, nextActorId: createId });
-    try {
-      const claims = await Promise.all(
-        ids.map((id, index) =>
-          database.claimSpeech({
-            id,
-            roundId,
-            segmentId,
-            roundParticipantId: seat.id,
-            token: `writer-${index}`,
-          }),
-        ),
-      );
-      assert({
-        given: 'two writers claiming one bot speech concurrently',
-        should: 'grant one claim and hold the other',
-        actual: claims.map((claim) => claim.status).sort(),
-        expected: ['claimed', 'held'],
-      });
-      const winner = claims.findIndex((claim) => claim.status === 'claimed');
-      const utteranceId = claims[winner]!.utteranceId;
-      await database.releaseSpeech({
-        utteranceId,
-        roundId,
-        token: `writer-${winner}`,
-      });
-      const resumed = await database.claimSpeech({
-        id: createId(),
-        roundId,
-        segmentId,
-        roundParticipantId: seat.id,
-        token: 'resumed',
-      });
-      assert({
-        given: 'the winning stream disconnects and releases its claim',
-        should: 'let a new writer take over the same line immediately',
-        actual: resumed,
-        expected: { status: 'claimed', utteranceId },
-      });
-      await database.releaseSpeech({
-        utteranceId,
-        roundId,
-        token: `writer-${winner}`,
-      });
-      const stillHeld = await database.claimSpeech({
-        id: createId(),
-        roundId,
-        segmentId,
-        roundParticipantId: seat.id,
-        token: 'waiting',
-      });
-      assert({
-        given: 'the stale writer releases again after another claim',
-        should: 'leave the new claim held',
-        actual: stillHeld.status,
-        expected: 'held',
-      });
-      await fixture.sql.unsafe(
-        "update utterances set generation_expires_at = statement_timestamp() - interval '1 second' where id = $1",
-        [utteranceId],
-      );
-      const replacement = await database.claimSpeech({
-        id: createId(),
-        roundId,
-        segmentId,
-        roundParticipantId: seat.id,
-        token: 'replacement',
-      });
-      assert({
-        given: 'the first writer expired',
-        should: 'take over its existing utterance id',
-        actual: replacement,
-        expected: { status: 'claimed', utteranceId },
-      });
-      await assertRejects({
-        given: 'the expired writer attempts another phrase after takeover',
-        should: 'refuse its stale token',
-        actual: () =>
-          database.replaceUtterance({
-            id: utteranceId,
-            roundId,
-            text: 'Stale text',
-            requireOpen: true,
-            speechToken: 'resumed',
-          }),
-        code: 'CONFLICT',
-      });
-      await database.replaceUtterance({
-        id: utteranceId,
-        roundId,
-        text: 'Final speech.',
-        complete: true,
-        requireOpen: true,
-        speechToken: 'replacement',
-      });
-      const [row] = (await fixture.sql.unsafe(
-        'select text, complete, generation_token from utterances where id = $1',
-        [utteranceId],
-      )) as Array<{
-        text: string;
-        complete: boolean;
-        generation_token: string | null;
-      }>;
-      assert({
-        given: 'the replacement writer finished',
-        should: 'store only its complete text and release the claim',
-        actual: row,
-        expected: {
-          text: 'Final speech.',
-          complete: true,
-          generation_token: null,
-        },
-      });
-    } finally {
-      await database.close();
-    }
-  });
-});
+for (const frozen of [false, true]) {
+  test(`unscoped retained writers cannot mutate ${frozen ? 'frozen' : 'unanchored'} transcript state`, async () =>
+    withFixture(url, async (fixture) => {
+      const { roundId, seat, segmentId, id, appendedId, token } =
+        await seedTranscript(fixture, frozen);
+      const store = createDatabase({ url, nextActorId: createId });
+      const snapshot = async () => {
+        const lines =
+          await fixture.sql`select id,text,complete,generation_token,generation_expires_at from utterances where round_id=${roundId} order by sequence`;
+        const frontier =
+          await fixture.sql`select revision from round_transcripts where round_id=${roundId}`;
+        const freeze =
+          await fixture.sql`select revision,frontier,completeness,frozen_at from round_transcript_freezes where round_id=${roundId}`;
+        return {
+          lines: [...lines],
+          frontier: [...frontier],
+          freeze: [...freeze],
+        };
+      };
+      try {
+        const before = await snapshot();
+        const writes = [
+          () =>
+            store.appendUtterance({
+              id: appendedId,
+              roundId,
+              segmentId,
+              roundParticipantId: seat.id,
+              text: 'Unscoped append',
+              requireOpen: false,
+            }),
+          () =>
+            store.appendUtterance({
+              id: appendedId,
+              roundId,
+              segmentId,
+              roundParticipantId: seat.id,
+              text: 'Unscoped open append',
+              requireOpen: true,
+            }),
+          () =>
+            store.replaceUtterance({
+              id,
+              roundId,
+              text: 'Unscoped replacement',
+              requireOpen: false,
+            }),
+          () =>
+            store.replaceUtterance({
+              id,
+              roundId,
+              text: 'Claimed replacement',
+              requireOpen: true,
+              speechToken: token,
+            }),
+          () =>
+            store.claimSpeech({
+              id: appendedId,
+              roundId,
+              segmentId,
+              roundParticipantId: seat.id,
+              token,
+            }),
+          () => store.releaseSpeech({ utteranceId: id, roundId, token }),
+        ];
+        for (const write of writes)
+          await assertRejects({
+            given: `${frozen ? 'immutable freeze' : 'no durable final-end anchor'} and no signed capture authority`,
+            should: 'truthfully refuse every retained text or claim mutation',
+            actual: write,
+            code: 'CONFLICT',
+          });
+        assert({
+          given: 'all retained unscoped mutation attempts',
+          should:
+            'preserve utterances, claim ownership, frontier and freeze byte facts',
+          actual: await snapshot(),
+          expected: before,
+        });
+      } finally {
+        await store.close();
+        await fixture.sql`delete from rounds where id=${roundId}`;
+      }
+    }));
+}
