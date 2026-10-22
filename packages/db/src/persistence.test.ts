@@ -157,7 +157,7 @@ describe('round persistence', () => {
         'check the command id, lock the round and write the versioned command and phase signal',
       actual: [
         queries[0]?.query.includes('"round_commands"'),
-        queries[1]?.query.includes('for update'),
+        queries[1]?.query.includes('for no key update'),
         queries[6]?.query.includes('insert into "round_commands"'),
         queries[4]?.params.find(
           (value) => typeof value === 'object' && value !== null,
