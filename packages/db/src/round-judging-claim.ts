@@ -105,6 +105,7 @@ export async function claimLockedJudgingJob(
     token,
     leaseExpiresAt: leaseExpiresAt.toISOString(),
     expectedVersion: round.version,
+    pendingBallot: job.pendingBallot,
     frozen,
     round,
   };

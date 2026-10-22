@@ -52,7 +52,7 @@ export async function lockRoundAgentContext(
     .select()
     .from(rounds)
     .where(eq(rounds.id, roundId))
-    .for('update');
+    .for('no key update');
   if (!locked || locked.status === 'completed' || locked.status === 'abandoned')
     throw createAppError('CONFLICT');
   const round = await hydrateRoundRows(tx, roundId);

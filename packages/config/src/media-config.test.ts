@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { readBrowserConfig, readServerConfig } from './index';
+import { readBrowserConfig, readServerConfig, secretConfigKeys } from './index';
 setupRitewayBun();
 const baseline = {
   NODE_ENV: 'test',
@@ -35,6 +35,40 @@ test('media configuration stays optional and server-only', () => {
     actual: Reflect.get(readServerConfig(baseline), 'LIVEKIT_URL'),
     expected: undefined,
   });
+});
+test('internal media signing key is optional, canonical and redacted', () => {
+  const key = Buffer.alloc(32, 7).toString('base64url');
+  const env = { ...baseline, MEDIA_WORKER_SECRET: key };
+  assert({
+    given: 'an explicitly injected test signing key or no configuration',
+    should: 'keep the secret server-only and register logger redaction',
+    actual: [
+      Reflect.get(readServerConfig(env), 'MEDIA_WORKER_SECRET') === key,
+      Reflect.get(readServerConfig(baseline), 'MEDIA_WORKER_SECRET'),
+      Reflect.get(readBrowserConfig(env), 'MEDIA_WORKER_SECRET'),
+      secretConfigKeys.includes('MEDIA_WORKER_SECRET'),
+    ],
+    expected: [true, undefined, undefined, true],
+  });
+  for (const invalid of [
+    Buffer.alloc(31).toString('base64url'),
+    `${key}=`,
+    `${key} `,
+    'private-invalid-value',
+  ]) {
+    let message = 'accepted';
+    try {
+      readServerConfig({ ...baseline, MEDIA_WORKER_SECRET: invalid });
+    } catch (error) {
+      message = String(error);
+    }
+    assert({
+      given: 'invalid internal signing configuration',
+      should: 'refuse with field name only',
+      actual: message,
+      expected: 'Error: Invalid server configuration: MEDIA_WORKER_SECRET',
+    });
+  }
 });
 test('media configuration refuses invalid schemes and credential-bearing URLs safely', () => {
   for (const value of [
