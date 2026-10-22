@@ -5,6 +5,7 @@ import type { ReservedSQL } from 'bun';
 import { sql } from 'drizzle-orm';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createBoundedTransaction } from '../src/bounded-transaction';
+import type { TransactionSettlement } from '../src/transaction-settlement';
 import type { OwnedBackend } from '../src/transaction-watchdog';
 import { withFixture } from './constraint-helpers';
 import { backendOf, withPool } from './bounded-transaction.test-support';
@@ -35,6 +36,7 @@ test(
       });
       try {
         let message = 'accepted';
+        let settlement: TransactionSettlement | undefined;
         try {
           await run(async (tx) => {
             identity = await backendOf(connections[1]!);
@@ -44,6 +46,8 @@ test(
         } catch (error) {
           if (!isAppError(error)) throw error;
           message = error.message;
+          settlement = (error.cause as { settlement?: TransactionSettlement })
+            ?.settlement;
         }
         assert({
           given:
@@ -52,6 +56,34 @@ test(
             'report pending recovery rather than claim rollback or successful finalization',
           actual: message,
           expected: 'Transcript transaction recovery pending',
+        });
+        assert({
+          given: 'unconfirmed cancellation',
+          should: 'provide an explicit backend-absence settlement handle',
+          actual: typeof settlement?.confirm,
+          expected: 'function',
+        });
+        if (!settlement) throw new Error('Missing recovery settlement handle');
+        let settled = false;
+        void settlement.settled.then(() => {
+          settled = true;
+        });
+        const [before] =
+          await client`select exists(select 1 from pg_stat_activity where pid=${identity!.pid} and backend_start::text=${identity!.started}) as alive`;
+        assert({
+          given: 'the exact original backend is still outstanding',
+          should: 'keep settlement pending until positive confirmation',
+          actual: { alive: before!.alive, settled },
+          expected: { alive: true, settled: false },
+        });
+        client.reserve = originalReserve;
+        const confirmed = await settlement.confirm();
+        assert({
+          given: 'restored same-pool recovery capacity',
+          should:
+            'settle only backend absence without asserting commit outcome',
+          actual: { confirmed, state: await settlement.settled },
+          expected: { confirmed: true, state: 'backend-absent' },
         });
       } finally {
         client.reserve = originalReserve;
