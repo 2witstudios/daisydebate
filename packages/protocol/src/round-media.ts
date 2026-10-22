@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { idSchema } from './primitives';
 
-export const roundMediaGrantsSchema = z.strictObject({
+const roundMediaGrantsSchema = z.strictObject({
   publish: z
     .array(z.enum(['camera', 'microphone']))
     .max(2)

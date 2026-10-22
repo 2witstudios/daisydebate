@@ -4,7 +4,7 @@ export const roundMediaPages = [
   '/rounds/:id',
   '/rounds/:id/room',
 ] as const;
-export const isRoundMediaPage = (path: string) =>
+const isRoundMediaPage = (path: string) =>
   /^\/(rooms\/[^/]+|rounds\/[^/]+(?:\/room)?)$/.test(path);
 
 export function roundMediaOrigins(

@@ -224,7 +224,6 @@ export type {
   RoundBallotAuthority,
 } from './round-ballot';
 export {
-  roundMediaGrantsSchema,
   roundMediaStateSchema,
   roundMediaAdmissionSchema,
 } from './round-media';

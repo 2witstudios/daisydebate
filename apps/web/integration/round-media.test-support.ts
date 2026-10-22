@@ -5,7 +5,7 @@ import { noopErrorReporter, withTimeout } from '@daisy/observability';
 import { createRoundMediaOperations } from '../src/features/round-media/operations';
 import { withRoomRuntime } from './room-runtime.test-support';
 
-export const localMediaConfig = {
+const localMediaConfig = {
   url: 'http://127.0.0.1:7880',
   apiKey: 'daisy-local',
   apiSecret: 'local-development-only-livekit-secret',
