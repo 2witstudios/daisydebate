@@ -5,7 +5,9 @@ import { AudioStream } from '@livekit/rtc-node';
 import { CaptureFrameProcessor } from '../src/capture-frame-processor';
 import { createCaptureSubscription } from '../src/native-capture';
 import { createMediaService } from '../src/service';
-import { config, type withNativePublication } from './native-room.test-support';
+import { config, withNativePublication } from './native-room.test-support';
+import { createCaptureClock } from '../src/capture-clock';
+import type { withHistoricalSeat } from './native-fixtures.test-support';
 import { waitForCadence, pcmJob } from './native-fixtures.test-support';
 
 const openCaptureProbe = async (
@@ -201,3 +203,72 @@ export const proveCaptureRoomDeletion: Parameters<
     await capture.close();
   }
 };
+
+/** Real callback observation cadence; this never claims acoustic/network origin. */
+export async function proveCalibratedCapture(
+  history: Parameters<Parameters<typeof withHistoricalSeat>[1]>[0],
+) {
+  const clock = createCaptureClock(await history.calibrate());
+  const retained: {
+    beforeMs: number;
+    afterMs: number;
+    pcm: Int16Array;
+    sequence: number;
+  }[] = [];
+  let dropped = 0;
+  await withNativePublication(async ({ publisher, roomName, identity }) => {
+    const { capture } = await openCaptureProbe(roomName, identity, {
+      onFrame(frame) {
+        const window = clock.observe(frame);
+        if (window)
+          retained.push({
+            ...window,
+            pcm: frame.pcm,
+            sequence: frame.sequence,
+          });
+        else dropped++;
+      },
+      onTrackClosed: () => undefined,
+    });
+    try {
+      const signal = AbortSignal.timeout(10000),
+        anchor = performance.now();
+      for (let i = 0; i < 200; i++) {
+        if (i === 100) clock.refresh(await history.calibrate());
+        await waitForCadence(anchor + (i + 1) * 10, signal);
+        await publisher.capture10ms(pcmJob().subarray(0, 480));
+      }
+      await publisher.close();
+    } finally {
+      await capture.close();
+    }
+  }, history.binding);
+  let authorized = 0;
+  for (const frame of retained) {
+    if (
+      await history.authorizeWindow({
+        before: new Date(Math.floor(frame.beforeMs)).toISOString(),
+        after: new Date(Math.ceil(frame.afterMs)).toISOString(),
+      })
+    )
+      authorized++;
+  }
+  assert({
+    given:
+      'real 16k native callbacks, real PG calibration refresh and full historical-window reads',
+    should:
+      'retain genuine PCM after cadence bootstrap with outward eligible observation brackets',
+    actual: {
+      retained: retained.length >= 10,
+      nonzero: retained.some((f) => f.pcm.some((v) => v !== 0)),
+      allAuthorized: authorized === retained.length,
+      gaps: dropped > 0,
+    },
+    expected: {
+      retained: true,
+      nonzero: true,
+      allAuthorized: true,
+      gaps: true,
+    },
+  });
+}
