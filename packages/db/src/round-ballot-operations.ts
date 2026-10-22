@@ -1,3 +1,4 @@
+import { roundBallotReads } from './round-ballot-reads';
 import { createAppError } from '@daisy/errors';
 import {
   idSchema,
@@ -264,6 +265,7 @@ export const roundBallotOperations = ({
   readonly database: BunSQLDatabase;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
+  ...roundBallotReads({ database }),
   executeRoundBallot: (input: LockedRoundBallotInput) =>
     instrumented(eventSink, 'executeRoundBallot', () =>
       database.transaction((tx) => executeLockedRoundBallot(tx, input)),

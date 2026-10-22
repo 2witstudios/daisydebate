@@ -1,3 +1,4 @@
+import { canReadRound } from '../src/features/round-runtime/reads';
 import { requireTestServices } from '@daisy/config';
 import {
   oneOnOneDefinition,
@@ -111,6 +112,33 @@ test('all actual human judges submit one shared ballot against actual frozen inp
           freezeRevision: first.freezeRevision + 1,
         }),
       code: 'CONFLICT',
+    });
+    const ownRead = await f.store.readRoundBallot({
+      roundId,
+      caller: judges[0]!,
+      authorize: (round, account) => canReadRound(judges[0]!, round, account),
+    });
+    const opponentRead = await f.store.readRoundBallot({
+      roundId,
+      caller: f.guest,
+      authorize: (round, account) => canReadRound(f.guest, round, account),
+    });
+    assert({
+      given: 'actual frozen input read by its assigned judge and a debater',
+      should:
+        'expose input and own seat only to the assigned judge without hidden judge identifiers in the debater response',
+      actual: [
+        ownRead.own?.participantId,
+        ownRead.freeze?.revision,
+        opponentRead.freeze,
+        opponentRead.own,
+        seats.some(
+          (seat) =>
+            JSON.stringify(opponentRead).includes(seat.id) ||
+            JSON.stringify(opponentRead).includes(seat.actorId),
+        ),
+      ],
+      expected: [seats[0]!.id, first.freezeRevision, null, null, false],
     });
     const receipt = await operation.submit(principal, roundId, first);
     assert({
