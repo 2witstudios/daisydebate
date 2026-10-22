@@ -12,6 +12,7 @@ import {
   startLockedRoundAgentRun,
 } from './round-agent-runs';
 import { judgingJobWhere, type JudgingScope } from './round-judging-context';
+import { nextEpoch } from './lease-policy';
 
 export async function claimLockedJudgingJob(
   tx: BoundedTransactionContext,
@@ -61,9 +62,7 @@ export async function claimLockedJudgingJob(
   const frozen = await readLockedFrozenRoundTranscript(tx, round.id);
   if (!frozen || frozen.revision !== job.freezeRevision)
     throw createAppError('CONFLICT', 'Frozen judging input changed');
-  const epoch = job.attempts + 1;
-  if (epoch > 2147483647)
-    throw createAppError('CONFLICT', 'Judging epoch exhausted');
+  const epoch = nextEpoch(job.attempts, 'Judging epoch exhausted');
   for (const prior of priorRuns)
     await endLockedRoundAgentRun(tx, prior.id, seat.id);
   const agentRunId = input.nextId(),

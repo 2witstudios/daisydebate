@@ -15,6 +15,7 @@ import {
 } from './round-projection-writer';
 import { writeSpeakingProjection } from './round-speaking-writer';
 import { sampleRoundExecutionTime } from './round-execution-time';
+import { eligibleCompetitorIds } from './seat-eligibility';
 
 export type AttendanceResolution = {
   readonly segmentId: string;
@@ -77,9 +78,7 @@ export function createAttendanceEvaluator(
       const resolution = input.resolve({
         round,
         ...evidence,
-        eligibleParticipantIds: seats
-          .filter((seat) => seat.eligible && seat.role !== 'judge')
-          .map((seat) => seat.id),
+        eligibleParticipantIds: eligibleCompetitorIds(seats),
         now,
         checkIns: (
           rows as unknown as {

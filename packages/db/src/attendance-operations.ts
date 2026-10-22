@@ -27,6 +27,11 @@ export type {
   AttendanceFacts,
   LockedAttendanceCheckIn,
 } from './attendance-facts';
+import {
+  requireCommandInput,
+  requireSameCommand,
+} from './round-command-replay';
+import { eligibleCompetitorIds } from './seat-eligibility';
 
 type WorkerVerifier = (
   tx: AttendanceTransactionContext,
@@ -41,10 +46,6 @@ type CheckInInput = {
   readonly acceptWindow: (facts: LockedAttendanceCheckIn) => void;
 };
 type Fenced = Awaited<ReturnType<typeof fenceAttendance>>;
-const eligibleSeats = (seats: Fenced['seats']) =>
-  seats
-    .filter((seat) => seat.eligible && seat.role !== 'judge')
-    .map((seat) => seat.id);
 async function authorizeSeat(
   tx: AttendanceTransactionContext,
   principal: AttendancePrincipal,
@@ -83,14 +84,12 @@ async function readReplay(
     .from(roundCommands)
     .where(eq(roundCommands.commandId, input.envelope.commandId));
   if (!previous) return null;
-  if (
-    previous.roundId !== input.roundId ||
-    previous.actorId !== columns.actorId ||
-    previous.serviceId !== columns.serviceId ||
-    previous.type !== 'check_in' ||
-    previous.payloadDigest !== input.payloadDigest
-  )
-    throw createAppError('CONFLICT', 'command-conflict');
+  requireSameCommand(previous, {
+    ...columns,
+    roundId: input.roundId,
+    payloadDigest: input.payloadDigest,
+    type: 'check_in',
+  });
   const receipt = attendanceReceiptSchema.parse(previous.result);
   if (
     receipt.segmentId !== input.envelope.segmentId ||
@@ -135,7 +134,7 @@ export function createAttendanceOperations(deps: {
           round: fenced.round,
           ...evidence,
           participantId: seat.id,
-          eligibleParticipantIds: eligibleSeats(fenced.seats),
+          eligibleParticipantIds: eligibleCompetitorIds(fenced.seats),
           receipts: (
             recorded as unknown as { segment_id: string; received_at: string }[]
           ).map((row) => ({
@@ -147,12 +146,7 @@ export function createAttendanceOperations(deps: {
       });
     },
     async recordRoundCheckIn(input: CheckInInput): Promise<AttendanceReceipt> {
-      if (
-        !idSchema.safeParse(input.roundId).success ||
-        !attendanceEnvelopeSchema.safeParse(input.envelope).success ||
-        !/^[0-9a-f]{64}$/.test(input.payloadDigest)
-      )
-        throw createAppError('VALIDATION');
+      requireCommandInput(input, attendanceEnvelopeSchema);
       return deps.transaction(
         async (tx, first) => {
           const columns = principalColumns(input.principal);
@@ -180,7 +174,7 @@ export function createAttendanceOperations(deps: {
           const facts = {
             round,
             ...evidence,
-            eligibleParticipantIds: eligibleSeats(seats),
+            eligibleParticipantIds: eligibleCompetitorIds(seats),
             participantId: seat.id,
           };
           const replay = await readReplay(tx, input, columns, seat.id);

@@ -21,6 +21,7 @@ import {
   lockBotAdmission,
   markLockedRoundBotModelCall,
 } from './round-bot-admission';
+import { requireLeaseMs } from './lease-policy';
 export type { JudgingScope } from './round-judging-context';
 /** Durable intents use the same injected bounded transaction; no provider I/O occurs under locks. */
 export function createRoundJudgingJobs(input: {
@@ -30,13 +31,8 @@ export function createRoundJudgingJobs(input: {
   readonly leaseMs: number;
   readonly model: string;
 }) {
-  if (
-    !Number.isSafeInteger(input.leaseMs) ||
-    input.leaseMs < 1 ||
-    input.leaseMs > 60000 ||
-    !input.model.trim()
-  )
-    throw createAppError('VALIDATION');
+  requireLeaseMs(input.leaseMs);
+  if (!input.model.trim()) throw createAppError('VALIDATION');
   const withLease = <T>(
     scope: JudgingScope,
     token: string,

@@ -9,6 +9,7 @@ import { roundParticipants } from './schema/round-participants';
 import type { AvailabilityEvidence } from './availability-operations';
 import type { CheckInAttempt } from './check-in-attempts';
 import { fencedActorIds, seatEligibility } from './seat-eligibility';
+import { requireFencedParticipants } from './round-command-replay';
 export type AttendanceTransactionContext = Pick<
   BunSQLDatabase,
   'select' | 'insert' | 'update' | 'delete' | 'execute'
@@ -76,8 +77,7 @@ export async function fenceAttendance(
   if (!round) throw createAppError('NOT_FOUND');
   if (round.status !== 'active')
     throw createAppError('CONFLICT', 'attendance-terminal');
-  if (round.participants.some((seat) => !actorIds.includes(seat.actorId)))
-    throw createAppError('CONFLICT');
+  requireFencedParticipants(round.participants, actorIds);
   const seats = await Promise.all(
     round.participants.map(async (seat) => {
       const actor = await actorFact(tx, seat.actorId);

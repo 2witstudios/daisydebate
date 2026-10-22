@@ -30,10 +30,10 @@ type Target = Pick<
 function nextPublicationEpoch(
   current: typeof roundBotPublications.$inferSelect | undefined,
 ) {
-  const epoch = current ? current.publicationEpoch + 1 : 1;
-  if (epoch > 2147483647)
-    throw createAppError('CONFLICT', 'Publication epoch exhausted');
-  return epoch;
+  return nextEpoch(
+    current?.publicationEpoch ?? 0,
+    'Publication epoch exhausted',
+  );
 }
 /** Server-only capability; entropy and IDs are supplied by the authenticated composition edge. */
 export function createBotPublicationOperations(input: {
@@ -45,12 +45,7 @@ export function createBotPublicationOperations(input: {
   readonly ttsModel?: string;
   readonly speechBudget?: number;
 }) {
-  if (
-    !Number.isSafeInteger(input.leaseMs) ||
-    input.leaseMs < 1 ||
-    input.leaseMs > 60000
-  )
-    throw createAppError('VALIDATION');
+  requireLeaseMs(input.leaseMs);
   const claimWhere = (
     scope: Pick<BotPublicationScope, 'roundId' | 'roundParticipantId'>,
   ) =>
@@ -195,3 +190,4 @@ export {
   verifyBotWorkerPrincipalLocked,
   readBotControlHealth,
 } from './bot-worker-authority';
+import { nextEpoch, requireLeaseMs } from './lease-policy';

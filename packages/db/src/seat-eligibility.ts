@@ -40,3 +40,15 @@ export const fencedActorIds = (
     ...extra.filter((id): id is string => !!id),
   ]),
 ];
+
+/** Eligible debating seats; judges never check in or forfeit. */
+export const eligibleCompetitorIds = (
+  seats: readonly {
+    readonly id: string;
+    readonly role: string;
+    readonly eligible: boolean;
+  }[],
+) =>
+  seats
+    .filter((seat) => seat.eligible && seat.role !== 'judge')
+    .map((seat) => seat.id);

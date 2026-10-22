@@ -1,5 +1,9 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { fencedActorIds, seatEligibility } from './seat-eligibility';
+import {
+  eligibleCompetitorIds,
+  fencedActorIds,
+  seatEligibility,
+} from './seat-eligibility';
 
 setupRitewayBun();
 
@@ -68,5 +72,19 @@ test('fenced actors are distinct, seats first, without absent extras', () => {
       'host',
     ),
     expected: ['a', 'b', 'host'],
+  });
+});
+
+test('only eligible debating seats are attendance competitors', () => {
+  assert({
+    given: 'eligible and ineligible debaters and an eligible judge',
+    should: 'keep only the eligible debaters in seat order',
+    actual: eligibleCompetitorIds([
+      { id: 'aff', role: 'affirmative', eligible: true },
+      { id: 'neg', role: 'negative', eligible: false },
+      { id: 'judge', role: 'judge', eligible: true },
+      { id: 'neg2', role: 'negative', eligible: true },
+    ]),
+    expected: ['aff', 'neg2'],
   });
 });

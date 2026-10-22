@@ -2,7 +2,6 @@ import { roundBallotReads } from './round-ballot-reads';
 import { assertRoundAttendanceSettled } from './attendance-settlement';
 import { createAppError } from '@daisy/errors';
 import {
-  idSchema,
   roundBallotEnvelopeSchema,
   roundBallotReceiptSchema,
   type RoundBallotEnvelope,
@@ -34,6 +33,11 @@ import {
 import type { RoundHydration } from './round-hydration';
 import { ballots } from './schema/ballots';
 import { roundCommands } from './schema/round-commands';
+import {
+  requireCommandInput,
+  requireFencedParticipants,
+  requireSameCommand,
+} from './round-command-replay';
 
 export type RoundBallotLeaseContext = {
   readonly roundId: string;
@@ -78,15 +82,12 @@ async function replayBallot(
     .from(roundCommands)
     .where(eq(roundCommands.commandId, input.envelope.commandId));
   if (!previous) return null;
-  const principal = roundPrincipalColumns(input.principal);
-  if (
-    previous.roundId !== input.roundId ||
-    previous.actorId !== principal.actorId ||
-    previous.serviceId !== principal.serviceId ||
-    previous.payloadDigest !== input.payloadDigest ||
-    previous.type !== 'submit_ballot'
-  )
-    throw createAppError('CONFLICT', 'command-conflict');
+  requireSameCommand(previous, {
+    ...roundPrincipalColumns(input.principal),
+    roundId: input.roundId,
+    payloadDigest: input.payloadDigest,
+    type: 'submit_ballot',
+  });
   return roundBallotReceiptSchema.parse(previous.result);
 }
 function requireJudgingRun(
@@ -122,10 +123,7 @@ async function lockedBallotContext(
     fenced.accounts,
     'ballot',
   );
-  if (
-    fresh.round.participants.some((p) => !fenced.actorIds.includes(p.actorId))
-  )
-    throw createAppError('CONFLICT');
+  requireFencedParticipants(fresh.round.participants, fenced.actorIds);
   requireHumanRoundPrincipal(input.principal, fenced.accounts);
   const frozen = await readLockedFrozenRoundTranscript(tx, input.roundId);
   if (!frozen || frozen.revision !== input.envelope.freezeRevision)
@@ -230,12 +228,7 @@ async function persistBallotResult(
 }
 
 function validateBallotInput(input: LockedRoundBallotInput) {
-  if (
-    !idSchema.safeParse(input.roundId).success ||
-    !roundBallotEnvelopeSchema.safeParse(input.envelope).success ||
-    !/^[0-9a-f]{64}$/.test(input.payloadDigest)
-  )
-    throw createAppError('VALIDATION');
+  requireCommandInput(input, roundBallotEnvelopeSchema);
 }
 async function insertFrozenBallot(
   tx: RoundWriteTransaction,
