@@ -2,7 +2,10 @@ import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAttendanceFeature } from '../src/features/attendance/operations';
-import { startAvailabilityService } from '../src/features/availability/service';
+import {
+  maintenanceAvailability,
+  maintenanceTestTimers as timers,
+} from './round-maintenance.test-support';
 import { createRoundMaintenanceOperations } from '../src/features/round-finalization/maintenance';
 import { startRoundMaintenance } from '../src/features/round-finalization/service';
 import {
@@ -73,34 +76,12 @@ test(
             .catch(failed);
         },
       });
-      const timers = {
-        setInterval: (pulse: () => void, ms: number) => {
-          const handle = setInterval(pulse, ms);
-          return () => clearInterval(handle);
-        },
-        clearInterval: (stop: unknown) => {
-          if (typeof stop !== 'function') throw new Error('Unknown test timer');
-          stop();
-        },
-      };
-      const sampler = f.store.availabilitySampler();
-      const availability = startAvailabilityService({
+      const availability = maintenanceAvailability({
+        store: f.store,
         instanceId,
-        store: {
-          ...f.store,
-          availabilitySampler: () => ({
-            ...sampler,
-            sample: async (evidence) => {
-              const row = await sampler.sample(evidence);
-              if (row) stamps.push(row.at);
-              return row;
-            },
-          }),
-        },
-        probe: async () => false,
-        timers,
+        stamps,
         failed: () => failed(new Error('Actual availability service failed')),
-      });
+      }).service;
       const attendance = createAttendanceFeature({
         checkIns: f.store,
         evaluate: f.store.evaluateRoundAttendance,
