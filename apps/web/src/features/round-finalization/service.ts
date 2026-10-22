@@ -1,5 +1,8 @@
 import { isAppError } from '@daisy/errors';
 
+// The default shared pool has five writer/watchdog pairs; reserve headroom for discovery and public/control work.
+const MAX_ACTIVE_ROUNDS = 2;
+
 type MaintenancePorts<Handle> = {
   readonly discover: () => Promise<readonly string[]>;
   readonly tick: (roundId: string) => Promise<unknown>;
@@ -47,20 +50,33 @@ export function startRoundMaintenance<Handle>(input: MaintenancePorts<Handle>) {
   let discoveryWork = Promise.resolve(),
     ratingWork = Promise.resolve();
   const active = new Map<string, Promise<void>>();
+  const waiting = new Set<string>();
+  const advance = () => {
+    while (!stopped && active.size < MAX_ACTIVE_ROUNDS && waiting.size > 0) {
+      const id = waiting.values().next().value;
+      if (id === undefined) return;
+      waiting.delete(id);
+      const work = Promise.resolve()
+        .then(() => maintainRound(input, id))
+        .finally(() => {
+          active.delete(id);
+          advance();
+        });
+      active.set(id, work);
+    }
+  };
+  const remember = (ids: readonly string[]) => {
+    const current = new Set(ids);
+    for (const id of waiting) if (!current.has(id)) waiting.delete(id);
+    for (const id of ids) if (!active.has(id)) waiting.add(id);
+    advance();
+  };
   const discover = async () => {
     if (stopped || discovering) return;
     discovering = true;
     try {
       const ids = await input.discover();
-      for (const id of ids) {
-        if (stopped || active.has(id)) continue;
-        const work = Promise.resolve()
-          .then(() => maintainRound(input, id))
-          .finally(() => {
-            active.delete(id);
-          });
-        active.set(id, work);
-      }
+      if (!stopped) remember(ids);
     } catch (error) {
       input.failed(error);
     } finally {
@@ -92,6 +108,7 @@ export function startRoundMaintenance<Handle>(input: MaintenancePorts<Handle>) {
     ready,
     stop: () => {
       stopped = true;
+      waiting.clear();
       input.timers.clearInterval(timer);
       closing ??= Promise.all([discoveryWork, ratingWork]).then(async () => {
         await Promise.all(active.values());
