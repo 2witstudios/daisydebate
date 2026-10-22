@@ -18,7 +18,7 @@ export async function withRoomRuntime(
   run: (context: Awaited<ReturnType<typeof fixture>>) => Promise<void>,
   options: Pick<
     Parameters<typeof createDatabase>[0],
-    'client' | 'maxConnections' | 'botBusyCap'
+    'client' | 'maxConnections' | 'botBusyCap' | 'judging' | 'botPublication'
   > = {},
 ) {
   const f = await fixture(options);
@@ -31,7 +31,7 @@ export async function withRoomRuntime(
 async function fixture(
   options: Pick<
     Parameters<typeof createDatabase>[0],
-    'client' | 'maxConnections' | 'botBusyCap'
+    'client' | 'maxConnections' | 'botBusyCap' | 'judging' | 'botPublication'
   >,
 ) {
   const sql = new SQL(services.databaseUrl),
@@ -44,7 +44,15 @@ async function fixture(
     ...options,
   });
   const callers: { userId: string; actorId: string }[] = [],
-    rooms: string[] = [];
+    rooms: string[] = [],
+    bots: string[] = [];
+  const bot = async () => {
+    const actorId = createId();
+    await sql`insert into actors(id,kind) values (${actorId},'bot')`;
+    bots.push(actorId);
+    await sql`insert into bot_profiles(actor_id,name,persona,voice) values (${actorId},'Fixture judge','Assess only recorded evidence','test')`;
+    return { actorId };
+  };
   const caller = async () => {
     const userId = createId(),
       actorId = createId();
@@ -168,6 +176,7 @@ async function fixture(
     outsider,
     /** Another member, cleaned up with the rest. */
     member: caller,
+    bot,
     create,
     command,
     consent: (caller: typeof host, view: RoomView, type: 'ready' | 'unready') =>
@@ -220,12 +229,12 @@ async function fixture(
       try {
         for (const id of rooms) {
           await sql`delete from outbox where topic=${`room:${id}`}`;
-          await sql`delete from ballots where judge_participant_id in (select id from round_participants where round_id in (select id from rounds where room_id=${id}))`;
-          await sql`delete from utterances where round_id in (select id from rounds where room_id=${id})`;
           await sql`delete from outbox where topic in (select 'debate:' || id from rounds where room_id=${id})`;
           await sql`delete from rounds where room_id=${id}`;
           await sql`delete from rooms where id=${id}`;
         }
+        for (const actorId of bots)
+          await sql`delete from actors where id=${actorId}`;
         for (const c of callers) {
           const formats =
             await sql`select id from formats where created_by_actor_id=${c.actorId}`;

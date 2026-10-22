@@ -1,3 +1,6 @@
+import { createRoundMediaRuntime } from '../features/round-media/composition';
+import { startRoundMediaRecovery } from './round-media-recovery';
+import { startRoundWorkers } from './round-workers';
 import { startMessagingFileMaintenance } from './file-maintenance';
 import { startRoundAvailability } from './round-availability';
 import { readFileSync } from 'node:fs';
@@ -50,6 +53,40 @@ const { server, started } = startProductionServer({
   host: '0.0.0.0',
 });
 await started;
+const roundWorkers = startRoundWorkers({
+  app,
+  timers: {
+    setInterval: (tick, ms) =>
+      setInterval(() => {
+        void tick();
+      }, ms).unref(),
+    clearInterval: (handle) =>
+      clearInterval(handle as ReturnType<typeof setInterval>),
+  },
+});
+const mediaRuntime = [
+  app.config.LIVEKIT_URL,
+  app.config.LIVEKIT_PUBLIC_URL,
+  app.config.LIVEKIT_API_KEY,
+  app.config.LIVEKIT_API_SECRET,
+].every(Boolean)
+  ? createRoundMediaRuntime(app)
+  : null;
+const mediaRecovery = mediaRuntime
+  ? startRoundMediaRecovery({
+      recover: () => mediaRuntime.operations().recoverActiveSessions(),
+      failed: () =>
+        app.logger.log(
+          'round.media.recovery_failed',
+          { operation: 'round.media.recovery', errorCode: 'INFRASTRUCTURE' },
+          'Media recovery remains pending',
+        ),
+      every: (ms, tick) => {
+        const handle = setInterval(tick, ms).unref();
+        return { stop: () => clearInterval(handle) };
+      },
+    })
+  : null;
 const availability = startRoundAvailability({
   app,
   fetch: fetchPublicAttendanceProbe,
@@ -106,6 +143,8 @@ async function shutdown() {
   const retentionStopped = retention.stop();
   const filesStopped = fileMaintenance?.stop();
   const availabilityStopped = availability.stop();
+  const workersStopped = roundWorkers?.stop();
+  const mediaRecoveryStopped = mediaRecovery?.stop();
   app.logger.log(
     'server.shutdown',
     { operation: 'server.shutdown' },
@@ -126,7 +165,13 @@ async function shutdown() {
         server.close((error) => (error ? reject(error) : resolve())),
       );
       await nextApp.close();
-      await Promise.all([retentionStopped, filesStopped, availabilityStopped]);
+      await Promise.all([
+        retentionStopped,
+        filesStopped,
+        availabilityStopped,
+        workersStopped,
+        mediaRecoveryStopped,
+      ]);
       await closeProcessApp();
     },
   });
