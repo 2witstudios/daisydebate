@@ -2,7 +2,7 @@ import type { RoomCatalogChoice } from '@daisy/protocol';
 
 export const humanRoundSelection = (
   choice: RoomCatalogChoice,
-  judgeSeats: 1 | 2,
+  judgeSeats: 0 | 1 | 2,
 ) => ({
   kind: 'custom',
   length: 'full',

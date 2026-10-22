@@ -50,9 +50,12 @@ export async function ballotRoundCommand(
   return roundViewSchema.parse((await response.json()).view);
 }
 /** Actual authenticated Room admission and fresh consent; no fixture rows or invented authority. */
-export async function createHumanBallotRound(members: readonly Member[]) {
-  if (members.length !== 4)
-    throw new Error('Human ballot proof needs two debaters and two judges');
+export async function createHumanBallotRound(
+  members: readonly Member[],
+  judgeSeats: 0 | 2 = 2,
+) {
+  if (members.length !== 2 + judgeSeats)
+    throw new Error('Human Round proof needs one member per seat');
   const host = members[0]!;
   const catalog = await host.context.request.get('/api/rooms/catalog');
   expect(catalog.status()).toBe(200);
@@ -70,7 +73,7 @@ export async function createHumanBallotRound(members: readonly Member[]) {
       title: 'Actual human judge ballot proof',
       topic: 'Cities should fund transit',
       visibility: 'public',
-      selection: humanRoundSelection(choice, 2),
+      selection: humanRoundSelection(choice, judgeSeats),
     },
   });
   expect(created.status()).toBe(201);
@@ -78,8 +81,9 @@ export async function createHumanBallotRound(members: readonly Member[]) {
   const seats = [
     { member: members[0]!, role: 'affirmative', slot: 0 },
     { member: members[1]!, role: 'negative', slot: 0 },
-    { member: members[2]!, role: 'judge', slot: 0 },
-    { member: members[3]!, role: 'judge', slot: 1 },
+    ...members
+      .slice(2)
+      .map((member, slot) => ({ member, role: 'judge', slot })),
   ];
   for (const seat of seats)
     room = await roomCommand(seat.member.context.request, room, {

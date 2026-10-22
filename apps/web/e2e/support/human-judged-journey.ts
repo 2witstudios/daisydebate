@@ -1,4 +1,9 @@
-import type { APIRequestContext, Browser } from '@playwright/test';
+import type {
+  APIRequestContext,
+  Browser,
+  Locator,
+  Page,
+} from '@playwright/test';
 import { createId } from '@paralleldrive/cuid2';
 import {
   attendanceReceiptSchema,
@@ -6,6 +11,7 @@ import {
   roundBallotReadSchema,
 } from '@daisy/protocol';
 import { expect, openPage } from './fixtures';
+import { hydrated } from './hydration';
 import { origin } from './accounts';
 import { createRoomLaunchAccounts } from './room-launch-accounts';
 import {
@@ -20,11 +26,13 @@ const readBallot = async (request: APIRequestContext, roundId: string) => {
   return roundBallotReadSchema.parse(await response.json());
 };
 
-async function playActualSpeeches(
+/** Actual first-speech check-ins and legal yields through both speeches. */
+export async function playActualSpeeches(
   members: Awaited<ReturnType<typeof createRoomLaunchAccounts>>['members'],
+  judgeSeats: 0 | 2 = 2,
 ) {
   const host = members[0]!.context;
-  let view = await createHumanBallotRound(members);
+  let view = await createHumanBallotRound(members, judgeSeats);
   for (const [sequence, role] of (
     ['affirmative', 'negative'] as const
   ).entries()) {
@@ -61,6 +69,27 @@ async function playActualSpeeches(
     });
   }
   return view;
+}
+
+/** The hydrated server action answers in place: one fetch, no document POST. */
+async function submitEnhanced(page: Page, submit: Locator) {
+  await hydrated(submit);
+  const documents: string[] = [];
+  page.on('request', (request) => {
+    if (request.isNavigationRequest()) documents.push(request.method());
+  });
+  const action = page.waitForRequest(
+    (request) =>
+      request.method() === 'POST' &&
+      request.resourceType() === 'fetch' &&
+      'next-action' in request.headers(),
+  );
+  await submit.click();
+  await action;
+  await expect(
+    page.getByText('Ballot submitted.', { exact: false }),
+  ).toBeVisible();
+  expect(documents).toEqual([]);
 }
 
 /** No fixture clock, maintenance callback, seeded ledger, transcript or ballot. */
@@ -109,9 +138,12 @@ export async function proveHumanJudgedJourney(browser: Browser) {
         .fill(
           'The affirmative carried the decisive comparison in this test Round.',
         );
-      await page
-        .getByRole('button', { name: 'Submit ballot', exact: true })
-        .click();
+      const submit = page.getByRole('button', {
+        name: 'Submit ballot',
+        exact: true,
+      });
+      if (index === 2) await submit.click();
+      else await submitEnhanced(page, submit);
       await expect(
         page.getByText('Ballot submitted.', { exact: false }),
       ).toBeVisible();
