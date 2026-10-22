@@ -11,7 +11,12 @@ const speakerId = 'p4a7r1t9i3c6i2p8a5n7t1d4';
 describe('utteranceOperations', () => {
   test('refuses unscoped transcript writes before issuing SQL', async () => {
     const { database, queries } = createTestDatabase([]);
-    const common = { id: 'u1', roundId, text: 'Untrusted words.' };
+    const common = {
+      id: 'u1',
+      roundId,
+      text: 'Untrusted words.',
+      requireOpen: true,
+    };
     const mutations = [
       () =>
         database.appendUtterance({
