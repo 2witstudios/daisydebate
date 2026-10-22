@@ -29,7 +29,7 @@ export function useRoundAttendance({
     if (!eligible) return;
     const http = createAttendanceHttpClient({
       roundId: view.id,
-      fetch,
+      fetch: (url, init) => fetch(url, init),
       timeout: (ms) => AbortSignal.timeout(ms),
     });
     const consumer = createAttendanceClient({
