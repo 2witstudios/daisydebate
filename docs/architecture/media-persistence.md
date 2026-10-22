@@ -243,3 +243,35 @@ Legacy null admission timestamps must fail closed and be removed with legacy
 writers before a forward NOT NULL migration; Round creation time is not an
 admission timestamp. These records add no generated text or PCM. Production
 identity, entitlement provisioning and legal activation remain human gates.
+
+### Bounded capture producer
+
+`mediaCaptureOperations` in `packages/db/src/media-capture.ts` accepts the actual
+same-pool bounded transaction, injected IDs and the shared runtime tick projection
+builder. Its lease, append, observation and seal methods take validated server
+capture inputs. The signed ingress/worker edge must authenticate the worker;
+opaque identifiers are not credentials. No HTTP ingress authentication is
+established by the persistence factory alone.
+
+Every mutation locks the Round and runs the actual shared locked tick, then
+locks the current session lease and stable segment/seat stream. It samples fresh
+PostgreSQL time after evidence reads before mutation, checking lease expiry,
+immutable freeze and actual final-end cutoff. Null cutoff on a terminal Round
+fails closed. The same bounded transaction owns all transcript writes; no
+provider call or additional pool is opened inside it.
+
+Clip identity is SHA3-256 over Round, segment, seat, track and start offset. The
+body digest binds duration, text and the entire uncertainty window. Exact retries
+add no utterance or revision; conflicting bodies fail. Full closed uncertainty
+windows must fit actual historical grants and actual segment bounds. Coverage
+observations are trusted server evidence, not text presence or lease possession.
+A complete seal requires a closed timeline, matching committed chunk count and
+continuous observation coverage of every nonempty grant. Otherwise closure is
+partial. Missing expected streams are still discovered from historical grants by
+the finalizer, never inferred absent from the seal table.
+
+Real bounded PostgreSQL component proof covers duplicate/conflicting clips,
+coverage gaps and count mismatch, epoch expiry/takeover, cutoff/freeze refusal
+and unchanged state after rejected writes. Native worker observation production,
+signed ingress, paused-scheduler engine composition and append/finalizer races
+remain separate required integration evidence.
