@@ -1,9 +1,8 @@
 import { resolve } from 'node:path';
-import { systemClock, systemId } from '@daisy/clock';
 import { createApp } from '../../src/server/app';
 import { adoptProcessApp } from '../../src/server/process-app';
 import { createMailCapture } from './mail-capture';
-import { launchProofPolicy } from './room-launch-policy';
+import { launchAppInput } from './room-launch-app-input';
 import { requireLaunchSlot } from './room-launch-slot';
 import { launchAppControlPath } from './room-launch-settled';
 import { createLaunchControl } from './room-launch-control';
@@ -17,13 +16,7 @@ const capture = createMailCapture({
   redisUrl: process.env.E2E_REDIS_URL!,
   redisNamespace: slot.namespace,
 });
-const app = createApp({
-  env: process.env,
-  clock: systemClock,
-  ids: systemId,
-  fetch: capture.captureFetch,
-  roomPolicy: launchProofPolicy,
-});
+const app = createApp(launchAppInput(process.env, capture.captureFetch));
 adoptProcessApp(app);
 const control = createLaunchControl({
   path: launchAppControlPath(slot.id),
