@@ -62,3 +62,4 @@ export const sealReply = z.strictObject({
   state: z.enum(['complete', 'partial']),
   revision: version,
 });
+export const activityReply = z.null();

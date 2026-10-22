@@ -196,5 +196,12 @@ has no Round, receipt, bearer or service claim. The hook reads capture state
 under the current lease and requires the seat to be an actually bound non-judge
 participant of that session. It attaches that transaction's PostgreSQL time as
 `receivedAt` and writes the validated batch through the existing Redis
-adapter. Bounds later than PostgreSQL time are refused. The signed route and
-worker transport belong to media.
+adapter. Bounds later than PostgreSQL time are refused.
+
+The signed `activity` capture operation (`media-capture/handlers.ts`) splits the
+lease identity from the relay body and calls this hook. The media worker
+produces it: each capture tick it takes the frames staged for clip validation,
+groups them by seat, and sends the freshest twenty per seat with their native
+sequence and brackets and the calibrated server window
+(`apps/media-worker/src/capture-activity.ts`). Relay is best-effort; a refused
+or lost batch leaves activity unknown and never fails capture.

@@ -5,6 +5,7 @@ import { createClipQueue } from './clip-queue';
 import { readCaptureHistory, type CaptureClient } from './capture-history';
 import { createCaptureStaging } from './capture-staging';
 import { validateCaptureBatch } from './capture-batch';
+import { activityBatches } from './capture-activity';
 import { consumeCaptureClips, type QueuedClip } from './capture-consumer';
 import { createStreamTracker } from './capture-streams';
 type Dependencies = {
@@ -28,6 +29,7 @@ export async function runCaptureSession(
     transcribedClips: 0,
     appendedChunks: 0,
     sealedStreams: 0,
+    relayedBatches: 0,
   };
   const dropped = (n: number) => {
     stats.droppedFrames += n;
@@ -99,12 +101,19 @@ export async function runCaptureSession(
       streams.remember(current.state);
       staging.refresh(current.calibration);
       await capture.setIdentities(identities(current));
+      const frames = staging.take();
+      stats.relayedBatches += await relayActivity(
+        input.client,
+        epoch,
+        frames,
+        signal,
+      );
       await validateCaptureBatch({
         ...input,
         current,
         epoch,
         signal,
-        frames: staging.take(),
+        frames,
         dropped,
         clip: (clip) => {
           const queued = { ...clip, bytes: clip.wav.byteLength };
@@ -138,6 +147,20 @@ export async function runCaptureSession(
 }
 const identities = (snapshot: Awaited<ReturnType<CaptureClient['read']>>) =>
   snapshot.state.participants.flatMap((p) => (p.identity ? [p.identity] : []));
+/** Heuristic only: a refused or lost batch is unknown activity, never a capture failure. */
+async function relayActivity(
+  client: CaptureClient,
+  epoch: number,
+  frames: Parameters<typeof activityBatches>[0],
+  signal: AbortSignal,
+) {
+  const results = await Promise.allSettled(
+    activityBatches(frames).map((batch) =>
+      client.activity({ epoch, ...batch }, signal),
+    ),
+  );
+  return results.filter((r) => r.status === 'fulfilled').length;
+}
 async function sealCaptureStreams(
   client: CaptureClient,
   epoch: number,

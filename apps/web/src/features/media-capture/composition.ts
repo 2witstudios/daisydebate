@@ -2,6 +2,7 @@ import { createRoundRuntime } from '@daisy/debate-engine';
 import { createAppError } from '@daisy/errors';
 import { createMediaWorkerAuthentication } from '@daisy/media/internal';
 import type { App } from '../../server/app';
+import { createBotActivityRelay } from '../round-bots/activity-relay';
 import { createRoundMediaRuntime } from '../round-media/composition';
 import { createMediaCaptureHandlers } from './handlers';
 
@@ -12,6 +13,16 @@ export function composeMediaCaptureRoutes(app: App) {
   let authentication:
     ReturnType<typeof createMediaWorkerAuthentication> | undefined;
   const media = createRoundMediaRuntime(app);
+  const operations = () =>
+    (capture ??= app.database.createMediaCaptureOperations({
+      nextId: () => app.ids.next(),
+      buildProjection: ({ round, now }) =>
+        createRoundRuntime({
+          ...round,
+          round,
+          nextSegmentId: () => app.ids.next(),
+        }).tick(now),
+    }));
   return createMediaCaptureHandlers({
     logger: app.logger,
     authentication: () => {
@@ -22,17 +33,12 @@ export function composeMediaCaptureRoutes(app: App) {
         now: () => Date.parse(app.clock.now()),
       }));
     },
-    capture: () =>
-      (capture ??= app.database.createMediaCaptureOperations({
-        nextId: () => app.ids.next(),
-        buildProjection: ({ round, now }) =>
-          createRoundRuntime({
-            ...round,
-            round,
-            nextSegmentId: () => app.ids.next(),
-          }).tick(now),
-      })),
+    capture: operations,
     token: (scope, principal) =>
       media.workerTokens().captureToken(scope, principal),
+    activity: createBotActivityRelay({
+      readCapture: (identity) => operations().readMediaCaptureState(identity),
+      write: app.redis.writeBotActivity,
+    }),
   });
 }
