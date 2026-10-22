@@ -17,7 +17,7 @@ import {
 setupRitewayBun();
 
 describe('package entry surface (ISSUE-8 AC1)', () => {
-  test('never re-exports a function that takes a Drizzle transaction/table handle, only the createDatabase factory, the startup role gate, the pure capacity-refusal predicate and value-typed outbox helpers', () => {
+  test('never re-exports a function that takes a Drizzle transaction/table handle, only the createDatabase factory, the startup role gate, value-typed outbox helpers and the capacity-refusal error predicate', () => {
     assert({
       given: "the package entry's exported names",
       should:
