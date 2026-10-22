@@ -8,12 +8,22 @@ import { createAppError } from '@daisy/errors';
 import { createBotSeat } from './bot-seat.test-support';
 import { withBoundedRound } from './bounded-transaction.test-support';
 import { createRoundJudgingJobs } from '../src/round-judging-jobs';
+import { createRoundBotAdmission } from '../src/round-bot-admission';
+import type { Fixture } from './constraint-helpers';
 setupRitewayBun();
 requireTestServices(process.env);
+async function judgingSponsor(fixture: Fixture, roundId: string) {
+  const userId = await fixture.user();
+  await fixture.sql`update users set email_verified=true where id=${userId}`;
+  const actorId = await fixture.actor(userId);
+  await fixture.sql`update rounds set created_by_actor_id=${actorId} where id=${roundId}`;
+  return actorId;
+}
 
 test('durable judging claims fence epochs and preserve one command across recovery', async () => {
   await withBoundedRound(async (fixture, run, roundId) => {
     const seat = await createBotSeat(fixture, roundId, 'judge');
+    const actorId = await judgingSponsor(fixture, roundId);
     await fixture.sql`update rounds set status='active',current_stage='live',started_at=clock_timestamp() where id=${roundId}`;
     await fixture.sql`insert into round_transcript_freezes(round_id,revision,frontier,completeness) values(${roundId},1,0,'incomplete')`;
     await fixture.sql`insert into round_judging_jobs(round_id,judge_participant_id,freeze_revision,status) values(${roundId},${seat.id},1,'queued')`;
@@ -40,7 +50,25 @@ test('durable judging claims fence epochs and preserve one command across recove
       if (winner?.status !== 'fulfilled')
         throw new Error('Expected judge claim');
       const first = winner.value;
-      await jobs.beginModelCall(first.scope, first.token);
+      await assertRejects({
+        given: 'a durable judging job without an admitted usage reservation',
+        should: 'refuse provider dispatch atomically',
+        actual: () => jobs.beginModelCall(first.scope, first.token),
+        code: 'CONFLICT',
+      });
+      const admission = createRoundBotAdmission({
+        run,
+        nextId: createId,
+        busyCap: 4,
+      });
+      const reserved = await admission.reserve({ roundId, actorId });
+      const counted = await jobs.beginModelCall(first.scope, first.token);
+      assert({
+        given: 'the actual host-sponsored Round reservation',
+        should: 'return its exact durable counted witness before dispatch',
+        actual: counted,
+        expected: reserved,
+      });
       await assertRejects({
         given: 'a duplicate dispatch in the same attempt',
         should: 'refuse a second provider call',

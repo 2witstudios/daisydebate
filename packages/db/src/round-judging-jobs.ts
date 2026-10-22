@@ -16,6 +16,10 @@ import {
 import { claimLockedJudgingJob } from './round-judging-claim';
 import { submitLockedJudgingResult } from './round-judging-result';
 import type { LockedRoundBallotInput } from './round-ballot-operations';
+import {
+  lockBotAdmission,
+  markLockedRoundBotModelCall,
+} from './round-bot-admission';
 export type { JudgingScope } from './round-judging-context';
 /** Durable intents use the same injected bounded transaction; no provider I/O occurs under locks. */
 export function createRoundJudgingJobs(input: {
@@ -39,8 +43,10 @@ export function createRoundJudgingJobs(input: {
       tx: BoundedTransactionContext,
       lease: Awaited<ReturnType<typeof assertLockedJudgingLease>>,
     ) => T | Promise<T>,
+    billable = false,
   ) =>
     input.run(async (tx) => {
+      if (billable) await lockBotAdmission(tx);
       await tx.execute(
         sql`select pg_advisory_xact_lock(hashtextextended(${scope.commandId},59002))`,
       );
@@ -97,23 +103,33 @@ export function createRoundJudgingJobs(input: {
       await withLease(scope, token, () => undefined);
     },
     beginModelCall: (scope: JudgingScope, token: string) =>
-      withLease(scope, token, async (tx, { run, job }) => {
-        if (
-          job.pendingBallot ||
-          run.configurationSnapshot.providerOutcome !== 'not_started'
-        )
-          throw createAppError('CONFLICT', 'Model call already dispatched');
-        await tx
-          .update(agentRuns)
-          .set({
-            requests: run.requests + 1,
-            configurationSnapshot: {
-              ...run.configurationSnapshot,
-              providerOutcome: 'unknown',
-            },
-          })
-          .where(eq(agentRuns.id, run.id));
-      }),
+      withLease(
+        scope,
+        token,
+        async (tx, { run, job }) => {
+          if (
+            job.pendingBallot ||
+            run.configurationSnapshot.providerOutcome !== 'not_started'
+          )
+            throw createAppError('CONFLICT', 'Model call already dispatched');
+          const reservation = await markLockedRoundBotModelCall(
+            tx,
+            scope.roundId,
+          );
+          await tx
+            .update(agentRuns)
+            .set({
+              requests: run.requests + 1,
+              configurationSnapshot: {
+                ...run.configurationSnapshot,
+                providerOutcome: 'unknown',
+              },
+            })
+            .where(eq(agentRuns.id, run.id));
+          return reservation;
+        },
+        true,
+      ),
     saveResult: (scope: JudgingScope, token: string, response: unknown) => {
       const parsed = ballotSchema.safeParse(response);
       if (!parsed.success) throw createAppError('VALIDATION');
