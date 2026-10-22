@@ -225,6 +225,7 @@ export function createMediaWorkerClient(input: Dependencies) {
       batch: {
         readonly epoch: number;
         readonly roundParticipantId: string;
+        readonly segmentId: string;
         readonly frames: readonly ActivityFrame[];
       },
       signal?: AbortSignal,

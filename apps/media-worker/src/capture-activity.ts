@@ -18,7 +18,9 @@ export function createActivityRelay() {
   const fresh = new Set<string>();
   return {
     observe(frame: StagedFrame) {
-      const window = windows.get(frame.seat) ?? [];
+      const held = windows.get(frame.seat) ?? [];
+      // A window never spans segments: the batch names one phase.
+      const window = held[0]?.segmentId === frame.segmentId ? held : [];
       window.push(frame);
       if (window.length > MAX_FRAMES) window.shift();
       windows.set(frame.seat, window);
@@ -28,20 +30,24 @@ export function createActivityRelay() {
     take() {
       const seats = [...fresh];
       fresh.clear();
-      return seats.map((roundParticipantId) => ({
-        roundParticipantId,
-        frames: windows.get(roundParticipantId)!.map(({ frame, original }) => ({
-          trackId: frame.trackId,
-          sequence: original.sequence,
-          pcm: Array.from(frame.pcm),
-          beforeMs: original.beforeMs,
-          afterMs: original.afterMs,
-          serverWindow: {
-            before: iso(frame.beforeMs),
-            after: iso(frame.afterMs),
-          },
-        })),
-      }));
+      return seats.map((roundParticipantId) => {
+        const window = windows.get(roundParticipantId)!;
+        return {
+          roundParticipantId,
+          segmentId: window[0]!.segmentId,
+          frames: window.map(({ frame, original }) => ({
+            trackId: frame.trackId,
+            sequence: original.sequence,
+            pcm: Array.from(frame.pcm),
+            beforeMs: original.beforeMs,
+            afterMs: original.afterMs,
+            serverWindow: {
+              before: iso(frame.beforeMs),
+              after: iso(frame.afterMs),
+            },
+          })),
+        };
+      });
     },
     clear() {
       windows.clear();

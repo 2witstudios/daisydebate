@@ -51,7 +51,12 @@ test('relay ingress carries only original frames, never a receipt or Round claim
     'mnopqrstuvwxabcdefghijkl',
   );
   const { receivedAt, ...original } = frames[0]!;
-  const relay = { version: 1, roundParticipantId, frames: [original] };
+  const relay = {
+    version: 1,
+    roundParticipantId,
+    segmentId: 'qrstuvwxabcdefghijklmnop',
+    frames: [original],
+  };
   assert({
     given: 'a signed worker body with original brackets and calibrated bounds',
     should: 'accept it for server-side receipt attachment',
@@ -63,9 +68,11 @@ test('relay ingress carries only original frames, never a receipt or Round claim
     { ...relay, roundId: 'abcdefghijklmnopqrstuvwx' },
     { ...relay, frames: [{ ...original, beforeMs: 12 }] },
     { ...relay, frames: Array(21).fill(original) },
+    { ...relay, segmentId: undefined },
   ];
   assert({
-    given: 'a body-supplied receipt, Round claim, inverted bracket or oversize',
+    given:
+      'a body-supplied receipt, Round claim, inverted bracket, oversize or no segment',
     should: 'refuse each before admission',
     actual: invalid.map(
       (value) => botActivityRelaySchema.safeParse(value).success,

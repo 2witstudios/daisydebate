@@ -80,7 +80,7 @@ export type {
   FormatRevisionRecord,
   FormatPresetRecord,
 } from './format-operations';
-export type { NewRoom, RoomRecord } from './room-operations';
+export type { NewRoom } from './room-operations';
 export type { RoundHydration } from './round-hydration';
 export type { RoundExecutionWrite } from './round-operations';
 export type { DocumentRecord, DocumentSave } from './document-operations';
@@ -267,10 +267,7 @@ export function createDatabase({
       input: Omit<Parameters<typeof mediaCaptureOperations>[0], 'transaction'>,
     ) =>
       mediaCaptureOperations({ ...input, transaction: transcriptTransaction }),
-    ...transcriptFinalizationOperations({
-      database,
-      transaction: transcriptTransaction,
-    }),
+    ...transcriptFinalizationOperations({ database }),
     ...documentOperations({ database, eventSink }),
     ...onboardingOperations({ database, eventSink }),
     ...standingsOperations({ database, eventSink }),
