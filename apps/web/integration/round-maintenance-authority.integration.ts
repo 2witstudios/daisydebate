@@ -31,7 +31,6 @@ test('a D5 service expiring between tick and evaluation cannot adjudicate', asyn
       cleanup = await settleAttendanceFixture(input, true, false),
       instanceId = createId();
     try {
-      await f.store.renewServiceInstance({ instanceId, role: 'web' });
       const attendance = createAttendanceFeature({
         checkIns: f.store,
         evaluate: f.store.evaluateRoundAttendance,
@@ -44,6 +43,27 @@ test('a D5 service expiring between tick and evaluation cannot adjudicate', asyn
         ids: { next: createId },
         evaluate: attendance.evaluate,
       });
+      await assertRejects({
+        given: 'an unknown web instance invoking actual attendance evaluation',
+        should: 'refuse missing authority',
+        actual: () => ops.evaluate(roundId),
+        code: 'AUTHORIZATION',
+      });
+      const [cursor] =
+        await f.sql`select txid::text,seq::text from outbox order by seq desc limit 1`;
+      await f.store.renewServiceInstance({
+        instanceId,
+        role: 'realtime',
+        deliveredThrough: { txid: cursor.txid, seq: BigInt(cursor.seq) },
+      });
+      await assertRejects({
+        given: 'a fresh realtime role invoking web maintenance evaluation',
+        should: 'refuse the wrong canonical role',
+        actual: () => ops.evaluate(roundId),
+        code: 'AUTHORIZATION',
+      });
+      await f.sql`delete from service_instances where instance_id=${instanceId}`;
+      await f.store.renewServiceInstance({ instanceId, role: 'web' });
       await ops.tick(roundId);
       await f.sql`update service_instances set renewed_at=clock_timestamp()-interval '4 seconds' where instance_id=${instanceId}`;
       const before = await evaluationState(input);
@@ -62,6 +82,30 @@ test('a D5 service expiring between tick and evaluation cannot adjudicate', asyn
         should: 'preserve full active state with no adjudication or receipt',
         actual: { round: await evaluationState(input), facts },
         expected: { round: before, facts: { decisions: 0, receipts: 0 } },
+      });
+      await f.store.renewServiceInstance({ instanceId, role: 'web' });
+      const results = await Promise.allSettled([
+        ops.evaluate(roundId),
+        ops.evaluate(roundId),
+      ]);
+      const [committed] =
+        await f.sql`select status,(select count(*)::int from round_attendance_adjudications where round_id=${roundId}) decisions,(select count(*)::int from round_commands where round_id=${roundId} and type='adjudicate') receipts from rounds where id=${roundId}`;
+      assert({
+        given:
+          'a renewed genuine web service and concurrent actual evaluator attempts',
+        should: 'preserve the valid exactly-once shared-engine forfeit path',
+        actual: {
+          decisions: results
+            .filter((r) => r.status === 'fulfilled')
+            .map((r) => r.value?.decision),
+          refusals: results.filter((r) => r.status === 'rejected').length,
+          committed,
+        },
+        expected: {
+          decisions: ['forfeit'],
+          refusals: 1,
+          committed: { status: 'completed', decisions: 1, receipts: 1 },
+        },
       });
     } finally {
       await f.sql`delete from service_instances where instance_id=${instanceId}`;
