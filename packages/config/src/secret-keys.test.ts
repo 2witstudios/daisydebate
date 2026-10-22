@@ -6,7 +6,7 @@ setupRitewayBun();
 describe('secret configuration keys', () => {
   test('lists every schema field marked secret, across every schema', () => {
     assert({
-      given: 'the server, realtime, auth and migration schemas',
+      given: 'the server, realtime, auth, media worker and migration schemas',
       should:
         'derive the secret-bearing keys from the fields themselves, each once',
       actual: [...secretConfigKeys].sort(),
@@ -16,6 +16,7 @@ describe('secret configuration keys', () => {
         'DATABASE_URL',
         'LIVEKIT_API_KEY',
         'LIVEKIT_API_SECRET',
+        'MEDIA_WORKER_DATABASE_URL',
         'MEDIA_WORKER_SECRET',
         'MIGRATION_DATABASE_URL',
         'OPENROUTER_API_KEY',
