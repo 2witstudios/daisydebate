@@ -108,3 +108,13 @@ cannot later mutate the released connection.
 Focused real PostgreSQL integration suites cover cumulative statements, lock and
 statement stalls, idle callbacks, lost cancellation, unavailable recovery,
 reservation exhaustion, pool recovery and backend identity reuse.
+
+Callback SQL is lexed using PostgreSQL identifier/literal boundaries before it
+reaches the prepared driver. Schema qualification, quoted identifiers and comments
+cannot hide `set_config`. Single-quoted, escaped, continued and dollar-quoted
+literal data is skipped rather than treated as SQL identifiers. The adapter pins
+`standard_conforming_strings=on`; Unicode-escaped **SQL identifiers** (`U&"..."`,
+including custom `UESCAPE`) are refused in this canonical-schema adapter rather
+than partially decoded. Unicode application text remains bound data. See
+[PostgreSQL 18 lexical structure](https://www.postgresql.org/docs/18/sql-syntax-lexical.html).
+Only the adapter's own setup can configure its backstops.
