@@ -90,6 +90,51 @@
       "adr": "docs/decisions/0057-planned-readers.md",
       "reason": "ADR 0053 native audio producer precedes the committed VIDEO-3.16 worker reader (waa4xl8ecs1a285lrzn9o2rz). Native publication and pacing proofs do not establish a production worker consumer or browser delivery.",
       "reviewBy": "2026-11-05"
+    },
+    {
+      "path": "packages/protocol/src/round-ballot.ts",
+      "export": "roundBallotEnvelopeSchema",
+      "task": "CAP-D.1",
+      "owner": "runtime / ag-i9ukzkph",
+      "adr": "docs/decisions/0057-planned-readers.md",
+      "reason": "Shared ballot foundation precedes committed CAP-D.1 durable submission reader c8h1cstkes8ksiog91fiiqhx and its real human/bot consumers. Adoption requires actual D2 frozen input and sole-writer schema; tests do not establish production submission.",
+      "reviewBy": "2026-11-05"
+    },
+    {
+      "path": "packages/protocol/src/round-ballot.ts",
+      "export": "RoundBallotEnvelope",
+      "task": "CAP-D.1",
+      "owner": "runtime / ag-i9ukzkph",
+      "adr": "docs/decisions/0057-planned-readers.md",
+      "reason": "Shared ballot foundation precedes committed CAP-D.1 durable submission reader c8h1cstkes8ksiog91fiiqhx and its real human/bot consumers. Adoption requires actual D2 frozen input and sole-writer schema; tests do not establish production submission.",
+      "reviewBy": "2026-11-05"
+    },
+    {
+      "path": "packages/protocol/src/round-ballot.ts",
+      "export": "RoundBallotReceipt",
+      "task": "CAP-D.1",
+      "owner": "runtime / ag-i9ukzkph",
+      "adr": "docs/decisions/0057-planned-readers.md",
+      "reason": "Shared ballot foundation precedes committed CAP-D.1 durable submission reader c8h1cstkes8ksiog91fiiqhx and its real human/bot consumers. Adoption requires actual D2 frozen input and sole-writer schema; tests do not establish production submission.",
+      "reviewBy": "2026-11-05"
+    },
+    {
+      "path": "packages/auth/src/round-ballot.ts",
+      "export": "bindRoundBallotPrincipal",
+      "task": "CAP-D.1",
+      "owner": "runtime / ag-i9ukzkph",
+      "adr": "docs/decisions/0057-planned-readers.md",
+      "reason": "Shared ballot foundation precedes committed CAP-D.1 durable submission reader c8h1cstkes8ksiog91fiiqhx and its real human/bot consumers. Adoption requires actual D2 frozen input and sole-writer schema; tests do not establish production submission.",
+      "reviewBy": "2026-11-05"
+    },
+    {
+      "path": "packages/debate-engine/src/round-outcome.ts",
+      "export": "deriveRoundOutcome",
+      "task": "CAP-D.1",
+      "owner": "runtime / ag-i9ukzkph",
+      "adr": "docs/decisions/0057-planned-readers.md",
+      "reason": "Shared ballot foundation precedes committed CAP-D.1 durable submission reader c8h1cstkes8ksiog91fiiqhx and its real human/bot consumers. Adoption requires actual D2 frozen input and sole-writer schema; tests do not establish production submission.",
+      "reviewBy": "2026-11-05"
     }
   ]
 }

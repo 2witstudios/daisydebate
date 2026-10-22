@@ -10,3 +10,4 @@ export { ratePeriod } from './glicko2';
 export { rateDebate, ratingPolicy } from './rating';
 export { planRating, ratingEligibility } from './rating-decision';
 export { executeRoomCommand, projectRoom } from './room-assembly';
+export { deriveRoundOutcome } from './round-outcome';
