@@ -110,17 +110,17 @@ client transcription and its operation-specific tests are removed. Historical
 criteria remain; storage/component evidence does not satisfy a pending played
 journey.
 
-| Retired behavior or criterion | Required shared replacement and proof owner |
-| --- | --- |
-| Started checkpoint and ordered RoundView hydration | Actual Room start/runtime tick and fresh contract read; retained `round-view-hydration.integration.ts`, runtime authority owner |
-| Stale command versions, delayed yield, failed tick and lock waits | Shared runtime command authority and locked tick preserve atomic refusal and original segment target; runtime/D2 owners |
-| One speech producer, takeover, cancellation and interrupted restart | Exact control/publication run, service, epoch and digest fences; native cancellation stops future frames, no restart credit; E1/media owners |
-| Per-seat voice spend and foreign/human line refusal | Explicit TTS model and per-seat reserved characters before dispatch; generated phrases grant no durable text authority; actual generation PG proof plus E1/native journey |
-| Cross-examination latest-line deduplication and turn response | Every actual debater seat eligible during free cross-examination; distinguish per-seat captured history, suppress concurrent/repeated response work, preserve floor command authority; E1 controller proof still required |
-| Final buffered capture and late provider response | Authenticated capture lease, actual historical grant window, bounded native prefix, append/seal and frozen frontier; media/D2 race proofs, never browser text edits |
-| One judgment, no partial completion after a race | Actual frozen revision, scoped durable job, cached response, shared locked ballot and settled-attendance gate; D1/D4 owners |
-| Public/human/erased or foreign actor scope | Canonical shared account/seat/run authentication and masked public reads; runtime/privacy owners, no AI-only permission bypass |
-| Allowance, concurrent reservation and vendor-failure refund | DEC183/DEC186 canonical host sponsorship and exact reservation/attempt; terminal quota settlement remains independent; E1 admission owner |
+| Retired behavior or criterion                                       | Required shared replacement and proof owner                                                                                                                                                                               |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Started checkpoint and ordered RoundView hydration                  | Actual Room start/runtime tick and fresh contract read; retained `round-view-hydration.integration.ts`, runtime authority owner                                                                                           |
+| Stale command versions, delayed yield, failed tick and lock waits   | Shared runtime command authority and locked tick preserve atomic refusal and original segment target; runtime/D2 owners                                                                                                   |
+| One speech producer, takeover, cancellation and interrupted restart | Exact control/publication run, service, epoch and digest fences; native cancellation stops future frames, no restart credit; E1/media owners                                                                              |
+| Per-seat voice spend and foreign/human line refusal                 | Explicit TTS model and per-seat reserved characters before dispatch; generated phrases grant no durable text authority; actual generation PG proof plus E1/native journey                                                 |
+| Cross-examination latest-line deduplication and turn response       | Every actual debater seat eligible during free cross-examination; distinguish per-seat captured history, suppress concurrent/repeated response work, preserve floor command authority; E1 controller proof still required |
+| Final buffered capture and late provider response                   | Authenticated capture lease, actual historical grant window, bounded native prefix, append/seal and frozen frontier; media/D2 race proofs, never browser text edits                                                       |
+| One judgment, no partial completion after a race                    | Actual frozen revision, scoped durable job, cached response, shared locked ballot and settled-attendance gate; D1/D4 owners                                                                                               |
+| Public/human/erased or foreign actor scope                          | Canonical shared account/seat/run authentication and masked public reads; runtime/privacy owners, no AI-only permission bypass                                                                                            |
+| Allowance, concurrent reservation and vendor-failure refund         | DEC183/DEC186 canonical host sponsorship and exact reservation/attempt; terminal quota settlement remains independent; E1 admission owner                                                                                 |
 
 ## Ephemeral activity routing (DEC192)
 

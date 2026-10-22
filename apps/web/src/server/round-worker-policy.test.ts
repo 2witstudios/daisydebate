@@ -50,3 +50,22 @@ test('configured bot worker policy requires an actual injected bearer producer',
     await app?.close();
   }
 });
+
+test('worker composition supplies the explicit TTS model and retained per-seat speech budget', async () => {
+  const { readServerConfig } = await import('@daisy/config');
+  const { roundWorkerDatabaseOptions } = await import('./round-worker-policy');
+  const options = roundWorkerDatabaseOptions(
+    readServerConfig(env).ROUND_BOT_WORKER_POLICY,
+    () => 'x'.repeat(43),
+  );
+  assert({
+    given: 'configured worker models at the real composition edge',
+    should:
+      'pass TTS policy explicitly without inferring member entitlement or Round busy capacity',
+    actual: [
+      options.botPublication?.ttsModel,
+      options.botPublication?.speechBudget,
+    ],
+    expected: ['explicit-tts', 30000],
+  });
+});
