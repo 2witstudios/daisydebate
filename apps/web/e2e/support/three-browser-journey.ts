@@ -162,12 +162,12 @@ export async function proveThreeBrowserRound(browser: Browser) {
     room = await disablePreparation(aff!, room);
     room = await assemble(players, room);
     const first = await launch(aff!);
-    await expect(neg!).toHaveURL(`/rounds/${first.roundId}/room`, {
-      timeout: 15_000,
-    });
+    // The members who did not press Launch follow the live Room page's link.
+    for (const page of [neg!, judge!])
+      await page.getByRole('link', { name: 'View Round', exact: true }).click();
+    await expect(neg!).toHaveURL(`/rounds/${first.roundId}/room`);
     await expect(judge!).toHaveURL(
       new RegExp(`/rounds/${first.roundId}(/room)?$`),
-      { timeout: 15_000 },
     );
     await playEveryTurn({ affirmative: aff!, negative: neg! }, first.roundId);
     await judgeBallot(judge!, first.roundId);
