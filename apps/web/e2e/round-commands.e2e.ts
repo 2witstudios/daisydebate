@@ -185,3 +185,26 @@ test('native attendance records an actual opened speech through the mounted prod
     await accounts.closeContexts();
   }
 });
+
+test('the mounted private capture boundary rejects GET, oversized bodies and invalid UTF-8 before storage', async ({
+  request,
+}) => {
+  const path = `/api/internal/media/${'r'.repeat(24)}/capture/read`;
+  expect((await request.get(path)).status()).toBe(405);
+  const oversized = await request.post(path, {
+    data: Buffer.alloc(128 * 1024 + 1, 120),
+    headers: { 'content-type': 'application/json' },
+  });
+  expect(oversized.status()).toBe(413);
+  expect(await oversized.json()).toMatchObject({
+    error: { code: 'PAYLOAD_TOO_LARGE' },
+  });
+  const invalidUtf8 = await request.post(path, {
+    data: Buffer.from([0xff]),
+    headers: { 'content-type': 'application/json' },
+  });
+  expect(invalidUtf8.status()).toBe(400);
+  expect(await invalidUtf8.json()).toMatchObject({
+    error: { code: 'VALIDATION' },
+  });
+});
