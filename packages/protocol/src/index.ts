@@ -37,6 +37,7 @@ export type {
   SegmentClose,
   RoundEffect,
   RoundProjection,
+  RoundSpeakingChange,
   RoundPosition,
 } from './runtime';
 export {
@@ -203,3 +204,13 @@ export {
   createMessagingReactionSchemas,
   type MessagingReactionPolicy,
 } from './messaging/reactions';
+
+export { roundCommandEnvelopeSchema } from './round-command';
+export type {
+  RoundCommandAuthority,
+  RoundCommandEnvelope,
+  RoundCommandPrincipal,
+  RoundCommandReceipt,
+  RoundCommandResponse,
+  RoundRefusal,
+} from './round-command';

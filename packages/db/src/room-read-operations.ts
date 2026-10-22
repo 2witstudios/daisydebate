@@ -44,6 +44,55 @@ import {
   lockCommand,
   replayReceipt,
 } from './room-command-facts';
+export async function launchedRoundRows(
+  tx: import('./room-command-facts').Tx,
+  roundId: string,
+): Promise<LaunchedRound> {
+  const [row] = await tx
+    .select()
+    .from(rounds)
+    .where(eq(rounds.id, roundId))
+    .for('share');
+  if (!row || !row.roomId || !row.roomConfigSnapshot || !row.visibility)
+    throw createAppError('NOT_FOUND');
+  const seats = await tx
+    .select()
+    .from(roundParticipants)
+    .where(eq(roundParticipants.roundId, roundId));
+  const participants = await Promise.all(
+    seats.map(async (p) => {
+      const actor = await actorFact(tx, p.actorId);
+      if (!actor) throw createAppError('INVARIANT');
+      return {
+        id: p.id,
+        actorId: actor.actorId,
+        kind: actor.kind,
+        label: actor.label,
+        role: p.role,
+        slot: p.slot,
+      };
+    }),
+  );
+  const round: LaunchedRound = {
+    id: row.id,
+    roomId: row.roomId,
+    version: row.version,
+    status: row.status,
+    competitionType: row.competitionType,
+    topic: row.resolution,
+    visibility: row.visibility,
+    hostActorId: row.createdByActorId,
+    config: row.roomConfigSnapshot,
+    rules: row.rulesSnapshot,
+    participants,
+    startedAt: row.startedAt?.toISOString() ?? null,
+    completedAt: row.completedAt?.toISOString() ?? null,
+    outcome: row.outcome,
+    checkpoint: readableCheckpoint(row.runtimeState),
+    segments: await segmentRows(tx, roundId),
+  };
+  return round;
+}
 export const roomReadOperations = ({
   database,
   eventSink,
@@ -61,49 +110,7 @@ export const roomReadOperations = ({
     return instrumented(eventSink, 'readLaunchedRound', () =>
       database.transaction(async (tx) => {
         const account = await sharedAccount(tx, caller);
-        const [row] = await tx
-          .select()
-          .from(rounds)
-          .where(eq(rounds.id, roundId))
-          .for('share');
-        if (!row || !row.roomId || !row.roomConfigSnapshot || !row.visibility)
-          throw createAppError('NOT_FOUND');
-        const seats = await tx
-          .select()
-          .from(roundParticipants)
-          .where(eq(roundParticipants.roundId, roundId));
-        const participants = await Promise.all(
-          seats.map(async (p) => {
-            const actor = await actorFact(tx, p.actorId);
-            if (!actor) throw createAppError('INVARIANT');
-            return {
-              id: p.id,
-              actorId: actor.actorId,
-              kind: actor.kind,
-              label: actor.label,
-              role: p.role,
-              slot: p.slot,
-            };
-          }),
-        );
-        const round: LaunchedRound = {
-          id: row.id,
-          roomId: row.roomId,
-          version: row.version,
-          status: row.status,
-          competitionType: row.competitionType,
-          topic: row.resolution,
-          visibility: row.visibility,
-          hostActorId: row.createdByActorId,
-          config: row.roomConfigSnapshot,
-          rules: row.rulesSnapshot,
-          participants,
-          startedAt: row.startedAt?.toISOString() ?? null,
-          completedAt: row.completedAt?.toISOString() ?? null,
-          outcome: row.outcome,
-          checkpoint: readableCheckpoint(row.runtimeState),
-          segments: await segmentRows(tx, roundId),
-        };
+        const round = await launchedRoundRows(tx, roundId);
         if (!authorize(round, account)) throw createAppError('NOT_FOUND');
         return roundViewFor(round, caller.actorId);
       }),

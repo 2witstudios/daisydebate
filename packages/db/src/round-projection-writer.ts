@@ -71,6 +71,18 @@ export async function writeProjectionWithPhaseSignal(
   const changed = projectionChanged(current, projection);
   if (!changed) return false;
   await writeProjection(tx, roundId, projection, now);
+  if (projection.finalSegmentEndedAt !== undefined)
+    await tx
+      .update(rounds)
+      .set({
+        finalSegmentEndedAt: new Date(projection.finalSegmentEndedAt),
+        transcriptAdmissionCutoff: new Date(
+          Date.parse(projection.finalSegmentEndedAt) + 120_000,
+        ),
+      })
+      .where(
+        and(eq(rounds.id, roundId), sql`${rounds.finalSegmentEndedAt} is null`),
+      );
   await appendRoundPhaseChanged(tx, roundId, current.version + 1);
   return true;
 }
@@ -93,7 +105,7 @@ type LockedRound = {
 export async function lockedRoundVersion(
   tx: Tx,
   roundId: string,
-  expectedVersion: number,
+  expectedVersion?: number,
 ): Promise<LockedRound> {
   const [round] = await tx
     .select({
@@ -109,7 +121,7 @@ export async function lockedRoundVersion(
     .where(eq(rounds.id, roundId))
     .for('update');
   if (!round) throw createAppError('NOT_FOUND', 'No such round');
-  if (round.version !== expectedVersion)
+  if (expectedVersion !== undefined && round.version !== expectedVersion)
     throw createAppError('CONFLICT', 'The round moved on');
   return round;
 }

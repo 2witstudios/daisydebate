@@ -90,8 +90,21 @@ export type RoundEffect =
       readonly at: string;
     };
 
+/** Accepted speaking grants use half-open intervals and never name a judge. */
+export type RoundSpeakingChange =
+  | { readonly kind: 'close'; readonly segmentId: string; readonly at: string }
+  | {
+      readonly kind: 'open';
+      readonly segmentId: string;
+      readonly at: string;
+      readonly participantIds: readonly string[];
+    };
+
 /** The durable writes that materialize the runtime's state. */
 export type RoundProjection = {
+  /** Actual final segment close, independent of ballot completion. */
+  readonly finalSegmentEndedAt?: string;
+  readonly speakingChanges?: readonly RoundSpeakingChange[];
   /** Null when no round-row column changed. */
   readonly round: {
     readonly status: RoundStatus;

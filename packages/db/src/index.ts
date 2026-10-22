@@ -1,3 +1,5 @@
+import { roundSpeakingRead } from './round-speaking-read';
+import { roundProtectedReads } from './round-protected-reads';
 import { createMessagingTypingPrivacyPort } from './privacy/typing-rights';
 import { createMessagingTypingStore } from './messaging/typing-store';
 import { createMessagingPreferenceStore } from './messaging/preference-store';
@@ -31,6 +33,7 @@ import { formatOperations } from './format-operations';
 import { roomCommandOperations } from './room-command-operations';
 import { roomCommandTransaction } from './room-command-transaction';
 import { roomOperations } from './room-operations';
+import { roundCommandOperations } from './round-command-operations';
 import { roundOperations } from './round-operations';
 import { utteranceOperations } from './utterance-operations';
 import { ballotOperations } from './ballot-operations';
@@ -251,6 +254,9 @@ export function createDatabase({
       commandTransaction: roomCommandTransaction(client, maxConnections),
     }),
     ...roundOperations({ database, eventSink }),
+    ...roundCommandOperations({ database, eventSink }),
+    ...roundProtectedReads({ database }),
+    ...roundSpeakingRead({ database }),
     ...utteranceOperations({ database, eventSink }),
     ...ballotOperations({ database, eventSink }),
     ...agentOperations({ database, eventSink }),
@@ -272,3 +278,5 @@ export function createDatabase({
   };
 }
 export type Database = ReturnType<typeof createDatabase>;
+
+export type { LockedRoundCommandContext } from './round-command-operations';

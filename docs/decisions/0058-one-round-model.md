@@ -195,13 +195,19 @@ depends on one, and nothing in a Round's history would change if Rooms were dele
   completion on the database clock and increments the version before counting live
   capacity. Reservations remain for the rolling daily allowance; only scheduled and
   active status consumes global capacity.
-- **Recorded speech has a bounded finalization window.** A person's clip may enter
-  transcription until 30 seconds after its segment's actual close or scheduled end,
-  whichever is earlier. Eligibility uses the database instant at admission; admitted
-  transcription may finish after closure without losing its words. Naturally expired
-  final speech enters ballot readiness before the browser treats its open interval as
-  live. The browser waits for the final recorder flush before asking the judge for
-  a ballot. Completed forfeits carry the terminal outcome and never request judging.
+- **Captured speech has a bounded server finalization window.** The shared engine
+  closes the actual final played interval at its elapsed deadline or accepted
+  early end. The same durable transaction fixes that end and an immutable
+  transcript admission cutoff 120000ms later; ballot completion cannot move it.
+  Server-observed human PCM and eligible bot publication prefixes must fit actual
+  historical segment and speaking intervals. Signed ingress, fenced leases,
+  stream closure and one immutable transcript revision govern writes; partial
+  coverage stays partial. Finalization separately fences admission and freeze,
+  and judging consumes that revision. Internal server reconciliation advances
+  silent Rounds through the same engine. Completed forfeits already carry the
+  outcome and never dispatch judging; abandonment before any played interval
+  invents no capture anchor. See [ADR 0053](0053-live-video-self-hosted-livekit.md)
+  and [ADR 0067](0067-playable-round-policy-and-acceptance.md).
 - **A submitted ballot cannot be erased by seat deletion.** The judge-participant FK is
   `RESTRICT`; retirement is voiding, which records who and when. This ships in the same
   migration as the participant surrogate id, so no intermediate model exists where uniform
@@ -219,9 +225,8 @@ depends on one, and nothing in a Round's history would change if Rooms were dele
 AI-practice orchestration admits only practice rounds with a member debater,
 one roster AI opponent and the configured AI judge. A debater's seat in a
 human or ranked round grants no right to drive it through practice operations.
-Playback and heard reports require an active round and are bounded to the
-segment's live interval plus a thirty-second cutoff grace period. Terminal
-rounds refuse both operations. A hydration tick may waive a browser's stale
+Media publication uses the shared LiveKit session and current runtime authority;
+browser playback/heard-report endpoints are removed at cutover. A hydration tick may waive a browser's stale
 version only when its reread observes exactly its own next version; intervening
 commands retain optimistic-concurrency authority. Automatic prep requests use
 the runtime's remaining side-specific budget and stop when it is exhausted.
