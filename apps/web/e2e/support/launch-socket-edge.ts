@@ -5,6 +5,8 @@ type Bridge = {
   url: string;
   origin: string | null;
   closed: boolean;
+  /** The browser's close, kept until the upstream it raced has opened. */
+  closing: { code: number; reason: string } | null;
   queue: (string | Buffer)[];
 };
 const wire = (message: string | Buffer) =>
@@ -22,6 +24,15 @@ const closeBridge = (
   socket.data.upstream?.close();
   if (sendable(code)) socket.close(code, reason);
   else socket.close(1001, 'Connection closed');
+};
+/** Closes upstream with the browser's code when it may be sent on. */
+const closeUpstream = (
+  upstream: WebSocket,
+  closing: { code: number; reason: string } | null,
+) => {
+  if (closing && sendable(closing.code))
+    upstream.close(closing.code, closing.reason);
+  else upstream.close();
 };
 // The web tsconfig's DOM lib hides Bun's client options; the bridge runs under Bun.
 const UpstreamSocket = WebSocket as unknown as new (
@@ -70,6 +81,7 @@ export function createLaunchSocketEdge(
               url: target.href,
               origin: request.headers.get('origin'),
               closed: false,
+              closing: null,
               queue: [],
             },
           })
@@ -106,7 +118,7 @@ export function createLaunchSocketEdge(
         socket.data.upstream = upstream;
         upstream.onopen = () => {
           if (socket.data.closed) {
-            upstream.close();
+            closeUpstream(upstream, socket.data.closing);
             return;
           }
           for (const message of socket.data.queue) upstream.send(wire(message));
@@ -130,8 +142,12 @@ export function createLaunchSocketEdge(
       close(socket, code, reason) {
         socket.data.closed = true;
         socket.data.queue = [];
-        if (sendable(code)) socket.data.upstream?.close(code, reason);
-        else socket.data.upstream?.close();
+        socket.data.closing = { code, reason };
+        // Closing a still-connecting socket fails it (1006 upstream); onopen
+        // applies the kept close instead.
+        const upstream = socket.data.upstream;
+        if (upstream?.readyState === WebSocket.OPEN)
+          closeUpstream(upstream, socket.data.closing);
       },
     },
   });
