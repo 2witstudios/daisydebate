@@ -16,6 +16,8 @@ export const OPENROUTER_E2E_PLACEHOLDER =
 const STUB_SPEECH = 'Thank you, judge. I stand firmly against the resolution.';
 const STUB_REPLY = 'What is your strongest example?';
 const STUB_TRANSCRIPT = 'My first contention is that it helps people.';
+/** Three seconds of silent 24 kHz mono PCM for bot speech, which publishes PCM. */
+const STUB_SPEECH_SAMPLES = 24000 * 3;
 const stubScores = (score: number) =>
   ballotCategories.reduce<Record<string, number>>((scores, category) => {
     scores[category] = score;
@@ -58,6 +60,14 @@ function silentWav(): ArrayBuffer {
   return bytes;
 }
 
+/** Raw PCM when asked for it (bot speech), else a decodable silent WAV. */
+const stubSpeech = (format: unknown) =>
+  format === 'pcm'
+    ? new Response(new Int16Array(STUB_SPEECH_SAMPLES), {
+        headers: { 'content-type': 'audio/pcm;rate=24000;channels=1' },
+      })
+    : new Response(silentWav());
+
 const streamed = (text: string) =>
   new Response(
     [...text.split(' ').map((word, index) => (index ? ` ${word}` : word))]
@@ -85,7 +95,7 @@ export function openRouterStub(
     stream?: boolean;
     response_format?: unknown;
   };
-  if (path === 'audio/speech') return new Response(silentWav());
+  if (path === 'audio/speech') return stubSpeech(body.response_format);
   if (path === 'audio/transcriptions')
     return Response.json({ text: STUB_TRANSCRIPT });
   if (body.stream) return streamed(STUB_SPEECH);

@@ -127,7 +127,16 @@ function ingress(f: Fixture, deps: ReturnType<typeof mediaDependencies>) {
   });
   return Bun.serve({ hostname: '127.0.0.1', port: 0, fetch: handlers.handle });
 }
-async function publishSpeech(token: string, pcm: Int16Array) {
+/**
+ * Publishes 10 ms frames without a gap until stopped: the PCM first, then
+ * silence. Every speaking grant is then continuously captured, so each stream
+ * can seal complete; frames outside a seat's grant are refused by the worker.
+ */
+async function publishContinuously(
+  token: string,
+  pcm: Int16Array,
+  stop: AbortSignal,
+) {
   const publisher = await createAudioPublication({
     url: 'ws://127.0.0.1:7880',
     token,
@@ -136,25 +145,34 @@ async function publishSpeech(token: string, pcm: Int16Array) {
     channels: 1,
     monotonicNowMs: performance.now,
   });
-  try {
-    const anchor = performance.now(),
-      count = Math.floor(pcm.length / 240);
-    for (let i = 0; i < count; i++) {
+  const silence = new Int16Array(240);
+  const anchor = performance.now();
+  const publishing = (async () => {
+    for (let i = 0; !stop.aborted; i++) {
       while (performance.now() < anchor + (i + 1) * 10)
         await Bun.sleep(Math.max(1, anchor + (i + 1) * 10 - performance.now()));
-      await publisher.capture10ms(pcm.subarray(i * 240, (i + 1) * 240));
+      const frame =
+        (i + 1) * 240 <= pcm.length
+          ? pcm.subarray(i * 240, (i + 1) * 240)
+          : silence;
+      await publisher.capture10ms(frame);
     }
-  } catch (error) {
-    await publisher.close();
-    throw error;
-  }
-  return publisher;
+  })();
+  return {
+    async close() {
+      await publishing.catch(() => undefined);
+      await publisher.close();
+    },
+  };
 }
 export async function proveMediaWorker(f: Fixture, key: string, root: string) {
   const voice = createOpenRouter({ apiKey: key, fetch });
   const { roundId, deps, speech } = await startShortRound(f, voice);
-  const [binding] =
-    await f.sql`select s.id,s.room_name,p.identity from media_sessions s join media_participants p on p.session_id=s.id join round_participants r on r.id=p.round_participant_id where s.round_id=${roundId} and r.actor_id=${f.host.actorId}`;
+  const bindings =
+    await f.sql`select s.room_name,p.identity,r.actor_id from media_sessions s join media_participants p on p.session_id=s.id join round_participants r on r.id=p.round_participant_id where s.round_id=${roundId} and r.actor_id in ${f.sql([f.host.actorId, f.guest.actorId])}`;
+  const binding = bindings.find(
+    (b: { actor_id: string }) => b.actor_id === f.host.actorId,
+  )!;
   const server = ingress(f, deps);
   // The supervisor discovers the session itself under the worker login.
   const workerUrl = new URL(process.env.TEST_DATABASE_URL!);
@@ -183,7 +201,8 @@ export async function proveMediaWorker(f: Fixture, key: string, root: string) {
       .filter(Boolean)
       .map((line) => (JSON.parse(line) as { event: string }).event),
   );
-  let publisher: Awaited<ReturnType<typeof createAudioPublication>> | undefined;
+  const publishing = new AbortController();
+  const publishers: { close: () => Promise<void> }[] = [];
   try {
     await until(
       async () =>
@@ -193,14 +212,23 @@ export async function proveMediaWorker(f: Fixture, key: string, root: string) {
       10000,
       () => worker.exitCode !== null,
     );
-    const token = await deps.media.joinToken({
-      room: binding.room_name,
-      identity: binding.identity,
-      publish: ['microphone'],
-      subscribe: false,
-      capture: false,
-    });
-    publisher = await publishSpeech(token, speech.pcm);
+    // The host speaks then holds silence; the guest's seat stays silent.
+    for (const seat of bindings) {
+      const token = await deps.media.joinToken({
+        room: seat.room_name,
+        identity: seat.identity,
+        publish: ['microphone'],
+        subscribe: false,
+        capture: false,
+      });
+      publishers.push(
+        await publishContinuously(
+          token,
+          seat.actor_id === f.host.actorId ? speech.pcm : new Int16Array(0),
+          publishing.signal,
+        ),
+      );
+    }
     await until(
       async () => {
         const [row] =
@@ -234,16 +262,16 @@ export async function proveMediaWorker(f: Fixture, key: string, root: string) {
       planJudging: judgingPlan(DEFAULT_BALLOT_DEADLINE_MS),
     });
     const transcript = await f.store.readFrozenRoundTranscript(roundId);
+    // The worker seals each stream before the cutoff (VIDEO-4.1): anything but a
+    // complete freeze is a failure, never an accepted partial result.
     if (
       frozen.status !== 'frozen' ||
       !transcript ||
-      transcript.completeness !== 'incomplete' ||
+      transcript.completeness !== 'complete' ||
       transcript.utterances.length === 0 ||
-      transcript.coverage.some((s) => s.state === 'open')
+      transcript.coverage.some((s) => s.state !== 'complete')
     )
-      throw Error(
-        'Actual captured text did not reach an immutable partial freeze',
-      );
+      throw Error('Actual captured text did not reach a complete freeze');
     process.stdout.write(
       JSON.stringify({
         proof: 'discovered-native-stt-signed-capture-freeze',
@@ -252,7 +280,7 @@ export async function proveMediaWorker(f: Fixture, key: string, root: string) {
         frontier: transcript.frontier,
         coverage: transcript.completeness,
         judgingAcceptance: false,
-        fullRoundAcceptance: false,
+        fullRoundAcceptance: true,
       }) + '\n',
     );
   } finally {
@@ -260,7 +288,8 @@ export async function proveMediaWorker(f: Fixture, key: string, root: string) {
       worker.kill('SIGTERM');
       await worker.exited;
     }
-    await publisher?.close();
+    publishing.abort();
+    await Promise.all(publishers.map((each) => each.close()));
     await server.stop(true);
     if (await deps.media.exists(binding.room_name))
       await deps.media.deleteRoom(binding.room_name);
