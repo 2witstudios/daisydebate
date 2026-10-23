@@ -11,9 +11,9 @@ import {
   admissionRefusal,
   requireAdmissionTarget,
   requireBusyCap,
+  requireOwnReservation,
   requireUnrefundedReservation,
   requireSponsor,
-  reservationMutation,
 } from './round-bot-admission-rules';
 
 type Target = { readonly actorId: string; readonly roundId: string };
@@ -21,11 +21,7 @@ type Reservation = Target & { readonly id: string };
 /** Acquire before account/Room/Round locks in both admission and billable-call composition. */
 export const lockBotAdmission = (tx: BoundedTransactionContext) =>
   tx.execute(sql`select pg_advisory_xact_lock(59003, 1)`);
-async function lockSponsor(
-  tx: BoundedTransactionContext,
-  target: Target,
-  purpose: 'admission' | 'settlement' = 'admission',
-) {
+async function lockSponsor(tx: BoundedTransactionContext, target: Target) {
   requireAdmissionTarget(target);
   const [account] = await lockAuthorizationActors(tx, [target.actorId], {
     maxActors: 1,
@@ -35,7 +31,7 @@ async function lockSponsor(
     .from(rounds)
     .where(eq(rounds.id, target.roundId))
     .for('no key update');
-  requireSponsor(account ?? null, round, target.actorId, purpose);
+  requireSponsor(account ?? null, round, target.actorId);
 }
 function reservationWhere(target: Target) {
   return and(
@@ -47,32 +43,51 @@ function reservationWhere(target: Target) {
 async function existingReservation(
   tx: BoundedTransactionContext,
   target: Target,
-  allowRefunded = false,
 ) {
   const [row] = await tx
     .select()
     .from(usageReservations)
     .where(reservationWhere(target))
     .for('update');
-  return requireUnrefundedReservation(row, allowRefunded);
+  return requireUnrefundedReservation(row);
 }
-async function mutateLockedReservation(
+/** The first model call of any kind counts the reservation, once. */
+async function countLockedReservation(
   tx: BoundedTransactionContext,
   reservation: Reservation,
-  refund: boolean,
 ) {
-  await lockSponsor(tx, reservation, refund ? 'settlement' : 'admission');
-  const current = await existingReservation(tx, reservation, refund);
-  const mutation = reservationMutation(current, reservation.id, refund);
-  if (mutation === 'none') return;
+  await lockSponsor(tx, reservation);
+  const current = requireOwnReservation(
+    await existingReservation(tx, reservation),
+    reservation.id,
+  );
+  if (current.countedAt) return;
   await tx
     .update(usageReservations)
-    .set(
-      mutation === 'refund'
-        ? { refundedAt: sql`clock_timestamp()` }
-        : { countedAt: current!.countedAt ?? sql`clock_timestamp()` },
-    )
+    .set({ countedAt: sql`clock_timestamp()` })
     .where(eq(usageReservations.id, reservation.id));
+}
+/**
+ * Called once a Round turns terminal, under its lock. A counted AI practice
+ * whose every model call (bot or judge) definitely failed, none received or
+ * unknown, gives its allowance back. A practice never counted needs no
+ * refund: the allowance spends a reservation only once counted or while its
+ * Round is live (ISSUE-469). The refunded_at guard makes a repeat a no-op on
+ * any instance (ADR 0058, DEC-211).
+ */
+export async function refundUnservedPracticeLocked(
+  tx: Pick<BoundedTransactionContext, 'execute'>,
+  roundId: string,
+) {
+  await tx.execute(sql`
+    update usage_reservations set refunded_at = clock_timestamp()
+    where round_id = ${roundId} and kind = 'ai_practice' and refunded_at is null
+      and counted_at is not null
+      and not exists (
+        select 1 from agent_runs a
+        join round_participants p on p.id = a.round_participant_id
+        where p.round_id = ${roundId}
+          and a.configuration_snapshot->>'providerOutcome' in ('received', 'unknown'))`);
 }
 /** Caller acquires admission serialization before command/account/Round fences. Never creates a reservation. */
 export async function markLockedRoundBotModelCall(
@@ -88,7 +103,7 @@ export async function markLockedRoundBotModelCall(
   const current = await existingReservation(tx, target);
   if (!current) throw createAppError('CONFLICT', 'Bot reservation missing');
   const reservation = { ...target, id: current.id };
-  await mutateLockedReservation(tx, reservation, false);
+  await countLockedReservation(tx, reservation);
   return reservation;
 }
 async function admissionStatus(
@@ -99,8 +114,10 @@ async function admissionStatus(
 ) {
   const allowance = await readBotAllowance(tx, actorId, now);
   const [facts] = await tx.execute(sql`select
-    (select count(*)::int from usage_reservations where actor_id=${actorId} and kind='ai_practice' and refunded_at is null
-      and reserved_at>=${allowance.start} and reserved_at<${allowance.end}) as spent,
+    (select count(*)::int from usage_reservations u where u.actor_id=${actorId} and u.kind='ai_practice' and u.refunded_at is null
+      and u.reserved_at>=${allowance.start} and u.reserved_at<${allowance.end}
+      and (u.counted_at is not null
+        or exists(select 1 from rounds r where r.id=u.round_id and r.status in ('scheduled','active')))) as spent,
     (select count(distinct u.round_id)::int from usage_reservations u join rounds r on r.id=u.round_id
       where u.kind='ai_practice' and r.status in ('scheduled','active')) as busy`);
   const value = facts as { spent: number; busy: number };
@@ -119,11 +136,6 @@ export function createRoundBotAdmission(input: {
   readonly busyCap: number;
 }) {
   requireBusyCap(input.busyCap);
-  const mutate = (reservation: Reservation, refund: boolean) =>
-    input.run(async (tx) => {
-      await lockBotAdmission(tx);
-      await mutateLockedReservation(tx, reservation, refund);
-    });
   const reserveLocked = async (
     tx: BoundedTransactionContext,
     target: Target,
@@ -170,11 +182,6 @@ export function createRoundBotAdmission(input: {
         await lockBotAdmission(tx);
         return reserveLocked(tx, target);
       }),
-    markFirstModelCall: (reservation: Reservation) =>
-      mutate(reservation, false),
-    /** Trusted server known-vendor-abort settlement, never a public client reason or new model authorization. */
-    refundVendorFailure: (reservation: Reservation) =>
-      mutate(reservation, true),
   };
 }
 

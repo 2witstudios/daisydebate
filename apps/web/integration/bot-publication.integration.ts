@@ -8,7 +8,7 @@ import { ownSpeech, botControlOptions } from './bot-control.test-support';
 import { mediaDependencies } from './round-media.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
-test('actual bot broker/native publisher admits only a whole-frame content prefix without generated text credit', async () => {
+test('actual bot broker/native publisher sends a phrase in whole frames, padding its tail, without generated text credit', async () => {
   await withRoomRuntime(async (f) => {
     const { roundId, claim } = await ownSpeech(f);
     const deps = mediaDependencies(f);
@@ -36,16 +36,16 @@ test('actual bot broker/native publisher admits only a whole-frame content prefi
         AbortSignal.timeout(5000),
       );
       assert({
-        given: 'actual 241 content samples and native240-sample frames',
+        given: 'actual 241 content samples and native 240-sample frames',
         should:
-          'publish only the whole10ms prefix and report partial original content',
+          'pad the last frame with silence, publish all the content and report the phrase complete (ISSUE-454)',
         actual: [
           result.originalSamples,
           result.transportSamples,
           result.eligibleSamples,
           result.complete,
         ],
-        expected: [241, 240, 240, false],
+        expected: [241, 480, 480, true],
       });
       assert({
         given: 'actual native publication through the bot broker',

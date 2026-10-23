@@ -1,5 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError } from '@daisy/errors';
+import { refuseCapacity } from '@daisy/db/testing';
 import { startBotControlService } from './control-service';
 import { failureLog, manualTimers } from './worker-timers.test-support';
 setupRitewayBun();
@@ -172,9 +173,14 @@ test('failed control discovery and receipt pulses report their stages', async ()
   });
 });
 
-test('a control lease lost at completion stops its seat without a failure', async () => {
+/** One owned seat whose pulse fails, then the service stops. */
+async function failedPulse(input: {
+  readonly verify: () => Promise<void>;
+  readonly pulse: Error;
+}) {
   const { failures, failed } = failureLog();
   const stopped: string[] = [];
+  const revoked: string[] = [];
   const target = {
     roundId: 'round',
     roundParticipantId: 'seat',
@@ -185,14 +191,14 @@ test('a control lease lost at completion stops its seat without a failure', asyn
     store: {
       scanRoundBotWorkers: async () => [target],
       claimRoundBotWorker: async () => ownedClaim(target),
-      revokeRoundBotWorker: async () => {},
-      verifyRoundBotWorker: async () => {
-        throw createAppError('CONFLICT', 'Worker lease expired');
+      revokeRoundBotWorker: async () => {
+        revoked.push('seat');
       },
+      verifyRoundBotWorker: input.verify,
     },
     control: () => ({
       pulse: async () => {
-        throw createAppError('CONFLICT', 'Round is no longer active');
+        throw input.pulse;
       },
       stop: async () => {
         stopped.push('seat');
@@ -204,10 +210,40 @@ test('a control lease lost at completion stops its seat without a failure', asyn
   });
   await service.started;
   await service.stop();
+  return {
+    stages: failures.map((failure) => (failure as unknown[])[1]),
+    stopped,
+    revoked,
+  };
+}
+
+test('a control lease lost at completion stops its seat without a failure', async () => {
+  const { stages, stopped } = await failedPulse({
+    verify: async () => {
+      throw createAppError('CONFLICT', 'Worker lease expired');
+    },
+    pulse: createAppError('CONFLICT', 'Round is no longer active'),
+  });
   assert({
     given: 'a refused pulse whose claim no longer verifies',
     should: 'stop the seat once and report no worker failure',
-    actual: { failures, stopped },
-    expected: { failures: [], stopped: ['seat'] },
+    actual: { stages, stopped },
+    expected: { stages: [], stopped: ['seat'] },
+  });
+});
+
+test('a lease check refused by the pool keeps the seat and reports the pulse failure', async () => {
+  const { stages, revoked } = await failedPulse({
+    verify: async () => {
+      throw refuseCapacity();
+    },
+    pulse: createAppError('INFRASTRUCTURE', 'receipt write failed'),
+  });
+  assert({
+    given: 'a failed pulse whose lease check the shared pool refused',
+    should:
+      'keep the seat it still owns, report the pulse and revoke the lease only at shutdown (ISSUE-456)',
+    actual: { stages, revoked },
+    expected: { stages: ['pulse'], revoked: ['seat'] },
   });
 });

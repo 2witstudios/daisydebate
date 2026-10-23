@@ -43,6 +43,25 @@ const completionSchema = z.object({
 });
 const transcriptionSchema = z.object({ text: z.string() });
 
+const definiteFailures = new WeakSet<Error>();
+/**
+ * The vendor certainly did not serve the call: it refused the request itself
+ * (a 4xx other than 408), or the call was cancelled before it was sent. Nothing else is certain, since an
+ * unreachable or unreadable call may still have been served and billed.
+ */
+export const isDefiniteProviderFailure = (error: unknown): boolean =>
+  error instanceof Error && definiteFailures.has(error);
+/**
+ * The vendor itself refused the request before serving it. A 408 or any 5xx
+ * can follow a call the vendor already served and billed (ISSUE-458-r1).
+ */
+const vendorRefused = (status: number) =>
+  status >= 400 && status < 500 && status !== 408;
+const definite = (error: Error) => {
+  definiteFailures.add(error);
+  return error;
+};
+
 /**
  * The OpenRouter adapter behind the TTS, STT and LLM ports. Every failure,
  * timeout or malformed answer is an `INFRASTRUCTURE` AppError whose cause
@@ -67,7 +86,10 @@ export function createOpenRouter({
     ...(appUrl ? { 'HTTP-Referer': appUrl } : {}),
   };
   const post = async (path: string, body: unknown, signal?: AbortSignal) => {
-    requireProviderNotCancelled(signal);
+    if (signal?.aborted)
+      throw definite(
+        createAppError('CONFLICT', 'Provider operation cancelled'),
+      );
     let response: Response;
     try {
       response = await fetch(`${BASE}${path}`, {
@@ -88,10 +110,11 @@ export function createOpenRouter({
     }
     if (!response.ok) {
       await response.body?.cancel();
-      throw createAppError(
+      const failure = createAppError(
         'INFRASTRUCTURE',
         `OpenRouter ${path} answered ${response.status}`,
       );
+      throw vendorRefused(response.status) ? definite(failure) : failure;
     }
     return response;
   };

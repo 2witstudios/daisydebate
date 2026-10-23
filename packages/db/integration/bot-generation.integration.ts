@@ -1,37 +1,10 @@
 import { requireTestServices } from '@daisy/config';
-import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { withBotPublication } from './bot-publication.test-support';
-import { admissionSponsor } from './bot-admission.test-support';
-import { createRoundBotAdmission } from '../src/round-bot-admission';
+import { withGeneration } from './bot-generation.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
-type Publication = Parameters<Parameters<typeof withBotPublication>[0]>[0];
-type Reservation = Awaited<
-  ReturnType<ReturnType<typeof createRoundBotAdmission>['reserve']>
->;
-async function withGeneration(
-  work: (value: Publication & { reservation: Reservation }) => Promise<void>,
-) {
-  await withBotPublication(
-    async (context) => {
-      const { fixture, run, target } = context;
-      const actorId = await admissionSponsor(fixture, [target.roundId]);
-      const admission = createRoundBotAdmission({
-        run,
-        nextId: createId,
-        busyCap: 4,
-      });
-      const reservation = await admission.reserve({
-        roundId: target.roundId,
-        actorId,
-      });
-      await work({ ...context, reservation });
-    },
-    { ttsModel: 'deepgram/aura-2', speechBudget: 10 },
-  );
-}
 test('actual bot generation fences speaking before admission and separately settles real call usage after terminal', async () => {
   await withGeneration(async ({ fixture, target, operations, reservation }) => {
     const claim = await operations.claimWorker(target);

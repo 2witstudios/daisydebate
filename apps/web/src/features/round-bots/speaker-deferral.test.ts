@@ -93,7 +93,11 @@ test('a deferred turn resumes at its refused step without buying or speaking any
   });
   await speaker.stop();
 });
-test('a phrase refused mid-publication resumes from the samples already sent', async () => {
+/**
+ * The samples offered per publish when the first phrase (960 samples) has
+ * `sentBeforeRefusal` samples sent before one capacity refusal.
+ */
+async function offeredAfterOneRefusal(sentBeforeRefusal: number) {
   const offered: number[] = [];
   let refused = false;
   const { speaker, settle } = harness('speech', {
@@ -102,7 +106,7 @@ test('a phrase refused mid-publication resumes from the samples already sent', a
       offered.push(sent.pcm.length);
       if (!refused) {
         refused = true;
-        onSent?.(480);
+        onSent?.(sentBeforeRefusal);
         throw refuseCapacity();
       }
       onSent?.(sent.pcm.length);
@@ -113,13 +117,26 @@ test('a phrase refused mid-publication resumes from the samples already sent', a
     speaker.wake();
     await settle();
   }
+  await speaker.stop();
+  return offered;
+}
+test('a phrase refused mid-publication resumes from the samples already sent', async () => {
   assert({
     given:
       'a 960-sample first phrase whose window authorization is refused after 480 samples were sent',
     should:
       'offer only the unsent 480 samples on the next wake, then the next phrase whole',
-    actual: offered,
+    actual: await offeredAfterOneRefusal(480),
     expected: [960, 480, 960],
   });
-  await speaker.stop();
+});
+
+test('a phrase fully sent before a refusal counts as spoken on resume', async () => {
+  assert({
+    given:
+      'a first phrase whose every sample was sent before its last window was refused',
+    should: 'never offer an empty remainder, and go on to the next phrase',
+    actual: await offeredAfterOneRefusal(960),
+    expected: [960, 960],
+  });
 });

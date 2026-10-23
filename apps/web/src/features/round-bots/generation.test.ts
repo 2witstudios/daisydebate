@@ -1,16 +1,8 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { refuseCapacity } from '@daisy/db/testing';
 import { createBotGeneration } from './generation';
+import { scope } from './speaker.test-support';
 setupRitewayBun();
-
-const scope = {
-  roundId: 'r'.repeat(24),
-  roundParticipantId: 's'.repeat(24),
-  segmentId: 'g'.repeat(24),
-  agentRunId: 'a'.repeat(24),
-  serviceId: 'agent-run:run',
-  publicationEpoch: 1,
-};
 
 test('a refused settlement retried records the received usage once', async () => {
   const finished: string[] = [];
