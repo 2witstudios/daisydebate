@@ -114,6 +114,8 @@ test(
           publication: publisher,
           sampleRate: 48000,
           channels: 1,
+          // Per-frame evidence is what these proofs pin.
+          framesPerAuthorization: 1,
           nowMs: () => performance.now(),
           waitUntilMs: waitForCadence,
           calibrate: async () => {
@@ -185,6 +187,8 @@ test('burst handoff, stalled callback and revoked history cannot credit queued f
           publication,
           sampleRate: 48000,
           channels: 1,
+          // Per-frame evidence is what these proofs pin.
+          framesPerAuthorization: 1,
           nowMs: () => performance.now(),
           waitUntilMs: fault === 'burst' ? async () => {} : waitForCadence,
           calibrate: history.calibrate,

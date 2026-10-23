@@ -66,6 +66,15 @@ function messagesFor(
     }),
   });
 }
+/** The scheduled end of the scoped segment, as the generation read it. */
+function segmentEndOf(context: Context, scope: BotPublicationScope) {
+  const segment = context.round.segments.find(
+    (row) => row.id === scope.segmentId,
+  );
+  return segment
+    ? new Date(Date.parse(segment.startedAt) + segment.durationMs).toISOString()
+    : null;
+}
 type Usage = {
   readonly inputTokens: number;
   readonly outputTokens: number;
@@ -215,13 +224,16 @@ export function createBotGeneration(input: {
         signal,
         {
           prepare: (context) => ({
-            model: context.model,
-            voice: context.profile.voice,
-            text,
-            signal,
+            request: {
+              model: context.model,
+              voice: context.profile.voice,
+              text,
+              signal,
+            },
+            segmentEndsAt: segmentEndOf(context, scope),
           }),
-          call: async (voice, prepared) => {
-            const audio = await voice.speakPcm(prepared);
+          call: async (voice, { request, segmentEndsAt }) => {
+            const audio = await voice.speakPcm(request);
             return {
               value: {
                 scope,
@@ -231,6 +243,7 @@ export function createBotGeneration(input: {
                 pcm: audio.pcm,
                 sampleRate: audio.sampleRate,
                 channels: audio.channels,
+                ...(segmentEndsAt ? { segmentEndsAt } : {}),
               },
               usage: {
                 inputTokens: 0,

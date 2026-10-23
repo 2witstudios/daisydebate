@@ -12,6 +12,8 @@ type Job = {
   readonly pcm: Int16Array;
   readonly sampleRate: 24000;
   readonly channels: 1;
+  /** The segment end on the database clock, when the generation read it. */
+  readonly segmentEndsAt?: string;
 };
 const FRAME_SAMPLES = 240;
 /**
@@ -67,6 +69,11 @@ export function createBotPublisher(input: {
       publication,
       sampleRate: job.sampleRate,
       channels: job.channels,
+      // One union window per 100 ms (DEC-212): about 10 transactions a second.
+      framesPerAuthorization: 10,
+      ...(job.segmentEndsAt
+        ? { segmentEndsAtMs: Date.parse(job.segmentEndsAt) }
+        : {}),
       nowMs: input.monotonicNowMs,
       waitUntilMs: input.waitUntilMs,
       refreshAfterMs: 15000,
