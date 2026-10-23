@@ -34,6 +34,11 @@ export async function validateCaptureBatch(input: {
   readonly clip: (
     clip: ReturnType<typeof cutCaptureClips>['clips'][number],
   ) => void;
+  /**
+   * Frames observed after their history read: not yet authorized, so they go
+   * back to staging for the next batch instead of being cut or dropped.
+   */
+  readonly held: (frames: readonly StagedFrame[]) => void;
 }) {
   for (const frames of bySegmentSeat(input.frames)) {
     const first = frames[0]!;
@@ -51,10 +56,14 @@ export async function validateCaptureBatch(input: {
       input.dropped(frames.length);
       continue;
     }
-    const valid = frames.filter(
+    const fresh = frames.filter(
       (f) => input.nowMs() - f.observedAtMs <= STAGED_FRAME_MAX_AGE_MS,
     );
-    input.dropped(frames.length - valid.length);
+    input.dropped(frames.length - fresh.length);
+    // The history authorizes frames up to its read time only (cutCaptureClips).
+    const readMs = Date.parse(history.state.serverNow);
+    const valid = fresh.filter((f) => f.frame.afterMs <= readMs);
+    input.held(fresh.filter((f) => f.frame.afterMs > readMs));
     for (const { frame } of valid)
       if (straddlesGrantEdge(history.state, first.seat, frame))
         input.straddled(frame);
