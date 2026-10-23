@@ -4,7 +4,8 @@ import type { Database } from '@daisy/db';
 import type { BotPublicationScope } from '@daisy/db/bot-publication';
 import { createAppError } from '@daisy/errors';
 
-type Job = {
+/** One synthesized bot phrase, bound to its publication scope and token. */
+export type BotSpeechJob = {
   readonly scope: BotPublicationScope;
   readonly token: string;
   readonly phraseId: string;
@@ -38,7 +39,7 @@ export function createBotPublisher(input: {
   readonly waitUntilMs: (due: number, signal: AbortSignal) => Promise<void>;
 }) {
   return async (
-    job: Job,
+    job: BotSpeechJob,
     signal: AbortSignal,
     onSent?: (samples: number) => void,
   ) => {
