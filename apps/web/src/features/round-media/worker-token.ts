@@ -41,10 +41,11 @@ export function createMediaWorkerTokenBroker(input: {
       });
       if (!state || state.session.id !== scope.sessionId)
         throw createAppError('NOT_FOUND');
-      // A terminal session is closed for good, whoever holds it: the worker
-      // stops and is never relaunched (ISSUE-494, ISSUE-495).
+      // A terminal session has ended for good, whoever holds it: the worker
+      // stops and is never relaunched (ISSUE-494, ISSUE-495). Its own message,
+      // apart from a write refused during a temporary unsafe window.
       if (state.session.endedAt || mediaEnded(state))
-        throw createAppError('CONFLICT', 'Capture session is closed');
+        throw createAppError('CONFLICT', 'Capture session has ended');
       // A browser's reconcile holds a live session for well under a second:
       // refused for now (503, which the worker retries), as for human
       // admission, never a definite conflict that ends the worker's epoch.

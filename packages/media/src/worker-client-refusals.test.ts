@@ -97,3 +97,37 @@ test('a closed capture session is told apart from other definite refusals', asyn
     expected: [true, false],
   });
 });
+
+test('a live worker survives a temporary unsafe window and keeps capturing after it clears', async () => {
+  const paused = () =>
+    Response.json(
+      { error: { code: 'INFRASTRUCTURE' }, refusal: 'capture-paused' },
+      { status: 503 },
+    );
+  const lease = { epoch: 3, expiresAt: '2026-10-22T12:00:15.000Z' };
+  const cleared = localClient((call) =>
+    call === 1 ? paused() : Response.json(lease),
+  );
+  const lasting = localClient(paused);
+  try {
+    const survived = await cleared.client.lease(15000);
+    const outlasted = await lasting.client.lease(15000).then(
+      () => 'leased',
+      (error: unknown) => [
+        isDefiniteRefusal(error),
+        isCaptureClosedRefusal(error),
+      ],
+    );
+    assert({
+      given:
+        'a session paused for writes (unsafe or being deleted) that a reconcile then clears, and one that stays paused past the retries',
+      should:
+        'carry on with the next answer, and leave a lasting pause uncertain, never closed, so the worker is relaunched rather than finished (ISSUE-494-r3)',
+      actual: { survived, outlasted },
+      expected: { survived: lease, outlasted: [false, false] },
+    });
+  } finally {
+    await cleared.close();
+    await lasting.close();
+  }
+});

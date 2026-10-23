@@ -216,8 +216,8 @@ test("a terminal Round's capture token is refused for good, whoever holds the se
     given:
       "a completed Round whose terminal reconcile holds the session, and its worker's token request",
     should:
-      'refuse definitely as a closed capture session, so the worker stops instead of retrying (ISSUE-494)',
+      'refuse definitely as an ended capture session, so the worker stops instead of retrying (ISSUE-494)',
     actual: refused,
-    expected: ['CONFLICT', 'Capture session is closed'],
+    expected: ['CONFLICT', 'Capture session has ended'],
   });
 });
