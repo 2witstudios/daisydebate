@@ -44,6 +44,9 @@ type CompletionFacts = Parameters<
     readonly status: 'submitted' | 'voided';
   }[];
   readonly ballotDeadlineAt: string | null;
+  /** The frozen transcript's completeness and whether a human judges (DEC-208). */
+  readonly completeness: 'complete' | 'incomplete';
+  readonly humanJudges: boolean;
 };
 type Request = LockedRoundTickInput & {
   readonly instanceId: string;
@@ -120,6 +123,10 @@ async function readCompletionFacts(
     now,
     ballots: stored as CompletionFacts['ballots'],
     ballotDeadlineAt,
+    completeness: frozen.completeness,
+    humanJudges: facts.seats.some(
+      (seat) => seat.role === 'judge' && seat.kind === 'human',
+    ),
   };
 }
 
@@ -160,14 +167,12 @@ async function complete(tx: BoundedTransactionContext, input: Request) {
     }
     throw error;
   }
-  const { round, freeze, now, ballots, ballotDeadlineAt } =
-    await readCompletionFacts(tx, input, facts);
-  const completion = input.buildCompletion({
-    round,
-    now,
-    ballots,
-    ballotDeadlineAt,
-  });
+  const { round, freeze, now, ...decisionFacts } = await readCompletionFacts(
+    tx,
+    input,
+    facts,
+  );
+  const completion = input.buildCompletion({ round, now, ...decisionFacts });
   requireCompletionProjection(completion);
   const { projection } = completion;
   const current = await lockedRoundVersion(tx, input.roundId);

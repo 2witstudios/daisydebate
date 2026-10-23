@@ -17,11 +17,36 @@ export type UnjudgedDecision =
   | { readonly kind: 'pending' }
   | {
       readonly kind: 'complete';
-      readonly ruling: 'unjudged' | 'judges-did-not-rule' | 'partial';
+      readonly ruling:
+        | 'unjudged'
+        | 'judges-did-not-rule'
+        | 'transcript-incomplete'
+        | 'partial';
       readonly outcome: RatedOutcome | null;
       /** Judge seats recorded as giving no ruling. */
       readonly noRuling: readonly string[];
     };
+
+type FreezeFacts = {
+  readonly completeness: 'complete' | 'incomplete';
+  /** Whether any judge seat is a human, who heard the Round live. */
+  readonly humanJudges: boolean;
+};
+/**
+ * Who may rule on a frozen transcript (DEC-208). An AI judge never decides from
+ * a transcript frozen incomplete, which only a media, capture or speech-to-text
+ * gap produces, so no AI judging is dispatched; with no human judge to rule,
+ * the ruling window closes at the freeze. Human judges keep the full window.
+ */
+export function freezeJudgingPlan(
+  input: FreezeFacts & { readonly ballotDeadlineMs: number },
+) {
+  const gated = input.completeness === 'incomplete';
+  return {
+    dispatchAiJudges: !gated,
+    ballotDeadlineMs: gated && !input.humanJudges ? 0 : input.ballotDeadlineMs,
+  };
+}
 
 /**
  * When a Round without a full set of ballots completes (DEC-201, DEC-207). A
@@ -31,13 +56,15 @@ export type UnjudgedDecision =
  * winner by the existing rule; with none, or a tie the absent rulings would
  * otherwise turn into a draw, the judges did not rule and there is no outcome.
  */
-export function decideUnjudgedCompletion(input: {
-  readonly judgeSeatIds: readonly string[];
-  readonly ballots: readonly Ruling[];
-  /** NaN when no deadline was persisted, which never passes. */
-  readonly ballotDeadlineAtMs: number;
-  readonly nowMs: number;
-}): UnjudgedDecision {
+export function decideUnjudgedCompletion(
+  input: FreezeFacts & {
+    readonly judgeSeatIds: readonly string[];
+    readonly ballots: readonly Ruling[];
+    /** NaN when no deadline was persisted, which never passes. */
+    readonly ballotDeadlineAtMs: number;
+    readonly nowMs: number;
+  },
+): UnjudgedDecision {
   if (input.judgeSeatIds.length === 0)
     return {
       kind: 'complete',
@@ -60,14 +87,17 @@ export function decideUnjudgedCompletion(input: {
         submitted,
       )
     : null;
-  return outcome === null || outcome === 'draw'
-    ? {
-        kind: 'complete',
-        ruling: 'judges-did-not-rule',
-        outcome: null,
-        noRuling,
-      }
-    : { kind: 'complete', ruling: 'partial', outcome, noRuling };
+  if (outcome !== null && outcome !== 'draw')
+    return { kind: 'complete', ruling: 'partial', outcome, noRuling };
+  return {
+    kind: 'complete',
+    ruling:
+      input.completeness === 'incomplete' && !input.humanJudges
+        ? 'transcript-incomplete'
+        : 'judges-did-not-rule',
+    outcome: null,
+    noRuling,
+  };
 }
 
 const isClosedActiveRound = (
@@ -90,6 +120,8 @@ export function applyUnjudgedCompletion(
     .filter((seat) => seat.role === 'judge')
     .map((seat) => seat.id);
   const decision = decideUnjudgedCompletion({
+    completeness: input.completeness,
+    humanJudges: input.humanJudges,
     judgeSeatIds,
     ballots: input.ballots,
     ballotDeadlineAtMs:

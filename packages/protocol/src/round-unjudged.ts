@@ -12,6 +12,9 @@ export type RoundUnjudgedCompletion = {
     readonly status: 'submitted' | 'voided';
   }[];
   readonly ballotDeadlineAt: string | null;
+  /** The frozen transcript's completeness and whether a human judges (DEC-208). */
+  readonly completeness: 'complete' | 'incomplete';
+  readonly humanJudges: boolean;
 };
 
 /**
@@ -27,7 +30,12 @@ export const roundUnjudgedReceiptSchema = z.strictObject({
   freezeRevision: z.int().positive(),
   resultingVersion: z.int().positive(),
   status: z.literal('completed'),
-  ruling: z.enum(['unjudged', 'judges-did-not-rule', 'partial']),
+  ruling: z.enum([
+    'unjudged',
+    'judges-did-not-rule',
+    'transcript-incomplete',
+    'partial',
+  ]),
   outcome: z.enum([...debateSides, 'draw']).nullable(),
   noRuling: z.array(idSchema).readonly(),
   replayed: z.boolean(),

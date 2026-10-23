@@ -3,6 +3,7 @@ import type { AttendanceResolution, Database } from '@daisy/db';
 import {
   createRoundRuntime,
   decideUnjudgedCompletion,
+  freezeJudgingPlan,
 } from '@daisy/debate-engine';
 import { createAppError, isAppError } from '@daisy/errors';
 import { createAttendanceRatingSweep } from '../attendance/rating';
@@ -10,14 +11,24 @@ import { roundTickProjection } from './operations';
 
 /** Judges may rule for 30 minutes after the immutable freeze (DEC-201). */
 export const DEFAULT_BALLOT_DEADLINE_MS = 30 * 60_000;
+type JudgingPlanner = Parameters<
+  Database['finalizeDueRoundTranscript']
+>[0]['planJudging'];
+/** The freeze applies the engine's DEC-208 gate under the injected ballot deadline. */
+export const judgingPlan =
+  (ballotDeadlineMs: number): JudgingPlanner =>
+  (facts) =>
+    freezeJudgingPlan({ ...facts, ballotDeadlineMs });
 type CompletionBuilder = Parameters<
   Database['completeUnjudgedRound']
 >[0]['buildCompletion'];
 /** The engine decides; a judged Round before its persisted ballot deadline is not yet eligible. */
 export const unjudgedCompletion =
   (nextId: () => string): CompletionBuilder =>
-  ({ round, now, ballots, ballotDeadlineAt }) => {
+  ({ round, now, ballots, ballotDeadlineAt, completeness, humanJudges }) => {
     const decision = decideUnjudgedCompletion({
+      completeness,
+      humanJudges,
       judgeSeatIds: round.participants
         .filter((seat) => seat.role === 'judge')
         .map((seat) => seat.id),
@@ -40,6 +51,8 @@ export const unjudgedCompletion =
         now,
         ballots,
         ballotDeadlineAt,
+        completeness,
+        humanJudges,
       }),
     };
   };
@@ -60,7 +73,9 @@ export function createRoundMaintenanceOperations(input: {
   /** Injected policy: how long after the freeze judges may rule (DEC-201). */
   readonly ballotDeadlineMs?: number;
 }) {
-  const ballotDeadlineMs = input.ballotDeadlineMs ?? DEFAULT_BALLOT_DEADLINE_MS;
+  const planJudging = judgingPlan(
+    input.ballotDeadlineMs ?? DEFAULT_BALLOT_DEADLINE_MS,
+  );
   const buildProjection = roundTickProjection(() => input.ids.next());
   const ratings = createAttendanceRatingSweep({
     database: input.store,
@@ -99,7 +114,7 @@ export function createRoundMaintenanceOperations(input: {
         instanceId: input.instanceId,
         roundId,
         buildProjection,
-        ballotDeadlineMs,
+        planJudging,
       });
       if (result.status !== 'frozen') return result;
       try {

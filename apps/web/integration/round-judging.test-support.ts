@@ -1,3 +1,5 @@
+import { createId } from '@paralleldrive/cuid2';
+import { roundTickProjection } from '../src/features/round-finalization/operations';
 import {
   oneOnOneDefinition,
   practiceRoomConfig,
@@ -57,9 +59,36 @@ export async function readyTwoHumanJudgeRoom(
     ).view;
   return { room, judges };
 }
-/** Real Room/engine/finalizer storage fixture. Silence stays incomplete; attendance is never fabricated. */
-export async function freezeBotJudge(
+/**
+ * A bot-judged Round played out and frozen through the real finalizer.
+ * `captured` marks every debater speech stream complete before the freeze,
+ * as a full capture would; otherwise silence with no media freezes incomplete.
+ */
+/** Ends every segment past the admission window; when captured, every debater stream sealed complete. */
+export async function playOut(
   f: Parameters<Parameters<typeof withRoomRuntime>[0]>[0],
+  roundId: string,
+  captured: boolean,
+) {
+  const round = (await f.store.getRound(roundId))!;
+  const elapsed = round.rules.segments.reduce(
+    (n, s) => n + s.durationMs + round.rules.countdownMs,
+    125000,
+  );
+  await f.sql`update rounds set started_at=clock_timestamp()-${elapsed}*interval '1 millisecond' where id=${roundId}`;
+  if (!captured) return;
+  await f.store.executeRoundTick({
+    roundId,
+    buildProjection: roundTickProjection(createId),
+  });
+  await f.sql`insert into transcript_segments(round_id,segment_id,round_participant_id,state,chunk_count,sealed_chunk_count,sealed_at)
+    select distinct i.round_id,i.segment_id,i.round_participant_id,'complete',0,0,clock_timestamp()
+    from round_speaking_intervals i join round_participants p on p.id=i.round_participant_id and p.round_id=i.round_id
+    where i.round_id=${roundId} and p.role<>'judge' and (i.ended_at is null or i.ended_at>i.started_at)`;
+}
+export async function frozenBotJudgeRound(
+  f: Parameters<Parameters<typeof withRoomRuntime>[0]>[0],
+  captured: boolean,
 ) {
   const judge = await f.bot();
   let room = await assembleJudgedRoom(f);
@@ -76,18 +105,20 @@ export async function freezeBotJudge(
       await f.consent(caller, await f.operations.view(caller, room.id), 'ready')
     ).view;
   const { roundId } = await startRuntimeRound(f, room);
-  const round = (await f.store.getRound(roundId))!;
-  const elapsed = round.rules.segments.reduce(
-    (n, s) => n + s.durationMs + round.rules.countdownMs,
-    125000,
-  );
-  await f.sql`update rounds set started_at=clock_timestamp()-${elapsed}*interval '1 millisecond' where id=${roundId}`;
+  await playOut(f, roundId, captured);
   const finalized = await finalizeAsWeb(f, roundId);
   if (
     finalized.status !== 'frozen' ||
-    finalized.freeze.completeness !== 'incomplete'
+    finalized.freeze.completeness !== (captured ? 'complete' : 'incomplete')
   )
-    throw Error('Expected actual incomplete frozen input');
+    throw Error('Expected the actual frozen input');
+  return { roundId };
+}
+/** A fully captured bot-judged Round with its AI judging intent queued. */
+export async function freezeBotJudge(
+  f: Parameters<Parameters<typeof withRoomRuntime>[0]>[0],
+) {
+  const { roundId } = await frozenBotJudgeRound(f, true);
   const target = (await f.store.scanRoundJudgingJobs(64)).find(
     (job) => job.roundId === roundId,
   );

@@ -1,6 +1,7 @@
 import { buildDebateTopic } from '@daisy/protocol';
 import { finalizeAsWeb } from './round-maintenance.test-support';
 import { assembleJudgedRoom } from './round-judges.test-support';
+import { playOut } from './round-judging.test-support';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -45,7 +46,7 @@ for (const revoked of [false, true])
           const round = (await f.store.getRound(roundId))!;
           if (revoked)
             await f.sql`delete from bot_profiles where actor_id=${bots[1]!}`;
-          await f.sql`update rounds set started_at=clock_timestamp()-interval '20 minutes' where id=${roundId}`;
+          await playOut(f, roundId, true);
           const result = await finalizeAsWeb(f, roundId);
           await finalizeAsWeb(f, roundId);
           const jobs =
@@ -65,7 +66,7 @@ for (const revoked of [false, true])
             );
           assert({
             given:
-              'an actual publicly admitted2botjudge Room with missing capture streams and canonical profile eligibility',
+              'an actual publicly admitted2botjudge Room with every capture stream complete and canonical profile eligibility',
             should:
               'atomically freeze truthful input and create exactlyone queued intent for each currently eligible assigned judge on retry',
             actual: {
@@ -79,7 +80,7 @@ for (const revoked of [false, true])
             },
             expected: {
               status: 'frozen',
-              completeness: 'incomplete',
+              completeness: 'complete',
               jobs: expected,
               runs: 0,
             },

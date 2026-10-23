@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
-import { decideUnjudgedCompletion } from './round-unjudged';
+import { decideUnjudgedCompletion, freezeJudgingPlan } from './round-unjudged';
 import {
   practiceRules,
   practiceSeats,
@@ -20,6 +20,8 @@ const ballot = (
 });
 const at = (nowMs: number, ballots: ReturnType<typeof ballot>[] = []) =>
   decideUnjudgedCompletion({
+    completeness: 'complete',
+    humanJudges: true,
     judgeSeatIds: judges,
     ballots,
     ballotDeadlineAtMs: 61_000,
@@ -31,6 +33,8 @@ test('the ballot deadline decides when a Round without a full ruling completes (
     given: 'no judge seats',
     should: 'complete at once as unjudged',
     actual: decideUnjudgedCompletion({
+      completeness: 'complete',
+      humanJudges: false,
       judgeSeatIds: [],
       ballots: [],
       ballotDeadlineAtMs: Number.NaN,
@@ -114,6 +118,8 @@ const completion = (nowMs: number) => ({
   now: roundAt(nowMs),
   ballots: [],
   ballotDeadlineAt: roundAt(total + 1_800_000),
+  completeness: 'complete' as const,
+  humanJudges: true,
 });
 
 test('a judged casual Round completes without a winner only after its ballot deadline', async () => {
@@ -147,6 +153,61 @@ test('a judged casual Round completes without a winner only after its ballot dea
           at: roundAt(total + 1_800_000),
         },
       ],
+    ],
+  });
+});
+
+test('an incomplete freeze dispatches no AI judge and, with no human judge, closes the ruling window (DEC-208)', () => {
+  const plan = (
+    completeness: 'complete' | 'incomplete',
+    humanJudges: boolean,
+  ) =>
+    freezeJudgingPlan({
+      completeness,
+      humanJudges,
+      ballotDeadlineMs: 1_800_000,
+    });
+  assert({
+    given: 'complete and incomplete freezes, with and without a human judge',
+    should:
+      'dispatch AI judging only on a complete freeze and keep the window only for human judges',
+    actual: [
+      plan('complete', false),
+      plan('incomplete', true),
+      plan('incomplete', false),
+    ],
+    expected: [
+      { dispatchAiJudges: true, ballotDeadlineMs: 1_800_000 },
+      { dispatchAiJudges: false, ballotDeadlineMs: 1_800_000 },
+      { dispatchAiJudges: false, ballotDeadlineMs: 0 },
+    ],
+  });
+  const decide = (
+    completeness: 'complete' | 'incomplete',
+    humanJudges: boolean,
+  ) =>
+    decideUnjudgedCompletion({
+      completeness,
+      humanJudges,
+      judgeSeatIds: [judges[0]!],
+      ballots: [],
+      ballotDeadlineAtMs: 61_000,
+      nowMs: 61_000,
+    });
+  assert({
+    given:
+      'no ruling past the deadline on an AI-only incomplete freeze, and otherwise',
+    should:
+      'record the transcript as incomplete only when no judge could fairly rule',
+    actual: [
+      decide('incomplete', false),
+      decide('incomplete', true),
+      decide('complete', false),
+    ].map((d) => (d.kind === 'complete' ? d.ruling : d.kind)),
+    expected: [
+      'transcript-incomplete',
+      'judges-did-not-rule',
+      'judges-did-not-rule',
     ],
   });
 });
