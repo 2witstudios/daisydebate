@@ -28,8 +28,20 @@ async function serve() {
     stdio: ['ignore', 'inherit', 'inherit'],
     detached: true,
   });
+  // The terminal's SIGINT and the outer run's SIGTERM both arrive: stop once,
+  // and a group that has already exited is already stopped.
+  let stopping = false;
+  const stop = () => {
+    if (stopping) return;
+    stopping = true;
+    try {
+      process.kill(-child.pid!, 'SIGTERM');
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ESRCH') throw error;
+    }
+  };
   for (const signal of ['SIGINT', 'SIGTERM'] as const)
-    process.once(signal, () => process.kill(-child.pid!, 'SIGTERM'));
+    process.once(signal, stop);
   process.exitCode = await new Promise<number>((done) =>
     child.once('exit', (code) => done(code ?? 1)),
   );
@@ -105,6 +117,11 @@ async function demo() {
     );
     await server.exited;
   } finally {
+    // A readiness failure must not leave the inner run holding the slot's ports.
+    if (server.exitCode === null) {
+      server.kill('SIGTERM');
+      await server.exited;
+    }
     certificates.close();
   }
 }

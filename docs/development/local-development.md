@@ -25,7 +25,10 @@ database of its own from it (ADR 0034), and a suite started by hand with
 `bun test` is refused. `apps/realtime` listens on `REALTIME_PORT` (default
 `3011` in the main checkout; `bun slot:up` derives a worktree's own value),
 distinct from the web app's `PORT` so both can run at once; it has no
-handler logic yet beyond rejecting every connection (RT-2.3a).
+handler logic yet beyond rejecting every connection (RT-2.3a). Both listen on
+every interface unless `LISTEN_HOST` (web) or `REALTIME_HOST` (realtime) names
+an IP literal; the room-launch composition behind `bun demo` and the Launch
+browser suite sets both to `127.0.0.1`, so only its TLS edges are reachable.
 
 To play a whole Round with real people in browsers on this machine, use the
 [local demo](demo.md) (`bun demo`). It serves the production build with every

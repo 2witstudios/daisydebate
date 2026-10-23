@@ -27,7 +27,7 @@ import { SHUTDOWN_DRAIN_DEADLINE_MS } from './shutdown-budget';
 import { waitForHealthy } from './wait-for-healthy';
 
 // Refuses anything but NODE_ENV=production before building the app.
-const { port } = processStartOptions();
+const { port, host } = processStartOptions();
 const app = processApp();
 const nextApp = next({ dev: false, port });
 // Production must not boot without validated auth configuration (secret,
@@ -51,7 +51,7 @@ const { server, started } = startProductionServer({
     }
   },
   port,
-  host: '0.0.0.0',
+  host,
 });
 await started;
 const mediaRuntime = [

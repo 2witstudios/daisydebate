@@ -102,21 +102,25 @@ Start the demo with `E2E_OPENROUTER_API_KEY`. The host creates a One-on-one
 Room, opens **Manage seats**, assigns an eligible bot to **Negative 1** and an
 AI judge to **Judge 1** (choose each from **Assign …**, then **Assign**), then
 takes Affirmative 1, readies, and launches. The bot speaks through TTS on its
-turns, and the AI judge rules after the freeze.
+turns. The demo runs no capture worker, so the transcript freezes
+`incomplete` and no AI judging is dispatched (DEC-208): with no human judge,
+the Round completes at the freeze as **transcript incomplete**, with no winner.
 
 This path has not been followed on a machine without a provider key. The
-automated proof of a human against a bot with the AI judge is
-`round-journeys.e2e.ts` ('actual human against a bot…'), run with a key.
+automated journey, `round-journeys.e2e.ts` ('actual human against a bot…'),
+still expects an AI ruling; ISSUE-488 tracks reconciling it with DEC-208.
 
 ## Limits
 
 - **Localhost only.** Two machines on a LAN are not supported yet. The demo
   certificate names `localhost`, and local LiveKit offers loopback ICE
-  candidates only (see ISSUE-479).
+  candidates only (see ISSUE-479). Every listener binds 127.0.0.1: the
+  plaintext web app and realtime answer only the loopback TLS edges in front
+  of them (ISSUE-480).
 - **Local LiveKit only.** There is no production media, TURN or real-network
   delivery. Two profiles on one machine share its camera and microphone.
 - **No capture worker.** Speech is not transcribed, so every transcript freezes
-  `incomplete`. Human judges still rule; an AI judge may not rule on an
+  `incomplete`. Human judges still rule; an AI judge never rules on an
   incomplete transcript (DEC-208).
 - **Fixture settings.** The Room policy and the AI busy cap of 4 come from the
   browser-proof fixture, not product policy.

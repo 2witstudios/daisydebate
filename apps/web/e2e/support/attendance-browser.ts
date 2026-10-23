@@ -9,6 +9,7 @@ import {
   attendanceTimingPolicy,
   type AttendanceReceipt,
 } from '@daisy/protocol';
+import { MAINTENANCE_PULSE_MS } from '../../src/features/round-finalization/service';
 import { expect, openPage } from './fixtures';
 import { readBallotRound, ballotRoundCommand } from './human-ballot-round';
 import { attendanceEvidence } from './attendance-evidence';
@@ -54,13 +55,14 @@ export async function pastOriginalAttendanceGrace(
 
 /**
  * After an outage ends, the whole grace can still remain (an outage that began
- * at the opening), then the finalization buffer, the public probe's recovery
- * and a maintenance tick. A fixed 50 s left under 3 s of that margin.
+ * at the opening), then the finalization buffer, the public probe's next
+ * heartbeat and a maintenance pulse. A fixed 50 s left under 3 s of that margin.
  */
 const resolutionWaitMs =
   attendanceTimingPolicy.graceMs +
   attendanceTimingPolicy.finalizationBufferMs +
-  15_000;
+  attendanceTimingPolicy.heartbeatMs +
+  MAINTENANCE_PULSE_MS;
 
 export async function attendedResolution(roundId: string, segmentId: string) {
   await expect
