@@ -38,6 +38,8 @@ describe('retention targets', () => {
         purgeExpiredRoundCheckInAttempts: record('round_check_in_attempts'),
         purgeExpiredServiceInstances: record('service_instances'),
         purgeExpiredAvailabilitySamples: record('availability_samples'),
+        purgeExpiredUtterances: record('utterances'),
+        clearExpiredPendingBallots: record('pending_ballots'),
       },
       redis: {
         sweepOnlinePresence: async (limit: number) => {
@@ -60,7 +62,7 @@ describe('retention targets', () => {
     assert({
       given: 'the production targets and a clock at 2026-09-20T12:00Z',
       should:
-        'purge verification, session and outbox rows past 24 hours, email rows past 30 days, and sweep the Redis online set, each in its own bounded batches',
+        'purge verification, session and outbox rows past 24 hours, email rows past 30 days, transcripts and pending judgments past 180 days, and sweep the Redis online set, each in its own bounded batches',
       actual: {
         targets: targets.map(({ name, batchSize, maxBatches }) => ({
           name,
@@ -98,6 +100,8 @@ describe('retention targets', () => {
             maxBatches: 20,
           },
           { name: 'retention.email_delivery', batchSize: 500, maxBatches: 20 },
+          { name: 'retention.utterances', batchSize: 500, maxBatches: 20 },
+          { name: 'retention.pending_ballots', batchSize: 500, maxBatches: 20 },
           {
             name: 'retention.presence_online',
             batchSize: 1000,
@@ -123,6 +127,8 @@ describe('retention targets', () => {
             { before: '2026-08-21T12:00:00.000Z', limit: 500 },
           ],
           email_delivery: [{ before: '2026-08-21T12:00:00.000Z', limit: 500 }],
+          utterances: [{ before: '2026-03-24T12:00:00.000Z', limit: 500 }],
+          pending_ballots: [{ before: '2026-03-24T12:00:00.000Z', limit: 500 }],
         },
         sweeps: [1000],
       },
@@ -140,7 +146,7 @@ describe('retention targets', () => {
     assert({
       given: 'a clock that returns an unparsable timestamp',
       should:
-        'report ok:false for the ten database targets with no purge issued, and sweep the Redis online set by its own clock',
+        'report ok:false for the twelve database targets with no purge issued, and sweep the Redis online set by its own clock',
       actual: {
         ok: results.map(({ operation, ok }) => [operation, ok]),
         calls,
@@ -160,11 +166,13 @@ describe('retention targets', () => {
           ['retention.availability_samples', false],
           ['retention.email_delivery_event', false],
           ['retention.email_delivery', false],
+          ['retention.utterances', false],
+          ['retention.pending_ballots', false],
           ['retention.presence_online', true],
         ],
         calls: {},
         sweeps: [1000],
-        failed: 10,
+        failed: 12,
       },
     });
   });

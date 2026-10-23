@@ -71,6 +71,8 @@ export const utterances = pgTable(
       table.roundParticipantId,
       table.roundId,
     ),
+    // The 180-day retention sweep scans oldest first (ISSUE-498).
+    index('utterances_created_at_idx').on(table.createdAt),
     check(
       'utterances_capture_pair_check',
       sql`(${table.clipKey} is null and ${table.captureTrackId} is null and ${table.captureStartOffsetMs} is null and ${table.captureDurationMs} is null and ${table.captureWorkerEpoch} is null and ${table.captureBodyDigest} is null) or (${table.clipKey} is not null and ${table.captureTrackId} is not null and ${table.captureStartOffsetMs} is not null and ${table.captureDurationMs} is not null and ${table.captureWorkerEpoch} is not null and ${table.captureBodyDigest} is not null)`,
