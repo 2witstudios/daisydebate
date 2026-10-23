@@ -134,7 +134,7 @@ const capture = createLaunchProcess({
     return capture.running();
   },
 });
-const control = createLaunchControl({
+const control = await createLaunchControl({
   path: launchControlPath(slot.id),
   settled: async () => {
     await Promise.all([

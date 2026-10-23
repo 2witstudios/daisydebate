@@ -3,6 +3,7 @@ import { mkdtemp, rm, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { request } from 'node:http';
+import { connect, createServer, type Socket } from 'node:net';
 import { callLaunchControl } from '../e2e/support/room-launch-settled';
 import { createLaunchControl } from '../e2e/support/room-launch-control';
 setupRitewayBun();
@@ -22,7 +23,7 @@ const responseCode = (path: string, operation: string) =>
 test('Launch control is an owned Unix capability rather than a public HTTP listener', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'daisy-unix-proof-'));
   const path = join(directory, 'control.sock');
-  const server = createLaunchControl({
+  const server = await createLaunchControl({
     path,
     settled: async () => undefined,
     pending: () => 0,
@@ -65,7 +66,7 @@ test('private proof control waits for actual outstanding work and refuses unknow
   const outstanding = new Promise<void>((accept) => {
     release = accept;
   });
-  const control = createLaunchControl({
+  const control = await createLaunchControl({
     path: join(directory, 'control.sock'),
     settled: () => {
       entered();
@@ -110,6 +111,61 @@ test('private proof control waits for actual outstanding work and refuses unknow
       actual: await Bun.file(join(directory, 'control.sock')).exists(),
       expected: false,
     });
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('a socket left by a killed run is replaced; a live listener is never displaced', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'room-launch-stale-'));
+  const stalePath = join(directory, 'stale.sock');
+  const livePath = join(directory, 'live.sock');
+  const killed = Bun.spawn([
+    process.execPath,
+    '-e',
+    `require('node:net').createServer().listen(${JSON.stringify(stalePath)}); setInterval(() => {}, 1000);`,
+  ]);
+  const live = createServer().listen(`${livePath}`);
+  try {
+    if (!live.listening)
+      await new Promise<void>((accept) => live.once('listening', accept));
+    while (!(await stat(stalePath).catch(() => null))) await Bun.sleep(10);
+    killed.kill('SIGKILL');
+    await killed.exited;
+    const replaced = await createLaunchControl({
+      path: stalePath,
+      settled: async () => undefined,
+      pending: () => 0,
+    });
+    await new Promise<void>((accept) => replaced.once('listening', accept));
+    const answered = await responseCode(stalePath, '/settled');
+    await new Promise<void>((accept) => replaced.close(() => accept()));
+    const refused = await createLaunchControl({
+      path: livePath,
+      settled: async () => undefined,
+      pending: () => 0,
+    }).then(
+      () => 'listening',
+      (error: NodeJS.ErrnoException) => error.code ?? 'unknown',
+    );
+    const stillServing = await new Promise<boolean>((accept) =>
+      connect(livePath)
+        .once('connect', function (this: Socket) {
+          this.destroy();
+          accept(true);
+        })
+        .once('error', () => accept(false)),
+    );
+    assert({
+      given:
+        'a socket file whose owner was SIGKILLed, and one a live listener still owns',
+      should:
+        'listen over the stale file, and refuse the live one without deleting it (ISSUE-492)',
+      actual: { answered, refused, stillServing },
+      expected: { answered: 204, refused: 'EADDRINUSE', stillServing: true },
+    });
+  } finally {
+    killed.kill('SIGKILL');
+    live.close();
     await rm(directory, { recursive: true, force: true });
   }
 });
