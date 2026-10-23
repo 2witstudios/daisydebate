@@ -190,11 +190,17 @@ test('a seal is complete only with this epoch’s full evidence', () => {
     chunks: { count: 2, otherEpochChunks: 0 },
     storedChunks: 2,
     expectedChunks: 2,
-    required: grant,
+    authority: grant,
+    tolerance: { openMs: 2_000, closeMs: 0 },
   };
+  const joined = (from: number, until = t0 + 10_000) => [
+    { start: new Date(t0 + from), end: new Date(until), epoch: 2 },
+  ];
   assert({
-    given: 'full coverage, and each missing piece of evidence in turn',
-    should: 'seal complete only for the full evidence',
+    given:
+      'full coverage, each missing piece of evidence in turn, then a first frame at and past the join tolerance and a gap after a late join',
+    should:
+      'seal complete only for the full evidence from the first frame within the tolerance (DEC-218)',
     actual: [
       sealState(evidence),
       sealState({ ...evidence, chunks: undefined }),
@@ -210,12 +216,21 @@ test('a seal is complete only with this epoch’s full evidence', () => {
           { ...evidence.observations[0]!, end: new Date(t0 + 9_000) },
         ],
       }),
+      sealState({ ...evidence, observations: joined(2_000) }),
+      sealState({ ...evidence, observations: joined(2_001) }),
+      sealState({
+        ...evidence,
+        observations: [...joined(1_000, t0 + 5_000), ...joined(5_010)],
+      }),
     ],
     expected: [
       'complete',
       'partial',
       'partial',
       'partial',
+      'partial',
+      'partial',
+      'complete',
       'partial',
       'partial',
     ],

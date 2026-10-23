@@ -14,7 +14,10 @@ import {
   waitForMediaFact,
   mediaDependencies,
 } from './round-media.test-support';
-import { CAPTURE_STT_LAG_MS } from '@daisy/protocol';
+import {
+  CAPTURE_COVERAGE_TOLERANCE,
+  CAPTURE_STT_LAG_MS,
+} from '@daisy/protocol';
 setupRitewayBun();
 requireTestServices(process.env);
 
@@ -100,6 +103,7 @@ test('authenticated capture broker verifies the actual lease and never creates a
     };
     const capture = f.store.createMediaCaptureOperations({
       sttLagMs: CAPTURE_STT_LAG_MS,
+      coverageTolerance: CAPTURE_COVERAGE_TOLERANCE,
       nextId: createId,
       buildProjection: (context) =>
         mediaRuntime(context, createId).tick(context.now),

@@ -4,7 +4,10 @@ import type { BoundedTransactionContext } from './transaction-context';
 import { lockRoundAgentContext, roundAgentNow } from './round-agent-runs';
 import { requireAgentLeaseToken } from './round-agent-lease';
 import { agentRuns } from './schema/agent-runs';
-import { roundBotPublications } from './schema/round-bot-publications';
+import {
+  roundBotPublicationWindows,
+  roundBotPublications,
+} from './schema/round-bot-publications';
 
 export type BotPublicationScope = {
   readonly roundId: string;
@@ -60,6 +63,50 @@ export async function requireBotSpeakingWindow(
       and ${after}<=clock_timestamp() limit 1`);
   if (rows.length !== 1)
     throw createAppError('CONFLICT', 'Bot speaking authority changed');
+}
+/**
+ * Records an authorized window as server credit (DEC-212, DEC-218), extending
+ * the seat's run it touches, so a phrase is one row however many windows
+ * authorized it. Call only after requireBotSpeakingWindow accepted it.
+ */
+export async function creditBotPublicationWindow(
+  tx: BoundedTransactionContext,
+  target: Pick<
+    BotPublicationScope,
+    'roundId' | 'roundParticipantId' | 'segmentId'
+  >,
+  window: PublicationWindow,
+  nextId: () => string,
+) {
+  const from = new Date(Math.floor(window.beforeMs)),
+    until = new Date(Math.ceil(window.afterMs));
+  if (until <= from) return;
+  const extended = await tx
+    .update(roundBotPublicationWindows)
+    .set({
+      creditedFrom: sql`least(${roundBotPublicationWindows.creditedFrom},${from})`,
+      creditedUntil: sql`greatest(${roundBotPublicationWindows.creditedUntil},${until})`,
+    })
+    .where(
+      and(
+        eq(roundBotPublicationWindows.segmentId, target.segmentId),
+        eq(roundBotPublicationWindows.roundId, target.roundId),
+        eq(
+          roundBotPublicationWindows.roundParticipantId,
+          target.roundParticipantId,
+        ),
+        sql`${roundBotPublicationWindows.creditedUntil}>=${from}`,
+        sql`${roundBotPublicationWindows.creditedFrom}<=${until}`,
+      ),
+    )
+    .returning({ id: roundBotPublicationWindows.id });
+  if (extended.length > 0) return;
+  await tx.insert(roundBotPublicationWindows).values({
+    id: nextId(),
+    ...target,
+    creditedFrom: from,
+    creditedUntil: until,
+  });
 }
 export function requireClaimScope(
   claim: typeof roundBotPublications.$inferSelect | undefined,

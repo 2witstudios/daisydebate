@@ -70,8 +70,11 @@ test('real bounded capture appends once and seals only actual continuous histori
 test('capture gaps and mismatching committed chunk counts cannot produce complete seals', async () => {
   for (const mismatch of [false, true])
     await withBoundedRound(async (fixture, transaction, roundId) => {
+      // The unobserved tail outlasts the close tolerance (DEC-220).
       const { store, lease, stream, clip, start, end } =
-        await historicalCapture(fixture, transaction, roundId);
+        await historicalCapture(fixture, transaction, roundId, 1000, 60_000, {
+          durationMs: 3000,
+        });
       try {
         await store.claimMediaWorkerLease({ ...lease, leaseMs: 15000 });
         const observation = {

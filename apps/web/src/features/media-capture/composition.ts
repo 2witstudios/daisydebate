@@ -5,7 +5,10 @@ import type { App } from '../../server/app';
 import { createBotActivityRelay } from '../round-bots/activity-relay';
 import { createRoundMediaRuntime } from '../round-media/composition';
 import { createMediaCaptureHandlers } from './handlers';
-import { CAPTURE_STT_LAG_MS } from '@daisy/protocol';
+import {
+  CAPTURE_COVERAGE_TOLERANCE,
+  CAPTURE_STT_LAG_MS,
+} from '@daisy/protocol';
 
 /** Inert without configuration; the shared router mounts only this authenticated handler. */
 export function composeMediaCaptureRoutes(app: App) {
@@ -17,6 +20,7 @@ export function composeMediaCaptureRoutes(app: App) {
   const operations = () =>
     (capture ??= app.database.createMediaCaptureOperations({
       sttLagMs: CAPTURE_STT_LAG_MS,
+      coverageTolerance: CAPTURE_COVERAGE_TOLERANCE,
       nextId: () => app.ids.next(),
       buildProjection: ({ round, now }) =>
         createRoundRuntime({

@@ -169,7 +169,10 @@ it, so receipts continue through model, voice or media failure. One turn runs
 at a time per claim. A turn generates text, then voices and publishes one phrase
 at a time. The next phrase is voiced only after the previous one finishes
 publishing. A partial publication ends the turn. Phrases and PCM stay in memory;
-only capture credits transcript.
+only capture credits transcript. Each authorized window is stored as server
+credit in `round_bot_publication_windows`, one row per contiguous run; those
+windows, not the whole floor, are the coverage a bot stream needs to seal
+complete (DEC-218).
 
 A refused speaking window (`CONFLICT`) waits for the next wake and consumes no
 attempt. Other failures count toward a bound of two attempts per claim and log

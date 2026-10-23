@@ -141,19 +141,21 @@ clips must not advance it. Every transcript writer, including bot publication,
 must adopt the same bounded transaction and freeze/cutoff fences before full
 acceptance. These schema tables alone do not prove a working capture producer.
 
-| Table                   | Columns                                                            | Category         | Purpose                                                  |
-| ----------------------- | ------------------------------------------------------------------ | ---------------- | -------------------------------------------------------- |
-| round_transcripts       | round_id                                                           | identifier       | Bind the committed frontier to its Round                 |
-| round_transcripts       | revision                                                           | none             | Monotonic committed transcript frontier                  |
-| transcript_segments     | round_id, segment_id, round_participant_id                         | identifier       | Bind a stream to authoritative segment and seat          |
-| transcript_segments     | state, chunk_count, sealed_chunk_count, sealed_at                  | none             | Preserve honest complete/partial write closure           |
-| transcript_observations | id, round_id, segment_id, round_participant_id, track_id           | identifier       | Bind trusted observation coverage to the media stream    |
-| transcript_observations | worker_epoch, observed_from, observed_until                        | none             | Prove continuous coverage without persisting PCM         |
-| media_worker_leases     | session_id, worker_id                                              | identifier       | Identify the active capture worker                       |
-| media_worker_leases     | epoch, expires_at                                                  | none             | Fence takeover and stale ingress                         |
-| utterances              | clip_key, capture_track_id                                         | identifier       | Deduplicate the captured clip                            |
-| utterances              | capture_start_offset_ms, capture_duration_ms, capture_worker_epoch | none             | Bind clip placement and worker epoch                     |
-| utterances              | capture_body_digest                                                | personal/private | Detect conflicting retries of private transcript content |
+| Table                         | Columns                                                            | Category         | Purpose                                                  |
+| ----------------------------- | ------------------------------------------------------------------ | ---------------- | -------------------------------------------------------- |
+| round_transcripts             | round_id                                                           | identifier       | Bind the committed frontier to its Round                 |
+| round_transcripts             | revision                                                           | none             | Monotonic committed transcript frontier                  |
+| transcript_segments           | round_id, segment_id, round_participant_id                         | identifier       | Bind a stream to authoritative segment and seat          |
+| transcript_segments           | state, chunk_count, sealed_chunk_count, sealed_at                  | none             | Preserve honest complete/partial write closure           |
+| transcript_observations       | id, round_id, segment_id, round_participant_id, track_id           | identifier       | Bind trusted observation coverage to the media stream    |
+| transcript_observations       | worker_epoch, observed_from, observed_until                        | none             | Prove continuous coverage without persisting PCM         |
+| round_bot_publication_windows | id, round_id, segment_id, round_participant_id                     | identifier       | Bind a bot's credited publication time to its seat       |
+| round_bot_publication_windows | credited_from, credited_until                                      | none             | The time a bot stream must cover to seal complete        |
+| media_worker_leases           | session_id, worker_id                                              | identifier       | Identify the active capture worker                       |
+| media_worker_leases           | epoch, expires_at                                                  | none             | Fence takeover and stale ingress                         |
+| utterances                    | clip_key, capture_track_id                                         | identifier       | Deduplicate the captured clip                            |
+| utterances                    | capture_start_offset_ms, capture_duration_ms, capture_worker_epoch | none             | Bind clip placement and worker epoch                     |
+| utterances                    | capture_body_digest                                                | personal/private | Detect conflicting retries of private transcript content |
 
 Capture body digests follow transcript retention of 180 days and subject erasure;
 hashing does not anonymize transcript-derived data. Raw transcript text remains
@@ -269,8 +271,19 @@ add no utterance or revision; conflicting bodies fail. Full closed uncertainty
 windows must fit actual historical grants and actual segment bounds. Coverage
 observations are trusted server evidence, not text presence or lease possession.
 A complete seal requires a closed timeline, matching committed chunk count and
-continuous observation coverage of every nonempty grant. Otherwise closure is
-partial. Missing expected streams are still discovered from historical grants by
+continuous observation coverage of the required time. Otherwise closure is
+partial. A human's required time is each nonempty grant, from its first
+observed frame when that arrives within the join tolerance of the grant's
+opening (a microphone cannot publish before its grant), else from the opening.
+A bot's required time is its credited publication windows (DEC-212), from its
+first observed frame within relay tolerance; silence outside them is not
+speech (DEC-218). Each required interval ends at its last observed frame when
+that ends within relay tolerance of its close, since speech stops before a
+yield reaches the server (DEC-220), else at the close. Gaps inside the required
+time stay partial. Both tolerances are injected policy
+(`coverageTolerance`, which web composition sets to
+`CAPTURE_COVERAGE_TOLERANCE`, 4 s to join and 1 s for relay, from
+`@daisy/protocol` `capture-timing`). Missing expected streams are still discovered from historical grants by
 the finalizer, never inferred absent from the seal table.
 
 Real bounded PostgreSQL component proof covers duplicate/conflicting clips,
