@@ -34,22 +34,29 @@ test('maintenance discovery includes every cast without sessions and requires a 
         given: 'an unknown service instance',
         should: 'refuse maintenance discovery',
         actual: () =>
-          store.readRoundMaintenanceCandidates({ instanceId, limit: 1 }),
+          store.readRoundMaintenanceCandidates({
+            instanceId,
+            limit: 1,
+            startHorizonMs: 900_000,
+          }),
         code: 'AUTHORIZATION',
       });
       await store.renewServiceInstance({ instanceId, role: 'web' });
       const first = await store.readRoundMaintenanceCandidates({
         instanceId,
         limit: 1,
+        startHorizonMs: 900_000,
       });
       const second = await store.readRoundMaintenanceCandidates({
         instanceId,
         limit: 1,
+        startHorizonMs: 900_000,
         afterId: first.afterId!,
       });
       const last = await store.readRoundMaintenanceCandidates({
         instanceId,
         limit: 1,
+        startHorizonMs: 900_000,
         afterId: second.afterId!,
       });
       assert({
@@ -72,7 +79,11 @@ test('maintenance discovery includes every cast without sessions and requires a 
         given: 'a stale durable web instance',
         should: 'refuse another discovery page',
         actual: () =>
-          store.readRoundMaintenanceCandidates({ instanceId, limit: 1 }),
+          store.readRoundMaintenanceCandidates({
+            instanceId,
+            limit: 1,
+            startHorizonMs: 900_000,
+          }),
         code: 'AUTHORIZATION',
       });
     } finally {

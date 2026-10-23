@@ -6,7 +6,7 @@ import {
   type RoomListPage,
 } from '@daisy/protocol';
 import { currentFormatRevisions } from './format-operations';
-import { eq, isNull } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type {
   LaunchedRound,
@@ -25,6 +25,8 @@ import { botProfiles } from './schema/bot-profiles';
 import { rooms } from './schema/rooms';
 import { rounds } from './schema/rounds';
 import { segmentRows } from './round-hydration';
+import { recordedUnjudgedRuling } from './round-unjudged-decisions';
+import { roundCommands } from './schema/round-commands';
 import { readableCheckpoint, roundViewFor } from './round-view-projection';
 import { roundParticipants } from './schema/round-participants';
 import { formats } from './schema/formats';
@@ -88,6 +90,17 @@ export async function launchedRoundRows(
     startedAt: row.startedAt?.toISOString() ?? null,
     completedAt: row.completedAt?.toISOString() ?? null,
     outcome: row.outcome,
+    unjudgedRuling: recordedUnjudgedRuling(
+      await tx
+        .select()
+        .from(roundCommands)
+        .where(
+          and(
+            eq(roundCommands.roundId, roundId),
+            eq(roundCommands.type, 'complete'),
+          ),
+        ),
+    ),
     checkpoint: readableCheckpoint(row.runtimeState),
     segments: await segmentRows(tx, roundId),
   };

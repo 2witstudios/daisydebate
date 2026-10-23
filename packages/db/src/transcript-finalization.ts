@@ -29,22 +29,47 @@ export const transcriptFinalizationOperations = (input: {
 });
 
 export type FreezeRequest = LockedRoundTickInput & {
-  /** Injected policy: judges rule until this long after the freeze (DEC-201, DEC-207). */
-  readonly ballotDeadlineMs: number;
+  /**
+   * The caller's judging rule for this freeze (DEC-201, DEC-207, DEC-208): how
+   * long judges may rule after it, and whether AI judges are dispatched.
+   */
+  readonly planJudging: (facts: {
+    readonly completeness: 'complete' | 'incomplete';
+    readonly humanJudges: boolean;
+  }) => {
+    readonly ballotDeadlineMs: number;
+    readonly dispatchAiJudges: boolean;
+  };
 };
-/** The deadline judges rule within, set once from the freeze time (DEC-207). */
-async function persistBallotDeadline(
+/**
+ * Persists the ballot deadline once from the freeze time and queues one AI
+ * judging intent per eligible bot judge, unless the plan withholds AI judging.
+ */
+async function planFrozenJudging(
   tx: BoundedTransactionContext,
   request: FreezeRequest,
+  completeness: 'complete' | 'incomplete',
 ) {
-  if (
-    !Number.isSafeInteger(request.ballotDeadlineMs) ||
-    request.ballotDeadlineMs < 0
-  )
+  const [judges] =
+    (await tx.execute(sql`select exists(select 1 from round_participants p join actors a on a.id=p.actor_id
+    where p.round_id=${request.roundId} and p.role='judge' and a.kind='human') as "humanJudges"`)) as unknown as {
+      humanJudges: boolean;
+    }[];
+  const plan = request.planJudging({
+    completeness,
+    humanJudges: judges!.humanJudges,
+  });
+  if (!Number.isSafeInteger(plan.ballotDeadlineMs) || plan.ballotDeadlineMs < 0)
     throw createAppError('VALIDATION');
   await tx.execute(
-    sql`update rounds set ballot_deadline_at=(select frozen_at from round_transcript_freezes where round_id=${request.roundId})+${request.ballotDeadlineMs}*interval '1 millisecond' where id=${request.roundId}`,
+    sql`update rounds set ballot_deadline_at=(select frozen_at from round_transcript_freezes where round_id=${request.roundId})+${plan.ballotDeadlineMs}*interval '1 millisecond' where id=${request.roundId}`,
   );
+  if (!plan.dispatchAiJudges) return;
+  // Canonical bot eligibility requires its profile, as in actorFact; kind alone is insufficient.
+  await tx.execute(sql`insert into round_judging_jobs (round_id,freeze_revision,judge_participant_id,status,attempts)
+    select ${request.roundId},1,p.id,'queued',0 from round_participants p join actors a on a.id=p.actor_id join bot_profiles b on b.actor_id=a.id
+    where p.round_id=${request.roundId} and p.role='judge' and a.kind='bot'
+    on conflict (round_id,judge_participant_id) do nothing`);
 }
 /** Existing Round/lease/stream operation; a service consumer can recheck its lease after waits. */
 export async function finalizeLockedRoundTranscript(
@@ -87,13 +112,7 @@ export async function finalizeLockedRoundTranscript(
       completeness: state,
     })
     .returning();
-  await persistBallotDeadline(tx, request);
-  // Canonical bot eligibility requires its profile, as in actorFact; kind alone is insufficient.
-  // One durable intent per eligible assigned judge; human-only freezes have none.
-  await tx.execute(sql`insert into round_judging_jobs (round_id,freeze_revision,judge_participant_id,status,attempts)
-    select ${request.roundId},1,p.id,'queued',0 from round_participants p join actors a on a.id=p.actor_id join bot_profiles b on b.actor_id=a.id
-    where p.round_id=${request.roundId} and p.role='judge' and a.kind='bot'
-    on conflict (round_id,judge_participant_id) do nothing`);
+  await planFrozenJudging(tx, request, state);
   return {
     status: 'frozen' as const,
     freeze: { ...freeze!, frozenAt: freeze!.frozenAt.toISOString() },

@@ -17,11 +17,36 @@ export type UnjudgedDecision =
   | { readonly kind: 'pending' }
   | {
       readonly kind: 'complete';
-      readonly ruling: 'unjudged' | 'judges-did-not-rule' | 'partial';
+      readonly ruling:
+        | 'unjudged'
+        | 'judges-did-not-rule'
+        | 'transcript-incomplete'
+        | 'partial';
       readonly outcome: RatedOutcome | null;
       /** Judge seats recorded as giving no ruling. */
       readonly noRuling: readonly string[];
     };
+
+type Completeness = { readonly completeness: 'complete' | 'incomplete' };
+/**
+ * Who may rule on a frozen transcript (DEC-208). An AI judge never decides from
+ * a transcript frozen incomplete, which only a media, capture or speech-to-text
+ * gap produces, so no AI judging is dispatched; with no human judge to rule,
+ * the ruling window closes at the freeze. Human judges keep the full window.
+ */
+export function freezeJudgingPlan(
+  input: Completeness & {
+    /** Whether any judge seat is a human, who heard the Round live. */
+    readonly humanJudges: boolean;
+    readonly ballotDeadlineMs: number;
+  },
+) {
+  const gated = input.completeness === 'incomplete';
+  return {
+    dispatchAiJudges: !gated,
+    ballotDeadlineMs: gated && !input.humanJudges ? 0 : input.ballotDeadlineMs,
+  };
+}
 
 /**
  * When a Round without a full set of ballots completes (DEC-201, DEC-207). A
@@ -30,14 +55,17 @@ export type UnjudgedDecision =
  * freeze; then missing ballots are no ruling. The submitted ballots decide a
  * winner by the existing rule; with none, or a tie the absent rulings would
  * otherwise turn into a draw, the judges did not rule and there is no outcome.
+ * On an incomplete freeze only the human judges can rule (DEC-208): once each
+ * has, a decisive result completes without waiting for the AI seats.
  */
-export function decideUnjudgedCompletion(input: {
-  readonly judgeSeatIds: readonly string[];
-  readonly ballots: readonly Ruling[];
-  /** NaN when no deadline was persisted, which never passes. */
-  readonly ballotDeadlineAtMs: number;
-  readonly nowMs: number;
-}): UnjudgedDecision {
+export function decideUnjudgedCompletion(
+  input: PanelFacts & {
+    readonly ballots: readonly Ruling[];
+    /** NaN when no deadline was persisted, which never passes. */
+    readonly ballotDeadlineAtMs: number;
+    readonly nowMs: number;
+  },
+): UnjudgedDecision {
   if (input.judgeSeatIds.length === 0)
     return {
       kind: 'complete',
@@ -52,7 +80,9 @@ export function decideUnjudgedCompletion(input: {
   );
   const ruled = new Set(submitted.map((ballot) => ballot.judgeParticipantId));
   const noRuling = input.judgeSeatIds.filter((id) => !ruled.has(id));
-  if (noRuling.length === 0 || !(input.nowMs >= input.ballotDeadlineAtMs))
+  const pastDeadline = input.nowMs >= input.ballotDeadlineAtMs;
+  const awaiting = judgesAbleToRule(input).some((id) => !ruled.has(id));
+  if (noRuling.length === 0 || (awaiting && !pastDeadline))
     return { kind: 'pending' };
   const outcome = submitted.length
     ? deriveRoundOutcome(
@@ -60,15 +90,31 @@ export function decideUnjudgedCompletion(input: {
         submitted,
       )
     : null;
-  return outcome === null || outcome === 'draw'
-    ? {
-        kind: 'complete',
-        ruling: 'judges-did-not-rule',
-        outcome: null,
-        noRuling,
-      }
-    : { kind: 'complete', ruling: 'partial', outcome, noRuling };
+  if (outcome !== null && outcome !== 'draw')
+    return { kind: 'complete', ruling: 'partial', outcome, noRuling };
+  if (!pastDeadline) return { kind: 'pending' };
+  return {
+    kind: 'complete',
+    ruling: noOutcomeRuling(input),
+    outcome: null,
+    noRuling,
+  };
 }
+
+type PanelFacts = Completeness & {
+  readonly humanJudgeSeatIds: readonly string[];
+  readonly judgeSeatIds: readonly string[];
+};
+/** On an incomplete freeze only the human judges, who heard the Round live, can rule (DEC-208). */
+const judgesAbleToRule = (input: PanelFacts) =>
+  input.completeness === 'incomplete'
+    ? input.humanJudgeSeatIds
+    : input.judgeSeatIds;
+/** Why a judged Round past its deadline has no outcome. */
+const noOutcomeRuling = (input: PanelFacts) =>
+  judgesAbleToRule(input).length === 0
+    ? ('transcript-incomplete' as const)
+    : ('judges-did-not-rule' as const);
 
 const isClosedActiveRound = (
   c: CommandContext,
@@ -90,6 +136,8 @@ export function applyUnjudgedCompletion(
     .filter((seat) => seat.role === 'judge')
     .map((seat) => seat.id);
   const decision = decideUnjudgedCompletion({
+    completeness: input.completeness,
+    humanJudgeSeatIds: input.humanJudgeSeatIds,
     judgeSeatIds,
     ballots: input.ballots,
     ballotDeadlineAtMs:

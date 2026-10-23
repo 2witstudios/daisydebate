@@ -2,7 +2,10 @@ import type { ErrorReporter } from '@daisy/observability';
 import { workerFailures } from './recoverable-failure';
 import type { App } from './app';
 import { createAttendanceFeature } from '../features/attendance/operations';
-import { createRoundMaintenanceOperations } from '../features/round-finalization/maintenance';
+import {
+  createRoundMaintenanceOperations,
+  ROUND_START_HORIZON_MS,
+} from '../features/round-finalization/maintenance';
 import { startRoundMaintenance } from '../features/round-finalization/service';
 /** The existing availability lease supplies service authority; no new lease/pool is created. */
 export function startRoundCompetitiveMaintenance(input: {
@@ -25,6 +28,7 @@ export function startRoundCompetitiveMaintenance(input: {
       instanceId,
       ids: app.ids,
       evaluate: attendance.evaluate,
+      startHorizonMs: ROUND_START_HORIZON_MS,
     }),
     timers: input.timers,
     failed: workerFailures(app, input.reporter)(

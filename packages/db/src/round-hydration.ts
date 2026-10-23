@@ -23,6 +23,8 @@ export type RoundHydration = {
   readonly resolution: string;
   readonly status: 'scheduled' | 'active' | 'completed' | 'abandoned';
   readonly currentStage: 'countdown' | 'prep' | 'live' | null;
+  /** When the Round was launched (its row's creation), on the database clock. */
+  readonly launchedAt: string;
   readonly startedAt: string | null;
   readonly completedAt: string | null;
   readonly outcome: 'affirmative' | 'negative' | 'draw' | null;
@@ -102,6 +104,7 @@ export async function hydrateRoundRows(
     resolution: row.resolution,
     status: row.status,
     currentStage: row.currentStage,
+    launchedAt: row.createdAt.toISOString(),
     startedAt: row.startedAt?.toISOString() ?? null,
     completedAt: row.completedAt?.toISOString() ?? null,
     outcome: row.outcome,

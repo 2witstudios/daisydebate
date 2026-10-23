@@ -4,7 +4,9 @@ import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   createRoundMaintenanceOperations,
+  ROUND_START_HORIZON_MS,
   DEFAULT_BALLOT_DEADLINE_MS,
+  judgingPlan,
   unjudgedCompletion,
 } from '../src/features/round-finalization/maintenance';
 import { roundTickProjection } from '../src/features/round-finalization/operations';
@@ -29,7 +31,7 @@ test('internal zerojudge completion requires real freeze and settled attendance 
       freezeRevision: 1,
       buildProjection: roundTickProjection(createId),
       buildCompletion: unjudgedCompletion(createId),
-      ballotDeadlineMs: DEFAULT_BALLOT_DEADLINE_MS,
+      planJudging: judgingPlan(DEFAULT_BALLOT_DEADLINE_MS),
     };
     try {
       await assertRejects({
@@ -92,6 +94,7 @@ test('internal zerojudge completion requires real freeze and settled attendance 
         commandId: createId(),
       });
       const maintenance = await createRoundMaintenanceOperations({
+        startHorizonMs: ROUND_START_HORIZON_MS,
         store: f.store,
         instanceId,
         ids: { next: createId },
@@ -143,7 +146,7 @@ test('internal zerojudge completion preserves a prior competitive abandonment an
       freezeRevision: 1,
       buildProjection: roundTickProjection(createId),
       buildCompletion: unjudgedCompletion(createId),
-      ballotDeadlineMs: DEFAULT_BALLOT_DEADLINE_MS,
+      planJudging: judgingPlan(DEFAULT_BALLOT_DEADLINE_MS),
     };
     try {
       const active = await f.store.getRound(roundId);

@@ -28,6 +28,7 @@ export const lockedRound: LockedRoundCommandContext = {
     formatVersion: 1,
     resolution: launched.topic,
     currentStage: null,
+    launchedAt: '2026-10-10T12:00:00.000Z',
     checkpoint: emptyRuntimeCheckpoint,
     participants: [
       { id: seat.id, actorId: seat.actorId, role: seat.role, slot: seat.slot },

@@ -12,7 +12,18 @@ export type RoundUnjudgedCompletion = {
     readonly status: 'submitted' | 'voided';
   }[];
   readonly ballotDeadlineAt: string | null;
+  /** The frozen transcript's completeness and the human judge seats (DEC-208). */
+  readonly completeness: 'complete' | 'incomplete';
+  readonly humanJudgeSeatIds: readonly string[];
 };
+
+/** Why the unjudged finalizer completed a Round (DEC-201, DEC-207, DEC-208). */
+export const unjudgedRulingSchema = z.enum([
+  'unjudged',
+  'judges-did-not-rule',
+  'transcript-incomplete',
+  'partial',
+]);
 
 /**
  * One durable finalization command; replay keeps its original result. A
@@ -27,7 +38,7 @@ export const roundUnjudgedReceiptSchema = z.strictObject({
   freezeRevision: z.int().positive(),
   resultingVersion: z.int().positive(),
   status: z.literal('completed'),
-  ruling: z.enum(['unjudged', 'judges-did-not-rule', 'partial']),
+  ruling: unjudgedRulingSchema,
   outcome: z.enum([...debateSides, 'draw']).nullable(),
   noRuling: z.array(idSchema).readonly(),
   replayed: z.boolean(),
