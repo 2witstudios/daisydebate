@@ -1,7 +1,7 @@
 import { createAppError } from '@daisy/errors';
 import { and, eq, sql } from 'drizzle-orm';
 import type { z } from 'zod';
-import { captureClipSchema, captureDigest } from './capture-input';
+import type { captureClipSchema } from './capture-input';
 import {
   captureHistory,
   advanceTranscriptRevision,
@@ -16,39 +16,10 @@ import {
 } from './media-capture-context';
 import { transcriptSegments } from './schema/transcript-segments';
 import { utterances } from './schema/utterances';
-import type { roundSegments } from './schema/round-segments';
-import type { CaptureInterval } from './capture-coverage';
+import { clipDigests, requireCapturedWindow } from './capture-rules';
 
 type Clip = z.infer<typeof captureClipSchema>;
-function requireCapturedWindow(
-  input: Clip,
-  context: {
-    readonly segment: typeof roundSegments.$inferSelect;
-    readonly now: Date;
-  },
-  history: readonly CaptureInterval[],
-) {
-  const { segment, now } = context;
-  const before = Date.parse(input.before),
-    after = Date.parse(input.after);
-  const nominal = segment.startedAt.getTime() + input.startOffsetMs;
-  if (
-    before >= after ||
-    after > now.getTime() ||
-    before > nominal ||
-    after < nominal + input.durationMs ||
-    !history.some(
-      (grant) =>
-        grant.start <= before && (grant.end === null || after < grant.end),
-    ) ||
-    after >=
-      Math.min(
-        segment.endedAt?.getTime() ?? Infinity,
-        segment.startedAt.getTime() + segment.durationMs,
-      )
-  )
-    throw createAppError('CONFLICT', 'Capture window is ineligible');
-}
+
 export async function appendCapturedTranscript(
   tx: CaptureTx,
   input: Clip,
@@ -57,22 +28,9 @@ export async function appendCapturedTranscript(
   const context = await captureWriteContext(tx, input, dependencies);
   const { segment, stream, now } = context;
   const history = await captureHistory(tx, input, segment);
-  requireCapturedWindow(input, { segment, now }, history);
+  requireCapturedWindow(input, segment, now, history);
   const after = Date.parse(input.after);
-  const clipKey = captureDigest([
-    input.roundId,
-    input.segmentId,
-    input.roundParticipantId,
-    input.trackId,
-    input.startOffsetMs,
-  ]);
-  const bodyDigest = captureDigest([
-    clipKey,
-    input.durationMs,
-    input.text,
-    input.before,
-    input.after,
-  ]);
+  const { clipKey, bodyDigest } = clipDigests(input);
   const [existing] = await tx
     .select({ digest: utterances.captureBodyDigest })
     .from(utterances)

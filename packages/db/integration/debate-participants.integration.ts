@@ -143,11 +143,14 @@ test('round_participants is the authoritative seat record', async () => {
 test('a judge seat with a submitted ballot is RESTRICTed from deletion', async () => {
   await withFixture(url, async (fixture) => {
     const roundId = await fixture.round();
+    const freezeRevision = await fixture.freeze(roundId);
     const seat = await fixture.seat(roundId, 'judge');
     await fixture.insert(
       'ballots',
       {
         id: createId(),
+        round_id: roundId,
+        freeze_revision: freezeRevision,
         judge_participant_id: seat.id,
         rubric_version: 'speaker-10@1',
         winner: 'affirmative',

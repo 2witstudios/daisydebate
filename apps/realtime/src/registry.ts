@@ -131,7 +131,7 @@ export function createSubscriptionRegistry({
     failed,
     publish,
     event,
-    transport: { detach, current, nativeTopic },
+    transport: { detach, current, nativeTopic, resync },
     remove,
   });
   return {

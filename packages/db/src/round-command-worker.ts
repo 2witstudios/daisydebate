@@ -4,7 +4,20 @@ import type { RoundHydration } from './round-hydration';
 import type { RoundWriteTransaction } from './round-write-authority';
 import { roundBotPublications } from './schema/round-bot-publications';
 
-type Claim = typeof roundBotPublications.$inferSelect;
+type Claim = Pick<
+  typeof roundBotPublications.$inferSelect,
+  | 'segmentId'
+  | 'agentRunId'
+  | 'serviceId'
+  | 'publicationEpoch'
+  | 'leaseExpiresAt'
+>;
+type WorkerRound = Pick<RoundHydration, 'id' | 'status'> & {
+  readonly segments: readonly Pick<
+    RoundHydration['segments'][number],
+    'id' | 'startedAt' | 'endedAt' | 'durationMs'
+  >[];
+};
 export async function lockRoundCommandWorker(
   tx: RoundWriteTransaction,
   principal: RoundCommandPrincipal,
@@ -28,7 +41,7 @@ export function roundCommandWorkerActive(input: {
   readonly claim: Claim | null;
   readonly kind: string | null;
   readonly configuration: Record<string, unknown> | null;
-  readonly round: RoundHydration;
+  readonly round: WorkerRound;
   readonly now: string;
 }): boolean {
   const { principal, claim, configuration, kind, round, now } = input;
@@ -54,7 +67,7 @@ export function roundCommandWorkerActive(input: {
   );
 }
 function currentWorkerSegment(
-  round: RoundHydration,
+  round: WorkerRound,
   segmentId: string,
   now: string,
 ): boolean {

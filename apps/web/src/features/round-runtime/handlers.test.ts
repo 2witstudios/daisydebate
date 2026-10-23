@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { silentLogger } from '../../server/test-loggers.test-support';
+import { memberGate } from './member-gate.test-support';
 import { createRoundHandlers } from './handlers';
 setupRitewayBun();
 const id = 'a'.repeat(24),
@@ -13,23 +13,7 @@ const envelope = {
 const fixture = () => {
   let calls = 0;
   const handlers = createRoundHandlers({
-    logger: silentLogger,
-    identify: async () => ({
-      state: 'member',
-      username: 'Member',
-      principal: { kind: 'user', userId: id, actorId: id },
-    }),
-    origin: () => origin,
-    getActorByUserId: async () => ({ id }),
-    limiter: () => ({
-      consume: async () => ({ allowed: true, retryAfterSeconds: 0 }),
-    }),
-    limits: {
-      read: { max: 10, windowSeconds: 60 },
-      command: { max: 10, windowSeconds: 60 },
-    },
-    active: () => true,
-    maxBodyBytes: 4096,
+    ...memberGate(id, origin),
     operations: {
       command: async () => {
         calls++;
@@ -41,8 +25,18 @@ const fixture = () => {
         };
       },
     },
-    view: async () => ({ id, version: 2 }) as never,
-    utterances: async () => [],
+    view: async () =>
+      ({
+        id,
+        version: 2,
+        participants: [{ id: 'seat' }],
+        segments: [{ id: 'segment' }],
+      }) as never,
+    utterances: async (
+      _caller: unknown,
+      roundId: string,
+      segmentId: string,
+    ) => [{ roundId, segmentId }],
   });
   return { handlers, calls: () => calls };
 };
@@ -96,5 +90,44 @@ test('the command route takes only the JSON envelope; no form-encoded side door 
     should: 'refuse it before any operation runs',
     actual: { status: response.status, calls: f.calls() },
     expected: { status: 400, calls: 0 },
+  });
+});
+
+test('Round reads return only their slice of the viewer projection', async () => {
+  const f = fixture();
+  const get = (path: string) => new Request(`${origin}${path}`);
+  const [participants, segments, utterances, malformed] = await Promise.all([
+    f.handlers.participants(get(`/api/rounds/${id}/participants`), id),
+    f.handlers.segments(get(`/api/rounds/${id}/segments`), id),
+    f.handlers.utterances(
+      get(`/api/rounds/${id}/segments/${id}/utterances`),
+      id,
+      id,
+    ),
+    f.handlers.utterances(
+      get(`/api/rounds/${id}/segments/x/utterances`),
+      id,
+      'x',
+    ),
+  ]);
+  assert({
+    given:
+      'a member reading participants, segments, utterances and a malformed segment',
+    should:
+      'answer each with its versioned slice, pass validated ids through, and refuse the malformed id',
+    actual: [
+      await participants.json(),
+      await segments.json(),
+      await utterances.json(),
+      malformed.status,
+      f.calls(),
+    ],
+    expected: [
+      { roundId: id, version: 2, participants: [{ id: 'seat' }] },
+      { roundId: id, version: 2, segments: [{ id: 'segment' }] },
+      [{ roundId: id, segmentId: id }],
+      400,
+      0,
+    ],
   });
 });

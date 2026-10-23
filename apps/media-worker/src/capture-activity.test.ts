@@ -80,7 +80,7 @@ test('a new segment starts a fresh window that names its segment', () => {
   relay.observe(staged(host, 3, 'n'.repeat(24)));
   assert({
     given: 'two frames in one segment, then one in the next',
-    should: 'send only the new segment\'s frames, naming that segment',
+    should: "send only the new segment's frames, naming that segment",
     actual: relay
       .take()
       .map((b) => [b.segmentId, b.frames.map((f) => f.sequence)]),

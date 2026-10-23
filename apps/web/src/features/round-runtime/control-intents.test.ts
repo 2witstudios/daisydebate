@@ -75,3 +75,34 @@ test('Round controls follow existing runtime position and preserve floor command
     expected: [],
   });
 });
+
+test('between segments, prep is offered only before an own speech while prep is still spendable', () => {
+  const between = ran(4);
+  const now = Date.parse(
+    at(startOf(3) + between.rules.segments[3]!.durationMs + 1),
+  );
+  const prep = between.rules.inRoundPrep!;
+  const intents = (inRoundPrep: typeof prep | null) =>
+    roundControlIntents(
+      { ...between, rules: { ...between.rules, inRoundPrep } },
+      aff.actorId,
+      now,
+    ).map((c) => c.type);
+  assert({
+    given:
+      'the gap before the affirmative 1AR with prep, prep expiring at 1AR, prep expiring at 2AR, and no in-round prep',
+    should: 'offer prep only while it can still be spent before 1AR',
+    actual: [
+      intents(prep),
+      intents({ ...prep, expiresAtSegment: '1AR' }),
+      intents({ ...prep, expiresAtSegment: '2AR' }),
+      intents(null),
+    ],
+    expected: [
+      ['start_prep', 'forfeit'],
+      ['forfeit'],
+      ['start_prep', 'forfeit'],
+      ['forfeit'],
+    ],
+  });
+});
