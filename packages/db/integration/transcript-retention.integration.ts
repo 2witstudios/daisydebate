@@ -1,27 +1,17 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { ballotCategories, ballotSchema } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { roundTranscriptPrivacyAdopter } from '../src/round-transcript-privacy';
 import { transcriptRetention } from '../src/transcript-retention';
 import type { Fixture } from './constraint-helpers';
 import { validRules } from './round-fixtures';
-import { withJudgingJob } from './round-judging.test-support';
+import {
+  syntheticPendingBallot as pending,
+  withJudgingJob,
+} from './round-judging.test-support';
 setupRitewayBun();
 
 const recordedAt = '2026-01-01T00:00:00.000Z';
-const pending = ballotSchema.parse({
-  rubricVersion: 'speaker-10@1',
-  winner: 'affirmative',
-  scores: Object.fromEntries(
-    ['affirmative', 'negative'].map((side) => [
-      side,
-      Object.fromEntries(ballotCategories.map((category) => [category, 3])),
-    ]),
-  ),
-  reason: 'Quotes both debaters',
-  feedback: {},
-});
 
 /**
  * Two human debaters who each said one line in the first speech, and the AI
