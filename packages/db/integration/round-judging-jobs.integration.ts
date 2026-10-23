@@ -9,16 +9,9 @@ import { createBotSeat } from './bot-seat.test-support';
 import { withBoundedRound } from './bounded-transaction.test-support';
 import { createRoundJudgingJobs } from '../src/round-judging-jobs';
 import { createRoundBotAdmission } from '../src/round-bot-admission';
-import type { Fixture } from './constraint-helpers';
+import { judgingSponsor } from './round-judging.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
-async function judgingSponsor(fixture: Fixture, roundId: string) {
-  const userId = await fixture.user();
-  await fixture.sql`update users set email_verified=true where id=${userId}`;
-  const actorId = await fixture.actor(userId);
-  await fixture.sql`update rounds set created_by_actor_id=${actorId} where id=${roundId}`;
-  return actorId;
-}
 
 test('durable judging claims fence epochs and preserve one command across recovery', async () => {
   await withBoundedRound(async (fixture, run, roundId) => {

@@ -6,7 +6,10 @@ import type { BoundedTransaction } from './bounded-transaction';
 import { agentRuns } from './schema/agent-runs';
 import { roundJudgingJobs } from './schema/round-judging-jobs';
 import { rounds } from './schema/rounds';
-import { lockRoundAgentContext } from './round-agent-runs';
+import {
+  endLockedRoundAgentRun,
+  lockRoundAgentContext,
+} from './round-agent-runs';
 import {
   assertLockedJudgingLease,
   judgingJobWhere,
@@ -26,6 +29,41 @@ import {
   requireUndispatched,
 } from './round-judging-decisions';
 export type { JudgingScope } from './round-judging-context';
+/** Paid model calls one judging job may buy over all its leases (ISSUE-461). */
+const MAX_JUDGING_CALLS = 2;
+/**
+ * One paid answer per attempt, a bounded number of attempts (DEC-210's rule
+ * for judges): a job that already bought its calls, or whose ballot deadline
+ * has passed, buys nothing more. Calls that may have been served count.
+ */
+async function judgingDispatchEnded(
+  tx: BoundedTransactionContext,
+  scope: JudgingScope,
+) {
+  const [facts] = (await tx.execute(sql`select
+    (select count(*)::int from agent_runs
+      where round_participant_id=${scope.judgeParticipantId} and kind='judging'
+        and configuration_snapshot->>'commandId'=${scope.commandId}
+        and configuration_snapshot->>'providerOutcome' in ('unknown','received')) as paid,
+    (select coalesce(ballot_deadline_at<=clock_timestamp(),false) from rounds
+      where id=${scope.roundId}) as late`)) as unknown as {
+    paid: number;
+    late: boolean;
+  }[];
+  return facts!.paid >= MAX_JUDGING_CALLS || facts!.late;
+}
+/** The terminal state: no lease, never rediscovered; DEC-201's deadline completes the Round. */
+async function failLockedJudgingJob(
+  tx: BoundedTransactionContext,
+  scope: JudgingScope,
+  runId: string,
+) {
+  await endLockedRoundAgentRun(tx, runId, scope.judgeParticipantId);
+  await tx
+    .update(roundJudgingJobs)
+    .set({ status: 'failed', leaseTokenDigest: null, leaseExpiresAt: null })
+    .where(judgingJobWhere(scope));
+}
 /** Durable intents use the same injected bounded transaction; no provider I/O occurs under locks. */
 export function createRoundJudgingJobs(input: {
   readonly run: BoundedTransaction;
@@ -112,6 +150,10 @@ export function createRoundJudgingJobs(input: {
         token,
         async (tx, { run, job }) => {
           requireUndispatched(job, run);
+          if (await judgingDispatchEnded(tx, scope)) {
+            await failLockedJudgingJob(tx, scope, run.id);
+            return null;
+          }
           const reservation = await markLockedRoundBotModelCall(
             tx,
             scope.roundId,

@@ -38,7 +38,9 @@ export function createRoundJudgingOperations(input: {
           if ((await verify()).pendingBallot) return;
           const messages = frozenJudgingMessages(claim);
           const voice = input.voice();
-          await input.store.beginRoundJudgingModelCall(scope, token);
+          // The job may buy no more calls: it has ended failed (ISSUE-461).
+          if (!(await input.store.beginRoundJudgingModelCall(scope, token)))
+            throw createAppError('CONFLICT', 'Judging attempts exhausted');
           const answer = await voice.complete({
             model: claim.model,
             messages,
