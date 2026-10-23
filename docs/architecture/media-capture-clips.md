@@ -59,7 +59,10 @@ The calibration only maps each contiguous run onto server time, once, at its
 first frame, whose 10 ms period ends at its callback. The track's first run
 takes its nominal start from that mapping; every later run continues the
 track's sequence, so no calibration shift can shrink or close a gap
-(ISSUE-466-r6). A refresh never moves a running run. The common bounds cover
+(ISSUE-466-r6). A counter that goes backwards on the same track is a new
+native stream: its run is placed by the calibration, at least one frame after
+the last, never contiguously (ISSUE-466-r7). A refresh never moves a running
+run. The common bounds cover
 both calibration endpoints, sample quantization and 100 ppm drift; a run maps
 only under an RTT of at most 100 ms and a calibration at most 30 s old, and a
 frame refused for an unusable calibration is a gap. Each frame's bracket is the

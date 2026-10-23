@@ -36,7 +36,10 @@ const usable = (calibration: ClockCalibration, atMs: number) =>
  * whatever their arrival timing, and each missing one is exactly a 10 ms gap.
  * The track's first run takes its nominal start from the calibration (its first
  * frame's 10 ms period ends at its callback); every later run continues the
- * track's sequence, so no clock shift can shrink or close a gap. The
+ * track's sequence, so no clock shift can shrink or close a gap. A counter that
+ * goes backwards is a new native stream on the same track: its run is placed
+ * by the calibration, at least one frame after the last, never contiguously
+ * (ISSUE-466-r7). The
  * calibration maps each run onto server time once, at its first frame, and a
  * refresh never moves a run. Each frame's bracket is that mapping advanced by
  * its sequence and widened by 100 ppm drift, joined with its nominal span, so
@@ -59,9 +62,12 @@ export function createCaptureClock(initial: ClockCalibration) {
     const lowerMs = frame.beforeMs - 10 + offsets.lower;
     return {
       sequence: frame.sequence,
-      nominalStartMs: last
-        ? last.nominalStartMs + Math.max(frame.sequence - last.sequence, 1) * 10
-        : Math.ceil(lowerMs),
+      nominalStartMs: !last
+        ? Math.ceil(lowerMs)
+        : frame.sequence > last.sequence
+          ? last.nominalStartMs + (frame.sequence - last.sequence) * 10
+          : // A counter reset is a new native stream: place it by the clock, never contiguous.
+            Math.max(Math.ceil(lowerMs), last.nominalStartMs + 20),
       lowerMs,
       upperMs: frame.afterMs + offsets.upper,
     };
