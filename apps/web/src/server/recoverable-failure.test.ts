@@ -1,4 +1,5 @@
 import { createAppError } from '@daisy/errors';
+import { publicationStopError, publicationStopOf } from '@daisy/media/audio';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { recoverableFailure } from './recoverable-failure';
 setupRitewayBun();
@@ -121,6 +122,49 @@ test('a slow stage that keeps being refused is still reported', () => {
         operation: 'round.maintenance.renew.capacity',
         errorCode: 'INFRASTRUCTURE',
       },
+    ],
+  });
+});
+
+test('a bot publish failure names its stop, and nothing else of the error', () => {
+  const lines: unknown[][] = [];
+  const failed = recoverableFailure({
+    isCapacity: () => false,
+    logger: { log: (...line) => lines.push(line) },
+    reporter: { capture: () => undefined },
+    nextId: () => 'r4n6p8r2t4v6x8z1k3b5c7d9',
+    event: 'round.speaking.failed',
+    operation: 'round.speaking',
+    message: 'Bot speech stays uncredited',
+    cause: publicationStopOf,
+  });
+  failed(publicationStopError('stall', 'stopped token=abc'), 'publish');
+  failed(
+    publicationStopError('handoff', 'Native audio handoff failed'),
+    'publish',
+  );
+  failed(
+    createAppError('INFRASTRUCTURE', 'other', { stop: 'token=abc' }),
+    'publish',
+  );
+  assert({
+    given:
+      'a stalled publish, a failed native handoff and an error with a forged stop (ISSUE-514-r1)',
+    should:
+      'log the stall and handoff as the cause, and no cause for a code outside the fixed set',
+    actual: lines.map((line) => line[1]),
+    expected: [
+      {
+        operation: 'round.speaking.publish',
+        errorCode: 'INFRASTRUCTURE',
+        cause: 'stall',
+      },
+      {
+        operation: 'round.speaking.publish',
+        errorCode: 'INFRASTRUCTURE',
+        cause: 'handoff',
+      },
+      { operation: 'round.speaking.publish', errorCode: 'INFRASTRUCTURE' },
     ],
   });
 });

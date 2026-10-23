@@ -27,11 +27,18 @@ export function recoverableFailure(input: {
   readonly event: EventName;
   readonly operation: string;
   readonly message: string;
+  /** A fixed code naming why the work failed, read from a typed error. */
+  readonly cause?: (error: unknown) => string | undefined;
 }) {
   const deferrals = new Map<string, number>();
   const report = (error: unknown, operation: string) => {
     const errorCode = isAppError(error) ? error.code : 'INTERNAL';
-    input.logger.log(input.event, { operation, errorCode }, input.message);
+    const cause = input.cause?.(error);
+    input.logger.log(
+      input.event,
+      { operation, errorCode, ...(cause ? { cause } : {}) },
+      input.message,
+    );
     input.reporter.capture(error, {
       requestId: input.nextId(),
       route: operation,
@@ -52,7 +59,12 @@ export function recoverableFailure(input: {
 /** The process's worker failure sinks: its logger, clock and ids, with real pool backpressure. */
 export const workerFailures =
   (app: App, reporter: ErrorReporter = noopErrorReporter) =>
-  (event: EventName, operation: string, message: string) =>
+  (
+    event: EventName,
+    operation: string,
+    message: string,
+    cause?: (error: unknown) => string | undefined,
+  ) =>
     recoverableFailure({
       logger: app.logger,
       reporter,
@@ -61,4 +73,5 @@ export const workerFailures =
       event,
       operation,
       message,
+      ...(cause ? { cause } : {}),
     });

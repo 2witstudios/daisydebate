@@ -19,47 +19,62 @@ function stubWriter(options: {
   const captured: number[] = [];
   const accepted: number[] = [];
   const sent: number[] = [];
-  const write = createPacedAudioWriter({
-    publication: {
-      capture10ms: async (frame: Int16Array) => {
-        captured.push(frame.length);
-        const beforeMs = now;
-        now += 1;
-        const startSample = sample;
-        sample += frame.length;
-        return { startSample, endSample: sample, beforeMs, afterMs: now };
+  let closes = 0;
+  const writer = () =>
+    createPacedAudioWriter({
+      publication: {
+        capture10ms: async (frame: Int16Array) => {
+          captured.push(frame.length);
+          const beforeMs = now;
+          now += 1;
+          const startSample = sample;
+          sample += frame.length;
+          return { startSample, endSample: sample, beforeMs, afterMs: now };
+        },
+        sentSamples: () => sample,
+        close: async () => {
+          closes += 1;
+        },
+      } as never,
+      sampleRate: 24_000,
+      channels: 1,
+      nowMs: () => now,
+      waitUntilMs: async (due) => {
+        now = Math.max(now, due) + (options.stalls?.includes(waits) ? 150 : 0);
+        waits += 1;
       },
-      close: async () => undefined,
-    } as never,
-    sampleRate: 24_000,
-    channels: 1,
-    nowMs: () => now,
-    waitUntilMs: async (due) => {
-      now = Math.max(now, due) + (options.stalls?.includes(waits) ? 150 : 0);
-      waits += 1;
-    },
-    calibrate: async () => ({
-      sentAtMs: 999,
-      receivedAtMs: 1_000,
-      serverNowMs: SERVER_OFFSET_MS + 1_000,
-      precisionMs: 1,
-    }),
-    framesPerAuthorization: options.framesPerAuthorization,
-    ...(options.segmentEndsAtMs === undefined
-      ? {}
-      : { segmentEndsAtMs: options.segmentEndsAtMs }),
-    authorizeWindow: async (window) => {
-      windows.push(window);
-      return windows.length !== options.refuseWindow;
-    },
-    onAccepted: (eligibleSamples) => {
-      accepted.push(eligibleSamples);
-    },
-    onSent: (sentSamples) => {
-      sent.push(sentSamples);
-    },
-  });
-  return { write, windows, captured, accepted, sent };
+      calibrate: async () => ({
+        sentAtMs: 999,
+        receivedAtMs: 1_000,
+        serverNowMs: SERVER_OFFSET_MS + 1_000,
+        precisionMs: 1,
+      }),
+      framesPerAuthorization: options.framesPerAuthorization,
+      ...(options.segmentEndsAtMs === undefined
+        ? {}
+        : { segmentEndsAtMs: options.segmentEndsAtMs }),
+      authorizeWindow: async (window) => {
+        windows.push(window);
+        return windows.length !== options.refuseWindow;
+      },
+      onAccepted: (eligibleSamples) => {
+        accepted.push(eligibleSamples);
+      },
+      onSent: (sentSamples) => {
+        sent.push(sentSamples);
+      },
+    });
+  const write = writer();
+  return {
+    write,
+    /** A new job on the same publication, as the next attempt is. */
+    next: writer,
+    windows,
+    captured,
+    accepted,
+    sent,
+    closes: () => closes,
+  };
 }
 const signal = () => new AbortController().signal;
 
@@ -228,5 +243,43 @@ test('a frame that stays late after re-anchoring ends the job incomplete, not at
       complete: false,
       segmentEnded: false,
     },
+  });
+});
+
+test('the next job on the same publication sends and credits its own frames (ISSUE-514-r1)', async () => {
+  const stub = stubWriter({ framesPerAuthorization: 10, stalls: [5, 6] });
+  const first = await stub.write(new Int16Array(240 * 25), signal());
+  const second = await stub.next()(new Int16Array(240 * 20), signal());
+  assert({
+    given:
+      'a first attempt that stalls twice and stops, then a retry on the same track',
+    should:
+      'leave the publication open, then send and credit the whole retry counted from its own start',
+    actual: {
+      first: [first.complete, first.stop],
+      second: [second.complete, second.eligibleSamples, second.stop],
+      captured: stub.captured.length,
+      closes: stub.closes(),
+    },
+    expected: {
+      first: [false, 'stall'],
+      second: [true, 4800, null],
+      captured: 25,
+      closes: 0,
+    },
+  });
+});
+
+test('a job stopped by a refused window names the refusal; a whole job names nothing', async () => {
+  const refused = stubWriter({ framesPerAuthorization: 1, refuseWindow: 2 });
+  const whole = stubWriter({ framesPerAuthorization: 10 });
+  assert({
+    given: 'one job whose second window is refused and one sent whole',
+    should: 'report the stop as refused, and no stop for the whole job',
+    actual: [
+      (await refused.write(new Int16Array(720), signal())).stop,
+      (await whole.write(new Int16Array(240 * 25), signal())).stop,
+    ],
+    expected: ['refused', null],
   });
 });

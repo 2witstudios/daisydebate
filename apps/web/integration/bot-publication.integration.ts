@@ -1,4 +1,5 @@
 import { createId } from '@paralleldrive/cuid2';
+import { createAudioPublication } from '@daisy/media/audio';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createBotPublisher } from '../src/features/round-bots/publication';
@@ -14,7 +15,9 @@ async function publishOnce(segmentEndsAt?: string) {
   let outcome:
     | {
         readonly result: Awaited<
-          ReturnType<ReturnType<typeof createBotPublisher>>
+          ReturnType<
+            ReturnType<ReturnType<typeof createBotPublisher>>['publish']
+          >
         >;
         readonly transcript: number;
       }
@@ -24,17 +27,21 @@ async function publishOnce(segmentEndsAt?: string) {
     const { roundId, claim } = await ownSpeech(f);
     const deps = mediaDependencies(f);
     const media = createRoundMediaOperations(deps);
+    const claimed = createBotPublisher({
+      store: f.store,
+      botToken: media.botToken,
+      connect: createAudioPublication,
+      nextId: createId,
+      monotonicNowMs: () => performance.now(),
+      waitUntilMs: async (due, signal) => {
+        while (!signal.aborted && performance.now() < due)
+          await Bun.sleep(Math.max(1, due - performance.now()));
+      },
+    })(claim);
     try {
-      const publish = createBotPublisher({
-        store: f.store,
-        botToken: media.botToken,
-        monotonicNowMs: () => performance.now(),
-        waitUntilMs: async (due, signal) => {
-          while (!signal.aborted && performance.now() < due)
-            await Bun.sleep(Math.max(1, due - performance.now()));
-        },
-      });
-      const result = await publish(
+      // Joined with the claim, ahead of speech, as the seat does.
+      claimed.start();
+      const result = await claimed.publish(
         {
           scope: claim.scope,
           token: claim.token,
@@ -54,6 +61,7 @@ async function publishOnce(segmentEndsAt?: string) {
         ).length,
       };
     } finally {
+      await claimed.close();
       const [session] =
         await f.sql`select room_name from media_sessions where round_id=${roundId}`;
       if (session && (await deps.media.exists(session.room_name)))
