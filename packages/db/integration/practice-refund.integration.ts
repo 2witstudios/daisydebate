@@ -81,7 +81,7 @@ test('an AI practice is refunded once when its Round ends without a served model
     given:
       'bot Rounds abandoned with no model call, one definitely failed call, one call in flight and one received call',
     should:
-      'refund the practice whose only call definitely failed, once; keep the ones that may have been served; leave an uncounted one to the schema rule (ISSUE-469)',
+      'refund the practice whose only call definitely failed, once; keep the ones that may have been served; never refund an uncounted one, which stops spending at Round end instead (ISSUE-469)',
     actual: outcomes,
     expected: {
       none: false,

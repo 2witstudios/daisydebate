@@ -79,9 +79,10 @@ async function countLockedReservation(
 /**
  * Called once a Round turns terminal, under its lock. A counted AI practice
  * whose every model call (bot or judge) definitely failed, none received or
- * unknown, gives its allowance back. A practice never counted cannot be
- * refunded under usage_reservations_refund_check (ISSUE-469). The refunded_at guard
- * makes a repeat a no-op on any instance (ADR 0058, DEC-211).
+ * unknown, gives its allowance back. A practice never counted needs no
+ * refund: the allowance spends a reservation only once counted or while its
+ * Round is live (ISSUE-469). The refunded_at guard makes a repeat a no-op on
+ * any instance (ADR 0058, DEC-211).
  */
 export async function refundUnservedPracticeLocked(
   tx: Pick<BoundedTransactionContext, 'execute'>,
@@ -122,8 +123,10 @@ async function admissionStatus(
 ) {
   const allowance = await readBotAllowance(tx, actorId, now);
   const [facts] = await tx.execute(sql`select
-    (select count(*)::int from usage_reservations where actor_id=${actorId} and kind='ai_practice' and refunded_at is null
-      and reserved_at>=${allowance.start} and reserved_at<${allowance.end}) as spent,
+    (select count(*)::int from usage_reservations u where u.actor_id=${actorId} and u.kind='ai_practice' and u.refunded_at is null
+      and u.reserved_at>=${allowance.start} and u.reserved_at<${allowance.end}
+      and (u.counted_at is not null
+        or exists(select 1 from rounds r where r.id=u.round_id and r.status in ('scheduled','active')))) as spent,
     (select count(distinct u.round_id)::int from usage_reservations u join rounds r on r.id=u.round_id
       where u.kind='ai_practice' and r.status in ('scheduled','active')) as busy`);
   const value = facts as { spent: number; busy: number };
