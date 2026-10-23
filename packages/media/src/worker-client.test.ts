@@ -273,7 +273,7 @@ test('an elapsed call deadline ends the retries', async () => {
   }
 });
 
-test('only a 4xx answer is a definite refusal', async () => {
+test('only a 4xx refusal other than a timeout or rate limit is definite', async () => {
   const outcome = async (reply: () => Response) => {
     const f = localClient(reply);
     try {
@@ -286,14 +286,16 @@ test('only a 4xx answer is a definite refusal', async () => {
     }
   };
   assert({
-    given: 'a 409, a 403, and a 503 that outlasts every retry',
+    given: 'a 409, a 403, a 408, a 429, and a 503 that outlasts every retry',
     should:
-      'mark the 4xx refusals definite and leave the exhausted 503 uncertain',
+      'mark the 409 and 403 definite; a timeout, a rate limit and the exhausted 503 stay uncertain (VIDEO-4.1-r4)',
     actual: [
       await outcome(() => new Response(null, { status: 409 })),
       await outcome(() => new Response(null, { status: 403 })),
+      await outcome(() => new Response(null, { status: 408 })),
+      await outcome(() => new Response(null, { status: 429 })),
       await outcome(() => new Response(null, { status: 503 })),
     ],
-    expected: [true, true, false],
+    expected: [true, true, false, false, false],
   });
 });

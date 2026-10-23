@@ -11,7 +11,7 @@ import {
 } from '@daisy/protocol';
 import { MAINTENANCE_PULSE_MS } from '../../src/features/round-finalization/service';
 import { expect, openPage } from './fixtures';
-import { currentRoundCommand, readBallotRound } from './human-ballot-round';
+import { currentRoundForfeit, readBallotRound } from './human-ballot-round';
 import { attendanceEvidence } from './attendance-evidence';
 import { observeAttendanceSockets } from './attendance-socket';
 
@@ -20,10 +20,7 @@ export async function closeAttendedFixture(
   roundId: string,
   participantId: string,
 ) {
-  await currentRoundCommand(request, roundId, {
-    type: 'forfeit',
-    participantId,
-  });
+  await currentRoundForfeit(request, roundId, participantId);
 }
 
 export async function healthyAttendance(roundId: string) {
