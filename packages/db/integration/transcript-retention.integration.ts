@@ -1,4 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { roundTranscriptPrivacyAdopter } from '../src/round-transcript-privacy';
@@ -10,6 +11,7 @@ import {
   withJudgingJob,
 } from './round-judging.test-support';
 setupRitewayBun();
+requireTestServices(process.env);
 
 const recordedAt = '2026-01-01T00:00:00.000Z';
 
