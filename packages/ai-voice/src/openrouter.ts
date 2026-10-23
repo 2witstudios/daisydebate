@@ -43,6 +43,19 @@ const completionSchema = z.object({
 });
 const transcriptionSchema = z.object({ text: z.string() });
 
+const definiteFailures = new WeakSet<Error>();
+/**
+ * The vendor certainly did not serve the call: it answered with a refusal, or
+ * the call was cancelled before it was sent. Nothing else is certain, since an
+ * unreachable or unreadable call may still have been served and billed.
+ */
+export const isDefiniteProviderFailure = (error: unknown): boolean =>
+  error instanceof Error && definiteFailures.has(error);
+const definite = (error: Error) => {
+  definiteFailures.add(error);
+  return error;
+};
+
 /**
  * The OpenRouter adapter behind the TTS, STT and LLM ports. Every failure,
  * timeout or malformed answer is an `INFRASTRUCTURE` AppError whose cause
@@ -67,7 +80,10 @@ export function createOpenRouter({
     ...(appUrl ? { 'HTTP-Referer': appUrl } : {}),
   };
   const post = async (path: string, body: unknown, signal?: AbortSignal) => {
-    requireProviderNotCancelled(signal);
+    if (signal?.aborted)
+      throw definite(
+        createAppError('CONFLICT', 'Provider operation cancelled'),
+      );
     let response: Response;
     try {
       response = await fetch(`${BASE}${path}`, {
@@ -88,9 +104,11 @@ export function createOpenRouter({
     }
     if (!response.ok) {
       await response.body?.cancel();
-      throw createAppError(
-        'INFRASTRUCTURE',
-        `OpenRouter ${path} answered ${response.status}`,
+      throw definite(
+        createAppError(
+          'INFRASTRUCTURE',
+          `OpenRouter ${path} answered ${response.status}`,
+        ),
       );
     }
     return response;

@@ -3,7 +3,11 @@
  * and transcription (STT), the prompts that make the AI a debater and a
  * judge, CX turn-taking, and the pure helpers that fit a speech to its slot.
  */
-export { createOpenRouter, type OpenRouter } from './openrouter';
+export {
+  createOpenRouter,
+  isDefiniteProviderFailure,
+  type OpenRouter,
+} from './openrouter';
 export { roundJudgeMessages } from './round-judge';
 export { roundDebaterMessages } from './round-debater';
 export { createTurnTaking, defaultTurnTakingSettings } from './turn-taking';

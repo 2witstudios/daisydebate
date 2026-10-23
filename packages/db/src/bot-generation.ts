@@ -58,8 +58,16 @@ function requireUsage(outcome: Outcome, usage: Usage) {
   )
     throw createAppError('VALIDATION');
 }
-function requireRunUsage(run: typeof agentRuns.$inferSelect, usage: Usage) {
-  if (run.kind === 'tts') {
+/** A definitely failed call served nothing, so it settles with no usage. */
+function requireRunUsage(
+  run: typeof agentRuns.$inferSelect,
+  outcome: Outcome,
+  usage: Usage,
+) {
+  if (outcome === 'failed') {
+    if (usage.inputTokens || usage.outputTokens || usage.characters)
+      throw createAppError('VALIDATION');
+  } else if (run.kind === 'tts') {
     if (
       usage.characters !== run.characters ||
       usage.inputTokens !== 0 ||
@@ -229,7 +237,7 @@ export function createBotGenerationOperations(input: {
             parentAgentRunId: scope.agentRunId,
           },
         });
-        requireRunUsage(run, usage);
+        requireRunUsage(run, outcome, usage);
         if (run.endedAt) {
           requireSameSettlement(run, outcome, usage);
           return;

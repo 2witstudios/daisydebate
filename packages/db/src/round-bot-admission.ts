@@ -14,11 +14,7 @@ type Reservation = Target & { readonly id: string };
 /** Acquire before account/Room/Round locks in both admission and billable-call composition. */
 export const lockBotAdmission = (tx: BoundedTransactionContext) =>
   tx.execute(sql`select pg_advisory_xact_lock(59003, 1)`);
-async function lockSponsor(
-  tx: BoundedTransactionContext,
-  target: Target,
-  purpose: 'admission' | 'settlement' = 'admission',
-) {
+async function lockSponsor(tx: BoundedTransactionContext, target: Target) {
   if (
     ![target.actorId, target.roundId].every(
       (id) => idSchema.safeParse(id).success,
@@ -35,7 +31,7 @@ async function lockSponsor(
     .for('no key update');
   if (!round || round.createdByActorId !== target.actorId)
     throw createAppError('AUTHORIZATION');
-  if (purpose === 'admission') requireAdmissionSponsor(account ?? null, round);
+  requireAdmissionSponsor(account ?? null, round);
 }
 function requireAdmissionSponsor(
   account: Awaited<ReturnType<typeof lockAuthorizationActors>>[number],
@@ -56,36 +52,50 @@ function reservationWhere(target: Target) {
 async function existingReservation(
   tx: BoundedTransactionContext,
   target: Target,
-  allowRefunded = false,
 ) {
   const [row] = await tx
     .select()
     .from(usageReservations)
     .where(reservationWhere(target))
     .for('update');
-  if (row?.refundedAt && !allowRefunded)
-    throw createAppError('CONFLICT', 'Reservation refunded');
+  if (row?.refundedAt) throw createAppError('CONFLICT', 'Reservation refunded');
   return row;
 }
-async function mutateLockedReservation(
+/** The first model call of any kind counts the reservation, once. */
+async function countLockedReservation(
   tx: BoundedTransactionContext,
   reservation: Reservation,
-  refund: boolean,
 ) {
-  await lockSponsor(tx, reservation, refund ? 'settlement' : 'admission');
-  const current = await existingReservation(tx, reservation, refund);
+  await lockSponsor(tx, reservation);
+  const current = await existingReservation(tx, reservation);
   if (!current || current.id !== reservation.id)
     throw createAppError('AUTHORIZATION');
-  if (refund && !current.countedAt) throw createAppError('CONFLICT');
-  if (refund && current.refundedAt) return;
+  if (current.countedAt) return;
   await tx
     .update(usageReservations)
-    .set(
-      refund
-        ? { refundedAt: sql`clock_timestamp()` }
-        : { countedAt: current.countedAt ?? sql`clock_timestamp()` },
-    )
+    .set({ countedAt: sql`clock_timestamp()` })
     .where(eq(usageReservations.id, current.id));
+}
+/**
+ * Called once a Round turns terminal, under its lock. A counted AI practice
+ * whose every model call (bot or judge) definitely failed, none received or
+ * unknown, gives its allowance back. A practice never counted cannot be
+ * refunded under usage_reservations_refund_check (ISSUE-469). The refunded_at guard
+ * makes a repeat a no-op on any instance (ADR 0058, DEC-211).
+ */
+export async function refundUnservedPracticeLocked(
+  tx: Pick<BoundedTransactionContext, 'execute'>,
+  roundId: string,
+) {
+  await tx.execute(sql`
+    update usage_reservations set refunded_at = clock_timestamp()
+    where round_id = ${roundId} and kind = 'ai_practice' and refunded_at is null
+      and counted_at is not null
+      and not exists (
+        select 1 from agent_runs a
+        join round_participants p on p.id = a.round_participant_id
+        where p.round_id = ${roundId}
+          and a.configuration_snapshot->>'providerOutcome' in ('received', 'unknown'))`);
 }
 /** Caller acquires admission serialization before command/account/Round fences. Never creates a reservation. */
 export async function markLockedRoundBotModelCall(
@@ -101,7 +111,7 @@ export async function markLockedRoundBotModelCall(
   const current = await existingReservation(tx, target);
   if (!current) throw createAppError('CONFLICT', 'Bot reservation missing');
   const reservation = { ...target, id: current.id };
-  await mutateLockedReservation(tx, reservation, false);
+  await countLockedReservation(tx, reservation);
   return reservation;
 }
 async function admissionStatus(
@@ -141,11 +151,6 @@ export function createRoundBotAdmission(input: {
       'VALIDATION',
       'Explicit positive bot capacity required',
     );
-  const mutate = (reservation: Reservation, refund: boolean) =>
-    input.run(async (tx) => {
-      await lockBotAdmission(tx);
-      await mutateLockedReservation(tx, reservation, refund);
-    });
   const reserveLocked = async (
     tx: BoundedTransactionContext,
     target: Target,
@@ -192,11 +197,6 @@ export function createRoundBotAdmission(input: {
         await lockBotAdmission(tx);
         return reserveLocked(tx, target);
       }),
-    markFirstModelCall: (reservation: Reservation) =>
-      mutate(reservation, false),
-    /** Trusted server known-vendor-abort settlement, never a public client reason or new model authorization. */
-    refundVendorFailure: (reservation: Reservation) =>
-      mutate(reservation, true),
   };
 }
 

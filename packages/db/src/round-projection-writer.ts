@@ -5,6 +5,7 @@ import type { RoundProjection } from '@daisy/protocol';
 import { runtimeCheckpointSchema, buildDebateTopic } from '@daisy/protocol';
 import type { z } from 'zod';
 import { appendOutboxEvent } from './outbox';
+import { refundUnservedPracticeLocked } from './round-bot-admission';
 import { jsonObjectSchema } from './schema/columns';
 import { isUniqueViolation } from './unique-violation';
 import { roundCommands } from './schema/round-commands';
@@ -60,6 +61,13 @@ const projectionChanged = (
   );
 };
 
+const terminal = new Set(['completed', 'abandoned']);
+/** The projection is the one that takes the Round out of play. */
+const endsRound = (current: LockedRound, projection: RoundProjection) =>
+  projection.round !== null &&
+  terminal.has(projection.round.status) &&
+  !terminal.has(current.status);
+
 /** Persist a projection and announce exactly the revision it advances to. */
 export async function writeProjectionWithPhaseSignal(
   tx: Tx,
@@ -71,6 +79,8 @@ export async function writeProjectionWithPhaseSignal(
   const changed = projectionChanged(current, projection);
   if (!changed) return false;
   await writeProjection(tx, roundId, projection, now);
+  if (endsRound(current, projection))
+    await refundUnservedPracticeLocked(tx, roundId);
   if (projection.finalSegmentEndedAt !== undefined)
     await tx
       .update(rounds)

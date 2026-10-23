@@ -1,4 +1,5 @@
 import {
+  isDefiniteProviderFailure,
   phrasesOf,
   roundDebaterMessages,
   type OpenRouter,
@@ -65,6 +66,12 @@ function messagesFor(
     }),
   });
 }
+type Usage = {
+  readonly inputTokens: number;
+  readonly outputTokens: number;
+  readonly characters: number;
+};
+const NO_USAGE: Usage = { inputTokens: 0, outputTokens: 0, characters: 0 };
 /** Only memory phrases/PCM leave this operation; capture owns durable transcript evidence. */
 export function createBotGeneration(input: {
   readonly store: Store;
@@ -79,18 +86,19 @@ export function createBotGeneration(input: {
     input.maxTokens > 16000
   )
     throw createAppError('VALIDATION');
-  const dispatch = <T>(
+  const dispatch = <T, P>(
     scope: BotPublicationScope,
     token: string,
     request: Parameters<Producer['beginGeneration']>[2],
     signal: AbortSignal,
-    work: (
-      voice: ReturnType<typeof input.voice>,
-      context: Context,
-    ) => Promise<{
-      value: T;
-      usage: { inputTokens: number; outputTokens: number; characters: number };
-    }>,
+    step: {
+      /** Builds the provider request; a refusal here never reaches the vendor. */
+      readonly prepare: (context: Context) => P;
+      readonly call: (
+        voice: ReturnType<typeof input.voice>,
+        prepared: P,
+      ) => Promise<{ value: T; usage: Usage }>;
+    },
   ) =>
     input.withProvider(signal, async () => {
       requireActive(signal);
@@ -101,7 +109,7 @@ export function createBotGeneration(input: {
         request,
       );
       const finish = (
-        outcome: 'received' | 'unknown',
+        outcome: 'received' | 'failed' | 'unknown',
         usage: Parameters<Store['finishRoundBotGeneration']>[3],
       ) =>
         input.store.finishRoundBotGeneration(
@@ -110,16 +118,24 @@ export function createBotGeneration(input: {
           outcome,
           usage,
         );
-      let result: Awaited<ReturnType<typeof work>>;
+      let result: { value: T; usage: Usage };
+      let sent = false;
       try {
         requireActive(signal);
-        result = await work(voice, context);
+        const prepared = step.prepare(context);
+        requireActive(signal);
+        sent = true;
+        result = await step.call(voice, prepared);
       } catch (error) {
-        await finish('unknown', {
-          inputTokens: 0,
-          outputTokens: 0,
-          characters: request.kind === 'tts' ? request.characters : 0,
-        });
+        // Certainly unserved: settled failed with no usage, which gives the
+        // voice characters back. Anything else may have been served.
+        if (!sent || isDefiniteProviderFailure(error))
+          await finish('failed', NO_USAGE);
+        else
+          await finish('unknown', {
+            ...NO_USAGE,
+            characters: request.kind === 'tts' ? request.characters : 0,
+          });
         throw error;
       }
       let finished = false;
@@ -146,24 +162,21 @@ export function createBotGeneration(input: {
       token: string,
       signal: AbortSignal,
     ) =>
-      dispatch(
-        scope,
-        token,
-        { kind: 'language' },
-        signal,
-        async (voice, context) => {
-          const answer = await voice.complete({
-            model: context.model,
-            messages: messagesFor(context, scope, input.nowMs()),
-            maxTokens: input.maxTokens,
-            temperature: 0.6,
-            reasoning:
-              context.round.segments.find((row) => row.id === scope.segmentId)
-                ?.type === 'cross_ex'
-                ? 'none'
-                : 'low',
-            signal,
-          });
+      dispatch(scope, token, { kind: 'language' }, signal, {
+        prepare: (context) => ({
+          model: context.model,
+          messages: messagesFor(context, scope, input.nowMs()),
+          maxTokens: input.maxTokens,
+          temperature: 0.6,
+          reasoning:
+            context.round.segments.find((row) => row.id === scope.segmentId)
+              ?.type === 'cross_ex'
+              ? ('none' as const)
+              : ('low' as const),
+          signal,
+        }),
+        call: async (voice, prepared) => {
+          const answer = await voice.complete(prepared);
           return {
             value: answer.text,
             usage: {
@@ -173,7 +186,7 @@ export function createBotGeneration(input: {
             },
           };
         },
-      ).then(({ value: text, settle }) => ({
+      }).then(({ value: text, settle }) => ({
         value: { text, phrases: phrasesOf(text) },
         // An empty answer is still paid for: its usage settles before it fails the attempt.
         settle: async () => {
@@ -200,29 +213,32 @@ export function createBotGeneration(input: {
         token,
         { kind: 'tts', characters: text.length },
         signal,
-        async (voice, context) => {
-          const audio = await voice.speakPcm({
+        {
+          prepare: (context) => ({
             model: context.model,
             voice: context.profile.voice,
             text,
             signal,
-          });
-          return {
-            value: {
-              scope,
-              token,
-              phraseId,
-              text,
-              pcm: audio.pcm,
-              sampleRate: audio.sampleRate,
-              channels: audio.channels,
-            },
-            usage: {
-              inputTokens: 0,
-              outputTokens: 0,
-              characters: audio.characters,
-            },
-          };
+          }),
+          call: async (voice, prepared) => {
+            const audio = await voice.speakPcm(prepared);
+            return {
+              value: {
+                scope,
+                token,
+                phraseId,
+                text,
+                pcm: audio.pcm,
+                sampleRate: audio.sampleRate,
+                channels: audio.channels,
+              },
+              usage: {
+                inputTokens: 0,
+                outputTokens: 0,
+                characters: audio.characters,
+              },
+            };
+          },
         },
       );
     },
