@@ -96,20 +96,25 @@ describe('Launch proof context lifetime', () => {
   test('partial signup awaits failure and closes every opened context', async () => {
     const calls = probe(true);
     let message = '';
+    let cause = '';
     try {
       await createLaunchContexts(3, calls.open, calls.signup);
     } catch (error) {
-      if (error instanceof Error) message = error.message;
+      if (error instanceof Error) {
+        message = error.message;
+        if (error.cause instanceof Error) cause = error.cause.message;
+      }
     }
     assert({
       given: 'a second signup that created data before failing',
       should:
-        'close both contexts, never start a third signup and retain partial account data for slot teardown',
-      actual: [calls.closed, calls.accounts, message],
+        'close both contexts, never start a third signup, retain partial account data for slot teardown and carry the original failure as its cause',
+      actual: [calls.closed, calls.accounts, message, cause],
       expected: [
         [1, 2],
         [1, 2],
         'Launch account setup failed; suite-owned slot data retained',
+        'partial signup',
       ],
     });
   });
