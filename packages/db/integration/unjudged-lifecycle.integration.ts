@@ -16,12 +16,14 @@ const completed = {
   outcome: null,
 };
 
-test('a judged casual Round completes without a winner only at its persisted ballot deadline (DEC-201, DEC-207)', async () => {
+test('a judged casual Round completes without a winner only once the database clock reaches its persisted ballot deadline (DEC-201, DEC-207)', async () => {
   await withFixture(databaseUrl, async (f) => {
     const zeroJudge = await rejectedBy(() =>
       f.round({ ...completed, rules_snapshot: zeroRules }),
     );
-    const judgedAt = async (deadline: Date | null) => {
+    const [{ now }] = await f.sql`select clock_timestamp() as now`;
+    const future = new Date(now.getTime() + 3_600_000);
+    const judgedAt = async (deadline: Date | null, completedAt: Date) => {
       const id = await f.round({
         status: 'active',
         current_stage: 'live',
@@ -33,11 +35,10 @@ test('a judged casual Round completes without a winner only at its persisted bal
       return rejectedBy(() =>
         f.sql.begin(
           (tx) =>
-            tx`update rounds set status='completed',current_stage=null,outcome=null,completed_at=${end} where id=${id}`,
+            tx`update rounds set status='completed',current_stage=null,outcome=null,completed_at=${completedAt} where id=${id}`,
         ),
       );
     };
-    const deadlineAfter = new Date(end.getTime() + 1);
     const repinned = await f.round({
       status: 'active',
       current_stage: 'live',
@@ -46,25 +47,25 @@ test('a judged casual Round completes without a winner only at its persisted bal
     });
     assert({
       given:
-        'a zero-judge completion, judged completions with no deadline, before, at and after it, and a deadline rewrite',
+        'a zero-judge completion, judged completions with no deadline, a future deadline (even claiming completion at it) and a passed one, and a deadline rewrite',
       should:
-        'accept zero judges and a completion at or after the deadline, and refuse the rest and the rewrite',
+        'judge the deadline by the database clock: accept zero judges and a passed deadline, and refuse the rest and the rewrite',
       actual: [
         zeroJudge,
-        await judgedAt(null),
-        await judgedAt(deadlineAfter),
-        await judgedAt(end),
-        await judgedAt(start),
+        await judgedAt(null, end),
+        await judgedAt(future, end),
+        await judgedAt(future, future),
+        await judgedAt(end, end),
         await rejectedBy(
           () =>
-            f.sql`update rounds set ballot_deadline_at=${deadlineAfter} where id=${repinned}`,
+            f.sql`update rounds set ballot_deadline_at=${future} where id=${repinned}`,
         ),
       ],
       expected: [
         null,
         'rounds_unjudged_participants_check',
         'rounds_unjudged_participants_check',
-        null,
+        'rounds_unjudged_participants_check',
         null,
         'rounds_ballot_deadline_immutable',
       ],

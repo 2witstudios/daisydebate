@@ -1,8 +1,9 @@
 ALTER TABLE "rounds" ADD COLUMN "ballot_deadline_at" timestamp with time zone;--> statement-breakpoint
 ALTER TABLE "rounds" DROP CONSTRAINT "rounds_lifecycle_check", ADD CONSTRAINT "rounds_lifecycle_check" CHECK (("status" = 'scheduled' and "current_stage" is null and "outcome" is null and "started_at" is null and "completed_at" is null) or ("status" = 'active' and "current_stage" is not null and "outcome" is null and "started_at" is not null and "completed_at" is null) or ("status" = 'completed' and "current_stage" is null and ("outcome" is not null or ("competition_type" = 'casual' and "ladder_id" is null)) and "started_at" is not null and "completed_at" is not null) or ("status" = 'abandoned' and "current_stage" is null and "outcome" is null and "completed_at" is not null));--> statement-breakpoint
 -- DEC-201/DEC-207: a Round with judge seats may complete without a winner only
--- at or after the ballot deadline persisted at its freeze; a zero-judge Round
--- keeps DEC-191's guarantee. The same deferred triggers fence both rows.
+-- once the database clock at commit reaches the ballot deadline persisted at
+-- its freeze, never by a writer-supplied completed_at; a zero-judge Round keeps
+-- DEC-191's guarantee. The same deferred triggers fence both rows.
 CREATE OR REPLACE FUNCTION guard_unjudged_round_participants() RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE target_round text;
 BEGIN
@@ -16,7 +17,7 @@ BEGIN
     SELECT 1 FROM rounds r
     WHERE r.id = target_round AND r.status = 'completed' AND r.outcome IS NULL
       AND EXISTS (SELECT 1 FROM round_participants p WHERE p.round_id = r.id AND p.role = 'judge')
-      AND (r.ballot_deadline_at IS NULL OR r.completed_at < r.ballot_deadline_at)
+      AND (r.ballot_deadline_at IS NULL OR clock_timestamp() < r.ballot_deadline_at)
   ) THEN
     RAISE EXCEPTION USING ERRCODE = '23514', CONSTRAINT = 'rounds_unjudged_participants_check', MESSAGE = 'A judged Round completes without a winner only at its ballot deadline';
   END IF;

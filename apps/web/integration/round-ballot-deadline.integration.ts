@@ -125,11 +125,16 @@ const submitAs = (
     }),
   );
 /** A direct write completing the Round without a winner, refused or accepted at commit. */
-const completeDirectly = (f: Fixture, roundId: string) =>
+const completeDirectly = (
+  f: Fixture,
+  roundId: string,
+  completedAt: 'now' | 'deadline' = 'now',
+) =>
   f.sql
-    .begin(
-      (tx) =>
-        tx`update rounds set status='completed',current_stage=null,outcome=null,completed_at=clock_timestamp() where id=${roundId}`,
+    .begin((tx) =>
+      completedAt === 'now'
+        ? tx`update rounds set status='completed',current_stage=null,outcome=null,completed_at=clock_timestamp() where id=${roundId}`
+        : tx`update rounds set status='completed',current_stage=null,outcome=null,completed_at=ballot_deadline_at where id=${roundId}`,
     )
     .then(
       () => 'accepted',
@@ -141,7 +146,10 @@ test('a judge who never rules is recorded as no ruling at the persisted deadline
     const { roundId, judges, seats } = await frozenTwoJudgeRound(f);
     const [persisted] =
       await f.sql`select r.ballot_deadline_at = z.frozen_at + interval '30 minutes' as exact from rounds r join round_transcript_freezes z on z.round_id=r.id where r.id=${roundId}`;
-    const early = await completeDirectly(f, roundId);
+    const early = [
+      await completeDirectly(f, roundId),
+      await completeDirectly(f, roundId, 'deadline'),
+    ];
     await submitAs(f, judges[0]!, roundId, seats[0]!.id, 'negative');
     await maintainWith(f, 1, (finalize) => Promise.all(finalize(roundId)));
     const waiting = (await f.store.getRound(roundId))!;
@@ -183,7 +191,10 @@ test('a judge who never rules is recorded as no ruling at the persisted deadline
       },
       expected: {
         persisted: true,
-        early: 'rounds_unjudged_participants_check',
+        early: [
+          'rounds_unjudged_participants_check',
+          'rounds_unjudged_participants_check',
+        ],
         waiting: ['active', null],
         late: 'CONFLICT round-decided',
         ballots: 1,
