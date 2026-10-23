@@ -132,7 +132,8 @@ function createBatch(input: PacedInput, signal: AbortSignal) {
     },
     /**
      * The samples credited through this batch, or null when refused. A frame
-     * heard past the known end is audible only, never eligible (ISSUE-460-r2).
+     * heard past the known end is audible only, never eligible (ISSUE-460-r2);
+     * its end is rounded outward, as the transport rounds it (ISSUE-460-r3).
      */
     async authorize() {
       const due = pending!,
@@ -141,8 +142,8 @@ function createBatch(input: PacedInput, signal: AbortSignal) {
       frames = [];
       if (!(await authorizeUnion(input, due, signal))) return null;
       credited =
-        sent.filter((frame) => frame.afterMs < endMs).at(-1)?.samples ??
-        credited;
+        sent.filter((frame) => Math.ceil(frame.afterMs) < endMs).at(-1)
+          ?.samples ?? credited;
       return credited;
     },
   };
