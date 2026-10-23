@@ -152,6 +152,7 @@ test(
             eligibleSamples: 9600,
             complete: true,
             segmentEnded: false,
+            stop: null,
             cadenceElapsed: true,
             refreshed: true,
             receivedSamples: 9600,
@@ -211,6 +212,14 @@ test('burst handoff, stalled callback and revoked history cannot credit queued f
             eligibleSamples: fault === 'burst' || fault === 'stall' ? 0 : 1440,
             complete: false,
             segmentEnded: false,
+            // A burst or a stalled callback breaks the receipt cadence; a
+            // revoked history refuses the window; a cancelled job names none.
+            stop:
+              fault === 'history'
+                ? 'refused'
+                : fault === 'cancel'
+                  ? null
+                  : 'clock',
             rawSamples:
               fault === 'burst' || fault === 'stall'
                 ? 480
