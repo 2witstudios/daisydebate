@@ -5,7 +5,7 @@
  */
 import { SQL } from 'bun';
 import { provisionTestRoles } from '@daisy/db/slots';
-import { isLoopbackUrl } from './slot-model';
+import { isLoopbackUrl } from './slot-services';
 import { testLogins } from './test-logins';
 
 const url = process.env.DATABASE_URL;
