@@ -21,9 +21,16 @@ const redactions: readonly (readonly [RegExp, string])[] = [
   // Ticket responses and hello frames may be nested JSON inside trace records.
   // Preserve the surrounding quote/escape framing while removing bearer data.
   [
-    /((?:\\*)"ticket(?:\\*)"\s*:\s*(?:\\*)")[A-Za-z0-9_-]+((?:\\*)")/g,
+    /((?:\\*)"(?:ticket|token)(?:\\*)"\s*:\s*(?:\\*)")[A-Za-z0-9_-]+((?:\\*)")/g,
     '$1[REDACTED]$2',
   ],
+  // The confirmation page carries the magic-link token in a hidden input
+  // (ISSUE-487), in served HTML, server.log and trace DOM snapshots alike.
+  [/(name=(?:\\*)"token(?:\\*)"\s+value=(?:\\*)")[^"\\]*/gi, '$1[REDACTED]'],
+  // By shape: an emailed-link token is 32 random bytes in base64url, exactly
+  // 43 characters, so any standalone run of that length is redacted wherever
+  // a recorder put it (attribute arrays, bodies, logs).
+  [/(?<![A-Za-z0-9_-])[A-Za-z0-9_-]{43}(?![A-Za-z0-9_-])/g, '[REDACTED]'],
   // Any PEM private key, such as the e2e TLS edge's (ISSUE-78): an artifact
   // must never carry key material, however short-lived.
   [
@@ -89,14 +96,15 @@ function redactJsonObject(value: object, depth: number): object {
   const header = entries.find(([key]) => key === 'name')?.[1];
   const headerValue =
     typeof header === 'string' &&
-    (/^(cookie|set-cookie|authorization)$/i.test(header) ||
+    (/^(cookie|set-cookie|authorization|token)$/i.test(header) ||
       /^__Secure-[\w.-]+$/.test(header));
   return Object.fromEntries(
     entries.map(([key, item]) => [
       key,
       typeof item === 'string' &&
-      (/^(ticket|cookie|set-cookie|authorization)$/i.test(key) ||
-        (key === 'value' && headerValue))
+      (/^(ticket|token|cookie|set-cookie|authorization)$/i.test(key) ||
+        // A DOM snapshot keeps an input's live value in __playwright_value_.
+        ((key === 'value' || key === '__playwright_value_') && headerValue))
         ? '[REDACTED]'
         : redactJson(item, depth + 1),
     ]),
