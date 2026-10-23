@@ -2,6 +2,8 @@ import { isAppError } from '@daisy/errors';
 
 // The default shared pool has five writer/watchdog pairs; reserve headroom for discovery and public/control work.
 const MAX_ACTIVE_ROUNDS = 2;
+/** How often maintenance rediscovers due Rounds and recovers ratings. */
+export const MAINTENANCE_PULSE_MS = 500;
 
 type MaintenancePorts<Handle> = {
   readonly discover: () => Promise<readonly string[]>;
@@ -105,7 +107,7 @@ export function startRoundMaintenance<Handle>(input: MaintenancePorts<Handle>) {
   };
   const timer = input.timers.setInterval(() => {
     void pulse();
-  }, 500);
+  }, MAINTENANCE_PULSE_MS);
   const ready = pulse();
   let closing: Promise<void> | undefined;
   return {
