@@ -1,6 +1,5 @@
 import { eq, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
-import type { BoundedTransaction } from './bounded-transaction';
 import type { BoundedTransactionContext } from './transaction-context';
 import {
   executeLockedRoundTick,
@@ -22,7 +21,6 @@ import { rounds } from './schema/rounds';
 
 export const transcriptFinalizationOperations = (input: {
   readonly database: BunSQLDatabase;
-  readonly transaction: BoundedTransaction;
 }) => ({
   /** Callers enforce private transcript/judge authorization before this internal read. */
   readFrozenRoundTranscript: (roundId: string) =>

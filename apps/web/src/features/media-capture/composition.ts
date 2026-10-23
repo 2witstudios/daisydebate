@@ -38,6 +38,7 @@ export function composeMediaCaptureRoutes(app: App) {
       media.workerTokens().captureToken(scope, principal),
     activity: createBotActivityRelay({
       readCapture: (identity) => operations().readMediaCaptureState(identity),
+      readLease: (identity) => operations().readCurrentCaptureLease(identity),
       write: app.redis.writeBotActivity,
     }),
   });

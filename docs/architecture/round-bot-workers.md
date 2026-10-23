@@ -191,11 +191,15 @@ activity peers only and grant no authority over those seats.
 
 `createBotActivityRelay` (`round-bots/activity-relay.ts`) is the hook the signed
 capture ingress calls with the worker's capture identity and body. The body
-(`botActivityRelaySchema`) carries the speaker seat and original frames only. It
-has no Round, receipt, bearer or service claim. The hook reads capture state
-under the current lease and requires the seat to be an actually bound non-judge
-participant of that session. It attaches that transaction's PostgreSQL time as
-`receivedAt` and writes the validated batch through the existing Redis
+(`botActivityRelaySchema`) carries the speaker seat, the segment its frames
+belong to and the original frames only. It has no Round, receipt, bearer or
+service claim. The hook admits a seat once per capture lease epoch and
+segment, through the locked capture read: the current lease, an actually bound
+non-judge seat and the current open segment. Later batches for an admitted seat
+need only `readCurrentCaptureLease`, an unlocked check that the lease is current
+and the segment still open; a refused check drops the admission. Either way the
+hook attaches PostgreSQL time as `receivedAt` and writes the validated batch
+through the existing Redis
 adapter. Bounds later than PostgreSQL time are refused.
 
 The signed `activity` capture operation (`media-capture/handlers.ts`) splits the

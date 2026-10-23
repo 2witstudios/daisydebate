@@ -30,17 +30,6 @@ export type NewRoom = {
   readonly rules: RoundRules;
 };
 
-export type RoomRecord = {
-  readonly id: string;
-  readonly formatId: string;
-  readonly formatVersion: number;
-  readonly presetVersion: number | null;
-  readonly competitionType: string;
-  readonly length: string;
-  readonly status: string;
-  readonly rules: RoundRules;
-};
-
 export const newRoomValues = (
   room: NewRoom,
   status: 'assembling' | 'started',
@@ -92,32 +81,6 @@ export const roomOperations = ({
   readonly database: BunSQLDatabase;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
-  async createRoom(room: NewRoom): Promise<RoomRecord> {
-    return instrumented(eventSink, 'createRoom', async () => {
-      try {
-        const [row] = await database
-          .insert(rooms)
-          .values(newRoomValues(room, 'assembling'))
-          .returning();
-        if (!row) throw new Error('Room insert returned no row');
-        return {
-          id: row.id,
-          formatId: row.formatId,
-          formatVersion: row.formatVersion,
-          presetVersion: row.presetVersion,
-          competitionType: row.competitionType,
-          length: row.length,
-          status: row.status,
-          rules: row.rulesSnapshot,
-        };
-      } catch (error) {
-        if (isUniqueViolation(error))
-          throw createAppError('CONFLICT', 'The room already exists', error);
-        throw error;
-      }
-    });
-  },
-
   /**
    * Seats one actor in the assembling Room; refused once the Room has
    * started, because assembly state stops at the freeze.

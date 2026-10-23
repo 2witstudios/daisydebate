@@ -2,10 +2,10 @@ import { createId } from '@paralleldrive/cuid2';
 import { createMediaService } from '@daisy/media';
 import { createLogger } from '@daisy/logger';
 import { noopErrorReporter, withTimeout } from '@daisy/observability';
-import { createRoundMediaOperations } from '../src/features/round-media/operations';
-import { mediaRuntime } from '../src/features/round-media/projection';
-import { createMediaCaptureHandlers } from '../src/features/media-capture/handlers';
 import { createBotActivityRelay } from '../src/features/round-bots/activity-relay';
+import { createRoundMediaOperations } from '../src/features/round-media/operations';
+import { createRoundRuntimeOperations } from '../src/features/round-runtime/operations';
+import { mediaRuntime } from '../src/features/round-media/projection';
 import { withRoomRuntime } from './room-runtime.test-support';
 
 const localMediaConfig = {
@@ -93,25 +93,6 @@ export const captureOperations = (
       mediaRuntime(context, createId).tick(context.now),
   });
 
-/** The signed capture ingress on a loopback server, relaying bot activity to the fixture's Redis. */
-export function serveCaptureIngress(
-  fixture: Parameters<Parameters<typeof withMediaRound>[0]>[0],
-  input: Pick<
-    Parameters<typeof createMediaCaptureHandlers>[0],
-    'logger' | 'authentication' | 'token'
-  > & { readonly capture: ReturnType<typeof captureOperations> },
-) {
-  const handlers = createMediaCaptureHandlers({
-    ...input,
-    capture: () => input.capture,
-    activity: createBotActivityRelay({
-      readCapture: (value) => input.capture.readMediaCaptureState(value),
-      write: fixture.redis.writeBotActivity,
-    }),
-  });
-  return Bun.serve({ hostname: '127.0.0.1', port: 0, fetch: handlers.handle });
-}
-
 /** Hold actual provider creation before its effect or after acknowledgement, without replacing the vendor. */
 export function delayedMediaCreation(phase: 'before' | 'after' = 'after') {
   const entered = Promise.withResolvers<void>();
@@ -154,4 +135,36 @@ export async function waitForMediaFact(fact: () => Promise<boolean>) {
       throw new Error('Media fact was not observed before its deadline');
     await Bun.sleep(10);
   }
+}
+
+/** The production activity relay over the fixture's capture operations and Redis. */
+export const captureActivityRelay = (
+  fixture: Parameters<Parameters<typeof withMediaRound>[0]>[0],
+  capture: ReturnType<typeof captureOperations>,
+) =>
+  createBotActivityRelay({
+    readCapture: (identity) => capture.readMediaCaptureState(identity),
+    readLease: (identity) => capture.readCurrentCaptureLease(identity),
+    write: fixture.redis.writeBotActivity,
+  });
+
+/** Starts the launched Round and moves its clock past the countdown into the first speech. */
+export async function startCaptureSpeech(
+  fixture: Parameters<Parameters<typeof withMediaRound>[0]>[0],
+) {
+  const round = (await fixture.store.getRound(fixture.roundId))!;
+  await createRoundRuntimeOperations({
+    store: fixture.store,
+    nextSegmentId: createId,
+  }).command(
+    { kind: 'human', actorId: fixture.host.actorId },
+    fixture.roundId,
+    {
+      version: 1,
+      commandId: createId(),
+      expectedVersion: round.version,
+      command: { type: 'start' },
+    },
+  );
+  await fixture.sql`update rounds set started_at=clock_timestamp()-${round.rules.countdownMs + 1000}*interval '1 millisecond' where id=${fixture.roundId}`;
 }

@@ -3,9 +3,13 @@ import { activityWanted, createActivityRelay } from './capture-activity';
 import type { CaptureState } from './capture-history';
 import type { StagedFrame } from './capture-staging';
 setupRitewayBun();
-const staged = (seat: string, sequence: number): StagedFrame => ({
+const staged = (
+  seat: string,
+  sequence: number,
+  segmentId = 'g'.repeat(24),
+): StagedFrame => ({
   seat,
-  segmentId: 'g'.repeat(24),
+  segmentId,
   observedAtMs: sequence * 10 + 5,
   original: { sequence, beforeMs: sequence * 10, afterMs: sequence * 10 + 5 },
   frame: {
@@ -67,6 +71,20 @@ test('the activity relay repeats each seat window and sends only seats with new 
         },
       },
     ],
+  });
+});
+test('a new segment starts a fresh window that names its segment', () => {
+  const relay = createActivityRelay();
+  relay.observe(staged(host, 1));
+  relay.observe(staged(host, 2));
+  relay.observe(staged(host, 3, 'n'.repeat(24)));
+  assert({
+    given: 'two frames in one segment, then one in the next',
+    should: "send only the new segment's frames, naming that segment",
+    actual: relay
+      .take()
+      .map((b) => [b.segmentId, b.frames.map((f) => f.sequence)]),
+    expected: [['n'.repeat(24), [3]]],
   });
 });
 test('peer activity is relayed only while a bot may speak in cross-examination', () => {

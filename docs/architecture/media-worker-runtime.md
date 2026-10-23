@@ -8,8 +8,9 @@ ADR 0053. `bun run --cwd apps/media-worker start` is the supervisor. It reads
 missing. It then refuses a database login broader than `daisy_media_worker`
 (a superuser; a login with CREATEROLE, CREATEDB, BYPASSRLS or REPLICATION; a
 non-member; a member of any other role such as `pg_read_all_data`; or one
-holding INSERT, UPDATE, DELETE or TRUNCATE on any table or SELECT outside the
-six tables below).
+holding INSERT, UPDATE, DELETE or TRUNCATE on any table or view in any
+non-system schema, UPDATE on a sequence, CREATE on the database or a schema,
+or SELECT outside the six tables below).
 
 That role (VIDEO-3.13) has SELECT on `rounds`, `round_participants`,
 `round_segments`, `media_sessions`, `media_participants` and
