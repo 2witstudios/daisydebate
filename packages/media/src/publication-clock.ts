@@ -114,7 +114,7 @@ export function refreshPublicationClock(
   return { ...clock, calibration, valid };
 }
 
-function calibrationOffsets(
+export function calibrationOffsets(
   calibration: ClockCalibration,
   start: number,
   end: number,
