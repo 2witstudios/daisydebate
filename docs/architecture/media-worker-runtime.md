@@ -84,7 +84,11 @@ and clip identity; no generated phrase or estimated text is an utterance.
 Cancellation cannot append a later queued provider response. The stream tracker
 stores bounded counts, not unbounded text/clip-key histories; its ceiling is
 16,384 actual segment/seat streams. A common ten-second cleanup budget attempts
-seals. Open grants, cutoff/freeze and lost leases remain honestly unsealed.
+seals. On a graceful stop (the process's own SIGTERM: a deploy or restart) every
+open carry is first flushed as a final clip and the consumer drains the queue,
+leaving two seconds of the budget for the seals; a capture-closed refusal, a lost
+lease or a failure drops the carries instead. A clip still untranscribed when the
+drain ends is dropped, so its stream seals honestly partial (VIDEO-4.1-r12). Open grants, cutoff/freeze and lost leases remain honestly unsealed.
 
 The worker emits no guaranteed coverage observations from possible clock windows.
 Missing observations and dropped frames therefore preserve the genuine partial
