@@ -7,59 +7,13 @@ import {
   roomCatalogChoiceSchema,
   roundViewSchema,
   buildDebateTopic,
-  type RoomView,
 } from '@daisy/protocol';
-import { createRoutes } from '../src/server/routes';
+import { createRoomHttpFixture } from './room-http.test-support';
 import { inProcessFetch } from '../src/server/in-process-fetch';
-import { createAccountFlows, uniqueName } from './auth-account-helpers';
-import { createTestApp, withSql } from './fixtures';
+import { withSql } from './fixtures';
 requireTestServices(process.env);
 setupRitewayBun();
-// Explicit env policy through ordinary createApp; no injection/adoption.
-const f = createTestApp({
-  ROOM_POLICY: JSON.stringify({
-    consentTtlMs: 60_000,
-    maxOpenRooms: 5,
-    maxBodyBytes: 262_144,
-    limits: {
-      create: { max: 20, windowSeconds: 60 },
-      read: { max: 200, windowSeconds: 60 },
-      command: { max: 200, windowSeconds: 60 },
-    },
-  }),
-});
-const account = createAccountFlows(f);
-const routes = createRoutes(f.app);
-const headers = (cookie: string) =>
-  new Headers({ cookie, origin: f.origin, 'content-type': 'application/json' });
-const member = async () => {
-  const signed = await account.signUp();
-  const response = await account.claim(signed.cookie, {
-    username: uniqueName(),
-  });
-  if (response.status !== 201)
-    throw new Error('Fixture membership claim failed');
-  return signed.cookie;
-};
-const command = async (cookie: string, view: RoomView, body: object) => {
-  const response = await inProcessFetch(
-    (request) => routes.rooms.commands(request, view.id),
-    headers(cookie),
-  )(`/api/rooms/${view.id}/commands`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({
-      ...body,
-      commandId: createId(),
-      expectedVersion: view.version,
-    }),
-  });
-  if (response.status !== 200)
-    throw new Error(
-      `Fixture accepted Room command returned ${response.status}`,
-    );
-  return roomViewSchema.parse((await response.json()).view);
-};
+const { f, routes, headers, member, command } = createRoomHttpFixture();
 test('real authenticated HTTP and native-form transport share principal, origin, version and Launch authority', async () => {
   const host = await member(),
     guest = await member(),
@@ -75,28 +29,32 @@ test('real authenticated HTTP and native-form transport share principal, origin,
     const choice = catalog.find(
       (c: { formatId: string }) => c.formatId === 'foundation',
     )!;
+    const createBody = (visibility: string) => ({
+      commandId: createId(),
+      title: 'Authenticated Launch',
+      topic: 'Cities should fund transit',
+      visibility,
+      selection: {
+        kind: 'catalog',
+        formatId: choice.formatId,
+        formatVersion: choice.formatVersion,
+        length: 'full',
+        competitionType: 'casual',
+        config: choice.defaultConfig,
+      },
+    });
+    const privateRequest = await routes.rooms.create(
+      f.jsonPost('/api/rooms', createBody('private'), { cookie: host }),
+    );
     const created = await routes.rooms.create(
-      f.jsonPost(
-        '/api/rooms',
-        {
-          commandId: createId(),
-          title: 'Authenticated Launch',
-          topic: 'Cities should fund transit',
-          visibility: 'private',
-          selection: {
-            kind: 'catalog',
-            formatId: choice.formatId,
-            formatVersion: choice.formatVersion,
-            length: 'full',
-            competitionType: 'casual',
-            config: choice.defaultConfig,
-          },
-        },
-        { cookie: host },
-      ),
+      f.jsonPost('/api/rooms', createBody('unlisted'), { cookie: host }),
     );
     let view = roomViewSchema.parse((await created.json()).view);
     roomId = view.id;
+    // No request may create a private Room (DEC-206); stored ones still mask.
+    await withSql(
+      (sql) => sql`update rooms set visibility='private' where id=${roomId}`,
+    );
     const anonymous = await routes.rooms.read(
       new Request(`${f.origin}/api/rooms/${roomId}`),
       roomId,
@@ -129,17 +87,18 @@ test('real authenticated HTTP and native-form transport share principal, origin,
     );
     assert({
       given:
-        'anonymous, foreign origin and private outsider requests through canonical routes',
+        'a private create request, then anonymous, foreign origin and outsider requests against a stored private Room',
       should:
         'refuse and mask the private resource even for native-form transport',
       actual: [
+        privateRequest.status,
         created.status,
         anonymous.status,
         denied.status,
         badOrigin.status,
         notHost.status,
       ],
-      expected: [201, 401, 404, 403, 404],
+      expected: [400, 201, 401, 404, 403, 404],
     });
     view = await command(host, view, {
       type: 'update-details',

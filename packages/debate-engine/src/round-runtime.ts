@@ -1,3 +1,9 @@
+import { speakingChangesOf } from './round-speaking';
+import { applyUnjudgedCompletion } from './round-unjudged';
+import { abandonUnstartedRound } from './round-start-horizon';
+import type { RoundRuntime } from './round-runtime-api';
+import { applyRoundAdjudication } from './round-adjudication';
+import { assertAttendanceRules } from './attendance-policy';
 import { createInvariantError } from '@daisy/errors';
 import {
   debateSides,
@@ -7,7 +13,6 @@ import {
   type DebateSide,
   type HydratedRound,
   type HydratedSegment,
-  type RoundCommand,
   type RoundParticipantSeat,
   type RoundPosition,
   type RoundProjection,
@@ -23,7 +28,11 @@ import {
   type ClockTransition,
 } from './round-clock';
 import { closedCount, normalizeRoundClock } from './round-clock-state';
-import { applyRoundCommand, type Queues } from './round-commands';
+import {
+  applyRoundCommand,
+  type Queues,
+  type CommandContext,
+} from './round-commands';
 import {
   lifecycleStampsOf,
   positionAtState,
@@ -49,7 +58,12 @@ import {
  */
 
 /** The queues the runtime projects from; a scratch run discards its own. */
-const queues = (): Queues => ({ changes: [], effects: [] });
+const queues = (): Queues => ({
+  changes: [],
+  effects: [],
+  floorChange: null,
+  finalPlayedEnd: null,
+});
 
 /**
  * Creates the runtime from durable rows, the frozen rules and an injected
@@ -65,27 +79,23 @@ export function createRoundRuntime(input: {
   readonly segments: readonly HydratedSegment[];
   /** Minted for each projected segment insert; injected, never ambient. */
   readonly nextSegmentId: () => string;
-}): {
-  /** The derived position at `now`; a pure read. */
-  readonly position: (now: string) => RoundPosition;
-  /** Applies one legal command and returns the writes to persist. */
-  readonly execute: (input: {
-    readonly command: RoundCommand;
-    readonly actorId: string | null;
-    readonly now: string;
-  }) => RoundProjection;
-  /** Advances time alone, projecting whatever the clock moved. */
-  readonly tick: (now: string) => RoundProjection;
-  /** The current checkpoint. */
-  readonly checkpoint: () => RuntimeCheckpoint;
-} {
+}): RoundRuntime {
   const rules = input.rules;
+  assertAttendanceRules(rules);
   let store: RoundStore = createRoundStore(normalizeRoundClock(input));
   const segmentIds = new Map(
     input.segments.map((row) => [row.sequence, row.id]),
   );
 
   const capture = (on: RoundStore) => captureRoundStore(on);
+  /** An internal decision applied on a scratch copy, kept only if it succeeds. */
+  const onScratch = (now: string, apply: (c: CommandContext) => void) => {
+    const scratch = restoreRoundStore(capture(store));
+    const into = queues();
+    apply(contextOn(scratch, into, null, Date.parse(now)));
+    store = scratch;
+    return project(into);
+  };
   const transitionOn = (
     on: RoundStore,
     into: Queues,
@@ -152,7 +162,27 @@ export function createRoundRuntime(input: {
           ]
         : [],
     );
+    const finalClose = into.changes.find(
+      (change) =>
+        change.kind === 'close' &&
+        change.sequence === rules.segments.length - 1,
+    );
+    const finalEndedAt =
+      into.finalPlayedEnd ??
+      (finalClose?.kind === 'close'
+        ? new Date(finalClose.atMs).toISOString()
+        : undefined);
     return {
+      ...(finalEndedAt !== undefined
+        ? { finalSegmentEndedAt: finalEndedAt }
+        : {}),
+      speakingChanges: speakingChangesOf({
+        rules,
+        participants: input.participants,
+        changes: into.changes,
+        segmentIds,
+        floorChange: into.floorChange,
+      }),
       round: roundBlockOf(store),
       segmentInserts,
       segmentCloses,
@@ -210,39 +240,37 @@ export function createRoundRuntime(input: {
     }
   };
 
-  /** Applies one command through the extracted dispatcher (ADR 0058 §6). */
-  const apply = (
+  const contextOn = (
     on: RoundStore,
     into: Queues,
-    command: RoundCommand,
     actorId: string | null,
     now: number,
-  ): void =>
-    applyRoundCommand(
-      {
-        rules,
-        on,
-        into,
-        actorId,
-        now,
-        closedCount: () => closedCount(capture(on)),
-        seatOf,
-        sideOf,
-        floorHolder: floorHolderSeat,
-        assertSeatCompleteness,
-        openRowAt: (at) =>
-          transitionOn(on, into, openClockSegment(capture(on), rules, at)),
-        closeRowAt: (sequence, at) =>
-          transitionOn(on, into, closeClockSegment(capture(on), sequence, at)),
-      },
-      command,
-    );
+  ): CommandContext => ({
+    rules,
+    on,
+    into,
+    actorId,
+    now,
+    closedCount: () => closedCount(capture(on)),
+    seatOf,
+    sideOf,
+    floorHolder: floorHolderSeat,
+    assertSeatCompleteness,
+    openRowAt: (at) =>
+      transitionOn(on, into, openClockSegment(capture(on), rules, at)),
+    closeRowAt: (sequence, at) =>
+      transitionOn(on, into, closeClockSegment(capture(on), sequence, at)),
+  });
 
   const roundBlockOf = (on: RoundStore): RoundProjection['round'] => {
     const lifecycle = on.lifecycle();
     return {
       status: lifecycle.status,
-      currentStage: stageOf(capture(on), lifecycle.status),
+      currentStage: stageOf(
+        capture(on),
+        lifecycle.status,
+        rules.segments.length,
+      ),
       ...lifecycleStampsOf(lifecycle),
       checkpoint: on.checkpoint(),
     };
@@ -257,10 +285,29 @@ export function createRoundRuntime(input: {
       const scratch = restoreRoundStore(capture(store));
       const into = queues();
       advance(scratch, into, at);
-      apply(scratch, into, command, actorId, at);
+      applyRoundCommand(contextOn(scratch, into, actorId, at), command);
       store = scratch;
       return project(into);
     },
+    adjudicate(decision): RoundProjection {
+      const at = Date.parse(decision.now);
+      const scratch = restoreRoundStore(capture(store));
+      const into = queues();
+      advance(scratch, into, at);
+      applyRoundAdjudication(
+        contextOn(scratch, into, null, at),
+        decision,
+        input.segments,
+        input.participants,
+      );
+      store = scratch;
+      return project(into);
+    },
+    completeUnjudged: (completion) =>
+      onScratch(completion.now, (c) =>
+        applyUnjudgedCompletion(c, completion, input.participants),
+      ),
+    abandonUnstarted: (now) => onScratch(now, abandonUnstartedRound),
     tick(now): RoundProjection {
       const into = queues();
       advance(store, into, Date.parse(now));

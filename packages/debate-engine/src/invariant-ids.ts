@@ -5,6 +5,18 @@
  * registers each id with a fixture and a test (`bun invariants`).
  */
 export const debateInvariantIds = {
+  unjudgedCasualOnly: 'round.complete.unjudged-casual-only',
+  failurePostponesOnly: 'debate.adjudication.failure-postpones-only',
+  timestampDecides: 'debate.adjudication.timestamp-decides',
+  speechTurnsOnly: 'debate.adjudication.speech-turns-only',
+  lastSpeechNeverForfeits: 'debate.adjudication.last-speech-never-forfeits',
+  graceCoversReconnect: 'debate.rules.check-in-grace-covers-reconnect',
+  speechCoversGrace: 'debate.rules.speech-covers-grace',
+  finalizationBufferCoversCommit:
+    'debate.rules.finalization-buffer-covers-commit',
+  settledPrefixStable: 'debate.availability.settled-prefix-stable',
+  checkInWindowOpen: 'debate.check-in.window-open',
+  attendanceFinalizedIrreversible: 'debate.adjudication.finalized-irreversible',
   completedIsTerminal: 'round.status.completed.terminal',
   segmentMatchesRules: 'round.segment.matches-rules',
   liveOpenSegmentCount: 'round.live.open-segment-count',

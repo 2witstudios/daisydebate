@@ -1,5 +1,5 @@
 import type { OutboxPosition, OutboxRow } from '@daisy/db';
-import type { ServerMessage } from '@daisy/protocol';
+import { ENVELOPE_VERSION, type ServerMessage } from '@daisy/protocol';
 import type { createAuthorityLease } from './authority-lease';
 export type SocketPrincipal = {
   readonly actorId: string;
@@ -14,6 +14,8 @@ export type RegistrySocket = {
   readonly close: (code: number, reason: string) => void;
 };
 export type Subscription = {
+  /** The subscribe request this answers; a later resync names it. */
+  readonly requestId: string;
   readonly lease: ReturnType<typeof createAuthorityLease>;
   revision: string;
   attached: boolean;
@@ -48,6 +50,11 @@ export type SubscriptionTransport = {
     subscription: Subscription,
   ) => boolean;
   readonly nativeTopic: (connection: Connection, topic: string) => string;
+  readonly resync: (
+    connection: Connection,
+    request: Pick<SubscribeRequest, 'id' | 'topic'>,
+    sub: Subscription,
+  ) => void;
 };
 export type ReplayTransport = SubscriptionTransport & {
   readonly sendRow: (
@@ -56,11 +63,6 @@ export type ReplayTransport = SubscriptionTransport & {
     sub: Subscription,
     row: OutboxRow,
   ) => boolean;
-  readonly resync: (
-    connection: Connection,
-    request: SubscribeRequest,
-    sub: Subscription,
-  ) => void;
 };
 export const compare = (a: OutboxPosition, b: OutboxPosition) =>
   BigInt(a.txid) < BigInt(b.txid)
@@ -77,14 +79,35 @@ export const ownsSubscription = (
   topic: string,
   sub: Subscription,
 ) => !connection.closed && connection.topics.get(topic) === sub;
+const refusalMessages = {
+  RATE_LIMIT: 'Subscription limit reached',
+  AUTHORIZATION: 'Subscription refused',
+  INFRASTRUCTURE: 'Subscription authority unavailable',
+} as const;
+/** A subscribe refusal names its cause; only INFRASTRUCTURE is transient. */
+export const subscriptionRefusal = (
+  id: string,
+  code: keyof typeof refusalMessages,
+) => ({
+  v: ENVELOPE_VERSION,
+  type: 'error' as const,
+  id,
+  code,
+  message: refusalMessages[code],
+});
+/** An authority read that could not decide: transient, never a denial. */
+export const AUTHORITY_UNAVAILABLE = 'unavailable';
+/** Allowed, denied (null), or unavailable after a reported failure of the read itself. */
 export async function readSubscriptionDecision(
   authorize: AuthorizeSubscription,
   connection: Connection,
   topic: string,
+  failed: (error: unknown) => void,
 ) {
   try {
     return await authorize(connection.principal, topic);
-  } catch {
-    return null;
+  } catch (error) {
+    failed(error);
+    return AUTHORITY_UNAVAILABLE;
   }
 }

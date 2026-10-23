@@ -72,10 +72,7 @@ const harmless: readonly Row[] = [
   },
   {
     shape: 'reordered keys',
-    startTs: edit(
-      "  port,\n  host: '0.0.0.0',\n",
-      "  host: '0.0.0.0',\n  port,\n",
-    ),
+    startTs: edit('  port,\n  host,\n', '  host,\n  port,\n'),
     expected: null,
   },
 ];
@@ -254,10 +251,7 @@ const refused: readonly Row[] = [
     startTs: edit(
       CALL,
       'const { server, started } = ((refuseSchemaAlteringRole: (...args: unknown[]) => Promise<void>) => startProductionServer({\n',
-    ).replace(
-      "  host: '0.0.0.0',\n});\n",
-      "  host: '0.0.0.0',\n}))(async () => {});\n",
-    ),
+    ).replace('  host,\n});\n', '  host,\n}))(async () => {});\n'),
     expected: ONE_CALL,
   },
   {

@@ -1,3 +1,4 @@
+import { attendanceInvariantFixtures } from './invariants-attendance';
 import { invariantIdOf as invariantId } from './invariant-error';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
@@ -124,6 +125,16 @@ type Fixture = () => void;
 type TestSources = Readonly<Record<string, string>>;
 
 const fixtures: Readonly<Record<string, Fixture>> = {
+  ...attendanceInvariantFixtures(rules, seats),
+  'unjudged-casual-only': () =>
+    round({ status: 'active' }).completeUnjudged({
+      competitionType: 'casual',
+      now: t0,
+      ballots: [],
+      ballotDeadlineAt: t0,
+      completeness: 'complete',
+      humanJudgeSeatIds: [],
+    }),
   'completed-is-terminal': () =>
     round({ status: 'completed' }).execute({
       command: { type: 'start' },

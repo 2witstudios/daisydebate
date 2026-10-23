@@ -1,12 +1,14 @@
 import { request } from 'node:http';
-import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { requireLaunchSlot } from './room-launch-slot';
+import type { LaunchControlOperation } from './room-launch-control';
 
 export const launchControlPath = (id: string) =>
-  join(tmpdir(), `daisy-room-launch-${id}.json`);
+  join(tmpdir(), `drl-${id}.sock`);
+export const launchAppControlPath = (id: string, peer = false) =>
+  join(tmpdir(), `${peer ? 'drp' : 'dra'}-${id}.sock`);
 /** Close owned browser contexts even when the auth control refuses settlement. */
 export async function closeSettledLaunchContexts(
   accounts: { closeContexts(): Promise<void> },
@@ -18,41 +20,37 @@ export async function closeSettledLaunchContexts(
     await accounts.closeContexts();
   }
 }
-/** Await the actual auth process's background work before recording/closing. */
-export async function settledLaunchAuth() {
-  const { id } = requireLaunchSlot(
-    resolve(import.meta.dirname, '../../../..'),
-    process.env,
-  );
-  const control: unknown = JSON.parse(
-    await readFile(launchControlPath(id), 'utf8'),
-  );
-  if (
-    typeof control !== 'object' ||
-    control === null ||
-    !('port' in control) ||
-    !Number.isInteger(control.port) ||
-    Number(control.port) < 1 ||
-    Number(control.port) > 65535
-  )
-    throw new Error('Invalid Launch proof control descriptor');
-  const port = Number(control.port);
+
+export async function callLaunchControl(
+  path: string,
+  operation: LaunchControlOperation,
+) {
   await new Promise<void>((accept, reject) => {
     const call = request(
-      { host: '127.0.0.1', port, path: '/settled', method: 'POST' },
+      { socketPath: path, path: `/${operation}`, method: 'POST' },
       (response) => {
         response.resume();
         response.once('end', () =>
           response.statusCode === 204
             ? accept()
-            : reject(new Error('Launch auth did not settle')),
+            : reject(new Error('Launch control refused')),
         );
       },
     );
-    call.setTimeout(10_000, () =>
-      call.destroy(new Error('Launch auth settling deadline')),
+    call.setTimeout(60000, () =>
+      call.destroy(new Error('Launch control deadline')),
     );
     call.once('error', reject);
     call.end();
   });
 }
+/** Test driver capability for only this dedicated fixture's owned ingress and processes. */
+export const controlLaunch = (operation: LaunchControlOperation) => {
+  const { id } = requireLaunchSlot(
+    resolve(import.meta.dirname, '../../../..'),
+    process.env,
+  );
+  return callLaunchControl(launchControlPath(id), operation);
+};
+/** Await the actual auth process's background work before recording/closing. */
+export const settledLaunchAuth = () => controlLaunch('settled');

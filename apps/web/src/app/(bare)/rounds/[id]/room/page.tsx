@@ -1,4 +1,9 @@
-import { systemClock } from '@daisy/clock';
+import { readPersistedJudgeRound } from '../../../../(shell)/judge/ballot/[debateId]/actions';
+import { LiveJudgeRoom } from '../../../../../ui/debate-room/live-judge-room';
+import { roundCommandAction, readPersistedAttendance } from './actions';
+import { RoundNativeAttendance } from '../../../../../features/attendance/native-state';
+import { roundCommandIds } from '../../../../../features/round-runtime/command-ids';
+import { systemClock, systemId } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import type { Metadata } from 'next';
@@ -11,7 +16,7 @@ import { readPersistedRound } from '../../../../(shell)/rounds/[id]/actions';
 
 export const metadata: Metadata = { title: 'Round' };
 
-/** The debater's round room, outside the app shell; anyone else gets the receipt. */
+/** Fresh assigned members enter their own live view; everyone else gets the receipt. */
 export default async function RoundRoomPage({
   params,
   searchParams,
@@ -28,10 +33,31 @@ export default async function RoundRoomPage({
   const result = await readPersistedRound(id);
   if (result.kind === 'missing') notFound();
   if (result.kind !== 'found') throw createAppError('INFRASTRUCTURE');
-  if (!isLiveDebater(result.round, actorId)) redirect(`/rounds/${id}`);
+  if (!isLiveDebater(result.round, actorId)) {
+    const assigned = await readPersistedJudgeRound(id);
+    if (assigned.kind === 'unavailable') throw createAppError('INFRASTRUCTURE');
+    if (assigned.kind !== 'found') redirect(`/rounds/${id}`);
+    if (!['active', 'scheduled'].includes(assigned.round.status))
+      redirect(`/rounds/${id}`);
+    return (
+      <LiveJudgeRoom
+        view={assigned.round}
+        read={readPersistedJudgeRound.bind(null, id)}
+        socketUrl={result.socketUrl}
+      />
+    );
+  }
   const here = `/rounds/${id}/room`;
   return (
     <LiveRoundRoom
+      attendanceSlot={
+        <RoundNativeAttendance
+          view={result.round}
+          state={await readPersistedAttendance(id)}
+        />
+      }
+      commandAction={roundCommandAction.bind(null, id)}
+      commandIds={roundCommandIds(() => systemId.next())}
       view={result.round}
       actorId={actorId}
       renderedAtMs={Date.parse(systemClock.now())}

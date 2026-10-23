@@ -6,7 +6,7 @@ import {
   type RoomListPage,
 } from '@daisy/protocol';
 import { currentFormatRevisions } from './format-operations';
-import { eq, isNull } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type {
   LaunchedRound,
@@ -25,6 +25,8 @@ import { botProfiles } from './schema/bot-profiles';
 import { rooms } from './schema/rooms';
 import { rounds } from './schema/rounds';
 import { segmentRows } from './round-hydration';
+import { recordedUnjudgedRuling } from './round-unjudged-decisions';
+import { roundCommands } from './schema/round-commands';
 import { readableCheckpoint, roundViewFor } from './round-view-projection';
 import { roundParticipants } from './schema/round-participants';
 import { formats } from './schema/formats';
@@ -44,6 +46,66 @@ import {
   lockCommand,
   replayReceipt,
 } from './room-command-facts';
+export async function launchedRoundRows(
+  tx: Pick<BunSQLDatabase, 'select'>,
+  roundId: string,
+): Promise<LaunchedRound> {
+  const [row] = await tx
+    .select()
+    .from(rounds)
+    .where(eq(rounds.id, roundId))
+    .for('share');
+  if (!row || !row.roomId || !row.roomConfigSnapshot || !row.visibility)
+    throw createAppError('NOT_FOUND');
+  const seats = await tx
+    .select()
+    .from(roundParticipants)
+    .where(eq(roundParticipants.roundId, roundId));
+  const participants = await Promise.all(
+    seats.map(async (p) => {
+      const actor = await actorFact(tx, p.actorId);
+      if (!actor) throw createAppError('INVARIANT');
+      return {
+        id: p.id,
+        actorId: actor.actorId,
+        kind: actor.kind,
+        label: actor.label,
+        role: p.role,
+        slot: p.slot,
+      };
+    }),
+  );
+  const round: LaunchedRound = {
+    id: row.id,
+    roomId: row.roomId,
+    version: row.version,
+    status: row.status,
+    competitionType: row.competitionType,
+    topic: row.resolution,
+    visibility: row.visibility,
+    hostActorId: row.createdByActorId,
+    config: row.roomConfigSnapshot,
+    rules: row.rulesSnapshot,
+    participants,
+    startedAt: row.startedAt?.toISOString() ?? null,
+    completedAt: row.completedAt?.toISOString() ?? null,
+    outcome: row.outcome,
+    unjudgedRuling: recordedUnjudgedRuling(
+      await tx
+        .select()
+        .from(roundCommands)
+        .where(
+          and(
+            eq(roundCommands.roundId, roundId),
+            eq(roundCommands.type, 'complete'),
+          ),
+        ),
+    ),
+    checkpoint: readableCheckpoint(row.runtimeState),
+    segments: await segmentRows(tx, roundId),
+  };
+  return round;
+}
 export const roomReadOperations = ({
   database,
   eventSink,
@@ -61,49 +123,7 @@ export const roomReadOperations = ({
     return instrumented(eventSink, 'readLaunchedRound', () =>
       database.transaction(async (tx) => {
         const account = await sharedAccount(tx, caller);
-        const [row] = await tx
-          .select()
-          .from(rounds)
-          .where(eq(rounds.id, roundId))
-          .for('share');
-        if (!row || !row.roomId || !row.roomConfigSnapshot || !row.visibility)
-          throw createAppError('NOT_FOUND');
-        const seats = await tx
-          .select()
-          .from(roundParticipants)
-          .where(eq(roundParticipants.roundId, roundId));
-        const participants = await Promise.all(
-          seats.map(async (p) => {
-            const actor = await actorFact(tx, p.actorId);
-            if (!actor) throw createAppError('INVARIANT');
-            return {
-              id: p.id,
-              actorId: actor.actorId,
-              kind: actor.kind,
-              label: actor.label,
-              role: p.role,
-              slot: p.slot,
-            };
-          }),
-        );
-        const round: LaunchedRound = {
-          id: row.id,
-          roomId: row.roomId,
-          version: row.version,
-          status: row.status,
-          competitionType: row.competitionType,
-          topic: row.resolution,
-          visibility: row.visibility,
-          hostActorId: row.createdByActorId,
-          config: row.roomConfigSnapshot,
-          rules: row.rulesSnapshot,
-          participants,
-          startedAt: row.startedAt?.toISOString() ?? null,
-          completedAt: row.completedAt?.toISOString() ?? null,
-          outcome: row.outcome,
-          checkpoint: readableCheckpoint(row.runtimeState),
-          segments: await segmentRows(tx, roundId),
-        };
+        const round = await launchedRoundRows(tx, roundId);
         if (!authorize(round, account)) throw createAppError('NOT_FOUND');
         return roundViewFor(round, caller.actorId);
       }),
@@ -157,12 +177,20 @@ export const roomReadOperations = ({
     query: RoomListQuery,
     authorize: (fact: RoomDiscoveryFact, account: Account) => boolean,
     authorizeCollection: (account: Account) => boolean,
+    hostHidden: (fact: RoomDiscoveryFact) => boolean,
   ): Promise<RoomListPage> {
     if (!roomListQuerySchema.safeParse(query).success)
       throw createAppError('VALIDATION');
     return instrumented(eventSink, 'listRoomPage', () =>
       database.transaction((tx) =>
-        discoverRooms(tx, caller, query, authorize, authorizeCollection),
+        discoverRooms(
+          tx,
+          caller,
+          query,
+          authorize,
+          authorizeCollection,
+          hostHidden,
+        ),
       ),
     );
   },

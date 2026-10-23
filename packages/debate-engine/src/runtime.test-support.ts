@@ -65,7 +65,7 @@ export const practiceSeats = [
     slot: 0,
   },
   {
-    id: 'q5x2v8t0r4p6n2b8c1z7k3m9w',
+    id: 'q5x2v8t0r4p6n2b8c1z7k3m9',
     actorId: negativeActor,
     role: 'negative',
     slot: 0,

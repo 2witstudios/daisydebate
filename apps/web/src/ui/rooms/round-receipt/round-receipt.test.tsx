@@ -9,6 +9,7 @@ const scheduled: RoundReceiptView = {
   roomId: 'room-owned',
   status: 'scheduled',
   outcome: null,
+  unjudgedRuling: null,
   topic: '<Frozen topic>',
   config: { preRoundPrep: { enabled: true, durationMs: 45000 } },
   rules: {
@@ -115,6 +116,30 @@ const judged: RoundReceiptView = {
   ],
 };
 
+test('a completed zero-judge Round presents an unjudged result without inventing a winner', () => {
+  const html = renderToStaticMarkup(
+    <RoundReceipt
+      round={{
+        ...scheduled,
+        status: 'completed',
+        outcome: null,
+        participants: scheduled.participants.filter((p) => p.role !== 'judge'),
+      }}
+    />,
+  );
+  assert({
+    given: 'the shared completed Round with null outcome',
+    should: 'label its unjudged result truthfully in native HTML',
+    actual: [
+      html.includes('Result · Unjudged'),
+      html.includes('Draw'),
+      html.includes('won'),
+      html.includes('Abandoned'),
+    ],
+    expected: [true, false, false, false],
+  });
+});
+
 test('a judged Round hands its result to the receipt', () => {
   const html = renderToStaticMarkup(<RoundReceipt round={judged} />);
   assert({
@@ -128,5 +153,47 @@ test('a judged Round hands its result to the receipt', () => {
       html.includes('Riley'),
     ],
     expected: [true, true, true, false],
+  });
+});
+
+test('a judged Round whose judges did not rule by the deadline says so (DEC-201)', () => {
+  const html = renderToStaticMarkup(
+    <RoundReceipt round={{ ...judged, outcome: null }} />,
+  );
+  assert({
+    given: 'a completed Round with judge seats and no outcome',
+    should: 'say the judges did not rule, never Unjudged, a draw or a winner',
+    actual: [
+      html.includes('Result · Judges did not rule'),
+      html.includes('Unjudged'),
+      html.includes('Draw'),
+      html.includes('won'),
+    ],
+    expected: [true, false, false, false],
+  });
+});
+
+test('a Round closed on an incomplete transcript says so instead of blaming the judges (DEC-208)', () => {
+  const html = renderToStaticMarkup(
+    <RoundReceipt
+      round={{
+        ...judged,
+        outcome: null,
+        unjudgedRuling: 'transcript-incomplete',
+      }}
+    />,
+  );
+  assert({
+    given:
+      'a completed AI-judged Round whose finalizer ruled the transcript incomplete',
+    should:
+      'say the transcript was incomplete, never that judges did not rule, a draw or a winner',
+    actual: [
+      html.includes('Result · Transcript incomplete'),
+      html.includes('Judges did not rule'),
+      html.includes('Draw'),
+      html.includes('won'),
+    ],
+    expected: [true, false, false, false],
   });
 });

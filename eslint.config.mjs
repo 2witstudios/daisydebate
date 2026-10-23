@@ -635,7 +635,7 @@ export default [
     files: ['apps/web/integration/**/*.ts', 'apps/web/e2e/**/*.ts'],
     ignores: [
       'apps/web/e2e/support/server.ts',
-      'apps/web/e2e/support/room-launch-server.ts',
+      'apps/web/e2e/support/room-launch-app.ts',
     ],
     rules: {
       'no-restricted-imports': [
@@ -669,7 +669,7 @@ export default [
     files: ['apps/web/e2e/**/*.ts'],
     ignores: [
       'apps/web/e2e/support/server.ts',
-      'apps/web/e2e/support/room-launch-server.ts',
+      'apps/web/e2e/support/room-launch-app.ts',
     ],
     rules: {
       'no-restricted-syntax': [

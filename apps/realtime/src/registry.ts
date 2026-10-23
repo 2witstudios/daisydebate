@@ -34,6 +34,7 @@ export function createSubscriptionRegistry({
   readCatchup,
   readRetentionBoundary,
   publish,
+  failed,
 }: {
   readonly now: () => number;
   readonly lifetimeMs: number;
@@ -56,6 +57,8 @@ export function createSubscriptionRegistry({
   }>;
   readonly readRetentionBoundary: () => Promise<OutboxPosition | null>;
   readonly publish: (topic: string, frame: ServerMessage) => void;
+  /** Reports an authority read that failed rather than decided. */
+  readonly failed: (error: unknown) => void;
 }) {
   const connections = new Set<Connection>();
   let nextConnection = 0;
@@ -125,9 +128,10 @@ export function createSubscriptionRegistry({
   const delivery = createSubscriptionDelivery({
     connections,
     authorize,
+    failed,
     publish,
     event,
-    transport: { detach, current, nativeTopic },
+    transport: { detach, current, nativeTopic, resync },
     remove,
   });
   return {
@@ -156,6 +160,7 @@ export function createSubscriptionRegistry({
       lifetimeMs,
       maxSubscriptions,
       authorize,
+      failed,
       readCatchup,
       readRetentionBoundary,
       snapshot: () => ({ cursor, floor, ring }),

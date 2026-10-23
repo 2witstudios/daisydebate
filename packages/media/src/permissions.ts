@@ -1,5 +1,6 @@
 import { TrackSource } from 'livekit-server-sdk';
-import type { MediaPermissions } from './contracts';
+import { participantSchema, type MediaPermissions } from './contracts';
+import type { z } from 'zod';
 
 const trackSources = {
   camera: TrackSource.CAMERA,
@@ -21,4 +22,36 @@ export function vendorPermissions(grants: MediaPermissions) {
 export function roomPermissions(grants: MediaPermissions) {
   const { canUpdateOwnMetadata, ...permission } = vendorPermissions(grants);
   return { ...permission, canUpdateMetadata: canUpdateOwnMetadata };
+}
+
+/** Normalized adapter read: unknown/empty unrestricted source defaults require replacement. */
+export function publicationPermission(
+  participant: z.infer<typeof participantSchema>,
+) {
+  const permission = participant.permission;
+  const sources = permission.canPublishSources;
+  const publish: ('camera' | 'microphone')[] = [];
+  const allowed = (source: TrackSource) =>
+    permission.canPublish && (sources.length === 0 || sources.includes(source));
+  if (allowed(TrackSource.CAMERA)) publish.push('camera');
+  if (allowed(TrackSource.MICROPHONE)) publish.push('microphone');
+  return {
+    identity: participant.identity,
+    grants: {
+      publish,
+      subscribe: permission.canSubscribe,
+      hidden: permission.hidden,
+      capture: false as const,
+    },
+    restricted:
+      !permission.canPublishData &&
+      !permission.canUpdateMetadata &&
+      (!permission.canPublish ||
+        (sources.length > 0 &&
+          sources.every(
+            (source) =>
+              source === TrackSource.CAMERA ||
+              source === TrackSource.MICROPHONE,
+          ))),
+  };
 }

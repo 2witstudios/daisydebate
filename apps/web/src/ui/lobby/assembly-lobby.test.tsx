@@ -79,3 +79,19 @@ test('Lobby renders authoritative empty pages and race retry distinctly', () => 
     ],
   });
 });
+test('Lobby names no host when the host is a hidden judge', () => {
+  const html = renderToStaticMarkup(
+    <AssemblyLobby
+      rooms={[{ ...entry, hostActorId: null, hostLabel: null }]}
+      query={{ q: '', pageSize: 1 }}
+      nextCursor={null}
+      retry={false}
+    />,
+  );
+  assert({
+    given: 'a listed Room whose host identity the server redacted',
+    should: 'show its competition type without an empty host line',
+    actual: [html.includes('Host:'), html.includes('casual')],
+    expected: [false, true],
+  });
+});

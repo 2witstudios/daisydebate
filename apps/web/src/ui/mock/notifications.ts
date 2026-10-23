@@ -13,14 +13,14 @@ export const sampleNotifications: readonly MockNotification[] = [
   {
     id: 'ballot-ready',
     text: 'A judge submitted the ballot for your debate with debater-b.',
-    href: '/debates/started?turn=6&kind=person&by=person',
+    href: '/lobby',
     minutesAgo: 12,
     unread: true,
   },
   {
     id: 'room-full',
     text: 'Your room “Tuesday practice” has everyone seated.',
-    href: '/rooms/created',
+    href: '/lobby',
     minutesAgo: 45,
     unread: true,
   },

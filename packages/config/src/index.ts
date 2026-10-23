@@ -1,8 +1,17 @@
 import { z } from 'zod';
 import { roomPolicyConfig } from './room-policy';
+import { botWorkerPolicyConfig } from './bot-worker-policy';
+export type { RoundBotWorkerPolicy } from './bot-worker-policy';
 import { mediaEndpoint } from './media-endpoint';
 import { databaseUrl, redisUrl } from './urls';
 import { realtimePublicUrlSchema } from './realtime-endpoint';
+import { mediaWorkerSecret, withoutMigrationCredential } from './credentials';
+import { secret, secretKeysOf } from './secrets';
+import { mediaWorkerFields } from './media-worker-config';
+export {
+  readMediaWorkerConfig,
+  type MediaWorkerConfig,
+} from './media-worker-config';
 export {
   readRealtimePublicUrl,
   realtimePublicUrlSchema,
@@ -15,17 +24,6 @@ export {
   testRedisDatabase,
   testRedisRefusal,
 } from './test-redis';
-
-/**
- * Fields whose value is a credential or carries one (a password inside a
- * connection URL). Marked where each field is declared, so the list of
- * secret keys is derived from the schemas rather than kept by hand.
- */
-const secrets = z.registry<{ readonly secret: true }>();
-const secret = <Schema extends z.ZodType>(schema: Schema): Schema => {
-  secrets.add(schema, { secret: true });
-  return schema;
-};
 
 /** `AUTH_TRUSTED_PROXIES` keyword: trust this machine's default gateway. */
 export const TRUSTED_PROXY_GATEWAY = 'gateway';
@@ -92,16 +90,12 @@ const deploymentIdentityFields = {
   // Read only so production can refuse it; never part of the parsed config.
   MIGRATION_DATABASE_URL: secret(z.string()).optional(),
 };
-/** Drops the migration credential a runtime reads only to refuse it. */
-const withoutMigrationCredential = <Config extends object>(
-  config: Config & { MIGRATION_DATABASE_URL?: string | undefined },
-): Omit<Config, 'MIGRATION_DATABASE_URL'> => {
-  const { MIGRATION_DATABASE_URL: refused, ...runtime } = config;
-  void refused;
-  return runtime;
-};
 const serverFields = {
+  AI_ROUND_BUSY_CAP: z.coerce.number().int().positive().optional(),
+  ROUND_BOT_WORKER_POLICY: botWorkerPolicyConfig,
   ROOM_POLICY: roomPolicyConfig,
+  /** Configured isolated member/session resource for the actual public check-in probe. */
+  ATTENDANCE_PUBLIC_PROBE: secret(z.string()).optional(),
   ...deploymentIdentityFields,
   FOUNDATION_PROOF_ENABLED: z
     .enum(['true', 'false'])
@@ -113,6 +107,7 @@ const serverFields = {
   LIVEKIT_PUBLIC_URL: mediaEndpoint(/^wss?$/).optional(),
   LIVEKIT_API_KEY: secret(z.string().regex(/^\S+$/)).optional(),
   LIVEKIT_API_SECRET: secret(z.string().regex(/^\S+$/)).optional(),
+  MEDIA_WORKER_SECRET: secret(mediaWorkerSecret).optional(),
   // AIDB: OpenRouter for AI debates (chat, TTS, STT). Optional: without it
   // AI debates are unavailable and nothing calls out.
   OPENROUTER_API_KEY: secret(z.string().regex(/^\S+$/)).optional(),
@@ -363,19 +358,14 @@ export function readBrowserConfig(env: Record<string, string | undefined>) {
     .object({ PUBLIC_APP_URL: z.url() })
     .parse({ PUBLIC_APP_URL: env.PUBLIC_APP_URL });
 }
-const unwrapOptional = (schema: z.ZodType): z.ZodType =>
-  schema instanceof z.ZodOptional
-    ? unwrapOptional(schema.unwrap() as z.ZodType)
-    : schema;
-
 /**
- * Every configuration key marked secret in the server, realtime, auth and
- * migration schemas: the list the logger's redaction tests are derived from (ADR 0019).
+ * Every configuration key marked secret in the server, realtime, auth,
+ * media worker and migration schemas: the list the logger's redaction tests
+ * are derived from (ADR 0019).
  */
-export const secretConfigKeys: readonly string[] = [
-  ...new Set(
-    Object.entries({ ...serverFields, ...authFields, ...migrationFields })
-      .filter(([, schema]) => secrets.has(unwrapOptional(schema)))
-      .map(([key]) => key),
-  ),
-];
+export const secretConfigKeys = secretKeysOf({
+  ...serverFields,
+  ...authFields,
+  ...mediaWorkerFields,
+  ...migrationFields,
+});

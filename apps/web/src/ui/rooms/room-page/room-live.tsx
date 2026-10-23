@@ -1,4 +1,5 @@
 'use client';
+import { canOfferFreshRoom } from '../../../features/room-runtime/fresh-room';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -129,6 +130,11 @@ export function RoomLive(props: Props) {
         action={props.commandAction}
         commandIds={ids.readiness}
       />
+      {canOfferFreshRoom(view, props.actorId) ? (
+        <Link href={`/rooms/${view.id}/rematch`} className="self-start">
+          Create a fresh Room
+        </Link>
+      ) : null}
       {view.roundRef ? (
         <Link href={`/rounds/${view.roundRef.id}`} className="self-start">
           View Round

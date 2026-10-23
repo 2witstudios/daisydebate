@@ -28,12 +28,15 @@ export const lifecycleStampsOf = (lifecycle: Lifecycle) => ({
 export const stageOf = (
   on: ClockState,
   status: RoundStatus,
+  segmentCount: number,
 ): RoundStage | null => {
   if (status !== 'active') return null;
   if (on.rows.find((row) => row.endedAtMs === null) !== undefined)
     return 'live';
   if (on.checkpoint.active_prep !== null) return 'prep';
-  return 'countdown';
+  return on.rows.filter((row) => row.endedAtMs !== null).length === segmentCount
+    ? 'live'
+    : 'countdown';
 };
 
 /**
@@ -179,7 +182,7 @@ const roundPositionOf = (
   const upcoming = nextSegmentOf(open, startable, spoken, rules);
   return {
     status: lifecycle.status,
-    stage: stageOf(on, lifecycle.status),
+    stage: stageOf(on, lifecycle.status, rules.segments.length),
     ...lifecycleStampsOf(lifecycle),
     openSegment: openSegmentOf(
       open,

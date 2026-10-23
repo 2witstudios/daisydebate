@@ -111,7 +111,13 @@ describe('rounds (DATA-2.1)', () => {
           status: 'completed',
           started_at: at,
           completed_at: at,
+          competition_type: 'practice',
         }),
+        completedUnjudgedCasual: !(await attempt({
+          status: 'completed',
+          started_at: at,
+          completed_at: at,
+        })),
         completedWithoutCompletedAt: await attempt({
           status: 'completed',
           started_at: at,
@@ -159,7 +165,7 @@ describe('rounds (DATA-2.1)', () => {
       assert({
         given: 'every status combined with its stage, timestamps and outcome',
         should:
-          'accept only coherent rows, including abandoned-before-start, and reject the rest',
+          'accept only coherent rows, including abandoned-before-start and casual completion without a winner, and reject the rest',
         actual: outcomes,
         expected: {
           activeWithoutStage: true,
@@ -168,6 +174,7 @@ describe('rounds (DATA-2.1)', () => {
           activeWithCompletion: true,
           activeFull: true,
           completedWithoutOutcome: true,
+          completedUnjudgedCasual: true,
           completedWithoutCompletedAt: true,
           completedFull: true,
           completedNeverStarted: true,

@@ -4,6 +4,7 @@ import {
   ParticipantInfo,
   Room,
   type RoomServiceClient,
+  ServerError,
   TrackSource,
 } from 'livekit-server-sdk';
 import { createMediaService } from './index';
@@ -160,4 +161,46 @@ describe('media room service boundary', () => {
       code: 'INFRASTRUCTURE',
     });
   });
+});
+
+test('a definite LiveKit refusal is distinguishable from an unknown outcome (ISSUE-464)', async () => {
+  const failing = (error: unknown) =>
+    createMediaService({
+      config,
+      rooms: {
+        deleteRoom: async () => {
+          throw error;
+        },
+      } as unknown as RoomServiceClient,
+    });
+  for (const [error, code] of [
+    [
+      new ServerError('not_found', 'room not found', 404, 'not_found'),
+      'NOT_FOUND',
+    ],
+    [
+      new ServerError('invalid_argument', 'bad', 400, 'invalid_argument'),
+      'CONFLICT',
+    ],
+    [
+      new ServerError('unavailable', 'down', 503, 'unavailable'),
+      'INFRASTRUCTURE',
+    ],
+    [
+      new ServerError('deadline_exceeded', 'timeout', 408, 'deadline_exceeded'),
+      'INFRASTRUCTURE',
+    ],
+    [
+      new ServerError('deadline_exceeded', 'timeout', 400, 'deadline_exceeded'),
+      'INFRASTRUCTURE',
+    ],
+    [new TypeError('fetch failed'), 'INFRASTRUCTURE'],
+  ] as const)
+    await assertRejects({
+      given: `a ${error instanceof ServerError ? error.status : 'network'} failure`,
+      should:
+        'report not found and other 4xx refusals definitely, and a timeout (408 or deadline_exceeded, which may have applied) or anything else as unknown',
+      actual: () => failing(error).deleteRoom(room),
+      code,
+    });
 });

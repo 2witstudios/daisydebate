@@ -1,6 +1,6 @@
 import { expect } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { DEFAULT_REALTIME_PORT, parsePort } from './port';
+import { DEFAULT_REALTIME_PORT, parseHostname, parsePort } from './port';
 
 setupRitewayBun();
 
@@ -38,5 +38,38 @@ describe('parsePort', () => {
     expect(() => parsePort('0', 3001)).toThrow('Invalid REALTIME_PORT');
     expect(() => parsePort('70000', 3001)).toThrow('Invalid REALTIME_PORT');
     expect(() => parsePort('abc', 3001)).toThrow('Invalid REALTIME_PORT');
+  });
+});
+
+describe('parseHostname', () => {
+  test('listens on every interface when unset', () => {
+    assert({
+      given: 'no REALTIME_HOST',
+      should: 'return the production all-interfaces address',
+      actual: parseHostname(undefined),
+      expected: '0.0.0.0',
+    });
+  });
+
+  test('listens on every interface when blank', () => {
+    assert({
+      given: 'REALTIME_HOST set but blank',
+      should: 'return the all-interfaces address, as a blank LISTEN_HOST does',
+      actual: parseHostname(' '),
+      expected: '0.0.0.0',
+    });
+  });
+
+  test('accepts a loopback literal', () => {
+    assert({
+      given: 'REALTIME_HOST=127.0.0.1',
+      should: 'return it unchanged',
+      actual: parseHostname('127.0.0.1'),
+      expected: '127.0.0.1',
+    });
+  });
+
+  test('rejects a name that is not an IP literal', () => {
+    expect(() => parseHostname('localhost')).toThrow('Invalid REALTIME_HOST');
   });
 });

@@ -1,3 +1,4 @@
+import { checkLivekit, checkMediaWorker } from './doctor-media';
 import { puLauncherProblem, readPuLauncher } from './doctor-launcher';
 import { SQL, RedisClient } from 'bun';
 import { readServerConfig } from '@daisy/config';
@@ -5,7 +6,8 @@ import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { readdir, readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
-import { serviceRefusal, slotMismatches, type Slot } from './slot-model';
+import { slotMismatches, type Slot } from './slot-model';
+import { serviceRefusal } from './slot-services';
 import {
   inspectOrphans,
   liveSlotIds,
@@ -25,6 +27,8 @@ const checkNames = [
   'postgres',
   'migration-currency',
   'redis',
+  'livekit',
+  'media-worker',
   'boundaries',
   'slot',
   'slot-orphans',
@@ -376,22 +380,35 @@ export function checkoutCheck(checkout: {
 
 export async function runDoctor(): Promise<DoctorReport> {
   const env = checkEnvironment();
-  const [bunVersion, postgres, migrations, redis, boundaries, slots, identity] =
-    await Promise.all([
-      checkBunVersion(),
-      checkPostgres(process.env.DATABASE_URL),
-      checkMigrationCurrency(process.env.DATABASE_URL),
-      checkRedis(process.env.REDIS_URL),
-      checkBoundaries(),
-      checkSlots(),
-      checkGithubIdentity(),
-    ]);
+  const [
+    bunVersion,
+    postgres,
+    migrations,
+    redis,
+    livekit,
+    mediaWorker,
+    boundaries,
+    slots,
+    identity,
+  ] = await Promise.all([
+    checkBunVersion(),
+    checkPostgres(process.env.DATABASE_URL),
+    checkMigrationCurrency(process.env.DATABASE_URL),
+    checkRedis(process.env.REDIS_URL),
+    checkLivekit(),
+    checkMediaWorker(process.env),
+    checkBoundaries(),
+    checkSlots(),
+    checkGithubIdentity(),
+  ]);
   return createDoctorReport([
     bunVersion,
     env,
     postgres,
     migrations,
     redis,
+    livekit,
+    mediaWorker,
     boundaries,
     ...slots,
     identity,

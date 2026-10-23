@@ -30,6 +30,18 @@ export const allowedWorkspaceDependencies: Record<string, readonly string[]> = {
   'ai-voice': ['debate-engine', 'errors', 'protocol'],
   // VIDEO-1.4: isolated LiveKit vendor adapter; no competitive authority.
   media: ['errors', 'protocol'],
+  // ADR 0053: capture deployment discovers sessions read-only under
+  // daisy_media_worker and writes only through signed web ingress.
+  'media-worker': [
+    'media',
+    'ai-voice',
+    'clock',
+    'config',
+    'db',
+    'errors',
+    'logger',
+    'protocol',
+  ],
   protocol: [],
   // ADR 0048: pure capability evaluation consumes portable vocabulary only.
   auth: ['errors', 'protocol'],
@@ -105,9 +117,12 @@ export const deepImportIssue = (
     : `workspace deep import ${specifier}`;
 };
 
-/** Suites, a workspace's integration and e2e folders, and test support. */
+/**
+ * Suites, a workspace's integration and e2e folders, test support, and a
+ * workspace's Playwright config, which only configures test runs.
+ */
 const TEST_CODE =
-  /^(?:apps|packages)\/[^/]+\/(?:integration|e2e)\/|(?:^|\/)test-support\/|\.(?:test|integration|e2e)\.tsx?$|\.test-support\.tsx?$/;
+  /^(?:apps|packages)\/[^/]+\/(?:(?:integration|e2e)\/|playwright\.config\.ts$)|(?:^|\/)test-support\/|\.(?:test|integration|e2e)\.tsx?$|\.test-support\.tsx?$/;
 
 /** A workspace's `./testing` subpath, or any `*.test-support` module. */
 const TEST_SUPPORT_SPECIFIER =

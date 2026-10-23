@@ -1,7 +1,6 @@
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { validRules } from './testing';
-import { practiceRoomConfig } from './reference-formats';
+import { validRules } from './testing-rules';
 import { createTestDatabase, roomRow } from './index.test-support';
 
 setupRitewayBun();
@@ -10,60 +9,7 @@ const roomId = 'r1o2o3m4i5d6e7n8t9i1f5y3';
 const roundId = 'r2o8u4n6d8i1d3a5c7t9e2v4';
 const rules = validRules;
 
-const roomInput = () => ({
-  id: roomId,
-  hostActorId: 'host-actor',
-  title: 'Proof room',
-  topic: 'A motion',
-  visibility: 'public' as const,
-  formatId: 'foundation',
-  formatVersion: 1,
-  presetVersion: null,
-  competitionType: 'casual' as const,
-  length: 'full' as const,
-  config: practiceRoomConfig,
-  executionPlan: { preRoundPrep: { enabled: false as const } },
-  rules,
-});
-
 describe('roomOperations', () => {
-  test('creates an assembling room and refuses a replayed id', async () => {
-    const { database, queries } = createTestDatabase([[roomRow()]]);
-    const room = await database.createRoom(roomInput());
-    assert({
-      given: 'a resolved room insert',
-      should: 'persist it as assembling and read the row back',
-      actual: room,
-      expected: {
-        id: roomId,
-        formatId: 'foundation',
-        formatVersion: 1,
-        presetVersion: null,
-        competitionType: 'casual',
-        length: 'full',
-        status: 'assembling',
-        rules,
-      },
-    });
-    assert({
-      given: 'the insert',
-      should: 'carry the frozen rules snapshot',
-      actual: queries[0]?.query.includes('rules_snapshot'),
-      expected: true,
-    });
-    const duplicate = Object.assign(
-      new Error('duplicate key value violates unique constraint'),
-      { code: '23505' },
-    );
-    const replayed = createTestDatabase([duplicate]);
-    await assertRejects({
-      given: 'a room id that already exists',
-      should: 'refuse with a conflict',
-      actual: () => replayed.database.createRoom(roomInput()),
-      code: 'CONFLICT',
-    });
-  });
-
   test('seats an actor while assembling without claiming readiness after one seat', async () => {
     const { database, queries } = createTestDatabase([
       [['assembling', rules]],

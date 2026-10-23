@@ -94,6 +94,10 @@ export const rounds = pgTable(
     runtimeState: jsonbColumn('runtime_state', runtimeCheckpointSchema)
       .notNull()
       .default(emptyRuntimeCheckpoint),
+    finalSegmentEndedAt: timestampColumn('final_segment_ended_at'),
+    transcriptAdmissionCutoff: timestampColumn('transcript_admission_cutoff'),
+    /** Set once at the transcript freeze from the injected policy; judges rule before it (DEC-201, DEC-207). */
+    ballotDeadlineAt: timestampColumn('ballot_deadline_at'),
     createdAt: createdAtColumn(),
     updatedAt: updatedAtColumn(),
     version: versionColumn(),
@@ -101,7 +105,9 @@ export const rounds = pgTable(
   (table) => {
     const scheduled = sql`${table.status} = 'scheduled' and ${table.currentStage} is null and ${table.outcome} is null and ${table.startedAt} is null and ${table.completedAt} is null`;
     const active = sql`${table.status} = 'active' and ${table.currentStage} is not null and ${table.outcome} is null and ${table.startedAt} is not null and ${table.completedAt} is null`;
-    const completed = sql`${table.status} = 'completed' and ${table.currentStage} is null and ${table.outcome} is not null and ${table.startedAt} is not null and ${table.completedAt} is not null`;
+    /** No outcome: a zero-judge casual Round, or judges past their ballot deadline (DEC-201). */
+    const unjudged = sql`${table.competitionType} = 'casual' and ${table.ladderId} is null`;
+    const completed = sql`${table.status} = 'completed' and ${table.currentStage} is null and (${table.outcome} is not null or (${unjudged})) and ${table.startedAt} is not null and ${table.completedAt} is not null`;
     const abandoned = sql`${table.status} = 'abandoned' and ${table.currentStage} is null and ${table.outcome} is null and ${table.completedAt} is not null`;
     return [
       /** Lets `rating_changes` pin a change to the round's own format. */
@@ -135,6 +141,10 @@ export const rounds = pgTable(
         table.formatVersion,
       ),
       versionPositive('rounds', table.version),
+      check(
+        'rounds_transcript_cutoff_check',
+        sql`(${table.finalSegmentEndedAt} is null and ${table.transcriptAdmissionCutoff} is null) or (${table.finalSegmentEndedAt} is not null and ${table.transcriptAdmissionCutoff} is not null and ${table.transcriptAdmissionCutoff} = ${table.finalSegmentEndedAt} + interval '120 seconds')`,
+      ),
       check(
         'rounds_visibility_check',
         sql`${table.visibility} is null or ${oneOf(table.visibility, ['public', 'unlisted', 'private'])}`,

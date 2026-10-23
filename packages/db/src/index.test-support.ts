@@ -5,7 +5,7 @@ import { createDatabase } from './index';
 import { foundationDefinition, practiceRoomConfig } from './reference-formats';
 import { createTestOnlyOperations } from './test-only-operations';
 import type { DatabaseEventSink } from './instrumented';
-import { validRules } from './testing';
+import { validRules } from './testing-rules';
 import {
   fakeSql,
   type RecordedQuery,
@@ -90,6 +90,8 @@ export const roundRow = (record: {
   startedAt: string | null;
   completedAt: string | null;
   checkpoint: unknown;
+  finalSegmentEndedAt?: string | null;
+  transcriptAdmissionCutoff?: string | null;
   createdAt: string;
   updatedAt: string;
   version: number;
@@ -113,6 +115,11 @@ export const roundRow = (record: {
   record.startedAt === null ? null : new Date(record.startedAt),
   record.completedAt === null ? null : new Date(record.completedAt),
   record.checkpoint,
+  record.finalSegmentEndedAt ? new Date(record.finalSegmentEndedAt) : null,
+  record.transcriptAdmissionCutoff
+    ? new Date(record.transcriptAdmissionCutoff)
+    : null,
+  null,
   new Date(record.createdAt),
   new Date(record.updatedAt),
   record.version,

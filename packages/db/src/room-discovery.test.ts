@@ -27,6 +27,7 @@ test('discovery bounds SQL before Room locks and reads no aggregate', async () =
     { pageSize: 2, q: '' },
     () => true,
     () => true,
+    () => false,
   );
   assert({
     given: 'three candidate IDs and a two row work setting',
@@ -63,6 +64,7 @@ test('adapter refuses malformed page before any SQL', async () => {
         { pageSize: 51, q: '' },
         () => true,
         () => true,
+        () => false,
       ),
     code: 'VALIDATION',
   });
@@ -82,6 +84,7 @@ test('lock-wait privacy changes never disclose an inaccessible cursor', async ()
       { pageSize: 2, q: '' },
       () => true,
       () => true,
+      () => false,
     );
     assert({
       given: 'a private final scanned candidate after a lock wait',

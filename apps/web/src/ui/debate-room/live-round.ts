@@ -167,8 +167,9 @@ function liveIndexOf(view: RoundView, position: RoundPosition): number {
 }
 
 /**
- * When the last speech ended: its close, or, while its expired interval
- * stays open until completion (ADR 0058 §6), its scheduled end.
+ * Judging-clock display uses the persisted final close when available.
+ * Before a durable tick arrives, the scheduled end is a display prediction;
+ * capture admission and finalization use the committed database anchor.
  */
 const finalCloseMs = (view: RoundView): number => {
   const last = view.segments.at(-1);
@@ -184,7 +185,9 @@ const prepOf = (position: RoundPosition): RoundSnapshot['prepMs'] => {
 };
 
 /**
- * The phase, lit speech and clocks at one instant. An active round whose
+ * The phase, lit speech and clocks at one instant. A Round with no judge
+ * seat has no judging window: it finishes unjudged after the speeches
+ * (DEC-191). An active round whose
  * checkpoint could not be read has no live position: waiting, nothing lit,
  * no clock, rather than a position guessed from an empty checkpoint.
  */
@@ -201,9 +204,11 @@ function liveParts(
     phase,
     liveIndex: liveIndexOf(view, position),
     clock:
-      phase === 'judging'
-        ? judgingClockOf(finalCloseMs(view), nowMs)
-        : clockOf(view, position, side),
+      phase !== 'judging'
+        ? clockOf(view, position, side)
+        : judgeOf(view)
+          ? judgingClockOf(finalCloseMs(view), nowMs)
+          : null,
     prepMs: prepOf(position),
   };
 }

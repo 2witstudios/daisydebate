@@ -49,6 +49,8 @@ const view = {
   startedAt: at(0),
   completedAt: null,
   outcome: null,
+  unjudgedRuling: null,
+  viewerIsHost: false,
   checkpoint: emptyRuntimeCheckpoint,
   segments: [segment(0), segment(1)],
 };
@@ -79,6 +81,25 @@ describe('roundViewSchema', () => {
         parses((({ segments: _s, ...rest }) => rest)(view)),
       ],
       expected: [false, false, false, false, false],
+    });
+  });
+
+  test('the unjudged ruling (DEC-208)', () => {
+    assert({
+      given:
+        'a completed view ruled transcript-incomplete, an unknown ruling, and a view without the field',
+      should: 'carry the receipt ruling and refuse the others',
+      actual: [
+        parses({
+          ...view,
+          status: 'completed',
+          completedAt: at(9),
+          unjudgedRuling: 'transcript-incomplete',
+        }),
+        parses({ ...view, unjudgedRuling: 'media-failed' }),
+        parses((({ unjudgedRuling: _u, ...rest }) => rest)(view)),
+      ],
+      expected: [true, false, false],
     });
   });
 

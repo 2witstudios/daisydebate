@@ -1,6 +1,7 @@
 import { createAppError, isAppError } from '@daisy/errors';
 import { z } from 'zod';
-import { readLines } from './lines';
+import { readPcmSpeech, requireSpeechNotCancelled } from './pcm';
+import { requireProviderNotCancelled } from './cancellation';
 
 export type Fetch = (url: string, init: RequestInit) => Promise<Response>;
 
@@ -10,6 +11,7 @@ export type ChatMessage = {
 };
 
 export type CompletionRequest = {
+  readonly signal?: AbortSignal;
   readonly model: string;
   readonly messages: readonly ChatMessage[];
   readonly maxTokens: number;
@@ -39,12 +41,37 @@ const completionSchema = z.object({
     .object({ prompt_tokens: z.number(), completion_tokens: z.number() })
     .optional(),
 });
-const deltaSchema = z.object({
-  choices: z.array(
-    z.object({ delta: z.object({ content: z.string().nullish() }) }),
-  ),
-});
 const transcriptionSchema = z.object({ text: z.string() });
+
+const definiteFailures = new WeakSet<Error>();
+/**
+ * The vendor certainly did not serve the call: it refused the request itself
+ * (a 4xx other than 408), or the call was cancelled before it was sent. Nothing else is certain, since an
+ * unreachable or unreadable call may still have been served and billed.
+ */
+export const isDefiniteProviderFailure = (error: unknown): boolean =>
+  error instanceof Error && definiteFailures.has(error);
+const rateLimits = new WeakSet<Error>();
+/**
+ * A retry may succeed: every uncertain failure, and a rate limit (429), which
+ * is a definite refusal for now. Never another vendor refusal, nor a call
+ * cancelled before it was sent. A caller checks its own signal first: a call
+ * cancelled in flight stays uncertain, since it may have been served
+ * (VIDEO-4.1-r8).
+ */
+export const isTransientProviderFailure = (error: unknown): boolean =>
+  error instanceof Error &&
+  (rateLimits.has(error) || !definiteFailures.has(error));
+/**
+ * The vendor itself refused the request before serving it. A 408 or any 5xx
+ * can follow a call the vendor already served and billed (ISSUE-458-r1).
+ */
+const vendorRefused = (status: number) =>
+  status >= 400 && status < 500 && status !== 408;
+const definite = (error: Error) => {
+  definiteFailures.add(error);
+  return error;
+};
 
 /**
  * The OpenRouter adapter behind the TTS, STT and LLM ports. Every failure,
@@ -70,6 +97,10 @@ export function createOpenRouter({
     ...(appUrl ? { 'HTTP-Referer': appUrl } : {}),
   };
   const post = async (path: string, body: unknown, signal?: AbortSignal) => {
+    if (signal?.aborted)
+      throw definite(
+        createAppError('CONFLICT', 'Provider operation cancelled'),
+      );
     let response: Response;
     try {
       response = await fetch(`${BASE}${path}`, {
@@ -81,6 +112,7 @@ export function createOpenRouter({
           : AbortSignal.timeout(timeoutMs),
       });
     } catch (cause) {
+      requireProviderNotCancelled(signal);
       throw createAppError(
         'INFRASTRUCTURE',
         `OpenRouter ${path} unreachable`,
@@ -89,10 +121,12 @@ export function createOpenRouter({
     }
     if (!response.ok) {
       await response.body?.cancel();
-      throw createAppError(
+      const failure = createAppError(
         'INFRASTRUCTURE',
         `OpenRouter ${path} answered ${response.status}`,
       );
+      if (response.status === 429) rateLimits.add(failure);
+      throw vendorRefused(response.status) ? definite(failure) : failure;
     }
     return response;
   };
@@ -106,10 +140,18 @@ export function createOpenRouter({
     return result.data;
   };
   /** Reads an answer's body; a failure mid-read is an INFRASTRUCTURE error. */
-  const reading = async <T>(path: string, read: () => Promise<T>) => {
+  const reading = async <T>(
+    path: string,
+    read: () => Promise<T>,
+    signal?: AbortSignal,
+  ) => {
     try {
-      return await read();
+      requireProviderNotCancelled(signal);
+      const result = await read();
+      requireProviderNotCancelled(signal);
+      return result;
     } catch (cause) {
+      requireProviderNotCancelled(signal);
       if (isAppError(cause)) throw cause;
       throw createAppError(
         'INFRASTRUCTURE',
@@ -118,30 +160,7 @@ export function createOpenRouter({
       );
     }
   };
-  /** The text deltas in a chat completion's server-sent event lines. */
-  async function* deltasOf(lines: AsyncGenerator<string>) {
-    for (;;) {
-      const next = await reading('/chat/completions', () => lines.next());
-      if (next.done) return;
-      const line = next.value;
-      if (!line.startsWith('data: ')) continue;
-      const data = line.slice('data: '.length).trim();
-      if (data === '[DONE]') return;
-      let event: unknown;
-      try {
-        event = JSON.parse(data);
-      } catch {
-        throw createAppError(
-          'INFRASTRUCTURE',
-          'OpenRouter stream sent malformed data',
-        );
-      }
-      const delta = parse(deltaSchema, event, '/chat/completions').choices[0]
-        ?.delta.content;
-      if (delta) yield delta;
-    }
-  }
-  const chatBody = (request: CompletionRequest, stream: boolean) => ({
+  const chatBody = (request: CompletionRequest) => ({
     model: request.model,
     messages: request.messages,
     max_tokens: request.maxTokens,
@@ -152,18 +171,22 @@ export function createOpenRouter({
     ...(request.reasoning
       ? { reasoning: { effort: request.reasoning, exclude: true } }
       : {}),
-    ...(stream ? { stream: true } : {}),
     provider: DATA_POLICY,
   });
   return {
     async complete(request: CompletionRequest) {
       const response = await post(
         '/chat/completions',
-        chatBody(request, false),
+        chatBody(request),
+        request.signal,
       );
       const body = parse(
         completionSchema,
-        await reading('/chat/completions', () => response.json()),
+        await reading(
+          '/chat/completions',
+          () => response.json(),
+          request.signal,
+        ),
         '/chat/completions',
       );
       return {
@@ -172,63 +195,58 @@ export function createOpenRouter({
         completionTokens: body.usage?.completion_tokens ?? 0,
       };
     },
-    /** The completion's text deltas as the model writes them. */
-    async *stream(
-      request: CompletionRequest & { readonly signal?: AbortSignal },
-    ) {
-      const response = await post(
-        '/chat/completions',
-        chatBody(request, true),
-        request.signal,
-      );
-      if (!response.body)
-        throw createAppError('INFRASTRUCTURE', 'OpenRouter stream had no body');
-      const lines = readLines(response.body);
-      try {
-        yield* deltasOf(lines);
-      } finally {
-        await lines.return(undefined);
-      }
-    },
-    async speak({
+    /** Validated in-memory PCM for the server publication worker, never a transcript. */
+    async speakPcm({
       model,
       voice,
       text,
+      signal,
     }: {
       readonly model: string;
       readonly voice: string;
       readonly text: string;
+      readonly signal?: AbortSignal;
     }) {
-      const response = await post('/audio/speech', {
-        model,
-        input: text,
-        voice,
-        response_format: 'mp3',
-        provider: DATA_POLICY,
-      });
-      return {
-        audio: await reading('/audio/speech', () => response.arrayBuffer()),
-        characters: text.length,
-      };
+      requireSpeechNotCancelled(signal);
+      const response = await post(
+        '/audio/speech',
+        {
+          model,
+          input: text,
+          voice,
+          response_format: 'pcm',
+          provider: DATA_POLICY,
+        },
+        signal,
+      );
+      return reading('/audio/speech', () =>
+        readPcmSpeech(response, text.length, signal),
+      );
     },
     async transcribe({
       model,
       audioBase64,
       format,
+      signal,
     }: {
       readonly model: string;
       readonly audioBase64: string;
       readonly format: 'webm' | 'ogg' | 'mp4' | 'wav';
+      readonly signal?: AbortSignal;
     }) {
-      const response = await post('/audio/transcriptions', {
-        model,
-        input_audio: { data: audioBase64, format },
-        language: 'en',
-        provider: DATA_POLICY,
-      });
+      const response = await post(
+        '/audio/transcriptions',
+        {
+          model,
+          input_audio: { data: audioBase64, format },
+          language: 'en',
+          provider: DATA_POLICY,
+        },
+        signal,
+      );
       const body = parse(
         transcriptionSchema,
-        await reading('/audio/transcriptions', () => response.json()),
+        await reading('/audio/transcriptions', () => response.json(), signal),
         '/audio/transcriptions',
       );
       return { text: body.text.trim() };

@@ -69,3 +69,90 @@ a full hour's growth with headroom.
 **Rating seasons (ADR 0055).** `bun season list | open | close | rollover` is the only way to change a season; there is no route for it in `apps/web` (ADR 0043). `open --name "<name>" [--starts <ISO>]` opens a season as active and is refused while another is active; `close --id <id> [--ends <ISO>]` closes the active season; `rollover --name "<name>" [--starts <ISO>]` closes the active season at the new start and opens the next in one transaction. Ids come from cuid2 and the default time is now. Opening the first production season is a human-only task (RATE-H.1).
 
 Database availability is necessary but not sufficient readiness. Deployers must ensure migrations are applied, monitor storage/replication/backup lag, enforce TLS for remote database and Redis connections, and set network access policy. Local plaintext credentials are intentionally confined to loopback. Redis persistence is off locally to expose accidental reliance on durable cache state.
+
+## Bounded transcript transactions
+
+Transcript append, sealing and freeze adapters share `createBoundedTransaction`
+(`packages/db/src/bounded-transaction.ts`) over their existing Bun SQL pool.
+Inject a monotonic millisecond clock. The callback receives a runtime-enforced
+`select`/`insert`/`update`/`delete`/`execute` facade. Nested transactions, raw client
+access and manual transaction/session controls are refused; refusal poisons the
+attempt even if the callback catches it. Each admitted attempt reserves a watchdog
+connection before its writer; the 3,000 ms whole budget includes pool acquisition,
+setup, locks, callback and commit. Admission uses at most half the configured
+pool capacity in writers, with two connections per attempt. Callbacks perform
+only database work and deterministic computation; provider calls run afterward.
+
+The writer sets local statement, lock and idle transaction timeouts to 2,000 ms.
+On failure or deadline the adapter aborts the callback signal, cancels queries
+and destroys only its reserved writer connection. The already reserved watchdog
+has another 1,000 ms to terminate/verify absence of that exact backend using both
+PID and server `backend_start`, restricted to the same database and login role.
+A reused PID is never sufficient authority to terminate. No additional SQL pool
+or role privilege is introduced. The implementation follows the pinned
+[Bun 1.4.2 SQL documentation](https://github.com/oven-sh/bun/blob/bun-v1.4.2/docs/runtime/sql.mdx)
+and its reserved-connection implementation. Drizzle statements without parameters
+use the same reserved connection's tagged prepared path: Bun's `unsafe(text, [])`
+simple-query path sends a trailing Flush after ReadyForQuery, disarming the
+PostgreSQL idle timer. The tagged path ends with Sync and preserves the actual
+server idle backstop; the real idle-session regression test must stay green.
+
+An unavailable watchdog or ambiguous commit produces an infrastructure refusal
+with recovery pending. Callers leave the durable operation pending and retry its
+idempotent identity after recovery; an error never proves transcript freeze or
+successful rollback. Only an actual `COMMIT` completion tag returns the callback result: PostgreSQL
+answers COMMIT with ROLLBACK when a callback has swallowed an earlier SQL error.
+The callback scope closes before commit starts, and all exits dispose the signal
+and native query lifetime, including success; retained handles and lazy queries
+cannot later mutate the released connection.
+Focused real PostgreSQL integration suites cover cumulative statements, lock and
+statement stalls, idle callbacks, lost cancellation, unavailable recovery,
+reservation exhaustion, pool recovery and backend identity reuse.
+
+Callback SQL is lexed using PostgreSQL identifier/literal boundaries before it
+reaches the prepared driver. Schema qualification, quoted identifiers and comments
+cannot hide `set_config` or the writable `pg_settings` configuration view.
+Both CR and LF terminate line comments. The view is excluded entirely from callback
+SQL, including nested/CTE and EXPLAIN forms: its UPDATE has session-setting effects
+that persist after COMMIT ([PostgreSQL 18 pg_settings](https://www.postgresql.org/docs/18/view-pg-settings.html)).
+Single-quoted, escaped, continued and dollar-quoted
+literal data is skipped rather than treated as SQL identifiers. The adapter pins
+`standard_conforming_strings=on`; Unicode-escaped **SQL identifiers** (`U&"..."`,
+including custom `UESCAPE`) are refused in this canonical-schema adapter rather
+than partially decoded. Unicode application text remains bound data. See
+[PostgreSQL 18 lexical structure](https://www.postgresql.org/docs/18/sql-syntax-lexical.html).
+Only the adapter's own setup can configure its backstops.
+
+Attendance uses the same factory instance, pool and writer/watchdog admission
+counter with a per-attempt `executionMs: 900` slice. Overrides can only shorten
+the configured execution budget. Its server backstops are at most 900 ms;
+exact-backend recovery and known-abort marker closure share another 1,000 ms.
+The remaining 100 ms is overhead margin against attendance's 2,000 ms bound.
+The transcript default remains 3,000 ms. A factory name or validated option is
+not timing evidence: the actual marked Round-contention integration test must
+prove the complete path finishes within 2,000 ms.
+
+The first writer identity SELECT, before BEGIN or application locks, returns
+PostgreSQL `statement_timestamp()` as a UTC string with all six fractional digits,
+plus PID and unmodified `backend_start::text`. This is the admission receipt;
+callbacks consume it without resampling or converting it through a millisecond
+Date. An optional per-attempt lifecycle writes the RT owner's pending marker on
+the separately reserved control connection. The adapter owns that control
+transaction and its scoped DML facade: `open(control, metadata)` must COMMIT
+before writer BEGIN, and `close(control, metadata, outcome)` must COMMIT after a
+known writer outcome before a reusable writer reservation is released. Control
+callbacks have the same SQL/lifetime/refusal and truthful COMMIT protections as
+writer callbacks. Transactions explicitly use READ COMMITTED.
+
+Unknown COMMIT or failed marker cleanup leaves durable pending evidence. The
+adapter destroys/quarantines the writer rather than releasing it to a later
+logical attempt. Internal pending errors provide a settlement handle: `confirm()`
+uses the same pool and exact original backend incarnation; `settled` resolves
+only to `backend-absent` after positive verification. Absence never proves COMMIT
+versus rollback. RT reconciliation then reads the command ledger in a fresh
+READ COMMITTED statement before closing the marker. Samplers and adjudicators
+must postpone while pending markers remain; expiry, process flags or an elapsed
+recovery timer cannot establish healthy availability. Provider work remains
+outside these transactions. RT owns complete receipt-window, durable marker,
+availability and adjudication acceptance; primitive integration fixtures alone
+do not establish that full consumer behavior.

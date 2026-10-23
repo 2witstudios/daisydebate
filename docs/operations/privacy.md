@@ -106,6 +106,24 @@ canonical authorization, privacy declaration, erasure and own-export rules.
 This declaration approves no processing activity, legal basis, numeric
 retention or retention exception; the original PRIV-3/PRIV-4 holds remain.
 
+### Bot activity relay declaration
+
+The capture worker relays live human microphone PCM to a cross-examination
+bot so it can hear barge-ins (`docs/architecture/round-bot-workers.md`,
+activity relay). It lives only in the Redis key
+`<namespace>:botactivity:<roundId>:<roundParticipantId>`
+(`packages/redis/src/bot-activity.ts`), and is never written to PostgreSQL.
+
+| Field                                                                              | Category         | Storage / owner | Purpose                                                      | Lawful basis                              | Retention                                                                                           | Erasure / export                                |
+| ---------------------------------------------------------------------------------- | ---------------- | --------------- | ------------------------------------------------------------ | ----------------------------------------- | --------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| key and value `roundId`, `roundParticipantId`; frames' `trackId`                   | identifier       | redis / VIDEO   | Scope the window to one speaking seat and track of one Round | Pending PRIV-3 `jc0qcdvpkmqzrelpaesi3pah` | The key's own 1 s expiry (`SET … PX 1000`)                                                          | Expires within 1 s; nothing to export           |
+| frames' `pcm`                                                                      | personal/private | redis / VIDEO   | Let the bot detect a human barge-in in real time             | Pending PRIV-3 `jc0qcdvpkmqzrelpaesi3pah` | 1 s expiry; written only to a memory-only Redis (`appendonly no`, `save ""`, checked on every call) | Expires within 1 s; never persisted or exported |
+| `version`; frames' `sequence`, `beforeMs`, `afterMs`, `serverWindow`, `receivedAt` | none             | redis / VIDEO   | Order frames and refuse stale ones (older than 250 ms)       | Pending PRIV-3 `jc0qcdvpkmqzrelpaesi3pah` | 1 s expiry                                                                                          | Expires within 1 s                              |
+
+The payload is at most 64 KiB and twenty frames per seat, validated by
+`botActivityBatchSchema` on write and read. It carries no transcript, bearer
+or competitive authority (ISSUE-500).
+
 ## Retention
 
 Retention today is scattered across a few ADRs and one doc, until PRIV-3's
@@ -129,6 +147,16 @@ inventory becomes the single index:
   immediately by the revoking operation (`revokeOtherSessions`,
   `revokeSessionUnlessAddressHeld`) and is never seen by the sweep; neither
   path ever logs `ip_address`, `user_agent` or a token.
+- **Round transcripts and cached judgments** (DEC-101, DEC-89; ISSUE-498):
+  `utterances` rows (transcript text and the capture body digest, both
+  `personal`/`private`) are deleted 180 days after `created_at`, and a
+  validated pending AI judging response (`round_judging_jobs.pending_ballot`)
+  is discarded 180 days after its receipt by ending its job `failed`
+  (DEC-223). The same retention sweep owns both. Subject erasure is the
+  `round-transcript` privacy adopter
+  (`packages/db/src/round-transcript-privacy.ts`): it deletes the subject's
+  own lines, keeps other debaters', and discards every pending judgment of a
+  Round the subject sat in. Export returns the subject's own lines.
 - **Operational logs** (AUTH-7.5-AC3): every process writes structured
   JSON to stdout only ([observability](observability.md)); no log shipper
   or second store is configured, so Fly.io's platform log search is the
@@ -182,16 +210,20 @@ consent.
 
 ## Subprocessors
 
-| Subprocessor     | Purpose                                                       | Data                                                                                                                          | Region                                 | DPA status                       |
-| ---------------- | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- | -------------------------------- |
-| Sentry           | Error tracking (ADR 0037)                                     | Scrubbed error events; `user.id` (cuid2) only, no PII                                                                         | Deploy-time host/DSN setting           | PRIV-H, human-only               |
-| PostHog          | Product analytics and consent-gated session replay (ADR 0037) | Event properties classified `none`/`identifier` only; `anonymousId` or `userId`, `actorId` only on `competitive: true` events | Deploy-time `NEXT_PUBLIC_POSTHOG_HOST` | PRIV-H, human-only               |
-| Resend           | Transactional auth email delivery (ADR 0025)                  | Recipient email (delivery only); webhook events retain a keyed SHA3-256 recipient hash, never the raw address                 | Configured at the sending domain       | Existing, predates this epic     |
-| beehiiv          | Newsletter delivery for The Scoreboard (ADR 0047)             | Subscriber email (`personal`/`private`) for people who opted in through double opt-in; Daisy-chosen `utm_*` constants only    | Open question, owned by WAIT-1.2       | Open question, owned by WAIT-1.2 |
-| Hosting provider | Application hosting                                           | Whatever the deployment platform's own subprocessor terms cover                                                               | Deploy-time                            | PRIV-H, human-only               |
+| Subprocessor                                     | Purpose                                                                                                                                                                                                               | Data                                                                                                                                                                                                                                                                | Region                                 | DPA status                                               |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- | -------------------------------------------------------- |
+| Sentry                                           | Error tracking (ADR 0037)                                                                                                                                                                                             | Scrubbed error events; `user.id` (cuid2) only, no PII                                                                                                                                                                                                               | Deploy-time host/DSN setting           | PRIV-H, human-only                                       |
+| PostHog                                          | Product analytics and consent-gated session replay (ADR 0037)                                                                                                                                                         | Event properties classified `none`/`identifier` only; `anonymousId` or `userId`, `actorId` only on `competitive: true` events                                                                                                                                       | Deploy-time `NEXT_PUBLIC_POSTHOG_HOST` | PRIV-H, human-only                                       |
+| Resend                                           | Transactional auth email delivery (ADR 0025)                                                                                                                                                                          | Recipient email (delivery only); webhook events retain a keyed SHA3-256 recipient hash, never the raw address                                                                                                                                                       | Configured at the sending domain       | Existing, predates this epic                             |
+| OpenRouter and configured transcription provider | Human speech transcription through `@daisy/ai-voice` (ADR 0053; ISSUE-333); AI judging of a frozen Round transcript (`round-judging`); bot debate replies generated from the Round's transcript so far (`round-bots`) | Speech audio and resulting transcript (`personal`/`private`); for judging and bot replies, the human debaters' transcript text (`personal`/`private`) in the prompt and the generated ballot or reply; bounded memory only, configured zero data retention required | Confirm before deployment              | PRIV-H, human-only; not approved by this inventory entry |
+| beehiiv                                          | Newsletter delivery for The Scoreboard (ADR 0047)                                                                                                                                                                     | Subscriber email (`personal`/`private`) for people who opted in through double opt-in; Daisy-chosen `utm_*` constants only                                                                                                                                          | Open question, owned by WAIT-1.2       | Open question, owned by WAIT-1.2                         |
+| Hosting provider                                 | Application hosting                                                                                                                                                                                                   | Whatever the deployment platform's own subprocessor terms cover                                                                                                                                                                                                     | Deploy-time                            | PRIV-H, human-only                                       |
 
 Vendor account creation, region choice, DPA execution and deploy secrets are
 a human-only sign-off leaf (PRIV-H); no agent self-approves them.
+The transcription adapter's actual configured provider and zero-retention behavior
+must be verified in VIDEO-3.2/VIDEO-4.1 before acceptance. This inventory records
+processing responsibility, not a legal attestation or proof of vendor deletion.
 
 ## DPA checklist (PRIV-H)
 
