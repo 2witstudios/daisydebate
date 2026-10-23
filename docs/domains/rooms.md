@@ -33,8 +33,9 @@ A Room has exactly one Round (ADR 0067).
 
 ## Playing
 
-The host's `start` command activates the Round; only the host may start it. From then on, the
-runtime moves through the rules' segments and prep under the database clock.
+The host's `start` command activates the Round; only the host may start it.
+From then on, the runtime moves through the rules' segments and prep under the
+database clock.
 Only the floor holder may yield. An interrupter's yield returns the floor to
 the scheduled speaker, whose segment continues (DEC-203). Humans, bots and
 services all act through the one shared command operation; people reach it
