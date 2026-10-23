@@ -15,7 +15,7 @@
   "dependencies": {
     "@daisy/errors": "workspace:*",
     "@daisy/protocol": "workspace:*",
-    "zod": "4.6.5"
+    "zod": "4.6.6"
   },
   "devDependencies": {
     "riteway": "9.3.0"
