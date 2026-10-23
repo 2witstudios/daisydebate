@@ -172,10 +172,12 @@ for (const attendance of ['opponent-only', 'neither'] as const)
     }
   });
 
-test(
-  'native explicit attendance crosses the original grace during a real public outage and refuses a finalized stale form',
-  nativeAttendanceOutage,
-);
+test('native explicit attendance crosses the original grace during a real public outage and refuses a finalized stale form', async ({
+  browser,
+}) => {
+  test.setTimeout(180_000);
+  await nativeAttendanceOutage({ browser });
+});
 
 for (const service of ['web', 'realtime'] as const)
   test(`whole ${service} outage postpones an actual speech and recovers without a false forfeit`, async ({

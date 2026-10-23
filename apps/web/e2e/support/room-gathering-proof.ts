@@ -107,11 +107,11 @@ export async function proveGathering(
     );
     expect(new URL(room.url()).search).toBe('');
     await form.locator('[name="duration.segment.A2.minutes"]').fill('0');
-    await form.locator('[name="duration.segment.A2.seconds"]').fill('23.456');
+    await form.locator('[name="duration.segment.A2.seconds"]').fill('43.456');
     await form.getByRole('button', { name: 'Save settings' }).click();
     const saved = await reread(native.request, view.id);
     expect(saved.rules.segments.map((segment) => segment.durationMs)).toEqual([
-      7000, 23456, 11000,
+      41000, 43456, 47000,
     ]);
     await room.getByText('Edit settings', { exact: true }).click();
     await expect(
@@ -119,7 +119,7 @@ export async function proveGathering(
     ).toHaveValue('0');
     await expect(
       form.locator('[name="duration.segment.A2.seconds"]'),
-    ).toHaveValue('23.456');
+    ).toHaveValue('43.456');
     expect(new URL(room.url()).search).toBe('');
   } finally {
     await native.close();
