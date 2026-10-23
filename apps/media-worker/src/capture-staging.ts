@@ -112,6 +112,10 @@ export function createCaptureStaging(input: {
     /** The edge evidence for one track, newest last. */
     straddles: (trackId: string): readonly FrameWindow[] =>
       edges.get(trackId) ?? [],
+    /** Frames a batch held back, ahead of those staged since, in order. */
+    requeue(frames: readonly StagedFrame[]) {
+      pending = [...frames, ...pending];
+    },
     take() {
       const frames = pending;
       pending = [];

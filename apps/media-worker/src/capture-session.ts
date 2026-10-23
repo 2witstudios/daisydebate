@@ -135,6 +135,7 @@ export async function runCaptureSession(
         signal,
         frames: staging.take(),
         dropped,
+        held: staging.requeue,
         straddled: ({ trackId, nominalStartMs, beforeMs, afterMs }) =>
           staging.rememberEdge(trackId, { nominalStartMs, beforeMs, afterMs }),
         clip: (clip) => {
