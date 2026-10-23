@@ -120,6 +120,7 @@ export const launched: LaunchedRound = {
   startedAt: null,
   completedAt: null,
   outcome: null,
+  unjudgedRuling: null,
   checkpoint: emptyRuntimeCheckpoint,
   segments: [],
 };

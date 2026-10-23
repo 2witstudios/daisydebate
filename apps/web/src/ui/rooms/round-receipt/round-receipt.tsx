@@ -4,7 +4,13 @@ import { seatLabel } from '../room-page/assembly-controls';
 
 export type RoundReceiptView = Pick<
   RoundView,
-  'id' | 'roomId' | 'status' | 'topic' | 'participants' | 'outcome'
+  | 'id'
+  | 'roomId'
+  | 'status'
+  | 'topic'
+  | 'participants'
+  | 'outcome'
+  | 'unjudgedRuling'
 > & {
   readonly config: Pick<RoundView['config'], 'preRoundPrep'>;
   readonly rules: Pick<
@@ -20,13 +26,18 @@ const statusLabel: Readonly<Record<RoundView['status'], string>> = {
   abandoned: 'Abandoned',
 };
 
-/** No outcome: no judges, or judges who did not rule by the deadline (DEC-201). */
+/**
+ * No outcome: an incomplete transcript no AI judge may rule on (DEC-208), no
+ * judges, or judges who did not rule by the deadline (DEC-201).
+ */
 const resultText = (round: RoundReceiptView) =>
   round.outcome
     ? resultLabel[round.outcome]
-    : round.participants.some((seat) => seat.role === 'judge')
-      ? 'Judges did not rule'
-      : 'Unjudged';
+    : round.unjudgedRuling === 'transcript-incomplete'
+      ? 'Transcript incomplete'
+      : round.participants.some((seat) => seat.role === 'judge')
+        ? 'Judges did not rule'
+        : 'Unjudged';
 const resultLabel: Readonly<Record<NonNullable<RoundView['outcome']>, string>> =
   {
     affirmative: 'Affirmative won',

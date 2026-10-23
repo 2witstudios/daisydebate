@@ -87,6 +87,26 @@ export function validateUnjudgedReceipt(
   return receipt;
 }
 
+/** The ruling of the Round's unjudged completion receipt among its command rows, or null when it has none. */
+export function recordedUnjudgedRuling(
+  rows: readonly Pick<
+    CommandRow,
+    'type' | 'actorId' | 'serviceId' | 'result'
+  >[],
+): RoundUnjudgedReceipt['ruling'] | null {
+  for (const row of rows) {
+    if (
+      row.type !== 'complete' ||
+      row.actorId !== null ||
+      !row.serviceId?.startsWith('round-finalization:')
+    )
+      continue;
+    const receipt = roundUnjudgedReceiptSchema.safeParse(row.result);
+    if (receipt.success) return receipt.data.ruling;
+  }
+  return null;
+}
+
 /** A replayed receipt stands only while the Round is still completed with its recorded outcome. */
 export function requireUnjudgedTerminal(
   round: { readonly status: string; readonly outcome: string | null },

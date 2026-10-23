@@ -214,7 +214,9 @@ depends on one, and nothing in a Round's history would change if Rooms were dele
   engine's `freezeJudgingPlan` decides this at the freeze. Without human judges
   the persisted ballot deadline is the freeze time, and the same unjudged
   finalizer completes the Round with a null outcome. The receipt ruling is
-  `transcript-incomplete`. There is no winner, draw, forfeit or rating. Human
+  `transcript-incomplete`; the Round view carries that ruling as
+  `unjudgedRuling`, and the receipt says “Transcript incomplete”. There is no
+  winner, draw, forfeit or rating. Human
   judges still rule by the ordinary deadline, and AI seats on such a Round
   record no ruling; once every human judge has ruled decisively the Round
   completes without waiting out the deadline.
