@@ -2,6 +2,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   publicationClock,
   observeSourceProgress,
+  reanchorPublicationClock,
   refreshPublicationClock,
 } from './publication-clock';
 
@@ -168,5 +169,33 @@ test('refreshed calibration widens both ends of a frame that began before its sa
     should: 'bound drift using the furthest full-frame endpoint',
     actual: observed.window,
     expected: { beforeMs: 9999.9991, afterMs: 10011.0009 },
+  });
+});
+
+test('a re-anchored clock starts its next period after the stall and keeps the sent count', () => {
+  const sent = observeSourceProgress(
+    publicationClock({ calibration, anchorMs: 1100, sampleRate: 48000 }),
+    { startSample: 0, endSample: 480, beforeMs: 1110, afterMs: 1112 },
+  ).clock;
+  const fresh = { sentAtMs: 1300, receivedAtMs: 1310, serverNowMs: 10290 };
+  const resumed = reanchorPublicationClock(sent, fresh, 1320);
+  const slow = { sentAtMs: 1300, receivedAtMs: 1450, serverNowMs: 10290 };
+  const next = observeSourceProgress(resumed, {
+    startSample: 480,
+    endSample: 960,
+    beforeMs: 1330,
+    afterMs: 1331,
+  });
+  assert({
+    given:
+      'a clock that sent one frame, then stalled and re-anchored at 1320 ms',
+    should:
+      'credit the next frame from 1320 ms, never the stall, and refuse a slow calibration',
+    actual: {
+      samples: next.clock.eligibleSamples,
+      periodStartsAfterStall: next.window!.beforeMs >= 1320 + 10290 - 1310 - 1,
+      slowValid: reanchorPublicationClock(sent, slow, 1460).valid,
+    },
+    expected: { samples: 960, periodStartsAfterStall: true, slowValid: false },
   });
 });

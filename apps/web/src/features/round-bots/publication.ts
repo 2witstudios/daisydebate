@@ -102,6 +102,7 @@ export function createBotPublisher(input: {
       transportSamples,
       eligibleSamples: result.eligibleSamples,
       complete: result.complete,
+      segmentEnded: result.segmentEnded,
     };
   };
 }

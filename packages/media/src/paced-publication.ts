@@ -3,6 +3,7 @@ import type { createAudioPublication } from './audio-publication';
 import {
   observeSourceProgress,
   publicationClock,
+  reanchorPublicationClock,
   refreshPublicationClock,
   type ClockCalibration,
 } from './publication-clock';
@@ -72,20 +73,22 @@ async function captureFrame(
   input.onSent?.(clock.eligibleSamples + data.length / input.channels);
   return observeSourceProgress(clock, receipt);
 }
+/** A sent frame, `late` when a stalled wake sent nothing, or null to stop. */
 async function writeFrame(
   input: PacedInput,
   original: Timeline,
   data: Int16Array,
   signal: AbortSignal,
   interval: number,
-): Promise<{ clock: Timeline; window: FrameWindow } | null> {
+): Promise<{ clock: Timeline; window: FrameWindow } | 'late' | null> {
   if (signal.aborted || !original.valid) return null;
   const clock = await refresh(input, original, interval);
   if (!clock.valid) return null;
   const due =
     clock.anchorMs + (clock.eligibleSamples / input.sampleRate) * 1000 + 10;
   await input.waitUntilMs(due, signal);
-  if (signal.aborted || input.nowMs() - due > 100) return null;
+  if (signal.aborted) return null;
+  if (input.nowMs() - due > 100) return 'late';
   const observed = await captureFrame(input, clock, data);
   if (signal.aborted || !observed.window) return null;
   return { clock: observed.clock, window: observed.window };
@@ -108,14 +111,14 @@ async function authorizeUnion(
     pending.afterMs,
     (input.segmentEndsAtMs ?? Infinity) - 1,
   );
-  if (afterMs <= pending.beforeMs) return false;
+  if (afterMs <= pending.beforeMs) return 'ended';
   // Transport rounds outward. The clamp lowers only the union's end to the
   // known segment end, and frames heard past it are never credited.
   const allowed = await input.authorizeWindow({
     before: new Date(Math.floor(pending.beforeMs)).toISOString(),
     after: new Date(Math.ceil(afterMs)).toISOString(),
   });
-  return allowed && !signal.aborted;
+  return allowed && !signal.aborted ? 'allowed' : 'refused';
 }
 /** Frames sent since the last authorization, as one union window. */
 function createBatch(input: PacedInput, signal: AbortSignal) {
@@ -124,6 +127,8 @@ function createBatch(input: PacedInput, signal: AbortSignal) {
   let credited = 0;
   const endMs = input.segmentEndsAtMs ?? Infinity;
   return {
+    /** True while sent frames wait for their union to be authorized. */
+    pending: () => frames.length > 0,
     /** Adds a sent frame and the samples sent through it; true when the batch is due. */
     add(window: FrameWindow, samples: number, last: boolean) {
       pending = union(pending, window);
@@ -131,7 +136,7 @@ function createBatch(input: PacedInput, signal: AbortSignal) {
       return last || frames.length === input.framesPerAuthorization;
     },
     /**
-     * The samples credited through this batch, or null when refused. A frame
+     * The samples credited through this batch, or why it was not. A frame
      * heard past the known end is audible only, never eligible (ISSUE-460-r2);
      * its end is rounded outward, as the transport rounds it (ISSUE-460-r3).
      */
@@ -140,7 +145,8 @@ function createBatch(input: PacedInput, signal: AbortSignal) {
         sent = frames;
       pending = null;
       frames = [];
-      if (!(await authorizeUnion(input, due, signal))) return null;
+      const verdict = await authorizeUnion(input, due, signal);
+      if (verdict !== 'allowed') return verdict;
       credited =
         sent.filter((frame) => Math.ceil(frame.afterMs) < endMs).at(-1)
           ?.samples ?? credited;
@@ -151,6 +157,67 @@ function createBatch(input: PacedInput, signal: AbortSignal) {
 const pastSegmentEnd = (input: PacedInput, window: FrameWindow) =>
   input.segmentEndsAtMs !== undefined &&
   window.afterMs >= input.segmentEndsAtMs;
+type Outcome = { eligibleSamples: number; segmentEnded: boolean };
+/** Paces every frame of the job into `outcome`, until it is done or stops. */
+async function sendFrames(
+  input: PacedInput,
+  data: Int16Array,
+  signal: AbortSignal,
+  interval: number,
+  outcome: Outcome,
+) {
+  let clock = publicationClock({
+    calibration: await input.calibrate(),
+    anchorMs: input.nowMs(),
+    sampleRate: input.sampleRate,
+  });
+  const size = (input.sampleRate / 100) * input.channels;
+  const batch = createBatch(input, signal);
+  /** Credits the batch; false when the job stops here. */
+  const settle = async (window: FrameWindow) => {
+    const credited = await batch.authorize();
+    outcome.segmentEnded =
+      credited === 'ended' || pastSegmentEnd(input, window);
+    if (typeof credited !== 'number') return false;
+    outcome.eligibleSamples = credited;
+    await input.onAccepted?.(credited);
+    return !outcome.segmentEnded;
+  };
+  let last: FrameWindow | null = null;
+  let reanchored = false;
+  for (let offset = 0; offset < data.length;) {
+    const next = await writeFrame(
+      input,
+      clock,
+      data.subarray(offset, offset + size),
+      signal,
+      interval,
+    );
+    if (next === 'late') {
+      // A stalled wake sent nothing: the frames before it are authorized
+      // alone, so no union spans the stall, and the cadence re-anchors once.
+      if (reanchored || (batch.pending() && !(await settle(last!)))) return;
+      reanchored = true;
+      clock = reanchorPublicationClock(
+        clock,
+        await input.calibrate(),
+        input.nowMs(),
+      );
+      continue;
+    }
+    if (!next) return;
+    reanchored = false;
+    clock = next.clock;
+    last = next.window;
+    offset += size;
+    const due = batch.add(
+      next.window,
+      clock.eligibleSamples,
+      offset >= data.length,
+    );
+    if (due && !(await settle(next.window))) return;
+  }
+}
 async function writeJob(
   input: PacedInput,
   data: Int16Array,
@@ -158,44 +225,19 @@ async function writeJob(
 ) {
   validateJob(input, data);
   const interval = refreshInterval(input);
-  let eligibleSamples = 0;
+  const outcome: Outcome = { eligibleSamples: 0, segmentEnded: false };
   try {
-    let clock = publicationClock({
-      calibration: await input.calibrate(),
-      anchorMs: input.nowMs(),
-      sampleRate: input.sampleRate,
-    });
-    const size = (input.sampleRate / 100) * input.channels;
-    const batch = createBatch(input, signal);
-    for (let offset = 0; offset < data.length; offset += size) {
-      const next = await writeFrame(
-        input,
-        clock,
-        data.subarray(offset, offset + size),
-        signal,
-        interval,
-      );
-      if (!next) break;
-      clock = next.clock;
-      const due = batch.add(
-        next.window,
-        clock.eligibleSamples,
-        offset + size >= data.length,
-      );
-      if (!due) continue;
-      const credited = await batch.authorize();
-      if (credited === null) break;
-      eligibleSamples = credited;
-      await input.onAccepted?.(eligibleSamples);
-      if (pastSegmentEnd(input, next.window)) break;
-    }
+    await sendFrames(input, data, signal, interval, outcome);
   } catch (error) {
     if (!signal.aborted) throw error;
   }
   return {
-    eligibleSamples,
+    eligibleSamples: outcome.eligibleSamples,
     complete:
-      !signal.aborted && eligibleSamples * input.channels === data.length,
+      !signal.aborted &&
+      outcome.eligibleSamples * input.channels === data.length,
+    /** The job stopped because its segment ended, not for timing or refusal. */
+    segmentEnded: outcome.segmentEnded,
   };
 }
 

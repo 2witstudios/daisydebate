@@ -74,8 +74,9 @@ test('actual bot broker/native publisher sends a phrase in whole frames, padding
       result.transportSamples,
       result.eligibleSamples,
       result.complete,
+      result.segmentEnded,
     ],
-    expected: [241, 480, 480, true],
+    expected: [241, 480, 480, true, false],
   });
   assert({
     given: 'actual native publication through the bot broker',

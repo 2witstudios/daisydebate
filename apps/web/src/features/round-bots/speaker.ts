@@ -1,7 +1,7 @@
 import type { BotPublicationScope } from '@daisy/db/bot-publication';
 import { isTransactionCapacityRefusal } from '@daisy/db';
 import { isFinalBotSpeechRefusal } from '@daisy/db/bot-publication';
-import { isAppError } from '@daisy/errors';
+import { createAppError, isAppError } from '@daisy/errors';
 import type { BotSpeechJob } from './publication';
 
 /** A provider answer held in memory until its usage and authority settle. */
@@ -57,12 +57,15 @@ export function createBotSpeaker(input: {
     text: string,
     signal: AbortSignal,
   ) => Promise<Answer<BotSpeechJob>>;
-  /** `onSent` reports the samples of `job` sent so far, after each frame is sent. */
+  /**
+   * `onSent` reports the samples of `job` sent so far, after each frame is
+   * sent. `segmentEnded` says an incomplete job stopped at its segment end.
+   */
   readonly publish: (
     job: BotSpeechJob,
     signal: AbortSignal,
     onSent?: (samples: number) => void,
-  ) => Promise<{ readonly complete: boolean }>;
+  ) => Promise<{ readonly complete: boolean; readonly segmentEnded: boolean }>;
   readonly nextId: () => string;
   readonly maxAttempts: number;
   /** `stage` names the work that failed: generate, synthesize or publish. */
@@ -83,21 +86,29 @@ export function createBotSpeaker(input: {
   let stage = 'generate';
   let progress = freshProgress();
   /**
-   * Publishes what is left of the held phrase; true once all of it was sent.
-   * A phrase sent in full before a refusal is already heard.
+   * Publishes what is left of the held phrase; true once all of it was sent,
+   * false when the segment or the turn ended. A phrase sent in full before a
+   * refusal is already heard. Any other early stop (a stall the writer could
+   * not re-anchor, ISSUE-497) is a failed attempt that resumes from the
+   * samples sent, never a quietly finished speech.
    */
   const publishRest = async (phrase: BotSpeechJob, signal: AbortSignal) => {
     const from = progress.sent;
     if (from >= phrase.pcm.length) return true;
     playing = true;
     try {
-      const { complete } = await input.publish(
+      const { complete, segmentEnded } = await input.publish(
         { ...phrase, pcm: phrase.pcm.subarray(from) },
         signal,
         (samples) => {
           progress.sent = Math.min(phrase.pcm.length, from + samples);
         },
       );
+      if (!complete && !segmentEnded && !signal.aborted)
+        throw createAppError(
+          'INFRASTRUCTURE',
+          'Bot publication stopped before the phrase was sent',
+        );
       return complete;
     } finally {
       playing = false;
