@@ -1,4 +1,4 @@
-import type { OpenRouter } from '@daisy/ai-voice';
+import { isTransientProviderFailure, type OpenRouter } from '@daisy/ai-voice';
 import type { cutCaptureClips } from '@daisy/media/clips';
 import {
   contained,
@@ -28,6 +28,7 @@ export async function consumeCaptureClips(input: {
   /** The clip left the pipeline: transcribed and observed, or dropped. */
   readonly settled: (clip: QueuedClip) => void;
 }) {
+  const failed = new Set<string>();
   while (!input.signal.aborted) {
     const clip = input.take();
     if (!clip) {
@@ -35,9 +36,45 @@ export async function consumeCaptureClips(input: {
       continue;
     }
     try {
-      await consumeClip(input, clip);
+      await consumeClip(input, clip, failed);
     } finally {
       input.settled(clip);
+    }
+  }
+}
+
+/** Pauses before each retry of a transcription that may still succeed. */
+const STT_RETRY_DELAYS_MS = [500, 1000, 2000];
+const streamOf = (clip: QueuedClip) =>
+  JSON.stringify([clip.segmentId, clip.roundParticipantId]);
+/**
+ * One clip's transcription, scoped to that clip (VIDEO-4.1-r8). A failure that
+ * may clear (a timeout, rate limit, server failure, unreachable vendor) is
+ * retried through bounded pauses; a definite refusal fails that clip's stream,
+ * whose later clips are then dropped unsent. Either way the frames are dropped:
+ * the stream stays honestly partial (DEC-208) and the session and every other
+ * stream keep going. Only the session's own cancellation ends the consumer.
+ */
+async function transcribeClip(
+  input: Parameters<typeof consumeCaptureClips>[0],
+  clip: QueuedClip,
+  failed: Set<string>,
+) {
+  if (failed.has(streamOf(clip))) return null;
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await input.voice.transcribe({
+        model: input.sttModel,
+        audioBase64: Buffer.from(clip.wav).toString('base64'),
+        format: 'wav',
+        signal: input.signal,
+      });
+    } catch (error) {
+      input.signal.throwIfAborted();
+      const pause = STT_RETRY_DELAYS_MS[attempt];
+      if (!isTransientProviderFailure(error)) failed.add(streamOf(clip));
+      if (pause === undefined || failed.has(streamOf(clip))) return null;
+      await input.waitUntilMs(input.nowMs() + pause, input.signal);
     }
   }
 }
@@ -45,6 +82,7 @@ export async function consumeCaptureClips(input: {
 async function consumeClip(
   input: Parameters<typeof consumeCaptureClips>[0],
   clip: QueuedClip,
+  failed: Set<string>,
 ) {
   const fresh = await readCaptureHistory(
     input.client,
@@ -62,13 +100,12 @@ async function consumeClip(
     input.dropped(clip.durationMs / 10);
     return;
   }
-  const result = await input.voice.transcribe({
-    model: input.sttModel,
-    audioBase64: Buffer.from(clip.wav).toString('base64'),
-    format: 'wav',
-    signal: input.signal,
-  });
+  const result = await transcribeClip(input, clip, failed);
   input.signal.throwIfAborted();
+  if (!result) {
+    input.dropped(clip.durationMs / 10);
+    return;
+  }
   input.transcribed();
   // A transcribed window is captured coverage, speech or honest silence.
   if (result.text) await appendClip(input, clip, result.text);

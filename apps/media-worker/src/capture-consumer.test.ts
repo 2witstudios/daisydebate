@@ -1,5 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { CaptureClient } from './capture-history';
+import { createOpenRouter } from '@daisy/ai-voice';
 import { consumeCaptureClips, type QueuedClip } from './capture-consumer';
 
 setupRitewayBun();
@@ -24,13 +25,18 @@ const state = {
       startedAt: at(0).toISOString(),
       endedAt: null,
     },
+    {
+      roundParticipantId: 'o'.repeat(24),
+      startedAt: at(0).toISOString(),
+      endedAt: null,
+    },
   ],
 };
-const clip = (beforeMs: number, afterMs: number): QueuedClip =>
+const clip = (beforeMs: number, afterMs: number, owner = seat): QueuedClip =>
   ({
     roundId: 'r'.repeat(24),
     segmentId,
-    roundParticipantId: seat,
+    roundParticipantId: owner,
     trackId: 'track',
     startOffsetMs: beforeMs,
     durationMs: afterMs - beforeMs,
@@ -53,6 +59,8 @@ async function consume(
 ) {
   const calls: string[] = [];
   const observed: unknown[] = [];
+  const waits: number[] = [];
+  let dropped = 0;
   const queue = [...clips];
   const replies = [...transcripts];
   const stop = new AbortController();
@@ -73,6 +81,7 @@ async function consume(
     epoch: 3,
     voice: {
       transcribe: async () => {
+        calls.push('transcribe');
         const reply = replies.shift()!;
         if (reply instanceof Error) throw reply;
         return { text: reply };
@@ -81,10 +90,16 @@ async function consume(
     sttModel: 'stt',
     signal: stop.signal,
     nowMs: () => 0,
-    waitUntilMs: async () => stop.abort(),
+    // The idle poll (25 ms) ends the run once the queue drains; others are retry pauses.
+    waitUntilMs: async (due) => {
+      if (due === 25) stop.abort();
+      else waits.push(due);
+    },
     take: () => queue.shift(),
     straddles: () => evidence,
-    dropped: () => {},
+    dropped: (n) => {
+      dropped += n;
+    },
     transcribed: () => {},
     committed: () => {},
     settled: () => {},
@@ -92,8 +107,26 @@ async function consume(
     () => 'drained',
     (error: Error) => error.message,
   );
-  return { calls, observed, result };
+  return {
+    calls: calls.filter((call) => call !== 'transcribe'),
+    transcribes: calls.filter((call) => call === 'transcribe').length,
+    observed,
+    result,
+    waits,
+    dropped,
+  };
 }
+/** The adapter's own failure for a vendor answer of `status`. */
+const providerFailure = (status: number) =>
+  createOpenRouter({
+    apiKey: 'key',
+    fetch: async () => new Response('refused', { status }),
+  })
+    .transcribe({ model: 'stt', audioBase64: 'AAAA', format: 'wav' })
+    .then(
+      () => new Error('answered'),
+      (error: Error) => error,
+    );
 
 test('a transcribed clip records the window it captured, speech or silence', async () => {
   const { calls, observed } = await consume(
@@ -129,16 +162,70 @@ test('a transcribed clip records the window it captured, speech or silence', asy
   });
 });
 
-test('a speech-to-text failure leaves its window unobserved', async () => {
-  const { calls, result } = await consume(
+test('a speech-to-text failure leaves its window unobserved and the consumer running', async () => {
+  const { calls, result, dropped } = await consume(
     [clip(1000, 3000)],
-    [new Error('stt unavailable')],
+    [await providerFailure(400)],
   );
   assert({
-    given: 'a clip whose transcription fails',
-    should: 'claim no coverage for it and surface the failure',
-    actual: { calls, result },
-    expected: { calls: [], result: 'stt unavailable' },
+    given: 'a clip whose transcription the vendor refuses',
+    should:
+      'claim no coverage for it, count its frames dropped and keep consuming (VIDEO-4.1-r8)',
+    actual: { calls, result, dropped },
+    expected: { calls: [], result: 'drained', dropped: 200 },
+  });
+});
+
+test('an uncertain transcription is retried through bounded pauses', async () => {
+  const failure = await providerFailure(503);
+  const recovered = await consume(
+    [clip(1000, 3000)],
+    [failure, await providerFailure(429), 'words'],
+  );
+  const exhausted = await consume(
+    [clip(1000, 3000), clip(3000, 4000)],
+    [failure, failure, failure, failure, 'next'],
+  );
+  assert({
+    given:
+      'a 503 then a 429 then words; and an outage that outlasts every retry before a second clip',
+    should:
+      'retry after 500 ms and 1 s and keep the words; after four failures drop only that clip and transcribe the next (VIDEO-4.1-r8)',
+    actual: {
+      recovered: [recovered.calls, recovered.waits, recovered.result],
+      exhausted: [
+        exhausted.transcribes,
+        exhausted.waits,
+        exhausted.dropped,
+        exhausted.calls,
+        exhausted.result,
+      ],
+    },
+    expected: {
+      recovered: [['append', 'observe'], [500, 1000], 'drained'],
+      exhausted: [5, [500, 1000, 2000], 200, ['append', 'observe'], 'drained'],
+    },
+  });
+});
+
+test("a definite refusal fails only that clip's stream, never another seat", async () => {
+  const other = 'o'.repeat(24);
+  const { transcribes, calls, dropped, result } = await consume(
+    [clip(1000, 2000), clip(2000, 3000), clip(1000, 2000, other)],
+    [await providerFailure(413), 'other seat'],
+  );
+  assert({
+    given:
+      "a seat's clip refused for good (413), that seat's next clip, then another seat's clip",
+    should:
+      "drop that stream's clips without retrying them and transcribe the other seat (VIDEO-4.1-r8)",
+    actual: { transcribes, calls, dropped, result },
+    expected: {
+      transcribes: 2,
+      calls: ['append', 'observe'],
+      dropped: 200,
+      result: 'drained',
+    },
   });
 });
 

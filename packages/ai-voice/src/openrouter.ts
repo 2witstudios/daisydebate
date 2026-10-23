@@ -51,6 +51,17 @@ const definiteFailures = new WeakSet<Error>();
  */
 export const isDefiniteProviderFailure = (error: unknown): boolean =>
   error instanceof Error && definiteFailures.has(error);
+const rateLimits = new WeakSet<Error>();
+/**
+ * A retry may succeed: every uncertain failure, and a rate limit (429), which
+ * is a definite refusal for now. Never another vendor refusal, nor a call
+ * cancelled before it was sent. A caller checks its own signal first: a call
+ * cancelled in flight stays uncertain, since it may have been served
+ * (VIDEO-4.1-r8).
+ */
+export const isTransientProviderFailure = (error: unknown): boolean =>
+  error instanceof Error &&
+  (rateLimits.has(error) || !definiteFailures.has(error));
 /**
  * The vendor itself refused the request before serving it. A 408 or any 5xx
  * can follow a call the vendor already served and billed (ISSUE-458-r1).
@@ -114,6 +125,7 @@ export function createOpenRouter({
         'INFRASTRUCTURE',
         `OpenRouter ${path} answered ${response.status}`,
       );
+      if (response.status === 429) rateLimits.add(failure);
       throw vendorRefused(response.status) ? definite(failure) : failure;
     }
     return response;
