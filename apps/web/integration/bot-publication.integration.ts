@@ -9,53 +9,59 @@ import { mediaDependencies } from './round-media.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 
-/** Publishes one 241-sample phrase on an owned speech claim, then reads its transcript. */
-const publishOnce = (segmentEndsAt?: string) =>
-  new Promise<{
-    result: Awaited<ReturnType<ReturnType<typeof createBotPublisher>>>;
-    transcript: number;
-  }>((resolve, reject) =>
-    withRoomRuntime(async (f) => {
-      const { roundId, claim } = await ownSpeech(f);
-      const deps = mediaDependencies(f);
-      const media = createRoundMediaOperations(deps);
-      try {
-        const publish = createBotPublisher({
-          store: f.store,
-          botToken: media.botToken,
-          monotonicNowMs: () => performance.now(),
-          waitUntilMs: async (due, signal) => {
-            while (!signal.aborted && performance.now() < due)
-              await Bun.sleep(Math.max(1, due - performance.now()));
-          },
-        });
-        const result = await publish(
-          {
-            scope: claim.scope,
-            token: claim.token,
-            phraseId: createId(),
-            text: 'Memory-only phrase',
-            pcm: new Int16Array(241),
-            sampleRate: 24000,
-            channels: 1,
-            ...(segmentEndsAt ? { segmentEndsAt } : {}),
-          },
-          AbortSignal.timeout(5000),
-        );
-        resolve({
-          result,
-          transcript: (
-            await f.sql`select id from utterances where round_id=${roundId}`
-          ).length,
-        });
-      } finally {
-        const [session] =
-          await f.sql`select room_name from media_sessions where round_id=${roundId}`;
-        if (session && (await deps.media.exists(session.room_name)))
-          await deps.media.deleteRoom(session.room_name);
+/** Publishes one 241-sample phrase on an owned speech claim, then reads its transcript after teardown. */
+async function publishOnce(segmentEndsAt?: string) {
+  let outcome:
+    | {
+        readonly result: Awaited<
+          ReturnType<ReturnType<typeof createBotPublisher>>
+        >;
+        readonly transcript: number;
       }
-    }, botControlOptions).catch(reject),
-  );
+    | undefined;
+  // Awaiting the fixture, not resolving inside it, lets its row cleanup finish first.
+  await withRoomRuntime(async (f) => {
+    const { roundId, claim } = await ownSpeech(f);
+    const deps = mediaDependencies(f);
+    const media = createRoundMediaOperations(deps);
+    try {
+      const publish = createBotPublisher({
+        store: f.store,
+        botToken: media.botToken,
+        monotonicNowMs: () => performance.now(),
+        waitUntilMs: async (due, signal) => {
+          while (!signal.aborted && performance.now() < due)
+            await Bun.sleep(Math.max(1, due - performance.now()));
+        },
+      });
+      const result = await publish(
+        {
+          scope: claim.scope,
+          token: claim.token,
+          phraseId: createId(),
+          text: 'Memory-only phrase',
+          pcm: new Int16Array(241),
+          sampleRate: 24000,
+          channels: 1,
+          ...(segmentEndsAt ? { segmentEndsAt } : {}),
+        },
+        AbortSignal.timeout(5000),
+      );
+      outcome = {
+        result,
+        transcript: (
+          await f.sql`select id from utterances where round_id=${roundId}`
+        ).length,
+      };
+    } finally {
+      const [session] =
+        await f.sql`select room_name from media_sessions where round_id=${roundId}`;
+      if (session && (await deps.media.exists(session.room_name)))
+        await deps.media.deleteRoom(session.room_name);
+    }
+  }, botControlOptions);
+  return outcome!;
+}
 
 test('actual bot broker/native publisher sends a phrase in whole frames, padding its tail, without generated text credit', async () => {
   const { result, transcript } = await publishOnce();

@@ -4,44 +4,42 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { withBoundedRound } from './bounded-transaction.test-support';
 import { createRoundBotAdmission } from '../src/round-bot-admission';
-import { admissionSponsor } from './bot-admission.test-support';
+import {
+  admissionSponsor,
+  withTwoRoundAdmission,
+} from './bot-admission.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 
 test('calendar-month allowance serializes actual reservations', async () => {
-  await withBoundedRound(async (fixture, run, firstRound) => {
-    const secondRound = await fixture.round();
-    const actorId = await admissionSponsor(fixture, [firstRound, secondRound]);
-    const admission = createRoundBotAdmission({
-      run,
-      nextId: createId,
-      busyCap: 4,
-    });
-    const initial = await admission.readStatus(actorId);
-    assert({
-      given: 'a free member before admission',
-      should: 'read the actual current UTC monthly allowance',
-      actual: [initial.limit, initial.remaining, initial.refusal],
-      expected: [1, 1, null],
-    });
-    const attempts = await Promise.allSettled([
-      admission.reserve({ actorId, roundId: firstRound }),
-      admission.reserve({ actorId, roundId: secondRound }),
-    ]);
-    assert({
-      given: 'two actual concurrent reservations by a free member',
-      should: 'reserve exactly one monthly allowance',
-      actual: attempts.map((a) => a.status).sort(),
-      expected: ['fulfilled', 'rejected'],
-    });
-    const exhausted = await admission.readStatus(actorId);
-    assert({
-      given: 'an uncounted reservation holding the monthly slot',
-      should: 'show the actual exhausted allowance before another freeze',
-      actual: [exhausted.remaining, exhausted.refusal],
-      expected: [0, 'allowance'],
-    });
-  });
+  await withTwoRoundAdmission(
+    async ({ firstRound, secondRound, actorId, admission }) => {
+      const initial = await admission.readStatus(actorId);
+      assert({
+        given: 'a free member before admission',
+        should: 'read the actual current UTC monthly allowance',
+        actual: [initial.limit, initial.remaining, initial.refusal],
+        expected: [1, 1, null],
+      });
+      const attempts = await Promise.allSettled([
+        admission.reserve({ actorId, roundId: firstRound }),
+        admission.reserve({ actorId, roundId: secondRound }),
+      ]);
+      assert({
+        given: 'two actual concurrent reservations by a free member',
+        should: 'reserve exactly one monthly allowance',
+        actual: attempts.map((a) => a.status).sort(),
+        expected: ['fulfilled', 'rejected'],
+      });
+      const exhausted = await admission.readStatus(actorId);
+      assert({
+        given: 'an uncounted reservation holding the monthly slot',
+        should: 'show the actual exhausted allowance before another freeze',
+        actual: [exhausted.remaining, exhausted.refusal],
+        expected: [0, 'allowance'],
+      });
+    },
+  );
 });
 test('only a current authoritative grant supplies ten reservations', async () => {
   await withBoundedRound(async (fixture, run, firstRound) => {
