@@ -58,16 +58,19 @@ export async function ballotRoundCommand(
   return roundViewSchema.parse((await response.json()).view);
 }
 /**
- * Commands an active Round at its current version. Maintenance legitimately
- * moves the Round on (it opens the first speech within a tick of start), so a
- * held view goes stale; a stale-version refusal wrote nothing, and the command
- * is resent against a fresh read. Every other answer is final (ISSUE-489).
+ * Forfeits an active Round for a fixed seat at its current version.
+ * Maintenance legitimately moves the Round on (it opens the first speech within
+ * a tick of start), so a held view goes stale; a stale-version refusal wrote
+ * nothing, and the forfeit is resent against a fresh read. Every other answer
+ * is final (ISSUE-489). Only a forfeit for a named seat is safe to resend: a
+ * resent yield would act on a later speech (ISSUE-489-r1).
  */
-export async function currentRoundCommand(
+export async function currentRoundForfeit(
   request: APIRequestContext,
   roundId: string,
-  command: object,
+  participantId: string,
 ) {
+  const command = { type: 'forfeit', participantId } as const;
   for (let attempt = 0; attempt < 5; attempt++) {
     const view = await readBallotRound(request, roundId);
     const response = await postRoundCommand(

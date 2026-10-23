@@ -68,10 +68,16 @@ function controlOrigin(value: string) {
 const refusedForNow = new WeakSet<object>();
 /** Seals refused only because the capture timeline has not closed yet. */
 const openTimeline = new WeakSet<object>();
-/** Requests the server answered with a 4xx: refused for certain, not uncertain. */
+/**
+ * A 4xx is a refusal for certain, except a 408 (the outcome is unknown, as in
+ * the media service, ISSUE-464) and a 429 (refused for now) (VIDEO-4.1-r4).
+ */
+const definiteStatus = (status: number) =>
+  status >= 400 && status < 500 && status !== 408 && status !== 429;
+/** Requests the server definitely refused (see definiteStatus). */
 const definite = new WeakSet<object>();
 /**
- * Whether the server definitely refused the request (a 4xx answer). A 503 that
+ * Whether the server definitely refused the request. A 408, a 429, a 503 that
  * outlasted its retries, an elapsed deadline or a network failure leaves the
  * outcome uncertain.
  */
@@ -94,7 +100,7 @@ async function refuse(
     );
   else await response.body?.cancel().catch(() => undefined);
   const error = refusalFor(response.status);
-  if (response.status >= 400 && response.status < 500) definite.add(error);
+  if (definiteStatus(response.status)) definite.add(error);
   if (named === 'timeline-open') openTimeline.add(error);
   throw error;
 }

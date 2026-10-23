@@ -2,7 +2,7 @@ import { maintainHumanBallotFixtures } from './support/human-ballot-maintenance'
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
 import {
   createHumanBallotRound,
-  currentRoundCommand,
+  currentRoundForfeit,
   readBallotRound,
 } from './support/human-ballot-round';
 import { roomViewSchema, roundViewSchema, isNamedSeat } from '@daisy/protocol';
@@ -227,10 +227,7 @@ for (const javaScriptEnabled of [false, true])
       const seat = live.participants
         .filter(isNamedSeat)
         .find((p) => p.role === 'affirmative')!;
-      const ended = await currentRoundCommand(host.request, live.id, {
-        type: 'forfeit',
-        participantId: seat.id,
-      });
+      const ended = await currentRoundForfeit(host.request, live.id, seat.id);
       context = await browser.newContext({
         baseURL: origin,
         ignoreHTTPSErrors: true,

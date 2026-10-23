@@ -7,7 +7,7 @@ import { expect, test as base, openPage } from './fixtures';
 import { createRoomLaunchAccounts } from './room-launch-accounts';
 import { prepareRoomAs, readyUp } from './room-launch-flow';
 import { settledLaunchAuth } from './room-launch-settled';
-import { currentRoundCommand, readBallotRound } from './human-ballot-round';
+import { currentRoundForfeit, readBallotRound } from './human-ballot-round';
 
 export { expect };
 
@@ -117,8 +117,5 @@ async function forfeitAsHost(request: APIRequestContext, roundId: string) {
   const seat = view.participants
     .filter(isNamedSeat)
     .find((p) => p.role === 'affirmative' && p.slot === 0)!;
-  await currentRoundCommand(request, roundId, {
-    type: 'forfeit',
-    participantId: seat.id,
-  });
+  await currentRoundForfeit(request, roundId, seat.id);
 }
