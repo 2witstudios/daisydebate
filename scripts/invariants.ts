@@ -132,6 +132,8 @@ const fixtures: Readonly<Record<string, Fixture>> = {
       now: t0,
       ballots: [],
       ballotDeadlineAt: t0,
+      completeness: 'complete',
+      humanJudgeSeatIds: [],
     }),
   'completed-is-terminal': () =>
     round({ status: 'completed' }).execute({

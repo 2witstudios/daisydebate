@@ -31,7 +31,6 @@ export function createCaptureStaging(input: {
   readonly retained: () => void;
 }) {
   const clocks = new Map<string, ReturnType<typeof createCaptureClock>>();
-  const lastNominal = new Map<string, number>();
   // Frames refused for crossing a grant edge: the edge evidence observedWindow reads.
   const edges = new Map<string, FrameWindow[]>();
   const rememberEdge = (trackId: string, frame: FrameWindow) => {
@@ -54,12 +53,7 @@ export function createCaptureStaging(input: {
     if (!window) return null;
     const beforeMs = Math.floor(window.beforeMs),
       afterMs = Math.ceil(window.afterMs),
-      nominalStartMs = Math.ceil(window.beforeMs);
-    if (
-      afterMs < nominalStartMs + 10 ||
-      nominalStartMs < (lastNominal.get(raw.trackId) ?? -Infinity) + 10
-    )
-      return null;
+      nominalStartMs = window.nominalStartMs;
     if (
       !contained(current.state, peer.roundParticipantId, { beforeMs, afterMs })
     ) {
@@ -72,7 +66,6 @@ export function createCaptureStaging(input: {
         rememberEdge(raw.trackId, { nominalStartMs, beforeMs, afterMs });
       return null;
     }
-    lastNominal.set(raw.trackId, nominalStartMs);
     return {
       seat: peer.roundParticipantId,
       segmentId: current.state.segment.id,
@@ -112,7 +105,6 @@ export function createCaptureStaging(input: {
     },
     closeTrack(trackId: string) {
       clocks.delete(trackId);
-      lastNominal.delete(trackId);
       edges.delete(trackId);
     },
     /** Edge-straddling frames the batch saw against fresher history. */
@@ -131,7 +123,6 @@ export function createCaptureStaging(input: {
       input.dropped(pending.length);
       pending = [];
       clocks.clear();
-      lastNominal.clear();
       edges.clear();
     },
   };

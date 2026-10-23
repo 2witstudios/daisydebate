@@ -13,7 +13,7 @@ export {
   projectRoom,
 } from './room-assembly';
 export { deriveRoundOutcome } from './round-outcome';
-export { decideUnjudgedCompletion } from './round-unjudged';
+export { decideUnjudgedCompletion, freezeJudgingPlan } from './round-unjudged';
 export { decideStartHorizon } from './round-start-horizon';
 export {
   attendancePolicy,

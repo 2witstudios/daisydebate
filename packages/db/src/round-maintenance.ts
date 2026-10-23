@@ -104,7 +104,7 @@ export function roundMaintenanceOperations(run: BoundedTransaction) {
         return executeLockedRoundTick(tx, input);
       }),
     finalizeDueRoundTranscript: (
-      input: DueInput & Pick<FreezeRequest, 'ballotDeadlineMs'>,
+      input: DueInput & Pick<FreezeRequest, 'planJudging'>,
     ) =>
       withRound(input, (tx, assertCurrent) =>
         finalizeLockedRoundTranscript(tx, input, assertCurrent),
