@@ -1,4 +1,17 @@
 import { expect, type Page } from '@playwright/test';
+/**
+ * The selects already show the user's own choices, so only the form POST's
+ * response proves the save committed before the API is read (ISSUE-518).
+ */
+async function submit(page: Page, channelId: string, name: string) {
+  const committed = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'POST' &&
+      new URL(response.url()).pathname === `/messages/${channelId}/preferences`,
+  );
+  await page.getByRole('button', { name, exact: true }).click();
+  await committed;
+}
 /** Both native DM modes exercise the same current authorized state and explicit selections. */
 export async function manageNativePreferences(page: Page, channelId: string) {
   await page.goto(`/messages/${channelId}/preferences`);
@@ -8,9 +21,7 @@ export async function manageNativePreferences(page: Page, channelId: string) {
   await page.getByLabel('Follow this conversation').selectOption('no');
   await page.getByLabel('Hide from inbox').selectOption('no');
   await page.getByLabel('Notification preference').selectOption('none');
-  await page
-    .getByRole('button', { name: 'Save preferences', exact: true })
-    .click();
+  await submit(page, channelId, 'Save preferences');
   await expect(page.getByLabel('Follow this conversation')).toHaveValue('no');
   await expect(page.getByLabel('Notification preference')).toHaveValue('none');
   const saved = await page.request.get(
@@ -21,9 +32,7 @@ export async function manageNativePreferences(page: Page, channelId: string) {
   expect(result.state.following).toBe(false);
   expect(result.state.notificationLevel).toBe('none');
   expect(result.unread).toBeGreaterThanOrEqual(1);
-  await page
-    .getByRole('button', { name: 'Clear saved preferences', exact: true })
-    .click();
+  await submit(page, channelId, 'Clear saved preferences');
   await expect(page.getByLabel('Follow this conversation')).toHaveValue('');
   const cleared = await page.request.get(
     `/api/messaging/channels/${channelId}/preferences`,
