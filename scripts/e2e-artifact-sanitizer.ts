@@ -27,10 +27,6 @@ const redactions: readonly (readonly [RegExp, string])[] = [
   // The confirmation page carries the magic-link token in a hidden input
   // (ISSUE-487), in served HTML, server.log and trace DOM snapshots alike.
   [/(name=(?:\\*)"token(?:\\*)"\s+value=(?:\\*)")[^"\\]*/gi, '$1[REDACTED]'],
-  // By shape: an emailed-link token is 32 random bytes in base64url, exactly
-  // 43 characters, so any standalone run of that length is redacted wherever
-  // a recorder put it (attribute arrays, bodies, logs).
-  [/(?<![A-Za-z0-9_-])[A-Za-z0-9_-]{43}(?![A-Za-z0-9_-])/g, '[REDACTED]'],
   // Any PEM private key, such as the e2e TLS edge's (ISSUE-78): an artifact
   // must never carry key material, however short-lived.
   [
@@ -58,11 +54,59 @@ const redactions: readonly (readonly [RegExp, string])[] = [
   [/whsec_ZTJlLXBsYWNlaG9sZGVyLW5vdC1hLXNlY3JldA==/g, '[REDACTED]'],
 ];
 
-const redactPlain = (text: string): string =>
-  redactions.reduce(
-    (value, [pattern, replacement]) => value.replace(pattern, replacement),
-    text,
+/**
+ * By shape, for free text only: an emailed-link token is 32 random bytes in
+ * base64url, exactly 43 characters. A run is redacted only when the whole
+ * base64-like run is that token shape; standard base64 (with +, / or =) and
+ * longer runs are encoded payloads, never rewritten in place (ISSUE-487-r1).
+ * A run opening with -- is a CSS custom property or a CLI flag, not a token.
+ */
+const redactTokenShapes = (text: string): string =>
+  // = only ever pads the end of base64, so key=value text splits into runs.
+  text.replace(/[A-Za-z0-9+/_-]{43,}={0,2}/g, (run) =>
+    /^(?!--)[A-Za-z0-9_-]{43}$/.test(run) ? '[REDACTED]' : run,
   );
+
+const redactFreeText = (text: string): string =>
+  redactTokenShapes(
+    redactions.reduce(
+      (value, [pattern, replacement]) => value.replace(pattern, replacement),
+      text,
+    ),
+  );
+
+const textualMedia = /^(text\/[\w.+-]+|application\/(json|[\w.+-]+\+json))$/i;
+
+/**
+ * A data: URI is a payload, not text: an embedded zip (the HTML report's
+ * results) is decoded, sanitized entry by entry and re-encoded; a textual one
+ * is decoded, redacted and re-encoded; binary media is left untouched.
+ */
+function redactDataUri(media: string, payload: string): string {
+  if (/^application\/zip$/i.test(media)) {
+    const decoded = Buffer.from(payload, 'base64');
+    const sanitized = sanitizeZipBuffer(decoded);
+    return sanitized === decoded ? payload : sanitized.toString('base64');
+  }
+  if (!textualMedia.test(media)) return payload;
+  const decoded = Buffer.from(payload, 'base64').toString('utf8');
+  const redacted = redactText(decoded);
+  return redacted === decoded
+    ? payload
+    : Buffer.from(redacted, 'utf8').toString('base64');
+}
+
+const redactPlain = (text: string): string => {
+  const dataUri = /data:([\w.+-]+\/[\w.+-]+);base64,([A-Za-z0-9+/]+={0,2})/g;
+  let output = '',
+    last = 0;
+  for (const match of text.matchAll(dataUri)) {
+    output += redactFreeText(text.slice(last, match.index));
+    output += `data:${match[1]};base64,${redactDataUri(match[1]!, match[2]!)}`;
+    last = match.index + match[0].length;
+  }
+  return output + redactFreeText(text.slice(last));
+};
 
 function parsedJson(text: string): { value: unknown } | null {
   try {
@@ -220,6 +264,18 @@ function sanitizeZipInPlace(zipPath: string): boolean {
     return true;
   } finally {
     rmSync(extractDir, { recursive: true, force: true });
+  }
+}
+
+/** The same archive scan for a zip held in memory; the input itself when nothing changed. */
+function sanitizeZipBuffer(zip: Buffer): Buffer {
+  const directory = mkdtempSync(join(tmpdir(), 'daisy-e2e-embedded-'));
+  try {
+    const path = join(directory, 'embedded.zip');
+    writeFileSync(path, zip);
+    return sanitizeZipInPlace(path) ? readFileSync(path) : zip;
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
   }
 }
 
