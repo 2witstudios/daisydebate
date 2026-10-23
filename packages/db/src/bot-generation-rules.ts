@@ -14,6 +14,19 @@ export type Usage = {
 export type Outcome = 'received' | 'failed' | 'unknown';
 const validCount = validAgentCounter;
 
+const finalRefusals = new WeakSet<Error>();
+/**
+ * A bot speech refusal no retry can clear: this seat's voice budget is spent,
+ * or its answer for this segment was already received. The speaker stops.
+ */
+export const isFinalBotSpeechRefusal = (error: unknown): boolean =>
+  error instanceof Error && finalRefusals.has(error);
+export function refuseFinalSpeech(message: string) {
+  const refusal = createAppError('CONFLICT', message);
+  finalRefusals.add(refusal);
+  return refusal;
+}
+
 export function requireRequest(request: GenerationRequest) {
   if (!request || !['language', 'tts'].includes(request.kind))
     throw createAppError('VALIDATION');
@@ -30,11 +43,16 @@ export function requireUsage(outcome: Outcome, usage: Usage) {
   )
     throw createAppError('VALIDATION');
 }
+/** A definitely failed call served nothing, so it settles with no usage. */
 export function requireRunUsage(
   run: typeof agentRuns.$inferSelect,
+  outcome: Outcome,
   usage: Usage,
 ) {
-  if (run.kind === 'tts') {
+  if (outcome === 'failed') {
+    if (usage.inputTokens || usage.outputTokens || usage.characters)
+      throw createAppError('VALIDATION');
+  } else if (run.kind === 'tts') {
     if (
       usage.characters !== run.characters ||
       usage.inputTokens !== 0 ||
@@ -79,7 +97,7 @@ export function requireSpeechBudget(
   budget: number,
 ): void {
   if (spoken + characters > budget)
-    throw createAppError('CONFLICT', 'Speech budget exhausted');
+    throw refuseFinalSpeech('Speech budget exhausted');
 }
 
 /** A speech request runs as tts; language generation keeps the worker's own kind. */

@@ -10,6 +10,7 @@ import {
   requireRunUsage,
   requireSameSettlement,
   requireSpeechBudget,
+  refuseFinalSpeech,
   requireSpeechPolicy,
   requireUsage,
   type Execution,
@@ -57,6 +58,25 @@ async function speechModel(
   );
   return model;
 }
+/** One received answer per speech seat and segment, across worker recoveries (ISSUE-456). */
+async function requireUnansweredSpeech(
+  tx: BoundedTransactionContext,
+  scope: BotPublicationScope,
+) {
+  const [answered] = await tx
+    .select({ id: agentRuns.id })
+    .from(agentRuns)
+    .where(
+      and(
+        eq(agentRuns.roundParticipantId, scope.roundParticipantId),
+        eq(agentRuns.kind, 'speech'),
+        sql`${agentRuns.configurationSnapshot}->>'segmentId' = ${scope.segmentId}`,
+        sql`${agentRuns.configurationSnapshot}->>'providerOutcome' = 'received'`,
+      ),
+    )
+    .limit(1);
+  if (answered) throw refuseFinalSpeech('Speech already answered');
+}
 /** Dispatch authority and usage settlement are distinct capabilities; neither writes speech. */
 export function createBotGenerationOperations(input: {
   readonly run: BoundedTransaction;
@@ -81,6 +101,8 @@ export function createBotGenerationOperations(input: {
           .from(botProfiles)
           .where(eq(botProfiles.actorId, context.seat.actorId));
         if (!profile) throw createAppError('AUTHORIZATION');
+        if (request.kind === 'language' && context.run.kind === 'speech')
+          await requireUnansweredSpeech(tx, scope);
         const model =
           request.kind === 'tts'
             ? await speechModel(tx, scope, request.characters, input)
@@ -151,7 +173,7 @@ export function createBotGenerationOperations(input: {
             parentAgentRunId: scope.agentRunId,
           },
         });
-        requireRunUsage(run, usage);
+        requireRunUsage(run, outcome, usage);
         if (run.endedAt) {
           requireSameSettlement(run, outcome, usage);
           return;

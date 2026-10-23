@@ -4,9 +4,9 @@ import {
   admissionRefusal,
   requireAdmissionTarget,
   requireBusyCap,
+  requireOwnReservation,
   requireUnrefundedReservation,
   requireSponsor,
-  reservationMutation,
 } from './round-bot-admission-rules';
 
 setupRitewayBun();
@@ -48,8 +48,8 @@ test('only the host of an unranked unfinished Round sponsors a bot', async () =>
     given: 'a member host of scheduled and active casual Rounds',
     should: 'admit the sponsor',
     actual: [
-      requireSponsor(member, round(), host, 'admission'),
-      requireSponsor(member, round({ status: 'active' }), host, 'admission'),
+      requireSponsor(member, round(), host),
+      requireSponsor(member, round({ status: 'active' }), host),
     ],
     expected: [undefined, undefined],
   });
@@ -85,72 +85,38 @@ test('only the host of an unranked unfinished Round sponsors a bot', async () =>
     await assertRejects({
       given: `admission with ${label}`,
       should: 'refuse the sponsor',
-      actual: () => requireSponsor(account, candidate, host, 'admission'),
+      actual: () => requireSponsor(account, candidate, host),
       code,
     });
 });
 
-test('settlement needs only the host, after the account or Round ended', async () => {
+test('a refunded reservation is never reused', async () => {
   assert({
-    given: 'an erased host of a completed ranked Round',
-    should: 'still admit settlement of their own reservation',
-    actual: requireSponsor(
-      { member: false, erased: true },
-      round({ status: 'completed', competitionType: 'ranked' }),
-      host,
-      'settlement',
-    ),
-    expected: undefined,
-  });
-  await assertRejects({
-    given: 'settlement by someone other than the host',
-    should: 'refuse it',
-    actual: () =>
-      requireSponsor(
-        member,
-        round({ createdByActorId: 'other' }),
-        host,
-        'settlement',
-      ),
-    code: 'AUTHORIZATION',
-  });
-});
-
-test('a refunded reservation is reused only by its own refund', async () => {
-  assert({
-    given: 'no reservation, a live one and a refunded one during refund',
+    given: 'no reservation and a live one',
     should: 'return each as found',
     actual: [
-      requireUnrefundedReservation(undefined, false),
-      requireUnrefundedReservation(reservation(), false)?.id,
-      requireUnrefundedReservation(reservation({ refundedAt: at }), true)?.id,
+      requireUnrefundedReservation(undefined),
+      requireUnrefundedReservation(reservation())?.id,
     ],
-    expected: [undefined, 'reservation', 'reservation'],
+    expected: [undefined, 'reservation'],
   });
   await assertRejects({
-    given: 'a refunded reservation outside a refund',
+    given: 'a refunded reservation',
     should: 'refuse it',
-    actual: () =>
-      requireUnrefundedReservation(reservation({ refundedAt: at }), false),
+    actual: () => requireUnrefundedReservation(reservation({ refundedAt: at })),
     code: 'CONFLICT',
   });
 });
 
-test('counting is idempotent and a counted reservation refunds once', async () => {
+test('a model call counts only the reservation found for its Round', async () => {
   assert({
-    given: 'counting, refunding a counted one, and refunding again',
-    should: 'count, refund, then do nothing',
+    given: 'the Round reservation, uncounted and already counted',
+    should: 'return it either way: counting is idempotent at the call site',
     actual: [
-      reservationMutation(reservation(), 'reservation', false),
-      reservationMutation(reservation({ countedAt: at }), 'reservation', false),
-      reservationMutation(reservation({ countedAt: at }), 'reservation', true),
-      reservationMutation(
-        reservation({ countedAt: at, refundedAt: at }),
-        'reservation',
-        true,
-      ),
+      requireOwnReservation(reservation(), 'reservation').id,
+      requireOwnReservation(reservation({ countedAt: at }), 'reservation').id,
     ],
-    expected: ['count', 'count', 'refund', 'none'],
+    expected: ['reservation', 'reservation'],
   });
   for (const [label, current, id] of [
     ['no reservation', undefined, 'reservation'],
@@ -158,16 +124,10 @@ test('counting is idempotent and a counted reservation refunds once', async () =
   ] as const)
     await assertRejects({
       given: label,
-      should: 'refuse the mutation',
-      actual: () => reservationMutation(current, id, false),
+      should: 'refuse the count',
+      actual: () => requireOwnReservation(current, id),
       code: 'AUTHORIZATION',
     });
-  await assertRejects({
-    given: 'a refund before any model call was counted',
-    should: 'refuse it as a conflict',
-    actual: () => reservationMutation(reservation(), 'reservation', true),
-    code: 'CONFLICT',
-  });
 });
 
 test('admission refuses the allowance, then capacity', async () => {

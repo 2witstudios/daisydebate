@@ -74,20 +74,25 @@ test('settled usage is a known outcome with non-negative integer counters', asyn
     });
 });
 
-test('speech settles its reserved characters and no tokens; language no characters', async () => {
+test('speech settles its reserved characters and no tokens; language no characters; a failed call nothing', async () => {
   const speech = run({ kind: 'tts', characters: 120 });
   assert({
     given: 'speech with its exact characters and language with tokens only',
     should: 'admit both',
     actual: [
-      requireRunUsage(speech, {
+      requireRunUsage(speech, 'received', {
         inputTokens: 0,
         outputTokens: 0,
         characters: 120,
       }),
-      requireRunUsage(run(), usage),
+      requireRunUsage(run(), 'received', usage),
+      requireRunUsage(speech, 'failed', {
+        inputTokens: 0,
+        outputTokens: 0,
+        characters: 0,
+      }),
     ],
-    expected: [undefined, undefined],
+    expected: [undefined, undefined, undefined],
   });
   for (const [label, candidate, counters] of [
     [
@@ -101,7 +106,21 @@ test('speech settles its reserved characters and no tokens; language no characte
     await assertRejects({
       given: label,
       should: 'refuse the settlement',
-      actual: () => requireRunUsage(candidate, counters),
+      actual: () => requireRunUsage(candidate, 'received', counters),
+      code: 'VALIDATION',
+    });
+  for (const [label, candidate, counters] of [
+    [
+      'a failed speech claiming characters',
+      speech,
+      { ...usage, characters: 120, inputTokens: 0, outputTokens: 0 },
+    ],
+    ['a failed language call claiming tokens', run(), usage],
+  ] as const)
+    await assertRejects({
+      given: label,
+      should: 'refuse the settlement',
+      actual: () => requireRunUsage(candidate, 'failed', counters),
       code: 'VALIDATION',
     });
 });

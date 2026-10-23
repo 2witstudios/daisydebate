@@ -30,48 +30,38 @@ export function requireAdmissionTarget(target: {
 }
 
 /**
- * Only the Round's host sponsors a bot. Admission also needs a live member
- * account and an unranked Round that has not finished; settlement does not.
+ * Only the Round's host sponsors a bot, with a live member account and an
+ * unranked Round that has not finished.
  */
 export function requireSponsor(
   account: Account,
   round: Round | undefined,
   actorId: string,
-  purpose: 'admission' | 'settlement',
 ): void {
   if (!round || round.createdByActorId !== actorId)
     throw createAppError('AUTHORIZATION');
-  if (purpose === 'settlement') return;
   if (!account?.member || account.erased || round.competitionType === 'ranked')
     throw createAppError('AUTHORIZATION');
   if (!['scheduled', 'active'].includes(round.status))
     throw createAppError('CONFLICT');
 }
 
-/** A refunded reservation is never reused outside its own refund. */
+/** A refunded reservation is never reused (refunds happen at Round end, DEC-211). */
 export function requireUnrefundedReservation<R extends ReservationRow>(
   row: R | undefined,
-  allowRefunded: boolean,
 ): R | undefined {
-  if (row?.refundedAt && !allowRefunded)
-    throw createAppError('CONFLICT', 'Reservation refunded');
+  if (row?.refundedAt) throw createAppError('CONFLICT', 'Reservation refunded');
   return row;
 }
 
-/**
- * Counting is idempotent at the first model call; a refund needs a counted
- * reservation and happens once.
- */
-export function reservationMutation(
-  current: ReservationRow | undefined,
+/** The reservation found under lock is the one being counted. */
+export function requireOwnReservation<R extends ReservationRow>(
+  current: R | undefined,
   reservationId: string,
-  refund: boolean,
-): 'count' | 'refund' | 'none' {
+): R {
   if (!current || current.id !== reservationId)
     throw createAppError('AUTHORIZATION');
-  if (!refund) return 'count';
-  if (!current.countedAt) throw createAppError('CONFLICT');
-  return current.refundedAt ? 'none' : 'refund';
+  return current;
 }
 
 /** Refusal order: the sponsor's allowance, then global capacity. */

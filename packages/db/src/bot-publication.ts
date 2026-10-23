@@ -2,6 +2,7 @@ import { and, eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import type { BoundedTransaction } from './bounded-transaction';
 import { createBotGenerationOperations } from './bot-generation';
+export { isFinalBotSpeechRefusal } from './bot-generation-rules';
 import { agentLeaseDigest } from './round-agent-lease';
 import {
   endLockedRoundAgentRun,

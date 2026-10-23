@@ -208,19 +208,23 @@ depends on one, and nothing in a Round's history would change if Rooms were dele
   become known failures. DEC-191's deferred triggers still fence the database:
   a null-outcome completion needs zero judge seats or a completion at or after
   the persisted deadline.
-- **AI practice capacity is reclaimed durably at admission.** Under the global
-  admission lock, scheduled practices with no execution for 15 minutes and active
-  practices with no execution for two hours become abandoned. Reclamation locks
-  their round rows, closes open segments, clears transient prep/floor state, records
-  completion on the database clock and increments the version before counting live
-  capacity. Reservations remain for the allowance period; only scheduled and active
-  status consumes global capacity. DEC183 (2026-10-22) supersedes the former
+- **AI practice capacity is held only while a practice plays (DEC-211).** Only
+  scheduled and active status consumes global capacity. A Round gives its slot
+  back when it reaches a terminal state through the shared terminal projection
+  path (attendance adjudication, the ballot deadline, forfeit or abandonment);
+  there is no time-based reclamation, and a Round whose bot worker is lost still
+  terminates (ISSUE-430-r2). DEC183 (2026-10-22) supersedes the former
   rolling-daily allowance: free members receive one admission per UTC calendar
   month; a current authoritative, nonrevoked grant supplies ten per its exact
   durable period. Missing, invalid or expired grants never imply premium.
   Reservations serialize per actor and across global capacity. The first model
-  call of any kind counts, and a known vendor failure refunds; an uncertain
-  external outcome is retained rather than fabricated as success or refund.
+  call of any kind counts the reservation. A definite vendor failure (the vendor
+  itself refused the request with a 4xx other than 408, or the call never left) settles `failed` with no
+  usage; anything uncertain settles `unknown` and is never fabricated as success
+  or refund. When the Round ends, in the same transaction as its terminal
+  projection, a counted practice whose every model call (bot or judge) failed
+  definitely is refunded, once. A practice never counted keeps its reservation
+  until the refund CHECK admits it (ISSUE-469).
   Server composition must supply an explicit trusted positive integer busy cap;
   a local proof value of four is capacity configuration, not entitlement.
   Every reservation records its PostgreSQL admission time (NOT NULL); Round

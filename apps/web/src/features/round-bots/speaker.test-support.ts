@@ -11,7 +11,7 @@ export const scope = {
 /** A provider answer whose settlement always succeeds. */
 export const answered = <T>(value: T) => ({
   value,
-  settle: async () => undefined,
+  settle: async (): Promise<void> => undefined,
 });
 export const job = (phraseId: string, text: string, samples = 240) => ({
   scope,

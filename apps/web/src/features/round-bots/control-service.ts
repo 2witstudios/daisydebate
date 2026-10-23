@@ -1,3 +1,4 @@
+import { isAppError } from '@daisy/errors';
 import type { WorkerTimers } from './worker-timers';
 type Target = {
   readonly roundId: string;
@@ -44,15 +45,23 @@ export function startBotControlService<C extends Claim>(input: {
   let stopped = false,
     discovering: Promise<void> | null = null,
     pulsing: Promise<void> | null = null;
-  const valid = async (entry: Owned<C>) => {
+  /**
+   * Lost only on a definite refusal of the lease. A check that failed (pool
+   * capacity, a reset) proves nothing, so the seat stays owned; dropping it
+   * would let the lease lapse and the seat speak again (ISSUE-456).
+   */
+  const authorityLost = async (entry: Owned<C>) => {
     try {
       await input.store.verifyRoundBotWorker(
         entry.claim.scope,
         entry.claim.token,
       );
-      return true;
-    } catch {
       return false;
+    } catch (error) {
+      return (
+        isAppError(error) &&
+        (error.code === 'AUTHORIZATION' || error.code === 'CONFLICT')
+      );
     }
   };
   const pulse = (entry: Owned<C>): Promise<void> => {
@@ -61,7 +70,7 @@ export function startBotControlService<C extends Claim>(input: {
       try {
         await entry.control.pulse();
       } catch (error) {
-        if (!(await valid(entry))) {
+        if (await authorityLost(entry)) {
           owned.delete(entry.claim.scope.roundParticipantId);
           await entry.control.stop?.();
           // Authority ended (Round completed or claim rotated): a release, not a fault.
