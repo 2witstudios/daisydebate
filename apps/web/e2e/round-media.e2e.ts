@@ -35,9 +35,10 @@ test('actual browser tracks reach an assigned hidden judge and terminal commit s
       pages.map((page) => page.goto(`/rounds/${round.id}/room`)),
     );
     for (const page of pages) {
+      // Admission may be refused for now under load and retried (ISSUE-494).
       await expect(
         page.getByRole('status').filter({ hasText: /^Connected$/ }),
-      ).toBeVisible();
+      ).toBeVisible(MEDIA_POLL);
       await page
         .getByRole('button', { name: 'Enable sound', exact: true })
         .click();
@@ -74,7 +75,7 @@ test('actual browser tracks reach an assigned hidden judge and terminal commit s
     });
     await expect(
       judgePage.getByRole('status').filter({ hasText: /^Connected$/ }),
-    ).toBeVisible();
+    ).toBeVisible(MEDIA_POLL);
     await expect(
       judgePage.getByLabel('Your camera', { exact: true }),
     ).toHaveCount(0);
