@@ -24,6 +24,7 @@ export type StagedFrame = {
   readonly observedAtMs: number;
 };
 /** Private validation staging only. No WAV, coverage, text or future-grant replay. */
+const MAX_STAGED = 4096;
 export function createCaptureStaging(input: {
   readonly current: () => Snapshot;
   readonly nowMs: () => number;
@@ -38,6 +39,13 @@ export function createCaptureStaging(input: {
     edges.set(trackId, kept.slice(-8));
   };
   let pending: StagedFrame[] = [];
+  /** At most MAX_STAGED frames, however they arrived: the oldest are dropped. */
+  const bound = () => {
+    const excess = pending.length - MAX_STAGED;
+    if (excess <= 0) return;
+    pending = pending.slice(excess);
+    input.dropped(excess);
+  };
   const candidate = (raw: Raw): StagedFrame | null => {
     const current = input.current();
     const peer = current.state.participants.find(
@@ -92,11 +100,8 @@ export function createCaptureStaging(input: {
         input.dropped(1);
         return null;
       }
-      if (pending.length === 4096) {
-        pending.shift();
-        input.dropped(1);
-      }
       pending.push(frame);
+      bound();
       input.retained();
       return frame;
     },
@@ -115,6 +120,7 @@ export function createCaptureStaging(input: {
     /** Frames a batch held back, ahead of those staged since, in order. */
     requeue(frames: readonly StagedFrame[]) {
       pending = [...frames, ...pending];
+      bound();
     },
     take() {
       const frames = pending;

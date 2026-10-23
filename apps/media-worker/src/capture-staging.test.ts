@@ -252,3 +252,24 @@ test('each missing sequence number is exactly a 10 ms gap (DEC-215)', () => {
     ],
   });
 });
+test('a requeue never lets staging grow past its bound', () => {
+  const f = fixture();
+  f.observe(0, 10);
+  f.observe(1, 20.2);
+  const held = f.staging.take()[0]!;
+  f.observe(2, 30.4);
+  const before = f.counts().dropped;
+  f.staging.requeue(Array.from({ length: 4096 }, () => held));
+  f.observe(3, 40.6);
+  assert({
+    given:
+      'one staged frame, 4096 held frames requeued ahead of it, then one more observed',
+    should:
+      'keep at most 4096 frames, dropping and counting the oldest (VIDEO-4.1-r5)',
+    actual: {
+      frames: f.staging.take().length,
+      dropped: f.counts().dropped - before,
+    },
+    expected: { frames: 4096, dropped: 2 },
+  });
+});
