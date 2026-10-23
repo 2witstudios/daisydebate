@@ -46,6 +46,7 @@ export function fixture(
     publish: (_topic, frame) => {
       sent.push(frame);
     },
+    failed: () => {},
     ...overrides,
   });
   const connection = registry.add(socket, {

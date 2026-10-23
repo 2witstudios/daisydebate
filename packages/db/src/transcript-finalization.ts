@@ -1,3 +1,4 @@
+import { createAppError } from '@daisy/errors';
 import { eq, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { BoundedTransactionContext } from './transaction-context';
@@ -27,10 +28,28 @@ export const transcriptFinalizationOperations = (input: {
     readLockedFrozenRoundTranscript(input.database, roundId),
 });
 
+export type FreezeRequest = LockedRoundTickInput & {
+  /** Injected policy: judges rule until this long after the freeze (DEC-201, DEC-207). */
+  readonly ballotDeadlineMs: number;
+};
+/** The deadline judges rule within, set once from the freeze time (DEC-207). */
+async function persistBallotDeadline(
+  tx: BoundedTransactionContext,
+  request: FreezeRequest,
+) {
+  if (
+    !Number.isSafeInteger(request.ballotDeadlineMs) ||
+    request.ballotDeadlineMs < 0
+  )
+    throw createAppError('VALIDATION');
+  await tx.execute(
+    sql`update rounds set ballot_deadline_at=(select frozen_at from round_transcript_freezes where round_id=${request.roundId})+${request.ballotDeadlineMs}*interval '1 millisecond' where id=${request.roundId}`,
+  );
+}
 /** Existing Round/lease/stream operation; a service consumer can recheck its lease after waits. */
 export async function finalizeLockedRoundTranscript(
   tx: BoundedTransactionContext,
-  request: LockedRoundTickInput,
+  request: FreezeRequest,
   assertCurrent: () => Promise<void> = async () => {},
 ) {
   const clock = await executeLockedRoundTick(tx, request);
@@ -68,6 +87,7 @@ export async function finalizeLockedRoundTranscript(
       completeness: state,
     })
     .returning();
+  await persistBallotDeadline(tx, request);
   // Canonical bot eligibility requires its profile, as in actorFact; kind alone is insufficient.
   // One durable intent per eligible assigned judge; human-only freezes have none.
   await tx.execute(sql`insert into round_judging_jobs (round_id,freeze_revision,judge_participant_id,status,attempts)

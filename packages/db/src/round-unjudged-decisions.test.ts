@@ -1,8 +1,6 @@
 import { assertRejects } from '@daisy/errors/testing';
-import type { RoundProjection } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
-  requireCompletionProjection,
   requireUnjudgedFacts,
   requireUnjudgedRequest,
   requireUnjudgedRound,
@@ -21,11 +19,15 @@ const ids = {
 };
 const request = { ...ids, freezeRevision: 2 };
 const digest = unjudgedDigest(request);
+const judgeSeat = 'judgeaaaa1b2c3d4e5f6g7h8';
 const receipt = unjudgedReceipt({
   commandId: ids.commandId,
   roundId: ids.roundId,
   freezeRevision: 2,
   resultingVersion: 9,
+  ruling: 'judges-did-not-rule',
+  outcome: null,
+  noRuling: [judgeSeat],
 });
 const commandRow = (
   overrides: Partial<Parameters<typeof validateUnjudgedReceipt>[0]> = {},
@@ -36,7 +38,7 @@ const commandRow = (
   serviceId: `round-finalization:${ids.instanceId}`,
   type: 'complete',
   payloadDigest: digest,
-  result: receipt,
+  result: { ...receipt, noRuling: [...receipt.noRuling] },
   resultingVersion: 9,
   appliedAt: new Date('2026-10-22T12:00:00.000Z'),
   ...overrides,
@@ -45,7 +47,6 @@ type Round = Parameters<typeof requireUnjudgedRound>[0];
 const round = (overrides: Record<string, unknown> = {}): Round =>
   ({
     competitionType: 'casual',
-    rules: { seats: { judge: 0 } },
     segments: [{ endedAt: '2026-10-22T12:00:00.000Z' }],
     participants: [{ role: 'affirmative' }, { role: 'negative' }],
     ...overrides,
@@ -54,7 +55,7 @@ const durable = {
   ladder_id: null,
   final_segment_ended_at: '2026-10-22T12:00:00.000Z',
   transcript_admission_cutoff: '2026-10-22T12:00:02.000Z',
-  ballots: false,
+  ballot_deadline_at: '2026-10-22T12:05:00.000Z',
   ratings: false,
 };
 const facts = (
@@ -63,7 +64,11 @@ const facts = (
   requireUnjudgedFacts({
     freezeRevision: 2,
     freeze: { revision: 2 },
-    seats: [{ eligible: true }, { eligible: true }],
+    seats: [
+      { role: 'affirmative', eligible: true },
+      { role: 'negative', eligible: true },
+      { role: 'judge', eligible: false },
+    ],
     durable,
     ...overrides,
   });
@@ -125,7 +130,13 @@ test('only this service exact zero-judge receipt replays', async () => {
     ['another payload digest', commandRow({ payloadDigest: 'f'.repeat(64) })],
     [
       'a receipt for another revision',
-      commandRow({ result: { ...receipt, freezeRevision: 3 } }),
+      commandRow({
+        result: {
+          ...receipt,
+          noRuling: [...receipt.noRuling],
+          freezeRevision: 3,
+        },
+      }),
     ],
     [
       'a receipt for another command',
@@ -141,59 +152,71 @@ test('only this service exact zero-judge receipt replays', async () => {
     });
 });
 
-test('a replay stands only while the Round is completed without a winner', async () => {
-  for (const state of [
-    { status: 'active', outcome: null },
-    { status: 'completed', outcome: 'affirmative' },
-    { status: 'abandoned', outcome: null },
-  ])
+test('a replay stands only while the Round is completed with the receipt outcome', async () => {
+  for (const [state, recorded] of [
+    [{ status: 'active', outcome: null }, null],
+    [{ status: 'completed', outcome: 'affirmative' }, null],
+    [{ status: 'completed', outcome: null }, 'negative'],
+    [{ status: 'abandoned', outcome: null }, null],
+  ] as const)
     await assertRejects({
-      given: `a Round now ${state.status} with outcome ${state.outcome}`,
-      should: 'refuse the replayed unjudged receipt',
-      actual: () => requireUnjudgedTerminal(state),
+      given: `a Round now ${state.status} with outcome ${state.outcome} against a receipt of ${recorded}`,
+      should: 'refuse the replayed receipt',
+      actual: () => requireUnjudgedTerminal(state, recorded),
       code: 'CONFLICT',
     });
   assert({
-    given: 'a completed Round with no outcome',
+    given: 'completed Rounds whose outcome matches the receipt',
     should: 'admit the replay',
-    actual: requireUnjudgedTerminal({ status: 'completed', outcome: null }),
-    expected: undefined,
+    actual: [
+      requireUnjudgedTerminal({ status: 'completed', outcome: null }, null),
+      requireUnjudgedTerminal(
+        { status: 'completed', outcome: 'negative' },
+        'negative',
+      ),
+    ],
+    expected: [undefined, undefined],
   });
 });
 
-test('only a played casual Round without judges is eligible', async () => {
+test('only a fully played casual Round is eligible, judged or not', async () => {
   for (const [label, candidate] of [
     ['a missing Round', null],
     ['a ranked Round', round({ competitionType: 'ranked' })],
     ['a practice Round', round({ competitionType: 'practice' })],
-    ['required judges', round({ rules: { seats: { judge: 1 } } })],
     ['an unfinished segment', round({ segments: [{ endedAt: null }] })],
-    [
-      'a judge seat',
-      round({ participants: [{ role: 'affirmative' }, { role: 'judge' }] }),
-    ],
   ] as const)
     await assertRejects({
       given: `${label}`,
-      should: 'refuse unjudged completion as ineligible',
+      should: 'refuse deadline completion as ineligible',
       actual: () => requireUnjudgedRound(candidate as Round),
       code: 'CONFLICT',
     });
   assert({
-    given: 'a played casual Round with zero required judges and no judge seat',
-    should: 'admit it',
-    actual: requireUnjudgedRound(round()),
-    expected: undefined,
+    given: 'a played casual Round without judges, and one with a judge seat',
+    should: 'admit both',
+    actual: [
+      requireUnjudgedRound(round()),
+      requireUnjudgedRound(
+        round({ participants: [{ role: 'affirmative' }, { role: 'judge' }] }),
+      ),
+    ],
+    expected: [undefined, undefined],
   });
 });
 
-test('durable facts must show the frozen revision and no competitive record', async () => {
+test('durable facts must show the frozen revision, eligible debaters and no ladder or rating', async () => {
   for (const [label, overrides] of [
     ['no freeze', { freeze: null }],
     ['another freeze revision', { freeze: { revision: 3 } }],
     [
-      'an ineligible seat',
-      { seats: [{ eligible: true }, { eligible: false }] },
+      'an ineligible debater',
+      {
+        seats: [
+          { role: 'affirmative', eligible: true },
+          { role: 'negative', eligible: false },
+        ],
+      },
     ],
     ['no durable Round row', { durable: undefined }],
     ['a ladder', { durable: { ...durable, ladder_id: 'ladder' } }],
@@ -202,7 +225,6 @@ test('durable facts must show the frozen revision and no competitive record', as
       'no admission cutoff',
       { durable: { ...durable, transcript_admission_cutoff: null } },
     ],
-    ['a ballot', { durable: { ...durable, ballots: true } }],
     ['a rating change', { durable: { ...durable, ratings: true } }],
   ] as const)
     await assertRejects({
@@ -212,47 +234,27 @@ test('durable facts must show the frozen revision and no competitive record', as
       code: 'CONFLICT',
     });
   assert({
-    given: 'the requested freeze, eligible seats and a clean casual Round',
-    should: 'return the freeze',
-    actual: facts({}),
-    expected: { revision: 2 },
-  });
-});
-
-test('the engine completion must finish without a winner or segment change', async () => {
-  const completed = {
-    round: { status: 'completed', outcome: null },
-    segmentInserts: [],
-    segmentCloses: [],
-  } as unknown as RoundProjection;
-  for (const [label, projection] of [
-    ['an active Round', { ...completed, round: { status: 'active' } }],
-    ['no Round change', { ...completed, round: undefined }],
-    [
-      'a winner',
-      { ...completed, round: { status: 'completed', outcome: 'negative' } },
+    given:
+      'the requested freeze, eligible debaters beside a judge who left, and a clean casual Round',
+    should: 'return the freeze and the persisted ballot deadline',
+    actual: [
+      facts({}),
+      facts({ durable: { ...durable, ballot_deadline_at: null } })
+        .ballotDeadlineAt,
     ],
-    ['a segment insert', { ...completed, segmentInserts: [{}] }],
-    ['a segment close', { ...completed, segmentCloses: [{}] }],
-  ] as const)
-    await assertRejects({
-      given: `a completion projection with ${label}`,
-      should: 'refuse it as an invalid unjudged projection',
-      actual: () =>
-        requireCompletionProjection(projection as unknown as RoundProjection),
-      code: 'CONFLICT',
-    });
-  assert({
-    given: 'a completed projection with no outcome and no segment writes',
-    should: 'admit it',
-    actual: requireCompletionProjection(completed),
-    expected: undefined,
+    expected: [
+      {
+        freeze: { revision: 2 },
+        ballotDeadlineAt: '2026-10-22T12:05:00.000Z',
+      },
+      null,
+    ],
   });
 });
 
-test('a new receipt is a completed, unreplayed, winnerless version 1 record', () => {
+test('a new receipt is a completed, unreplayed version 1 record of the ruling', () => {
   assert({
-    given: 'the command, Round, revision and resulting version',
+    given: 'the command, Round, revision, version and a no-ruling outcome',
     should: 'build the strict protocol receipt',
     actual: receipt,
     expected: {
@@ -262,7 +264,9 @@ test('a new receipt is a completed, unreplayed, winnerless version 1 record', ()
       freezeRevision: 2,
       resultingVersion: 9,
       status: 'completed',
+      ruling: 'judges-did-not-rule',
       outcome: null,
+      noRuling: [judgeSeat],
       replayed: false,
     },
   });

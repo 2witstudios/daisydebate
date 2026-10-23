@@ -112,24 +112,34 @@ test('a ballot judges only the frozen revision it names', async () => {
     });
 });
 
-test('a new ballot needs the expected version, an undecided Round and an unused seat', async () => {
+test('a new ballot needs the expected version, an undecided Round before its deadline and an unused seat', async () => {
   const admission = {
     version: 4,
     expectedVersion: 4,
     round: { status: 'active', outcome: null },
     submittedJudgeIds: ['otherjudge'],
     judgeParticipantId: judge,
+    now: '2026-10-22T12:00:00.000Z',
+    ballotDeadlineAt: new Date('2026-10-22T12:00:00.001Z'),
   };
   assert({
-    given: 'the expected version on an active undecided Round',
+    given:
+      'the expected version on an active undecided Round before its deadline, and one with no deadline',
     should: 'admit the ballot',
-    actual: requireBallotAdmission(admission),
-    expected: undefined,
+    actual: [
+      requireBallotAdmission(admission),
+      requireBallotAdmission({ ...admission, ballotDeadlineAt: null }),
+    ],
+    expected: [undefined, undefined],
   });
   for (const [label, overrides] of [
     ['a stale version', { expectedVersion: 3 }],
     ['a completed Round', { round: { status: 'completed', outcome: null } }],
     ['a decided Round', { round: { status: 'active', outcome: 'negative' } }],
+    [
+      'a ballot at its persisted deadline (DEC-207)',
+      { ballotDeadlineAt: new Date('2026-10-22T12:00:00.000Z') },
+    ],
     ['an already used seat', { submittedJudgeIds: [judge] }],
   ] as const)
     await assertRejects({

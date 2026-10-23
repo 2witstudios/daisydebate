@@ -4,6 +4,7 @@ import {
   idSchema,
   roundUnjudgedReceiptSchema,
   type RoundProjection,
+  type RoundUnjudgedReceipt,
 } from '@daisy/protocol';
 import type { hydrateRoundRows } from './round-hydration';
 import type { roundCommands } from './schema/round-commands';
@@ -22,7 +23,7 @@ export type UnjudgedDurableFacts = {
   readonly ladder_id: unknown;
   readonly final_segment_ended_at: unknown;
   readonly transcript_admission_cutoff: unknown;
-  readonly ballots: unknown;
+  readonly ballot_deadline_at: unknown;
   readonly ratings: unknown;
 };
 
@@ -86,59 +87,75 @@ export function validateUnjudgedReceipt(
   return receipt;
 }
 
-/** A replayed receipt stands only while the Round is still completed without a winner. */
-export function requireUnjudgedTerminal(round: {
-  readonly status: string;
-  readonly outcome: string | null;
-}): void {
-  if (round.status !== 'completed' || round.outcome !== null)
+/** A replayed receipt stands only while the Round is still completed with its recorded outcome. */
+export function requireUnjudgedTerminal(
+  round: { readonly status: string; readonly outcome: string | null },
+  recorded: string | null,
+): void {
+  if (round.status !== 'completed' || round.outcome !== recorded)
     throw receiptConflict();
 }
 
-/** Casual, zero required judges, no judge seat, every segment played. */
+/** A casual Round with every segment played; its judges, if any, may not have ruled. */
 export function requireUnjudgedRound(
   round: HydratedRound,
 ): asserts round is NonNullable<HydratedRound> {
   if (
     !round ||
     round.competitionType !== 'casual' ||
-    round.rules.seats.judge !== 0 ||
-    round.segments.some((p) => p.endedAt === null) ||
-    round.participants.some((p) => p.role === 'judge')
+    round.segments.some((p) => p.endedAt === null)
   )
     throw ineligible();
 }
 
-/** The requested freeze, eligible seats, and no ladder, ballot or rating fact. */
+/**
+ * The requested freeze, eligible debaters and no ladder or rating fact. A
+ * judge who left cannot hold the Round open: the deadline records no ruling.
+ * Returns the freeze and the ballot deadline persisted at it, as UTC ISO.
+ */
 export function requireUnjudgedFacts<
   Freeze extends { readonly revision: number },
 >(input: {
   readonly freezeRevision: number;
   readonly freeze: Freeze | null | undefined;
-  readonly seats: readonly { readonly eligible: boolean }[];
+  readonly seats: readonly {
+    readonly role: string;
+    readonly eligible: boolean;
+  }[];
   readonly durable: UnjudgedDurableFacts | undefined;
-}): Freeze {
+}): { readonly freeze: Freeze; readonly ballotDeadlineAt: string | null } {
   const { freeze, durable } = input;
   if (
     !freeze ||
     freeze.revision !== input.freezeRevision ||
-    input.seats.some((seat) => !seat.eligible) ||
+    input.seats.some((seat) => seat.role !== 'judge' && !seat.eligible) ||
     !durable ||
     durable.ladder_id !== null ||
     !durable.final_segment_ended_at ||
     !durable.transcript_admission_cutoff ||
-    durable.ballots ||
     durable.ratings
   )
     throw ineligible();
-  return freeze;
+  return {
+    freeze,
+    ballotDeadlineAt: durable.ballot_deadline_at
+      ? new Date(durable.ballot_deadline_at as string).toISOString()
+      : null,
+  };
 }
 
-/** The engine's completion must finish the Round with no winner and no segment change. */
-export function requireCompletionProjection(projection: RoundProjection): void {
+/**
+ * The engine's completion finishes the Round with no segment change, and
+ * names a winner exactly when some judges ruled (`partial`).
+ */
+export function requireCompletionProjection(completion: {
+  readonly projection: RoundProjection;
+  readonly ruling: RoundUnjudgedReceipt['ruling'];
+}): void {
+  const { projection } = completion;
   if (
     projection.round?.status !== 'completed' ||
-    projection.round.outcome !== null ||
+    (completion.ruling !== 'partial') !== (projection.round.outcome === null) ||
     projection.segmentInserts.length ||
     projection.segmentCloses.length
   )
@@ -150,11 +167,13 @@ export const unjudgedReceipt = (input: {
   readonly roundId: string;
   readonly freezeRevision: number;
   readonly resultingVersion: number;
+  readonly ruling: RoundUnjudgedReceipt['ruling'];
+  readonly outcome: RoundUnjudgedReceipt['outcome'];
+  readonly noRuling: readonly string[];
 }) =>
   roundUnjudgedReceiptSchema.parse({
     version: 1,
     ...input,
     status: 'completed',
-    outcome: null,
     replayed: false,
   });

@@ -32,6 +32,7 @@ import {
 } from './round-write-authority';
 import type { RoundHydration } from './round-hydration';
 import { ballots } from './schema/ballots';
+import { rounds } from './schema/rounds';
 import { roundCommands } from './schema/round-commands';
 import {
   requireCommandInput,
@@ -144,6 +145,11 @@ export async function executeLockedRoundBallot(
   const fresh = context;
   const replay = await replayBallot(tx, input);
   if (replay) return replay;
+  // The persisted ballot deadline is the cutoff by the database clock (DEC-207).
+  const [window] = await tx
+    .select({ deadline: rounds.ballotDeadlineAt })
+    .from(rounds)
+    .where(eq(rounds.id, input.roundId));
   const existing = await tx
     .select()
     .from(ballots)
@@ -154,6 +160,8 @@ export async function executeLockedRoundBallot(
     round: fresh.round,
     submittedJudgeIds: existing.map((b) => b.judgeParticipantId),
     judgeParticipantId: input.envelope.judgeParticipantId,
+    now: fresh.now,
+    ballotDeadlineAt: window?.deadline ?? null,
   });
   const stored = await insertFrozenBallot(tx, input, context);
   const ballotId = stored.id;

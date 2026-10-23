@@ -77,7 +77,8 @@ export function createBotPublisher(input: {
         });
         return true;
       },
-      onAccepted: (eligibleSamples) => onSent?.(eligibleSamples * job.channels),
+      // Resume follows what was heard, not what was credited (ISSUE-431-r7).
+      onSent: (sentSamples) => onSent?.(sentSamples * job.channels),
     });
     const result = await write(job.pcm.subarray(0, transportSamples), signal);
     return {

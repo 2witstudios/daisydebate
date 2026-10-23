@@ -95,15 +95,18 @@ test('real delivery principal validation refuses a canonical read exceeding its 
   });
   await Promise.resolve();
   fire();
-  const allowed = await checked;
+  const outcome = await checked.then(
+    () => 'answered',
+    (error: unknown) => (error instanceof Error ? error.message : 'unknown'),
+  );
   finish({ expiresAt: '2026-10-09T00:01:00.000Z' });
   await Promise.resolve();
   assert({
     given:
       'the actual delivery validation port with a late current-session read',
     should:
-      'return refusal and clear its timer before that late allow can complete',
-    actual: [allowed, cleared],
-    expected: [false, true],
+      'reject as spent budget for the caller to refuse, and clear its timer before that late allow can complete',
+    actual: [outcome, cleared],
+    expected: ['Authority check budget spent', true],
   });
 });

@@ -44,17 +44,28 @@ export function requireFrozenRevision<
   return frozen;
 }
 
-/** A new ballot needs the expected version, an undecided Round and an unused judge seat. */
+/**
+ * A new ballot needs the expected version, an undecided Round still before
+ * its persisted ballot deadline by the database clock (DEC-207), and an
+ * unused judge seat.
+ */
 export function requireBallotAdmission(input: {
   readonly version: number;
   readonly expectedVersion: number;
   readonly round: { readonly status: string; readonly outcome: string | null };
   readonly submittedJudgeIds: readonly string[];
   readonly judgeParticipantId: string;
+  readonly now: string;
+  readonly ballotDeadlineAt: Date | null;
 }): void {
   if (input.version !== input.expectedVersion)
     throw createAppError('CONFLICT', 'stale-version');
   if (input.round.status !== 'active' || input.round.outcome !== null)
+    throw createAppError('CONFLICT', 'round-decided');
+  if (
+    input.ballotDeadlineAt &&
+    Date.parse(input.now) >= input.ballotDeadlineAt.getTime()
+  )
     throw createAppError('CONFLICT', 'round-decided');
   if (input.submittedJudgeIds.includes(input.judgeParticipantId))
     throw createAppError('CONFLICT', 'ballot-already-submitted');

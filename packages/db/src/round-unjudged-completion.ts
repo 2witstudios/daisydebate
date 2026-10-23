@@ -1,6 +1,6 @@
 import { createAppError, isAppError } from '@daisy/errors';
 import type { RoundUnjudgedReceipt } from '@daisy/protocol';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import type { BoundedTransaction } from './bounded-transaction';
 import type { BoundedTransactionContext } from './transaction-context';
 import { fenceAttendance } from './attendance-facts';
@@ -19,7 +19,9 @@ import {
   writeProjectionWithPhaseSignal,
 } from './round-projection-writer';
 import { writeSpeakingProjection } from './round-speaking-writer';
+import { ballots } from './schema/ballots';
 import { roundCommands } from './schema/round-commands';
+import { roundJudgingJobs } from './schema/round-judging-jobs';
 import {
   requireCompletionProjection,
   requireUnjudgedFacts,
@@ -32,11 +34,27 @@ import {
   type UnjudgedDurableFacts,
 } from './round-unjudged-decisions';
 
+type CompletionFacts = Parameters<
+  LockedRoundTickInput['buildProjection']
+>[0] & {
+  /** The Round's stored ballots and the deadline persisted at its freeze. */
+  readonly ballots: readonly {
+    readonly judgeParticipantId: string;
+    readonly winner: 'affirmative' | 'negative';
+    readonly status: 'submitted' | 'voided';
+  }[];
+  readonly ballotDeadlineAt: string | null;
+};
 type Request = LockedRoundTickInput & {
   readonly instanceId: string;
   readonly commandId: string;
   readonly freezeRevision: number;
-  readonly buildCompletion: LockedRoundTickInput['buildProjection'];
+  /** The engine decides; the caller supplies the ruling it decided with the projection. */
+  readonly buildCompletion: (facts: CompletionFacts) => {
+    readonly projection: ReturnType<LockedRoundTickInput['buildProjection']>;
+    readonly ruling: RoundUnjudgedReceipt['ruling'];
+    readonly noRuling: readonly string[];
+  };
 };
 async function replay(
   tx: BoundedTransactionContext,
@@ -58,7 +76,10 @@ async function replay(
     .limit(1);
   if (!row) return null;
   const receipt = validateUnjudgedReceipt(row, input, digest);
-  requireUnjudgedTerminal(await lockedRoundVersion(tx, input.roundId));
+  requireUnjudgedTerminal(
+    await lockedRoundVersion(tx, input.roundId),
+    receipt.outcome,
+  );
   await requireCurrentWeb(tx, input.instanceId);
   return { ...receipt, replayed: true };
 }
@@ -73,22 +94,50 @@ async function readCompletionFacts(
   const round = await hydrateRoundRows(tx, input.roundId);
   const freeze = await readTranscriptFreeze(tx, input.roundId);
   const [durable] =
-    await tx.execute(sql`select ladder_id,final_segment_ended_at,transcript_admission_cutoff,
-    exists(select 1 from ballots where round_id=${input.roundId}) as ballots,
+    await tx.execute(sql`select ladder_id,final_segment_ended_at,transcript_admission_cutoff,ballot_deadline_at,
     exists(select 1 from rating_changes where round_id=${input.roundId}) as ratings
     from rounds where id=${input.roundId}`);
   const now = await sampleRoundExecutionTime(tx);
   requireUnjudgedRound(round);
-  const frozen = requireUnjudgedFacts({
+  const { freeze: frozen, ballotDeadlineAt } = requireUnjudgedFacts({
     freezeRevision: input.freezeRevision,
     freeze,
     seats: facts.seats,
     durable: durable as UnjudgedDurableFacts | undefined,
   });
   await assertRoundAttendanceSettled(tx, { roundId: input.roundId, now });
-  return { round, freeze: frozen, now };
+  const stored = await tx
+    .select({
+      judgeParticipantId: ballots.judgeParticipantId,
+      winner: ballots.winner,
+      status: ballots.status,
+    })
+    .from(ballots)
+    .where(eq(ballots.roundId, input.roundId));
+  return {
+    round,
+    freeze: frozen,
+    now,
+    ballots: stored as CompletionFacts['ballots'],
+    ballotDeadlineAt,
+  };
 }
 
+/** A judging job still open when its Round completes is a known failure. */
+async function failOpenJudgingJobs(
+  tx: BoundedTransactionContext,
+  roundId: string,
+) {
+  await tx
+    .update(roundJudgingJobs)
+    .set({ status: 'failed', leaseTokenDigest: null, leaseExpiresAt: null })
+    .where(
+      and(
+        eq(roundJudgingJobs.roundId, roundId),
+        inArray(roundJudgingJobs.status, ['queued', 'leased']),
+      ),
+    );
+}
 async function complete(tx: BoundedTransactionContext, input: Request) {
   await requireCurrentWeb(tx, input.instanceId);
   const digest = unjudgedDigest(input);
@@ -111,9 +160,16 @@ async function complete(tx: BoundedTransactionContext, input: Request) {
     }
     throw error;
   }
-  const { round, freeze, now } = await readCompletionFacts(tx, input, facts);
-  const projection = input.buildCompletion({ round, now });
-  requireCompletionProjection(projection);
+  const { round, freeze, now, ballots, ballotDeadlineAt } =
+    await readCompletionFacts(tx, input, facts);
+  const completion = input.buildCompletion({
+    round,
+    now,
+    ballots,
+    ballotDeadlineAt,
+  });
+  requireCompletionProjection(completion);
+  const { projection } = completion;
   const current = await lockedRoundVersion(tx, input.roundId);
   await requireCurrentWeb(tx, input.instanceId);
   const changed = await writeProjectionWithPhaseSignal(
@@ -129,6 +185,9 @@ async function complete(tx: BoundedTransactionContext, input: Request) {
     roundId: input.roundId,
     freezeRevision: freeze.revision,
     resultingVersion: current.version + 1,
+    ruling: completion.ruling,
+    outcome: projection.round!.outcome,
+    noRuling: completion.noRuling,
   });
   await insertCommandRow(
     tx,
@@ -139,7 +198,7 @@ async function complete(tx: BoundedTransactionContext, input: Request) {
       serviceId: `round-finalization:${input.instanceId}`,
       type: 'complete',
       payloadDigest: digest,
-      result: receipt,
+      result: { ...receipt, noRuling: [...receipt.noRuling] },
     },
     receipt.resultingVersion,
   );
@@ -149,6 +208,7 @@ async function complete(tx: BoundedTransactionContext, input: Request) {
     resultingVersion: receipt.resultingVersion,
     commandId: input.commandId,
   });
+  await failOpenJudgingJobs(tx, input.roundId);
   await requireCurrentWeb(tx, input.instanceId);
   return receipt;
 }
