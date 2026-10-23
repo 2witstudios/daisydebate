@@ -59,9 +59,7 @@ export function freezeJudgingPlan(
  * has, a decisive result completes without waiting for the AI seats.
  */
 export function decideUnjudgedCompletion(
-  input: Completeness & {
-    readonly humanJudgeSeatIds: readonly string[];
-    readonly judgeSeatIds: readonly string[];
+  input: PanelFacts & {
     readonly ballots: readonly Ruling[];
     /** NaN when no deadline was persisted, which never passes. */
     readonly ballotDeadlineAtMs: number;
@@ -83,11 +81,7 @@ export function decideUnjudgedCompletion(
   const ruled = new Set(submitted.map((ballot) => ballot.judgeParticipantId));
   const noRuling = input.judgeSeatIds.filter((id) => !ruled.has(id));
   const pastDeadline = input.nowMs >= input.ballotDeadlineAtMs;
-  const ableToRule =
-    input.completeness === 'incomplete'
-      ? input.humanJudgeSeatIds
-      : input.judgeSeatIds;
-  const awaiting = ableToRule.some((id) => !ruled.has(id));
+  const awaiting = judgesAbleToRule(input).some((id) => !ruled.has(id));
   if (noRuling.length === 0 || (awaiting && !pastDeadline))
     return { kind: 'pending' };
   const outcome = submitted.length
@@ -101,15 +95,26 @@ export function decideUnjudgedCompletion(
   if (!pastDeadline) return { kind: 'pending' };
   return {
     kind: 'complete',
-    ruling:
-      input.completeness === 'incomplete' &&
-      input.humanJudgeSeatIds.length === 0
-        ? 'transcript-incomplete'
-        : 'judges-did-not-rule',
+    ruling: noOutcomeRuling(input),
     outcome: null,
     noRuling,
   };
 }
+
+type PanelFacts = Completeness & {
+  readonly humanJudgeSeatIds: readonly string[];
+  readonly judgeSeatIds: readonly string[];
+};
+/** On an incomplete freeze only the human judges, who heard the Round live, can rule (DEC-208). */
+const judgesAbleToRule = (input: PanelFacts) =>
+  input.completeness === 'incomplete'
+    ? input.humanJudgeSeatIds
+    : input.judgeSeatIds;
+/** Why a judged Round past its deadline has no outcome. */
+const noOutcomeRuling = (input: PanelFacts) =>
+  judgesAbleToRule(input).length === 0
+    ? ('transcript-incomplete' as const)
+    : ('judges-did-not-rule' as const);
 
 const isClosedActiveRound = (
   c: CommandContext,
