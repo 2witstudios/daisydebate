@@ -20,6 +20,21 @@ type Frame = {
   readonly beforeMs: number;
   readonly afterMs: number;
 };
+type Admitted = {
+  readonly frame: Frame;
+  readonly segment: Segment;
+  /** The one granting interval, by identity: history is reread per batch. */
+  readonly grant: string;
+};
+/**
+ * One stream's admitted frames not yet cut into a clip, carried by the caller
+ * from one batch to the next: a clip ends at a pause, the sixty-second bound,
+ * a split, or the final flush, never at a batch boundary (VIDEO-4.1-r7).
+ */
+export type ClipCarry = {
+  readonly frames: readonly Admitted[];
+  readonly lastNominal: number;
+};
 type Input = {
   readonly roundId: string;
   readonly roundParticipantId: string;
@@ -27,12 +42,13 @@ type Input = {
   readonly intervals: readonly Interval[];
   readonly frames: readonly Frame[];
   readonly serverNowMs: number;
+  /** The previous batch's carry for this stream; none for its first. */
+  readonly carry?: ClipCarry | null;
+  /** The stream's segment has ended or it seals: flush what remains. */
+  readonly final: boolean;
 };
-type Admitted = {
-  readonly frame: Frame;
-  readonly segment: Segment;
-  readonly interval: number;
-};
+/** At most sixty seconds of 10 ms frames per clip. */
+const MAX_CLIP_FRAMES = 6000;
 const invalid = () =>
   createAppError('VALIDATION', 'Invalid calibrated capture batch');
 const instant = (n: number) =>
@@ -59,6 +75,10 @@ const frameValid = (f: Frame) =>
   [f.nominalStartMs, f.beforeMs, f.afterMs].every(instant) &&
   f.beforeMs <= f.nominalStartMs &&
   f.afterMs >= f.nominalStartMs + 10;
+const carryValid = (carry: Input['carry']) =>
+  carry == null ||
+  (carry.frames.length < MAX_CLIP_FRAMES &&
+    carry.frames.every(({ frame }) => frameValid(frame)));
 function validate(input: Input) {
   if (
     !idSchema.safeParse(input.roundId).success ||
@@ -67,13 +87,14 @@ function validate(input: Input) {
     input.frames.length > 12000 ||
     !input.segments.every(segmentValid) ||
     !input.intervals.every(intervalValid) ||
-    !input.frames.every(frameValid)
+    !input.frames.every(frameValid) ||
+    !carryValid(input.carry)
   )
     throw invalid();
 }
 function admit(input: Input, frame: Frame): Admitted | null {
   if (frame.afterMs > input.serverNowMs) return null;
-  const matches = input.intervals.flatMap((grant, interval) => {
+  const matches = input.intervals.flatMap((grant) => {
     if (
       grant.roundParticipantId !== input.roundParticipantId ||
       grant.startedAtMs > frame.beforeMs ||
@@ -91,7 +112,12 @@ function admit(input: Input, frame: Frame): Admitted | null {
         )
     )
       return [];
-    return [{ frame, segment, interval }];
+    const key = JSON.stringify([
+      grant.segmentId,
+      grant.roundParticipantId,
+      grant.startedAtMs,
+    ]);
+    return [{ frame, segment, grant: key }];
   });
   // Ambiguous history never chooses an arbitrary granting segment.
   return matches.length === 1 ? matches[0]! : null;
@@ -152,53 +178,88 @@ function clip(input: Input, frames: readonly Admitted[]) {
     wav: wav(frames),
   };
 }
+/** Low energy: an observed PCM RMS at most 64 signed sample units. */
+const lowEnergy = (pcm: Int16Array) =>
+  Math.sqrt(pcm.reduce((sum, value) => sum + value * value, 0) / pcm.length) <=
+  64;
+/** A pause this long (500 ms) after speech ends its clip. */
+const PAUSE_FRAMES = 50;
+/** Low-energy frames ending `frames`, and whether any frame before them is speech. */
+function trailingQuiet(frames: readonly Admitted[]) {
+  let quiet = 0;
+  while (
+    quiet < frames.length &&
+    lowEnergy(frames[frames.length - 1 - quiet]!.frame.pcm)
+  )
+    quiet++;
+  return { quiet, heard: quiet < frames.length };
+}
 function cutAt(frames: readonly Admitted[]) {
-  let latest = 6000;
-  for (let index = 5499; index < 6000; index++) {
-    const pcm = frames[index]!.frame.pcm;
-    const rms = Math.sqrt(
-      pcm.reduce((sum, value) => sum + value * value, 0) / pcm.length,
-    );
-    if (rms <= 64) latest = index + 1;
-  }
+  let latest = MAX_CLIP_FRAMES;
+  for (let index = 5499; index < MAX_CLIP_FRAMES; index++)
+    if (lowEnergy(frames[index]!.frame.pcm)) latest = index + 1;
   return latest;
 }
 
-/** Consumes already calibrated frames and committed history; raw native callbacks are not eligibility. */
-export function cutCaptureClips(input: Input) {
-  validate(input);
+/** Two admitted frames continue one clip: same grant and track, the next 10 ms. */
+const continues = (previous: Admitted, current: Admitted) =>
+  current.grant === previous.grant &&
+  current.frame.trackId === previous.frame.trackId &&
+  current.frame.nominalStartMs === previous.frame.nominalStartMs + 10;
+
+/** One stream's open clip: accumulates admitted frames and cuts at a pause or the bound. */
+function openClip(input: Input, carried: readonly Admitted[]) {
   const clips: ReturnType<typeof clip>[] = [];
-  let pending: Admitted[] = [];
-  let droppedFrames = 0;
-  let lastNominal = -Infinity;
+  let pending = [...carried];
+  let { quiet, heard } = trailingQuiet(pending);
   const flush = () => {
     if (pending.length) clips.push(clip(input, pending));
     pending = [];
+    quiet = 0;
+    heard = false;
   };
-  for (const frame of input.frames) {
-    const current =
-        frame.nominalStartMs < lastNominal + 10 ? null : admit(input, frame),
-      previous = pending.at(-1);
-    lastNominal = Math.max(lastNominal, frame.nominalStartMs);
-    if (!current) {
-      droppedFrames++;
-      flush();
-      continue;
-    }
-    if (
-      previous &&
-      (current.interval !== previous.interval ||
-        current.frame.trackId !== previous.frame.trackId ||
-        current.frame.nominalStartMs !== previous.frame.nominalStartMs + 10)
-    )
-      flush();
+  const push = (current: Admitted) => {
+    const previous = pending.at(-1);
+    if (previous && !continues(previous, current)) flush();
     pending.push(current);
-    if (pending.length === 6000) {
+    if (lowEnergy(current.frame.pcm)) quiet++;
+    else [quiet, heard] = [0, true];
+    // Speech then a full pause ends the clip; silence alone keeps accumulating.
+    if (heard && quiet >= PAUSE_FRAMES) flush();
+    else if (pending.length === MAX_CLIP_FRAMES) {
       const at = cutAt(pending);
       clips.push(clip(input, pending.slice(0, at)));
       pending = pending.slice(at);
+      ({ quiet, heard } = trailingQuiet(pending));
+    }
+  };
+  return { clips, push, flush, pending: () => pending };
+}
+
+/**
+ * Consumes already calibrated frames and committed history; raw native
+ * callbacks are not eligibility. Frames not yet cut return as the carry for
+ * the stream's next batch.
+ */
+export function cutCaptureClips(input: Input) {
+  validate(input);
+  const open = openClip(input, input.carry?.frames ?? []);
+  let droppedFrames = 0;
+  let lastNominal = input.carry?.lastNominal ?? -Infinity;
+  for (const frame of input.frames) {
+    const current =
+      frame.nominalStartMs < lastNominal + 10 ? null : admit(input, frame);
+    lastNominal = Math.max(lastNominal, frame.nominalStartMs);
+    if (current) open.push(current);
+    else {
+      droppedFrames++;
+      open.flush();
     }
   }
-  flush();
-  return { clips, droppedFrames };
+  if (input.final) open.flush();
+  return {
+    clips: open.clips,
+    droppedFrames,
+    carry: input.final ? null : { frames: open.pending(), lastNominal },
+  };
 }

@@ -11,7 +11,9 @@ import { readCaptureHistory, type CaptureClient } from './capture-history';
 import { createCaptureStaging } from './capture-staging';
 import {
   CAPTURE_BATCH_INTERVAL_MS,
+  flushClipCarry,
   validateCaptureBatch,
+  type ClipCarries,
 } from './capture-batch';
 import {
   ACTIVITY_RELAY_INTERVAL_MS,
@@ -66,6 +68,15 @@ export async function runCaptureSession(
   });
   const activity = createActivityRelay();
   const streams = createStreamTracker(16384);
+  const carries: ClipCarries = new Map();
+  const enqueue = (clip: QueuedClip | Omit<QueuedClip, 'bytes'>) => {
+    const queued = { ...clip, bytes: clip.wav.byteLength };
+    streams.queued(queued);
+    for (const discarded of queue.push(queued)) {
+      streams.settled(discarded);
+      dropped(discarded.durationMs / 10);
+    }
+  };
   streams.remember(current.state);
   const capture = await createCaptureSubscription({
     url: token.url,
@@ -142,19 +153,21 @@ export async function runCaptureSession(
         held: staging.requeue,
         straddled: ({ trackId, nominalStartMs, beforeMs, afterMs }) =>
           staging.rememberEdge(trackId, { nominalStartMs, beforeMs, afterMs }),
-        clip: (clip) => {
-          const queued = { ...clip, bytes: clip.wav.byteLength };
-          streams.queued(queued);
-          for (const discarded of queue.push(queued)) {
-            streams.settled(discarded);
-            dropped(discarded.durationMs / 10);
-          }
-        },
+        clip: enqueue,
+        carries,
       });
+      // A due stream's carried frames are its last clip; it seals once that is in.
+      const sealable = streams
+        .due(Date.parse(current.state.serverNow))
+        .filter((stream) => {
+          const last = flushClipCarry(carries, input.roundId, stream);
+          last.forEach(enqueue);
+          return last.length === 0;
+        });
       stats.sealedStreams += await sealCaptureStreams(
         input.client,
         epoch,
-        streams.due(Date.parse(current.state.serverNow)),
+        sealable,
         signal,
         streams.finished,
       );
@@ -169,6 +182,7 @@ export async function runCaptureSession(
     await relaying;
     activity.clear();
     staging.clear();
+    carries.clear();
     queue.clear();
     // Fallback for every stream not yet finished.
     stats.sealedStreams += await sealCaptureStreams(

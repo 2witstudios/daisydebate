@@ -1,5 +1,9 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createOpenRouter, isDefiniteProviderFailure } from './openrouter';
+import {
+  createOpenRouter,
+  isDefiniteProviderFailure,
+  isTransientProviderFailure,
+} from './openrouter';
 
 setupRitewayBun();
 
@@ -64,5 +68,38 @@ test('only a call cancelled before it was sent is a definite cancellation', asyn
       await outcome(async () => new Response('not json', { status: 200 })),
     ],
     expected: ['definite', 'uncertain', 'uncertain', 'uncertain'],
+  });
+});
+
+test('a failure worth retrying is every uncertain one and a rate limit, never another refusal or a cancellation', async () => {
+  const transient = (
+    fetch: Parameters<typeof createOpenRouter>[0]['fetch'],
+    signal?: AbortSignal,
+  ) =>
+    createOpenRouter({ apiKey: 'key', fetch })
+      .transcribe({
+        model: 'openai/gpt-6-ear',
+        audioBase64: 'AAAA',
+        format: 'wav',
+        ...(signal ? { signal } : {}),
+      })
+      .then(
+        () => 'answered',
+        (error: unknown) => isTransientProviderFailure(error),
+      );
+  const statuses = [408, 429, 500, 503, 400, 401, 413, 422];
+  assert({
+    given:
+      'transcriptions answered 408, 429, 500, 503, 400, 401, 413 and 422, an unreachable vendor and a cancelled call',
+    should:
+      'retry the timeout, the rate limit, the server failures and the unreachable vendor only (VIDEO-4.1-r8)',
+    actual: [
+      ...(await Promise.all(statuses.map((s) => transient(answering(s))))),
+      await transient(async () => {
+        throw new Error('connection reset');
+      }),
+      await transient(answering(200), AbortSignal.abort()),
+    ],
+    expected: [true, true, true, true, false, false, false, false, true, false],
   });
 });

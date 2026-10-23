@@ -191,6 +191,7 @@ function jitteredRun(rttMs: number, missing: readonly number[] = []) {
     .map((start, i) => start - starts[i]! - 10)
     .filter((gap) => gap !== 0);
   const { clips, droppedFrames } = cutCaptureClips({
+    final: true,
     roundId: f.state.state.roundId,
     roundParticipantId: 'p'.repeat(24),
     serverNowMs: 20000,

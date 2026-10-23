@@ -6,6 +6,7 @@
 export {
   createOpenRouter,
   isDefiniteProviderFailure,
+  isTransientProviderFailure,
   type OpenRouter,
 } from './openrouter';
 export { roundJudgeMessages } from './round-judge';

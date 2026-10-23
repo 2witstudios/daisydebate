@@ -67,6 +67,15 @@ refuses rather than truncating authority.
 
 The competitive FIFO is capped at ten clips, 20 MiB and 120,000 ms, dropping
 oldest on overflow. Clips use the shared sixty-second/silence-bound WAV encoder.
+Each segment/seat stream carries its uncut frames from batch to batch, so a clip
+ends at a pause or the bound, not each 250 ms batch. When a stream is due to seal,
+its carry is flushed as its last clip first, and the stream seals once that clip
+has left the pipeline (VIDEO-4.1-r7). One clip's transcription failure stays
+scoped to that clip and its stream (VIDEO-4.1-r8). A failure that may clear (a
+timeout, a rate limit, a server failure, an unreachable vendor) is retried after
+500 ms, 1 s and 2 s. A definite refusal fails the stream: its later clips are
+dropped unsent. Either way the clip's frames are dropped, so the stream seals
+honestly partial (DEC-208), and the session and every other seat keep going.
 Before provider dispatch, the worker rereads the full historical bracket and PG
 horizon; the actual AI adapter receives a cancellation signal. A returned result
 is appended through signed same-pool ingress. A retry retains the exact result

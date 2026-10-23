@@ -31,6 +31,7 @@ const grant = {
 test('historical grant changes split or drop full uncertain frames before encoding', () => {
   const result = cutCaptureClips({
     ...scope,
+    final: true,
     segments: [segment],
     intervals: [
       { ...grant, endedAtMs: base + 40 },
@@ -78,6 +79,7 @@ test('historical grant changes split or drop full uncertain frames before encodi
 test('bounded clips choose latest observed low-energy frame in final five seconds and preserve PCM WAV bytes', () => {
   const result = cutCaptureClips({
     ...scope,
+    final: true,
     segments: [segment],
     intervals: [grant],
     frames: Array.from({ length: 6005 }, (_, i) =>
@@ -126,6 +128,7 @@ test('segment changes and missing eligibility never lend one segment to another'
   const next = 'n'.repeat(24);
   const input = {
     ...scope,
+    final: true,
     segments: [
       { ...segment, endedAtMs: base + 40 },
       { ...segment, id: next, startedAtMs: base + 40, endedAtMs: base + 100 },
@@ -176,6 +179,7 @@ test('invalid PCM and unbounded batches fail before retaining or encoding audio'
       actual: async () =>
         cutCaptureClips({
           ...scope,
+          final: true,
           segments: [segment],
           intervals: [grant],
           frames,
@@ -188,6 +192,7 @@ test('invalid PCM and unbounded batches fail before retaining or encoding audio'
 test('future and repeated nominal frames never acquire fresh capture or duplicated content', () => {
   const result = cutCaptureClips({
     ...scope,
+    final: true,
     segments: [segment],
     intervals: [grant],
     frames: [frame(10), frame(10), frame(20), frame(30)],
@@ -207,6 +212,72 @@ test('future and repeated nominal frames never acquire fresh capture or duplicat
         [20, 10],
       ],
       2,
+    ],
+  });
+});
+
+/** Feeds 250 ms batches as the worker does, carrying uncut frames, final at segment end. */
+const cutInBatches = (silentAt: (index: number) => boolean, count: number) => {
+  const clips: ReturnType<typeof cutCaptureClips>['clips'] = [];
+  let carry: ReturnType<typeof cutCaptureClips>['carry'] = null;
+  const perBatch: number[] = [];
+  for (let start = 0; start < count; start += 25) {
+    const last = start + 25 >= count;
+    const result = cutCaptureClips({
+      ...scope,
+      segments: [segment],
+      intervals: [grant],
+      frames: Array.from({ length: Math.min(25, count - start) }, (_, i) =>
+        frame(10 + (start + i) * 10, silentAt(start + i)),
+      ),
+      carry,
+      final: last,
+    });
+    carry = result.carry;
+    perBatch.push(result.clips.length);
+    clips.push(...result.clips);
+  }
+  return {
+    clips: clips.map((c) => [c.startOffsetMs, c.durationMs]),
+    beforeFinal: perBatch.slice(0, -1).reduce((sum, n) => sum + n, 0),
+    carry,
+  };
+};
+
+test('continuous speech arriving in 250 ms batches is one clip, flushed at segment end', () => {
+  assert({
+    given: 'two seconds of continuous speech in eight 250 ms batches',
+    should:
+      'carry the uncut frames between batches and emit one clip only at the final flush (VIDEO-4.1-r7)',
+    actual: cutInBatches(() => false, 200),
+    expected: { clips: [[10, 2000]], beforeFinal: 0, carry: null },
+  });
+});
+
+test('a pause after speech cuts the clip; silence alone never does', () => {
+  // 0.7 s silence, 1 s speech, 0.6 s silence, 1 s speech.
+  const silent = (i: number) => i < 70 || (i >= 170 && i < 230);
+  assert({
+    given:
+      'leading silence, speech, a 600 ms pause and more speech, in 250 ms batches',
+    should:
+      'cut once the pause reaches 500 ms, keeping the leading silence with the first words, and flush the rest at the end',
+    actual: cutInBatches(silent, 330).clips,
+    expected: [
+      [10, 2200],
+      [2210, 1100],
+    ],
+  });
+});
+
+test('sixty seconds of unbroken speech across batches cuts at the hard bound', () => {
+  assert({
+    given: 'sixty-one seconds of speech with no low-energy frame, in batches',
+    should: 'cut at sixty seconds and flush the remaining second at the end',
+    actual: cutInBatches(() => false, 6100).clips,
+    expected: [
+      [10, 60000],
+      [60010, 1000],
     ],
   });
 });
