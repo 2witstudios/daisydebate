@@ -51,6 +51,15 @@ describe('parseHostname', () => {
     });
   });
 
+  test('listens on every interface when blank', () => {
+    assert({
+      given: 'REALTIME_HOST set but blank',
+      should: 'return the all-interfaces address, as a blank LISTEN_HOST does',
+      actual: parseHostname(' '),
+      expected: '0.0.0.0',
+    });
+  });
+
   test('accepts a loopback literal', () => {
     assert({
       given: 'REALTIME_HOST=127.0.0.1',

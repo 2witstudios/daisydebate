@@ -21,11 +21,13 @@ export function readStartOptions(
       .min(1)
       .max(65535)
       .parse(env.PORT ?? 3000),
-    host: listenHost(env.LISTEN_HOST ?? '0.0.0.0'),
+    host: listenHost(env.LISTEN_HOST),
   };
 }
 
-const listenHost = (value: string) => {
+/** Unset or blank listens on every interface, as realtime's REALTIME_HOST does. */
+const listenHost = (value: string | undefined) => {
+  if (value === undefined || value.trim() === '') return '0.0.0.0';
   const parsed = z.union([z.ipv4(), z.ipv6()]).safeParse(value);
   if (!parsed.success) throw new Error(`Invalid LISTEN_HOST: ${value}`);
   return parsed.data;
