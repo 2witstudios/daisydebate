@@ -10,6 +10,23 @@ const MIN_RECONCILE_MS = 500;
 const CLOCK_PRECISION_MS = 1;
 
 /**
+ * A reconcile holds the session only while its owner's lease is unexpired at
+ * `now`, the database clock; an aborted run's owner blocks nothing.
+ */
+export const reconcileLive = <
+  S extends {
+    readonly reconcileOwner: string | null;
+    readonly reconcileLeaseUntil: Date | null;
+  },
+>(
+  session: S,
+  now: Date,
+): session is S & { readonly reconcileLeaseUntil: Date } =>
+  session.reconcileOwner !== null &&
+  session.reconcileLeaseUntil !== null &&
+  session.reconcileLeaseUntil > now;
+
+/**
  * Wait for a live owner and the minimum interval since the last run, else
  * claim the next epoch; outstanding vendor work makes the session unsafe.
  */
@@ -25,11 +42,7 @@ export function reconcileClaim(
   now: Date,
   outstanding: boolean,
 ) {
-  if (
-    session.reconcileOwner &&
-    session.reconcileLeaseUntil &&
-    session.reconcileLeaseUntil > now
-  )
+  if (reconcileLive(session, now))
     return {
       kind: 'wait' as const,
       retryAt: session.reconcileLeaseUntil.toISOString(),

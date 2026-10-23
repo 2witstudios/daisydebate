@@ -169,10 +169,7 @@ const reconciling = (world: ReturnType<typeof createMediaWorld>) => {
           return (
             state && {
               ...state,
-              session: {
-                ...state.session,
-                reconcileOwner: fixedId('reconciler'),
-              },
+              reconciling: true,
             }
           );
         }) as typeof reading,

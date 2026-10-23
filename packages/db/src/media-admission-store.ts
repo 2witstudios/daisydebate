@@ -85,7 +85,7 @@ export const createMediaAdmissionStore = (run: BoundedTransaction) => ({
         snapshot.session.endedAt ||
         snapshot.session.unsafeAt ||
         snapshot.unresolved ||
-        snapshot.session.reconcileOwner
+        snapshot.reconciling
       )
         throw createAppError('INFRASTRUCTURE', 'Media recovery is unresolved');
       return input.sign({ ...snapshot, participantId, binding });

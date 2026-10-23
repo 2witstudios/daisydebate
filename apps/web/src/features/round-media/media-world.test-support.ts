@@ -104,7 +104,6 @@ export function createMediaWorld(
         roomName,
         unsafeAt: unsafeAt && new Date(unsafeAt),
         endedAt: endedAt && new Date(endedAt),
-        reconcileOwner: null,
       },
       round: {
         id: roundId,
@@ -129,6 +128,7 @@ export function createMediaWorld(
       now,
       finalSegmentEndedAt: null,
       unresolved: pending.size > 0,
+      reconciling: false,
     } as unknown as MediaSnapshot;
   };
   const binding = (participantId: string) => {

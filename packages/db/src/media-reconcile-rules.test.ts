@@ -4,6 +4,7 @@ import {
   MEDIA_RECONCILE_LEASE_MS,
   reconcileClaim,
   reconcileCompletion,
+  reconcileLive,
   requireMutationAdmissible,
   requireReconcileLease,
 } from './media-reconcile-rules';
@@ -20,6 +21,29 @@ const idle = {
   reconcileRequestVersion: 7,
   unsafeAt: null,
 };
+
+test("a reconcile holds the session only while its owner's lease is unexpired", () => {
+  assert({
+    given: 'no owner, a live lease, a lease ending now and one already past',
+    should: 'hold only for the live lease, so an aborted run blocks nothing',
+    actual: [
+      reconcileLive(idle, now),
+      reconcileLive(
+        { reconcileOwner: 'worker', reconcileLeaseUntil: at(1) },
+        now,
+      ),
+      reconcileLive(
+        { reconcileOwner: 'worker', reconcileLeaseUntil: now },
+        now,
+      ),
+      reconcileLive(
+        { reconcileOwner: 'stale', reconcileLeaseUntil: at(-1) },
+        now,
+      ),
+    ],
+    expected: [false, true, false, false],
+  });
+});
 
 test('a reconcile claim waits for a live owner and the minimum interval', () => {
   assert({
