@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { validateCaptureBatch } from './capture-batch';
+import { flushClipCarry, validateCaptureBatch } from './capture-batch';
 import type { CaptureClient } from './capture-history';
 import type { StagedFrame } from './capture-staging';
 
@@ -76,6 +76,7 @@ test('a batch frame crossing a grant end the staging cache missed becomes edge e
     straddled: (frame) => straddled.push(frame.nominalStartMs),
     clip: () => {},
     held: () => {},
+    carries: new Map(),
   });
   assert({
     given:
@@ -96,6 +97,7 @@ test('a frame newer than the history read is held for the next batch, never drop
   } as typeof current;
   const clipped: number[] = [];
   const held: number[] = [];
+  const carries = new Map();
   let dropped = 0;
   await validateCaptureBatch({
     frames: [staged(10050, 10049, 10061), staged(10090, 10089, 10101)],
@@ -111,13 +113,71 @@ test('a frame newer than the history read is held for the next batch, never drop
     straddled: () => {},
     clip: (clip) => clipped.push(clip.startOffsetMs, clip.durationMs),
     held: (frames) => held.push(...frames.map((f) => f.frame.nominalStartMs)),
+    carries,
   });
+  for (const clip of flushClipCarry(carries, 'r'.repeat(24), {
+    segmentId,
+    roundParticipantId: seat,
+  }))
+    clipped.push(clip.startOffsetMs, clip.durationMs);
   assert({
     given:
       'an open grant read at server time 10100, a frame ending at 10061 and one ending at 10101',
     should:
-      'cut the first, hold the second for the next batch and drop neither (VIDEO-4.1)',
+      'carry the first into its stream, hold the second for the next batch and drop neither (VIDEO-4.1)',
     actual: { clipped, held, dropped },
     expected: { clipped: [1050, 10], held: [10090], dropped: 0 },
+  });
+});
+
+test("a stream's consecutive batches make one clip, cut only when the stream flushes", async () => {
+  const open = {
+    ...current,
+    state: {
+      ...current.state,
+      serverNow: iso(11000),
+      intervals: [{ ...current.state.intervals[0]!, endedAt: null }],
+    },
+  } as typeof current;
+  const carries = new Map();
+  const clipped: number[] = [];
+  const batch = (from: number) =>
+    validateCaptureBatch({
+      frames: Array.from({ length: 25 }, (_, i) => {
+        const at = from + i * 10;
+        return {
+          ...staged(at, at - 1, at + 11),
+          frame: {
+            ...staged(at, at - 1, at + 11).frame,
+            pcm: new Int16Array(160).fill(1000),
+          },
+        };
+      }),
+      current: open,
+      client: {} as CaptureClient,
+      roundId: 'r'.repeat(24),
+      epoch: 1,
+      signal: new AbortController().signal,
+      nowMs: () => 0,
+      dropped: () => {},
+      straddled: () => {},
+      clip: (clip) => clipped.push(clip.startOffsetMs, clip.durationMs),
+      held: () => {},
+      carries,
+    });
+  await batch(10010);
+  await batch(10260);
+  const beforeFlush = [...clipped];
+  for (const clip of flushClipCarry(carries, 'r'.repeat(24), {
+    segmentId,
+    roundParticipantId: seat,
+  }))
+    clipped.push(clip.startOffsetMs, clip.durationMs);
+  assert({
+    given: "two 250 ms batches of one seat's continuous speech",
+    should:
+      'cut no clip at the batch boundary, and one 500 ms clip at the flush (VIDEO-4.1-r7)',
+    actual: { beforeFlush, clipped, left: carries.size },
+    expected: { beforeFlush: [], clipped: [1010, 500], left: 0 },
   });
 });

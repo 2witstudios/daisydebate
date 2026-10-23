@@ -22,10 +22,21 @@ noncontiguous sample positions split clips. A rejected frame never joins two
 otherwise admitted spans. Empty or non-speaking history emits no clips. No
 completeness flag or coverage observation is synthesized from the outer window.
 
-Clips contain at most 60,000ms. At that limit, the latest low-energy frame ending
-in the final 5,000ms is preferred; low energy is an observed PCM RMS at most
-64 signed sample units. This cut heuristic neither grants eligibility nor proves
-silence coverage. With no such frame, the hard sixty-second boundary is used.
+A clip spans batches. The worker calls the function once per 250 ms batch and
+passes each segment/seat stream's returned `carry` (its admitted frames not yet
+cut) into that stream's next call; a batch boundary never ends a clip. A clip
+ends at a pause, at the sixty-second bound, at a split above, or at the final
+flush: the call made with `final: true` when the stream's segment has ended and
+it is due to seal, which emits what remains (VIDEO-4.1-r7).
+
+A pause is 500 ms of consecutive low-energy frames after at least one frame of
+speech; the clip ends after the pause. Silence alone never ends a clip, so a
+silent seat accumulates toward the bound instead of emitting a clip per batch.
+Low energy is an observed PCM RMS at most 64 signed sample units. Clips contain
+at most 60,000ms. At that limit, the latest low-energy frame ending in the final
+5,000ms is preferred, and with no such frame the hard sixty-second boundary is
+used. These cut heuristics neither grant eligibility nor prove silence
+coverage.
 Input is capped at 12,000 ten-millisecond frames (two minutes); the worker still
 owns its independent queue, timeout and memory bounds. A WAV is at most
 1,920,044 bytes before base64 encoding. PCM, WAV and transcription requests remain
