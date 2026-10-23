@@ -82,7 +82,8 @@ export async function rollingAttendancePeer({
     const facts = await attendanceEvidence(round.id);
     const samples = facts.samples.filter((row) => row.at >= since);
     expect(samples.length).toBeGreaterThan(3);
-    expect(samples.every((row) => row.healthy)).toBe(true);
+    // Name each unhealthy sample's cause, so a CI failure says which signal broke.
+    expect(samples.filter((row) => !row.healthy)).toEqual([]);
     expect(
       samples
         .slice(1)
