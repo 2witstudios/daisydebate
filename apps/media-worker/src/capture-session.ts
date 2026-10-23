@@ -4,7 +4,10 @@ import { createCaptureSubscription } from '@daisy/media/capture';
 import { createClipQueue } from './clip-queue';
 import { readCaptureHistory, type CaptureClient } from './capture-history';
 import { createCaptureStaging } from './capture-staging';
-import { validateCaptureBatch } from './capture-batch';
+import {
+  CAPTURE_BATCH_INTERVAL_MS,
+  validateCaptureBatch,
+} from './capture-batch';
 import {
   ACTIVITY_RELAY_INTERVAL_MS,
   activityWanted,
@@ -90,6 +93,7 @@ export async function runCaptureSession(
       streams.forClip(clip).count++;
       stats.appendedChunks++;
     },
+    settled: streams.settled,
   }).catch((error) => {
     if (!signal.aborted) {
       failure = error;
@@ -112,7 +116,7 @@ export async function runCaptureSession(
   })();
   try {
     while (!signal.aborted) {
-      const due = input.nowMs() + 250;
+      const due = input.nowMs() + CAPTURE_BATCH_INTERVAL_MS;
       if (input.nowMs() >= nextRenewal) {
         const renewed = await input.client.lease(15000, signal);
         if (renewed.epoch !== epoch)
@@ -134,11 +138,20 @@ export async function runCaptureSession(
           staging.rememberEdge(trackId, { nominalStartMs, beforeMs, afterMs }),
         clip: (clip) => {
           const queued = { ...clip, bytes: clip.wav.byteLength };
-          streams.forClip(queued);
-          for (const discarded of queue.push(queued))
+          streams.queued(queued);
+          for (const discarded of queue.push(queued)) {
+            streams.settled(discarded);
             dropped(discarded.durationMs / 10);
+          }
         },
       });
+      stats.sealedStreams += await sealCaptureStreams(
+        input.client,
+        epoch,
+        streams.due(Date.parse(current.state.serverNow)),
+        signal,
+        streams.sealed,
+      );
       await input.waitUntilMs(due, signal);
     }
   } catch (error) {
@@ -151,10 +164,13 @@ export async function runCaptureSession(
     activity.clear();
     staging.clear();
     queue.clear();
-    stats.sealedStreams = await sealCaptureStreams(
+    // Fallback for every stream not yet sealed: a refusal leaves it unsealed.
+    stats.sealedStreams += await sealCaptureStreams(
       input.client,
       epoch,
-      streams.values(),
+      [...streams.values()].filter((stream) => !stream.sealed),
+      AbortSignal.timeout(10000),
+      streams.sealed,
     );
   }
   if (failure)
@@ -186,9 +202,10 @@ async function sealCaptureStreams(
     roundParticipantId: string;
     count: number;
   }>,
+  signal: AbortSignal,
+  sealed: (stream: { segmentId: string; roundParticipantId: string }) => void,
 ) {
-  let sealed = 0;
-  const deadline = AbortSignal.timeout(10000);
+  let count = 0;
   for (const stream of streams) {
     try {
       await client.seal(
@@ -198,12 +215,14 @@ async function sealCaptureStreams(
           roundParticipantId: stream.roundParticipantId,
           expectedChunkCount: stream.count,
         },
-        deadline,
+        signal,
       );
-      sealed++;
+      sealed(stream);
+      count++;
     } catch {
-      /* Cutoff/freeze or an open grant remains truthfully unsealed. */
+      /* An open timeline is retried next batch; cutoff/freeze stays unsealed. */
+      signal.throwIfAborted();
     }
   }
-  return sealed;
+  return count;
 }

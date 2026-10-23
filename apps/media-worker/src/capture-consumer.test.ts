@@ -87,6 +87,7 @@ async function consume(
     dropped: () => {},
     transcribed: () => {},
     committed: () => {},
+    settled: () => {},
   }).then(
     () => 'drained',
     (error: Error) => error.message,

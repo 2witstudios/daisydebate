@@ -5,6 +5,10 @@ import {
   type CaptureClient,
 } from './capture-history';
 import type { StagedFrame } from './capture-staging';
+/** A staged frame older than this is dropped rather than cut into a clip. */
+export const STAGED_FRAME_MAX_AGE_MS = 500;
+/** How often the session loop validates its staged frames into clips. */
+export const CAPTURE_BATCH_INTERVAL_MS = 250;
 /** Staged frames grouped per segment and seat, in arrival order. */
 function bySegmentSeat(frames: readonly StagedFrame[]) {
   const groups = new Map<string, StagedFrame[]>();
@@ -47,7 +51,9 @@ export async function validateCaptureBatch(input: {
       input.dropped(frames.length);
       continue;
     }
-    const valid = frames.filter((f) => input.nowMs() - f.observedAtMs <= 500);
+    const valid = frames.filter(
+      (f) => input.nowMs() - f.observedAtMs <= STAGED_FRAME_MAX_AGE_MS,
+    );
     input.dropped(frames.length - valid.length);
     for (const { frame } of valid)
       if (straddlesGrantEdge(history.state, first.seat, frame))

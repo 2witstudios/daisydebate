@@ -80,3 +80,76 @@ test('the tracker refuses to grow past its stream ceiling', () => {
     expected: 'INFRASTRUCTURE',
   });
 });
+
+const speaker = { segmentId: 'seg1', roundParticipantId: 'speaker' };
+const at = (iso: string) => Date.parse(iso);
+const due = (tracker: ReturnType<typeof createStreamTracker>, now: string) =>
+  tracker.due(at(now)).map((s) => `${s.segmentId}/${s.roundParticipantId}`);
+
+test('an ended segment seals its streams once they settle with nothing in flight', () => {
+  const tracker = createStreamTracker(16);
+  tracker.remember(
+    state([interval('speaker', '2026-10-22T12:00:00.000Z', null)]),
+  );
+  assert({
+    given: 'a segment that ended at 12:00:40 and a seat with no clip in flight',
+    should:
+      'not seal within the 750 ms settle window, then seal once it has passed (VIDEO-4.1)',
+    actual: [
+      due(tracker, '2026-10-22T12:00:40.500Z'),
+      due(tracker, '2026-10-22T12:00:41.000Z'),
+    ],
+    expected: [[], ['seg1/speaker']],
+  });
+});
+
+test('a stream with a clip queued or in transcription is not due', () => {
+  const tracker = createStreamTracker(16);
+  tracker.remember(
+    state([interval('speaker', '2026-10-22T12:00:00.000Z', null)]),
+  );
+  tracker.queued(speaker);
+  const pending = due(tracker, '2026-10-22T12:00:45.000Z');
+  tracker.settled(speaker);
+  assert({
+    given: 'an ended segment whose seat still has one clip pending, then none',
+    should: 'wait for that clip to settle before the stream is due',
+    actual: [pending, due(tracker, '2026-10-22T12:00:45.000Z')],
+    expected: [[], ['seg1/speaker']],
+  });
+});
+
+test('a sealed stream is never due again', () => {
+  const tracker = createStreamTracker(16);
+  tracker.remember(
+    state([interval('speaker', '2026-10-22T12:00:00.000Z', null)]),
+  );
+  tracker.sealed(speaker);
+  assert({
+    given: 'a stream the worker has already sealed',
+    should: 'leave it out of every later due set',
+    actual: due(tracker, '2026-10-22T12:01:00.000Z'),
+    expected: [],
+  });
+});
+
+test('a segment the history has moved past counts as ended when first seen superseded', () => {
+  const tracker = createStreamTracker(16);
+  tracker.remember({
+    segment: { ...segment, endedAt: null },
+    intervals: [interval('speaker', '2026-10-22T12:00:00.000Z', null)],
+    serverNow: '2026-10-22T12:00:20.000Z',
+  } as unknown as CaptureState);
+  const open = due(tracker, '2026-10-22T12:00:30.000Z');
+  tracker.remember({
+    segment: null,
+    intervals: [],
+    serverNow: '2026-10-22T12:00:30.000Z',
+  } as unknown as CaptureState);
+  assert({
+    given: 'a stream whose open segment is next read as superseded at 12:00:30',
+    should: 'treat it as ended then, and due once the settle window passes',
+    actual: [open, due(tracker, '2026-10-22T12:00:31.000Z')],
+    expected: [[], ['seg1/speaker']],
+  });
+});

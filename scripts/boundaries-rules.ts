@@ -117,9 +117,12 @@ export const deepImportIssue = (
     : `workspace deep import ${specifier}`;
 };
 
-/** Suites, a workspace's integration and e2e folders, and test support. */
+/**
+ * Suites, a workspace's integration and e2e folders, test support, and a
+ * workspace's Playwright config, which only configures test runs.
+ */
 const TEST_CODE =
-  /^(?:apps|packages)\/[^/]+\/(?:integration|e2e)\/|(?:^|\/)test-support\/|\.(?:test|integration|e2e)\.tsx?$|\.test-support\.tsx?$/;
+  /^(?:apps|packages)\/[^/]+\/(?:(?:integration|e2e)\/|playwright\.config\.ts$)|(?:^|\/)test-support\/|\.(?:test|integration|e2e)\.tsx?$|\.test-support\.tsx?$/;
 
 /** A workspace's `./testing` subpath, or any `*.test-support` module. */
 const TEST_SUPPORT_SPECIFIER =

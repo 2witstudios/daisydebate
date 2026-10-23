@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { resolve } from 'node:path';
 import {
   launchControlPath,
@@ -62,9 +63,12 @@ const health = async (url: string) => {
 };
 const appCommand = ['bun', resolve(import.meta.dir, 'room-launch-app.ts')];
 // Only the TLS edges are ingress: every plaintext upstream answers loopback alone (ISSUE-480).
+// The web processes and the capture worker share one signing key per run.
+const captureSecret = randomBytes(32).toString('base64url');
 const webEnv: Record<string, string | undefined> = {
   ...process.env,
   LISTEN_HOST: '127.0.0.1',
+  MEDIA_WORKER_SECRET: captureSecret,
 };
 const web = createLaunchProcess({
   command: appCommand,
@@ -102,6 +106,33 @@ const realtime = createLaunchProcess({
     REDIS_NAMESPACE: slot.namespace,
   },
   ready: () => health(`http://127.0.0.1:${slot.port + 3}/health/live`),
+});
+/** The worker's own least-privilege login on this slot's e2e database. */
+const captureDatabaseUrl = () => {
+  const url = new URL(process.env.MEDIA_WORKER_DATABASE_URL!);
+  url.pathname = new URL(process.env.E2E_DATABASE_URL!).pathname;
+  return url.href;
+};
+// The real capture worker (VIDEO-3.10), whose speech-to-text meets the
+// OpenRouter stub when the key is the placeholder (its e2e/launch-capture.ts).
+// It is not production-configured only because its loopback login and the
+// plaintext upstream it posts to are what production refuses.
+const capture = createLaunchProcess({
+  // Only its own fields: no PATH, so the runtime is named, not looked up.
+  command: [process.execPath, 'e2e/launch-worker.ts'],
+  cwd: resolve(checkout, 'apps/media-worker'),
+  env: {
+    NODE_ENV: 'development',
+    MEDIA_WORKER_DATABASE_URL: captureDatabaseUrl(),
+    PUBLIC_APP_URL: `http://127.0.0.1:${slot.port}`,
+    MEDIA_WORKER_SECRET: captureSecret,
+    OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
+  },
+  // Its start-up refusals (configuration, privilege, database) exit at once.
+  ready: async () => {
+    await Bun.sleep(2000);
+    return capture.running();
+  },
 });
 const control = createLaunchControl({
   path: launchControlPath(slot.id),
@@ -142,6 +173,7 @@ const shutdown = () =>
       web.stop(),
       peer.stop(),
       realtime.stop(),
+      capture.stop(),
     ]);
     await mail.stop();
     edge.stop(true);
@@ -167,6 +199,7 @@ try {
   webEnv.ATTENDANCE_PUBLIC_PROBE = JSON.stringify(probe);
   peerEnv.ATTENDANCE_PUBLIC_PROBE = webEnv.ATTENDANCE_PUBLIC_PROBE;
   await web.start();
+  await capture.start();
   ready = true;
 } catch {
   process.stderr.write(

@@ -65,8 +65,14 @@
     "packages/db": { "entry": ["integration/**/*.integration.ts"] },
     "packages/media": { "entry": ["integration/**/*.integration.ts"] },
     "apps/media-worker": {
-      // Bun.resolveSync selects this isolated native subprocess entry.
-      "entry": ["src/capture-process.ts", "src/**/*.test.ts"],
+      // Bun.resolveSync selects the isolated native subprocess entries; the
+      // room-launch composition spawns the e2e worker by path.
+      "entry": [
+        "src/capture-process.ts",
+        "src/**/*.test.ts",
+        "e2e/launch-worker.ts",
+        "e2e/launch-capture.ts",
+      ],
     },
     "apps/realtime": {
       "entry": [

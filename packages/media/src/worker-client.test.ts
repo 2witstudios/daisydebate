@@ -13,17 +13,14 @@ const authentication = createMediaWorkerAuthentication({
   now: () => 1000,
 });
 function localClient(
-  reply: () => Response,
+  reply: (call: number) => Response,
   deadlineSignal = () => AbortSignal.timeout(2000),
 ) {
   let calls = 0;
   const server = Bun.serve({
     hostname: '127.0.0.1',
     port: 0,
-    fetch: () => {
-      calls++;
-      return reply();
-    },
+    fetch: () => reply(++calls),
   });
   return {
     client: createMediaWorkerClient({
@@ -33,6 +30,7 @@ function localClient(
       fetch,
       nowMs: performance.now,
       deadlineSignal,
+      unavailableRetryMs: [0, 0],
     }),
     calls: () => calls,
     close: () => server.stop(true),
@@ -121,3 +119,61 @@ for (const [label, reply] of [
       await f.close();
     }
   });
+
+const lease = { epoch: 3, expiresAt: '2026-10-22T12:00:15.000Z' };
+
+test('a refused-for-now 503 is retried and the next answer is used', async () => {
+  const f = localClient((call) =>
+    call === 1 ? new Response(null, { status: 503 }) : Response.json(lease),
+  );
+  try {
+    assert({
+      given: 'a capacity 503 then a valid lease reply',
+      should: 'retry the signed call once and return the lease',
+      actual: [await f.client.lease(15000), f.calls()],
+      expected: [lease, 2],
+    });
+  } finally {
+    await f.close();
+  }
+});
+
+test('a lasting 503 is reported after the bounded retries', async () => {
+  const f = localClient(() => new Response(null, { status: 503 }));
+  try {
+    await assertRejects({
+      given: 'a server that keeps answering 503',
+      should: 'report infrastructure unavailability',
+      actual: () => f.client.lease(15000),
+      code: 'INFRASTRUCTURE',
+    });
+    assert({
+      given: 'two configured retries',
+      should: 'make three attempts in all',
+      actual: f.calls(),
+      expected: 3,
+    });
+  } finally {
+    await f.close();
+  }
+});
+
+test('a refusal other than 503 is never retried', async () => {
+  const f = localClient(() => new Response(null, { status: 409 }));
+  try {
+    await assertRejects({
+      given: 'a 409 capture refusal',
+      should: 'report the conflict at once',
+      actual: () => f.client.lease(15000),
+      code: 'CONFLICT',
+    });
+    assert({
+      given: 'the conflict',
+      should: 'make exactly one attempt',
+      actual: f.calls(),
+      expected: 1,
+    });
+  } finally {
+    await f.close();
+  }
+});

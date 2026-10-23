@@ -292,6 +292,18 @@ describe('test support subpaths', () => {
     });
   });
 
+  test("allows a testing subpath in a workspace's Playwright config", () => {
+    assert({
+      given: '@daisy/ai-voice/testing imported by a Playwright config',
+      should: 'allow it: the config only configures test runs',
+      actual: testSupportIssue(
+        '@daisy/ai-voice/testing',
+        'apps/web/playwright.config.ts',
+      ),
+      expected: null,
+    });
+  });
+
   test('refuses a testing subpath from production source', () => {
     assert({
       given: '@daisy/errors/testing imported by a production module',

@@ -30,12 +30,19 @@ type Dependencies = {
   readonly fetch: (url: string, init: RequestInit) => Promise<Response>;
   readonly nowMs: () => number;
   readonly deadlineSignal: () => AbortSignal;
+  /**
+   * Pauses before each retry of a 503, the server's refusal before any work
+   * (such as transcript transaction capacity). Every capture operation is
+   * idempotent under its lease, epoch and dedupe identity, so a retry is safe.
+   */
+  readonly unavailableRetryMs?: readonly number[];
 };
 const unavailable = () =>
   createAppError('INFRASTRUCTURE', 'Media control is unavailable');
+const cancelled = () =>
+  createAppError('CONFLICT', 'Media control was cancelled');
 const aborted = (signal: AbortSignal, caller?: AbortSignal) => {
-  if (caller?.aborted)
-    throw createAppError('CONFLICT', 'Media control was cancelled');
+  if (caller?.aborted) throw cancelled();
   if (signal.aborted) throw unavailable();
 };
 function controlOrigin(value: string) {
@@ -56,8 +63,15 @@ function controlOrigin(value: string) {
     throw unavailable();
   return url.origin;
 }
+/** 503 refusals the call may retry; every other failure is final. */
+const refusedForNow = new WeakSet<object>();
 function requireSuccess(response: Response) {
   if (response.ok) return;
+  if (response.status === 503) {
+    const refusal = unavailable();
+    refusedForNow.add(refusal);
+    throw refusal;
+  }
   const codes = {
     400: 'VALIDATION',
     401: 'AUTHENTICATION',
@@ -105,6 +119,22 @@ async function readReply(
     reader.releaseLock();
   }
 }
+/** An abortable pause; a cancelled caller is refused as cancellation. */
+async function pause(ms: number, caller?: AbortSignal) {
+  if (ms > 0)
+    await new Promise<void>((done) => {
+      const timer = setTimeout(done, ms);
+      caller?.addEventListener(
+        'abort',
+        () => {
+          clearTimeout(timer);
+          done();
+        },
+        { once: true },
+      );
+    });
+  if (caller?.aborted) throw cancelled();
+}
 function parsed<T>(schema: z.ZodType<T>, raw: unknown): T {
   const result = schema.safeParse(raw);
   if (!result.success) throw unavailable();
@@ -117,7 +147,23 @@ export function createMediaWorkerClient(input: Dependencies) {
   const scope = { ...input.scope };
   if (!Object.values(scope).every((id) => idSchema.safeParse(id).success))
     throw createAppError('VALIDATION');
+  const retries = input.unavailableRetryMs ?? [50, 200, 800];
   const call = async <T>(
+    operation: string,
+    payload: object,
+    schema: z.ZodType<T>,
+    caller?: AbortSignal,
+  ) => {
+    for (const pauseMs of retries)
+      try {
+        return await attempt(operation, payload, schema, caller);
+      } catch (error) {
+        if (!refusedForNow.has(error as object)) throw error;
+        await pause(pauseMs, caller);
+      }
+    return attempt(operation, payload, schema, caller);
+  };
+  const attempt = async <T>(
     operation: string,
     payload: object,
     schema: z.ZodType<T>,

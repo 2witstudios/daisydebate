@@ -25,6 +25,8 @@ export async function consumeCaptureClips(input: {
   readonly dropped: (n: number) => void;
   readonly transcribed: () => void;
   readonly committed: (clip: QueuedClip) => void;
+  /** The clip left the pipeline: transcribed and observed, or dropped. */
+  readonly settled: (clip: QueuedClip) => void;
 }) {
   while (!input.signal.aborted) {
     const clip = input.take();
@@ -32,49 +34,60 @@ export async function consumeCaptureClips(input: {
       await input.waitUntilMs(input.nowMs() + 25, input.signal);
       continue;
     }
-    const fresh = await readCaptureHistory(
-      input.client,
-      input.epoch,
-      input.signal,
-      clip.segmentId,
-    );
-    if (
-      !contained(fresh.state, clip.roundParticipantId, {
-        beforeMs: Date.parse(clip.before),
-        afterMs: Date.parse(clip.after),
-      }) ||
-      Date.parse(clip.after) > Date.parse(fresh.state.serverNow)
-    ) {
-      input.dropped(clip.durationMs / 10);
-      continue;
+    try {
+      await consumeClip(input, clip);
+    } finally {
+      input.settled(clip);
     }
-    const result = await input.voice.transcribe({
-      model: input.sttModel,
-      audioBase64: Buffer.from(clip.wav).toString('base64'),
-      format: 'wav',
-      signal: input.signal,
-    });
-    input.signal.throwIfAborted();
-    input.transcribed();
-    // A transcribed window is captured coverage, speech or honest silence.
-    if (result.text) await appendClip(input, clip, result.text);
-    const window = clipObservation(
-      fresh.state,
-      clip,
-      input.straddles(clip.trackId),
-    );
-    await input.client.observe(
-      {
-        epoch: input.epoch,
-        segmentId: clip.segmentId,
-        roundParticipantId: clip.roundParticipantId,
-        trackId: clip.trackId,
-        observedFrom: new Date(window.fromMs).toISOString(),
-        observedUntil: new Date(window.untilMs).toISOString(),
-      },
-      input.signal,
-    );
   }
+}
+
+async function consumeClip(
+  input: Parameters<typeof consumeCaptureClips>[0],
+  clip: QueuedClip,
+) {
+  const fresh = await readCaptureHistory(
+    input.client,
+    input.epoch,
+    input.signal,
+    clip.segmentId,
+  );
+  if (
+    !contained(fresh.state, clip.roundParticipantId, {
+      beforeMs: Date.parse(clip.before),
+      afterMs: Date.parse(clip.after),
+    }) ||
+    Date.parse(clip.after) > Date.parse(fresh.state.serverNow)
+  ) {
+    input.dropped(clip.durationMs / 10);
+    return;
+  }
+  const result = await input.voice.transcribe({
+    model: input.sttModel,
+    audioBase64: Buffer.from(clip.wav).toString('base64'),
+    format: 'wav',
+    signal: input.signal,
+  });
+  input.signal.throwIfAborted();
+  input.transcribed();
+  // A transcribed window is captured coverage, speech or honest silence.
+  if (result.text) await appendClip(input, clip, result.text);
+  const window = clipObservation(
+    fresh.state,
+    clip,
+    input.straddles(clip.trackId),
+  );
+  await input.client.observe(
+    {
+      epoch: input.epoch,
+      segmentId: clip.segmentId,
+      roundParticipantId: clip.roundParticipantId,
+      trackId: clip.trackId,
+      observedFrom: new Date(window.fromMs).toISOString(),
+      observedUntil: new Date(window.untilMs).toISOString(),
+    },
+    input.signal,
+  );
 }
 
 /** The clip's window within its fresh grant, extended to an edge only by contiguous evidence. */
