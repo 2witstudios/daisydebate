@@ -8,7 +8,7 @@ import {
   startRuntimeRound,
   withRoomRuntime,
 } from './round-runtime.test-support';
-import { CAPTURE_STT_LAG_MS } from '@daisy/protocol';
+import { openRoundCapture } from './round-media.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 
@@ -17,19 +17,16 @@ test('late actual capture cannot bypass a missing cutoff after the scheduler has
     const { roundId } = await startRuntimeRound(f, await f.assemble());
     await f.sql`update rounds set started_at=clock_timestamp()-interval '20 minutes' where id=${roundId}`;
     const before = (await f.store.getRound(roundId))!;
-    const sessionId = createId(),
-      workerId = createId(),
-      segmentIds = before.rules.segments.map(() => createId());
-    await f.sql`insert into media_sessions(id,round_id,room_name) values(${sessionId},${roundId},${createId()})`;
-    await f.sql`insert into media_worker_leases(session_id,worker_id,epoch,expires_at) values(${sessionId},${workerId},1,clock_timestamp()+interval '30 seconds')`;
-    const store = f.store.createMediaCaptureOperations({
-      sttLagMs: CAPTURE_STT_LAG_MS,
-      nextId: createId,
-      buildProjection: (context) => {
-        let index = 0;
-        return roundTickProjection(() => segmentIds[index++]!)(context);
-      },
+    const segmentIds = before.rules.segments.map(() => createId());
+    const {
+      sessionId,
+      workerId,
+      capture: store,
+    } = await openRoundCapture(f, roundId, (context) => {
+      let index = 0;
+      return roundTickProjection(() => segmentIds[index++]!)(context);
     });
+    await f.sql`insert into media_worker_leases(session_id,worker_id,epoch,expires_at) values(${sessionId},${workerId},1,clock_timestamp()+interval '30 seconds')`;
     const stream = {
       roundId,
       sessionId,

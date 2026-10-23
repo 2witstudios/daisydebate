@@ -9,7 +9,7 @@ import {
   startRuntimeRound,
   withRoomRuntime,
 } from './round-runtime.test-support';
-import { CAPTURE_STT_LAG_MS } from '@daisy/protocol';
+import { openRoundCapture } from './round-media.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 
@@ -43,14 +43,11 @@ async function capturedRound(f: Fixture) {
   await f.store.executeRoundTick({ roundId, buildProjection });
   const grants =
     await f.sql`select segment_id,round_participant_id,started_at,ended_at from round_speaking_intervals where round_id=${roundId} order by started_at,segment_id,round_participant_id`;
-  const sessionId = createId(),
-    workerId = createId();
-  await f.sql`insert into media_sessions(id,round_id,room_name) values(${sessionId},${roundId},${createId()})`;
-  const capture = f.store.createMediaCaptureOperations({
-    sttLagMs: CAPTURE_STT_LAG_MS,
-    nextId: createId,
+  const { sessionId, workerId, capture } = await openRoundCapture(
+    f,
+    roundId,
     buildProjection,
-  });
+  );
   const identity = { roundId, sessionId, workerId };
   const { epoch } = await capture.claimMediaWorkerLease({
     ...identity,
