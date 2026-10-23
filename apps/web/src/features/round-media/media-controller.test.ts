@@ -148,19 +148,16 @@ const transportStub = () => ({
   disconnect: async () => undefined,
 });
 
-test('a transient admission refusal is retried before media is called unavailable', async () => {
-  let admits = 0;
+/** A controller whose transient refusals are retried through recorded pauses. */
+const retryingController = (api: {
+  readonly admit: () => Promise<unknown>;
+  readonly reconcile: () => Promise<unknown>;
+}) => {
   const states: string[] = [];
   const waits: number[] = [];
   const controller = createMediaController({
     roundId,
-    api: {
-      admit: async () => {
-        if (++admits < 3) throw transientMediaFailure();
-        return admission;
-      },
-      reconcile: async () => snapshot,
-    },
+    api,
     transport: transportStub,
     changed: (state) => states.push(state),
     retry: {
@@ -169,6 +166,18 @@ test('a transient admission refusal is retried before media is called unavailabl
         waits.push(ms);
       },
     },
+  });
+  return { controller, states, waits };
+};
+
+test('a transient admission refusal is retried before media is called unavailable', async () => {
+  let admits = 0;
+  const { controller, states, waits } = retryingController({
+    admit: async () => {
+      if (++admits < 3) throw transientMediaFailure();
+      return admission;
+    },
+    reconcile: async () => snapshot,
   });
   await controller.join();
   assert({
@@ -187,25 +196,12 @@ test('a transient admission refusal is retried before media is called unavailabl
 
 test('a transient reconcile refusal is retried, joining or live', async () => {
   let reconciles = 0;
-  const states: string[] = [];
-  const waits: number[] = [];
-  const controller = createMediaController({
-    roundId,
-    api: {
-      admit: async () => admission,
-      reconcile: async () => {
-        // The join's first read and the live read's first try are refused for now.
-        if (++reconciles % 2 === 1) throw transientMediaFailure();
-        return snapshot;
-      },
-    },
-    transport: transportStub,
-    changed: (state) => states.push(state),
-    retry: {
-      delaysMs: [500, 1000, 2000],
-      wait: async (ms) => {
-        waits.push(ms);
-      },
+  const { controller, states, waits } = retryingController({
+    admit: async () => admission,
+    reconcile: async () => {
+      // The join's first read and the live read's first try are refused for now.
+      if (++reconciles % 2 === 1) throw transientMediaFailure();
+      return snapshot;
     },
   });
   await controller.join();

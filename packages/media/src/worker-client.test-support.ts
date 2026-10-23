@@ -1,6 +1,6 @@
 import { createMediaWorkerAuthentication } from './worker-auth';
 import { createMediaWorkerClient } from './worker-client';
-export const scope = {
+const scope = {
   roundId: 'r'.repeat(24),
   sessionId: 's'.repeat(24),
   workerId: 'w'.repeat(24),
