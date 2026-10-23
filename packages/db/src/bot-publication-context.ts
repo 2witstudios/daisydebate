@@ -1,9 +1,10 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, ne, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
 import type { BoundedTransactionContext } from './transaction-context';
 import { lockRoundAgentContext, roundAgentNow } from './round-agent-runs';
 import { requireAgentLeaseToken } from './round-agent-lease';
 import { agentRuns } from './schema/agent-runs';
+import { transcriptSegments } from './schema/transcript-segments';
 import {
   roundBotPublicationWindows,
   roundBotPublications,
@@ -67,7 +68,9 @@ export async function requireBotSpeakingWindow(
 /**
  * Records an authorized window as server credit (DEC-212, DEC-218), extending
  * the seat's run it touches, so a phrase is one row however many windows
- * authorized it. Call only after requireBotSpeakingWindow accepted it.
+ * authorized it. Call only after requireBotSpeakingWindow accepted it. A
+ * sealed stream never required a later window, so its credit is refused
+ * (ISSUE-488-r1); the Round lock the caller holds orders it against the seal.
  */
 export async function creditBotPublicationWindow(
   tx: BoundedTransactionContext,
@@ -81,6 +84,18 @@ export async function creditBotPublicationWindow(
   const from = new Date(Math.floor(window.beforeMs)),
     until = new Date(Math.ceil(window.afterMs));
   if (until <= from) return;
+  const [sealed] = await tx
+    .select({ state: transcriptSegments.state })
+    .from(transcriptSegments)
+    .where(
+      and(
+        eq(transcriptSegments.segmentId, target.segmentId),
+        eq(transcriptSegments.roundParticipantId, target.roundParticipantId),
+        ne(transcriptSegments.state, 'open'),
+      ),
+    );
+  if (sealed)
+    throw createAppError('CONFLICT', 'Bot publication stream is sealed');
   const extended = await tx
     .update(roundBotPublicationWindows)
     .set({

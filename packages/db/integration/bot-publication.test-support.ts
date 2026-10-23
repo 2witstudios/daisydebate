@@ -52,3 +52,16 @@ export const withBotPublication = (
       await fixture.sql`delete from rounds where id=${roundId}`;
     }
   });
+
+type BotPublication = Parameters<Parameters<typeof withBotPublication>[0]>[0];
+/** A fresh claim and its speaking interval's opening on the database clock. */
+export async function claimAtFloorStart({
+  operations,
+  target,
+  fixture,
+}: Pick<BotPublication, 'operations' | 'target' | 'fixture'>) {
+  const claim = await operations.claimWorker(target);
+  const [interval] =
+    await fixture.sql`select started_at from round_speaking_intervals where round_id=${target.roundId}`;
+  return { claim, start: new Date(interval!.started_at).getTime() };
+}
