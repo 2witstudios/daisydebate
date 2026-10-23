@@ -1,7 +1,7 @@
 import type { Database } from '@daisy/db';
 import type { Logger } from '@daisy/logger';
 import type { createMediaWorkerAuthentication } from '@daisy/media/internal';
-import { createAppError } from '@daisy/errors';
+import { createAppError, isAppError, toPublicError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import { z } from 'zod';
 import { handleOperation, parseValidated, readBytes } from '../../server/http';
@@ -30,7 +30,7 @@ export function createMediaCaptureHandlers(input: {
 }) {
   return {
     handle: (request: Request) =>
-      handleOperation(input.logger, request, 'media.capture', async () => {
+      handleOperation(input.logger, request, 'media.capture', async (id) => {
         const bytes = await readBytes(request, 128 * 1024);
         let body: string;
         try {
@@ -76,7 +76,31 @@ export function createMediaCaptureHandlers(input: {
         };
         const dispatch = operations[operation as keyof typeof operations];
         if (!dispatch) throw createAppError('AUTHORIZATION');
-        return Response.json((await dispatch(payload)) ?? null);
+        try {
+          return Response.json((await dispatch(payload)) ?? null);
+        } catch (error) {
+          const refusal = retryableSealRefusal(error, id);
+          if (refusal) return refusal;
+          throw error;
+        }
       }),
   };
+}
+
+/**
+ * A seal refused only because the capture timeline has not closed yet is the
+ * one seal refusal a worker may resend; every other refusal is definite
+ * (VIDEO-4.1-r1).
+ */
+function retryableSealRefusal(error: unknown, requestId: string) {
+  if (
+    !isAppError(error) ||
+    error.code !== 'CONFLICT' ||
+    error.message !== 'Capture timeline is still open'
+  )
+    return null;
+  return Response.json(
+    { ...toPublicError(error, requestId).body, refusal: 'timeline-open' },
+    { status: 409 },
+  );
 }

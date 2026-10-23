@@ -31,9 +31,10 @@ type Dependencies = {
   readonly nowMs: () => number;
   readonly deadlineSignal: () => AbortSignal;
   /**
-   * Pauses before each retry of a 503, the server's refusal before any work
-   * (such as transcript transaction capacity). Every capture operation is
-   * idempotent under its lease, epoch and dedupe identity, so a retry is safe.
+   * Pauses before each retry of a 503, the server's temporary refusal (such as
+   * transcript transaction capacity, refused at once). Every capture operation
+   * is idempotent under its lease, epoch and dedupe identity, so a retry is
+   * safe; all attempts share the call's one deadline.
    */
   readonly unavailableRetryMs?: readonly number[];
 };
@@ -65,12 +66,33 @@ function controlOrigin(value: string) {
 }
 /** 503 refusals the call may retry; every other failure is final. */
 const refusedForNow = new WeakSet<object>();
-function requireSuccess(response: Response) {
-  if (response.ok) return;
-  if (response.status === 503) {
+/** Seals refused only because the capture timeline has not closed yet. */
+const openTimeline = new WeakSet<object>();
+/** Whether a seal may be resent: its timeline was still open (VIDEO-4.1-r1). */
+export const isOpenTimelineRefusal = (error: unknown) =>
+  typeof error === 'object' && error !== null && openTimeline.has(error);
+/** Throws the refusal; a 409's named refusal is read, never anything else. */
+async function refuse(
+  response: Response,
+  signal: AbortSignal,
+  caller?: AbortSignal,
+): Promise<never> {
+  let named: unknown;
+  if (response.status === 409)
+    named = await readReply(response, signal, caller).then(
+      (raw) => (raw as { refusal?: unknown } | null)?.refusal,
+      () => undefined,
+    );
+  else await response.body?.cancel().catch(() => undefined);
+  const error = refusalFor(response.status);
+  if (named === 'timeline-open') openTimeline.add(error);
+  throw error;
+}
+function refusalFor(status: number) {
+  if (status === 503) {
     const refusal = unavailable();
     refusedForNow.add(refusal);
-    throw refusal;
+    return refusal;
   }
   const codes = {
     400: 'VALIDATION',
@@ -79,8 +101,8 @@ function requireSuccess(response: Response) {
     404: 'NOT_FOUND',
     409: 'CONFLICT',
   } as const;
-  throw createAppError(
-    codes[response.status as keyof typeof codes] ?? 'INFRASTRUCTURE',
+  return createAppError(
+    codes[status as keyof typeof codes] ?? 'INFRASTRUCTURE',
   );
 }
 async function readReply(
@@ -119,12 +141,15 @@ async function readReply(
     reader.releaseLock();
   }
 }
-/** An abortable pause; a cancelled caller is refused as cancellation. */
-async function pause(ms: number, caller?: AbortSignal) {
-  if (ms > 0)
+/**
+ * A pause the call's own deadline or caller can cut short; either then
+ * refuses as it would before a request.
+ */
+async function pause(ms: number, signal: AbortSignal, caller?: AbortSignal) {
+  if (ms > 0 && !signal.aborted)
     await new Promise<void>((done) => {
       const timer = setTimeout(done, ms);
-      caller?.addEventListener(
+      signal.addEventListener(
         'abort',
         () => {
           clearTimeout(timer);
@@ -133,7 +158,7 @@ async function pause(ms: number, caller?: AbortSignal) {
         { once: true },
       );
     });
-  if (caller?.aborted) throw cancelled();
+  aborted(signal, caller);
 }
 function parsed<T>(schema: z.ZodType<T>, raw: unknown): T {
   const result = schema.safeParse(raw);
@@ -154,24 +179,27 @@ export function createMediaWorkerClient(input: Dependencies) {
     schema: z.ZodType<T>,
     caller?: AbortSignal,
   ) => {
+    // One deadline per call, retries included, so a call never outlasts the
+    // budgets derived from it (lease renewal, STT lag) (VIDEO-4.1-r2).
+    const signal = caller
+      ? AbortSignal.any([caller, input.deadlineSignal()])
+      : input.deadlineSignal();
     for (const pauseMs of retries)
       try {
-        return await attempt(operation, payload, schema, caller);
+        return await attempt(operation, payload, schema, signal, caller);
       } catch (error) {
         if (!refusedForNow.has(error as object)) throw error;
-        await pause(pauseMs, caller);
+        await pause(pauseMs, signal, caller);
       }
-    return attempt(operation, payload, schema, caller);
+    return attempt(operation, payload, schema, signal, caller);
   };
   const attempt = async <T>(
     operation: string,
     payload: object,
     schema: z.ZodType<T>,
+    signal: AbortSignal,
     caller?: AbortSignal,
   ) => {
-    const signal = caller
-      ? AbortSignal.any([caller, input.deadlineSignal()])
-      : input.deadlineSignal();
     aborted(signal, caller);
     const path = `/api/internal/media/${scope.roundId}/capture/${operation}`;
     const body = JSON.stringify({ ...payload, ...scope });
@@ -197,8 +225,7 @@ export function createMediaWorkerClient(input: Dependencies) {
       throw unavailable();
     }
     aborted(signal, caller);
-    if (!response.ok) await response.body?.cancel().catch(() => undefined);
-    requireSuccess(response);
+    if (!response.ok) await refuse(response, signal, caller);
     const raw = await readReply(response, signal, caller);
     const receivedAtMs = input.nowMs();
     if (!Number.isFinite(receivedAtMs) || receivedAtMs < sentAtMs)

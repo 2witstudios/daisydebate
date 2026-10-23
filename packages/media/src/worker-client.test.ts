@@ -1,6 +1,9 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
-import { createMediaWorkerClient } from './worker-client';
+import {
+  createMediaWorkerClient,
+  isOpenTimelineRefusal,
+} from './worker-client';
 import { createMediaWorkerAuthentication } from './worker-auth';
 setupRitewayBun();
 const scope = {
@@ -170,6 +173,97 @@ test('a refusal other than 503 is never retried', async () => {
     assert({
       given: 'the conflict',
       should: 'make exactly one attempt',
+      actual: f.calls(),
+      expected: 1,
+    });
+  } finally {
+    await f.close();
+  }
+});
+
+const sealing = {
+  epoch: 3,
+  segmentId: 'g'.repeat(24),
+  roundParticipantId: 'p'.repeat(24),
+  expectedChunkCount: 0,
+};
+const refusedSeal = async (body: object) => {
+  const f = localClient(() => Response.json(body, { status: 409 }));
+  try {
+    return await f.client.seal(sealing).then(
+      () => 'sealed',
+      (error: unknown) => [
+        (error as { code: string }).code,
+        isOpenTimelineRefusal(error),
+      ],
+    );
+  } finally {
+    await f.close();
+  }
+};
+
+test('a seal refused for an open timeline is told apart from a definite refusal', async () => {
+  assert({
+    given: 'a 409 naming the open timeline, and a 409 naming nothing',
+    should:
+      'report both as conflicts, marking only the first as resendable (VIDEO-4.1-r1)',
+    actual: [
+      await refusedSeal({
+        error: { code: 'CONFLICT' },
+        refusal: 'timeline-open',
+      }),
+      await refusedSeal({ error: { code: 'CONFLICT' } }),
+    ],
+    expected: [
+      ['CONFLICT', true],
+      ['CONFLICT', false],
+    ],
+  });
+});
+
+test('retries share one overall deadline per call', async () => {
+  let deadlines = 0;
+  const f = localClient(
+    (call) =>
+      call < 3 ? new Response(null, { status: 503 }) : Response.json(lease),
+    () => {
+      deadlines++;
+      return AbortSignal.timeout(2000);
+    },
+  );
+  try {
+    await f.client.lease(15000);
+    assert({
+      given: 'a call answered 503, 503, then a lease',
+      should:
+        'take a single transport deadline for all three attempts (VIDEO-4.1-r2)',
+      actual: [f.calls(), deadlines],
+      expected: [3, 1],
+    });
+  } finally {
+    await f.close();
+  }
+});
+
+test('an elapsed call deadline ends the retries', async () => {
+  const deadline = new AbortController();
+  const f = localClient(
+    () => {
+      deadline.abort();
+      return new Response(null, { status: 503 });
+    },
+    () => deadline.signal,
+  );
+  try {
+    await assertRejects({
+      given: 'a deadline that elapses with the first 503',
+      should: 'stop retrying and report infrastructure unavailability',
+      actual: () => f.client.lease(15000),
+      code: 'INFRASTRUCTURE',
+    });
+    assert({
+      given: 'the elapsed deadline',
+      should: 'leave exactly the one attempt it allowed',
       actual: f.calls(),
       expected: 1,
     });

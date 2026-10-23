@@ -13,7 +13,8 @@ type Stream = {
   pending: number;
   /** When its segment was known to have ended, in server time. */
   endedAtMs: number | null;
-  sealed: boolean;
+  /** Sealed, or definitely refused: never offered for sealing again. */
+  finished: boolean;
 };
 type Key = Pick<Stream, 'segmentId' | 'roundParticipantId'>;
 
@@ -44,7 +45,13 @@ export function createStreamTracker(ceiling: number) {
           'INFRASTRUCTURE',
           'Capture stream capacity exceeded',
         );
-      stream = { ...key, count: 0, pending: 0, endedAtMs: null, sealed: false };
+      stream = {
+        ...key,
+        count: 0,
+        pending: 0,
+        endedAtMs: null,
+        finished: false,
+      };
       streams.set(id, stream);
     }
     return stream;
@@ -75,14 +82,14 @@ export function createStreamTracker(ceiling: number) {
     settled(key: Key) {
       forClip(key).pending--;
     },
-    sealed(key: Key) {
-      forClip(key).sealed = true;
+    finished(key: Key) {
+      forClip(key).finished = true;
     },
     /** Streams ready to seal at this server time. */
     due: (serverNowMs: number) =>
       [...streams.values()].filter(
         (stream) =>
-          !stream.sealed &&
+          !stream.finished &&
           stream.pending === 0 &&
           stream.endedAtMs !== null &&
           serverNowMs - stream.endedAtMs >= SEAL_SETTLE_MS,
