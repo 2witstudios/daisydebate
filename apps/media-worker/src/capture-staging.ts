@@ -54,7 +54,7 @@ export function createCaptureStaging(input: {
     if (!window) return null;
     const beforeMs = Math.floor(window.beforeMs),
       afterMs = Math.ceil(window.afterMs),
-      nominalStartMs = Math.ceil(window.beforeMs);
+      nominalStartMs = window.nominalStartMs;
     if (
       afterMs < nominalStartMs + 10 ||
       nominalStartMs < (lastNominal.get(raw.trackId) ?? -Infinity) + 10

@@ -62,6 +62,11 @@ The common clock bounds both calibration endpoints, sample quantization and
 the worker refreshes at most every 15 s. An invalid or disjoint refresh rejects
 the next frame before establishing a fresh observation anchor. Returned bounds
 cover the nominal ten-millisecond period and the actual callback bracket.
+Each contiguous run anchors its nominal timeline once, at its first retained
+frame's rounded-up lower bound, and `nominalStartMs` advances exactly 10 ms
+per retained frame. A refresh tightens the bracket but never moves a frame,
+so fully received speech is one gap-free run; only a reanchor after a real
+gap starts a new run (ISSUE-466-r4).
 Outward integer rounding and full committed history containment remain mandatory
 before clip encoding or durable append. The possible window is never itself a
 guaranteed coverage observation. Acoustic time and network transit are not
