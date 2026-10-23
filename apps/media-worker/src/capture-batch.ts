@@ -1,4 +1,8 @@
-import { cutCaptureClips, type ClipCarry } from '@daisy/media/clips';
+import {
+  CLIP_PAUSE_MS,
+  cutCaptureClips,
+  type ClipCarry,
+} from '@daisy/media/clips';
 import {
   readCaptureHistory,
   straddlesGrantEdge,
@@ -37,6 +41,23 @@ export function flushClipCarry(
     carry,
     final: true,
   }).clips;
+}
+/**
+ * Ends every carry whose frames stopped a pause ago, by server time: a bot's
+ * track goes quiet when its speech ends, and its transcript must not wait for
+ * the segment's end (VIDEO-4.1-r7).
+ */
+export function flushQuietCarries(
+  carries: ClipCarries,
+  roundId: string,
+  serverNowMs: number,
+) {
+  return [...carries].flatMap(([key, carry]) => {
+    const last = carry.frames.at(-1);
+    if (last && serverNowMs - last.frame.afterMs < CLIP_PAUSE_MS) return [];
+    const [segmentId, roundParticipantId] = JSON.parse(key) as [string, string];
+    return flushClipCarry(carries, roundId, { segmentId, roundParticipantId });
+  });
 }
 /** Staged frames grouped per segment and seat, in arrival order. */
 function bySegmentSeat(frames: readonly StagedFrame[]) {

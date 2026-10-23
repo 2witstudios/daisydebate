@@ -182,8 +182,12 @@ function clip(input: Input, frames: readonly Admitted[]) {
 const lowEnergy = (pcm: Int16Array) =>
   Math.sqrt(pcm.reduce((sum, value) => sum + value * value, 0) / pcm.length) <=
   64;
-/** A pause this long (500 ms) after speech ends its clip. */
-const PAUSE_FRAMES = 50;
+/**
+ * A pause ends a clip: this long of low-energy frames after speech, or this
+ * long with no frame at all (the caller ends a carry whose frames stopped).
+ */
+export const CLIP_PAUSE_MS = 500;
+const PAUSE_FRAMES = CLIP_PAUSE_MS / 10;
 /** Low-energy frames ending `frames`, and whether any frame before them is speech. */
 function trailingQuiet(frames: readonly Admitted[]) {
   let quiet = 0;

@@ -73,10 +73,11 @@ export default defineConfig({
       // only once every Launch process has exited and freed the slot's ports
       // for the next proof in the job.
       gracefulShutdown: { signal: 'SIGTERM', timeout: 45_000 },
-      command: server.command.replace(
-        'e2e/support/server.ts',
-        'e2e/support/room-launch-server.ts',
-      ),
+      // Its own log name: the realtime proofs that follow in the same job
+      // reuse the slot's port and would overwrite server-<port>.log (ISSUE-510).
+      command: server.command
+        .replace('e2e/support/server.ts', 'e2e/support/room-launch-server.ts')
+        .replace('test-results/server-', 'test-results/room-launch-server-'),
       env: {
         ...server.env,
         E2E_DATABASE_URL: process.env.E2E_DATABASE_URL!,
