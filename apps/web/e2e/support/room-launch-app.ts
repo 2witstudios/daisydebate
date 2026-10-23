@@ -2,6 +2,7 @@ import { resolve } from 'node:path';
 import { createApp } from '../../src/server/app';
 import { adoptProcessApp } from '../../src/server/process-app';
 import { launchMailFetch, launchMailPath } from './launch-mail';
+import { withOpenRouterStub } from '@daisy/ai-voice/testing';
 import { launchAppInput } from './room-launch-app-input';
 import { requireLaunchSlot } from './room-launch-slot';
 import { launchAppControlPath } from './room-launch-settled';
@@ -15,7 +16,13 @@ if (Bun.argv[2] !== undefined && Bun.argv[2] !== 'peer')
   throw new Error('Unknown owned web process');
 const peer = Bun.argv[2] === 'peer';
 const app = createApp(
-  launchAppInput(process.env, launchMailFetch(launchMailPath(slot.id))),
+  launchAppInput(
+    process.env,
+    withOpenRouterStub(
+      process.env.OPENROUTER_API_KEY,
+      launchMailFetch(launchMailPath(slot.id)),
+    ),
+  ),
 );
 adoptProcessApp(app);
 const control = createLaunchControl({

@@ -5,7 +5,7 @@ import { systemClock, systemId } from '@daisy/clock';
 import { createApp } from '../../src/server/app';
 import { adoptProcessApp } from '../../src/server/process-app';
 import { createMailCapture } from './mail-capture';
-import { OPENROUTER_E2E_PLACEHOLDER, openRouterStub } from './openrouter-stub';
+import { withOpenRouterStub } from '@daisy/ai-voice/testing';
 import { createSelfSignedTlsEdge } from './tls-edge';
 
 /**
@@ -31,10 +31,6 @@ const appPort = Number(env('PORT'));
 const edgePort = Number(env('E2E_EDGE_PORT'));
 const mailPort = Number(env('E2E_MAIL_PORT'));
 
-// A real key (E2E_OPENROUTER_API_KEY, set by hand) reaches OpenRouter.
-const stubOpenRouter =
-  process.env.OPENROUTER_API_KEY === OPENROUTER_E2E_PLACEHOLDER;
-
 const mailCapture = createMailCapture({
   port: mailPort,
   redisUrl: env('REDIS_URL'),
@@ -52,9 +48,10 @@ adoptProcessApp(
     roomPolicy: launchProofPolicy,
     // OpenRouter (AI debates) is answered locally; everything else goes
     // through the mail capture.
-    fetch: async (input, init) =>
-      (stubOpenRouter ? openRouterStub(input, init) : null) ??
-      mailCapture.captureFetch(input, init),
+    fetch: withOpenRouterStub(
+      process.env.OPENROUTER_API_KEY,
+      mailCapture.captureFetch,
+    ),
     clock: systemClock,
     ids: systemId,
   }),

@@ -1,5 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
-import { OPENROUTER_E2E_PLACEHOLDER } from './e2e/support/openrouter-stub';
+import { OPENROUTER_E2E_PLACEHOLDER } from '@daisy/ai-voice/testing';
 
 type Env = Readonly<Record<string, string | undefined>>;
 
@@ -256,7 +256,7 @@ export default defineConfig({
         // workflow runs against this local e2e server.
         OPS_PROBE_TOKEN: 'e2e-ops-probe-token-placeholder-not-a-credential',
         // AI debates: an inert placeholder, which the e2e server answers
-        // with a local stub (e2e/support/openrouter-stub.ts). Setting
+        // with a local stub (@daisy/ai-voice/testing). Setting
         // E2E_OPENROUTER_API_KEY runs the same server against real
         // OpenRouter, for a live check by hand.
         OPENROUTER_API_KEY:

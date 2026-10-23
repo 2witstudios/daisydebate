@@ -1,15 +1,15 @@
 /**
- * Answers the AI debate's OpenRouter calls inside the browser suite's server,
- * so the real voice adapter, routes and room run end to end with no network
- * and no key: a short streamed speech, a one-line cross-examination reply, a
- * transcript, a little silent audio and a fixed ballot. Test-only, wired
- * through `createApp`'s `fetch` like the mail capture.
+ * Answers the AI debate's OpenRouter calls for the browser suites, so the real
+ * voice adapter, routes, room and capture worker run end to end with no
+ * network and no key: a short streamed speech, a one-line cross-examination
+ * reply, a transcript, a little silent audio and a fixed ballot. Test-only:
+ * each e2e composition injects it as the `fetch` it already passes on.
  */
 import { ballotCategories, ballotRubricVersion } from '@daisy/protocol';
 
 const OPENROUTER = 'https://openrouter.ai/api/v1/';
 
-/** The e2e server stubs OpenRouter whenever its key is this placeholder. */
+/** The e2e compositions stub OpenRouter whenever their key is this placeholder. */
 export const OPENROUTER_E2E_PLACEHOLDER =
   'sk-or-e2e-placeholder-not-a-credential';
 
@@ -97,3 +97,21 @@ export function openRouterStub(
     usage: { prompt_tokens: 10, completion_tokens: 5 },
   });
 }
+
+type Fetch = (
+  input: string | URL | Request,
+  init?: RequestInit,
+) => Promise<Response>;
+
+/**
+ * `fetch` with OpenRouter answered by the stub when `apiKey` is the
+ * placeholder; a real key (E2E_OPENROUTER_API_KEY, set by hand) reaches
+ * OpenRouter through `fetch` unchanged.
+ */
+export const withOpenRouterStub = (
+  apiKey: string | undefined,
+  fetch: Fetch,
+): Fetch =>
+  apiKey === OPENROUTER_E2E_PLACEHOLDER
+    ? async (input, init) => openRouterStub(input, init) ?? fetch(input, init)
+    : fetch;
