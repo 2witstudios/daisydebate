@@ -2,8 +2,20 @@ import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { withBotPublication } from './bot-publication.test-support';
+type BotPublication = Parameters<Parameters<typeof withBotPublication>[0]>[0];
 setupRitewayBun();
 requireTestServices(process.env);
+/** A fresh claim and its speaking interval's opening on the database clock. */
+async function claimAtFloorStart({
+  operations,
+  target,
+  fixture,
+}: Pick<BotPublication, 'operations' | 'target' | 'fixture'>) {
+  const claim = await operations.claimWorker(target);
+  const [interval] =
+    await fixture.sql`select started_at from round_speaking_intervals where round_id=${target.roundId}`;
+  return { claim, start: new Date(interval!.started_at).getTime() };
+}
 test('concurrent bot claims preserve one active run and epochs through takeover', async () => {
   await withBotPublication(async ({ operations, target, fixture }) => {
     const attempts = await Promise.allSettled([
@@ -68,10 +80,11 @@ test('concurrent bot claims preserve one active run and epochs through takeover'
 });
 test('full historical windows are required and closed current authority cannot dispatch', async () => {
   await withBotPublication(async ({ operations, target, fixture }) => {
-    const claim = await operations.claimWorker(target);
-    const [interval] =
-      await fixture.sql`select started_at from round_speaking_intervals where round_id=${target.roundId}`;
-    const start = new Date(interval!.started_at).getTime();
+    const { claim, start } = await claimAtFloorStart({
+      operations,
+      target,
+      fixture,
+    });
     const window = { beforeMs: start + 1, afterMs: start + 11 };
     await operations.verifyBotPublication(claim.scope, claim.token, window);
     await assertRejects({
@@ -238,10 +251,11 @@ test('controller restart after the final actual segment grants no new publicatio
 });
 test('authorized windows are stored as credited runs and refused ones are not (DEC-212, DEC-218)', async () => {
   await withBotPublication(async ({ operations, target, fixture }) => {
-    const claim = await operations.claimWorker(target);
-    const [interval] =
-      await fixture.sql`select started_at from round_speaking_intervals where round_id=${target.roundId}`;
-    const start = new Date(interval!.started_at).getTime();
+    const { claim, start } = await claimAtFloorStart({
+      operations,
+      target,
+      fixture,
+    });
     await operations.verifyBotPublication(claim.scope, claim.token);
     for (const [before, after] of [
       [1, 11],
