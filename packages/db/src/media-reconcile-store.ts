@@ -180,8 +180,8 @@ export function createMediaReconcileStore(input: {
         return id;
       });
     },
-    /** Only a successful provider response resolves the dispatched operation. A rejected network promise is not proof. */
-    async settleMediaMutation(id: string) {
+    /** Only a provider response resolves the dispatched operation: success, or a definite refusal. A rejected network promise is not proof. */
+    async settleMediaMutation(id: string, outcome: 'succeeded' | 'failed') {
       return input.run(async (tx) => {
         const [operation] = await tx
           .select()
@@ -193,7 +193,7 @@ export function createMediaReconcileStore(input: {
           .update(mediaVendorMutations)
           .set({
             settledAt: new Date(await sampleRoundExecutionTime(tx)),
-            outcome: 'succeeded',
+            outcome,
           })
           .where(eq(mediaVendorMutations.id, id));
       });

@@ -151,7 +151,7 @@ test('restart, verified absence and late acknowledgement never erase unknown ven
         ],
         expected: [false, false, false, null],
       });
-      await restarted.settleMediaMutation(intent);
+      await restarted.settleMediaMutation(intent, 'succeeded');
       assert({
         given: 'a late real success response',
         should:
@@ -192,7 +192,7 @@ test('absence proof cannot cross a different reconciliation fence or later mutat
         actual: await store.prepareMediaAbsenceProof(claim.fence),
         expected: null,
       });
-      await store.settleMediaMutation(intent);
+      await store.settleMediaMutation(intent, 'succeeded');
       const result = await store.finishMediaReconcile({
         ...claim.fence,
         absenceProof: proof,

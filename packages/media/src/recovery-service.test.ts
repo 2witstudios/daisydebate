@@ -6,7 +6,7 @@ import {
   type RoomServiceClient,
 } from 'livekit-server-sdk';
 setupRitewayBun();
-test('recovery reads exact room and removes only the scoped competitive identity', async () => {
+test('recovery reads the exact room and projects scoped publication permissions', async () => {
   const room = 'r'.repeat(24),
     identity = 'i'.repeat(24);
   const calls: unknown[] = [];
@@ -20,9 +20,6 @@ test('recovery reads exact room and removes only the scoped competitive identity
       listRooms: async (names?: string[]) => {
         calls.push(names);
         return [];
-      },
-      removeParticipant: async (...args: unknown[]) => {
-        calls.push(args);
       },
       listParticipants: async () => [
         new ParticipantInfo({
@@ -41,13 +38,12 @@ test('recovery reads exact room and removes only the scoped competitive identity
     } as unknown as RoomServiceClient,
   });
   const absent = !(await service.exists(room));
-  await service.remove(room, identity);
   const [participant] = await service.publicationPermissions(room);
   assert({
     given: 'scoped provider recovery calls',
-    should: 'query one room and remove one identity',
+    should: 'query exactly one room',
     actual: [absent, calls],
-    expected: [true, [[room], [room, identity]]],
+    expected: [true, [[room]]],
   });
   assert({
     given: 'unsafe provider defaults or extra sources',

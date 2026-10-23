@@ -124,12 +124,12 @@ test('only the current owner, epoch and live lease may act', async () => {
 
 test('unresolved vendor state admits only teardown mutations', async () => {
   assert({
-    given: 'a clean session, and an unsafe one asked to delete or remove',
+    given: 'a clean session, and an unsafe or pending one asked to delete',
     should: 'admit every mutation that cannot widen access',
     actual: [
       requireMutationAdmissible({ unsafeAt: null }, 0, 'create'),
       requireMutationAdmissible({ unsafeAt: now }, 0, 'delete'),
-      requireMutationAdmissible({ unsafeAt: null }, 1, 'remove'),
+      requireMutationAdmissible({ unsafeAt: null }, 1, 'delete'),
     ],
     expected: [undefined, undefined, undefined],
   });
@@ -160,9 +160,9 @@ test('completion releases the lease and ends only a cleaned terminal session', (
   };
   assert({
     given:
-      'live uncleaned, terminal uncleaned, terminal cleaned and an already-ended session',
+      'live uncleaned, terminal uncleaned, terminal cleaned, an already-ended session and a live clean recovery',
     should:
-      'serve the version, request deletion when terminal and clear unsafe or end only once cleaned',
+      'serve the version, request deletion when terminal, clear unsafe or end only once cleaned, and end a live unsafe episode with its deletion request (ISSUE-465)',
     actual: [
       reconcileCompletion(session, now, {
         terminal: false,
@@ -184,6 +184,11 @@ test('completion releases the lease and ends only a cleaned terminal session', (
         now,
         { terminal: true, unresolved: false, cleaned: true },
       ),
+      reconcileCompletion({ ...session, deletionRequestedAt: at(-5) }, now, {
+        terminal: false,
+        unresolved: false,
+        cleaned: true,
+      }),
     ],
     expected: [
       { fields: released, result: { safe: false, ended: false } },
@@ -208,6 +213,10 @@ test('completion releases the lease and ends only a cleaned terminal session', (
           deletionRequestedAt: at(-3),
         },
         result: { safe: true, ended: true },
+      },
+      {
+        fields: { ...released, unsafeAt: null, deletionRequestedAt: null },
+        result: { safe: true, ended: false },
       },
     ],
   });

@@ -80,7 +80,6 @@ export function createMediaVendor({
           hidden: update.permission.hidden,
         });
       },
-      removeParticipant: async () => undefined,
     } as unknown as NonNullable<
       Parameters<typeof createMediaService>[0]['rooms']
     >,

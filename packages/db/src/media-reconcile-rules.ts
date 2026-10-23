@@ -77,17 +77,15 @@ export function requireMutationAdmissible(
   outstanding: number,
   kind: MediaVendorIntent['kind'],
 ) {
-  if (
-    (session.unsafeAt || outstanding) &&
-    kind !== 'delete' &&
-    kind !== 'remove'
-  )
+  if ((session.unsafeAt || outstanding) && kind !== 'delete')
     throw createAppError('CONFLICT', 'Media recovery is unresolved');
 }
 
 /**
  * Release the lease and serve the running version. A terminal session
  * requests deletion; only a matching absence proof clears unsafe and ends it.
+ * A proven-clean recovery of an open Round also clears the room deletion
+ * request, ending the unsafe episode so capture discovery resumes (ISSUE-465).
  */
 export function reconcileCompletion(
   session: {
@@ -113,7 +111,9 @@ export function reconcileCompletion(
       ...(cleaned
         ? {
             unsafeAt: null,
-            ...(terminal ? { endedAt: session.endedAt ?? now } : {}),
+            ...(terminal
+              ? { endedAt: session.endedAt ?? now }
+              : { deletionRequestedAt: null }),
           }
         : {}),
       ...(terminal

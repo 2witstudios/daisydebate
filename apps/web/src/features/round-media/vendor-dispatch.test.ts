@@ -1,5 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { dispatchMediaMutation } from './vendor-dispatch';
+import { createAppError } from '@daisy/errors';
+import { dispatchMediaMutation, mediaMutationOutcome } from './vendor-dispatch';
 setupRitewayBun();
 test('unknown vendor completion remains pending across the deadline and resolves only on acknowledgement', async () => {
   const provider = Promise.withResolvers<void>();
@@ -15,6 +16,7 @@ test('unknown vendor completion remains pending across the deadline and resolves
       events.push('dispatch');
       return provider.promise;
     },
+    outcome: () => 'unknown',
     settle: async () => {
       events.push('settle');
     },
@@ -59,5 +61,50 @@ test('unknown vendor completion remains pending across the deadline and resolves
       route: '/api/rounds/:id/media/reconcile',
       errorCode: 'INFRASTRUCTURE',
     },
+  });
+});
+
+test('a provider error is settled when it proves the outcome, and only an unknown one stays pending (ISSUE-464)', async () => {
+  const notFound = createAppError('NOT_FOUND', 'gone');
+  const refused = createAppError('CONFLICT', 'refused');
+  const unknown = createAppError('INFRASTRUCTURE', 'down');
+  assert({
+    given: 'not found, a refusal and an unknown error for each mutation kind',
+    should:
+      'treat not found on delete as done, other definite errors as failed, and the rest as unknown',
+    actual: (['delete', 'create', 'permissions'] as const).map((kind) => [
+      mediaMutationOutcome(kind, notFound),
+      mediaMutationOutcome(kind, refused),
+      mediaMutationOutcome(kind, unknown),
+      mediaMutationOutcome(kind, new TypeError('fetch failed')),
+    ]),
+    expected: [
+      ['succeeded', 'failed', 'unknown', 'unknown'],
+      ['failed', 'failed', 'unknown', 'unknown'],
+      ['failed', 'failed', 'unknown', 'unknown'],
+    ],
+  });
+  const events: string[] = [];
+  const result = await dispatchMediaMutation({
+    persist: async () => 'intent',
+    dispatch: async () => {
+      throw refused;
+    },
+    outcome: (error) => mediaMutationOutcome('permissions', error),
+    settle: async (_id, outcome) => {
+      events.push(`settle ${outcome}`);
+    },
+    unsafe: async () => {
+      events.push('unsafe');
+    },
+    deadline: (work) => work,
+    reporter: { capture: () => events.push('report') },
+    requestId: 'request-1',
+  });
+  assert({
+    given: 'a definite provider refusal',
+    should: 'settle it failed without marking the session unsafe',
+    actual: { result, events },
+    expected: { result: { acknowledged: false }, events: ['settle failed'] },
   });
 });
