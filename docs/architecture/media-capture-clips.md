@@ -47,36 +47,33 @@ configured provider STT and worker composition remain separate service obligatio
 
 ## Native observation cadence
 
-`@daisy/media/observation` exports `createCaptureClock` for one native track and
-one monotonic clock origin. It consumes the original sequence and copy brackets
-from `createCaptureSubscription`; the caller retains their associated 160-sample
-PCM. The first callback anchors and is dropped. A subsequent callback must follow
-the exact sequence and a ten-millisecond cadence: no receipt before its nominal
-due time, no receipt more than 100 ms late. Burst, stall, invalid bracket or
-sequence gap drops the current frame and reanchors at that actual callback,
-less a 5 ms tolerance (ISSUE-485): steady or slightly jittered 10 ms callbacks
-keep one run after a reanchor, a slightly fast source walks the anchor down
-with that margin, and a queued frame a whole period early is still refused;
-queued callbacks never acquire a new arrival timestamp. No raw sample total is
-coverage. Track closure destroys its clock.
+`@daisy/media/observation` exports `createCaptureClock` for one native track. It
+consumes the original sequence and copy brackets from
+`createCaptureSubscription`; the caller retains their associated 160-sample
+PCM. Gaps are decided by frame sequence, never by clock (DEC-215): contiguous
+sequence numbers advance `nominalStartMs` exactly 10 ms whatever their arrival
+timing (bursts, stalls and jitter included), and each missing sequence number
+is exactly a 10 ms gap. Track closure destroys its clock.
 
-The common clock bounds both calibration endpoints, sample quantization and
-100 ppm drift. RTT must be at most 100 ms and calibration age at most 30 s;
-the worker refreshes at most every 15 s. An invalid or disjoint refresh rejects
-the next frame before establishing a fresh observation anchor. Returned bounds
-cover the nominal ten-millisecond period and the actual callback bracket.
-Each contiguous run anchors its nominal timeline once, at its first retained
-frame's rounded-up lower bound, and `nominalStartMs` advances exactly 10 ms
-per retained frame. A refresh tightens the bracket but never moves a frame,
-so fully received speech is one gap-free run; only a reanchor after a real
-gap starts a new run (ISSUE-466-r4).
+The calibration only maps each contiguous run onto server time, once, at its
+first frame, whose 10 ms period ends at its callback. The track's first run
+takes its nominal start from that mapping; every later run continues the
+track's sequence, so no calibration shift can shrink or close a gap
+(ISSUE-466-r6). A refresh never moves a running run. The common bounds cover
+both calibration endpoints, sample quantization and 100 ppm drift; a run maps
+only under an RTT of at most 100 ms and a calibration at most 30 s old, and a
+frame refused for an unusable calibration is a gap. Each frame's bracket is the
+run's mapping advanced by its sequence and widened by drift, joined with its
+nominal span, so it always contains that span and the server's frame-bracket
+rule holds at any round trip (ISSUE-466-r5). A rejected callback is never
+replayed. No raw sample total is coverage.
 Outward integer rounding and full committed history containment remain mandatory
 before clip encoding or durable append. The possible window is never itself a
 guaranteed coverage observation. Acoustic time and network transit are not
 claimed (ADR 0053 section 8).
 
 The real Bun/LiveKit/PostgreSQL probe retains at least ten genuine nonzero 16 kHz
-frames after bootstrap, refreshes actual database calibration and checks every
+frames from the first callback on its sequence timeline, refreshes actual database calibration and checks every
 full outward window against durable speaking history. Its source is synthetic
 PCM; it proves observation cadence and the historical read seam, not human STT,
 complete stream coverage or an accepted worker deployment. Unit negative controls

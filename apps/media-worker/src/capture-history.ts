@@ -47,8 +47,8 @@ export function straddlesGrantEdge(
 
 /**
  * The window a transcribed clip proves the worker captured: the nominal span
- * of its frames, which advance exactly 10 ms per received frame, so any missing
- * frame between clips leaves a gap (brackets are wider than a frame and would
+ * of its frames, which advance exactly 10 ms per sequence number, so any missing
+ * frame between clips leaves a gap (DEC-215) (brackets are wider than a frame and would
  * bridge short dropouts; ISSUE-466-r3). Frames straddling a grant edge are
  * refused by contained(), so a clip alone never reaches the edge; it extends to
  * an edge only when a frame contiguous with it on the same track (nominal

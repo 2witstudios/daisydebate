@@ -1,7 +1,6 @@
 import {
+  calibrationOffsets,
   publicationClock,
-  observeSourceProgress,
-  refreshPublicationClock,
   type ClockCalibration,
 } from './publication-clock';
 
@@ -10,15 +9,14 @@ type Observation = {
   readonly beforeMs: number;
   readonly afterMs: number;
 };
-
-/**
- * How far below its callback a run anchors (ISSUE-485). Native capture
- * callbacks are paced 10 ms apart with a little jitter, so anchoring exactly at
- * a late callback's bracket would refuse every steady frame after it; half a
- * frame of tolerance absorbs jitter while a queued frame, a whole period early,
- * is still refused. The tolerance only widens bounds downward.
- */
-const ANCHOR_TOLERANCE_MS = 5;
+type Run = {
+  readonly sequence: number;
+  readonly nominalStartMs: number;
+  /** Server-time lower bound of the run's first frame start. */
+  readonly lowerMs: number;
+  /** Server-time upper bound of the run's first frame end. */
+  readonly upperMs: number;
+};
 
 const wellFormed = (frame: Observation) =>
   Number.isSafeInteger(frame.sequence) &&
@@ -27,32 +25,46 @@ const wellFormed = (frame: Observation) =>
   Number.isFinite(frame.afterMs) &&
   frame.afterMs >= frame.beforeMs;
 
+/** Whether a calibration may map a callback observed at `atMs` onto server time. */
+const usable = (calibration: ClockCalibration, atMs: number) =>
+  publicationClock({ calibration, anchorMs: atMs, sampleRate: 16000 }).valid &&
+  atMs - calibration.receivedAtMs <= 30000;
+
 /**
- * One native track and one monotonic clock origin. A rejected callback is
- * never replayed. Each contiguous run anchors its nominal timeline once, at
- * its first frame's lower bound, and advances exactly 10 ms per received
- * frame: a calibration refresh tightens the bracket but never moves a frame,
- * and only a real gap starts a new run (ISSUE-466-r4).
+ * One native track's capture timeline (DEC-215). Gaps are decided by frame
+ * sequence, never by clock: contiguous sequence numbers advance exactly 10 ms
+ * whatever their arrival timing, and each missing one is exactly a 10 ms gap.
+ * The track's first run takes its nominal start from the calibration (its first
+ * frame's 10 ms period ends at its callback); every later run continues the
+ * track's sequence, so no clock shift can shrink or close a gap. The
+ * calibration maps each run onto server time once, at its first frame, and a
+ * refresh never moves a run. Each frame's bracket is that mapping advanced by
+ * its sequence and widened by 100 ppm drift, joined with its nominal span, so
+ * it always contains the span. A rejected callback is never replayed.
  */
 export function createCaptureClock(initial: ClockCalibration) {
   let calibration = initial;
-  let clock: ReturnType<typeof publicationClock> | null = null;
-  let previousSequence: number | null = null;
-  let runStartMs: number | null = null;
-  let runFrames = 0;
-  const anchor = (frame: Observation) => {
-    runStartMs = null;
-    runFrames = 0;
-    clock = publicationClock({
+  let run: Run | null = null;
+  let last: {
+    readonly sequence: number;
+    readonly nominalStartMs: number;
+  } | null = null;
+  const map = (frame: Observation): Run | null => {
+    if (!usable(calibration, frame.afterMs)) return null;
+    const offsets = calibrationOffsets(
       calibration,
-      anchorMs: Math.max(
-        frame.afterMs - ANCHOR_TOLERANCE_MS,
-        calibration.receivedAtMs,
-      ),
-      sampleRate: 16000,
-    });
-    previousSequence = frame.sequence;
-    return null;
+      frame.beforeMs - 10,
+      frame.afterMs,
+    );
+    const lowerMs = frame.beforeMs - 10 + offsets.lower;
+    return {
+      sequence: frame.sequence,
+      nominalStartMs: last
+        ? last.nominalStartMs + Math.max(frame.sequence - last.sequence, 1) * 10
+        : Math.ceil(lowerMs),
+      lowerMs,
+      upperMs: frame.afterMs + offsets.upper,
+    };
   };
   return {
     observe(frame: Observation): {
@@ -61,44 +73,28 @@ export function createCaptureClock(initial: ClockCalibration) {
       readonly nominalStartMs: number;
     } | null {
       if (!wellFormed(frame)) {
-        clock = null;
-        previousSequence = null;
+        run = null;
         return null;
       }
-      if (
-        !clock ||
-        previousSequence === null ||
-        frame.sequence !== previousSequence + 1
-      )
-        return anchor(frame);
-      const observed = observeSourceProgress(clock, {
-        startSample: clock.eligibleSamples,
-        endSample: clock.eligibleSamples + 160,
-        beforeMs: frame.beforeMs,
-        afterMs: frame.afterMs,
-      });
-      if (!observed.window) return anchor(frame);
-      // A slightly fast source walks the anchor down, keeping the tolerance below
-      // its earliest paced callback; a burst arrives too early to walk.
-      clock = {
-        ...observed.clock,
-        anchorMs: Math.min(
-          observed.clock.anchorMs,
-          frame.beforeMs -
-            ANCHOR_TOLERANCE_MS -
-            (observed.clock.eligibleSamples / observed.clock.sampleRate) * 1000,
+      if (!run || !last || frame.sequence !== last.sequence + 1)
+        run = map(frame);
+      if (!run) return null;
+      const elapsedMs = (frame.sequence - run.sequence) * 10;
+      const driftMs = (elapsedMs + 10) * 0.0001;
+      const nominalStartMs = run.nominalStartMs + elapsedMs;
+      last = { sequence: frame.sequence, nominalStartMs };
+      return {
+        nominalStartMs,
+        beforeMs: Math.min(run.lowerMs + elapsedMs - driftMs, nominalStartMs),
+        afterMs: Math.max(
+          run.upperMs + elapsedMs + driftMs,
+          nominalStartMs + 10,
         ),
       };
-      previousSequence = frame.sequence;
-      runStartMs ??= Math.ceil(observed.window.beforeMs);
-      return {
-        ...observed.window,
-        nominalStartMs: runStartMs + 10 * runFrames++,
-      };
     },
+    /** The calibration the next run maps with; a running run never moves. */
     refresh(next: ClockCalibration) {
       calibration = next;
-      if (clock) clock = refreshPublicationClock(clock, next);
     },
   };
 }
