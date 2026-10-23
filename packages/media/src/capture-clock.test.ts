@@ -109,3 +109,23 @@ test('an unusable calibration maps no run, and its frames stay sequence gaps', (
     expected: [null, 20],
   });
 });
+
+test('a sequence reset on the same track starts a new run (ISSUE-466-r7)', () => {
+  const gapAfterReset = (silentMs: number) => {
+    const clock = createCaptureClock(calibration);
+    const last = nominalOf(
+      clock,
+      Array.from({ length: 50 }, (_, i) => frame(i, 10 + i * 10)),
+    ).at(-1)!;
+    const next = clock.observe(frame(0, 10 + 50 * 10 + silentMs))!;
+    return next.nominalStartMs - last - 10;
+  };
+  assert({
+    given:
+      'a native counter restarting at 0 on the same track at once, and after 500 ms of resubscribing',
+    should:
+      'never join the old run: leave at least a 10 ms gap, and the clock-measured gap after a pause',
+    actual: [gapAfterReset(0) >= 10, gapAfterReset(500) >= 490],
+    expected: [true, true],
+  });
+});
