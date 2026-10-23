@@ -154,3 +154,23 @@ test('an authorization batch is between 1 and 10 frames', () => {
     expected: ['refused', 'accepted', 'accepted', 'refused'],
   });
 });
+
+test('the credit ends at the last frame whose rounded end is before the segment end', async () => {
+  // Each frame authorized alone records its outward-rounded window end.
+  const probe = stubWriter({ framesPerAuthorization: 1 });
+  await probe.write(new Int16Array(240 * 30), signal());
+  const endsAt = Date.parse(probe.windows[14]!.after);
+  const stub = stubWriter({
+    framesPerAuthorization: 10,
+    segmentEndsAtMs: endsAt,
+  });
+  const result = await stub.write(new Int16Array(240 * 30), signal());
+  assert({
+    given:
+      'a segment ending exactly where the fifteenth frame’s rounded window ends',
+    should:
+      'credit exactly the fourteen frames that ended before it (ISSUE-460-r3)',
+    actual: result.eligibleSamples,
+    expected: 14 * 240,
+  });
+});
