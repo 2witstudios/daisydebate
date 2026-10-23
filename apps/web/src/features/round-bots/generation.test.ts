@@ -4,24 +4,12 @@ import { createBotGeneration } from './generation';
 import { scope } from './speaker.test-support';
 setupRitewayBun();
 
-test('a refused settlement retried records the received usage once', async () => {
-  const finished: string[] = [];
-  let verifications = 0;
-  const generation = createBotGeneration({
-    store: {
-      beginRoundBotGeneration: (async () => ({
-        execution: 'execution',
-        model: 'model',
-        profile: { voice: 'voice' },
-        round: { segments: [] },
-      })) as never,
-      finishRoundBotGeneration: async (_scope, _execution, outcome) => {
-        finished.push(outcome);
-      },
-      verifyRoundBotPublication: async () => {
-        if (++verifications === 1) throw refuseCapacity();
-      },
-    },
+/** Synthesizes one phrase through a generation over the given store and a fixed voice. */
+const synthesizeOne = (
+  store: Parameters<typeof createBotGeneration>[0]['store'],
+) =>
+  createBotGeneration({
+    store,
     voice: () =>
       ({
         speakPcm: async () => ({
@@ -34,14 +22,31 @@ test('a refused settlement retried records the received usage once', async () =>
     withProvider: (_signal, work) => work(),
     nowMs: () => 0,
     maxTokens: 100,
-  });
-  const answer = await generation.synthesize(
+  }).synthesize(
     scope,
     'token',
     'p'.repeat(24),
     'One.',
     new AbortController().signal,
   );
+
+test('a refused settlement retried records the received usage once', async () => {
+  const finished: string[] = [];
+  let verifications = 0;
+  const answer = await synthesizeOne({
+    beginRoundBotGeneration: (async () => ({
+      execution: 'execution',
+      model: 'model',
+      profile: { voice: 'voice' },
+      round: { segments: [] },
+    })) as never,
+    finishRoundBotGeneration: async (_scope, _execution, outcome) => {
+      finished.push(outcome);
+    },
+    verifyRoundBotPublication: async () => {
+      if (++verifications === 1) throw refuseCapacity();
+    },
+  });
   const first = await answer.settle().then(
     () => 'settled',
     () => 'refused',
@@ -58,39 +63,18 @@ test('a refused settlement retried records the received usage once', async () =>
 
 test('a synthesized phrase carries its segment end to the publisher', async () => {
   const startedAt = '2026-10-23T10:00:00.000Z';
-  const generation = createBotGeneration({
-    store: {
-      beginRoundBotGeneration: (async () => ({
-        execution: 'execution',
-        model: 'model',
-        profile: { voice: 'voice' },
-        round: {
-          segments: [{ id: scope.segmentId, startedAt, durationMs: 60_000 }],
-        },
-      })) as never,
-      finishRoundBotGeneration: async () => undefined,
-      verifyRoundBotPublication: async () => undefined,
-    },
-    voice: () =>
-      ({
-        speakPcm: async () => ({
-          pcm: new Int16Array(240),
-          sampleRate: 24000,
-          channels: 1,
-          characters: 4,
-        }),
-      }) as never,
-    withProvider: (_signal, work) => work(),
-    nowMs: () => 0,
-    maxTokens: 100,
+  const answer = await synthesizeOne({
+    beginRoundBotGeneration: (async () => ({
+      execution: 'execution',
+      model: 'model',
+      profile: { voice: 'voice' },
+      round: {
+        segments: [{ id: scope.segmentId, startedAt, durationMs: 60_000 }],
+      },
+    })) as never,
+    finishRoundBotGeneration: async () => undefined,
+    verifyRoundBotPublication: async () => undefined,
   });
-  const answer = await generation.synthesize(
-    scope,
-    'token',
-    'p'.repeat(24),
-    'One.',
-    new AbortController().signal,
-  );
   assert({
     given: 'a phrase synthesized for a segment that started at 10:00 for 60 s',
     should:
