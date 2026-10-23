@@ -33,6 +33,7 @@ import {
 } from './round-write-authority';
 import type { RoundHydration } from './round-hydration';
 import { ballots } from './schema/ballots';
+import { rounds } from './schema/rounds';
 import { roundCommands } from './schema/round-commands';
 
 export type RoundBallotLeaseContext = {
@@ -156,6 +157,13 @@ export async function executeLockedRoundBallot(
   if (current.version !== input.envelope.expectedVersion)
     throw createAppError('CONFLICT', 'stale-version');
   if (fresh.round.status !== 'active' || fresh.round.outcome !== null)
+    throw createAppError('CONFLICT', 'round-decided');
+  // The persisted ballot deadline is the cutoff by the database clock (DEC-207).
+  const [window] = await tx
+    .select({ deadline: rounds.ballotDeadlineAt })
+    .from(rounds)
+    .where(eq(rounds.id, input.roundId));
+  if (window?.deadline && Date.parse(fresh.now) >= window.deadline.getTime())
     throw createAppError('CONFLICT', 'round-decided');
   const existing = await tx
     .select()

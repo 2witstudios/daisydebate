@@ -20,6 +20,13 @@ const statusLabel: Readonly<Record<RoundView['status'], string>> = {
   abandoned: 'Abandoned',
 };
 
+/** No outcome: no judges, or judges who did not rule by the deadline (DEC-201). */
+const resultText = (round: RoundReceiptView) =>
+  round.outcome
+    ? resultLabel[round.outcome]
+    : round.participants.some((seat) => seat.role === 'judge')
+      ? 'Judges did not rule'
+      : 'Unjudged';
 const resultLabel: Readonly<Record<NonNullable<RoundView['outcome']>, string>> =
   {
     affirmative: 'Affirmative won',
@@ -59,7 +66,7 @@ export function RoundReceipt({ round }: { readonly round: RoundReceiptView }) {
         <h1 className="text-2xl font-strong text-ink">{round.topic}</h1>
         {round.outcome || round.status === 'completed' ? (
           <p className="text-lg font-strong text-ink">
-            Result · {round.outcome ? resultLabel[round.outcome] : 'Unjudged'}
+            Result · {resultText(round)}
           </p>
         ) : null}
         <p className="text-ink-muted">Media is not available yet.</p>

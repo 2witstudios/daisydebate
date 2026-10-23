@@ -9,7 +9,10 @@ import {
   type LockedRoundTickInput,
 } from './round-clock-transaction';
 import { lockedRoundVersion } from './round-projection-writer';
-import { finalizeLockedRoundTranscript } from './transcript-finalization';
+import {
+  finalizeLockedRoundTranscript,
+  type FreezeRequest,
+} from './transcript-finalization';
 import { rounds } from './schema/rounds';
 
 type DueInput = LockedRoundTickInput & { readonly instanceId: string };
@@ -74,7 +77,9 @@ export function roundMaintenanceOperations(run: BoundedTransaction) {
     },
     tickDueRound: (input: DueInput) =>
       withRound(input, (tx) => executeLockedRoundTick(tx, input)),
-    finalizeDueRoundTranscript: (input: DueInput) =>
+    finalizeDueRoundTranscript: (
+      input: DueInput & Pick<FreezeRequest, 'ballotDeadlineMs'>,
+    ) =>
       withRound(input, (tx, assertCurrent) =>
         finalizeLockedRoundTranscript(tx, input, assertCurrent),
       ),

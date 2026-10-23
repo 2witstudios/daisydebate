@@ -195,7 +195,19 @@ depends on one, and nothing in a Round's history would change if Rooms were dele
   verifies these facts before projecting the shared runtime completion and its
   durable receipt; callers cannot select this mode in a public command body.
   The common result says “Unjudged”, with no fabricated ballot, draw or rating.
-  Ranked, nonzero-judge, forfeit and abandonment rules retain their own guards.
+  Ranked, forfeit and abandonment rules retain their own guards.
+- **Judges rule within a ballot deadline (DEC-201, DEC-207).** The freeze
+  persists `rounds.ballot_deadline_at`, 30 minutes (injected policy) after the
+  freeze time, and it is immutable. A ballot at or after it is refused by the
+  database clock. A judged casual Round whose judges have not all ruled by then
+  completes through the same finalizer: missing ballots are recorded as no
+  ruling in the receipt, and submitted ballots decide a winner by the existing
+  rule. With none, or a tie the absent rulings would turn into a draw, the
+  outcome is null and the result says “Judges did not rule”. There is no winner,
+  draw, forfeit or rating for an absent ruling, and judging jobs still open
+  become known failures. DEC-191's deferred triggers still fence the database:
+  a null-outcome completion needs zero judge seats or a completion at or after
+  the persisted deadline.
 - **AI practice capacity is reclaimed durably at admission.** Under the global
   admission lock, scheduled practices with no execution for 15 minutes and active
   practices with no execution for two hours become abandoned. Reclamation locks

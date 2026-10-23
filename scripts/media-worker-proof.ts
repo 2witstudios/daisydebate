@@ -7,6 +7,7 @@ import { systemId } from '@daisy/clock';
 import { createRoundRuntimeOperations } from '../apps/web/src/features/round-runtime/operations';
 import { createRoundMediaOperations } from '../apps/web/src/features/round-media/operations';
 import { mediaRuntime } from '../apps/web/src/features/round-media/projection';
+import { DEFAULT_BALLOT_DEADLINE_MS } from '../apps/web/src/features/round-finalization/maintenance';
 import { createMediaWorkerTokenBroker } from '../apps/web/src/features/round-media/worker-token';
 import { createMediaCaptureHandlers } from '../apps/web/src/features/media-capture/handlers';
 import { createBotActivityRelay } from '../apps/web/src/features/round-bots/activity-relay';
@@ -225,6 +226,7 @@ export async function proveMediaWorker(f: Fixture, key: string, root: string) {
       roundId,
       buildProjection: (context) =>
         mediaRuntime(context, nextId).tick(context.now),
+      ballotDeadlineMs: DEFAULT_BALLOT_DEADLINE_MS,
     });
     const transcript = await f.store.readFrozenRoundTranscript(roundId);
     if (

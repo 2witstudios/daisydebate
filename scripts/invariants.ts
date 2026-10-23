@@ -130,6 +130,8 @@ const fixtures: Readonly<Record<string, Fixture>> = {
     round({ status: 'active' }).completeUnjudged({
       competitionType: 'casual',
       now: t0,
+      ballots: [],
+      ballotDeadlineAt: t0,
     }),
   'completed-is-terminal': () =>
     round({ status: 'completed' }).execute({
