@@ -2,6 +2,7 @@ import type { BotPublicationScope } from '@daisy/db/bot-publication';
 import { isTransactionCapacityRefusal } from '@daisy/db';
 import { isFinalBotSpeechRefusal } from '@daisy/db/bot-publication';
 import { createAppError, isAppError } from '@daisy/errors';
+import { publicationStopError, type PublicationStop } from '@daisy/media/audio';
 import type { BotSpeechJob } from './publication';
 
 /** A provider answer held in memory until its usage and authority settle. */
@@ -26,6 +27,7 @@ const freshProgress = (): Progress => ({
   synthesized: null,
   sent: 0,
 });
+const STOPPED = 'Bot publication stopped before the phrase was sent';
 export type PeerActivity =
   'speech-start' | 'end-of-turn' | 'barge-in' | 'unknown';
 /**
@@ -59,13 +61,18 @@ export function createBotSpeaker(input: {
   ) => Promise<Answer<BotSpeechJob>>;
   /**
    * `onSent` reports the samples of `job` sent so far, after each frame is
-   * sent. `segmentEnded` says an incomplete job stopped at its segment end.
+   * sent. `segmentEnded` says an incomplete job stopped at its segment end;
+   * `stop` says why it stopped short otherwise.
    */
   readonly publish: (
     job: BotSpeechJob,
     signal: AbortSignal,
     onSent?: (samples: number) => void,
-  ) => Promise<{ readonly complete: boolean; readonly segmentEnded: boolean }>;
+  ) => Promise<{
+    readonly complete: boolean;
+    readonly segmentEnded: boolean;
+    readonly stop?: PublicationStop | null;
+  }>;
   readonly nextId: () => string;
   readonly maxAttempts: number;
   /** `stage` names the work that failed: generate, synthesize or publish. */
@@ -97,7 +104,7 @@ export function createBotSpeaker(input: {
     if (from >= phrase.pcm.length) return true;
     playing = true;
     try {
-      const { complete, segmentEnded } = await input.publish(
+      const { complete, segmentEnded, stop } = await input.publish(
         { ...phrase, pcm: phrase.pcm.subarray(from) },
         signal,
         (samples) => {
@@ -105,10 +112,9 @@ export function createBotSpeaker(input: {
         },
       );
       if (!complete && !segmentEnded && !signal.aborted)
-        throw createAppError(
-          'INFRASTRUCTURE',
-          'Bot publication stopped before the phrase was sent',
-        );
+        throw stop
+          ? publicationStopError(stop, STOPPED)
+          : createAppError('INFRASTRUCTURE', STOPPED);
       return complete;
     } finally {
       playing = false;

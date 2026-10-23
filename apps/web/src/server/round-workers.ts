@@ -1,3 +1,4 @@
+import { publicationStopOf } from '@daisy/media/audio';
 import type { ErrorReporter } from '@daisy/observability';
 import { workerFailures } from './recoverable-failure';
 import { createAttendanceFeature } from '../features/attendance/operations';
@@ -72,6 +73,8 @@ export function startRoundWorkers(input: {
           'round.speaking.failed',
           'round.speaking',
           'Bot speech stays uncredited',
+          // Says whether a publish stopped at a stall or a native failure.
+          publicationStopOf,
         ),
       })
     : null;

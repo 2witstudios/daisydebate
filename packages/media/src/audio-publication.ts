@@ -1,13 +1,42 @@
-import { createAppError } from '@daisy/errors';
+import { createAppError, isAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import {
   AudioFrame,
   AudioSource,
   LocalAudioTrack,
   Room,
+  RoomEvent,
   TrackPublishOptions,
   TrackSource,
 } from '@livekit/rtc-node';
+
+/**
+ * Why a publication stopped short: the native connect or handoff failed, or
+ * the paced writer stopped (a wake still late after re-anchoring, an invalid
+ * clock or receipt, a refused window). Codes only, safe to log (ISSUE-514-r1).
+ */
+export type PublicationStop =
+  'connect' | 'handoff' | 'stall' | 'clock' | 'refused';
+const STOPS: readonly PublicationStop[] = [
+  'connect',
+  'handoff',
+  'stall',
+  'clock',
+  'refused',
+];
+/** An INFRASTRUCTURE error that names its stop as its cause. */
+export const publicationStopError = (stop: PublicationStop, message: string) =>
+  createAppError('INFRASTRUCTURE', message, { stop });
+/** The stop an error names, or undefined: never any other part of it. */
+export function publicationStopOf(error: unknown): PublicationStop | undefined {
+  if (!isAppError(error) || error.code !== 'INFRASTRUCTURE') return undefined;
+  const cause: unknown = error.cause;
+  const stop =
+    cause !== null && typeof cause === 'object' && 'stop' in cause
+      ? cause.stop
+      : undefined;
+  return STOPS.find((known) => known === stop);
+}
 
 /** Acknowledged native handoff bracket, not an estimated playout timestamp. */
 export type SourceProgress = {
@@ -48,6 +77,10 @@ export async function createAudioPublication(input: {
   let samples = 0;
   let pending: Promise<SourceProgress> | undefined;
   let shutdown: Promise<{ readonly consumedSamples: number }> | undefined;
+  // A dropped connection ends the publication: no later frame reaches anyone.
+  room.on(RoomEvent.Disconnected, () => {
+    failed = true;
+  });
   try {
     await room.connect(input.url, input.token, {
       autoSubscribe: false,
@@ -65,9 +98,13 @@ export async function createAudioPublication(input: {
   } catch {
     await track.close();
     await room.disconnect();
-    throw createAppError('INFRASTRUCTURE', 'Native audio publication failed');
+    throw publicationStopError('connect', 'Native audio publication failed');
   }
   return {
+    /** False once closing, after a failed handoff, or when the room dropped. */
+    usable: () => !closing && !failed,
+    /** Samples per channel handed to the source so far, across every job. */
+    sentSamples: () => samples,
     capture10ms(data: Int16Array): Promise<SourceProgress> {
       if (closing || failed)
         return Promise.reject(
@@ -110,7 +147,7 @@ export async function createAudioPublication(input: {
           return { startSample, endSample: samples, beforeMs, afterMs };
         } catch {
           failed = true;
-          throw createAppError('INFRASTRUCTURE', 'Native audio handoff failed');
+          throw publicationStopError('handoff', 'Native audio handoff failed');
         }
       };
       pending = capture().finally(() => {

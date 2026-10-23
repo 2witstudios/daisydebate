@@ -1,5 +1,8 @@
 import { createAppError } from '@daisy/errors';
-import type { createAudioPublication } from './audio-publication';
+import type {
+  createAudioPublication,
+  PublicationStop,
+} from './audio-publication';
 import {
   observeSourceProgress,
   publicationClock,
@@ -63,15 +66,24 @@ async function refresh(input: PacedInput, clock: Timeline, interval: number) {
     ? refreshPublicationClock(clock, await input.calibrate())
     : clock;
 }
-/** Sends one frame and reports it sent before its window is judged. */
+/**
+ * Sends one frame and reports it sent before its window is judged. The
+ * publication outlives the job, so its receipts count from `base`, the
+ * samples it had sent before this job began.
+ */
 async function captureFrame(
   input: PacedInput,
   clock: Timeline,
   data: Int16Array,
+  base: number,
 ) {
   const receipt = await input.publication.capture10ms(data);
   input.onSent?.(clock.eligibleSamples + data.length / input.channels);
-  return observeSourceProgress(clock, receipt);
+  return observeSourceProgress(clock, {
+    ...receipt,
+    startSample: receipt.startSample - base,
+    endSample: receipt.endSample - base,
+  });
 }
 /** A sent frame, `late` when a stalled wake sent nothing, or null to stop. */
 async function writeFrame(
@@ -80,6 +92,7 @@ async function writeFrame(
   data: Int16Array,
   signal: AbortSignal,
   interval: number,
+  base: number,
 ): Promise<{ clock: Timeline; window: FrameWindow } | 'late' | null> {
   if (signal.aborted || !original.valid) return null;
   const clock = await refresh(input, original, interval);
@@ -89,7 +102,7 @@ async function writeFrame(
   await input.waitUntilMs(due, signal);
   if (signal.aborted) return null;
   if (input.nowMs() - due > 100) return 'late';
-  const observed = await captureFrame(input, clock, data);
+  const observed = await captureFrame(input, clock, data, base);
   if (signal.aborted || !observed.window) return null;
   return { clock: observed.clock, window: observed.window };
 }
@@ -157,7 +170,11 @@ function createBatch(input: PacedInput, signal: AbortSignal) {
 const pastSegmentEnd = (input: PacedInput, window: FrameWindow) =>
   input.segmentEndsAtMs !== undefined &&
   window.afterMs >= input.segmentEndsAtMs;
-type Outcome = { eligibleSamples: number; segmentEnded: boolean };
+type Outcome = {
+  eligibleSamples: number;
+  segmentEnded: boolean;
+  stop: PublicationStop | null;
+};
 /** Paces every frame of the job into `outcome`, until it is done or stops. */
 async function sendFrames(
   input: PacedInput,
@@ -166,6 +183,7 @@ async function sendFrames(
   interval: number,
   outcome: Outcome,
 ) {
+  const base = input.publication.sentSamples();
   let clock = publicationClock({
     calibration: await input.calibrate(),
     anchorMs: input.nowMs(),
@@ -178,6 +196,7 @@ async function sendFrames(
     const credited = await batch.authorize();
     outcome.segmentEnded =
       credited === 'ended' || pastSegmentEnd(input, window);
+    if (credited === 'refused') outcome.stop = 'refused';
     if (typeof credited !== 'number') return false;
     outcome.eligibleSamples = credited;
     await input.onAccepted?.(credited);
@@ -192,11 +211,13 @@ async function sendFrames(
       data.subarray(offset, offset + size),
       signal,
       interval,
+      base,
     );
     if (next === 'late') {
       // A stalled wake sent nothing: the frames before it are authorized
       // alone, so no union spans the stall, and the cadence re-anchors once.
-      if (reanchored || (batch.pending() && !(await settle(last!)))) return;
+      if (reanchored) return void (outcome.stop = 'stall');
+      if (batch.pending() && !(await settle(last!))) return;
       reanchored = true;
       clock = reanchorPublicationClock(
         clock,
@@ -205,7 +226,10 @@ async function sendFrames(
       );
       continue;
     }
-    if (!next) return;
+    if (!next) {
+      if (!signal.aborted) outcome.stop = 'clock';
+      return;
+    }
     reanchored = false;
     clock = next.clock;
     last = next.window;
@@ -225,7 +249,11 @@ async function writeJob(
 ) {
   validateJob(input, data);
   const interval = refreshInterval(input);
-  const outcome: Outcome = { eligibleSamples: 0, segmentEnded: false };
+  const outcome: Outcome = {
+    eligibleSamples: 0,
+    segmentEnded: false,
+    stop: null,
+  };
   try {
     await sendFrames(input, data, signal, interval, outcome);
   } catch (error) {
@@ -238,10 +266,16 @@ async function writeJob(
       outcome.eligibleSamples * input.channels === data.length,
     /** The job stopped because its segment ended, not for timing or refusal. */
     segmentEnded: outcome.segmentEnded,
+    /** Why the job stopped short otherwise, or null. */
+    stop: signal.aborted ? null : outcome.stop,
   };
 }
 
-/** One cancellable PCM job. Raw handoffs cannot bypass cadence or authority. */
+/**
+ * One cancellable PCM job. Raw handoffs cannot bypass cadence or authority.
+ * The publication belongs to its owner, who closes it: the next job on the
+ * same track resumes where this one stopped (ISSUE-514-r1).
+ */
 export function createPacedAudioWriter(input: PacedInput) {
   const batch = input.framesPerAuthorization;
   if (!Number.isSafeInteger(batch) || batch < 1 || batch > 10)
@@ -251,10 +285,6 @@ export function createPacedAudioWriter(input: PacedInput) {
     if (used)
       throw createAppError('CONFLICT', 'A publication job cannot be reused');
     used = true;
-    try {
-      return await writeJob(input, data, signal);
-    } finally {
-      await input.publication.close();
-    }
+    return writeJob(input, data, signal);
   };
 }

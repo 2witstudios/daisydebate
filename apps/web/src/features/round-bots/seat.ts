@@ -7,6 +7,14 @@ export function createBotSeat(input: {
     readonly wake: () => void;
     readonly stop: () => Promise<void>;
   };
+  /**
+   * The claim's native publication: joined with the seat, ahead of speech,
+   * and ended with it, after the speaker stops (ISSUE-514-r1).
+   */
+  readonly publication: {
+    readonly start: () => void;
+    readonly close: () => Promise<void>;
+  };
   /** Present only for cross-examination, where peer activity can cancel a phrase. */
   readonly feed: { readonly poll: () => Promise<void> } | null;
   readonly pollMs: number;
@@ -28,6 +36,7 @@ export function createBotSeat(input: {
     })();
     return polling;
   };
+  input.publication.start();
   const timer = input.feed
     ? input.timers.setInterval(poll, input.pollMs)
     : null;
@@ -39,7 +48,11 @@ export function createBotSeat(input: {
     async stop() {
       if (timer !== null) input.timers.clearInterval(timer);
       await polling;
-      await input.speaker.stop();
+      try {
+        await input.speaker.stop();
+      } finally {
+        await input.publication.close();
+      }
     },
   };
 }

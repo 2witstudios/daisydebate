@@ -1,5 +1,6 @@
 import type { OpenRouter } from '@daisy/ai-voice';
 import type { Database } from '@daisy/db';
+import { createAudioPublication } from '@daisy/media/audio';
 import type { BotPublicationScope } from '@daisy/db/bot-publication';
 import type { ProviderCapacity } from '../round-judging/operations';
 import { createBotActivityFeed } from './activity-feed';
@@ -42,9 +43,11 @@ export function createSpeakingBotControl(input: {
     nowMs: input.nowMs,
     maxTokens: MAX_TOKENS,
   });
-  const publish = createBotPublisher({
+  const publisher = createBotPublisher({
     store: input.store,
     botToken: input.botToken,
+    connect: createAudioPublication,
+    nextId: input.nextId,
     monotonicNowMs: () => performance.now(),
     waitUntilMs: async (due, signal) => {
       while (!signal.aborted && performance.now() < due)
@@ -57,13 +60,14 @@ export function createSpeakingBotControl(input: {
     claim: Claim,
     receipts: { readonly pulse: () => Promise<unknown> },
   ) => {
+    const publication = publisher(claim);
     const speaker = createBotSpeaker({
       claim,
       generate: (scope, token, signal) =>
         generation.generate(scope, token, bounded(signal)),
       synthesize: (scope, token, phraseId, text, signal) =>
         generation.synthesize(scope, token, phraseId, text, bounded(signal)),
-      publish,
+      publish: publication.publish,
       nextId: input.nextId,
       maxAttempts: MAX_ATTEMPTS,
       failed: input.failed,
@@ -83,6 +87,7 @@ export function createSpeakingBotControl(input: {
     return createBotSeat({
       control: receipts,
       speaker,
+      publication,
       feed,
       pollMs: ACTIVITY_POLL_MS,
       timers: input.timers,
