@@ -1,5 +1,6 @@
 import { createServer } from 'node:http';
-import { chmodSync, rmSync } from 'node:fs';
+import { chmodSync, lstatSync, rmSync } from 'node:fs';
+import { connect } from 'node:net';
 export type LaunchControlOperation =
   | 'settled'
   | 'block-check-in'
@@ -14,7 +15,7 @@ export type LaunchControlOperation =
   | 'use-primary-web'
   | 'restart-web';
 /** An owner-only Unix capability, never mounted on the app's public HTTP ingress. */
-export function createLaunchControl(input: {
+export async function createLaunchControl(input: {
   readonly path: string;
   readonly settled: () => Promise<void>;
   readonly pending: () => number;
@@ -47,8 +48,40 @@ export function createLaunchControl(input: {
       () => response.writeHead(503).end(),
     );
   });
+  // Refused before listening, so a failed listen never removes a live socket.
+  if (await socketInUse(input.path))
+    throw Object.assign(new Error('Launch control socket is in use'), {
+      code: 'EADDRINUSE',
+    });
   server.once('close', () => rmSync(input.path, { force: true }));
   server.once('listening', () => chmodSync(input.path, 0o600));
   server.listen(`${input.path}`);
   return server;
+}
+
+/**
+ * Whether a live listener answers on the path. A run killed before its close
+ * leaves its socket file behind (ISSUE-492); a socket that refuses connection
+ * is that leftover and is removed. Anything else at the path is left alone.
+ */
+async function socketInUse(path: string) {
+  let socket: boolean;
+  try {
+    socket = lstatSync(path).isSocket();
+  } catch {
+    return false;
+  }
+  if (!socket) return true;
+  const live = await new Promise<boolean>((answer) => {
+    const probe = connect(path);
+    probe.once('connect', () => {
+      probe.destroy();
+      answer(true);
+    });
+    probe.once('error', (error: NodeJS.ErrnoException) =>
+      answer(error.code !== 'ECONNREFUSED'),
+    );
+  });
+  if (!live) rmSync(path);
+  return live;
 }

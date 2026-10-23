@@ -25,7 +25,7 @@ const app = createApp(
   ),
 );
 adoptProcessApp(app);
-const control = createLaunchControl({
+const control = await createLaunchControl({
   path: launchAppControlPath(slot.id, peer),
   settled: () => app.auth().settled(),
   pending: () => app.auth().pendingWork(),
