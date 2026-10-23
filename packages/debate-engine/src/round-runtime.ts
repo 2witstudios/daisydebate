@@ -323,7 +323,7 @@ export function createRoundRuntime(input: {
       applyUnjudgedCompletion(
         contextOn(scratch, into, null, Date.parse(completion.now)),
         completion,
-        input.participants.filter((seat) => seat.role === 'judge').length,
+        input.participants,
       );
       store = scratch;
       return project(into);

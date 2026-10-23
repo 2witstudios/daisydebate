@@ -96,6 +96,8 @@ export const rounds = pgTable(
       .default(emptyRuntimeCheckpoint),
     finalSegmentEndedAt: timestampColumn('final_segment_ended_at'),
     transcriptAdmissionCutoff: timestampColumn('transcript_admission_cutoff'),
+    /** Set once at the transcript freeze from the injected policy; judges rule before it (DEC-201, DEC-207). */
+    ballotDeadlineAt: timestampColumn('ballot_deadline_at'),
     createdAt: createdAtColumn(),
     updatedAt: updatedAtColumn(),
     version: versionColumn(),
@@ -103,7 +105,8 @@ export const rounds = pgTable(
   (table) => {
     const scheduled = sql`${table.status} = 'scheduled' and ${table.currentStage} is null and ${table.outcome} is null and ${table.startedAt} is null and ${table.completedAt} is null`;
     const active = sql`${table.status} = 'active' and ${table.currentStage} is not null and ${table.outcome} is null and ${table.startedAt} is not null and ${table.completedAt} is null`;
-    const unjudged = sql`${table.competitionType} = 'casual' and ${table.ladderId} is null and coalesce(${table.rulesSnapshot} #> '{seats,judge}' = '0'::jsonb, false)`;
+    /** No outcome: a zero-judge casual Round, or judges past their ballot deadline (DEC-201). */
+    const unjudged = sql`${table.competitionType} = 'casual' and ${table.ladderId} is null`;
     const completed = sql`${table.status} = 'completed' and ${table.currentStage} is null and (${table.outcome} is not null or (${unjudged})) and ${table.startedAt} is not null and ${table.completedAt} is not null`;
     const abandoned = sql`${table.status} = 'abandoned' and ${table.currentStage} is null and ${table.outcome} is null and ${table.completedAt} is not null`;
     return [

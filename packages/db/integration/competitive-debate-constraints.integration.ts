@@ -8,7 +8,6 @@ import {
   withFixture,
 } from './constraint-helpers';
 import { requireTestServices } from '@daisy/config';
-import { validRules } from './round-fixtures';
 
 setupRitewayBun();
 
@@ -112,10 +111,7 @@ describe('rounds (DATA-2.1)', () => {
           status: 'completed',
           started_at: at,
           completed_at: at,
-          rules_snapshot: {
-            ...validRules,
-            seats: { ...validRules.seats, judge: 1 },
-          },
+          competition_type: 'practice',
         }),
         completedUnjudgedCasual: !(await attempt({
           status: 'completed',
@@ -169,7 +165,7 @@ describe('rounds (DATA-2.1)', () => {
       assert({
         given: 'every status combined with its stage, timestamps and outcome',
         should:
-          'accept only coherent rows, including abandoned-before-start and casual zero-judge completion, and reject the rest',
+          'accept only coherent rows, including abandoned-before-start and casual completion without a winner, and reject the rest',
         actual: outcomes,
         expected: {
           activeWithoutStage: true,

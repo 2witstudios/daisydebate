@@ -5,6 +5,7 @@ import { validRules } from './round-fixtures';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 const zeroRules = { ...validRules, seats: { ...validRules.seats, judge: 0 } };
+const judgedRules = { ...zeroRules, seats: { ...zeroRules.seats, judge: 1 } };
 const start = new Date('2026-10-22T10:00:00.000Z');
 const end = new Date('2026-10-22T10:01:00.000Z');
 const completed = {
@@ -15,32 +16,59 @@ const completed = {
   outcome: null,
 };
 
-test('only casual zero-judge snapshots can persist completed without a winner', async () => {
+test('a judged casual Round completes without a winner only once the database clock reaches its persisted ballot deadline (DEC-201, DEC-207)', async () => {
   await withFixture(databaseUrl, async (f) => {
-    let id = '';
-    const accepted = await rejectedBy(async () => {
-      id = await f.round({ ...completed, rules_snapshot: zeroRules });
+    const zeroJudge = await rejectedBy(() =>
+      f.round({ ...completed, rules_snapshot: zeroRules }),
+    );
+    const [{ now }] = await f.sql`select clock_timestamp() as now`;
+    const future = new Date(now.getTime() + 3_600_000);
+    const judgedAt = async (deadline: Date | null, completedAt: Date) => {
+      const id = await f.round({
+        status: 'active',
+        current_stage: 'live',
+        started_at: start,
+        rules_snapshot: judgedRules,
+        ballot_deadline_at: deadline,
+      });
+      await f.seat(id, 'judge');
+      return rejectedBy(() =>
+        f.sql.begin(
+          (tx) =>
+            tx`update rounds set status='completed',current_stage=null,outcome=null,completed_at=${completedAt} where id=${id}`,
+        ),
+      );
+    };
+    const repinned = await f.round({
+      status: 'active',
+      current_stage: 'live',
+      started_at: start,
+      ballot_deadline_at: end,
     });
-    const judged = await rejectedBy(() =>
-      f.round({
-        ...completed,
-        rules_snapshot: {
-          ...zeroRules,
-          seats: { ...zeroRules.seats, judge: 1 },
-        },
-      }),
-    );
-    const missing = await rejectedBy(
-      () =>
-        f.sql`update rounds set rules_snapshot=rules_snapshot #- '{seats,judge}' where id=${id}`,
-    );
     assert({
       given:
-        'completed rows with zero-judge, judged or missing frozen judge facts',
+        'a zero-judge completion, judged completions with no deadline, a future deadline (even claiming completion at it) and a passed one, and a deadline rewrite',
       should:
-        'permit only the explicit casual zero-judge snapshot and retain null outcome',
-      actual: [accepted, judged, missing],
-      expected: [null, 'rounds_lifecycle_check', 'rounds_lifecycle_check'],
+        'judge the deadline by the database clock: accept zero judges and a passed deadline, and refuse the rest and the rewrite',
+      actual: [
+        zeroJudge,
+        await judgedAt(null, end),
+        await judgedAt(future, end),
+        await judgedAt(future, future),
+        await judgedAt(end, end),
+        await rejectedBy(
+          () =>
+            f.sql`update rounds set ballot_deadline_at=${future} where id=${repinned}`,
+        ),
+      ],
+      expected: [
+        null,
+        'rounds_unjudged_participants_check',
+        'rounds_unjudged_participants_check',
+        'rounds_unjudged_participants_check',
+        null,
+        'rounds_ballot_deadline_immutable',
+      ],
     });
   });
 });
@@ -70,7 +98,7 @@ test('actual judge seats cannot bypass or follow unjudged completion', async () 
   });
 });
 
-test('ranked and judged completion retain the required outcome', async () => {
+test('ranked and practice completion retain the required outcome', async () => {
   await withFixture(databaseUrl, async (f) => {
     const formatId = await f.format();
     await f.preset(formatId);
@@ -84,19 +112,17 @@ test('ranked and judged completion retain the required outcome', async () => {
         format_id: formatId,
       }),
     );
-    const judged = await f.round({
-      ...completed,
-      outcome: 'affirmative',
-      rules_snapshot: { ...zeroRules, seats: { ...zeroRules.seats, judge: 1 } },
-    });
-    const nulling = await rejectedBy(
-      () => f.sql`update rounds set outcome=null where id=${judged}`,
+    const practice = await rejectedBy(() =>
+      f.round({
+        ...completed,
+        rules_snapshot: judgedRules,
+        competition_type: 'practice',
+      }),
     );
     assert({
-      given:
-        'ranked zero-judge rows or judged rows with an established outcome',
-      should: 'retain the nonnull-outcome lifecycle guard',
-      actual: [ranked, nulling],
+      given: 'completed ranked and practice rows without an outcome',
+      should: 'refuse both with the lifecycle guard',
+      actual: [ranked, practice],
       expected: ['rounds_lifecycle_check', 'rounds_lifecycle_check'],
     });
   });
