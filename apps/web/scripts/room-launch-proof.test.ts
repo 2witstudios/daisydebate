@@ -49,6 +49,7 @@ test('dedicated config refuses shared checkouts and binds dedicated paths', asyn
   const script = `import config from './apps/web/e2e/support/room-launch-config';
     console.log(JSON.stringify({
       servers: config.webServer.map(server => server.cwd ?? null),
+      logs: config.webServer.map(server => server.command.match(/> ([^ ]+[.]log)/)?.[1] ?? null),
       artifacts: config.outputDir ?? null,
       report: config.reporter.find(reporter => reporter[0] === 'json')[1].outputFile,
     }));`;
@@ -86,12 +87,13 @@ test('dedicated config refuses shared checkouts and binds dedicated paths', asyn
   assert({
     given: 'the actual dedicated config loaded from its nested support folder',
     should:
-      'run the owned web/realtime supervisor from its workspace and retain artifacts at the CI-registered paths',
+      'run the owned web/realtime supervisor from its workspace, log under its own name (the later realtime proofs reuse the port, ISSUE-510) and retain artifacts at the CI-registered paths',
     actual: { status, paths: JSON.parse(output) },
     expected: {
       status: 0,
       paths: {
         servers: [resolve(checkout, 'apps/web')],
+        logs: ['test-results/room-launch-server-13001.log'],
         artifacts: resolve(checkout, 'apps/web/test-results'),
         report: resolve(
           checkout,
