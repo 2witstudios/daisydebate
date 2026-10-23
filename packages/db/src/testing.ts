@@ -150,3 +150,4 @@ export {
 
 export { createScriptedAuthorizationTransaction } from './testing-authorization';
 export { refuseCapacity } from './bounded-transaction';
+export { refuseFinalSpeech } from './bot-generation';

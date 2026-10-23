@@ -18,6 +18,18 @@ import { agentRuns } from './schema/agent-runs';
 import { botProfiles } from './schema/bot-profiles';
 import { readOrderedRoundUtterances } from './round-utterance-projection';
 
+const finalRefusals = new WeakSet<Error>();
+/**
+ * A bot speech refusal no retry can clear: this seat's voice budget is spent,
+ * or its answer for this segment was already received. The speaker stops.
+ */
+export const isFinalBotSpeechRefusal = (error: unknown): boolean =>
+  error instanceof Error && finalRefusals.has(error);
+export function refuseFinalSpeech(message: string) {
+  const refusal = createAppError('CONFLICT', message);
+  finalRefusals.add(refusal);
+  return refusal;
+}
 type GenerationRequest =
   | { readonly kind: 'language' }
   | { readonly kind: 'tts'; readonly characters: number };
@@ -97,8 +109,27 @@ async function speechModel(
       ),
     );
   if (Number(total?.characters ?? 0) + characters > policy.speechBudget)
-    throw createAppError('CONFLICT', 'Speech budget exhausted');
+    throw refuseFinalSpeech('Speech budget exhausted');
   return policy.ttsModel;
+}
+/** One received answer per speech seat and segment, across worker recoveries (ISSUE-456). */
+async function requireUnansweredSpeech(
+  tx: BoundedTransactionContext,
+  scope: BotPublicationScope,
+) {
+  const [answered] = await tx
+    .select({ id: agentRuns.id })
+    .from(agentRuns)
+    .where(
+      and(
+        eq(agentRuns.roundParticipantId, scope.roundParticipantId),
+        eq(agentRuns.kind, 'speech'),
+        sql`${agentRuns.configurationSnapshot}->>'segmentId' = ${scope.segmentId}`,
+        sql`${agentRuns.configurationSnapshot}->>'providerOutcome' = 'received'`,
+      ),
+    )
+    .limit(1);
+  if (answered) throw refuseFinalSpeech('Speech already answered');
 }
 /** Dispatch authority and usage settlement are distinct capabilities; neither writes speech. */
 export function createBotGenerationOperations(input: {
@@ -124,6 +155,8 @@ export function createBotGenerationOperations(input: {
           .from(botProfiles)
           .where(eq(botProfiles.actorId, context.seat.actorId));
         if (!profile) throw createAppError('AUTHORIZATION');
+        if (request.kind === 'language' && context.run.kind === 'speech')
+          await requireUnansweredSpeech(tx, scope);
         const model =
           request.kind === 'tts'
             ? await speechModel(tx, scope, request.characters, input)
