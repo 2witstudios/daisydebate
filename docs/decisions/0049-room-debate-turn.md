@@ -3,10 +3,12 @@
 Current authority: [ADR 0058](0058-one-round-model.md) replaces the historical
 Debate/Turn representation below. [ADR 0067](0067-playable-round-policy-and-acceptance.md)
 supersedes section 4's same-Room reopening: a started Room retains its unique
-Round; another match uses a newly created Room and fresh readiness. Historical
-criteria remain preserved; this record is not implementation acceptance.
+Round; another match uses a newly created Room and fresh readiness. Read each
+section through its amendments and through "What shipped" at the end; the
+historical text is preserved as written.
 
-Status: proposed. Extends [ADR 0029](0029-competitive-schema-foundation.md)
+Status: accepted (DEC-217, 2026-10-23, ROOM-6.3), together with the five dated
+amendments below, as the record of what shipped. Extends [ADR 0029](0029-competitive-schema-foundation.md)
 (the debate is the durable competitive record) and
 [ADR 0033](0033-presence-and-adjudication.md) (turns are computed from the
 rules). Amends [ADR 0030](0030-effective-rules-and-growth-paths.md) (the lobby
@@ -14,8 +16,7 @@ becomes a named, durable concept and replaces the `source` provenance key),
 [ADR 0031](0031-realtime-service.md) section 5 (one new topic family) and
 [ADR 0048](0048-authorization-core.md) sections 1 and 2 (unranked creation
 and the room capabilities; hosting ranked play by anyone with an actor is
-kept), each in its own `## Amendment` section when this record is
-accepted. Decisions marked open at the end were made on the owner's behalf and
+kept), each in its own `## Amendment` section. Decisions marked open at the end were made on the owner's behalf and
 stay open until the owner confirms or overrules them.
 
 ## Context
@@ -201,11 +202,11 @@ affected: rooms are not Redis state.
 4. Ready flags are persisted with the seat. If write volume proves a problem,
    moving them to Redis is an additive change that touches no result.
 
-The four amendments below were drafted on 2026-10-07, while this record is
+The four amendments below were drafted on 2026-10-07, while this record was
 still proposed, because [ADR 0058](0058-one-round-model.md) — accepted
 2026-10-06 — contradicts it in four places. Each amendment reconciles one and
-cites the section it applies. They take effect when the owner accepts this
-record in one action; until then the body above stands as written.
+cites the section it applies. A fifth followed on 2026-10-09. All five took
+effect with this record's acceptance (DEC-217).
 
 ## Amendment (2026-10-07, draft): the stored noun is the round
 
@@ -303,3 +304,19 @@ specific owner choices. The runtime requires injected policy, and isolated
 proof choices confer no acceptance. Durable segment/floor speaking history,
 media, transcription freeze and judging delivery remain separate producers;
 section 5 must not license a fixed-timetable media authority.
+
+## What shipped (2026-10-23)
+
+This records the state of `pu/round-integration` at acceptance. The product
+lifecycle is described in [Rooms and Rounds](../domains/rooms.md).
+
+| Section                         | Shipped                                                                                                                                                                                                                                                              |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. Nouns                        | Room, Round and segment. The Round is the stored noun (first amendment, ADR 0058 §1). "Match" is UI copy only, and the Lobby is the browsing surface of open Rooms.                                                                                                  |
+| 2. Durable Room                 | `rooms` holds the host, saved title, topic and visibility, pinned format, config and rules, and version. Seats are rows. Readiness is expiring Redis consent behind a durable revision fence (third and fifth amendments). A Room row is never read as a result.     |
+| 3. Atomic start                 | Launch freezes one scheduled Round and its seats atomically and idempotently. A participant's `start` command then activates it through the shared runtime (fifth amendment). Ranked rules come only from a sanctioned preset (second amendment).                    |
+| 4. The Room outlives the debate | Superseded by ADR 0067: a Room has exactly one Round, a started Room is never reopened, and another match is a new Room with empty seats and fresh consent.                                                                                                          |
+| 5. Turns                        | Superseded by ADR 0058: segments and speaking intervals are durable rows (`round_segments`, `round_speaking_intervals`), executed by the runtime under the database clock. There is still no entity between the Round and its segments.                              |
+| 6. Matchmaking and tournaments  | Not built. Matchmaking, tournaments and hosted ranked tables stay out of this goal's scope (DEC-204). Both seat kinds take humans and bots (fourth amendment).                                                                                                       |
+| 7. Realtime and authorization   | `room:<id>` and the Round topic carry thin doorbells. Pages sync as resources, with backstop polling (ADR 0066). Room capabilities decide reads and joins. Private visibility is hidden and refused at creation until an invite path exists (DEC-206, ISSUE-443-r1). |
+| 8. Media session                | The LiveKit room is `media_sessions` in code, never the Daisy Room.                                                                                                                                                                                                  |
