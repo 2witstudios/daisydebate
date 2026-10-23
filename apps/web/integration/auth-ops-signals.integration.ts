@@ -250,8 +250,10 @@ describe('ISSUE-190 storage unavailable and retention signals', () => {
             'retention.availability_samples',
             'retention.email_delivery_event',
             'retention.email_delivery',
+            'retention.utterances',
+            'retention.pending_ballots',
           ],
-          failuresByTarget: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+          failuresByTarget: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
           lastSuccessWithinSweep: true,
         },
       });
@@ -259,7 +261,7 @@ describe('ISSUE-190 storage unavailable and retention signals', () => {
       dbProxy.resume();
       await edge.close();
     }
-    // Nine database targets, each failing only once its connection attempt
+    // Twelve database targets, each failing only once its connection attempt
     // through the paused proxy gives up (about 3 s apiece locally).
   }, 60_000);
 });
