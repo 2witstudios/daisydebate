@@ -7,6 +7,7 @@ import { createRoundMediaOperations } from '../src/features/round-media/operatio
 import { createRoundRuntimeOperations } from '../src/features/round-runtime/operations';
 import { mediaRuntime } from '../src/features/round-media/projection';
 import { withRoomRuntime } from './room-runtime.test-support';
+import { CAPTURE_STT_LAG_MS } from '../src/features/media-capture/policy';
 
 const localMediaConfig = {
   url: 'http://127.0.0.1:7880',
@@ -88,6 +89,7 @@ export const captureOperations = (
   fixture: Parameters<Parameters<typeof withMediaRound>[0]>[0],
 ) =>
   fixture.store.createMediaCaptureOperations({
+    sttLagMs: CAPTURE_STT_LAG_MS,
     nextId: createId,
     buildProjection: (context) =>
       mediaRuntime(context, createId).tick(context.now),

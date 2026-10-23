@@ -94,3 +94,35 @@ test('a closed capture session admits only audio captured before it closed, and 
     });
   });
 });
+
+test('audio stamped before the close but received after close plus the speech-to-text lag is refused (CAP-E.1-r8)', async () => {
+  await withBoundedRound(async (fixture, transaction, roundId) => {
+    const { store, lease, clip, start } = await historicalCapture(
+      fixture,
+      transaction,
+      roundId,
+      1000,
+      1000,
+    );
+    try {
+      await store.claimMediaWorkerLease({ ...lease, leaseMs: 15000 });
+      await fixture.sql.unsafe(
+        'update media_sessions set created_at=$2, unsafe_at=$3 where id=$1',
+        [
+          lease.sessionId,
+          new Date(start.getTime() - 1000),
+          new Date(Date.parse(clip.after) + 49),
+        ],
+      );
+      assert({
+        given:
+          'a clip stamped 49 ms before the session turned unsafe, arriving more than 1 s after it under a 1 s lag policy',
+        should: 'refuse it: the worker stamp alone cannot admit late audio',
+        actual: await outcome(() => store.appendCapturedTranscript(clip)),
+        expected: 'CONFLICT',
+      });
+    } finally {
+      await fixture.sql.unsafe('delete from rounds where id=$1', [roundId]);
+    }
+  });
+});

@@ -18,6 +18,7 @@ test('internal capture token admission requires a fresh exact lease and safe non
       epoch: 1,
     };
     const store = mediaCaptureOperations({
+      sttLagMs: 60_000,
       transaction,
       nextId: createId,
       buildProjection: () => {

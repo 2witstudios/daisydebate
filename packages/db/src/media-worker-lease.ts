@@ -47,7 +47,11 @@ export async function verifyMediaWorkerLease(
   );
   if (
     !session ||
-    !captureSessionAdmits(session, now) ||
+    !captureSessionAdmits(session, {
+      capturedUntil: now,
+      receivedAt: now,
+      sttLagMs: dependencies.sttLagMs,
+    }) ||
     pending ||
     !round ||
     !['scheduled', 'active'].includes(round.status) ||

@@ -125,11 +125,13 @@ is identified by `media_worker_leases.session_id`, `worker_id` and rising `epoch
 signed principal and active epoch under the same locks as append/seal.
 Every capture read, append, observation, seal and worker-token verification
 also applies one session rule, `captureSessionAdmits`: a deletion request admits
-nothing, because that is erasure; once the session ends or turns unsafe, only
-audio captured strictly before that instant is admitted (an append's clip end,
-an observation's end), so speech-to-text that runs behind the audio still lands
-and later audio cannot. Reads and seals carry no capture time and are refused
-only by a deletion request.
+nothing, because that is erasure; once the session ends or turns unsafe, a
+write is admitted only if its audio was captured strictly before that instant
+(an append's clip end, an observation's end) and it reaches the database within
+the injected speech-to-text lag after it (`sttLagMs`, `CAPTURE_STT_LAG_MS` =
+120 s in web composition), so lagging transcription of earlier audio still lands
+and a worker stamp alone never admits late audio. Reads and seals carry no
+capture time and are refused only by a deletion request.
 
 `utterances` remains the only transcript text store. Capture metadata identifies
 a clip by its segment, seat, track and start offset, plus a deterministic clip
