@@ -19,7 +19,7 @@ export const launchCustomSelection = {
         type: 'speech',
         side: 'negative',
         slot: 0,
-        defaultDurationMs: 7000,
+        defaultDurationMs: 41000,
       },
       {
         key: 'A2',
@@ -27,7 +27,7 @@ export const launchCustomSelection = {
         type: 'speech',
         side: 'affirmative',
         slot: 1,
-        defaultDurationMs: 13000,
+        defaultDurationMs: 53000,
       },
       {
         key: 'A1',
@@ -35,15 +35,16 @@ export const launchCustomSelection = {
         type: 'speech',
         side: 'affirmative',
         slot: 0,
-        defaultDurationMs: 11000,
+        defaultDurationMs: 47000,
       },
     ],
     configurable: {
       timing: {
         segmentDurationMs: {
-          N1: { min: 1000, max: 60000 },
-          A2: { min: 1000, max: 60000 },
-          A1: { min: 1000, max: 60000 },
+          // Every speech covers the 40 s attendance grace (resolveRoomConfiguration).
+          N1: { min: 40000, max: 60000 },
+          A2: { min: 40000, max: 60000 },
+          A1: { min: 40000, max: 60000 },
         },
         countdownMs: { min: 0, max: 5000 },
       },
