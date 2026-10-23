@@ -1,6 +1,7 @@
 import type { Browser } from '@playwright/test';
 import { roomCastChoiceSchema } from '@daisy/protocol';
 import { expect, openPage } from './fixtures';
+import { origin } from './accounts';
 import { createRoomLaunchAccounts } from './room-launch-accounts';
 import {
   assignSeat,
@@ -16,6 +17,8 @@ import { botSpeechEvidence } from './bot-speech-evidence';
 
 /** The shortest legal bot speech; the bot holds the floor until its clock ends. */
 const BOT_SPEECH_MS = 60_000;
+/** How long the human holds the floor before yielding to the bot. */
+const HUMAN_SPEECH_MS = 3_000;
 
 /**
  * One human affirmative against a stored bot negative, judged by a stored
@@ -58,8 +61,18 @@ export async function proveHumanBotJourney(browser: Browser) {
     });
     room = await readyOwnSeat(host, room, { role: 'affirmative', slot: 0 });
     let view = await startAdmittedRound(host, room);
+    // The human is in the Round room with a real (fake-device) microphone for
+    // the whole Round, as in play: the capture worker hears their speech, and
+    // the room is never left to the hidden worker alone.
+    await host.context.grantPermissions(['camera', 'microphone'], { origin });
+    const stage = await openPage(host.context, 'human in the bot Round room');
+    await stage.goto(`/rounds/${view.id}/room`);
+    await expect(
+      stage.getByRole('status').filter({ hasText: /^Connected$/ }),
+    ).toBeVisible();
     const first = await openSpeech(host.context.request, view, 0);
     await checkIn(host, first.view, first.open.id);
+    await stage.waitForTimeout(HUMAN_SPEECH_MS);
     view = await yieldSpeech(host, first.view, 'affirmative');
     const bot = await openSpeech(host.context.request, view, 1);
     expect(bot.open.durationMs).toBe(BOT_SPEECH_MS);
