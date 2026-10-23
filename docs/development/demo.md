@@ -112,12 +112,15 @@ automated proof of a human against a bot with the AI judge is
 
 - **Localhost only.** Two machines on a LAN are not supported yet. The demo
   certificate names `localhost`, and local LiveKit offers loopback ICE
-  candidates only (see ISSUE-479).
+  candidates only (see ISSUE-479). Every listener binds 127.0.0.1: the
+  plaintext web app and realtime answer only the loopback TLS edges in front
+  of them (ISSUE-480).
 - **Local LiveKit only.** There is no production media, TURN or real-network
   delivery. Two profiles on one machine share its camera and microphone.
 - **No capture worker.** Speech is not transcribed, so every transcript freezes
-  `incomplete`. Human judges still rule; an AI judge may not rule on an
-  incomplete transcript (DEC-208).
+  `incomplete`. Human judges still rule. An AI judge also rules on that
+  incomplete transcript for now: the DEC-208 gate that refuses it (#319) is
+  not on the receiver yet.
 - **Fixture settings.** The Room policy and the AI busy cap of 4 come from the
   browser-proof fixture, not product policy.
 - **Demo data lives in the e2e database.** `bun slot:reset-e2e` and the browser

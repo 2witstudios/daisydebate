@@ -61,7 +61,11 @@ const health = async (url: string) => {
   }
 };
 const appCommand = ['bun', resolve(import.meta.dir, 'room-launch-app.ts')];
-const webEnv = { ...process.env };
+// Only the TLS edges are ingress: every plaintext upstream answers loopback alone (ISSUE-480).
+const webEnv: Record<string, string | undefined> = {
+  ...process.env,
+  LISTEN_HOST: '127.0.0.1',
+};
 const web = createLaunchProcess({
   command: appCommand,
   cwd: resolve(checkout, 'apps/web'),
@@ -92,6 +96,7 @@ const realtime = createLaunchProcess({
   env: {
     ...process.env,
     REALTIME_PORT: String(slot.port + 3),
+    REALTIME_HOST: '127.0.0.1',
     REALTIME_ALLOWED_ORIGINS: origin,
     // Tickets the web processes issue must be redeemable by this realtime process.
     REDIS_NAMESPACE: slot.namespace,

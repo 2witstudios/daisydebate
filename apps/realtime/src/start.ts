@@ -4,7 +4,7 @@ import {
   installShutdownSignals,
 } from '@daisy/observability';
 import { createRealtimeApp } from './app';
-import { DEFAULT_REALTIME_PORT, parsePort } from './port';
+import { DEFAULT_REALTIME_PORT, parseHostname, parsePort } from './port';
 import { serveRealtime } from './serve';
 import { startRealtimeServiceLease } from './service-lease';
 import { readFile } from 'node:fs/promises';
@@ -27,6 +27,7 @@ const resources = createRealtimeApp({
   ids: systemId,
 });
 const port = parsePort(process.env.REALTIME_PORT, DEFAULT_REALTIME_PORT);
+const hostname = parseHostname(process.env.REALTIME_HOST);
 
 // `serveRealtime` awaits startup order (ADR 0032 §2: LISTEN, then the
 // high-water mark) before `Bun.serve` accepts sockets with the real registry.
@@ -47,6 +48,7 @@ if (gatewayUnresolved)
 const { close, drain } = await serveRealtime({
   resources,
   port,
+  hostname,
   trustedProxies,
 });
 const lease = startRealtimeServiceLease({

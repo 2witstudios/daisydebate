@@ -15,6 +15,7 @@ import {
   assertFrozenLaunch,
 } from './support/room-launch-flow';
 import { launchCustomSelection } from './support/room-launch-custom';
+import { proveLoopbackUpstreams } from './support/launch-loopback';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
 import { launchEvidence } from './support/room-launch-evidence';
 import {
@@ -300,4 +301,8 @@ test('native Lobby search and keyset pages discover beyond the first page withou
   browser,
 }) => {
   await proveLobbyDiscovery(browser);
+});
+
+test('the plaintext web, realtime and peer upstreams refuse every address but loopback', async () => {
+  await proveLoopbackUpstreams();
 });
