@@ -26,6 +26,58 @@ export function contained(state: CaptureState, seat: string, window: Window) {
     ).length === 1
   );
 }
+/** A calibrated 10 ms frame: its nominal start and server-time bracket. */
+export type FrameWindow = Window & { readonly nominalStartMs: number };
+const straddles = (frame: Window, edgeMs: number) =>
+  frame.beforeMs < edgeMs && edgeMs <= frame.afterMs;
+
+/** Whether a frame's bracket crosses a start or end of one of the seat's grants. */
+export function straddlesGrantEdge(
+  state: CaptureState,
+  seat: string,
+  frame: Window,
+) {
+  return state.intervals.some(
+    (i) =>
+      i.roundParticipantId === seat &&
+      (straddles(frame, Date.parse(i.startedAt)) ||
+        (i.endedAt !== null && straddles(frame, Date.parse(i.endedAt)))),
+  );
+}
+
+/**
+ * The window a transcribed clip proves the worker captured. Frames straddling
+ * a grant edge are refused by contained(), so a clip alone never reaches the
+ * edge; it extends to an edge only when a frame contiguous with it on the same
+ * track (nominal ±10 ms) straddled that edge. A late join, an early drop or a
+ * gap just inside the edge keeps the clip bracket, so the stream stays partial.
+ */
+export function observedWindow(input: {
+  readonly clip: Window & {
+    readonly firstNominalMs: number;
+    readonly lastNominalMs: number;
+  };
+  readonly grant: { readonly startMs: number; readonly endMs: number | null };
+  readonly straddles: readonly FrameWindow[];
+}): { readonly fromMs: number; readonly untilMs: number } {
+  const { clip, grant } = input;
+  const startEvidence = input.straddles.some(
+    (frame) =>
+      frame.nominalStartMs === clip.firstNominalMs - 10 &&
+      straddles(frame, grant.startMs),
+  );
+  const endEvidence =
+    grant.endMs !== null &&
+    input.straddles.some(
+      (frame) =>
+        frame.nominalStartMs === clip.lastNominalMs + 10 &&
+        straddles(frame, grant.endMs!),
+    );
+  return {
+    fromMs: startEvidence ? grant.startMs : clip.beforeMs,
+    untilMs: endEvidence ? grant.endMs! : clip.afterMs,
+  };
+}
 export async function readCaptureHistory(
   client: CaptureClient,
   epoch: number,
