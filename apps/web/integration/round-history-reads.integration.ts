@@ -11,6 +11,7 @@ import {
   practiceRoomConfig,
 } from '@daisy/db/reference-formats';
 import { canReadRound } from '../src/features/round-runtime/reads';
+import { everyoneReady } from './round-judging.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 
@@ -159,14 +160,7 @@ test('protected Round reads preserve hidden judges and keep transcript content p
         slot: 0,
       })
     ).view;
-    for (const caller of [f.host, f.guest, f.outsider])
-      room = (
-        await f.consent(
-          caller,
-          await f.operations.view(caller, room.id),
-          'ready',
-        )
-      ).view;
+    room = await everyoneReady(f, room, [f.host, f.guest, f.outsider]);
     const { roundId, operations } = await startRuntimeRound(f, room);
 
     const raw = (await f.store.getRound(roundId))!;

@@ -3,8 +3,10 @@ import type { Database } from '@daisy/db';
 import { createId } from '@paralleldrive/cuid2';
 import { startAvailabilityService } from '../src/features/availability/service';
 import {
+  createRoundMaintenanceOperations,
   DEFAULT_BALLOT_DEADLINE_MS,
   judgingPlan,
+  ROUND_START_HORIZON_MS,
 } from '../src/features/round-finalization/maintenance';
 import { roundTickProjection } from '../src/features/round-finalization/operations';
 
@@ -45,6 +47,32 @@ export async function withWebFinalizer<T>(
 }
 export const finalizeAsWeb = (f: WebFinalizerFixture, roundId: string) =>
   withWebFinalizer(f, (finalize) => finalize(roundId));
+
+/** The production maintenance finalize, with no AI evaluation, under a fresh web lease. */
+export async function finalizeByMaintenance(
+  f: {
+    readonly store: Parameters<
+      typeof createRoundMaintenanceOperations
+    >[0]['store'] &
+      WebFinalizerFixture['store'];
+    readonly sql: SQL;
+  },
+  roundId: string,
+) {
+  const instanceId = createId();
+  await f.store.renewServiceInstance({ instanceId, role: 'web' });
+  try {
+    await createRoundMaintenanceOperations({
+      startHorizonMs: ROUND_START_HORIZON_MS,
+      store: f.store,
+      instanceId,
+      ids: { next: createId },
+      evaluate: async () => null,
+    }).finalize(roundId);
+  } finally {
+    await f.sql`delete from service_instances where instance_id=${instanceId}`;
+  }
+}
 
 /**
  * Test clock for the persisted ballot deadline: PostgreSQL time cannot be

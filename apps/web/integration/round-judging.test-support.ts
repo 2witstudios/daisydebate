@@ -10,6 +10,20 @@ import {
   startRuntimeRound,
   type withRoomRuntime,
 } from './round-runtime.test-support';
+type RoomFixture = Parameters<Parameters<typeof withRoomRuntime>[0]>[0];
+type ReadyRoom = Awaited<ReturnType<RoomFixture['consent']>>['view'];
+/** Each caller in turn readies the Room from a fresh read of it. */
+export async function everyoneReady(
+  f: RoomFixture,
+  room: ReadyRoom,
+  callers: readonly Parameters<RoomFixture['consent']>[0][],
+) {
+  for (const caller of callers)
+    room = (
+      await f.consent(caller, await f.operations.view(caller, room.id), 'ready')
+    ).view;
+  return room;
+}
 /** Controlled valid rubric response; never provider evidence. */
 export const fixtureBallot = (
   reason: string,
@@ -53,10 +67,7 @@ export async function readyTwoHumanJudgeRoom(
     room = (
       await f.command(judge, room, { type: 'claim-seat', role: 'judge', slot })
     ).view;
-  for (const caller of [f.host, f.guest, ...judges])
-    room = (
-      await f.consent(caller, await f.operations.view(caller, room.id), 'ready')
-    ).view;
+  room = await everyoneReady(f, room, [f.host, f.guest, ...judges]);
   return { room, judges };
 }
 /** Ends every segment past the admission window; when captured, every debater stream sealed complete. */
@@ -95,10 +106,7 @@ export async function readyBotJudgedRoom(
       actorId: judge.actorId,
     })
   ).view;
-  for (const caller of [f.host, f.guest])
-    room = (
-      await f.consent(caller, await f.operations.view(caller, room.id), 'ready')
-    ).view;
+  room = await everyoneReady(f, room, [f.host, f.guest]);
   return { room, judge };
 }
 /**

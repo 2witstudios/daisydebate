@@ -3,18 +3,18 @@ import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createRoundBallotOperations } from '../src/features/round-ballots/operations';
-import {
-  createRoundMaintenanceOperations,
-  ROUND_START_HORIZON_MS,
-} from '../src/features/round-finalization/maintenance';
 import { seedSettledAttendanceLedger } from './round-attendance-fixture.test-support';
 import {
   assembleJudgedRoom,
+  everyoneReady,
   fixtureBallot,
   frozenBotJudgeRound,
   playOut,
 } from './round-judging.test-support';
-import { finalizeAsWeb } from './round-maintenance.test-support';
+import {
+  finalizeAsWeb,
+  finalizeByMaintenance,
+} from './round-maintenance.test-support';
 import {
   startRuntimeRound,
   withRoomRuntime,
@@ -32,19 +32,7 @@ test('an AI judge never decides from a transcript frozen incomplete (DEC-208)', 
           r.ballot_deadline_at = z.frozen_at as closed
           from rounds r join round_transcript_freezes z on z.round_id=r.id where r.id=${roundId}`;
       await seedSettledAttendanceLedger(f, roundId);
-      const instanceId = createId();
-      await f.store.renewServiceInstance({ instanceId, role: 'web' });
-      try {
-        await createRoundMaintenanceOperations({
-          startHorizonMs: ROUND_START_HORIZON_MS,
-          store: f.store,
-          instanceId,
-          ids: { next: createId },
-          evaluate: async () => null,
-        }).finalize(roundId);
-      } finally {
-        await f.sql`delete from service_instances where instance_id=${instanceId}`;
-      }
+      await finalizeByMaintenance(f, roundId);
       const done = (await f.store.getRound(roundId))!;
       const view = await f.store.readLaunchedRound(roundId, f.host, () => true);
       const [receipt] =
@@ -102,14 +90,7 @@ test('a mixed panel on an incomplete freeze completes once its human judge rules
           actorId: bot.actorId,
         })
       ).view;
-      for (const caller of [f.host, f.guest, f.outsider])
-        room = (
-          await f.consent(
-            caller,
-            await f.operations.view(caller, room.id),
-            'ready',
-          )
-        ).view;
+      room = await everyoneReady(f, room, [f.host, f.guest, f.outsider]);
       const { roundId } = await startRuntimeRound(f, room);
       await playOut(f, roundId, false);
       const frozen = await finalizeAsWeb(f, roundId);
@@ -133,19 +114,7 @@ test('a mixed panel on an incomplete freeze completes once its human judge rules
           'negative',
         ),
       });
-      const instanceId = createId();
-      await f.store.renewServiceInstance({ instanceId, role: 'web' });
-      try {
-        await createRoundMaintenanceOperations({
-          startHorizonMs: ROUND_START_HORIZON_MS,
-          store: f.store,
-          instanceId,
-          ids: { next: createId },
-          evaluate: async () => null,
-        }).finalize(roundId);
-      } finally {
-        await f.sql`delete from service_instances where instance_id=${instanceId}`;
-      }
+      await finalizeByMaintenance(f, roundId);
       const done = (await f.store.getRound(roundId))!;
       const [receipt] =
         await f.sql`select result, (select ballot_deadline_at > clock_timestamp() from rounds where id=${roundId}) early from round_commands where round_id=${roundId} and type='complete'`;
