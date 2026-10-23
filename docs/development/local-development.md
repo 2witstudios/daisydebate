@@ -247,6 +247,15 @@ Changing configuration does not provision a compatible database or authorize
 activation. A deployment must complete its separately authorized schema and
 human sign-off requirements before configuring Room policy.
 
+## Shared local file scanner
+
+The shared Compose stack runs `clamav/clamav:1.4.6`, the same pinned image CI's
+integration job uses, on loopback port 3310, and `bun slot:up` writes
+`CLAMD_TEST_PORT=3310` for every slot (one stateless scanner serves them all).
+The image ships amd64 only, so Apple Silicon runs it under emulation; it reports
+healthy after its signature load (allow up to three minutes). An already running
+stack needs a one-time `docker compose -f infra/compose.yaml up -d --wait clamd`.
+
 ## Shared local media service
 
 The shared Compose stack includes LiveKit 1.13.7 with loopback signalling on

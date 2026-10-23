@@ -279,6 +279,9 @@ const requireEnv = (env: Env, key: string): string => {
   return value;
 };
 
+/** The shared stack's clamd loopback port (infra/compose.yaml). */
+const clamdPort = 3310;
+
 /** Every .env key `bun slot:up` owns (see slotEnvValues). */
 const slotEnvKeys = [
   'DATABASE_URL',
@@ -292,6 +295,7 @@ const slotEnvKeys = [
   'PUBLIC_APP_URL',
   'E2E_PORT',
   'REALTIME_PORT',
+  'CLAMD_TEST_PORT',
   'MEDIA_WORKER_DATABASE_URL',
 ] as const;
 
@@ -336,6 +340,8 @@ export function slotEnvValues({
     PUBLIC_APP_URL: `http://localhost:${ports.app}`,
     E2E_PORT: String(ports.e2e),
     REALTIME_PORT: String(ports.realtime),
+    // The one stateless scanner in infra/compose.yaml serves every slot.
+    CLAMD_TEST_PORT: String(clamdPort),
     MEDIA_WORKER_DATABASE_URL: withPath(
       databaseUrl,
       slot.database,
