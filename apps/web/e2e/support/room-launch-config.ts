@@ -33,7 +33,9 @@ export default defineConfig({
   use: {
     ...canonical.use,
     ignoreHTTPSErrors: false,
-    trace: 'off',
+    // As the canonical suite: a failure keeps its trace, which the job's
+    // artifact sanitizer redacts before upload; passing tests keep nothing.
+    trace: 'retain-on-failure',
     video: 'off',
   },
   timeout: 120_000,
