@@ -29,7 +29,7 @@ export const mediaVendorMutations = pgTable(
       .references(() => mediaSessions.id, { onDelete: 'cascade' }),
     epoch: integer('epoch').notNull(),
     kind: text('kind', {
-      enum: ['create', 'permissions', 'remove', 'delete'],
+      enum: ['create', 'permissions', 'delete'],
     }).notNull(),
     identity: text('identity'),
     dispatchedAt: timestampColumn('dispatched_at')
@@ -51,11 +51,11 @@ export const mediaVendorMutations = pgTable(
     check('media_vendor_mutations_epoch_check', sql`${table.epoch} >= 0`),
     check(
       'media_vendor_mutations_kind_check',
-      sql`${table.kind} in ('create','permissions','remove','delete')`,
+      sql`${table.kind} in ('create','permissions','delete')`,
     ),
     check(
       'media_vendor_mutations_identity_check',
-      sql`(${table.identity} is not null) = (${table.kind} in ('permissions','remove'))`,
+      sql`(${table.identity} is not null) = (${table.kind} = 'permissions')`,
     ),
     check(
       'media_vendor_mutations_settlement_check',
