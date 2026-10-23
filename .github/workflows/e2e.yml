@@ -175,7 +175,12 @@ jobs:
   room-launch:
     name: Isolated Room Launch E2E
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    # One shared slot keeps the suite on a single worker: about 3 min of
+    # setup, about 30 min of Launch tests (multi-minute attendance outages and
+    # autonomous journeys), then the realtime proofs and artifact sanitizing.
+    # 30 cancelled it two tests short (ISSUE-471-r1); the suite itself stays
+    # bounded by heavy.ts (45 min).
+    timeout-minutes: 55
     env:
       CLAMD_TEST_PORT: '3310'
     defaults:
