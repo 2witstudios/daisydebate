@@ -123,6 +123,13 @@ track and lease epoch; raw PCM remains in worker memory. A current worker lease
 is identified by `media_worker_leases.session_id`, `worker_id` and rising `epoch`.
 `worker_id` is an identifier, never a bearer credential. Ingress must verify its
 signed principal and active epoch under the same locks as append/seal.
+Every capture read, append, observation, seal and worker-token verification
+also applies one session rule, `captureSessionAdmits`: a deletion request admits
+nothing, because that is erasure; once the session ends or turns unsafe, only
+audio captured strictly before that instant is admitted (an append's clip end,
+an observation's end), so speech-to-text that runs behind the audio still lands
+and later audio cannot. Reads and seals carry no capture time and are refused
+only by a deletion request.
 
 `utterances` remains the only transcript text store. Capture metadata identifies
 a clip by its segment, seat, track and start offset, plus a deterministic clip

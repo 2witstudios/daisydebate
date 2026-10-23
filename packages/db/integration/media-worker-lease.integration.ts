@@ -110,7 +110,17 @@ test('internal capture token admission requires a fresh exact lease and safe non
         actual: () => store.verifyMediaWorkerLease(scope),
       });
       await fixture.sql.unsafe(
-        'update media_sessions set ended_at=null where id=$1',
+        'update media_sessions set ended_at=null,deletion_requested_at=clock_timestamp() where id=$1',
+        [scope.sessionId],
+      );
+      await assertRejects({
+        given: 'a session with a deletion request',
+        should: 'refuse capture token admission (CAP-E.1-r6)',
+        code: 'CONFLICT',
+        actual: () => store.verifyMediaWorkerLease(scope),
+      });
+      await fixture.sql.unsafe(
+        'update media_sessions set deletion_requested_at=null where id=$1',
         [scope.sessionId],
       );
       await fixture.sql.unsafe(

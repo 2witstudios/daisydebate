@@ -82,6 +82,46 @@ export async function captureAdmission(
     throw createAppError('CONFLICT', 'Capture admission is closed');
   return new Date(now);
 }
+type CaptureSessionClose = {
+  readonly endedAt: Date | null;
+  readonly unsafeAt: Date | null;
+  readonly deletionRequestedAt: Date | null;
+};
+/**
+ * The one capture-time rule for a session (CAP-E.1-r6): a deletion request
+ * admits nothing, since that is erasure; after the session ends or turns
+ * unsafe, only audio captured strictly before that instant is admitted, for
+ * speech-to-text that runs behind it. Work with no capture time (reads, seals)
+ * is refused only by a deletion request.
+ */
+export function captureSessionAdmits(
+  session: CaptureSessionClose,
+  capturedUntil?: Date,
+) {
+  if (session.deletionRequestedAt) return false;
+  if (capturedUntil === undefined) return true;
+  const closes = [session.endedAt, session.unsafeAt].flatMap((at) =>
+    at ? [at.getTime()] : [],
+  );
+  return closes.length === 0 || capturedUntil.getTime() < Math.min(...closes);
+}
+/** Refuses work the session no longer admits; shares the Round lock already held. */
+export async function requireCaptureSession(
+  tx: CaptureTx,
+  input: { readonly sessionId: string },
+  capturedUntil?: Date,
+) {
+  const [session] = await tx
+    .select({
+      endedAt: mediaSessions.endedAt,
+      unsafeAt: mediaSessions.unsafeAt,
+      deletionRequestedAt: mediaSessions.deletionRequestedAt,
+    })
+    .from(mediaSessions)
+    .where(eq(mediaSessions.id, input.sessionId));
+  if (!session || !captureSessionAdmits(session, capturedUntil))
+    throw createAppError('CONFLICT', 'Capture session is closed');
+}
 export async function lockCaptureLease(tx: CaptureTx, input: CaptureIdentity) {
   validCaptureIds(input.workerId);
   if (!Number.isSafeInteger(input.epoch) || input.epoch < 1)
@@ -141,9 +181,12 @@ export async function captureWriteContext(
   tx: CaptureTx,
   input: CaptureIdentity & CaptureStream,
   dependencies: CaptureDependencies,
+  /** The end of the audio this write records; none for a seal. */
+  capturedUntil?: Date,
 ) {
   const tick = await lockCaptureRound(tx, input, dependencies);
   const lease = await lockCaptureLease(tx, input);
+  await requireCaptureSession(tx, input, capturedUntil);
   const stream = await lockCaptureStream(tx, input);
   const now = await captureAdmission(
     tx,

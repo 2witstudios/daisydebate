@@ -2,6 +2,7 @@ import { createAppError } from '@daisy/errors';
 import { and, eq, isNull } from 'drizzle-orm';
 import {
   captureAdmission,
+  captureSessionAdmits,
   lockCaptureLease,
   lockCaptureRound,
   type CaptureDependencies,
@@ -46,8 +47,7 @@ export async function verifyMediaWorkerLease(
   );
   if (
     !session ||
-    session.endedAt ||
-    session.unsafeAt ||
+    !captureSessionAdmits(session, now) ||
     pending ||
     !round ||
     !['scheduled', 'active'].includes(round.status) ||
