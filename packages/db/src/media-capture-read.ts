@@ -15,6 +15,7 @@ import { actors } from './schema/actors';
 import { roundSegments } from './schema/round-segments';
 import { roundSpeakingIntervals } from './schema/round-speaking-intervals';
 import { rounds } from './schema/rounds';
+import { requireLiveCaptureLease } from './capture-rules';
 
 type ReadScope = CaptureIdentity & {
   readonly segmentId?: string | undefined;
@@ -128,8 +129,7 @@ export async function readMediaCaptureState(
     input.roundId,
     tick.transcriptAdmissionCutoff,
   );
-  if (lease.expiresAt <= now)
-    throw createAppError('CONFLICT', 'Capture worker lease expired');
+  requireLiveCaptureLease(lease.expiresAt, now);
   return {
     roundId: input.roundId,
     sessionId: input.sessionId,

@@ -6,6 +6,26 @@ import {
 } from '../e2e/support/launch-certificates';
 setupRitewayBun();
 
+/** A Bun client over real WSS that sends `message` (or closes 1000 'logout' on open) and prints its close. */
+async function browserSocket(port: number, ca: string, message: string) {
+  const child = Bun.spawn(
+    [
+      'bun',
+      '-e',
+      `const socket=new WebSocket(Bun.argv[1]);const timer=setTimeout(()=>process.exit(3),3000);socket.onopen=()=>Bun.argv[2]==='logout'?socket.close(1000,'logout'):socket.send(Bun.argv[2]);socket.onclose=e=>{clearTimeout(timer);console.log(e.code+':'+e.reason);process.exit(0);};`,
+      `wss://localhost:${port}/ws`,
+      message,
+    ],
+    {
+      env: { ...process.env, NODE_EXTRA_CA_CERTS: ca },
+      stdout: 'pipe',
+      stderr: 'ignore',
+    },
+  );
+  await child.exited;
+  return (await new Response(child.stdout).text()).trim();
+}
+
 test('validated WSS forwards the actual origin and only the authorized realtime socket path', async () => {
   const certificates = createLaunchCertificates();
   const origin = 'https://localhost:13332';
@@ -104,24 +124,8 @@ test('validated WSS preserves application close codes in both directions', async
       E2E_LOCAL_TLS_KEY: certificates.key,
     }),
   });
-  const call = async (message: string) => {
-    const child = Bun.spawn(
-      [
-        'bun',
-        '-e',
-        `const socket=new WebSocket(Bun.argv[1]);const timer=setTimeout(()=>process.exit(3),3000);socket.onopen=()=>Bun.argv[2]==='logout'?socket.close(1000,'logout'):socket.send(Bun.argv[2]);socket.onclose=e=>{clearTimeout(timer);console.log(e.code+':'+e.reason);process.exit(0);};`,
-        `wss://localhost:${edge.port}/ws`,
-        message,
-      ],
-      {
-        env: { ...process.env, NODE_EXTRA_CA_CERTS: certificates.ca },
-        stdout: 'pipe',
-        stderr: 'ignore',
-      },
-    );
-    await child.exited;
-    return (await new Response(child.stdout).text()).trim();
-  };
+  const call = (message: string) =>
+    browserSocket(edge.port!, certificates.ca, message);
   try {
     const restarted = await call('restart');
     const loggedOut = await call('logout');
@@ -132,6 +136,56 @@ test('validated WSS preserves application close codes in both directions', async
       should: 'deliver the same code and reason to the other side',
       actual: [restarted, loggedOut, closes.at(-1)],
       expected: ['4006:server_restarting', '1000:logout', '1000:logout'],
+    });
+  } finally {
+    edge.stop(true);
+    upstream.stop(true);
+    certificates.close();
+  }
+});
+
+test('a browser close before the upstream opens reaches the upstream with its code', async () => {
+  const certificates = createLaunchCertificates();
+  const upgrade = Promise.withResolvers<void>();
+  const closed = Promise.withResolvers<string>();
+  const upstream = Bun.serve({
+    hostname: '127.0.0.1',
+    port: 0,
+    // The upstream answers its upgrade only after the browser has closed.
+    async fetch(request, server) {
+      await upgrade.promise;
+      if (server.upgrade(request)) return;
+      return new Response(null, { status: 400 });
+    },
+    websocket: {
+      message() {},
+      close(_socket, code, reason) {
+        closed.resolve(`${code}:${reason}`);
+      },
+    },
+  });
+  const edge = createLaunchSocketEdge({
+    port: 0,
+    upstreamPort: upstream.port!,
+    tls: readLaunchTls({
+      E2E_LOCAL_TLS_CERT: certificates.cert,
+      E2E_LOCAL_TLS_KEY: certificates.key,
+    }),
+  });
+  try {
+    const browser = await browserSocket(edge.port!, certificates.ca, 'logout');
+    upgrade.resolve();
+    // A bound for the failure case only: a dropped close never arrives.
+    const unseen = setTimeout(() => closed.resolve('never closed'), 3000);
+    const received = await closed.promise;
+    clearTimeout(unseen);
+    assert({
+      given:
+        'a browser that logs out while the bridge is still dialling upstream',
+      should:
+        'close the upstream with the browser code and reason once it opens',
+      actual: [browser, received],
+      expected: ['1000:logout', '1000:logout'],
     });
   } finally {
     edge.stop(true);

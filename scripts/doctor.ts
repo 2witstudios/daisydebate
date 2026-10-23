@@ -6,7 +6,8 @@ import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { readdir, readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
-import { serviceRefusal, slotMismatches, type Slot } from './slot-model';
+import { slotMismatches, type Slot } from './slot-model';
+import { serviceRefusal } from './slot-services';
 import {
   inspectOrphans,
   liveSlotIds,

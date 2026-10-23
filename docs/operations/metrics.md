@@ -37,8 +37,45 @@ no file changed in the 90-day window.
 churn`. The top ten files are included in each snapshot.
 
 Coverage floors live in `docs/metrics/policy.json`. Raise a floor only when the
-corresponding tests are part of the same change. Complexity and file-size
-limits are enforced by `eslint.config.mjs` in the regular lint job.
+corresponding tests are part of the same change.
+
+### What the `@daisy/db` unit floor owns
+
+The `@daisy/db` lines floor tracks what unit tests own (DEC-195, following
+bb62f871). Pure decision and validation rules live in their own modules
+(`*-rules.ts`, `*-decisions.ts`, `*-state.ts`) or as exported functions with
+unit tests. Durable write paths are integration-tested by policy against real
+PostgreSQL, so their SQL stays in the unit denominator uncovered. The floor is
+the measured level floored to an integer (73 at the CAP-F.2-cov candidate);
+it never drops below the measured level, and it rises whenever a change
+extracts more pure logic. These SQL-only modules (under 30% unit lines) and the
+real-PG suites that own them (`packages/db/integration/` unless marked web,
+which is `apps/web/integration/`):
+
+| Module                                                                                                                        | Owning integration suites                                                                              |
+| ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `media-reconcile-store.ts`, `media-reconcile-claims.ts`, `media-admission-store.ts`                                           | `media-reconcile`, `round-media-late-creation` (web)                                                   |
+| `rating-operations.ts`                                                                                                        | `rating-standings`, `ratings` (web)                                                                    |
+| `document-operations.ts`                                                                                                      | `debate-documents`, `document-workspace`, `debate-room-documents` (web)                                |
+| `round-ballot-operations.ts`, `round-ballot-reads.ts`                                                                         | `round-ballot-command`, `round-judging-jobs`, `round-ballot` (web)                                     |
+| `attendance-operations.ts`, `attendance-facts.ts`                                                                             | `attendance-targets`, `attendance` (web), `attendance-public` (web)                                    |
+| `attendance-evaluator.ts`, `transcript-finalization-streams.ts`                                                               | `attendance-evaluator` (web), `attendance-control-loss` (web)                                          |
+| `availability-operations.ts`, `check-in-attempts.ts`                                                                          | `availability`, `attendance-retention`, `bounded-transaction-uncertainty`                              |
+| `round-bot-admission.ts`                                                                                                      | `bot-admission`, `bot-room-freeze`                                                                     |
+| `bot-publication.ts`, `capture-history.ts`                                                                                    | `bot-publication`, `bot-worker-discovery`                                                              |
+| `bot-generation.ts`                                                                                                           | `bot-generation`, `round-worker-entrypoints`                                                           |
+| `round-judging-jobs.ts`, `round-judging-claim.ts`, `round-judging-result.ts`, `round-unjudged-completion.ts`                  | `round-judging-jobs`, `round-judging-recovery` (web)                                                   |
+| `round-judging-accounting.ts`                                                                                                 | `round-judging-accounting` (web)                                                                       |
+| `round-agent-runs.ts`, `media-publication-authority.ts`                                                                       | `bot-round-locks`, `round-runtime` (web), `bot-activity-feed` (web)                                    |
+| `round-write-authority.ts`, `round-command-operations.ts`                                                                     | `round-command`, `bot-publication`, `attendance-refusals` (web)                                        |
+| `media-capture.ts`, `media-capture-context.ts`, `capture-stream.ts`, `captured-transcript.ts`, `media-participant-binding.ts` | `media-capture`, `capture-recovery`, `round-capture-finalization` (web), `round-transcript-race` (web) |
+| `media-capture-read.ts`, `media-worker-lease.ts`, `media-session-snapshot.ts`                                                 | `media-worker-lease`                                                                                   |
+| `media-session.ts`                                                                                                            | `media-session`, `round-maintenance-fleet` (web)                                                       |
+| `transcript-finalization.ts`, `frozen-transcript.ts`                                                                          | `round-transcript-finalization` (web), `round-transcript-race` (web), `round-history-reads` (web)      |
+| `round-speaking-read.ts`, `round-protected-reads.ts`                                                                          | `round-history-reads` (web)                                                                            |
+| `round-maintenance.ts`                                                                                                        | `round-maintenance`                                                                                    |
+| `messaging/group-invitation-write.ts`                                                                                         | `messaging-group-creation` (web), `messaging-dm-requests` (web)                                        | Complexity and file-size |
+| limits are enforced by `eslint.config.mjs` in the regular lint job.                                                           |
 
 `aidd churn` can be run separately with `bunx --bun aidd churn` once a longer
 git history exists. The repository does not depend on it for CI metrics.

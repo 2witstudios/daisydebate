@@ -6,7 +6,6 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "bun test src",
-    "test:integration": "bun ../../scripts/test-integration.ts",
     "start": "bun src/start.ts"
   },
   "dependencies": {

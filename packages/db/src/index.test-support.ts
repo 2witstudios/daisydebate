@@ -5,7 +5,7 @@ import { createDatabase } from './index';
 import { foundationDefinition, practiceRoomConfig } from './reference-formats';
 import { createTestOnlyOperations } from './test-only-operations';
 import type { DatabaseEventSink } from './instrumented';
-import { validRules } from './testing';
+import { validRules } from './testing-rules';
 import {
   fakeSql,
   type RecordedQuery,

@@ -2,25 +2,15 @@ import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   captureActivityRelay,
-  captureOperations,
-  captureWorkerScope,
-  startCaptureSpeech,
+  leasedCaptureSpeech,
   withMediaRound,
 } from './round-media.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 test('an expired lease or an ended, unsafe or deletion-requested session refuses relay on the admitted and the fresh path alike (CAP-E.1-r5, CAP-E.1-r7)', async () => {
   await withMediaRound(async (f) => {
-    const scope = await captureWorkerScope(f);
-    const capture = captureOperations(f);
-    const lease = await capture.claimMediaWorkerLease({
-      ...scope,
-      leaseMs: 15000,
-    });
-    const identity = { ...scope, epoch: lease.epoch };
-    await startCaptureSpeech(f);
-    const segmentId = (await capture.readMediaCaptureState(identity)).segment!
-      .id;
+    const { scope, capture, identity, segmentId } =
+      await leasedCaptureSpeech(f);
     const [{ id: host }] =
       await f.sql`select p.id from round_participants p where p.round_id=${f.roundId} and p.actor_id=${f.host.actorId}`;
     let sequence = 0;

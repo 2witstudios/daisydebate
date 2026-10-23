@@ -29,41 +29,41 @@ handler logic yet beyond rejecting every connection (RT-2.3a).
 
 ## Commands
 
-| Command                                                       | What it does                                                                                                                                                   |
-| ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `bun dev`                                                     | All dev processes (the web app and apps/realtime) via turbo                                                                                                    |
-| `bun dev:agent`                                               | Run `slot:up`, seed, launch web and realtime, and wait ready                                                                                                   |
-| `bun build`                                                   | Production builds through the turbo graph                                                                                                                      |
-| `bun test`                                                    | Fast deterministic unit/domain tests; no services or Next boot                                                                                                 |
-| `bun test:integration`                                        | Database, Redis, and web vertical tests against real services, each run in its own Postgres database, dropped after it (ADR 0034)                              |
-| `bun visual:server`                                           | Linux Playwright browser server for screenshot parity on non-Linux hosts (see testing)                                                                         |
-| `bun test:e2e`                                                | Playwright against the production server build                                                                                                                 |
-| `bun verify`                                                  | `bun check` plus migration-idempotency, integration, and E2E gates                                                                                             |
-| `bun lint`                                                    | ESLint (incl. Tailwind token rules), `scripts/check-boundaries.ts`, and `scripts/check-styling.ts`                                                             |
-| `bun format` / `bun format:check`                             | Prettier write / verify                                                                                                                                        |
-| `bun typecheck`                                               | `tsc --noEmit` per workspace (web runs `next typegen` first)                                                                                                   |
-| `bun check`                                                   | format:check + lint + policy + knip + duplication + invariants + evidence + typecheck + test + metrics + build — completed main candidate; needs network, `gh` |
-| `bun check:affected`                                          | Fast per-vertical inner loop: lint/prettier on changed files, boundaries, duplication, affected turbo graph                                                    |
-| `bun hooks:install`                                           | One-time opt-in: point `core.hooksPath` at `.githooks` branch snapshots allowed; main runs full `bun check` on clean exact HEAD                                |
-| `bun migrations:check`                                        | Fail stray or orphaned migration files, a broken snapshot chain, or a branch that rewrites/edits/reorders shared migrations vs `origin/main` (ADR 0038)        |
-| `bun run duplication`                                         | Copy-paste tripwire (jscpd): fails on any clone absent from `.jscpd-baseline.json` (ADR 0026)                                                                  |
-| `bun evidence`                                                | Orphan-suite and CI-wiring audit: every test tier is claimed by a real runner                                                                                  |
-| `bun db:generate`                                             | Generate migration SQL from schema changes (review the SQL!)                                                                                                   |
-| `bun db:migrate`                                              | Apply pending migrations                                                                                                                                       |
-| `bun db:seed`                                                 | Development fixture: idempotently upsert the agent users, actors and seed debate, mark its version (reference data comes from migrations)                      |
-| `bun db:studio`                                               | Drizzle Studio (local only, never expose)                                                                                                                      |
-| `bun slot:up`                                                 | Shared stack up, prune orphans, create and migrate this checkout's three databases, provision the e2e login, write `.env` slot values (idempotent)             |
-| `bun slot:reset-e2e`                                          | Empty this checkout's e2e database back to the baseline and delete its e2e Redis keys                                                                          |
-| `bun slot:down` / `bun slot:prune`                            | Drop this worktree's databases and Redis keys / those of worktrees git no longer lists                                                                         |
-| `bun db:reset`                                                | Recreate and re-migrate this checkout's dev or test database and re-provision the e2e login (`ALLOW_DATABASE_RESET=yes`)                                       |
-| `bun db:roles`                                                | Provision the test logins on a loopback `DATABASE_URL` (CI; `slot:up` and `db:reset` already do it)                                                            |
-| `bun infra:logs`                                              | Follow the shared stack's Compose logs                                                                                                                         |
-| `bun adr:next`                                                | Next ADR number free across origin/main and every open PR                                                                                                      |
-| `bun github:rules [--apply]`                                  | Diff the committed main ruleset and repository settings against GitHub; `--apply` is owner-only                                                                |
-| `bun board:read` / `status` / `create` / `relate` / `replace` | PageSpace board operations: raw reads, task status (never Done for agents), leaves and ISSUE-n, Related pages, hash-guarded replaces (`board:hash`)            |
-| `bun board:stale [--apply]`                                   | List tasks whose status disagrees with git; `--apply` moves them to their pre-Done status                                                                      |
-| `bun decision:record`                                         | Record a decision made on the owner's behalf on Pending decisions and notify the owner                                                                         |
-| `bun plan:review <plan>`                                      | Automated Codex review of a plan against AGENTS.md and the ADRs, before tasking                                                                                |
+| Command                                                       | What it does                                                                                                                                                                       |
+| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `bun dev`                                                     | All dev processes (the web app and apps/realtime) via turbo                                                                                                                        |
+| `bun dev:agent`                                               | Run `slot:up`, seed, launch web and realtime, and wait ready                                                                                                                       |
+| `bun build`                                                   | Production builds through the turbo graph                                                                                                                                          |
+| `bun test`                                                    | Fast deterministic unit/domain tests; no services or Next boot                                                                                                                     |
+| `bun test:integration`                                        | Database, Redis, and web vertical tests against real services, each run in its own Postgres database, dropped after it (ADR 0034)                                                  |
+| `bun visual:server`                                           | Linux Playwright browser server for screenshot parity on non-Linux hosts (see testing)                                                                                             |
+| `bun test:e2e`                                                | Playwright against the production server build                                                                                                                                     |
+| `bun verify`                                                  | `bun check` plus migration-idempotency, integration, and E2E gates                                                                                                                 |
+| `bun lint`                                                    | ESLint (incl. Tailwind token rules), `scripts/check-boundaries.ts`, and `scripts/check-styling.ts`                                                                                 |
+| `bun format` / `bun format:check`                             | Prettier write / verify                                                                                                                                                            |
+| `bun typecheck`                                               | `tsc --noEmit` per workspace (web runs `next typegen` first); `typeRoots` is the repo's own `node_modules/@types`, so an ancestor `~/node_modules/@types` never changes the result |
+| `bun check`                                                   | format:check + lint + policy + knip + duplication + invariants + evidence + typecheck + test + metrics + build — completed main candidate; needs network, `gh`                     |
+| `bun check:affected`                                          | Fast per-vertical inner loop: lint/prettier on changed files, boundaries, duplication, affected turbo graph                                                                        |
+| `bun hooks:install`                                           | One-time opt-in: point `core.hooksPath` at `.githooks` branch snapshots allowed; main runs full `bun check` on clean exact HEAD                                                    |
+| `bun migrations:check`                                        | Fail stray or orphaned migration files, a broken snapshot chain, or a branch that rewrites/edits/reorders shared migrations vs `origin/main` (ADR 0038)                            |
+| `bun run duplication`                                         | Copy-paste tripwire (jscpd): fails on any clone absent from `.jscpd-baseline.json` (ADR 0026)                                                                                      |
+| `bun evidence`                                                | Orphan-suite and CI-wiring audit: every test tier is claimed by a real runner                                                                                                      |
+| `bun db:generate`                                             | Generate migration SQL from schema changes (review the SQL!)                                                                                                                       |
+| `bun db:migrate`                                              | Apply pending migrations                                                                                                                                                           |
+| `bun db:seed`                                                 | Development fixture: idempotently upsert the agent users, actors and seed debate, mark its version (reference data comes from migrations)                                          |
+| `bun db:studio`                                               | Drizzle Studio (local only, never expose)                                                                                                                                          |
+| `bun slot:up`                                                 | Shared stack up, prune orphans, create and migrate this checkout's three databases, provision the e2e login, write `.env` slot values (idempotent)                                 |
+| `bun slot:reset-e2e`                                          | Empty this checkout's e2e database back to the baseline and delete its e2e Redis keys                                                                                              |
+| `bun slot:down` / `bun slot:prune`                            | Drop this worktree's databases and Redis keys / those of worktrees git no longer lists                                                                                             |
+| `bun db:reset`                                                | Recreate and re-migrate this checkout's dev or test database and re-provision the e2e login (`ALLOW_DATABASE_RESET=yes`)                                                           |
+| `bun db:roles`                                                | Provision the test logins on a loopback `DATABASE_URL` (CI; `slot:up` and `db:reset` already do it)                                                                                |
+| `bun infra:logs`                                              | Follow the shared stack's Compose logs                                                                                                                                             |
+| `bun adr:next`                                                | Next ADR number free across origin/main and every open PR                                                                                                                          |
+| `bun github:rules [--apply]`                                  | Diff the committed main ruleset and repository settings against GitHub; `--apply` is owner-only                                                                                    |
+| `bun board:read` / `status` / `create` / `relate` / `replace` | PageSpace board operations: raw reads, task status (never Done for agents), leaves and ISSUE-n, Related pages, hash-guarded replaces (`board:hash`)                                |
+| `bun board:stale [--apply]`                                   | List tasks whose status disagrees with git; `--apply` moves them to their pre-Done status                                                                                          |
+| `bun decision:record`                                         | Record a decision made on the owner's behalf on Pending decisions and notify the owner                                                                                             |
+| `bun plan:review <plan>`                                      | Automated Codex review of a plan against AGENTS.md and the ADRs, before tasking                                                                                                    |
 
 ## Environment
 
@@ -246,6 +246,15 @@ policy. Only the web deployment reads this setting.
 Changing configuration does not provision a compatible database or authorize
 activation. A deployment must complete its separately authorized schema and
 human sign-off requirements before configuring Room policy.
+
+## Shared local file scanner
+
+The shared Compose stack runs `clamav/clamav:1.4.6`, the same pinned image CI's
+integration job uses, on loopback port 3310, and `bun slot:up` writes
+`CLAMD_TEST_PORT=3310` for every slot (one stateless scanner serves them all).
+The image ships amd64 only, so Apple Silicon runs it under emulation; it reports
+healthy after its signature load (allow up to three minutes). An already running
+stack needs a one-time `docker compose -f infra/compose.yaml up -d --wait clamd`.
 
 ## Shared local media service
 

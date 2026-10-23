@@ -303,10 +303,8 @@ export type {
   AttendanceFacts,
   LockedAttendanceCheckIn,
 } from './attendance-operations';
-export type {
-  AttendanceResolution,
-  AttendanceEvaluationFacts,
-} from './attendance-evaluator';
+export type { AttendanceEvaluationFacts } from './attendance-evaluator';
+export type { AttendanceResolution } from './attendance-adjudication';
 export type {
   AvailabilityEvidence,
   AvailabilityCause,

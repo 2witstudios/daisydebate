@@ -9,9 +9,12 @@ import {
   type withRoomRuntime,
 } from './round-runtime.test-support';
 /** Controlled valid rubric response; never provider evidence. */
-export const fixtureBallot = (reason: string): Ballot => ({
+export const fixtureBallot = (
+  reason: string,
+  winner: Ballot['winner'] = 'affirmative',
+): Ballot => ({
   rubricVersion: 'speaker-10@1',
-  winner: 'affirmative',
+  winner,
   reason,
   feedback: {},
   scores: Object.fromEntries(
@@ -21,22 +24,39 @@ export const fixtureBallot = (reason: string): Ballot => ({
     ]),
   ) as Ballot['scores'],
 });
-/** A ready one-on-one practice Room with one open judge seat. */
+/** A ready one-on-one practice Room with open judge seats. */
 export const assembleJudgedRoom = (
   f: Parameters<Parameters<typeof withRoomRuntime>[0]>[0],
+  judges = 1,
 ) =>
   f.assemble({
     selection: {
       kind: 'custom',
       definition: {
         ...oneOnOneDefinition,
-        seats: { ...oneOnOneDefinition.seats, judge: 1 },
+        seats: { ...oneOnOneDefinition.seats, judge: judges },
       },
       config: practiceRoomConfig,
       length: 'full',
       competitionType: 'casual',
     },
   });
+/** That Room with two human judges seated and every member ready. */
+export async function readyTwoHumanJudgeRoom(
+  f: Parameters<Parameters<typeof withRoomRuntime>[0]>[0],
+) {
+  const judges = [f.outsider, await f.member()];
+  let room = await assembleJudgedRoom(f, judges.length);
+  for (const [slot, judge] of judges.entries())
+    room = (
+      await f.command(judge, room, { type: 'claim-seat', role: 'judge', slot })
+    ).view;
+  for (const caller of [f.host, f.guest, ...judges])
+    room = (
+      await f.consent(caller, await f.operations.view(caller, room.id), 'ready')
+    ).view;
+  return { room, judges };
+}
 /** Real Room/engine/finalizer storage fixture. Silence stays incomplete; attendance is never fabricated. */
 export async function freezeBotJudge(
   f: Parameters<Parameters<typeof withRoomRuntime>[0]>[0],

@@ -9,6 +9,7 @@ import { agentRuns } from './schema/agent-runs';
 import { botProfiles } from './schema/bot-profiles';
 import { roundParticipants } from './schema/round-participants';
 import { rounds } from './schema/rounds';
+import { fencedActorIds } from './seat-eligibility';
 
 async function lockRoundAgentAccounts(
   tx: BoundedTransactionContext,
@@ -24,14 +25,10 @@ async function lockRoundAgentAccounts(
     .from(rounds)
     .where(eq(rounds.id, roundId));
   if (!initial) throw createAppError('NOT_FOUND');
-  const humans = [
-    ...new Set([
-      ...seats
-        .filter((seat) => seat.kind === 'human')
-        .map((seat) => seat.actorId),
-      ...(initial.creator ? [initial.creator] : []),
-    ]),
-  ];
+  const humans = fencedActorIds(
+    seats.filter((seat) => seat.kind === 'human'),
+    initial.creator,
+  );
   if (humans.length) {
     const facts = await lockAuthorizationActors(tx, humans, { maxActors: 257 });
     if (facts.some((fact) => !fact?.member || fact.erased))
