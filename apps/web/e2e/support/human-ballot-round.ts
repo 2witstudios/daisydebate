@@ -33,22 +33,55 @@ export const readBallotRound = async (
   expect(response.status()).toBe(200);
   return roundViewSchema.parse(await response.json());
 };
+const postRoundCommand = (
+  request: APIRequestContext,
+  roundId: string,
+  expectedVersion: number,
+  command: object,
+) =>
+  request.post(`/api/rounds/${roundId}/commands`, {
+    headers: { origin },
+    data: { version: 1, commandId: createId(), expectedVersion, command },
+  });
 export async function ballotRoundCommand(
   request: APIRequestContext,
   view: RoundView,
   command: object,
 ) {
-  const response = await request.post(`/api/rounds/${view.id}/commands`, {
-    headers: { origin },
-    data: {
-      version: 1,
-      commandId: createId(),
-      expectedVersion: view.version,
-      command,
-    },
-  });
+  const response = await postRoundCommand(
+    request,
+    view.id,
+    view.version,
+    command,
+  );
   expect(response.status()).toBe(200);
   return roundViewSchema.parse((await response.json()).view);
+}
+/**
+ * Commands an active Round at its current version. Maintenance legitimately
+ * moves the Round on (it opens the first speech within a tick of start), so a
+ * held view goes stale; a stale-version refusal wrote nothing, and the command
+ * is resent against a fresh read. Every other answer is final (ISSUE-489).
+ */
+export async function currentRoundCommand(
+  request: APIRequestContext,
+  roundId: string,
+  command: object,
+) {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const view = await readBallotRound(request, roundId);
+    const response = await postRoundCommand(
+      request,
+      roundId,
+      view.version,
+      command,
+    );
+    const body = await response.json();
+    if (response.status() === 409 && body.refusal === 'stale-version') continue;
+    expect(response.status()).toBe(200);
+    return roundViewSchema.parse(body.view);
+  }
+  throw new Error('The Round version moved past five fresh reads');
 }
 type Selection = ReturnType<typeof humanRoundSelection>;
 /** A public Room from the actual catalog foundation, shaped by `select`. */

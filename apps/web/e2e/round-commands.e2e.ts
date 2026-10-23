@@ -1,8 +1,9 @@
 import { maintainHumanBallotFixtures } from './support/human-ballot-maintenance';
 import { createRoomLaunchAccounts } from './support/room-launch-accounts';
 import {
-  ballotRoundCommand,
   createHumanBallotRound,
+  currentRoundCommand,
+  readBallotRound,
 } from './support/human-ballot-round';
 import { roomViewSchema, roundViewSchema, isNamedSeat } from '@daisy/protocol';
 import { origin } from './support/accounts';
@@ -216,10 +217,17 @@ for (const javaScriptEnabled of [false, true])
     try {
       const host = accounts.members[0]!.context;
       const live = await createHumanBallotRound(accounts.members);
+      // Maintenance opens the first speech within a tick of start (ISSUE-489):
+      // the command must land against the Round the clock has moved on.
+      await expect
+        .poll(
+          async () => (await readBallotRound(host.request, live.id)).version,
+        )
+        .toBeGreaterThan(live.version);
       const seat = live.participants
         .filter(isNamedSeat)
         .find((p) => p.role === 'affirmative')!;
-      const ended = await ballotRoundCommand(host.request, live, {
+      const ended = await currentRoundCommand(host.request, live.id, {
         type: 'forfeit',
         participantId: seat.id,
       });
