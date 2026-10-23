@@ -67,7 +67,7 @@ test('a deferred turn resumes at its refused step without buying or speaking any
     publish: async (job) => {
       refuse(`publish:${job.text}`);
       spoken.push(job.text);
-      return { complete: true };
+      return { complete: true, segmentEnded: false };
     },
     nextId: () => `phrase-${++ids}`,
     maxAttempts: 2,
@@ -110,7 +110,7 @@ async function offeredAfterOneRefusal(sentBeforeRefusal: number) {
         throw refuseCapacity();
       }
       onSent?.(sent.pcm.length);
-      return { complete: true };
+      return { complete: true, segmentEnded: false };
     },
   });
   for (let i = 0; i < 4; i++) {

@@ -9,8 +9,11 @@ function stubWriter(options: {
   readonly framesPerAuthorization: number;
   readonly refuseWindow?: number;
   readonly segmentEndsAtMs?: number;
+  /** Waits (counted from 0) that return 150 ms late, as an event-loop stall does. */
+  readonly stalls?: readonly number[];
 }) {
   let now = 1_000;
+  let waits = 0;
   let sample = 0;
   const windows: { before: string; after: string }[] = [];
   const captured: number[] = [];
@@ -32,7 +35,8 @@ function stubWriter(options: {
     channels: 1,
     nowMs: () => now,
     waitUntilMs: async (due) => {
-      now = Math.max(now, due);
+      now = Math.max(now, due) + (options.stalls?.includes(waits) ? 150 : 0);
+      waits += 1;
     },
     calibrate: async () => ({
       sentAtMs: 999,
@@ -123,6 +127,7 @@ test('a known segment end clamps the union and stops before a batch past it', as
       clamped: Date.parse(stub.windows[1]!.after) <= endsAt,
       sentFrames: stub.captured.length,
       complete: result.complete,
+      segmentEnded: result.segmentEnded,
       // Frames heard past the end are audible only, never eligible (ISSUE-460-r2).
       creditedOnlyBeforeEnd:
         result.eligibleSamples > 2400 && result.eligibleSamples < 4800,
@@ -132,6 +137,7 @@ test('a known segment end clamps the union and stops before a batch past it', as
       clamped: true,
       sentFrames: 20,
       complete: false,
+      segmentEnded: true,
       creditedOnlyBeforeEnd: true,
     },
   });
@@ -172,5 +178,55 @@ test('the credit ends at the last frame whose rounded end is before the segment 
       'credit exactly the fourteen frames that ended before it (ISSUE-460-r3)',
     actual: result.eligibleSamples,
     expected: 14 * 240,
+  });
+});
+
+test('a stalled wake re-anchors the cadence and the speech goes on, never crediting the stall', async () => {
+  const stub = stubWriter({ framesPerAuthorization: 10, stalls: [5] });
+  const result = await stub.write(new Int16Array(240 * 25), signal());
+  const [first, second] = stub.windows;
+  assert({
+    given:
+      'a 25-frame job whose sixth frame wakes 150 ms late (ISSUE-497 repro)',
+    should:
+      'authorize the five frames before the stall alone, re-anchor, and send every frame',
+    actual: {
+      captured: stub.captured.length,
+      accepted: stub.accepted,
+      complete: result.complete,
+      segmentEnded: result.segmentEnded,
+      // No authorized window covers the stalled time (DEC-212).
+      stallUncovered:
+        Date.parse(second!.before) - Date.parse(first!.after) >= 100,
+    },
+    expected: {
+      captured: 25,
+      accepted: [1200, 3600, 6000],
+      complete: true,
+      segmentEnded: false,
+      stallUncovered: true,
+    },
+  });
+});
+
+test('a frame that stays late after re-anchoring ends the job incomplete, not at a segment end', async () => {
+  const stub = stubWriter({ framesPerAuthorization: 10, stalls: [5, 6] });
+  const result = await stub.write(new Int16Array(240 * 25), signal());
+  assert({
+    given: 'a sixth frame that wakes late again after the cadence re-anchors',
+    should:
+      'stop with the five sent frames credited and say the segment did not end',
+    actual: {
+      captured: stub.captured.length,
+      eligible: result.eligibleSamples,
+      complete: result.complete,
+      segmentEnded: result.segmentEnded,
+    },
+    expected: {
+      captured: 5,
+      eligible: 1200,
+      complete: false,
+      segmentEnded: false,
+    },
   });
 });

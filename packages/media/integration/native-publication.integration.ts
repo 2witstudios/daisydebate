@@ -151,6 +151,7 @@ test(
           expected: {
             eligibleSamples: 9600,
             complete: true,
+            segmentEnded: false,
             cadenceElapsed: true,
             refreshed: true,
             receivedSamples: 9600,
@@ -209,6 +210,7 @@ test('burst handoff, stalled callback and revoked history cannot credit queued f
           expected: {
             eligibleSamples: fault === 'burst' || fault === 'stall' ? 0 : 1440,
             complete: false,
+            segmentEnded: false,
             rawSamples:
               fault === 'burst' || fault === 'stall'
                 ? 480

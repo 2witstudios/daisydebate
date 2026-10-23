@@ -82,6 +82,29 @@ export function observeSourceProgress(
   };
 }
 
+/**
+ * After a stall before a frame was sent: the next period starts at `nowMs` on
+ * a fresh calibration and the sent samples keep their count, so no window
+ * covers the stalled time. A receipt gap is not a stall and stays invalid.
+ */
+export function reanchorPublicationClock(
+  clock: PublicationClock,
+  calibration: ClockCalibration,
+  nowMs: number,
+): PublicationClock {
+  const fresh = publicationClock({
+    calibration,
+    anchorMs: nowMs,
+    sampleRate: clock.sampleRate,
+  });
+  return {
+    ...fresh,
+    anchorMs: nowMs - (clock.eligibleSamples / clock.sampleRate) * 1000,
+    eligibleSamples: clock.eligibleSamples,
+    valid: clock.valid && fresh.valid,
+  };
+}
+
 /** Refresh offsets without manufacturing a new sample anchor after a gap. */
 export function refreshPublicationClock(
   clock: PublicationClock,
