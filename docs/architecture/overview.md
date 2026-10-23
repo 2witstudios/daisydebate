@@ -162,4 +162,5 @@ flat permission list described in the package map above.
 
 Detailed documents: persistence and Redis semantics
 (`docs/architecture/persistence.md`), engine boundary
-(`docs/domains/engine.md`), decision records (`docs/decisions/`).
+(`docs/domains/engine.md`), the Room and Round lifecycle
+(`docs/domains/rooms.md`), decision records (`docs/decisions/`).
