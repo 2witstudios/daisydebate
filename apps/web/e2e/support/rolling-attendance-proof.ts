@@ -36,8 +36,9 @@ const latestSample = async (roundId: string) =>
  * consecutive samples taken after the start are healthy (the started
  * process is ready); both ingress switches stay inside the window.
  * An outage outside the windows (a boot, an opening check-in still in
- * flight) still postpones the deadline, so the deadline is checked against
- * the samples rather than the bare grace.
+ * flight) still postpones the deadline, so the deadline equals the engine's
+ * over the samples (the wiring) and is bounded engine-free: nothing after
+ * `since` postponed it, and the grace ended inside measured window 1.
  */
 async function settledAfter(roundId: string, after: string) {
   let resumed = after;
@@ -48,7 +49,18 @@ async function settledAfter(roundId: string, after: string) {
           .filter((row) => row.at > after)
           .slice(-3);
         resumed = recent.at(-1)?.at ?? after;
-        return recent.length === 3 && recent.every((row) => row.healthy);
+        // A gap over 2 s inside the trio would reopen the engine's outage.
+        return (
+          recent.length === 3 &&
+          recent.every((row) => row.healthy) &&
+          recent
+            .slice(1)
+            .every(
+              (row, index) =>
+                elapsedAttendanceObservationUs(row.at, recent[index]!.at) <=
+                2_000_000n,
+            )
+        );
       },
       { timeout: 15_000 },
     )
@@ -163,6 +175,19 @@ export async function rollingAttendancePeer({
         })!,
       ),
     );
+    const graceUs = BigInt(attendanceTimingPolicy.graceMs) * 1000n;
+    expect(
+      elapsedAttendanceObservationUs(
+        decision.effectiveDeadline,
+        speech.startedAt,
+      ),
+    ).toBeGreaterThanOrEqual(graceUs);
+    expect(
+      elapsedAttendanceObservationUs(decision.effectiveDeadline, since),
+    ).toBeLessThanOrEqual(graceUs);
+    expect(
+      elapsedAttendanceObservationUs(paused, decision.effectiveDeadline),
+    ).toBeGreaterThanOrEqual(0n);
     await closeAttendedFixture(
       host.request,
       round.id,
