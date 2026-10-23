@@ -23,6 +23,7 @@ import {
 } from './capture-activity';
 import { consumeCaptureClips, type QueuedClip } from './capture-consumer';
 import { createStreamTracker } from './capture-streams';
+import { closeCaptureSession } from './capture-drain';
 type Dependencies = {
   readonly roundId: string;
   readonly client: CaptureClient;
@@ -96,10 +97,12 @@ export async function runCaptureSession(
     () => stop.abort(),
   );
   let failure: unknown;
+  // The consumer outlives the batch loop on a graceful stop, to drain (VIDEO-4.1-r12).
+  const halt = new AbortController();
   const consuming = consumeCaptureClips({
     ...input,
     epoch,
-    signal,
+    signal: halt.signal,
     take: queue.shift,
     straddles: staging.straddles,
     dropped,
@@ -112,7 +115,7 @@ export async function runCaptureSession(
     },
     settled: streams.settled,
   }).catch((error) => {
-    if (!signal.aborted) {
+    if (!halt.signal.aborted) {
       failure = error;
       stop.abort();
     }
@@ -182,22 +185,42 @@ export async function runCaptureSession(
   } catch (error) {
     if (!caller.aborted) failure = error;
   } finally {
+    const graceful = gracefulStop(caller, failure, stop.signal);
     stop.abort();
     await capture.close();
-    await consuming;
     await relaying;
     activity.clear();
     staging.clear();
-    carries.clear();
-    queue.clear();
-    // Fallback for every stream not yet finished.
-    stats.sealedStreams += await sealCaptureStreams(
-      input.client,
-      epoch,
-      [...streams.values()].filter((stream) => !stream.finished),
-      AbortSignal.timeout(10000),
-      streams.finished,
-    );
+    stats.sealedStreams += await closeCaptureSession({
+      graceful,
+      carries,
+      roundId: input.roundId,
+      enqueue,
+      inFlight: () =>
+        [...streams.values()].reduce((sum, s) => sum + s.pending, 0),
+      halt: () => halt.abort(),
+      consuming,
+      discardQueued: () => {
+        let frames = 0;
+        for (let clip = queue.shift(); clip; clip = queue.shift()) {
+          streams.settled(clip);
+          frames += clip.durationMs / 10;
+        }
+        return frames;
+      },
+      dropped,
+      // Fallback for every stream not yet finished.
+      seal: (cleanup) =>
+        sealCaptureStreams(
+          input.client,
+          epoch,
+          [...streams.values()].filter((stream) => !stream.finished),
+          cleanup,
+          streams.finished,
+        ),
+      nowMs: input.nowMs,
+      waitUntilMs: input.waitUntilMs,
+    });
   }
   // The server closed the capture for good: a normal end, not a failure.
   if (failure && isCaptureClosedRefusal(failure))
@@ -209,6 +232,16 @@ export async function runCaptureSession(
     );
   return { ...stats, closed: false };
 }
+/**
+ * Only the caller's own abort (SIGTERM: a deploy or restart) drains. A
+ * capture-closed refusal, a lost lease or any failure has already stopped the
+ * session. The lease, renewed every 5 s for 15 s, outlives the drain.
+ */
+const gracefulStop = (
+  caller: AbortSignal,
+  failure: unknown,
+  stopped: AbortSignal,
+) => caller.aborted && failure === undefined && !stopped.aborted;
 const identities = (snapshot: Awaited<ReturnType<CaptureClient['read']>>) =>
   snapshot.state.participants.flatMap((p) => (p.identity ? [p.identity] : []));
 /** Heuristic only: a refused or lost batch is unknown activity, never a capture failure. */

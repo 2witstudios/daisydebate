@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import type { CaptureClient } from './capture-history';
+import { recordingCaptureClient } from './capture-client.test-support';
 import { createOpenRouter } from '@daisy/ai-voice';
 import { consumeCaptureClips, type QueuedClip } from './capture-consumer';
 
@@ -64,18 +64,7 @@ async function consume(
   const queue = [...clips];
   const replies = [...transcripts];
   const stop = new AbortController();
-  const client = {
-    read: async () => ({ state, calibration: {} }),
-    append: async () => {
-      calls.push('append');
-      return {};
-    },
-    observe: async (observation: unknown) => {
-      calls.push('observe');
-      observed.push(observation);
-      return {};
-    },
-  } as unknown as CaptureClient;
+  const client = recordingCaptureClient(state, calls, observed);
   const result = await consumeCaptureClips({
     client,
     epoch: 3,
