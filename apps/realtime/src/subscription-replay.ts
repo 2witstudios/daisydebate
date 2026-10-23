@@ -10,7 +10,9 @@ import { createAuthorityLease } from './authority-lease';
 import {
   compare,
   ownsSubscription,
+  AUTHORITY_UNAVAILABLE,
   readSubscriptionDecision,
+  subscriptionRefusal,
   type AuthorizeSubscription,
   type Connection,
   type Subscription,
@@ -32,6 +34,7 @@ export function createSubscriptionReceiver({
   lifetimeMs,
   maxSubscriptions,
   authorize,
+  failed,
   readCatchup,
   readRetentionBoundary,
   snapshot,
@@ -41,6 +44,7 @@ export function createSubscriptionReceiver({
   readonly lifetimeMs: number;
   readonly maxSubscriptions: number;
   readonly authorize: AuthorizeSubscription;
+  readonly failed: (error: unknown) => void;
   readonly readCatchup: (
     topic: string,
     since: string,
@@ -53,19 +57,10 @@ export function createSubscriptionReceiver({
   function refuse(
     connection: Connection,
     request: SubscribeRequest,
-    code: 'RATE_LIMIT' | 'AUTHORIZATION',
+    code: 'AUTHORIZATION' | 'INFRASTRUCTURE',
   ) {
     connection.topics.delete(request.topic);
-    connection.socket.send({
-      v: ENVELOPE_VERSION,
-      type: 'error',
-      id: request.id,
-      code,
-      message:
-        code === 'RATE_LIMIT'
-          ? 'Subscription limit reached'
-          : 'Subscription refused',
-    });
+    connection.socket.send(subscriptionRefusal(request.id, code));
   }
   function reserve(
     connection: Connection,
@@ -76,13 +71,7 @@ export function createSubscriptionReceiver({
     if (old) transport.detach(connection, request.topic, old);
     else if (connection.topics.size >= maxSubscriptions) {
       // A limit refusal must not remove an existing unrelated subscription.
-      connection.socket.send({
-        v: ENVELOPE_VERSION,
-        type: 'error',
-        id: request.id,
-        code: 'RATE_LIMIT',
-        message: 'Subscription limit reached',
-      });
+      connection.socket.send(subscriptionRefusal(request.id, 'RATE_LIMIT'));
       return null;
     }
     const sub: Subscription = {
@@ -107,7 +96,7 @@ export function createSubscriptionReceiver({
     );
     return {
       attempt,
-      decision: readSubscriptionDecision(authorize, connection, topic),
+      decision: readSubscriptionDecision(authorize, connection, topic, failed),
     };
   }
   async function initialAuthority(
@@ -122,8 +111,18 @@ export function createSubscriptionReceiver({
     );
     const decision = await pending;
     if (!ownsSubscription(connection, request.topic, sub)) return false;
-    if (!decision || !sub.lease.accept(attempt, decision?.validUntil)) {
-      refuse(connection, request, 'AUTHORIZATION');
+    if (decision === AUTHORITY_UNAVAILABLE || !decision) {
+      refuse(
+        connection,
+        request,
+        decision === AUTHORITY_UNAVAILABLE ? 'INFRASTRUCTURE' : 'AUTHORIZATION',
+      );
+      return false;
+    }
+    // A write on the topic during the read superseded the allow; the
+    // subscriber re-reads and asks again, as after a replay (ISSUE-445).
+    if (!sub.lease.accept(attempt, decision.validUntil)) {
+      transport.resync(connection, request, sub);
       return false;
     }
     sub.revision = decision.revision;
@@ -193,9 +192,13 @@ export function createSubscriptionReceiver({
       )
     )
       return false;
-    if (!decision) {
+    if (!decision || decision === AUTHORITY_UNAVAILABLE) {
       transport.detach(connection, request.topic, sub);
-      refuse(connection, request, 'AUTHORIZATION');
+      refuse(
+        connection,
+        request,
+        decision === AUTHORITY_UNAVAILABLE ? 'INFRASTRUCTURE' : 'AUTHORIZATION',
+      );
       return false;
     }
     const certified = await finalBoundary(since, through);

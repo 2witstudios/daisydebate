@@ -26,21 +26,32 @@ for (const result of ['allow', 'failure', 'late-allow'] as const)
         result === 'failure'
           ? Promise.reject(new Error('private adapter failure'))
           : read.promise,
-      denied: false,
       timers,
       budgetMs: 5_000,
     });
     if (result === 'allow') read.resolve(true);
     if (result === 'late-allow') fire();
-    const actual = await checked;
+    const actual = await checked.then(
+      (allowed) => allowed,
+      (error: unknown) =>
+        error instanceof Error ? error.message : 'unexpected rejection',
+    );
     if (result === 'late-allow') read.resolve(true);
     await Promise.resolve();
     assert({
       given:
         'an injected canonical lookup and independently scheduled operational budget',
       should:
-        'deny failure or lateness, preserve prompt allow and release the owned timer',
+        'reject a failure or lateness for the caller to report, preserve prompt allow and release the owned timer',
       actual: [actual, scheduled, cleared],
-      expected: [result === 'allow', 5_000, true],
+      expected: [
+        {
+          allow: true,
+          failure: 'private adapter failure',
+          'late-allow': 'Authority check budget spent',
+        }[result],
+        5_000,
+        true,
+      ],
     });
   });

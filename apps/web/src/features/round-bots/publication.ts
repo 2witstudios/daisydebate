@@ -83,8 +83,10 @@ export function createBotPublisher(input: {
         });
         return true;
       },
-      onAccepted: (eligibleSamples) =>
-        onSent?.(Math.min(originalSamples, eligibleSamples * job.channels)),
+      // Resume follows what was heard, not what was credited (ISSUE-431-r7),
+      // capped at the phrase: the padded tail is silence (ISSUE-454).
+      onSent: (sentSamples) =>
+        onSent?.(Math.min(originalSamples, sentSamples * job.channels)),
     });
     const result = await write(frames, signal);
     return {

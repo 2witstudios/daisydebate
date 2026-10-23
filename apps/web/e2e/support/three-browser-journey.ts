@@ -17,6 +17,7 @@ import {
   submitCreateRoom,
 } from './room-launch-flow';
 import { readBallotRound } from './human-ballot-round';
+import { subscriptionLedger } from './subscription-ledger';
 
 type Seat = 'Affirmative 1' | 'Negative 1' | 'Judge 1';
 type Player = { readonly page: Page; readonly seat: Seat };
@@ -98,7 +99,7 @@ async function endSpeech(page: Page) {
 
 /**
  * Every turn through the debaters' own controls: the affirmative interrupts
- * the first cross-examination and ends it, the negative spends prep before
+ * the first cross-examination and yields the floor back, the negative spends prep before
  * its constructive and refreshes mid-speech, and the affirmative reconnects
  * from a new tab before its first rebuttal. Returns the pages still open.
  */
@@ -106,6 +107,7 @@ async function playEveryTurn(
   debaters: Debaters,
   contexts: Readonly<Record<keyof Debaters, BrowserContext>>,
   roundId: string,
+  watch: (page: Page, label: string) => void,
 ) {
   const players = { ...debaters };
   await players.affirmative
@@ -124,17 +126,21 @@ async function playEveryTurn(
     }
     await untilSegment(holder, roundId, scheduled.key, false);
     if (scheduled.key === 'CX1') {
-      holder = players.affirmative;
-      await holder
+      // The affirmative takes the floor, then yields it back (DEC-203); the
+      // negative, who holds CX1, ends it.
+      const interrupter = players.affirmative;
+      await interrupter
         .getByRole('button', { name: 'Interrupt', exact: true })
         .click();
+      await endSpeech(interrupter);
       await expect(
-        holder.getByRole('button', { name: 'End speech', exact: true }),
-      ).toBeVisible();
+        interrupter.getByRole('button', { name: 'Interrupt', exact: true }),
+      ).toBeEnabled();
     }
     if (scheduled.key === 'NC') await holder.reload();
     if (scheduled.key === '1AR') {
       const fresh = await openPage(contexts.affirmative, 'ROOM-6.2 reconnect');
+      watch(fresh, 'affirmative');
       await fresh.goto(`/rounds/${roundId}/room`);
       await holder.close();
       holder = players.affirmative = fresh;
@@ -175,6 +181,7 @@ async function judgeBallot(judge: Page, roundId: string) {
  */
 export async function proveThreeBrowserRound(browser: Browser) {
   const accounts = await createRoomLaunchAccounts(browser, 3);
+  const ledger = subscriptionLedger();
   try {
     for (const { context } of accounts.members)
       await context.grantPermissions(['camera', 'microphone'], { origin });
@@ -183,6 +190,12 @@ export async function proveThreeBrowserRound(browser: Browser) {
         openPage(accounts.members[index]!.context, `ROOM-6.2 ${label}`),
       ),
     );
+    for (const [page, label] of [
+      [aff!, 'affirmative'],
+      [neg!, 'negative'],
+      [judge!, 'judge'],
+    ] as const)
+      ledger.watch(page, label);
     const players: Player[] = [
       { page: aff!, seat: 'Affirmative 1' },
       { page: neg!, seat: 'Negative 1' },
@@ -203,6 +216,17 @@ export async function proveThreeBrowserRound(browser: Browser) {
     await expect(judge!).toHaveURL(
       new RegExp(`/rounds/${first.roundId}(/room)?$`),
     );
+    // Both debaters' first subscribe to the Round is accepted, not retried.
+    await expect
+      .poll(() => [ledger.refusals, ledger.subscribed])
+      .toEqual([
+        [],
+        expect.arrayContaining(
+          ['affirmative', 'negative'].map(
+            (side) => `${side} debate:${first.roundId}`,
+          ),
+        ),
+      ]);
     const played = await playEveryTurn(
       { affirmative: aff!, negative: neg! },
       {
@@ -210,7 +234,10 @@ export async function proveThreeBrowserRound(browser: Browser) {
         negative: accounts.members[1]!.context,
       },
       first.roundId,
+      ledger.watch,
     );
+    // No subscribe was refused through the refresh and the reconnect.
+    expect(ledger.refusals).toEqual([]);
     const host = played.affirmative;
     await judgeBallot(judge!, first.roundId);
     await expect(host).toHaveURL(`/rounds/${first.roundId}`, {
@@ -271,6 +298,7 @@ export async function proveThreeBrowserRound(browser: Browser) {
       'judge',
       'negative',
     ]);
+    expect(ledger.refusals).toEqual([]);
   } finally {
     await accounts.closeContexts();
   }
