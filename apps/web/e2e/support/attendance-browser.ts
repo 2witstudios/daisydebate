@@ -6,6 +6,7 @@ import type {
 } from '@playwright/test';
 import {
   attendanceReceiptSchema,
+  attendanceTimingPolicy,
   type AttendanceReceipt,
 } from '@daisy/protocol';
 import { expect, openPage } from './fixtures';
@@ -51,6 +52,16 @@ export async function pastOriginalAttendanceGrace(
     .toBeGreaterThan(45_000);
 }
 
+/**
+ * After an outage ends, the whole grace can still remain (an outage that began
+ * at the opening), then the finalization buffer, the public probe's recovery
+ * and a maintenance tick. A fixed 50 s left under 3 s of that margin.
+ */
+const resolutionWaitMs =
+  attendanceTimingPolicy.graceMs +
+  attendanceTimingPolicy.finalizationBufferMs +
+  15_000;
+
 export async function attendedResolution(roundId: string, segmentId: string) {
   await expect
     .poll(
@@ -58,7 +69,7 @@ export async function attendedResolution(roundId: string, segmentId: string) {
         (await attendanceEvidence(roundId)).adjudications.find(
           (row) => row.segmentId === segmentId,
         )?.decision,
-      { timeout: 50_000, intervals: [500] },
+      { timeout: resolutionWaitMs, intervals: [500] },
     )
     .toBe('attended');
 }
