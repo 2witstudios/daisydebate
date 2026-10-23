@@ -12,9 +12,9 @@ export type RoundUnjudgedCompletion = {
     readonly status: 'submitted' | 'voided';
   }[];
   readonly ballotDeadlineAt: string | null;
-  /** The frozen transcript's completeness and whether a human judges (DEC-208). */
+  /** The frozen transcript's completeness and the human judge seats (DEC-208). */
   readonly completeness: 'complete' | 'incomplete';
-  readonly humanJudges: boolean;
+  readonly humanJudgeSeatIds: readonly string[];
 };
 
 /**

@@ -44,9 +44,9 @@ type CompletionFacts = Parameters<
     readonly status: 'submitted' | 'voided';
   }[];
   readonly ballotDeadlineAt: string | null;
-  /** The frozen transcript's completeness and whether a human judges (DEC-208). */
+  /** The frozen transcript's completeness and the human judge seats (DEC-208). */
   readonly completeness: 'complete' | 'incomplete';
-  readonly humanJudges: boolean;
+  readonly humanJudgeSeatIds: readonly string[];
 };
 type Request = LockedRoundTickInput & {
   readonly instanceId: string;
@@ -124,9 +124,9 @@ async function readCompletionFacts(
     ballots: stored as CompletionFacts['ballots'],
     ballotDeadlineAt,
     completeness: frozen.completeness,
-    humanJudges: facts.seats.some(
-      (seat) => seat.role === 'judge' && seat.kind === 'human',
-    ),
+    humanJudgeSeatIds: facts.seats
+      .filter((seat) => seat.role === 'judge' && seat.kind === 'human')
+      .map((seat) => seat.id),
   };
 }
 

@@ -325,7 +325,8 @@ An `incomplete` freeze queues no AI judging job (DEC-208, the engine's
 `freezeJudgingPlan`). When the Round has no human judge, the freeze persists
 the deadline at `frozen_at`, and the same finalizer completes the Round with a
 null outcome and the `transcript-incomplete` ruling. Human judges keep the
-ordinary deadline.
+ordinary deadline; once every human judge has ruled decisively, the finalizer
+completes without waiting for the AI seats, which record no ruling.
 
 Attendance evaluation enforces the same current web service authority inside its
 own transaction. It checks after the Round fence and control waits, before

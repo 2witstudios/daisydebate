@@ -27,7 +27,7 @@ const facts = (
   ballots: [],
   ballotDeadlineAt: roundAt(0),
   completeness: 'complete' as const,
-  humanJudges: false,
+  humanJudgeSeatIds: [],
 });
 const played = () => {
   const world = runtimeWorld({ rules, participants });

@@ -216,7 +216,8 @@ depends on one, and nothing in a Round's history would change if Rooms were dele
   finalizer completes the Round with a null outcome. The receipt ruling is
   `transcript-incomplete`. There is no winner, draw, forfeit or rating. Human
   judges still rule by the ordinary deadline, and AI seats on such a Round
-  record no ruling.
+  record no ruling; once every human judge has ruled decisively the Round
+  completes without waiting out the deadline.
 - **AI practice capacity is held only while a practice plays (DEC-211).** Only
   scheduled and active status consumes global capacity. A Round gives its slot
   back when it reaches a terminal state through the shared terminal projection

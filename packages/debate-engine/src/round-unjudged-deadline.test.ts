@@ -21,7 +21,7 @@ const ballot = (
 const at = (nowMs: number, ballots: ReturnType<typeof ballot>[] = []) =>
   decideUnjudgedCompletion({
     completeness: 'complete',
-    humanJudges: true,
+    humanJudgeSeatIds: judges,
     judgeSeatIds: judges,
     ballots,
     ballotDeadlineAtMs: 61_000,
@@ -34,7 +34,7 @@ test('the ballot deadline decides when a Round without a full ruling completes (
     should: 'complete at once as unjudged',
     actual: decideUnjudgedCompletion({
       completeness: 'complete',
-      humanJudges: false,
+      humanJudgeSeatIds: [],
       judgeSeatIds: [],
       ballots: [],
       ballotDeadlineAtMs: Number.NaN,
@@ -119,7 +119,7 @@ const completion = (nowMs: number) => ({
   ballots: [],
   ballotDeadlineAt: roundAt(total + 1_800_000),
   completeness: 'complete' as const,
-  humanJudges: true,
+  humanJudgeSeatIds: [judge.id],
 });
 
 test('a judged casual Round completes without a winner only after its ballot deadline', async () => {
@@ -188,7 +188,7 @@ test('an incomplete freeze dispatches no AI judge and, with no human judge, clos
   ) =>
     decideUnjudgedCompletion({
       completeness,
-      humanJudges,
+      humanJudgeSeatIds: humanJudges ? [judges[0]!] : [],
       judgeSeatIds: [judges[0]!],
       ballots: [],
       ballotDeadlineAtMs: 61_000,
@@ -208,6 +208,53 @@ test('an incomplete freeze dispatches no AI judge and, with no human judge, clos
       'transcript-incomplete',
       'judges-did-not-rule',
       'judges-did-not-rule',
+    ],
+  });
+});
+
+test('an incomplete freeze completes once every human judge has ruled decisively (ISSUE-466-r2)', () => {
+  const [human, ai, other] = judges as [string, string, string];
+  const decide = (
+    humanJudgeSeatIds: readonly string[],
+    ballots: ReturnType<typeof ballot>[],
+    completeness: 'complete' | 'incomplete' = 'incomplete',
+  ) =>
+    decideUnjudgedCompletion({
+      completeness,
+      humanJudgeSeatIds,
+      judgeSeatIds: [human, ai],
+      ballots,
+      ballotDeadlineAtMs: 61_000,
+      nowMs: 1_000,
+    });
+  assert({
+    given:
+      'a human and an AI judge before the deadline: the human ruled on an incomplete freeze, has not ruled, ruled on a complete freeze, and two humans split',
+    should:
+      'complete with the human ruling and the AI seat as no ruling only once every human ruled decisively on an incomplete freeze; otherwise keep waiting',
+    actual: [
+      decide([human], [ballot(human, 'negative')]),
+      decide([human], []),
+      decide([human], [ballot(human, 'negative')], 'complete'),
+      decideUnjudgedCompletion({
+        completeness: 'incomplete',
+        humanJudgeSeatIds: [human, other],
+        judgeSeatIds: [human, other, ai],
+        ballots: [ballot(human, 'negative'), ballot(other, 'affirmative')],
+        ballotDeadlineAtMs: 61_000,
+        nowMs: 1_000,
+      }).kind,
+    ],
+    expected: [
+      {
+        kind: 'complete',
+        ruling: 'partial',
+        outcome: 'negative',
+        noRuling: [ai],
+      },
+      { kind: 'pending' },
+      { kind: 'pending' },
+      'pending',
     ],
   });
 });

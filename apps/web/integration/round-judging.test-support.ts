@@ -59,11 +59,6 @@ export async function readyTwoHumanJudgeRoom(
     ).view;
   return { room, judges };
 }
-/**
- * A bot-judged Round played out and frozen through the real finalizer.
- * `captured` marks every debater speech stream complete before the freeze,
- * as a full capture would; otherwise silence with no media freezes incomplete.
- */
 /** Ends every segment past the admission window; when captured, every debater stream sealed complete. */
 export async function playOut(
   f: Parameters<Parameters<typeof withRoomRuntime>[0]>[0],
@@ -86,6 +81,11 @@ export async function playOut(
     from round_speaking_intervals i join round_participants p on p.id=i.round_participant_id and p.round_id=i.round_id
     where i.round_id=${roundId} and p.role<>'judge' and (i.ended_at is null or i.ended_at>i.started_at)`;
 }
+/**
+ * A bot-judged Round played out and frozen through the real finalizer.
+ * `captured` marks every debater speech stream complete before the freeze,
+ * as a full capture would; otherwise silence with no media freezes incomplete.
+ */
 export async function frozenBotJudgeRound(
   f: Parameters<Parameters<typeof withRoomRuntime>[0]>[0],
   captured: boolean,

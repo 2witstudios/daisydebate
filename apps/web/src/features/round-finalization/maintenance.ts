@@ -25,10 +25,17 @@ type CompletionBuilder = Parameters<
 /** The engine decides; a judged Round before its persisted ballot deadline is not yet eligible. */
 export const unjudgedCompletion =
   (nextId: () => string): CompletionBuilder =>
-  ({ round, now, ballots, ballotDeadlineAt, completeness, humanJudges }) => {
+  ({
+    round,
+    now,
+    ballots,
+    ballotDeadlineAt,
+    completeness,
+    humanJudgeSeatIds,
+  }) => {
     const decision = decideUnjudgedCompletion({
       completeness,
-      humanJudges,
+      humanJudgeSeatIds,
       judgeSeatIds: round.participants
         .filter((seat) => seat.role === 'judge')
         .map((seat) => seat.id),
@@ -52,7 +59,7 @@ export const unjudgedCompletion =
         ballots,
         ballotDeadlineAt,
         completeness,
-        humanJudges,
+        humanJudgeSeatIds,
       }),
     };
   };
