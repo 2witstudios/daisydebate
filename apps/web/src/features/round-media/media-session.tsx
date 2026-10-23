@@ -10,6 +10,8 @@ import {
 } from './browser-transport';
 import {
   createMediaController,
+  mediaFailure,
+  transientMediaFailure,
   type MediaConnectionState,
 } from './media-controller';
 import { MediaStage } from './media-stage';
@@ -23,23 +25,44 @@ const messages: Record<MediaConnectionState, string> = {
   unavailable: 'Camera and sound are unavailable. Retry to reconnect.',
   ended: 'The call has ended.',
 };
+/** Backoff for an admission refused for now, about 3.5 s in all (ISSUE-494). */
+const ADMISSION_RETRY_MS = [500, 1000, 2000];
+const pause = (ms: number, signal: AbortSignal) =>
+  new Promise<void>((done) => {
+    const timer = setTimeout(done, ms);
+    signal.addEventListener(
+      'abort',
+      () => {
+        clearTimeout(timer);
+        done();
+      },
+      { once: true },
+    );
+  });
 const requestMedia = async (
   roundId: string,
   operation: 'session' | 'reconcile',
   signal: AbortSignal,
 ) => {
-  const response = await fetch(
-    `/api/rounds/${encodeURIComponent(roundId)}/media/${operation}`,
-    {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json' },
-      body: '{}',
-      signal,
-      cache: 'no-store',
-    },
-  );
-  if (!response.ok) throw new Error('Media unavailable');
+  let response: Response;
+  try {
+    response = await fetch(
+      `/api/rounds/${encodeURIComponent(roundId)}/media/${operation}`,
+      {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+        signal,
+        cache: 'no-store',
+      },
+    );
+  } catch (error) {
+    // The network, not the server, failed; a cancelled request stays final.
+    if (signal.aborted) throw error;
+    throw transientMediaFailure();
+  }
+  if (!response.ok) throw mediaFailure(response.status);
   return response.json() as Promise<unknown>;
 };
 
@@ -72,6 +95,7 @@ function RoundMediaSession({
       },
       changed: setConnection,
       received: setMedia,
+      retry: { delaysMs: ADMISSION_RETRY_MS, wait: pause },
       transport: () => {
         const browser = createBrowserMediaTransport({
           tracks: setTracks,

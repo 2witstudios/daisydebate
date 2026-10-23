@@ -1,6 +1,11 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { RoundMediaAdmission } from '@daisy/protocol';
-import { createMediaController } from './media-controller';
+import {
+  createMediaController,
+  isTransientMediaFailure,
+  mediaFailure,
+  transientMediaFailure,
+} from './media-controller';
 setupRitewayBun();
 const roundId = 'r'.repeat(24);
 const admission: RoundMediaAdmission = {
@@ -133,5 +138,95 @@ test('reconnect obtains a fresh admission and teardown leaves no old transport',
       transports.every((transport) => transport.stopped > 0),
     ],
     expected: [2, 2, true],
+  });
+});
+
+const transportStub = () => ({
+  connect: async () => undefined,
+  apply: async () => undefined,
+  stopTracks: () => undefined,
+  disconnect: async () => undefined,
+});
+
+test('a transient admission refusal is retried before media is called unavailable', async () => {
+  let admits = 0;
+  const states: string[] = [];
+  const waits: number[] = [];
+  const controller = createMediaController({
+    roundId,
+    api: {
+      admit: async () => {
+        if (++admits < 3) throw transientMediaFailure();
+        return admission;
+      },
+      reconcile: async () => snapshot,
+    },
+    transport: transportStub,
+    changed: (state) => states.push(state),
+    retry: {
+      delaysMs: [500, 1000, 2000],
+      wait: async (ms) => {
+        waits.push(ms);
+      },
+    },
+  });
+  await controller.join();
+  assert({
+    given:
+      'an admission refused for now twice (a 503 under load), then granted',
+    should: 'wait and retry, reporting reconnecting, then go live (ISSUE-494)',
+    actual: { admits, waits, states, final: controller.state() },
+    expected: {
+      admits: 3,
+      waits: [500, 1000],
+      states: ['connecting', 'reconnecting', 'reconnecting', 'live'],
+      final: 'live',
+    },
+  });
+});
+
+test('a lasting or definite admission failure is reported unavailable', async () => {
+  const outcome = async (failure: () => Error) => {
+    let admits = 0;
+    const controller = createMediaController({
+      roundId,
+      api: {
+        admit: async () => {
+          admits++;
+          throw failure();
+        },
+        reconcile: async () => snapshot,
+      },
+      transport: transportStub,
+      changed: () => undefined,
+      retry: { delaysMs: [1, 1], wait: async () => undefined },
+    });
+    await controller.join();
+    return [admits, controller.state()];
+  };
+  assert({
+    given: 'a refusal that stays transient, and a definite refusal',
+    should:
+      'stop after the bounded retries, and not retry the definite one at all',
+    actual: [
+      await outcome(transientMediaFailure),
+      await outcome(() => new Error('Media unavailable')),
+    ],
+    expected: [
+      [3, 'unavailable'],
+      [1, 'unavailable'],
+    ],
+  });
+});
+
+test('a timeout or a server refusal for now is transient; other refusals are definite', () => {
+  const transient = (status: number) =>
+    isTransientMediaFailure(mediaFailure(status));
+  assert({
+    given: 'media answers 408, 503, 409 and 403',
+    should:
+      'retry the timeout and the refusal for now, and not the definite refusals (ISSUE-494-r1)',
+    actual: [408, 503, 409, 403].map(transient),
+    expected: [true, true, false, false],
   });
 });

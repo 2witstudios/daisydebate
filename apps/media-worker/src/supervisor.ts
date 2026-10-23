@@ -1,4 +1,9 @@
 type Session = { readonly roundId: string; readonly sessionId: string };
+/**
+ * A capture process's exit status when the server definitely closed its
+ * session (a terminal Round): the session is finished and never relaunched.
+ */
+export const CAPTURE_FINISHED_EXIT = 3;
 type Scope = Session & { readonly workerId: string };
 type Process = { readonly exited: Promise<number>; readonly stop: () => void };
 
@@ -19,9 +24,18 @@ export function createCaptureSupervisor(input: {
 }) {
   const running = new Map<string, Process>();
   const backoff = new Map<string, { failures: number; retryAt: number }>();
+  // Sessions the server definitely closed: never relaunched. Bounded, oldest first.
+  const finished = new Set<string>();
   let stopped = false;
   const exited = (sessionId: string, status: number) => {
     running.delete(sessionId);
+    if (status === CAPTURE_FINISHED_EXIT) {
+      backoff.delete(sessionId);
+      if (finished.size >= 4096)
+        finished.delete(finished.values().next().value!);
+      finished.add(sessionId);
+      return;
+    }
     if (status === 0) {
       backoff.delete(sessionId);
       return;
@@ -50,7 +64,11 @@ export function createCaptureSupervisor(input: {
       for (const session of found) {
         if (stopped || running.size >= input.maxSessions) return;
         const retry = backoff.get(session.sessionId);
-        if (running.has(session.sessionId) || (retry && now < retry.retryAt))
+        if (
+          running.has(session.sessionId) ||
+          finished.has(session.sessionId) ||
+          (retry && now < retry.retryAt)
+        )
           continue;
         const process = input.launch({
           ...session,

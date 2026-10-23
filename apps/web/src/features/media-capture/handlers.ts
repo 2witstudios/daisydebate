@@ -79,7 +79,7 @@ export function createMediaCaptureHandlers(input: {
         try {
           return Response.json((await dispatch(payload)) ?? null);
         } catch (error) {
-          const refusal = retryableSealRefusal(error, id);
+          const refusal = namedCaptureRefusal(error, id);
           if (refusal) return refusal;
           throw error;
         }
@@ -88,19 +88,31 @@ export function createMediaCaptureHandlers(input: {
 }
 
 /**
- * A seal refused only because the capture timeline has not closed yet is the
- * one seal refusal a worker may resend; every other refusal is definite
- * (VIDEO-4.1-r1).
+ * Capture refusals a worker must tell apart, by their internal message, with
+ * the status each answers: an open timeline is the one seal refusal it may
+ * resend (VIDEO-4.1-r1); an ended session or closed admission ends it for
+ * good, never relaunched (ISSUE-494); a session closed to writes only while it
+ * is unsafe or being deleted is a window a clean reconcile reopens (DEC-209),
+ * so it is refused for now and retried, never named closed (ISSUE-494-r3).
  */
-function retryableSealRefusal(error: unknown, requestId: string) {
+const namedRefusals: Readonly<
+  Record<string, { readonly refusal: string; readonly status: 409 | 503 }>
+> = {
+  'Capture timeline is still open': { refusal: 'timeline-open', status: 409 },
+  'Capture session has ended': { refusal: 'capture-closed', status: 409 },
+  'Capture admission is closed': { refusal: 'capture-closed', status: 409 },
+  'Capture session is closed': { refusal: 'capture-paused', status: 503 },
+};
+function namedCaptureRefusal(error: unknown, requestId: string) {
   if (
     !isAppError(error) ||
     error.code !== 'CONFLICT' ||
-    error.message !== 'Capture timeline is still open'
+    !Object.hasOwn(namedRefusals, error.message)
   )
     return null;
+  const named = namedRefusals[error.message]!;
   return Response.json(
-    { ...toPublicError(error, requestId).body, refusal: 'timeline-open' },
-    { status: 409 },
+    { ...toPublicError(error, requestId).body, refusal: named.refusal },
+    { status: named.status },
   );
 }

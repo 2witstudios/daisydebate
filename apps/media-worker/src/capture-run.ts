@@ -4,10 +4,14 @@ import {
 } from '@daisy/protocol';
 import { disposeCaptureRuntime } from '@daisy/media/capture';
 import { createOpenRouter } from '@daisy/ai-voice';
-import { createMediaWorkerClient } from '@daisy/media/worker';
+import {
+  createMediaWorkerClient,
+  isCaptureClosedRefusal,
+} from '@daisy/media/worker';
 import { createMediaWorkerAuthentication } from '@daisy/media/internal';
 import { idSchema } from '@daisy/protocol';
 import { runCaptureSession } from './capture-session';
+import { CAPTURE_FINISHED_EXIT } from './supervisor';
 
 type Fetch = (
   input: string | URL | Request,
@@ -55,7 +59,7 @@ export async function runCaptureProcess(input: {
   process.on('SIGTERM', () => stop.abort());
   process.on('SIGINT', () => stop.abort());
   try {
-    await runCaptureSession(
+    const ended = await runCaptureSession(
       {
         roundId,
         client,
@@ -73,9 +77,15 @@ export async function runCaptureProcess(input: {
       },
       stop.signal,
     );
-  } catch {
-    process.exitCode = 1;
+    process.exitCode = exitStatus(ended.closed);
+  } catch (error) {
+    // Refused at start (lease, token) because the capture is closed for good.
+    process.exitCode = exitStatus(isCaptureClosedRefusal(error), 1);
   } finally {
     await disposeCaptureRuntime();
   }
 }
+
+/** A capture closed for good finishes the session; it is never relaunched. */
+const exitStatus = (closed: boolean, otherwise = 0) =>
+  closed ? CAPTURE_FINISHED_EXIT : otherwise;

@@ -68,6 +68,11 @@ function controlOrigin(value: string) {
 const refusedForNow = new WeakSet<object>();
 /** Seals refused only because the capture timeline has not closed yet. */
 const openTimeline = new WeakSet<object>();
+/** Requests refused because the capture session or admission is closed. */
+const captureClosed = new WeakSet<object>();
+/** Whether the server closed the capture for good: the session ends (ISSUE-494). */
+export const isCaptureClosedRefusal = (error: unknown) =>
+  typeof error === 'object' && error !== null && captureClosed.has(error);
 /**
  * A 4xx is a refusal for certain, except a 408 (the outcome is unknown, as in
  * the media service, ISSUE-464) and a 429 (refused for now) (VIDEO-4.1-r4).
@@ -102,6 +107,7 @@ async function refuse(
   const error = refusalFor(response.status);
   if (definiteStatus(response.status)) definite.add(error);
   if (named === 'timeline-open') openTimeline.add(error);
+  if (named === 'capture-closed') captureClosed.add(error);
   throw error;
 }
 function refusalFor(status: number) {
