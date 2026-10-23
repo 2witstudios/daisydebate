@@ -13,7 +13,19 @@ type Job = {
   readonly sampleRate: 24000;
   readonly channels: 1;
 };
-/** Native receipt windows authorize only the original whole-frame prefix; no text is credited. */
+const FRAME_SAMPLES = 240;
+/**
+ * TTS audio in whole 10 ms frames: a partial last frame is padded with
+ * silence, never dropped, so every phrase is sent whole (ISSUE-454).
+ */
+function wholeFrames(pcm: Int16Array) {
+  const tail = pcm.length % FRAME_SAMPLES;
+  if (tail === 0) return pcm;
+  const padded = new Int16Array(pcm.length + FRAME_SAMPLES - tail);
+  padded.set(pcm);
+  return padded;
+}
+/** Native receipt windows authorize each whole frame sent; no text is credited. */
 export function createBotPublisher(input: {
   readonly store: Pick<Database, 'databaseNow' | 'verifyRoundBotPublication'>;
   readonly botToken: (
@@ -39,14 +51,8 @@ export function createBotPublisher(input: {
     if (signal.aborted) throw createAppError('CONFLICT');
     await input.store.verifyRoundBotPublication(job.scope, job.token);
     const originalSamples = job.pcm.length;
-    const transportSamples = originalSamples - (originalSamples % 240);
-    if (!transportSamples)
-      return {
-        originalSamples,
-        transportSamples,
-        eligibleSamples: 0,
-        complete: false,
-      };
+    const frames = wholeFrames(job.pcm);
+    const transportSamples = frames.length;
     const grant = await input.botToken(job.scope, job.token);
     if (signal.aborted) throw createAppError('CONFLICT');
     const publication = await createAudioPublication({
@@ -77,14 +83,15 @@ export function createBotPublisher(input: {
         });
         return true;
       },
-      onAccepted: (eligibleSamples) => onSent?.(eligibleSamples * job.channels),
+      onAccepted: (eligibleSamples) =>
+        onSent?.(Math.min(originalSamples, eligibleSamples * job.channels)),
     });
-    const result = await write(job.pcm.subarray(0, transportSamples), signal);
+    const result = await write(frames, signal);
     return {
       originalSamples,
       transportSamples,
       eligibleSamples: result.eligibleSamples,
-      complete: result.complete && transportSamples === originalSamples,
+      complete: result.complete,
     };
   };
 }

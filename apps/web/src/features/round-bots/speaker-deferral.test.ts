@@ -123,3 +123,32 @@ test('a phrase refused mid-publication resumes from the samples already sent', a
   });
   await speaker.stop();
 });
+
+test('a phrase fully sent before a refusal counts as spoken on resume', async () => {
+  const offered: number[] = [];
+  let refused = false;
+  const { speaker, settle } = harness('speech', {
+    synthesize: async (phraseId, text) => answered(job(phraseId, text, 960)),
+    publish: async (sent, _signal, onSent) => {
+      offered.push(sent.pcm.length);
+      onSent?.(sent.pcm.length);
+      if (!refused) {
+        refused = true;
+        throw refuseCapacity();
+      }
+      return { complete: true };
+    },
+  });
+  for (let i = 0; i < 4; i++) {
+    speaker.wake();
+    await settle();
+  }
+  assert({
+    given:
+      'a first phrase whose every sample was sent before its last window was refused',
+    should: 'never offer an empty remainder, and go on to the next phrase',
+    actual: offered,
+    expected: [960, 960],
+  });
+  await speaker.stop();
+});

@@ -84,6 +84,27 @@ export function createBotSpeaker(input: {
     owed = true;
   let stage = 'generate';
   let progress = freshProgress();
+  /**
+   * Publishes what is left of the held phrase; true once all of it was sent.
+   * A phrase sent in full before a refusal is already heard.
+   */
+  const publishRest = async (phrase: Job, signal: AbortSignal) => {
+    const from = progress.sent;
+    if (from >= phrase.pcm.length) return true;
+    playing = true;
+    try {
+      const { complete } = await input.publish(
+        { ...phrase, pcm: phrase.pcm.subarray(from) },
+        signal,
+        (samples) => {
+          progress.sent = Math.min(phrase.pcm.length, from + samples);
+        },
+      );
+      return complete;
+    } finally {
+      playing = false;
+    }
+  };
   /** Resumes the turn at its first unfinished step. */
   const deliver = async (signal: AbortSignal) => {
     stage = 'generate';
@@ -103,22 +124,8 @@ export function createBotSpeaker(input: {
         signal,
       );
       await progress.synthesized.settle();
-      playing = true;
       stage = 'publish';
-      const phrase = progress.synthesized.value;
-      const from = progress.sent;
-      try {
-        const { complete } = await input.publish(
-          { ...phrase, pcm: phrase.pcm.subarray(from) },
-          signal,
-          (samples) => {
-            progress.sent = from + samples;
-          },
-        );
-        if (!complete) return;
-      } finally {
-        playing = false;
-      }
+      if (!(await publishRest(progress.synthesized.value, signal))) return;
       progress.spoken += 1;
       progress.synthesized = null;
       progress.sent = 0;
