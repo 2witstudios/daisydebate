@@ -1,6 +1,7 @@
 import { createAppError } from '@daisy/errors';
 import type { OpenRouter } from '@daisy/ai-voice';
 import { createCaptureSubscription } from '@daisy/media/capture';
+import { isDefiniteRefusal, isOpenTimelineRefusal } from '@daisy/media/worker';
 import { createClipQueue } from './clip-queue';
 import { readCaptureHistory, type CaptureClient } from './capture-history';
 import { createCaptureStaging } from './capture-staging';
@@ -150,7 +151,7 @@ export async function runCaptureSession(
         epoch,
         streams.due(Date.parse(current.state.serverNow)),
         signal,
-        streams.sealed,
+        streams.finished,
       );
       await input.waitUntilMs(due, signal);
     }
@@ -164,13 +165,13 @@ export async function runCaptureSession(
     activity.clear();
     staging.clear();
     queue.clear();
-    // Fallback for every stream not yet sealed: a refusal leaves it unsealed.
+    // Fallback for every stream not yet finished.
     stats.sealedStreams += await sealCaptureStreams(
       input.client,
       epoch,
-      [...streams.values()].filter((stream) => !stream.sealed),
+      [...streams.values()].filter((stream) => !stream.finished),
       AbortSignal.timeout(10000),
-      streams.sealed,
+      streams.finished,
     );
   }
   if (failure)
@@ -194,7 +195,14 @@ async function relayActivity(
   );
   return results.filter((r) => r.status === 'fulfilled').length;
 }
-async function sealCaptureStreams(
+/**
+ * Seals each stream once. A definite refusal (cutoff, freeze, chunks below the
+ * stored count) finishes the stream like a seal does. A seal refused for its
+ * still-open timeline, or with an uncertain outcome (an outage that outlasted
+ * its retries, a deadline, the network), stays sealable: the next batch
+ * retries it, then the shutdown fallback (VIDEO-4.1-r1).
+ */
+export async function sealCaptureStreams(
   client: CaptureClient,
   epoch: number,
   streams: Iterable<{
@@ -203,7 +211,7 @@ async function sealCaptureStreams(
     count: number;
   }>,
   signal: AbortSignal,
-  sealed: (stream: { segmentId: string; roundParticipantId: string }) => void,
+  finished: (stream: { segmentId: string; roundParticipantId: string }) => void,
 ) {
   let count = 0;
   for (const stream of streams) {
@@ -217,11 +225,12 @@ async function sealCaptureStreams(
         },
         signal,
       );
-      sealed(stream);
+      finished(stream);
       count++;
-    } catch {
-      /* An open timeline is retried next batch; cutoff/freeze stays unsealed. */
+    } catch (error) {
       signal.throwIfAborted();
+      if (isDefiniteRefusal(error) && !isOpenTimelineRefusal(error))
+        finished(stream);
     }
   }
   return count;

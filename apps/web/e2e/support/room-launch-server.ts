@@ -128,11 +128,10 @@ const capture = createLaunchProcess({
     MEDIA_WORKER_SECRET: captureSecret,
     OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
   },
-  // Its start-up refusals (configuration, privilege, database) exit at once.
-  ready: async () => {
-    await Bun.sleep(2000);
-    return capture.running();
-  },
+  // Ready once it logs server.ready, after its configuration, privilege and
+  // database checks, each of which refuses by exiting.
+  ready: async () => true,
+  readyEvent: 'server.ready',
 });
 const control = await createLaunchControl({
   path: launchControlPath(slot.id),

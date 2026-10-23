@@ -9,7 +9,7 @@ const id = (c: string) => c.repeat(24);
 const principal = { roundId: id('r'), sessionId: id('s'), workerId: id('w') };
 const base = 'http://localhost/internal/media/capture';
 
-const fixture = () => {
+const fixture = (seal?: () => Promise<unknown>) => {
   const calls: [string, unknown][] = [];
   const record =
     (name: string, result: unknown = { ok: name }) =>
@@ -33,7 +33,7 @@ const fixture = () => {
         readMediaCaptureState: record('read'),
         appendCapturedTranscript: record('append'),
         observeCapturedStream: record('observe'),
-        sealCapturedStream: record('seal', null),
+        sealCapturedStream: seal ?? record('seal', null),
       }) as never,
     token: (async (scope: unknown) => {
       calls.push(['token', scope]);
@@ -144,5 +144,27 @@ test('unsigned, undecodable or unknown capture calls never reach capture', async
     should: 'refuse each without any capture call',
     actual: { statuses, calls: f.calls.length },
     expected: { statuses: [403, 400, 403], calls: 0 },
+  });
+});
+
+test('only an open capture timeline is named as a retryable seal refusal', async () => {
+  const refused = (message: string) =>
+    fixture(async () => {
+      throw createAppError('CONFLICT', message);
+    }).handlers.handle(signed('seal', '{}'));
+  const open = await refused('Capture timeline is still open');
+  const below = await refused('Capture seal is below stored chunks');
+  assert({
+    given:
+      'a seal refused while the timeline is open, and one below stored chunks',
+    should:
+      'answer 409 for both, naming only the open timeline so the worker retries it (VIDEO-4.1-r1)',
+    actual: [
+      open.status,
+      (await open.json()).refusal,
+      below.status,
+      (await below.json()).refusal,
+    ],
+    expected: [409, 'timeline-open', 409, undefined],
   });
 });

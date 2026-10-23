@@ -119,14 +119,14 @@ test('a stream with a clip queued or in transcription is not due', () => {
   });
 });
 
-test('a sealed stream is never due again', () => {
+test('a finished stream is never due again', () => {
   const tracker = createStreamTracker(16);
   tracker.remember(
     state([interval('speaker', '2026-10-22T12:00:00.000Z', null)]),
   );
-  tracker.sealed(speaker);
+  tracker.finished(speaker);
   assert({
-    given: 'a stream the worker has already sealed',
+    given: 'a stream the worker has sealed, or seen definitely refused',
     should: 'leave it out of every later due set',
     actual: due(tracker, '2026-10-22T12:01:00.000Z'),
     expected: [],

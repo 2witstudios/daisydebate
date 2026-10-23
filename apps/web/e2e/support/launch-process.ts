@@ -4,6 +4,11 @@ export function createLaunchProcess(input: {
   readonly cwd: string;
   readonly env: Readonly<Record<string, string | undefined>>;
   readonly ready: () => Promise<boolean>;
+  /**
+   * A structured log event the process writes once ready: its stdout is then
+   * forwarded line by line and readiness also waits for that event.
+   */
+  readonly readyEvent?: string;
 }) {
   let child: ReturnType<typeof Bun.spawn> | null = null;
   let chain = Promise.resolve();
@@ -37,13 +42,16 @@ export function createLaunchProcess(input: {
     child = Bun.spawn([...input.command], {
       cwd: input.cwd,
       env: input.env,
-      stdio: ['ignore', 'inherit', 'inherit'],
+      stdio: ['ignore', input.readyEvent ? 'pipe' : 'inherit', 'inherit'],
     });
+    const announced = input.readyEvent
+      ? watchEvent(child.stdout as ReadableStream<Uint8Array>, input.readyEvent)
+      : () => true;
     const deadline = performance.now() + 60000;
     for (;;) {
       if (child.exitCode !== null)
         throw new Error('Owned proof process exited before readiness');
-      if (await input.ready()) return;
+      if (announced() && (await input.ready())) return;
       if (performance.now() >= deadline) {
         await stop();
         throw new Error('Owned proof process readiness deadline');
@@ -61,4 +69,28 @@ export function createLaunchProcess(input: {
         await start();
       }),
   };
+}
+
+/** Forwards a child's stdout and reports whether a log line carried `event`. */
+function watchEvent(stdout: ReadableStream<Uint8Array>, event: string) {
+  let seen = false;
+  void (async () => {
+    const decoder = new TextDecoder();
+    let pending = '';
+    for await (const chunk of stdout) {
+      process.stdout.write(chunk);
+      const lines = (pending + decoder.decode(chunk, { stream: true })).split(
+        '\n',
+      );
+      pending = lines.pop() ?? '';
+      seen ||= lines.some((line) => {
+        try {
+          return (JSON.parse(line) as { event?: unknown }).event === event;
+        } catch {
+          return false;
+        }
+      });
+    }
+  })();
+  return () => seen;
 }
