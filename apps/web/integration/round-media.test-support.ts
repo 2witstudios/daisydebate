@@ -7,7 +7,7 @@ import { createRoundMediaOperations } from '../src/features/round-media/operatio
 import { createRoundRuntimeOperations } from '../src/features/round-runtime/operations';
 import { mediaRuntime } from '../src/features/round-media/projection';
 import { withRoomRuntime } from './room-runtime.test-support';
-import { CAPTURE_STT_LAG_MS } from '../src/features/media-capture/policy';
+import { CAPTURE_STT_LAG_MS } from '@daisy/protocol';
 
 const localMediaConfig = {
   url: 'http://127.0.0.1:7880',

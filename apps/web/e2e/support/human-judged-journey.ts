@@ -1,3 +1,4 @@
+import { TRANSCRIPT_ADMISSION_WINDOW_MS } from '@daisy/protocol';
 import type {
   APIRequestContext,
   Browser,
@@ -140,7 +141,7 @@ export async function proveHumanJudgedJourney(browser: Browser) {
       expect(input.freeze).not.toBeNull();
     }).toPass({ timeout: 160_000 });
     expect(Date.parse(input.freeze!.frozenAt)).toBeGreaterThanOrEqual(
-      Date.parse(last.endedAt!) + 120_000,
+      Date.parse(last.endedAt!) + TRANSCRIPT_ADMISSION_WINDOW_MS,
     );
     for (const index of [2, 3]) {
       let context = accounts.members[index]!.context;

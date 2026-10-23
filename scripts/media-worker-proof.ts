@@ -14,7 +14,7 @@ import { createBotActivityRelay } from '../apps/web/src/features/round-bots/acti
 import { mediaDependencies } from '../apps/web/integration/round-media.test-support';
 import { mediaWorkerRole } from './test-logins';
 import type { withRoomRuntime } from '../apps/web/integration/room-runtime.test-support';
-import { CAPTURE_STT_LAG_MS } from '../apps/web/src/features/media-capture/policy';
+import { CAPTURE_STT_LAG_MS } from '@daisy/protocol';
 
 type Fixture = Parameters<Parameters<typeof withRoomRuntime>[0]>[0];
 const nextId = () => systemId.next();

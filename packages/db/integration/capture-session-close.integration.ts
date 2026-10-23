@@ -1,4 +1,5 @@
 import { requireTestServices } from '@daisy/config';
+import { CAPTURE_STT_LAG_MS } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { withBoundedRound } from './bounded-transaction.test-support';
 import { historicalCapture } from './media-capture.test-support';
@@ -117,5 +118,45 @@ test('audio stamped before the close but received after close plus the speech-to
     } finally {
       await fixture.sql.unsafe('delete from rounds where id=$1', [roundId]);
     }
+  });
+});
+
+test('at the production speech-to-text lag, a clip received 100.7 s after the close is refused and a timely one lands', async () => {
+  await withBoundedRound(async (fixture, transaction, firstRound) => {
+    const outcomes: string[] = [];
+    for (const [roundId, endedAgoMs] of [
+      [firstRound, 100_000],
+      [await fixture.round(), 1_000],
+    ] as const) {
+      const { store, lease, clip, start } = await historicalCapture(
+        fixture,
+        transaction,
+        roundId,
+        endedAgoMs,
+        CAPTURE_STT_LAG_MS,
+      );
+      try {
+        await store.claimMediaWorkerLease({ ...lease, leaseMs: 15000 });
+        await fixture.sql.unsafe(
+          'update media_sessions set created_at=$2, unsafe_at=$3 where id=$1',
+          [
+            lease.sessionId,
+            new Date(start.getTime() - 1000),
+            new Date(Date.parse(clip.after) + 49),
+          ],
+        );
+        outcomes.push(
+          await outcome(() => store.appendCapturedTranscript(clip)),
+        );
+      } finally {
+        await fixture.sql.unsafe('delete from rounds where id=$1', [roundId]);
+      }
+    }
+    assert({
+      given: `clips stamped 49 ms before unsafe, received about 100.7 s and 1.8 s later, under the ${CAPTURE_STT_LAG_MS} ms lag`,
+      should: 'refuse the late one and admit the timely one',
+      actual: outcomes,
+      expected: ['CONFLICT', 'accepted'],
+    });
   });
 });

@@ -1,3 +1,4 @@
+import { TRANSCRIPT_ADMISSION_WINDOW_MS } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import { and, eq, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
@@ -77,7 +78,8 @@ export async function writeProjectionWithPhaseSignal(
       .set({
         finalSegmentEndedAt: new Date(projection.finalSegmentEndedAt),
         transcriptAdmissionCutoff: new Date(
-          Date.parse(projection.finalSegmentEndedAt) + 120_000,
+          Date.parse(projection.finalSegmentEndedAt) +
+            TRANSCRIPT_ADMISSION_WINDOW_MS,
         ),
       })
       .where(

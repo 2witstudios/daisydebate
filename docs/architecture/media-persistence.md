@@ -129,8 +129,7 @@ and a vendor-room deletion request (`deletion_requested_at`, which is not data
 erasure) each close the session. After the earliest close a write is admitted
 only if its audio was captured strictly before that instant (an append's clip
 end, an observation's end) and it reaches the database within the injected
-speech-to-text lag after it (`sttLagMs`, `CAPTURE_STT_LAG_MS` = 120 s in web
-composition), so lagging transcription of earlier audio still lands and a
+(`sttLagMs`, which web composition sets to `CAPTURE_STT_LAG_MS`: the worker's history read, speech-to-text timeout and an append with its one retry, 66.5 s, from `@daisy/protocol` `capture-timing`, which also sets the 120 s transcript admission window that must cover it), so lagging transcription of earlier audio still lands and a
 worker stamp alone never admits late audio. Reads and seals carry no capture
 time and are admitted.
 

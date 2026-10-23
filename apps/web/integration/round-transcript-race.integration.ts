@@ -9,7 +9,7 @@ import {
   startRuntimeRound,
   withRoomRuntime,
 } from './round-runtime.test-support';
-import { CAPTURE_STT_LAG_MS } from '../src/features/media-capture/policy';
+import { CAPTURE_STT_LAG_MS } from '@daisy/protocol';
 setupRitewayBun();
 requireTestServices(process.env);
 
