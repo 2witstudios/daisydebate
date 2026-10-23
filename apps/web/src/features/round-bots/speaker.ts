@@ -11,6 +11,8 @@ type Job = {
   readonly pcm: Int16Array;
   readonly sampleRate: 24000;
   readonly channels: 1;
+  /** The segment end on the database clock, when the generation read it. */
+  readonly segmentEndsAt?: string;
 };
 /** A provider answer held in memory until its usage and authority settle. */
 type Answer<T> = {

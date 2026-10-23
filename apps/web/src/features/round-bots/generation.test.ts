@@ -13,6 +13,7 @@ test('a refused settlement retried records the received usage once', async () =>
         execution: 'execution',
         model: 'model',
         profile: { voice: 'voice' },
+        round: { segments: [] },
       })) as never,
       finishRoundBotGeneration: async (_scope, _execution, outcome) => {
         finished.push(outcome);

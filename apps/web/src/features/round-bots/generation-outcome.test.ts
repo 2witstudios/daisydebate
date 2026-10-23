@@ -19,6 +19,7 @@ async function settlementOf(
           execution: 'execution',
           model: 'model',
           profile: { voice: 'voice' },
+          round: { segments: [] },
         };
       }) as never,
       finishRoundBotGeneration: async (_scope, _execution, outcome, usage) => {

@@ -21,6 +21,15 @@ type PacedInput = {
     readonly after: string;
   }) => Promise<boolean>;
   readonly refreshAfterMs?: number;
+  /**
+   * Frames authorized together as one union window. A union inside the
+   * speaking interval proves every frame in it; a bot may be heard up to this
+   * many frames past its end before the refusal lands, audibly only, since
+   * capture credit is bounded by the interval itself (DEC-212).
+   */
+  readonly framesPerAuthorization: number;
+  /** The segment end on the database clock, when known: unions are clamped to it. */
+  readonly segmentEndsAtMs?: number;
   readonly onAccepted?: (eligibleSamples: number) => void | Promise<void>;
   /**
    * Samples per channel handed to the native source so far, reported after
@@ -69,7 +78,7 @@ async function writeFrame(
   data: Int16Array,
   signal: AbortSignal,
   interval: number,
-): Promise<Timeline | null> {
+): Promise<{ clock: Timeline; window: FrameWindow } | null> {
   if (signal.aborted || !original.valid) return null;
   const clock = await refresh(input, original, interval);
   if (!clock.valid) return null;
@@ -79,14 +88,56 @@ async function writeFrame(
   if (signal.aborted || input.nowMs() - due > 100) return null;
   const observed = await captureFrame(input, clock, data);
   if (signal.aborted || !observed.window) return null;
-  // Transport rounds outward; uncertainty is never narrowed to pass a floor.
-  const window = {
-    before: new Date(Math.floor(observed.window.beforeMs)).toISOString(),
-    after: new Date(Math.ceil(observed.window.afterMs)).toISOString(),
-  };
-  if (!(await input.authorizeWindow(window)) || signal.aborted) return null;
-  return observed.clock;
+  return { clock: observed.clock, window: observed.window };
 }
+type FrameWindow = { readonly beforeMs: number; readonly afterMs: number };
+const union = (pending: FrameWindow | null, next: FrameWindow) =>
+  pending === null
+    ? next
+    : {
+        beforeMs: Math.min(pending.beforeMs, next.beforeMs),
+        afterMs: Math.max(pending.afterMs, next.afterMs),
+      };
+/** Authorizes a batch's union, clamped to a known segment end. */
+async function authorizeUnion(
+  input: PacedInput,
+  pending: FrameWindow,
+  signal: AbortSignal,
+) {
+  const afterMs = Math.min(
+    pending.afterMs,
+    (input.segmentEndsAtMs ?? Infinity) - 1,
+  );
+  if (afterMs <= pending.beforeMs) return false;
+  // Transport rounds outward; uncertainty is never narrowed to pass a floor.
+  const allowed = await input.authorizeWindow({
+    before: new Date(Math.floor(pending.beforeMs)).toISOString(),
+    after: new Date(Math.ceil(afterMs)).toISOString(),
+  });
+  return allowed && !signal.aborted;
+}
+/** Frames sent since the last authorization, as one union window. */
+function createBatch(input: PacedInput, signal: AbortSignal) {
+  let pending: FrameWindow | null = null;
+  let frames = 0;
+  return {
+    /** Adds a sent frame; true when the batch is due for authorization. */
+    add(window: FrameWindow, last: boolean) {
+      pending = union(pending, window);
+      frames += 1;
+      return last || frames === input.framesPerAuthorization;
+    },
+    authorize() {
+      const due = pending!;
+      pending = null;
+      frames = 0;
+      return authorizeUnion(input, due, signal);
+    },
+  };
+}
+const pastSegmentEnd = (input: PacedInput, window: FrameWindow) =>
+  input.segmentEndsAtMs !== undefined &&
+  window.afterMs >= input.segmentEndsAtMs;
 async function writeJob(
   input: PacedInput,
   data: Int16Array,
@@ -102,6 +153,7 @@ async function writeJob(
       sampleRate: input.sampleRate,
     });
     const size = (input.sampleRate / 100) * input.channels;
+    const batch = createBatch(input, signal);
     for (let offset = 0; offset < data.length; offset += size) {
       const next = await writeFrame(
         input,
@@ -111,9 +163,12 @@ async function writeJob(
         interval,
       );
       if (!next) break;
-      clock = next;
-      eligibleSamples = next.eligibleSamples;
+      clock = next.clock;
+      if (!batch.add(next.window, offset + size >= data.length)) continue;
+      if (!(await batch.authorize())) break;
+      eligibleSamples = clock.eligibleSamples;
       await input.onAccepted?.(eligibleSamples);
+      if (pastSegmentEnd(input, next.window)) break;
     }
   } catch (error) {
     if (!signal.aborted) throw error;
@@ -127,6 +182,9 @@ async function writeJob(
 
 /** One cancellable PCM job. Raw handoffs cannot bypass cadence or authority. */
 export function createPacedAudioWriter(input: PacedInput) {
+  const batch = input.framesPerAuthorization;
+  if (!Number.isSafeInteger(batch) || batch < 1 || batch > 10)
+    throw createAppError('VALIDATION', 'Invalid authorization batch');
   let used = false;
   return async (data: Int16Array, signal: AbortSignal) => {
     if (used)
