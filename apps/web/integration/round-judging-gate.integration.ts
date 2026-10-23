@@ -3,7 +3,10 @@ import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createRoundBallotOperations } from '../src/features/round-ballots/operations';
-import { createRoundMaintenanceOperations } from '../src/features/round-finalization/maintenance';
+import {
+  createRoundMaintenanceOperations,
+  ROUND_START_HORIZON_MS,
+} from '../src/features/round-finalization/maintenance';
 import { seedSettledAttendanceLedger } from './round-attendance-fixture.test-support';
 import {
   assembleJudgedRoom,
@@ -33,6 +36,7 @@ test('an AI judge never decides from a transcript frozen incomplete (DEC-208)', 
       await f.store.renewServiceInstance({ instanceId, role: 'web' });
       try {
         await createRoundMaintenanceOperations({
+          startHorizonMs: ROUND_START_HORIZON_MS,
           store: f.store,
           instanceId,
           ids: { next: createId },
@@ -133,6 +137,7 @@ test('a mixed panel on an incomplete freeze completes once its human judge rules
       await f.store.renewServiceInstance({ instanceId, role: 'web' });
       try {
         await createRoundMaintenanceOperations({
+          startHorizonMs: ROUND_START_HORIZON_MS,
           store: f.store,
           instanceId,
           ids: { next: createId },

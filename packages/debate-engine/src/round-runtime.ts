@@ -1,9 +1,8 @@
 import { speakingChangesOf } from './round-speaking';
 import { applyUnjudgedCompletion } from './round-unjudged';
-import {
-  applyRoundAdjudication,
-  type RoundAdjudication,
-} from './round-adjudication';
+import { abandonUnstartedRound } from './round-start-horizon';
+import type { RoundRuntime } from './round-runtime-api';
+import { applyRoundAdjudication } from './round-adjudication';
 import { assertAttendanceRules } from './attendance-policy';
 import { createInvariantError } from '@daisy/errors';
 import {
@@ -14,10 +13,8 @@ import {
   type DebateSide,
   type HydratedRound,
   type HydratedSegment,
-  type RoundCommand,
   type RoundParticipantSeat,
   type RoundPosition,
-  type RoundUnjudgedCompletion,
   type RoundProjection,
   type SegmentInsert,
   type SegmentClose,
@@ -82,26 +79,7 @@ export function createRoundRuntime(input: {
   readonly segments: readonly HydratedSegment[];
   /** Minted for each projected segment insert; injected, never ambient. */
   readonly nextSegmentId: () => string;
-}): {
-  /** The derived position at `now`; a pure read. */
-  readonly position: (now: string) => RoundPosition;
-  /** Applies one legal command and returns the writes to persist. */
-  readonly execute: (input: {
-    readonly command: RoundCommand;
-    readonly actorId: string | null;
-    readonly now: string;
-  }) => RoundProjection;
-  /** Internal durable attendance decision; never a public command. */
-  readonly adjudicate: (input: RoundAdjudication) => RoundProjection;
-  /** Internal completion after durable freeze/attendance verification; does not advance time. */
-  readonly completeUnjudged: (
-    input: RoundUnjudgedCompletion,
-  ) => RoundProjection;
-  /** Advances time alone, projecting whatever the clock moved. */
-  readonly tick: (now: string) => RoundProjection;
-  /** The current checkpoint. */
-  readonly checkpoint: () => RuntimeCheckpoint;
-} {
+}): RoundRuntime {
   const rules = input.rules;
   assertAttendanceRules(rules);
   let store: RoundStore = createRoundStore(normalizeRoundClock(input));
@@ -110,6 +88,14 @@ export function createRoundRuntime(input: {
   );
 
   const capture = (on: RoundStore) => captureRoundStore(on);
+  /** An internal decision applied on a scratch copy, kept only if it succeeds. */
+  const onScratch = (now: string, apply: (c: CommandContext) => void) => {
+    const scratch = restoreRoundStore(capture(store));
+    const into = queues();
+    apply(contextOn(scratch, into, null, Date.parse(now)));
+    store = scratch;
+    return project(into);
+  };
   const transitionOn = (
     on: RoundStore,
     into: Queues,
@@ -317,17 +303,11 @@ export function createRoundRuntime(input: {
       store = scratch;
       return project(into);
     },
-    completeUnjudged(completion): RoundProjection {
-      const scratch = restoreRoundStore(capture(store));
-      const into = queues();
-      applyUnjudgedCompletion(
-        contextOn(scratch, into, null, Date.parse(completion.now)),
-        completion,
-        input.participants,
-      );
-      store = scratch;
-      return project(into);
-    },
+    completeUnjudged: (completion) =>
+      onScratch(completion.now, (c) =>
+        applyUnjudgedCompletion(c, completion, input.participants),
+      ),
+    abandonUnstarted: (now) => onScratch(now, abandonUnstartedRound),
     tick(now): RoundProjection {
       const into = queues();
       advance(store, into, Date.parse(now));

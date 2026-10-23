@@ -4,6 +4,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   createRoundMaintenanceOperations,
+  ROUND_START_HORIZON_MS,
   DEFAULT_BALLOT_DEADLINE_MS,
   judgingPlan,
   unjudgedCompletion,
@@ -93,6 +94,7 @@ test('internal zerojudge completion requires real freeze and settled attendance 
         commandId: createId(),
       });
       const maintenance = await createRoundMaintenanceOperations({
+        startHorizonMs: ROUND_START_HORIZON_MS,
         store: f.store,
         instanceId,
         ids: { next: createId },

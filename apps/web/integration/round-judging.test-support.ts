@@ -81,14 +81,9 @@ export async function playOut(
     from round_speaking_intervals i join round_participants p on p.id=i.round_participant_id and p.round_id=i.round_id
     where i.round_id=${roundId} and p.role<>'judge' and (i.ended_at is null or i.ended_at>i.started_at)`;
 }
-/**
- * A bot-judged Round played out and frozen through the real finalizer.
- * `captured` marks every debater speech stream complete before the freeze,
- * as a full capture would; otherwise silence with no media freezes incomplete.
- */
-export async function frozenBotJudgeRound(
+/** The judged Room with a stored bot judge assigned and both debaters ready again. */
+export async function readyBotJudgedRoom(
   f: Parameters<Parameters<typeof withRoomRuntime>[0]>[0],
-  captured: boolean,
 ) {
   const judge = await f.bot();
   let room = await assembleJudgedRoom(f);
@@ -104,6 +99,18 @@ export async function frozenBotJudgeRound(
     room = (
       await f.consent(caller, await f.operations.view(caller, room.id), 'ready')
     ).view;
+  return { room, judge };
+}
+/**
+ * A bot-judged Round played out and frozen through the real finalizer.
+ * `captured` marks every debater speech stream complete before the freeze,
+ * as a full capture would; otherwise silence with no media freezes incomplete.
+ */
+export async function frozenBotJudgeRound(
+  f: Parameters<Parameters<typeof withRoomRuntime>[0]>[0],
+  captured: boolean,
+) {
+  const { room } = await readyBotJudgedRoom(f);
   const { roundId } = await startRuntimeRound(f, room);
   await playOut(f, roundId, captured);
   const finalized = await finalizeAsWeb(f, roundId);

@@ -5,7 +5,10 @@ import { assertRejects } from '@daisy/errors/testing';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAttendanceFeature } from '../src/features/attendance/operations';
-import { createRoundMaintenanceOperations } from '../src/features/round-finalization/maintenance';
+import {
+  createRoundMaintenanceOperations,
+  ROUND_START_HORIZON_MS,
+} from '../src/features/round-finalization/maintenance';
 import { withAttendanceRound } from './attendance.test-support';
 import { settleAttendanceFixture } from './attendance-evaluator.test-support';
 setupRitewayBun();
@@ -39,6 +42,7 @@ test('a D5 service expiring between tick and evaluation cannot adjudicate', asyn
         instanceId,
       });
       const ops = createRoundMaintenanceOperations({
+        startHorizonMs: ROUND_START_HORIZON_MS,
         store: f.store,
         instanceId,
         ids: { next: createId },
@@ -139,6 +143,7 @@ for (const waitAt of ['Round', 'receipt'] as const)
           instanceId,
         });
         const ops = createRoundMaintenanceOperations({
+          startHorizonMs: ROUND_START_HORIZON_MS,
           store: f.store,
           instanceId,
           ids: { next: createId },
