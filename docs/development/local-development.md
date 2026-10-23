@@ -27,12 +27,17 @@ database of its own from it (ADR 0034), and a suite started by hand with
 distinct from the web app's `PORT` so both can run at once; it has no
 handler logic yet beyond rejecting every connection (RT-2.3a).
 
+To play a whole Round with real people in browsers on this machine, use the
+[local demo](demo.md) (`bun demo`). It serves the production build with every
+Round worker, which `bun dev` does not start.
+
 ## Commands
 
 | Command                                                       | What it does                                                                                                                                                                       |
 | ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `bun dev`                                                     | All dev processes (the web app and apps/realtime) via turbo                                                                                                                        |
 | `bun dev:agent`                                               | Run `slot:up`, seed, launch web and realtime, and wait ready                                                                                                                       |
+| `bun demo` / `bun demo:link <email>`                          | The [local demo](demo.md): production build with every Round worker for real browsers / print a captured sign-in link                                                              |
 | `bun build`                                                   | Production builds through the turbo graph                                                                                                                                          |
 | `bun test`                                                    | Fast deterministic unit/domain tests; no services or Next boot                                                                                                                     |
 | `bun test:integration`                                        | Database, Redis, and web vertical tests against real services, each run in its own Postgres database, dropped after it (ADR 0034)                                                  |
