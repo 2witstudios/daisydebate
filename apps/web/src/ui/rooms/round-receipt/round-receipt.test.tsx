@@ -9,6 +9,7 @@ const scheduled: RoundReceiptView = {
   roomId: 'room-owned',
   status: 'scheduled',
   outcome: null,
+  unjudgedRuling: null,
   topic: '<Frozen topic>',
   config: { preRoundPrep: { enabled: true, durationMs: 45000 } },
   rules: {
@@ -165,6 +166,31 @@ test('a judged Round whose judges did not rule by the deadline says so (DEC-201)
     actual: [
       html.includes('Result · Judges did not rule'),
       html.includes('Unjudged'),
+      html.includes('Draw'),
+      html.includes('won'),
+    ],
+    expected: [true, false, false, false],
+  });
+});
+
+test('a Round closed on an incomplete transcript says so instead of blaming the judges (DEC-208)', () => {
+  const html = renderToStaticMarkup(
+    <RoundReceipt
+      round={{
+        ...judged,
+        outcome: null,
+        unjudgedRuling: 'transcript-incomplete',
+      }}
+    />,
+  );
+  assert({
+    given:
+      'a completed AI-judged Round whose finalizer ruled the transcript incomplete',
+    should:
+      'say the transcript was incomplete, never that judges did not rule, a draw or a winner',
+    actual: [
+      html.includes('Result · Transcript incomplete'),
+      html.includes('Judges did not rule'),
       html.includes('Draw'),
       html.includes('won'),
     ],

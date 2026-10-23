@@ -42,6 +42,7 @@ test('an AI judge never decides from a transcript frozen incomplete (DEC-208)', 
         await f.sql`delete from service_instances where instance_id=${instanceId}`;
       }
       const done = (await f.store.getRound(roundId))!;
+      const view = await f.store.readLaunchedRound(roundId, f.host, () => true);
       const [receipt] =
         await f.sql`select result from round_commands where round_id=${roundId} and type='complete'`;
       const [spend] =
@@ -51,17 +52,17 @@ test('an AI judge never decides from a transcript frozen incomplete (DEC-208)', 
         given:
           'a Round judged only by an AI judge whose transcript froze incomplete',
         should:
-          'queue no AI judging, close the ruling window at the freeze and complete with no outcome, a transcript-incomplete receipt, no provider run and no rating',
+          'queue no AI judging, close the ruling window at the freeze and complete with no outcome, a transcript-incomplete receipt the Round view carries, no provider run and no rating',
         actual: {
           window,
           done: [done.status, done.outcome],
-          ruling: receipt?.result.ruling,
+          ruling: [receipt?.result.ruling, view.unjudgedRuling],
           spend,
         },
         expected: {
           window: { jobs: 0, closed: true },
           done: ['completed', null],
-          ruling: 'transcript-incomplete',
+          ruling: ['transcript-incomplete', 'transcript-incomplete'],
           spend: { runs: 0, ratings: 0 },
         },
       });

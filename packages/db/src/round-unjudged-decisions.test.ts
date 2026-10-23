@@ -1,6 +1,7 @@
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
+  recordedUnjudgedRuling,
   requireUnjudgedFacts,
   requireUnjudgedRequest,
   requireUnjudgedRound,
@@ -269,5 +270,28 @@ test('a new receipt is a completed, unreplayed version 1 record of the ruling', 
       noRuling: [judgeSeat],
       replayed: false,
     },
+  });
+});
+
+test('the Round view reads the ruling only from this service unjudged receipt (DEC-208)', () => {
+  const incomplete = {
+    ...receipt,
+    ruling: 'transcript-incomplete' as const,
+    noRuling: [...receipt.noRuling],
+  };
+  assert({
+    given:
+      'the service receipt, an actor completion, another service, a non-receipt result and no rows',
+    should: 'return the receipt ruling only for this service receipt',
+    actual: [
+      recordedUnjudgedRuling([commandRow({ result: incomplete })]),
+      recordedUnjudgedRuling([
+        commandRow({ actorId: 'actoraaaa1b2c3d4e5f6g7h8', serviceId: null }),
+      ]),
+      recordedUnjudgedRuling([commandRow({ serviceId: 'attendance:x' })]),
+      recordedUnjudgedRuling([commandRow({ result: { status: 'completed' } })]),
+      recordedUnjudgedRuling([]),
+    ],
+    expected: ['transcript-incomplete', null, null, null, null],
   });
 });

@@ -7,6 +7,7 @@ import {
   roundStatusSchema,
   runtimeCheckpointSchema,
 } from './round';
+import { unjudgedRulingSchema } from './round-unjudged';
 
 const instant = z.iso.datetime({ offset: true });
 
@@ -52,6 +53,8 @@ export const roundViewSchema = z.strictObject({
   startedAt: instant.nullable(),
   completedAt: instant.nullable(),
   outcome: z.enum(['affirmative', 'negative', 'draw']).nullable(),
+  /** The unjudged finalizer's ruling, from its durable receipt; null for any other completion. */
+  unjudgedRuling: unjudgedRulingSchema.nullable(),
   /** Whether this viewer hosts the Round; never which actor does. */
   viewerIsHost: z.boolean(),
   /** Null when the stored checkpoint is unreadable: no live position, not an error. */
