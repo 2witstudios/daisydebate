@@ -102,10 +102,10 @@ export function createBotGeneration(input: {
     signal: AbortSignal,
     step: {
       /** Builds the provider request; a refusal here never reaches the vendor. */
-      readonly prepare: (context: Context) => P;
+      readonly buildProviderInput: (context: Context) => P;
       readonly call: (
         voice: ReturnType<typeof input.voice>,
-        prepared: P,
+        providerInput: P,
       ) => Promise<{ value: T; usage: Usage }>;
     },
   ) =>
@@ -131,10 +131,10 @@ export function createBotGeneration(input: {
       let sent = false;
       try {
         requireActive(signal);
-        const prepared = step.prepare(context);
+        const providerInput = step.buildProviderInput(context);
         requireActive(signal);
         sent = true;
-        result = await step.call(voice, prepared);
+        result = await step.call(voice, providerInput);
       } catch (error) {
         // Certainly unserved: settled failed with no usage, which gives the
         // voice characters back. Anything else may have been served.
@@ -172,7 +172,7 @@ export function createBotGeneration(input: {
       signal: AbortSignal,
     ) =>
       dispatch(scope, token, { kind: 'language' }, signal, {
-        prepare: (context) => ({
+        buildProviderInput: (context) => ({
           model: context.model,
           messages: messagesFor(context, scope, input.nowMs()),
           maxTokens: input.maxTokens,
@@ -184,8 +184,8 @@ export function createBotGeneration(input: {
               : ('low' as const),
           signal,
         }),
-        call: async (voice, prepared) => {
-          const answer = await voice.complete(prepared);
+        call: async (voice, providerInput) => {
+          const answer = await voice.complete(providerInput);
           return {
             value: answer.text,
             usage: {
@@ -223,7 +223,7 @@ export function createBotGeneration(input: {
         { kind: 'tts', characters: text.length },
         signal,
         {
-          prepare: (context) => ({
+          buildProviderInput: (context) => ({
             request: {
               model: context.model,
               voice: context.profile.voice,

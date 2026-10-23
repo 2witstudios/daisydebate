@@ -1,7 +1,12 @@
 import { createCaptureClock } from '@daisy/media/observation';
 import type { createCaptureSubscription } from '@daisy/media/capture';
 import type { cutCaptureClips } from '@daisy/media/clips';
-import { contained, type CaptureClient } from './capture-history';
+import {
+  contained,
+  straddlesGrantEdge,
+  type CaptureClient,
+  type FrameWindow,
+} from './capture-history';
 type Snapshot = Awaited<ReturnType<CaptureClient['read']>>;
 type Raw = Parameters<
   Parameters<typeof createCaptureSubscription>[0]['onFrame']
@@ -27,6 +32,12 @@ export function createCaptureStaging(input: {
 }) {
   const clocks = new Map<string, ReturnType<typeof createCaptureClock>>();
   const lastNominal = new Map<string, number>();
+  // Frames refused for crossing a grant edge: the edge evidence observedWindow reads.
+  const edges = new Map<string, FrameWindow[]>();
+  const rememberEdge = (trackId: string, frame: FrameWindow) => {
+    const kept = [...(edges.get(trackId) ?? []), frame];
+    edges.set(trackId, kept.slice(-8));
+  };
   let pending: StagedFrame[] = [];
   const candidate = (raw: Raw): StagedFrame | null => {
     const current = input.current();
@@ -46,10 +57,21 @@ export function createCaptureStaging(input: {
       nominalStartMs = Math.ceil(window.beforeMs);
     if (
       afterMs < nominalStartMs + 10 ||
-      nominalStartMs < (lastNominal.get(raw.trackId) ?? -Infinity) + 10 ||
-      !contained(current.state, peer.roundParticipantId, { beforeMs, afterMs })
+      nominalStartMs < (lastNominal.get(raw.trackId) ?? -Infinity) + 10
     )
       return null;
+    if (
+      !contained(current.state, peer.roundParticipantId, { beforeMs, afterMs })
+    ) {
+      if (
+        straddlesGrantEdge(current.state, peer.roundParticipantId, {
+          beforeMs,
+          afterMs,
+        })
+      )
+        rememberEdge(raw.trackId, { nominalStartMs, beforeMs, afterMs });
+      return null;
+    }
     lastNominal.set(raw.trackId, nominalStartMs);
     return {
       seat: peer.roundParticipantId,
@@ -91,7 +113,13 @@ export function createCaptureStaging(input: {
     closeTrack(trackId: string) {
       clocks.delete(trackId);
       lastNominal.delete(trackId);
+      edges.delete(trackId);
     },
+    /** Edge-straddling frames the batch saw against fresher history. */
+    rememberEdge,
+    /** The edge evidence for one track, newest last. */
+    straddles: (trackId: string): readonly FrameWindow[] =>
+      edges.get(trackId) ?? [],
     take() {
       const frames = pending;
       pending = [];
@@ -104,6 +132,7 @@ export function createCaptureStaging(input: {
       pending = [];
       clocks.clear();
       lastNominal.clear();
+      edges.clear();
     },
   };
 }

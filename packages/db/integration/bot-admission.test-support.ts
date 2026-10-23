@@ -1,4 +1,5 @@
 import { createId } from '@paralleldrive/cuid2';
+import type { BoundedTransaction } from '../src/bounded-transaction';
 import { createRoundBotAdmission } from '../src/round-bot-admission';
 import { withBoundedRound } from './bounded-transaction.test-support';
 import type { Fixture } from './constraint-helpers';
@@ -14,10 +15,11 @@ export async function admissionSponsor(
   return actorId;
 }
 
-/** A bounded run with two Rounds one verified member created, and actual admission under a busy cap of four. */
-export const withSponsoredAdmission = (
-  work: (input: {
+/** Two Rounds hosted by one sponsoring member, with real admission at busy cap 4. */
+export const withTwoRoundAdmission = (
+  work: (context: {
     readonly fixture: Fixture;
+    readonly run: BoundedTransaction;
     readonly firstRound: string;
     readonly secondRound: string;
     readonly actorId: string;
@@ -32,5 +34,5 @@ export const withSponsoredAdmission = (
       nextId: createId,
       busyCap: 4,
     });
-    await work({ fixture, firstRound, secondRound, actorId, admission });
+    await work({ fixture, run, firstRound, secondRound, actorId, admission });
   });

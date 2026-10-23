@@ -9,7 +9,6 @@ import { rounds } from './rounds';
 export const roundCommandTypes = [
   'start',
   'start_prep',
-  'end_prep',
   'start_speech',
   'yield',
   'interrupt',

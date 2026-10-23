@@ -1,10 +1,10 @@
 {
-  "id": "6b41b98d-c2c6-427a-b97d-25c42e12987d",
-  "prevIds": [
-    "fe41f837-945e-4d66-9220-3c102f9de183"
-  ],
   "version": "8",
   "dialect": "postgres",
+  "id": "816bb4a5-6bc2-4772-9fe7-a4ccec043a24",
+  "prevIds": [
+    "16ab557a-27c0-40b9-8a2a-05c0880c754b"
+  ],
   "ddl": [
     {
       "isRlsEnabled": false,
@@ -21,6 +21,12 @@
     {
       "isRlsEnabled": false,
       "name": "agent_runs",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "ai_allowance_grants",
       "entityType": "tables",
       "schema": "public"
     },
@@ -117,6 +123,12 @@
     {
       "isRlsEnabled": false,
       "name": "media_sessions",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "media_vendor_mutations",
       "entityType": "tables",
       "schema": "public"
     },
@@ -278,7 +290,37 @@
     },
     {
       "isRlsEnabled": false,
+      "name": "round_attendance_adjudications",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "round_check_in_attempts",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "round_check_ins",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "round_bot_publications",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
       "name": "round_commands",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "round_judging_jobs",
       "entityType": "tables",
       "schema": "public"
     },
@@ -302,12 +344,6 @@
     },
     {
       "isRlsEnabled": false,
-      "name": "round_judging_jobs",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
       "name": "round_transcript_freezes",
       "entityType": "tables",
       "schema": "public"
@@ -321,6 +357,42 @@
     {
       "isRlsEnabled": false,
       "name": "seed_versions",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "availability_samples",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "service_instances",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "media_worker_leases",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "round_transcripts",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "transcript_observations",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "transcript_segments",
       "entityType": "tables",
       "schema": "public"
     },
@@ -627,6 +699,71 @@
       "entityType": "columns",
       "schema": "public",
       "table": "agent_runs"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ai_allowance_grants"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "actor_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ai_allowance_grants"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "period_start",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ai_allowance_grants"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "period_end",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ai_allowance_grants"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "revoked_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ai_allowance_grants"
     },
     {
       "type": "text",
@@ -1144,6 +1281,32 @@
       "generated": null,
       "identity": null,
       "name": "judge_participant_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ballots"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "round_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "ballots"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "freeze_revision",
       "entityType": "columns",
       "schema": "public",
       "table": "ballots"
@@ -2070,6 +2233,266 @@
       "entityType": "columns",
       "schema": "public",
       "table": "media_sessions"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "reconcile_epoch",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "media_sessions"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "reconcile_request_version",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "media_sessions"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "reconcile_running_version",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "media_sessions"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "reconcile_served_version",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "media_sessions"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "reconcile_requested_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "media_sessions"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "reconcile_started_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "media_sessions"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "reconcile_completed_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "media_sessions"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "reconcile_lease_until",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "media_sessions"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "reconcile_owner",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "media_sessions"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "unsafe_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "media_sessions"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "deletion_requested_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "media_sessions"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "media_vendor_mutations"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "session_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "media_vendor_mutations"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "epoch",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "media_vendor_mutations"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "kind",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "media_vendor_mutations"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "identity",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "media_vendor_mutations"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "statement_timestamp()",
+      "generated": null,
+      "identity": null,
+      "name": "dispatched_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "media_vendor_mutations"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "settled_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "media_vendor_mutations"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "outcome",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "media_vendor_mutations"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "payload",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "media_vendor_mutations"
     },
     {
       "type": "text",
@@ -4653,6 +5076,396 @@
       "default": null,
       "generated": null,
       "identity": null,
+      "name": "segment_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_attendance_adjudications"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "round_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_attendance_adjudications"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "command_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_attendance_adjudications"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "decision",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_attendance_adjudications"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "effective_deadline",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_attendance_adjudications"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "settled_horizon",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_attendance_adjudications"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "attempt_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_check_in_attempts"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "command_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_check_in_attempts"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "round_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_check_in_attempts"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "statement_timestamp()",
+      "generated": null,
+      "identity": null,
+      "name": "received_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_check_in_attempts"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "backend_pid",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_check_in_attempts"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "backend_started_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_check_in_attempts"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "payload_digest",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_check_in_attempts"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "actor_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_check_in_attempts"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "service_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_check_in_attempts"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'pending'",
+      "generated": null,
+      "identity": null,
+      "name": "state",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_check_in_attempts"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "resolved_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_check_in_attempts"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "command_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_check_ins"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "round_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_check_ins"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "segment_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_check_ins"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "participant_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_check_ins"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "received_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_check_ins"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "round_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_bot_publications"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "round_participant_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_bot_publications"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "segment_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_bot_publications"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "agent_run_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_bot_publications"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "service_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_bot_publications"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "publication_epoch",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_bot_publications"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "lease_token_digest",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_bot_publications"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "lease_expires_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_bot_publications"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
       "name": "command_id",
       "entityType": "columns",
       "schema": "public",
@@ -4761,6 +5574,188 @@
       "entityType": "columns",
       "schema": "public",
       "table": "round_commands"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "round_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_judging_jobs"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "freeze_revision",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_judging_jobs"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "command_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_judging_jobs"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "judge_participant_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_judging_jobs"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "status",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_judging_jobs"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "lease_token_digest",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_judging_jobs"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "lease_expires_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_judging_jobs"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "attempts",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_judging_jobs"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "result_ballot_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_judging_jobs"
+    },
+    {
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "pending_ballot",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_judging_jobs"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "pending_ballot_agent_run_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_judging_jobs"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "pending_ballot_epoch",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_judging_jobs"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "pending_ballot_received_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_judging_jobs"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_judging_jobs"
     },
     {
       "type": "text",
@@ -5060,123 +6055,6 @@
       "entityType": "columns",
       "schema": "public",
       "table": "round_speaking_intervals"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "round_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_judging_jobs"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "freeze_revision",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_judging_jobs"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "judge_participant_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_judging_jobs"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "status",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_judging_jobs"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "lease_token_digest",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_judging_jobs"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "lease_expires_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_judging_jobs"
-    },
-    {
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "0",
-      "generated": null,
-      "identity": null,
-      "name": "attempts",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_judging_jobs"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "result_ballot_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_judging_jobs"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "now()",
-      "generated": null,
-      "identity": null,
-      "name": "created_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "round_judging_jobs"
     },
     {
       "type": "text",
@@ -5493,6 +6371,45 @@
     {
       "type": "timestamp with time zone",
       "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "final_segment_ended_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rounds"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "transcript_admission_cutoff",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rounds"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "ballot_deadline_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rounds"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
       "default": "now()",
@@ -5569,6 +6486,383 @@
       "table": "seed_versions"
     },
     {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "statement_timestamp()",
+      "generated": null,
+      "identity": null,
+      "name": "at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "availability_samples"
+    },
+    {
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "healthy",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "availability_samples"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "cause",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "availability_samples"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "instance_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "service_instances"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "role",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "service_instances"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "statement_timestamp()",
+      "generated": null,
+      "identity": null,
+      "name": "renewed_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "service_instances"
+    },
+    {
+      "type": "bigint",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "delivered_through",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "service_instances"
+    },
+    {
+      "type": "xid8",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "delivered_through_txid",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "service_instances"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "session_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "media_worker_leases"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "worker_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "media_worker_leases"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "epoch",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "media_worker_leases"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "expires_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "media_worker_leases"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "round_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_transcripts"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "revision",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "round_transcripts"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "transcript_observations"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "round_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "transcript_observations"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "segment_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "transcript_observations"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "round_participant_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "transcript_observations"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "track_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "transcript_observations"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "worker_epoch",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "transcript_observations"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "observed_from",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "transcript_observations"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "observed_until",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "transcript_observations"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "round_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "transcript_segments"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "segment_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "transcript_segments"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "round_participant_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "transcript_segments"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "'open'",
+      "generated": null,
+      "identity": null,
+      "name": "state",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "transcript_segments"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "0",
+      "generated": null,
+      "identity": null,
+      "name": "chunk_count",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "transcript_segments"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "sealed_chunk_count",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "transcript_segments"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "sealed_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "transcript_segments"
+    },
+    {
       "type": "text",
       "typeSchema": null,
       "notNull": true,
@@ -5629,6 +6923,32 @@
       "generated": null,
       "identity": null,
       "name": "counted_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "usage_reservations"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "clock_timestamp()",
+      "generated": null,
+      "identity": null,
+      "name": "reserved_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "usage_reservations"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "refunded_at",
       "entityType": "columns",
       "schema": "public",
       "table": "usage_reservations"
@@ -5862,20 +7182,72 @@
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "generation_token",
+      "name": "clip_key",
       "entityType": "columns",
       "schema": "public",
       "table": "utterances"
     },
     {
-      "type": "timestamp with time zone",
+      "type": "text",
       "typeSchema": null,
       "notNull": false,
       "dimensions": 0,
       "default": null,
       "generated": null,
       "identity": null,
-      "name": "generation_expires_at",
+      "name": "capture_track_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "utterances"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "capture_start_offset_ms",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "utterances"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "capture_duration_ms",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "utterances"
+    },
+    {
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "capture_worker_epoch",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "utterances"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "capture_body_digest",
       "entityType": "columns",
       "schema": "public",
       "table": "utterances"
@@ -5913,6 +7285,34 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "actors"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "round_participant_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "agent_runs_id_participant_unique",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "agent_runs"
     },
     {
       "nameExplicit": true,
@@ -5962,6 +7362,41 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "agent_runs"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "actor_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "period_start",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "period_end",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "ai_allowance_grants_actor_period_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "ai_allowance_grants"
     },
     {
       "nameExplicit": true,
@@ -6179,6 +7614,62 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "verification"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "judge_participant_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "round_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "ballots_judge_round_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "ballots"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "round_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "freeze_revision",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "ballots_freeze_revision_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "ballots"
     },
     {
       "nameExplicit": true,
@@ -6753,6 +8244,62 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "media_sessions"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "session_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "settled_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "media_vendor_mutations_session_settled_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "media_vendor_mutations"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "session_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "dispatched_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": "\"settled_at\" is null",
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "media_vendor_mutations_pending_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "media_vendor_mutations"
     },
     {
       "nameExplicit": true,
@@ -8009,6 +9556,433 @@
           "asc": true,
           "nullsFirst": false,
           "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "round_attendance_adjudications_command_unique",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "round_attendance_adjudications"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "command_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "round_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "round_attendance_adjudications_command_round_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "round_attendance_adjudications"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "segment_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "round_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "round_attendance_adjudications_segment_round_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "round_attendance_adjudications"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "round_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "round_attendance_adjudications_round_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "round_attendance_adjudications"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "round_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "state",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "round_check_in_attempts_round_state_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "round_check_in_attempts"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "round_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "received_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": "\"state\"='pending'",
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "round_check_in_attempts_pending_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "round_check_in_attempts"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "command_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "round_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "round_check_in_attempts_command_round_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "round_check_in_attempts"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "actor_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "round_check_in_attempts_actor_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "round_check_in_attempts"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "resolved_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "round_check_in_attempts_resolved_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "round_check_in_attempts"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "round_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "segment_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "participant_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "round_check_ins_first_stamp_unique",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "round_check_ins"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "command_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "round_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "round_check_ins_command_round_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "round_check_ins"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "segment_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "round_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "round_check_ins_segment_round_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "round_check_ins"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "participant_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "round_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "round_check_ins_participant_round_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "round_check_ins"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "round_participant_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "round_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "round_bot_publications_seat_round_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "round_bot_publications"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "segment_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "round_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "round_bot_publications_segment_round_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "round_bot_publications"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "agent_run_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "round_participant_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "round_bot_publications_run_seat_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "round_bot_publications"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "command_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
         },
         {
           "value": "round_id",
@@ -8076,6 +10050,167 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "round_commands"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "pending_ballot_agent_run_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "judge_participant_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "round_judging_jobs_pending_run_judge_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "round_judging_jobs"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "command_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "round_judging_jobs_command_unique",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "round_judging_jobs"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "round_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "freeze_revision",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "round_judging_jobs_freeze_revision_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "round_judging_jobs"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "judge_participant_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "round_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "round_judging_jobs_judge_round_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "round_judging_jobs"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "result_ballot_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "judge_participant_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "round_judging_jobs_result_judge_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "round_judging_jobs"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "status",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "lease_expires_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "round_judging_jobs_pending_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "round_judging_jobs"
     },
     {
       "nameExplicit": true,
@@ -8480,118 +10615,6 @@
           "opclass": null
         },
         {
-          "value": "freeze_revision",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "round_judging_jobs_freeze_revision_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "round_judging_jobs"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "judge_participant_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "round_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "round_judging_jobs_judge_round_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "round_judging_jobs"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "result_ballot_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "judge_participant_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "round_judging_jobs_result_judge_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "round_judging_jobs"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "status",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "lease_expires_at",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "round_judging_jobs_pending_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "round_judging_jobs"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "round_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
           "value": "revision",
           "isExpression": false,
           "asc": true,
@@ -8788,6 +10811,181 @@
       "nameExplicit": true,
       "columns": [
         {
+          "value": "renewed_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "service_instances_renewed_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "service_instances"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "segment_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "round_participant_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "round_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "observed_from",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "transcript_observations_stream_round_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "transcript_observations"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "segment_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "round_participant_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "round_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "transcript_segments_stream_round_unique",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "transcript_segments"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "segment_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "round_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "transcript_segments_segment_round_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "transcript_segments"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "round_participant_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "round_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "transcript_segments_participant_round_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "transcript_segments"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "round_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "transcript_segments_round_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "transcript_segments"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
           "value": "actor_id",
           "isExpression": false,
           "asc": true,
@@ -8815,6 +11013,41 @@
       "method": "btree",
       "concurrently": false,
       "name": "usage_reservations_actor_round_kind_unique",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "usage_reservations"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "actor_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "kind",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "reserved_at",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "usage_reservations_actor_period_idx",
       "entityType": "indexes",
       "schema": "public",
       "table": "usage_reservations"
@@ -8927,6 +11160,69 @@
       "method": "btree",
       "concurrently": false,
       "name": "utterances_segment_sequence_unique",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "utterances"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "clip_key",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "utterances_capture_clip_unique",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "utterances"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "segment_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "round_participant_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "capture_track_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "capture_start_offset_ms",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "utterances_capture_position_unique",
       "entityType": "indexes",
       "schema": "public",
       "table": "utterances"
@@ -9062,6 +11358,23 @@
     {
       "nameExplicit": false,
       "columns": [
+        "actor_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "actors",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "name": "ai_allowance_grants_actor_id_actors_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "ai_allowance_grants"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
         "user_id"
       ],
       "schemaTo": "public",
@@ -9140,6 +11453,61 @@
       "onUpdate": "NO ACTION",
       "onDelete": "RESTRICT",
       "name": "ballots_voided_by_actor_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "ballots"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "round_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "rounds",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "ballots_round_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "ballots"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "judge_participant_id",
+        "round_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "round_participants",
+      "columnsTo": [
+        "id",
+        "round_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "ballots_judge_round_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "ballots"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "round_id",
+        "freeze_revision"
+      ],
+      "schemaTo": "public",
+      "tableTo": "round_transcript_freezes",
+      "columnsTo": [
+        "round_id",
+        "revision"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "ballots_freeze_revision_fk",
       "entityType": "fks",
       "schema": "public",
       "table": "ballots"
@@ -9321,6 +11689,23 @@
       "entityType": "fks",
       "schema": "public",
       "table": "media_sessions"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "session_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "media_sessions",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "media_vendor_mutations_session_id_media_sessions_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "media_vendor_mutations"
     },
     {
       "nameExplicit": false,
@@ -10265,6 +12650,243 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
+      "name": "round_attendance_adjudications_round_id_rounds_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "round_attendance_adjudications"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "command_id",
+        "round_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "round_commands",
+      "columnsTo": [
+        "command_id",
+        "round_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "round_attendance_adjudications_command_round_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "round_attendance_adjudications"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "segment_id",
+        "round_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "round_segments",
+      "columnsTo": [
+        "id",
+        "round_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "round_attendance_adjudications_segment_round_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "round_attendance_adjudications"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "round_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "rounds",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "round_check_in_attempts_round_id_rounds_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "round_check_in_attempts"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "actor_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "actors",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "round_check_in_attempts_actor_id_actors_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "round_check_in_attempts"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "round_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "rounds",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "round_check_ins_round_id_rounds_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "round_check_ins"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "command_id",
+        "round_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "round_commands",
+      "columnsTo": [
+        "command_id",
+        "round_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "round_check_ins_command_round_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "round_check_ins"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "segment_id",
+        "round_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "round_segments",
+      "columnsTo": [
+        "id",
+        "round_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "round_check_ins_segment_round_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "round_check_ins"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "participant_id",
+        "round_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "round_participants",
+      "columnsTo": [
+        "id",
+        "round_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "round_check_ins_participant_round_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "round_check_ins"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "round_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "rounds",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "round_bot_publications_round_id_rounds_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "round_bot_publications"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "round_participant_id",
+        "round_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "round_participants",
+      "columnsTo": [
+        "id",
+        "round_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "round_bot_publications_seat_round_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "round_bot_publications"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "segment_id",
+        "round_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "round_segments",
+      "columnsTo": [
+        "id",
+        "round_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "round_bot_publications_segment_round_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "round_bot_publications"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "agent_run_id",
+        "round_participant_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "agent_runs",
+      "columnsTo": [
+        "id",
+        "round_participant_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "round_bot_publications_run_seat_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "round_bot_publications"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "round_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "rounds",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
       "name": "round_commands_round_id_rounds_id_fkey",
       "entityType": "fks",
       "schema": "public",
@@ -10286,6 +12908,82 @@
       "entityType": "fks",
       "schema": "public",
       "table": "round_commands"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "pending_ballot_agent_run_id",
+        "judge_participant_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "agent_runs",
+      "columnsTo": [
+        "id",
+        "round_participant_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "round_judging_jobs_pending_run_judge_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "round_judging_jobs"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "round_id",
+        "freeze_revision"
+      ],
+      "schemaTo": "public",
+      "tableTo": "round_transcript_freezes",
+      "columnsTo": [
+        "round_id",
+        "revision"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "round_judging_jobs_freeze_revision_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "round_judging_jobs"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "judge_participant_id",
+        "round_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "round_participants",
+      "columnsTo": [
+        "id",
+        "round_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "round_judging_jobs_judge_round_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "round_judging_jobs"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "result_ballot_id",
+        "judge_participant_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "ballots",
+      "columnsTo": [
+        "id",
+        "judge_participant_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "round_judging_jobs_result_judge_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "round_judging_jobs"
     },
     {
       "nameExplicit": false,
@@ -10415,63 +13113,6 @@
       "table": "round_speaking_intervals"
     },
     {
-      "nameExplicit": true,
-      "columns": [
-        "round_id",
-        "freeze_revision"
-      ],
-      "schemaTo": "public",
-      "tableTo": "round_transcript_freezes",
-      "columnsTo": [
-        "round_id",
-        "revision"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "name": "round_judging_jobs_freeze_revision_fk",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "round_judging_jobs"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        "judge_participant_id",
-        "round_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "round_participants",
-      "columnsTo": [
-        "id",
-        "round_id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "NO ACTION",
-      "name": "round_judging_jobs_judge_round_fk",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "round_judging_jobs"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        "result_ballot_id",
-        "judge_participant_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "ballots",
-      "columnsTo": [
-        "id",
-        "judge_participant_id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "NO ACTION",
-      "name": "round_judging_jobs_result_judge_fk",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "round_judging_jobs"
-    },
-    {
       "nameExplicit": false,
       "columns": [
         "round_id"
@@ -10584,6 +13225,99 @@
     {
       "nameExplicit": false,
       "columns": [
+        "session_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "media_sessions",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "media_worker_leases_session_id_media_sessions_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "media_worker_leases"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "round_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "rounds",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "round_transcripts_round_id_rounds_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "round_transcripts"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "segment_id",
+        "round_participant_id",
+        "round_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "transcript_segments",
+      "columnsTo": [
+        "segment_id",
+        "round_participant_id",
+        "round_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "transcript_observations_stream_round_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "transcript_observations"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "segment_id",
+        "round_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "round_segments",
+      "columnsTo": [
+        "id",
+        "round_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "transcript_segments_segment_round_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "transcript_segments"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "round_participant_id",
+        "round_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "round_participants",
+      "columnsTo": [
+        "id",
+        "round_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "name": "transcript_segments_participant_round_fk",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "transcript_segments"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
         "actor_id"
       ],
       "schemaTo": "public",
@@ -10647,7 +13381,7 @@
         "round_id"
       ],
       "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
+      "onDelete": "NO ACTION",
       "name": "utterances_participant_round_fk",
       "entityType": "fks",
       "schema": "public",
@@ -10826,6 +13560,39 @@
     },
     {
       "columns": [
+        "round_id",
+        "round_participant_id"
+      ],
+      "nameExplicit": false,
+      "name": "round_bot_publications_pkey",
+      "entityType": "pks",
+      "schema": "public",
+      "table": "round_bot_publications"
+    },
+    {
+      "columns": [
+        "round_id",
+        "judge_participant_id"
+      ],
+      "nameExplicit": false,
+      "name": "round_judging_jobs_pkey",
+      "entityType": "pks",
+      "schema": "public",
+      "table": "round_judging_jobs"
+    },
+    {
+      "columns": [
+        "segment_id",
+        "round_participant_id"
+      ],
+      "nameExplicit": false,
+      "name": "transcript_segments_pkey",
+      "entityType": "pks",
+      "schema": "public",
+      "table": "transcript_segments"
+    },
+    {
+      "columns": [
         "user_id"
       ],
       "nameExplicit": false,
@@ -10852,6 +13619,16 @@
       "name": "agent_runs_pkey",
       "schema": "public",
       "table": "agent_runs",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "ai_allowance_grants_pkey",
+      "schema": "public",
+      "table": "ai_allowance_grants",
       "entityType": "pks"
     },
     {
@@ -10982,6 +13759,16 @@
       "name": "media_sessions_pkey",
       "schema": "public",
       "table": "media_sessions",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "media_vendor_mutations_pkey",
+      "schema": "public",
+      "table": "media_vendor_mutations",
       "entityType": "pks"
     },
     {
@@ -11126,6 +13913,36 @@
     },
     {
       "columns": [
+        "segment_id"
+      ],
+      "nameExplicit": false,
+      "name": "round_attendance_adjudications_pkey",
+      "schema": "public",
+      "table": "round_attendance_adjudications",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "attempt_id"
+      ],
+      "nameExplicit": false,
+      "name": "round_check_in_attempts_pkey",
+      "schema": "public",
+      "table": "round_check_in_attempts",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "command_id"
+      ],
+      "nameExplicit": false,
+      "name": "round_check_ins_pkey",
+      "schema": "public",
+      "table": "round_check_ins",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
         "command_id"
       ],
       "nameExplicit": false,
@@ -11169,16 +13986,6 @@
         "round_id"
       ],
       "nameExplicit": false,
-      "name": "round_judging_jobs_pkey",
-      "schema": "public",
-      "table": "round_judging_jobs",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
-        "round_id"
-      ],
-      "nameExplicit": false,
       "name": "round_transcript_freezes_pkey",
       "schema": "public",
       "table": "round_transcript_freezes",
@@ -11202,6 +14009,56 @@
       "name": "seed_versions_pkey",
       "schema": "public",
       "table": "seed_versions",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "at"
+      ],
+      "nameExplicit": false,
+      "name": "availability_samples_pkey",
+      "schema": "public",
+      "table": "availability_samples",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "instance_id"
+      ],
+      "nameExplicit": false,
+      "name": "service_instances_pkey",
+      "schema": "public",
+      "table": "service_instances",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "session_id"
+      ],
+      "nameExplicit": false,
+      "name": "media_worker_leases_pkey",
+      "schema": "public",
+      "table": "media_worker_leases",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "round_id"
+      ],
+      "nameExplicit": false,
+      "name": "round_transcripts_pkey",
+      "schema": "public",
+      "table": "round_transcripts",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "transcript_observations_pkey",
+      "schema": "public",
+      "table": "transcript_observations",
       "entityType": "pks"
     },
     {
@@ -11397,6 +14254,20 @@
       "table": "agent_runs"
     },
     {
+      "value": "\"period_end\" > \"period_start\"",
+      "name": "ai_allowance_grants_period_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "ai_allowance_grants"
+    },
+    {
+      "value": "\"freeze_revision\" > 0",
+      "name": "ballots_freeze_revision_positive",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "ballots"
+    },
+    {
       "value": "\"status\" in ('submitted', 'voided')",
       "name": "ballots_status_check",
       "entityType": "checks",
@@ -11558,11 +14429,67 @@
       "table": "formats"
     },
     {
+      "value": "\"reconcile_epoch\" >= 0 and \"reconcile_served_version\" >= 0 and \"reconcile_running_version\" >= \"reconcile_served_version\" and \"reconcile_request_version\" >= \"reconcile_running_version\"",
+      "name": "media_sessions_reconcile_versions_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "media_sessions"
+    },
+    {
+      "value": "(\"reconcile_owner\" is null) = (\"reconcile_lease_until\" is null)",
+      "name": "media_sessions_reconcile_lease_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "media_sessions"
+    },
+    {
       "value": "\"ended_at\" is null or \"ended_at\" >= \"created_at\"",
       "name": "media_sessions_end_check",
       "entityType": "checks",
       "schema": "public",
       "table": "media_sessions"
+    },
+    {
+      "value": "jsonb_typeof(\"payload\") = 'object'",
+      "name": "media_vendor_mutations_payload_is_object",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "media_vendor_mutations"
+    },
+    {
+      "value": "\"epoch\" >= 0",
+      "name": "media_vendor_mutations_epoch_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "media_vendor_mutations"
+    },
+    {
+      "value": "\"kind\" in ('create','permissions','delete')",
+      "name": "media_vendor_mutations_kind_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "media_vendor_mutations"
+    },
+    {
+      "value": "(\"identity\" is not null) = (\"kind\" = 'permissions')",
+      "name": "media_vendor_mutations_identity_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "media_vendor_mutations"
+    },
+    {
+      "value": "(\"settled_at\" is null) = (\"outcome\" is null) and (\"outcome\" is null or \"outcome\" in ('succeeded','failed')) and (\"settled_at\" is null or \"settled_at\" >= \"dispatched_at\")",
+      "name": "media_vendor_mutations_settlement_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "media_vendor_mutations"
+    },
+    {
+      "value": "case when \"kind\" = 'permissions' then\n    jsonb_typeof(\"payload\") = 'object'\n    and \"payload\" ?& array['publish','subscribe','hidden','capture']\n    and (\"payload\" - 'publish' - 'subscribe' - 'hidden' - 'capture') = '{}'::jsonb\n    and case when jsonb_typeof(\"payload\"->'publish') = 'array' then\n      jsonb_array_length(\"payload\"->'publish') <= 2\n      and (\"payload\"->'publish') <@ '[\"camera\",\"microphone\"]'::jsonb\n      and (jsonb_array_length(\"payload\"->'publish') < 2 or \"payload\"->'publish'->0 is distinct from \"payload\"->'publish'->1)\n    else false end\n    and jsonb_typeof(\"payload\"->'subscribe') = 'boolean'\n    and jsonb_typeof(\"payload\"->'hidden') = 'boolean'\n    and \"payload\"->'capture' = 'false'::jsonb\n    else \"payload\" = '{}'::jsonb end",
+      "name": "media_vendor_mutations_payload_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "media_vendor_mutations"
     },
     {
       "value": "\"notification_level\" in ('all', 'mentions', 'none')",
@@ -12174,6 +15101,76 @@
       "table": "rooms"
     },
     {
+      "value": "\"decision\" in ('attended', 'none', 'forfeit', 'abandoned')",
+      "name": "round_attendance_adjudications_decision_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "round_attendance_adjudications"
+    },
+    {
+      "value": "\"state\" in ('pending', 'committed', 'aborted')",
+      "name": "round_check_in_attempts_state_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "round_check_in_attempts"
+    },
+    {
+      "value": "(\"state\"='pending' and \"resolved_at\" is null) or (\"state\"<>'pending' and \"resolved_at\" is not null)",
+      "name": "round_check_in_attempts_resolved_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "round_check_in_attempts"
+    },
+    {
+      "value": "\"resolved_at\" is null or \"resolved_at\" >= \"received_at\"",
+      "name": "round_check_in_attempts_resolved_after_received",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "round_check_in_attempts"
+    },
+    {
+      "value": "\"backend_pid\">0",
+      "name": "round_check_in_attempts_backend_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "round_check_in_attempts"
+    },
+    {
+      "value": "\"payload_digest\" ~ '^[0-9a-f]{64}$'",
+      "name": "round_check_in_attempts_digest_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "round_check_in_attempts"
+    },
+    {
+      "value": "(\"actor_id\" is null) <> (\"service_id\" is null)",
+      "name": "round_check_in_attempts_one_principal",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "round_check_in_attempts"
+    },
+    {
+      "value": "\"publication_epoch\" > 0",
+      "name": "round_bot_publications_epoch_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "round_bot_publications"
+    },
+    {
+      "value": "\"lease_token_digest\" ~ '^[0-9a-f]{64}$'",
+      "name": "round_bot_publications_digest_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "round_bot_publications"
+    },
+    {
+      "value": "\"service_id\" = 'agent-run:' || \"agent_run_id\"",
+      "name": "round_bot_publications_service_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "round_bot_publications"
+    },
+    {
       "value": "jsonb_typeof(\"result\") = 'object'",
       "name": "round_commands_result_is_object",
       "entityType": "checks",
@@ -12195,11 +15192,67 @@
       "table": "round_commands"
     },
     {
-      "value": "\"type\" in ('start', 'start_prep', 'end_prep', 'start_speech', 'yield', 'interrupt', 'forfeit', 'complete')",
+      "value": "\"type\" in ('start', 'start_prep', 'start_speech', 'yield', 'interrupt', 'forfeit', 'complete', 'submit_ballot', 'check_in', 'adjudicate')",
       "name": "round_commands_type_check",
       "entityType": "checks",
       "schema": "public",
       "table": "round_commands"
+    },
+    {
+      "value": "\"type\" <> 'adjudicate' or (\"actor_id\" is null and \"service_id\" ~ '^round-attendance:[a-z0-9]{24}$')",
+      "name": "round_commands_attendance_principal_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "round_commands"
+    },
+    {
+      "value": "jsonb_typeof(\"pending_ballot\") = 'object'",
+      "name": "round_judging_jobs_pending_ballot_is_object",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "round_judging_jobs"
+    },
+    {
+      "value": "(\"pending_ballot\" is null and \"pending_ballot_agent_run_id\" is null and \"pending_ballot_epoch\" is null and \"pending_ballot_received_at\" is null) or (\"pending_ballot\" is not null and \"pending_ballot_agent_run_id\" is not null and \"pending_ballot_epoch\" is not null and \"pending_ballot_epoch\" > 0 and \"pending_ballot_epoch\" <= \"attempts\" and \"pending_ballot_received_at\" is not null and \"status\" <> 'succeeded')",
+      "name": "round_judging_jobs_pending_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "round_judging_jobs"
+    },
+    {
+      "value": "\"status\" in ('queued', 'leased', 'succeeded', 'failed')",
+      "name": "round_judging_jobs_status_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "round_judging_jobs"
+    },
+    {
+      "value": "\"attempts\" >= 0 and (\"status\" <> 'leased' or \"attempts\" > 0)",
+      "name": "round_judging_jobs_attempts_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "round_judging_jobs"
+    },
+    {
+      "value": "(\"status\" = 'leased' and \"lease_token_digest\" is not null and \"lease_expires_at\" is not null) or (\"status\" <> 'leased' and \"lease_token_digest\" is null and \"lease_expires_at\" is null)",
+      "name": "round_judging_jobs_lease_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "round_judging_jobs"
+    },
+    {
+      "value": "\"lease_token_digest\" is null or \"lease_token_digest\" ~ '^[0-9a-f]{64}$'",
+      "name": "round_judging_jobs_token_digest_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "round_judging_jobs"
+    },
+    {
+      "value": "(\"status\" = 'succeeded') = (\"result_ballot_id\" is not null)",
+      "name": "round_judging_jobs_result_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "round_judging_jobs"
     },
     {
       "value": "\"role\" in ('affirmative', 'negative', 'judge')",
@@ -12265,41 +15318,6 @@
       "table": "round_speaking_intervals"
     },
     {
-      "value": "\"status\" in ('queued', 'leased', 'succeeded', 'failed')",
-      "name": "round_judging_jobs_status_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "round_judging_jobs"
-    },
-    {
-      "value": "\"attempts\" >= 0 and (\"status\" <> 'leased' or \"attempts\" > 0)",
-      "name": "round_judging_jobs_attempts_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "round_judging_jobs"
-    },
-    {
-      "value": "(\"status\" = 'leased' and \"lease_token_digest\" is not null and \"lease_expires_at\" is not null) or (\"status\" <> 'leased' and \"lease_token_digest\" is null and \"lease_expires_at\" is null)",
-      "name": "round_judging_jobs_lease_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "round_judging_jobs"
-    },
-    {
-      "value": "\"lease_token_digest\" is null or \"lease_token_digest\" ~ '^[0-9a-f]{64}$'",
-      "name": "round_judging_jobs_token_digest_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "round_judging_jobs"
-    },
-    {
-      "value": "(\"status\" = 'succeeded') = (\"result_ballot_id\" is not null)",
-      "name": "round_judging_jobs_result_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "round_judging_jobs"
-    },
-    {
       "value": "\"revision\" > 0 and \"frontier\" >= 0",
       "name": "round_transcript_freezes_revision_check",
       "entityType": "checks",
@@ -12316,6 +15334,13 @@
     {
       "value": "\"version\" > 0",
       "name": "rounds_version_positive",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "rounds"
+    },
+    {
+      "value": "(\"final_segment_ended_at\" is null and \"transcript_admission_cutoff\" is null) or (\"final_segment_ended_at\" is not null and \"transcript_admission_cutoff\" is not null and \"transcript_admission_cutoff\" = \"final_segment_ended_at\" + interval '120 seconds')",
+      "name": "rounds_transcript_cutoff_check",
       "entityType": "checks",
       "schema": "public",
       "table": "rounds"
@@ -12405,7 +15430,7 @@
       "table": "rounds"
     },
     {
-      "value": "(\"status\" = 'scheduled' and \"current_stage\" is null and \"outcome\" is null and \"started_at\" is null and \"completed_at\" is null) or (\"status\" = 'active' and \"current_stage\" is not null and \"outcome\" is null and \"started_at\" is not null and \"completed_at\" is null) or (\"status\" = 'completed' and \"current_stage\" is null and \"outcome\" is not null and \"started_at\" is not null and \"completed_at\" is not null) or (\"status\" = 'abandoned' and \"current_stage\" is null and \"outcome\" is null and \"completed_at\" is not null)",
+      "value": "(\"status\" = 'scheduled' and \"current_stage\" is null and \"outcome\" is null and \"started_at\" is null and \"completed_at\" is null) or (\"status\" = 'active' and \"current_stage\" is not null and \"outcome\" is null and \"started_at\" is not null and \"completed_at\" is null) or (\"status\" = 'completed' and \"current_stage\" is null and (\"outcome\" is not null or (\"competition_type\" = 'casual' and \"ladder_id\" is null)) and \"started_at\" is not null and \"completed_at\" is not null) or (\"status\" = 'abandoned' and \"current_stage\" is null and \"outcome\" is null and \"completed_at\" is not null)",
       "name": "rounds_lifecycle_check",
       "entityType": "checks",
       "schema": "public",
@@ -12433,6 +15458,104 @@
       "table": "rounds"
     },
     {
+      "value": "(\"healthy\" and \"cause\" is null) or (not \"healthy\" and \"cause\" is not null and \"cause\" in ('web_stale', 'realtime_stale', 'delivery_lag', 'public_probe_failed', 'check_in_pending'))",
+      "name": "availability_samples_cause_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "availability_samples"
+    },
+    {
+      "value": "\"role\" in ('web', 'realtime')",
+      "name": "service_instances_role_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "service_instances"
+    },
+    {
+      "value": "(\"role\"='web' and \"delivered_through\" is null and \"delivered_through_txid\" is null) or (\"role\"='realtime' and \"delivered_through\" is not null and \"delivered_through\" >= 0 and \"delivered_through_txid\" is not null and \"delivered_through_txid\"::text ~ '^[0-9]+$')",
+      "name": "service_instances_cursor_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "service_instances"
+    },
+    {
+      "value": "\"epoch\" > 0",
+      "name": "media_worker_leases_epoch_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "media_worker_leases"
+    },
+    {
+      "value": "\"revision\" >= 0",
+      "name": "round_transcripts_revision_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "round_transcripts"
+    },
+    {
+      "value": "\"observed_until\" > \"observed_from\"",
+      "name": "transcript_observations_range_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "transcript_observations"
+    },
+    {
+      "value": "\"worker_epoch\" > 0",
+      "name": "transcript_observations_epoch_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "transcript_observations"
+    },
+    {
+      "value": "char_length(\"track_id\") between 1 and 128",
+      "name": "transcript_observations_track_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "transcript_observations"
+    },
+    {
+      "value": "\"state\" in ('open', 'complete', 'partial')",
+      "name": "transcript_segments_state_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "transcript_segments"
+    },
+    {
+      "value": "\"chunk_count\" >= 0 and (\"sealed_chunk_count\" is null or \"sealed_chunk_count\" >= 0)",
+      "name": "transcript_segments_counts_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "transcript_segments"
+    },
+    {
+      "value": "(\"state\" = 'open' and \"sealed_at\" is null and \"sealed_chunk_count\" is null) or (\"state\" <> 'open' and \"sealed_at\" is not null and \"sealed_chunk_count\" is not null)",
+      "name": "transcript_segments_seal_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "transcript_segments"
+    },
+    {
+      "value": "\"state\" <> 'complete' or \"chunk_count\" = \"sealed_chunk_count\"",
+      "name": "transcript_segments_complete_count_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "transcript_segments"
+    },
+    {
+      "value": "\"refunded_at\" is null or (\"counted_at\" is not null and \"refunded_at\" >= \"counted_at\")",
+      "name": "usage_reservations_refund_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "usage_reservations"
+    },
+    {
+      "value": "\"counted_at\" is null or \"counted_at\" >= \"reserved_at\"",
+      "name": "usage_reservations_admission_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "usage_reservations"
+    },
+    {
       "value": "\"kind\" in ('ai_practice')",
       "name": "usage_reservations_kind_check",
       "entityType": "checks",
@@ -12454,6 +15577,20 @@
       "table": "users"
     },
     {
+      "value": "(\"clip_key\" is null and \"capture_track_id\" is null and \"capture_start_offset_ms\" is null and \"capture_duration_ms\" is null and \"capture_worker_epoch\" is null and \"capture_body_digest\" is null) or (\"clip_key\" is not null and \"capture_track_id\" is not null and \"capture_start_offset_ms\" is not null and \"capture_duration_ms\" is not null and \"capture_worker_epoch\" is not null and \"capture_body_digest\" is not null)",
+      "name": "utterances_capture_pair_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "utterances"
+    },
+    {
+      "value": "\"clip_key\" is null or (\"clip_key\" ~ '^[0-9a-f]{64}$' and \"capture_body_digest\" ~ '^[0-9a-f]{64}$' and char_length(\"capture_track_id\") between 1 and 128 and \"capture_start_offset_ms\" >= 0 and \"capture_duration_ms\" > 0 and \"capture_duration_ms\" <= 60000 and \"capture_worker_epoch\" > 0)",
+      "name": "utterances_capture_metadata_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "utterances"
+    },
+    {
       "value": "\"sequence\" >= 0",
       "name": "utterances_sequence_check",
       "entityType": "checks",
@@ -12463,13 +15600,6 @@
     {
       "value": "char_length(\"text\") <= 20000",
       "name": "utterances_text_length",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "utterances"
-    },
-    {
-      "value": "(\"generation_token\" is null) = (\"generation_expires_at\" is null)",
-      "name": "utterances_generation_pair",
       "entityType": "checks",
       "schema": "public",
       "table": "utterances"

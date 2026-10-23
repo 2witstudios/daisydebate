@@ -1,6 +1,21 @@
 import { cutCaptureClips } from '@daisy/media/clips';
-import { readCaptureHistory, type CaptureClient } from './capture-history';
+import {
+  readCaptureHistory,
+  straddlesGrantEdge,
+  type CaptureClient,
+} from './capture-history';
 import type { StagedFrame } from './capture-staging';
+/** Staged frames grouped per segment and seat, in arrival order. */
+function bySegmentSeat(frames: readonly StagedFrame[]) {
+  const groups = new Map<string, StagedFrame[]>();
+  for (const frame of frames) {
+    const key = JSON.stringify([frame.segmentId, frame.seat]);
+    const group = groups.get(key) ?? [];
+    group.push(frame);
+    groups.set(key, group);
+  }
+  return groups.values();
+}
 export async function validateCaptureBatch(input: {
   readonly frames: readonly StagedFrame[];
   readonly current: Awaited<ReturnType<CaptureClient['read']>>;
@@ -10,18 +25,13 @@ export async function validateCaptureBatch(input: {
   readonly signal: AbortSignal;
   readonly nowMs: () => number;
   readonly dropped: (n: number) => void;
+  /** A staged frame that crosses a grant edge in the fresher history. */
+  readonly straddled: (frame: StagedFrame['frame']) => void;
   readonly clip: (
     clip: ReturnType<typeof cutCaptureClips>['clips'][number],
   ) => void;
 }) {
-  const groups = new Map<string, StagedFrame[]>();
-  for (const frame of input.frames) {
-    const key = JSON.stringify([frame.segmentId, frame.seat]);
-    const group = groups.get(key) ?? [];
-    group.push(frame);
-    groups.set(key, group);
-  }
-  for (const frames of groups.values()) {
+  for (const frames of bySegmentSeat(input.frames)) {
     const first = frames[0]!;
     const history =
       first.segmentId === input.current.state.segment?.id
@@ -39,6 +49,9 @@ export async function validateCaptureBatch(input: {
     }
     const valid = frames.filter((f) => input.nowMs() - f.observedAtMs <= 500);
     input.dropped(frames.length - valid.length);
+    for (const { frame } of valid)
+      if (straddlesGrantEdge(history.state, first.seat, frame))
+        input.straddled(frame);
     const cut = cutCaptureClips({
       roundId: input.roundId,
       roundParticipantId: first.seat,

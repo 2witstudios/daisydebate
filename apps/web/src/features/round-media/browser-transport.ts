@@ -19,23 +19,37 @@ export type MediaTrack = {
   readonly track: Track;
 };
 
+/** The SDK surface this transport uses: livekit-client in the browser, a stub in tests. */
+type MediaSdk = {
+  readonly room: () => Room;
+  readonly capture: typeof createLocalTracks;
+};
+const livekit: MediaSdk = {
+  room: () =>
+    new Room({
+      adaptiveStream: true,
+      dynacast: true,
+      videoCaptureDefaults: { resolution: VideoPresets.h360.resolution },
+      publishDefaults: {
+        simulcast: true,
+        videoSimulcastLayers: [VideoPresets.h180, VideoPresets.h360],
+      },
+      reconnectPolicy: { nextRetryDelayInMs: () => null },
+    }),
+  capture: createLocalTracks,
+};
+
 /** Browser SDK only. Opaque identities stay in memory; no SDK diagnostics reach console. */
-export function createBrowserMediaTransport(events: {
-  readonly tracks: (tracks: readonly MediaTrack[]) => void;
-  readonly invalidated: () => void;
-  readonly reconnect: () => void;
-}) {
+export function createBrowserMediaTransport(
+  events: {
+    readonly tracks: (tracks: readonly MediaTrack[]) => void;
+    readonly invalidated: () => void;
+    readonly reconnect: () => void;
+  },
+  sdk: MediaSdk = livekit,
+) {
   setLogLevel(LogLevel.silent);
-  const room = new Room({
-    adaptiveStream: true,
-    dynacast: true,
-    videoCaptureDefaults: { resolution: VideoPresets.h360.resolution },
-    publishDefaults: {
-      simulcast: true,
-      videoSimulcastLayers: [VideoPresets.h180, VideoPresets.h360],
-    },
-    reconnectPolicy: { nextRetryDelayInMs: () => null },
-  });
+  const room = sdk.room();
   let stopped = false;
   const tracks = new Map<'camera' | 'microphone', LocalTrack>();
   const emit = () => {
@@ -88,7 +102,7 @@ export function createBrowserMediaTransport(events: {
     }
   });
   const publishSource = async (source: 'camera' | 'microphone') => {
-    const captured = await createLocalTracks({
+    const captured = await sdk.capture({
       audio: source === 'microphone',
       video:
         source === 'camera'

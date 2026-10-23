@@ -81,6 +81,7 @@ export async function runCaptureSession(
     epoch,
     signal,
     take: queue.shift,
+    straddles: staging.straddles,
     dropped,
     transcribed: () => {
       stats.transcribedClips++;
@@ -129,6 +130,8 @@ export async function runCaptureSession(
         signal,
         frames: staging.take(),
         dropped,
+        straddled: ({ trackId, nominalStartMs, beforeMs, afterMs }) =>
+          staging.rememberEdge(trackId, { nominalStartMs, beforeMs, afterMs }),
         clip: (clip) => {
           const queued = { ...clip, bytes: clip.wav.byteLength };
           streams.forClip(queued);

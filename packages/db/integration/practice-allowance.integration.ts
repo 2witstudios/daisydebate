@@ -1,11 +1,11 @@
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { withSponsoredAdmission } from './bot-admission.test-support';
+import { withTwoRoundAdmission } from './bot-admission.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 
 test('a practice that never reached a model call stops spending the allowance when its Round ends (ISSUE-469)', async () => {
-  await withSponsoredAdmission(
+  await withTwoRoundAdmission(
     async ({ fixture, firstRound, secondRound, actorId, admission }) => {
       const status = async () => {
         const s = await admission.readStatus(actorId);

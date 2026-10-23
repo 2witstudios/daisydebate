@@ -6,13 +6,13 @@ import { withBoundedRound } from './bounded-transaction.test-support';
 import { createRoundBotAdmission } from '../src/round-bot-admission';
 import {
   admissionSponsor,
-  withSponsoredAdmission,
+  withTwoRoundAdmission,
 } from './bot-admission.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 
 test('calendar-month allowance serializes actual reservations', async () => {
-  await withSponsoredAdmission(
+  await withTwoRoundAdmission(
     async ({ firstRound, secondRound, actorId, admission }) => {
       const initial = await admission.readStatus(actorId);
       assert({

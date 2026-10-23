@@ -2,18 +2,8 @@ import type { BotPublicationScope } from '@daisy/db/bot-publication';
 import { isTransactionCapacityRefusal } from '@daisy/db';
 import { isFinalBotSpeechRefusal } from '@daisy/db/bot-publication';
 import { isAppError } from '@daisy/errors';
+import type { BotSpeechJob } from './publication';
 
-type Job = {
-  readonly scope: BotPublicationScope;
-  readonly token: string;
-  readonly phraseId: string;
-  readonly text: string;
-  readonly pcm: Int16Array;
-  readonly sampleRate: 24000;
-  readonly channels: 1;
-  /** The segment end on the database clock, when the generation read it. */
-  readonly segmentEndsAt?: string;
-};
 /** A provider answer held in memory until its usage and authority settle. */
 type Answer<T> = {
   readonly value: T;
@@ -25,7 +15,7 @@ type Progress = {
   generated: Answer<{ readonly phrases: readonly string[] }> | null;
   settled: boolean;
   spoken: number;
-  synthesized: Answer<Job> | null;
+  synthesized: Answer<BotSpeechJob> | null;
   /** Samples of the held phrase already sent, so a refused publication resumes there. */
   sent: number;
 };
@@ -66,10 +56,10 @@ export function createBotSpeaker(input: {
     phraseId: string,
     text: string,
     signal: AbortSignal,
-  ) => Promise<Answer<Job>>;
+  ) => Promise<Answer<BotSpeechJob>>;
   /** `onSent` reports the samples of `job` sent so far, after each frame is sent. */
   readonly publish: (
-    job: Job,
+    job: BotSpeechJob,
     signal: AbortSignal,
     onSent?: (samples: number) => void,
   ) => Promise<{ readonly complete: boolean }>;
@@ -96,7 +86,7 @@ export function createBotSpeaker(input: {
    * Publishes what is left of the held phrase; true once all of it was sent.
    * A phrase sent in full before a refusal is already heard.
    */
-  const publishRest = async (phrase: Job, signal: AbortSignal) => {
+  const publishRest = async (phrase: BotSpeechJob, signal: AbortSignal) => {
     const from = progress.sent;
     if (from >= phrase.pcm.length) return true;
     playing = true;
