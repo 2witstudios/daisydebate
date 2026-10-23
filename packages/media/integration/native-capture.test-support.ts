@@ -212,6 +212,7 @@ export async function proveCalibratedCapture(
   const retained: {
     beforeMs: number;
     afterMs: number;
+    nominalStartMs: number;
     pcm: Int16Array;
     sequence: number;
   }[] = [];
@@ -274,18 +275,22 @@ export async function proveCalibratedCapture(
     given:
       'real 16k native callbacks, real PG calibration refresh and full historical-window reads',
     should:
-      'retain genuine PCM after cadence bootstrap with outward eligible observation brackets',
+      'retain genuine PCM from the first callback on a sequence timeline, with outward eligible observation brackets (DEC-215)',
     actual: {
       retained: retained.length >= 10,
       nonzero: retained.some((f) => f.pcm.some((v) => v !== 0)),
       allAuthorized: authorized === retained.length,
-      gaps: dropped > 0,
+      timeline: retained.every(
+        (f) =>
+          f.nominalStartMs - retained[0]!.nominalStartMs ===
+          (f.sequence - retained[0]!.sequence) * 10,
+      ),
     },
     expected: {
       retained: true,
       nonzero: true,
       allAuthorized: true,
-      gaps: true,
+      timeline: true,
     },
   });
 }

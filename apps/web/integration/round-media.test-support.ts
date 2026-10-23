@@ -95,6 +95,28 @@ export const captureOperations = (
       mediaRuntime(context, createId).tick(context.now),
   });
 
+/** A bare media session for the Round and actual capture operations at the production speech-to-text lag. */
+export async function openRoundCapture(
+  f: Parameters<Parameters<typeof withRoomRuntime>[0]>[0],
+  roundId: string,
+  buildProjection: Parameters<
+    typeof f.store.createMediaCaptureOperations
+  >[0]['buildProjection'],
+) {
+  const sessionId = createId(),
+    workerId = createId();
+  await f.sql`insert into media_sessions(id,round_id,room_name) values(${sessionId},${roundId},${createId()})`;
+  return {
+    sessionId,
+    workerId,
+    capture: f.store.createMediaCaptureOperations({
+      sttLagMs: CAPTURE_STT_LAG_MS,
+      nextId: createId,
+      buildProjection,
+    }),
+  };
+}
+
 /** Hold actual provider creation before its effect or after acknowledgement, without replacing the vendor. */
 export function delayedMediaCreation(phase: 'before' | 'after' = 'after') {
   const entered = Promise.withResolvers<void>();

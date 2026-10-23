@@ -1,5 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createCaptureStaging } from './capture-staging';
+import { cutCaptureClips } from '@daisy/media/clips';
+import { createCaptureStaging, type StagedFrame } from './capture-staging';
 import type { CaptureClient } from './capture-history';
 setupRitewayBun();
 const iso = (ms: number) => new Date(ms).toISOString();
@@ -149,9 +150,105 @@ test('a refused frame crossing a grant edge is kept as edge evidence for its tra
       afterClose: f.staging.straddles('real-track'),
     },
     expected: {
-      admitted: [10020, 10030],
-      evidence: [{ nominalStartMs: 10010, beforeMs: 10009, afterMs: 10022 }],
+      admitted: [10019, 10029],
+      evidence: [{ nominalStartMs: 10009, beforeMs: 10008, afterMs: 10022 }],
       afterClose: [],
     },
+  });
+});
+
+/**
+ * Three seconds of 10 ms frames, starting well inside the grant, with a
+ * calibration refresh every 250 ms whose server sample lands anywhere in its
+ * round trip and native callbacks jittered by up to 2.6 ms. `missing` native
+ * sequences never arrive (DEC-215).
+ */
+function jitteredRun(rttMs: number, missing: readonly number[] = []) {
+  const f = fixture();
+  const jitter = [0.2, 1.7, 0.9, 2.6, 0.4, 1.3, 2.1, 0.6];
+  const calibrate = (at: number, sample: number) => {
+    f.state.calibration = {
+      sentAtMs: at - rttMs - 1,
+      receivedAtMs: at - 1,
+      serverNowMs: 10000 + at - rttMs - 1 + sample,
+      precisionMs: 1,
+    };
+    f.staging.refresh(f.state.calibration);
+  };
+  calibrate(150, 0);
+  const staged: StagedFrame['frame'][] = [];
+  for (let sequence = 0; sequence < 300; sequence++) {
+    const at = 200 + sequence * 10;
+    if (sequence > 0 && sequence % 25 === 0)
+      calibrate(at, jitter[(sequence / 25) % jitter.length]! % rttMs);
+    if (!missing.includes(sequence))
+      f.observe(sequence, at + jitter[sequence % jitter.length]!);
+    staged.push(...f.staging.take().map((s) => s.frame));
+  }
+  const starts = staged.map((frame) => frame.nominalStartMs);
+  const gaps = starts
+    .slice(1)
+    .map((start, i) => start - starts[i]! - 10)
+    .filter((gap) => gap !== 0);
+  const { clips, droppedFrames } = cutCaptureClips({
+    roundId: f.state.state.roundId,
+    roundParticipantId: 'p'.repeat(24),
+    serverNowMs: 20000,
+    segments: [
+      {
+        id: 'g'.repeat(24),
+        startedAtMs: 9000,
+        endedAtMs: null,
+        durationMs: 60000,
+      },
+    ],
+    intervals: [
+      {
+        segmentId: 'g'.repeat(24),
+        roundParticipantId: 'p'.repeat(24),
+        startedAtMs: 10000,
+        endedAtMs: null,
+      },
+    ],
+    frames: staged,
+  });
+  return {
+    gaps,
+    dropped: f.counts().dropped,
+    clips: clips.length,
+    clipDrops: droppedFrames,
+  };
+}
+
+test('fully received jittered speech is one gap-free run at any round trip (DEC-215, ISSUE-466-r4, ISSUE-466-r5)', () => {
+  assert({
+    given:
+      'three seconds of fully received jittered frames under 2, 30 and 100 ms round trips, recalibrated every 250 ms',
+    should:
+      'stage every frame in one run whose clip the frame-bracket rule accepts, with no gap and no drop',
+    actual: [jitteredRun(2), jitteredRun(30), jitteredRun(100)],
+    expected: Array(3).fill({ gaps: [], dropped: 0, clips: 1, clipDrops: 0 }),
+  });
+});
+
+test('each missing sequence number is exactly a 10 ms gap (DEC-215)', () => {
+  const missing = (count: number) =>
+    jitteredRun(
+      30,
+      Array.from({ length: count }, (_, i) => 150 + i),
+    );
+  assert({
+    given:
+      'two, three and seven missing frames mid-run under a 30 ms round trip',
+    should: 'expose exactly one 20, 30 and 70 ms gap and cut the clip there',
+    actual: [missing(2), missing(3), missing(7)].map(({ gaps, clips }) => ({
+      gaps,
+      clips,
+    })),
+    expected: [
+      { gaps: [20], clips: 2 },
+      { gaps: [30], clips: 2 },
+      { gaps: [70], clips: 2 },
+    ],
   });
 });
