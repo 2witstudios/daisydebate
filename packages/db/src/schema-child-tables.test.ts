@@ -128,6 +128,7 @@ describe('competitive schema child tables', () => {
             'unique utterances_capture_clip_unique',
             'unique utterances_capture_position_unique',
             'unique utterances_segment_sequence_unique',
+            'utterances_created_at_idx',
             'utterances_participant_idx',
             'utterances_participant_round_idx',
             'utterances_segment_round_idx',
