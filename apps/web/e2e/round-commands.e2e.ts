@@ -82,7 +82,15 @@ test('native Start AC and enhanced Round controls retain canonical state on relo
     ).toBeVisible();
     expect((await read()).version).toBe(beforeRefusal.version);
     await stalePage.close();
+    // The page enables Interrupt from the clock once the break is over, but
+    // the cross-ex opens canonically on a maintenance tick that advances the
+    // version: a page rendered before it posts a stale expected version and
+    // is refused, as the stale page above is. Render it after the opening.
     await expect(async () => {
+      const crossEx = (await read()).segments.find(
+        (segment) => segment.type === 'cross_ex',
+      );
+      expect(crossEx?.startedAt).toEqual(expect.any(String));
       await formPage.reload();
       await expect(
         formPage.getByRole('button', { name: 'Interrupt', exact: true }),
