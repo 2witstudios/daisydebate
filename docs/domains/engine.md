@@ -14,7 +14,7 @@ The application passes an explicit actor or service principal and one database-s
 
 The browser may derive a read-only virtual position through `@daisy/debate-engine/position`; this pure entrypoint loads no ECS codegen and works under the nonce CSP. It never writes the virtual rows back. The server persists actual clock movement through the runtime. Tests cover the same countdown, prep, live segment, and ballot boundary on both paths.
 
-Before requesting an AI ballot, the browser awaits the final controller's cleanup: the person's recorder tail or the AI's persisted playback cutoff. A failed cutoff write blocks judging and surfaces an error, so the judge cannot decide on generated words that were never heard.
+Judging starts from the server, never the browser. Round maintenance freezes the transcript once, after the final segment and its admission cutoff. Human judges rule against that frozen revision. AI judges run as leased server jobs and only on a complete freeze (DEC-208), so no judge decides on generated words that were never heard ([rooms.md](rooms.md#judging)).
 
 Ratings are pure functions beside the runtime ([ADR 0055](../decisions/0055-glicko-2-calculation-ladders-and-seasons.md)). `ratePeriod` implements Glicko-2; `ratingEligibility` and `planRating` decide whether a completed Round updates the ranked or quick ladder and produce the two ledger changes. The adapter loads the stored facts and writes the plan transactionally. Ratings never come from Redis or the ECS store.
 
