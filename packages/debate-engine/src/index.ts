@@ -14,6 +14,7 @@ export {
 } from './room-assembly';
 export { deriveRoundOutcome } from './round-outcome';
 export { decideUnjudgedCompletion } from './round-unjudged';
+export { decideStartHorizon } from './round-start-horizon';
 export {
   attendancePolicy,
   requireAttendanceWindow,

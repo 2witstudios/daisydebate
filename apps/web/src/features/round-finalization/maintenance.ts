@@ -6,10 +6,12 @@ import {
 } from '@daisy/debate-engine';
 import { createAppError, isAppError } from '@daisy/errors';
 import { createAttendanceRatingSweep } from '../attendance/rating';
-import { roundTickProjection } from './operations';
+import { maintenanceTickProjection, roundTickProjection } from './operations';
 
 /** Judges may rule for 30 minutes after the immutable freeze (DEC-201). */
 export const DEFAULT_BALLOT_DEADLINE_MS = 30 * 60_000;
+/** A Round not started 15 minutes after Launch is abandoned (DEC-214). */
+export const ROUND_START_HORIZON_MS = 15 * 60_000;
 type CompletionBuilder = Parameters<
   Database['completeUnjudgedRound']
 >[0]['buildCompletion'];
@@ -59,9 +61,15 @@ export function createRoundMaintenanceOperations(input: {
   readonly evaluate: (roundId: string) => Promise<AttendanceResolution | null>;
   /** Injected policy: how long after the freeze judges may rule (DEC-201). */
   readonly ballotDeadlineMs?: number;
+  /** Injected policy, never defaulted: how long a launched Round may stay unstarted (DEC-214). */
+  readonly startHorizonMs: number;
 }) {
   const ballotDeadlineMs = input.ballotDeadlineMs ?? DEFAULT_BALLOT_DEADLINE_MS;
   const buildProjection = roundTickProjection(() => input.ids.next());
+  const tickProjection = maintenanceTickProjection(
+    () => input.ids.next(),
+    input.startHorizonMs,
+  );
   const ratings = createAttendanceRatingSweep({
     database: input.store,
     ids: input.ids,
@@ -75,6 +83,7 @@ export function createRoundMaintenanceOperations(input: {
         const page = await input.store.readRoundMaintenanceCandidates({
           instanceId: input.instanceId,
           limit: 64,
+          startHorizonMs: input.startHorizonMs,
           ...(afterId ? { afterId } : {}),
         });
         ids.push(...page.roundIds);
@@ -91,7 +100,7 @@ export function createRoundMaintenanceOperations(input: {
       input.store.tickDueRound({
         instanceId: input.instanceId,
         roundId,
-        buildProjection,
+        buildProjection: tickProjection,
       }),
     evaluate: input.evaluate,
     async finalize(roundId: string) {

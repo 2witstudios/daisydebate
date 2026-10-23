@@ -58,7 +58,8 @@ export async function readyTwoHumanJudgeRoom(
   return { room, judges };
 }
 /** Real Room/engine/finalizer storage fixture. Silence stays incomplete; attendance is never fabricated. */
-export async function freezeBotJudge(
+/** The judged Room with a stored bot judge assigned and both debaters ready again. */
+export async function readyBotJudgedRoom(
   f: Parameters<Parameters<typeof withRoomRuntime>[0]>[0],
 ) {
   const judge = await f.bot();
@@ -75,6 +76,12 @@ export async function freezeBotJudge(
     room = (
       await f.consent(caller, await f.operations.view(caller, room.id), 'ready')
     ).view;
+  return { room, judge };
+}
+export async function freezeBotJudge(
+  f: Parameters<Parameters<typeof withRoomRuntime>[0]>[0],
+) {
+  const { room } = await readyBotJudgedRoom(f);
   const { roundId } = await startRuntimeRound(f, room);
   const round = (await f.store.getRound(roundId))!;
   const elapsed = round.rules.segments.reduce(

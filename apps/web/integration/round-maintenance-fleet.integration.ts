@@ -7,7 +7,10 @@ import {
   maintenanceAvailability,
   maintenanceTestTimers as timers,
 } from './round-maintenance.test-support';
-import { createRoundMaintenanceOperations } from '../src/features/round-finalization/maintenance';
+import {
+  createRoundMaintenanceOperations,
+  ROUND_START_HORIZON_MS,
+} from '../src/features/round-finalization/maintenance';
 import { roundTickProjection } from '../src/features/round-finalization/operations';
 import { startRoundMaintenance } from '../src/features/round-finalization/service';
 
@@ -31,6 +34,7 @@ test('five actual Rounds leave shared bounded capacity for media and first-recei
     try {
       await availability.firstSample;
       const operations = createRoundMaintenanceOperations({
+        startHorizonMs: ROUND_START_HORIZON_MS,
         store: f.store,
         instanceId,
         ids: { next: createId },
