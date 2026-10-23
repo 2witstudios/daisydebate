@@ -12,6 +12,7 @@ export const bounded = (
     readonly protocol?: ScriptedProtocol;
     readonly maxConnections?: number;
     readonly now?: () => number;
+    readonly admissionWaitMs?: number;
   } = {},
 ) => {
   const wire = fakeSql(options.script ?? [], options.protocol);
@@ -19,6 +20,9 @@ export const bounded = (
     client: wire.client,
     maxConnections: options.maxConnections ?? 4,
     now: options.now ?? (() => 0),
+    ...(options.admissionWaitMs === undefined
+      ? {}
+      : { admissionWaitMs: options.admissionWaitMs }),
   });
   return { ...wire, run };
 };

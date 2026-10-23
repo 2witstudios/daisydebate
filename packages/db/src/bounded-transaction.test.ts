@@ -3,10 +3,8 @@ import { createAppError } from '@daisy/errors';
 import { assertRejects } from '@daisy/errors/testing';
 import { sql } from 'drizzle-orm';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import {
-  createBoundedTransaction,
-  isTransactionCapacityRefusal,
-} from './bounded-transaction';
+import { createBoundedTransaction } from './bounded-transaction';
+import { isTransactionCapacityRefusal } from './transaction-admission';
 import type { TransactionLifecycle } from './transaction-lifecycle';
 import { fakeSql } from './scripted-bun-wire';
 import { bounded, causeOf } from './bounded-transaction.test-support';
@@ -78,12 +76,12 @@ test('a committed transaction returns its result, receipt and both connections',
 });
 
 test('pool capacity keeps half the connections for recovery control', async () => {
-  const { run } = bounded({ maxConnections: 4 });
+  const { run } = bounded({ maxConnections: 4, admissionWaitMs: 0 });
   const hold = Promise.withResolvers<void>();
   const first = run(() => hold.promise.then(() => 'first'));
   const second = run(() => hold.promise.then(() => 'second'));
   await assertRejects({
-    given: 'two admitted writers on a four-connection pool',
+    given: 'two writers on a four-connection pool held past the admission wait',
     should: 'refuse a third writer as capacity unavailable',
     actual: () => run(async () => 'third'),
     code: 'INFRASTRUCTURE',
@@ -104,6 +102,65 @@ test('pool capacity keeps half the connections for recovery control', async () =
       actual: () => bounded({ maxConnections }).run(async () => 'never'),
       code: 'INFRASTRUCTURE',
     });
+});
+
+test('a writer arriving at a full pool waits its turn for a freed slot', async () => {
+  const { run } = bounded({ maxConnections: 4, admissionWaitMs: 60_000 });
+  const hold = Promise.withResolvers<void>();
+  const order: string[] = [];
+  const holding = (name: string) =>
+    run(async () => {
+      order.push(`${name} ran`);
+      await hold.promise;
+      return name;
+    });
+  const first = holding('first');
+  const second = holding('second');
+  const third = run(async () => {
+    order.push('third ran');
+    return 'third';
+  });
+  const fourth = run(async () => {
+    order.push('fourth ran');
+    return 'fourth';
+  });
+  await Bun.sleep(0);
+  const whileHeld = [...order];
+  hold.resolve();
+  const settled = await Promise.all([first, second, third, fourth]);
+  assert({
+    given:
+      'two writers holding a four-connection pool and two more arriving (a burst of background loops and a member request)',
+    should:
+      'run neither newcomer while both slots are held, then admit them in arrival order instead of refusing',
+    actual: { whileHeld, order, settled },
+    expected: {
+      whileHeld: ['first ran', 'second ran'],
+      order: ['first ran', 'second ran', 'third ran', 'fourth ran'],
+      settled: ['first', 'second', 'third', 'fourth'],
+    },
+  });
+});
+
+test('a waiting writer refused at the admission wait gives up its place', async () => {
+  const { run } = bounded({ maxConnections: 2, admissionWaitMs: 0 });
+  const hold = Promise.withResolvers<void>();
+  const first = run(() => hold.promise.then(() => 'first'));
+  const refused = await run(async () => 'never').catch(
+    (error: unknown) => error,
+  );
+  hold.resolve();
+  assert({
+    given: 'a writer that waited out the admission wait behind a held slot',
+    should:
+      'be refused as backpressure, and leave the freed slot to a later writer',
+    actual: [
+      isTransactionCapacityRefusal(refused),
+      await first,
+      await run(async () => 'later'),
+    ],
+    expected: [true, 'first', 'later'],
+  });
 });
 
 test('the execution budget is checked after the callback and before commit', async () => {

@@ -111,12 +111,34 @@ export function createMediaController(input: {
     transport = null;
     change(deviceBlocked(error) ? 'device-blocked' : 'unavailable');
   };
+  /** One media request, retried through the configured pauses while it fails transiently. */
+  const retrying = async (
+    generation: number,
+    request: () => Promise<unknown>,
+    pausing: () => void,
+  ) => {
+    for (const pauseMs of input.retry?.delaysMs ?? [])
+      try {
+        return await request();
+      } catch (error) {
+        if (!isTransientMediaFailure(error) || stale(generation)) throw error;
+        pausing();
+        await input.retry!.wait(pauseMs, abort.signal);
+        if (stale(generation)) throw error;
+      }
+    return request();
+  };
   const synchronize = async (
     current: BrowserMediaTransport,
     generation: number,
+    pausing: () => void,
   ) => {
     const snapshot = roundMediaStateSchema.parse(
-      await input.api.reconcile(input.roundId, abort.signal),
+      await retrying(
+        generation,
+        () => input.api.reconcile(input.roundId, abort.signal),
+        pausing,
+      ),
     );
     if (closeStale(current, generation)) return false;
     if (snapshot.roundId !== input.roundId)
@@ -131,19 +153,6 @@ export function createMediaController(input: {
     announce(snapshot);
     return true;
   };
-  /** Admission, retried through the configured pauses while it fails transiently. */
-  const admitRetrying = async (generation: number) => {
-    for (const pauseMs of input.retry?.delaysMs ?? [])
-      try {
-        return await input.api.admit(input.roundId, abort.signal);
-      } catch (error) {
-        if (!isTransientMediaFailure(error) || stale(generation)) throw error;
-        change('reconnecting');
-        await input.retry!.wait(pauseMs, abort.signal);
-        if (stale(generation)) throw error;
-      }
-    return input.api.admit(input.roundId, abort.signal);
-  };
   const join = async (reconnect = false) => {
     if (ended) return;
     const generation = ++epoch;
@@ -154,8 +163,13 @@ export function createMediaController(input: {
     change(reconnect ? 'reconnecting' : 'connecting');
     let current: BrowserMediaTransport | null = null;
     try {
+      const joining = () => change('reconnecting');
       const admission = roundMediaAdmissionSchema.parse(
-        await admitRetrying(generation),
+        await retrying(
+          generation,
+          () => input.api.admit(input.roundId, abort.signal),
+          joining,
+        ),
       );
       if (stale(generation)) return;
       if (admission.roundId !== input.roundId)
@@ -164,7 +178,7 @@ export function createMediaController(input: {
       transport = current;
       await current.connect(admission);
       if (closeStale(current, generation)) return;
-      if (!(await synchronize(current, generation))) return;
+      if (!(await synchronize(current, generation, joining))) return;
       change('live');
     } catch (error) {
       fail(current, generation, error);
@@ -180,7 +194,9 @@ export function createMediaController(input: {
         const generation = epoch,
           current = transport;
         try {
-          if (!(await synchronize(current, generation))) return;
+          // Live tracks stay published while a read refused for now is retried.
+          if (!(await synchronize(current, generation, () => undefined)))
+            return;
         } catch (error) {
           fail(current, generation, error);
           return;

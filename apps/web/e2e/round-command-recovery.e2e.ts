@@ -29,10 +29,14 @@ for (const command of ['yield', 'forfeit'] as const)
     );
     let committed = false;
     await page.route(`**/rounds/${roundId}/room`, async (route) => {
+      // Only this command's own post loses its acknowledgement: the room's
+      // other server actions (an attendance read after a refused check-in)
+      // may post first and must pass through.
       if (
         !committed &&
         route.request().method() === 'POST' &&
-        route.request().headers()['next-action']
+        route.request().headers()['next-action'] &&
+        route.request().postData()?.includes(original.commandId!)
       ) {
         const response = await route.fetch();
         expect(response.status()).toBe(200);

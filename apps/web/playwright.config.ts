@@ -216,8 +216,10 @@ export default defineConfig({
   webServer: [
     {
       // Keep structured server output beside Playwright's failure artifacts,
-      // one log per app port so concurrent suites never share a file.
-      command: `mkdir -p test-results && bun e2e/support/server.ts > test-results/server-${ports.app}.log 2>&1`,
+      // one log per app port so concurrent suites never share a file. exec:
+      // shutdown's SIGTERM would end a waiting shell at once, and Playwright
+      // would return while the server still drains and holds its ports.
+      command: `mkdir -p test-results && exec bun e2e/support/server.ts > test-results/server-${ports.app}.log 2>&1`,
       // Probe through the TLS edge, not the app port: the edge and the mail
       // capture live in the same wrapper process, so a reused server is only
       // accepted when all three listeners are up. Readiness, not liveness:
@@ -266,7 +268,7 @@ export default defineConfig({
     {
       // apps/realtime (ADR 0031): a plain Bun process, no Next build. One
       // log per port, matching web's own per-port naming above.
-      command: `mkdir -p ../web/test-results && bun src/start.ts > ../web/test-results/realtime-${ports.realtime}.log 2>&1`,
+      command: `mkdir -p ../web/test-results && exec bun src/start.ts > ../web/test-results/realtime-${ports.realtime}.log 2>&1`,
       cwd: '../realtime',
       url: `http://127.0.0.1:${ports.realtime}/health/live`,
       name: 'realtime',

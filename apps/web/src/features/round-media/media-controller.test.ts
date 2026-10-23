@@ -148,19 +148,16 @@ const transportStub = () => ({
   disconnect: async () => undefined,
 });
 
-test('a transient admission refusal is retried before media is called unavailable', async () => {
-  let admits = 0;
+/** A controller whose transient refusals are retried through recorded pauses. */
+const retryingController = (api: {
+  readonly admit: () => Promise<unknown>;
+  readonly reconcile: () => Promise<unknown>;
+}) => {
   const states: string[] = [];
   const waits: number[] = [];
   const controller = createMediaController({
     roundId,
-    api: {
-      admit: async () => {
-        if (++admits < 3) throw transientMediaFailure();
-        return admission;
-      },
-      reconcile: async () => snapshot,
-    },
+    api,
     transport: transportStub,
     changed: (state) => states.push(state),
     retry: {
@@ -169,6 +166,18 @@ test('a transient admission refusal is retried before media is called unavailabl
         waits.push(ms);
       },
     },
+  });
+  return { controller, states, waits };
+};
+
+test('a transient admission refusal is retried before media is called unavailable', async () => {
+  let admits = 0;
+  const { controller, states, waits } = retryingController({
+    admit: async () => {
+      if (++admits < 3) throw transientMediaFailure();
+      return admission;
+    },
+    reconcile: async () => snapshot,
   });
   await controller.join();
   assert({
@@ -180,6 +189,33 @@ test('a transient admission refusal is retried before media is called unavailabl
       admits: 3,
       waits: [500, 1000],
       states: ['connecting', 'reconnecting', 'reconnecting', 'live'],
+      final: 'live',
+    },
+  });
+});
+
+test('a transient reconcile refusal is retried, joining or live', async () => {
+  let reconciles = 0;
+  const { controller, states, waits } = retryingController({
+    admit: async () => admission,
+    reconcile: async () => {
+      // The join's first read and the live read's first try are refused for now.
+      if (++reconciles % 2 === 1) throw transientMediaFailure();
+      return snapshot;
+    },
+  });
+  await controller.join();
+  await controller.reconcile();
+  assert({
+    given:
+      'a reconcile refused for now (a 503 under load) while joining, and again once live',
+    should:
+      'wait and retry both, reporting reconnecting only while joining, and stay live (ISSUE-508)',
+    actual: { reconciles, waits, states, final: controller.state() },
+    expected: {
+      reconciles: 4,
+      waits: [500, 500],
+      states: ['connecting', 'reconnecting', 'live'],
       final: 'live',
     },
   });
