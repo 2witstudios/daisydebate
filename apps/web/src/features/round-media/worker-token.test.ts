@@ -154,3 +154,42 @@ test('a lost lease or foreign session is refused', async () => {
       ),
   });
 });
+
+test('a capture token requested during a browser reconcile is refused for now, not in conflict', async () => {
+  const world = createMediaWorld();
+  await createRoundMediaOperations(world.input).session(
+    world.roundId,
+    world.seats[0].actorId,
+  );
+  const reading = world.input.store.readMediaSession;
+  const reconciling = {
+    ...world,
+    input: {
+      ...world.input,
+      store: {
+        ...world.input.store,
+        readMediaSession: (async (request: Parameters<typeof reading>[0]) => {
+          const state = await reading(request);
+          return (
+            state && {
+              ...state,
+              session: {
+                ...state.session,
+                reconcileOwner: fixedId('reconciler'),
+              },
+            }
+          );
+        }) as typeof reading,
+      },
+    },
+  };
+  const { tokens } = broker(reconciling as typeof world);
+  await assertRejects({
+    given:
+      "a leased worker asking for its token while a browser's reconcile holds the session",
+    should:
+      'refuse as temporarily unavailable, which the worker retries, never as a definite conflict that ends its epoch (ISSUE-494)',
+    code: 'INFRASTRUCTURE',
+    actual: () => tokens.captureToken(scope(world), authenticated(world)),
+  });
+});

@@ -41,7 +41,11 @@ export function createMediaWorkerTokenBroker(input: {
       });
       if (!state || state.session.id !== scope.sessionId)
         throw createAppError('NOT_FOUND');
-      if (state.session.reconcileOwner) throw createAppError('CONFLICT');
+      // A browser's reconcile holds the session for well under a second: refused
+      // for now (503, which the worker retries), as for human admission, never
+      // a definite conflict that ends the worker's epoch (ISSUE-494).
+      if (state.session.reconcileOwner)
+        throw createAppError('INFRASTRUCTURE', 'Media recovery is unresolved');
       if (!(await input.deadline(input.media.exists(state.session.roomName))))
         throw createAppError('INFRASTRUCTURE');
       const current = await input.capture.verifyMediaWorkerLease(scope);

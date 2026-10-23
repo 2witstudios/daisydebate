@@ -30,8 +30,17 @@ export function transientMediaFailure() {
   transient.add(failure);
   return failure;
 }
-const isTransient = (error: unknown) =>
+export const isTransientMediaFailure = (error: unknown) =>
   typeof error === 'object' && error !== null && transient.has(error);
+/**
+ * The failure a non-OK media answer stands for: a 408 (the outcome is unknown)
+ * or a 503 (refused for now) is transient; every other status is definite.
+ */
+export function mediaFailure(status: number) {
+  return status === 408 || status === 503
+    ? transientMediaFailure()
+    : new Error('Media unavailable');
+}
 
 const deviceBlocked = (error: unknown) =>
   error instanceof Error &&
@@ -128,7 +137,7 @@ export function createMediaController(input: {
       try {
         return await input.api.admit(input.roundId, abort.signal);
       } catch (error) {
-        if (!isTransient(error) || stale(generation)) throw error;
+        if (!isTransientMediaFailure(error) || stale(generation)) throw error;
         change('reconnecting');
         await input.retry!.wait(pauseMs, abort.signal);
         if (stale(generation)) throw error;

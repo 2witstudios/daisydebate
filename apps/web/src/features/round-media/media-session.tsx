@@ -10,6 +10,7 @@ import {
 } from './browser-transport';
 import {
   createMediaController,
+  mediaFailure,
   transientMediaFailure,
   type MediaConnectionState,
 } from './media-controller';
@@ -61,8 +62,7 @@ const requestMedia = async (
     if (signal.aborted) throw error;
     throw transientMediaFailure();
   }
-  if (response.status === 503) throw transientMediaFailure();
-  if (!response.ok) throw new Error('Media unavailable');
+  if (!response.ok) throw mediaFailure(response.status);
   return response.json() as Promise<unknown>;
 };
 

@@ -2,6 +2,8 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { RoundMediaAdmission } from '@daisy/protocol';
 import {
   createMediaController,
+  isTransientMediaFailure,
+  mediaFailure,
   transientMediaFailure,
 } from './media-controller';
 setupRitewayBun();
@@ -214,5 +216,17 @@ test('a lasting or definite admission failure is reported unavailable', async ()
       [3, 'unavailable'],
       [1, 'unavailable'],
     ],
+  });
+});
+
+test('a timeout or a server refusal for now is transient; other refusals are definite', () => {
+  const transient = (status: number) =>
+    isTransientMediaFailure(mediaFailure(status));
+  assert({
+    given: 'media answers 408, 503, 409 and 403',
+    should:
+      'retry the timeout and the refusal for now, and not the definite refusals (ISSUE-494-r1)',
+    actual: [408, 503, 409, 403].map(transient),
+    expected: [true, true, false, false],
   });
 });
