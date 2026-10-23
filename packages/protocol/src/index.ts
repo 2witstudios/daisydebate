@@ -29,6 +29,7 @@ export type { FormatDefinition, RoundRules, SegmentType } from './format';
 export { roomConfigSchema, roomExecutionPlanSchema } from './room';
 export {
   CAPTURE_CALL_DEADLINE_MS,
+  CAPTURE_COVERAGE_TOLERANCE,
   CAPTURE_HISTORY_READ_MS,
   CAPTURE_STT_LAG_MS,
   CAPTURE_STT_TIMEOUT_MS,

@@ -4,7 +4,12 @@ import type {
   CaptureTx,
   CaptureIdentity,
   CaptureStream,
+  CoverageTolerance,
 } from './media-capture-context';
+import type { CaptureInterval } from './capture-coverage';
+import { actors } from './schema/actors';
+import { roundBotPublicationWindows } from './schema/round-bot-publications';
+import { roundParticipants } from './schema/round-participants';
 import { roundSpeakingIntervals } from './schema/round-speaking-intervals';
 import { roundTranscripts } from './schema/transcript-segments';
 import type { roundSegments } from './schema/round-segments';
@@ -38,6 +43,57 @@ export async function captureHistory(
   if (!required.some((row) => row.end === null || row.end > row.start))
     throw createAppError('CONFLICT', 'No historical capture authority');
   return required;
+}
+/**
+ * What a seat's stream must cover for a 'complete' seal and how far its edges
+ * may move (DEC-218, DEC-220): a human's speaking grants, joined within the
+ * join tolerance; a bot's credited publication windows, joined within relay
+ * latency. Silence outside a bot's windows is not speech.
+ */
+export async function coverageAuthority(
+  tx: CaptureTx,
+  input: CaptureIdentity & CaptureStream,
+  grants: readonly CaptureInterval[],
+  tolerance: CoverageTolerance,
+) {
+  const [seat] = await tx
+    .select({ kind: actors.kind })
+    .from(roundParticipants)
+    .innerJoin(actors, eq(actors.id, roundParticipants.actorId))
+    .where(
+      and(
+        eq(roundParticipants.id, input.roundParticipantId),
+        eq(roundParticipants.roundId, input.roundId),
+      ),
+    );
+  if (seat?.kind !== 'bot')
+    return {
+      authority: grants,
+      tolerance: { openMs: tolerance.joinMs, closeMs: tolerance.relayMs },
+    };
+  const windows = await tx
+    .select({
+      start: roundBotPublicationWindows.creditedFrom,
+      end: roundBotPublicationWindows.creditedUntil,
+    })
+    .from(roundBotPublicationWindows)
+    .where(
+      and(
+        eq(roundBotPublicationWindows.segmentId, input.segmentId),
+        eq(roundBotPublicationWindows.roundId, input.roundId),
+        eq(
+          roundBotPublicationWindows.roundParticipantId,
+          input.roundParticipantId,
+        ),
+      ),
+    );
+  return {
+    authority: windows.map((row) => ({
+      start: row.start.getTime(),
+      end: row.end.getTime(),
+    })),
+    tolerance: { openMs: tolerance.relayMs, closeMs: tolerance.relayMs },
+  };
 }
 export const transcriptRevision = async (tx: CaptureTx, roundId: string) => {
   const [row] = await tx

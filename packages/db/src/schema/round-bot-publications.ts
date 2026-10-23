@@ -72,3 +72,46 @@ export const roundBotPublications = pgTable(
     ),
   ],
 );
+
+/**
+ * The server-credited time a bot seat published in a segment (DEC-212), one
+ * row per contiguous run of authorized windows. Only these windows are
+ * required capture coverage for a bot stream (DEC-218).
+ */
+export const roundBotPublicationWindows = pgTable(
+  'round_bot_publication_windows',
+  {
+    id: text('id').primaryKey(),
+    roundId: text('round_id').notNull(),
+    segmentId: text('segment_id').notNull(),
+    roundParticipantId: text('round_participant_id').notNull(),
+    creditedFrom: timestampColumn('credited_from').notNull(),
+    creditedUntil: timestampColumn('credited_until').notNull(),
+  },
+  (table) => [
+    foreignKey({
+      name: 'round_bot_publication_windows_seat_round_fk',
+      columns: [table.roundParticipantId, table.roundId],
+      foreignColumns: [roundParticipants.id, roundParticipants.roundId],
+    }).onDelete('cascade'),
+    foreignKey({
+      name: 'round_bot_publication_windows_segment_round_fk',
+      columns: [table.segmentId, table.roundId],
+      foreignColumns: [roundSegments.id, roundSegments.roundId],
+    }).onDelete('cascade'),
+    index('round_bot_publication_windows_stream_idx').on(
+      table.segmentId,
+      table.roundId,
+      table.roundParticipantId,
+      table.creditedUntil,
+    ),
+    index('round_bot_publication_windows_seat_round_idx').on(
+      table.roundParticipantId,
+      table.roundId,
+    ),
+    check(
+      'round_bot_publication_windows_range_check',
+      sql`${table.creditedUntil} > ${table.creditedFrom}`,
+    ),
+  ],
+);

@@ -20,3 +20,14 @@ export const CAPTURE_STT_LAG_MS =
   2 * CAPTURE_CALL_DEADLINE_MS;
 /** Captured text is admitted until this long after the final played end; it covers the lag. */
 export const TRANSCRIPT_ADMISSION_WINDOW_MS = 120_000;
+/**
+ * How far a stream's required coverage may move to its captured frames
+ * (DEC-218, DEC-220). A human's microphone cannot publish before the grant
+ * opens: about 2 s was measured to the first frame, so it joins within twice
+ * that. A bot window's opening, and any close, move only by relay or command
+ * latency.
+ */
+export const CAPTURE_COVERAGE_TOLERANCE = {
+  joinMs: 4_000,
+  relayMs: 1_000,
+} as const;

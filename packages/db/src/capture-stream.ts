@@ -5,6 +5,7 @@ import { captureObservationSchema, captureSealSchema } from './capture-input';
 import {
   captureHistory,
   advanceTranscriptRevision,
+  coverageAuthority,
   transcriptRevision,
 } from './capture-history';
 import {
@@ -137,7 +138,12 @@ export async function sealCapturedStream(
     chunks,
     storedChunks: stream.chunkCount,
     expectedChunks: input.expectedChunkCount,
-    required,
+    ...(await coverageAuthority(
+      tx,
+      input,
+      required,
+      dependencies.coverageTolerance,
+    )),
   });
   const mutationNow = await freshCaptureMutation(tx, input.roundId, context);
   await tx

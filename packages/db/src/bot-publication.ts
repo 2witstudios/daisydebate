@@ -13,6 +13,7 @@ import {
 import {
   verifyLockedBotWorker,
   requireBotSpeakingWindow,
+  creditBotPublicationWindow,
   requireBotControlSegment,
   type BotPublicationScope,
   type PublicationWindow,
@@ -140,6 +141,8 @@ export function createBotPublicationOperations(input: {
       input.run(async (tx) => {
         await verifyLockedBotWorker(tx, scope, token);
         await requireBotSpeakingWindow(tx, scope, window);
+        if (window)
+          await creditBotPublicationWindow(tx, scope, window, input.nextId);
       }),
     verifyBotWorker: (scope: BotPublicationScope, token: string) =>
       input.run(async (tx) => {

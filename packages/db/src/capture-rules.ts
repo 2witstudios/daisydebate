@@ -2,7 +2,9 @@ import { createAppError } from '@daisy/errors';
 import { captureDigest } from './capture-input';
 import {
   hasCompleteCaptureCoverage,
+  requiredCoverage,
   type CaptureInterval,
+  type CoverageEdges,
 } from './capture-coverage';
 
 type SegmentTiming = {
@@ -144,7 +146,8 @@ export function sealAction(
 
 /**
  * Complete only with this epoch's own evidence, every stored chunk counted and
- * full coverage of the speaking grants; a new worker cannot recover old PCM.
+ * full coverage of the required time (DEC-218); a new worker cannot recover
+ * old PCM.
  */
 export function sealState(input: {
   readonly epoch: number;
@@ -157,18 +160,24 @@ export function sealState(input: {
     { readonly count: number; readonly otherEpochChunks: number } | undefined;
   readonly storedChunks: number;
   readonly expectedChunks: number;
-  readonly required: readonly CaptureInterval[];
+  readonly authority: readonly CaptureInterval[];
+  readonly tolerance: CoverageEdges;
 }): 'complete' | 'partial' {
+  const observed = input.observations.map((row) => ({
+    start: row.start.getTime(),
+    end: row.end.getTime(),
+  }));
   const complete =
     input.chunks?.otherEpochChunks === 0 &&
     input.observations.every((row) => row.epoch === input.epoch) &&
     input.storedChunks === input.chunks.count &&
     hasCompleteCaptureCoverage({
-      required: input.required,
-      observed: input.observations.map((row) => ({
-        start: row.start.getTime(),
-        end: row.end.getTime(),
-      })),
+      required: requiredCoverage({
+        authority: input.authority,
+        observed,
+        tolerance: input.tolerance,
+      }),
+      observed,
       storedChunks: input.storedChunks,
       expectedChunks: input.expectedChunks,
     });
