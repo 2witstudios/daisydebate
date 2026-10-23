@@ -1,26 +1,30 @@
+import { createAppError } from '@daisy/errors';
 import type { IntervalTimers } from './outbox-drain';
 
 /** Resource budget only: canonical authority/deadlines remain the sole grant.
- * A late read may finish, but it cannot replace the already returned refusal.
+ * A read that fails or outlasts the budget rejects, so callers can tell a
+ * transient failure from a denial; a late read cannot replace that rejection.
  */
 export async function boundedAuthorityCheck<T>({
   check,
-  denied,
   timers,
   budgetMs,
 }: {
   readonly check: () => Promise<T>;
-  readonly denied: T;
   readonly timers: IntervalTimers;
   readonly budgetMs: number;
 }): Promise<T> {
   let handle: ReturnType<typeof setInterval> | undefined;
   try {
-    return await new Promise<T>((resolve) => {
-      handle = timers.setInterval(() => resolve(denied), budgetMs);
-      Promise.resolve()
-        .then(check)
-        .then(resolve, () => resolve(denied));
+    return await new Promise<T>((resolve, reject) => {
+      handle = timers.setInterval(
+        () =>
+          reject(
+            createAppError('INFRASTRUCTURE', 'Authority check budget spent'),
+          ),
+        budgetMs,
+      );
+      Promise.resolve().then(check).then(resolve, reject);
     });
   } finally {
     if (handle !== undefined) timers.clearInterval(handle);

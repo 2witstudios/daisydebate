@@ -8,6 +8,7 @@ import {
 import { createSubscriptionRegistry } from './registry';
 import type { SocketPrincipal } from './registry';
 import { createAdmission } from './admission';
+import { isAppError } from '@daisy/errors';
 import { boundedAuthorityCheck } from './authority-check';
 import type { IntervalTimers } from './outbox-drain';
 
@@ -48,13 +49,22 @@ export function createRealtimeDelivery({
     authorize: (principal, topic) =>
       boundedAuthorityCheck({
         check: () => authority.authorizeTopic(principal, topic),
-        denied: null,
         timers,
         budgetMs: 5_000,
       }),
     readCatchup: resources.database.readOutboxCatchup,
     readRetentionBoundary: resources.database.readOutboxRetentionBoundary,
     publish,
+    // The code only; the raw error never reaches a log line (ADR 0037).
+    failed: (error) =>
+      resources.logger.log(
+        'realtime.subscription.unavailable',
+        {
+          operation: 'realtime.subscription',
+          errorCode: isAppError(error) ? error.code : 'INTERNAL',
+        },
+        'Subscription authority unavailable',
+      ),
   });
   return {
     registry,
@@ -62,7 +72,6 @@ export function createRealtimeDelivery({
     validatePrincipal: (principal: SocketPrincipal) =>
       boundedAuthorityCheck({
         check: () => authority.validatePrincipal(principal),
-        denied: false,
         timers,
         budgetMs: 5_000,
       }),

@@ -22,6 +22,12 @@ type PacedInput = {
   }) => Promise<boolean>;
   readonly refreshAfterMs?: number;
   readonly onAccepted?: (eligibleSamples: number) => void | Promise<void>;
+  /**
+   * Samples per channel handed to the native source so far, reported after
+   * each frame is sent and before its window is authorized: a frame is heard
+   * first and credited after, so a resume continues past it.
+   */
+  readonly onSent?: (sentSamples: number) => void;
 };
 
 function validateJob(input: PacedInput, data: Int16Array) {
@@ -47,6 +53,16 @@ async function refresh(input: PacedInput, clock: Timeline, interval: number) {
     ? refreshPublicationClock(clock, await input.calibrate())
     : clock;
 }
+/** Sends one frame and reports it sent before its window is judged. */
+async function captureFrame(
+  input: PacedInput,
+  clock: Timeline,
+  data: Int16Array,
+) {
+  const receipt = await input.publication.capture10ms(data);
+  input.onSent?.(clock.eligibleSamples + data.length / input.channels);
+  return observeSourceProgress(clock, receipt);
+}
 async function writeFrame(
   input: PacedInput,
   original: Timeline,
@@ -61,10 +77,7 @@ async function writeFrame(
     clock.anchorMs + (clock.eligibleSamples / input.sampleRate) * 1000 + 10;
   await input.waitUntilMs(due, signal);
   if (signal.aborted || input.nowMs() - due > 100) return null;
-  const observed = observeSourceProgress(
-    clock,
-    await input.publication.capture10ms(data),
-  );
+  const observed = await captureFrame(input, clock, data);
   if (signal.aborted || !observed.window) return null;
   // Transport rounds outward; uncertainty is never narrowed to pass a floor.
   const window = {
