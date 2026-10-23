@@ -158,15 +158,14 @@ test('a refused frame crossing a grant edge is kept as edge evidence for its tra
 
 /**
  * Three seconds of 10 ms frames with a calibration refresh every 250 ms whose
- * server sample lands anywhere in its round trip (ISSUE-466-r4), with steady
- * native callbacks. `missing` native sequences never arrive.
+ * server sample lands anywhere in its round trip (ISSUE-466-r4), and native
+ * callbacks jittered by up to 2.6 ms (ISSUE-485). `missing` native sequences
+ * never arrive.
  */
 function jitteredRun(rttMs: number, missing: readonly number[] = []) {
   const f = fixture();
   const jitter = [0.2, 1.7, 0.9, 2.6, 0.4, 1.3, 2.1, 0.6];
   const starts: number[] = [];
-  // The bootstrap and each re-anchor callback land on their period edge.
-  const anchors = [0, ...(missing.length ? [missing.at(-1)! + 1] : [])];
   for (let sequence = 0; sequence < 300; sequence++) {
     const at = 10 + sequence * 10;
     if (sequence > 0 && sequence % 25 === 0) {
@@ -180,7 +179,7 @@ function jitteredRun(rttMs: number, missing: readonly number[] = []) {
       f.staging.refresh(f.state.calibration);
     }
     if (!missing.includes(sequence))
-      f.observe(sequence, anchors.includes(sequence) ? at : at + 0.2);
+      f.observe(sequence, at + jitter[sequence % jitter.length]!);
     starts.push(...f.staging.take().map((s) => s.frame.nominalStartMs));
   }
   const gaps = starts
