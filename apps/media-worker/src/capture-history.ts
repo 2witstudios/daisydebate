@@ -46,14 +46,17 @@ export function straddlesGrantEdge(
 }
 
 /**
- * The window a transcribed clip proves the worker captured. Frames straddling
- * a grant edge are refused by contained(), so a clip alone never reaches the
- * edge; it extends to an edge only when a frame contiguous with it on the same
- * track (nominal ±10 ms) straddled that edge. A late join, an early drop or a
- * gap just inside the edge keeps the clip bracket, so the stream stays partial.
+ * The window a transcribed clip proves the worker captured: the nominal span
+ * of its frames, which advance exactly 10 ms per received frame, so any missing
+ * frame between clips leaves a gap (brackets are wider than a frame and would
+ * bridge short dropouts; ISSUE-466-r3). Frames straddling a grant edge are
+ * refused by contained(), so a clip alone never reaches the edge; it extends to
+ * an edge only when a frame contiguous with it on the same track (nominal
+ * ±10 ms) straddled that edge. A late join, an early drop or a gap just inside
+ * the edge keeps the nominal span, so the stream stays partial.
  */
 export function observedWindow(input: {
-  readonly clip: Window & {
+  readonly clip: {
     readonly firstNominalMs: number;
     readonly lastNominalMs: number;
   };
@@ -74,8 +77,8 @@ export function observedWindow(input: {
         straddles(frame, grant.endMs!),
     );
   return {
-    fromMs: startEvidence ? grant.startMs : clip.beforeMs,
-    untilMs: endEvidence ? grant.endMs! : clip.afterMs,
+    fromMs: startEvidence ? grant.startMs : clip.firstNominalMs,
+    untilMs: endEvidence ? grant.endMs! : clip.lastNominalMs + 10,
   };
 }
 export async function readCaptureHistory(

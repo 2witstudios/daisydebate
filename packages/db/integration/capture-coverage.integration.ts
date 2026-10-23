@@ -12,12 +12,13 @@ test('worker-shaped observations seal a fully captured stream complete and a dro
       const { store, lease, stream, clip, start, end } =
         await historicalCapture(fixture, transaction, roundId);
       const at = (ms: number) => new Date(start.getTime() + ms).toISOString();
-      // What the worker observes per transcribed clip: brackets that meet, the
-      // first and last extended to the grant edges by contiguous evidence.
+      // What the worker observes per transcribed clip: nominal frame spans
+      // that touch exactly, the first and last extended to the grant edges by
+      // contiguous evidence (ISSUE-466-r3).
       const windows = [
-        { from: start.toISOString(), until: at(201) }, // the spoken clip
-        { from: at(199), until: at(601) }, // silence: empty transcript
-        { from: at(599), until: end.toISOString() }, // silence to the end
+        { from: start.toISOString(), until: at(200) }, // the spoken clip
+        { from: at(200), until: at(600) }, // silence: empty transcript
+        { from: at(600), until: end.toISOString() }, // silence to the end
       ].filter((_, index) => !(dropped && index === 1));
       try {
         await store.claimMediaWorkerLease({ ...lease, leaseMs: 15000 });

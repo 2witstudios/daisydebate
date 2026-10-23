@@ -96,8 +96,6 @@ function clipObservation(
     Date.parse(state.segment!.startedAt) + clip.startOffsetMs;
   return observedWindow({
     clip: {
-      beforeMs,
-      afterMs,
       firstNominalMs,
       lastNominalMs: firstNominalMs + clip.durationMs - 10,
     },
