@@ -3,6 +3,9 @@ import dgram from 'node:dgram';
 import { chromium } from 'playwright-core';
 
 // A disposable container keeps localhost URLs and real ICE endpoints unchanged.
+// On the host network (Linux) loopback already is the host's, so nothing is
+// forwarded; Docker Desktop reaches host loopback through host.docker.internal.
+const hostNetwork = process.env.DAISY_BROWSER_NETWORK === 'host';
 const ports = JSON.parse(process.env.DAISY_BROWSER_FORWARD_PORTS);
 const listeners = ports.map((port) => {
   const server = net.createServer((incoming) => {
@@ -14,26 +17,32 @@ const listeners = ports.map((port) => {
   server.listen(port, '127.0.0.1');
   return server;
 });
-const udp = dgram.createSocket('udp4');
 const peers = new Map();
-udp.on('message', (message, peer) => {
-  const id = `${peer.address}:${peer.port}`;
-  let upstream = peers.get(id);
-  if (!upstream) {
-    upstream = dgram.createSocket('udp4');
-    upstream.on('message', (reply) => udp.send(reply, peer.port, peer.address));
-    upstream.on('error', () => {
-      upstream.close();
-      peers.delete(id);
-    });
-    peers.set(id, upstream);
-  }
-  upstream.send(message, 7882, 'host.docker.internal');
-});
-udp.bind(7882, '127.0.0.1');
+let udp = null;
+if (!hostNetwork) {
+  udp = dgram.createSocket('udp4');
+  udp.on('message', (message, peer) => {
+    const id = `${peer.address}:${peer.port}`;
+    let upstream = peers.get(id);
+    if (!upstream) {
+      upstream = dgram.createSocket('udp4');
+      upstream.on('message', (reply) =>
+        udp.send(reply, peer.port, peer.address),
+      );
+      upstream.on('error', () => {
+        upstream.close();
+        peers.delete(id);
+      });
+      peers.set(id, upstream);
+    }
+    upstream.send(message, 7882, 'host.docker.internal');
+  });
+  udp.bind(7882, '127.0.0.1');
+}
 const browser = await chromium.launchServer({
-  port: 3400,
-  host: '0.0.0.0',
+  // Published container port when forwarded; a free host loopback port otherwise.
+  port: hostNetwork ? 0 : 3400,
+  host: hostNetwork ? '127.0.0.1' : '0.0.0.0',
   headless: true,
   channel: 'chromium',
   chromiumSandbox: true,
@@ -59,6 +68,6 @@ for (const signal of ['SIGINT', 'SIGTERM'])
   process.once(signal, async () => {
     await browser.close();
     for (const listener of listeners) listener.close();
-    udp.close();
+    udp?.close();
     for (const peer of peers.values()) peer.close();
   });
