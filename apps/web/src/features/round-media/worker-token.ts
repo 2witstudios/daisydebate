@@ -2,7 +2,7 @@ import type { Database } from '@daisy/db';
 import type { createMediaService } from '@daisy/media';
 import type { createMediaWorkerAuthentication } from '@daisy/media/internal';
 import { createAppError } from '@daisy/errors';
-import { mediaRuntime } from './projection';
+import { mediaEnded, mediaRuntime } from './projection';
 
 type Capture = ReturnType<Database['createMediaCaptureOperations']>;
 type CaptureScope = Awaited<ReturnType<Capture['verifyMediaWorkerLease']>>;
@@ -41,9 +41,13 @@ export function createMediaWorkerTokenBroker(input: {
       });
       if (!state || state.session.id !== scope.sessionId)
         throw createAppError('NOT_FOUND');
-      // A browser's reconcile holds the session for well under a second: refused
-      // for now (503, which the worker retries), as for human admission, never
-      // a definite conflict that ends the worker's epoch (ISSUE-494).
+      // A terminal session is closed for good, whoever holds it: the worker
+      // stops and is never relaunched (ISSUE-494, ISSUE-495).
+      if (state.session.endedAt || mediaEnded(state))
+        throw createAppError('CONFLICT', 'Capture session is closed');
+      // A browser's reconcile holds a live session for well under a second:
+      // refused for now (503, which the worker retries), as for human
+      // admission, never a definite conflict that ends the worker's epoch.
       if (state.session.reconcileOwner)
         throw createAppError('INFRASTRUCTURE', 'Media recovery is unresolved');
       if (!(await input.deadline(input.media.exists(state.session.roomName))))

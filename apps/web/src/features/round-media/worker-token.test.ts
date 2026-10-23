@@ -155,14 +155,10 @@ test('a lost lease or foreign session is refused', async () => {
   });
 });
 
-test('a capture token requested during a browser reconcile is refused for now, not in conflict', async () => {
-  const world = createMediaWorld();
-  await createRoundMediaOperations(world.input).session(
-    world.roundId,
-    world.seats[0].actorId,
-  );
+/** The world as a browser reconcile holding its session would show it. */
+const reconciling = (world: ReturnType<typeof createMediaWorld>) => {
   const reading = world.input.store.readMediaSession;
-  const reconciling = {
+  return {
     ...world,
     input: {
       ...world.input,
@@ -182,14 +178,46 @@ test('a capture token requested during a browser reconcile is refused for now, n
         }) as typeof reading,
       },
     },
-  };
-  const { tokens } = broker(reconciling as typeof world);
+  } as typeof world;
+};
+
+test('a capture token requested during a browser reconcile is refused for now, not in conflict', async () => {
+  const world = createMediaWorld();
+  await createRoundMediaOperations(world.input).session(
+    world.roundId,
+    world.seats[0].actorId,
+  );
+  const { tokens } = broker(reconciling(world));
   await assertRejects({
     given:
-      "a leased worker asking for its token while a browser's reconcile holds the session",
+      "a leased worker asking for its token while a browser's reconcile holds a live session",
     should:
       'refuse as temporarily unavailable, which the worker retries, never as a definite conflict that ends its epoch (ISSUE-494)',
     code: 'INFRASTRUCTURE',
     actual: () => tokens.captureToken(scope(world), authenticated(world)),
+  });
+});
+
+test("a terminal Round's capture token is refused for good, whoever holds the session", async () => {
+  const world = createMediaWorld();
+  await createRoundMediaOperations(world.input).session(
+    world.roundId,
+    world.seats[0].actorId,
+  );
+  world.end();
+  const { tokens } = broker(reconciling(world));
+  const refused = await tokens
+    .captureToken(scope(world), authenticated(world))
+    .then(
+      () => null,
+      (error: { code: string; message: string }) => [error.code, error.message],
+    );
+  assert({
+    given:
+      "a completed Round whose terminal reconcile holds the session, and its worker's token request",
+    should:
+      'refuse definitely as a closed capture session, so the worker stops instead of retrying (ISSUE-494)',
+    actual: refused,
+    expected: ['CONFLICT', 'Capture session is closed'],
   });
 });

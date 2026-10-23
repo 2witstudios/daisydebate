@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createCaptureSupervisor } from './supervisor';
+import { CAPTURE_FINISHED_EXIT, createCaptureSupervisor } from './supervisor';
 setupRitewayBun();
 
 type Scope = { roundId: string; sessionId: string; workerId: string };
@@ -138,5 +138,41 @@ test('a running session rediscovered before its lease lands is not launched twic
     should: 'keep exactly one capture process for it',
     actual: h.launched.map((s) => s.workerId),
     expected: ['worker1'],
+  });
+});
+
+test("a terminal Round's capture process stops for good and is never relaunched", async () => {
+  const failures: number[] = [];
+  let launches = 0;
+  const offered = [{ roundId: 'rounda', sessionId: 'a' }];
+  const exits: ((code: number) => void)[] = [];
+  const supervisor = createCaptureSupervisor({
+    maxSessions: 2,
+    retryMs: { initial: 1000, max: 4000 },
+    nowMs: () => 0,
+    nextWorkerId: () => `worker${launches}`,
+    discover: async () => offered,
+    launch: () => {
+      launches++;
+      return {
+        exited: new Promise<number>((resolve) => exits.push(resolve)),
+        stop: () => undefined,
+      };
+    },
+    failed: (status) => failures.push(status),
+  });
+  await supervisor.tick();
+  exits[0]!(CAPTURE_FINISHED_EXIT);
+  await Bun.sleep(0);
+  // Discovery still offers the session (its Round is not yet completed).
+  await supervisor.tick();
+  await supervisor.tick();
+  assert({
+    given:
+      'a capture process that exits because its session is definitely closed, then rediscovered',
+    should:
+      'never relaunch it and record no capture failure (ISSUE-494, ISSUE-495)',
+    actual: { launches, failures },
+    expected: { launches: 1, failures: [] },
   });
 });

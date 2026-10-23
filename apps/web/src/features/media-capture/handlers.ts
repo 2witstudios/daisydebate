@@ -79,7 +79,7 @@ export function createMediaCaptureHandlers(input: {
         try {
           return Response.json((await dispatch(payload)) ?? null);
         } catch (error) {
-          const refusal = retryableSealRefusal(error, id);
+          const refusal = namedCaptureRefusal(error, id);
           if (refusal) return refusal;
           throw error;
         }
@@ -88,19 +88,27 @@ export function createMediaCaptureHandlers(input: {
 }
 
 /**
- * A seal refused only because the capture timeline has not closed yet is the
- * one seal refusal a worker may resend; every other refusal is definite
- * (VIDEO-4.1-r1).
+ * Capture refusals a worker must tell apart, by their internal message: an
+ * open timeline is the one seal refusal it may resend (VIDEO-4.1-r1); a closed
+ * session or admission ends it for good, never relaunched (ISSUE-494).
  */
-function retryableSealRefusal(error: unknown, requestId: string) {
+const namedRefusals: Readonly<Record<string, string>> = {
+  'Capture timeline is still open': 'timeline-open',
+  'Capture session is closed': 'capture-closed',
+  'Capture admission is closed': 'capture-closed',
+};
+function namedCaptureRefusal(error: unknown, requestId: string) {
   if (
     !isAppError(error) ||
     error.code !== 'CONFLICT' ||
-    error.message !== 'Capture timeline is still open'
+    !Object.hasOwn(namedRefusals, error.message)
   )
     return null;
   return Response.json(
-    { ...toPublicError(error, requestId).body, refusal: 'timeline-open' },
+    {
+      ...toPublicError(error, requestId).body,
+      refusal: namedRefusals[error.message],
+    },
     { status: 409 },
   );
 }

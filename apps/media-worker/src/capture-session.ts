@@ -1,7 +1,11 @@
 import { createAppError } from '@daisy/errors';
 import type { OpenRouter } from '@daisy/ai-voice';
 import { createCaptureSubscription } from '@daisy/media/capture';
-import { isDefiniteRefusal, isOpenTimelineRefusal } from '@daisy/media/worker';
+import {
+  isCaptureClosedRefusal,
+  isDefiniteRefusal,
+  isOpenTimelineRefusal,
+} from '@daisy/media/worker';
 import { createClipQueue } from './clip-queue';
 import { readCaptureHistory, type CaptureClient } from './capture-history';
 import { createCaptureStaging } from './capture-staging';
@@ -175,12 +179,15 @@ export async function runCaptureSession(
       streams.finished,
     );
   }
+  // The server closed the capture for good: a normal end, not a failure.
+  if (failure && isCaptureClosedRefusal(failure))
+    return { ...stats, closed: true };
   if (failure)
     throw createAppError(
       'INFRASTRUCTURE',
       'Capture session ended before safe completion',
     );
-  return stats;
+  return { ...stats, closed: false };
 }
 const identities = (snapshot: Awaited<ReturnType<CaptureClient['read']>>) =>
   snapshot.state.participants.flatMap((p) => (p.identity ? [p.identity] : []));

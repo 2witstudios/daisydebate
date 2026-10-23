@@ -168,3 +168,24 @@ test('only an open capture timeline is named as a retryable seal refusal', async
     expected: [409, 'timeline-open', 409, undefined],
   });
 });
+
+test('a closed capture session or admission is named, so the worker stops for good', async () => {
+  const refusal = async (message: string) => {
+    const response = await fixture(async () => {
+      throw createAppError('CONFLICT', message);
+    }).handlers.handle(signed('seal', '{}'));
+    return [response.status, (await response.json()).refusal];
+  };
+  assert({
+    given: 'capture refused because its session or its admission is closed',
+    should: 'answer 409 named capture-closed (ISSUE-494, ISSUE-495)',
+    actual: [
+      await refusal('Capture session is closed'),
+      await refusal('Capture admission is closed'),
+    ],
+    expected: [
+      [409, 'capture-closed'],
+      [409, 'capture-closed'],
+    ],
+  });
+});
