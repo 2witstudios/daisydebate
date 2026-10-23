@@ -188,7 +188,16 @@ export function createSubscriptionDelivery({
   async function deliverTo(connection: Connection, row: OutboxRow) {
     const sub = connection.topics.get(row.topic);
     if (!sub?.attached) return;
-    if ((await refresh(connection, row.topic, sub)) !== 'allowed') return;
+    const outcome = await refresh(connection, row.topic, sub);
+    // The event cannot be authorized now: the subscriber re-reads and asks
+    // again rather than missing it silently (ISSUE-445-r2).
+    if (outcome === 'unavailable')
+      transport.resync(
+        connection,
+        { id: sub.requestId, topic: row.topic },
+        sub,
+      );
+    if (outcome !== 'allowed') return;
     // The current lease is checked after the final await, immediately before publish.
     publishRow(connection, row, sub);
   }
