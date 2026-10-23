@@ -1,6 +1,7 @@
 import type { Browser, BrowserContext, Page } from '@playwright/test';
 import { createId } from '@paralleldrive/cuid2';
 import {
+  attendanceTimingPolicy,
   isNamedSeat,
   roundViewSchema,
   type RoomView,
@@ -17,6 +18,7 @@ import {
   submitCreateRoom,
 } from './room-launch-flow';
 import { readBallotRound } from './human-ballot-round';
+import { attendanceEvidence } from './attendance-evidence';
 import { subscriptionLedger } from './subscription-ledger';
 
 type Seat = 'Affirmative 1' | 'Negative 1' | 'Judge 1';
@@ -151,13 +153,45 @@ async function playEveryTurn(
   return players;
 }
 
-/** The judge's own enhanced ballot after the autonomous freeze. */
+/**
+ * Whether every speech but the last is settled as attended, by the rule a
+ * ballot is refused under (assertRoundAttendanceSettled): its deadline and
+ * settled horizon at least the finalization buffer behind now. An unhealthy
+ * availability sample legitimately postpones a deadline (ISSUE-494).
+ */
+async function attendanceSettled(judge: Page, roundId: string) {
+  const [view, evidence] = await Promise.all([
+    readBallotRound(judge.request, roundId),
+    attendanceEvidence(roundId),
+  ]);
+  const buffer = attendanceTimingPolicy.finalizationBufferMs;
+  const now = Date.parse(evidence.observedAt);
+  return view.segments
+    .filter((segment) => segment.type === 'speech')
+    .slice(0, -1)
+    .every((segment) => {
+      const ruled = evidence.adjudications.find(
+        (row) => row.segmentId === segment.id,
+      );
+      const deadline = Date.parse(ruled?.effectiveDeadline ?? '');
+      return (
+        ruled?.decision === 'attended' &&
+        deadline <= now - buffer &&
+        Date.parse(ruled.settledHorizon) >= deadline + buffer
+      );
+    });
+}
+
+/** The judge's own enhanced ballot after the autonomous freeze and settled attendance. */
 async function judgeBallot(judge: Page, roundId: string) {
   await expect(async () => {
     const response = await judge.request.get(`/api/rounds/${roundId}/ballots`);
     expect(response.status()).toBe(200);
     expect((await response.json()).freeze).not.toBeNull();
   }).toPass({ timeout: 180_000 });
+  await expect
+    .poll(() => attendanceSettled(judge, roundId), { timeout: 60_000 })
+    .toBe(true);
   await judge.goto(`/judge/ballot/${roundId}`);
   await judge
     .locator('label')

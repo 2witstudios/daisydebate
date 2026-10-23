@@ -20,6 +20,19 @@ export type BrowserMediaTransport = {
   readonly disconnect: () => Promise<void>;
 };
 
+const transient = new WeakSet<object>();
+/**
+ * A media request refused for now (a 503 under load, or the network): the
+ * controller retries it before calling media unavailable (ISSUE-494).
+ */
+export function transientMediaFailure() {
+  const failure = new Error('Media unavailable for now');
+  transient.add(failure);
+  return failure;
+}
+const isTransient = (error: unknown) =>
+  typeof error === 'object' && error !== null && transient.has(error);
+
 const deviceBlocked = (error: unknown) =>
   error instanceof Error &&
   [
@@ -42,6 +55,11 @@ export function createMediaController(input: {
   readonly transport: () => BrowserMediaTransport;
   readonly changed: (state: MediaConnectionState) => void;
   readonly received?: (state: RoundMediaState) => void;
+  /** Pauses before each retry of a transient admission failure; none when absent. */
+  readonly retry?: {
+    readonly delaysMs: readonly number[];
+    readonly wait: (ms: number, signal: AbortSignal) => Promise<void>;
+  };
 }) {
   let state: MediaConnectionState = 'connecting';
   let ended = false;
@@ -104,6 +122,19 @@ export function createMediaController(input: {
     announce(snapshot);
     return true;
   };
+  /** Admission, retried through the configured pauses while it fails transiently. */
+  const admitRetrying = async (generation: number) => {
+    for (const pauseMs of input.retry?.delaysMs ?? [])
+      try {
+        return await input.api.admit(input.roundId, abort.signal);
+      } catch (error) {
+        if (!isTransient(error) || stale(generation)) throw error;
+        change('reconnecting');
+        await input.retry!.wait(pauseMs, abort.signal);
+        if (stale(generation)) throw error;
+      }
+    return input.api.admit(input.roundId, abort.signal);
+  };
   const join = async (reconnect = false) => {
     if (ended) return;
     const generation = ++epoch;
@@ -115,7 +146,7 @@ export function createMediaController(input: {
     let current: BrowserMediaTransport | null = null;
     try {
       const admission = roundMediaAdmissionSchema.parse(
-        await input.api.admit(input.roundId, abort.signal),
+        await admitRetrying(generation),
       );
       if (stale(generation)) return;
       if (admission.roundId !== input.roundId)
