@@ -223,8 +223,10 @@ depends on one, and nothing in a Round's history would change if Rooms were dele
   usage; anything uncertain settles `unknown` and is never fabricated as success
   or refund. When the Round ends, in the same transaction as its terminal
   projection, a counted practice whose every model call (bot or judge) failed
-  definitely is refunded, once. A practice never counted keeps its reservation
-  until the refund CHECK admits it (ISSUE-469).
+  definitely is refunded, once. A practice never counted needs no refund: the
+  allowance spends a reservation only once its first model call counts it, or
+  while its Round is scheduled or active, so a never-counted practice stops
+  spending when its Round ends, with no refund state (ISSUE-469).
   Server composition must supply an explicit trusted positive integer busy cap;
   a local proof value of four is capacity configuration, not entitlement.
   Every reservation records its PostgreSQL admission time (NOT NULL); Round
