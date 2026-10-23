@@ -122,7 +122,7 @@ for (const mode of ['valid', 'provider-error'] as const)
           should:
             mode === 'valid'
               ? 'settle one language and two TTS dispatches, publish the first phrase before voicing the second, and credit no transcript'
-              : 'record the refused dispatch as failed with no usage, report one failure and keep the control receipt (ISSUE-458)',
+              : 'record the uncertain 503 dispatch at zero known usage, report one failure and keep the control receipt (ISSUE-458-r1)',
           actual: {
             receiptsArray: Array.isArray(pulsed),
             paths: provider.paths.map((path) => path.split('/').pop()),
@@ -171,7 +171,7 @@ for (const mode of ['valid', 'provider-error'] as const)
                       input_tokens: 0,
                       output_tokens: 0,
                       characters: 0,
-                      outcome: 'failed',
+                      outcome: 'unknown',
                     },
                   ],
                   lines: 0,

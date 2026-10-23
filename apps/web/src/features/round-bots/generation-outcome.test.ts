@@ -40,11 +40,11 @@ async function settlementOf(
 test('a voice call settles failed with no usage only when it certainly was not served', async () => {
   assert({
     given:
-      'a vendor that answers 503, a call cancelled before it reaches the vendor, and an unreachable vendor',
+      'a vendor that refuses the request (400), a call cancelled before it reaches the vendor, and an unreachable vendor',
     should:
       'settle the first two as failed with no characters, and the uncertain one as unknown, keeping its characters',
     actual: [
-      await settlementOf(async () => new Response('busy', { status: 503 })),
+      await settlementOf(async () => new Response('refused', { status: 400 })),
       await settlementOf(async () => Response.json({}), true),
       await settlementOf(async () => {
         throw new TypeError('connection reset');

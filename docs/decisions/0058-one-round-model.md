@@ -219,7 +219,7 @@ depends on one, and nothing in a Round's history would change if Rooms were dele
   durable period. Missing, invalid or expired grants never imply premium.
   Reservations serialize per actor and across global capacity. The first model
   call of any kind counts the reservation. A definite vendor failure (the vendor
-  answered with a refusal, or the call never left) settles `failed` with no
+  itself refused the request with a 4xx other than 408, or the call never left) settles `failed` with no
   usage; anything uncertain settles `unknown` and is never fabricated as success
   or refund. When the Round ends, in the same transaction as its terminal
   projection, a counted practice whose every model call (bot or judge) failed
