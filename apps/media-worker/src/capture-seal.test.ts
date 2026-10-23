@@ -10,7 +10,7 @@ const stream = (segmentId: string) => ({
   count: 0,
 });
 
-test('only a seal refused for its open timeline stays due', async () => {
+test('only a definite refusal or a seal finishes a stream', async () => {
   const replies: Record<string, () => Response> = {
     ['o'.repeat(24)]: () =>
       Response.json(
@@ -20,6 +20,7 @@ test('only a seal refused for its open timeline stays due', async () => {
     ['d'.repeat(24)]: () =>
       Response.json({ error: { code: 'CONFLICT' } }, { status: 409 }),
     ['s'.repeat(24)]: () => Response.json({ state: 'complete', revision: 2 }),
+    ['u'.repeat(24)]: () => new Response(null, { status: 503 }),
   };
   const server = Bun.serve({
     hostname: '127.0.0.1',
@@ -44,6 +45,7 @@ test('only a seal refused for its open timeline stays due', async () => {
         fetch,
         nowMs: performance.now,
         deadlineSignal: () => AbortSignal.timeout(2000),
+        unavailableRetryMs: [0, 0],
       }),
       3,
       Object.keys(replies).map(stream),
@@ -52,9 +54,9 @@ test('only a seal refused for its open timeline stays due', async () => {
     );
     assert({
       given:
-        'one seal refused for an open timeline, one refused definitely, one sealed',
+        'seals refused for an open timeline, refused definitely, sealed, and left unavailable after every retry',
       should:
-        'finish the definite refusal and the seal, leaving only the open timeline due (VIDEO-4.1-r1)',
+        'finish only the definite refusal and the seal; an open timeline and an uncertain outage stay sealable (VIDEO-4.1-r1)',
       actual: { sealed, finished },
       expected: { sealed: 1, finished: ['d', 's'] },
     });

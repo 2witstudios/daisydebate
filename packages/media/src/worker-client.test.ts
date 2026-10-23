@@ -2,6 +2,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import {
   createMediaWorkerClient,
+  isDefiniteRefusal,
   isOpenTimelineRefusal,
 } from './worker-client';
 import { createMediaWorkerAuthentication } from './worker-auth';
@@ -270,4 +271,29 @@ test('an elapsed call deadline ends the retries', async () => {
   } finally {
     await f.close();
   }
+});
+
+test('only a 4xx answer is a definite refusal', async () => {
+  const outcome = async (reply: () => Response) => {
+    const f = localClient(reply);
+    try {
+      return await f.client.lease(15000).then(
+        () => 'leased',
+        (error: unknown) => isDefiniteRefusal(error),
+      );
+    } finally {
+      await f.close();
+    }
+  };
+  assert({
+    given: 'a 409, a 403, and a 503 that outlasts every retry',
+    should:
+      'mark the 4xx refusals definite and leave the exhausted 503 uncertain',
+    actual: [
+      await outcome(() => new Response(null, { status: 409 })),
+      await outcome(() => new Response(null, { status: 403 })),
+      await outcome(() => new Response(null, { status: 503 })),
+    ],
+    expected: [true, true, false],
+  });
 });

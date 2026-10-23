@@ -1,7 +1,7 @@
 import { createAppError } from '@daisy/errors';
 import type { OpenRouter } from '@daisy/ai-voice';
 import { createCaptureSubscription } from '@daisy/media/capture';
-import { isOpenTimelineRefusal } from '@daisy/media/worker';
+import { isDefiniteRefusal, isOpenTimelineRefusal } from '@daisy/media/worker';
 import { createClipQueue } from './clip-queue';
 import { readCaptureHistory, type CaptureClient } from './capture-history';
 import { createCaptureStaging } from './capture-staging';
@@ -196,9 +196,11 @@ async function relayActivity(
   return results.filter((r) => r.status === 'fulfilled').length;
 }
 /**
- * Seals each stream once. Only a seal refused for its still-open timeline stays
- * due for the next batch; a definite refusal (cutoff, freeze, chunks below the
- * stored count) finishes the stream like a seal does (VIDEO-4.1-r1).
+ * Seals each stream once. A definite refusal (cutoff, freeze, chunks below the
+ * stored count) finishes the stream like a seal does. A seal refused for its
+ * still-open timeline, or with an uncertain outcome (an outage that outlasted
+ * its retries, a deadline, the network), stays sealable: the next batch
+ * retries it, then the shutdown fallback (VIDEO-4.1-r1).
  */
 export async function sealCaptureStreams(
   client: CaptureClient,
@@ -227,7 +229,8 @@ export async function sealCaptureStreams(
       count++;
     } catch (error) {
       signal.throwIfAborted();
-      if (!isOpenTimelineRefusal(error)) finished(stream);
+      if (isDefiniteRefusal(error) && !isOpenTimelineRefusal(error))
+        finished(stream);
     }
   }
   return count;
