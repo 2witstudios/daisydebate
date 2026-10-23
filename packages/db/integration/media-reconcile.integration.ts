@@ -228,3 +228,47 @@ test('absence proof cannot cross a different reconciliation fence or later mutat
     }
   });
 });
+
+test('an aborted reconcile past its lease never holds media admission', async () => {
+  await withFixture(databaseUrl, async (fixture) => {
+    const { roundId, seat, store, binding } = await reconcileFixture(fixture);
+    const admit = () =>
+      store.issueMediaToken({
+        roundId,
+        principal: { kind: 'human', actorId: seat.actorId },
+        buildProjection: mediaTestTick,
+        sign: async () => 'signed',
+      });
+    const reconciling = async () =>
+      (
+        await store.readMediaSession({
+          roundId,
+          buildProjection: mediaTestTick,
+        })
+      )?.reconciling;
+    try {
+      const claim = await store.claimMediaReconcile({
+        sessionId: binding.sessionId,
+        owner: createId(),
+      });
+      if (claim.kind !== 'claimed') throw new Error('Missing claim');
+      const live = await reconciling();
+      await assertRejects({
+        given: 'a reconcile inside its lease',
+        should: 'refuse admission for now',
+        actual: admit,
+        code: 'INFRASTRUCTURE',
+      });
+      // The owner crashed: its row stays, but its lease ran out on the database clock.
+      await fixture.sql`update media_sessions set reconcile_lease_until=clock_timestamp()-interval '1 second' where id=${binding.sessionId}`;
+      assert({
+        given: 'the same owner after its lease expired',
+        should: 'report no live reconcile and admit the human',
+        actual: [live, await reconciling(), await admit()],
+        expected: [true, false, 'signed'],
+      });
+    } finally {
+      await fixture.sql`delete from media_sessions where id=${binding.sessionId}`;
+    }
+  });
+});

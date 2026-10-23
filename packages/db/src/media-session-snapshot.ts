@@ -14,6 +14,7 @@ import {
 import { hydrateRoundRows } from './round-hydration';
 import { mediaParticipants, mediaSessions } from './schema/media-sessions';
 import { mediaBindingFields } from './media-participant-binding';
+import { reconcileLive } from './media-reconcile-rules';
 
 export type MediaSessionRead = {
   readonly roundId: string;
@@ -75,6 +76,7 @@ export async function lockedMediaSnapshot(
     now: tick.now,
     finalSegmentEndedAt: tick.finalSegmentEndedAt,
     unresolved: pending.length > 0,
+    reconciling: reconcileLive(session, new Date(tick.now)),
   };
 }
 export type MediaSessionSnapshot = NonNullable<

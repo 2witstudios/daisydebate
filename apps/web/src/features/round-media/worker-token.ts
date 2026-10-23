@@ -49,7 +49,7 @@ export function createMediaWorkerTokenBroker(input: {
       // A browser's reconcile holds a live session for well under a second:
       // refused for now (503, which the worker retries), as for human
       // admission, never a definite conflict that ends the worker's epoch.
-      if (state.session.reconcileOwner)
+      if (state.reconciling)
         throw createAppError('INFRASTRUCTURE', 'Media recovery is unresolved');
       if (!(await input.deadline(input.media.exists(state.session.roomName))))
         throw createAppError('INFRASTRUCTURE');
