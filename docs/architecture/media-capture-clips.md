@@ -53,7 +53,10 @@ from `createCaptureSubscription`; the caller retains their associated 160-sample
 PCM. The first callback anchors and is dropped. A subsequent callback must follow
 the exact sequence and a ten-millisecond cadence: no receipt before its nominal
 due time, no receipt more than 100 ms late. Burst, stall, invalid bracket or
-sequence gap drops the current frame and reanchors at that actual callback;
+sequence gap drops the current frame and reanchors at that actual callback,
+less a 5 ms tolerance (ISSUE-485): steady or slightly jittered 10 ms callbacks
+keep one run after a reanchor, a slightly fast source walks the anchor down
+with that margin, and a queued frame a whole period early is still refused;
 queued callbacks never acquire a new arrival timestamp. No raw sample total is
 coverage. Track closure destroys its clock.
 

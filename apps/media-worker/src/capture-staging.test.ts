@@ -130,7 +130,7 @@ test('private staged PCM keeps original timing and expires before clip encoding'
 });
 test('a refused frame crossing a grant edge is kept as edge evidence for its track', () => {
   const f = fixture();
-  f.state.state.intervals[0]!.startedAt = iso(10015);
+  f.state.state.intervals[0]!.startedAt = iso(10010);
   f.observe(0, 10);
   f.observe(1, 20.2);
   f.observe(2, 30.4);
@@ -149,8 +149,8 @@ test('a refused frame crossing a grant edge is kept as edge evidence for its tra
       afterClose: f.staging.straddles('real-track'),
     },
     expected: {
-      admitted: [10020, 10030],
-      evidence: [{ nominalStartMs: 10010, beforeMs: 10009, afterMs: 10022 }],
+      admitted: [10015, 10025],
+      evidence: [{ nominalStartMs: 10005, beforeMs: 10004, afterMs: 10022 }],
       afterClose: [],
     },
   });

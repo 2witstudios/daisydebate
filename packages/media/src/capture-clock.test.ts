@@ -89,3 +89,50 @@ test('refresh preserves a valid anchor and discontinuity forces a fresh observat
     expected: [true, null],
   });
 });
+
+/** Feeds `count` callbacks 10 ms apart with the given jitter; returns which ones the clock refused. */
+const refusedOf = (
+  clock: ReturnType<typeof createCaptureClock>,
+  from: number,
+  count: number,
+  jitter: (i: number) => number = () => 0,
+  start = 10,
+) =>
+  Array.from({ length: count }, (_, i) => from + i).filter(
+    (sequence, i) =>
+      clock.observe(frame(sequence, start + i * 10 + jitter(i))) === null,
+  );
+
+test('steady 10 ms callbacks recover at once after a re-anchor (ISSUE-485)', () => {
+  const clock = createCaptureClock(calibration);
+  const before = refusedOf(clock, 0, 100);
+  // Sequence 100 never arrives: the clock re-anchors at 101.
+  const after = refusedOf(clock, 101, 100, () => 0, 1020);
+  assert({
+    given:
+      'steady callbacks exactly 10 ms apart, each with a 0.1 ms bracket, before and after one missing frame',
+    should:
+      'drop only the bootstrap and the re-anchor callback, then keep every steady frame',
+    actual: { before, after },
+    expected: { before: [0], after: [101] },
+  });
+});
+
+test('jittered callbacks do not re-anchor repeatedly, and a queued burst is still refused (ISSUE-485)', () => {
+  const jitter = [2.6, 0.4, 1.9, 0.1, 3, 1.1, 0.7, 2.2];
+  const clock = createCaptureClock(calibration);
+  const jittered = refusedOf(clock, 0, 300, (i) => jitter[i % jitter.length]!);
+  const burst = createCaptureClock(calibration);
+  refusedOf(burst, 0, 10);
+  const queued = [10, 11, 12].map(
+    (sequence) => burst.observe(frame(sequence, 110.2)) === null,
+  );
+  assert({
+    given:
+      'three seconds of callbacks with up to 3 ms of jitter, anchored on a late one, then three callbacks handed over at once',
+    should:
+      'refuse only the bootstrap under jitter, and refuse the queued frames that arrive a whole period early',
+    actual: { jittered, queued },
+    expected: { jittered: [0], queued: [false, true, true] },
+  });
+});

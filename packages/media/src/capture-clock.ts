@@ -11,6 +11,15 @@ type Observation = {
   readonly afterMs: number;
 };
 
+/**
+ * How far below its callback a run anchors (ISSUE-485). Native capture
+ * callbacks are paced 10 ms apart with a little jitter, so anchoring exactly at
+ * a late callback's bracket would refuse every steady frame after it; half a
+ * frame of tolerance absorbs jitter while a queued frame, a whole period early,
+ * is still refused. The tolerance only widens bounds downward.
+ */
+const ANCHOR_TOLERANCE_MS = 5;
+
 const wellFormed = (frame: Observation) =>
   Number.isSafeInteger(frame.sequence) &&
   frame.sequence >= 0 &&
@@ -36,7 +45,10 @@ export function createCaptureClock(initial: ClockCalibration) {
     runFrames = 0;
     clock = publicationClock({
       calibration,
-      anchorMs: frame.afterMs,
+      anchorMs: Math.max(
+        frame.afterMs - ANCHOR_TOLERANCE_MS,
+        calibration.receivedAtMs,
+      ),
       sampleRate: 16000,
     });
     previousSequence = frame.sequence;
@@ -66,7 +78,17 @@ export function createCaptureClock(initial: ClockCalibration) {
         afterMs: frame.afterMs,
       });
       if (!observed.window) return anchor(frame);
-      clock = observed.clock;
+      // A slightly fast source walks the anchor down, keeping the tolerance below
+      // its earliest paced callback; a burst arrives too early to walk.
+      clock = {
+        ...observed.clock,
+        anchorMs: Math.min(
+          observed.clock.anchorMs,
+          frame.beforeMs -
+            ANCHOR_TOLERANCE_MS -
+            (observed.clock.eligibleSamples / observed.clock.sampleRate) * 1000,
+        ),
+      };
       previousSequence = frame.sequence;
       runStartMs ??= Math.ceil(observed.window.beforeMs);
       return {
