@@ -1,6 +1,10 @@
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
-import { AccessToken, RoomServiceClient } from 'livekit-server-sdk';
+import {
+  AccessToken,
+  RoomServiceClient,
+  ServerError,
+} from 'livekit-server-sdk';
 import {
   configSchema,
   joinSchema,
@@ -24,7 +28,6 @@ type RoomService = Pick<
   | 'deleteRoom'
   | 'listParticipants'
   | 'updateParticipant'
-  | 'removeParticipant'
 >;
 
 /** All credentials are injected; the SDK's environment fallback is never used. */
@@ -42,10 +45,25 @@ export function createMediaService({
       requestTimeout: 5,
       failover: false,
     });
+  /**
+   * A 4xx LiveKit response is a definite refusal (not found, or otherwise
+   * refused); a network failure, timeout or 5xx leaves the outcome unknown.
+   */
   const operation = async <T>(work: () => Promise<T>) => {
     try {
       return await work();
-    } catch {
+    } catch (error) {
+      if (
+        error instanceof ServerError &&
+        error.status >= 400 &&
+        error.status < 500
+      )
+        throw createAppError(
+          error.status === 404 || error.code === 'not_found'
+            ? 'NOT_FOUND'
+            : 'CONFLICT',
+          'Media service refused the operation',
+        );
       throw createAppError('INFRASTRUCTURE', 'Media service operation failed');
     }
   };
@@ -63,11 +81,6 @@ export function createMediaService({
       return operation(async () =>
         (await client.listRooms([name])).some((room) => room.name === name),
       );
-    },
-    async remove(room: string, identity: string) {
-      const name = parseMedia(idSchema, room),
-        actor = parseMedia(idSchema, identity);
-      await operation(() => client.removeParticipant(name, actor));
     },
     async publicationPermissions(room: string) {
       return (await participants(room)).map(publicationPermission);

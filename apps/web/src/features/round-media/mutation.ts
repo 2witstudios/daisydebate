@@ -1,4 +1,4 @@
-import { dispatchMediaMutation } from './vendor-dispatch';
+import { dispatchMediaMutation, mediaMutationOutcome } from './vendor-dispatch';
 import type {
   Claim,
   Intent,
@@ -47,8 +47,6 @@ export function createMediaMutations(
             return input.media.createRoom(claim.roomName);
           case 'delete':
             return input.media.deleteRoom(claim.roomName);
-          case 'remove':
-            return input.media.remove(claim.roomName, intent.identity);
           case 'permissions':
             return input.media.permissions(
               claim.roomName,
@@ -57,7 +55,8 @@ export function createMediaMutations(
             );
         }
       },
-      settle: (id) => input.store.settleMediaMutation(id),
+      outcome: (error) => mediaMutationOutcome(intent.kind, error),
+      settle: (id, outcome) => input.store.settleMediaMutation(id, outcome),
       unsafe: async () => {
         await input.store.markMediaUnsafe(claim.fence);
         input.logger.log(

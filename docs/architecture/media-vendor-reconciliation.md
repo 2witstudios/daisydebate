@@ -10,18 +10,25 @@ The adapter must serialize claims and writes under the session lock, fence the
 owner/epoch, and schedule a further run for unserved requests.
 
 `media_vendor_mutations` persists intent before vendor I/O. Create/delete carry
-no identity and an empty payload; permissions/remove carry an opaque competitive
-seat identity. Permissions contain only unique camera/microphone publish sources,
+no identity and an empty payload; permissions carry an opaque competitive seat
+identity. Permissions contain only unique camera/microphone publish sources,
 subscribe and hidden booleans, and capture=false. Other mutations have empty
 payloads. Capture-agent authorization is a separate server scope.
 
 Intent is immutable. Settlement records one known succeeded/failed outcome with
-its PostgreSQL timestamp. Unknown operations remain pending across crashes without
-an expiry that invents success or failure. Pending intent cannot be directly
+its PostgreSQL timestamp. A provider answer is known (ISSUE-464): success, or a
+definite LiveKit refusal (a 4xx). Not found on a delete proves the room is absent
+and settles succeeded; any other definite refusal settles failed without making
+the session unsafe. Only a network failure, timeout or provider fault leaves the
+outcome unknown; unknown operations remain pending across crashes without an
+expiry that invents success or failure. Pending intent cannot be directly
 deleted while its session exists. Owning Round/session erasure cascades normally.
 Unsafe state cannot be cleared while pending intent exists. Clearing it after
 settlement additionally requires actual verified vendor cleanup in the adapter;
 the database does not claim that verification from a timestamp or a failed call.
+A clean recovery of a Round that is still open also clears the room deletion
+request, so the unsafe episode ends and capture discovery resumes (ISSUE-465);
+a terminal Round keeps it.
 Token/open admission must refuse unsafe or pending sessions independently.
 
 Cleanup first calls `prepareMediaAbsenceProof` under the current session owner

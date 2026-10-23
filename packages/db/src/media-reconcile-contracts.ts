@@ -5,11 +5,6 @@ export type MediaVendorIntent =
       readonly payload: Record<string, never>;
     }
   | {
-      readonly kind: 'remove';
-      readonly identity: string;
-      readonly payload: Record<string, never>;
-    }
-  | {
       readonly kind: 'permissions';
       readonly identity: string;
       readonly payload: {

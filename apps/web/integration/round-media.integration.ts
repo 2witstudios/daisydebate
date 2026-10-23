@@ -233,17 +233,19 @@ test('unknown real vendor outcomes survive restart and absence probes until actu
       });
       await freshProcess.recoverActiveSessions();
       const [safe] =
-        await f.sql`select unsafe_at,ended_at from media_sessions where id=${session!.id}`;
+        await f.sql`select unsafe_at,ended_at,deletion_requested_at from media_sessions where id=${session!.id}`;
       assert({
         given:
           'actual delayed acknowledgement followed by another fresh absence proof',
-        should: 'recover the session without inventing a Round terminal result',
+        should:
+          'recover the session, end the episode so capture discovery resumes (ISSUE-465), and invent no Round terminal result',
         actual: [
           safe!.unsafe_at,
           safe!.ended_at,
+          safe!.deletion_requested_at,
           await f.media.exists(session!.room_name),
         ],
-        expected: [null, null, false],
+        expected: [null, null, null, false],
       });
     } finally {
       delayed.release();

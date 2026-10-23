@@ -46,10 +46,14 @@ const completionFields = (
   reconcileLeaseUntil: null,
   reconcileCompletedAt: now,
   reconcileServedVersion: session.reconcileRunningVersion,
+  // A proven-clean recovery ends the unsafe episode, including its room
+  // deletion request, so capture discovery resumes (ISSUE-465).
   ...(cleaned
     ? {
         unsafeAt: null,
-        ...(terminal ? { endedAt: session.endedAt ?? now } : {}),
+        ...(terminal
+          ? { endedAt: session.endedAt ?? now }
+          : { deletionRequestedAt: null }),
       }
     : {}),
   ...(terminal
@@ -145,7 +149,7 @@ export function createMediaReconcileStore(input: {
         const outstanding = await pending(tx, session.id);
         if (
           (session.unsafeAt || outstanding.length) &&
-          !['delete', 'remove'].includes(request.intent.kind)
+          request.intent.kind !== 'delete'
         )
           throw createAppError('CONFLICT', 'Media recovery is unresolved');
         const authority = await lockMediaRound(tx, session.roundId);
@@ -208,8 +212,8 @@ export function createMediaReconcileStore(input: {
         return id;
       });
     },
-    /** Only a successful provider response resolves the dispatched operation. A rejected network promise is not proof. */
-    async settleMediaMutation(id: string) {
+    /** Only a provider response resolves the dispatched operation: success, or a definite refusal. A rejected network promise is not proof. */
+    async settleMediaMutation(id: string, outcome: 'succeeded' | 'failed') {
       return input.run(async (tx) => {
         const [operation] = await tx
           .select()
@@ -221,7 +225,7 @@ export function createMediaReconcileStore(input: {
           .update(mediaVendorMutations)
           .set({
             settledAt: new Date(await sampleRoundExecutionTime(tx)),
-            outcome: 'succeeded',
+            outcome,
           })
           .where(eq(mediaVendorMutations.id, id));
       });

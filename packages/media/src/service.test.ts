@@ -4,6 +4,7 @@ import {
   ParticipantInfo,
   Room,
   type RoomServiceClient,
+  ServerError,
   TrackSource,
 } from 'livekit-server-sdk';
 import { createMediaService } from './index';
@@ -37,9 +38,6 @@ describe('media room service boundary', () => {
         calls.push(['update', ...args]);
         return new ParticipantInfo({ identity });
       },
-      removeParticipant: async () => {
-        throw new Error('Unexpected removal');
-      },
       listParticipants: async () => [
         new ParticipantInfo({
           identity,
@@ -59,7 +57,6 @@ describe('media room service boundary', () => {
       | 'deleteRoom'
       | 'updateParticipant'
       | 'listParticipants'
-      | 'removeParticipant'
     >;
     const service = createMediaService({ config, rooms });
     await service.createRoom(room);
@@ -164,4 +161,38 @@ describe('media room service boundary', () => {
       code: 'INFRASTRUCTURE',
     });
   });
+});
+
+test('a definite LiveKit refusal is distinguishable from an unknown outcome (ISSUE-464)', async () => {
+  const failing = (error: unknown) =>
+    createMediaService({
+      config,
+      rooms: {
+        deleteRoom: async () => {
+          throw error;
+        },
+      } as unknown as RoomServiceClient,
+    });
+  for (const [error, code] of [
+    [
+      new ServerError('not_found', 'room not found', 404, 'not_found'),
+      'NOT_FOUND',
+    ],
+    [
+      new ServerError('invalid_argument', 'bad', 400, 'invalid_argument'),
+      'CONFLICT',
+    ],
+    [
+      new ServerError('unavailable', 'down', 503, 'unavailable'),
+      'INFRASTRUCTURE',
+    ],
+    [new TypeError('fetch failed'), 'INFRASTRUCTURE'],
+  ] as const)
+    await assertRejects({
+      given: `a ${error instanceof ServerError ? error.status : 'network'} failure`,
+      should:
+        'report not found and other 4xx refusals definitely, and anything else as unknown',
+      actual: () => failing(error).deleteRoom(room),
+      code,
+    });
 });
