@@ -102,7 +102,7 @@
         "react-dom": "19.3.0",
         "resend": "6.28.1",
         "sharp": "0.35.5",
-        "zod": "4.6.5",
+        "zod": "4.6.6",
       },
       "devDependencies": {
         "@axe-core/playwright": "^4.13.0",
@@ -126,7 +126,7 @@
       "dependencies": {
         "@daisy/errors": "workspace:*",
         "@daisy/protocol": "workspace:*",
-        "zod": "4.6.5",
+        "zod": "4.6.6",
       },
       "devDependencies": {
         "riteway": "9.3.0",
@@ -157,7 +157,7 @@
       "name": "@daisy/config",
       "version": "0.0.0",
       "dependencies": {
-        "zod": "4.6.5",
+        "zod": "4.6.6",
       },
       "devDependencies": {
         "riteway": "9.3.0",
@@ -173,7 +173,7 @@
         "@daisy/protocol": "workspace:*",
         "@paralleldrive/cuid2": "3.3.0",
         "drizzle-orm": "1.0.0-rc.4",
-        "zod": "4.6.5",
+        "zod": "4.6.6",
       },
       "devDependencies": {
         "drizzle-kit": "1.0.0-rc.4",
@@ -231,7 +231,7 @@
         "@daisy/protocol": "workspace:*",
         "@livekit/rtc-node": "1.2.0",
         "livekit-server-sdk": "2.19.0",
-        "zod": "4.6.5",
+        "zod": "4.6.6",
       },
       "devDependencies": {
         "@daisy/config": "workspace:*",
@@ -254,7 +254,7 @@
       "name": "@daisy/protocol",
       "version": "0.0.0",
       "dependencies": {
-        "zod": "4.6.5",
+        "zod": "4.6.6",
       },
       "devDependencies": {
         "riteway": "9.3.0",
@@ -1948,7 +1948,7 @@
 
     "yocto-queue": ["yocto-queue@0.1.0", "", {}, "sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q=="],
 
-    "zod": ["zod@4.6.5", "", {}, "sha512-v5l/aFXZQeai4awLbOpSoHecE9UiMrnfx75tEXLjNonXVARxQ5mOeipTjROUchszUNCqnE+hqAMujRsRHsut2Q=="],
+    "zod": ["zod@4.6.6", "", {}, "sha512-4UmzQUF5fxvfcYHlbjBmejU+w+hbDnWFx4aS8kBx7nPBHcO2SqPbpAG8snbdg+Xse4pRefR98hgjFgIMCI/UhA=="],
 
     "zod-validation-error": ["zod-validation-error@4.0.2", "", { "peerDependencies": { "zod": "^3.25.0 || ^4.0.0" } }, "sha512-Q6/nZLe6jxuU80qb/4uJ4t5v2VEZ44lzQjPDhYJNztRQ4wyWc6VF3D3Kb/fAuPetZQnhS3hnajCf9CsWesghLQ=="],
 
