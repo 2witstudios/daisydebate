@@ -14,6 +14,7 @@ import { createBotActivityRelay } from '../apps/web/src/features/round-bots/acti
 import { mediaDependencies } from '../apps/web/integration/round-media.test-support';
 import { mediaWorkerRole } from './test-logins';
 import type { withRoomRuntime } from '../apps/web/integration/room-runtime.test-support';
+import { CAPTURE_STT_LAG_MS } from '@daisy/protocol';
 
 type Fixture = Parameters<Parameters<typeof withRoomRuntime>[0]>[0];
 const nextId = () => systemId.next();
@@ -93,6 +94,7 @@ async function startShortRound(
 }
 function ingress(f: Fixture, deps: ReturnType<typeof mediaDependencies>) {
   const capture = f.store.createMediaCaptureOperations({
+    sttLagMs: CAPTURE_STT_LAG_MS,
     nextId,
     buildProjection: (context) =>
       mediaRuntime(context, nextId).tick(context.now),

@@ -9,6 +9,7 @@ import {
   startRuntimeRound,
   withRoomRuntime,
 } from './round-runtime.test-support';
+import { CAPTURE_STT_LAG_MS } from '@daisy/protocol';
 setupRitewayBun();
 requireTestServices(process.env);
 
@@ -46,6 +47,7 @@ async function capturedRound(f: Fixture) {
     workerId = createId();
   await f.sql`insert into media_sessions(id,round_id,room_name) values(${sessionId},${roundId},${createId()})`;
   const capture = f.store.createMediaCaptureOperations({
+    sttLagMs: CAPTURE_STT_LAG_MS,
     nextId: createId,
     buildProjection,
   });

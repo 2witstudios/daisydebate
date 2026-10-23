@@ -1,3 +1,7 @@
+import {
+  CAPTURE_CALL_DEADLINE_MS,
+  CAPTURE_STT_TIMEOUT_MS,
+} from '@daisy/protocol';
 import { disposeCaptureRuntime } from '@daisy/media/capture';
 import { createOpenRouter } from '@daisy/ai-voice';
 import { createMediaWorkerClient } from '@daisy/media/worker';
@@ -31,7 +35,7 @@ const client = createMediaWorkerClient({
   authentication,
   fetch,
   nowMs: performance.now,
-  deadlineSignal: () => AbortSignal.timeout(3000),
+  deadlineSignal: () => AbortSignal.timeout(CAPTURE_CALL_DEADLINE_MS),
 });
 const stop = new AbortController();
 process.on('SIGTERM', () => stop.abort());
@@ -41,7 +45,11 @@ try {
     {
       roundId,
       client,
-      voice: createOpenRouter({ apiKey, fetch }),
+      voice: createOpenRouter({
+        apiKey,
+        fetch,
+        timeoutMs: CAPTURE_STT_TIMEOUT_MS,
+      }),
       sttModel: 'openai/whisper-large-v3-turbo',
       nowMs: performance.now,
       waitUntilMs: async (due, signal) => {

@@ -25,7 +25,12 @@ export async function appendCapturedTranscript(
   input: Clip,
   dependencies: CaptureDependencies,
 ) {
-  const context = await captureWriteContext(tx, input, dependencies);
+  const context = await captureWriteContext(
+    tx,
+    input,
+    dependencies,
+    new Date(input.after),
+  );
   const { segment, stream, now } = context;
   const history = await captureHistory(tx, input, segment);
   requireCapturedWindow(input, segment, now, history);

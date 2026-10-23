@@ -30,7 +30,12 @@ export async function observeCapturedStream(
   input: z.infer<typeof captureObservationSchema>,
   dependencies: CaptureDependencies,
 ) {
-  const context = await captureWriteContext(tx, input, dependencies);
+  const context = await captureWriteContext(
+    tx,
+    input,
+    dependencies,
+    new Date(input.observedUntil),
+  );
   const { segment, stream, now } = context;
   const required = await captureHistory(tx, input, segment);
   const { from, until } = requireObservationWindow(

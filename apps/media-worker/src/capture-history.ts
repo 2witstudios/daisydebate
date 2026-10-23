@@ -1,3 +1,4 @@
+import { CAPTURE_HISTORY_READ_MS } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import type { createMediaWorkerClient } from '@daisy/media/worker';
 export type CaptureClient = ReturnType<typeof createMediaWorkerClient>;
@@ -31,7 +32,10 @@ export async function readCaptureHistory(
   signal: AbortSignal,
   segmentId?: string,
 ) {
-  signal = AbortSignal.any([signal, AbortSignal.timeout(500)]);
+  signal = AbortSignal.any([
+    signal,
+    AbortSignal.timeout(CAPTURE_HISTORY_READ_MS),
+  ]);
   const first = await client.read(
     { epoch, ...(segmentId ? { segmentId } : {}) },
     signal,

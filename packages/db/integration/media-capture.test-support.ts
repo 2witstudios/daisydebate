@@ -8,6 +8,7 @@ export async function historicalCapture(
   transaction: BoundedTransaction,
   roundId: string,
   endedAgoMs = 1000,
+  sttLagMs = 60_000,
 ) {
   const [clock] = await fixture.sql`select clock_timestamp() as now`;
   const end = new Date(clock!.now.getTime() - endedAgoMs);
@@ -41,6 +42,7 @@ export async function historicalCapture(
   });
   const store = mediaCaptureOperations({
     transaction,
+    sttLagMs,
     nextId: createId,
     buildProjection: () => {
       throw new Error(

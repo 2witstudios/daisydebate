@@ -3,6 +3,7 @@ import { and, desc, eq, gt, isNull, ne } from 'drizzle-orm';
 import {
   captureAdmission,
   lockCaptureLease,
+  requireCaptureSession,
   lockCaptureRound,
   type CaptureDependencies,
   type CaptureIdentity,
@@ -74,6 +75,7 @@ export async function readMediaCaptureState(
 ) {
   const tick = await lockCaptureRound(tx, input, dependencies);
   const lease = await lockCaptureLease(tx, input);
+  await requireCaptureSession(tx, input);
   if (
     input.expectedVersion !== undefined &&
     input.expectedVersion !== tick.resultingVersion

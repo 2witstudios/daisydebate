@@ -33,6 +33,8 @@ export type CaptureStream = {
 };
 export type CaptureDependencies = {
   readonly transaction: BoundedTransaction;
+  /** Injected policy: how long after a session closes earlier audio may still arrive (CAP-E.1-r8). */
+  readonly sttLagMs: number;
   readonly nextId: () => string;
   readonly buildProjection: LockedRoundTickInput['buildProjection'];
 };
@@ -87,6 +89,60 @@ export async function captureAdmission(
   )
     throw createAppError('CONFLICT', 'Capture admission is closed');
   return new Date(now);
+}
+type CaptureSessionClose = {
+  readonly endedAt: Date | null;
+  readonly unsafeAt: Date | null;
+  readonly deletionRequestedAt: Date | null;
+};
+/** A write's worker capture stamp, its database receipt time and the lag policy. */
+export type CaptureWriteTiming = {
+  readonly capturedUntil: Date;
+  readonly receivedAt: Date;
+  readonly sttLagMs: number;
+};
+/**
+ * The one capture-time rule for a session (CAP-E.1-r6, CAP-E.1-r8). Ending,
+ * turning unsafe and a vendor-room deletion request each close it; the
+ * deletion request is not data erasure, which is Round deletion. After the
+ * earliest close, a write is admitted only if its audio was captured strictly
+ * before that instant and it reached the database within the speech-to-text
+ * lag after it; the worker stamp alone never admits late audio. Work with no
+ * capture time (reads, seals) is admitted.
+ */
+export function captureSessionAdmits(
+  session: CaptureSessionClose,
+  write?: CaptureWriteTiming,
+) {
+  if (write === undefined) return true;
+  const closes = [
+    session.endedAt,
+    session.unsafeAt,
+    session.deletionRequestedAt,
+  ].flatMap((at) => (at ? [at.getTime()] : []));
+  if (closes.length === 0) return true;
+  const closedAt = Math.min(...closes);
+  return (
+    write.capturedUntil.getTime() < closedAt &&
+    write.receivedAt.getTime() <= closedAt + write.sttLagMs
+  );
+}
+/** Refuses work the session no longer admits; shares the Round lock already held. */
+export async function requireCaptureSession(
+  tx: CaptureTx,
+  input: { readonly sessionId: string },
+  write?: CaptureWriteTiming,
+) {
+  const [session] = await tx
+    .select({
+      endedAt: mediaSessions.endedAt,
+      unsafeAt: mediaSessions.unsafeAt,
+      deletionRequestedAt: mediaSessions.deletionRequestedAt,
+    })
+    .from(mediaSessions)
+    .where(eq(mediaSessions.id, input.sessionId));
+  if (!session || !captureSessionAdmits(session, write))
+    throw createAppError('CONFLICT', 'Capture session is closed');
 }
 export async function lockCaptureLease(tx: CaptureTx, input: CaptureIdentity) {
   validCaptureIds(input.workerId);
@@ -147,6 +203,8 @@ export async function captureWriteContext(
   tx: CaptureTx,
   input: CaptureIdentity & CaptureStream,
   dependencies: CaptureDependencies,
+  /** The end of the audio this write records; none for a seal. */
+  capturedUntil?: Date,
 ) {
   const tick = await lockCaptureRound(tx, input, dependencies);
   const lease = await lockCaptureLease(tx, input);
@@ -155,6 +213,15 @@ export async function captureWriteContext(
     tx,
     input.roundId,
     tick.transcriptAdmissionCutoff,
+  );
+  await requireCaptureSession(
+    tx,
+    input,
+    capturedUntil && {
+      capturedUntil,
+      receivedAt: now,
+      sttLagMs: dependencies.sttLagMs,
+    },
   );
   requireLiveCaptureLease(lease.expiresAt, now);
   return {

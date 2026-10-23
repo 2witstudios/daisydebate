@@ -14,6 +14,7 @@ import {
   waitForMediaFact,
   mediaDependencies,
 } from './round-media.test-support';
+import { CAPTURE_STT_LAG_MS } from '@daisy/protocol';
 setupRitewayBun();
 requireTestServices(process.env);
 
@@ -98,6 +99,7 @@ test('authenticated capture broker verifies the actual lease and never creates a
       epoch: 1,
     };
     const capture = f.store.createMediaCaptureOperations({
+      sttLagMs: CAPTURE_STT_LAG_MS,
       nextId: createId,
       buildProjection: (context) =>
         mediaRuntime(context, createId).tick(context.now),

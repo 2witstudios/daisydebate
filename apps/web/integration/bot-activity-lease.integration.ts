@@ -7,7 +7,7 @@ import {
 } from './round-media.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
-test('an expired lease, ended session or unsafe session refuses relay on the admitted and the fresh path alike (CAP-E.1-r5)', async () => {
+test('an expired lease or an ended, unsafe or deletion-requested session refuses relay on the admitted and the fresh path alike (CAP-E.1-r5, CAP-E.1-r7)', async () => {
   await withMediaRound(async (f) => {
     const { scope, capture, identity, segmentId } =
       await leasedCaptureSpeech(f);
@@ -58,6 +58,10 @@ test('an expired lease, ended session or unsafe session refuses relay on the adm
         f.sql`update media_sessions set ended_at=clock_timestamp() where id=${scope.sessionId}`,
         f.sql`update media_sessions set ended_at=null where id=${scope.sessionId}`,
       ],
+      [
+        f.sql`update media_sessions set deletion_requested_at=clock_timestamp() where id=${scope.sessionId}`,
+        f.sql`update media_sessions set deletion_requested_at=null where id=${scope.sessionId}`,
+      ],
     ] as const) {
       const admitted = captureActivityRelay(f, capture);
       outcomes.push(await attempt(admitted));
@@ -69,11 +73,11 @@ test('an expired lease, ended session or unsafe session refuses relay on the adm
     }
     assert({
       given:
-        'an admitted seat whose lease then expires, whose session turns unsafe, or whose session ends',
+        'an admitted seat whose lease then expires, or whose session turns unsafe, ends or has deletion requested',
       should:
         'refuse every later batch, whether already admitted or freshly admitted, never alternating',
       actual: outcomes,
-      expected: Array(3)
+      expected: Array(4)
         .fill(['relayed', 'CONFLICT', 'CONFLICT', 'CONFLICT'])
         .flat(),
     });
