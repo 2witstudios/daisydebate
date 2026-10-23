@@ -1,5 +1,5 @@
 import { practiceRoomConfig } from './reference-formats';
-import { validRules } from './testing';
+import { validRules } from './testing-rules';
 
 export const caller = {
   userId: 'c8d4e2f6a1b3k5m7n9p2r4t6',

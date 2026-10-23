@@ -10,6 +10,7 @@ import {
   captureActivityRelay,
   captureOperations,
   captureWorkerScope,
+  leasedCaptureSpeech,
   startCaptureSpeech,
   withMediaRound,
 } from './round-media.test-support';
@@ -17,16 +18,7 @@ setupRitewayBun();
 requireTestServices(process.env);
 test('actual capture lease relays a bound seat with fresh PG receipt and no body authority', async () => {
   await withMediaRound(async (f) => {
-    const scope = await captureWorkerScope(f);
-    const capture = captureOperations(f);
-    const lease = await capture.claimMediaWorkerLease({
-      ...scope,
-      leaseMs: 15000,
-    });
-    const identity = { ...scope, epoch: lease.epoch };
-    await startCaptureSpeech(f);
-    const segmentId = (await capture.readMediaCaptureState(identity)).segment!
-      .id;
+    const { capture, identity, segmentId } = await leasedCaptureSpeech(f);
     const relay = captureActivityRelay(f, capture);
     const seats: { id: string; host: boolean }[] =
       await f.sql`select p.id, a.id = ${f.host.actorId} as host from round_participants p join actors a on a.id=p.actor_id where p.round_id=${f.roundId} and p.role<>'judge'`;

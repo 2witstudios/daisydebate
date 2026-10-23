@@ -20,6 +20,11 @@ import {
   type ReplayTransport,
 } from './subscription-state';
 
+/** Authority reads one subscribe may spend on writes landing mid-read. */
+const FENCED_READS = 3;
+/** A read that failed is transient; a denial is not. */
+const refusalCode = (decision: unknown) =>
+  decision === AUTHORITY_UNAVAILABLE ? 'INFRASTRUCTURE' : 'AUTHORIZATION';
 type Snapshot = {
   readonly cursor: OutboxPosition;
   readonly floor: OutboxPosition;
@@ -75,6 +80,7 @@ export function createSubscriptionReceiver({
       return null;
     }
     const sub: Subscription = {
+      requestId: request.id,
       lease: createAuthorityLease({ now, lifetimeMs }),
       revision: '',
       attached: false,
@@ -103,7 +109,8 @@ export function createSubscriptionReceiver({
     connection: Connection,
     request: SubscribeRequest,
     sub: Subscription,
-  ) {
+    fenced = 0,
+  ): Promise<boolean> {
     const { attempt, decision: pending } = beginAuthority(
       connection,
       request.topic,
@@ -112,16 +119,15 @@ export function createSubscriptionReceiver({
     const decision = await pending;
     if (!ownsSubscription(connection, request.topic, sub)) return false;
     if (decision === AUTHORITY_UNAVAILABLE || !decision) {
-      refuse(
-        connection,
-        request,
-        decision === AUTHORITY_UNAVAILABLE ? 'INFRASTRUCTURE' : 'AUTHORIZATION',
-      );
+      refuse(connection, request, refusalCode(decision));
       return false;
     }
-    // A write on the topic during the read superseded the allow; the
-    // subscriber re-reads and asks again, as after a replay (ISSUE-445).
+    // A write on the topic during the read superseded the allow: read again
+    // here, a bounded number of times, then let the subscriber re-read and
+    // ask again, as after a replay (ISSUE-445, ISSUE-445-r3).
     if (!sub.lease.accept(attempt, decision.validUntil)) {
+      if (fenced + 1 < FENCED_READS)
+        return initialAuthority(connection, request, sub, fenced + 1);
       transport.resync(connection, request, sub);
       return false;
     }
@@ -194,11 +200,7 @@ export function createSubscriptionReceiver({
       return false;
     if (!decision || decision === AUTHORITY_UNAVAILABLE) {
       transport.detach(connection, request.topic, sub);
-      refuse(
-        connection,
-        request,
-        decision === AUTHORITY_UNAVAILABLE ? 'INFRASTRUCTURE' : 'AUTHORIZATION',
-      );
+      refuse(connection, request, refusalCode(decision));
       return false;
     }
     const certified = await finalBoundary(since, through);

@@ -15,9 +15,8 @@ type WorkerPrincipal = {
   readonly participantId: string;
   readonly publicationEpoch: number;
 };
-/** Trusted server principal only; caller already holds canonical account/Round fences. No bearer comes from a public body. */
-export async function verifyBotWorkerPrincipalLocked(
-  tx: Reader,
+/** Well-formed ids and epoch, and a service bound to exactly its own run. */
+export function requireWorkerPrincipalShape(
   principal: WorkerPrincipal,
   roundId: string,
 ) {
@@ -31,6 +30,15 @@ export async function verifyBotWorkerPrincipalLocked(
     throw createAppError('VALIDATION');
   if (principal.serviceId !== `agent-run:${principal.agentRunId}`)
     throw createAppError('AUTHORIZATION');
+}
+
+/** Trusted server principal only; caller already holds canonical account/Round fences. No bearer comes from a public body. */
+export async function verifyBotWorkerPrincipalLocked(
+  tx: Reader,
+  principal: WorkerPrincipal,
+  roundId: string,
+) {
+  requireWorkerPrincipalShape(principal, roundId);
   const [run] = await tx
     .select()
     .from(agentRuns)

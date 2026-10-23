@@ -269,7 +269,7 @@ test('a host close abandons the room and prevents further commands', () => {
           expectedVersion: closed.mutation.state.version,
           title: 'Changed',
           topic: room.topic,
-          visibility: room.visibility,
+          visibility: 'public',
         },
         consent,
         edges,

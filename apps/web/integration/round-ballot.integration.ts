@@ -1,16 +1,16 @@
 import { seedSettledAttendanceLedger } from './round-attendance-fixture.test-support';
 import { canReadRound } from '../src/features/round-runtime/reads';
 import { requireTestServices } from '@daisy/config';
-import {
-  oneOnOneDefinition,
-  practiceRoomConfig,
-} from '@daisy/db/reference-formats';
 import { assertRejects } from '@daisy/errors/testing';
-import { ballotCategories, type Ballot } from '@daisy/protocol';
+import type { Ballot } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createRoundBallotOperations } from '../src/features/round-ballots/operations';
 import { finalizeAsWeb } from './round-maintenance.test-support';
+import {
+  fixtureBallot,
+  readyTwoHumanJudgeRoom,
+} from './round-judging.test-support';
 import {
   startRuntimeRound,
   withRoomRuntime,
@@ -18,49 +18,12 @@ import {
 
 setupRitewayBun();
 requireTestServices(process.env);
-const ruling = (winner: Ballot['winner']): Ballot => ({
-  rubricVersion: 'speaker-10@1',
-  winner,
-  reason: 'The decisive clash was answered by this side.',
-  feedback: {},
-  scores: {
-    affirmative: Object.fromEntries(ballotCategories.map((key) => [key, 3])),
-    negative: Object.fromEntries(ballotCategories.map((key) => [key, 3])),
-  } as Ballot['scores'],
-});
+const ruling = (winner: Ballot['winner']) =>
+  fixtureBallot('The decisive clash was answered by this side.', winner);
 
 test('all actual human judges submit one shared ballot against actual frozen input before the engine completes', async () => {
   await withRoomRuntime(async (f) => {
-    const secondJudge = await f.member();
-    let room = await f.assemble({
-      selection: {
-        kind: 'custom',
-        definition: {
-          ...oneOnOneDefinition,
-          seats: { ...oneOnOneDefinition.seats, judge: 2 },
-        },
-        config: practiceRoomConfig,
-        length: 'full',
-        competitionType: 'casual',
-      },
-    });
-    const judges = [f.outsider, secondJudge];
-    for (const [slot, judge] of judges.entries())
-      room = (
-        await f.command(judge, room, {
-          type: 'claim-seat',
-          role: 'judge',
-          slot,
-        })
-      ).view;
-    for (const caller of [f.host, f.guest, ...judges])
-      room = (
-        await f.consent(
-          caller,
-          await f.operations.view(caller, room.id),
-          'ready',
-        )
-      ).view;
+    const { room, judges } = await readyTwoHumanJudgeRoom(f);
     const { roundId } = await startRuntimeRound(f, room);
     const initial = (await f.store.getRound(roundId))!;
     const seats = judges.map((j) =>

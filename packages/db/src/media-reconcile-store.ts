@@ -31,35 +31,13 @@ import {
   type MediaReconcileFence,
   type MediaAbsenceProof,
 } from './media-reconcile-contracts';
+import { createMediaReconcileClaims } from './media-reconcile-claims';
 import {
-  createMediaReconcileClaims,
   MEDIA_RECONCILE_LEASE_MS as LEASE_MS,
-} from './media-reconcile-claims';
-
-const completionFields = (
-  session: Session,
-  now: Date,
-  terminal: boolean,
-  cleaned: boolean,
-) => ({
-  reconcileOwner: null,
-  reconcileLeaseUntil: null,
-  reconcileCompletedAt: now,
-  reconcileServedVersion: session.reconcileRunningVersion,
-  // A proven-clean recovery ends the unsafe episode, including its room
-  // deletion request, so capture discovery resumes (ISSUE-465).
-  ...(cleaned
-    ? {
-        unsafeAt: null,
-        ...(terminal
-          ? { endedAt: session.endedAt ?? now }
-          : { deletionRequestedAt: null }),
-      }
-    : {}),
-  ...(terminal
-    ? { deletionRequestedAt: session.deletionRequestedAt ?? now }
-    : {}),
-});
+  reconcileCompletion,
+  requireMutationAdmissible,
+  requireReconcileLease,
+} from './media-reconcile-rules';
 
 /** Durable serialization only; every provider call happens after these bounded transactions commit. */
 export function createMediaReconcileStore(input: {
@@ -102,15 +80,6 @@ export function createMediaReconcileStore(input: {
     if (!session) throw createAppError('NOT_FOUND');
     return session;
   };
-  const fence = (session: Session, claim: MediaReconcileFence, now: Date) => {
-    if (
-      session.reconcileOwner !== claim.owner ||
-      session.reconcileEpoch !== claim.epoch ||
-      !session.reconcileLeaseUntil ||
-      session.reconcileLeaseUntil <= now
-    )
-      throw createAppError('CONFLICT', 'Media reconciliation lease changed');
-  };
   const withFence = <T>(
     request: MediaReconcileFence,
     work: (
@@ -122,7 +91,7 @@ export function createMediaReconcileStore(input: {
     input.run(async (tx) => {
       const session = await locked(tx, request.sessionId);
       const now = new Date(await sampleRoundExecutionTime(tx));
-      fence(session, request, now);
+      requireReconcileLease(session, request, now);
       return work(tx, session, now);
     });
   return {
@@ -146,12 +115,11 @@ export function createMediaReconcileStore(input: {
       },
     ) {
       return withFence(request, async (tx, session) => {
-        const outstanding = await pending(tx, session.id);
-        if (
-          (session.unsafeAt || outstanding.length) &&
-          request.intent.kind !== 'delete'
-        )
-          throw createAppError('CONFLICT', 'Media recovery is unresolved');
+        requireMutationAdmissible(
+          session,
+          (await pending(tx, session.id)).length,
+          request.intent.kind,
+        );
         const authority = await lockMediaRound(tx, session.roundId);
         const botLeases = await readMediaBotLeases(
           tx,
@@ -194,7 +162,7 @@ export function createMediaReconcileStore(input: {
           participantId,
         });
         const dispatchedAt = new Date(await sampleRoundExecutionTime(tx));
-        fence(session, request, dispatchedAt);
+        requireReconcileLease(session, request, dispatchedAt);
         const id = mediaId(input.nextId());
         await tx.insert(mediaVendorMutations).values({
           id,
@@ -283,16 +251,16 @@ export function createMediaReconcileStore(input: {
             request,
             await mutationCount(tx, session.id),
           );
+        const { fields, result } = reconcileCompletion(session, now, {
+          terminal,
+          unresolved,
+          cleaned,
+        });
         await tx
           .update(mediaSessions)
-          .set({
-            ...completionFields(session, now, terminal, cleaned),
-          })
+          .set(fields)
           .where(eq(mediaSessions.id, session.id));
-        return {
-          safe: !unresolved && (session.unsafeAt === null || cleaned),
-          ended: terminal && cleaned,
-        };
+        return result;
       });
     },
   };

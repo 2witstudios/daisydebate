@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHmac } from 'node:crypto';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 
@@ -90,6 +90,8 @@ export function createMediaWorkerAuthentication(input: {
       'INFRASTRUCTURE',
       'Worker authentication is unavailable',
     );
+  const sha3 = (value: string) =>
+    new Bun.CryptoHasher('sha3-256').update(value).digest('hex');
   const digest = (request: Omit<SignedRequest, 'signature'>) =>
     createHmac('sha256', key).update(message(request), 'utf8').digest();
   return {
@@ -119,9 +121,8 @@ export function createMediaWorkerAuthentication(input: {
         Math.abs(now - stamp) > 5000
       )
         throw unauthorized();
-      if (
-        !timingSafeEqual(digest(request), Buffer.from(request.signature, 'hex'))
-      )
+      // Compare SHA3-256 digests of both signatures, never the raw HMACs.
+      if (sha3(digest(request).toString('hex')) !== sha3(request.signature))
         throw unauthorized();
       const roundId = route(request.path);
       return workerPrincipal(request.body, roundId);
