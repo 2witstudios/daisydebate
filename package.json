@@ -22,7 +22,7 @@
     "typecheck": "bun scripts/heavy.ts turbo run typecheck",
     "lint": "bun scripts/heavy.ts sh -c 'eslint . && bun scripts/check-boundaries.ts && bun scripts/check-styling.ts && bun test --timeout 180000 eslint.config.test.ts'",
     "knip": "bun scripts/heavy.ts bunx --bun knip",
-    "duplication": "bun scripts/heavy.ts sh -c 'bunx --bun jscpd && bunx --bun jscpd --config .jscpd-tests.json'",
+    "duplication": "bun scripts/heavy.ts bun scripts/duplication.ts",
     "metrics": "bun scripts/metrics.ts",
     "metrics:snapshot": "bun scripts/metrics.ts --append",
     "metrics:check": "bun scripts/metrics.ts --check",
