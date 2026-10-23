@@ -55,3 +55,47 @@ test('a refused settlement retried records the received usage once', async () =>
     expected: { first: 'refused', finished: ['received'], verifications: 2 },
   });
 });
+
+test('a synthesized phrase carries its segment end to the publisher', async () => {
+  const startedAt = '2026-10-23T10:00:00.000Z';
+  const generation = createBotGeneration({
+    store: {
+      beginRoundBotGeneration: (async () => ({
+        execution: 'execution',
+        model: 'model',
+        profile: { voice: 'voice' },
+        round: {
+          segments: [{ id: scope.segmentId, startedAt, durationMs: 60_000 }],
+        },
+      })) as never,
+      finishRoundBotGeneration: async () => undefined,
+      verifyRoundBotPublication: async () => undefined,
+    },
+    voice: () =>
+      ({
+        speakPcm: async () => ({
+          pcm: new Int16Array(240),
+          sampleRate: 24000,
+          channels: 1,
+          characters: 4,
+        }),
+      }) as never,
+    withProvider: (_signal, work) => work(),
+    nowMs: () => 0,
+    maxTokens: 100,
+  });
+  const answer = await generation.synthesize(
+    scope,
+    'token',
+    'p'.repeat(24),
+    'One.',
+    new AbortController().signal,
+  );
+  assert({
+    given: 'a phrase synthesized for a segment that started at 10:00 for 60 s',
+    should:
+      'carry the scheduled end, 10:01, to the publisher clamp (ISSUE-460-r1)',
+    actual: answer.value.segmentEndsAt,
+    expected: '2026-10-23T10:01:00.000Z',
+  });
+});
