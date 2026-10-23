@@ -3,7 +3,21 @@ import { createAppError } from '@daisy/errors';
 import type { BoundedTransactionContext } from './transaction-context';
 import type { BoundedTransaction } from './bounded-transaction';
 import { agentLeaseDigest } from './round-agent-lease';
-import { lockAgentAccounting, validAgentCounter } from './agent-accounting';
+import { lockAgentAccounting } from './agent-accounting';
+import {
+  generationRun,
+  requireRequest,
+  requireRunUsage,
+  requireSameSettlement,
+  requireSpeechBudget,
+  requireSpeechPolicy,
+  requireUsage,
+  type Execution,
+  type GenerationRequest,
+  type Outcome,
+  type SpeechPolicy,
+  type Usage,
+} from './bot-generation-rules';
 import { startLockedRoundAgentRun } from './round-agent-runs';
 import {
   lockBotAdmission,
@@ -18,73 +32,13 @@ import { agentRuns } from './schema/agent-runs';
 import { botProfiles } from './schema/bot-profiles';
 import { readOrderedRoundUtterances } from './round-utterance-projection';
 
-type GenerationRequest =
-  | { readonly kind: 'language' }
-  | { readonly kind: 'tts'; readonly characters: number };
-type Execution = { readonly id: string; readonly token: string };
-type Usage = {
-  readonly inputTokens: number;
-  readonly outputTokens: number;
-  readonly characters: number;
-};
-type Outcome = 'received' | 'failed' | 'unknown';
-const validCount = validAgentCounter;
-
-function requireRequest(request: GenerationRequest) {
-  if (!request || !['language', 'tts'].includes(request.kind))
-    throw createAppError('VALIDATION');
-  if (
-    request.kind === 'tts' &&
-    (!validCount(request.characters) || request.characters === 0)
-  )
-    throw createAppError('VALIDATION');
-}
-function requireUsage(outcome: Outcome, usage: Usage) {
-  if (
-    !['received', 'failed', 'unknown'].includes(outcome) ||
-    ![usage.inputTokens, usage.outputTokens, usage.characters].every(validCount)
-  )
-    throw createAppError('VALIDATION');
-}
-function requireRunUsage(run: typeof agentRuns.$inferSelect, usage: Usage) {
-  if (run.kind === 'tts') {
-    if (
-      usage.characters !== run.characters ||
-      usage.inputTokens !== 0 ||
-      usage.outputTokens !== 0
-    )
-      throw createAppError('VALIDATION');
-  } else if (usage.characters !== 0) throw createAppError('VALIDATION');
-}
-function requireSameSettlement(
-  run: typeof agentRuns.$inferSelect,
-  outcome: Outcome,
-  usage: Usage,
-) {
-  if (
-    run.configurationSnapshot.providerOutcome !== outcome ||
-    run.inputTokens !== usage.inputTokens ||
-    run.outputTokens !== usage.outputTokens ||
-    run.characters !== usage.characters
-  )
-    throw createAppError('CONFLICT');
-}
-type SpeechPolicy = {
-  readonly ttsModel?: string;
-  readonly speechBudget?: number;
-};
 async function speechModel(
   tx: BoundedTransactionContext,
   scope: BotPublicationScope,
   characters: number,
   policy: SpeechPolicy,
 ) {
-  if (
-    !policy.ttsModel?.trim() ||
-    !policy.speechBudget ||
-    !validCount(policy.speechBudget)
-  )
-    throw createAppError('INFRASTRUCTURE', 'Explicit speech policy required');
+  const model = requireSpeechPolicy(policy);
   const [total] = await tx
     .select({
       characters: sql<number>`coalesce(sum(${agentRuns.characters}),0)`,
@@ -96,9 +50,12 @@ async function speechModel(
         eq(agentRuns.kind, 'tts'),
       ),
     );
-  if (Number(total?.characters ?? 0) + characters > policy.speechBudget)
-    throw createAppError('CONFLICT', 'Speech budget exhausted');
-  return policy.ttsModel;
+  requireSpeechBudget(
+    Number(total?.characters ?? 0),
+    characters,
+    policy.speechBudget!,
+  );
+  return model;
 }
 /** Dispatch authority and usage settlement are distinct capabilities; neither writes speech. */
 export function createBotGenerationOperations(input: {
@@ -142,13 +99,11 @@ export function createBotGenerationOperations(input: {
         await requireBotSpeakingWindow(tx, scope);
         const id = input.nextId(),
           executionToken = input.nextToken();
+        const generated = generationRun(request, context.run.kind);
         await startLockedRoundAgentRun(tx, {
           id,
           participantId: scope.roundParticipantId,
-          kind:
-            request.kind === 'tts'
-              ? 'tts'
-              : (context.run.kind as 'speech' | 'cross_ex'),
+          kind: generated.kind,
           model,
           configuration: {
             ...scope,
@@ -161,7 +116,7 @@ export function createBotGenerationOperations(input: {
           .update(agentRuns)
           .set({
             requests: 1,
-            characters: request.kind === 'tts' ? request.characters : 0,
+            characters: generated.characters,
           })
           .where(eq(agentRuns.id, id));
         return {

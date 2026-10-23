@@ -29,6 +29,11 @@ import {
 } from './round-projection-writer';
 import { roundCommands } from './schema/round-commands';
 import { instrumented, type DatabaseEventSink } from './instrumented';
+import {
+  requireCommandInput,
+  requireFencedParticipants,
+  requireSameCommand,
+} from './round-command-replay';
 
 type Tx = Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0];
 /** Facts read after authorization and Round fences; callbacks are pure and synchronous. */
@@ -59,14 +64,13 @@ async function replayCommand(
     .from(roundCommands)
     .where(eq(roundCommands.commandId, input.envelope.commandId));
   if (previous) {
-    if (
-      previous.roundId !== input.roundId ||
-      previous.actorId !== actorId ||
-      previous.serviceId !== serviceId ||
-      previous.payloadDigest !== input.payloadDigest ||
-      previous.type !== input.envelope.command.type
-    )
-      throw createAppError('CONFLICT', 'command-conflict');
+    requireSameCommand(previous, {
+      roundId: input.roundId,
+      actorId,
+      serviceId,
+      payloadDigest: input.payloadDigest,
+      type: input.envelope.command.type,
+    });
     return {
       commandId: previous.commandId,
       roundId: previous.roundId,
@@ -93,12 +97,7 @@ export const roundCommandOperations = ({
     );
   },
   async executeRoundCommand(input: CommandInput): Promise<RoundCommandReceipt> {
-    if (
-      !idSchema.safeParse(input.roundId).success ||
-      !roundCommandEnvelopeSchema.safeParse(input.envelope).success ||
-      !/^[0-9a-f]{64}$/.test(input.payloadDigest)
-    )
-      throw createAppError('VALIDATION');
+    requireCommandInput(input, roundCommandEnvelopeSchema);
     return instrumented(eventSink, 'executeRoundCommand', () =>
       database.transaction(async (tx) => {
         const fenced = await fenceRoundWrite(tx, {
@@ -111,12 +110,7 @@ export const roundCommandOperations = ({
           { ...input, commandId: input.envelope.commandId },
           fenced.accounts,
         );
-        if (
-          context.round.participants.some(
-            (p) => !fenced.actorIds.includes(p.actorId),
-          )
-        )
-          throw createAppError('CONFLICT');
+        requireFencedParticipants(context.round.participants, fenced.actorIds);
         requireHumanRoundPrincipal(input.principal, fenced.accounts);
         input.authorize(context);
         const { actorId, serviceId } = roundPrincipalColumns(input.principal);

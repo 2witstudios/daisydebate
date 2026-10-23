@@ -181,7 +181,8 @@ export function availabilityOperations(client: SQL) {
   };
 }
 
-function requireRetentionBounds(input: {
+/** A retention purge needs a parseable horizon and a 1–1000 batch. */
+export function requireRetentionBounds(input: {
   readonly before: string;
   readonly limit: number;
 }): void {
