@@ -313,13 +313,20 @@ consumes the shared engine's `completeUnjudged` projection, whose
 incomplete play, pending check-in attempts, inconsistent cast facts, ranked or
 practice inputs, existing ratings and judged Rounds inside their deadline. The
 existing command ledger stores one internal service receipt bound to the exact
-frozen revision, with its ruling (`unjudged`, `judges-did-not-rule` or
-`partial`) and the judge seats that gave no ruling; concurrent attempts and a new
-service instance replay that original receipt. Open judging jobs become
+frozen revision, with its ruling (`unjudged`, `judges-did-not-rule`,
+`transcript-incomplete` or `partial`) and the judge seats that gave no ruling;
+concurrent attempts and a new service instance replay that original receipt. Open judging jobs become
 `failed`. Submitted ballots decide a winner; with none or a tie the outcome is
 NULL; no ballot, draw or rating is fabricated.
 Existing forfeit and abandonment decisions remain terminal. This operation has
 no public completion-mode envelope and performs no model work.
+
+An `incomplete` freeze queues no AI judging job (DEC-208, the engine's
+`freezeJudgingPlan`). When the Round has no human judge, the freeze persists
+the deadline at `frozen_at`, and the same finalizer completes the Round with a
+null outcome and the `transcript-incomplete` ruling. Human judges keep the
+ordinary deadline; once every human judge has ruled decisively, the finalizer
+completes without waiting for the AI seats, which record no ruling.
 
 Attendance evaluation enforces the same current web service authority inside its
 own transaction. It checks after the Round fence and control waits, before

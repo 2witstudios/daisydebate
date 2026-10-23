@@ -208,6 +208,16 @@ depends on one, and nothing in a Round's history would change if Rooms were dele
   become known failures. DEC-191's deferred triggers still fence the database:
   a null-outcome completion needs zero judge seats or a completion at or after
   the persisted deadline.
+- **An AI judge never rules on an incomplete transcript (DEC-208).** A freeze
+  recorded `incomplete` (a capture stream partial, missing or open: a media,
+  capture or STT cause) queues no AI judging job, so no provider is called. The
+  engine's `freezeJudgingPlan` decides this at the freeze. Without human judges
+  the persisted ballot deadline is the freeze time, and the same unjudged
+  finalizer completes the Round with a null outcome. The receipt ruling is
+  `transcript-incomplete`. There is no winner, draw, forfeit or rating. Human
+  judges still rule by the ordinary deadline, and AI seats on such a Round
+  record no ruling; once every human judge has ruled decisively the Round
+  completes without waiting out the deadline.
 - **AI practice capacity is held only while a practice plays (DEC-211).** Only
   scheduled and active status consumes global capacity. A Round gives its slot
   back when it reaches a terminal state through the shared terminal projection

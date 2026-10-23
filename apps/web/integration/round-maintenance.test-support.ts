@@ -2,7 +2,10 @@ import type { SQL } from 'bun';
 import type { Database } from '@daisy/db';
 import { createId } from '@paralleldrive/cuid2';
 import { startAvailabilityService } from '../src/features/availability/service';
-import { DEFAULT_BALLOT_DEADLINE_MS } from '../src/features/round-finalization/maintenance';
+import {
+  DEFAULT_BALLOT_DEADLINE_MS,
+  judgingPlan,
+} from '../src/features/round-finalization/maintenance';
 import { roundTickProjection } from '../src/features/round-finalization/operations';
 
 type WebFinalizerFixture = {
@@ -33,7 +36,7 @@ export async function withWebFinalizer<T>(
         instanceId,
         roundId,
         buildProjection: roundTickProjection(createId),
-        ballotDeadlineMs: DEFAULT_BALLOT_DEADLINE_MS,
+        planJudging: judgingPlan(DEFAULT_BALLOT_DEADLINE_MS),
       }),
     );
   } finally {
