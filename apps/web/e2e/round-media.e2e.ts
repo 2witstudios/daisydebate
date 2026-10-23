@@ -12,6 +12,9 @@ import {
   ballotRoundCommand,
 } from './support/human-ballot-round';
 
+/** Real decoded frames over the launch fixture's TLS edge can take seconds to arrive. */
+const MEDIA_POLL = { timeout: 20_000 };
+
 test('actual browser tracks reach an assigned hidden judge and terminal commit stops the local camera', async ({
   browser,
 }) => {
@@ -39,15 +42,17 @@ test('actual browser tracks reach an assigned hidden judge and terminal commit s
         .getByRole('button', { name: 'Enable sound', exact: true })
         .click();
       await expect
-        .poll(() =>
-          page
-            .getByLabel('Participant camera', { exact: true })
-            .evaluateAll((nodes) =>
-              nodes.some((node) => {
-                const video = node as HTMLVideoElement;
-                return video.videoWidth > 0 && video.readyState >= 2;
-              }),
-            ),
+        .poll(
+          () =>
+            page
+              .getByLabel('Participant camera', { exact: true })
+              .evaluateAll((nodes) =>
+                nodes.some((node) => {
+                  const video = node as HTMLVideoElement;
+                  return video.videoWidth > 0 && video.readyState >= 2;
+                }),
+              ),
+          MEDIA_POLL,
         )
         .toBe(true);
     }
@@ -78,33 +83,39 @@ test('actual browser tracks reach an assigned hidden judge and terminal commit s
       .getByRole('button', { name: 'Enable sound', exact: true })
       .click();
     await expect
-      .poll(() =>
-        judgePage.getByLabel('Participant camera', { exact: true }).evaluateAll(
-          (nodes) =>
-            nodes.filter((node) => {
-              const video = node as HTMLVideoElement;
-              return video.videoWidth > 0 && video.readyState >= 2;
-            }).length,
-        ),
+      .poll(
+        () =>
+          judgePage
+            .getByLabel('Participant camera', { exact: true })
+            .evaluateAll(
+              (nodes) =>
+                nodes.filter((node) => {
+                  const video = node as HTMLVideoElement;
+                  return video.videoWidth > 0 && video.readyState >= 2;
+                }).length,
+            ),
+        MEDIA_POLL,
       )
       .toBe(2);
     await expect
-      .poll(() =>
-        judgePage
-          .getByLabel('Participant audio', { exact: true })
-          .evaluateAll((nodes) =>
-            nodes.some((node) => {
-              const audio = node as HTMLAudioElement;
-              const stream = audio.srcObject as MediaStream | null;
-              return (
-                !audio.paused &&
-                audio.readyState >= 2 &&
-                stream
-                  ?.getAudioTracks()
-                  .some((track) => track.readyState === 'live')
-              );
-            }),
-          ),
+      .poll(
+        () =>
+          judgePage
+            .getByLabel('Participant audio', { exact: true })
+            .evaluateAll((nodes) =>
+              nodes.some((node) => {
+                const audio = node as HTMLAudioElement;
+                const stream = audio.srcObject as MediaStream | null;
+                return (
+                  !audio.paused &&
+                  audio.readyState >= 2 &&
+                  stream
+                    ?.getAudioTracks()
+                    .some((track) => track.readyState === 'live')
+                );
+              }),
+            ),
+        MEDIA_POLL,
       )
       .toBe(true);
     for (const member of debaters) {
@@ -117,10 +128,15 @@ test('actual browser tracks reach an assigned hidden judge and terminal commit s
         false,
       );
     }
+    // Hold the camera track itself: LiveKit detaches it from the element's
+    // stream once unpublished, so only the track shows it was stopped.
     const local = await pages[0]!
       .getByLabel('Your camera', { exact: true })
       .evaluateHandle(
-        (node) => (node as HTMLVideoElement).srcObject as MediaStream,
+        (node) =>
+          (
+            (node as HTMLVideoElement).srcObject as MediaStream
+          ).getVideoTracks()[0]!,
       );
     const fresh = await readBallotRound(debaters[0]!.context.request, round.id);
     const seat = fresh.participants.find(
@@ -134,12 +150,8 @@ test('actual browser tracks reach an assigned hidden judge and terminal commit s
       participantId: seat.id,
     });
     await expect
-      .poll(() =>
-        local.evaluate((stream) =>
-          stream.getVideoTracks().map((track) => track.readyState),
-        ),
-      )
-      .toEqual(['ended']);
+      .poll(() => local.evaluate((track) => track.readyState), MEDIA_POLL)
+      .toBe('ended');
     await local.dispose();
   } finally {
     await closeSettledLaunchContexts(accounts);
