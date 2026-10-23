@@ -47,7 +47,8 @@ export function createMediaService({
     });
   /**
    * A 4xx LiveKit response is a definite refusal (not found, or otherwise
-   * refused); a network failure, timeout or 5xx leaves the outcome unknown.
+   * refused). A timeout (408 or deadline_exceeded) may still have applied, so
+   * it stays unknown, like a network failure or 5xx.
    */
   const operation = async <T>(work: () => Promise<T>) => {
     try {
@@ -56,7 +57,9 @@ export function createMediaService({
       if (
         error instanceof ServerError &&
         error.status >= 400 &&
-        error.status < 500
+        error.status < 500 &&
+        error.status !== 408 &&
+        error.code !== 'deadline_exceeded'
       )
         throw createAppError(
           error.status === 404 || error.code === 'not_found'

@@ -17,7 +17,7 @@ payloads. Capture-agent authorization is a separate server scope.
 
 Intent is immutable. Settlement records one known succeeded/failed outcome with
 its PostgreSQL timestamp. A provider answer is known (ISSUE-464): success, or a
-definite LiveKit refusal (a 4xx). Not found on a delete proves the room is absent
+definite LiveKit refusal (a 4xx other than a 408 or `deadline_exceeded` timeout, which may have applied and stays unknown). Not found on a delete proves the room is absent
 and settles succeeded; any other definite refusal settles failed without making
 the session unsafe. Only a network failure, timeout or provider fault leaves the
 outcome unknown; unknown operations remain pending across crashes without an
