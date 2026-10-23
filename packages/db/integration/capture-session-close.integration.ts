@@ -12,6 +12,22 @@ const outcome = (work: () => Promise<unknown>) =>
     (error: { code?: string }) => error.code ?? 'error',
   );
 
+/** Claims the worker lease, then turns the session unsafe 49 ms after the clip's receipt window opens. */
+async function unsafeJustAfterReceipt(
+  fixture: Parameters<Parameters<typeof withBoundedRound>[0]>[0],
+  { store, lease, clip, start }: Awaited<ReturnType<typeof historicalCapture>>,
+) {
+  await store.claimMediaWorkerLease({ ...lease, leaseMs: 15000 });
+  await fixture.sql.unsafe(
+    'update media_sessions set created_at=$2, unsafe_at=$3 where id=$1',
+    [
+      lease.sessionId,
+      new Date(start.getTime() - 1000),
+      new Date(Date.parse(clip.after) + 49),
+    ],
+  );
+}
+
 test('a session closed by end, unsafe or a vendor-room deletion request admits only audio captured before it closed (CAP-E.1-r6)', async () => {
   await withBoundedRound(async (fixture, transaction, firstRound) => {
     const results: Record<string, Record<string, string>> = {};
@@ -91,7 +107,7 @@ test('a session closed by end, unsafe or a vendor-room deletion request admits o
 
 test('audio stamped before the close but received after close plus the speech-to-text lag is refused (CAP-E.1-r8)', async () => {
   await withBoundedRound(async (fixture, transaction, roundId) => {
-    const { store, lease, clip, start } = await historicalCapture(
+    const capture = await historicalCapture(
       fixture,
       transaction,
       roundId,
@@ -99,20 +115,14 @@ test('audio stamped before the close but received after close plus the speech-to
       1000,
     );
     try {
-      await store.claimMediaWorkerLease({ ...lease, leaseMs: 15000 });
-      await fixture.sql.unsafe(
-        'update media_sessions set created_at=$2, unsafe_at=$3 where id=$1',
-        [
-          lease.sessionId,
-          new Date(start.getTime() - 1000),
-          new Date(Date.parse(clip.after) + 49),
-        ],
-      );
+      await unsafeJustAfterReceipt(fixture, capture);
       assert({
         given:
           'a clip stamped 49 ms before the session turned unsafe, arriving more than 1 s after it under a 1 s lag policy',
         should: 'refuse it: the worker stamp alone cannot admit late audio',
-        actual: await outcome(() => store.appendCapturedTranscript(clip)),
+        actual: await outcome(() =>
+          capture.store.appendCapturedTranscript(capture.clip),
+        ),
         expected: 'CONFLICT',
       });
     } finally {
@@ -128,7 +138,7 @@ test('at the production speech-to-text lag, a clip received 100.7 s after the cl
       [firstRound, 100_000],
       [await fixture.round(), 1_000],
     ] as const) {
-      const { store, lease, clip, start } = await historicalCapture(
+      const capture = await historicalCapture(
         fixture,
         transaction,
         roundId,
@@ -136,17 +146,11 @@ test('at the production speech-to-text lag, a clip received 100.7 s after the cl
         CAPTURE_STT_LAG_MS,
       );
       try {
-        await store.claimMediaWorkerLease({ ...lease, leaseMs: 15000 });
-        await fixture.sql.unsafe(
-          'update media_sessions set created_at=$2, unsafe_at=$3 where id=$1',
-          [
-            lease.sessionId,
-            new Date(start.getTime() - 1000),
-            new Date(Date.parse(clip.after) + 49),
-          ],
-        );
+        await unsafeJustAfterReceipt(fixture, capture);
         outcomes.push(
-          await outcome(() => store.appendCapturedTranscript(clip)),
+          await outcome(() =>
+            capture.store.appendCapturedTranscript(capture.clip),
+          ),
         );
       } finally {
         await fixture.sql.unsafe('delete from rounds where id=$1', [roundId]);

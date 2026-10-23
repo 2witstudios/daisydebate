@@ -3,7 +3,10 @@ import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { withBoundedRound } from './bounded-transaction.test-support';
-import { historicalCapture } from './media-capture.test-support';
+import {
+  historicalCapture,
+  withClaimedCapture,
+} from './media-capture.test-support';
 
 setupRitewayBun();
 requireTestServices(process.env);
@@ -225,46 +228,36 @@ test('frozen input and expired actual-final-end cutoff fence every capture mutat
 });
 
 test('capture refuses full uncertainty windows across historical gaps and boundaries atomically', async () =>
-  withBoundedRound(async (f, transaction, roundId) => {
-    const { store, lease, clip, start, end } = await historicalCapture(
-      f,
-      transaction,
-      roundId,
-    );
-    try {
-      await store.claimMediaWorkerLease({ ...lease, leaseMs: 15000 });
-      await f.sql`delete from round_speaking_intervals where round_id=${roundId}`;
-      for (const [from, until] of [
-        [0, 400],
-        [600, 1000],
-      ])
-        await f.sql`insert into round_speaking_intervals(id,round_id,segment_id,round_participant_id,started_at,ended_at,started_version,ended_version) values(${createId()},${roundId},${clip.segmentId},${clip.roundParticipantId},${new Date(start.getTime() + from!)},${new Date(start.getTime() + until!)},1,2)`;
-      for (const candidate of [
-        { ...clip, after: new Date(start.getTime() + 601).toISOString() },
-        { ...clip, before: new Date(start.getTime() - 1).toISOString() },
-        { ...clip, after: end.toISOString() },
-      ])
-        await assertRejects({
-          given:
-            'full uncertainty outside one historical grant despite eligible nominal clip',
-          should: 'refuse atomically',
-          code: 'CONFLICT',
-          actual: () => store.appendCapturedTranscript(candidate),
-        });
-      assert({
-        given: 'all refused windows',
-        should: 'leave no text stream observation or frontier',
-        actual: await Promise.all(
-          [
-            'utterances',
-            'transcript_segments',
-            'transcript_observations',
-            'round_transcripts',
-          ].map((t) => f.count(t, 'round_id', roundId)),
-        ),
-        expected: [0, 0, 0, 0],
+  withClaimedCapture(async (f, { store, clip, start, end }, roundId) => {
+    await f.sql`delete from round_speaking_intervals where round_id=${roundId}`;
+    for (const [from, until] of [
+      [0, 400],
+      [600, 1000],
+    ])
+      await f.sql`insert into round_speaking_intervals(id,round_id,segment_id,round_participant_id,started_at,ended_at,started_version,ended_version) values(${createId()},${roundId},${clip.segmentId},${clip.roundParticipantId},${new Date(start.getTime() + from!)},${new Date(start.getTime() + until!)},1,2)`;
+    for (const candidate of [
+      { ...clip, after: new Date(start.getTime() + 601).toISOString() },
+      { ...clip, before: new Date(start.getTime() - 1).toISOString() },
+      { ...clip, after: end.toISOString() },
+    ])
+      await assertRejects({
+        given:
+          'full uncertainty outside one historical grant despite eligible nominal clip',
+        should: 'refuse atomically',
+        code: 'CONFLICT',
+        actual: () => store.appendCapturedTranscript(candidate),
       });
-    } finally {
-      await f.sql`delete from rounds where id=${roundId}`;
-    }
+    assert({
+      given: 'all refused windows',
+      should: 'leave no text stream observation or frontier',
+      actual: await Promise.all(
+        [
+          'utterances',
+          'transcript_segments',
+          'transcript_observations',
+          'round_transcripts',
+        ].map((t) => f.count(t, 'round_id', roundId)),
+      ),
+      expected: [0, 0, 0, 0],
+    });
   }));

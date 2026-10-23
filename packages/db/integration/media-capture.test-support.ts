@@ -2,6 +2,7 @@ import { createId } from '@paralleldrive/cuid2';
 import type { BoundedTransaction } from '../src/bounded-transaction';
 import { mediaCaptureOperations } from '../src/media-capture';
 import type { Fixture } from './constraint-helpers';
+import { withBoundedRound } from './bounded-transaction.test-support';
 
 export async function historicalCapture(
   fixture: Fixture,
@@ -63,3 +64,24 @@ export async function historicalCapture(
   };
   return { store, lease, stream, clip, start, end };
 }
+
+/** A bounded Round holding historical capture with its worker lease claimed, deleted afterwards. */
+export const withClaimedCapture = (
+  work: (
+    f: Fixture,
+    capture: Awaited<ReturnType<typeof historicalCapture>>,
+    roundId: string,
+  ) => Promise<void>,
+) =>
+  withBoundedRound(async (f, transaction, roundId) => {
+    const capture = await historicalCapture(f, transaction, roundId);
+    try {
+      await capture.store.claimMediaWorkerLease({
+        ...capture.lease,
+        leaseMs: 15000,
+      });
+      await work(f, capture, roundId);
+    } finally {
+      await f.sql`delete from rounds where id=${roundId}`;
+    }
+  });
