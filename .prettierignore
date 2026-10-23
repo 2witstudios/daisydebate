@@ -13,5 +13,7 @@ packages/db/migrations/*/snapshot.json
 # Generated in-test previews (AUTH-3.9): rendered for a reviewer to open in a
 # browser, not authored source.
 apps/web/src/features/auth/mail/__fixtures__
+# A captured Playwright report kept byte for byte (ISSUE-487-r1).
+scripts/fixtures/playwright-report-planted.html
 
 .claude/ralph-loop.*.md
