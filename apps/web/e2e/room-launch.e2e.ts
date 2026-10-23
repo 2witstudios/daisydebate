@@ -249,9 +249,9 @@ test('canonical browser custom-create preserves declared unequal seats and order
         segment.durationMs,
       ]),
     ).toEqual([
-      ['N1', 'negative', 0, 7000],
-      ['A2', 'affirmative', 1, 13000],
-      ['A1', 'affirmative', 0, 11000],
+      ['N1', 'negative', 0, 41000],
+      ['A2', 'affirmative', 1, 53000],
+      ['A1', 'affirmative', 0, 47000],
     ]);
     await page.goto(`/rooms/${view.id}`);
     await page.getByText('Manage seats', { exact: true }).click();
@@ -260,19 +260,19 @@ test('canonical browser custom-create preserves declared unequal seats and order
     ).toBeVisible();
     await page.getByText('Edit settings', { exact: true }).click();
     const settings = page.getByRole('form', { name: 'Room settings' });
-    await settings.locator('[name="duration.segment.A2.seconds"]').fill('17');
+    await settings.locator('[name="duration.segment.A2.seconds"]').fill('59');
     await settings.getByRole('button', { name: 'Save settings' }).click();
     await expect(async () => {
       view = await reread(context.request, view.id);
       expect(view.rules.segments.map((segment) => segment.durationMs)).toEqual([
-        7000, 17000, 11000,
+        41000, 59000, 47000,
       ]);
     }).toPass();
     await page.reload();
     await page.getByText('Edit settings', { exact: true }).click();
     await expect(
       settings.locator('[name="duration.segment.A2.seconds"]'),
-    ).toHaveValue('17');
+    ).toHaveValue('59');
     view = await claim(page, view, 'Affirmative 2');
     await proveGathering(browser, context, page, view, info);
     await settledLaunchAuth();
