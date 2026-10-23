@@ -70,11 +70,11 @@ test('a seat is admitted once per lease epoch and segment; later batches take no
   assert({
     given: 'three batches in one epoch and segment, then a new epoch',
     should:
-      'take one locked capture read per admission and only the cheap lease check otherwise',
+      'take one locked capture read per admission, and the same lease check on every batch',
     actual: [admitted, f.calls],
     expected: [
-      { capture: 1, lease: 2, writes: 3 },
-      { capture: 3, lease: 2, writes: 4 },
+      { capture: 1, lease: 3, writes: 3 },
+      { capture: 3, lease: 4, writes: 4 },
     ],
   });
   f.expire();
