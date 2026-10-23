@@ -85,7 +85,10 @@ async function startShortRound(
   const roundId = launched.view.roundRef!.id;
   const deps = mediaDependencies(f);
   const mediaOperations = createRoundMediaOperations(deps);
+  // Both debaters join, so each speaking grant has a published track: the
+  // host's carries speech, the guest's only silence.
   await mediaOperations.session(roundId, f.host.actorId);
+  await mediaOperations.session(roundId, f.guest.actorId);
   const runtime = createRoundRuntimeOperations({
     store: f.store,
     nextSegmentId: nextId,
