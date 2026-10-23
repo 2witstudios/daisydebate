@@ -1,7 +1,7 @@
 # 0052: Dated audit exception for braces
 
-Status: accepted (owner decision of 2026-10-04). Extends ADR 0039 with a third
-dated exception; ADR 0039's rules apply unchanged.
+Status: withdrawn: GitHub withdrew GHSA-vfj7-8cjw-p6xm on 2026-10-23, so its
+exception is removed (ISSUE-516). Was: accepted (owner decision of 2026-10-04).
 
 ## Context
 
