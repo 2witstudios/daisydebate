@@ -30,10 +30,12 @@ export async function createLaunchContexts<
       members.push({ context, username });
     }
     return { members, closeContexts };
-  } catch {
+  } catch (error) {
     await closeContexts();
+    // The message stays secret-free; the cause carries the actual failure.
     throw new Error(
       'Launch account setup failed; suite-owned slot data retained',
+      { cause: error },
     );
   }
 }
