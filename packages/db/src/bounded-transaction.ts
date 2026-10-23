@@ -12,6 +12,7 @@ import {
   transactionContext,
   type BoundedTransactionContext,
 } from './transaction-context';
+import { createTransactionAdmission } from './transaction-admission';
 import {
   recoverTransactionBackend,
   type OwnedBackend,
@@ -261,24 +262,13 @@ class TransactionAttempt {
   }
 }
 
-const CAPACITY_UNAVAILABLE = 'Transcript transaction capacity unavailable';
-const capacityRefusals = new WeakSet<Error>();
-/** Admission backpressure only: the pool had no writer reservation free; nothing ran. */
-export const isTransactionCapacityRefusal = (error: unknown): boolean =>
-  error instanceof Error && capacityRefusals.has(error);
-/** The one admission refusal `isTransactionCapacityRefusal` recognises. */
-export function refuseCapacity() {
-  const refusal = createAppError('INFRASTRUCTURE', CAPACITY_UNAVAILABLE);
-  capacityRefusals.add(refusal);
-  return refusal;
-}
-
 /** One existing pool; two reservations per admitted writer retain recovery capacity. */
 export function createBoundedTransaction({
   client,
   maxConnections,
   now,
   executionMs = TRANSACTION_MS,
+  admissionWaitMs,
 }: {
   readonly client: SQL;
   readonly maxConnections: number;
@@ -286,6 +276,8 @@ export function createBoundedTransaction({
   readonly now: () => number;
   /** Execution slice including reservations/setup/commit; recovery may need another1000ms. */
   readonly executionMs?: number;
+  /** The longest a writer queues for a slot; nothing has run when it is refused. */
+  readonly admissionWaitMs?: number | undefined;
 }): BoundedTransaction {
   if (
     !Number.isSafeInteger(executionMs) ||
@@ -293,21 +285,18 @@ export function createBoundedTransaction({
     executionMs > TRANSACTION_MS
   )
     throw createAppError('INVARIANT', 'Invalid transaction execution budget');
-  let active = 0;
+  const { admit, leave } = createTransactionAdmission({
+    maxConnections,
+    waitMs: admissionWaitMs,
+  });
   return async <T>(
     run: TransactionWork<T>,
     options?: TransactionOptions,
   ): Promise<T> => {
-    if (
-      !Number.isSafeInteger(maxConnections) ||
-      maxConnections < 2 ||
-      active >= Math.floor(maxConnections / 2)
-    )
-      throw refuseCapacity();
     const slice = options?.executionMs ?? executionMs;
     if (!Number.isSafeInteger(slice) || slice < 1 || slice > executionMs)
       throw createAppError('INVARIANT', 'Invalid transaction execution budget');
-    active += 1;
+    await admit();
     try {
       return await new TransactionAttempt(
         client,
@@ -316,7 +305,7 @@ export function createBoundedTransaction({
         options?.lifecycle,
       ).run(run);
     } finally {
-      active -= 1;
+      leave();
     }
   };
 }

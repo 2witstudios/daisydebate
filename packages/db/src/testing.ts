@@ -115,5 +115,5 @@ export {
 } from './messaging/browser-fixture';
 
 export { createScriptedAuthorizationTransaction } from './testing-authorization';
-export { refuseCapacity } from './bounded-transaction';
+export { refuseCapacity } from './transaction-admission';
 export { refuseFinalSpeech } from './bot-generation-rules';

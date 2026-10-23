@@ -185,6 +185,46 @@ test('a transient admission refusal is retried before media is called unavailabl
   });
 });
 
+test('a transient reconcile refusal is retried, joining or live', async () => {
+  let reconciles = 0;
+  const states: string[] = [];
+  const waits: number[] = [];
+  const controller = createMediaController({
+    roundId,
+    api: {
+      admit: async () => admission,
+      reconcile: async () => {
+        // The join's first read and the live read's first try are refused for now.
+        if (++reconciles % 2 === 1) throw transientMediaFailure();
+        return snapshot;
+      },
+    },
+    transport: transportStub,
+    changed: (state) => states.push(state),
+    retry: {
+      delaysMs: [500, 1000, 2000],
+      wait: async (ms) => {
+        waits.push(ms);
+      },
+    },
+  });
+  await controller.join();
+  await controller.reconcile();
+  assert({
+    given:
+      'a reconcile refused for now (a 503 under load) while joining, and again once live',
+    should:
+      'wait and retry both, reporting reconnecting only while joining, and stay live (ISSUE-508)',
+    actual: { reconciles, waits, states, final: controller.state() },
+    expected: {
+      reconciles: 4,
+      waits: [500, 500],
+      states: ['connecting', 'reconnecting', 'live'],
+      final: 'live',
+    },
+  });
+});
+
 test('a lasting or definite admission failure is reported unavailable', async () => {
   const outcome = async (failure: () => Error) => {
     let admits = 0;
