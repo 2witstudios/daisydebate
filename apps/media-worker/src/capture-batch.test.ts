@@ -1,5 +1,10 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { flushClipCarry, validateCaptureBatch } from './capture-batch';
+import {
+  flushClipCarry,
+  flushQuietCarries,
+  validateCaptureBatch,
+  type ClipCarries,
+} from './capture-batch';
 import type { CaptureClient } from './capture-history';
 import type { StagedFrame } from './capture-staging';
 
@@ -130,41 +135,52 @@ test('a frame newer than the history read is held for the next batch, never drop
   });
 });
 
+/** A seat's open grant read at server time 11000, and one 250 ms batch of its speech carried into `carries`. */
+const openGrant = {
+  ...current,
+  state: {
+    ...current.state,
+    serverNow: iso(11000),
+    intervals: [{ ...current.state.intervals[0]!, endedAt: null }],
+  },
+} as typeof current;
+const speechBatch = (
+  carries: ClipCarries,
+  from: number,
+  clip: (clip: {
+    startOffsetMs: number;
+    durationMs: number;
+  }) => void = () => {},
+) =>
+  validateCaptureBatch({
+    frames: Array.from({ length: 25 }, (_, i) => {
+      const at = from + i * 10;
+      const frame = staged(at, at - 1, at + 11);
+      return {
+        ...frame,
+        frame: { ...frame.frame, pcm: new Int16Array(160).fill(1000) },
+      };
+    }),
+    current: openGrant,
+    client: {} as CaptureClient,
+    roundId: 'r'.repeat(24),
+    epoch: 1,
+    signal: new AbortController().signal,
+    nowMs: () => 0,
+    dropped: () => {},
+    straddled: () => {},
+    clip,
+    held: () => {},
+    carries,
+  });
+
 test("a stream's consecutive batches make one clip, cut only when the stream flushes", async () => {
-  const open = {
-    ...current,
-    state: {
-      ...current.state,
-      serverNow: iso(11000),
-      intervals: [{ ...current.state.intervals[0]!, endedAt: null }],
-    },
-  } as typeof current;
-  const carries = new Map();
+  const carries: ClipCarries = new Map();
   const clipped: number[] = [];
   const batch = (from: number) =>
-    validateCaptureBatch({
-      frames: Array.from({ length: 25 }, (_, i) => {
-        const at = from + i * 10;
-        return {
-          ...staged(at, at - 1, at + 11),
-          frame: {
-            ...staged(at, at - 1, at + 11).frame,
-            pcm: new Int16Array(160).fill(1000),
-          },
-        };
-      }),
-      current: open,
-      client: {} as CaptureClient,
-      roundId: 'r'.repeat(24),
-      epoch: 1,
-      signal: new AbortController().signal,
-      nowMs: () => 0,
-      dropped: () => {},
-      straddled: () => {},
-      clip: (clip) => clipped.push(clip.startOffsetMs, clip.durationMs),
-      held: () => {},
-      carries,
-    });
+    speechBatch(carries, from, (clip) =>
+      clipped.push(clip.startOffsetMs, clip.durationMs),
+    );
   await batch(10010);
   await batch(10260);
   const beforeFlush = [...clipped];
@@ -179,5 +195,24 @@ test("a stream's consecutive batches make one clip, cut only when the stream flu
       'cut no clip at the batch boundary, and one 500 ms clip at the flush (VIDEO-4.1-r7)',
     actual: { beforeFlush, clipped, left: carries.size },
     expected: { beforeFlush: [], clipped: [1010, 500], left: 0 },
+  });
+});
+
+test("a stream whose frames stop ends its clip after a pause, not at its segment's end", async () => {
+  const carries: ClipCarries = new Map();
+  await speechBatch(carries, 10010);
+  // The last carried frame ended at 10261 (server time).
+  const at = (serverNowMs: number) =>
+    flushQuietCarries(carries, 'r'.repeat(24), serverNowMs).map((clip) => [
+      clip.startOffsetMs,
+      clip.durationMs,
+    ]);
+  assert({
+    given:
+      "a seat's 250 ms of frames, then no frame at all (a bot's track after its speech)",
+    should:
+      'keep the clip open until the frames have been silent 500 ms, then end it, long before the segment ends (VIDEO-4.1-r7)',
+    actual: { early: at(10700), paused: at(10761), left: carries.size },
+    expected: { early: [], paused: [[1010, 250]], left: 0 },
   });
 });

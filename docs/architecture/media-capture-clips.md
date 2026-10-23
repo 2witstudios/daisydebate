@@ -29,9 +29,13 @@ ends at a pause, at the sixty-second bound, at a split above, or at the final
 flush: the call made with `final: true` when the stream's segment has ended and
 it is due to seal, which emits what remains (VIDEO-4.1-r7).
 
-A pause is 500 ms of consecutive low-energy frames after at least one frame of
-speech; the clip ends after the pause. Silence alone never ends a clip, so a
-silent seat accumulates toward the bound instead of emitting a clip per batch.
+A pause is 500 ms (`CLIP_PAUSE_MS`) of consecutive low-energy frames after at
+least one frame of speech; the clip ends after the pause. Low-energy frames alone
+never end a clip, so a silent seat accumulates toward the bound instead of
+emitting a clip per batch. Frames that stop altogether are a pause too: the
+worker ends any carry whose last frame is `CLIP_PAUSE_MS` old by server time. A
+bot's track goes quiet when its speech ends, and its transcript must not wait for
+its segment's end, which the Round's completion follows within seconds.
 Low energy is an observed PCM RMS at most 64 signed sample units. Clips contain
 at most 60,000ms. At that limit, the latest low-energy frame ending in the final
 5,000ms is preferred, and with no such frame the hard sixty-second boundary is

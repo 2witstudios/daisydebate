@@ -12,6 +12,7 @@ import { createCaptureStaging } from './capture-staging';
 import {
   CAPTURE_BATCH_INTERVAL_MS,
   flushClipCarry,
+  flushQuietCarries,
   validateCaptureBatch,
   type ClipCarries,
 } from './capture-batch';
@@ -156,6 +157,11 @@ export async function runCaptureSession(
         clip: enqueue,
         carries,
       });
+      flushQuietCarries(
+        carries,
+        input.roundId,
+        Date.parse(current.state.serverNow),
+      ).forEach(enqueue);
       // A due stream's carried frames are its last clip; it seals once that is in.
       const sealable = streams
         .due(Date.parse(current.state.serverNow))
