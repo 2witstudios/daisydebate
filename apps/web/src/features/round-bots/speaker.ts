@@ -62,7 +62,7 @@ export function createBotSpeaker(input: {
     text: string,
     signal: AbortSignal,
   ) => Promise<Answer<Job>>;
-  /** `onSent` reports the samples of `job` sent so far, after each accepted frame. */
+  /** `onSent` reports the samples of `job` sent so far, after each frame is sent. */
   readonly publish: (
     job: Job,
     signal: AbortSignal,

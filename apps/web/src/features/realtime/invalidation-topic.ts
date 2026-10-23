@@ -1,7 +1,7 @@
 import type { ServerMessage } from '@daisy/protocol';
 import type { ConnectionStore } from './connection-store';
 
-/** Refusals in a row retried before the topic waits for a reconnect. */
+/** Transient refusals in a row retried before the topic waits for a reconnect. */
 const MAX_REFUSAL_RETRIES = 3;
 
 /** Doorbells invalidate a snapshot; they never carry content or authority. */
@@ -33,9 +33,10 @@ export function attachInvalidationTopic({
       resync = true;
       refresh(frame);
     } else if (frame.type === 'subscribed') refusals = 0;
-    else if (frame.type === 'error') {
-      // A refusal of this topic's subscription can be transient: the read the
-      // error triggers proves authority again, then the topic resubscribes.
+    else if (frame.type === 'error' && frame.code === 'INFRASTRUCTURE') {
+      // The server could not decide authority for now; the read this error
+      // triggers proves authority again, then the topic resubscribes. Any
+      // other refusal (AUTHORIZATION, RATE_LIMIT) is final for this socket.
       if (refusals < MAX_REFUSAL_RETRIES) {
         refusals += 1;
         resync = true;
