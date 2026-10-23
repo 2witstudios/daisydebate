@@ -10,16 +10,12 @@ import { createCaptureClock } from '../src/capture-clock';
 import type { withHistoricalSeat } from './native-fixtures.test-support';
 import { waitForCadence, pcmJob } from './native-fixtures.test-support';
 
+type Probe = Parameters<typeof createCaptureSubscription>[0];
 const openCaptureProbe = async (
   roomName: string,
   identity: string,
-  callbacks: Pick<
-    Parameters<typeof createCaptureSubscription>[0],
-    'onFrame' | 'onTrackClosed'
-  > &
-    Partial<
-      Pick<Parameters<typeof createCaptureSubscription>[0], 'onTrackStarted'>
-    >,
+  callbacks: Pick<Probe, 'onFrame' | 'onTrackClosed'> &
+    Partial<Pick<Probe, 'onTrackStarted'>>,
 ) => {
   const service = createMediaService({ config });
   const capture = await createCaptureSubscription({

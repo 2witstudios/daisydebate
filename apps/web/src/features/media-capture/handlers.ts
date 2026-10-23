@@ -32,7 +32,10 @@ export function createMediaCaptureHandlers(input: {
   /** Capture hears a bot seat's track (ISSUE-514-r2). */
   readonly heard: Relay;
 }) {
-  const relays = { activity: input.activity, heard: input.heard };
+  const relays = new Map([
+    ['activity', input.activity],
+    ['heard', input.heard],
+  ]);
   return {
     handle: (request: Request) =>
       handleOperation(input.logger, request, 'media.capture', async (id) => {
@@ -58,9 +61,10 @@ export function createMediaCaptureHandlers(input: {
           return Response.json(
             await input.token(parseValidated(captureScope, payload), principal),
           );
-        if (operation === 'activity' || operation === 'heard') {
+        const relay = relays.get(String(operation));
+        if (relay) {
           const { roundId, sessionId, workerId, epoch, ...body } = payload;
-          await relays[operation](
+          await relay(
             parseValidated(captureScope, {
               roundId,
               sessionId,

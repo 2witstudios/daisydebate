@@ -317,24 +317,14 @@ export function createMediaWorkerClient(input: Dependencies) {
     ) => (await call('seal', stream, sealReply, signal)).value,
     /** Expendable heuristic relay; the server attaches the receipt and owns admission. */
     activity: async (
-      batch: {
-        readonly epoch: number;
-        readonly roundParticipantId: string;
-        readonly segmentId: string;
-        readonly frames: readonly ActivityFrame[];
-      },
+      batch: Stream & { readonly frames: readonly ActivityFrame[] },
       signal?: AbortSignal,
     ) => {
       await call('activity', { ...batch, version: 1 }, activityReply, signal);
     },
-    /** Capture hears a bot seat's track; the server owns admission. */
+    /** Capture hears a bot seat's track (ISSUE-514-r2); the server owns admission. */
     heard: async (
-      track: {
-        readonly epoch: number;
-        readonly roundParticipantId: string;
-        readonly segmentId: string;
-        readonly trackId: string;
-      },
+      track: Stream & { readonly trackId: string },
       signal?: AbortSignal,
     ) => {
       await call('heard', { ...track, version: 1 }, activityReply, signal);
