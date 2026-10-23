@@ -31,8 +31,10 @@ export const mediaCaptureOperations = (dependencies: CaptureDependencies) => ({
     );
   },
   /**
-   * Unlocked witness for an already admitted activity seat: the lease is
-   * current and its segment still open. Returns fresh PostgreSQL time.
+   * The one capture lease-validity predicate for activity relay: this worker's
+   * epoch, an unexpired lease, a session not ended, unsafe or being deleted,
+   * and its segment still open. Read without the Round lock; returns fresh
+   * PostgreSQL time.
    */
   readCurrentCaptureLease(raw: unknown) {
     const input = parseCapture(captureLeaseCheckSchema, raw);
@@ -46,6 +48,7 @@ export const mediaCaptureOperations = (dependencies: CaptureDependencies) => ({
           and l.worker_id=${input.workerId} and l.epoch=${input.epoch}
           and l.expires_at>clock_timestamp()
           and s.ended_at is null and s.unsafe_at is null
+          and s.deletion_requested_at is null
           and g.id=${input.segmentId} and g.ended_at is null`)) as unknown as {
         serverNow: string;
       }[];
