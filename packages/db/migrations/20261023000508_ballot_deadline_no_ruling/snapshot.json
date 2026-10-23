@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "91733564-6832-40d7-be8c-dd35f1a08665",
+  "id": "13cbbb94-7b16-4df0-8c76-366b71c6ce33",
   "prevIds": [
     "0de704cc-6ffb-4689-8752-526bec7e5e87"
   ],
@@ -6390,6 +6390,19 @@
       "generated": null,
       "identity": null,
       "name": "transcript_admission_cutoff",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "rounds"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "ballot_deadline_at",
       "entityType": "columns",
       "schema": "public",
       "table": "rounds"

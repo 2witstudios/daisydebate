@@ -31,13 +31,13 @@ import { roundJudgingJobs } from './schema/round-judging-jobs';
 type CompletionFacts = Parameters<
   LockedRoundTickInput['buildProjection']
 >[0] & {
-  /** The Round's stored ballots and immutable freeze, for the ballot deadline. */
+  /** The Round's stored ballots and the deadline persisted at its freeze. */
   readonly ballots: readonly {
     readonly judgeParticipantId: string;
     readonly winner: 'affirmative' | 'negative';
     readonly status: 'submitted' | 'voided';
   }[];
-  readonly frozenAt: string;
+  readonly ballotDeadlineAt: string | null;
 };
 type Request = LockedRoundTickInput & {
   readonly instanceId: string;
@@ -139,7 +139,7 @@ async function readCompletionFacts(
   const round = await hydrateRoundRows(tx, input.roundId);
   const freeze = await readTranscriptFreeze(tx, input.roundId);
   const [durable] =
-    await tx.execute(sql`select ladder_id,final_segment_ended_at,transcript_admission_cutoff,
+    await tx.execute(sql`select ladder_id,final_segment_ended_at,transcript_admission_cutoff,ballot_deadline_at,
     exists(select 1 from rating_changes where round_id=${input.roundId}) as ratings
     from rounds where id=${input.roundId}`);
   const now = await sampleRoundExecutionTime(tx);
@@ -171,6 +171,9 @@ async function readCompletionFacts(
     freeze,
     now,
     ballots: stored as CompletionFacts['ballots'],
+    ballotDeadlineAt: durable.ballot_deadline_at
+      ? new Date(durable.ballot_deadline_at as string).toISOString()
+      : null,
   };
 }
 
@@ -223,16 +226,13 @@ async function complete(tx: BoundedTransactionContext, input: Request) {
     }
     throw error;
   }
-  const { round, freeze, now, ballots } = await readCompletionFacts(
-    tx,
-    input,
-    facts,
-  );
+  const { round, freeze, now, ballots, ballotDeadlineAt } =
+    await readCompletionFacts(tx, input, facts);
   const completion = input.buildCompletion({
     round,
     now,
     ballots,
-    frozenAt: freeze.frozenAt,
+    ballotDeadlineAt,
   });
   requireCompletionProjection(completion);
   const { projection } = completion;

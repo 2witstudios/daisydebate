@@ -22,8 +22,7 @@ const at = (nowMs: number, ballots: ReturnType<typeof ballot>[] = []) =>
   decideUnjudgedCompletion({
     judgeSeatIds: judges,
     ballots,
-    frozenAtMs: 1_000,
-    ballotDeadlineMs: 60_000,
+    ballotDeadlineAtMs: 61_000,
     nowMs,
   });
 
@@ -34,8 +33,7 @@ test('the ballot deadline decides when a Round without a full ruling completes (
     actual: decideUnjudgedCompletion({
       judgeSeatIds: [],
       ballots: [],
-      frozenAtMs: 1_000,
-      ballotDeadlineMs: 60_000,
+      ballotDeadlineAtMs: Number.NaN,
       nowMs: 1_000,
     }),
     expected: {
@@ -69,8 +67,9 @@ test('the ballot deadline decides when a Round without a full ruling completes (
     },
   });
   assert({
-    given: 'the deadline passed with two of three ballots, split and unanimous',
-    should: 'take the outcome from the submitted ballots by the existing rule',
+    given: 'the deadline passed with two of three ballots, unanimous and split',
+    should:
+      'take a winner from the submitted ballots, but never let the absent ruling make a draw',
     actual: [
       at(61_000, [
         ballot(judges[0]!, 'negative'),
@@ -90,8 +89,8 @@ test('the ballot deadline decides when a Round without a full ruling completes (
       },
       {
         kind: 'complete',
-        ruling: 'partial',
-        outcome: 'draw',
+        ruling: 'judges-did-not-rule',
+        outcome: null,
         noRuling: [judges[2]],
       },
     ],
@@ -114,8 +113,7 @@ const completion = (nowMs: number) => ({
   competitionType: 'casual' as const,
   now: roundAt(nowMs),
   ballots: [],
-  frozenAt: roundAt(total),
-  ballotDeadlineMs: 1_800_000,
+  ballotDeadlineAt: roundAt(total + 1_800_000),
 });
 
 test('a judged casual Round completes without a winner only after its ballot deadline', async () => {

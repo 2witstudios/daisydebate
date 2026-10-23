@@ -13,17 +13,17 @@ export const DEFAULT_BALLOT_DEADLINE_MS = 30 * 60_000;
 type CompletionBuilder = Parameters<
   Database['completeUnjudgedRound']
 >[0]['buildCompletion'];
-/** The engine decides; a judged Round inside its ballot deadline is not yet eligible. */
+/** The engine decides; a judged Round before its persisted ballot deadline is not yet eligible. */
 export const unjudgedCompletion =
-  (nextId: () => string, ballotDeadlineMs: number): CompletionBuilder =>
-  ({ round, now, ballots, frozenAt }) => {
+  (nextId: () => string): CompletionBuilder =>
+  ({ round, now, ballots, ballotDeadlineAt }) => {
     const decision = decideUnjudgedCompletion({
       judgeSeatIds: round.participants
         .filter((seat) => seat.role === 'judge')
         .map((seat) => seat.id),
       ballots,
-      frozenAtMs: Date.parse(frozenAt),
-      ballotDeadlineMs,
+      ballotDeadlineAtMs:
+        ballotDeadlineAt === null ? Number.NaN : Date.parse(ballotDeadlineAt),
       nowMs: Date.parse(now),
     });
     if (decision.kind === 'pending')
@@ -39,8 +39,7 @@ export const unjudgedCompletion =
         competitionType: round.competitionType,
         now,
         ballots,
-        frozenAt,
-        ballotDeadlineMs,
+        ballotDeadlineAt,
       }),
     };
   };
@@ -100,6 +99,7 @@ export function createRoundMaintenanceOperations(input: {
         instanceId: input.instanceId,
         roundId,
         buildProjection,
+        ballotDeadlineMs,
       });
       if (result.status !== 'frozen') return result;
       try {
@@ -109,10 +109,7 @@ export function createRoundMaintenanceOperations(input: {
           commandId: input.ids.next(),
           freezeRevision: result.freeze.revision,
           buildProjection,
-          buildCompletion: unjudgedCompletion(
-            () => input.ids.next(),
-            ballotDeadlineMs,
-          ),
+          buildCompletion: unjudgedCompletion(() => input.ids.next()),
         });
       } catch (error) {
         if (

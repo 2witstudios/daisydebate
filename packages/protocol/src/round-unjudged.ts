@@ -5,14 +5,13 @@ import { debateSides, idSchema, type DebateSide } from './primitives';
 export type RoundUnjudgedCompletion = {
   readonly competitionType: 'casual' | 'practice' | 'ranked';
   readonly now: string;
-  /** The Round's stored ballots and immutable freeze, for the ballot deadline (DEC-201). */
+  /** The Round's stored ballots and the deadline persisted at its freeze (DEC-201, DEC-207). */
   readonly ballots: readonly {
     readonly judgeParticipantId: string;
     readonly winner: DebateSide;
     readonly status: 'submitted' | 'voided';
   }[];
-  readonly frozenAt: string;
-  readonly ballotDeadlineMs: number;
+  readonly ballotDeadlineAt: string | null;
 };
 
 /**

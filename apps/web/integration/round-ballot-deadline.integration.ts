@@ -11,7 +11,10 @@ import { createRoundBallotOperations } from '../src/features/round-ballots/opera
 import { createRoundMaintenanceOperations } from '../src/features/round-finalization/maintenance';
 import { seedSettledAttendanceLedger } from './round-attendance-fixture.test-support';
 import { freezeBotJudge } from './round-judging.test-support';
-import { finalizeAsWeb } from './round-maintenance.test-support';
+import {
+  finalizeAsWeb,
+  passBallotDeadline,
+} from './round-maintenance.test-support';
 import {
   startRuntimeRound,
   withRoomRuntime,
@@ -71,10 +74,9 @@ async function frozenTwoJudgeRound(f: Fixture) {
   return { roundId, judges, seats };
 }
 
-/** Production maintenance under fresh web leases, with the deadline policy injected. */
+/** Production maintenance under fresh web leases. */
 async function maintainWith<T>(
   f: Fixture,
-  ballotDeadlineMs: number,
   count: number,
   work: (finalize: (roundId: string) => Promise<unknown>[]) => Promise<T>,
 ) {
@@ -87,7 +89,6 @@ async function maintainWith<T>(
       instanceId,
       ids: { next: createId },
       evaluate: async () => null,
-      ballotDeadlineMs,
     }),
   );
   try {
@@ -102,36 +103,76 @@ async function maintainWith<T>(
 const completions = (f: Fixture, roundId: string) =>
   f.sql`select result from round_commands where round_id=${roundId} and type='complete'`;
 
-test('a judge who never rules is recorded as no ruling at the deadline and the submitted ballot decides once (DEC-201)', async () => {
-  await withRoomRuntime(async (f) => {
-    const { roundId, judges, seats } = await frozenTwoJudgeRound(f);
-    const before = (await f.store.getRound(roundId))!;
-    await createRoundBallotOperations({
+const submitAs = (
+  f: Fixture,
+  judge: { readonly actorId: string },
+  roundId: string,
+  judgeParticipantId: string,
+  winner: Ballot['winner'],
+) =>
+  f.store.getRound(roundId).then((round) =>
+    createRoundBallotOperations({
       store: f.store,
       nextBallotId: createId,
       nextSegmentId: createId,
-    }).submit({ kind: 'human', actorId: judges[0]!.actorId }, roundId, {
+    }).submit({ kind: 'human', actorId: judge.actorId }, roundId, {
       version: 1,
       commandId: createId(),
-      expectedVersion: before.version,
-      judgeParticipantId: seats[0]!.id,
+      expectedVersion: round!.version,
+      judgeParticipantId,
       freezeRevision: 1,
-      ballot: ruling('negative'),
-    });
-    await maintainWith(f, 30 * 60_000, 1, (finalize) =>
-      Promise.all(finalize(roundId)),
+      ballot: ruling(winner),
+    }),
+  );
+/** A direct write completing the Round without a winner, refused or accepted at commit. */
+const completeDirectly = (f: Fixture, roundId: string) =>
+  f.sql
+    .begin(
+      (tx) =>
+        tx`update rounds set status='completed',current_stage=null,outcome=null,completed_at=clock_timestamp() where id=${roundId}`,
+    )
+    .then(
+      () => 'accepted',
+      (error: { constraint?: string }) => error.constraint ?? 'error',
     );
+
+test('a judge who never rules is recorded as no ruling at the persisted deadline and the submitted ballot decides once (DEC-201, DEC-207)', async () => {
+  await withRoomRuntime(async (f) => {
+    const { roundId, judges, seats } = await frozenTwoJudgeRound(f);
+    const [persisted] =
+      await f.sql`select r.ballot_deadline_at = z.frozen_at + interval '30 minutes' as exact from rounds r join round_transcript_freezes z on z.round_id=r.id where r.id=${roundId}`;
+    const early = await completeDirectly(f, roundId);
+    await submitAs(f, judges[0]!, roundId, seats[0]!.id, 'negative');
+    await maintainWith(f, 1, (finalize) => Promise.all(finalize(roundId)));
     const waiting = (await f.store.getRound(roundId))!;
-    await maintainWith(f, 0, 2, (finalize) => Promise.all(finalize(roundId)));
+    await passBallotDeadline(f.sql, roundId);
+    const late = await submitAs(
+      f,
+      judges[1]!,
+      roundId,
+      seats[1]!.id,
+      'affirmative',
+    ).then(
+      () => 'accepted',
+      (error: { code?: string; message?: string }) =>
+        `${error.code} ${error.message}`,
+    );
+    await maintainWith(f, 2, (finalize) => Promise.all(finalize(roundId)));
     const done = (await f.store.getRound(roundId))!;
     const receipts = await completions(f, roundId);
     assert({
       given:
-        'one of two judges ruled, maintenance inside the default 30-minute deadline, then two instances past it',
+        'a freeze under the 30-minute policy, a direct completion write and maintenance before the deadline, one ballot, then a late ballot and two instances after it',
       should:
-        'wait, then complete exactly once with the submitted outcome and the silent judge as no ruling',
+        'persist the deadline, refuse the early write and the late ballot, then complete exactly once from the submitted ballot',
       actual: {
+        persisted: persisted.exact,
+        early,
         waiting: [waiting.status, waiting.outcome],
+        late,
+        ballots: (
+          await f.sql`select count(*)::int n from ballots where round_id=${roundId}`
+        )[0].n,
         done: [done.status, done.outcome],
         receipts: receipts.length,
         ruling: receipts[0]?.result.ruling,
@@ -141,7 +182,11 @@ test('a judge who never rules is recorded as no ruling at the deadline and the s
         )[0].n,
       },
       expected: {
+        persisted: true,
+        early: 'rounds_unjudged_participants_check',
         waiting: ['active', null],
+        late: 'CONFLICT round-decided',
+        ballots: 1,
         done: ['completed', 'negative'],
         receipts: 1,
         ruling: 'partial',
@@ -155,7 +200,8 @@ test('a judge who never rules is recorded as no ruling at the deadline and the s
 test('when no judge rules by the deadline the Round completes without a winner', async () => {
   await withRoomRuntime(async (f) => {
     const { roundId, seats } = await frozenTwoJudgeRound(f);
-    await maintainWith(f, 0, 1, (finalize) => Promise.all(finalize(roundId)));
+    await passBallotDeadline(f.sql, roundId);
+    await maintainWith(f, 1, (finalize) => Promise.all(finalize(roundId)));
     const done = (await f.store.getRound(roundId))!;
     const [receipt] = await completions(f, roundId);
     assert({
@@ -183,7 +229,8 @@ test('an AI judging job still open at the deadline is recorded as a known failur
     async (f) => {
       const { roundId } = await freezeBotJudge(f);
       await seedSettledAttendanceLedger(f, roundId);
-      await maintainWith(f, 0, 1, (finalize) => Promise.all(finalize(roundId)));
+      await passBallotDeadline(f.sql, roundId);
+      await maintainWith(f, 1, (finalize) => Promise.all(finalize(roundId)));
       const [job] =
         await f.sql`select status,lease_token_digest from round_judging_jobs where round_id=${roundId}`;
       assert({

@@ -293,8 +293,11 @@ a separate durable unrated scan using the existing idempotent rating operation.
 
 Casual Rounds without a full set of ballots finish through the same maintenance
 path after immutable transcript freeze and settled attendance: zero-judge Rounds
-at once, judged Rounds once their ballot deadline (default 30 minutes after the
-freeze, DEC-201) passes. `completeUnjudgedRound` holds the global command fence,
+at once, judged Rounds once their ballot deadline passes. The freeze persists
+that deadline (`rounds.ballot_deadline_at`, default 30 minutes after the freeze,
+DEC-201 and DEC-207); it is immutable, the ballot path refuses a ballot at or
+after it, and the deferred `rounds_unjudged_participants_check` triggers refuse
+a null-outcome completion of a judged Round before it. `completeUnjudgedRound` holds the global command fence,
 canonical account and Round fences, reads the stored ballots and freeze time, and
 consumes the shared engine's `completeUnjudged` projection, whose
 `decideUnjudgedCompletion` decides eligibility and outcome. It refuses
@@ -304,8 +307,8 @@ existing command ledger stores one internal service receipt bound to the exact
 frozen revision, with its ruling (`unjudged`, `judges-did-not-rule` or
 `partial`) and the judge seats that gave no ruling; concurrent attempts and a new
 service instance replay that original receipt. Open judging jobs become
-`failed`. The outcome comes from submitted ballots, or is NULL; no ballot or
-rating is fabricated.
+`failed`. Submitted ballots decide a winner; with none or a tie the outcome is
+NULL; no ballot, draw or rating is fabricated.
 Existing forfeit and abandonment decisions remain terminal. This operation has
 no public completion-mode envelope and performs no model work.
 

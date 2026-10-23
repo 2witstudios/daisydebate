@@ -96,6 +96,8 @@ export const rounds = pgTable(
       .default(emptyRuntimeCheckpoint),
     finalSegmentEndedAt: timestampColumn('final_segment_ended_at'),
     transcriptAdmissionCutoff: timestampColumn('transcript_admission_cutoff'),
+    /** Set once at the transcript freeze from the injected policy; judges rule before it (DEC-201, DEC-207). */
+    ballotDeadlineAt: timestampColumn('ballot_deadline_at'),
     createdAt: createdAtColumn(),
     updatedAt: updatedAtColumn(),
     version: versionColumn(),

@@ -24,17 +24,18 @@ export type UnjudgedDecision =
     };
 
 /**
- * When a Round without a full set of ballots completes (DEC-201). A zero-judge
- * Round completes at once. A judged Round waits for its ballots, which
- * complete it themselves, until the ballot deadline after the immutable
- * freeze; then missing ballots are no ruling and the outcome comes from the
- * submitted ones by the existing rule, or is null when there are none.
+ * When a Round without a full set of ballots completes (DEC-201, DEC-207). A
+ * zero-judge Round completes at once. A judged Round waits for its ballots,
+ * which complete it themselves, until the ballot deadline persisted at the
+ * freeze; then missing ballots are no ruling. The submitted ballots decide a
+ * winner by the existing rule; with none, or a tie the absent rulings would
+ * otherwise turn into a draw, the judges did not rule and there is no outcome.
  */
 export function decideUnjudgedCompletion(input: {
   readonly judgeSeatIds: readonly string[];
   readonly ballots: readonly Ruling[];
-  readonly frozenAtMs: number;
-  readonly ballotDeadlineMs: number;
+  /** NaN when no deadline was persisted, which never passes. */
+  readonly ballotDeadlineAtMs: number;
   readonly nowMs: number;
 }): UnjudgedDecision {
   if (input.judgeSeatIds.length === 0)
@@ -51,27 +52,22 @@ export function decideUnjudgedCompletion(input: {
   );
   const ruled = new Set(submitted.map((ballot) => ballot.judgeParticipantId));
   const noRuling = input.judgeSeatIds.filter((id) => !ruled.has(id));
-  if (
-    noRuling.length === 0 ||
-    !(input.nowMs >= input.frozenAtMs + input.ballotDeadlineMs)
-  )
+  if (noRuling.length === 0 || !(input.nowMs >= input.ballotDeadlineAtMs))
     return { kind: 'pending' };
-  if (submitted.length === 0)
-    return {
-      kind: 'complete',
-      ruling: 'judges-did-not-rule',
-      outcome: null,
-      noRuling,
-    };
-  return {
-    kind: 'complete',
-    ruling: 'partial',
-    outcome: deriveRoundOutcome(
-      [...ruled].map((id) => ({ id, role: 'judge' })),
-      submitted,
-    ),
-    noRuling,
-  };
+  const outcome = submitted.length
+    ? deriveRoundOutcome(
+        [...ruled].map((id) => ({ id, role: 'judge' })),
+        submitted,
+      )
+    : null;
+  return outcome === null || outcome === 'draw'
+    ? {
+        kind: 'complete',
+        ruling: 'judges-did-not-rule',
+        outcome: null,
+        noRuling,
+      }
+    : { kind: 'complete', ruling: 'partial', outcome, noRuling };
 }
 
 const isClosedActiveRound = (
@@ -96,8 +92,10 @@ export function applyUnjudgedCompletion(
   const decision = decideUnjudgedCompletion({
     judgeSeatIds,
     ballots: input.ballots,
-    frozenAtMs: Date.parse(input.frozenAt),
-    ballotDeadlineMs: input.ballotDeadlineMs,
+    ballotDeadlineAtMs:
+      input.ballotDeadlineAt === null
+        ? Number.NaN
+        : Date.parse(input.ballotDeadlineAt),
     nowMs: c.now,
   });
   if (

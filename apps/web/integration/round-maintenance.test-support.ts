@@ -2,6 +2,7 @@ import type { SQL } from 'bun';
 import type { Database } from '@daisy/db';
 import { createId } from '@paralleldrive/cuid2';
 import { startAvailabilityService } from '../src/features/availability/service';
+import { DEFAULT_BALLOT_DEADLINE_MS } from '../src/features/round-finalization/maintenance';
 import { roundTickProjection } from '../src/features/round-finalization/operations';
 
 type WebFinalizerFixture = {
@@ -32,6 +33,7 @@ export async function withWebFinalizer<T>(
         instanceId,
         roundId,
         buildProjection: roundTickProjection(createId),
+        ballotDeadlineMs: DEFAULT_BALLOT_DEADLINE_MS,
       }),
     );
   } finally {
@@ -40,6 +42,17 @@ export async function withWebFinalizer<T>(
 }
 export const finalizeAsWeb = (f: WebFinalizerFixture, roundId: string) =>
   withWebFinalizer(f, (finalize) => finalize(roundId));
+
+/**
+ * Test clock for the persisted ballot deadline: PostgreSQL time cannot be
+ * injected and the deadline is immutable, so move it into the past in one
+ * transaction that bypasses only user triggers.
+ */
+export const passBallotDeadline = (sql: SQL, roundId: string) =>
+  sql.begin(async (tx) => {
+    await tx`set local session_replication_role = replica`;
+    await tx`update rounds set ballot_deadline_at=clock_timestamp()-interval '1 millisecond' where id=${roundId}`;
+  });
 
 export const maintenanceTestTimers = {
   setInterval: (pulse: () => void, ms: number) => {

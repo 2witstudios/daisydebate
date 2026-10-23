@@ -28,7 +28,8 @@ test('internal zerojudge completion requires real freeze and settled attendance 
       commandId: createId(),
       freezeRevision: 1,
       buildProjection: roundTickProjection(createId),
-      buildCompletion: unjudgedCompletion(createId, DEFAULT_BALLOT_DEADLINE_MS),
+      buildCompletion: unjudgedCompletion(createId),
+      ballotDeadlineMs: DEFAULT_BALLOT_DEADLINE_MS,
     };
     try {
       await assertRejects({
@@ -141,7 +142,8 @@ test('internal zerojudge completion preserves a prior competitive abandonment an
       commandId: envelope.commandId,
       freezeRevision: 1,
       buildProjection: roundTickProjection(createId),
-      buildCompletion: unjudgedCompletion(createId, DEFAULT_BALLOT_DEADLINE_MS),
+      buildCompletion: unjudgedCompletion(createId),
+      ballotDeadlineMs: DEFAULT_BALLOT_DEADLINE_MS,
     };
     try {
       const active = await f.store.getRound(roundId);

@@ -25,8 +25,7 @@ const facts = (
   competitionType,
   now,
   ballots: [],
-  frozenAt: roundAt(0),
-  ballotDeadlineMs: 0,
+  ballotDeadlineAt: roundAt(0),
 });
 const played = () => {
   const world = runtimeWorld({ rules, participants });
