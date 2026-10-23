@@ -143,13 +143,6 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U daisy -d daisy_test"
           --health-interval 3s --health-timeout 3s --health-retries 20
-      clamd:
-        image: clamav/clamav:1.4.6
-        ports: ['3310:3310']
-        options: >-
-          --health-cmd "clamdcheck.sh"
-          --health-interval 10s --health-timeout 5s
-          --health-start-period 3m --health-retries 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -158,10 +151,11 @@ jobs:
         with:
           bun-version: '1.4.2'
       - run: bun install --frozen-lockfile
-      # Redis (memory-only, 512 databases) and LiveKit (dev-only keys from
-      # infra/livekit.yaml) come from the local compose stack itself, so CI
-      # and every slot run one shape; service containers cannot pass flags.
-      - run: docker compose -f infra/compose.yaml up -d --wait redis livekit
+      # Redis (memory-only, 512 databases), LiveKit (dev-only keys from
+      # infra/livekit.yaml) and the pinned clamd come from the local compose
+      # stack itself, so CI and every slot run one shape; service containers
+      # cannot pass flags.
+      - run: docker compose -f infra/compose.yaml up -d --wait redis livekit clamd
       - run: bun db:migrate
       - name: Verify migration reruns are idempotent
         run: bun db:migrate
