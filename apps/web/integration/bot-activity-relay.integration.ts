@@ -8,6 +8,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createMediaCaptureHandlers } from '../src/features/media-capture/handlers';
 import {
   captureActivityRelay,
+  captureHeardRelay,
   captureOperations,
   captureWorkerScope,
   leasedCaptureSpeech,
@@ -157,6 +158,7 @@ test('signed worker activity crosses the actual ingress into the expiring relay 
       capture: () => capture,
       token: () => Promise.reject(Error('token is not part of relay')),
       activity: captureActivityRelay(f, capture),
+      heard: captureHeardRelay(f, capture),
     });
     const server = Bun.serve({
       hostname: '127.0.0.1',

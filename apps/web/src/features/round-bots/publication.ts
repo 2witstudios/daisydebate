@@ -1,4 +1,7 @@
-import type { createAudioPublication } from '@daisy/media/audio';
+import {
+  publicationStopError,
+  type createAudioPublication,
+} from '@daisy/media/audio';
 import { createPacedAudioWriter } from '@daisy/media/publication';
 import type { Database } from '@daisy/db';
 import type { BotPublicationScope } from '@daisy/db/bot-publication';
@@ -19,6 +22,12 @@ export type BotSpeechJob = {
 };
 const FRAME_SAMPLES = 240;
 /**
+ * How long a joined track may wait for capture to report hearing it: the
+ * seat's identity binding, capture's next read and its subscription.
+ */
+const HEARD_TIMEOUT_MS = 10000;
+const HEARD_POLL_MS = 50;
+/**
  * TTS audio in whole 10 ms frames: a partial last frame is padded with
  * silence, never dropped, so every phrase is sent whole (ISSUE-454).
  */
@@ -35,19 +44,20 @@ function wholeFrames(pcm: Int16Array) {
  * every attempt, so a retry never joins a fresh participant whose first
  * frames no one has subscribed to yet (ISSUE-514-r1, DEC-225). A publication
  * that failed is closed and replaced on the next use; `close` ends it with
- * the claim.
+ * the claim, abandoning a join still in progress.
  */
 function createClaimPublication(input: {
-  readonly open: () => Promise<Publication>;
+  readonly open: (signal: AbortSignal) => Promise<Publication>;
 }) {
   let current: Promise<Publication> | null = null;
   let closed = false;
+  const ended = new AbortController();
   const release = async (opening: Promise<Publication> | null) => {
     const publication = await opening?.catch(() => null);
     await publication?.close();
   };
   const open = () => {
-    const opening = input.open();
+    const opening = input.open(ended.signal);
     current = opening;
     // A failed join holds no participant; the next use joins again.
     opening.catch(() => {
@@ -84,6 +94,7 @@ function createClaimPublication(input: {
     },
     close: async () => {
       closed = true;
+      ended.abort();
       const last = current;
       current = null;
       await release(last);
@@ -92,7 +103,9 @@ function createClaimPublication(input: {
 }
 /**
  * A claim's publisher: native receipt windows authorize each whole frame
- * sent; no text is credited.
+ * sent; no text is credited. A joined track is used only once capture reports
+ * hearing it for this seat, so no window is credited before capture can see
+ * the track (ISSUE-514-r2); one never heard stops as `unheard`.
  */
 export function createBotPublisher(input: {
   readonly store: Pick<Database, 'databaseNow' | 'verifyRoundBotPublication'>;
@@ -101,6 +114,8 @@ export function createBotPublisher(input: {
     token: string,
   ) => Promise<{ url: string; token: string }>;
   readonly connect: typeof createAudioPublication;
+  /** The seat capture reports hearing the track for, or null. */
+  readonly heard: (roundId: string, trackSid: string) => Promise<string | null>;
   readonly nextId: () => string;
   readonly monotonicNowMs: () => number;
   readonly waitUntilMs: (due: number, signal: AbortSignal) => Promise<void>;
@@ -109,11 +124,29 @@ export function createBotPublisher(input: {
     readonly scope: BotPublicationScope;
     readonly token: string;
   }) => {
+    const heard = async (trackSid: string, signal: AbortSignal) => {
+      const deadline = input.monotonicNowMs() + HEARD_TIMEOUT_MS;
+      for (;;) {
+        if (signal.aborted) throw createAppError('CONFLICT');
+        const seat = await input.heard(claim.scope.roundId, trackSid);
+        if (seat === claim.scope.roundParticipantId) return;
+        const now = input.monotonicNowMs();
+        if (now >= deadline)
+          throw publicationStopError(
+            'unheard',
+            'Capture never heard the track',
+          );
+        await input.waitUntilMs(
+          Math.min(deadline, now + HEARD_POLL_MS),
+          signal,
+        );
+      }
+    };
     const publication = createClaimPublication({
-      open: async () => {
+      open: async (signal) => {
         await input.store.verifyRoundBotPublication(claim.scope, claim.token);
         const grant = await input.botToken(claim.scope, claim.token);
-        return input.connect({
+        const native = await input.connect({
           url: grant.url,
           token: grant.token,
           trackName: input.nextId(),
@@ -121,6 +154,13 @@ export function createBotPublisher(input: {
           channels: 1,
           monotonicNowMs: input.monotonicNowMs,
         });
+        try {
+          await heard(native.trackSid, signal);
+        } catch (error) {
+          await native.close();
+          throw error;
+        }
+        return native;
       },
     });
     const publish = async (

@@ -10,6 +10,7 @@ import { createRoundMediaOperations } from '../src/features/round-media/operatio
 import { withRoomRuntime } from './round-runtime.test-support';
 import { ownSpeech, botControlOptions } from './bot-control.test-support';
 import {
+  hearRoundTracks,
   mediaDependencies,
   waitForMediaFact,
 } from './round-media.test-support';
@@ -63,6 +64,12 @@ for (const mode of ['valid', 'provider-error'] as const)
       const deps = mediaDependencies(f);
       const media = createRoundMediaOperations(deps);
       const provider = loopbackProvider(mode);
+      const capture = hearRoundTracks(
+        f,
+        deps,
+        roundId,
+        claim.scope.roundParticipantId,
+      );
       let failures = 0;
       const timers = new Set<unknown>();
       const speaking = createSpeakingBotControl({
@@ -71,6 +78,7 @@ for (const mode of ['valid', 'provider-error'] as const)
         withProvider: createProviderCapacity(1),
         botToken: media.botToken,
         readActivity: f.redis.readBotActivity,
+        readHeard: capture.heard,
         timers: {
           setInterval: (task, ms) => {
             const handle = setInterval(() => void task(), ms);
@@ -182,6 +190,7 @@ for (const mode of ['valid', 'provider-error'] as const)
       } finally {
         await seat.stop();
         await provider.stop();
+        await capture.close();
         const [session] =
           await f.sql`select room_name from media_sessions where round_id=${roundId}`;
         if (session && (await deps.media.exists(session.room_name)))

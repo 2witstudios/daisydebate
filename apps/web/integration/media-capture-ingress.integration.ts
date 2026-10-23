@@ -12,6 +12,7 @@ import {
   captureWorkerScope,
   captureOperations,
   captureActivityRelay,
+  captureHeardRelay,
 } from './round-media.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
@@ -39,6 +40,7 @@ test('signed native HTTP ingress uses actual lease, snapshot and vendor token pr
       capture: () => capture,
       token: (input, principal) => broker.captureToken(input, principal),
       activity: captureActivityRelay(f, capture),
+      heard: captureHeardRelay(f, capture),
     });
     const server = Bun.serve({
       hostname: '127.0.0.1',

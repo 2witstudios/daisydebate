@@ -42,6 +42,9 @@ const fixture = (seal?: () => Promise<unknown>) => {
     activity: async (identity, body) => {
       calls.push(['activity', { identity, body }]);
     },
+    heard: async (identity, body) => {
+      calls.push(['heard', { identity, body }]);
+    },
   });
   return { handlers, calls };
 };
@@ -123,6 +126,31 @@ test('signed activity separates the validated worker scope from its body', async
           {
             identity: { ...scope, roundId: id('r') },
             body: { speaking: true },
+          },
+        ],
+      ],
+    ],
+  });
+});
+
+test('signed heard reports reach the heard relay, apart from the worker scope (ISSUE-514-r2)', async () => {
+  const f = fixture();
+  const scope = { sessionId: id('s'), workerId: id('w'), epoch: 2 };
+  const response = await f.handlers.handle(
+    signed('heard', JSON.stringify({ ...scope, trackId: 'TR_bot' })),
+  );
+  assert({
+    given: "a signed report that capture hears a bot's track",
+    should: 'relay its body under the verified Round scope, answering null',
+    actual: [await response.json(), f.calls],
+    expected: [
+      null,
+      [
+        [
+          'heard',
+          {
+            identity: { ...scope, roundId: id('r') },
+            body: { trackId: 'TR_bot' },
           },
         ],
       ],

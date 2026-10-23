@@ -2,6 +2,7 @@ import { createAppError } from '@daisy/errors';
 import {
   botActivityBatchSchema,
   botActivityRelaySchema,
+  botHeardRelaySchema,
 } from '@daisy/protocol/bot-activity';
 
 type CaptureIdentity = {
@@ -10,7 +11,41 @@ type CaptureIdentity = {
   readonly workerId: string;
   readonly epoch: number;
 };
+type CaptureRead = {
+  readonly serverNow: string;
+  readonly segment: {
+    readonly id: string;
+    readonly endedAt: string | null;
+  } | null;
+  readonly participants: readonly {
+    readonly roundParticipantId: string;
+    readonly kind: string;
+    readonly identity: string | null;
+  }[];
+};
+type LeaseRead = (
+  identity: CaptureIdentity & { readonly segmentId: string },
+) => Promise<{ readonly serverNow: string }>;
 const MAX_ADMISSIONS = 4096;
+/** An actually bound seat (of `kind`, when named) and the current open segment. */
+function requireCurrentSeat(
+  capture: CaptureRead,
+  roundParticipantId: string,
+  segmentId: string,
+  kind?: 'bot',
+) {
+  if (
+    !capture.participants.some(
+      (seat) =>
+        seat.roundParticipantId === roundParticipantId &&
+        seat.identity !== null &&
+        (kind === undefined || seat.kind === kind),
+    )
+  )
+    throw createAppError('AUTHORIZATION');
+  if (capture.segment?.id !== segmentId || capture.segment.endedAt !== null)
+    throw createAppError('CONFLICT', 'Activity segment is not current');
+}
 /**
  * Owner hook for the signed capture ingress. A seat is admitted once per
  * capture lease epoch and segment, by the locked capture read: an actually
@@ -21,20 +56,8 @@ const MAX_ADMISSIONS = 4096;
  * body. Redis carries no authority.
  */
 export function createBotActivityRelay(input: {
-  readonly readCapture: (identity: CaptureIdentity) => Promise<{
-    readonly serverNow: string;
-    readonly segment: {
-      readonly id: string;
-      readonly endedAt: string | null;
-    } | null;
-    readonly participants: readonly {
-      readonly roundParticipantId: string;
-      readonly identity: string | null;
-    }[];
-  }>;
-  readonly readLease: (
-    identity: CaptureIdentity & { readonly segmentId: string },
-  ) => Promise<{ readonly serverNow: string }>;
+  readonly readCapture: (identity: CaptureIdentity) => Promise<CaptureRead>;
+  readonly readLease: LeaseRead;
   readonly write: (batch: unknown) => Promise<void>;
 }) {
   const admitted = new Set<string>();
@@ -42,19 +65,12 @@ export function createBotActivityRelay(input: {
     identity: CaptureIdentity,
     roundParticipantId: string,
     segmentId: string,
-  ) => {
-    const capture = await input.readCapture(identity);
-    if (
-      !capture.participants.some(
-        (seat) =>
-          seat.roundParticipantId === roundParticipantId &&
-          seat.identity !== null,
-      )
-    )
-      throw createAppError('AUTHORIZATION');
-    if (capture.segment?.id !== segmentId || capture.segment.endedAt !== null)
-      throw createAppError('CONFLICT', 'Activity segment is not current');
-  };
+  ) =>
+    requireCurrentSeat(
+      await input.readCapture(identity),
+      roundParticipantId,
+      segmentId,
+    );
   return async (identity: CaptureIdentity, body: unknown) => {
     const parsed = botActivityRelaySchema.safeParse(body);
     if (!parsed.success) throw createAppError('VALIDATION');
@@ -81,5 +97,39 @@ export function createBotActivityRelay(input: {
     });
     if (!batch.success) throw createAppError('VALIDATION');
     await input.write(batch.data);
+  };
+}
+/**
+ * Owner hook for capture's report that it subscribed to a bot seat's track
+ * and reads it (ISSUE-514-r2). Each report takes the locked capture read (an
+ * actually bound bot seat and the current open segment) and the lease check.
+ * Redis carries only the seat for the track: no authority, just when the bot
+ * may begin crediting speech.
+ */
+export function createBotHeardRelay(input: {
+  readonly readCapture: (identity: CaptureIdentity) => Promise<CaptureRead>;
+  readonly readLease: LeaseRead;
+  readonly write: (heard: {
+    readonly roundId: string;
+    readonly trackId: string;
+    readonly seat: string;
+  }) => Promise<void>;
+}) {
+  return async (identity: CaptureIdentity, body: unknown) => {
+    const parsed = botHeardRelaySchema.safeParse(body);
+    if (!parsed.success) throw createAppError('VALIDATION');
+    const { roundParticipantId, segmentId, trackId } = parsed.data;
+    requireCurrentSeat(
+      await input.readCapture(identity),
+      roundParticipantId,
+      segmentId,
+      'bot',
+    );
+    await input.readLease({ ...identity, segmentId });
+    await input.write({
+      roundId: identity.roundId,
+      trackId,
+      seat: roundParticipantId,
+    });
   };
 }

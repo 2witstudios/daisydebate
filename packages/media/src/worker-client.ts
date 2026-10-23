@@ -327,5 +327,17 @@ export function createMediaWorkerClient(input: Dependencies) {
     ) => {
       await call('activity', { ...batch, version: 1 }, activityReply, signal);
     },
+    /** Capture hears a bot seat's track; the server owns admission. */
+    heard: async (
+      track: {
+        readonly epoch: number;
+        readonly roundParticipantId: string;
+        readonly segmentId: string;
+        readonly trackId: string;
+      },
+      signal?: AbortSignal,
+    ) => {
+      await call('heard', { ...track, version: 1 }, activityReply, signal);
+    },
   };
 }

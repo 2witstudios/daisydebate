@@ -6,7 +6,7 @@ import { createBotPublisher } from '../src/features/round-bots/publication';
 import { createRoundMediaOperations } from '../src/features/round-media/operations';
 import { withRoomRuntime } from './round-runtime.test-support';
 import { ownSpeech, botControlOptions } from './bot-control.test-support';
-import { mediaDependencies } from './round-media.test-support';
+import { hearRoundTracks, mediaDependencies } from './round-media.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 
@@ -27,10 +27,17 @@ async function publishOnce(segmentEndsAt?: string) {
     const { roundId, claim } = await ownSpeech(f);
     const deps = mediaDependencies(f);
     const media = createRoundMediaOperations(deps);
+    const capture = hearRoundTracks(
+      f,
+      deps,
+      roundId,
+      claim.scope.roundParticipantId,
+    );
     const claimed = createBotPublisher({
       store: f.store,
       botToken: media.botToken,
       connect: createAudioPublication,
+      heard: capture.heard,
       nextId: createId,
       monotonicNowMs: () => performance.now(),
       waitUntilMs: async (due, signal) => {
@@ -62,6 +69,7 @@ async function publishOnce(segmentEndsAt?: string) {
       };
     } finally {
       await claimed.close();
+      await capture.close();
       const [session] =
         await f.sql`select room_name from media_sessions where round_id=${roundId}`;
       if (session && (await deps.media.exists(session.room_name)))

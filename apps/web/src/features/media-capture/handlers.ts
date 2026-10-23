@@ -16,6 +16,11 @@ const captureScope = z.strictObject({
   workerId: idSchema,
   epoch: z.number().int().positive().max(2147483647),
 });
+/** An expendable relay from capture: the server owns its admission. */
+type Relay = (
+  identity: z.infer<typeof captureScope>,
+  body: unknown,
+) => Promise<void>;
 
 /** Private server boundary; human identity and browser request bodies never supply its principal. */
 export function createMediaCaptureHandlers(input: {
@@ -23,11 +28,11 @@ export function createMediaCaptureHandlers(input: {
   readonly authentication: () => Authentication;
   readonly capture: () => Capture;
   readonly token: Broker['captureToken'];
-  readonly activity: (
-    identity: z.infer<typeof captureScope>,
-    body: unknown,
-  ) => Promise<void>;
+  readonly activity: Relay;
+  /** Capture hears a bot seat's track (ISSUE-514-r2). */
+  readonly heard: Relay;
 }) {
+  const relays = { activity: input.activity, heard: input.heard };
   return {
     handle: (request: Request) =>
       handleOperation(input.logger, request, 'media.capture', async (id) => {
@@ -53,9 +58,9 @@ export function createMediaCaptureHandlers(input: {
           return Response.json(
             await input.token(parseValidated(captureScope, payload), principal),
           );
-        if (operation === 'activity') {
+        if (operation === 'activity' || operation === 'heard') {
           const { roundId, sessionId, workerId, epoch, ...body } = payload;
-          await input.activity(
+          await relays[operation](
             parseValidated(captureScope, {
               roundId,
               sessionId,
