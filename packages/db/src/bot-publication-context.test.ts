@@ -1,4 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { assertRejects } from '@daisy/errors/testing';
 import { creditBotPublicationWindow } from './bot-publication-context';
 import type { BoundedTransactionContext } from './transaction-context';
 
@@ -9,14 +10,19 @@ const target = {
   segmentId: 'g'.repeat(24),
 };
 /** Records inserts; an update extends a run when `touching` is true. */
-const recording = (touching: boolean) => {
+const recording = (touching: boolean, sealed = false) => {
   const inserted: unknown[] = [];
+  const read = {
+    from: () => read,
+    where: async () => (sealed ? [{ state: 'complete' }] : []),
+  };
   const update = {
     set: () => update,
     where: () => update,
     returning: async () => (touching ? [{ id: 'run' }] : []),
   };
   const tx = {
+    select: () => read,
     update: () => update,
     insert: () => ({
       values: async (row: unknown) => {
@@ -58,5 +64,27 @@ test('an authorized window is stored as credit, extending the run it touches (DE
       ],
       [],
     ],
+  });
+});
+
+test('a window credit on a sealed stream is refused before any write (ISSUE-488-r1)', async () => {
+  const { tx, inserted } = recording(false, true);
+  await assertRejects({
+    given: 'a stream already sealed for the seat and segment',
+    should: 'refuse the credit the seal never required',
+    actual: () =>
+      creditBotPublicationWindow(
+        tx,
+        target,
+        { beforeMs: 1000, afterMs: 1100 },
+        () => 'new-run',
+      ),
+    code: 'CONFLICT',
+  });
+  assert({
+    given: 'the refused credit',
+    should: 'store nothing',
+    actual: inserted,
+    expected: [],
   });
 });

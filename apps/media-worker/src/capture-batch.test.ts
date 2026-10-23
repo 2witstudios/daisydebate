@@ -75,6 +75,7 @@ test('a batch frame crossing a grant end the staging cache missed becomes edge e
     dropped: () => {},
     straddled: (frame) => straddled.push(frame.nominalStartMs),
     clip: () => {},
+    held: () => {},
   });
   assert({
     given:
@@ -82,5 +83,41 @@ test('a batch frame crossing a grant end the staging cache missed becomes edge e
     should: 'report only the crossing frame as end evidence',
     actual: straddled,
     expected: [10020],
+  });
+});
+
+test('a frame newer than the history read is held for the next batch, never dropped', async () => {
+  const open = {
+    ...current,
+    state: {
+      ...current.state,
+      intervals: [{ ...current.state.intervals[0]!, endedAt: null }],
+    },
+  } as typeof current;
+  const clipped: number[] = [];
+  const held: number[] = [];
+  let dropped = 0;
+  await validateCaptureBatch({
+    frames: [staged(10050, 10049, 10061), staged(10090, 10089, 10101)],
+    current: open,
+    client: {} as CaptureClient,
+    roundId: 'r'.repeat(24),
+    epoch: 1,
+    signal: new AbortController().signal,
+    nowMs: () => 0,
+    dropped: (n) => {
+      dropped += n;
+    },
+    straddled: () => {},
+    clip: (clip) => clipped.push(clip.startOffsetMs, clip.durationMs),
+    held: (frames) => held.push(...frames.map((f) => f.frame.nominalStartMs)),
+  });
+  assert({
+    given:
+      'an open grant read at server time 10100, a frame ending at 10061 and one ending at 10101',
+    should:
+      'cut the first, hold the second for the next batch and drop neither (VIDEO-4.1)',
+    actual: { clipped, held, dropped },
+    expected: { clipped: [1050, 10], held: [10090], dropped: 0 },
   });
 });
