@@ -1,7 +1,8 @@
-import { SQL } from 'bun';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { createId } from '@paralleldrive/cuid2';
 import { readRealtimeTransportConfig } from '@daisy/config';
-import type { BrowserContext, Page } from '@playwright/test';
+import type { Browser, BrowserContext, Page } from '@playwright/test';
 import {
   buildRoomTopic,
   roomCatalogChoiceSchema,
@@ -10,11 +11,10 @@ import {
   type RoomView,
 } from '@daisy/protocol';
 import { test, expect, openPage } from './support/fixtures';
-import { createRoomLaunchAccounts } from './support/room-launch-accounts';
-import { settledLaunchAuth } from './support/room-launch-settled';
+import { createLaunchContexts } from './support/room-launch-contexts';
 import { requireLaunchSlot } from './support/room-launch-slot';
 import { resolve } from 'node:path';
-import { origin } from './support/accounts';
+import { origin, signUpMember } from './support/accounts';
 import {
   browserTransportSource,
   connectRoomTransport,
@@ -31,14 +31,32 @@ import {
 
 requireLaunchSlot(resolve(import.meta.dirname, '../../..'), process.env);
 
-/** Requests cannot make a Room private (DEC-206); the stored state still refuses outsiders. */
+/**
+ * Suite-owned accounts on the canonical web and realtime processes, retained
+ * until the slot's release. Their edge is self-signed per run, so contexts
+ * accept it as the canonical suite does (playwright.config.ts).
+ */
+const createRealtimeAccounts = (browser: Browser, count: number) =>
+  createLaunchContexts(
+    count,
+    () => browser.newContext({ baseURL: origin, ignoreHTTPSErrors: true }),
+    (context) => signUpMember(context.request),
+  );
+
+/**
+ * Requests cannot make a Room private (DEC-206); the stored state still
+ * refuses outsiders. The Node driver has no Bun SQL, so a Bun fixture process
+ * stores it.
+ */
 async function storePrivate(roomId: string) {
-  const sql = new SQL(process.env.E2E_DATABASE_URL!, { max: 1 });
-  try {
-    await sql`update rooms set visibility='private' where id=${roomId}`;
-  } finally {
-    await sql.close();
-  }
+  await promisify(execFile)(
+    'bun',
+    [
+      resolve(import.meta.dirname, 'support/realtime-private-room-process.ts'),
+      roomId,
+    ],
+    { cwd: resolve(import.meta.dirname, '../../..'), env: process.env },
+  );
 }
 
 function changeDetails(context: BrowserContext, view: RoomView, title: string) {
@@ -72,7 +90,7 @@ function roomChanges(page: Page, version: number) {
 test('real HTTP Room mutation reaches its authenticated browser subscriber and refuses a private outsider', async ({
   browser,
 }) => {
-  const accounts = await createRoomLaunchAccounts(browser, 2);
+  const accounts = await createRealtimeAccounts(browser, 2);
   try {
     const host = accounts.members[0]!.context;
     const outsider = accounts.members[1]!.context;
@@ -233,7 +251,6 @@ test('real HTTP Room mutation reaches its authenticated browser subscriber and r
       .toBe('revoked');
     await outsiderPage.evaluate(() => window.realtimeProof.store.close());
   } finally {
-    await settledLaunchAuth();
     await accounts.closeContexts();
   }
 });
@@ -241,7 +258,7 @@ test('real HTTP Room mutation reaches its authenticated browser subscriber and r
 test('a real issued ticket accepts one hello and refuses its second consumption', async ({
   browser,
 }) => {
-  const accounts = await createRoomLaunchAccounts(browser, 1);
+  const accounts = await createRealtimeAccounts(browser, 1);
   try {
     const page = await openPage(
       accounts.members[0]!.context,
@@ -254,7 +271,6 @@ test('a real issued ticket accepts one hello and refuses its second consumption'
     );
     expect(result).toEqual(['ready', 4001]);
   } finally {
-    await settledLaunchAuth();
     await accounts.closeContexts();
   }
 });
@@ -262,7 +278,7 @@ test('a real issued ticket accepts one hello and refuses its second consumption'
 test('actual authenticated socket enforces version, hello deadline, malformed frames and inbound rate', async ({
   browser,
 }) => {
-  const accounts = await createRoomLaunchAccounts(browser, 1);
+  const accounts = await createRealtimeAccounts(browser, 1);
   try {
     const page = await openPage(
       accounts.members[0]!.context,
@@ -286,7 +302,6 @@ test('actual authenticated socket enforces version, hello deadline, malformed fr
       ],
     });
   } finally {
-    await settledLaunchAuth();
     await accounts.closeContexts();
   }
 });

@@ -69,6 +69,10 @@ export default defineConfig({
       reuseExistingServer: false,
       ignoreHTTPSErrors: false,
       timeout: 120000,
+      // Above the server's own 30 s drain of each child, so the suite ends
+      // only once every Launch process has exited and freed the slot's ports
+      // for the next proof in the job.
+      gracefulShutdown: { signal: 'SIGTERM', timeout: 45_000 },
       command: server.command.replace(
         'e2e/support/server.ts',
         'e2e/support/room-launch-server.ts',
