@@ -41,7 +41,7 @@
     "@daisy/protocol": "workspace:*",
     "@paralleldrive/cuid2": "3.3.0",
     "drizzle-orm": "1.0.0-rc.4",
-    "zod": "4.6.5"
+    "zod": "4.6.6"
   },
   "devDependencies": {
     "drizzle-kit": "1.0.0-rc.4",
