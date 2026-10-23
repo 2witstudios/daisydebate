@@ -123,7 +123,34 @@ test('a known segment end clamps the union and stops before a batch past it', as
       clamped: Date.parse(stub.windows[1]!.after) <= endsAt,
       sentFrames: stub.captured.length,
       complete: result.complete,
+      // Frames heard past the end are audible only, never eligible (ISSUE-460-r2).
+      creditedOnlyBeforeEnd:
+        result.eligibleSamples > 2400 && result.eligibleSamples < 4800,
     },
-    expected: { windows: 2, clamped: true, sentFrames: 20, complete: false },
+    expected: {
+      windows: 2,
+      clamped: true,
+      sentFrames: 20,
+      complete: false,
+      creditedOnlyBeforeEnd: true,
+    },
+  });
+});
+
+test('an authorization batch is between 1 and 10 frames', () => {
+  const sizes = [0, 1, 10, 11].map((framesPerAuthorization) => {
+    try {
+      stubWriter({ framesPerAuthorization });
+      return 'accepted';
+    } catch {
+      return 'refused';
+    }
+  });
+  assert({
+    given: 'batches of 0, 1, 10 and 11 frames',
+    should:
+      'accept 1 through 10 only (DEC-212 caps the heard overrun at 100 ms)',
+    actual: sizes,
+    expected: ['refused', 'accepted', 'accepted', 'refused'],
   });
 });

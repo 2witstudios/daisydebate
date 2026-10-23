@@ -7,7 +7,11 @@ type Entry<C> = {
   readonly abort: AbortController;
   running: boolean;
   work: Promise<void>;
+  /** Consecutive refused submissions of a saved ballot. */
+  refusals: number;
 };
+/** Submissions of a saved ballot tried in a row before the slot is released (ISSUE-463). */
+const MAX_SUBMISSION_REFUSALS = 3;
 /** Lease renewal never queues behind provider execution or attendance settlement. */
 export function startRoundJudgingService<C extends Claim>(input: {
   readonly store: {
@@ -59,7 +63,10 @@ export function startRoundJudgingService<C extends Claim>(input: {
             entry.claim.scope,
             entry.claim.token,
           );
-          if (state.pendingBallot) return;
+          // A saved ballot is retried on the next scan, a bounded number of
+          // times in a row; then it is reported and the slot released.
+          if (state.pendingBallot && ++entry.refusals < MAX_SUBMISSION_REFUSALS)
+            return;
         } catch {
           /* A lost authority never becomes a retry permission. */
         }
@@ -90,6 +97,7 @@ export function startRoundJudgingService<C extends Claim>(input: {
               abort: new AbortController(),
               running: false,
               work: Promise.resolve(),
+              refusals: 0,
             };
             entries.set(key(target), entry);
             execute(entry);
@@ -116,10 +124,11 @@ export function startRoundJudgingService<C extends Claim>(input: {
             entry.claim.token,
           );
         } catch (error) {
-          release(entry);
-          // A lease lost to completion or another claimant is a release, not a fault.
-          if (!isAppError(error) || error.code !== 'CONFLICT')
-            input.failed(error, 'renew');
+          // A lease lost to completion or another claimant is a release, not
+          // a fault. Any other failure leaves the paid call running; the next
+          // renewal tries again (ISSUE-462).
+          if (isAppError(error) && error.code === 'CONFLICT') release(entry);
+          else input.failed(error, 'renew');
         }
       }),
     ).then(() => {

@@ -109,7 +109,8 @@ async function authorizeUnion(
     (input.segmentEndsAtMs ?? Infinity) - 1,
   );
   if (afterMs <= pending.beforeMs) return false;
-  // Transport rounds outward; uncertainty is never narrowed to pass a floor.
+  // Transport rounds outward. The clamp lowers only the union's end to the
+  // known segment end, and frames heard past it are never credited.
   const allowed = await input.authorizeWindow({
     before: new Date(Math.floor(pending.beforeMs)).toISOString(),
     after: new Date(Math.ceil(afterMs)).toISOString(),
@@ -119,19 +120,30 @@ async function authorizeUnion(
 /** Frames sent since the last authorization, as one union window. */
 function createBatch(input: PacedInput, signal: AbortSignal) {
   let pending: FrameWindow | null = null;
-  let frames = 0;
+  let frames: { readonly afterMs: number; readonly samples: number }[] = [];
+  let credited = 0;
+  const endMs = input.segmentEndsAtMs ?? Infinity;
   return {
-    /** Adds a sent frame; true when the batch is due for authorization. */
-    add(window: FrameWindow, last: boolean) {
+    /** Adds a sent frame and the samples sent through it; true when the batch is due. */
+    add(window: FrameWindow, samples: number, last: boolean) {
       pending = union(pending, window);
-      frames += 1;
-      return last || frames === input.framesPerAuthorization;
+      frames.push({ afterMs: window.afterMs, samples });
+      return last || frames.length === input.framesPerAuthorization;
     },
-    authorize() {
-      const due = pending!;
+    /**
+     * The samples credited through this batch, or null when refused. A frame
+     * heard past the known end is audible only, never eligible (ISSUE-460-r2).
+     */
+    async authorize() {
+      const due = pending!,
+        sent = frames;
       pending = null;
-      frames = 0;
-      return authorizeUnion(input, due, signal);
+      frames = [];
+      if (!(await authorizeUnion(input, due, signal))) return null;
+      credited =
+        sent.filter((frame) => frame.afterMs < endMs).at(-1)?.samples ??
+        credited;
+      return credited;
     },
   };
 }
@@ -164,9 +176,15 @@ async function writeJob(
       );
       if (!next) break;
       clock = next.clock;
-      if (!batch.add(next.window, offset + size >= data.length)) continue;
-      if (!(await batch.authorize())) break;
-      eligibleSamples = clock.eligibleSamples;
+      const due = batch.add(
+        next.window,
+        clock.eligibleSamples,
+        offset + size >= data.length,
+      );
+      if (!due) continue;
+      const credited = await batch.authorize();
+      if (credited === null) break;
+      eligibleSamples = credited;
       await input.onAccepted?.(eligibleSamples);
       if (pastSegmentEnd(input, next.window)) break;
     }

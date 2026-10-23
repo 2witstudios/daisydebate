@@ -3,6 +3,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { eq } from 'drizzle-orm';
 import { writeProjectionWithPhaseSignal } from '../src/round-projection-writer';
 import { rounds } from '../src/schema/rounds';
+import { refundUnservedPracticeLocked } from '../src/round-bot-admission';
 import { withGeneration } from './bot-generation.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
@@ -90,5 +91,39 @@ test('an AI practice is refunded once when its Round ends without a served model
       unknown: false,
       received: false,
     },
+  });
+});
+
+test('concurrent refund attempts after a Round ended refund the practice exactly once', async () => {
+  await withGeneration(async (generation) => {
+    const { run, target, operations } = generation;
+    const claim = await operations.claimWorker(target);
+    const begun = await operations.beginGeneration(claim.scope, claim.token, {
+      kind: 'language',
+    });
+    await operations.finishGeneration(claim.scope, begun.execution, 'failed', {
+      inputTokens: 0,
+      outputTokens: 0,
+      characters: 0,
+    });
+    await abandon(generation);
+    const first = await refunded(generation);
+    await Promise.all(
+      [0, 1].map(() =>
+        run((tx) => refundUnservedPracticeLocked(tx, target.roundId)),
+      ),
+    );
+    const after = await refunded(generation);
+    assert({
+      given:
+        'a practice refunded at Round end, then two concurrent refund attempts on any instance',
+      should:
+        'keep the one refund: refunded_at is never stamped again (ISSUE-457-r1)',
+      actual: {
+        refunded: first !== null,
+        same: after?.getTime() === first?.getTime(),
+      },
+      expected: { refunded: true, same: true },
+    });
   });
 });
