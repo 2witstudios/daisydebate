@@ -191,10 +191,6 @@ for (const mode of ['valid', 'provider-error'] as const)
         await seat.stop();
         await provider.stop();
         await capture.close();
-        const [session] =
-          await f.sql`select room_name from media_sessions where round_id=${roundId}`;
-        if (session && (await deps.media.exists(session.room_name)))
-          await deps.media.deleteRoom(session.room_name);
       }
     }, speakingOptions);
   });

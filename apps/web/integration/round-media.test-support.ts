@@ -230,7 +230,8 @@ export async function startCaptureSpeech(
  * Capture's report through actual LiveKit and Redis: a subscriber in the
  * Round's room writes the heard key, under the server's track id, for every
  * track it subscribes to, as the capture worker does (ISSUE-514-r2). Joined
- * on the first read, once the bot grant has opened the room.
+ * on the first read, once the bot grant has opened the room; `close` also
+ * deletes the room.
  */
 export function hearRoundTracks(
   f: Parameters<Parameters<typeof withRoomRuntime>[0]>[0],
@@ -268,6 +269,13 @@ export function hearRoundTracks(
       await joining;
       return f.redis.readCaptureHeard(round, trackSid);
     },
-    close: () => room.disconnect(),
+    /** Leaves, then deletes the Round's room if it still exists. */
+    close: async () => {
+      await room.disconnect();
+      const [session] =
+        await f.sql`select room_name from media_sessions where round_id=${roundId}`;
+      if (session && (await deps.media.exists(session.room_name)))
+        await deps.media.deleteRoom(session.room_name);
+    },
   };
 }

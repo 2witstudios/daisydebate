@@ -70,10 +70,6 @@ async function publishOnce(segmentEndsAt?: string) {
     } finally {
       await claimed.close();
       await capture.close();
-      const [session] =
-        await f.sql`select room_name from media_sessions where round_id=${roundId}`;
-      if (session && (await deps.media.exists(session.room_name)))
-        await deps.media.deleteRoom(session.room_name);
     }
   }, botControlOptions);
   return outcome!;
