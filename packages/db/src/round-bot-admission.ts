@@ -1,6 +1,5 @@
 import { and, eq, sql } from 'drizzle-orm';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
 import type { BoundedTransaction } from './bounded-transaction';
 import type { BoundedTransactionContext } from './transaction-context';
 import { lockAuthorizationActors } from './authorization';
@@ -8,6 +7,14 @@ import { roundAgentNow } from './round-agent-runs';
 import { readBotAllowance } from './round-bot-allowance';
 import { rounds } from './schema/rounds';
 import { usageReservations } from './schema/usage-reservations';
+import {
+  admissionRefusal,
+  requireAdmissionTarget,
+  requireBusyCap,
+  requireOwnReservation,
+  requireUnrefundedReservation,
+  requireSponsor,
+} from './round-bot-admission-rules';
 
 type Target = { readonly actorId: string; readonly roundId: string };
 type Reservation = Target & { readonly id: string };
@@ -15,12 +22,7 @@ type Reservation = Target & { readonly id: string };
 export const lockBotAdmission = (tx: BoundedTransactionContext) =>
   tx.execute(sql`select pg_advisory_xact_lock(59003, 1)`);
 async function lockSponsor(tx: BoundedTransactionContext, target: Target) {
-  if (
-    ![target.actorId, target.roundId].every(
-      (id) => idSchema.safeParse(id).success,
-    )
-  )
-    throw createAppError('VALIDATION');
+  requireAdmissionTarget(target);
   const [account] = await lockAuthorizationActors(tx, [target.actorId], {
     maxActors: 1,
   });
@@ -29,18 +31,7 @@ async function lockSponsor(tx: BoundedTransactionContext, target: Target) {
     .from(rounds)
     .where(eq(rounds.id, target.roundId))
     .for('no key update');
-  if (!round || round.createdByActorId !== target.actorId)
-    throw createAppError('AUTHORIZATION');
-  requireAdmissionSponsor(account ?? null, round);
-}
-function requireAdmissionSponsor(
-  account: Awaited<ReturnType<typeof lockAuthorizationActors>>[number],
-  round: typeof rounds.$inferSelect,
-) {
-  if (!account?.member || account.erased || round.competitionType === 'ranked')
-    throw createAppError('AUTHORIZATION');
-  if (!['scheduled', 'active'].includes(round.status))
-    throw createAppError('CONFLICT');
+  requireSponsor(account ?? null, round, target.actorId);
 }
 function reservationWhere(target: Target) {
   return and(
@@ -58,8 +49,7 @@ async function existingReservation(
     .from(usageReservations)
     .where(reservationWhere(target))
     .for('update');
-  if (row?.refundedAt) throw createAppError('CONFLICT', 'Reservation refunded');
-  return row;
+  return requireUnrefundedReservation(row);
 }
 /** The first model call of any kind counts the reservation, once. */
 async function countLockedReservation(
@@ -67,14 +57,15 @@ async function countLockedReservation(
   reservation: Reservation,
 ) {
   await lockSponsor(tx, reservation);
-  const current = await existingReservation(tx, reservation);
-  if (!current || current.id !== reservation.id)
-    throw createAppError('AUTHORIZATION');
+  const current = requireOwnReservation(
+    await existingReservation(tx, reservation),
+    reservation.id,
+  );
   if (current.countedAt) return;
   await tx
     .update(usageReservations)
     .set({ countedAt: sql`clock_timestamp()` })
-    .where(eq(usageReservations.id, current.id));
+    .where(eq(usageReservations.id, reservation.id));
 }
 /**
  * Called once a Round turns terminal, under its lock. A counted AI practice
@@ -132,12 +123,7 @@ async function admissionStatus(
     remaining: Math.max(0, allowance.limit - value.spent),
     periodStart: allowance.start.toISOString(),
     periodEnd: allowance.end.toISOString(),
-    refusal:
-      value.spent >= allowance.limit
-        ? ('allowance' as const)
-        : value.busy >= busyCap
-          ? ('capacity' as const)
-          : null,
+    refusal: admissionRefusal(value, allowance.limit, busyCap),
   };
 }
 /** Trusted composition supplies a real bound; no environment/default entitlement is inferred. */
@@ -146,11 +132,7 @@ export function createRoundBotAdmission(input: {
   readonly nextId: () => string;
   readonly busyCap: number;
 }) {
-  if (!Number.isSafeInteger(input.busyCap) || input.busyCap < 1)
-    throw createAppError(
-      'VALIDATION',
-      'Explicit positive bot capacity required',
-    );
+  requireBusyCap(input.busyCap);
   const reserveLocked = async (
     tx: BoundedTransactionContext,
     target: Target,

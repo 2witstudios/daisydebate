@@ -4,6 +4,10 @@ import {
   practiceRoomConfig,
 } from '@daisy/db/reference-formats';
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
+import type { LockedAttendanceCheckIn } from '@daisy/db';
+import { isAppError } from '@daisy/errors';
+import { attendanceTimingPolicy } from '@daisy/protocol';
+import { acceptAttendanceReceipt } from './receipt-window';
 import { attendanceWindowFor } from './windows';
 setupRitewayBun();
 const compiled = resolveRoomConfiguration(
@@ -83,5 +87,81 @@ test('last speech classification comes from frozen rules not latest currently pe
     should: 'exclude this speech from competitive attendance adjudication',
     actual: result.lastSpeech,
     expected: true,
+  });
+});
+
+/** Healthy one-second samples settling the whole grace period and beyond. */
+const healthy = Array.from({ length: 50 }, (_, i) => ({
+  at: new Date(Date.parse(actual.startedAt) + (i - 2) * 1000).toISOString(),
+  healthy: true,
+}));
+const receipt = (
+  offsetMs: number,
+  change: {
+    finalized?: boolean;
+    status?: string;
+    segmentId?: string;
+    unsettled?: boolean;
+  } = {},
+) => {
+  const facts = {
+    round: {
+      rules,
+      participants,
+      segments: [actual],
+      status: change.status ?? 'active',
+    },
+    eligibleParticipantIds: participants.map((p) => p.id),
+    samples: change.unsettled ? [] : healthy,
+    finalizedSegmentIds: change.finalized ? [actual.id] : [],
+    participantId: 'a0',
+    receivedAt: new Date(Date.parse(actual.startedAt) + offsetMs).toISOString(),
+  } as unknown as LockedAttendanceCheckIn;
+  try {
+    acceptAttendanceReceipt(facts, change.segmentId ?? actual.id);
+    return 'accepted';
+  } catch (error) {
+    return isAppError(error) ? `${error.code}:${error.message}` : 'unknown';
+  }
+};
+
+test('a check-in receipt is accepted only inside the actual speech window', () => {
+  const { leadMs, graceMs } = attendanceTimingPolicy;
+  assert({
+    given:
+      'receipts at the lead edge, the opening, the grace edge, too early, too late, and late without settled availability',
+    should:
+      'accept the window, name which side a refusal fell on, and keep an unsettled deadline open',
+    actual: [
+      ...[-leadMs, 0, graceMs, -leadMs - 1, graceMs + 1].map((ms) =>
+        receipt(ms),
+      ),
+      receipt(graceMs + 1, { unsettled: true }),
+    ],
+    expected: [
+      'accepted',
+      'accepted',
+      'accepted',
+      'CONFLICT:attendance-too-early',
+      'CONFLICT:attendance-window-closed',
+      'accepted',
+    ],
+  });
+});
+
+test('a finalized speech, a finished Round or a non-speech refuses the receipt', () => {
+  assert({
+    given: 'a finalized speech, a completed Round and an unknown segment',
+    should: 'close the window, or refuse the segment itself',
+    actual: [
+      receipt(0, { finalized: true }),
+      receipt(0, { status: 'completed' }),
+      receipt(0, { segmentId: 'cross-ex' }),
+    ],
+    expected: [
+      'CONFLICT:attendance-window-closed',
+      'CONFLICT:attendance-window-closed',
+      'CONFLICT:attendance-segment',
+    ],
   });
 });

@@ -42,5 +42,23 @@ services:
       - '127.0.0.1:7882:7882/udp'
     volumes:
       - ./livekit.yaml:/etc/livekit.yaml:ro
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:7880/']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  # The file scanner the messaging file suites prove against; the same pinned
+  # image CI runs as a service. The tag ships amd64 only, so Apple Silicon
+  # runs it under emulation. Stateless: one scanner serves every slot.
+  clamd:
+    image: clamav/clamav:1.4.6
+    platform: linux/amd64
+    ports: ['127.0.0.1:3310:3310']
+    healthcheck:
+      test: ['CMD', 'clamdcheck.sh']
+      interval: 10s
+      timeout: 5s
+      start_period: 3m
+      retries: 20
 volumes:
   postgres-data:
