@@ -89,7 +89,8 @@ AIDD/Vitest guidance is overridden here by Bun and RITEway (ADR 0021).
 4. **CI parity** — `bun check` approximates the CI checks job (format, lint,
    policy, knip, duplication, invariants, evidence, typecheck, unit tests, metrics policy,
    production build). CI additionally runs the
-   integration tier with service containers and the browser tier in the
+   integration tier (Redis and LiveKit from `infra/compose.yaml`, the same
+   memory-only Redis and dev-key SFU every slot uses) and the browser tier in the
    dedicated `e2e.yml` workflow (one E2E owner per PR; `bun evidence`
    fails if a second workflow also runs `test:e2e`). `bun verify` runs those additional gates locally and also applies
    the committed migrations twice to `TEST_DATABASE_URL` to prove reruns are

@@ -27,6 +27,16 @@ export type {
   AttendanceFacts,
   LockedAttendanceCheckIn,
 } from './attendance-facts';
+import {
+  requireCommandInput,
+  requireSameCommand,
+} from './round-command-replay';
+import { eligibleCompetitorIds } from './seat-eligibility';
+import {
+  requireCheckInSegment,
+  requireSameCheckIn,
+  selectAttendanceSeat,
+} from './attendance-decisions';
 
 type WorkerVerifier = (
   tx: AttendanceTransactionContext,
@@ -41,35 +51,17 @@ type CheckInInput = {
   readonly acceptWindow: (facts: LockedAttendanceCheckIn) => void;
 };
 type Fenced = Awaited<ReturnType<typeof fenceAttendance>>;
-const eligibleSeats = (seats: Fenced['seats']) =>
-  seats
-    .filter((seat) => seat.eligible && seat.role !== 'judge')
-    .map((seat) => seat.id);
 async function authorizeSeat(
   tx: AttendanceTransactionContext,
   principal: AttendancePrincipal,
   fenced: Fenced,
   verifyWorker: WorkerVerifier,
 ) {
-  const seat = fenced.seats.find((seat) =>
-    principal.kind === 'human'
-      ? seat.actorId === principal.actorId
-      : seat.id === principal.participantId,
-  );
-  if (!seat?.eligible || seat.role === 'judge')
-    throw createAppError('AUTHORIZATION');
-  if (principal.kind === 'human') {
-    if (seat.kind !== 'human') throw createAppError('AUTHORIZATION');
-  } else {
-    if (
-      seat.kind !== 'bot' ||
-      principal.serviceId !== `agent-run:${principal.agentRunId}`
-    )
-      throw createAppError('AUTHORIZATION');
-    // The required canonical verifier SHARE-locks the exact seat/run and
-    // checks active kind, config, epoch and lease in this same transaction.
+  const seat = selectAttendanceSeat(principal, fenced.seats);
+  // The required canonical verifier SHARE-locks the exact seat/run and
+  // checks active kind, config, epoch and lease in this same transaction.
+  if (principal.kind === 'agent')
     await verifyWorker(tx, principal, fenced.round.id);
-  }
   return seat;
 }
 async function readReplay(
@@ -83,20 +75,17 @@ async function readReplay(
     .from(roundCommands)
     .where(eq(roundCommands.commandId, input.envelope.commandId));
   if (!previous) return null;
-  if (
-    previous.roundId !== input.roundId ||
-    previous.actorId !== columns.actorId ||
-    previous.serviceId !== columns.serviceId ||
-    previous.type !== 'check_in' ||
-    previous.payloadDigest !== input.payloadDigest
-  )
-    throw createAppError('CONFLICT', 'command-conflict');
+  requireSameCommand(previous, {
+    ...columns,
+    roundId: input.roundId,
+    payloadDigest: input.payloadDigest,
+    type: 'check_in',
+  });
   const receipt = attendanceReceiptSchema.parse(previous.result);
-  if (
-    receipt.segmentId !== input.envelope.segmentId ||
-    receipt.participantId !== participantId
-  )
-    throw createAppError('CONFLICT', 'command-conflict');
+  requireSameCheckIn(receipt, {
+    segmentId: input.envelope.segmentId,
+    participantId,
+  });
   return { ...receipt, replayed: true };
 }
 /** Attendance stores facts only; competitive decisions/projections remain pure engine work. */
@@ -135,7 +124,7 @@ export function createAttendanceOperations(deps: {
           round: fenced.round,
           ...evidence,
           participantId: seat.id,
-          eligibleParticipantIds: eligibleSeats(fenced.seats),
+          eligibleParticipantIds: eligibleCompetitorIds(fenced.seats),
           receipts: (
             recorded as unknown as { segment_id: string; received_at: string }[]
           ).map((row) => ({
@@ -147,12 +136,7 @@ export function createAttendanceOperations(deps: {
       });
     },
     async recordRoundCheckIn(input: CheckInInput): Promise<AttendanceReceipt> {
-      if (
-        !idSchema.safeParse(input.roundId).success ||
-        !attendanceEnvelopeSchema.safeParse(input.envelope).success ||
-        !/^[0-9a-f]{64}$/.test(input.payloadDigest)
-      )
-        throw createAppError('VALIDATION');
+      requireCommandInput(input, attendanceEnvelopeSchema);
       return deps.transaction(
         async (tx, first) => {
           const columns = principalColumns(input.principal);
@@ -169,18 +153,16 @@ export function createAttendanceOperations(deps: {
             fenced,
             deps.verifyWorker,
           );
-          const segment = round.segments.find(
-            (segment) => segment.id === input.envelope.segmentId,
-          );
-          if (!segment || segment.type !== 'speech')
-            throw createAppError('CONFLICT', 'attendance-segment');
           const evidence = await attendanceEvidence(tx, round);
-          if (evidence.finalizedSegmentIds.includes(segment.id))
-            throw createAppError('CONFLICT', 'attendance-finalized');
+          const segment = requireCheckInSegment(
+            round.segments,
+            input.envelope.segmentId,
+            evidence.finalizedSegmentIds,
+          );
           const facts = {
             round,
             ...evidence,
-            eligibleParticipantIds: eligibleSeats(seats),
+            eligibleParticipantIds: eligibleCompetitorIds(seats),
             participantId: seat.id,
           };
           const replay = await readReplay(tx, input, columns, seat.id);

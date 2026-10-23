@@ -1,12 +1,12 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   resetRefusal,
-  serviceRefusal,
   slotEnvValues,
   slotMismatches,
   withSlotEnv,
   worktreeSlot,
 } from './slot-model';
+import { serviceRefusal } from './slot-services';
 
 setupRitewayBun();
 

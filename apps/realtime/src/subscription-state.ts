@@ -14,6 +14,8 @@ export type RegistrySocket = {
   readonly close: (code: number, reason: string) => void;
 };
 export type Subscription = {
+  /** The subscribe request this answers; a later resync names it. */
+  readonly requestId: string;
   readonly lease: ReturnType<typeof createAuthorityLease>;
   revision: string;
   attached: boolean;
@@ -48,6 +50,11 @@ export type SubscriptionTransport = {
     subscription: Subscription,
   ) => boolean;
   readonly nativeTopic: (connection: Connection, topic: string) => string;
+  readonly resync: (
+    connection: Connection,
+    request: Pick<SubscribeRequest, 'id' | 'topic'>,
+    sub: Subscription,
+  ) => void;
 };
 export type ReplayTransport = SubscriptionTransport & {
   readonly sendRow: (
@@ -56,11 +63,6 @@ export type ReplayTransport = SubscriptionTransport & {
     sub: Subscription,
     row: OutboxRow,
   ) => boolean;
-  readonly resync: (
-    connection: Connection,
-    request: SubscribeRequest,
-    sub: Subscription,
-  ) => void;
 };
 export const compare = (a: OutboxPosition, b: OutboxPosition) =>
   BigInt(a.txid) < BigInt(b.txid)

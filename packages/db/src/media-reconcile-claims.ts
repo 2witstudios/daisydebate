@@ -6,9 +6,7 @@ import type { BoundedTransactionContext } from './transaction-context';
 import { lockMediaRound, mediaId } from './media-session-authority';
 import { sampleRoundExecutionTime } from './round-execution-time';
 import { mediaSessions } from './schema/media-sessions';
-export const MEDIA_RECONCILE_LEASE_MS = 15_000;
-const MIN_RECONCILE_MS = 500;
-const CLOCK_PRECISION_MS = 1;
+import { reconcileClaim } from './media-reconcile-rules';
 export function createMediaReconcileClaims(deps: {
   readonly database: BunSQLDatabase;
   readonly run: BoundedTransaction;
@@ -51,38 +49,21 @@ export function createMediaReconcileClaims(deps: {
       return deps.run(async (tx) => {
         const session = await deps.locked(tx, request.sessionId);
         const now = new Date(await sampleRoundExecutionTime(tx));
-        if (
-          session.reconcileOwner &&
-          session.reconcileLeaseUntil &&
-          session.reconcileLeaseUntil > now
-        )
-          return {
-            kind: 'wait' as const,
-            retryAt: session.reconcileLeaseUntil.toISOString(),
-          };
-        // The ISO database clock rounds down to milliseconds; preserve the full minimum interval.
-        const earliest =
-          (session.reconcileStartedAt?.getTime() ?? -Infinity) +
-          MIN_RECONCILE_MS +
-          CLOCK_PRECISION_MS;
-        if (now.getTime() < earliest)
-          return {
-            kind: 'wait' as const,
-            retryAt: new Date(earliest).toISOString(),
-          };
-        const outstanding = await deps.pending(tx, session.id);
-        const epoch = session.reconcileEpoch + 1;
-        const unsafeAt = session.unsafeAt ?? (outstanding.length ? now : null);
+        const claim = reconcileClaim(
+          session,
+          now,
+          (await deps.pending(tx, session.id)).length > 0,
+        );
+        if (claim.kind === 'wait') return claim;
+        const { epoch, unsafeAt } = claim;
         await tx
           .update(mediaSessions)
           .set({
             reconcileEpoch: epoch,
             reconcileOwner: request.owner,
-            reconcileLeaseUntil: new Date(
-              now.getTime() + MEDIA_RECONCILE_LEASE_MS,
-            ),
+            reconcileLeaseUntil: claim.leaseUntil,
             reconcileStartedAt: now,
-            reconcileRunningVersion: session.reconcileRequestVersion,
+            reconcileRunningVersion: claim.runningVersion,
             unsafeAt,
           })
           .where(eq(mediaSessions.id, session.id));
@@ -92,7 +73,7 @@ export function createMediaReconcileClaims(deps: {
           roundId: session.roundId,
           roomName: session.roomName,
           unsafe: unsafeAt !== null,
-          runningVersion: session.reconcileRequestVersion,
+          runningVersion: claim.runningVersion,
         };
       });
     },

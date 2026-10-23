@@ -1,6 +1,5 @@
 import { createAppError } from '@daisy/errors';
 import {
-  ballotSchema,
   idSchema,
   roundBallotReadSchema,
   roundJudgeAssignmentsSchema,
@@ -12,22 +11,13 @@ import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { readLockedFrozenRoundTranscript } from './frozen-transcript';
 import { sharedAccount, type Caller, type Account } from './room-command-facts';
 import { readAuthorizedRound } from './round-read-authority';
+import { ballotReadView, ownJudgeSeat } from './round-ballot-view';
 import { roundViewFor } from './round-view-projection';
 import { ballots } from './schema/ballots';
 import { rounds } from './schema/rounds';
 import { roundParticipants } from './schema/round-participants';
 import { roundTranscriptFreezes } from './schema/round-transcript-freezes';
 
-type StoredBallot = typeof ballots.$inferSelect;
-const ballotBody = (row: StoredBallot) =>
-  ballotSchema.parse({
-    rubricVersion: row.rubricVersion,
-    winner: row.winner,
-    scores: row.scores,
-    reason: row.reason,
-    feedback: row.feedback ?? {},
-    ...(row.citations ? { citations: row.citations } : {}),
-  });
 export const roundBallotReads = ({
   database,
 }: {
@@ -73,54 +63,23 @@ export const roundBallotReads = ({
       throw createAppError('VALIDATION');
     return database.transaction(async (tx) => {
       const round = await readAuthorizedRound(tx, input);
-      const ownSeat = round.participants.find(
-        (p) =>
-          p.actorId === input.caller.actorId &&
-          p.role === 'judge' &&
-          p.kind === 'human',
-      );
+      const ownSeat = ownJudgeSeat(round.participants, input.caller.actorId);
       const rows = await tx
         .select()
         .from(ballots)
         .where(eq(ballots.roundId, input.roundId));
-      const ownBallot = rows.find((b) => b.judgeParticipantId === ownSeat?.id);
       const frozen = ownSeat
         ? await readLockedFrozenRoundTranscript(tx, input.roundId)
         : null;
       return roundBallotReadSchema.parse({
         round: roundViewFor(round, input.caller.actorId),
-        own: ownBallotView(ownSeat?.id, ownBallot),
-        freeze: frozen
-          ? {
-              revision: frozen.revision,
-              frontier: frozen.frontier,
-              frozenAt: frozen.frozenAt,
-              completeness: frozen.completeness,
-              utterances: frozen.utterances,
-            }
-          : null,
-        ballots:
-          round.status === 'completed'
-            ? rows.map((row) => ({
-                status: row.status,
-                ballot: ballotBody(row),
-              }))
-            : [],
+        ...ballotReadView({
+          status: round.status,
+          ownSeatId: ownSeat?.id,
+          rows,
+          frozen,
+        }),
       });
     });
   },
 });
-
-function ownBallotView(
-  participantId: string | undefined,
-  ballot: StoredBallot | undefined,
-) {
-  return participantId
-    ? {
-        participantId,
-        status: ballot?.status ?? null,
-        ballot: ballot ? ballotBody(ballot) : null,
-        freezeRevision: ballot?.freezeRevision ?? null,
-      }
-    : null;
-}

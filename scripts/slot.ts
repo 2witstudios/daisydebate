@@ -44,10 +44,10 @@ import {
   portBlockPorts,
   readEnvValue,
   rewriteEnv,
-  serviceRefusal,
   slotEnvValues,
   type Slot,
 } from './slot-model';
+import { serviceRefusal } from './slot-services';
 import { testLogins } from './test-logins';
 import { stackReachable, withDatabase } from './slot-stack';
 import {

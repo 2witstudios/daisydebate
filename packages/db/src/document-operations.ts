@@ -46,6 +46,29 @@ const toDocumentRecord = (
   updatedAt: row.updatedAt,
 });
 
+/** Each owned or referenced document once (a later row wins), ordered by title. */
+export const workspaceDocuments = (
+  owned: readonly DocumentRecord[],
+  referenced: readonly DocumentRecord[],
+): DocumentRecord[] => {
+  const byId = new Map<string, DocumentRecord>();
+  for (const row of [...owned, ...referenced]) byId.set(row.id, row);
+  return [...byId.values()].sort((a, b) =>
+    a.title < b.title ? -1 : a.title > b.title ? 1 : 0,
+  );
+};
+
+/** A swapped row saved; otherwise a present document conflicts, an absent one is missing. */
+export const documentSaveOutcome = (
+  updated: readonly { readonly revision: number }[],
+  current: { readonly revision: number } | undefined,
+): DocumentSave =>
+  updated.length === 1
+    ? { status: 'saved', revision: updated[0]!.revision }
+    : current
+      ? { status: 'conflict', revision: current.revision }
+      : { status: 'missing' };
+
 /**
  * The member's prep documents (ADR 0054, ADR 0058 §9): owned by an actor,
  * with no round FK — the round's workspace is a view over what the owner
@@ -123,15 +146,7 @@ export const documentOperations = ({
                   eq(documents.ownerActorId, input.ownerActorId),
                 ),
               );
-      const byId = new Map<string, DocumentRecord>();
-      for (const row of [...owned, ...referenced])
-        byId.set(
-          row.id,
-          toDocumentRecord(row as typeof documents.$inferSelect),
-        );
-      return [...byId.values()].sort((a, b) =>
-        a.title < b.title ? -1 : a.title > b.title ? 1 : 0,
-      );
+      return workspaceDocuments(owned, referenced);
     });
   },
 
@@ -157,8 +172,7 @@ export const documentOperations = ({
           ),
         )
         .returning({ revision: documents.revision });
-      if (updated.length === 1)
-        return { status: 'saved', revision: updated[0]!.revision };
+      if (updated.length === 1) return documentSaveOutcome(updated, undefined);
       const [row] = await database
         .select({ revision: documents.revision })
         .from(documents)
@@ -169,9 +183,7 @@ export const documentOperations = ({
           ),
         )
         .limit(1);
-      return row
-        ? { status: 'conflict', revision: row.revision }
-        : { status: 'missing' };
+      return documentSaveOutcome(updated, row);
     });
   },
 

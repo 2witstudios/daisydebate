@@ -39,7 +39,9 @@ test("an opponent's interrupt and yield never ends the scheduled speech (DEC-203
     actual: {
       closes: returned.segmentCloses,
       floor: returned.round?.checkpoint.floor,
-      speaking: returned.speakingChanges?.at(-1)?.participantIds,
+      speaking: returned.speakingChanges
+        ?.filter((change) => change.kind === 'open')
+        .at(-1)?.participantIds,
       open: world.position(at(22_000)).openSegment,
     },
     expected: {
