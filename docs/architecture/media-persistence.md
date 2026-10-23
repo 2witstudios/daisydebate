@@ -124,14 +124,15 @@ is identified by `media_worker_leases.session_id`, `worker_id` and rising `epoch
 `worker_id` is an identifier, never a bearer credential. Ingress must verify its
 signed principal and active epoch under the same locks as append/seal.
 Every capture read, append, observation, seal and worker-token verification
-also applies one session rule, `captureSessionAdmits`: a deletion request admits
-nothing, because that is erasure; once the session ends or turns unsafe, a
-write is admitted only if its audio was captured strictly before that instant
-(an append's clip end, an observation's end) and it reaches the database within
-the injected speech-to-text lag after it (`sttLagMs`, `CAPTURE_STT_LAG_MS` =
-120 s in web composition), so lagging transcription of earlier audio still lands
-and a worker stamp alone never admits late audio. Reads and seals carry no
-capture time and are refused only by a deletion request.
+also applies one session rule, `captureSessionAdmits`. Ending, turning unsafe
+and a vendor-room deletion request (`deletion_requested_at`, which is not data
+erasure) each close the session. After the earliest close a write is admitted
+only if its audio was captured strictly before that instant (an append's clip
+end, an observation's end) and it reaches the database within the injected
+speech-to-text lag after it (`sttLagMs`, `CAPTURE_STT_LAG_MS` = 120 s in web
+composition), so lagging transcription of earlier audio still lands and a
+worker stamp alone never admits late audio. Reads and seals carry no capture
+time and are admitted.
 
 `utterances` remains the only transcript text store. Capture metadata identifies
 a clip by its segment, seat, track and start offset, plus a deterministic clip

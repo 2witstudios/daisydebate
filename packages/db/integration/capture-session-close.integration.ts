@@ -11,7 +11,7 @@ const outcome = (work: () => Promise<unknown>) =>
     (error: { code?: string }) => error.code ?? 'error',
   );
 
-test('a closed capture session admits only audio captured before it closed, and a deletion request admits nothing (CAP-E.1-r6)', async () => {
+test('a session closed by end, unsafe or a vendor-room deletion request admits only audio captured before it closed (CAP-E.1-r6)', async () => {
   await withBoundedRound(async (fixture, transaction, firstRound) => {
     const results: Record<string, Record<string, string>> = {};
     for (const [state, column] of [
@@ -77,19 +77,12 @@ test('a closed capture session admits only audio captured before it closed, and 
       given:
         'a session that turned unsafe, ended, or had deletion requested, with audio captured before and after that instant',
       should:
-        'keep legitimate lagging writes from before the close, refuse later audio, and refuse everything once deletion is requested',
+        'keep reads, seals and legitimate lagging writes from before the close, and refuse later audio, for every kind of close',
       actual: results,
       expected: {
         unsafe: closed,
         ended: closed,
-        deletion: {
-          read: 'CONFLICT',
-          appendBefore: 'CONFLICT',
-          appendAfter: 'CONFLICT',
-          observeBefore: 'CONFLICT',
-          observeAfter: 'CONFLICT',
-          seal: 'CONFLICT',
-        },
+        deletion: closed,
       },
     });
   });

@@ -96,22 +96,24 @@ export type CaptureWriteTiming = {
   readonly sttLagMs: number;
 };
 /**
- * The one capture-time rule for a session (CAP-E.1-r6, CAP-E.1-r8): a deletion
- * request admits nothing, since that is erasure. After the session ends or
- * turns unsafe, a write is admitted only if its audio was captured strictly
+ * The one capture-time rule for a session (CAP-E.1-r6, CAP-E.1-r8). Ending,
+ * turning unsafe and a vendor-room deletion request each close it; the
+ * deletion request is not data erasure, which is Round deletion. After the
+ * earliest close, a write is admitted only if its audio was captured strictly
  * before that instant and it reached the database within the speech-to-text
  * lag after it; the worker stamp alone never admits late audio. Work with no
- * capture time (reads, seals) is refused only by a deletion request.
+ * capture time (reads, seals) is admitted.
  */
 export function captureSessionAdmits(
   session: CaptureSessionClose,
   write?: CaptureWriteTiming,
 ) {
-  if (session.deletionRequestedAt) return false;
   if (write === undefined) return true;
-  const closes = [session.endedAt, session.unsafeAt].flatMap((at) =>
-    at ? [at.getTime()] : [],
-  );
+  const closes = [
+    session.endedAt,
+    session.unsafeAt,
+    session.deletionRequestedAt,
+  ].flatMap((at) => (at ? [at.getTime()] : []));
   if (closes.length === 0) return true;
   const closedAt = Math.min(...closes);
   return (
