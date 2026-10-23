@@ -14,6 +14,17 @@ export type RetentionBatch = {
   readonly limit: number;
 };
 
+/** A missing, fractional, non-positive or over-the-cap limit, or an unparsable cutoff, is refused. */
+export function requireRetentionBounds({ before, limit }: RetentionBatch) {
+  if (
+    !Number.isSafeInteger(limit) ||
+    limit < 1 ||
+    limit > RETENTION_BATCH_LIMIT ||
+    Number.isNaN(Date.parse(before))
+  )
+    throw new Error('Invalid retention bounds');
+}
+
 /**
  * The one bounded delete behind every retention operation (ISSUE-8 AC5):
  * at most `limit` rows of `table` whose `at` is before the cutoff, oldest
@@ -40,13 +51,7 @@ export async function deleteExpiredBatch(
   },
   { before, limit }: RetentionBatch,
 ): Promise<number> {
-  if (
-    !Number.isSafeInteger(limit) ||
-    limit < 1 ||
-    limit > RETENTION_BATCH_LIMIT ||
-    Number.isNaN(Date.parse(before))
-  )
-    throw new Error('Invalid retention bounds');
+  requireRetentionBounds({ before, limit });
   const { table, key, at } = target;
   const deleted = await db.execute(sql`
     delete from ${table} where ${key} in (

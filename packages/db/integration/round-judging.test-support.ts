@@ -1,3 +1,4 @@
+import { ballotCategories, ballotSchema } from '@daisy/protocol';
 import { createId } from '@paralleldrive/cuid2';
 import { randomBytes } from 'node:crypto';
 import { createBotSeat } from './bot-seat.test-support';
@@ -5,6 +6,20 @@ import { withBoundedRound } from './bounded-transaction.test-support';
 import { createRoundJudgingJobs } from '../src/round-judging-jobs';
 import { createRoundBotAdmission } from '../src/round-bot-admission';
 import type { Fixture } from './constraint-helpers';
+
+/** A validated rubric response, as cached on a pending judging job. */
+export const syntheticPendingBallot = ballotSchema.parse({
+  rubricVersion: 'speaker-10@1',
+  winner: 'affirmative',
+  scores: Object.fromEntries(
+    ['affirmative', 'negative'].map((side) => [
+      side,
+      Object.fromEntries(ballotCategories.map((category) => [category, 3])),
+    ]),
+  ),
+  reason: 'Synthetic recovery fixture',
+  feedback: {},
+});
 
 export async function judgingSponsor(fixture: Fixture, roundId: string) {
   const userId = await fixture.user();

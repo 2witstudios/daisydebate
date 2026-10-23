@@ -58,6 +58,8 @@ export function retentionTargets({
     readonly purgeExpiredServiceInstances: (batch: Batch) => Promise<number>;
     readonly purgeExpiredAvailabilitySamples: (batch: Batch) => Promise<number>;
     readonly purgeExpiredSessions: (batch: Batch) => Promise<number>;
+    readonly purgeExpiredUtterances: (batch: Batch) => Promise<number>;
+    readonly clearExpiredPendingBallots: (batch: Batch) => Promise<number>;
   };
   readonly redis: {
     readonly sweepOnlinePresence: (limit: number) => Promise<number>;
@@ -141,6 +143,23 @@ export function retentionTargets({
           limit,
         }),
     },
+    /**
+     * DEC-101 and DEC-89 (ISSUE-498): private transcript lines and cached AI
+     * judging responses are kept 180 days. A cleared response fails its job
+     * (DEC-223).
+     */
+    ...(
+      [
+        ['utterances', database.purgeExpiredUtterances],
+        ['pending_ballots', database.clearExpiredPendingBallots],
+      ] as const
+    ).map(([name, purge]) => ({
+      name: `retention.${name}`,
+      batchSize: 500,
+      maxBatches: 20,
+      purge: ({ now, limit }: { now: string; limit: number }) =>
+        purge({ before: cutoff(now, 180 * DAY_MS), limit }),
+    })),
     /**
      * ADR 0033: the online set's lapsed members, which reads filter but
      * never delete. Redis is expendable, so a failure here only leaves

@@ -22,7 +22,11 @@ async function requireMemoryOnly(client: RedisTransport) {
   )
     throw new Error('Memory-only Redis capability required');
 }
-/** Expendable PCM only; no second client, durable transcript, bearer or competitive authority. */
+/**
+ * Expendable PCM only; no second client, durable transcript, bearer or competitive authority.
+ * The key holds live human speech (personal/private) for its 1 s expiry; classified in
+ * docs/operations/privacy.md, "Bot activity relay declaration" (ISSUE-500).
+ */
 export function createBotActivityOperations(input: {
   readonly client: RedisTransport;
   readonly namespace: string;

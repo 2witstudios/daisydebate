@@ -1,9 +1,9 @@
-import { ballotCategories, ballotSchema } from '@daisy/protocol';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { rejectedBy, withFixture } from './constraint-helpers';
 import { queueSchemaJudge } from './capture-schema.test-support';
+import { syntheticPendingBallot } from './round-judging.test-support';
 
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
@@ -109,20 +109,7 @@ test('pending judging response survives takeover with immutable origin until ato
           provider: 'synthetic-schema-fixture',
           started_at: new Date(1000),
         });
-      const pending = ballotSchema.parse({
-        rubricVersion: 'speaker-10@1',
-        winner: 'affirmative',
-        scores: Object.fromEntries(
-          ['affirmative', 'negative'].map((side) => [
-            side,
-            Object.fromEntries(
-              ballotCategories.map((category) => [category, 3]),
-            ),
-          ]),
-        ),
-        reason: 'Synthetic recovery fixture',
-        feedback: {},
-      });
+      const pending = syntheticPendingBallot;
       assert({
         given: 'an incomplete cache tuple, future epoch or another judge run',
         should: 'refuse every invalid pending response scope',

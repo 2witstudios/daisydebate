@@ -159,7 +159,10 @@ acceptance. These schema tables alone do not prove a working capture producer.
 
 Capture body digests follow transcript retention of 180 days and subject erasure;
 hashing does not anonymize transcript-derived data. Raw transcript text remains
-personal/private under DEC-101, with deletion tracked by ISSUE-322. These rows
+personal/private under DEC-101. The retention sweep deletes an utterance row 180
+days after `created_at` (`retention.utterances`, `utterances_created_at_idx`), and
+the `round-transcript` privacy adopter (`packages/db/src/round-transcript-privacy.ts`)
+deletes an erased subject's own rows and exports them on request (ISSUE-498). These rows
 follow Round/segment erasure; the scoped seat reference checks at transaction end
 so aggregate deletion can cascade without allowing orphan references. No new
 legal basis, production consent or provider activation is inferred.
