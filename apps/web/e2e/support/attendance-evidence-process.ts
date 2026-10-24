@@ -17,7 +17,7 @@ if (import.meta.main) {
         (select coalesce(json_agg(x order by x."receivedAt"),'[]'::json) from (
           select state,to_char(received_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as "receivedAt",
           to_char(resolved_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as "resolvedAt"
-          from round_check_in_attempts where resolved_at is not null order by received_at desc limit 256) x) as "checkInAttempts",
+          from round_check_in_attempts order by received_at desc limit 256) x) as "checkInAttempts",
         (select coalesce(json_agg(x order by x."instanceId"),'[]'::json) from (
           select instance_id as "instanceId",role,
           to_char(renewed_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as "renewedAt",

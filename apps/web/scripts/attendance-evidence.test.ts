@@ -58,6 +58,12 @@ test('foreign, malformed or contradictory observations never become browser proo
       ...observation,
       checkInAttempts: [{ state: 'pending', receivedAt: at, resolvedAt: at }],
     },
+    {
+      ...observation,
+      checkInAttempts: [
+        { state: 'committed', receivedAt: at, resolvedAt: null },
+      ],
+    },
   ];
   const refusals = inputs.map((input) => {
     try {
@@ -72,10 +78,10 @@ test('foreign, malformed or contradictory observations never become browser proo
   });
   assert({
     given:
-      'a foreign Round, precision loss, a contradictory health/cause pair or an unresolved marker',
+      'a foreign Round, precision loss, a contradictory health/cause pair, or a marker whose state and resolution disagree',
     should: 'refuse every observation',
     actual: refusals,
-    expected: [true, true, true, true, true],
+    expected: [true, true, true, true, true, true],
   });
 });
 
@@ -121,5 +127,65 @@ test("only a sample inside the writer's own check-in slice is excused (ISSUE-541
       ),
     ],
     expected: [true, true, false, false, false, false, false],
+  });
+});
+
+test('no excuse while another marker could be holding the sample (ISSUE-541)', () => {
+  const sample = {
+    at: '2026-10-22T00:00:00.600001Z',
+    healthy: false,
+    cause: 'check_in_pending' as const,
+  };
+  const quick = {
+    state: 'committed' as const,
+    receivedAt: at,
+    resolvedAt: '2026-10-22T00:00:00.040001Z',
+  };
+  const from500ms = '2026-10-22T00:00:00.500001Z';
+  assert({
+    given:
+      'a pending sample at 600 ms inside a quick marker, beside an aborted marker from 500 ms to 1.4 s, a committed one from 500 ms to 2.1 s, one still pending from 500 ms, an aborted one resolved 50 ms earlier (its COMMIT may be open), or an aborted one opened after the sample; then the quick marker alone',
+    should:
+      'excuse it only when no other marker could hold it open, counting a commit tail',
+    actual: [
+      duringCheckInCommit(sample, [
+        quick,
+        {
+          state: 'aborted',
+          receivedAt: from500ms,
+          resolvedAt: '2026-10-22T00:00:01.400001Z',
+        },
+      ]),
+      duringCheckInCommit(sample, [
+        quick,
+        {
+          state: 'committed',
+          receivedAt: from500ms,
+          resolvedAt: '2026-10-22T00:00:02.100001Z',
+        },
+      ]),
+      duringCheckInCommit(sample, [
+        quick,
+        { state: 'pending', receivedAt: from500ms, resolvedAt: null },
+      ]),
+      duringCheckInCommit(sample, [
+        quick,
+        {
+          state: 'aborted',
+          receivedAt: '2026-10-22T00:00:00.100001Z',
+          resolvedAt: '2026-10-22T00:00:00.550001Z',
+        },
+      ]),
+      duringCheckInCommit(sample, [
+        quick,
+        {
+          state: 'aborted',
+          receivedAt: '2026-10-22T00:00:00.700001Z',
+          resolvedAt: '2026-10-22T00:00:01.400001Z',
+        },
+      ]),
+      duringCheckInCommit(sample, [quick]),
+    ],
+    expected: [false, false, false, false, true, true],
   });
 });
