@@ -15,7 +15,6 @@ import { mediaCaptureOperations } from './media-capture';
 import { roundSpeakingRead } from './round-speaking-read';
 import { createBoundedTransaction } from './bounded-transaction';
 export { isTransactionCapacityRefusal } from './transaction-admission';
-export { MEDIA_RECONCILE_PENDING } from './media-admission-store';
 import { readUnratedAttendanceForfeits } from './attendance-rating';
 import { roundProtectedReads } from './round-protected-reads';
 import { createMessagingTypingPrivacyPort } from './privacy/typing-rights';

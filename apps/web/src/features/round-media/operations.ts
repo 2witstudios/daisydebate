@@ -1,5 +1,4 @@
-import { MEDIA_RECONCILE_PENDING } from '@daisy/db';
-import { createAppError, isAppError } from '@daisy/errors';
+import { createAppError } from '@daisy/errors';
 import {
   roundMediaAdmissionSchema,
   type RoundMediaState,
@@ -18,14 +17,11 @@ import type {
   Scope,
   MediaOperationInput,
 } from './operation-context';
+/** The locked context the store signs an admission token against. */
+type AdmissionContext = Parameters<
+  Parameters<Store['issueMediaToken']>[0]['sign']
+>[0];
 /** Shared production vendor/session consumer. No provider I/O occurs in a database callback. */
-/** Reconciles one admission may run before a pending refusal reaches the caller. */
-const ADMISSION_ATTEMPTS = 3;
-const isReconcilePending = (error: unknown) =>
-  isAppError(error) &&
-  error.code === 'INFRASTRUCTURE' &&
-  error.message === MEDIA_RECONCILE_PENDING;
-
 export function createRoundMediaOperations(input: MediaOperationInput) {
   const buildProjection: Parameters<
     Store['readMediaSession']
@@ -82,8 +78,7 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
     await serve(request.sessionId, request.version);
     return read(roundId, actorId);
   };
-  /** One reconcile, the eligibility checks and the token issue for this caller. */
-  const admitOnce = async (roundId: string, principal: Principal) => {
+  const admit = async (roundId: string, principal: Principal) => {
     const binding =
       principal.kind === 'human'
         ? await input.store.ensureBinding({
@@ -96,67 +91,63 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
             token: principal.token,
             buildProjection,
           });
+    const sign = async (context: AdmissionContext) => {
+      // Post-lock PostgreSQL eligibility, not the earlier unlocked read.
+      if (admissionRevoked(context))
+        throw createAppError('CONFLICT', 'Round media admission is closed');
+      const grants = seatGrants(context, context.participantId, input.nextId);
+      const token = await input.media.joinToken({
+        room: context.binding.roomName,
+        identity: context.binding.identity,
+        ...grants,
+        publish: [...grants.publish],
+        ...(principal.kind === 'bot' ? { subscribe: false } : {}),
+      });
+      const own = {
+        ...context,
+        caller: context.participants.find(
+          (seat) => seat.id === context.participantId,
+        )!,
+      };
+      return {
+        ...projectMedia(own, true, input.nextId),
+        state: 'ready' as const,
+        identity: context.binding.identity,
+        token,
+        url: principal.kind === 'bot' ? input.workerUrl : input.publicUrl,
+        expiresAt: new Date(Date.parse(context.now) + 60_000).toISOString(),
+        sessionId: context.session.id,
+        roomName: context.binding.roomName,
+      };
+    };
     const claim = await acquire(binding.sessionId);
-    await run(claim, principal);
-    const state = await snapshot(roundId);
-    if (admissionRevoked(state))
-      throw createAppError('CONFLICT', 'Round media admission is closed');
-    if (state.unresolved)
-      throw createAppError('INFRASTRUCTURE', MEDIA_RECONCILE_PENDING);
-    if (
-      state.session.unsafeAt ||
-      !(await input.deadline(input.media.exists(binding.roomName)))
-    )
-      throw createAppError('INFRASTRUCTURE');
-    return input.store.issueMediaToken({
-      roundId,
-      principal,
-      buildProjection,
-      sign: async (context) => {
-        // Post-lock PostgreSQL eligibility, not the earlier unlocked read.
-        if (admissionRevoked(context))
-          throw createAppError('CONFLICT', 'Round media admission is closed');
-        const grants = seatGrants(context, context.participantId, input.nextId);
-        const token = await input.media.joinToken({
-          room: context.binding.roomName,
-          identity: context.binding.identity,
-          ...grants,
-          publish: [...grants.publish],
-          ...(principal.kind === 'bot' ? { subscribe: false } : {}),
-        });
-        const own = {
-          ...context,
-          caller: context.participants.find(
-            (seat) => seat.id === context.participantId,
-          )!,
-        };
-        return {
-          ...projectMedia(own, true, input.nextId),
-          state: 'ready' as const,
-          identity: context.binding.identity,
-          token,
-          url: principal.kind === 'bot' ? input.workerUrl : input.publicUrl,
-          expiresAt: new Date(Date.parse(context.now) + 60_000).toISOString(),
-          sessionId: context.session.id,
-          roomName: context.binding.roomName,
-        };
-      },
+    const held: { issued?: Awaited<ReturnType<typeof sign>> } = {};
+    // The token is issued while this reconcile still holds the session, so a
+    // concurrent reconcile (recovery, another caller) is never live in
+    // between to refuse it (ISSUE-534).
+    await run(claim, principal, async () => {
+      const state = await snapshot(roundId);
+      if (admissionRevoked(state))
+        throw createAppError('CONFLICT', 'Round media admission is closed');
+      if (
+        state.session.unsafeAt ||
+        state.unresolved ||
+        !(await input.deadline(input.media.exists(binding.roomName)))
+      )
+        throw createAppError('INFRASTRUCTURE');
+      held.issued = await input.store.issueMediaToken({
+        roundId,
+        principal,
+        reconcileOwner: claim.fence.owner,
+        buildProjection,
+        sign,
+      });
     });
-  };
-  /**
-   * A token refused only as pending (another reconcile landed between ours
-   * and the issue, or a vendor mutation is in flight) reconciles again, up to
-   * ADMISSION_ATTEMPTS times, before the caller sees it as unavailable.
-   */
-  const admit = async (roundId: string, principal: Principal) => {
-    for (let attempt = 1; ; attempt++) {
-      try {
-        return await admitOnce(roundId, principal);
-      } catch (error) {
-        if (attempt >= ADMISSION_ATTEMPTS || !isReconcilePending(error))
-          throw error;
-      }
-    }
+    if (held.issued) return held.issued;
+    // The reconcile refused or cleaned up and never reached the issue.
+    if (admissionRevoked(await snapshot(roundId)))
+      throw createAppError('CONFLICT', 'Round media admission is closed');
+    throw createAppError('INFRASTRUCTURE');
   };
   return {
     read,
