@@ -1,6 +1,7 @@
 # Staging LiveKit SFU (ISSUE-528, DEC-228): self-hosted, single node, no
-# Redis. Its own Fly network (daisy-livekit, DEC-229): it reaches no private
-# service, and the web app and capture worker call it at its public URL.
+# Redis. It joins the org's default 6PN (DEC-230, revising DEC-229): native
+# clients inside Fly reach its media over 6PN, browsers over the public IPv4.
+# The web app and capture worker call its server API at its public URL.
 # Signalling and the server API are HTTPS on 443 through fly-proxy; media
 # is raw UDP 7882 (fly-global-services, see infra/livekit/entrypoint.sh),
 # with ICE over TCP 7881 as the fallback for networks that block UDP. Both
@@ -18,7 +19,7 @@ kill_timeout = 30
   # The dedicated IPv4 from `fly ips list -a daisy-debate-staging-livekit`,
   # advertised in every ICE candidate. Not secret. LIVEKIT_KEYS is a Fly
   # secret, never written here.
-  LIVEKIT_NODE_IP = "137.66.24.223"
+  LIVEKIT_NODE_IP = "37.16.6.18"
 
 [http_service]
   internal_port = 7880

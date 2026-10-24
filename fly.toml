@@ -71,8 +71,12 @@ kill_timeout = 35
   REALTIME_PUBLIC_URL = "wss://daisy-debate-staging-realtime.fly.dev/ws"
   # Bot opponents and AI judging (docs/architecture/round-bot-workers.md):
   # a small staging capacity on the OPENROUTER_API_KEY secret, with the
-  # models the isolated launch proof runs.
-  ROUND_BOT_WORKER_POLICY = '{"maxControllers":2,"providerConcurrency":2,"scanBatch":16,"scanMs":250,"leaseMs":15000,"renewMs":3000,"callTimeoutMs":30000,"models":{"speech":"anthropic/claude-sonnet-5.5","cross_ex":"anthropic/claude-sonnet-5.5","judge":"anthropic/claude-sonnet-5.5","tts":"deepgram/aura-2"}}'
+  # models the isolated launch proof runs. AI_ROUND_BUSY_CAP admits at most
+  # four Rounds with a bot at once, matching maxControllers (the launch
+  # proof's capacity); without it the
+  # web app has no bot admission and refuses to start any Round with a bot.
+  AI_ROUND_BUSY_CAP = "4"
+  ROUND_BOT_WORKER_POLICY = '{"maxControllers":4,"providerConcurrency":2,"scanBatch":16,"scanMs":250,"leaseMs":15000,"renewMs":3000,"callTimeoutMs":30000,"models":{"speech":"anthropic/claude-sonnet-5.5","cross_ex":"anthropic/claude-sonnet-5.5","judge":"anthropic/claude-sonnet-5.5","tts":"deepgram/aura-2"}}'
 
 [http_service]
   # Must match Dockerfile EXPOSE and the PORT env above.
@@ -121,6 +125,9 @@ kill_timeout = 35
   # docs/operations/deploy-staging.md "Cost" for the full measurement.
   # ISSUE-528: bot opponents publish speech from this process through the
   # native LiveKit SDK (apps/web/src/server/round-workers.ts), so live
-  # Rounds get 1gb rather than the measured idle-plus-SSR 512mb.
-  size = "shared-cpu-1x"
+  # Rounds get 1gb rather than the measured idle-plus-SSR 512mb. With the
+  # Round workers running (availability sampling, maintenance, bot control),
+  # shared-cpu-1x measured 70% CPU steal and stalled database round trips
+  # to 70 ms, past the 3 s transaction budget; shared-cpu-4x measured 0%.
+  size = "shared-cpu-4x"
   memory = "1gb"

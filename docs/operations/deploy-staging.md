@@ -100,7 +100,9 @@ Live Rounds (ISSUE-528, DEC-228) add the LiveKit SFU (shared-cpu-1x 512mb,
 always on, ≈ $3.99, plus its dedicated IPv4 at $2/month), the realtime
 service (shared-cpu-1x 512mb, always on, ≈ $3.99) and the capture worker
 (shared-cpu-1x 1gb, always on, ≈ $5.84), and the web machine's step to 1gb
-(+ ≈ $1.85): about $17.67/month more, $24.24/month in all at rest. Media
+(+ ≈ $1.85). Three more services' pools left the 256MB Postgres machine with
+23MB free and timing out statements, so it moved to 512mb (+ ≈ $1.85). In
+all about $19.52/month more, $26.09/month at rest. Media
 egress beyond Fly's free allowance bills per GB.
 
 Before ISSUE-528: about $6.57/month at rest: the always-on web machine ($3.99), the
@@ -736,7 +738,9 @@ printf 'LIVEKIT_KEYS=%s: %s\n' "$KEY" "$SECRET" | fly secrets import -a daisy-de
 # postgres connect` needs a terminal and hangs on piped input):
 RT_PW="$(bun -e 'console.log(Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("hex"))')"
 MW_PW="$(bun -e 'console.log(Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("hex"))')"
-printf "ALTER ROLE daisy_realtime PASSWORD '%s';\nALTER ROLE daisy_media_worker PASSWORD '%s';\n" "$RT_PW" "$MW_PW" \
+# The Fly Postgres database grants CONNECT to no role by default; daisy_web
+# holds it from the original setup, and these two need the same grant.
+printf "ALTER ROLE daisy_realtime PASSWORD '%s';\nALTER ROLE daisy_media_worker PASSWORD '%s';\nGRANT CONNECT ON DATABASE daisy_debate_staging TO daisy_realtime, daisy_media_worker;\n" "$RT_PW" "$MW_PW" \
   | fly ssh console -a daisy-debate-staging-db \
       -C 'sh -c "psql -X -q -v ON_ERROR_STOP=1 postgres://postgres:\$OPERATOR_PASSWORD@localhost:5433/daisy_debate_staging"'
 DB=daisy-debate-staging-db.flycast:5432/daisy_debate_staging?sslmode=disable
