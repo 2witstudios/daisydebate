@@ -6,9 +6,10 @@ name: Deploy staging
 # (fly.migrate.toml) deploys first: its release command migrates as the
 # schema owner and it creates no machines. Only then does `fly deploy` build
 # and roll out the web app, which never holds the owner credential (ISSUE-102,
-# ADR 0041). Both build remotely from apps/web/Dockerfile, as do the
-# realtime service and the capture worker (their own stages, ISSUE-528);
-# the LiveKit SFU deploys only when a merge changes it. Production rollout is
+# ADR 0041). Both build on the runner from apps/web/Dockerfile
+# (--local-only, ISSUE-542), as do the realtime service and the capture
+# worker (their own stages, ISSUE-528); the LiveKit SFU deploys only when a
+# merge changes it. Production rollout is
 # a separate, human-gated step (AUTH-7.2/7.3) and is never automated here.
 on:
   workflow_run:

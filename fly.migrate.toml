@@ -8,7 +8,7 @@
 #
 # Deployed by .github/workflows/deploy-staging.yml before the web app, from
 # the repository root:
-#   flyctl deploy -c fly.migrate.toml --remote-only --update-only ...
+#   flyctl deploy -c fly.migrate.toml --local-only --update-only ...
 # `--update-only` creates no machines, so the release command's temporary
 # machine is the only one that ever boots with the owner credential, and it
 # is destroyed when the command exits. A non-zero exit stops the deploy, and

@@ -678,9 +678,11 @@ Docker cache, so the job runs `next build` once. Fly's 4-CPU Depot builder
 stalled `next build` at "Collecting page data" for 40 minutes, until it
 dropped the connection; the same build takes about 30 s with room.
 `scripts/verify-image-build.ts` fails a deploy step without `--local-only`.
-The workflow needs two
+The workflow needs five
 repository secrets, each a deploy token scoped to one app and exposed only
-on its own step:
+on its own step: `FLY_API_TOKEN` (web), `FLY_MIGRATE_API_TOKEN`
+(migrator), and `FLY_LIVEKIT_API_TOKEN`, `FLY_REALTIME_API_TOKEN` and
+`FLY_MEDIA_WORKER_API_TOKEN`, which §11 creates. The first two:
 
 ```
 fly tokens create deploy -a daisy-debate-staging --name github-actions-staging --expiry 8760h \

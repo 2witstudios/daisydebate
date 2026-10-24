@@ -112,6 +112,47 @@ describe('findRunnerBuildProblem (ISSUE-542)', () => {
     });
   });
 
+  test('a remote build hidden past the line that starts the deploy (ISSUE-544)', () => {
+    assert({
+      given:
+        '--remote-only on a folded continuation line, --depot after a backslash, --local-only=false, the fly alias with no location, and --local-only only in a trailing shell comment',
+      should: 'report each, reading the whole command the shell runs',
+      actual: [
+        findRunnerBuildProblem(
+          workflow.replace(
+            'flyctl deploy -c fly.realtime.toml --local-only --ha=false\n',
+            'flyctl deploy -c fly.realtime.toml --local-only --ha=false\n          --remote-only\n',
+          ),
+        ),
+        findRunnerBuildProblem(
+          workflow.replace(
+            '--env LIVEKIT_SOURCE_COMMIT="$DEPLOY_SHA"',
+            '--env LIVEKIT_SOURCE_COMMIT="$DEPLOY_SHA" --depot',
+          ),
+        ),
+        findRunnerBuildProblem(
+          workflow.replace(
+            'flyctl deploy -a daisy-debate-staging --local-only',
+            'flyctl deploy -a daisy-debate-staging --local-only=false',
+          ),
+        ),
+        findRunnerBuildProblem(
+          workflow.replace(
+            'flyctl deploy -a daisy-debate-staging --local-only',
+            'fly deploy -a daisy-debate-staging',
+          ),
+        ),
+        findRunnerBuildProblem(
+          workflow.replace(
+            'flyctl deploy -c fly.media-worker.toml --local-only --ha=false',
+            'flyctl deploy -c fly.media-worker.toml --ha=false # --local-only',
+          ),
+        ),
+      ],
+      expected: [problem, problem, problem, problem, problem],
+    });
+  });
+
   test('a workflow with no deploy at all', () => {
     assert({
       given: 'a workflow that never runs flyctl deploy',
