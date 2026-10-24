@@ -130,6 +130,36 @@ test('speech evidence retains incoming outage recovery, not just the preceding s
   }
 });
 
+test('speech evidence starts at the latest recovery samples before the speech, not the whole retained history (ISSUE-529)', async () => {
+  const client = new SQL(databaseUrl, { max: 2 });
+  try {
+    await client.begin(async (tx) => {
+      await tx`select pg_advisory_xact_lock(59003)`;
+      await tx`insert into availability_samples(at,healthy,cause)
+        select '2100-01-02T00:00:00Z'::timestamptz+n*interval '1 second',true,null
+        from generate_series(0,86399) n order by n`;
+    });
+    const samples = await availabilityOperations(
+      client,
+    ).readAvailabilitySamples('2100-01-02T23:59:59.500Z');
+    assert({
+      given:
+        'a retained day of one-per-second healthy samples, all before the speech opens',
+      should:
+        'read only from the third-latest sample before it, which fixes the outage state it opens into',
+      actual: samples.map((sample) => sample.at),
+      expected: [
+        '2100-01-02T23:59:57.000000Z',
+        '2100-01-02T23:59:58.000000Z',
+        '2100-01-02T23:59:59.000000Z',
+      ],
+    });
+  } finally {
+    await client`delete from availability_samples where at >= '2100-01-02T00:00:00Z'::timestamptz`;
+    await client.close();
+  }
+});
+
 test('PG-time leases and elected same-session sampler preserve real availability evidence', async () => {
   const client = new SQL(databaseUrl, { max: 6 });
   const ops = availabilityOperations(client);

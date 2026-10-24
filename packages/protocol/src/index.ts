@@ -238,6 +238,7 @@ export {
 export type { RoundMediaState, RoundMediaAdmission } from './round-media';
 export {
   attendanceTimingPolicy,
+  availabilityRecoveryPolicy,
   attendanceEnvelopeSchema,
   attendanceReceiptSchema,
   type AttendanceEnvelope,

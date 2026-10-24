@@ -1,5 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
+import { availabilityRecoveryPolicy } from '@daisy/protocol';
 import {
   deriveOutageIntervals,
   effectiveAttendanceDeadline,
@@ -189,4 +190,69 @@ test('additional failed samples never shorten healthy elapsed grace', () => {
       expected: true,
     });
   }
+});
+
+/** Deterministic sample histories: a seeded LCG, never Math.random. */
+const histories = (count: number) => {
+  let seed = 528;
+  const next = () =>
+    (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+  return Array.from({ length: count }, () => {
+    let atMs = 0;
+    return Array.from({ length: 24 }, () => {
+      atMs += next() < 0.15 ? 2500 : 1000;
+      return { atMs, healthy: next() > 0.2 };
+    });
+  });
+};
+
+/** Openings at or after each read whose deadline differs from the full history's. */
+const boundedDifferences = (kept: number) =>
+  histories(200).flatMap((history) =>
+    history.flatMap((sample, index) => {
+      const fromMs = sample.atMs - 500;
+      // The read keeps the latest recoverySamples samples before `from`.
+      const bounded = history.slice(Math.max(0, index - kept));
+      const full = deriveOutageIntervals(history);
+      const read = deriveOutageIntervals(bounded);
+      // Openings at the read's start and between later samples, where an
+      // outage still recovering at `from` would move the deadline.
+      const openings = [
+        fromMs,
+        ...history
+          .filter((later) => later.atMs >= fromMs)
+          .map((later) => later.atMs + 200),
+      ];
+      return openings.filter(
+        (openedAtMs) =>
+          effectiveAttendanceDeadline({
+            openedAtMs,
+            graceMs: 3000,
+            availability: full,
+          }) !==
+          effectiveAttendanceDeadline({
+            openedAtMs,
+            graceMs: 3000,
+            availability: read,
+          }),
+      );
+    }),
+  );
+
+test('the bounded read fixes every later deadline the full history fixes (ISSUE-529)', () => {
+  const { recoverySamples } = availabilityRecoveryPolicy;
+  assert({
+    given:
+      '200 seeded histories with outages and gaps, each read from the latest recovery samples before every possible speech opening',
+    should:
+      'derive the same effective deadline as the whole history for every opening at or after the read',
+    actual: boundedDifferences(recoverySamples),
+    expected: [],
+  });
+  assert({
+    given: 'the same histories read with one sample fewer',
+    should: 'change some deadline, so the bound is the smallest that holds',
+    actual: boundedDifferences(recoverySamples - 1).length > 0,
+    expected: true,
+  });
 });
