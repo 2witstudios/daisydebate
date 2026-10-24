@@ -1,4 +1,5 @@
-import { createAppError } from '@daisy/errors';
+import { MEDIA_RECONCILE_PENDING } from '@daisy/db';
+import { createAppError, isAppError } from '@daisy/errors';
 import {
   roundMediaAdmissionSchema,
   type RoundMediaState,
@@ -18,6 +19,13 @@ import type {
   MediaOperationInput,
 } from './operation-context';
 /** Shared production vendor/session consumer. No provider I/O occurs in a database callback. */
+/** Reconciles one admission may run before a pending refusal reaches the caller. */
+const ADMISSION_ATTEMPTS = 3;
+const isReconcilePending = (error: unknown) =>
+  isAppError(error) &&
+  error.code === 'INFRASTRUCTURE' &&
+  error.message === MEDIA_RECONCILE_PENDING;
+
 export function createRoundMediaOperations(input: MediaOperationInput) {
   const buildProjection: Parameters<
     Store['readMediaSession']
@@ -74,7 +82,8 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
     await serve(request.sessionId, request.version);
     return read(roundId, actorId);
   };
-  const admit = async (roundId: string, principal: Principal) => {
+  /** One reconcile, the eligibility checks and the token issue for this caller. */
+  const admitOnce = async (roundId: string, principal: Principal) => {
     const binding =
       principal.kind === 'human'
         ? await input.store.ensureBinding({
@@ -92,9 +101,10 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
     const state = await snapshot(roundId);
     if (admissionRevoked(state))
       throw createAppError('CONFLICT', 'Round media admission is closed');
+    if (state.unresolved)
+      throw createAppError('INFRASTRUCTURE', MEDIA_RECONCILE_PENDING);
     if (
       state.session.unsafeAt ||
-      state.unresolved ||
       !(await input.deadline(input.media.exists(binding.roomName)))
     )
       throw createAppError('INFRASTRUCTURE');
@@ -132,6 +142,21 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
         };
       },
     });
+  };
+  /**
+   * A token refused only as pending (another reconcile landed between ours
+   * and the issue, or a vendor mutation is in flight) reconciles again, up to
+   * ADMISSION_ATTEMPTS times, before the caller sees it as unavailable.
+   */
+  const admit = async (roundId: string, principal: Principal) => {
+    for (let attempt = 1; ; attempt++) {
+      try {
+        return await admitOnce(roundId, principal);
+      } catch (error) {
+        if (attempt >= ADMISSION_ATTEMPTS || !isReconcilePending(error))
+          throw error;
+      }
+    }
   };
   return {
     read,

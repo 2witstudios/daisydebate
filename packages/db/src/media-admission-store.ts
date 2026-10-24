@@ -14,6 +14,13 @@ import {
   type BotPublicationScope,
 } from './bot-publication-context';
 
+/**
+ * A token refused only because another reconcile holds the session or a
+ * vendor mutation is still pending: it clears on its own, so admission
+ * reconciles again and retries (ISSUE-534), unlike an ended or unsafe session.
+ */
+export const MEDIA_RECONCILE_PENDING = 'Media reconcile is pending';
+
 export type MediaAdmissionPrincipal =
   | { readonly kind: 'human'; readonly actorId: string }
   | {
@@ -81,13 +88,10 @@ export const createMediaAdmissionStore = (run: BoundedTransaction) => ({
         snapshot.now,
         snapshot.finalSegmentEndedAt,
       );
-      if (
-        snapshot.session.endedAt ||
-        snapshot.session.unsafeAt ||
-        snapshot.unresolved ||
-        snapshot.reconciling
-      )
+      if (snapshot.session.endedAt || snapshot.session.unsafeAt)
         throw createAppError('INFRASTRUCTURE', 'Media recovery is unresolved');
+      if (snapshot.unresolved || snapshot.reconciling)
+        throw createAppError('INFRASTRUCTURE', MEDIA_RECONCILE_PENDING);
       return input.sign({ ...snapshot, participantId, binding });
     });
   },
