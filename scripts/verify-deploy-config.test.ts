@@ -179,7 +179,7 @@ describe('verifyDeployConfig', () => {
   test('both files drifted at once', () => {
     assert({
       given:
-        'a wrong Bun version, a dropped release command and an image build that never marks itself',
+        'a wrong Bun version, a dropped release command, and an image that never marks its build and ends on a base stage',
       should: 'report every problem, not just the first',
       actual: verifyDeployConfig({
         dockerfile: 'FROM oven/bun:1.0.0-slim AS base\n',
@@ -194,7 +194,7 @@ describe('verifyDeployConfig', () => {
         migrateTs: realMigrate,
         shutdownBudgetTs: realShutdownBudget,
       }).length,
-      expected: 3,
+      expected: 4,
     });
   });
 });

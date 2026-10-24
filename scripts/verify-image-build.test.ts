@@ -1,6 +1,9 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { readFileSync } from 'node:fs';
-import { findImageTypecheckProblem } from './verify-image-build';
+import {
+  findDefaultStageProblem,
+  findImageTypecheckProblem,
+} from './verify-image-build';
 
 setupRitewayBun();
 
@@ -46,6 +49,27 @@ describe('findImageTypecheckProblem (ISSUE-527)', () => {
         }),
       ],
       expected: [problem, problem, problem],
+    });
+  });
+});
+
+describe('findDefaultStageProblem (ISSUE-528)', () => {
+  test('the web image stays the default target', () => {
+    assert({
+      given:
+        'the committed Dockerfile, then one with a service stage moved last',
+      should:
+        'pass the committed file and report the move, since fly.toml and fly.migrate.toml build the default target',
+      actual: [
+        findDefaultStageProblem(realDockerfile),
+        findDefaultStageProblem(
+          `${realDockerfile}\nFROM server-source AS realtime-late\n`,
+        ),
+      ],
+      expected: [
+        null,
+        'apps/web/Dockerfile must end with the `runtime` stage: fly.toml and fly.migrate.toml build the default (last) target',
+      ],
     });
   });
 });

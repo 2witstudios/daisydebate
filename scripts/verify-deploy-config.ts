@@ -12,7 +12,10 @@ import {
   findServiceAppConfigProblems,
   findServiceDeployProblems,
 } from './verify-service-apps';
-import { findImageTypecheckProblem } from './verify-image-build';
+import {
+  findDefaultStageProblem,
+  findImageTypecheckProblem,
+} from './verify-image-build';
 
 /** Pure check: does the Dockerfile's base image pin exactly `.bun-version`? */
 export function findDockerfileBunVersionProblem(input: {
@@ -324,6 +327,7 @@ export function verifyDeployConfig(input: {
       bunVersion: input.bunVersion,
     }),
     findImageTypecheckProblem(input),
+    findDefaultStageProblem(input.dockerfile),
     findFlyReleaseCommandProblem(input.migratorToml),
     findWebReleaseCommandProblem(input.flyToml),
     findMigratorAppProblem(input.migratorToml),

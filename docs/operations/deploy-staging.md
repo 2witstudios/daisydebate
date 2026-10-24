@@ -102,7 +102,7 @@ the same formula (a shared vCPU includes 256MB):
 | Machine                                            | Size                 | Monthly                     |
 | -------------------------------------------------- | -------------------- | --------------------------- |
 | Web `daisy-debate-staging`                         | shared-cpu-4x, 1gb   | ≈ $9.72 (was $3.99)         |
-| Postgres `daisy-debate-staging-db`                 | shared-cpu-2x, 1gb   | ≈ $7.99 (was $2.43)         |
+| Postgres `daisy-debate-staging-db`                 | performance-1x, 2gb  | ≈ $40 (was $2.43)           |
 | LiveKit `daisy-debate-staging-livekit`             | shared-cpu-1x, 512mb | ≈ $3.99 + $2 dedicated IPv4 |
 | Realtime `daisy-debate-staging-realtime`           | shared-cpu-1x, 512mb | ≈ $3.99                     |
 | Capture worker `daisy-debate-staging-media-worker` | shared-cpu-1x, 1gb   | ≈ $7.12                     |
@@ -715,6 +715,13 @@ steps (`SERVICE_APPS`).
 | `daisy-debate-staging-livekit`      | `fly.livekit.toml`      | `infra/livekit/Dockerfile` (pinned)   | default 6PN (DEC-230)         | `LIVEKIT_KEYS` (`<key>: <secret>`)                                                              |
 | `daisy-debate-staging-realtime`     | `fly.realtime.toml`     | `apps/web/Dockerfile`, `realtime`     | default 6PN (Postgres, Redis) | `DATABASE_URL` (`daisy_realtime`), `REDIS_URL`                                                  |
 | `daisy-debate-staging-media-worker` | `fly.media-worker.toml` | `apps/web/Dockerfile`, `media-worker` | default 6PN (Postgres)        | `MEDIA_WORKER_DATABASE_URL` (`daisy_media_worker`), `MEDIA_WORKER_SECRET`, `OPENROUTER_API_KEY` |
+
+Realtime redeems the connect tickets the web app issues, and tickets are
+namespaced, so `REDIS_NAMESPACE` lives only in the committed `[env]` of
+`fly.toml` and `fly.realtime.toml`, with the same value, and never as a Fly
+secret (a secret overrides `[env]`). An old `REDIS_NAMESPACE` secret on the web
+app had every realtime socket rejected `auth_failed` until it was unset
+(2026-10-24); `verify-service-apps.ts` checks the committed pair.
 
 The web app adds `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` (the LiveKit pair)
 and `MEDIA_WORKER_SECRET` (the worker's value) as secrets, and

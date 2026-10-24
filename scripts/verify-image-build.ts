@@ -27,3 +27,17 @@ export function findImageTypecheckProblem(input: {
     ? null
     : "next.config.ts must skip type errors only for the image build (ignoreBuildErrors: process.env.DAISY_IMAGE_BUILD === '1'), and only the Dockerfile build stage may set DAISY_IMAGE_BUILD=1; CI typechecks every deployed commit";
 }
+
+/**
+ * fly.toml and fly.migrate.toml build apps/web/Dockerfile's default target,
+ * its last stage, so the web `runtime` stage must stay last; the service
+ * stages are selected only by their own build-target (ISSUE-528).
+ */
+export function findDefaultStageProblem(dockerfile: string): string | null {
+  const stages = [
+    ...uncommented(dockerfile).matchAll(/^FROM \S+ AS (\S+)\s*$/gm),
+  ];
+  return stages.at(-1)?.[1] === 'runtime'
+    ? null
+    : 'apps/web/Dockerfile must end with the `runtime` stage: fly.toml and fly.migrate.toml build the default (last) target';
+}

@@ -62,7 +62,9 @@ jobs:
   deploy:
     name: Deploy main to daisy-debate-staging
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    # Five remote builds (migrator, LiveKit, realtime, web, capture worker)
+    # run back to back; the web image alone has taken over 15 minutes.
+    timeout-minutes: 60
     needs: ready
     if: >-
       !cancelled() &&
@@ -89,9 +91,9 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ env.DEPLOY_SHA }}
-          # The merge and its first parent, so the LiveKit step can tell
-          # whether this merge changed the SFU's image or config.
-          fetch-depth: 2
+          # Full history, so the LiveKit step can diff against whatever
+          # commit the SFU last deployed from, however many merges back.
+          fetch-depth: 0
           persist-credentials: false
       - id: setup-flyctl
         uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1 # 1.6
@@ -111,18 +113,25 @@ jobs:
       - id: livekit
         name: Deploy LiveKit
         # ISSUE-528: the staging SFU (fly.livekit.toml), a pinned image.
-        # Redeploying it ends every live call, so a main merge redeploys it
-        # only when the merge changed its image or config; a manual run
-        # always does. Its own app-scoped deploy token, as below.
+        # Redeploying it ends every live call, so a main push redeploys it
+        # only when its image or config changed since the commit it last
+        # deployed from (LIVEKIT_SOURCE_COMMIT on its machine), which also
+        # catches changes from pushes that never deployed. An unknown or
+        # missing source commit, or a manual run, always redeploys. Its own
+        # app-scoped deploy token, as below.
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_LIVEKIT_API_TOKEN }}
           MANUAL: ${{ github.event_name == 'workflow_dispatch' }}
         run: |
-          if [ "$MANUAL" != true ] && git diff --quiet HEAD^1 HEAD -- infra/livekit fly.livekit.toml; then
-            echo "LiveKit unchanged; not redeployed"
+          deployed="$(flyctl machines list -a daisy-debate-staging-livekit --json | jq -r '.[0].config.env.LIVEKIT_SOURCE_COMMIT // empty')"
+          if [ "$MANUAL" != true ] && [ -n "$deployed" ] \
+            && git cat-file -e "$deployed^{commit}" 2>/dev/null \
+            && git diff --quiet "$deployed" HEAD -- infra/livekit fly.livekit.toml; then
+            echo "LiveKit unchanged since $deployed; not redeployed"
             exit 0
           fi
-          flyctl deploy -c fly.livekit.toml --remote-only --ha=false
+          flyctl deploy -c fly.livekit.toml --remote-only --ha=false \
+            --env LIVEKIT_SOURCE_COMMIT="$DEPLOY_SHA"
       - id: realtime
         name: Deploy realtime
         # ISSUE-528: apps/realtime, the `realtime` stage of the web
