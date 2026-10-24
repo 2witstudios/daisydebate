@@ -27,3 +27,15 @@ export const attendanceTimingPolicy = {
   commitBudgetMs: 2000,
   finalizationBufferMs: 5000,
 } as const;
+
+/**
+ * When availability evidence closes an outage (ADR 0067): after this many
+ * consecutive healthy samples, and a gap between samples longer than
+ * maxSampleGapMs opens one. So the outage state at any instant is fixed by
+ * the latest recoverySamples samples before it, which bounds how much
+ * history a later decision must read (ISSUE-529).
+ */
+export const availabilityRecoveryPolicy = {
+  recoverySamples: 3,
+  maxSampleGapMs: 2000,
+} as const;

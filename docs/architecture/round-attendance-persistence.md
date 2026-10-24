@@ -26,7 +26,13 @@ treats a bot seat's missing receipt as worker loss, never absence (ADR 0067). A 
 lock 59003; the insert trigger takes the same transaction lock reentrantly and
 requires time strictly greater than the committed maximum. The producer uses
 PG statement time and a monotone insert predicate; history is not rewritten.
-The timestamp key supports the 24-hour prune. Pending check-ins override current
+The timestamp key supports the 24-hour prune and the bounded read: a
+Round's attendance evidence starts at the third-latest sample before its
+first speech (`availabilityRecoveryPolicy.recoverySamples`), which fixes the
+outage state that speech opens into, then reads every later sample
+(`availabilitySamplesFrom`, ISSUE-529). It never reads the whole retained day,
+which at one sample a second outgrew the check-in and evaluation transaction
+budgets on staging. Pending check-ins override current
 peer health and gate the owning Round evaluator conservatively.
 
 Every web peer renews its own lease each second. Before public probing, the
