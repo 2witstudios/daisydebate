@@ -111,8 +111,13 @@ Measured on 2026-10-24: with the Round workers running, the web machine at
 shared-cpu-1x showed 70% CPU steal and stalled database round trips to 70 ms,
 past the 3 s transaction budget; at shared-cpu-4x it showed 0%. Three more
 services' pools and their per-second loops left the 256MB Postgres machine
-at 93% CPU pressure with 23MB free; at shared-cpu-2x 1gb it measured 1.5%.
-In all about $34.96/month at rest, $28.39 more than before. Media egress
+at 93% CPU pressure with 23MB free. At shared-cpu-2x 1gb it measured 1.5%
+at first, then 51% CPU steal once its burst ran out while using 4% CPU:
+host contention, which stretched each media admission to 9 to 34 s. A
+dedicated vCPU (performance-1x, Fly's list price $32.19 with the ord markup)
+measured 0% steal and 40 to 130 ms per media store call. In all about
+$67/month at rest, about $60 more than before; Postgres is most of it, and
+it is the one machine shared CPU cannot serve. Media egress
 beyond Fly's free allowance bills per GB.
 
 Before ISSUE-528: about $6.57/month at rest: the always-on web machine ($3.99), the
@@ -220,8 +225,8 @@ signed off explicitly and that sign-off is recorded: a decision recorded
 with `bun decision:record`, confirmed by the owner, and linked from this
 section. Recorded sign-offs: DEC-229 (2026-10-24, ISSUE-528) admits
 `daisy-debate-staging-realtime` and `daisy-debate-staging-media-worker` to
-this 6PN and puts `daisy-debate-staging-livekit` in its own network
-(`daisy-livekit`). This is a security-behavior change, so it is the owner's call, not
+this 6PN; DEC-230 revises it to admit `daisy-debate-staging-livekit` too,
+because native clients inside Fly reach its media only over 6PN. This is a security-behavior change, so it is the owner's call, not
 a Builder's or an operator's. The sign-off must say whether the new app's
 machines may reach this one over 6PN, or whether it goes in a custom
 private network (`fly apps create --network`) instead.
@@ -707,7 +712,7 @@ steps (`SERVICE_APPS`).
 
 | App                                 | Config                  | Image                                 | Network                       | Secrets                                                                                         |
 | ----------------------------------- | ----------------------- | ------------------------------------- | ----------------------------- | ----------------------------------------------------------------------------------------------- |
-| `daisy-debate-staging-livekit`      | `fly.livekit.toml`      | `infra/livekit/Dockerfile` (pinned)   | its own, `daisy-livekit`      | `LIVEKIT_KEYS` (`<key>: <secret>`)                                                              |
+| `daisy-debate-staging-livekit`      | `fly.livekit.toml`      | `infra/livekit/Dockerfile` (pinned)   | default 6PN (DEC-230)         | `LIVEKIT_KEYS` (`<key>: <secret>`)                                                              |
 | `daisy-debate-staging-realtime`     | `fly.realtime.toml`     | `apps/web/Dockerfile`, `realtime`     | default 6PN (Postgres, Redis) | `DATABASE_URL` (`daisy_realtime`), `REDIS_URL`                                                  |
 | `daisy-debate-staging-media-worker` | `fly.media-worker.toml` | `apps/web/Dockerfile`, `media-worker` | default 6PN (Postgres)        | `MEDIA_WORKER_DATABASE_URL` (`daisy_media_worker`), `MEDIA_WORKER_SECRET`, `OPENROUTER_API_KEY` |
 
@@ -723,16 +728,22 @@ IPv4, because shared IPv4 carries no UDP. Fly delivers public UDP only to a
 socket bound to the `fly-global-services` address, which exists only on the
 machine, so `infra/livekit/entrypoint.sh` resolves it at boot, binds the UDP
 mux to it (`rtc.ips.includes`) and advertises `LIVEKIT_NODE_IP`, the
-dedicated IPv4 written in `fly.livekit.toml`. Proof (2026-10-24): `lk
-load-test` from outside Fly published and received an audio track over
-`udp4 137.66.24.223:7882` with 0% loss. A main merge redeploys LiveKit only
+dedicated IPv4 written in `fly.livekit.toml`. Native clients inside Fly (the
+capture worker, the web app's bot publisher) cannot complete ICE to that
+anycast address, so LiveKit sits on the org's default 6PN and also binds and
+advertises its 6PN address (`FLY_PRIVATE_IP`, `rtc.advertise_internal_ip`,
+DEC-230). Proof (2026-10-24): `lk load-test` from outside Fly published and
+received audio over UDP with 0% loss; `@livekit/rtc-node` on the worker
+machine connected in 249 ms over 6PN; and two browsers played a full
+two-person Round judged by the AI judge, and one played a bot, on
+`daisy-debate-staging.fly.dev`. A main merge redeploys LiveKit only
 when it changes `infra/livekit` or `fly.livekit.toml`, because a redeploy
 ends every live call; a manual run always redeploys it.
 
 Provision once:
 
 ```sh
-fly apps create daisy-debate-staging-livekit --org daisy-debate --network daisy-livekit
+fly apps create daisy-debate-staging-livekit --org daisy-debate   # default 6PN (DEC-230)
 fly ips allocate-v4 -a daisy-debate-staging-livekit --yes   # dedicated, $2/month; write it to LIVEKIT_NODE_IP
 fly ips allocate-v6 -a daisy-debate-staging-livekit
 fly apps create daisy-debate-staging-realtime --org daisy-debate
@@ -781,7 +792,7 @@ The Postgres machine needs the size above; `fly postgres` machines are not
 in a committed config, so set it once:
 
 ```sh
-fly machine update <id> -a daisy-debate-staging-db --vm-size shared-cpu-2x --vm-memory 1024 --yes
+fly machine update <id> -a daisy-debate-staging-db --vm-size performance-1x --vm-memory 2048 --yes
 ```
 
 **Availability probe.** Competitive maintenance finalizes nothing while

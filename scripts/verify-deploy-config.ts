@@ -2,6 +2,17 @@ import { readFileSync } from 'node:fs';
 import { posix } from 'node:path';
 import ts from 'typescript';
 import { findRuntimeRoleGateProblem } from './runtime-role-gate';
+import {
+  KILL_TIMEOUT_MARGIN_S,
+  killTimeoutSeconds,
+  tableBody,
+  uncommented,
+} from './deploy-config-text';
+import {
+  findServiceAppConfigProblems,
+  findServiceDeployProblems,
+} from './verify-service-apps';
+import { findImageTypecheckProblem } from './verify-image-build';
 
 /** Pure check: does the Dockerfile's base image pin exactly `.bun-version`? */
 export function findDockerfileBunVersionProblem(input: {
@@ -25,25 +36,6 @@ export function findDockerfileBunVersionProblem(input: {
 // can't run from the image) gets caught before a release ships unmigrated.
 export const EXPECTED_RELEASE_COMMAND =
   'bun /app/packages/db/scripts/migrate.ts';
-
-const uncommented = (text: string) =>
-  text
-    .split('\n')
-    .filter((line) => !/^\s*(#|\/\/)/.test(line))
-    .join('\n');
-
-/** The body of `[table]`, up to the next table header. */
-const tableBody = (toml: string, table: string): string[] | null => {
-  const lines = toml.split('\n');
-  const start = lines.findIndex((line) => line.trim() === table);
-  if (start === -1) return null;
-  const body: string[] = [];
-  for (const line of lines.slice(start + 1)) {
-    if (/^\[/.test(line.trim())) break;
-    body.push(line);
-  }
-  return body;
-};
 
 /**
  * Pure check: does fly.migrate.toml's `[deploy]` table keep exactly the
@@ -161,9 +153,6 @@ export function findAlwaysOnProblem(flyToml: string): string | null {
   return null;
 }
 
-/** Seconds Fly must wait past the drain deadline before it SIGKILLs. */
-const KILL_TIMEOUT_MARGIN_S = 10;
-
 /**
  * ISSUE-214: Fly sends kill_signal and SIGKILLs a machine that has not
  * exited kill_timeout later (default 5 s). The server drains for up to
@@ -195,160 +184,6 @@ export function findKillTimeoutProblem(input: {
   return killTimeoutSeconds(input.flyToml) >= required
     ? null
     : `fly.toml kill_timeout must be at least ${required} s (the ${drainSeconds} s shutdown drain plus ${KILL_TIMEOUT_MARGIN_S} s margin); Fly SIGKILLs a machine that has not exited by then (ISSUE-214)`;
-}
-
-/** A top-level kill_timeout in seconds, or Fly's 5 s default. */
-const killTimeoutSeconds = (toml: string) => {
-  const topLevel = uncommented(toml).split(/^\s*\[/m)[0] ?? '';
-  const setting = topLevel.match(
-    /^\s*kill_timeout\s*=\s*(?:(\d+)|"(\d+)s")\s*$/m,
-  );
-  return Number(setting?.[1] ?? setting?.[2] ?? 5);
-};
-
-/**
- * ISSUE-528: the staging apps beside web and the migrator. Each deploys
- * from deploy-staging.yml with its own app-scoped token. The two built from
- * apps/web/Dockerfile name their stage and the line of source that bounds
- * how long they take to stop; LiveKit is a pinned third-party image.
- */
-export const SERVICE_APPS = [
-  {
-    file: 'fly.livekit.toml',
-    token: 'FLY_LIVEKIT_API_TOKEN',
-    target: null,
-    stop: null,
-  },
-  {
-    file: 'fly.realtime.toml',
-    token: 'FLY_REALTIME_API_TOKEN',
-    target: 'realtime',
-    stop: {
-      source: 'apps/realtime/src/start.ts',
-      pattern: /deadlineMs: ([\d_]+),/,
-    },
-  },
-  {
-    file: 'fly.media-worker.toml',
-    token: 'FLY_MEDIA_WORKER_API_TOKEN',
-    target: 'media-worker',
-    stop: {
-      source: 'apps/media-worker/src/worker.ts',
-      pattern: /child\.kill\('SIGKILL'\), ([\d_]+)\)/,
-    },
-  },
-] as const;
-
-/**
- * Pure check of one service app config: it builds its own stage, keeps
- * database credentials and migrations out, and lets Fly wait past its stop
- * budget before SIGKILL (ISSUE-214's rule, per app).
- */
-export function findServiceAppProblems(input: {
-  readonly file: string;
-  readonly toml: string;
-  readonly target: string;
-  readonly stopMs: number;
-}): readonly string[] {
-  const code = uncommented(input.toml);
-  const build = uncommented(
-    (tableBody(input.toml, '[build]') ?? []).join('\n'),
-  );
-  const env = uncommented((tableBody(input.toml, '[env]') ?? []).join('\n'));
-  const credential = env.match(/^\s*([A-Z_]*DATABASE_URL)\s*=/m);
-  const stopSeconds = Math.ceil(input.stopMs / 1000);
-  const required = stopSeconds + KILL_TIMEOUT_MARGIN_S;
-  return [
-    /^\s*dockerfile\s*=\s*"apps\/web\/Dockerfile"\s*$/m.test(build) &&
-    new RegExp(`^\\s*build-target\\s*=\\s*"${input.target}"\\s*$`, 'm').test(build)
-      ? null
-      : `${input.file} must build \`build-target = "${input.target}"\` from apps/web/Dockerfile`,
-    credential
-      ? `${input.file} [env] sets ${credential[1]}; database credentials are Fly secrets`
-      : null,
-    /^\s*release_command\s*=/m.test(code)
-      ? `${input.file} runs a release_command; migrations run only from fly.migrate.toml`
-      : null,
-    killTimeoutSeconds(input.toml) >= required
-      ? null
-      : `${input.file} kill_timeout must be at least ${required} s (the ${stopSeconds} s stop budget plus ${KILL_TIMEOUT_MARGIN_S} s margin)`,
-  ].filter((problem): problem is string => problem !== null);
-}
-
-/** Every committed service app checked against its own source's stop budget. */
-export function findServiceAppConfigProblems(
-  read: (path: string) => string | undefined,
-): readonly string[] {
-  return SERVICE_APPS.flatMap((app) => {
-    if (app.target === null || app.stop === null)
-      return read(app.file) === undefined ? [`${app.file} is missing`] : [];
-    const stop = uncommented(read(app.stop.source) ?? '').match(
-      app.stop.pattern,
-    );
-    if (!stop)
-      return [
-        `${app.stop.source} no longer states its stop budget as ${app.stop.pattern}`,
-      ];
-    return findServiceAppProblems({
-      file: app.file,
-      toml: read(app.file) ?? '',
-      target: app.target,
-      stopMs: Number(stop[1]?.replaceAll('_', '')),
-    });
-  });
-}
-
-/**
- * ISSUE-528: deploy-staging.yml deploys each service app after the
- * migration, each step holding only that app's deploy token.
- */
-export function findServiceDeployProblems(workflow: string): readonly string[] {
-  const code = uncommented(workflow);
-  const migrate = code.search(
-    /flyctl deploy -c fly\.migrate\.toml[^\n]*--update-only/,
-  );
-  const steps = code.split(/^\s*- (?=id:|name:|uses:)/m);
-  return SERVICE_APPS.flatMap((app) => {
-    const deploy = code.indexOf(`flyctl deploy -c ${app.file} `);
-    const own = steps.find((step) =>
-      step.includes(`flyctl deploy -c ${app.file} `),
-    );
-    return migrate !== -1 &&
-      deploy > migrate &&
-      own?.includes(`FLY_API_TOKEN: \${{ secrets.${app.token} }}`)
-      ? []
-      : [
-          `deploy-staging.yml must deploy ${app.file} after the migration, with its own secrets.${app.token}`,
-        ];
-  });
-}
-
-/**
- * ISSUE-527: the image's `next build` skips its own TypeScript pass, which
- * stalled Fly's remote builder for 25+ minutes and is a duplicate: CI's
- * typecheck gates every commit deploy-staging ships (staging-gate.ts). The
- * skip must stay scoped to the image, so `bun run build` and `bun check`
- * still typecheck: next.config.ts keys it on DAISY_IMAGE_BUILD alone, and
- * only the Dockerfile's build stage sets that.
- */
-export function findImageTypecheckProblem(input: {
-  readonly dockerfile: string;
-  readonly nextConfig: string;
-}): string | null {
-  const config = uncommented(input.nextConfig);
-  const scoped =
-    /ignoreBuildErrors:\s*process\.env\.DAISY_IMAGE_BUILD === '1'/.test(
-      config,
-    ) && (config.match(/ignoreBuildErrors/g) ?? []).length === 1;
-  const docker = uncommented(input.dockerfile);
-  const settings = docker.match(/DAISY_IMAGE_BUILD=1/g) ?? [];
-  const inBuild =
-    /RUN DAISY_IMAGE_BUILD=1 NODE_ENV=production bun run --cwd apps\/web build/.test(
-      docker,
-    );
-  return scoped && inBuild && settings.length === 1
-    ? null
-    : "next.config.ts must skip type errors only for the image build (ignoreBuildErrors: process.env.DAISY_IMAGE_BUILD === '1'), and only the Dockerfile build stage may set DAISY_IMAGE_BUILD=1; CI typechecks every deployed commit";
 }
 
 /** The alert probe and the Incidents poster it spawns (ISSUE-225). */
