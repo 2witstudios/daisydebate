@@ -79,6 +79,12 @@ describe('findRunnerBuildProblem (ISSUE-542)', () => {
   const workflow = readFileSync('.github/workflows/deploy-staging.yml', 'utf8');
   const problem =
     "deploy-staging.yml must build every image on the runner (`flyctl deploy ... --local-only`): Fly's 4-CPU Depot builder stalls next build's page-data workers";
+  /** Each change applied to the committed workflow: did it apply, and what is reported. */
+  const reported = (changes: readonly (readonly [string, string])[]) =>
+    changes.map(([from, to]) => {
+      const changed = workflow.replace(from, to);
+      return [changed !== workflow, findRunnerBuildProblem(changed)];
+    });
 
   test('the committed workflow builds every image on the runner', () => {
     assert({
@@ -162,36 +168,88 @@ describe('findRunnerBuildProblem (ISSUE-542)', () => {
       given:
         'a commented and an indented block header, a chained and a blank-line-separated second deploy, a # inside quotes, and a quoted flag',
       should: 'report each, reading the commands as the shell would',
-      actual: [
-        workflow.replace(
+      actual: reported([
+        [
           web,
           'run: >- # note\n          flyctl deploy -a daisy-debate-staging --remote-only',
-        ),
-        workflow.replace(
+        ],
+        [
           web,
           'run: |2\n          flyctl deploy -a daisy-debate-staging --remote-only',
-        ),
-        workflow.replace(
+        ],
+        [
           realtime,
           `${realtime} && flyctl deploy -c fly.realtime.toml --ha=false`,
-        ),
-        workflow.replace(
+        ],
+        [
           `${realtime}\n`,
           `${realtime}\n\n          flyctl deploy -c fly.realtime.toml --ha=false\n`,
-        ),
-        workflow.replace(
+        ],
+        [
           '--env LIVEKIT_SOURCE_COMMIT="$DEPLOY_SHA"',
           '--env NOTE="a #b" --remote-only --env LIVEKIT_SOURCE_COMMIT="$DEPLOY_SHA"',
-        ),
-        workflow.replace(
+        ],
+        [
           'flyctl deploy -c fly.livekit.toml --local-only',
           'flyctl deploy -c fly.livekit.toml --local-only "--remote-only"',
-        ),
-      ].map((changed) => [
-        changed !== workflow,
-        findRunnerBuildProblem(changed),
+        ],
       ]),
       expected: Array.from({ length: 6 }, () => [true, problem]),
+    });
+  });
+
+  test('a remote build YAML or the shell would hide (ISSUE-548, ISSUE-549)', () => {
+    const web = 'flyctl deploy -a daisy-debate-staging --local-only --ha=false';
+    const webStep = `run: >-\n          ${web}`;
+    assert({
+      given:
+        'a more-indented folded line, a # line inside a folded block, a multi-line plain scalar, a quoted scalar, a path-qualified flyctl and a subshell',
+      should:
+        'report each, reading the run text YAML yields as the shell would',
+      actual: reported([
+        [
+          webStep,
+          'run: >-\n          flyctl deploy -a daisy-debate-staging --ha=false\n            --local-only',
+        ],
+        [
+          webStep,
+          'run: >-\n          flyctl deploy -a daisy-debate-staging --ha=false\n          # note\n          --local-only',
+        ],
+        [webStep, `run: ${web}\n          --remote-only`],
+        [
+          webStep,
+          'run: "flyctl deploy -a daisy-debate-staging --remote-only"\n        x-rest: >-',
+        ],
+        [
+          'flyctl deploy -c fly.realtime.toml --local-only',
+          '~/.fly/bin/flyctl deploy -c fly.realtime.toml --remote-only',
+        ],
+        [web, `(${web.replace('--local-only', '--remote-only')})`],
+      ]),
+      expected: Array.from({ length: 6 }, () => [true, problem]),
+    });
+  });
+
+  test('an escaped quote inside a double-quoted argument (ISSUE-549)', () => {
+    assert({
+      given: 'a flag-like string the shell passes as one argument',
+      should: 'read it as data, not as a remote build',
+      actual: reported([
+        [
+          '--env LIVEKIT_SOURCE_COMMIT="$DEPLOY_SHA"',
+          '--env A="x\\" --remote-only #" --env LIVEKIT_SOURCE_COMMIT="$DEPLOY_SHA"',
+        ],
+      ]),
+      expected: [[true, null]],
+    });
+  });
+
+  test('a workflow that is not YAML', () => {
+    assert({
+      given: 'text the YAML parser rejects',
+      should: 'report it rather than pass',
+      actual: findRunnerBuildProblem('jobs: [\n'),
+      expected: problem,
     });
   });
 
