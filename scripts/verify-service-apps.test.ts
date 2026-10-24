@@ -96,9 +96,9 @@ describe('findServiceAppProblems (ISSUE-528)', () => {
 
 describe('findServiceDeployProblems (ISSUE-528)', () => {
   const step = (config: string, token: string) =>
-    `      - id: x\n        env:\n          FLY_API_TOKEN: \${{ secrets.${token} }}\n        run: >-\n          flyctl deploy -c ${config} --remote-only\n`;
+    `      - id: x\n        env:\n          FLY_API_TOKEN: \${{ secrets.${token} }}\n        run: >-\n          flyctl deploy -c ${config} --local-only\n`;
   const migrate =
-    '      - id: migrate\n        run: >-\n          flyctl deploy -c fly.migrate.toml --remote-only --update-only\n';
+    '      - id: migrate\n        run: >-\n          flyctl deploy -c fly.migrate.toml --local-only --update-only\n';
   const all = SERVICE_APPS.map((app) => step(app.file, app.token)).join('');
 
   test('the committed workflow deploys every service app', () => {

@@ -153,6 +153,48 @@ describe('findRunnerBuildProblem (ISSUE-542)', () => {
     });
   });
 
+  test('a remote build the shell would run past the reader (ISSUE-546)', () => {
+    const web =
+      'run: >-\n          flyctl deploy -a daisy-debate-staging --local-only';
+    const realtime =
+      'flyctl deploy -c fly.realtime.toml --local-only --ha=false';
+    assert({
+      given:
+        'a commented and an indented block header, a chained and a blank-line-separated second deploy, a # inside quotes, and a quoted flag',
+      should: 'report each, reading the commands as the shell would',
+      actual: [
+        workflow.replace(
+          web,
+          'run: >- # note\n          flyctl deploy -a daisy-debate-staging --remote-only',
+        ),
+        workflow.replace(
+          web,
+          'run: |2\n          flyctl deploy -a daisy-debate-staging --remote-only',
+        ),
+        workflow.replace(
+          realtime,
+          `${realtime} && flyctl deploy -c fly.realtime.toml --ha=false`,
+        ),
+        workflow.replace(
+          `${realtime}\n`,
+          `${realtime}\n\n          flyctl deploy -c fly.realtime.toml --ha=false\n`,
+        ),
+        workflow.replace(
+          '--env LIVEKIT_SOURCE_COMMIT="$DEPLOY_SHA"',
+          '--env NOTE="a #b" --remote-only --env LIVEKIT_SOURCE_COMMIT="$DEPLOY_SHA"',
+        ),
+        workflow.replace(
+          'flyctl deploy -c fly.livekit.toml --local-only',
+          'flyctl deploy -c fly.livekit.toml --local-only "--remote-only"',
+        ),
+      ].map((changed) => [
+        changed !== workflow,
+        findRunnerBuildProblem(changed),
+      ]),
+      expected: Array.from({ length: 6 }, () => [true, problem]),
+    });
+  });
+
   test('a workflow with no deploy at all', () => {
     assert({
       given: 'a workflow that never runs flyctl deploy',

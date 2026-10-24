@@ -312,9 +312,9 @@ describe('findMigratorAppProblem (ISSUE-102)', () => {
 
 describe('findWorkflowMigrationOrderProblem (ISSUE-102)', () => {
   const migrate =
-    '        run: >-\n          flyctl deploy -c fly.migrate.toml --remote-only --update-only\n';
+    '        run: >-\n          flyctl deploy -c fly.migrate.toml --local-only --update-only\n';
   const web =
-    '        run: >-\n          flyctl deploy -a daisy-debate-staging --remote-only --ha=false\n';
+    '        run: >-\n          flyctl deploy -a daisy-debate-staging --local-only --ha=false\n';
 
   test('the committed workflow migrates before the web deploy', () => {
     assert({
@@ -335,7 +335,7 @@ describe('findWorkflowMigrationOrderProblem (ISSUE-102)', () => {
       actual: [
         web,
         web + migrate,
-        '# flyctl deploy -c fly.migrate.toml --remote-only --update-only\n' +
+        '# flyctl deploy -c fly.migrate.toml --local-only --update-only\n' +
           web,
         migrate.replace(' --update-only', '') + web,
       ].map(findWorkflowMigrationOrderProblem),
