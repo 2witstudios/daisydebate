@@ -42,7 +42,10 @@ COPY . .
 # `.next/cache` is Turbopack's build-time incremental cache (~130MB here):
 # useful for rebuild speed, unneeded and never read at runtime, dropped
 # before the runtime stage copies from this layer so it never ships.
-RUN NODE_ENV=production bun run --cwd apps/web build \
+# DAISY_IMAGE_BUILD=1 skips next build's own TypeScript pass (ISSUE-527):
+# it stalled Fly's remote builder for 25+ minutes, and CI's typecheck already
+# gates every commit deploy-staging ships. Nothing else sets it.
+RUN DAISY_IMAGE_BUILD=1 NODE_ENV=production bun run --cwd apps/web build \
   && rm -rf apps/web/.next/cache
 
 # ---- prod-deps: a second, production-only install for the runtime image.

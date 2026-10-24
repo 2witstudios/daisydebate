@@ -202,6 +202,34 @@ export function findKillTimeoutProblem(input: {
     : `fly.toml kill_timeout must be at least ${required} s (the ${drainSeconds} s shutdown drain plus ${KILL_TIMEOUT_MARGIN_S} s margin); Fly SIGKILLs a machine that has not exited by then (ISSUE-214)`;
 }
 
+/**
+ * ISSUE-527: the image's `next build` skips its own TypeScript pass, which
+ * stalled Fly's remote builder for 25+ minutes and is a duplicate: CI's
+ * typecheck gates every commit deploy-staging ships (staging-gate.ts). The
+ * skip must stay scoped to the image, so `bun run build` and `bun check`
+ * still typecheck: next.config.ts keys it on DAISY_IMAGE_BUILD alone, and
+ * only the Dockerfile's build stage sets that.
+ */
+export function findImageTypecheckProblem(input: {
+  readonly dockerfile: string;
+  readonly nextConfig: string;
+}): string | null {
+  const config = uncommented(input.nextConfig);
+  const scoped =
+    /ignoreBuildErrors:\s*process\.env\.DAISY_IMAGE_BUILD === '1'/.test(
+      config,
+    ) && (config.match(/ignoreBuildErrors/g) ?? []).length === 1;
+  const docker = uncommented(input.dockerfile);
+  const settings = docker.match(/DAISY_IMAGE_BUILD=1/g) ?? [];
+  const inBuild =
+    /RUN DAISY_IMAGE_BUILD=1 NODE_ENV=production bun run --cwd apps\/web build/.test(
+      docker,
+    );
+  return scoped && inBuild && settings.length === 1
+    ? null
+    : "next.config.ts must skip type errors only for the image build (ignoreBuildErrors: process.env.DAISY_IMAGE_BUILD === '1'), and only the Dockerfile build stage may set DAISY_IMAGE_BUILD=1; CI typechecks every deployed commit";
+}
+
 /** The alert probe and the Incidents poster it spawns (ISSUE-225). */
 const PROBE_ENTRIES = [
   'scripts/auth-alert-probe.ts',
@@ -322,6 +350,7 @@ export function findProbeWorkflowProblem(workflow: string): string | null {
 
 export function verifyDeployConfig(input: {
   readonly dockerfile: string;
+  readonly nextConfig: string;
   readonly flyToml: string;
   readonly migratorToml: string;
   readonly workflow: string;
@@ -338,6 +367,7 @@ export function verifyDeployConfig(input: {
       dockerfile: input.dockerfile,
       bunVersion: input.bunVersion,
     }),
+    findImageTypecheckProblem(input),
     findFlyReleaseCommandProblem(input.migratorToml),
     findWebReleaseCommandProblem(input.flyToml),
     findMigratorAppProblem(input.migratorToml),
@@ -356,6 +386,7 @@ export function verifyDeployConfig(input: {
 if (import.meta.main) {
   const problems = verifyDeployConfig({
     dockerfile: readFileSync('apps/web/Dockerfile', 'utf8'),
+    nextConfig: readFileSync('apps/web/next.config.ts', 'utf8'),
     flyToml: readFileSync('fly.toml', 'utf8'),
     migratorToml: readFileSync('fly.migrate.toml', 'utf8'),
     workflow: readFileSync('.github/workflows/deploy-staging.yml', 'utf8'),
