@@ -42,39 +42,115 @@ export function findDefaultStageProblem(dockerfile: string): string | null {
     : 'apps/web/Dockerfile must end with the `runtime` stage: fly.toml and fly.migrate.toml build the default (last) target';
 }
 
-/**
- * Each `run:` step's shell text as the shell receives it: a folded (`>`)
- * block joins its lines with spaces, and a literal (`|`) block joins
- * backslash-continued lines. Full-line comments are dropped first.
- */
-const runScripts = (workflow: string): string[] => {
-  const lines = uncommented(workflow).split('\n');
-  return lines.flatMap((line, index) => {
-    const step = line.match(/^(\s*)(?:- )?run:\s*(.*)$/);
-    if (!step) return [];
-    const [, indent = '', style = ''] = step;
-    if (!/^[>|][-+]?$/.test(style)) return [style];
-    const end = lines.findIndex(
-      (next, at) =>
-        at > index && next.trim() !== '' && next.search(/\S/) <= indent.length,
-    );
-    const body = lines
-      .slice(index + 1, end === -1 ? undefined : end)
-      .map((next) => next.trim());
-    return [
-      style.startsWith('>')
-        ? body.join(' ')
-        : body.join('\n').replace(/\\\n/g, ' '),
-    ];
-  });
+type Workflow = {
+  readonly jobs?: Record<
+    string,
+    { readonly steps?: { readonly run?: unknown }[] }
+  >;
 };
 
-/** Each `fly deploy`/`flyctl deploy` command, trailing shell comment cut. */
-const deployCommands = (workflow: string): string[][] =>
+/**
+ * Each step's `run:` text exactly as YAML yields it to the shell (folded,
+ * literal, plain and quoted scalars alike, ISSUE-548), or null when the
+ * workflow is not YAML.
+ */
+const runScripts = (workflow: string): string[] | null => {
+  try {
+    const { jobs = {} } = (Bun.YAML.parse(workflow) ?? {}) as Workflow;
+    return Object.values(jobs).flatMap((job) =>
+      (job.steps ?? []).flatMap(({ run }) =>
+        typeof run === 'string' ? [run] : [],
+      ),
+    );
+  } catch {
+    return null;
+  }
+};
+
+type Lexed = {
+  readonly commands: readonly (readonly string[])[];
+  readonly words: readonly string[];
+  readonly word: string | null;
+  readonly quote: string | null;
+  readonly comment: boolean;
+  readonly escaped: boolean;
+};
+
+const endWord = (state: Lexed): Lexed =>
+  state.word === null
+    ? state
+    : { ...state, words: [...state.words, state.word], word: null };
+
+const endCommand = (state: Lexed): Lexed => {
+  const ended = endWord(state);
+  return { ...ended, commands: [...ended.commands, ended.words], words: [] };
+};
+
+const append = (state: Lexed, char: string): Lexed => ({
+  ...state,
+  word: `${state.word ?? ''}${char}`,
+  escaped: false,
+});
+
+/** A backslash escapes any character outside quotes, and these inside "". */
+const ESCAPABLE_IN_DOUBLE_QUOTES = new Set(['"', '\\', '$', '`']);
+
+/** One character inside quotes: the closing quote, an escape, or data. */
+const lexQuoted = (state: Lexed, char: string): Lexed => {
+  if (state.escaped)
+    return append(
+      state,
+      ESCAPABLE_IN_DOUBLE_QUOTES.has(char) ? char : `\\${char}`,
+    );
+  if (char === '\\' && state.quote === '"') return { ...state, escaped: true };
+  return char === state.quote ? { ...state, quote: null } : append(state, char);
+};
+
+/** One shell character: escapes, quotes, comments, separators, word breaks. */
+const lex = (state: Lexed, char: string): Lexed => {
+  if (state.comment)
+    return char === '\n' ? endCommand({ ...state, comment: false }) : state;
+  if (state.quote !== null) return lexQuoted(state, char);
+  if (state.escaped) return append(state, char);
+  if (char === '\\') return { ...state, escaped: true };
+  if (char === "'" || char === '"')
+    return { ...state, quote: char, word: state.word ?? '' };
+  if (char === '#' && state.word === null) return { ...state, comment: true };
+  if (/[;&|()\n]/.test(char)) return endCommand(state);
+  if (/\s/.test(char)) return endWord(state);
+  return append(state, char);
+};
+
+/**
+ * A script's simple commands as the shell splits them, quotes removed:
+ * `;`, `&&`, `||`, `|`, subshell parentheses and newlines separate
+ * commands, a `#` that starts a word comments to the line end, a backslash
+ * escapes, and backslash-newline continues.
+ */
+const shellCommands = (script: string): string[][] =>
+  endCommand(
+    [...script.replace(/\\\n/g, ' ')].reduce(lex, {
+      commands: [],
+      words: [],
+      word: null,
+      quote: null,
+      comment: false,
+      escaped: false,
+    }),
+  )
+    .commands.filter((words) => words.length > 0)
+    .map((words) => [...words]);
+
+/** `fly` or `flyctl`, however the command names its path (ISSUE-549). */
+const isFly = (word: string) => /(?:^|\/)fly(?:ctl)?$/.test(word);
+
+/** Each `fly deploy`/`flyctl deploy` command, or null when unreadable. */
+const deployCommands = (workflow: string): string[][] | null =>
   runScripts(workflow)
-    .flatMap((script) => script.split('\n'))
-    .filter((command) => /\bfly(?:ctl)? deploy\b/.test(command))
-    .map((command) => command.replace(/(?:^|\s)#.*$/, '').split(/\s+/));
+    ?.flatMap(shellCommands)
+    .filter((words) =>
+      words.some((word, at) => isFly(word) && words[at + 1] === 'deploy'),
+    ) ?? null;
 
 /**
  * ISSUE-542: deploy-staging builds every image on the GitHub runner, whose
@@ -82,10 +158,11 @@ const deployCommands = (workflow: string): string[][] =>
  * next build's page-data workers for 40 minutes, until the builder dropped
  * the connection; the same build takes about 30 s with room. flyctl
  * defaults to the remote builder, so each deploy command, read whole
- * (ISSUE-544), must say --local-only and nothing that builds remotely.
+ * as the shell runs it (ISSUE-544, ISSUE-546), must say --local-only and
+ * nothing that builds remotely.
  */
 export function findRunnerBuildProblem(workflow: string): string | null {
-  const deploys = deployCommands(workflow);
+  const deploys = deployCommands(workflow) ?? [];
   return deploys.length > 0 &&
     deploys.every(
       (words) =>

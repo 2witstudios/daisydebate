@@ -522,15 +522,17 @@ step with 401, distinguishing "both rotated" from "only Fly rotated."
 ## 6. First deploy
 
 Run from the repository root (so `apps/web/Dockerfile`'s build context is
-the monorepo):
+the monorepo), with a local Docker daemon: like the workflow (§10), both
+commands build on this machine (`--local-only`), since Fly's 4-CPU Depot
+builder stalls `next build` (ISSUE-542):
 
 ```
 # 1. Migrate: the migrator app's release command, no machines created.
-fly deploy -c fly.migrate.toml --remote-only --update-only \
+fly deploy -c fly.migrate.toml --local-only --update-only \
   --build-arg APP_VERSION="$(git rev-parse --short HEAD)" \
   --build-arg GIT_COMMIT="$(git rev-parse HEAD)"
 # 2. Only after step 1 succeeds: the web app.
-fly deploy -a daisy-debate-staging --ha=false \
+fly deploy -a daisy-debate-staging --local-only --ha=false \
   --build-arg APP_VERSION="$(git rev-parse --short HEAD)" \
   --build-arg GIT_COMMIT="$(git rev-parse HEAD)"
 ```
