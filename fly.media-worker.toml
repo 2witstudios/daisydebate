@@ -1,0 +1,29 @@
+# Staging capture worker (ISSUE-528, DEC-228): apps/media-worker, which
+# joins each live Round's LiveKit room hidden and posts transcribed speech
+# to the web app's signed internal route (docs/architecture/media-worker-runtime.md).
+# Its image is the `media-worker` target of apps/web/Dockerfile. It joins
+# the org's default 6PN for Postgres (DEC-229). MEDIA_WORKER_DATABASE_URL
+# (the SELECT-only daisy_media_worker role), MEDIA_WORKER_SECRET (shared
+# with the web app) and OPENROUTER_API_KEY are Fly secrets, never written here.
+app = "daisy-debate-staging-media-worker"
+primary_region = "ord"
+# A stop sends SIGTERM to every capture process and kills any still running
+# 20 s later (src/worker.ts); 30 s lets the supervisor exit on its own.
+kill_timeout = 30
+
+[build]
+  dockerfile = "apps/web/Dockerfile"
+  build-target = "media-worker"
+
+[env]
+  # The origin it posts signed capture to.
+  PUBLIC_APP_URL = "https://daisy-debate-staging.fly.dev"
+
+# No [http_service] or [[services]]: the worker only calls out, so nothing
+# reaches it and Fly never stops it for idleness.
+
+[[vm]]
+  # Each capture process decodes audio and holds up to 1.25 MiB of PCM per
+  # track; 1 GB leaves room for the default eight sessions.
+  size = "shared-cpu-1x"
+  memory = "1gb"

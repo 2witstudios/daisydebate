@@ -7,7 +7,6 @@ import {
   findFlyDatabaseSecretProblem,
   findFlyReleaseCommandProblem,
   findMigrationCredentialProblem,
-  findImageTypecheckProblem,
   findMigratorAppProblem,
   findWebReleaseCommandProblem,
   findWorkflowMigrationOrderProblem,
@@ -180,7 +179,7 @@ describe('verifyDeployConfig', () => {
   test('both files drifted at once', () => {
     assert({
       given:
-        'a wrong Bun version, a dropped release command and an image build that never marks itself',
+        'a wrong Bun version, a dropped release command, and an image that never marks its build and ends on a base stage',
       should: 'report every problem, not just the first',
       actual: verifyDeployConfig({
         dockerfile: 'FROM oven/bun:1.0.0-slim AS base\n',
@@ -195,7 +194,7 @@ describe('verifyDeployConfig', () => {
         migrateTs: realMigrate,
         shutdownBudgetTs: realShutdownBudget,
       }).length,
-      expected: 3,
+      expected: 4,
     });
   });
 });
@@ -375,50 +374,6 @@ describe('findAlwaysOnProblem (ISSUE-175, DEC-40)', () => {
         'fly.toml [http_service] must set auto_stop_machines = "off" (DEC-40)',
         'fly.toml has no `[http_service]` table',
       ],
-    });
-  });
-});
-
-describe('findImageTypecheckProblem (ISSUE-527)', () => {
-  const nextConfig = readFileSync('apps/web/next.config.ts', 'utf8');
-
-  test('the committed image skips only its duplicate typecheck', () => {
-    assert({
-      given: 'the committed Dockerfile and next.config.ts',
-      should: 'report no problem',
-      actual: findImageTypecheckProblem({
-        dockerfile: realDockerfile,
-        nextConfig,
-      }),
-      expected: null,
-    });
-  });
-
-  test('a config that skips type errors everywhere, or an image that never says it is one', () => {
-    const problem =
-      "next.config.ts must skip type errors only for the image build (ignoreBuildErrors: process.env.DAISY_IMAGE_BUILD === '1'), and only the Dockerfile build stage may set DAISY_IMAGE_BUILD=1; CI typechecks every deployed commit";
-    assert({
-      given:
-        'ignoreBuildErrors hard-coded true, the guard missing, and a Dockerfile that never sets DAISY_IMAGE_BUILD',
-      should: 'report each',
-      actual: [
-        findImageTypecheckProblem({
-          dockerfile: realDockerfile,
-          nextConfig: nextConfig.replace(
-            "process.env.DAISY_IMAGE_BUILD === '1'",
-            'true',
-          ),
-        }),
-        findImageTypecheckProblem({
-          dockerfile: realDockerfile,
-          nextConfig: 'export default {};',
-        }),
-        findImageTypecheckProblem({
-          dockerfile: realDockerfile.replaceAll('DAISY_IMAGE_BUILD=1 ', ''),
-          nextConfig,
-        }),
-      ],
-      expected: [problem, problem, problem],
     });
   });
 });

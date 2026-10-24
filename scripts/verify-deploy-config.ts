@@ -2,6 +2,20 @@ import { readFileSync } from 'node:fs';
 import { posix } from 'node:path';
 import ts from 'typescript';
 import { findRuntimeRoleGateProblem } from './runtime-role-gate';
+import {
+  KILL_TIMEOUT_MARGIN_S,
+  killTimeoutSeconds,
+  tableBody,
+  uncommented,
+} from './deploy-config-text';
+import {
+  findServiceAppConfigProblems,
+  findServiceDeployProblems,
+} from './verify-service-apps';
+import {
+  findDefaultStageProblem,
+  findImageTypecheckProblem,
+} from './verify-image-build';
 
 /** Pure check: does the Dockerfile's base image pin exactly `.bun-version`? */
 export function findDockerfileBunVersionProblem(input: {
@@ -25,25 +39,6 @@ export function findDockerfileBunVersionProblem(input: {
 // can't run from the image) gets caught before a release ships unmigrated.
 export const EXPECTED_RELEASE_COMMAND =
   'bun /app/packages/db/scripts/migrate.ts';
-
-const uncommented = (text: string) =>
-  text
-    .split('\n')
-    .filter((line) => !/^\s*(#|\/\/)/.test(line))
-    .join('\n');
-
-/** The body of `[table]`, up to the next table header. */
-const tableBody = (toml: string, table: string): string[] | null => {
-  const lines = toml.split('\n');
-  const start = lines.findIndex((line) => line.trim() === table);
-  if (start === -1) return null;
-  const body: string[] = [];
-  for (const line of lines.slice(start + 1)) {
-    if (/^\[/.test(line.trim())) break;
-    body.push(line);
-  }
-  return body;
-};
 
 /**
  * Pure check: does fly.migrate.toml's `[deploy]` table keep exactly the
@@ -161,9 +156,6 @@ export function findAlwaysOnProblem(flyToml: string): string | null {
   return null;
 }
 
-/** Seconds Fly must wait past the drain deadline before it SIGKILLs. */
-const KILL_TIMEOUT_MARGIN_S = 10;
-
 /**
  * ISSUE-214: Fly sends kill_signal and SIGKILLs a machine that has not
  * exited kill_timeout later (default 5 s). The server drains for up to
@@ -192,42 +184,9 @@ export function findKillTimeoutProblem(input: {
     Number(deadline[1]?.replaceAll('_', '')) / 1000,
   );
   const required = drainSeconds + KILL_TIMEOUT_MARGIN_S;
-  const topLevel = uncommented(input.flyToml).split(/^\s*\[/m)[0] ?? '';
-  const setting = topLevel.match(
-    /^\s*kill_timeout\s*=\s*(?:(\d+)|"(\d+)s")\s*$/m,
-  );
-  const seconds = Number(setting?.[1] ?? setting?.[2] ?? 5);
-  return seconds >= required
+  return killTimeoutSeconds(input.flyToml) >= required
     ? null
     : `fly.toml kill_timeout must be at least ${required} s (the ${drainSeconds} s shutdown drain plus ${KILL_TIMEOUT_MARGIN_S} s margin); Fly SIGKILLs a machine that has not exited by then (ISSUE-214)`;
-}
-
-/**
- * ISSUE-527: the image's `next build` skips its own TypeScript pass, which
- * stalled Fly's remote builder for 25+ minutes and is a duplicate: CI's
- * typecheck gates every commit deploy-staging ships (staging-gate.ts). The
- * skip must stay scoped to the image, so `bun run build` and `bun check`
- * still typecheck: next.config.ts keys it on DAISY_IMAGE_BUILD alone, and
- * only the Dockerfile's build stage sets that.
- */
-export function findImageTypecheckProblem(input: {
-  readonly dockerfile: string;
-  readonly nextConfig: string;
-}): string | null {
-  const config = uncommented(input.nextConfig);
-  const scoped =
-    /ignoreBuildErrors:\s*process\.env\.DAISY_IMAGE_BUILD === '1'/.test(
-      config,
-    ) && (config.match(/ignoreBuildErrors/g) ?? []).length === 1;
-  const docker = uncommented(input.dockerfile);
-  const settings = docker.match(/DAISY_IMAGE_BUILD=1/g) ?? [];
-  const inBuild =
-    /RUN DAISY_IMAGE_BUILD=1 NODE_ENV=production bun run --cwd apps\/web build/.test(
-      docker,
-    );
-  return scoped && inBuild && settings.length === 1
-    ? null
-    : "next.config.ts must skip type errors only for the image build (ignoreBuildErrors: process.env.DAISY_IMAGE_BUILD === '1'), and only the Dockerfile build stage may set DAISY_IMAGE_BUILD=1; CI typechecks every deployed commit";
 }
 
 /** The alert probe and the Incidents poster it spawns (ISSUE-225). */
@@ -368,6 +327,7 @@ export function verifyDeployConfig(input: {
       bunVersion: input.bunVersion,
     }),
     findImageTypecheckProblem(input),
+    findDefaultStageProblem(input.dockerfile),
     findFlyReleaseCommandProblem(input.migratorToml),
     findWebReleaseCommandProblem(input.flyToml),
     findMigratorAppProblem(input.migratorToml),
@@ -380,6 +340,8 @@ export function verifyDeployConfig(input: {
     findMigrationCredentialProblem(input.migrateTs),
     findProbeWorkflowProblem(input.probeWorkflow),
     ...findProbeImportProblems(input.readRepoFile),
+    ...findServiceAppConfigProblems(input.readRepoFile),
+    ...findServiceDeployProblems(input.workflow),
   ].filter((problem): problem is string => problem !== null);
 }
 
@@ -413,7 +375,7 @@ if (import.meta.main) {
     process.exitCode = 1;
   } else {
     process.stdout.write(
-      'Deploy config matches .bun-version, migrates only from the migrator app, first, keeps the database role split, keeps staging always on, outlasts the shutdown drain and runs the alert probe with nothing installed.\n',
+      'Deploy config matches .bun-version, migrates only from the migrator app, first, keeps the database role split, keeps staging always on, outlasts the shutdown drain, deploys every service app with its own token and runs the alert probe with nothing installed.\n',
     );
   }
 }

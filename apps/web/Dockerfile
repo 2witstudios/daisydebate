@@ -33,6 +33,8 @@ COPY packages/observability/package.json packages/observability/package.json
 COPY packages/protocol/package.json packages/protocol/package.json
 COPY packages/redis/package.json packages/redis/package.json
 COPY packages/typescript-config/package.json packages/typescript-config/package.json
+COPY apps/media-worker/package.json apps/media-worker/package.json
+COPY apps/realtime/package.json apps/realtime/package.json
 RUN bun install --frozen-lockfile
 
 # ---- build: full source + `next build` (production bundle only; the app is
@@ -69,10 +71,13 @@ COPY packages/observability/package.json packages/observability/package.json
 COPY packages/protocol/package.json packages/protocol/package.json
 COPY packages/redis/package.json packages/redis/package.json
 COPY packages/typescript-config/package.json packages/typescript-config/package.json
+COPY apps/media-worker/package.json apps/media-worker/package.json
+COPY apps/realtime/package.json apps/realtime/package.json
 RUN bun install --frozen-lockfile --production
 
-# ---- runtime: non-root, only what start.ts and the built Next app need.
-FROM base AS runtime
+# ---- server-source: non-root, the production dependencies and every
+# workspace package's source, shared by the three service images below.
+FROM base AS server-source
 # Deployment identity: production refuses to boot at the `development`/
 # `unknown` defaults (packages/config/src/index.ts). Passed with
 # `fly deploy --build-arg APP_VERSION=... --build-arg GIT_COMMIT=...`
@@ -83,8 +88,6 @@ ARG GIT_COMMIT=unknown
 ENV APP_VERSION=${APP_VERSION}
 ENV GIT_COMMIT=${GIT_COMMIT}
 ENV NODE_ENV=production
-# Fly's http_service.internal_port; start.ts reads PORT and binds 0.0.0.0.
-ENV PORT=8080
 RUN groupadd --system --gid 1001 daisy \
   && useradd --system --uid 1001 --gid daisy --home-dir /app --shell /usr/sbin/nologin daisy
 # Bun's isolated linker gives every workspace its own node_modules (symlinks
@@ -92,18 +95,13 @@ RUN groupadd --system --gid 1001 daisy \
 # copy the whole prod-deps tree rather than cherry-picking node_modules
 # directories, then overlay source and build output on top of it.
 COPY --from=prod-deps --chown=daisy:daisy /app /app
-COPY --chown=daisy:daisy apps/web/src apps/web/src
-COPY --chown=daisy:daisy apps/web/public apps/web/public
-COPY --chown=daisy:daisy apps/web/next.config.ts apps/web/next.config.ts
-COPY --chown=daisy:daisy apps/web/postcss.config.mjs apps/web/postcss.config.mjs
-COPY --from=build --chown=daisy:daisy /app/apps/web/.next apps/web/.next
 COPY --chown=daisy:daisy packages/auth/src packages/auth/src
 COPY --chown=daisy:daisy packages/clock/src packages/clock/src
 COPY --chown=daisy:daisy packages/config/src packages/config/src
 COPY --chown=daisy:daisy packages/db/src packages/db/src
-# fly.toml's release_command runs the migration runner directly out of this
-# image (see packages/db/scripts/migrate.ts); it and the migrations it
-# applies are not otherwise reachable from the runtime stage.
+# fly.migrate.toml's release_command runs the migration runner directly out
+# of the web image (see packages/db/scripts/migrate.ts); it and the
+# migrations it applies are not otherwise reachable from the runtime stage.
 COPY --chown=daisy:daisy packages/db/scripts packages/db/scripts
 COPY --chown=daisy:daisy packages/db/migrations packages/db/migrations
 COPY --chown=daisy:daisy packages/ai-voice/src packages/ai-voice/src
@@ -116,6 +114,34 @@ COPY --chown=daisy:daisy packages/observability/src packages/observability/src
 COPY --chown=daisy:daisy packages/protocol/src packages/protocol/src
 COPY --chown=daisy:daisy packages/redis/src packages/redis/src
 USER daisy
+
+# ---- realtime: apps/realtime (fly.realtime.toml, ISSUE-528). Built with
+# `--build-target realtime`, which never runs the Next build stage.
+FROM server-source AS realtime
+COPY --chown=daisy:daisy apps/realtime/src apps/realtime/src
+WORKDIR /app/apps/realtime
+# Fly's http_service.internal_port; start.ts reads these two.
+ENV REALTIME_PORT=8080
+ENV REALTIME_HOST=0.0.0.0
+EXPOSE 8080
+CMD ["bun", "src/start.ts"]
+
+# ---- media-worker: apps/media-worker, the capture worker
+# (fly.media-worker.toml, ISSUE-528). No port: it only calls out.
+FROM server-source AS media-worker
+COPY --chown=daisy:daisy apps/media-worker/src apps/media-worker/src
+WORKDIR /app/apps/media-worker
+CMD ["bun", "src/start.ts"]
+
+# ---- runtime: the web app, and the default target (the last stage).
+FROM server-source AS runtime
+# Fly's http_service.internal_port; start.ts reads PORT and binds 0.0.0.0.
+ENV PORT=8080
+COPY --chown=daisy:daisy apps/web/src apps/web/src
+COPY --chown=daisy:daisy apps/web/public apps/web/public
+COPY --chown=daisy:daisy apps/web/next.config.ts apps/web/next.config.ts
+COPY --chown=daisy:daisy apps/web/postcss.config.mjs apps/web/postcss.config.mjs
+COPY --from=build --chown=daisy:daisy /app/apps/web/.next apps/web/.next
 WORKDIR /app/apps/web
 EXPOSE 8080
 CMD ["bun", "src/server/start.ts"]
