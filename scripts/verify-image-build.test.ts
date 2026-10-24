@@ -76,10 +76,7 @@ describe('findDefaultStageProblem (ISSUE-528)', () => {
 });
 
 describe('findRunnerBuildProblem (ISSUE-542)', () => {
-  const workflow = readFileSync(
-    '.github/workflows/deploy-staging.yml',
-    'utf8',
-  );
+  const workflow = readFileSync('.github/workflows/deploy-staging.yml', 'utf8');
   const problem =
     "deploy-staging.yml must build every image on the runner (`flyctl deploy ... --local-only`): Fly's 4-CPU Depot builder stalls next build's page-data workers";
 
