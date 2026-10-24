@@ -7,6 +7,7 @@ import {
   findFlyDatabaseSecretProblem,
   findFlyReleaseCommandProblem,
   findMigrationCredentialProblem,
+  findImageTypecheckProblem,
   findMigratorAppProblem,
   findWebReleaseCommandProblem,
   findWorkflowMigrationOrderProblem,
@@ -161,6 +162,7 @@ describe('verifyDeployConfig', () => {
       should: 'report no problems',
       actual: verifyDeployConfig({
         dockerfile: realDockerfile,
+        nextConfig: readFileSync('apps/web/next.config.ts', 'utf8'),
         flyToml: realFlyToml,
         migratorToml: realMigratorToml,
         workflow: realWorkflow,
@@ -177,10 +179,12 @@ describe('verifyDeployConfig', () => {
 
   test('both files drifted at once', () => {
     assert({
-      given: 'a wrong Bun version and a dropped release command',
-      should: 'report both problems, not just the first',
+      given:
+        'a wrong Bun version, a dropped release command and an image build that never marks itself',
+      should: 'report every problem, not just the first',
       actual: verifyDeployConfig({
         dockerfile: 'FROM oven/bun:1.0.0-slim AS base\n',
+        nextConfig: readFileSync('apps/web/next.config.ts', 'utf8'),
         flyToml: realFlyToml,
         migratorToml: '[deploy]\n',
         workflow: realWorkflow,
@@ -191,7 +195,7 @@ describe('verifyDeployConfig', () => {
         migrateTs: realMigrate,
         shutdownBudgetTs: realShutdownBudget,
       }).length,
-      expected: 2,
+      expected: 3,
     });
   });
 });
@@ -371,6 +375,50 @@ describe('findAlwaysOnProblem (ISSUE-175, DEC-40)', () => {
         'fly.toml [http_service] must set auto_stop_machines = "off" (DEC-40)',
         'fly.toml has no `[http_service]` table',
       ],
+    });
+  });
+});
+
+describe('findImageTypecheckProblem (ISSUE-527)', () => {
+  const nextConfig = readFileSync('apps/web/next.config.ts', 'utf8');
+
+  test('the committed image skips only its duplicate typecheck', () => {
+    assert({
+      given: 'the committed Dockerfile and next.config.ts',
+      should: 'report no problem',
+      actual: findImageTypecheckProblem({
+        dockerfile: realDockerfile,
+        nextConfig,
+      }),
+      expected: null,
+    });
+  });
+
+  test('a config that skips type errors everywhere, or an image that never says it is one', () => {
+    const problem =
+      "next.config.ts must skip type errors only for the image build (ignoreBuildErrors: process.env.DAISY_IMAGE_BUILD === '1'), and only the Dockerfile build stage may set DAISY_IMAGE_BUILD=1; CI typechecks every deployed commit";
+    assert({
+      given:
+        'ignoreBuildErrors hard-coded true, the guard missing, and a Dockerfile that never sets DAISY_IMAGE_BUILD',
+      should: 'report each',
+      actual: [
+        findImageTypecheckProblem({
+          dockerfile: realDockerfile,
+          nextConfig: nextConfig.replace(
+            "process.env.DAISY_IMAGE_BUILD === '1'",
+            'true',
+          ),
+        }),
+        findImageTypecheckProblem({
+          dockerfile: realDockerfile,
+          nextConfig: 'export default {};',
+        }),
+        findImageTypecheckProblem({
+          dockerfile: realDockerfile.replaceAll('DAISY_IMAGE_BUILD=1 ', ''),
+          nextConfig,
+        }),
+      ],
+      expected: [problem, problem, problem],
     });
   });
 });

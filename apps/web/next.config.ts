@@ -2,6 +2,12 @@ import type { NextConfig } from 'next';
 import { roundMediaPages } from './src/features/round-media/browser-policy';
 const config: NextConfig = {
   poweredByHeader: false,
+  typescript: {
+    // Only the Docker image build skips Next's own TypeScript pass
+    // (ISSUE-527, apps/web/Dockerfile): CI's typecheck gates every deployed
+    // commit, and `bun run build` and `bun check` still typecheck here.
+    ignoreBuildErrors: process.env.DAISY_IMAGE_BUILD === '1',
+  },
   // The repo forbids a second agent doc (root AGENTS.md); stop `next dev` generating them.
   agentRules: false,
   serverExternalPackages: [
