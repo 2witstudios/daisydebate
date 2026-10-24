@@ -14,13 +14,6 @@ import {
   type BotPublicationScope,
 } from './bot-publication-context';
 
-/**
- * A token refused only because another reconcile holds the session or a
- * vendor mutation is still pending: it clears on its own, so admission
- * reconciles again and retries (ISSUE-534), unlike an ended or unsafe session.
- */
-export const MEDIA_RECONCILE_PENDING = 'Media reconcile is pending';
-
 export type MediaAdmissionPrincipal =
   | { readonly kind: 'human'; readonly actorId: string }
   | {
@@ -45,6 +38,11 @@ export const createMediaAdmissionStore = (run: BoundedTransaction) => ({
     readonly roundId: string;
     readonly principal: MediaAdmissionPrincipal;
     readonly buildProjection: LockedRoundTickInput['buildProjection'];
+    /**
+     * The reconcile lease owner the caller holds, if any. A live lease
+     * refuses the token unless it is the caller's own (ISSUE-534).
+     */
+    readonly reconcileOwner?: string;
     /** Local cryptographic signing only: no provider/network I/O in this callback. */
     readonly sign: (context: MediaAdmissionContext) => Promise<T>;
   }) {
@@ -88,10 +86,14 @@ export const createMediaAdmissionStore = (run: BoundedTransaction) => ({
         snapshot.now,
         snapshot.finalSegmentEndedAt,
       );
-      if (snapshot.session.endedAt || snapshot.session.unsafeAt)
+      if (
+        snapshot.session.endedAt ||
+        snapshot.session.unsafeAt ||
+        snapshot.unresolved ||
+        (snapshot.reconciling &&
+          snapshot.session.reconcileOwner !== input.reconcileOwner)
+      )
         throw createAppError('INFRASTRUCTURE', 'Media recovery is unresolved');
-      if (snapshot.unresolved || snapshot.reconciling)
-        throw createAppError('INFRASTRUCTURE', MEDIA_RECONCILE_PENDING);
       return input.sign({ ...snapshot, participantId, binding });
     });
   },

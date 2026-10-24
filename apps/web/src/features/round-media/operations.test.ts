@@ -138,14 +138,22 @@ test('a terminal Round is cleaned up once and then reads as ended', async () => 
   });
 });
 
-test('a failed vendor update leaves the session unsafe until cleanup proves absence', async () => {
-  const world = createMediaWorld();
-  const operations = createRoundMediaOperations(world.input);
-  const [affirmative, negative] = world.seats;
-  await operations.session(world.roundId, affirmative.actorId);
-  world.connect(negative.id, { publish: [], subscribe: false, hidden: false });
+/** An admitted affirmative, then a permission update whose vendor outcome is unknown. */
+const unsafeWithPendingMutation = async () => {
+  const { world, operations, affirmative } = await admitted();
+  world.connect(world.seats[1].id, {
+    publish: [],
+    subscribe: false,
+    hidden: false,
+  });
   world.fail('updateParticipant');
   const refused = await operations.reconcile(world.roundId);
+  return { world, operations, affirmative, refused };
+};
+
+test('a failed vendor update leaves the session unsafe until cleanup proves absence', async () => {
+  const { world, operations, affirmative, refused } =
+    await unsafeWithPendingMutation();
   const unsafe = world.state();
   await assertRejects({
     given: 'an admission while the failed mutation is unresolved',
@@ -196,29 +204,38 @@ test('a busy reconcile lease is awaited rather than refused', async () => {
   });
 });
 
-test('an admission refused while another reconcile is pending reconciles again and is admitted (ISSUE-534)', async () => {
-  const world = createMediaWorld({ contendedIssues: 2 });
+test('an admission issues its token under its own reconcile lease (ISSUE-534)', async () => {
+  const world = createMediaWorld({ reclaimedAfterFinish: true });
   const operations = createRoundMediaOperations(world.input);
   const admitted = await operations.session(
     world.roundId,
     world.seats[1].actorId,
   );
   assert({
-    given: 'two token issues refused because another reconcile was pending',
-    should: 'reconcile again within the request and admit',
-    actual: admitted.state,
-    expected: 'ready',
+    given:
+      'another worker claiming the reconcile lease the instant each of ours finishes',
+    should:
+      'admit after one reconcile, its token issued before the lease is released',
+    actual: [admitted.state, world.reconciles()],
+    expected: ['ready', 1],
   });
 });
 
-test('an admission still pending after its bounded retries is refused for the client to retry', async () => {
-  const world = createMediaWorld({ contendedIssues: 99 });
-  const operations = createRoundMediaOperations(world.input);
+test('an admission to an unsafe session with pending vendor work refuses after one reconcile', async () => {
+  const { world, operations, affirmative } = await unsafeWithPendingMutation();
+  const before = world.reconciles();
   await assertRejects({
-    given: 'a token issue that stays pending',
-    should: 'refuse as unavailable after its bounded attempts',
-    actual: () => operations.session(world.roundId, world.seats[1].actorId),
+    given:
+      'a session left unsafe by an unknown vendor outcome, its mutation pending',
+    should: 'refuse as an infrastructure fault',
     code: 'INFRASTRUCTURE',
+    actual: () => operations.session(world.roundId, affirmative.actorId),
+  });
+  assert({
+    given: 'that refused admission',
+    should: 'run one cleanup reconcile, not retry',
+    actual: world.reconciles() - before,
+    expected: 1,
   });
 });
 

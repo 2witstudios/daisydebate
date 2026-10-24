@@ -184,16 +184,39 @@ export function createMediaReconcileRun(
     const known = await knownPublishers(claim);
     if (await closeStale(claim, known)) await applyPermissions(claim, known);
   };
-  return async (claim: Claim, admission?: Principal) => {
+  /** The caller's step under the lease; its failure is returned, not thrown. */
+  const runHeld = async (whileHeld?: () => Promise<void>) => {
+    try {
+      await whileHeld?.();
+      return null;
+    } catch (error) {
+      return { error };
+    }
+  };
+  /**
+   * One reconcile under `claim`. `whileHeld` runs after a successful
+   * reconcile and before the lease is released, so no other reconcile can
+   * change the session in between (ISSUE-534); its own failure reaches the
+   * caller after the release and never marks the session unsafe.
+   */
+  return async (
+    claim: Claim,
+    admission?: Principal,
+    whileHeld?: () => Promise<void>,
+  ) => {
     let absenceProof: Awaited<ReturnType<Store['prepareMediaAbsenceProof']>> =
       null;
     let cleanupAttempted = false;
+    let held: { readonly error: unknown } | null = null;
     try {
       const state = await snapshot(claim.roundId);
       if (needsCleanup(state, claim)) {
         cleanupAttempted = true;
         absenceProof = await removeRoom(claim);
-      } else await reconcileRoom(claim, admission);
+      } else {
+        await reconcileRoom(claim, admission);
+        held = await runHeld(whileHeld);
+      }
     } catch (error) {
       if (
         !isAppError(error) ||
@@ -213,5 +236,6 @@ export function createMediaReconcileRun(
         absenceProof,
       });
     }
+    if (held) throw held.error;
   };
 }

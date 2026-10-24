@@ -1,4 +1,3 @@
-import { MEDIA_RECONCILE_PENDING } from '@daisy/db';
 import { createAppError } from '@daisy/errors';
 import {
   oneOnOneDefinition,
@@ -58,8 +57,8 @@ export function createMediaWorld(
   options: {
     readonly status?: 'scheduled' | 'active' | 'completed' | 'abandoned';
     readonly busyClaims?: number;
-    /** Token issues refused as pending first, as when another reconcile lands between ours and the issue. */
-    readonly contendedIssues?: number;
+    /** Another worker claims the reconcile lease the instant each of ours finishes, as recovery does on a busy deployment. */
+    readonly reclaimedAfterFinish?: boolean;
   } = {},
 ) {
   const journal: string[] = [];
@@ -72,7 +71,8 @@ export function createMediaWorld(
   const pending = new Set<string>();
   let status = options.status ?? 'scheduled';
   let busy = options.busyClaims ?? 0;
-  let contended = options.contendedIssues ?? 0;
+  let leaseOwner: string | null = null;
+  let reconciles = 0;
   let unsafeAt: string | null = null,
     endedAt: string | null = null,
     requested = 0,
@@ -157,6 +157,8 @@ export function createMediaWorld(
         return { kind: 'busy' as const };
       }
       running = requested;
+      leaseOwner = request.owner;
+      reconciles += 1;
       return {
         kind: 'claimed' as const,
         fence: { sessionId, owner: request.owner, epoch: (epoch += 1) },
@@ -191,6 +193,7 @@ export function createMediaWorld(
       absenceProof: { settledMutationCount: number } | null;
     }) => {
       served = running;
+      leaseOwner = options.reclaimedAfterFinish ? 'recovery-worker' : null;
       const cleaned =
         pending.size === 0 &&
         request.absenceProof?.settledMutationCount === mutations;
@@ -208,13 +211,20 @@ export function createMediaWorld(
     },
     issueMediaToken: async <T>(input: {
       principal: { kind: 'human'; actorId: string };
+      reconcileOwner?: string;
       sign: (context: unknown) => Promise<T>;
     }) => {
       const state = snapshot(input.principal.actorId);
-      if (state.session.endedAt || state.session.unsafeAt)
+      // As the store: a live lease refuses unless the caller holds it.
+      const foreignLease =
+        leaseOwner !== null && leaseOwner !== input.reconcileOwner;
+      if (
+        state.session.endedAt ||
+        state.session.unsafeAt ||
+        state.unresolved ||
+        foreignLease
+      )
         throw createAppError('INFRASTRUCTURE', 'Media recovery is unresolved');
-      if (state.unresolved || contended-- > 0)
-        throw createAppError('INFRASTRUCTURE', MEDIA_RECONCILE_PENDING);
       const participantId = state.caller!.id;
       return input.sign({
         ...state,
@@ -261,6 +271,8 @@ export function createMediaWorld(
     end: () => {
       status = 'completed';
     },
+    /** Reconcile leases claimed so far. */
+    reconciles: () => reconciles,
     state: () => ({
       unsafe: unsafeAt !== null,
       ended: endedAt !== null,

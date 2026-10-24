@@ -18,6 +18,7 @@ export function startRoundAvailability(input: {
     probe: createPublicCheckInProbe({
       configuration: readPublicCheckInProbe(app.config.ATTENDANCE_PUBLIC_PROBE),
       nextId: () => app.ids.next(),
+      nowMs: () => performance.now(),
       fetch: input.fetch,
     }),
     failed: () =>

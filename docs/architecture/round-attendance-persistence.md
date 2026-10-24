@@ -51,7 +51,12 @@ leaves the configured probe Round out of discovery and never freezes,
 judges or completes it (ISSUE-530, DEC-231). Without that, maintenance would
 complete it about half an hour after its last speech, and every later probe
 would answer `attendance-terminal`, leaving a long-lived deployment with no
-healthy availability evidence and no Round able to finalize.
+healthy availability evidence and no Round able to finalize. The probe
+member's session would end the same way seven days after it was created,
+because check-in reads the session without refreshing it, so the probe also
+reads its session through the public `get-session` route once an hour
+(`PROBE_SESSION_REFRESH_MS`), which slides it once it is a day old
+(ISSUE-531). That read never decides health and never delays a sample.
 
 ## Receipts, facts and uncertain attempts
 
