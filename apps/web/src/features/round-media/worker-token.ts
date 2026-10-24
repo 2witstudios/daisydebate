@@ -1,6 +1,7 @@
 import type { Database } from '@daisy/db';
 import type { createMediaService } from '@daisy/media';
 import type { createMediaWorkerAuthentication } from '@daisy/media/internal';
+import type { createRoundMediaOperations } from './operations';
 import { createAppError } from '@daisy/errors';
 import { mediaEnded, mediaRuntime } from './projection';
 
@@ -18,6 +19,9 @@ export function createMediaWorkerTokenBroker(input: {
   readonly workerUrl: string;
   readonly nextId: () => string;
   readonly deadline: <T>(work: Promise<T>) => Promise<T>;
+  readonly hold: ReturnType<
+    typeof createRoundMediaOperations
+  >['holdForCapture'];
 }) {
   const buildProjection: Parameters<
     Database['mediaSessions']['readMediaSession']
@@ -35,44 +39,53 @@ export function createMediaWorkerTokenBroker(input: {
       )
         throw createAppError('AUTHORIZATION');
       await input.capture.verifyMediaWorkerLease(scope);
-      const state = await input.sessions.readMediaSession({
-        roundId: scope.roundId,
-        buildProjection,
-      });
-      if (!state || state.session.id !== scope.sessionId)
-        throw createAppError('NOT_FOUND');
-      // A terminal session has ended for good, whoever holds it: the worker
-      // stops and is never relaunched (ISSUE-494, ISSUE-495). Its own message,
-      // apart from a write refused during a temporary unsafe window.
-      if (state.session.endedAt || mediaEnded(state))
-        throw createAppError('CONFLICT', 'Capture session has ended');
-      // A browser's reconcile holds a live session for well under a second:
-      // refused for now (503, which the worker retries), as for human
-      // admission, never a definite conflict that ends the worker's epoch.
-      if (state.reconciling)
-        throw createAppError('INFRASTRUCTURE', 'Media recovery is unresolved');
-      if (!(await input.deadline(input.media.exists(state.session.roomName))))
-        throw createAppError('INFRASTRUCTURE');
-      const current = await input.capture.verifyMediaWorkerLease(scope);
-      const identity = input.nextId();
-      const token = await input.media.joinToken({
-        room: state.session.roomName,
-        identity,
-        publish: [],
-        subscribe: true,
-        capture: true,
-        hidden: true,
-      });
-      return {
-        sessionId: scope.sessionId,
-        roomName: state.session.roomName,
-        identity,
-        url: input.workerUrl,
-        token,
-        expiresAt: new Date(
-          Date.parse(current.serverNow) + 60_000,
-        ).toISOString(),
+      const read = async () => {
+        const state = await input.sessions.readMediaSession({
+          roundId: scope.roundId,
+          buildProjection,
+        });
+        if (!state || state.session.id !== scope.sessionId)
+          throw createAppError('NOT_FOUND');
+        // A terminal session has ended for good, whoever holds it: the worker
+        // stops and is never relaunched (ISSUE-494, ISSUE-495). Its own
+        // message, apart from a write refused during a temporary unsafe window.
+        if (state.session.endedAt || mediaEnded(state))
+          throw createAppError('CONFLICT', 'Capture session has ended');
+        return state;
       };
+      await read();
+      // Issued while capture's own reconcile holds the session, so recovery
+      // or a browser reconciling back to back never refuses it (ISSUE-551).
+      const held = await input.hold(scope.sessionId, async () => {
+        const state = await read();
+        if (!(await input.deadline(input.media.exists(state.session.roomName))))
+          throw createAppError('INFRASTRUCTURE');
+        const current = await input.capture.verifyMediaWorkerLease(scope);
+        const identity = input.nextId();
+        const token = await input.media.joinToken({
+          room: state.session.roomName,
+          identity,
+          publish: [],
+          subscribe: true,
+          capture: true,
+          hidden: true,
+        });
+        return {
+          sessionId: scope.sessionId,
+          roomName: state.session.roomName,
+          identity,
+          url: input.workerUrl,
+          token,
+          expiresAt: new Date(
+            Date.parse(current.serverNow) + 60_000,
+          ).toISOString(),
+        };
+      });
+      if (held) return held.value;
+      // The reconcile refused or cleaned up and never reached the issue: a
+      // definite end stops the worker; anything else is retried (503).
+      await read();
+      throw createAppError('INFRASTRUCTURE', 'Media recovery is unresolved');
     },
   };
 }

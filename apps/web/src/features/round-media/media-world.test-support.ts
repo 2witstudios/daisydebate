@@ -271,6 +271,10 @@ export function createMediaWorld(
     end: () => {
       status = 'completed';
     },
+    /** Another reconcile holds the session for our next `times` claims. */
+    holdClaims: (times: number) => {
+      busy = times;
+    },
     /** Reconcile leases claimed so far. */
     reconciles: () => reconciles,
     state: () => ({

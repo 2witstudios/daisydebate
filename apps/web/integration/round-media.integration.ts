@@ -2,11 +2,8 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
-import { createMediaWorkerAuthentication } from '@daisy/media/internal';
 import { createMediaService } from '@daisy/media';
 import { createRoundMediaOperations } from '../src/features/round-media/operations';
-import { mediaRuntime } from '../src/features/round-media/projection';
-import { createMediaWorkerTokenBroker } from '../src/features/round-media/worker-token';
 import {
   withMediaRound,
   tokenClaims,
@@ -14,10 +11,7 @@ import {
   waitForMediaFact,
   mediaDependencies,
 } from './round-media.test-support';
-import {
-  CAPTURE_COVERAGE_TOLERANCE,
-  CAPTURE_STT_LAG_MS,
-} from '@daisy/protocol';
+import { signedCaptureBroker } from './capture-token.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 
@@ -101,35 +95,7 @@ test('authenticated capture broker verifies the actual lease and never creates a
       workerId: createId(),
       epoch: 1,
     };
-    const capture = f.store.createMediaCaptureOperations({
-      sttLagMs: CAPTURE_STT_LAG_MS,
-      coverageTolerance: CAPTURE_COVERAGE_TOLERANCE,
-      nextId: createId,
-      buildProjection: (context) =>
-        mediaRuntime(context, createId).tick(context.now),
-    });
-    const broker = createMediaWorkerTokenBroker({
-      sessions: f.store.mediaSessions,
-      capture,
-      media: f.media,
-      workerUrl: 'ws://127.0.0.1:7880',
-      nextId: createId,
-      deadline: async (work) => work,
-    });
-    const auth = createMediaWorkerAuthentication({
-      secret: Buffer.alloc(32, 5).toString('base64url'),
-      now: () => 1000,
-    });
-    const request = {
-      method: 'POST',
-      path: `/api/internal/media/${f.roundId}/capture/token`,
-      body: JSON.stringify({
-        sessionId: scope.sessionId,
-        workerId: scope.workerId,
-        epoch: 1,
-      }),
-    };
-    const principal = auth.verify({ ...request, ...auth.sign(request) });
+    const { capture, broker, principal } = signedCaptureBroker(f, scope);
     await assertRejects({
       given: 'valid signed identity without a capture lease',
       should: 'refuse token mint',

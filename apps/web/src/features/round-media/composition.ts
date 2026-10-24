@@ -53,8 +53,9 @@ export function createRoundMediaRuntime(
       deadline: (work) => withTimeout(work, 2_000),
       wait: () => Bun.sleep(25),
     };
+    const operations = createRoundMediaOperations(resources);
     runtime = {
-      operations: createRoundMediaOperations(resources),
+      operations,
       workerTokens: createMediaWorkerTokenBroker({
         sessions: resources.store,
         capture: app.database.createMediaCaptureOperations({
@@ -68,6 +69,7 @@ export function createRoundMediaRuntime(
         workerUrl: resources.workerUrl,
         nextId: resources.nextId,
         deadline: resources.deadline,
+        hold: operations.holdForCapture,
       }),
     };
     return runtime;

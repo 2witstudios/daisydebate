@@ -149,8 +149,26 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
       throw createAppError('CONFLICT', 'Round media admission is closed');
     throw createAppError('INFRASTRUCTURE');
   };
+  /**
+   * Runs `work` while this caller's own reconcile holds the session, so a
+   * concurrent reconcile (recovery, a browser) is never live in between to
+   * refuse it (ISSUE-551). It never creates a missing room. `null` when the
+   * reconcile refused or cleaned up and never reached `work`.
+   */
+  const holdForCapture = async <T>(
+    sessionId: string,
+    work: () => Promise<T>,
+  ) => {
+    const claim = await acquire(sessionId);
+    const held: { done?: { readonly value: T } } = {};
+    await run(claim, undefined, async () => {
+      held.done = { value: await work() };
+    });
+    return held.done ?? null;
+  };
   return {
     read,
+    holdForCapture,
     async session(roundId: string, actorId: string) {
       const response = await admit(roundId, { kind: 'human', actorId });
       return roundMediaAdmissionSchema.parse({
