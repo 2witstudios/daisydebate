@@ -17,7 +17,7 @@ import {
 setupRitewayBun();
 
 describe('package entry surface (ISSUE-8 AC1)', () => {
-  test('never re-exports a function that takes a Drizzle transaction/table handle, only the createDatabase factory, the startup role gate, value-typed outbox helpers and the capacity-refusal error predicate', () => {
+  test('never re-exports a function that takes a Drizzle transaction/table handle, only the createDatabase factory, the startup role gate, value-typed outbox helpers, the capacity-refusal error predicate and the pending media reconcile refusal message', () => {
     assert({
       given: "the package entry's exported names",
       should:
@@ -25,6 +25,7 @@ describe('package entry surface (ISSUE-8 AC1)', () => {
       actual: Object.keys(packageEntry).sort(),
       expected: [
         'DEFAULT_MAX_CONNECTIONS',
+        'MEDIA_RECONCILE_PENDING',
         'OUTBOX_ORIGIN',
         'createDatabase',
         'decodeOutboxCursor',

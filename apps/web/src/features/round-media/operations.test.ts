@@ -196,6 +196,32 @@ test('a busy reconcile lease is awaited rather than refused', async () => {
   });
 });
 
+test('an admission refused while another reconcile is pending reconciles again and is admitted (ISSUE-534)', async () => {
+  const world = createMediaWorld({ contendedIssues: 2 });
+  const operations = createRoundMediaOperations(world.input);
+  const admitted = await operations.session(
+    world.roundId,
+    world.seats[1].actorId,
+  );
+  assert({
+    given: 'two token issues refused because another reconcile was pending',
+    should: 'reconcile again within the request and admit',
+    actual: admitted.state,
+    expected: 'ready',
+  });
+});
+
+test('an admission still pending after its bounded retries is refused for the client to retry', async () => {
+  const world = createMediaWorld({ contendedIssues: 99 });
+  const operations = createRoundMediaOperations(world.input);
+  await assertRejects({
+    given: 'a token issue that stays pending',
+    should: 'refuse as unavailable after its bounded attempts',
+    actual: () => operations.session(world.roundId, world.seats[1].actorId),
+    code: 'INFRASTRUCTURE',
+  });
+});
+
 test('recovery reports a session it cannot read without stopping the scan', async () => {
   const world = createMediaWorld();
   const operations = createRoundMediaOperations(world.input);
