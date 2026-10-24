@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import {
   findDefaultStageProblem,
   findImageTypecheckProblem,
+  findRunnerBuildProblem,
 } from './verify-image-build';
 
 setupRitewayBun();
@@ -70,6 +71,56 @@ describe('findDefaultStageProblem (ISSUE-528)', () => {
         null,
         'apps/web/Dockerfile must end with the `runtime` stage: fly.toml and fly.migrate.toml build the default (last) target',
       ],
+    });
+  });
+});
+
+describe('findRunnerBuildProblem (ISSUE-542)', () => {
+  const workflow = readFileSync(
+    '.github/workflows/deploy-staging.yml',
+    'utf8',
+  );
+  const problem =
+    "deploy-staging.yml must build every image on the runner (`flyctl deploy ... --local-only`): Fly's 4-CPU Depot builder stalls next build's page-data workers";
+
+  test('the committed workflow builds every image on the runner', () => {
+    assert({
+      given: 'the committed deploy-staging.yml',
+      should: 'report no problem',
+      actual: findRunnerBuildProblem(workflow),
+      expected: null,
+    });
+  });
+
+  test('a deploy that builds remotely, or never says where it builds', () => {
+    assert({
+      given:
+        'one deploy switched to --remote-only, then one with no build location',
+      should: 'report each, since flyctl defaults to the remote builder',
+      actual: [
+        findRunnerBuildProblem(
+          workflow.replace(
+            'flyctl deploy -c fly.realtime.toml --local-only',
+            'flyctl deploy -c fly.realtime.toml --remote-only',
+          ),
+        ),
+        findRunnerBuildProblem(
+          workflow.replace(
+            'flyctl deploy -a daisy-debate-staging --local-only',
+            'flyctl deploy -a daisy-debate-staging',
+          ),
+        ),
+      ],
+      expected: [problem, problem],
+    });
+  });
+
+  test('a workflow with no deploy at all', () => {
+    assert({
+      given: 'a workflow that never runs flyctl deploy',
+      should: 'report it rather than pass vacuously',
+      actual: findRunnerBuildProblem('jobs: {}\n'),
+      expected: problem,
     });
   });
 });

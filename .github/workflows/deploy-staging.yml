@@ -62,8 +62,8 @@ jobs:
   deploy:
     name: Deploy main to daisy-debate-staging
     runs-on: ubuntu-24.04
-    # Five remote builds (migrator, LiveKit, realtime, web, capture worker)
-    # run back to back; the web image alone has taken over 15 minutes.
+    # Five deploys (migrator, LiveKit, realtime, web, capture worker) run
+    # back to back, each building on this runner and pushing its image.
     timeout-minutes: 60
     needs: ready
     if: >-
@@ -99,6 +99,9 @@ jobs:
         uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1 # 1.6
       - id: migrate
         name: Migrate
+        # Every deploy below builds on this runner (--local-only, ISSUE-542),
+        # sharing one Docker cache, so the Next build runs once per job; Fly's
+        # 4-CPU Depot builder stalled it (scripts/verify-image-build.ts).
         # The migrator app's own deploy token, scoped to this step: it can
         # deploy only daisy-debate-staging-migrate, whose sole secret is the
         # owner credential. --update-only creates no machines, so only the
@@ -107,7 +110,7 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_MIGRATE_API_TOKEN }}
         run: >-
-          flyctl deploy -c fly.migrate.toml --remote-only --update-only
+          flyctl deploy -c fly.migrate.toml --local-only --update-only
           --build-arg APP_VERSION="${DEPLOY_SHA::7}"
           --build-arg GIT_COMMIT="$DEPLOY_SHA"
       - id: livekit
@@ -130,7 +133,7 @@ jobs:
             echo "LiveKit unchanged since $deployed; not redeployed"
             exit 0
           fi
-          flyctl deploy -c fly.livekit.toml --remote-only --ha=false \
+          flyctl deploy -c fly.livekit.toml --local-only --ha=false \
             --env LIVEKIT_SOURCE_COMMIT="$DEPLOY_SHA"
       - id: realtime
         name: Deploy realtime
@@ -139,7 +142,7 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_REALTIME_API_TOKEN }}
         run: >-
-          flyctl deploy -c fly.realtime.toml --remote-only --ha=false
+          flyctl deploy -c fly.realtime.toml --local-only --ha=false
           --build-arg APP_VERSION="${DEPLOY_SHA::7}"
           --build-arg GIT_COMMIT="$DEPLOY_SHA"
       - id: deploy
@@ -149,7 +152,7 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: >-
-          flyctl deploy -a daisy-debate-staging --remote-only --ha=false
+          flyctl deploy -a daisy-debate-staging --local-only --ha=false
           --build-arg APP_VERSION="${DEPLOY_SHA::7}"
           --build-arg GIT_COMMIT="$DEPLOY_SHA"
       - id: media-worker
@@ -159,7 +162,7 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_MEDIA_WORKER_API_TOKEN }}
         run: >-
-          flyctl deploy -c fly.media-worker.toml --remote-only --ha=false
+          flyctl deploy -c fly.media-worker.toml --local-only --ha=false
           --build-arg APP_VERSION="${DEPLOY_SHA::7}"
           --build-arg GIT_COMMIT="$DEPLOY_SHA"
       - id: readiness

@@ -41,3 +41,21 @@ export function findDefaultStageProblem(dockerfile: string): string | null {
     ? null
     : 'apps/web/Dockerfile must end with the `runtime` stage: fly.toml and fly.migrate.toml build the default (last) target';
 }
+
+/**
+ * ISSUE-542: deploy-staging builds every image on the GitHub runner, whose
+ * Docker cache the job's builds share. Fly's 4-CPU Depot builder stalled
+ * next build's page-data workers for 40 minutes, until the builder dropped
+ * the connection; the same build takes about 30 s with room. flyctl
+ * defaults to the remote builder, so each deploy must say --local-only.
+ */
+export function findRunnerBuildProblem(workflow: string): string | null {
+  const deploys = uncommented(workflow).match(/flyctl deploy\b[^\n]*/g) ?? [];
+  return deploys.length > 0 &&
+    deploys.every(
+      (line) =>
+        line.includes('--local-only') && !line.includes('--remote-only'),
+    )
+    ? null
+    : "deploy-staging.yml must build every image on the runner (`flyctl deploy ... --local-only`): Fly's 4-CPU Depot builder stalls next build's page-data workers";
+}

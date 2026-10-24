@@ -15,6 +15,7 @@ import {
 import {
   findDefaultStageProblem,
   findImageTypecheckProblem,
+  findRunnerBuildProblem,
 } from './verify-image-build';
 
 /** Pure check: does the Dockerfile's base image pin exactly `.bun-version`? */
@@ -328,6 +329,7 @@ export function verifyDeployConfig(input: {
     }),
     findImageTypecheckProblem(input),
     findDefaultStageProblem(input.dockerfile),
+    findRunnerBuildProblem(input.workflow),
     findFlyReleaseCommandProblem(input.migratorToml),
     findWebReleaseCommandProblem(input.flyToml),
     findMigratorAppProblem(input.migratorToml),
