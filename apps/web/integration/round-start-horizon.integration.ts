@@ -1,10 +1,8 @@
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import {
-  createRoundMaintenanceOperations,
-  ROUND_START_HORIZON_MS,
-} from '../src/features/round-finalization/maintenance';
+import { ROUND_START_HORIZON_MS } from '../src/features/round-finalization/maintenance';
+import { ordinaryMaintenance } from './round-maintenance.test-support';
 import { readyBotJudgedRoom } from './round-judging.test-support';
 import {
   launchRuntimeRound,
@@ -28,13 +26,7 @@ test('a Round still scheduled past its start horizon is abandoned once across tw
         await f.store.renewServiceInstance({ instanceId, role: 'web' });
       try {
         const [first, second] = instances.map((instanceId) =>
-          createRoundMaintenanceOperations({
-            startHorizonMs: ROUND_START_HORIZON_MS,
-            store: f.store,
-            instanceId,
-            ids: { next: createId },
-            evaluate: async () => null,
-          }),
+          ordinaryMaintenance(f.store, instanceId),
         );
         const discovered = await first!.discover();
         await Promise.all([first!.tick(expired), second!.tick(expired)]);

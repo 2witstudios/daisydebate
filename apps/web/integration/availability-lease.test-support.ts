@@ -50,7 +50,8 @@ export async function verifyAvailabilityLeaseCadence(input: {
       },
     },
     fetch: async (url, init) => {
-      probes += 1;
+      // Public check-ins only; the probe's hourly session read is not a probe.
+      if (String(url).endsWith('/check-in')) probes += 1;
       return fetch(url, init);
     },
     timers: {

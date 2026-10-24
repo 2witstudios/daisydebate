@@ -191,6 +191,7 @@ export async function createLaunchProbeResource(
   const probe = createPublicCheckInProbe({
     configuration,
     nextId: createId,
+    nowMs: () => performance.now(),
     fetch,
   });
   if (!(await probe()))

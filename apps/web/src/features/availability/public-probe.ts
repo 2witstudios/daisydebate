@@ -6,10 +6,20 @@ export type PublicCheckInProbeConfiguration = {
   readonly participantId: string;
   readonly cookie: string;
 };
+/**
+ * How often the probe reads its own session through the public get-session
+ * route. Check-in reads the session without refreshing it, so without this
+ * the probe member's session would expire SESSION_EXPIRES_IN_SECONDS after it
+ * was created and availability would go unhealthy (ISSUE-531). Better Auth
+ * slides a session read this way once it is older than its update age.
+ */
+export const PROBE_SESSION_REFRESH_MS = 60 * 60_000;
 /** Credentials enter only from the process edge; missing configuration remains unhealthy. */
 export function createPublicCheckInProbe(input: {
   readonly configuration: PublicCheckInProbeConfiguration | null;
   readonly nextId: () => string;
+  /** Monotonic milliseconds, for the session refresh cadence. */
+  readonly nowMs: () => number;
   readonly fetch: (url: string, init: RequestInit) => Promise<Response>;
 }): () => Promise<boolean> {
   const config = input.configuration;
@@ -28,7 +38,35 @@ export function createPublicCheckInProbe(input: {
     )
   )
     throw new Error('Invalid public check-in probe configuration');
+  let refreshedAtMs: number | null = null;
+  // Its outcome never decides health: only the check-in receipt does.
+  const slideSession = async () => {
+    const now = input.nowMs();
+    if (
+      refreshedAtMs !== null &&
+      now - refreshedAtMs < PROBE_SESSION_REFRESH_MS
+    )
+      return;
+    refreshedAtMs = now;
+    try {
+      const response = await input.fetch(
+        `${origin.origin}/api/auth/get-session`,
+        {
+          method: 'GET',
+          redirect: 'error',
+          signal: AbortSignal.timeout(900),
+          headers: { cookie: config.cookie },
+        },
+      );
+      // Only the server-side slide matters; the session body is discarded.
+      await response.body?.cancel();
+    } catch {
+      // The next interval reads it again.
+    }
+  };
   return async () => {
+    // Not awaited: the session read never delays this second's sample.
+    void slideSession();
     const commandId = input.nextId();
     try {
       const response = await input.fetch(

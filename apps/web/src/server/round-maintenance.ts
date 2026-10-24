@@ -7,6 +7,7 @@ import {
   ROUND_START_HORIZON_MS,
 } from '../features/round-finalization/maintenance';
 import { startRoundMaintenance } from '../features/round-finalization/service';
+import { readPublicCheckInProbe } from '../features/availability/configuration';
 /** The existing availability lease supplies service authority; no new lease/pool is created. */
 export function startRoundCompetitiveMaintenance(input: {
   readonly app: App;
@@ -29,6 +30,9 @@ export function startRoundCompetitiveMaintenance(input: {
       ids: app.ids,
       evaluate: attendance.evaluate,
       startHorizonMs: ROUND_START_HORIZON_MS,
+      probeRoundId:
+        readPublicCheckInProbe(app.config.ATTENDANCE_PUBLIC_PROBE)?.roundId ??
+        null,
     }),
     timers: input.timers,
     failed: workerFailures(app, input.reporter)(
