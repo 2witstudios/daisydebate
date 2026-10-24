@@ -61,11 +61,18 @@ test('real public ingress probe uses ordinary signed session, scoped seat and du
         // Isolated resource setup: canonical Round seat belongs to the actual signed member.
         await f.sql`update round_participants set actor_id=${identity.principal.actorId} where round_id=${roundId} and role='affirmative'`;
         const mounted = app.routes.attendance;
-        handler = (request) =>
-          new URL(request.url).pathname === `/api/rounds/${roundId}/check-in` &&
-          request.method === 'POST'
-            ? mounted.checkIn(request, roundId)
-            : Promise.resolve(new Response('Not found', { status: 404 }));
+        handler = (request) => {
+          const { pathname } = new URL(request.url);
+          if (
+            pathname === `/api/rounds/${roundId}/check-in` &&
+            request.method === 'POST'
+          )
+            return mounted.checkIn(request, roundId);
+          // The probe's hourly session read reaches the real auth route.
+          if (pathname.startsWith('/api/auth/') && request.method === 'GET')
+            return app.routes.auth.GET(request);
+          return Promise.resolve(new Response('Not found', { status: 404 }));
+        };
         const participant = (await f.store.getRound(
           roundId,
         ))!.participants.find((p) => p.actorId === identity.principal.actorId)!;
@@ -138,6 +145,58 @@ test('real public ingress probe uses ordinary signed session, scoped seat and du
             segmentId,
             participantId: participant.id,
             cookie: signed.cookie,
+          },
+        });
+        // ISSUE-531: the probe's own session read slides a real session.
+        const expiresInDays = async () => {
+          const [row] =
+            await f.sql`select extract(epoch from expires_at-now())/86400.0 as days from session where user_id=${identity.principal.userId} order by expires_at desc limit 1`;
+          return Math.round(Number(row.days));
+        };
+        let sessionRead: Promise<Response> | undefined;
+        const sliding = createPublicCheckInProbe({
+          configuration: {
+            origin,
+            roundId,
+            segmentId,
+            participantId: participant.id,
+            cookie: signed.cookie,
+          },
+          nextId: createId,
+          nowMs: () => performance.now(),
+          fetch: (url, init) => {
+            const response = fetch(url, init);
+            if (url.endsWith('/api/auth/get-session')) sessionRead = response;
+            return response;
+          },
+        });
+        const backdate = () =>
+          f.sql`update session set expires_at=now()+interval '5 days', updated_at=now()-interval '2 days' where user_id=${identity.principal.userId}`;
+        await backdate();
+        const firstHealthy = await sliding();
+        const firstRead = await sessionRead;
+        const slid = await expiresInDays();
+        await backdate();
+        sessionRead = undefined;
+        const secondHealthy = await sliding();
+        assert({
+          given:
+            'a probe session five days from expiry, then the same probe again inside its refresh interval',
+          should:
+            'slide it to the full seven days through get-session on the first probe, and leave it alone on the second',
+          actual: {
+            healthy: [firstHealthy, secondHealthy],
+            readStatus: firstRead?.status,
+            slid,
+            secondRead: sessionRead === undefined,
+            unslid: await expiresInDays(),
+          },
+          expected: {
+            healthy: [true, true],
+            readStatus: 200,
+            slid: 7,
+            secondRead: true,
+            unslid: 5,
           },
         });
         await f.sql`delete from session where user_id=${identity.principal.userId}`;

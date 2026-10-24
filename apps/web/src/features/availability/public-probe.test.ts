@@ -127,3 +127,43 @@ test('the probe slides its own session through the public get-session route (ISS
     },
   });
 });
+
+test('a session read that never answers never delays the probe (ISSUE-531)', async () => {
+  const roundId = 'a'.repeat(24),
+    segmentId = 'b'.repeat(24),
+    participantId = 'c'.repeat(24),
+    commandId = 'd'.repeat(24);
+  const probe = createPublicCheckInProbe({
+    configuration: {
+      origin: 'http://localhost:13140',
+      roundId,
+      segmentId,
+      participantId,
+      cookie: 'isolated-fixture-only',
+    },
+    nextId: () => commandId,
+    nowMs: () => 0,
+    fetch: async (url) =>
+      String(url).endsWith('/get-session')
+        ? new Promise<Response>(() => {})
+        : Response.json({
+            version: 1,
+            commandId,
+            roundId,
+            segmentId,
+            participantId,
+            receivedAt: '2026-10-22T00:00:00.000Z',
+            resultingVersion: 1,
+            replayed: true,
+          }),
+  });
+  assert({
+    given: 'a get-session request that never settles',
+    should: 'still answer the check-in sample',
+    actual: await Promise.race([
+      probe(),
+      Bun.sleep(1000).then(() => 'delayed'),
+    ]),
+    expected: true,
+  });
+});
