@@ -22,6 +22,7 @@ import {
   createActivityRelay,
 } from './capture-activity';
 import { consumeCaptureClips, type QueuedClip } from './capture-consumer';
+import { createHeardReporter } from './capture-heard';
 import { createStreamTracker } from './capture-streams';
 import { closeCaptureSession } from './capture-drain';
 type Dependencies = {
@@ -71,6 +72,7 @@ export async function runCaptureSession(
   const activity = createActivityRelay();
   const streams = createStreamTracker(16384);
   const carries: ClipCarries = new Map();
+  const heard = createHeardReporter({ heard: input.client.heard });
   const enqueue = (clip: QueuedClip | Omit<QueuedClip, 'bytes'>) => {
     const queued = { ...clip, bytes: clip.wav.byteLength };
     streams.queued(queued);
@@ -90,7 +92,11 @@ export async function runCaptureSession(
       const frame = staging.observe(raw);
       if (frame && activityWanted(current.state)) activity.observe(frame);
     },
-    onTrackClosed: (track) => staging.closeTrack(track.trackId),
+    onTrackStarted: heard.started,
+    onTrackClosed: (track) => {
+      heard.closed(track.trackId);
+      staging.closeTrack(track.trackId);
+    },
   });
   void capture.closed.then(
     () => stop.abort(),
@@ -147,6 +153,7 @@ export async function runCaptureSession(
       streams.remember(current.state);
       staging.refresh(current.calibration);
       await capture.setIdentities(identities(current));
+      await heard.report(current.state, epoch, signal);
       await validateCaptureBatch({
         ...input,
         current,

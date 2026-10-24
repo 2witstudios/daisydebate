@@ -77,3 +77,28 @@ test('worker signature admission rejects stale future oversized and ambiguous id
       createMediaWorkerAuthentication({ secret: '', now: () => instant }),
   });
 });
+test('every capture operation the worker client calls is admitted, the heard report included (ISSUE-514-r2)', () => {
+  const auth = createMediaWorkerAuthentication({ secret, now: () => instant });
+  const admitted = (operation: string) => {
+    const signedPath = `/api/internal/media/${roundId}/capture/${operation}`;
+    const headers = auth.sign({ method: 'POST', path: signedPath, body });
+    return auth.verify({ method: 'POST', path: signedPath, body, ...headers })
+      .roundId;
+  };
+  const operations = [
+    'token',
+    'lease',
+    'read',
+    'append',
+    'observe',
+    'seal',
+    'activity',
+    'heard',
+  ];
+  assert({
+    given: 'a signed call to each capture operation',
+    should: 'admit each under the signed Round',
+    actual: operations.map(admitted),
+    expected: operations.map(() => roundId),
+  });
+});

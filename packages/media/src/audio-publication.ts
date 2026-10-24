@@ -11,14 +11,16 @@ import {
 } from '@livekit/rtc-node';
 
 /**
- * Why a publication stopped short: the native connect or handoff failed, or
- * the paced writer stopped (a wake still late after re-anchoring, an invalid
- * clock or receipt, a refused window). Codes only, safe to log (ISSUE-514-r1).
+ * Why a publication stopped short: the native connect or handoff failed,
+ * capture never reported hearing the track (ISSUE-514-r2), or the paced
+ * writer stopped (a wake still late after re-anchoring, an invalid clock or
+ * receipt, a refused window). Codes only, safe to log (ISSUE-514-r1).
  */
 export type PublicationStop =
-  'connect' | 'handoff' | 'stall' | 'clock' | 'refused';
+  'connect' | 'unheard' | 'handoff' | 'stall' | 'clock' | 'refused';
 const STOPS: readonly PublicationStop[] = [
   'connect',
+  'unheard',
   'handoff',
   'stall',
   'clock',
@@ -95,12 +97,16 @@ export async function createAudioPublication(input: {
         red: false,
       }),
     );
+    if (!track.sid) throw new Error('No published track');
   } catch {
     await track.close();
     await room.disconnect();
     throw publicationStopError('connect', 'Native audio publication failed');
   }
+  const trackSid = track.sid!;
   return {
+    /** The published track's server id, as capture names the track it hears. */
+    trackSid,
     /** False once closing, after a failed handoff, or when the room dropped. */
     usable: () => !closing && !failed,
     /** Samples per channel handed to the source so far, across every job. */

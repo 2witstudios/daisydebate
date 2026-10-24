@@ -30,6 +30,8 @@ export function createSpeakingBotControl(input: {
     token: string,
   ) => Promise<{ readonly url: string; readonly token: string }>;
   readonly readActivity: Parameters<typeof createBotActivityFeed>[0]['read'];
+  /** The seat capture reports hearing a track for (ISSUE-514-r2). */
+  readonly readHeard: Parameters<typeof createBotPublisher>[0]['heard'];
   readonly timers: WorkerTimers;
   readonly nextId: () => string;
   readonly nowMs: () => number;
@@ -47,6 +49,7 @@ export function createSpeakingBotControl(input: {
     store: input.store,
     botToken: input.botToken,
     connect: createAudioPublication,
+    heard: input.readHeard,
     nextId: input.nextId,
     monotonicNowMs: () => performance.now(),
     waitUntilMs: async (due, signal) => {

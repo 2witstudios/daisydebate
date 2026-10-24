@@ -29,6 +29,7 @@ const route = (path: string) => {
       'observe',
       'seal',
       'activity',
+      'heard',
     ].includes(parts[6]!)
   )
     throw unauthorized();

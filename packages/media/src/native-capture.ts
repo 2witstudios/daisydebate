@@ -27,6 +27,11 @@ type CaptureInput = {
   readonly identities: readonly string[];
   readonly nowMs: () => number;
   readonly onFrame: (frame: RawCaptureFrame) => void;
+  /** A track of an admitted identity is subscribed and being read. */
+  readonly onTrackStarted: (track: {
+    readonly identity: string;
+    readonly trackId: string;
+  }) => void;
   readonly onTrackClosed: (track: ClosedTrack) => void;
 };
 const identitiesOf = (values: readonly string[]) => {
@@ -115,6 +120,11 @@ export async function createCaptureSubscription(input: CaptureInput) {
       }
     };
     streams.set(trackId, { identity, stop });
+    try {
+      input.onTrackStarted({ identity, trackId });
+    } catch {
+      /* Consumer owns its report; no raw exception enters SDK logs. */
+    }
     void (async () => {
       try {
         while (!finished) {

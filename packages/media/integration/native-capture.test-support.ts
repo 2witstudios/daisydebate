@@ -10,13 +10,12 @@ import { createCaptureClock } from '../src/capture-clock';
 import type { withHistoricalSeat } from './native-fixtures.test-support';
 import { waitForCadence, pcmJob } from './native-fixtures.test-support';
 
+type Probe = Parameters<typeof createCaptureSubscription>[0];
 const openCaptureProbe = async (
   roomName: string,
   identity: string,
-  callbacks: Pick<
-    Parameters<typeof createCaptureSubscription>[0],
-    'onFrame' | 'onTrackClosed'
-  >,
+  callbacks: Pick<Probe, 'onFrame' | 'onTrackClosed'> &
+    Partial<Pick<Probe, 'onTrackStarted'>>,
 ) => {
   const service = createMediaService({ config });
   const capture = await createCaptureSubscription({
@@ -30,6 +29,7 @@ const openCaptureProbe = async (
     }),
     identities: [identity],
     nowMs: () => performance.now(),
+    onTrackStarted: () => {},
     ...callbacks,
   });
   return { service, capture };
@@ -48,7 +48,9 @@ export const proveNativeCapture: Parameters<
   }[] = [];
   const first = Promise.withResolvers<void>(),
     closed = Promise.withResolvers<void>();
+  const started: { identity: string; trackId: string }[] = [];
   const { capture } = await openCaptureProbe(roomName, identity, {
+    onTrackStarted: (track) => started.push(track),
     onFrame: (frame) => {
       receipts.push(frame);
       if (receipts.length >= 3) first.resolve();
@@ -108,6 +110,13 @@ export const proveNativeCapture: Parameters<
       queued.releaseLock();
     }
 
+    assert({
+      given: 'capture subscribed to the actual published microphone track',
+      should:
+        "report it once, by the publisher's own track id, so a bot can tell capture hears it (ISSUE-514-r2)",
+      actual: started,
+      expected: [{ identity, trackId: publisher.trackSid }],
+    });
     assert({
       given: 'actual microphone publication over local LiveKit',
       should:

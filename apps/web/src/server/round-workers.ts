@@ -65,6 +65,7 @@ export function startRoundWorkers(input: {
         withProvider,
         botToken: input.botToken,
         readActivity: app.redis.readBotActivity,
+        readHeard: app.redis.readCaptureHeard,
         timers: input.timers,
         nextId: () => app.ids.next(),
         nowMs: () => Date.parse(app.clock.now()),

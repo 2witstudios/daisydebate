@@ -1,8 +1,12 @@
+import { Room, RoomEvent } from '@livekit/rtc-node';
 import { createId } from '@paralleldrive/cuid2';
 import { createMediaService } from '@daisy/media';
 import { createLogger } from '@daisy/logger';
 import { noopErrorReporter, withTimeout } from '@daisy/observability';
-import { createBotActivityRelay } from '../src/features/round-bots/activity-relay';
+import {
+  createBotActivityRelay,
+  createBotHeardRelay,
+} from '../src/features/round-bots/activity-relay';
 import { createRoundMediaOperations } from '../src/features/round-media/operations';
 import { createRoundRuntimeOperations } from '../src/features/round-runtime/operations';
 import { mediaRuntime } from '../src/features/round-media/projection';
@@ -192,6 +196,15 @@ export const captureActivityRelay = (
     readLease: (identity) => capture.readCurrentCaptureLease(identity),
     write: fixture.redis.writeBotActivity,
   });
+export const captureHeardRelay = (
+  fixture: Parameters<Parameters<typeof withMediaRound>[0]>[0],
+  capture: ReturnType<typeof captureOperations>,
+) =>
+  createBotHeardRelay({
+    readCapture: (identity) => capture.readMediaCaptureState(identity),
+    readLease: (identity) => capture.readCurrentCaptureLease(identity),
+    write: fixture.redis.writeCaptureHeard,
+  });
 
 /** Starts the launched Round and moves its clock past the countdown into the first speech. */
 export async function startCaptureSpeech(
@@ -212,4 +225,57 @@ export async function startCaptureSpeech(
     },
   );
   await fixture.sql`update rounds set started_at=clock_timestamp()-${round.rules.countdownMs + 1000}*interval '1 millisecond' where id=${fixture.roundId}`;
+}
+/**
+ * Capture's report through actual LiveKit and Redis: a subscriber in the
+ * Round's room writes the heard key, under the server's track id, for every
+ * track it subscribes to, as the capture worker does (ISSUE-514-r2). Joined
+ * on the first read, once the bot grant has opened the room; `close` also
+ * deletes the room.
+ */
+export function hearRoundTracks(
+  f: Parameters<Parameters<typeof withRoomRuntime>[0]>[0],
+  deps: ReturnType<typeof mediaDependencies>,
+  roundId: string,
+  seat: string,
+) {
+  const room = new Room();
+  room.on(RoomEvent.TrackSubscribed, (_track, publication) => {
+    if (publication.sid)
+      void f.redis.writeCaptureHeard({
+        roundId,
+        trackId: publication.sid,
+        seat,
+      });
+  });
+  let joining: Promise<void> | undefined;
+  return {
+    heard: async (round: string, trackSid: string) => {
+      joining ??= (async () => {
+        const [session] =
+          await f.sql`select room_name from media_sessions where round_id=${roundId}`;
+        await room.connect(
+          deps.workerUrl,
+          await deps.media.joinToken({
+            room: session.room_name,
+            identity: createId(),
+            publish: [],
+            subscribe: true,
+            capture: true,
+          }),
+          { autoSubscribe: true, dynacast: false },
+        );
+      })();
+      await joining;
+      return f.redis.readCaptureHeard(round, trackSid);
+    },
+    /** Leaves, then deletes the Round's room if it still exists. */
+    close: async () => {
+      await room.disconnect();
+      const [session] =
+        await f.sql`select room_name from media_sessions where round_id=${roundId}`;
+      if (session && (await deps.media.exists(session.room_name)))
+        await deps.media.deleteRoom(session.room_name);
+    },
+  };
 }

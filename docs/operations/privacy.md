@@ -124,6 +124,19 @@ The payload is at most 64 KiB and twenty frames per seat, validated by
 `botActivityBatchSchema` on write and read. It carries no transcript, bearer
 or competitive authority (ISSUE-500).
 
+### Bot heard-track declaration
+
+Capture reports each bot track it subscribes to, so the bot credits speech
+only once capture can hear it (ISSUE-514-r2). The report lives only in the
+Redis key `<namespace>:botheard:<roundId>:<trackId>`
+(`packages/redis/src/bot-activity.ts`), and is never written to PostgreSQL.
+
+| Field                                                | Category   | Storage / owner | Purpose                                              | Lawful basis                              | Retention                                    | Erasure / export                       |
+| ---------------------------------------------------- | ---------- | --------------- | ---------------------------------------------------- | ----------------------------------------- | -------------------------------------------- | -------------------------------------- |
+| key `roundId`, `trackId`; value `roundParticipantId` | identifier | redis / VIDEO   | Tell a bot seat that capture hears its current track | Pending PRIV-3 `jc0qcdvpkmqzrelpaesi3pah` | The key's own 30 s expiry (`SET … PX 30000`) | Expires within 30 s; nothing to export |
+
+It carries no audio, transcript, bearer or competitive authority.
+
 ## Retention
 
 Retention today is scattered across a few ADRs and one doc, until PRIV-3's
