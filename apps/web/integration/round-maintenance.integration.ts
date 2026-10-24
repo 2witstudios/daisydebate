@@ -94,6 +94,7 @@ test(
       const maintenance = startRoundMaintenance({
         ...createRoundMaintenanceOperations({
           startHorizonMs: ROUND_START_HORIZON_MS,
+          probeRoundId: null,
           store: f.store,
           instanceId,
           ids: { next: createId },

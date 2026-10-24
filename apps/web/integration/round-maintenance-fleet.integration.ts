@@ -35,6 +35,7 @@ test('five actual Rounds leave shared bounded capacity for media and first-recei
       await availability.firstSample;
       const operations = createRoundMaintenanceOperations({
         startHorizonMs: ROUND_START_HORIZON_MS,
+        probeRoundId: null,
         store: f.store,
         instanceId,
         ids: { next: createId },

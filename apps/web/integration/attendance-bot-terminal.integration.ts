@@ -1,10 +1,7 @@
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
-import {
-  createRoundMaintenanceOperations,
-  ROUND_START_HORIZON_MS,
-} from '../src/features/round-finalization/maintenance';
+import { ordinaryMaintenance } from './round-maintenance.test-support';
 import { withRoomRuntime } from './round-runtime.test-support';
 import { ownSpeech, botControlOptions } from './bot-control.test-support';
 import { seedSettledAttendanceLedger } from './round-attendance-fixture.test-support';
@@ -22,13 +19,7 @@ test('a bot Round whose worker never returns after its windows are decided still
         ),
       );
     const maintenance = instances.map((instanceId) =>
-      createRoundMaintenanceOperations({
-        startHorizonMs: ROUND_START_HORIZON_MS,
-        store: f.store,
-        instanceId,
-        ids: { next: createId },
-        evaluate: async () => null,
-      }),
+      ordinaryMaintenance(f.store, instanceId),
     );
     const facts = async () =>
       (

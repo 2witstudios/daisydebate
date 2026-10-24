@@ -95,6 +95,7 @@ test('internal zerojudge completion requires real freeze and settled attendance 
       });
       const maintenance = await createRoundMaintenanceOperations({
         startHorizonMs: ROUND_START_HORIZON_MS,
+        probeRoundId: null,
         store: f.store,
         instanceId,
         ids: { next: createId },

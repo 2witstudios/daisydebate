@@ -60,6 +60,7 @@ async function maintainWith<T>(
   const operations = instances.map((instanceId) =>
     createRoundMaintenanceOperations({
       startHorizonMs: ROUND_START_HORIZON_MS,
+      probeRoundId: null,
       store: f.store,
       instanceId,
       ids: { next: createId },
