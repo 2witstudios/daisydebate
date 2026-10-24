@@ -9,6 +9,7 @@ import {
 /** The actual capture token broker over the fixture's store, vendor and reconcile hold. */
 export function captureTokenBroker(
   f: Parameters<Parameters<typeof withMediaRound>[0]>[0],
+  hold = f.mediaOperations.holdForCapture,
 ) {
   const capture = captureOperations(f);
   const deps = mediaDependencies(f, f.media);
@@ -21,7 +22,7 @@ export function captureTokenBroker(
       workerUrl: deps.workerUrl,
       nextId: deps.nextId,
       deadline: deps.deadline,
-      hold: f.mediaOperations.holdForCapture,
+      hold,
     }),
   };
 }
@@ -34,8 +35,9 @@ export function signedCaptureBroker(
     readonly workerId: string;
     readonly epoch: number;
   },
+  hold = f.mediaOperations.holdForCapture,
 ) {
-  const { capture, broker } = captureTokenBroker(f);
+  const { capture, broker } = captureTokenBroker(f, hold);
   const auth = createMediaWorkerAuthentication({
     secret: Buffer.alloc(32, 5).toString('base64url'),
     now: () => 1000,

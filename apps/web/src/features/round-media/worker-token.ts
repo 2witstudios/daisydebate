@@ -58,6 +58,14 @@ export function createMediaWorkerTokenBroker(input: {
       // or a browser reconciling back to back never refuses it (ISSUE-551).
       const held = await input.hold(scope.sessionId, async () => {
         const state = await read();
+        // Our own reconcile may have left an unknown vendor outcome, which
+        // this same run then tears down: never mint into it, as for human
+        // admission. Refused for now; the worker's retry meets the lease.
+        if (state.session.unsafeAt || state.unresolved)
+          throw createAppError(
+            'INFRASTRUCTURE',
+            'Media recovery is unresolved',
+          );
         if (!(await input.deadline(input.media.exists(state.session.roomName))))
           throw createAppError('INFRASTRUCTURE');
         const current = await input.capture.verifyMediaWorkerLease(scope);
