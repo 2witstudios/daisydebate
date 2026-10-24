@@ -1,5 +1,10 @@
 import { z } from 'zod';
-import { idSchema, roundStatusSchema, segmentTypes } from '@daisy/protocol';
+import {
+  attendanceTimingPolicy,
+  idSchema,
+  roundStatusSchema,
+  segmentTypes,
+} from '@daisy/protocol';
 
 const instant = z.iso.datetime({ precision: 6 });
 const viewOrNativeInstant = z.union([
@@ -43,6 +48,14 @@ const evidence = z.strictObject({
   ratingChanges: count,
   checkInCommands: count,
   samples: z.array(sample),
+  /** Every Round's resolved check-in markers: the sampler counts any pending one. */
+  checkInAttempts: z.array(
+    z.strictObject({
+      state: z.enum(['committed', 'aborted']),
+      receivedAt: instant,
+      resolvedAt: instant,
+    }),
+  ),
   instances: z.array(
     z.strictObject({
       instanceId: idSchema,
@@ -90,3 +103,40 @@ export function decodeAttendanceEvidence(stdout: string, roundId: string) {
     throw new Error('Invalid attendance evidence payload');
   }
 }
+
+type Observation = z.infer<typeof evidence>;
+
+/**
+ * ISSUE-541: the sampler reports `check_in_pending` while any check-in
+ * marker is open, so a sample can land inside a proof's own replayed
+ * check-in. Only the writer's own slice is excused: a committed marker
+ * that resolved within the attendance transaction slice, which runs setup
+ * through COMMIT, and a sample inside that slice from the marker's
+ * receipt. Reconcile settles an orphan only after its backend is gone and
+ * records the same state, so a marker held past the slice is never
+ * excused; neither is an aborted one, nor any other cause.
+ */
+export const duringCheckInCommit = (
+  sample: Observation['samples'][number],
+  attempts: Observation['checkInAttempts'],
+) => {
+  const sliceUs = BigInt(attendanceTimingPolicy.transactionSliceMs) * 1_000n;
+  return (
+    sample.cause === 'check_in_pending' &&
+    attempts.some((attempt) => {
+      const sinceReceipt = elapsedAttendanceObservationUs(
+        sample.at,
+        attempt.receivedAt,
+      );
+      return (
+        attempt.state === 'committed' &&
+        elapsedAttendanceObservationUs(
+          attempt.resolvedAt,
+          attempt.receivedAt,
+        ) <= sliceUs &&
+        sinceReceipt >= 0n &&
+        sinceReceipt <= sliceUs
+      );
+    })
+  );
+};

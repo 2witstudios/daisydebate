@@ -1,6 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   decodeAttendanceEvidence,
+  duringCheckInCommit,
   elapsedAttendanceObservationUs,
 } from '../e2e/support/attendance-evidence-decoder';
 setupRitewayBun();
@@ -15,6 +16,13 @@ const observation = {
   ratingChanges: 0,
   checkInCommands: 0,
   samples: [{ at, healthy: false, cause: 'public_probe_failed' as const }],
+  checkInAttempts: [
+    {
+      state: 'committed' as const,
+      receivedAt: at,
+      resolvedAt: '2026-10-22T00:00:00.040001Z',
+    },
+  ],
   instances: [],
   segments: [],
   receipts: [],
@@ -46,6 +54,10 @@ test('foreign, malformed or contradictory observations never become browser proo
     { ...observation, observedAt: '2026-10-22T00:00:00.000Z' },
     { ...observation, samples: [{ at, healthy: true, cause: 'web_stale' }] },
     { ...observation, samples: [{ at, healthy: false, cause: null }] },
+    {
+      ...observation,
+      checkInAttempts: [{ state: 'pending', receivedAt: at, resolvedAt: at }],
+    },
   ];
   const refusals = inputs.map((input) => {
     try {
@@ -59,9 +71,55 @@ test('foreign, malformed or contradictory observations never become browser proo
     }
   });
   assert({
-    given: 'a foreign Round, precision loss or contradictory health/cause pair',
+    given:
+      'a foreign Round, precision loss, a contradictory health/cause pair or an unresolved marker',
     should: 'refuse every observation',
     actual: refusals,
-    expected: [true, true, true, true],
+    expected: [true, true, true, true, true],
+  });
+});
+
+test("only a sample inside the writer's own check-in slice is excused (ISSUE-541)", () => {
+  const pending = (sampleAt: string) => ({
+    at: sampleAt,
+    healthy: false,
+    cause: 'check_in_pending' as const,
+  });
+  const marker = (
+    resolvedAt: string,
+    state: 'committed' | 'aborted' = 'committed',
+  ) => [{ state, receivedAt: at, resolvedAt }];
+  const quick = marker('2026-10-22T00:00:00.040001Z');
+  const inside = '2026-10-22T00:00:00.020001Z';
+  assert({
+    given: [
+      'a pending sample inside a 40 ms committed marker',
+      'one in the COMMIT tail just after resolved_at',
+      'one after the 900 ms slice',
+      'one before the marker opened',
+      'one inside a committed marker that took 1.5 s (a reconcile-settled orphan)',
+      'one inside an aborted marker',
+      'a stale-web sample inside the marker',
+    ].join(', '),
+    should: 'excuse only the first two',
+    actual: [
+      duringCheckInCommit(pending(inside), quick),
+      duringCheckInCommit(pending('2026-10-22T00:00:00.045001Z'), quick),
+      duringCheckInCommit(pending('2026-10-22T00:00:00.900002Z'), quick),
+      duringCheckInCommit(pending('2026-10-21T23:59:59.999999Z'), quick),
+      duringCheckInCommit(
+        pending(inside),
+        marker('2026-10-22T00:00:01.500001Z'),
+      ),
+      duringCheckInCommit(
+        pending(inside),
+        marker('2026-10-22T00:00:00.040001Z', 'aborted'),
+      ),
+      duringCheckInCommit(
+        { at: inside, healthy: false, cause: 'web_stale' },
+        quick,
+      ),
+    ],
+    expected: [true, true, false, false, false, false, false],
   });
 });
