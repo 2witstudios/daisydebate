@@ -78,6 +78,7 @@ test('real public ingress probe uses ordinary signed session, scoped seat and du
             cookie: signed.cookie,
           },
           nextId: createId,
+          nowMs: () => performance.now(),
           fetch,
         });
         const healthy = [await probe(), await probe()];
