@@ -49,6 +49,20 @@ export const finalizeAsWeb = (f: WebFinalizerFixture, roundId: string) =>
   withWebFinalizer(f, (finalize) => finalize(roundId));
 
 /** The production maintenance finalize, with no AI evaluation, under a fresh web lease. */
+/** One web instance's maintenance with no probe Round and no attendance evaluator. */
+export const ordinaryMaintenance = (
+  store: Parameters<typeof createRoundMaintenanceOperations>[0]['store'],
+  instanceId: string,
+) =>
+  createRoundMaintenanceOperations({
+    startHorizonMs: ROUND_START_HORIZON_MS,
+    probeRoundId: null,
+    store,
+    instanceId,
+    ids: { next: createId },
+    evaluate: async () => null,
+  });
+
 export async function finalizeByMaintenance(
   f: {
     readonly store: Parameters<
@@ -62,13 +76,7 @@ export async function finalizeByMaintenance(
   const instanceId = createId();
   await f.store.renewServiceInstance({ instanceId, role: 'web' });
   try {
-    await createRoundMaintenanceOperations({
-      startHorizonMs: ROUND_START_HORIZON_MS,
-      store: f.store,
-      instanceId,
-      ids: { next: createId },
-      evaluate: async () => null,
-    }).finalize(roundId);
+    await ordinaryMaintenance(f.store, instanceId).finalize(roundId);
   } finally {
     await f.sql`delete from service_instances where instance_id=${instanceId}`;
   }

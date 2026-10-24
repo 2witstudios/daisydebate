@@ -29,6 +29,7 @@ if (import.meta.main) {
     const instanceId = createId();
     const operation = createRoundMaintenanceOperations({
       startHorizonMs: ROUND_START_HORIZON_MS,
+      probeRoundId: null,
       store: database,
       instanceId,
       ids: { next: createId },

@@ -44,6 +44,15 @@ limit. No probe bypasses session, origin, seat or receipt authorization. Each
 probe uses a new global command alias while preserving the operation's first
 receipt stamp. Missing configuration or unsuccessful probing remains unhealthy.
 
+The probe resource (`ATTENDANCE_PUBLIC_PROBE`) is a synthetic Round whose
+two speeches ended with on-time receipts, awaiting its judge. Its receipt
+stays valid only while that Round is active, so competitive maintenance
+leaves the configured probe Round out of discovery and never freezes,
+judges or completes it (ISSUE-530, DEC-231). Without that, maintenance would
+complete it about half an hour after its last speech, and every later probe
+would answer `attendance-terminal`, leaving a long-lived deployment with no
+healthy availability evidence and no Round able to finalize.
+
 ## Receipts, facts and uncertain attempts
 
 `round_check_ins` retains one first stamp per Round/segment/participant, with a

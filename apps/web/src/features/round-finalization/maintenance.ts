@@ -83,6 +83,12 @@ export function createRoundMaintenanceOperations(input: {
   readonly ballotDeadlineMs?: number;
   /** Injected policy, never defaulted: how long a launched Round may stay unstarted (DEC-214). */
   readonly startHorizonMs: number;
+  /**
+   * The public check-in probe's Round (ATTENDANCE_PUBLIC_PROBE), or null. It
+   * is synthetic and must stay active for its receipt to stay valid, so
+   * maintenance never freezes, judges or completes it (ISSUE-530, DEC-231).
+   */
+  readonly probeRoundId: string | null;
 }) {
   const planJudging = judgingPlan(
     input.ballotDeadlineMs ?? DEFAULT_BALLOT_DEADLINE_MS,
@@ -108,7 +114,7 @@ export function createRoundMaintenanceOperations(input: {
           startHorizonMs: input.startHorizonMs,
           ...(afterId ? { afterId } : {}),
         });
-        ids.push(...page.roundIds);
+        ids.push(...page.roundIds.filter((id) => id !== input.probeRoundId));
         if (page.exhausted) return ids;
         if (!page.afterId || page.afterId === afterId)
           throw createAppError(
