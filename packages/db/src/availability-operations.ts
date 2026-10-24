@@ -1,6 +1,6 @@
 import type { SQL, ReservedSQL } from 'bun';
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { availabilityRecoveryPolicy, idSchema } from '@daisy/protocol';
 import {
   decodeOutboxCursor,
   encodeOutboxCursor,
@@ -114,6 +114,21 @@ export function createAvailabilitySampler(client: SQL) {
   };
 }
 
+/**
+ * The samples a decision about anything opened at or after `from` needs
+ * (ISSUE-529): the latest recovery samples before `from`, which fix the
+ * outage state it opens into, then every sample since. Fewer earlier
+ * samples read them all, so a missing prefix still leaves the speech
+ * undetermined. Takes either client's tagged template (Bun SQL or Drizzle).
+ */
+export const availabilitySamplesFrom = <T>(
+  query: (strings: TemplateStringsArray, ...values: unknown[]) => T,
+  from: string,
+): T =>
+  query`select to_char(at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as at,healthy,cause from availability_samples
+    where at >= coalesce((select at from availability_samples where at < ${from}::timestamptz order by at desc offset ${availabilityRecoveryPolicy.recoverySamples - 1} limit 1),'-infinity'::timestamptz)
+    order by at`;
+
 export function availabilityOperations(client: SQL) {
   return {
     async renewServiceInstance(
@@ -143,21 +158,19 @@ export function availabilityOperations(client: SQL) {
     ): Promise<readonly AvailabilityEvidence[]> {
       if (!Number.isFinite(Date.parse(from)))
         throw createAppError('VALIDATION');
-      const rows =
-        await client`select to_char(at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as at,healthy,cause from availability_samples order by at`;
-      // Recovery needs its full incoming prefix. Retention bounds this to 24h;
-      // a speech older than the retained prefix remains undetermined.
-      return rows.map(
-        (row: {
-          at: string;
-          healthy: boolean;
-          cause: AvailabilityCause | null;
-        }) => ({
-          at: row.at,
-          healthy: row.healthy,
-          cause: row.cause,
-        }),
+      const rows: {
+        at: string;
+        healthy: boolean;
+        cause: AvailabilityCause | null;
+      }[] = await availabilitySamplesFrom(
+        (strings, ...values) => client(strings, ...values),
+        from,
       );
+      return rows.map((row) => ({
+        at: row.at,
+        healthy: row.healthy,
+        cause: row.cause,
+      }));
     },
     async purgeExpiredServiceInstances(input: {
       readonly before: string;

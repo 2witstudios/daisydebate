@@ -1,4 +1,7 @@
 import { createInvariantError } from '@daisy/errors';
+import { availabilityRecoveryPolicy } from '@daisy/protocol';
+
+const { recoverySamples, maxSampleGapMs } = availabilityRecoveryPolicy;
 
 type AvailabilitySample = {
   readonly atMs: number;
@@ -34,7 +37,7 @@ function recoverOutage(
     return { open: state.open ?? sample.atMs, healthyCount: 0 };
   if (state.open === null) return state;
   const healthyCount = state.healthyCount + 1;
-  if (healthyCount < 3) return { ...state, healthyCount };
+  if (healthyCount < recoverySamples) return { ...state, healthyCount };
   intervals.push({ startMs: state.open, endMs: sample.atMs });
   return { open: null, healthyCount: 0 };
 }
@@ -49,7 +52,7 @@ export function deriveOutageIntervals(
   let healthyCount = 0;
   for (const sample of samples) {
     assertSampleTime(sample.atMs, previous);
-    const gap = previous !== null && sample.atMs - previous > 2000;
+    const gap = previous !== null && sample.atMs - previous > maxSampleGapMs;
     if (gap) {
       open ??= (Math.round(previous! * 1000) + 1) / 1000;
       healthyCount = 0;

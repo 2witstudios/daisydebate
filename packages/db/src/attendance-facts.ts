@@ -6,7 +6,10 @@ import { actorFact } from './room-command-facts';
 import { hydrateRoundRows, type RoundHydration } from './round-hydration';
 import { lockedRoundVersion } from './round-projection-writer';
 import { roundParticipants } from './schema/round-participants';
-import type { AvailabilityEvidence } from './availability-operations';
+import {
+  availabilitySamplesFrom,
+  type AvailabilityEvidence,
+} from './availability-operations';
 import type { CheckInAttempt } from './check-in-attempts';
 import { fencedActorIds, seatEligibility } from './seat-eligibility';
 import { requireFencedParticipants } from './round-command-replay';
@@ -92,9 +95,7 @@ export async function attendanceEvidence(
 ): Promise<Pick<AttendanceFacts, 'samples' | 'finalizedSegmentIds'>> {
   const from = round.segments[0]?.startedAt ?? round.startedAt;
   const samples = from
-    ? await tx.execute(
-        sql`select to_char(at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as at,healthy,cause from availability_samples order by at`,
-      )
+    ? await tx.execute(availabilitySamplesFrom(sql, from))
     : [];
   const resolved = await tx.execute(
     sql`select segment_id from round_attendance_adjudications where round_id=${round.id}`,
