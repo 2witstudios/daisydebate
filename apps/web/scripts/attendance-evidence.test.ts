@@ -79,33 +79,37 @@ test('foreign, malformed or contradictory observations never become browser proo
   });
 });
 
-test('only a sample inside a committed, in-budget check-in commit is excused (ISSUE-541)', () => {
-  const pending = (sampleAt: string, cause = 'check_in_pending' as const) => ({
+test("only a sample inside the writer's own check-in slice is excused (ISSUE-541)", () => {
+  const pending = (sampleAt: string) => ({
     at: sampleAt,
     healthy: false,
-    cause,
+    cause: 'check_in_pending' as const,
   });
   const marker = (
     resolvedAt: string,
     state: 'committed' | 'aborted' = 'committed',
   ) => [{ state, receivedAt: at, resolvedAt }];
+  const quick = marker('2026-10-22T00:00:00.040001Z');
   const inside = '2026-10-22T00:00:00.020001Z';
   assert({
-    given:
-      'a pending sample inside a 40 ms commit, after it resolved, inside one over the 2 s budget, inside an aborted one, and a stale-web sample inside the commit',
-    should: 'excuse only the first',
+    given: [
+      'a pending sample inside a 40 ms committed marker',
+      'one in the COMMIT tail just after resolved_at',
+      'one after the 900 ms slice',
+      'one before the marker opened',
+      'one inside a committed marker that took 1.5 s (a reconcile-settled orphan)',
+      'one inside an aborted marker',
+      'a stale-web sample inside the marker',
+    ].join(', '),
+    should: 'excuse only the first two',
     actual: [
+      duringCheckInCommit(pending(inside), quick),
+      duringCheckInCommit(pending('2026-10-22T00:00:00.045001Z'), quick),
+      duringCheckInCommit(pending('2026-10-22T00:00:00.900002Z'), quick),
+      duringCheckInCommit(pending('2026-10-21T23:59:59.999999Z'), quick),
       duringCheckInCommit(
         pending(inside),
-        marker('2026-10-22T00:00:00.040001Z'),
-      ),
-      duringCheckInCommit(
-        pending('2026-10-22T00:00:00.040002Z'),
-        marker('2026-10-22T00:00:00.040001Z'),
-      ),
-      duringCheckInCommit(
-        pending(inside),
-        marker('2026-10-22T00:00:02.000002Z'),
+        marker('2026-10-22T00:00:01.500001Z'),
       ),
       duringCheckInCommit(
         pending(inside),
@@ -113,9 +117,9 @@ test('only a sample inside a committed, in-budget check-in commit is excused (IS
       ),
       duringCheckInCommit(
         { at: inside, healthy: false, cause: 'web_stale' },
-        marker('2026-10-22T00:00:00.040001Z'),
+        quick,
       ),
     ],
-    expected: [true, false, false, false, false],
+    expected: [true, true, false, false, false, false, false],
   });
 });

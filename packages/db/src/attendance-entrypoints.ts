@@ -1,3 +1,4 @@
+import { attendanceTimingPolicy } from '@daisy/protocol';
 import {
   createAttendanceOperations,
   type AttendanceTransaction,
@@ -17,7 +18,7 @@ export function attendanceEntrypoints(input: {
 }) {
   const transaction: AttendanceTransaction = (work, attempt) =>
     input.run((tx, _signal, metadata) => work(tx, metadata), {
-      executionMs: 900,
+      executionMs: attendanceTimingPolicy.transactionSliceMs,
       ...(attempt ? { lifecycle: checkInAttemptLifecycle(attempt) } : {}),
     });
   return {

@@ -109,20 +109,34 @@ type Observation = z.infer<typeof evidence>;
 /**
  * ISSUE-541: the sampler reports `check_in_pending` while any check-in
  * marker is open, so a sample can land inside a proof's own replayed
- * check-in commit. Only that is excused: a committed marker that resolved
- * within the commit budget and spans the sample. An orphan, a slow or
- * aborted commit, and every other cause are not.
+ * check-in. Only the writer's own slice is excused: a committed marker
+ * that resolved within the attendance transaction slice, which runs setup
+ * through COMMIT, and a sample inside that slice from the marker's
+ * receipt. Reconcile settles an orphan only after its backend is gone and
+ * records the same state, so a marker held past the slice is never
+ * excused; neither is an aborted one, nor any other cause.
  */
 export const duringCheckInCommit = (
   sample: Observation['samples'][number],
   attempts: Observation['checkInAttempts'],
-) =>
-  sample.cause === 'check_in_pending' &&
-  attempts.some(
-    (attempt) =>
-      attempt.state === 'committed' &&
-      elapsedAttendanceObservationUs(attempt.resolvedAt, attempt.receivedAt) <=
-        BigInt(attendanceTimingPolicy.commitBudgetMs) * 1_000n &&
-      elapsedAttendanceObservationUs(sample.at, attempt.receivedAt) >= 0n &&
-      elapsedAttendanceObservationUs(attempt.resolvedAt, sample.at) >= 0n,
+) => {
+  const sliceUs = BigInt(attendanceTimingPolicy.transactionSliceMs) * 1_000n;
+  return (
+    sample.cause === 'check_in_pending' &&
+    attempts.some((attempt) => {
+      const sinceReceipt = elapsedAttendanceObservationUs(
+        sample.at,
+        attempt.receivedAt,
+      );
+      return (
+        attempt.state === 'committed' &&
+        elapsedAttendanceObservationUs(
+          attempt.resolvedAt,
+          attempt.receivedAt,
+        ) <= sliceUs &&
+        sinceReceipt >= 0n &&
+        sinceReceipt <= sliceUs
+      );
+    })
   );
+};
