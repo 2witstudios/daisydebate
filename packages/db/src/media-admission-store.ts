@@ -38,6 +38,11 @@ export const createMediaAdmissionStore = (run: BoundedTransaction) => ({
     readonly roundId: string;
     readonly principal: MediaAdmissionPrincipal;
     readonly buildProjection: LockedRoundTickInput['buildProjection'];
+    /**
+     * The reconcile lease owner the caller holds, if any. A live lease
+     * refuses the token unless it is the caller's own (ISSUE-534).
+     */
+    readonly reconcileOwner?: string;
     /** Local cryptographic signing only: no provider/network I/O in this callback. */
     readonly sign: (context: MediaAdmissionContext) => Promise<T>;
   }) {
@@ -85,7 +90,8 @@ export const createMediaAdmissionStore = (run: BoundedTransaction) => ({
         snapshot.session.endedAt ||
         snapshot.session.unsafeAt ||
         snapshot.unresolved ||
-        snapshot.reconciling
+        (snapshot.reconciling &&
+          snapshot.session.reconcileOwner !== input.reconcileOwner)
       )
         throw createAppError('INFRASTRUCTURE', 'Media recovery is unresolved');
       return input.sign({ ...snapshot, participantId, binding });
