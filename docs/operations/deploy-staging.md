@@ -88,22 +88,32 @@ per shared vCPU, plus $0.00000193 per GB-second of additional RAM,
 multiplied by the region's markup. Chicago (`ord`) carries a 1.25 markup.
 A month is 30 days (2,592,000 s), as Fly's own calculator counts it.
 
-| Piece                                                                                                      | Monthly cost                                                                                                                                                              | Source                             |
-| ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
-| Web machine `daisy-debate-staging` (shared-cpu-1x, 512mb, `ord`), always on (1gb since ISSUE-528, ≈ $5.84) | (0.00000075 + 0.25 × 0.00000193) × 1.25 ≈ $0.00000154/s ≈ **$3.99/month** (about $4). A running machine's rootfs is not billed separately                                 | https://docs.fly.io/about/pricing/ |
-| Migrator app `daisy-debate-staging-migrate`                                                                | $0: it has no machines; the release command's temporary machine bills only for the seconds each migration runs                                                            | https://docs.fly.io/about/pricing/ |
-| Fly Postgres machine `daisy-debate-staging-db` (shared-cpu-1x 256MB, 1GB volume), always on                | 0.00000075 × 1.25 × 2,592,000 ≈ $2.43/month compute + $0.15/month volume. Owner decision: left running; `fly machine stop` between sessions drops it to the volume charge | https://docs.fly.io/about/pricing/ |
-| Fly Redis `daisy-debate-staging-redis` (Upstash, Pay-as-you-go)                                            | $0 at rest; $0.20 per 100K commands                                                                                                                                       |                                    |
-| Resend                                                                                                     | Free tier covers low-volume staging email and webhooks; no cost beyond the account itself                                                                                 | https://resend.com/pricing         |
+| Piece                                                                                                                      | Monthly cost                                                                                                                                                              | Source                             |
+| -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| Web machine `daisy-debate-staging` (shared-cpu-1x, 512mb, `ord`), always on (resized for ISSUE-528, below)                 | (0.00000075 + 0.25 × 0.00000193) × 1.25 ≈ $0.00000154/s ≈ **$3.99/month** (about $4). A running machine's rootfs is not billed separately                                 | https://docs.fly.io/about/pricing/ |
+| Migrator app `daisy-debate-staging-migrate`                                                                                | $0: it has no machines; the release command's temporary machine bills only for the seconds each migration runs                                                            | https://docs.fly.io/about/pricing/ |
+| Fly Postgres machine `daisy-debate-staging-db` (shared-cpu-1x 256MB, 1GB volume), always on (resized for ISSUE-528, below) | 0.00000075 × 1.25 × 2,592,000 ≈ $2.43/month compute + $0.15/month volume. Owner decision: left running; `fly machine stop` between sessions drops it to the volume charge | https://docs.fly.io/about/pricing/ |
+| Fly Redis `daisy-debate-staging-redis` (Upstash, Pay-as-you-go)                                                            | $0 at rest; $0.20 per 100K commands                                                                                                                                       |                                    |
+| Resend                                                                                                                     | Free tier covers low-volume staging email and webhooks; no cost beyond the account itself                                                                                 | https://resend.com/pricing         |
 
-Live Rounds (ISSUE-528, DEC-228) add the LiveKit SFU (shared-cpu-1x 512mb,
-always on, ≈ $3.99, plus its dedicated IPv4 at $2/month), the realtime
-service (shared-cpu-1x 512mb, always on, ≈ $3.99) and the capture worker
-(shared-cpu-1x 1gb, always on, ≈ $5.84), and the web machine's step to 1gb
-(+ ≈ $1.85). Three more services' pools left the 256MB Postgres machine with
-23MB free and timing out statements, so it moved to 512mb (+ ≈ $1.85). In
-all about $19.52/month more, $26.09/month at rest. Media
-egress beyond Fly's free allowance bills per GB.
+Live Rounds (ISSUE-528, DEC-228) resized and added machines, each always on, by
+the same formula (a shared vCPU includes 256MB):
+
+| Machine                                            | Size                 | Monthly                     |
+| -------------------------------------------------- | -------------------- | --------------------------- |
+| Web `daisy-debate-staging`                         | shared-cpu-4x, 1gb   | ≈ $9.72 (was $3.99)         |
+| Postgres `daisy-debate-staging-db`                 | shared-cpu-2x, 1gb   | ≈ $7.99 (was $2.43)         |
+| LiveKit `daisy-debate-staging-livekit`             | shared-cpu-1x, 512mb | ≈ $3.99 + $2 dedicated IPv4 |
+| Realtime `daisy-debate-staging-realtime`           | shared-cpu-1x, 512mb | ≈ $3.99                     |
+| Capture worker `daisy-debate-staging-media-worker` | shared-cpu-1x, 1gb   | ≈ $7.12                     |
+
+Measured on 2026-10-24: with the Round workers running, the web machine at
+shared-cpu-1x showed 70% CPU steal and stalled database round trips to 70 ms,
+past the 3 s transaction budget; at shared-cpu-4x it showed 0%. Three more
+services' pools and their per-second loops left the 256MB Postgres machine
+at 93% CPU pressure with 23MB free; at shared-cpu-2x 1gb it measured 1.5%.
+In all about $34.96/month at rest, $28.39 more than before. Media egress
+beyond Fly's free allowance bills per GB.
 
 Before ISSUE-528: about $6.57/month at rest: the always-on web machine ($3.99), the
 always-on Postgres machine ($2.43) and its volume ($0.15). Staging traffic
@@ -766,6 +776,27 @@ for app in livekit realtime media-worker; do
     | gh secret set "FLY_$(echo $app | tr a-z- A-Z_)_API_TOKEN"
 done
 ```
+
+The Postgres machine needs the size above; `fly postgres` machines are not
+in a committed config, so set it once:
+
+```sh
+fly machine update <id> -a daisy-debate-staging-db --vm-size shared-cpu-2x --vm-memory 1024 --yes
+```
+
+**Availability probe.** Competitive maintenance finalizes nothing while
+availability is unhealthy (ADR 0067), and availability is healthy only while
+the public check-in probe succeeds, so a deployment that plays Rounds needs
+`ATTENDANCE_PUBLIC_PROBE` on the web app. It names a synthetic Round, built
+through the public routes as `apps/web/e2e/support/launch-probe-room.ts`
+builds the browser suite's: three probe members claim the affirmative,
+negative and judge seats, both speeches end with on-time check-ins, and the
+Round is left awaiting its judge. The secret is
+`{"origin","roundId","segmentId","participantId","cookie"}`, where the
+segment is the last speech, the participant the negative seat and the cookie
+that member's session. Maintenance leaves the configured Round out (ISSUE-530),
+so it stays active and the probe's replayed receipt stays valid; the session
+slides with use. Recreate it only if the Round or the member is removed.
 
 Then run the workflow manually once (`gh workflow run deploy-staging.yml`),
 which deploys all five apps in order: migrator, LiveKit, realtime, web, the
