@@ -62,6 +62,17 @@ kill_timeout = 35
   # gateway it trusts nothing and logs ingress.trusted_proxy.unresolved. See
   # docs/operations/deploy-staging.md "Client identity on Fly".
   AUTH_TRUSTED_PROXIES = "gateway"
+  # Live Rounds (ISSUE-528, DEC-228). The LiveKit SFU (fly.livekit.toml):
+  # the server API this app calls and the signalling URL browsers join.
+  # LIVEKIT_API_KEY, LIVEKIT_API_SECRET and MEDIA_WORKER_SECRET are Fly
+  # secrets. The realtime service (fly.realtime.toml) serves the sockets.
+  LIVEKIT_URL = "https://daisy-debate-staging-livekit.fly.dev"
+  LIVEKIT_PUBLIC_URL = "wss://daisy-debate-staging-livekit.fly.dev"
+  REALTIME_PUBLIC_URL = "wss://daisy-debate-staging-realtime.fly.dev/ws"
+  # Bot opponents and AI judging (docs/architecture/round-bot-workers.md):
+  # a small staging capacity on the OPENROUTER_API_KEY secret, with the
+  # models the isolated launch proof runs.
+  ROUND_BOT_WORKER_POLICY = '{"maxControllers":2,"providerConcurrency":2,"scanBatch":16,"scanMs":250,"leaseMs":15000,"renewMs":3000,"callTimeoutMs":30000,"models":{"speech":"anthropic/claude-sonnet-5.5","cross_ex":"anthropic/claude-sonnet-5.5","judge":"anthropic/claude-sonnet-5.5","tts":"deepgram/aura-2"}}'
 
 [http_service]
   # Must match Dockerfile EXPOSE and the PORT env above.
@@ -108,5 +119,8 @@ kill_timeout = 35
   # /api/health/ready but leaves little margin for concurrent staging
   # traffic; 512mb is the smallest size with real headroom under load. See
   # docs/operations/deploy-staging.md "Cost" for the full measurement.
+  # ISSUE-528: bot opponents publish speech from this process through the
+  # native LiveKit SDK (apps/web/src/server/round-workers.ts), so live
+  # Rounds get 1gb rather than the measured idle-plus-SSR 512mb.
   size = "shared-cpu-1x"
-  memory = "512mb"
+  memory = "1gb"

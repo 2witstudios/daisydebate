@@ -1,0 +1,51 @@
+# Staging realtime service (ISSUE-528, DEC-228): apps/realtime, the web
+# app's WebSocket endpoint (REALTIME_PUBLIC_URL in fly.toml). Its image is
+# the `realtime` target of apps/web/Dockerfile, which skips the Next build.
+# It joins the org's default 6PN for Postgres and Redis (DEC-229).
+# DATABASE_URL (the SELECT-only daisy_realtime role) and REDIS_URL are Fly
+# secrets, never written here; start refuses a schema-altering role or a
+# MIGRATION_DATABASE_URL (docs/operations/production.md "Realtime service").
+app = "daisy-debate-staging-realtime"
+primary_region = "ord"
+# start.ts drains for up to 25 s before it forces its own exit; 35 s keeps
+# the 10 s margin fly.toml keeps (ISSUE-214).
+kill_timeout = 35
+
+[build]
+  dockerfile = "apps/web/Dockerfile"
+  target = "realtime"
+
+[env]
+  PUBLIC_APP_URL = "https://daisy-debate-staging.fly.dev"
+  # The ticket namespace the web app issues into (fly.toml).
+  REDIS_NAMESPACE = "daisy"
+  LOG_LEVEL = "info"
+  # As fly.toml: fly-proxy is this machine's gateway (DEC-39).
+  AUTH_TRUSTED_PROXIES = "gateway"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  # Always on, like the web app (DEC-40): open sockets end with the machine.
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval = "15s"
+    method = "GET"
+    path = "/health/live"
+    timeout = "2s"
+
+  [[http_service.checks]]
+    # 200 only once Postgres and Redis answer and the outbox drain started.
+    grace_period = "15s"
+    interval = "15s"
+    method = "GET"
+    path = "/health/ready"
+    timeout = "3s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

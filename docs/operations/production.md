@@ -82,9 +82,10 @@ refuses a `DATABASE_URL` role that can create or alter objects in schema
 `public` (`refuseSchemaAlteringRole` in `packages/db`, called by
 `apps/realtime/src/serve.ts`, ISSUE-101), and refuses a
 `MIGRATION_DATABASE_URL` in its environment (ISSUE-102). Set the
-`daisy_realtime` password out of band, as for `daisy_web`. No realtime
-deployment exists yet; when one is added it gets its own Fly app and
-secrets, and never shares the migrator app's.
+`daisy_realtime` password out of band, as for `daisy_web`. Staging runs
+it as its own Fly app, `daisy-debate-staging-realtime`, with its own
+secrets, never sharing the migrator app's ([deploy-staging](deploy-staging.md#11-live-rounds-livekit-realtime-and-the-capture-worker-issue-528),
+ISSUE-528); a production deployment does the same.
 
 ## Form actions and the public edge
 
