@@ -381,7 +381,7 @@ describe('findAlwaysOnProblem (ISSUE-175, DEC-40)', () => {
 
 describe('findServiceAppProblems (ISSUE-528)', () => {
   const toml = (lines: string) =>
-    `app = "daisy-debate-staging-realtime"\nkill_timeout = 35\n\n[build]\n  dockerfile = "apps/web/Dockerfile"\n  target = "realtime"\n\n[env]\n  LOG_LEVEL = "info"\n${lines}`;
+    `app = "daisy-debate-staging-realtime"\nkill_timeout = 35\n\n[build]\n  dockerfile = "apps/web/Dockerfile"\n  build-target = "realtime"\n\n[env]\n  LOG_LEVEL = "info"\n${lines}`;
   const realtime = {
     file: 'fly.realtime.toml',
     target: 'realtime',
@@ -417,18 +417,18 @@ describe('findServiceAppProblems (ISSUE-528)', () => {
   test('a service config that drifted', () => {
     assert({
       given:
-        'a wrong build target, a database URL in [env], a release command and a kill_timeout under the stop budget',
+        'the unread `target` key in place of build-target, a database URL in [env], a release command and a kill_timeout under the stop budget',
       should: 'report each',
       actual: findServiceAppProblems({
         ...realtime,
         toml: toml(
           '  MEDIA_WORKER_DATABASE_URL = "postgres://x"\n\n[deploy]\n  release_command = "bun migrate.ts"\n',
         )
-          .replace('target = "realtime"', 'target = "runtime"')
+          .replace('build-target = "realtime"', 'target = "realtime"')
           .replace('kill_timeout = 35', 'kill_timeout = 20'),
       }),
       expected: [
-        'fly.realtime.toml must build `target = "realtime"` from apps/web/Dockerfile',
+        'fly.realtime.toml must build `build-target = "realtime"` from apps/web/Dockerfile',
         'fly.realtime.toml [env] sets MEDIA_WORKER_DATABASE_URL; database credentials are Fly secrets',
         'fly.realtime.toml runs a release_command; migrations run only from fly.migrate.toml',
         'fly.realtime.toml kill_timeout must be at least 35 s (the 25 s stop budget plus 10 s margin)',

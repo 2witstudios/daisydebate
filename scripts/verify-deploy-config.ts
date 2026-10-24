@@ -260,9 +260,9 @@ export function findServiceAppProblems(input: {
   const required = stopSeconds + KILL_TIMEOUT_MARGIN_S;
   return [
     /^\s*dockerfile\s*=\s*"apps\/web\/Dockerfile"\s*$/m.test(build) &&
-    new RegExp(`^\\s*target\\s*=\\s*"${input.target}"\\s*$`, 'm').test(build)
+    new RegExp(`^\\s*build-target\\s*=\\s*"${input.target}"\\s*$`, 'm').test(build)
       ? null
-      : `${input.file} must build \`target = "${input.target}"\` from apps/web/Dockerfile`,
+      : `${input.file} must build \`build-target = "${input.target}"\` from apps/web/Dockerfile`,
     credential
       ? `${input.file} [env] sets ${credential[1]}; database credentials are Fly secrets`
       : null,

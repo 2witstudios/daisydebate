@@ -13,7 +13,7 @@ kill_timeout = 35
 
 [build]
   dockerfile = "apps/web/Dockerfile"
-  target = "realtime"
+  build-target = "realtime"
 
 [env]
   PUBLIC_APP_URL = "https://daisy-debate-staging.fly.dev"
