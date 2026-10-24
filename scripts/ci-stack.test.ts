@@ -1,4 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { clamdTestPort, slotEnvValues, worktreeSlot } from './slot-model';
 
 setupRitewayBun();
 
@@ -58,6 +59,7 @@ test('CI starts Redis and LiveKit from the one local compose stack', async () =>
 });
 
 test('clamd is one pinned compose service on the port every job and slot names', async () => {
+  const port = String(clamdTestPort);
   const ci = await read<{
     jobs: Record<string, Job & { env?: Record<string, string> }>;
   }>('.github/workflows/ci.yml');
@@ -68,20 +70,26 @@ test('clamd is one pinned compose service on the port every job and slot names',
   assert({
     given: 'the compose stack and the jobs that run the messaging file suites',
     should:
-      'run the pinned scanner image with a healthcheck on loopback 3310, which both jobs name',
+      'run the pinned scanner image with a healthcheck on the named loopback port, which both jobs and every slot name',
     actual: {
       image: compose.services.clamd?.image,
       ports: compose.services.clamd?.ports,
       healthcheck: compose.services.clamd?.healthcheck !== undefined,
       integrationPort: ci.jobs.integration!.env?.CLAMD_TEST_PORT,
       launchPort: e2e.jobs['room-launch']!.env?.CLAMD_TEST_PORT,
+      slotPort: slotEnvValues({
+        slot: worktreeSlot('abc'),
+        env: { DATABASE_URL: 'postgres://h/d', REDIS_URL: 'redis://h' },
+        portBlock: 1,
+      }).CLAMD_TEST_PORT,
     },
     expected: {
       image: 'clamav/clamav:1.4.6',
-      ports: ['127.0.0.1:3310:3310'],
+      ports: [`127.0.0.1:${port}:${port}`],
       healthcheck: true,
-      integrationPort: '3310',
-      launchPort: '3310',
+      integrationPort: port,
+      launchPort: port,
+      slotPort: port,
     },
   });
 });
