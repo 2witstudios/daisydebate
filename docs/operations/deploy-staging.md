@@ -671,7 +671,14 @@ CI or E2E never rolls staging back. The CI gate needs the dependency audit
 job (ADR 0039), so a new advisory holds staging back and posts to
 Incidents. The deploy job's `migrate` step deploys the migrator app
 (`fly.migrate.toml`, `--update-only`) and its `deploy` step, which runs
-only after `migrate` succeeds, deploys the web app. The workflow needs two
+only after `migrate` succeeds, deploys the web app. Every deploy step
+builds its image on the GitHub runner (`--local-only`, ISSUE-542) and pushes
+it to Fly's registry with that step's token. The steps share the runner's
+Docker cache, so the job runs `next build` once. Fly's 4-CPU Depot builder
+stalled `next build` at "Collecting page data" for 40 minutes, until it
+dropped the connection; the same build takes about 30 s with room.
+`scripts/verify-image-build.ts` fails a deploy step without `--local-only`.
+The workflow needs two
 repository secrets, each a deploy token scoped to one app and exposed only
 on its own step:
 
