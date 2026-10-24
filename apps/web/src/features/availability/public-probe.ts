@@ -49,12 +49,17 @@ export function createPublicCheckInProbe(input: {
       return;
     refreshedAtMs = now;
     try {
-      await input.fetch(`${origin.origin}/api/auth/get-session`, {
-        method: 'GET',
-        redirect: 'error',
-        signal: AbortSignal.timeout(900),
-        headers: { cookie: config.cookie },
-      });
+      const response = await input.fetch(
+        `${origin.origin}/api/auth/get-session`,
+        {
+          method: 'GET',
+          redirect: 'error',
+          signal: AbortSignal.timeout(900),
+          headers: { cookie: config.cookie },
+        },
+      );
+      // Only the server-side slide matters; the session body is discarded.
+      await response.body?.cancel();
     } catch {
       // The next interval reads it again.
     }
