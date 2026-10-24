@@ -10,6 +10,9 @@
     "apps/*",
     "packages/*"
   ],
+  "overrides": {
+    "happy-dom": "21.0.4"
+  },
   "scripts": {
     "dev": "bun scripts/heavy.ts bun --env-file=.env run turbo run dev",
     "dev:agent": "bun scripts/heavy.ts bun scripts/dev-agent.ts",

@@ -42,6 +42,11 @@ const e2eRedisDatabase = 2;
 // realtime (ADR 0031): a dev port distinct from `app`, and an e2e port at
 // `e2e + 3` (the fourth of the browser suite's four consecutive ports).
 const mainPorts = { app: 3000, e2e: 3100, realtime: 3011 };
+/**
+ * The one stateless clamd scanner every slot shares: the loopback port the
+ * clamd service publishes in infra/compose.yaml (services.clamd.ports).
+ */
+export const clamdTestPort = 3310;
 // Worktree block n owns app port 13000+10n, e2e ports 13001+10n..+3, and
 // realtime ports 13000+10n+4 (e2e) and 13000+10n+5 (dev).
 const portBlockBase = 13_000;
@@ -338,7 +343,7 @@ export function slotEnvValues({
     PUBLIC_APP_URL: `http://localhost:${ports.app}`,
     E2E_PORT: String(ports.e2e),
     REALTIME_PORT: String(ports.realtime),
-    CLAMD_TEST_PORT: '3310',
+    CLAMD_TEST_PORT: String(clamdTestPort),
     MEDIA_WORKER_DATABASE_URL: withPath(
       databaseUrl,
       slot.database,
