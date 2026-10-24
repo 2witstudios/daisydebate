@@ -25,6 +25,11 @@ export const attendanceTimingPolicy = {
   graceMs: 40000,
   leadMs: 5000,
   commitBudgetMs: 2000,
+  /**
+   * The execution slice of each attendance transaction, setup through
+   * COMMIT: a writer opens and closes its check-in marker inside it.
+   */
+  transactionSliceMs: 900,
   finalizationBufferMs: 5000,
 } as const;
 

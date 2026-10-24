@@ -1,5 +1,10 @@
 import { z } from 'zod';
-import { idSchema, roundStatusSchema, segmentTypes } from '@daisy/protocol';
+import {
+  attendanceTimingPolicy,
+  idSchema,
+  roundStatusSchema,
+  segmentTypes,
+} from '@daisy/protocol';
 
 const instant = z.iso.datetime({ precision: 6 });
 const viewOrNativeInstant = z.union([
@@ -43,6 +48,21 @@ const evidence = z.strictObject({
   ratingChanges: count,
   checkInCommands: count,
   samples: z.array(sample),
+  /** Every Round's recent check-in markers: the sampler counts any pending one. */
+  checkInAttempts: z.array(
+    z.discriminatedUnion('state', [
+      z.strictObject({
+        state: z.literal('pending'),
+        receivedAt: instant,
+        resolvedAt: z.null(),
+      }),
+      z.strictObject({
+        state: z.enum(['committed', 'aborted']),
+        receivedAt: instant,
+        resolvedAt: instant,
+      }),
+    ]),
+  ),
   instances: z.array(
     z.strictObject({
       instanceId: idSchema,
@@ -90,3 +110,47 @@ export function decodeAttendanceEvidence(stdout: string, roundId: string) {
     throw new Error('Invalid attendance evidence payload');
   }
 }
+
+type Observation = z.infer<typeof evidence>;
+
+type Marker = Observation['checkInAttempts'][number];
+
+const SLICE_US = BigInt(attendanceTimingPolicy.transactionSliceMs) * 1_000n;
+
+/** A committed marker its own writer closed: held no longer than the slice. */
+const writerClosed = (marker: Marker) =>
+  marker.state === 'committed' &&
+  elapsedAttendanceObservationUs(marker.resolvedAt, marker.receivedAt) <=
+    SLICE_US;
+
+/** Could this marker have been open at `at`? Generous, so it fails closed. */
+const couldHold = (marker: Marker, at: string) =>
+  elapsedAttendanceObservationUs(at, marker.receivedAt) >= 0n &&
+  (marker.resolvedAt === null ||
+    elapsedAttendanceObservationUs(at, marker.resolvedAt) <= SLICE_US);
+
+/**
+ * ISSUE-541: the sampler reports `check_in_pending` while any check-in
+ * marker is open, so a sample can land inside a proof's own replayed
+ * check-in. Only the writer's own slice is excused: a committed marker
+ * that resolved within the attendance transaction slice (setup through
+ * COMMIT), with the sample inside that slice from its receipt, and no
+ * other marker that could be holding the sample open. Reconcile settles an
+ * orphan only after its backend is gone and records the same state, so a
+ * marker held past the slice, an aborted one or one still pending
+ * disqualifies the sample, as does any other cause.
+ */
+export const duringCheckInCommit = (
+  sample: Observation['samples'][number],
+  markers: readonly Marker[],
+) =>
+  sample.cause === 'check_in_pending' &&
+  markers.some(
+    (marker) =>
+      writerClosed(marker) &&
+      elapsedAttendanceObservationUs(sample.at, marker.receivedAt) >= 0n &&
+      elapsedAttendanceObservationUs(sample.at, marker.receivedAt) <= SLICE_US,
+  ) &&
+  !markers.some(
+    (marker) => !writerClosed(marker) && couldHold(marker, sample.at),
+  );

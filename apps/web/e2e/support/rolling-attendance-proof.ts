@@ -20,7 +20,10 @@ import {
   closeAttendedFixture,
 } from './attendance-browser';
 import { attendanceEvidence } from './attendance-evidence';
-import { elapsedAttendanceObservationUs } from './attendance-evidence-decoder';
+import {
+  duringCheckInCommit,
+  elapsedAttendanceObservationUs,
+} from './attendance-evidence-decoder';
 import {
   controlLaunch,
   closeSettledLaunchContexts,
@@ -142,7 +145,12 @@ export async function rollingAttendancePeer({
     for (const samples of windows) {
       expect(samples.length).toBeGreaterThan(3);
       // Name each unhealthy sample's cause, so a CI failure says which signal broke.
-      expect(samples.filter((row) => !row.healthy)).toEqual([]);
+      expect(
+        samples.filter(
+          (row) =>
+            !row.healthy && !duringCheckInCommit(row, facts.checkInAttempts),
+        ),
+      ).toEqual([]);
       expect(
         samples
           .slice(1)
