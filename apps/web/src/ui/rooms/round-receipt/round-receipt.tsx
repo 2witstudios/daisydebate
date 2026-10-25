@@ -1,6 +1,6 @@
-import Link from 'next/link';
 import type { RoundView } from '@daisy/protocol';
 import { seatLabel } from '../room-page/assembly-controls';
+import { MediaPageLink } from '../../round-media/media-page-link';
 
 export type RoundReceiptView = Pick<
   RoundView,
@@ -81,7 +81,9 @@ export function RoundReceipt({ round }: { readonly round: RoundReceiptView }) {
           </p>
         ) : null}
         <p className="text-ink-muted">Media is not available yet.</p>
-        <Link href={`/rooms/${round.roomId}`}>Return to room</Link>
+        <MediaPageLink href={`/rooms/${round.roomId}`}>
+          Return to room
+        </MediaPageLink>
       </header>
       <section
         aria-label="Frozen cast"

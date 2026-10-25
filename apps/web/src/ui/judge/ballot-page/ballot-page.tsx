@@ -21,6 +21,7 @@ import { BallotSummary } from '../../ballot/ballot-summary/ballot-summary';
 import { PageHeader } from '../../components/page-header/page-header';
 import { BallotEntry, roundBallotErrorId as errorId } from './ballot-entry';
 import { BallotEvidence } from './ballot-evidence';
+import { MediaPageLink } from '../../round-media/media-page-link';
 /** Mounted above every canonical state, so an unknown acknowledgement always keeps its original retry. */
 export function BallotPage({
   view,
@@ -105,12 +106,12 @@ export function BallotPage({
       >
         Refresh Round
       </Link>
-      <Link
+      <MediaPageLink
         href={`/rounds/${view.round.id}`}
         className="inline-flex min-h-10 items-center text-base font-strong"
       >
         View Round
-      </Link>
+      </MediaPageLink>
       <BallotEvidence view={view} />
     </div>
   );

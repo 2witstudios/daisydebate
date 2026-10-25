@@ -11,6 +11,7 @@ import { RoundDocuments } from '../../../../ui/debate-room/round-documents';
 import { RoundReceipt } from '../../../../ui/rooms/round-receipt/round-receipt';
 
 import { readPersistedRound } from './actions';
+import { MediaDocument } from '../../../../ui/round-media/media-document';
 
 export const metadata: Metadata = { title: 'Round' };
 async function completedBallots(round: RoundView, member: boolean) {
@@ -48,6 +49,7 @@ export default async function RoundPage({
   );
   return (
     <>
+      <MediaDocument />
       <RoundReceipt round={result.round} />
       {ballots ? <RoundBallotResults view={ballots} /> : null}
       {ownsFiles ? <RoundDocuments roundId={result.round.id} /> : null}

@@ -13,6 +13,7 @@ import { requireAccess } from '../../../../../lib/access';
 import { isLiveDebater } from '../../../../../ui/debate-room/live-round';
 import { LiveRoundRoom } from '../../../../../ui/debate-room/live-round-room';
 import { readPersistedRound } from '../../../../(shell)/rounds/[id]/actions';
+import { MediaDocument } from '../../../../../ui/round-media/media-document';
 
 export const metadata: Metadata = { title: 'Round' };
 
@@ -40,35 +41,41 @@ export default async function RoundRoomPage({
     if (!['active', 'scheduled'].includes(assigned.round.status))
       redirect(`/rounds/${id}`);
     return (
-      <LiveJudgeRoom
-        view={assigned.round}
-        read={readPersistedJudgeRound.bind(null, id)}
-        socketUrl={result.socketUrl}
-      />
+      <>
+        <MediaDocument />
+        <LiveJudgeRoom
+          view={assigned.round}
+          read={readPersistedJudgeRound.bind(null, id)}
+          socketUrl={result.socketUrl}
+        />
+      </>
     );
   }
   const here = `/rounds/${id}/room`;
   return (
-    <LiveRoundRoom
-      attendanceSlot={
-        <RoundNativeAttendance
-          view={result.round}
-          state={await readPersistedAttendance(id)}
-        />
-      }
-      commandAction={roundCommandAction.bind(null, id)}
-      commandIds={roundCommandIds(() => systemId.next())}
-      view={result.round}
-      actorId={actorId}
-      renderedAtMs={Date.parse(systemClock.now())}
-      read={readPersistedRound.bind(null, id)}
-      socketUrl={result.socketUrl}
-      leave={{
-        confirming: 'leave' in (await searchParams),
-        stayHref: here,
-        confirmHref: `${here}?leave`,
-        leaveHref: '/lobby',
-      }}
-    />
+    <>
+      <MediaDocument />
+      <LiveRoundRoom
+        attendanceSlot={
+          <RoundNativeAttendance
+            view={result.round}
+            state={await readPersistedAttendance(id)}
+          />
+        }
+        commandAction={roundCommandAction.bind(null, id)}
+        commandIds={roundCommandIds(() => systemId.next())}
+        view={result.round}
+        actorId={actorId}
+        renderedAtMs={Date.parse(systemClock.now())}
+        read={readPersistedRound.bind(null, id)}
+        socketUrl={result.socketUrl}
+        leave={{
+          confirming: 'leave' in (await searchParams),
+          stayHref: here,
+          confirmHref: `${here}?leave`,
+          leaveHref: '/lobby',
+        }}
+      />
+    </>
   );
 }
