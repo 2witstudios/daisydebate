@@ -17,7 +17,7 @@ export async function settleAttendanceFixture(
   const seasonId = createId();
   await f.sql`insert into seasons(id,name,starts_at,status) values(${seasonId},'RT rating fixture','2000-01-01T00:00:00Z','active')`;
   const preset = ranked
-    ? await f.sql`insert into format_presets(format_id,length,version,format_version,config,approved_at) select format_id,length,1,format_version,config,statement_timestamp() from rooms where id=(select room_id from rounds where id=${roundId}) on conflict do nothing returning format_id`
+    ? await f.sql`insert into format_presets(format_id,version,format_version,config,approved_at) select format_id,1,format_version,config,statement_timestamp() from rooms where id=(select room_id from rounds where id=${roundId}) on conflict do nothing returning format_id`
     : [];
   if (ranked)
     await f.sql`update rounds set competition_type='ranked',preset_version=1,ladder_id='ranked' where id=${roundId}`;
@@ -43,6 +43,6 @@ export async function settleAttendanceFixture(
     await f.sql`delete from rounds where id=${roundId}`;
     await f.sql`delete from seasons where id=${seasonId}`;
     if (preset.length)
-      await f.sql`delete from format_presets where format_id=${round.formatId} and length='full' and version=1`;
+      await f.sql`delete from format_presets where format_id=${round.formatId} and version=1`;
   };
 }

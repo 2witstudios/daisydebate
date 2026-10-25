@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm';
 import type { RoomMutationOutcome } from '@daisy/protocol';
 
 import { rooms, roomParticipants } from './schema/rooms';
-import { rounds } from './schema/rounds';
+import { roundLadder, rounds } from './schema/rounds';
 import { roundParticipants } from './schema/round-participants';
 import { appendRoundPhaseChanged } from './round-projection-writer';
 
@@ -63,7 +63,6 @@ export const persistRoomMutation = async (
       createdByActorId: next.hostActorId,
       resolution: next.topic,
       competitionType: next.competitionType,
-      length: next.length,
       formatId: next.formatId,
       formatVersion: next.formatVersion,
       presetVersion: next.presetVersion,
@@ -71,12 +70,7 @@ export const persistRoomMutation = async (
       visibility: next.visibility,
       rulesSnapshot: next.rules,
       status: 'scheduled',
-      ladderId:
-        next.competitionType === 'ranked'
-          ? next.length === 'full'
-            ? 'ranked'
-            : 'quick'
-          : null,
+      ladderId: roundLadder(next.competitionType),
       createdAt: new Date(now),
       updatedAt: new Date(now),
     });

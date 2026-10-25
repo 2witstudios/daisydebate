@@ -37,7 +37,6 @@ type RoundInput = {
   readonly negative: string;
   /** `ladderId` null marks an unrated (casual) round. */
   readonly competitionType?: 'ranked' | 'casual';
-  readonly length?: 'full' | 'quick';
   readonly status?: 'active' | 'completed' | 'abandoned';
   readonly outcome?: string;
   readonly completedAt?: string;
@@ -103,13 +102,7 @@ export async function arena(
     rounds.push(id);
     const status = input.status ?? 'completed';
     const competitionType = input.competitionType ?? 'ranked';
-    const length = input.length ?? 'full';
-    const ladderId =
-      competitionType === 'ranked'
-        ? length === 'full'
-          ? 'ranked'
-          : 'quick'
-        : null;
+    const ladderId = competitionType === 'ranked' ? 'ranked' : null;
     // Abandonment is lifecycle, not outcome: it carries completed_at like any
     // ended round (ADR 0058 §8).
     const completedAt =
@@ -119,11 +112,11 @@ export async function arena(
       // one (ADR 0058 §4, §8). The baseline already seeds the one-on-one
       // presets, so the arena only has to name the version it resolved from.
       if (competitionType === 'ranked')
-        await sql`insert into format_presets (format_id, length, version, format_version, config, approved_at)
-          values (${formatId}, ${length}, 1, 1, ${config}::jsonb, statement_timestamp())
-          on conflict (format_id, length, version) do nothing`;
-      await sql`insert into rounds (id, resolution, competition_type, length, format_id, format_version, preset_version, rules_snapshot, status, current_stage, started_at, completed_at, outcome, ladder_id)
-        values (${id}, 'Ratings proof', ${competitionType}, ${length}, ${formatId}, 1, ${competitionType === 'ranked' ? 1 : null}, ${rules}, ${status},
+        await sql`insert into format_presets (format_id, version, format_version, config, approved_at)
+          values (${formatId}, 1, 1, ${config}::jsonb, statement_timestamp())
+          on conflict (format_id, version) do nothing`;
+      await sql`insert into rounds (id, resolution, competition_type, format_id, format_version, preset_version, rules_snapshot, status, current_stage, started_at, completed_at, outcome, ladder_id)
+        values (${id}, 'Ratings proof', ${competitionType}, ${formatId}, 1, ${competitionType === 'ranked' ? 1 : null}, ${rules}, ${status},
                 ${status === 'active' ? 'live' : null},
                 ${new Date(minute(0))},
                 ${completedAt === null ? null : new Date(completedAt)},

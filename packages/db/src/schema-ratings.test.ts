@@ -53,7 +53,6 @@ describe('ratings schema rules', () => {
           'member_onboarding_club_check',
           'member_onboarding_experience_check',
           'member_onboarding_formats_check',
-          'member_onboarding_length_check',
           'member_onboarding_version_positive',
         ],
         interests: ['member_interests_interest_check'],

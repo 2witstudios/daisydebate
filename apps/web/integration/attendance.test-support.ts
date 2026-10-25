@@ -24,7 +24,6 @@ export const withAttendanceRound = (
         kind: 'catalog',
         formatId: 'foundation',
         formatVersion: 1,
-        length: 'full',
         competitionType: 'casual',
         config: {
           ...config,

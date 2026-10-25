@@ -119,7 +119,7 @@ describe('roomOperations', () => {
       ['seat-3', 'actor-3', 'judge', 0],
     ];
     const { database, queries } = createTestDatabase([
-      [{ ...roomRow({ status: 'ready' }), 14: seatedRules }],
+      [roomRow({ status: 'ready', rulesSnapshot: seatedRules })],
       seats,
       [],
       [],

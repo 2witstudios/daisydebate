@@ -44,7 +44,6 @@ test('discovery uses partial ordered indexes independently of historical Room an
         format_id: formatId,
         format_version: 1,
         competition_type: 'casual',
-        length: 'full',
         config: validConfig,
         execution_plan: {},
         rules_snapshot: validRules,
@@ -70,17 +69,17 @@ test('discovery uses partial ordered indexes independently of historical Room an
     const liveArray = `{${liveIds.join(',')}}`;
     const historyArray = `{${historyIds.join(',')}}`;
     const addHistory = async (array: string) => {
-      await f.sql`insert into rooms(id,host_actor_id,title,topic,visibility,format_id,format_version,competition_type,length,config,execution_plan,rules_snapshot,status)
-        select x,${caller.actorId},${token},${token},'public',${formatId},1,'casual','full',${validConfig}::jsonb,'{}'::jsonb,${validRules}::jsonb,'started' from unnest(${array}::text[]) x`;
-      await f.sql`insert into rounds(id,room_id,resolution,competition_type,length,format_id,format_version,rules_snapshot,status,room_config_snapshot,visibility,completed_at)
-        select 'r'||substr(x,2),x,${token},'casual','full',${formatId},1,${validRules}::jsonb,'abandoned',${validConfig}::jsonb,'public',statement_timestamp() from unnest(${array}::text[]) x`;
+      await f.sql`insert into rooms(id,host_actor_id,title,topic,visibility,format_id,format_version,competition_type,config,execution_plan,rules_snapshot,status)
+        select x,${caller.actorId},${token},${token},'public',${formatId},1,'casual',${validConfig}::jsonb,'{}'::jsonb,${validRules}::jsonb,'started' from unnest(${array}::text[]) x`;
+      await f.sql`insert into rounds(id,room_id,resolution,competition_type,format_id,format_version,rules_snapshot,status,room_config_snapshot,visibility,completed_at)
+        select 'r'||substr(x,2),x,${token},'casual',${formatId},1,${validRules}::jsonb,'abandoned',${validConfig}::jsonb,'public',statement_timestamp() from unnest(${array}::text[]) x`;
     };
     try {
       await addHistory(`{${historyIds.slice(0, 1000).join(',')}}`);
-      await f.sql`insert into rooms(id,host_actor_id,title,topic,visibility,format_id,format_version,competition_type,length,config,execution_plan,rules_snapshot,status)
-        select x,${caller.actorId},${token},${token},'public',${formatId},1,'casual','full',${validConfig}::jsonb,'{}'::jsonb,${validRules}::jsonb,case when right(x,1) in ('0','2','4','6','8') then 'assembling' else 'started' end from unnest(${liveArray}::text[]) x`;
-      await f.sql`insert into rounds(id,room_id,resolution,competition_type,length,format_id,format_version,rules_snapshot,status,room_config_snapshot,visibility)
-        select 'y'||substr(x,2),x,${token},'casual','full',${formatId},1,${validRules}::jsonb,'scheduled',${validConfig}::jsonb,'public' from unnest(${liveArray}::text[]) x where right(x,1) in ('1','3','5','7','9')`;
+      await f.sql`insert into rooms(id,host_actor_id,title,topic,visibility,format_id,format_version,competition_type,config,execution_plan,rules_snapshot,status)
+        select x,${caller.actorId},${token},${token},'public',${formatId},1,'casual',${validConfig}::jsonb,'{}'::jsonb,${validRules}::jsonb,case when right(x,1) in ('0','2','4','6','8') then 'assembling' else 'started' end from unnest(${liveArray}::text[]) x`;
+      await f.sql`insert into rounds(id,room_id,resolution,competition_type,format_id,format_version,rules_snapshot,status,room_config_snapshot,visibility)
+        select 'y'||substr(x,2),x,${token},'casual',${formatId},1,${validRules}::jsonb,'scheduled',${validConfig}::jsonb,'public' from unnest(${liveArray}::text[]) x where right(x,1) in ('1','3','5','7','9')`;
       await f.sql`analyze rooms`;
       await f.sql`analyze rounds`;
       const queries: { query: string; params: unknown[] }[] = [];

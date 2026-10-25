@@ -13,7 +13,6 @@ const entry: RoomListEntry = {
   hostLabel: 'Host member',
   status: 'assembling',
   competitionType: 'casual',
-  length: 'full',
   seated: true,
   roundRef: null,
 };

@@ -192,7 +192,6 @@ describe('AUTH-5.4 recover from a lost passkey through verified email', () => {
       createdByActorId: actorId,
       resolution,
       competitionType: 'casual',
-      length: 'full',
       formatId: 'foundation',
       formatVersion: foundation?.version ?? 1,
       presetVersion: null,

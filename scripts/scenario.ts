@@ -2,7 +2,7 @@ import { invariantIdOf as invariantId } from './invariant-error';
 import { fixedIds, type IdGenerator } from '@daisy/clock';
 import {
   foundationConfig,
-  oneOnOneFullConfig,
+  oneOnOneRankedConfig,
   referenceFormats,
 } from '@daisy/db/reference-formats';
 import {
@@ -24,7 +24,7 @@ import type {
 /** The reference formats a scenario plays, each with its sanctioned config. */
 const scenarioConfigs = {
   foundation: foundationConfig,
-  'one-on-one': oneOnOneFullConfig,
+  'one-on-one': oneOnOneRankedConfig,
 } as const;
 type ScenarioFormat = keyof typeof scenarioConfigs;
 

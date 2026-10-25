@@ -1,62 +1,28 @@
 import { afterAll } from 'bun:test';
-import { SQL } from 'bun';
-import { cp, mkdtemp, readdir, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
-import { runMigrations } from '../src/migrator';
-import { createSlotDatabase, dropSlotDatabase } from '../src/slots';
 import { rejectedBy, withFixture } from './constraint-helpers';
 import { validConfig, validRules } from './round-fixtures';
+import {
+  ddlTimeoutMs,
+  scratchDatabase,
+} from './scratch-migrations.test-support';
 
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
 
-const migrationsFolder = new URL('../migrations', import.meta.url).pathname;
 const migration = '20261025031248_casual_only_one_on_one_revision';
-// Outside `daisy_wt_*`, so slot pruning never selects it.
-const database = `unrankedit_${createId()}`;
-const target = new URL(url);
-target.pathname = `/${database}`;
-const admin = (() => {
-  const next = new URL(url);
-  next.pathname = '/postgres';
-  return new SQL(next.toString(), { max: 1 });
-})();
-// CREATE DATABASE copies files; a loaded machine can exceed bun's 5 s default.
-const ddlTimeoutMs = 60_000;
+const scratch = scratchDatabase(url, 'unrankedit');
 
-afterAll(async () => {
-  await dropSlotDatabase(admin, database);
-  await admin.close();
-});
-
-/** Applies every committed migration folder before `migration`. */
-const migrateToPreviousHead = async () => {
-  const folder = await mkdtemp(join(tmpdir(), 'daisy-unranked-proof-'));
-  try {
-    for (const name of (await readdir(migrationsFolder)).sort())
-      if (name < migration)
-        await cp(join(migrationsFolder, name), join(folder, name), {
-          recursive: true,
-        });
-    await runMigrations({
-      databaseUrl: target.toString(),
-      migrationsFolder: folder,
-    });
-  } finally {
-    await rm(folder, { recursive: true, force: true });
-  }
-};
+afterAll(() => scratch.drop());
 
 test(
   'the migration turns practice rows casual and moves one-on-one to revision 2 without moving pinned Rooms (DEC-233, DEC-234)',
   async () => {
-    await createSlotDatabase(admin, database);
-    await migrateToPreviousHead();
-    await withFixture(target.toString(), async (f) => {
+    await scratch.create();
+    await scratch.migrate((folder) => folder < migration);
+    await withFixture(scratch.url, async (f) => {
       const hostActorId = await f.actor();
       const room = async (row: Record<string, unknown>) => {
         const id = createId();
@@ -82,8 +48,12 @@ test(
         competition_type: 'ranked',
         preset_version: 1,
       });
-      const practiceRound = await f.round({ competition_type: 'practice' });
-      await runMigrations({ databaseUrl: target.toString(), migrationsFolder });
+      // That schema still required a length on every Round.
+      const practiceRound = await f.round({
+        competition_type: 'practice',
+        length: 'full',
+      });
+      await scratch.migrate((folder) => folder <= migration);
       const rooms = await f.sql`
         select id, competition_type, format_version, preset_version,
                rules_snapshot = ${validRules}::jsonb as rules_kept
@@ -169,7 +139,6 @@ test('casual is the one unranked type a Room or Round row may hold', async () =>
           format_id: formatId,
           format_version: 1,
           competition_type: competitionType,
-          length: 'full',
           config: validConfig,
           execution_plan: {},
           rules_snapshot: validRules,

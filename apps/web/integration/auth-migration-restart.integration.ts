@@ -52,8 +52,8 @@ test('a migration re-application and a resource restart preserve a live session,
   await withSql(async (sql) => {
     await sql`INSERT INTO actors (id, kind, user_id) VALUES (${actorId}, 'human', ${userId})`;
     await sql`
-      INSERT INTO rounds (id, created_by_actor_id, resolution, competition_type, length, format_id, format_version, rules_snapshot, status)
-      VALUES (${debateId}, ${actorId}, 'Restart-survival proof', 'casual', 'full', 'foundation', 1, '{}'::jsonb, 'scheduled')
+      INSERT INTO rounds (id, created_by_actor_id, resolution, competition_type, format_id, format_version, rules_snapshot, status)
+      VALUES (${debateId}, ${actorId}, 'Restart-survival proof', 'casual', 'foundation', 1, '{}'::jsonb, 'scheduled')
     `;
   });
 

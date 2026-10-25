@@ -12,8 +12,8 @@ export function roundAudienceFixture(client: SQL, actorId: string) {
       const [format] =
         await client`select id,current_version from formats where created_by_actor_id is null order by id limit 1`;
       if (!format) throw new Error('Migrated reference format unavailable');
-      await client`insert into rounds(id,visibility,resolution,competition_type,length,format_id,format_version,rules_snapshot,status)
-        values(${id},${visibility},'Isolated realtime audience proof','casual','full',${format.id},${format.current_version},${validRules}::jsonb,'scheduled')`;
+      await client`insert into rounds(id,visibility,resolution,competition_type,format_id,format_version,rules_snapshot,status)
+        values(${id},${visibility},'Isolated realtime audience proof','casual',${format.id},${format.current_version},${validRules}::jsonb,'scheduled')`;
       ids.push(id);
       if (role)
         await client`insert into round_participants(id,round_id,actor_id,role,slot) values(${systemId.next()},${id},${actorId},${role},0)`;

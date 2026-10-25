@@ -47,7 +47,6 @@ test(
                 countdownMs: 10_000,
               },
             },
-            length: 'full',
             competitionType: 'casual',
           },
         }),

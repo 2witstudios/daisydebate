@@ -2,7 +2,6 @@ import {
   clubChoices,
   experienceChoices,
   formatChoices,
-  lengthChoices,
   topicChoices,
   wantChoices,
 } from '@daisy/protocol';
@@ -73,7 +72,6 @@ export const memberOnboarding = pgTable(
       .array()
       .notNull()
       .default(sql`'{}'::text[]`),
-    length: text('length'),
     completedAt: timestampColumn('completed_at'),
     createdAt: createdAtColumn(),
     updatedAt: updatedAtColumn(),
@@ -91,10 +89,6 @@ export const memberOnboarding = pgTable(
     check(
       'member_onboarding_formats_check',
       sql`${table.formats} <@ ${literalArray(formatChoices)}`,
-    ),
-    check(
-      'member_onboarding_length_check',
-      sql`${table.length} is null or ${oneOf(table.length, lengthChoices)}`,
     ),
     versionPositive('member_onboarding', table.version),
   ],

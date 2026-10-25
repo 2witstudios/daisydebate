@@ -1,14 +1,10 @@
 # 0055: Glicko-2 calculation, ladders and season carry-over
 
 Status: proposed. Implements [ADR 0029](0029-competitive-schema-foundation.md)
-item 8 (Glicko-2, one debate is one rating period) and the two ladders of the
-draft judge-to-compete record (Ranked and Quick match). When this record is
-accepted it amends, each in its own `## Amendment` section:
+item 8 (Glicko-2, one debate is one rating period) and the Ranked ladder.
+When this record is accepted it amends, in its own `## Amendment` section,
 [ADR 0029](0029-competitive-schema-foundation.md) item 8 (the rating key
-gains `ladder`), [ADR 0048](0048-authorization-core.md) section 1 ("only
-ranked debates produce ratings": Quick match also rates, on its own ladder)
-and [ADR 0033](0033-presence-and-adjudication.md) section 4 (a Quick match
-forfeit rates as a loss, like a ranked one). Decisions marked open at the end
+gains `ladder`). Decisions marked open at the end
 were made on the owner's behalf and stay open until the owner confirms or
 overrules them.
 
@@ -17,9 +13,8 @@ overrules them.
 The schema has held Glicko-2 state since the baseline (`seasons`, `ratings`,
 `rating_changes`), but nothing computes a rating, opens a season or writes
 the ledger, and the leaderboard reads sample data. The owner fixed the model
-on 2026-10-05: Glicko-2, no debater tiers, and two ladders, Ranked (one human
-judge, Daisy's promoted ladder) and Quick match (the AI judge, its own
-rating). Before code can be written, the calculation needs parameters,
+on 2026-10-05: Glicko-2, no debater tiers, and the Ranked ladder (one human
+judge, Daisy's promoted ladder). Before code can be written, the calculation needs parameters,
 Daisy's one-debate periods need an answer for idle time, and a new season
 needs a starting point.
 
@@ -82,14 +77,13 @@ or any value that is not finite, is refused with the invariant
 refused with `debate.rating.volatility-converges`. Both are registered in
 `spec/invariants.json`.
 
-### 5. Two ladders, one key
+### 5. One ladder, one key
 
-`ratings` and `rating_changes` gain `ladder` (`ranked | quick`), which joins
-the key `(actor, format, season, ladder)`, and `debates.mode` gains `quick`.
-The ladder vocabulary lives in `@daisy/protocol` beside the debate roles, and
-the CHECKs derive from it. `mode = 'ranked'` rates on the Ranked ladder and
-`mode = 'quick'` on the Quick match ladder; casual never rates.
-Both ladders require canonical rules on a ranked-eligible format (ADR 0030).
+`ratings` and `rating_changes` carry `ladder` (`ranked`), which joins the key
+`(actor, format, season, ladder)`. The ladder vocabulary lives in
+`@daisy/protocol` beside the debate roles, and the CHECKs derive from it. A
+ranked Round rates on the Ranked ladder; casual never rates. Ranked requires
+canonical rules on a ranked-eligible format (ADR 0030).
 
 ### 6. Seasons carry the rating forward
 
@@ -112,9 +106,8 @@ bands.
 
 ## Consequences
 
-- One forward migration adds `ladder` to both rating tables and `quick` to
-  `debates.mode`. The rating tables are empty in every environment, so there
-  is no default or backfill.
+- One forward migration adds `ladder` to both rating tables. The rating
+  tables are empty in every environment, so there is no default or backfill.
 - The rating write is one transaction that locks the debate, posts two ledger
   rows and updates the projection under its version. Re-rating a debate is a
   no-op. `@daisy/db`'s `rateDebate` decides nothing: the engine's
@@ -123,8 +116,8 @@ bands.
   `apps/web` ratings feature (`rateCompletedDebate`) composes the two.
   Nothing calls it yet. Wiring it into the debate completion path is task
   RATE-2.
-- The leaderboard and profile read real standings, with Ranked and Quick match
-  shown separately. They are empty until a ranked-eligible format and an
+- The leaderboard and profile read real standings on the Ranked ladder. They
+  are empty until a ranked-eligible format and an
   active season exist; opening the first production season is a human-only
   task.
 
@@ -136,7 +129,15 @@ bands.
    deviation"; the amount is this record's.
 3. **Provisional above 110.** The same threshold as a widely used chess
    ladder.
-4. **Quick match needs canonical rules and rates forfeits.** Keeps both
-   ladders comparable in integrity.
+4. **A ranked forfeit rates as a loss.** A forfeit carries a side outcome
+   and rates like a judged result.
 5. **Bounds 30–350 and volatility ≤ 0.1.** Keep every write inside the
    database CHECKs with room to spare.
+
+## Amendment (2026-10-25, DEC-237, DEC-238)
+
+Every Round is full length, so the Quick match ladder has no producer and is
+removed: `ratingLadders` is `['ranked']`, and the forward migration
+`20261025223110_full_length_only` deletes any Quick-ladder ratings and ledger
+rows (DEC-240) before the ladder CHECKs tighten. `ladder` stays in the rating
+key as the pool a rating belongs to.

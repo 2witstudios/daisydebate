@@ -170,7 +170,6 @@ export const roomState = async (
     formatVersion: row.formatVersion,
     presetVersion: row.presetVersion,
     competitionType: row.competitionType,
-    length: row.length,
     definition: revision.definition,
     config: row.config,
     executionPlan: row.executionPlan,

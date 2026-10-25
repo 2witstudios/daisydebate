@@ -1,13 +1,6 @@
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { asc, eq, sql } from 'drizzle-orm';
-import type {
-  Club,
-  Experience,
-  Format,
-  Length,
-  Topic,
-  Want,
-} from '@daisy/protocol';
+import type { Club, Experience, Format, Topic, Want } from '@daisy/protocol';
 import {
   memberInterests,
   memberOnboarding,
@@ -26,7 +19,6 @@ export type OnboardingStepWrite =
       readonly step: 'experience';
       readonly experience: Experience | null;
       readonly formats: readonly Format[];
-      readonly length: Length | null;
     }
   | { readonly step: 'topics'; readonly topics: readonly Topic[] };
 
@@ -36,7 +28,6 @@ export type OnboardingRecord = {
   readonly club: Club | null;
   readonly experience: Experience | null;
   readonly formats: readonly Format[];
-  readonly length: Length | null;
   readonly topics: readonly Topic[];
   readonly completedAt: string | null;
 };
@@ -48,7 +39,6 @@ const noRow = {
   club: null,
   experience: null,
   formats: [],
-  length: null,
   completedAt: null,
 } as const;
 
@@ -56,7 +46,6 @@ const rowAnswers = (row: OnboardingRow) => ({
   club: row.club as Club | null,
   experience: row.experience as Experience | null,
   formats: row.formats as Format[],
-  length: row.length as Length | null,
   completedAt: row.completedAt === null ? null : row.completedAt.toISOString(),
 });
 
@@ -101,7 +90,6 @@ export const onboardingOperations = ({
               ? {
                   experience: answers.experience,
                   formats: [...answers.formats],
-                  length: answers.length,
                 }
               : {};
         await tx

@@ -83,7 +83,6 @@ export const assemblySnapshot = {
   formatVersion: unequalTemplate.formatVersion,
   presetVersion: null,
   competitionType: 'casual',
-  length: 'full',
   definition: unequalTemplate.definition,
   config: unequalTemplate.defaultConfig,
   executionPlan: compiled.roomPlan,

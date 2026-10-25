@@ -47,14 +47,12 @@ describe('Room command boundary', () => {
       kind: 'catalog',
       formatId: 'one-on-one',
       formatVersion: 1,
-      length: 'full',
       competitionType,
       config: plainRoomConfig,
     });
     const custom = (competitionType: string) => ({
       kind: 'custom',
       definition: oneOnOneFormatFixture,
-      length: 'full',
       competitionType,
       config: plainRoomConfig,
     });
@@ -70,6 +68,48 @@ describe('Room command boundary', () => {
         [false, false],
         [false, false],
       ],
+    });
+  });
+  test('refuses a length on every selection: Rounds are full length only (DEC-237)', () => {
+    const create = (selection: Record<string, unknown>) =>
+      roomCreateSchema.safeParse({
+        commandId,
+        title: 'Title',
+        topic: 'Topic',
+        visibility: 'public',
+        selection,
+      }).success;
+    const selections = [
+      {
+        kind: 'catalog',
+        formatId: 'one-on-one',
+        formatVersion: 2,
+        competitionType: 'casual',
+        config: plainRoomConfig,
+      },
+      {
+        kind: 'ranked',
+        formatId: 'one-on-one',
+        formatVersion: 2,
+        presetVersion: 2,
+      },
+      {
+        kind: 'custom',
+        definition: oneOnOneFormatFixture,
+        competitionType: 'casual',
+        config: plainRoomConfig,
+      },
+    ];
+    assert({
+      given:
+        'catalog, ranked and custom selections with no length, full and quick',
+      should: 'accept only the selection that names no length',
+      actual: selections.map((selection) => [
+        create(selection),
+        create({ ...selection, length: 'full' }),
+        create({ ...selection, length: 'quick' }),
+      ]),
+      expected: selections.map(() => [true, false, false]),
     });
   });
   test('requires version and refuses caller identity claims', () => {

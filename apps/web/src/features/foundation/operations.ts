@@ -106,7 +106,6 @@ export async function createProofDebate(
       createdByActorId: null,
       resolution,
       competitionType: 'casual',
-      length: 'full',
       formatId: format.id,
       formatVersion: format.version,
       presetVersion: null,

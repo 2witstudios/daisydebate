@@ -72,7 +72,6 @@ async function startShortRound(
       kind: 'custom',
       definition,
       config,
-      length: 'full',
       competitionType: 'casual',
     },
   });

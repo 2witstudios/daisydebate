@@ -74,7 +74,7 @@ const rankedPreset = async (
   formatVersion: number,
   selection: Extract<RoomCreate['selection'], { kind: 'ranked' }>,
 ) => {
-  const preset = await store.getCurrentPreset(formatId, selection.length);
+  const preset = await store.getCurrentPreset(formatId);
   if (
     !preset ||
     preset.version !== selection.presetVersion ||

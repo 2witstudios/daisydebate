@@ -2,7 +2,7 @@ import { fixedIds } from '@daisy/clock';
 import type { AccountAuthorizationFact } from '@daisy/auth/authorization';
 import { createAppError } from '@daisy/errors';
 import type { LaunchedRound, RoomCreate } from '@daisy/protocol';
-import { oneOnOneFullConfig } from '@daisy/db/reference-formats';
+import { oneOnOneRankedConfig } from '@daisy/db/reference-formats';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createRoomRuntimeOperations, type Store } from './operations';
 import {
@@ -109,9 +109,8 @@ test('Room creation pins resolved rules and replays the accepted receipt before 
       kind: 'catalog',
       formatId: 'one-on-one',
       formatVersion: 1,
-      length: 'full',
       competitionType: 'casual',
-      config: oneOnOneFullConfig,
+      config: oneOnOneRankedConfig,
     },
   };
   const first = makeOperations();

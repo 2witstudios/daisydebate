@@ -90,7 +90,7 @@ export async function discoverRooms(
   if (!authorizeCollection(account)) throw createAppError('AUTHORIZATION');
   const rows = (await tx.execute(sql`
   select r.id,r.version,r.title,r.topic,r.visibility,r.host_actor_id as "hostActorId",
-   ${hostLabel} as "hostLabel",${hostIsHumanJudge} as "hostIsHumanJudge",r.status,r.competition_type as "competitionType",r.length,
+   ${hostLabel} as "hostLabel",${hostIsHumanJudge} as "hostIsHumanJudge",r.status,r.competition_type as "competitionType",
    p.actor_id is not null as seated,p.role,p.slot,
    case when r.status='started' then json_build_object('id',d.id,'status',d.status) else null end as "roundRef",
    d.version as "roundVersion",d.created_by_actor_id as "roundCreator",d.visibility as "roundVisibility",rp.role as "roundRole",rp.slot as "roundSlot"

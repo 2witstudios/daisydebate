@@ -30,7 +30,6 @@ async function controlledSpeech(
           ...oneOnOneRoomConfig,
           speechTiming: { ...oneOnOneRoomConfig.speechTiming, countdownMs: 0 },
         },
-        length: 'full',
         competitionType: 'casual',
       },
     })

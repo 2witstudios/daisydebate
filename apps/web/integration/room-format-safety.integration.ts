@@ -31,7 +31,6 @@ test('unsafe custom create and update preserve Room, definitions, receipts and o
           seats: { affirmative: 2, negative: 1, judge: 0 },
         },
         config,
-        length: 'full',
         competitionType: 'casual',
       },
     });
@@ -68,7 +67,6 @@ test('unsafe custom create and update preserve Room, definitions, receipts and o
               kind: 'custom',
               definition,
               config,
-              length: 'full',
               competitionType: 'casual',
             },
           }),

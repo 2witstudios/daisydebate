@@ -210,8 +210,8 @@ export const oneOnOneRoomConfig: RoomConfig = {
   yielding: { allowed: true, returnsTime: true },
 };
 
-/** The sanctioned full-length ranked config for one-on-one. */
-export const oneOnOneFullConfig: RoomConfig = {
+/** The sanctioned ranked config for one-on-one. */
+export const oneOnOneRankedConfig: RoomConfig = {
   preRoundPrep: { enabled: true, durationMs: 1_200_000 },
   inRoundPrep: { enabled: true, budgetMsPerSide: 240_000 },
   speechTiming: { countdownMs: 10_000, segmentDurationOverrides: {} },
@@ -220,63 +220,29 @@ export const oneOnOneFullConfig: RoomConfig = {
   yielding: { allowed: true, returnsTime: true },
 };
 
-/** The sanctioned quick-length ranked config: the same debate, shortened. */
-const oneOnOneQuickConfig: RoomConfig = {
-  ...oneOnOneFullConfig,
-  inRoundPrep: { enabled: true, budgetMsPerSide: 120_000 },
-  speechTiming: {
-    countdownMs: 10_000,
-    segmentDurationOverrides: {
-      AC: 150_000,
-      CX1: 60_000,
-      NC: 180_000,
-      CX2: 60_000,
-      '1AR': 150_000,
-      NR: 150_000,
-      '2AR': 90_000,
-    },
-  },
-};
-
 /**
- * Every approved preset revision, oldest first. The newest per format and
- * length is current; each earlier one is superseded but kept, because a
- * Room or Round pins the revision that produced its rules.
+ * Every approved preset revision, oldest first. The newest per format is
+ * current; each earlier one is superseded but kept, because a Room or
+ * Round pins the revision that produced its rules. Every Round is full
+ * length (DEC-237), so a format has one line of presets.
  */
 export const referencePresets: ReadonlyArray<{
   readonly formatId: string;
-  readonly length: 'full' | 'quick';
   readonly version: number;
   readonly formatVersion: number;
   readonly config: RoomConfig;
 }> = [
   {
     formatId: 'one-on-one',
-    length: 'full',
     version: 1,
     formatVersion: 1,
-    config: oneOnOneFullConfig,
+    config: oneOnOneRankedConfig,
   },
   {
     formatId: 'one-on-one',
-    length: 'quick',
-    version: 1,
-    formatVersion: 1,
-    config: oneOnOneQuickConfig,
-  },
-  {
-    formatId: 'one-on-one',
-    length: 'full',
     version: 2,
     formatVersion: 2,
-    config: oneOnOneFullConfig,
-  },
-  {
-    formatId: 'one-on-one',
-    length: 'quick',
-    version: 2,
-    formatVersion: 2,
-    config: oneOnOneQuickConfig,
+    config: oneOnOneRankedConfig,
   },
 ];
 

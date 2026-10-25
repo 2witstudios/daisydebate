@@ -166,19 +166,15 @@ export class Fixture {
    * from one (ADR 0058 §4), so the `rounds_preset_provenance_fk` and the
    * ranked-preset equivalence both need this row to exist.
    */
-  async preset(
-    formatId: string,
-    length: 'full' | 'quick' = 'full',
-    version = 1,
-  ) {
+  async preset(formatId: string, version = 1) {
     // Idempotent: several rounds may resolve from the one sanctioned preset
-    // for a format, and `format_presets_pkey` is (format_id, length, version).
+    // for a format, and `format_presets_pkey` is (format_id, version).
     // The config binds as an object: Bun SQL JSON-encodes a string twice.
     await this.sql.unsafe(
-      `insert into format_presets (format_id, length, version, format_version, config, approved_at)
-       values ($1, $2, $3, 1, $4::jsonb, statement_timestamp())
-       on conflict (format_id, length, version) do nothing`,
-      [formatId, length, version, validConfig],
+      `insert into format_presets (format_id, version, format_version, config, approved_at)
+       values ($1, $2, 1, $3::jsonb, statement_timestamp())
+       on conflict (format_id, version) do nothing`,
+      [formatId, version, validConfig],
     );
     this.track('format_presets', formatId);
     return version;
@@ -196,7 +192,6 @@ export class Fixture {
       created_by_actor_id: null,
       resolution: 'A resolution',
       competition_type: 'casual',
-      length: 'full',
       format_id: await this.format(),
       format_version: 1,
       preset_version: null,
@@ -327,7 +322,6 @@ export const createScheduledRound = async (
     createdByActorId: null,
     resolution,
     competitionType: 'casual',
-    length: 'full',
     formatId: authoring.formatId,
     formatVersion: 1,
     presetVersion: null,

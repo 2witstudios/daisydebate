@@ -41,13 +41,12 @@ describe('parseStepAnswers', () => {
 
   test('the experience step', () => {
     assert({
-      given: 'a level, both formats and a length',
+      given: 'a level and both formats',
       should: 'accept them',
       actual: parseStepAnswers({
         step: 'experience',
         experience: 'circuit',
         formats: ['one-on-one', 'teams'],
-        length: 'full',
       }),
       expected: {
         ok: true,
@@ -55,9 +54,19 @@ describe('parseStepAnswers', () => {
           step: 'experience',
           experience: 'circuit',
           formats: ['one-on-one', 'teams'],
-          length: 'full',
         },
       },
+    });
+    assert({
+      given: 'a match length, quick or full',
+      should: 'refuse it: Rounds are full length only (DEC-237, DEC-239)',
+      actual: ['quick', 'full'].map((length) =>
+        parseStepAnswers({ step: 'experience', experience: 'circuit', length }),
+      ),
+      expected: [
+        { ok: false, reason: 'invalid-value' },
+        { ok: false, reason: 'invalid-value' },
+      ],
     });
     assert({
       given: 'a level that is not one of the four',
@@ -75,7 +84,6 @@ describe('parseStepAnswers', () => {
           step: 'experience',
           experience: null,
           formats: [],
-          length: null,
         },
       },
     });
@@ -151,7 +159,6 @@ describe('emptyAnswers', () => {
         club: null,
         experience: null,
         formats: [],
-        length: null,
         topics: [],
         completedAt: null,
       },

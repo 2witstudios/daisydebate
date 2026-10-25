@@ -10,7 +10,7 @@ import {
 import {
   foundationDefinition,
   oneOnOneDefinition,
-  oneOnOneFullConfig,
+  oneOnOneRankedConfig,
 } from '@daisy/db/reference-formats';
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import { createRoomRuntimeOperations, type Store } from './operations';
@@ -28,7 +28,7 @@ export const account: AccountAuthorizationFact = {
 export const now = '2026-10-10T12:00:00.000Z';
 const resolved = resolveRoomConfiguration(
   oneOnOneDefinition,
-  oneOnOneFullConfig,
+  oneOnOneRankedConfig,
 );
 if (!resolved.ok)
   throw new Error('The reference one-on-one config must resolve');
@@ -47,9 +47,8 @@ export const state: RoomAssemblyState = {
   formatVersion: 1,
   presetVersion: null,
   competitionType: 'casual',
-  length: 'full',
   definition: oneOnOneDefinition,
-  config: oneOnOneFullConfig,
+  config: oneOnOneRankedConfig,
   executionPlan: resolved.roomPlan,
   rules: resolved.rules,
   participants: [
@@ -81,8 +80,7 @@ const catalog = [
         version: 1,
         formatId: 'one-on-one',
         formatVersion: 1,
-        length: 'full',
-        config: oneOnOneFullConfig,
+        config: oneOnOneRankedConfig,
       },
     ],
   },
@@ -105,7 +103,7 @@ export const launched: LaunchedRound = {
   topic: state.topic,
   visibility: 'private',
   hostActorId: caller.actorId,
-  config: oneOnOneFullConfig,
+  config: oneOnOneRankedConfig,
   rules: resolved.rules,
   participants: [
     {
@@ -225,7 +223,6 @@ export function makeOperations(overrides: Partial<Store> = {}) {
         hostLabel,
         status,
         competitionType,
-        length,
       } = state;
       return {
         rooms: authorize(state, account)
@@ -240,7 +237,6 @@ export function makeOperations(overrides: Partial<Store> = {}) {
                 hostLabel,
                 status,
                 competitionType,
-                length,
                 seated: true,
                 roundRef: null,
               },

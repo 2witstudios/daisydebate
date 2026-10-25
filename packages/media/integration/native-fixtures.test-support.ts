@@ -29,7 +29,6 @@ export async function withHistoricalSeat(
       createdByActorId: null,
       resolution: 'Synthetic native media clock proof',
       competitionType: 'casual',
-      length: 'full',
       formatId: 'foundation',
       formatVersion: 1,
       presetVersion: null,

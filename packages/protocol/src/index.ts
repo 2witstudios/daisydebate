@@ -51,8 +51,6 @@ export type {
 export {
   competitionTypes,
   seatSlotsComplete,
-  roundLengths,
-  roundLengthSchema,
   roundStatuses,
   roundStatusSchema,
   roundStageSchema,
@@ -61,7 +59,6 @@ export {
 } from './round';
 export type {
   CompetitionType,
-  RoundLength,
   RoundStatus,
   RoundStage,
   RuntimeCheckpoint,
@@ -112,13 +109,11 @@ export {
   clubChoices,
   experienceChoices,
   formatChoices,
-  lengthChoices,
   topicChoices,
   wantChoices,
   type Club,
   type Experience,
   type Format,
-  type Length,
   type Topic,
   type Want,
 } from './onboarding';

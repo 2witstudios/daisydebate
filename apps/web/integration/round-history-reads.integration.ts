@@ -24,7 +24,6 @@ test('accepted engine commands persist speaking grants and historical closure wi
           ...oneOnOneDefinition,
           seats: { affirmative: 1, negative: 1, judge: 0 },
         },
-        length: 'full',
         competitionType: 'casual',
         config: {
           ...oneOnOneRoomConfig,
@@ -145,7 +144,6 @@ test('protected Round reads preserve hidden judges and keep transcript content p
       selection: {
         kind: 'custom',
         definition: oneOnOneDefinition,
-        length: 'full',
         competitionType: 'casual',
         config: {
           ...oneOnOneRoomConfig,

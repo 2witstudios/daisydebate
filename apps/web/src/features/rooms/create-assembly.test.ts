@@ -16,7 +16,6 @@ const form = () => {
       formatId: 'stored-format',
       formatVersion: 2,
       presetVersion: 3,
-      length: 'full',
     }),
   );
   return fields;
@@ -51,7 +50,6 @@ test('create forwards the selected immutable revision and verifies the returned 
               formatId: 'stored-format',
               formatVersion: 2,
               presetVersion: 3,
-              length: 'full',
             },
           },
         ],

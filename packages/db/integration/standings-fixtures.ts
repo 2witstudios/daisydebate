@@ -36,14 +36,13 @@ export const completed = async (
 ) => {
   const id = createId();
   // A ranked round is constructed from a sanctioned preset, so it pins one.
-  await fixture.preset(input.formatId, 'full');
+  await fixture.preset(input.formatId);
   await fixture.insert('rounds', {
     id,
     room_id: null,
     created_by_actor_id: null,
     resolution: 'A resolution',
     competition_type: 'ranked',
-    length: 'full',
     format_id: input.formatId,
     format_version: 1,
     preset_version: 1,

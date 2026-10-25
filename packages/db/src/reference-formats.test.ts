@@ -43,9 +43,10 @@ const migrated = async () => {
     /UPDATE "formats" SET "current_version" = (\d+), "updated_at" = statement_timestamp\(\) WHERE "id" = '([a-z0-9-]+)'/g,
   ))
     formats.set(id!, { ...formats.get(id!)!, currentVersion: Number(version) });
-  const presets: {
+  // Rows before DEC-237 carry a length; the quick ones are deleted later.
+  const approved: {
     formatId: string;
-    length: string;
+    length: string | undefined;
     version: number;
     formatVersion: number;
     config: unknown;
@@ -58,20 +59,31 @@ const migrated = async () => {
     formatVersion,
     config,
   ] of sql.matchAll(
-    /'([a-z0-9-]+)', '(full|quick)', (\d+), (\d+), '(\{.*?\})'::jsonb/g,
+    /'([a-z0-9-]+)', (?:'(full|quick)', )?(\d+), (\d+), '(\{.*?\})'::jsonb/g,
   ))
-    presets.push({
+    approved.push({
       formatId: formatId!,
-      length: length!,
+      length,
       version: Number(version),
       formatVersion: Number(formatVersion),
       config: JSON.parse(config ?? ''),
     });
+  const quickDeleted = sql.includes(
+    `DELETE FROM "format_presets" WHERE "length" = 'quick';`,
+  );
+  const presets = approved
+    .filter(({ length }) => !(quickDeleted && length === 'quick'))
+    .map(({ formatId, version, formatVersion, config }) => ({
+      formatId,
+      version,
+      formatVersion,
+      config,
+    }));
   const superseded = new Set<string>();
-  for (const [, formatId, length, version] of sql.matchAll(
-    /UPDATE "format_presets" SET "superseded_at" = statement_timestamp\(\) WHERE "format_id" = '([a-z0-9-]+)' AND "length" = '(full|quick)' AND "version" = (\d+)/g,
+  for (const [, formatId, version] of sql.matchAll(
+    /UPDATE "format_presets" SET "superseded_at" = statement_timestamp\(\) WHERE "format_id" = '([a-z0-9-]+)' AND (?:"length" = '(?:full|quick)' AND )?"version" = (\d+)/g,
   ))
-    superseded.add(`${formatId}/${length}@${version}`);
+    superseded.add(`${formatId}@${version}`);
   const bots: unknown[] = [];
   for (const [, actorId, name, persona, voice, difficulty] of sql.matchAll(
     /'([a-z0-9]{24})', '([^']+)', '([^']+)', '([^']+)', '(beginner|intermediate|advanced)'\)/g,
@@ -80,15 +92,13 @@ const migrated = async () => {
   return { definitions, formats, presets, superseded, bots };
 };
 
-/** The newest approved revision per (format, length): the one ranked play resolves. */
+/** The newest approved revision per format: the one ranked play resolves. */
 const currentReferencePresets = () =>
   referencePresets.filter(
     (preset) =>
       !referencePresets.some(
         (later) =>
-          later.formatId === preset.formatId &&
-          later.length === preset.length &&
-          later.version > preset.version,
+          later.formatId === preset.formatId && later.version > preset.version,
       ),
   );
 
@@ -129,28 +139,26 @@ describe('reference data', () => {
     assert({
       given: 'the TypeScript reference presets and the committed migrations',
       should:
-        'approve the same revisions, superseding all but the newest per format and length',
+        'approve the same full-length revisions, superseding all but the newest per format, and keep no quick preset (DEC-237)',
       actual: {
         approved: rows.presets,
         current: rows.presets.filter(
-          ({ formatId, length, version }) =>
-            !rows.superseded.has(`${formatId}/${length}@${version}`),
+          ({ formatId, version }) =>
+            !rows.superseded.has(`${formatId}@${version}`),
         ),
       },
       expected: {
         approved: referencePresets.map(
-          ({ formatId, length, version, formatVersion, config }) => ({
+          ({ formatId, version, formatVersion, config }) => ({
             formatId,
-            length,
             version,
             formatVersion,
             config,
           }),
         ),
         current: currentReferencePresets().map(
-          ({ formatId, length, version, formatVersion, config }) => ({
+          ({ formatId, version, formatVersion, config }) => ({
             formatId,
-            length,
             version,
             formatVersion,
             config,

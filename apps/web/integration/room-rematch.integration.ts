@@ -25,7 +25,6 @@ test('a fresh Room after an actual result preserves the original aggregate and r
         formatId: selection.formatId,
         formatVersion: selection.formatVersion,
         config: selection.defaultConfig,
-        length: 'full' as const,
         competitionType: 'casual' as const,
       },
     };

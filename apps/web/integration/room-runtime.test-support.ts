@@ -110,7 +110,6 @@ async function fixture(
         kind: 'catalog',
         formatId: 'foundation',
         formatVersion: 1,
-        length: 'full',
         competitionType: 'casual',
         config,
       },

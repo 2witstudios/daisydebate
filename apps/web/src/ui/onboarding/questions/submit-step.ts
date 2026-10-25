@@ -14,7 +14,7 @@ const lists: Record<QuestionStep, readonly string[]> = {
 };
 const singles: Record<QuestionStep, readonly string[]> = {
   about: ['club'],
-  experience: ['experience', 'length'],
+  experience: ['experience'],
   topics: [],
 };
 

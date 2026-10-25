@@ -103,7 +103,6 @@ export async function applyDevSeed({
           createdByActorId: seed.round.createdByActorId,
           resolution: seed.round.resolution,
           competitionType: 'casual',
-          length: 'full',
           formatId: seed.round.formatId,
           formatVersion: seed.round.formatVersion,
           presetVersion: null,

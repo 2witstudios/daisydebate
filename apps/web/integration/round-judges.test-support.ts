@@ -16,7 +16,6 @@ export async function assembleJudgedRoom(
         seats: { ...choice.definition.seats, judge: judges },
       },
       config: choice.defaultConfig,
-      length: 'full',
       competitionType: 'casual',
     },
   });
