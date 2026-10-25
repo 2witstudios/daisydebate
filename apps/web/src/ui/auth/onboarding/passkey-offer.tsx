@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { authClient } from '../../../lib/auth-client';
 import { useFormAction, type FormAction } from '../../form-action/form-action';
 import { SavePasskey } from '../save-passkey/save-passkey';
+import { browserDocument } from '../../round-media/browser-document';
+import { replaceRoute } from '../../round-media/replace-route';
 import {
   declineUnavailable,
   initialDecline,
@@ -60,7 +62,8 @@ export function PasskeyOffer({
     if (state.step === 'done') window.location.assign(destination);
   }, [state.step, destination]);
   useEffect(() => {
-    if (declined.next !== undefined) router.replace(declined.next);
+    if (declined.next !== undefined)
+      replaceRoute(router, browserDocument(), declined.next);
   }, [declined.next, router]);
 
   if (state.step === 'done') return null;
