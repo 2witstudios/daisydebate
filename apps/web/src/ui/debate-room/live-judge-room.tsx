@@ -7,6 +7,7 @@ import type { RoundRead } from '../../features/rooms/read-round';
 import { roundMediaSlot } from '../../features/round-media/media-session';
 import { FreshnessNotice } from '../resource-sync/freshness-notice';
 import { useLiveRoundView } from './use-live-round-view';
+import { MediaPageLink } from '../round-media/media-page-link';
 
 /** The server admits an actual own judge assignment; media grants remain server-authoritative. */
 export function LiveJudgeRoom(props: {
@@ -31,7 +32,9 @@ export function LiveJudgeRoom(props: {
       <Link href={`/judge/ballot/${view.id}`} prefetch={false}>
         Open your ballot
       </Link>
-      <Link href={`/rounds/${view.id}`}>View Round result</Link>
+      <MediaPageLink href={`/rounds/${view.id}`}>
+        View Round result
+      </MediaPageLink>
     </main>
   );
 }

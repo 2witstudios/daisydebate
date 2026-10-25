@@ -41,8 +41,16 @@ Neither local passed checks nor a resolved local promise establish server Ready.
 SSR/no JavaScript supplies no passed checks; judges have their native no-JS path
 and bot eligibility is server-owned.
 
-Only `/rooms/:id` allows self camera/microphone through Permissions-Policy;
-other routes deny capture. Local preview joins no LiveKit session and mints no
+Only the round media pages (`roundMediaPages`: `/rooms/:id`, `/rounds/:id`,
+`/rounds/:id/room`) allow self camera/microphone through Permissions-Policy;
+other routes deny capture. The policy binds to the document, so a client-side
+navigation into a media page would keep the previous page's deny. Links into
+media pages are `MediaPageLink` anchors, `replaceRoute` loads a media page as a
+document when the current one lacks its policy, and every media page renders
+`MediaDocument`, which reloads a document that arrived stale by any other path.
+`media-entry.test.ts` fails on a `next/link` or router call that targets a media
+page, and `media-navigation.e2e.ts` reaches a working camera by lobby click and
+by Create Room. Local preview joins no LiveKit session and mints no
 token. A frozen scheduled Round receipt is not active media authority. Historical
 segment-bound transcript capture, grants and workers are separate producers.
 

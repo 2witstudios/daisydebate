@@ -26,6 +26,7 @@ import { AssemblySeats } from './assembly-seats';
 import { RoomPrep } from './room-prep';
 import { RoomSettings } from './room-settings';
 import { RoomSyncContext } from './room-sync-context';
+import { MediaPageLink } from '../../round-media/media-page-link';
 
 type Props = {
   readonly view: RoomView;
@@ -136,9 +137,12 @@ export function RoomLive(props: Props) {
         </Link>
       ) : null}
       {view.roundRef ? (
-        <Link href={`/rounds/${view.roundRef.id}`} className="self-start">
+        <MediaPageLink
+          href={`/rounds/${view.roundRef.id}`}
+          className="self-start"
+        >
           View Round
-        </Link>
+        </MediaPageLink>
       ) : null}
     </RoomSyncContext>
   );

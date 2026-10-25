@@ -19,6 +19,8 @@ import {
   type FormAction,
 } from '../form-action/form-action';
 import { FormError } from '../components/form-field/form-field';
+import { browserDocument } from '../round-media/browser-document';
+import { replaceRoute } from '../round-media/replace-route';
 const unanswered: RoundFormState = { values: {} };
 function CommandForm({
   intent,
@@ -100,7 +102,7 @@ export function RoundCommandActions({
   const router = useRouter();
   useEffect(() => {
     if (!pending && !answer.unacknowledged && !isLiveDebater(view, actorId))
-      router.replace(`/rounds/${view.id}`);
+      replaceRoute(router, browserDocument(), `/rounds/${view.id}`);
   }, [pending, answer.unacknowledged, view, actorId, router]);
   const feedback = useId(),
     control = useId();
