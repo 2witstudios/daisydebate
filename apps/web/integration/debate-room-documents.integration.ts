@@ -50,8 +50,8 @@ const withDebater = async (
   await withSql(async (sql) => {
     await sql`insert into users (id) values (${userId}), (${otherUser})`;
     await sql`insert into actors (id, kind, user_id) values (${actorId}, 'human', ${userId}), (${otherActor}, 'human', ${otherUser})`;
-    await sql`insert into rounds (id, created_by_actor_id, resolution, competition_type, length, format_id, format_version, rules_snapshot, status)
-      values (${roundId}, ${actorId}, 'Cities should make transit free', 'casual', 'full', 'one-on-one', 1, ${rules}, 'scheduled')`;
+    await sql`insert into rounds (id, created_by_actor_id, resolution, competition_type, format_id, format_version, rules_snapshot, status)
+      values (${roundId}, ${actorId}, 'Cities should make transit free', 'casual', 'one-on-one', 1, ${rules}, 'scheduled')`;
     // A round's workspace is reachable only by its own seats.
     await sql`insert into round_participants (id, round_id, actor_id, role, slot)
       values (${createId()}, ${roundId}, ${actorId}, 'affirmative', 0)`;

@@ -97,7 +97,6 @@ test('live discovery preserves frozen Round visibility and seats without Redis c
         'hostLabel',
         'status',
         'competitionType',
-        'length',
         'seated',
         'roundRef',
       ].sort(),

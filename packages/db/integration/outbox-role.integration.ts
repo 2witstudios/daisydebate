@@ -82,7 +82,7 @@ test('the realtime role can only select the outbox and authorization read models
     );
     const insertDebates = await sqlStateOf(() =>
       realtime!.unsafe(
-        "insert into rounds (id, resolution, competition_type, length, format_id, format_version, rules_snapshot, status) values ('x', 'r', 'casual', 'full', 'f', 1, '{}'::jsonb, 'scheduled')",
+        "insert into rounds (id, resolution, competition_type, format_id, format_version, rules_snapshot, status) values ('x', 'r', 'casual', 'f', 1, '{}'::jsonb, 'scheduled')",
       ),
     );
 
