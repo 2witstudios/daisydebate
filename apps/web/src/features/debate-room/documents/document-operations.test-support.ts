@@ -11,7 +11,7 @@ export const NOW = '2026-10-05T18:00:00.000Z';
 /** The round the tests sit in: the tester participates, on the negative. */
 const round = {
   id: 'debate-1',
-  competitionType: 'practice' as const,
+  competitionType: 'casual' as const,
   formatId: 'one-on-one',
   formatVersion: 1,
   resolution: 'A representative resolution',

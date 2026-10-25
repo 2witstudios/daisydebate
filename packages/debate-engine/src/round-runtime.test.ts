@@ -1,8 +1,8 @@
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
-  practiceRules,
-  practiceSeats,
+  oneOnOneRules,
+  oneOnOneSeats,
   roundAt,
   runtimeWorld,
 } from './runtime.test-support';
@@ -13,7 +13,7 @@ const at = roundAt;
 
 describe('round runtime lifecycle', () => {
   test('refuses corrupt frozen speech timing before allocating runtime state', async () => {
-    const rules = practiceRules();
+    const rules = oneOnOneRules();
     await assertRejects({
       given: 'frozen rules containing a speech shorter than attendance grace',
       should: 'refuse hydration with the registered speech timing invariant',
@@ -155,7 +155,7 @@ describe('round runtime lifecycle', () => {
 
   test('refuses a start that would seat the round incompletely', async () => {
     const world = runtimeWorld({
-      participants: practiceSeats.filter((seat) => seat.role !== 'negative'),
+      participants: oneOnOneSeats.filter((seat) => seat.role !== 'negative'),
     });
     const before = world.position(at(0));
     await assertRejects({

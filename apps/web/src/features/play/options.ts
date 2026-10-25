@@ -1,7 +1,7 @@
 import { trainDestinations } from '../train/actions';
 
 export type PlayOptionId =
-  'ranked' | 'practice-room' | 'join-room' | 'bot' | 'tournament';
+  'ranked' | 'casual-room' | 'join-room' | 'bot' | 'tournament';
 
 export type PlayOption = {
   readonly id: PlayOptionId;
@@ -10,7 +10,7 @@ export type PlayOption = {
   readonly href: string;
 };
 
-/** The open-a-room form: the one place a practice room is set up. */
+/** The open-a-room form: the one place a casual room is set up. */
 export const openRoomHref = '/play/room';
 
 /**
@@ -25,8 +25,8 @@ export const playOptions: readonly PlayOption[] = [
     href: '/ranked',
   },
   {
-    id: 'practice-room',
-    title: 'Open a practice room',
+    id: 'casual-room',
+    title: 'Open a casual room',
     blurb: 'Your settings. Unrated.',
     href: openRoomHref,
   },

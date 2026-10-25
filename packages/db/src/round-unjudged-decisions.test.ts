@@ -184,7 +184,6 @@ test('only a fully played casual Round is eligible, judged or not', async () => 
   for (const [label, candidate] of [
     ['a missing Round', null],
     ['a ranked Round', round({ competitionType: 'ranked' })],
-    ['a practice Round', round({ competitionType: 'practice' })],
     ['an unfinished segment', round({ segments: [{ endedAt: null }] })],
   ] as const)
     await assertRejects({

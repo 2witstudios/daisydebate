@@ -5,12 +5,12 @@ import { initialRoomState, pageToneOf, reduceRoom } from './room-state';
 setupRitewayBun();
 
 const now = '2026-10-05T18:30:00.000Z';
-const practice = sampleRound('prep', 'practice');
+const casual = sampleRound('prep', 'casual');
 const rated = sampleRound('prep', 'ranked');
 
 describe('initialRoomState', () => {
   test('opens the round folder', () => {
-    const state = initialRoomState(practice);
+    const state = initialRoomState(casual);
     assert({
       given: 'a round with three round documents',
       should: 'open each as a tab and show the first',
@@ -19,7 +19,7 @@ describe('initialRoomState', () => {
     });
   });
   test('opens on the transcript while the ballots are written', () => {
-    const judging = sampleRound('judging', 'practice');
+    const judging = sampleRound('judging', 'casual');
     assert({
       given:
         'the judging window of a transcribed round, then one with no transcript',
@@ -42,8 +42,8 @@ describe('initialRoomState', () => {
 
 describe('reduceRoom layout', () => {
   test('resizing pins, choosing Auto unpins', () => {
-    const reduce = reduceRoom(practice);
-    const resized = reduce(initialRoomState(practice), {
+    const reduce = reduceRoom(casual);
+    const resized = reduce(initialRoomState(casual), {
       type: 'layout/resize',
       startPx: 130,
       deltaPx: 70,
@@ -65,9 +65,9 @@ describe('reduceRoom layout', () => {
 
 describe('reduceRoom doc/create', () => {
   test('a new document from the palette', () => {
-    const reduce = reduceRoom(practice);
+    const reduce = reduceRoom(casual);
     const state = reduce(
-      { ...initialRoomState(practice), paletteOpen: true },
+      { ...initialRoomState(casual), paletteOpen: true },
       {
         type: 'doc/create',
         id: 'doc-new',
@@ -90,7 +90,7 @@ describe('reduceRoom doc/create', () => {
 });
 
 describe('reduceRoom agent/edit', () => {
-  const reduce = reduceRoom(practice);
+  const reduce = reduceRoom(casual);
   const apply = {
     type: 'agent/edit',
     turnId: 'a2',
@@ -105,7 +105,7 @@ describe('reduceRoom agent/edit', () => {
   } as const;
 
   test('applying an edit', () => {
-    const before = initialRoomState(practice);
+    const before = initialRoomState(casual);
     const after = reduce(before, apply);
     const doc = after.documents.find((d) => d.id === 'doc-nr');
     assert({
@@ -134,7 +134,7 @@ describe('reduceRoom agent/edit', () => {
   });
 
   test('a decided edit is final', () => {
-    const once = reduce(initialRoomState(practice), apply);
+    const once = reduce(initialRoomState(casual), apply);
     assert({
       given: 'the same edit applied twice',
       should: 'leave the state as the first application left it',
@@ -144,7 +144,7 @@ describe('reduceRoom agent/edit', () => {
   });
 
   test('discarding an edit', () => {
-    const before = initialRoomState(practice);
+    const before = initialRoomState(casual);
     const after = reduce(before, { ...apply, outcome: 'discarded' });
     assert({
       given: 'an agent edit discarded',
@@ -171,8 +171,8 @@ describe('reduceRoom drawer', () => {
   });
 
   test('closing and reopening', () => {
-    const reduce = reduceRoom(practice);
-    const closed = reduce(initialRoomState(practice), {
+    const reduce = reduceRoom(casual);
+    const closed = reduce(initialRoomState(casual), {
       type: 'drawer/toggle',
     });
     assert({
@@ -187,8 +187,8 @@ describe('reduceRoom drawer', () => {
   });
 
   test('the phone round tabs', () => {
-    const reduce = reduceRoom(practice);
-    const room = reduce(initialRoomState(practice), {
+    const reduce = reduceRoom(casual);
+    const room = reduce(initialRoomState(casual), {
       type: 'drawer/phone',
       tab: 'room',
     });
@@ -206,11 +206,11 @@ describe('reduceRoom drawer', () => {
 });
 
 describe('reduceRoom doc/loaded and doc/add', () => {
-  const reduce = reduceRoom(practice);
-  const flow = practice.documents.find((d) => d.id === 'doc-flow')!;
+  const reduce = reduceRoom(casual);
+  const flow = casual.documents.find((d) => d.id === 'doc-flow')!;
 
   test('the server’s documents arrive', () => {
-    const empty = { ...initialRoomState({ ...practice, documents: [] }) };
+    const empty = { ...initialRoomState({ ...casual, documents: [] }) };
     const state = reduce(empty, { type: 'doc/loaded', documents: [flow] });
     assert({
       given: 'a room with no documents loading the server’s',
@@ -225,7 +225,7 @@ describe('reduceRoom doc/loaded and doc/add', () => {
 
   test('a document the server created', () => {
     const state = reduce(
-      { ...initialRoomState(practice), paletteOpen: true },
+      { ...initialRoomState(casual), paletteOpen: true },
       {
         type: 'doc/add',
         document: { ...flow, id: 'doc-new', title: 'Flow 2' },
@@ -242,7 +242,7 @@ describe('reduceRoom doc/loaded and doc/add', () => {
 
 describe('reduceRoom page/tone', () => {
   test('one document’s page', () => {
-    const state = reduceRoom(practice)(initialRoomState(practice), {
+    const state = reduceRoom(casual)(initialRoomState(casual), {
       type: 'page/tone',
       documentId: 'doc-flow',
       tone: 'light',

@@ -1,5 +1,9 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { formatDefinitionSchema, roomConfigSchema } from '@daisy/protocol';
+import {
+  formatDefinitionSchema,
+  roomConfigSchema,
+  type FormatDefinition,
+} from '@daisy/protocol';
 import {
   referenceBots,
   referenceFormats,
@@ -9,68 +13,207 @@ import {
 
 setupRitewayBun();
 
-/** Every reference row the committed baseline inserts, parsed from its SQL. */
+/** Every reference row the committed migrations write, parsed in folder order. */
 const migrated = async () => {
   const directory = new URL('../migrations/', import.meta.url).pathname;
-  const sql = await Bun.file(
-    `${directory}20261007000000_baseline/migration.sql`,
-  ).text();
+  const folders = [...new Bun.Glob('*/migration.sql').scanSync(directory)]
+    .map((path) => path.split('/')[0]!)
+    .sort();
+  const sql = (
+    await Promise.all(
+      folders.map((folder) =>
+        Bun.file(`${directory}${folder}/migration.sql`).text(),
+      ),
+    )
+  ).join('\n');
   const definitions = new Map<string, unknown>();
-  for (const [, formatId, definition] of sql.matchAll(
-    /'([a-z0-9-]+)', 1, '(\{.*?\})'::jsonb, statement_timestamp\(\)/g,
+  for (const [, formatId, version, definition] of sql.matchAll(
+    /'([a-z0-9-]+)', (\d+), '(\{.*?\})'::jsonb, statement_timestamp\(\)/g,
   ))
-    definitions.set(formatId!, JSON.parse(definition!));
-  const formats = new Map<string, { name: string }>();
-  for (const [, id, name] of sql.matchAll(
-    /'([a-z0-9-]+)', '([^']+)', 1, statement_timestamp\(\)/g,
+    definitions.set(`${formatId}@${version}`, JSON.parse(definition!));
+  const formats = new Map<string, { name: string; currentVersion: number }>();
+  for (const [, id, name, version] of sql.matchAll(
+    /'([a-z0-9-]+)', '([^']+)', (\d+), statement_timestamp\(\)/g,
   ))
-    formats.set(id!, { name: (name ?? '').replaceAll("''", "'") });
-  void formats;
-  const presets: unknown[] = [];
-  for (const [, formatId, length, config] of sql.matchAll(
-    /'([a-z0-9-]+)', '(full|quick)', 1, 1, '(\{.*?\})'::jsonb/g,
+    formats.set(id!, {
+      name: (name ?? '').replaceAll("''", "'"),
+      currentVersion: Number(version),
+    });
+  for (const [, version, id] of sql.matchAll(
+    /UPDATE "formats" SET "current_version" = (\d+), "updated_at" = statement_timestamp\(\) WHERE "id" = '([a-z0-9-]+)'/g,
   ))
-    presets.push({ formatId, length, config: JSON.parse(config ?? '') });
+    formats.set(id!, { ...formats.get(id!)!, currentVersion: Number(version) });
+  const presets: {
+    formatId: string;
+    length: string;
+    version: number;
+    formatVersion: number;
+    config: unknown;
+  }[] = [];
+  for (const [
+    ,
+    formatId,
+    length,
+    version,
+    formatVersion,
+    config,
+  ] of sql.matchAll(
+    /'([a-z0-9-]+)', '(full|quick)', (\d+), (\d+), '(\{.*?\})'::jsonb/g,
+  ))
+    presets.push({
+      formatId: formatId!,
+      length: length!,
+      version: Number(version),
+      formatVersion: Number(formatVersion),
+      config: JSON.parse(config ?? ''),
+    });
+  const superseded = new Set<string>();
+  for (const [, formatId, length, version] of sql.matchAll(
+    /UPDATE "format_presets" SET "superseded_at" = statement_timestamp\(\) WHERE "format_id" = '([a-z0-9-]+)' AND "length" = '(full|quick)' AND "version" = (\d+)/g,
+  ))
+    superseded.add(`${formatId}/${length}@${version}`);
   const bots: unknown[] = [];
   for (const [, actorId, name, persona, voice, difficulty] of sql.matchAll(
     /'([a-z0-9]{24})', '([^']+)', '([^']+)', '([^']+)', '(beginner|intermediate|advanced)'\)/g,
   ))
     bots.push({ actorId, name, persona, voice, difficulty });
-  return { definitions, formats, presets, bots };
+  return { definitions, formats, presets, superseded, bots };
 };
 
+/** The newest approved revision per (format, length): the one ranked play resolves. */
+const currentReferencePresets = () =>
+  referencePresets.filter(
+    (preset) =>
+      !referencePresets.some(
+        (later) =>
+          later.formatId === preset.formatId &&
+          later.length === preset.length &&
+          later.version > preset.version,
+      ),
+  );
+
 describe('reference data', () => {
-  test('formats and definitions mirror exactly the rows the baseline inserts', async () => {
+  test('formats and every definition revision mirror exactly the rows the migrations write', async () => {
     const rows = await migrated();
     assert({
-      given: 'the TypeScript reference formats and the committed baseline',
-      should: 'name the same formats, names and definitions',
-      actual: referenceFormats.map(({ id, definition }) => ({
-        id,
-        name: rows.formats.get(id)?.name,
-        definition: rows.definitions.get(id),
-        localDefinition: definition,
-      })),
-      expected: referenceFormats.map(({ id, name, definition }) => ({
-        id,
-        name,
-        definition,
-        localDefinition: definition,
-      })),
+      given: 'the TypeScript reference formats and the committed migrations',
+      should:
+        'name the same formats, every immutable revision and the current pointer',
+      actual: {
+        formats: referenceFormats.map(({ id }) => ({
+          id,
+          ...rows.formats.get(id),
+        })),
+        definitions: Object.fromEntries(rows.definitions),
+      },
+      expected: {
+        formats: referenceFormats.map(({ id, name, revisions }) => ({
+          id,
+          name,
+          currentVersion: revisions.length,
+        })),
+        definitions: Object.fromEntries(
+          referenceFormats.flatMap(({ id, revisions }) =>
+            revisions.map((definition, index) => [
+              `${id}@${index + 1}`,
+              definition,
+            ]),
+          ),
+        ),
+      },
     });
   });
 
-  test('presets mirror the sanctioned configurations the baseline inserts', async () => {
+  test('presets mirror every sanctioned configuration the migrations approve', async () => {
     const rows = await migrated();
     assert({
-      given: 'the TypeScript reference presets and the committed baseline',
-      should: 'sanction the same configuration per format and length',
-      actual: rows.presets,
-      expected: referencePresets.map(({ formatId, length, config }) => ({
+      given: 'the TypeScript reference presets and the committed migrations',
+      should:
+        'approve the same revisions, superseding all but the newest per format and length',
+      actual: {
+        approved: rows.presets,
+        current: rows.presets.filter(
+          ({ formatId, length, version }) =>
+            !rows.superseded.has(`${formatId}/${length}@${version}`),
+        ),
+      },
+      expected: {
+        approved: referencePresets.map(
+          ({ formatId, length, version, formatVersion, config }) => ({
+            formatId,
+            length,
+            version,
+            formatVersion,
+            config,
+          }),
+        ),
+        current: currentReferencePresets().map(
+          ({ formatId, length, version, formatVersion, config }) => ({
+            formatId,
+            length,
+            version,
+            formatVersion,
+            config,
+          }),
+        ),
+      },
+    });
+  });
+
+  test('one-on-one follows the standard one-on-one schedule in its second revision (DEC-234)', () => {
+    const oneOnOne = referenceFormats.find(({ id }) => id === 'one-on-one');
+    const defaults = (definition: FormatDefinition | undefined) =>
+      Object.fromEntries(
+        (definition?.segments ?? []).map((segment) => [
+          segment.key,
+          segment.defaultDurationMs,
+        ]),
+      );
+    assert({
+      given: 'the one-on-one revision history',
+      should:
+        'keep revision 1 as published and default the 1AR to 3:00 in revision 2, every other segment unchanged',
+      actual: {
+        revisions: oneOnOne?.revisions.length,
+        first: defaults(oneOnOne?.revisions[0]),
+        current: defaults(oneOnOne?.definition),
+      },
+      expected: {
+        revisions: 2,
+        first: {
+          AC: 300_000,
+          CX1: 120_000,
+          NC: 360_000,
+          CX2: 120_000,
+          '1AR': 300_000,
+          NR: 300_000,
+          '2AR': 180_000,
+        },
+        current: {
+          AC: 300_000,
+          CX1: 120_000,
+          NC: 360_000,
+          CX2: 120_000,
+          '1AR': 180_000,
+          NR: 300_000,
+          '2AR': 180_000,
+        },
+      },
+    });
+  });
+
+  test('ranked play resolves against the current revision', () => {
+    assert({
+      given: 'the newest approved preset per format and length',
+      should: "pin each to its format's current definition revision",
+      actual: currentReferencePresets().map(({ formatId, formatVersion }) => [
         formatId,
-        length,
-        config,
-      })),
+        formatVersion,
+      ]),
+      expected: currentReferencePresets().map(({ formatId }) => [
+        formatId,
+        referenceFormats.find(({ id }) => id === formatId)?.revisions.length,
+      ]),
     });
   });
 
@@ -97,16 +240,20 @@ describe('reference data', () => {
       given: 'all reference formats and presets',
       should: 'each validate against the definition and config schemas',
       actual: {
-        definitions: referenceFormats.map(
-          ({ definition }) =>
-            formatDefinitionSchema.safeParse(definition).success,
+        definitions: referenceFormats.flatMap(({ revisions }) =>
+          revisions.map(
+            (definition) =>
+              formatDefinitionSchema.safeParse(definition).success,
+          ),
         ),
         configs: referencePresets.map(
           ({ config }) => roomConfigSchema.safeParse(config).success,
         ),
       },
       expected: {
-        definitions: referenceFormats.map(() => true),
+        definitions: referenceFormats.flatMap(({ revisions }) =>
+          revisions.map(() => true),
+        ),
         configs: referencePresets.map(() => true),
       },
     });

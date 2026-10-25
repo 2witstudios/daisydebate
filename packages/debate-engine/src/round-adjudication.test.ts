@@ -2,15 +2,15 @@ import { assertRejects } from '@daisy/errors/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   emptyCheckpoint,
-  practiceRules,
-  practiceSeats,
+  oneOnOneRules,
+  oneOnOneSeats,
   roundAt,
   runtimeWorld,
 } from './runtime.test-support';
 
 setupRitewayBun();
 const opened = () => {
-  const rules = practiceRules();
+  const rules = oneOnOneRules();
   const first = rules.segments[0]!;
   return runtimeWorld({
     status: 'active',
@@ -82,12 +82,12 @@ test('both absent abandons without inventing a winner', () => {
   });
 });
 test('historical speech absence remains tied to its speaker after another seat holds a later floor', () => {
-  const rules = practiceRules();
+  const rules = oneOnOneRules();
   const holderId = 'n'.repeat(24);
   const world = runtimeWorld({
     status: 'active',
     rules,
-    participants: practiceSeats.map((seat, index) =>
+    participants: oneOnOneSeats.map((seat, index) =>
       index === 1 ? { ...seat, id: holderId } : seat,
     ),
     checkpoint: {
@@ -153,7 +153,7 @@ test('early, foreign, wrong-side and final-speech attendance decisions refuse at
     actual: world.position(roundAt(55_000)),
     expected: before,
   });
-  const rules = practiceRules();
+  const rules = oneOnOneRules();
   const last = rules.segments.filter((s) => s.type === 'speech').at(-1)!;
   const sequence = rules.segments.indexOf(last);
   const final = runtimeWorld({

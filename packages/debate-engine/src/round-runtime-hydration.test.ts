@@ -2,13 +2,13 @@ import { assertRejects } from '@daisy/errors/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   completedSchedule,
-  practiceCast,
+  oneOnOneCast,
   runtimeWorld as runtime,
 } from './runtime.test-support';
 
 setupRitewayBun();
 
-const { rules, at } = practiceCast();
+const { rules, at } = oneOnOneCast();
 
 describe('round runtime hydration', () => {
   test('reconstructs the exact legal position from durable rows and the checkpoint', () => {

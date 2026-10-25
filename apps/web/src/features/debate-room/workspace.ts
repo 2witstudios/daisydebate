@@ -64,7 +64,7 @@ export function activateTab(tabs: TabsState, id: string): TabsState {
   return tabs.open.includes(id) ? { ...tabs, active: id } : tabs;
 }
 
-/** A ranked round is rated; casual and practice rounds are not. */
+/** A ranked round is rated; a casual round is not. */
 export const roundKindOf = (competition: CompetitionType): RoundKind =>
   competition === 'ranked' ? 'rated' : 'unrated';
 

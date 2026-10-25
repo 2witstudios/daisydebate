@@ -1,4 +1,8 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import {
+  oneOnOneFormatFixture,
+  plainRoomConfig,
+} from './format-fixtures.test-support';
 import { roomCommandSchema, roomCreateSchema } from './room-contract';
 
 setupRitewayBun();
@@ -26,6 +30,44 @@ describe('Room command boundary', () => {
       expected: [
         [true, true],
         [true, true],
+        [false, false],
+      ],
+    });
+  });
+  test('creates an unranked Room only as casual (DEC-233)', () => {
+    const create = (selection: Record<string, unknown>) =>
+      roomCreateSchema.safeParse({
+        commandId,
+        title: 'Title',
+        topic: 'Topic',
+        visibility: 'public',
+        selection,
+      }).success;
+    const catalog = (competitionType: string) => ({
+      kind: 'catalog',
+      formatId: 'one-on-one',
+      formatVersion: 1,
+      length: 'full',
+      competitionType,
+      config: plainRoomConfig,
+    });
+    const custom = (competitionType: string) => ({
+      kind: 'custom',
+      definition: oneOnOneFormatFixture,
+      length: 'full',
+      competitionType,
+      config: plainRoomConfig,
+    });
+    assert({
+      given: 'catalog and custom selections naming casual, practice and ranked',
+      should: 'accept only casual, so no practice Room can be created',
+      actual: ['casual', 'practice', 'ranked'].map((type) => [
+        create(catalog(type)),
+        create(custom(type)),
+      ]),
+      expected: [
+        [true, true],
+        [false, false],
         [false, false],
       ],
     });

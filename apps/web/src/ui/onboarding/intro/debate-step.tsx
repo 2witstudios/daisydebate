@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import {
   oneOnOneDefinition,
-  practiceRoomConfig,
+  oneOnOneRoomConfig,
 } from '@daisy/db/reference-formats';
 import { cn } from '../../cn';
 import { NextLink, OnboardingFrame, StepFooter } from '../frame/frame';
@@ -38,11 +38,11 @@ function segmentClass(turn: IntroTurn): string {
     : 'bg-hue-clay text-surface-raised';
 }
 
-/** The schedule the intro shows: the practice room's resolved segments. */
+/** The schedule the intro shows: the one-on-one casual room's resolved segments. */
 const introRules = (() => {
   const resolved = resolveRoomConfiguration(
     oneOnOneDefinition,
-    practiceRoomConfig,
+    oneOnOneRoomConfig,
   );
   if (!resolved.ok) throw new Error(resolved.refusal.message);
   return resolved.rules;

@@ -67,7 +67,7 @@ link does not arrive, wait a minute and ask again.
 The **Foundation** template has two speeches and no judge. It finishes
 "Unjudged".
 
-1. Host: **Play**, then **Open a practice room**. Choose the Foundation
+1. Host: **Play**, then **Open a casual room**. Choose the Foundation
    template, a Room name and topic, **Who can find the room: Public**, then
    **Create room**.
 2. Host: **Edit settings**, set each constructive speech to 1:00 so the demo is

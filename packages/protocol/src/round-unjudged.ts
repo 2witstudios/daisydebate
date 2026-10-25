@@ -1,9 +1,10 @@
 import { z } from 'zod';
 import { debateSides, idSchema, type DebateSide } from './primitives';
+import type { CompetitionType } from './round';
 
 /** Internal facts from the locked Round; never a public command body. */
 export type RoundUnjudgedCompletion = {
-  readonly competitionType: 'casual' | 'practice' | 'ranked';
+  readonly competitionType: CompetitionType;
   readonly now: string;
   /** The Round's stored ballots and the deadline persisted at its freeze (DEC-201, DEC-207). */
   readonly ballots: readonly {

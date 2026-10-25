@@ -6,12 +6,12 @@ import { normalizeRoundClock, type ClockState } from './round-clock-state';
 import { createRoundRuntime } from './round-runtime';
 import {
   emptyCheckpoint,
-  practiceRules,
-  practiceSeats,
+  oneOnOneRules,
+  oneOnOneSeats,
   roundAt,
 } from './runtime.test-support';
 setupRitewayBun();
-const rules = practiceRules();
+const rules = oneOnOneRules();
 const origin = Date.parse(roundAt(0));
 const round = {
   status: 'active' as const,
@@ -66,7 +66,7 @@ test('interrupted CX closes and clears floor before the next speech', () => {
   const checkpoint = {
     ...emptyCheckpoint,
     floor: {
-      holder_participant_id: practiceSeats[0].id,
+      holder_participant_id: oneOnOneSeats[0].id,
       granted_at: roundAt(330_000),
     },
   };
@@ -74,7 +74,7 @@ test('interrupted CX closes and clears floor before the next speech', () => {
   const runtime = createRoundRuntime({
     ...input,
     round: { ...round, id: 'round', currentStage: 'live' },
-    participants: practiceSeats,
+    participants: oneOnOneSeats,
     nextSegmentId: () => {
       throw new Error('read allocated an ID');
     },
@@ -99,7 +99,7 @@ test('interrupted CX closes and clears floor before the next speech', () => {
     given: 'pure prediction',
     should: 'preserve the persisted interruption',
     actual: checkpoint.floor.holder_participant_id,
-    expected: practiceSeats[0].id,
+    expected: oneOnOneSeats[0].id,
   });
 });
 
@@ -209,7 +209,7 @@ test('hydration rejects overlapping intervals before either reader advances', as
       createRoundRuntime({
         ...malformed,
         round: { ...round, id: 'round', currentStage: 'live' },
-        participants: practiceSeats,
+        participants: oneOnOneSeats,
         nextSegmentId: () => 'unused',
       }),
     code: 'INVARIANT',

@@ -2,10 +2,10 @@ import { assertRejects } from '@daisy/errors/testing';
 import { setupRitewayBun, test } from 'riteway/bun';
 import { assertAttendanceRules } from './attendance-policy';
 import { attendancePolicy } from './attendance';
-import { practiceRules } from './runtime.test-support';
+import { oneOnOneRules } from './runtime.test-support';
 setupRitewayBun();
 test('attendance rule guards preserve reconnect grace speech coverage and transaction buffer', async () => {
-  const rules = practiceRules();
+  const rules = oneOnOneRules();
   for (const fixture of [
     {
       rules,

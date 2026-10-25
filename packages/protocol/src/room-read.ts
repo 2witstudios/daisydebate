@@ -2,7 +2,11 @@ import { z } from 'zod';
 import { idSchema, debateRoleSchema } from './primitives';
 import { formatDefinitionSchema, roundRulesSchema } from './format';
 import { roomConfigSchema, roomExecutionPlanSchema } from './room';
-import { roundLengthSchema, roundStatusSchema } from './round';
+import {
+  competitionTypes,
+  roundLengthSchema,
+  roundStatusSchema,
+} from './round';
 const version = z.int().positive();
 const visibility = z.enum(['public', 'unlisted', 'private']);
 const nullableTimestamp = z.iso.datetime({ offset: true }).nullable();
@@ -68,7 +72,7 @@ export const roomViewSchema = z.strictObject({
   formatId: z.string().min(1),
   formatVersion: version,
   presetVersion: version.nullable(),
-  competitionType: z.enum(['casual', 'practice', 'ranked']),
+  competitionType: z.enum(competitionTypes),
   length: roundLengthSchema,
   definition: formatDefinitionSchema,
   config: roomConfigSchema,

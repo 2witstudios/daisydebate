@@ -1,5 +1,6 @@
 import { seatSlotsComplete } from '@daisy/protocol';
 import type {
+  CompetitionType,
   RoomConfig,
   RoomExecutionPlan,
   RoundRules,
@@ -23,7 +24,7 @@ export type NewRoom = {
   readonly formatId: string;
   readonly formatVersion: number;
   readonly presetVersion: number | null;
-  readonly competitionType: 'ranked' | 'casual' | 'practice';
+  readonly competitionType: CompetitionType;
   readonly length: 'full' | 'quick';
   readonly config: RoomConfig;
   readonly executionPlan: RoomExecutionPlan;

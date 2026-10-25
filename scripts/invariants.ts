@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import {
   oneOnOneDefinition,
-  practiceRoomConfig,
+  oneOnOneRoomConfig,
 } from '@daisy/db/reference-formats';
 import {
   createRoundRuntime,
@@ -28,8 +28,8 @@ const person = 'a7b3c9d1e5f2k4m6n8p1r3t5';
 const opponent = 'c8d4e2f6a1b3k5m7n9p2r4t6';
 const judge = 'd5e8f2a4c6b1k3m7n9p2r4t6';
 
-/** The one-on-one practice rules the fixtures drive; throws when refused. */
-const rules = (config = practiceRoomConfig): RoundRules => {
+/** The one-on-one casual rules the fixtures drive; throws when refused. */
+const rules = (config = oneOnOneRoomConfig): RoundRules => {
   const outcome = resolveRoomConfiguration(oneOnOneDefinition, config);
   if (!outcome.ok) throw new Error(outcome.refusal.message);
   return outcome.rules;
@@ -169,7 +169,7 @@ const fixtures: Readonly<Record<string, Fixture>> = {
   'prep-requires-capability': () =>
     round({
       status: 'active',
-      rules: rules({ ...practiceRoomConfig, inRoundPrep: { enabled: false } }),
+      rules: rules({ ...oneOnOneRoomConfig, inRoundPrep: { enabled: false } }),
     }).execute({
       command: { type: 'start_prep' },
       actorId: person,

@@ -88,7 +88,7 @@ refused with `debate.rating.volatility-converges`. Both are registered in
 the key `(actor, format, season, ladder)`, and `debates.mode` gains `quick`.
 The ladder vocabulary lives in `@daisy/protocol` beside the debate roles, and
 the CHECKs derive from it. `mode = 'ranked'` rates on the Ranked ladder and
-`mode = 'quick'` on the Quick match ladder; casual and practice never rate.
+`mode = 'quick'` on the Quick match ladder; casual never rates.
 Both ladders require canonical rules on a ranked-eligible format (ADR 0030).
 
 ### 6. Seasons carry the rating forward

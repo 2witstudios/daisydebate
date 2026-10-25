@@ -277,7 +277,7 @@ this record or approval of product limits. The implemented branch follows
 accepted ADR 0058/0059 and the separately authorized full Room outcome.
 
 The Room assembly has a trusted host, saved title/topic/visibility, pinned
-format/config/rules and version. Casual and practice creation accept any
+format/config/rules and version. Casual creation accepts any
 compiler-legal two-sided definition, including unequal declared seats and
 speech counts, host-selected order and per-segment timing. Ranked creation
 uses the stored sanctioned one-on-one preset. Four-team placement is excluded.

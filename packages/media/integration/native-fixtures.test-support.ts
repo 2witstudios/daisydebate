@@ -28,7 +28,7 @@ export async function withHistoricalSeat(
       id: roundId,
       createdByActorId: null,
       resolution: 'Synthetic native media clock proof',
-      competitionType: 'practice',
+      competitionType: 'casual',
       length: 'full',
       formatId: 'foundation',
       formatVersion: 1,

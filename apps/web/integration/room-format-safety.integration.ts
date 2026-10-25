@@ -3,7 +3,7 @@ import { requireTestServices } from '@daisy/config';
 import { executeRoomCommand } from '@daisy/debate-engine';
 import { assertRejects } from '@daisy/errors/testing';
 import {
-  practiceFormatFixture,
+  oneOnOneFormatFixture,
   invalidFormatDefinitions,
   unsafeFormatDefinitions,
 } from '@daisy/protocol/testing';
@@ -27,7 +27,7 @@ test('unsafe custom create and update preserve Room, definitions, receipts and o
       selection: {
         kind: 'custom',
         definition: {
-          ...practiceFormatFixture,
+          ...oneOnOneFormatFixture,
           seats: { affirmative: 2, negative: 1, judge: 0 },
         },
         config,

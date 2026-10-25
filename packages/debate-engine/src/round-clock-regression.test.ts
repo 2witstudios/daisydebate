@@ -2,14 +2,14 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createRoundRuntime } from './round-runtime';
 import {
   emptyCheckpoint,
-  practiceRules,
-  practiceSeats,
+  oneOnOneRules,
+  oneOnOneSeats,
   roundAt,
 } from './runtime.test-support';
 setupRitewayBun();
 const clockWorld = (
   checkpoint: unknown = emptyCheckpoint,
-  rules = practiceRules(),
+  rules = oneOnOneRules(),
 ) => {
   let calls = 0;
   const runtime = createRoundRuntime({
@@ -22,7 +22,7 @@ const clockWorld = (
       outcome: null,
     },
     rules,
-    participants: practiceSeats,
+    participants: oneOnOneSeats,
     checkpoint,
     segments: [],
     nextSegmentId: () => `id-${++calls}`,
@@ -51,7 +51,7 @@ test('refused commands discard boundary advancement before allocating IDs', asyn
     actual: () =>
       runtime.execute({
         command: { type: 'start_prep' },
-        actorId: practiceSeats[0].actorId,
+        actorId: oneOnOneSeats[0].actorId,
         now: roundAt(10_000),
       }),
     code: 'CONFLICT',
@@ -88,7 +88,7 @@ test('start-speech refuses exactly at prep expiry without consuming IDs or prep'
     actual: () =>
       runtime.execute({
         command: { type: 'start_speech' },
-        actorId: practiceSeats[0].actorId,
+        actorId: oneOnOneSeats[0].actorId,
         now: roundAt(241_000),
       }),
     code: 'INVARIANT',
@@ -110,12 +110,12 @@ test('an interrupter yield returns the floor without closing the segment or cred
   runtime.tick(roundAt(330_000));
   runtime.execute({
     command: { type: 'interrupt' },
-    actorId: practiceSeats[0].actorId,
+    actorId: oneOnOneSeats[0].actorId,
     now: roundAt(330_000),
   });
   const yielded = runtime.execute({
     command: { type: 'yield' },
-    actorId: practiceSeats[0].actorId,
+    actorId: oneOnOneSeats[0].actorId,
     now: roundAt(340_000),
   });
   assert({
@@ -133,7 +133,7 @@ test('an interrupter yield returns the floor without closing the segment or cred
 
 test('configured prep expiry refuses the first reached speech atomically and permits an earlier speech', async () => {
   const { assertRejects } = await import('@daisy/errors/testing');
-  const rules = practiceRules();
+  const rules = oneOnOneRules();
   const { runtime, calls } = clockWorld(emptyCheckpoint, {
     ...rules,
     inRoundPrep: { ...rules.inRoundPrep!, expiresAtSegment: 'AC' },
@@ -145,7 +145,7 @@ test('configured prep expiry refuses the first reached speech atomically and per
     actual: () =>
       runtime.execute({
         command: { type: 'start_prep' },
-        actorId: practiceSeats[0].actorId,
+        actorId: oneOnOneSeats[0].actorId,
         now: roundAt(1_000),
       }),
     code: 'INVARIANT',
@@ -163,7 +163,7 @@ test('configured prep expiry refuses the first reached speech atomically and per
   });
   earlier.runtime.execute({
     command: { type: 'start_prep' },
-    actorId: practiceSeats[0].actorId,
+    actorId: oneOnOneSeats[0].actorId,
     now: roundAt(1_000),
   });
   assert({

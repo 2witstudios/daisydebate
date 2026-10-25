@@ -2,21 +2,21 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { FormatDefinition } from '@daisy/protocol';
 import {
   oneOnOneDefinition,
-  practiceConfig,
-  practiceRules,
+  oneOnOneConfig,
+  oneOnOneRules,
 } from './runtime.test-support';
 import { resolveRoomConfiguration } from './resolve-room-configuration';
 
 setupRitewayBun();
 
 describe('resolveRoomConfiguration', () => {
-  test('resolves the practice room into room-executed and round-executed halves', () => {
+  test('resolves the one-on-one casual room into room-executed and round-executed halves', () => {
     const outcome = resolveRoomConfiguration(
       oneOnOneDefinition,
-      practiceConfig,
+      oneOnOneConfig,
     );
     assert({
-      given: 'the one-on-one definition and the practice config',
+      given: 'the one-on-one definition and its casual config',
       should: 'resolve every segment at its default with prep and interaction',
       actual: outcome.ok && {
         keys: outcome.rules.segments.map((segment) => segment.key),
@@ -43,7 +43,7 @@ describe('resolveRoomConfiguration', () => {
 
   test('resolves a partial override and keeps the rest at the defaults', () => {
     const outcome = resolveRoomConfiguration(oneOnOneDefinition, {
-      ...practiceConfig,
+      ...oneOnOneConfig,
       speechTiming: {
         countdownMs: 5_000,
         segmentDurationOverrides: { NC: 240_000, '2AR': 120_000 },
@@ -62,21 +62,21 @@ describe('resolveRoomConfiguration', () => {
   test('refuses a value outside the declared bounds as out-of-range', () => {
     const outcomes = [
       resolveRoomConfiguration(oneOnOneDefinition, {
-        ...practiceConfig,
+        ...oneOnOneConfig,
         speechTiming: {
           countdownMs: 120_000,
           segmentDurationOverrides: {},
         },
       }),
       resolveRoomConfiguration(oneOnOneDefinition, {
-        ...practiceConfig,
+        ...oneOnOneConfig,
         speechTiming: {
           countdownMs: 10_000,
           segmentDurationOverrides: { AC: 30_000 },
         },
       }),
       resolveRoomConfiguration(oneOnOneDefinition, {
-        ...practiceConfig,
+        ...oneOnOneConfig,
         inRoundPrep: { enabled: true, budgetMsPerSide: 900_000 },
       }),
     ];
@@ -105,9 +105,9 @@ describe('resolveRoomConfiguration', () => {
       },
     };
     const outcomes = [
-      resolveRoomConfiguration(forbidding, practiceConfig),
+      resolveRoomConfiguration(forbidding, oneOnOneConfig),
       resolveRoomConfiguration(forbidding, {
-        ...practiceConfig,
+        ...oneOnOneConfig,
         inRoundPrep: { enabled: false },
         interruptions: null,
         yielding: null,
@@ -126,7 +126,7 @@ describe('resolveRoomConfiguration', () => {
       given: 'the same config minus every forbidden capability',
       should: 'resolve cleanly: declined is just absent from the rules',
       actual: resolveRoomConfiguration(forbidding, {
-        ...practiceConfig,
+        ...oneOnOneConfig,
         inRoundPrep: { enabled: false },
         interruptions: null,
         yielding: null,
@@ -151,7 +151,7 @@ describe('resolveRoomConfiguration', () => {
             },
           },
         },
-        { ...practiceConfig, yielding: { allowed: false, returnsTime: true } },
+        { ...oneOnOneConfig, yielding: { allowed: false, returnsTime: true } },
       ),
       resolveRoomConfiguration(
         {
@@ -168,7 +168,7 @@ describe('resolveRoomConfiguration', () => {
           },
         },
         {
-          ...practiceConfig,
+          ...oneOnOneConfig,
           interruptions: { mode: 'enabled', minRemainingMs: 30_000 },
         },
       ),
@@ -186,7 +186,7 @@ describe('resolveRoomConfiguration', () => {
   test('refuses unknown segment keys in overrides and in prep expiry', () => {
     const outcomes = [
       resolveRoomConfiguration(oneOnOneDefinition, {
-        ...practiceConfig,
+        ...oneOnOneConfig,
         speechTiming: {
           countdownMs: 10_000,
           segmentDurationOverrides: { NR2: 300_000 },
@@ -204,7 +204,7 @@ describe('resolveRoomConfiguration', () => {
             },
           },
         },
-        practiceConfig,
+        oneOnOneConfig,
       ),
     ];
     assert({
@@ -235,7 +235,7 @@ describe('resolveRoomConfiguration', () => {
       },
     } as unknown as FormatDefinition;
     const outcome = resolveRoomConfiguration(untimed, {
-      ...practiceConfig,
+      ...oneOnOneConfig,
       speechTiming: { countdownMs: 10_000, segmentDurationOverrides: {} },
     });
     assert({
@@ -251,7 +251,7 @@ describe('resolveRoomConfiguration', () => {
       given: 'a room choosing only its prep budget',
       should:
         'copy spendableBefore and expiresAtSegment from the definition verbatim',
-      actual: practiceRules().inRoundPrep,
+      actual: oneOnOneRules().inRoundPrep,
       expected: {
         budgetMsPerSide: 240_000,
         spendableBefore: ['speech'],
@@ -278,7 +278,7 @@ test('null controls cannot omit declared interaction choices', () => {
       },
     };
     const config = {
-      ...practiceConfig,
+      ...oneOnOneConfig,
       interruptions: {
         mode: restricted ? ('enabled' as const) : ('disabled' as const),
         minRemainingMs: 0,

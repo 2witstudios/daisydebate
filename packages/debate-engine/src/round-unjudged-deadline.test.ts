@@ -2,8 +2,8 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { decideUnjudgedCompletion, freezeJudgingPlan } from './round-unjudged';
 import {
-  practiceRules,
-  practiceSeats,
+  oneOnOneRules,
+  oneOnOneSeats,
   roundAt,
   runtimeWorld,
 } from './runtime.test-support';
@@ -101,8 +101,8 @@ test('the ballot deadline decides when a Round without a full ruling completes (
   });
 });
 
-const rules = practiceRules();
-const judge = practiceSeats.find((seat) => seat.role === 'judge')!;
+const rules = oneOnOneRules();
+const judge = oneOnOneSeats.find((seat) => seat.role === 'judge')!;
 const total = rules.segments.reduce(
   (sum, s) => sum + s.durationMs + rules.countdownMs,
   0,

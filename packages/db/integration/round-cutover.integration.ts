@@ -9,7 +9,7 @@ import { newRoomValues } from '../src/room-operations';
 import { rooms } from '../src/schema/rooms';
 import {
   oneOnOneDefinition,
-  practiceRoomConfig,
+  oneOnOneRoomConfig,
 } from '../src/reference-formats';
 import { validConfig, validRules } from './round-fixtures';
 import { withFixture } from './constraint-helpers';
@@ -107,9 +107,9 @@ test('a room waits for every seat and finishes durable pre-round prep before fre
               formatId,
               formatVersion: 1,
               presetVersion: null,
-              competitionType: 'practice',
+              competitionType: 'casual',
               length: 'full',
-              config: { ...practiceRoomConfig, preRoundPrep: prep },
+              config: { ...oneOnOneRoomConfig, preRoundPrep: prep },
               executionPlan: { preRoundPrep: prep },
               rules,
             },

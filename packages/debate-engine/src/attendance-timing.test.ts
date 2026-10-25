@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { oneOnOneDefinition, practiceConfig } from './runtime.test-support';
+import { oneOnOneDefinition, oneOnOneConfig } from './runtime.test-support';
 import { resolveRoomConfiguration } from './resolve-room-configuration';
 setupRitewayBun();
 
@@ -23,7 +23,7 @@ const custom = (durationMs: number) => ({
 });
 test('custom actual speech duration must cover the forty-second attendance grace', () => {
   for (const duration of [39999, 40000, 75000]) {
-    const resolved = resolveRoomConfiguration(custom(duration), practiceConfig);
+    const resolved = resolveRoomConfiguration(custom(duration), oneOnOneConfig);
     assert({
       given: `custom speech default ${duration}ms`,
       should: 'refuse below grace and preserve legal durations exactly',
@@ -33,9 +33,9 @@ test('custom actual speech duration must cover the forty-second attendance grace
       expected: duration < 40000 ? 'out-of-range' : duration,
     });
     const overridden = resolveRoomConfiguration(custom(75000), {
-      ...practiceConfig,
+      ...oneOnOneConfig,
       speechTiming: {
-        ...practiceConfig.speechTiming,
+        ...oneOnOneConfig.speechTiming,
         segmentDurationOverrides: { AC: duration },
       },
     });
@@ -67,7 +67,7 @@ test('interaction-only durations remain independent of speech attendance grace',
       },
     },
   };
-  const result = resolveRoomConfiguration(definition, practiceConfig);
+  const result = resolveRoomConfiguration(definition, oneOnOneConfig);
   assert({
     given: 'one-second CX intervals',
     should: 'preserve valid CX without imposing speech grace',

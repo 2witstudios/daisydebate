@@ -4,7 +4,7 @@ import {
   fixtureRules,
   invalidFormatDefinitions,
   unsafeFormatDefinitions,
-  practiceFormatFixture,
+  oneOnOneFormatFixture,
 } from './format-fixtures.test-support';
 
 setupRitewayBun();
@@ -68,9 +68,9 @@ test('resource boundary accepts unequal sides and optional judges with speech or
       'admit unequal rosters without requiring judges or a speech per side',
     actual: variants.map((seats) => {
       const definition = {
-        ...practiceFormatFixture,
+        ...oneOnOneFormatFixture,
         seats,
-        segments: practiceFormatFixture.segments.map((s) =>
+        segments: oneOnOneFormatFixture.segments.map((s) =>
           s.side === 'negative' ? { ...s, type: 'cross_ex' as const } : s,
         ),
       };

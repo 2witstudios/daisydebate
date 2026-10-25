@@ -3,7 +3,7 @@ import { emptyRuntimeCheckpoint, isNamedSeat, roundViewSchema } from './index';
 import {
   fixtureRules,
   plainRoomConfig,
-  practiceFormatFixture,
+  oneOnOneFormatFixture,
 } from './format-fixtures.test-support';
 
 setupRitewayBun();
@@ -11,7 +11,7 @@ setupRitewayBun();
 const id = (c: string) => c.repeat(24);
 const at = (minute: number) =>
   `2026-10-12T18:${String(minute).padStart(2, '0')}:00.000Z`;
-const rules = fixtureRules(practiceFormatFixture);
+const rules = fixtureRules(oneOnOneFormatFixture);
 const segment = (sequence: number) => ({
   id: id(String.fromCharCode(97 + sequence)),
   sequence,

@@ -83,7 +83,7 @@ await applyDevSeed({
       createdBy: people[0].actorId,
       resolution,
       format: 'foundation',
-      mode: 'practice',
+      mode: 'casual',
       visibility: 'private',
       snapshot: {
         version: 1,

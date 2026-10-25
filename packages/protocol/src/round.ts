@@ -3,10 +3,11 @@ import { debateSideSchema, idSchema } from './primitives';
 
 /**
  * The one competition vocabulary (ADR 0058): ratedness comes from
- * `competition_type` alone. What was `quick` is a preset dimension, not a
- * competition type — `roundLengths` below.
+ * `competition_type` alone, and casual is the one unranked type (DEC-233).
+ * What was `quick` is a preset dimension, not a competition type —
+ * `roundLengths` below.
  */
-export const competitionTypes = ['ranked', 'casual', 'practice'] as const;
+export const competitionTypes = ['ranked', 'casual'] as const;
 export type CompetitionType = (typeof competitionTypes)[number];
 
 /** The preset dimension (`format_presets.length`): full or quick. */

@@ -3,7 +3,7 @@ import { requireTestServices } from '@daisy/config';
 import { buildDebateTopic } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createDatabase } from '../src';
-import { practiceRoomConfig } from '../src/reference-formats';
+import { oneOnOneRoomConfig } from '../src/reference-formats';
 import { validRules } from './round-fixtures';
 import {
   createScheduledRound,
@@ -34,7 +34,7 @@ test('Room freeze appends the scheduled Round phase signal in its transaction', 
       preset_version: null,
       competition_type: 'casual',
       length: 'full',
-      config: practiceRoomConfig,
+      config: oneOnOneRoomConfig,
       execution_plan: { preRoundPrep: { enabled: false } },
       rules_snapshot: validRules,
       status: 'ready',

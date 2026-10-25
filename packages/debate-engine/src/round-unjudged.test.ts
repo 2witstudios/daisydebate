@@ -1,27 +1,25 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
+import type { CompetitionType } from '@daisy/protocol';
 import {
-  practiceRules,
-  practiceSeats,
+  oneOnOneRules,
+  oneOnOneSeats,
   roundAt,
   runtimeWorld,
 } from './runtime.test-support';
 
 setupRitewayBun();
 const rules = {
-  ...practiceRules(),
+  ...oneOnOneRules(),
   seats: { affirmative: 1, negative: 1, judge: 0 },
 };
-const participants = practiceSeats.filter((seat) => seat.role !== 'judge');
+const participants = oneOnOneSeats.filter((seat) => seat.role !== 'judge');
 const total = rules.segments.reduce(
   (sum, s) => sum + s.durationMs + rules.countdownMs,
   0,
 );
 /** Completion facts with no ballots and a deadline that has long passed. */
-const facts = (
-  competitionType: 'casual' | 'practice' | 'ranked',
-  now: string,
-) => ({
+const facts = (competitionType: CompetitionType, now: string) => ({
   competitionType,
   now,
   ballots: [],
@@ -92,13 +90,12 @@ test('zero-judge casual completion projects an unjudged terminal result in the s
 test('unjudged completion refuses with the zero-judge casual invariant and preserves state', async () => {
   const cases = [
     { world: played(), competitionType: 'ranked' as const },
-    { world: played(), competitionType: 'practice' as const },
     {
-      world: closedWith({ participants: practiceSeats }),
+      world: closedWith({ participants: oneOnOneSeats }),
       competitionType: 'casual' as const,
     },
     {
-      world: closedWith({ rules: practiceRules() }),
+      world: closedWith({ rules: oneOnOneRules() }),
       competitionType: 'casual' as const,
     },
     {

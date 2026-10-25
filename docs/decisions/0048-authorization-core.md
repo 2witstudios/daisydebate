@@ -12,7 +12,7 @@ stay open until the owner confirms or overrules them.
 ## Context
 
 Daisy launches with two kinds of play: ranked play on Daisy's own ladder, and
-unranked play (casual and practice debates, any format, public, unlisted or
+unranked play (casual debates, any format, public, unlisted or
 private). Daisy owns the formats and the ladder: ranked runs a format's
 canonical rules (ADR 0030) and produces the ratings everyone competes on, one
 ladder per format and season, like weight classes. Every access question at
@@ -40,7 +40,7 @@ named as future work only.
 | Concept         | What it is                                                                                       | Where it lives       |
 | --------------- | ------------------------------------------------------------------------------------------------ | -------------------- |
 | Ranked debate   | `mode = 'ranked'`: a ranked-eligible format under its canonical rules, counted on Daisy's ladder | `debates.mode`       |
-| Unranked debate | `mode = 'casual'` or `'practice'`, any format, public, unlisted or private                       | `debates.mode`       |
+| Unranked debate | `mode = 'casual'`, any format, public, unlisted or private                                       | `debates.mode`       |
 | Season, rating  | Global: one active season, ratings per `(actor, format, season)` (ADR 0029)                      | `seasons`, `ratings` |
 | League          | Future tenant for tournaments. None exists at launch (section 6)                                 | LEAGUE-OPS           |
 | Capability      | A closed vocabulary of things that can be asked                                                  | `@daisy/protocol`    |
