@@ -29,6 +29,7 @@ const broker = (
       workerUrl: world.input.workerUrl,
       nextId: world.input.nextId,
       deadline: world.input.deadline,
+      hold: createRoundMediaOperations(world.input).holdForCapture,
     }),
   };
 };
@@ -155,43 +156,27 @@ test('a lost lease or foreign session is refused', async () => {
   });
 });
 
-/** The world as a browser reconcile holding its session would show it. */
-const reconciling = (world: ReturnType<typeof createMediaWorld>) => {
-  const reading = world.input.store.readMediaSession;
-  return {
-    ...world,
-    input: {
-      ...world.input,
-      store: {
-        ...world.input.store,
-        readMediaSession: (async (request: Parameters<typeof reading>[0]) => {
-          const state = await reading(request);
-          return (
-            state && {
-              ...state,
-              reconciling: true,
-            }
-          );
-        }) as typeof reading,
-      },
-    },
-  } as typeof world;
-};
-
-test('a capture token requested during a browser reconcile is refused for now, not in conflict', async () => {
+test('a capture token requested while another reconcile holds the session waits for its own reconcile and is issued', async () => {
   const world = createMediaWorld();
   await createRoundMediaOperations(world.input).session(
     world.roundId,
     world.seats[0].actorId,
   );
-  const { tokens } = broker(reconciling(world));
-  await assertRejects({
+  const before = world.reconciles();
+  world.holdClaims(2);
+  const { tokens } = broker(world);
+  const minted = await tokens.captureToken(scope(world), authenticated(world));
+  assert({
     given:
-      "a leased worker asking for its token while a browser's reconcile holds a live session",
+      'a leased worker asking for its token while recovery or a browser reconciles the live session back to back',
     should:
-      'refuse as temporarily unavailable, which the worker retries, never as a definite conflict that ends its epoch (ISSUE-494)',
-    code: 'INFRASTRUCTURE',
-    actual: () => tokens.captureToken(scope(world), authenticated(world)),
+      'wait for the lease, issue the token inside its own reconcile and never refuse it as unresolved recovery (ISSUE-551)',
+    actual: [
+      minted.roomName,
+      world.reconciles() - before,
+      world.state().unsafe,
+    ],
+    expected: [world.roomName, 1, false],
   });
 });
 
@@ -202,7 +187,7 @@ test("a terminal Round's capture token is refused for good, whoever holds the se
     world.seats[0].actorId,
   );
   world.end();
-  const { tokens } = broker(reconciling(world));
+  const { tokens } = broker(world);
   const refused = await tokens
     .captureToken(scope(world), authenticated(world))
     .then(
@@ -216,5 +201,56 @@ test("a terminal Round's capture token is refused for good, whoever holds the se
       'refuse definitely as an ended capture session, so the worker stops instead of retrying (ISSUE-494)',
     actual: refused,
     expected: ['CONFLICT', 'Capture session has ended'],
+  });
+});
+
+test('a capture token whose own reconcile only cleans up is refused for now', async () => {
+  const world = createMediaWorld();
+  const operations = createRoundMediaOperations(world.input);
+  await operations.session(world.roundId, world.seats[0].actorId);
+  world.connect(world.seats[1].id, {
+    publish: [],
+    subscribe: false,
+    hidden: false,
+  });
+  world.fail('updateParticipant');
+  await operations.reconcile(world.roundId).catch(() => undefined);
+  const { tokens } = broker(world);
+  await assertRejects({
+    given:
+      'a live session left unsafe by an unknown vendor outcome, so the reconcile cleans up and never reaches the issue',
+    should:
+      'refuse as temporarily unavailable, which the worker retries, never as a definite conflict',
+    code: 'INFRASTRUCTURE',
+    actual: () => tokens.captureToken(scope(world), authenticated(world)),
+  });
+});
+
+test('a capture token whose own reconcile leaves an unknown vendor outcome is not minted', async () => {
+  const world = createMediaWorld();
+  await createRoundMediaOperations(world.input).session(
+    world.roundId,
+    world.seats[0].actorId,
+  );
+  world.connect(world.seats[1].id, {
+    publish: [],
+    subscribe: false,
+    hidden: false,
+  });
+  world.fail('updateParticipant');
+  const { tokens } = broker(world);
+  await assertRejects({
+    given:
+      "a capture request whose own reconcile's permissions write fails, leaving the session unsafe with the write pending",
+    should:
+      'refuse for now inside the hold instead of minting into a room the same reconcile then tears down',
+    code: 'INFRASTRUCTURE',
+    actual: () => tokens.captureToken(scope(world), authenticated(world)),
+  });
+  assert({
+    given: 'that refusal',
+    should: "leave the session unsafe for its cleanup, not a minted worker's",
+    actual: world.state().unsafe,
+    expected: true,
   });
 });

@@ -4,32 +4,23 @@ import { createId } from '@paralleldrive/cuid2';
 import { createMediaWorkerAuthentication } from '@daisy/media/internal';
 import { createMediaWorkerClient } from '@daisy/media/worker';
 import { createMediaCaptureHandlers } from '../src/features/media-capture/handlers';
-import { createMediaWorkerTokenBroker } from '../src/features/round-media/worker-token';
 import {
   withMediaRound,
   mediaDependencies,
   tokenClaims,
   captureWorkerScope,
-  captureOperations,
   captureActivityRelay,
   captureHeardRelay,
 } from './round-media.test-support';
+import { captureTokenBroker } from './capture-token.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 
 test('signed native HTTP ingress uses actual lease, snapshot and vendor token producers', async () => {
   await withMediaRound(async (f) => {
     const scope = await captureWorkerScope(f);
-    const capture = captureOperations(f);
+    const { capture, broker } = captureTokenBroker(f);
     const deps = mediaDependencies(f, f.media);
-    const broker = createMediaWorkerTokenBroker({
-      sessions: deps.store,
-      capture,
-      media: deps.media,
-      workerUrl: deps.workerUrl,
-      nextId: deps.nextId,
-      deadline: deps.deadline,
-    });
     const authentication = createMediaWorkerAuthentication({
       secret: Buffer.alloc(32, 9).toString('base64url'),
       now: Date.now,
