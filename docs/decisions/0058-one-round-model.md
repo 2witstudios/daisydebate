@@ -56,7 +56,7 @@ occupied by a human or an AI do not create different round types.
 - **2.** Human, bot, and future participant types occupy the same `RoundParticipant` seats.
 - **3.** `RoundParticipant`s are authoritative records. Round state may carry engine
   position but must never own a second participant collection.
-- **4.** Ranked, casual, practice, tournament, matchmaking and challenge must not create
+- **4.** Ranked, casual, tournament, matchmaking and challenge must not create
   alternate round schemas.
 - **5.** All speeches and transcripts use the same utterance model.
 - **6.** One ballot contract. Every ballot, human or AI, validates against the same
@@ -65,7 +65,7 @@ occupied by a human or an AI do not create different round types.
 - **8.** There are no `ai_round` / `ai_debate` lifecycle tables.
 
 `debates` is renamed `rounds`. `mode` is uncollapsed: `competition_type`
-(`ranked | casual | practice`), `length` (`quick | full`) and `ladder_id` are separate
+(`ranked | casual`; casual is the one unranked type, DEC-233), `length` (`quick | full`) and `ladder_id` are separate
 columns, because `quick` was doing three jobs at once — a rated mode in ADR 0055 §5 and
 a match length in the onboarding questionnaire.
 

@@ -1,14 +1,14 @@
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
-  practiceCast,
-  practiceSeats,
+  oneOnOneCast,
+  oneOnOneSeats,
   runtimeWorld as runtime,
 } from './runtime.test-support';
 
 setupRitewayBun();
 
-const { rules, at, person, opponent } = practiceCast();
+const { rules, at, person, opponent } = oneOnOneCast();
 
 describe('round runtime command refusals and seat order', () => {
   test('forfeit before start abandons without inventing a competition result', () => {
@@ -90,7 +90,7 @@ describe('round runtime command refusals and seat order', () => {
       actual: () =>
         world.execute({
           command: { type: 'interrupt' },
-          actorId: practiceSeats[2].actorId,
+          actorId: oneOnOneSeats[2].actorId,
           now: at(325_000),
         }),
       code: 'CONFLICT',
@@ -132,7 +132,7 @@ describe('round runtime command refusals and seat order', () => {
     });
     const completed = spent.execute({
       command: { type: 'complete', outcome: 'affirmative' },
-      actorId: practiceSeats[2].actorId,
+      actorId: oneOnOneSeats[2].actorId,
       now: at(1_000),
     });
     assert({
@@ -215,10 +215,10 @@ describe('round runtime command refusals and seat order', () => {
     // check sorts the held slots before comparing them.
     const world = runtime({
       participants: [
-        practiceSeats[0],
+        oneOnOneSeats[0],
         second,
-        practiceSeats[1],
-        practiceSeats[2],
+        oneOnOneSeats[1],
+        oneOnOneSeats[2],
       ],
       rules: {
         ...rules,

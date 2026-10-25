@@ -102,7 +102,7 @@ test('Room runtime distinguishes Redis consent loss and authorizes the canonical
 test('Room creation pins resolved rules and replays the accepted receipt before rereading mutable catalog', async () => {
   const body: RoomCreate = {
     commandId: 'c7n6p8r2t4v6x8z1k3b5c7d9',
-    title: 'A persisted practice room',
+    title: 'A persisted casual room',
     topic: 'Cities should make transit free',
     visibility: 'public',
     selection: {

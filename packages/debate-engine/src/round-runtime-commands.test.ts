@@ -2,13 +2,13 @@ import { assertRejects } from '@daisy/errors/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   completedSchedule,
-  practiceCast,
+  oneOnOneCast,
   runtimeWorld as runtime,
 } from './runtime.test-support';
 
 setupRitewayBun();
 
-const { rules, at, person, opponent } = practiceCast();
+const { rules, at, person, opponent } = oneOnOneCast();
 
 describe('round runtime lifecycle', () => {
   describe('round runtime commands', () => {

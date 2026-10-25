@@ -118,7 +118,7 @@ describe('rating a completed round with the engine decision (RATE-1.3)', () => {
     });
   });
 
-  test('never rates practice, abandoned or unfinished rounds', async () => {
+  test('never rates casual, abandoned or unfinished rounds', async () => {
     await inArena(async ({ actor, round, rate, ledger }) => {
       const [first, second] = [await actor(), await actor()];
       const results = [

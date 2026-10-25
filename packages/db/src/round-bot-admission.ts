@@ -70,7 +70,7 @@ async function countLockedReservation(
 /**
  * Called once a Round turns terminal, under its lock. A counted AI practice
  * whose every model call (bot or judge) definitely failed, none received or
- * unknown, gives its allowance back. A practice never counted needs no
+ * unknown, gives its allowance back. An AI practice never counted needs no
  * refund: the allowance spends a reservation only once counted or while its
  * Round is live (ISSUE-469). The refunded_at guard makes a repeat a no-op on
  * any instance (ADR 0058, DEC-211).

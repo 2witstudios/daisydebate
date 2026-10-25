@@ -18,9 +18,9 @@ const count = (html: string, pattern: RegExp) =>
 
 describe('DebateRoom', () => {
   test('the frame before any script runs', () => {
-    const html = render('opponent-speaking', 'practice');
+    const html = render('opponent-speaking', 'casual');
     assert({
-      given: 'a practice round while the opponent speaks',
+      given: 'a casual round while the opponent speaks',
       should:
         'draw the round bar, one drawer with four tabs, the debaters, the centred clock, one video divider and the document',
       actual: [
@@ -37,13 +37,13 @@ describe('DebateRoom', () => {
   });
 
   test('the round bar', () => {
-    const html = render('opponent-speaking', 'practice');
+    const html = render('opponent-speaking', 'casual');
     assert({
-      given: 'a practice round with a human judge, recording',
+      given: 'a casual round with a human judge, recording',
       should:
         'show the kind, the live speech as the current step, the anonymous judge, Rec and Leave',
       actual: [
-        html.includes('>Practice<'),
+        html.includes('>Casual<'),
         html.includes('aria-current="step"'),
         html.includes('>Judge present<'),
         html.includes('● Rec'),
@@ -54,7 +54,7 @@ describe('DebateRoom', () => {
   });
 
   test('no Mute anywhere', () => {
-    const html = render('own-speech', 'practice');
+    const html = render('own-speech', 'casual');
     assert({
       given: 'the debater’s own speech',
       should: 'say the mic is live and offer no mute control',
@@ -67,7 +67,7 @@ describe('DebateRoom', () => {
     assert({
       given: 'the server-rendered room',
       should: 'carry no style attribute the nonce CSP would refuse',
-      actual: /\sstyle="/.test(render('prep', 'practice')),
+      actual: /\sstyle="/.test(render('prep', 'casual')),
       expected: false,
     });
   });
@@ -83,7 +83,7 @@ describe('DebateRoom', () => {
         count(html, /role="tab"/g),
         />AI</.test(html),
         html.includes('Riverside Debate'),
-        render('prep', 'practice').includes('Riverside Debate'),
+        render('prep', 'casual').includes('Riverside Debate'),
       ],
       expected: [true, 3, false, false, true],
     });
@@ -93,7 +93,7 @@ describe('DebateRoom', () => {
     assert({
       given: 'Auto layout during cross-examination',
       should: 'name the preset Auto chose on the menu button',
-      actual: render('cross-ex', 'practice').includes(
+      actual: render('cross-ex', 'casual').includes(
         'aria-label="Layout: Auto, Stage"',
       ),
       expected: true,
@@ -101,7 +101,7 @@ describe('DebateRoom', () => {
   });
 
   test('the speaker layout', () => {
-    const html = render('opponent-speaking', 'practice');
+    const html = render('opponent-speaking', 'casual');
     assert({
       given: 'Auto while the opponent speaks',
       should:
@@ -119,7 +119,7 @@ describe('DebateRoom', () => {
   });
 
   test('cross-examination', () => {
-    const html = render('cross-ex', 'practice');
+    const html = render('cross-ex', 'casual');
     assert({
       given: 'cross-examination',
       should: 'show the asker and the answerer as equal tiles',
@@ -136,8 +136,8 @@ describe('DebateRoom', () => {
       given: 'prep, then judging',
       should: 'make the video small, then hold a conversation',
       actual: [
-        render('prep', 'practice').includes('aria-label="Layout: Auto, Focus"'),
-        render('judging', 'practice').includes(
+        render('prep', 'casual').includes('aria-label="Layout: Auto, Focus"'),
+        render('judging', 'casual').includes(
           'aria-label="Layout: Auto, Conversation"',
         ),
       ],
@@ -192,14 +192,14 @@ describe('DebateRoom', () => {
   });
 
   test('the AI judges', () => {
-    const round = sampleRound('judging', 'practice');
+    const round = sampleRound('judging', 'casual');
     const html = renderRound({
       ...round,
       judge: 'ai',
       ballots: { judge: 'ai', ai: null },
     });
     assert({
-      given: 'a practice round the AI judges, after the last speech',
+      given: 'a casual round the AI judges, after the last speech',
       should: 'show the AI judge’s ballot alone, deciding the result',
       actual: [
         html.includes('>AI judge’s ballot<'),
@@ -211,7 +211,7 @@ describe('DebateRoom', () => {
   });
 
   test('the transcript after the last speech', () => {
-    const html = render('judging', 'practice');
+    const html = render('judging', 'casual');
     assert({
       given: 'the judging window of a transcribed, recorded round',
       should: 'mark the transcript complete and the recording stopped',
@@ -226,7 +226,7 @@ describe('DebateRoom', () => {
   });
 
   test('44px targets and 12px drawer text', () => {
-    const html = render('judging', 'practice');
+    const html = render('judging', 'casual');
     const drawer = html.slice(
       html.indexOf('aria-label="Round drawer"'),
       html.indexOf('id="round-column"'),
@@ -249,7 +249,7 @@ describe('DebateRoom', () => {
   });
 
   test('a bot opponent', () => {
-    const round = sampleRound('opponent-speaking', 'practice');
+    const round = sampleRound('opponent-speaking', 'casual');
     const html = renderRound({
       ...round,
       opponent: {

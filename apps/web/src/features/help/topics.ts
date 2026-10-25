@@ -30,7 +30,7 @@ export const helpTopics: readonly HelpTopic[] = [
     id: 'ranked-or-practice',
     question: 'What is the difference between ranked and practice?',
     answer:
-      'Ranked debates follow the standard rules, use a judge Daisy assigns, and change your rating. Practice rooms are unranked and let the host choose the settings.',
+      'Ranked debates follow the standard rules, use a judge Daisy assigns, and change your rating. Casual rooms are unranked and let the host choose the settings.',
     links: [
       { label: 'Ranked', href: '/ranked' },
       { label: 'Leaderboards', href: '/leaderboard' },

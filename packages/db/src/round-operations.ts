@@ -1,6 +1,10 @@
 import { sampleRoundExecutionTime } from './round-execution-time';
 import { writeSpeakingProjection } from './round-speaking-writer';
-import type { RoundProjection, RoundRules } from '@daisy/protocol';
+import type {
+  CompetitionType,
+  RoundProjection,
+  RoundRules,
+} from '@daisy/protocol';
 import { eq, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
@@ -86,7 +90,7 @@ export const roundOperations = ({
     readonly id: string;
     readonly createdByActorId: string | null;
     readonly resolution: string;
-    readonly competitionType: 'ranked' | 'casual' | 'practice';
+    readonly competitionType: CompetitionType;
     readonly length: 'full' | 'quick';
     readonly formatId: string;
     readonly formatVersion: number;

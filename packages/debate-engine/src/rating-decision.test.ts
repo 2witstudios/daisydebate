@@ -49,24 +49,14 @@ describe('ratingEligibility', () => {
 
   test('never rates unrated competition or an abandoned round', () => {
     assert({
-      given: 'casual and practice rounds, which carry no ladder',
-      should: 'leave them unrated for their competition type',
-      actual: [
-        ratingEligibility({
-          ...completed,
-          competitionType: 'casual',
-          ladderId: null,
-        }),
-        ratingEligibility({
-          ...completed,
-          competitionType: 'practice',
-          ladderId: null,
-        }),
-      ],
-      expected: [
-        { kind: 'unrated', reason: 'competition' },
-        { kind: 'unrated', reason: 'competition' },
-      ],
+      given: 'a casual round, which carries no ladder',
+      should: 'leave it unrated for its competition type',
+      actual: ratingEligibility({
+        ...completed,
+        competitionType: 'casual',
+        ladderId: null,
+      }),
+      expected: { kind: 'unrated', reason: 'competition' },
     });
     assert({
       given: 'an abandoned ranked round',

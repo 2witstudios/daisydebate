@@ -1,7 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { practiceCast, runtimeWorld } from './runtime.test-support';
+import { oneOnOneCast, runtimeWorld } from './runtime.test-support';
 setupRitewayBun();
-const { rules, at, person } = practiceCast();
+const { rules, at, person } = oneOnOneCast();
 const total = rules.segments.reduce(
   (n, s) => n + s.durationMs + rules.countdownMs,
   0,

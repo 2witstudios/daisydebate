@@ -12,7 +12,7 @@ created a `formats` row, format identity would fragment and, since ratings
 key on `(actor, format, season)`, every rule permutation would open a new
 ladder. At the same time the owner asked how the foundation copes with
 clubs, leagues, tournaments, more standard formats, one user driving both
-sides of a practice room, and growth. Most of those are additive; two are
+sides of a casual room, and growth. Most of those are additive; two are
 not, and this ADR decides them now.
 
 ## Decision
@@ -30,12 +30,12 @@ not, and this ADR decides them now.
    equal to its format's canonical rules on a `ranked_eligible` format.
    `rulesMatchFormat(rules, canonical)` in `@daisy/debate-engine` is the
    pure, key-order-independent check; the debate-creation command handler
-   enforces it as a domain invariant. Casual and practice may override.
+   enforces it as a domain invariant. Casual debates may override.
    Results of overridden debates never reach `rating_changes`.
 3. **Seat capacity comes from the rules.** The engine rejects a join onto a
    side for which the rules offer no seat (`debate.seats.within-format`,
    registered in `spec/invariants.json`), and a debate starts only when
-   every offered seat is filled and ready — so a one-seat practice format
+   every offered seat is filled and ready — so a one-seat format
    starts with one participant. Uniqueness of identities and seats is
    checked first, so a duplicate seat is reported as such. The engine seats
    at most one participant per side and says so
@@ -59,7 +59,7 @@ not, and this ADR decides them now.
   seats gets a `sandbox` value in `actors.kind` (text + CHECK; `user_id` may
   be NULL for non-humans), one sandbox actor per extra seat; who controls a
   seat is Redis room state (ADR 0008). Ranked refuses non-human actors.
-- **`mode` versus provenance.** `mode` stays `casual | ranked | practice`
+- **`mode` versus provenance.** `mode` stays `casual | ranked`
   and names competitive semantics. Where a debate came from (matchmaking,
   lobby, tournament, challenge) is a nullable context key or a `source`
   column added when a query needs it. Neither `lobby` nor `tournament` ever
@@ -138,7 +138,7 @@ ranked debate, the way a chess.com seek is posted, and
   the host's overrides, which the debate snapshot freezes at start. Decision
   item 2 also stands: a ranked table carries no overrides and runs the
   format's canonical rules on a `ranked_eligible` format, so a ranked host
-  picks among canonical formats. Casual and practice tables may override.
+  picks among canonical formats. Casual tables may override.
 - **Superseded:** sandbox seat control as Redis room state (the sandbox-actor
   bullet) and the nullable `lobby` provenance key. A room is a durable row
   (ADR 0049), the sandbox driver is a seat column, and `debates.room_id`

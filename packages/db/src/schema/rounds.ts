@@ -79,7 +79,7 @@ export const rounds = pgTable(
       .references(() => formats.id, { onDelete: 'restrict' }),
     /** The FormatDefinition revision the rules were resolved against. */
     formatVersion: integer('format_version').notNull(),
-    /** Which approved preset resolved this; null for casual and practice. */
+    /** Which approved preset resolved this; null for casual. */
     presetVersion: integer('preset_version'),
     roomConfigSnapshot: jsonbColumn('room_config_snapshot', roomConfigSchema),
     rulesSnapshot: jsonbColumn('rules_snapshot', roundRulesSchema).notNull(),

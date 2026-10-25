@@ -62,7 +62,7 @@ test('only ranked Rounds pin a preset and ladder', async () => {
     { competitionType: 'ranked', presetVersion: null, ladderId: 'ladder' },
     { competitionType: 'ranked', presetVersion: 1, ladderId: null },
     { competitionType: 'casual', presetVersion: 1, ladderId: null },
-    { competitionType: 'practice', presetVersion: null, ladderId: 'ladder' },
+    { competitionType: 'casual', presetVersion: null, ladderId: 'ladder' },
   ])
     await assertRejects({
       given: `a ${round.competitionType} Round with preset ${round.presetVersion} and ladder ${round.ladderId}`,

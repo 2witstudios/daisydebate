@@ -1,8 +1,8 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
-import { practiceCast, runtimeWorld } from './runtime.test-support';
+import { oneOnOneCast, runtimeWorld } from './runtime.test-support';
 setupRitewayBun();
-const { at, person, opponent, rules } = practiceCast();
+const { at, person, opponent, rules } = oneOnOneCast();
 test('free CX commits both sides while ordered CX transfers exclusive speaking authority', async () => {
   for (const mode of ['ordered', 'free'] as const) {
     const world = runtimeWorld({

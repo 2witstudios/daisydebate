@@ -19,7 +19,7 @@ type RoomChoice =
       readonly length: RoundLength;
     }
   | {
-      readonly competitionType: 'casual' | 'practice';
+      readonly competitionType: 'casual';
       readonly formatId: string;
       readonly length: RoundLength;
       readonly config: RoomConfig;
@@ -57,7 +57,7 @@ const rankedSource = async (
 
 const unrankedSource = async (
   store: FormatReader,
-  choice: Extract<RoomChoice, { competitionType: 'casual' | 'practice' }>,
+  choice: Extract<RoomChoice, { competitionType: 'casual' }>,
 ): Promise<Source> => {
   const format = await store.getFormat(choice.formatId);
   if (!format) throw createAppError('NOT_FOUND', 'format-not-found');

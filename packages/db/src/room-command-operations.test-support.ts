@@ -1,4 +1,4 @@
-import { practiceRoomConfig } from './reference-formats';
+import { oneOnOneRoomConfig } from './reference-formats';
 import { validRules } from './testing-rules';
 
 export const caller = {
@@ -21,7 +21,7 @@ export const room = {
   presetVersion: null,
   competitionType: 'casual' as const,
   length: 'full' as const,
-  config: practiceRoomConfig,
+  config: oneOnOneRoomConfig,
   executionPlan: { preRoundPrep: { enabled: false as const } },
   rules: validRules,
 };

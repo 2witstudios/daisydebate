@@ -46,7 +46,6 @@ const statusLabels = {
 const competitionLabels = {
   ranked: 'Ranked',
   casual: 'Casual',
-  practice: 'Practice',
 } as const;
 
 /** Status, shape and length, competition type: the room header chips. */

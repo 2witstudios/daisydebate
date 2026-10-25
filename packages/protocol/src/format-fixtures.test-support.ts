@@ -10,8 +10,8 @@ export const plainRoomConfig: RoomConfig = {
   yielding: null,
 };
 
-/** Shared practice-format fixture for protocol and engine contract tests. */
-export const practiceFormatFixture: FormatDefinition = {
+/** Shared one-on-one format fixture for protocol and engine contract tests. */
+export const oneOnOneFormatFixture: FormatDefinition = {
   version: 1,
   seats: { affirmative: 1, negative: 1, judge: 1 },
   segments: [
@@ -111,8 +111,8 @@ export const invalidFormatDefinitions: ReadonlyArray<
   [
     'unseated speaker',
     {
-      ...practiceFormatFixture,
-      segments: practiceFormatFixture.segments.map((segment, index) =>
+      ...oneOnOneFormatFixture,
+      segments: oneOnOneFormatFixture.segments.map((segment, index) =>
         index === 0 ? { ...segment, slot: 99 } : segment,
       ),
     },
@@ -120,8 +120,8 @@ export const invalidFormatDefinitions: ReadonlyArray<
   [
     'default outside timing bounds',
     {
-      ...practiceFormatFixture,
-      segments: practiceFormatFixture.segments.map((segment, index) =>
+      ...oneOnOneFormatFixture,
+      segments: oneOnOneFormatFixture.segments.map((segment, index) =>
         index === 0 ? { ...segment, defaultDurationMs: 1 } : segment,
       ),
     },
@@ -129,11 +129,11 @@ export const invalidFormatDefinitions: ReadonlyArray<
   [
     'inverted bounds',
     {
-      ...practiceFormatFixture,
+      ...oneOnOneFormatFixture,
       configurable: {
-        ...practiceFormatFixture.configurable,
+        ...oneOnOneFormatFixture.configurable,
         timing: {
-          ...practiceFormatFixture.configurable.timing,
+          ...oneOnOneFormatFixture.configurable.timing,
           countdownMs: { min: 10, max: 1 },
         },
       },
@@ -142,9 +142,9 @@ export const invalidFormatDefinitions: ReadonlyArray<
   [
     'dangling disabled prep reference',
     {
-      ...practiceFormatFixture,
+      ...oneOnOneFormatFixture,
       configurable: {
-        ...practiceFormatFixture.configurable,
+        ...oneOnOneFormatFixture.configurable,
         inRoundPrep: {
           budgetMsPerSide: { min: 0, max: 600_000 },
           spendableBefore: ['speech'],
@@ -187,54 +187,54 @@ export const unsafeFormatDefinitions: ReadonlyArray<
       [
         `billion ${role} seats`,
         {
-          ...practiceFormatFixture,
-          seats: { ...practiceFormatFixture.seats, [role]: 1_000_000_000 },
+          ...oneOnOneFormatFixture,
+          seats: { ...oneOnOneFormatFixture.seats, [role]: 1_000_000_000 },
         },
       ] as const,
   ),
   [
     'over total with individually bounded roles',
     {
-      ...practiceFormatFixture,
+      ...oneOnOneFormatFixture,
       seats: { affirmative: 128, negative: 128, judge: 1 },
     },
   ],
   [
     'no negative seats',
     {
-      ...onlySideSegments(practiceFormatFixture, 'affirmative'),
+      ...onlySideSegments(oneOnOneFormatFixture, 'affirmative'),
       seats: { affirmative: 1, negative: 0, judge: 0 },
     },
   ],
   [
     'negative seats without speaking opportunity',
-    onlySideSegments(practiceFormatFixture, 'affirmative'),
+    onlySideSegments(oneOnOneFormatFixture, 'affirmative'),
   ],
   ...(['affirmative', 'negative', 'judge'] as const).map(
     (role) =>
       [
         `one over the role work bound: ${role}`,
         {
-          ...practiceFormatFixture,
-          seats: { ...practiceFormatFixture.seats, [role]: 257 },
+          ...oneOnOneFormatFixture,
+          seats: { ...oneOnOneFormatFixture.seats, [role]: 257 },
         },
       ] as const,
   ),
   [
     'no affirmative seats',
     {
-      ...onlySideSegments(practiceFormatFixture, 'negative'),
+      ...onlySideSegments(oneOnOneFormatFixture, 'negative'),
       seats: { affirmative: 0, negative: 1, judge: 0 },
     },
   ],
   [
     'affirmative seats without speaking opportunity',
-    onlySideSegments(practiceFormatFixture, 'negative'),
+    onlySideSegments(oneOnOneFormatFixture, 'negative'),
   ],
   [
     'missing negative count',
     {
-      ...practiceFormatFixture,
+      ...oneOnOneFormatFixture,
       seats: { affirmative: 1, judge: 0 } as FormatDefinition['seats'],
     },
   ],

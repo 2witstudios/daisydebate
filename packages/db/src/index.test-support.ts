@@ -1,8 +1,8 @@
 import type { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
-import type { RoundStatus } from '@daisy/protocol';
+import type { CompetitionType, RoundStatus } from '@daisy/protocol';
 import { createDatabase } from './index';
-import { foundationDefinition, practiceRoomConfig } from './reference-formats';
+import { foundationDefinition, oneOnOneRoomConfig } from './reference-formats';
 import { createTestOnlyOperations } from './test-only-operations';
 import type { DatabaseEventSink } from './instrumented';
 import { validRules } from './testing-rules';
@@ -77,7 +77,7 @@ export const roundRow = (record: {
   visibility?: string | null;
   roomConfigSnapshot?: unknown;
   resolution: string;
-  competitionType: 'ranked' | 'casual' | 'practice';
+  competitionType: CompetitionType;
   length: 'full' | 'quick';
   formatId: string;
   formatVersion: number;
@@ -154,7 +154,7 @@ export const roomRow = (overrides: Record<string, unknown> = {}) => {
     presetVersion: null,
     competitionType: 'casual',
     length: 'full',
-    config: practiceRoomConfig,
+    config: oneOnOneRoomConfig,
     executionPlan: { preRoundPrep: { enabled: false } },
     rulesSnapshot: validRules,
     prepStartedAt: null,

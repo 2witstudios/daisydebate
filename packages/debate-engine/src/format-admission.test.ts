@@ -3,9 +3,9 @@ import { formatDefinitionSchema } from '@daisy/protocol';
 import {
   invalidFormatDefinitions,
   unsafeFormatDefinitions,
-  practiceFormatFixture,
+  oneOnOneFormatFixture,
 } from '@daisy/protocol/testing';
-import { practiceConfig } from './runtime.test-support';
+import { oneOnOneConfig } from './runtime.test-support';
 import { resolveRoomConfiguration } from './resolve-room-configuration';
 
 setupRitewayBun();
@@ -16,7 +16,7 @@ for (const [name, definition] of [
 ]) {
   test(`rejects ${name} before compiling executable rules`, () => {
     const outcome = resolveRoomConfiguration(definition, {
-      ...practiceConfig,
+      ...oneOnOneConfig,
       inRoundPrep: { enabled: false },
     });
     assert({
@@ -33,13 +33,13 @@ for (const [name, definition] of [
 
 test('compiler preserves bounded asymmetric sides and a cross-ex-only speaking side', () => {
   const definition = {
-    ...practiceFormatFixture,
+    ...oneOnOneFormatFixture,
     seats: { affirmative: 255, negative: 1, judge: 0 },
-    segments: practiceFormatFixture.segments.map((s) =>
+    segments: oneOnOneFormatFixture.segments.map((s) =>
       s.side === 'negative' ? { ...s, type: 'cross_ex' as const } : s,
     ),
   };
-  const result = resolveRoomConfiguration(definition, practiceConfig);
+  const result = resolveRoomConfiguration(definition, oneOnOneConfig);
   assert({
     given: 'a two-sided format at the work boundary without judges',
     should:

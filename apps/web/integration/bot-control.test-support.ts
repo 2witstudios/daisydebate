@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import {
   oneOnOneDefinition,
-  practiceRoomConfig,
+  oneOnOneRoomConfig,
 } from '@daisy/db/reference-formats';
 import {
   startRuntimeRound,
@@ -27,8 +27,8 @@ async function controlledSpeech(
           seats: { ...oneOnOneDefinition.seats, judge: 0 },
         },
         config: {
-          ...practiceRoomConfig,
-          speechTiming: { ...practiceRoomConfig.speechTiming, countdownMs: 0 },
+          ...oneOnOneRoomConfig,
+          speechTiming: { ...oneOnOneRoomConfig.speechTiming, countdownMs: 0 },
         },
         length: 'full',
         competitionType: 'casual',

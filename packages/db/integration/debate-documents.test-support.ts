@@ -59,7 +59,7 @@ export const withOwner = async (
     await fixture.insert('rounds', {
       id: roundId,
       resolution: 'Cities should make public transit free',
-      competition_type: 'practice',
+      competition_type: 'casual',
       length: 'full',
       format_id: formatId,
       format_version: 1,

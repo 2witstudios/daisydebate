@@ -3,14 +3,14 @@ import type {
   RoundParticipantSeat,
   RoundRules,
 } from '@daisy/protocol';
-import { practiceFormatFixture } from '@daisy/protocol/testing';
+import { oneOnOneFormatFixture } from '@daisy/protocol/testing';
 import { createRoundRuntime } from './round-runtime';
 import { resolveRoomConfiguration } from './resolve-room-configuration';
 
 /** The canonical protocol fixture keeps parser and resolver tests aligned. */
-export const oneOnOneDefinition = practiceFormatFixture;
+export const oneOnOneDefinition = oneOnOneFormatFixture;
 
-export const practiceConfig: RoomConfig = {
+export const oneOnOneConfig: RoomConfig = {
   preRoundPrep: { enabled: false },
   inRoundPrep: { enabled: true, budgetMsPerSide: 240_000 },
   speechTiming: {
@@ -22,9 +22,9 @@ export const practiceConfig: RoomConfig = {
   yielding: { allowed: true, returnsTime: true },
 };
 
-/** The resolved rules for the practice room; throws when it refuses. */
-export const practiceRules = (): RoundRules => {
-  const outcome = resolveRoomConfiguration(oneOnOneDefinition, practiceConfig);
+/** The resolved rules for the one-on-one casual room; throws when it refuses. */
+export const oneOnOneRules = (): RoundRules => {
+  const outcome = resolveRoomConfiguration(oneOnOneDefinition, oneOnOneConfig);
   if (!outcome.ok) throw new Error(outcome.refusal.message);
   return outcome.rules;
 };
@@ -49,15 +49,15 @@ const affirmativeActor = 'k2v9x0f4m8q3w1z7c5n6b4d2';
 const negativeActor = 'a7b3c9d1e5f2k4m6n8p1r3t5';
 const judgeActor = 'c8d4e2f6a1b3k5m7n9p2r4t6';
 
-/** The practice round's three seated actors: both sides and the judge. */
-export const practiceActors = {
+/** The one-on-one round's three seated actors: both sides and the judge. */
+export const oneOnOneActors = {
   affirmative: affirmativeActor,
   negative: negativeActor,
   judge: judgeActor,
 } as const;
 
 /** The seats those actors hold, in slot order. */
-export const practiceSeats = [
+export const oneOnOneSeats = [
   {
     id: 'm3w8k1z5c9b2n7p4r6t0v2x4',
     actorId: affirmativeActor,
@@ -95,13 +95,13 @@ export type RuntimeWorldOptions = {
   readonly participants?: readonly RoundParticipantSeat[];
 };
 
-/** A runtime over the practice format, as the runtime tests execute it. */
+/** A runtime over the one-on-one format, as the runtime tests execute it. */
 export const runtimeWorld = ({
   status = 'scheduled',
   segments = [],
   checkpoint = emptyCheckpoint,
-  rules = practiceRules(),
-  participants = practiceSeats,
+  rules = oneOnOneRules(),
+  participants = oneOnOneSeats,
 }: RuntimeWorldOptions = {}) =>
   createRoundRuntime({
     round: {
@@ -119,25 +119,25 @@ export const runtimeWorld = ({
     nextSegmentId: sequentialSegmentIds(),
   });
 
-/** The practice round's full span: one countdown per segment plus speech time. */
-const practiceRoundTotalMs = (rules: RoundRules): number =>
+/** The one-on-one round's full span: one countdown per segment plus speech time. */
+const oneOnOneRoundTotalMs = (rules: RoundRules): number =>
   rules.segments.length * rules.countdownMs +
   rules.segments.reduce((sum, segment) => sum + segment.durationMs, 0);
 
-/** The practice world's rules, actors and clock, as the runtime tests bind them. */
-export const practiceCast = () => ({
-  rules: practiceRules(),
+/** The one-on-one world's rules, actors and clock, as the runtime tests bind them. */
+export const oneOnOneCast = () => ({
+  rules: oneOnOneRules(),
   at: roundAt,
-  person: practiceActors.affirmative,
-  opponent: practiceActors.negative,
-  judge: practiceActors.judge,
+  person: oneOnOneActors.affirmative,
+  opponent: oneOnOneActors.negative,
+  judge: oneOnOneActors.judge,
 });
 
-/** A started practice world, ticked to the instant its final segment is due. */
+/** A started one-on-one world, ticked to the instant its final segment is due. */
 export const completedSchedule = (rules: RoundRules) => {
   const world = runtimeWorld();
   world.execute({ command: { type: 'start' }, actorId: null, now: roundAt(0) });
-  const totalMs = practiceRoundTotalMs(rules);
+  const totalMs = oneOnOneRoundTotalMs(rules);
   world.tick(roundAt(totalMs));
   return { world, totalMs };
 };

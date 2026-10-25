@@ -20,7 +20,7 @@ import { carryOver, rateDebate, postingInstant, ratingPolicy } from './rating';
 /**
  * Whether a round rates, and on which ladder. Ratedness has one authority:
  * the round's frozen `ladder_id`, whose derivation the schema constrains —
- * a casual or practice round carries none and never rates. Ranked
+ * a casual round carries none and never rates. Ranked
  * eligibility was decided when the round was constructed from a sanctioned
  * preset, so this check re-decides nothing about the format; a mismatch
  * there is corruption and fails as an invariant in the adapter's

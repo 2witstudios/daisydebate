@@ -1,5 +1,6 @@
 import { createId } from '@paralleldrive/cuid2';
 import type {
+  CompetitionType,
   DebaterStanding,
   RatingPlanFacts,
   RatingState,
@@ -96,7 +97,7 @@ const completedRound = async (
     affirmative: string;
     negative: string;
     length?: 'full' | 'quick';
-    competitionType?: 'ranked' | 'casual' | 'practice';
+    competitionType?: CompetitionType;
     outcome?: string;
     minute?: number;
   },

@@ -62,9 +62,9 @@ describe('ballotLines', () => {
 
   test('the AI judges', () => {
     assert({
-      given: 'a practice round the AI judges',
+      given: 'a casual round the AI judges',
       should: 'show one line: the AI judge’s ballot decides the result',
-      actual: ballotLines({ judge: 'ai', ai: null }, 'practice'),
+      actual: ballotLines({ judge: 'ai', ai: null }, 'casual'),
       expected: [
         {
           title: 'AI judge’s ballot',

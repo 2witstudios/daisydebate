@@ -1,7 +1,7 @@
 import { createAppError } from '@daisy/errors';
 import {
   oneOnOneDefinition,
-  practiceRoomConfig,
+  oneOnOneRoomConfig,
 } from '@daisy/db/reference-formats';
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import type { MediaSnapshot } from './projection';
@@ -21,7 +21,7 @@ export const fixedId = (label: string) =>
 
 const compiled = resolveRoomConfiguration(
   oneOnOneDefinition,
-  practiceRoomConfig,
+  oneOnOneRoomConfig,
 );
 if (!compiled.ok) throw new Error('Canonical rules fixture refused');
 const rules = compiled.rules;

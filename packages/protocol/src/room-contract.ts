@@ -12,7 +12,12 @@ import {
   type RoomConfig,
   type RoomExecutionPlan,
 } from './room';
-import { roundLengthSchema, type RoundLength } from './round';
+import {
+  competitionTypes,
+  roundLengthSchema,
+  type CompetitionType,
+  type RoundLength,
+} from './round';
 
 export const roomStatuses = [
   'assembling',
@@ -36,7 +41,7 @@ const roomSelectionSchema = z.discriminatedUnion('kind', [
     formatId: textSchema,
     formatVersion: versionSchema,
     length: roundLengthSchema,
-    competitionType: z.enum(['casual', 'practice']),
+    competitionType: z.literal('casual'),
     config: roomConfigSchema,
   }),
   z.strictObject({
@@ -50,7 +55,7 @@ const roomSelectionSchema = z.discriminatedUnion('kind', [
     kind: z.literal('custom'),
     definition: formatDefinitionSchema,
     length: roundLengthSchema,
-    competitionType: z.enum(['casual', 'practice']),
+    competitionType: z.literal('casual'),
     config: roomConfigSchema,
   }),
 ]);
@@ -163,7 +168,7 @@ export type RoomAssemblyState = {
   readonly formatId: string;
   readonly formatVersion: number;
   readonly presetVersion: number | null;
-  readonly competitionType: 'casual' | 'practice' | 'ranked';
+  readonly competitionType: CompetitionType;
   readonly length: RoundLength;
   readonly definition: FormatDefinition;
   readonly config: RoomConfig;
@@ -213,7 +218,7 @@ const roomListEntrySchema = z.strictObject({
   hostActorId: idSchema.nullable(),
   hostLabel: z.string().nullable(),
   status: z.enum(['assembling', 'ready', 'started']),
-  competitionType: z.enum(['casual', 'practice', 'ranked']),
+  competitionType: z.enum(competitionTypes),
   length: z.enum(['full', 'quick']),
   seated: z.boolean(),
   roundRef: z

@@ -43,8 +43,8 @@ interrupt, forfeits, completion, ballots.
 POST /api/rooms                      → create a room
 GET  /api/rooms/:roomId              → RoomView
 POST /api/rooms/:roomId/commands     → claim-seat · leave-seat · ready ·
-                                       unready · update-config (casual and
-                                       practice only) · start-prep ·
+                                       unready · update-config (casual
+                                       only) · start-prep ·
                                        finish-prep · start-round
 GET  /api/rooms/:roomId/round        → the Round ref once start-round ran
 

@@ -98,7 +98,7 @@ test('actual judge seats cannot bypass or follow unjudged completion', async () 
   });
 });
 
-test('ranked and practice completion retain the required outcome', async () => {
+test('ranked completion retains the required outcome and practice is no competition type (DEC-233)', async () => {
   await withFixture(databaseUrl, async (f) => {
     const formatId = await f.format();
     await f.preset(formatId);
@@ -121,9 +121,10 @@ test('ranked and practice completion retain the required outcome', async () => {
     );
     assert({
       given: 'completed ranked and practice rows without an outcome',
-      should: 'refuse both with the lifecycle guard',
+      should:
+        'refuse the ranked row with the lifecycle guard and the practice row as an unknown competition type',
       actual: [ranked, practice],
-      expected: ['rounds_lifecycle_check', 'rounds_lifecycle_check'],
+      expected: ['rounds_lifecycle_check', 'rounds_competition_type_check'],
     });
   });
 });

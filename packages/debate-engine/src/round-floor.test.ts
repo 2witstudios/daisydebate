@@ -3,18 +3,18 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { resolveRoomConfiguration } from './resolve-room-configuration';
 import {
   oneOnOneDefinition,
-  practiceCast,
-  practiceConfig,
+  oneOnOneCast,
+  oneOnOneConfig,
   runtimeWorld as runtime,
 } from './runtime.test-support';
 
 setupRitewayBun();
 
-const { at, opponent } = practiceCast();
+const { at, opponent } = oneOnOneCast();
 
 test("an opponent's interrupt and yield never ends the scheduled speech (DEC-203)", async () => {
   const outcome = resolveRoomConfiguration(oneOnOneDefinition, {
-    ...practiceConfig,
+    ...oneOnOneConfig,
     interruptions: { mode: 'enabled', minRemainingMs: 30_000 },
   });
   if (!outcome.ok) throw new Error(outcome.refusal.message);

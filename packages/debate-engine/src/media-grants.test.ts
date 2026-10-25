@@ -1,14 +1,14 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { mediaGrants } from './media-grants';
 import {
-  practiceRules,
-  practiceSeats,
+  oneOnOneRules,
+  oneOnOneSeats,
   roundAt,
   runtimeWorld,
 } from './runtime.test-support';
 
 setupRitewayBun();
-const seats = practiceSeats.map((seat) => ({
+const seats = oneOnOneSeats.map((seat) => ({
   ...seat,
   kind: 'human' as const,
   eligible: true,
@@ -21,7 +21,7 @@ const grants = (
   mediaGrants({
     participants: seats,
     participantId,
-    rules: practiceRules(),
+    rules: oneOnOneRules(),
     position: world.position(now),
     now,
     finalSegmentEndedAt: null,
@@ -79,7 +79,7 @@ test('terminal and ineligible participants have no grants', () => {
     actual: mediaGrants({
       participants: seats.map((seat) => ({ ...seat, eligible: false })),
       participantId: seats[0]!.id,
-      rules: practiceRules(),
+      rules: oneOnOneRules(),
       position: world.position(roundAt(0)),
       now: roundAt(0),
       finalSegmentEndedAt: null,
@@ -92,7 +92,7 @@ test('terminal and ineligible participants have no grants', () => {
     actual: mediaGrants({
       participants: seats.map((seat) => ({ ...seat, eligible: false })),
       participantId: seats[2]!.id,
-      rules: practiceRules(),
+      rules: oneOnOneRules(),
       position: world.position(roundAt(0)),
       now: roundAt(0),
       finalSegmentEndedAt: null,
@@ -134,7 +134,7 @@ test('prep and closed between-segment floor keep cameras without speech rights',
 });
 
 test('ordered accepted floor and free interaction preserve legal custom seats', () => {
-  const rules = practiceRules();
+  const rules = oneOnOneRules();
   const interaction = {
     ...rules,
     seats: { ...rules.seats, negative: 2 },
@@ -209,7 +209,7 @@ test('judging conversation uses actual final end and never the initial timetable
     mediaGrants({
       participants: seats,
       participantId: seats[0]!.id,
-      rules: practiceRules(),
+      rules: oneOnOneRules(),
       position,
       now,
       finalSegmentEndedAt,
@@ -270,7 +270,7 @@ test('competitive bot rights remain publish-only through reconciliation', () => 
     actual: mediaGrants({
       participants: botSeats,
       participantId: botSeats[0]!.id,
-      rules: practiceRules(),
+      rules: oneOnOneRules(),
       position: runtimeWorld().position(roundAt(0)),
       now: roundAt(0),
       finalSegmentEndedAt: null,

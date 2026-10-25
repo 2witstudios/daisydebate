@@ -3,8 +3,8 @@ import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
-import { practiceFormatFixture } from '@daisy/protocol/testing';
-import { practiceRoomConfig } from '@daisy/db/reference-formats';
+import { oneOnOneFormatFixture } from '@daisy/protocol/testing';
+import { oneOnOneRoomConfig } from '@daisy/db/reference-formats';
 import { expect, test } from './support/fixtures';
 import { watchCspViolations } from './support/csp';
 
@@ -12,8 +12,8 @@ test('the shared Round reader advances under the actual production nonce CSP', a
   page,
 }) => {
   const resolved = resolveRoomConfiguration(
-    practiceFormatFixture,
-    practiceRoomConfig,
+    oneOnOneFormatFixture,
+    oneOnOneRoomConfig,
   );
   if (!resolved.ok) throw new Error(resolved.refusal.message);
   const origin = '2026-10-06T09:00:00.000Z';

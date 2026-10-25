@@ -102,10 +102,10 @@ describe('liveRoundOf before the start', () => {
     });
   });
 
-  test('ranked and practice', () => {
+  test('ranked and casual', () => {
     assert({
-      given: 'the same round, ranked and then practice',
-      should: 'give the ranked round no agents and the practice round one',
+      given: 'the same round, ranked and then casual',
+      should: 'give the ranked round no agents and the casual round one',
       actual: [
         liveRoundOf({ ...view, competitionType: 'ranked' }, aff.actorId, origin)
           ?.agents.length,

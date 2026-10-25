@@ -30,7 +30,7 @@ const agentSeedResolution =
 
 /**
  * The seeded round resolves the same way a room does — one compiler, the
- * foundation definition against the practice config — so the seed's frozen
+ * foundation definition against the one-on-one casual config — so the seed's frozen
  * rules are exactly what a casual round of this format would carry. Seats
  * are the two agent actors on the sides. Bump `agentSeedVersion` whenever
  * this content changes.

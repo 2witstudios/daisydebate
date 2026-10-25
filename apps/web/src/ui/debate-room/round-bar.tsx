@@ -14,10 +14,6 @@ const kindChip: Readonly<
   Record<CompetitionType, { readonly label: string; readonly tone: string }>
 > = {
   ranked: { label: 'Ranked', tone: 'bg-gold-soft text-gold' },
-  practice: {
-    label: 'Practice',
-    tone: 'border border-border-strong text-ink-muted',
-  },
   casual: {
     label: 'Casual',
     tone: 'border border-border-strong text-ink-muted',

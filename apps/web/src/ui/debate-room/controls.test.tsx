@@ -22,9 +22,9 @@ describe('DebateRoom controls', () => {
   test('controls with no server command (DEC-178)', () => {
     const disabled = (html: string, label: string) =>
       new RegExp(`<button[^>]*disabled=""[^>]*>${label}<`).test(html);
-    const prep = render('prep', 'practice');
-    const speech = render('own-speech', 'practice');
-    const cx = render('cross-ex', 'practice');
+    const prep = render('prep', 'casual');
+    const speech = render('own-speech', 'casual');
+    const cx = render('cross-ex', 'casual');
     const chat = renderToString(
       h(Composer, { label: 'Message # round', tone: 'chat' }),
     );

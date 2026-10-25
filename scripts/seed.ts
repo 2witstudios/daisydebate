@@ -1,6 +1,6 @@
 /**
  * `bun db:seed`: the dev fixture (the agent users, their actors and one
- * scheduled practice round), written only through `@daisy/db`'s
+ * scheduled casual round), written only through `@daisy/db`'s
  * `applyDevSeed` adapter operation (ISSUE-8 AC4). Reference data every
  * environment needs (the formats and bots) is not seed content: the
  * migrations insert it (ADR 0038).

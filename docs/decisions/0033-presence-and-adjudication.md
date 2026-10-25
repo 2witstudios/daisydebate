@@ -406,7 +406,7 @@ RT-4.5b proves the check-in-versus-evaluator race against real PostgreSQL.
   `completed` with the opponent as winner, `outcome` the opponent's side and
   `outcome_reason = 'forfeit'`, and no judging round. It is rated as a loss
   only when the debate is ranked (ranked already requires canonical rules,
-  ADR 0030); casual and practice forfeits never reach `rating_changes`.
+  ADR 0030); casual forfeits never reach `rating_changes`.
 - **Both missing: abandoned.** The debate completes with
   `outcome = 'abandoned'` and never rates. This includes the last speech.
 - **The last speech never forfeits.** Only the forfeit is exempt. If the
