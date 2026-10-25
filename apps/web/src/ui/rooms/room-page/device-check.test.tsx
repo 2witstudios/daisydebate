@@ -74,7 +74,7 @@ test('device choice reports its state and offers a retry only when unpassed', ()
     should:
       'name the reason in words, disable the retry while checking, and hide it once passed',
     actual: [
-      failed.includes('Camera: denied · permission denied'),
+      failed.includes('Camera: denied · blocked by this site&#x27;s settings'),
       failed.includes('Check camera'),
       /<option value="cam-1" selected="">/.test(failed),
       checking.includes('Microphone: checking'),
@@ -83,6 +83,75 @@ test('device choice reports its state and offers a retry only when unpassed', ()
       passed.includes('Check camera'),
     ],
     expected: [true, true, true, true, true, true, false],
+  });
+});
+
+test('a refused device check names who blocked it and the remedy', () => {
+  const failed = (
+    kind: Props['kind'],
+    status: DeviceCheckSnapshot['camera']['status'],
+    reason: DeviceCheckSnapshot['camera']['reason'],
+  ) =>
+    choice(
+      kind,
+      kind === 'camera'
+        ? snapshot(check(status, reason))
+        : snapshot(undefined, check(status, reason)),
+    );
+  const system = failed('camera', 'denied', 'system-denied');
+  const systemMic = failed('microphone', 'denied', 'system-denied');
+  const site = failed('camera', 'denied', 'permission-denied');
+  const busy = failed('microphone', 'unavailable', 'device-in-use');
+  const missing = failed('camera', 'unavailable', 'device-missing');
+  const missingMic = failed('microphone', 'unavailable', 'device-missing');
+  const silent = failed('camera', 'unavailable', 'no-signal');
+  const silentMic = failed('microphone', 'unavailable', 'no-signal');
+  const passed = choice('camera', snapshot(check('passed')));
+  assert({
+    given:
+      'a system denial, a site denial, a busy device, a missing device, a silent opened device and a passed check',
+    should:
+      'blame the operating system and name its privacy setting, point to site settings and a reload, ask to close the other app, connect a device or use Continuity Camera, say an opened device sent nothing, and say nothing once passed',
+    actual: [
+      system.includes('Camera: denied · blocked by your system'),
+      system.includes(
+        'System Settings › Privacy &amp; Security › Camera and allow your browser',
+      ),
+      systemMic.includes('Privacy &amp; Security › Microphone'),
+      site.includes('Camera: denied · blocked by this site&#x27;s settings'),
+      site.includes(
+        'Allow the camera in your browser&#x27;s site settings, then reload the page.',
+      ),
+      busy.includes('Microphone: unavailable · in use'),
+      busy.includes('Close the other app using your microphone'),
+      missing.includes('Camera: unavailable · no camera found'),
+      missing.includes(
+        'Connect a camera or use Continuity Camera, then check again.',
+      ),
+      missingMic.includes('Microphone: unavailable · no microphone found'),
+      silent.includes('Camera: unavailable · opened but sent no video'),
+      silentMic.includes(
+        'Microphone: unavailable · opened but picked up no sound',
+      ),
+      silent.includes('role="note"'),
+      passed.includes('role="note"'),
+    ],
+    expected: [
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+    ],
   });
 });
 

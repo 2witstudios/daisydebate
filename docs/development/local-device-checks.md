@@ -26,6 +26,23 @@ Both current checks must pass for `devicesPassed`. Never persist or transmit
 raw device IDs, snapshots containing them, captured media or permission errors.
 Device identity serves only local selection and disappearance checks.
 
+A failed check is classified from the error name; the message is read only to
+recognise a system block and is never kept, shown or logged. `NotAllowedError`
+whose message says the system denied it (Chrome's "Permission denied by
+system") is `system-denied`; any other `NotAllowedError` or `SecurityError` is
+`permission-denied`, a site-level refusal. Both report `denied`.
+`NotReadableError` is `device-in-use`; `NotFoundError` (Chrome on a Mac with no
+camera reports "Requested device not found") and `OverconstrainedError` (a
+selected device that is gone) are `device-missing`; the bounded observation
+timeout (`TimeoutError`: the device opened but sent no frame or level) is
+`no-signal`. These and any other failure (`check-failed`) report `unavailable`.
+The device check names the remedy: the operating system's privacy setting for
+the browser (macOS System Settings › Privacy & Security), the browser's site
+settings then a reload, closing the other app, connecting a device or using
+Continuity Camera, or making sure nothing covers or mutes the device. Other
+browsers report a system block as a plain `NotAllowedError`, so it reads as a
+site denial there.
+
 Selection changes, track ending, device disappearance and permission denial
 clear local eligibility. Late generations cannot restore it. Track-ending
 and permission events invalidate immediately; polling also detects an externally
