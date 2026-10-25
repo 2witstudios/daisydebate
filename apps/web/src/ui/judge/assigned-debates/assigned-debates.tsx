@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { AssignedDebate } from '../../../features/judge/get-assigned';
 import { buttonClass } from '../../components/button/button-class';
 import { cn } from '../../cn';
+import { MediaPageLink } from '../../round-media/media-page-link';
 
 const linkButton = 'no-underline hover:no-underline';
 
@@ -31,12 +32,12 @@ export function AssignedDebates({
               <p className="text-base text-ink-muted">{debate.status}</p>
             </div>
             <div className="flex flex-wrap gap-3">
-              <Link
+              <MediaPageLink
                 href={debate.followHref}
                 className={cn(buttonClass('ghost'), linkButton)}
               >
                 Follow
-              </Link>
+              </MediaPageLink>
               <Link
                 href={debate.ballotHref}
                 className={cn(buttonClass('primary'), linkButton)}

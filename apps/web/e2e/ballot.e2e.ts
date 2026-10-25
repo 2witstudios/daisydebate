@@ -283,6 +283,26 @@ test('actual assigned Round waits for its frozen input and query strings cannot 
     await expect(
       judgePage.getByText('Cities should fund transit', { exact: true }),
     ).toBeVisible();
+    // Follow enters the live Round as one document load, carrying the media
+    // page's own Permissions-Policy: a client-side entry would be reloaded
+    // by MediaDocument and record a 'reload' (ISSUE-565).
+    await judgePage
+      .getByRole('region', { name: 'Assigned to you' })
+      .getByRole('link', { name: 'Follow', exact: true })
+      .click();
+    await expect(judgePage).toHaveURL(`/rounds/${round.id}/room`);
+    await expect
+      .poll(() =>
+        judgePage.evaluate(() => {
+          const entry = performance.getEntriesByType('navigation')[0] as
+            PerformanceNavigationTiming | undefined;
+          return entry && { type: entry.type, url: entry.name };
+        }),
+      )
+      .toEqual({
+        type: 'navigate',
+        url: new URL(`/rounds/${round.id}/room`, judgePage.url()).href,
+      });
     await judgePage.goto(`/judge/ballot/${round.id}?state=submitted`);
     await expect(
       judgePage.getByText(
