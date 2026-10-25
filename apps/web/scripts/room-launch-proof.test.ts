@@ -27,16 +27,25 @@ test('custom browser creation fixture satisfies the canonical complete request c
   const incomplete = roomCreateSchema.safeParse({
     ...request,
     selection: Object.fromEntries(
-      Object.entries(launchCustomSelection).filter(([key]) => key !== 'length'),
+      Object.entries(launchCustomSelection).filter(([key]) => key !== 'config'),
     ),
   });
   assert({
-    given: 'the same complete request with only its custom length omitted',
+    given: 'the same complete request with only its custom config omitted',
     should: 'refuse the missing field at the canonical request boundary',
     actual: incomplete.success
       ? []
       : incomplete.error.issues.map((issue) => issue.path.join('.')),
-    expected: ['selection.length'],
+    expected: ['selection.config'],
+  });
+  assert({
+    given: 'the same request naming a length',
+    should: 'refuse it: Rounds are full length only (DEC-237)',
+    actual: roomCreateSchema.safeParse({
+      ...request,
+      selection: { ...launchCustomSelection, length: 'full' },
+    }).success,
+    expected: false,
   });
 });
 
