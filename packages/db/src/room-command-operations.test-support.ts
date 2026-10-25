@@ -20,7 +20,6 @@ export const room = {
   formatVersion: 1,
   presetVersion: null,
   competitionType: 'casual' as const,
-  length: 'full' as const,
   config: oneOnOneRoomConfig,
   executionPlan: { preRoundPrep: { enabled: false as const } },
   rules: validRules,

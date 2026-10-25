@@ -104,21 +104,20 @@ describe('room lobby waiting list', () => {
 describe('room lobby labels', () => {
   test('header chips come from the room configuration', () => {
     assert({
-      given:
-        'an assembling casual one-on-one full room, then a ranked team room',
-      should: 'label status, shape with length, and competition type',
+      given: 'an assembling casual one-on-one room, then a ranked team room',
+      should:
+        'label status, shape and competition type, with no length: every Round is full (DEC-237)',
       actual: [
         roomChips(oneOnOne),
         roomChips({
           ...assemblySnapshot,
           competitionType: 'ranked',
-          length: 'quick',
           status: 'started',
         }),
       ],
       expected: [
-        ['Before the round', 'One-on-one · Full', 'Casual'],
-        ['Round started', '2 v 3 · Quick', 'Ranked'],
+        ['Before the round', 'One-on-one', 'Casual'],
+        ['Round started', '2 v 3', 'Ranked'],
       ],
     });
   });

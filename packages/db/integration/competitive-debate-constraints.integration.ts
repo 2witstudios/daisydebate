@@ -33,12 +33,6 @@ describe('rounds (DATA-2.1)', () => {
       const badCompetitionType = await rejected(() =>
         fixture.round({ competition_type: 'friendly' }),
       );
-      const quickLength = !(await rejected(() =>
-        fixture.round({ length: 'quick' }),
-      ));
-      const badLength = await rejected(() =>
-        fixture.round({ length: 'extended' }),
-      );
       const badOutcome = await rejected(() =>
         fixture.round({
           status: 'completed',
@@ -52,15 +46,13 @@ describe('rounds (DATA-2.1)', () => {
         given:
           'rounds authored by a user id, an unknown actor and a real actor',
         should:
-          'accept only the actor, keep it undeletable, accept the quick length and reject values outside each vocabulary',
+          'accept only the actor, keep it undeletable and reject values outside each vocabulary',
         actual: {
           byUser,
           byUnknownActor,
           byActor,
           actorDeleteBlocked,
           badCompetitionType,
-          quickLength,
-          badLength,
           badOutcome,
         },
         expected: {
@@ -69,8 +61,6 @@ describe('rounds (DATA-2.1)', () => {
           byActor: true,
           actorDeleteBlocked: true,
           badCompetitionType: true,
-          quickLength: true,
-          badLength: true,
           badOutcome: true,
         },
       });

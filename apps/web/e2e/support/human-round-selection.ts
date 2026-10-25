@@ -5,7 +5,6 @@ export const humanRoundSelection = (
   judgeSeats: 0 | 1 | 2,
 ) => ({
   kind: 'custom',
-  length: 'full',
   competitionType: 'casual',
   definition: {
     ...choice.definition,

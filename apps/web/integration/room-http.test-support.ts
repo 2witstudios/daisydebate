@@ -103,7 +103,6 @@ export async function withHumanJudgeHttpRound(
             kind: 'catalog',
             formatId: choice.formatId,
             formatVersion: choice.formatVersion,
-            length: 'full',
             competitionType: 'casual',
             config,
           }
@@ -113,7 +112,6 @@ export async function withHumanJudgeHttpRound(
               ...choice.definition,
               seats: { ...choice.definition.seats, judge: judges.length },
             },
-            length: 'full',
             competitionType: 'casual',
             config,
           };

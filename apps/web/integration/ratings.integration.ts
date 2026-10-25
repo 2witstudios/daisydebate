@@ -65,28 +65,28 @@ describe('rating a completed round with the engine decision (RATE-1.3)', () => {
     });
   });
 
-  test('rates quick-length rounds, draws and forfeits on their own ladder', async () => {
+  test('rates draws and forfeits on the one ranked ladder', async () => {
     await inArena(async ({ actor, round, rate, ratings }) => {
       const [first, second] = [await actor(), await actor()];
-      const quick = await round({
+      const drawn = await round({
         affirmative: first,
         negative: second,
-        length: 'quick',
         outcome: 'draw',
       });
-      const quickResult = await rate(quick);
+      const drawnResult = await rate(drawn);
       const draw = newcomers('draw');
       assert({
-        given: 'a drawn quick-length ranked round between newcomers',
-        should: 'rate it on the quick ladder only, as the engine rates a draw',
+        given: 'a drawn ranked round between newcomers',
+        should:
+          'rate it on the ranked ladder, the only one (DEC-238), as the engine rates a draw',
         actual: [
-          quickResult.kind === 'rated' && quickResult.ladder,
+          drawnResult.kind === 'rated' && drawnResult.ladder,
           (await ratings(first)).map(({ ladder }) => ladder),
           stateOf((await ratings(first))[0]),
         ],
         expected: [
-          'quick',
-          ['quick'],
+          'ranked',
+          ['ranked'],
           {
             rating: draw.affirmative.after.rating,
             deviation: draw.affirmative.after.deviation,

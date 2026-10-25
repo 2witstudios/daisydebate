@@ -1,11 +1,7 @@
 import type { Database, NewRoom } from '@daisy/db';
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import { createAppError, isAppError } from '@daisy/errors';
-import type {
-  FormatDefinition,
-  RoomConfig,
-  RoundLength,
-} from '@daisy/protocol';
+import type { FormatDefinition, RoomConfig } from '@daisy/protocol';
 
 type FormatReader = Pick<
   Database,
@@ -16,12 +12,10 @@ type RoomChoice =
   | {
       readonly competitionType: 'ranked';
       readonly formatId: string;
-      readonly length: RoundLength;
     }
   | {
       readonly competitionType: 'casual';
       readonly formatId: string;
-      readonly length: RoundLength;
       readonly config: RoomConfig;
     };
 
@@ -36,7 +30,7 @@ const rankedSource = async (
   store: FormatReader,
   choice: Extract<RoomChoice, { competitionType: 'ranked' }>,
 ): Promise<Source> => {
-  const preset = await store.getCurrentPreset(choice.formatId, choice.length);
+  const preset = await store.getCurrentPreset(choice.formatId);
   if (!preset) throw createAppError('CONFLICT', 'preset-unavailable');
   try {
     return {
@@ -87,7 +81,6 @@ export async function resolveRoomChoice(
     formatVersion: source.formatVersion,
     presetVersion: source.presetVersion,
     competitionType: choice.competitionType,
-    length: choice.length,
     config: source.config,
     executionPlan: resolved.roomPlan,
     rules: resolved.rules,

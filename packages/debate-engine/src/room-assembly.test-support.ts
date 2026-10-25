@@ -43,7 +43,6 @@ export const state = (): RoomAssemblyState => ({
   formatVersion: 1,
   presetVersion: null,
   competitionType: 'casual',
-  length: 'full',
   definition: {
     version: 1,
     seats: rules.seats,

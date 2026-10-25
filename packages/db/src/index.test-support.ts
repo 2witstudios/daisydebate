@@ -78,7 +78,6 @@ export const roundRow = (record: {
   roomConfigSnapshot?: unknown;
   resolution: string;
   competitionType: CompetitionType;
-  length: 'full' | 'quick';
   formatId: string;
   formatVersion: number;
   presetVersion: number | null;
@@ -102,7 +101,6 @@ export const roundRow = (record: {
   record.visibility ?? null,
   record.resolution,
   record.competitionType,
-  record.length,
   record.formatId,
   record.formatVersion,
   record.presetVersion,
@@ -153,7 +151,6 @@ export const roomRow = (overrides: Record<string, unknown> = {}) => {
     formatVersion: 1,
     presetVersion: null,
     competitionType: 'casual',
-    length: 'full',
     config: oneOnOneRoomConfig,
     executionPlan: { preRoundPrep: { enabled: false } },
     rulesSnapshot: validRules,
@@ -177,7 +174,6 @@ export const roomRow = (overrides: Record<string, unknown> = {}) => {
     row.formatVersion,
     row.presetVersion,
     row.competitionType,
-    row.length,
     row.config,
     row.executionPlan,
     row.rulesSnapshot,

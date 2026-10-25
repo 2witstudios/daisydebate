@@ -3,7 +3,6 @@ import {
   competitionTypes,
   emptyRuntimeCheckpoint,
   formatDefinitionSchema,
-  roundLengths,
   roundStatuses,
   runtimeCheckpointSchema,
 } from './index';
@@ -13,6 +12,7 @@ import {
   debateSideSchema,
   debateSides,
   errorSchema,
+  ratingLadders,
 } from './primitives';
 import { parseOutcome } from './parse-outcome.test-support';
 import { oneOnOneFormatFixture } from './format-fixtures.test-support';
@@ -133,7 +133,7 @@ describe('roles and sides', () => {
 });
 
 describe('competition vocabulary', () => {
-  test('names the competition types, lengths and statuses', () => {
+  test('names the competition types, ladders and statuses', () => {
     assert({
       given: 'the competition vocabulary',
       should: 'be exactly ranked and casual, the one unranked type (DEC-233)',
@@ -141,10 +141,10 @@ describe('competition vocabulary', () => {
       expected: ['ranked', 'casual'],
     });
     assert({
-      given: 'the length vocabulary',
-      should: 'be exactly full and quick',
-      actual: roundLengths,
-      expected: ['full', 'quick'],
+      given: 'the rating ladder vocabulary',
+      should: 'be exactly ranked: Rounds are full length only (DEC-237)',
+      actual: ratingLadders,
+      expected: ['ranked'],
     });
     assert({
       given: 'the status vocabulary',

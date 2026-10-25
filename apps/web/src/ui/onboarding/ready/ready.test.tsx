@@ -59,7 +59,6 @@ describe('ReadyStep', () => {
         club: 'own',
         experience: 'class',
         formats: ['one-on-one'],
-        length: 'quick',
         topics: ['ethics', 'law'],
       }),
     );
@@ -70,7 +69,7 @@ describe('ReadyStep', () => {
         page.includes('Wants to Debate, Watch Edit'),
         page.includes('Club On my own Edit'),
         page.includes('Experience Debated in class or a club Edit'),
-        page.includes('Formats One-on-one · Quick Edit'),
+        page.includes('Formats One-on-one Edit'),
         page.includes('Topics Ethics, Law Edit'),
       ],
       expected: [true, true, true, true, true],

@@ -11,7 +11,6 @@ export const experienceChoices = [
   'veteran',
 ] as const;
 export const formatChoices = ['one-on-one', 'teams'] as const;
-export const lengthChoices = ['quick', 'full'] as const;
 export const topicChoices = [
   'politics',
   'economics',
@@ -31,5 +30,4 @@ export type Want = (typeof wantChoices)[number];
 export type Club = (typeof clubChoices)[number];
 export type Experience = (typeof experienceChoices)[number];
 export type Format = (typeof formatChoices)[number];
-export type Length = (typeof lengthChoices)[number];
 export type Topic = (typeof topicChoices)[number];

@@ -44,7 +44,6 @@ test('discovery uses partial ordered indexes independently of historical Room an
         format_id: formatId,
         format_version: 1,
         competition_type: 'casual',
-        length: 'full',
         config: validConfig,
         execution_plan: {},
         rules_snapshot: validRules,

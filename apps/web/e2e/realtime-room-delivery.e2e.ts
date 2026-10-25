@@ -114,7 +114,6 @@ test('real HTTP Room mutation reaches its authenticated browser subscriber and r
           kind: 'catalog',
           formatId: choice.formatId,
           formatVersion: choice.formatVersion,
-          length: 'full',
           competitionType: 'casual',
           config: choice.defaultConfig,
         },

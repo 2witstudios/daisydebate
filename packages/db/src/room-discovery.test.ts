@@ -14,7 +14,6 @@ const entry = {
   hostLabel: 'Host',
   status: 'assembling',
   competitionType: 'casual',
-  length: 'full',
   seated: false,
   roundRef: null,
 } as const;

@@ -40,7 +40,7 @@ export const fixtureBallot = (
     ]),
   ) as Ballot['scores'],
 });
-/** A ready one-on-one practice Room with open judge seats. */
+/** A ready one-on-one casual Room with open judge seats. */
 export const assembleJudgedRoom = (
   f: Parameters<Parameters<typeof withRoomRuntime>[0]>[0],
   judges = 1,
@@ -53,7 +53,6 @@ export const assembleJudgedRoom = (
         seats: { ...oneOnOneDefinition.seats, judge: judges },
       },
       config: oneOnOneRoomConfig,
-      length: 'full',
       competitionType: 'casual',
     },
   });

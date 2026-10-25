@@ -64,10 +64,10 @@ occupied by a human or an AI do not create different round types.
 - **7.** AI runtime state belongs to the AI participant's run, not to an AI-specific round.
 - **8.** There are no `ai_round` / `ai_debate` lifecycle tables.
 
-`debates` is renamed `rounds`. `mode` is uncollapsed: `competition_type`
-(`ranked | casual`; casual is the one unranked type, DEC-233), `length` (`quick | full`) and `ladder_id` are separate
-columns, because `quick` was doing three jobs at once — a rated mode in ADR 0055 §5 and
-a match length in the onboarding questionnaire.
+`debates` is renamed `rounds`. `mode` is uncollapsed into `competition_type`
+(`ranked | casual`; casual is the one unranked type, DEC-233) and `ladder_id`, the one
+authority for ratedness. Every Round is full length (DEC-237), so there is no length
+column and `ranked` is the one ladder (DEC-238).
 
 ### 2. Three-layer identity
 
@@ -117,7 +117,7 @@ configuration is **unrepresentable** rather than detectable afterwards.
 `assertRatedRoundIntegrity` instead compares the round's frozen provenance.
 
 `format_presets` holds sanctioned `RoomConfig` values as immutable revisions, keyed
-`(format_id, length, version)` with at most one current and every earlier retained.
+`(format_id, version)` with at most one current per format and every earlier retained.
 
 ### 5. Provenance is pinned and structural
 
@@ -127,7 +127,7 @@ cannot preserve history. `format_revisions` holds immutable `FormatDefinition` r
 DEFERRED` so identity and its first revision commit together.
 
 Rounds and presets carry composite FKs to the exact revision they resolved against, and a
-Round carries a composite FK over `(format_id, length, preset_version, format_version)`
+Round carries a composite FK over `(format_id, preset_version, format_version)`
 onto the preset — so Postgres establishes that a Round's preset was approved against the
 definition revision that same Round pins.
 
@@ -323,8 +323,8 @@ leaves, and the PageSpace boundary remains open.
   `ON DELETE CASCADE` does not reach actor-owned rows.
 - **Superseded in part.** ADR 0029's "the snapshot stays the domain source of truth" — a snapshot
   may carry engine state, never participants. ADR 0054 §3 — documents leave the round FK.
-  ADR 0055 §5 — modes and ladders; `quick` becomes a preset dimension and ranked rounds are
-  constructed from presets rather than validated against a format.
+  ADR 0055 §5 — modes and ladders; ranked rounds are constructed from presets rather than
+  validated against a format.
 - **Left open, deliberately.** Whether an abandoned ranked round rates. Whether prep
   lives in Daisy or a PageSpace drive — and, if external, the ADR 0036 data-processor
   question that `under-13` age banding raises. None of these changes what a Round _is_.

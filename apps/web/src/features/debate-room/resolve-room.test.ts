@@ -41,7 +41,6 @@ describe('outer Room resolution', () => {
         reads.push('preset');
         return {
           formatId: 'one-on-one',
-          length: 'full',
           version: 3,
           formatVersion: 1,
           config: oneOnOneRoomConfig,
@@ -55,7 +54,6 @@ describe('outer Room resolution', () => {
     const room = await resolveRoomChoice(store, {
       competitionType: 'ranked',
       formatId: 'one-on-one',
-      length: 'full',
     });
     assert({
       given:
@@ -80,14 +78,12 @@ describe('outer Room resolution', () => {
         resolveRoomChoice(reader(), {
           competitionType: 'ranked',
           formatId: 'one-on-one',
-          length: 'full',
         }),
       code: 'CONFLICT',
     });
     const missingRevision = reader({
       getCurrentPreset: async () => ({
         formatId: 'one-on-one',
-        length: 'full',
         version: 3,
         formatVersion: 1,
         config: oneOnOneRoomConfig,
@@ -103,7 +99,6 @@ describe('outer Room resolution', () => {
         resolveRoomChoice(missingRevision, {
           competitionType: 'ranked',
           formatId: 'one-on-one',
-          length: 'full',
         }),
       code: 'INVARIANT',
     });
@@ -113,7 +108,6 @@ describe('outer Room resolution', () => {
     const room = await resolveRoomChoice(reader(), {
       competitionType: 'casual',
       formatId: 'one-on-one',
-      length: 'full',
       config: oneOnOneRoomConfig,
     });
     assert({
@@ -141,26 +135,23 @@ describe('outer Room resolution', () => {
           {
             competitionType: 'ranked',
             formatId: preset.formatId,
-            length: preset.length,
           },
         );
         return [
-          `${preset.length}@${preset.version}`,
+          `v${preset.version}`,
           room.formatVersion,
           room.rules.segments.find(({ key }) => key === '1AR')?.durationMs,
         ];
       }),
     );
     assert({
-      given: 'each approved full and quick preset, old and current',
+      given: 'each approved preset, old and current',
       should:
-        'resolve legally, the full 1AR following its revision and the quick override unchanged',
+        'resolve legally, the 1AR following its revision, and offer no quick preset (DEC-237)',
       actual: resolved,
       expected: [
-        ['full@1', 1, 300_000],
-        ['quick@1', 1, 150_000],
-        ['full@2', 2, 180_000],
-        ['quick@2', 2, 150_000],
+        ['v1', 1, 300_000],
+        ['v2', 2, 180_000],
       ],
     });
   });

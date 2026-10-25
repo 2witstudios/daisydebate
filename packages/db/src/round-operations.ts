@@ -18,7 +18,7 @@ import {
 } from './round-projection-writer';
 import { isUniqueViolation } from './unique-violation';
 import { roundCommands } from './schema/round-commands';
-import { rounds } from './schema/rounds';
+import { roundLadder, rounds } from './schema/rounds';
 import { jsonObjectSchema } from './schema/columns';
 
 /** Server-owned pure projection builder, invoked with the post-lock PostgreSQL instant. */
@@ -91,32 +91,24 @@ export const roundOperations = ({
     readonly createdByActorId: string | null;
     readonly resolution: string;
     readonly competitionType: CompetitionType;
-    readonly length: 'full' | 'quick';
     readonly formatId: string;
     readonly formatVersion: number;
     readonly presetVersion: number | null;
     readonly rules: RoundRules;
   }): Promise<void> {
     await instrumented(eventSink, 'createRound', async () => {
-      const ladder =
-        input.competitionType === 'ranked'
-          ? input.length === 'full'
-            ? 'ranked'
-            : 'quick'
-          : null;
       try {
         await database.insert(rounds).values({
           id: input.id,
           createdByActorId: input.createdByActorId,
           resolution: input.resolution,
           competitionType: input.competitionType,
-          length: input.length,
           formatId: input.formatId,
           formatVersion: input.formatVersion,
           presetVersion: input.presetVersion,
           rulesSnapshot: input.rules,
           status: 'scheduled',
-          ladderId: ladder,
+          ladderId: roundLadder(input.competitionType),
         });
       } catch (error) {
         if (isUniqueViolation(error))

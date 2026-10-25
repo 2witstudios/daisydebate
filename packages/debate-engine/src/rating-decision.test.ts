@@ -31,16 +31,15 @@ describe('ratingEligibility', () => {
       },
     });
     assert({
-      given: 'a completed quick-length ranked round drawn',
-      should: 'rate it on the quick ladder as a draw',
+      given: 'a completed ranked round drawn',
+      should: 'rate it on the ranked ladder as a draw',
       actual: ratingEligibility({
         ...completed,
-        ladderId: 'quick',
         outcome: 'draw',
       }),
       expected: {
         kind: 'rated',
-        ladder: 'quick',
+        ladder: 'ranked',
         outcome: 'draw',
         occurredAt: at,
       },

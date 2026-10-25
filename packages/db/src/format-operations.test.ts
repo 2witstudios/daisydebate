@@ -42,18 +42,17 @@ describe('formatOperations', () => {
     });
   });
 
-  test('getCurrentPreset reads the live preset for the length', async () => {
+  test('getCurrentPreset reads the live preset for the format', async () => {
     const { database } = createTestDatabase([
-      [['one-on-one', 'full', 1, 1, oneOnOneRoomConfig]],
+      [['one-on-one', 1, 1, oneOnOneRoomConfig]],
     ]);
-    const preset = await database.getCurrentPreset('one-on-one', 'full');
+    const preset = await database.getCurrentPreset('one-on-one');
     assert({
       given: 'the live preset row',
       should: 'read it with its provenance',
       actual: preset,
       expected: {
         formatId: 'one-on-one',
-        length: 'full',
         version: 1,
         formatVersion: 1,
         config: oneOnOneRoomConfig,
@@ -63,7 +62,7 @@ describe('formatOperations', () => {
 
   test('getCurrentPreset reports null when the format has none', async () => {
     const { database } = createTestDatabase([[]]);
-    const preset = await database.getCurrentPreset('one-on-one', 'quick');
+    const preset = await database.getCurrentPreset('one-on-one');
     assert({
       given: 'a format with no approved preset',
       should: 'report null for resolveRoom to refuse on',

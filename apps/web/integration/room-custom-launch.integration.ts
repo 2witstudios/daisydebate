@@ -77,7 +77,6 @@ test('custom unequal casts and ordered timing freeze alongside canonical quota a
             kind: 'custom',
             definition,
             config,
-            length: 'full',
             competitionType: 'casual',
           },
         })
@@ -231,7 +230,6 @@ test('null interaction refusals preserve durable create and edit state', async (
       kind: 'custom' as const,
       definition,
       config,
-      length: 'full' as const,
       competitionType: 'casual' as const,
     };
     const view = (await f.create({ selection })).view;

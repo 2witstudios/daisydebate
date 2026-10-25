@@ -24,7 +24,6 @@ describe('readOnboarding', () => {
         club: null,
         experience: null,
         formats: [],
-        length: null,
         topics: [],
         completedAt: null,
       },
@@ -36,7 +35,7 @@ describe('readOnboarding', () => {
       // The snapshot statement, then the three reads.
       [],
       // Schema-definition column order; the driver returns rows positionally.
-      [['user-1', 'own', 'class', ['one-on-one'], 'quick', at, at, at, 2]],
+      [['user-1', 'own', 'class', ['one-on-one'], at, at, at, 2]],
       [['debate'], ['watch']],
       [['law']],
     ]);
@@ -48,7 +47,6 @@ describe('readOnboarding', () => {
         club: 'own',
         experience: 'class',
         formats: ['one-on-one'],
-        length: 'quick',
         completedAt: '2026-10-05T12:00:00.000Z',
         wants: ['debate', 'watch'],
         topics: ['law'],
@@ -82,7 +80,6 @@ describe('saveOnboardingStep', () => {
       step: 'experience',
       experience: 'circuit',
       formats: ['teams'],
-      length: 'full',
     });
     assert({
       given: 'an about step, an empty topics step and an experience step',

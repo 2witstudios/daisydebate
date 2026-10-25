@@ -153,11 +153,9 @@ export function createRoomRuntimeOperations({
       label: source.name,
       definition: source.definition,
       defaultConfig:
-        source.presets.find((p) => p.length === 'full')?.config ??
-        initialConfig(source.definition),
+        source.presets[0]?.config ?? initialConfig(source.definition),
       presets: source.presets.map((p) => ({
         version: p.version,
-        length: p.length as 'full' | 'quick',
         config: p.config,
       })),
     }));
@@ -205,7 +203,6 @@ export function createRoomRuntimeOperations({
         formatVersion,
         presetVersion,
         competitionType,
-        length: selection.length,
         config,
         executionPlan: resolved.roomPlan,
         rules: resolved.rules,
