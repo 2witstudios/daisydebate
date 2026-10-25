@@ -203,6 +203,43 @@ describe('local device checks', () => {
     });
     controller.dispose('departure');
   });
+  test('classifies who refused the device without keeping the message', async () => {
+    const refusal = async (name: string, message: string) => {
+      const { controller, requests } = fixture();
+      const running = controller.check('camera');
+      requests[0]!.reject(Object.assign(new Error(message), { name }));
+      await running;
+      const { status, reason } = controller.readSnapshot().camera;
+      controller.dispose('departure');
+      return [status, reason];
+    };
+    assert({
+      given:
+        'a system denial, a site denial, a busy device, a missing device, a gone selection, a silent opened device and an unknown failure',
+      should:
+        'say the system or the site denied it, the device is in use, missing or silent, or the check failed',
+      actual: [
+        await refusal('NotAllowedError', 'Permission denied by system'),
+        await refusal('NotAllowedError', 'Permission denied'),
+        await refusal('SecurityError', 'Permission denied by system'),
+        await refusal('NotReadableError', 'Could not start video source'),
+        await refusal('NotFoundError', 'Requested device not found'),
+        await refusal('OverconstrainedError', 'deviceId'),
+        await refusal('TimeoutError', 'No device observation'),
+        await refusal('TypeError', 'Permission denied by system'),
+      ],
+      expected: [
+        ['denied', 'system-denied'],
+        ['denied', 'permission-denied'],
+        ['denied', 'permission-denied'],
+        ['unavailable', 'device-in-use'],
+        ['unavailable', 'device-missing'],
+        ['unavailable', 'device-missing'],
+        ['unavailable', 'no-signal'],
+        ['unavailable', 'check-failed'],
+      ],
+    });
+  });
   test('intentional cleanup and unsubscribing are silent and idempotent', async () => {
     const { controller, complete } = fixture();
     const camera = await complete('camera');

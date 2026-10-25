@@ -56,12 +56,62 @@ describe('browser media boundary', () => {
     await controller.check('camera');
     assert({
       given: 'absent input',
-      should: 'fail closed locally',
+      should: 'fail closed locally and say the device is missing',
       actual: [
         controller.readSnapshot().camera.status,
+        controller.readSnapshot().camera.reason,
         controller.readSnapshot().microphone.status,
       ],
-      expected: ['unavailable', 'unchecked'],
+      expected: ['unavailable', 'device-missing', 'unchecked'],
+    });
+    controller.dispose('departure');
+  });
+  test('a camera that opens but sends no frame has its own reason', async () => {
+    let stopped = 0;
+    const track = {
+      readyState: 'live',
+      getSettings: () => ({ deviceId: 'camera-local-only' }),
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      stop: () => {
+        stopped += 1;
+      },
+    };
+    const stream = {
+      getVideoTracks: () => [track],
+      getTracks: () => [track],
+    };
+    const controller = createBrowserDeviceChecks({
+      mediaDevices: {
+        getUserMedia: async () => stream,
+        enumerateDevices: async () => [],
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+      } as unknown as MediaDevices,
+      document: {
+        createElement: () => ({
+          play: async () => undefined,
+          requestVideoFrameCallback: () => 1,
+          cancelVideoFrameCallback: () => undefined,
+          pause: () => undefined,
+        }),
+      } as unknown as Document,
+      createAudioContext: () => {
+        throw new Error('unreachable');
+      },
+      checkTimeoutMs: 0,
+    });
+    await controller.check('camera');
+    assert({
+      given: 'an opened camera whose frame never arrives within the bound',
+      should:
+        'report no signal, distinct from missing or in use, and stop the track',
+      actual: [
+        controller.readSnapshot().camera.status,
+        controller.readSnapshot().camera.reason,
+        stopped,
+      ],
+      expected: ['unavailable', 'no-signal', 1],
     });
     controller.dispose('departure');
   });
