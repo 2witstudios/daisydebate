@@ -1,8 +1,5 @@
 import type { cutCaptureClips } from '@daisy/media/clips';
-import { createAppError } from '@daisy/errors';
 import { flushClipCarry, type ClipCarries } from './capture-batch';
-import { tagCaptureFailure } from './capture-exit';
-import type { CaptureClient } from './capture-history';
 
 /** The common cleanup budget: the drain and the fallback seal together. */
 const CAPTURE_CLEANUP_BUDGET_MS = 10_000;
@@ -76,17 +73,3 @@ export const gracefulStop = (
   failure: unknown,
   stopped: AbortSignal,
 ) => caller.aborted && failure === undefined && !stopped.aborted;
-/**
- * LiveKit dropped the room: the server's answer says whether the Round closed
- * the capture for good (a refusal the caller finishes on) or the connection
- * failed while the Round still needs capture.
- */
-export const droppedRoomFailure = (client: CaptureClient, epoch: number) =>
-  client.read({ epoch }).then(
-    () =>
-      tagCaptureFailure(
-        'connect',
-        createAppError('INFRASTRUCTURE', 'Capture room connection dropped'),
-      ),
-    (error: unknown) => tagCaptureFailure('connect', error),
-  );
