@@ -1,63 +1,131 @@
 import Link from 'next/link';
-import { lobbyDestinations } from '../../features/lobby/actions';
-import type { LobbyListing } from '../../features/lobby/list-rooms';
-import { clearFiltersHref, type LobbyQuery } from '../../features/lobby/query';
+import type { RoomListEntry } from '@daisy/protocol';
+import {
+  defaultLobbyFilters,
+  isFiltered,
+  lobbyHref,
+  type LobbyQuery,
+} from '../../features/lobby/discovery-query';
+import { lobbySections } from '../../features/lobby/rows';
+import { openRoomHref, playOptions } from '../../features/play/options';
+import { YourRoom, type ActiveRoomSummary } from '../active-room/your-room';
 import { buttonClass } from '../components/button/button-class';
-import { cn } from '../cn';
-import { FilterBar } from './filter-bar/filter-bar';
-import { RoomTable } from './room-table/room-table';
+import { PageHeader } from '../components/page-header/page-header';
+import { PlayChoices } from '../play/play-choices/play-choices';
+import { PlayDialog } from '../play/play-dialog/play-dialog';
+import { LobbyFilters } from './lobby-filters/lobby-filters';
+import { RoomList } from './room-list/room-list';
 
 export type LobbyProps = {
-  readonly listing: LobbyListing;
   readonly query: LobbyQuery;
-  /** ISO timestamp the waiting times count from. */
-  readonly now: string;
+  /** One page of the canonical listing; visibility and permissions are its own. */
+  readonly rooms: readonly RoomListEntry[];
+  readonly nextCursor: string | null;
+  /** The listing changed under the cursor: this page must be asked for again. */
+  readonly retry: boolean;
+  readonly activeRoom: ActiveRoomSummary | null;
 };
 
-const link = 'no-underline hover:no-underline';
+const emptyClass =
+  'flex flex-col items-center gap-3 rounded-lg border border-border bg-surface-raised px-5 py-8 text-center';
+
+function Empty({
+  query,
+  rooms,
+}: {
+  readonly query: LobbyQuery;
+  readonly rooms: number;
+}) {
+  const narrowed =
+    query.list.q !== '' ||
+    query.filters.status !== 'all' ||
+    isFiltered(query.filters);
+  if (rooms === 0 && !narrowed && query.list.cursor === undefined)
+    return (
+      <div role="status" className={emptyClass}>
+        <p className="text-lg font-strong">No open rooms right now</p>
+        <Link href={openRoomHref} className={buttonClass('primary')}>
+          New room
+        </Link>
+      </div>
+    );
+  return (
+    <div role="status" className={emptyClass}>
+      <p className="text-lg font-strong">No rooms match</p>
+      <Link
+        href={lobbyHref({
+          list: { q: '', pageSize: query.list.pageSize },
+          filters: defaultLobbyFilters,
+        })}
+        className="font-strong"
+      >
+        Clear search and filters
+      </Link>
+    </div>
+  );
+}
 
 /**
- * The lobby: the public browsing surface of open rooms and live debates.
- * Matchmaking is an action here, never a list.
+ * The Lobby, where people find, join, host and return to debates: the
+ * viewer's own Room pinned first, then every listed Room as one compact row
+ * grouped open, starting and live. Play opens the other ways to play over it.
  */
-export function Lobby({ listing, query, now }: LobbyProps) {
+export function Lobby({
+  query,
+  rooms,
+  nextCursor,
+  retry,
+  activeRoom,
+}: LobbyProps) {
+  const sections = lobbySections(rooms, query.filters);
+  const shown = sections.reduce((count, s) => count + s.rows.length, 0);
+  const { cursor } = query.list;
   return (
-    <div className="mx-auto flex w-full max-w-dash-column flex-col gap-6 px-6 pt-5 pb-8 max-compact:gap-4 max-compact:px-4">
-      <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
-        <div className="flex min-w-0 flex-col gap-1">
-          <h1 className="font-display text-3xl leading-tight font-bold tracking-tight max-compact:text-2xl">
-            Lobby
-          </h1>
-          <p className="text-base text-ink-faint">
-            {`Your rating ${listing.viewer.rating}`}
-          </p>
-        </div>
-        <div className="flex gap-3 max-compact:contents">
-          <Link
-            href={lobbyDestinations.openTable}
-            className={cn(buttonClass('secondary'), link)}
-          >
-            Open a table
-          </Link>
-          <Link
-            href={lobbyDestinations.findMatch}
-            className={cn(buttonClass('primary'), link, 'max-compact:w-full')}
-          >
-            Find a match
-          </Link>
-        </div>
-      </header>
-      <FilterBar
-        query={query}
-        counts={listing.counts}
-        resultCount={listing.rooms.length}
+    <div className="mx-auto flex w-full max-w-dash-column flex-col gap-5 px-6 pt-5 pb-8 max-compact:px-4">
+      <PageHeader
+        title="Lobby"
+        actions={
+          <>
+            <PlayDialog>
+              <PlayChoices options={playOptions} />
+            </PlayDialog>
+            <Link href={openRoomHref} className={buttonClass('primary')}>
+              New room
+            </Link>
+          </>
+        }
       />
-      <RoomTable
-        rooms={listing.rooms}
-        viewer={listing.viewer}
-        now={now}
-        clearHref={clearFiltersHref(query)}
-      />
+      {activeRoom ? <YourRoom room={activeRoom} /> : null}
+      <LobbyFilters query={query} resultCount={shown} />
+      {retry ? (
+        <p
+          role="status"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-surface-overlay px-4 py-3"
+        >
+          Rooms changed while you were paging.
+          <Link href={lobbyHref(query, cursor)} className="font-strong">
+            Refresh
+          </Link>
+        </p>
+      ) : shown === 0 ? (
+        <Empty query={query} rooms={rooms.length} />
+      ) : (
+        <RoomList sections={sections} />
+      )}
+      {cursor !== undefined || nextCursor !== null ? (
+        <nav aria-label="Room pages" className="flex justify-center gap-6">
+          {cursor === undefined ? null : (
+            <Link href={lobbyHref(query)} className="font-strong">
+              First page
+            </Link>
+          )}
+          {nextCursor === null ? null : (
+            <Link href={lobbyHref(query, nextCursor)} className="font-strong">
+              Next page
+            </Link>
+          )}
+        </nav>
+      ) : null}
     </div>
   );
 }

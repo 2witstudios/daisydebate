@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { openRoomHref, playOptions } from './options';
+import { lobbyHref, openRoomHref, playOptions } from './options';
 
 setupRitewayBun();
 
@@ -16,14 +16,17 @@ describe('playOptions', () => {
     });
   });
 
-  test('ranked first, and the room form is one option, not the page', () => {
+  test('ranked first, the room form one option, and neither Play nor the Lobby', () => {
     assert({
       given: 'the options',
-      should: 'lead with ranked and send the casual room to its form',
+      should:
+        'lead with ranked, send Open a room to its form, and leave the Lobby to its own link',
       actual: [
         playOptions[0]?.id,
-        playOptions.find((option) => option.id === 'casual-room')?.href,
-        playOptions.some((option) => option.href === '/play'),
+        playOptions.find((option) => option.id === 'room')?.href,
+        playOptions.some((option) =>
+          ['/play', lobbyHref].includes(option.href),
+        ),
       ],
       expected: ['ranked', openRoomHref, false],
     });
