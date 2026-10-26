@@ -1,5 +1,15 @@
 import type { Page } from '@playwright/test';
-import { serverMessageSchema } from '@daisy/protocol';
+import { serverMessageSchema, type ServerMessage } from '@daisy/protocol';
+
+/** A received frame the realtime server's schema accepts, else null. */
+export function serverFrame(payload: string | Buffer): ServerMessage | null {
+  try {
+    const frame = serverMessageSchema.safeParse(JSON.parse(String(payload)));
+    return frame.success ? frame.data : null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Every answer the realtime server gives the watched pages' subscribes:
@@ -31,20 +41,13 @@ export function subscriptionLedger() {
           }
         });
         socket.on('framereceived', ({ payload }) => {
-          let raw: unknown;
-          try {
-            raw = JSON.parse(String(payload));
-          } catch {
-            return;
-          }
-          const frame = serverMessageSchema.safeParse(raw);
-          if (!frame.success) return;
-          if (frame.data.type === 'error')
+          const frame = serverFrame(payload);
+          if (frame?.type === 'error')
             refusals.push(
-              `${label} ${requested.get(frame.data.id ?? '') ?? 'connection'} ${frame.data.code}: ${frame.data.message}`,
+              `${label} ${requested.get(frame.id ?? '') ?? 'connection'} ${frame.code}: ${frame.message}`,
             );
-          if (frame.data.type === 'subscribed')
-            subscribed.push(`${label} ${frame.data.topic}`);
+          if (frame?.type === 'subscribed')
+            subscribed.push(`${label} ${frame.topic}`);
         });
       });
     },

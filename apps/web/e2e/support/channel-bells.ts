@@ -1,6 +1,6 @@
 import { expect, type BrowserContext } from '@playwright/test';
-import { serverMessageSchema } from '@daisy/protocol';
 import { openPage } from './fixtures';
+import { serverFrame } from './subscription-ledger';
 
 /** A member's conversation page, subscribed to the channel's doorbells. */
 export async function listenForChannelBells(
@@ -13,22 +13,15 @@ export async function listenForChannelBells(
   const changeVersions: number[] = [];
   page.on('websocket', (socket) =>
     socket.on('framereceived', ({ payload }) => {
-      let raw: unknown;
-      try {
-        raw = JSON.parse(String(payload));
-      } catch {
-        return;
-      }
-      const frame = serverMessageSchema.safeParse(raw);
-      if (!frame.success) return;
-      if (frame.data.type === 'subscribed' && frame.data.topic === topic)
+      const frame = serverFrame(payload);
+      if (frame?.type === 'subscribed' && frame.topic === topic)
         subscribed = true;
       if (
-        frame.data.type === 'event' &&
-        frame.data.payload.kind === 'channel.changed' &&
-        frame.data.payload.channelId === channelId
+        frame?.type === 'event' &&
+        frame.payload.kind === 'channel.changed' &&
+        frame.payload.channelId === channelId
       )
-        changeVersions.push(frame.data.payload.changeVersion);
+        changeVersions.push(frame.payload.changeVersion);
     }),
   );
   await page.goto(`/messages/${channelId}`);
