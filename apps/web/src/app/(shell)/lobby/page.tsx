@@ -5,6 +5,7 @@ import { parseLobbyQuery } from '../../../features/lobby/discovery-query';
 import { requireAccess } from '../../../lib/access';
 import { Lobby } from '../../../ui/lobby/lobby';
 import { roomListing } from './actions';
+import { requestActiveRoom } from '../active-room';
 
 export const metadata: Metadata = { title: 'Lobby' };
 export default async function LobbyPage({
@@ -15,7 +16,10 @@ export default async function LobbyPage({
   await requireAccess('/lobby', searchParams);
   const query = parseLobbyQuery(await searchParams);
   if (!query.success) throw createAppError('VALIDATION');
-  const listing = await roomListing(query.data.list);
+  const [listing, activeRoom] = await Promise.all([
+    roomListing(query.data.list),
+    requestActiveRoom(),
+  ]);
   if (listing.kind !== 'found') throw createAppError('INFRASTRUCTURE');
   return (
     <Lobby
@@ -23,7 +27,7 @@ export default async function LobbyPage({
       rooms={listing.rooms}
       nextCursor={listing.nextCursor}
       retry={listing.retry}
-      activeRoom={null}
+      activeRoom={activeRoom}
     />
   );
 }

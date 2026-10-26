@@ -31,6 +31,26 @@ Launch is one atomic operation. When every required seat is filled and every
 human is Ready, it freezes the seats and rules into one **scheduled** Round.
 A Room has exactly one Round (ADR 0067).
 
+## One active Room
+
+A user is in at most one active Room at a time, as its host or in a seat
+(ADR 0070). A Room is active while it assembles or its Round is scheduled or
+active; the database holds one `room_active_memberships` row per human
+member, keyed by actor, so a second create or join is refused as
+`active-room` and the UI returns the user to their current Room. Bots hold no
+membership. Every terminal state frees its members:
+
+- **Close.** Only the host's explicit Close closes an open Room. Hosting is
+  independent of seating: a host who leaves their seat (or never took one)
+  still hosts, and stays a member, through the live Round.
+- **Idle expiry.** With `ROOM_POLICY.idleTimeoutMs` set, maintenance closes an
+  open Room with no accepted command (or running pre-round prep) for that
+  long, by database time.
+- **Leave.** A guest leaving their seat frees only themselves. Leaving a live
+  Round forfeits it, which ends the Round.
+- **The debate ends**: the last speech ends, or the Round completes, is
+  forfeited or is abandoned. Judges ballot from their Round seats.
+
 ## Playing
 
 The host's `start` command activates the Round; only the host may start it.

@@ -27,6 +27,7 @@ import {
 import type { RoundFormState } from '../../features/round-runtime/command-form';
 import type { FormAction } from '../form-action/form-action';
 import { RoundCommandActions } from './round-command-actions';
+import { leaveIntent } from '../../features/round-runtime/leave-intent';
 
 const nowMs = () => Date.parse(systemClock.now());
 
@@ -55,6 +56,7 @@ export function LiveRoundRoom({
   actorId,
   renderedAtMs,
   leave,
+  leaveAction,
   read,
   socketUrl,
   commandAction,
@@ -70,6 +72,8 @@ export function LiveRoundRoom({
   readonly renderedAtMs: number;
   readonly actorId: string;
   readonly leave: LeaveLinks;
+  /** Posts the forfeit that leaving a live Round is (ADR 0070). */
+  readonly leaveAction: FormAction<RoundFormState>;
   readonly read: () => Promise<RoundRead>;
   /** The realtime endpoint, or null when realtime is not configured. */
   readonly socketUrl: string | null;
@@ -107,6 +111,19 @@ export function LiveRoundRoom({
     [view, actorId, now],
   );
   const { sync, notice, save } = useRoundSync(view.id);
+  const intent = leaveIntent(view, actorId, now);
+  const leaving: LeaveLinks =
+    intent.kind === 'forfeit'
+      ? {
+          ...leave,
+          forfeit: {
+            action: leaveAction,
+            commandId: ids.forfeit,
+            expectedVersion: intent.expectedVersion,
+            participantId: intent.participantId,
+          },
+        }
+      : leave;
   return (
     <>
       <FreshnessNotice freshness={synced.freshness} noun="round" />
@@ -133,7 +150,7 @@ export function LiveRoundRoom({
               sync={sync}
               notice={notice}
               save={save}
-              leave={leave}
+              leave={leaving}
             />
           ) : null
         }

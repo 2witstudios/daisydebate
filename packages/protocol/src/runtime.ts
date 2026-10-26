@@ -104,6 +104,8 @@ export type RoundSpeakingChange =
 export type RoundProjection = {
   /** Actual final segment close, independent of ballot completion. */
   readonly finalSegmentEndedAt?: string;
+  /** The engine's ruling that this Round holds its Room's members no longer (ADR 0070). */
+  readonly releasesRoomMembers?: true;
   readonly speakingChanges?: readonly RoundSpeakingChange[];
   /** Null when no round-row column changed. */
   readonly round: {

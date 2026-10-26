@@ -91,7 +91,12 @@ describe('Lobby', () => {
   test('pins the viewer’s own Room first', () => {
     const roomHref = `/rooms/${id('e')}`;
     const html = render({
-      activeRoom: { title: 'My room', phase: 'ready', href: roomHref },
+      activeRoom: {
+        id: id('e'),
+        title: 'My room',
+        phase: 'ready',
+        href: roomHref,
+      },
     });
     assert({
       given: 'a viewer with an active Room',

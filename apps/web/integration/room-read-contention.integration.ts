@@ -1,7 +1,8 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { requireTestServices } from '@daisy/config';
-import { withRoomRuntime, consentBarrier } from './room-runtime.test-support';
+import { withRoomRuntime } from './room-runtime.test-support';
+import { consentBarrier } from './room-consent-barrier.test-support';
 requireTestServices(process.env);
 setupRitewayBun();
 

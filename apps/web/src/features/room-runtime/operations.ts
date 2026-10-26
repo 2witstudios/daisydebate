@@ -8,10 +8,16 @@ import { can, digest } from './authority';
 import { resolveRoomSelection } from './selection';
 import { canReadRound } from '../round-runtime/reads';
 import type { Database } from '@daisy/db';
-import { hostIdentityHidden, projectRoom } from '@daisy/debate-engine';
+import {
+  activeRoomMembers,
+  hostIdentityHidden,
+  projectActiveRoom,
+  projectRoom,
+} from '@daisy/debate-engine';
 import type { IdGenerator } from '@daisy/clock';
 import type { createRedis } from '@daisy/redis';
 import type {
+  ActiveRoom,
   RoomListQuery,
   FormatDefinition,
   RoomAssemblyState,
@@ -37,6 +43,7 @@ export type Store = Pick<
   | 'readRoomAssembly'
   | 'listRoomPage'
   | 'executeRoomCommand'
+  | 'readActiveRoomFacts'
 >;
 type Redis = Pick<
   ReturnType<typeof createRedis>,
@@ -73,14 +80,12 @@ export function createRoomRuntimeOperations({
   store,
   redis,
   ids,
-  maxOpenRooms,
   consentTtlMs,
   botsAvailable,
 }: {
   readonly store: Store;
   readonly redis: Redis;
   readonly ids: IdGenerator;
-  readonly maxOpenRooms: () => number;
   readonly consentTtlMs: () => number;
   readonly botsAvailable: () => boolean;
 }) {
@@ -189,7 +194,13 @@ export function createRoomRuntimeOperations({
     const receipt = await store.createRoomCommand({
       caller,
       authorize: (account) => can(caller, 'room.create', account),
-      maxOpenRooms: maxOpenRooms(),
+      // A new Room holds its host alone; another Room holding them refuses it.
+      members: activeRoomMembers({
+        status: 'assembling',
+        roundRef: null,
+        hostActorId: caller.actorId,
+        participants: [],
+      }),
       commandId: body.commandId,
       payloadDigest: digest(body),
       definition: selection.kind === 'custom' ? definition : null,
@@ -212,6 +223,13 @@ export function createRoomRuntimeOperations({
   };
   return {
     view,
+    /** The caller's own active Room (ADR 0070), or null when none holds them. */
+    async activeRoom(caller: Caller): Promise<ActiveRoom | null> {
+      const facts = await store.readActiveRoomFacts(caller, (account) =>
+        can(caller, 'room.list', account),
+      );
+      return facts && projectActiveRoom(facts, caller.actorId);
+    },
     roundView: (caller: Caller, roundId: string) =>
       store.readLaunchedRound(roundId, caller, (view, account) =>
         canReadRound(caller, view, account),

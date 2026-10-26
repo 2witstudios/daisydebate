@@ -9,7 +9,7 @@ const env = {
 };
 const policy = {
   consentTtlMs: 12345,
-  maxOpenRooms: 7,
+  idleTimeoutMs: 600_000,
   maxBodyBytes: 54321,
   limits: {
     create: { max: 13, windowSeconds: 17 },
@@ -28,6 +28,17 @@ test('optional complete deployment Room policy has no numeric defaults', () => {
     ],
     expected: [undefined, policy],
   });
+  const { idleTimeoutMs: _omitted, ...withoutIdle } = policy;
+  void _omitted;
+  assert({
+    given: 'a Room policy without an idle timeout',
+    should: 'accept it with idle expiry left inert, never a default',
+    actual: readServerConfig({
+      ...env,
+      ROOM_POLICY: JSON.stringify(withoutIdle),
+    }).ROOM_POLICY,
+    expected: withoutIdle,
+  });
 });
 test('Room policy refuses malformed partial and invalid fields without values', () => {
   const failure = (value: string) => {
@@ -44,10 +55,12 @@ test('Room policy refuses malformed partial and invalid fields without values', 
     'null',
     '[]',
     '{}',
-    JSON.stringify({ ...policy, maxOpenRooms: 'SECRET' }),
+    JSON.stringify({ ...policy, idleTimeoutMs: 'SECRET' }),
     JSON.stringify({ ...policy, consentTtlMs: 0 }),
     JSON.stringify({ ...policy, maxBodyBytes: 1.5 }),
-    JSON.stringify({ ...policy, maxOpenRooms: Number.MAX_SAFE_INTEGER + 1 }),
+    JSON.stringify({ ...policy, idleTimeoutMs: Number.MAX_SAFE_INTEGER + 1 }),
+    JSON.stringify({ ...policy, idleTimeoutMs: 0 }),
+    JSON.stringify({ ...policy, maxOpenRooms: 5 }),
     JSON.stringify({
       ...policy,
       limits: { ...policy.limits, command: { max: -1, windowSeconds: 0 } },
@@ -67,9 +80,9 @@ test('Room policy refuses malformed partial and invalid fields without values', 
     expected: invalid.map(() => true),
   });
   assert({
-    given: 'a malformed maxOpenRooms value',
+    given: 'a malformed idleTimeoutMs value',
     should: 'name the nested offending field',
     actual: messages[5],
-    expected: 'Invalid server configuration: ROOM_POLICY.maxOpenRooms',
+    expected: 'Invalid server configuration: ROOM_POLICY.idleTimeoutMs',
   });
 });

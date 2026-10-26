@@ -1,4 +1,5 @@
 import { speakingChangesOf } from './round-speaking';
+import { roundHoldsMembers } from './room-membership';
 import { applyUnjudgedCompletion } from './round-unjudged';
 import { abandonUnstartedRound } from './round-start-horizon';
 import type { RoundRuntime } from './round-runtime-api';
@@ -172,10 +173,17 @@ export function createRoundRuntime(input: {
       (finalClose?.kind === 'close'
         ? new Date(finalClose.atMs).toISOString()
         : undefined);
+    const round = roundBlockOf(store);
+    // This revision stops the Round holding its Room's members (ADR 0070).
+    const releasesRoomMembers = !roundHoldsMembers({
+      status: store.lifecycle().status,
+      debateEnded: finalEndedAt !== undefined,
+    });
     return {
       ...(finalEndedAt !== undefined
         ? { finalSegmentEndedAt: finalEndedAt }
         : {}),
+      ...(releasesRoomMembers ? { releasesRoomMembers: true as const } : {}),
       speakingChanges: speakingChangesOf({
         rules,
         participants: input.participants,
@@ -183,7 +191,7 @@ export function createRoundRuntime(input: {
         segmentIds,
         floorChange: into.floorChange,
       }),
-      round: roundBlockOf(store),
+      round,
       segmentInserts,
       segmentCloses,
       effects: into.effects,

@@ -9,12 +9,18 @@ import {
   type ActiveRoomSummary,
 } from './your-room';
 
-/** Home and the Lobby pin the Room themselves; its own page needs no way back. */
+/**
+ * Home and the Lobby pin the Room themselves, and neither the Room's page nor
+ * its live Round's room needs a way back.
+ */
 export const showsActiveRoomBar = (
   pathname: string | null,
-  href: string,
+  room: Pick<ActiveRoomSummary, 'id' | 'href'>,
 ): boolean =>
-  pathname !== '/' && pathname !== '/lobby' && !matchesRoute(pathname, href);
+  pathname !== '/' &&
+  pathname !== '/lobby' &&
+  !matchesRoute(pathname, room.href) &&
+  !matchesRoute(pathname, `/rooms/${room.id}`);
 
 /**
  * A slim bar above every other shell page while the viewer is in a Room, so
@@ -22,7 +28,7 @@ export const showsActiveRoomBar = (
  */
 export function ActiveRoomBar({ room }: { readonly room: ActiveRoomSummary }) {
   const pathname = usePathname();
-  if (!showsActiveRoomBar(pathname, room.href)) return null;
+  if (!showsActiveRoomBar(pathname, room)) return null;
   return (
     <MediaPageLink
       href={room.href}

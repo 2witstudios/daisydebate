@@ -1,15 +1,17 @@
+import type { ActiveRoom } from '@daisy/protocol';
 import { roomStatusLabels } from '../../features/rooms/status-labels';
 import { buttonClass } from '../components/button/button-class';
 import { statusDotClass } from '../components/status-line/status-line-class';
 import { MediaPageLink } from '../round-media/media-page-link';
 
-/** The viewer's one active Room , as the shell, Lobby and Home show it. */
-export type ActiveRoomSummary = {
-  readonly title: string;
-  readonly phase: 'assembling' | 'ready' | 'live';
-  /** The page that holds the member: the Room, or its live Round's room. */
-  readonly href: string;
-};
+/**
+ * The viewer's one active Room (ADR 0070), as the shell, Lobby and Home show
+ * it: `href` is the page that holds the member, the Room or its live Round's room.
+ */
+export type ActiveRoomSummary = Pick<
+  ActiveRoom,
+  'id' | 'title' | 'phase' | 'href'
+>;
 
 const phaseLabels: Readonly<Record<ActiveRoomSummary['phase'], string>> = {
   assembling: roomStatusLabels.assembling,

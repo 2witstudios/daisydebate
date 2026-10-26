@@ -3,6 +3,7 @@ import type { AttendanceResolution, Database } from '@daisy/db';
 import {
   createRoundRuntime,
   decideUnjudgedCompletion,
+  expireIdleRoom,
   freezeJudgingPlan,
 } from '@daisy/debate-engine';
 import { createAppError, isAppError } from '@daisy/errors';
@@ -75,6 +76,8 @@ export function createRoundMaintenanceOperations(input: {
     | 'readUnratedAttendanceForfeits'
     | 'rateRound'
     | 'completeUnjudgedRound'
+    | 'readIdleRoomCandidates'
+    | 'expireIdleRoom'
   >;
   readonly instanceId: string;
   readonly ids: IdGenerator;
@@ -89,6 +92,8 @@ export function createRoundMaintenanceOperations(input: {
    * maintenance never freezes, judges or completes it (ISSUE-530, DEC-231).
    */
   readonly probeRoundId: string | null;
+  /** Injected Room policy, or null to leave idle Room expiry inert (ADR 0070). */
+  readonly idleTimeoutMs: number | null;
 }) {
   const planJudging = judgingPlan(
     input.ballotDeadlineMs ?? DEFAULT_BALLOT_DEADLINE_MS,
@@ -161,6 +166,21 @@ export function createRoundMaintenanceOperations(input: {
           throw error;
       }
       return result;
+    },
+    /** Closes open Rooms idle past the policy timeout, a page per pulse. */
+    async expireIdleRooms() {
+      const idleTimeoutMs = input.idleTimeoutMs;
+      if (idleTimeoutMs === null) return;
+      const roomIds = await input.store.readIdleRoomCandidates({
+        idleTimeoutMs,
+        limit: 64,
+      });
+      for (const roomId of roomIds)
+        await input.store.expireIdleRoom({
+          roomId,
+          expire: (state, facts) =>
+            expireIdleRoom(state, { ...facts, idleTimeoutMs }),
+        });
     },
     async rateUnrated() {
       const page = await ratings({

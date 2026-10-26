@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assemblySnapshot } from './assembly.test-support';
-import { readAssembly, readRoomList } from './read-assembly';
+import { readActiveRoom, readAssembly, readRoomList } from './read-assembly';
 
 setupRitewayBun();
 const {
@@ -122,5 +122,37 @@ test('a room read names the realtime endpoint its doorbell rings on', async () =
       result.kind === 'found' ? result.socketUrl : result.kind,
     ),
     expected: ['wss://socket.daisy.invalid/realtime', null, null],
+  });
+});
+
+test('the active room read shows only a canonical own Room', async () => {
+  const activeRoom = {
+    version: 1,
+    id: 'm'.repeat(24),
+    title: 'Current room',
+    phase: 'assembling',
+    role: 'host',
+    href: `/rooms/${'m'.repeat(24)}`,
+  };
+  const calls: string[] = [];
+  const read = (response: Response) =>
+    readActiveRoom(async (path) => {
+      calls.push(path);
+      return response;
+    });
+  assert({
+    given:
+      'a held Room, no Room, inert Room routes, a refusal and a malformed answer',
+    should:
+      'show the held Room from the canonical route and show none otherwise',
+    actual: [
+      await read(Response.json({ activeRoom })),
+      await read(Response.json({ activeRoom: null })),
+      await read(new Response(null, { status: 404 })),
+      await read(new Response(null, { status: 429 })),
+      await read(Response.json({ activeRoom: { ...activeRoom, href: '/x' } })),
+      [...new Set(calls)],
+    ],
+    expected: [activeRoom, null, null, null, null, ['/api/rooms/active']],
   });
 });

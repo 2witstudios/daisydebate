@@ -6,6 +6,7 @@ import { rooms, roomParticipants } from './schema/rooms';
 import { roundLadder, rounds } from './schema/rounds';
 import { roundParticipants } from './schema/round-participants';
 import { appendRoundPhaseChanged } from './round-projection-writer';
+import { holdActiveRoomMembers } from './room-membership-persistence';
 
 import { type Tx, publishDefinition } from './room-command-facts';
 export const persistRoomMutation = async (
@@ -55,6 +56,7 @@ export const persistRoomMutation = async (
         readinessVersion: p.consentVersion,
       })),
     );
+  await holdActiveRoomMembers(tx, next.id, mutation.members);
   let roundRef = next.roundRef;
   if (mutation.freeze) {
     await tx.insert(rounds).values({

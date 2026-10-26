@@ -7,8 +7,10 @@ import { YourRoom, activeRoomPhaseLabel } from './your-room';
 
 setupRitewayBun();
 
-const roomHref = `/rooms/${'a'.repeat(24)}`;
+const roomId = 'a'.repeat(24);
+const roomHref = `/rooms/${roomId}`;
 const room = {
+  id: roomId,
   title: 'Tuesday night',
   phase: 'assembling',
   href: roomHref,
@@ -70,9 +72,22 @@ describe('showsActiveRoomBar', () => {
       given: 'Home, the Lobby, the Room page, a page under it and another page',
       should: 'show the bar only on the other page',
       actual: ['/', '/lobby', roomHref, `${roomHref}/edit`, '/watch'].map(
-        (path) => showsActiveRoomBar(path, roomHref),
+        (path) => showsActiveRoomBar(path, room),
       ),
       expected: [false, false, false, false, true],
+    });
+  });
+
+  test('a live Room hides on its Round room and its Room page', () => {
+    const live = { id: roomId, href: `/rounds/${'r'.repeat(24)}/room` };
+    assert({
+      given:
+        'a live Room seen from its Round room, its Room page and another page',
+      should: 'hide on the first two and show on the last',
+      actual: [live.href, roomHref, '/profile'].map((path) =>
+        showsActiveRoomBar(path, live),
+      ),
+      expected: [false, false, true],
     });
   });
 });

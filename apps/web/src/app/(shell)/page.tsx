@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Dashboard } from '../../ui/dashboard/dashboard';
 import { HeroBanner } from '../../ui/dashboard/hero-banner/hero-banner';
 import { MemberHero } from '../../ui/dashboard/member-hero/member-hero';
+import { requestActiveRoom } from './active-room';
 import { requestIdentity } from '../../lib/request-session';
 import { requestLinkAction } from '../(bare)/sign-in/actions';
 
@@ -19,7 +20,10 @@ export default async function HomePage() {
     <Dashboard
       hero={
         identity.state === 'member' ? (
-          <MemberHero username={identity.username} activeRoom={null} />
+          <MemberHero
+            username={identity.username}
+            activeRoom={await requestActiveRoom()}
+          />
         ) : (
           <HeroBanner requestLink={requestLinkAction.bind(null, '/')} />
         )

@@ -185,7 +185,17 @@ export {
   roomViewSchema,
   roomCatalogChoiceSchema,
   roomCastChoiceSchema,
+  roomRefusalSchema,
 } from './room-read';
+
+export {
+  activeRoomHref,
+  activeRoomSchema,
+  activeRoomReadSchema,
+  type ActiveRoom,
+  type ActiveRoomFacts,
+  type ActiveRoomPhase,
+} from './active-room';
 
 export { serverMessageSchema, type ServerMessage } from './realtime-server';
 

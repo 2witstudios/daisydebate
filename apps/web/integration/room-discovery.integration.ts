@@ -108,7 +108,10 @@ test('selected Room locks recheck visibility, participant and status races with 
   await withRoomRuntime(async (f) => {
     for (const change of ['visibility', 'seat', 'status'] as const) {
       const title = createId();
-      const view = (await f.create({ title, visibility: 'public' })).view;
+      // Each Room its own host: a host holds one active Room (ADR 0070).
+      const view = (
+        await f.create({ title, visibility: 'public' }, await f.member())
+      ).view;
       if (change === 'seat') {
         await f.sql`update rooms set visibility='private' where id=${view.id}`;
         await f.sql`insert into room_participants(id,room_id,actor_id,role,slot) values (${createId()},${view.id},${f.guest.actorId},'negative',0)`;
@@ -151,14 +154,15 @@ test('selected Round locks recheck frozen visibility and terminal status races',
   await withRoomRuntime(async (f) => {
     for (const change of ['visibility', 'status', 'seat'] as const) {
       const title = createId();
-      let view = await f.assemble({ title });
-      view = (await f.command(f.host, view, { type: 'start-round' })).view;
+      const cast = await f.freshCast();
+      let view = await f.assemble({ title }, cast);
+      view = (await f.command(cast.host, view, { type: 'start-round' })).view;
       if (change === 'seat')
         await f.sql`update rounds set visibility='private' where id=${view.roundRef!.id}`;
       await withHeld(async (holder, pid) => {
         await holder`select id from rounds where id=${view.roundRef!.id} for update`;
         const reading = f.operations.list(
-          change === 'seat' ? f.guest : f.outsider,
+          change === 'seat' ? cast.guest : f.outsider,
           {
             q: title,
             pageSize: 1,
@@ -168,7 +172,7 @@ test('selected Round locks recheck frozen visibility and terminal status races',
         if (change === 'visibility')
           await holder`update rounds set visibility='private' where id=${view.roundRef!.id}`;
         else if (change === 'seat')
-          await holder`delete from round_participants where round_id=${view.roundRef!.id} and actor_id=${f.guest.actorId}`;
+          await holder`delete from round_participants where round_id=${view.roundRef!.id} and actor_id=${cast.guest.actorId}`;
         else
           await holder`update rounds set status='abandoned',completed_at=statement_timestamp() where id=${view.roundRef!.id}`;
         await holder.unsafe('COMMIT');
@@ -221,7 +225,7 @@ test('masked page-plus-one races preserve accessible continuation and bounded re
     const title = createId();
     const views = [
       (await f.create({ title })).view,
-      (await f.create({ title })).view,
+      (await f.create({ title }, f.guest)).view,
     ].sort((a, b) => (a.id < b.id ? -1 : 1));
     await withHeld(async (holder, pid) => {
       const { reading } = await waitOnRoom(f, holder, pid, views[0]!.id, title);

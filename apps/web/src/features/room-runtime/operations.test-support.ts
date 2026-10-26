@@ -272,7 +272,6 @@ export function makeOperations(overrides: Partial<Store> = {}) {
       'r5n6p8r2t4v6x8z1k3b5c7d9',
       'f5n6p8r2t4v6x8z1k3b5c7d9',
     ]),
-    maxOpenRooms: () => 5,
     consentTtlMs: () => 60_000,
     botsAvailable: () => false,
   });

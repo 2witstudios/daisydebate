@@ -2,7 +2,11 @@ import type { RoomView } from '@daisy/protocol';
 
 /** One idempotency key per room form, so a replayed post is recognized. */
 export type RoomCommandIds = {
-  readonly header: { readonly details: string; readonly leave: string };
+  readonly header: {
+    readonly details: string;
+    readonly leave: string;
+    readonly close: string;
+  };
   readonly readiness: {
     readonly ready: string;
     readonly unready: string;
@@ -28,7 +32,7 @@ export function roomCommandIds(
   view: RoomView,
   nextId: () => string,
 ): RoomCommandIds {
-  const header = { details: nextId(), leave: nextId() };
+  const header = { details: nextId(), leave: nextId(), close: nextId() };
   const readiness = {
     ready: nextId(),
     unready: nextId(),

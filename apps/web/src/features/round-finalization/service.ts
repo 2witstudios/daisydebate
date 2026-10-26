@@ -13,11 +13,12 @@ type MaintenancePorts<Handle> = {
   ) => Promise<{ readonly decision: string } | null>;
   readonly finalize: (roundId: string) => Promise<unknown>;
   readonly rateUnrated: () => Promise<unknown>;
+  readonly expireIdleRooms: () => Promise<unknown>;
   readonly timers: {
     readonly setInterval: (pulse: () => void, ms: number) => Handle;
     readonly clearInterval: (handle: Handle) => void;
   };
-  /** `stage` names the work that failed: discover, tick, evaluate, finalize or rate. */
+  /** `stage` names the work that failed: discover, tick, evaluate, finalize, rate or expire. */
   readonly failed: (error: unknown, stage: string) => void;
 };
 
@@ -52,9 +53,11 @@ async function maintainRound<Handle>(
 export function startRoundMaintenance<Handle>(input: MaintenancePorts<Handle>) {
   let stopped = false,
     discovering = false,
-    rating = false;
+    rating = false,
+    expiring = false;
   let discoveryWork = Promise.resolve(),
-    ratingWork = Promise.resolve();
+    ratingWork = Promise.resolve(),
+    expiryWork = Promise.resolve();
   const active = new Map<string, Promise<void>>();
   const waiting = new Set<string>();
   const advance = () => {
@@ -100,10 +103,24 @@ export function startRoundMaintenance<Handle>(input: MaintenancePorts<Handle>) {
       rating = false;
     }
   };
+  const expireRooms = async () => {
+    if (stopped || expiring) return;
+    expiring = true;
+    try {
+      await input.expireIdleRooms();
+    } catch (error) {
+      input.failed(error, 'expire');
+    } finally {
+      expiring = false;
+    }
+  };
   const pulse = () => {
     if (!discovering) discoveryWork = discover();
     if (!rating) ratingWork = recoverRatings();
-    return Promise.all([discoveryWork, ratingWork]).then(() => undefined);
+    if (!expiring) expiryWork = expireRooms();
+    return Promise.all([discoveryWork, ratingWork, expiryWork]).then(
+      () => undefined,
+    );
   };
   const timer = input.timers.setInterval(() => {
     void pulse();
@@ -116,9 +133,11 @@ export function startRoundMaintenance<Handle>(input: MaintenancePorts<Handle>) {
       stopped = true;
       waiting.clear();
       input.timers.clearInterval(timer);
-      closing ??= Promise.all([discoveryWork, ratingWork]).then(async () => {
-        await Promise.all(active.values());
-      });
+      closing ??= Promise.all([discoveryWork, ratingWork, expiryWork]).then(
+        async () => {
+          await Promise.all(active.values());
+        },
+      );
       return closing;
     },
   };

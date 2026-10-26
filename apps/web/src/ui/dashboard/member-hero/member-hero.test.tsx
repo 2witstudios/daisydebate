@@ -30,7 +30,12 @@ describe('MemberHero', () => {
     const html = renderToStaticMarkup(
       <MemberHero
         username="ada-byron"
-        activeRoom={{ title: 'Tuesday night', phase: 'live', href: roomHref }}
+        activeRoom={{
+          id: 'b'.repeat(24),
+          title: 'Tuesday night',
+          phase: 'live',
+          href: roomHref,
+        }}
       />,
     );
     assert({

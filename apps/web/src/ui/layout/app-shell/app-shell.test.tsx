@@ -167,6 +167,7 @@ describe('AppShell', () => {
 
   test('a member in a Room sees the way back above the page', () => {
     const inRoom = render(member, {
+      id: 'a'.repeat(24),
       title: 'Tuesday night',
       phase: 'assembling',
       href: roomHref,

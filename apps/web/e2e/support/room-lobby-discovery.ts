@@ -8,23 +8,27 @@ import { createRoomLaunchAccounts } from './room-launch-accounts';
 import { closeSettledLaunchContexts } from './room-launch-settled';
 
 export async function proveLobbyDiscovery(browser: Browser) {
-  const accounts = await createRoomLaunchAccounts(browser, 1);
+  // Three hosts: one user holds one active Room (ADR 0070).
+  const accounts = await createRoomLaunchAccounts(browser, 3);
   let native: Awaited<ReturnType<typeof browser.newContext>> | undefined;
   try {
     const context = accounts.members[0]!.context;
     const token = `Discovery ${createId().slice(0, 8)}`;
     const views = [];
     for (let i = 0; i < 3; i++) {
-      const response = await context.request.post('/api/rooms', {
-        headers: { origin },
-        data: {
-          commandId: createId(),
-          title: `${token} ${i}`,
-          topic: `Search paging topic ${i}`,
-          visibility: 'public',
-          selection: launchCustomSelection,
+      const response = await accounts.members[i]!.context.request.post(
+        '/api/rooms',
+        {
+          headers: { origin },
+          data: {
+            commandId: createId(),
+            title: `${token} ${i}`,
+            topic: `Search paging topic ${i}`,
+            visibility: 'public',
+            selection: launchCustomSelection,
+          },
         },
-      });
+      );
       expect(response.status()).toBe(201);
       views.push(roomViewSchema.parse((await response.json()).view));
     }

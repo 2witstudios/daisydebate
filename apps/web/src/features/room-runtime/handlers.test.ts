@@ -115,3 +115,59 @@ test('room and round reads name the realtime endpoint their doorbells ring on', 
     expected: [endpoint, endpoint, null, null],
   });
 });
+
+test('an already-in-a-room refusal carries the caller’s own active Room (ADR 0070)', async () => {
+  const activeRoom = {
+    version: 1,
+    id: 'm'.repeat(24),
+    title: 'Current room',
+    phase: 'assembling',
+    role: 'host',
+    href: `/rooms/${'m'.repeat(24)}`,
+  };
+  const { createAppError } = await import('@daisy/errors');
+  const handlers = createRoomHandlers(
+    dependencies(member, {
+      create: async () => {
+        throw createAppError('CONFLICT', 'active-room');
+      },
+      activeRoom: async () => activeRoom,
+    }),
+  );
+  const created = await handlers.create(
+    new Request(`${origin}/api/rooms`, {
+      method: 'POST',
+      headers: { origin, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        commandId: id,
+        title: 'Room',
+        topic: 'Motion',
+        visibility: 'public',
+        selection: {
+          kind: 'ranked',
+          formatId: 'foundation',
+          formatVersion: 1,
+          presetVersion: 1,
+        },
+      }),
+    }),
+  );
+  const read = await handlers.active(
+    new Request(`${origin}/api/rooms/active`, { headers: { origin } }),
+  );
+  const body = await created.json();
+  assert({
+    given:
+      'a create refused because another Room holds the caller, then a read',
+    should:
+      'answer 409 active-room with that Room, and read the same Room on its own route',
+    actual: [
+      created.status,
+      body.refusal,
+      body.activeRoom,
+      body.error.code,
+      await read.json(),
+    ],
+    expected: [409, 'active-room', activeRoom, 'CONFLICT', { activeRoom }],
+  });
+});
