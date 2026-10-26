@@ -328,30 +328,32 @@ Styling is token-locked Tailwind v4 (ADR 0028). Every rule fails
 
 ### Visual parity
 
-`apps/web/e2e/visual.e2e.ts` takes full-page screenshots of the dashboard,
-settings, the lobby and every onboarding screen (username, passkey and the
-seven steps after it) in dark and light
-at 1440, 1024 and 390 px wide and compares them with
-`apps/web/e2e/visual-baselines/`. Baselines are Linux-only: fonts
-render differently elsewhere. CI runs on Linux natively. On any other host
-the `visual` Playwright project is excluded until a Linux browser is
-provided:
+`apps/web/e2e/visual.e2e.ts` is a stable core of 13 full-page baselines in
+`apps/web/e2e/visual-baselines/` (ADR 0073): the signed-out dashboard (the
+app shell frame) and settings, and the AUTH-4.7 sign-in and email-change
+confirm pages. A surface keeps a baseline only when it rarely changes on
+purpose and a purely visual regression there would matter; surfaces under
+active design have none. Baselines are Linux-only: fonts render
+differently elsewhere. CI runs on Linux natively. On any other host the
+`visual` Playwright project is excluded until a Linux browser is provided:
 
 ```sh
 bun visual:server                     # Linux Playwright image, port 43400
 PW_WS_ENDPOINT=ws://127.0.0.1:43400/ bun test:e2e
 ```
 
-To regenerate after an intended visual change, run the same command with
-`--update-snapshots` appended to the Playwright invocation
-(`node node_modules/@playwright/test/cli.js test --project=visual
---update-snapshots` from `apps/web`, with `PW_WS_ENDPOINT` set), review the
-image diff, and record the before/after on the plan. `bun visual:server`
-runs `scripts/visual-server.ts`, which takes the image tag and run-server
-version from the web app's exact `@playwright/test` pin, so they always
-match. The
-command lives in a script because Bun rewrites `npx` in a `package.json`
-script to `bun x`, which the image lacks (ISSUE-92).
+To rebaseline after an intended visual change, run
+`gh workflow run rebaseline-visuals.yml -f target=<pr number or branch>`: it
+renders the visual project with `--update-snapshots` on the E2E runner image
+and commits only changed baselines to that same-repository branch (never a
+fork or `main`). GitHub starts no CI for that commit, so pull it and push
+your next commit (or close and reopen the PR) to run the gates; the commit
+moves the PR head, so rebaseline before the independent review record. Review the
+image diff on the PR. `bun visual:server` runs `scripts/visual-server.ts`,
+which takes the image tag and run-server version from the web app's exact
+`@playwright/test` pin, so they always match. The command lives in a script
+because Bun rewrites `npx` in a `package.json` script to `bun x`, which the
+image lacks (ISSUE-92).
 
 ## UI component tests
 

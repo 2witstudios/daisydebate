@@ -23,23 +23,39 @@ export const deniedCommand = (
     headers: { origin },
     data: { ...body, commandId: createId(), expectedVersion: view.version },
   });
+const roomSetup = (page: Page) =>
+  page.getByRole('dialog', { name: 'Room setup', exact: true });
 /** Opens Room setup; `rules` also opens its speeches-and-rules disclosure. */
 export async function openRoomSetup(page: Page, rules = false) {
   await page.getByRole('link', { name: 'Room setup', exact: true }).click();
+  await expect(roomSetup(page)).toBeVisible();
   if (rules)
     await page
       .getByText('Customize speeches and rules', { exact: true })
       .click();
   return page.getByRole('form', { name: 'Round settings' });
 }
-/** Turns prep before the round off in Room setup; returns the settings form. */
+/** Saves the round settings; an accepted save closes Room setup. */
+export async function saveRoundSettings(page: Page) {
+  await roomSetup(page)
+    .getByRole('button', { name: 'Save round settings' })
+    .click();
+  await expect(roomSetup(page)).toBeHidden();
+}
+/** Closes Room setup through its close link. */
+export async function closeRoomSetup(page: Page) {
+  await page
+    .getByRole('link', { name: 'Close room setup', exact: true })
+    .click();
+  await expect(roomSetup(page)).toBeHidden();
+}
+/** Turns prep before the round off in Room setup and saves it. */
 export async function turnOffPreRoundPrep(page: Page) {
   const settings = await openRoomSetup(page);
   await settings
     .getByRole('checkbox', { name: /^Prep before the round/ })
     .uncheck();
-  await settings.getByRole('button', { name: 'Save round settings' }).click();
-  return settings;
+  await saveRoundSettings(page);
 }
 /** "1:03.456": a duration as the m:ss field takes it. */
 export const clockText = (ms: number) => {
@@ -137,14 +153,16 @@ export async function prepareRoomAs(
   own: (typeof seats)[number],
 ) {
   let view = await createFromPlay(page, title, 'one-on-one');
-  const settings = await turnOffPreRoundPrep(page);
+  await turnOffPreRoundPrep(page);
   await expect(async () => {
     view = await reread(page.request, view.id);
     expect(view.config.preRoundPrep).toEqual({ enabled: false });
   }).toPass({ timeout: 10_000 });
+  const settings = await openRoomSetup(page);
   await expect(settings.locator('[name="expectedVersion"]')).toHaveValue(
     String(view.version),
   );
+  await closeRoomSetup(page);
   const response = await page.request.get('/api/rooms/catalog');
   expect(response.status()).toBe(200);
   const body = await response.json();
