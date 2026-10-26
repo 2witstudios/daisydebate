@@ -264,12 +264,8 @@ export {
 } from './round-unjudged';
 
 export {
-  debateRecordSchema,
-  judgePanels,
-  matchHistoryEntrySchema,
   matchHistoryQuerySchema,
   memberProfileSchema,
-  recordResults,
   type DebateRecord,
   type JudgePanel,
   type MatchHistoryEntry,

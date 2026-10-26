@@ -8,15 +8,15 @@ const count = z.int().nonnegative();
  * What one completed Round means for one debater's record. `no-ruling` is a
  * completed Round nobody won or drew: it is listed, never counted.
  */
-export const recordResults = ['win', 'loss', 'draw', 'no-ruling'] as const;
+const recordResults = ['win', 'loss', 'draw', 'no-ruling'] as const;
 export type RecordResult = (typeof recordResults)[number];
 
 /** Who ruled a Round: AI judges, human judges, both, or nobody. */
-export const judgePanels = ['ai', 'human', 'mixed', 'none'] as const;
+const judgePanels = ['ai', 'human', 'mixed', 'none'] as const;
 export type JudgePanel = (typeof judgePanels)[number];
 
 /** A debater's unrated record: no rating, only what completed Rounds decided. */
-export const debateRecordSchema = z.strictObject({
+const debateRecordSchema = z.strictObject({
   wins: count,
   losses: count,
   draws: count,
@@ -24,7 +24,7 @@ export const debateRecordSchema = z.strictObject({
 export type DebateRecord = z.infer<typeof debateRecordSchema>;
 
 /** One completed Round in a debater's history, from that debater's seat. */
-export const matchHistoryEntrySchema = z.strictObject({
+const matchHistoryEntrySchema = z.strictObject({
   roundId: idSchema,
   completedAt: instant,
   resolution: z.string().min(1),

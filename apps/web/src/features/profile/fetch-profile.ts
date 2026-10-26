@@ -6,7 +6,7 @@ import {
 
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
 
-export type ProfileRead =
+type ProfileRead =
   | { readonly kind: 'found'; readonly profile: MemberProfile }
   | { readonly kind: 'missing' | 'invalid' | 'unavailable' };
 

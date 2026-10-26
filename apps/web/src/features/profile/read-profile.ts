@@ -18,7 +18,7 @@ type HistoryRow = Awaited<
 >['rows'][number];
 
 /** How many Rounds one history page lists. */
-export const HISTORY_PAGE_SIZE = 20;
+const HISTORY_PAGE_SIZE = 20;
 
 /** Who ruled, from the Round's judge seats. */
 export const judgePanel = (
