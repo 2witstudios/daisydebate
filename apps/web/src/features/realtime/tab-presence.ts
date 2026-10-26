@@ -59,29 +59,48 @@ export type TabPresence = ReturnType<typeof createTabPresence>;
 export function keepPresenceConnection(
   tab: Pick<TabPresence, 'size' | 'subscribe'>,
   open: () => Pick<ConnectionStore, 'connect' | 'close'>,
+  defer: (task: () => void) => void = queueMicrotask,
 ): () => void {
   let own: Pick<ConnectionStore, 'connect' | 'close'> | null = null;
+  let stopped = false;
+  let pending = false;
   let syncing = false;
-  const sync = () => {
-    if (syncing) return;
+  const others = () => tab.size() - (own ? 1 : 0);
+  // Opening waits a microtask: a page swapping one connection for another
+  // detaches and attaches in one commit, and must not flap the shell socket.
+  const openIfAlone = () => {
+    pending = false;
+    if (stopped || own || others() > 0) return;
     syncing = true;
     try {
-      const others = tab.size() - (own ? 1 : 0);
-      if (others === 0 && !own) {
-        own = open();
-        own.connect();
-      } else if (others > 0 && own) {
-        const closing = own;
-        own = null;
-        closing.close();
-      }
+      own = open();
+      own.connect();
     } finally {
       syncing = false;
+    }
+  };
+  const sync = () => {
+    if (syncing) return;
+    if (others() === 0 && !own) {
+      if (!pending) {
+        pending = true;
+        defer(openIfAlone);
+      }
+    } else if (others() > 0 && own) {
+      const closing = own;
+      own = null;
+      syncing = true;
+      try {
+        closing.close();
+      } finally {
+        syncing = false;
+      }
     }
   };
   const unsubscribe = tab.subscribe(sync);
   sync();
   return () => {
+    stopped = true;
     unsubscribe();
     const closing = own;
     own = null;

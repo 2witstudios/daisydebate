@@ -71,23 +71,38 @@ test('the activity source runs only while a connection is attached', () => {
   });
 });
 
-test('keepPresenceConnection opens the shell socket only when the tab has none', () => {
+const shellHarness = () => {
   const h = harness();
   const events: string[] = [];
-  const stop = keepPresenceConnection(h.tab, () => {
-    const store = {
-      reportActivity: () => {},
-      connect: () => events.push('shell open'),
-      close: () => {
-        events.push('shell closed');
-        detachShell();
-      },
-    };
-    const detachShell = h.tab.attach(store);
-    return store;
-  });
+  const deferred: (() => void)[] = [];
+  const stop = keepPresenceConnection(
+    h.tab,
+    () => {
+      const store = {
+        reportActivity: () => {},
+        connect: () => events.push('shell open'),
+        close: () => {
+          events.push('shell closed');
+          detachShell();
+        },
+      };
+      const detachShell = h.tab.attach(store);
+      return store;
+    },
+    (task) => deferred.push(task),
+  );
+  const flush = () => {
+    while (deferred.length > 0) deferred.shift()!();
+  };
+  return { h, events, stop, flush };
+};
+
+test('keepPresenceConnection opens the shell socket only when the tab has none', () => {
+  const { h, events, stop, flush } = shellHarness();
+  flush();
   const leavePage = h.tab.attach(h.reporter('page', []));
   leavePage();
+  flush();
   stop();
   assert({
     given:
@@ -96,5 +111,24 @@ test('keepPresenceConnection opens the shell socket only when the tab has none',
       'open the shell socket, close it for the page, reopen it after, and close it on stop',
     actual: events,
     expected: ['shell open', 'shell closed', 'shell open', 'shell closed'],
+  });
+});
+
+test('a page swapping its connection in one commit never flaps the shell socket', () => {
+  const { h, events, stop, flush } = shellHarness();
+  const leaveFirst = h.tab.attach(h.reporter('first page', []));
+  flush();
+  leaveFirst();
+  const leaveSecond = h.tab.attach(h.reporter('second page', []));
+  flush();
+  leaveSecond();
+  stop();
+  flush();
+  assert({
+    given:
+      'a page connection replaced by another before the deferred open runs, then a stop',
+    should: 'never open the shell socket',
+    actual: events,
+    expected: [],
   });
 });
