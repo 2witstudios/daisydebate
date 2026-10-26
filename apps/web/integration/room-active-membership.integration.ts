@@ -113,7 +113,7 @@ test('of two simultaneous creates or joins by one user exactly one wins', async 
   });
 });
 
-test('closing, a host leaving and a guest leaving free exactly their members', async () => {
+test('a guest leaving frees only them, a host leaving stays the host, and Close frees everyone', async () => {
   await withRoomRuntime(async (f) => {
     let room = (await f.create()).view;
     for (const [who, role] of [
@@ -125,26 +125,25 @@ test('closing, a host leaving and a guest leaving free exactly their members', a
     room = (await f.command(f.guest, room, { type: 'leave-seat' })).view;
     const afterGuest = await memberships(f, [f.host.actorId, f.guest.actorId]);
     room = (await f.command(f.host, room, { type: 'leave-seat' })).view;
-    const afterHost = await memberships(f, [f.host.actorId]);
-    const reopened = (await f.create()).view;
-    const closed = (await f.command(f.host, reopened, { type: 'close' })).view;
+    const seatless = await f.operations.activeRoom(f.host);
+    const closed = (await f.command(f.host, room, { type: 'close' })).view;
     assert({
       given:
-        'a guest leaving, the seated host leaving, then the host closing a new Room',
+        'a guest leaving, the seated host leaving their seat, then the host closing',
       should:
-        'free the guest alone, close the Room on host leave, and free the host on close',
+        'free the guest alone, keep the seatless host hosting the open Room, and free the host on Close',
       actual: [
         afterGuest,
         room.status,
-        afterHost,
+        seatless?.role,
         closed.status,
         await memberships(f, [f.host.actorId]),
         await f.operations.activeRoom(f.host),
       ],
       expected: [
         [[f.host.actorId, room.id]],
-        'abandoned',
-        [],
+        'assembling',
+        'host',
         'abandoned',
         [],
         null,

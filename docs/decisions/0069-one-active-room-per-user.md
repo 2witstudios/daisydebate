@@ -31,21 +31,24 @@ live Round was a link that changed nothing on the server.
 3. **Refusal.** `active-room` joins the closed Room refusal vocabulary (409
    `CONFLICT`). The HTTP refusal also carries the caller's own `ActiveRoom`
    read, so the UI returns them to it instead of showing a generic error.
-4. **Terminal states free members.** Host Close; a seated host leaving
-   (closes the Room); a guest leaving (frees only them); a live Round's
-   Leave, which posts the existing forfeit command and so ends the Round;
-   idle expiry; and any Round end.
-5. **Idle expiry.** `ROOM_POLICY.idleTimeoutMs` is optional with no
+4. **Hosting is independent of seating.** A host who has not taken a side,
+   or who leaves their seat, is still the Room's host and still its member
+   (role `host`); they may host and spectate. Only the explicit host `close`
+   command closes a Room. A guest leaving their seat frees only them.
+5. **Terminal states free members.** Close; a live Round's Leave, which posts
+   the existing forfeit command and so ends the Round; idle expiry; and any
+   Round end.
+6. **Idle expiry.** `ROOM_POLICY.idleTimeoutMs` is optional with no
    default; absent, expiry is inert. The maintenance sweep closes an open
    Room whose last accepted command, or the end of its running pre-round
    prep, is at least that old by database statement time. The engine's
    `expireIdleRoom` decides under the Room's row lock (`SKIP LOCKED`); the
    SQL candidate query is only a prefilter.
-6. **My active Room.** `@daisy/protocol`'s versioned `ActiveRoom` (`id`,
+7. **My active Room.** `@daisy/protocol`'s versioned `ActiveRoom` (`id`,
    `title`, `phase: assembling | ready | live`, `role: host | debater |
 judge`, `href`) is read through `GET /api/rooms/active` and server-side in
    the shell layout and the lobby. No realtime push yet.
-7. **Greenfield replacement.** `maxOpenRooms`, its advisory lock and its
+8. **Greenfield replacement.** `maxOpenRooms`, its advisory lock and its
    tests are deleted; a `ROOM_POLICY` naming it is refused at startup. The
    migration backfills memberships for Rooms open or live at migration time,
    keeping a user's newest Room where several held them.
@@ -59,4 +62,7 @@ real tournaments exist.
   ballot (up to the ballot deadline); Leave then goes to the lobby without a
   forfeit.
 - A judge has no Leave in a live Round; the Round's end frees them.
+- A seatless host stays a member through Launch and the live Round. Their
+  `href` is the Round's room page, which sends a non-debater to the Round's
+  public page; a dedicated spectator view is tracked separately.
 - Deploying requires the `ROOM_POLICY` secret to drop `maxOpenRooms` first.

@@ -55,7 +55,7 @@ test('header carries the room chips, invite and the seated viewer’s leave', ()
   });
 });
 
-test('the host edits details and closes the Room instead of leaving a seat', () => {
+test('the host edits details, closes the Room, and may leave a seat to keep hosting', () => {
   const hostId = assemblySnapshot.hostActorId!;
   const hostSeated = {
     ...seated,
@@ -68,8 +68,7 @@ test('the host edits details and closes the Room instead of leaving a seat', () 
     );
   assert({
     given: 'the host before taking a seat, and the host in a seat',
-    should:
-      'offer details editing and a Close room form posting close, never Leave seat',
+    should: 'offer details editing and Close room, plus Leave seat once seated',
     actual: [
       Boolean(byText(header(assemblySnapshot, hostId), 'button', 'Leave seat')),
       findElements(
@@ -80,6 +79,15 @@ test('the host edits details and closes the Room instead of leaving a seat', () 
       Boolean(byText(header(hostSeated, hostId), 'button', 'Leave seat')),
       closeFields(header(hostSeated, hostId)),
     ],
-    expected: [false, 1, true, false, [['close', 'close-id']]],
+    expected: [
+      false,
+      1,
+      true,
+      true,
+      [
+        ['close', 'close-id'],
+        ['leave-seat', 'leave-id'],
+      ],
+    ],
   });
 });

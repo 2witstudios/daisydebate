@@ -40,8 +40,9 @@ member, keyed by actor, so a second create or join is refused as
 `active-room` and the UI returns the user to their current Room. Bots hold no
 membership. Every terminal state frees its members:
 
-- **Close.** The host closes an open Room; a seated host leaving it closes it
-  too.
+- **Close.** Only the host's explicit Close closes an open Room. Hosting is
+  independent of seating: a host who leaves their seat (or never took one)
+  still hosts, and stays a member, through the live Round.
 - **Idle expiry.** With `ROOM_POLICY.idleTimeoutMs` set, maintenance closes an
   open Room with no accepted command (or running pre-round prep) for that
   long, by database time.

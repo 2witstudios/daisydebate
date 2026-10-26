@@ -68,12 +68,7 @@ function commandFence(
   if (!assemblyOpen(room)) return 'room-closed';
   if (hostCommands.has(command.type) && room.hostActorId !== actorId)
     return 'host-required';
-  // The host leaving closes the Room (ADR 0069), so prep does not fence it.
-  const hostLeaves =
-    command.type === 'leave-seat' && actorId === room.hostActorId;
-  return edit && !hostLeaves && room.prepStartedAt !== null
-    ? 'prep-running'
-    : null;
+  return edit && room.prepStartedAt !== null ? 'prep-running' : null;
 }
 /** Pure total transition. The adapter serializes the room and publishes accepted effects atomically. */
 export function executeRoomCommand(

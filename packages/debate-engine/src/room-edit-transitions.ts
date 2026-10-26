@@ -126,9 +126,6 @@ export const leaveSeat = (
 ): RoomMutationOutcome => {
   let next = room;
 
-  // The host leaving the Room closes it (ADR 0069), seated or not.
-  if (command.type === 'leave-seat' && actorId === room.hostActorId)
-    return acceptedRoomMutation({ ...room, status: 'abandoned' });
   const held = room.participants.find((p) =>
     command.type === 'leave-seat'
       ? p.actorId === actorId

@@ -78,7 +78,6 @@ export function AssemblyHeader({
             label="Copy invite link"
           />
           {host ? (
-            // The host leaving closes the Room (ADR 0069), so the host gets Close.
             <AssemblyCommandForm action={commandAction}>
               <AssemblyCommandFields
                 type="close"
@@ -89,7 +88,8 @@ export function AssemblyHeader({
                 Close room
               </button>
             </AssemblyCommandForm>
-          ) : seated ? (
+          ) : null}
+          {seated ? (
             <AssemblyCommandForm action={commandAction}>
               <AssemblyCommandFields
                 type="leave-seat"
