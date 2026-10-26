@@ -257,6 +257,8 @@ test('a live Round holds its members until it ends; the end frees them for a rem
         ],
       });
     } finally {
+      // The fixture does not track a rematch's Room: remove it and its doorbell.
+      await f.sql`delete from outbox where topic=${`room:${rematch.view.id}`}`;
       await f.sql`delete from rooms where id=${rematch.view.id}`;
     }
   });
