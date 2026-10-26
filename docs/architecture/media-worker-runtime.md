@@ -37,7 +37,16 @@ lease is still pending. A failing session backs off exponentially from 1 s to
 to every capture process, kills any that are still running after 20 s, and
 exits once all have exited. The supervisor logs only `server.ready`,
 `server.shutdown`, `media.discovery.failed` (`errorCode`) and
-`media.capture.failed` (`status`).
+`media.capture.failed` (`status`, `cause`, `errorCode`).
+
+A capture process reports a failure only through its exit status
+(`src/capture-exit.ts`, ISSUE-571). Each status from 8 to 127 is one
+enumerated stage (`configuration`, `lease`, `history`, `token`, `connect`,
+`renewal`, `refresh`, `batch`, `seal`, `transcription`, `shutdown`, or
+`session` for a failure no stage tagged) paired with one protocol error
+code. Status 4 is an uncaught exception or unhandled rejection, and 128 + n
+is a signal. The worker decodes the status into `cause` and `errorCode`.
+Nothing else crosses the process boundary: no raw error, PCM or text.
 
 The supervisor isolates each capture process's native SDK stdout/stderr and passes only those three
 configuration fields to its child. It returns a process exit status, never raw

@@ -1,5 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { resolve } from 'node:path';
+import { describeCaptureExit } from './capture-exit';
 setupRitewayBun();
 const run = async (
   entry: string,
@@ -25,9 +26,16 @@ test('isolated capture process refuses invalid scope without exporting native di
   assert({
     given: 'the per-session capture entry with invalid IDs and no capabilities',
     should:
-      'exit refused without credentials, native hostname or raw exception output',
-    actual: await run('src/capture-process.ts', ['invalid'], {}),
-    expected: { code: 1, stdout: '', stderr: '' },
+      'exit with only its configuration stage: no credentials, native hostname or raw exception output',
+    actual: await run('src/capture-process.ts', ['invalid'], {}).then(
+      ({ code, ...output }) => ({ ...output, ...describeCaptureExit(code) }),
+    ),
+    expected: {
+      stdout: '',
+      stderr: '',
+      cause: 'configuration',
+      errorCode: 'VALIDATION',
+    },
   });
 });
 

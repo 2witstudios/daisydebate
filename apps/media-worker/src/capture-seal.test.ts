@@ -1,7 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createMediaWorkerAuthentication } from '@daisy/media/internal';
 import { createMediaWorkerClient } from '@daisy/media/worker';
-import { sealCaptureStreams } from './capture-session';
+import { sealCaptureStreams } from './capture-seal';
 setupRitewayBun();
 
 const stream = (segmentId: string) => ({
