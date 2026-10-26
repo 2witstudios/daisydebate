@@ -2,6 +2,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError } from '@daisy/errors';
 import { createMediaWorkerClient } from '@daisy/media/worker';
 import { createMediaWorkerAuthentication } from '@daisy/media/internal';
+import { captureConnectionClosed } from '@daisy/media/capture';
 import { captureFailureExit, describeCaptureExit } from './capture-exit';
 import type { CaptureClient } from './capture-history';
 import { runCaptureSession } from './capture-session';
@@ -68,6 +69,11 @@ function harness(
     readonly closeThrows?: boolean;
     /** How long each history read takes. */
     readonly readMs?: number;
+    /**
+     * LiveKit's disconnect has closed the connection, so identity updates
+     * refuse, before `closed` resolves (native cleanup still running).
+     */
+    readonly closingFirst?: boolean;
   } = {},
 ) {
   const closed = Promise.withResolvers<'disconnected' | 'closed'>();
@@ -75,7 +81,7 @@ function harness(
   if (options.drop !== undefined)
     setTimeout(() => {
       dropped = true;
-      closed.resolve('disconnected');
+      if (!options.closingFirst) closed.resolve('disconnected');
     }, options.drop);
   const client = {
     lease: async () => ({ epoch: 1 }),
@@ -108,7 +114,9 @@ function harness(
         }),
       subscribe: (async () => ({
         closed: closed.promise,
-        setIdentities: async () => undefined,
+        setIdentities: async () => {
+          if (dropped && options.closingFirst) throw captureConnectionClosed();
+        },
         close: async () => {
           closed.resolve('closed');
           if (options.closeThrows) throw new Error('native close failed');
@@ -162,5 +170,12 @@ test('a LiveKit room that drops after connect is a connect failure, unless the R
     should: 'finish the session, as a terminal Round does',
     actual: await harness({ drop: 10, closedOnDrop: true }),
     expected: 'closed for good',
+  });
+  assert({
+    given:
+      'an identity update refused because LiveKit already closed the connection, before its close resolves',
+    should: 'report the drop as connect, not as a refresh conflict',
+    actual: await harness({ drop: 10, closingFirst: true }),
+    expected: { cause: 'connect', errorCode: 'INFRASTRUCTURE' },
   });
 });

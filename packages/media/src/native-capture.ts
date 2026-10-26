@@ -59,6 +59,20 @@ const validateConnection = (url: string, token: string) => {
     throw createAppError('VALIDATION', 'Invalid capture credential');
 };
 
+const connectionClosed = new WeakSet<object>();
+/** The refusal of a connection LiveKit (or close) has already closed. */
+export function captureConnectionClosed() {
+  const error = createAppError(
+    'CONFLICT',
+    'Native capture connection is closed',
+  );
+  connectionClosed.add(error);
+  return error;
+}
+/** Whether a call was refused only because the connection had closed. */
+export const isCaptureConnectionClosed = (error: unknown) =>
+  typeof error === 'object' && error !== null && connectionClosed.has(error);
+
 /** Raw callback capture only. Calibrated historical eligibility belongs to its worker consumer. */
 export async function createCaptureSubscription(input: CaptureInput) {
   validateConnection(input.url, input.token);
@@ -178,8 +192,7 @@ export async function createCaptureSubscription(input: CaptureInput) {
   return {
     closed: ended.promise,
     async setIdentities(identities: readonly string[]) {
-      if (closing)
-        throw createAppError('CONFLICT', 'Native capture connection is closed');
+      if (closing) throw captureConnectionClosed();
       allowed = identitiesOf(identities);
       await Promise.all(
         [...streams.values()]

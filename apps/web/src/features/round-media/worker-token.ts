@@ -3,7 +3,7 @@ import type { createMediaService } from '@daisy/media';
 import type { createMediaWorkerAuthentication } from '@daisy/media/internal';
 import type { createRoundMediaOperations } from './operations';
 import { createAppError } from '@daisy/errors';
-import { mediaEnded, mediaRuntime } from './projection';
+import { admissionRevoked, mediaEnded, mediaRuntime } from './projection';
 
 type Capture = ReturnType<Database['createMediaCaptureOperations']>;
 type CaptureScope = Awaited<ReturnType<Capture['verifyMediaWorkerLease']>>;
@@ -53,19 +53,7 @@ export function createMediaWorkerTokenBroker(input: {
           throw createAppError('CONFLICT', 'Capture session has ended');
         return state;
       };
-      await read();
-      // Issued while capture's own reconcile holds the session, so recovery
-      // or a browser reconciling back to back never refuses it (ISSUE-551).
-      const held = await input.hold(scope.sessionId, async () => {
-        const state = await read();
-        // Our own reconcile may have left an unknown vendor outcome, which
-        // this same run then tears down: never mint into it, as for human
-        // admission. Refused for now; the worker's retry meets the lease.
-        if (state.session.unsafeAt || state.unresolved)
-          throw createAppError(
-            'INFRASTRUCTURE',
-            'Media recovery is unresolved',
-          );
+      const issue = async (state: Awaited<ReturnType<typeof read>>) => {
         if (!(await input.deadline(input.media.exists(state.session.roomName))))
           throw createAppError('INFRASTRUCTURE');
         const current = await input.capture.verifyMediaWorkerLease(scope);
@@ -88,6 +76,28 @@ export function createMediaWorkerTokenBroker(input: {
             Date.parse(current.serverNow) + 60_000,
           ).toISOString(),
         };
+      };
+      // The hidden receive-only token grants no floor, so no reconcile's
+      // result changes it: a safe live session issues it at once, never
+      // queued behind admissions and browser reconciles (ISSUE-571).
+      const first = await read();
+      if (
+        !first.session.unsafeAt &&
+        !first.unresolved &&
+        !admissionRevoked(first)
+      )
+        return issue(first);
+      // An unknown vendor outcome takes the hold, so its own reconcile resolves
+      // or cleans it up first and nothing is minted into a room that reconcile
+      // then tears down (ISSUE-551).
+      const held = await input.hold(scope.sessionId, async () => {
+        const state = await read();
+        if (state.session.unsafeAt || state.unresolved)
+          throw createAppError(
+            'INFRASTRUCTURE',
+            'Media recovery is unresolved',
+          );
+        return issue(state);
       });
       if (held) return held.value;
       // The reconcile refused or cleaned up and never reached the issue: a

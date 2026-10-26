@@ -21,17 +21,11 @@ import {
 import type { consumeCaptureClips, QueuedClip } from './capture-consumer';
 import { createHeardReporter } from './capture-heard';
 import { createStreamTracker } from './capture-streams';
-import {
-  closeCaptureSession,
-  droppedRoomFailure,
-  gracefulStop,
-} from './capture-drain';
+import { closeCaptureSession, gracefulStop } from './capture-drain';
+import { createSessionOutcome } from './capture-outcome';
 import { sealCaptureStreams } from './capture-seal';
-import {
-  atStage,
-  tagCaptureFailure,
-  type CaptureFailureStage,
-} from './capture-exit';
+import { atStage, tagCaptureFailure } from './capture-exit';
+import { issueCaptureToken } from './capture-token';
 type Dependencies = {
   readonly roundId: string;
   readonly client: CaptureClient;
@@ -68,7 +62,7 @@ export async function runCaptureSession(
       readCaptureHistory(input.client, epoch, signal),
     ),
     nextRenewal = input.nowMs() + 5000;
-  const token = await atStage('token', input.client.token(epoch, signal));
+  const token = await issueCaptureToken(input.client, epoch, signal);
   const staging = createCaptureStaging({
     current: () => current,
     nowMs: input.nowMs,
@@ -114,31 +108,8 @@ export async function runCaptureSession(
       },
     }),
   );
-  // The first failure wins: what it aborts then rejects only as cancelled.
-  let failure: unknown;
-  const record = (stage: CaptureFailureStage, error: unknown) => {
-    failure ??= tagCaptureFailure(stage, error);
-  };
-  // A LiveKit drop stops the session; confirmDrop asks the server why.
-  let roomDropped = false;
-  // An abort-caused rejection is not a failure of its own.
-  const loopFailed = (error: unknown) => {
-    if (!caller.aborted && !stop.signal.aborted) failure ??= error;
-  };
-  const confirmDrop = async () => {
-    if (roomDropped && failure === undefined && !caller.aborted)
-      failure = await droppedRoomFailure(input.client, epoch);
-  };
-  void capture.closed.then(
-    (reason) => {
-      roomDropped = reason === 'disconnected';
-      stop.abort();
-    },
-    (error: unknown) => {
-      record('connect', error);
-      stop.abort();
-    },
-  );
+  const outcome = createSessionOutcome({ caller, stop, client: input.client });
+  outcome.watch(capture.closed);
   // The consumer outlives the batch loop on a graceful stop, to drain (VIDEO-4.1-r12).
   const halt = new AbortController();
   const consuming = input
@@ -160,7 +131,7 @@ export async function runCaptureSession(
     })
     .catch((error) => {
       if (!halt.signal.aborted) {
-        record('transcription', error);
+        outcome.record('transcription', error);
         stop.abort();
       }
     });
@@ -199,7 +170,10 @@ export async function runCaptureSession(
       );
       streams.remember(current.state);
       staging.refresh(current.calibration);
-      await atStage('refresh', capture.setIdentities(identities(current)));
+      await atStage(
+        'refresh',
+        capture.setIdentities(identities(current)).catch(outcome.closedAsDrop),
+      );
       await atStage('batch', heard.report(current.state, epoch, signal));
       await atStage(
         'batch',
@@ -247,9 +221,9 @@ export async function runCaptureSession(
       await input.waitUntilMs(due, signal);
     }
   } catch (error) {
-    loopFailed(error);
+    outcome.loopFailed(error);
   } finally {
-    const graceful = gracefulStop(caller, failure, stop.signal);
+    const graceful = gracefulStop(caller, outcome.failure(), stop.signal);
     stop.abort();
     // A failing shutdown step never masks the failure that stopped the session.
     try {
@@ -288,10 +262,10 @@ export async function runCaptureSession(
         waitUntilMs: input.waitUntilMs,
       });
     } catch (error) {
-      record('shutdown', error);
+      outcome.record('shutdown', error);
     }
   }
-  await confirmDrop();
+  const failure = await outcome.settle(epoch);
   // The server closed the capture for good: a normal end, not a failure.
   if (failure && isCaptureClosedRefusal(failure))
     return { ...stats, closed: true };
