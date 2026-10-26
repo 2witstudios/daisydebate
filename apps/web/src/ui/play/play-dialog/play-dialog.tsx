@@ -35,8 +35,14 @@ export function PlayDialog({ children }: { readonly children: ReactNode }) {
         aria-labelledby="play-dialog-title"
         className="m-auto w-play-dialog max-w-full flex-col gap-4 rounded-lg border border-border-strong bg-surface-raised p-6 text-ink shadow-3 backdrop:bg-scrim/50 open:flex max-narrow:p-4"
       >
-        <form method="dialog" className="flex items-start justify-between gap-4">
-          <h2 id="play-dialog-title" className="font-display text-2xl font-bold">
+        <form
+          method="dialog"
+          className="flex items-start justify-between gap-4"
+        >
+          <h2
+            id="play-dialog-title"
+            className="font-display text-2xl font-bold"
+          >
             Play
           </h2>
           <button type="submit" aria-label="Close" className={closeClass}>

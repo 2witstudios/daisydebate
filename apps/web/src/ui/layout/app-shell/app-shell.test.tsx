@@ -192,7 +192,8 @@ describe('AppShell', () => {
     const main = inRoom.slice(inRoom.indexOf('<main'));
     assert({
       given: 'a member holding an assembling Room, and one holding none',
-      should: 'open the main column with Return to room, and add nothing otherwise',
+      should:
+        'open the main column with Return to room, and add nothing otherwise',
       actual: [
         main.indexOf(`href="${roomHref}"`) < main.indexOf('<p>page</p>'),
         main.includes('Return to room'),

@@ -14,9 +14,7 @@ export const showsActiveRoomBar = (
   pathname: string | null,
   href: string,
 ): boolean =>
-  pathname !== '/' &&
-  pathname !== '/lobby' &&
-  !matchesRoute(pathname, href);
+  pathname !== '/' && pathname !== '/lobby' && !matchesRoute(pathname, href);
 
 /**
  * A slim bar above every other shell page while the viewer is in a Room, so

@@ -44,10 +44,7 @@ export function YourRoom({ room }: { readonly room: ActiveRoomSummary }) {
         </p>
         <p className="truncate text-lg font-strong">{room.title}</p>
       </div>
-      <MediaPageLink
-        href={room.href}
-        className={stageActionClass}
-      >
+      <MediaPageLink href={room.href} className={stageActionClass}>
         Return to room
       </MediaPageLink>
     </section>

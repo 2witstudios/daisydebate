@@ -6,7 +6,11 @@ import { YourRoom, activeRoomPhaseLabel } from './your-room';
 setupRitewayBun();
 
 const roomHref = `/rooms/${'a'.repeat(24)}`;
-const room = { title: 'Tuesday night', phase: 'assembling', href: roomHref } as const;
+const room = {
+  title: 'Tuesday night',
+  phase: 'assembling',
+  href: roomHref,
+} as const;
 
 describe('activeRoomPhaseLabel', () => {
   test('names each phase', () => {
