@@ -66,6 +66,7 @@ export async function activeRoomFacts(
       status: rooms.status,
       roundId: rounds.id,
       roundStatus: rounds.status,
+      finalSegmentEndedAt: rounds.finalSegmentEndedAt,
       seatRole: roomParticipants.role,
     })
     .from(roomActiveMemberships)
@@ -88,5 +89,6 @@ export async function activeRoomFacts(
         ? { id: row.roundId, status: row.roundStatus }
         : null,
     seatRole: row.seatRole,
+    debateEnded: row.finalSegmentEndedAt !== null,
   };
 }

@@ -4,9 +4,25 @@ import type {
   ActiveRoomFacts,
   ActiveRoomPhase,
   RoomAssemblyState,
+  RoundStatus,
 } from '@daisy/protocol';
 
-type Holding = Pick<RoomAssemblyState, 'status' | 'roundRef'>;
+type Holding = Pick<RoomAssemblyState, 'status' | 'roundRef'> & {
+  /** Whether the launched Round's last speech has ended; false before Launch. */
+  readonly debateEnded?: boolean;
+};
+
+/**
+ * Whether a launched Round still holds its Room's members (ADR 0070): it is
+ * scheduled or active and its last speech has not ended. Judges ballot from
+ * their Round seats, so a Round awaiting ballots holds no one.
+ */
+export const roundHoldsMembers = (round: {
+  readonly status: RoundStatus;
+  readonly debateEnded: boolean;
+}) =>
+  (round.status === 'scheduled' || round.status === 'active') &&
+  !round.debateEnded;
 
 const phaseOf = (room: Holding): ActiveRoomPhase | null => {
   if (room.status === 'assembling' || room.status === 'ready')
@@ -15,8 +31,10 @@ const phaseOf = (room: Holding): ActiveRoomPhase | null => {
   // its adapter inserts in the same transaction is scheduled, so it is live.
   return room.status === 'started' &&
     (room.roundRef === null ||
-      room.roundRef.status === 'scheduled' ||
-      room.roundRef.status === 'active')
+      roundHoldsMembers({
+        status: room.roundRef.status,
+        debateEnded: room.debateEnded ?? false,
+      }))
     ? 'live'
     : null;
 };

@@ -26,9 +26,12 @@ live Round was a link that changed nothing on the server.
    Room writer makes the rows equal to it in the same transaction and
    refuses with `active-room` when another Room holds a member, rolling the
    whole command back. Two concurrent claims on one actor serialize on the
-   key: exactly one commits. A Round's last speech ending, or the Round leaving play, deletes its
-   Room's rows (`writeProjectionWithPhaseSignal`): the debate is over, and
-   judges ballot from their Round seats, not their membership.
+   key: exactly one commits. A Round holds its members only while it is scheduled or
+   active and its last speech has not ended (`roundHoldsMembers`). The round
+   runtime rules `releasesRoomMembers` on the revision that ends the debate,
+   and the projection writer only persists it; the active-room read and the
+   migration backfill apply the same truth table. Judges ballot from their
+   Round seats, not their membership.
 3. **Refusal.** `active-room` joins the closed Room refusal vocabulary (409
    `CONFLICT`). The HTTP refusal also carries the caller's own `ActiveRoom`
    read, so the UI returns them to it instead of showing a generic error.

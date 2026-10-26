@@ -49,4 +49,6 @@ export type ActiveRoomFacts = Pick<RoomAssemblyState, 'status' | 'roundRef'> & {
     readonly hostActorId: string;
   };
   readonly seatRole: DebateRole | null;
+  /** Whether the launched Round's last speech has ended. */
+  readonly debateEnded: boolean;
 };

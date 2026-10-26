@@ -16,10 +16,8 @@ const current = {
   outcome: null,
   runtimeState: emptyRuntimeCheckpoint,
 };
-const projection = (
-  finalSegmentEndedAt: string | undefined,
-): RoundProjection => ({
-  ...(finalSegmentEndedAt === undefined ? {} : { finalSegmentEndedAt }),
+const projection = (releases: boolean): RoundProjection => ({
+  ...(releases ? { releasesRoomMembers: true as const } : {}),
   round: null,
   segmentInserts: [],
   segmentCloses: [
@@ -27,10 +25,9 @@ const projection = (
   ],
   effects: [],
 });
-const releases = async (finalSegmentEndedAt: string | undefined) => {
-  // Round row, segment close, then (final only) release and cutoff, then the doorbell.
-  const writes: ScriptedResult[] =
-    finalSegmentEndedAt === undefined ? [[], []] : [[], [], [], []];
+const releases = async (ruled: boolean) => {
+  // Round row and segment close, then (when ruled) the release, then the doorbell.
+  const writes: ScriptedResult[] = ruled ? [[], [], []] : [[], []];
   const { client, queries } = fakeSql([
     ...writes,
     [[1n, '42']] as ScriptedResult,
@@ -40,7 +37,7 @@ const releases = async (finalSegmentEndedAt: string | undefined) => {
     drizzle({ client }),
     roundId,
     current,
-    projection(finalSegmentEndedAt),
+    projection(ruled),
     '2026-10-09T00:02:00.000Z',
   );
   return queries.some(({ query }) =>
@@ -48,15 +45,11 @@ const releases = async (finalSegmentEndedAt: string | undefined) => {
   );
 };
 
-test('the last speech ending frees the Room members; an earlier speech does not (ADR 0070)', async () => {
+test('the writer persists the engine release ruling and nothing else (ADR 0070)', async () => {
   assert({
-    given:
-      'an active Round closing a middle speech, then one closing its final speech',
-    should: 'release the Room memberships only once the debate is over',
-    actual: [
-      await releases(undefined),
-      await releases('2026-10-09T00:02:00.000Z'),
-    ],
+    given: 'a revision the engine does not rule a release on, then one it does',
+    should: 'release the Room memberships only when ruled',
+    actual: [await releases(false), await releases(true)],
     expected: [false, true],
   });
 });

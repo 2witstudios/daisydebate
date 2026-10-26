@@ -161,6 +161,7 @@ describe('my active Room', () => {
     room: { id: 'r'.repeat(24), title: 'Room', hostActorId: 'host' },
     roundRef: null,
     seatRole: null,
+    debateEnded: false,
   };
   test('the read names the phase, the page and the member role', () => {
     assert({
@@ -240,7 +241,8 @@ describe('my active Room', () => {
 
   test('a Room that no longer holds the user is no active room', () => {
     assert({
-      given: 'a closed Room, a finished Round and an unseated non-host',
+      given:
+        'a closed Room, a finished Round, a Round awaiting ballots and an unseated non-host',
       should: 'read no active room',
       actual: [
         projectActiveRoom({ ...facts, status: 'abandoned' }, 'host'),
@@ -252,9 +254,18 @@ describe('my active Room', () => {
           },
           'host',
         ),
+        projectActiveRoom(
+          {
+            ...facts,
+            status: 'started',
+            roundRef: { id: 'o'.repeat(24), status: 'active' },
+            debateEnded: true,
+          },
+          'host',
+        ),
         projectActiveRoom({ ...facts, status: 'assembling' }, 'other'),
       ],
-      expected: [null, null, null],
+      expected: [null, null, null, null],
     });
   });
 });

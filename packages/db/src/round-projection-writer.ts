@@ -83,12 +83,8 @@ export async function writeProjectionWithPhaseSignal(
   await writeProjection(tx, roundId, projection, now);
   if (endsRound(current, projection))
     await refundUnservedPracticeLocked(tx, roundId);
-  // A Round out of play, or whose last speech has ended, holds its Room's
-  // members no longer (ADR 0070): judges still ballot from their seats.
-  if (
-    endsRound(current, projection) ||
-    projection.finalSegmentEndedAt !== undefined
-  )
+  // The engine rules when a Round stops holding its Room's members (ADR 0070).
+  if (projection.releasesRoomMembers)
     await releaseRoundRoomMembers(tx, roundId);
   if (projection.finalSegmentEndedAt !== undefined)
     await tx

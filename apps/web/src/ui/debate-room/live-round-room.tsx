@@ -12,12 +12,12 @@ import {
   type ReactNode,
 } from 'react';
 import { systemClock, systemId } from '@daisy/clock';
-import { isNamedSeat, type RoundView } from '@daisy/protocol';
+import type { RoundView } from '@daisy/protocol';
 import type { RoundRead } from '../../features/rooms/read-round';
 import { FreshnessNotice } from '../resource-sync/freshness-notice';
 import { useLiveRoundView } from './use-live-round-view';
 import type { LeaveLinks } from './leave-room';
-import { isLiveDebater, liveRoundOf } from './live-round';
+import { liveRoundOf } from './live-round';
 import { DebateRoom } from './room';
 import { useRoundSync } from './use-round-sync';
 import {
@@ -27,7 +27,7 @@ import {
 import type { RoundFormState } from '../../features/round-runtime/command-form';
 import type { FormAction } from '../form-action/form-action';
 import { RoundCommandActions } from './round-command-actions';
-import { roundControlIntents } from '../../features/round-runtime/control-intents';
+import { leaveIntent } from '../../features/round-runtime/leave-intent';
 
 const nowMs = () => Date.parse(systemClock.now());
 
@@ -111,28 +111,16 @@ export function LiveRoundRoom({
     [view, actorId, now],
   );
   const { sync, notice, save } = useRoundSync(view.id);
-  // Leaving forfeits a scheduled Round (it is abandoned) and an active one
-  // while forfeit is a legal intent; after the last speech the debater
-  // just leaves for the lobby.
-  const seat = view.participants
-    .filter(isNamedSeat)
-    .find(
-      (p) => p.actorId === actorId && p.kind === 'human' && p.role !== 'judge',
-    );
-  const forfeitable =
-    (view.status === 'scheduled' && isLiveDebater(view, actorId)) ||
-    roundControlIntents(view, actorId, now).some(
-      (intent) => intent.type === 'forfeit' && intent.enabled,
-    );
+  const intent = leaveIntent(view, actorId, now);
   const leaving: LeaveLinks =
-    forfeitable && seat
+    intent.kind === 'forfeit'
       ? {
           ...leave,
           forfeit: {
             action: leaveAction,
             commandId: ids.forfeit,
-            expectedVersion: view.version,
-            participantId: seat.id,
+            expectedVersion: intent.expectedVersion,
+            participantId: intent.participantId,
           },
         }
       : leave;
