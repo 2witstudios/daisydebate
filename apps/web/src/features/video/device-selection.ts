@@ -10,7 +10,10 @@ const tabStorage: LocalStorage = () => window.sessionStorage;
 const selectionKey = (roomId: string) => `daisy:checked-devices:${roomId}`;
 
 /** Tab-local continuity across the Room → Round document load; never a server payload. */
-export function readCheckedDevices(roomId: string, storage = tabStorage) {
+export function readCheckedDevices(
+  roomId: string,
+  storage = tabStorage,
+): z.infer<typeof selectionSchema> {
   try {
     const value = JSON.parse(
       storage().getItem(selectionKey(roomId)) ?? '{}',
