@@ -7,6 +7,7 @@ import type {
 } from '@daisy/protocol';
 
 import { assemblyOpen, complete, type Edges } from './room-assembly-facts';
+import { activeRoomMembers } from './room-membership';
 export { hostIdentityHidden, projectRoom } from './room-projection';
 import {
   updateConfig,
@@ -73,7 +74,10 @@ export function executeRoomCommand(
     'leave-seat',
     'remove-seat',
   ].includes(command.type);
-  if (edit && room.prepStartedAt !== null) return refuse('prep-running');
+  const hostLeaves =
+    command.type === 'leave-seat' && actorId === room.hostActorId;
+  if (edit && !hostLeaves && room.prepStartedAt !== null)
+    return refuse('prep-running');
   const transition = roomTransitions[command.type] as (
     room: RoomAssemblyState,
     actorId: string,
@@ -107,6 +111,7 @@ export function executeRoomCommand(
       consent: consentEffect,
       freeze,
       publishDefinition,
+      members: activeRoomMembers(next),
     },
   };
 }

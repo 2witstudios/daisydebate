@@ -12,6 +12,8 @@ export {
   hostIdentityHidden,
   projectRoom,
 } from './room-assembly';
+export { activeRoomMembers, projectActiveRoom } from './room-membership';
+export { expireIdleRoom } from './room-expiry';
 export { deriveRoundOutcome } from './round-outcome';
 export { decideUnjudgedCompletion, freezeJudgingPlan } from './round-unjudged';
 export { decideStartHorizon } from './round-start-horizon';

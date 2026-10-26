@@ -23,7 +23,8 @@ const seatState = {
 const roundRef = z
   .strictObject({ id: idSchema, status: roundStatusSchema })
   .nullable();
-const refusal = z.enum([
+/** The closed Room refusal vocabulary every Room command and creation answers with. */
+export const roomRefusalSchema = z.enum([
   'version-conflict',
   'host-required',
   'room-closed',
@@ -38,6 +39,8 @@ const refusal = z.enum([
   'prep-unavailable',
   'command-conflict',
   'consent-conflict',
+  /** The caller already holds another active Room (ADR 0069). */
+  'active-room',
 ]);
 /** Full authoritative projection grammar used at JSON delivery boundaries. */
 export const roomViewSchema = z.strictObject({
@@ -107,7 +110,7 @@ export const roomViewSchema = z.strictObject({
     canFinishPrep: z.boolean(),
     canStart: z.boolean(),
   }),
-  startRefusal: refusal.nullable(),
+  startRefusal: roomRefusalSchema.nullable(),
   roundRef,
 });
 export const roomCatalogChoiceSchema = z.strictObject({
