@@ -28,7 +28,27 @@ test('the capture worker reads only its own settings', () => {
       ...worker,
       DATABASE_URL: 'postgres://owner:secret@localhost:5432/daisy',
     }),
-    expected: { ...worker, MEDIA_WORKER_MAX_SESSIONS: 8 },
+    expected: {
+      ...worker,
+      MEDIA_WORKER_MAX_SESSIONS: 8,
+      APP_VERSION: 'development',
+      GIT_COMMIT: 'unknown',
+    },
+  });
+  assert({
+    given: 'the deployment identity the image is built with (ISSUE-554)',
+    should: 'keep the release version and commit for the worker log',
+    actual: (({ APP_VERSION, GIT_COMMIT }) => ({ APP_VERSION, GIT_COMMIT }))(
+      readMediaWorkerConfig({
+        ...worker,
+        APP_VERSION: 'bc6532f',
+        GIT_COMMIT: 'bc6532f818085d822b99fac238b7284e21ad7cee',
+      }),
+    ),
+    expected: {
+      APP_VERSION: 'bc6532f',
+      GIT_COMMIT: 'bc6532f818085d822b99fac238b7284e21ad7cee',
+    },
   });
   assert({
     given: 'the worker database credential and signing key',

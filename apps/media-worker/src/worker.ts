@@ -4,6 +4,19 @@ import { createMediaWorkerDatabase } from '@daisy/db/media-worker';
 import { isAppError } from '@daisy/errors';
 import { createLogger } from '@daisy/logger';
 import { createCaptureSupervisor } from './supervisor';
+import { describeCaptureExit } from './capture-exit';
+
+/** The worker's logger, stamped with the release from validated config (ISSUE-554). */
+export const createWorkerLogger = (
+  config: Pick<MediaWorkerConfig, 'APP_VERSION' | 'GIT_COMMIT'>,
+  destination?: { write: (text: string) => void },
+) =>
+  createLogger({
+    service: 'media-worker',
+    appVersion: config.APP_VERSION,
+    gitCommit: config.GIT_COMMIT,
+    ...(destination ? { destination } : {}),
+  });
 
 /**
  * The capture worker. Each session runs in its own capture process
@@ -15,7 +28,7 @@ export async function startMediaWorker(input: {
   readonly env: Record<string, string | undefined>;
   readonly captureEntry: string;
 }) {
-  const logger = createLogger({ service: 'media-worker' });
+  let logger = createLogger({ service: 'media-worker' });
   const refuse = (cause: string) => {
     logger.log('server.shutdown', { cause }, 'Capture worker refused to start');
     process.exit(1);
@@ -26,6 +39,7 @@ export async function startMediaWorker(input: {
   } catch {
     refuse('configuration');
   }
+  logger = createWorkerLogger(config!);
   const database = createMediaWorkerDatabase({
     url: config!.MEDIA_WORKER_DATABASE_URL,
   });
@@ -41,7 +55,11 @@ export async function startMediaWorker(input: {
     nextWorkerId: () => systemId.next(),
     discover: database.discoverCaptureSessions,
     failed: (status) =>
-      logger.log('media.capture.failed', { status }, 'Capture process failed'),
+      logger.log(
+        'media.capture.failed',
+        { status, ...describeCaptureExit(status) },
+        'Capture process failed',
+      ),
     launch: (scope) => {
       const child = Bun.spawn(
         [

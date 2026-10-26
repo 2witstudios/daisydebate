@@ -2,7 +2,11 @@ import {
   CAPTURE_CALL_DEADLINE_MS,
   CAPTURE_STT_TIMEOUT_MS,
 } from '@daisy/protocol';
-import { disposeCaptureRuntime } from '@daisy/media/capture';
+import {
+  createCaptureSubscription,
+  disposeCaptureRuntime,
+} from '@daisy/media/capture';
+import { consumeCaptureClips } from './capture-consumer';
 import { createOpenRouter } from '@daisy/ai-voice';
 import {
   createMediaWorkerClient,
@@ -10,8 +14,14 @@ import {
 } from '@daisy/media/worker';
 import { createMediaWorkerAuthentication } from '@daisy/media/internal';
 import { idSchema } from '@daisy/protocol';
+import { createAppError } from '@daisy/errors';
 import { runCaptureSession } from './capture-session';
 import { CAPTURE_FINISHED_EXIT } from './supervisor';
+import {
+  CAPTURE_UNCAUGHT_EXIT,
+  captureFailureExit,
+  tagCaptureFailure,
+} from './capture-exit';
 
 type Fetch = (
   input: string | URL | Request,
@@ -20,15 +30,31 @@ type Fetch = (
 
 /**
  * One capture session's process. Native SDK stdout/stderr are isolated by the
- * worker that spawns it. No PCM, text or raw errors leave this process:
- * refusals exit quietly with status 1. `fetch` carries the signed web ingress
- * and the speech-to-text call; capture-process.ts passes the real one.
+ * worker that spawns it. No PCM, text or raw errors leave this process: a
+ * failure exits quietly with its enumerated stage and error code
+ * (capture-exit.ts). `fetch` carries the signed web ingress and the
+ * speech-to-text call; capture-process.ts passes the real one.
  */
 export async function runCaptureProcess(input: {
   readonly argv: readonly string[];
   readonly env: Record<string, string | undefined>;
   readonly fetch: Fetch;
 }) {
+  // A rejection nothing awaited still ends the process, as Bun would, but
+  // with a status the worker can tell apart from a staged failure.
+  const uncaught = () => process.exit(CAPTURE_UNCAUGHT_EXIT);
+  process.on('uncaughtException', uncaught);
+  process.on('unhandledRejection', uncaught);
+  function refuse(field: string): never {
+    process.exit(
+      captureFailureExit(
+        tagCaptureFailure(
+          'configuration',
+          createAppError('VALIDATION', `Invalid capture ${field}`),
+        ),
+      ),
+    );
+  }
   const [roundId, sessionId, workerId] = input.argv;
   if (
     ![roundId, sessionId, workerId].every(
@@ -38,11 +64,11 @@ export async function runCaptureProcess(input: {
     !sessionId ||
     !workerId
   )
-    process.exit(1);
+    refuse('scope');
   const url = input.env.PUBLIC_APP_URL,
     secret = input.env.MEDIA_WORKER_SECRET,
     apiKey = input.env.OPENROUTER_API_KEY;
-  if (!url || !secret || !apiKey) process.exit(1);
+  if (!url || !secret || !apiKey) refuse('environment');
   const authentication = createMediaWorkerAuthentication({
     secret,
     now: Date.now,
@@ -69,6 +95,8 @@ export async function runCaptureProcess(input: {
           timeoutMs: CAPTURE_STT_TIMEOUT_MS,
         }),
         sttModel: 'openai/whisper-large-v3-turbo',
+        subscribe: createCaptureSubscription,
+        consume: consumeCaptureClips,
         nowMs: performance.now,
         waitUntilMs: async (due, signal) => {
           while (performance.now() < due && !signal.aborted)
@@ -80,12 +108,13 @@ export async function runCaptureProcess(input: {
     process.exitCode = exitStatus(ended.closed);
   } catch (error) {
     // Refused at start (lease, token) because the capture is closed for good.
-    process.exitCode = exitStatus(isCaptureClosedRefusal(error), 1);
+    process.exitCode = isCaptureClosedRefusal(error)
+      ? CAPTURE_FINISHED_EXIT
+      : captureFailureExit(error);
   } finally {
     await disposeCaptureRuntime();
   }
 }
 
 /** A capture closed for good finishes the session; it is never relaunched. */
-const exitStatus = (closed: boolean, otherwise = 0) =>
-  closed ? CAPTURE_FINISHED_EXIT : otherwise;
+const exitStatus = (closed: boolean) => (closed ? CAPTURE_FINISHED_EXIT : 0);
