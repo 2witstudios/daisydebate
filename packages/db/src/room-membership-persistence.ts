@@ -19,7 +19,8 @@ export async function holdActiveRoomMembers(
   roomId: string,
   memberIds: readonly string[],
 ): Promise<void> {
-  const members = [...new Set(memberIds)];
+  // Sorted, so two Rooms claiming overlapping members lock them in one order.
+  const members = [...new Set(memberIds)].sort();
   await tx
     .delete(roomActiveMemberships)
     .where(

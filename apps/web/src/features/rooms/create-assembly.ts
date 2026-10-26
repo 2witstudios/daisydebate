@@ -63,8 +63,9 @@ export async function createAssembly(
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(parsed.data),
     });
+    // Inert Room routes answer 404: creation is unavailable, not refused.
     if (!response.ok)
-      return response.status < 500
+      return response.status < 500 && response.status !== 404
         ? await refusalOf(response)
         : { kind: 'unavailable' };
     const created = createdSchema.safeParse(await response.json());

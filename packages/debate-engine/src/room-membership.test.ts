@@ -69,6 +69,33 @@ describe('one active Room per user', () => {
   });
 });
 
+describe('Launch', () => {
+  test('starting the Round keeps every member held while it is live', () => {
+    const room = state();
+    const started = executeRoomCommand(
+      room,
+      'host',
+      {
+        type: 'start-round',
+        commandId: 'start',
+        expectedVersion: room.version,
+      },
+      consent,
+      edges,
+    );
+    assert({
+      given: 'a ready Room whose host launches its Round',
+      should: 'freeze it started with the host and guest still members',
+      actual: started.ok && [
+        started.mutation.state.status,
+        started.mutation.freeze,
+        started.mutation.members,
+      ],
+      expected: ['started', true, ['host', 'other']],
+    });
+  });
+});
+
 describe('host leave', () => {
   test('a host leaving an assembling Room closes it, even during prep', () => {
     const room = {

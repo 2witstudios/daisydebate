@@ -11,9 +11,12 @@ type Holding = Pick<RoomAssemblyState, 'status' | 'roundRef'>;
 const phaseOf = (room: Holding): ActiveRoomPhase | null => {
   if (room.status === 'assembling' || room.status === 'ready')
     return room.status;
+  // A started Room with no Round yet is the Launch being frozen: the Round
+  // its adapter inserts in the same transaction is scheduled, so it is live.
   return room.status === 'started' &&
-    (room.roundRef?.status === 'scheduled' ||
-      room.roundRef?.status === 'active')
+    (room.roundRef === null ||
+      room.roundRef.status === 'scheduled' ||
+      room.roundRef.status === 'active')
     ? 'live'
     : null;
 };
@@ -53,6 +56,7 @@ export function projectActiveRoom(
           ? 'judge'
           : 'debater';
   if (phase === null || role === null) return null;
+  if (phase === 'live' && facts.roundRef === null) return null;
   return {
     version: 1,
     id: facts.room.id,
