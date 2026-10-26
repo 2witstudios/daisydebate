@@ -2,6 +2,7 @@ import type {
   APIRequestContext,
   BrowserContext,
   Page,
+  Request,
   Response,
 } from '@playwright/test';
 import {
@@ -111,12 +112,34 @@ export async function enterSpeech(
   await page.goto(`/rounds/${roundId}/room`);
   return { page, connections, receipt: await receiptFrom(await response) };
 }
+/**
+ * The first receipt the page requests once `action` starts, never one the
+ * previous document asked for. Its body is read as it arrives: a reload
+ * navigates away from a response, and Chromium then drops its body.
+ */
 export async function nextReceipt(
   page: Page,
   roundId: string,
   action: () => Promise<unknown>,
 ) {
-  const pending = page.waitForResponse(receiptResponse(roundId));
-  await action();
-  return receiptFrom(await pending);
+  const requested = new Set<Request>();
+  const track = (request: Request) => requested.add(request);
+  let body: unknown;
+  const pending = page.waitForResponse(async (response) => {
+    if (
+      !receiptResponse(roundId)(response) ||
+      !requested.has(response.request())
+    )
+      return false;
+    body = await response.json();
+    return true;
+  });
+  page.on('request', track);
+  try {
+    await action();
+    await pending;
+  } finally {
+    page.off('request', track);
+  }
+  return attendanceReceiptSchema.parse(body);
 }
