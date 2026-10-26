@@ -7,6 +7,7 @@ const authorizationCapabilities = [
   'foundation.create',
   'foundation.read',
   'round.read',
+  'member.history.read',
   'room.create',
   'room.list',
   'room.read',

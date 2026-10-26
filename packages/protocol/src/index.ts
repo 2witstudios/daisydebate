@@ -262,3 +262,13 @@ export {
   type RoundUnjudgedReceipt,
   type RoundUnjudgedCompletion,
 } from './round-unjudged';
+
+export {
+  matchHistoryQuerySchema,
+  type DebateRecord,
+  type JudgePanel,
+  type MatchHistoryEntry,
+  type MatchHistoryQuery,
+  type MemberProfile,
+  type RecordResult,
+} from './member-profile';

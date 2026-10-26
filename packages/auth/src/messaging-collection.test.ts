@@ -5,6 +5,7 @@ import {
   resource,
   accounts,
   pendingResource,
+  ownResourceDenials,
 } from './channel.test-support';
 setupRitewayBun();
 test('messaging collection grants only current member own-association discovery', () => {
@@ -15,29 +16,7 @@ test('messaging collection grants only current member own-association discovery'
   };
   const cases = [
     own,
-    { ...own, resource: { ...own.resource, actorId: 'b' } },
-    { ...own, principal: { kind: 'anonymous' as const } },
-    {
-      ...own,
-      context: {
-        ...own.context,
-        account: { ...own.context.account!, member: false },
-      },
-    },
-    {
-      ...own,
-      context: {
-        ...own.context,
-        account: { ...own.context.account!, erased: true },
-      },
-    },
-    {
-      ...own,
-      context: {
-        ...own.context,
-        account: { ...own.context.account!, revision: 0 },
-      },
-    },
+    ...ownResourceDenials(own),
     {
       ...own,
       principal: { kind: 'user' as const, userId: 'foreign', actorId: 'a' },

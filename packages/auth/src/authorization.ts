@@ -64,6 +64,7 @@ function validResourceKind(
     'channel.reaction.remove': 'channel_reaction',
     'channel.preferences.clear': 'channel_preference',
     'channel.inbox.read': 'messaging_collection',
+    'member.history.read': 'member_history',
     'channel.file.cleanup': 'pending_file',
   } as const;
   const kind = specialized[capability as keyof typeof specialized];
@@ -203,7 +204,7 @@ function resolveMemberResource(
   capability: AuthorizationCapability,
   resource: Exclude<
     AuthorizationInput['resource'],
-    { kind: 'foundation' | 'channel_reaction' }
+    { kind: 'foundation' | 'channel_reaction' | 'member_history' }
   >,
   context: AuthorizationInput['context'],
 ):
@@ -246,6 +247,9 @@ function memberDecision(
   resource: Exclude<AuthorizationInput['resource'], { kind: 'foundation' }>,
   context: AuthorizationInput['context'],
 ): AuthorizationDecision {
+  // A member's private history is theirs alone (ISSUE-600).
+  if (resource.kind === 'member_history')
+    return decision(resource.actorId === actorId);
   if (resource.kind === 'channel_reaction') {
     if (
       !reactionAssociationOwned(actorId, resource) ||
