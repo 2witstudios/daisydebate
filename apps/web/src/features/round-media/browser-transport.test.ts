@@ -20,8 +20,7 @@ type Captured = ReturnType<typeof capturedTrack>;
 function stubSdk(
   options: {
     readonly captureGate?: Promise<void>;
-    readonly captureError?: Error;
-    readonly missingMicrophone?: boolean;
+    readonly missingSource?: 'camera' | 'microphone';
     /** Publishes settle at once, recorded in `published`. */
     readonly settles?: boolean;
   } = {},
@@ -75,8 +74,9 @@ function stubSdk(
       room: () => room,
       capture: async (options_: { audio: boolean; video: unknown }) => {
         captures.push(options_);
-        if (options.captureError) throw options.captureError;
-        if (options.missingMicrophone && options_.audio)
+        if (
+          options.missingSource === (options_.audio ? 'microphone' : 'camera')
+        )
           throw new DOMException('private', 'OverconstrainedError');
         await options.captureGate;
         const track = capturedTrack(options_.audio ? 'microphone' : 'camera');
@@ -277,52 +277,34 @@ test('Round capture pins the same camera and warm microphone that passed the Roo
   transport.stopTracks();
 });
 
-test('a missing selected camera refuses capture without falling back', async () => {
-  const stub = stubSdk({
-    settles: true,
-    captureError: new DOMException('private', 'OverconstrainedError'),
+for (const source of ['camera', 'microphone'] as const) {
+  test(`a missing selected ${source} fails at Round entry without fallback`, async () => {
+    const stub = stubSdk({ settles: true, missingSource: source });
+    const { transport } = createBrowserMediaTransport(
+      { ...events, devices: { [source]: 'gone-device' } },
+      stub.sdk,
+    );
+    let failure = '';
+    try {
+      await transport.apply(publish(['camera']));
+    } catch (error) {
+      failure = (error as Error).name;
+    }
+    assert({
+      given: `a selected ${source} missing before its first publication`,
+      should:
+        'surface the exact-device failure at Round entry without trying a default',
+      actual: {
+        failure,
+        captures: stub.captures.length,
+        published: sources(stub.published),
+      },
+      expected: {
+        failure: 'OverconstrainedError',
+        captures: source === 'camera' ? 1 : 2,
+        published: source === 'camera' ? [] : ['camera'],
+      },
+    });
+    transport.stopTracks();
   });
-  const { transport } = createBrowserMediaTransport(
-    { ...events, devices: { camera: 'gone-camera' } },
-    stub.sdk,
-  );
-  let failure = '';
-  try {
-    await transport.apply(publish(['camera']));
-  } catch (error) {
-    failure = (error as Error).name;
-  }
-  assert({
-    given:
-      'a selected camera that no longer satisfies the exact device constraint',
-    should: 'surface the device failure and never retry another camera',
-    actual: {
-      failure,
-      captures: stub.captures.length,
-      published: stub.published.length,
-    },
-    expected: { failure: 'OverconstrainedError', captures: 1, published: 0 },
-  });
-  transport.stopTracks();
-});
-
-test('a selected microphone missing at Round entry fails during warm capture', async () => {
-  const stub = stubSdk({ settles: true, missingMicrophone: true });
-  const { transport } = createBrowserMediaTransport(
-    { ...events, devices: { microphone: 'gone-mic' } },
-    stub.sdk,
-  );
-  let failure = '';
-  try {
-    await transport.apply(publish(['camera']));
-  } catch (error) {
-    failure = (error as Error).name;
-  }
-  assert({
-    given: 'a missing selected microphone before its speaking grant',
-    should: 'surface the failure at warm capture rather than wait for a turn',
-    actual: failure,
-    expected: 'OverconstrainedError',
-  });
-  transport.stopTracks();
-});
+}
