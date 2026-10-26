@@ -84,7 +84,9 @@ test('the tracker refuses to grow past its stream ceiling', () => {
 const speaker = { segmentId: 'seg1', roundParticipantId: 'speaker' };
 const at = (iso: string) => Date.parse(iso);
 const due = (tracker: ReturnType<typeof createStreamTracker>, now: string) =>
-  tracker.due(at(now)).map((s) => `${s.segmentId}/${s.roundParticipantId}`);
+  tracker
+    .due(at(now), () => false)
+    .map((s) => `${s.segmentId}/${s.roundParticipantId}`);
 
 test('an ended segment seals its streams once they settle with nothing in flight', () => {
   const tracker = createStreamTracker(16);
@@ -116,6 +118,32 @@ test('a stream with a clip queued or in transcription is not due', () => {
     should: 'wait for that clip to settle before the stream is due',
     actual: [pending, due(tracker, '2026-10-22T12:00:45.000Z')],
     expected: [[], ['seg1/speaker']],
+  });
+});
+
+test('a stream whose frames are still staged is not due', () => {
+  const tracker = createStreamTracker(16);
+  tracker.remember(
+    state([interval('speaker', '2026-10-22T12:00:00.000Z', null)]),
+  );
+  let staged = true;
+  const holds = () => staged;
+  const waiting = tracker
+    .due(at('2026-10-22T12:00:45.000Z'), holds)
+    .map((s) => s.roundParticipantId);
+  staged = false;
+  assert({
+    given:
+      'an ended segment whose seat still has frames in staging after the settle window, then none (ISSUE-577)',
+    should:
+      'wait until staging has handed them over, instead of assuming a staged frame expires',
+    actual: [
+      waiting,
+      tracker
+        .due(at('2026-10-22T12:00:45.000Z'), holds)
+        .map((s) => s.roundParticipantId),
+    ],
+    expected: [[], ['speaker']],
   });
 });
 

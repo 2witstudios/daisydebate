@@ -72,8 +72,12 @@ There are two different memory boundaries. Private ingress-validation staging
 requires a known actual Round, segment, mapped seat and full calibrated bracket
 inside cached historical authority before retaining any copied frame. Known
 conversation, unknown identity and outside-window frames drop immediately.
-Staging preserves original brackets and segment identity, caps all tracks at
-4096 frames (1.25 MiB PCM), and expires frames after 500 ms. Fresh signed history
+Staging preserves original brackets and segment identity and caps all tracks at
+4096 frames (1.25 MiB PCM), dropping the oldest. It never expires a frame by
+age: a frame waits for the next batch however long that batch's history read
+takes, because a frame dropped mid-speech leaves a hole the server's coverage
+check refuses (ISSUE-577). A stream seals only once staging holds none of its
+frames, as well as after the settle window. Fresh signed history
 and a post-lock PG horizon must validate each remaining frame before WAV, STT or
 competitive clip queue. A segment change reads that exact historical segment;
 no PCM waits for a new grant or receives a different segment label. The history

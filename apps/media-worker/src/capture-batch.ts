@@ -9,8 +9,6 @@ import {
   type CaptureClient,
 } from './capture-history';
 import type { StagedFrame } from './capture-staging';
-/** A staged frame older than this is dropped rather than cut into a clip. */
-export const STAGED_FRAME_MAX_AGE_MS = 500;
 /** How often the session loop validates its staged frames into clips. */
 export const CAPTURE_BATCH_INTERVAL_MS = 250;
 const streamKey = (segmentId: string, seat: string) =>
@@ -77,7 +75,6 @@ export async function validateCaptureBatch(input: {
   readonly roundId: string;
   readonly epoch: number;
   readonly signal: AbortSignal;
-  readonly nowMs: () => number;
   readonly dropped: (n: number) => void;
   /** A staged frame that crosses a grant edge in the fresher history. */
   readonly straddled: (frame: StagedFrame['frame']) => void;
@@ -107,14 +104,10 @@ export async function validateCaptureBatch(input: {
       input.dropped(frames.length);
       continue;
     }
-    const fresh = frames.filter(
-      (f) => input.nowMs() - f.observedAtMs <= STAGED_FRAME_MAX_AGE_MS,
-    );
-    input.dropped(frames.length - fresh.length);
     // The history authorizes frames up to its read time only (cutCaptureClips).
     const readMs = Date.parse(history.state.serverNow);
-    const valid = fresh.filter((f) => f.frame.afterMs <= readMs);
-    input.held(fresh.filter((f) => f.frame.afterMs > readMs));
+    const valid = frames.filter((f) => f.frame.afterMs <= readMs);
+    input.held(frames.filter((f) => f.frame.afterMs > readMs));
     for (const { frame } of valid)
       if (straddlesGrantEdge(history.state, first.seat, frame))
         input.straddled(frame);
