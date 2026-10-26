@@ -12,3 +12,5 @@ export function affectedExclusions(value: string | undefined): string[] {
     throw new Error('Invalid affected browser exclusion list');
   return excluded.map((name) => `**/${name}`);
 }
+
+const ciSpeedNegativeControl = ;
