@@ -34,7 +34,7 @@ describe('DebateRoom controls', () => {
         'show Start, End speech and Interrupt, each disabled, and a disabled chat box',
       actual: [
         !prep.includes('Save the rest'),
-        disabled(prep, 'Start (<!-- -->)?NR'),
+        disabled(prep, 'Start (<!-- -->)?negative rebuttal'),
         disabled(speech, 'End speech'),
         disabled(cx, 'Interrupt'),
         /<input[^>]*aria-label="Message # round"[^>]*disabled=""/.test(chat),

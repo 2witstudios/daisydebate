@@ -18,7 +18,7 @@ import { createBrowserDeviceChecks } from '../../../features/video/browser-devic
 import type { DeviceKind } from '../../../features/video/device-check-controller';
 import type { RoomRead } from '../../../features/rooms/read-assembly';
 import type { submitAssembly } from '../../../features/rooms/submit-assembly';
-import { LaunchControl, ReadyControl } from './assembly-readiness';
+import { StartControl, ReadyControl } from './assembly-readiness';
 import { createLocalCommandAction } from '../../../features/rooms/local-command-action';
 import { buttonClass } from '../../components/button/button-class';
 import type { LocalReadiness } from './assembly-controls';
@@ -26,8 +26,10 @@ import { CameraPreview, DeviceChoice } from './device-check';
 import { RoomSyncContext } from './room-sync-context';
 
 type Props = {
-  /** Seats, preparation and settings: the right-hand column above Launch. */
+  /** Seats and the round setup summary: the right-hand column below Start. */
   readonly side: ReactNode;
+  /** Prep before the round, inside the Start card; null when the format has none. */
+  readonly prep: ReactNode;
   readonly view: RoomView;
   readonly actorId: string;
   readonly action: FormAction<RoomFormState>;
@@ -55,8 +57,8 @@ function GatheringLayout({
   const ready = ReadyControl(controls);
   const side = (
     <div className="room-side flex min-w-0 flex-col gap-4">
+      {StartControl({ ...controls, prep: props.prep })}
       {props.side}
-      {LaunchControl(controls)}
     </div>
   );
   if (!devices && !ready) return side;
@@ -135,14 +137,15 @@ function LiveDevices({
           {local.problem ? (
             <div role="alert" className="flex flex-wrap items-center gap-3">
               <p className="text-sm text-live">
-                Your readiness update is not acknowledged. Launch stays blocked.
+                We couldn’t confirm that you’re ready, so the round can’t start
+                yet.
               </p>
               <button
                 type="button"
                 onClick={() => void consent.retry()}
                 className={buttonClass('secondary')}
               >
-                Retry readiness update
+                Try again
               </button>
             </div>
           ) : null}

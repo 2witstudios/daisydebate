@@ -205,6 +205,7 @@ export const iconPaths: Record<string, ReactNode> = {
   hash: <path d="M4 9h16M4 15h16M10 3 8 21M16 3l-2 18" />,
   plus: <path d="M12 5v14M5 12h14" />,
   close: <path d="M18 6 6 18M6 6l12 12" />,
+  'chevron-down': <path d="m6 9 6 6 6-6" />,
   send: (
     <>
       <path d="M21 3 10 14" />

@@ -20,7 +20,8 @@ import { createRoomSyncDriver } from '../../../features/rooms/room-sync-driver';
 import type { FormAction } from '../../form-action/form-action';
 import { FreshnessNotice } from '../../resource-sync/freshness-notice';
 import { useResourceSync } from '../../resource-sync/use-resource-sync';
-import { AssemblyHeader } from './assembly-header';
+import { AssemblyHeader, RoomResolution } from './assembly-header';
+import { RoomSetup } from './room-setup';
 import { AssemblyDeviceReadiness } from './assembly-device-readiness';
 import { AssemblySeats } from './assembly-seats';
 import { RoomPrep } from './room-prep';
@@ -90,9 +91,17 @@ export function RoomLive(props: Props) {
         view={view}
         actorId={props.actorId}
         commandIds={ids.header}
-        detailsAction={props.detailsAction}
         commandAction={props.commandAction}
       />
+      {view.capabilities.canEdit ? (
+        <RoomSetup
+          view={view}
+          commandIds={{ details: ids.header.details, settings: ids.settings }}
+          detailsAction={props.detailsAction}
+          settingsAction={props.settingsAction}
+        />
+      ) : null}
+      <RoomResolution view={view} />
       <FreshnessNotice freshness={sync.freshness} noun="room" />
       {props.refused ? (
         <p role="alert">
@@ -110,19 +119,18 @@ export function RoomLive(props: Props) {
               action={props.commandAction}
               commandIds={ids.seats}
             />
-            {view.definition.configurable.preRoundPrep ? (
-              <RoomPrep
-                view={view}
-                action={props.commandAction}
-                commandIds={ids.prep}
-              />
-            ) : null}
-            <RoomSettings
-              view={view}
-              commandId={ids.settings}
-              action={props.settingsAction}
-            />
+            <RoomSettings view={view} />
           </>
+        }
+        prep={
+          view.definition.configurable.preRoundPrep &&
+          view.config.preRoundPrep.enabled ? (
+            <RoomPrep
+              view={view}
+              action={props.commandAction}
+              commandIds={ids.prep}
+            />
+          ) : null
         }
         view={view}
         actorId={props.actorId}
@@ -133,7 +141,7 @@ export function RoomLive(props: Props) {
       />
       {canOfferFreshRoom(view, props.actorId) ? (
         <Link href={`/rooms/${view.id}/rematch`} className="self-start">
-          Create a fresh Room
+          Create a new room
         </Link>
       ) : null}
       {view.roundRef ? (
@@ -141,7 +149,7 @@ export function RoomLive(props: Props) {
           href={`/rounds/${view.roundRef.id}`}
           className="self-start"
         >
-          View Round
+          View the round
         </MediaPageLink>
       ) : null}
     </RoomSyncContext>

@@ -7,21 +7,12 @@ import {
 } from '@daisy/protocol';
 
 import { readDuration } from './duration-input';
+import { yieldChoices } from './yield-choice';
 
 type Prepared =
   | { readonly kind: 'prepared'; readonly command: RoomCommand }
   | { readonly kind: 'conflict' | 'invalid' | 'forbidden' };
-const flag = (form: FormData, key: string) =>
-  form.get(key) === 'true'
-    ? true
-    : form.get(key) === 'false'
-      ? false
-      : undefined;
-
-const durationFields = (name: string) => [
-  `duration.${name}.minutes`,
-  `duration.${name}.seconds`,
-];
+const durationFields = (name: string) => [`duration.${name}`];
 
 function allowedFields(view: RoomView) {
   const capability = view.definition.configurable;
@@ -42,7 +33,7 @@ function allowedFields(view: RoomView) {
     ...(capability.interaction.interruptions
       ? ['interruptionsMode', ...durationFields('minRemaining')]
       : []),
-    ...(capability.interaction.yield ? ['yieldAllowed', 'yieldReturns'] : []),
+    ...(capability.interaction.yield ? ['yield'] : []),
   ]);
 }
 function configFields(view: RoomView, form: FormData) {
@@ -73,10 +64,9 @@ function configFields(view: RoomView, form: FormData) {
         }
       : null,
     yielding: capability.interaction.yield
-      ? {
-          allowed: flag(form, 'yieldAllowed'),
-          returnsTime: flag(form, 'yieldReturns'),
-        }
+      ? (yieldChoices(capability.interaction.yield, view.config.yielding).find(
+          ([choice]) => choice === form.get('yield'),
+        )?.[1] ?? {})
       : null,
   };
 }

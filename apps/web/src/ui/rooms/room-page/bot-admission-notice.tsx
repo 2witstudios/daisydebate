@@ -8,26 +8,25 @@ export function BotAdmissionNotice({
   if (admission.kind === 'unavailable')
     return (
       <p role="status" className="text-sm text-ink-muted">
-        Bot Round cannot launch while admission is unavailable.
+        A round with a bot can’t start right now: bots are unavailable.
       </p>
     );
   return (
     <div role="status" className="text-sm text-ink-muted">
       <p>
-        {admission.remaining} of {admission.limit} bot Round allowances remain
-        in your current period, ending {admission.periodEnd} (UTC).
+        {admission.remaining} of {admission.limit} bot rounds left in your
+        current period, which ends {admission.periodEnd} (UTC).
       </p>
       <p>
-        Launching reserves one allowance from you as host. The first model call
-        counts it; a vendor failure that aborts the run refunds it. Availability
-        is checked again at launch.
+        Starting the round uses one of them. If the bot fails before it speaks,
+        you get it back. Availability is checked again when the round starts.
       </p>
       {admission.refusal ? (
         <p>
-          Bot Round cannot launch{' '}
+          A round with a bot can’t start{' '}
           {admission.refusal === 'allowance'
-            ? 'until allowance is available.'
-            : 'while admission is unavailable.'}
+            ? 'until you have a bot round left.'
+            : 'right now: bots are unavailable.'}
         </p>
       ) : null}
     </div>

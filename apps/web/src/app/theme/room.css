@@ -325,3 +325,22 @@ img.ProseMirror-separator {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Room setup is one sheet, opened by its fragment so it works without
+   script; a refused save keeps it open to show its error. */
+@theme {
+  --spacing-room-sheet: 36rem;
+  --spacing-room-duration: 6rem;
+  /* The round bar's resolution column and its open details. */
+  --spacing-round-title: 16rem;
+  --spacing-round-details: 20rem;
+  --spacing-round-speeches: 18rem;
+}
+
+@utility room-setup {
+  display: none;
+  &:target,
+  &:has([role='alert']) {
+    display: block;
+  }
+}

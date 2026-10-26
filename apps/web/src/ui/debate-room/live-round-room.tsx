@@ -99,7 +99,7 @@ export function LiveRoundRoom({
   const [outcome, setOutcome] = useState<string | null>(null);
   const onAnswer = useCallback(
     (answer: RoundFormState) => {
-      setOutcome(answer.error ?? 'Command accepted');
+      setOutcome(answer.error ?? 'Done.');
       if (answer.view) driver?.accepted(answer.view);
       else if (answer.error) driver?.signal();
     },

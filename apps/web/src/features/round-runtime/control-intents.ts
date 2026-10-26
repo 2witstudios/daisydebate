@@ -1,4 +1,5 @@
 import { roundPositionAt } from '@daisy/debate-engine/position';
+import { startSpeechLabel } from '../debate-room/vocabulary';
 import {
   isNamedSeat,
   type RoundView,
@@ -94,6 +95,9 @@ function openIntents(
     );
   return result;
 }
+/** "Start negative constructive": the speech by name, never its code. */
+const startLabel = (next: RoundPosition['nextSegment']) =>
+  next ? startSpeechLabel(next.label) : 'Start speech';
 function activeIntents(
   view: RoundView,
   position: RoundPosition,
@@ -103,17 +107,13 @@ function activeIntents(
   const forfeit = own(self, 'forfeit', 'Forfeit round', true, true);
   if (position.prep?.side === self.role)
     return [
-      own(
-        self,
-        'start_speech',
-        `Start ${position.nextSegment?.key ?? 'speech'}`,
-      ),
+      own(self, 'start_speech', startLabel(position.nextSegment)),
       forfeit,
     ];
   if (position.openSegment)
     return [...openIntents(view, position.openSegment, self), forfeit];
   return canPrep(view, position, self)
-    ? [own(self, 'start_prep', 'Use prep'), forfeit]
+    ? [own(self, 'start_prep', 'Take prep time'), forfeit]
     : [forfeit];
 }
 /** Display hints only: every command rechecks locked authority and the engine. */

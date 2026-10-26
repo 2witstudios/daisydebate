@@ -7,6 +7,7 @@ setupRitewayBun();
 const actorId = assemblySnapshot.hostActorId;
 const nativeProps = {
   side: null,
+  prep: null,
   actorId,
   action: async () => ({ values: {} }),
   read: async () => ({ kind: 'found' as const, view: assemblySnapshot }),
@@ -45,13 +46,13 @@ for (const role of ['affirmative', 'judge'] as const) {
       should:
         'render native consent with only the debater disabled and no invented preview',
       actual: [
-        html.includes('I am ready'),
-        (html.match(/<button[^>]*>I am ready<\/button>/)?.[0] ?? '').includes(
+        html.includes('I’m ready'),
+        (html.match(/<button[^>]*>I’m ready<\/button>/)?.[0] ?? '').includes(
           'disabled=""',
         ),
         html.includes('<video'),
         html.includes('Camera and microphone checks require JavaScript.'),
-        html.includes('aria-label="Launch"'),
+        html.includes('Start the round'),
       ],
       expected: [true, role !== 'judge', false, role !== 'judge', true],
     });

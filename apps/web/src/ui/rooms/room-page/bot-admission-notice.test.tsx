@@ -17,11 +17,11 @@ test('host bot freeze notice states allowance and first-call consequence', () =>
   );
   assert({
     given: 'one free monthly allowance available',
-    should: 'explain reservation and model-call counting truthfully',
+    should: 'explain what starting uses and when it comes back, in plain words',
     actual: [
       html.includes('1 of 1'),
-      html.includes('first model call'),
-      html.includes('vendor failure'),
+      html.includes('Starting the round uses one'),
+      html.includes('you get it back'),
       html.includes('2026-11-01'),
     ],
     expected: [true, true, true, true],
@@ -44,8 +44,8 @@ test('missing or exhausted allowance never claims premium or availability', () =
     );
     assert({
       given: 'unavailable or exhausted admission',
-      should: 'state that a bot Round cannot launch',
-      actual: html.includes('Bot Round cannot launch'),
+      should: 'state that a round with a bot cannot start',
+      actual: html.includes('A round with a bot can’t start'),
       expected: true,
     });
   }

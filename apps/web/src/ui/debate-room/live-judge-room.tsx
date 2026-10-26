@@ -21,11 +21,24 @@ export function LiveJudgeRoom(props: {
   const view = synced.value;
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-dash-column flex-col gap-4 p-4">
-      <h1 className="text-xl font-strong">Judge live Round</h1>
-      <p className="wrap-anywhere">{view.topic}</p>
+      <h1 className="font-display text-2xl font-semibold">
+        You’re judging this round
+      </h1>
+      <section
+        aria-labelledby="judge-resolution"
+        className="rounded-xl border border-border bg-surface-raised p-5"
+      >
+        <h2
+          id="judge-resolution"
+          className="text-xs font-bold tracking-wide text-ink-muted uppercase"
+        >
+          Resolution
+        </h2>
+        <p className="font-display text-xl wrap-anywhere">{view.topic}</p>
+      </section>
       <p>
-        You can watch and listen. Your ballot opens after the recorded
-        transcript is frozen.
+        You can watch and listen. Your ballot opens once the speeches are over
+        and the transcript is saved.
       </p>
       <FreshnessNotice freshness={synced.freshness} noun="round" />
       {media(view)}
@@ -33,7 +46,7 @@ export function LiveJudgeRoom(props: {
         Open your ballot
       </Link>
       <MediaPageLink href={`/rounds/${view.id}`}>
-        View Round result
+        View the round result
       </MediaPageLink>
     </main>
   );

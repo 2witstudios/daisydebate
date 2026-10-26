@@ -4,29 +4,17 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { sequentialId } from '@daisy/clock';
 import { assemblySnapshot } from '../../../features/rooms/assembly.test-support';
 import { roomCommandIds } from '../../../features/rooms/room-command-ids';
-import {
-  AppRouterContext,
-  type AppRouterInstance,
-} from 'next/dist/shared/lib/app-router-context.shared-runtime';
+import { WithAppRouter } from '../../test-support/app-router';
 import { RoomLive } from './room-live';
 
 setupRitewayBun();
 
 const render = (refused: boolean) => {
   const ids = sequentialId('seed');
-  const router: AppRouterInstance = {
-    bfcacheId: 'test',
-    back: () => {},
-    forward: () => {},
-    refresh: () => {},
-    push: () => {},
-    replace: () => {},
-    prefetch: () => {},
-  };
   return renderToStaticMarkup(
     h(
-      AppRouterContext,
-      { value: router },
+      WithAppRouter,
+      null,
       h(RoomLive, {
         view: assemblySnapshot,
         ids: roomCommandIds(assemblySnapshot, () => ids.next()),

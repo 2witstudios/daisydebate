@@ -2,7 +2,7 @@ import type { Browser, BrowserContext, Page, TestInfo } from '@playwright/test';
 import type { RoomView } from '@daisy/protocol';
 import { expect, openPage } from './fixtures';
 import { origin } from './accounts';
-import { reread } from './room-launch-flow';
+import { openRoomSetup, reread } from './room-launch-flow';
 import { assertNoSeriousFindings } from './axe';
 
 /** Enter through actual discovery, including retained duplicate-title pages. */
@@ -63,13 +63,12 @@ async function visualStates(page: Page, info: TestInfo) {
       ).toBeVisible();
       if (width !== 390) await assertNoSeriousFindings(page);
       await capture(page, info, `room-${theme}-${width}`);
-      await page.getByText('Edit settings', { exact: true }).click();
-      await expect(
-        page.getByRole('form', { name: 'Room settings' }),
-      ).toBeVisible();
+      await expect(await openRoomSetup(page, true)).toBeVisible();
       if (width !== 390) await assertNoSeriousFindings(page);
       await capture(page, info, `room-edit-${theme}-${width}`);
-      await page.getByText('Edit settings', { exact: true }).click();
+      await page
+        .getByRole('link', { name: 'Close room setup', exact: true })
+        .click();
     }
   }
 }
@@ -91,35 +90,35 @@ export async function proveGathering(
   try {
     const room = await openPage(native, 'native exact Room durations');
     await room.goto(`/rooms/${view.id}`);
-    await room.getByText('Edit settings', { exact: true }).click();
-    const form = room.getByRole('form', { name: 'Room settings' });
-    // Both component constraints pass; the combined value exceeds the pinned 60s bound.
-    await form.locator('[name="duration.segment.A2.minutes"]').fill('1');
-    await form.locator('[name="duration.segment.A2.seconds"]').fill('03.456');
+    const form = await openRoomSetup(room, true);
+    // A well-formed m:ss value that exceeds the pinned 60s bound.
+    await form.locator('[name="duration.segment.A2"]').fill('1:03.456');
     const before = await reread(native.request, view.id);
-    await form.getByRole('button', { name: 'Save settings' }).click();
+    await form.getByRole('button', { name: 'Save round settings' }).click();
     await expect(form.getByRole('alert')).toBeVisible();
-    await expect(
-      form.locator('[name="duration.segment.A2.seconds"]'),
-    ).toHaveValue('03.456');
+    await expect(form.locator('[name="duration.segment.A2"]')).toHaveValue(
+      '1:03.456',
+    );
     expect((await reread(native.request, view.id)).config).toEqual(
       before.config,
     );
     expect(new URL(room.url()).search).toBe('');
-    await form.locator('[name="duration.segment.A2.minutes"]').fill('0');
-    await form.locator('[name="duration.segment.A2.seconds"]').fill('43.456');
-    await form.getByRole('button', { name: 'Save settings' }).click();
+    // A refused save keeps the sheet open; closing it returns to the room.
+    await room
+      .getByRole('link', { name: 'Close room setup', exact: true })
+      .click();
+    await expect(form).toBeHidden();
+    await openRoomSetup(room, true);
+    await form.locator('[name="duration.segment.A2"]').fill('0:43.456');
+    await form.getByRole('button', { name: 'Save round settings' }).click();
     const saved = await reread(native.request, view.id);
     expect(saved.rules.segments.map((segment) => segment.durationMs)).toEqual([
       41000, 43456, 47000,
     ]);
-    await room.getByText('Edit settings', { exact: true }).click();
-    await expect(
-      form.locator('[name="duration.segment.A2.minutes"]'),
-    ).toHaveValue('0');
-    await expect(
-      form.locator('[name="duration.segment.A2.seconds"]'),
-    ).toHaveValue('43.456');
+    await openRoomSetup(room, true);
+    await expect(form.locator('[name="duration.segment.A2"]')).toHaveValue(
+      '0:43.456',
+    );
     expect(new URL(room.url()).search).toBe('');
   } finally {
     await native.close();

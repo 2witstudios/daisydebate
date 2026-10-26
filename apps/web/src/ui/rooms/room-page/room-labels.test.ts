@@ -2,9 +2,12 @@ import type { RoomView } from '@daisy/protocol';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { assemblySnapshot } from '../../../features/rooms/assembly.test-support';
 import {
+  formatLine,
   initials,
-  roomChips,
+  roomMeta,
+  roomStatus,
   seatStatus,
+  startRefusalText,
   settingRows,
   speechGrow,
   waitingOn,
@@ -40,7 +43,7 @@ describe('room lobby waiting list', () => {
     assert({
       given:
         'a ready viewer, an unready opponent, an open judge seat and running preparation',
-      should: 'list who and what Launch waits on, in seat order',
+      should: 'list who and what Start round waits on, in seat order',
       actual: waitingOn(
         {
           ...oneOnOne,
@@ -61,7 +64,7 @@ describe('room lobby waiting list', () => {
         },
         'v'.repeat(24),
       ),
-      expected: ['Maya Okafor', 'Judge', 'Preparation'],
+      expected: ['Maya Okafor', 'Judge', 'Prep before the round'],
     });
   });
 
@@ -102,22 +105,78 @@ describe('room lobby waiting list', () => {
 });
 
 describe('room lobby labels', () => {
-  test('header chips come from the room configuration', () => {
+  test('the status line counts filled seats while the room sets up', () => {
     assert({
-      given: 'an assembling casual one-on-one room, then a ranked team room',
+      given:
+        'an assembling one-on-one room with nobody seated, then a started room',
       should:
-        'label status, shape and competition type, with no length: every Round is full (DEC-237)',
+        'name the status in plain words and count seats only while setting up',
       actual: [
-        roomChips(oneOnOne),
-        roomChips({
-          ...assemblySnapshot,
+        roomStatus(oneOnOne),
+        roomStatus({ ...assemblySnapshot, status: 'started' }),
+        roomStatus({ ...assemblySnapshot, status: 'abandoned' }),
+      ],
+      expected: ['Setting up · 0 of 3 seats filled', 'In progress', 'Closed'],
+    });
+  });
+
+  test('the meta line names the host, who can join and what the result counts for', () => {
+    assert({
+      given:
+        'a hosted unlisted casual room, then a ranked public room without a host label',
+      should: 'explain visibility and rating in words, with no badges',
+      actual: [
+        roomMeta({
+          hostLabel: 'Maya',
+          visibility: 'unlisted',
+          competitionType: 'casual',
+        }),
+        roomMeta({
+          hostLabel: null,
+          visibility: 'public',
           competitionType: 'ranked',
-          status: 'started',
         }),
       ],
       expected: [
-        ['Before the round', 'One-on-one', 'Casual'],
-        ['Round started', '2 v 3', 'Ranked'],
+        [
+          'Hosted by Maya',
+          'Anyone with the link',
+          'Casual · ratings don’t change',
+        ],
+        ['Listed in the lobby', 'Ranked · counts toward ratings'],
+      ],
+    });
+  });
+
+  test('the format line reads NvN and a derived length', () => {
+    assert({
+      given: 'a one-on-one room with two short speeches and no prep',
+      should: 'read 1v1 with its length rounded to five minutes',
+      actual: formatLine({
+        ...oneOnOne,
+        config: {
+          ...oneOnOne.config,
+          inRoundPrep: { enabled: false },
+        },
+      }),
+      expected: '1v1 · about 5 min',
+    });
+  });
+
+  test('a start refusal reads as what the room still needs', () => {
+    assert({
+      given:
+        'an incomplete cast, a version conflict and a member in another room',
+      should: 'never show the raw refusal code',
+      actual: [
+        startRefusalText('incomplete-cast'),
+        startRefusalText('version-conflict'),
+        startRefusalText('active-room'),
+      ],
+      expected: [
+        'every seat to be filled',
+        'the latest room changes',
+        'everyone to leave their other rooms',
       ],
     });
   });
@@ -138,9 +197,9 @@ describe('room lobby labels', () => {
       expected: [
         'Open',
         'Not eligible',
-        'Server managed',
+        'Always ready',
         'Ready',
-        'Readiness unavailable',
+        'Checking devices',
         'Not ready',
       ],
     });
@@ -161,12 +220,12 @@ describe('room lobby labels', () => {
       should: 'summarize every configured value',
       actual: settingRows(assemblySnapshot),
       expected: [
-        ['Before the round', '5:21'],
-        ['Prep', '14:47 each'],
-        ['Countdown', '0:00.444'],
-        ['Cross-ex', 'Free'],
+        ['Prep before the round', '5:21'],
+        ['Prep time', '14:47 per side'],
+        ['Countdown before each speech', '0:00.444'],
+        ['Cross-examination', 'Open floor'],
         ['Interruptions', 'Off'],
-        ['Yield', 'Off'],
+        ['Ending a speech early', 'Off'],
       ],
     });
   });
@@ -174,7 +233,7 @@ describe('room lobby labels', () => {
   test('enabled interaction settings carry their detail', () => {
     assert({
       given: 'cross-ex-only interruptions and yielding that returns time',
-      should: 'show the minimum remaining time and the yield consequence',
+      should: 'show the protected end and where unused time goes',
       actual: settingRows({
         ...assemblySnapshot,
         config: {
@@ -187,10 +246,13 @@ describe('room lobby labels', () => {
         },
       }).slice(3),
       expected: [
-        ['Cross-ex', 'Ordered'],
-        ['Interruptions', 'Cross-ex only'],
-        ['Minimum remaining', '0:30'],
-        ['Yield', 'Returns time'],
+        ['Cross-examination', 'Questioner leads'],
+        ['Interruptions', 'Only during cross-examination'],
+        ['Protected end of each speech', '0:30'],
+        [
+          'Ending a speech early',
+          'On — unused time goes back to that side’s prep time, when prep time is on',
+        ],
       ],
     });
   });
