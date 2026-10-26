@@ -1,7 +1,10 @@
 import { cache } from 'react';
 import { headers } from 'next/headers';
 import type { Identity } from '@daisy/auth';
+import { createAppError } from '@daisy/errors';
+import type { MatchHistoryQuery, MemberProfile } from '@daisy/protocol';
 import type { OnboardingAnswers } from '../features/onboarding/answers';
+import { readProfile } from '../features/profile/read-profile';
 import { sessionRefreshDue } from '../features/auth/sessions/session-policy';
 import { processApp } from '../server/process-app';
 import { resolveSession } from './identity';
@@ -44,3 +47,24 @@ export const requestOnboardingAnswers = cache(
     return processApp().database.readOnboarding(identity.principal.userId);
   },
 );
+
+/**
+ * A member's profile as this render's viewer may see it, read in the server
+ * render (like the onboarding answers) so a link followed from another site
+ * renders instead of meeting an API's cross-site read check. The viewer is
+ * the session's user, never a name the request supplies; an unreadable
+ * session is an outage, never a visitor's view.
+ */
+export const requestMemberProfile = async (
+  username: string,
+  query: MatchHistoryQuery,
+): Promise<MemberProfile | null> => {
+  const identity = await requestIdentity();
+  if (identity.state === 'unavailable') throw createAppError('INFRASTRUCTURE');
+  return readProfile(processApp().database, {
+    username,
+    viewerUserId:
+      identity.state === 'member' ? identity.principal.userId : null,
+    query,
+  });
+};

@@ -27,31 +27,35 @@ const row = {
   ],
 } as const;
 
-/** A store over one member; records each history read it is asked for. */
+/** A store over one member; records each record and history read it is asked for. */
 const storeFor = (found: typeof member | null) => {
   const reads: unknown[] = [];
+  const recordReads: unknown[] = [];
   const store: ProfileStore = {
     readMember: async () => found,
-    readRecordGroups: async () => [
-      {
-        status: 'completed',
-        outcome: 'affirmative',
-        role: 'affirmative',
-        rounds: 2,
-      },
-      { status: 'completed', outcome: null, role: 'negative', rounds: 1 },
-    ],
+    readRecordGroups: async (input) => {
+      recordReads.push(input);
+      return [
+        {
+          status: 'completed',
+          outcome: 'affirmative',
+          role: 'affirmative',
+          rounds: 2,
+        },
+        { status: 'completed', outcome: null, role: 'negative', rounds: 1 },
+      ];
+    },
     readMatchHistory: async (input) => {
       reads.push(input);
       return { rows: [row], nextBefore: roundId };
     },
   };
-  return { store, reads };
+  return { store, reads, recordReads };
 };
 
 describe('readProfile', () => {
   test('a visitor reading a member', async () => {
-    const { store, reads } = storeFor(member);
+    const { store, reads, recordReads } = storeFor(member);
     const profile = await readProfile(store, {
       username: 'debater-a',
       viewerUserId: null,
@@ -60,10 +64,11 @@ describe('readProfile', () => {
     assert({
       given: 'a visitor and a member with a forfeited loss against a team',
       should:
-        'tally the record, read public Rounds only and list the opposing seats from the member’s side',
+        'tally public Rounds only, read public Rounds only and list the opposing seats from the member’s side',
       actual: {
         me: profile?.me,
         record: profile?.record,
+        recordRead: recordReads[0],
         read: reads[0],
         entry: profile?.history[0],
         nextBefore: profile?.nextBefore,
@@ -71,6 +76,7 @@ describe('readProfile', () => {
       expected: {
         me: false,
         record: { wins: 2, losses: 0, draws: 0 },
+        recordRead: { actorId: member.actorId, publicOnly: true },
         read: {
           actorId: member.actorId,
           publicOnly: true,
@@ -97,7 +103,7 @@ describe('readProfile', () => {
   });
 
   test('the member reading their own profile', async () => {
-    const { store, reads } = storeFor(member);
+    const { store, reads, recordReads } = storeFor(member);
     const profile = await readProfile(store, {
       username: 'debater-a',
       viewerUserId: member.userId,
@@ -105,10 +111,12 @@ describe('readProfile', () => {
     });
     assert({
       given: 'the member themself, asking for an older page',
-      should: 'mark it as theirs and read every Round before the cursor',
-      actual: [profile?.me, reads[0]],
+      should:
+        'mark it as theirs, count every Round and read every Round before the cursor',
+      actual: [profile?.me, recordReads[0], reads[0]],
       expected: [
         true,
+        { actorId: member.actorId, publicOnly: false },
         {
           actorId: member.actorId,
           publicOnly: false,

@@ -11,9 +11,8 @@ import {
   desc,
   eq,
   inArray,
+  isNotNull,
   isNull,
-  lt,
-  or,
   sql,
 } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
@@ -73,6 +72,19 @@ export type MatchHistoryPage = {
 };
 
 const debating = inArray(roundParticipants.role, [...debateSides]);
+
+/**
+ * The actor's debating seats in Rounds a profile may show: played from a
+ * Room (a room-less service Round has no page to link to), and public only
+ * when the viewer is not the member.
+ */
+const seatsShown = (actorId: string, publicOnly: boolean) =>
+  and(
+    eq(roundParticipants.actorId, actorId),
+    debating,
+    isNotNull(rounds.roomId),
+    publicOnly ? eq(rounds.visibility, 'public') : undefined,
+  );
 const readOnly = {
   isolationLevel: 'repeatable read',
   accessMode: 'read only',
@@ -118,8 +130,15 @@ export const memberProfileReadOperations = ({
     });
   },
 
-  /** Every debating seat the actor held, grouped for the record's tally. */
-  readRecordGroups(actorId: string): Promise<readonly RecordGroup[]> {
+  /**
+   * The actor's debating seats grouped for the record's tally; with
+   * `publicOnly`, from public Rounds only, so the record never reveals
+   * results the history hides.
+   */
+  readRecordGroups(input: {
+    readonly actorId: string;
+    readonly publicOnly: boolean;
+  }): Promise<readonly RecordGroup[]> {
     return instrumented(eventSink, 'readRecordGroups', async () => {
       const rows = await database
         .select({
@@ -130,7 +149,7 @@ export const memberProfileReadOperations = ({
         })
         .from(roundParticipants)
         .innerJoin(rounds, eq(rounds.id, roundParticipants.roundId))
-        .where(and(eq(roundParticipants.actorId, actorId), debating))
+        .where(seatsShown(input.actorId, input.publicOnly))
         .groupBy(rounds.status, rounds.outcome, roundParticipants.role);
       return rows.map((row) => ({
         status: row.status,
@@ -162,29 +181,22 @@ export const memberProfileReadOperations = ({
     return instrumented(eventSink, 'readMatchHistory', () =>
       database.transaction(async (tx) => {
         const listed = and(
-          eq(roundParticipants.actorId, input.actorId),
-          debating,
+          seatsShown(input.actorId, input.publicOnly),
           eq(rounds.status, 'completed'),
-          input.publicOnly ? eq(rounds.visibility, 'public') : undefined,
         );
         const cursor =
           input.before === null
             ? undefined
             : await (async () => {
                 const [found] = await tx
-                  .select({ completedAt: rounds.completedAt, id: rounds.id })
+                  .select({ id: rounds.id })
                   .from(roundParticipants)
                   .innerJoin(rounds, eq(rounds.id, roundParticipants.roundId))
                   .where(and(listed, eq(rounds.id, input.before!)))
                   .limit(1);
-                if (!found?.completedAt) throw createAppError('VALIDATION');
-                return or(
-                  lt(rounds.completedAt, found.completedAt),
-                  and(
-                    eq(rounds.completedAt, found.completedAt),
-                    lt(rounds.id, found.id),
-                  ),
-                );
+                if (!found) throw createAppError('VALIDATION');
+                // Compared in SQL: a JS Date would drop the column's microseconds.
+                return sql`(${rounds.completedAt}, ${rounds.id}) < (select c.completed_at, c.id from rounds c where c.id = ${found.id})`;
               })();
         const page = await tx
           .select({
@@ -215,7 +227,8 @@ export const memberProfileReadOperations = ({
                 })
                 .from(roundParticipants)
                 .innerJoin(actors, eq(actors.id, roundParticipants.actorId))
-                .leftJoin(users, eq(users.id, actors.userId))
+                // A judge's name is never read: only its kind names the panel.
+                .leftJoin(users, and(eq(users.id, actors.userId), debating))
                 .leftJoin(botProfiles, eq(botProfiles.actorId, actors.id))
                 .where(inArray(roundParticipants.roundId, ids))
                 .orderBy(roundParticipants.role, roundParticipants.slot);

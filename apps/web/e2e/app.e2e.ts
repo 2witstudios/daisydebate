@@ -83,9 +83,23 @@ test('a profile shows the real member, their record and history', async ({
   await expect(
     page.getByRole('link', { name: 'Edit profile' }),
   ).toHaveAttribute('href', '/settings');
-  await expect(
-    page.locator('main').getByText(/\b(rating|elo)\b/i),
-  ).toHaveCount(0);
+  await expect(page.locator('main').getByText(/\b(rating|elo)\b/i)).toHaveCount(
+    0,
+  );
+  // A link followed from another site renders the profile, not an error.
+  const followed = await page.request.get(`/profile/${username}`, {
+    headers: {
+      'sec-fetch-site': 'cross-site',
+      'sec-fetch-mode': 'navigate',
+      'sec-fetch-dest': 'document',
+    },
+    maxRedirects: 0,
+  });
+  expect(followed.status()).toBe(200);
+  const stale = await page.goto(
+    `/profile/${username}?before=${'z'.repeat(24)}`,
+  );
+  expect(stale?.status()).toBe(404);
 });
 
 test('production security and correlation headers are present', async ({

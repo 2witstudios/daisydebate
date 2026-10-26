@@ -56,9 +56,9 @@ const toEntry = (row: HistoryRow): MatchHistoryEntry => {
 
 /**
  * A member's profile as `viewer` may see it (ISSUE-600), or null when no
- * live member holds the name. The record counts every completed Round; the
- * history lists all of them to the member and only public ones to anyone
- * else, signed in or not.
+ * live member holds the name. The member sees every Round they debated;
+ * anyone else, signed in or not, sees only public ones, in the record as in
+ * the history, so the record never reveals a result the history hides.
  */
 export async function readProfile(
   store: ProfileStore,
@@ -72,7 +72,7 @@ export async function readProfile(
   if (member === null) return null;
   const me = input.viewerUserId === member.userId;
   const [groups, page] = await Promise.all([
-    store.readRecordGroups(member.actorId),
+    store.readRecordGroups({ actorId: member.actorId, publicOnly: !me }),
     store.readMatchHistory({
       actorId: member.actorId,
       publicOnly: !me,

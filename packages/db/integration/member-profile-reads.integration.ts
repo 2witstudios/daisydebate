@@ -4,52 +4,17 @@ import { assertRejects } from '@daisy/errors/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createDatabase } from '../src';
 import { createBotSeat } from './bot-seat.test-support';
-import { withFixture, type Fixture } from './constraint-helpers';
+import { withFixture } from './constraint-helpers';
+import {
+  forfeitCommand,
+  played,
+  roomRound,
+} from './member-profile.test-support';
 import { at } from './standings-fixtures';
 
 setupRitewayBun();
 
 const { databaseUrl: url } = requireTestServices(process.env);
-
-/** A completed casual Round seating `member` on `side` against a new human. */
-const played = async (
-  fixture: Fixture,
-  input: {
-    readonly member: string;
-    readonly side: 'affirmative' | 'negative';
-    readonly outcome: 'affirmative' | 'negative' | 'draw' | null;
-    readonly day: number;
-    readonly visibility?: 'public' | 'private';
-  },
-) => {
-  const id = await fixture.round({
-    status: 'completed',
-    outcome: input.outcome,
-    started_at: at(input.day, 11),
-    completed_at: at(input.day),
-    visibility: input.visibility ?? 'public',
-  });
-  await fixture.participant(id, input.side, 0, input.member);
-  const other = input.side === 'affirmative' ? 'negative' : 'affirmative';
-  const opponent = await fixture.participant(id, other, 0);
-  return { id, opponent };
-};
-
-const forfeitCommand = (fixture: Fixture, roundId: string, actorId: string) =>
-  fixture.insert(
-    'round_commands',
-    {
-      command_id: createId(),
-      round_id: roundId,
-      actor_id: actorId,
-      type: 'forfeit',
-      payload_digest: 'a'.repeat(64),
-      result: {},
-      resulting_version: 2,
-      applied_at: at(9),
-    },
-    'command_id',
-  );
 
 describe('member profile reads (ISSUE-600)', () => {
   test('reads a live member by name, case-insensitively', async () => {
@@ -101,14 +66,39 @@ describe('member profile reads (ISSUE-600)', () => {
           outcome: null,
           day: 3,
         });
-        const judged = await fixture.round({
+        const judged = await roomRound(fixture, {
           status: 'completed',
           outcome: 'negative',
           started_at: at(4, 11),
           completed_at: at(4),
         });
         await fixture.participant(judged, 'judge', 0, member);
-        const groups = await database.readRecordGroups(member);
+        const groups = await database.readRecordGroups({
+          actorId: member,
+          publicOnly: false,
+        });
+        const proof = await fixture.round({
+          status: 'completed',
+          outcome: 'affirmative',
+          started_at: at(5, 11),
+          completed_at: at(5),
+        });
+        await fixture.participant(proof, 'affirmative', 0, member);
+        const withProof = await database.readRecordGroups({
+          actorId: member,
+          publicOnly: false,
+        });
+        await played(fixture, {
+          member,
+          side: 'affirmative',
+          outcome: 'affirmative',
+          day: 6,
+          visibility: 'private',
+        });
+        const publicGroups = await database.readRecordGroups({
+          actorId: member,
+          publicOnly: true,
+        });
         assert({
           given:
             'a win, a loss and an unjudged Round as a debater, and one as a judge',
@@ -120,6 +110,29 @@ describe('member profile reads (ISSUE-600)', () => {
             'affirmative:affirmative:1',
             'negative:affirmative:1',
             'negative:null:1',
+          ],
+        });
+        assert({
+          given: 'a room-less service Round, then a private win',
+          should:
+            'count neither the service Round nor, for anyone else, the private win',
+          actual: [
+            withProof.map((g) => `${g.role}:${g.outcome}:${g.rounds}`).sort(),
+            publicGroups
+              .map((g) => `${g.role}:${g.outcome}:${g.rounds}`)
+              .sort(),
+          ],
+          expected: [
+            [
+              'affirmative:affirmative:1',
+              'negative:affirmative:1',
+              'negative:null:1',
+            ],
+            [
+              'affirmative:affirmative:1',
+              'negative:affirmative:1',
+              'negative:null:1',
+            ],
           ],
         });
       } finally {
@@ -147,16 +160,16 @@ describe('member profile reads (ISSUE-600)', () => {
           visibility: 'private',
         });
         await forfeitCommand(fixture, middle.id, member);
-        const newest = await fixture.round({
+        const newest = await roomRound(fixture, {
           status: 'completed',
           outcome: null,
           started_at: at(3, 11),
           completed_at: at(3),
-          visibility: 'public',
         });
         await fixture.participant(newest, 'affirmative', 0, member);
         await createBotSeat(fixture, newest, 'negative');
-        const abandoned = await fixture.round({
+        await fixture.participant(newest, 'judge', 0);
+        const abandoned = await roomRound(fixture, {
           status: 'abandoned',
           completed_at: at(4),
         });
@@ -195,7 +208,8 @@ describe('member profile reads (ISSUE-600)', () => {
         assert({
           given:
             'the newest Round against a bot and the middle one the member forfeited',
-          should: 'name the bot opponent and mark only the forfeit',
+          should:
+            'name the bot opponent, never the judge, and mark only the forfeit',
           actual: [
             first.rows[0]?.seats.map((s) => [s.role, s.kind, s.label]),
             first.rows.map((r) => [r.role, r.outcome, r.forfeit, r.visibility]),
@@ -203,6 +217,7 @@ describe('member profile reads (ISSUE-600)', () => {
           expected: [
             [
               ['affirmative', 'human', first.rows[0]?.seats[0]?.label ?? null],
+              ['judge', 'human', null],
               ['negative', 'bot', 'Fixture bot'],
             ],
             [

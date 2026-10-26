@@ -1,11 +1,11 @@
 import { parseUsername } from '@daisy/auth';
-import { createAppError } from '@daisy/errors';
+import { isAppError } from '@daisy/errors';
 import { matchHistoryQuerySchema } from '@daisy/protocol';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import type { SearchParams } from '../../../../features/access/decision';
 import { ProfilePage } from '../../../../ui/profile/profile-page/profile-page';
-import { readMemberProfile } from './actions';
+import { requestMemberProfile } from '../../../../lib/request-session';
 
 export const metadata: Metadata = { title: 'Profile' };
 
@@ -25,13 +25,15 @@ export default async function ProfileRoute({
     typeof raw.before === 'string' ? { before: raw.before } : {},
   );
   if (!query.success) notFound();
-  const result = await readMemberProfile(name.username, query.data);
-  if (result.kind === 'missing' || result.kind === 'invalid') notFound();
-  if (result.kind !== 'found') throw createAppError('INFRASTRUCTURE');
+  const profile = await requestMemberProfile(name.username, query.data).catch(
+    (error: unknown) => {
+      // A stale or foreign cursor is a page that does not exist.
+      if (isAppError(error) && error.code === 'VALIDATION') return notFound();
+      throw error;
+    },
+  );
+  if (profile === null) notFound();
   return (
-    <ProfilePage
-      profile={result.profile}
-      paged={query.data.before !== undefined}
-    />
+    <ProfilePage profile={profile} paged={query.data.before !== undefined} />
   );
 }
