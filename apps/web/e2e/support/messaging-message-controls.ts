@@ -13,7 +13,8 @@ import {
 import { effectsRan } from './hydration';
 import { pressByKeyboard } from './focus';
 import { expectNotInUrl } from './forms';
-import { idSchema } from '@daisy/protocol';
+import { z } from 'zod';
+import { idSchema, serverMessageSchema } from '@daisy/protocol';
 import {
   manageNativeReactions,
   openRefusedMessageControls,
@@ -240,7 +241,11 @@ export function testMessageControlFocus() {
           refused?.journey ?? (await openMessagingJourney(browser));
         try {
           const page = refused?.page ?? (await acceptMessagingJourney(journey));
-          const message = await seedControlMessage(page, journey.channelId);
+          const message = await seedControlMessage(
+            page,
+            journey.channelId,
+            journey.sender,
+          );
           if (buttonName.includes('message')) await page.goto(message.path);
           else {
             await page.goto(
@@ -264,19 +269,77 @@ export function testMessageControlFocus() {
   }
 }
 
-/** Setup uses the actual authenticated send route and this rendered composer's request ID. */
-async function seedControlMessage(page: Page, channelId: string) {
-  const requestId = await page
-    .getByLabel('Your message')
-    .locator('xpath=ancestor::form')
-    .locator('input[name="requestId"]')
-    .inputValue();
-  const text = 'Keyboard message controls contribution';
-  const response = await page.request.post('/api/messaging/messages', {
-    headers: { origin: new URL(page.url()).origin },
-    data: { version: 1, channelId, requestId, text },
-  });
-  expect(response.ok()).toBe(true);
-  const id = idSchema.parse((await response.json()).id);
-  return { id, text, path: `/messages/${channelId}/message?messageId=${id}` };
+/**
+ * Setup uses the actual authenticated send route and this rendered composer's
+ * request ID. The seed's doorbell rings after the POST answers: a bell still
+ * in flight when the control page subscribes refetches that page and remounts
+ * its form mid-proof, dropping the notice and the retained draft. Another
+ * member's subscribed page hears the bell first, so it has already rung.
+ */
+async function seedControlMessage(
+  page: Page,
+  channelId: string,
+  member: BrowserContext,
+) {
+  const bells = await listenForChannelBells(member, channelId);
+  try {
+    const requestId = await page
+      .getByLabel('Your message')
+      .locator('xpath=ancestor::form')
+      .locator('input[name="requestId"]')
+      .inputValue();
+    const text = 'Keyboard message controls contribution';
+    const response = await page.request.post('/api/messaging/messages', {
+      headers: { origin: new URL(page.url()).origin },
+      data: { version: 1, channelId, requestId, text },
+    });
+    expect(response.ok()).toBe(true);
+    const seeded = seededMessageSchema.parse(await response.json());
+    await expect
+      .poll(() => Math.max(0, ...bells.changeVersions))
+      .toBeGreaterThanOrEqual(seeded.changeVersion);
+    const id = seeded.id;
+    return { id, text, path: `/messages/${channelId}/message?messageId=${id}` };
+  } finally {
+    await bells.close();
+  }
+}
+
+const seededMessageSchema = z.object({
+  id: idSchema,
+  changeVersion: z.number().int().positive(),
+});
+
+/** A member's conversation page, subscribed to the channel's doorbells. */
+async function listenForChannelBells(
+  context: BrowserContext,
+  channelId: string,
+) {
+  const page = await openPage(context, 'the seeded message doorbell');
+  const topic = `channel:${channelId}`;
+  let subscribed = false;
+  const changeVersions: number[] = [];
+  page.on('websocket', (socket) =>
+    socket.on('framereceived', ({ payload }) => {
+      let raw: unknown;
+      try {
+        raw = JSON.parse(String(payload));
+      } catch {
+        return;
+      }
+      const frame = serverMessageSchema.safeParse(raw);
+      if (!frame.success) return;
+      if (frame.data.type === 'subscribed' && frame.data.topic === topic)
+        subscribed = true;
+      if (
+        frame.data.type === 'event' &&
+        frame.data.payload.kind === 'channel.changed' &&
+        frame.data.payload.channelId === channelId
+      )
+        changeVersions.push(frame.data.payload.changeVersion);
+    }),
+  );
+  await page.goto(`/messages/${channelId}`);
+  await expect.poll(() => subscribed).toBe(true);
+  return { changeVersions, close: () => page.close() };
 }
