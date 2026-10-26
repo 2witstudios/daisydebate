@@ -34,7 +34,7 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/tsgo"
           cd "$RUNNER_TEMP/tsgo"
-          bun init -y
+          printf '{"name":"tsgo-spike","private":true}\n' > package.json
           bun add --exact @typescript/native-preview@7.0.0-dev.20260707.2
       - name: Record toolchain and machine
         run: |
@@ -67,6 +67,27 @@ jobs:
             if (ts.version !== "6.0.3" || messages.length !== 1 || messages[0].ruleId !== "@typescript-eslint/no-floating-promises") throw new Error("Retained compiler API control failed");
             console.log("TypeScript", ts.version, "typed ESLint negative control PASS", messages[0].ruleId);
           } finally { await rm(file); }
+          '
+      - name: Prove the retained Next editor plugin rejects server-only misuse
+        working-directory: apps/web
+        run: |
+          bun --eval '
+          import ts from "typescript";
+          import { createTSPlugin } from "next/dist/server/typescript";
+          import { resolve } from "node:path";
+          import { rm } from "node:fs/promises";
+          const file = resolve("src/app/__benchmark/page.ts");
+          await Bun.write(file, "import { useState } from \"react\"; export default function Page() { return null; }\n");
+          try {
+            const options = { strict: true, module: ts.ModuleKind.ESNext, moduleResolution: ts.ModuleResolutionKind.Bundler, types: [], skipLibCheck: true };
+            const host = { ...ts.sys, getScriptFileNames: () => [file], getScriptVersion: () => "1", getCompilationSettings: () => options, getDefaultLibFileName: ts.getDefaultLibFilePath, getScriptSnapshot: path => { const text = ts.sys.readFile(path); return text === undefined ? undefined : ts.ScriptSnapshot.fromString(text); } };
+            const languageService = ts.createLanguageService(host);
+            const plugin = createTSPlugin({ typescript: ts }).create({ languageService, languageServiceHost: host, config: { name: "next" }, project: { getCurrentDirectory: process.cwd, projectService: { logger: { info() {} } } } });
+            const errors = plugin.getSemanticDiagnostics(file);
+            if (!errors.some(d => d.code === 71001 && String(d.messageText).includes("useState"))) throw new Error("Next plugin negative control failed");
+            console.log("Next editor plugin with TS", ts.version, "negative control PASS");
+            languageService.dispose();
+          } finally { await rm(resolve("src/app/__benchmark"), { recursive: true }); }
           '
       - name: Publish comparison summary
         if: always()
