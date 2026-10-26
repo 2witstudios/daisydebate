@@ -28,7 +28,13 @@ const columns = {
     none: ['role', 'slot', 'readiness_version'],
   },
   rounds: {
-    identifier: ['id', 'room_id', 'created_by_actor_id', 'format_id'],
+    identifier: [
+      'id',
+      'room_id',
+      'created_by_actor_id',
+      'format_id',
+      'runtime_state',
+    ],
     personal: ['resolution'],
     none: [
       'visibility',
@@ -43,7 +49,6 @@ const columns = {
       'ladder_id',
       'started_at',
       'completed_at',
-      'runtime_state',
       'final_segment_ended_at',
       'transcript_admission_cutoff',
       'ballot_deadline_at',

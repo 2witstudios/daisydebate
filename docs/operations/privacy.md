@@ -103,8 +103,10 @@ require it. The declaration is the rights contract; it does not activate
 the unfinished PRIV-4 account-rights delivery.
 
 Actor links and other structural references are retained `identifier`
-values under ADR 0029; controlled lifecycle state, timing and validated
-rules/configuration snapshots are `none`. No topic or title is embedded in
+values under ADR 0029. The mixed `rounds.runtime_state` checkpoint is also
+`identifier`, because its floor embeds a holder participant reference;
+controlled lifecycle state, timing and validated rules/configuration
+snapshots are `none`. No topic or title is embedded in
 those snapshots. Numeric retention and lawful basis remain pending at
 PRIV-4 (`njiorsf64z4iqjm2dbfa3zuu`) and PRIV-3
 (`jc0qcdvpkmqzrelpaesi3pah`); declarations retain the activation hold and

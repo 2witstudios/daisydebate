@@ -54,3 +54,14 @@ test('authored room text has explicit subject-rights declarations', () => {
     ],
   });
 });
+
+test('runtime checkpoint classifies its embedded participant reference', () => {
+  assert({
+    given: 'the floor holder participant id embedded in rounds.runtime_state',
+    should: 'classify the checkpoint as an identifier surface',
+    actual: roomPrivacyFields.find(
+      (field) => field.table === 'rounds' && field.column === 'runtime_state',
+    )?.category,
+    expected: 'identifier',
+  });
+});
