@@ -76,7 +76,9 @@ costs:
 8. **Parity is proven with screenshots.** Playwright screenshot baselines
    (dashboard and settings, dark and light, desktop and mobile) were captured
    on unmodified `main` before any conversion, in the Linux Playwright image
-   matching `@playwright/test`, and must match after.
+   matching `@playwright/test`, and must match after. The suite that grew
+   from this is narrowed to a stable core by
+   [ADR 0073](0073-stable-visual-core.md).
 
 ## Consequences
 
