@@ -11,9 +11,9 @@ describe('getProfile', () => {
     const profile = getProfile('debater-a', null, now);
     assert({
       given: 'a debater who has ranked debates this season, seen by a visitor',
-      should: 'show their rating detail and offer no edit link',
-      actual: [profile.detail.kind, profile.me, profile.editHref],
-      expected: ['player', false, null],
+      should: 'show their rating detail, not as theirs',
+      actual: [profile.detail.kind, profile.me],
+      expected: ['player', false],
     });
   });
 
@@ -35,9 +35,9 @@ describe('getProfile', () => {
     const profile = getProfile('debater-a', 'debater-a', now);
     assert({
       given: 'the signed-in member viewing their own profile',
-      should: 'mark it as theirs and link to settings',
-      actual: [profile.me, profile.editHref],
-      expected: [true, '/settings'],
+      should: 'mark it as theirs',
+      actual: profile.me,
+      expected: true,
     });
   });
 });

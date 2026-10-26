@@ -8,8 +8,6 @@ export type Profile = {
   readonly me: boolean;
   readonly detail: DebaterDetail;
   readonly extras: ProfileExtras;
-  /** Only the owner of a profile can edit it. */
-  readonly editHref: string | null;
 };
 
 /**
@@ -37,6 +35,5 @@ export function getProfile(
     me,
     detail,
     extras: sampleProfileExtras(username, now),
-    editHref: me ? '/settings' : null,
   };
 }

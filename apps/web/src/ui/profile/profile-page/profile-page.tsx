@@ -1,9 +1,7 @@
-import Link from 'next/link';
 import { HiddenWhileJudging } from '../../components/hidden-while-judging/hidden-while-judging';
 import type { Profile } from '../../../features/profile/get-profile';
 import { Avatar } from '../../components/avatar/avatar';
 import { Badge } from '../../components/badge/badge';
-import { buttonClass } from '../../components/button/button-class';
 import { cn } from '../../cn';
 import {
   heading,
@@ -11,6 +9,7 @@ import {
   ResultLine,
 } from '../../leaderboard/detail-parts/detail-parts';
 import { RatingChart } from '../../leaderboard/rating-chart/rating-chart';
+import { ProfileActions } from '../profile-actions/profile-actions';
 
 const card = 'flex flex-col gap-4 rounded-xl bg-surface p-6 shadow-1';
 
@@ -65,17 +64,7 @@ export function ProfilePage({ profile }: { readonly profile: Profile }) {
             </p>
           </div>
         </div>
-        {profile.editHref ? (
-          <Link
-            href={profile.editHref}
-            className={cn(
-              buttonClass('secondary'),
-              'no-underline hover:no-underline',
-            )}
-          >
-            Edit profile
-          </Link>
-        ) : null}
+        <ProfileActions username={profile.username} me={profile.me} />
       </header>
       <section aria-label="Rating" className={card}>
         <h2 className={heading}>Rating</h2>
