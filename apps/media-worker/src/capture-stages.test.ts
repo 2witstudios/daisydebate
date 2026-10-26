@@ -18,6 +18,9 @@ const session = (client: Partial<Record<keyof CaptureClient, unknown>>) =>
       } as unknown as CaptureClient,
       voice: { transcribe: async () => '' } as never,
       sttModel: 'model',
+      // Every refusal here comes before the room or the consumer is used.
+      subscribe: (() => Promise.reject(new Error('unused'))) as never,
+      consume: (() => Promise.reject(new Error('unused'))) as never,
       nowMs: () => 0,
       waitUntilMs: async () => {},
     },

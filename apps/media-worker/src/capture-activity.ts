@@ -1,4 +1,4 @@
-import type { CaptureState } from './capture-history';
+import type { CaptureClient, CaptureState } from './capture-history';
 import type { StagedFrame } from './capture-staging';
 const MAX_FRAMES = 20;
 /** Under the feed's 250 ms staleness and its 50 ms poll; a batch spans 200 ms. */
@@ -54,4 +54,16 @@ export function createActivityRelay() {
       fresh.clear();
     },
   };
+}
+/** Heuristic only: a refused or lost batch is unknown activity, never a capture failure. */
+export async function relayActivity(
+  client: CaptureClient,
+  epoch: number,
+  batches: ReturnType<ReturnType<typeof createActivityRelay>['take']>,
+  signal: AbortSignal,
+) {
+  const results = await Promise.allSettled(
+    batches.map((batch) => client.activity({ epoch, ...batch }, signal)),
+  );
+  return results.filter((r) => r.status === 'fulfilled').length;
 }

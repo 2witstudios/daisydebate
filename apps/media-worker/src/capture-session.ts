@@ -1,6 +1,6 @@
 import { createAppError } from '@daisy/errors';
 import type { OpenRouter } from '@daisy/ai-voice';
-import { createCaptureSubscription } from '@daisy/media/capture';
+import type { createCaptureSubscription } from '@daisy/media/capture';
 import { isCaptureClosedRefusal } from '@daisy/media/worker';
 import { createClipQueue } from './clip-queue';
 import { readCaptureHistory, type CaptureClient } from './capture-history';
@@ -16,13 +16,22 @@ import {
   ACTIVITY_RELAY_INTERVAL_MS,
   activityWanted,
   createActivityRelay,
+  relayActivity,
 } from './capture-activity';
-import { consumeCaptureClips, type QueuedClip } from './capture-consumer';
+import type { consumeCaptureClips, QueuedClip } from './capture-consumer';
 import { createHeardReporter } from './capture-heard';
 import { createStreamTracker } from './capture-streams';
-import { closeCaptureSession } from './capture-drain';
+import {
+  closeCaptureSession,
+  droppedRoomFailure,
+  gracefulStop,
+} from './capture-drain';
 import { sealCaptureStreams } from './capture-seal';
-import { atStage, tagCaptureFailure } from './capture-exit';
+import {
+  atStage,
+  tagCaptureFailure,
+  type CaptureFailureStage,
+} from './capture-exit';
 type Dependencies = {
   readonly roundId: string;
   readonly client: CaptureClient;
@@ -30,6 +39,9 @@ type Dependencies = {
   readonly sttModel: string;
   readonly nowMs: () => number;
   readonly waitUntilMs: (due: number, signal: AbortSignal) => Promise<void>;
+  /** The LiveKit subscription and the clip consumer (capture-run.ts). */
+  readonly subscribe: typeof createCaptureSubscription;
+  readonly consume: typeof consumeCaptureClips;
 };
 /** Assigned session only. Discovery and process isolation live at the deployment edge. */
 export async function runCaptureSession(
@@ -85,7 +97,7 @@ export async function runCaptureSession(
   streams.remember(current.state);
   const capture = await atStage(
     'connect',
-    createCaptureSubscription({
+    input.subscribe({
       url: token.url,
       token: token.token,
       identities: identities(current),
@@ -102,34 +114,56 @@ export async function runCaptureSession(
       },
     }),
   );
-  void capture.closed.then(
-    () => stop.abort(),
-    () => stop.abort(),
-  );
+  // The first failure wins: what it aborts then rejects only as cancelled.
   let failure: unknown;
+  const record = (stage: CaptureFailureStage, error: unknown) => {
+    failure ??= tagCaptureFailure(stage, error);
+  };
+  // A LiveKit drop stops the session; confirmDrop asks the server why.
+  let roomDropped = false;
+  // An abort-caused rejection is not a failure of its own.
+  const loopFailed = (error: unknown) => {
+    if (!caller.aborted && !stop.signal.aborted) failure ??= error;
+  };
+  const confirmDrop = async () => {
+    if (roomDropped && failure === undefined && !caller.aborted)
+      failure = await droppedRoomFailure(input.client, epoch);
+  };
+  void capture.closed.then(
+    (reason) => {
+      roomDropped = reason === 'disconnected';
+      stop.abort();
+    },
+    (error: unknown) => {
+      record('connect', error);
+      stop.abort();
+    },
+  );
   // The consumer outlives the batch loop on a graceful stop, to drain (VIDEO-4.1-r12).
   const halt = new AbortController();
-  const consuming = consumeCaptureClips({
-    ...input,
-    epoch,
-    signal: halt.signal,
-    take: queue.shift,
-    straddles: staging.straddles,
-    dropped,
-    transcribed: () => {
-      stats.transcribedClips++;
-    },
-    committed: (clip) => {
-      streams.forClip(clip).count++;
-      stats.appendedChunks++;
-    },
-    settled: streams.settled,
-  }).catch((error) => {
-    if (!halt.signal.aborted) {
-      failure = tagCaptureFailure('transcription', error);
-      stop.abort();
-    }
-  });
+  const consuming = input
+    .consume({
+      ...input,
+      epoch,
+      signal: halt.signal,
+      take: queue.shift,
+      straddles: staging.straddles,
+      dropped,
+      transcribed: () => {
+        stats.transcribedClips++;
+      },
+      committed: (clip) => {
+        streams.forClip(clip).count++;
+        stats.appendedChunks++;
+      },
+      settled: streams.settled,
+    })
+    .catch((error) => {
+      if (!halt.signal.aborted) {
+        record('transcription', error);
+        stop.abort();
+      }
+    });
   const relaying = (async () => {
     while (!signal.aborted) {
       const due = input.nowMs() + ACTIVITY_RELAY_INTERVAL_MS;
@@ -213,17 +247,17 @@ export async function runCaptureSession(
       await input.waitUntilMs(due, signal);
     }
   } catch (error) {
-    if (!caller.aborted) failure = error;
+    loopFailed(error);
   } finally {
     const graceful = gracefulStop(caller, failure, stop.signal);
     stop.abort();
-    await atStage('shutdown', capture.close());
-    await atStage('shutdown', relaying);
-    activity.clear();
-    staging.clear();
-    stats.sealedStreams += await atStage(
-      'shutdown',
-      closeCaptureSession({
+    // A failing shutdown step never masks the failure that stopped the session.
+    try {
+      await capture.close();
+      await relaying;
+      activity.clear();
+      staging.clear();
+      stats.sealedStreams += await closeCaptureSession({
         graceful,
         carries,
         roundId: input.roundId,
@@ -252,9 +286,12 @@ export async function runCaptureSession(
           ),
         nowMs: input.nowMs,
         waitUntilMs: input.waitUntilMs,
-      }),
-    );
+      });
+    } catch (error) {
+      record('shutdown', error);
+    }
   }
+  await confirmDrop();
   // The server closed the capture for good: a normal end, not a failure.
   if (failure && isCaptureClosedRefusal(failure))
     return { ...stats, closed: true };
@@ -266,27 +303,5 @@ export async function runCaptureSession(
     );
   return { ...stats, closed: false };
 }
-/**
- * Only the caller's own abort (SIGTERM: a deploy or restart) drains. A
- * capture-closed refusal, a lost lease or any failure has already stopped the
- * session. The lease, renewed every 5 s for 15 s, outlives the drain.
- */
-const gracefulStop = (
-  caller: AbortSignal,
-  failure: unknown,
-  stopped: AbortSignal,
-) => caller.aborted && failure === undefined && !stopped.aborted;
 const identities = (snapshot: Awaited<ReturnType<CaptureClient['read']>>) =>
   snapshot.state.participants.flatMap((p) => (p.identity ? [p.identity] : []));
-/** Heuristic only: a refused or lost batch is unknown activity, never a capture failure. */
-async function relayActivity(
-  client: CaptureClient,
-  epoch: number,
-  batches: ReturnType<ReturnType<typeof createActivityRelay>['take']>,
-  signal: AbortSignal,
-) {
-  const results = await Promise.allSettled(
-    batches.map((batch) => client.activity({ epoch, ...batch }, signal)),
-  );
-  return results.filter((r) => r.status === 'fulfilled').length;
-}

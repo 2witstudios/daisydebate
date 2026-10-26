@@ -44,7 +44,11 @@ A capture process reports a failure only through its exit status
 enumerated stage (`configuration`, `lease`, `history`, `token`, `connect`,
 `renewal`, `refresh`, `batch`, `seal`, `transcription`, `shutdown`, or
 `session` for a failure no stage tagged) paired with one protocol error
-code. Status 4 is an uncaught exception or unhandled rejection, and 128 + n
+code. The first failure is the one reported: a call it cancels, or a
+shutdown step that then throws, never replaces it. `connect` covers joining
+LiveKit and the room dropping later; a drop counts only once the server
+confirms the Round still needs capture, since a capture the server closed for
+good ends the session as finished. code. Status 4 is an uncaught exception or unhandled rejection, and 128 + n
 is a signal. The worker decodes the status into `cause` and `errorCode`.
 Nothing else crosses the process boundary: no raw error, PCM or text.
 
