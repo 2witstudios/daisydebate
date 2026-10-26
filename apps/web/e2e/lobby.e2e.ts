@@ -1,5 +1,5 @@
 import { createId } from '@paralleldrive/cuid2';
-import { expect, test } from './support/fixtures';
+import { expect, openPage, test } from './support/fixtures';
 import { origin, resetRateLimits, signUpMember } from './support/accounts';
 import { closeRoom, createFromPlay } from './support/room-launch-flow';
 
@@ -51,7 +51,7 @@ test.describe('authenticated Room lobby', () => {
     try {
       await signUpMember(other.request);
       const first = await createFromPlay(
-        await other.newPage(),
+        await openPage(other, 'second lobby host'),
         `Blue ${createId().slice(0, 8)}`,
       );
       firstId = first.id;
