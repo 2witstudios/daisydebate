@@ -71,6 +71,46 @@ test('runner starts', () => {});`,
         },
         expected: { code: 0, cleaned: true },
       });
+      const { nativeSpecArguments } =
+        await import('../apps/web/e2e/support/affected-projects');
+      const { missingSelectedSpecs } = await import('./e2e-selection-report');
+      const native = ['room-launch.e2e.ts', 'round-media.e2e.ts'];
+      for (const name of [...native, 'ballot.e2e.ts'])
+        await writeFile(
+          join(scratch, name),
+          `import { test } from ${JSON.stringify(join(playwright, 'index.mjs'))};
+          test('native selection', () => { ${name === 'ballot.e2e.ts' ? "throw new Error('unselected spec executed');" : ''} });`,
+        );
+      await writeFile(
+        join(scratch, 'playwright.config.mjs'),
+        `export default { testDir: '.', testMatch: '*.e2e.ts', outputDir: ${JSON.stringify(output)}, reporter: [['json', {outputFile: 'native.json'}]], workers: 1 };`,
+      );
+      const selectedRun = Bun.spawnSync(
+        [
+          'node',
+          join(playwright, 'cli.js'),
+          'test',
+          ...nativeSpecArguments(
+            JSON.stringify(native),
+            native.map((name) => `**/${name}`),
+          ),
+        ],
+        { cwd: scratch, stdout: 'pipe', stderr: 'pipe' },
+      );
+      const nativeReport = JSON.parse(
+        await readFile(join(scratch, 'native.json'), 'utf8'),
+      );
+      assert({
+        given: 'actual Playwright with selected native filename arguments',
+        should:
+          'run selected smoke and media while excluding an unrelated failing spec',
+        actual: {
+          code: selectedRun.exitCode,
+          passed: nativeReport.stats.expected,
+          missing: missingSelectedSpecs(native, nativeReport),
+        },
+        expected: { code: 0, passed: 2, missing: [] },
+      });
       const manifest = JSON.parse(
         await readFile(join(scratch, '.turbo/e2e-selection.json'), 'utf8'),
       );
