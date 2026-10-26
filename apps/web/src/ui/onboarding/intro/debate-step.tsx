@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { destinationHref } from '../../../features/coming-soon/launch';
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import {
   oneOnOneDefinition,
@@ -77,7 +78,7 @@ export function DebateStep({ nextHref, backHref, skip }: IntroStepProps) {
     [
       'Speeches',
       "Each side opens with its case, then replies to the other's. Sides are assigned, so you argue whichever one you get.",
-      '/train/rules',
+      destinationHref('train', { path: '/train/rules' }),
       'Read the rules',
     ],
     [
@@ -86,13 +87,13 @@ export function DebateStep({ nextHref, backHref, skip }: IntroStepProps) {
         introTurns.find((turn) => turn.kind === 'cross-examination')
           ?.durationMs ?? 0,
       )} minutes to question the speaker directly.`,
-      '/watch',
+      destinationHref('watch'),
       'Watch a debate',
     ],
     [
       'Decision',
       'A judge picks the side with the stronger case and writes why. In ranked debates, the result moves your rating.',
-      '/leaderboard',
+      destinationHref('leaderboard'),
       'How ratings work',
     ],
   ] as const;

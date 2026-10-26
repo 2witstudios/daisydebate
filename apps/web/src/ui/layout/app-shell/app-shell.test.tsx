@@ -59,17 +59,16 @@ describe('AppShell', () => {
     });
   });
 
-  test('the rail: logo, eight destinations and More, then the member places', () => {
+  test('the rail: logo, launched destinations and More, then the member places', () => {
     const [rail] = navs(render(member));
     assert({
       given: 'a member',
       should:
-        'link home from the logo, then the destinations and More in order, then Messages, Notifications, Friends and the profile',
+        'link home from the logo, then the launched destinations and More in order, then Messages, Friends and the profile',
       actual: [
         rail.includes('aria-label="Daisy Debate home"'),
         hrefsOf(rail).filter(
-          (href) =>
-            !['/recordings', '/help', '/terms', '/privacy'].includes(href),
+          (href) => !['/help', '/terms', '/privacy'].includes(href),
         ),
       ],
       expected: [
@@ -78,17 +77,10 @@ describe('AppShell', () => {
           '/',
           '/',
           '/lobby',
-          '/tournaments',
-          '/leaderboard',
-          '/watch',
-          '/watch',
           '/judge',
-          '/train',
-          '/prep',
           '/settings',
           '/settings',
           '/messages',
-          '/notifications',
           '/friends',
           '/profile/ada-byron',
         ],
@@ -104,16 +96,14 @@ describe('AppShell', () => {
         'name the icon links as screen-reader text, Friends with its online count, and the profile by username',
       actual: [
         rail.includes('<span class="sr-only">Messages</span>'),
-        rail.includes('<span class="sr-only">Notifications</span>'),
         /<span class="sr-only">Friends, \d+ online<\/span>/.test(rail),
         rail.includes('aria-label="Your profile, ada-byron"'),
         rail.includes('<span class="sr-only">More</span>'),
-        rail.includes('href="/recordings"'),
         ['/help', '/terms', '/privacy'].every((href) =>
           rail.includes(`href="${href}"`),
         ),
       ],
-      expected: [true, true, true, true, true, true, true],
+      expected: [true, true, true, true, true],
     });
   });
 
@@ -123,12 +113,12 @@ describe('AppShell', () => {
     assert({
       given: 'an anonymous visitor and a provisional account',
       should:
-        'end the rail with Sign in or Finish sign-up, and no Messages, Notifications or Friends',
+        'end the rail with Sign in or Finish sign-up, and no Messages or Friends',
       actual: [
         visitor.includes('href="/sign-in"'),
         visitor.includes('<span class="sr-only">Sign in</span>'),
         provisional.includes('href="/onboarding/username"'),
-        ['/messages', '/notifications', '/friends'].some((href) =>
+        ['/messages', '/friends'].some((href) =>
           visitor.includes(`href="${href}"`),
         ),
       ],
@@ -136,7 +126,7 @@ describe('AppShell', () => {
     });
   });
 
-  test('the phone tab bar: Home, Play, Prep, Inbox and More', () => {
+  test('the phone tab bar: Home, Play, Judge, Inbox and More', () => {
     const [, bar] = navs(render(member));
     const [, visitorBar] = navs(render());
     const summary = bar.slice(bar.indexOf('<summary'));
@@ -150,8 +140,8 @@ describe('AppShell', () => {
         summary.includes('More'),
       ],
       expected: [
-        ['/', '/lobby', '/prep', '/messages'],
-        ['/', '/lobby', '/prep', '/sign-in'],
+        ['/', '/lobby', '/judge', '/messages'],
+        ['/', '/lobby', '/judge', '/sign-in'],
         true,
       ],
     });
@@ -162,17 +152,9 @@ describe('AppShell', () => {
     const sheet = hrefsOf(bar.slice(bar.indexOf('<details')));
     assert({
       given: "a member's More sheet",
-      should:
-        'list the other destinations, Recordings, their places, Settings and the help and legal pages',
+      should: 'list their places, Settings and the help and legal pages',
       actual: sheet,
       expected: [
-        '/tournaments',
-        '/leaderboard',
-        '/watch',
-        '/recordings',
-        '/judge',
-        '/train',
-        '/notifications',
         '/friends',
         '/profile/ada-byron',
         '/settings',

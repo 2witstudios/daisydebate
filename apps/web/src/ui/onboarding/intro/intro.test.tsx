@@ -2,6 +2,7 @@ import { join } from 'node:path';
 import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { destinationHref } from '../../../features/coming-soon/launch';
 import { routeExists } from '../../test-support/route-exists';
 import { DebateStep } from './debate-step';
 import { DaisyStep, WhyStep, type IntroStepProps } from './intro';
@@ -132,9 +133,16 @@ describe('DebateStep', () => {
     );
     assert({
       given: 'Read the rules, Watch a debate and How ratings work',
-      should: 'point at existing routes',
+      should: 'point at existing routes, through their launch flags',
       actual: [links, links.filter((href) => !routeExists(appDirectory, href))],
-      expected: [['/train/rules', '/watch', '/leaderboard'], []],
+      expected: [
+        [
+          destinationHref('train', { path: '/train/rules' }),
+          destinationHref('watch'),
+          destinationHref('leaderboard'),
+        ],
+        [],
+      ],
     });
   });
 

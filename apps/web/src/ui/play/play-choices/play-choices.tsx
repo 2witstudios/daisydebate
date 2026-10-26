@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { PlayOption, PlayOptionId } from '../../../features/play/options';
 import { cn } from '../../cn';
+import { Badge } from '../../components/badge/badge';
 import { Icon, type IconName } from '../../components/icon/icon';
 
 const icons: Readonly<Record<PlayOptionId, IconName>> = {
@@ -20,7 +21,8 @@ const chips: Readonly<Record<PlayOptionId, string>> = {
 
 /**
  * The ways to play as one compact list of links. The Play dialog shows it
- * over the Lobby and `/play` shows it as a page, so both read the same.
+ * over the Lobby and `/play` shows it as a page, so both read the same. One
+ * that is not open yet is tagged and leads to its explainer.
  */
 export function PlayChoices({
   options,
@@ -47,6 +49,11 @@ export function PlayChoices({
               <span className="font-strong">{option.title}</span>
               <span className="text-sm text-ink-muted">{option.blurb}</span>
             </span>
+            {option.comingSoon ? (
+              <span className="ml-auto shrink-0">
+                <Badge tone="accent">Coming soon</Badge>
+              </span>
+            ) : null}
           </Link>
         </li>
       ))}

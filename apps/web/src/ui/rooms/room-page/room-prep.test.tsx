@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import type { RoomView } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assemblySnapshot } from '../../../features/rooms/assembly.test-support';
+import { destinationHref } from '../../../features/coming-soon/launch';
 import { RoomPrep } from './room-prep';
 
 setupRitewayBun();
@@ -49,7 +50,7 @@ test('the host starts preparation through a native versioned command', () => {
       html.includes('value="start-prep"'),
       html.includes('name="expectedVersion" value="3"'),
       html.includes('value="start-id"'),
-      html.includes('href="/prep"'),
+      html.includes(`href="${destinationHref('prep')}"`),
     ],
     expected: [true, true, true, true],
   });

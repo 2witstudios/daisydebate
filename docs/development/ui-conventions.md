@@ -165,11 +165,29 @@ and facts on the left and its status and one action on the right.
   tournament and league grouping, an event-scoped room label) is left out,
   never faked; its tab or column appears when the data does.
 - Play in the Lobby header is a link to `/play`. Once hydrated it opens the
-  same choices (Ranked match, Open a room, Practice with a bot, Tournaments
-  and leagues, Just browse the Lobby) in a modal dialog over the Lobby;
+  same choices (Open a room, Ranked match, Practice with a bot, Tournaments
+  and leagues, open ones first, then Just browse the Lobby) in a modal
+  dialog over the Lobby;
   without script `/play` lists them as a page.
 - A member's Home leads with the Lobby, or with Return to room while they
   hold a Room. Visitors keep the waitlist hero.
+
+## Unlaunched destinations
+
+`features/coming-soon/launch.ts` is the one switch for what is open. A
+destination that is not launched is never reached through a link to sample
+data:
+
+- The rail, the tab bar and More list only launched destinations.
+- Every other link into an unlaunched destination (a Home tile, a Play
+  choice, a link on a real page) goes to its explainer at
+  `/coming-soon/<slug>` through `destinationHref`, and a Play choice is
+  tagged Coming soon.
+- A sample action with no destination of its own (notifications, judge
+  resources and rating, settings export and deletion) is left out.
+
+Flipping a flag lists the destination, sends its links to the live route and
+redirects its explainer there.
 
 ## Pre-round Room
 

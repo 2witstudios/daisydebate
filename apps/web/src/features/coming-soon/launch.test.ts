@@ -1,6 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { destinationSlugs } from './destinations';
-import { explainerHref, launched, liveHref, tileHref } from './launch';
+import { destinationHref, explainerHref, launched, liveHref } from './launch';
 
 setupRitewayBun();
 
@@ -18,22 +18,23 @@ describe('launch config', () => {
     });
   });
 
-  test('has nothing launched yet', () => {
+  test('opens only the destinations with real screens', () => {
     assert({
-      given: 'the launch config',
-      should: 'keep every destination behind its explainer',
+      given: 'the launch config for the unranked beta',
+      should:
+        'open the Lobby and the Judge hub and keep the rest behind explainers',
       actual: destinationSlugs.filter((slug) => launched[slug]),
-      expected: [],
+      expected: ['lobby', 'judge'],
     });
   });
 });
 
-describe('tileHref', () => {
+describe('destinationHref', () => {
   test('points an unlaunched destination at its explainer', () => {
     assert({
       given: 'a destination that is not launched',
       should: 'link to the explainer',
-      actual: tileHref('ranked', allSoon),
+      actual: destinationHref('ranked', { config: allSoon }),
       expected: explainerHref('ranked'),
     });
   });
@@ -43,10 +44,25 @@ describe('tileHref', () => {
       given: 'lobby flipped to launched',
       should: 'link lobby to its live route and leave the rest',
       actual: [
-        tileHref('lobby', { ...allSoon, lobby: true }),
-        tileHref('watch', { ...allSoon, lobby: true }),
+        destinationHref('lobby', { config: { ...allSoon, lobby: true } }),
+        destinationHref('watch', { config: { ...allSoon, lobby: true } }),
       ],
       expected: [liveHref('lobby'), '/coming-soon/watch'],
+    });
+  });
+
+  test('a deep link follows its destination', () => {
+    assert({
+      given: 'a page inside ranked, launched and not',
+      should: 'reach the page once launched and the explainer until then',
+      actual: [
+        destinationHref('ranked', { path: '/ranked/host', config: allSoon }),
+        destinationHref('ranked', {
+          path: '/ranked/host',
+          config: { ...allSoon, ranked: true },
+        }),
+      ],
+      expected: ['/coming-soon/ranked', '/ranked/host'],
     });
   });
 });

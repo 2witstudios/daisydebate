@@ -52,16 +52,16 @@ describe('Dashboard', () => {
   test('shows coming-soon cards instead of sample tournament and live data', () => {
     const html = render();
     assert({
-      given: 'the home dashboard while nothing is launched',
+      given: 'the home dashboard while only the Lobby and Judge are launched',
       should:
-        'carry ten Coming soon tags (eight tiles, two cards) and no sample event',
+        'carry eight Coming soon tags (six tiles, two cards) and no sample event',
       actual: [
         occurrences(html, 'Coming soon'),
         html.includes('href="/coming-soon/tournaments"'),
         html.includes(tournament.name),
         html.includes('Live Now'),
       ],
-      expected: [10, true, false, false],
+      expected: [8, true, false, false],
     });
   });
 });

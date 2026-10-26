@@ -7,7 +7,6 @@ import type {
 import { buttonClass } from '../../components/button/button-class';
 import { Notice } from '../../components/notice/notice';
 import { PageHeader } from '../../components/page-header/page-header';
-import { SampleAction } from '../../components/sample-action/sample-action';
 import { ThemeSwitcher } from '../../components/theme-switcher/theme-switcher';
 import type { MockFormAction } from '../../form-action/mock-form';
 import { cn } from '../../cn';
@@ -33,7 +32,6 @@ const nav = [
   ['privacy', 'Privacy and data'],
   ['appearance', 'Appearance'],
   ['security', 'Security'],
-  ['account', 'Your account'],
 ] as const;
 
 function Section({
@@ -149,30 +147,6 @@ export function SettingsPage({
             >
               Account security
             </Link>
-          </Section>
-          <Section id="account" title="Your account">
-            <div className="flex flex-wrap gap-3">
-              <SampleAction
-                label="Export my data"
-                className={buttonClass('secondary')}
-              >
-                Export my data
-              </SampleAction>
-              <SampleAction
-                label="Delete my account"
-                className={cn(
-                  buttonClass('ghost'),
-                  'border-live text-live hover:text-live',
-                )}
-              >
-                Delete my account
-              </SampleAction>
-            </div>
-            <p className="text-sm text-ink-faint">
-              Deleting removes what identifies you. Results you took part in
-              stay as an anonymous entry so other people’s standings do not
-              change.
-            </p>
           </Section>
         </div>
       </div>

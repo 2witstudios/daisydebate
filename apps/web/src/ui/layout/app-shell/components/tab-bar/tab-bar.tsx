@@ -34,9 +34,9 @@ const sheetLinkClass =
   'flex min-h-tab items-center rounded-md px-4 text-base text-ink no-underline hover:bg-surface-overlay hover:no-underline';
 
 /** The destinations that get a tab of their own. */
-const tabbed = new Set(['/', '/lobby', '/prep']);
+const tabbed = new Set(['/', '/lobby', '/judge']);
 
-/** The four tabs before More: Home, Play, Prep, and Inbox or the way in. */
+/** The four tabs before More: Home, Play, Judge, and Inbox or the way in. */
 const tabsFor = (account: ShellAccount): readonly Tab[] => [
   ...primaryDestinations.filter((item) => tabbed.has(item.href)),
   account.state === 'member'
@@ -61,7 +61,6 @@ const moreLinksFor = (
     ),
   ...(account.state === 'member'
     ? [
-        memberDestinations.notifications,
         {
           href: memberDestinations.friends.href,
           label: friendsLabel(online),
@@ -74,7 +73,7 @@ const moreLinksFor = (
 
 /**
  * The phone's navigation, fixed along the bottom in place of the rail: Home,
- * Play, Prep, a member's Inbox (a visitor's way in), and More, a sheet with
+ * Play, Judge, a member's Inbox (a visitor's way in), and More, a sheet with
  * every other destination. More is a native disclosure, so it opens before
  * any script; it closes on arriving at another page.
  */

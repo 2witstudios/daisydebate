@@ -1,3 +1,5 @@
+import { destinationHref } from '../coming-soon/launch';
+
 type Link = { readonly label: string; readonly href: string };
 
 export type HelpTopic = {
@@ -32,8 +34,8 @@ export const helpTopics: readonly HelpTopic[] = [
     answer:
       'Ranked debates follow the standard rules, use a judge Daisy assigns, and change your rating. Casual rooms are unranked and let the host choose the settings.',
     links: [
-      { label: 'Ranked', href: '/ranked' },
-      { label: 'Leaderboard', href: '/leaderboard' },
+      { label: 'Ranked', href: destinationHref('ranked') },
+      { label: 'Leaderboard', href: destinationHref('leaderboard') },
     ],
   },
   {
@@ -49,15 +51,18 @@ export const helpTopics: readonly HelpTopic[] = [
     answer:
       'The Train area walks through the format, offers drills and practice rounds, and reviews your past debates.',
     links: [
-      { label: 'Rules', href: '/train/rules' },
-      { label: 'Train', href: '/train' },
+      {
+        label: 'Rules',
+        href: destinationHref('train', { path: '/train/rules' }),
+      },
+      { label: 'Train', href: destinationHref('train') },
     ],
   },
   {
     id: 'your-data',
     question: 'How do I see or delete my data?',
     answer:
-      'Everything about your account is in Settings, including privacy choices, export and deletion. The privacy policy explains what we keep and why.',
+      'Your privacy choices are in Settings. The privacy policy explains what we keep and why.',
     links: [
       { label: 'Settings', href: '/settings' },
       { label: 'Privacy policy', href: '/privacy' },

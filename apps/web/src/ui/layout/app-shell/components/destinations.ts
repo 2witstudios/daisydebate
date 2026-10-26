@@ -1,3 +1,5 @@
+import type { DestinationSlug } from '../../../../features/coming-soon/destinations';
+import { launched } from '../../../../features/coming-soon/launch';
 import type { IconName } from '../../../components/icon/icon';
 import type { ShellAccount } from '../account';
 
@@ -11,19 +13,31 @@ type Destination = {
   }[];
   /** Routes that light this destination without a link of their own. */
   readonly alsoActive?: readonly string[];
+  /** The launch flag that lists it; the nav leaves it out until it is set. */
+  readonly launch?: DestinationSlug;
 };
 
-/** The eight primary destinations, in rail order. */
-export const primaryDestinations: readonly Destination[] = [
+const allDestinations: readonly Destination[] = [
   { href: '/', icon: 'home', label: 'Home' },
   {
     href: '/lobby',
     icon: 'swords',
     label: 'Play',
     alsoActive: ['/play', '/ranked'],
+    launch: 'lobby',
   },
-  { href: '/tournaments', icon: 'trophy', label: 'Tournaments' },
-  { href: '/leaderboard', icon: 'chart', label: 'Leaderboard' },
+  {
+    href: '/tournaments',
+    icon: 'trophy',
+    label: 'Tournaments',
+    launch: 'tournaments',
+  },
+  {
+    href: '/leaderboard',
+    icon: 'chart',
+    label: 'Leaderboard',
+    launch: 'leaderboard',
+  },
   {
     href: '/watch',
     icon: 'eye',
@@ -32,11 +46,22 @@ export const primaryDestinations: readonly Destination[] = [
       { href: '/watch', label: 'Spectate live' },
       { href: '/recordings', label: 'Recordings' },
     ],
+    launch: 'watch',
   },
-  { href: '/judge', icon: 'gavel', label: 'Judge' },
-  { href: '/train', icon: 'bolt', label: 'Train' },
-  { href: '/prep', icon: 'book', label: 'Prep' },
+  { href: '/judge', icon: 'gavel', label: 'Judge', launch: 'judge' },
+  { href: '/train', icon: 'bolt', label: 'Train', launch: 'train' },
+  { href: '/prep', icon: 'book', label: 'Prep', launch: 'prep' },
 ];
+
+/**
+ * The launched primary destinations, in rail order. One that is not
+ * launched is left out rather than linked to sample data; Home's tiles
+ * still point at its explainer.
+ */
+export const primaryDestinations: readonly Destination[] =
+  allDestinations.filter(
+    ({ launch }) => launch === undefined || launched[launch],
+  );
 
 /** More: settings and the legal and help pages. */
 export const moreDestination: Destination = {
@@ -51,14 +76,9 @@ export const moreDestination: Destination = {
   ],
 };
 
-/** A member's own places: their inbox, notifications and friends. */
+/** A member's own places: their inbox and friends. */
 export const memberDestinations = {
   messages: { href: '/messages', icon: 'message', label: 'Messages' },
-  notifications: {
-    href: '/notifications',
-    icon: 'bell',
-    label: 'Notifications',
-  },
   friends: { href: '/friends', icon: 'users', label: 'Friends' },
 } as const satisfies Readonly<Record<string, Destination>>;
 

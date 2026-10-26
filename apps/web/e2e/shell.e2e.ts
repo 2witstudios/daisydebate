@@ -75,19 +75,17 @@ test.describe('dashboard shell chrome', () => {
     // Hidden flyout links are outside the accessibility tree until revealed,
     // so the hidden state is asserted with a structural locator.
     // The rail is the first Primary nav; the phone tab bar, hidden here,
-    // lists Recordings in its More sheet too.
-    const recordings = page
-      .locator('nav[aria-label="Primary"]')
-      .first()
-      .locator('a[href="/recordings"]');
-    await expect(recordings).toBeAttached();
-    await expect(recordings).not.toBeVisible();
+    // lists Terms in its More sheet too.
+    const rail = page.locator('nav[aria-label="Primary"]').first();
+    const terms = rail.locator('a[href="/terms"]');
+    await expect(terms).toBeAttached();
+    await expect(terms).not.toBeVisible();
 
-    await page.getByRole('link', { name: 'Watch', exact: true }).hover();
-    await expect(recordings).toBeVisible();
+    await rail.getByRole('link', { name: 'More', exact: true }).hover();
+    await expect(terms).toBeVisible();
 
     // Paint order: the hero must not cover the revealed flyout.
-    const covered = await recordings.evaluate((el) => {
+    const covered = await terms.evaluate((el) => {
       const box = el.getBoundingClientRect();
       const hit = document.elementFromPoint(
         box.x + box.width / 2,
@@ -97,14 +95,14 @@ test.describe('dashboard shell chrome', () => {
     });
     expect(covered).toBe(false);
 
-    await recordings.click();
-    await expect(page).toHaveURL(/\/sign-in\?next=%2Frecordings$/);
+    await terms.click();
+    await expect(page).toHaveURL(/\/terms$/);
 
     // Keyboard: focusing the parent link opens the flyout via :focus-within.
     await page.goto('/');
-    await expect(recordings).not.toBeVisible();
-    await page.getByRole('link', { name: 'Watch', exact: true }).focus();
-    await expect(recordings).toBeVisible();
+    await expect(terms).not.toBeVisible();
+    await rail.getByRole('link', { name: 'More', exact: true }).focus();
+    await expect(terms).toBeVisible();
   });
 
   test('interactive controls carry accessible names', async ({ page }) => {
@@ -124,18 +122,18 @@ test.describe('dashboard shell chrome', () => {
     const tabs = page.getByRole('navigation', { name: 'Primary' });
     // Only the tab bar is laid out: the rail is hidden, not just covered.
     await expect(tabs).toHaveCount(1);
-    for (const name of ['Home', 'Play', 'Prep', 'Sign in'])
+    for (const name of ['Home', 'Play', 'Judge', 'Sign in'])
       await expect(tabs.getByRole('link', { name, exact: true })).toBeVisible();
     const bar = await tabs.boundingBox();
     expect(bar !== null && Math.round(bar.y + bar.height)).toBe(844);
     // More is a native disclosure: it opens on the sheet of everything else.
-    const recordings = tabs.getByRole('link', { name: 'Recordings' });
-    await expect(recordings).not.toBeVisible();
+    const terms = tabs.getByRole('link', { name: 'Terms' });
+    await expect(terms).not.toBeVisible();
     await tabs.getByText('More', { exact: true }).click();
-    await expect(recordings).toBeVisible();
-    await tabs.getByRole('link', { name: 'Leaderboard' }).click();
-    await expect(page).toHaveURL(/\/leaderboard$/);
-    await expect(recordings).not.toBeVisible();
+    await expect(terms).toBeVisible();
+    await tabs.getByRole('link', { name: 'Help' }).click();
+    await expect(page).toHaveURL(/\/help$/);
+    await expect(terms).not.toBeVisible();
     // Nothing reaches past the screen's edge.
     const overflow = await page.evaluate(
       () => document.documentElement.scrollWidth - window.innerWidth,
