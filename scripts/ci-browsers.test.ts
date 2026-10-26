@@ -24,7 +24,11 @@ const saveAction =
   'actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9';
 
 const browserJobs = async () => {
-  const files = ['.github/workflows/e2e.yml', '.github/workflows/ci.yml'];
+  const files = [
+    '.github/workflows/e2e.yml',
+    '.github/workflows/ci.yml',
+    '.github/workflows/rebaseline-visuals.yml',
+  ];
   const parsed = await Promise.all(files.map(workflow));
   return parsed.flatMap((value) =>
     Object.entries(value.jobs).filter(([, job]) =>
@@ -77,7 +81,7 @@ test('every Playwright browser install is cached and bounded', async () => {
       jobs.map(([name, job]) => [name, installShape(job.steps)]),
     ),
     expected: Object.fromEntries(
-      ['e2e', 'room-launch'].map((name) => [
+      ['e2e', 'room-launch', 'render'].map((name) => [
         name,
         {
           bounded: true,

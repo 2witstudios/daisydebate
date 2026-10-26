@@ -1,0 +1,246 @@
+name: Rebaseline visuals
+# ADR 0073: an intended visual change rebaselines in one action.
+#   gh workflow run rebaseline-visuals.yml -f target=<pr number or branch>
+# Three jobs, so branch code never runs beside a write token: `resolve`
+# reads the target, `render` builds and runs the visual project with
+# --update-snapshots on the E2E job's runner image under a read-only token,
+# and `commit` runs no branch code: it copies the rendered PNGs into the
+# baselines folder and pushes only that folder's changes.
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Pull request number or branch name (same repository, not main)
+        required: true
+permissions: {}
+concurrency:
+  group: rebaseline-visuals-${{ inputs.target }}
+  cancel-in-progress: true
+jobs:
+  resolve:
+    name: Resolve the target branch
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      branch: ${{ steps.target.outputs.branch }}
+      sha: ${{ steps.target.outputs.sha }}
+    steps:
+      # The input reaches the script only through env, never interpolated.
+      - name: Refuse forks, main and unknown targets
+        id: target
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET: ${{ inputs.target }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -eu
+          plain_branch() {
+            printf '%s' "$1" | grep -Eq '^[A-Za-z0-9_][A-Za-z0-9._/-]*$' &&
+              ! printf '%s' "$1" | grep -Fq '..'
+          }
+          if printf '%s' "$TARGET" | grep -Eq '^[0-9]+$'; then
+            pr=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$TARGET")
+            repo=$(printf '%s' "$pr" | jq -r .head.repo.full_name)
+            branch=$(printf '%s' "$pr" | jq -r .head.ref)
+            sha=$(printf '%s' "$pr" | jq -r .head.sha)
+          elif plain_branch "$TARGET"; then
+            repo=$GITHUB_REPOSITORY
+            branch=$TARGET
+            sha=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$TARGET" --jq .object.sha)
+          else
+            echo '::error::Refusing a target that is neither a PR number nor a plain branch name'
+            exit 1
+          fi
+          if [ "$repo" != "$GITHUB_REPOSITORY" ]; then
+            echo "::error::Refusing a fork branch ($repo)"
+            exit 1
+          fi
+          if ! plain_branch "$branch"; then
+            echo '::error::Refusing a branch name outside [A-Za-z0-9._/-]'
+            exit 1
+          fi
+          if [ "$branch" = main ] || [ "$branch" = "$DEFAULT_BRANCH" ]; then
+            echo "::error::Refusing $branch: baselines change through a pull request"
+            exit 1
+          fi
+          if ! printf '%s' "$sha" | grep -Eq '^[0-9a-f]{40}$'; then
+            echo '::error::The target did not resolve to a commit'
+            exit 1
+          fi
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+  render:
+    name: Render the visual project
+    needs: resolve
+    # The Playwright E2E job's runner image: baselines are Linux-only.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    # The same canonical slot metadata and services as e2e.yml's e2e job.
+    env:
+      DATABASE_URL: postgres://daisy:ci-only@localhost:5432/daisy
+      TEST_DATABASE_URL: postgres://daisy:ci-only@localhost:5432/daisy_test
+      REDIS_NAMESPACE: daisy
+      E2E_REDIS_NAMESPACE: daisy-e2e
+    services:
+      postgres:
+        image: postgres:18.3-alpine
+        env:
+          POSTGRES_DB: daisy_e2e
+          POSTGRES_USER: daisy
+          POSTGRES_PASSWORD: ci-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U daisy -d daisy_e2e"
+          --health-interval 3s
+          --health-timeout 3s
+          --health-retries 20
+      redis:
+        image: redis:8.6.1-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 3s
+          --health-timeout 3s
+          --health-retries 20
+    steps:
+      - name: Check out the target commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: .bun-version
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Apply migrations to the e2e database
+        run: bun run --cwd packages/db db:migrate
+        env:
+          DATABASE_URL: postgres://daisy:ci-only@localhost:5432/daisy_e2e
+
+      - name: Provision the e2e login
+        run: bun db:roles
+        env:
+          DATABASE_URL: postgres://daisy:ci-only@localhost:5432/daisy_e2e
+
+      # Inert sentinels, as in e2e.yml: no repository secret reaches this job.
+      - name: Build production server
+        run: bun run build
+        env:
+          BETTER_AUTH_SECRET: ci-isolation-sentinel-auth-0000000000000000000000000000000000000
+          RECIPIENT_HASH_SECRET: ci-isolation-sentinel-recipient-hash-000000000000000000000000000
+          RESEND_API_KEY: ci-isolation-sentinel-resend-key
+          RESEND_WEBHOOK_SECRET: ci-isolation-sentinel-webhook-secret
+
+      - name: Resolve the Playwright version and cache month
+        id: playwright
+        run: |
+          echo "version=$(jq -r .version apps/web/node_modules/@playwright/test/package.json)" >> "$GITHUB_OUTPUT"
+          echo "month=$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"
+      # The room-launch job's Chromium-only cache: the visual project runs
+      # Chromium alone.
+      - name: Restore Playwright browsers and OS packages
+        id: browser-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cache/ms-playwright
+            ~/.cache/daisy-apt-archives
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-${{ steps.playwright.outputs.month }}-chromium
+
+      - name: Install Playwright Chromium
+        timeout-minutes: 8
+        run: sh scripts/ci-browsers.sh chromium
+
+      - name: Save Playwright browsers and OS packages
+        if: ${{ steps.browser-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cache/ms-playwright
+            ~/.cache/daisy-apt-archives
+          key: ${{ steps.browser-cache.outputs.cache-primary-key }}
+
+      # Playwright rewrites only the baselines that no longer match.
+      - name: Render the visual project with --update-snapshots
+        run: bun run --cwd apps/web test:e2e --project=visual --update-snapshots
+        env:
+          CI: true
+          E2E_DATABASE_URL: postgres://daisy_e2e:e2e-loopback-only@localhost:5432/daisy_e2e
+          E2E_REDIS_URL: redis://localhost:6379/2
+
+      - name: Upload the rendered baselines
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: visual-baselines-${{ github.run_id }}
+          path: apps/web/e2e/visual-baselines/*.png
+          if-no-files-found: error
+          retention-days: 1
+
+  commit:
+    name: Commit changed baselines
+    needs: [resolve, render]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      # Checked out only to write the baselines folder; no branch code runs.
+      - name: Check out the rendered commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
+
+      - name: Download the rendered baselines
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: visual-baselines-${{ github.run_id }}
+          path: ${{ runner.temp }}/visual-baselines
+
+      # Only flat, plainly named PNGs enter the baselines folder, and only
+      # that folder is staged.
+      - name: Commit and push only changed baselines
+        env:
+          BRANCH: ${{ needs.resolve.outputs.branch }}
+          RENDERED: ${{ runner.temp }}/visual-baselines
+        run: |
+          set -eu
+          for file in "$RENDERED"/*; do
+            name=$(basename "$file")
+            if [ ! -f "$file" ] || [ -L "$file" ] || ! printf '%s' "$name" | grep -Eq '^[a-z0-9-]+\.png$'; then
+              echo "::error::Refusing an unexpected artifact entry: $name"
+              exit 1
+            fi
+            cp "$file" "apps/web/e2e/visual-baselines/$name"
+          done
+          git add -- apps/web/e2e/visual-baselines
+          if git diff --cached --quiet; then
+            echo '::notice::Every baseline already matches; nothing to commit'
+            exit 0
+          fi
+          git diff --cached --name-only
+          git -c user.name='github-actions[bot]' \
+            -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            commit -m 'test(visual): rebaseline visual snapshots' \
+            -m "Rendered by the Rebaseline visuals workflow, run $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID."
+          # A fast-forward of the rendered commit only: a branch that moved
+          # meanwhile rejects the push, and the run is repeated.
+          git push origin "HEAD:refs/heads/$BRANCH"

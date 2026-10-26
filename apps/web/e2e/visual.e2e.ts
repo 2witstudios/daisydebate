@@ -4,27 +4,26 @@ import {
   type Locator,
   type Page,
 } from '@playwright/test';
-import { createId } from '@paralleldrive/cuid2';
 import { expect, openPage, test } from './support/fixtures';
-import {
-  resetRateLimits,
-  signUpMember,
-  signUpProvisional,
-} from './support/accounts';
+import { resetRateLimits, signUpMember } from './support/accounts';
 import {
   reachExpiredLink,
-  reachRetryState,
   reachSentState,
   requestConfirmLink,
 } from './support/confirm-page';
 import type { Theme } from './support/theme';
-import { closeRoom, createFromPlay } from './support/room-launch-flow';
+
+type Viewport = {
+  readonly name: string;
+  readonly width: number;
+  readonly height: number;
+};
 
 /** A fresh browser context pinned to one viewport and theme, with its page. */
 async function themedPage(
   browser: Browser,
   baseURL: string | undefined,
-  viewport: { readonly width: number; readonly height: number },
+  viewport: Viewport,
   theme: Theme,
 ): Promise<Page> {
   const context = await browser.newContext({
@@ -82,155 +81,74 @@ async function matchesBaseline(
   });
 }
 
-const viewports = [
-  { name: 'desktop', width: 1440, height: 900 },
-  { name: 'tablet', width: 1024, height: 768 },
-  { name: 'mobile', width: 390, height: 844 },
+const desktop = { name: 'desktop', width: 1440, height: 900 } as const;
+const mobile = { name: 'mobile', width: 390, height: 844 } as const;
+
+// The stable core (ADR 0073): surfaces that rarely change on purpose and
+// where a purely visual regression would matter. Light is the default
+// scheme (ADR 0069), so each surface is pinned in light at both widths and
+// in dark once.
+const shellFrames = [
+  { theme: 'light', viewport: desktop },
+  { theme: 'light', viewport: mobile },
+  { theme: 'dark', viewport: desktop },
 ] as const;
-const themes = ['dark', 'light'] as const;
-// Who each screen needs: settings and the passkey offer a member, the
-// username step an account that has not chosen one yet.
-const routes = [
+// The signed-out app shell frame, and settings, which needs a member.
+const shellScreens = [
   { name: 'dashboard', path: '/', account: 'none' },
   { name: 'settings', path: '/settings', account: 'member' },
-  { name: 'lobby', path: '/lobby', account: 'member' },
-  {
-    name: 'onboarding-username',
-    path: '/onboarding/username?next=%2Flobby',
-    account: 'provisional',
-  },
-  {
-    name: 'onboarding-passkey',
-    path: '/onboarding/passkey?next=%2Flobby',
-    account: 'member',
-  },
-  {
-    name: 'onboarding-welcome',
-    path: '/onboarding/welcome?next=%2Flobby',
-    account: 'member',
-  },
-  {
-    name: 'onboarding-daisy',
-    path: '/onboarding/daisy?next=%2Flobby',
-    account: 'member',
-  },
-  {
-    name: 'onboarding-debate',
-    path: '/onboarding/debate?next=%2Flobby',
-    account: 'member',
-  },
-  {
-    name: 'onboarding-about',
-    path: '/onboarding/about?next=%2Flobby',
-    account: 'member',
-  },
-  {
-    name: 'onboarding-experience',
-    path: '/onboarding/experience?next=%2Flobby',
-    account: 'member',
-  },
-  {
-    name: 'onboarding-topics',
-    path: '/onboarding/topics?next=%2Flobby',
-    account: 'member',
-  },
-  {
-    name: 'onboarding-ready',
-    path: '/onboarding/ready?next=%2Flobby',
-    account: 'member',
-  },
 ] as const;
 
 /**
- * Parity oracle for the Tailwind transition (ADR 0028): full-page shots of
- * the dashboard, settings, authenticated Room lobby and onboarding screens (ISSUE-77) across
- * themes and widths. The theme is pinned through the saved-preference cookie
- * (ADR 0027), motion is frozen, and the Room lobby is filtered to one real
- * Room created through the canonical Play flow. Dynamic fixture labels are
- * pinned before comparison.
- * Baselines are Linux-only; see docs/development/testing.md ("Visual
- * parity").
+ * Full-page shots of the app shell frame and settings. The theme is pinned
+ * through the saved-preference cookie (ADR 0027), motion is frozen and the
+ * member's random name is pinned before comparison. Baselines are
+ * Linux-only; see docs/development/testing.md ("Visual parity").
  */
-for (const viewport of viewports) {
-  for (const theme of themes) {
-    for (const route of routes) {
-      test(`${route.name} in ${theme} at ${viewport.name} width matches its baseline`, async ({
-        browser,
-        baseURL,
-      }) => {
-        const page = await themedPage(browser, baseURL, viewport, theme);
+for (const screen of shellScreens) {
+  for (const { theme, viewport } of shellFrames) {
+    test(`${screen.name} in ${theme} at ${viewport.name} width matches its baseline`, async ({
+      browser,
+      baseURL,
+    }) => {
+      const page = await themedPage(browser, baseURL, viewport, theme);
+      try {
         const member =
-          route.account === 'member'
+          screen.account === 'member'
             ? await signUpMember(page.context().request)
             : null;
-        let lobbyRoomId: string | undefined;
-        if (route.account === 'provisional')
-          await signUpProvisional(page.context().request);
-        try {
-          let path: string = route.path;
-          let lobbyTitle: string | undefined;
-          if (route.name === 'lobby') {
-            lobbyTitle = `Visual Lobby ${createId()}`;
-            try {
-              const room = await createFromPlay(page, lobbyTitle);
-              lobbyRoomId = room.id;
-            } catch (error) {
-              lobbyRoomId = page.url().match(/\/rooms\/([a-z0-9]+)$/)?.[1];
-              throw error;
-            }
-            path = `/lobby?q=${encodeURIComponent(lobbyTitle)}`;
-          }
-          await page.goto(path);
-          if (member) {
-            // Hydrated first, so React does not write the random name back.
-            await page.waitForLoadState('networkidle');
-            await pinDynamicText(page, member.username, 'visual-member');
-          }
-          if (lobbyTitle) await pinDynamicText(page, lobbyTitle, 'Visual Room');
-          // The rail's avatar and the passkey offer still derive from the
-          // random name, so both stay masked.
-          await matchesBaseline(
-            page,
-            `${route.name}-${theme}-${viewport.name}.png`,
-            [
-              page.getByRole('link', { name: /^Your profile, / }),
-              page.getByText(/^Signed in as /),
-            ],
-          );
-        } finally {
-          try {
-            if (lobbyRoomId)
-              await closeRoom(page.context().request, lobbyRoomId);
-          } finally {
-            await page.context().close();
-          }
+        await page.goto(screen.path);
+        if (member) {
+          // Hydrated first, so React does not write the random name back.
+          await page.waitForLoadState('networkidle');
+          await pinDynamicText(page, member.username, 'visual-member');
         }
-      });
-    }
+        // The rail's avatar still derives from the random name.
+        await matchesBaseline(
+          page,
+          `${screen.name}-${theme}-${viewport.name}.png`,
+          [page.getByRole('link', { name: /^Your profile, / })],
+        );
+      } finally {
+        await page.context().close();
+      }
+    });
   }
 }
 
 /**
- * AUTH-4.7's own required widths: 1280 (desktop), 640 (200% zoom of 1280)
- * and 320 (phone reflow), each in both themes.
+ * AUTH-4.7's required widths: 1280 (desktop), 640 (200% zoom of 1280) and
+ * 320 (phone reflow).
  */
-const confirmViewports = [
-  { name: '1280', width: 1280, height: 800 },
-  { name: '640-200pct', width: 640, height: 400 },
-  { name: '320', width: 320, height: 700 },
-] as const;
+const confirm1280 = { name: '1280', width: 1280, height: 800 } as const;
+const confirm640 = { name: '640-200pct', width: 640, height: 400 } as const;
+const confirm320 = { name: '320', width: 320, height: 700 } as const;
 
-type ConfirmState = 'confirm' | 'retry' | 'expired' | 'sent';
-const confirmStates: readonly ConfirmState[] = [
-  'confirm',
-  'retry',
-  'expired',
-  'sent',
-];
+type ConfirmState = 'confirm' | 'expired' | 'sent';
 
 /**
- * Drives the real page to each of AUTH-4.7's four states, reusing the same
- * flows `accessibility.e2e.ts` and `csp.e2e.ts` prove behaviorally.
+ * Drives the real page to an AUTH-4.7 state, reusing the same flows
+ * `accessibility.e2e.ts` and `csp.e2e.ts` prove behaviorally.
  */
 async function prepareConfirmState(
   page: Page,
@@ -243,11 +161,6 @@ async function prepareConfirmState(
     await page.goto(link);
     return;
   }
-  if (state === 'retry') {
-    test.slow();
-    await reachRetryState(page, request, theme);
-    return;
-  }
   if (state === 'sent') {
     await reachSentState(page, request, theme);
     return;
@@ -255,46 +168,45 @@ async function prepareConfirmState(
   await reachExpiredLink(page, request, theme);
 }
 
-for (const viewport of confirmViewports) {
-  for (const theme of themes) {
-    for (const state of confirmStates) {
-      test(`AUTH-4.7 confirm page (${state} state) in ${theme} at ${viewport.name} width matches its baseline`, async ({
-        browser,
-        baseURL,
-      }) => {
-        const page = await themedPage(browser, baseURL, viewport, theme);
-        await resetRateLimits(page.context().request);
-        await prepareConfirmState(page, page.context().request, state, theme);
-        await matchesBaseline(
-          page,
-          `confirm-${state}-${theme}-${viewport.name}.png`,
-        );
-        await page.context().close();
-      });
-    }
-  }
-}
-
-const emailChangeStates = [
-  { name: 'confirm', path: `/auth/confirm-email?token=${'a'.repeat(43)}` },
-  { name: 'expired', path: '/auth/confirm-email?token=too-short' },
+// The sign-in confirm page carries the reflow widths; its other states and
+// dark each get one desktop frame.
+const confirmFrames = [
+  { state: 'confirm', theme: 'light', viewport: confirm1280 },
+  { state: 'confirm', theme: 'light', viewport: confirm640 },
+  { state: 'confirm', theme: 'light', viewport: confirm320 },
+  { state: 'confirm', theme: 'dark', viewport: confirm1280 },
+  { state: 'expired', theme: 'light', viewport: confirm1280 },
+  { state: 'sent', theme: 'light', viewport: confirm1280 },
 ] as const;
 
-for (const viewport of confirmViewports) {
-  for (const theme of themes) {
-    for (const state of emailChangeStates) {
-      test(`AUTH-4.7 email-change confirm page (${state.name} state) in ${theme} at ${viewport.name} width matches its baseline`, async ({
-        browser,
-        baseURL,
-      }) => {
-        const page = await themedPage(browser, baseURL, viewport, theme);
-        await page.goto(state.path);
-        await matchesBaseline(
-          page,
-          `confirm-email-${state.name}-${theme}-${viewport.name}.png`,
-        );
-        await page.context().close();
-      });
+for (const { state, theme, viewport } of confirmFrames) {
+  test(`AUTH-4.7 confirm page (${state} state) in ${theme} at ${viewport.name} width matches its baseline`, async ({
+    browser,
+    baseURL,
+  }) => {
+    const page = await themedPage(browser, baseURL, viewport, theme);
+    try {
+      await resetRateLimits(page.context().request);
+      await prepareConfirmState(page, page.context().request, state, theme);
+      await matchesBaseline(
+        page,
+        `confirm-${state}-${theme}-${viewport.name}.png`,
+      );
+    } finally {
+      await page.context().close();
     }
-  }
+  });
 }
+
+test('AUTH-4.7 email-change confirm page in light at 1280 width matches its baseline', async ({
+  browser,
+  baseURL,
+}) => {
+  const page = await themedPage(browser, baseURL, confirm1280, 'light');
+  try {
+    await page.goto(`/auth/confirm-email?token=${'a'.repeat(43)}`);
+    await matchesBaseline(page, 'confirm-email-confirm-light-1280.png');
+  } finally {
+    await page.context().close();
+  }
+});
