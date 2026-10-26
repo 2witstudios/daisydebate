@@ -1,6 +1,6 @@
 import { ballotCategories } from '@daisy/protocol';
-import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { ballotReadView, ownJudgeSeat } from './round-ballot-view';
+import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { ballotReadView, coachingFor, ownJudgeSeat } from './round-ballot-view';
 
 setupRitewayBun();
 
@@ -10,7 +10,11 @@ const scores = {
   affirmative: Object.fromEntries(ballotCategories.map((key) => [key, 4])),
   negative: Object.fromEntries(ballotCategories.map((key) => [key, 3])),
 };
-const row = (judgeParticipantId: string, citations: unknown = null) =>
+const row = (
+  judgeParticipantId: string,
+  citations: unknown = null,
+  feedback: unknown = null,
+) =>
   ({
     id: `ballot-${judgeParticipantId}`,
     judgeParticipantId,
@@ -20,7 +24,7 @@ const row = (judgeParticipantId: string, citations: unknown = null) =>
     winner: 'affirmative',
     scores,
     reason: 'Clearer weighing.',
-    feedback: null,
+    feedback,
     citations,
     status: 'submitted',
   }) as unknown as Row;
@@ -61,12 +65,16 @@ test('judges see their own ballot and the frozen input, others’ only after com
   const open = ballotReadView({
     status: 'active',
     ownSeatId: 'judge-h',
+    viewerSide: undefined,
+    aiJudgeSeatIds: new Set(['judge-b']),
     rows,
     frozen,
   });
   const done = ballotReadView({
     status: 'completed',
     ownSeatId: undefined,
+    viewerSide: undefined,
+    aiJudgeSeatIds: new Set(['judge-b']),
     rows,
     frozen: null,
   });
@@ -97,8 +105,8 @@ test('judges see their own ballot and the frozen input, others’ only after com
         own: null,
         freeze: null,
         ballots: [
-          { status: 'submitted', ballot: body },
-          { status: 'submitted', ballot: body },
+          { status: 'submitted', judge: 'human', ballot: body },
+          { status: 'submitted', judge: 'ai', ballot: body },
         ],
       },
     },
@@ -112,6 +120,8 @@ test('a judge who has not submitted sees an empty own ballot', () => {
     actual: ballotReadView({
       status: 'active',
       ownSeatId: 'judge-h',
+      viewerSide: undefined,
+      aiJudgeSeatIds: new Set(),
       rows: [row('judge-b')],
       frozen,
     }).own,
@@ -121,5 +131,121 @@ test('a judge who has not submitted sees an empty own ballot', () => {
       ballot: null,
       freezeRevision: null,
     },
+  });
+});
+
+test('a released ballot carries feedback only for the reader’s own side', () => {
+  const feedback = {
+    affirmative: 'Weigh earlier.',
+    negative: 'Answer the turn.',
+  };
+  const view = (viewerSide: 'affirmative' | 'negative' | undefined) =>
+    ballotReadView({
+      status: 'completed',
+      ownSeatId: undefined,
+      viewerSide,
+      aiJudgeSeatIds: new Set(),
+      rows: [row('judge-h', null, feedback)],
+      frozen: null,
+    }).ballots.map((entry) => entry.ballot.feedback);
+  assert({
+    given: 'a ballot with feedback for both sides',
+    should:
+      'give each debater only their own feedback and a spectator or judge none',
+    actual: {
+      affirmative: view('affirmative'),
+      negative: view('negative'),
+      other: view(undefined),
+    },
+    expected: {
+      affirmative: [{ affirmative: 'Weigh earlier.' }],
+      negative: [{ negative: 'Answer the turn.' }],
+      other: [{}],
+    },
+  });
+});
+
+describe('coachingFor()', () => {
+  const none = { status: null, feedback: null, eligible: true } as const;
+  const coaching = (
+    overrides: Partial<Parameters<typeof coachingFor>[0]> = {},
+  ) =>
+    coachingFor({
+      status: 'completed',
+      viewerSide: 'negative',
+      aiJudgeSeatIds: new Set(['judge-b']),
+      rows: [],
+      facts: none,
+      enabled: true,
+      ...overrides,
+    });
+  test('who has coaching at all', () => {
+    assert({
+      given: 'a reader who did not debate, then a Round still in progress',
+      should: 'have no coaching',
+      actual: [
+        coaching({ viewerSide: undefined }),
+        coaching({ status: 'active' }),
+      ],
+      expected: [null, null],
+    });
+  });
+  test('the AI judge already coached this side', () => {
+    assert({
+      given: 'a submitted AI ballot with feedback for the reader’s side',
+      should: 'point to that ballot',
+      actual: coaching({
+        rows: [row('judge-b', null, { negative: 'Answer the turn.' })],
+      }),
+      expected: { status: 'in-ballot' },
+    });
+  });
+  test('the coaching pass', () => {
+    const feedback = { affirmative: 'A.', negative: 'Weigh the turn.' };
+    assert({
+      given: 'a pass that succeeded, one leased, one failed',
+      should: 'show the reader’s text, pending, and unavailable',
+      actual: [
+        coaching({ facts: { status: 'succeeded', feedback, eligible: false } }),
+        coaching({
+          facts: { status: 'leased', feedback: null, eligible: true },
+        }),
+        coaching({
+          facts: { status: 'failed', feedback: null, eligible: true },
+        }),
+      ],
+      expected: [
+        { status: 'ready', text: 'Weigh the turn.' },
+        { status: 'pending' },
+        { status: 'unavailable' },
+      ],
+    });
+  });
+  test('a Round with no pass yet', () => {
+    assert({
+      given:
+        'an eligible Round with coaching on, then off, then an ineligible one',
+      should: 'be pending only when the pass will run',
+      actual: [
+        coaching(),
+        coaching({ enabled: false }),
+        coaching({ facts: { ...none, eligible: false } }),
+      ],
+      expected: [
+        { status: 'pending' },
+        { status: 'unavailable' },
+        { status: 'unavailable' },
+      ],
+    });
+  });
+  test('a human ballot’s feedback is not AI coaching', () => {
+    assert({
+      given: 'only a human judge’s feedback for the reader’s side',
+      should: 'still wait for the coaching pass',
+      actual: coaching({
+        rows: [row('judge-h', null, { negative: 'Answer the turn.' })],
+      }),
+      expected: { status: 'pending' },
+    });
   });
 });

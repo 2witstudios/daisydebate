@@ -11,12 +11,26 @@ import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { readLockedFrozenRoundTranscript } from './frozen-transcript';
 import { sharedAccount, type Caller, type Account } from './room-command-facts';
 import { readAuthorizedRound } from './round-read-authority';
-import { ballotReadView, ownJudgeSeat } from './round-ballot-view';
+import { ballotReadView, coachingFor, ownJudgeSeat } from './round-ballot-view';
+import { readRoundFeedbackFacts } from './round-feedback';
 import { roundViewFor } from './round-view-projection';
 import { ballots } from './schema/ballots';
 import { rounds } from './schema/rounds';
 import { roundParticipants } from './schema/round-participants';
 import { roundTranscriptFreezes } from './schema/round-transcript-freezes';
+
+/** The frozen transcript a seated participant reads once the Round completes. */
+async function seatTranscript(
+  tx: Parameters<typeof readLockedFrozenRoundTranscript>[0],
+  roundId: string,
+  seated: boolean | undefined,
+) {
+  if (!seated) return null;
+  const frozen = await readLockedFrozenRoundTranscript(tx, roundId);
+  return frozen
+    ? { completeness: frozen.completeness, utterances: frozen.utterances }
+    : null;
+}
 
 export const roundBallotReads = ({
   database,
@@ -58,6 +72,8 @@ export const roundBallotReads = ({
     readonly roundId: string;
     readonly caller: Caller;
     readonly authorize: (round: LaunchedRound, account: Account) => boolean;
+    /** Whether this deployment runs the coaching pass (ADR 0071). */
+    readonly coachingEnabled: boolean;
   }): Promise<RoundBallotRead> {
     if (!idSchema.safeParse(input.roundId).success)
       throw createAppError('VALIDATION');
@@ -71,14 +87,39 @@ export const roundBallotReads = ({
       const frozen = ownSeat
         ? await readLockedFrozenRoundTranscript(tx, input.roundId)
         : null;
+      const seat = round.participants.find(
+        (p) => p.actorId === input.caller.actorId,
+      );
+      const completed = round.status === 'completed';
+      const viewerSide = seat && seat.role !== 'judge' ? seat.role : undefined;
+      const aiJudgeSeatIds = new Set(
+        round.participants
+          .filter((p) => p.role === 'judge' && p.kind === 'bot')
+          .map((p) => p.id),
+      );
       return roundBallotReadSchema.parse({
         round: roundViewFor(round, input.caller.actorId),
         ...ballotReadView({
           status: round.status,
           ownSeatId: ownSeat?.id,
+          viewerSide,
+          aiJudgeSeatIds,
           rows,
           frozen,
         }),
+        // DEC-101: the transcript stays private to the Round's seats.
+        transcript: await seatTranscript(tx, input.roundId, seat && completed),
+        coaching:
+          viewerSide && completed
+            ? coachingFor({
+                status: round.status,
+                viewerSide,
+                aiJudgeSeatIds,
+                rows,
+                facts: await readRoundFeedbackFacts(tx, input.roundId),
+                enabled: input.coachingEnabled,
+              })
+            : null,
       });
     });
   },

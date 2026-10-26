@@ -5,6 +5,7 @@ import {
   roundWorkerEntrypoints,
   type JudgingOptions,
   type BotPublicationOptions,
+  type CoachingOptions,
 } from './round-worker-entrypoints';
 import { attendanceEntrypoints } from './attendance-entrypoints';
 import { availabilityOperations } from './availability-operations';
@@ -123,6 +124,7 @@ export function createDatabase({
   botBusyCap,
   judging,
   botPublication,
+  coaching,
 }: {
   url: string;
   maxConnections?: number;
@@ -130,6 +132,7 @@ export function createDatabase({
   botBusyCap?: number | undefined;
   judging?: JudgingOptions | undefined;
   botPublication?: BotPublicationOptions | undefined;
+  coaching?: CoachingOptions | undefined;
   eventSink?: DatabaseEventSink;
   /** Overrides dialing `url`; tests inject a scripted client at this seam. */
   client?: SQL;
@@ -165,6 +168,7 @@ export function createDatabase({
       nextId: nextActorId,
       judging,
       botPublication,
+      coaching,
     }),
     mediaSessions: createMediaSessionStore({
       database,

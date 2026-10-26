@@ -16,6 +16,8 @@ export function composeRoundBallotRoutes(app: App) {
         caller,
         roundId,
         authorize: (round, account) => canReadRound(caller, round, account),
+        // Coaching runs with the round workers (ADR 0071).
+        coachingEnabled: app.config.ROUND_BOT_WORKER_POLICY !== undefined,
       }),
     assignments: (caller) => app.database.listRoundJudgeAssignments(caller),
   });

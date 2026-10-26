@@ -26,7 +26,7 @@ const personal = (column: string, exportable: boolean): Field => ({
   exportable,
 });
 
-/** The media-persistence and pending-judging-response inventories, as declarations. */
+/** The media-persistence, pending-judging-response and coaching inventories, as declarations. */
 const tables = [
   {
     table: 'utterances',
@@ -69,6 +69,30 @@ const tables = [
       none('pending_ballot_received_at'),
     ],
   },
+  {
+    table: 'round_feedback',
+    purpose:
+      'Coach each debater of a completed Round on what to change next time (ADR 0071)',
+    retention: {
+      status: 'approved',
+      decision: 'wx2xw1hckqal97frntq4o7ub',
+      rule: '180 days after the coaching job is created',
+    },
+    fields: [
+      id('round_id'),
+      none('freeze_revision'),
+      none('status'),
+      none('attempts'),
+      { column: 'lease_token_digest', category: 'secret', exportable: false },
+      none('lease_expires_at'),
+      none('model'),
+      personal('feedback', false),
+      none('input_tokens'),
+      none('output_tokens'),
+      none('completed_at'),
+      none('created_at'),
+    ],
+  },
 ] as const;
 
 const seatedBy = (actorId: string) =>
@@ -77,8 +101,9 @@ const seatedBy = (actorId: string) =>
 /**
  * ISSUE-498: subject erasure deletes the subject's own transcript lines (text
  * and capture digest go with the row) and discards every pending AI judgment
- * of a Round they sat in, since it quotes them (DEC-223). Other debaters'
- * lines stay. Export returns only the subject's own lines.
+ * of a Round they sat in, since it quotes them (DEC-223), and that Round's
+ * AI coaching for the same reason (ADR 0071). Other debaters' lines stay.
+ * Export returns only the subject's own lines.
  */
 export const roundTranscriptPrivacyAdopter: PrivacyAdopter = {
   id: 'round-transcript',
@@ -104,6 +129,8 @@ export const roundTranscriptPrivacyAdopter: PrivacyAdopter = {
     await tx.execute(sql`update round_judging_jobs set ${discardPendingJudgment}
       where pending_ballot is not null
         and round_id in (select round_id from round_participants where actor_id=${subject.actorId})`);
+    await tx.execute(sql`delete from round_feedback
+      where round_id in (select round_id from round_participants where actor_id=${subject.actorId})`);
   },
   export: async (tx, subject) => {
     const rows =

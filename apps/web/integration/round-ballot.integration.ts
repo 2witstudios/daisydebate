@@ -78,11 +78,13 @@ test('all actual human judges submit one shared ballot against actual frozen inp
       roundId,
       caller: judges[0]!,
       authorize: (round, account) => canReadRound(judges[0]!, round, account),
+      coachingEnabled: false,
     });
     const opponentRead = await f.store.readRoundBallot({
       roundId,
       caller: f.guest,
       authorize: (round, account) => canReadRound(f.guest, round, account),
+      coachingEnabled: false,
     });
     assert({
       given: 'actual frozen input read by its assigned judge and a debater',
