@@ -109,7 +109,7 @@ export async function main(
     linkedPageIds([pr.body, ...fetched.comments]),
   );
   const { records, unreadable } = await readRecords(ids, { localCli: true });
-  const ci = readCiEvidence(gh, repository, citedRunIds(records));
+  const ci = readCiEvidence(gh, repository, citedRunIds(records), pr);
   const verdict = verifyReviewRecord(pr, records, unreadable, ci);
   if (verdict.state !== 'success') {
     process.stdout.write(`${verdict.description}\n`);

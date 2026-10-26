@@ -6,7 +6,7 @@
  * read through this module, so there is exactly one copy of each call.
  */
 import { execFileSync } from 'node:child_process';
-import type { CiEvidence, CiJob, CiRun } from './review-ci';
+import type { CiEvidence, CiJob, CiRun, PullRequestHistory } from './review-ci';
 import type { ReviewDiff } from './review-diff';
 import { pagespaceApi } from './pagespace-docs';
 
@@ -20,7 +20,8 @@ export type PullRequest = {
   readonly headSha: string;
   readonly body: string;
   readonly diff?: ReviewDiff;
-  /** The PR's base branch and the repository default; CI evidence needs both. */
+  /** The PR's head and base branches and the repository default; CI evidence needs all three. */
+  readonly headRef?: string;
   readonly baseRef?: string;
   readonly defaultBranch?: string;
 };
@@ -74,7 +75,7 @@ export function ghJson<T>(args: readonly string[]): T {
 }
 
 type PrDiffSource = {
-  readonly head: { readonly sha: string };
+  readonly head: { readonly sha: string; readonly ref?: string };
   readonly base: {
     readonly sha: string;
     readonly ref?: string;
@@ -156,17 +157,29 @@ export function fetchPullRequest(
     ]),
   );
   return {
-    pr: {
-      number: prNumber,
-      headSha: pull.head.sha,
-      body: pull.body ?? '',
-      diff: readPullRequestDiff(gh, repository, pull),
-      baseRef: pull.base.ref,
-      defaultBranch: pull.base.repo?.default_branch,
-    },
+    pr: pullRequestFacts(
+      prNumber,
+      pull,
+      readPullRequestDiff(gh, repository, pull),
+    ),
     comments,
   };
 }
+
+/** The PR facts the verifier reads, from the pulls API response. */
+export const pullRequestFacts = (
+  prNumber: number,
+  pull: PrDiffSource & { readonly body: string | null },
+  diff: ReviewDiff | undefined,
+): PullRequest => ({
+  number: prNumber,
+  headSha: pull.head.sha,
+  body: pull.body ?? '',
+  diff,
+  headRef: pull.head.ref,
+  baseRef: pull.base.ref,
+  defaultBranch: pull.base.repo?.default_branch,
+});
 
 type RecordReadOptions = {
   /** Only the local self-check opts in; CI always remains token-only. */
@@ -284,17 +297,6 @@ function ciJob(job: unknown): CiJob | undefined {
   return { name: job.name, status: job.status, conclusion: job.conclusion };
 }
 
-/** The run's PRs with their bases; an entry of another shape never matches. */
-const runPullRequests = (value: unknown): CiRun['pullRequests'] =>
-  (Array.isArray(value) ? value : []).flatMap((entry: unknown) =>
-    isRecord(entry) &&
-    typeof entry.number === 'number' &&
-    isRecord(entry.base) &&
-    typeof entry.base.ref === 'string'
-      ? [{ number: entry.number, baseRef: entry.base.ref }]
-      : [],
-  );
-
 /**
  * A workflow run and its latest jobs from the Actions API, or undefined
  * when either response is not the shape GitHub documents: a run the edge
@@ -330,21 +332,70 @@ export function ciRunFromApi(
     path: run.path,
     headBranch:
       typeof run.head_branch === 'string' ? run.head_branch : undefined,
-    pullRequests: runPullRequests(run.pull_requests),
     jobs: jobs.filter((job): job is CiJob => job !== undefined),
   };
 }
 
-/** Every cited run of this repository the API returns; the rest stay unread. */
+/** Every item of every page gh api --paginate --slurp returned, or undefined. */
+const slurped = (pages: unknown): readonly unknown[] | undefined =>
+  Array.isArray(pages) && pages.every(Array.isArray) ? pages.flat() : undefined;
+
+/**
+ * Every PR ever opened from the head branch, and whether this PR's base
+ * ever changed, from the pulls list and the PR timeline; undefined when
+ * either is not the documented shape.
+ */
+export function pullRequestHistory(
+  pulls: unknown,
+  timeline: unknown,
+): PullRequestHistory | undefined {
+  const opened = slurped(pulls);
+  const events = slurped(timeline);
+  if (
+    !opened?.every(
+      (pull) => isRecord(pull) && typeof pull.number === 'number',
+    ) ||
+    !events?.every(isRecord)
+  )
+    return undefined;
+  return {
+    sameHead: opened.map((pull) => (pull as { number: number }).number),
+    baseChanged: events.some((event) => event.event === 'base_ref_changed'),
+  };
+}
+
+/**
+ * Every cited run of this repository the API returns (the rest stay
+ * unread), and the PR history CI evidence needs when any run is cited.
+ */
 export function readCiEvidence(
   run: Run,
   repository: string,
   ids: readonly string[],
+  pr: PullRequest,
 ): CiEvidence {
   const api = (args: readonly string[]): unknown => {
     const result = run(args);
     if (result.code !== 0) throw new Error('CI run unavailable');
     return JSON.parse(result.stdout);
+  };
+  const pages = (path: string) => api(['api', '--paginate', '--slurp', path]);
+  const owner = repository.split('/')[0];
+  const readHistory = (): PullRequestHistory | undefined => {
+    try {
+      return ids.length === 0 || !pr.headRef
+        ? undefined
+        : pullRequestHistory(
+            pages(
+              `repos/${repository}/pulls?head=${encodeURIComponent(`${owner}:${pr.headRef}`)}&state=all&per_page=100`,
+            ),
+            pages(
+              `repos/${repository}/issues/${pr.number}/timeline?per_page=100`,
+            ),
+          );
+    } catch {
+      return undefined;
+    }
   };
   const runs = ids.flatMap((id) => {
     if (!/^\d+$/.test(id)) return [];
@@ -365,5 +416,5 @@ export function readCiEvidence(
       return [];
     }
   });
-  return { repository, runs };
+  return { repository, runs, history: readHistory() };
 }

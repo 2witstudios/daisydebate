@@ -59,10 +59,13 @@ jobs:
     timeout-minutes: 5
     environment: review-record
     # checkout reads main; statuses are written with the App token, not this
-    # one. actions: read lets this token read the CI runs a record cites.
+    # one. The read scopes let it read the CI runs a record cites and the
+    # PR's history (pulls from its head branch, its timeline).
     permissions:
       contents: read
       actions: read
+      pull-requests: read
+      issues: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

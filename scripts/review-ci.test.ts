@@ -158,7 +158,7 @@ describe('verifyReviewRecord with CI evidence', () => {
         'no run read from the API, no PR diff, and a PR diff that edits ci.yml',
       should: 'refuse each instead of trusting the line',
       actual: [
-        judge(integration(), { repository, runs: [] }),
+        judge(integration(), { ...evidence(), runs: [] }),
         judge(integration(), evidence(), { ...runtimePr, diff: undefined }),
         judge(integration(), evidence(), changesCi),
       ],
@@ -192,7 +192,7 @@ describe('verifyReviewRecord with CI evidence', () => {
           '\n',
         ),
       });
-    const ci = { repository, runs: [ciRun(), e2eRun] };
+    const ci = { ...evidence(), runs: [ciRun(), e2eRun] };
     assert({
       given:
         'integration plus a passed E2E job, plus a failed E2E job, and an E2E citation alone',
@@ -233,23 +233,22 @@ describe('verifyReviewRecord with CI evidence', () => {
 });
 
 describe('verifyReviewRecord binds a CI run to this PR and its base', () => {
-  test('refuses a run for another PR, onto another base, or pushed to another branch', () => {
+  const history = (sameHead: readonly number[], baseChanged = false) => ({
+    ...evidence(),
+    history: { sameHead, baseChanged },
+  });
+
+  test('refuses a run whose base this PR cannot prove was the default branch', () => {
     assert({
       given:
-        'a pull_request run for another PR on the same head, the same PR number onto a crafted base, a push to a non-default branch, and a PR into a non-default base',
+        'a run from another branch at the same SHA, a second PR from this head branch (a crafted base), a retargeted PR, unreadable history, a push to another branch, and a PR into another base',
       should:
-        'refuse each, since that run tested a workflow this diff never showed',
+        'refuse each, since that run may have tested a workflow this diff never showed',
       actual: [
-        judge(
-          integration(),
-          evidence(ciRun({ pullRequests: [{ number: 58, baseRef: 'main' }] })),
-        ),
-        judge(
-          integration(),
-          evidence(
-            ciRun({ pullRequests: [{ number: 57, baseRef: 'evil-base' }] }),
-          ),
-        ),
+        judge(integration(), evidence(ciRun({ headBranch: 'pu/other' }))),
+        judge(integration(), history([57, 58])),
+        judge(integration(), history([57], true)),
+        judge(integration(), { ...evidence(), history: undefined }),
         judge(
           integration(),
           evidence(ciRun({ event: 'push', headBranch: 'evil-base' })),
@@ -260,10 +259,31 @@ describe('verifyReviewRecord binds a CI run to this PR and its base', () => {
         }),
       ],
       expected: [
-        'CI run 101 did not run for PR #57 into main',
-        'CI run 101 did not run for PR #57 into main',
-        'CI run 101 pushed evil-base, not main',
+        'CI run 101 ran branch pu/other, not pu/builder',
+        'PR #58 also used head branch pu/builder, so its CI runs are ambiguous',
+        "The PR's base branch changed, so its CI runs may have tested another base",
+        "The PR's history could not be read, so CI evidence cannot be verified",
+        'CI run 101 ran branch evil-base, not main',
         'CI evidence counts only for a PR into the default branch, not evil-base',
+      ],
+    });
+  });
+
+  test('fails closed when the PR facts are missing', () => {
+    assert({
+      given: 'a PR without base, default or head branch facts',
+      should: 'refuse CI evidence',
+      actual: [
+        judge(integration(), evidence(), {
+          ...runtimePr,
+          baseRef: undefined,
+          defaultBranch: undefined,
+        }),
+        judge(integration(), evidence(), { ...runtimePr, headRef: undefined }),
+      ],
+      expected: [
+        'CI evidence counts only for a PR into the default branch, not an unknown base',
+        'CI evidence counts only for a PR into the default branch, not main',
       ],
     });
   });
@@ -276,9 +296,7 @@ describe('verifyReviewRecord binds a CI run to this PR and its base', () => {
         runtimePr,
         [citing(integration())],
         [],
-        evidence(
-          ciRun({ event: 'push', headBranch: 'main', pullRequests: [] }),
-        ),
+        evidence(ciRun({ event: 'push', headBranch: 'main' })),
       ).state,
       expected: 'success',
     });

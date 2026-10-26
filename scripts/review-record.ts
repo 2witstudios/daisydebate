@@ -294,6 +294,7 @@ export async function main(repository: string, prNumber: number) {
     ghAs(process.env.CI_READ_TOKEN),
     repository,
     citedRunIds(records),
+    pr,
   );
   const verdict = verifyReviewRecord(pr, records, unreadable, ci);
   const driveUrl = `https://pagespace.ai/dashboard/${DAISY_DRIVE}`;

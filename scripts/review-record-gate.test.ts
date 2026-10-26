@@ -97,7 +97,12 @@ describe('review-record before and after the App exists', () => {
         ciReadToken: verifyStep?.env?.CI_READ_TOKEN,
       },
       expected: {
-        permissions: { contents: 'read', actions: 'read' },
+        permissions: {
+          contents: 'read',
+          actions: 'read',
+          'pull-requests': 'read',
+          issues: 'read',
+        },
         ciReadToken: '${{ github.token }}',
       },
     });

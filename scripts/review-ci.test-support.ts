@@ -8,6 +8,7 @@ export const runUrl = `https://github.com/${repository}/actions/runs/101`;
 export const clean = '0 blocker / 0 major / 0 minor / 0 nit — APPROVE';
 export const runtimePr = {
   ...pr,
+  headRef: 'pu/builder',
   baseRef: 'main',
   defaultBranch: 'main',
   diff: {
@@ -32,7 +33,6 @@ export const ciRun = (overrides: Partial<CiRun> = {}): CiRun => ({
   event: 'pull_request',
   path: '.github/workflows/ci.yml',
   headBranch: 'pu/builder',
-  pullRequests: [{ number: 57, baseRef: 'main' }],
   jobs: [
     { name: 'lint', status: 'completed', conclusion: 'success' },
     {
@@ -46,6 +46,7 @@ export const ciRun = (overrides: Partial<CiRun> = {}): CiRun => ({
 export const evidence = (run: CiRun = ciRun()): CiEvidence => ({
   repository,
   runs: [run],
+  history: { sameHead: [57], baseChanged: false },
 });
 
 export const citing = (line: string) =>

@@ -9,8 +9,10 @@
  * latest jobs from the GitHub API and accepts the citation only when the
  * run belongs to this repository, ran the gate's own workflow on the
  * reviewed SHA from this repository (never a fork), was triggered by this
- * PR into the default branch or by a push to the default branch, the PR does
- * not change that workflow, and the named job concluded success. Anything it cannot verify refuses the record with its reason.
+ * PR's own head branch or by a push to the default branch, the PR does not
+ * change that workflow, and the named job concluded success. A run's
+ * base is not reported, so the PR must always have targeted the default
+ * branch and be the only PR ever opened from its head branch. Anything it cannot verify refuses the record with its reason.
  */
 import type { PullRequest } from './review-record-io';
 
@@ -39,18 +41,24 @@ export type CiRun = {
   readonly path: string;
   /** The branch a push run pushed; a pull_request run's PR head branch. */
   readonly headBranch: string | undefined;
-  /** The PRs a pull_request run ran for, with each one's base branch. */
-  readonly pullRequests: readonly {
-    readonly number: number;
-    readonly baseRef: string;
-  }[];
   readonly jobs: readonly CiJob[];
+};
+
+/**
+ * The PR's history a run cannot report: every PR ever opened from its head
+ * branch, and whether its base branch ever changed.
+ */
+export type PullRequestHistory = {
+  readonly sameHead: readonly number[];
+  readonly baseChanged: boolean;
 };
 
 /** The runs the edge read for this repository; a run absent here was unreadable. */
 export type CiEvidence = {
   readonly repository: string;
   readonly runs: readonly CiRun[];
+  /** Undefined when it could not be read: CI evidence then fails closed. */
+  readonly history?: PullRequestHistory;
 };
 
 /** Each gate's workflow and the only jobs that evidence it. */
@@ -109,16 +117,26 @@ const sameRepository = (a: string | undefined, b: string): boolean =>
 
 /**
  * Why the PR cannot rest on CI runs of the gate's workflow, if it cannot: a
- * run executes the workflow and code merged onto its base, so only a PR
- * into the default branch that leaves the workflow alone ran the real gate.
+ * pull_request run executes the workflow and code merged onto a base the
+ * run does not report, so only a PR that always targeted the default branch,
+ * is the only PR from its head branch, and leaves the workflow alone
+ * provably ran the real gate.
  */
 function pullRequestProblem(
   pr: PullRequest,
   workflow: string,
+  history: PullRequestHistory | undefined,
 ): string | undefined {
   const { diff, headSha } = pr;
-  if (!pr.defaultBranch || pr.baseRef !== pr.defaultBranch)
+  if (!pr.defaultBranch || !pr.headRef || pr.baseRef !== pr.defaultBranch)
     return `CI evidence counts only for a PR into the default branch, not ${pr.baseRef ?? 'an unknown base'}`;
+  if (!history)
+    return "The PR's history could not be read, so CI evidence cannot be verified";
+  if (history.baseChanged)
+    return "The PR's base branch changed, so its CI runs may have tested another base";
+  const other = history.sameHead.find((number) => number !== pr.number);
+  if (other !== undefined)
+    return `PR #${other} also used head branch ${pr.headRef}, so its CI runs are ambiguous`;
   if (!diff?.complete || diff.headSha !== headSha)
     return 'The PR diff could not be read completely, so CI evidence cannot be verified';
   return diff.files.some(
@@ -146,7 +164,7 @@ function citationProblem(
     return `${citation.gate} evidence must cite job ${jobs.map((job) => `"${job}"`).join(' or ')}, not "${citation.job}"`;
   if (!sameRepository(cited, evidence.repository))
     return `CI run ${id} belongs to ${cited}, not ${evidence.repository}`;
-  const changed = pullRequestProblem(pr, workflow);
+  const changed = pullRequestProblem(pr, workflow, evidence.history);
   if (changed) return changed;
   const run = evidence.runs.find((candidate) => candidate.id === id);
   return run
@@ -185,24 +203,23 @@ function runProblem(
 }
 
 /**
- * Why the run's trigger is not this PR into the default branch or a push to
- * the default branch: a run for another PR, or onto another base, ran a
- * workflow and code this PR's diff never showed.
+ * Why the run's trigger is not this PR's head branch or a push to the
+ * default branch: a run from any other branch ran for some other PR, onto a
+ * base this PR's diff never showed.
  */
 function triggerProblem(run: CiRun, pr: PullRequest): string | undefined {
   const { id } = run;
-  if (run.event === 'push')
-    return run.headBranch === pr.defaultBranch
-      ? undefined
-      : `CI run ${id} pushed ${run.headBranch ?? 'an unknown branch'}, not ${pr.defaultBranch}`;
-  if (run.event !== 'pull_request')
+  const expected =
+    run.event === 'push'
+      ? pr.defaultBranch
+      : run.event === 'pull_request'
+        ? pr.headRef
+        : undefined;
+  if (expected === undefined)
     return `CI run ${id} was triggered by ${run.event}, not pull_request or push`;
-  return run.pullRequests.some(
-    (candidate) =>
-      candidate.number === pr.number && candidate.baseRef === pr.baseRef,
-  )
+  return run.headBranch === expected
     ? undefined
-    : `CI run ${id} did not run for PR #${pr.number} into ${pr.baseRef}`;
+    : `CI run ${id} ran branch ${run.headBranch ?? 'unknown'}, not ${expected}`;
 }
 
 /**

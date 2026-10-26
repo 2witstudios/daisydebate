@@ -150,9 +150,11 @@ Rules:
   checked out). It accepts the citation only when the URL is a run of this
   repository; the cited and run SHAs equal the reviewed SHA (which must be
   the PR head); the run's repository and head repository are this one (never
-  a fork); it is a `pull_request` run that GitHub lists for this PR with
-  the default branch as its base, or a `push` run of the default branch
-  (the PR itself must target the default branch); it ran the gate's
+  a fork); it is a `pull_request` run of this PR's own head branch or a
+  `push` run of the default branch. A run does not report the base its
+  workflow was merged onto, so CI evidence also requires that the PR
+  targets the default branch, that its timeline has no base change, and
+  that no other PR in any state was ever opened from its head branch; it ran the gate's
   own workflow (`.github/workflows/ci.yml` for `Integration`,
   `.github/workflows/e2e.yml` for `E2E`); the complete PR diff does not
   change that workflow; and the named job exists and concluded `success`.
