@@ -143,7 +143,7 @@ describe('verifyReviewRecord', () => {
       ],
       expected: [
         'success',
-        'Runtime or unclassified acceptance needs bun test:integration PASS and a negative control in Gates run',
+        'Runtime or unclassified acceptance needs bun test:integration PASS or verified CI Integration, and a negative control in Gates run',
       ],
     });
   });
@@ -253,7 +253,7 @@ describe('verifyReviewRecord', () => {
         }),
       ]).description,
       expected:
-        'Runtime or unclassified acceptance needs bun test:integration PASS and a negative control in Gates run',
+        'Runtime or unclassified acceptance needs bun test:integration PASS or verified CI Integration, and a negative control in Gates run',
     });
   });
 
@@ -316,7 +316,7 @@ describe('verifyReviewRecord', () => {
       ].join('\n'),
     });
     const why =
-      'Runtime or unclassified acceptance needs bun test:integration PASS and a negative control in Gates run';
+      'Runtime or unclassified acceptance needs bun test:integration PASS or verified CI Integration, and a negative control in Gates run';
     assert({
       given:
         'evidence lines quoted under Findings, and "PASS (not run)" under Gates run',

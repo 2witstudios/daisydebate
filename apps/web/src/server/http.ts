@@ -109,6 +109,7 @@ export async function handleOperation(
             // http.request.completed's status; a thrown failure otherwise
             // left no status on the event stream.
             status: mapped.status,
+            cause: recoveryCause(error),
           },
           'Request failed',
         );
@@ -120,6 +121,23 @@ export async function handleOperation(
     },
     extractTraceContext(request.headers),
   );
+}
+/**
+ * A bounded transaction's recovery state and inner error code, as a log
+ * code (`recovery_pending.INVARIANT`): which refusal a 503 replaced, never
+ * its message or values (ISSUE-618).
+ */
+function recoveryCause(error: unknown): string | undefined {
+  const detail: unknown = isAppError(error) ? error.cause : undefined;
+  if (detail === null || typeof detail !== 'object') return undefined;
+  const { recovery, cause } = detail as {
+    readonly recovery?: unknown;
+    readonly cause?: unknown;
+  };
+  if (typeof recovery !== 'string') return undefined;
+  return isAppError(cause)
+    ? `recovery_${recovery}.${cause.code}`
+    : `recovery_${recovery}`;
 }
 /**
  * Fail-closed origin gate for state changes. The Origin must be this app's;

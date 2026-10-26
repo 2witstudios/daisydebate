@@ -3,8 +3,10 @@ import { requireTestServices } from '@daisy/config';
 import { createAppError } from '@daisy/errors';
 import { assertRejects } from '@daisy/errors/testing';
 import { sql } from 'drizzle-orm';
+import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { BoundedTransactionContext } from '../src/transaction-context';
+import { reconcileCheckInAttempts } from '../src/check-in-attempts';
 import {
   withCheckInAttempt as withAttempt,
   writeCheckInLedger,
@@ -72,6 +74,75 @@ test('actual check-in marker commits before writer BEGIN and closes only after a
       },
     });
   }));
+
+for (const reconciler of ['committed', 'in-flight'] as const)
+  test(`a refusal answers itself when the reconciler aborts its marker first, ${reconciler} (ISSUE-618)`, async () =>
+    withAttempt(async ({ f, run, attempt, lifecycle }) => {
+      let settled: unknown;
+      await assertRejects({
+        given: `a domain refusal whose writer is gone, and an availability reconciler ${reconciler} on its pending marker when the close runs`,
+        should: 'answer the refusal, not an unconfirmed recovery',
+        code: 'CONFLICT',
+        actual: () =>
+          run(
+            async () => {
+              throw createAppError('CONFLICT');
+            },
+            {
+              executionMs: 900,
+              lifecycle: {
+                open: lifecycle.open,
+                close: async (control, metadata, outcome) => {
+                  const held = await f.sql.reserve();
+                  try {
+                    await held`begin`;
+                    await reconcileCheckInAttempts(
+                      drizzle({ client: held }),
+                      100,
+                    );
+                    const [row] = await held<{ state: string }[]>`
+                      select state from round_check_in_attempts where attempt_id=${attempt.attemptId}`;
+                    settled = row?.state;
+                    if (reconciler === 'committed') {
+                      await held`commit`;
+                      return lifecycle.close(control, metadata, outcome);
+                    }
+                    const [closer] = await control.execute<{ pid: number }>(
+                      sql`select pg_backend_pid() as pid`,
+                    );
+                    const closing = lifecycle.close(control, metadata, outcome);
+                    let waiting = false;
+                    for (let probe = 0; probe < 1000 && !waiting; probe++) {
+                      const [row] = await f.sql<{ waiting: boolean }[]>`
+                        select exists(select 1 from pg_stat_activity where pid=${closer!.pid}
+                        and wait_event_type='Lock') as waiting`;
+                      waiting = row!.waiting;
+                    }
+                    if (!waiting)
+                      throw new Error(
+                        'The close never waited on the reconciler',
+                      );
+                    await held`commit`;
+                    return await closing;
+                  } finally {
+                    await held`rollback`.catch(() => undefined);
+                    held.release();
+                  }
+                },
+              },
+            },
+          ),
+      });
+      const [marker] =
+        await f.sql`select state from round_check_in_attempts where attempt_id=${attempt.attemptId}`;
+      assert({
+        given:
+          'this marker aborted by the reconciler after confirmed writer absence',
+        should: 'keep that single verified abort',
+        actual: { settled, state: marker?.state },
+        expected: { settled: 'aborted', state: 'aborted' },
+      });
+    }));
 
 test('successful writer COMMIT closes the actual ledger-bound marker before releasing resources', async () =>
   withAttempt(async ({ f, run, attempt, lifecycle }) => {
