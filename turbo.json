@@ -3,7 +3,17 @@
   "globalDependencies": [
     "packages/typescript-config/*.json",
     "eslint.config.mjs",
-    ".prettierrc.json"
+    ".prettierrc.json",
+    "fly*.toml",
+    "policy/**",
+    "scripts/**",
+    "infra/**",
+    ".github/**",
+    "spec/**",
+    "tsconfig.json",
+    "bunfig.toml",
+    ".env*",
+    ".bun-version"
   ],
   "globalEnv": ["NODE_ENV"],
   "globalPassThroughEnv": [
@@ -74,5 +84,6 @@
     "check": {
       "dependsOn": ["typecheck", "lint", "test", "build"]
     }
-  }
+  },
+  "cacheDir": ".turbo/cache"
 }

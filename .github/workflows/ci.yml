@@ -69,7 +69,7 @@ jobs:
       - name: Run and measure task
         run: |
           started=$SECONDS
-          bun run "$TASK"
+          bun run ${{ matrix.task }}
           echo "### $TASK: $((SECONDS - started)) seconds (Turbo reports cache hits above)" >> "$GITHUB_STEP_SUMMARY"
         env:
           TASK: ${{ matrix.task }}

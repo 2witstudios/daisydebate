@@ -489,10 +489,14 @@ executes PR code or publishes its outputs into a main cache.
 hashes, so a changed runtime build identity cannot replay a different build;
 they do not invalidate typechecking and unit tests. Build reuse across commits
 therefore remains conservative. Changing `turbo-v1` in the action invalidates
-all archives. Task-cache hits remain visible in Turbo's job log and are cached
+all archives. The explicit `cacheDir` keeps linked-worktree task archives in
+their own checkout (Turbo otherwise shares the main worktree cache). Root
+runner scripts, operational policy, deployment files, infra, workflow and
+environment inputs are global dependencies: changing a root file consumed by
+a workspace test cannot replay an earlier pass. Task-cache hits remain visible in Turbo's job log and are cached
 evidence; the root build-isolation scan still runs after a restored build.
 
 References read before configuration:
 [cache action 4.2.4](https://github.com/actions/cache/tree/v4.2.4),
 [GitHub cache scope](https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching),
-and [Turbo 2.11.2 configuration](https://github.com/vercel/turborepo/blob/v2.11.2/docs/site/content/docs/reference/configuration.mdx).
+and [Turbo 2.11.2 configuration](https://github.com/vercel/turborepo/blob/v2.11.2/apps/docs/content/docs/reference/configuration.mdx).

@@ -55,3 +55,39 @@ test('runtime build identity does not invalidate unchanged unit and type tasks',
     },
   });
 });
+
+test('persisted results include root operational inputs and stay in the owning checkout', () => {
+  const config = JSON.parse(read('turbo.json'));
+  assert({
+    given:
+      'external deployment policy, migration baseline and runner sources used by workspace tests',
+    should:
+      'invalidate cached results and use a checkout-local cache in linked worktrees',
+    actual: {
+      cacheDir: config.cacheDir,
+      inputs: [
+        'fly*.toml',
+        'policy/**',
+        'scripts/**',
+        'infra/**',
+        '.github/**',
+        'tsconfig.json',
+        'bunfig.toml',
+        '.env*',
+      ].filter((input) => config.globalDependencies.includes(input)),
+    },
+    expected: {
+      cacheDir: '.turbo/cache',
+      inputs: [
+        'fly*.toml',
+        'policy/**',
+        'scripts/**',
+        'infra/**',
+        '.github/**',
+        'tsconfig.json',
+        'bunfig.toml',
+        '.env*',
+      ],
+    },
+  });
+});
