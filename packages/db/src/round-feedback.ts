@@ -19,7 +19,8 @@ type Reader = Pick<BunSQLDatabase, 'execute'>;
 
 /**
  * A completed Round that needs coaching: recent, with a frozen transcript
- * that has lines, and no submitted AI ballot that already coached both sides.
+ * that has lines, no submitted AI ballot that already coached both sides,
+ * and no AI judging still under way that may yet coach them.
  */
 const needsCoaching = (roundId: SQL) => sql`exists (select 1 from rounds r
   where r.id = ${roundId} and r.status = 'completed'
@@ -30,7 +31,9 @@ const needsCoaching = (roundId: SQL) => sql`exists (select 1 from rounds r
       join round_participants p on p.id = b.judge_participant_id
       join actors a on a.id = p.actor_id
       where b.round_id = r.id and b.status = 'submitted' and a.kind = 'bot'
-        and b.feedback ? 'affirmative' and b.feedback ? 'negative'))`;
+        and b.feedback ? 'affirmative' and b.feedback ? 'negative')
+    and not exists (select 1 from round_judging_jobs j
+      where j.round_id = r.id and j.status in ('queued', 'leased')))`;
 
 /** No row, or a lapsed lease with calls left: the Round may be claimed. */
 const claimable = (
@@ -99,10 +102,12 @@ export function createRoundFeedbackJobs(input: {
       if (!Number.isSafeInteger(limit) || limit < 1 || limit > 64)
         throw createAppError('VALIDATION');
       return input.run(async (tx) => {
-        await tx.execute(sql`update round_feedback set status = 'failed',
+        // A lapsed lease that may not be claimed again ends failed: spent,
+        // or its Round no longer needs coaching (out of the window).
+        await tx.execute(sql`update round_feedback f set status = 'failed',
           lease_token_digest = null, lease_expires_at = null, completed_at = clock_timestamp()
-          where status = 'leased' and lease_expires_at <= clock_timestamp()
-            and attempts >= ${MAX_FEEDBACK_CALLS}`);
+          where f.status = 'leased' and f.lease_expires_at <= clock_timestamp()
+            and (f.attempts >= ${MAX_FEEDBACK_CALLS} or not ${needsCoaching(sql`f.round_id`)})`);
         const rows =
           (await tx.execute(sql`select r.id as "roundId" from rounds r
           where r.status = 'completed' and ${needsCoaching(sql`r.id`)} and ${claimable(sql`r.id`)}

@@ -66,7 +66,8 @@ that need coaching:
 
 - completed within 24 hours;
 - frozen with at least one line;
-- not already coached on both sides by a submitted AI ballot.
+- not already coached on both sides by a submitted AI ballot;
+- no AI judging job still queued or leased.
 
 For each listed Round it works in this order:
 
@@ -76,8 +77,8 @@ For each listed Round it works in this order:
 3. It records usage.
 4. It stores both sides' coaching only while that lease holds.
 
-A Round buys at most two calls. A spent lease at the cap ends the row
-`failed`. Failures log `round.coaching.failed`; a full provider is not a
+A Round buys at most two calls. A lapsed lease ends the row `failed` when it
+is at the cap or the Round no longer qualifies. Failures log `round.coaching.failed`; a full provider is not a
 failure.
 
 ## Local provider recovery proof

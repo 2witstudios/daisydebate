@@ -102,7 +102,8 @@ const seatedBy = (actorId: string) =>
  * ISSUE-498: subject erasure deletes the subject's own transcript lines (text
  * and capture digest go with the row) and discards every pending AI judgment
  * of a Round they sat in, since it quotes them (DEC-223), and that Round's
- * AI coaching for the same reason (ADR 0071). Other debaters' lines stay.
+ * AI coaching for the same reason, ending it failed so it is never coached
+ * again (ADR 0071). Other debaters' lines stay.
  * Export returns only the subject's own lines.
  */
 export const roundTranscriptPrivacyAdopter: PrivacyAdopter = {
@@ -129,8 +130,16 @@ export const roundTranscriptPrivacyAdopter: PrivacyAdopter = {
     await tx.execute(sql`update round_judging_jobs set ${discardPendingJudgment}
       where pending_ballot is not null
         and round_id in (select round_id from round_participants where actor_id=${subject.actorId})`);
-    await tx.execute(sql`delete from round_feedback
-      where round_id in (select round_id from round_participants where actor_id=${subject.actorId})`);
+    // The coaching is cleared, and the Round left failed so it is never
+    // coached again (ADR 0071): a deleted row would read as never coached.
+    await tx.execute(sql`insert into round_feedback
+        (round_id,freeze_revision,status,attempts,model,completed_at)
+      select z.round_id,z.revision,'failed',1,'erased',clock_timestamp()
+      from round_transcript_freezes z
+      where z.round_id in (select round_id from round_participants where actor_id=${subject.actorId})
+      on conflict (round_id) do update set status='failed',feedback=null,
+        lease_token_digest=null,lease_expires_at=null,
+        completed_at=coalesce(round_feedback.completed_at,clock_timestamp())`);
   },
   export: async (tx, subject) => {
     const rows =

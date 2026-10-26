@@ -98,6 +98,19 @@ export function ballotReadView(input: {
   };
 }
 
+/** A submitted AI ballot already gave this side feedback. */
+const aiCoached = (
+  rows: readonly StoredBallot[],
+  aiJudgeSeatIds: ReadonlySet<string>,
+  side: DebateSide,
+) =>
+  rows.some(
+    (row) =>
+      row.status === 'submitted' &&
+      aiJudgeSeatIds.has(row.judgeParticipantId) &&
+      Boolean(row.feedback?.[side]),
+  );
+
 /**
  * A debater's coaching for a completed Round: the AI judge's ballot when it
  * coached their side, else the coaching pass. A Round still eligible for that
@@ -113,18 +126,21 @@ export function coachingFor(input: {
 }): RoundCoaching | null {
   const side = input.viewerSide;
   if (!side || input.status !== 'completed') return null;
-  const judged = input.rows.some(
-    (row) =>
-      row.status === 'submitted' &&
-      input.aiJudgeSeatIds.has(row.judgeParticipantId) &&
-      Boolean(row.feedback?.[side]),
-  );
-  if (judged) return { status: 'in-ballot' };
-  const { facts } = input;
+  if (aiCoached(input.rows, input.aiJudgeSeatIds, side))
+    return { status: 'in-ballot' };
+  return passCoaching(input.facts, side, input.enabled);
+}
+
+/** The coaching pass's state for one side. */
+function passCoaching(
+  facts: RoundFeedbackFacts,
+  side: DebateSide,
+  enabled: boolean,
+): RoundCoaching {
   const text = facts.feedback?.[side];
   if (facts.status === 'succeeded' && text) return { status: 'ready', text };
   if (facts.status === 'leased') return { status: 'pending' };
-  if (facts.status === null && facts.eligible && input.enabled)
+  if (facts.status === null && facts.eligible && enabled)
     return { status: 'pending' };
   return { status: 'unavailable' };
 }

@@ -2,12 +2,14 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
+import type { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { randomBytes } from 'node:crypto';
 import {
   createRoundFeedbackJobs,
   readRoundFeedbackFacts,
 } from '../src/round-feedback';
+import { roundTranscriptPrivacyAdopter } from '../src/round-transcript-privacy';
 import { withBoundedRound } from './bounded-transaction.test-support';
 import type { Fixture } from './constraint-helpers';
 setupRitewayBun();
@@ -46,6 +48,7 @@ async function completedRound(fixture: Fixture, roundId: string) {
   ] as const)
     await fixture.sql`insert into utterances(id,round_id,segment_id,round_participant_id,sequence,text) values(${createId()},${roundId},${segmentId},${seat},${sequence},'a frozen line')`;
   await fixture.sql`insert into round_transcript_freezes(round_id,revision,frontier,completeness) values(${roundId},1,2,'complete')`;
+  return { aff };
 }
 
 /** A completed Round with its coaching store and a read of its coaching facts. */
@@ -53,15 +56,19 @@ const withCompletedRound = (
   work: (value: {
     fixture: Fixture;
     roundId: string;
+    client: SQL;
+    aff: { id: string; actorId: string };
     jobs: ReturnType<typeof createRoundFeedbackJobs>;
     facts: () => ReturnType<typeof readRoundFeedbackFacts>;
   }) => Promise<void>,
 ) =>
   withBoundedRound(async (fixture, run, roundId, client) => {
-    await completedRound(fixture, roundId);
+    const { aff } = await completedRound(fixture, roundId);
     await work({
       fixture,
       roundId,
+      client,
+      aff,
       jobs: createRoundFeedbackJobs({
         run,
         nextToken: () => randomBytes(32).toString('base64url'),
@@ -170,6 +177,55 @@ test('a Round without a frozen transcript is never coached', async () =>
         listed: false,
         claim: null,
         facts: { status: null, feedback: null, eligible: false },
+      },
+    });
+  }));
+
+test('a lapsed lease ends failed once its Round leaves the coaching window', async () =>
+  withCompletedRound(async ({ fixture, roundId, jobs, facts }) => {
+    await jobs.claim(roundId);
+    await fixture.sql`update rounds set completed_at=clock_timestamp() - interval '25 hours', started_at=clock_timestamp() - interval '26 hours', final_segment_ended_at=clock_timestamp() - interval '25 hours' where id=${roundId}`;
+    await fixture.sql`update round_feedback set lease_expires_at=clock_timestamp() - interval '1 second' where round_id=${roundId}`;
+    await jobs.scan(64);
+    assert({
+      given: 'one lapsed attempt with a call left, after the 24-hour window',
+      should: 'end the job failed instead of leaving it pending forever',
+      actual: (await facts()).status,
+      expected: 'failed',
+    });
+  }));
+
+test('erasing a debater clears their Round’s coaching for good', async () =>
+  withCompletedRound(async ({ roundId, client, aff, jobs, facts }) => {
+    const claim = await jobs.claim(roundId);
+    if (!claim) throw Error('Expected a claim');
+    await jobs.complete(roundId, claim.token, coaching);
+    const database = drizzle({ client });
+    const [user] =
+      (await client`select user_id from actors where id=${aff.actorId}`) as {
+        user_id: string;
+      }[];
+    await database.transaction((tx) =>
+      roundTranscriptPrivacyAdopter.erase(
+        tx,
+        { userId: user!.user_id, actorId: aff.actorId },
+        { now: new Date().toISOString() },
+      ),
+    );
+    assert({
+      given:
+        'a coached Round one of whose debaters is erased within the window',
+      should:
+        'drop the coaching text and leave the job failed so it is never bought again',
+      actual: {
+        facts: await facts(),
+        listed: (await jobs.scan(64)).includes(roundId),
+        claim: await jobs.claim(roundId),
+      },
+      expected: {
+        facts: { status: 'failed', feedback: null, eligible: true },
+        listed: false,
+        claim: null,
       },
     });
   }));

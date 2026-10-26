@@ -52,7 +52,9 @@ gaps stood in the way:
      before the answer is validated. Only an answer for both sides, each
      within the ballot feedback limit, is stored, and only while the lease
      holds.
-   - A spent lease at the cap ends the job as `failed`.
+   - A lapsed lease ends the job as `failed` when it is at the cap or the
+     round no longer qualifies.
+   - A round whose AI judging job is still queued or leased waits for it.
    - The pass runs only where `ROUND_BOT_WORKER_POLICY` is configured, with
      its judge model and provider concurrency. There is no second LLM client.
 
@@ -76,8 +78,9 @@ debater's speech. Each side's text reaches only that side.
 
 - Retention: 180 days from job creation, the same as transcripts (DEC-101),
   enforced by `retention.round_feedback`.
-- Erasure: subject erasure deletes the coaching of every round the subject
-  sat in, as it does for a pending AI judgment (DEC-223).
+- Erasure: subject erasure clears the coaching of every round the subject
+  sat in, as it does for a pending AI judgment (DEC-223). It leaves the row
+  `failed` with no text, so the round is never coached again.
 - The lawful basis is pending, as for the transcript it derives from.
 - The lease token is stored only as a SHA3-256 digest.
 - Usage counts, model and timestamps carry no personal data.
