@@ -2,7 +2,7 @@ import type { Browser, BrowserContext, Page, TestInfo } from '@playwright/test';
 import type { RoomView } from '@daisy/protocol';
 import { expect, openPage } from './fixtures';
 import { origin } from './accounts';
-import { openRoomSetup, reread } from './room-launch-flow';
+import { closeRoomSetup, openRoomSetup, reread } from './room-launch-flow';
 import { assertNoSeriousFindings } from './axe';
 
 /** Enter through actual discovery, including retained duplicate-title pages. */
@@ -66,9 +66,7 @@ async function visualStates(page: Page, info: TestInfo) {
       await expect(await openRoomSetup(page, true)).toBeVisible();
       if (width !== 390) await assertNoSeriousFindings(page);
       await capture(page, info, `room-edit-${theme}-${width}`);
-      await page
-        .getByRole('link', { name: 'Close room setup', exact: true })
-        .click();
+      await closeRoomSetup(page);
     }
   }
 }
