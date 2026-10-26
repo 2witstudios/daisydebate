@@ -16,8 +16,11 @@ type Round = {
     'id' | 'sequence'
   >[];
 };
-/** Only actual immutable captured evidence is mapped. No actor identity/kind or generated phrase enters. */
-export function frozenJudgingMessages(input: {
+/**
+ * Only actual immutable captured evidence is mapped. No actor identity/kind
+ * or generated phrase enters. The judge and the coach (ADR 0071) read it.
+ */
+export function frozenPromptInput(input: {
   readonly round: Round;
   readonly frozen: Claim['frozen'];
 }) {
@@ -39,7 +42,7 @@ export function frozenJudgingMessages(input: {
     if (!segment) throw changed();
     return segment.sequence;
   };
-  return roundJudgeMessages({
+  return {
     resolution: round.resolution,
     revision: frozen.revision,
     completeness: frozen.completeness,
@@ -60,5 +63,9 @@ export function frozenJudgingMessages(input: {
       text: line.text,
       complete: line.complete,
     })),
-  });
+  };
 }
+
+export const frozenJudgingMessages = (
+  input: Parameters<typeof frozenPromptInput>[0],
+) => roundJudgeMessages(frozenPromptInput(input));

@@ -29,6 +29,7 @@ export const eventRegistry = {
   'auth.email_change.cleanup_failed': 'error',
   'round.media.unsafe': 'error',
   'round.judging.failed': 'error',
+  'round.coaching.failed': 'error',
   'round.control.failed': 'error',
   'round.speaking.failed': 'error',
   'round.maintenance.failed': 'error',

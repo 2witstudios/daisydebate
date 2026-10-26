@@ -9,6 +9,8 @@ import type { App } from './app';
 import { createProviderCapacity } from '../features/round-bots/provider-capacity';
 import { createRoundJudgingOperations } from '../features/round-judging/operations';
 import { startRoundJudgingService } from '../features/round-judging/service';
+import { createRoundCoachingOperations } from '../features/round-coaching/operations';
+import { startRoundCoachingService } from '../features/round-coaching/service';
 
 /** Provider work owns an independent lifecycle; availability/competitive maintenance never await it. */
 export function startRoundWorkers(input: {
@@ -50,6 +52,31 @@ export function startRoundWorkers(input: {
       'round.judging.failed',
       'round.judging',
       'Judging work remains recoverable',
+    ),
+  });
+  // ADR 0071: coaching shares the judge model and the provider capacity.
+  const coaching = createRoundCoachingOperations({
+    store: app.database,
+    voice: app.aiVoice,
+    withProvider,
+  });
+  const coach = startRoundCoachingService({
+    scan: app.database.scanRoundFeedbackJobs,
+    coach: (roundId, signal) =>
+      coaching.coach(
+        roundId,
+        AbortSignal.any([signal, AbortSignal.timeout(policy.callTimeoutMs)]),
+      ),
+    limits: {
+      parallel: policy.providerConcurrency,
+      scanBatch: policy.scanBatch,
+      scanMs: policy.scanMs,
+    },
+    timers: input.timers,
+    failed: failure(
+      'round.coaching.failed',
+      'round.coaching',
+      'Coaching work remains recoverable',
     ),
   });
   const attendance = createAttendanceFeature({
@@ -104,9 +131,9 @@ export function startRoundWorkers(input: {
     ),
   });
   return {
-    started: Promise.all([judging.started, control.started]),
+    started: Promise.all([judging.started, coach.started, control.started]),
     stop: async () => {
-      await Promise.all([judging.stop(), control.stop()]);
+      await Promise.all([judging.stop(), coach.stop(), control.stop()]);
     },
   };
 }

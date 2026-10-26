@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { roundJudgeMessages } from './round-judge';
+import { roundCoachMessages, roundJudgeMessages } from './round-judge';
 setupRitewayBun();
 
 test('shared judging prompt uses only scoped sides and honest frozen coverage', () => {
@@ -70,5 +70,41 @@ test('shared judging prompt uses only scoped sides and honest frozen coverage', 
       /private-actor-identity|actorKind/.test(messages[1]!.content),
     ],
     expected: [true, true, false, false],
+  });
+});
+
+test('the coaching prompt reads the same freeze and asks for advice, not a decision', () => {
+  const input = {
+    resolution: 'Transit should be free',
+    revision: 1,
+    completeness: 'complete' as const,
+    coverage: [],
+    utterances: [
+      {
+        segmentSequence: 0,
+        sequence: 0,
+        side: 'affirmative' as const,
+        slot: 0,
+        text: 'Access improves.',
+        complete: true,
+      },
+    ],
+  };
+  const coach = roundCoachMessages(input);
+  const judge = roundJudgeMessages(input);
+  const evidence = (messages: typeof coach) =>
+    messages[1]!.content.split('Frozen evidence:\n')[1]!.split('\n\n')[0];
+  assert({
+    given: 'one frozen transcript',
+    should:
+      'give the coach the judge’s exact evidence and ask for both sides’ coaching instead of a ballot',
+    actual: {
+      sameEvidence: evidence(coach) === evidence(judge),
+      decides: coach[0]!.content.includes('You do not decide who won'),
+      asks: coach[1]!.content.includes(
+        '{"affirmative": "coaching for the affirmative"',
+      ),
+    },
+    expected: { sameEvidence: true, decides: true, asks: true },
   });
 });
