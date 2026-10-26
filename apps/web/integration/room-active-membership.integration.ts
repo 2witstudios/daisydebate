@@ -265,3 +265,23 @@ test('a live Round holds its members until it ends; the end frees them for a rem
     }
   });
 });
+
+test('the database itself refuses a second active membership for one actor', async () => {
+  await withRoomRuntime(async (f) => {
+    const first = (await f.create()).view;
+    const second = (await f.create({}, f.guest)).view;
+    const attempt = await f.sql`
+      insert into room_active_memberships (actor_id, room_id)
+      values (${f.host.actorId}, ${second.id})`.then(
+      () => 'accepted',
+      (error: { errno?: string }) => error.errno ?? 'unexpected',
+    );
+    assert({
+      given: 'a raw insert naming a host another Room already holds',
+      should:
+        'refuse it with a unique violation and keep the host in their Room',
+      actual: [attempt, await memberships(f, [f.host.actorId])],
+      expected: ['23505', [[f.host.actorId, first.id]]],
+    });
+  });
+});

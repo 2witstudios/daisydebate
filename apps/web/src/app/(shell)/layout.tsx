@@ -4,7 +4,7 @@ import { AppShell } from '../../ui/layout/app-shell/app-shell';
 import { UiStoreProvider } from '../../ui/store/store';
 import { shellAccount } from '../../lib/shell-account';
 import { requestIdentity } from '../../lib/request-session';
-import { requestActiveRoom } from '../../lib/active-room';
+import { requestActiveRoom } from './active-room';
 import { ActiveRoomBar } from '../../ui/rooms/active-room/active-room-bar';
 
 /**

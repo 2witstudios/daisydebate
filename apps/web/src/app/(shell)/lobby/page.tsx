@@ -5,7 +5,7 @@ import { parseRoomDiscoveryQuery } from '../../../features/lobby/discovery-query
 import { requireAccess } from '../../../lib/access';
 import { AssemblyLobby } from '../../../ui/lobby/assembly-lobby';
 import { roomListing } from './actions';
-import { requestActiveRoom } from '../../../lib/active-room';
+import { requestActiveRoom } from '../active-room';
 
 export const metadata: Metadata = { title: 'Lobby' };
 export default async function LobbyPage({
