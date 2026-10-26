@@ -43,7 +43,7 @@ live Round was a link that changed nothing on the server.
    SQL candidate query is only a prefilter.
 6. **My active Room.** `@daisy/protocol`'s versioned `ActiveRoom` (`id`,
    `title`, `phase: assembling | ready | live`, `role: host | debater |
-   judge`, `href`) is read through `GET /api/rooms/active` and server-side in
+judge`, `href`) is read through `GET /api/rooms/active` and server-side in
    the shell layout and the lobby. No realtime push yet.
 7. **Greenfield replacement.** `maxOpenRooms`, its advisory lock and its
    tests are deleted; a `ROOM_POLICY` naming it is refused at startup. The

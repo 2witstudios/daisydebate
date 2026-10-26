@@ -151,7 +151,11 @@ describe('idle expiry', () => {
             prepStartedAt: '2026-10-09T00:05:00.000Z',
             prepRemainingMs: 300_000,
           },
-          { lastCommandAt, now: '2026-10-09T00:14:59.999Z', idleTimeoutMs: 600_000 },
+          {
+            lastCommandAt,
+            now: '2026-10-09T00:14:59.999Z',
+            idleTimeoutMs: 600_000,
+          },
         ),
         expireIdleRoom(
           { ...state(), status: 'abandoned' },

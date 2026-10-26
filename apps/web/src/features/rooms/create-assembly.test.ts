@@ -82,7 +82,10 @@ test('invalid create selections refuse before transport; server refusals never b
     new Response(null, { status: 429 }),
     new Response(null, { status: 400 }),
     Response.json({ refusal: 'active-room', activeRoom }, { status: 409 }),
-    Response.json({ refusal: 'active-room', activeRoom: null }, { status: 409 }),
+    Response.json(
+      { refusal: 'active-room', activeRoom: null },
+      { status: 409 },
+    ),
     Response.json(
       {
         receipt: { roomId: 'j'.repeat(24) },

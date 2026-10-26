@@ -1,9 +1,5 @@
 import Link from 'next/link';
-import type {
-  ActiveRoom,
-  RoomListEntry,
-  RoomListQuery,
-} from '@daisy/protocol';
+import type { ActiveRoom, RoomListEntry, RoomListQuery } from '@daisy/protocol';
 import { ActiveRoomNotice } from '../rooms/active-room/active-room-notice';
 import { buttonClass } from '../components/button/button-class';
 import { controlClass } from '../components/form-field/form-field-class';

@@ -87,7 +87,9 @@ test('idle Room expiry applies the engine rule under the injected policy (ADR 00
               now: '2026-10-09T00:10:00.000Z',
             },
           );
-          calls.push(`${input.roomId}:${outcome?.mutation.state.status ?? 'kept'}`);
+          calls.push(
+            `${input.roomId}:${outcome?.mutation.state.status ?? 'kept'}`,
+          );
           return outcome !== null;
         },
       } as never,
@@ -102,7 +104,8 @@ test('idle Room expiry applies the engine rule under the injected policy (ADR 00
   const inert = [...calls];
   await sweep(600_000);
   assert({
-    given: 'no idle timeout, then a ten minute timeout over an idle and a busy Room',
+    given:
+      'no idle timeout, then a ten minute timeout over an idle and a busy Room',
     should:
       'leave expiry inert without a policy, then close only the Room idle past it',
     actual: [inert, calls],

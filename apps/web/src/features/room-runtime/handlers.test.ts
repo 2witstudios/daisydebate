@@ -158,7 +158,8 @@ test('an already-in-a-room refusal carries the caller’s own active Room (ADR 0
   );
   const body = await created.json();
   assert({
-    given: 'a create refused because another Room holds the caller, then a read',
+    given:
+      'a create refused because another Room holds the caller, then a read',
     should:
       'answer 409 active-room with that Room, and read the same Room on its own route',
     actual: [

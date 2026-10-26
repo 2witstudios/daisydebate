@@ -127,9 +127,7 @@ test('closing, a host leaving and a guest leaving free exactly their members', a
     room = (await f.command(f.host, room, { type: 'leave-seat' })).view;
     const afterHost = await memberships(f, [f.host.actorId]);
     const reopened = (await f.create()).view;
-    const closed = (
-      await f.command(f.host, reopened, { type: 'close' })
-    ).view;
+    const closed = (await f.command(f.host, reopened, { type: 'close' })).view;
     assert({
       given:
         'a guest leaving, the seated host leaving, then the host closing a new Room',
@@ -244,14 +242,11 @@ test('a live Round holds its members until it ends; the end frees them for a rem
     });
     try {
       assert({
-        given: 'a launched Round, then its debater forfeiting it, then a rematch',
+        given:
+          'a launched Round, then its debater forfeiting it, then a rematch',
         should:
           'read the Round as the live active room, free both members on forfeit, and admit the rematch',
-        actual: [
-          live,
-          freed,
-          await memberships(f, [f.host.actorId]),
-        ],
+        actual: [live, freed, await memberships(f, [f.host.actorId])],
         expected: [
           {
             version: 1,

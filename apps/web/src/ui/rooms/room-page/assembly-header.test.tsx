@@ -63,10 +63,9 @@ test('the host edits details and closes the Room instead of leaving a seat', () 
     participants: seated.participants.map((p) => ({ ...p, actorId: hostId })),
   };
   const closeFields = (tree: ReturnType<typeof header>) =>
-    findElements(
-      tree,
-      (element) => element.type === AssemblyCommandFields,
-    ).map((element) => [element.props.type, element.props.commandId]);
+    findElements(tree, (element) => element.type === AssemblyCommandFields).map(
+      (element) => [element.props.type, element.props.commandId],
+    );
   assert({
     given: 'the host before taking a seat, and the host in a seat',
     should:

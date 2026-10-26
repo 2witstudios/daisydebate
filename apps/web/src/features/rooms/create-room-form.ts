@@ -23,9 +23,11 @@ export async function submitRoomCreation(
 }
 
 const refusals = {
-  settings: 'The room could not be created. Review your settings and try again.',
+  settings:
+    'The room could not be created. Review your settings and try again.',
   forbidden: 'Your account cannot create rooms right now.',
-  'rate-limited': 'You are creating rooms too quickly. Wait a moment and try again.',
+  'rate-limited':
+    'You are creating rooms too quickly. Wait a moment and try again.',
   replayed: 'This form was already sent. Reload the page and try again.',
 } as const;
 
