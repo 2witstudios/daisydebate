@@ -46,10 +46,12 @@ export type MemberProfileRead = {
   readonly nextBefore: string | null;
 };
 
-const readOnly = {
-  isolationLevel: 'repeatable read',
-  accessMode: 'read only',
-} as const;
+/**
+ * One repeatable-read snapshot. Not read only: the shared account fence
+ * takes a FOR SHARE row lock, which Postgres refuses in a read-only
+ * transaction.
+ */
+const snapshot = { isolationLevel: 'repeatable read' } as const;
 
 /** The live member a username names; a tombstone has no name. */
 async function memberRow(tx: Tx, username: string): Promise<MemberRow | null> {
@@ -117,7 +119,7 @@ const recordGroups = async (
 /**
  * One page of completed Rounds, newest first, keyed on (completed_at, id) so
  * a page never repeats or skips a Round. A `before` Round outside the scope's
- * list is refused, so the cursor cannot probe other Rounds.
+ * list is no page at all (null), so the cursor cannot probe other Rounds.
  */
 async function historyPage(
   tx: Tx,
@@ -139,7 +141,7 @@ async function historyPage(
       .innerJoin(rounds, eq(rounds.id, roundParticipants.roundId))
       .where(and(listed, eq(rounds.id, input.before)))
       .limit(1);
-    if (!found) throw createAppError('VALIDATION');
+    if (!found) return null;
   }
   const page = await tx
     .select({
@@ -179,8 +181,10 @@ export const memberProfileReadOperations = ({
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   /**
-   * A member's profile rows in one read-only snapshot, or null when no live
-   * member holds the name. The viewer's account is read fresh under the
+   * A member's profile rows in one repeatable-read snapshot, or null when no live
+   * member holds the name or `before` names no Round in the viewer's list:
+   * a value, not an error, because the caller may sit in another bundle
+   * that cannot recognize this one's errors. The viewer's account is read fresh under the
    * shared account fence in that snapshot, and `decide` maps it, with the
    * member's actor, to the scope both the tally and the history read.
    */
@@ -207,18 +211,16 @@ export const memberProfileReadOperations = ({
         const account =
           input.caller === null ? null : await sharedAccount(tx, input.caller);
         const scope = input.decide(member.actorId, account);
-        return {
-          member,
+        const groups = await recordGroups(tx, member.actorId, scope);
+        const page = await historyPage(tx, {
+          actorId: member.actorId,
           scope,
-          groups: await recordGroups(tx, member.actorId, scope),
-          ...(await historyPage(tx, {
-            actorId: member.actorId,
-            scope,
-            before: input.before,
-            limit: input.limit,
-          })),
-        };
-      }, readOnly),
+          before: input.before,
+          limit: input.limit,
+        });
+        if (page === null) return null;
+        return { member, scope, groups, ...page };
+      }, snapshot),
     );
   },
 });

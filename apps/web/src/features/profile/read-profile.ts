@@ -81,7 +81,7 @@ const toEntry = (row: HistoryRow): MatchHistoryEntry => {
 
 /**
  * A member's profile as `identity` may see it (ISSUE-600), or null when no
- * live member holds the name. A visitor reads the public scope; a signed-in
+ * live member holds the name or the cursor names no Round the viewer may list. A visitor reads the public scope; a signed-in
  * caller's scope is decided in the read's own snapshot, and the record and
  * the history share it, so the record never reveals a result the history
  * hides. An unreadable session is an outage, never a visitor's view.

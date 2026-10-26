@@ -76,12 +76,15 @@ describe('readMemberProfile', () => {
         'decide the scope on the fresh account, then read the public tally and one page with its forfeit',
       actual: {
         asked,
+        snapshot: queries[0]?.query.toLowerCase(),
         fenced: /daisy_room_read_account/.test(queries[2]?.query ?? ''),
         publicTally: /"visibility" = \$/.test(queries[3]?.query ?? ''),
         profile,
       },
       expected: {
         asked: [[actorId, account]],
+        // Not read only: the account fence takes a FOR SHARE lock.
+        snapshot: 'set transaction isolation level repeatable read',
         fenced: true,
         publicTally: true,
         profile: {
@@ -189,12 +192,16 @@ describe('readMemberProfile', () => {
   test('refused reads', async () => {
     const { decide } = deciding('public');
     const { database } = createTestDatabase([[], [memberRow], [], []]);
-    await assertRejects({
+    assert({
       given: 'a cursor naming a Round outside the scope’s list',
-      should: 'refuse it as invalid',
-      actual: () =>
-        read(database, { caller: null, decide, before: 'round-9', limit: 20 }),
-      code: 'VALIDATION',
+      should: 'answer no page at all, as a value the caller can read',
+      actual: await read(database, {
+        caller: null,
+        decide,
+        before: 'round-9',
+        limit: 20,
+      }),
+      expected: null,
     });
     for (const limit of [0, 51, 1.5])
       await assertRejects({

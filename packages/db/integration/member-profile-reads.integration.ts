@@ -1,6 +1,5 @@
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
-import { assertRejects } from '@daisy/errors/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createDatabase } from '../src';
 import type { Database } from '../src';
@@ -283,12 +282,15 @@ describe('member profile reads (ISSUE-600)', () => {
           actual: visitor.rows.map((r) => r.roundId),
           expected: [newest, oldest.id],
         });
-        await assertRejects({
+        assert({
           given: 'a cursor naming a private Round to a visitor',
-          should: 'refuse it as invalid',
-          actual: () =>
-            profileOf(database, { username, caller: null, before: middle.id }),
-          code: 'VALIDATION',
+          should: 'answer no page at all, so it cannot probe the Round',
+          actual: await profileOf(database, {
+            username,
+            caller: null,
+            before: middle.id,
+          }),
+          expected: null,
         });
       } finally {
         await database.close();

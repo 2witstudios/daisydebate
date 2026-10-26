@@ -1,5 +1,4 @@
 import { parseUsername } from '@daisy/auth';
-import { isAppError } from '@daisy/errors';
 import { matchHistoryQuerySchema } from '@daisy/protocol';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
@@ -25,13 +24,9 @@ export default async function ProfileRoute({
     typeof raw.before === 'string' ? { before: raw.before } : {},
   );
   if (!query.success) notFound();
-  const profile = await requestMemberProfile(name.username, query.data).catch(
-    (error: unknown) => {
-      // A stale or foreign cursor is a page that does not exist.
-      if (isAppError(error) && error.code === 'VALIDATION') return notFound();
-      throw error;
-    },
-  );
+  // Null: no live member holds the name, or the cursor names no Round the
+  // viewer may list. Either way there is no such page.
+  const profile = await requestMemberProfile(name.username, query.data);
   if (profile === null) notFound();
   return (
     <ProfilePage profile={profile} paged={query.data.before !== undefined} />
