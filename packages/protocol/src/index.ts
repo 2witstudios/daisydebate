@@ -143,6 +143,7 @@ export {
   roomListQuerySchema,
   roomListPageSchema,
   roomListStatuses,
+  roomListDefaultPageSize,
 } from './room-contract';
 export type {
   RoomListQuery,
