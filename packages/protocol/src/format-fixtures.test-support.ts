@@ -153,7 +153,93 @@ export const invalidFormatDefinitions: ReadonlyArray<
       },
     },
   ],
+  ['more than 64 segments', formatWithSegments(65)],
+  ...(
+    [
+      ['duplicate cross-ex modes', { crossExModes: ['ordered', 'ordered'] }],
+      [
+        'duplicate interruption modes',
+        {
+          interruptions: {
+            modes: ['enabled', 'enabled'],
+            minRemainingMs: { min: 0, max: 0 },
+          },
+        },
+      ],
+      [
+        'duplicate yield choices',
+        {
+          yield: {
+            enabledChoices: [true, true],
+            returnsTimeChoices: [false],
+          },
+        },
+      ],
+    ] satisfies ReadonlyArray<
+      readonly [
+        string,
+        Partial<FormatDefinition['configurable']['interaction']>,
+      ]
+    >
+  ).map(
+    ([name, interaction]) =>
+      [
+        name,
+        {
+          ...oneOnOneFormatFixture,
+          configurable: {
+            ...oneOnOneFormatFixture.configurable,
+            interaction: {
+              ...oneOnOneFormatFixture.configurable.interaction,
+              ...interaction,
+            },
+          },
+        },
+      ] as const,
+  ),
+  [
+    'duplicate prep segment types',
+    {
+      ...oneOnOneFormatFixture,
+      configurable: {
+        ...oneOnOneFormatFixture.configurable,
+        inRoundPrep: {
+          budgetMsPerSide: { min: 0, max: 600_000 },
+          spendableBefore: ['speech', 'speech'],
+          expiresAtSegment: null,
+        },
+      },
+    },
+  ],
 ];
+
+/** `count` alternating speeches with consistent timing bounds, to probe MAX_FORMAT_SEGMENTS alone. */
+export function formatWithSegments(count: number): FormatDefinition {
+  const segments = Array.from({ length: count }, (_, index) => ({
+    key: `S${index}`,
+    label: `Speech ${index + 1}`,
+    type: 'speech' as const,
+    side: index % 2 === 0 ? ('affirmative' as const) : ('negative' as const),
+    slot: 0,
+    defaultDurationMs: 60_000,
+  }));
+  return {
+    ...oneOnOneFormatFixture,
+    segments,
+    configurable: {
+      ...oneOnOneFormatFixture.configurable,
+      timing: {
+        ...oneOnOneFormatFixture.configurable.timing,
+        segmentDurationMs: Object.fromEntries(
+          segments.map((segment) => [
+            segment.key,
+            { min: 60_000, max: 60_000 },
+          ]),
+        ),
+      },
+    },
+  };
+}
 
 /** Audit fixtures keep timing keys consistent so each refusal isolates its invariant. */
 function onlySideSegments(

@@ -39,6 +39,92 @@ export const currentFormatRevisions = (client: BunSQLDatabase) =>
       ),
     );
 
+/** The exact (format, revision, preset) a selection names. */
+type SelectionTuple = {
+  readonly formatId: string;
+  readonly formatVersion: number;
+  readonly presetVersion: number;
+};
+
+/** What the selection policy judges; shaped like the engine's FormatSelectionFacts. */
+export type FormatSelectionFactsRecord = {
+  readonly format: {
+    readonly id: string;
+    readonly catalogOwned: boolean;
+    readonly role: 'standard' | 'template' | null;
+    readonly currentVersion: number;
+  };
+  readonly definition: FormatDefinition;
+  readonly preset: {
+    readonly version: number;
+    readonly formatVersion: number;
+    readonly config: RoomConfig;
+    readonly rankedEligible: boolean;
+    readonly current: boolean;
+  };
+};
+
+/**
+ * The stored facts for one selection tuple, or null when any part is
+ * absent. Read FOR SHARE so a selection inside a write transaction
+ * serializes with publication, which locks the format row FOR UPDATE. It
+ * reports what is stored and never substitutes the current preset: the
+ * pure policy decides.
+ */
+export async function readFormatSelectionFacts(
+  client: BunSQLDatabase,
+  { formatId, formatVersion, presetVersion }: SelectionTuple,
+): Promise<FormatSelectionFactsRecord | null> {
+  const [row] = await client
+    .select({
+      id: formats.id,
+      createdByActorId: formats.createdByActorId,
+      role: formats.catalogRole,
+      currentVersion: formats.currentVersion,
+      definition: formatRevisions.definition,
+      presetVersion: formatPresets.version,
+      presetFormatVersion: formatPresets.formatVersion,
+      config: formatPresets.config,
+      rankedEligible: formatPresets.rankedEligible,
+      supersededAt: formatPresets.supersededAt,
+    })
+    .from(formats)
+    .innerJoin(
+      formatRevisions,
+      and(
+        eq(formatRevisions.formatId, formats.id),
+        eq(formatRevisions.version, formatVersion),
+      ),
+    )
+    .innerJoin(
+      formatPresets,
+      and(
+        eq(formatPresets.formatId, formats.id),
+        eq(formatPresets.version, presetVersion),
+      ),
+    )
+    .where(eq(formats.id, formatId))
+    .limit(1)
+    .for('share');
+  if (!row) return null;
+  return {
+    format: {
+      id: row.id,
+      catalogOwned: row.createdByActorId === null,
+      role: row.role,
+      currentVersion: row.currentVersion,
+    },
+    definition: row.definition,
+    preset: {
+      version: row.presetVersion,
+      formatVersion: row.presetFormatVersion,
+      config: row.config,
+      rankedEligible: row.rankedEligible,
+      current: row.supersededAt === null,
+    },
+  };
+}
+
 /**
  * The formats area (ADR 0058 §2a): reads over the identity table, its
  * immutable revisions and the sanctioned presets. Publishing a revision or
@@ -94,6 +180,15 @@ export const formatOperations = ({
       if (!row) return null;
       return row as FormatPresetRecord;
     });
+  },
+
+  /** The facts a selection policy judges for one tuple (see readFormatSelectionFacts). */
+  async getFormatSelectionFacts(
+    tuple: SelectionTuple,
+  ): Promise<FormatSelectionFactsRecord | null> {
+    return instrumented(eventSink, 'getFormatSelectionFacts', () =>
+      readFormatSelectionFacts(database, tuple),
+    );
   },
 
   /**

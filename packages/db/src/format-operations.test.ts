@@ -91,4 +91,71 @@ describe('formatOperations', () => {
       code: 'INVARIANT',
     });
   });
+
+  test('getFormatSelectionFacts reads the tuple a selection names', async () => {
+    const { database, queries } = createTestDatabase([
+      [
+        [
+          'value',
+          null,
+          'standard',
+          2,
+          foundationDefinition,
+          3,
+          1,
+          oneOnOneRoomConfig,
+          false,
+          new Date(0),
+        ],
+      ],
+    ]);
+    const facts = await database.getFormatSelectionFacts({
+      formatId: 'value',
+      formatVersion: 1,
+      presetVersion: 3,
+    });
+    assert({
+      given: 'a superseded preset of a standard whose pointer has moved on',
+      should:
+        'report the facts as stored, for the selection policy to judge, never substituting the current preset',
+      actual: facts,
+      expected: {
+        format: {
+          id: 'value',
+          catalogOwned: true,
+          role: 'standard',
+          currentVersion: 2,
+        },
+        definition: foundationDefinition,
+        preset: {
+          version: 3,
+          formatVersion: 1,
+          config: oneOnOneRoomConfig,
+          rankedEligible: false,
+          current: false,
+        },
+      },
+    });
+    assert({
+      given: 'the read',
+      should:
+        'lock the format and preset rows for share, so publication serializes with selection',
+      actual: /for share/i.test(queries[0]?.query ?? ''),
+      expected: true,
+    });
+  });
+
+  test('getFormatSelectionFacts reports null for a tuple that does not exist', async () => {
+    const { database } = createTestDatabase([[]]);
+    assert({
+      given: 'no format, revision and preset matching the tuple',
+      should: 'report null, which the policy refuses as unavailable',
+      actual: await database.getFormatSelectionFacts({
+        formatId: 'forged',
+        formatVersion: 1,
+        presetVersion: 1,
+      }),
+      expected: null,
+    });
+  });
 });
