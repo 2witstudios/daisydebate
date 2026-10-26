@@ -12,9 +12,11 @@ import {
   messagingAuthorizationFence,
   type MessagingReadingPolicy,
 } from './authorization-fence';
+import { readMessagingInboxSummary } from '@daisy/db/messaging';
 import {
   readMessagingInbox,
   inspectMessagingInboxAssociation,
+  summarizeMessagingInboxEntry,
   type MessagingInboxEntry,
 } from './inbox';
 export function composeMessagingInbox(input: {
@@ -56,16 +58,29 @@ export function composeMessagingInbox(input: {
               : 'channel.request.read'
             : 'channel.read',
         })(frame.tx, { ...actor, channelId }, frame);
-        return {
+        const authority = frame.fact.authority;
+        const kind = pending
+          ? sender
+            ? 'outgoing_request'
+            : 'incoming_request'
+          : authority.kind === 'private_group'
+            ? 'group_conversation'
+            : 'conversation';
+        return summarizeMessagingInboxEntry(
           channelId,
-          kind: pending
-            ? sender
-              ? 'outgoing_request'
-              : 'incoming_request'
-            : frame.fact.authority.kind === 'private_group'
-              ? 'group_conversation'
-              : 'conversation',
-        };
+          kind,
+          await readMessagingInboxSummary(frame.tx, {
+            channelId,
+            actorId: actor.actorId,
+            counterpartActorId:
+              authority.kind === 'dm'
+                ? authority.lowActorId === actor.actorId
+                  ? authority.highActorId
+                  : authority.lowActorId
+                : null,
+            content: pending ? 'introduction' : 'messages',
+          }),
+        );
       },
     );
   const inspect = (channelId: string): Promise<MessagingInboxEntry> =>
