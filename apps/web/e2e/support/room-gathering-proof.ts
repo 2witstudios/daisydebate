@@ -2,7 +2,7 @@ import type { Browser, BrowserContext, Page, TestInfo } from '@playwright/test';
 import type { RoomView } from '@daisy/protocol';
 import { expect, openPage } from './fixtures';
 import { origin } from './accounts';
-import { openRoomSetup, reread } from './room-launch-flow';
+import { closeRoomSetup, openRoomSetup, reread } from './room-launch-flow';
 import { assertNoSeriousFindings } from './axe';
 
 /** Enter through actual discovery, including retained duplicate-title pages. */
@@ -66,9 +66,7 @@ async function visualStates(page: Page, info: TestInfo) {
       await expect(await openRoomSetup(page, true)).toBeVisible();
       if (width !== 390) await assertNoSeriousFindings(page);
       await capture(page, info, `room-edit-${theme}-${width}`);
-      await page
-        .getByRole('link', { name: 'Close room setup', exact: true })
-        .click();
+      await closeRoomSetup(page);
     }
   }
 }
@@ -111,6 +109,8 @@ export async function proveGathering(
     await openRoomSetup(room, true);
     await form.locator('[name="duration.segment.A2"]').fill('0:43.456');
     await form.getByRole('button', { name: 'Save round settings' }).click();
+    // The accepted native save's redirect closes Room setup.
+    await expect(form).toBeHidden();
     const saved = await reread(native.request, view.id);
     expect(saved.rules.segments.map((segment) => segment.durationMs)).toEqual([
       41000, 43456, 47000,

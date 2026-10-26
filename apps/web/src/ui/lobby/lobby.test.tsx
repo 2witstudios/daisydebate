@@ -161,6 +161,15 @@ describe('Lobby', () => {
     });
   });
 
+  test('the All tab adds no status to the search URL', () => {
+    assert({
+      given: 'the Lobby on its All tab',
+      should: 'submit no hidden status field',
+      actual: render().includes('name="status"'),
+      expected: false,
+    });
+  });
+
   test('pages forward and back with the filters kept', () => {
     const html = render({
       query: query({ q: 'Stored motion', pageSize: 1, cursor: id('f') }),
