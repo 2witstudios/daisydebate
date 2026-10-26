@@ -1,7 +1,7 @@
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import type { RoundProjection } from '@daisy/protocol';
-import { fakeSql } from './scripted-bun-wire';
+import { emptyRuntimeCheckpoint, type RoundProjection } from '@daisy/protocol';
+import { fakeSql, type ScriptedResult } from './scripted-bun-wire';
 import { writeProjectionWithPhaseSignal } from './round-projection-writer';
 
 setupRitewayBun();
@@ -14,7 +14,7 @@ const current = {
   startedAt: new Date('2026-10-09T00:00:00.000Z'),
   completedAt: null,
   outcome: null,
-  runtimeState: null,
+  runtimeState: emptyRuntimeCheckpoint,
 };
 const projection = (
   finalSegmentEndedAt: string | undefined,
@@ -29,9 +29,13 @@ const projection = (
 });
 const releases = async (finalSegmentEndedAt: string | undefined) => {
   // Round row, segment close, then (final only) release and cutoff, then the doorbell.
-  const writes: unknown[][] =
+  const writes: ScriptedResult[] =
     finalSegmentEndedAt === undefined ? [[], []] : [[], [], [], []];
-  const { client, queries } = fakeSql([...writes, [[1n, '42']], []]);
+  const { client, queries } = fakeSql([
+    ...writes,
+    [[1n, '42']] as ScriptedResult,
+    [],
+  ]);
   await writeProjectionWithPhaseSignal(
     drizzle({ client }),
     roundId,
