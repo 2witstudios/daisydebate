@@ -64,6 +64,7 @@ import {
 import { actorOperations } from './actor-operations';
 import { rateCompletedRound } from './rating-operations';
 import { standingsOperations } from './standings';
+import { memberProfileReadOperations } from './member-profile-reads';
 import type { RateDebateInput } from './rating-facts';
 import { emailDeliveryOperations } from './email-delivery-operations';
 import { outboxOperations } from './outbox';
@@ -273,6 +274,7 @@ export function createDatabase({
     ...documentOperations({ database, eventSink }),
     ...onboardingOperations({ database, eventSink }),
     ...standingsOperations({ database, eventSink }),
+    ...memberProfileReadOperations({ database, eventSink }),
     /**
      * Rates a completed round with the caller's domain decision (ADR 0055,
      * ADR 0058); see `rateCompletedRound`. Its consumer is the ratings
