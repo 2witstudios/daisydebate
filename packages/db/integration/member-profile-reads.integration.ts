@@ -160,6 +160,7 @@ describe('member profile reads (ISSUE-600)', () => {
           visibility: 'private',
         });
         await forfeitCommand(fixture, middle.id, member);
+        await fixture.participant(middle.id, 'judge', 0);
         const newest = await roomRound(fixture, {
           status: 'completed',
           outcome: null,
@@ -168,7 +169,6 @@ describe('member profile reads (ISSUE-600)', () => {
         });
         await fixture.participant(newest, 'affirmative', 0, member);
         await createBotSeat(fixture, newest, 'negative');
-        await fixture.participant(newest, 'judge', 0);
         const abandoned = await roomRound(fixture, {
           status: 'abandoned',
           completed_at: at(4),
@@ -212,14 +212,15 @@ describe('member profile reads (ISSUE-600)', () => {
             'name the bot opponent, never the judge, and mark only the forfeit',
           actual: [
             first.rows[0]?.seats.map((s) => [s.role, s.kind, s.label]),
+            first.rows[1]?.seats.find((s) => s.role === 'judge'),
             first.rows.map((r) => [r.role, r.outcome, r.forfeit, r.visibility]),
           ],
           expected: [
             [
               ['affirmative', 'human', first.rows[0]?.seats[0]?.label ?? null],
-              ['judge', 'human', null],
               ['negative', 'bot', 'Fixture bot'],
             ],
+            { role: 'judge', kind: 'human', label: null },
             [
               ['affirmative', null, false, 'public'],
               ['negative', 'affirmative', true, 'private'],
