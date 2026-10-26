@@ -27,6 +27,8 @@ export type LeaveLinks = {
     readonly action: FormAction<RoundFormState>;
     readonly commandId: string;
     readonly expectedVersion: number;
+    /** The leaving debater's own seat, which the forfeit names. */
+    readonly participantId: string;
   };
 };
 
@@ -57,6 +59,7 @@ function ForfeitLeave({
         value={forfeit.expectedVersion}
       />
       <input type="hidden" name="type" value="forfeit" />
+      <input type="hidden" name="participantId" value={forfeit.participantId} />
       <input type="hidden" name="confirmed" value="true" />
       <FormError error={answer.error} />
       <button

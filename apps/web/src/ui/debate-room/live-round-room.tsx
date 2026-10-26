@@ -12,7 +12,7 @@ import {
   type ReactNode,
 } from 'react';
 import { systemClock, systemId } from '@daisy/clock';
-import type { RoundView } from '@daisy/protocol';
+import { isNamedSeat, type RoundView } from '@daisy/protocol';
 import type { RoundRead } from '../../features/rooms/read-round';
 import { FreshnessNotice } from '../resource-sync/freshness-notice';
 import { useLiveRoundView } from './use-live-round-view';
@@ -114,21 +114,28 @@ export function LiveRoundRoom({
   // Leaving forfeits a scheduled Round (it is abandoned) and an active one
   // while forfeit is a legal intent; after the last speech the debater
   // just leaves for the lobby.
+  const seat = view.participants
+    .filter(isNamedSeat)
+    .find(
+      (p) => p.actorId === actorId && p.kind === 'human' && p.role !== 'judge',
+    );
   const forfeitable =
     (view.status === 'scheduled' && isLiveDebater(view, actorId)) ||
     roundControlIntents(view, actorId, now).some(
       (intent) => intent.type === 'forfeit' && intent.enabled,
     );
-  const leaving: LeaveLinks = forfeitable
-    ? {
-        ...leave,
-        forfeit: {
-          action: leaveAction,
-          commandId: ids.forfeit,
-          expectedVersion: view.version,
-        },
-      }
-    : leave;
+  const leaving: LeaveLinks =
+    forfeitable && seat
+      ? {
+          ...leave,
+          forfeit: {
+            action: leaveAction,
+            commandId: ids.forfeit,
+            expectedVersion: view.version,
+            participantId: seat.id,
+          },
+        }
+      : leave;
   return (
     <>
       <FreshnessNotice freshness={synced.freshness} noun="round" />

@@ -47,7 +47,8 @@ test('the canonical live Round mounts its media session and truthful native fall
       html.includes('Riley Judge'),
       html.includes('Leave and forfeit'),
       html.includes('name="type" value="forfeit"'),
+      html.includes(`name="participantId" value="${aff.id}"`),
     ],
-    expected: [true, true, false, true, true],
+    expected: [true, true, false, true, true, true],
   });
 });
