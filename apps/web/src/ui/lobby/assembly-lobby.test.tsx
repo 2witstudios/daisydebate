@@ -15,6 +15,12 @@ const entry: RoomListEntry = {
   competitionType: 'casual',
   seated: true,
   roundRef: null,
+  formatLabel: 'Foundation',
+  seatsTaken: 1,
+  seatCount: 2,
+  waitingSince: '2026-10-09T00:00:00.000Z',
+  live: null,
+  hostRating: null,
 };
 
 test('Lobby renders lightweight canonical identity, live Round links and native paging', () => {

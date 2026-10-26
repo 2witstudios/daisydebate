@@ -12,7 +12,11 @@ import {
   type RoomConfig,
   type RoomExecutionPlan,
 } from './room';
-import { competitionTypes, type CompetitionType } from './round';
+import {
+  competitionTypes,
+  roundStageSchema,
+  type CompetitionType,
+} from './round';
 
 export const roomStatuses = [
   'assembling',
@@ -185,6 +189,14 @@ export const roomListQuerySchema = z.strictObject({
   cursor: idSchema.optional(),
   pageSize: z.int().min(1).max(50).default(20),
   q: z.string().trim().max(100).default(''),
+  /**
+   * The canonical Lobby filters, applied in the database before paging.
+   * Omitted narrows nothing: there is no `all` or `any` value, so a
+   * client's every-status or any-mode choice omits the key. `status` is
+   * where a listed Room stands: open (assembling), starting (ready) or live.
+   */
+  status: z.enum(['open', 'starting', 'live']).optional(),
+  mode: z.enum(competitionTypes).optional(),
 });
 /** Active discovery deliberately omits cast, format/configuration and consent. */
 const roomListEntrySchema = z.strictObject({
@@ -202,6 +214,22 @@ const roomListEntrySchema = z.strictObject({
   roundRef: z
     .strictObject({ id: idSchema, status: z.enum(['scheduled', 'active']) })
     .nullable(),
+  /** The catalog format's name, or "Custom format". */
+  formatLabel: z.string().min(1),
+  /** Seats filled, of every seat the Room's rules declare. */
+  seatsTaken: z.int().nonnegative(),
+  seatCount: z.int().positive(),
+  /** When an open Room started waiting for its cast; null once launched. */
+  waitingSince: z.iso.datetime({ offset: true }).nullable(),
+  /** A live Round's stage and start; null until launched. */
+  live: z
+    .strictObject({
+      stage: roundStageSchema.nullable(),
+      startedAt: z.iso.datetime({ offset: true }).nullable(),
+    })
+    .nullable(),
+  /** A ranked host's current-season Ranked rating; null otherwise or hidden. */
+  hostRating: z.int().nullable(),
 });
 export const roomListPageSchema = z.strictObject({
   rooms: z.array(roomListEntrySchema).max(50).readonly(),
