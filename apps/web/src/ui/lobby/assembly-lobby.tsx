@@ -17,7 +17,7 @@ export function AssemblyLobby({
   readonly query: RoomListQuery;
   readonly nextCursor: string | null;
   readonly retry: boolean;
-  /** The viewer's own active Room (ADR 0069), pinned above the listing. */
+  /** The viewer's own active Room (ADR 0070), pinned above the listing. */
   readonly activeRoom: ActiveRoom | null;
 }) {
   return (

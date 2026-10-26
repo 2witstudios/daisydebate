@@ -116,7 +116,7 @@ test('room and round reads name the realtime endpoint their doorbells ring on', 
   });
 });
 
-test('an already-in-a-room refusal carries the caller’s own active Room (ADR 0069)', async () => {
+test('an already-in-a-room refusal carries the caller’s own active Room (ADR 0070)', async () => {
   const activeRoom = {
     version: 1,
     id: 'm'.repeat(24),

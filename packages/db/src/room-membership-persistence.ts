@@ -9,7 +9,7 @@ type Tx = Pick<BunSQLDatabase, 'select' | 'insert' | 'delete'>;
 
 /**
  * Makes a Room's active memberships exactly the engine's member set (ADR
- * 0069). A member another Room already holds refuses the whole command with
+ * 0070). A member another Room already holds refuses the whole command with
  * `active-room`, so the transaction rolls back and nothing it wrote stays.
  * A competing writer's uncommitted row makes the insert wait for its
  * outcome, so of two concurrent claims on one actor exactly one commits.

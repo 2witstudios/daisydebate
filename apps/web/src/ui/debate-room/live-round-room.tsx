@@ -72,7 +72,7 @@ export function LiveRoundRoom({
   readonly renderedAtMs: number;
   readonly actorId: string;
   readonly leave: LeaveLinks;
-  /** Posts the forfeit that leaving a live Round is (ADR 0069). */
+  /** Posts the forfeit that leaving a live Round is (ADR 0070). */
   readonly leaveAction: FormAction<RoundFormState>;
   readonly read: () => Promise<RoundRead>;
   /** The realtime endpoint, or null when realtime is not configured. */

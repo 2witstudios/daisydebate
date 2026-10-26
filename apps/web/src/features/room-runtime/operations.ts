@@ -223,7 +223,7 @@ export function createRoomRuntimeOperations({
   };
   return {
     view,
-    /** The caller's own active Room (ADR 0069), or null when none holds them. */
+    /** The caller's own active Room (ADR 0070), or null when none holds them. */
     async activeRoom(caller: Caller): Promise<ActiveRoom | null> {
       const facts = await store.readActiveRoomFacts(caller, (account) =>
         can(caller, 'room.list', account),

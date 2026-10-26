@@ -29,7 +29,7 @@ export const roomCreateOperations = ({
 }) => ({
   async createRoomCommand(input: {
     readonly room: NewRoom;
-    /** The engine's member set for the new Room: its host (ADR 0069). */
+    /** The engine's member set for the new Room: its host (ADR 0070). */
     readonly members: readonly string[];
     readonly commandId: string;
     readonly payloadDigest: string;

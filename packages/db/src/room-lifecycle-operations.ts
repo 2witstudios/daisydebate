@@ -25,7 +25,7 @@ type Expire = (
   facts: { readonly lastCommandAt: string; readonly now: string },
 ) => Extract<RoomMutationOutcome, { ok: true }> | null;
 
-/** Active-room reads and idle expiry (ADR 0069); the engine decides, this adapter persists. */
+/** Active-room reads and idle expiry (ADR 0070); the engine decides, this adapter persists. */
 export const roomLifecycleOperations = ({
   database,
   eventSink,

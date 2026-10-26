@@ -1,4 +1,4 @@
-# 0069: One active Room per user
+# 0070: One active Room per user
 
 Status: accepted; owner decision 2026-10-26 (room lifecycle brief).
 Extends [ADR 0058](0058-one-round-model.md) §5a and

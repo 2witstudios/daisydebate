@@ -16,7 +16,7 @@ export async function submitRoomCreation(
   );
   if (result.kind === 'created')
     return { values: {}, ...moveOn(incoming, `/rooms/${result.roomId}`) };
-  // One active Room per user (ADR 0069): the answer is to go back to it.
+  // One active Room per user (ADR 0070): the answer is to go back to it.
   if (result.kind === 'active-room' && result.href)
     return { values: {}, ...moveOn(incoming, result.href) };
   return refused(submitted, creationRefusal(result));

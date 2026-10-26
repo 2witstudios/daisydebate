@@ -173,7 +173,7 @@ type RoomMutation = {
   } | null;
   readonly freeze: boolean;
   readonly publishDefinition: boolean;
-  /** The human actors the next state holds as active members (ADR 0069). */
+  /** The human actors the next state holds as active members (ADR 0070). */
   readonly members: readonly string[];
 };
 export type RoomMutationOutcome =

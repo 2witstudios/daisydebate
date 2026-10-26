@@ -11,7 +11,7 @@ import { field } from '../mock-form/form';
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
 type Created =
   | { readonly kind: 'created'; readonly roomId: string }
-  /** The caller already holds a Room (ADR 0069): return them to it. */
+  /** The caller already holds a Room (ADR 0070): return them to it. */
   | { readonly kind: 'active-room'; readonly href: string | null }
   | { readonly kind: 'refused'; readonly reason: CreateRefusal }
   | { readonly kind: 'invalid' | 'unavailable' };

@@ -34,7 +34,7 @@ A Room has exactly one Round (ADR 0067).
 ## One active Room
 
 A user is in at most one active Room at a time, as its host or in a seat
-(ADR 0069). A Room is active while it assembles or its Round is scheduled or
+(ADR 0070). A Room is active while it assembles or its Round is scheduled or
 active; the database holds one `room_active_memberships` row per human
 member, keyed by actor, so a second create or join is refused as
 `active-room` and the UI returns the user to their current Room. Bots hold no

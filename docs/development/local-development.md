@@ -248,7 +248,7 @@ Every field but one is required, with no numeric defaults: `consentTtlMs`
 `limits.command`, each containing `max` and `windowSeconds`. The optional
 `idleTimeoutMs` is how long an open Room may go without a command (or a
 running pre-round prep) before the maintenance sweep closes it; absent, idle
-expiry stays off and nothing defaults it ([ADR 0069](../decisions/0069-one-active-room-per-user.md)).
+expiry stays off and nothing defaults it ([ADR 0070](../decisions/0070-one-active-room-per-user.md)).
 How many Rooms a user holds is not policy: the database admits one. Values must be
 positive safe integers expressed as JSON numbers. Unknown fields, partial
 objects, blank or malformed JSON refuse startup with configuration field paths

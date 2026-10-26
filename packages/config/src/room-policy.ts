@@ -10,7 +10,7 @@ const policy = z.strictObject({
   consentTtlMs: positiveInteger,
   /**
    * Milliseconds an open Room may go without a command (or running prep)
-   * before maintenance closes it (ADR 0069). No default: absent keeps idle
+   * before maintenance closes it (ADR 0070). No default: absent keeps idle
    * expiry inert while the rest of the policy applies.
    */
   idleTimeoutMs: positiveInteger.optional(),

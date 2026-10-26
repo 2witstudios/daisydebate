@@ -39,7 +39,7 @@ export const roomRefusalSchema = z.enum([
   'prep-unavailable',
   'command-conflict',
   'consent-conflict',
-  /** The caller already holds another active Room (ADR 0069). */
+  /** The caller already holds another active Room (ADR 0070). */
   'active-room',
 ]);
 /** Full authoritative projection grammar used at JSON delivery boundaries. */

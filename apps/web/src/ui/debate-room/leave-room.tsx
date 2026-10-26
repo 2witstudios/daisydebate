@@ -20,7 +20,7 @@ export type LeaveLinks = {
   /** Where leaving takes the debater when there is nothing to forfeit. */
   readonly leaveHref: string;
   /**
-   * While the Round is live, leaving it forfeits (ADR 0069): Leave posts
+   * While the Round is live, leaving it forfeits (ADR 0070): Leave posts
    * the round's forfeit command, already confirmed by this dialog.
    */
   readonly forfeit?: {

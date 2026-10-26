@@ -50,7 +50,7 @@ test('maintenance discovery without a probe discovers every candidate', async ()
   });
 });
 
-test('idle Room expiry applies the engine rule under the injected policy (ADR 0069)', async () => {
+test('idle Room expiry applies the engine rule under the injected policy (ADR 0070)', async () => {
   const room = (id: string, updatedAt: string) => ({ id, updatedAt });
   const rooms = [
     room('idle', '2026-10-09T00:00:00.000Z'),

@@ -92,7 +92,7 @@ export function createRoundMaintenanceOperations(input: {
    * maintenance never freezes, judges or completes it (ISSUE-530, DEC-231).
    */
   readonly probeRoundId: string | null;
-  /** Injected Room policy, or null to leave idle Room expiry inert (ADR 0069). */
+  /** Injected Room policy, or null to leave idle Room expiry inert (ADR 0070). */
   readonly idleTimeoutMs: number | null;
 }) {
   const planJudging = judgingPlan(

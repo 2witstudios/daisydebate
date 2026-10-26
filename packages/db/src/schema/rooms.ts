@@ -180,7 +180,7 @@ export const roomParticipants = pgTable(
 );
 
 /**
- * One active Room per user, enforced here (ADR 0069). A row names the one
+ * One active Room per user, enforced here (ADR 0070). A row names the one
  * Room that holds a human actor — as its host or in a seat — while it
  * assembles or its Round is live; the primary key on `actor_id` is the
  * invariant, so a second Room's create or join cannot commit. The Room

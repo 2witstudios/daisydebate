@@ -8,7 +8,7 @@ const phaseLabels = {
 } as const;
 
 /**
- * The member's one active Room (ADR 0069) and the way back to it. Minimal
+ * The member's one active Room (ADR 0070) and the way back to it. Minimal
  * on purpose: the lobby and shell designs own its final placement and look.
  */
 export function ActiveRoomNotice({

@@ -14,7 +14,7 @@ import { ActiveRoomBar } from '../../ui/rooms/active-room/active-room-bar';
  * page composing it for itself. The root layout above keeps only <html>,
  * theme and fonts. The sample-action banner sits above every page: a control
  * with no backend answers with it on the same page. A member's active
- * Room (ADR 0069) shows its way back on every page but its own.
+ * Room (ADR 0070) shows its way back on every page but its own.
  */
 export default async function ShellLayout({
   children,

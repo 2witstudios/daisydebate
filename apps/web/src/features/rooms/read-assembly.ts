@@ -109,7 +109,7 @@ function validPage(page: RoomListPage, query: RoomListQuery) {
 }
 
 /**
- * The signed-in member's own active Room (ADR 0069), for display only: a
+ * The signed-in member's own active Room (ADR 0070), for display only: a
  * Room route that is off, refused or down answers that no Room is shown.
  */
 export async function readActiveRoom(

@@ -22,7 +22,7 @@ const phaseOf = (room: Holding): ActiveRoomPhase | null => {
 };
 
 /**
- * The human actors a Room holds as its active members (ADR 0069): the host
+ * The human actors a Room holds as its active members (ADR 0070): the host
  * and every seated human while it assembles or its Round is live. Bots hold
  * no membership. A closed Room and a finished Round hold no one, so every
  * terminal state frees its members for a new Room.

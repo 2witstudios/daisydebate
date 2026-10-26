@@ -34,7 +34,7 @@ export async function roundCommandAction(
 
 /**
  * Leaving a live Round forfeits it: the existing forfeit command ends the
- * Round, which frees its Room's members (ADR 0069), then the debater goes
+ * Round, which frees its Room's members (ADR 0070), then the debater goes
  * to the lobby. A refused forfeit stays in the Round with its reason.
  */
 export async function leaveRoundAction(
