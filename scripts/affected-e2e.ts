@@ -55,7 +55,7 @@ export const browserOwners: Readonly<Record<string, readonly string[]>> = {
   'realtime-room-delivery.e2e.ts': [...room, ...realtime],
   'messaging-realtime.e2e.ts': [...messaging, ...realtime],
 };
-// Dedicated native profiles retain complete suites and existing admission/report guards.
+// Realtime profiles remain complete one-file proofs.
 const native = new Set(
   [
     'room-launch',
@@ -70,6 +70,7 @@ const native = new Set(
     'messaging-realtime',
   ].map((name) => `${name}.e2e.ts`),
 );
+const launch = [...native].filter((spec) => !spec.includes('realtime'));
 const standard = Object.keys(browserOwners).filter((spec) => !native.has(spec));
 const smoke = [
   'app.e2e.ts',
@@ -102,7 +103,22 @@ export function selectBrowserSpecs(
           smoke.includes(spec) ||
           files.some((file) => matches(file, spec, browserOwners[spec])),
       );
+  const nativeFull =
+    full ||
+    files.some((file) =>
+      [...auth, ...room, ...realtime, ...messaging].some((prefix) =>
+        file.startsWith(prefix),
+      ),
+    );
+  const nativeSpecs = nativeFull
+    ? launch
+    : launch.filter(
+        (spec) =>
+          spec === 'room-launch.e2e.ts' ||
+          files.some((file) => matches(file, spec, browserOwners[spec])),
+      );
   return {
+    nativeSpecs,
     mode: full ? 'full' : 'affected',
     specs,
     excluded: standard.filter((spec) => !specs.includes(spec)),

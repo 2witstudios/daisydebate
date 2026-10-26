@@ -85,3 +85,27 @@ test('runner starts', () => {});`,
     }
   });
 });
+
+describe('selected native outcomes', () => {
+  test('discovery alone or skipped tests cannot satisfy a selected spec', async () => {
+    const { missingSelectedSpecs } = await import('./e2e-selection-report');
+    for (const status of ['skipped', 'failed', 'timedOut', 'passed'])
+      assert({
+        given: `selected native smoke reports ${status}`,
+        should: 'require an actual passed result',
+        actual: missingSelectedSpecs(['room-launch.e2e.ts'], {
+          suites: [
+            {
+              specs: [
+                {
+                  file: 'room-launch.e2e.ts',
+                  tests: [{ results: [{ status }] }],
+                },
+              ],
+            },
+          ],
+        }),
+        expected: status === 'passed' ? [] : ['room-launch.e2e.ts'],
+      });
+  });
+});

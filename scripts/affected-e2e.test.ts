@@ -101,7 +101,16 @@ describe('missingSelectedSpecs', () => {
       given: 'a nonempty report missing required smoke',
       should: 'reject the absent spec',
       actual: missingSelectedSpecs(['app.e2e.ts', 'csp.e2e.ts'], {
-        suites: [{ specs: [{ file: 'app.e2e.ts', tests: [{}] }] }],
+        suites: [
+          {
+            specs: [
+              {
+                file: 'app.e2e.ts',
+                tests: [{ results: [{ status: 'passed' }] }],
+              },
+            ],
+          },
+        ],
       }),
       expected: ['csp.e2e.ts'],
     });
@@ -220,6 +229,105 @@ describe('queue enforcement identity', () => {
         rules(required.map((check) => ({ ...check, integration_id: 0 }))),
       ),
       expected: false,
+    });
+  });
+});
+
+describe('native affected selection', () => {
+  test('keeps smoke and expands conservatively', () => {
+    for (const [file, count] of [
+      ['apps/web/src/features/theme/theme.ts', 1],
+      ['packages/media/src/index.ts', 2],
+      ['apps/web/src/features/round-commands/action.ts', 8],
+      ['packages/auth/src/index.ts', 8],
+      ['apps/web/src/features/rooms/action.ts', 8],
+      ['apps/web/e2e/support/fixture.ts', 8],
+    ] as const) {
+      const selected = selectBrowserSpecs(
+        [file],
+        'pull_request',
+        true,
+      ).nativeSpecs;
+      assert({
+        given: file,
+        should: 'keep meaningful native smoke and affected coverage',
+        actual: {
+          count: selected?.length,
+          smoke: selected?.includes('room-launch.e2e.ts'),
+        },
+        expected: { count, smoke: true },
+      });
+    }
+  });
+  test('full candidate and unenforced PR retain all native specs', () => {
+    for (const [event, enforced] of [
+      ['push', true],
+      ['merge_group', true],
+      ['workflow_dispatch', true],
+      ['pull_request', false],
+    ] as const)
+      assert({
+        given: `${event}, queue ${enforced}`,
+        should: 'retain eight native specs',
+        actual: selectBrowserSpecs(
+          ['apps/web/src/features/theme/theme.ts'],
+          event,
+          enforced,
+        ).nativeSpecs?.length,
+        expected: 8,
+      });
+  });
+});
+
+describe('native selection admission', () => {
+  test('rejects empty unknown or smoke-free selections', async () => {
+    const { nativeSpecArguments } =
+      await import('../apps/web/e2e/support/affected-projects');
+    const inventory = ['**/room-launch.e2e.ts', '**/round-media.e2e.ts'];
+    for (const selection of [
+      [],
+      ['round-media.e2e.ts'],
+      ['room-launch.e2e.ts', 'unknown.e2e.ts'],
+      ['room-launch.e2e.ts', 'room-launch.e2e.ts'],
+    ]) {
+      let rejected = false;
+      try {
+        nativeSpecArguments(JSON.stringify(selection), inventory);
+      } catch {
+        rejected = true;
+      }
+      assert({
+        given: JSON.stringify(selection),
+        should: 'fail closed',
+        actual: rejected,
+        expected: true,
+      });
+    }
+    const args = nativeSpecArguments('["room-launch.e2e.ts"]', inventory);
+    assert({
+      given: 'valid native smoke',
+      should: 'match exactly its filename',
+      actual: [
+        'path/room-launch.e2e.ts',
+        'path/other-room-launch.e2e.ts',
+        'path/room-launchXe2eXts',
+      ].map((file) => new RegExp(args[0]).test(file)),
+      expected: [true, false, false],
+    });
+  });
+  test('native workflow selects and checks its own report', async () => {
+    const workflow = Bun.YAML.parse(
+      await Bun.file('.github/workflows/e2e.yml').text(),
+    ) as { jobs: Record<string, { steps: { run?: string }[] }> };
+    const commands = workflow.jobs['room-launch'].steps.map(({ run }) => run);
+    assert({
+      given: 'the isolated native job',
+      should: 'select before execution and validate afterwards',
+      actual:
+        commands.indexOf('bun scripts/select-e2e.ts') <
+          commands.indexOf('bun test:e2e:room-launch') &&
+        commands.includes('bun scripts/e2e-selection-report.ts room-launch'),
+      expected: true,
     });
   });
 });

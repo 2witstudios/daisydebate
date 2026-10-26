@@ -50,13 +50,13 @@ await Bun.write('.turbo/e2e-selection.json', JSON.stringify(plan));
 if (process.env.GITHUB_ENV)
   appendFileSync(
     process.env.GITHUB_ENV,
-    `DAISY_E2E_EXCLUDE=${JSON.stringify(plan.excluded)}\n`,
+    `DAISY_E2E_EXCLUDE=${JSON.stringify(plan.excluded)}\nDAISY_ROOM_LAUNCH_SPECS=${JSON.stringify(plan.nativeSpecs)}\n`,
   );
 if (process.env.GITHUB_STEP_SUMMARY)
   appendFileSync(
     process.env.GITHUB_STEP_SUMMARY,
-    `### Browser selection: ${plan.mode}\n${plan.specs.join(', ')}\nNative Launch/realtime profiles: full.\n`,
+    `### Browser selection: ${plan.mode}\n${plan.specs.join(', ')}\nNative Launch: ${plan.nativeSpecs.join(', ')}. Realtime: full.\n`,
   );
 console.log(
-  `Browser selection: ${plan.mode}, ${plan.specs.length} standard specs; native profiles full`,
+  `Browser selection: ${plan.mode}, ${plan.specs.length} standard specs; ${plan.nativeSpecs.length} native Launch specs; realtime full`,
 );

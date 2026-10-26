@@ -531,9 +531,12 @@ An inventory mismatch fails before browser work. Recognized PR changes select
 owned specs plus `app`, `journey-no-js`, `csp` and `shell` smoke. Unknown files,
 shared fixtures, routes, core packages and configuration fall back to full.
 Main, merge groups and manual three-run release qualification always run full.
-Native Room Launch and both realtime profiles always retain their complete
-suites, isolated slots and report guards. Selected standard specs must all
-appear in the report; existing zero-discovery, skipped-test and retry guards
+Native Launch retains `room-launch` smoke, adds owned round/media specs, and
+falls back to all eight specs for auth, room, realtime, shared or unknown inputs.
+Main, merge groups, manual runs and unenforced PRs retain all eight. Both
+one-file realtime profiles stay full. Native admission and full configuration
+inventories remain unchanged; validated CLI file filters select execution.
+Every selected standard and native spec must have a passed result in its report; existing zero-discovery, skipped-test and retry guards
 remain enforced.
 
 Affected PR selection activates only after the live main branch rules API
@@ -546,4 +549,4 @@ Measurements belong in the linked CI-speed handoff with candidate/run/job URLs.
 The initial Quick check on `a871b592ba99f9af748a4f87810dd257a437c203`
 ran 23:16:30–23:20:39 UTC on 2026-10-26 (249 seconds, including job setup).
 Warm <=240 seconds is a target, not an asserted result. Browser execution
-savings remain conditional on owner queue activation; native suites stay full.
+savings for standard and native selection remain conditional on owner queue activation.
