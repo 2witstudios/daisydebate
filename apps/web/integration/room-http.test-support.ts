@@ -13,7 +13,6 @@ export function createRoomHttpFixture() {
   const f = createTestApp({
     ROOM_POLICY: JSON.stringify({
       consentTtlMs: 60_000,
-      maxOpenRooms: 5,
       maxBodyBytes: 262_144,
       limits: {
         create: { max: 20, windowSeconds: 60 },

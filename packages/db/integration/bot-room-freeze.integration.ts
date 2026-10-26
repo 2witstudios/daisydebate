@@ -86,6 +86,7 @@ test('bot Room freeze reserves once atomically and replay cannot charge twice', 
           freeze: true,
           consent: null,
           publishDefinition: false,
+          members: [state.hostActorId],
         },
       }),
     };

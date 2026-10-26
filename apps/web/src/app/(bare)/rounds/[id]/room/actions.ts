@@ -15,21 +15,41 @@ const commands = processRoute(
       new URL(request.url).pathname.split('/')[3] ?? '',
     ),
 );
-/** Native posts use the same Origin/session/member/rate/actor/engine gates as JSON. */
-export async function roundCommandAction(
-  roundId: string,
-  _state: RoundFormState,
-  form: FormData,
-): Promise<RoundFormState> {
+async function submitRound(roundId: string, form: FormData) {
   const incoming = new Headers(await headers());
   const answer = await submitRoundForm(
     inProcessFetch(commands, incoming),
     roundId,
     form,
   );
+  return { incoming, answer };
+}
+/** Native posts use the same Origin/session/member/rate/actor/engine gates as JSON. */
+export async function roundCommandAction(
+  roundId: string,
+  _state: RoundFormState,
+  form: FormData,
+): Promise<RoundFormState> {
+  const { incoming, answer } = await submitRound(roundId, form);
   if (answer.acknowledged && !hydratedPost(incoming))
     return { values: {}, ...moveOn(incoming, `/rounds/${roundId}/room`) };
   return answer;
+}
+
+/**
+ * Leaving a live Round forfeits it: the existing forfeit command ends the
+ * Round, which frees its Room's members (ADR 0070), then the debater goes
+ * to the Round's result, where a seat that no longer plays always lands.
+ * A refused forfeit stays in the Round with its reason.
+ */
+export async function leaveRoundAction(
+  roundId: string,
+  _state: RoundFormState,
+  form: FormData,
+): Promise<RoundFormState> {
+  const { incoming, answer } = await submitRound(roundId, form);
+  if (!answer.acknowledged) return answer;
+  return { values: {}, ...moveOn(incoming, `/rounds/${roundId}`) };
 }
 
 const nativeState = processRoute(

@@ -73,7 +73,7 @@ describe('room sync driver', () => {
       expected: {
         log: [`subscribe ${buildRoomTopic(roomId)}`, 'connect', 'read'],
         title: 'Renamed',
-        settings: 'n-8',
+        settings: 'n-9',
       },
     });
   });
@@ -85,7 +85,7 @@ describe('room sync driver', () => {
       given: 'a hydrated command answering with change 5',
       should: 'adopt it without a read and offer new identifiers',
       actual: [room.held().view.title, room.held().ids.settings, room.reads()],
-      expected: ['Accepted', 'n-8', 0],
+      expected: ['Accepted', 'n-9', 0],
     });
   });
 

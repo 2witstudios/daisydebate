@@ -65,7 +65,6 @@ async function fixture(
   const host = await caller(),
     guest = await caller(),
     outsider = await caller();
-  let openRoomLimit = 5;
   let failAfterReady = false;
   let unavailable = false;
   let consentReads = 0;
@@ -93,15 +92,20 @@ async function fixture(
     store,
     redis: controlled,
     ids: systemId,
-    maxOpenRooms: () => openRoomLimit,
     consentTtlMs: () => 60_000,
     botsAvailable: () => true,
   });
-  const create = async (overrides: Partial<RoomCreate> = {}) => {
+  /** The reference catalog choice every Room suite builds on. */
+  const foundation = async () =>
+    (await operations.catalog(host)).find((c) => c.formatId === 'foundation')!;
+  const create = async (
+    overrides: Partial<RoomCreate> = {},
+    who: typeof host = host,
+  ) => {
     const config = (await operations.catalog(host)).find(
       (c) => c.formatId === 'foundation',
     )!.defaultConfig;
-    const r = await operations.create(host, {
+    const r = await operations.create(who, {
       commandId: createId(),
       title: 'Durable room',
       topic: 'Cities should make transit free',
@@ -168,25 +172,41 @@ async function fixture(
     return (await consent(host, await operations.view(host, view.id), 'ready'))
       .view;
   };
-  const assemble = async (overrides: Partial<RoomCreate> = {}) => {
-    let view = (await create(overrides)).view;
+  /** A new host and guest: one user holds one active Room (ADR 0070). */
+  const freshCast = async () => ({
+    host: await caller(),
+    guest: await caller(),
+  });
+  const callerOf = (actorId: string) => {
+    const found = callers.find((c) => c.actorId === actorId);
+    if (!found) throw new Error('No fixture caller holds that actor');
+    return found;
+  };
+  const assemble = async (
+    overrides: Partial<RoomCreate> = {},
+    cast: { readonly host: typeof host; readonly guest: typeof host } = {
+      host,
+      guest,
+    },
+  ) => {
+    let view = (await create(overrides, cast.host)).view;
     view = (
-      await command(host, view, {
+      await command(cast.host, view, {
         type: 'claim-seat',
         role: 'affirmative',
         slot: 0,
       })
     ).view;
     view = (
-      await command(guest, view, {
+      await command(cast.guest, view, {
         type: 'claim-seat',
         role: 'negative',
         slot: 0,
       })
     ).view;
-    for (const c of [host, guest])
+    for (const c of [cast.host, cast.guest])
       view = (await consent(c, view, 'ready')).view;
-    return operations.view(host, view.id);
+    return operations.view(cast.host, view.id);
   };
   return {
     sql,
@@ -200,14 +220,14 @@ async function fixture(
     member: caller,
     bot,
     create,
+    foundation,
     command,
     consent,
     seatBotOpponent,
     snapshot,
     assemble,
-    openRoomLimit: (value: number) => {
-      openRoomLimit = value;
-    },
+    freshCast,
+    callerOf,
     failAfterReady: (value: boolean) => {
       failAfterReady = value;
     },
@@ -267,27 +287,4 @@ async function fixture(
       }
     },
   };
-}
-
-export function consentBarrier(
-  f: {
-    gateConsent: (gate: (() => Promise<void>) | null) => void;
-    gateReady: (gate: (() => Promise<void>) | null) => void;
-  },
-  kind: 'read' | 'write' = 'read',
-) {
-  const setGate = kind === 'read' ? f.gateConsent : f.gateReady;
-  let enter!: () => void, release!: () => void;
-  const entered = new Promise<void>((resolve) => {
-      enter = resolve;
-    }),
-    released = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-  setGate(async () => {
-    setGate(null);
-    enter();
-    await released;
-  });
-  return { entered, release: () => release() };
 }

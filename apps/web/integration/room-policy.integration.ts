@@ -9,7 +9,6 @@ const rule = { max: 1, windowSeconds: 47 };
 const f = createTestApp({
   ROOM_POLICY: JSON.stringify({
     consentTtlMs: 12345,
-    maxOpenRooms: 7,
     maxBodyBytes: 54321,
     limits: { create: rule, read: rule, command: rule },
   }),

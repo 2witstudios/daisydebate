@@ -178,3 +178,25 @@ export const roomParticipants = pgTable(
     ),
   ],
 );
+
+/**
+ * One active Room per user, enforced here (ADR 0070). A row names the one
+ * Room that holds a human actor — as its host or in a seat — while it
+ * assembles or its Round is live; the primary key on `actor_id` is the
+ * invariant, so a second Room's create or join cannot commit. The Room
+ * writer keeps the rows equal to the engine's `activeRoomMembers`, and a
+ * Round's end releases them. Bots hold no row.
+ */
+export const roomActiveMemberships = pgTable(
+  'room_active_memberships',
+  {
+    actorId: text('actor_id')
+      .primaryKey()
+      .references(() => actors.id, { onDelete: 'restrict' }),
+    roomId: text('room_id')
+      .notNull()
+      .references(() => rooms.id, { onDelete: 'cascade' }),
+    createdAt: createdAtColumn(),
+  },
+  (table) => [index('room_active_memberships_room_idx').on(table.roomId)],
+);

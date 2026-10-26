@@ -32,7 +32,6 @@ test('real public ingress probe uses ordinary signed session, scoped seat and du
   const origin = server.url.origin;
   const policy = {
     consentTtlMs: 60_000,
-    maxOpenRooms: 5,
     maxBodyBytes: 1024,
     limits: Object.fromEntries(
       ['create', 'read', 'command'].map((name) => [

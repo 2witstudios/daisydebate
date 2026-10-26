@@ -2,6 +2,7 @@ import type { RoomView } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assemblySnapshot } from '../../../features/rooms/assembly.test-support';
 import { byText, findElements } from '../../test-support/find-elements';
+import { AssemblyCommandFields } from './assembly-command-fields';
 import { AssemblyDetails } from './assembly-details';
 import { AssemblyHeader } from './assembly-header';
 import { RoomInvite } from './room-invite';
@@ -12,7 +13,7 @@ const header = (view: RoomView, actorId: string) =>
   AssemblyHeader({
     view,
     actorId,
-    commandIds: { details: 'details-id', leave: 'leave-id' },
+    commandIds: { details: 'details-id', leave: 'leave-id', close: 'close-id' },
     detailsAction: action,
     commandAction: action,
   });
@@ -54,15 +55,39 @@ test('header carries the room chips, invite and the seated viewer’s leave', ()
   });
 });
 
-test('an unseated host edits details and has no seat to leave', () => {
-  const tree = header(assemblySnapshot, assemblySnapshot.hostActorId);
+test('the host edits details, closes the Room, and may leave a seat to keep hosting', () => {
+  const hostId = assemblySnapshot.hostActorId!;
+  const hostSeated = {
+    ...seated,
+    hostActorId: hostId,
+    participants: seated.participants.map((p) => ({ ...p, actorId: hostId })),
+  };
+  const closeFields = (tree: ReturnType<typeof header>) =>
+    findElements(tree, (element) => element.type === AssemblyCommandFields).map(
+      (element) => [element.props.type, element.props.commandId],
+    );
   assert({
-    given: 'the host before taking a seat',
-    should: 'offer room details editing without Leave seat',
+    given: 'the host before taking a seat, and the host in a seat',
+    should: 'offer details editing and Close room, plus Leave seat once seated',
     actual: [
-      Boolean(byText(tree, 'button', 'Leave seat')),
-      findElements(tree, (element) => element.type === AssemblyDetails).length,
+      Boolean(byText(header(assemblySnapshot, hostId), 'button', 'Leave seat')),
+      findElements(
+        header(assemblySnapshot, hostId),
+        (element) => element.type === AssemblyDetails,
+      ).length,
+      Boolean(byText(header(hostSeated, hostId), 'button', 'Close room')),
+      Boolean(byText(header(hostSeated, hostId), 'button', 'Leave seat')),
+      closeFields(header(hostSeated, hostId)),
     ],
-    expected: [false, 1],
+    expected: [
+      false,
+      1,
+      true,
+      true,
+      [
+        ['close', 'close-id'],
+        ['leave-seat', 'leave-id'],
+      ],
+    ],
   });
 });

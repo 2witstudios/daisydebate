@@ -1,4 +1,4 @@
-import type { RoomView } from './room-read';
+import type { RoomView, roomRefusalSchema } from './room-read';
 export type { RoomView, RoomCatalogChoice, RoomCastChoice } from './room-read';
 import { z } from 'zod';
 import { debateRoleSchema, idSchema } from './primitives';
@@ -119,21 +119,7 @@ type RoomRoundRef = {
   readonly id: string;
   readonly status: 'scheduled' | 'active' | 'completed' | 'abandoned';
 };
-export type RoomRefusal =
-  | 'version-conflict'
-  | 'host-required'
-  | 'room-closed'
-  | 'illegal-config'
-  | 'seat-unavailable'
-  | 'actor-ineligible'
-  | 'not-seated'
-  | 'incomplete-cast'
-  | 'not-ready'
-  | 'readiness-unavailable'
-  | 'prep-running'
-  | 'prep-unavailable'
-  | 'command-conflict'
-  | 'consent-conflict';
+export type RoomRefusal = z.infer<typeof roomRefusalSchema>;
 /** Receipts acknowledge an accepted command; effective consent always comes from a fresh view. */
 export type RoomCommandReceipt = {
   readonly commandId: string;
@@ -187,6 +173,8 @@ type RoomMutation = {
   } | null;
   readonly freeze: boolean;
   readonly publishDefinition: boolean;
+  /** The human actors the next state holds as active members (ADR 0070). */
+  readonly members: readonly string[];
 };
 export type RoomMutationOutcome =
   | { readonly ok: true; readonly mutation: RoomMutation }

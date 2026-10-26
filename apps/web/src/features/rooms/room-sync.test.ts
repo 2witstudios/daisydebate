@@ -12,7 +12,7 @@ import {
 setupRitewayBun();
 
 const ids = (tag: string): RoomCommandIds => ({
-  header: { details: `${tag}d`, leave: `${tag}l` },
+  header: { details: `${tag}d`, leave: `${tag}l`, close: `${tag}c` },
   readiness: { ready: `${tag}r`, unready: `${tag}u`, 'start-round': `${tag}s` },
   prep: { start: `${tag}ps`, finish: `${tag}pf` },
   settings: `${tag}x`,

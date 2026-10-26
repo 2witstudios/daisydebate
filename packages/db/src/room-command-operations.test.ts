@@ -17,11 +17,12 @@ test('Room create command writes its receipt and exactly one change event', asyn
     [account],
     [],
     [],
-    [[0]],
-    [],
     [],
     [{ now: new Date('2026-10-09T00:00:00.000Z') }],
     [],
+    [],
+    [],
+    [[room.id]],
     [],
     [[1n, '42']],
     [],
@@ -29,7 +30,7 @@ test('Room create command writes its receipt and exactly one change event', asyn
 
   const receipt = await database.createRoomCommand({
     room,
-    maxOpenRooms: 5,
+    members: [room.hostActorId],
     commandId: 'c4a2b6d8f1h3j5k7m9n2p4r6',
     payloadDigest: 'a'.repeat(64),
     definition: foundationDefinition,
@@ -38,7 +39,7 @@ test('Room create command writes its receipt and exactly one change event', asyn
   });
 
   assert({
-    given: 'an authorized host and an available open-Room quota',
+    given: 'an authorized host held by no other Room',
     should: 'persist an assembling Room with its accepted command receipt',
     actual: [
       receipt,
@@ -112,6 +113,9 @@ test('Start mutation commits one frozen Round, cast, receipt, and change signal'
     [],
     [],
     [],
+    [[readyRoom.id]], // the host's active membership is this Room's
+    [],
+    [],
     [[2n, '42']], // Round phase signal for the frozen scheduled Round
     [],
     [], // command receipt insert follows the Round phase signal
@@ -152,6 +156,7 @@ test('Start mutation commits one frozen Round, cast, receipt, and change signal'
         consent: null,
         freeze: true,
         publishDefinition: false,
+        members: [state.hostActorId],
       },
     }),
   });

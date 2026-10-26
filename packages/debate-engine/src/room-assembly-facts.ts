@@ -10,6 +10,7 @@ import {
   roundRulesSchema,
   seatSlotsComplete,
 } from '@daisy/protocol';
+import { activeRoomMembers } from './room-membership';
 
 type Target = RoomParticipant & { readonly eligible: boolean };
 export type Edges = {
@@ -64,13 +65,14 @@ export const acceptedRoomMutation = (
   overrides: Partial<
     Extract<RoomMutationOutcome, { ok: true }>['mutation']
   > = {},
-): RoomMutationOutcome => ({
-  ok: true,
+) => ({
+  ok: true as const,
   mutation: {
     state,
     consent: null,
     freeze: false,
     publishDefinition: false,
+    members: activeRoomMembers(state),
     ...overrides,
   },
 });

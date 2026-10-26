@@ -9,11 +9,13 @@ requireTestServices(process.env);
 test('one actual provider failure does not prevent cleanup of another terminal media session', async () => {
   await withMediaRound(async (f) => {
     await f.mediaOperations.session(f.roundId, f.host.actorId);
-    const fresh = await f.command(f.host, await f.assemble(), {
+    // A second Room needs its own cast: one user holds one active Room (ADR 0070).
+    const cast = await f.freshCast();
+    const fresh = await f.command(cast.host, await f.assemble({}, cast), {
       type: 'start-round',
     });
     const terminalRoundId = fresh.view.roundRef!.id;
-    await f.mediaOperations.session(terminalRoundId, f.host.actorId);
+    await f.mediaOperations.session(terminalRoundId, cast.host.actorId);
     const sessions = await f.store.mediaSessions.activeMediaSessions();
     const [failed] =
       await f.sql`select room_name from media_sessions where round_id=${f.roundId}`;

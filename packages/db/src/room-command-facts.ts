@@ -228,17 +228,24 @@ export const acceptCommand = async (
     resultingVersion: receipt.resultingVersion,
     appliedAt: new Date(now),
   });
-  await appendOutboxEvent(tx, {
-    topic: buildRoomTopic(receipt.roomId),
+  await appendRoomChanged(tx, receipt.roomId, changeVersion);
+};
+/** The content-free invalidation for a Room change, accepted command or not. */
+export const appendRoomChanged = (
+  tx: Tx,
+  roomId: string,
+  changeVersion: number,
+) =>
+  appendOutboxEvent(tx, {
+    topic: buildRoomTopic(roomId),
     kind: 'room.changed',
     version: 1,
     payload: {
       kind: 'room.changed',
       entityVersion: changeVersion,
-      ids: [receipt.roomId],
+      ids: [roomId],
     },
   });
-};
 export const transactionNow = async (tx: Tx): Promise<string> => {
   const [row] = (await tx.execute(
     sql`select statement_timestamp() as now`,

@@ -19,8 +19,9 @@ requireTestServices(process.env);
 
 test('five actual Rounds leave shared bounded capacity for media and first-receipt attendance', async () =>
   withAttendanceRound(async ({ f, attendance, roundId, segmentId }) => {
+    // Each Round its own cast: one user holds one active Room (ADR 0070).
     for (let i = 0; i < 4; i += 1)
-      await startRuntimeRound(f, await f.assemble());
+      await startRuntimeRound(f, await f.assemble({}, await f.freshCast()));
     const instanceId = createId();
     const failures: unknown[] = [],
       stamps: string[] = [];
@@ -36,6 +37,7 @@ test('five actual Rounds leave shared bounded capacity for media and first-recei
       const operations = createRoundMaintenanceOperations({
         startHorizonMs: ROUND_START_HORIZON_MS,
         probeRoundId: null,
+        idleTimeoutMs: null,
         store: f.store,
         instanceId,
         ids: { next: createId },

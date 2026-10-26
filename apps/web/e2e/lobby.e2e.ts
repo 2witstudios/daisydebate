@@ -1,6 +1,6 @@
 import { createId } from '@paralleldrive/cuid2';
-import { expect, test } from './support/fixtures';
-import { resetRateLimits, signUpMember } from './support/accounts';
+import { expect, openPage, test } from './support/fixtures';
+import { origin, resetRateLimits, signUpMember } from './support/accounts';
 import { closeRoom, createFromPlay } from './support/room-launch-flow';
 
 test.beforeEach(async ({ request }) => {
@@ -40,19 +40,26 @@ test.describe('authenticated Room lobby', () => {
 
   test('search filters current public Room projections and preserves the query in the URL', async ({
     page,
+    browser,
   }) => {
-    const ids: string[] = [];
+    // One user holds one active Room (ADR 0070): another member hosts the first.
+    const other = await browser.newContext({
+      baseURL: origin,
+      ignoreHTTPSErrors: true,
+    });
+    let firstId: string | undefined, secondId: string | undefined;
     try {
+      await signUpMember(other.request);
       const first = await createFromPlay(
-        page,
+        await openPage(other, 'second lobby host'),
         `Blue ${createId().slice(0, 8)}`,
       );
-      ids.push(first.id);
+      firstId = first.id;
       const second = await createFromPlay(
         page,
         `Gold ${createId().slice(0, 8)}`,
       );
-      ids.push(second.id);
+      secondId = second.id;
 
       await page.goto(`/lobby?q=${encodeURIComponent(second.title)}`);
       await expect(page).toHaveURL(
@@ -62,7 +69,9 @@ test.describe('authenticated Room lobby', () => {
       await expect(roomRows(page).first()).toContainText(second.title);
       await expect(roomRows(page).first()).not.toContainText(first.title);
     } finally {
-      for (const id of ids) await closeRoom(page.request, id);
+      if (secondId) await closeRoom(page.request, secondId);
+      if (firstId) await closeRoom(other.request, firstId);
+      await other.close();
     }
   });
 

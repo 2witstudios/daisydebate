@@ -158,7 +158,7 @@ describe('createApp', () => {
 test('ordinary app configuration activates canonical Room authentication and origin gates', async () => {
   const policy = JSON.stringify({
     consentTtlMs: 34567,
-    maxOpenRooms: 9,
+    idleTimeoutMs: 9,
     maxBodyBytes: 98765,
     limits: Object.fromEntries(
       ['create', 'read', 'command'].map((operation) => [
@@ -193,7 +193,7 @@ test('ordinary app configuration activates canonical Room authentication and ori
       unavailable.status,
       anonymous.status,
       foreign.status,
-      configured.roomPolicy?.maxOpenRooms,
+      configured.roomPolicy?.idleTimeoutMs,
     ],
     expected: [404, 401, 403, 9],
   });

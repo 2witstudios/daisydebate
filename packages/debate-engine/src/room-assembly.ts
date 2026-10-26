@@ -7,6 +7,7 @@ import type {
 } from '@daisy/protocol';
 
 import { assemblyOpen, complete, type Edges } from './room-assembly-facts';
+import { activeRoomMembers } from './room-membership';
 export { hostIdentityHidden, projectRoom } from './room-projection';
 import {
   updateConfig,
@@ -47,6 +48,28 @@ const hostCommands = new Set<RoomCommand['type']>([
   'start-round',
   'close',
 ]);
+const editCommands = new Set<RoomCommand['type']>([
+  'update-config',
+  'update-format',
+  'update-details',
+  'claim-seat',
+  'assign-seat',
+  'leave-seat',
+  'remove-seat',
+]);
+/** The refusal every command meets before its transition, or null. */
+function commandFence(
+  room: RoomAssemblyState,
+  actorId: string,
+  command: RoomCommand,
+  edit: boolean,
+): RoomRefusal | null {
+  if (command.expectedVersion !== room.version) return 'version-conflict';
+  if (!assemblyOpen(room)) return 'room-closed';
+  if (hostCommands.has(command.type) && room.hostActorId !== actorId)
+    return 'host-required';
+  return edit && room.prepStartedAt !== null ? 'prep-running' : null;
+}
 /** Pure total transition. The adapter serializes the room and publishes accepted effects atomically. */
 export function executeRoomCommand(
   room: RoomAssemblyState,
@@ -59,21 +82,9 @@ export function executeRoomCommand(
     ok: false,
     refusal,
   });
-  if (command.expectedVersion !== room.version)
-    return refuse('version-conflict');
-  if (!assemblyOpen(room)) return refuse('room-closed');
-  if (hostCommands.has(command.type) && room.hostActorId !== actorId)
-    return refuse('host-required');
-  const edit = [
-    'update-config',
-    'update-format',
-    'update-details',
-    'claim-seat',
-    'assign-seat',
-    'leave-seat',
-    'remove-seat',
-  ].includes(command.type);
-  if (edit && room.prepStartedAt !== null) return refuse('prep-running');
+  const edit = editCommands.has(command.type);
+  const fenced = commandFence(room, actorId, command, edit);
+  if (fenced) return refuse(fenced);
   const transition = roomTransitions[command.type] as (
     room: RoomAssemblyState,
     actorId: string,
@@ -107,6 +118,7 @@ export function executeRoomCommand(
       consent: consentEffect,
       freeze,
       publishDefinition,
+      members: activeRoomMembers(next),
     },
   };
 }

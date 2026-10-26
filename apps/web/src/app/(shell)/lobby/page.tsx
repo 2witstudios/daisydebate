@@ -5,6 +5,7 @@ import { parseRoomDiscoveryQuery } from '../../../features/lobby/discovery-query
 import { requireAccess } from '../../../lib/access';
 import { AssemblyLobby } from '../../../ui/lobby/assembly-lobby';
 import { roomListing } from './actions';
+import { requestActiveRoom } from '../active-room';
 
 export const metadata: Metadata = { title: 'Lobby' };
 export default async function LobbyPage({
@@ -16,7 +17,10 @@ export default async function LobbyPage({
   const raw = await searchParams;
   const query = parseRoomDiscoveryQuery(raw);
   if (!query.success) throw createAppError('VALIDATION');
-  const listing = await roomListing(query.data);
+  const [listing, activeRoom] = await Promise.all([
+    roomListing(query.data),
+    requestActiveRoom(),
+  ]);
   if (listing.kind !== 'found') throw createAppError('INFRASTRUCTURE');
   return (
     <AssemblyLobby
@@ -24,6 +28,7 @@ export default async function LobbyPage({
       query={query.data}
       nextCursor={listing.nextCursor}
       retry={listing.retry}
+      activeRoom={activeRoom}
     />
   );
 }

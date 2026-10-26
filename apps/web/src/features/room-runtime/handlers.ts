@@ -1,11 +1,12 @@
 import type { Identity } from '@daisy/auth';
-import { createAppError } from '@daisy/errors';
+import { createAppError, isAppError } from '@daisy/errors';
 import type { Logger } from '@daisy/logger';
 import {
   idSchema,
   roomCommandSchema,
   roomCreateSchema,
   roomListQuerySchema,
+  roomRefusalSchema,
 } from '@daisy/protocol';
 import { consumeOrThrow, type AuthRateLimiter } from '../auth/abuse/rate-limit';
 import {
@@ -82,24 +83,21 @@ export function createRoomHandlers(dependencies: Dependencies) {
           });
         } catch (error) {
           // Refusal reasons are closed domain vocabulary; public errors never expose exception details.
-          const reasons = [
-            'version-conflict',
-            'host-required',
-            'room-closed',
-            'illegal-config',
-            'seat-unavailable',
-            'actor-ineligible',
-            'not-seated',
-            'incomplete-cast',
-            'not-ready',
-            'readiness-unavailable',
-            'prep-running',
-            'prep-unavailable',
-            'command-conflict',
-            'consent-conflict',
-          ];
-          const response = refusalResponse(error, requestId, reasons);
+          const response = refusalResponse(
+            error,
+            requestId,
+            roomRefusalSchema.options,
+          );
           if (!response) throw error;
+          if (isAppError(error) && error.message === 'active-room')
+            // The caller's own Room, so the UI can return them to it.
+            return Response.json(
+              {
+                ...(await response.json()),
+                activeRoom: await dependencies.operations.activeRoom(caller),
+              },
+              { status: response.status },
+            );
           return response;
         }
       },
@@ -149,6 +147,10 @@ export function createRoomHandlers(dependencies: Dependencies) {
           }),
         );
       }),
+    active: (request: Request) =>
+      run(request, 'read', false, async (caller) => ({
+        activeRoom: await dependencies.operations.activeRoom(caller),
+      })),
     catalog: (request: Request) =>
       run(request, 'read', false, async (caller) => ({
         choices: await dependencies.operations.catalog(caller),
