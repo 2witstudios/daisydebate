@@ -21,13 +21,16 @@ export type StagedFrame = {
     readonly beforeMs: number;
     readonly afterMs: number;
   };
-  readonly observedAtMs: number;
 };
-/** Private validation staging only. No WAV, coverage, text or future-grant replay. */
+/**
+ * Private validation staging only. No WAV, coverage, text or future-grant
+ * replay. Unvalidated PCM is bounded by this cap, never by wall-clock age: a
+ * frame waits for the next batch however long that batch's history read
+ * takes, since dropping it would leave a hole in coverage (ISSUE-577).
+ */
 const MAX_STAGED = 4096;
 export function createCaptureStaging(input: {
   readonly current: () => Snapshot;
-  readonly nowMs: () => number;
   readonly dropped: (count: number) => void;
   readonly retained: () => void;
 }) {
@@ -77,7 +80,6 @@ export function createCaptureStaging(input: {
     return {
       seat: peer.roundParticipantId,
       segmentId: current.state.segment.id,
-      observedAtMs: raw.afterMs,
       original: {
         sequence: raw.sequence,
         beforeMs: raw.beforeMs,
@@ -122,12 +124,20 @@ export function createCaptureStaging(input: {
       pending = [...frames, ...pending];
       bound();
     },
+    /** Whether any staged frame belongs to the stream: it may not seal yet. */
+    holds: (stream: {
+      readonly segmentId: string;
+      readonly roundParticipantId: string;
+    }) =>
+      pending.some(
+        (f) =>
+          f.segmentId === stream.segmentId &&
+          f.seat === stream.roundParticipantId,
+      ),
     take() {
       const frames = pending;
       pending = [];
-      const valid = frames.filter((f) => input.nowMs() - f.observedAtMs <= 500);
-      input.dropped(frames.length - valid.length);
-      return valid;
+      return frames;
     },
     clear() {
       input.dropped(pending.length);

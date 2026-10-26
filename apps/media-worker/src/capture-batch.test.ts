@@ -56,7 +56,6 @@ const staged = (
 ): StagedFrame => ({
   seat,
   segmentId,
-  observedAtMs: 0,
   original: { sequence: 0, beforeMs: 0, afterMs: 0 },
   frame: {
     pcm: new Int16Array(160),
@@ -76,7 +75,6 @@ test('a batch frame crossing a grant end the staging cache missed becomes edge e
     roundId: 'r'.repeat(24),
     epoch: 1,
     signal: new AbortController().signal,
-    nowMs: () => 0,
     dropped: () => {},
     straddled: (frame) => straddled.push(frame.nominalStartMs),
     clip: () => {},
@@ -111,7 +109,6 @@ test('a frame newer than the history read is held for the next batch, never drop
     roundId: 'r'.repeat(24),
     epoch: 1,
     signal: new AbortController().signal,
-    nowMs: () => 0,
     dropped: (n) => {
       dropped += n;
     },
@@ -166,7 +163,6 @@ const speechBatch = (
     roundId: 'r'.repeat(24),
     epoch: 1,
     signal: new AbortController().signal,
-    nowMs: () => 0,
     dropped: () => {},
     straddled: () => {},
     clip,

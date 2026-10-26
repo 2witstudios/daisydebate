@@ -52,7 +52,6 @@ function fixture() {
   };
   const staging = createCaptureStaging({
     current: () => state,
-    nowMs: () => now,
     dropped: (n) => {
       dropped += n;
     },
@@ -100,7 +99,7 @@ test('private staging never retains conversation or a closed-edge window for a f
     expected: { frames: 0, dropped: 4, retained: 0 },
   });
 });
-test('private staged PCM keeps original timing and expires before clip encoding', () => {
+test('private staged PCM keeps original timing until a batch takes it, however late', () => {
   const f = fixture();
   f.observe(0, 10);
   f.observe(1, 20.2);
@@ -109,24 +108,46 @@ test('private staged PCM keeps original timing and expires before clip encoding'
   f.expire();
   assert({
     given:
-      'one genuine bounded bracket then an authorization staging delay over500ms',
-    should: 'keep the original copied frame and discard stale remaining PCM',
+      'one genuine bounded bracket, then a frame whose batch comes over 500 ms later behind a slow history read',
+    should:
+      'keep the original copied frame and still hand over the later one, so a slow batch leaves no gap in coverage (ISSUE-577)',
     actual: {
       seat: frame.seat,
       segment: frame.segmentId,
-      observedAt: frame.observedAtMs,
       original: frame.original,
       pcm: frame.frame.pcm[0],
-      stale: f.staging.take().length,
+      later: f.staging.take().map((f) => f.original.sequence),
+      dropped: f.counts().dropped,
     },
     expected: {
       seat: 'p'.repeat(24),
       segment: 'g'.repeat(24),
-      observedAt: 20.3,
       original: { sequence: 1, beforeMs: 20.2, afterMs: 20.3 },
       pcm: 7,
-      stale: 0,
+      later: [2],
+      dropped: 1,
     },
+  });
+});
+test("staging reports whether it still holds a stream's frames", () => {
+  const f = fixture();
+  const stream = {
+    segmentId: 'g'.repeat(24),
+    roundParticipantId: 'p'.repeat(24),
+  };
+  const other = { ...stream, roundParticipantId: 'q'.repeat(24) };
+  const empty = f.staging.holds(stream);
+  f.observe(0, 10);
+  f.observe(1, 20.2);
+  const staged = [f.staging.holds(stream), f.staging.holds(other)];
+  f.staging.take();
+  assert({
+    given:
+      'a stream with nothing staged, then one staged frame, then a batch that takes it',
+    should:
+      "hold its frames only between their arrival and that batch, and never another seat's",
+    actual: [empty, ...staged, f.staging.holds(stream)],
+    expected: [false, true, false, false],
   });
 });
 test('a refused frame crossing a grant edge is kept as edge evidence for its track', () => {

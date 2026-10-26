@@ -71,7 +71,6 @@ export async function runCaptureSession(
   const token = await atStage('token', input.client.token(epoch, signal));
   const staging = createCaptureStaging({
     current: () => current,
-    nowMs: input.nowMs,
     dropped,
     retained: () => {
       stats.stagedFrames++;
@@ -228,7 +227,7 @@ export async function runCaptureSession(
       ).forEach(enqueue);
       // A due stream's carried frames are its last clip; it seals once that is in.
       const sealable = streams
-        .due(Date.parse(current.state.serverNow))
+        .due(Date.parse(current.state.serverNow), staging.holds)
         .filter((stream) => {
           const last = flushClipCarry(carries, input.roundId, stream);
           last.forEach(enqueue);

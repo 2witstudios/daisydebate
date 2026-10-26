@@ -1,8 +1,5 @@
 import { createAppError } from '@daisy/errors';
-import {
-  CAPTURE_BATCH_INTERVAL_MS,
-  STAGED_FRAME_MAX_AGE_MS,
-} from './capture-batch';
+import { CAPTURE_BATCH_INTERVAL_MS } from './capture-batch';
 import type { CaptureState } from './capture-history';
 
 type Stream = {
@@ -19,11 +16,11 @@ type Stream = {
 type Key = Pick<Stream, 'segmentId' | 'roundParticipantId'>;
 
 /**
- * After a segment ends, every one of its staged frames is cut into a clip or
- * dropped within this window: no frame outlives the staging age bound, and the
- * batch loop runs once per interval.
+ * After a segment ends, its last frames still arriving from LiveKit reach
+ * staging within this window; a stream also waits for staging to hand over
+ * every frame it holds (ISSUE-577).
  */
-const SEAL_SETTLE_MS = STAGED_FRAME_MAX_AGE_MS + CAPTURE_BATCH_INTERVAL_MS;
+const SEAL_SETTLE_MS = 500 + CAPTURE_BATCH_INTERVAL_MS;
 
 /**
  * Bounded segment/seat streams this worker seals. A committed nonempty
@@ -85,12 +82,13 @@ export function createStreamTracker(ceiling: number) {
     finished(key: Key) {
       forClip(key).finished = true;
     },
-    /** Streams ready to seal at this server time. */
-    due: (serverNowMs: number) =>
+    /** Streams ready to seal at this server time, none of whose frames `staged` still holds. */
+    due: (serverNowMs: number, staged: (stream: Key) => boolean) =>
       [...streams.values()].filter(
         (stream) =>
           !stream.finished &&
           stream.pending === 0 &&
+          !staged(stream) &&
           stream.endedAtMs !== null &&
           serverNowMs - stream.endedAtMs >= SEAL_SETTLE_MS,
       ),

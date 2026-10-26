@@ -10,7 +10,6 @@ const staged = (
 ): StagedFrame => ({
   seat,
   segmentId,
-  observedAtMs: sequence * 10 + 5,
   original: { sequence, beforeMs: sequence * 10, afterMs: sequence * 10 + 5 },
   frame: {
     pcm: new Int16Array(160).fill(sequence),
