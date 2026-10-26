@@ -1,5 +1,5 @@
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
-import type { RoomView } from '@daisy/protocol';
+import type { RoomListEntry, RoomView } from '@daisy/protocol';
 import type { RoomTemplate } from './read-catalog';
 
 /** Explicit legal-choice fixture, never a production template or default. */
@@ -123,7 +123,7 @@ export const rankedCreateForm = (visibility = 'unlisted') => {
 };
 
 type ListedFacts = Pick<
-  RoomView,
+  RoomListEntry,
   | 'id'
   | 'version'
   | 'title'
@@ -145,7 +145,7 @@ export const seatedListingEntry = ({
   hostLabel,
   status,
   competitionType,
-}: ListedFacts) => ({
+}: ListedFacts): RoomListEntry => ({
   id,
   version,
   title,
