@@ -3,8 +3,10 @@ import { requireTestServices } from '@daisy/config';
 import { createAppError } from '@daisy/errors';
 import { assertRejects } from '@daisy/errors/testing';
 import { sql } from 'drizzle-orm';
+import { drizzle } from 'drizzle-orm/bun-sql';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { BoundedTransactionContext } from '../src/transaction-context';
+import { reconcileCheckInAttempts } from '../src/check-in-attempts';
 import {
   withCheckInAttempt as withAttempt,
   writeCheckInLedger,
@@ -70,6 +72,43 @@ test('actual check-in marker commits before writer BEGIN and closes only after a
         observed: { state: 'pending', receipt: true, identity: true },
         finalState: 'aborted',
       },
+    });
+  }));
+
+test('a refusal answers itself when the reconciler settled its marker first (ISSUE-618)', async () =>
+  withAttempt(async ({ f, run, attempt, lifecycle }) => {
+    let reconciled = 0;
+    await assertRejects({
+      given:
+        'a domain refusal whose writer is gone, and the availability reconciler settling its pending marker before the closing hook',
+      should: 'answer the refusal, not an unconfirmed recovery',
+      code: 'CONFLICT',
+      actual: () =>
+        run(
+          async () => {
+            throw createAppError('CONFLICT');
+          },
+          {
+            executionMs: 900,
+            lifecycle: {
+              open: lifecycle.open,
+              close: async (control, metadata, outcome) => {
+                reconciled = await drizzle({ client: f.sql }).transaction(
+                  (tx) => reconcileCheckInAttempts(tx, 100),
+                );
+                await lifecycle.close(control, metadata, outcome);
+              },
+            },
+          },
+        ),
+    });
+    const [marker] =
+      await f.sql`select state from round_check_in_attempts where attempt_id=${attempt.attemptId}`;
+    assert({
+      given: 'a marker the reconciler aborted after confirmed writer absence',
+      should: 'keep that single verified abort',
+      actual: { reconciled: reconciled > 0, state: marker?.state },
+      expected: { reconciled: true, state: 'aborted' },
     });
   }));
 
