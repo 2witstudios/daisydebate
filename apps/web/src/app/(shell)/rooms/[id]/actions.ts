@@ -51,10 +51,12 @@ export async function submitRoomFormAction(
   form: FormData,
 ): Promise<RoomFormState> {
   const { incoming, result } = await submitRoomCommand(id, form);
+  // A redirect without a fragment inherits the post's #room-setup, which
+  // would keep Room setup open; the empty fragment closes it.
   if (result.kind === 'accepted')
     return hydratedPost(incoming)
       ? { values: {}, view: result.view }
-      : { values: {}, ...moveOn(incoming, `/rooms/${result.view.id}`) };
+      : { values: {}, ...moveOn(incoming, `/rooms/${result.view.id}#`) };
   return refused(
     form,
     result.kind === 'refused' && result.reason === 'version-conflict'
