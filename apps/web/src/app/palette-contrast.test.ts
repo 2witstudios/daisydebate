@@ -147,7 +147,7 @@ const declaredPairs: readonly Pair[] = [
   { fg: '--gold', bg: '--gold-soft', base: '--surface', min: TEXT },
   // Tinted cards on the page: the prep hero (accent), the featured
   // tournament (clay) and the champion card (gold), with page ink and, on
-  // the clay card, the accent fill bar and primary button.
+  // the clay card, the primary button.
   ...on(
     ['--text', '--text-muted'],
     ['--accent-soft', '--hue-clay-soft', '--gold-soft'],
@@ -155,6 +155,8 @@ const declaredPairs: readonly Pair[] = [
   ).map((pair) => ({ ...pair, base: '--background' })),
   { fg: '--gold', bg: '--gold-soft', base: '--background', min: TEXT },
   { fg: '--accent', bg: '--hue-clay-soft', base: '--background', min: UI },
+  // The fill bar: the accent fill against its track.
+  { fg: '--accent', bg: '--border-strong', min: UI },
   // The stage is forest in both schemes and carries its own ink.
   ...on(['--stage-text', '--stage-text-muted'], ['--surface-stage'], TEXT),
   { fg: '--stage-accent-text', bg: '--stage-accent', min: TEXT },

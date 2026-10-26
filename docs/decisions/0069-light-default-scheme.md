@@ -3,7 +3,8 @@
 Status: accepted (owner decision, 2026-10-26). Supersedes the default-scheme
 clause of [ADR 0027](0027-theme-preference.md) (decision 1 and the cookie
 fallback in decision 2) and of [ADR 0045](0045-daisy-brand-system.md)
-(section 1). Every other part of both records stands.
+(section 1), and replaces ADR 0045's list of stage surfaces. Every other
+part of both records stands.
 
 ## Context
 
@@ -30,6 +31,8 @@ page, and it is the scheme first-time visitors should meet.
    hero the accent tint, the featured tournament the clay tint (ADR 0051)
    with the page buttons, and the champion card the gold honour tint.
    `stageColourClasses` guards each of them against the stage's cream ink.
+   The dashboard's featured tournament is the one remaining non-video
+   stage, tracked by ISSUE-593.
 
 ## Consequences
 

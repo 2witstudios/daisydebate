@@ -30,7 +30,6 @@ export function confirmPageStylesheet(): string {
   --af-accent: ${lightDark('accent')};
   --af-accent-strong: ${lightDark('accentStrong')};
   --af-accent-ink: ${lightDark('accentInk')};
-  --af-gold: ${lightDark('gold')};
   --af-mark-cardinal: ${lightDark('markCardinal')};
   --af-mark-diagonal: ${lightDark('markDiagonal')};
   --af-yolk: ${lightDark('yolk')};

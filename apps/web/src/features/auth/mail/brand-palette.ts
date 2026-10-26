@@ -16,7 +16,6 @@ export type BrandPalette = {
   readonly accent: string;
   readonly accentStrong: string;
   readonly accentInk: string;
-  readonly gold: string;
   /** The primary mark's petals, which follow the scheme. */
   readonly markCardinal: string;
   readonly markDiagonal: string;
@@ -41,7 +40,6 @@ export const AUTH_BRAND_PALETTE: {
     accent: '#173b2a',
     accentStrong: '#0e2a1c',
     accentInk: '#f5f0e4',
-    gold: '#7e5c12',
     markCardinal: '#173b2a',
     markDiagonal: '#a7c09c',
     yolk: '#f2c14e',
@@ -59,7 +57,6 @@ export const AUTH_BRAND_PALETTE: {
     accent: '#a7c09c',
     accentStrong: '#bdd2b2',
     accentInk: '#173b2a',
-    gold: '#f0cf7a',
     markCardinal: '#f5f0e4',
     markDiagonal: '#f5f0e4',
     yolk: '#f2c14e',

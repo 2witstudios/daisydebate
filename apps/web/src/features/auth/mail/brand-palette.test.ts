@@ -35,7 +35,6 @@ const SHARED_TOKENS: Record<string, keyof typeof AUTH_BRAND_PALETTE.light> = {
   accent: 'accent',
   'accent-strong': 'accentStrong',
   'accent-text': 'accentInk',
-  gold: 'gold',
 };
 
 test('brand-palette.ts stays equal to globals.css for every shared token', () => {

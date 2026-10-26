@@ -54,9 +54,9 @@ read on the forest-black page.
   `--stage-accent` / `--stage-accent-strong` button with forest
   `--stage-accent-text`. Stage content uses `text-stage-ink` and the
   `stage-accent` classes, never the page's `text-ink` or `bg-accent`:
-  in light those are forest on forest. The render tests of each stage
-  surface (the auth panel and its step bodies, the featured tournament)
-  fail on any page-palette colour class.
+  in light those are forest on forest. Which surfaces take the stage is
+  set by [ADR 0069](0069-light-default-scheme.md); a stage surface's render
+  test fails on any page-palette colour class.
 - `--gold` becomes brass in light (`#7e5c12`) and butter in dark
   (`#f0cf7a`), for honours. `--live`, `--online` and `--tier-diamond` are
   retuned for contrast on the new surfaces.
@@ -192,7 +192,7 @@ if either class appears anywhere outside the brand sheet (DEC-32).
 - Pages that the Next stylesheet never reaches (the AUTH-4.7 confirm pages
   and the auth email) read the palette as static values from
   `apps/web/src/features/auth/mail/brand-palette.ts`, which a test pins to
-  `globals.css`, stage tokens included. The confirm pages draw both marks
+  `globals.css`. The confirm pages draw both marks
   from `bloomPetals`; their brand panel follows
   [ADR 0069](0069-light-default-scheme.md).
   The mark tokens are in the palette too.

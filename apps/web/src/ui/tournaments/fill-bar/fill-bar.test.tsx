@@ -36,14 +36,15 @@ describe('FillBar', () => {
 });
 
 describe('fill classes', () => {
-  test('an accent bar on an overlay track', () => {
+  test('an accent bar on a strong-border track', () => {
     assert({
       given: 'a half-full bar',
-      should: 'fill six twelfths in the accent on the overlay track',
+      should:
+        'fill six twelfths in the accent on a track that still shows on tinted cards',
       actual: [fillBarClass(50), fillTrackClass()],
       expected: [
         'block h-full rounded-round bg-accent w-6/12',
-        'block h-1 w-full overflow-hidden rounded-round bg-surface-overlay',
+        'block h-1 w-full overflow-hidden rounded-round bg-border-strong',
       ],
     });
   });

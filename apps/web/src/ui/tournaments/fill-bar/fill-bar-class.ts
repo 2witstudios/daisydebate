@@ -21,6 +21,6 @@ export const fillWidthClass = (percent: number): string =>
   widths[Math.round((Math.min(100, Math.max(0, percent)) * 12) / 100)] ?? 'w-0';
 
 export const fillTrackClass = (): string =>
-  'block h-1 w-full overflow-hidden rounded-round bg-surface-overlay';
+  'block h-1 w-full overflow-hidden rounded-round bg-border-strong';
 export const fillBarClass = (percent: number): string =>
   `block h-full rounded-round bg-accent ${fillWidthClass(percent)}`;

@@ -39,8 +39,8 @@ change, open the brand sheet on `/foundation` with
 
 The stage is forest in both schemes and is reserved for surfaces that frame
 live video or a replay (ADR 0069): the spectate stage, the replay player and
-the round's media tiles, plus the lobby's featured tournament until its
-redesign. Everything else, including brand panels and hero cards, sits on
+the round's media tiles. The dashboard's featured tournament still uses it
+until ISSUE-593 moves it. Everything else, including brand panels and hero cards, sits on
 the page palette (`bg-surface-raised`, `bg-surface-overlay`, an accent,
 area-hue or gold tint) with page ink.
 
