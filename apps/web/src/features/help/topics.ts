@@ -33,7 +33,7 @@ export const helpTopics: readonly HelpTopic[] = [
       'Ranked debates follow the standard rules, use a judge Daisy assigns, and change your rating. Casual rooms are unranked and let the host choose the settings.',
     links: [
       { label: 'Ranked', href: '/ranked' },
-      { label: 'Leaderboards', href: '/leaderboard' },
+      { label: 'Leaderboard', href: '/leaderboard' },
     ],
   },
   {

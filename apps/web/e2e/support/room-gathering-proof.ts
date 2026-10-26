@@ -10,7 +10,7 @@ export async function enterLobbyRoom(page: Page, view: RoomView) {
   await expect(
     page.getByRole('heading', { name: 'Lobby', exact: true }),
   ).toBeVisible();
-  const list = page.getByRole('list', { name: 'Available rooms' });
+  const list = page.getByRole('region', { name: 'Available rooms' });
   await expect(list).toBeVisible();
   const room = list.locator(`a[href="/rooms/${view.id}"]`);
   const next = page.getByRole('link', { name: 'Next page', exact: true });

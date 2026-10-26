@@ -23,7 +23,7 @@ export function InDebatePage({ view, loadedAt }: InDebatePageProps) {
       <div className="flex min-w-0 flex-1 flex-col gap-4 px-6 pt-5 pb-8 max-compact:px-4">
         <header className="flex flex-wrap items-center gap-3">
           <h1 className="font-display text-2xl leading-tight font-bold tracking-tight">
-            Ranked table, serious only
+            Ranked room, serious only
           </h1>
           <Badge tone="gold">Ranked</Badge>
           <span className="ml-auto text-sm text-ink-muted">14 watching</span>

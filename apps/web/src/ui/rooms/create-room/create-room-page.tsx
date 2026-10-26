@@ -57,7 +57,7 @@ export function CreateRoomPage({
           className="flex w-rail shrink-0 flex-col gap-4 max-compact:w-full"
         >
           <Notice tone="accent" icon="trophy" title="This room is unranked">
-            <Link href="/ranked/host">Host a ranked table</Link>
+            <Link href="/ranked/host">Host a ranked room</Link>
           </Notice>
         </aside>
       </div>

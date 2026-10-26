@@ -33,7 +33,7 @@ const sheetLinkClass =
   'flex min-h-tab items-center rounded-md px-4 text-base text-ink no-underline hover:bg-surface-overlay hover:no-underline';
 
 /** The destinations that get a tab of their own. */
-const tabbed = new Set(['/', '/play', '/prep']);
+const tabbed = new Set(['/', '/lobby', '/prep']);
 
 /** The four tabs before More: Home, Play, Prep, and Inbox or the way in. */
 const tabsFor = (account: ShellAccount): readonly Tab[] => [

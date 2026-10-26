@@ -1,6 +1,7 @@
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { Dashboard } from './dashboard';
+import { HeroBanner } from './hero-banner/hero-banner';
 import { tiles } from './tiles';
 import { tournament } from '../mock/tournament';
 import { initialLinkForm } from '../auth/request-link';
@@ -10,7 +11,11 @@ setupRitewayBun();
 
 const render = (): string =>
   renderInStore(
-    h(Dashboard, { requestLink: () => Promise.resolve(initialLinkForm) }),
+    h(Dashboard, {
+      hero: h(HeroBanner, {
+        requestLink: () => Promise.resolve(initialLinkForm),
+      }),
+    }),
   );
 
 describe('Dashboard', () => {

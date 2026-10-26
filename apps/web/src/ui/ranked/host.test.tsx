@@ -24,7 +24,7 @@ const render = (
 describe('Host, editing', () => {
   const html = render({ step: 'edit', band: 200 });
 
-  test('a GET form with the band, Post table and Cancel', () => {
+  test('a GET form with the band, Post room and Cancel', () => {
     assert({
       given: 'the edit step',
       should: 'be a GET form to the host route with a named select and submit',
@@ -85,8 +85,8 @@ describe('Host, editing', () => {
   test('offers casual custom rules through the lobby', () => {
     assert({
       given: 'the rules note',
-      should: 'link hosting a casual table to the lobby',
-      actual: /href="\/lobby"[^>]*>host a casual table/.test(html),
+      should: 'link hosting a casual room to the lobby',
+      actual: /href="\/lobby"[^>]*>open a casual room/.test(html),
       expected: true,
     });
   });
@@ -95,12 +95,12 @@ describe('Host, editing', () => {
 describe('Host, posted', () => {
   const html = render({ step: 'posted', band: 100 });
 
-  test('confirms the table and links on', () => {
+  test('confirms the room and links on', () => {
     assert({
       given: 'the posted step',
-      should: 'confirm, show the span and link the lobby and Close table',
+      should: 'confirm, show the span and link the lobby and Close room',
       actual: [
-        html.includes('Your table is in the lobby'),
+        html.includes('Your room is in the lobby'),
         html.includes('Ratings 1312 to 1512 can take the seat'),
         html.includes('href="/lobby"'),
         html.includes('href="/ranked/host?band=100"'),

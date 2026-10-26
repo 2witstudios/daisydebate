@@ -19,7 +19,7 @@ export default async function ShellLayout({
   const identity = await requestIdentity();
   return (
     <UiStoreProvider>
-      <AppShell account={shellAccount(identity)}>
+      <AppShell account={shellAccount(identity)} activeRoom={null}>
         <Suspense fallback={null}>
           <SampleActionNotice />
         </Suspense>

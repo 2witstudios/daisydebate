@@ -133,7 +133,7 @@ test.describe('dashboard shell chrome', () => {
     await expect(recordings).not.toBeVisible();
     await tabs.getByText('More', { exact: true }).click();
     await expect(recordings).toBeVisible();
-    await tabs.getByRole('link', { name: 'Leaderboards' }).click();
+    await tabs.getByRole('link', { name: 'Leaderboard' }).click();
     await expect(page).toHaveURL(/\/leaderboard$/);
     await expect(recordings).not.toBeVisible();
     // Nothing reaches past the screen's edge.

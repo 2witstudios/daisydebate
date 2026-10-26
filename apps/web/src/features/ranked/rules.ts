@@ -23,7 +23,7 @@ export const rankedRules = ({
     id: 'standard-rules',
     icon: 'book',
     title: 'Standard rules',
-    body: 'Every ranked debate uses the standard rules. Custom rules are for casual tables.',
+    body: 'Every ranked debate uses the standard rules. Custom rules are for casual rooms.',
   },
   {
     id: 'assigned-judge',

@@ -23,8 +23,8 @@ export const activeRoomPhaseLabel = (
 export const activeRoomDotClass = (phase: ActiveRoomSummary['phase']) =>
   statusDotClass(phase === 'live' ? 'live' : 'online');
 
-/** Yolk on the forest stage: the one bright control on the card. */
-const returnClass =
+/** Yolk on the forest stage: the one bright control on a stage card. */
+export const stageActionClass =
   'inline-flex items-center justify-center rounded-sm bg-yolk px-5 py-3 text-base leading-tight font-strong text-forest no-underline hover:bg-butter hover:no-underline';
 
 /**
@@ -46,7 +46,7 @@ export function YourRoom({ room }: { readonly room: ActiveRoomSummary }) {
       </div>
       <MediaPageLink
         href={room.href}
-        className={returnClass}
+        className={stageActionClass}
       >
         Return to room
       </MediaPageLink>

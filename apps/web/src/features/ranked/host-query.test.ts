@@ -49,7 +49,7 @@ describe('parseHostQuery', () => {
 describe('hostHref', () => {
   test('only non-default values appear', () => {
     assert({
-      given: 'the default, a band and a posted table',
+      given: 'the default, a band and a posted room',
       should: 'build the shortest URL',
       actual: [
         hostHref(defaultHostQuery),

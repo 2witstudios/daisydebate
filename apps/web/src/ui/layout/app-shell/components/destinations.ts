@@ -14,9 +14,9 @@ type Destination = {
 /** The eight primary destinations, in rail order. */
 export const primaryDestinations: readonly Destination[] = [
   { href: '/', icon: 'home', label: 'Home' },
-  { href: '/play', icon: 'swords', label: 'Play' },
+  { href: '/lobby', icon: 'swords', label: 'Play' },
   { href: '/tournaments', icon: 'trophy', label: 'Tournaments' },
-  { href: '/leaderboard', icon: 'chart', label: 'Leaderboards' },
+  { href: '/leaderboard', icon: 'chart', label: 'Leaderboard' },
   {
     href: '/watch',
     icon: 'eye',

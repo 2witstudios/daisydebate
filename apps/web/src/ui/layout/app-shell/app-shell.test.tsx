@@ -2,14 +2,22 @@ import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { AppShell } from './app-shell';
 import type { ShellAccount } from './account';
+import type { ActiveRoomSummary } from '../../active-room/your-room';
 import { occurrences, renderInStore } from '../../test-support/render-in-store';
 
 setupRitewayBun();
 
 const member: ShellAccount = { state: 'member', username: 'ada-byron' };
 
-const render = (account: ShellAccount = { state: 'anonymous' }): string =>
-  renderInStore(h(AppShell, { account, children: h('p', null, 'page') }));
+const roomHref = `/rooms/${'a'.repeat(24)}`;
+
+const render = (
+  account: ShellAccount = { state: 'anonymous' },
+  activeRoom: ActiveRoomSummary | null = null,
+): string =>
+  renderInStore(
+    h(AppShell, { account, activeRoom, children: h('p', null, 'page') }),
+  );
 
 /** The markup of the rail (the first nav) or the tab bar (the second). */
 const navs = (html: string): readonly [string, string] => {
@@ -69,7 +77,7 @@ describe('AppShell', () => {
         [
           '/',
           '/',
-          '/play',
+          '/lobby',
           '/tournaments',
           '/leaderboard',
           '/watch',
@@ -142,8 +150,8 @@ describe('AppShell', () => {
         summary.includes('More'),
       ],
       expected: [
-        ['/', '/play', '/prep', '/messages'],
-        ['/', '/play', '/prep', '/sign-in'],
+        ['/', '/lobby', '/prep', '/messages'],
+        ['/', '/lobby', '/prep', '/sign-in'],
         true,
       ],
     });
@@ -172,6 +180,25 @@ describe('AppShell', () => {
         '/terms',
         '/privacy',
       ],
+    });
+  });
+
+  test('a member in a Room sees the way back above the page', () => {
+    const inRoom = render(member, {
+      title: 'Tuesday night',
+      phase: 'assembling',
+      href: roomHref,
+    });
+    const main = inRoom.slice(inRoom.indexOf('<main'));
+    assert({
+      given: 'a member holding an assembling Room, and one holding none',
+      should: 'open the main column with Return to room, and add nothing otherwise',
+      actual: [
+        main.indexOf(`href="${roomHref}"`) < main.indexOf('<p>page</p>'),
+        main.includes('Return to room'),
+        render(member).includes('Return to room'),
+      ],
+      expected: [true, true, false],
     });
   });
 });

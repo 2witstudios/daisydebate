@@ -48,7 +48,10 @@ export function RoomList({
   readonly sections: readonly LobbySection[];
 }) {
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-surface-raised">
+    <section
+      aria-label="Available rooms"
+      className="overflow-hidden rounded-lg border border-border bg-surface-raised"
+    >
       {sections.map((section) => (
         <section key={section.id} aria-labelledby={`lobby-${section.id}`}>
           <h2
@@ -64,6 +67,6 @@ export function RoomList({
           </ul>
         </section>
       ))}
-    </div>
+    </section>
   );
 }
