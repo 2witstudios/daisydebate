@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
   pull_request:
+  merge_group:
+    types: [checks_requested]
   # AUTH-6.2-AC7: the release-qualification gate (three consecutive full
   # suite runs, retries disabled) is not a per-PR check — it runs only on
   # manual dispatch, on this uncontended runner instead of a shared
@@ -20,7 +22,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  quick-check:
+    uses: ./.github/workflows/quick-check.yml
+
   e2e:
+    needs: quick-check
     name: Playwright E2E
     runs-on: ubuntu-24.04
     # A manual dispatch runs the three-consecutive-run release
@@ -208,6 +214,7 @@ jobs:
           retention-days: 30
 
   room-launch:
+    needs: quick-check
     name: Isolated Room Launch E2E
     runs-on: ubuntu-24.04
     # One shared slot keeps the suite on a single worker: about 3 min of

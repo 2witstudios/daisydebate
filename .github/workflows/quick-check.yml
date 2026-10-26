@@ -1,0 +1,49 @@
+name: Quick check
+on:
+  push:
+    branches: ['pu/**']
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch or commit to check
+        required: true
+        type: string
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  quick-check:
+    name: Quick check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      TURBO_TELEMETRY_DISABLED: '1'
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: .bun-version
+      - run: bun install --frozen-lockfile
+      - uses: ./.github/actions/turbo-cache
+        with:
+          task: quick-check
+      - name: Run and measure affected gates
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.sha || 'origin/main' }}
+          FULL: ${{ github.event_name == 'merge_group' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.ref == '') }}
+        run: |
+          started=$SECONDS
+          args=()
+          if [ "$FULL" = true ]; then args+=(--full); fi
+          bun run check:affected "$BASE_REF" "${args[@]}"
+          echo "### Quick check: $((SECONDS - started)) seconds" >> "$GITHUB_STEP_SUMMARY"
+          echo "Candidate: $(git rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"
+      - uses: ./.github/actions/turbo-cache
+        with:
+          task: quick-check
+          phase: save
