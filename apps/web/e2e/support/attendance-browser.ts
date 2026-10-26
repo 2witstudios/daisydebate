@@ -134,6 +134,8 @@ export async function nextReceipt(
     body = await response.json();
     return true;
   });
+  // A failed action leaves this wait unawaited; report only that failure.
+  pending.catch(() => undefined);
   page.on('request', track);
   try {
     await action();

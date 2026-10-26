@@ -13,9 +13,7 @@ import {
 import { effectsRan } from './hydration';
 import { pressByKeyboard } from './focus';
 import { expectNotInUrl } from './forms';
-import { z } from 'zod';
-import { idSchema } from '@daisy/protocol';
-import { listenForChannelBells } from './channel-bells';
+import { listenForChannelBells, seedControlMessage } from './channel-bells';
 import {
   manageNativeReactions,
   openRefusedMessageControls,
@@ -249,13 +247,24 @@ export function testMessageControlFocus() {
           );
           if (buttonName.includes('message')) await page.goto(message.path);
           else {
-            await page.goto(
-              `/messages/${journey.channelId}/reactions?messageId=${message.id}`,
-            );
+            const reactions = `/messages/${journey.channelId}/reactions?messageId=${message.id}`;
+            await page.goto(reactions);
             if (buttonName === 'Remove 👍') {
-              await page
-                .getByRole('button', { name: 'React 👍', exact: true })
-                .click();
+              // The reaction rings its own doorbell: reopen the page once
+              // it has rung, so the proof's form is not remounted mid-way.
+              const bells = await listenForChannelBells(
+                journey.sender,
+                journey.channelId,
+              );
+              try {
+                await page
+                  .getByRole('button', { name: 'React 👍', exact: true })
+                  .click();
+                await bells.heard(message.changeVersion + 1);
+              } finally {
+                await bells.close();
+              }
+              await page.goto(reactions);
               await expect(
                 page.getByRole('button', { name: buttonName, exact: true }),
               ).toBeVisible();
@@ -269,44 +278,3 @@ export function testMessageControlFocus() {
     }
   }
 }
-
-/**
- * Setup uses the actual authenticated send route and this rendered composer's
- * request ID. The seed's doorbell rings after the POST answers: a bell still
- * in flight when the control page subscribes refetches that page and remounts
- * its form mid-proof, dropping the notice and the retained draft. Another
- * member's subscribed page hears the bell first, so it has already rung.
- */
-async function seedControlMessage(
-  page: Page,
-  channelId: string,
-  member: BrowserContext,
-) {
-  const bells = await listenForChannelBells(member, channelId);
-  try {
-    const requestId = await page
-      .getByLabel('Your message')
-      .locator('xpath=ancestor::form')
-      .locator('input[name="requestId"]')
-      .inputValue();
-    const text = 'Keyboard message controls contribution';
-    const response = await page.request.post('/api/messaging/messages', {
-      headers: { origin: new URL(page.url()).origin },
-      data: { version: 1, channelId, requestId, text },
-    });
-    expect(response.ok()).toBe(true);
-    const seeded = seededMessageSchema.parse(await response.json());
-    await expect
-      .poll(() => Math.max(0, ...bells.changeVersions))
-      .toBeGreaterThanOrEqual(seeded.changeVersion);
-    const id = seeded.id;
-    return { id, text, path: `/messages/${channelId}/message?messageId=${id}` };
-  } finally {
-    await bells.close();
-  }
-}
-
-const seededMessageSchema = z.object({
-  id: idSchema,
-  changeVersion: z.number().int().positive(),
-});
