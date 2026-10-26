@@ -63,21 +63,22 @@ jobs:
         with:
           bun-version: '1.4.2'
       - run: bun install --frozen-lockfile
+      - name: Start task measurement
+        run: echo "CI_TASK_STARTED=$(date +%s)" >> "$GITHUB_ENV"
       - uses: ./.github/actions/turbo-cache
         with:
           task: checks-${{ matrix.task }}
-      - name: Run and measure task
-        run: |
-          started=$SECONDS
-          bun run ${{ matrix.task }}
-          echo "### $TASK: $((SECONDS - started)) seconds (Turbo reports cache hits above)" >> "$GITHUB_STEP_SUMMARY"
+      - run: bun run ${{ matrix.task }}
         env:
-          TASK: ${{ matrix.task }}
           GH_TOKEN: ${{ matrix.task == 'policy' && github.token || '' }}
       - uses: ./.github/actions/turbo-cache
         with:
           task: checks-${{ matrix.task }}
           phase: save
+      - name: Report task measurement
+        env:
+          TASK: ${{ matrix.task }}
+        run: echo "### $TASK — $(( $(date +%s) - CI_TASK_STARTED )) seconds including cache restore/save" >> "$GITHUB_STEP_SUMMARY"
 
   # Exercise the pruned image inputs used by both web and migrator, not
   # only the full-checkout install in the checks matrix (ISSUE-405).
