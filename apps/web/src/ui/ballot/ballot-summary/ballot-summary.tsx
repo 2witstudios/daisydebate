@@ -5,16 +5,19 @@ import { ballotEyebrowClass, ballotHeadingClass } from '../ballot-class';
 
 /**
  * One judge's written ballot: who they voted for, the reason both debaters
- * see, and the feedback each debater was given.
+ * see, and the feedback each debater was given (on a released ballot, only
+ * the reader's own).
  */
 export function BallotSummary({
   title,
   ballot,
   debaters,
+  feedbackTitle = 'Feedback',
 }: {
   readonly title: string;
   readonly ballot: Ballot;
   readonly debaters: BallotDebaters;
+  readonly feedbackTitle?: string;
 }) {
   const feedback = debateSides.flatMap((side) => {
     const text = ballot.feedback[side];
@@ -25,16 +28,16 @@ export function BallotSummary({
       aria-label={title}
       className="flex flex-col gap-4 rounded-lg border border-border bg-background p-5"
     >
-      <header className="flex flex-col gap-1">
+      <div className="flex flex-col gap-1">
         <h3 className={ballotHeadingClass}>{title}</h3>
         <p className="text-sm text-ink-muted">
           {`Voted ${debaters[ballot.winner].name}`}
         </p>
-      </header>
+      </div>
       <p className="text-base text-ink">{ballot.reason}</p>
       {feedback.length > 0 ? (
         <div className="flex flex-col gap-3">
-          <h4 className={ballotEyebrowClass}>Feedback</h4>
+          <h4 className={ballotEyebrowClass}>{feedbackTitle}</h4>
           <ul className="flex flex-col gap-3">
             {feedback.map(({ side, text }) => (
               <li key={side} className="flex items-start gap-3">

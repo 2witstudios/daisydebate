@@ -1,6 +1,7 @@
 import { createAppError } from '@daisy/errors';
 import { createRoundJudgingJobs } from './round-judging-jobs';
 import { createBotPublicationOperations } from './bot-publication';
+import { createRoundFeedbackJobs } from './round-feedback';
 import type { BoundedTransaction } from './bounded-transaction';
 
 export type JudgingOptions = Omit<
@@ -11,6 +12,11 @@ export type BotPublicationOptions = Omit<
   Parameters<typeof createBotPublicationOperations>[0],
   'run' | 'nextId'
 >;
+export type CoachingOptions = Omit<
+  Parameters<typeof createRoundFeedbackJobs>[0],
+  'run'
+>;
+type Coaching = ReturnType<typeof createRoundFeedbackJobs>;
 type Jobs = ReturnType<typeof createRoundJudgingJobs>;
 type Workers = ReturnType<typeof createBotPublicationOperations>;
 function configured<T>(value: T | undefined): T {
@@ -22,13 +28,17 @@ function configured<T>(value: T | undefined): T {
   return value;
 }
 
-/** Both durable workers share the root's actual writer/watchdog admission counter. */
+/** The durable workers share the root's actual writer/watchdog admission counter. */
 export function roundWorkerEntrypoints(input: {
   readonly run: BoundedTransaction;
   readonly nextId: () => string;
   readonly judging: JudgingOptions | undefined;
   readonly botPublication: BotPublicationOptions | undefined;
+  readonly coaching?: CoachingOptions | undefined;
 }) {
+  const coaching = input.coaching
+    ? createRoundFeedbackJobs({ run: input.run, ...input.coaching })
+    : undefined;
   const jobs = input.judging
     ? createRoundJudgingJobs({
         run: input.run,
@@ -44,6 +54,14 @@ export function roundWorkerEntrypoints(input: {
       })
     : undefined;
   return {
+    scanRoundFeedbackJobs: (...args: Parameters<Coaching['scan']>) =>
+      coaching ? coaching.scan(...args) : Promise.resolve([]),
+    claimRoundFeedbackJob: (...args: Parameters<Coaching['claim']>) =>
+      configured(coaching).claim(...args),
+    recordRoundFeedbackUsage: (...args: Parameters<Coaching['recordUsage']>) =>
+      configured(coaching).recordUsage(...args),
+    completeRoundFeedbackJob: (...args: Parameters<Coaching['complete']>) =>
+      configured(coaching).complete(...args),
     scanRoundJudgingJobs: (limit: number) =>
       jobs ? jobs.scan(limit) : Promise.resolve([]),
     claimRoundJudgingJob: (...args: Parameters<Jobs['claim']>) =>

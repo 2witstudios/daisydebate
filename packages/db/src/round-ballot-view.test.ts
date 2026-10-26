@@ -10,7 +10,11 @@ const scores = {
   affirmative: Object.fromEntries(ballotCategories.map((key) => [key, 4])),
   negative: Object.fromEntries(ballotCategories.map((key) => [key, 3])),
 };
-const row = (judgeParticipantId: string, citations: unknown = null) =>
+const row = (
+  judgeParticipantId: string,
+  citations: unknown = null,
+  feedback: unknown = null,
+) =>
   ({
     id: `ballot-${judgeParticipantId}`,
     judgeParticipantId,
@@ -20,7 +24,7 @@ const row = (judgeParticipantId: string, citations: unknown = null) =>
     winner: 'affirmative',
     scores,
     reason: 'Clearer weighing.',
-    feedback: null,
+    feedback,
     citations,
     status: 'submitted',
   }) as unknown as Row;
@@ -61,12 +65,16 @@ test('judges see their own ballot and the frozen input, others’ only after com
   const open = ballotReadView({
     status: 'active',
     ownSeatId: 'judge-h',
+    viewerSide: undefined,
+    aiJudgeSeatIds: new Set(['judge-b']),
     rows,
     frozen,
   });
   const done = ballotReadView({
     status: 'completed',
     ownSeatId: undefined,
+    viewerSide: undefined,
+    aiJudgeSeatIds: new Set(['judge-b']),
     rows,
     frozen: null,
   });
@@ -97,8 +105,8 @@ test('judges see their own ballot and the frozen input, others’ only after com
         own: null,
         freeze: null,
         ballots: [
-          { status: 'submitted', ballot: body },
-          { status: 'submitted', ballot: body },
+          { status: 'submitted', judge: 'human', ballot: body },
+          { status: 'submitted', judge: 'ai', ballot: body },
         ],
       },
     },
@@ -112,6 +120,8 @@ test('a judge who has not submitted sees an empty own ballot', () => {
     actual: ballotReadView({
       status: 'active',
       ownSeatId: 'judge-h',
+      viewerSide: undefined,
+      aiJudgeSeatIds: new Set(),
       rows: [row('judge-b')],
       frozen,
     }).own,
@@ -120,6 +130,37 @@ test('a judge who has not submitted sees an empty own ballot', () => {
       status: null,
       ballot: null,
       freezeRevision: null,
+    },
+  });
+});
+
+test('a released ballot carries feedback only for the reader’s own side', () => {
+  const feedback = {
+    affirmative: 'Weigh earlier.',
+    negative: 'Answer the turn.',
+  };
+  const view = (viewerSide: 'affirmative' | 'negative' | undefined) =>
+    ballotReadView({
+      status: 'completed',
+      ownSeatId: undefined,
+      viewerSide,
+      aiJudgeSeatIds: new Set(),
+      rows: [row('judge-h', null, feedback)],
+      frozen: null,
+    }).ballots.map((entry) => entry.ballot.feedback);
+  assert({
+    given: 'a ballot with feedback for both sides',
+    should:
+      'give each debater only their own feedback and a spectator or judge none',
+    actual: {
+      affirmative: view('affirmative'),
+      negative: view('negative'),
+      other: view(undefined),
+    },
+    expected: {
+      affirmative: [{ affirmative: 'Weigh earlier.' }],
+      negative: [{ negative: 'Answer the turn.' }],
+      other: [{}],
     },
   });
 });

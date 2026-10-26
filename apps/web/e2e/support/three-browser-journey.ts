@@ -7,6 +7,7 @@ import {
   type RoomView,
   type RoundView,
 } from '@daisy/protocol';
+import { expectRoundResult } from './round-result-proof';
 import { expect, openPage } from './fixtures';
 import { origin } from './accounts';
 import { createRoomLaunchAccounts } from './room-launch-accounts';
@@ -277,10 +278,10 @@ export async function proveThreeBrowserRound(browser: Browser) {
     });
     await expect(played.negative).toHaveURL(`/rounds/${first.roundId}`);
     await judge!.goto(`/rounds/${first.roundId}`);
-    for (const page of [host, played.negative, judge!])
-      await expect(
-        page.getByText('Result · Negative won', { exact: true }),
-      ).toBeVisible();
+    await expectRoundResult(
+      { debaters: [host, played.negative], judge: judge! },
+      'Result · Negative won',
+    );
     const finished = await readRound(host, first.roundId);
     expect([finished.status, finished.outcome]).toEqual([
       'completed',

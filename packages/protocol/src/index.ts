@@ -255,6 +255,7 @@ export {
 } from './round-ballot-read';
 export type {
   RoundBallotRead,
+  RoundCoaching,
   RoundJudgeAssignment,
 } from './round-ballot-read';
 export {

@@ -1,5 +1,4 @@
 import { readPersistedBallot } from '../../judge/ballot/[debateId]/actions';
-import { RoundBallotResults } from '../../../../ui/ballot/round-ballot-results';
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import { createAppError } from '@daisy/errors';
@@ -9,6 +8,7 @@ import { requireAccess } from '../../../../lib/access';
 import { isLiveDebater } from '../../../../ui/debate-room/live-round';
 import { RoundDocuments } from '../../../../ui/debate-room/round-documents';
 import { RoundReceipt } from '../../../../ui/rooms/round-receipt/round-receipt';
+import { RoundResult } from '../../../../ui/round-result/round-result';
 
 import { readPersistedRound } from './actions';
 import { MediaDocument } from '../../../../ui/round-media/media-document';
@@ -50,8 +50,9 @@ export default async function RoundPage({
   return (
     <>
       <MediaDocument />
-      <RoundReceipt round={result.round} />
-      {ballots ? <RoundBallotResults view={ballots} /> : null}
+      <RoundReceipt round={result.round}>
+        {ballots ? <RoundResult view={ballots} /> : null}
+      </RoundReceipt>
       {ownsFiles ? <RoundDocuments roundId={result.round.id} /> : null}
     </>
   );

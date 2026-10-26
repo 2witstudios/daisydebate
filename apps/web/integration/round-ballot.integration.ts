@@ -18,8 +18,11 @@ import {
 
 setupRitewayBun();
 requireTestServices(process.env);
-const ruling = (winner: Ballot['winner']) =>
-  fixtureBallot('The decisive clash was answered by this side.', winner);
+const notes = { affirmative: 'Weigh earlier.', negative: 'Answer the turn.' };
+const ruling = (winner: Ballot['winner']): Ballot => ({
+  ...fixtureBallot('The decisive clash was answered by this side.', winner),
+  feedback: notes,
+});
 
 test('all actual human judges submit one shared ballot against actual frozen input before the engine completes', async () => {
   await withRoomRuntime(async (f) => {
@@ -89,10 +92,10 @@ test('all actual human judges submit one shared ballot against actual frozen inp
       should:
         'expose input and own seat only to the assigned judge without hidden judge identifiers in the debater response',
       actual: [
-        ownRead.own?.participantId,
-        ownRead.freeze?.revision,
-        opponentRead.freeze,
-        opponentRead.own,
+        ownRead.read.own?.participantId,
+        ownRead.read.freeze?.revision,
+        opponentRead.read.freeze,
+        opponentRead.read.own,
         seats.some(
           (seat) =>
             JSON.stringify(opponentRead).includes(seat.id) ||
@@ -178,6 +181,62 @@ test('all actual human judges submit one shared ballot against actual frozen inp
         await operation.submit(principal, roundId, first),
       ],
       expected: ['draw', fresh.version + 1, 'draw', 'completed', receipt],
+    });
+    // ISSUE-602: each released ballot names its kind of judge and carries
+    // only the reader's own side's feedback; the transcript is for seats.
+    const readAs = (caller: { userId: string; actorId: string }) =>
+      f.store.readRoundBallot({
+        roundId,
+        caller,
+        authorize: (round, account) => canReadRound(caller, round, account),
+      });
+    const sideOf = (actorId: string) =>
+      done.participants.find((p) => p.actorId === actorId)!.role as
+        'affirmative' | 'negative';
+    const released = await Promise.all(
+      [f.host, f.guest, judges[1]!].map(async (caller) => {
+        const { read, coaching } = await readAs(caller);
+        return {
+          judges: read.ballots.map((entry) => entry.judge),
+          feedback: read.ballots.map((entry) => entry.ballot.feedback),
+          // Coaching facts go only to a debater, for their own side.
+          coaching: coaching
+            ? { side: coaching.side, aiBallots: coaching.facts.aiBallots }
+            : null,
+          transcript: read.transcript === null,
+        };
+      }),
+    );
+    const own = (actorId: string) => {
+      const side = sideOf(actorId);
+      return { [side]: notes[side] };
+    };
+    assert({
+      given:
+        'a completed Round whose two human ballots coach both sides, read by each debater and a judge',
+      should:
+        'label both ballots human, give each debater only their own feedback and coaching facts for their side, and the judge neither; every seat reads the transcript',
+      actual: released,
+      expected: [
+        {
+          judges: ['human', 'human'],
+          feedback: [own(f.host.actorId), own(f.host.actorId)],
+          coaching: { side: sideOf(f.host.actorId), aiBallots: [] },
+          transcript: false,
+        },
+        {
+          judges: ['human', 'human'],
+          feedback: [own(f.guest.actorId), own(f.guest.actorId)],
+          coaching: { side: sideOf(f.guest.actorId), aiBallots: [] },
+          transcript: false,
+        },
+        {
+          judges: ['human', 'human'],
+          feedback: [{}, {}],
+          coaching: null,
+          transcript: false,
+        },
+      ],
     });
     const before = JSON.stringify(await f.store.getRound(roundId));
     await assertRejects({

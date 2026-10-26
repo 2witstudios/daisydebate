@@ -9,9 +9,9 @@ export {
   isTransientProviderFailure,
   type OpenRouter,
 } from './openrouter';
-export { roundJudgeMessages } from './round-judge';
+export { roundCoachMessages, roundJudgeMessages } from './round-judge';
 export { roundDebaterMessages } from './round-debater';
 export { createTurnTaking, defaultTurnTakingSettings } from './turn-taking';
 
-export { parseBallot } from './judge';
+export { parseBallot, parseCoaching } from './judge';
 export { phrasesOf, worthTranscribing } from './speech';
