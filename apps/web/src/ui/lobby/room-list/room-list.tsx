@@ -31,12 +31,13 @@ function Row({ row }: { readonly row: LobbyRow }) {
       <span className="max-narrow:hidden">
         <StatusLine tone={tones[row.state]}>{row.status}</StatusLine>
       </span>
+      {/* One name that starts with the visible verb (WCAG label in name). */}
       <MediaPageLink
         href={row.action.href}
+        aria-label={`${row.action.verb}: ${row.title}`}
         className={`${buttonClass(row.action.primary ? 'primary' : 'secondary')} justify-self-end whitespace-nowrap`}
       >
         {row.action.verb}
-        <span className="sr-only">{`: ${row.title}`}</span>
       </MediaPageLink>
     </li>
   );

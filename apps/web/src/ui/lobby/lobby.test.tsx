@@ -255,14 +255,17 @@ describe('Lobby', () => {
     });
   });
 
-  test('each action names its Room for a screen reader', () => {
+  test('each action names its Room as one accessible name', () => {
+    const html = render();
     assert({
       given: 'an open Room row',
-      should: 'add the Room title to the link as screen-reader text',
-      actual: render().includes(
-        '>Join<span class="sr-only">: Persisted room</span></a>',
-      ),
-      expected: true,
+      should:
+        'label the link "Join: <title>", starting with its visible verb, with no hidden text a browser may space apart',
+      actual: [
+        /<a[^>]*aria-label="Join: Persisted room"[^>]*>Join<\/a>/.test(html),
+        html.includes('class="sr-only">:'),
+      ],
+      expected: [true, false],
     });
   });
 });
