@@ -109,6 +109,8 @@ export async function proveGathering(
     await openRoomSetup(room, true);
     await form.locator('[name="duration.segment.A2"]').fill('0:43.456');
     await form.getByRole('button', { name: 'Save round settings' }).click();
+    // The accepted native save's redirect closes Room setup.
+    await expect(form).toBeHidden();
     const saved = await reread(native.request, view.id);
     expect(saved.rules.segments.map((segment) => segment.durationMs)).toEqual([
       41000, 43456, 47000,
