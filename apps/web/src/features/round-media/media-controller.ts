@@ -9,6 +9,7 @@ export type MediaConnectionState =
   | 'connecting'
   | 'reconnecting'
   | 'live'
+  | 'device-missing'
   | 'device-blocked'
   | 'unavailable'
   | 'ended';
@@ -44,12 +45,7 @@ export function mediaFailure(status: number) {
 
 const deviceBlocked = (error: unknown) =>
   error instanceof Error &&
-  [
-    'NotAllowedError',
-    'SecurityError',
-    'NotFoundError',
-    'NotReadableError',
-  ].includes(error.name);
+  ['NotAllowedError', 'SecurityError', 'NotReadableError'].includes(error.name);
 
 /** One controller per committed Round, independent of competitive command acknowledgement lifetime. */
 export function createMediaController(input: {
@@ -109,7 +105,14 @@ export function createMediaController(input: {
     release(current);
     if (stale(generation)) return;
     transport = null;
-    change(deviceBlocked(error) ? 'device-blocked' : 'unavailable');
+    change(
+      error instanceof Error &&
+        ['NotFoundError', 'OverconstrainedError'].includes(error.name)
+        ? 'device-missing'
+        : deviceBlocked(error)
+          ? 'device-blocked'
+          : 'unavailable',
+    );
   };
   /** One media request, retried through the configured pauses while it fails transiently. */
   const retrying = async (

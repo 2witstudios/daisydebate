@@ -1,6 +1,7 @@
 'use client';
 import '../../ui/debate-room/zod-jitless';
 import { systemClock } from '@daisy/clock';
+import { readCheckedDevices } from '../video/device-selection';
 import { nextMediaRefreshAt } from './refresh-deadline';
 import { useEffect, useRef, useState } from 'react';
 import type { RoundMediaState, RoundView } from '@daisy/protocol';
@@ -22,6 +23,8 @@ const messages: Record<MediaConnectionState, string> = {
   live: 'Connected',
   'device-blocked':
     'Camera or microphone access is blocked. Check your browser permissions, then retry.',
+  'device-missing':
+    'Your checked camera or microphone is missing. Reconnect that device, then retry.',
   unavailable: 'Camera and sound are unavailable. Retry to reconnect.',
   ended: 'The call has ended.',
 };
@@ -98,6 +101,7 @@ function RoundMediaSession({
       retry: { delaysMs: ADMISSION_RETRY_MS, wait: pause },
       transport: () => {
         const browser = createBrowserMediaTransport({
+          devices: readCheckedDevices(view.roomId),
           tracks: setTracks,
           invalidated: () => {
             refresh.current();
@@ -119,7 +123,7 @@ function RoundMediaSession({
       controller.current = null;
       sound.current = null;
     };
-  }, [view.id]);
+  }, [view.id, view.roomId]);
   useEffect(() => {
     if (controller.current?.state() === 'ended') return;
     if (view.status === 'completed' || view.status === 'abandoned') {
@@ -158,7 +162,9 @@ function RoundMediaSession({
             Enable sound
           </button>
         ) : null}
-        {connection === 'unavailable' || connection === 'device-blocked' ? (
+        {connection === 'unavailable' ||
+        connection === 'device-blocked' ||
+        connection === 'device-missing' ? (
           <button
             type="button"
             className="min-h-room-target rounded-md border border-border px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2"
