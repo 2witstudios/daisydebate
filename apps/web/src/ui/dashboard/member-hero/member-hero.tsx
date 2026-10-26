@@ -33,12 +33,12 @@ export function MemberHero({
             />
             You&rsquo;re in a room · {activeRoomPhaseLabel(activeRoom.phase)}
           </p>
-          <h1 className="font-display text-4xl font-bold text-balance max-compact:text-3xl">
+          <h1 className="font-display text-3xl font-bold text-balance max-compact:text-2xl">
             {activeRoom.title}
           </h1>
         </div>
       ) : (
-        <h1 className="font-display text-4xl font-bold text-balance max-compact:text-3xl">
+        <h1 className="font-display text-3xl font-bold text-balance max-compact:text-2xl">
           Welcome back, {username}
         </h1>
       )}

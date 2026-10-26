@@ -23,16 +23,13 @@ export function parseRoomDiscoveryQuery(raw: SearchParams) {
 /** Where a Room stands as the Lobby groups it. */
 export const lobbyStatuses = ['all', 'open', 'starting', 'live'] as const;
 export const lobbyModes = ['any', 'ranked', 'casual'] as const;
-export const lobbyLengths = ['any', 'quick', 'full'] as const;
 
 export type LobbyStatus = (typeof lobbyStatuses)[number];
 export type LobbyMode = (typeof lobbyModes)[number];
-export type LobbyLength = (typeof lobbyLengths)[number];
 
 export type LobbyFilters = {
   readonly status: LobbyStatus;
   readonly mode: LobbyMode;
-  readonly length: LobbyLength;
 };
 
 export type LobbyQuery = {
@@ -43,7 +40,6 @@ export type LobbyQuery = {
 export const defaultLobbyFilters: LobbyFilters = {
   status: 'all',
   mode: 'any',
-  length: 'any',
 };
 
 // A bad or repeated filter value falls back to its default: filters only
@@ -51,7 +47,6 @@ export const defaultLobbyFilters: LobbyFilters = {
 const filtersSchema = z.object({
   status: z.enum(lobbyStatuses).catch(defaultLobbyFilters.status),
   mode: z.enum(lobbyModes).catch(defaultLobbyFilters.mode),
-  length: z.enum(lobbyLengths).catch(defaultLobbyFilters.length),
 });
 
 /** The Lobby's URL state: the strict listing query plus lenient filters. */
@@ -63,7 +58,6 @@ export function parseLobbyQuery(
   const filters = filtersSchema.parse({
     status: raw.status,
     mode: raw.mode,
-    length: raw.length,
   });
   return { success: true, data: { list: list.data, filters } };
 }
@@ -77,7 +71,7 @@ export function lobbyHref(query: LobbyQuery, cursor?: string): string {
   if (query.list.q !== '') params.set('q', query.list.q);
   if (query.list.pageSize !== defaultPageSize)
     params.set('pageSize', String(query.list.pageSize));
-  for (const key of ['status', 'mode', 'length'] as const) {
+  for (const key of ['status', 'mode'] as const) {
     if (query.filters[key] !== defaultLobbyFilters[key])
       params.set(key, query.filters[key]);
   }
@@ -88,5 +82,4 @@ export function lobbyHref(query: LobbyQuery, cursor?: string): string {
 
 /** True when a filter in the Filters panel (not the status tab) is set. */
 export const isFiltered = (filters: LobbyFilters): boolean =>
-  filters.mode !== defaultLobbyFilters.mode ||
-  filters.length !== defaultLobbyFilters.length;
+  filters.mode !== defaultLobbyFilters.mode;

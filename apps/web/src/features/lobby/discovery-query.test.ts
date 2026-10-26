@@ -45,17 +45,16 @@ describe('parseLobbyQuery', () => {
       q: 'motion',
       status: 'live',
       mode: 'ranked',
-      length: 'quick',
     });
     assert({
-      given: 'a search with a status, mode and length',
+      given: 'a search with a status and a mode',
       should: 'carry the listing query and every filter',
       actual: result,
       expected: {
         success: true,
         data: {
           list: { q: 'motion', pageSize: 20 },
-          filters: { status: 'live', mode: 'ranked', length: 'quick' },
+          filters: { status: 'live', mode: 'ranked' },
         },
       },
     });
@@ -67,7 +66,7 @@ describe('parseLobbyQuery', () => {
       should: 'use the default for each, never throw',
       actual: [
         parseLobbyQuery({ status: 'closed', mode: ['ranked', 'casual'] }),
-        parseLobbyQuery({ length: 'endless', event: 'league' }),
+        parseLobbyQuery({ status: 'endless', event: 'league' }),
       ].map((result) => (result.success ? result.data.filters : null)),
       expected: [defaultLobbyFilters, defaultLobbyFilters],
     });
@@ -121,14 +120,14 @@ describe('lobbyHref', () => {
 });
 
 describe('isFiltered', () => {
-  test('is true only when a mode or length is set', () => {
+  test('is true only when a mode is set', () => {
     assert({
-      given: 'the default filters, a status alone, and a length',
-      should: 'count mode and length, not the status tab',
+      given: 'the default filters, a status alone, and a mode',
+      should: 'count the mode, not the status tab',
       actual: [
         isFiltered(defaultLobbyFilters),
         isFiltered({ ...defaultLobbyFilters, status: 'live' }),
-        isFiltered({ ...defaultLobbyFilters, length: 'full' }),
+        isFiltered({ ...defaultLobbyFilters, mode: 'casual' }),
       ],
       expected: [false, false, true],
     });

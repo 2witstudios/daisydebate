@@ -35,19 +35,13 @@ const modeOptions = [
   ['casual', 'Casual'],
 ] as const;
 
-const lengthOptions = [
-  ['any', 'Any length'],
-  ['quick', 'Quick'],
-  ['full', 'Full'],
-] as const;
-
 /** Search the protocol accepts; the field's maxlength matches it. */
 const MAX_SEARCH_LENGTH = 100;
 
 /**
- * Status tabs plus search, mode and length as one GET form: the URL carries
+ * Status tabs plus search and mode as one GET form: the URL carries
  * the state, so the Lobby filters on the server with no script. On the phone
- * mode and length sit in a panel behind "Filters".
+ * the mode sits in a panel behind "Filters".
  */
 export function LobbyFilters({
   query,
@@ -57,9 +51,6 @@ export function LobbyFilters({
   readonly resultCount: number;
 }) {
   const { filters, list } = query;
-  const active = [filters.mode, filters.length].filter(
-    (value) => value !== 'any',
-  ).length;
   return (
     <AutoSubmitForm
       action="/lobby"
@@ -90,24 +81,15 @@ export function LobbyFilters({
       />
       <details className={`contents ${panelClass}`}>
         <summary className={summaryClass}>
-          <FiltersLabel active={active} />
+          <FiltersLabel active={isFiltered(filters) ? 1 : 0} />
         </summary>
-        <div className="contents max-compact:grid max-compact:grid-cols-2 max-compact:gap-3">
-          <FilterSelect
-            name="mode"
-            label="Ranked or casual"
-            value={filters.mode}
-            options={modeOptions}
-            className="order-5 max-compact:order-none"
-          />
-          <FilterSelect
-            name="length"
-            label="Length"
-            value={filters.length}
-            options={lengthOptions}
-            className="order-6 max-compact:order-none"
-          />
-        </div>
+        <FilterSelect
+          name="mode"
+          label="Ranked or casual"
+          value={filters.mode}
+          options={modeOptions}
+          className="order-5 max-compact:order-none"
+        />
         <ClearFilters
           href={
             isFiltered(filters) || list.q !== ''

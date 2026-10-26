@@ -15,7 +15,6 @@ const entry = (over: Partial<RoomListEntry> = {}): RoomListEntry => ({
   hostLabel: 'Maya',
   status: 'assembling',
   competitionType: 'casual',
-  length: 'quick',
   seated: false,
   roundRef: null,
   ...over,
@@ -24,7 +23,7 @@ const entry = (over: Partial<RoomListEntry> = {}): RoomListEntry => ({
 describe('lobbyRow', () => {
   test('an assembling Room offers a seat', () => {
     assert({
-      given: 'an assembling casual quick Room the viewer is not in',
+      given: 'an assembling casual Room the viewer is not in',
       should: 'read Open with Join to the Room as the primary action',
       actual: lobbyRow(entry()),
       expected: {
@@ -33,7 +32,6 @@ describe('lobbyRow', () => {
         topic: 'Cities should ban private cars',
         host: 'Maya',
         mode: 'Casual',
-        length: 'Quick',
         state: 'open',
         status: 'Open',
         action: { verb: 'Join', href: `/rooms/${id('a')}`, primary: true },
@@ -44,8 +42,10 @@ describe('lobbyRow', () => {
   test('one verb per state', () => {
     const round = { id: id('c'), status: 'active' } as const;
     assert({
-      given: 'a ready Room, a started Round, and each of those with the viewer seated',
-      should: 'offer Spectate, Watch, then Return to room to the page that holds them',
+      given:
+        'a ready Room, a started Round, and each of those with the viewer seated',
+      should:
+        'offer Spectate, Watch, then Return to room to the page that holds them',
       actual: [
         lobbyRow(entry({ status: 'ready' })).action,
         lobbyRow(entry({ status: 'started', roundRef: round })).action,
@@ -66,15 +66,13 @@ describe('lobbyRow', () => {
     });
   });
 
-  test('reads mode and length as labels', () => {
-    const row = lobbyRow(
-      entry({ competitionType: 'ranked', length: 'full', hostLabel: null }),
-    );
+  test('reads the mode as a label', () => {
+    const row = lobbyRow(entry({ competitionType: 'ranked', hostLabel: null }));
     assert({
-      given: 'a ranked full Room whose host may not be named',
-      should: 'label Ranked and Full and leave the host out',
-      actual: [row.mode, row.length, row.host],
-      expected: ['Ranked', 'Full', null],
+      given: 'a ranked Room whose host may not be named',
+      should: 'label it Ranked and leave the host out',
+      actual: [row.mode, row.host],
+      expected: ['Ranked', null],
     });
   });
 });
@@ -83,8 +81,8 @@ describe('lobbySections', () => {
   const rooms = [
     entry({ id: id('a'), status: 'started', competitionType: 'ranked' }),
     entry({ id: id('b') }),
-    entry({ id: id('c'), status: 'ready', length: 'full' }),
-    entry({ id: id('d'), competitionType: 'ranked', length: 'full' }),
+    entry({ id: id('c'), status: 'ready' }),
+    entry({ id: id('d'), competitionType: 'ranked' }),
   ];
   const ids = (sections: ReturnType<typeof lobbySections>) =>
     sections.map((section) => [
@@ -105,14 +103,14 @@ describe('lobbySections', () => {
     });
   });
 
-  test('narrows by status, mode and length and drops empty sections', () => {
+  test('narrows by status and mode and drops empty sections', () => {
     assert({
-      given: 'the open tab, then ranked, then full',
+      given: 'the open tab, ranked, then the live tab with casual',
       should: 'keep only the matching rows in non-empty sections',
       actual: [
         ids(lobbySections(rooms, { ...defaultLobbyFilters, status: 'open' })),
         ids(lobbySections(rooms, { ...defaultLobbyFilters, mode: 'ranked' })),
-        ids(lobbySections(rooms, { ...defaultLobbyFilters, length: 'full' })),
+        ids(lobbySections(rooms, { status: 'live', mode: 'casual' })),
       ],
       expected: [
         [['open', ['b', 'd']]],
@@ -120,10 +118,7 @@ describe('lobbySections', () => {
           ['open', ['d']],
           ['live', ['a']],
         ],
-        [
-          ['open', ['d']],
-          ['starting', ['c']],
-        ],
+        [],
       ],
     });
   });

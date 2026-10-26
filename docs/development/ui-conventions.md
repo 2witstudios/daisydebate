@@ -152,7 +152,7 @@ Owner decision, 2026-10-26 (the Lobby redesign canvas). The Lobby (`/lobby`)
 is where people find, join, host and return to debates, and Play in the
 navigation goes there. It is one flat list: the member's own Room pinned
 first, then status tabs (All, Open, Starting, Live), then search with Ranked
-or casual and Length behind Filters as one GET form, then one compact row per
+or casual behind Filters as one GET form, then one compact row per
 Room grouped Open, Starting and Live now. A row carries the Room's name, host
 and facts on the left and its status and one action on the right.
 

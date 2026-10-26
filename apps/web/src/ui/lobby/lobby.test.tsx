@@ -19,7 +19,6 @@ const entry: RoomListEntry = {
   hostLabel: 'Host member',
   status: 'assembling',
   competitionType: 'casual',
-  length: 'quick',
   seated: false,
   roundRef: null,
 };
@@ -57,11 +56,11 @@ describe('Lobby', () => {
     assert({
       given: 'an open casual Room and a live ranked Round',
       should:
-        'show both rows with their host, length, topic and one verb each, grouped Open then Live now',
+        'show both rows with their host, topic and one verb each, grouped Open then Live now',
       actual: [
         html.includes('Persisted room'),
         html.includes('Host member · '),
-        html.includes('Quick · Persisted debate topic'),
+        html.includes('Persisted debate topic'),
         new RegExp(`href="/rooms/${id('a')}"[^>]*>Join</a>`).test(html),
         new RegExp(`href="/rounds/${id('d')}"[^>]*>Watch</a>`).test(html),
         html.indexOf('>Open</h2>') < html.indexOf('>Live now</h2>'),
@@ -134,7 +133,9 @@ describe('Lobby', () => {
       given: 'a later page with more after it',
       should: 'link First page and Next page carrying search and page size',
       actual: [
-        html.includes('href="/lobby?q=Stored+motion&amp;pageSize=1">First page'),
+        html.includes(
+          'href="/lobby?q=Stored+motion&amp;pageSize=1">First page',
+        ),
         html.includes(
           `href="/lobby?q=Stored+motion&amp;pageSize=1&amp;cursor=${id('a')}">Next page`,
         ),
@@ -151,7 +152,8 @@ describe('Lobby', () => {
     ];
     assert({
       given: 'no Rooms, a search with no match, and a race while paging',
-      should: 'offer New room, Clear search and filters, then Refresh this page',
+      should:
+        'offer New room, Clear search and filters, then Refresh this page',
       actual: [
         empty.includes('No open rooms right now'),
         unmatched.includes('No rooms match'),

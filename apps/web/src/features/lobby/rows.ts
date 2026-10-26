@@ -16,7 +16,6 @@ export type LobbyRow = {
   readonly topic: string;
   readonly host: string | null;
   readonly mode: 'Ranked' | 'Casual';
-  readonly length: 'Quick' | 'Full';
   readonly state: RowState;
   readonly status: 'Open' | 'Starting' | 'Live';
   readonly action: LobbyAction;
@@ -74,7 +73,6 @@ export function lobbyRow(entry: RoomListEntry): LobbyRow {
     topic: entry.topic,
     host: entry.hostLabel,
     mode: entry.competitionType === 'ranked' ? 'Ranked' : 'Casual',
-    length: entry.length === 'quick' ? 'Quick' : 'Full',
     state,
     status: statusLabels[state],
     action: actionFor(entry, state),
@@ -83,8 +81,7 @@ export function lobbyRow(entry: RoomListEntry): LobbyRow {
 
 const matches = (entry: RoomListEntry, filters: LobbyFilters): boolean =>
   (filters.status === 'all' || states[entry.status] === filters.status) &&
-  (filters.mode === 'any' || entry.competitionType === filters.mode) &&
-  (filters.length === 'any' || entry.length === filters.length);
+  (filters.mode === 'any' || entry.competitionType === filters.mode);
 
 /**
  * The page's Rooms narrowed by the filters and grouped open, starting, then
@@ -94,9 +91,7 @@ export function lobbySections(
   rooms: readonly RoomListEntry[],
   filters: LobbyFilters,
 ): readonly LobbySection[] {
-  const rows = rooms
-    .filter((entry) => matches(entry, filters))
-    .map(lobbyRow);
+  const rows = rooms.filter((entry) => matches(entry, filters)).map(lobbyRow);
   return (['open', 'starting', 'live'] as const)
     .map((id) => ({
       id,
