@@ -37,13 +37,22 @@ export function checkInAttemptLifecycle(attempt: CheckInAttempt) {
       metadata: CheckInAttemptMetadata,
       outcome: 'committed' | 'aborted',
     ): Promise<void> {
+      // An abort closes only after the writer's absence is confirmed, and the
+      // reconciler settles exactly such markers: one it already aborted for
+      // this writer is the same verified fact (ISSUE-618). The CTE's plain
+      // read sees the row as it was before this update.
       const rows =
-        await control.execute(sql`update round_check_in_attempts a set state=${outcome},resolved_at=statement_timestamp()
+        await control.execute(sql`with closed as (update round_check_in_attempts a set state=${outcome},resolved_at=statement_timestamp()
     where a.attempt_id=${attempt.attemptId} and a.state='pending' and a.backend_pid=${metadata.writer.pid}
      and a.backend_started_at=${metadata.writer.backendStart}::timestamptz
      and (${outcome}='aborted' or exists(select 1 from round_commands c where c.command_id=a.command_id and c.round_id=a.round_id
       and c.type='check_in' and c.payload_digest=a.payload_digest and c.actor_id is not distinct from a.actor_id and c.service_id is not distinct from a.service_id))
-    returning a.attempt_id`);
+    returning a.attempt_id)
+    select attempt_id from closed
+    union all
+    select a.attempt_id from round_check_in_attempts a where ${outcome}='aborted' and a.attempt_id=${attempt.attemptId}
+     and a.state='aborted' and a.backend_pid=${metadata.writer.pid}
+     and a.backend_started_at=${metadata.writer.backendStart}::timestamptz`);
       if (rows.length !== 1)
         throw createAppError(
           'INVARIANT',
