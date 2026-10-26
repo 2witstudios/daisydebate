@@ -262,3 +262,19 @@ export {
   type RoundUnjudgedReceipt,
   type RoundUnjudgedCompletion,
 } from './round-unjudged';
+
+export {
+  friendCommandResultSchema,
+  friendCommandSchemas,
+  friendListSchema,
+  friendshipStates,
+  onlineCountsSchema,
+} from './friends';
+export type {
+  FriendCommandResult,
+  FriendList,
+  FriendPresence,
+  FriendRelation,
+  FriendshipState,
+  OnlineCounts,
+} from './friends';

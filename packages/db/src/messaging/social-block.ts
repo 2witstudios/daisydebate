@@ -4,6 +4,7 @@ import { createAppError } from '@daisy/errors';
 import {
   messagingContactPairs,
   messagingDmPairs,
+  messagingFriendships,
   messagingSocialCommands,
 } from '../schema/messaging-social';
 import { messagingChannels } from '../schema/messaging-channels';
@@ -14,7 +15,10 @@ import type {
 } from './social-contracts';
 
 export function contactBlockWriter(
-  tx: Pick<BunSQLDatabase, 'select' | 'update' | 'insert' | 'execute'>,
+  tx: Pick<
+    BunSQLDatabase,
+    'select' | 'update' | 'insert' | 'delete' | 'execute'
+  >,
   input: MessagingSocialInput,
   rows: readonly (typeof messagingContactPairs.$inferSelect)[],
   authorize: () => Promise<void>,
@@ -42,6 +46,16 @@ export function contactBlockWriter(
       )
       .returning();
     if (!updated) throw createAppError('NOT_FOUND');
+    // A block ends any friendship or request; unblocking never restores one.
+    if (command.blocked)
+      await tx
+        .delete(messagingFriendships)
+        .where(
+          and(
+            eq(messagingFriendships.lowActorId, pair.lowActorId),
+            eq(messagingFriendships.highActorId, pair.highActorId),
+          ),
+        );
     const [dm] = await tx
       .select()
       .from(messagingDmPairs)

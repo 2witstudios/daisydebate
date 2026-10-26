@@ -64,3 +64,23 @@ export function contactSafetyAllowed(
     contactAccountsCurrent(pair, context)
   );
 }
+
+/**
+ * Friendship (ADR 0071) rides the same pair fence. Ending a friendship or
+ * declining a request is a safety exit, open even across a block; asking or
+ * accepting needs both accounts current members and no block either way.
+ */
+export function friendshipAllowed(
+  actorId: string,
+  capability: string,
+  pair: ContactAuthorizationFact,
+  context: AuthorizationInput['context'],
+): boolean {
+  if (!contactSafetyAllowed(actorId, pair, context)) return false;
+  if (capability === 'social.friend.end') return true;
+  return (
+    capability === 'social.friend.request' &&
+    !pair.blocked &&
+    (context.contactAccounts ?? []).every((account) => account.member)
+  );
+}
