@@ -25,7 +25,7 @@ export function RoundResult({ view }: { readonly view: RoundBallotRead }) {
     <>
       {ballots.length ? (
         <section aria-labelledby="result-decision" className={cardClass}>
-          <header className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1">
             <h2 id="result-decision" className="font-strong">
               The decision
             </h2>
@@ -33,7 +33,7 @@ export function RoundResult({ view }: { readonly view: RoundBallotRead }) {
               The judges’ ballots decide the round. Each says who judged: a
               human judge or the AI judge.
             </p>
-          </header>
+          </div>
           {ballots.map((entry) => (
             <section
               key={entry.title}
@@ -65,7 +65,7 @@ export function RoundResult({ view }: { readonly view: RoundBallotRead }) {
       ) : null}
       {coaching ? (
         <section aria-labelledby="result-coaching" className={cardClass}>
-          <header className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1">
             <h2 id="result-coaching" className="font-strong">
               AI coaching for you
             </h2>
@@ -73,7 +73,7 @@ export function RoundResult({ view }: { readonly view: RoundBallotRead }) {
               Only you see this. It is advice from the transcript and does not
               change the decision.
             </p>
-          </header>
+          </div>
           {coaching.kind === 'ready' ? (
             <p className="text-base text-ink">{coaching.text}</p>
           ) : (

@@ -27,6 +27,12 @@ test('a debater reads the decision, their coaching and the transcript, each labe
     ].filter((text) => !html.includes(text)),
     expected: [],
   });
+  assert({
+    given: 'the result inside the receipt’s main landmark',
+    should: 'add no header, so the receipt’s header stays the page’s only one',
+    actual: html.includes('<header'),
+    expected: false,
+  });
 });
 
 test('a reader who did not debate sees only the decision', () => {

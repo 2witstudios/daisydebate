@@ -28,12 +28,12 @@ export function BallotSummary({
       aria-label={title}
       className="flex flex-col gap-4 rounded-lg border border-border bg-background p-5"
     >
-      <header className="flex flex-col gap-1">
+      <div className="flex flex-col gap-1">
         <h3 className={ballotHeadingClass}>{title}</h3>
         <p className="text-sm text-ink-muted">
           {`Voted ${debaters[ballot.winner].name}`}
         </p>
-      </header>
+      </div>
       <p className="text-base text-ink">{ballot.reason}</p>
       {feedback.length > 0 ? (
         <div className="flex flex-col gap-3">
