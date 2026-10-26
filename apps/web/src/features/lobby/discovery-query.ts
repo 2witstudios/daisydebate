@@ -21,20 +21,25 @@ export const lobbyModeChoices = ['any', ...competitionTypes] as const;
 
 export type LobbyMode = (typeof lobbyModeChoices)[number];
 
-/** The Lobby's "every status" and "any mode" choices narrow nothing. */
+/** The sort select: Newest, the default, then the other orders the listing keeps stable under paging. */
+export const lobbySortChoices = ['newest', 'longest-waiting'] as const;
+
+export type LobbySort = (typeof lobbySortChoices)[number];
+
+/** The Lobby's "every status", "any mode" and default Newest choices change nothing. */
 const narrowing = (value: SearchParams[string], everything: string) =>
   value === everything ? undefined : value;
 
 /**
  * The Lobby's URL as the canonical listing query. One policy for every key:
- * an absent value, `all` or `any` narrows nothing; an unknown or repeated
+ * an absent value, `all`, `any` or `newest` changes nothing; an unknown or repeated
  * value is refused, never repaired or guessed.
  */
 export function parseRoomDiscoveryQuery(raw: SearchParams) {
   return roomListQuerySchema.safeParse({
     q: raw.q,
     cursor: raw.cursor,
-    sort: raw.sort,
+    sort: narrowing(raw.sort, 'newest'),
     status: narrowing(raw.status, 'all'),
     mode: narrowing(raw.mode, 'any'),
     ...(raw.pageSize === undefined
