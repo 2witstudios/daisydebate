@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "0a4ae736-cf47-4ff4-809f-e233eec34168",
+  "id": "82c467c4-fb42-4ec0-9156-e21654b9d8fa",
   "prevIds": [
-    "a59f1b8d-619d-4b28-8a0b-0b0f23382909"
+    "967d7c00-23a8-4acb-b66f-c9b9a9fa36bb"
   ],
   "ddl": [
     {
@@ -1909,19 +1909,6 @@
       "table": "format_presets"
     },
     {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "length",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "format_presets"
-    },
-    {
       "type": "integer",
       "typeSchema": null,
       "notNull": true,
@@ -3794,19 +3781,6 @@
       "table": "member_onboarding"
     },
     {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "length",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "member_onboarding"
-    },
-    {
       "type": "timestamp with time zone",
       "typeSchema": null,
       "notNull": false,
@@ -4998,19 +4972,6 @@
       "generated": null,
       "identity": null,
       "name": "competition_type",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "rooms"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "length",
       "entityType": "columns",
       "schema": "public",
       "table": "rooms"
@@ -6324,19 +6285,6 @@
       "generated": null,
       "identity": null,
       "name": "competition_type",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "rounds"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "length",
       "entityType": "columns",
       "schema": "public",
       "table": "rounds"
@@ -8063,13 +8011,6 @@
           "opclass": null
         },
         {
-          "value": "length",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
           "value": "version",
           "isExpression": false,
           "asc": true,
@@ -8099,13 +8040,6 @@
       "columns": [
         {
           "value": "format_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "length",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -9666,13 +9600,6 @@
           "opclass": null
         },
         {
-          "value": "length",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
           "value": "preset_version",
           "isExpression": false,
           "asc": true,
@@ -10990,13 +10917,6 @@
       "columns": [
         {
           "value": "format_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "length",
           "isExpression": false,
           "asc": true,
           "nullsFirst": false,
@@ -12894,7 +12814,6 @@
       "nameExplicit": true,
       "columns": [
         "format_id",
-        "length",
         "preset_version",
         "format_version"
       ],
@@ -12902,7 +12821,6 @@
       "tableTo": "format_presets",
       "columnsTo": [
         "format_id",
-        "length",
         "version",
         "format_version"
       ],
@@ -13516,7 +13434,6 @@
       "nameExplicit": true,
       "columns": [
         "format_id",
-        "length",
         "preset_version",
         "format_version"
       ],
@@ -13524,7 +13441,6 @@
       "tableTo": "format_presets",
       "columnsTo": [
         "format_id",
-        "length",
         "version",
         "format_version"
       ],
@@ -13714,7 +13630,6 @@
     {
       "columns": [
         "format_id",
-        "length",
         "version"
       ],
       "nameExplicit": false,
@@ -14713,13 +14628,6 @@
       "table": "email_suppression"
     },
     {
-      "value": "\"length\" in ('full', 'quick')",
-      "name": "format_presets_length_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "format_presets"
-    },
-    {
       "value": "\"version\" > 0",
       "name": "format_presets_version_positive",
       "entityType": "checks",
@@ -15126,13 +15034,6 @@
       "table": "member_onboarding"
     },
     {
-      "value": "\"length\" is null or \"length\" in ('quick', 'full')",
-      "name": "member_onboarding_length_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "member_onboarding"
-    },
-    {
       "value": "\"version\" > 0",
       "name": "member_onboarding_version_positive",
       "entityType": "checks",
@@ -15196,7 +15097,7 @@
       "table": "privacy_jobs"
     },
     {
-      "value": "\"ladder\" in ('ranked', 'quick')",
+      "value": "\"ladder\" in ('ranked')",
       "name": "rating_changes_ladder_check",
       "entityType": "checks",
       "schema": "public",
@@ -15224,7 +15125,7 @@
       "table": "rating_changes"
     },
     {
-      "value": "\"ladder\" in ('ranked', 'quick')",
+      "value": "\"ladder\" in ('ranked')",
       "name": "ratings_ladder_check",
       "entityType": "checks",
       "schema": "public",
@@ -15394,13 +15295,6 @@
     {
       "value": "\"competition_type\" in ('ranked', 'casual')",
       "name": "rooms_competition_type_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "rooms"
-    },
-    {
-      "value": "\"length\" in ('full', 'quick')",
-      "name": "rooms_length_check",
       "entityType": "checks",
       "schema": "public",
       "table": "rooms"
@@ -15749,13 +15643,6 @@
       "table": "rounds"
     },
     {
-      "value": "\"length\" in ('full', 'quick')",
-      "name": "rounds_length_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "rounds"
-    },
-    {
       "value": "\"outcome\" is null or \"outcome\" in ('affirmative', 'negative', 'draw')",
       "name": "rounds_outcome_check",
       "entityType": "checks",
@@ -15763,7 +15650,7 @@
       "table": "rounds"
     },
     {
-      "value": "\"ladder_id\" is null or \"ladder_id\" in ('ranked', 'quick')",
+      "value": "\"ladder_id\" is null or \"ladder_id\" in ('ranked')",
       "name": "rounds_ladder_check",
       "entityType": "checks",
       "schema": "public",
@@ -15779,13 +15666,6 @@
     {
       "value": "(\"competition_type\" = 'ranked' and \"ladder_id\" is not null) or (\"competition_type\" <> 'ranked' and \"ladder_id\" is null)",
       "name": "rounds_rated_ladder_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "rounds"
-    },
-    {
-      "value": "\"ladder_id\" = case\n          when \"competition_type\" <> 'ranked' then null\n          when \"length\" = 'full' then 'ranked'\n          when \"length\" = 'quick' then 'quick' end",
-      "name": "rounds_ladder_derivation_check",
       "entityType": "checks",
       "schema": "public",
       "table": "rounds"
