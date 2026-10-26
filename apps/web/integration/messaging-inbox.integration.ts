@@ -77,7 +77,7 @@ test('real own collection projects pending direction through fresh request grant
       "update messaging_dm_pairs set request_state='accepted', decided_at=$2 where channel_id=$1",
       [fixture.channelId, fixture.now],
     );
-    const sentAt = '2026-10-09T18:05:00.000Z';
+    const sentAt = '2026-10-09T17:55:00.000Z';
     await client.unsafe(
       "insert into messaging_messages(id,channel_id,author_actor_id,sequence,change_version,text,created_at) values($1,$2,$3,1,1,'First message',$4)",
       [createId(), fixture.channelId, sender.actorId, sentAt],
