@@ -10,6 +10,7 @@ import { Badge } from '../../components/badge/badge';
 import type { BadgeTone } from '../../components/badge/badge-class';
 import { buttonClass } from '../../components/button/button-class';
 import { cn } from '../../cn';
+import { MediaPageLink } from '../../round-media/media-page-link';
 import { ProfileActions } from '../profile-actions/profile-actions';
 
 const card = 'flex flex-col gap-4 rounded-xl bg-surface p-6 shadow-1';
@@ -81,12 +82,12 @@ function HistoryRow({
   return (
     <li className="flex flex-col gap-1 py-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <Link
+        <MediaPageLink
           href={`/rounds/${entry.roundId}`}
           className="min-w-0 font-strong text-ink"
         >
           {entry.resolution}
-        </Link>
+        </MediaPageLink>
         <span className="flex items-center gap-2">
           {me && entry.visibility !== 'public' ? (
             <Badge>{entry.visibility}</Badge>
