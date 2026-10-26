@@ -67,12 +67,6 @@ export const state: RoomAssemblyState = {
   prepStartedAt: null,
   prepRemainingMs: null,
   roundRef: null,
-  formatLabel: 'Foundation',
-  seatsTaken: 1,
-  seatCount: 2,
-  waitingSince: '2026-10-09T00:00:00.000Z',
-  live: null,
-  hostRating: null,
 };
 
 const catalog = [
@@ -245,6 +239,12 @@ export function makeOperations(overrides: Partial<Store> = {}) {
                 competitionType,
                 seated: true,
                 roundRef: null,
+                formatLabel: 'Foundation',
+                seatsTaken: 1,
+                seatCount: 2,
+                waitingSince: '2026-10-09T00:00:00.000Z',
+                live: null,
+                hostRating: null,
               },
             ]
           : [],
