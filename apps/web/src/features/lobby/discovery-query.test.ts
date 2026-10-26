@@ -29,3 +29,28 @@ test('native Lobby selects recognized discovery query keys', () => {
     expected: invalid.map(() => false),
   });
 });
+
+test('the Lobby status and mode filters narrow the canonical listing', () => {
+  const parsed = (raw: Record<string, string | string[]>) => {
+    const result = parseRoomDiscoveryQuery(raw);
+    return result.success ? result.data : null;
+  };
+  assert({
+    given:
+      'a live ranked filter, the every-status and any-mode choices, and unknown or repeated values',
+    should:
+      'carry the narrowing filters, drop the choices that narrow nothing, and refuse the rest',
+    actual: [
+      parsed({ status: 'live', mode: 'ranked' }),
+      parsed({ status: 'all', mode: 'any' }),
+      parsed({ status: 'finished' }),
+      parsed({ mode: ['ranked', 'casual'] }),
+    ],
+    expected: [
+      { q: '', pageSize: 20, status: 'live', mode: 'ranked' },
+      { q: '', pageSize: 20 },
+      null,
+      null,
+    ],
+  });
+});

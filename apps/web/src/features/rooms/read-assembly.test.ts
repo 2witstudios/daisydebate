@@ -26,6 +26,12 @@ const listingEntry = {
   competitionType,
   seated: true,
   roundRef: null,
+  formatLabel: 'Foundation',
+  seatsTaken: 1,
+  seatCount: 2,
+  waitingSince: '2026-10-09T00:00:00.000Z',
+  live: null,
+  hostRating: null,
 };
 
 test('canonical room reads reject malformed or substituted projections', async () => {
@@ -154,5 +160,25 @@ test('the active room read shows only a canonical own Room', async () => {
       [...new Set(calls)],
     ],
     expected: [activeRoom, null, null, null, null, ['/api/rooms/active']],
+  });
+});
+
+test('the listing read forwards the Lobby filters to the canonical route', async () => {
+  const paths: string[] = [];
+  await readRoomList(
+    async (path) => {
+      paths.push(path);
+      return Response.json({ rooms: [], nextCursor: null, retry: false });
+    },
+    { pageSize: 20, q: '', status: 'starting', mode: 'casual' },
+  );
+  assert({
+    given: 'a starting, casual Lobby filter',
+    should: 'name both on the canonical listing request',
+    actual: new URL(
+      paths[0]!,
+      'https://in-process.invalid',
+    ).searchParams.toString(),
+    expected: 'q=&pageSize=20&status=starting&mode=casual',
   });
 });
