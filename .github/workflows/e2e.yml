@@ -81,15 +81,6 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      # scripts/e2e-artifact-sanitizer.ts shells out to unzip/zip to redact
-      # retained trace archives before upload; that path is only exercised
-      # when a test actually fails and Playwright retains a trace, so it was
-      # never proven against this runner image until AUTH-6 hit its first
-      # real CI failure. Installing explicitly removes any dependency on
-      # the base image happening to include them.
-      - name: Ensure zip/unzip are available for artifact sanitization
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq zip unzip
-
       - name: Apply migrations to the e2e database
         run: bun run --cwd packages/db db:migrate
         env:
@@ -115,8 +106,40 @@ jobs:
           RESEND_API_KEY: ci-isolation-sentinel-resend-key
           RESEND_WEBHOOK_SECRET: ci-isolation-sentinel-webhook-secret
 
+      - name: Resolve the installed Playwright version
+        id: playwright
+        run: echo "version=$(jq -r .version apps/web/node_modules/@playwright/test/package.json)" >> "$GITHUB_OUTPUT"
+      # Browsers and the OS packages' .debs, keyed on the exact Playwright
+      # version: a warm run skips both downloads, including the Ubuntu
+      # mirror that stalled whole jobs.
+      - name: Restore Playwright browsers and OS packages
+        id: browser-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cache/ms-playwright
+            ~/.cache/daisy-apt-archives
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-chromium-firefox-webkit
+
+      # Also installs zip/unzip: scripts/e2e-artifact-sanitizer.ts shells
+      # out to them to redact retained trace archives, a path exercised only
+      # when a test fails, so the job must not rely on the base image.
+      # The step bound sits inside the 20-minute job budget (ci-browsers.sh
+      # stops after three apt attempts).
       - name: Install Playwright browsers
-        run: bun apps/web/node_modules/@playwright/test/cli.js install --with-deps chromium firefox webkit
+        timeout-minutes: 8
+        run: sh scripts/ci-browsers.sh chromium firefox webkit
+
+      # Saved straight after the install, so a later test failure still
+      # keeps the warm cache.
+      - name: Save Playwright browsers and OS packages
+        if: ${{ steps.browser-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cache/ms-playwright
+            ~/.cache/daisy-apt-archives
+          key: ${{ steps.browser-cache.outputs.cache-primary-key }}
 
       - name: Run browser tests
         if: ${{ github.event_name != 'workflow_dispatch' }}
@@ -236,11 +259,34 @@ jobs:
           RECIPIENT_HASH_SECRET: ci-isolation-sentinel-recipient-hash-000000000000000000000000000
           RESEND_API_KEY: ci-isolation-sentinel-resend-key
           RESEND_WEBHOOK_SECRET: ci-isolation-sentinel-webhook-secret
+      - name: Resolve the installed Playwright version
+        id: playwright
+        run: echo "version=$(jq -r .version apps/web/node_modules/@playwright/test/package.json)" >> "$GITHUB_OUTPUT"
+      # Browsers and the OS packages' .debs, keyed on the exact Playwright
+      # version: a warm run skips both downloads, including the Ubuntu
+      # mirror that stalled whole jobs.
+      - name: Restore Playwright browsers and OS packages
+        id: browser-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cache/ms-playwright
+            ~/.cache/daisy-apt-archives
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-chromium
       - name: Install controlled Chromium and artifact tools
         id: chromium
-        run: |
-          bun apps/web/node_modules/@playwright/test/cli.js install --with-deps chromium
-          sudo apt-get update -qq && sudo apt-get install -y -qq zip unzip
+        timeout-minutes: 8
+        run: sh scripts/ci-browsers.sh chromium
+      # Saved straight after the install, so a later test failure still
+      # keeps the warm cache.
+      - name: Save Playwright browsers and OS packages
+        if: ${{ steps.browser-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cache/ms-playwright
+            ~/.cache/daisy-apt-archives
+          key: ${{ steps.browser-cache.outputs.cache-primary-key }}
       - name: Run real isolated Launch browser suite
         id: launch
         run: bun test:e2e:room-launch

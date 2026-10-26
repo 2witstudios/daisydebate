@@ -11,7 +11,7 @@ const workflow = `jobs:
       - id: build
         run: bun run build
       - id: chromium
-        run: bun apps/web/node_modules/@playwright/test/cli.js install --with-deps chromium
+        run: sh scripts/ci-browsers.sh chromium
       - run: bun test:e2e:messaging-realtime
         if: "${gate}"
       - run: bun counts
