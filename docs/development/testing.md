@@ -347,7 +347,8 @@ To rebaseline after an intended visual change, run
 renders the visual project with `--update-snapshots` on the E2E runner image
 and commits only changed baselines to that same-repository branch (never a
 fork or `main`). GitHub starts no CI for that commit, so pull it and push
-your next commit (or close and reopen the PR) to run the gates. Review the
+your next commit (or close and reopen the PR) to run the gates; the commit
+moves the PR head, so rebaseline before the independent review record. Review the
 image diff on the PR. `bun visual:server` runs `scripts/visual-server.ts`,
 which takes the image tag and run-server version from the web app's exact
 `@playwright/test` pin, so they always match. The command lives in a script

@@ -46,6 +46,10 @@ jobs:
             repo=$(printf '%s' "$pr" | jq -r .head.repo.full_name)
             branch=$(printf '%s' "$pr" | jq -r .head.ref)
             sha=$(printf '%s' "$pr" | jq -r .head.sha)
+            if [ "$(printf '%s' "$pr" | jq -r .state)" != open ]; then
+              echo "::error::Refusing pull request $TARGET: it is not open"
+              exit 1
+            fi
           elif plain_branch "$TARGET"; then
             repo=$GITHUB_REPOSITORY
             branch=$TARGET
@@ -155,8 +159,9 @@ jobs:
         run: |
           echo "version=$(jq -r .version apps/web/node_modules/@playwright/test/package.json)" >> "$GITHUB_OUTPUT"
           echo "month=$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"
-      # The room-launch job's Chromium-only cache: the visual project runs
-      # Chromium alone.
+      # The room-launch job's Chromium-only cache, restored and never saved:
+      # a dispatch runs in main's cache scope, and this job runs branch code
+      # that must not write a browser every branch and main then restore.
       - name: Restore Playwright browsers and OS packages
         id: browser-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -169,15 +174,6 @@ jobs:
       - name: Install Playwright Chromium
         timeout-minutes: 8
         run: sh scripts/ci-browsers.sh chromium
-
-      - name: Save Playwright browsers and OS packages
-        if: ${{ steps.browser-cache.outputs.cache-hit != 'true' }}
-        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/.cache/ms-playwright
-            ~/.cache/daisy-apt-archives
-          key: ${{ steps.browser-cache.outputs.cache-primary-key }}
 
       # Playwright rewrites only the baselines that no longer match.
       - name: Render the visual project with --update-snapshots
@@ -215,11 +211,10 @@ jobs:
           name: visual-baselines-${{ github.run_id }}
           path: ${{ runner.temp }}/visual-baselines
 
-      # Only flat, plainly named PNGs enter the baselines folder, and only
-      # that folder is staged.
-      - name: Commit and push only changed baselines
+      # Only flat, plainly named regular PNGs enter the baselines folder.
+      - name: Copy only plain PNGs into the baselines folder
+        id: copy
         env:
-          BRANCH: ${{ needs.resolve.outputs.branch }}
           RENDERED: ${{ runner.temp }}/visual-baselines
         run: |
           set -eu
@@ -231,6 +226,13 @@ jobs:
             fi
             cp "$file" "apps/web/e2e/visual-baselines/$name"
           done
+
+      # Only the baselines folder is staged.
+      - name: Commit and push only changed baselines
+        env:
+          BRANCH: ${{ needs.resolve.outputs.branch }}
+        run: |
+          set -eu
           git add -- apps/web/e2e/visual-baselines
           if git diff --cached --quiet; then
             echo '::notice::Every baseline already matches; nothing to commit'

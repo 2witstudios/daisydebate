@@ -1,8 +1,11 @@
 import {
   chmodSync,
+  mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -79,9 +82,12 @@ describe('Rebaseline visuals workflow (ADR 0073)', () => {
     assert({
       given: 'the render job',
       should:
-        'run on the Playwright E2E runner image, keep no checkout token, read no secret or token, and update snapshots of the visual project',
+        'run on the Playwright E2E runner image, keep no checkout token, read no secret or token, restore but never save a cache, and update snapshots of the visual project',
       actual: {
         runsOn: render?.['runs-on'],
+        caches: render?.steps
+          .map((step) => step.uses?.match(/^actions\/cache[^@]*/)?.[0])
+          .filter(Boolean),
         persistCredentials: checkout?.with?.['persist-credentials'],
         credential: /secrets\.|github\.token/.test(jobText(render!)),
         renders: render?.steps.some(
@@ -92,6 +98,7 @@ describe('Rebaseline visuals workflow (ADR 0073)', () => {
       },
       expected: {
         runsOn: e2e.jobs.e2e?.['runs-on'],
+        caches: ['actions/cache/restore'],
         persistCredentials: false,
         credential: false,
         renders: true,
@@ -150,8 +157,8 @@ const runResolve = (target: string, reply: string) => {
 };
 
 const sha = 'a'.repeat(40);
-const pull = (repo: string, ref: string) =>
-  JSON.stringify({ head: { repo: { full_name: repo }, ref, sha } });
+const pull = (repo: string, ref: string, state = 'open') =>
+  JSON.stringify({ state, head: { repo: { full_name: repo }, ref, sha } });
 
 describe('Rebaseline visuals target resolution', () => {
   test('a same-repository pull request', () => {
@@ -168,6 +175,15 @@ describe('Rebaseline visuals target resolution', () => {
       given: 'a pull request number whose head is a fork',
       should: 'refuse it',
       actual: runResolve('12', pull('someone/daisy', 'pu/lobby')),
+      expected: { ok: false, output: '' },
+    });
+  });
+
+  test('a closed pull request', () => {
+    assert({
+      given: 'a pull request number that is no longer open',
+      should: 'refuse it rather than write to its leftover branch',
+      actual: runResolve('12', pull('owner/daisy', 'pu/lobby', 'closed')),
       expected: { ok: false, output: '' },
     });
   });
@@ -199,6 +215,59 @@ describe('Rebaseline visuals target resolution', () => {
       should: 'resolve that branch and commit',
       actual: runResolve('pu/visual-core', sha),
       expected: { ok: true, output: `branch=pu/visual-core\nsha=${sha}\n` },
+    });
+  });
+});
+
+/** Runs the commit job's copy step over a rendered folder built by `fill`. */
+const runCopy = (fill: (rendered: string) => void) => {
+  const step = workflow.jobs.commit!.steps.find(({ id }) => id === 'copy')!;
+  const dir = mkdtempSync(join(tmpdir(), 'rebaseline-copy-'));
+  try {
+    const rendered = join(dir, 'rendered');
+    const baselines = join(dir, 'checkout/apps/web/e2e/visual-baselines');
+    mkdirSync(rendered);
+    mkdirSync(baselines, { recursive: true });
+    fill(rendered);
+    const run = Bun.spawnSync(['bash', '-c', step.run!], {
+      cwd: join(dir, 'checkout'),
+      env: { PATH: process.env.PATH, RENDERED: rendered },
+    });
+    return { ok: run.exitCode === 0, copied: readdirSync(baselines).sort() };
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+};
+
+describe('Rebaseline visuals artifact copy', () => {
+  test('plain rendered PNGs', () => {
+    assert({
+      given: 'a rendered folder of plainly named PNGs',
+      should: 'copy each into the baselines folder',
+      actual: runCopy((rendered) => {
+        writeFileSync(join(rendered, 'settings-light-desktop.png'), 'png');
+        writeFileSync(join(rendered, 'dashboard-dark-desktop.png'), 'png');
+      }),
+      expected: {
+        ok: true,
+        copied: ['dashboard-dark-desktop.png', 'settings-light-desktop.png'],
+      },
+    });
+  });
+
+  test('an entry that is not a plain PNG', () => {
+    const refused = (fill: (rendered: string) => void) => runCopy(fill).ok;
+    assert({
+      given: 'a non-PNG file, a subdirectory or a symlink among the PNGs',
+      should: 'refuse the whole artifact',
+      actual: [
+        refused((rendered) => writeFileSync(join(rendered, 'run.sh'), 'x')),
+        refused((rendered) => mkdirSync(join(rendered, 'nested.png'))),
+        refused((rendered) =>
+          symlinkSync('/etc/passwd', join(rendered, 'link.png')),
+        ),
+      ],
+      expected: [false, false, false],
     });
   });
 });

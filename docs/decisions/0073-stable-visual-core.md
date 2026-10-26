@@ -44,13 +44,17 @@ widths. Measured on `origin/main`:
    commits only changed files under `apps/web/e2e/visual-baselines/` back
    to that branch as `test(visual): rebaseline visual snapshots`.
 4. **The workflow never puts a write token beside branch code.** It
-   refuses fork branches, `main` and the default branch, and branch names
-   outside a plain character set. The job that builds and runs branch code
+   refuses fork branches, pull requests that are not open, `main` and the
+   default branch, and branch names outside a plain character set. The job that builds and runs branch code
    holds `contents: read`, keeps no checkout token and sees no secret; the
    one `contents: write` job runs nothing from the branch, accepts only
    flat `*.png` artifact entries, stages only the baselines folder and
    pushes a fast-forward of the commit it rendered, so a branch that moved
-   meanwhile rejects the push.
+   meanwhile rejects the push. A dispatch runs in `main`'s cache scope, so
+   the render job restores the browser cache and never saves one: a cache
+   it wrote would reach every branch and `main`. Branch code can still
+   reach the cache service through the runner's own token; that residual
+   path is accepted because no consumer of the cache holds a secret.
 
 ## Consequences
 
@@ -60,6 +64,9 @@ widths. Measured on `origin/main`:
 - A push made with the workflow token does not start CI (GitHub's rule
   against recursive runs), so the branch's next push, or a close and
   reopen of the pull request, runs the gates on the rebaselined head.
+- The bot commit moves the pull request head, so a review record for the
+  earlier head no longer covers it; rebaseline before the independent
+  review, or have the record name the new head.
 - Visual coverage of the removed surfaces is gone by choice; their
   behavior, accessibility and contrast remain covered by the E2E, axe and
   palette suites.
