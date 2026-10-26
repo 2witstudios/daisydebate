@@ -1,143 +1,219 @@
-import { HiddenWhileJudging } from '../../components/hidden-while-judging/hidden-while-judging';
-import type { Profile } from '../../../features/profile/get-profile';
+import Link from 'next/link';
+import type {
+  JudgePanel,
+  MatchHistoryEntry,
+  MemberProfile,
+  RecordResult,
+} from '@daisy/protocol';
 import { Avatar } from '../../components/avatar/avatar';
 import { Badge } from '../../components/badge/badge';
+import type { BadgeTone } from '../../components/badge/badge-class';
+import { buttonClass } from '../../components/button/button-class';
 import { cn } from '../../cn';
-import {
-  heading,
-  RatingSummary,
-  ResultLine,
-} from '../../leaderboard/detail-parts/detail-parts';
-import { RatingChart } from '../../leaderboard/rating-chart/rating-chart';
 import { ProfileActions } from '../profile-actions/profile-actions';
 
 const card = 'flex flex-col gap-4 rounded-xl bg-surface p-6 shadow-1';
+const heading = 'text-xs font-bold tracking-widest text-ink-muted uppercase';
 
-function Rating({ profile }: { readonly profile: Profile }) {
-  const { detail } = profile;
-  if (detail.kind === 'hidden') return <HiddenWhileJudging />;
-  if (detail.kind === 'none')
-    return (
-      <div className="flex flex-col items-start gap-2 text-base text-ink-muted">
-        <p>{detail.text}</p>
-      </div>
-    );
+const month = (iso: string) =>
+  new Date(iso).toLocaleDateString('en-US', {
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
+const day = (iso: string) =>
+  new Date(iso).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
+
+const results: Readonly<
+  Record<RecordResult, { readonly label: string; readonly tone: BadgeTone }>
+> = {
+  win: { label: 'Won', tone: 'accent' },
+  loss: { label: 'Lost', tone: 'clay' },
+  draw: { label: 'Draw', tone: 'sky' },
+  'no-ruling': { label: 'No ruling', tone: 'neutral' },
+};
+
+const judges: Readonly<Record<JudgePanel, string>> = {
+  ai: 'AI judge',
+  human: 'Human judges',
+  mixed: 'AI and human judges',
+  none: 'No judge',
+};
+
+const sides = { affirmative: 'Affirmative', negative: 'Negative' } as const;
+
+function Opponents({ entry }: { readonly entry: MatchHistoryEntry }) {
+  if (entry.opponents.length === 0) return <span>No opponent</span>;
   return (
-    <>
-      <RatingSummary
-        detail={detail}
-        gridClass="grid-cols-4 max-compact:grid-cols-2"
-      />
-      <RatingChart
-        chart={detail.chart}
-        label={detail.chartLabel}
-        initialStep={detail.step}
-        readouts={detail.readouts}
-      />
-    </>
+    <span>
+      {'vs '}
+      {entry.opponents.map((opponent, index) => (
+        <span key={index}>
+          {index > 0 ? ', ' : ''}
+          {opponent.label === null ? (
+            'Former member'
+          ) : opponent.kind === 'bot' ? (
+            `${opponent.label} (AI)`
+          ) : (
+            <Link
+              href={`/profile/${opponent.label}`}
+            >{`@${opponent.label}`}</Link>
+          )}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+function HistoryRow({
+  entry,
+  me,
+}: {
+  readonly entry: MatchHistoryEntry;
+  readonly me: boolean;
+}) {
+  const result = results[entry.result];
+  return (
+    <li className="flex flex-col gap-1 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Link
+          href={`/rounds/${entry.roundId}`}
+          className="min-w-0 font-strong text-ink"
+        >
+          {entry.resolution}
+        </Link>
+        <span className="flex items-center gap-2">
+          {me && entry.visibility !== 'public' ? (
+            <Badge>{entry.visibility}</Badge>
+          ) : null}
+          <Badge tone={result.tone}>{result.label}</Badge>
+        </span>
+      </div>
+      <p className="flex flex-wrap gap-x-2 text-sm text-ink-muted">
+        <time dateTime={entry.completedAt}>{day(entry.completedAt)}</time>
+        <span aria-hidden="true">·</span>
+        <span>{sides[entry.side]}</span>
+        <span aria-hidden="true">·</span>
+        <Opponents entry={entry} />
+        <span aria-hidden="true">·</span>
+        <span>{entry.forfeit ? 'By forfeit' : judges[entry.judges]}</span>
+      </p>
+    </li>
+  );
+}
+
+function RecordSummary({ profile }: { readonly profile: MemberProfile }) {
+  const { wins, losses, draws } = profile.record;
+  const figures = [
+    { label: 'Wins', value: wins },
+    { label: 'Losses', value: losses },
+    ...(draws > 0 ? [{ label: 'Draws', value: draws }] : []),
+  ];
+  return (
+    <section aria-label="Record" className={card}>
+      <h2 className={heading}>Record</h2>
+      <dl className="flex flex-wrap gap-8">
+        {figures.map((figure) => (
+          <div key={figure.label} className="flex flex-col">
+            <dt className="text-sm text-ink-muted">{figure.label}</dt>
+            <dd className="font-display text-3xl font-bold tabular-nums">
+              {figure.value}
+            </dd>
+          </div>
+        ))}
+      </dl>
+      <p className="text-sm text-ink-muted">
+        From completed rounds. Rounds with no ruling are listed but not counted.
+      </p>
+    </section>
   );
 }
 
 /**
- * A debater's public profile: who they are, their rating and history, the
- * tournaments they have placed in and what they have achieved. Read-only: a
- * member edits their own from Settings.
+ * A member's profile: who they are, their record and the rounds they have
+ * debated. Only real data: everything here comes from the profile read.
  */
-export function ProfilePage({ profile }: { readonly profile: Profile }) {
-  const { detail, extras } = profile;
+export function ProfilePage({
+  profile,
+  paged,
+}: {
+  readonly profile: MemberProfile;
+  /** Whether this is an older page of the history. */
+  readonly paged: boolean;
+}) {
+  const base = `/profile/${profile.username}`;
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-6 px-6 pt-5 pb-8 max-compact:gap-4 max-compact:px-4">
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex min-w-0 items-center gap-4">
-          <Avatar name={profile.username} size="lg" />
+          <Avatar name={profile.username} size="lg" nameVisible />
           <div className="flex min-w-0 flex-col gap-1">
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="font-display text-3xl leading-tight font-bold tracking-tight max-compact:text-2xl">
                 {`@${profile.username}`}
               </h1>
               {profile.me ? <Badge tone="accent">You</Badge> : null}
-              {extras.verified ? <Badge tone="gold">Verified</Badge> : null}
             </div>
             <p className="text-base text-ink-muted">
-              {`Member since ${extras.memberSince}`}
-              {extras.region ? ` · ${extras.region}` : ''}
+              {`Member since ${month(profile.memberSince)}`}
             </p>
           </div>
         </div>
         <ProfileActions username={profile.username} me={profile.me} />
       </header>
-      <section aria-label="Rating" className={card}>
-        <h2 className={heading}>Rating</h2>
-        <Rating profile={profile} />
-      </section>
-      <div className="grid grid-cols-2 items-start gap-6 max-compact:grid-cols-1 max-compact:gap-4">
-        <section aria-label="Honours" className={card}>
-          <h2 className={heading}>Tournament honours</h2>
-          {extras.honours.length === 0 ? (
-            <p className="text-base text-ink-muted">
-              No tournament honours yet.
-            </p>
-          ) : (
-            <ul className="flex flex-col gap-3">
-              {extras.honours.map((honour) => (
-                <li
-                  key={honour.detail}
-                  className="flex items-center justify-between gap-3 text-base"
-                >
-                  <span className="font-strong text-ink">{honour.title}</span>
-                  <span className="text-ink-muted">{honour.detail}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-        <section aria-label="Achievements" className={card}>
-          <h2 className={heading}>Achievements</h2>
-          <ul className="flex flex-col gap-3">
-            {extras.achievements.map((achievement) => (
-              <li key={achievement.id} className="flex flex-col text-base">
-                <span className="font-strong text-ink">
-                  {achievement.label}
-                </span>
-                <span className="text-sm text-ink-muted">
-                  {achievement.description}
-                </span>
-              </li>
+      <RecordSummary profile={profile} />
+      <section aria-label="Match history" className={card}>
+        <h2 className={heading}>Match history</h2>
+        {profile.history.length === 0 ? (
+          <p className="text-base text-ink-muted">
+            {paged
+              ? 'No older rounds.'
+              : profile.me
+                ? 'You have no completed rounds yet.'
+                : 'No public rounds yet.'}
+          </p>
+        ) : (
+          <ul className="divide-y divide-border">
+            {profile.history.map((entry) => (
+              <HistoryRow key={entry.roundId} entry={entry} me={profile.me} />
             ))}
           </ul>
-        </section>
-      </div>
-      {detail.kind === 'player' ? (
-        <div className="grid grid-cols-2 items-start gap-6 max-compact:grid-cols-1 max-compact:gap-4">
-          <section aria-label="Recent results" className={card}>
-            <h2 className={heading}>Recent results</h2>
-            <ul className="divide-y divide-border">
-              {detail.recent.map((row) => (
-                <ResultLine key={row.game} row={row} />
-              ))}
-            </ul>
-          </section>
-          <section aria-label="Seasons played" className={card}>
-            <h2 className={heading}>Seasons played</h2>
-            <ul className="divide-y divide-border">
-              {detail.seasons.map((row) => (
-                <li
-                  key={row.label}
-                  className={cn(
-                    'grid grid-cols-12 items-center gap-3 py-2 text-sm tabular-nums',
-                    row.current ? 'font-strong' : 'text-ink-muted',
-                  )}
-                >
-                  <span className="col-span-4">{row.label}</span>
-                  <span className="col-span-2 text-right">{row.rating}</span>
-                  <span className="col-span-4 text-right">{row.rank}</span>
-                  <span className="col-span-2 text-right">{row.record}</span>
-                </li>
-              ))}
-            </ul>
-          </section>
-        </div>
-      ) : null}
+        )}
+        {paged || profile.nextBefore ? (
+          <nav
+            aria-label="Match history pages"
+            className="flex flex-wrap gap-2"
+          >
+            {paged ? (
+              <Link
+                href={base}
+                className={cn(
+                  buttonClass('secondary'),
+                  'no-underline hover:no-underline',
+                )}
+              >
+                Newest rounds
+              </Link>
+            ) : null}
+            {profile.nextBefore ? (
+              <Link
+                href={`${base}?before=${profile.nextBefore}`}
+                className={cn(
+                  buttonClass('secondary'),
+                  'no-underline hover:no-underline',
+                )}
+              >
+                Older rounds
+              </Link>
+            ) : null}
+          </nav>
+        ) : null}
+      </section>
     </div>
   );
 }

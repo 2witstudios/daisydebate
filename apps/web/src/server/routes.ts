@@ -11,6 +11,7 @@ import {
   createRevokeSessionHandler,
 } from '../features/account/sessions';
 import { createOnboardingHandler } from '../features/onboarding/save-answers';
+import { createProfileHandlers } from '../features/profile/handlers';
 import { createUsernameHandler } from '../features/account/username';
 import { createConfirmEmailHandlers } from '../features/auth/email-change/confirm-email';
 import { createConfirmHandlers } from '../features/auth/confirmation/confirm';
@@ -107,6 +108,13 @@ export function createRoutes(app: App) {
         claim: (input) => database.claimUsername(input),
       }),
     },
+    profiles: createProfileHandlers({
+      logger,
+      origin,
+      identify: (request) => identify(app.auth(), request.headers),
+      limiter: () => app.auth().limiter,
+      store: database,
+    }),
     onboarding: {
       POST: createOnboardingHandler({
         logger,

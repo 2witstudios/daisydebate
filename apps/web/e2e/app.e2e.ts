@@ -65,11 +65,27 @@ test('guarded areas send visitors to sign-in and render for a member', async ({
     await expectShell(page, route, title);
 });
 
-test('dynamic profile route renders the requested username', async ({
+test('a profile shows the real member, their record and history', async ({
   page,
 }) => {
-  await page.goto('/profile/debater-42');
-  await expect(page.locator('main h1')).toHaveText('@debater-42');
+  const missing = await page.goto('/profile/nobody-holds-this-name');
+  expect(missing?.status()).toBe(404);
+  const { username } = await signUpMember(page.request);
+  await page.goto(`/profile/${username.toUpperCase()}`);
+  await expect(page.locator('main h1')).toHaveText(`@${username}`);
+  await expect(page.getByText(/^Member since /)).toBeVisible();
+  const record = page.getByRole('region', { name: 'Record' });
+  await expect(record.getByText('Wins')).toBeVisible();
+  await expect(record.getByText('Losses')).toBeVisible();
+  await expect(
+    page.getByText('You have no completed rounds yet.'),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('link', { name: 'Edit profile' }),
+  ).toHaveAttribute('href', '/settings');
+  await expect(
+    page.locator('main').getByText(/\b(rating|elo)\b/i),
+  ).toHaveCount(0);
 });
 
 test('production security and correlation headers are present', async ({
