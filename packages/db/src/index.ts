@@ -61,7 +61,7 @@ import {
   createMessagingSocialStore,
   type MessagingSocialAuthorizationFence,
 } from './messaging';
-import { listMessagingFriendships } from './messaging/friendships';
+import { friendshipReadOperations } from './messaging/friendships';
 import { actorOperations } from './actor-operations';
 import { rateCompletedRound } from './rating-operations';
 import { standingsOperations } from './standings';
@@ -238,14 +238,7 @@ export function createDatabase({
       createMessagingGroupInvitationStore({ database, authorize }),
     messagingSocialStore: (authorize: MessagingSocialAuthorizationFence) =>
       createMessagingSocialStore({ database, authorize }),
-    /** One member's own friendships and requests (ADR 0072). */
-    listMessagingFriendships: (
-      scope: Parameters<typeof listMessagingFriendships>[1],
-      authorize: Parameters<typeof listMessagingFriendships>[2],
-    ) =>
-      instrumented(eventSink, 'listMessagingFriendships', () =>
-        listMessagingFriendships(database, scope, authorize),
-      ),
+    ...friendshipReadOperations({ database, eventSink }),
     ...outboxOperations({ database, eventSink }),
     ...transcriptRetention({ database, eventSink }),
     readOutboxRetentionBoundary: () =>

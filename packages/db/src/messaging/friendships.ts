@@ -9,6 +9,7 @@ import {
   messagingFriendships,
 } from '../schema/messaging-social';
 import { readOwnCollection, type OwnCollectionFence } from '../authorization';
+import { instrumented, type DatabaseEventSink } from '../instrumented';
 
 export type MessagingFriendshipRow = {
   readonly otherActorId: string;
@@ -46,6 +47,24 @@ export async function listMessagingFriendships(
     readRows(tx, scope.actorId),
   );
 }
+
+/** The database's friendship reads, instrumented like its other operations. */
+export const friendshipReadOperations = ({
+  database,
+  eventSink,
+}: {
+  readonly database: BunSQLDatabase;
+  readonly eventSink?: DatabaseEventSink | undefined;
+}) => ({
+  /** One member's own friendships and requests (ADR 0072). */
+  listMessagingFriendships: (
+    scope: FriendshipListScope,
+    authorize: OwnCollectionFence<FriendshipListScope>,
+  ) =>
+    instrumented(eventSink, 'listMessagingFriendships', () =>
+      listMessagingFriendships(database, scope, authorize),
+    ),
+});
 
 async function readRows(
   tx: Pick<BunSQLDatabase, 'select'>,
