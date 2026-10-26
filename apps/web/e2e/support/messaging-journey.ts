@@ -130,6 +130,11 @@ export async function acceptMessagingJourney(
 ) {
   const page = await openPage(journey.recipient, 'the protected DM request');
   await page.goto('/messages');
+  await expect(
+    page
+      .getByRole('list', { name: 'Conversations' })
+      .getByText(journey.introduction, { exact: true }),
+  ).toBeVisible();
   await page
     .getByRole('link', {
       name: `Message request from ${journey.senderUsername}`,
