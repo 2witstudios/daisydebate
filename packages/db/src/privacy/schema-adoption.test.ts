@@ -199,3 +199,52 @@ test('multi-target command subjects declare private erasable relationships', asy
     ]),
   });
 });
+
+test('beta access declarations match all actual producer columns', async () => {
+  const beta = await import('../schema/beta-access');
+  const intents = await import('../schema/mail-intents');
+  const { betaAccessPrivacyFields, betaAccessPrivacyExpectedColumns } =
+    await import('./beta-access-declarations');
+  const tables = [
+    beta.accountBetaAccess,
+    beta.accountAccessEvents,
+    beta.operatorCommandReceipts,
+    intents.mailIntents,
+  ];
+  const expected = Object.fromEntries(
+    tables.map((table) => [
+      getTableName(table),
+      Object.values(getTableColumns(table)).map((column) => column.name),
+    ]),
+  );
+  assert({
+    given: 'the ADR 0075 beta access and mail intent schema',
+    should: 'declare the exact real table and column set with policy holds',
+    actual: validatePrivacyAdoption(expected, betaAccessPrivacyFields),
+    expected: { problems: [], activationHeld: true },
+  });
+  assert({
+    given: 'the beta adopter manifest',
+    should: 'name exactly the producer tables',
+    actual: Object.keys(betaAccessPrivacyExpectedColumns).sort(),
+    expected: Object.keys(expected).sort(),
+  });
+  assert({
+    given: 'subject-owned beta rows and retained operator audit',
+    should:
+      'delete the access row and mail, and keep only identifiers of the audit',
+    actual: [
+      ...new Set(
+        betaAccessPrivacyFields.map(
+          (field) => `${field.table}:${field.erasure}`,
+        ),
+      ),
+    ].sort(),
+    expected: [
+      'account_access_events:retain-nonpersonal',
+      'account_beta_access:delete',
+      'mail_intents:delete',
+      'operator_command_receipts:retain-nonpersonal',
+    ],
+  });
+});

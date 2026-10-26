@@ -4,6 +4,7 @@ import { startRoundMediaRecovery } from './round-media-recovery';
 import { startRoundWorkers } from './round-workers';
 import { startMessagingFileMaintenance } from './file-maintenance';
 import { startRoundAvailability } from './round-availability';
+import { startBetaMail } from './beta-mail';
 import { readFileSync } from 'node:fs';
 import next from 'next';
 import { refuseSchemaAlteringRole } from '@daisy/db';
@@ -136,6 +137,17 @@ const retention = startRetentionSweep({
     clearInterval: (handle) => clearInterval(handle as NodeJS.Timeout),
   },
 });
+const betaMail = startBetaMail({
+  app,
+  timers: {
+    setInterval: (tick, ms) =>
+      setInterval(() => {
+        void tick();
+      }, ms).unref(),
+    clearInterval: (handle) =>
+      clearInterval(handle as ReturnType<typeof setInterval>),
+  },
+});
 const fileRuntime = app.messagingFiles;
 const fileMaintenance = fileRuntime?.maintenance
   ? startMessagingFileMaintenance({
@@ -155,6 +167,7 @@ async function shutdown() {
   app.drain();
   // Ends any sweep between batches; awaited before the pools close below.
   const retentionStopped = retention.stop();
+  const betaMailStopped = betaMail.stop();
   const filesStopped = fileMaintenance?.stop();
   const availabilityStopped = availability.stop();
   const workersStopped = roundWorkers?.stop();
@@ -182,6 +195,7 @@ async function shutdown() {
       await nextApp.close();
       await Promise.all([
         retentionStopped,
+        betaMailStopped,
         filesStopped,
         availabilityStopped,
         workersStopped,
