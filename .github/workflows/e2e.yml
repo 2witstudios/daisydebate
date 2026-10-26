@@ -23,6 +23,9 @@ concurrency:
 
 jobs:
   quick-check:
+    permissions:
+      contents: read
+      checks: write
     uses: ./.github/workflows/quick-check.yml
 
   e2e:

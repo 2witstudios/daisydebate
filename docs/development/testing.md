@@ -504,11 +504,14 @@ and [Turbo 2.11.2 configuration](https://github.com/vercel/turborepo/blob/v2.11.
 ### Fast branch checks and affected browser selection
 
 `gh workflow run quick-check.yml -f ref=<branch>` checks the requested ref;
-its job summary records the actual checked SHA. Add `--ref <branch>` when the
-Actions check must attach to that branch (dispatch otherwise attaches to the
-workflow ref). Pushes to `pu/**` also publish `Quick check`. CI and Browser E2E
-call the same workflow in-process; both browser jobs and the CI image and
-infrastructure jobs require its success before allocating their runners.
+a trusted read-only job resolves the ref before checkout, and a separate job
+publishes `Quick check (dispatched)` on that exact SHA. The publishing job
+executes no candidate code and alone has checks-write permission. Candidate
+execution keeps contents-read permission; dispatches never save task caches.
+Pushes to `pu/**` also publish `Quick check`. Browser E2E
+calls the same workflow in-process; both browser jobs require its success
+before allocating their runners. CI retains its full parallel matrix without
+a third quick-check invocation competing for runner capacity.
 Always-running terminal checks require both the quick prerequisite and actual
 suite success; skipped or cancelled browser jobs cannot pass a required check.
 The existing full CI matrix and aggregate gate remain required.

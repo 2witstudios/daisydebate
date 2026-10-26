@@ -12,8 +12,30 @@ on:
 permissions:
   contents: read
 jobs:
+  resolve:
+    name: Resolve dispatched candidate
+    if: github.event_name == 'workflow_dispatch' && inputs.ref != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      sha: ${{ steps.resolve.outputs.sha }}
+    steps:
+      - name: Resolve ref through repository API without executing candidate code
+        id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED_REF: ${{ inputs.ref }}
+        run: |
+          encoded=$(jq -rn --arg ref "$REQUESTED_REF" '$ref | @uri')
+          sha=$(gh api "repos/$GITHUB_REPOSITORY/commits/$encoded" --jq .sha)
+          [[ "$sha" =~ ^[a-f0-9]{40}$ ]]
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
   quick-check:
+    permissions:
+      contents: read
     name: Quick check
+    needs: resolve
+    if: ${{ !cancelled() && (needs.resolve.result == 'success' || needs.resolve.result == 'skipped') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
@@ -22,7 +44,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.ref || github.sha }}
+          ref: ${{ needs.resolve.outputs.sha || github.sha }}
           fetch-depth: 0
           persist-credentials: false
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
@@ -47,3 +69,28 @@ jobs:
         with:
           task: quick-check
           phase: save
+
+  publish-dispatch:
+    name: Publish checked commit result
+    if: ${{ always() && github.event_name == 'workflow_dispatch' && needs.resolve.result == 'success' }}
+    needs: [resolve, quick-check]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      checks: write
+    steps:
+      # No checkout, dependencies, cache or candidate code in this write-capable job.
+      - name: Attach dispatch result to the exact checked SHA
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CHECKED_SHA: ${{ needs.resolve.outputs.sha }}
+          RESULT: ${{ needs.quick-check.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          conclusion=failure
+          if [ "$RESULT" = success ]; then conclusion=success; fi
+          if [ "$RESULT" = cancelled ]; then conclusion=cancelled; fi
+          jq -n --arg sha "$CHECKED_SHA" --arg conclusion "$conclusion" --arg url "$RUN_URL" \
+            '{name:"Quick check (dispatched)",head_sha:$sha,status:"completed",conclusion:$conclusion,details_url:$url,output:{title:"Dispatched affected verification",summary:("Checked exact commit " + $sha + ". Workflow: " + $url)}}' \
+            | gh api --method POST "repos/$GITHUB_REPOSITORY/check-runs" --input -
