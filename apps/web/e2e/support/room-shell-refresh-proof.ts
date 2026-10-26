@@ -20,6 +20,9 @@ export async function proveClosedRoomNavigation(page: Page) {
     .click();
   await expect(page).toHaveURL(/\/settings$/);
   await expect(
+    page.getByRole('heading', { name: 'Settings', exact: true }),
+  ).toBeVisible();
+  await expect(
     page.getByRole('link', { name: /^Return to room:/ }),
   ).toHaveCount(0);
   expect(documentRequests).toEqual([]);
