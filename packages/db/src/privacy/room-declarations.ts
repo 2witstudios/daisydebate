@@ -1,4 +1,5 @@
 import type { PrivacyFieldDeclaration } from './contracts';
+import { privacyColumns, pendingPrivacyField } from './field-declarations';
 
 /** Actor associations are retained competitive identifiers (ADR 0029). */
 const columns = {
@@ -70,32 +71,18 @@ const columns = {
  * Pending policies confer no collection or numeric retention authority.
  */
 export const roomPrivacyFields: readonly PrivacyFieldDeclaration[] =
-  Object.entries(columns).flatMap(([table, groups]) =>
-    Object.entries(groups).flatMap(([category, names]) =>
-      names.map((column: string) => ({
-        table,
-        column,
-        category: category as 'identifier' | 'personal' | 'none',
-        ...(category === 'personal' ? { visibility: 'private' as const } : {}),
-        storage: 'postgres' as const,
-        owner: 'ROOM',
-        purpose:
-          category === 'personal'
-            ? 'Host-authored Room description and frozen debate resolution'
-            : 'Room assembly and durable competitive provenance',
-        lawfulBasis: {
-          status: 'pending' as const,
-          decision: 'jc0qcdvpkmqzrelpaesi3pah',
-        },
-        retention: {
-          status: 'pending' as const,
-          decision: 'njiorsf64z4iqjm2dbfa3zuu',
-        },
-        erasure:
-          category === 'personal'
-            ? ('scrub' as const)
-            : ('retain-nonpersonal' as const),
-        exportable: category === 'personal',
-      })),
-    ),
+  privacyColumns(columns).map(({ table, column, category }) =>
+    pendingPrivacyField({
+      table,
+      column,
+      category,
+      ...(category === 'personal' ? { visibility: 'private' as const } : {}),
+      owner: 'ROOM',
+      purpose:
+        category === 'personal'
+          ? 'Host-authored Room description and frozen debate resolution'
+          : 'Room assembly and durable competitive provenance',
+      erasure: category === 'personal' ? 'scrub' : 'retain-nonpersonal',
+      exportable: category === 'personal',
+    }),
   );
