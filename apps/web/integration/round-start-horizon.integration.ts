@@ -17,7 +17,10 @@ test('a Round still scheduled past its start horizon is abandoned once across tw
       const expired = (
         await launchRuntimeRound(f, (await readyBotJudgedRoom(f)).room)
       ).roundId;
-      const fresh = (await launchRuntimeRound(f, await f.assemble())).roundId;
+      // A second Room needs its own cast: one user holds one active Room (ADR 0070).
+      const fresh = (
+        await launchRuntimeRound(f, await f.assemble({}, await f.freshCast()))
+      ).roundId;
       // The injected clock: this Round was launched past its horizon.
       await f.sql`update rounds set created_at=clock_timestamp()-${ROUND_START_HORIZON_MS + 60_000}*interval '1 millisecond' where id=${expired}`;
       const held = await f.store.readRoundBotAdmissionStatus(f.host.actorId);

@@ -23,17 +23,21 @@ test('unsafe custom create and update preserve Room, definitions, receipts and o
       interruptions: { mode: 'disabled' as const, minRemainingMs: 0 },
       yielding: { allowed: false, returnsTime: false },
     };
-    const valid = await f.create({
-      selection: {
-        kind: 'custom',
-        definition: {
-          ...oneOnOneFormatFixture,
-          seats: { affirmative: 2, negative: 1, judge: 0 },
+    // Another host: the first Room holds this one (ADR 0070).
+    const valid = await f.create(
+      {
+        selection: {
+          kind: 'custom',
+          definition: {
+            ...oneOnOneFormatFixture,
+            seats: { affirmative: 2, negative: 1, judge: 0 },
+          },
+          config,
+          competitionType: 'casual',
         },
-        config,
-        competitionType: 'casual',
       },
-    });
+      f.guest,
+    );
     assert({
       given:
         'the same admission fixture with safe asymmetric seats and no judges',

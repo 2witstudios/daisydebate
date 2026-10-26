@@ -172,25 +172,41 @@ async function fixture(
     return (await consent(host, await operations.view(host, view.id), 'ready'))
       .view;
   };
-  const assemble = async (overrides: Partial<RoomCreate> = {}) => {
-    let view = (await create(overrides)).view;
+  /** A new host and guest: one user holds one active Room (ADR 0070). */
+  const freshCast = async () => ({
+    host: await caller(),
+    guest: await caller(),
+  });
+  const callerOf = (actorId: string) => {
+    const found = callers.find((c) => c.actorId === actorId);
+    if (!found) throw new Error('No fixture caller holds that actor');
+    return found;
+  };
+  const assemble = async (
+    overrides: Partial<RoomCreate> = {},
+    cast: { readonly host: typeof host; readonly guest: typeof host } = {
+      host,
+      guest,
+    },
+  ) => {
+    let view = (await create(overrides, cast.host)).view;
     view = (
-      await command(host, view, {
+      await command(cast.host, view, {
         type: 'claim-seat',
         role: 'affirmative',
         slot: 0,
       })
     ).view;
     view = (
-      await command(guest, view, {
+      await command(cast.guest, view, {
         type: 'claim-seat',
         role: 'negative',
         slot: 0,
       })
     ).view;
-    for (const c of [host, guest])
+    for (const c of [cast.host, cast.guest])
       view = (await consent(c, view, 'ready')).view;
-    return operations.view(host, view.id);
+    return operations.view(cast.host, view.id);
   };
   return {
     sql,
@@ -210,6 +226,8 @@ async function fixture(
     seatBotOpponent,
     snapshot,
     assemble,
+    freshCast,
+    callerOf,
     failAfterReady: (value: boolean) => {
       failAfterReady = value;
     },
