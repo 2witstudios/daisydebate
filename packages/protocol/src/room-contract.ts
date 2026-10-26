@@ -191,6 +191,8 @@ export type RoomListStatus = (typeof roomListStatuses)[number];
 
 export const roomListQuerySchema = z.strictObject({
   cursor: idSchema.optional(),
+  /** Immutable creation-time order; the Room id breaks timestamp ties. */
+  sort: z.enum(['longest-waiting', 'newest']).optional(),
   pageSize: z.int().min(1).max(50).default(20),
   q: z.string().trim().max(100).default(''),
   /**

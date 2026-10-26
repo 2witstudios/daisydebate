@@ -96,7 +96,12 @@ test('discovery uses partial ordered indexes independently of historical Room an
           discoverRooms(
             tx,
             caller,
-            { q: token, pageSize: 2, ...(cursor ? { cursor } : {}) },
+            {
+              q: token,
+              pageSize: 2,
+              sort: 'longest-waiting',
+              ...(cursor ? { cursor } : {}),
+            },
             () => true,
             () => true,
             () => false,

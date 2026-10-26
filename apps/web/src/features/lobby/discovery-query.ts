@@ -36,6 +36,7 @@ export function parseRoomDiscoveryQuery(raw: SearchParams) {
   return roomListQuerySchema.safeParse({
     q: raw.q,
     cursor: raw.cursor,
+    sort: raw.sort,
     status: narrowing(raw.status, 'all'),
     mode: narrowing(raw.mode, 'any'),
     ...(raw.pageSize === undefined
@@ -61,6 +62,7 @@ export function lobbyHref(query: RoomListQuery, cursor?: string): string {
     params.set('pageSize', String(query.pageSize));
   if (query.status) params.set('status', query.status);
   if (query.mode) params.set('mode', query.mode);
+  if (query.sort) params.set('sort', query.sort);
   if (cursor !== undefined) params.set('cursor', cursor);
   const search = params.toString();
   return search === '' ? '/lobby' : `/lobby?${search}`;

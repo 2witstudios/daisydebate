@@ -105,13 +105,17 @@ test('Lobby filters run before paging: a one-row page walks only the filtered se
       }
       return seen;
     };
-    const sorted = (ids: string[]) => [...ids].sort();
+    const newest = async (ids: string[]) =>
+      (
+        await f.sql`select id from rooms where id=any(${f.sql.array(ids, 'text')}::text[])
+        order by created_at desc,id collate "C" desc`
+      ).map((row: { id: string }) => row.id);
     assert({
       given: 'one-row pages under the open and the live filter',
       should:
         'return every matching Room in cursor order and none of the others',
       actual: [await walk('open'), await walk('live')],
-      expected: [sorted(opened), sorted(live)],
+      expected: [await newest(opened), await newest(live)],
     });
   });
 });

@@ -120,3 +120,26 @@ and when the tab becomes visible. Doorbells carry no delivery guarantee, so
 the driver also polls: every 30 seconds while realtime is connected, and every
 5 seconds without a connection or while stale. A hydrated command adopts the
 server's answer instead of navigating.
+
+## Lobby discovery ordering
+
+The discovery query accepts `sort=newest` (also the omitted default) or
+`sort=longest-waiting`. Both use the Room's immutable `(created_at, id)`
+tuple, descending for newest and ascending for longest waiting. The id
+uses PostgreSQL's C collation to break timestamp ties. Waiting longest is
+creation order across discovery, including a Room that has already launched;
+it never sorts on the nullable waiting display field or mutable occupancy.
+
+The string cursor is the last returned accessible Room's id. PostgreSQL
+resolves that anchor's creation instant at full stored precision, even if
+its Room has since launched or left the selected status; no JavaScript
+Date rounding or offset is involved. An invisible or missing anchor yields
+no page. The same keyset/order applies before each bounded assembly/live
+branch limit, to the combined candidates and to the final projection.
+Authorization and bounded retry after lock races remain unchanged.
+
+New Rooms before the anchor appear on refresh; those after it can appear
+on subsequent pages. Launching does not move the key. Clients restart from
+page one when changing sort, status, mode or search. The query/URL helper
+preserves sort on subsequent pages; interactive controls are owned by the
+separate Lobby design lane.
