@@ -9,6 +9,7 @@ import { proveNativeTyping } from './support/messaging-typing';
 import type { ServerMessage } from '@daisy/protocol';
 import { manageNativePreferences } from './support/messaging-preferences';
 import { attachNativeMessageFile } from './support/messaging-attachments';
+import { testProfileMessageEntry } from './support/messaging-profile-entry';
 import { serverMessageSchema } from '@daisy/protocol';
 import { test, expect, openPage } from './support/fixtures';
 import {
@@ -20,6 +21,7 @@ import {
 } from './support/messaging-journey';
 
 testMessageControlFocus();
+testProfileMessageEntry();
 
 test('an authenticated DM doorbell refetches current history in the other real browser', async ({
   browser,
