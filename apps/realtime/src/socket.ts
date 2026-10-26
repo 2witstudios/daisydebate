@@ -86,17 +86,21 @@ export function createWebSocketHandlers({
   readonly validatePrincipal?: (principal: SocketPrincipal) => Promise<boolean>;
   readonly presence?: PresenceTracker;
 }) {
+  /** Closes the socket's phase and frees everything it owns, once or again. */
+  function release(ws: ServerWebSocket<SocketData>) {
+    ws.data.phase = 'closed';
+    clearHelloTimer(ws, timers);
+    if (ws.data.connection) registry?.remove(ws.data.connection);
+    ws.data.presence?.stop();
+    ws.data.admission?.release();
+  }
   function reject(
     ws: ServerWebSocket<SocketData>,
     reason: Parameters<typeof closeFor>[0],
     cause: 'hello_timeout' | 'message_rejected' = 'message_rejected',
   ) {
     if (ws.data.phase === 'closed') return;
-    ws.data.phase = 'closed';
-    clearHelloTimer(ws, timers);
-    if (ws.data.connection) registry?.remove(ws.data.connection);
-    ws.data.presence?.stop();
-    ws.data.admission?.release();
+    release(ws);
     const outcome = closeFor(reason);
     logRejection(logger, cause, outcome.code, outcome.reason);
     ws.close(outcome.code, outcome.reason);
@@ -250,12 +254,6 @@ export function createWebSocketHandlers({
       if (ws.data.phase !== 'authenticated') return receiveHello(ws, message);
       return receiveAuthenticated(ws, message);
     },
-    close(ws: ServerWebSocket<SocketData>) {
-      ws.data.phase = 'closed';
-      clearHelloTimer(ws, timers);
-      if (ws.data.connection) registry?.remove(ws.data.connection);
-      ws.data.presence?.stop();
-      ws.data.admission?.release();
-    },
+    close: release,
   };
 }

@@ -1,33 +1,22 @@
 import { z } from 'zod';
-import { parseUsername } from './username';
+import { usernameSchema as username } from './username';
 
 /**
  * The friendship contract (ADR 0072). Commands name the other member by
  * username; the acting member always comes from the principal, never the
  * body. A relation is always the viewer's own view of one pair.
  */
-const username = z.string().transform((value, context) => {
-  const parsed = parseUsername(value);
-  if (parsed.ok) return parsed.username;
-  context.addIssue({ code: 'custom', message: 'Invalid username' });
-  return z.NEVER;
-});
 
 /** Durable pair states; a declined or removed pair has no row at all. */
 export const friendshipStates = ['pending', 'accepted'] as const;
 export type FriendshipState = (typeof friendshipStates)[number];
 
 /** One pair as the viewer sees it. */
-export const friendRelations = [
-  'none',
-  'friends',
-  'outgoing',
-  'incoming',
-] as const;
+const friendRelations = ['none', 'friends', 'outgoing', 'incoming'] as const;
 export type FriendRelation = (typeof friendRelations)[number];
 
 /** What a friend's online status shows: presence without seat facts. */
-export const friendPresences = ['online', 'away', 'offline'] as const;
+const friendPresences = ['online', 'away', 'offline'] as const;
 export type FriendPresence = (typeof friendPresences)[number];
 
 const command = { version: z.literal(1), username };
@@ -40,9 +29,6 @@ export const friendCommandSchemas = {
   }),
   remove: z.strictObject(command),
 } as const;
-export type FriendRequestCommand = z.infer<typeof friendCommandSchemas.request>;
-export type FriendRespondCommand = z.infer<typeof friendCommandSchemas.respond>;
-export type FriendRemoveCommand = z.infer<typeof friendCommandSchemas.remove>;
 
 export const friendCommandResultSchema = z.strictObject({
   version: z.literal(1),

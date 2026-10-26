@@ -26,14 +26,14 @@ const friendReads = (app: App): FriendReadDependencies => ({
 });
 
 /** The member's own friend list, for pages and the list route. */
-export const composeFriendList = (app: App) => {
+const composeFriendList = (app: App) => {
   const reads = friendReads(app);
   return (principal: AuthorizationPrincipal) =>
     readFriendList(principal, reads);
 };
 
 /** One friendship change through the contact fence for the principal. */
-export const composeFriendChange =
+const composeFriendChange =
   (app: App) =>
   (
     principal: AuthorizationPrincipal,

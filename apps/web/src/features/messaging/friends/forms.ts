@@ -1,8 +1,9 @@
 import { createAppError } from '@daisy/errors';
 import type { FriendRelation } from '@daisy/protocol';
+import { singleFormField } from '../forms/form-scope';
 
 /** What each friend form button asks; `cancel` withdraws one's own request. */
-export const friendIntents = [
+const friendIntents = [
   'request',
   'accept',
   'decline',
@@ -42,16 +43,13 @@ export function friendRouteFor(intent: FriendIntent, username: string) {
 /** A form's two fields, each exactly once; the server validates the name. */
 export function parseFriendForm(input: unknown) {
   if (!(input instanceof FormData)) throw createAppError('VALIDATION');
-  const read = (key: string) => {
-    const value = input.get(key);
-    if (typeof value !== 'string' || input.getAll(key).length !== 1)
-      throw createAppError('VALIDATION');
-    return value;
-  };
-  const intent = read('intent');
+  const intent = singleFormField(input, 'intent');
   if (!(friendIntents as readonly string[]).includes(intent))
     throw createAppError('VALIDATION');
-  return { intent: intent as FriendIntent, username: read('username') };
+  return {
+    intent: intent as FriendIntent,
+    username: singleFormField(input, 'username'),
+  };
 }
 
 const typedName = (form: FormData) => {
