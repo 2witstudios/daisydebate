@@ -2,10 +2,8 @@ import { sql } from 'drizzle-orm';
 import { idSchema } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import type { AuthorizationTransaction } from './authorization';
-import type {
-  PrivacyAdopter,
-  PrivacyFieldDeclaration,
-} from './privacy/contracts';
+import type { PrivacyFieldDeclaration } from '@daisy/protocol/privacy';
+import type { PrivacyAdopter } from './privacy/contracts';
 import { accountAge } from './schema/account-age';
 export { loadAuthorizationAgeFact } from './authorization-age';
 export { bindAuthorizationAgeFact } from './authorization-age-reader';
