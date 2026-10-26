@@ -17,7 +17,7 @@ live Round was a link that changed nothing on the server.
 
 1. **One active Room per user, enforced by PostgreSQL.** A Room is active
    while it is `assembling` or `ready`, or `started` with a `scheduled` or
-   `active` Round. `room_active_memberships` holds one row per human actor
+   `active` Round whose last speech has not yet ended. `room_active_memberships` holds one row per human actor
    such a Room holds — its host and its seated humans — with `actor_id` as the
    primary key. That key is the invariant: a second create or join cannot
    commit. Bots hold no row.
@@ -26,8 +26,9 @@ live Round was a link that changed nothing on the server.
    Room writer makes the rows equal to it in the same transaction and
    refuses with `active-room` when another Room holds a member, rolling the
    whole command back. Two concurrent claims on one actor serialize on the
-   key: exactly one commits. A Round's end (`writeProjectionWithPhaseSignal`
-   taking it out of play) deletes its Room's rows.
+   key: exactly one commits. A Round's last speech ending, or the Round leaving play, deletes its
+   Room's rows (`writeProjectionWithPhaseSignal`): the debate is over, and
+   judges ballot from their Round seats, not their membership.
 3. **Refusal.** `active-room` joins the closed Room refusal vocabulary (409
    `CONFLICT`). The HTTP refusal also carries the caller's own `ActiveRoom`
    read, so the UI returns them to it instead of showing a generic error.
@@ -58,9 +59,9 @@ real tournaments exist.
 
 ## Consequences
 
-- A debater stays in their active Room while a finished Round awaits its
-  ballot (up to the ballot deadline); Leave then goes to the lobby without a
-  forfeit.
+- A Round awaiting its ballot holds no one: debaters may start another Room
+  as soon as the last speech ends, and Leave then goes to the lobby without
+  a forfeit.
 - A judge has no Leave in a live Round; the Round's end frees them.
 - A seatless host stays a member through Launch and the live Round. Their
   `href` is the Round's room page, which sends a non-debater to the Round's

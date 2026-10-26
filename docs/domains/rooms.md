@@ -48,7 +48,8 @@ membership. Every terminal state frees its members:
   long, by database time.
 - **Leave.** A guest leaving their seat frees only themselves. Leaving a live
   Round forfeits it, which ends the Round.
-- **The Round ends** (completed, forfeited or abandoned).
+- **The debate ends**: the last speech ends, or the Round completes, is
+  forfeited or is abandoned. Judges ballot from their Round seats.
 
 ## Playing
 

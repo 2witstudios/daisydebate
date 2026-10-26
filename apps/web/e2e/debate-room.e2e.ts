@@ -181,7 +181,10 @@ test('the round room: no app shell, the drawer closes, Leave asks first', async 
   await expect(confirm).toBeHidden();
   await expect(page).toHaveURL(`/rounds/${roundId}/room`);
   await page.getByRole('link', { name: 'Leave room' }).click();
-  await confirm.getByRole('link', { name: 'Leave', exact: true }).click();
+  // Leaving a live Round forfeits it, then goes to the lobby (ADR 0070).
+  await confirm
+    .getByRole('button', { name: 'Leave and forfeit', exact: true })
+    .click();
   await expect(page).toHaveURL('/lobby');
 });
 

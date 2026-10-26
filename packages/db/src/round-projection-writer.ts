@@ -81,10 +81,15 @@ export async function writeProjectionWithPhaseSignal(
   const changed = projectionChanged(current, projection);
   if (!changed) return false;
   await writeProjection(tx, roundId, projection, now);
-  if (endsRound(current, projection)) {
+  if (endsRound(current, projection))
     await refundUnservedPracticeLocked(tx, roundId);
+  // A Round out of play, or whose last speech has ended, holds its Room's
+  // members no longer (ADR 0070): judges still ballot from their seats.
+  if (
+    endsRound(current, projection) ||
+    projection.finalSegmentEndedAt !== undefined
+  )
     await releaseRoundRoomMembers(tx, roundId);
-  }
   if (projection.finalSegmentEndedAt !== undefined)
     await tx
       .update(rounds)
