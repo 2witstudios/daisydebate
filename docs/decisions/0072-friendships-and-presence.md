@@ -54,7 +54,12 @@ fence (accounts, then the pair, then a channel).
    reports on every ready, then `idle` while the tab is hidden or has had no
    input for five minutes and `active` again on input. A room's or a
    conversation's socket never reports, so transport liveness never keeps a
-   member online; several genuinely active tabs still do. A lease write that
+   member online; several genuinely active tabs still do. The presence
+   connection is an ordinary socket: it takes one of the actor's
+   `maxPerActor` slots, and its `presence.activity` frames spend the same
+   per-socket inbound budget as any other frame. The client sends one only
+   on a change of state, so a tab sends a few per five minutes, while a
+   socket that floods presence is closed `4004` like any other. A lease write that
    fails is logged by the Redis adapter and never closes a socket.
 7. **Who may see presence.** Only accepted friends see a member's status.
    `GET /api/friends` first passes `authorize` (`social.friend.list` over the

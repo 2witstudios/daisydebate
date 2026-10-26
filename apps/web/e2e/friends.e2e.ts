@@ -1,3 +1,4 @@
+import type { Browser } from '@playwright/test';
 import { expect, openPage, test } from './support/fixtures';
 import { origin, resetRateLimits, signUpMember } from './support/accounts';
 import { expectNotInUrl } from './support/forms';
@@ -8,6 +9,27 @@ import { expectNotInUrl } from './support/forms';
  * either removes; every step is a native form POST and no username ever
  * lands in the URL.
  */
+type NoScriptContext = Awaited<ReturnType<Browser['newContext']>>;
+
+/** Two signed-out contexts that run no script at all, closed after `work`. */
+async function withTwoNoScriptContexts(
+  browser: Browser,
+  work: (first: NoScriptContext, second: NoScriptContext) => Promise<void>,
+) {
+  const open = () =>
+    browser.newContext({
+      baseURL: origin,
+      ignoreHTTPSErrors: true,
+      javaScriptEnabled: false,
+    });
+  const [first, second] = await Promise.all([open(), open()]);
+  try {
+    await work(first, second);
+  } finally {
+    await Promise.all([first.close(), second.close()]);
+  }
+}
+
 test.beforeEach(async ({ request }) => {
   await resetRateLimits(request);
 });
@@ -16,20 +38,7 @@ test('two members befriend each other and part with JavaScript off', async ({
   browser,
 }) => {
   test.setTimeout(90_000);
-  const contexts = await Promise.all(
-    [0, 1].map(() =>
-      browser.newContext({
-        baseURL: origin,
-        ignoreHTTPSErrors: true,
-        javaScriptEnabled: false,
-      }),
-    ),
-  );
-  try {
-    const [asker, answerer] = contexts as [
-      (typeof contexts)[number],
-      (typeof contexts)[number],
-    ];
+  await withTwoNoScriptContexts(browser, async (asker, answerer) => {
     const { username: askerName } = await signUpMember(asker.request);
     const { username: answererName } = await signUpMember(answerer.request);
     const askerPage = await openPage(asker, 'the asking member');
@@ -70,9 +79,7 @@ test('two members befriend each other and part with JavaScript off', async ({
     await expect(
       askerPage.getByRole('region', { name: 'Your friends' }),
     ).toHaveCount(0);
-  } finally {
-    await Promise.all(contexts.map((context) => context.close()));
-  }
+  });
 });
 
 test('an unknown username is refused with the name kept', async ({
@@ -99,4 +106,20 @@ test('an unknown username is refused with the name kept', async ({
   } finally {
     await context.close();
   }
+});
+
+test('a member asks from a profile with JavaScript off', async ({
+  browser,
+}) => {
+  test.setTimeout(90_000);
+  await withTwoNoScriptContexts(browser, async (asker, other) => {
+    await signUpMember(asker.request);
+    const { username } = await signUpMember(other.request);
+    const page = await openPage(asker, 'a member on a profile');
+    await page.goto(`/profile/${username}`);
+    await page.getByRole('button', { name: `Add friend @${username}` }).click();
+    await expect(
+      page.getByRole('button', { name: `Cancel friend request @${username}` }),
+    ).toBeVisible();
+  });
 });

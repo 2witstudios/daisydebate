@@ -56,6 +56,7 @@ export async function friendAction(
     const result = friendCommandResultSchema.safeParse(await response.json());
     if (!result.success) return kept;
     revalidatePath('/friends');
+    revalidatePath('/profile/[username]', 'page');
     return {
       username: '',
       notice: friendDoneNotice(

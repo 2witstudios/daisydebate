@@ -1,6 +1,7 @@
 import type {
   FriendList,
   FriendPresence,
+  FriendRelation,
   PresenceStatus,
 } from '@daisy/protocol';
 
@@ -23,4 +24,15 @@ export function friendsLede(list: Pick<FriendList, 'friends'>): string {
     return 'Add a friend by username to see when they are online.';
   const around = friendsAround(list.friends);
   return `${around} of ${list.friends.length} online`;
+}
+
+/** The viewer's relation to `username`, read from their own list. */
+export function relationTo(list: FriendList, username: string): FriendRelation {
+  const name = username.toLowerCase();
+  const named = (entry: { readonly username: string }) =>
+    entry.username.toLowerCase() === name;
+  if (list.friends.some(named)) return 'friends';
+  if (list.incoming.some(named)) return 'incoming';
+  if (list.outgoing.some(named)) return 'outgoing';
+  return 'none';
 }

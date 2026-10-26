@@ -283,10 +283,22 @@ test('actual authenticated socket enforces version, hello deadline, malformed fr
       accounts.members[0]!.context,
       'RT native refusals',
     );
+    // A signed-in shell page holds the tab's presence connection (ADR 0072):
+    // it is a real socket, so it takes one of the actor's slots. Wait until
+    // it is ready, then the cap leaves room for exactly maxPerActor - 1 more.
+    const presenceReady = page
+      .waitForEvent('websocket')
+      .then((socket) =>
+        socket.waitForEvent('framereceived', (frame) =>
+          String(frame.payload).includes('"ready"'),
+        ),
+      );
     await page.goto('/lobby');
+    await presenceReady;
     const result = await nativeRealtimeRefusals(
       page,
       `wss://localhost:${resolveE2EPorts(process.env).realtime}/ws`,
+      1,
     );
     expect(result).toEqual({
       version: 4003,
@@ -294,7 +306,7 @@ test('actual authenticated socket enforces version, hello deadline, malformed fr
       malformed: 4003,
       rate: 4004,
       actorConnections: [
-        ...Array(readRealtimeTransportConfig(process.env).maxPerActor).fill(
+        ...Array(readRealtimeTransportConfig(process.env).maxPerActor - 1).fill(
           'ready',
         ),
         4004,
