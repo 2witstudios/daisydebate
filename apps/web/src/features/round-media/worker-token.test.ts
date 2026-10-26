@@ -252,3 +252,59 @@ test('a capture token is never minted into an unknown vendor outcome', async () 
     expected: 1,
   });
 });
+
+test('a session marked unsafe with no unsettled vendor write never mints on the fast path', async () => {
+  const world = createMediaWorld();
+  await createRoundMediaOperations(world.input).session(
+    world.roundId,
+    world.seats[0].actorId,
+  );
+  world.markUnsafe();
+  const before = world.reconciles();
+  const { tokens } = broker(world);
+  const outcome = await tokens
+    .captureToken(scope(world), authenticated(world))
+    .then(
+      () => 'minted',
+      (error: { code: string }) => `refused ${error.code}`,
+    );
+  assert({
+    given: 'a live session marked unsafe while every vendor write is settled',
+    should:
+      'take the ISSUE-551 hold, whose own reconcile cleans the session up, and never mint on the fast path',
+    actual: {
+      outcome,
+      reconciles: world.reconciles() - before,
+      room: world.rooms.has(world.roomName),
+    },
+    expected: { outcome: 'refused INFRASTRUCTURE', reconciles: 1, room: false },
+  });
+});
+
+test("a live session whose human seat is no longer eligible never mints on the fast path", async () => {
+  const world = createMediaWorld();
+  await createRoundMediaOperations(world.input).session(
+    world.roundId,
+    world.seats[0].actorId,
+  );
+  world.revoke(world.seats[0].id);
+  const before = world.reconciles();
+  const { tokens } = broker(world);
+  const outcome = await tokens
+    .captureToken(scope(world), authenticated(world))
+    .then(
+      () => 'minted',
+      (error: { code: string }) => `refused ${error.code}`,
+    );
+  assert({
+    given: 'a live, safe session whose human seat is no longer eligible',
+    should:
+      'take the hold, so its own reconcile acts on the closed admission before anything is minted',
+    actual: {
+      outcome,
+      reconciles: world.reconciles() - before,
+      room: world.rooms.has(world.roomName),
+    },
+    expected: { outcome: 'refused INFRASTRUCTURE', reconciles: 1, room: false },
+  });
+});
