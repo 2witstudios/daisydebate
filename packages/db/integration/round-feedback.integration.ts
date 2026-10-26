@@ -84,6 +84,27 @@ const claim = () => 'claim' as const;
 const lapse = (fixture: Fixture, roundId: string) =>
   fixture.sql`update round_feedback set lease_expires_at=clock_timestamp() - interval '1 second' where round_id=${roundId}`;
 
+/** Erases one seated debater through the transcript privacy adopter. */
+async function eraseDebater(client: SQL, actorId: string) {
+  const [user] =
+    (await client`select user_id from actors where id=${actorId}`) as {
+      user_id: string;
+    }[];
+  await drizzle({ client }).transaction((tx) =>
+    roundTranscriptPrivacyAdopter.erase(
+      tx,
+      { userId: user!.user_id, actorId },
+      { now: new Date().toISOString() },
+    ),
+  );
+}
+const erased = {
+  status: 'failed',
+  attempts: 1,
+  leaseExpiresAt: null,
+  feedback: null,
+} as const;
+
 test('a completed Round is coached once from its freeze, under one lease at a time', async () =>
   withCompletedRound(async ({ fixture, roundId, jobs, facts }) => {
     const before = {
@@ -206,18 +227,7 @@ test('erasing a debater clears their Round’s coaching for good', async () =>
     const first = await jobs.claim(roundId, claim);
     if (!first) throw Error('Expected a claim');
     await jobs.complete(roundId, first.token, coaching);
-    const database = drizzle({ client });
-    const [user] =
-      (await client`select user_id from actors where id=${aff.actorId}`) as {
-        user_id: string;
-      }[];
-    await database.transaction((tx) =>
-      roundTranscriptPrivacyAdopter.erase(
-        tx,
-        { userId: user!.user_id, actorId: aff.actorId },
-        { now: new Date().toISOString() },
-      ),
-    );
+    await eraseDebater(client, aff.actorId);
     assert({
       given:
         'a coached Round one of whose debaters is erased within the window',
@@ -229,14 +239,56 @@ test('erasing a debater clears their Round’s coaching for good', async () =>
         retaken: await jobs.claim(roundId, claim),
       },
       expected: {
-        pass: {
-          status: 'failed',
-          attempts: 1,
-          leaseExpiresAt: null,
-          feedback: null,
-        },
+        pass: erased,
         listed: false,
         retaken: null,
       },
     });
   }));
+
+test('a frozen Round with no lines is never a candidate', async () =>
+  withCompletedRound(async ({ fixture, roundId, jobs, facts }) => {
+    await fixture.sql`delete from utterances where round_id=${roundId}`;
+    assert({
+      given: 'a completed, frozen Round with no transcript lines',
+      should: 'not hold a scan batch place, and report no lines',
+      actual: {
+        listed: (await jobs.scan(64, dayAgo())).includes(roundId),
+        lines: (await facts()).lines,
+      },
+      expected: { listed: false, lines: 0 },
+    });
+  }));
+
+test('erasing a debater before coaching or during it ends coaching for good', async () => {
+  await withCompletedRound(async ({ roundId, client, aff, jobs, facts }) => {
+    await eraseDebater(client, aff.actorId);
+    assert({
+      given: 'a Round never coached whose debater is erased',
+      should: 'leave a failed row with no text, never listed or claimed',
+      actual: {
+        pass: (await facts()).pass,
+        listed: (await jobs.scan(64, dayAgo())).includes(roundId),
+        claimed: await jobs.claim(roundId, claim),
+      },
+      expected: { pass: erased, listed: false, claimed: null },
+    });
+  });
+  await withCompletedRound(async ({ roundId, client, aff, jobs, facts }) => {
+    const held = await jobs.claim(roundId, claim);
+    if (!held) throw Error('Expected a claim');
+    await eraseDebater(client, aff.actorId);
+    await assertRejects({
+      given: 'a coaching call still running when its debater is erased',
+      should: 'refuse its result with CONFLICT',
+      actual: () => jobs.complete(roundId, held.token, coaching),
+      code: 'CONFLICT',
+    });
+    assert({
+      given: 'the erased Round',
+      should: 'stay failed with no text',
+      actual: (await facts()).pass,
+      expected: erased,
+    });
+  });
+});

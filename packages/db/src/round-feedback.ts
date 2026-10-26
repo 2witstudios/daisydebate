@@ -107,6 +107,9 @@ const heldBy = (roundId: string, token: string) =>
     eq(roundFeedback.leaseTokenDigest, agentLeaseDigest(token)),
   );
 
+/** The database's own view that a lease has run out, whatever the app clock says. */
+const lapsedLease = sql`${roundFeedback.leaseExpiresAt} <= clock_timestamp()`;
+
 /** Ends a held-out lease: the coaching feature decided the Round gets no more calls. */
 const failLease = (roundId: string) => ({
   set: {
@@ -118,6 +121,7 @@ const failLease = (roundId: string) => ({
   where: and(
     eq(roundFeedback.roundId, roundId),
     eq(roundFeedback.status, 'leased'),
+    lapsedLease,
   ),
 });
 
@@ -144,8 +148,11 @@ export function createRoundFeedbackJobs(input: {
   if (!input.model.trim()) throw createAppError('VALIDATION');
   return {
     /**
-     * Candidates only: frozen Rounds completed after `since` with no pass
-     * yet, and every lapsed lease, so the decision can claim or end it.
+     * Candidates only: frozen Rounds with lines, completed after `since`,
+     * with no pass yet and not already coached on both sides by a submitted
+     * AI ballot, and every lapsed lease, so the decision can claim or end it.
+     * The prefilter only keeps Rounds that cannot need coaching from holding
+     * the batch; the decision stays the authority.
      */
     scan: (limit: number, since: string) => {
       const from = new Date(since);
@@ -162,7 +169,13 @@ export function createRoundFeedbackJobs(input: {
           left join round_feedback f on f.round_id = r.id
           where r.status = 'completed' and (
             (f.round_id is null and r.completed_at > ${from}
-              and exists (select 1 from round_transcript_freezes z where z.round_id = r.id))
+              and exists (select 1 from round_transcript_freezes z where z.round_id = r.id)
+              and exists (select 1 from utterances u where u.round_id = r.id)
+              and not exists (select 1 from ballots b
+                join round_participants p on p.id = b.judge_participant_id
+                join actors a on a.id = p.actor_id
+                where b.round_id = r.id and b.status = 'submitted' and a.kind = 'bot'
+                  and b.feedback ? 'affirmative' and b.feedback ? 'negative'))
             or (f.status = 'leased' and f.lease_expires_at <= clock_timestamp()))
           order by r.completed_at, r.id limit ${limit}`)) as unknown as {
             roundId: string;
@@ -214,8 +227,9 @@ export function createRoundFeedbackJobs(input: {
               leaseExpiresAt,
               model: input.model,
             },
-            // A finished pass is never retaken, whatever was decided.
-            setWhere: sql`${roundFeedback.status} = 'leased'`,
+            // Only a lease the database also sees lapsed is retaken; a
+            // finished pass never is, whatever was decided.
+            setWhere: sql`${roundFeedback.status} = 'leased' and ${lapsedLease}`,
           })
           .returning({
             attempts: roundFeedback.attempts,

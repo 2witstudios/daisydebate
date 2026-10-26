@@ -93,7 +93,7 @@ debater's speech. Each side's text reaches only that side.
   enforced by `retention.round_feedback`.
 - Erasure: subject erasure clears the coaching of every round the subject
   sat in, as it does for a pending AI judgment (DEC-223). It leaves the row
-  `failed` with no text, so the round is never coached again.
+  `failed` with no text, so the round is never coached again. A debater erased before the round froze is not yet covered (ISSUE-625).
 - The lawful basis is pending, as for the transcript it derives from.
 - The lease token is stored only as a SHA3-256 digest.
 - Usage counts, model and timestamps carry no personal data.
