@@ -6,6 +6,7 @@
  * read through this module, so there is exactly one copy of each call.
  */
 import { execFileSync } from 'node:child_process';
+import type { CiEvidence, CiJob, CiRun, PullRequestHistory } from './review-ci';
 import type { ReviewDiff } from './review-diff';
 import { pagespaceApi } from './pagespace-docs';
 
@@ -19,6 +20,10 @@ export type PullRequest = {
   readonly headSha: string;
   readonly body: string;
   readonly diff?: ReviewDiff;
+  /** The PR's head and base branches and the repository default; CI evidence needs all three. */
+  readonly headRef?: string;
+  readonly baseRef?: string;
+  readonly defaultBranch?: string;
 };
 
 /** The Daisy Debate drive: records anywhere else are never read. */
@@ -49,13 +54,19 @@ export const commentBodies = (
 
 export type Run = (args: readonly string[]) => { code: number; stdout: string };
 
-export const gh: Run = (args) => {
-  const result = Bun.spawnSync(['gh', ...args], {
-    stdout: 'pipe',
-    stderr: 'inherit',
-  });
-  return { code: result.exitCode, stdout: result.stdout.toString() };
-};
+/** gh as the ambient identity, or as an explicit token when one is given. */
+export const ghAs =
+  (token?: string): Run =>
+  (args) => {
+    const result = Bun.spawnSync(['gh', ...args], {
+      stdout: 'pipe',
+      stderr: 'inherit',
+      env: token ? { ...process.env, GH_TOKEN: token } : process.env,
+    });
+    return { code: result.exitCode, stdout: result.stdout.toString() };
+  };
+
+export const gh: Run = ghAs();
 
 export function ghJson<T>(args: readonly string[]): T {
   const result = gh(args);
@@ -64,8 +75,12 @@ export function ghJson<T>(args: readonly string[]): T {
 }
 
 type PrDiffSource = {
-  readonly head: { readonly sha: string };
-  readonly base: { readonly sha: string };
+  readonly head: { readonly sha: string; readonly ref?: string };
+  readonly base: {
+    readonly sha: string;
+    readonly ref?: string;
+    readonly repo?: { readonly default_branch?: string };
+  };
   readonly changed_files: number;
 };
 
@@ -142,15 +157,29 @@ export function fetchPullRequest(
     ]),
   );
   return {
-    pr: {
-      number: prNumber,
-      headSha: pull.head.sha,
-      body: pull.body ?? '',
-      diff: readPullRequestDiff(gh, repository, pull),
-    },
+    pr: pullRequestFacts(
+      prNumber,
+      pull,
+      readPullRequestDiff(gh, repository, pull),
+    ),
     comments,
   };
 }
+
+/** The PR facts the verifier reads, from the pulls API response. */
+export const pullRequestFacts = (
+  prNumber: number,
+  pull: PrDiffSource & { readonly body: string | null },
+  diff: ReviewDiff | undefined,
+): PullRequest => ({
+  number: prNumber,
+  headSha: pull.head.sha,
+  body: pull.body ?? '',
+  diff,
+  headRef: pull.head.ref,
+  baseRef: pull.base.ref,
+  defaultBranch: pull.base.repo?.default_branch,
+});
 
 type RecordReadOptions = {
   /** Only the local self-check opts in; CI always remains token-only. */
@@ -247,4 +276,145 @@ export async function readRecords(
     ),
     unreadable: ids.filter((_, index) => read[index] === undefined),
   };
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
+const fullName = (value: unknown): string | undefined =>
+  isRecord(value) && typeof value.full_name === 'string'
+    ? value.full_name
+    : undefined;
+
+function ciJob(job: unknown): CiJob | undefined {
+  if (
+    !isRecord(job) ||
+    typeof job.name !== 'string' ||
+    typeof job.status !== 'string' ||
+    (job.conclusion !== null && typeof job.conclusion !== 'string')
+  )
+    return undefined;
+  return { name: job.name, status: job.status, conclusion: job.conclusion };
+}
+
+/**
+ * A workflow run and its latest jobs from the Actions API, or undefined
+ * when either response is not the shape GitHub documents: a run the edge
+ * cannot fully read never reaches the verifier.
+ */
+export function ciRunFromApi(
+  id: string,
+  run: unknown,
+  jobPages: unknown,
+): CiRun | undefined {
+  const repository = isRecord(run) ? fullName(run.repository) : undefined;
+  if (
+    !isRecord(run) ||
+    String(run.id) !== id ||
+    repository === undefined ||
+    typeof run.head_sha !== 'string' ||
+    typeof run.event !== 'string' ||
+    typeof run.path !== 'string' ||
+    !Array.isArray(jobPages)
+  )
+    return undefined;
+  const raw = jobPages.flatMap((page: unknown) =>
+    isRecord(page) && Array.isArray(page.jobs) ? page.jobs : [undefined],
+  );
+  const jobs = raw.map(ciJob);
+  if (jobs.some((job) => job === undefined)) return undefined;
+  return {
+    id,
+    repository,
+    headRepository: fullName(run.head_repository),
+    headSha: run.head_sha,
+    event: run.event,
+    path: run.path,
+    headBranch:
+      typeof run.head_branch === 'string' ? run.head_branch : undefined,
+    jobs: jobs.filter((job): job is CiJob => job !== undefined),
+  };
+}
+
+/** Every item of every page gh api --paginate --slurp returned, or undefined. */
+const slurped = (pages: unknown): readonly unknown[] | undefined =>
+  Array.isArray(pages) && pages.every(Array.isArray) ? pages.flat() : undefined;
+
+/**
+ * Every PR ever opened from the head branch, and whether this PR's base
+ * ever changed, from the pulls list and the PR timeline; undefined when
+ * either is not the documented shape.
+ */
+export function pullRequestHistory(
+  pulls: unknown,
+  timeline: unknown,
+): PullRequestHistory | undefined {
+  const opened = slurped(pulls);
+  const events = slurped(timeline);
+  if (
+    !opened?.every(
+      (pull) => isRecord(pull) && typeof pull.number === 'number',
+    ) ||
+    !events?.every(isRecord)
+  )
+    return undefined;
+  return {
+    sameHead: opened.map((pull) => (pull as { number: number }).number),
+    baseChanged: events.some((event) => event.event === 'base_ref_changed'),
+  };
+}
+
+/**
+ * Every cited run of this repository the API returns (the rest stay
+ * unread), and the PR history CI evidence needs when any run is cited.
+ */
+export function readCiEvidence(
+  run: Run,
+  repository: string,
+  ids: readonly string[],
+  pr: PullRequest,
+): CiEvidence {
+  const api = (args: readonly string[]): unknown => {
+    const result = run(args);
+    if (result.code !== 0) throw new Error('CI run unavailable');
+    return JSON.parse(result.stdout);
+  };
+  const pages = (path: string) => api(['api', '--paginate', '--slurp', path]);
+  const owner = repository.split('/')[0];
+  const readHistory = (): PullRequestHistory | undefined => {
+    try {
+      return ids.length === 0 || !pr.headRef
+        ? undefined
+        : pullRequestHistory(
+            pages(
+              `repos/${repository}/pulls?head=${encodeURIComponent(`${owner}:${pr.headRef}`)}&state=all&per_page=100`,
+            ),
+            pages(
+              `repos/${repository}/issues/${pr.number}/timeline?per_page=100`,
+            ),
+          );
+    } catch {
+      return undefined;
+    }
+  };
+  const runs = ids.flatMap((id) => {
+    if (!/^\d+$/.test(id)) return [];
+    try {
+      const read = ciRunFromApi(
+        id,
+        api(['api', `repos/${repository}/actions/runs/${id}`]),
+        // filter=latest: a re-run's jobs replace the attempt before it.
+        api([
+          'api',
+          '--paginate',
+          '--slurp',
+          `repos/${repository}/actions/runs/${id}/jobs?filter=latest&per_page=100`,
+        ]),
+      );
+      return read ? [read] : [];
+    } catch {
+      return [];
+    }
+  });
+  return { repository, runs, history: readHistory() };
 }

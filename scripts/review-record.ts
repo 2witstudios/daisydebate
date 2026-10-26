@@ -10,12 +10,20 @@
  * only code that can mint it.
  */
 import { documentationOnly } from './review-diff';
+import {
+  ciClaims,
+  citedRunId,
+  verifyCiClaims,
+  type CiEvidence,
+} from './review-ci';
 import { appendFileSync } from 'node:fs';
 import {
   DAISY_DRIVE,
   commentBodies,
   fetchPullRequest,
+  ghAs,
   ghJson,
+  readCiEvidence,
   readRecords,
   recordFromPage,
   type PullRequest,
@@ -58,8 +66,12 @@ export function linkedPageIds(texts: readonly string[]): readonly string[] {
 export const declaredBuilder = (body: string): string | undefined =>
   /^\s*Builder:\s*(\S+)/m.exec(body)?.[1];
 
+/** Block tags end a line; inline tags (a linked run URL, code) do not. */
 const plainText = (content: string): string =>
-  content.replace(/<[^>]+>/g, '\n').replaceAll('&amp;', '&');
+  content
+    .replace(/<\/?(?:a|code|strong|em|b|i|span)\b[^>]*>/gi, '')
+    .replace(/<[^>]+>/g, '\n')
+    .replaceAll('&amp;', '&');
 
 const textLines = (text: string): readonly string[] =>
   text
@@ -99,21 +111,37 @@ const stripDecoration = (line: string): string =>
     .replaceAll('`', '')
     .trim();
 
-/**
- * Gates run evidence: a line of the Gates run section itself that passed,
- * never one quoted elsewhere, and never a PASS that says it did not run.
- */
-function gateLine(text: string, gate: RegExp): boolean {
+/** The Gates run section's own lines, undecorated; never lines quoted elsewhere. */
+function gatesRunLines(text: string): readonly string[] {
   const lines = textLines(text);
   const start = lines.findIndex((line) => GATES_HEADING.test(line));
-  if (start === -1) return false;
+  if (start === -1) return [];
   const end = lines.findIndex(
     (line, index) => index > start && NEXT_HEADING.test(line),
   );
   return lines
     .slice(start + 1, end === -1 ? undefined : end)
-    .map(stripDecoration)
-    .some((line) => gate.test(line) && !/not run|deferred|\?/i.test(line));
+    .map(stripDecoration);
+}
+
+/** Gates run evidence that passed, never a PASS that says it did not run. */
+const gateLine = (text: string, gate: RegExp): boolean =>
+  gatesRunLines(text).some(
+    (line) => gate.test(line) && !/not run|deferred|\?/i.test(line),
+  );
+
+/** Every CI run the records' Gates run sections cite, for the edge to read. */
+export function citedRunIds(records: readonly RecordPage[]): readonly string[] {
+  return [
+    ...new Set(
+      records.flatMap((record) =>
+        ciClaims(gatesRunLines(plainText(record.content))).flatMap((claim) => {
+          const id = 'malformed' in claim ? undefined : citedRunId(claim);
+          return id === undefined ? [] : [id];
+        }),
+      ),
+    ),
+  ];
 }
 
 /** Metadata ends at evidence/findings; quoted stage labels cannot hide a refusal. */
@@ -136,6 +164,7 @@ function recordProblem(
   pr: PullRequest,
   builder: string,
   text: string,
+  ci: CiEvidence,
 ): string | undefined {
   const candidate = CANDIDATE.exec(text);
   if (!candidate)
@@ -149,10 +178,14 @@ function recordProblem(
     return `The record names builder ${named}; the PR declares ${builder}`;
   return reviewer === builder
     ? `The reviewer ${reviewer} is the builder of this PR`
-    : verdictProblem(text, pr);
+    : verdictProblem(text, pr, ci);
 }
 
-function verdictProblem(text: string, pr: PullRequest): string | undefined {
+function verdictProblem(
+  text: string,
+  pr: PullRequest,
+  ci: CiEvidence,
+): string | undefined {
   const final = finalVerdict(text);
   if (!final)
     return 'The record has no "n blocker / n major / n minor / n nit — <verdict>" line under Verdict';
@@ -160,16 +193,19 @@ function verdictProblem(text: string, pr: PullRequest): string | undefined {
     return `The verdict is not an approval: ${final.verdict}`;
   if (final.blockers > 0 || final.majors > 0)
     return `The verdict approves with ${final.blockers} blocker and ${final.majors} major open`;
+  const cited = verifyCiClaims(gatesRunLines(text), pr, ci);
+  if (cited.problem) return cited.problem;
   const docs = documentationOnly(pr.diff, pr.headSha);
   const evidence = docs
     ? gateLine(text, /^Documentation review:\s*PASS\b/) &&
       gateLine(text, /^bun check(?: at [0-9a-f]+)?:\s*PASS\b/)
-    : gateLine(text, /^bun test:integration:\s*PASS\b/);
+    : gateLine(text, /^bun test:integration:\s*PASS\b/) ||
+      cited.gates.has('Integration');
   return evidence && gateLine(text, /^Negative control run:\s*yes\b/i)
     ? undefined
     : docs
       ? 'Documentation acceptance needs bun check PASS, Documentation review PASS and a negative control in Gates run'
-      : 'Runtime or unclassified acceptance needs bun test:integration PASS and a negative control in Gates run';
+      : 'Runtime or unclassified acceptance needs bun test:integration PASS or verified CI Integration, and a negative control in Gates run';
 }
 
 export function verifyReviewRecord(
@@ -177,6 +213,8 @@ export function verifyReviewRecord(
   records: readonly RecordPage[],
   /** Linked pages that could not be read: any one fails the check. */
   unreadable: readonly string[] = [],
+  /** The CI runs the records cite, as the edge read them from GitHub. */
+  ci: CiEvidence = { repository: '', runs: [] },
 ): Verdict {
   const [missing] = unreadable;
   if (missing !== undefined)
@@ -207,7 +245,7 @@ export function verifyReviewRecord(
     };
   const judged = forSha.map((record) => {
     const text = plainText(record.content);
-    return { record, text, problem: recordProblem(pr, builder, text) };
+    return { record, text, problem: recordProblem(pr, builder, text, ci) };
   });
   // Every record for this SHA must approve: one reviewer's approval does
   // not outvote another's request for changes.
@@ -251,7 +289,14 @@ export async function main(repository: string, prNumber: number) {
   const { pr, comments } = fetchPullRequest(repository, prNumber);
   const ids = linkedPageIds([pr.body, ...comments]);
   const { records, unreadable } = await readRecords(ids);
-  const verdict = verifyReviewRecord(pr, records, unreadable);
+  // Actions reads use the workflow's own read-only token, not the App's.
+  const ci = readCiEvidence(
+    ghAs(process.env.CI_READ_TOKEN),
+    repository,
+    citedRunIds(records),
+    pr,
+  );
+  const verdict = verifyReviewRecord(pr, records, unreadable, ci);
   const driveUrl = `https://pagespace.ai/dashboard/${DAISY_DRIVE}`;
   ghJson([
     'api',
