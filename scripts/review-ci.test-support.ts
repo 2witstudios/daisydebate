@@ -9,6 +9,7 @@ export const clean = '0 blocker / 0 major / 0 minor / 0 nit — APPROVE';
 export const runtimePr = {
   ...pr,
   headRef: 'pu/builder',
+  createdAt: '2026-10-26T12:00:00Z',
   baseRef: 'main',
   defaultBranch: 'main',
   diff: {
@@ -33,6 +34,7 @@ export const ciRun = (overrides: Partial<CiRun> = {}): CiRun => ({
   event: 'pull_request',
   path: '.github/workflows/ci.yml',
   headBranch: 'pu/builder',
+  createdAt: '2026-10-26T12:00:01Z',
   jobs: [
     { name: 'lint', status: 'completed', conclusion: 'success' },
     {

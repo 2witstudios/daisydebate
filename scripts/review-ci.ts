@@ -41,6 +41,8 @@ export type CiRun = {
   readonly path: string;
   /** The branch a push run pushed; a pull_request run's PR head branch. */
   readonly headBranch: string | undefined;
+  /** Original run creation, not a later rerun start. */
+  readonly createdAt?: string;
   readonly jobs: readonly CiJob[];
 };
 
@@ -134,6 +136,8 @@ function pullRequestProblem(
     return "The PR's history could not be read, so CI evidence cannot be verified";
   if (history.baseChanged)
     return "The PR's base branch changed, so its CI runs may have tested another base";
+  if (!history.sameHead.includes(pr.number))
+    return `PR #${pr.number} is missing from its head branch history, so CI evidence cannot be verified`;
   const other = history.sameHead.find((number) => number !== pr.number);
   if (other !== undefined)
     return `PR #${other} also used head branch ${pr.headRef}, so its CI runs are ambiguous`;
@@ -186,6 +190,14 @@ function runProblem(
     return `CI run ${id} belongs to ${run.repository}, not ${repository}`;
   if (!sameRepository(run.headRepository, repository))
     return `CI run ${id} ran code from ${run.headRepository ?? 'an unknown repository'}, not ${repository}`;
+  if (run.event === 'pull_request') {
+    const runTime = Date.parse(run.createdAt ?? '');
+    const prTime = Date.parse(pr.createdAt ?? '');
+    if (!Number.isFinite(runTime) || !Number.isFinite(prTime))
+      return `CI run ${id} or PR #${pr.number} has no valid creation time, so its PR provenance cannot be verified`;
+    if (runTime < prTime)
+      return `CI run ${id} was created before PR #${pr.number}, so it belongs to another PR`;
+  }
   const trigger = triggerProblem(run, pr);
   if (trigger) return trigger;
   if (run.path !== workflow)

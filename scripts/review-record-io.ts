@@ -24,6 +24,7 @@ export type PullRequest = {
   readonly headRef?: string;
   readonly baseRef?: string;
   readonly defaultBranch?: string;
+  readonly createdAt?: string;
 };
 
 /** The Daisy Debate drive: records anywhere else are never read. */
@@ -75,6 +76,7 @@ export function ghJson<T>(args: readonly string[]): T {
 }
 
 type PrDiffSource = {
+  readonly created_at?: string;
   readonly head: { readonly sha: string; readonly ref?: string };
   readonly base: {
     readonly sha: string;
@@ -173,6 +175,7 @@ export const pullRequestFacts = (
   diff: ReviewDiff | undefined,
 ): PullRequest => ({
   number: prNumber,
+  createdAt: pull.created_at,
   headSha: pull.head.sha,
   body: pull.body ?? '',
   diff,
@@ -328,6 +331,7 @@ export function ciRunFromApi(
     repository,
     headRepository: fullName(run.head_repository),
     headSha: run.head_sha,
+    createdAt: typeof run.created_at === 'string' ? run.created_at : undefined,
     event: run.event,
     path: run.path,
     headBranch:
