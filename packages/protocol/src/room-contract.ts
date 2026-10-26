@@ -204,7 +204,7 @@ export const roomListQuerySchema = z.strictObject({
   status: z.enum(roomListStatuses).optional(),
   mode: z.enum(competitionTypes).optional(),
 });
-/** Active discovery deliberately omits cast, format/configuration and consent. */
+/** Active discovery carries the catalog label, not cast, full rules/configuration or consent. */
 const roomListEntrySchema = z.strictObject({
   id: idSchema,
   version: z.int().positive(),
@@ -220,7 +220,7 @@ const roomListEntrySchema = z.strictObject({
   roundRef: z
     .strictObject({ id: idSchema, status: z.enum(['scheduled', 'active']) })
     .nullable(),
-  /** The catalog format's name, or "Custom format". */
+  /** The joined catalog format's stored name. */
   formatLabel: z.string().min(1),
   /** Seats filled, of every seat the Room's rules declare. */
   seatsTaken: z.int().nonnegative(),
