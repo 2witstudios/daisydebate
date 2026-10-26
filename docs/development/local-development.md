@@ -243,9 +243,13 @@ by the web server's ordinary `createApp`. When absent, canonical Room routes
 remain unavailable. A configured policy uses the existing authenticated routes,
 same-origin checks and per-member rate limiter; it does not bypass them.
 
-Every field is required, with no numeric defaults: `consentTtlMs` (milliseconds),
-`maxOpenRooms`, `maxBodyBytes`, and `limits.create`, `limits.read`,
-`limits.command`, each containing `max` and `windowSeconds`. Values must be
+Every field but one is required, with no numeric defaults: `consentTtlMs`
+(milliseconds), `maxBodyBytes`, and `limits.create`, `limits.read`,
+`limits.command`, each containing `max` and `windowSeconds`. The optional
+`idleTimeoutMs` is how long an open Room may go without a command (or a
+running pre-round prep) before the maintenance sweep closes it; absent, idle
+expiry stays off and nothing defaults it ([ADR 0069](../decisions/0069-one-active-room-per-user.md)).
+How many Rooms a user holds is not policy: the database admits one. Values must be
 positive safe integers expressed as JSON numbers. Unknown fields, partial
 objects, blank or malformed JSON refuse startup with configuration field paths
 only. These are deployment-owned settings; test fixture values are not adopted
