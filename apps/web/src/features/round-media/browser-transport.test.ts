@@ -21,6 +21,7 @@ function stubSdk(
   options: {
     readonly captureGate?: Promise<void>;
     readonly captureError?: Error;
+    readonly missingMicrophone?: boolean;
     /** Publishes settle at once, recorded in `published`. */
     readonly settles?: boolean;
   } = {},
@@ -75,6 +76,8 @@ function stubSdk(
       capture: async (options_: { audio: boolean; video: unknown }) => {
         captures.push(options_);
         if (options.captureError) throw options.captureError;
+        if (options.missingMicrophone && options_.audio)
+          throw new DOMException('private', 'OverconstrainedError');
         await options.captureGate;
         const track = capturedTrack(options_.audio ? 'microphone' : 'camera');
         captured.push(track);
@@ -299,6 +302,27 @@ test('a missing selected camera refuses capture without falling back', async () 
       published: stub.published.length,
     },
     expected: { failure: 'OverconstrainedError', captures: 1, published: 0 },
+  });
+  transport.stopTracks();
+});
+
+test('a selected microphone missing at Round entry fails during warm capture', async () => {
+  const stub = stubSdk({ settles: true, missingMicrophone: true });
+  const { transport } = createBrowserMediaTransport(
+    { ...events, devices: { microphone: 'gone-mic' } },
+    stub.sdk,
+  );
+  let failure = '';
+  try {
+    await transport.apply(publish(['camera']));
+  } catch (error) {
+    failure = (error as Error).name;
+  }
+  assert({
+    given: 'a missing selected microphone before its speaking grant',
+    should: 'surface the failure at warm capture rather than wait for a turn',
+    actual: failure,
+    expected: 'OverconstrainedError',
   });
   transport.stopTracks();
 });

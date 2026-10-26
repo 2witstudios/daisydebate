@@ -184,7 +184,10 @@ export function createBrowserMediaTransport(
     if (holdsMicrophone()) return;
     const [track] = await sdk
       .capture({ audio: audioCapture, video: false })
-      .catch(() => [] as LocalTrack[]);
+      .catch((error: unknown) => {
+        if (events.devices?.microphone) throw error;
+        return [] as LocalTrack[];
+      });
     if (holdsMicrophone()) track?.stop();
     else warm = track ?? null;
   };
