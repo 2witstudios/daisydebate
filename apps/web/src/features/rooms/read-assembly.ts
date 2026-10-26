@@ -84,6 +84,8 @@ export async function readRoomList(
     q: query.q,
     pageSize: String(query.pageSize),
     ...(query.cursor ? { cursor: query.cursor } : {}),
+    ...(query.status ? { status: query.status } : {}),
+    ...(query.mode ? { mode: query.mode } : {}),
   });
   const result = await readProjection(
     fetch,

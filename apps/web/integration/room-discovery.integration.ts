@@ -85,7 +85,7 @@ test('live discovery preserves frozen Round visibility and seats without Redis c
     });
     assert({
       given: 'the lightweight discovery projection',
-      should: 'omit aggregate and consent data',
+      should: 'carry counts and labels but omit aggregate and consent data',
       actual: Object.keys(scheduled.rooms[0]!).sort(),
       expected: [
         'id',
@@ -99,6 +99,12 @@ test('live discovery preserves frozen Round visibility and seats without Redis c
         'competitionType',
         'seated',
         'roundRef',
+        'formatLabel',
+        'seatsTaken',
+        'seatCount',
+        'waitingSince',
+        'live',
+        'hostRating',
       ].sort(),
     });
   });

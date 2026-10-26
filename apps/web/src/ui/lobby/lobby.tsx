@@ -1,11 +1,6 @@
 import Link from 'next/link';
-import type { RoomListEntry } from '@daisy/protocol';
-import {
-  defaultLobbyFilters,
-  isFiltered,
-  lobbyHref,
-  type LobbyQuery,
-} from '../../features/lobby/discovery-query';
+import type { RoomListEntry, RoomListQuery } from '@daisy/protocol';
+import { isFiltered, lobbyHref } from '../../features/lobby/discovery-query';
 import { lobbySections } from '../../features/lobby/rows';
 import { openRoomHref, playOptions } from '../../features/play/options';
 import { YourRoom, type ActiveRoomSummary } from '../active-room/your-room';
@@ -17,33 +12,25 @@ import { LobbyFilters } from './lobby-filters/lobby-filters';
 import { RoomList } from './room-list/room-list';
 
 export type LobbyProps = {
-  readonly query: LobbyQuery;
-  /** One page of the canonical listing; visibility and permissions are its own. */
+  /** The canonical listing query: the URL's one source of filter state. */
+  readonly query: RoomListQuery;
+  /** One page of the canonical listing, already narrowed by the query. */
   readonly rooms: readonly RoomListEntry[];
   readonly nextCursor: string | null;
   /** The listing changed under the cursor: this page must be asked for again. */
   readonly retry: boolean;
   readonly activeRoom: ActiveRoomSummary | null;
+  /** When the page is read (epoch ms), for how long open Rooms have waited. */
+  readonly now: number;
 };
 
 const emptyClass =
   'flex flex-col items-center gap-3 rounded-lg border border-border bg-surface-raised px-5 py-8 text-center';
 
-function Empty({
-  query,
-  rooms,
-  more,
-}: {
-  readonly query: LobbyQuery;
-  readonly rooms: number;
-  /** Later pages exist: a filter that empties this page may match there. */
-  readonly more: boolean;
-}) {
+function Empty({ query }: { readonly query: RoomListQuery }) {
   const narrowed =
-    query.list.q !== '' ||
-    query.filters.status !== 'all' ||
-    isFiltered(query.filters);
-  if (!narrowed && rooms === 0 && query.list.cursor !== undefined)
+    query.q !== '' || query.status !== undefined || isFiltered(query);
+  if (!narrowed && query.cursor !== undefined)
     return (
       <div role="status" className={emptyClass}>
         <p className="text-lg font-strong">No more rooms</p>
@@ -60,14 +47,9 @@ function Empty({
     );
   return (
     <div role="status" className={emptyClass}>
-      <p className="text-lg font-strong">
-        {more ? 'No rooms on this page match' : 'No rooms match'}
-      </p>
+      <p className="text-lg font-strong">No rooms match</p>
       <Link
-        href={lobbyHref({
-          list: { q: '', pageSize: query.list.pageSize },
-          filters: defaultLobbyFilters,
-        })}
+        href={lobbyHref({ q: '', pageSize: query.pageSize })}
         className="font-strong"
       >
         Clear search and filters
@@ -87,10 +69,10 @@ export function Lobby({
   nextCursor,
   retry,
   activeRoom,
+  now,
 }: LobbyProps) {
-  const sections = lobbySections(rooms, query.filters);
-  const shown = sections.reduce((count, s) => count + s.rows.length, 0);
-  const { cursor } = query.list;
+  const sections = lobbySections(now, rooms);
+  const { cursor } = query;
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-5 px-6 pt-5 pb-8 max-compact:px-4">
       <PageHeader
@@ -107,7 +89,7 @@ export function Lobby({
         }
       />
       {activeRoom ? <YourRoom room={activeRoom} /> : null}
-      <LobbyFilters query={query} resultCount={shown} />
+      <LobbyFilters query={query} resultCount={rooms.length} />
       {retry ? (
         <p
           role="status"
@@ -118,8 +100,8 @@ export function Lobby({
             Refresh
           </Link>
         </p>
-      ) : shown === 0 ? (
-        <Empty query={query} rooms={rooms.length} more={nextCursor !== null} />
+      ) : rooms.length === 0 ? (
+        <Empty query={query} />
       ) : (
         <RoomList sections={sections} />
       )}

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { createAppError } from '@daisy/errors';
 import type { SearchParams } from '../../../features/access/decision';
-import { parseLobbyQuery } from '../../../features/lobby/discovery-query';
+import { parseRoomDiscoveryQuery } from '../../../features/lobby/discovery-query';
 import { requireAccess } from '../../../lib/access';
 import { Lobby } from '../../../ui/lobby/lobby';
 import { roomListing } from './actions';
@@ -14,10 +14,10 @@ export default async function LobbyPage({
   readonly searchParams: Promise<SearchParams>;
 }) {
   await requireAccess('/lobby', searchParams);
-  const query = parseLobbyQuery(await searchParams);
+  const query = parseRoomDiscoveryQuery(await searchParams);
   if (!query.success) throw createAppError('VALIDATION');
   const [listing, activeRoom] = await Promise.all([
-    roomListing(query.data.list),
+    roomListing(query.data),
     requestActiveRoom(),
   ]);
   if (listing.kind !== 'found') throw createAppError('INFRASTRUCTURE');
@@ -28,6 +28,7 @@ export default async function LobbyPage({
       nextCursor={listing.nextCursor}
       retry={listing.retry}
       activeRoom={activeRoom}
+      now={Date.now()}
     />
   );
 }

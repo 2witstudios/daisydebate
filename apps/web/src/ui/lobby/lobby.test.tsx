@@ -1,10 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type { RoomListEntry } from '@daisy/protocol';
-import {
-  defaultLobbyFilters,
-  type LobbyQuery,
-} from '../../features/lobby/discovery-query';
+import type { RoomListEntry, RoomListQuery } from '@daisy/protocol';
 import { Lobby, type LobbyProps } from './lobby';
 setupRitewayBun();
 
@@ -21,10 +17,18 @@ const entry: RoomListEntry = {
   competitionType: 'casual',
   seated: false,
   roundRef: null,
+  formatLabel: 'Foundation',
+  seatsTaken: 1,
+  seatCount: 3,
+  waitingSince: '2026-10-26T11:55:00.000Z',
+  live: null,
+  hostRating: 1712,
 };
-const query = (over: Partial<LobbyQuery['list']> = {}): LobbyQuery => ({
-  list: { q: '', pageSize: 20, ...over },
-  filters: defaultLobbyFilters,
+const now = Date.parse('2026-10-26T12:00:00.000Z');
+const query = (over: Partial<RoomListQuery> = {}): RoomListQuery => ({
+  q: '',
+  pageSize: 20,
+  ...over,
 });
 const render = (props: Partial<LobbyProps> = {}) =>
   renderToStaticMarkup(
@@ -34,6 +38,7 @@ const render = (props: Partial<LobbyProps> = {}) =>
       nextCursor={null}
       retry={false}
       activeRoom={null}
+      now={now}
       {...props}
     />,
   );
@@ -114,10 +119,12 @@ describe('Lobby', () => {
     const html = render({
       rooms: [],
       nextCursor: 'later',
-      query: {
-        list: { q: 'nothing', pageSize: 20, cursor: 'page-3' },
-        filters: { status: 'live', mode: 'ranked' },
-      },
+      query: query({
+        q: 'nothing',
+        cursor: id('c'),
+        status: 'live',
+        mode: 'ranked',
+      }),
       activeRoom: {
         id: id('f'),
         title: 'Private room',
@@ -139,10 +146,7 @@ describe('Lobby', () => {
 
   test('filters are one GET form that keeps the status tab', () => {
     const html = render({
-      query: {
-        list: { q: 'tax', pageSize: 20 },
-        filters: { ...defaultLobbyFilters, status: 'open', mode: 'ranked' },
-      },
+      query: query({ q: 'tax', status: 'open', mode: 'ranked' }),
     });
     assert({
       given: 'an open tab with a search and a ranked filter',
@@ -199,26 +203,46 @@ describe('Lobby', () => {
     });
   });
 
-  test('an empty later page and a filter that empties one page say so', () => {
+  test('an empty later page says so', () => {
     const later = render({ rooms: [], query: query({ cursor: id('f') }) });
-    const filtered = render({
-      nextCursor: id('a'),
-      query: {
-        list: { q: '', pageSize: 20 },
-        filters: { ...defaultLobbyFilters, mode: 'ranked' },
-      },
-    });
     assert({
-      given:
-        'a later page with no Rooms, and a ranked filter on a casual page with more after it',
-      should:
-        'say No more rooms without a clear link, then that nothing on this page matches',
+      given: 'a later page with no Rooms',
+      should: 'say No more rooms without a clear link',
       actual: [
         later.includes('No more rooms'),
         later.includes('Clear search and filters'),
-        filtered.includes('No rooms on this page match'),
       ],
-      expected: [true, false, true],
+      expected: [true, false],
+    });
+  });
+
+  test('renders the returned page without narrowing it again', () => {
+    const html = render({
+      query: query({ status: 'live', mode: 'ranked' }),
+      rooms: [entry],
+    });
+    assert({
+      given: 'a live ranked query whose listing returned an open casual Room',
+      should:
+        'show the Room the listing returned, never filter the page itself',
+      actual: [
+        html.includes('Persisted room'),
+        html.includes('No rooms match'),
+      ],
+      expected: [true, false],
+    });
+  });
+
+  test('a row carries the listing facts and never the host rating', () => {
+    const html = render();
+    assert({
+      given: 'an open Room waiting five minutes with a rated host',
+      should: 'show its format, seats and wait, and leave the rating out',
+      actual: [
+        html.includes('Foundation · 1 of 3 seats · Waiting 5 min'),
+        html.includes('1712'),
+      ],
+      expected: [true, false],
     });
   });
 

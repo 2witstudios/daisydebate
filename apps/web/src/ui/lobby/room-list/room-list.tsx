@@ -25,7 +25,7 @@ function Row({ row }: { readonly row: LobbyRow }) {
           {row.host === null ? null : (
             <span className="text-ink">{`${row.host} · `}</span>
           )}
-          {row.topic}
+          {[row.format, ...row.facts, row.topic].join(' · ')}
         </p>
       </div>
       <span className="max-narrow:hidden">

@@ -1,5 +1,4 @@
-import type { RoomListEntry } from '@daisy/protocol';
-import type { LobbyFilters } from './discovery-query';
+import type { RoomListEntry, RoundStage } from '@daisy/protocol';
 
 type RowState = 'open' | 'starting' | 'live';
 
@@ -16,6 +15,9 @@ export type LobbyRow = {
   readonly topic: string;
   readonly host: string | null;
   readonly mode: 'Ranked' | 'Casual';
+  readonly format: string;
+  /** Seats and wait while open, seats while starting, the stage when live. */
+  readonly facts: readonly string[];
   readonly state: RowState;
   readonly status: 'Open' | 'Starting' | 'Live';
   readonly action: LobbyAction;
@@ -64,8 +66,42 @@ const actionFor = (entry: RoomListEntry, state: RowState): LobbyAction => {
   };
 };
 
-/** A listed Room as one compact Lobby row. */
-export function lobbyRow(entry: RoomListEntry): LobbyRow {
+const stageLabels: Readonly<Record<RoundStage, string>> = {
+  countdown: 'Starting',
+  prep: 'Prep',
+  live: 'Speeches',
+};
+
+const minuteMs = 60_000;
+
+/** How long an open Room has waited for its cast, to the minute or hour. */
+const waitedFor = (now: number, since: string): string => {
+  const minutes = Math.floor((now - Date.parse(since)) / minuteMs);
+  if (minutes < 1) return 'Just opened';
+  if (minutes < 60) return `Waiting ${minutes} min`;
+  return `Waiting ${Math.floor(minutes / 60)} h`;
+};
+
+const factsFor = (
+  now: number,
+  entry: RoomListEntry,
+  state: RowState,
+): readonly string[] => {
+  if (state === 'live') {
+    const stage = entry.live?.stage;
+    return stage ? [stageLabels[stage]] : [];
+  }
+  const seats = `${entry.seatsTaken} of ${entry.seatCount} seats`;
+  return state === 'open' && entry.waitingSince
+    ? [seats, waitedFor(now, entry.waitingSince)]
+    : [seats];
+};
+
+/**
+ * A listed Room as one compact Lobby row, read at `now` (epoch ms). The host's
+ * rating stays out while the beta is unranked.
+ */
+export function lobbyRow(now: number, entry: RoomListEntry): LobbyRow {
   const state = states[entry.status];
   return {
     id: entry.id,
@@ -73,25 +109,24 @@ export function lobbyRow(entry: RoomListEntry): LobbyRow {
     topic: entry.topic,
     host: entry.hostLabel,
     mode: entry.competitionType === 'ranked' ? 'Ranked' : 'Casual',
+    format: entry.formatLabel,
+    facts: factsFor(now, entry, state),
     state,
     status: statusLabels[state],
     action: actionFor(entry, state),
   };
 }
 
-const matches = (entry: RoomListEntry, filters: LobbyFilters): boolean =>
-  (filters.status === 'all' || states[entry.status] === filters.status) &&
-  (filters.mode === 'any' || entry.competitionType === filters.mode);
-
 /**
- * The page's Rooms narrowed by the filters and grouped open, starting, then
- * live, each group in listing order. Empty groups are left out.
+ * The listing's page grouped open, starting, then live, each group in
+ * listing order. The listing has already narrowed it; empty groups are left
+ * out.
  */
 export function lobbySections(
+  now: number,
   rooms: readonly RoomListEntry[],
-  filters: LobbyFilters,
 ): readonly LobbySection[] {
-  const rows = rooms.filter((entry) => matches(entry, filters)).map(lobbyRow);
+  const rows = rooms.map((entry) => lobbyRow(now, entry));
   return (['open', 'starting', 'live'] as const)
     .map((id) => ({
       id,

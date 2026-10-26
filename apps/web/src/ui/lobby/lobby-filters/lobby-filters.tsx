@@ -1,10 +1,11 @@
+import type { RoomListQuery } from '@daisy/protocol';
 import {
-  defaultLobbyFilters,
   defaultPageSize,
   isFiltered,
   lobbyHref,
-  lobbyStatuses,
-  type LobbyQuery,
+  lobbyModeChoices,
+  lobbyStatusChoices,
+  type LobbyMode,
   type LobbyStatus,
 } from '../../../features/lobby/discovery-query';
 import {
@@ -30,11 +31,15 @@ const statusLabels: Readonly<Record<LobbyStatus, string>> = {
   live: 'Live',
 };
 
-const modeOptions = [
-  ['any', 'Ranked or casual'],
-  ['ranked', 'Ranked'],
-  ['casual', 'Casual'],
-] as const;
+const modeLabels: Readonly<Record<LobbyMode, string>> = {
+  any: 'Ranked or casual',
+  ranked: 'Ranked',
+  casual: 'Casual',
+};
+
+const modeOptions = lobbyModeChoices.map(
+  (mode) => [mode, modeLabels[mode]] as const,
+);
 
 /** Search the protocol accepts; the field's maxlength matches it. */
 const MAX_SEARCH_LENGTH = 100;
@@ -48,10 +53,10 @@ export function LobbyFilters({
   query,
   resultCount,
 }: {
-  readonly query: LobbyQuery;
+  readonly query: RoomListQuery;
   readonly resultCount: number;
 }) {
-  const { filters, list } = query;
+  const status: LobbyStatus = query.status ?? 'all';
   return (
     <AutoSubmitForm
       action="/lobby"
@@ -59,44 +64,50 @@ export function LobbyFilters({
       aria-label="Filter rooms"
       className={filterBarClass}
     >
-      <input type="hidden" name="status" value={filters.status} />
-      {list.pageSize === defaultPageSize ? null : (
-        <input type="hidden" name="pageSize" value={list.pageSize} />
+      {query.status ? (
+        <input type="hidden" name="status" value={query.status} />
+      ) : null}
+      {query.pageSize === defaultPageSize ? null : (
+        <input type="hidden" name="pageSize" value={query.pageSize} />
       )}
       <TabLinks
         label="Room status"
         className="order-1 min-w-0 flex-1 max-compact:basis-full"
-        tabs={lobbyStatuses.map((status) => ({
-          id: status,
-          label: statusLabels[status],
-          href: lobbyHref({ list, filters: { ...filters, status } }),
-          selected: filters.status === status,
+        tabs={lobbyStatusChoices.map((choice) => ({
+          id: choice,
+          label: statusLabels[choice],
+          href: lobbyHref({
+            ...query,
+            status: choice === 'all' ? undefined : choice,
+          }),
+          selected: status === choice,
         }))}
       />
       <div className={dividerClass} aria-hidden="true" />
       <SearchField
-        defaultValue={list.q}
+        defaultValue={query.q}
         maxLength={MAX_SEARCH_LENGTH}
         placeholder="Room, topic or host"
         label="Search rooms"
       />
       <details className={`contents ${panelClass}`}>
         <summary className={summaryClass}>
-          <FiltersLabel active={isFiltered(filters) ? 1 : 0} />
+          <FiltersLabel active={isFiltered(query) ? 1 : 0} />
         </summary>
         <FilterSelect
           name="mode"
           label="Ranked or casual"
-          value={filters.mode}
+          value={query.mode ?? 'any'}
           options={modeOptions}
           className="order-5 max-compact:order-none"
         />
         <ClearFilters
           href={
-            isFiltered(filters) || list.q !== ''
+            isFiltered(query) || query.q !== ''
               ? lobbyHref({
-                  list: { ...list, q: '' },
-                  filters: { ...defaultLobbyFilters, status: filters.status },
+                  q: '',
+                  pageSize: query.pageSize,
+                  status: query.status,
                 })
               : null
           }

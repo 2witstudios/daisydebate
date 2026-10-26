@@ -1,9 +1,9 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
-  defaultLobbyFilters,
   isFiltered,
   lobbyHref,
-  parseLobbyQuery,
+  lobbyModeChoices,
+  lobbyStatusChoices,
   parseRoomDiscoveryQuery,
 } from './discovery-query';
 setupRitewayBun();
@@ -39,97 +39,93 @@ test('native Lobby selects recognized discovery query keys', () => {
   });
 });
 
-describe('parseLobbyQuery', () => {
-  test('reads the listing and the filters together', () => {
-    const result = parseLobbyQuery({
-      q: 'motion',
-      status: 'live',
-      mode: 'ranked',
-    });
-    assert({
-      given: 'a search with a status and a mode',
-      should: 'carry the listing query and every filter',
-      actual: result,
-      expected: {
-        success: true,
-        data: {
-          list: { q: 'motion', pageSize: 20 },
-          filters: { status: 'live', mode: 'ranked' },
-        },
-      },
-    });
+test('the Lobby status and mode filters narrow the canonical listing', () => {
+  const parsed = (raw: Record<string, string | string[]>) => {
+    const result = parseRoomDiscoveryQuery(raw);
+    return result.success ? result.data : null;
+  };
+  assert({
+    given:
+      'a live ranked filter, the every-status and any-mode choices, and unknown or repeated values',
+    should:
+      'carry the narrowing filters, drop the choices that narrow nothing, and refuse the rest',
+    actual: [
+      parsed({ status: 'live', mode: 'ranked' }),
+      parsed({ status: 'all', mode: 'any' }),
+      parsed({ status: 'finished' }),
+      parsed({ mode: ['ranked', 'casual'] }),
+    ],
+    expected: [
+      { q: '', pageSize: 20, status: 'live', mode: 'ranked' },
+      { q: '', pageSize: 20 },
+      null,
+      null,
+    ],
   });
+});
 
-  test('falls back to defaults on unknown filter values', () => {
+describe('Lobby choices', () => {
+  test('come from the protocol vocabulary', () => {
     assert({
-      given: 'unknown, repeated or missing filter values',
-      should: 'use the default for each, never throw',
-      actual: [
-        parseLobbyQuery({ status: 'closed', mode: ['ranked', 'casual'] }),
-        parseLobbyQuery({ status: 'endless', event: 'league' }),
-      ].map((result) => (result.success ? result.data.filters : null)),
-      expected: [defaultLobbyFilters, defaultLobbyFilters],
-    });
-  });
-
-  test('refuses a malformed listing query', () => {
-    assert({
-      given: 'a malformed cursor beside valid filters',
-      should: 'refuse the whole query',
-      actual: parseLobbyQuery({ cursor: 'bad', status: 'open' }).success,
-      expected: false,
+      given: 'the status tabs and the mode select',
+      should:
+        'offer every status, then each listing status, and any, then each competition type',
+      actual: [lobbyStatusChoices, lobbyModeChoices],
+      expected: [
+        ['all', 'open', 'starting', 'live'],
+        ['any', 'ranked', 'casual'],
+      ],
     });
   });
 });
 
 describe('lobbyHref', () => {
-  const base = parseLobbyQuery({});
-  const query = base.success ? base.data : null;
+  const query = {
+    q: 'tax',
+    pageSize: 5,
+    status: 'open',
+    mode: 'ranked',
+  } as const;
 
-  test('carries only what differs from the defaults', () => {
+  test('a filter change starts on the first page', () => {
     assert({
-      given: 'the default query, then a search, a status and a page size',
-      should: 'give /lobby, then only the set keys',
-      actual: query
-        ? [
-            lobbyHref(query),
-            lobbyHref({
-              list: { q: 'tax', pageSize: 5 },
-              filters: { ...defaultLobbyFilters, status: 'open' },
-            }),
-          ]
-        : null,
-      expected: ['/lobby', '/lobby?q=tax&pageSize=5&status=open'],
+      given: 'a searched, sized and filtered query with no cursor',
+      should: 'carry every non-default value and no cursor',
+      actual: lobbyHref(query),
+      expected: '/lobby?q=tax&pageSize=5&status=open&mode=ranked',
     });
   });
 
-  test('pages forward with a cursor and keeps the filters', () => {
+  test('the next page keeps the filters', () => {
     assert({
-      given: 'a filtered query and the next cursor',
+      given: 'the same query and the next cursor',
       should: 'add the cursor after the filters',
-      actual: lobbyHref(
-        {
-          list: { q: '', pageSize: 20, cursor },
-          filters: { ...defaultLobbyFilters, mode: 'casual' },
-        },
-        cursor,
-      ),
-      expected: `/lobby?mode=casual&cursor=${cursor}`,
+      actual: lobbyHref(query, cursor),
+      expected: `/lobby?q=tax&pageSize=5&status=open&mode=ranked&cursor=${cursor}`,
+    });
+  });
+
+  test('nothing narrowed is the bare Lobby', () => {
+    assert({
+      given: 'the default query',
+      should: 'link /lobby',
+      actual: lobbyHref({ q: '', pageSize: 20 }),
+      expected: '/lobby',
     });
   });
 });
 
 describe('isFiltered', () => {
-  test('is true only when a mode is set', () => {
+  test('only the Filters panel counts', () => {
     assert({
-      given: 'the default filters, a status alone, and a mode',
-      should: 'count the mode, not the status tab',
+      given: 'a mode, a status tab, and nothing',
+      should: 'count the mode only',
       actual: [
-        isFiltered(defaultLobbyFilters),
-        isFiltered({ ...defaultLobbyFilters, status: 'live' }),
-        isFiltered({ ...defaultLobbyFilters, mode: 'casual' }),
+        isFiltered({ q: '', pageSize: 20, mode: 'casual' }),
+        isFiltered({ q: '', pageSize: 20, status: 'live' }),
+        isFiltered({ q: '', pageSize: 20 }),
       ],
-      expected: [false, false, true],
+      expected: [true, false, false],
     });
   });
 });

@@ -1,10 +1,10 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { RoomListEntry } from '@daisy/protocol';
-import { defaultLobbyFilters } from './discovery-query';
 import { lobbyRow, lobbySections } from './rows';
 setupRitewayBun();
 
 const id = (c: string) => c.repeat(24);
+const now = Date.parse('2026-10-26T12:00:00.000Z');
 const entry = (over: Partial<RoomListEntry> = {}): RoomListEntry => ({
   id: id('a'),
   version: 1,
@@ -17,6 +17,12 @@ const entry = (over: Partial<RoomListEntry> = {}): RoomListEntry => ({
   competitionType: 'casual',
   seated: false,
   roundRef: null,
+  formatLabel: 'Foundation',
+  seatsTaken: 1,
+  seatCount: 3,
+  waitingSince: '2026-10-26T11:53:00.000Z',
+  live: null,
+  hostRating: 1640,
   ...over,
 });
 
@@ -24,14 +30,17 @@ describe('lobbyRow', () => {
   test('an assembling Room offers a seat', () => {
     assert({
       given: 'an assembling casual Room the viewer is not in',
-      should: 'read Open with Join to the Room as the primary action',
-      actual: lobbyRow(entry()),
+      should:
+        'read Open with its format, seats and wait, Join as the primary action, and no host rating',
+      actual: lobbyRow(now, entry()),
       expected: {
         id: id('a'),
         title: 'Friday warm-up',
         topic: 'Cities should ban private cars',
         host: 'Maya',
         mode: 'Casual',
+        format: 'Foundation',
+        facts: ['1 of 3 seats', 'Waiting 7 min'],
         state: 'open',
         status: 'Open',
         action: { verb: 'Join', href: `/rooms/${id('a')}`, primary: true },
@@ -47,11 +56,13 @@ describe('lobbyRow', () => {
       should:
         'offer Spectate, Watch, then Return to room to the page that holds them',
       actual: [
-        lobbyRow(entry({ status: 'ready' })).action,
-        lobbyRow(entry({ status: 'started', roundRef: round })).action,
-        lobbyRow(entry({ status: 'ready', seated: true })).action,
-        lobbyRow(entry({ status: 'started', roundRef: round, seated: true }))
-          .action,
+        lobbyRow(now, entry({ status: 'ready' })).action,
+        lobbyRow(now, entry({ status: 'started', roundRef: round })).action,
+        lobbyRow(now, entry({ status: 'ready', seated: true })).action,
+        lobbyRow(
+          now,
+          entry({ status: 'started', roundRef: round, seated: true }),
+        ).action,
       ],
       expected: [
         { verb: 'Spectate', href: `/rooms/${id('a')}`, primary: false },
@@ -67,12 +78,44 @@ describe('lobbyRow', () => {
   });
 
   test('reads the mode as a label', () => {
-    const row = lobbyRow(entry({ competitionType: 'ranked', hostLabel: null }));
+    const row = lobbyRow(
+      now,
+      entry({ competitionType: 'ranked', hostLabel: null }),
+    );
     assert({
       given: 'a ranked Room whose host may not be named',
       should: 'label it Ranked and leave the host out',
       actual: [row.mode, row.host],
       expected: ['Ranked', null],
+    });
+  });
+});
+
+describe('lobbyRow facts', () => {
+  test('each state says what matters', () => {
+    const facts = (over: Partial<RoomListEntry>) =>
+      lobbyRow(now, entry(over)).facts;
+    assert({
+      given:
+        'a Room just opened, one waiting two hours, a ready Room, and a live Round in prep',
+      should:
+        'name the seats and the wait while open, the seats when starting, and the stage when live',
+      actual: [
+        facts({ waitingSince: '2026-10-26T11:59:40.000Z' }),
+        facts({ waitingSince: '2026-10-26T10:00:00.000Z', seatsTaken: 2 }),
+        facts({ status: 'ready', seatsTaken: 3, waitingSince: null }),
+        facts({
+          status: 'started',
+          waitingSince: null,
+          live: { stage: 'prep', startedAt: '2026-10-26T11:50:00.000Z' },
+        }),
+      ],
+      expected: [
+        ['1 of 3 seats', 'Just opened'],
+        ['2 of 3 seats', 'Waiting 2 h'],
+        ['3 of 3 seats'],
+        ['Prep'],
+      ],
     });
   });
 });
@@ -84,17 +127,16 @@ describe('lobbySections', () => {
     entry({ id: id('c'), status: 'ready' }),
     entry({ id: id('d'), competitionType: 'ranked' }),
   ];
-  const ids = (sections: ReturnType<typeof lobbySections>) =>
-    sections.map((section) => [
-      section.id,
-      section.rows.map((row) => row.id[0]),
-    ]);
 
-  test('groups open, starting then live, keeping the listing order', () => {
+  test('groups the returned page open, starting then live, in listing order', () => {
     assert({
-      given: 'a page mixing every status',
-      should: 'show Open first, then Starting, then Live',
-      actual: ids(lobbySections(rooms, defaultLobbyFilters)),
+      given: 'a page mixing every status, already narrowed by the listing',
+      should:
+        'show Open first, then Starting, then Live, and narrow nothing itself',
+      actual: lobbySections(now, rooms).map((section) => [
+        section.id,
+        section.rows.map((row) => row.id[0]),
+      ]),
       expected: [
         ['open', ['b', 'd']],
         ['starting', ['c']],
@@ -103,23 +145,12 @@ describe('lobbySections', () => {
     });
   });
 
-  test('narrows by status and mode and drops empty sections', () => {
+  test('drops empty sections', () => {
     assert({
-      given: 'the open tab, ranked, then the live tab with casual',
-      should: 'keep only the matching rows in non-empty sections',
-      actual: [
-        ids(lobbySections(rooms, { ...defaultLobbyFilters, status: 'open' })),
-        ids(lobbySections(rooms, { ...defaultLobbyFilters, mode: 'ranked' })),
-        ids(lobbySections(rooms, { status: 'live', mode: 'casual' })),
-      ],
-      expected: [
-        [['open', ['b', 'd']]],
-        [
-          ['open', ['d']],
-          ['live', ['a']],
-        ],
-        [],
-      ],
+      given: 'a page of live Rooms only',
+      should: 'show only the Live section',
+      actual: lobbySections(now, [rooms[0]!]).map((section) => section.id),
+      expected: ['live'],
     });
   });
 });

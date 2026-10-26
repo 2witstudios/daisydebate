@@ -1,14 +1,37 @@
-import { z } from 'zod';
-import { roomListQuerySchema, type RoomListQuery } from '@daisy/protocol';
+import {
+  competitionTypes,
+  roomListQuerySchema,
+  roomListStatuses,
+  type RoomListQuery,
+} from '@daisy/protocol';
 import type { SearchParams } from '../access/decision';
 
 /** The listing's own page size when the URL names none. */
 export const defaultPageSize = 20;
 
+/** The status tabs: every status, then each one the listing narrows to. */
+export const lobbyStatusChoices = ['all', ...roomListStatuses] as const;
+/** The mode select: any mode, then each competition type. */
+export const lobbyModeChoices = ['any', ...competitionTypes] as const;
+
+export type LobbyStatus = (typeof lobbyStatusChoices)[number];
+export type LobbyMode = (typeof lobbyModeChoices)[number];
+
+/** The Lobby's "every status" and "any mode" choices narrow nothing. */
+const narrowing = (value: SearchParams[string], everything: string) =>
+  value === everything ? undefined : value;
+
+/**
+ * The Lobby's URL as the canonical listing query. One policy for every key:
+ * an absent value, `all` or `any` narrows nothing; an unknown or repeated
+ * value is refused, never repaired or guessed.
+ */
 export function parseRoomDiscoveryQuery(raw: SearchParams) {
   return roomListQuerySchema.safeParse({
     q: raw.q,
     cursor: raw.cursor,
+    status: narrowing(raw.status, 'all'),
+    mode: narrowing(raw.mode, 'any'),
     ...(raw.pageSize === undefined
       ? {}
       : {
@@ -21,66 +44,22 @@ export function parseRoomDiscoveryQuery(raw: SearchParams) {
   });
 }
 
-/** Where a Room stands as the Lobby groups it. */
-export const lobbyStatuses = ['all', 'open', 'starting', 'live'] as const;
-const lobbyModes = ['any', 'ranked', 'casual'] as const;
-
-export type LobbyStatus = (typeof lobbyStatuses)[number];
-export type LobbyMode = (typeof lobbyModes)[number];
-
-export type LobbyFilters = {
-  readonly status: LobbyStatus;
-  readonly mode: LobbyMode;
-};
-
-export type LobbyQuery = {
-  readonly list: RoomListQuery;
-  readonly filters: LobbyFilters;
-};
-
-export const defaultLobbyFilters: LobbyFilters = {
-  status: 'all',
-  mode: 'any',
-};
-
-// A bad or repeated filter value falls back to its default: filters only
-// narrow the page, so untrusted values never make the Lobby refuse.
-const filtersSchema = z.object({
-  status: z.enum(lobbyStatuses).catch(defaultLobbyFilters.status),
-  mode: z.enum(lobbyModes).catch(defaultLobbyFilters.mode),
-});
-
-/** The Lobby's URL state: the strict listing query plus lenient filters. */
-export function parseLobbyQuery(
-  raw: SearchParams,
-): { success: true; data: LobbyQuery } | { success: false } {
-  const list = parseRoomDiscoveryQuery(raw);
-  if (!list.success) return { success: false };
-  const filters = filtersSchema.parse({
-    status: raw.status,
-    mode: raw.mode,
-  });
-  return { success: true, data: { list: list.data, filters } };
-}
-
 /**
  * The Lobby URL for a query, carrying only non-default values. A cursor is
  * kept only when given: changing a tab or filter starts from the first page.
  */
-export function lobbyHref(query: LobbyQuery, cursor?: string): string {
+export function lobbyHref(query: RoomListQuery, cursor?: string): string {
   const params = new URLSearchParams();
-  if (query.list.q !== '') params.set('q', query.list.q);
-  if (query.list.pageSize !== defaultPageSize)
-    params.set('pageSize', String(query.list.pageSize));
-  for (const key of ['status', 'mode'] as const) {
-    if (query.filters[key] !== defaultLobbyFilters[key])
-      params.set(key, query.filters[key]);
-  }
+  if (query.q !== '') params.set('q', query.q);
+  if (query.pageSize !== defaultPageSize)
+    params.set('pageSize', String(query.pageSize));
+  if (query.status) params.set('status', query.status);
+  if (query.mode) params.set('mode', query.mode);
   if (cursor !== undefined) params.set('cursor', cursor);
   const search = params.toString();
   return search === '' ? '/lobby' : `/lobby?${search}`;
 }
 
 /** True when a filter in the Filters panel (not the status tab) is set. */
-export const isFiltered = (filters: LobbyFilters): boolean =>
-  filters.mode !== defaultLobbyFilters.mode;
+export const isFiltered = (query: RoomListQuery): boolean =>
+  query.mode !== undefined;
