@@ -215,7 +215,9 @@ export function makeOperations(overrides: Partial<Store> = {}) {
     ) => {
       if (!authorizeCollection(account)) throw createAppError('AUTHORIZATION');
       return {
-        rooms: authorize(state, account) ? [seatedListingEntry(state)] : [],
+        rooms: authorize(state, account)
+          ? [seatedListingEntry({ ...state, status: 'assembling' })]
+          : [],
         nextCursor: null,
         retry: false,
       };
