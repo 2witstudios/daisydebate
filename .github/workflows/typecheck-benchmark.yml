@@ -87,6 +87,12 @@ jobs:
             languageService.dispose();
           } finally { await rm(resolve("src/app/__benchmark"), { recursive: true }); }
           '
+      - name: Measure the actual uncached Turbo typecheck graph
+        shell: bash
+        run: |
+          /usr/bin/time -f '%e\t%M\t%x' -o "$RUNNER_TEMP/typecheck-results/turbo.time" bun run typecheck --force 2>&1 | tee "$RUNNER_TEMP/typecheck-results/turbo.log"
+          printf '\nActual Turbo graph: elapsed seconds, maximum child RSS KiB, exit status\n' >> "$RUNNER_TEMP/typecheck-results/summary.md"
+          cat "$RUNNER_TEMP/typecheck-results/turbo.time" >> "$RUNNER_TEMP/typecheck-results/summary.md"
       - name: Publish comparison summary
         if: always()
         run: cat "$RUNNER_TEMP/typecheck-results/summary.md" >> "$GITHUB_STEP_SUMMARY"

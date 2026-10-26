@@ -1,6 +1,6 @@
 # 0074: evaluate the native TypeScript checker separately from compiler APIs
 
-Status: proposed (CI experiment in progress, ISSUE-629).
+Status: proposed (native task wiring under CI qualification, ISSUE-629).
 
 Daisy keeps TypeScript 6.0.3 for Next 16.3.5, its editor plugin and
 TypeScript ESLint 8.70.0. A native checker may replace only workspace
@@ -39,3 +39,21 @@ build jobs continue to qualify the real consumers.
 The workflow produces evidence even when the candidate is incompatible;
 that success alone never authorizes adoption. The final decision and measured
 results must be recorded before this proposal is accepted.
+
+Native task commands are provisionally wired on the evaluation branch so CI
+can exercise the real Turbo graph before main adoption. `typescript` stays
+at 6.0.3; only the 16 workspace `typecheck` scripts use the separate `tsgo`
+binary. The four test-config invocations and `next typegen` remain in those
+scripts. `turbo.json` and its dependency/concurrency rules are unchanged.
+The benchmark runs `bun run typecheck --force` with GNU time after the
+isolated comparisons. This forces every task to execute and records wall
+time and maximum child-process RSS, not aggregate simultaneous process-tree
+memory. A successful actual graph qualifies the default runner's resource
+budget; it does not imply lower memory on every project or host.
+
+Because this PR changes its benchmark workflow, its CI is branch evidence,
+not independent workflow acceptance. An independent source review may provide
+branch feedback but cannot mint acceptance from these runs. The owner may
+merge in owner mode after the exact post-database-fix candidate passes CI
+gate, Playwright E2E and Isolated Room Launch E2E. Subsequent CI using the
+workflow on main supplies independent evidence.
