@@ -23,14 +23,14 @@ describe('parseThemePreference', () => {
     });
   });
 
-  test('falls back to dark for anything else', () => {
+  test('falls back to light for anything else', () => {
     assert({
       given: 'a missing cookie, wrong case, junk, and non-strings',
-      should: 'default to the dark theme',
-      actual: [undefined, 'Light', 'sepia', '', 1, null].map(
+      should: 'default to the light theme',
+      actual: [undefined, 'Dark', 'sepia', '', 1, null].map(
         parseThemePreference,
       ),
-      expected: ['dark', 'dark', 'dark', 'dark', 'dark', 'dark'],
+      expected: ['light', 'light', 'light', 'light', 'light', 'light'],
     });
   });
 });
@@ -59,11 +59,11 @@ describe('preferenceFromCookies', () => {
   test('validates what it finds', () => {
     assert({
       given: 'no theme cookie, a tampered value, and a look-alike name',
-      should: 'fall back to dark each time',
-      actual: ['', 'daisy-theme=sepia', 'not-daisy-theme=light'].map(
+      should: 'fall back to light each time',
+      actual: ['', 'daisy-theme=sepia', 'not-daisy-theme=dark'].map(
         preferenceFromCookies,
       ),
-      expected: ['dark', 'dark', 'dark'],
+      expected: ['light', 'light', 'light'],
     });
   });
 });

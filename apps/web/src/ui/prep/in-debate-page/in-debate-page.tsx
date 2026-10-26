@@ -39,11 +39,11 @@ export function InDebatePage({ view, loadedAt }: InDebatePageProps) {
         </header>
         <section
           aria-label="Your speech"
-          className="flex flex-col gap-3 rounded-xl bg-surface-stage p-6 text-stage-ink"
+          className="flex flex-col gap-3 rounded-xl bg-surface-raised p-6 text-ink shadow-1"
         >
           <div className="flex items-start justify-between gap-3">
             <p className="flex flex-col">
-              <span className="text-sm font-strong text-stage-ink-muted">
+              <span className="text-sm font-strong text-ink-muted">
                 Your speech
               </span>
               <span className="font-display text-xl font-bold">[Speech 1]</span>

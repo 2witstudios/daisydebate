@@ -51,7 +51,7 @@ export function FirstVisit() {
       </h1>
       <section
         aria-labelledby="start-heading"
-        className="flex flex-col gap-3 rounded-xl bg-surface-stage px-8 py-8 text-stage-ink max-compact:px-5 max-compact:py-6"
+        className="flex flex-col gap-3 rounded-xl border border-border bg-accent-soft px-8 py-8 text-ink max-compact:px-5 max-compact:py-6"
       >
         <h2
           id="start-heading"

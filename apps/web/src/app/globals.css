@@ -22,8 +22,8 @@
 /* Design tokens — the Daisy board palette (ADR 0045). Each color token is
    written once as light-dark(<light>, <dark>) and resolves through
    color-scheme, which <html data-theme> selects (ADR 0027):
-     dark   → dark only (the default when no preference is saved)
-     light  → light only
+     light  → light only (the default when no preference is saved, ADR 0069)
+     dark   → dark only
      system → light dark, following prefers-color-scheme live, no JS.
    Light reads as the board's cream, dark as its forest. The server renders
    data-theme from the viewer's cookie; the theme provider rewrites it on a
@@ -31,12 +31,12 @@
    no mode is ever left unset, and every declared text and UI pairing holds
    WCAG AA in both schemes (palette-contrast.test.ts). */
 :root,
-:root[data-theme='dark'] {
-  color-scheme: dark;
-}
-
 :root[data-theme='light'] {
   color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
 }
 
 :root[data-theme='system'] {

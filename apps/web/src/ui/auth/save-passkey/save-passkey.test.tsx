@@ -4,7 +4,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { Button } from '../../components/button/button';
 import { byText } from '../../test-support/find-elements';
 import { SavePasskey, type SavePasskeyProps } from './save-passkey';
-import { panelPageColours } from '../../test-support/stage-palette';
+import { panelStageColours } from '../../test-support/stage-palette';
 
 setupRitewayBun();
 
@@ -75,12 +75,12 @@ describe('SavePasskey', () => {
     });
   });
 
-  test('draws its panel checks in the stage palette, not the page palette', () => {
+  test('draws its brand panel in the page palette, not the stage ink', () => {
     const page = renderToString(h(SavePasskey, props()));
     assert({
-      given: 'the saved-facts list on the forest stage panel',
-      should: 'use no page-palette colour, which is forest on forest in light',
-      actual: panelPageColours(page),
+      given: 'the brand panel beside the saved facts',
+      should: 'use no stage colour, which is cream on cream in light',
+      actual: panelStageColours(page),
       expected: [],
     });
   });

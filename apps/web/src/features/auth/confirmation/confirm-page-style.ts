@@ -16,15 +16,13 @@ const lightDark = (key: keyof typeof AUTH_BRAND_PALETTE.light) =>
  */
 export function confirmPageStylesheet(): string {
   return `
-:root, :root[data-theme='dark'] { color-scheme: dark; }
-:root[data-theme='light'] { color-scheme: light; }
+:root, :root[data-theme='light'] { color-scheme: light; }
+:root[data-theme='dark'] { color-scheme: dark; }
 :root[data-theme='system'] { color-scheme: light dark; }
 
 :root {
   --af-background: ${lightDark('background')};
-  --af-surface-stage: ${lightDark('surfaceStage')};
-  --af-stage-ink: ${lightDark('stageInk')};
-  --af-stage-ink-muted: ${lightDark('stageInkMuted')};
+  --af-surface-overlay: ${lightDark('surfaceOverlay')};
   --af-surface-raised: ${lightDark('surfaceRaised')};
   --af-ink: ${lightDark('ink')};
   --af-ink-muted: ${lightDark('inkMuted')};
@@ -32,9 +30,6 @@ export function confirmPageStylesheet(): string {
   --af-accent: ${lightDark('accent')};
   --af-accent-strong: ${lightDark('accentStrong')};
   --af-accent-ink: ${lightDark('accentInk')};
-  --af-gold: ${lightDark('gold')};
-  --af-cream: ${lightDark('cream')};
-  --af-butter: ${lightDark('butter')};
   --af-mark-cardinal: ${lightDark('markCardinal')};
   --af-mark-diagonal: ${lightDark('markDiagonal')};
   --af-yolk: ${lightDark('yolk')};

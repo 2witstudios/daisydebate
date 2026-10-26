@@ -7,10 +7,8 @@
  */
 export type BrandPalette = {
   readonly background: string;
-  /** The forest stage panel, the same in both schemes, with its own ink. */
-  readonly surfaceStage: string;
-  readonly stageInk: string;
-  readonly stageInkMuted: string;
+  /** The confirm pages' brand panel. */
+  readonly surfaceOverlay: string;
   readonly surfaceRaised: string;
   readonly ink: string;
   readonly inkMuted: string;
@@ -18,10 +16,6 @@ export type BrandPalette = {
   readonly accent: string;
   readonly accentStrong: string;
   readonly accentInk: string;
-  readonly gold: string;
-  /** Brand primitives for the mark: reverse petals and the disc. */
-  readonly cream: string;
-  readonly butter: string;
   /** The primary mark's petals, which follow the scheme. */
   readonly markCardinal: string;
   readonly markDiagonal: string;
@@ -38,9 +32,7 @@ export const AUTH_BRAND_PALETTE: {
 } = {
   light: {
     background: '#f5f0e4',
-    surfaceStage: '#173b2a',
-    stageInk: '#f5f0e4',
-    stageInkMuted: '#bccdb3',
+    surfaceOverlay: '#ede7d8',
     surfaceRaised: '#fffdf8',
     ink: '#173b2a',
     inkMuted: '#4a5f51',
@@ -48,9 +40,6 @@ export const AUTH_BRAND_PALETTE: {
     accent: '#173b2a',
     accentStrong: '#0e2a1c',
     accentInk: '#f5f0e4',
-    gold: '#7e5c12',
-    cream: '#f5f0e4',
-    butter: '#f7da8c',
     markCardinal: '#173b2a',
     markDiagonal: '#a7c09c',
     yolk: '#f2c14e',
@@ -60,9 +49,7 @@ export const AUTH_BRAND_PALETTE: {
   },
   dark: {
     background: '#0d1812',
-    surfaceStage: '#173b2a',
-    stageInk: '#f5f0e4',
-    stageInkMuted: '#bccdb3',
+    surfaceOverlay: '#1f3328',
     surfaceRaised: '#182a20',
     ink: '#f5f0e4',
     inkMuted: '#b4c2ae',
@@ -70,9 +57,6 @@ export const AUTH_BRAND_PALETTE: {
     accent: '#a7c09c',
     accentStrong: '#bdd2b2',
     accentInk: '#173b2a',
-    gold: '#f0cf7a',
-    cream: '#f5f0e4',
-    butter: '#f7da8c',
     markCardinal: '#f5f0e4',
     markDiagonal: '#f5f0e4',
     yolk: '#f2c14e',

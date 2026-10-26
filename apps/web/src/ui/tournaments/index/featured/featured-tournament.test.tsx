@@ -4,7 +4,8 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { listTournaments } from '../../../../features/tournaments/list-tournaments';
 import { defaultQuery } from '../../../../features/tournaments/query';
 import { FeaturedTournament } from './featured-tournament';
-import { stageButtonClass } from './stage-button-class';
+import { stageColourClasses } from '../../../test-support/stage-palette';
+import { buttonClass } from '../../../components/button/button-class';
 
 setupRitewayBun();
 
@@ -44,18 +45,22 @@ describe('FeaturedTournament', () => {
   });
 });
 
-describe('stageButtonClass', () => {
-  test('primary and secondary read on the stage', () => {
+describe('FeaturedTournament palette', () => {
+  test('sits on the competition tint with the page buttons', () => {
+    const html = render(false);
     assert({
-      given: 'both variants',
-      should: 'use stage tokens only',
-      actual: [
-        stageButtonClass('primary').includes(
-          'bg-stage-accent text-stage-accent-ink',
+      given: 'the featured card for a visitor',
+      should:
+        'draw on the clay tint with the page primary and secondary buttons and no stage colour',
+      actual: {
+        clay: /aria-label="Featured tournament" class="[^"]*\bbg-hue-clay-soft\b/.test(
+          html,
         ),
-        stageButtonClass('secondary').includes('text-stage-ink'),
-      ],
-      expected: [true, true],
+        primary: html.includes(`class="${buttonClass('primary')}`),
+        secondary: html.includes(`class="${buttonClass('secondary')}`),
+        stage: stageColourClasses(html),
+      },
+      expected: { clay: true, primary: true, secondary: true, stage: [] },
     });
   });
 });

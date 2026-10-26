@@ -22,7 +22,7 @@ export function WhyStep({ nextHref, backHref, skip }: IntroStepProps) {
   ] as const;
   return (
     <OnboardingFrame step={1} titleId="onboarding-title" skip={skip}>
-      <div className="flex flex-col gap-8 rounded-lg bg-surface-stage p-10 text-stage-ink max-narrow:p-6">
+      <div className="flex flex-col gap-8 rounded-lg border border-border bg-surface-raised p-10 text-ink shadow-1 max-narrow:p-6">
         <h1
           id="onboarding-title"
           className="max-w-reading font-display text-display-sm leading-display font-semibold tracking-display text-balance max-narrow:text-2xl"
@@ -33,10 +33,10 @@ export function WhyStep({ nextHref, backHref, skip }: IntroStepProps) {
           </span>{' '}
           for free speech.
         </h1>
-        <dl className="grid grid-cols-3 border-t-2 border-stage-ink max-narrow:grid-cols-1">
+        <dl className="grid grid-cols-3 border-t-2 border-ink max-narrow:grid-cols-1">
           {pillars.map(([title, line]) => (
             <div key={title} className="flex flex-col gap-2 pt-4 pr-5">
-              <dt className="font-display text-2xl font-semibold text-yolk">
+              <dt className="font-display text-2xl font-semibold text-accent">
                 {title}
               </dt>
               <dd className="text-md leading-normal">{line}</dd>

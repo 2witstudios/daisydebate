@@ -16,13 +16,13 @@ const renderFailure = () =>
   );
 
 describe('GlobalError', () => {
-  test('renders its own document, defaulting to dark with no cookie', () => {
+  test('renders its own document, defaulting to light with no cookie', () => {
     const html = renderFailure();
     assert({
       given: 'a root-layout failure with no theme cookie (server render)',
-      should: 'render its own <html data-theme="dark"> and <body>, once each',
+      should: 'render its own <html data-theme="light"> and <body>, once each',
       actual: [
-        html.includes('<html lang="en" data-theme="dark">'),
+        html.includes('<html lang="en" data-theme="light">'),
         html.split('<body').length - 1,
         html.includes('correlation identifier') && html.includes('d1'),
       ],

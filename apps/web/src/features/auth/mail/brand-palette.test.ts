@@ -24,11 +24,7 @@ function readGlobalsTokens(): Record<string, { light: string; dark: string }> {
 /** Maps a globals.css token name to the brand-palette key that must equal it. */
 const SHARED_TOKENS: Record<string, keyof typeof AUTH_BRAND_PALETTE.light> = {
   background: 'background',
-  'surface-stage': 'surfaceStage',
-  'stage-text': 'stageInk',
-  'stage-text-muted': 'stageInkMuted',
-  cream: 'cream',
-  butter: 'butter',
+  'surface-overlay': 'surfaceOverlay',
   'mark-cardinal': 'markCardinal',
   'mark-diagonal': 'markDiagonal',
   yolk: 'yolk',
@@ -39,7 +35,6 @@ const SHARED_TOKENS: Record<string, keyof typeof AUTH_BRAND_PALETTE.light> = {
   accent: 'accent',
   'accent-strong': 'accentStrong',
   'accent-text': 'accentInk',
-  gold: 'gold',
 };
 
 test('brand-palette.ts stays equal to globals.css for every shared token', () => {

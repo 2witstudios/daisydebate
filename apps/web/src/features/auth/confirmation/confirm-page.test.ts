@@ -188,9 +188,9 @@ test('renderConfirmPage: draws the Daisy mark from the brand geometry, with no e
   ).text();
   const petals = bloomPetals(petalShape, markGeometry).map(({ d }) => d);
   assert({
-    given: 'the confirm page with its brand row and stage panel',
+    given: 'the confirm page with its brand row and brand panel',
     should:
-      'draw both marks (the primary logo and the reverse panel art) from bloomPetals, with the logo petals classed by the scheme-following tokens, and no <ellipse> or mask',
+      'draw both marks (the primary logo and the tonal panel art) from bloomPetals, with the logo petals classed by the scheme-following tokens, and no <ellipse> or mask',
     actual: {
       ellipses: html.match(/<ellipse/g)?.length ?? 0,
       everyPetalTwice: petals.every(
@@ -203,7 +203,7 @@ test('renderConfirmPage: draws the Daisy mark from the brand geometry, with no e
   });
 });
 
-test('confirmPageStylesheet: the panel is the forest stage with its own ink, and no emerald token is left', () => {
+test('confirmPageStylesheet: the panel sits on the page overlay in page ink, and no emerald token is left', () => {
   const css = confirmPageStylesheet();
   const rule = (selector: string) =>
     new RegExp(`\\n${selector.replace('.', '\\.')} \\{([^}]*)\\}`).exec(
@@ -212,17 +212,37 @@ test('confirmPageStylesheet: the panel is the forest stage with its own ink, and
   assert({
     given: 'the confirm pages stylesheet',
     should:
-      'paint the panel with the stage surface and stage ink, its kicker with the muted stage ink, and name no emerald token',
+      'paint the panel with the overlay surface and page ink, its kicker with the muted ink, its mark in the scheme-following petals, and name no stage or emerald token',
     actual: {
       panel: [
-        rule('.af-panel').includes('background: var(--af-surface-stage);'),
-        rule('.af-panel').includes('color: var(--af-stage-ink);'),
+        rule('.af-panel').includes('background: var(--af-surface-overlay);'),
+        rule('.af-panel').includes('color: var(--af-ink);'),
       ],
-      muted: rule('.af-panel-kicker').includes(
-        'color: var(--af-stage-ink-muted);',
-      ),
+      muted: rule('.af-panel-kicker').includes('color: var(--af-ink-muted);'),
+      petals: [
+        rule('.af-panel-cardinal').includes('var(--af-mark-cardinal)'),
+        rule('.af-panel-diagonal').includes('var(--af-mark-diagonal)'),
+      ],
+      stage: /stage/i.test(css),
       emerald: /emerald/i.test(css),
     },
-    expected: { panel: [true, true], muted: true, emerald: false },
+    expected: {
+      panel: [true, true],
+      muted: true,
+      petals: [true, true],
+      stage: false,
+      emerald: false,
+    },
+  });
+});
+
+test('confirmPageStylesheet: a page without a saved theme renders light', () => {
+  assert({
+    given: 'the confirm pages stylesheet',
+    should: 'give the bare root the light color-scheme, like globals.css',
+    actual: confirmPageStylesheet().includes(
+      ":root, :root[data-theme='light'] { color-scheme: light; }",
+    ),
+    expected: true,
   });
 });
