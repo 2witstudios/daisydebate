@@ -20,3 +20,22 @@ test('client navigation rereads the shell membership without refreshing in a loo
     expected: ['/rooms/owned', '/settings', '/lobby', '/settings'],
   });
 });
+
+test('restoring the same retained shell location after a bare Round rereads membership', () => {
+  let reads = 0;
+  const navigate = activeRoomNavigation(() => {
+    reads += 1;
+  });
+  navigate('/settings');
+  // Activity can preserve the controller while disconnecting its effect.
+  navigate(null);
+  navigate('/settings');
+  assert({
+    given:
+      'a Round ends outside the shell, then the same cached Settings page resumes',
+    should:
+      'reread membership on resuming even when its pathname did not change',
+    actual: reads,
+    expected: 2,
+  });
+});

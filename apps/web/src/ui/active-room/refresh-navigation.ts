@@ -2,7 +2,11 @@
 export function activeRoomNavigation(refresh: () => void) {
   let previous: string | null = null;
   return (pathname: string | null) => {
-    if (pathname === null || pathname === previous) return;
+    if (pathname === null) {
+      previous = null;
+      return;
+    }
+    if (pathname === previous) return;
     previous = pathname;
     refresh();
   };

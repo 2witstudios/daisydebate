@@ -12,6 +12,9 @@ export function ActiveRoomRefresh() {
     () => activeRoomNavigation(router.refresh),
     [router],
   );
-  useEffect(() => navigate(pathname), [navigate, pathname]);
+  useEffect(() => {
+    navigate(pathname);
+    return () => navigate(null);
+  }, [navigate, pathname]);
   return null;
 }
