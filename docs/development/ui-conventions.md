@@ -161,9 +161,16 @@ and facts on the left and its status and one action on the right.
 - One verb per state: Join (an assembling Room), Spectate (ready, not
   started), Watch (a live Round), Return to room (the viewer holds a seat).
   Check in and Register are reserved for tournament and league seats.
-- A field the listing does not carry yet (seats, host rating, waiting time,
-  tournament and league grouping, an event-scoped room label) is left out,
-  never faked; its tab or column appears when the data does.
+- A row shows what the listing carries: format, seats taken of the seat
+  count, how long an open Room has waited, and a live Round's stage. The
+  host's rating stays out while the beta is unranked. A field the listing
+  does not carry yet (tournament and league grouping, an event-scoped room
+  label) is left out, never faked; its tab or column appears when the data
+  does.
+- The status tabs and the mode select are the listing query itself
+  (`RoomListQuery`): the server narrows the whole listing before paging and
+  the Lobby only groups the page it gets back. An absent value, `all` or
+  `any` narrows nothing; an unknown or repeated value is refused.
 - Play in the Lobby header is a link to `/play`. Once hydrated it opens the
   same choices (Open a room, Ranked match, Practice with a bot, Tournaments
   and leagues, open ones first, then Just browse the Lobby) in a modal
