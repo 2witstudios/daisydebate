@@ -3,7 +3,11 @@ import { assemblySnapshot, seatedListingEntry } from './assembly.test-support';
 import { readActiveRoom, readAssembly, readRoomList } from './read-assembly';
 
 setupRitewayBun();
-const listingEntry = seatedListingEntry(assemblySnapshot);
+// The snapshot is an assembling Room; its view type admits every Room status.
+const listingEntry = seatedListingEntry({
+  ...assemblySnapshot,
+  status: 'assembling',
+});
 
 test('canonical room reads reject malformed or substituted projections', async () => {
   const results = [];

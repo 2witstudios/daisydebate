@@ -189,7 +189,12 @@ export const roomListQuerySchema = z.strictObject({
   cursor: idSchema.optional(),
   pageSize: z.int().min(1).max(50).default(20),
   q: z.string().trim().max(100).default(''),
-  /** Where a listed Room stands: open (assembling), starting (ready) or live. */
+  /**
+   * The canonical Lobby filters, applied in the database before paging.
+   * Omitted narrows nothing: there is no `all` or `any` value, so a
+   * client's every-status or any-mode choice omits the key. `status` is
+   * where a listed Room stands: open (assembling), starting (ready) or live.
+   */
   status: z.enum(['open', 'starting', 'live']).optional(),
   mode: z.enum(competitionTypes).optional(),
 });
