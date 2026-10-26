@@ -193,7 +193,8 @@ if either class appears anywhere outside the brand sheet (DEC-32).
   and the auth email) read the palette as static values from
   `apps/web/src/features/auth/mail/brand-palette.ts`, which a test pins to
   `globals.css`, stage tokens included. The confirm pages draw both marks
-  from `bloomPetals`, and their panel is the forest stage with its own ink.
+  from `bloomPetals`; their brand panel follows
+  [ADR 0069](0069-light-default-scheme.md).
   The mark tokens are in the palette too.
   BRAND-2.3 still owns the email's mark and wordmark.
 - A palette change that drops any declared pairing below AA fails

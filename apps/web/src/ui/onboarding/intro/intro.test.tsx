@@ -3,6 +3,7 @@ import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { routeExists } from '../../test-support/route-exists';
+import { stageColourClasses } from '../../test-support/stage-palette';
 import { DebateStep } from './debate-step';
 import { DaisyStep, WhyStep, type IntroStepProps } from './intro';
 
@@ -44,6 +45,19 @@ describe('WhyStep', () => {
         page.includes('Communicate Argue it out live with a real person.'),
       ],
       expected: [true, true, true, true],
+    });
+  });
+
+  test('the hero sits on the page palette', () => {
+    const html = render(WhyStep);
+    assert({
+      given: 'the hero card',
+      should: 'draw on a raised page surface with no stage colour',
+      actual: {
+        raised: html.includes('bg-surface-raised'),
+        stage: stageColourClasses(html),
+      },
+      expected: { raised: true, stage: [] },
     });
   });
 });

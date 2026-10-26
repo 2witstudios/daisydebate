@@ -37,18 +37,23 @@ change, open the brand sheet on `/foundation` with
 
 ## Stage surfaces
 
-The stage is forest in both schemes. Content on it uses the stage's own
-ink (`text-stage-ink`, `text-stage-ink-muted`) and button
-(`bg-stage-accent`, `hover:bg-stage-accent-strong`,
-`text-stage-accent-ink`), never the page's `text-ink` or `bg-accent`: in
-light those are forest, and they would disappear on the stage. Stage
-moments today are the featured tournament and the auth panel, including
-the step bodies passed into it (the check-inbox steps, the saved-passkey
-facts). Each one's render test runs `pageColourClasses`
+The stage is forest in both schemes and is reserved for surfaces that frame
+live video or a replay (ADR 0069): the spectate stage, the replay player and
+the round's media tiles, plus the lobby's featured tournament until its
+redesign. Everything else, including brand panels and hero cards, sits on
+the page palette (`bg-surface-raised`, `bg-surface-overlay`, an accent,
+area-hue or gold tint) with page ink.
+
+Content on the stage uses the stage's own ink (`text-stage-ink`,
+`text-stage-ink-muted`) and button (`bg-stage-accent`,
+`hover:bg-stage-accent-strong`, `text-stage-accent-ink`), never the page's
+`text-ink` or `bg-accent`: in light those are forest, and they would
+disappear on the stage. A stage render test runs `pageColourClasses`
 (`apps/web/src/ui/test-support/stage-palette.ts`) and fails on any
-page-palette colour class; add the same assertion to any new stage
-surface. The AUTH-4.7 confirm pages are rendered outside React, so their
-stylesheet test checks the same thing: the panel uses `--af-stage-ink`.
+page-palette colour class. The reverse holds off the stage:
+`stageColourClasses` fails a page card that borrows the stage's cream ink
+or sage accent, which read cream on cream in light. `text-stage-accent-ink`
+is forest in both schemes and stays the ink for yolk chips anywhere.
 
 ## Brand graphics
 
@@ -57,7 +62,7 @@ hand-copied path or hex value. All of them are decoration: `aria-hidden`,
 and never the only carrier of meaning.
 
 - **Petal pattern** (lattice): only as a background texture: behind a
-  hero, a stage panel, or an empty state. Never behind body text without a
+  hero, a brand panel, or an empty state. Never behind body text without a
   solid surface in between, and never in dense lists or forms.
 - **Cropped bloom**: oversized bloom art anchored to a corner, on hero
   banners and the auth panel (it replaces the auth watermark and the

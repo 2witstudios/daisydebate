@@ -20,18 +20,7 @@ const widths = [
 export const fillWidthClass = (percent: number): string =>
   widths[Math.round((Math.min(100, Math.max(0, percent)) * 12) / 100)] ?? 'w-0';
 
-export type FillTone = 'default' | 'stage';
-
-const tracks: Readonly<Record<FillTone, string>> = {
-  default: 'bg-surface-overlay',
-  stage: 'border border-stage-ink-muted bg-transparent',
-};
-const bars: Readonly<Record<FillTone, string>> = {
-  default: 'bg-accent',
-  stage: 'bg-stage-accent',
-};
-
-export const fillTrackClass = (tone: FillTone): string =>
-  `block h-1 w-full overflow-hidden rounded-round ${tracks[tone]}`;
-export const fillBarClass = (percent: number, tone: FillTone): string =>
-  `block h-full rounded-round ${bars[tone]} ${fillWidthClass(percent)}`;
+export const fillTrackClass = (): string =>
+  'block h-1 w-full overflow-hidden rounded-round bg-surface-overlay';
+export const fillBarClass = (percent: number): string =>
+  `block h-full rounded-round bg-accent ${fillWidthClass(percent)}`;

@@ -3,6 +3,7 @@ import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { roomPanelView } from '../../../features/prep/room-panel';
 import { parseRoomPanelQuery } from '../../../features/prep/room-panel-query';
+import { stageColourClasses } from '../../test-support/stage-palette';
 import { InDebatePage } from './in-debate-page';
 
 setupRitewayBun();
@@ -163,6 +164,24 @@ describe('InDebatePage on the phone and hidden', () => {
         html.includes('Bring a case'),
       ],
       expected: [true, true],
+    });
+  });
+});
+
+describe('InDebatePage palette', () => {
+  test('the speech card sits on the page palette', () => {
+    const html = render();
+    assert({
+      given: 'the your-speech card',
+      should: 'draw on a raised page surface with no stage colour',
+      actual: {
+        raised:
+          /aria-label="Your speech" class="[^"]*\bbg-surface-raised\b/.test(
+            html,
+          ),
+        stage: stageColourClasses(html),
+      },
+      expected: { raised: true, stage: [] },
     });
   });
 });

@@ -1,6 +1,6 @@
 /**
- * The confirm pages' stage panel (ADR 0045): forest in both schemes, with
- * its own ink, and the reverse Daisy mark as art. Part of
+ * The confirm pages' brand panel, matching the app's AuthFrame: the overlay
+ * surface in page ink, with a tonal primary Daisy mark as art. Part of
  * `confirmPageStylesheet`, which declares the `--af-*` tokens it reads.
  */
 export const confirmPanelStyles = `.af-panel {
@@ -10,8 +10,8 @@ export const confirmPanelStyles = `.af-panel {
   width: 500px;
   flex-shrink: 0;
   border-radius: 16px;
-  background: var(--af-surface-stage);
-  color: var(--af-stage-ink);
+  background: var(--af-surface-overlay);
+  color: var(--af-ink);
   padding: 40px;
   display: flex;
   flex-direction: column;
@@ -33,12 +33,16 @@ export const confirmPanelStyles = `.af-panel {
    (visible on Linux, not on macOS Chromium). Painting the already-blended
    colours directly has no layer to composite, so there is nothing to show
    through. */
-.af-panel-petal {
-  fill: color-mix(in srgb, var(--af-cream) 20%, var(--af-surface-stage));
+.af-panel-cardinal {
+  fill: color-mix(in srgb, var(--af-mark-cardinal) 20%, var(--af-surface-overlay));
+}
+
+.af-panel-diagonal {
+  fill: color-mix(in srgb, var(--af-mark-diagonal) 20%, var(--af-surface-overlay));
 }
 
 .af-panel-disc {
-  fill: color-mix(in srgb, var(--af-yolk) 20%, var(--af-surface-stage));
+  fill: color-mix(in srgb, var(--af-yolk) 20%, var(--af-surface-overlay));
 }
 
 .af-panel-kicker {
@@ -47,7 +51,7 @@ export const confirmPanelStyles = `.af-panel {
   font-weight: 700;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--af-stage-ink-muted);
+  color: var(--af-ink-muted);
 }
 
 .af-panel-title {

@@ -8,6 +8,7 @@ import {
 } from '../../../features/tournaments/results';
 import { Certificate } from '../certificate/certificate';
 import { CertificatePage } from '../certificate/certificate-page';
+import { stageColourClasses } from '../../test-support/stage-palette';
 import { ResultsPage, ResultsUnpublished } from './results-page';
 
 setupRitewayBun();
@@ -29,6 +30,19 @@ const render = (
 };
 
 describe('ResultsPage', () => {
+  test('the champion card is an honour on the page palette', () => {
+    const html = render('summer-invitational');
+    assert({
+      given: 'a published champion',
+      should: 'draw the card in the gold honour tint with no stage colour',
+      actual: {
+        gold: /<section class="[^"]*\bbg-gold-soft\b/.test(html),
+        stage: stageColourClasses(html),
+      },
+      expected: { gold: true, stage: [] },
+    });
+  });
+
   test('the champion, four tabs and the top eight', () => {
     const html = render('summer-invitational');
     assert({

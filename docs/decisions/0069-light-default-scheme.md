@@ -21,10 +21,15 @@ page, and it is the scheme first-time visitors should meet.
 2. **Dark stays fully supported.** The Dark/Light/System control on
    `/settings` and the cookie mechanics of ADR 0027 are unchanged; a saved
    `dark` or `system` is honored exactly as before.
-3. **Deliberate dark stages remain where they serve video.** Surfaces that
-   frame live video or dark-graded photography (the room stage, the photo
-   scrims of ADR 0027) stay forest in both schemes. Everything else is
-   designed and verified in light first, then in dark.
+3. **The forest stage is for video.** Surfaces that frame live video or a
+   replay (the spectate stage, the replay player, the round's media tiles)
+   and the photo scrims of ADR 0027 stay dark in both schemes. Brand panels
+   and hero cards move onto the page palette: the auth frame's panel and the
+   confirm pages' panel use the overlay surface with a tonal primary mark,
+   the onboarding hero and the prep speech card a raised card, the prep
+   hero the accent tint, the featured tournament the clay tint (ADR 0051)
+   with the page buttons, and the champion card the gold honour tint.
+   `stageColourClasses` guards each of them against the stage's cream ink.
 
 ## Consequences
 
