@@ -11,6 +11,7 @@ import {
   captureWorkerScope,
   captureActivityRelay,
   captureHeardRelay,
+  startCaptureSpeech,
 } from './round-media.test-support';
 import { captureTokenBroker } from './capture-token.test-support';
 setupRitewayBun();
@@ -38,7 +39,7 @@ test('signed native HTTP ingress uses actual lease, snapshot and vendor token pr
       port: 0,
       fetch: handlers.handle,
     });
-    const post = (
+    const signedRequest = (
       operation: string,
       payload: Record<string, unknown>,
       tamper = false,
@@ -46,7 +47,7 @@ test('signed native HTTP ingress uses actual lease, snapshot and vendor token pr
       const path = `/api/internal/media/${f.roundId}/capture/${operation}`;
       const body = JSON.stringify(payload);
       const signed = authentication.sign({ method: 'POST', path, body });
-      return fetch(`http://127.0.0.1:${server.port}${path}`, {
+      return new Request(`http://127.0.0.1:${server.port}${path}`, {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
@@ -55,6 +56,20 @@ test('signed native HTTP ingress uses actual lease, snapshot and vendor token pr
         },
         body: tamper ? `${body} ` : body,
       });
+    };
+    const post = (...args: Parameters<typeof signedRequest>) =>
+      fetch(signedRequest(...args));
+    const replay = async (
+      operation: string,
+      payload: Record<string, unknown>,
+    ) => {
+      const request = signedRequest(operation, payload);
+      const first = await fetch(request.clone());
+      const second = await fetch(request.clone());
+      return {
+        statuses: [first.status, second.status],
+        bodies: [await first.json(), await second.json()],
+      };
     };
     try {
       const noLease = await post('token', { ...scope, epoch: 1 });
@@ -125,6 +140,92 @@ test('signed native HTTP ingress uses actual lease, snapshot and vendor token pr
           tokenClaims(actualToken.token).video.hidden,
         ],
         expected: [scope.roundId, true, true, true],
+      });
+      const reclaimed = await replay('lease', { ...scope, leaseMs: 30000 });
+      assert({
+        given:
+          'the exact signed lease request delivered twice inside the authentication window',
+        should: 'retain the current epoch instead of granting new authority',
+        actual: {
+          statuses: reclaimed.statuses,
+          epochs: reclaimed.bodies.map((body) => body.epoch),
+        },
+        expected: {
+          statuses: [200, 200],
+          epochs: [leased.epoch, leased.epoch],
+        },
+      });
+      await startCaptureSpeech(f);
+      const snapshotState = await capture.readMediaCaptureState({
+        ...scope,
+        epoch: leased.epoch,
+      });
+      const segmentId = snapshotState.segment!.id;
+      const [seat] =
+        await f.sql`select id from round_participants where round_id=${f.roundId} and actor_id=${f.host.actorId}`;
+      const [clock] = await f.sql`select clock_timestamp() as now`;
+      const end = new Date(clock.now.getTime() - 1000);
+      const start = new Date(end.getTime() - 1000);
+      await f.sql`update rounds set status='completed',outcome='affirmative',completed_at=${end},final_segment_ended_at=${end},transcript_admission_cutoff=${new Date(end.getTime() + 120000)} where id=${f.roundId}`;
+      await f.sql`update round_segments set started_at=${start},ended_at=${end},duration_ms=1000 where id=${segmentId}`;
+      await f.sql`update round_speaking_intervals set started_at=${start},ended_at=${end},ended_version=started_version+1 where segment_id=${segmentId}`;
+      const stream = {
+        ...scope,
+        epoch: leased.epoch,
+        segmentId,
+        roundParticipantId: seat.id,
+      };
+      const trackId = createId();
+      const appended = await replay('append', {
+        ...stream,
+        trackId,
+        startOffsetMs: 100,
+        durationMs: 100,
+        text: 'Synthetic replay proof',
+        before: new Date(start.getTime() + 99).toISOString(),
+        after: new Date(start.getTime() + 201).toISOString(),
+      });
+      const observed = await replay('observe', {
+        ...stream,
+        trackId,
+        observedFrom: start.toISOString(),
+        observedUntil: end.toISOString(),
+      });
+      const sealed = await replay('seal', { ...stream, expectedChunkCount: 1 });
+      const [facts] = await f.sql`select
+        (select count(*)::int from utterances where round_id=${f.roundId}) as utterances,
+        (select count(*)::int from transcript_observations where round_id=${f.roundId}) as observations,
+        (select revision from round_transcripts where round_id=${f.roundId}) as revision`;
+      assert({
+        given:
+          'identical authenticated append, observe and seal requests each replayed within five seconds',
+        should:
+          'persist each fact once and preserve the sealed transcript frontier',
+        actual: { appended, observed, sealed, facts: { ...facts } },
+        expected: {
+          appended: {
+            statuses: [200, 200],
+            bodies: [
+              { duplicate: false, revision: 1 },
+              { duplicate: true, revision: 1 },
+            ],
+          },
+          observed: {
+            statuses: [200, 200],
+            bodies: [
+              { duplicate: false, revision: 2 },
+              { duplicate: true, revision: 2 },
+            ],
+          },
+          sealed: {
+            statuses: [200, 200],
+            bodies: [
+              { state: 'complete', revision: 3 },
+              { state: 'complete', revision: 3 },
+            ],
+          },
+          facts: { utterances: 1, observations: 1, revision: 3 },
+        },
       });
       const changedScope = await post('read', {
         ...scope,
