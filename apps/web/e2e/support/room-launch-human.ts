@@ -48,7 +48,7 @@ export async function proveHumanLaunch(browser: Browser, info: TestInfo) {
       );
       await failClosed.goto(`/rooms/${view.id}`);
       await expect(
-        failClosed.getByRole('button', { name: 'I am ready', exact: true }),
+        failClosed.getByRole('button', { name: 'I’m ready', exact: true }),
       ).toBeDisabled();
       expect(
         (await reread(native.request, view.id)).readiness.readyActorIds,
@@ -58,14 +58,14 @@ export async function proveHumanLaunch(browser: Browser, info: TestInfo) {
     }
     for (const page of [host, guest]) {
       await expect(
-        page.getByRole('button', { name: 'I am ready', exact: true }),
+        page.getByRole('button', { name: 'I’m ready', exact: true }),
       ).toBeDisabled();
       await page
         .getByRole('button', { name: 'Check camera', exact: true })
         .click();
       await expect(page.getByText('✓ Camera', { exact: true })).toBeVisible();
       await expect(
-        page.getByRole('button', { name: 'I am ready', exact: true }),
+        page.getByRole('button', { name: 'I’m ready', exact: true }),
       ).toBeDisabled();
       await page
         .getByRole('button', { name: 'Check microphone', exact: true })
@@ -75,10 +75,10 @@ export async function proveHumanLaunch(browser: Browser, info: TestInfo) {
       ).toBeVisible();
       await expect(page.getByLabel('Your local camera preview')).toBeVisible();
       await expect(
-        page.getByRole('button', { name: 'I am ready', exact: true }),
+        page.getByRole('button', { name: 'I’m ready', exact: true }),
       ).toBeEnabled();
       await page
-        .getByRole('button', { name: 'I am ready', exact: true })
+        .getByRole('button', { name: 'I’m ready', exact: true })
         .click();
       await expect(
         page.getByRole('button', { name: 'Not ready', exact: true }),
@@ -91,24 +91,24 @@ export async function proveHumanLaunch(browser: Browser, info: TestInfo) {
       expect(view.capabilities.canStart).toBe(true);
     }).toPass();
     await expect(
-      host.getByRole('button', { name: 'Launch', exact: true }),
+      host.getByRole('button', { name: 'Start round', exact: true }),
     ).toBeEnabled();
     await guest.getByRole('button', { name: 'Not ready', exact: true }).click();
     await expect(
-      guest.getByRole('button', { name: 'I am ready', exact: true }),
+      guest.getByRole('button', { name: 'I’m ready', exact: true }),
     ).toBeEnabled();
     await expect(async () => {
       view = await reread(host.request, view.id);
       expect(view.capabilities.canStart).toBe(false);
     }).toPass();
-    await guest
-      .getByRole('button', { name: 'I am ready', exact: true })
-      .click();
+    await guest.getByRole('button', { name: 'I’m ready', exact: true }).click();
     await expect(
-      host.getByRole('button', { name: 'Launch', exact: true }),
+      host.getByRole('button', { name: 'Start round', exact: true }),
     ).toBeEnabled();
     view = await reread(host.request, view.id);
-    await host.getByRole('button', { name: 'Launch', exact: true }).click();
+    await host
+      .getByRole('button', { name: 'Start round', exact: true })
+      .click();
     await expect(host).toHaveURL(/\/rounds\/[a-z0-9]+\/room$/);
     const proof = await assertFrozenLaunch(view);
     await settledLaunchAuth();

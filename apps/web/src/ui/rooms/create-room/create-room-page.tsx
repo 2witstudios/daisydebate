@@ -25,7 +25,7 @@ export function CreateRoomPage({
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-6 px-6 pt-5 pb-8 max-compact:gap-4 max-compact:px-4">
       <PageHeader
-        title={freshRoom ? 'Create a fresh Room' : 'Create a room'}
+        title={freshRoom ? 'Create a new room' : 'Create a room'}
         actions={
           <Link
             href="/lobby"
@@ -37,9 +37,9 @@ export function CreateRoomPage({
       />
       {freshRoom ? (
         <p role="status">
-          The finished Room stays unchanged. Choose a current format for a new
-          Room. Everyone must join its cast and Ready again; previous
-          membership, device checks and consent do not carry over.
+          The finished room stays as it was. Choose a format for the new room.
+          Everyone joins and gets ready again; seats, device checks and
+          readiness don’t carry over.
         </p>
       ) : null}
       <div className="flex items-start gap-6 max-compact:flex-col max-compact:gap-4">

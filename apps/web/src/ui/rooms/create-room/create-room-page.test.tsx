@@ -26,7 +26,7 @@ test('create page renders durable-create fields without a placeholder judge', ()
       ['title', 'topic', 'selection', 'visibility', 'commandId'].every((name) =>
         html.includes(`name="${name}"`),
       ),
-      html.includes('No format templates are available yet.'),
+      html.includes('No formats are available yet.'),
       html.includes('disabled=""'),
       html.includes('Placeholder AI judge'),
       html.includes('href="/lobby"'),

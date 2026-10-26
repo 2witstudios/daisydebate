@@ -174,13 +174,13 @@ test('the round room: no app shell, the drawer closes, Leave asks first', async 
   await expect(
     page.getByRole('tabpanel').getByText('Off', { exact: true }).first(),
   ).toBeVisible();
-  await page.getByRole('link', { name: 'Leave room' }).click();
+  await page.getByRole('link', { name: 'Leave round' }).click();
   const confirm = page.getByRole('dialog', { name: 'Leave the round?' });
   await expect(confirm).toBeVisible();
   await confirm.getByRole('link', { name: 'Stay', exact: true }).click();
   await expect(confirm).toBeHidden();
   await expect(page).toHaveURL(`/rounds/${roundId}/room`);
-  await page.getByRole('link', { name: 'Leave room' }).click();
+  await page.getByRole('link', { name: 'Leave round' }).click();
   // Leaving a live Round forfeits it, then shows its result (ADR 0070).
   await confirm
     .getByRole('button', { name: 'Leave and forfeit', exact: true })

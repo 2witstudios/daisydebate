@@ -8,18 +8,13 @@ const settingsForm = () => {
   for (const [name, value] of Object.entries({
     expectedVersion: '3',
     commandId: 'v'.repeat(24),
-    'duration.countdown.minutes': '0',
-    'duration.countdown.seconds': '1',
-    'duration.segment.N3.minutes': '1',
-    'duration.segment.N3.seconds': '30',
-    'duration.segment.A1.minutes': '1',
-    'duration.segment.A1.seconds': '0',
+    'duration.countdown': '0:01',
+    'duration.segment.N3': '1:30',
+    'duration.segment.A1': '1:00',
     crossExMode: 'free',
     interruptionsMode: 'disabled',
-    'duration.minRemaining.minutes': '0',
-    'duration.minRemaining.seconds': '2',
-    yieldAllowed: 'false',
-    yieldReturns: 'true',
+    'duration.minRemaining': '0:02',
+    yield: 'off',
   }))
     form.set(name, value);
   return form;
@@ -58,7 +53,7 @@ test('stale, out-of-bounds and non-host settings cannot become a prepared mutati
   const stale = settingsForm();
   stale.set('expectedVersion', '2');
   const illegal = settingsForm();
-  illegal.set('duration.segment.N3.minutes', '15');
+  illegal.set('duration.segment.N3', '15:00');
   const forged = settingsForm();
   forged.set('actorId', 'w'.repeat(24));
   const denied = {
@@ -80,14 +75,13 @@ test('stale, out-of-bounds and non-host settings cannot become a prepared mutati
   });
 });
 
-test('combined duration bounds, duplicate components and old seconds grammar are refused', () => {
+test('duration bounds, duplicate fields and the old seconds grammar are refused', () => {
   const precision = settingsForm();
-  precision.set('duration.segment.N3.seconds', '38.765');
+  precision.set('duration.segment.N3', '1:38.765');
   const tooShort = settingsForm();
-  tooShort.set('duration.segment.N3.minutes', '0');
-  tooShort.set('duration.segment.N3.seconds', '59.999');
+  tooShort.set('duration.segment.N3', '0:59.999');
   const duplicate = settingsForm();
-  duplicate.append('duration.segment.N3.minutes', '1');
+  duplicate.append('duration.segment.N3', '1:00');
   const old = settingsForm();
   old.set('seconds.N3', '98.765');
   const result = prepareSettings(assemblySnapshot, precision);
@@ -104,5 +98,57 @@ test('combined duration bounds, duplicate components and old seconds grammar are
       ),
     ],
     expected: [98765, 'invalid', 'invalid', 'invalid'],
+  });
+});
+
+test('ending a speech early is one choice among those the format permits', () => {
+  const permitted = {
+    ...assemblySnapshot,
+    definition: {
+      ...assemblySnapshot.definition,
+      configurable: {
+        ...assemblySnapshot.definition.configurable,
+        interaction: {
+          ...assemblySnapshot.definition.configurable.interaction,
+          yield: {
+            enabledChoices: [true, false],
+            returnsTimeChoices: [true, false],
+          },
+        },
+      },
+    },
+  };
+  const choose = (choice: string) => {
+    const form = settingsForm();
+    form.set('yield', choice);
+    const result = prepareSettings(permitted, form);
+    return result.kind === 'prepared' && result.command.type === 'update-config'
+      ? result.command.config.yielding
+      : result.kind;
+  };
+  assert({
+    given: 'a format permitting every yield choice',
+    should:
+      'save off with the saved return choice, drop, return, and refuse an unknown choice',
+    actual: ['off', 'drop', 'return', 'true'].map(choose),
+    expected: [
+      { allowed: false, returnsTime: true },
+      { allowed: true, returnsTime: false },
+      { allowed: true, returnsTime: true },
+      'invalid',
+    ],
+  });
+  assert({
+    given: 'a format that forbids yielding',
+    should: 'refuse a choice it does not offer',
+    actual: prepareSettings(
+      assemblySnapshot,
+      (() => {
+        const form = settingsForm();
+        form.set('yield', 'drop');
+        return form;
+      })(),
+    ).kind,
+    expected: 'invalid',
   });
 });

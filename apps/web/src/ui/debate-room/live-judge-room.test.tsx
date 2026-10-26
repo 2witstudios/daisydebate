@@ -22,7 +22,7 @@ test('an assigned judge watches debaters without competitive controls or attenda
     given:
       'the private own-assignment view includes the caller’s named human judge seat',
     should:
-      'mount real media, link the native ballot and omit attendance, commands and judge tiles',
+      'mount real media, link the native ballot, label the resolution and omit attendance, commands and judge tiles',
     actual: [
       html.includes('aria-label="Live camera and sound"'),
       html.includes(`/judge/ballot/${view.id}`),
@@ -30,8 +30,9 @@ test('an assigned judge watches debaters without competitive controls or attenda
       html.includes('Check in'),
       html.includes('Your camera'),
       html.includes('Riley Judge'),
+      html.includes('>Resolution</h2>'),
       html.match(/<figure/g)?.length,
     ],
-    expected: [true, true, false, false, false, false, 2],
+    expected: [true, true, false, false, false, false, true, 2],
   });
 });

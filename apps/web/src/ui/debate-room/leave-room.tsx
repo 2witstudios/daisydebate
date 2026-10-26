@@ -15,7 +15,7 @@ export type LeaveLinks = {
   readonly confirming: boolean;
   /** This round without the confirm: where Stay goes. */
   readonly stayHref: string;
-  /** This round with the confirm: where Leave room goes without script. */
+  /** This round with the confirm: where Leave round goes without script. */
   readonly confirmHref: string;
   /** Where leaving takes the debater when there is nothing to forfeit. */
   readonly leaveHref: string;
@@ -99,15 +99,15 @@ export function LeaveRoom({ links }: { readonly links: LeaveLinks }) {
       <a
         ref={trigger}
         href={links.confirmHref}
-        aria-label="Leave room"
         aria-haspopup="dialog"
         onClick={(event) => {
           event.preventDefault();
           setOpen(true);
         }}
-        className="ml-2 flex size-room-target shrink-0 items-center justify-center rounded-round border border-live text-live"
+        className="ml-2 flex h-room-target shrink-0 items-center justify-center gap-2 rounded-round border border-live px-4 text-sm font-strong text-live"
       >
-        <Icon name="leave" size={18} />
+        <Icon name="leave" size={16} />
+        <span className="max-narrow:sr-only">Leave round</span>
       </a>
       <dialog
         open={open}
@@ -142,7 +142,7 @@ export function LeaveRoom({ links }: { readonly links: LeaveLinks }) {
               href={links.leaveHref}
               className={`${action} bg-live text-background`}
             >
-              Leave
+              Leave round
             </a>
           )}
         </div>

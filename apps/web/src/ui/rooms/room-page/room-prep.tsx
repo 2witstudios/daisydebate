@@ -10,14 +10,15 @@ import { CommandForm } from './assembly-readiness';
 function prepState(view: RoomView): string {
   const config = view.config.preRoundPrep;
   if (!config.enabled) return 'Off';
-  if (!view.prep.startedAt) return clockDuration(config.durationMs);
-  if (view.prep.finished) return 'Finished';
+  if (!view.prep.startedAt)
+    return `Optional · ${clockDuration(config.durationMs)} for both sides`;
+  if (view.prep.finished) return 'Done';
   return view.prep.remainingMs === null
-    ? 'In progress'
-    : `${clockDuration(view.prep.remainingMs)} remaining`;
+    ? 'Under way'
+    : `${clockDuration(view.prep.remainingMs)} left`;
 }
 
-/** Pre-round preparation: its saved length or live state, the host's controls, and the library. */
+/** Prep before the round, inside the Start card: its length or live state, the host's controls, and the library. */
 export function RoomPrep({
   view,
   action,
@@ -44,12 +45,12 @@ export function RoomPrep({
   return (
     <section
       aria-labelledby="room-prep-title"
-      className="flex min-w-0 flex-wrap items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3"
+      className="flex min-w-0 flex-wrap items-center gap-3 border-t border-border pt-3"
     >
       <div className="min-w-0 flex-1">
-        <h2 id="room-prep-title" className="font-semibold">
-          Preparation
-        </h2>
+        <h3 id="room-prep-title" className="text-sm font-semibold">
+          Prep before the round
+        </h3>
         <p role="status" className="text-sm text-ink-muted tabular-nums">
           {prepState(view)}
         </p>
@@ -58,10 +59,10 @@ export function RoomPrep({
         Prep library
       </Link>
       {view.capabilities.canStartPrep
-        ? command('start-prep', 'Start preparation', commandIds.start)
+        ? command('start-prep', 'Start prep', commandIds.start)
         : null}
       {view.capabilities.canFinishPrep
-        ? command('finish-prep', 'Finish preparation', commandIds.finish)
+        ? command('finish-prep', 'End prep', commandIds.finish)
         : null}
     </section>
   );

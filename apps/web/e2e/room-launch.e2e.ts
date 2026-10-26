@@ -13,6 +13,8 @@ import {
   claim,
   prepareJudgeRoom,
   assertFrozenLaunch,
+  clockText,
+  openRoomSetup,
 } from './support/room-launch-flow';
 import { launchCustomSelection } from './support/room-launch-custom';
 import { proveLoopbackUpstreams } from './support/launch-loopback';
@@ -43,11 +45,11 @@ test('canonical browser create, settings, cast, refusals and reread preserve dur
     await guest.getByRole('button', { name: 'Apply', exact: true }).click();
     await enterLobbyRoom(guest, view);
     view = await claim(guest, view, 'Negative 1');
+    await expect(guest.getByRole('button', { name: 'Save room' })).toHaveCount(
+      0,
+    );
     await expect(
-      guest.getByRole('button', { name: 'Save room details' }),
-    ).toHaveCount(0);
-    await expect(
-      guest.getByRole('button', { name: 'Save settings' }),
+      guest.getByRole('button', { name: 'Save round settings' }),
     ).toHaveCount(0);
     await settledLaunchAuth();
     const before = await launchEvidence(view.id);
@@ -66,20 +68,17 @@ test('canonical browser create, settings, cast, refusals and reread preserve dur
     expect(stale.status()).toBe(409);
     expect((await launchEvidence(view.id)).hash).toBe(before.hash);
     await host.goto(`/rooms/${view.id}`);
-    await host
-      .getByText('Edit topic and room details', { exact: true })
-      .click();
+    await openRoomSetup(host);
     const details = host.getByRole('form', { name: 'Room details' });
     await details
       .getByLabel('Room name', { exact: true })
       .fill('Stored Launch proof');
-    await details.getByRole('button', { name: 'Save room details' }).click();
+    await details.getByRole('button', { name: 'Save room' }).click();
     await expect(
       host.getByText('Stored Launch proof', { exact: true }),
     ).toBeVisible();
     view = await reread(host.request, view.id);
-    await host.getByText('Edit settings', { exact: true }).click();
-    const settings = host.getByRole('form', { name: 'Room settings' });
+    const settings = await openRoomSetup(host, true);
     const first = view.rules.segments[0]!;
     const second = view.rules.segments[1]!;
     const firstMs =
@@ -92,18 +91,12 @@ test('canonical browser create, settings, cast, refusals and reread preserve dur
     );
     expect(firstMs).not.toBe(secondMs);
     await settings
-      .locator(`[name="duration.segment.${first.key}.seconds"]`)
-      .fill(String((firstMs % 60000) / 1000));
+      .locator(`[name="duration.segment.${first.key}"]`)
+      .fill(clockText(firstMs));
     await settings
-      .locator(`[name="duration.segment.${second.key}.seconds"]`)
-      .fill(String((secondMs % 60000) / 1000));
-    await settings
-      .locator(`[name="duration.segment.${first.key}.minutes"]`)
-      .fill(String(Math.floor(firstMs / 60000)));
-    await settings
-      .locator(`[name="duration.segment.${second.key}.minutes"]`)
-      .fill(String(Math.floor(secondMs / 60000)));
-    await settings.getByRole('button', { name: 'Save settings' }).click();
+      .locator(`[name="duration.segment.${second.key}"]`)
+      .fill(clockText(secondMs));
+    await settings.getByRole('button', { name: 'Save round settings' }).click();
     await expect(async () => {
       view = await reread(host.request, view.id);
       expect(view.rules.segments.slice(0, 2).map((s) => s.durationMs)).toEqual([
@@ -152,10 +145,10 @@ test('native judge Ready and eligible stored bot debaters launch one frozen sche
       const judge = await openPage(native, 'native judge Ready');
       await judge.goto(`/rooms/${view.id}`);
       await expect(
-        judge.getByRole('button', { name: 'I am ready', exact: true }),
+        judge.getByRole('button', { name: 'I’m ready', exact: true }),
       ).toBeEnabled();
       await judge
-        .getByRole('button', { name: 'I am ready', exact: true })
+        .getByRole('button', { name: 'I’m ready', exact: true })
         .click();
       view = await reread(native.request, view.id);
       expect(view.participants.find((p) => p.role === 'judge')!.ready).toBe(
@@ -163,7 +156,7 @@ test('native judge Ready and eligible stored bot debaters launch one frozen sche
       );
       expect(view.capabilities.canStart).toBe(true);
       const launchForm = judge
-        .getByRole('button', { name: 'Launch', exact: true })
+        .getByRole('button', { name: 'Start round', exact: true })
         .locator('..');
       const commandId = await launchForm
         .locator('[name="commandId"]')
@@ -171,7 +164,9 @@ test('native judge Ready and eligible stored bot debaters launch one frozen sche
       const expectedVersion = Number(
         await launchForm.locator('[name="expectedVersion"]').inputValue(),
       );
-      await judge.getByRole('button', { name: 'Launch', exact: true }).click();
+      await judge
+        .getByRole('button', { name: 'Start round', exact: true })
+        .click();
       await expect(judge).toHaveURL(/\/rounds\/[a-z0-9]+$/);
       const launched = await reread(native.request, view.id);
       expect(launched.roundRef).not.toBeNull();
@@ -199,7 +194,7 @@ test('native judge Ready and eligible stored bot debaters launch one frozen sche
       expect((await launchEvidence(view.id)).hash).toBe(proof.hash);
       await expect(judge).toHaveURL(`/rounds/${round.id}`);
       await expect(
-        judge.getByText('Round · Scheduled', { exact: true }),
+        judge.getByText('Round · Not started', { exact: true }),
       ).toBeVisible();
       await judge.goto(`/lobby?${new URLSearchParams({ q: view.title })}`);
       // The judge holds a seat, so the row leads back into the round room.
@@ -255,10 +250,9 @@ test('canonical browser custom-create preserves declared unequal seats and order
     await expect(
       page.getByLabel('Assign Affirmative 2', { exact: true }),
     ).toBeVisible();
-    await page.getByText('Edit settings', { exact: true }).click();
-    const settings = page.getByRole('form', { name: 'Room settings' });
-    await settings.locator('[name="duration.segment.A2.seconds"]').fill('59');
-    await settings.getByRole('button', { name: 'Save settings' }).click();
+    const settings = await openRoomSetup(page, true);
+    await settings.locator('[name="duration.segment.A2"]').fill('0:59');
+    await settings.getByRole('button', { name: 'Save round settings' }).click();
     await expect(async () => {
       view = await reread(context.request, view.id);
       expect(view.rules.segments.map((segment) => segment.durationMs)).toEqual([
@@ -266,10 +260,10 @@ test('canonical browser custom-create preserves declared unequal seats and order
       ]);
     }).toPass();
     await page.reload();
-    await page.getByText('Edit settings', { exact: true }).click();
-    await expect(
-      settings.locator('[name="duration.segment.A2.seconds"]'),
-    ).toHaveValue('59');
+    await openRoomSetup(page, true);
+    await expect(settings.locator('[name="duration.segment.A2"]')).toHaveValue(
+      '0:59',
+    );
     view = await claim(page, view, 'Affirmative 2');
     await proveGathering(browser, context, page, view, info);
     await settledLaunchAuth();

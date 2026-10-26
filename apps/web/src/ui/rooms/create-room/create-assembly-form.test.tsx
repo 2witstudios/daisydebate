@@ -22,7 +22,7 @@ test('an empty catalog cannot submit a fabricated template', () => {
       html.includes('name="title"'),
       html.includes('name="topic"'),
       html.includes('disabled=""'),
-      html.includes('No format templates are available yet.'),
+      html.includes('No formats are available yet.'),
       html.includes('Placeholder'),
     ],
     expected: [true, true, true, true, false],
@@ -50,7 +50,7 @@ test('native template selection carries the immutable revision and exact default
     should:
       'show unequal teams and submit exact catalog defaults without a fresh dedupe ID or symmetric speech setting',
     actual: [
-      html.includes('Unequal team template · 2 aff / 3 neg'),
+      html.includes('Unequal team template (2v3) · about'),
       html.includes('&quot;formatVersion&quot;:7'),
       html.includes('&quot;countdownMs&quot;:444'),
       html.includes('p'.repeat(24)),

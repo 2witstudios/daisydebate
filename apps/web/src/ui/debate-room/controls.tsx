@@ -1,5 +1,6 @@
 'use client';
 
+import { startSpeechLabel } from '../../features/debate-room/vocabulary';
 import {
   useEffect,
   useRef,
@@ -37,7 +38,7 @@ const quiet = `${button} border-border-strong bg-transparent text-ink hover:bg-s
 const primary = `${button} border-transparent bg-accent text-accent-ink hover:bg-accent-strong`;
 
 const sideInk = { aff: 'text-hue-sky', neg: 'text-hue-clay' } as const;
-const sideName = { aff: 'Aff', neg: 'Neg' } as const;
+const sideName = { aff: 'Affirmative', neg: 'Negative' } as const;
 
 type Props = {
   readonly round: RoundSnapshot;
@@ -62,7 +63,7 @@ function PhaseActions({
     return (
       <>
         <button type="button" disabled className={cn(primary, grow)}>
-          Start {round.speeches[round.liveIndex]?.code}
+          {startSpeechLabel(round.speeches[round.liveIndex]?.name ?? 'speech')}
         </button>
       </>
     );

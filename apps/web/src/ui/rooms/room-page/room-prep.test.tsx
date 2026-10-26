@@ -29,8 +29,8 @@ test('preparation shows its saved length, then its live state', () => {
     given: 'saved 5:21 preparation not started, then running with 1:01 left',
     should: 'show the length, then the remaining time with the finish command',
     actual: [
-      render(assemblySnapshot).includes('>5:21<'),
-      render(running).includes('1:01 remaining'),
+      render(assemblySnapshot).includes('5:21 for both sides'),
+      render(running).includes('1:01 left'),
       render(running).includes('value="finish-prep"'),
       render(running).includes('value="start-prep"'),
     ],
