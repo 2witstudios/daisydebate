@@ -79,7 +79,6 @@ test('pool lifecycle closes and the app failure boundary reports without SQL mat
       createdByActorId: createId(),
       resolution: 'Orphan round',
       competitionType: 'casual',
-      length: 'full',
       formatId: 'foundation',
       formatVersion: foundation?.version ?? 1,
       presetVersion: null,

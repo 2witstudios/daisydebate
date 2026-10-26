@@ -173,7 +173,6 @@ test('Round read returns only the stored receipt and current participant identit
         roomConfigSnapshot: room.config,
         resolution: room.topic,
         competitionType: 'casual',
-        length: 'full',
         formatId: room.formatId,
         formatVersion: 1,
         presetVersion: null,

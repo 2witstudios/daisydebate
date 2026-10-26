@@ -4,14 +4,12 @@ import {
   type CompetitionType,
   emptyRuntimeCheckpoint,
   ratingLadders,
-  roundLengthSchema,
   roundRulesSchema,
   roomConfigSchema,
   roundStageSchema,
   roundStatusSchema,
   runtimeCheckpointSchema,
   type RatedOutcome,
-  type RoundLength,
   type RoundStage,
   type RoundStatus,
   type RatingLadder,
@@ -43,6 +41,11 @@ import { formatRevisions } from './format-revisions';
 import { formats } from './formats';
 import { rooms } from './rooms';
 
+/** The ladder a Round rates on, as `rounds_rated_ladder_check` requires: Ranked, or none. */
+export const roundLadder = (
+  competitionType: CompetitionType,
+): RatingLadder | null => (competitionType === 'ranked' ? 'ranked' : null);
+
 /** A side wins, or nobody does. Abandonment is a status, not an outcome. */
 export const roundOutcomes = [...debateSides, 'draw'] as const;
 
@@ -72,14 +75,12 @@ export const rounds = pgTable(
     competitionType: text('competition_type')
       .$type<CompetitionType>()
       .notNull(),
-    /** A preset dimension: which sanctioned config a ranked round resolves from. */
-    length: text('length').$type<RoundLength>().notNull(),
     formatId: text('format_id')
       .notNull()
       .references(() => formats.id, { onDelete: 'restrict' }),
     /** The FormatDefinition revision the rules were resolved against. */
     formatVersion: integer('format_version').notNull(),
-    /** Which approved preset resolved this; null for casual and practice. */
+    /** Which approved preset resolved this; null for casual. */
     presetVersion: integer('preset_version'),
     roomConfigSnapshot: jsonbColumn('room_config_snapshot', roomConfigSchema),
     rulesSnapshot: jsonbColumn('rules_snapshot', roundRulesSchema).notNull(),
@@ -94,6 +95,10 @@ export const rounds = pgTable(
     runtimeState: jsonbColumn('runtime_state', runtimeCheckpointSchema)
       .notNull()
       .default(emptyRuntimeCheckpoint),
+    finalSegmentEndedAt: timestampColumn('final_segment_ended_at'),
+    transcriptAdmissionCutoff: timestampColumn('transcript_admission_cutoff'),
+    /** Set once at the transcript freeze from the injected policy; judges rule before it (DEC-201, DEC-207). */
+    ballotDeadlineAt: timestampColumn('ballot_deadline_at'),
     createdAt: createdAtColumn(),
     updatedAt: updatedAtColumn(),
     version: versionColumn(),
@@ -101,7 +106,9 @@ export const rounds = pgTable(
   (table) => {
     const scheduled = sql`${table.status} = 'scheduled' and ${table.currentStage} is null and ${table.outcome} is null and ${table.startedAt} is null and ${table.completedAt} is null`;
     const active = sql`${table.status} = 'active' and ${table.currentStage} is not null and ${table.outcome} is null and ${table.startedAt} is not null and ${table.completedAt} is null`;
-    const completed = sql`${table.status} = 'completed' and ${table.currentStage} is null and ${table.outcome} is not null and ${table.startedAt} is not null and ${table.completedAt} is not null`;
+    /** No outcome: a zero-judge casual Round, or judges past their ballot deadline (DEC-201). */
+    const unjudged = sql`${table.competitionType} = 'casual' and ${table.ladderId} is null`;
+    const completed = sql`${table.status} = 'completed' and ${table.currentStage} is null and (${table.outcome} is not null or (${unjudged})) and ${table.startedAt} is not null and ${table.completedAt} is not null`;
     const abandoned = sql`${table.status} = 'abandoned' and ${table.currentStage} is null and ${table.outcome} is null and ${table.completedAt} is not null`;
     return [
       /** Lets `rating_changes` pin a change to the round's own format. */
@@ -130,11 +137,14 @@ export const rounds = pgTable(
       ),
       index('rounds_preset_provenance_idx').on(
         table.formatId,
-        table.length,
         table.presetVersion,
         table.formatVersion,
       ),
       versionPositive('rounds', table.version),
+      check(
+        'rounds_transcript_cutoff_check',
+        sql`(${table.finalSegmentEndedAt} is null and ${table.transcriptAdmissionCutoff} is null) or (${table.finalSegmentEndedAt} is not null and ${table.transcriptAdmissionCutoff} is not null and ${table.transcriptAdmissionCutoff} = ${table.finalSegmentEndedAt} + interval '120 seconds')`,
+      ),
       check(
         'rounds_visibility_check',
         sql`${table.visibility} is null or ${oneOf(table.visibility, ['public', 'unlisted', 'private'])}`,
@@ -163,10 +173,6 @@ export const rounds = pgTable(
         oneOf(table.competitionType, competitionTypes),
       ),
       check(
-        'rounds_length_check',
-        oneOf(table.length, roundLengthSchema.options),
-      ),
-      check(
         'rounds_outcome_check',
         sql`${table.outcome} is null or ${oneOf(table.outcome, roundOutcomes)}`,
       ),
@@ -183,13 +189,6 @@ export const rounds = pgTable(
         sql`(${table.competitionType} = 'ranked' and ${table.ladderId} is not null) or (${table.competitionType} <> 'ranked' and ${table.ladderId} is null)`,
       ),
       check(
-        'rounds_ladder_derivation_check',
-        sql`${table.ladderId} = case
-          when ${table.competitionType} <> 'ranked' then null
-          when ${table.length} = 'full' then 'ranked'
-          when ${table.length} = 'quick' then 'quick' end`,
-      ),
-      check(
         'rounds_ranked_has_preset_check',
         sql`(${table.competitionType} = 'ranked') = (${table.presetVersion} is not null)`,
       ),
@@ -200,15 +199,9 @@ export const rounds = pgTable(
       }),
       foreignKey({
         name: 'rounds_preset_provenance_fk',
-        columns: [
-          table.formatId,
-          table.length,
-          table.presetVersion,
-          table.formatVersion,
-        ],
+        columns: [table.formatId, table.presetVersion, table.formatVersion],
         foreignColumns: [
           formatPresets.formatId,
-          formatPresets.length,
           formatPresets.version,
           formatPresets.formatVersion,
         ],

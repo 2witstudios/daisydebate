@@ -36,12 +36,13 @@ const foundationFormat = {
 
 const storedRound: RoundHydration = {
   id: 'd5e8f2a4c6b1k3m7n9p2r4t6',
-  competitionType: 'practice' as const,
+  competitionType: 'casual' as const,
   formatId: 'foundation',
   formatVersion: 1,
   resolution: 'A representative resolution',
   status: 'scheduled',
   currentStage: null,
+  launchedAt: '2026-10-10T12:00:00.000Z',
   startedAt: null,
   completedAt: null,
   outcome: null,

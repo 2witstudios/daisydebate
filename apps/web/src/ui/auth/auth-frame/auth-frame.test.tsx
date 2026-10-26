@@ -2,7 +2,7 @@ import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { AuthFrame, AuthHeading } from './auth-frame';
-import { panelPageColours } from '../../test-support/stage-palette';
+import { panelStageColours } from '../../test-support/stage-palette';
 
 setupRitewayBun();
 
@@ -50,7 +50,7 @@ describe('AuthHeading', () => {
     });
   });
 
-  test('draws its stage panel in the stage palette', () => {
+  test('draws its brand panel on the page palette', () => {
     const page = renderToString(
       h(AuthFrame, {
         panel: { eyebrow: 'Why?', title: 'Because.', body: 'Details.' },
@@ -58,10 +58,13 @@ describe('AuthHeading', () => {
       }),
     );
     assert({
-      given: 'the forest stage panel',
-      should: 'use no page-palette colour in its own markup',
-      actual: panelPageColours(page),
-      expected: [],
+      given: 'the brand panel',
+      should: 'sit on the overlay surface and use no stage colour',
+      actual: {
+        overlay: /<aside class="[^"]*\bbg-surface-overlay\b/.test(page),
+        stage: panelStageColours(page),
+      },
+      expected: { overlay: true, stage: [] },
     });
   });
 });

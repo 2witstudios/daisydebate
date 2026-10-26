@@ -43,27 +43,32 @@ interrupt, forfeits, completion, ballots.
 POST /api/rooms                      → create a room
 GET  /api/rooms/:roomId              → RoomView
 POST /api/rooms/:roomId/commands     → claim-seat · leave-seat · ready ·
-                                       unready · update-config (casual and
-                                       practice only) · start-prep ·
+                                       unready · update-config (casual
+                                       only) · start-prep ·
                                        finish-prep · start-round
 GET  /api/rooms/:roomId/round        → the Round ref once start-round ran
 
 GET  /api/rounds/:roundId            → RoundView
-POST /api/rounds/:roundId/commands   → start · start-prep · end-prep ·
-                                       start-speech · yield · interrupt ·
-                                       forfeit · complete
+POST /api/rounds/:roundId/commands   → start · start-prep · start-speech ·
+                                       yield · interrupt · forfeit
 GET  /api/rounds/:roundId/participants         → seats
 GET  /api/rounds/:roundId/segments             → segment history
 GET  /api/rounds/:roundId/segments/:segmentId/utterances → transcript
 POST /api/rounds/:roundId/ballots    → submit a ballot (judge seats, one
                                        contract)
 GET  /api/rounds/:roundId/ballots    → ballots
-POST /api/rounds/:roundId/media/*    → audio/transcript against the
-                                       caller's open segment
-                                       (RoundParticipant-scoped)
+GET  /api/rounds/:roundId/media      → current authorized media session state
+POST /api/rounds/:roundId/media/*    → join/reconcile against current Round
+                                       authority (RoundParticipant-scoped)
 ```
 
 There are no nested participant mutations.
+The media read returns session/grant state, not cached generated speech audio.
+Actual human and bot audio travels through LiveKit. Signed internal worker
+ingress owns transcript writes; public browser upload/heard reports are removed.
+[ADR 0053](0053-live-video-self-hosted-livekit.md) and
+[ADR 0067](0067-playable-round-policy-and-acceptance.md) select that authority;
+exact suffix contracts are owned by the VIDEO/CAP implementation leaves.
 `/rounds/:id/participants/:pid/speech` is wrong: speech is not a participant
 subresource, it is a legal operation on the Round runtime performed by a
 participant. Commands name the participant; the route does not.
@@ -109,6 +114,10 @@ runtime is authoritative for what is happening now (ADR 0058 §6). The client ne
 computes legality from the snapshot; it only predicts the clock between
 reads, and a newer `RoundView` version replaces its prediction.
 
+ADR 0067 resolves DEC-179: RoundView timing is live and undelayed for existing
+authorized `round.read` callers. It grants no additional spectator, transcript,
+media or judge-identity access, and does not establish broadcast completion.
+
 ### 4. Realtime stays thin
 
 Commands go over HTTP; the socket carries subscription, invalidation and
@@ -143,9 +152,9 @@ surface and rewires its clients in the same move.
 | `POST /api/ai-debate/start`               | `POST /api/rooms`, then room command `start-round`                                            |
 | `POST /api/ai-debate/command`             | `POST /api/rounds/:roundId/commands`                                                          |
 | `GET /api/ai-debate/view`                 | `GET /api/rounds/:roundId` (RoundView)                                                        |
-| `POST /api/ai-debate/speech`              | round command `start-speech`, then media upload against the speaker's open segment            |
-| `POST /api/ai-debate/speak`               | media audio retrieval for an utterance (participant-scoped, cacheable)                        |
-| `POST /api/ai-debate/heard`, `transcribe` | media transcript against the caller's own open segment → utterances                           |
+| `POST /api/ai-debate/speech`              | round command `start-speech`; real microphone publication through authorized LiveKit grants   |
+| `POST /api/ai-debate/speak`               | authorized media session read/join; bot PCM published through LiveKit by the worker           |
+| `POST /api/ai-debate/heard`, `transcribe` | deleted; server capture/publication accounting and signed internal ingress produce utterances |
 | `POST /api/ai-debate/cross-examine`       | `interrupt` / `start-speech` inside a cross-examination segment, per `RoundRules.interaction` |
 | `POST /api/ai-debate/ballot`              | `POST /api/rounds/:roundId/ballots`                                                           |
 

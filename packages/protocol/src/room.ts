@@ -25,7 +25,7 @@ const inRoundPrepSchema = z.discriminatedUnion('enabled', [
 /**
  * The Room's whole configuration surface (ADR 0058) — broader than what
  * becomes a round rule: `preRoundPrep` is Room-executed and never reaches
- * ECS. Casual and practice rooms are user-authored; a ranked room has no
+ * ECS. Casual rooms are user-authored; a ranked room has no
  * free-form config at all, its every value coming from the sanctioned
  * preset, which stores exactly this shape.
  */

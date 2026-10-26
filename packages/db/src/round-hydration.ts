@@ -23,6 +23,8 @@ export type RoundHydration = {
   readonly resolution: string;
   readonly status: 'scheduled' | 'active' | 'completed' | 'abandoned';
   readonly currentStage: 'countdown' | 'prep' | 'live' | null;
+  /** When the Round was launched (its row's creation), on the database clock. */
+  readonly launchedAt: string;
   readonly startedAt: string | null;
   readonly completedAt: string | null;
   readonly outcome: 'affirmative' | 'negative' | 'draw' | null;
@@ -74,46 +76,52 @@ export async function segmentRows(
 }
 
 /** One consistent PostgreSQL snapshot for the Round and its child rows. */
+export async function hydrateRoundRows(
+  tx: Reader,
+  id: string,
+): Promise<RoundHydration | null> {
+  const [row] = await tx
+    .select()
+    .from(rounds)
+    .where(eq(rounds.id, id))
+    .limit(1);
+  if (!row) return null;
+  const participants = await tx
+    .select({
+      id: roundParticipants.id,
+      actorId: roundParticipants.actorId,
+      role: roundParticipants.role,
+      slot: roundParticipants.slot,
+    })
+    .from(roundParticipants)
+    .where(eq(roundParticipants.roundId, id));
+  const segments = await segmentRows(tx, id);
+  return {
+    id: row.id,
+    competitionType: row.competitionType,
+    formatId: row.formatId,
+    formatVersion: row.formatVersion,
+    resolution: row.resolution,
+    status: row.status,
+    currentStage: row.currentStage,
+    launchedAt: row.createdAt.toISOString(),
+    startedAt: row.startedAt?.toISOString() ?? null,
+    completedAt: row.completedAt?.toISOString() ?? null,
+    outcome: row.outcome,
+    rules: row.rulesSnapshot as RoundHydration['rules'],
+    checkpoint: row.runtimeState as RoundHydration['checkpoint'],
+    version: row.version,
+    participants,
+    segments,
+  };
+}
+
 export async function hydrateRound(
   database: BunSQLDatabase,
   id: string,
 ): Promise<RoundHydration | null> {
-  return database.transaction(
-    async (tx) => {
-      const [row] = await tx
-        .select()
-        .from(rounds)
-        .where(eq(rounds.id, id))
-        .limit(1);
-      if (!row) return null;
-      const participants = await tx
-        .select({
-          id: roundParticipants.id,
-          actorId: roundParticipants.actorId,
-          role: roundParticipants.role,
-          slot: roundParticipants.slot,
-        })
-        .from(roundParticipants)
-        .where(eq(roundParticipants.roundId, id));
-      const segments = await segmentRows(tx, id);
-      return {
-        id: row.id,
-        competitionType: row.competitionType,
-        formatId: row.formatId,
-        formatVersion: row.formatVersion,
-        resolution: row.resolution,
-        status: row.status,
-        currentStage: row.currentStage,
-        startedAt: row.startedAt?.toISOString() ?? null,
-        completedAt: row.completedAt?.toISOString() ?? null,
-        outcome: row.outcome,
-        rules: row.rulesSnapshot as RoundHydration['rules'],
-        checkpoint: row.runtimeState as RoundHydration['checkpoint'],
-        version: row.version,
-        participants,
-        segments,
-      };
-    },
-    { isolationLevel: 'repeatable read', accessMode: 'read only' },
-  );
+  return database.transaction((tx) => hydrateRoundRows(tx, id), {
+    isolationLevel: 'repeatable read',
+    accessMode: 'read only',
+  });
 }

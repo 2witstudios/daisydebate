@@ -2,7 +2,7 @@ import { fixedIds } from '@daisy/clock';
 import type { AccountAuthorizationFact } from '@daisy/auth/authorization';
 import { createAppError } from '@daisy/errors';
 import type { LaunchedRound, RoomCreate } from '@daisy/protocol';
-import { oneOnOneFullConfig } from '@daisy/db/reference-formats';
+import { oneOnOneRankedConfig } from '@daisy/db/reference-formats';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createRoomRuntimeOperations, type Store } from './operations';
 import {
@@ -102,16 +102,15 @@ test('Room runtime distinguishes Redis consent loss and authorizes the canonical
 test('Room creation pins resolved rules and replays the accepted receipt before rereading mutable catalog', async () => {
   const body: RoomCreate = {
     commandId: 'c7n6p8r2t4v6x8z1k3b5c7d9',
-    title: 'A persisted practice room',
+    title: 'A persisted casual room',
     topic: 'Cities should make transit free',
     visibility: 'public',
     selection: {
       kind: 'catalog',
       formatId: 'one-on-one',
       formatVersion: 1,
-      length: 'full',
       competitionType: 'casual',
-      config: oneOnOneFullConfig,
+      config: oneOnOneRankedConfig,
     },
   };
   const first = makeOperations();

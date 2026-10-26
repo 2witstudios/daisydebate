@@ -3,6 +3,7 @@ import { renderToString } from 'react-dom/server';
 import { createElement as h } from 'react';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { routeExists } from '../../test-support/route-exists';
+import { stageColourClasses } from '../../test-support/stage-palette';
 import { DebateStep } from './debate-step';
 import { DaisyStep, WhyStep, type IntroStepProps } from './intro';
 
@@ -44,6 +45,19 @@ describe('WhyStep', () => {
         page.includes('Communicate Argue it out live with a real person.'),
       ],
       expected: [true, true, true, true],
+    });
+  });
+
+  test('the hero sits on the page palette', () => {
+    const html = render(WhyStep);
+    assert({
+      given: 'the hero card',
+      should: 'draw on a raised page surface with no stage colour',
+      actual: {
+        raised: html.includes('bg-surface-raised'),
+        stage: stageColourClasses(html),
+      },
+      expected: { raised: true, stage: [] },
     });
   });
 });
@@ -92,7 +106,7 @@ describe('DebateStep', () => {
     const html = render(DebateStep);
     const page = text(html);
     assert({
-      given: 'the one-on-one turn table',
+      given: 'the one-on-one turn table, its 1AR at 3:00 (DEC-234)',
       should: 'draw seven segments as wide as they are long',
       actual: [
         ...html.matchAll(/basis-0 items-center[^"]*?(grow(?:-\d)?)/g),
@@ -102,7 +116,7 @@ describe('DebateStep', () => {
         'grow-2',
         'grow-6',
         'grow-2',
-        'grow-5',
+        'grow-3',
         'grow-5',
         'grow-3',
       ],
@@ -111,15 +125,15 @@ describe('DebateStep', () => {
       given: 'the bar',
       should: 'carry a text alternative naming every turn',
       actual: html.includes(
-        'aria-label="Turn order: Aff Case 5 min, Neg questions 2 min, Neg Case 6 min, Aff questions 2 min, Aff Reply 5 min, Neg Reply 5 min, Aff Close 3 min"',
+        'aria-label="Turn order: Aff Case 5 min, Neg questions 2 min, Neg Case 6 min, Aff questions 2 min, Aff Reply 3 min, Neg Reply 5 min, Aff Close 3 min"',
       ),
       expected: true,
     });
     assert({
       given: 'two 2-minute cross-examinations',
-      should: 'total 28 minutes of speaking and say Q&A is 2 minutes',
+      should: 'total 26 minutes of speaking and say Q&A is 2 minutes',
       actual: [
-        page.includes('28 minutes of speaking, plus 4 minutes of prep'),
+        page.includes('26 minutes of speaking, plus 4 minutes of prep'),
         page.includes('the other side has 2 minutes to question'),
       ],
       expected: [true, true],

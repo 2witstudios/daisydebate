@@ -18,8 +18,8 @@ const referenceInRoundPrepCapability: FormatDefinition['configurable']['inRoundP
     expiresAtSegment: null,
   };
 
-/** The one-on-one format: the schedule, defaults and capabilities. */
-export const oneOnOneDefinition: FormatDefinition = {
+/** One-on-one as first published, its 1AR at 5:00; Rooms and Rounds pinned to it keep it. */
+const oneOnOneRevision1: FormatDefinition = {
   version: 1,
   seats: { affirmative: 1, negative: 1, judge: 1 },
   segments: [
@@ -109,6 +109,20 @@ export const oneOnOneDefinition: FormatDefinition = {
   },
 };
 
+/**
+ * The current one-on-one format, revision 2: the schedule, defaults and
+ * capabilities. It follows the standard one-on-one schedule, so the 1AR
+ * defaults to 3:00 (DEC-234); every other segment keeps revision 1's default.
+ */
+export const oneOnOneDefinition: FormatDefinition = {
+  ...oneOnOneRevision1,
+  segments: oneOnOneRevision1.segments.map((segment) =>
+    segment.key === '1AR'
+      ? { ...segment, defaultDurationMs: 180_000 }
+      : segment,
+  ),
+};
+
 /** The architectural proof format: two speeches, unjudged, no interaction. */
 export const foundationDefinition: FormatDefinition = {
   version: 1,
@@ -159,25 +173,32 @@ export const foundationConfig: RoomConfig = {
   yielding: null,
 };
 
+/**
+ * The catalog: `revisions[n]` is the definition published as version n + 1,
+ * and `definition` is the last, the one the format's pointer names.
+ */
 export const referenceFormats: ReadonlyArray<{
   readonly id: string;
   readonly name: string;
   readonly definition: FormatDefinition;
+  readonly revisions: readonly FormatDefinition[];
 }> = [
   {
     id: 'one-on-one',
     name: 'One-on-one',
     definition: oneOnOneDefinition,
+    revisions: [oneOnOneRevision1, oneOnOneDefinition],
   },
   {
     id: 'foundation',
     name: 'Foundation (architectural proof)',
     definition: foundationDefinition,
+    revisions: [foundationDefinition],
   },
 ];
 
-/** The casual config a practice room starts from: defaults, prep enabled. */
-export const practiceRoomConfig: RoomConfig = {
+/** The casual config a one-on-one room starts from: defaults, prep enabled. */
+export const oneOnOneRoomConfig: RoomConfig = {
   preRoundPrep: { enabled: false },
   inRoundPrep: { enabled: true, budgetMsPerSide: 240_000 },
   speechTiming: {
@@ -189,8 +210,8 @@ export const practiceRoomConfig: RoomConfig = {
   yielding: { allowed: true, returnsTime: true },
 };
 
-/** The sanctioned full-length ranked config for one-on-one. */
-export const oneOnOneFullConfig: RoomConfig = {
+/** The sanctioned ranked config for one-on-one. */
+export const oneOnOneRankedConfig: RoomConfig = {
   preRoundPrep: { enabled: true, durationMs: 1_200_000 },
   inRoundPrep: { enabled: true, budgetMsPerSide: 240_000 },
   speechTiming: { countdownMs: 10_000, segmentDurationOverrides: {} },
@@ -199,44 +220,29 @@ export const oneOnOneFullConfig: RoomConfig = {
   yielding: { allowed: true, returnsTime: true },
 };
 
-/** The sanctioned quick-length ranked config: the same debate, shortened. */
-const oneOnOneQuickConfig: RoomConfig = {
-  ...oneOnOneFullConfig,
-  inRoundPrep: { enabled: true, budgetMsPerSide: 120_000 },
-  speechTiming: {
-    countdownMs: 10_000,
-    segmentDurationOverrides: {
-      AC: 150_000,
-      CX1: 60_000,
-      NC: 180_000,
-      CX2: 60_000,
-      '1AR': 150_000,
-      NR: 150_000,
-      '2AR': 90_000,
-    },
-  },
-};
-
+/**
+ * Every approved preset revision, oldest first. The newest per format is
+ * current; each earlier one is superseded but kept, because a Room or
+ * Round pins the revision that produced its rules. Every Round is full
+ * length (DEC-237), so a format has one line of presets.
+ */
 export const referencePresets: ReadonlyArray<{
   readonly formatId: string;
-  readonly length: 'full' | 'quick';
   readonly version: number;
   readonly formatVersion: number;
   readonly config: RoomConfig;
 }> = [
   {
     formatId: 'one-on-one',
-    length: 'full',
     version: 1,
     formatVersion: 1,
-    config: oneOnOneFullConfig,
+    config: oneOnOneRankedConfig,
   },
   {
     formatId: 'one-on-one',
-    length: 'quick',
-    version: 1,
-    formatVersion: 1,
-    config: oneOnOneQuickConfig,
+    version: 2,
+    formatVersion: 2,
+    config: oneOnOneRankedConfig,
   },
 ];
 

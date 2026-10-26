@@ -2,7 +2,8 @@ import { z } from 'zod';
 
 /**
  * The production server's own launch settings, validated: it refuses any
- * NODE_ENV but production, and the port defaults to 3000.
+ * NODE_ENV but production, the port defaults to 3000, and the listen address
+ * (`LISTEN_HOST`, an IP literal) defaults to every interface.
  */
 export function readStartOptions(
   env: Readonly<Record<string, string | undefined>>,
@@ -20,5 +21,14 @@ export function readStartOptions(
       .min(1)
       .max(65535)
       .parse(env.PORT ?? 3000),
+    host: listenHost(env.LISTEN_HOST),
   };
 }
+
+/** Unset or blank listens on every interface, as realtime's REALTIME_HOST does. */
+const listenHost = (value: string | undefined) => {
+  if (value === undefined || value.trim() === '') return '0.0.0.0';
+  const parsed = z.union([z.ipv4(), z.ipv6()]).safeParse(value);
+  if (!parsed.success) throw new Error(`Invalid LISTEN_HOST: ${value}`);
+  return parsed.data;
+};

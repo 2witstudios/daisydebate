@@ -43,7 +43,7 @@ test('header carries the room chips, invite and the seated viewer’s leave', ()
       'show status, shape and type chips, invite, Leave seat, and no edit form',
     actual: [
       Boolean(byText(tree, 'span', 'Before the round')),
-      Boolean(byText(tree, 'span', '2 v 3 · Full')),
+      Boolean(byText(tree, 'span', '2 v 3')),
       Boolean(byText(tree, 'span', 'Casual')),
       findElements(tree, (element) => element.type === RoomInvite)[0]?.props
         .label,

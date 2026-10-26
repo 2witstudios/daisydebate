@@ -3,7 +3,10 @@
 import { useState } from 'react';
 import { Button } from '../ui/components/button/button';
 import { prose } from './ui/prose-class';
-import { preferenceFromCookies } from '../ui/theme/theme-preference';
+import {
+  parseThemePreference,
+  preferenceFromCookies,
+} from '../ui/theme/theme-preference';
 import './globals.css';
 
 /**
@@ -21,7 +24,7 @@ export default function GlobalError({
 }) {
   const [theme] = useState(() =>
     typeof document === 'undefined'
-      ? 'dark'
+      ? parseThemePreference(undefined)
       : preferenceFromCookies(document.cookie),
   );
   return (

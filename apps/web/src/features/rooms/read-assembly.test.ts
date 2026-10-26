@@ -13,7 +13,6 @@ const {
   hostLabel,
   status,
   competitionType,
-  length,
 } = assemblySnapshot;
 const listingEntry = {
   id,
@@ -25,7 +24,6 @@ const listingEntry = {
   hostLabel,
   status,
   competitionType,
-  length,
   seated: true,
   roundRef: null,
 };

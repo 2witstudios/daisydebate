@@ -37,7 +37,7 @@ export async function proveHumanLaunch(browser: Browser, info: TestInfo) {
     await host.reload();
     const native = await browser.newContext({
       baseURL: origin,
-      ignoreHTTPSErrors: true,
+      ignoreHTTPSErrors: false,
       javaScriptEnabled: false,
       storageState: await accounts.members[0]!.context.storageState(),
     });

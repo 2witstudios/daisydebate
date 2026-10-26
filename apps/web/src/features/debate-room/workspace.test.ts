@@ -179,14 +179,10 @@ describe('rated rounds', () => {
 describe('roundKindOf', () => {
   test('the room decides the round', () => {
     assert({
-      given: 'a ranked, a casual and a practice round',
+      given: 'a ranked and a casual round',
       should: 'make only the ranked round rated',
-      actual: [
-        roundKindOf('ranked'),
-        roundKindOf('casual'),
-        roundKindOf('practice'),
-      ],
-      expected: ['rated', 'unrated', 'unrated'],
+      actual: [roundKindOf('ranked'), roundKindOf('casual')],
+      expected: ['rated', 'unrated'],
     });
   });
 });

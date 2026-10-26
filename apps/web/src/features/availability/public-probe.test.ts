@@ -1,0 +1,169 @@
+import { assert, setupRitewayBun, test } from 'riteway/bun';
+import {
+  createPublicCheckInProbe,
+  PROBE_SESSION_REFRESH_MS,
+} from './public-probe';
+setupRitewayBun();
+test('unconfigured public ingress is unhealthy', async () => {
+  assert({
+    given: 'no isolated configured synthetic participant',
+    should: 'never infer healthy from process leases',
+    actual: await createPublicCheckInProbe({
+      configuration: null,
+      nextId: () => 'a'.repeat(24),
+      nowMs: () => 0,
+      fetch: () => {
+        throw new Error('must not call');
+      },
+    })(),
+    expected: false,
+  });
+});
+test('public probe validates actual receipt identity rather than a health status', async () => {
+  const roundId = 'a'.repeat(24),
+    segmentId = 'b'.repeat(24),
+    participantId = 'c'.repeat(24),
+    commandId = 'd'.repeat(24);
+  const config = {
+    origin: 'http://localhost:13140',
+    roundId,
+    segmentId,
+    participantId,
+    cookie: 'isolated-fixture-only',
+  };
+  for (const body of [
+    { ok: true },
+    {
+      version: 1,
+      commandId,
+      roundId,
+      segmentId,
+      participantId: 'e'.repeat(24),
+      receivedAt: '2026-10-22T00:00:00.000Z',
+      resultingVersion: 1,
+      replayed: true,
+    },
+  ]) {
+    let path = '';
+    const probe = createPublicCheckInProbe({
+      configuration: config,
+      nextId: () => commandId,
+      nowMs: () => 0,
+      fetch: async (request) => {
+        path = String(request);
+        return Response.json(body);
+      },
+    });
+    assert({
+      given: 'HTTP200 with missing or foreign attendance receipt',
+      should: 'mark public path unhealthy',
+      actual: await probe(),
+      expected: false,
+    });
+    assert({
+      given: 'configured public origin',
+      should: 'call the actual shared check-in route',
+      actual: path,
+      expected: `http://localhost:13140/api/rounds/${roundId}/check-in`,
+    });
+  }
+});
+
+test('the probe slides its own session through the public get-session route (ISSUE-531)', async () => {
+  const roundId = 'a'.repeat(24),
+    segmentId = 'b'.repeat(24),
+    participantId = 'c'.repeat(24),
+    commandId = 'd'.repeat(24);
+  const calls: string[] = [];
+  let now = 0;
+  const probe = createPublicCheckInProbe({
+    configuration: {
+      origin: 'http://localhost:13140',
+      roundId,
+      segmentId,
+      participantId,
+      cookie: 'isolated-fixture-only',
+    },
+    nextId: () => commandId,
+    nowMs: () => now,
+    fetch: async (url, init) => {
+      calls.push(
+        `${init.method} ${new URL(url).pathname} ${new Headers(init.headers).get('cookie')}`,
+      );
+      if (String(url).endsWith('/get-session'))
+        throw new Error('session read failed');
+      return Response.json({
+        version: 1,
+        commandId,
+        roundId,
+        segmentId,
+        participantId,
+        receivedAt: '2026-10-22T00:00:00.000Z',
+        resultingVersion: 1,
+        replayed: true,
+      });
+    },
+  });
+  const healthy: boolean[] = [];
+  for (const at of [
+    0,
+    1000,
+    PROBE_SESSION_REFRESH_MS - 1,
+    PROBE_SESSION_REFRESH_MS,
+  ]) {
+    now = at;
+    healthy.push(await probe());
+  }
+  const refresh = 'GET /api/auth/get-session isolated-fixture-only';
+  const checkIn = `POST /api/rounds/${roundId}/check-in isolated-fixture-only`;
+  assert({
+    given: 'four probes over one refresh interval whose session reads fail',
+    should:
+      'read the session with its cookie on the first probe and once per interval, and judge health by the receipt alone',
+    actual: { calls, healthy },
+    expected: {
+      calls: [refresh, checkIn, checkIn, checkIn, refresh, checkIn],
+      healthy: [true, true, true, true],
+    },
+  });
+});
+
+test('a session read that never answers never delays the probe (ISSUE-531)', async () => {
+  const roundId = 'a'.repeat(24),
+    segmentId = 'b'.repeat(24),
+    participantId = 'c'.repeat(24),
+    commandId = 'd'.repeat(24);
+  const probe = createPublicCheckInProbe({
+    configuration: {
+      origin: 'http://localhost:13140',
+      roundId,
+      segmentId,
+      participantId,
+      cookie: 'isolated-fixture-only',
+    },
+    nextId: () => commandId,
+    nowMs: () => 0,
+    fetch: async (url) =>
+      String(url).endsWith('/get-session')
+        ? new Promise<Response>(() => {})
+        : Response.json({
+            version: 1,
+            commandId,
+            roundId,
+            segmentId,
+            participantId,
+            receivedAt: '2026-10-22T00:00:00.000Z',
+            resultingVersion: 1,
+            replayed: true,
+          }),
+  });
+  assert({
+    given: 'a get-session request that never settles',
+    should: 'still answer the check-in sample',
+    actual: await Promise.race([
+      probe(),
+      Bun.sleep(1000).then(() => 'delayed'),
+    ]),
+    expected: true,
+  });
+});

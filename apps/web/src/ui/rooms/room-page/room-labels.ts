@@ -46,12 +46,11 @@ const statusLabels = {
 const competitionLabels = {
   ranked: 'Ranked',
   casual: 'Casual',
-  practice: 'Practice',
 } as const;
 
-/** Status, shape and length, competition type: the room header chips. */
+/** Status, shape and competition type: the room header chips. */
 export function roomChips(
-  view: Pick<RoomView, 'status' | 'definition' | 'length' | 'competitionType'>,
+  view: Pick<RoomView, 'status' | 'definition' | 'competitionType'>,
 ): readonly [string, string, string] {
   const { affirmative, negative } = view.definition.seats;
   const shape =
@@ -60,7 +59,7 @@ export function roomChips(
       : `${affirmative} v ${negative}`;
   return [
     statusLabels[view.status],
-    `${shape} · ${view.length === 'full' ? 'Full' : 'Quick'}`,
+    shape,
     competitionLabels[view.competitionType],
   ];
 }

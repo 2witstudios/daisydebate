@@ -4,9 +4,9 @@
     {
       "advisory": "GHSA-82fw-gwwq-j7x9",
       "packages": ["@vitest/mocker", "vitest"],
-      "dependencyPath": "riteway 9.3.0 (devDependency of every testing workspace) > vitest 3.2.7 > @vitest/mocker 3.2.7. better-auth lists vitest only as an optional peer, so riteway is what installs it.",
+      "dependencyPath": "riteway 9.3.0 (devDependency of every testing workspace) > vitest 3.2.7 > @vitest/mocker 3.2.7. better-auth also lists vitest as an optional peer; production installation can retain this transitive tooling even when RITEway is omitted.",
       "reason": "Path traversal in @vitest/mocker's redirect mock (moderate). Fixed in vitest 4.1.11, but riteway 9.x hard-depends on vitest ^3.2.4 for its riteway/vitest entry.",
-      "unreachable": "Dev-only and never loaded: Daisy's tests run on bun:test through riteway/bun, nothing imports riteway/vitest, vitest or better-auth/test, and no production image installs dev dependencies.",
+      "unreachable": "Unused development tooling: Daisy tests run through riteway/bun on bun:test, and application entry points import no Vitest runner, mocker plugin, tinypool worker or Better Auth test entry. No affected Vite mocker server or Vitest worker pool is started. Production package absence is not assumed; transitive packages may remain installed.",
       "owner": "platform",
       "adr": "docs/decisions/0039-dated-dependency-audit-exceptions.md",
       "reviewBy": "2026-12-23"
@@ -22,21 +22,11 @@
       "reviewBy": "2026-12-23"
     },
     {
-      "advisory": "GHSA-vfj7-8cjw-p6xm",
-      "packages": ["braces"],
-      "dependencyPath": "eslint-config-next > @next/eslint-plugin-next > fast-glob > micromatch > braces 3.0.3 (devDependency of apps/web).",
-      "reason": "Stack exhaustion on deeply nested brace patterns, a denial of service (high). Every published braces release, 3.0.3 included, is affected; no patched version exists yet.",
-      "unreachable": "Dev-only: braces is reached only through eslint-config-next's lint tooling, which globs Daisy's own source files and never parses untrusted input, and no production image installs dev dependencies.",
-      "owner": "platform",
-      "adr": "docs/decisions/0052-braces-audit-exception.md",
-      "reviewBy": "2026-12-23"
-    },
-    {
       "advisory": "GHSA-5gmw-xhrv-c9v3",
       "reason": "Prototype pollution gadget in worker options leading to remote code execution (critical). Fixed in tinypool 2.1.1, but vitest 3.x pins tinypool ^1 and riteway 9.x hard-depends on vitest ^3.2.4.",
       "packages": ["tinypool"],
-      "dependencyPath": "riteway 9.3.0 (devDependency of every testing workspace) > vitest 3.2.7 > tinypool 1.1.1. better-auth lists vitest only as an optional peer, so riteway is what installs it.",
-      "unreachable": "Dev-only and never loaded: tinypool is vitest's worker pool, Daisy's tests run on bun:test through riteway/bun, nothing imports riteway/vitest, vitest or better-auth/test, and no production image installs dev dependencies.",
+      "dependencyPath": "riteway 9.3.0 (devDependency of every testing workspace) > vitest 3.2.7 > tinypool 1.1.1. better-auth also lists vitest as an optional peer; production installation can retain this transitive tooling even when RITEway is omitted.",
+      "unreachable": "Unused development tooling: Daisy tests run through riteway/bun on bun:test, and application entry points import no Vitest runner, mocker plugin, tinypool worker or Better Auth test entry. No affected Vite mocker server or Vitest worker pool is started. Production package absence is not assumed; transitive packages may remain installed.",
       "owner": "platform",
       "adr": "docs/decisions/0056-tinypool-audit-exceptions.md",
       "reviewBy": "2026-12-23"
@@ -45,10 +35,20 @@
       "advisory": "GHSA-85c8-ppgw-ccpr",
       "reason": "Prototype pollution gadget in run() options leading to remote code execution (critical). Fixed in tinypool 2.1.2, but vitest 3.x pins tinypool ^1 and riteway 9.x hard-depends on vitest ^3.2.4.",
       "packages": ["tinypool"],
-      "dependencyPath": "riteway 9.3.0 (devDependency of every testing workspace) > vitest 3.2.7 > tinypool 1.1.1. better-auth lists vitest only as an optional peer, so riteway is what installs it.",
-      "unreachable": "Dev-only and never loaded: tinypool is vitest's worker pool, Daisy's tests run on bun:test through riteway/bun, nothing imports riteway/vitest, vitest or better-auth/test, and no production image installs dev dependencies.",
+      "dependencyPath": "riteway 9.3.0 (devDependency of every testing workspace) > vitest 3.2.7 > tinypool 1.1.1. better-auth also lists vitest as an optional peer; production installation can retain this transitive tooling even when RITEway is omitted.",
+      "unreachable": "Unused development tooling: Daisy tests run through riteway/bun on bun:test, and application entry points import no Vitest runner, mocker plugin, tinypool worker or Better Auth test entry. No affected Vite mocker server or Vitest worker pool is started. Production package absence is not assumed; transitive packages may remain installed.",
       "owner": "platform",
       "adr": "docs/decisions/0056-tinypool-audit-exceptions.md",
+      "reviewBy": "2026-12-23"
+    },
+    {
+      "advisory": "GHSA-qxg6-89mg-rqv8",
+      "packages": ["@vitest/mocker"],
+      "dependencyPath": "riteway 9.3.0 (devDependency of every testing workspace) > vitest 3.2.7 > @vitest/mocker 3.2.7. better-auth lists vitest only as an optional peer.",
+      "reason": "Unauthenticated manual mock registration interpolates unescaped URLs into generated modules on the Vitest Vite development server (moderate). Fixed in Vitest 4.1.12 and 5.0.3; RITEway 9.3.0 requires Vitest ^3.2.4.",
+      "unreachable": "The installed packages remain physically present in the production dependency graph, but their affected interceptor is never activated: application/test/script sources import no vitest, riteway/vitest or Better Auth test entry and start no Vite mocker server or mock-registration WebSocket. Tests use riteway/bun backed by bun:test. Production package absence is not assumed.",
+      "owner": "platform",
+      "adr": "docs/decisions/0068-vitest-manual-mock-audit-exception.md",
       "reviewBy": "2026-12-23"
     }
   ]

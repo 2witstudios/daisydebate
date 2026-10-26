@@ -135,4 +135,59 @@ describe('attachVersionDoorbell', () => {
       ],
     });
   });
+
+  test('a subscription the server could not authorize for now is retried after an authorized read, a bounded number of times in a row', () => {
+    const topic = buildDebateTopic(roundId);
+    const round = harness(topic, 'debate.phase-changed', roundId);
+    const unavailable: ServerMessage = {
+      v: ENVELOPE_VERSION,
+      type: 'error',
+      id: 'rt1',
+      code: 'INFRASTRUCTURE',
+      message: 'Subscription authority unavailable',
+    };
+    const failThenRead = () => {
+      round.emit(unavailable);
+      round.error(unavailable);
+      round.doorbell.authorizedSnapshot();
+    };
+    failThenRead();
+    round.emit({
+      v: ENVELOPE_VERSION,
+      type: 'subscribed',
+      id: 'rt2',
+      topic,
+      position: '1:2',
+    });
+    for (let i = 0; i < 4; i++) failThenRead();
+    assert({
+      given:
+        'a transient refusal, an accepted retry, then four transient refusals in a row, each followed by an authorized read',
+      should:
+        'resubscribe after each read for the first three transient refusals in a row, then stop',
+      actual: round.calls.filter((call) => call === `retry:${topic}`).length,
+      expected: 4,
+    });
+  });
+
+  test('a subscription refused for authorization is not retried', () => {
+    const topic = buildDebateTopic(roundId);
+    const round = harness(topic, 'debate.phase-changed', roundId);
+    const refused: ServerMessage = {
+      v: ENVELOPE_VERSION,
+      type: 'error',
+      id: 'rt1',
+      code: 'AUTHORIZATION',
+      message: 'Subscription refused',
+    };
+    round.emit(refused);
+    round.error(refused);
+    round.doorbell.authorizedSnapshot();
+    assert({
+      given: 'an AUTHORIZATION refusal followed by an authorized read',
+      should: 'signal one read and never resubscribe',
+      actual: round.calls,
+      expected: [topic, null],
+    });
+  });
 });

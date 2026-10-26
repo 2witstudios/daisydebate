@@ -5,7 +5,6 @@ import {
   clubChoices,
   experienceChoices,
   formatChoices,
-  lengthChoices,
   topicChoices,
   wantChoices,
 } from '@daisy/protocol';
@@ -17,7 +16,6 @@ import {
   clubLabels,
   experienceLabels,
   formatLabels,
-  lengthLabels,
   topicLabels,
   wantLabels,
 } from './labels';
@@ -186,7 +184,7 @@ export function AboutStep({ answers, ...rest }: QuestionStepProps) {
   );
 }
 
-/** Step 5: experience, formats and length. */
+/** Step 5: experience and formats. */
 export function ExperienceStep({ answers, ...rest }: QuestionStepProps) {
   return (
     <StepForm step="experience" title="Experience" stepNumber={5} {...rest}>
@@ -219,23 +217,6 @@ export function ExperienceStep({ answers, ...rest }: QuestionStepProps) {
                 value={format}
                 label={formatLabels[format]}
                 checked={answers.formats.includes(format)}
-                disabled={rest.pending}
-                look="chip"
-              />
-            ))}
-          </div>
-        </fieldset>
-        <fieldset className="m-0 border-0 p-0">
-          <legend className={legend}>Length</legend>
-          <div className="flex flex-wrap gap-3">
-            {lengthChoices.map((length) => (
-              <Choice
-                key={length}
-                type="radio"
-                name="length"
-                value={length}
-                label={lengthLabels[length]}
-                checked={answers.length === length}
                 disabled={rest.pending}
                 look="chip"
               />

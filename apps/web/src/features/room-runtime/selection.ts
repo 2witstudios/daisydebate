@@ -1,4 +1,9 @@
-import type { FormatDefinition, RoomConfig, RoomCreate } from '@daisy/protocol';
+import type {
+  CompetitionType,
+  FormatDefinition,
+  RoomConfig,
+  RoomCreate,
+} from '@daisy/protocol';
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import { createAppError } from '@daisy/errors';
 import type { IdGenerator } from '@daisy/clock';
@@ -16,7 +21,7 @@ export async function resolveRoomSelection(
   let formatId: string;
   let formatVersion: number;
   let presetVersion: number | null = null;
-  let competitionType: 'casual' | 'practice' | 'ranked';
+  let competitionType: CompetitionType;
   if (selection.kind === 'custom') {
     definition = selection.definition;
     config = selection.config;
@@ -69,7 +74,7 @@ const rankedPreset = async (
   formatVersion: number,
   selection: Extract<RoomCreate['selection'], { kind: 'ranked' }>,
 ) => {
-  const preset = await store.getCurrentPreset(formatId, selection.length);
+  const preset = await store.getCurrentPreset(formatId);
   if (
     !preset ||
     preset.version !== selection.presetVersion ||

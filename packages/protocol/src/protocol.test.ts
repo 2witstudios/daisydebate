@@ -3,7 +3,6 @@ import {
   competitionTypes,
   emptyRuntimeCheckpoint,
   formatDefinitionSchema,
-  roundLengths,
   roundStatuses,
   runtimeCheckpointSchema,
 } from './index';
@@ -13,15 +12,16 @@ import {
   debateSideSchema,
   debateSides,
   errorSchema,
+  ratingLadders,
 } from './primitives';
 import { parseOutcome } from './parse-outcome.test-support';
-import { practiceFormatFixture } from './format-fixtures.test-support';
+import { oneOnOneFormatFixture } from './format-fixtures.test-support';
 
 setupRitewayBun();
 
 const id = 'k2v9x0f4m8q3w1z7c5n6b4d2';
 
-const oneOnOne = practiceFormatFixture;
+const oneOnOne = oneOnOneFormatFixture;
 
 describe('identifier shape', () => {
   test('accepts exactly cuid2 and rejects every other identifier form', () => {
@@ -133,18 +133,18 @@ describe('roles and sides', () => {
 });
 
 describe('competition vocabulary', () => {
-  test('names the competition types, lengths and statuses', () => {
+  test('names the competition types, ladders and statuses', () => {
     assert({
       given: 'the competition vocabulary',
-      should: 'be exactly ranked, casual and practice',
+      should: 'be exactly ranked and casual, the one unranked type (DEC-233)',
       actual: competitionTypes,
-      expected: ['ranked', 'casual', 'practice'],
+      expected: ['ranked', 'casual'],
     });
     assert({
-      given: 'the length vocabulary',
-      should: 'be exactly full and quick',
-      actual: roundLengths,
-      expected: ['full', 'quick'],
+      given: 'the rating ladder vocabulary',
+      should: 'be exactly ranked: Rounds are full length only (DEC-237)',
+      actual: ratingLadders,
+      expected: ['ranked'],
     });
     assert({
       given: 'the status vocabulary',

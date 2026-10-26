@@ -1,27 +1,10 @@
-import { admitLaunchCheckout } from './room-launch-admission';
-import { resolve } from 'node:path';
-import { SQL } from 'bun';
-import { requireLaunchSlot } from './room-launch-slot';
+import { readLaunchDatabase } from './launch-evidence-database';
 if (import.meta.main) {
-  const slot = requireLaunchSlot(
-    resolve(import.meta.dir, '../../../..'),
-    process.env,
-  );
   const roomId = Bun.argv[2];
   if (!roomId || !/^[a-z0-9]{20,32}$/.test(roomId))
     throw new Error('Invalid proof Room identity');
-  await admitLaunchCheckout(
-    resolve(import.meta.dir, '../../../..'),
-    slot.database,
-  );
-  const sql = new SQL(process.env.E2E_DATABASE_URL!, { max: 1 });
   try {
-    await sql.begin(async (tx) => {
-      await tx`set transaction read only`;
-      const [identity] =
-        await tx`select current_database() name, current_user role`;
-      if (identity!.name !== slot.database || identity!.role !== 'daisy_e2e')
-        throw new Error('Proof evidence target mismatch');
+    const evidence = await readLaunchDatabase(async (tx) => {
       const [rows] = await tx`select
         (select row_to_json(r) from rooms r where id=${roomId}) room,
         (select coalesce(json_agg(p order by id),'[]'::json) from room_participants p where room_id=${roomId}) seats,
@@ -48,21 +31,13 @@ if (import.meta.main) {
       const hash = new Bun.CryptoHasher('sha3-256')
         .update(JSON.stringify(rows))
         .digest('hex');
-      process.stdout.write(
-        JSON.stringify({
-          hash,
-          counts,
-          frozen: rounds,
-          launchDoorbells: bells!.count,
-        }),
-      );
+      return { hash, counts, frozen: rounds, launchDoorbells: bells!.count };
     });
+    process.stdout.write(JSON.stringify(evidence));
   } catch {
     process.stderr.write(
       `${JSON.stringify({ event: 'room.launch.evidence', outcome: 'refused' })}\n`,
     );
     process.exitCode = 1;
-  } finally {
-    await sql.close();
   }
 }

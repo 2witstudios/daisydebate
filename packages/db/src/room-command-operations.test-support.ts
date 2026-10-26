@@ -1,5 +1,5 @@
-import { practiceRoomConfig } from './reference-formats';
-import { validRules } from './testing';
+import { oneOnOneRoomConfig } from './reference-formats';
+import { validRules } from './testing-rules';
 
 export const caller = {
   userId: 'c8d4e2f6a1b3k5m7n9p2r4t6',
@@ -20,8 +20,7 @@ export const room = {
   formatVersion: 1,
   presetVersion: null,
   competitionType: 'casual' as const,
-  length: 'full' as const,
-  config: practiceRoomConfig,
+  config: oneOnOneRoomConfig,
   executionPlan: { preRoundPrep: { enabled: false as const } },
   rules: validRules,
 };

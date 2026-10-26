@@ -43,12 +43,12 @@ type Props = {
   readonly round: RoundSnapshot;
   readonly state: RoomState;
   readonly dispatch: Dispatch<RoomAction>;
+  readonly actions?: ReactNode;
 };
 
 /**
- * The phase's own action: start the speech after prep, end your own speech,
- * or interrupt in cross-examination. No Round command reaches the server
- * yet, so each is shown and disabled, like Tech issue (DEC-153, DEC-178).
+ * Snapshot-only previews have no command authority. The live Round page
+ * supplies its canonical command forms through the actions slot.
  */
 function PhaseActions({
   round,
@@ -61,9 +61,6 @@ function PhaseActions({
   if (round.phase === 'prep')
     return (
       <>
-        <button type="button" disabled className={quiet}>
-          Save the rest
-        </button>
         <button type="button" disabled className={cn(primary, grow)}>
           Start {round.speeches[round.liveIndex]?.code}
         </button>
@@ -222,20 +219,20 @@ function PrepClocks({ round }: { readonly round: RoundSnapshot }) {
   );
 }
 
-function MainClock({
-  clock,
-  phase,
-}: {
-  readonly clock: RoundSnapshot['clock'];
-  readonly phase: RoundSnapshot['phase'];
-}) {
+const idleLabel = (round: RoundSnapshot) => {
+  if (round.phase !== 'judging') return 'Live';
+  return round.judge ? 'Judging' : 'Finished';
+};
+
+function MainClock({ round }: { readonly round: RoundSnapshot }) {
+  const { clock } = round;
   const center =
     'flex flex-col items-center leading-tight max-narrow:items-end';
   if (!clock)
     return (
       <div className={center}>
         <span className="text-xs font-strong tracking-wider text-ink-muted uppercase">
-          {phase === 'judging' ? 'Judging' : 'Live'}
+          {idleLabel(round)}
         </span>
       </div>
     );
@@ -272,6 +269,7 @@ function MainClock({
 export function RoundControls({
   round,
   layout,
+  actions,
 }: Props & { readonly layout?: ReactNode }) {
   return (
     <nav
@@ -292,9 +290,9 @@ export function RoundControls({
         </span>
         <PrepClocks round={round} />
       </div>
-      <MainClock clock={round.clock} phase={round.phase} />
+      <MainClock round={round} />
       <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 max-narrow:hidden">
-        <PhaseActions round={round} />
+        {actions ?? <PhaseActions round={round} />}
         <TechIssue round={round} />
         {layout}
       </div>
@@ -307,7 +305,7 @@ export function PhoneActions(props: Props) {
   return (
     <div className="flex shrink-0 gap-2 border-t border-border bg-surface-raised px-4 py-2 narrow:hidden">
       <TechIssue round={props.round} wide />
-      <PhaseActions round={props.round} wide />
+      {props.actions ?? <PhaseActions round={props.round} wide />}
     </div>
   );
 }

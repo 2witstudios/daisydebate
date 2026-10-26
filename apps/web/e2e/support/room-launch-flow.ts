@@ -23,14 +23,12 @@ export const deniedCommand = (
     headers: { origin },
     data: { ...body, commandId: createId(), expectedVersion: view.version },
   });
-export async function createFromPlay(
+/** Fills and submits the shared create-Room form, from /play/room or a fresh-Room page. */
+export async function submitCreateRoom(
   page: Page,
   title: string,
   formatId = 'foundation',
 ) {
-  await page.goto('/play');
-  await page.getByRole('link', { name: /^Open a practice room\b/ }).click();
-  await expect(page).toHaveURL('/play/room');
   const form = page.getByRole('form', { name: 'Create a room' });
   await expect(form).toBeVisible();
   const templates = form.getByLabel('Format template');
@@ -53,6 +51,16 @@ export async function createFromPlay(
   await expect(page).toHaveURL(/\/rooms\/[a-z0-9]+$/);
   const id = new URL(page.url()).pathname.split('/').at(-1)!;
   return reread(page.request, id);
+}
+export async function createFromPlay(
+  page: Page,
+  title: string,
+  formatId = 'foundation',
+) {
+  await page.goto('/play');
+  await page.getByRole('link', { name: /^Open a casual room\b/ }).click();
+  await expect(page).toHaveURL('/play/room');
+  return submitCreateRoom(page, title, formatId);
 }
 
 export async function closeRoom(
@@ -173,4 +181,18 @@ export async function assertFrozenLaunch(view: RoomView) {
   ]);
   expect(proof.launchDoorbells).toBe(1);
   return proof;
+}
+/** The member's own device checks, then Ready, through the Room page. */
+export async function readyUp(
+  page: Page,
+  devices: readonly string[] = ['camera', 'microphone'],
+) {
+  for (const device of devices)
+    await page
+      .getByRole('button', { name: `Check ${device}`, exact: true })
+      .click();
+  await page.getByRole('button', { name: 'I am ready', exact: true }).click();
+  await expect(
+    page.getByRole('button', { name: 'Not ready', exact: true }),
+  ).toBeVisible();
 }

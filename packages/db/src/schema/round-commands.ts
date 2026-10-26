@@ -1,6 +1,6 @@
 import { acceptedCommandColumns } from './command-columns';
 import { sql } from 'drizzle-orm';
-import { check, index, pgTable, text } from 'drizzle-orm/pg-core';
+import { check, index, pgTable, text, uniqueIndex } from 'drizzle-orm/pg-core';
 import { actors } from './actors';
 import { jsonbIsObject, oneOf } from './columns';
 import { rounds } from './rounds';
@@ -14,6 +14,9 @@ export const roundCommandTypes = [
   'interrupt',
   'forfeit',
   'complete',
+  'submit_ballot',
+  'check_in',
+  'adjudicate',
 ] as const;
 
 /**
@@ -39,6 +42,10 @@ export const roundCommands = pgTable(
     ...acceptedCommandColumns(),
   },
   (table) => [
+    uniqueIndex('round_commands_id_round_unique').on(
+      table.commandId,
+      table.roundId,
+    ),
     index('round_commands_round_version_idx').on(
       table.roundId,
       table.resultingVersion,
@@ -54,5 +61,9 @@ export const roundCommands = pgTable(
       sql`${table.payloadDigest} ~ '^[0-9a-f]{64}$'`,
     ),
     check('round_commands_type_check', oneOf(table.type, roundCommandTypes)),
+    check(
+      'round_commands_attendance_principal_check',
+      sql`${table.type} <> 'adjudicate' or (${table.actorId} is null and ${table.serviceId} ~ '^round-attendance:[a-z0-9]{24}$')`,
+    ),
   ],
 );

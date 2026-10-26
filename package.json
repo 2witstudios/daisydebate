@@ -10,17 +10,22 @@
     "apps/*",
     "packages/*"
   ],
+  "overrides": {
+    "happy-dom": "21.0.4"
+  },
   "scripts": {
     "dev": "bun scripts/heavy.ts bun --env-file=.env run turbo run dev",
     "dev:agent": "bun scripts/heavy.ts bun scripts/dev-agent.ts",
     "dev:login": "bun --env-file=.env scripts/dev-login.ts",
+    "demo": "bun --env-file=.env apps/web/e2e/support/demo.ts",
+    "demo:link": "bun --env-file=.env apps/web/e2e/support/demo-link.ts",
     "build": "bun scripts/heavy.ts sh -c 'NODE_ENV=production turbo run build && bun run check:build-isolation'",
     "check:build-isolation": "bun scripts/check-build-artifact-isolation.ts",
     "start": "bun run --cwd apps/web start",
     "typecheck": "bun scripts/heavy.ts turbo run typecheck",
     "lint": "bun scripts/heavy.ts sh -c 'eslint . && bun scripts/check-boundaries.ts && bun scripts/check-styling.ts && bun test --timeout 180000 eslint.config.test.ts'",
     "knip": "bun scripts/heavy.ts bunx --bun knip",
-    "duplication": "bun scripts/heavy.ts sh -c 'bunx --bun jscpd && bunx --bun jscpd --config .jscpd-tests.json'",
+    "duplication": "bun scripts/heavy.ts bun scripts/duplication.ts",
     "metrics": "bun scripts/metrics.ts",
     "metrics:snapshot": "bun scripts/metrics.ts --append",
     "metrics:check": "bun scripts/metrics.ts --check",
@@ -83,7 +88,9 @@
     "pipeline:sync": "bun scripts/pipeline-sync.ts",
     "test:e2e:room-launch": "bun --env-file=.env apps/web/e2e/support/room-launch-runner.ts",
     "test:e2e:realtime": "bun --env-file=.env apps/web/e2e/support/realtime-runner.ts room",
-    "test:e2e:messaging-realtime": "bun --env-file=.env apps/web/e2e/support/realtime-runner.ts messaging"
+    "test:e2e:messaging-realtime": "bun --env-file=.env apps/web/e2e/support/realtime-runner.ts messaging",
+    "proof:round-judging": "bun scripts/heavy.ts bun scripts/prove-round-judging.ts",
+    "proof:media-worker": "bun scripts/heavy.ts bun scripts/prove-media-worker.ts"
   },
   "devDependencies": {
     "@eslint/js": "9.39.5",
@@ -102,12 +109,14 @@
     "typescript-eslint": "8.70.0"
   },
   "dependencies": {
+    "@daisy/ai-voice": "workspace:*",
     "@daisy/clock": "workspace:*",
     "@daisy/config": "workspace:*",
     "@daisy/db": "workspace:*",
     "@daisy/debate-engine": "workspace:*",
     "@daisy/errors": "workspace:*",
     "@daisy/logger": "workspace:*",
+    "@daisy/media": "workspace:*",
     "@daisy/protocol": "workspace:*",
     "@daisy/redis": "workspace:*"
   }

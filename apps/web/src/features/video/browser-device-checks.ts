@@ -13,10 +13,13 @@ type BrowserEdge = {
   readonly document: Document;
   readonly permissions?: Permissions;
   readonly createAudioContext: () => AudioContext;
+  /** Bound on waiting for a frame or level; injected so tests need no sleep. */
+  readonly checkTimeoutMs?: number;
 };
 
 /** Runs a bounded local observation, cleaning all observer resources on cancellation. */
 function observe(
+  edge: BrowserEdge,
   signal: AbortSignal,
   start: (pass: () => void, fail: () => void) => () => void,
 ): Promise<void> {
@@ -35,8 +38,9 @@ function observe(
     const abort = () =>
       finish(new DOMException('Check cancelled', 'AbortError'));
     const timeout = setTimeout(
-      () => finish(new Error('No device observation')),
-      CHECK_TIMEOUT_MS,
+      // An opened device that never produced a frame or level: no signal.
+      () => finish(new DOMException('No device observation', 'TimeoutError')),
+      edge.checkTimeoutMs ?? CHECK_TIMEOUT_MS,
     );
     signal.addEventListener('abort', abort, { once: true });
     if (signal.aborted) {
@@ -60,7 +64,7 @@ function cameraConfirmation(
   stream: MediaStream,
   signal: AbortSignal,
 ) {
-  return observe(signal, (pass, fail) => {
+  return observe(edge, signal, (pass, fail) => {
     const video = edge.document.createElement('video');
     video.muted = true;
     video.playsInline = true;
@@ -90,7 +94,7 @@ function microphoneConfirmation(
   stream: MediaStream,
   signal: AbortSignal,
 ) {
-  return observe(signal, (pass, fail) => {
+  return observe(edge, signal, (pass, fail) => {
     const context = edge.createAudioContext();
     let source: MediaStreamAudioSourceNode | undefined;
     let analyser: AnalyserNode | undefined;

@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { pageColourClasses } from './stage-palette';
+import { pageColourClasses, stageColourClasses } from './stage-palette';
 
 setupRitewayBun();
 
@@ -13,6 +13,25 @@ describe('pageColourClasses', () => {
           '<i class="text-stage-ink border-stage-ink-muted text-sm bg-surface-stage"></i>',
       ),
       expected: ['text-ink', 'hover:text-accent', 'border-border-strong'],
+    });
+  });
+});
+
+describe('stageColourClasses', () => {
+  test('finds stage colours and leaves page colours and non-colour classes alone', () => {
+    assert({
+      given:
+        'markup mixing stage ink, the stage surface, forest chip ink, page ink and layout',
+      should: 'report only the stage colour classes that vanish on cream',
+      actual: stageColourClasses(
+        '<span class="flex text-ink hover:text-stage-accent text-stage-accent-ink"></span>' +
+          '<i class="text-stage-ink-muted text-sm bg-surface-stage bg-surface"></i>',
+      ),
+      expected: [
+        'hover:text-stage-accent',
+        'text-stage-ink-muted',
+        'bg-surface-stage',
+      ],
     });
   });
 });

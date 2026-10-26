@@ -62,15 +62,14 @@ type Page = (props: {
 // Loaded lazily, after the mocks above, so no page pulls in the real guard.
 const rendered: Readonly<Record<string, () => Promise<{ default: unknown }>>> =
   {
-    '(shell)/debates/page.tsx': () => import('../../app/(shell)/debates/page'),
-    '(shell)/debates/[id]/page.tsx': () =>
-      import('../../app/(shell)/debates/[id]/page'),
     '(shell)/rounds/[id]/page.tsx': () =>
       import('../../app/(shell)/rounds/[id]/page'),
     '(bare)/rounds/[id]/room/page.tsx': () =>
       import('../../app/(bare)/rounds/[id]/room/page'),
     '(shell)/rooms/[id]/page.tsx': () =>
       import('../../app/(shell)/rooms/[id]/page'),
+    '(shell)/rooms/[id]/rematch/page.tsx': () =>
+      import('../../app/(shell)/rooms/[id]/rematch/page'),
     '(shell)/play/room/page.tsx': () =>
       import('../../app/(shell)/play/room/page'),
     '(shell)/notifications/page.tsx': () =>
@@ -243,7 +242,6 @@ describe('guarded pages', () => {
         ...new Set(guarded.map(({ route }) => guardedAreaFor(route))),
       ].sort(),
       expected: [
-        '/debates',
         '/friends',
         '/judge',
         '/lobby',

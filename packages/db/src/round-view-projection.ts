@@ -30,6 +30,7 @@ export function roundViewFor(
   const knowsJudges = viewerActorId !== null && viewerActorId === hostActorId;
   return {
     ...view,
+    viewerIsHost: knowsJudges,
     participants: round.participants.map((seat) =>
       seat.role !== 'judge' ||
       seat.kind === 'bot' ||

@@ -7,7 +7,7 @@ import { cn } from '../../cn';
 
 const icons: Readonly<Record<PlayOptionId, IconName>> = {
   ranked: 'swords',
-  'practice-room': 'play',
+  'casual-room': 'play',
   'join-room': 'users',
   bot: 'bolt',
   tournament: 'trophy',
@@ -29,7 +29,7 @@ const hues: Readonly<
     hover: 'hover:border-hue-clay',
     tint: 'bg-hue-clay-soft',
   },
-  'practice-room': {
+  'casual-room': {
     chip: 'bg-hue-sky text-background',
     hover: 'hover:border-hue-sky',
     tint: 'bg-hue-sky-soft',

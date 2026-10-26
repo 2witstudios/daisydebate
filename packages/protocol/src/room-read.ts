@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { idSchema, debateRoleSchema } from './primitives';
 import { formatDefinitionSchema, roundRulesSchema } from './format';
 import { roomConfigSchema, roomExecutionPlanSchema } from './room';
-import { roundLengthSchema, roundStatusSchema } from './round';
+import { competitionTypes, roundStatusSchema } from './round';
 const version = z.int().positive();
 const visibility = z.enum(['public', 'unlisted', 'private']);
 const nullableTimestamp = z.iso.datetime({ offset: true }).nullable();
@@ -50,12 +50,25 @@ export const roomViewSchema = z.strictObject({
   /** Redacted to null for a viewer who may not name a judge seat the host occupies (DEC-174). */
   hostActorId: idSchema.nullable(),
   hostLabel: z.string().nullable(),
+  /** Host-only display metadata; admission is rechecked atomically at freeze. */
+  botAdmission: z
+    .union([
+      z.strictObject({ kind: z.literal('unavailable') }),
+      z.strictObject({
+        kind: z.literal('allowance'),
+        limit: z.union([z.literal(1), z.literal(10)]),
+        remaining: z.int().min(0).max(10),
+        periodStart: z.iso.datetime({ offset: true }),
+        periodEnd: z.iso.datetime({ offset: true }),
+        refusal: z.enum(['allowance', 'capacity']).nullable(),
+      }),
+    ])
+    .nullable(),
   status: z.enum(['assembling', 'ready', 'started', 'abandoned']),
   formatId: z.string().min(1),
   formatVersion: version,
   presetVersion: version.nullable(),
-  competitionType: z.enum(['casual', 'practice', 'ranked']),
-  length: roundLengthSchema,
+  competitionType: z.enum(competitionTypes),
   definition: formatDefinitionSchema,
   config: roomConfigSchema,
   executionPlan: roomExecutionPlanSchema,
@@ -107,7 +120,6 @@ export const roomCatalogChoiceSchema = z.strictObject({
     .array(
       z.strictObject({
         version,
-        length: roundLengthSchema,
         config: roomConfigSchema,
       }),
     )

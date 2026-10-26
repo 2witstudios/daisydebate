@@ -27,6 +27,14 @@ export {
 } from './format';
 export type { FormatDefinition, RoundRules, SegmentType } from './format';
 export { roomConfigSchema, roomExecutionPlanSchema } from './room';
+export {
+  CAPTURE_CALL_DEADLINE_MS,
+  CAPTURE_COVERAGE_TOLERANCE,
+  CAPTURE_HISTORY_READ_MS,
+  CAPTURE_STT_LAG_MS,
+  CAPTURE_STT_TIMEOUT_MS,
+  TRANSCRIPT_ADMISSION_WINDOW_MS,
+} from './capture-timing';
 export type { RoomConfig, RoomExecutionPlan } from './room';
 export type {
   HydratedRound,
@@ -37,13 +45,12 @@ export type {
   SegmentClose,
   RoundEffect,
   RoundProjection,
+  RoundSpeakingChange,
   RoundPosition,
 } from './runtime';
 export {
   competitionTypes,
   seatSlotsComplete,
-  roundLengths,
-  roundLengthSchema,
   roundStatuses,
   roundStatusSchema,
   roundStageSchema,
@@ -52,7 +59,6 @@ export {
 } from './round';
 export type {
   CompetitionType,
-  RoundLength,
   RoundStatus,
   RoundStage,
   RuntimeCheckpoint,
@@ -103,13 +109,11 @@ export {
   clubChoices,
   experienceChoices,
   formatChoices,
-  lengthChoices,
   topicChoices,
   wantChoices,
   type Club,
   type Experience,
   type Format,
-  type Length,
   type Topic,
   type Want,
 } from './onboarding';
@@ -203,3 +207,48 @@ export {
   createMessagingReactionSchemas,
   type MessagingReactionPolicy,
 } from './messaging/reactions';
+
+export { roundCommandEnvelopeSchema } from './round-command';
+export type {
+  RoundCommandAuthority,
+  RoundCommandEnvelope,
+  RoundCommandPrincipal,
+  RoundCommandReceipt,
+  RoundCommandResponse,
+  RoundRefusal,
+} from './round-command';
+export {
+  roundBallotEnvelopeSchema,
+  roundBallotReceiptSchema,
+} from './round-ballot';
+export type {
+  RoundBallotEnvelope,
+  RoundBallotReceipt,
+  RoundBallotAuthority,
+} from './round-ballot';
+export {
+  roundMediaStateSchema,
+  roundMediaAdmissionSchema,
+} from './round-media';
+export type { RoundMediaState, RoundMediaAdmission } from './round-media';
+export {
+  attendanceTimingPolicy,
+  availabilityRecoveryPolicy,
+  attendanceEnvelopeSchema,
+  attendanceReceiptSchema,
+  type AttendanceEnvelope,
+  type AttendanceReceipt,
+} from './attendance';
+export {
+  roundBallotReadSchema,
+  roundJudgeAssignmentsSchema,
+} from './round-ballot-read';
+export type {
+  RoundBallotRead,
+  RoundJudgeAssignment,
+} from './round-ballot-read';
+export {
+  roundUnjudgedReceiptSchema,
+  type RoundUnjudgedReceipt,
+  type RoundUnjudgedCompletion,
+} from './round-unjudged';

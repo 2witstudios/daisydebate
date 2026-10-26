@@ -76,7 +76,6 @@ test('a retained refused selection previews its own exact defaults rather than t
     kind: 'catalog',
     formatId: alternative.formatId,
     formatVersion: alternative.formatVersion,
-    length: 'full',
     competitionType: 'casual',
     config: alternative.defaultConfig,
   });

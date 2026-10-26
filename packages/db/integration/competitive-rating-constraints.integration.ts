@@ -115,11 +115,11 @@ describe('seasons, ratings and the rating ledger (DATA-3.2)', () => {
         rating({ rating: 1600 }),
         'actor_id',
       );
-      const quickBesideRanked = !(await fixture.rejects(
+      const quickLadder = await fixture.rejectedBy(
         'ratings',
         rating({ ladder: 'quick' }),
         'actor_id',
-      ));
+      );
       const unknownLadder = await fixture.rejectedBy(
         'ratings',
         rating({ ladder: 'blitz' }),
@@ -129,7 +129,7 @@ describe('seasons, ratings and the rating ledger (DATA-3.2)', () => {
       assert({
         given: 'rating rows at and beyond the Glicko-2 bounds',
         should:
-          'accept one bounded row per (actor, format, season, ladder), reject the rest and unknown ladders, and store no derived columns',
+          'accept one bounded row per (actor, format, season, ladder), reject the rest, the retired quick ladder (DEC-238) and unknown ladders, and store no derived columns',
         actual: {
           tooHigh,
           negative,
@@ -139,7 +139,7 @@ describe('seasons, ratings and the rating ledger (DATA-3.2)', () => {
           infiniteVolatility,
           accepted,
           duplicateKey,
-          quickBesideRanked,
+          quickLadder,
           unknownLadder,
           derived: columns.filter((column) =>
             ['games_played', 'peak_rating', 'last_rated_at'].includes(column),
@@ -157,7 +157,7 @@ describe('seasons, ratings and the rating ledger (DATA-3.2)', () => {
           infiniteVolatility: 'ratings_volatility_positive',
           accepted: true,
           duplicateKey: true,
-          quickBesideRanked: true,
+          quickLadder: 'ratings_ladder_check',
           unknownLadder: 'ratings_ladder_check',
           derived: [],
           leaderboard: true,

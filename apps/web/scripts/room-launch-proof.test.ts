@@ -1,11 +1,7 @@
 import { roomCreateSchema } from '@daisy/protocol';
 import { launchCustomSelection } from '../e2e/support/room-launch-custom';
 import { decodeLaunchEvidence } from '../e2e/support/room-launch-evidence-decoder';
-import { createLaunchShutdown } from '../e2e/support/room-launch-shutdown';
-import { mkdtemp, rm, readFile } from 'node:fs/promises';
-import { basename, join, resolve } from 'node:path';
-import { tmpdir } from 'node:os';
-import { createLaunchControl } from '../e2e/support/room-launch-control';
+import { basename, resolve } from 'node:path';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireLaunchSlot } from '../e2e/support/room-launch-slot';
 setupRitewayBun();
@@ -31,16 +27,25 @@ test('custom browser creation fixture satisfies the canonical complete request c
   const incomplete = roomCreateSchema.safeParse({
     ...request,
     selection: Object.fromEntries(
-      Object.entries(launchCustomSelection).filter(([key]) => key !== 'length'),
+      Object.entries(launchCustomSelection).filter(([key]) => key !== 'config'),
     ),
   });
   assert({
-    given: 'the same complete request with only its custom length omitted',
+    given: 'the same complete request with only its custom config omitted',
     should: 'refuse the missing field at the canonical request boundary',
     actual: incomplete.success
       ? []
       : incomplete.error.issues.map((issue) => issue.path.join('.')),
-    expected: ['selection.length'],
+    expected: ['selection.config'],
+  });
+  assert({
+    given: 'the same request naming a length',
+    should: 'refuse it: Rounds are full length only (DEC-237)',
+    actual: roomCreateSchema.safeParse({
+      ...request,
+      selection: { ...launchCustomSelection, length: 'full' },
+    }).success,
+    expected: false,
   });
 });
 
@@ -53,6 +58,7 @@ test('dedicated config refuses shared checkouts and binds dedicated paths', asyn
   const script = `import config from './apps/web/e2e/support/room-launch-config';
     console.log(JSON.stringify({
       servers: config.webServer.map(server => server.cwd ?? null),
+      logs: config.webServer.map(server => server.command.match(/> ([^ ]+[.]log)/)?.[1] ?? null),
       artifacts: config.outputDir ?? null,
       report: config.reporter.find(reporter => reporter[0] === 'json')[1].outputFile,
     }));`;
@@ -90,15 +96,13 @@ test('dedicated config refuses shared checkouts and binds dedicated paths', asyn
   assert({
     given: 'the actual dedicated config loaded from its nested support folder',
     should:
-      'run web/realtime from their own workspaces and retain artifacts at the CI-registered paths',
+      'run the owned web/realtime supervisor from its workspace, log under its own name (the later realtime proofs reuse the port, ISSUE-510) and retain artifacts at the CI-registered paths',
     actual: { status, paths: JSON.parse(output) },
     expected: {
       status: 0,
       paths: {
-        servers: [
-          resolve(checkout, 'apps/web'),
-          resolve(checkout, 'apps/realtime'),
-        ],
+        servers: [resolve(checkout, 'apps/web')],
+        logs: ['test-results/room-launch-server-13001.log'],
         artifacts: resolve(checkout, 'apps/web/test-results'),
         report: resolve(
           checkout,
@@ -109,65 +113,6 @@ test('dedicated config refuses shared checkouts and binds dedicated paths', asyn
   });
 });
 
-function shutdownFixture(settled: () => Promise<void>, rejectClose = false) {
-  const calls: string[] = [];
-  const shutdown = createLaunchShutdown({
-    settled,
-    closeControl: () => {
-      calls.push('control');
-      if (rejectClose) throw new Error('private close failure');
-    },
-    stopCapture: () => {
-      calls.push('capture');
-    },
-    stopEdge: () => {
-      calls.push('edge');
-    },
-    refused: () => {
-      calls.push('refused');
-    },
-  });
-  return { calls, shutdown };
-}
-
-test('Launch shutdown awaits auth settlement and closes each owned listener once', async () => {
-  let release!: () => void;
-  const outstanding = new Promise<void>((accept) => {
-    release = accept;
-  });
-  const { calls, shutdown } = shutdownFixture(() => outstanding);
-  const first = shutdown();
-  const second = shutdown();
-  assert({
-    given: 'two signals while auth work remains outstanding',
-    should: 'await settlement without stopping listeners',
-    actual: calls,
-    expected: [],
-  });
-  release();
-  await Promise.all([first, second]);
-  assert({
-    given: 'auth work settled after repeated signals',
-    should: 'close every owned listener exactly once',
-    actual: calls,
-    expected: ['control', 'capture', 'edge'],
-  });
-});
-
-test('Launch shutdown continues cleanup after rejected settlement or control close', async () => {
-  const { calls, shutdown } = shutdownFixture(
-    () => Promise.reject(new Error('private settlement failure')),
-    true,
-  );
-  await shutdown();
-  assert({
-    given: 'failed settlement and control close',
-    should:
-      'still stop capture and TLS and report a single bounded failure without rejection',
-    actual: calls,
-    expected: ['control', 'capture', 'edge', 'refused'],
-  });
-});
 const own = {
   DATABASE_URL: 'postgres://admin:local@localhost:5432/daisy_wt_proof',
   E2E_DATABASE_URL:
@@ -223,67 +168,6 @@ test('Launch proof derives a single native suite-owned identity', () => {
       port: 13101,
     },
   });
-});
-
-test('private proof control waits for actual outstanding work and refuses unknown paths', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'room-launch-control-'));
-  let release!: () => void;
-  let entered!: () => void;
-  const requested = new Promise<void>((accept) => {
-    entered = accept;
-  });
-  const outstanding = new Promise<void>((accept) => {
-    release = accept;
-  });
-  const control = createLaunchControl({
-    path: join(directory, 'control.sock'),
-    settled: () => {
-      entered();
-      return outstanding;
-    },
-    pending: () => 0,
-  });
-  try {
-    await new Promise<void>((accept) => control.once('listening', accept));
-    const { port } = JSON.parse(
-      await readFile(join(directory, 'control.sock'), 'utf8'),
-    );
-    let answered = false;
-    const called = fetch(`http://127.0.0.1:${port}/settled`, {
-      method: 'POST',
-    }).then((response) => {
-      answered = true;
-      return response;
-    });
-    await requested;
-    assert({
-      given: 'auth work still outstanding after the control request entered',
-      should: 'hold the acknowledgement until that work settles',
-      actual: answered,
-      expected: false,
-    });
-    release();
-    assert({
-      given: 'real loopback listener and awaited work completion',
-      should: 'acknowledge settlement and refuse unknown control paths',
-      actual: [
-        (await called).status,
-        (await fetch(`http://127.0.0.1:${port}/unknown`)).status,
-      ],
-      expected: [204, 404],
-    });
-  } finally {
-    await new Promise<void>((accept, reject) =>
-      control.close((error) => (error ? reject(error) : accept())),
-    );
-    assert({
-      given: 'the real proof control listener closed',
-      should: 'remove its owned descriptor through the bound cleanup handler',
-      actual: await Bun.file(join(directory, 'control.sock')).exists(),
-      expected: false,
-    });
-    await rm(directory, { recursive: true, force: true });
-  }
 });
 
 const emptyEvidence = {

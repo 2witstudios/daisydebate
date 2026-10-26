@@ -24,7 +24,11 @@ The web and release-only migrator share `apps/web/Dockerfile`. Both the
 manifest before `bun install --frozen-lockfile` (production-only in
 `prod-deps`). The runtime image includes the packages' raw TypeScript
 source, including ingress and media; installing their workspace symlinks
-alone does not supply their exported modules. Realtime is a separate deployment.
+alone does not supply their exported modules. The same file builds the
+realtime service and the capture worker as their own stages (`realtime`,
+`media-worker`) over a shared `server-source` stage, so their images never
+run the Next build; both install stages also copy their manifests
+([live Rounds](#11-live-rounds-livekit-realtime-and-the-capture-worker-issue-528)).
 
 `scripts/docker-workspaces.test.ts` discovers repository workspaces and
 follows transitive workspace dependencies. The existing CI `test` job and
@@ -84,15 +88,39 @@ per shared vCPU, plus $0.00000193 per GB-second of additional RAM,
 multiplied by the region's markup. Chicago (`ord`) carries a 1.25 markup.
 A month is 30 days (2,592,000 s), as Fly's own calculator counts it.
 
-| Piece                                                                                       | Monthly cost                                                                                                                                                              | Source                             |
-| ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
-| Web machine `daisy-debate-staging` (shared-cpu-1x, 512mb, `ord`), always on                 | (0.00000075 + 0.25 × 0.00000193) × 1.25 ≈ $0.00000154/s ≈ **$3.99/month** (about $4). A running machine's rootfs is not billed separately                                 | https://docs.fly.io/about/pricing/ |
-| Migrator app `daisy-debate-staging-migrate`                                                 | $0: it has no machines; the release command's temporary machine bills only for the seconds each migration runs                                                            | https://docs.fly.io/about/pricing/ |
-| Fly Postgres machine `daisy-debate-staging-db` (shared-cpu-1x 256MB, 1GB volume), always on | 0.00000075 × 1.25 × 2,592,000 ≈ $2.43/month compute + $0.15/month volume. Owner decision: left running; `fly machine stop` between sessions drops it to the volume charge | https://docs.fly.io/about/pricing/ |
-| Fly Redis `daisy-debate-staging-redis` (Upstash, Pay-as-you-go)                             | $0 at rest; $0.20 per 100K commands                                                                                                                                       |                                    |
-| Resend                                                                                      | Free tier covers low-volume staging email and webhooks; no cost beyond the account itself                                                                                 | https://resend.com/pricing         |
+| Piece                                                                                                                      | Monthly cost                                                                                                                                                              | Source                             |
+| -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| Web machine `daisy-debate-staging` (shared-cpu-1x, 512mb, `ord`), always on (resized for ISSUE-528, below)                 | (0.00000075 + 0.25 × 0.00000193) × 1.25 ≈ $0.00000154/s ≈ **$3.99/month** (about $4). A running machine's rootfs is not billed separately                                 | https://docs.fly.io/about/pricing/ |
+| Migrator app `daisy-debate-staging-migrate`                                                                                | $0: it has no machines; the release command's temporary machine bills only for the seconds each migration runs                                                            | https://docs.fly.io/about/pricing/ |
+| Fly Postgres machine `daisy-debate-staging-db` (shared-cpu-1x 256MB, 1GB volume), always on (resized for ISSUE-528, below) | 0.00000075 × 1.25 × 2,592,000 ≈ $2.43/month compute + $0.15/month volume. Owner decision: left running; `fly machine stop` between sessions drops it to the volume charge | https://docs.fly.io/about/pricing/ |
+| Fly Redis `daisy-debate-staging-redis` (Upstash, Pay-as-you-go)                                                            | $0 at rest; $0.20 per 100K commands                                                                                                                                       |                                    |
+| Resend                                                                                                                     | Free tier covers low-volume staging email and webhooks; no cost beyond the account itself                                                                                 | https://resend.com/pricing         |
 
-Net: about $6.57/month at rest: the always-on web machine ($3.99), the
+Live Rounds (ISSUE-528, DEC-228) resized and added machines, each always on, by
+the same formula (a shared vCPU includes 256MB):
+
+| Machine                                            | Size                 | Monthly                     |
+| -------------------------------------------------- | -------------------- | --------------------------- |
+| Web `daisy-debate-staging`                         | shared-cpu-4x, 1gb   | ≈ $9.72 (was $3.99)         |
+| Postgres `daisy-debate-staging-db`                 | performance-1x, 2gb  | ≈ $40 (was $2.43)           |
+| LiveKit `daisy-debate-staging-livekit`             | shared-cpu-1x, 512mb | ≈ $3.99 + $2 dedicated IPv4 |
+| Realtime `daisy-debate-staging-realtime`           | shared-cpu-1x, 512mb | ≈ $3.99                     |
+| Capture worker `daisy-debate-staging-media-worker` | shared-cpu-1x, 1gb   | ≈ $7.12                     |
+
+Measured on 2026-10-24: with the Round workers running, the web machine at
+shared-cpu-1x showed 70% CPU steal and stalled database round trips to 70 ms,
+past the 3 s transaction budget; at shared-cpu-4x it showed 0%. Three more
+services' pools and their per-second loops left the 256MB Postgres machine
+at 93% CPU pressure with 23MB free. At shared-cpu-2x 1gb it measured 1.5%
+at first, then 51% CPU steal once its burst ran out while using 4% CPU:
+host contention, which stretched each media admission to 9 to 34 s. A
+dedicated vCPU (performance-1x, Fly's list price $32.19 with the ord markup)
+measured 0% steal and 40 to 130 ms per media store call. In all about
+$67/month at rest, about $60 more than before; Postgres is most of it, and
+it is the one machine shared CPU cannot serve. Media egress
+beyond Fly's free allowance bills per GB.
+
+Before ISSUE-528: about $6.57/month at rest: the always-on web machine ($3.99), the
 always-on Postgres machine ($2.43) and its volume ($0.15). Staging traffic
 adds Redis commands and outbound data transfer on top. The AUTH-7.7 alert
 probe (`auth-alerts.yml`) adds nothing: it requests a machine that is
@@ -195,7 +223,10 @@ creates (`daisy-debate-staging`, `daisy-debate-staging-migrate` and
 `daisy-debate-staging-db`) may be created in the org until the owner has
 signed off explicitly and that sign-off is recorded: a decision recorded
 with `bun decision:record`, confirmed by the owner, and linked from this
-section. This is a security-behavior change, so it is the owner's call, not
+section. Recorded sign-offs: DEC-229 (2026-10-24, ISSUE-528) admits
+`daisy-debate-staging-realtime` and `daisy-debate-staging-media-worker` to
+this 6PN; DEC-230 revises it to admit `daisy-debate-staging-livekit` too,
+because native clients inside Fly reach its media only over 6PN. This is a security-behavior change, so it is the owner's call, not
 a Builder's or an operator's. The sign-off must say whether the new app's
 machines may reach this one over 6PN, or whether it goes in a custom
 private network (`fly apps create --network`) instead.
@@ -491,15 +522,17 @@ step with 401, distinguishing "both rotated" from "only Fly rotated."
 ## 6. First deploy
 
 Run from the repository root (so `apps/web/Dockerfile`'s build context is
-the monorepo):
+the monorepo), with a local Docker daemon: like the workflow (§10), both
+commands build on this machine (`--local-only`), since Fly's 4-CPU Depot
+builder stalls `next build` (ISSUE-542):
 
 ```
 # 1. Migrate: the migrator app's release command, no machines created.
-fly deploy -c fly.migrate.toml --remote-only --update-only \
+fly deploy -c fly.migrate.toml --local-only --update-only \
   --build-arg APP_VERSION="$(git rev-parse --short HEAD)" \
   --build-arg GIT_COMMIT="$(git rev-parse HEAD)"
 # 2. Only after step 1 succeeds: the web app.
-fly deploy -a daisy-debate-staging --ha=false \
+fly deploy -a daisy-debate-staging --local-only --ha=false \
   --build-arg APP_VERSION="$(git rev-parse --short HEAD)" \
   --build-arg GIT_COMMIT="$(git rev-parse HEAD)"
 ```
@@ -640,9 +673,18 @@ CI or E2E never rolls staging back. The CI gate needs the dependency audit
 job (ADR 0039), so a new advisory holds staging back and posts to
 Incidents. The deploy job's `migrate` step deploys the migrator app
 (`fly.migrate.toml`, `--update-only`) and its `deploy` step, which runs
-only after `migrate` succeeds, deploys the web app. The workflow needs two
+only after `migrate` succeeds, deploys the web app. Every deploy step
+builds its image on the GitHub runner (`--local-only`, ISSUE-542) and pushes
+it to Fly's registry with that step's token. The steps share the runner's
+Docker cache, so the job runs `next build` once. Fly's 4-CPU Depot builder
+stalled `next build` at "Collecting page data" for 40 minutes, until it
+dropped the connection; the same build takes about 30 s with room.
+`scripts/verify-image-build.ts` fails a deploy step without `--local-only`.
+The workflow needs five
 repository secrets, each a deploy token scoped to one app and exposed only
-on its own step:
+on its own step: `FLY_API_TOKEN` (web), `FLY_MIGRATE_API_TOKEN`
+(migrator), and `FLY_LIVEKIT_API_TOKEN`, `FLY_REALTIME_API_TOKEN` and
+`FLY_MEDIA_WORKER_API_TOKEN`, which §11 creates. The first two:
 
 ```
 fly tokens create deploy -a daisy-debate-staging --name github-actions-staging --expiry 8760h \
@@ -671,6 +713,129 @@ The separate `auth-alerts.yml` workflow (AUTH-7.7) needs `OPS_PROBE_TOKEN`
 as a repository secret (the exact value set on the app above via `fly
 secrets import`, step 5) alongside the same two Incidents webhook secrets;
 see [auth-delivery.md](auth-delivery.md#alerting-auth-77).
+
+## 11. Live Rounds: LiveKit, realtime and the capture worker (ISSUE-528)
+
+A Round needs three more apps (DEC-228, org sign-off DEC-229). Each has its
+own committed config and its own app-scoped deploy token, and
+`scripts/verify-deploy-config.ts` checks the configs and the workflow
+steps (`SERVICE_APPS`).
+
+| App                                 | Config                  | Image                                 | Network                       | Secrets                                                                                         |
+| ----------------------------------- | ----------------------- | ------------------------------------- | ----------------------------- | ----------------------------------------------------------------------------------------------- |
+| `daisy-debate-staging-livekit`      | `fly.livekit.toml`      | `infra/livekit/Dockerfile` (pinned)   | default 6PN (DEC-230)         | `LIVEKIT_KEYS` (`<key>: <secret>`)                                                              |
+| `daisy-debate-staging-realtime`     | `fly.realtime.toml`     | `apps/web/Dockerfile`, `realtime`     | default 6PN (Postgres, Redis) | `DATABASE_URL` (`daisy_realtime`), `REDIS_URL`                                                  |
+| `daisy-debate-staging-media-worker` | `fly.media-worker.toml` | `apps/web/Dockerfile`, `media-worker` | default 6PN (Postgres)        | `MEDIA_WORKER_DATABASE_URL` (`daisy_media_worker`), `MEDIA_WORKER_SECRET`, `OPENROUTER_API_KEY` |
+
+Realtime redeems the connect tickets the web app issues, and tickets are
+namespaced, so `REDIS_NAMESPACE` lives only in the committed `[env]` of
+`fly.toml` and `fly.realtime.toml`, with the same value, and never as a Fly
+secret (a secret overrides `[env]`). An old `REDIS_NAMESPACE` secret on the web
+app had every realtime socket rejected `auth_failed` until it was unset
+(2026-10-24); `verify-service-apps.ts` checks the committed pair.
+
+The web app adds `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` (the LiveKit pair)
+and `MEDIA_WORKER_SECRET` (the worker's value) as secrets, and
+`LIVEKIT_URL`, `LIVEKIT_PUBLIC_URL`, `REALTIME_PUBLIC_URL` and
+`ROUND_BOT_WORKER_POLICY` in `fly.toml`.
+
+**LiveKit on Fly.** Browsers signal over `wss://daisy-debate-staging-livekit.fly.dev`
+(fly-proxy terminates TLS on 443 and forwards to 7880). Media is UDP 7882,
+with ICE over raw TCP 7881 as the fallback; both need the app's dedicated
+IPv4, because shared IPv4 carries no UDP. Fly delivers public UDP only to a
+socket bound to the `fly-global-services` address, which exists only on the
+machine, so `infra/livekit/entrypoint.sh` resolves it at boot, binds the UDP
+mux to it (`rtc.ips.includes`) and advertises `LIVEKIT_NODE_IP`, the
+dedicated IPv4 written in `fly.livekit.toml`. Native clients inside Fly (the
+capture worker, the web app's bot publisher) cannot complete ICE to that
+anycast address, so LiveKit sits on the org's default 6PN and also binds and
+advertises its 6PN address (`FLY_PRIVATE_IP`, `rtc.advertise_internal_ip`,
+DEC-230). Proof (2026-10-24): `lk load-test` from outside Fly published and
+received audio over UDP with 0% loss; `@livekit/rtc-node` on the worker
+machine connected in 249 ms over 6PN; and two browsers played a full
+two-person Round judged by the AI judge, and one played a bot, on
+`daisy-debate-staging.fly.dev`. A main merge redeploys LiveKit only
+when it changes `infra/livekit` or `fly.livekit.toml`, because a redeploy
+ends every live call; a manual run always redeploys it.
+
+Provision once:
+
+```sh
+fly apps create daisy-debate-staging-livekit --org daisy-debate   # default 6PN (DEC-230)
+fly ips allocate-v4 -a daisy-debate-staging-livekit --yes   # dedicated, $2/month; write it to LIVEKIT_NODE_IP
+fly ips allocate-v6 -a daisy-debate-staging-livekit
+fly apps create daisy-debate-staging-realtime --org daisy-debate
+fly apps create daisy-debate-staging-media-worker --org daisy-debate
+
+# Random LiveKit pair: the server reads LIVEKIT_KEYS, the web app the pair.
+KEY="API$(bun -e 'console.log(Buffer.from(crypto.getRandomValues(new Uint8Array(6))).toString("hex"))')"
+SECRET="$(bun -e 'console.log(Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("hex"))')"
+printf 'LIVEKIT_KEYS=%s: %s\n' "$KEY" "$SECRET" | fly secrets import -a daisy-debate-staging-livekit --stage
+
+# The baseline creates daisy_realtime and daisy_media_worker with LOGIN and
+# no password. Set each once, over SSH to the Postgres machine (`fly
+# postgres connect` needs a terminal and hangs on piped input):
+RT_PW="$(bun -e 'console.log(Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("hex"))')"
+MW_PW="$(bun -e 'console.log(Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("hex"))')"
+# The Fly Postgres database grants CONNECT to no role by default; daisy_web
+# holds it from the original setup, and these two need the same grant.
+printf "ALTER ROLE daisy_realtime PASSWORD '%s';\nALTER ROLE daisy_media_worker PASSWORD '%s';\nGRANT CONNECT ON DATABASE daisy_debate_staging TO daisy_realtime, daisy_media_worker;\n" "$RT_PW" "$MW_PW" \
+  | fly ssh console -a daisy-debate-staging-db \
+      -C 'sh -c "psql -X -q -v ON_ERROR_STOP=1 postgres://postgres:\$OPERATOR_PASSWORD@localhost:5433/daisy_debate_staging"'
+DB=daisy-debate-staging-db.flycast:5432/daisy_debate_staging?sslmode=disable
+fly secrets import -a daisy-debate-staging-realtime --stage <<SECRETS
+DATABASE_URL=postgres://daisy_realtime:$RT_PW@$DB
+REDIS_URL=<the web app's REDIS_URL>
+SECRETS
+MWS="$(bun -e 'console.log(Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("base64url"))')"
+fly secrets import -a daisy-debate-staging-media-worker --stage <<SECRETS
+MEDIA_WORKER_DATABASE_URL=postgres://daisy_media_worker:$MW_PW@$DB
+MEDIA_WORKER_SECRET=$MWS
+OPENROUTER_API_KEY=<the web app's OPENROUTER_API_KEY>
+SECRETS
+fly secrets import -a daisy-debate-staging --stage <<SECRETS
+MEDIA_WORKER_SECRET=$MWS
+LIVEKIT_API_KEY=$KEY
+LIVEKIT_API_SECRET=$SECRET
+SECRETS
+unset KEY SECRET RT_PW MW_PW MWS
+
+for app in livekit realtime media-worker; do
+  fly tokens create deploy -a daisy-debate-staging-$app --name github-deploy-staging -x 87600h \
+    | gh secret set "FLY_$(echo $app | tr a-z- A-Z_)_API_TOKEN"
+done
+```
+
+The Postgres machine needs the size above; `fly postgres` machines are not
+in a committed config, so set it once:
+
+```sh
+fly machine update <id> -a daisy-debate-staging-db --vm-size performance-1x --vm-memory 2048 --yes
+```
+
+**Availability probe.** Competitive maintenance finalizes nothing while
+availability is unhealthy (ADR 0067), and availability is healthy only while
+the public check-in probe succeeds, so a deployment that plays Rounds needs
+`ATTENDANCE_PUBLIC_PROBE` on the web app. It names a synthetic Round, built
+through the public routes as `apps/web/e2e/support/launch-probe-room.ts`
+builds the browser suite's: three probe members claim the affirmative,
+negative and judge seats, both speeches end with on-time check-ins, and the
+Round is left awaiting its judge. The secret is
+`{"origin","roundId","segmentId","participantId","cookie"}`, where the
+segment is the last speech, the participant the negative seat and the cookie
+that member's session. Maintenance leaves the configured Round out (ISSUE-530),
+so it stays active and the probe's replayed receipt stays valid; the session
+slides with use. Recreate it only if the Round or the member is removed.
+
+Then run the workflow manually once (`gh workflow run deploy-staging.yml`),
+which deploys all five apps in order: migrator, LiveKit, realtime, web, the
+capture worker. Verify: `fly status` shows one passing machine per app,
+`https://daisy-debate-staging-realtime.fly.dev/health/ready` and
+`https://daisy-debate-staging-livekit.fly.dev/` answer, and
+`fly logs -a daisy-debate-staging-media-worker` shows `server.ready`
+(the worker refuses to start, logging `server.shutdown` with its cause, on
+missing configuration or a broader database login). Destroy with `fly apps
+destroy` for each app, then `gh secret delete` for its token.
 
 ## Staging data inventory (ISSUE-169, 2026-09-28)
 

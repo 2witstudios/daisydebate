@@ -1,4 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import judgeFlow from '../scenarios/judge-flow';
 import {
   runScenario,
   ScenarioExpectationError,
@@ -34,6 +35,7 @@ const scenario: DebateScenario = {
     id: roundId,
     status: 'active',
     stage: 'live',
+    outcome: null,
     opened: ['AC', 'NC'],
   },
 };
@@ -82,6 +84,7 @@ describe('typed debate scenarios', () => {
       id: roundId,
       status: 'active' as const,
       stage: 'live' as const,
+      outcome: null,
       opened: ['AC'],
     };
     const actual = runScenario({
@@ -108,6 +111,17 @@ describe('typed debate scenarios', () => {
       should: 'leave the AC as the only segment that opened',
       actual,
       expected,
+    });
+  });
+
+  test('a judged Round is decided by its judge’s ballot', () => {
+    assert({
+      given:
+        'the judge-flow scenario: a one-on-one played to its final segment, then one judge’s ballot',
+      should:
+        'run as a lifecycle, not a documented boundary, and complete with the judged outcome',
+      actual: [judgeFlow.unsupported, runScenario(judgeFlow)],
+      expected: [undefined, judgeFlow.expect],
     });
   });
 });

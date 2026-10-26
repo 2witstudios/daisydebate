@@ -76,7 +76,7 @@ describe('createThemeController with cookies blocked', () => {
   const createBlocked = () => {
     const calls: string[] = [];
     const controller = createThemeController({
-      initial: 'dark',
+      initial: 'light',
       apply: (preference) => calls.push(`apply ${preference}`),
       writeCookie: () => {},
       readCookies: () => '',
@@ -89,26 +89,26 @@ describe('createThemeController with cookies blocked', () => {
 
   test('keeps a switch for this tab without announcing it', () => {
     const { calls, controller } = createBlocked();
-    controller.select('light');
+    controller.select('dark');
 
     assert({
       given: 'a switch whose cookie write did not stick',
       should: 'apply it here but not tell tabs that cannot read it',
       actual: calls,
-      expected: ['apply light'],
+      expected: ['apply dark'],
     });
   });
 
   test('does not revert the switch when the tab is shown again', () => {
     const { calls, controller } = createBlocked();
-    controller.select('light');
+    controller.select('dark');
     const synced = controller.sync();
 
     assert({
       given: 'a re-sync after an unsaved switch',
       should: 'keep the chosen theme instead of the cookie default',
       actual: { synced, calls },
-      expected: { synced: 'light', calls: ['apply light'] },
+      expected: { synced: 'dark', calls: ['apply dark'] },
     });
   });
 });
@@ -147,14 +147,14 @@ describe('createThemeController.sync', () => {
   test('falls back to the default when the cookie was cleared', () => {
     const { calls, controller } = createRecorder({
       jar: { cookies: 'other=1' },
-      initial: 'light',
+      initial: 'dark',
     });
 
     assert({
-      given: 'a light tab syncing after the theme cookie was cleared',
-      should: 'apply the dark default',
+      given: 'a dark tab syncing after the theme cookie was cleared',
+      should: 'apply the light default',
       actual: { synced: controller.sync(), calls },
-      expected: { synced: 'dark', calls: ['transition', 'apply dark'] },
+      expected: { synced: 'light', calls: ['transition', 'apply light'] },
     });
   });
 

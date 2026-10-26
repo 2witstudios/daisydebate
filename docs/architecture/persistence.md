@@ -19,12 +19,23 @@ Identifiers are application-minted cuid2 text values, except canonical format sl
 | `ballots`                                       | One shared contract per judge seat, written with Round completion in one transaction.                                                                                                                                                          |
 | `agent_runs`, `usage_reservations`              | AI execution and budget accounting on a Round participant, not an AI-specific Round. AI practice admission serializes both limits and writes its Room, seats, Round, and reservation in one transaction.                                       |
 | `documents`, `round_document_refs`              | Actor-owned prep content and references from Rounds. Removing a Round removes its references, never the owner's document.                                                                                                                      |
-| `seasons`, `ratings`, `rating_changes`          | Glicko-2 seasons, current projection, and append-only ledger for ranked and quick ladders.                                                                                                                                                     |
+| `seasons`, `ratings`, `rating_changes`          | Glicko-2 seasons, current projection, and append-only ledger for the Ranked ladder.                                                                                                                                                            |
 | `role_grants`                                   | Account authority with explicit scope and revocation.                                                                                                                                                                                          |
 
 Every status and vocabulary column is text with a CHECK derived from the protocol where one exists. JSONB writes pass the column's protocol validator and an object-shape CHECK. Foreign keys have leading-column indexes. Lifecycle and provenance constraints are tested against PostgreSQL in `packages/db/integration/`; application checks cover cross-table invariants such as complete seats and a judge ballot on its own Round.
 
 Competitive instants come from the database clock. The application passes one database-sourced instant to the pure Round runtime, then persists its projection under the expected Round version. Segment closes precede inserts in the same transaction. An accepted completion writes the judge ballot and Round result atomically. Redis loss cannot change a result, ballot, rating, or recording reference.
+
+The internal Round tick operation locks and hydrates the current Round before
+sampling `clock_timestamp()` separately. It runs the same pure engine as participant
+commands and atomically persists segment closes/openings, speaking grants, the
+Round revision and its outbox signal. A reconciler can advance a silent Round;
+HTTP reads remain side-effect free. The final segment closes at its actual elapsed
+deadline or accepted early yield while the Round remains active awaiting judging.
+That close fixes `final_segment_ended_at` and the immutable
+`transcript_admission_cutoff` 120 seconds later. Ballot arrival never moves the
+capture deadline. Historical speaking eligibility remains a separate requirement
+from admission cutoff and transcript freeze.
 
 ## Roles and migration baseline
 

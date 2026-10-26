@@ -6,12 +6,12 @@ import { normalizeRoundClock, type ClockState } from './round-clock-state';
 import { createRoundRuntime } from './round-runtime';
 import {
   emptyCheckpoint,
-  practiceRules,
-  practiceSeats,
+  oneOnOneRules,
+  oneOnOneSeats,
   roundAt,
 } from './runtime.test-support';
 setupRitewayBun();
-const rules = practiceRules();
+const rules = oneOnOneRules();
 const origin = Date.parse(roundAt(0));
 const round = {
   status: 'active' as const,
@@ -66,7 +66,7 @@ test('interrupted CX closes and clears floor before the next speech', () => {
   const checkpoint = {
     ...emptyCheckpoint,
     floor: {
-      holder_participant_id: practiceSeats[0].id,
+      holder_participant_id: oneOnOneSeats[0].id,
       granted_at: roundAt(330_000),
     },
   };
@@ -74,7 +74,7 @@ test('interrupted CX closes and clears floor before the next speech', () => {
   const runtime = createRoundRuntime({
     ...input,
     round: { ...round, id: 'round', currentStage: 'live' },
-    participants: practiceSeats,
+    participants: oneOnOneSeats,
     nextSegmentId: () => {
       throw new Error('read allocated an ID');
     },
@@ -99,7 +99,7 @@ test('interrupted CX closes and clears floor before the next speech', () => {
     given: 'pure prediction',
     should: 'preserve the persisted interruption',
     actual: checkpoint.floor.holder_participant_id,
-    expected: practiceSeats[0].id,
+    expected: oneOnOneSeats[0].id,
   });
 });
 
@@ -136,7 +136,7 @@ test('frozen input, multi-segment catchup, staged composition and repeated time'
   });
 });
 
-test('prep expiry opens directly and final segment stays live awaiting ballot', () => {
+test('prep expiry opens directly and final segment closes awaiting ballot', () => {
   const prior = advanceRoundClock(state(), rules, origin + 940_000).state;
   const prep: ClockState = {
     ...prior,
@@ -166,13 +166,13 @@ test('prep expiry opens directly and final segment stays live awaiting ballot', 
   const final = read(99_000_000);
   assert({
     given: 'time past the final segment',
-    should: 'keep the final live interval for ballot',
+    should: 'close the final interval while awaiting ballot',
     actual: [
       final.openSegment?.sequence,
       final.openSegment?.remainingMs,
       final.awaitingBallot,
     ],
-    expected: [rules.segments.length - 1, 0, true],
+    expected: [undefined, undefined, true],
   });
 });
 
@@ -209,7 +209,7 @@ test('hydration rejects overlapping intervals before either reader advances', as
       createRoundRuntime({
         ...malformed,
         round: { ...round, id: 'round', currentStage: 'live' },
-        participants: practiceSeats,
+        participants: oneOnOneSeats,
         nextSegmentId: () => 'unused',
       }),
     code: 'INVARIANT',

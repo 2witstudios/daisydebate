@@ -1,5 +1,5 @@
 import type { Identity } from '@daisy/auth';
-import { createAppError, isAppError, toPublicError } from '@daisy/errors';
+import { createAppError } from '@daisy/errors';
 import type { Logger } from '@daisy/logger';
 import {
   idSchema,
@@ -9,6 +9,7 @@ import {
 } from '@daisy/protocol';
 import { consumeOrThrow, type AuthRateLimiter } from '../auth/abuse/rate-limit';
 import {
+  refusalResponse,
   handleOperation,
   parseValidated,
   readJson,
@@ -97,13 +98,9 @@ export function createRoomHandlers(dependencies: Dependencies) {
             'command-conflict',
             'consent-conflict',
           ];
-          if (!isAppError(error) || !reasons.includes(error.message))
-            throw error;
-          const mapped = toPublicError(error, requestId);
-          return Response.json(
-            { ...mapped.body, refusal: error.message },
-            { status: mapped.status },
-          );
+          const response = refusalResponse(error, requestId, reasons);
+          if (!response) throw error;
+          return response;
         }
       },
     );
@@ -115,6 +112,17 @@ export function createRoomHandlers(dependencies: Dependencies) {
       run(request, 'create', true, async (caller) =>
         dependencies.operations.create(
           caller,
+          parseValidated(
+            roomCreateSchema,
+            await readJson(request, dependencies.maxBodyBytes),
+          ),
+        ),
+      ),
+    rematch: (request: Request, sourceRoomId: string) =>
+      run(request, 'create', true, async (caller) =>
+        dependencies.operations.rematch(
+          caller,
+          parseValidated(idSchema, sourceRoomId),
           parseValidated(
             roomCreateSchema,
             await readJson(request, dependencies.maxBodyBytes),

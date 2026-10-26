@@ -13,7 +13,6 @@ function selectionValue(choice: RoomTemplate) {
     kind: 'catalog',
     formatId: choice.formatId,
     formatVersion: choice.formatVersion,
-    length: 'full',
     competitionType: 'casual',
     config: choice.defaultConfig,
   });

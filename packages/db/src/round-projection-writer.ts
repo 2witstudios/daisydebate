@@ -1,3 +1,4 @@
+import { TRANSCRIPT_ADMISSION_WINDOW_MS } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import { and, eq, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
@@ -5,13 +6,14 @@ import type { RoundProjection } from '@daisy/protocol';
 import { runtimeCheckpointSchema, buildDebateTopic } from '@daisy/protocol';
 import type { z } from 'zod';
 import { appendOutboxEvent } from './outbox';
+import { refundUnservedPracticeLocked } from './round-bot-admission';
 import { jsonObjectSchema } from './schema/columns';
 import { isUniqueViolation } from './unique-violation';
 import { roundCommands } from './schema/round-commands';
 import { roundSegments } from './schema/round-segments';
 import { rounds } from './schema/rounds';
 
-type Tx = Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0];
+type Tx = Pick<BunSQLDatabase, 'select' | 'update' | 'insert' | 'execute'>;
 
 /** Append the canonical content-free invalidation for a persisted Round revision. */
 export async function appendRoundPhaseChanged(
@@ -60,6 +62,13 @@ const projectionChanged = (
   );
 };
 
+const terminal = new Set(['completed', 'abandoned']);
+/** The projection is the one that takes the Round out of play. */
+const endsRound = (current: LockedRound, projection: RoundProjection) =>
+  projection.round !== null &&
+  terminal.has(projection.round.status) &&
+  !terminal.has(current.status);
+
 /** Persist a projection and announce exactly the revision it advances to. */
 export async function writeProjectionWithPhaseSignal(
   tx: Tx,
@@ -71,6 +80,21 @@ export async function writeProjectionWithPhaseSignal(
   const changed = projectionChanged(current, projection);
   if (!changed) return false;
   await writeProjection(tx, roundId, projection, now);
+  if (endsRound(current, projection))
+    await refundUnservedPracticeLocked(tx, roundId);
+  if (projection.finalSegmentEndedAt !== undefined)
+    await tx
+      .update(rounds)
+      .set({
+        finalSegmentEndedAt: new Date(projection.finalSegmentEndedAt),
+        transcriptAdmissionCutoff: new Date(
+          Date.parse(projection.finalSegmentEndedAt) +
+            TRANSCRIPT_ADMISSION_WINDOW_MS,
+        ),
+      })
+      .where(
+        and(eq(rounds.id, roundId), sql`${rounds.finalSegmentEndedAt} is null`),
+      );
   await appendRoundPhaseChanged(tx, roundId, current.version + 1);
   return true;
 }
@@ -87,13 +111,15 @@ type LockedRound = {
 
 /**
  * Locks the round row and refuses when it moved on: the optimistic-version
- * gate every durable round write shares, so a round that moved under a
+ * gate every durable round write shares. Non-key locking admits durable child
+ * evidence through FK KEY SHARE while excluding competing writers and erasure.
+ * A round that moved under a
  * concurrent write refuses with CONFLICT and writes nothing.
  */
 export async function lockedRoundVersion(
   tx: Tx,
   roundId: string,
-  expectedVersion: number,
+  expectedVersion?: number,
 ): Promise<LockedRound> {
   const [round] = await tx
     .select({
@@ -107,9 +133,9 @@ export async function lockedRoundVersion(
     })
     .from(rounds)
     .where(eq(rounds.id, roundId))
-    .for('update');
+    .for('no key update');
   if (!round) throw createAppError('NOT_FOUND', 'No such round');
-  if (round.version !== expectedVersion)
+  if (expectedVersion !== undefined && round.version !== expectedVersion)
     throw createAppError('CONFLICT', 'The round moved on');
   return round;
 }
@@ -154,7 +180,7 @@ const lifecycleInstant = (
 
 /** Writes one projection's round row and segment changes inside `tx`. */
 async function writeProjection(
-  tx: Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0],
+  tx: Tx,
   roundId: string,
   projection: RoundProjection,
   now: string,

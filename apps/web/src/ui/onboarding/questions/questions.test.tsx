@@ -104,15 +104,14 @@ describe('AboutStep', () => {
 });
 
 describe('ExperienceStep', () => {
-  test('one level, many formats, one length', () => {
+  test('one level and many formats, no length (DEC-237)', () => {
     assert({
-      given: 'a circuit debater who likes both formats in full',
-      should: 'check those answers',
+      given: 'a circuit debater who likes both formats',
+      should: 'check those answers and ask no match length',
       actual: inputs(
         render(ExperienceStep, {
           experience: 'circuit',
           formats: ['one-on-one', 'teams'],
-          length: 'full',
         }),
       ),
       expected: [
@@ -122,8 +121,6 @@ describe('ExperienceStep', () => {
         'radio:experience=veteran',
         'checkbox:formats=one-on-one*',
         'checkbox:formats=teams*',
-        'radio:length=quick',
-        'radio:length=full*',
       ],
     });
   });

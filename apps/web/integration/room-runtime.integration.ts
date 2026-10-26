@@ -167,7 +167,6 @@ test('create replay survives catalog advancement and refuses a changed payload w
         formatId: choice.formatId,
         formatVersion: choice.formatVersion,
         competitionType: 'casual' as const,
-        length: 'full' as const,
         config: choice.defaultConfig,
       },
     };

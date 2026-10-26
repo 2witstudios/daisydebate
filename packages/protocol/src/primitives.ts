@@ -29,11 +29,12 @@ export const debateRoleSchema = z.enum(debateRoles);
 export type DebateRole = (typeof debateRoles)[number];
 
 /**
- * The rating ladders (ADR 0055): Ranked, judged by a person, and Quick
- * match, judged by the AI. A ladder joins the rating key, and the ladder
- * CHECKs on `ratings` and `rating_changes` derive from this array.
+ * The rating ladders (ADR 0055): Ranked, the one ladder now that every
+ * Round is full length (DEC-237, DEC-238). A ladder joins the rating key,
+ * and the ladder CHECKs on `ratings`, `rating_changes` and `rounds` derive
+ * from this array.
  */
-export const ratingLadders = ['ranked', 'quick'] as const;
+export const ratingLadders = ['ranked'] as const;
 export type RatingLadder = (typeof ratingLadders)[number];
 
 /**

@@ -4,8 +4,8 @@ import { resolveRoomConfiguration } from './resolve-room-configuration';
 import {
   emptyCheckpoint,
   oneOnOneDefinition,
-  practiceActors,
-  practiceConfig,
+  oneOnOneActors,
+  oneOnOneConfig,
   roundAt,
   runtimeWorld,
 } from './runtime.test-support';
@@ -13,7 +13,7 @@ import {
 setupRitewayBun();
 
 const at = roundAt;
-const person = practiceActors.affirmative;
+const person = oneOnOneActors.affirmative;
 
 describe('round runtime prep', () => {
   test('runs elective prep for the prepping side only, folding elapsed into the budget', async () => {
@@ -110,7 +110,7 @@ describe('round runtime prep', () => {
 
   test('refuses prep the resolved rules never granted a budget for', async () => {
     const withoutPrep = resolveRoomConfiguration(oneOnOneDefinition, {
-      ...practiceConfig,
+      ...oneOnOneConfig,
       inRoundPrep: { enabled: false },
     });
     if (!withoutPrep.ok) throw new Error(withoutPrep.refusal.message);
@@ -172,7 +172,7 @@ describe('round runtime prep', () => {
   test('exposes the checkpoint it executes against', () => {
     const world = runtimeWorld();
     assert({
-      given: 'a fresh practice world',
+      given: 'a fresh one-on-one world',
       should: 'parse its checkpoint with the runtime schema',
       actual: world.checkpoint(),
       expected: {

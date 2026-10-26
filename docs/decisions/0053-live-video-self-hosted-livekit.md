@@ -1,8 +1,10 @@
 # 0053: Live video on self-hosted LiveKit
 
-Status: proposed. Owner-confirmed media policy (2026-10-05); architecture
-reconciliation authorized 2026-10-07, VIDEO-0.18; shared human/bot media
-reconciliation reviewed 2026-10-09, VIDEO-0.19. Acceptance remains VIDEO-0.2.
+Status: accepted architecture under delegated owner authority, 2026-10-22
+([ADR 0067](0067-playable-round-policy-and-acceptance.md)). Architecture
+reconciliation: VIDEO-0.18; shared human/bot reconciliation: VIDEO-0.19.
+VIDEO-0.2 default-branch delivery and independent review remain outstanding;
+no runtime, media design implementation or production acceptance is implied.
 Fulfils the media seam in [ADR 0031](0031-realtime-service.md), adopts the
 Round model in [ADR 0058](0058-one-round-model.md) and the target competitive
 API in [ADR 0059](0059-one-competitive-api.md). Adds the proposed
@@ -10,12 +12,12 @@ API in [ADR 0059](0059-one-competitive-api.md). Adds the proposed
 
 ## Context
 
-The unified round model and AI practice voice/transcript/ballot flow exist.
-AI practice has a bot portrait and a placeholder human tile; no camera is
-captured. The human round presentation still uses sample state. LiveKit,
-media sessions, the media adapter, capture worker and stream seals are not
-implemented. ADR 0059's shared HTTP surface is a target, not a shipped API
-on the reconciliation baseline `6acf9733` (PR #211).
+At the delivery baseline `93500b020f220beabeaef69786c309a36b37f0a2`, the
+shared Round runtime, Room launch/read projections, media adapter and local
+device checks exist. Shared competitive command/ballot/media registration,
+integrated browser media, capture worker, durable session/capture/freeze jobs
+and complete live journeys remain outstanding. The policy below describes
+the selected target, not proof that these producers are implemented.
 
 The live call must use the same competitive authority for humans and bots:
 frozen RoundRules, authoritative round participants, durable segment
@@ -65,6 +67,8 @@ A pure policy in `@daisy/debate-engine` receives authoritative participant seats
 - Judge seats subscribe hidden and publish nothing. Data, own metadata updates, screen sharing and room administration are never granted.
 - Completed or abandoned rounds, and sessions beyond the judging window, grant nothing.
 
+The live Round route admits human judges through the fresh protected own-seat read, including before transcript freeze. Its judge view follows canonical Round revisions and the same media session factory, with debater tiles only, no competitive command or attendance controls, and a native ballot link. The media admission service independently derives subscribe-only grants from the current assigned seat; a client view never chooses judge authority.
+
 VIDEO-2.2 hydrates and ticks at injected `now` before diffing grants. Segment opening/closure and runtime effects exist durably; clients receive projections, never authority to grant themselves a microphone. Reconcile is triggered by connect, another participant connecting, accepted commands (including yield and interruption), segment/prep/floor changes, projected clock expiry and judging-window expiry. A projected expiry triggers a server reread/tick; it is not a precomputed timetable for the whole Round. Client calls remain needed for token refresh/reconnect races. Do not claim that a human judge browser is present in AI practice.
 
 Reconcile serializes across web instances using a session-scoped PostgreSQL
@@ -86,9 +90,9 @@ each closure call. A universal 6.5 s bound is not established under
 contention or vendor outage. Fail closed and report scrubbed recovery state
 rather than claiming successful permissions or removal.
 
-Join tokens last 60 s for initial admission, carry only current grants, and never grant room create/admin/list/record. Refreshed credentials may outlive that TTL. Daisy creates a missing LiveKit room before minting; `room.auto_create` is false. Completion or abandonment deletes the LiveKit room after the competitive transaction commits and marks the session ended. Reconcile also tears down terminal/expired sessions. Failure reports are scrubbed and cannot change a committed result.
+Join tokens last 60 s for initial admission, carry only current grants, and never grant room create/admin/list/record. Refreshed credentials may outlive that TTL. Daisy creates a missing LiveKit room before minting; `room.auto_create` is false. Terminal commit closes admission and durably schedules deletion; session fencing serializes creation and terminal reconciliation. Persist uncertain vendor outcomes across restart and retry until absence is verified before claiming cleanup. Reconcile also tears down terminal/expired sessions. Failure reports are scrubbed and cannot change a committed result.
 
-The judging window is a planned bounded wait, default 30 minutes from the actual final segment close or scheduled end, whichever is earlier. It cannot be computed from a fixed total added to the initial start when prep, yields and interruption affect execution. Persist or derive an immutable final-end anchor in the owning media implementation; do not invent a second round lifecycle.
+The judging window is a bounded wait, default 30 minutes from actual final segment close (ADR 0067 supersedes the earlier scheduled-end alternative). It cannot be computed from a fixed total added to the initial start when prep, yields and interruption affect execution. Persist or derive an immutable final-end anchor in the owning media implementation; do not invent a second round lifecycle.
 
 ### 4. Tokens, route ownership and teardown
 
@@ -319,6 +323,23 @@ with zero data retention, held in bounded memory and never stored on disk.
 The privacy processor inventory and retention erasure obligations remain
 tracked work (ISSUE-333 and ISSUE-322); this ADR does not claim either shipped.
 
+## Native publication adapter
+
+Use the pinned prebuilt `@livekit/rtc-node` 1.2.0 / FFI 0.13.1 zero-buffer
+source path for exact 10ms PCM frames. Official version sources and dependency
+rationale are recorded in [the dependency registry](../dependencies.md#round-media-vendor-adapter).
+Its native acknowledgement follows synchronous source sink handoff. Buffered
+queue duration, drain timers and subscriber totals provide no publication
+eligibility evidence. No repository Rust implementation is introduced.
+
+The actual Bun consumer paces frames and requires their complete conservative
+server-clock uncertainty window to fit committed historical speaking authority.
+[Native publication timing](../architecture/native-audio-publication.md) defines
+the calibration endpoint extrema, 100ppm drift, refresh bounds, gaps and
+cancellation rules. Raw handoff progress never directly creates transcript
+credit. Independent clock-delta branch feedback is zero findings at edfc3038;
+full capture, provider composition, browser and worker acceptance remain separate.
+
 ## Consequences
 
 - Media sessions extend the existing Round model. No second lifecycle,
@@ -333,7 +354,12 @@ tracked work (ISSUE-333 and ISSUE-322); this ADR does not claim either shipped.
 - Integrated proof uses durable human/bot/judge casts and actual CAP start:
   human camera, bot portrait/LiveKit voice, runtime grants, human capture,
   eligible bot transcript, frozen input and real ballot, then media teardown.
-  It proves both complete coverage and honest partial coverage reaching judging.
+  Under [DEC-190](https://pagespace.ai/dashboard/lguvh1y1ejhadk96xcftohha/plem8tqexq7oonyq0jnwpfap),
+  genuine complete storage/seal proof is separate from native integration proof.
+  Native integration must carry real retained eligible audio and honest partial
+  coverage through immutable freeze and real shared judging. The exact replacement
+  obligations and retained historical clause are in
+  [ADR 0067](0067-playable-round-policy-and-acceptance.md#capture-proof-applicability-dec-190).
 - Capture-policy proofs distinguish grants from segment membership: pre-first,
   inter-segment and awaiting-ballot microphones may publish but never produce
   clips, STT calls or utterances. Reject forged adjacent segment IDs and
@@ -350,13 +376,14 @@ tracked work (ISSUE-333 and ISSUE-322); this ADR does not claim either shipped.
   permission removal cannot be promised within a fixed bound during total
   LiveKit API outage. Retry and report the outage.
 
-## Owner-confirmed policies (2026-10-05)
+## Policy provenance
 
 DEC-97: server-enforced microphone grants and reconcile. DEC-98: hidden judge,
 opaque media identities. DEC-99: shared self-hosted LiveKit and media adapter.
 DEC-100: standard definition. DEC-101: private text transcripts, 180 days.
-DEC-109: human Ready device check needs JavaScript. DEC-113: explicit room
-create/delete, auto-create off. DEC-114 overruled: server capture for human
+DEC-109: human Ready device check needs JavaScript. DEC-113 was pending in
+PageSpace despite earlier wording here; ADR 0067 now selects explicit room
+create/delete and auto-create off under delegated authority. DEC-114 overruled: server capture for human
 live-media rounds. DEC-117: hidden dependent capture subscriber and signed
 internal handoff. DEC-118: missing audio never voids or unrates ranked play.
 
@@ -367,12 +394,10 @@ device seam is `jbwazos3l1kh6w0jmcptwn8u`; room-first prerequisites are
 `qkfwh6u8zwvo2ln20a1vf94r`. These artifacts establish design/task direction,
 not an implemented contract or shared-resource writer handoff.
 
-VIDEO-3.6's obsolete browser-recorder proof remains untouched Ready/unclaimed
-until its explicit reviewed disposition is applied. Its criteria/history
-are retained, not another shared-media implementation assignment. CAP must
-align ADR0058/0059's browser-report/media-retrieval language with the selected
-publication authority before dependent integration; this proposed ADR does
-not silently rewrite accepted records.
-
-These policy confirmations and planning review do not accept the ADR, sign off the media design,
-complete any implementation leaf, or provision production.
+VIDEO-3.6's browser-recorder criteria remain historical: server capture and
+publication accounting replace that transport, with shared-browser proof
+carried by VIDEO-4.1 and ROOM-6.2. No obsolete recorder fallback is retained.
+ADR 0067 maps the replacement obligations and honest capture/freeze states.
+Architecture and delegated design selection permit building; independent
+exact-candidate review and real service/browser/provider evidence still
+decide implementation acceptance. Production provisioning remains human-only.

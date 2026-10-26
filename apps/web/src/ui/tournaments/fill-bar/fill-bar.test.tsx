@@ -35,20 +35,16 @@ describe('FillBar', () => {
   });
 });
 
-describe('fill tones', () => {
-  test('the stage tone reads on the dark stage', () => {
+describe('fill classes', () => {
+  test('an accent bar on a strong-border track', () => {
     assert({
-      given: 'both tones at 50 percent',
-      should: 'use accent on the page and stage accent on the stage',
-      actual: [
-        fillBarClass(50, 'default'),
-        fillBarClass(50, 'stage'),
-        fillTrackClass('stage').includes('border-stage-ink-muted'),
-      ],
+      given: 'a half-full bar',
+      should:
+        'fill six twelfths in the accent on a track that still shows on tinted cards',
+      actual: [fillBarClass(50), fillTrackClass()],
       expected: [
         'block h-full rounded-round bg-accent w-6/12',
-        'block h-full rounded-round bg-stage-accent w-6/12',
-        true,
+        'block h-1 w-full overflow-hidden rounded-round bg-border-strong',
       ],
     });
   });

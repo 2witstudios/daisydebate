@@ -3,10 +3,13 @@ import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import { type RoundProjection } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { drizzle } from 'drizzle-orm/bun-sql';
 import { createDatabase } from '../src';
+import { newRoomValues } from '../src/room-operations';
+import { rooms } from '../src/schema/rooms';
 import {
   oneOnOneDefinition,
-  practiceRoomConfig,
+  oneOnOneRoomConfig,
 } from '../src/reference-formats';
 import { validConfig, validRules } from './round-fixtures';
 import { withFixture } from './constraint-helpers';
@@ -38,7 +41,6 @@ test('two ranked rooms may pin the same approved preset', async () => {
       format_version: 1,
       preset_version: 1,
       competition_type: 'ranked',
-      length: 'full',
       config: validConfig,
       execution_plan: { preRoundPrep: { enabled: false } },
       rules_snapshot: validRules,
@@ -91,21 +93,27 @@ test('a room waits for every seat and finishes durable pre-round prep before fre
     fixture.track('rounds', roundId);
     const database = createDatabase({ url, nextActorId: createId });
     try {
-      await database.createRoom({
-        id: roomId,
-        hostActorId: await fixture.actor(),
-        title: 'Prep proof',
-        topic: 'A motion',
-        visibility: 'public',
-        formatId,
-        formatVersion: 1,
-        presetVersion: null,
-        competitionType: 'practice',
-        length: 'full',
-        config: { ...practiceRoomConfig, preRoundPrep: prep },
-        executionPlan: { preRoundPrep: prep },
-        rules,
-      });
+      await drizzle({ client: fixture.sql })
+        .insert(rooms)
+        .values(
+          newRoomValues(
+            {
+              id: roomId,
+              hostActorId: await fixture.actor(),
+              title: 'Prep proof',
+              topic: 'A motion',
+              visibility: 'public',
+              formatId,
+              formatVersion: 1,
+              presetVersion: null,
+              competitionType: 'casual',
+              config: { ...oneOnOneRoomConfig, preRoundPrep: prep },
+              executionPlan: { preRoundPrep: prep },
+              rules,
+            },
+            'assembling',
+          ),
+        );
       for (const [role, slot] of [
         ['affirmative', 0],
         ['negative', 0],

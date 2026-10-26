@@ -38,7 +38,6 @@ test('createRound stores rules_snapshot as a real jsonb object, not a double-enc
         createdByActorId: null,
         resolution: 'jsonb storage proof',
         competitionType: 'casual',
-        length: 'full',
         formatId,
         formatVersion: 1,
         presetVersion: null,
@@ -114,7 +113,6 @@ test('a non-object jsonb write fails with a typed VALIDATION error before any ro
             createdByActorId: null,
             resolution: 'jsonb shape proof',
             competitionType: 'casual',
-            length: 'full',
             formatId: 'foundation',
             formatVersion: 1,
             presetVersion: null,
@@ -148,13 +146,13 @@ test('every jsonb column refuses a scalar written around the application (ISSUE-
   await withFixture(url, async (fixture) => {
     const scalar = 'a bare string';
     const roundId = await fixture.round();
+    const freezeRevision = await fixture.freeze(roundId);
     const judge = (await fixture.seat(roundId, 'judge')).id;
     const refusals = {
       rules_snapshot: await fixture.rejectedBy('rounds', {
         id: createId(),
         resolution: 'r',
         competition_type: 'casual',
-        length: 'full',
         format_id: 'foundation',
         format_version: 1,
         rules_snapshot: scalar,
@@ -173,6 +171,8 @@ test('every jsonb column refuses a scalar written around the application (ISSUE-
       scores: await fixture.rejectedBy('ballots', {
         id: createId(),
         judge_participant_id: judge,
+        round_id: roundId,
+        freeze_revision: freezeRevision,
         rubric_version: 'speaker-10@1',
         winner: 'affirmative',
         scores: scalar,
@@ -219,6 +219,7 @@ test('ballots.scores and round_commands.result round-trip as jsonb objects throu
   await withFixture(url, async (fixture) => {
     const database = drizzle({ client: fixture.sql });
     const roundId = await fixture.round();
+    const freezeRevision = await fixture.freeze(roundId);
     const judge = (await fixture.seat(roundId, 'judge')).id;
     const ballotId = createId();
     const commandId = createId();
@@ -244,6 +245,8 @@ test('ballots.scores and round_commands.result round-trip as jsonb objects throu
     await database.insert(ballots).values({
       id: ballotId,
       judgeParticipantId: judge,
+      roundId,
+      freezeRevision,
       rubricVersion: 'speaker-10@1',
       winner: 'affirmative',
       scores,

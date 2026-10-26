@@ -71,7 +71,7 @@ export function CreateAssemblyFields({
             Unlisted — join through the room link
           </option>
           <option value="public">Public — show in the Lobby</option>
-          <option value="private">Private</option>
+          {/* Private returns with an invite path (ISSUE-443, DEC-206). */}
         </select>
       </FormField>
       <FormError error={state.error} />

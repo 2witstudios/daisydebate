@@ -74,7 +74,7 @@ export type Actor = {
   readonly eligible: boolean;
 };
 export const actorFact = async (
-  tx: Tx,
+  tx: Pick<BunSQLDatabase, 'select'>,
   actorId: string,
 ): Promise<Actor | null> => {
   const [row] = await tx
@@ -170,7 +170,6 @@ export const roomState = async (
     formatVersion: row.formatVersion,
     presetVersion: row.presetVersion,
     competitionType: row.competitionType,
-    length: row.length,
     definition: revision.definition,
     config: row.config,
     executionPlan: row.executionPlan,

@@ -10,7 +10,7 @@ import {
 import {
   foundationDefinition,
   oneOnOneDefinition,
-  oneOnOneFullConfig,
+  oneOnOneRankedConfig,
 } from '@daisy/db/reference-formats';
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import { createRoomRuntimeOperations, type Store } from './operations';
@@ -28,7 +28,7 @@ export const account: AccountAuthorizationFact = {
 export const now = '2026-10-10T12:00:00.000Z';
 const resolved = resolveRoomConfiguration(
   oneOnOneDefinition,
-  oneOnOneFullConfig,
+  oneOnOneRankedConfig,
 );
 if (!resolved.ok)
   throw new Error('The reference one-on-one config must resolve');
@@ -37,7 +37,7 @@ export const state: RoomAssemblyState = {
   id: 'r4n6p8r2t4v6x8z1k3b5c7d9',
   version: 1,
   changeVersion: 1,
-  title: 'A persisted practice room',
+  title: 'A persisted casual room',
   topic: 'Cities should make transit free',
   visibility: 'public',
   hostActorId: caller.actorId,
@@ -47,9 +47,8 @@ export const state: RoomAssemblyState = {
   formatVersion: 1,
   presetVersion: null,
   competitionType: 'casual',
-  length: 'full',
   definition: oneOnOneDefinition,
-  config: oneOnOneFullConfig,
+  config: oneOnOneRankedConfig,
   executionPlan: resolved.roomPlan,
   rules: resolved.rules,
   participants: [
@@ -81,8 +80,7 @@ const catalog = [
         version: 1,
         formatId: 'one-on-one',
         formatVersion: 1,
-        length: 'full',
-        config: oneOnOneFullConfig,
+        config: oneOnOneRankedConfig,
       },
     ],
   },
@@ -101,11 +99,11 @@ export const launched: LaunchedRound = {
   roomId: state.id,
   version: 1,
   status: 'scheduled',
-  competitionType: 'practice',
+  competitionType: 'casual',
   topic: state.topic,
   visibility: 'private',
   hostActorId: caller.actorId,
-  config: oneOnOneFullConfig,
+  config: oneOnOneRankedConfig,
   rules: resolved.rules,
   participants: [
     {
@@ -120,18 +118,21 @@ export const launched: LaunchedRound = {
   startedAt: null,
   completedAt: null,
   outcome: null,
+  unjudgedRuling: null,
   checkpoint: emptyRuntimeCheckpoint,
   segments: [],
 };
+/** The host's own reading of the launched Round. */
 export const round: RoundView = (({ hostActorId, ...viewed }) => {
   void hostActorId;
-  return viewed;
+  return { ...viewed, viewerIsHost: true };
 })(launched);
 
 export function makeOperations(overrides: Partial<Store> = {}) {
   let createInput: Parameters<Store['createRoomCommand']>[0] | null = null;
   const base = {
     databaseNow: async () => now,
+    readRoundBotAdmissionStatus: async () => null,
     listRoomCatalogSources: async (
       _caller: typeof caller,
       authorize: (fact: AccountAuthorizationFact) => boolean,
@@ -222,7 +223,6 @@ export function makeOperations(overrides: Partial<Store> = {}) {
         hostLabel,
         status,
         competitionType,
-        length,
       } = state;
       return {
         rooms: authorize(state, account)
@@ -237,7 +237,6 @@ export function makeOperations(overrides: Partial<Store> = {}) {
                 hostLabel,
                 status,
                 competitionType,
-                length,
                 seated: true,
                 roundRef: null,
               },

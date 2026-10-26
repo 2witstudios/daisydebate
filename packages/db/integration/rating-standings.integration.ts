@@ -28,7 +28,7 @@ describe('rateDebate standings and refusals (RATE-1.3)', () => {
           actor_id: veteran,
           format_id: formatId,
           season_id: earlier,
-          ladder: 'quick',
+          ladder: 'ranked',
           rating: 1700,
           deviation: 60,
           volatility: 0.05,
@@ -38,14 +38,13 @@ describe('rateDebate standings and refusals (RATE-1.3)', () => {
       const { seasonId, roundId, negative } = await seated({
         formatId,
         affirmative: veteran,
-        length: 'quick',
       });
       const seen: RatingPlanFacts[] = [];
       await rate(roundId, stub(seen));
       assert({
-        given: 'a quick match by a debater rated only in an earlier season',
+        given: 'a ranked round by a debater rated only in an earlier season',
         should:
-          'load no current row and the earlier quick state, and leave the earlier row untouched',
+          'load no current row and the earlier ranked state, and leave the earlier row untouched',
         actual: {
           ladder: seen[0]?.ladder,
           season: seen[0]?.seasonId,
@@ -54,7 +53,7 @@ describe('rateDebate standings and refusals (RATE-1.3)', () => {
           ratings: await ratingsOf(fixture, veteran),
         },
         expected: {
-          ladder: 'quick',
+          ladder: 'ranked',
           season: seasonId,
           veteran: {
             current: null,
@@ -63,8 +62,8 @@ describe('rateDebate standings and refusals (RATE-1.3)', () => {
           },
           rival: { current: null, previous: null, lastRatedAt: null },
           ratings: [
-            { ladder: 'quick', rating: 1700, deviation: 60, version: 1 },
-            { ladder: 'quick', rating: 1710, deviation: 59, version: 1 },
+            { ladder: 'ranked', rating: 1700, deviation: 60, version: 1 },
+            { ladder: 'ranked', rating: 1710, deviation: 59, version: 1 },
           ],
         },
       });

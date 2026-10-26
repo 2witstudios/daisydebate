@@ -1,5 +1,6 @@
 import { createId } from '@paralleldrive/cuid2';
 import type {
+  CompetitionType,
   DebaterStanding,
   RatingPlanFacts,
   RatingState,
@@ -95,24 +96,21 @@ const completedRound = async (
     formatId: string;
     affirmative: string;
     negative: string;
-    length?: 'full' | 'quick';
-    competitionType?: 'ranked' | 'casual' | 'practice';
+    competitionType?: CompetitionType;
     outcome?: string;
     minute?: number;
   },
 ) => {
   const id = createId();
   const competitionType = input.competitionType ?? 'ranked';
-  const length = input.length ?? 'full';
   const ranked = competitionType === 'ranked';
-  if (ranked) await fixture.preset(input.formatId, length);
+  if (ranked) await fixture.preset(input.formatId);
   await fixture.insert('rounds', {
     id,
     room_id: null,
     created_by_actor_id: null,
     resolution: 'A resolution',
     competition_type: competitionType,
-    length,
     format_id: input.formatId,
     format_version: 1,
     preset_version: ranked ? 1 : null,
@@ -120,7 +118,7 @@ const completedRound = async (
     status: 'completed',
     current_stage: null,
     outcome: input.outcome ?? 'affirmative',
-    ladder_id: ranked ? (length === 'full' ? 'ranked' : 'quick') : null,
+    ladder_id: ranked ? 'ranked' : null,
     started_at: completedAt(0),
     completed_at: completedAt(input.minute ?? 30),
   });

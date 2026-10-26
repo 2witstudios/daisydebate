@@ -26,14 +26,26 @@ const workspaces: Workspace[] = root.workspaces.flatMap((pattern) =>
 );
 const dockerfile = readFileSync('apps/web/Dockerfile', 'utf8');
 
+// The three service images and the app each one runs (ISSUE-528): the web
+// app is the default target; realtime and the capture worker are their own
+// stages over the same server-source stage.
+const serviceStages = [
+  { stage: 'runtime', app: 'apps/web' },
+  { stage: 'realtime', app: 'apps/realtime' },
+  { stage: 'media-worker', app: 'apps/media-worker' },
+] as const;
+
 // Follow declared workspace edges, including dev edges for the build install.
-// Packages are shipped as source; realtime remains a separate deployment.
-const requiredWorkspaces = (all: Workspace[], production: boolean) => {
-  const required = new Set(
-    all.filter(
-      ({ path }) => path === 'apps/web' || path.startsWith('packages/'),
-    ),
-  );
+// Packages are shipped as source. The installs cover every service app; a
+// service stage needs its own app's graph (the web stage every package).
+const requiredWorkspaces = (
+  all: Workspace[],
+  production: boolean,
+  seed: (path: string) => boolean = (path) =>
+    serviceStages.some(({ app }) => app === path) ||
+    path.startsWith('packages/'),
+) => {
+  const required = new Set(all.filter(({ path }) => seed(path)));
   for (const workspace of required) {
     const dependencies = {
       ...workspace.dependencies,
@@ -57,14 +69,24 @@ const exportPaths = (exports: unknown): string[] => {
   return [];
 };
 
-const stageLines = (source: string, stage: string) => {
-  const stages = source.split(/^FROM .* AS /m).slice(1);
-  const lines = stages.find((value) => value.startsWith(`${stage}\n`));
-  if (!lines) throw new Error(`Missing Docker stage ${stage}`);
-  return lines
-    .split('\n')
-    .slice(1)
-    .filter((line) => !line.trim().startsWith('#'));
+const stageLines = (source: string, stage: string): string[] => {
+  const stages = source.split(/^FROM /m).slice(1);
+  const found = stages.find((value) =>
+    value.split('\n')[0]?.endsWith(` AS ${stage}`),
+  );
+  if (!found) throw new Error(`Missing Docker stage ${stage}`);
+  const [header = '', ...lines] = found.split('\n');
+  const parent = header.split(' AS ')[0] ?? '';
+  // A stage built FROM another stage inherits that stage's copies.
+  const inherited = stages.some((value) =>
+    value.split('\n')[0]?.endsWith(` AS ${parent}`),
+  )
+    ? stageLines(source, parent)
+    : [];
+  return [
+    ...inherited,
+    ...lines.filter((line) => !line.trim().startsWith('#')),
+  ];
 };
 
 // Deliberately enforce the image's explicit same-path COPY contract. A new
@@ -95,25 +117,34 @@ const imageProblems = (source: string, all = workspaces) => {
         problems.push(`${stage}: missing ${path}/package.json before install`);
     }
   }
-  const runtime = stageLines(source, 'runtime');
-  if (!copies(runtime, 'apps/web/src'))
-    problems.push('runtime: missing apps/web/src');
-  for (const workspace of requiredWorkspaces(all, true)) {
-    for (const path of new Set(
-      exportPaths(workspace.exports)
-        .filter((path) => path.startsWith('./src/'))
-        .map(() => `${workspace.path}/src`),
-    )) {
-      if (!copies(runtime, path)) problems.push(`runtime: missing ${path}`);
+  for (const { stage, app } of serviceStages) {
+    const lines = stageLines(source, stage);
+    if (!copies(lines, `${app}/src`))
+      problems.push(`${stage}: missing ${app}/src`);
+    const graph = requiredWorkspaces(
+      all,
+      true,
+      app === 'apps/web'
+        ? (path) => path === app || path.startsWith('packages/')
+        : (path) => path === app,
+    );
+    for (const workspace of graph) {
+      for (const path of new Set(
+        exportPaths(workspace.exports)
+          .filter((path) => path.startsWith('./src/'))
+          .map(() => `${workspace.path}/src`),
+      )) {
+        if (!copies(lines, path)) problems.push(`${stage}: missing ${path}`);
+      }
     }
   }
   return problems.sort();
 };
 
-describe('web and migrator Docker workspace inputs (ISSUE-405)', () => {
+describe('service image workspace inputs (ISSUE-405, ISSUE-528)', () => {
   test('the committed image includes the dependency graph before frozen installs and at runtime', () => {
     assert({
-      given: 'real workspace manifests and the shared web/migrator Dockerfile',
+      given: 'real workspace manifests and the shared service Dockerfile',
       should: 'have complete install and runtime inputs',
       actual: imageProblems(dockerfile),
       expected: [],
@@ -124,7 +155,7 @@ describe('web and migrator Docker workspace inputs (ISSUE-405)', () => {
     const copiesToRemove = dockerfile
       .split('\n')
       .filter((line) =>
-        /^COPY (?:--chown=\S+ )?(?:apps\/web|packages\/[^/]+)\/(?:package.json|src) /.test(
+        /^COPY (?:--chown=\S+ )?(?:apps\/(?:web|realtime|media-worker)|packages\/[^/]+)\/(?:package.json|src) /.test(
           line,
         ),
       );
@@ -174,12 +205,13 @@ describe('web and migrator Docker workspace inputs (ISSUE-405)', () => {
       exports: { '.': './src/index.ts' },
     });
     assert({
-      given: 'web → ingress → a previously unseen workspace',
+      given: 'web and realtime → ingress → a previously unseen workspace',
       should: 'require its manifest in both installs and its runtime source',
       actual: imageProblems(dockerfile, all),
       expected: [
         'deps: missing apps/new-runtime/package.json before install',
         'prod-deps: missing apps/new-runtime/package.json before install',
+        'realtime: missing apps/new-runtime/src',
         'runtime: missing apps/new-runtime/src',
       ],
     });
@@ -196,8 +228,14 @@ describe('web and migrator Docker workspace inputs (ISSUE-405)', () => {
         imageProblems(dockerfile.replace(copy, replacement)),
       ),
       expected: [
-        ['runtime: missing packages/ingress/src'],
-        ['runtime: missing packages/ingress/src'],
+        [
+          'realtime: missing packages/ingress/src',
+          'runtime: missing packages/ingress/src',
+        ],
+        [
+          'realtime: missing packages/ingress/src',
+          'runtime: missing packages/ingress/src',
+        ],
       ],
     });
   });

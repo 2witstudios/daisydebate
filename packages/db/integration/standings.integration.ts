@@ -109,7 +109,6 @@ describe('standings reads (RATE-1.4.1)', () => {
           1520,
         );
         await rated({ formatId, seasonId: third, ladder: 'ranked' }, 1530);
-        await rated({ formatId, seasonId: first, ladder: 'quick' }, 1540);
         await rated(
           { formatId: otherFormat, seasonId: first, ladder: 'ranked' },
           1550,
@@ -135,7 +134,7 @@ describe('standings reads (RATE-1.4.1)', () => {
           );
         assert({
           given:
-            'ratings in two asked seasons, a third season, the quick ladder and another format',
+            'ratings in two asked seasons, a third season and another format',
           should:
             'return exactly the ranked rows of that format in the two asked seasons, a tombstoned name as null',
           actual: bySeasonThenRating(read.ratings, (row) => row.rating).map(

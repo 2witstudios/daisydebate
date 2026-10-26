@@ -22,8 +22,10 @@ const doc = (version: number, label = 'read') => makeDoc(version, label);
 function harness({
   realtime = true,
   deadline,
+  onConnectionOpen,
 }: {
   readonly realtime?: boolean;
+  readonly onConnectionOpen?: () => void;
   readonly deadline?: (state: ResourceSync<Doc>) => number | null;
 } = {}) {
   const edges = driverEdges<ResourceRead<Doc>>();
@@ -45,6 +47,7 @@ function harness({
       return { authorizedSnapshot: () => edges.log.push('authorized'), close };
     },
     ...(deadline ? { deadline } : {}),
+    ...(onConnectionOpen ? { onConnectionOpen } : {}),
   });
   const bell = (version: number) =>
     edges.emit({
@@ -243,4 +246,24 @@ describe('resource sync driver', () => {
       },
     });
   });
+});
+
+test('one existing socket notifies attendance once per actual open generation', () => {
+  let opens = 0;
+  const socket = harness({
+    onConnectionOpen: () => {
+      opens += 1;
+    },
+  });
+  socket.connectionState({ status: 'open', generation: 1, terminal: null });
+  socket.connectionState({ status: 'open', generation: 1, terminal: null });
+  socket.connectionState({ status: 'closed', generation: 1, terminal: null });
+  socket.connectionState({ status: 'open', generation: 2, terminal: null });
+  assert({
+    given: 'initial open, repeated state, disconnect and real reconnect',
+    should: 'notify twice through the existing connection',
+    actual: opens,
+    expected: 2,
+  });
+  socket.driver.dispose();
 });

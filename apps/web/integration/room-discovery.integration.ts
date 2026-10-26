@@ -97,7 +97,6 @@ test('live discovery preserves frozen Round visibility and seats without Redis c
         'hostLabel',
         'status',
         'competitionType',
-        'length',
         'seated',
         'roundRef',
       ].sort(),
@@ -109,14 +108,11 @@ test('selected Room locks recheck visibility, participant and status races with 
   await withRoomRuntime(async (f) => {
     for (const change of ['visibility', 'seat', 'status'] as const) {
       const title = createId();
-      const view = (
-        await f.create({
-          title,
-          visibility: change === 'seat' ? 'private' : 'public',
-        })
-      ).view;
-      if (change === 'seat')
+      const view = (await f.create({ title, visibility: 'public' })).view;
+      if (change === 'seat') {
+        await f.sql`update rooms set visibility='private' where id=${view.id}`;
         await f.sql`insert into room_participants(id,room_id,actor_id,role,slot) values (${createId()},${view.id},${f.guest.actorId},'negative',0)`;
+      }
       await withHeld(async (holder, pid) => {
         await holder`select id from rooms where id=${view.id} for update`;
         const reading = f.operations.list(f.guest, { q: title, pageSize: 1 });

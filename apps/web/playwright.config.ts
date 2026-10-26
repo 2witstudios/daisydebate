@@ -1,5 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
-import { OPENROUTER_E2E_PLACEHOLDER } from './e2e/support/openrouter-stub';
+import { OPENROUTER_E2E_PLACEHOLDER } from '@daisy/ai-voice/testing';
 
 type Env = Readonly<Record<string, string | undefined>>;
 
@@ -162,7 +162,13 @@ export default defineConfig({
       testIgnore: [
         '**/visual.e2e.ts',
         '**/room-launch.e2e.ts',
+        '**/ballot.e2e.ts',
+        '**/round-journeys.e2e.ts',
+        '**/attendance.e2e.ts',
+        '**/round-media.e2e.ts',
         '**/debate-room.e2e.ts',
+        '**/round-commands.e2e.ts',
+        '**/round-command-recovery.e2e.ts',
         '**/realtime-room-delivery.e2e.ts',
         '**/messaging-realtime.e2e.ts',
       ],
@@ -210,8 +216,10 @@ export default defineConfig({
   webServer: [
     {
       // Keep structured server output beside Playwright's failure artifacts,
-      // one log per app port so concurrent suites never share a file.
-      command: `mkdir -p test-results && bun e2e/support/server.ts > test-results/server-${ports.app}.log 2>&1`,
+      // one log per app port so concurrent suites never share a file. exec:
+      // shutdown's SIGTERM would end a waiting shell at once, and Playwright
+      // would return while the server still drains and holds its ports.
+      command: `mkdir -p test-results && exec bun e2e/support/server.ts > test-results/server-${ports.app}.log 2>&1`,
       // Probe through the TLS edge, not the app port: the edge and the mail
       // capture live in the same wrapper process, so a reused server is only
       // accepted when all three listeners are up. Readiness, not liveness:
@@ -250,7 +258,7 @@ export default defineConfig({
         // workflow runs against this local e2e server.
         OPS_PROBE_TOKEN: 'e2e-ops-probe-token-placeholder-not-a-credential',
         // AI debates: an inert placeholder, which the e2e server answers
-        // with a local stub (e2e/support/openrouter-stub.ts). Setting
+        // with a local stub (@daisy/ai-voice/testing). Setting
         // E2E_OPENROUTER_API_KEY runs the same server against real
         // OpenRouter, for a live check by hand.
         OPENROUTER_API_KEY:
@@ -260,7 +268,7 @@ export default defineConfig({
     {
       // apps/realtime (ADR 0031): a plain Bun process, no Next build. One
       // log per port, matching web's own per-port naming above.
-      command: `mkdir -p ../web/test-results && bun src/start.ts > ../web/test-results/realtime-${ports.realtime}.log 2>&1`,
+      command: `mkdir -p ../web/test-results && exec bun src/start.ts > ../web/test-results/realtime-${ports.realtime}.log 2>&1`,
       cwd: '../realtime',
       url: `http://127.0.0.1:${ports.realtime}/health/live`,
       name: 'realtime',

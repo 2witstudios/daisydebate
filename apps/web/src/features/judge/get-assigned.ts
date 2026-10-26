@@ -1,24 +1,36 @@
+import type { RoundJudgeAssignment } from '@daisy/protocol';
 export type AssignedDebate = {
   readonly id: string;
   readonly title: string;
-  /** Where the debate stands, in words. */
   readonly status: string;
-  /** The ballot, once it opens. */
   readonly ballotHref: string;
+  readonly ballotLabel: string;
   readonly followHref: string;
 };
-
-/**
- * The Judge hub's one data seam: the debates assigned to this judge that
- * still need a ballot. Today it returns one sample debate; the backend read
- * of this judge's seats replaces this function and nothing else.
- */
-export const getAssignedDebates = (): readonly AssignedDebate[] => [
-  {
-    id: 'started',
-    title: 'Evening round, under way',
-    status: 'The last speech has ended. Your ballot is open.',
-    ballotHref: '/judge/ballot/started',
-    followHref: '/debates/started?turn=6&kind=person&as=judge',
-  },
-];
+/** Only actual own-seat assignments enter this projection; an empty list stays empty. */
+export const getAssignedDebates = (
+  assignments: readonly RoundJudgeAssignment[],
+): readonly AssignedDebate[] =>
+  assignments.map((assignment) => ({
+    id: assignment.roundId,
+    title: assignment.resolution,
+    status: assignmentStatus(assignment),
+    ballotHref: `/judge/ballot/${assignment.roundId}`,
+    ballotLabel: assignment.ballotStatus ? 'View ballot' : 'Open ballot',
+    followHref: `/rounds/${assignment.roundId}${assignment.status === 'active' || assignment.status === 'scheduled' ? '/room' : ''}`,
+  }));
+function assignmentStatus(a: RoundJudgeAssignment): string {
+  if (a.ballotStatus === 'voided')
+    return 'Your ballot is voided. A replacement cannot be submitted.';
+  if (a.status === 'completed' || a.status === 'abandoned')
+    return a.ballotStatus === 'submitted'
+      ? 'Your ballot and the Round result are recorded.'
+      : 'This Round is already decided. No ballot is due.';
+  if (a.ballotStatus === 'submitted')
+    return 'Your ballot is recorded. Other votes or attendance settlement are pending.';
+  if (a.freezeRevision !== null)
+    return 'The recorded transcript is frozen. Your ballot is open.';
+  return a.status === 'scheduled'
+    ? 'The Round has not started.'
+    : 'The Round is in progress. Your ballot opens after its recorded transcript is frozen.';
+}

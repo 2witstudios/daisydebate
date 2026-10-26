@@ -77,8 +77,8 @@ Options considered:
 ## Consequences
 
 - Each staging deploy builds the image twice, once per app, from the same
-  commit. Fly's remote builder is per organization, so the second build
-  reuses cached layers. Sharing one image across apps would need a registry
+  commit. Both builds run on the deploy job's GitHub runner (ISSUE-542),
+  so the second reuses the first's cached layers. Sharing one image across apps would need a registry
   pull between apps, which this decision does not rely on.
 - The owner must create the migrator app and its token, move the secret,
   and rotate the owner password, because the old value sat on web

@@ -9,6 +9,7 @@ import {
 import {
   compare,
   ownsSubscription,
+  AUTHORITY_UNAVAILABLE,
   readSubscriptionDecision,
   type AuthorizeSubscription,
   type Connection,
@@ -20,6 +21,7 @@ import {
 export function createSubscriptionDelivery({
   connections,
   authorize,
+  failed,
   publish,
   event,
   transport,
@@ -27,6 +29,7 @@ export function createSubscriptionDelivery({
 }: {
   readonly connections: Set<Connection>;
   readonly authorize: AuthorizeSubscription;
+  readonly failed: (error: unknown) => void;
   readonly publish: (topic: string, frame: ServerMessage) => void;
   readonly event: (row: OutboxRow) => ServerMessage;
   readonly transport: SubscriptionTransport;
@@ -84,9 +87,12 @@ export function createSubscriptionDelivery({
       authorize,
       connection,
       topic,
+      failed,
     );
     if (!ownsSubscription(connection, topic, sub) || !sub.lease.owns(attempt))
       return 'superseded' as const;
+    // Nothing is published without a fresh allow; the next revalidation retries.
+    if (decision === AUTHORITY_UNAVAILABLE) return 'unavailable' as const;
     if (!decision || !sub.lease.accept(attempt, decision.validUntil)) {
       transport.detach(connection, topic, sub);
       return 'denied' as const;
@@ -138,10 +144,12 @@ export function createSubscriptionDelivery({
       authorize,
       connection,
       frame.topic,
+      failed,
     );
     if (
       !ownsSubscription(connection, frame.topic, sub) ||
-      !sub.lease.observes(observation)
+      !sub.lease.observes(observation) ||
+      decision === AUTHORITY_UNAVAILABLE
     )
       return;
     if (!decision) {
@@ -180,7 +188,16 @@ export function createSubscriptionDelivery({
   async function deliverTo(connection: Connection, row: OutboxRow) {
     const sub = connection.topics.get(row.topic);
     if (!sub?.attached) return;
-    if ((await refresh(connection, row.topic, sub)) !== 'allowed') return;
+    const outcome = await refresh(connection, row.topic, sub);
+    // The event cannot be authorized now: the subscriber re-reads and asks
+    // again rather than missing it silently (ISSUE-445-r2).
+    if (outcome === 'unavailable')
+      transport.resync(
+        connection,
+        { id: sub.requestId, topic: row.topic },
+        sub,
+      );
+    if (outcome !== 'allowed') return;
     // The current lease is checked after the final await, immediately before publish.
     publishRow(connection, row, sub);
   }
@@ -192,7 +209,7 @@ export function createSubscriptionDelivery({
     if (sub.initializing) return;
     if (!sub.lease.current()) transport.detach(connection, topic, sub);
     const outcome = await refresh(connection, topic, sub);
-    if (outcome === 'superseded') return;
+    if (outcome === 'superseded' || outcome === 'unavailable') return;
     if (outcome === 'denied') {
       if (ownsSubscription(connection, topic, sub))
         connection.topics.delete(topic);

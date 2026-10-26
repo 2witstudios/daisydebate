@@ -1,3 +1,4 @@
+import { roundWorkerDatabaseOptions } from './round-worker-policy';
 import type { MessagingFileRuntime } from '../features/messaging/files/runtime';
 import { readRealtimePublicUrl } from '@daisy/config';
 import type { MessagingRuntimePolicy } from '../features/messaging/composition';
@@ -33,6 +34,8 @@ export type AppDependencies = {
   readonly fetch: Fetch;
   readonly clock: Clock;
   readonly ids: IdGenerator;
+  /** OS-CSPRNG bearer capability, supplied only by the process edge. */
+  readonly nextWorkerToken?: () => string;
   /** Where log lines go; standard output when omitted. */
   readonly logDestination?: { readonly write: (line: string) => void };
   /**
@@ -66,6 +69,7 @@ export function createApp({
   fetch,
   clock,
   ids,
+  nextWorkerToken,
   logDestination,
   afterResponseLimits,
   redisClient,
@@ -94,6 +98,13 @@ export function createApp({
     url: config.DATABASE_URL,
     eventSink: logger.log,
     nextActorId: () => ids.next(),
+    ...roundWorkerDatabaseOptions(
+      config.ROUND_BOT_WORKER_POLICY,
+      nextWorkerToken,
+    ),
+    ...(config.AI_ROUND_BUSY_CAP === undefined
+      ? {}
+      : { botBusyCap: config.AI_ROUND_BUSY_CAP }),
   });
   let authConfig: AuthConfig | undefined;
   let auth: AuthServer | undefined;

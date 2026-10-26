@@ -34,7 +34,6 @@ describe('onboarding answers (ONB-1.4)', () => {
           club: null,
           experience: null,
           formats: [],
-          length: null,
           topics: [],
           completedAt: null,
         },
@@ -55,7 +54,6 @@ describe('onboarding answers (ONB-1.4)', () => {
           step: 'experience',
           experience: 'class',
           formats: ['one-on-one'],
-          length: 'quick',
         });
         await database.saveOnboardingStep(userId, {
           step: 'topics',
@@ -77,7 +75,6 @@ describe('onboarding answers (ONB-1.4)', () => {
           club: 'starting',
           experience: 'class',
           formats: ['one-on-one'],
-          length: 'quick',
           topics: ['ethics', 'law'],
           completedAt: null,
         },

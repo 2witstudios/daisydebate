@@ -16,7 +16,7 @@ test('a workspace includes library documents and only its referenced scratch doc
     );
     const otherRound = createId();
     await fixture.sql.unsafe(
-      'insert into rounds (id, resolution, competition_type, length, format_id, format_version, rules_snapshot, status) select $1, resolution, competition_type, length, format_id, format_version, rules_snapshot, status from rounds where id = $2',
+      'insert into rounds (id, resolution, competition_type, format_id, format_version, rules_snapshot, status) select $1, resolution, competition_type, format_id, format_version, rules_snapshot, status from rounds where id = $2',
       [otherRound, roundId],
     );
     const unrelated = await database.createDocument(

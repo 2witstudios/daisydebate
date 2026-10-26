@@ -23,27 +23,6 @@ export function splitSentences(text: string): string[] {
 }
 
 /**
- * Turns streamed text into whole sentences as soon as each completes, so a
- * speech can start being voiced before the model finishes writing it.
- */
-export function createSentenceBuffer() {
-  let pending = '';
-  return {
-    push(delta: string): string[] {
-      pending += delta;
-      const parts = pending.split(SENTENCE_END);
-      pending = parts.pop() ?? '';
-      return parts.map((part) => part.trim()).filter((part) => part.length > 0);
-    },
-    flush(): string[] {
-      const tail = pending.trim();
-      pending = '';
-      return tail ? [tail] : [];
-    },
-  };
-}
-
-/**
  * The longest phrase voiced in one request, in characters: two or three
  * sentences, so intonation carries across them, yet short enough that one
  * phrase plays for longer than the next takes to voice.
@@ -65,7 +44,7 @@ const SECOND_PHRASE_CHARS = 160;
  * only when the next sentence does not fit or the speech ends, so phrases
  * built as sentences stream in equal those of the finished text.
  */
-export function createPhraseBuffer(maxChars = PHRASE_CHARS) {
+function createPhraseBuffer(maxChars = PHRASE_CHARS) {
   let open: string[] = [];
   let emitted = 0;
   const close = () => {
@@ -104,19 +83,6 @@ export function phrasesOf(text: string, maxChars = PHRASE_CHARS): string[] {
     ...splitSentences(text).flatMap((sentence) => buffer.push(sentence)),
     ...buffer.flush(),
   ];
-}
-
-/**
- * The part of a spoken reply the listener heard before it was cut off, by
- * the share of its audio that played, cut back to a word boundary. The
- * voice returns no word timings, so this is a proportional estimate.
- */
-export function heardText(text: string, playedMs: number, totalMs: number) {
-  if (totalMs <= 0 || playedMs >= totalMs) return text;
-  if (playedMs <= 0) return '';
-  const cut = Math.floor((playedMs / totalMs) * text.length);
-  const boundary = text.slice(0, cut + 1).lastIndexOf(' ');
-  return (boundary > 0 ? text.slice(0, boundary) : text.slice(0, cut)).trim();
 }
 
 /** Voice under this long in a clip is silence, breath or a cough. */

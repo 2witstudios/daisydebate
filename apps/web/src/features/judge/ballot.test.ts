@@ -1,12 +1,7 @@
 import { ballotCategories, type BallotCategory } from '@daisy/protocol';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { postedForm } from '../../lib/testing/posted-form';
-import {
-  ballotDestination,
-  ballotView,
-  parseBallot,
-  parseBallotState,
-} from './ballot';
+import { parseBallot } from './ballot';
 
 setupRitewayBun();
 
@@ -48,22 +43,8 @@ describe('parseBallot', () => {
             reason: 'The affirmative answered the main objection.',
             feedback: { negative: 'Weigh your impacts against theirs.' },
           },
-          reportConduct: false,
         },
       },
-    });
-  });
-
-  test('a conduct report', () => {
-    const result = parseBallot(
-      postedForm({ ...valid, conduct: 'report' }),
-      debaters,
-    );
-    assert({
-      given: 'a ballot with the conduct box ticked',
-      should: 'accept it and ask for a report',
-      actual: result.ok && result.value.reportConduct,
-      expected: true,
     });
   });
 
@@ -144,42 +125,6 @@ describe('parseBallot', () => {
         'Confirm the low-point win, or change the scores.',
         'Confirm the low-point win, or change the scores.',
         true,
-      ],
-    });
-  });
-});
-
-describe('ballot state and view', () => {
-  test('the state from the address', () => {
-    assert({
-      given: 'no state, a known state and nonsense',
-      should: 'default to open',
-      actual: [
-        parseBallotState({}),
-        parseBallotState({ state: 'submitted' }),
-        parseBallotState({ state: 'zzz' }),
-      ],
-      expected: ['open', 'submitted', 'open'],
-    });
-  });
-
-  test('the three views', () => {
-    const open = ballotView('d', 'Evening', 'open', debaters);
-    assert({
-      given: 'the three ballot states',
-      should:
-        'give a waiting, an open view naming the debaters, and a submitted view',
-      actual: [
-        ballotView('d', 'Evening', 'waiting', debaters).kind,
-        open.kind === 'open' ? open.debaters.negative.name : null,
-        ballotView('d', 'Evening', 'submitted', debaters).kind,
-        ballotDestination('d'),
-      ],
-      expected: [
-        'waiting',
-        'Daniel Kim',
-        'submitted',
-        '/judge/ballot/d?state=submitted',
       ],
     });
   });

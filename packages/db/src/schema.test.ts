@@ -1,8 +1,10 @@
+import { getTableColumns } from 'drizzle-orm';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { actors } from './schema/actors';
 import { formatPresets } from './schema/format-presets';
 import { formatRevisions } from './schema/format-revisions';
 import { formats } from './schema/formats';
+import { memberOnboarding } from './schema/onboarding';
 import { rounds } from './schema/rounds';
 import { rooms } from './schema/rooms';
 import { users } from './schema/users';
@@ -66,7 +68,6 @@ describe('competitive schema rules', () => {
           checks: [
             'format_presets_config_is_object',
             'format_presets_format_version_positive',
-            'format_presets_length_check',
             'format_presets_version_positive',
           ],
           indexes: [
@@ -94,7 +95,6 @@ describe('competitive schema rules', () => {
             'rooms_competition_type_check',
             'rooms_config_is_object',
             'rooms_execution_plan_is_object',
-            'rooms_length_check',
             'rooms_ranked_has_preset_check',
             'rooms_rules_snapshot_is_object',
             'rooms_status_check',
@@ -122,8 +122,6 @@ describe('competitive schema rules', () => {
             'rounds_completed_after_started',
             'rounds_current_stage_check',
             'rounds_ladder_check',
-            'rounds_ladder_derivation_check',
-            'rounds_length_check',
             'rounds_lifecycle_check',
             'rounds_outcome_check',
             'rounds_ranked_has_preset_check',
@@ -133,6 +131,7 @@ describe('competitive schema rules', () => {
             'rounds_rules_snapshot_is_object',
             'rounds_runtime_state_is_object',
             'rounds_status_check',
+            'rounds_transcript_cutoff_check',
             'rounds_version_positive',
             'rounds_visibility_check',
           ],
@@ -151,6 +150,21 @@ describe('competitive schema rules', () => {
           ],
         },
       },
+    });
+  });
+
+  test('no table carries a length: Rounds are full length only (DEC-237)', () => {
+    const lengthColumns = (table: Parameters<typeof getTableColumns>[0]) =>
+      Object.values(getTableColumns(table))
+        .map((column) => column.name)
+        .filter((name) => name === 'length');
+    assert({
+      given: 'the rooms, rounds, presets and onboarding tables',
+      should: 'declare no length column',
+      actual: [rooms, rounds, formatPresets, memberOnboarding].map(
+        lengthColumns,
+      ),
+      expected: [[], [], [], []],
     });
   });
 });

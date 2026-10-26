@@ -73,9 +73,9 @@ const moreLink = (page: Page) =>
     .getByRole('navigation', { name: 'Primary' })
     .getByRole('link', { name: 'More' });
 
-const LIGHT_CHROME = [
-  '(prefers-color-scheme: light) → #f5f0e4',
-  '(prefers-color-scheme: dark) → #f5f0e4',
+const DARK_CHROME = [
+  '(prefers-color-scheme: light) → #0d1812',
+  '(prefers-color-scheme: dark) → #0d1812',
 ];
 
 const servedTheme = (html: string) =>
@@ -87,13 +87,13 @@ test.describe('theme preference', () => {
     await signUpMember(context.request);
   });
 
-  test('serves dark to a first-time visitor', async ({ page }) => {
+  test('serves light to a first-time visitor', async ({ page }) => {
     const verifyClean = await watchForProblems(page);
     const { html, group } = await openSettings(page);
 
-    expect(servedTheme(html)).toBe('dark');
-    await expect(group.getByRole('radio', { name: 'Dark' })).toBeChecked();
-    expect(await backgroundOf(page)).toBe(DARK_BACKGROUND);
+    expect(servedTheme(html)).toBe('light');
+    await expect(group.getByRole('radio', { name: 'Light' })).toBeChecked();
+    expect(await backgroundOf(page)).toBe(LIGHT_BACKGROUND);
     await verifyClean();
   });
 
@@ -103,17 +103,17 @@ test.describe('theme preference', () => {
     const verifyClean = await watchForProblems(page);
     const { group } = await openSettings(page);
 
-    await group.getByRole('radio', { name: 'Light' }).click();
-    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
-    await expect(group.getByRole('radio', { name: 'Light' })).toBeChecked();
-    await expect.poll(() => backgroundOf(page)).toBe(LIGHT_BACKGROUND);
-    await expect.poll(() => themeColors(page)).toEqual(LIGHT_CHROME);
+    await group.getByRole('radio', { name: 'Dark' }).click();
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    await expect(group.getByRole('radio', { name: 'Dark' })).toBeChecked();
+    await expect.poll(() => backgroundOf(page)).toBe(DARK_BACKGROUND);
+    await expect.poll(() => themeColors(page)).toEqual(DARK_CHROME);
 
     // No flash: the served HTML already carries the choice, before any JS.
     const reloaded = await page.reload();
-    expect(servedTheme((await reloaded?.text()) ?? '')).toBe('light');
-    await expect.poll(() => backgroundOf(page)).toBe(LIGHT_BACKGROUND);
-    await expect.poll(() => themeColors(page)).toEqual(LIGHT_CHROME);
+    expect(servedTheme((await reloaded?.text()) ?? '')).toBe('dark');
+    await expect.poll(() => backgroundOf(page)).toBe(DARK_BACKGROUND);
+    await expect.poll(() => themeColors(page)).toEqual(DARK_CHROME);
     await verifyClean();
   });
 
@@ -126,32 +126,32 @@ test.describe('theme preference', () => {
     await expect(page).toHaveURL(/\/settings$/);
     const group = await hydratedSwitcher(page);
 
-    await group.getByRole('radio', { name: 'Light' }).click();
-    await expect.poll(() => themeColors(page)).toEqual(LIGHT_CHROME);
+    await group.getByRole('radio', { name: 'Dark' }).click();
+    await expect.poll(() => themeColors(page)).toEqual(DARK_CHROME);
 
     // Back re-renders the cached dashboard; forward is a fresh client
     // navigation. Neither may bring back the pre-switch chrome color.
     await page.goBack();
     await expect(page).toHaveURL(/\/$/);
-    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
-    await expect.poll(() => themeColors(page)).toEqual(LIGHT_CHROME);
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    await expect.poll(() => themeColors(page)).toEqual(DARK_CHROME);
     await moreLink(page).click();
     await expect(page).toHaveURL(/\/settings$/);
-    await expect.poll(() => themeColors(page)).toEqual(LIGHT_CHROME);
+    await expect.poll(() => themeColors(page)).toEqual(DARK_CHROME);
     await verifyClean();
   });
 
   test('system follows the OS scheme live', async ({ page }) => {
     const verifyClean = await watchForProblems(page);
-    await page.emulateMedia({ colorScheme: 'light' });
+    await page.emulateMedia({ colorScheme: 'dark' });
     const { group } = await openSettings(page);
 
     await group.getByRole('radio', { name: 'System' }).click();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'system');
-    await expect.poll(() => backgroundOf(page)).toBe(LIGHT_BACKGROUND);
-
-    await page.emulateMedia({ colorScheme: 'dark' });
     await expect.poll(() => backgroundOf(page)).toBe(DARK_BACKGROUND);
+
+    await page.emulateMedia({ colorScheme: 'light' });
+    await expect.poll(() => backgroundOf(page)).toBe(LIGHT_BACKGROUND);
     await verifyClean();
   });
 
@@ -167,15 +167,15 @@ test.describe('theme preference', () => {
         { name: 'daisy-theme', value, url: baseURL ?? page.url() },
       ]);
 
-    // Another tab saved light while this one was hidden and missed the
+    // Another tab saved dark while this one was hidden and missed the
     // announcement; becoming visible again re-reads the cookie.
-    await saveTheme('light');
+    await saveTheme('dark');
     await page.evaluate(() =>
       document.dispatchEvent(new Event('visibilitychange')),
     );
-    await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
-    await expect(group.getByRole('radio', { name: 'Light' })).toBeChecked();
-    await expect.poll(() => themeColors(page)).toEqual(LIGHT_CHROME);
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+    await expect(group.getByRole('radio', { name: 'Dark' })).toBeChecked();
+    await expect.poll(() => themeColors(page)).toEqual(DARK_CHROME);
 
     // Restored from the back/forward cache: pageshow re-reads it too.
     await saveTheme('system');
@@ -195,14 +195,14 @@ test.describe('theme preference', () => {
     const { group } = await openSettings(first);
     await openSettings(second);
 
-    await group.getByRole('radio', { name: 'Light' }).click();
-    await expect(second.locator('html')).toHaveAttribute('data-theme', 'light');
+    await group.getByRole('radio', { name: 'Dark' }).click();
+    await expect(second.locator('html')).toHaveAttribute('data-theme', 'dark');
     await expect(
       second
         .getByRole('radiogroup', { name: 'Theme' })
-        .getByRole('radio', { name: 'Light' }),
+        .getByRole('radio', { name: 'Dark' }),
     ).toBeChecked();
-    await expect.poll(() => themeColors(second)).toEqual(LIGHT_CHROME);
+    await expect.poll(() => themeColors(second)).toEqual(DARK_CHROME);
     await verifyFirst();
     await verifySecond();
   });

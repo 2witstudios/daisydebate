@@ -20,8 +20,11 @@ type Seat = {
 };
 export type RoomDiscoveryFact = Pick<
   RoomListEntry,
-  'id' | 'version' | 'hostActorId' | 'visibility' | 'status'
+  'id' | 'version' | 'visibility' | 'status'
 > & {
+  readonly hostActorId: string;
+  /** The host occupies a human judge seat; who may name them is the caller's rule. */
+  readonly hostIsHumanJudge: boolean;
   readonly participants: readonly Seat[];
   readonly round: null | {
     readonly kind: 'round';
@@ -35,12 +38,13 @@ export type RoomDiscoveryFact = Pick<
 };
 const hostLabel = sql`case when h.kind = 'bot' then coalesce(b.name,'') when u.deleted_at is null then coalesce(u.username,'') else '' end`;
 const joins = sql`left join actors h on h.id=r.host_actor_id left join users u on u.id=h.user_id left join bot_profiles b on b.actor_id=h.id`;
+const hostIsHumanJudge = sql`(h.kind='human' and exists(select 1 from room_participants j where j.room_id=r.id and j.actor_id=r.host_actor_id and j.role='judge'))`;
 const visible = (caller: Caller) =>
   sql`(r.visibility='public' or r.host_actor_id=${caller.actorId} or exists(select 1 from room_participants p where p.room_id=r.id and p.actor_id=${caller.actorId} limit 1 offset 0))`;
 const roundVisible = (caller: Caller) =>
   sql`(d.visibility in ('public','unlisted') or d.created_by_actor_id=${caller.actorId} or exists(select 1 from round_participants p where p.round_id=d.id and p.actor_id=${caller.actorId} limit 1 offset 0))`;
 const search = (q: string) =>
-  sql`(${q}='' or strpos(lower(r.title),lower(${q}))>0 or strpos(lower(r.topic),lower(${q}))>0 or strpos(lower(${hostLabel}),lower(${q}))>0)`;
+  sql`(${q}='' or strpos(lower(r.title),lower(${q}))>0 or strpos(lower(r.topic),lower(${q}))>0 or (strpos(lower(${hostLabel}),lower(${q}))>0 and not ${hostIsHumanJudge}))`;
 /** Bound candidates before locks; a race may shorten a page, never trigger replenishment. */
 export async function discoverRooms(
   tx: Tx,
@@ -48,6 +52,7 @@ export async function discoverRooms(
   input: RoomListQuery,
   authorize: (fact: RoomDiscoveryFact, account: Account) => boolean,
   authorizeCollection: (account: Account) => boolean,
+  hostHidden: (fact: RoomDiscoveryFact) => boolean,
 ): Promise<RoomListPage> {
   const parsed = roomListQuerySchema.safeParse(input);
   if (!parsed.success) throw createAppError('VALIDATION');
@@ -85,7 +90,7 @@ export async function discoverRooms(
   if (!authorizeCollection(account)) throw createAppError('AUTHORIZATION');
   const rows = (await tx.execute(sql`
   select r.id,r.version,r.title,r.topic,r.visibility,r.host_actor_id as "hostActorId",
-   ${hostLabel} as "hostLabel",r.status,r.competition_type as "competitionType",r.length,
+   ${hostLabel} as "hostLabel",${hostIsHumanJudge} as "hostIsHumanJudge",r.status,r.competition_type as "competitionType",
    p.actor_id is not null as seated,p.role,p.slot,
    case when r.status='started' then json_build_object('id',d.id,'status',d.status) else null end as "roundRef",
    d.version as "roundVersion",d.created_by_actor_id as "roundCreator",d.visibility as "roundVisibility",rp.role as "roundRole",rp.slot as "roundSlot"
@@ -104,40 +109,42 @@ export async function discoverRooms(
     roundVisibility: RoomListEntry['visibility'];
     roundRole: string | null;
     roundSlot: number | null;
+    hostActorId: string;
+    hostIsHumanJudge: boolean;
   })[];
-  const entries = rows
-    .filter((r) =>
-      authorize(
-        {
-          ...r,
-          participants: r.seated
-            ? [{ actorId: caller.actorId, role: r.role!, slot: r.slot! }]
+  const fact = (r: (typeof rows)[number]): RoomDiscoveryFact => ({
+    ...r,
+    participants: r.seated
+      ? [{ actorId: caller.actorId, role: r.role!, slot: r.slot! }]
+      : [],
+    round: r.roundRef
+      ? {
+          kind: 'round',
+          roundId: r.roundRef.id,
+          status: r.roundRef.status,
+          revision: r.roundVersion,
+          createdByActorId: r.roundCreator,
+          visibility: r.roundVisibility,
+          participants: r.roundRole
+            ? [
+                {
+                  actorId: caller.actorId,
+                  role: r.roundRole,
+                  slot: r.roundSlot!,
+                },
+              ]
             : [],
-          round: r.roundRef
-            ? {
-                kind: 'round',
-                roundId: r.roundRef.id,
-                status: r.roundRef.status,
-                revision: r.roundVersion,
-                createdByActorId: r.roundCreator,
-                visibility: r.roundVisibility,
-                participants: r.roundRole
-                  ? [
-                      {
-                        actorId: caller.actorId,
-                        role: r.roundRole,
-                        slot: r.roundSlot!,
-                      },
-                    ]
-                  : [],
-              }
-            : null,
-        },
-        account,
-      ),
+        }
+      : null,
+  });
+  const entries = rows
+    .filter((r) => authorize(fact(r), account))
+    .map((r) =>
+      hostHidden(fact(r)) ? { ...r, hostActorId: null, hostLabel: null } : r,
     )
     .map(
       ({
+        hostIsHumanJudge: _hostJudge,
         role: _role,
         slot: _slot,
         roundVersion: _version,

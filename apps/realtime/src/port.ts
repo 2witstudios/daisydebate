@@ -1,3 +1,5 @@
+import { isIP } from 'node:net';
+
 /**
  * `REALTIME_PORT`, not `PORT`: `apps/web` already reads `PORT` for its own
  * listener, and `bun dev`/`bun dev:agent` run both apps in one environment.
@@ -13,4 +15,11 @@ export function parsePort(value: string | undefined, fallback: number): number {
   if (!Number.isInteger(parsed) || parsed < 1 || parsed > 65535)
     throw new Error(`Invalid REALTIME_PORT: ${value}`);
   return parsed;
+}
+
+/** `REALTIME_HOST`: the listen address as an IP literal, every interface when unset. */
+export function parseHostname(value: string | undefined): string {
+  if (value === undefined || value.trim() === '') return '0.0.0.0';
+  if (!isIP(value)) throw new Error(`Invalid REALTIME_HOST: ${value}`);
+  return value;
 }

@@ -1,4 +1,5 @@
 'use client';
+import { canOfferFreshRoom } from '../../../features/room-runtime/fresh-room';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -25,6 +26,7 @@ import { AssemblySeats } from './assembly-seats';
 import { RoomPrep } from './room-prep';
 import { RoomSettings } from './room-settings';
 import { RoomSyncContext } from './room-sync-context';
+import { MediaPageLink } from '../../round-media/media-page-link';
 
 type Props = {
   readonly view: RoomView;
@@ -129,10 +131,18 @@ export function RoomLive(props: Props) {
         action={props.commandAction}
         commandIds={ids.readiness}
       />
-      {view.roundRef ? (
-        <Link href={`/rounds/${view.roundRef.id}`} className="self-start">
-          View Round
+      {canOfferFreshRoom(view, props.actorId) ? (
+        <Link href={`/rooms/${view.id}/rematch`} className="self-start">
+          Create a fresh Room
         </Link>
+      ) : null}
+      {view.roundRef ? (
+        <MediaPageLink
+          href={`/rounds/${view.roundRef.id}`}
+          className="self-start"
+        >
+          View Round
+        </MediaPageLink>
       ) : null}
     </RoomSyncContext>
   );

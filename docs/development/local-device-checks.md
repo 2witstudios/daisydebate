@@ -26,6 +26,23 @@ Both current checks must pass for `devicesPassed`. Never persist or transmit
 raw device IDs, snapshots containing them, captured media or permission errors.
 Device identity serves only local selection and disappearance checks.
 
+A failed check is classified from the error name; the message is read only to
+recognise a system block and is never kept, shown or logged. `NotAllowedError`
+whose message says the system denied it (Chrome's "Permission denied by
+system") is `system-denied`; any other `NotAllowedError` or `SecurityError` is
+`permission-denied`, a site-level refusal. Both report `denied`.
+`NotReadableError` is `device-in-use`; `NotFoundError` (Chrome on a Mac with no
+camera reports "Requested device not found") and `OverconstrainedError` (a
+selected device that is gone) are `device-missing`; the bounded observation
+timeout (`TimeoutError`: the device opened but sent no frame or level) is
+`no-signal`. These and any other failure (`check-failed`) report `unavailable`.
+The device check names the remedy: the operating system's privacy setting for
+the browser (macOS System Settings › Privacy & Security), the browser's site
+settings then a reload, closing the other app, connecting a device or using
+Continuity Camera, or making sure nothing covers or mutes the device. Other
+browsers report a system block as a plain `NotAllowedError`, so it reads as a
+site denial there.
+
 Selection changes, track ending, device disappearance and permission denial
 clear local eligibility. Late generations cannot restore it. Track-ending
 and permission events invalidate immediately; polling also detects an externally
@@ -41,8 +58,16 @@ Neither local passed checks nor a resolved local promise establish server Ready.
 SSR/no JavaScript supplies no passed checks; judges have their native no-JS path
 and bot eligibility is server-owned.
 
-Only `/rooms/:id` allows self camera/microphone through Permissions-Policy;
-other routes deny capture. Local preview joins no LiveKit session and mints no
+Only the round media pages (`roundMediaPages`: `/rooms/:id`, `/rounds/:id`,
+`/rounds/:id/room`) allow self camera/microphone through Permissions-Policy;
+other routes deny capture. The policy binds to the document, so a client-side
+navigation into a media page would keep the previous page's deny. Links into
+media pages are `MediaPageLink` anchors, `replaceRoute` loads a media page as a
+document when the current one lacks its policy, and every media page renders
+`MediaDocument`, which reloads a document that arrived stale by any other path.
+`media-entry.test.ts` fails on a `next/link` or router call that targets a media
+page, and `media-navigation.e2e.ts` reaches a working camera by lobby click and
+by Create Room. Local preview joins no LiveKit session and mints no
 token. A frozen scheduled Round receipt is not active media authority. Historical
 segment-bound transcript capture, grants and workers are separate producers.
 

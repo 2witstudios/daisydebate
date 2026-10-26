@@ -1,10 +1,16 @@
-import Link from 'next/link';
 import type { RoundView } from '@daisy/protocol';
 import { seatLabel } from '../room-page/assembly-controls';
+import { MediaPageLink } from '../../round-media/media-page-link';
 
 export type RoundReceiptView = Pick<
   RoundView,
-  'id' | 'roomId' | 'status' | 'topic' | 'participants' | 'outcome'
+  | 'id'
+  | 'roomId'
+  | 'status'
+  | 'topic'
+  | 'participants'
+  | 'outcome'
+  | 'unjudgedRuling'
 > & {
   readonly config: Pick<RoundView['config'], 'preRoundPrep'>;
   readonly rules: Pick<
@@ -20,6 +26,18 @@ const statusLabel: Readonly<Record<RoundView['status'], string>> = {
   abandoned: 'Abandoned',
 };
 
+/**
+ * No outcome: an incomplete transcript no AI judge may rule on (DEC-208), no
+ * judges, or judges who did not rule by the deadline (DEC-201).
+ */
+const resultText = (round: RoundReceiptView) =>
+  round.outcome
+    ? resultLabel[round.outcome]
+    : round.unjudgedRuling === 'transcript-incomplete'
+      ? 'Transcript incomplete'
+      : round.participants.some((seat) => seat.role === 'judge')
+        ? 'Judges did not rule'
+        : 'Unjudged';
 const resultLabel: Readonly<Record<NonNullable<RoundView['outcome']>, string>> =
   {
     affirmative: 'Affirmative won',
@@ -57,13 +75,15 @@ export function RoundReceipt({ round }: { readonly round: RoundReceiptView }) {
           Round · {statusLabel[round.status]}
         </p>
         <h1 className="text-2xl font-strong text-ink">{round.topic}</h1>
-        {round.outcome ? (
+        {round.outcome || round.status === 'completed' ? (
           <p className="text-lg font-strong text-ink">
-            Result · {resultLabel[round.outcome]}
+            Result · {resultText(round)}
           </p>
         ) : null}
         <p className="text-ink-muted">Media is not available yet.</p>
-        <Link href={`/rooms/${round.roomId}`}>Return to room</Link>
+        <MediaPageLink href={`/rooms/${round.roomId}`}>
+          Return to room
+        </MediaPageLink>
       </header>
       <section
         aria-label="Frozen cast"

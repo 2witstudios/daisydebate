@@ -2,7 +2,6 @@ import type {
   clubChoices,
   experienceChoices,
   formatChoices,
-  lengthChoices,
   topicChoices,
   wantChoices,
 } from '@daisy/protocol';
@@ -31,10 +30,6 @@ export const experienceLabels: Record<
 export const formatLabels: Record<(typeof formatChoices)[number], string> = {
   'one-on-one': 'One-on-one',
   teams: 'Teams',
-};
-export const lengthLabels: Record<(typeof lengthChoices)[number], string> = {
-  quick: 'Quick',
-  full: 'Full length',
 };
 export const topicLabels: Record<(typeof topicChoices)[number], string> = {
   politics: 'Politics',

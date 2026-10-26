@@ -2,7 +2,15 @@
 export type DeviceKind = 'camera' | 'microphone';
 export type DeviceLoss =
   'track-ended' | 'device-disappeared' | 'permission-denied';
-type Reason = DeviceLoss | 'selection-changed' | 'check-failed';
+/** Why a device check failed; the browser's raw message is never kept. */
+type Refusal =
+  | 'permission-denied'
+  | 'system-denied'
+  | 'device-in-use'
+  | 'device-missing'
+  | 'no-signal'
+  | 'check-failed';
+type Reason = DeviceLoss | Refusal | 'selection-changed';
 type Status = 'unchecked' | 'checking' | 'passed' | 'denied' | 'unavailable';
 type Check = {
   readonly status: Status;
@@ -46,12 +54,33 @@ const initial = (): Check =>
     reason: null,
   });
 
-function failureReason(error: unknown): DeviceLoss | 'check-failed' {
-  const name =
-    error && typeof error === 'object' && 'name' in error ? error.name : '';
-  return name === 'NotAllowedError' || name === 'SecurityError'
-    ? 'permission-denied'
-    : 'check-failed';
+const DENIED = new Set<Reason>(['permission-denied', 'system-denied']);
+
+/** Chrome reports an operating-system privacy block as "Permission denied by system". */
+const SYSTEM_DENIAL = /\bby system\b/i;
+
+function failureReason(error: unknown): Refusal {
+  const field = (key: 'name' | 'message') =>
+    error && typeof error === 'object' && key in error
+      ? String((error as Record<typeof key, unknown>)[key])
+      : '';
+  switch (field('name')) {
+    case 'NotAllowedError':
+      return SYSTEM_DENIAL.test(field('message'))
+        ? 'system-denied'
+        : 'permission-denied';
+    case 'SecurityError':
+      return 'permission-denied';
+    case 'NotReadableError':
+      return 'device-in-use';
+    case 'NotFoundError':
+    case 'OverconstrainedError':
+      return 'device-missing';
+    case 'TimeoutError':
+      return 'no-signal';
+    default:
+      return 'check-failed';
+  }
 }
 
 export function createDeviceCheckController(edge: Edge) {
@@ -110,7 +139,7 @@ export function createDeviceCheckController(edge: Edge) {
         status:
           reason === 'selection-changed'
             ? 'unchecked'
-            : reason === 'permission-denied'
+            : DENIED.has(reason)
               ? 'denied'
               : 'unavailable',
         reason,

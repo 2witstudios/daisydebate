@@ -7,7 +7,7 @@ import {
   speakerTotal,
   type BallotCategory,
 } from '@daisy/protocol';
-import type { Side } from '../../../features/debates/turns';
+import type { DebateSide as Side } from '@daisy/protocol';
 import type { BallotDebaters } from '../../../features/judge/ballot';
 import { scoreField } from '../../../features/judge/ballot';
 import { cn } from '../../cn';
@@ -190,7 +190,7 @@ export function ScoreSheet({
               <span
                 className={cn(
                   ballotEyebrowClass,
-                  'basis-full break-words @ballot-sheet:hidden',
+                  'min-w-0 basis-full wrap-anywhere @ballot-sheet:hidden',
                   sideTextClass(side),
                 )}
                 aria-hidden="true"

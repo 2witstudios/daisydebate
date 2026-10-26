@@ -1,6 +1,6 @@
 import { resolve } from 'node:path';
 import { defineConfig } from '@playwright/test';
-import canonical from './room-launch-config';
+import canonical from '../../playwright.config';
 import { requireLaunchSlot } from './room-launch-slot';
 import { realtimeBrowserProcesses } from './realtime-config-support';
 

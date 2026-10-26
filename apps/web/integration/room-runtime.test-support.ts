@@ -18,7 +18,7 @@ export async function withRoomRuntime(
   run: (context: Awaited<ReturnType<typeof fixture>>) => Promise<void>,
   options: Pick<
     Parameters<typeof createDatabase>[0],
-    'client' | 'maxConnections'
+    'client' | 'maxConnections' | 'botBusyCap' | 'judging' | 'botPublication'
   > = {},
 ) {
   const f = await fixture(options);
@@ -31,7 +31,7 @@ export async function withRoomRuntime(
 async function fixture(
   options: Pick<
     Parameters<typeof createDatabase>[0],
-    'client' | 'maxConnections'
+    'client' | 'maxConnections' | 'botBusyCap' | 'judging' | 'botPublication'
   >,
 ) {
   const sql = new SQL(services.databaseUrl),
@@ -44,7 +44,15 @@ async function fixture(
     ...options,
   });
   const callers: { userId: string; actorId: string }[] = [],
-    rooms: string[] = [];
+    rooms: string[] = [],
+    bots: string[] = [];
+  const bot = async () => {
+    const actorId = createId();
+    await sql`insert into actors(id,kind) values (${actorId},'bot')`;
+    bots.push(actorId);
+    await sql`insert into bot_profiles(actor_id,name,persona,voice) values (${actorId},'Fixture judge','Assess only recorded evidence','test')`;
+    return { actorId };
+  };
   const caller = async () => {
     const userId = createId(),
       actorId = createId();
@@ -102,7 +110,6 @@ async function fixture(
         kind: 'catalog',
         formatId: 'foundation',
         formatVersion: 1,
-        length: 'full',
         competitionType: 'casual',
         config,
       },
@@ -131,6 +138,36 @@ async function fixture(
       (select coalesce(json_agg(o order by seq),'[]'::json) from outbox o where topic=${`room:${id}`}) outbox`;
     return JSON.stringify(r);
   };
+  const consent = (
+    who: typeof host,
+    view: RoomView,
+    type: 'ready' | 'unready',
+  ) =>
+    command(who, view, {
+      type,
+      expectedConsentVersion: view.participants
+        .filter(isNamedSeat)
+        .find((p) => p.actorId === who.actorId)!.consentVersion,
+    });
+  const seatBotOpponent = async (view: RoomView, actorId: string) => {
+    view = (
+      await command(host, view, {
+        type: 'claim-seat',
+        role: 'affirmative',
+        slot: 0,
+      })
+    ).view;
+    view = (
+      await command(host, view, {
+        type: 'assign-seat',
+        actorId,
+        role: 'negative',
+        slot: 0,
+      })
+    ).view;
+    return (await consent(host, await operations.view(host, view.id), 'ready'))
+      .view;
+  };
   const assemble = async (overrides: Partial<RoomCreate> = {}) => {
     let view = (await create(overrides)).view;
     view = (
@@ -148,14 +185,7 @@ async function fixture(
       })
     ).view;
     for (const c of [host, guest])
-      view = (
-        await command(c, view, {
-          type: 'ready',
-          expectedConsentVersion: view.participants
-            .filter(isNamedSeat)
-            .find((p) => p.actorId === c.actorId)!.consentVersion,
-        })
-      ).view;
+      view = (await consent(c, view, 'ready')).view;
     return operations.view(host, view.id);
   };
   return {
@@ -168,15 +198,11 @@ async function fixture(
     outsider,
     /** Another member, cleaned up with the rest. */
     member: caller,
+    bot,
     create,
     command,
-    consent: (caller: typeof host, view: RoomView, type: 'ready' | 'unready') =>
-      command(caller, view, {
-        type,
-        expectedConsentVersion: view.participants
-          .filter(isNamedSeat)
-          .find((p) => p.actorId === caller.actorId)!.consentVersion,
-      }),
+    consent,
+    seatBotOpponent,
     snapshot,
     assemble,
     openRoomLimit: (value: number) => {
@@ -220,13 +246,12 @@ async function fixture(
       try {
         for (const id of rooms) {
           await sql`delete from outbox where topic=${`room:${id}`}`;
-          await sql`delete from ballots where judge_participant_id in (select id from round_participants where round_id in (select id from rounds where room_id=${id}))`;
-          await sql`delete from utterances where round_id in (select id from rounds where room_id=${id})`;
-          await sql`delete from agent_runs where round_participant_id in (select id from round_participants where round_id in (select id from rounds where room_id=${id}))`;
           await sql`delete from outbox where topic in (select 'debate:' || id from rounds where room_id=${id})`;
           await sql`delete from rounds where room_id=${id}`;
           await sql`delete from rooms where id=${id}`;
         }
+        for (const actorId of bots)
+          await sql`delete from actors where id=${actorId}`;
         for (const c of callers) {
           const formats =
             await sql`select id from formats where created_by_actor_id=${c.actorId}`;

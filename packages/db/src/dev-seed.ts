@@ -11,7 +11,7 @@ import type { RoundRules } from '@daisy/protocol';
 
 /**
  * Dev and demo content for `bun db:seed` (ISSUE-8 AC4): fixed-id people,
- * each with a human actor, and one scheduled practice round. Reference
+ * each with a human actor, and one scheduled casual round. Reference
  * data (formats, revisions, presets, bots) is not seed content; the
  * migrations insert it (ADR 0038).
  */
@@ -102,8 +102,7 @@ export async function applyDevSeed({
           id: seed.round.id,
           createdByActorId: seed.round.createdByActorId,
           resolution: seed.round.resolution,
-          competitionType: 'practice',
-          length: 'full',
+          competitionType: 'casual',
           formatId: seed.round.formatId,
           formatVersion: seed.round.formatVersion,
           presetVersion: null,

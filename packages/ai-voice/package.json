@@ -4,16 +4,18 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./testing": "./src/testing.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "bun test src"
+    "test": "bun test src",
+    "proof:pcm": "bun scripts/prove-pcm.ts"
   },
   "dependencies": {
     "@daisy/errors": "workspace:*",
     "@daisy/protocol": "workspace:*",
-    "zod": "4.6.5"
+    "zod": "4.6.6"
   },
   "devDependencies": {
     "riteway": "9.3.0"

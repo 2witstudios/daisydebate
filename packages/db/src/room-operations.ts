@@ -1,5 +1,6 @@
 import { seatSlotsComplete } from '@daisy/protocol';
 import type {
+  CompetitionType,
   RoomConfig,
   RoomExecutionPlan,
   RoundRules,
@@ -11,7 +12,7 @@ import { instrumented, type DatabaseEventSink } from './instrumented';
 import { isUniqueViolation } from './unique-violation';
 import { roomParticipants, rooms } from './schema/rooms';
 import { roundParticipants } from './schema/round-participants';
-import { rounds } from './schema/rounds';
+import { roundLadder, rounds } from './schema/rounds';
 import { appendRoundPhaseChanged } from './round-projection-writer';
 
 export type NewRoom = {
@@ -23,21 +24,9 @@ export type NewRoom = {
   readonly formatId: string;
   readonly formatVersion: number;
   readonly presetVersion: number | null;
-  readonly competitionType: 'ranked' | 'casual' | 'practice';
-  readonly length: 'full' | 'quick';
+  readonly competitionType: CompetitionType;
   readonly config: RoomConfig;
   readonly executionPlan: RoomExecutionPlan;
-  readonly rules: RoundRules;
-};
-
-export type RoomRecord = {
-  readonly id: string;
-  readonly formatId: string;
-  readonly formatVersion: number;
-  readonly presetVersion: number | null;
-  readonly competitionType: string;
-  readonly length: string;
-  readonly status: string;
   readonly rules: RoundRules;
 };
 
@@ -54,7 +43,6 @@ export const newRoomValues = (
   formatVersion: room.formatVersion,
   presetVersion: room.presetVersion,
   competitionType: room.competitionType,
-  length: room.length,
   config: room.config,
   executionPlan: room.executionPlan,
   rulesSnapshot: room.rules,
@@ -92,32 +80,6 @@ export const roomOperations = ({
   readonly database: BunSQLDatabase;
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
-  async createRoom(room: NewRoom): Promise<RoomRecord> {
-    return instrumented(eventSink, 'createRoom', async () => {
-      try {
-        const [row] = await database
-          .insert(rooms)
-          .values(newRoomValues(room, 'assembling'))
-          .returning();
-        if (!row) throw new Error('Room insert returned no row');
-        return {
-          id: row.id,
-          formatId: row.formatId,
-          formatVersion: row.formatVersion,
-          presetVersion: row.presetVersion,
-          competitionType: row.competitionType,
-          length: row.length,
-          status: row.status,
-          rules: row.rulesSnapshot,
-        };
-      } catch (error) {
-        if (isUniqueViolation(error))
-          throw createAppError('CONFLICT', 'The room already exists', error);
-        throw error;
-      }
-    });
-  },
-
   /**
    * Seats one actor in the assembling Room; refused once the Room has
    * started, because assembly state stops at the freeze.
@@ -262,12 +224,6 @@ export const roomOperations = ({
           .where(eq(roomParticipants.roomId, input.roomId));
         if (!seatsComplete(room.rulesSnapshot.seats, seats))
           throw createAppError('INVARIANT', 'The room has incomplete seats');
-        const ladder =
-          room.competitionType === 'ranked'
-            ? room.length === 'full'
-              ? 'ranked'
-              : 'quick'
-            : null;
         await tx.insert(rounds).values({
           id: input.roundId,
           roomId: room.id,
@@ -276,13 +232,12 @@ export const roomOperations = ({
           visibility: room.visibility,
           resolution: input.resolution,
           competitionType: room.competitionType,
-          length: room.length,
           formatId: room.formatId,
           formatVersion: room.formatVersion,
           presetVersion: room.presetVersion,
           rulesSnapshot: room.rulesSnapshot,
           status: 'scheduled',
-          ladderId: ladder,
+          ladderId: roundLadder(room.competitionType),
         });
         await tx.insert(roundParticipants).values(
           seats.map((seat) => ({

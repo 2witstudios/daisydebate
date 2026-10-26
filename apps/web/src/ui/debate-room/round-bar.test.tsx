@@ -19,7 +19,7 @@ describe('RoundBar', () => {
   test('the unread badge on the closed drawer', () => {
     const html = renderToString(
       h(RoundBar, {
-        round: sampleRound('opponent-speaking', 'practice'),
+        round: sampleRound('opponent-speaking', 'casual'),
         drawerOpen: false,
         unread: 3,
         onToggleDrawer: () => {},

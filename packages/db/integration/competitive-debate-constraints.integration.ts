@@ -33,12 +33,6 @@ describe('rounds (DATA-2.1)', () => {
       const badCompetitionType = await rejected(() =>
         fixture.round({ competition_type: 'friendly' }),
       );
-      const quickLength = !(await rejected(() =>
-        fixture.round({ length: 'quick' }),
-      ));
-      const badLength = await rejected(() =>
-        fixture.round({ length: 'extended' }),
-      );
       const badOutcome = await rejected(() =>
         fixture.round({
           status: 'completed',
@@ -52,15 +46,13 @@ describe('rounds (DATA-2.1)', () => {
         given:
           'rounds authored by a user id, an unknown actor and a real actor',
         should:
-          'accept only the actor, keep it undeletable, accept the quick length and reject values outside each vocabulary',
+          'accept only the actor, keep it undeletable and reject values outside each vocabulary',
         actual: {
           byUser,
           byUnknownActor,
           byActor,
           actorDeleteBlocked,
           badCompetitionType,
-          quickLength,
-          badLength,
           badOutcome,
         },
         expected: {
@@ -69,8 +61,6 @@ describe('rounds (DATA-2.1)', () => {
           byActor: true,
           actorDeleteBlocked: true,
           badCompetitionType: true,
-          quickLength: true,
-          badLength: true,
           badOutcome: true,
         },
       });
@@ -107,11 +97,11 @@ describe('rounds (DATA-2.1)', () => {
           current_stage: 'countdown',
           started_at: at,
         })),
-        completedWithoutOutcome: await attempt({
+        completedUnjudgedCasual: !(await attempt({
           status: 'completed',
           started_at: at,
           completed_at: at,
-        }),
+        })),
         completedWithoutCompletedAt: await attempt({
           status: 'completed',
           started_at: at,
@@ -159,7 +149,7 @@ describe('rounds (DATA-2.1)', () => {
       assert({
         given: 'every status combined with its stage, timestamps and outcome',
         should:
-          'accept only coherent rows, including abandoned-before-start, and reject the rest',
+          'accept only coherent rows, including abandoned-before-start and casual completion without a winner, and reject the rest',
         actual: outcomes,
         expected: {
           activeWithoutStage: true,
@@ -167,7 +157,7 @@ describe('rounds (DATA-2.1)', () => {
           activeWithOutcome: true,
           activeWithCompletion: true,
           activeFull: true,
-          completedWithoutOutcome: true,
+          completedUnjudgedCasual: true,
           completedWithoutCompletedAt: true,
           completedFull: true,
           completedNeverStarted: true,

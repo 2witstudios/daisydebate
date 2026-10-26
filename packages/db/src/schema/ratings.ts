@@ -75,7 +75,7 @@ const ratingScope = () => ({
   seasonId: text('season_id')
     .notNull()
     .references(() => seasons.id, { onDelete: 'restrict' }),
-  /** Ranked or Quick match (ADR 0055): each is its own ladder. */
+  /** The rating ladder (ADR 0055); Ranked is the one ladder (DEC-238). */
   ladder: text('ladder').$type<RatingLadder>().notNull(),
 });
 

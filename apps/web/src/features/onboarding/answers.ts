@@ -2,13 +2,11 @@ import {
   clubChoices,
   experienceChoices,
   formatChoices,
-  lengthChoices,
   topicChoices,
   wantChoices,
   type Club,
   type Experience,
   type Format,
-  type Length,
   type Topic,
   type Want,
 } from '@daisy/protocol';
@@ -20,7 +18,6 @@ type AboutAnswers = {
 type ExperienceAnswers = {
   readonly experience: Experience | null;
   readonly formats: readonly Format[];
-  readonly length: Length | null;
 };
 type TopicsAnswers = { readonly topics: readonly Topic[] };
 
@@ -42,7 +39,6 @@ export const emptyAnswers: OnboardingAnswers = {
   club: null,
   experience: null,
   formats: [],
-  length: null,
   topics: [],
   completedAt: null,
 };
@@ -82,7 +78,7 @@ function many<T extends string>(choices: readonly T[], value: unknown) {
 
 const fieldsOf: Record<QuestionStep, readonly string[]> = {
   about: ['wants', 'club'],
-  experience: ['experience', 'formats', 'length'],
+  experience: ['experience', 'formats'],
   topics: ['topics'],
 };
 
@@ -105,7 +101,6 @@ function read(
         step,
         experience: one(experienceChoices, input.experience),
         formats: many(formatChoices, input.formats),
-        length: one(lengthChoices, input.length),
       };
     case 'topics':
       return { step, topics: many(topicChoices, input.topics) };

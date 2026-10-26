@@ -4,7 +4,7 @@ import {
   round,
 } from '../../features/room-runtime/operations.test-support';
 
-/** A practice round, an affirmative human against a bot, with a human judge. */
+/** A casual round, an affirmative human against a bot, with a human judge. */
 export const aff = launched.participants[0]!;
 export const neg = {
   id: 'n4n6p8r2t4v6x8z1k3b5c7d9',
@@ -55,3 +55,12 @@ export function ran(count: number, closed = false): RoundView {
   }));
   return { ...view, status: 'active', startedAt: at(0), segments };
 }
+
+/** A zero-judge Round with every speech closed (DEC-191). */
+export const unjudgedClosed = (): RoundView => {
+  const closed = ran(rules.length, true);
+  return {
+    ...closed,
+    participants: closed.participants.filter((p) => p.role !== 'judge'),
+  };
+};

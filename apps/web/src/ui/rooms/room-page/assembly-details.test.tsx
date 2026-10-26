@@ -61,3 +61,24 @@ test('non-host details remain visible but cannot submit an edit', () => {
     expected: [true, true, true, false],
   });
 });
+
+test('the edit form never offers private', () => {
+  const html = renderToStaticMarkup(
+    <AssemblyDetailsFields
+      view={assemblySnapshot}
+      commandId="fresh-command"
+      state={{ values: {} }}
+      pending={false}
+    />,
+  );
+  assert({
+    given: 'the Room details form',
+    should: 'offer public and unlisted only (ISSUE-443, DEC-206)',
+    actual: [
+      html.includes('value="public"'),
+      html.includes('value="unlisted"'),
+      html.includes('value="private"'),
+    ],
+    expected: [true, true, false],
+  });
+});

@@ -60,7 +60,7 @@ test('pageContext: a malformed x-nonce header is refused, not trusted (negative 
 
 test('pageContext: the theme cookie is read through the same trust boundary as the app', () => {
   const withCookie = pageContext(
-    request({ cookie: 'daisy-theme=light; other=1' }),
+    request({ cookie: 'daisy-theme=dark; other=1' }),
   ).theme;
   const withoutCookie = pageContext(request({})).theme;
   const withGarbage = pageContext(
@@ -70,6 +70,6 @@ test('pageContext: the theme cookie is read through the same trust boundary as t
     given: 'a valid theme cookie, no cookie, and an invalid theme value',
     should: 'parse the valid one, and default the other two',
     actual: [withCookie, withoutCookie, withGarbage],
-    expected: ['light', 'dark', 'dark'],
+    expected: ['dark', 'light', 'light'],
   });
 });

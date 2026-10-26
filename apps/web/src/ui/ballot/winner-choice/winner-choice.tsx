@@ -1,7 +1,7 @@
 'use client';
 
 import { debateSides } from '@daisy/protocol';
-import type { Side } from '../../../features/debates/turns';
+import type { DebateSide as Side } from '@daisy/protocol';
 import type { BallotDebaters } from '../../../features/judge/ballot';
 import { Avatar } from '../../components/avatar/avatar';
 import { Icon } from '../../components/icon/icon';

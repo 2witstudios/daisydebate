@@ -1,13 +1,14 @@
+import { createAppError } from '@daisy/errors';
+import { canOfferFreshRoom } from './fresh-room';
+import { roomBotAdmission } from './bot-admission';
+import { authorize } from '@daisy/auth/authorization';
 import { roomCommandOperation } from './command';
 import { currentRoomConsent, type PreparedRoomConsent } from './consent';
 import { can, digest } from './authority';
 import { resolveRoomSelection } from './selection';
-import {
-  authorize,
-  type RoundAuthorizationFact,
-} from '@daisy/auth/authorization';
+import { canReadRound } from '../round-runtime/reads';
 import type { Database } from '@daisy/db';
-import { projectRoom } from '@daisy/debate-engine';
+import { hostIdentityHidden, projectRoom } from '@daisy/debate-engine';
 import type { IdGenerator } from '@daisy/clock';
 import type { createRedis } from '@daisy/redis';
 import type {
@@ -24,6 +25,7 @@ import type {
 export type Caller = { readonly userId: string; readonly actorId: string };
 export type Store = Pick<
   Database,
+  | 'readRoundBotAdmissionStatus'
   | 'readLaunchedRound'
   | 'databaseNow'
   | 'listRoomCatalogSources'
@@ -126,12 +128,17 @@ export function createRoomRuntimeOperations({
     );
     const consent = await consentOf(state, await store.databaseNow());
     const now = await store.databaseNow();
-    return projectRoom(
-      state,
-      caller.actorId,
-      currentRoomConsent(consent, now),
-      now,
-    );
+    return {
+      ...projectRoom(
+        state,
+        caller.actorId,
+        currentRoomConsent(consent, now),
+        now,
+      ),
+      botAdmission: await roomBotAdmission(state, caller.actorId, (actorId) =>
+        store.readRoundBotAdmissionStatus(actorId),
+      ),
+    };
   };
   const catalog = async (
     caller: Caller,
@@ -146,35 +153,68 @@ export function createRoomRuntimeOperations({
       label: source.name,
       definition: source.definition,
       defaultConfig:
-        source.presets.find((p) => p.length === 'full')?.config ??
-        initialConfig(source.definition),
+        source.presets[0]?.config ?? initialConfig(source.definition),
       presets: source.presets.map((p) => ({
         version: p.version,
-        length: p.length as 'full' | 'quick',
         config: p.config,
       })),
     }));
+  const create = async (
+    caller: Caller,
+    body: RoomCreate,
+  ): Promise<RoomCommandResponse> => {
+    const previous = await store.readRoomCreateReceipt({
+      caller,
+      commandId: body.commandId,
+      payloadDigest: digest(body),
+      authorize: (account) => can(caller, 'room.create', account),
+    });
+    if (previous)
+      return { receipt: previous, view: await view(caller, previous.roomId) };
+    const {
+      selection,
+      definition,
+      config,
+      formatId,
+      formatVersion,
+      presetVersion,
+      competitionType,
+      resolved,
+    } = await resolveRoomSelection(
+      body,
+      body.selection.kind === 'custom' ? [] : await catalog(caller),
+      store,
+      ids,
+    );
+    const receipt = await store.createRoomCommand({
+      caller,
+      authorize: (account) => can(caller, 'room.create', account),
+      maxOpenRooms: maxOpenRooms(),
+      commandId: body.commandId,
+      payloadDigest: digest(body),
+      definition: selection.kind === 'custom' ? definition : null,
+      room: {
+        id: ids.next(),
+        hostActorId: caller.actorId,
+        title: body.title,
+        topic: body.topic,
+        visibility: body.visibility,
+        formatId,
+        formatVersion,
+        presetVersion,
+        competitionType,
+        config,
+        executionPlan: resolved.roomPlan,
+        rules: resolved.rules,
+      },
+    });
+    return { receipt, view: await view(caller, receipt.roomId) };
+  };
   return {
     view,
     roundView: (caller: Caller, roundId: string) =>
-      store.readLaunchedRound(
-        roundId,
-        caller,
-        (view, account) =>
-          authorize({
-            principal: { kind: 'user', ...caller },
-            capability: 'round.read',
-            context: { account },
-            resource: {
-              kind: 'round',
-              roundId: view.id,
-              createdByActorId: view.hostActorId,
-              visibility: view.visibility,
-              status: view.status,
-              participants: view.participants,
-              revision: view.version,
-            } satisfies RoundAuthorizationFact,
-          }).allow,
+      store.readLaunchedRound(roundId, caller, (view, account) =>
+        canReadRound(caller, view, account),
       ),
     catalog,
     async castChoices(caller: Caller): Promise<readonly RoomCastChoice[]> {
@@ -205,59 +245,21 @@ export function createRoomRuntimeOperations({
               resource: fact.round,
             }).allow),
         (account) => can(caller, 'room.list', account),
+        (fact) => hostIdentityHidden(fact, caller.actorId),
       );
     },
-    async create(
-      caller: Caller,
-      body: RoomCreate,
-    ): Promise<RoomCommandResponse> {
-      const previous = await store.readRoomCreateReceipt({
+    create,
+    async rematch(caller: Caller, sourceRoomId: string, body: RoomCreate) {
+      const source = await store.readRoomAssembly(
+        sourceRoomId,
         caller,
-        commandId: body.commandId,
-        payloadDigest: digest(body),
-        authorize: (account) => can(caller, 'room.create', account),
-      });
-      if (previous)
-        return { receipt: previous, view: await view(caller, previous.roomId) };
-      const {
-        selection,
-        definition,
-        config,
-        formatId,
-        formatVersion,
-        presetVersion,
-        competitionType,
-        resolved,
-      } = await resolveRoomSelection(
-        body,
-        body.selection.kind === 'custom' ? [] : await catalog(caller),
-        store,
-        ids,
+        (state, account) => can(caller, 'room.read', account, state),
       );
-      const receipt = await store.createRoomCommand({
-        caller,
-        authorize: (account) => can(caller, 'room.create', account),
-        maxOpenRooms: maxOpenRooms(),
-        commandId: body.commandId,
-        payloadDigest: digest(body),
-        definition: selection.kind === 'custom' ? definition : null,
-        room: {
-          id: ids.next(),
-          hostActorId: caller.actorId,
-          title: body.title,
-          topic: body.topic,
-          visibility: body.visibility,
-          formatId,
-          formatVersion,
-          presetVersion,
-          competitionType,
-          length: selection.length,
-          config,
-          executionPlan: resolved.roomPlan,
-          rules: resolved.rules,
-        },
-      });
-      return { receipt, view: await view(caller, receipt.roomId) };
+      if (source.hostActorId !== caller.actorId)
+        throw createAppError('AUTHORIZATION');
+      if (!canOfferFreshRoom(source, caller.actorId))
+        throw createAppError('CONFLICT');
+      return create(caller, body);
     },
     command: roomCommandOperation({
       store,

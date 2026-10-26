@@ -23,7 +23,6 @@ const createThreeSeatRoom = async (f: Runtime): Promise<RoomView> => {
           seats: { affirmative: 1, negative: 1, judge: 1 },
         },
         config: choice.defaultConfig,
-        length: 'full',
         competitionType: 'casual',
       },
     })
@@ -214,6 +213,40 @@ test('a host who sits as the human judge stays anonymous with their seat (DEC-17
         leaks(hostLobby, hostSecrets).length > 0,
       ],
       expected: [f.host.actorId, hostSecrets[2]!, true],
+    });
+    const discover = async (who: Caller, q: string) =>
+      (await f.operations.list(who, { q, pageSize: 50 })).rooms.filter(
+        (room) => room.id === roomId,
+      );
+    const listed = [
+      ...(await discover(f.guest, view.title)),
+      ...(await discover(spectator, view.title)),
+    ];
+    assert({
+      given:
+        'the same assembly in the lobby list, read by a debater and a spectator',
+      should: 'list it with the host identity redacted like the Room read',
+      actual: listed.map((room) => [
+        room.hostActorId,
+        room.hostLabel,
+        leaks(room, hostSecrets),
+      ]),
+      expected: [
+        [null, null, []],
+        [null, null, []],
+      ],
+    });
+    assert({
+      given:
+        'a lobby search for the judge-host username, and the host listing by title (negative control)',
+      should:
+        'never match a judge-host by name, while the host still sees their own identity',
+      actual: [
+        (await discover(f.guest, hostSecrets[2]!)).length,
+        (await discover(spectator, hostSecrets[2]!)).length,
+        (await discover(f.host, view.title)).map((room) => room.hostLabel),
+      ],
+      expected: [0, 0, [hostSecrets[2]!]],
     });
 
     view = await readyAllThenStart(f, view);

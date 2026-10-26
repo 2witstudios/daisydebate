@@ -1,8 +1,4 @@
-import type {
-  FormatDefinition,
-  RoomConfig,
-  RoundLength,
-} from '@daisy/protocol';
+import type { FormatDefinition, RoomConfig } from '@daisy/protocol';
 import { and, eq, isNull } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
@@ -20,7 +16,6 @@ export type FormatRevisionRecord = {
 
 export type FormatPresetRecord = {
   readonly formatId: string;
-  readonly length: RoundLength;
   readonly version: number;
   readonly formatVersion: number;
   readonly config: RoomConfig;
@@ -75,19 +70,15 @@ export const formatOperations = ({
   },
 
   /**
-   * The current approved preset for (format, length), or null when the
+   * The current approved preset for a format, or null when the
    * format has none — the refusal `resolveRoom` turns into
    * preset-unavailable for ranked rooms.
    */
-  async getCurrentPreset(
-    formatId: string,
-    length: RoundLength,
-  ): Promise<FormatPresetRecord | null> {
+  async getCurrentPreset(formatId: string): Promise<FormatPresetRecord | null> {
     return instrumented(eventSink, 'getCurrentPreset', async () => {
       const [row] = await database
         .select({
           formatId: formatPresets.formatId,
-          length: formatPresets.length,
           version: formatPresets.version,
           formatVersion: formatPresets.formatVersion,
           config: formatPresets.config,
@@ -96,7 +87,6 @@ export const formatOperations = ({
         .where(
           and(
             eq(formatPresets.formatId, formatId),
-            eq(formatPresets.length, length),
             isNull(formatPresets.supersededAt),
           ),
         )

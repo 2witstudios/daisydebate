@@ -1,3 +1,9 @@
+import { composeAttendanceRoutes } from '../features/attendance/composition';
+import { composeMediaCaptureRoutes } from '../features/media-capture/composition';
+import { composeRoundBallotRoutes } from '../features/round-ballots/composition';
+import { createRoundMediaHandlers } from '../features/round-media/handlers';
+import { createRoundMediaRuntime } from '../features/round-media/composition';
+import { composeRoundRoutes } from '../features/round-runtime/composition';
 import { composeMessagingRoutes } from '../features/messaging/composition';
 import { composeRoomRoutes } from '../features/room-runtime/composition';
 import {
@@ -47,9 +53,20 @@ export function createRoutes(app: App) {
   };
   const rooms = composeRoomRoutes(app);
   return {
+    mediaCapture: composeMediaCaptureRoutes(app),
+    roundMedia: createRoundMediaHandlers({
+      ...memberGates,
+      active: () => Boolean(app.roomPolicy),
+      operations: createRoundMediaRuntime(app).operations,
+    }),
     rooms,
+    attendance: composeAttendanceRoutes(app, memberGates),
     messaging: composeMessagingRoutes(app),
-    rounds: { read: rooms.roundRead },
+    rounds: {
+      read: rooms.roundRead,
+      ...composeRoundRoutes(app),
+      ...composeRoundBallotRoutes(app),
+    },
     auth: createAuthRouteHandlers(confirmAuth, logger),
     confirm: createConfirmHandlers({ auth: confirmAuth, logger }),
     confirmEmail: createConfirmEmailHandlers({ auth: confirmAuth, logger }),

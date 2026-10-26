@@ -2,8 +2,12 @@ import { resolve } from 'node:path';
 import { defineConfig } from '@playwright/test';
 import canonical from '../../playwright.config';
 import { requireLaunchSlot } from './room-launch-slot';
+import { launchWorkerPolicy } from './room-launch-worker-policy';
 
-requireLaunchSlot(resolve(import.meta.dirname, '../../../..'), process.env);
+const slot = requireLaunchSlot(
+  resolve(import.meta.dirname, '../../../..'),
+  process.env,
+);
 const web = resolve(import.meta.dirname, '../..');
 const servers = Array.isArray(canonical.webServer)
   ? canonical.webServer
@@ -15,8 +19,25 @@ if (!projects?.length) throw new Error('Canonical Chromium project is missing');
 export default defineConfig({
   ...canonical,
   testDir: resolve(import.meta.dirname, '..'),
-  testMatch: ['**/room-launch.e2e.ts', '**/debate-room.e2e.ts'],
+  testMatch: [
+    '**/room-launch.e2e.ts',
+    '**/ballot.e2e.ts',
+    '**/round-journeys.e2e.ts',
+    '**/debate-room.e2e.ts',
+    '**/round-commands.e2e.ts',
+    '**/round-command-recovery.e2e.ts',
+    '**/attendance.e2e.ts',
+    '**/round-media.e2e.ts',
+  ],
   testIgnore: [],
+  use: {
+    ...canonical.use,
+    ignoreHTTPSErrors: false,
+    // As the canonical suite: a failure keeps its trace, which the job's
+    // artifact sanitizer redacts before upload; passing tests keep nothing.
+    trace: 'retain-on-failure',
+    video: 'off',
+  },
   timeout: 120_000,
   outputDir: resolve(web, 'test-results'),
   reporter: [
@@ -29,30 +50,52 @@ export default defineConfig({
   projects: projects.map((project) => ({
     ...project,
     testIgnore: [],
-    use: { ...project.use, channel: 'chromium' },
+    use: {
+      ...project.use,
+      channel: 'chromium',
+      ignoreHTTPSErrors: false,
+      launchOptions: {
+        chromiumSandbox: true,
+        args: ['--use-fake-device-for-media-stream'],
+      },
+      connectOptions: { wsEndpoint: process.env.PW_WS_ENDPOINT! },
+    },
   })),
-  webServer: servers.map((server, index) => {
+  webServer: servers.slice(0, 1).map((server) => {
     if (!server) throw new Error('Canonical browser server is missing');
-    const anchored = {
+    return {
       ...server,
       cwd: resolve(web, server.cwd ?? '.'),
       reuseExistingServer: false,
+      ignoreHTTPSErrors: false,
+      timeout: 120000,
+      // Above the server's own 30 s drain of each child, so the suite ends
+      // only once every Launch process has exited and freed the slot's ports
+      // for the next proof in the job.
+      gracefulShutdown: { signal: 'SIGTERM', timeout: 45_000 },
+      // Its own log name: the realtime proofs that follow in the same job
+      // reuse the slot's port and would overwrite server-<port>.log (ISSUE-510).
+      command: server.command
+        .replace('e2e/support/server.ts', 'e2e/support/room-launch-server.ts')
+        .replace('test-results/server-', 'test-results/room-launch-server-'),
+      env: {
+        ...server.env,
+        E2E_DATABASE_URL: process.env.E2E_DATABASE_URL!,
+        MEDIA_WORKER_DATABASE_URL: process.env.MEDIA_WORKER_DATABASE_URL!,
+        E2E_REDIS_URL: process.env.E2E_REDIS_URL!,
+        E2E_REDIS_NAMESPACE: process.env.E2E_REDIS_NAMESPACE!,
+        E2E_PORT: process.env.E2E_PORT!,
+        AI_ROUND_BUSY_CAP: '4',
+        REALTIME_PUBLIC_URL: `wss://localhost:${slot.port + 6}/ws`,
+        ROUND_BOT_WORKER_POLICY: launchWorkerPolicy,
+        NODE_EXTRA_CA_CERTS: process.env.NODE_EXTRA_CA_CERTS!,
+        E2E_LOCAL_TLS_CERT: process.env.E2E_LOCAL_TLS_CERT!,
+        E2E_LOCAL_TLS_KEY: process.env.E2E_LOCAL_TLS_KEY!,
+        LIVEKIT_URL: 'http://127.0.0.1:7880',
+        LIVEKIT_PUBLIC_URL: `wss://localhost:${slot.port + 4}`,
+        LIVEKIT_API_KEY: 'daisy-local',
+        LIVEKIT_API_SECRET: 'local-development-only-livekit-secret',
+      },
     };
-    return index === 0
-      ? {
-          ...anchored,
-          command: server.command.replace(
-            'e2e/support/server.ts',
-            'e2e/support/room-launch-server.ts',
-          ),
-          env: {
-            ...server.env,
-            E2E_DATABASE_URL: process.env.E2E_DATABASE_URL!,
-            E2E_REDIS_URL: process.env.E2E_REDIS_URL!,
-            E2E_REDIS_NAMESPACE: process.env.E2E_REDIS_NAMESPACE!,
-            E2E_PORT: process.env.E2E_PORT!,
-          },
-        }
-      : anchored;
   }),
 });

@@ -1,4 +1,3 @@
-import { z } from 'zod';
 import {
   ballotCategories,
   ballotLimits,
@@ -11,9 +10,8 @@ import {
   type Ballot,
   type BallotCategory,
 } from '@daisy/protocol';
-import type { SearchParams } from '../access/decision';
 import { accept, field, refuse, type Parsed } from '../mock-form/form';
-import type { Side } from '../debates/turns';
+import type { DebateSide as Side } from '@daisy/protocol';
 
 /** A debater as the ballot shows them: their name and, when set, a photo. */
 type BallotDebater = {
@@ -27,10 +25,9 @@ export const scoreField = (side: Side, category: string): string =>
   `${side}-${category}`;
 export const feedbackField = (side: Side): string => `feedback-${side}`;
 
-/** A read ballot, plus whether the judge also asked to report conduct. */
+/** A rubric ballot read from form fields. */
 export type PostedBallot = {
   readonly ballot: Ballot;
-  readonly reportConduct: boolean;
 };
 
 const scorePattern = new RegExp(`^[1-${ballotScoreMax}]$`);
@@ -113,69 +110,5 @@ export function parseBallot(
     field(form, 'low-point') !== lowPointKey(ballot.winner, ballot.scores)
   )
     return refuse('Confirm the low-point win, or change the scores.');
-  return accept({ ballot, reportConduct: field(form, 'conduct') === 'report' });
-}
-
-/** Where a ballot is, in the mock: not open yet, open, or submitted. */
-export type BallotState = 'waiting' | 'open' | 'submitted';
-
-const first = (value: string | readonly string[] | undefined) =>
-  typeof value === 'string' ? value : value?.[0];
-
-export const parseBallotState = (params: SearchParams): BallotState =>
-  z
-    .enum(['waiting', 'open', 'submitted'])
-    .catch('open')
-    .parse(first(params['state']));
-
-const ballotHref = (debateId: string, state: BallotState): string =>
-  `/judge/ballot/${debateId}?state=${state}`;
-
-/** Where a posted ballot goes: its confirmation. Nothing is kept. */
-export const ballotDestination = (debateId: string): string =>
-  ballotHref(debateId, 'submitted');
-
-export type BallotView =
-  | {
-      readonly kind: 'waiting';
-      readonly title: string;
-      readonly debateHref: string;
-      readonly demoOpenHref: string;
-    }
-  | {
-      readonly kind: 'open';
-      readonly title: string;
-      readonly debateHref: string;
-      readonly debaters: BallotDebaters;
-    }
-  | {
-      readonly kind: 'submitted';
-      readonly title: string;
-      readonly resultHref: string;
-      readonly hubHref: string;
-    };
-
-/** What the ballot page shows for a state. */
-export function ballotView(
-  debateId: string,
-  title: string,
-  state: BallotState,
-  debaters: BallotDebaters,
-): BallotView {
-  const debateHref = `/debates/${debateId}?turn=6&kind=person&as=judge`;
-  if (state === 'waiting')
-    return {
-      kind: 'waiting',
-      title,
-      debateHref: `/debates/${debateId}?turn=3&kind=person&as=judge`,
-      demoOpenHref: ballotHref(debateId, 'open'),
-    };
-  if (state === 'submitted')
-    return {
-      kind: 'submitted',
-      title,
-      resultHref: `/debates/${debateId}?turn=6&kind=person&as=judge&by=person`,
-      hubHref: '/judge',
-    };
-  return { kind: 'open', title, debateHref, debaters };
+  return accept({ ballot });
 }

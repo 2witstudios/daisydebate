@@ -21,7 +21,6 @@ test('durable rounds survive reconnect; optimistic executions reject stale write
         createdByActorId: null,
         resolution: 'Architecture proof',
         competitionType: 'casual',
-        length: 'full',
         formatId,
         formatVersion: 1,
         presetVersion: null,

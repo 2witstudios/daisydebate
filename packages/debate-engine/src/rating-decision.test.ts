@@ -31,16 +31,15 @@ describe('ratingEligibility', () => {
       },
     });
     assert({
-      given: 'a completed quick-length ranked round drawn',
-      should: 'rate it on the quick ladder as a draw',
+      given: 'a completed ranked round drawn',
+      should: 'rate it on the ranked ladder as a draw',
       actual: ratingEligibility({
         ...completed,
-        ladderId: 'quick',
         outcome: 'draw',
       }),
       expected: {
         kind: 'rated',
-        ladder: 'quick',
+        ladder: 'ranked',
         outcome: 'draw',
         occurredAt: at,
       },
@@ -49,24 +48,14 @@ describe('ratingEligibility', () => {
 
   test('never rates unrated competition or an abandoned round', () => {
     assert({
-      given: 'casual and practice rounds, which carry no ladder',
-      should: 'leave them unrated for their competition type',
-      actual: [
-        ratingEligibility({
-          ...completed,
-          competitionType: 'casual',
-          ladderId: null,
-        }),
-        ratingEligibility({
-          ...completed,
-          competitionType: 'practice',
-          ladderId: null,
-        }),
-      ],
-      expected: [
-        { kind: 'unrated', reason: 'competition' },
-        { kind: 'unrated', reason: 'competition' },
-      ],
+      given: 'a casual round, which carries no ladder',
+      should: 'leave it unrated for its competition type',
+      actual: ratingEligibility({
+        ...completed,
+        competitionType: 'casual',
+        ladderId: null,
+      }),
+      expected: { kind: 'unrated', reason: 'competition' },
     });
     assert({
       given: 'an abandoned ranked round',

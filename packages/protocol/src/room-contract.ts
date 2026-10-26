@@ -12,7 +12,7 @@ import {
   type RoomConfig,
   type RoomExecutionPlan,
 } from './room';
-import { roundLengthSchema, type RoundLength } from './round';
+import { competitionTypes, type CompetitionType } from './round';
 
 export const roomStatuses = [
   'assembling',
@@ -20,7 +20,11 @@ export const roomStatuses = [
   'started',
   'abandoned',
 ] as const;
-const roomVisibilitySchema = z.enum(['public', 'unlisted', 'private']);
+/**
+ * What a host may choose when creating or editing a Room. Private is refused
+ * until an invite path can seat a second human (ISSUE-443, DEC-206).
+ */
+const roomVisibilitySchema = z.enum(['public', 'unlisted']);
 const versionSchema = z.int().positive();
 const textSchema = z.string().trim().min(1);
 const seat = { role: debateRoleSchema, slot: z.int().min(0) };
@@ -31,8 +35,7 @@ const roomSelectionSchema = z.discriminatedUnion('kind', [
     kind: z.literal('catalog'),
     formatId: textSchema,
     formatVersion: versionSchema,
-    length: roundLengthSchema,
-    competitionType: z.enum(['casual', 'practice']),
+    competitionType: z.literal('casual'),
     config: roomConfigSchema,
   }),
   z.strictObject({
@@ -40,13 +43,11 @@ const roomSelectionSchema = z.discriminatedUnion('kind', [
     formatId: textSchema,
     formatVersion: versionSchema,
     presetVersion: versionSchema,
-    length: roundLengthSchema,
   }),
   z.strictObject({
     kind: z.literal('custom'),
     definition: formatDefinitionSchema,
-    length: roundLengthSchema,
-    competitionType: z.enum(['casual', 'practice']),
+    competitionType: z.literal('casual'),
     config: roomConfigSchema,
   }),
 ]);
@@ -159,8 +160,7 @@ export type RoomAssemblyState = {
   readonly formatId: string;
   readonly formatVersion: number;
   readonly presetVersion: number | null;
-  readonly competitionType: 'casual' | 'practice' | 'ranked';
-  readonly length: RoundLength;
+  readonly competitionType: CompetitionType;
   readonly definition: FormatDefinition;
   readonly config: RoomConfig;
   readonly executionPlan: RoomExecutionPlan;
@@ -205,11 +205,11 @@ const roomListEntrySchema = z.strictObject({
   title: z.string().min(1),
   topic: z.string().min(1),
   visibility: z.enum(['public', 'unlisted', 'private']),
-  hostActorId: idSchema,
-  hostLabel: z.string(),
+  /** Null when the host sits as a judge this viewer may not name (DEC-174). */
+  hostActorId: idSchema.nullable(),
+  hostLabel: z.string().nullable(),
   status: z.enum(['assembling', 'ready', 'started']),
-  competitionType: z.enum(['casual', 'practice', 'ranked']),
-  length: z.enum(['full', 'quick']),
+  competitionType: z.enum(competitionTypes),
   seated: z.boolean(),
   roundRef: z
     .strictObject({ id: idSchema, status: z.enum(['scheduled', 'active']) })

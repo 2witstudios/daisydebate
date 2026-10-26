@@ -39,16 +39,16 @@ const petalPaths = (classOf: (cardinal: boolean) => string) =>
 const logoSvg = (size: number) =>
   `<svg class="af-logo" viewBox="0 0 ${drawing} ${drawing}" width="${size}" height="${size}" aria-hidden="true">${petalPaths((cardinal) => (cardinal ? 'af-logo-cardinal' : 'af-logo-diagonal'))}<circle class="af-logo-disc" cx="${centre}" cy="${centre}" r="${discRadius}"></circle></svg>`;
 
-/** The reverse mark as the stage panel's art; its colours are in the stylesheet. */
+/** The tonal primary mark as the brand panel's art; its colours are in the stylesheet. */
 const panelMarkSvg = () =>
-  `<svg class="af-panel-mark" viewBox="0 0 ${drawing} ${drawing}" width="520" height="520" aria-hidden="true">${petalPaths(() => 'af-panel-petal')}<circle class="af-panel-disc" cx="${centre}" cy="${centre}" r="${discRadius}"></circle></svg>`;
+  `<svg class="af-panel-mark" viewBox="0 0 ${drawing} ${drawing}" width="520" height="520" aria-hidden="true">${petalPaths((cardinal) => (cardinal ? 'af-panel-cardinal' : 'af-panel-diagonal'))}<circle class="af-panel-disc" cx="${centre}" cy="${centre}" r="${discRadius}"></circle></svg>`;
 
 export type PanelContent = {
   readonly kicker: string;
   readonly title: string;
 };
 
-/** The forest stage panel, hidden under the rail breakpoint (AUTH-4.7). */
+/** The brand panel, hidden under the rail breakpoint (AUTH-4.7). */
 const panel = (content: PanelContent | undefined) =>
   content
     ? `<aside class="af-panel" aria-hidden="true">${panelMarkSvg()}<p class="af-panel-kicker">${escapeHtml(content.kicker)}</p><p class="af-panel-title">${escapeHtml(content.title)}</p></aside>`
@@ -63,7 +63,7 @@ export type AuthFrameContent = {
 /**
  * Server-rendered, script-free AuthFrame layout, with no third-party or
  * external asset (the two fonts are same-origin, fixed-path files): the
- * brand row, the content column and the stage panel, matching the
+ * brand row, the content column and the brand panel, matching the
  * approved design (artifact Nc1KBhwPeBhmUqK4UkqG1M). Nothing here is served
  * through the Next app's own stylesheet pipeline, so the whole visual layer
  * travels as one nonce'd `<style>` and this markup.

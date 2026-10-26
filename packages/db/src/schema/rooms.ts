@@ -5,10 +5,8 @@ import {
   roomStatuses,
   type RoomView,
   roomExecutionPlanSchema,
-  roundLengthSchema,
   roundRulesSchema,
   type CompetitionType,
-  type RoundLength,
 } from '@daisy/protocol';
 import { sql } from 'drizzle-orm';
 import {
@@ -67,7 +65,6 @@ export const rooms = pgTable(
     competitionType: text('competition_type')
       .$type<CompetitionType>()
       .notNull(),
-    length: text('length').$type<RoundLength>().notNull(),
     /** RoomConfig as chosen. */
     config: jsonbColumn('config', roomConfigSchema).notNull(),
     /** RoomExecutionPlan, resolved. */
@@ -112,7 +109,6 @@ export const rooms = pgTable(
     ),
     index('rooms_preset_version_idx').on(
       table.formatId,
-      table.length,
       table.presetVersion,
       table.formatVersion,
     ),
@@ -123,15 +119,9 @@ export const rooms = pgTable(
     }),
     foreignKey({
       name: 'rooms_preset_provenance_fk',
-      columns: [
-        table.formatId,
-        table.length,
-        table.presetVersion,
-        table.formatVersion,
-      ],
+      columns: [table.formatId, table.presetVersion, table.formatVersion],
       foreignColumns: [
         formatPresets.formatId,
-        formatPresets.length,
         formatPresets.version,
         formatPresets.formatVersion,
       ],
@@ -141,7 +131,6 @@ export const rooms = pgTable(
       'rooms_competition_type_check',
       oneOf(table.competitionType, competitionTypes),
     ),
-    check('rooms_length_check', oneOf(table.length, roundLengthSchema.options)),
     check(
       'rooms_ranked_has_preset_check',
       sql`(${table.competitionType} = 'ranked') = (${table.presetVersion} is not null)`,

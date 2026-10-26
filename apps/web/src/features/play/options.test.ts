@@ -19,10 +19,10 @@ describe('playOptions', () => {
   test('ranked first, and the room form is one option, not the page', () => {
     assert({
       given: 'the options',
-      should: 'lead with ranked and send the practice room to its form',
+      should: 'lead with ranked and send the casual room to its form',
       actual: [
         playOptions[0]?.id,
-        playOptions.find((option) => option.id === 'practice-room')?.href,
+        playOptions.find((option) => option.id === 'casual-room')?.href,
         playOptions.some((option) => option.href === '/play'),
       ],
       expected: ['ranked', openRoomHref, false],

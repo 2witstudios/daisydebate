@@ -295,6 +295,9 @@ describe('slot .env values', () => {
         PUBLIC_APP_URL: 'http://localhost:3000',
         E2E_PORT: '3100',
         REALTIME_PORT: '3011',
+        CLAMD_TEST_PORT: '3310',
+        MEDIA_WORKER_DATABASE_URL:
+          'postgres://daisy_media_worker_local:media-worker-loopback-only@localhost:15432/daisy',
       },
     });
   });
@@ -325,6 +328,9 @@ describe('slot .env values', () => {
         PUBLIC_APP_URL: 'http://localhost:13020',
         E2E_PORT: '13021',
         REALTIME_PORT: '13025',
+        CLAMD_TEST_PORT: '3310',
+        MEDIA_WORKER_DATABASE_URL:
+          'postgres://daisy_media_worker_local:media-worker-loopback-only@127.0.0.1:35432/daisy_wt_abc',
       },
     });
   });

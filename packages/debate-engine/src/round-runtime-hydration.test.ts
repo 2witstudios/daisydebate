@@ -2,13 +2,13 @@ import { assertRejects } from '@daisy/errors/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   completedSchedule,
-  practiceCast,
+  oneOnOneCast,
   runtimeWorld as runtime,
 } from './runtime.test-support';
 
 setupRitewayBun();
 
-const { rules, at } = practiceCast();
+const { rules, at } = oneOnOneCast();
 
 describe('round runtime hydration', () => {
   test('reconstructs the exact legal position from durable rows and the checkpoint', () => {
@@ -186,14 +186,14 @@ describe('round runtime hydration', () => {
     const { world, totalMs } = completedSchedule(rules);
     const position = world.position(at(totalMs + 5_000));
     assert({
-      given: 'the final segment open past its end with the outcome not yet in',
+      given: 'the final segment closed at its end with the outcome not yet in',
       should: 'report the round as awaiting its ballot',
       actual: [
         position.awaitingBallot,
         position.stage,
         position.openSegment?.key,
       ],
-      expected: [true, 'live', '2AR'],
+      expected: [true, 'live', undefined],
     });
   });
 });

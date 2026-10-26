@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { RoomListEntry, RoomListQuery } from '@daisy/protocol';
 import { buttonClass } from '../components/button/button-class';
 import { controlClass } from '../components/form-field/form-field-class';
+import { MediaPageLink } from '../round-media/media-page-link';
 
 /** The canonical listing supplies visibility and permissions; no sample fallback. */
 export function AssemblyLobby({
@@ -57,20 +58,23 @@ export function AssemblyLobby({
           {rooms.map((room) => (
             <li key={room.id} className="rounded-xl bg-surface p-5 shadow-1">
               <div className="flex justify-between gap-4">
-                <Link
+                <MediaPageLink
                   href={`/rooms/${room.id}`}
                   className="font-strong text-ink"
                 >
                   {room.title}
-                </Link>
+                </MediaPageLink>
                 <span className="text-sm text-ink-muted">{room.status}</span>
               </div>
               <p>{room.topic}</p>
               <p className="text-sm text-ink-muted">
-                Host: {room.hostLabel} · {room.competitionType}
+                {room.hostLabel !== null ? `Host: ${room.hostLabel} · ` : null}
+                {room.competitionType}
               </p>
               {room.roundRef ? (
-                <Link href={`/rounds/${room.roundRef.id}`}>View Round</Link>
+                <MediaPageLink href={`/rounds/${room.roundRef.id}`}>
+                  View Round
+                </MediaPageLink>
               ) : null}
             </li>
           ))}

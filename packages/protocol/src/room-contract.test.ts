@@ -1,10 +1,117 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { roomCommandSchema } from './room-contract';
+import {
+  oneOnOneFormatFixture,
+  plainRoomConfig,
+} from './format-fixtures.test-support';
+import { roomCommandSchema, roomCreateSchema } from './room-contract';
 
 setupRitewayBun();
 const commandId = 'abcdefghijklmnopqrstuvwx';
 
 describe('Room command boundary', () => {
+  test('refuses private visibility from every request (DEC-206)', () => {
+    const details = (visibility: string) => ({
+      commandId,
+      expectedVersion: 3,
+      type: 'update-details',
+      title: 'Title',
+      topic: 'Topic',
+      visibility,
+    });
+    const create = (visibility: string) =>
+      roomCreateSchema.shape.visibility.safeParse(visibility).success;
+    assert({
+      given: 'create and update-details requests naming each visibility',
+      should: 'accept public and unlisted and refuse private in both',
+      actual: ['public', 'unlisted', 'private'].map((visibility) => [
+        create(visibility),
+        roomCommandSchema.safeParse(details(visibility)).success,
+      ]),
+      expected: [
+        [true, true],
+        [true, true],
+        [false, false],
+      ],
+    });
+  });
+  test('creates an unranked Room only as casual (DEC-233)', () => {
+    const create = (selection: Record<string, unknown>) =>
+      roomCreateSchema.safeParse({
+        commandId,
+        title: 'Title',
+        topic: 'Topic',
+        visibility: 'public',
+        selection,
+      }).success;
+    const catalog = (competitionType: string) => ({
+      kind: 'catalog',
+      formatId: 'one-on-one',
+      formatVersion: 1,
+      competitionType,
+      config: plainRoomConfig,
+    });
+    const custom = (competitionType: string) => ({
+      kind: 'custom',
+      definition: oneOnOneFormatFixture,
+      competitionType,
+      config: plainRoomConfig,
+    });
+    assert({
+      given: 'catalog and custom selections naming casual, practice and ranked',
+      should: 'accept only casual, so no practice Room can be created',
+      actual: ['casual', 'practice', 'ranked'].map((type) => [
+        create(catalog(type)),
+        create(custom(type)),
+      ]),
+      expected: [
+        [true, true],
+        [false, false],
+        [false, false],
+      ],
+    });
+  });
+  test('refuses a length on every selection: Rounds are full length only (DEC-237)', () => {
+    const create = (selection: Record<string, unknown>) =>
+      roomCreateSchema.safeParse({
+        commandId,
+        title: 'Title',
+        topic: 'Topic',
+        visibility: 'public',
+        selection,
+      }).success;
+    const selections = [
+      {
+        kind: 'catalog',
+        formatId: 'one-on-one',
+        formatVersion: 2,
+        competitionType: 'casual',
+        config: plainRoomConfig,
+      },
+      {
+        kind: 'ranked',
+        formatId: 'one-on-one',
+        formatVersion: 2,
+        presetVersion: 2,
+      },
+      {
+        kind: 'custom',
+        definition: oneOnOneFormatFixture,
+        competitionType: 'casual',
+        config: plainRoomConfig,
+      },
+    ];
+    assert({
+      given:
+        'catalog, ranked and custom selections with no length, full and quick',
+      should: 'accept only the selection that names no length',
+      actual: selections.map((selection) => [
+        create(selection),
+        create({ ...selection, length: 'full' }),
+        create({ ...selection, length: 'quick' }),
+      ]),
+      expected: selections.map(() => [true, false, false]),
+    });
+  });
   test('requires version and refuses caller identity claims', () => {
     const valid = {
       commandId,

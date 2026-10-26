@@ -56,7 +56,7 @@ occupied by a human or an AI do not create different round types.
 - **2.** Human, bot, and future participant types occupy the same `RoundParticipant` seats.
 - **3.** `RoundParticipant`s are authoritative records. Round state may carry engine
   position but must never own a second participant collection.
-- **4.** Ranked, casual, practice, tournament, matchmaking and challenge must not create
+- **4.** Ranked, casual, tournament, matchmaking and challenge must not create
   alternate round schemas.
 - **5.** All speeches and transcripts use the same utterance model.
 - **6.** One ballot contract. Every ballot, human or AI, validates against the same
@@ -64,10 +64,10 @@ occupied by a human or an AI do not create different round types.
 - **7.** AI runtime state belongs to the AI participant's run, not to an AI-specific round.
 - **8.** There are no `ai_round` / `ai_debate` lifecycle tables.
 
-`debates` is renamed `rounds`. `mode` is uncollapsed: `competition_type`
-(`ranked | casual | practice`), `length` (`quick | full`) and `ladder_id` are separate
-columns, because `quick` was doing three jobs at once — a rated mode in ADR 0055 §5 and
-a match length in the onboarding questionnaire.
+`debates` is renamed `rounds`. `mode` is uncollapsed into `competition_type`
+(`ranked | casual`; casual is the one unranked type, DEC-233) and `ladder_id`, the one
+authority for ratedness. Every Round is full length (DEC-237), so there is no length
+column and `ranked` is the one ladder (DEC-238).
 
 ### 2. Three-layer identity
 
@@ -117,7 +117,7 @@ configuration is **unrepresentable** rather than detectable afterwards.
 `assertRatedRoundIntegrity` instead compares the round's frozen provenance.
 
 `format_presets` holds sanctioned `RoomConfig` values as immutable revisions, keyed
-`(format_id, length, version)` with at most one current and every earlier retained.
+`(format_id, version)` with at most one current per format and every earlier retained.
 
 ### 5. Provenance is pinned and structural
 
@@ -127,7 +127,7 @@ cannot preserve history. `format_revisions` holds immutable `FormatDefinition` r
 DEFERRED` so identity and its first revision commit together.
 
 Rounds and presets carry composite FKs to the exact revision they resolved against, and a
-Round carries a composite FK over `(format_id, length, preset_version, format_version)`
+Round carries a composite FK over `(format_id, preset_version, format_version)`
 onto the preset — so Postgres establishes that a Round's preset was approved against the
 definition revision that same Round pins.
 
@@ -188,20 +188,76 @@ depends on one, and nothing in a Round's history would change if Rooms were dele
 - **Abandonment is lifecycle, not outcome.** A `rounds_lifecycle_check` constrains status,
   stage, outcome and both timestamps together; `abandoned` deliberately leaves
   `started_at` nullable for a round abandoned before starting.
-- **AI practice capacity is reclaimed durably at admission.** Under the global
-  admission lock, scheduled practices with no execution for 15 minutes and active
-  practices with no execution for two hours become abandoned. Reclamation locks
-  their round rows, closes open segments, clears transient prep/floor state, records
-  completion on the database clock and increments the version before counting live
-  capacity. Reservations remain for the rolling daily allowance; only scheduled and
-  active status consumes global capacity.
-- **Recorded speech has a bounded finalization window.** A person's clip may enter
-  transcription until 30 seconds after its segment's actual close or scheduled end,
-  whichever is earlier. Eligibility uses the database instant at admission; admitted
-  transcription may finish after closure without losing its words. Naturally expired
-  final speech enters ballot readiness before the browser treats its open interval as
-  live. The browser waits for the final recorder flush before asking the judge for
-  a ballot. Completed forfeits carry the terminal outcome and never request judging.
+- **Approved casual zero-judge Rounds finish unjudged (DEC-191).** The same Round
+  becomes `completed` with a null outcome after its actual final played end,
+  immutable transcript freeze and settled attendance. Both frozen required judge
+  count and actual judge seats must be zero. The internal finalizer locks and
+  verifies these facts before projecting the shared runtime completion and its
+  durable receipt; callers cannot select this mode in a public command body.
+  The common result says “Unjudged”, with no fabricated ballot, draw or rating.
+  Ranked, forfeit and abandonment rules retain their own guards.
+- **Judges rule within a ballot deadline (DEC-201, DEC-207).** The freeze
+  persists `rounds.ballot_deadline_at`, 30 minutes (injected policy) after the
+  freeze time, and it is immutable. A ballot at or after it is refused by the
+  database clock. A judged casual Round whose judges have not all ruled by then
+  completes through the same finalizer: missing ballots are recorded as no
+  ruling in the receipt, and submitted ballots decide a winner by the existing
+  rule. With none, or a tie the absent rulings would turn into a draw, the
+  outcome is null and the result says “Judges did not rule”. There is no winner,
+  draw, forfeit or rating for an absent ruling, and judging jobs still open
+  become known failures. DEC-191's deferred triggers still fence the database:
+  a null-outcome completion needs zero judge seats or a completion at or after
+  the persisted deadline.
+- **An AI judge never rules on an incomplete transcript (DEC-208).** A freeze
+  recorded `incomplete` (a capture stream partial, missing or open: a media,
+  capture or STT cause) queues no AI judging job, so no provider is called. The
+  engine's `freezeJudgingPlan` decides this at the freeze. Without human judges
+  the persisted ballot deadline is the freeze time, and the same unjudged
+  finalizer completes the Round with a null outcome. The receipt ruling is
+  `transcript-incomplete`; the Round view carries that ruling as
+  `unjudgedRuling`, and the receipt says “Transcript incomplete”. There is no
+  winner, draw, forfeit or rating. Human
+  judges still rule by the ordinary deadline, and AI seats on such a Round
+  record no ruling; once every human judge has ruled decisively the Round
+  completes without waiting out the deadline.
+- **AI practice capacity is held only while a practice plays (DEC-211).** Only
+  scheduled and active status consumes global capacity. A Round gives its slot
+  back when it reaches a terminal state through the shared terminal projection
+  path (attendance adjudication, the ballot deadline, forfeit or abandonment);
+  there is no time-based reclamation, and a Round whose bot worker is lost still
+  terminates (ISSUE-430-r2). DEC183 (2026-10-22) supersedes the former
+  rolling-daily allowance: free members receive one admission per UTC calendar
+  month; a current authoritative, nonrevoked grant supplies ten per its exact
+  durable period. Missing, invalid or expired grants never imply premium.
+  Reservations serialize per actor and across global capacity. The first model
+  call of any kind counts the reservation. A definite vendor failure (the vendor
+  itself refused the request with a 4xx other than 408, or the call never left) settles `failed` with no
+  usage; anything uncertain settles `unknown` and is never fabricated as success
+  or refund. When the Round ends, in the same transaction as its terminal
+  projection, a counted practice whose every model call (bot or judge) failed
+  definitely is refunded, once. A practice never counted needs no refund: the
+  allowance spends a reservation only once its first model call counts it, or
+  while its Round is scheduled or active, so a never-counted practice stops
+  spending when its Round ends, with no refund state (ISSUE-469).
+  Server composition must supply an explicit trusted positive integer busy cap;
+  a local proof value of four is capacity configuration, not entitlement.
+  Every reservation records its PostgreSQL admission time (NOT NULL); Round
+  creation time is never a substitute. No public grant setter, billing workflow or admin surface follows
+  from this read authority. The 15-minute and two-hour reclamation horizons above
+  are unchanged.
+- **Captured speech has a bounded server finalization window.** The shared engine
+  closes the actual final played interval at its elapsed deadline or accepted
+  early end. The same durable transaction fixes that end and an immutable
+  transcript admission cutoff 120000ms later; ballot completion cannot move it.
+  Server-observed human PCM and eligible bot publication prefixes must fit actual
+  historical segment and speaking intervals. Signed ingress, fenced leases,
+  stream closure and one immutable transcript revision govern writes; partial
+  coverage stays partial. Finalization separately fences admission and freeze,
+  and judging consumes that revision. Internal server reconciliation advances
+  silent Rounds through the same engine. Completed forfeits already carry the
+  outcome and never dispatch judging; abandonment before any played interval
+  invents no capture anchor. See [ADR 0053](0053-live-video-self-hosted-livekit.md)
+  and [ADR 0067](0067-playable-round-policy-and-acceptance.md).
 - **A submitted ballot cannot be erased by seat deletion.** The judge-participant FK is
   `RESTRICT`; retirement is voiding, which records who and when. This ships in the same
   migration as the participant surrogate id, so no intermediate model exists where uniform
@@ -216,12 +272,18 @@ depends on one, and nothing in a Round's history would change if Rooms were dele
   participant; one expiring, fenced AI speech generation claim per segment;
   the compiler's refusal set.
 
-AI-practice orchestration admits only practice rounds with a member debater,
-one roster AI opponent and the configured AI judge. A debater's seat in a
-human or ranked round grants no right to drive it through practice operations.
-Playback and heard reports require an active round and are bounded to the
-segment's live interval plus a thirty-second cutoff grace period. Terminal
-rounds refuse both operations. A hydration tick may waive a browser's stale
+DEC186 (2026-10-22) applies one AI-practice reservation to each bot-containing
+non-ranked shared Round, whether the bot debates or judges. Its sponsor is the
+current canonical human Room host. Freeze reserves atomically once; replay never
+charges again. An invalid, erased or unauthorized sponsor refuses the whole
+freeze. Human-only Rounds are unaffected. The host sees current quota and the
+allowance consequence before freeze. A reservation grants no bot command,
+publication or ballot authority. Ranked construction and bot eligibility remain
+unchanged; this allowance does not activate ranked bots. Global capacity counts
+admitted live Rounds; bounded provider-worker concurrency is separate explicit
+server configuration.
+Media publication uses the shared LiveKit session and current runtime authority;
+browser playback/heard-report endpoints are removed at cutover. A hydration tick may waive a browser's stale
 version only when its reread observes exactly its own next version; intervening
 commands retain optimistic-concurrency authority. Automatic prep requests use
 the runtime's remaining side-specific budget and stop when it is exhausted.
@@ -261,8 +323,8 @@ leaves, and the PageSpace boundary remains open.
   `ON DELETE CASCADE` does not reach actor-owned rows.
 - **Superseded in part.** ADR 0029's "the snapshot stays the domain source of truth" — a snapshot
   may carry engine state, never participants. ADR 0054 §3 — documents leave the round FK.
-  ADR 0055 §5 — modes and ladders; `quick` becomes a preset dimension and ranked rounds are
-  constructed from presets rather than validated against a format.
+  ADR 0055 §5 — modes and ladders; ranked rounds are constructed from presets rather than
+  validated against a format.
 - **Left open, deliberately.** Whether an abandoned ranked round rates. Whether prep
   lives in Daisy or a PageSpace drive — and, if external, the ADR 0036 data-processor
   question that `under-13` age banding raises. None of these changes what a Round _is_.

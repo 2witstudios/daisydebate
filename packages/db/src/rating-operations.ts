@@ -1,4 +1,4 @@
-import { createAppError, createInvariantError } from '@daisy/errors';
+import { createAppError } from '@daisy/errors';
 import {
   debateSides,
   type DebaterStanding,
@@ -9,6 +9,13 @@ import {
 import { and, desc, eq, inArray, max, ne, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import type { RateDebateInput, RateDebateResult } from './rating-facts';
+import {
+  assertRatedRoundIntegrity,
+  projectionLockOrder,
+  ratedResult,
+  ratingChangeRows,
+  retryStaleProjection,
+} from './rating-decisions';
 import { roundParticipants } from './schema/round-participants';
 import { rounds } from './schema/rounds';
 import { ratingChanges, ratings, seasons } from './schema/ratings';
@@ -127,29 +134,6 @@ async function writeProjection(
   if (written.length !== 1) throw new StaleProjection();
 }
 
-/**
- * Rated-round integrity (ADR 0058 §8): corruption protection on frozen
- * columns, never a decision. A ranked round carries a preset version whose
- * provenance the composite FK proves structurally; if any of that fails
- * here the round was corrupted after creation, and the failure is an
- * invariant, not an `{ kind: 'unrated', reason: … }`.
- */
-function assertRatedRoundIntegrity(round: typeof rounds.$inferSelect): void {
-  if (round.competitionType === 'ranked') {
-    if (round.presetVersion === null || round.ladderId === null)
-      throw createInvariantError(
-        'round.rating.integrity',
-        'A ranked round pins its preset and ladder',
-      );
-    return;
-  }
-  if (round.presetVersion !== null || round.ladderId !== null)
-    throw createInvariantError(
-      'round.rating.integrity',
-      'Only a ranked round carries a preset or a ladder',
-    );
-}
-
 async function rateOnce(
   tx: Tx,
   { roundId, changeIds, decide }: RateDebateInput,
@@ -158,7 +142,7 @@ async function rateOnce(
     .select()
     .from(rounds)
     .where(eq(rounds.id, roundId))
-    .for('update');
+    .for('no key update');
   if (!round) throw createAppError('NOT_FOUND', 'No such round');
   assertRatedRoundIntegrity(round);
   const [rated] = await tx
@@ -217,55 +201,21 @@ async function rateOnce(
     seasonId: plan.seasonId,
     ladder: plan.ladder,
   };
-  await tx.insert(ratingChanges).values(
-    plan.changes.map((change) => ({
-      ...scope,
-      id: change.changeId,
-      roundId,
-      actorId: change.actorId,
-      ratingBefore: change.before.rating,
-      ratingAfter: change.after.rating,
-      deviationBefore: change.before.deviation,
-      deviationAfter: change.after.deviation,
-      volatilityBefore: change.before.volatility,
-      volatilityAfter: change.after.volatility,
-      calculationVersion: plan.calculationVersion,
-      occurredAt: new Date(plan.occurredAt),
-    })),
-  );
-  // Stable actor order: two rounds between the same pair with sides swapped
-  // would otherwise lock the two projections in opposite orders and deadlock.
-  const byActor = [...plan.changes].sort((a, b) =>
-    a.actorId < b.actorId ? -1 : a.actorId > b.actorId ? 1 : 0,
-  );
-  for (const change of byActor) await writeProjection(tx, scope, change);
-  return {
-    kind: 'rated',
-    ladder: plan.ladder,
-    seasonId: plan.seasonId,
-    changes: plan.changes.map(({ changeId, actorId, before, after }) => ({
-      id: changeId,
-      actorId,
-      before,
-      after,
-    })),
-  };
+  await tx
+    .insert(ratingChanges)
+    .values(ratingChangeRows(plan, { roundId, formatId: round.formatId }));
+  for (const change of projectionLockOrder(plan.changes))
+    await writeProjection(tx, scope, change);
+  return ratedResult(plan);
 }
 
 export async function rateCompletedRound(
   database: BunSQLDatabase,
   input: RateDebateInput,
 ): Promise<RateDebateResult> {
-  for (let attempt = 1; ; attempt += 1) {
-    try {
-      return await database.transaction((tx) => rateOnce(tx, input));
-    } catch (error) {
-      if (!(error instanceof StaleProjection)) throw error;
-      if (attempt >= ATTEMPTS)
-        throw createAppError(
-          'CONFLICT',
-          'Ratings kept changing while this round was rated',
-        );
-    }
-  }
+  return retryStaleProjection(
+    () => database.transaction((tx) => rateOnce(tx, input)),
+    (error) => error instanceof StaleProjection,
+    ATTEMPTS,
+  );
 }

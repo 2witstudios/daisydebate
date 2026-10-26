@@ -1,5 +1,43 @@
 # 0033: Presence and adjudication
 
+Current Round adaptation: [ADR 0058](0058-one-round-model.md) supersedes the
+historical fixed timetable and snapshot participant authority below.
+[ADR 0067](0067-playable-round-policy-and-acceptance.md) preserves the fairness,
+timestamp and durable settled-horizon rules using actual persisted segment
+openings. Public ingress-outage proof includes RT-4.3d's synthetic check-in probe;
+process leases alone do not establish that proof.
+
+The following narrow replacements govern the actual Round implementation:
+
+- **Receipt admission (DEC-185):** the adapter's first writer identity SELECT,
+  before BEGIN or any Round lock, samples PostgreSQL `statement_timestamp()`.
+  It retains all six fractional digits and the exact backend incarnation.
+  An adapter-owned control transaction commits the durable pending attempt
+  before the writer begins competitive work. The same existing pool uses a
+  900 ms execution slice and at most 1000 ms cancellation/recovery reserve,
+  within the 2000 ms whole-operation bound. Round state writers use
+  `FOR NO KEY UPDATE`: competitive writers still exclude each other, while
+  the attempt's foreign-key admission can commit behind an existing writer.
+  Unknown commit or cleanup leaves durable uncertainty; backend absence alone
+  never proves rollback or clears it. Fresh ledger reconciliation must also
+  establish the operation's outcome before settlement may advance.
+- **Availability precision (DEC-189):** PostgreSQL availability samples,
+  receipts and derived deadlines preserve native microsecond precision.
+  A missing-history gap begins at the first PostgreSQL microsecond strictly
+  after the previously settled horizon. This never changes a settled prefix.
+  Grace and format durations remain integer milliseconds, including the
+  approved 40000 ms grace; Date serialization must not floor a late receipt
+  back into its attendance window.
+
+The real contention/reconciliation proofs are in
+[`attendance.integration.ts`](../../apps/web/integration/attendance.integration.ts)
+and [`bounded-transaction.integration.ts`](../../packages/db/integration/bounded-transaction.integration.ts).
+Native precision and immutable-prefix regressions are in
+[`availability.test.ts`](../../packages/debate-engine/src/availability.test.ts)
+and [`availability.integration.ts`](../../packages/db/integration/availability.integration.ts).
+The associated open precision finding is
+[RT-4.3c RTR-2](https://pagespace.ai/pages/y2ke0eyf1t1w3qa6fiscrf74).
+
 Status: accepted. Extends [ADR 0008](0008-redis-ephemeral.md) (presence is
 Redis state), [ADR 0016](0016-injected-clock-and-identity.md) (time is an
 input), [ADR 0029](0029-competitive-schema-foundation.md) (debate outcomes)
@@ -368,7 +406,7 @@ RT-4.5b proves the check-in-versus-evaluator race against real PostgreSQL.
   `completed` with the opponent as winner, `outcome` the opponent's side and
   `outcome_reason = 'forfeit'`, and no judging round. It is rated as a loss
   only when the debate is ranked (ranked already requires canonical rules,
-  ADR 0030); casual and practice forfeits never reach `rating_changes`.
+  ADR 0030); casual forfeits never reach `rating_changes`.
 - **Both missing: abandoned.** The debate completes with
   `outcome = 'abandoned'` and never rates. This includes the last speech.
 - **The last speech never forfeits.** Only the forfeit is exempt. If the

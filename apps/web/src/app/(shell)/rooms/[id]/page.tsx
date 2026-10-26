@@ -15,6 +15,7 @@ import {
   submitRoomFormAction,
   saveRoomSettingsAction,
 } from './actions';
+import { MediaDocument } from '../../../../ui/round-media/media-document';
 
 export const metadata: Metadata = { title: 'Room' };
 
@@ -45,6 +46,7 @@ export default async function RoomRoute({
   const view = result.view;
   return (
     <div className="room-page mx-auto flex w-full max-w-dash-column flex-col gap-6 px-6 py-8 max-narrow:px-4">
+      <MediaDocument />
       <RoomLive
         view={view}
         ids={roomCommandIds(view, () => systemId.next())}

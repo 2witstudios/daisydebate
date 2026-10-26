@@ -8,7 +8,6 @@ import {
   clubLabels,
   experienceLabels,
   formatLabels,
-  lengthLabels,
   topicLabels,
   wantLabels,
 } from '../questions/labels';
@@ -70,10 +69,7 @@ export function ReadyStep({
     ],
     [
       'Formats',
-      [
-        ...answers.formats.map((format) => formatLabels[format]),
-        ...(answers.length === null ? [] : [lengthLabels[answers.length]]),
-      ].join(' · '),
+      answers.formats.map((format) => formatLabels[format]).join(' · '),
       editHrefs.experience,
     ],
     [
