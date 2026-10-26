@@ -44,8 +44,6 @@ jobs:
         working-directory: apps/web
         run: bunx --no-install next typegen
       - name: Measure every workspace config and negative controls
-        env:
-          GITHUB_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: bun scripts/typecheck-benchmark.ts "$RUNNER_TEMP/typecheck-results" "$RUNNER_TEMP/tsgo/node_modules/.bin/tsgo"
       - name: Prove the retained TypeScript API supports typed ESLint
         run: |
@@ -80,7 +78,7 @@ jobs:
           await Bun.write(file, "import { useState } from \"react\"; export default function Page() { return null; }\n");
           try {
             const options = { strict: true, module: ts.ModuleKind.ESNext, moduleResolution: ts.ModuleResolutionKind.Bundler, types: [], skipLibCheck: true };
-            const host = { ...ts.sys, getScriptFileNames: () => [file], getScriptVersion: () => "1", getCompilationSettings: () => options, getDefaultLibFileName: ts.getDefaultLibFilePath, getScriptSnapshot: path => { const text = ts.sys.readFile(path); return text === undefined ? undefined : ts.ScriptSnapshot.fromString(text); } };
+            const host = { ...ts.sys, useCaseSensitiveFileNames: () => ts.sys.useCaseSensitiveFileNames, getScriptFileNames: () => [file], getScriptVersion: () => "1", getCompilationSettings: () => options, getDefaultLibFileName: ts.getDefaultLibFilePath, getScriptSnapshot: path => { const text = ts.sys.readFile(path); return text === undefined ? undefined : ts.ScriptSnapshot.fromString(text); } };
             const languageService = ts.createLanguageService(host);
             const plugin = createTSPlugin({ typescript: ts }).create({ languageService, languageServiceHost: host, config: { name: "next" }, project: { getCurrentDirectory: process.cwd, projectService: { logger: { info() {} } } } });
             const errors = plugin.getSemanticDiagnostics(file);

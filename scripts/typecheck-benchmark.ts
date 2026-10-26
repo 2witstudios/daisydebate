@@ -18,6 +18,12 @@ export const compilerArgs = (project: string, buildInfo: string) => [
     : []),
 ];
 
+export const checkedCandidate = (checkout: string, requested: string) => {
+  if (checkout.trim() !== requested)
+    throw new Error('Benchmark checkout does not match requested candidate');
+  return checkout.trim();
+};
+
 export const sameDiagnostics = (left: string, right: string): boolean =>
   left.replaceAll('\r\n', '\n').trim() ===
   right.replaceAll('\r\n', '\n').trim();
@@ -235,6 +241,10 @@ async function main() {
     throw new Error(
       'Run the benchmark in GitHub Actions, not the shared local machine',
     );
+  const sha = checkedCandidate(
+    Bun.spawnSync(['git', 'rev-parse', 'HEAD']).stdout.toString(),
+    process.env.GIT_COMMIT ?? '',
+  );
   const output = resolve(process.argv[2]!);
   const native = resolve(process.argv[3]!);
   await mkdir(output, { recursive: true });
@@ -245,6 +255,9 @@ async function main() {
   for (const project of projects) {
     samples.push(...(await measureProject(project, engines, output)));
     controls.push(await negativeControl(project, engines, output));
+    process.stdout.write(
+      `Measured ${project} (${controls.length}/${projects.length})\n`,
+    );
   }
   const references = await referenceControl(engines, output);
   const equivalent =
@@ -263,7 +276,7 @@ async function main() {
     `${output}/results.json`,
     JSON.stringify(
       {
-        sha: process.env.GITHUB_SHA,
+        sha,
         projects,
         samples,
         controls,
@@ -277,7 +290,7 @@ async function main() {
   const summary = [
     '## Typecheck comparison',
     '',
-    `Candidate: ${process.env.GITHUB_SHA}`,
+    `Candidate: ${sha}`,
     `All projects green with equivalent diagnostics and controls: ${equivalent}`,
     '',
     '| Project | Engine | Median seconds | Peak RSS KiB (max) | Exit codes |',

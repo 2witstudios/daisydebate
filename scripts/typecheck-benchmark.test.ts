@@ -2,6 +2,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   configsForScript,
   compilerArgs,
+  checkedCandidate,
   sameDiagnostics,
   parseMeasurement,
 } from './typecheck-benchmark';
@@ -50,6 +51,26 @@ describe('typecheck benchmark evidence', () => {
         '--tsBuildInfoFile',
         '/tmp/evidence/native.tsbuildinfo',
       ],
+    });
+  });
+  test('attests the checked-out source instead of the GitHub merge ref', () => {
+    assert({
+      given: 'a head checkout matching the requested candidate',
+      should: 'record that exact source revision',
+      actual: checkedCandidate('abc123\n', 'abc123'),
+      expected: 'abc123',
+    });
+    let error = '';
+    try {
+      checkedCandidate('head', 'merge-ref');
+    } catch (cause) {
+      error = (cause as Error).message;
+    }
+    assert({
+      given: 'a checkout different from the requested candidate',
+      should: 'refuse misleading evidence',
+      actual: error,
+      expected: 'Benchmark checkout does not match requested candidate',
     });
   });
   test('compares diagnostics without hiding changed codes, locations or text', () => {
