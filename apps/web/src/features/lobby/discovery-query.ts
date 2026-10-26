@@ -22,7 +22,7 @@ export function parseRoomDiscoveryQuery(raw: SearchParams) {
 
 /** Where a Room stands as the Lobby groups it. */
 export const lobbyStatuses = ['all', 'open', 'starting', 'live'] as const;
-export const lobbyModes = ['any', 'ranked', 'casual'] as const;
+const lobbyModes = ['any', 'ranked', 'casual'] as const;
 
 export type LobbyStatus = (typeof lobbyStatuses)[number];
 export type LobbyMode = (typeof lobbyModes)[number];

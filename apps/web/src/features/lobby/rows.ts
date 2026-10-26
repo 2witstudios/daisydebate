@@ -4,7 +4,7 @@ import type { LobbyFilters } from './discovery-query';
 type RowState = 'open' | 'starting' | 'live';
 
 /** One verb per Room state, so a row's button always means the same thing. */
-export type LobbyAction = {
+type LobbyAction = {
   readonly verb: 'Join' | 'Spectate' | 'Watch' | 'Return to room';
   readonly href: string;
   readonly primary: boolean;
