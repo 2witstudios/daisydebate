@@ -39,7 +39,7 @@ jobs:
       - name: Record toolchain and machine
         run: |
           mkdir -p "$RUNNER_TEMP/typecheck-results"
-          { git rev-parse HEAD; uname -a; lscpu; bun --version; node --version; node_modules/.bin/tsc --version; "$RUNNER_TEMP/tsgo/node_modules/.bin/tsgo" --version; } > "$RUNNER_TEMP/typecheck-results/environment.txt"
+          { git rev-parse HEAD; uname -a; lscpu; bun --version; node --version; node_modules/.bin/tsc --version; node_modules/.bin/tsgo --version; "$RUNNER_TEMP/tsgo/node_modules/.bin/tsgo" --version; } > "$RUNNER_TEMP/typecheck-results/environment.txt"
       - name: Generate Next route types with the retained toolchain
         working-directory: apps/web
         run: bunx --no-install next typegen
