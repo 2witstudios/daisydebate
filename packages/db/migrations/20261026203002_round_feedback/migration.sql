@@ -18,6 +18,7 @@ CREATE TABLE "round_feedback" (
 	CONSTRAINT "round_feedback_result_check" CHECK (("status" = 'succeeded') = ("feedback" is not null) and ("status" = 'leased') = ("completed_at" is null))
 );
 --> statement-breakpoint
+CREATE INDEX "round_feedback_freeze_revision_idx" ON "round_feedback" ("round_id","freeze_revision");--> statement-breakpoint
 CREATE INDEX "round_feedback_lease_idx" ON "round_feedback" ("status","lease_expires_at");--> statement-breakpoint
 CREATE INDEX "round_feedback_created_idx" ON "round_feedback" ("created_at");--> statement-breakpoint
 ALTER TABLE "round_feedback" ADD CONSTRAINT "round_feedback_round_id_rounds_id_fkey" FOREIGN KEY ("round_id") REFERENCES "rounds"("id") ON DELETE CASCADE;--> statement-breakpoint

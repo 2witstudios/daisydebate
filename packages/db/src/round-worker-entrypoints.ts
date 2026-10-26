@@ -54,8 +54,8 @@ export function roundWorkerEntrypoints(input: {
       })
     : undefined;
   return {
-    scanRoundFeedbackJobs: (limit: number) =>
-      coaching ? coaching.scan(limit) : Promise.resolve([]),
+    scanRoundFeedbackJobs: (...args: Parameters<Coaching['scan']>) =>
+      coaching ? coaching.scan(...args) : Promise.resolve([]),
     claimRoundFeedbackJob: (...args: Parameters<Coaching['claim']>) =>
       configured(coaching).claim(...args),
     recordRoundFeedbackUsage: (...args: Parameters<Coaching['recordUsage']>) =>

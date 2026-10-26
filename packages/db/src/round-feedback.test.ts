@@ -3,7 +3,8 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { BoundedTransaction } from './bounded-transaction';
 import {
   createRoundFeedbackJobs,
-  readRoundFeedbackFacts,
+  readRoundCoachingFacts,
+  type RoundCoachingFacts,
 } from './round-feedback';
 
 setupRitewayBun();
@@ -51,6 +52,40 @@ const jobsWith = (answers: unknown[]) => {
   };
 };
 
+/** The facts row as the driver returns it, and the plain facts it becomes. */
+const factsRow = {
+  status: 'completed',
+  completed_at: new Date('2026-10-26T12:00:00.000Z'),
+  frozen: true,
+  lines: '2',
+  ai_ballots: [
+    { submitted: true, sides: ['negative', 'not-a-side'] },
+    { submitted: false, sides: [] },
+  ],
+  pass: {
+    status: 'leased',
+    attempts: 1,
+    leaseExpiresAt: '2026-10-26T12:02:00+00:00',
+    feedback: null,
+  },
+};
+const plainFacts: RoundCoachingFacts = {
+  status: 'completed',
+  completedAt: '2026-10-26T12:00:00.000Z',
+  frozen: true,
+  lines: 2,
+  aiBallots: [
+    { submitted: true, sides: ['negative'] },
+    { submitted: false, sides: [] },
+  ],
+  pass: {
+    status: 'leased',
+    attempts: 1,
+    leaseExpiresAt: '2026-10-26T12:02:00.000Z',
+    feedback: null,
+  },
+};
+
 describe('createRoundFeedbackJobs()', () => {
   test('refuses an unusable configuration', async () => {
     for (const [given, leaseMs, model] of [
@@ -73,31 +108,51 @@ describe('createRoundFeedbackJobs()', () => {
   });
 
   test('scan', async () => {
-    const { jobs, left } = jobsWith([
-      [],
-      [{ roundId: 'r1' }, { roundId: 'r2' }],
-    ]);
-    await assertRejects({
-      given: 'a batch limit outside 1 to 64',
-      should: 'refuse with VALIDATION',
-      actual: () => jobs.scan(65),
-      code: 'VALIDATION',
-    });
+    const { jobs, left } = jobsWith([[{ roundId: 'r1' }, { roundId: 'r2' }]]);
+    for (const [given, limit, since] of [
+      ['a batch limit outside 1 to 64', 65, '2026-10-25T12:00:00.000Z'],
+      ['an unreadable window start', 8, 'yesterday-ish'],
+    ] as const)
+      await assertRejects({
+        given,
+        should: 'refuse with VALIDATION',
+        actual: () => jobs.scan(limit, since),
+        code: 'VALIDATION',
+      });
     assert({
-      given: 'two Rounds needing coaching',
-      should: 'end spent leases first, then list the Rounds',
-      actual: { listed: await jobs.scan(8), left: left() },
+      given: 'two candidate Rounds',
+      should: 'list them in one statement, deciding nothing',
+      actual: {
+        listed: await jobs.scan(8, '2026-10-25T12:00:00.000Z'),
+        left: left(),
+      },
       expected: { listed: ['r1', 'r2'], left: 0 },
     });
   });
 
-  test('a Round that may not be claimed', async () => {
-    const { jobs } = jobsWith([[], [{ open: false }]]);
+  test('the decision leaves or ends a Round', async () => {
+    const seen: RoundCoachingFacts[] = [];
+    const skipped = jobsWith([[], [factsRow]]);
+    const ended = jobsWith([[], [factsRow], undefined]);
     assert({
-      given: 'a Round already held, coached or ineligible',
-      should: 'claim nothing',
-      actual: await jobs.claim('r1'),
-      expected: null,
+      given: 'a decision to leave the Round, then one to end its lapsed lease',
+      should:
+        'hand the decision the Round’s plain facts and claim nothing either way',
+      actual: {
+        skipped: await skipped.jobs.claim('r1', (facts) => {
+          seen.push(facts);
+          return 'skip';
+        }),
+        ended: await ended.jobs.claim('r1', () => 'fail'),
+        left: [skipped.left(), ended.left()],
+        facts: seen,
+      },
+      expected: {
+        skipped: null,
+        ended: null,
+        left: [0, 0],
+        facts: [plainFacts],
+      },
     });
   });
 
@@ -119,7 +174,7 @@ describe('createRoundFeedbackJobs()', () => {
   };
   const claimAnswers = (claimed: unknown) => [
     [],
-    [{ open: true }],
+    [factsRow],
     [freeze],
     [],
     [line],
@@ -133,7 +188,7 @@ describe('createRoundFeedbackJobs()', () => {
     const { jobs, left } = jobsWith(
       claimAnswers({ attempts: 1, freezeRevision: 1 }),
     );
-    const claim = await jobs.claim('r1');
+    const claim = await jobs.claim('r1', () => 'claim');
     assert({
       given: 'a claimable Round frozen at revision 1',
       should:
@@ -167,7 +222,7 @@ describe('createRoundFeedbackJobs()', () => {
     await assertRejects({
       given: 'a stored attempt bound to a different freeze revision',
       should: 'refuse with INVARIANT',
-      actual: () => jobs.claim('r1'),
+      actual: () => jobs.claim('r1', () => 'claim'),
       code: 'INVARIANT',
     });
   });
@@ -204,27 +259,22 @@ describe('createRoundFeedbackJobs()', () => {
   });
 });
 
-describe('readRoundFeedbackFacts()', () => {
-  test('a stored pass and none', async () => {
+describe('readRoundCoachingFacts()', () => {
+  test('a Round’s facts, or none', async () => {
     const reader = (rows: unknown[]) =>
       ({ execute: async () => rows }) as never;
     assert({
-      given: 'a succeeded pass, then a Round with no row',
-      should: 'return its validated coaching, then nothing but eligibility',
-      actual: [
-        await readRoundFeedbackFacts(
-          reader([{ status: 'succeeded', feedback: coaching, eligible: true }]),
-          'r1',
-        ),
-        await readRoundFeedbackFacts(
-          reader([{ status: null, feedback: null, eligible: false }]),
-          'r1',
-        ),
-      ],
-      expected: [
-        { status: 'succeeded', feedback: coaching, eligible: true },
-        { status: null, feedback: null, eligible: false },
-      ],
+      given: 'the driver’s row for a Round',
+      should:
+        'return plain facts: instants as UTC ISO, the line count as a number, only real sides',
+      actual: await readRoundCoachingFacts(reader([factsRow]), 'r1'),
+      expected: plainFacts,
+    });
+    await assertRejects({
+      given: 'no Round',
+      should: 'refuse with NOT_FOUND',
+      actual: () => readRoundCoachingFacts(reader([]), 'r1'),
+      code: 'NOT_FOUND',
     });
   });
 });

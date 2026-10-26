@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "c1838da7-8bc7-4968-87ea-99a7738d8929",
+  "id": "b4be98c5-e1b3-4aad-8fdc-62e5c9c41c89",
   "prevIds": [
     "82c467c4-fb42-4ec0-9156-e21654b9d8fa"
   ],
@@ -10359,6 +10359,34 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "round_commands"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "round_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "freeze_revision",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "round_feedback_freeze_revision_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "round_feedback"
     },
     {
       "nameExplicit": true,

@@ -43,6 +43,20 @@ gaps stood in the way:
    - it has a freeze with at least one line;
    - no submitted AI ballot already coached both sides.
 
+   A completed round takes no more ballots, so no judging still to come can
+   coach it later.
+
+   Who decides what:
+   - **The coaching feature decides.** Eligibility, the window and the call
+     budget are a pure decision in `apps/web/src/features/round-coaching/policy.ts`,
+     with an explicit clock and explicit policy bounds. The same decision
+     drives the worker's claims and the debater's coaching state.
+   - **The database supplies plain facts and persistence.** It lists
+     candidates with a bounded query, reads a round's coaching facts, and
+     applies the injected decision inside the claim's transaction before an
+     attempt is spent. It keeps the lease token, uniqueness, the attempt
+     count and usage transactional.
+
    The job runs this way:
    - It is claimed only once the shared provider capacity admits the call,
      so a busy provider never spends an attempt.
@@ -54,7 +68,6 @@ gaps stood in the way:
      holds.
    - A lapsed lease ends the job as `failed` when it is at the cap or the
      round no longer qualifies.
-   - A round whose AI judging job is still queued or leased waits for it.
    - The pass runs only where `ROUND_BOT_WORKER_POLICY` is configured, with
      its judge model and provider concurrency. There is no second LLM client.
 

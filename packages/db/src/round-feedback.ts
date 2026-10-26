@@ -1,7 +1,12 @@
 import { createAppError } from '@daisy/errors';
-import { ballotFeedbackSchema, type DebateSide } from '@daisy/protocol';
-import { and, asc, eq, sql, type SQL } from 'drizzle-orm';
+import {
+  ballotFeedbackSchema,
+  debateSides,
+  type DebateSide,
+} from '@daisy/protocol';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
+import { z } from 'zod';
 import type { BoundedTransaction } from './bounded-transaction';
 import { agentLeaseDigest } from './round-agent-lease';
 import { readLockedFrozenRoundTranscript } from './frozen-transcript';
@@ -10,44 +15,89 @@ import { roundParticipants } from './schema/round-participants';
 import { roundSegments } from './schema/round-segments';
 import { rounds } from './schema/rounds';
 
-/** Paid model calls one Round's coaching may buy over all its leases (ADR 0071). */
-const MAX_FEEDBACK_CALLS = 2;
-/** A Round is coached only this long after it completes; older ones never queue. */
-const FEEDBACK_WINDOW_HOURS = 24;
-
 type Reader = Pick<BunSQLDatabase, 'execute'>;
 
+const instant = z
+  .union([z.date(), z.string()])
+  .transform((value) => new Date(value).toISOString());
+const factsSchema = z.object({
+  status: z.string(),
+  completed_at: instant.nullable(),
+  frozen: z.boolean(),
+  lines: z.coerce.number().int().nonnegative(),
+  ai_ballots: z.array(
+    z.object({ submitted: z.boolean(), sides: z.array(z.string()) }),
+  ),
+  pass: z
+    .object({
+      status: z.enum(['leased', 'succeeded', 'failed']),
+      attempts: z.number().int().positive(),
+      leaseExpiresAt: instant.nullable(),
+      feedback: ballotFeedbackSchema.nullable(),
+    })
+    .nullable(),
+});
+
 /**
- * A completed Round that needs coaching: recent, with a frozen transcript
- * that has lines, no submitted AI ballot that already coached both sides,
- * and no AI judging still under way that may yet coach them.
+ * Plain facts the coaching decision is made from (ADR 0071). The decision,
+ * its window and its budget belong to the coaching feature, not here.
  */
-const needsCoaching = (roundId: SQL) => sql`exists (select 1 from rounds r
-  where r.id = ${roundId} and r.status = 'completed'
-    and r.completed_at > clock_timestamp() - make_interval(hours => ${FEEDBACK_WINDOW_HOURS})
-    and exists (select 1 from round_transcript_freezes z where z.round_id = r.id)
-    and exists (select 1 from utterances u where u.round_id = r.id)
-    and not exists (select 1 from ballots b
+export type RoundCoachingFacts = {
+  readonly status: string;
+  readonly completedAt: string | null;
+  /** Whether the Round froze a transcript, and how many lines it has. */
+  readonly frozen: boolean;
+  readonly lines: number;
+  /** Each AI judge ballot: whether it is submitted, and the sides it coached. */
+  readonly aiBallots: readonly {
+    readonly submitted: boolean;
+    readonly sides: readonly DebateSide[];
+  }[];
+  /** The coaching pass's row, once any attempt was claimed. */
+  readonly pass: {
+    readonly status: 'leased' | 'succeeded' | 'failed';
+    readonly attempts: number;
+    readonly leaseExpiresAt: string | null;
+    readonly feedback: Readonly<Partial<Record<DebateSide, string>>> | null;
+  } | null;
+};
+
+/** What the coaching feature decided for one claim. */
+export type CoachingClaimDecision = 'claim' | 'skip' | 'fail';
+
+export async function readRoundCoachingFacts(
+  reader: Reader,
+  roundId: string,
+): Promise<RoundCoachingFacts> {
+  const [row] = (await reader.execute(sql`select r.status, r.completed_at,
+    exists (select 1 from round_transcript_freezes z where z.round_id = r.id) as frozen,
+    (select count(*) from utterances u where u.round_id = r.id) as lines,
+    coalesce((select json_agg(json_build_object(
+        'submitted', b.status = 'submitted',
+        'sides', (select coalesce(json_agg(k), '[]'::json)
+          from jsonb_object_keys(coalesce(b.feedback, '{}'::jsonb)) k)))
+      from ballots b
       join round_participants p on p.id = b.judge_participant_id
       join actors a on a.id = p.actor_id
-      where b.round_id = r.id and b.status = 'submitted' and a.kind = 'bot'
-        and b.feedback ? 'affirmative' and b.feedback ? 'negative')
-    and not exists (select 1 from round_judging_jobs j
-      where j.round_id = r.id and j.status in ('queued', 'leased')))`;
-
-/** No row, or a lapsed lease with calls left: the Round may be claimed. */
-const claimable = (
-  roundId: SQL,
-) => sql`not exists (select 1 from round_feedback f
-  where f.round_id = ${roundId}
-    and (f.status <> 'leased' or f.lease_expires_at > clock_timestamp()
-      or f.attempts >= ${MAX_FEEDBACK_CALLS}))`;
-
-const sideFeedback = (value: unknown) => {
-  const parsed = ballotFeedbackSchema.safeParse(value);
-  if (!parsed.success) throw createAppError('INVARIANT');
-  return parsed.data;
-};
+      where b.round_id = r.id and a.kind = 'bot'), '[]'::json) as ai_ballots,
+    (select json_build_object('status', f.status, 'attempts', f.attempts,
+        'leaseExpiresAt', f.lease_expires_at, 'feedback', f.feedback)
+      from round_feedback f where f.round_id = r.id) as pass
+    from rounds r where r.id = ${roundId}`)) as unknown as unknown[];
+  if (!row) throw createAppError('NOT_FOUND');
+  const facts = factsSchema.parse(row);
+  return {
+    status: facts.status,
+    completedAt: facts.completed_at,
+    frozen: facts.frozen,
+    lines: facts.lines,
+    aiBallots: facts.ai_ballots.map((ballot) => ({
+      submitted: ballot.submitted,
+      sides: debateSides.filter((side) => ballot.sides.includes(side)),
+    })),
+    pass: facts.pass,
+  };
+}
 
 /** The Round's row while this token still holds its lease. */
 const heldBy = (roundId: string, token: string) =>
@@ -57,30 +107,26 @@ const heldBy = (roundId: string, token: string) =>
     eq(roundFeedback.leaseTokenDigest, agentLeaseDigest(token)),
   );
 
-/** The facts a reader's coaching state comes from; none of them is a secret. */
-export async function readRoundFeedbackFacts(reader: Reader, roundId: string) {
-  const [facts] = (await reader.execute(sql`select
-    (select status from round_feedback where round_id = ${roundId}) as status,
-    (select feedback from round_feedback where round_id = ${roundId}) as feedback,
-    ${needsCoaching(sql`${roundId}`)} as eligible`)) as unknown as {
-    status: (typeof roundFeedback.$inferSelect)['status'] | null;
-    feedback: unknown;
-    eligible: boolean;
-  }[];
-  return {
-    status: facts?.status ?? null,
-    feedback: facts?.feedback ? sideFeedback(facts.feedback) : null,
-    eligible: facts?.eligible ?? false,
-  };
-}
-export type RoundFeedbackFacts = Awaited<
-  ReturnType<typeof readRoundFeedbackFacts>
->;
+/** Ends a held-out lease: the coaching feature decided the Round gets no more calls. */
+const failLease = (roundId: string) => ({
+  set: {
+    status: 'failed' as const,
+    leaseTokenDigest: null,
+    leaseExpiresAt: null,
+    completedAt: sql`clock_timestamp()`,
+  },
+  where: and(
+    eq(roundFeedback.roundId, roundId),
+    eq(roundFeedback.status, 'leased'),
+  ),
+});
 
 /**
- * The coaching job store. Discovery and claim run in short transactions; the
- * provider call happens outside any lock, and only the holder of the
- * current lease may record its result.
+ * The coaching job store: candidate discovery, the lease, the attempt count
+ * and the result, all transactional. Whether a Round is coached is the
+ * coaching feature's decision, made on fresh facts inside the claim's
+ * transaction before an attempt is spent. The provider call happens outside
+ * any lock, and only the holder of the current lease may record its result.
  */
 export function createRoundFeedbackJobs(input: {
   readonly run: BoundedTransaction;
@@ -97,20 +143,27 @@ export function createRoundFeedbackJobs(input: {
     throw createAppError('VALIDATION');
   if (!input.model.trim()) throw createAppError('VALIDATION');
   return {
-    /** Ends spent leases as failed, then lists Rounds that may be claimed. */
-    scan: (limit: number) => {
-      if (!Number.isSafeInteger(limit) || limit < 1 || limit > 64)
+    /**
+     * Candidates only: frozen Rounds completed after `since` with no pass
+     * yet, and every lapsed lease, so the decision can claim or end it.
+     */
+    scan: (limit: number, since: string) => {
+      const from = new Date(since);
+      if (
+        !Number.isSafeInteger(limit) ||
+        limit < 1 ||
+        limit > 64 ||
+        Number.isNaN(from.getTime())
+      )
         throw createAppError('VALIDATION');
       return input.run(async (tx) => {
-        // A lapsed lease that may not be claimed again ends failed: spent,
-        // or its Round no longer needs coaching (out of the window).
-        await tx.execute(sql`update round_feedback f set status = 'failed',
-          lease_token_digest = null, lease_expires_at = null, completed_at = clock_timestamp()
-          where f.status = 'leased' and f.lease_expires_at <= clock_timestamp()
-            and (f.attempts >= ${MAX_FEEDBACK_CALLS} or not ${needsCoaching(sql`f.round_id`)})`);
         const rows =
           (await tx.execute(sql`select r.id as "roundId" from rounds r
-          where r.status = 'completed' and ${needsCoaching(sql`r.id`)} and ${claimable(sql`r.id`)}
+          left join round_feedback f on f.round_id = r.id
+          where r.status = 'completed' and (
+            (f.round_id is null and r.completed_at > ${from}
+              and exists (select 1 from round_transcript_freezes z where z.round_id = r.id))
+            or (f.status = 'leased' and f.lease_expires_at <= clock_timestamp()))
           order by r.completed_at, r.id limit ${limit}`)) as unknown as {
             roundId: string;
           }[];
@@ -118,18 +171,25 @@ export function createRoundFeedbackJobs(input: {
       });
     },
     /**
-     * Takes the Round's next attempt and returns the evidence to coach, or
-     * null when another process holds it or it no longer needs coaching.
+     * Reads the Round's facts under its lock and applies `decide`: a claim
+     * takes the next attempt and returns the frozen evidence to coach; a
+     * failure ends a held-out lease. Null unless claimed.
      */
-    claim: (roundId: string) =>
+    claim: (
+      roundId: string,
+      decide: (facts: RoundCoachingFacts) => CoachingClaimDecision,
+    ) =>
       input.run(async (tx) => {
         await tx.execute(
           sql`select pg_advisory_xact_lock(hashtextextended(${roundId},59004))`,
         );
-        const [open] = (await tx.execute(
-          sql`select ${needsCoaching(sql`${roundId}`)} and ${claimable(sql`${roundId}`)} as open`,
-        )) as unknown as { open: boolean }[];
-        if (!open?.open) return null;
+        const decision = decide(await readRoundCoachingFacts(tx, roundId));
+        if (decision === 'fail') {
+          const failed = failLease(roundId);
+          await tx.update(roundFeedback).set(failed.set).where(failed.where);
+          return null;
+        }
+        if (decision !== 'claim') return null;
         const frozen = await readLockedFrozenRoundTranscript(tx, roundId);
         if (!frozen) throw createAppError('INVARIANT');
         const token = input.nextToken();
@@ -154,12 +214,15 @@ export function createRoundFeedbackJobs(input: {
               leaseExpiresAt,
               model: input.model,
             },
+            // A finished pass is never retaken, whatever was decided.
+            setWhere: sql`${roundFeedback.status} = 'leased'`,
           })
           .returning({
             attempts: roundFeedback.attempts,
             freezeRevision: roundFeedback.freezeRevision,
           });
-        if (claimed?.freezeRevision !== frozen.revision)
+        if (!claimed) return null;
+        if (claimed.freezeRevision !== frozen.revision)
           throw createAppError('INVARIANT', 'Frozen coaching input changed');
         const [round] = await tx
           .select({ resolution: rounds.resolution })
@@ -217,9 +280,10 @@ export function createRoundFeedbackJobs(input: {
       token: string,
       result: Readonly<Partial<Record<DebateSide, string>>>,
     ) => {
-      const feedback = sideFeedback(result);
-      if (!feedback.affirmative || !feedback.negative)
+      const parsed = ballotFeedbackSchema.safeParse(result);
+      if (!parsed.success || !parsed.data.affirmative || !parsed.data.negative)
         throw createAppError('VALIDATION');
+      const feedback = parsed.data;
       return input.run(async (tx) => {
         const done = await tx
           .update(roundFeedback)

@@ -7,6 +7,7 @@ import type { Database } from '@daisy/db';
 import { createAppError } from '@daisy/errors';
 import type { ProviderCapacity } from '../round-judging/operations';
 import { frozenPromptInput } from '../round-judging/prompt';
+import { claimDecision } from './policy';
 
 type Store = Pick<
   Database,
@@ -16,7 +17,8 @@ type Store = Pick<
 >;
 
 /**
- * One paid coaching call per claim (ADR 0071). The claim is taken only once
+ * One paid coaching call per claim (ADR 0071). The coaching policy decides
+ * each claim on facts read under the Round's lock. The claim is taken only once
  * the shared provider capacity admits the call, so a busy provider never
  * spends one of the Round's attempts. Usage is recorded whatever the answer
  * held; only a valid answer is stored, and only while the lease holds.
@@ -25,13 +27,18 @@ export function createRoundCoachingOperations(input: {
   readonly store: Store;
   readonly voice: () => Pick<OpenRouter, 'complete'>;
   readonly withProvider: ProviderCapacity;
+  /** The decision's clock, read inside each claim. */
+  readonly now: () => string;
 }) {
   return {
     coach: (roundId: string, signal: AbortSignal) =>
       input.withProvider(signal, async () => {
         if (signal.aborted)
           throw createAppError('CONFLICT', 'Coaching cancelled');
-        const claim = await input.store.claimRoundFeedbackJob(roundId);
+        const claim = await input.store.claimRoundFeedbackJob(
+          roundId,
+          (facts) => claimDecision(facts, input.now()),
+        );
         if (!claim) return;
         const answer = await input.voice().complete({
           model: claim.model,

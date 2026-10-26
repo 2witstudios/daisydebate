@@ -74,6 +74,10 @@ export const roundFeedback = pgTable(
       'round_feedback_result_check',
       sql`(${table.status} = 'succeeded') = (${table.feedback} is not null) and (${table.status} = 'leased') = (${table.completedAt} is null)`,
     ),
+    index('round_feedback_freeze_revision_idx').on(
+      table.roundId,
+      table.freezeRevision,
+    ),
     index('round_feedback_lease_idx').on(table.status, table.leaseExpiresAt),
     index('round_feedback_created_idx').on(table.createdAt),
   ],

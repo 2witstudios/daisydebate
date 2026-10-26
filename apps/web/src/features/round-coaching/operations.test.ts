@@ -15,8 +15,20 @@ const harness = (answer: string, claimed: typeof claim | null = claim) => {
   const calls: unknown[] = [];
   const operations = createRoundCoachingOperations({
     store: {
-      claimRoundFeedbackJob: async (roundId) => {
-        calls.push(['claim', roundId]);
+      claimRoundFeedbackJob: async (roundId, decide) => {
+        calls.push([
+          'claim',
+          roundId,
+          // The policy decides on facts the store reads under its lock.
+          decide({
+            status: 'completed',
+            completedAt: '2026-10-26T12:00:00.000Z',
+            frozen: true,
+            lines: 1,
+            aiBallots: [],
+            pass: null,
+          }),
+        ]);
         return claimed as never;
       },
       recordRoundFeedbackUsage: async (...args) => {
@@ -33,6 +45,7 @@ const harness = (answer: string, claimed: typeof claim | null = claim) => {
       },
     }),
     withProvider: (_signal, work) => work(),
+    now: () => '2026-10-26T12:01:00.000Z',
   });
   return { calls, operations };
 };
@@ -46,7 +59,7 @@ test('a claimed Round is coached once, its usage recorded before its result', as
       'claim it, call the configured model once, record its usage, then store both sides’ coaching under the claim’s lease',
     actual: calls,
     expected: [
-      ['claim', 'round'],
+      ['claim', 'round', 'claim'],
       ['provider', 'judge-model', 2],
       ['usage', 'round', 't', { inputTokens: 120, outputTokens: 40 }],
       ['complete', 'round', 't', coaching],
@@ -77,7 +90,7 @@ test('a Round another process holds is left alone', async () => {
     given: 'a Round whose claim is refused',
     should: 'make no provider call',
     actual: calls,
-    expected: [['claim', 'round']],
+    expected: [['claim', 'round', 'claim']],
   });
 });
 

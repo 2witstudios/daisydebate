@@ -11,6 +11,7 @@ import { createRoundJudgingOperations } from '../features/round-judging/operatio
 import { startRoundJudgingService } from '../features/round-judging/service';
 import { createRoundCoachingOperations } from '../features/round-coaching/operations';
 import { startRoundCoachingService } from '../features/round-coaching/service';
+import { coachingPolicy } from '../features/round-coaching/policy';
 
 /** Provider work owns an independent lifecycle; availability/competitive maintenance never await it. */
 export function startRoundWorkers(input: {
@@ -59,9 +60,16 @@ export function startRoundWorkers(input: {
     store: app.database,
     voice: app.aiVoice,
     withProvider,
+    now: () => app.clock.now(),
   });
   const coach = startRoundCoachingService({
-    scan: app.database.scanRoundFeedbackJobs,
+    scan: (limit) =>
+      app.database.scanRoundFeedbackJobs(
+        limit,
+        new Date(
+          Date.parse(app.clock.now()) - coachingPolicy.windowMs,
+        ).toISOString(),
+      ),
     coach: (roundId, signal) =>
       coaching.coach(
         roundId,

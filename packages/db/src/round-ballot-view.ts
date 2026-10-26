@@ -1,11 +1,5 @@
-import {
-  ballotSchema,
-  type Ballot,
-  type DebateSide,
-  type RoundCoaching,
-} from '@daisy/protocol';
+import { ballotSchema, type Ballot, type DebateSide } from '@daisy/protocol';
 import type { FrozenRoundTranscript } from './frozen-transcript';
-import type { RoundFeedbackFacts } from './round-feedback';
 import type { ballots } from './schema/ballots';
 
 type StoredBallot = typeof ballots.$inferSelect;
@@ -96,51 +90,4 @@ export function ballotReadView(input: {
           })
         : [],
   };
-}
-
-/** A submitted AI ballot already gave this side feedback. */
-const aiCoached = (
-  rows: readonly StoredBallot[],
-  aiJudgeSeatIds: ReadonlySet<string>,
-  side: DebateSide,
-) =>
-  rows.some(
-    (row) =>
-      row.status === 'submitted' &&
-      aiJudgeSeatIds.has(row.judgeParticipantId) &&
-      Boolean(row.feedback?.[side]),
-  );
-
-/**
- * A debater's coaching for a completed Round: the AI judge's ballot when it
- * coached their side, else the coaching pass. A Round still eligible for that
- * pass is pending only while coaching runs in this deployment.
- */
-export function coachingFor(input: {
-  readonly status: string;
-  readonly viewerSide: DebateSide | undefined;
-  readonly aiJudgeSeatIds: ReadonlySet<string>;
-  readonly rows: readonly StoredBallot[];
-  readonly facts: RoundFeedbackFacts;
-  readonly enabled: boolean;
-}): RoundCoaching | null {
-  const side = input.viewerSide;
-  if (!side || input.status !== 'completed') return null;
-  if (aiCoached(input.rows, input.aiJudgeSeatIds, side))
-    return { status: 'in-ballot' };
-  return passCoaching(input.facts, side, input.enabled);
-}
-
-/** The coaching pass's state for one side. */
-function passCoaching(
-  facts: RoundFeedbackFacts,
-  side: DebateSide,
-  enabled: boolean,
-): RoundCoaching {
-  const text = facts.feedback?.[side];
-  if (facts.status === 'succeeded' && text) return { status: 'ready', text };
-  if (facts.status === 'leased') return { status: 'pending' };
-  if (facts.status === null && facts.eligible && enabled)
-    return { status: 'pending' };
-  return { status: 'unavailable' };
 }

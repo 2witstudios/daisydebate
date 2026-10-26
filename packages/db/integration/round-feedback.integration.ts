@@ -7,7 +7,7 @@ import { drizzle } from 'drizzle-orm/bun-sql';
 import { randomBytes } from 'node:crypto';
 import {
   createRoundFeedbackJobs,
-  readRoundFeedbackFacts,
+  readRoundCoachingFacts,
 } from '../src/round-feedback';
 import { roundTranscriptPrivacyAdopter } from '../src/round-transcript-privacy';
 import { withBoundedRound } from './bounded-transaction.test-support';
@@ -59,7 +59,7 @@ const withCompletedRound = (
     client: SQL;
     aff: { id: string; actorId: string };
     jobs: ReturnType<typeof createRoundFeedbackJobs>;
-    facts: () => ReturnType<typeof readRoundFeedbackFacts>;
+    facts: () => ReturnType<typeof readRoundCoachingFacts>;
   }) => Promise<void>,
 ) =>
   withBoundedRound(async (fixture, run, roundId, client) => {
@@ -75,16 +75,25 @@ const withCompletedRound = (
         leaseMs: 30000,
         model: 'anthropic/claude-sonnet-5.5',
       }),
-      facts: () => readRoundFeedbackFacts(drizzle({ client }), roundId),
+      facts: () => readRoundCoachingFacts(drizzle({ client }), roundId),
     });
   });
 
+const dayAgo = () => new Date(Date.now() - 86_400_000).toISOString();
+const claim = () => 'claim' as const;
+const lapse = (fixture: Fixture, roundId: string) =>
+  fixture.sql`update round_feedback set lease_expires_at=clock_timestamp() - interval '1 second' where round_id=${roundId}`;
+
 test('a completed Round is coached once from its freeze, under one lease at a time', async () =>
   withCompletedRound(async ({ fixture, roundId, jobs, facts }) => {
-    const before = await jobs.scan(64);
-    const claim = await jobs.claim(roundId);
-    const held = await jobs.claim(roundId);
-    if (!claim) throw Error('Expected a claim');
+    const before = {
+      listed: (await jobs.scan(64, dayAgo())).includes(roundId),
+      recent: (await jobs.scan(64, new Date().toISOString())).includes(roundId),
+      facts: await facts(),
+    };
+    const first = await jobs.claim(roundId, claim);
+    const held = await facts();
+    if (!first) throw Error('Expected a claim');
     await assertRejects({
       given: 'a token that does not hold the lease',
       should: 'refuse the result with CONFLICT',
@@ -92,31 +101,46 @@ test('a completed Round is coached once from its freeze, under one lease at a ti
         jobs.complete(roundId, randomBytes(32).toString('base64url'), coaching),
       code: 'CONFLICT',
     });
-    await jobs.recordUsage(roundId, claim.token, {
+    await jobs.recordUsage(roundId, first.token, {
       inputTokens: 900,
       outputTokens: 80,
     });
-    await jobs.complete(roundId, claim.token, coaching);
+    await jobs.complete(roundId, first.token, coaching);
     const [row] =
       await fixture.sql`select status,attempts,freeze_revision,input_tokens,output_tokens,lease_token_digest from round_feedback where round_id=${roundId}`;
     assert({
       given: 'a completed Round with frozen lines and no AI ballot',
       should:
-        'list it, let one claim read its freeze, hold off a second, and store both sides’ coaching with its usage',
+        'list it only from a window that holds it, read its plain facts, let a claim read its freeze, and store both sides’ coaching with its usage',
       actual: {
-        listed: before.includes(roundId),
-        frozen: claim.frozen.utterances.length,
-        revision: claim.frozen.revision,
-        held,
+        before: {
+          listed: before.listed,
+          recent: before.recent,
+          frozen: before.facts.frozen,
+          lines: before.facts.lines,
+          pass: before.facts.pass,
+        },
+        claimed: {
+          lines: first.frozen.utterances.length,
+          revision: first.frozen.revision,
+          held: held.pass?.status,
+        },
         row,
-        after: (await jobs.scan(64)).includes(roundId),
-        facts: await facts(),
+        after: {
+          listed: (await jobs.scan(64, dayAgo())).includes(roundId),
+          retaken: await jobs.claim(roundId, claim),
+          pass: (await facts()).pass?.feedback,
+        },
       },
       expected: {
-        listed: true,
-        frozen: 2,
-        revision: 1,
-        held: null,
+        before: {
+          listed: true,
+          recent: false,
+          frozen: true,
+          lines: 2,
+          pass: null,
+        },
+        claimed: { lines: 2, revision: 1, held: 'leased' },
         row: {
           status: 'succeeded',
           attempts: 1,
@@ -125,81 +149,63 @@ test('a completed Round is coached once from its freeze, under one lease at a ti
           output_tokens: 80,
           lease_token_digest: null,
         },
-        after: false,
-        facts: { status: 'succeeded', feedback: coaching, eligible: true },
+        after: { listed: false, retaken: null, pass: coaching },
       },
     });
   }));
 
-test('a Round buys at most two paid calls, then fails', async () =>
+test('a lapsed lease is listed again and the decision retakes or ends it', async () =>
   withCompletedRound(async ({ fixture, roundId, jobs, facts }) => {
-    const lapse = () =>
-      fixture.sql`update round_feedback set lease_expires_at=clock_timestamp() - interval '1 second' where round_id=${roundId}`;
-    const first = await jobs.claim(roundId);
-    await lapse();
-    const second = await jobs.claim(roundId);
-    await lapse();
-    const third = await jobs.claim(roundId);
-    await jobs.scan(64);
+    await jobs.claim(roundId, claim);
+    await lapse(fixture, roundId);
+    const listed = (await jobs.scan(64, new Date().toISOString())).includes(
+      roundId,
+    );
+    const second = await jobs.claim(roundId, claim);
+    await lapse(fixture, roundId);
+    const ended = await jobs.claim(roundId, () => 'fail');
     const [row] =
       await fixture.sql`select status,attempts,lease_token_digest from round_feedback where round_id=${roundId}`;
     assert({
-      given: 'two claims whose leases lapsed without a result',
+      given: 'a lapsed first attempt, retaken, then lapsed and ended',
       should:
-        'refuse a third claim and end the job failed once a scan finds it spent',
+        'list it whatever its age, take a second attempt, then end the job failed',
       actual: {
-        attempts: [first?.attempt, second?.attempt],
-        third,
+        listed,
+        attempt: second?.attempt,
+        ended,
         row,
-        facts: (await facts()).status,
+        facts: (await facts()).pass?.status,
       },
       expected: {
-        attempts: [1, 2],
-        third: null,
+        listed: true,
+        attempt: 2,
+        ended: null,
         row: { status: 'failed', attempts: 2, lease_token_digest: null },
         facts: 'failed',
       },
     });
   }));
 
-test('a Round without a frozen transcript is never coached', async () =>
+test('a Round without a frozen transcript is never a candidate', async () =>
   withCompletedRound(async ({ fixture, roundId, jobs, facts }) => {
     await fixture.sql`delete from round_transcript_freezes where round_id=${roundId}`;
     assert({
       given: 'a completed Round with lines but no freeze',
-      should: 'neither list nor claim it, and report it ineligible',
+      should: 'not list it, and report it unfrozen',
       actual: {
-        listed: (await jobs.scan(64)).includes(roundId),
-        claim: await jobs.claim(roundId),
-        facts: await facts(),
+        listed: (await jobs.scan(64, dayAgo())).includes(roundId),
+        frozen: (await facts()).frozen,
       },
-      expected: {
-        listed: false,
-        claim: null,
-        facts: { status: null, feedback: null, eligible: false },
-      },
-    });
-  }));
-
-test('a lapsed lease ends failed once its Round leaves the coaching window', async () =>
-  withCompletedRound(async ({ fixture, roundId, jobs, facts }) => {
-    await jobs.claim(roundId);
-    await fixture.sql`update rounds set completed_at=clock_timestamp() - interval '25 hours', started_at=clock_timestamp() - interval '26 hours', final_segment_ended_at=clock_timestamp() - interval '25 hours' where id=${roundId}`;
-    await fixture.sql`update round_feedback set lease_expires_at=clock_timestamp() - interval '1 second' where round_id=${roundId}`;
-    await jobs.scan(64);
-    assert({
-      given: 'one lapsed attempt with a call left, after the 24-hour window',
-      should: 'end the job failed instead of leaving it pending forever',
-      actual: (await facts()).status,
-      expected: 'failed',
+      expected: { listed: false, frozen: false },
     });
   }));
 
 test('erasing a debater clears their Round’s coaching for good', async () =>
   withCompletedRound(async ({ roundId, client, aff, jobs, facts }) => {
-    const claim = await jobs.claim(roundId);
-    if (!claim) throw Error('Expected a claim');
-    await jobs.complete(roundId, claim.token, coaching);
+    const first = await jobs.claim(roundId, claim);
+    if (!first) throw Error('Expected a claim');
+    await jobs.complete(roundId, first.token, coaching);
     const database = drizzle({ client });
     const [user] =
       (await client`select user_id from actors where id=${aff.actorId}`) as {
@@ -216,16 +222,21 @@ test('erasing a debater clears their Round’s coaching for good', async () =>
       given:
         'a coached Round one of whose debaters is erased within the window',
       should:
-        'drop the coaching text and leave the job failed so it is never bought again',
+        'drop the coaching text and leave the job failed, so it is never listed or bought again',
       actual: {
-        facts: await facts(),
-        listed: (await jobs.scan(64)).includes(roundId),
-        claim: await jobs.claim(roundId),
+        pass: (await facts()).pass,
+        listed: (await jobs.scan(64, dayAgo())).includes(roundId),
+        retaken: await jobs.claim(roundId, claim),
       },
       expected: {
-        facts: { status: 'failed', feedback: null, eligible: true },
+        pass: {
+          status: 'failed',
+          attempts: 1,
+          leaseExpiresAt: null,
+          feedback: null,
+        },
         listed: false,
-        claim: null,
+        retaken: null,
       },
     });
   }));

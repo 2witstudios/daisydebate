@@ -81,23 +81,21 @@ test('all actual human judges submit one shared ballot against actual frozen inp
       roundId,
       caller: judges[0]!,
       authorize: (round, account) => canReadRound(judges[0]!, round, account),
-      coachingEnabled: false,
     });
     const opponentRead = await f.store.readRoundBallot({
       roundId,
       caller: f.guest,
       authorize: (round, account) => canReadRound(f.guest, round, account),
-      coachingEnabled: false,
     });
     assert({
       given: 'actual frozen input read by its assigned judge and a debater',
       should:
         'expose input and own seat only to the assigned judge without hidden judge identifiers in the debater response',
       actual: [
-        ownRead.own?.participantId,
-        ownRead.freeze?.revision,
-        opponentRead.freeze,
-        opponentRead.own,
+        ownRead.read.own?.participantId,
+        ownRead.read.freeze?.revision,
+        opponentRead.read.freeze,
+        opponentRead.read.own,
         seats.some(
           (seat) =>
             JSON.stringify(opponentRead).includes(seat.id) ||
@@ -191,43 +189,45 @@ test('all actual human judges submit one shared ballot against actual frozen inp
         roundId,
         caller,
         authorize: (round, account) => canReadRound(caller, round, account),
-        coachingEnabled: true,
       });
     const sideOf = (actorId: string) =>
-      done.participants.find((p) => p.actorId === actorId)!.role;
+      done.participants.find((p) => p.actorId === actorId)!.role as
+        'affirmative' | 'negative';
     const released = await Promise.all(
       [f.host, f.guest, judges[1]!].map(async (caller) => {
-        const read = await readAs(caller);
+        const { read, coaching } = await readAs(caller);
         return {
           judges: read.ballots.map((entry) => entry.judge),
           feedback: read.ballots.map((entry) => entry.ballot.feedback),
-          // No AI ballot coached anyone: a coaching pass state, never in-ballot.
-          coaching: read.coaching && read.coaching.status !== 'in-ballot',
+          // Coaching facts go only to a debater, for their own side.
+          coaching: coaching
+            ? { side: coaching.side, aiBallots: coaching.facts.aiBallots }
+            : null,
           transcript: read.transcript === null,
         };
       }),
     );
     const own = (actorId: string) => {
-      const side = sideOf(actorId) as 'affirmative' | 'negative';
+      const side = sideOf(actorId);
       return { [side]: notes[side] };
     };
     assert({
       given:
         'a completed Round whose two human ballots coach both sides, read by each debater and a judge',
       should:
-        'label both ballots human, give each debater only their own feedback and a coaching state, and the judge no feedback or coaching; every seat reads the transcript',
+        'label both ballots human, give each debater only their own feedback and coaching facts for their side, and the judge neither; every seat reads the transcript',
       actual: released,
       expected: [
         {
           judges: ['human', 'human'],
           feedback: [own(f.host.actorId), own(f.host.actorId)],
-          coaching: true,
+          coaching: { side: sideOf(f.host.actorId), aiBallots: [] },
           transcript: false,
         },
         {
           judges: ['human', 'human'],
           feedback: [own(f.guest.actorId), own(f.guest.actorId)],
-          coaching: true,
+          coaching: { side: sideOf(f.guest.actorId), aiBallots: [] },
           transcript: false,
         },
         {

@@ -83,6 +83,10 @@ export type {
   FormatPresetRecord,
 } from './format-operations';
 export type { NewRoom } from './room-operations';
+export type {
+  CoachingClaimDecision,
+  RoundCoachingFacts,
+} from './round-feedback';
 export type { RoundHydration } from './round-hydration';
 export type { RoundExecutionWrite } from './round-operations';
 export type { DocumentRecord, DocumentSave } from './document-operations';

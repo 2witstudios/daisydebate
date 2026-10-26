@@ -1,6 +1,6 @@
 import { ballotCategories } from '@daisy/protocol';
-import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { ballotReadView, coachingFor, ownJudgeSeat } from './round-ballot-view';
+import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { ballotReadView, ownJudgeSeat } from './round-ballot-view';
 
 setupRitewayBun();
 
@@ -162,90 +162,5 @@ test('a released ballot carries feedback only for the reader’s own side', () =
       negative: [{ negative: 'Answer the turn.' }],
       other: [{}],
     },
-  });
-});
-
-describe('coachingFor()', () => {
-  const none = { status: null, feedback: null, eligible: true } as const;
-  const coaching = (
-    overrides: Partial<Parameters<typeof coachingFor>[0]> = {},
-  ) =>
-    coachingFor({
-      status: 'completed',
-      viewerSide: 'negative',
-      aiJudgeSeatIds: new Set(['judge-b']),
-      rows: [],
-      facts: none,
-      enabled: true,
-      ...overrides,
-    });
-  test('who has coaching at all', () => {
-    assert({
-      given: 'a reader who did not debate, then a Round still in progress',
-      should: 'have no coaching',
-      actual: [
-        coaching({ viewerSide: undefined }),
-        coaching({ status: 'active' }),
-      ],
-      expected: [null, null],
-    });
-  });
-  test('the AI judge already coached this side', () => {
-    assert({
-      given: 'a submitted AI ballot with feedback for the reader’s side',
-      should: 'point to that ballot',
-      actual: coaching({
-        rows: [row('judge-b', null, { negative: 'Answer the turn.' })],
-      }),
-      expected: { status: 'in-ballot' },
-    });
-  });
-  test('the coaching pass', () => {
-    const feedback = { affirmative: 'A.', negative: 'Weigh the turn.' };
-    assert({
-      given: 'a pass that succeeded, one leased, one failed',
-      should: 'show the reader’s text, pending, and unavailable',
-      actual: [
-        coaching({ facts: { status: 'succeeded', feedback, eligible: false } }),
-        coaching({
-          facts: { status: 'leased', feedback: null, eligible: true },
-        }),
-        coaching({
-          facts: { status: 'failed', feedback: null, eligible: true },
-        }),
-      ],
-      expected: [
-        { status: 'ready', text: 'Weigh the turn.' },
-        { status: 'pending' },
-        { status: 'unavailable' },
-      ],
-    });
-  });
-  test('a Round with no pass yet', () => {
-    assert({
-      given:
-        'an eligible Round with coaching on, then off, then an ineligible one',
-      should: 'be pending only when the pass will run',
-      actual: [
-        coaching(),
-        coaching({ enabled: false }),
-        coaching({ facts: { ...none, eligible: false } }),
-      ],
-      expected: [
-        { status: 'pending' },
-        { status: 'unavailable' },
-        { status: 'unavailable' },
-      ],
-    });
-  });
-  test('a human ballot’s feedback is not AI coaching', () => {
-    assert({
-      given: 'only a human judge’s feedback for the reader’s side',
-      should: 'still wait for the coaching pass',
-      actual: coaching({
-        rows: [row('judge-h', null, { negative: 'Answer the turn.' })],
-      }),
-      expected: { status: 'pending' },
-    });
   });
 });
