@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { authorize } from './authorization';
-import { input, resource } from './channel.test-support';
+import { input, ownResourceDenials, resource } from './channel.test-support';
 setupRitewayBun();
 test('member history grants a current member only their own private history', () => {
   const own = {
@@ -10,22 +10,7 @@ test('member history grants a current member only their own private history', ()
   };
   const cases = [
     own,
-    { ...own, resource: { ...own.resource, actorId: 'b' } },
-    { ...own, principal: { kind: 'anonymous' as const } },
-    {
-      ...own,
-      context: {
-        ...own.context,
-        account: { ...own.context.account!, member: false },
-      },
-    },
-    {
-      ...own,
-      context: {
-        ...own.context,
-        account: { ...own.context.account!, erased: true },
-      },
-    },
+    ...ownResourceDenials(own),
     { ...own, context: { ...own.context, account: null } },
     {
       ...own,
@@ -45,9 +30,9 @@ test('member history grants a current member only their own private history', ()
   ];
   assert({
     given:
-      'the owner, another member, a visitor, a provisional, erased or missing account, an unbound principal, a foreign capability or resource, and a service',
+      'the owner, another member, a visitor, a provisional, erased, unrevisioned or missing account, an unbound principal, a foreign capability or resource, and a service',
     should: 'grant only the bound current member their own history',
     actual: cases.map((candidate) => authorize(candidate).allow),
-    expected: [true, ...Array.from({ length: 9 }, () => false)],
+    expected: [true, ...Array.from({ length: 10 }, () => false)],
   });
 });
