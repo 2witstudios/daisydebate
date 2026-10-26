@@ -32,7 +32,7 @@ test('an inbox row names the other party, previews the newest message and shows 
     given: 'an unread conversation',
     should: 'name its unread state in the link itself',
     actual: render({ ...entry, unread: true }).includes(
-      'kelvin<span class="sr-only">, unread</span></a>',
+      'aria-label="kelvin, unread"',
     ),
     expected: true,
   });
@@ -48,9 +48,7 @@ test('requests and groups say what they are', () => {
     given: 'an incoming request',
     should: 'name the sender for screen readers and open the request',
     actual: [
-      incoming.includes(
-        '<span class="sr-only">Message request from </span>kelvin',
-      ),
+      incoming.includes('aria-label="Message request from kelvin, unread"'),
       incoming.includes(`href="/messages/requests/${channelId}"`),
       incoming.includes('Practice tonight?'),
     ],

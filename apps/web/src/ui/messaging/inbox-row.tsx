@@ -117,15 +117,13 @@ function SummaryRow({
       <Avatar name={title} nameVisible />
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <div className="flex items-baseline gap-2">
+          {/* An explicit name: hidden spans around the title join unpredictably. */}
           <Link
             href={hrefOf(entry)}
+            aria-label={`${kind.spoken}${title}${entry.unread ? ', unread' : ''}`}
             className={`min-w-0 truncate text-ink ${coverLink} ${entry.unread ? 'font-heavy' : 'font-semibold'}`}
           >
-            {kind.spoken ? (
-              <span className="sr-only">{kind.spoken}</span>
-            ) : null}
             {title}
-            {entry.unread ? <span className="sr-only">, unread</span> : null}
           </Link>
           {kind.badge ? (
             <span aria-hidden="true">
