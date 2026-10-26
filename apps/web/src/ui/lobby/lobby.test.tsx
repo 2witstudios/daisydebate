@@ -104,6 +104,33 @@ describe('Lobby', () => {
     });
   });
 
+  test('an unlisted Room still gets its return card on any page', () => {
+    const roomHref = `/rooms/${id('f')}`;
+    const html = render({
+      rooms: [],
+      nextCursor: 'later',
+      query: {
+        list: { q: 'nothing', pageSize: 20, cursor: 'page-3' },
+        filters: { status: 'live', mode: 'ranked' },
+      },
+      activeRoom: {
+        title: 'Private room',
+        phase: 'assembling',
+        href: roomHref,
+      },
+    });
+    assert({
+      given:
+        'a member whose Room is not in the listing, on a later, filtered and empty page',
+      should: 'still pin the Room with Return to room',
+      actual: [
+        html.includes('Private room'),
+        new RegExp(`href="${roomHref}"[^>]*>Return to room</a>`).test(html),
+      ],
+      expected: [true, true],
+    });
+  });
+
   test('filters are one GET form that keeps the status tab', () => {
     const html = render({
       query: {

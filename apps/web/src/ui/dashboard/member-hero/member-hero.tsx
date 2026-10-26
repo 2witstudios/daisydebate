@@ -3,13 +3,13 @@ import { lobbyHref, openRoomHref } from '../../../features/play/options';
 import {
   activeRoomDotClass,
   activeRoomPhaseLabel,
-  stageActionClass,
   type ActiveRoomSummary,
 } from '../../active-room/your-room';
+import { buttonClass } from '../../components/button/button-class';
 import { MediaPageLink } from '../../round-media/media-page-link';
 
-const secondaryClass =
-  'inline-flex items-center justify-center rounded-sm border border-stage-ink-muted px-5 py-3 text-base leading-tight font-strong text-stage-ink no-underline hover:border-stage-ink hover:no-underline';
+const primaryClass = `${buttonClass('primary')} no-underline hover:no-underline`;
+const secondaryClass = `${buttonClass('secondary')} no-underline hover:no-underline`;
 
 /**
  * A member's Home hero: the way back into their Room while they hold one,
@@ -23,10 +23,10 @@ export function MemberHero({
   readonly activeRoom: ActiveRoomSummary | null;
 }) {
   return (
-    <section className="flex flex-col gap-5 rounded-xl bg-surface-stage px-8 py-10 text-stage-ink max-compact:px-5 max-compact:py-8">
+    <section className="flex flex-col gap-5 rounded-xl border border-border bg-surface-raised px-8 py-10 text-ink shadow-1 max-compact:px-5 max-compact:py-8">
       {activeRoom ? (
         <div className="flex flex-col gap-2">
-          <p className="flex items-center gap-2 text-sm font-heavy tracking-wider text-stage-ink-muted uppercase">
+          <p className="flex items-center gap-2 text-sm font-heavy tracking-wider text-ink-muted uppercase">
             <span
               className={activeRoomDotClass(activeRoom.phase)}
               aria-hidden="true"
@@ -45,7 +45,7 @@ export function MemberHero({
       <div className="flex flex-wrap gap-3">
         {activeRoom ? (
           <>
-            <MediaPageLink href={activeRoom.href} className={stageActionClass}>
+            <MediaPageLink href={activeRoom.href} className={primaryClass}>
               Return to room
             </MediaPageLink>
             <Link href={lobbyHref} className={secondaryClass}>
@@ -54,7 +54,7 @@ export function MemberHero({
           </>
         ) : (
           <>
-            <Link href={lobbyHref} className={stageActionClass}>
+            <Link href={lobbyHref} className={primaryClass}>
               Go to the Lobby
             </Link>
             <Link href={openRoomHref} className={secondaryClass}>

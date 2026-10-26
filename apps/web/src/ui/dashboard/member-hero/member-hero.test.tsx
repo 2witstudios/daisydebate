@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { stageColourClasses } from '../../test-support/stage-palette';
 import { MemberHero } from './member-hero';
 
 setupRitewayBun();
@@ -37,11 +38,26 @@ describe('MemberHero', () => {
       should: 'title the hero with the Room and lead with Return to room',
       actual: [
         /<h1[^>]*>Tuesday night<\/h1>/.test(html),
-        html.includes('Live'),
+        html.includes('In progress'),
         html.indexOf(`href="${roomHref}"`) < html.indexOf('href="/lobby"'),
         html.includes('Return to room'),
       ],
       expected: [true, true, true, true],
+    });
+  });
+
+  test('a raised page card, not the forest stage', () => {
+    const html = renderToStaticMarkup(
+      <MemberHero username="ada-byron" activeRoom={null} />,
+    );
+    assert({
+      given: 'the member hero (ADR 0069: the stage is for video)',
+      should: 'draw on the raised surface with no stage colour',
+      actual: [
+        /<section class="[^"]*\bbg-surface-raised\b/.test(html),
+        stageColourClasses(html),
+      ],
+      expected: [true, []],
     });
   });
 });

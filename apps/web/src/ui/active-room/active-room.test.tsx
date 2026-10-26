@@ -1,6 +1,8 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { ActiveRoomBar, showsActiveRoomBar } from './active-room-bar';
+import { buttonClass } from '../components/button/button-class';
+import { stageColourClasses } from '../test-support/stage-palette';
 import { YourRoom, activeRoomPhaseLabel } from './your-room';
 
 setupRitewayBun();
@@ -16,11 +18,12 @@ describe('activeRoomPhaseLabel', () => {
   test('names each phase', () => {
     assert({
       given: 'an assembling, ready and live Room',
-      should: 'read Gathering, Ready to start and Live',
+      should:
+        'read as the Room page does: Setting up, Ready to start, In progress',
       actual: (['assembling', 'ready', 'live'] as const).map(
         activeRoomPhaseLabel,
       ),
-      expected: ['Gathering', 'Ready to start', 'Live'],
+      expected: ['Setting up', 'Ready to start', 'In progress'],
     });
   });
 });
@@ -33,12 +36,30 @@ describe('YourRoom', () => {
       should: 'name it, its phase, and link Return to room as a document load',
       actual: [
         html.includes('Tuesday night'),
-        html.includes('Gathering'),
+        html.includes('Setting up'),
         new RegExp(`<a[^>]*href="${roomHref}"[^>]*>Return to room</a>`).test(
           html,
         ),
       ],
       expected: [true, true, true],
+    });
+  });
+});
+
+describe('YourRoom palette', () => {
+  test('sits on the room tint, not the forest stage', () => {
+    const html = renderToStaticMarkup(<YourRoom room={room} />);
+    assert({
+      given: 'the pinned Room card (ADR 0069: the stage is for video)',
+      should: 'draw on the sky tint with page ink and the page primary button',
+      actual: {
+        sky: /aria-label="Your room" class="[^"]*\bbg-hue-sky-soft\b[^"]*\btext-ink\b/.test(
+          html,
+        ),
+        primary: html.includes(`class="${buttonClass('primary')}`),
+        stage: stageColourClasses(html),
+      },
+      expected: { sky: true, primary: true, stage: [] },
     });
   });
 });
@@ -67,7 +88,7 @@ describe('ActiveRoomBar', () => {
       actual: [
         html.includes(`href="${roomHref}"`),
         html.includes('Tuesday night'),
-        html.includes(' · Live'),
+        html.includes(' · In progress'),
         html.includes('Return to room'),
       ],
       expected: [true, true, true, true],
