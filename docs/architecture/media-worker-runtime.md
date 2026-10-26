@@ -44,7 +44,8 @@ A capture process reports a failure only through its exit status
 enumerated stage (`configuration`, `lease`, `history`, `token`, `connect`,
 `renewal`, `refresh`, `batch`, `seal`, `transcription`, `shutdown`, or
 `session` for a failure no stage tagged) paired with one protocol error
-code. The first failure is the one reported: a call it cancels, or a
+code. `token` is reported only for a definite refusal or a third uncertain
+attempt, each under a renewed lease (`src/capture-token.ts`). The first failure is the one reported: a call it cancels, or a
 shutdown step that then throws, never replaces it. `connect` covers joining
 LiveKit and the room dropping later; a drop counts only once the server
 confirms the Round still needs capture, since a capture the server closed for

@@ -25,6 +25,7 @@ import { closeCaptureSession, gracefulStop } from './capture-drain';
 import { createSessionOutcome } from './capture-outcome';
 import { sealCaptureStreams } from './capture-seal';
 import { atStage, tagCaptureFailure } from './capture-exit';
+import { issueCaptureToken } from './capture-token';
 type Dependencies = {
   readonly roundId: string;
   readonly client: CaptureClient;
@@ -61,7 +62,7 @@ export async function runCaptureSession(
       readCaptureHistory(input.client, epoch, signal),
     ),
     nextRenewal = input.nowMs() + 5000;
-  const token = await atStage('token', input.client.token(epoch, signal));
+  const token = await issueCaptureToken(input.client, epoch, signal);
   const staging = createCaptureStaging({
     current: () => current,
     nowMs: input.nowMs,

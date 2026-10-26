@@ -156,27 +156,29 @@ test('a lost lease or foreign session is refused', async () => {
   });
 });
 
-test('a capture token requested while another reconcile holds the session waits for its own reconcile and is issued', async () => {
+test('a capture token for a safe live session is issued at once, whoever holds the reconcile', async () => {
   const world = createMediaWorld();
   await createRoundMediaOperations(world.input).session(
     world.roundId,
     world.seats[0].actorId,
   );
   const before = world.reconciles();
-  world.holdClaims(2);
+  // Admissions and browser reconciles hold the session back to back at a
+  // Round's start; the token once queued 3-4 s behind them (ISSUE-571).
+  world.holdClaims(1000);
   const { tokens } = broker(world);
   const minted = await tokens.captureToken(scope(world), authenticated(world));
   assert({
     given:
-      'a leased worker asking for its token while recovery or a browser reconciles the live session back to back',
+      'a leased worker asking for its token while recovery or a browser reconciles the live, safe session back to back',
     should:
-      'wait for the lease, issue the token inside its own reconcile and never refuse it as unresolved recovery (ISSUE-551)',
+      'issue the hidden token without waiting for or running a reconcile, and never refuse it as unresolved recovery (ISSUE-551, ISSUE-571)',
     actual: [
       minted.roomName,
       world.reconciles() - before,
       world.state().unsafe,
     ],
-    expected: [world.roomName, 1, false],
+    expected: [world.roomName, 0, false],
   });
 });
 
@@ -226,31 +228,27 @@ test('a capture token whose own reconcile only cleans up is refused for now', as
   });
 });
 
-test('a capture token whose own reconcile leaves an unknown vendor outcome is not minted', async () => {
+test('a capture token is never minted into an unknown vendor outcome', async () => {
   const world = createMediaWorld();
   await createRoundMediaOperations(world.input).session(
     world.roundId,
     world.seats[0].actorId,
   );
-  world.connect(world.seats[1].id, {
-    publish: [],
-    subscribe: false,
-    hidden: false,
-  });
-  world.fail('updateParticipant');
+  world.pend();
+  const before = world.reconciles();
   const { tokens } = broker(world);
   await assertRejects({
     given:
-      "a capture request whose own reconcile's permissions write fails, leaving the session unsafe with the write pending",
+      'a live session whose vendor write is still unsettled when the worker asks',
     should:
-      'refuse for now inside the hold instead of minting into a room the same reconcile then tears down',
+      'take the hold, whose own reconcile cleans up, and refuse for now instead of minting into a room that reconcile tears down',
     code: 'INFRASTRUCTURE',
     actual: () => tokens.captureToken(scope(world), authenticated(world)),
   });
   assert({
     given: 'that refusal',
-    should: "leave the session unsafe for its cleanup, not a minted worker's",
-    actual: world.state().unsafe,
-    expected: true,
+    should: 'have reconciled the session under its own claim',
+    actual: world.reconciles() - before,
+    expected: 1,
   });
 });

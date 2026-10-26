@@ -13,7 +13,7 @@ import { signedCaptureBroker } from './capture-token.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 
-test('a capture token waits out a live foreign reconcile and is issued under its own claim', async () => {
+test('a capture token for a safe live session is issued while a foreign reconcile holds it', async () => {
   await withMediaRound(async (f) => {
     const worker = await captureWorkerScope(f);
     const { epoch } = await captureOperations(f).claimMediaWorkerLease({
@@ -35,16 +35,12 @@ test('a capture token waits out a live foreign reconcile and is issued under its
       foreign = await claim();
     }
     const { fence } = foreign;
-    const released = { at: null as number | null, waits: 0 };
+    let waits = 0;
     const operations = createRoundMediaOperations({
       ...mediaDependencies(f, f.media),
-      // Capture's first wait for the claim is when the foreign one finishes.
+      // A wait for the claim would mean the token queued behind it (ISSUE-571).
       wait: async () => {
-        released.waits += 1;
-        if (released.at === null) {
-          await sessions.finishMediaReconcile({ ...fence, absenceProof: null });
-          released.at = released.waits;
-        }
+        waits += 1;
         await Bun.sleep(10);
       },
     });
@@ -54,13 +50,14 @@ test('a capture token waits out a live foreign reconcile and is issued under its
       operations.holdForCapture,
     );
     const granted = await broker.captureToken(scope, principal);
+    await sessions.finishMediaReconcile({ ...fence, absenceProof: null });
     assert({
       given:
-        "a leased worker's token request while a foreign reconcile holds the live session lease",
+        "a leased worker's token request while a foreign reconcile holds the live, safe session",
       should:
-        'wait for that reconcile to finish, then issue the token inside its own claim instead of refusing it as unresolved recovery',
-      actual: [released.at, tokenClaims(granted.token).video.hidden],
-      expected: [1, true],
+        'issue the hidden token at once, neither waiting for that reconcile nor refusing it as unresolved recovery (ISSUE-551, ISSUE-571)',
+      actual: [waits, tokenClaims(granted.token).video.hidden],
+      expected: [0, true],
     });
   });
 });

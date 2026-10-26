@@ -275,6 +275,8 @@ export function createMediaWorld(
     holdClaims: (times: number) => {
       busy = times;
     },
+    /** A vendor write left unsettled, as an in-flight or unknown outcome. */
+    pend: () => void pending.add(nextId()),
     /** Reconcile leases claimed so far. */
     reconciles: () => reconciles,
     state: () => ({

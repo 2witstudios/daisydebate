@@ -25,6 +25,14 @@ It checks the actual capture lease before and after provider existence reads;
 it cannot create a missing room. The signed ingress owns authentication and
 operation payload validation. Capture tokens use a fresh opaque hidden agent
 identity, subscribe only, and carry neither publication nor metadata/data rights.
+No reconcile's result changes such a token, so a safe live session issues it at
+once, whoever holds the session's reconcile, instead of queueing behind the
+admissions and browser reconciles that hold it back to back at a Round's start
+(ISSUE-571). An unsettled vendor write, an unsafe session or closed admission
+instead takes the session's reconcile hold, whose own reconcile resolves or
+cleans up first, so a token is never minted into a room that reconcile then
+tears down (ISSUE-551). The worker asks again, up to three times under a renewed
+lease, when a token request's outcome is uncertain; a definite refusal is final.
 No worker capability is available through the human endpoints.
 
 Vendor creation, permission and deletion intents commit before dispatch. A
