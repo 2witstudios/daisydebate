@@ -68,3 +68,30 @@ export const pendingResource: ChannelAuthorizationFact = {
     state: 'pending',
   },
 };
+
+/** An own-resource grant's account fact with one field changed. */
+const withAccount = <T extends AuthorizationInput>(
+  own: T,
+  change: Partial<NonNullable<AuthorizationInput['context']['account']>>,
+): T => ({
+  ...own,
+  context: { ...own.context, account: { ...own.context.account!, ...change } },
+});
+
+/**
+ * The denials every own-resource grant shares: another actor's resource, a
+ * visitor, and a provisional, erased or unrevisioned account.
+ */
+export const ownResourceDenials = <
+  T extends AuthorizationInput & {
+    readonly resource: { readonly actorId: string };
+  },
+>(
+  own: T,
+) => [
+  { ...own, resource: { ...own.resource, actorId: 'b' } },
+  { ...own, principal: { kind: 'anonymous' as const } },
+  withAccount(own, { member: false }),
+  withAccount(own, { erased: true }),
+  withAccount(own, { revision: 0 }),
+];

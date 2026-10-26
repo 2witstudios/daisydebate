@@ -14,6 +14,7 @@ import {
 } from '@daisy/db/reference-formats';
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import { createRoomRuntimeOperations, type Store } from './operations';
+import { seatedListingEntry } from '../rooms/assembly.test-support';
 
 export const caller = {
   userId: 'm4n6p8r2t4v6x8z1k3b5c7d9',
@@ -213,34 +214,9 @@ export function makeOperations(overrides: Partial<Store> = {}) {
       authorizeCollection: (fact: AccountAuthorizationFact) => boolean,
     ) => {
       if (!authorizeCollection(account)) throw createAppError('AUTHORIZATION');
-      const {
-        id,
-        version,
-        title,
-        topic,
-        visibility,
-        hostActorId,
-        hostLabel,
-        status,
-        competitionType,
-      } = state;
       return {
         rooms: authorize(state, account)
-          ? [
-              {
-                id,
-                version,
-                title,
-                topic,
-                visibility,
-                hostActorId,
-                hostLabel,
-                status,
-                competitionType,
-                seated: true,
-                roundRef: null,
-              },
-            ]
+          ? [seatedListingEntry({ ...state, status: 'assembling' })]
           : [],
         nextCursor: null,
         retry: false,

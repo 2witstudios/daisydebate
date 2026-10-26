@@ -16,6 +16,12 @@ const entry = {
   competitionType: 'casual',
   seated: false,
   roundRef: null,
+  formatLabel: 'Foundation',
+  seatsTaken: 1,
+  seatCount: 2,
+  waitingSince: '2026-10-09T00:00:00.000Z',
+  live: null,
+  hostRating: null,
 } as const;
 test('discovery bounds SQL before Room locks and reads no aggregate', async () => {
   const { database, queries } = discoveryFixture([
@@ -93,6 +99,46 @@ test('lock-wait privacy changes never disclose an inaccessible cursor', async ()
       expected: [rows.length ? ids[0] : null, rows.length === 0, 6],
     });
   }
+});
+
+test('Lobby filters narrow the candidates and live facts read as ISO instants', async () => {
+  const started = {
+    ...entry,
+    status: 'started' as const,
+    competitionType: 'ranked' as const,
+    roundRef: { id: ids[1]!, status: 'active' as const },
+    waitingSince: null,
+    live: { stage: 'live', startedAt: '2026-10-09T00:05:00+00:00' },
+    hostRating: 1512,
+  };
+  const { database, queries } = discoveryFixture([
+    { ...started, role: null, slot: null },
+  ]);
+  const page = await database.listRoomPage(
+    caller,
+    { pageSize: 2, q: '', status: 'live', mode: 'ranked' },
+    () => true,
+    () => true,
+    () => true,
+  );
+  assert({
+    given:
+      'a live ranked filter and a launched Room whose host the viewer may not name',
+    should:
+      'bind the filters into the candidate SQL, normalize the start instant and hide the host rating with the host',
+    actual: [
+      queries[1]!.params.includes('ranked'),
+      queries[1]!.query.includes('competition_type'),
+      page.rooms[0]?.live,
+      [page.rooms[0]?.hostLabel, page.rooms[0]?.hostRating],
+    ],
+    expected: [
+      true,
+      true,
+      { stage: 'live', startedAt: '2026-10-09T00:05:00.000Z' },
+      [null, null],
+    ],
+  });
 });
 
 function discoveryFixture(rows: readonly Record<string, unknown>[]) {

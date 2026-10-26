@@ -1,32 +1,13 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { assemblySnapshot } from './assembly.test-support';
+import { assemblySnapshot, seatedListingEntry } from './assembly.test-support';
 import { readActiveRoom, readAssembly, readRoomList } from './read-assembly';
 
 setupRitewayBun();
-const {
-  id,
-  version,
-  title,
-  topic,
-  visibility,
-  hostActorId,
-  hostLabel,
-  status,
-  competitionType,
-} = assemblySnapshot;
-const listingEntry = {
-  id,
-  version,
-  title,
-  topic,
-  visibility,
-  hostActorId,
-  hostLabel,
-  status,
-  competitionType,
-  seated: true,
-  roundRef: null,
-};
+// The snapshot is an assembling Room; its view type admits every Room status.
+const listingEntry = seatedListingEntry({
+  ...assemblySnapshot,
+  status: 'assembling',
+});
 
 test('canonical room reads reject malformed or substituted projections', async () => {
   const results = [];
@@ -154,5 +135,25 @@ test('the active room read shows only a canonical own Room', async () => {
       [...new Set(calls)],
     ],
     expected: [activeRoom, null, null, null, null, ['/api/rooms/active']],
+  });
+});
+
+test('the listing read forwards the Lobby filters to the canonical route', async () => {
+  const paths: string[] = [];
+  await readRoomList(
+    async (path) => {
+      paths.push(path);
+      return Response.json({ rooms: [], nextCursor: null, retry: false });
+    },
+    { pageSize: 20, q: '', status: 'starting', mode: 'casual' },
+  );
+  assert({
+    given: 'a starting, casual Lobby filter',
+    should: 'name both on the canonical listing request',
+    actual: new URL(
+      paths[0]!,
+      'https://in-process.invalid',
+    ).searchParams.toString(),
+    expected: 'q=&pageSize=20&status=starting&mode=casual',
   });
 });

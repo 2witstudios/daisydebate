@@ -1,7 +1,9 @@
 import { cache } from 'react';
 import { headers } from 'next/headers';
 import type { Identity } from '@daisy/auth';
+import type { MatchHistoryQuery, MemberProfile } from '@daisy/protocol';
 import type { OnboardingAnswers } from '../features/onboarding/answers';
+import { readProfile } from '../features/profile/read-profile';
 import { sessionRefreshDue } from '../features/auth/sessions/session-policy';
 import { processApp } from '../server/process-app';
 import { resolveSession } from './identity';
@@ -44,3 +46,19 @@ export const requestOnboardingAnswers = cache(
     return processApp().database.readOnboarding(identity.principal.userId);
   },
 );
+
+/**
+ * A member's profile as this render's viewer may see it, read in the server
+ * render so a link followed from another site renders instead of meeting an
+ * API's cross-site read check. The profile feature owns the read and its
+ * authorization; this process entry only hands it the app's database.
+ */
+export const requestMemberProfile = async (
+  username: string,
+  query: MatchHistoryQuery,
+): Promise<MemberProfile | null> =>
+  readProfile(processApp().database, {
+    identity: await requestIdentity(),
+    username,
+    query,
+  });

@@ -65,3 +65,51 @@ test('search trims edges before applying its bound', () => {
     expected: Array(5).fill(false),
   });
 });
+
+test('Lobby filters and discovery facts are a closed grammar', () => {
+  assert({
+    given: 'status and mode filters, then unknown or legacy values',
+    should: 'accept open, starting or live and ranked or casual only',
+    actual: [
+      roomListQuerySchema.safeParse({ status: 'live', mode: 'ranked' }).success,
+      roomListQuerySchema.safeParse({ status: 'all' }).success,
+      roomListQuerySchema.safeParse({ mode: 'any' }).success,
+      roomListQuerySchema.safeParse({ length: 'quick' }).success,
+    ],
+    expected: [true, false, false, false],
+  });
+  const entry = {
+    id: 'a'.repeat(24),
+    version: 1,
+    title: 'Room',
+    topic: 'Topic',
+    visibility: 'public',
+    hostActorId: 'b'.repeat(24),
+    hostLabel: 'Host',
+    status: 'started',
+    competitionType: 'ranked',
+    seated: false,
+    roundRef: { id: 'c'.repeat(24), status: 'active' },
+    formatLabel: 'Foundation',
+    seatsTaken: 3,
+    seatCount: 3,
+    waitingSince: null,
+    live: { stage: 'live', startedAt: '2026-10-09T00:00:00.000Z' },
+    hostRating: 1512,
+  };
+  const page = (rooms: readonly unknown[]) =>
+    roomListPageSchema.safeParse({ rooms, nextCursor: null, retry: false })
+      .success;
+  assert({
+    given:
+      'a live ranked entry, then one missing seat counts, with a fractional rating, or with a zero seat count',
+    should: 'accept only the complete integral projection',
+    actual: [
+      page([entry]),
+      page([{ ...entry, seatsTaken: undefined }]),
+      page([{ ...entry, hostRating: 1512.4 }]),
+      page([{ ...entry, seatCount: 0 }]),
+    ],
+    expected: [true, false, false, false],
+  });
+});
