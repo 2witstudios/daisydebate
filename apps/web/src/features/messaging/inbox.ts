@@ -20,6 +20,45 @@ export type MessagingInboxEntry =
     }
   | { readonly channelId: string; readonly kind: 'incoming_invitation' };
 
+type InboxAuthority =
+  | {
+      readonly kind: 'dm';
+      readonly state: string;
+      readonly requestSenderActorId: string;
+      readonly lowActorId: string;
+      readonly highActorId: string;
+    }
+  | { readonly kind: 'private_group' };
+
+/** How a reader's own grant on a channel projects into the inbox. */
+export function messagingInboxView(authority: InboxAuthority, actorId: string) {
+  if (authority.kind === 'private_group')
+    return {
+      kind: 'group_conversation',
+      capability: 'channel.read',
+      counterpartActorId: null,
+      content: 'messages',
+    } as const;
+  const counterpartActorId =
+    authority.lowActorId === actorId
+      ? authority.highActorId
+      : authority.lowActorId;
+  if (authority.state !== 'pending')
+    return {
+      kind: 'conversation',
+      capability: 'channel.read',
+      counterpartActorId,
+      content: 'messages',
+    } as const;
+  const sender = authority.requestSenderActorId === actorId;
+  return {
+    kind: sender ? 'outgoing_request' : 'incoming_request',
+    capability: sender ? 'channel.request.status' : 'channel.request.read',
+    counterpartActorId,
+    content: 'introduction',
+  } as const;
+}
+
 /** One line of at most the protocol bound, cut on code points with an ellipsis. */
 export function messagingInboxExcerpt(text: string): string | null {
   const line = text.replace(/\s+/g, ' ').trim();
@@ -37,7 +76,7 @@ export function summarizeMessagingInboxEntry(
   channelId: string,
   kind: SummarizedKind,
   summary: MessagingInboxSummary,
-): MessagingInboxEntry {
+): Extract<MessagingInboxEntry, { readonly kind: SummarizedKind }> {
   const source = summary.lastMessage ?? summary.introduction;
   const text = source?.text ? messagingInboxExcerpt(source.text) : null;
   return {

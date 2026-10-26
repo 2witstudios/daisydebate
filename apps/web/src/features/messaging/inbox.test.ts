@@ -2,6 +2,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError } from '@daisy/errors';
 import {
   messagingInboxExcerpt,
+  messagingInboxView,
   readMessagingInbox,
   summarizeMessagingInboxEntry,
 } from './inbox';
@@ -164,5 +165,58 @@ test('excerpts are one bounded line', () => {
     should: 'yield no excerpt',
     actual: messagingInboxExcerpt(' \n '),
     expected: null,
+  });
+});
+test("a reader's own grant decides the entry kind, fence and content", () => {
+  const [me, them] = ['a'.repeat(24), 'b'.repeat(24)];
+  const dm = (state: string, sender: string) => ({
+    kind: 'dm' as const,
+    state,
+    requestSenderActorId: sender,
+    lowActorId: me,
+    highActorId: them,
+  });
+  assert({
+    given: 'a group, an accepted DM, a sent request and a received request',
+    should:
+      'read history only for approved conversations and only the introduction for requests',
+    actual: [
+      messagingInboxView({ kind: 'private_group' }, me),
+      messagingInboxView(dm('accepted', them), me),
+      messagingInboxView(dm('pending', me), me),
+      messagingInboxView(dm('pending', them), me),
+    ],
+    expected: [
+      {
+        kind: 'group_conversation',
+        capability: 'channel.read',
+        counterpartActorId: null,
+        content: 'messages',
+      },
+      {
+        kind: 'conversation',
+        capability: 'channel.read',
+        counterpartActorId: them,
+        content: 'messages',
+      },
+      {
+        kind: 'outgoing_request',
+        capability: 'channel.request.status',
+        counterpartActorId: them,
+        content: 'introduction',
+      },
+      {
+        kind: 'incoming_request',
+        capability: 'channel.request.read',
+        counterpartActorId: them,
+        content: 'introduction',
+      },
+    ],
+  });
+  assert({
+    given: 'the reader as the high actor of the pair',
+    should: 'name the low actor as the counterpart',
+    actual: messagingInboxView(dm('accepted', me), them).counterpartActorId,
+    expected: me,
   });
 });

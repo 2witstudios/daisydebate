@@ -16,6 +16,7 @@ import { readMessagingInboxSummary } from '@daisy/db/messaging';
 import {
   readMessagingInbox,
   inspectMessagingInboxAssociation,
+  messagingInboxView,
   summarizeMessagingInboxEntry,
   type MessagingInboxEntry,
 } from './inbox';
@@ -44,41 +45,19 @@ export function composeMessagingInbox(input: {
     input.database.messagingChannelAuthority(
       { ...actor, channelId },
       async (frame) => {
-        const pending =
-          frame.fact.authority.kind === 'dm' &&
-          frame.fact.authority.state === 'pending';
-        const sender =
-          frame.fact.authority.kind === 'dm' &&
-          frame.fact.authority.requestSenderActorId === actor.actorId;
+        const view = messagingInboxView(frame.fact.authority, actor.actorId);
         await messagingAuthorizationFence({
           ...input,
-          capability: pending
-            ? sender
-              ? 'channel.request.status'
-              : 'channel.request.read'
-            : 'channel.read',
+          capability: view.capability,
         })(frame.tx, { ...actor, channelId }, frame);
-        const authority = frame.fact.authority;
-        const kind = pending
-          ? sender
-            ? 'outgoing_request'
-            : 'incoming_request'
-          : authority.kind === 'private_group'
-            ? 'group_conversation'
-            : 'conversation';
         return summarizeMessagingInboxEntry(
           channelId,
-          kind,
+          view.kind,
           await readMessagingInboxSummary(frame.tx, {
             channelId,
             actorId: actor.actorId,
-            counterpartActorId:
-              authority.kind === 'dm'
-                ? authority.lowActorId === actor.actorId
-                  ? authority.highActorId
-                  : authority.lowActorId
-                : null,
-            content: pending ? 'introduction' : 'messages',
+            counterpartActorId: view.counterpartActorId,
+            content: view.content,
           }),
         );
       },

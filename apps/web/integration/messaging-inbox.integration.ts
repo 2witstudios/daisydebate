@@ -1,5 +1,4 @@
 import { requireTestServices } from '@daisy/config';
-import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { openMessagingParticipants } from './messaging-fixture.test-support';
@@ -8,6 +7,7 @@ import {
   messagingFixtureReading,
 } from './messaging-policy.test-support';
 import { composeMessagingInbox } from '../src/features/messaging/inbox-composition';
+import { createId } from '@paralleldrive/cuid2';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 test('real own collection projects pending direction through fresh request grants and forgets erased pair associations', async () => {

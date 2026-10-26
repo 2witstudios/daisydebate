@@ -38,6 +38,61 @@ const iso = (column: string) =>
     `to_char(${column} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`,
   );
 
+type SummaryInput = {
+  readonly channelId: string;
+  readonly actorId: string;
+  readonly counterpartActorId: string | null;
+  readonly content: 'messages' | 'introduction';
+};
+type SummaryRow = z.infer<typeof rowSchema>;
+
+const validInput = (input: SummaryInput) =>
+  [input.channelId, input.actorId, input.counterpartActorId ?? input.actorId]
+    .map((id) => idSchema.safeParse(id).success)
+    .every(Boolean);
+
+function requestSummary(
+  found: SummaryRow,
+  actorId: string,
+  title: string | null,
+): MessagingInboxSummary {
+  if (found.requestSender === null || found.requestedAt === null)
+    throw createAppError('NOT_FOUND');
+  const fromSelf = found.requestSender === actorId;
+  return {
+    title,
+    lastMessage: null,
+    introduction: {
+      text: found.introduction,
+      fromSelf,
+      requestedAt: found.requestedAt,
+    },
+    createdAt: found.createdAt,
+    unread: !fromSelf,
+  };
+}
+
+function conversationSummary(
+  found: SummaryRow,
+  actorId: string,
+  title: string | null,
+): MessagingInboxSummary {
+  return {
+    title,
+    lastMessage:
+      found.lastText === null || found.lastAt === null
+        ? null
+        : {
+            text: found.lastText,
+            fromSelf: found.lastAuthor === actorId,
+            createdAt: found.lastAt,
+          },
+    introduction: null,
+    createdAt: found.createdAt,
+    unread: found.unread,
+  };
+}
+
 /**
  * Runs inside the caller's already-fenced channel frame. `content` selects
  * message history (an approved conversation) or the pending request
@@ -45,20 +100,9 @@ const iso = (column: string) =>
  */
 export async function readMessagingInboxSummary(
   tx: AuthorizationTransaction,
-  input: {
-    readonly channelId: string;
-    readonly actorId: string;
-    readonly counterpartActorId: string | null;
-    readonly content: 'messages' | 'introduction';
-  },
+  input: SummaryInput,
 ): Promise<MessagingInboxSummary> {
-  if (
-    !idSchema.safeParse(input.channelId).success ||
-    !idSchema.safeParse(input.actorId).success ||
-    (input.counterpartActorId !== null &&
-      !idSchema.safeParse(input.counterpartActorId).success)
-  )
-    throw createAppError('VALIDATION');
+  if (!validInput(input)) throw createAppError('VALIDATION');
   const messages = input.content === 'messages';
   const rows = await tx.execute(sql`
     select c.title as "title",
@@ -86,37 +130,11 @@ export async function readMessagingInboxSummary(
   if (rows.length === 0) throw createAppError('NOT_FOUND');
   const row = rowSchema.safeParse(rows[0]);
   if (!row.success) throw createAppError('INFRASTRUCTURE');
-  const found = row.data;
   const title =
-    input.counterpartActorId === null ? found.title : found.counterpart;
-  if (!messages) {
-    if (found.requestSender === null || found.requestedAt === null)
-      throw createAppError('NOT_FOUND');
-    const fromSelf = found.requestSender === input.actorId;
-    return {
-      title,
-      lastMessage: null,
-      introduction: {
-        text: found.introduction,
-        fromSelf,
-        requestedAt: found.requestedAt,
-      },
-      createdAt: found.createdAt,
-      unread: !fromSelf,
-    };
-  }
-  return {
+    input.counterpartActorId === null ? row.data.title : row.data.counterpart;
+  return (messages ? conversationSummary : requestSummary)(
+    row.data,
+    input.actorId,
     title,
-    lastMessage:
-      found.lastText === null || found.lastAt === null
-        ? null
-        : {
-            text: found.lastText,
-            fromSelf: found.lastAuthor === input.actorId,
-            createdAt: found.lastAt,
-          },
-    introduction: null,
-    createdAt: found.createdAt,
-    unread: found.unread,
-  };
+  );
 }
