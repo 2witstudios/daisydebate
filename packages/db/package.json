@@ -26,7 +26,6 @@
     "./frozen-transcript": "./src/frozen-transcript.ts",
     "./media-worker": "./src/media-worker-database.ts",
     "./ratings": "./src/ratings.ts",
-    "./formats": "./src/formats.ts",
     "./rooms": "./src/rooms.ts",
     "./rounds": "./src/rounds.ts",
     "./documents": "./src/documents.ts",

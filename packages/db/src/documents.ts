@@ -1,1 +1,1 @@
-export type { DocumentRecord, DocumentSave } from './document-operations';
+export type { DocumentRecord } from './document-operations';

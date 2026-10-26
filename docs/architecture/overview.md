@@ -107,7 +107,7 @@ package; this map lists only packages that exist today.
 
 `@daisy/db` owns the shared connection pool and `Database` composition.
 Import feature contracts through explicit subpaths: `rooms`, `rounds`,
-`formats`, `profile`, `documents`, `ratings`, `attendance` and `outbox`.
+`profile`, `documents`, `ratings`, `attendance` and `outbox`.
 Ballot and frozen transcript contracts use `round-ballot` and
 `frozen-transcript`; messaging contracts use the existing messaging subpaths.
 Each entry names its exports explicitly; raw Drizzle handles and persistence

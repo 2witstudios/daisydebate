@@ -12,14 +12,16 @@ import { createMessagingGroupInvitationStore } from './group-invitation-store';
 import type { MessagingGroupInvitationFence } from './group-invitation-contracts';
 import { createMessagingInboxStore } from './inbox-store';
 import { createMessagingChannelAuthority } from './authority-frame';
-import { createMessagingStore } from './store';
-import { createMessagingReactionStore } from './reaction-store';
-import { createMessagingFileStore } from './file-store';
-import { createMessagingDmStore } from './dm-store';
-import { createMessagingFileCleanup } from './file-cleanup';
-import type { MessagingAuthorizationFence } from './records';
-import { createMessagingSocialStore } from './social-store';
-import type { MessagingSocialAuthorizationFence } from './social-contracts';
+import {
+  createMessagingStore,
+  createMessagingReactionStore,
+  createMessagingFileStore,
+  createMessagingDmStore,
+  createMessagingFileCleanup,
+  type MessagingAuthorizationFence,
+  createMessagingSocialStore,
+  type MessagingSocialAuthorizationFence,
+} from './index';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 
 /** Composes messaging stores over the same pool, retaining each authorization fence. */
