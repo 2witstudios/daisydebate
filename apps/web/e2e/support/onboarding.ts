@@ -46,7 +46,7 @@ export const walkOnboarding = async (page: Page) => {
   await expect(page).toHaveURL(/\/onboarding\/ready\?next=(\/|%2F)lobby$/);
   await expect(
     page.getByRole('link', { name: /Debate a bot/ }),
-  ).toHaveAttribute('href', '/train');
+  ).toHaveAttribute('href', '/coming-soon/train');
   await expect(
     page.getByRole('link', { name: /Debate a real person/ }),
   ).toHaveAttribute('href', '/play');

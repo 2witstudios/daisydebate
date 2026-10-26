@@ -59,7 +59,9 @@ export function LobbyFilters({
       aria-label="Filter rooms"
       className={filterBarClass}
     >
-      <input type="hidden" name="status" value={filters.status} />
+      {filters.status === 'all' ? null : (
+        <input type="hidden" name="status" value={filters.status} />
+      )}
       {list.pageSize === defaultPageSize ? null : (
         <input type="hidden" name="pageSize" value={list.pageSize} />
       )}

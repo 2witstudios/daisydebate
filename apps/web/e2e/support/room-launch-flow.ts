@@ -82,7 +82,7 @@ export async function createFromPlay(
   formatId = 'foundation',
 ) {
   await page.goto('/play');
-  await page.getByRole('link', { name: /^Open a casual room\b/ }).click();
+  await page.getByRole('link', { name: /^Open a room\b/ }).click();
   await expect(page).toHaveURL('/play/room');
   return submitCreateRoom(page, title, formatId);
 }
