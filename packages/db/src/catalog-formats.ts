@@ -206,11 +206,18 @@ const nsdaManual = {
   sourceUrl: 'https://www.speechanddebate.org/?p=81990',
 };
 
+/** What the picker offers: Daisy's standards and league templates. */
+export const catalogRoles = ['standard', 'template'] as const;
+/** The league browser's tabs. */
+export const catalogFamilies = ['policy', 'value', 'parli', 'other'] as const;
+/** The standards' format ids, which are also their identity (FMT-1). */
+export const standardFormatIds = ['policy', 'value', 'freestyle'] as const;
+
 export type CatalogFormat = {
   readonly id: string;
   readonly name: string;
-  readonly role: 'standard' | 'template';
-  readonly family: 'policy' | 'value' | 'parli' | 'other' | null;
+  readonly role: (typeof catalogRoles)[number];
+  readonly family: (typeof catalogFamilies)[number] | null;
   readonly leagues: readonly string[];
   readonly searchTerms: string;
   readonly sortOrder: number;
@@ -222,7 +229,7 @@ export type CatalogFormat = {
 
 /** Daisy's standards share the one-on-one schedule; Policy and Value differ only in the resolution. */
 const standard = (
-  id: 'policy' | 'value',
+  id: Exclude<(typeof standardFormatIds)[number], 'freestyle'>,
   name: string,
   sortOrder: number,
 ): CatalogFormat => ({

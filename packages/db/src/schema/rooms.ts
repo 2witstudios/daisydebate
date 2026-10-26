@@ -62,6 +62,13 @@ export const rooms = pgTable(
     formatVersion: integer('format_version').notNull(),
     /** Ranked only; the equivalence holds as on rounds. */
     presetVersion: integer('preset_version'),
+    /**
+     * The catalog preset a casual room was based on (FMT-1): written only by
+     * the selection policy, kept across edits so standing and Back to
+     * standard can be derived. Both set or both null.
+     */
+    basisFormatId: text('basis_format_id'),
+    basisPresetVersion: integer('basis_preset_version'),
     competitionType: text('competition_type')
       .$type<CompetitionType>()
       .notNull(),
@@ -107,6 +114,10 @@ export const rooms = pgTable(
       table.formatId,
       table.formatVersion,
     ),
+    index('rooms_basis_preset_idx').on(
+      table.basisFormatId,
+      table.basisPresetVersion,
+    ),
     index('rooms_preset_version_idx').on(
       table.formatId,
       table.presetVersion,
@@ -131,6 +142,17 @@ export const rooms = pgTable(
       'rooms_competition_type_check',
       oneOf(table.competitionType, competitionTypes),
     ),
+    check(
+      'rooms_basis_complete',
+      sql`(${table.basisFormatId} is null) = (${table.basisPresetVersion} is null)`,
+    ),
+    // MATCH FULL in the committed SQL: drizzle-kit cannot spell it, and a
+    // half-null pair must never escape the reference.
+    foreignKey({
+      name: 'rooms_basis_preset_fk',
+      columns: [table.basisFormatId, table.basisPresetVersion],
+      foreignColumns: [formatPresets.formatId, formatPresets.version],
+    }),
     check(
       'rooms_ranked_has_preset_check',
       sql`(${table.competitionType} = 'ranked') = (${table.presetVersion} is not null)`,

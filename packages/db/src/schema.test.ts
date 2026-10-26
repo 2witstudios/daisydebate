@@ -47,7 +47,14 @@ describe('competitive schema rules', () => {
       },
       expected: {
         formats: {
-          checks: ['formats_current_version_positive'],
+          checks: [
+            'formats_catalog_is_publisher_owned',
+            'formats_catalog_role_check',
+            'formats_current_version_positive',
+            'formats_family_check',
+            'formats_family_for_templates',
+            'formats_standard_ids',
+          ],
           indexes: [
             'formats_created_by_actor_idx',
             'formats_current_revision_idx',
@@ -91,6 +98,7 @@ describe('competitive schema rules', () => {
       expected: {
         rooms: {
           checks: [
+            'rooms_basis_complete',
             'rooms_change_version_positive',
             'rooms_competition_type_check',
             'rooms_config_is_object',
@@ -104,6 +112,7 @@ describe('competitive schema rules', () => {
             'rooms_visibility_check',
           ],
           indexes: [
+            'rooms_basis_preset_idx',
             'rooms_definition_revision_idx',
             'rooms_discovery_assembly_idx',
             'rooms_host_actor_idx',
@@ -112,6 +121,7 @@ describe('competitive schema rules', () => {
           ],
           uniques: ['rooms_id_format_unique'],
           namedKeys: [
+            'rooms_basis_preset_fk',
             'rooms_definition_revision_fk',
             'rooms_preset_provenance_fk',
           ],
