@@ -195,7 +195,6 @@ export {
   type ActiveRoom,
   type ActiveRoomFacts,
   type ActiveRoomPhase,
-  type ActiveRoomRead,
 } from './active-room';
 
 export { serverMessageSchema, type ServerMessage } from './realtime-server';

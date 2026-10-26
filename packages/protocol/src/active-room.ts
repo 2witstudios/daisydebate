@@ -6,7 +6,7 @@ import type { RoomAssemblyState } from './room-contract';
  * Where a user's one active Room stands (ADR 0070): still assembling, ready
  * to launch, or launched and its Round not yet over.
  */
-export const activeRoomPhases = ['assembling', 'ready', 'live'] as const;
+const activeRoomPhases = ['assembling', 'ready', 'live'] as const;
 export type ActiveRoomPhase = (typeof activeRoomPhases)[number];
 
 /** The page that holds a member: the Room while it assembles, then its Round's room. */
@@ -40,7 +40,6 @@ export type ActiveRoom = z.infer<typeof activeRoomSchema>;
 export const activeRoomReadSchema = z.strictObject({
   activeRoom: activeRoomSchema.nullable(),
 });
-export type ActiveRoomRead = z.infer<typeof activeRoomReadSchema>;
 
 /** Portable facts of the one Room an actor's membership names, supplied by the durable adapter. */
 export type ActiveRoomFacts = Pick<RoomAssemblyState, 'status' | 'roundRef'> & {
