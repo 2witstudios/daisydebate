@@ -195,7 +195,7 @@ export function createPresenceOperations({
      * Each actor's activity across their live connections (`null` when
      * none is live), for at most `PRESENCE_ACTORS_MAX` actors in one
      * read-only op. The caller decides who may see it: presence grants
-     * nothing (ADR 0071).
+     * nothing (ADR 0072).
      */
     async readActorsPresence(
       actorIds: readonly string[],

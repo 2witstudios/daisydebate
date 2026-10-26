@@ -1,7 +1,7 @@
 import type { FriendRelation, FriendshipState } from '@daisy/protocol';
 
 /**
- * Friendship between two members (ADR 0071): one unordered pair, asked by
+ * Friendship between two members (ADR 0072): one unordered pair, asked by
  * one member and accepted by the other. Declining or removing deletes the
  * pair, so a pair is either pending or accepted. A block on either side
  * (messaging's contact pair, ADR 0061) refuses every new request and

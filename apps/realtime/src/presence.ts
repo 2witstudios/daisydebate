@@ -37,7 +37,7 @@ export type PresenceTracker = {
 };
 
 /**
- * Presence leases for authenticated sockets (ADR 0033 §1, ADR 0071). The
+ * Presence leases for authenticated sockets (ADR 0033 §1, ADR 0072). The
  * instance mints the connection id, which never leaves the server. Presence
  * is advisory: a Redis failure (logged by the Redis adapter as
  * `redis.command.failed`) never closes the socket or delays a frame, and a

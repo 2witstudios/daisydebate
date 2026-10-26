@@ -71,7 +71,7 @@ export async function friendAction(
 
 /**
  * Challenge: an unlisted room named for the two members, then the room
- * itself, whose invite link the challenger sends (ADR 0071).
+ * itself, whose invite link the challenger sends (ADR 0072).
  */
 export async function challengeAction(
   _previous: FriendFormState,

@@ -15,12 +15,12 @@ export type MessagingFriendshipRow = {
 };
 
 /** The bound on one member's listed pairs: friends, then pending requests. */
-export const FRIENDSHIP_LIST_MAX = 500;
+const FRIENDSHIP_LIST_MAX = 500;
 
 /**
  * One member's own friendships and requests with each counterpart's current
  * username. Erased or unnamed counterparts drop out. A read only: every
- * change reloads the pair under the contact fence (ADR 0071).
+ * change reloads the pair under the contact fence (ADR 0072).
  */
 export async function listMessagingFriendships(
   database: Pick<BunSQLDatabase, 'select'>,

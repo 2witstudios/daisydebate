@@ -87,7 +87,7 @@ export async function serveRealtime({
   readonly now?: () => number;
   readonly readingPolicy?: RealtimeReadingPolicy;
   readonly trustedProxies?: readonly string[];
-  /** This instance's id and its connection-id source for presence leases (ADR 0071). */
+  /** This instance's id and its connection-id source for presence leases (ADR 0072). */
   readonly presence?: {
     readonly instanceId: string;
     readonly nextId: () => string;

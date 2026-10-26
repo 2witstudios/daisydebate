@@ -237,7 +237,7 @@ export function createDatabase({
       createMessagingGroupInvitationStore({ database, authorize }),
     messagingSocialStore: (authorize: MessagingSocialAuthorizationFence) =>
       createMessagingSocialStore({ database, authorize }),
-    /** One member's own friendships and requests (ADR 0071). */
+    /** One member's own friendships and requests (ADR 0072). */
     listMessagingFriendships: (actorId: string) =>
       instrumented(eventSink, 'listMessagingFriendships', () =>
         listMessagingFriendships(database, actorId),

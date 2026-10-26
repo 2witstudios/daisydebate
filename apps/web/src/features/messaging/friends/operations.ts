@@ -47,7 +47,7 @@ const refusalError = (refusal: FriendshipRefusal) =>
   );
 
 /**
- * One friendship change for the principal's own actor (ADR 0071). The pair
+ * One friendship change for the principal's own actor (ADR 0072). The pair
  * is reloaded under the contact fence; a block, an erased member and an
  * unknown username all answer the same NOT_FOUND, so a refusal never says
  * which one it was.

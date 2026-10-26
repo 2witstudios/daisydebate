@@ -38,7 +38,7 @@ async function countWhere(
 /**
  * Friendship reads and writes inside the contact frame: the account rows and
  * the pair row are already locked, so the pair and both members' counts are
- * current until commit. Every write reauthorizes first (ADR 0071).
+ * current until commit. Every write reauthorizes first (ADR 0072).
  */
 export function friendshipFrame(
   tx: FriendshipTransaction,

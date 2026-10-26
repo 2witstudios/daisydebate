@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { parseUsername } from './username';
 
 /**
- * The friendship contract (ADR 0071). Commands name the other member by
+ * The friendship contract (ADR 0072). Commands name the other member by
  * username; the acting member always comes from the principal, never the
  * body. A relation is always the viewer's own view of one pair.
  */

@@ -41,7 +41,7 @@ export const messagingContactPairs = pgTable(
 );
 
 /**
- * The friendship producer (ADR 0071): one row per asked or accepted pair,
+ * The friendship producer (ADR 0072): one row per asked or accepted pair,
  * fenced by the same contact pair row as blocks and DMs. Declining or
  * removing deletes the row, and a block deletes it too, so unblocking never
  * restores a friendship.

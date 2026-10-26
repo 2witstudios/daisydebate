@@ -10,7 +10,7 @@ import { realtimeEndpointOf } from '../../features/realtime/endpoint-header';
 import { startPresenceBeacon } from '../../features/realtime/presence-beacon';
 
 /** How often the shell re-reads how many friends are online. */
-export const ONLINE_COUNTS_POLL_MS = 60_000;
+const ONLINE_COUNTS_POLL_MS = 60_000;
 
 type Listener = (friendsOnline: number) => void;
 
@@ -30,7 +30,7 @@ const onDocumentInput = (listener: () => void) => {
 /**
  * One presence session per tab, however many shell parts read it: the
  * friends-online read, polled, and once that read names the realtime
- * endpoint, the presence socket (ADR 0071). A refused read (a visitor)
+ * endpoint, the presence socket (ADR 0072). A refused read (a visitor)
  * leaves both off.
  */
 function startSession(): () => void {

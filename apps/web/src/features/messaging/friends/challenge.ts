@@ -1,10 +1,10 @@
 import type { RoomTemplate } from '../../rooms/read-catalog';
 
 /** The topic a challenge room opens with; the host edits it on the room page. */
-export const CHALLENGE_TOPIC = 'Open topic: agree on a resolution in the room';
+const CHALLENGE_TOPIC = 'Open topic: agree on a resolution in the room';
 
 /**
- * The room a Challenge creates (ADR 0071): unlisted, so only its invite
+ * The room a Challenge creates (ADR 0072): unlisted, so only its invite
  * link reaches it, on the catalog's first template with that template's
  * own defaults, named for the two members.
  */

@@ -23,7 +23,7 @@ type Boundary = {
 };
 
 /**
- * The friend routes (ADR 0071): same-origin, member-only, a bounded JSON
+ * The friend routes (ADR 0072): same-origin, member-only, a bounded JSON
  * body naming the other member by username. A form posts through the same
  * handler in process.
  */

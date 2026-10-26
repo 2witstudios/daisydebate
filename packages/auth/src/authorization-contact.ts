@@ -66,7 +66,7 @@ export function contactSafetyAllowed(
 }
 
 /**
- * Friendship (ADR 0071) rides the same pair fence. Ending a friendship or
+ * Friendship (ADR 0072) rides the same pair fence. Ending a friendship or
  * declining a request is a safety exit, open even across a block; asking or
  * accepting needs both accounts current members and no block either way.
  */
