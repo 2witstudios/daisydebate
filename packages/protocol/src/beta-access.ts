@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 /**
  * Beta access (ADR 0075): an account's own access state, a typed account
  * authorization fact rather than a feature entitlement (DEC-19). `pending`
@@ -15,3 +17,18 @@ export const betaAccessProvenances = ['signup', 'grandfathered'] as const;
  * `fly proxy 4800:8080`. The owner digest links here; it is not public.
  */
 export const operatorConsoleOrigin = 'http://localhost:4800';
+
+/**
+ * The closed, non-personal result an operator beta access command records
+ * and replays (ADR 0076): no address, no username, only states and counts.
+ */
+export const betaAccessCommandResultSchema = z.strictObject({
+  commandId: z.string().regex(/^[a-z0-9]{24}$/),
+  outcome: z.enum(['changed', 'unchanged']),
+  accessState: z.enum(betaAccessStates),
+  accessRevision: z.number().int().positive(),
+  mail: z.enum(['queued', 'none']),
+});
+export type BetaAccessCommandResult = z.infer<
+  typeof betaAccessCommandResultSchema
+>;

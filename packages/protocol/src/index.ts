@@ -119,8 +119,10 @@ export {
 } from './onboarding';
 export {
   betaAccessProvenances,
+  betaAccessCommandResultSchema,
   betaAccessStates,
   operatorConsoleOrigin,
+  type BetaAccessCommandResult,
   type BetaAccessState,
 } from './beta-access';
 export { closeCodeTable } from './close-codes';

@@ -1,14 +1,17 @@
-import { betaAccessProvenances, betaAccessStates } from '@daisy/protocol';
-import { sql } from 'drizzle-orm';
 import {
-  check,
-  index,
-  integer,
-  jsonb,
-  pgTable,
-  text,
-} from 'drizzle-orm/pg-core';
-import { createdAtColumn, oneOf, timestampColumn } from './columns';
+  betaAccessCommandResultSchema,
+  betaAccessProvenances,
+  betaAccessStates,
+} from '@daisy/protocol';
+import { sql } from 'drizzle-orm';
+import { check, index, integer, pgTable, text } from 'drizzle-orm/pg-core';
+import {
+  createdAtColumn,
+  jsonbColumn,
+  jsonbIsObject,
+  oneOf,
+  timestampColumn,
+} from './columns';
 import { users } from './users';
 
 /**
@@ -105,7 +108,7 @@ export const operatorCommandReceipts = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     requestDigest: text('request_digest').notNull(),
-    result: jsonb('result').notNull(),
+    result: jsonbColumn('result', betaAccessCommandResultSchema).notNull(),
     adminAuditHead: text('admin_audit_head').notNull(),
     createdAt: createdAtColumn(),
   },
@@ -114,10 +117,7 @@ export const operatorCommandReceipts = pgTable(
       'operator_command_receipts_digest_check',
       sql`${table.requestDigest} ~ '^[0-9a-f]{64}$' and ${table.adminAuditHead} ~ '^[0-9a-f]{64}$'`,
     ),
-    check(
-      'operator_command_receipts_result_is_object',
-      sql`jsonb_typeof(${table.result}) = 'object'`,
-    ),
+    jsonbIsObject('operator_command_receipts', table.result),
     index('operator_command_receipts_created_idx').on(table.createdAt),
   ],
 );
