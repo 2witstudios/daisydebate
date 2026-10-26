@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: true
 # Actions are pinned to full commit SHAs with the version as a trailing
 # comment; Dependabot proposes the bumps (ADR 0040, `bun policy` enforces).
-# No shared task-output cache: correctness runs fresh; setup-bun caches its binary.
+# Turbo restores content-addressed task results; service tests remain uncached.
 jobs:
   checks:
     name: ${{ matrix.task }}
@@ -63,9 +63,21 @@ jobs:
         with:
           bun-version: '1.4.2'
       - run: bun install --frozen-lockfile
-      - run: bun run ${{ matrix.task }}
+      - uses: ./.github/actions/turbo-cache
+        with:
+          task: checks-${{ matrix.task }}
+      - name: Run and measure task
+        run: |
+          started=$SECONDS
+          bun run "$TASK"
+          echo "### $TASK: $((SECONDS - started)) seconds (Turbo reports cache hits above)" >> "$GITHUB_STEP_SUMMARY"
         env:
+          TASK: ${{ matrix.task }}
           GH_TOKEN: ${{ matrix.task == 'policy' && github.token || '' }}
+      - uses: ./.github/actions/turbo-cache
+        with:
+          task: checks-${{ matrix.task }}
+          phase: save
 
   # Exercise the pruned image inputs used by both web and migrator, not
   # only the full-checkout install in the checks matrix (ISSUE-405).

@@ -467,3 +467,32 @@ IDs can be correlated with browser failures without rerunning CI.
 secrets and any PEM private key before upload. The e2e server keeps its TLS
 edge key out of `test-results` altogether: it is created in a private
 temporary directory and deleted once loaded (ISSUE-78).
+
+## CI task caching
+
+Static CI jobs and both browser builds restore `.turbo/cache` using the local
+`turbo-cache` composite action. It pins `actions/cache` **4.2.4** to commit
+`0400d5f644dc74513175e3cd8d07132dd4860809`. The archive key separates OS,
+architecture, Bun/lockfile, job profile, commit, run and attempt. Restore falls
+back within the same platform/lockfile/profile; Turbo then validates each
+content-addressed task hash against its source, dependencies and environment.
+Only task outputs and logs are archived, never `.env`, credentials or service
+state. Infrastructure and browser test results are always executed fresh.
+
+Only successful task steps save, and only for main pushes or pull requests
+whose head repository is this repository. Fork PRs and manual dispatches may
+restore but never save through this action. GitHub also scopes PR caches to
+their merge ref: main cannot restore a PR cache. No `pull_request_target` job
+executes PR code or publishes its outputs into a main cache.
+
+`NODE_ENV` affects every task hash. `APP_VERSION` and `GIT_COMMIT` affect build
+hashes, so a changed runtime build identity cannot replay a different build;
+they do not invalidate typechecking and unit tests. Build reuse across commits
+therefore remains conservative. Changing `turbo-v1` in the action invalidates
+all archives. Task-cache hits remain visible in Turbo's job log and are cached
+evidence; the root build-isolation scan still runs after a restored build.
+
+References read before configuration:
+[cache action 4.2.4](https://github.com/actions/cache/tree/v4.2.4),
+[GitHub cache scope](https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching),
+and [Turbo 2.11.2 configuration](https://github.com/vercel/turborepo/blob/v2.11.2/docs/site/content/docs/reference/configuration.mdx).

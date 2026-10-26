@@ -5,7 +5,7 @@
     "eslint.config.mjs",
     ".prettierrc.json"
   ],
-  "globalEnv": ["NODE_ENV", "APP_VERSION", "GIT_COMMIT"],
+  "globalEnv": ["NODE_ENV"],
   "globalPassThroughEnv": [
     "DATABASE_URL",
     "TEST_DATABASE_URL",
@@ -45,6 +45,7 @@
       ]
     },
     "build": {
+      "env": ["APP_VERSION", "GIT_COMMIT"],
       "dependsOn": ["^build"],
       "outputs": [".next/**", "!.next/cache/**"]
     },
