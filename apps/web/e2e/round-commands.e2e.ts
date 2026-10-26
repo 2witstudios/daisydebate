@@ -11,7 +11,7 @@ import { expect, test } from './support/round-files';
 import { openPage } from './support/fixtures';
 test.use({ roundCommands: true });
 
-test('native Start AC and enhanced Round controls retain canonical state on reload', async ({
+test('native Start affirmative constructive and enhanced round controls retain canonical state on reload', async ({
   roundFiles,
   browser,
 }) => {
@@ -37,14 +37,20 @@ test('native Start AC and enhanced Round controls retain canonical state on relo
     await expect(formPage).toHaveURL(path);
     expect((await read()).status).toBe('active');
     await formPage
-      .getByRole('button', { name: 'Use prep', exact: true })
+      .getByRole('button', { name: 'Take prep time', exact: true })
       .click();
     await expect(
-      formPage.getByRole('button', { name: 'Start AC', exact: true }),
+      formPage.getByRole('button', {
+        name: 'Start affirmative constructive',
+        exact: true,
+      }),
     ).toBeVisible();
     expect((await read()).checkpoint?.active_prep?.side).toBe('affirmative');
     await formPage
-      .getByRole('button', { name: 'Start AC', exact: true })
+      .getByRole('button', {
+        name: 'Start affirmative constructive',
+        exact: true,
+      })
       .click();
     await expect(
       formPage.getByRole('button', { name: 'End speech', exact: true }),
@@ -115,7 +121,7 @@ test('native Start AC and enhanced Round controls retain canonical state on relo
       .getByRole('button', { name: 'Confirm end speech', exact: true })
       .click();
     await expect(
-      page.getByRole('status').filter({ hasText: 'Command accepted' }),
+      page.getByRole('status').filter({ hasText: 'Done.' }),
     ).toBeVisible();
     const yielded = await read();
     expect(yielded.version).toBeGreaterThan(interrupted.version);
@@ -245,11 +251,11 @@ for (const javaScriptEnabled of [false, true])
       const page = await openPage(context, 'fresh Room after durable result');
       await page.goto(`/rooms/${live.roomId}`);
       await page
-        .getByRole('link', { name: 'Create a fresh Room', exact: true })
+        .getByRole('link', { name: 'Create a new room', exact: true })
         .click();
       await expect(page).toHaveURL(`/rooms/${live.roomId}/rematch`);
       await expect(
-        page.getByRole('heading', { name: 'Create a fresh Room', exact: true }),
+        page.getByRole('heading', { name: 'Create a new room', exact: true }),
       ).toBeVisible();
       const form = page.getByRole('form', {
         name: 'Create a room',
@@ -258,12 +264,12 @@ for (const javaScriptEnabled of [false, true])
       await expect(form.getByLabel('Room name', { exact: true })).toHaveValue(
         '',
       );
-      await expect(form.getByLabel('Debate topic')).toHaveValue('');
+      await expect(form.getByLabel('Resolution')).toHaveValue('');
       await form
         .getByLabel('Room name', { exact: true })
         .fill('A genuinely fresh Room');
       await form
-        .getByLabel('Debate topic')
+        .getByLabel('Resolution')
         .fill('Libraries should remain public');
       await form
         .getByRole('button', { name: 'Create room', exact: true })

@@ -67,6 +67,7 @@ const toStored = (record: DocumentRecord): StoredDocument => ({
 const toSlot = (
   segment: {
     readonly key: string;
+    readonly label: string;
     readonly type: string;
     readonly side: string;
     readonly durationMs: number;
@@ -75,6 +76,7 @@ const toSlot = (
 ): SpeechSlot => ({
   id: `t${index}`,
   code: segment.key,
+  name: segment.label,
   side: segment.side === 'affirmative' ? 'aff' : 'neg',
   kind: segment.type === 'cross_ex' ? 'cross-ex' : 'speech',
   durationMs: segment.durationMs,

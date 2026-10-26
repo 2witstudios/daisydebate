@@ -5,6 +5,12 @@ import type { RoomTemplate } from '../../../features/rooms/read-catalog';
 import { FormField } from '../../components/form-field/form-field';
 import { controlClass } from '../../components/form-field/form-field-class';
 import { buttonClass } from '../../components/button/button-class';
+import { clockDuration } from '../../../features/rooms/duration-input';
+import {
+  roundLength,
+  shapeLabel,
+  speechName,
+} from '../../../features/debate-room/vocabulary';
 
 const subscribeNever = () => () => undefined;
 
@@ -18,27 +24,42 @@ function selectionValue(choice: RoomTemplate) {
   });
 }
 
+const speechMs = (choice: RoomTemplate) =>
+  choice.definition.segments.map(
+    (segment) =>
+      choice.defaultConfig.speechTiming.segmentDurationOverrides[segment.key] ??
+      segment.defaultDurationMs,
+  );
+
+/** "One-on-one (1v1) · about 30 min", derived from the template's own config. */
+function templateLine(choice: RoomTemplate) {
+  const { inRoundPrep, speechTiming } = choice.defaultConfig;
+  return `${choice.label} (${shapeLabel(choice.definition.seats)}) · ${roundLength(
+    {
+      speechesMs: speechMs(choice),
+      countdownMs: speechTiming.countdownMs,
+      prepPerSideMs: inRoundPrep.enabled ? inRoundPrep.budgetMsPerSide : null,
+    },
+  )}`;
+}
+
 function TemplateSchedule({ choice }: { readonly choice: RoomTemplate }) {
+  const durations = speechMs(choice);
+  const judges = choice.definition.seats.judge;
   return (
     <div className="flex flex-col gap-3">
       <p className="text-sm text-ink-muted">
-        {choice.definition.seats.affirmative} aff /{' '}
-        {choice.definition.seats.negative} neg
-        {' · '}
-        {choice.definition.seats.judge} judge
+        {templateLine(choice)} · {judges === 1 ? '1 judge' : `${judges} judges`}
       </p>
       <ol
         aria-label={`${choice.label} speech order`}
         className="flex flex-col gap-2"
       >
-        {choice.definition.segments.map((segment) => (
+        {choice.definition.segments.map((segment, index) => (
           <li key={segment.key} className="flex justify-between gap-4 text-sm">
-            <span>{segment.label}</span>
+            <span>{speechName(segment)}</span>
             <span className="shrink-0 text-ink-muted tabular-nums">
-              {(choice.defaultConfig.speechTiming.segmentDurationOverrides[
-                segment.key
-              ] ?? segment.defaultDurationMs) / 1000}{' '}
-              s
+              {clockDuration(durations[index]!)}
             </span>
           </li>
         ))}
@@ -70,7 +91,7 @@ export function FormatTemplatePicker({
   const preview = choices.find((choice) => selectionValue(choice) === draft);
   return (
     <div className="flex flex-col gap-3">
-      <FormField id="assembly-format" label="Format template">
+      <FormField id="assembly-format" label="Format">
         <select
           id="assembly-format"
           name="selection"
@@ -87,8 +108,7 @@ export function FormatTemplatePicker({
               key={`${choice.formatId}:${choice.formatVersion}`}
               value={selectionValue(choice)}
             >
-              {choice.label} · {choice.definition.seats.affirmative} aff /{' '}
-              {choice.definition.seats.negative} neg
+              {templateLine(choice)}
             </option>
           ))}
         </select>

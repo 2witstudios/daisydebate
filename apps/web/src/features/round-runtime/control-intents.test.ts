@@ -106,3 +106,40 @@ test('between segments, prep is offered only before an own speech while prep is 
     ],
   });
 });
+
+test('control labels name speeches and prep in words, never by code', () => {
+  const prepping = {
+    ...ran(0),
+    checkpoint: {
+      ...ran(0).checkpoint!,
+      active_prep: { side: 'affirmative' as const, started_at: at(1000) },
+    },
+  };
+  const between = ran(4);
+  const label = (
+    intents: ReturnType<typeof roundControlIntents>,
+    type: string,
+  ) => intents.find((c) => c.type === type)?.label;
+  assert({
+    given:
+      'prep before the next own speech, then the gap where prep can be taken',
+    should: 'start the speech by its lowercased full name and offer prep time',
+    actual: [
+      label(
+        roundControlIntents(prepping, aff.actorId, Date.parse(at(2000))),
+        'start_speech',
+      ),
+      label(
+        roundControlIntents(
+          between,
+          aff.actorId,
+          Date.parse(
+            at(startOf(3) + between.rules.segments[3]!.durationMs + 1),
+          ),
+        ),
+        'start_prep',
+      ),
+    ],
+    expected: ['Start affirmative constructive', 'Take prep time'],
+  });
+});

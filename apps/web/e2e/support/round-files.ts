@@ -68,7 +68,9 @@ export const test = base.extend<{
       }
       await page.reload();
       await readyUp(page);
-      await page.getByRole('button', { name: 'Launch', exact: true }).click();
+      await page
+        .getByRole('button', { name: 'Start round', exact: true })
+        .click();
       await expect(page).toHaveURL(/\/rounds\/[a-z0-9]+\/room$/);
       const roundId = new URL(page.url()).pathname.split('/').at(-2)!;
       launched = roundId;

@@ -1,7 +1,7 @@
 import { AssemblyCommandForm } from './assembly-command-form';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { findElements, byText } from '../../test-support/find-elements';
-import { LaunchControl, ReadyControl } from './assembly-readiness';
+import { StartControl, ReadyControl } from './assembly-readiness';
 
 setupRitewayBun();
 const base = {
@@ -29,7 +29,10 @@ const base = {
 };
 const action = async () => ({ values: {} });
 type Props = Parameters<typeof ReadyControl>[0];
-const controls = (props: Props) => [ReadyControl(props), LaunchControl(props)];
+const controls = (props: Props) => [
+  ReadyControl(props),
+  StartControl({ ...props, prep: null }),
+];
 const props = {
   view: base,
   actorId: 'viewer',
@@ -42,7 +45,7 @@ const props = {
   },
 };
 
-describe('native room readiness and Launch controls', () => {
+describe('native room readiness and Start round controls', () => {
   test('judge Ready submits a versioned command through the injected real action', () => {
     const tree = controls(props);
     const form = findElements(
@@ -58,7 +61,7 @@ describe('native room readiness and Launch controls', () => {
         findElements(form, (element) => element.type === 'input').map(
           (input) => [input.props.name, input.props.value],
         ),
-        byText(tree, 'button', 'I am ready')?.props.disabled,
+        byText(tree, 'button', 'I’m ready')?.props.disabled,
       ],
       expected: [
         true,
@@ -73,7 +76,7 @@ describe('native room readiness and Launch controls', () => {
     });
   });
 
-  test('Unready carries own consent revision and Launch carries none', () => {
+  test('Unready carries own consent revision and Start round carries none', () => {
     const tree = controls({
       ...props,
       view: {
@@ -89,7 +92,7 @@ describe('native room readiness and Launch controls', () => {
     assert({
       given: 'the viewer is ready at consent revision eight',
       should:
-        'fence withdrawal using that participant revision without adding a readiness field to Launch',
+        'fence withdrawal using that participant revision without adding a readiness field to Start round',
       actual: forms.map((form) =>
         findElements(
           form,
@@ -102,7 +105,7 @@ describe('native room readiness and Launch controls', () => {
     });
   });
 
-  test('Launch follows CAP capability and local invalidation fence', () => {
+  test('Start round follows CAP capability and local invalidation fence', () => {
     const allowed = {
       ...props,
       view: {
@@ -112,17 +115,19 @@ describe('native room readiness and Launch controls', () => {
       },
     };
     assert({
-      given: 'CAP permits Launch, then a local unready remains unacknowledged',
-      should: 'block Launch immediately without changing the server projection',
+      given:
+        'CAP permits Start round, then a local unready remains unacknowledged',
+      should:
+        'block Start round immediately without changing the server projection',
       actual: [
-        byText(controls(allowed), 'button', 'Launch')?.props.disabled,
+        byText(controls(allowed), 'button', 'Start round')?.props.disabled,
         byText(
           controls({
             ...allowed,
             local: { devicesPassed: true, unreadyPending: true },
           }),
           'button',
-          'Launch',
+          'Start round',
         )?.props.disabled,
         allowed.view.capabilities.canStart,
       ],
@@ -130,7 +135,7 @@ describe('native room readiness and Launch controls', () => {
     });
   });
 
-  test('non-host receives no Launch control', () => {
+  test('non-host receives no Start round control', () => {
     const tree = controls({
       ...props,
       view: {
@@ -140,10 +145,10 @@ describe('native room readiness and Launch controls', () => {
     });
     assert({
       given: 'a seated participant without host authority',
-      should: 'render Ready but no Launch submission',
+      should: 'render Ready but no Start round submission',
       actual: [
-        Boolean(byText(tree, 'button', 'I am ready')),
-        Boolean(byText(tree, 'button', 'Launch')),
+        Boolean(byText(tree, 'button', 'I’m ready')),
+        Boolean(byText(tree, 'button', 'Start round')),
       ],
       expected: [true, false],
     });
@@ -166,9 +171,9 @@ describe('native room readiness and Launch controls', () => {
     assert({
       given:
         'CAP still reports ready while the human host has lost device checks',
-      should: 'block Launch synchronously and still offer Unready',
+      should: 'block Start round synchronously and still offer Unready',
       actual: [
-        byText(tree, 'button', 'Launch')?.props.disabled,
+        byText(tree, 'button', 'Start round')?.props.disabled,
         byText(tree, 'button', 'Not ready')?.props.disabled,
         view.participants[0]?.ready,
       ],
@@ -176,7 +181,7 @@ describe('native room readiness and Launch controls', () => {
     });
   });
 
-  test('Launch names what it waits on', () => {
+  test('Start round names what it waits on', () => {
     const bot = (role: 'affirmative' | 'negative') => ({
       ...base.participants[0]!,
       id: role,
@@ -211,9 +216,10 @@ describe('native room readiness and Launch controls', () => {
   });
 });
 
-test('host Launch refuses unavailable admission without changing Ready or command authority', () => {
-  const tree = LaunchControl({
+test('host Start round refuses unavailable admission without changing Ready or command authority', () => {
+  const tree = StartControl({
     ...props,
+    prep: null,
     view: {
       ...base,
       botAdmission: { kind: 'unavailable' },
@@ -223,7 +229,7 @@ test('host Launch refuses unavailable admission without changing Ready or comman
   const button = findElements(tree, (element) => element.type === 'button')[0];
   assert({
     given: 'an otherwise startable host Room with unavailable bot admission',
-    should: 'disable only the Launch submission',
+    should: 'disable only the Start round submission',
     actual: button?.props.disabled,
     expected: true,
   });

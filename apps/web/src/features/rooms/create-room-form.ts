@@ -38,7 +38,7 @@ function creationRefusal(
   >,
 ): string {
   if (result.kind === 'invalid')
-    return 'Check the room name, topic and format template.';
+    return 'Check the room name, resolution and format.';
   if (result.kind === 'active-room')
     return 'You are already in a room. Leave it before starting another.';
   if (result.kind === 'refused') return refusals[result.reason];

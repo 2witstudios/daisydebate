@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, type ReactNode } from 'react';
+import { useEffect, useId, useRef, type ReactNode } from 'react';
 import {
   formValues,
   type MockFormState,
@@ -16,6 +16,21 @@ import type { RoomFormState } from '../../../features/rooms/command-answer';
 import { useRoomAnswer } from './room-sync-context';
 
 const unanswered: RoomFormState = { values: {} };
+
+/** A hydrated save the room accepted: it carries the new view and no error. */
+export const savedAnswer = (state: RoomFormState) =>
+  state.view !== undefined && state.error === undefined;
+
+/** Calls `onSaved` once per accepted answer, whatever its identity per render. */
+function useOnSaved(state: RoomFormState, onSaved?: () => void) {
+  const latest = useRef(onSaved);
+  useEffect(() => {
+    latest.current = onSaved;
+  });
+  useEffect(() => {
+    if (savedAnswer(state)) latest.current?.();
+  }, [state]);
+}
 
 export function AssemblyEditFeedback({
   state,
@@ -34,17 +49,18 @@ export function AssemblyEditFeedback({
 
 /**
  * Common native edit transport for actual Room details and configuration
- * consumers. A hydrated save hands its accepted view to room sync.
+ * consumers. A hydrated save hands its accepted view to room sync and
+ * then to `onSaved`.
  */
 export function AssemblyEditForm({
   action,
   label,
-  disclosure,
+  onSaved,
   children,
 }: {
   readonly action: FormAction<RoomFormState>;
   readonly label: string;
-  readonly disclosure?: string;
+  readonly onSaved?: (() => void) | undefined;
   readonly children: (state: MockFormState, pending: boolean) => ReactNode;
 }) {
   const [state, post, pending] = useFormAction(
@@ -57,28 +73,19 @@ export function AssemblyEditForm({
   );
   useMovedOn(state.next);
   useRoomAnswer(state, unanswered);
+  useOnSaved(state, onSaved);
   const feedbackId = useId();
   useFocusAfterAnswer(state, feedbackId, !pending && state.next === undefined);
-  const form = (
+  return (
     <form
       action={post}
       aria-label={label}
       id={feedbackId}
       tabIndex={-1}
       aria-busy={pending}
-      className="flex min-w-0 flex-col gap-4 rounded-xl border border-border bg-surface p-4"
+      className="flex min-w-0 flex-col gap-4"
     >
       {children(state, pending)}
     </form>
-  );
-  return disclosure ? (
-    <details open={state.error ? true : undefined}>
-      <summary className="flex min-h-12 cursor-pointer items-center text-sm font-strong">
-        {disclosure}
-      </summary>
-      <div className="mt-4">{form}</div>
-    </details>
-  ) : (
-    form
   );
 }

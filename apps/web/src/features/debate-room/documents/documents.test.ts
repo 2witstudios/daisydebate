@@ -19,7 +19,14 @@ const slot = (
   side: SpeechSlot['side'],
   kind: SpeechSlot['kind'] = 'speech',
   durationMs = 300_000,
-): SpeechSlot => ({ id, code: id.toUpperCase(), side, kind, durationMs });
+): SpeechSlot => ({
+  id,
+  code: id.toUpperCase(),
+  name: id.toUpperCase(),
+  side,
+  kind,
+  durationMs,
+});
 
 const speeches = [
   slot('ac', 'aff', 'speech', 300_000),

@@ -187,7 +187,11 @@ describe('liveRoundOf during the round', () => {
         liveRoundOf(ran(2), aff.actorId, now)?.clock?.label,
         liveRoundOf(ran(2), neg.actorId, now)?.clock?.label,
       ],
-      expected: ['cross-ex', 'CX1 · You answer', 'CX1 · You ask'],
+      expected: [
+        'cross-ex',
+        'Cross-examination · You answer',
+        'Cross-examination · You ask',
+      ],
     });
   });
 
@@ -205,7 +209,7 @@ describe('liveRoundOf during the round', () => {
     assert({
       given: 'the affirmative 20 seconds into prep before the 1AR',
       should:
-        'put the affirmative in prep on its prep clock with the 1AR lit, and show the negative waiting on Aff prep',
+        'put the affirmative in prep on its prep clock with the 1AR lit, and show the negative waiting on Affirmative prep',
       actual: [
         mine?.phase,
         mine?.clock,
@@ -220,7 +224,7 @@ describe('liveRoundOf during the round', () => {
         4,
         { aff: 220_000, neg: 240_000 },
         'waiting',
-        'Aff prep',
+        'Affirmative prep',
       ],
     });
   });

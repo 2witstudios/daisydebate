@@ -15,6 +15,7 @@ import {
   createFromPlay,
   readyUp,
   reread,
+  turnOffPreRoundPrep,
   submitCreateRoom,
 } from './room-launch-flow';
 import { readBallotRound } from './human-ballot-round';
@@ -24,12 +25,9 @@ import { subscriptionLedger } from './subscription-ledger';
 type Seat = 'Affirmative 1' | 'Negative 1' | 'Judge 1';
 type Player = { readonly page: Page; readonly seat: Seat };
 
-/** Pre-Launch preparation off through the Room settings form; in-Round prep stays on. */
+/** Prep before the round off through Room setup; prep time during the round stays on. */
 async function skipPreRoundPrep(host: Page, room: RoomView) {
-  await host.getByText('Edit settings', { exact: true }).click();
-  const settings = host.getByRole('form', { name: 'Room settings' });
-  await settings.getByLabel('Enable preparation before Launch').uncheck();
-  await settings.getByRole('button', { name: 'Save settings' }).click();
+  await turnOffPreRoundPrep(host);
   await expect(async () => {
     room = await reread(host.request, room.id);
     expect([room.config.preRoundPrep, room.config.inRoundPrep.enabled]).toEqual(
@@ -55,7 +53,7 @@ async function assemble(players: readonly Player[], room: RoomView) {
 
 /** The host's Launch, with the native command identity kept for a later replay. */
 async function launch(host: Page) {
-  const button = host.getByRole('button', { name: 'Launch', exact: true });
+  const button = host.getByRole('button', { name: 'Start round', exact: true });
   await expect(button).toBeEnabled();
   const form = button.locator('..');
   const replay = {
@@ -120,10 +118,10 @@ async function playEveryTurn(
     let holder = players[scheduled.side];
     if (scheduled.key === 'NC') {
       await holder
-        .getByRole('button', { name: 'Use prep', exact: true })
+        .getByRole('button', { name: 'Take prep time', exact: true })
         .click();
       await holder
-        .getByRole('button', { name: 'Start NC', exact: true })
+        .getByRole('button', { name: 'Start negative constructive' })
         .click();
     }
     await untilSegment(holder, roundId, scheduled.key, false);
@@ -243,9 +241,9 @@ export async function proveThreeBrowserRound(browser: Browser) {
     room = await skipPreRoundPrep(aff!, room);
     room = await assemble(players, room);
     const first = await launch(aff!);
-    // The members who did not press Launch follow the live Room page's link.
+    // The members who did not press Start round follow the live room page's link.
     for (const page of [neg!, judge!])
-      await page.getByRole('link', { name: 'View Round', exact: true }).click();
+      await page.getByRole('link', { name: 'View the round' }).click();
     await expect(neg!).toHaveURL(`/rounds/${first.roundId}/room`);
     await expect(judge!).toHaveURL(
       new RegExp(`/rounds/${first.roundId}(/room)?$`),
@@ -293,7 +291,7 @@ export async function proveThreeBrowserRound(browser: Browser) {
 
     await host.goto(`/rooms/${room.id}`);
     await host
-      .getByRole('link', { name: 'Create a fresh Room', exact: true })
+      .getByRole('link', { name: 'Create a new room', exact: true })
       .click();
     await expect(host).toHaveURL(`/rooms/${room.id}/rematch`);
     let next = await submitCreateRoom(

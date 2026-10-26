@@ -10,18 +10,34 @@ import { sampleRoomDocuments } from './debate-room-docs';
 const minutes = (n: number) => n * 60_000;
 
 const speeches: readonly SpeechSlot[] = [
-  { id: 'ac', code: 'AC', side: 'aff', kind: 'speech', durationMs: minutes(5) },
+  {
+    id: 'ac',
+    code: 'AC',
+    name: 'Affirmative constructive',
+    side: 'aff',
+    kind: 'speech',
+    durationMs: minutes(5),
+  },
   {
     id: 'cx1',
     code: 'CX',
+    name: 'Cross-examination of the affirmative',
     side: 'neg',
     kind: 'cross-ex',
     durationMs: minutes(3),
   },
-  { id: 'nc', code: 'NC', side: 'neg', kind: 'speech', durationMs: minutes(6) },
+  {
+    id: 'nc',
+    code: 'NC',
+    name: 'Negative constructive',
+    side: 'neg',
+    kind: 'speech',
+    durationMs: minutes(6),
+  },
   {
     id: 'cx2',
     code: 'CX',
+    name: 'Cross-examination of the negative',
     side: 'aff',
     kind: 'cross-ex',
     durationMs: minutes(3),
@@ -29,14 +45,23 @@ const speeches: readonly SpeechSlot[] = [
   {
     id: '1ar',
     code: '1AR',
+    name: 'First affirmative rebuttal',
     side: 'aff',
     kind: 'speech',
     durationMs: minutes(5),
   },
-  { id: 'nr', code: 'NR', side: 'neg', kind: 'speech', durationMs: minutes(5) },
+  {
+    id: 'nr',
+    code: 'NR',
+    name: 'Negative rebuttal',
+    side: 'neg',
+    kind: 'speech',
+    durationMs: minutes(5),
+  },
   {
     id: '2ar',
     code: '2AR',
+    name: 'Second affirmative rebuttal',
     side: 'aff',
     kind: 'speech',
     durationMs: minutes(3),

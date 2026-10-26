@@ -66,12 +66,11 @@ test('legal speech keys cannot collide with ancillary native duration fields', (
   for (const [name, value] of Object.entries({
     crossExMode: 'free',
     interruptionsMode: 'disabled',
-    yieldAllowed: 'false',
-    yieldReturns: 'true',
+    yield: 'off',
   }))
     form.set(name, value);
   const result = prepareSettings(view, form);
-  form.append('duration.segment.budget.minutes', '1');
+  form.append('duration.segment.budget', '1:00');
   assert({
     given:
       'a valid pinned definition with budget and preRound speech keys and enabled ancillary preparation',
@@ -79,8 +78,7 @@ test('legal speech keys cannot collide with ancillary native duration fields', (
       'render unique native names, save unchanged exact independent values and still refuse duplicate speech components',
     actual: [
       formatDefinitionSchema.safeParse(definition).success,
-      [...form.keys()].filter((name) => name === 'duration.budget.minutes')
-        .length,
+      [...form.keys()].filter((name) => name === 'duration.budget').length,
       result.kind === 'prepared' && result.command.type === 'update-config'
         ? result.command.config
         : null,
@@ -105,22 +103,21 @@ test('settings use the exact persisted sequence and capability-specific controls
     should:
       'render every declared config control and a slot-specific speech rather than one shared speech length',
     actual: [
-      html.includes('name="duration.segment.N3.minutes"'),
-      html.includes('value="38.765"'),
+      html.includes('name="duration.segment.N3"'),
+      html.includes('value="1:38.765"'),
       html.includes('Negative 3'),
       [
         'preRoundPrep',
-        'duration.preRound.minutes',
+        'duration.preRound',
         'inRoundPrep',
-        'duration.budget.seconds',
-        'duration.countdown.seconds',
+        'duration.budget',
+        'duration.countdown',
         'crossExMode',
         'interruptionsMode',
-        'duration.minRemaining.seconds',
-        'yieldAllowed',
-        'yieldReturns',
+        'duration.minRemaining',
+        'yield',
       ].every((name) => html.includes(`name="${name}"`)),
-      html.includes('Save settings'),
+      html.includes('Save round settings'),
     ],
     expected: [true, true, true, true, true],
   });
@@ -135,8 +132,7 @@ test('refused settings preserve typed fields and the stale version until explici
         values: {
           expectedVersion: '3',
           commandId: 'old-command',
-          'duration.segment.N3.minutes': '02',
-          'duration.segment.N3.seconds': '03.456',
+          'duration.segment.N3': '2:03.456',
         },
         error: 'The room changed.',
       }}
@@ -148,12 +144,39 @@ test('refused settings preserve typed fields and the stale version until explici
     should:
       'preserve the submitted duration/fence/command and provide an explicit latest-room recovery',
     actual: [
-      html.includes('value="03.456"'),
+      html.includes('value="2:03.456"'),
       html.includes('name="expectedVersion" value="3"'),
       html.includes('old-command'),
       html.includes('The room changed.'),
       html.includes('Review latest room'),
     ],
     expected: [true, true, true, true, true],
+  });
+});
+
+test('the basics come first and the full rules sit behind one disclosure', () => {
+  const html = renderToStaticMarkup(
+    <AssemblySettingsFields
+      view={assemblySnapshot}
+      commandId="settings-command"
+      state={{ values: {} }}
+      pending={false}
+    />,
+  );
+  const disclosure = html.indexOf('Customize speeches and rules');
+  assert({
+    given: 'the host settings form',
+    should:
+      'show prep before the disclosure, keep speech times and rules inside it, and name every choice in words',
+    actual: [
+      html.indexOf('Prep before the round') < disclosure,
+      html.indexOf('Prep time during the round') < disclosure,
+      html.indexOf('Speech times') > disclosure,
+      html.indexOf('Ending a speech early') > disclosure,
+      html.includes('<details'),
+      /cross ex only|>true<|>false<|>ordered<|>free</.test(html),
+      html.includes('step="0.001"'),
+    ],
+    expected: [true, true, true, true, true, false, false],
   });
 });
