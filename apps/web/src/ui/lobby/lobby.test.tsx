@@ -119,6 +119,7 @@ describe('Lobby', () => {
         filters: { status: 'live', mode: 'ranked' },
       },
       activeRoom: {
+        id: id('f'),
         title: 'Private room',
         phase: 'assembling',
         href: roomHref,
