@@ -79,6 +79,55 @@ export function partitionAffected(
   };
 }
 
+export function affectedLintDirectories(value: unknown): readonly string[] {
+  const tasks = (value as { tasks?: { directory?: unknown }[] })?.tasks;
+  if (!Array.isArray(tasks)) throw new Error('Missing affected task graph');
+  const directories = tasks.map(({ directory }) => {
+    if (
+      typeof directory !== 'string' ||
+      !/^(apps|packages)\/[a-z0-9-]+$/.test(directory)
+    )
+      throw new Error('Invalid affected workspace directory');
+    return directory;
+  });
+  return [...new Set(directories)].sort();
+}
+
+async function lintGraph(
+  plan: AffectedPlan,
+  mergeBase: string,
+): Promise<AffectedPlan> {
+  if (plan.allWorkspaces || !plan.runTurbo) return plan;
+  const child = Bun.spawn(
+    [
+      'bunx',
+      '--bun',
+      'turbo',
+      'run',
+      'typecheck',
+      '--filter',
+      `...[${mergeBase}]`,
+      '--dry=json',
+    ],
+    { cwd: root, stdout: 'pipe', stderr: 'inherit' },
+  );
+  const output = await new Response(child.stdout).text();
+  if ((await child.exited) !== 0)
+    throw new Error('Could not select affected lint graph');
+  const directories = affectedLintDirectories(JSON.parse(output));
+  // Deleted source still selects the producer and reverse dependents via Git.
+  // Lint all their files: imported types can alter type-aware lint in consumers.
+  return {
+    ...plan,
+    lintFiles: [
+      ...directories,
+      ...plan.lintFiles.filter(
+        (file) => !directories.some((dir) => file.startsWith(`${dir}/`)),
+      ),
+    ],
+  };
+}
+
 async function gitOutput(args: readonly string[]): Promise<string> {
   const child = Bun.spawn(['git', ...args], {
     cwd: root,
@@ -128,7 +177,7 @@ export function planGates(
     });
   else if (plan.lintFiles.length > 0)
     gates.push({
-      name: 'eslint (changed files)',
+      name: 'eslint (affected graph and root files)',
       args: ['bunx', '--bun', 'eslint', ...plan.lintFiles],
     });
   if (plan.allWorkspaces)
@@ -211,7 +260,10 @@ if (import.meta.main) {
     const missingFiles = changedFiles.filter(
       (file) => !existsSync(resolve(root, file)),
     );
-    const plan = partitionAffected(changedFiles, missingFiles);
+    const plan = await lintGraph(
+      partitionAffected(changedFiles, missingFiles),
+      mergeBase,
+    );
     const full = process.argv.includes('--full');
     for (const gate of planGates(
       full

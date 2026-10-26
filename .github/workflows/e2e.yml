@@ -72,6 +72,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -181,6 +182,10 @@ jobs:
       - name: Report discovered/executed/pass/fail/skip counts
         if: ${{ !cancelled() && github.event_name != 'workflow_dispatch' }}
         run: bun scripts/e2e-report-counts.ts apps/web/test-results/results.json
+
+      - name: Require every selected browser spec in the report
+        if: ${{ !cancelled() && github.event_name != 'workflow_dispatch' }}
+        run: bun scripts/e2e-selection-report.ts
 
       - name: Sanitize retained artifacts before upload
         id: sanitize

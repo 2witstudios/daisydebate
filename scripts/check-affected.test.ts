@@ -192,3 +192,21 @@ describe('global affected fanout', () => {
     });
   });
 });
+
+describe('affectedLintDirectories', () => {
+  test('uses every dependent task directory and rejects invalid dry-run output', async () => {
+    const { affectedLintDirectories } = await import('./check-affected');
+    assert({
+      given: 'a producer and dependent selected by Turbo',
+      should: 'lint both workspaces once',
+      actual: affectedLintDirectories({
+        tasks: [
+          { directory: 'packages/protocol' },
+          { directory: 'apps/web' },
+          { directory: 'apps/web' },
+        ],
+      }),
+      expected: ['apps/web', 'packages/protocol'],
+    });
+  });
+});

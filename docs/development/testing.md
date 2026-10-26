@@ -500,3 +500,45 @@ References read before configuration:
 [cache action 4.2.4](https://github.com/actions/cache/tree/v4.2.4),
 [GitHub cache scope](https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching),
 and [Turbo 2.11.2 configuration](https://github.com/vercel/turborepo/blob/v2.11.2/apps/docs/content/docs/reference/configuration.mdx).
+
+### Fast branch checks and affected browser selection
+
+`gh workflow run quick-check.yml -f ref=<branch>` checks the requested ref;
+its job summary records the actual checked SHA. Add `--ref <branch>` when the
+Actions check must attach to that branch (dispatch otherwise attaches to the
+workflow ref). Pushes to `pu/**` also publish `Quick check`. CI and Browser E2E
+call the same workflow in-process; both browser jobs and the CI image and
+infrastructure jobs require its success before allocating their runners.
+The existing full CI matrix and aggregate gate remain required.
+
+`check:affected` uses the merge base, includes deletions in graph selection,
+and excludes missing paths from file CLIs. Turbo's affected typecheck graph
+selects whole workspace directories for ESLint, including reverse dependents:
+imported types can change type-aware lint in consumers. Root configuration,
+lockfiles, unknown non-document root inputs and every `globalDependencies`
+pattern in `turbo.json` fan out to all workspaces. Knip, duplication,
+architecture and styling checks remain repository-wide. `--full` forces full
+static/unit checks even when HEAD equals the base (main and queue runs).
+The inner loop is not the production build or main acceptance gate.
+
+`scripts/affected-e2e.ts` explicitly owns every `apps/web/e2e/*.e2e.ts` file.
+An inventory mismatch fails before browser work. Recognized PR changes select
+owned specs plus `app`, `journey-no-js`, `csp` and `shell` smoke. Unknown files,
+shared fixtures, routes, core packages and configuration fall back to full.
+Main, merge groups and manual three-run release qualification always run full.
+Native Room Launch and both realtime profiles always retain their complete
+suites, isolated slots and report guards. Selected standard specs must all
+appear in the report; existing zero-discovery, skipped-test and retry guards
+remain enforced.
+
+Affected PR selection activates only after the live main branch rules API
+reports a merge queue and all four required checks, bound to their expected
+Apps: CI gate, Playwright E2E, Isolated Room Launch E2E and review-record.
+Absent, unreadable or incomplete enforcement retains full PR browser coverage.
+This is a fail-closed rollout, not a claim that a queue has been enabled.
+
+Measurements belong in the linked CI-speed handoff with candidate/run/job URLs.
+The initial Quick check on `a871b592ba99f9af748a4f87810dd257a437c203`
+ran 23:16:30–23:20:39 UTC on 2026-10-26 (249 seconds, including job setup).
+Warm <=240 seconds is a target, not an asserted result. Browser execution
+savings remain conditional on owner queue activation; native suites stay full.
