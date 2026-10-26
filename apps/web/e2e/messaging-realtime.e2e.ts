@@ -103,7 +103,7 @@ for (const javaScriptEnabled of [true, false]) {
       await sender.goto(`/messages/${journey.channelId}`);
       await expect(messageInHistory(sender, text)).toHaveCount(1);
       await attachNativeMessageFile(recipient, sender, journey.channelId, text);
-      await manageNativePreferences(sender, journey.channelId);
+      await manageNativePreferences(sender, journey, javaScriptEnabled);
       await manageNativeReactions(sender, journey.channelId, text);
       const ownMessage = await editNativeMessage(sender, journey.channelId);
       const foreign = await journey.outsider.request.get(
