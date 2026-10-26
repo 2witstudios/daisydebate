@@ -150,7 +150,9 @@ Rules:
   checked out). It accepts the citation only when the URL is a run of this
   repository; the cited and run SHAs equal the reviewed SHA (which must be
   the PR head); the run's repository and head repository are this one (never
-  a fork); it was triggered by `pull_request` or `push`; it ran the gate's
+  a fork); it is a `pull_request` run that GitHub lists for this PR with
+  the default branch as its base, or a `push` run of the default branch
+  (the PR itself must target the default branch); it ran the gate's
   own workflow (`.github/workflows/ci.yml` for `Integration`,
   `.github/workflows/e2e.yml` for `E2E`); the complete PR diff does not
   change that workflow; and the named job exists and concluded `success`.
@@ -160,8 +162,9 @@ Rules:
   the runtime integration requirement in place of a local
   `bun test:integration: PASS`; an `E2E` citation never does. Any malformed
   or unverifiable citation refuses the record with its reason, even when a
-  local PASS is also present. The negative control requirement is
-  unchanged.
+  local PASS is also present, so a local run is always written as its
+  `bun test:…` command, never as `Integration:` or `E2E:`. The negative
+  control requirement is unchanged.
 - Branch feedback carries `Review stage: branch` and the nonacceptance verdict
   `BRANCH FEEDBACK` (source conclusions go in prose). It names the candidate,
   findings and deferred proof but cannot mint main acceptance. An acceptance

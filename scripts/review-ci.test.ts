@@ -2,64 +2,21 @@
 // instead of a local run, and the check verifies it against the runs the
 // edge read from GitHub, failing closed on anything it cannot verify.
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type { CiEvidence, CiRun } from './review-ci';
-import { citedRunIds, verifyReviewRecord } from './review-record';
-import { ciRunFromApi, readCiEvidence } from './review-record-io';
-import { pr, record, sha } from './review-record.test-support';
+import type { CiEvidence } from './review-ci';
+import { verifyReviewRecord } from './review-record';
+import { record, sha } from './review-record.test-support';
+import {
+  ciRun,
+  citing,
+  clean,
+  evidence,
+  integration,
+  repository,
+  runUrl,
+  runtimePr,
+} from './review-ci.test-support';
 
 setupRitewayBun();
-
-const repository = '2witstudios/daisydebate';
-const runUrl = `https://github.com/${repository}/actions/runs/101`;
-const clean = '0 blocker / 0 major / 0 minor / 0 nit — APPROVE';
-const runtimePr = {
-  ...pr,
-  diff: {
-    headSha: sha,
-    complete: true,
-    files: [
-      {
-        path: 'scripts/x.ts',
-        status: 'modified',
-        oldMode: '100644',
-        newMode: '100644',
-      },
-    ],
-  },
-};
-
-const ciRun = (overrides: Partial<CiRun> = {}): CiRun => ({
-  id: '101',
-  repository,
-  headRepository: repository,
-  headSha: sha,
-  event: 'pull_request',
-  path: '.github/workflows/ci.yml',
-  jobs: [
-    { name: 'lint', status: 'completed', conclusion: 'success' },
-    {
-      name: 'Infrastructure contracts',
-      status: 'completed',
-      conclusion: 'success',
-    },
-  ],
-  ...overrides,
-});
-const evidence = (run: CiRun = ciRun()): CiEvidence => ({
-  repository,
-  runs: [run],
-});
-
-const citing = (line: string) =>
-  record({
-    verdict: clean,
-    gates: [line, 'Negative control run: yes (below)'].join('\n'),
-  });
-const integration = (
-  url = runUrl,
-  job = 'Infrastructure contracts',
-  cited = sha,
-) => `Integration: PASS (CI run ${url}, job ${job}, sha ${cited})`;
 
 const judge = (line: string, ci: CiEvidence = evidence(), target = runtimePr) =>
   verifyReviewRecord(target, [citing(line)], [], ci).description;
@@ -202,7 +159,7 @@ describe('verifyReviewRecord with CI evidence', () => {
       should: 'refuse each instead of trusting the line',
       actual: [
         judge(integration(), { repository, runs: [] }),
-        judge(integration(), evidence(), pr),
+        judge(integration(), evidence(), { ...runtimePr, diff: undefined }),
         judge(integration(), evidence(), changesCi),
       ],
       expected: [
@@ -275,123 +232,129 @@ describe('verifyReviewRecord with CI evidence', () => {
   });
 });
 
-describe('citedRunIds', () => {
-  test('collects each cited run once, only from Gates run, never from a bad URL', () => {
+describe('verifyReviewRecord binds a CI run to this PR and its base', () => {
+  test('refuses a run for another PR, onto another base, or pushed to another branch', () => {
     assert({
       given:
-        'two records citing run 101, one also citing a non-run URL, and a citation quoted under Findings',
-      should: 'return the run id once',
-      actual: citedRunIds([
-        citing(integration()),
-        record({
-          gates: [
-            integration(),
-            integration('https://example.com/runs/9'),
-          ].join('\n'),
-          findings: integration(
-            `https://github.com/${repository}/actions/runs/303`,
+        'a pull_request run for another PR on the same head, the same PR number onto a crafted base, a push to a non-default branch, and a PR into a non-default base',
+      should:
+        'refuse each, since that run tested a workflow this diff never showed',
+      actual: [
+        judge(
+          integration(),
+          evidence(ciRun({ pullRequests: [{ number: 58, baseRef: 'main' }] })),
+        ),
+        judge(
+          integration(),
+          evidence(
+            ciRun({ pullRequests: [{ number: 57, baseRef: 'evil-base' }] }),
           ),
+        ),
+        judge(
+          integration(),
+          evidence(ciRun({ event: 'push', headBranch: 'evil-base' })),
+        ),
+        judge(integration(), evidence(), {
+          ...runtimePr,
+          baseRef: 'evil-base',
         }),
-      ]),
-      expected: ['101'],
+      ],
+      expected: [
+        'CI run 101 did not run for PR #57 into main',
+        'CI run 101 did not run for PR #57 into main',
+        'CI run 101 pushed evil-base, not main',
+        'CI evidence counts only for a PR into the default branch, not evil-base',
+      ],
+    });
+  });
+
+  test('accepts a push run of the default branch on the reviewed SHA', () => {
+    assert({
+      given: 'a push run of main whose head is the reviewed SHA',
+      should: 'verify',
+      actual: verifyReviewRecord(
+        runtimePr,
+        [citing(integration())],
+        [],
+        evidence(
+          ciRun({ event: 'push', headBranch: 'main', pullRequests: [] }),
+        ),
+      ).state,
+      expected: 'success',
     });
   });
 });
 
-describe('ciRunFromApi', () => {
-  const apiRun = {
-    id: 101,
-    head_sha: sha,
-    event: 'pull_request',
-    path: '.github/workflows/ci.yml',
-    repository: { full_name: repository },
-    head_repository: { full_name: repository },
-  };
-  const jobPages = [
-    {
+describe('verifyReviewRecord CI edge cases', () => {
+  test('refuses a stale diff, a renamed workflow, and any failed attempt of a same-named job', () => {
+    const renamed = {
+      ...runtimePr,
+      diff: {
+        ...runtimePr.diff,
+        files: [
+          {
+            path: '.github/workflows/old.yml',
+            previousPath: '.github/workflows/ci.yml',
+            status: 'renamed',
+            oldMode: '100644',
+            newMode: '100644',
+          },
+        ],
+      },
+    };
+    const twice = ciRun({
       jobs: [
+        {
+          name: 'Infrastructure contracts',
+          status: 'completed',
+          conclusion: 'failure',
+        },
         {
           name: 'Infrastructure contracts',
           status: 'completed',
           conclusion: 'success',
         },
       ],
-    },
-  ];
-
-  test('reads a documented run and its paginated jobs', () => {
-    assert({
-      given: 'a run and one page of its latest jobs',
-      should: 'return the run facts the verifier checks',
-      actual: ciRunFromApi('101', apiRun, jobPages),
-      expected: ciRun({
-        jobs: [
-          {
-            name: 'Infrastructure contracts',
-            status: 'completed',
-            conclusion: 'success',
-          },
-        ],
-      }),
     });
-  });
-
-  test('refuses responses that are not the documented shape', () => {
     assert({
       given:
-        'another run id, a run without a repository, and a jobs page without jobs',
-      should: 'return undefined for each',
+        'a diff read for another SHA, a diff renaming ci.yml away, and two same-named jobs where the first failed',
+      should: 'refuse each',
       actual: [
-        ciRunFromApi('102', apiRun, jobPages),
-        ciRunFromApi('101', { ...apiRun, repository: null }, jobPages),
-        ciRunFromApi('101', apiRun, [{ total_count: 1 }]),
+        judge(integration(), evidence(), {
+          ...runtimePr,
+          diff: { ...runtimePr.diff, headSha: 'b'.repeat(40) },
+        }),
+        judge(integration(), evidence(), renamed),
+        judge(integration(), evidence(twice)),
       ],
-      expected: [undefined, undefined, undefined],
+      expected: [
+        'The PR diff could not be read completely, so CI evidence cannot be verified',
+        'The PR changes .github/workflows/ci.yml, so its own CI run cannot be evidence',
+        'CI job "Infrastructure contracts" in run 101 is failure, not success',
+      ],
     });
   });
-});
 
-describe('readCiEvidence', () => {
-  test('reads each cited run of this repository and leaves failed reads out', () => {
-    const calls: (readonly string[])[] = [];
-    const read = readCiEvidence(
-      (args) => {
-        calls.push(args);
-        const path = args.at(-1) ?? '';
-        if (path.includes('/runs/404')) return { code: 1, stdout: '' };
-        return {
-          code: 0,
-          stdout: JSON.stringify(
-            path.includes('/jobs')
-              ? [{ jobs: [] }]
-              : {
-                  id: 101,
-                  head_sha: sha,
-                  event: 'push',
-                  path: '.github/workflows/ci.yml',
-                  repository: { full_name: repository },
-                  head_repository: { full_name: repository },
-                },
-          ),
-        };
-      },
-      repository,
-      ['101', '404'],
-    );
+  test('compares repositories without case, and reads a run URL PageSpace linked', () => {
+    const linked = record({
+      verdict: clean,
+      gates: `<p>Integration: PASS (CI run <a href="${runUrl}">${runUrl}</a>, job Infrastructure contracts, sha ${sha})</p><p>Negative control run: yes</p>`,
+    });
     assert({
-      given: 'a readable run and one the API refuses',
-      should:
-        'return only the readable run, reading its latest jobs on every page',
-      actual: [read.runs.map((run) => run.id), calls[1]],
-      expected: [
-        ['101'],
-        [
-          'api',
-          '--paginate',
-          '--slurp',
-          `repos/${repository}/actions/runs/101/jobs?filter=latest&per_page=100`,
-        ],
+      given:
+        'a citation URL in another letter case, and a citation whose URL is an HTML link',
+      should: 'verify both',
+      actual: [
+        verifyReviewRecord(
+          runtimePr,
+          [citing(integration(runUrl.replace('2witstudios', '2WitStudios')))],
+          [],
+          evidence(),
+        ).state,
+        verifyReviewRecord(runtimePr, [linked], [], evidence()).state,
       ],
+      expected: ['success', 'success'],
     });
   });
 });

@@ -20,6 +20,9 @@ export type PullRequest = {
   readonly headSha: string;
   readonly body: string;
   readonly diff?: ReviewDiff;
+  /** The PR's base branch and the repository default; CI evidence needs both. */
+  readonly baseRef?: string;
+  readonly defaultBranch?: string;
 };
 
 /** The Daisy Debate drive: records anywhere else are never read. */
@@ -72,7 +75,11 @@ export function ghJson<T>(args: readonly string[]): T {
 
 type PrDiffSource = {
   readonly head: { readonly sha: string };
-  readonly base: { readonly sha: string };
+  readonly base: {
+    readonly sha: string;
+    readonly ref?: string;
+    readonly repo?: { readonly default_branch?: string };
+  };
   readonly changed_files: number;
 };
 
@@ -154,6 +161,8 @@ export function fetchPullRequest(
       headSha: pull.head.sha,
       body: pull.body ?? '',
       diff: readPullRequestDiff(gh, repository, pull),
+      baseRef: pull.base.ref,
+      defaultBranch: pull.base.repo?.default_branch,
     },
     comments,
   };
@@ -275,6 +284,17 @@ function ciJob(job: unknown): CiJob | undefined {
   return { name: job.name, status: job.status, conclusion: job.conclusion };
 }
 
+/** The run's PRs with their bases; an entry of another shape never matches. */
+const runPullRequests = (value: unknown): CiRun['pullRequests'] =>
+  (Array.isArray(value) ? value : []).flatMap((entry: unknown) =>
+    isRecord(entry) &&
+    typeof entry.number === 'number' &&
+    isRecord(entry.base) &&
+    typeof entry.base.ref === 'string'
+      ? [{ number: entry.number, baseRef: entry.base.ref }]
+      : [],
+  );
+
 /**
  * A workflow run and its latest jobs from the Actions API, or undefined
  * when either response is not the shape GitHub documents: a run the edge
@@ -308,6 +328,9 @@ export function ciRunFromApi(
     headSha: run.head_sha,
     event: run.event,
     path: run.path,
+    headBranch:
+      typeof run.head_branch === 'string' ? run.head_branch : undefined,
+    pullRequests: runPullRequests(run.pull_requests),
     jobs: jobs.filter((job): job is CiJob => job !== undefined),
   };
 }

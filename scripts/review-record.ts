@@ -66,8 +66,12 @@ export function linkedPageIds(texts: readonly string[]): readonly string[] {
 export const declaredBuilder = (body: string): string | undefined =>
   /^\s*Builder:\s*(\S+)/m.exec(body)?.[1];
 
+/** Block tags end a line; inline tags (a linked run URL, code) do not. */
 const plainText = (content: string): string =>
-  content.replace(/<[^>]+>/g, '\n').replaceAll('&amp;', '&');
+  content
+    .replace(/<\/?(?:a|code|strong|em|b|i|span)\b[^>]*>/gi, '')
+    .replace(/<[^>]+>/g, '\n')
+    .replaceAll('&amp;', '&');
 
 const textLines = (text: string): readonly string[] =>
   text
@@ -189,7 +193,7 @@ function verdictProblem(
     return `The verdict is not an approval: ${final.verdict}`;
   if (final.blockers > 0 || final.majors > 0)
     return `The verdict approves with ${final.blockers} blocker and ${final.majors} major open`;
-  const cited = verifyCiClaims(gatesRunLines(text), pr.headSha, pr.diff, ci);
+  const cited = verifyCiClaims(gatesRunLines(text), pr, ci);
   if (cited.problem) return cited.problem;
   const docs = documentationOnly(pr.diff, pr.headSha);
   const evidence = docs
