@@ -73,3 +73,45 @@ test('Lobby discovery filters by status and mode and reports seats, format and l
     });
   });
 });
+
+test('Lobby filters run before paging: a one-row page walks only the filtered set', async () => {
+  await withRoomRuntime(async (f) => {
+    const title = createId();
+    const opened = [];
+    const live = [];
+    for (let i = 0; i < 2; i++) {
+      opened.push(
+        (await f.create({ title }, (await f.freshCast()).host)).view.id,
+      );
+      const room = await f.assemble({ title }, await f.freshCast());
+      await launchRuntimeRound(f, room);
+      live.push(room.id);
+    }
+    // Two open and two launched Rooms: whichever kind sorts first, one walk
+    // below starts behind a candidate its filter rejects.
+    const walk = async (status: 'open' | 'live') => {
+      const seen: string[] = [];
+      let cursor: string | undefined;
+      for (let page = 0; page < 4; page++) {
+        const result = await f.operations.list(f.outsider, {
+          q: title,
+          pageSize: 1,
+          status,
+          ...(cursor ? { cursor } : {}),
+        });
+        seen.push(...result.rooms.map((room) => room.id));
+        if (!result.nextCursor) break;
+        cursor = result.nextCursor;
+      }
+      return seen;
+    };
+    const sorted = (ids: string[]) => [...ids].sort();
+    assert({
+      given: 'one-row pages under the open and the live filter',
+      should:
+        'return every matching Room in cursor order and none of the others',
+      actual: [await walk('open'), await walk('live')],
+      expected: [sorted(opened), sorted(live)],
+    });
+  });
+});
