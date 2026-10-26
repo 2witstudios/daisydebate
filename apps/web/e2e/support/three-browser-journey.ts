@@ -7,6 +7,7 @@ import {
   type RoomView,
   type RoundView,
 } from '@daisy/protocol';
+import { expectRoundResult } from './round-result-proof';
 import { expect, openPage } from './fixtures';
 import { origin } from './accounts';
 import { createRoomLaunchAccounts } from './room-launch-accounts';
@@ -277,28 +278,10 @@ export async function proveThreeBrowserRound(browser: Browser) {
     });
     await expect(played.negative).toHaveURL(`/rounds/${first.roundId}`);
     await judge!.goto(`/rounds/${first.roundId}`);
-    for (const page of [host, played.negative, judge!]) {
-      await expect(
-        page.getByText('Result · Negative won', { exact: true }),
-      ).toBeVisible();
-      await expect(
-        page.getByText('Official decision · Human judge', { exact: true }),
-      ).toBeVisible();
-    }
-    // ISSUE-602: each debater reads their own coaching state and the frozen
-    // transcript; the judge, who did not debate, reads neither coaching nor
-    // another debater's feedback.
-    for (const page of [host, played.negative]) {
-      await expect(
-        page.getByRole('heading', { name: 'AI coaching for you' }),
-      ).toBeVisible();
-      await expect(
-        page.getByRole('heading', { name: 'Transcript', exact: true }),
-      ).toBeVisible();
-    }
-    await expect(
-      judge!.getByRole('heading', { name: 'AI coaching for you' }),
-    ).toHaveCount(0);
+    await expectRoundResult(
+      { debaters: [host, played.negative], judge: judge! },
+      'Result · Negative won',
+    );
     const finished = await readRound(host, first.roundId);
     expect([finished.status, finished.outcome]).toEqual([
       'completed',
