@@ -16,7 +16,6 @@ const form = () => {
       formatId: 'stored-format',
       formatVersion: 2,
       presetVersion: 3,
-      length: 'full',
     }),
   );
   return fields;

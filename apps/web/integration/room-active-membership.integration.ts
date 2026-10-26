@@ -236,7 +236,6 @@ test('a live Round holds its members until it ends; the end frees them for a rem
         formatId: selection.formatId,
         formatVersion: selection.formatVersion,
         config: selection.defaultConfig,
-        length: 'full',
         competitionType: 'casual',
       },
     });

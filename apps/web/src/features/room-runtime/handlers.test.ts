@@ -148,7 +148,6 @@ test('an already-in-a-room refusal carries the caller’s own active Room (ADR 0
           formatId: 'foundation',
           formatVersion: 1,
           presetVersion: 1,
-          length: 'full',
         },
       }),
     }),
