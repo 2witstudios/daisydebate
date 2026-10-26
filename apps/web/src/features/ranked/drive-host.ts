@@ -51,9 +51,9 @@ export function hostScreenFor(
 }
 
 /**
- * The host page's one data seam. Posting a table is the ranked
+ * The host page's one data seam. Posting a room is the ranked
  * `debate.create` (ADR 0048) and opens a ranked room (ADR 0049 section 6);
- * today "Post table" only moves to the mock confirmation. The backend read of
+ * today "Post room" only moves to the mock confirmation. The backend read of
  * the viewer's standing and the real post replace this and `actions.ts`.
  */
 export const driveHost = (query: HostQuery): HostScreen =>

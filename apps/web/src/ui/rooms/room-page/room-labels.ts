@@ -4,6 +4,7 @@ import {
   ruleRows,
   shapeLabel,
 } from '../../../features/debate-room/vocabulary';
+import { roomStatusLabels } from '../../../features/rooms/status-labels';
 import { declaredSeats, seatLabel } from './assembly-controls';
 
 type Role = RoomView['participants'][number]['role'];
@@ -45,20 +46,13 @@ export const ROOM_SETUP_ID = 'room-setup';
 /** Every way into Room setup is this fragment link, so it opens without script. */
 export const ROOM_SETUP_HREF = `#${ROOM_SETUP_ID}`;
 
-const statusLabels = {
-  assembling: 'Setting up',
-  ready: 'Ready to start',
-  started: 'In progress',
-  abandoned: 'Closed',
-} as const;
-
 /** "Setting up · 1 of 3 seats filled": the room's one status line. */
 export function roomStatus(
   view: Pick<RoomView, 'status' | 'participants'> & {
     readonly definition: Pick<RoomView['definition'], 'seats'>;
   },
 ): string {
-  const status = statusLabels[view.status];
+  const status = roomStatusLabels[view.status];
   if (view.status !== 'assembling') return status;
   const { affirmative, negative, judge } = view.definition.seats;
   const seats = affirmative + negative + judge;

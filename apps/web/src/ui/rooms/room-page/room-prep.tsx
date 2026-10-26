@@ -1,5 +1,6 @@
 import type { RoomView } from '@daisy/protocol';
 import Link from 'next/link';
+import { destinationHref } from '../../../features/coming-soon/launch';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
 import type { FormAction } from '../../form-action/form-action';
 import { clockDuration } from '../../../features/rooms/duration-input';
@@ -54,7 +55,7 @@ export function RoomPrep({
           {prepState(view)}
         </p>
       </div>
-      <Link href="/prep" className={buttonClass('secondary')}>
+      <Link href={destinationHref('prep')} className={buttonClass('secondary')}>
         Prep library
       </Link>
       {view.capabilities.canStartPrep

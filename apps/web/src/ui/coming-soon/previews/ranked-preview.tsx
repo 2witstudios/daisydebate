@@ -25,7 +25,7 @@ export function RankedPreview() {
       <Panel title="Play ranked">
         <div className="flex gap-2">
           <Button>Find a match</Button>
-          <Button variant="secondary">Host a ranked table</Button>
+          <Button variant="secondary">Host a ranked room</Button>
         </div>
       </Panel>
       <Panel title="Season ladder">

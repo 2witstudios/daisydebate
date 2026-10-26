@@ -6,6 +6,7 @@ import {
   emptyAnswers,
   type OnboardingAnswers,
 } from '../../../features/onboarding/answers';
+import { destinationHref } from '../../../features/coming-soon/launch';
 import { routeExists } from '../../test-support/route-exists';
 import { clubAction, ReadyStep } from './ready';
 
@@ -39,14 +40,17 @@ describe('ReadyStep', () => {
     const page = text(html);
     assert({
       given: 'the last step',
-      should: 'offer a bot (naming the bots) and a real person, side by side',
+      should:
+        'offer a bot (naming the bots, through the Train launch flag) and a real person, side by side',
       actual: [
         page.includes('Your first debate'),
         page.includes('Debate a bot Juno, Wren or Bram'),
         page.includes('Debate a real person Ranked or casual'),
-        html.includes('href="/train"'),
+        html.includes(`href="${destinationHref('train')}"`),
         html.includes('href="/play"'),
-        ['/train', '/play'].every((href) => routeExists(appDirectory, href)),
+        [destinationHref('train'), '/play'].every((href) =>
+          routeExists(appDirectory, href),
+        ),
       ],
       expected: [true, true, true, true, true, true],
     });

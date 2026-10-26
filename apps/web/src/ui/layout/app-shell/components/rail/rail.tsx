@@ -28,14 +28,10 @@ function AccountItems({ account }: { readonly account: ShellAccount }) {
       </li>
     );
   }
-  const { messages, notifications } = memberDestinations;
   return (
     <>
       <li>
-        <NavItem {...messages} />
-      </li>
-      <li>
-        <NavItem {...notifications} />
+        <NavItem {...memberDestinations.messages} />
       </li>
       <li>
         <FriendsLink />
@@ -56,8 +52,8 @@ function AccountItems({ account }: { readonly account: ShellAccount }) {
 
 /**
  * The one navigation rail on every shell page, beside the page: the logo,
- * the eight destinations and More at the top, a member's messages,
- * notifications, friends and profile (or a visitor's way in) at the foot.
+ * the launched destinations and More at the top, a member's messages,
+ * friends and profile (or a visitor's way in) at the foot.
  * Icons only; each link carries its name as screen-reader text and a
  * tooltip. Its column runs the page's full height; its content is pinned to
  * the viewport only where the viewport can hold all of it. Gives way to the

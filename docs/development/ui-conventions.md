@@ -119,7 +119,7 @@ the gaps it cannot.
 Owner decision, 2026-10-12 (the Round room redesign canvas, Proposal page;
 RRD-1). Every shell page is one 56px navigation rail beside the page. The
 rail never collapses: the logo (home), the eight destinations (Home, Play,
-Tournaments, Leaderboards, Watch, Judge, Train, Prep) and More at the top; at
+Tournaments, Leaderboard, Watch, Judge, Train, Prep) and More at the top; at
 the foot a member's Messages, Notifications, Friends (with the online count)
 and their profile avatar, or a visitor's Sign in (Finish sign-up mid
 sign-up). Each rail link is a 44px icon whose name is screen-reader text,
@@ -139,7 +139,62 @@ pinned to the viewport only when the viewport can hold all of it (the
 `tall:` variant); on a shorter one it scrolls with the page. It never
 becomes a scroll box of its own, because that would clip the nav flyouts.
 
+While a member holds a Room, a slim bar opens every shell page's
+column with the Room's title, its phase and "Return to room". Home and the
+Lobby pin the Room themselves and the Room's own page needs no way back, so
+the bar is left off those.
+
 The live round renders outside the shell, with its own round bar.
+
+## Lobby and Play
+
+Owner decision, 2026-10-26 (the Lobby redesign canvas). The Lobby (`/lobby`)
+is where people find, join, host and return to debates, and Play in the
+navigation goes there. It is one flat list: the member's own Room pinned
+first, then status tabs (All, Open, Starting, Live), then search with Ranked
+or casual behind Filters as one GET form, then one compact row per
+Room grouped Open, Starting and Live now. A row carries the Room's name, host
+and facts on the left and its status and one action on the right.
+
+- The word is "room", never "table". Starting one is "New room"; "Open a
+  room" names it in Play.
+- One verb per state: Join (an assembling Room), Spectate (ready, not
+  started), Watch (a live Round), Return to room (the viewer holds a seat).
+  Check in and Register are reserved for tournament and league seats.
+- A row shows what the listing carries: format, seats taken of the seat
+  count, how long an open Room has waited, and a live Round's stage. The
+  host's rating stays out while the beta is unranked. A field the listing
+  does not carry yet (tournament and league grouping, an event-scoped room
+  label) is left out, never faked; its tab or column appears when the data
+  does.
+- The status tabs and the mode select are the listing query itself
+  (`RoomListQuery`): the server narrows the whole listing before paging and
+  the Lobby only groups the page it gets back. An absent value, `all` or
+  `any` narrows nothing; an unknown or repeated value is refused.
+- Play in the Lobby header is a link to `/play`. Once hydrated it opens the
+  same choices (Open a room, Ranked match, Practice with a bot, Tournaments
+  and leagues, open ones first, then Just browse the Lobby) in a modal
+  dialog over the Lobby;
+  without script `/play` lists them as a page.
+- A member's Home leads with the Lobby, or with Return to room while they
+  hold a Room. Visitors keep the waitlist hero.
+
+## Unlaunched destinations
+
+`features/coming-soon/launch.ts` is the one switch for what is open. A
+destination that is not launched is never reached through a link to sample
+data:
+
+- The rail, the tab bar and More list only launched destinations.
+- Every other link into an unlaunched destination (a Home tile, a Play
+  choice, a link on a real page) goes to its explainer at
+  `/coming-soon/<slug>` through `destinationHref`, and a Play choice is
+  tagged Coming soon.
+- A sample action with no destination of its own (notifications, judge
+  resources and rating, settings export and deletion) is left out.
+
+Flipping a flag lists the destination, sends its links to the live route and
+redirects its explainer there.
 
 ## Pre-round Room
 

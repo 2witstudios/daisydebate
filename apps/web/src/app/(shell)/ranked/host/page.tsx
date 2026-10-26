@@ -5,7 +5,7 @@ import { parseHostQuery } from '../../../../features/ranked/host-query';
 import { requireAccess } from '../../../../lib/access';
 import { Host } from '../../../../ui/ranked/host';
 
-export const metadata: Metadata = { title: 'Host a ranked table' };
+export const metadata: Metadata = { title: 'Host a ranked room' };
 
 export default async function HostRankedTablePage({
   searchParams,

@@ -1,5 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { destinationSlugs } from '../../features/coming-soon/destinations';
+import { launched } from '../../features/coming-soon/launch';
 import { tileFor, tiles } from './tiles';
 
 setupRitewayBun();
@@ -38,15 +39,19 @@ describe('tiles config', () => {
 
   test('tags every unlaunched destination and carries no fake counts', () => {
     assert({
-      given: 'the tile configuration while nothing is launched',
+      given: 'the tile configuration',
       should:
-        'link each tile to its explainer, tagged Coming soon, without a status',
-      actual: tiles.map((tile) => [
-        tile.href.startsWith('/coming-soon/'),
-        tile.comingSoon,
-        tile.status,
-      ]),
-      expected: tiles.map(() => [true, true, undefined]),
+        'link each unlaunched tile to its explainer, tagged Coming soon, without a status',
+      actual: tiles
+        .filter((_, index) => !launched[destinationSlugs[index]!])
+        .map((tile) => [
+          tile.href.startsWith('/coming-soon/'),
+          tile.comingSoon,
+          tile.status,
+        ]),
+      expected: destinationSlugs
+        .filter((slug) => !launched[slug])
+        .map(() => [true, true, undefined]),
     });
   });
 

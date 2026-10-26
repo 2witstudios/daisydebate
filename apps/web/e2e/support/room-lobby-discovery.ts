@@ -43,15 +43,11 @@ export async function proveLobbyDiscovery(browser: Browser) {
     await page.goto(
       `/lobby?${new URLSearchParams({ q: `  ${token}  `, pageSize: '1', utm_source: 'native-proof', next: '/lobby' })}`,
     );
+    const rooms = page.getByRole('region', { name: 'Available rooms' });
+    const listed = (title: string) => rooms.getByText(title, { exact: true });
     for (const [index, view] of views.entries()) {
-      await expect(
-        page.getByRole('link', { name: view.title, exact: true }),
-      ).toBeVisible();
-      await expect(
-        page
-          .getByRole('list', { name: 'Available rooms' })
-          .getByRole('listitem'),
-      ).toHaveCount(1);
+      await expect(listed(view.title)).toBeVisible();
+      await expect(rooms.getByRole('listitem')).toHaveCount(1);
       if (index < views.length - 1) {
         const href = await page
           .getByRole('link', { name: 'Next page', exact: true })
@@ -66,23 +62,17 @@ export async function proveLobbyDiscovery(browser: Browser) {
         ).toHaveCount(0);
     }
     await page.getByRole('link', { name: 'First page', exact: true }).click();
-    await expect(
-      page.getByRole('link', { name: views[0]!.title, exact: true }),
-    ).toBeVisible();
+    await expect(listed(views[0]!.title)).toBeVisible();
     await page.getByLabel('Search rooms').fill(`  ${views[2]!.title}  `);
-    await page.getByRole('button', { name: 'Search', exact: true }).click();
+    await page.getByRole('button', { name: 'Apply', exact: true }).click();
     expect(new URL(page.url()).searchParams.has('cursor')).toBe(false);
-    await expect(
-      page.getByRole('link', { name: views[2]!.title, exact: true }),
-    ).toBeVisible();
+    await expect(listed(views[2]!.title)).toBeVisible();
     await expect(
       page.getByRole('link', { name: 'Next page', exact: true }),
     ).toHaveCount(0);
     await page.getByLabel('Search rooms').fill(`${token} missing`);
-    await page.getByRole('button', { name: 'Search', exact: true }).click();
-    await expect(page.getByRole('status')).toHaveText(
-      'No rooms match your search.',
-    );
+    await page.getByRole('button', { name: 'Apply', exact: true }).click();
+    await expect(page.getByRole('status')).toContainText('No rooms match');
     for (const query of [
       'cursor=invalid',
       'pageSize=51',

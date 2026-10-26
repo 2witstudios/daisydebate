@@ -3,7 +3,7 @@ import {
   destinationSlugs,
   type DestinationSlug,
 } from '../../features/coming-soon/destinations';
-import { launched, tileHref } from '../../features/coming-soon/launch';
+import { destinationHref, launched } from '../../features/coming-soon/launch';
 import { destinationGlyph } from '../coming-soon/destination-glyph';
 import type { ActionTileProps } from './action-tile/action-tile';
 
@@ -21,7 +21,7 @@ export const tileFor = (
   slug: DestinationSlug,
   config: Readonly<Record<DestinationSlug, boolean>> = launched,
 ): TileConfig => ({
-  href: tileHref(slug, config),
+  href: destinationHref(slug, { config }),
   title: destinations[slug].title,
   description: destinations[slug].tagline,
   ...destinationGlyph[slug],
