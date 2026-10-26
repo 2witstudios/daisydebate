@@ -121,3 +121,46 @@ export const rankedCreateForm = (visibility = 'unlisted') => {
   );
   return fields;
 };
+
+type ListedFacts = Pick<
+  RoomView,
+  | 'id'
+  | 'version'
+  | 'title'
+  | 'topic'
+  | 'visibility'
+  | 'hostActorId'
+  | 'hostLabel'
+  | 'status'
+  | 'competitionType'
+>;
+/** A seated viewer's discovery entry for a Room, with fixed discovery facts. */
+export const seatedListingEntry = ({
+  id,
+  version,
+  title,
+  topic,
+  visibility,
+  hostActorId,
+  hostLabel,
+  status,
+  competitionType,
+}: ListedFacts) => ({
+  id,
+  version,
+  title,
+  topic,
+  visibility,
+  hostActorId,
+  hostLabel,
+  status,
+  competitionType,
+  seated: true,
+  roundRef: null,
+  formatLabel: 'Foundation',
+  seatsTaken: 1,
+  seatCount: 2,
+  waitingSince: '2026-10-09T00:00:00.000Z',
+  live: null,
+  hostRating: null,
+});

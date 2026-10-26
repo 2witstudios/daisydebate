@@ -1,38 +1,9 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { assemblySnapshot } from './assembly.test-support';
+import { assemblySnapshot, seatedListingEntry } from './assembly.test-support';
 import { readActiveRoom, readAssembly, readRoomList } from './read-assembly';
 
 setupRitewayBun();
-const {
-  id,
-  version,
-  title,
-  topic,
-  visibility,
-  hostActorId,
-  hostLabel,
-  status,
-  competitionType,
-} = assemblySnapshot;
-const listingEntry = {
-  id,
-  version,
-  title,
-  topic,
-  visibility,
-  hostActorId,
-  hostLabel,
-  status,
-  competitionType,
-  seated: true,
-  roundRef: null,
-  formatLabel: 'Foundation',
-  seatsTaken: 1,
-  seatCount: 2,
-  waitingSince: '2026-10-09T00:00:00.000Z',
-  live: null,
-  hostRating: null,
-};
+const listingEntry = seatedListingEntry(assemblySnapshot);
 
 test('canonical room reads reject malformed or substituted projections', async () => {
   const results = [];
