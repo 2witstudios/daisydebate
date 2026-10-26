@@ -166,7 +166,7 @@ test('signed native HTTP ingress uses actual lease, snapshot and vendor token pr
       const [clock] = await f.sql`select clock_timestamp() as now`;
       const end = new Date(clock.now.getTime() - 1000);
       const start = new Date(end.getTime() - 1000);
-      await f.sql`update rounds set status='completed',outcome='affirmative',completed_at=${end},final_segment_ended_at=${end},transcript_admission_cutoff=${new Date(end.getTime() + 120000)} where id=${f.roundId}`;
+      await f.sql`update rounds set status='completed',current_stage=null,outcome='affirmative',completed_at=${end},final_segment_ended_at=${end},transcript_admission_cutoff=${new Date(end.getTime() + 120000)} where id=${f.roundId}`;
       await f.sql`update round_segments set started_at=${start},ended_at=${end},duration_ms=1000 where id=${segmentId}`;
       await f.sql`update round_speaking_intervals set started_at=${start},ended_at=${end},ended_version=started_version+1 where segment_id=${segmentId}`;
       const stream = {
