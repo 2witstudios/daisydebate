@@ -176,7 +176,7 @@ export function createRoundRuntime(input: {
     const round = roundBlockOf(store);
     // This revision stops the Round holding its Room's members (ADR 0070).
     const releasesRoomMembers = !roundHoldsMembers({
-      status: round.status,
+      status: store.lifecycle().status,
       debateEnded: finalEndedAt !== undefined,
     });
     return {
