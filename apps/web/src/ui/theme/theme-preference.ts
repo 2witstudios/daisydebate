@@ -10,8 +10,8 @@ export type ThemePreference = (typeof THEME_PREFERENCES)[number];
 
 export const THEME_COOKIE = 'daisy-theme';
 
-/** No saved choice: Daisy is dark-first. */
-const DEFAULT_THEME: ThemePreference = 'dark';
+/** No saved choice: Daisy opens on the cream light scheme (ADR 0069). */
+const DEFAULT_THEME: ThemePreference = 'light';
 
 const ONE_YEAR_SECONDS = 365 * 24 * 60 * 60;
 

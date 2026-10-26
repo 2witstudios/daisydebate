@@ -10,7 +10,7 @@ export function BracketArt() {
       width="300"
       height="180"
       aria-hidden="true"
-      className="text-stage-accent"
+      className="text-hue-clay"
       fill="none"
       stroke="currentColor"
       strokeWidth="1.5"

@@ -1,7 +1,8 @@
 # 0027: Theme preference
 
 Status: accepted. Amends [ADR 0024](0024-ecs-ui-shell-state.md): the theme
-leaves the module-level UI store.
+leaves the module-level UI store. The default scheme is superseded by
+[ADR 0069](0069-light-default-scheme.md).
 
 ## Context
 
@@ -20,14 +21,14 @@ onto it. That design had three problems:
 ## Decision
 
 1. **Three-way preference: `dark | light | system`.** When no preference is
-   saved, the default is `dark`, because Daisy is dark-first. `system`
+   saved, the default is `light` ([ADR 0069](0069-light-default-scheme.md)). `system`
    follows `prefers-color-scheme`.
 2. **Cookie, rendered by the server.** The preference is stored in the
    `daisy-theme` cookie: one year, `Path=/`, `SameSite=Lax`, and `Secure`
    over https. It is not httpOnly and it is not a secret. The root layout
    (already dynamic for the CSP nonce) reads the cookie through
    `parseThemePreference`, which is the trust boundary: unknown values fall
-   back to `dark`. The layout renders `<html data-theme>` from the parsed
+   back to the default. The layout renders `<html data-theme>` from the parsed
    value, so the served HTML is already correct. That removes the flash, the
    inline script, the nonce plumbing and the hydration mismatch.
 3. **Tokens are written once with `light-dark()`.** Every color token in

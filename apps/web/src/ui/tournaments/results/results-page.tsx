@@ -57,16 +57,16 @@ export function ResultsPage({ data, query, viewerHandle }: ResultsPageProps) {
         </p>
       </PageTitle>
       {champion ? (
-        <section className="flex items-center gap-4 rounded-xl bg-surface-stage p-8 text-stage-ink shadow-1 max-compact:p-5">
-          <span className="text-stage-accent">
+        <section className="flex items-center gap-4 rounded-xl border border-gold-border bg-gold-soft p-8 text-ink shadow-1 max-compact:p-5">
+          <span className="text-gold">
             <Icon name="trophy" size={40} />
           </span>
           <div className="flex flex-col gap-1">
-            <p className="text-xs font-bold tracking-widest text-stage-accent uppercase">
+            <p className="text-xs font-bold tracking-widest text-gold uppercase">
               {`${tournament.outcome?.label ?? 'Champion'}, ${tournament.name}`}
             </p>
             <h2 className="font-display text-2xl leading-tight font-bold tracking-tight">{`@${champion.handle}`}</h2>
-            <p className="text-sm text-stage-ink-muted">
+            <p className="text-sm text-ink-muted">
               {`Seed ${champion.seed} · ${champion.rating} · ${structureLabel(tournament.structure)} · ${tournament.entered} entrants · ${formatDay(tournament.startsAt)}`}
             </p>
           </div>
