@@ -51,13 +51,17 @@ test('configured bot worker policy requires an actual injected bearer producer',
   }
 });
 
-test('worker composition supplies the explicit TTS model and retained per-seat speech budget', async () => {
+const configuredOptions = async () => {
   const { readServerConfig } = await import('@daisy/config');
   const { roundWorkerDatabaseOptions } = await import('./round-worker-policy');
-  const options = roundWorkerDatabaseOptions(
+  return roundWorkerDatabaseOptions(
     readServerConfig(env).ROUND_BOT_WORKER_POLICY,
     () => 'x'.repeat(43),
   );
+};
+
+test('worker composition supplies the explicit TTS model and retained per-seat speech budget', async () => {
+  const options = await configuredOptions();
   assert({
     given: 'configured worker models at the real composition edge',
     should:
@@ -71,12 +75,7 @@ test('worker composition supplies the explicit TTS model and retained per-seat s
 });
 
 test('coaching uses the judge model with a lease covering its whole call', async () => {
-  const { readServerConfig } = await import('@daisy/config');
-  const { roundWorkerDatabaseOptions } = await import('./round-worker-policy');
-  const options = roundWorkerDatabaseOptions(
-    readServerConfig(env).ROUND_BOT_WORKER_POLICY,
-    () => 'x'.repeat(43),
-  );
+  const options = await configuredOptions();
   assert({
     given: 'configured worker policy',
     should:

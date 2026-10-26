@@ -18,7 +18,7 @@ const utteranceSchema = z.strictObject({
  * A debater's own AI coaching for a completed Round (ADR 0071): written,
  * carried on the AI judge's ballot, still being written, or not available.
  */
-export const roundCoachingSchema = z.discriminatedUnion('status', [
+const roundCoachingSchema = z.discriminatedUnion('status', [
   z.strictObject({
     status: z.literal('ready'),
     text: z.string().trim().min(1).max(ballotLimits.feedback),

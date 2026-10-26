@@ -251,7 +251,6 @@ export {
 } from './attendance';
 export {
   roundBallotReadSchema,
-  roundCoachingSchema,
   roundJudgeAssignmentsSchema,
 } from './round-ballot-read';
 export type {

@@ -48,19 +48,32 @@ async function completedRound(fixture: Fixture, roundId: string) {
   await fixture.sql`insert into round_transcript_freezes(round_id,revision,frontier,completeness) values(${roundId},1,2,'complete')`;
 }
 
-const jobsFor = (run: Parameters<typeof createRoundFeedbackJobs>[0]['run']) =>
-  createRoundFeedbackJobs({
-    run,
-    nextToken: () => randomBytes(32).toString('base64url'),
-    leaseMs: 30000,
-    model: 'anthropic/claude-sonnet-5.5',
+/** A completed Round with its coaching store and a read of its coaching facts. */
+const withCompletedRound = (
+  work: (value: {
+    fixture: Fixture;
+    roundId: string;
+    jobs: ReturnType<typeof createRoundFeedbackJobs>;
+    facts: () => ReturnType<typeof readRoundFeedbackFacts>;
+  }) => Promise<void>,
+) =>
+  withBoundedRound(async (fixture, run, roundId, client) => {
+    await completedRound(fixture, roundId);
+    await work({
+      fixture,
+      roundId,
+      jobs: createRoundFeedbackJobs({
+        run,
+        nextToken: () => randomBytes(32).toString('base64url'),
+        leaseMs: 30000,
+        model: 'anthropic/claude-sonnet-5.5',
+      }),
+      facts: () => readRoundFeedbackFacts(drizzle({ client }), roundId),
+    });
   });
 
 test('a completed Round is coached once from its freeze, under one lease at a time', async () =>
-  withBoundedRound(async (fixture, run, roundId, client) => {
-    const facts = () => readRoundFeedbackFacts(drizzle({ client }), roundId);
-    await completedRound(fixture, roundId);
-    const jobs = jobsFor(run);
+  withCompletedRound(async ({ fixture, roundId, jobs, facts }) => {
     const before = await jobs.scan(64);
     const claim = await jobs.claim(roundId);
     const held = await jobs.claim(roundId);
@@ -112,10 +125,7 @@ test('a completed Round is coached once from its freeze, under one lease at a ti
   }));
 
 test('a Round buys at most two paid calls, then fails', async () =>
-  withBoundedRound(async (fixture, run, roundId, client) => {
-    const facts = () => readRoundFeedbackFacts(drizzle({ client }), roundId);
-    await completedRound(fixture, roundId);
-    const jobs = jobsFor(run);
+  withCompletedRound(async ({ fixture, roundId, jobs, facts }) => {
     const lapse = () =>
       fixture.sql`update round_feedback set lease_expires_at=clock_timestamp() - interval '1 second' where round_id=${roundId}`;
     const first = await jobs.claim(roundId);
@@ -146,11 +156,8 @@ test('a Round buys at most two paid calls, then fails', async () =>
   }));
 
 test('a Round without a frozen transcript is never coached', async () =>
-  withBoundedRound(async (fixture, run, roundId, client) => {
-    const facts = () => readRoundFeedbackFacts(drizzle({ client }), roundId);
-    await completedRound(fixture, roundId);
+  withCompletedRound(async ({ fixture, roundId, jobs, facts }) => {
     await fixture.sql`delete from round_transcript_freezes where round_id=${roundId}`;
-    const jobs = jobsFor(run);
     assert({
       given: 'a completed Round with lines but no freeze',
       should: 'neither list nor claim it, and report it ineligible',

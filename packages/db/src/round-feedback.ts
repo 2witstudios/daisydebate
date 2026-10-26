@@ -11,9 +11,9 @@ import { roundSegments } from './schema/round-segments';
 import { rounds } from './schema/rounds';
 
 /** Paid model calls one Round's coaching may buy over all its leases (ADR 0071). */
-export const MAX_FEEDBACK_CALLS = 2;
+const MAX_FEEDBACK_CALLS = 2;
 /** A Round is coached only this long after it completes; older ones never queue. */
-export const FEEDBACK_WINDOW_HOURS = 24;
+const FEEDBACK_WINDOW_HOURS = 24;
 
 type Reader = Pick<BunSQLDatabase, 'execute'>;
 
@@ -238,7 +238,3 @@ export function createRoundFeedbackJobs(input: {
     },
   };
 }
-export type RoundFeedbackJobs = ReturnType<typeof createRoundFeedbackJobs>;
-export type RoundFeedbackClaim = NonNullable<
-  Awaited<ReturnType<RoundFeedbackJobs['claim']>>
->;
