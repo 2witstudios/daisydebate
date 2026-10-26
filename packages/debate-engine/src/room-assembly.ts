@@ -17,11 +17,13 @@ import {
 } from './room-edit-transitions';
 import {
   ready,
-  startPrep,
   finishPrep,
   startRound,
   close,
 } from './room-consent-transitions';
+import { startPreRound, strikeResolution } from './room-pre-round';
+import { preRoundBegun } from './pre-round-phase';
+import { settleRoom } from './resolution-draw';
 const roomTransitions = {
   'update-config': updateConfig,
   'update-format': updateConfig,
@@ -32,7 +34,8 @@ const roomTransitions = {
   'remove-seat': leaveSeat,
   ready,
   unready: ready,
-  'start-prep': startPrep,
+  'start-pre-round': startPreRound,
+  'strike-resolution': strikeResolution,
   'finish-prep': finishPrep,
   'start-round': startRound,
   close,
@@ -43,7 +46,7 @@ const hostCommands = new Set<RoomCommand['type']>([
   'update-format',
   'assign-seat',
   'remove-seat',
-  'start-prep',
+  'start-pre-round',
   'finish-prep',
   'start-round',
   'close',
@@ -68,11 +71,15 @@ function commandFence(
   if (!assemblyOpen(room)) return 'room-closed';
   if (hostCommands.has(command.type) && room.hostActorId !== actorId)
     return 'host-required';
-  return edit && room.prepStartedAt !== null ? 'prep-running' : null;
+  return edit && preRoundBegun(room) ? 'prep-running' : null;
 }
-/** Pure total transition. The adapter serializes the room and publishes accepted effects atomically. */
+/**
+ * Pure total transition. Due draw strikes settle first and are kept only
+ * when the command is accepted; the adapter serializes the room and
+ * publishes accepted effects atomically.
+ */
 export function executeRoomCommand(
-  room: RoomAssemblyState,
+  stored: RoomAssemblyState,
   actorId: string,
   command: RoomCommand,
   consent: RoomConsent,
@@ -83,8 +90,9 @@ export function executeRoomCommand(
     refusal,
   });
   const edit = editCommands.has(command.type);
-  const fenced = commandFence(room, actorId, command, edit);
+  const fenced = commandFence(stored, actorId, command, edit);
   if (fenced) return refuse(fenced);
+  const room = settleRoom(stored, edges.drawSeed, edges.now);
   const transition = roomTransitions[command.type] as (
     room: RoomAssemblyState,
     actorId: string,
@@ -99,6 +107,7 @@ export function executeRoomCommand(
     consent: consentEffect,
     freeze,
     publishDefinition,
+    drawSecrets,
   } = outcome.mutation;
   if (edit)
     next = {
@@ -118,6 +127,7 @@ export function executeRoomCommand(
       consent: consentEffect,
       freeze,
       publishDefinition,
+      drawSecrets,
       members: activeRoomMembers(next),
     },
   };

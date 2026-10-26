@@ -13,7 +13,7 @@ export {
   projectRoom,
 } from './room-assembly';
 export { activeRoomMembers, projectActiveRoom } from './room-membership';
-export { expireIdleRoom } from './room-expiry';
+export { maintainRoom } from './room-expiry';
 export { deriveRoundOutcome } from './round-outcome';
 export { recordResult, tallyRecord } from './debate-record';
 export { decideUnjudgedCompletion, freezeJudgingPlan } from './round-unjudged';

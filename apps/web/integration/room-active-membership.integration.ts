@@ -1,5 +1,5 @@
 import { requireTestServices } from '@daisy/config';
-import { expireIdleRoom } from '@daisy/debate-engine';
+import { maintainRoom } from '@daisy/debate-engine';
 import { isAppError } from '@daisy/errors';
 import { assertRejects } from '@daisy/errors/testing';
 import { createId } from '@paralleldrive/cuid2';
@@ -165,7 +165,11 @@ test('maintenance closes a Room idle past the timeout and frees its members', as
       f.store.expireIdleRoom({
         roomId,
         expire: (state, facts) =>
-          expireIdleRoom(state, { ...facts, idleTimeoutMs: 600_000 }),
+          maintainRoom(state, {
+            ...facts,
+            idleTimeoutMs: 600_000,
+            drawSeed: null,
+          }),
       });
     const expired = [await expire(idle.id), await expire(busy.id)];
     const outbox = await f.sql`

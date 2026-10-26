@@ -12,6 +12,7 @@ import {
   type RoomConfig,
   type RoomExecutionPlan,
 } from './room';
+import type { DrawPrivateInputs, ResolutionDrawState } from './resolution-draw';
 import {
   competitionTypes,
   roundStageSchema,
@@ -55,13 +56,29 @@ const roomSelectionSchema = z.discriminatedUnion('kind', [
     config: roomConfigSchema,
   }),
 ]);
-export const roomCreateSchema = z.strictObject({
-  commandId: idSchema,
-  title: textSchema,
-  topic: textSchema,
-  visibility: roomVisibilitySchema,
-  selection: roomSelectionSchema,
-});
+/**
+ * A fixed-topic Room names its resolution; a draw Room's topic is null
+ * until its reveal (FMT-7). A ranked selection's draw comes from its
+ * preset, so creation checks that pairing after resolving it.
+ */
+export const roomCreateSchema = z
+  .strictObject({
+    commandId: idSchema,
+    title: textSchema,
+    topic: textSchema.nullable(),
+    visibility: roomVisibilitySchema,
+    selection: roomSelectionSchema,
+  })
+  .refine(
+    (create) =>
+      create.selection.kind === 'ranked' ||
+      (create.topic === null) ===
+        create.selection.config.resolutionDraw.enabled,
+    {
+      message: 'A draw room has no topic; any other room needs one',
+      path: ['topic'],
+    },
+  );
 
 const envelope = { commandId: idSchema, expectedVersion: versionSchema };
 export const roomCommandSchema = z.discriminatedUnion('type', [
@@ -69,12 +86,15 @@ export const roomCommandSchema = z.discriminatedUnion('type', [
     ...envelope,
     type: z.literal('update-config'),
     config: roomConfigSchema,
+    /** Required exactly when the change turns a draw on (null) or off (text). */
+    topic: textSchema.nullable().optional(),
   }),
   z.strictObject({
     ...envelope,
     type: z.literal('update-details'),
     title: textSchema,
-    topic: textSchema,
+    /** Fixed-topic Rooms only: a draw Room's topic comes from its reveal. */
+    topic: textSchema.optional(),
     visibility: roomVisibilitySchema,
   }),
   z.strictObject({
@@ -82,6 +102,7 @@ export const roomCommandSchema = z.discriminatedUnion('type', [
     type: z.literal('update-format'),
     definition: formatDefinitionSchema,
     config: roomConfigSchema,
+    topic: textSchema.nullable().optional(),
   }),
   z.strictObject({ ...envelope, type: z.literal('claim-seat'), ...seat }),
   z.strictObject({
@@ -103,9 +124,16 @@ export const roomCommandSchema = z.discriminatedUnion('type', [
       expectedConsentVersion: z.int().min(0),
     }),
   ),
-  ...(['start-prep', 'finish-prep', 'start-round', 'close'] as const).map(
+  ...(['start-pre-round', 'finish-prep', 'start-round', 'close'] as const).map(
     (type) => z.strictObject({ ...envelope, type: z.literal(type) }),
   ),
+  z.strictObject({
+    ...envelope,
+    type: z.literal('strike-resolution'),
+    /** The strike this form means to make: a stale form conflicts. */
+    ordinal: z.int().min(0),
+    position: z.int().min(0),
+  }),
 ]);
 export type RoomCommand = z.infer<typeof roomCommandSchema>;
 export type RoomCreate = z.infer<typeof roomCreateSchema>;
@@ -142,7 +170,8 @@ export type RoomAssemblyState = {
   readonly version: number;
   readonly changeVersion: number;
   readonly title: string;
-  readonly topic: string;
+  /** Null exactly while a draw Room has not revealed its resolution. */
+  readonly topic: string | null;
   readonly visibility: 'public' | 'unlisted' | 'private';
   readonly hostActorId: string;
   readonly hostLabel: string;
@@ -163,6 +192,8 @@ export type RoomAssemblyState = {
   })[];
   readonly prepStartedAt: string | null;
   readonly prepRemainingMs: number | null;
+  /** The Room's one draw, once its pre-round has begun with one. */
+  readonly resolutionDraw: ResolutionDrawState | null;
 };
 export type RoomConsent = {
   readonly available: boolean;
@@ -177,6 +208,11 @@ type RoomMutation = {
   } | null;
   readonly freeze: boolean;
   readonly publishDefinition: boolean;
+  /** The seed and private inputs of a draw this mutation creates; never delivered. */
+  readonly drawSecrets: {
+    readonly seed: string;
+    readonly inputs: DrawPrivateInputs;
+  } | null;
   /** The human actors the next state holds as active members (ADR 0070). */
   readonly members: readonly string[];
 };
@@ -207,7 +243,8 @@ const roomListEntrySchema = z.strictObject({
   id: idSchema,
   version: z.int().positive(),
   title: z.string().min(1),
-  topic: z.string().min(1),
+  /** Null while a draw Room has not revealed its resolution. */
+  topic: z.string().min(1).nullable(),
   visibility: z.enum(['public', 'unlisted', 'private']),
   /** Null when the host sits as a judge this viewer may not name (DEC-174). */
   hostActorId: idSchema.nullable(),

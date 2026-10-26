@@ -91,6 +91,7 @@ export async function withHumanJudgeHttpRound(
     const config = {
       ...choice.defaultConfig,
       preRoundPrep: { enabled: false },
+      resolutionDraw: { enabled: false },
       speechTiming: {
         ...choice.defaultConfig.speechTiming,
         countdownMs: people.countdownMs ?? 0,

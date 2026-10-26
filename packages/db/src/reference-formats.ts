@@ -95,6 +95,7 @@ const oneOnOneRevision1: FormatDefinition = {
     },
     inRoundPrep: referenceInRoundPrepCapability,
     preRoundPrep: { durationMs: { min: 0, max: 1_200_000 } },
+    resolutionDraw: null,
     interaction: {
       crossExModes: ['ordered', 'free'],
       interruptions: {
@@ -155,6 +156,7 @@ export const foundationDefinition: FormatDefinition = {
     },
     inRoundPrep: referenceInRoundPrepCapability,
     preRoundPrep: null,
+    resolutionDraw: null,
     interaction: {
       crossExModes: ['ordered'],
       interruptions: null,
@@ -166,6 +168,7 @@ export const foundationDefinition: FormatDefinition = {
 /** The foundation room's config: the proof format at its sanctioned defaults. */
 export const foundationConfig: RoomConfig = {
   preRoundPrep: { enabled: false },
+  resolutionDraw: { enabled: false },
   inRoundPrep: { enabled: true, budgetMsPerSide: 120_000 },
   speechTiming: { countdownMs: 10_000, segmentDurationOverrides: {} },
   crossExamination: { crossExMode: 'ordered' },
@@ -200,6 +203,7 @@ export const referenceFormats: ReadonlyArray<{
 /** The casual config a one-on-one room starts from: defaults, prep enabled. */
 export const oneOnOneRoomConfig: RoomConfig = {
   preRoundPrep: { enabled: false },
+  resolutionDraw: { enabled: false },
   inRoundPrep: { enabled: true, budgetMsPerSide: 240_000 },
   speechTiming: {
     countdownMs: 10_000,
@@ -213,6 +217,7 @@ export const oneOnOneRoomConfig: RoomConfig = {
 /** The sanctioned ranked config for one-on-one. */
 export const oneOnOneRankedConfig: RoomConfig = {
   preRoundPrep: { enabled: true, durationMs: 1_200_000 },
+  resolutionDraw: { enabled: false },
   inRoundPrep: { enabled: true, budgetMsPerSide: 240_000 },
   speechTiming: { countdownMs: 10_000, segmentDurationOverrides: {} },
   crossExamination: { crossExMode: 'ordered' },

@@ -48,6 +48,7 @@ export const launchCustomSelection = {
         countdownMs: { min: 0, max: 5000 },
       },
       preRoundPrep: null,
+      resolutionDraw: null,
       inRoundPrep: null,
       interaction: {
         crossExModes: ['ordered'],
@@ -58,6 +59,7 @@ export const launchCustomSelection = {
   }),
   config: roomConfigSchema.parse({
     preRoundPrep: { enabled: false },
+    resolutionDraw: { enabled: false },
     inRoundPrep: { enabled: false },
     speechTiming: { countdownMs: 0, segmentDurationOverrides: {} },
     crossExamination: { crossExMode: 'ordered' },

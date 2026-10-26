@@ -3,7 +3,7 @@ import type { AttendanceResolution, Database } from '@daisy/db';
 import {
   createRoundRuntime,
   decideUnjudgedCompletion,
-  expireIdleRoom,
+  maintainRoom,
   freezeJudgingPlan,
 } from '@daisy/debate-engine';
 import { createAppError, isAppError } from '@daisy/errors';
@@ -179,7 +179,7 @@ export function createRoundMaintenanceOperations(input: {
         await input.store.expireIdleRoom({
           roomId,
           expire: (state, facts) =>
-            expireIdleRoom(state, { ...facts, idleTimeoutMs }),
+            maintainRoom(state, { ...facts, idleTimeoutMs, drawSeed: null }),
         });
     },
     async rateUnrated() {

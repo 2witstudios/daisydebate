@@ -152,7 +152,7 @@ export const roomRow = (overrides: Record<string, unknown> = {}) => {
     presetVersion: null,
     competitionType: 'casual',
     config: oneOnOneRoomConfig,
-    executionPlan: { preRoundPrep: { enabled: false } },
+    executionPlan: { preRoundPrep: { enabled: false }, resolutionDraw: { enabled: false } },
     rulesSnapshot: validRules,
     prepStartedAt: null,
     prepRemainingMs: null,

@@ -42,7 +42,7 @@ test('two ranked rooms may pin the same approved preset', async () => {
       preset_version: 1,
       competition_type: 'ranked',
       config: validConfig,
-      execution_plan: { preRoundPrep: { enabled: false } },
+      execution_plan: { preRoundPrep: { enabled: false }, resolutionDraw: { enabled: false } },
       rules_snapshot: validRules,
       status: 'assembling',
     });
@@ -108,7 +108,7 @@ test('a room waits for every seat and finishes durable pre-round prep before fre
               presetVersion: null,
               competitionType: 'casual',
               config: { ...oneOnOneRoomConfig, preRoundPrep: prep },
-              executionPlan: { preRoundPrep: prep },
+              executionPlan: { preRoundPrep: prep, resolutionDraw: { enabled: false } },
               rules,
             },
             'assembling',

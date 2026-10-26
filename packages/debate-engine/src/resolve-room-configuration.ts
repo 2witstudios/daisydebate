@@ -143,6 +143,42 @@ function resolvePreRoundPrep(
   return { ok: true, value: config.preRoundPrep };
 }
 
+/** Resolves the Room-executed resolution draw, or refuses. */
+function resolveResolutionDraw(
+  definition: FormatDefinition,
+  config: RoomConfig,
+): Step<RoomExecutionPlan['resolutionDraw']> {
+  const draw = config.resolutionDraw;
+  if (!draw.enabled) return { ok: true, value: draw };
+  const bounds = definition.configurable.resolutionDraw;
+  if (bounds === null)
+    return stepRefused(
+      'capability-forbidden',
+      'The format forbids a resolution draw',
+    );
+  if (!within(draw.drawSize, bounds.drawSize))
+    return stepRefused(
+      'out-of-range',
+      `Draw size ${draw.drawSize} is outside ${bounds.drawSize.min}-${bounds.drawSize.max}`,
+    );
+  if (!within(draw.strikeWindowMs, bounds.strikeWindowMs))
+    return stepRefused(
+      'out-of-range',
+      `Strike window ${draw.strikeWindowMs}ms is outside ${bounds.strikeWindowMs.min}-${bounds.strikeWindowMs.max}ms`,
+    );
+  if (!bounds.firstStrikers.includes(draw.firstStriker))
+    return stepRefused(
+      'invalid-choice',
+      `First striker ${draw.firstStriker} is not permitted`,
+    );
+  if (!bounds.sources.includes(draw.source.kind))
+    return stepRefused(
+      'invalid-choice',
+      `Draw source ${draw.source.kind} is not permitted`,
+    );
+  return { ok: true, value: draw };
+}
+
 /** Resolves the ECS-enforced in-round budget, or refuses. */
 function resolveInRoundPrep(
   definition: FormatDefinition,
@@ -304,6 +340,8 @@ export function resolveRoomConfiguration(
     );
   const preRoundPrep = resolvePreRoundPrep(definition, config);
   if (!preRoundPrep.ok) return preRoundPrep;
+  const resolutionDraw = resolveResolutionDraw(definition, config);
+  if (!resolutionDraw.ok) return resolutionDraw;
   const inRoundPrep = resolveInRoundPrep(definition, config);
   if (!inRoundPrep.ok) return inRoundPrep;
   if (
@@ -320,7 +358,10 @@ export function resolveRoomConfiguration(
   if (!interaction.ok) return interaction;
   return {
     ok: true,
-    roomPlan: { preRoundPrep: preRoundPrep.value },
+    roomPlan: {
+      preRoundPrep: preRoundPrep.value,
+      resolutionDraw: resolutionDraw.value,
+    },
     rules: {
       version: 2,
       seats: definition.seats,

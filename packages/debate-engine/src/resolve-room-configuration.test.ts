@@ -36,7 +36,10 @@ describe('resolveRoomConfiguration', () => {
           expiresAtSegment: null,
         },
         countdownMs: 10_000,
-        roomPlan: { preRoundPrep: { enabled: false } },
+        roomPlan: {
+          preRoundPrep: { enabled: false },
+          resolutionDraw: { enabled: false },
+        },
       },
     });
   });
@@ -97,6 +100,7 @@ describe('resolveRoomConfiguration', () => {
         ...oneOnOneDefinition.configurable,
         inRoundPrep: null,
         preRoundPrep: null,
+        resolutionDraw: null,
         interaction: {
           crossExModes: ['ordered'],
           interruptions: null,
@@ -112,6 +116,7 @@ describe('resolveRoomConfiguration', () => {
         interruptions: null,
         yielding: null,
         preRoundPrep: { enabled: true, durationMs: 60_000 },
+        resolutionDraw: { enabled: false },
       }),
     ];
     assert({

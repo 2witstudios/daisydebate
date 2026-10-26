@@ -52,6 +52,7 @@ type Redis = Pick<
 /** Suggested initial config comes exclusively from the pinned format's declared legal choices. */
 const initialConfig = (definition: FormatDefinition): RoomConfig => ({
   preRoundPrep: { enabled: false },
+  resolutionDraw: { enabled: false },
   inRoundPrep: { enabled: false },
   speechTiming: {
     countdownMs: definition.configurable.timing.countdownMs.min,

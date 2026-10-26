@@ -34,7 +34,7 @@ test('Room freeze appends the scheduled Round phase signal in its transaction', 
       preset_version: null,
       competition_type: 'casual',
       config: oneOnOneRoomConfig,
-      execution_plan: { preRoundPrep: { enabled: false } },
+      execution_plan: { preRoundPrep: { enabled: false }, resolutionDraw: { enabled: false } },
       rules_snapshot: validRules,
       status: 'ready',
     });

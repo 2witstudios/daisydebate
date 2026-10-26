@@ -35,6 +35,7 @@ test('settings preserve the complete legal config and independent segment timing
         expectedVersion: 3,
         config: {
           preRoundPrep: { enabled: false },
+          resolutionDraw: { enabled: false },
           inRoundPrep: { enabled: false },
           speechTiming: {
             countdownMs: 1000,

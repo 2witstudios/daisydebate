@@ -15,11 +15,13 @@ test('prep persists one anchor with its receipt and refuses concurrent assembly 
       configurable: {
         ...view.definition.configurable,
         preRoundPrep: { durationMs: { min: 0, max: 60_000 } },
+        resolutionDraw: null,
       },
     };
     const config = {
       ...view.config,
       preRoundPrep: { enabled: true as const, durationMs: 60_000 },
+      resolutionDraw: { enabled: false },
     };
     view = (
       await f.command(f.host, view, {

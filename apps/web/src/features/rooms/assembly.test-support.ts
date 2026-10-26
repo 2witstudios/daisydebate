@@ -37,6 +37,7 @@ export const unequalTemplate = {
         countdownMs: { min: 0, max: 5000 },
       },
       preRoundPrep: { durationMs: { min: 60000, max: 600000 } },
+      resolutionDraw: null,
       inRoundPrep: {
         budgetMsPerSide: { min: 0, max: 900000 },
         spendableBefore: ['speech'],
@@ -55,6 +56,7 @@ export const unequalTemplate = {
   presets: [],
   defaultConfig: {
     preRoundPrep: { enabled: true, durationMs: 321000 },
+    resolutionDraw: { enabled: false },
     inRoundPrep: { enabled: true, budgetMsPerSide: 887000 },
     speechTiming: { countdownMs: 444, segmentDurationOverrides: { N3: 98765 } },
     crossExamination: { crossExMode: 'free' },

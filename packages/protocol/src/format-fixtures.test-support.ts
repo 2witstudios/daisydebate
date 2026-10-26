@@ -3,6 +3,7 @@ import type { FormatDefinition, RoomConfig } from './index';
 /** A room config with no prep, timing overrides, interruptions or yielding. */
 export const plainRoomConfig: RoomConfig = {
   preRoundPrep: { enabled: false },
+  resolutionDraw: { enabled: false },
   inRoundPrep: { enabled: false },
   speechTiming: { countdownMs: 0, segmentDurationOverrides: {} },
   crossExamination: { crossExMode: 'ordered' },
@@ -91,6 +92,7 @@ export const oneOnOneFormatFixture: FormatDefinition = {
       expiresAtSegment: null,
     },
     preRoundPrep: { durationMs: { min: 0, max: 1_200_000 } },
+    resolutionDraw: null,
     interaction: {
       crossExModes: ['ordered', 'free'],
       interruptions: {

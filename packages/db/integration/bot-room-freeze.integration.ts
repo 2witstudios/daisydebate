@@ -41,7 +41,7 @@ test('bot Room freeze reserves once atomically and replay cannot charge twice', 
       format_version: 1,
       competition_type: 'casual',
       config: validConfig,
-      execution_plan: { preRoundPrep: { enabled: false } },
+      execution_plan: { preRoundPrep: { enabled: false }, resolutionDraw: { enabled: false } },
       rules_snapshot: validRules,
       status: 'ready',
     });

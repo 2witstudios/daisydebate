@@ -26,7 +26,28 @@ export {
   segmentTypes,
 } from './format';
 export type { FormatDefinition, RoundRules, SegmentType } from './format';
-export { roomConfigSchema, roomExecutionPlanSchema } from './room';
+export {
+  freezeRoomConfig,
+  freezeRoomExecutionPlan,
+  frozenRoomConfigSchema,
+  roomConfigSchema,
+  roomExecutionPlanSchema,
+} from './room';
+export type { FrozenRoomConfig } from './room';
+export {
+  resolutionCategories,
+  resolutionDrawManifestSchema,
+} from './resolution-draw';
+export type {
+  DrawPrivateInputs,
+  ResolutionCategory,
+  ResolutionDrawItem,
+  ResolutionDrawManifest,
+  ResolutionDrawState,
+  ResolutionDrawView,
+  ResolutionStrike,
+  SideControllers,
+} from './resolution-draw';
 export {
   CAPTURE_CALL_DEADLINE_MS,
   CAPTURE_COVERAGE_TOLERANCE,
