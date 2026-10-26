@@ -1,14 +1,12 @@
+import type { Identity } from '@daisy/auth';
+import { assertRejects } from '@daisy/errors/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { judgePanel, readProfile, type ProfileStore } from './read-profile';
 
 setupRitewayBun();
 
-const member = {
-  userId: 'u'.repeat(24),
-  actorId: 'a'.repeat(24),
-  username: 'debater-a',
-  memberSince: '2026-09-01T00:00:00.000Z',
-};
+const owner = { userId: 'u'.repeat(24), actorId: 'a'.repeat(24) };
+const other = { userId: 'v'.repeat(24), actorId: 'b'.repeat(24) };
 const roundId = 'r'.repeat(24);
 const row = {
   roundId,
@@ -27,62 +25,102 @@ const row = {
   ],
 } as const;
 
-/** A store over one member; records each record and history read it is asked for. */
-const storeFor = (found: typeof member | null) => {
+const member = (who: typeof owner): Identity => ({
+  state: 'member',
+  username: 'viewer',
+  principal: { kind: 'user', ...who },
+});
+const visitor: Identity = {
+  state: 'anonymous',
+  principal: { kind: 'anonymous' },
+};
+/** The account fact the database would read fresh for a caller. */
+const accountOf = (
+  who: typeof owner,
+  overrides: Partial<{ member: boolean; erased: boolean }> = {},
+) => ({
+  userId: who.userId,
+  actorId: who.actorId,
+  member: true,
+  erased: false,
+  revision: 2,
+  ...overrides,
+});
+
+/**
+ * A store over the owner's profile that, like the database, reads the
+ * caller's account in its snapshot and asks `decide` for the scope.
+ */
+const storeFor = (
+  found: boolean,
+  account: ReturnType<typeof accountOf> | null = null,
+) => {
   const reads: unknown[] = [];
-  const recordReads: unknown[] = [];
   const store: ProfileStore = {
-    readMember: async () => found,
-    readRecordGroups: async (input) => {
-      recordReads.push(input);
-      return [
-        {
-          status: 'completed',
-          outcome: 'affirmative',
-          role: 'affirmative',
-          rounds: 2,
+    readMemberProfile: async (input) => {
+      reads.push({
+        caller: input.caller,
+        before: input.before,
+        limit: input.limit,
+      });
+      if (!found) return null;
+      const scope = input.decide(
+        owner.actorId,
+        input.caller === null ? null : account,
+      );
+      return {
+        member: {
+          ...owner,
+          username: 'debater-a',
+          memberSince: '2026-09-01T00:00:00.000Z',
         },
-        { status: 'completed', outcome: null, role: 'negative', rounds: 1 },
-      ];
-    },
-    readMatchHistory: async (input) => {
-      reads.push(input);
-      return { rows: [row], nextBefore: roundId };
+        scope,
+        groups: [
+          {
+            status: 'completed',
+            outcome: 'affirmative',
+            role: 'affirmative',
+            rounds: 2,
+          },
+          { status: 'completed', outcome: null, role: 'negative', rounds: 1 },
+        ],
+        rows: [row],
+        nextBefore: roundId,
+      };
     },
   };
-  return { store, reads, recordReads };
+  return { store, reads };
+};
+
+const profileFor = (
+  identity: Identity,
+  account: ReturnType<typeof accountOf> | null = null,
+  query: { before?: string } = {},
+) => {
+  const { store, reads } = storeFor(true, account);
+  return readProfile(store, { identity, username: 'debater-a', query }).then(
+    (profile) => ({ profile, reads }),
+  );
 };
 
 describe('readProfile', () => {
-  test('a visitor reading a member', async () => {
-    const { store, reads, recordReads } = storeFor(member);
-    const profile = await readProfile(store, {
-      username: 'debater-a',
-      viewerUserId: null,
-      query: {},
-    });
+  test('a visitor', async () => {
+    const { profile, reads } = await profileFor(visitor);
     assert({
       given: 'a visitor and a member with a forfeited loss against a team',
       should:
-        'tally public Rounds only, read public Rounds only and list the opposing seats from the member’s side',
+        'read with no caller in the public scope, tally the record and list the opposing seats from the member’s side',
       actual: {
         me: profile?.me,
         record: profile?.record,
-        recordRead: recordReads[0],
-        read: reads[0],
+        reads,
         entry: profile?.history[0],
         nextBefore: profile?.nextBefore,
       },
       expected: {
         me: false,
         record: { wins: 2, losses: 0, draws: 0 },
-        recordRead: { actorId: member.actorId, publicOnly: true },
-        read: {
-          actorId: member.actorId,
-          publicOnly: true,
-          before: null,
-          limit: 20,
-        },
+        reads: [{ caller: null, before: null, limit: 20 }],
         entry: {
           roundId,
           completedAt: row.completedAt,
@@ -102,45 +140,62 @@ describe('readProfile', () => {
     });
   });
 
-  test('the member reading their own profile', async () => {
-    const { store, reads, recordReads } = storeFor(member);
-    const profile = await readProfile(store, {
-      username: 'debater-a',
-      viewerUserId: member.userId,
-      query: { before: roundId },
-    });
+  test('the owner, paging back', async () => {
+    const { profile, reads } = await profileFor(
+      member(owner),
+      accountOf(owner),
+      { before: roundId },
+    );
     assert({
-      given: 'the member themself, asking for an older page',
-      should:
-        'mark it as theirs, count every Round and read every Round before the cursor',
-      actual: [profile?.me, recordReads[0], reads[0]],
-      expected: [
-        true,
-        { actorId: member.actorId, publicOnly: false },
-        {
-          actorId: member.actorId,
-          publicOnly: false,
-          before: roundId,
-          limit: 20,
-        },
-      ],
+      given: 'the signed-in owner whose fresh account is current',
+      should: 'pass the caller and cursor, and read in the owner’s scope',
+      actual: [profile?.me, reads],
+      expected: [true, [{ caller: owner, before: roundId, limit: 20 }]],
     });
   });
 
-  test('a name no member holds', async () => {
-    const { store, reads } = storeFor(null);
+  test('scopes other than the owner’s', async () => {
+    const results = await Promise.all([
+      profileFor(member(other), accountOf(other)),
+      profileFor(member(owner), accountOf(owner, { member: false })),
+      profileFor(member(owner), accountOf(owner, { erased: true })),
+      profileFor(member(owner), null),
+    ]);
     assert({
-      given: 'a username with no live member',
-      should: 'read nothing more and answer null',
-      actual: [
-        await readProfile(store, {
-          username: 'nobody',
-          viewerUserId: null,
+      given:
+        'another member, and the owner whose fresh account is provisional, erased or gone',
+      should: 'read each in the public scope',
+      actual: results.map(({ profile }) => profile?.me),
+      expected: [false, false, false, false],
+    });
+  });
+
+  test('refusals', async () => {
+    const { store, reads } = storeFor(true);
+    await assertRejects({
+      given: 'an unreadable session',
+      should: 'refuse as an outage before any read',
+      actual: () =>
+        readProfile(store, {
+          identity: { state: 'unavailable', principal: { kind: 'anonymous' } },
+          username: 'debater-a',
           query: {},
         }),
+      code: 'INFRASTRUCTURE',
+    });
+    const missing = storeFor(false);
+    assert({
+      given: 'the unreadable session, then a name with no live member',
+      should: 'have read nothing, then answer null',
+      actual: [
         reads.length,
+        await readProfile(missing.store, {
+          identity: visitor,
+          username: 'nobody',
+          query: {},
+        }),
       ],
-      expected: [null, 0],
+      expected: [0, null],
     });
   });
 });

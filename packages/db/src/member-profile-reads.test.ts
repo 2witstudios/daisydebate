@@ -1,85 +1,64 @@
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createTestDatabase } from './index.test-support';
+import type { HistoryScope } from './member-profile-reads';
 
 setupRitewayBun();
 
 const at = new Date('2026-10-05T12:00:00.000Z');
 const earlier = new Date('2026-10-04T12:00:00.000Z');
+const userId = 'u'.repeat(24);
+const actorId = 'a'.repeat(24);
+const caller = { userId: 'v'.repeat(24), actorId: 'b'.repeat(24) };
+const account = {
+  userId: caller.userId,
+  actorId: caller.actorId,
+  member: true,
+  erased: false,
+  revision: 3,
+};
+const memberRow = [userId, actorId, 'debater-a', at];
 
-describe('readMember', () => {
-  test('a live member, a nameless account and nobody', async () => {
-    const { database } = createTestDatabase([
-      [['user-1', 'actor-1', 'debater-a', at]],
-      [['user-2', 'actor-2', null, at]],
-      [],
-    ]);
-    assert({
-      given: 'a named member, a row with no claimed name, and no row',
-      should: 'map the member with an ISO join date, and read nothing else',
-      actual: [
-        await database.readMember('Debater-A'),
-        await database.readMember('someone'),
-        await database.readMember('nobody'),
-      ],
-      expected: [
-        {
-          userId: 'user-1',
-          actorId: 'actor-1',
-          username: 'debater-a',
-          memberSince: at.toISOString(),
-        },
-        null,
-        null,
-      ],
-    });
+/** A decision that records what it was asked and answers `scope`. */
+const deciding = (scope: HistoryScope) => {
+  const asked: unknown[] = [];
+  return {
+    asked,
+    decide: (memberActorId: string, fact: unknown) => {
+      asked.push([memberActorId, fact]);
+      return scope;
+    },
+  };
+};
+
+const read = (
+  database: ReturnType<typeof createTestDatabase>['database'],
+  input: {
+    readonly caller: typeof caller | null;
+    readonly decide: (memberActorId: string, fact: unknown) => HistoryScope;
+    readonly before?: string;
+    readonly limit?: number;
+  },
+) =>
+  database.readMemberProfile({
+    username: 'Debater-A',
+    caller: input.caller,
+    decide: input.decide,
+    before: input.before ?? null,
+    limit: input.limit ?? 1,
   });
-});
 
-describe('readRecordGroups', () => {
-  test('grouped seats', async () => {
+describe('readMemberProfile', () => {
+  test('a signed-in viewer, one page of two', async () => {
+    const { decide, asked } = deciding('public');
     const { database, queries } = createTestDatabase([
-      [
-        ['completed', 'affirmative', 'affirmative', 2],
-        ['completed', null, 'negative', 1],
-      ],
-    ]);
-    const groups = await database.readRecordGroups({
-      actorId: 'actor-1',
-      publicOnly: true,
-    });
-    assert({
-      given: 'two grouped rows for a public reader',
-      should: 'map them, filtering on public Rounds played from a Room',
-      actual: [
-        groups,
-        /"visibility" = \$/.test(queries[0]?.query ?? ''),
-        /"room_id" is not null/.test(queries[0]?.query ?? ''),
-      ],
-      expected: [
-        [
-          {
-            status: 'completed',
-            outcome: 'affirmative',
-            role: 'affirmative',
-            rounds: 2,
-          },
-          { status: 'completed', outcome: null, role: 'negative', rounds: 1 },
-        ],
-        true,
-        true,
-      ],
-    });
-  });
-});
-
-describe('readMatchHistory', () => {
-  test('a first page with an older page after it', async () => {
-    const { database } = createTestDatabase([
-      // The snapshot statement.
+      // The snapshot statement, the member, then the fresh account fact.
       [],
+      [memberRow],
+      [account],
+      [['completed', 'affirmative', 'affirmative', 2]],
       [
-        ['round-2', at, 'Motion two', null, 'negative', 'affirmative'],
+        ['round-2', at, 'Motion two', 'public', 'negative', 'affirmative'],
         ['round-1', earlier, 'Motion one', 'public', null, 'negative'],
       ],
       [
@@ -90,104 +69,138 @@ describe('readMatchHistory', () => {
       [['round-2']],
       [],
     ]);
-    const page = await database.readMatchHistory({
-      actorId: 'actor-1',
-      publicOnly: false,
-      before: null,
-      limit: 1,
-    });
+    const profile = await read(database, { caller, decide });
     assert({
-      given: 'two Rounds read for a page of one, the shown one forfeited',
+      given: 'a member with two Rounds read by another signed-in member',
       should:
-        'show one with its seats and forfeit, null visibility as private, and point at the next page',
-      actual: page,
+        'decide the scope on the fresh account, then read the public tally and one page with its forfeit',
+      actual: {
+        asked,
+        fenced: /daisy_room_read_account/.test(queries[2]?.query ?? ''),
+        publicTally: /"visibility" = \$/.test(queries[3]?.query ?? ''),
+        profile,
+      },
       expected: {
-        rows: [
-          {
-            roundId: 'round-2',
-            completedAt: at.toISOString(),
-            resolution: 'Motion two',
-            visibility: 'private',
-            outcome: 'negative',
-            role: 'affirmative',
-            forfeit: true,
-            seats: [
-              { role: 'affirmative', kind: 'human', label: 'debater-a' },
-              { role: 'judge', kind: 'bot', label: 'Judge bot' },
-              { role: 'negative', kind: 'human', label: null },
-            ],
+        asked: [[actorId, account]],
+        fenced: true,
+        publicTally: true,
+        profile: {
+          member: {
+            userId,
+            actorId,
+            username: 'debater-a',
+            memberSince: at.toISOString(),
           },
-        ],
-        nextBefore: 'round-2',
+          scope: 'public',
+          groups: [
+            {
+              status: 'completed',
+              outcome: 'affirmative',
+              role: 'affirmative',
+              rounds: 2,
+            },
+          ],
+          rows: [
+            {
+              roundId: 'round-2',
+              completedAt: at.toISOString(),
+              resolution: 'Motion two',
+              visibility: 'public',
+              outcome: 'negative',
+              role: 'affirmative',
+              forfeit: true,
+              seats: [
+                { role: 'affirmative', kind: 'human', label: 'debater-a' },
+                { role: 'judge', kind: 'bot', label: 'Judge bot' },
+                { role: 'negative', kind: 'human', label: null },
+              ],
+            },
+          ],
+          nextBefore: 'round-2',
+        },
       },
     });
   });
 
-  test('an empty history', async () => {
-    const { database, queries } = createTestDatabase([[], []]);
+  test('a visitor, and the owner’s scope', async () => {
+    const visitor = deciding('public');
+    const empty = createTestDatabase([[], [memberRow], [], []]);
+    const owner = deciding('owner');
+    const own = createTestDatabase([
+      [],
+      [memberRow],
+      [account],
+      [],
+      [['round-3', at, 'Motion three', null, null, 'negative']],
+      [],
+      [],
+      [],
+    ]);
+    const visitorRead = await read(empty.database, {
+      caller: null,
+      decide: visitor.decide,
+    });
+    const ownRead = await read(own.database, {
+      caller,
+      decide: owner.decide,
+    });
     assert({
-      given: 'a member with no completed Rounds',
-      should: 'answer an empty last page without reading seats',
+      given:
+        'a visitor with no account to read, and an owner scope over a room Round with no visibility',
+      should:
+        'decide without an account and skip seat reads for an empty page; read every Round for the owner, null visibility as private',
       actual: [
-        await database.readMatchHistory({
-          actorId: 'actor-1',
-          publicOnly: true,
-          before: null,
-          limit: 20,
-        }),
-        queries.length,
+        visitor.asked,
+        visitorRead?.rows,
+        empty.queries.length,
+        /"visibility" = \$/.test(own.queries[3]?.query ?? ''),
+        ownRead?.rows[0]?.visibility,
       ],
-      expected: [{ rows: [], nextBefore: null }, 2],
+      expected: [[[actorId, null]], [], 4, false, 'private'],
     });
   });
 
-  test('an older page', async () => {
-    const { database, queries } = createTestDatabase([[], [['round-2']], []]);
-    const page = await database.readMatchHistory({
-      actorId: 'actor-1',
-      publicOnly: true,
-      before: 'round-2',
-      limit: 20,
-    });
+  test('no member, and an older page', async () => {
+    const nobody = createTestDatabase([[], []]);
+    const older = createTestDatabase([[], [memberRow], [], [['round-2']], []]);
+    const { decide } = deciding('public');
     assert({
-      given: 'a cursor naming a listed Round, with nothing older',
+      given: 'a name no live member holds, then a cursor naming a listed Round',
       should:
-        'compare (completed_at, id) in SQL against that Round and answer an empty last page',
+        'answer null without deciding, then compare (completed_at, id) in SQL against that Round',
       actual: [
-        page,
+        await read(nobody.database, { caller: null, decide }),
+        (
+          await read(older.database, {
+            caller: null,
+            decide,
+            before: 'round-2',
+            limit: 20,
+          })
+        )?.nextBefore,
         /\("rounds"\."completed_at", "rounds"\."id"\) < \(select c\.completed_at, c\.id from rounds c/.test(
-          queries[2]?.query ?? '',
+          older.queries[4]?.query ?? '',
         ),
       ],
-      expected: [{ rows: [], nextBefore: null }, true],
+      expected: [null, null, true],
     });
   });
 
   test('refused reads', async () => {
-    const { database } = createTestDatabase([[], []]);
+    const { decide } = deciding('public');
+    const { database } = createTestDatabase([[], [memberRow], [], []]);
     await assertRejects({
-      given: 'a cursor naming a Round outside the reader’s list',
+      given: 'a cursor naming a Round outside the scope’s list',
       should: 'refuse it as invalid',
       actual: () =>
-        database.readMatchHistory({
-          actorId: 'actor-1',
-          publicOnly: true,
-          before: 'round-9',
-          limit: 20,
-        }),
+        read(database, { caller: null, decide, before: 'round-9', limit: 20 }),
       code: 'VALIDATION',
     });
     for (const limit of [0, 51, 1.5])
       await assertRejects({
         given: `a page size of ${limit}`,
         should: 'refuse it before any read',
-        actual: () =>
-          database.readMatchHistory({
-            actorId: 'actor-1',
-            publicOnly: false,
-            before: null,
-            limit,
-          }),
+        actual: () => read(database, { caller: null, decide, limit }),
         code: 'VALIDATION',
       });
   });

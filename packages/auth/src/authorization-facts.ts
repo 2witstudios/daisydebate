@@ -204,6 +204,14 @@ export type MessagingCollectionAuthorizationFact = {
   readonly kind: 'messaging_collection';
   readonly actorId: string;
 };
+/**
+ * A member's own profile history, private Rounds included (ISSUE-600):
+ * the subject is the member whose profile is read.
+ */
+type MemberHistoryAuthorizationFact = {
+  readonly kind: 'member_history';
+  readonly actorId: string;
+};
 export type AuthorizationInput = {
   readonly principal: AuthorizationPrincipal;
   readonly capability: AuthorizationCapability;
@@ -214,6 +222,7 @@ export type AuthorizationInput = {
     | GroupCommandResultAuthorizationFact
     | GroupInvitationAuthorizationFact
     | MessagingCollectionAuthorizationFact
+    | MemberHistoryAuthorizationFact
     | PendingFileAuthorizationFact
     | ContactPairAuthorizationFact
     | SocialCreationFact

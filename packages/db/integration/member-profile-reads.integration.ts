@@ -3,6 +3,8 @@ import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createDatabase } from '../src';
+import type { Database } from '../src';
+import { createAuthorizationSubject } from './authorization.test-support';
 import { createBotSeat } from './bot-seat.test-support';
 import { withFixture } from './constraint-helpers';
 import {
@@ -16,25 +18,81 @@ setupRitewayBun();
 
 const { databaseUrl: url } = requireTestServices(process.env);
 
+/** The owner's scope only for the bound, current member themself. */
+const ownerOnly = (
+  memberActorId: string,
+  account: {
+    readonly actorId: string | null;
+    readonly member: boolean;
+    readonly erased: boolean;
+  } | null,
+) =>
+  account !== null &&
+  account.member &&
+  !account.erased &&
+  account.actorId === memberActorId
+    ? ('owner' as const)
+    : ('public' as const);
+
+const profileOf = (
+  database: Database,
+  input: {
+    readonly username: string;
+    readonly caller: {
+      readonly userId: string;
+      readonly actorId: string;
+    } | null;
+    readonly before?: string | null;
+    readonly limit?: number;
+  },
+) =>
+  database.readMemberProfile({
+    username: input.username,
+    caller: input.caller,
+    decide: ownerOnly,
+    before: input.before ?? null,
+    limit: input.limit ?? 10,
+  });
+
+/** A profile the test expects to exist. */
+const present = async <T>(read: Promise<T | null>): Promise<T> => {
+  const value = await read;
+  if (value === null) throw new Error('Expected a member profile');
+  return value;
+};
+
+const tally = (
+  groups: readonly { role: string; outcome: string | null; rounds: number }[],
+) => groups.map((g) => `${g.role}:${g.outcome}:${g.rounds}`).sort();
+
 describe('member profile reads (ISSUE-600)', () => {
-  test('reads a live member by name, case-insensitively', async () => {
+  test('reads a live member by name, case-insensitively, and nobody else', async () => {
     await withFixture(url, async (fixture) => {
       const database = createDatabase({ url, nextActorId: createId });
       try {
-        const userId = await fixture.user();
-        const actorId = await fixture.actor(userId);
-        const username = `u-${userId}`;
-        const found = await database.readMember(username.toUpperCase());
+        const subject = await createAuthorizationSubject(fixture);
+        const found = await profileOf(database, {
+          username: subject.userId.toUpperCase(),
+          caller: null,
+        });
         assert({
-          given: 'a live member named in upper case',
-          should: 'read their user, actor and name',
-          actual: [found?.userId, found?.actorId, found?.username],
-          expected: [userId, actorId, username],
+          given: 'a live member named in upper case, read by a visitor',
+          should: 'read their user, actor and name in the public scope',
+          actual: [
+            found?.member.userId,
+            found?.member.actorId,
+            found?.member.username,
+            found?.scope,
+          ],
+          expected: [subject.userId, subject.actorId, subject.userId, 'public'],
         });
         assert({
           given: 'a name nobody holds',
           should: 'read nothing',
-          actual: await database.readMember(`nobody-${createId()}`),
+          actual: await profileOf(database, {
+            username: `nobody-${createId()}`,
+            caller: null,
+          }),
           expected: null,
         });
       } finally {
@@ -43,11 +101,13 @@ describe('member profile reads (ISSUE-600)', () => {
     });
   });
 
-  test('groups every debating seat for the record, and none of the judge seats', async () => {
+  test('scopes the tally by the fresh account: the owner counts every Round, anyone else the public ones', async () => {
     await withFixture(url, async (fixture) => {
       const database = createDatabase({ url, nextActorId: createId });
       try {
-        const member = await fixture.actor();
+        const subject = await createAuthorizationSubject(fixture);
+        const member = subject.actorId;
+        const other = await createAuthorizationSubject(fixture);
         await played(fixture, {
           member,
           side: 'affirmative',
@@ -66,73 +126,60 @@ describe('member profile reads (ISSUE-600)', () => {
           outcome: null,
           day: 3,
         });
-        const judged = await roomRound(fixture, {
-          status: 'completed',
-          outcome: 'negative',
-          started_at: at(4, 11),
-          completed_at: at(4),
-        });
-        await fixture.participant(judged, 'judge', 0, member);
-        const groups = await database.readRecordGroups({
-          actorId: member,
-          publicOnly: false,
-        });
-        const proof = await fixture.round({
-          status: 'completed',
-          outcome: 'affirmative',
-          started_at: at(5, 11),
-          completed_at: at(5),
-        });
-        await fixture.participant(proof, 'affirmative', 0, member);
-        const withProof = await database.readRecordGroups({
-          actorId: member,
-          publicOnly: false,
-        });
         await played(fixture, {
           member,
           side: 'affirmative',
           outcome: 'affirmative',
-          day: 6,
+          day: 4,
           visibility: 'private',
         });
-        const publicGroups = await database.readRecordGroups({
-          actorId: member,
-          publicOnly: true,
+        const judged = await roomRound(fixture, {
+          status: 'completed',
+          outcome: 'negative',
+          started_at: at(5, 11),
+          completed_at: at(5),
+        });
+        await fixture.participant(judged, 'judge', 0, member);
+        const proof = await fixture.round({
+          status: 'completed',
+          outcome: 'affirmative',
+          started_at: at(6, 11),
+          completed_at: at(6),
+        });
+        await fixture.participant(proof, 'affirmative', 0, member);
+        const username = subject.userId;
+        const owner = await profileOf(database, { username, caller: subject });
+        const peer = await profileOf(database, { username, caller: other });
+        const unbound = await profileOf(database, {
+          username,
+          caller: { userId: other.userId, actorId: member },
         });
         assert({
           given:
-            'a win, a loss and an unjudged Round as a debater, and one as a judge',
-          should: 'group the three debating seats only',
-          actual: groups
-            .map((g) => `${g.role}:${g.outcome}:${g.rounds}`)
-            .sort(),
-          expected: [
-            'affirmative:affirmative:1',
-            'negative:affirmative:1',
-            'negative:null:1',
-          ],
-        });
-        assert({
-          given: 'a room-less service Round, then a private win',
+            'two public wins, a loss, an unjudged Round, a private win, a judge seat and a room-less service Round',
           should:
-            'count neither the service Round nor, for anyone else, the private win',
+            'count the private win for the owner only, never the judge seat or the service Round, and give an unbound caller the public scope',
           actual: [
-            withProof.map((g) => `${g.role}:${g.outcome}:${g.rounds}`).sort(),
-            publicGroups
-              .map((g) => `${g.role}:${g.outcome}:${g.rounds}`)
-              .sort(),
+            owner?.scope,
+            tally(owner?.groups ?? []),
+            peer?.scope,
+            tally(peer?.groups ?? []),
+            unbound?.scope,
           ],
           expected: [
+            'owner',
+            [
+              'affirmative:affirmative:2',
+              'negative:affirmative:1',
+              'negative:null:1',
+            ],
+            'public',
             [
               'affirmative:affirmative:1',
               'negative:affirmative:1',
               'negative:null:1',
             ],
-            [
-              'affirmative:affirmative:1',
-              'negative:affirmative:1',
-              'negative:null:1',
-            ],
+            'public',
           ],
         });
       } finally {
@@ -145,7 +192,9 @@ describe('member profile reads (ISSUE-600)', () => {
     await withFixture(url, async (fixture) => {
       const database = createDatabase({ url, nextActorId: createId });
       try {
-        const member = await fixture.actor();
+        const subject = await createAuthorizationSubject(fixture);
+        const member = subject.actorId;
+        const username = subject.userId;
         const oldest = await played(fixture, {
           member,
           side: 'affirmative',
@@ -175,26 +224,27 @@ describe('member profile reads (ISSUE-600)', () => {
         });
         await fixture.participant(abandoned, 'affirmative', 0, member);
 
-        const first = await database.readMatchHistory({
-          actorId: member,
-          publicOnly: false,
-          before: null,
-          limit: 2,
-        });
-        const second = await database.readMatchHistory({
-          actorId: member,
-          publicOnly: false,
-          before: first.nextBefore,
-          limit: 2,
-        });
-        const visitor = await database.readMatchHistory({
-          actorId: member,
-          publicOnly: true,
-          before: null,
-          limit: 10,
-        });
+        const first = await present(
+          profileOf(database, {
+            username,
+            caller: subject,
+            limit: 2,
+          }),
+        );
+        const second = await present(
+          profileOf(database, {
+            username,
+            caller: subject,
+            before: first.nextBefore,
+            limit: 2,
+          }),
+        );
+        const visitor = await present(
+          profileOf(database, { username, caller: null }),
+        );
         assert({
-          given: 'three completed Rounds and an abandoned one, two to a page',
+          given:
+            'three completed Rounds and an abandoned one, two to a page, read by the owner',
           should:
             'list the completed ones newest first across two pages, never the abandoned one',
           actual: [
@@ -207,9 +257,9 @@ describe('member profile reads (ISSUE-600)', () => {
         });
         assert({
           given:
-            'the newest Round against a bot and the middle one the member forfeited',
+            'the newest Round against a bot, and the middle one the member forfeited before a human judge',
           should:
-            'name the bot opponent, never the judge, and mark only the forfeit',
+            'name the member and the bot opponent, never the judge, and mark only the forfeit',
           actual: [
             first.rows[0]?.seats.map((s) => [s.role, s.kind, s.label]),
             first.rows[1]?.seats.find((s) => s.role === 'judge'),
@@ -217,7 +267,7 @@ describe('member profile reads (ISSUE-600)', () => {
           ],
           expected: [
             [
-              ['affirmative', 'human', first.rows[0]?.seats[0]?.label ?? null],
+              ['affirmative', 'human', username],
               ['negative', 'bot', 'Fixture bot'],
             ],
             { role: 'judge', kind: 'human', label: null },
@@ -228,21 +278,16 @@ describe('member profile reads (ISSUE-600)', () => {
           ],
         });
         assert({
-          given: 'someone else reading the same history',
+          given: 'a visitor reading the same history',
           should: 'list only the public Rounds',
           actual: visitor.rows.map((r) => r.roundId),
           expected: [newest, oldest.id],
         });
         await assertRejects({
-          given: 'a cursor naming a private Round to a public reader',
+          given: 'a cursor naming a private Round to a visitor',
           should: 'refuse it as invalid',
           actual: () =>
-            database.readMatchHistory({
-              actorId: member,
-              publicOnly: true,
-              before: middle.id,
-              limit: 10,
-            }),
+            profileOf(database, { username, caller: null, before: middle.id }),
           code: 'VALIDATION',
         });
       } finally {
