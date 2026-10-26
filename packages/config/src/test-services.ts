@@ -4,7 +4,7 @@ import {
   testRedisRefusal,
   type OwnTestRedisUrl,
 } from './test-redis';
-import { testDatabaseRefusal } from './test-database';
+import { adminTestDatabaseRefusal, testDatabaseRefusal } from './test-database';
 import { databaseUrl, redisUrl } from './urls';
 
 type TestServices = {
@@ -93,4 +93,22 @@ export function requireTestSlotServices(
   env: Record<string, string | undefined>,
 ): TestServices {
   return readTestServices(slotDatabaseSchema, env);
+}
+/**
+ * The admin app's suites call this beside `requireTestServices` (ADR 0076):
+ * its own database, this slot's `<slot>_admin_test` on the slot's server.
+ * A missing or foreign database throws; a suite never skips.
+ */
+export function requireAdminTestDatabase(
+  env: Record<string, string | undefined>,
+): string {
+  const refusal = adminTestDatabaseRefusal({
+    adminTestDatabaseUrl: env.TEST_ADMIN_DATABASE_URL,
+    databaseUrl: env.DATABASE_URL,
+  });
+  if (refusal)
+    throw new Error(
+      `Admin integration suites require isolated test services: ${refusal}`,
+    );
+  return env.TEST_ADMIN_DATABASE_URL as string;
 }

@@ -33,6 +33,30 @@
         "typescript-eslint": "8.70.0",
       },
     },
+    "apps/admin": {
+      "name": "@daisy/admin",
+      "version": "0.0.0",
+      "dependencies": {
+        "@daisy/clock": "workspace:*",
+        "@daisy/errors": "workspace:*",
+        "@daisy/logger": "workspace:*",
+        "@daisy/protocol": "workspace:*",
+        "@simplewebauthn/server": "13.3.2",
+        "drizzle-orm": "1.0.0-rc.4",
+        "next": "16.4.2",
+        "react": "19.3.0",
+        "react-dom": "19.3.0",
+        "zod": "4.6.6",
+      },
+      "devDependencies": {
+        "@daisy/config": "workspace:*",
+        "@playwright/test": "1.63.0",
+        "@types/react": "19.3.0",
+        "@types/react-dom": "19.3.0",
+        "drizzle-kit": "1.0.0-rc.4",
+        "riteway": "9.3.0",
+      },
+    },
     "apps/media-worker": {
       "name": "@daisy/media-worker",
       "version": "0.0.0",
@@ -342,6 +366,8 @@
     "@bufbuild/protobuf": ["@bufbuild/protobuf@1.10.1", "", {}, "sha512-wJ8ReQbHxsAfXhrf9ixl0aYbZorRuOWpBNzm8pL8ftmSxQx/wnJD5Eg861NwJU/czy2VXFIebCeZnZrI9rktIQ=="],
 
     "@cfworker/json-schema": ["@cfworker/json-schema@4.1.1", "", {}, "sha512-gAmrUZSGtKc3AiBL71iNWxDsyUC5uMaKKGdvzYsBoTW/xi42JQHl7eKV2OYzCUqvc+D2RCcf7EXY2iCyFIk6og=="],
+
+    "@daisy/admin": ["@daisy/admin@workspace:apps/admin"],
 
     "@daisy/ai-voice": ["@daisy/ai-voice@workspace:packages/ai-voice"],
 

@@ -1,0 +1,36 @@
+{
+  "name": "@daisy/admin",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun ../../scripts/heavy.ts bun --env-file=../../.env src/server/start.ts",
+    "build": "NODE_ENV=production bun ../../scripts/heavy.ts bun --bun next build",
+    "start": "NODE_ENV=production bun src/server/start.ts",
+    "typecheck": "bun ../../scripts/heavy.ts sh -c 'next typegen && tsc --noEmit'",
+    "test": "bun test src",
+    "test:integration": "bun ../../scripts/test-integration.ts",
+    "test:e2e": "bun ../../scripts/heavy.ts node node_modules/@playwright/test/cli.js test",
+    "db:generate": "bun --bun x drizzle-kit generate"
+  },
+  "dependencies": {
+    "@daisy/clock": "workspace:*",
+    "@daisy/errors": "workspace:*",
+    "@daisy/logger": "workspace:*",
+    "@daisy/protocol": "workspace:*",
+    "@simplewebauthn/server": "13.3.2",
+    "drizzle-orm": "1.0.0-rc.4",
+    "next": "16.4.2",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "zod": "4.6.6"
+  },
+  "devDependencies": {
+    "@daisy/config": "workspace:*",
+    "@playwright/test": "1.63.0",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "drizzle-kit": "1.0.0-rc.4",
+    "riteway": "9.3.0"
+  }
+}

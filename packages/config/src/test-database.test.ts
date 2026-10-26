@@ -1,5 +1,9 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import { requireTestServices, requireTestSlotServices } from './index';
+import {
+  requireAdminTestDatabase,
+  requireTestServices,
+  requireTestSlotServices,
+} from './index';
 
 setupRitewayBun();
 
@@ -132,6 +136,57 @@ describe('the slot database the runner may use (ISSUE-249)', () => {
         notThisSlot,
         "Error: Integration suites require isolated test services: TEST_DATABASE_URL (names a different Postgres server than DATABASE_URL, expected this slot's shared Postgres (run bun slot:up))",
         "Error: Integration suites require isolated test services: TEST_DATABASE_URL (names a different Postgres server than DATABASE_URL, expected this slot's shared Postgres (run bun slot:up))",
+      ],
+    });
+  });
+});
+
+describe('the admin test database an admin suite may use (ADR 0076)', () => {
+  const admin = (url: string | undefined, databaseUrl = testEnv.DATABASE_URL) =>
+    failureOf(requireAdminTestDatabase, {
+      DATABASE_URL: databaseUrl,
+      TEST_ADMIN_DATABASE_URL: url,
+    });
+  const refused = (text: string) =>
+    `Error: Admin integration suites require isolated test services: ${text}`;
+  test('the slot admin test database', () => {
+    assert({
+      given:
+        "this slot's <slot>_admin_test, from a dev or a CI _test DATABASE_URL",
+      should: 'accept it',
+      actual: [
+        admin('postgres://user:secret@127.0.0.1:5432/daisy_wt_abc_admin_test'),
+        admin(
+          'postgres://daisy:ci-only@127.0.0.1:5432/daisy_admin_test',
+          'postgres://daisy:ci-only@127.0.0.1:5432/daisy_test',
+        ),
+      ],
+      expected: ['accepted', 'accepted'],
+    });
+  });
+  test('foreign admin databases', () => {
+    assert({
+      given: 'no URL, another slot, a dev admin database or another server',
+      should: 'refuse each, naming the rule and never the credential',
+      actual: [
+        admin(undefined),
+        admin(
+          'postgres://user:secret@localhost:5432/daisy_wt_other_admin_test',
+        ),
+        admin('postgres://user:secret@localhost:5432/daisy_admin'),
+        admin('postgres://user:secret@db.example:5432/daisy_wt_abc_admin_test'),
+      ],
+      expected: [
+        refused('TEST_ADMIN_DATABASE_URL is unset (run bun slot:up)'),
+        refused(
+          "TEST_ADMIN_DATABASE_URL must name this slot's admin test database, daisy_wt_abc_admin_test (run bun slot:up)",
+        ),
+        refused(
+          "TEST_ADMIN_DATABASE_URL must name this slot's admin test database, daisy_wt_abc_admin_test (run bun slot:up)",
+        ),
+        refused(
+          "TEST_ADMIN_DATABASE_URL names a different Postgres server than DATABASE_URL, expected this slot's shared Postgres",
+        ),
       ],
     });
   });
