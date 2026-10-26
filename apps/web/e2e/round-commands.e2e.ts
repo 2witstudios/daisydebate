@@ -91,20 +91,27 @@ test('native Start affirmative constructive and enhanced round controls retain c
     // The page enables Interrupt from the clock once the break is over, but
     // the cross-ex opens canonically on a maintenance tick that advances the
     // version: a page rendered before it posts a stale expected version and
-    // is refused, as the stale page above is. Render it after the opening.
+    // is refused, as the stale page above is. Render it after the opening,
+    // and post it only once its form carries the canonical version.
+    const interrupt = formPage.getByRole('button', {
+      name: 'Interrupt',
+      exact: true,
+    });
     await expect(async () => {
-      const crossEx = (await read()).segments.find(
+      const opened = await read();
+      const crossEx = opened.segments.find(
         (segment) => segment.type === 'cross_ex',
       );
       expect(crossEx?.startedAt).toEqual(expect.any(String));
       await formPage.reload();
+      await expect(interrupt).toBeEnabled();
       await expect(
-        formPage.getByRole('button', { name: 'Interrupt', exact: true }),
-      ).toBeEnabled();
+        formPage
+          .locator('form', { has: interrupt })
+          .locator('input[name="expectedVersion"]'),
+      ).toHaveValue(String(opened.version));
     }).toPass({ timeout: 45000 });
-    await formPage
-      .getByRole('button', { name: 'Interrupt', exact: true })
-      .click();
+    await interrupt.click();
     const interrupted = await read();
     const human = interrupted.participants
       .filter(isNamedSeat)
