@@ -3,7 +3,11 @@
 import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { systemId } from '@daisy/clock';
-import { friendCommandResultSchema, parseUsername } from '@daisy/protocol';
+import {
+  friendCommandResultSchema,
+  friendListSchema,
+  parseUsername,
+} from '@daisy/protocol';
 import {
   friendDoneNotice,
   friendFormUnavailable,
@@ -24,6 +28,7 @@ const routes = {
   respond: processRoute((all) => all.friends.respond),
   remove: processRoute((all) => all.friends.remove),
 };
+const friendList = processRoute((all) => all.friends.list);
 const createRoom = processRoute((all) => all.rooms.create);
 const roomCatalog = processRoute((all) => all.rooms.catalog);
 
@@ -69,9 +74,28 @@ export async function friendAction(
   }
 }
 
+/** Whether `username` is one of this member's accepted friends now. */
+async function isFriend(incoming: Headers, username: string) {
+  try {
+    const response = await inProcessFetch(friendList, incoming)(
+      '/api/friends',
+      { method: 'GET' },
+    );
+    const list = friendListSchema.safeParse(
+      response.ok ? await response.json() : null,
+    );
+    return (
+      list.success &&
+      list.data.friends.some((friend) => friend.username === username)
+    );
+  } catch {
+    return false;
+  }
+}
+
 /**
- * Challenge: an unlisted room named for the two members, then the room
- * itself, whose invite link the challenger sends (ADR 0072).
+ * Challenge an accepted friend: an unlisted room named for the two members,
+ * then the room itself, whose invite link the challenger sends (ADR 0072).
  */
 export async function challengeAction(
   _previous: FriendFormState,
@@ -85,6 +109,7 @@ export async function challengeAction(
   const identity = await requestIdentity();
   if (!friend.ok || identity.state !== 'member') return unavailable;
   const incoming = new Headers(await headers());
+  if (!(await isFriend(incoming, friend.username))) return unavailable;
   const catalog = await readRoomTemplates(
     inProcessFetch(roomCatalog, incoming),
   );

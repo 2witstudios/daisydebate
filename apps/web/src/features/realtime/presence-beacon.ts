@@ -35,6 +35,9 @@ export function startPresenceBeacon({
     timer = scheduler.setTimeout(check, ms);
   };
   function check() {
+    // A listener may run this while the timer is still pending: clear it so
+    // only one check is ever scheduled.
+    if (timer !== null) scheduler.clearTimeout(timer);
     timer = null;
     if (!isVisible()) return connection.reportActivity('idle');
     const quiet = scheduler.now() - lastInput;

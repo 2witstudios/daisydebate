@@ -101,3 +101,18 @@ test('stop closes the connection and releases every listener', () => {
     expected: ['close', false],
   });
 });
+
+test('hiding and showing never leaves a second timer behind', () => {
+  const h = harness();
+  h.hide();
+  h.show();
+  h.stop();
+  const stopped = h.events.length;
+  h.scheduler.advance(IDLE_AFTER_MS * 3);
+  assert({
+    given: 'a hide, a show and a stop',
+    should: 'report nothing more after stop',
+    actual: h.events.length,
+    expected: stopped,
+  });
+});
