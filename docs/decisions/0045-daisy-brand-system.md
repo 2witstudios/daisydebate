@@ -23,7 +23,8 @@ leaf builds on.
 ### 1. Palette
 
 Tokens stay in `apps/web/src/app/globals.css`, each written once with
-`light-dark()` (ADR 0027, ADR 0028). Dark stays the default scheme.
+`light-dark()` (ADR 0027, ADR 0028). Light is the default scheme
+([ADR 0069](0069-light-default-scheme.md)).
 
 **Brand primitives** have colour utilities (`fill-forest`, `bg-cream`, …).
 Light keeps the board values; dark lifts the two darkest so they still
