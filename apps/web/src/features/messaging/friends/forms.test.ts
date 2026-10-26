@@ -105,3 +105,33 @@ test('notices', () => {
     expected: 'ad',
   });
 });
+
+test('every outcome has its own words', () => {
+  assert({
+    given: 'each answered intent',
+    should: 'confirm what changed',
+    actual: (['decline', 'cancel', 'remove'] as const).map((intent) =>
+      friendDoneNotice(intent, 'ada', 'none'),
+    ),
+    expected: [
+      "Declined @ada's request.",
+      'Cancelled your request to @ada.',
+      '@ada is no longer your friend.',
+    ],
+  });
+  assert({
+    given: 'each refusal status',
+    should: 'explain it without naming a block',
+    actual: [400, 404, 409, 422, 429, 503].map((status) =>
+      friendRefusalNotice('accept', status),
+    ),
+    expected: [
+      'Enter a username: 3–32 letters, numbers, _ or -.',
+      'That member is no longer available.',
+      'That request is no longer open.',
+      'You cannot add yourself as a friend.',
+      'You have reached a friend limit for now. Try again later.',
+      'Could not change this friendship. Try again.',
+    ],
+  });
+});
