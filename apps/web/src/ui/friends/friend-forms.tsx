@@ -1,5 +1,7 @@
 'use client';
 
+// First: protocol schemas built after this load without Zod's eval probe.
+import '../debate-room/zod-jitless';
 import { useId } from 'react';
 import {
   friendFormUnavailable,

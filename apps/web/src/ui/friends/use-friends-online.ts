@@ -1,5 +1,7 @@
 'use client';
 
+// First: protocol schemas built after this load without Zod's eval probe.
+import '../debate-room/zod-jitless';
 import { useEffect } from 'react';
 import { useUiState, useUiUpdate } from '../store/store';
 import { retainPresenceSession } from './presence-session';
