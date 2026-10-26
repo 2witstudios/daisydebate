@@ -107,3 +107,32 @@ describe('missingSelectedSpecs', () => {
     });
   });
 });
+
+describe('browser workflow selection wiring', () => {
+  test('generates a selection before browser execution and verifies its report', async () => {
+    const workflow = Bun.YAML.parse(
+      await Bun.file('.github/workflows/e2e.yml').text(),
+    ) as {
+      jobs: {
+        e2e: { steps: { run?: string }[] };
+        'room-launch': { needs: string };
+      };
+    };
+    const commands = workflow.jobs.e2e.steps.map(({ run }) => run);
+    assert({
+      given: 'the actual browser workflow',
+      should: 'write selection before invoking Playwright',
+      actual:
+        commands.indexOf('bun scripts/select-e2e.ts') >= 0 &&
+        commands.indexOf('bun scripts/select-e2e.ts') <
+          commands.indexOf('bun run --cwd apps/web test:e2e'),
+      expected: true,
+    });
+    assert({
+      given: 'the actual browser workflow',
+      should: 'verify every selected spec was discovered',
+      actual: commands.includes('bun scripts/e2e-selection-report.ts'),
+      expected: true,
+    });
+  });
+});

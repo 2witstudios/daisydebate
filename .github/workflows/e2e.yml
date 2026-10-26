@@ -88,6 +88,11 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Select owned browser specs with full-suite fallback
+        run: bun scripts/select-e2e.ts
+        env:
+          GH_TOKEN: ${{ github.token }}
+
       - name: Apply migrations to the e2e database
         run: bun run --cwd packages/db db:migrate
         env:
