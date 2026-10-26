@@ -9,14 +9,14 @@
 # APT_ATTEMPT_SECONDS, a retry switches to the primary Ubuntu archive, and
 # the third failure fails the step. The workflow restores the browsers
 # (~/.cache/ms-playwright) and the downloaded .debs (DEB_CACHE) from a cache
-# keyed on the exact @playwright/test version, so a warm run only refreshes
-# apt's index and unpacks.
+# keyed on the exact @playwright/test version and the month, so a warm run
+# only refreshes apt's index and unpacks.
 set -eu
 
 cli=apps/web/node_modules/@playwright/test/cli.js
 bun=$(command -v bun)
 deb_cache=${DEB_CACHE:-$HOME/.cache/daisy-apt-archives}
-attempt_seconds=${APT_ATTEMPT_SECONDS:-120}
+attempt_seconds=${APT_ATTEMPT_SECONDS:-75}
 
 # install-deps runs apt-get itself, so the bounds live in apt's own config.
 sudo tee /etc/apt/apt.conf.d/80daisy-bounded >/dev/null <<'EOF'
@@ -42,8 +42,10 @@ until sudo timeout -k 10 "$attempt_seconds" \
   attempt=$((attempt + 1))
   echo "Retrying browser OS dependencies on archive.ubuntu.com (attempt $attempt)" >&2
   sudo dpkg --configure -a
-  sudo sed -i 's#http://azure\.archive\.ubuntu\.com/#http://archive.ubuntu.com/#' \
-    /etc/apt/sources.list.d/*.sources /etc/apt/sources.list 2>/dev/null || true
+  # ubuntu-24.04 runners resolve the archive through mirror+file, which only
+  # fails over on errors, never on a slow mirror.
+  sudo sed -i 's#azure\.archive\.ubuntu\.com#archive.ubuntu.com#' \
+    /etc/apt/apt-mirrors.txt
 done
 
 cp /var/cache/apt/archives/*.deb "$deb_cache"/ 2>/dev/null || true

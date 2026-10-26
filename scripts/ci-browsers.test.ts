@@ -60,7 +60,7 @@ const cacheShape = (restore: Step, save: Step) => ({
   cachesBrowsers: restore.with?.path?.includes('~/.cache/ms-playwright'),
   cachesDebs: restore.with?.path?.includes('~/.cache/daisy-apt-archives'),
   keyedOnVersion: restore.with?.key?.includes(
-    '${{ steps.playwright.outputs.version }}',
+    '${{ steps.playwright.outputs.version }}-${{ steps.playwright.outputs.month }}',
   ),
   savesOnMiss:
     save.if === `\${{ steps.${restore.id}.outputs.cache-hit != 'true' }}` &&
@@ -96,13 +96,17 @@ test('the cache key reads the exact installed @playwright/test version', async (
   const jobs = await browserJobs();
   assert({
     given: 'the version step in each browser job',
-    should: 'read the resolved package version, not a range or the lockfile',
+    should:
+      'read the resolved package version, not a range or the lockfile, plus the UTC month so cached .debs follow Ubuntu updates',
     actual: jobs.map(
       ([, job]) => job.steps.find((step) => step.id === 'playwright')?.run,
     ),
-    expected: jobs.map(
-      () =>
+    expected: jobs.map(() =>
+      [
         'echo "version=$(jq -r .version apps/web/node_modules/@playwright/test/package.json)" >> "$GITHUB_OUTPUT"',
+        'echo "month=$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"',
+        '',
+      ].join('\n'),
     ),
   });
 });
@@ -119,6 +123,9 @@ test('apt is bounded per request and per attempt, with at most three attempts', 
       httpsTimeout: script.includes('Acquire::https::Timeout "20";'),
       attemptKill: /sudo timeout -k \S+ "\$attempt_seconds"/.test(script),
       maxAttempts: script.includes('[ "$attempt" -ge 3 ]'),
+      // ubuntu-24.04 runners read mirrors from mirror+file, not the URL in
+      // the .sources file, so the retry must rewrite that list.
+      switchesMirror: script.includes('/etc/apt/apt-mirrors.txt'),
     },
     expected: {
       retries: true,
@@ -126,6 +133,7 @@ test('apt is bounded per request and per attempt, with at most three attempts', 
       httpsTimeout: true,
       attemptKill: true,
       maxAttempts: true,
+      switchesMirror: true,
     },
   });
 });

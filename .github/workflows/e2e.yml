@@ -106,12 +106,15 @@ jobs:
           RESEND_API_KEY: ci-isolation-sentinel-resend-key
           RESEND_WEBHOOK_SECRET: ci-isolation-sentinel-webhook-secret
 
-      - name: Resolve the installed Playwright version
+      - name: Resolve the Playwright version and cache month
         id: playwright
-        run: echo "version=$(jq -r .version apps/web/node_modules/@playwright/test/package.json)" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "version=$(jq -r .version apps/web/node_modules/@playwright/test/package.json)" >> "$GITHUB_OUTPUT"
+          echo "month=$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"
       # Browsers and the OS packages' .debs, keyed on the exact Playwright
       # version: a warm run skips both downloads, including the Ubuntu
-      # mirror that stalled whole jobs.
+      # mirror that stalled whole jobs. The month rolls the .debs forward
+      # with Ubuntu's updates.
       - name: Restore Playwright browsers and OS packages
         id: browser-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -119,7 +122,7 @@ jobs:
           path: |
             ~/.cache/ms-playwright
             ~/.cache/daisy-apt-archives
-          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-chromium-firefox-webkit
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-${{ steps.playwright.outputs.month }}-chromium-firefox-webkit
 
       # Also installs zip/unzip: scripts/e2e-artifact-sanitizer.ts shells
       # out to them to redact retained trace archives, a path exercised only
@@ -259,12 +262,15 @@ jobs:
           RECIPIENT_HASH_SECRET: ci-isolation-sentinel-recipient-hash-000000000000000000000000000
           RESEND_API_KEY: ci-isolation-sentinel-resend-key
           RESEND_WEBHOOK_SECRET: ci-isolation-sentinel-webhook-secret
-      - name: Resolve the installed Playwright version
+      - name: Resolve the Playwright version and cache month
         id: playwright
-        run: echo "version=$(jq -r .version apps/web/node_modules/@playwright/test/package.json)" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "version=$(jq -r .version apps/web/node_modules/@playwright/test/package.json)" >> "$GITHUB_OUTPUT"
+          echo "month=$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"
       # Browsers and the OS packages' .debs, keyed on the exact Playwright
       # version: a warm run skips both downloads, including the Ubuntu
-      # mirror that stalled whole jobs.
+      # mirror that stalled whole jobs. The month rolls the .debs forward
+      # with Ubuntu's updates.
       - name: Restore Playwright browsers and OS packages
         id: browser-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -272,7 +278,7 @@ jobs:
           path: |
             ~/.cache/ms-playwright
             ~/.cache/daisy-apt-archives
-          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-chromium
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright.outputs.version }}-${{ steps.playwright.outputs.month }}-chromium
       - name: Install controlled Chromium and artifact tools
         id: chromium
         timeout-minutes: 8
