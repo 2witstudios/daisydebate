@@ -95,6 +95,9 @@ async function fixture(
     consentTtlMs: () => 60_000,
     botsAvailable: () => true,
   });
+  /** The reference catalog choice every Room suite builds on. */
+  const foundation = async () =>
+    (await operations.catalog(host)).find((c) => c.formatId === 'foundation')!;
   const create = async (
     overrides: Partial<RoomCreate> = {},
     who: typeof host = host,
@@ -201,6 +204,7 @@ async function fixture(
     member: caller,
     bot,
     create,
+    foundation,
     command,
     consent,
     seatBotOpponent,

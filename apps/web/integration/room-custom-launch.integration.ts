@@ -10,9 +10,7 @@ setupRitewayBun();
 test('custom unequal casts and ordered timing freeze alongside the one-active-Room rule and masked reads', async () => {
   await withRoomRuntime(
     async (f) => {
-      const choice = (await f.operations.catalog(f.host)).find(
-        (c) => c.formatId === 'foundation',
-      )!;
+      const choice = await f.foundation();
       const definition = {
         ...choice.definition,
         seats: { affirmative: 2, negative: 1, judge: 1 },
@@ -203,9 +201,7 @@ test('custom unequal casts and ordered timing freeze alongside the one-active-Ro
 
 test('null interaction refusals preserve durable create and edit state', async () => {
   await withRoomRuntime(async (f) => {
-    const choice = (await f.operations.catalog(f.host)).find(
-      (c) => c.formatId === 'foundation',
-    )!;
+    const choice = await f.foundation();
     const definition = {
       ...choice.definition,
       configurable: {

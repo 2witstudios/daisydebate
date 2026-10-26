@@ -1,25 +1,9 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { assemblySnapshot } from './assembly.test-support';
+import { assemblySnapshot, rankedCreateForm } from './assembly.test-support';
 import { createAssembly } from './create-assembly';
 
 setupRitewayBun();
-const form = () => {
-  const fields = new FormData();
-  fields.set('commandId', 'h'.repeat(24));
-  fields.set('title', 'My room');
-  fields.set('topic', 'A real topic');
-  fields.set('visibility', 'unlisted');
-  fields.set(
-    'selection',
-    JSON.stringify({
-      kind: 'ranked',
-      formatId: 'stored-format',
-      formatVersion: 2,
-      presetVersion: 3,
-    }),
-  );
-  return fields;
-};
+const form = () => rankedCreateForm();
 
 test('create forwards the selected immutable revision and verifies the returned room identity', async () => {
   const calls: unknown[] = [];

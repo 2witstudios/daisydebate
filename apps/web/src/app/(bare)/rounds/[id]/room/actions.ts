@@ -15,18 +15,22 @@ const commands = processRoute(
       new URL(request.url).pathname.split('/')[3] ?? '',
     ),
 );
-/** Native posts use the same Origin/session/member/rate/actor/engine gates as JSON. */
-export async function roundCommandAction(
-  roundId: string,
-  _state: RoundFormState,
-  form: FormData,
-): Promise<RoundFormState> {
+async function submitRound(roundId: string, form: FormData) {
   const incoming = new Headers(await headers());
   const answer = await submitRoundForm(
     inProcessFetch(commands, incoming),
     roundId,
     form,
   );
+  return { incoming, answer };
+}
+/** Native posts use the same Origin/session/member/rate/actor/engine gates as JSON. */
+export async function roundCommandAction(
+  roundId: string,
+  _state: RoundFormState,
+  form: FormData,
+): Promise<RoundFormState> {
+  const { incoming, answer } = await submitRound(roundId, form);
   if (answer.acknowledged && !hydratedPost(incoming))
     return { values: {}, ...moveOn(incoming, `/rounds/${roundId}/room`) };
   return answer;
@@ -42,12 +46,7 @@ export async function leaveRoundAction(
   _state: RoundFormState,
   form: FormData,
 ): Promise<RoundFormState> {
-  const incoming = new Headers(await headers());
-  const answer = await submitRoundForm(
-    inProcessFetch(commands, incoming),
-    roundId,
-    form,
-  );
+  const { incoming, answer } = await submitRound(roundId, form);
   if (!answer.acknowledged) return answer;
   return { values: {}, ...moveOn(incoming, '/lobby') };
 }

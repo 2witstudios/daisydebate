@@ -102,3 +102,22 @@ export const assemblySnapshot = {
   startRefusal: 'incomplete-cast',
   roundRef: null,
 } satisfies RoomView;
+
+/** A native create submission naming a stored ranked preset. */
+export const rankedCreateForm = (visibility = 'unlisted') => {
+  const fields = new FormData();
+  fields.set('commandId', 'h'.repeat(24));
+  fields.set('title', 'My room');
+  fields.set('topic', 'A real topic');
+  fields.set('visibility', visibility);
+  fields.set(
+    'selection',
+    JSON.stringify({
+      kind: 'ranked',
+      formatId: 'stored-format',
+      formatVersion: 2,
+      presetVersion: 3,
+    }),
+  );
+  return fields;
+};

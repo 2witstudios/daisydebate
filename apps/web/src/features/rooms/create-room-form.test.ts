@@ -1,25 +1,10 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { rankedCreateForm } from './assembly.test-support';
 import { submitRoomCreation } from './create-room-form';
 
 setupRitewayBun();
 
-const form = () => {
-  const fields = new FormData();
-  fields.set('commandId', 'h'.repeat(24));
-  fields.set('title', 'My room');
-  fields.set('topic', 'A real topic');
-  fields.set('visibility', 'public');
-  fields.set(
-    'selection',
-    JSON.stringify({
-      kind: 'ranked',
-      formatId: 'stored-format',
-      formatVersion: 2,
-      presetVersion: 3,
-    }),
-  );
-  return fields;
-};
+const form = () => rankedCreateForm('public');
 const hydrated = new Headers({ 'next-action': 'action' });
 const answer = (response: Response) =>
   submitRoomCreation(async () => response, hydrated, form());

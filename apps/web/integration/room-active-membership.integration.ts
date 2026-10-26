@@ -222,9 +222,7 @@ test('a live Round holds its members until it ends; the end frees them for a rem
       },
     );
     const freed = await memberships(f, [f.host.actorId, f.guest.actorId]);
-    const selection = (await f.operations.catalog(f.host)).find(
-      (c) => c.formatId === 'foundation',
-    )!;
+    const selection = await f.foundation();
     const rematch = await f.operations.rematch(f.host, room.id, {
       commandId: createId(),
       title: 'Rematch',
