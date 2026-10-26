@@ -204,7 +204,7 @@ test('native judge Ready and eligible stored bot debaters launch one frozen sche
       await judge.goto(`/lobby?${new URLSearchParams({ q: view.title })}`);
       // The judge holds a seat, so the row leads back into the round room.
       await expect(
-        judge.getByRole('link', { name: 'Return to room', exact: true }),
+        judge.getByRole('link', { name: /^Return to room: / }),
       ).toHaveAttribute('href', `/rounds/${round.id}/room`);
       await info.attach('scheduled-round-evidence', {
         body: JSON.stringify(proof),

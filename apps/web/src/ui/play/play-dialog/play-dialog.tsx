@@ -7,6 +7,22 @@ import { Icon } from '../../components/icon/icon';
 /** The page that lists the same choices when no script has run. */
 const playFallbackHref = '/play';
 
+type Click = {
+  readonly button: number;
+  readonly metaKey: boolean;
+  readonly ctrlKey: boolean;
+  readonly shiftKey: boolean;
+  readonly altKey: boolean;
+};
+
+/** A plain primary click opens the dialog; a modified one keeps the link's own tab or window. */
+export const opensInPlace = (click: Click): boolean =>
+  click.button === 0 &&
+  !click.metaKey &&
+  !click.ctrlKey &&
+  !click.shiftKey &&
+  !click.altKey;
+
 const closeClass =
   'flex size-nav-target shrink-0 cursor-pointer items-center justify-center rounded-round text-ink-muted hover:bg-surface-overlay hover:text-ink';
 
@@ -23,6 +39,7 @@ export function PlayDialog({ children }: { readonly children: ReactNode }) {
         href={playFallbackHref}
         aria-haspopup="dialog"
         onClick={(event) => {
+          if (!opensInPlace(event)) return;
           event.preventDefault();
           dialog.current?.showModal();
         }}

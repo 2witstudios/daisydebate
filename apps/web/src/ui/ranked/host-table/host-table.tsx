@@ -55,7 +55,10 @@ export function HostTable({ screen }: { readonly screen: HostScreen }) {
             <h2 className="text-md font-bold text-ink">Standard rules</h2>
             <p>
               For custom rules,{' '}
-              <Link href={screen.lobbyHref}>open a casual room</Link>.
+              <Link href={screen.lobbyHref}>
+                start a casual room in the Lobby
+              </Link>
+              .
             </p>
           </div>
         </div>

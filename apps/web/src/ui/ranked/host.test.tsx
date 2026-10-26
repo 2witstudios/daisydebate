@@ -86,7 +86,7 @@ describe('Host, editing', () => {
     assert({
       given: 'the rules note',
       should: 'link hosting a casual room to the lobby',
-      actual: /href="\/lobby"[^>]*>open a casual room/.test(html),
+      actual: /href="\/lobby"[^>]*>start a casual room in the Lobby/.test(html),
       expected: true,
     });
   });

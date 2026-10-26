@@ -32,15 +32,24 @@ const emptyClass =
 function Empty({
   query,
   rooms,
+  more,
 }: {
   readonly query: LobbyQuery;
   readonly rooms: number;
+  /** Later pages exist: a filter that empties this page may match there. */
+  readonly more: boolean;
 }) {
   const narrowed =
     query.list.q !== '' ||
     query.filters.status !== 'all' ||
     isFiltered(query.filters);
-  if (rooms === 0 && !narrowed && query.list.cursor === undefined)
+  if (!narrowed && rooms === 0 && query.list.cursor !== undefined)
+    return (
+      <div role="status" className={emptyClass}>
+        <p className="text-lg font-strong">No more rooms</p>
+      </div>
+    );
+  if (!narrowed)
     return (
       <div role="status" className={emptyClass}>
         <p className="text-lg font-strong">No open rooms right now</p>
@@ -51,7 +60,9 @@ function Empty({
     );
   return (
     <div role="status" className={emptyClass}>
-      <p className="text-lg font-strong">No rooms match</p>
+      <p className="text-lg font-strong">
+        {more ? 'No rooms on this page match' : 'No rooms match'}
+      </p>
       <Link
         href={lobbyHref({
           list: { q: '', pageSize: query.list.pageSize },
@@ -108,7 +119,7 @@ export function Lobby({
           </Link>
         </p>
       ) : shown === 0 ? (
-        <Empty query={query} rooms={rooms.length} />
+        <Empty query={query} rooms={rooms.length} more={nextCursor !== null} />
       ) : (
         <RoomList sections={sections} />
       )}

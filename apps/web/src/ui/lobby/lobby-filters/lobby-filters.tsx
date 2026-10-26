@@ -1,5 +1,6 @@
 import {
   defaultLobbyFilters,
+  defaultPageSize,
   isFiltered,
   lobbyHref,
   lobbyStatuses,
@@ -59,7 +60,7 @@ export function LobbyFilters({
       className={filterBarClass}
     >
       <input type="hidden" name="status" value={filters.status} />
-      {list.pageSize === 20 ? null : (
+      {list.pageSize === defaultPageSize ? null : (
         <input type="hidden" name="pageSize" value={list.pageSize} />
       )}
       <TabLinks

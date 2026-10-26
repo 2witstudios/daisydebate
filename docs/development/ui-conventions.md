@@ -139,7 +139,7 @@ pinned to the viewport only when the viewport can hold all of it (the
 `tall:` variant); on a shorter one it scrolls with the page. It never
 becomes a scroll box of its own, because that would clip the nav flyouts.
 
-While a member holds a Room (ADR 0069), a slim bar opens every shell page's
+While a member holds a Room, a slim bar opens every shell page's
 column with the Room's title, its phase and "Return to room". Home and the
 Lobby pin the Room themselves and the Room's own page needs no way back, so
 the bar is left off those.

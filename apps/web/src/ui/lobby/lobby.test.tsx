@@ -61,8 +61,8 @@ describe('Lobby', () => {
         html.includes('Persisted room'),
         html.includes('Host member · '),
         html.includes('Persisted debate topic'),
-        new RegExp(`href="/rooms/${id('a')}"[^>]*>Join</a>`).test(html),
-        new RegExp(`href="/rounds/${id('d')}"[^>]*>Watch</a>`).test(html),
+        new RegExp(`href="/rooms/${id('a')}"[^>]*>Join<`).test(html),
+        new RegExp(`href="/rounds/${id('d')}"[^>]*>Watch<`).test(html),
         html.indexOf('>Open</h2>') < html.indexOf('>Live now</h2>'),
         html.includes('>Ranked</span>'),
       ],
@@ -163,6 +163,40 @@ describe('Lobby', () => {
         changed.includes('Persisted room'),
       ],
       expected: [true, true, true, true, true, false],
+    });
+  });
+
+  test('an empty later page and a filter that empties one page say so', () => {
+    const later = render({ rooms: [], query: query({ cursor: id('f') }) });
+    const filtered = render({
+      nextCursor: id('a'),
+      query: {
+        list: { q: '', pageSize: 20 },
+        filters: { ...defaultLobbyFilters, mode: 'ranked' },
+      },
+    });
+    assert({
+      given:
+        'a later page with no Rooms, and a ranked filter on a casual page with more after it',
+      should:
+        'say No more rooms without a clear link, then that nothing on this page matches',
+      actual: [
+        later.includes('No more rooms'),
+        later.includes('Clear search and filters'),
+        filtered.includes('No rooms on this page match'),
+      ],
+      expected: [true, false, true],
+    });
+  });
+
+  test('each action names its Room for a screen reader', () => {
+    assert({
+      given: 'an open Room row',
+      should: 'add the Room title to the link as screen-reader text',
+      actual: render().includes(
+        '>Join<span class="sr-only">: Persisted room</span></a>',
+      ),
+      expected: true,
     });
   });
 });

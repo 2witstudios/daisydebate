@@ -13,7 +13,7 @@ test.describe('dashboard shell chrome', () => {
 
     // Play is a participant area: a visitor is sent to sign-in on the way.
     await page.getByRole('link', { name: 'Play', exact: true }).click();
-    await expect(page).toHaveURL(/\/sign-in\?next=%2Fplay$/);
+    await expect(page).toHaveURL(/\/sign-in\?next=%2Flobby$/);
   });
 
   test('the rail foot stays reachable on a short viewport', async ({

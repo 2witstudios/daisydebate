@@ -36,6 +36,7 @@ function Row({ row }: { readonly row: LobbyRow }) {
         className={`${buttonClass(row.action.primary ? 'primary' : 'secondary')} justify-self-end whitespace-nowrap`}
       >
         {row.action.verb}
+        <span className="sr-only">{`: ${row.title}`}</span>
       </MediaPageLink>
     </li>
   );

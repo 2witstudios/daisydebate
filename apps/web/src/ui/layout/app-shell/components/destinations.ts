@@ -9,12 +9,19 @@ type Destination = {
     readonly href: string;
     readonly label: string;
   }[];
+  /** Routes that light this destination without a link of their own. */
+  readonly alsoActive?: readonly string[];
 };
 
 /** The eight primary destinations, in rail order. */
 export const primaryDestinations: readonly Destination[] = [
   { href: '/', icon: 'home', label: 'Home' },
-  { href: '/lobby', icon: 'swords', label: 'Play' },
+  {
+    href: '/lobby',
+    icon: 'swords',
+    label: 'Play',
+    alsoActive: ['/play', '/ranked'],
+  },
   { href: '/tournaments', icon: 'trophy', label: 'Tournaments' },
   { href: '/leaderboard', icon: 'chart', label: 'Leaderboard' },
   {

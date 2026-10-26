@@ -2,7 +2,8 @@ import { z } from 'zod';
 import { roomListQuerySchema, type RoomListQuery } from '@daisy/protocol';
 import type { SearchParams } from '../access/decision';
 
-const defaultPageSize = 20;
+/** The listing's own page size when the URL names none. */
+export const defaultPageSize = 20;
 
 export function parseRoomDiscoveryQuery(raw: SearchParams) {
   return roomListQuerySchema.safeParse({

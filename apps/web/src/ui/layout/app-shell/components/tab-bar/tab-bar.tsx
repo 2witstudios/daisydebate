@@ -21,6 +21,7 @@ type Tab = {
   readonly href: string;
   readonly icon: IconName;
   readonly label: string;
+  readonly alsoActive?: readonly string[];
 };
 
 const tabClass = (active: boolean): string =>
@@ -89,7 +90,7 @@ export function TabBar({ account }: { readonly account: ShellAccount }) {
       className="fixed inset-x-0 bottom-0 z-40 hidden grid-cols-5 border-t border-border bg-surface px-1 pt-1 tab-bar-safe max-narrow:grid"
     >
       {tabsFor(account).map((tab) => {
-        const active = itemActive(pathname, tab.href);
+        const active = itemActive(pathname, tab.href, [], tab.alsoActive);
         return (
           <Link
             key={tab.href}

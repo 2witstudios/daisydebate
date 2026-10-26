@@ -1,7 +1,7 @@
 import { statusDotClass } from '../components/status-line/status-line-class';
 import { MediaPageLink } from '../round-media/media-page-link';
 
-/** The viewer's one active Room (ADR 0069), as the shell, Lobby and Home show it. */
+/** The viewer's one active Room , as the shell, Lobby and Home show it. */
 export type ActiveRoomSummary = {
   readonly title: string;
   readonly phase: 'assembling' | 'ready' | 'live';

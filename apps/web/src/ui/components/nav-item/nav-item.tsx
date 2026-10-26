@@ -12,6 +12,8 @@ export type NavItemProps = {
   readonly label: string;
   readonly title?: string | undefined;
   readonly subItems?: readonly NavItemChild[] | undefined;
+  /** Other routes that belong to this item without a link of their own. */
+  readonly alsoActive?: readonly string[] | undefined;
   readonly badge?: ReactNode;
 };
 
@@ -26,14 +28,19 @@ export const matchesRoute = (
     : pathname === href || pathname.startsWith(`${href}/`);
 };
 
-/** True when the path is the item's route or one of its sub-items' routes. */
+/**
+ * True when the path is the item's route, one of its sub-items' routes, or
+ * one of the routes it also covers.
+ */
 export const itemActive = (
   pathname: string | null,
   href: string,
   subItems: readonly NavItemChild[] = [],
+  alsoActive: readonly string[] = [],
 ): boolean =>
   matchesRoute(pathname, href) ||
-  subItems.some((child) => matchesRoute(pathname, child.href));
+  subItems.some((child) => matchesRoute(pathname, child.href)) ||
+  alsoActive.some((route) => matchesRoute(pathname, route));
 
 export function NavItem({
   href,
@@ -41,6 +48,7 @@ export function NavItem({
   label,
   title,
   subItems,
+  alsoActive,
   badge,
 }: NavItemProps) {
   // The URL is the single source of truth for the active route, so
@@ -52,7 +60,7 @@ export function NavItem({
     icon,
     label,
     title,
-    active: itemActive(pathname, href, subItems),
+    active: itemActive(pathname, href, subItems, alsoActive),
     subItems,
     badge,
   });
