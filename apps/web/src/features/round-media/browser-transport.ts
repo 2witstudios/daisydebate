@@ -39,6 +39,20 @@ const livekit: MediaSdk = {
   capture: createLocalTracks,
 };
 
+type Source = 'camera' | 'microphone';
+/**
+ * The sources to hold published (ISSUE-572). LiveKit enforces the floor
+ * (DEC-218/220) and the server sets its permission from the same seat grants
+ * before replying, so once the local permission is known it decides: a
+ * microphone opens the moment LiveKit allows it, without waiting for the
+ * reconcile reply, and a reply that crossed that change in flight can neither
+ * publish nor unpublish against it. Unknown, it is the server's grant.
+ */
+const desiredSources = (
+  granted: readonly Source[],
+  permitted: readonly Source[] | null,
+): readonly Source[] => permitted ?? granted;
+
 /** Browser SDK only. Opaque identities stay in memory; no SDK diagnostics reach console. */
 export function createBrowserMediaTransport(
   events: {
@@ -51,7 +65,27 @@ export function createBrowserMediaTransport(
   setLogLevel(LogLevel.silent);
   const room = sdk.room();
   let stopped = false;
-  const tracks = new Map<'camera' | 'microphone', LocalTrack>();
+  const tracks = new Map<Source, LocalTrack>();
+  let granted: readonly Source[] = [];
+  /** A debater's microphone, captured but unpublished until its grant (ISSUE-572). */
+  let warm: LocalTrack | null = null;
+  // Unrestricted sources (canPublish with none listed) are never what the
+  // server sets, so they read as unknown rather than as every source.
+  const permitted = (): readonly Source[] | null => {
+    const permissions = room.localParticipant.permissions;
+    if (!permissions) return null;
+    if (!permissions.canPublish) return [];
+    if (permissions.canPublishSources.length === 0) return null;
+    return permissions.canPublishSources
+      .map((source) => Track.sourceFromProto(source))
+      .flatMap((source) =>
+        source === Track.Source.Camera
+          ? ['camera' as const]
+          : source === Track.Source.Microphone
+            ? ['microphone' as const]
+            : [],
+      );
+  };
   const emit = () => {
     const snapshot: MediaTrack[] = [];
     for (const participant of [
@@ -80,6 +114,7 @@ export function createBrowserMediaTransport(
     stopped = true;
     for (const track of tracks.values()) track.stop();
     tracks.clear();
+    releaseWarm();
     events.tracks([]);
   };
   room
@@ -94,21 +129,69 @@ export function createBrowserMediaTransport(
     .on(RoomEvent.Connected, events.invalidated)
     .on(RoomEvent.ParticipantConnected, events.invalidated)
     .on(RoomEvent.ParticipantDisconnected, events.invalidated)
-    .on(RoomEvent.ParticipantPermissionsChanged, events.invalidated);
+    .on(RoomEvent.ParticipantPermissionsChanged, (_previous, participant) => {
+      // A failed publish rejects the queue; the reconcile this invalidation
+      // requests then reports it through apply.
+      if (participant === room.localParticipant) void settle().catch(() => {});
+      events.invalidated();
+    });
   room.on(RoomEvent.Disconnected, () => {
     if (!stopped) {
       stopTracks();
       events.reconnect();
     }
   });
-  const publishSource = async (source: 'camera' | 'microphone') => {
-    const captured = await sdk.capture({
+  const captureSource = async (source: Source) => {
+    if (source === 'microphone' && warm) {
+      const held = warm;
+      warm = null;
+      return [held];
+    }
+    return sdk.capture({
       audio: source === 'microphone',
       video:
         source === 'camera'
           ? { resolution: VideoPresets.h360.resolution }
           : false,
     });
+  };
+  /**
+   * A seat that publishes anything is a debater's: its microphone waits warm
+   * so its grant costs a publish, not a device open. Best effort: a refusal
+   * here is reported by the capture its grant makes. A seat that publishes
+   * nothing holds no microphone.
+   */
+  const holdsMicrophone = () =>
+    stopped || warm !== null || tracks.has('microphone');
+  const releaseWarm = () => {
+    warm?.stop();
+    warm = null;
+  };
+  const warmMicrophone = async (desired: readonly Source[]) => {
+    if (desired.length === 0) return releaseWarm();
+    if (holdsMicrophone()) return;
+    const [track] = await sdk
+      .capture({ audio: true, video: false })
+      .catch(() => [] as LocalTrack[]);
+    if (holdsMicrophone()) track?.stop();
+    else warm = track ?? null;
+  };
+  /** Unpublishes a source; between turns a debater's microphone stays warm. */
+  const retire = async (
+    source: Source,
+    track: LocalTrack,
+    desired: readonly Source[],
+  ) => {
+    tracks.delete(source);
+    const keep = source === 'microphone' && desired.length > 0 && !warm;
+    if (!keep) track.stop();
+    await room.localParticipant.unpublishTrack(track, !keep);
+    if (!keep) return;
+    if (stopped) track.stop();
+    else warm = track;
+  };
+  const publishSource = async (source: Source) => {
+    const captured = await captureSource(source);
     for (const track of captured) {
       if (stopped) {
         track.stop();
@@ -129,21 +212,24 @@ export function createBrowserMediaTransport(
     }
   };
   let work = Promise.resolve();
-  const apply = (state: RoundMediaState) => {
+  /** Serialized and idempotent: each pass publishes only what is missing. */
+  const settle = () => {
     work = work.then(async () => {
       if (stopped) return;
+      const desired = desiredSources(granted, permitted());
       for (const [source, track] of tracks)
-        if (!state.grants.publish.includes(source)) {
-          tracks.delete(source);
-          track.stop();
-          await room.localParticipant.unpublishTrack(track, true);
-        }
-      for (const source of state.grants.publish) {
+        if (!desired.includes(source)) await retire(source, track, desired);
+      for (const source of desired) {
         if (!stopped && !tracks.has(source)) await publishSource(source);
       }
+      await warmMicrophone(desired);
       if (!stopped) emit();
     });
     return work;
+  };
+  const apply = (state: RoundMediaState) => {
+    granted = state.grants.publish;
+    return settle();
   };
   const transport: BrowserMediaTransport = {
     connect: async (admission) => {
