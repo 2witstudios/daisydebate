@@ -23,9 +23,7 @@ export function missingSelectedSpecs(
   return selected.filter((spec) => !found.has(spec));
 }
 if (import.meta.main) {
-  const selection = await Bun.file(
-    'apps/web/test-results/selection.json',
-  ).json();
+  const selection = await Bun.file('.turbo/e2e-selection.json').json();
   const report = await Bun.file('apps/web/test-results/results.json').json();
   if (!Array.isArray(selection.specs) || selection.specs.length === 0)
     throw new Error('Missing selected browser specs');

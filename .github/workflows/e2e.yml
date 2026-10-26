@@ -27,7 +27,7 @@ jobs:
 
   e2e:
     needs: quick-check
-    name: Playwright E2E
+    name: Playwright browser suite
     runs-on: ubuntu-24.04
     # A manual dispatch runs the three-consecutive-run release
     # qualification instead of the single-run PR gate; three full suites
@@ -225,7 +225,7 @@ jobs:
 
   room-launch:
     needs: quick-check
-    name: Isolated Room Launch E2E
+    name: Isolated Room Launch browser suite
     runs-on: ubuntu-24.04
     # One shared slot keeps the suite on a single worker: about 3 min of
     # setup, about 30 min of Launch tests (multi-minute attendance outages and
@@ -374,3 +374,29 @@ jobs:
       - name: Release only the completed suite-owned slot
         if: ${{ always() && steps.slot.outcome == 'success' }}
         run: bun --env-file=.env apps/web/e2e/support/room-launch-release.ts
+
+  playwright-gate:
+    name: Playwright E2E
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    needs: [quick-check, e2e]
+    if: always()
+    steps:
+      - name: Require actual browser execution
+        env:
+          QUICK: ${{ needs.quick-check.result }}
+          SUITE: ${{ needs.e2e.result }}
+        run: test "$QUICK" = success && test "$SUITE" = success
+
+  native-gate:
+    name: Isolated Room Launch E2E
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    needs: [quick-check, room-launch]
+    if: always()
+    steps:
+      - name: Require actual native execution
+        env:
+          QUICK: ${{ needs.quick-check.result }}
+          SUITE: ${{ needs.room-launch.result }}
+        run: test "$QUICK" = success && test "$SUITE" = success

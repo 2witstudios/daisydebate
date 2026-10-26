@@ -509,6 +509,8 @@ Actions check must attach to that branch (dispatch otherwise attaches to the
 workflow ref). Pushes to `pu/**` also publish `Quick check`. CI and Browser E2E
 call the same workflow in-process; both browser jobs and the CI image and
 infrastructure jobs require its success before allocating their runners.
+Always-running terminal checks require both the quick prerequisite and actual
+suite success; skipped or cancelled browser jobs cannot pass a required check.
 The existing full CI matrix and aggregate gate remain required.
 
 `check:affected` uses the merge base, includes deletions in graph selection,

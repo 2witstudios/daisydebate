@@ -46,7 +46,7 @@ if (
 )
   throw new Error('Browser ownership inventory differs from discovered specs');
 const plan = selectBrowserSpecs(files, event, enforced);
-await Bun.write('apps/web/test-results/selection.json', JSON.stringify(plan));
+await Bun.write('.turbo/e2e-selection.json', JSON.stringify(plan));
 if (process.env.GITHUB_ENV)
   appendFileSync(
     process.env.GITHUB_ENV,

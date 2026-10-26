@@ -136,3 +136,90 @@ describe('browser workflow selection wiring', () => {
     });
   });
 });
+
+describe('browser prerequisite outcomes', () => {
+  test('skipped expensive jobs cannot mint successful required checks', async () => {
+    const workflow = Bun.YAML.parse(
+      await Bun.file('.github/workflows/e2e.yml').text(),
+    ) as {
+      jobs: Record<
+        string,
+        { needs: string | string[]; if?: string; steps?: { run?: string }[] }
+      >;
+    };
+    for (const [suite, gate] of [
+      ['e2e', 'playwright-gate'],
+      ['room-launch', 'native-gate'],
+    ]) {
+      assert({
+        given: `${suite} expensive browser work`,
+        should: 'wait for quick-check',
+        actual: workflow.jobs[suite].needs,
+        expected: 'quick-check',
+      });
+      const terminal = workflow.jobs[gate];
+      const command = terminal.steps?.[0]?.run ?? '';
+      const results = ['failure', 'skipped', 'cancelled', 'success'].map(
+        (state) =>
+          Bun.spawnSync(['sh', '-c', command], {
+            env: { ...process.env, QUICK: 'success', SUITE: state },
+          }).exitCode === 0,
+      );
+      assert({
+        given: 'a failed skipped or cancelled suite',
+        should: 'fail the always-running terminal check',
+        actual: { condition: terminal.if, needs: terminal.needs, results },
+        expected: {
+          condition: 'always()',
+          needs: ['quick-check', suite],
+          results: [false, false, false, true],
+        },
+      });
+    }
+  });
+});
+
+describe('queue enforcement identity', () => {
+  test('requires every named gate from its expected App', () => {
+    const required = [
+      'CI gate',
+      'Playwright E2E',
+      'Isolated Room Launch E2E',
+      'review-record',
+    ].map((context) => ({
+      context,
+      integration_id: context === 'review-record' ? 5049967 : 15368,
+    }));
+    const rules = (checks: typeof required) => [
+      { type: 'merge_queue' },
+      {
+        type: 'required_status_checks',
+        parameters: { required_status_checks: checks },
+      },
+    ];
+    assert({
+      given: 'queue and all App-bound checks',
+      should: 'allow affected PR selection',
+      actual: queueEnforced(rules(required)),
+      expected: true,
+    });
+    for (let index = 0; index < required.length; index += 1) {
+      assert({
+        given: `missing ${required[index].context}`,
+        should: 'retain full PR coverage',
+        actual: queueEnforced(
+          rules(required.filter((_, position) => position !== index)),
+        ),
+        expected: false,
+      });
+    }
+    assert({
+      given: 'unbound required checks',
+      should: 'retain full PR coverage',
+      actual: queueEnforced(
+        rules(required.map((check) => ({ ...check, integration_id: 0 }))),
+      ),
+      expected: false,
+    });
+  });
+});
