@@ -13,6 +13,7 @@ import type {
 } from './registry';
 import type { AdmissionReservation } from './admission';
 import { closeFor, evaluateFirstMessage } from './handlers/hello';
+import type { PresenceSession, PresenceTracker } from './presence';
 
 /** ADR 0031 §11.5: the first message must arrive within 5s or the socket closes 4001. */
 export const HELLO_TIMEOUT_MS = 5_000;
@@ -25,6 +26,7 @@ export type SocketData = {
   principal?: SocketPrincipal;
   connection?: RegistryConnection;
   helloTimer?: ReturnType<typeof setTimeout> | undefined;
+  presence?: PresenceSession | undefined;
 };
 export type SocketTimers = {
   readonly setTimeout: (
@@ -71,6 +73,7 @@ export function createWebSocketHandlers({
   authenticate,
   registry,
   validatePrincipal,
+  presence,
 }: {
   readonly logger: Logger;
   readonly timers?: SocketTimers;
@@ -81,6 +84,7 @@ export function createWebSocketHandlers({
   ) => Promise<SocketPrincipal | null>;
   readonly registry?: SubscriptionRegistry;
   readonly validatePrincipal?: (principal: SocketPrincipal) => Promise<boolean>;
+  readonly presence?: PresenceTracker;
 }) {
   function reject(
     ws: ServerWebSocket<SocketData>,
@@ -91,6 +95,7 @@ export function createWebSocketHandlers({
     ws.data.phase = 'closed';
     clearHelloTimer(ws, timers);
     if (ws.data.connection) registry?.remove(ws.data.connection);
+    ws.data.presence?.stop();
     ws.data.admission?.release();
     const outcome = closeFor(reason);
     logRejection(logger, cause, outcome.code, outcome.reason);
@@ -150,6 +155,7 @@ export function createWebSocketHandlers({
     clearHelloTimer(ws, timers);
     ws.data.principal = principal;
     ws.data.phase = 'authenticated';
+    ws.data.presence = presence?.start(principal.actorId);
     if (registry)
       ws.data.connection = registry.add(
         {
@@ -183,6 +189,8 @@ export function createWebSocketHandlers({
       await registry?.subscribe(ws.data.connection, frame);
     else if (frame.type === 'unsubscribe' && ws.data.connection)
       registry?.unsubscribe(ws.data.connection, frame);
+    else if (frame.type === 'presence.activity')
+      ws.data.presence?.activity(frame.activity);
   }
   function parseFrame(ws: ServerWebSocket<SocketData>, message: string) {
     let parsed: unknown;
@@ -237,6 +245,7 @@ export function createWebSocketHandlers({
       ws.data.phase = 'closed';
       clearHelloTimer(ws, timers);
       if (ws.data.connection) registry?.remove(ws.data.connection);
+      ws.data.presence?.stop();
       ws.data.admission?.release();
     },
   };
