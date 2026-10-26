@@ -11,10 +11,7 @@ function runnerEnforced(
   const required = [
     ['doctor', 'bun doctor'],
     ['build', 'bun run build'],
-    [
-      'chromium',
-      'bun apps/web/node_modules/@playwright/test/cli.js install --with-deps chromium',
-    ],
+    ['chromium', 'sh scripts/ci-browsers.sh chromium'],
   ];
   return required.every(([id, command]) =>
     steps.slice(0, index).some((value) => {
