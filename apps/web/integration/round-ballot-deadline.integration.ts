@@ -61,6 +61,7 @@ async function maintainWith<T>(
     createRoundMaintenanceOperations({
       startHorizonMs: ROUND_START_HORIZON_MS,
       probeRoundId: null,
+      idleTimeoutMs: null,
       store: f.store,
       instanceId,
       ids: { next: createId },

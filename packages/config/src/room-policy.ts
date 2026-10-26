@@ -8,7 +8,12 @@ const rate = z.strictObject({
 });
 const policy = z.strictObject({
   consentTtlMs: positiveInteger,
-  maxOpenRooms: positiveInteger,
+  /**
+   * Milliseconds an open Room may go without a command (or running prep)
+   * before maintenance closes it (ADR 0069). No default: absent keeps idle
+   * expiry inert while the rest of the policy applies.
+   */
+  idleTimeoutMs: positiveInteger.optional(),
   maxBodyBytes: positiveInteger,
   limits: z.strictObject({ create: rate, read: rate, command: rate }),
 });

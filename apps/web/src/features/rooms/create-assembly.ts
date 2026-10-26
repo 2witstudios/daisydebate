@@ -1,11 +1,38 @@
 import { z } from 'zod';
-import { idSchema, roomCreateSchema, roomViewSchema } from '@daisy/protocol';
+import {
+  activeRoomSchema,
+  idSchema,
+  roomCreateSchema,
+  roomRefusalSchema,
+  roomViewSchema,
+} from '@daisy/protocol';
 import { field } from '../mock-form/form';
 
 type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
 type Created =
   | { readonly kind: 'created'; readonly roomId: string }
-  | { readonly kind: 'invalid' | 'refused' | 'unavailable' };
+  /** The caller already holds a Room (ADR 0069): return them to it. */
+  | { readonly kind: 'active-room'; readonly href: string | null }
+  | { readonly kind: 'refused'; readonly reason: CreateRefusal }
+  | { readonly kind: 'invalid' | 'unavailable' };
+/** What a 4xx refusal of creation means to the person who sent it. */
+type CreateRefusal = 'settings' | 'forbidden' | 'rate-limited' | 'replayed';
+const refusalBodySchema = z.object({
+  refusal: roomRefusalSchema,
+  activeRoom: activeRoomSchema.nullable().optional(),
+});
+async function refusalOf(response: Response): Promise<Created> {
+  if (response.status === 403) return { kind: 'refused', reason: 'forbidden' };
+  if (response.status === 429)
+    return { kind: 'refused', reason: 'rate-limited' };
+  if (response.status !== 409) return { kind: 'refused', reason: 'settings' };
+  const body = refusalBodySchema.safeParse(
+    await response.json().catch(() => null),
+  );
+  if (body.success && body.data.refusal === 'active-room')
+    return { kind: 'active-room', href: body.data.activeRoom?.href ?? null };
+  return { kind: 'refused', reason: 'replayed' };
+}
 const createdSchema = z.object({
   receipt: z.object({ roomId: idSchema }),
   view: roomViewSchema,
@@ -37,7 +64,9 @@ export async function createAssembly(
       body: JSON.stringify(parsed.data),
     });
     if (!response.ok)
-      return { kind: response.status < 500 ? 'refused' : 'unavailable' };
+      return response.status < 500
+        ? await refusalOf(response)
+        : { kind: 'unavailable' };
     const created = createdSchema.safeParse(await response.json());
     return created.success &&
       created.data.receipt.roomId === created.data.view.id

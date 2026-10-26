@@ -1,10 +1,12 @@
 import { type ZodType } from 'zod';
 import { realtimeEndpointOf } from '../realtime/endpoint-header';
 import {
+  activeRoomReadSchema,
   idSchema,
   roomViewSchema,
   roomListPageSchema,
   roomListQuerySchema,
+  type ActiveRoom,
   type RoomListPage,
   type RoomListQuery,
   type RoomView,
@@ -104,4 +106,19 @@ function validPage(page: RoomListPage, query: RoomListQuery) {
     (page.nextCursor !== null && page.nextCursor !== page.rooms.at(-1)?.id) ||
     (page.retry && (page.rooms.length > 0 || page.nextCursor !== null))
   );
+}
+
+/**
+ * The signed-in member's own active Room (ADR 0069), for display only: a
+ * Room route that is off, refused or down answers that no Room is shown.
+ */
+export async function readActiveRoom(
+  fetch: FetchLike,
+): Promise<ActiveRoom | null> {
+  const result = await readProjection(
+    fetch,
+    '/api/rooms/active',
+    activeRoomReadSchema,
+  );
+  return result.kind === 'found' ? result.value.activeRoom : null;
 }

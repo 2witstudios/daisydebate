@@ -1,4 +1,3 @@
-import { and, eq, sql } from 'drizzle-orm';
 import type { roomCommandTransaction } from './room-command-transaction';
 import type { RoomCommandReceipt, FormatDefinition } from '@daisy/protocol';
 
@@ -7,6 +6,7 @@ import { createAppError } from '@daisy/errors';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 
 import { rooms } from './schema/rooms';
+import { holdActiveRoomMembers } from './room-membership-persistence';
 
 import { newRoomValues, type NewRoom } from './room-operations';
 
@@ -29,7 +29,8 @@ export const roomCreateOperations = ({
 }) => ({
   async createRoomCommand(input: {
     readonly room: NewRoom;
-    readonly maxOpenRooms: number;
+    /** The engine's member set for the new Room: its host (ADR 0069). */
+    readonly members: readonly string[];
     readonly commandId: string;
     readonly payloadDigest: string;
     readonly definition: FormatDefinition | null;
@@ -52,23 +53,6 @@ export const roomCreateOperations = ({
           input.payloadDigest,
         );
         if (replay) return replay;
-        // Serialize the explicitly configured open-Room cap across instances.
-        await tx.execute(
-          sql`select pg_advisory_xact_lock(hashtextextended(${input.room.hostActorId}, 59002))`,
-        );
-        const [count] = await tx
-          .select({ count: sql<number>`count(*)` })
-          .from(rooms)
-          .where(
-            and(
-              eq(rooms.hostActorId, input.room.hostActorId),
-              sql`${rooms.status} in ('assembling', 'ready')`,
-            ),
-          );
-        if (!Number.isSafeInteger(input.maxOpenRooms) || input.maxOpenRooms < 1)
-          throw createAppError('INVARIANT');
-        if (Number(count?.count ?? 0) >= input.maxOpenRooms)
-          throw createAppError('RATE_LIMIT');
         if (input.definition)
           await publishDefinition(
             tx,
@@ -82,6 +66,7 @@ export const roomCreateOperations = ({
           createdAt: new Date(now),
           updatedAt: new Date(now),
         });
+        await holdActiveRoomMembers(tx, input.room.id, input.members);
         const receipt: RoomCommandReceipt = {
           commandId: input.commandId,
           roomId: input.room.id,

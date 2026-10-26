@@ -7,7 +7,8 @@ import { createRoomRuntimeOperations } from './operations';
 /** Explicit policy injection; proof choices do not silently activate production. */
 export type RoomPolicy = {
   readonly consentTtlMs: number;
-  readonly maxOpenRooms: number;
+  /** How long an open Room may go without a command before maintenance closes it; absent leaves expiry inert (ADR 0069). */
+  readonly idleTimeoutMs?: number;
   readonly maxBodyBytes: number;
   readonly limits: Parameters<typeof createRoomHandlers>[0]['limits'];
 };
@@ -44,7 +45,6 @@ export function composeRoomRoutes(app: App) {
         redis: app.redis,
         ids: app.ids,
         consentTtlMs: () => policy.consentTtlMs,
-        maxOpenRooms: () => policy.maxOpenRooms,
         botsAvailable: () => Boolean(app.config.OPENROUTER_API_KEY),
       }),
     });
@@ -55,6 +55,7 @@ export function composeRoomRoutes(app: App) {
     rematch: (request: Request, roomId: string) =>
       run(request, (h) => h.rematch(request, roomId)),
     list: (request: Request) => run(request, (h) => h.list(request)),
+    active: (request: Request) => run(request, (h) => h.active(request)),
     catalog: (request: Request) => run(request, (h) => h.catalog(request)),
     read: (request: Request, roomId: string) =>
       run(request, (h) => h.read(request, roomId)),

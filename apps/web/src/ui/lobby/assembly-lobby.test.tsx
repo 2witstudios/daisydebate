@@ -29,6 +29,7 @@ test('Lobby renders lightweight canonical identity, live Round links and native 
       ]}
       query={{ q: 'Stored motion', pageSize: 1 }}
       nextCursor={entry.id}
+      activeRoom={null}
       retry={false}
     />,
   );
@@ -57,6 +58,7 @@ test('Lobby renders authoritative empty pages and race retry distinctly', () => 
         rooms={[]}
         query={{ q: 'missing', pageSize: 1, cursor: entry.id }}
         nextCursor={null}
+        activeRoom={null}
         retry={retry}
       />,
     ),
@@ -84,6 +86,7 @@ test('Lobby names no host when the host is a hidden judge', () => {
       rooms={[{ ...entry, hostActorId: null, hostLabel: null }]}
       query={{ q: '', pageSize: 1 }}
       nextCursor={null}
+      activeRoom={null}
       retry={false}
     />,
   );
@@ -92,5 +95,34 @@ test('Lobby names no host when the host is a hidden judge', () => {
     should: 'show its competition type without an empty host line',
     actual: [html.includes('Host:'), html.includes('casual')],
     expected: [false, true],
+  });
+});
+test('Lobby pins the viewer’s own active Room above the listing', () => {
+  const href = `/rooms/${'m'.repeat(24)}`;
+  const html = renderToStaticMarkup(
+    <AssemblyLobby
+      rooms={[]}
+      query={{ q: '', pageSize: 1 }}
+      nextCursor={null}
+      activeRoom={{
+        version: 1,
+        id: 'm'.repeat(24),
+        title: 'Current room',
+        phase: 'ready',
+        role: 'host',
+        href,
+      }}
+      retry={false}
+    />,
+  );
+  assert({
+    given: 'a viewer whose Room is ready to start',
+    should: 'name it and link back to it',
+    actual: [
+      html.includes('Current room'),
+      html.includes('ready to start'),
+      html.includes(`href="${href}"`),
+    ],
+    expected: [true, true, true],
   });
 });

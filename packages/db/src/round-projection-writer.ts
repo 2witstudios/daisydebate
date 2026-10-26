@@ -7,6 +7,7 @@ import { runtimeCheckpointSchema, buildDebateTopic } from '@daisy/protocol';
 import type { z } from 'zod';
 import { appendOutboxEvent } from './outbox';
 import { refundUnservedPracticeLocked } from './round-bot-admission';
+import { releaseRoundRoomMembers } from './room-membership-persistence';
 import { jsonObjectSchema } from './schema/columns';
 import { isUniqueViolation } from './unique-violation';
 import { roundCommands } from './schema/round-commands';
@@ -80,8 +81,10 @@ export async function writeProjectionWithPhaseSignal(
   const changed = projectionChanged(current, projection);
   if (!changed) return false;
   await writeProjection(tx, roundId, projection, now);
-  if (endsRound(current, projection))
+  if (endsRound(current, projection)) {
     await refundUnservedPracticeLocked(tx, roundId);
+    await releaseRoundRoomMembers(tx, roundId);
+  }
   if (projection.finalSegmentEndedAt !== undefined)
     await tx
       .update(rounds)

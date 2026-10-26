@@ -33,18 +33,21 @@ test('the canonical live Round mounts its media session and truthful native fall
           confirmHref: '/confirm',
           leaveHref: '/lobby',
         }}
+        leaveAction={async () => ({ values: {} })}
       />
     </AppRouterContext>,
   );
   assert({
     given: 'the fresh canonical debater view without an injected media slot',
     should:
-      'render the actual media session and explain native availability without exposing a judge',
+      'render the actual media session, explain native availability without exposing a judge, and make Leave the confirmed forfeit',
     actual: [
       html.includes('aria-label="Live camera and sound"'),
       html.includes('Live camera and sound require JavaScript.'),
       html.includes('Riley Judge'),
+      html.includes('Leave and forfeit'),
+      html.includes('name="type" value="forfeit"'),
     ],
-    expected: [true, true, false],
+    expected: [true, true, false, true, true],
   });
 });

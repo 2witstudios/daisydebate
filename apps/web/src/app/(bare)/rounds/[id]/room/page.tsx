@@ -1,6 +1,10 @@
 import { readPersistedJudgeRound } from '../../../../(shell)/judge/ballot/[debateId]/actions';
 import { LiveJudgeRoom } from '../../../../../ui/debate-room/live-judge-room';
-import { roundCommandAction, readPersistedAttendance } from './actions';
+import {
+  leaveRoundAction,
+  roundCommandAction,
+  readPersistedAttendance,
+} from './actions';
 import { RoundNativeAttendance } from '../../../../../features/attendance/native-state';
 import { roundCommandIds } from '../../../../../features/round-runtime/command-ids';
 import { systemClock, systemId } from '@daisy/clock';
@@ -75,6 +79,7 @@ export default async function RoundRoomPage({
           confirmHref: `${here}?leave`,
           leaveHref: '/lobby',
         }}
+        leaveAction={leaveRoundAction.bind(null, id)}
       />
     </>
   );

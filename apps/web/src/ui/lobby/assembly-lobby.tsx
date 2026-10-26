@@ -1,5 +1,10 @@
 import Link from 'next/link';
-import type { RoomListEntry, RoomListQuery } from '@daisy/protocol';
+import type {
+  ActiveRoom,
+  RoomListEntry,
+  RoomListQuery,
+} from '@daisy/protocol';
+import { ActiveRoomNotice } from '../rooms/active-room/active-room-notice';
 import { buttonClass } from '../components/button/button-class';
 import { controlClass } from '../components/form-field/form-field-class';
 import { MediaPageLink } from '../round-media/media-page-link';
@@ -10,11 +15,14 @@ export function AssemblyLobby({
   query,
   nextCursor,
   retry,
+  activeRoom,
 }: {
   readonly rooms: readonly RoomListEntry[];
   readonly query: RoomListQuery;
   readonly nextCursor: string | null;
   readonly retry: boolean;
+  /** The viewer's own active Room (ADR 0069), pinned above the listing. */
+  readonly activeRoom: ActiveRoom | null;
 }) {
   return (
     <div className="mx-auto flex w-full max-w-dash-column flex-col gap-6 px-6 py-8">
@@ -27,6 +35,7 @@ export function AssemblyLobby({
           Create room
         </Link>
       </header>
+      {activeRoom ? <ActiveRoomNotice activeRoom={activeRoom} /> : null}
       <form action="/lobby" method="get" className="flex gap-3">
         <label htmlFor="room-search" className="sr-only">
           Search rooms

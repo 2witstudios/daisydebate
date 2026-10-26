@@ -68,9 +68,21 @@ test('invalid create selections refuse before transport; server refusals never b
     return new Response();
   }, invalid);
   const outcomes = [];
+  const activeRoom = {
+    version: 1,
+    id: 'm'.repeat(24),
+    title: 'Current room',
+    phase: 'ready',
+    role: 'debater',
+    href: `/rooms/${'m'.repeat(24)}`,
+  };
   for (const response of [
     new Response(null, { status: 403 }),
     new Response(null, { status: 409 }),
+    new Response(null, { status: 429 }),
+    new Response(null, { status: 400 }),
+    Response.json({ refusal: 'active-room', activeRoom }, { status: 409 }),
+    Response.json({ refusal: 'active-room', activeRoom: null }, { status: 409 }),
     Response.json(
       {
         receipt: { roomId: 'j'.repeat(24) },
@@ -83,10 +95,22 @@ test('invalid create selections refuse before transport; server refusals never b
   }
   assert({
     given:
-      'malformed form JSON, forbidden/stale create and inconsistent success identities',
+      'malformed form JSON, forbidden, replayed, rate-limited, invalid and already-in-a-room creates, and inconsistent success identities',
     should:
-      'make zero calls for invalid input and retain truthful refusal/unavailable states',
-    actual: [calls, badResult.kind, outcomes.map((result) => result.kind)],
-    expected: [0, 'invalid', ['refused', 'refused', 'unavailable']],
+      'make zero calls for invalid input and name each refusal truthfully',
+    actual: [calls, badResult.kind, outcomes],
+    expected: [
+      0,
+      'invalid',
+      [
+        { kind: 'refused', reason: 'forbidden' },
+        { kind: 'refused', reason: 'replayed' },
+        { kind: 'refused', reason: 'rate-limited' },
+        { kind: 'refused', reason: 'settings' },
+        { kind: 'active-room', href: activeRoom.href },
+        { kind: 'active-room', href: null },
+        { kind: 'unavailable' },
+      ],
+    ],
   });
 });

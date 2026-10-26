@@ -13,7 +13,7 @@ describe('roomCommandIds', () => {
       given:
         'a room declaring two affirmative, three negative and one judge seat',
       should:
-        'name the header, readiness, prep and settings forms and four intents per seat',
+        'name the header (details, leave, close), readiness, prep and settings forms and four intents per seat',
       actual: {
         header: built.header,
         readiness: built.readiness,
@@ -23,6 +23,7 @@ describe('roomCommandIds', () => {
         distinct: new Set([
           built.header.details,
           built.header.leave,
+          built.header.close,
           ...Object.values(built.readiness),
           ...Object.values(built.prep),
           built.settings,
@@ -30,12 +31,12 @@ describe('roomCommandIds', () => {
         ]).size,
       },
       expected: {
-        header: { details: 'c-1', leave: 'c-2' },
-        readiness: { ready: 'c-3', unready: 'c-4', 'start-round': 'c-5' },
-        prep: { start: 'c-6', finish: 'c-7' },
-        settings: 'c-8',
+        header: { details: 'c-1', leave: 'c-2', close: 'c-3' },
+        readiness: { ready: 'c-4', unready: 'c-5', 'start-round': 'c-6' },
+        prep: { start: 'c-7', finish: 'c-8' },
+        settings: 'c-9',
         seats: 6,
-        distinct: 8 + 6 * 4,
+        distinct: 9 + 6 * 4,
       },
     });
   });

@@ -24,11 +24,16 @@ export function AssemblyHeader({
 }: {
   readonly view: RoomView;
   readonly actorId: string;
-  readonly commandIds: { readonly details: string; readonly leave: string };
+  readonly commandIds: {
+    readonly details: string;
+    readonly leave: string;
+    readonly close: string;
+  };
   readonly detailsAction: FormAction<RoomFormState>;
   readonly commandAction: FormAction<RoomFormState>;
 }) {
   const [status, shape, competition] = roomChips(view);
+  const host = view.hostActorId === actorId;
   const seated = view.participants
     .filter(isNamedSeat)
     .some((seat) => seat.actorId === actorId);
@@ -72,7 +77,19 @@ export function AssemblyHeader({
             visibility={view.visibility}
             label="Copy invite link"
           />
-          {seated ? (
+          {host ? (
+            // The host leaving closes the Room (ADR 0069), so the host gets Close.
+            <AssemblyCommandForm action={commandAction}>
+              <AssemblyCommandFields
+                type="close"
+                version={view.version}
+                commandId={commandIds.close}
+              />
+              <button type="submit" className={buttonClass('secondary')}>
+                Close room
+              </button>
+            </AssemblyCommandForm>
+          ) : seated ? (
             <AssemblyCommandForm action={commandAction}>
               <AssemblyCommandFields
                 type="leave-seat"

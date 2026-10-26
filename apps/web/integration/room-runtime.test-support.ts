@@ -65,7 +65,6 @@ async function fixture(
   const host = await caller(),
     guest = await caller(),
     outsider = await caller();
-  let openRoomLimit = 5;
   let failAfterReady = false;
   let unavailable = false;
   let consentReads = 0;
@@ -93,15 +92,17 @@ async function fixture(
     store,
     redis: controlled,
     ids: systemId,
-    maxOpenRooms: () => openRoomLimit,
     consentTtlMs: () => 60_000,
     botsAvailable: () => true,
   });
-  const create = async (overrides: Partial<RoomCreate> = {}) => {
+  const create = async (
+    overrides: Partial<RoomCreate> = {},
+    who: typeof host = host,
+  ) => {
     const config = (await operations.catalog(host)).find(
       (c) => c.formatId === 'foundation',
     )!.defaultConfig;
-    const r = await operations.create(host, {
+    const r = await operations.create(who, {
       commandId: createId(),
       title: 'Durable room',
       topic: 'Cities should make transit free',
@@ -205,9 +206,6 @@ async function fixture(
     seatBotOpponent,
     snapshot,
     assemble,
-    openRoomLimit: (value: number) => {
-      openRoomLimit = value;
-    },
     failAfterReady: (value: boolean) => {
       failAfterReady = value;
     },

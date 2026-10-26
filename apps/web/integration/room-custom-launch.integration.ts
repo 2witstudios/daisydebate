@@ -7,10 +7,9 @@ import { isNamedSeat } from '@daisy/protocol';
 requireTestServices(process.env);
 setupRitewayBun();
 
-test('custom unequal casts and ordered timing freeze alongside canonical quota and masked reads', async () => {
+test('custom unequal casts and ordered timing freeze alongside the one-active-Room rule and masked reads', async () => {
   await withRoomRuntime(
     async (f) => {
-      f.openRoomLimit(1);
       const choice = (await f.operations.catalog(f.host)).find(
         (c) => c.formatId === 'foundation',
       )!;
@@ -86,10 +85,10 @@ test('custom unequal casts and ordered timing freeze alongside canonical quota a
       view = await f.operations.view(f.host, view.id);
       const initial = await f.snapshot(view.id);
       await assertRejects({
-        given: 'the configured one-open-Room quota is reached',
-        should: 'refuse another create',
+        given: 'a host already holding an open Room',
+        should: 'refuse another create as active-room',
         actual: () => f.create(),
-        code: 'RATE_LIMIT',
+        code: 'CONFLICT',
       });
       await assertRejects({
         given: 'an outsider requests a private Room',
@@ -98,7 +97,7 @@ test('custom unequal casts and ordered timing freeze alongside canonical quota a
         code: 'NOT_FOUND',
       });
       assert({
-        given: 'quota refusal and masked read',
+        given: 'active-room refusal and masked read',
         should: 'preserve complete durable state and exclude private discovery',
         actual: [
           await f.snapshot(view.id),
