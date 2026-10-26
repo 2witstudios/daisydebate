@@ -57,6 +57,33 @@ recovery separately runs every 500 ms and is also stopped before pool closure.
 A provider/model/media failure does not itself create competitive absence or
 forfeit evidence.
 
+## Post-round coaching
+
+The coaching worker ([ADR 0071](../decisions/0071-post-round-coaching-pass.md))
+runs beside judging under the same lifecycle and worker policy. It uses the
+judge model and the same provider capacity.
+
+Its scan lists candidates: frozen Rounds completed within the window that have
+no pass yet, and every lapsed lease. Whether a candidate is coached is the
+pure decision in `features/round-coaching/policy.ts`. A Round needs coaching
+when it:
+
+- completed within 24 hours;
+- is frozen with at least one line;
+- is not already coached on both sides by a submitted AI ballot.
+
+For each listed Round it works in this order:
+
+1. Inside a provider capacity slot, it claims the Round's `round_feedback`
+   row. The claim applies the decision to facts read under the Round's lock.
+2. It makes one paid call, under a lease that covers the whole call.
+3. It records usage.
+4. It stores both sides' coaching only while that lease holds.
+
+A Round buys at most two calls. A lapsed lease ends the row `failed` when it
+is at the cap or the Round no longer qualifies. Failures log `round.coaching.failed`; a full provider is not a
+failure.
+
 ## Local provider recovery proof
 
 With this checkout's isolated test services and an authorized configured

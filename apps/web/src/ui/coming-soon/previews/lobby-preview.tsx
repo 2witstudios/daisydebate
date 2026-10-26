@@ -11,7 +11,7 @@ export function LobbyPreview() {
         title="Lobby"
         actions={
           <>
-            <Button variant="secondary">Open a table</Button>
+            <Button variant="secondary">New room</Button>
             <Button>Find a match</Button>
           </>
         }

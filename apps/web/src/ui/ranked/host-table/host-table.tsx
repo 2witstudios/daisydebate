@@ -13,17 +13,17 @@ const note =
 
 /**
  * The host form: a GET to the same route. The band select applies at once
- * once hydrated; Post table moves to the mock confirmation. Nothing typed
- * rides in the address: a ranked table has only the band to choose.
+ * once hydrated; Post room moves to the mock confirmation. Nothing typed
+ * rides in the address: a ranked room has only the band to choose.
  */
 export function HostTable({ screen }: { readonly screen: HostScreen }) {
   return (
     <RankedCard>
-      <h1 className={cn(cardTitleClass, 'text-2xl')}>Host a ranked table</h1>
+      <h1 className={cn(cardTitleClass, 'text-2xl')}>Host a ranked room</h1>
 
       <AutoSubmitForm
         action={screen.formAction}
-        aria-label="Host a ranked table"
+        aria-label="Host a ranked room"
         className="flex flex-col gap-4"
       >
         <p className="text-base text-ink-muted">
@@ -55,7 +55,10 @@ export function HostTable({ screen }: { readonly screen: HostScreen }) {
             <h2 className="text-md font-bold text-ink">Standard rules</h2>
             <p>
               For custom rules,{' '}
-              <Link href={screen.lobbyHref}>host a casual table</Link>.
+              <Link href={screen.lobbyHref}>
+                start a casual room in the Lobby
+              </Link>
+              .
             </p>
           </div>
         </div>
@@ -73,7 +76,7 @@ export function HostTable({ screen }: { readonly screen: HostScreen }) {
             value="posted"
             className={cn(buttonClass('primary'), 'flex-2')}
           >
-            Post table
+            Post room
           </button>
         </div>
       </AutoSubmitForm>

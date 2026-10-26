@@ -60,6 +60,7 @@ export function retentionTargets({
     readonly purgeExpiredSessions: (batch: Batch) => Promise<number>;
     readonly purgeExpiredUtterances: (batch: Batch) => Promise<number>;
     readonly clearExpiredPendingBallots: (batch: Batch) => Promise<number>;
+    readonly purgeExpiredRoundFeedback: (batch: Batch) => Promise<number>;
   };
   readonly redis: {
     readonly sweepOnlinePresence: (limit: number) => Promise<number>;
@@ -144,14 +145,15 @@ export function retentionTargets({
         }),
     },
     /**
-     * DEC-101 and DEC-89 (ISSUE-498): private transcript lines and cached AI
-     * judging responses are kept 180 days. A cleared response fails its job
-     * (DEC-223).
+     * DEC-101 and DEC-89 (ISSUE-498): private transcript lines, cached AI
+     * judging responses and AI coaching (ADR 0071) are kept 180 days. A
+     * cleared response fails its job (DEC-223).
      */
     ...(
       [
         ['utterances', database.purgeExpiredUtterances],
         ['pending_ballots', database.clearExpiredPendingBallots],
+        ['round_feedback', database.purgeExpiredRoundFeedback],
       ] as const
     ).map(([name, purge]) => ({
       name: `retention.${name}`,

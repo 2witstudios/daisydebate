@@ -42,7 +42,7 @@ describe('hostScreenFor', () => {
       { rating: { kind: 'unrated' }, season: { number: 3, daysLeft: 41 } },
     );
     assert({
-      given: 'an unrated host with a posted table',
+      given: 'an unrated host with a posted room',
       should: 'say Unrated, open the seat to anyone and keep the band to close',
       actual: [screen.ratingText, screen.seatText, screen.closeHref],
       expected: [

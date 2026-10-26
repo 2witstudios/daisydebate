@@ -27,7 +27,7 @@ export function RankedHub({ screen }: { readonly screen: HubScreen }) {
             Ranked rules
           </Link>
           <Link href={screen.hostHref} className={linkButtonClass('ghost')}>
-            Host a ranked table
+            Host a ranked room
           </Link>
         </div>
       </RankedCard>

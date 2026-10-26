@@ -43,7 +43,7 @@ test('canonical browser create, settings, cast, refusals and reread preserve dur
     expect(view.rules.segments.length).toBeGreaterThan(1);
     await guest.goto('/lobby');
     await guest.getByLabel('Search rooms').fill(view.title);
-    await guest.getByRole('button', { name: 'Search', exact: true }).click();
+    await guest.getByRole('button', { name: 'Apply', exact: true }).click();
     await enterLobbyRoom(guest, view);
     view = await claim(guest, view, 'Negative 1');
     await expect(guest.getByRole('button', { name: 'Save room' })).toHaveCount(
@@ -198,13 +198,10 @@ test('native judge Ready and eligible stored bot debaters launch one frozen sche
         judge.getByText('Round · Not started', { exact: true }),
       ).toBeVisible();
       await judge.goto(`/lobby?${new URLSearchParams({ q: view.title })}`);
+      // The judge holds a seat, so the row leads back into the round room.
       await expect(
-        judge.getByRole('link', { name: 'View Round', exact: true }),
-      ).toHaveAttribute('href', `/rounds/${round.id}`);
-      await judge
-        .getByRole('link', { name: 'View Round', exact: true })
-        .click();
-      await expect(judge).toHaveURL(`/rounds/${round.id}`);
+        judge.getByRole('link', { name: /^Return to room: / }),
+      ).toHaveAttribute('href', `/rounds/${round.id}/room`);
       await info.attach('scheduled-round-evidence', {
         body: JSON.stringify(proof),
         contentType: 'application/json',

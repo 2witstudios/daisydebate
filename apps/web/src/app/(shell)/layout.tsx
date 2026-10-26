@@ -5,7 +5,6 @@ import { UiStoreProvider } from '../../ui/store/store';
 import { shellAccount } from '../../lib/shell-account';
 import { requestIdentity } from '../../lib/request-session';
 import { requestActiveRoom } from './active-room';
-import { ActiveRoomBar } from '../../ui/rooms/active-room/active-room-bar';
 
 /**
  * The signed-in product shell: renders AppShell's landmarks once (header,
@@ -24,11 +23,10 @@ export default async function ShellLayout({
     identity.state === 'member' ? await requestActiveRoom() : null;
   return (
     <UiStoreProvider>
-      <AppShell account={shellAccount(identity)}>
+      <AppShell account={shellAccount(identity)} activeRoom={activeRoom}>
         <Suspense fallback={null}>
           <SampleActionNotice />
         </Suspense>
-        <ActiveRoomBar activeRoom={activeRoom} />
         {children}
       </AppShell>
     </UiStoreProvider>

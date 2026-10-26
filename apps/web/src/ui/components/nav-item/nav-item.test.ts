@@ -42,4 +42,19 @@ describe('matchesRoute', () => {
       expected: [true, true, false],
     });
   });
+
+  test('marks an item active on a route it also covers', () => {
+    const play = ['/play', '/ranked'];
+    assert({
+      given: 'Play at the Lobby, also covering /play and /ranked',
+      should: 'be active on those routes and their descendants, not elsewhere',
+      actual: [
+        itemActive('/lobby', '/lobby', [], play),
+        itemActive('/play/room', '/lobby', [], play),
+        itemActive('/ranked/host', '/lobby', [], play),
+        itemActive('/prep', '/lobby', [], play),
+      ],
+      expected: [true, true, true, false],
+    });
+  });
 });

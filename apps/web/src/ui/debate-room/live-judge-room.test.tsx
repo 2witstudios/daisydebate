@@ -1,8 +1,10 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { LiveJudgeRoom } from './live-judge-room';
+import { mockNextRouter } from '../../lib/testing/mock-router';
 import { view, judge } from './live-round.test-support';
 setupRitewayBun();
+await mockNextRouter();
+const { LiveJudgeRoom } = await import('./live-judge-room');
 test('an assigned judge watches debaters without competitive controls or attendance', () => {
   const assignedView = {
     ...view,

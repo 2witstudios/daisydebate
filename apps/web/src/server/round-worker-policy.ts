@@ -5,12 +5,21 @@ import { createAppError } from '@daisy/errors';
 export function roundWorkerDatabaseOptions(
   policy: RoundBotWorkerPolicy | undefined,
   nextToken: (() => string) | undefined,
-): Pick<Parameters<typeof createDatabase>[0], 'judging' | 'botPublication'> {
+): Pick<
+  Parameters<typeof createDatabase>[0],
+  'judging' | 'botPublication' | 'coaching'
+> {
   if (!policy) return {};
   if (!nextToken)
     throw createAppError('INFRASTRUCTURE', 'Worker token producer is required');
   return {
     judging: { leaseMs: policy.leaseMs, model: policy.models.judge, nextToken },
+    // A coaching lease covers its whole provider call: no renewal (ADR 0071).
+    coaching: {
+      leaseMs: policy.callTimeoutMs + policy.leaseMs,
+      model: policy.models.judge,
+      nextToken,
+    },
     botPublication: {
       leaseMs: policy.leaseMs,
       models: {

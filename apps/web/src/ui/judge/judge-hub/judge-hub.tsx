@@ -34,12 +34,6 @@ export function JudgeHub({ assigned }: JudgeHubProps) {
       >
         Refresh assignments
       </Link>
-      <Link
-        href="/judge/resources"
-        className="inline-flex min-h-10 items-center font-strong"
-      >
-        Judging resources
-      </Link>
     </div>
   );
 }

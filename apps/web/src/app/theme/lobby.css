@@ -1,0 +1,16 @@
+/* The Lobby: one compact row per Room (room, status, action) and the Play
+   dialog that funnels every way to play back to it. */
+
+@theme {
+  --spacing-play-dialog: 520px;
+  --spacing-lobby-status: 120px;
+}
+
+@utility grid-cols-lobby-row {
+  grid-template-columns: minmax(0, 1fr) var(--spacing-lobby-status) auto;
+}
+
+/* On a phone the status joins the meta line; the action stays right. */
+@utility grid-cols-lobby-row-compact {
+  grid-template-columns: minmax(0, 1fr) auto;
+}

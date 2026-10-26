@@ -10,6 +10,7 @@
 @import './theme/bracket.css';
 @import './theme/room.css';
 @import './theme/prep.css';
+@import './theme/lobby.css';
 
 /* Tailwind v4 is configured here and nowhere else (ADR 0028): no
    tailwind.config.*, no arbitrary values, no default palette. Class names

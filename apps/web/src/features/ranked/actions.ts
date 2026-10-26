@@ -7,7 +7,7 @@
 export const rankedDestinations = {
   /** Where "Enter room" leads: the ranked room. */
   room: '/rooms/room-tuesday-night',
-  /** Posted tables and casual hosting both live in the lobby. */
+  /** Posted rooms and casual hosting both live in the lobby. */
   lobby: '/lobby',
   hostTable: '/ranked/host',
   ranked: '/ranked',

@@ -1,4 +1,4 @@
-import { idSchema } from '@daisy/protocol';
+import { idSchema, type RoundBallotRead } from '@daisy/protocol';
 import type { Database } from '@daisy/db';
 import { parseValidated } from '../../server/http';
 import {
@@ -15,7 +15,7 @@ export function createRoundBallotHandlers(
     readonly read: (
       caller: RoundCaller,
       roundId: string,
-    ) => ReturnType<Database['readRoundBallot']>;
+    ) => Promise<RoundBallotRead>;
     readonly assignments: (
       caller: RoundCaller,
     ) => ReturnType<Database['listRoundJudgeAssignments']>;

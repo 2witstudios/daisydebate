@@ -24,7 +24,7 @@ describe('rankedRules', () => {
         copy.includes('by 40 seconds'),
         copy.includes('first 10 debates'),
         copy.includes('forfeit'),
-        copy.includes('Custom rules are for casual tables'),
+        copy.includes('Custom rules are for casual rooms'),
       ],
       expected: [true, true, true, true],
     });

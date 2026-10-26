@@ -5,7 +5,8 @@ import { FeaturedTournament } from './featured-tournament';
 import { tournament } from '../../mock/tournament';
 import { createInitialState } from '../../store/state';
 import { UiStoreProvider } from '../../store/store';
-import { pageColourClasses } from '../../test-support/stage-palette';
+import { buttonClass } from '../../components/button/button-class';
+import { stageColourClasses } from '../../test-support/stage-palette';
 
 setupRitewayBun();
 
@@ -30,7 +31,7 @@ describe('FeaturedTournament', () => {
     });
   });
 
-  test('draws the stage card in the stage palette', () => {
+  test('sits on the competition tint with the page button', () => {
     const html = renderToString(
       h(UiStoreProvider, {
         initialState: createInitialState(),
@@ -38,10 +39,17 @@ describe('FeaturedTournament', () => {
       }),
     );
     assert({
-      given: 'the forest stage card',
-      should: 'use no page-palette colour, which is forest on forest in light',
-      actual: pageColourClasses(html),
-      expected: [],
+      given: 'the featured tournament card on Home',
+      should:
+        'draw on the clay tint with page ink, the page primary button and no stage colour',
+      actual: {
+        clay: /<section class="[^"]*\bbg-hue-clay-soft\b[^"]*\btext-ink\b/.test(
+          html,
+        ),
+        primary: html.includes(`class="${buttonClass('primary')}`),
+        stage: stageColourClasses(html),
+      },
+      expected: { clay: true, primary: true, stage: [] },
     });
   });
 });

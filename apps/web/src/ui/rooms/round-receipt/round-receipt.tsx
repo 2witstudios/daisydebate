@@ -1,4 +1,5 @@
 import type { RoundView } from '@daisy/protocol';
+import type { ReactNode } from 'react';
 import { seatLabel } from '../room-page/assembly-controls';
 import { clockDuration } from '../../../features/rooms/duration-input';
 import { ruleRows, speechName } from '../../../features/debate-room/vocabulary';
@@ -81,8 +82,18 @@ const participantLine = (participant: Participant) => {
   return `${seat} · ${participant.label}${participant.kind === 'bot' ? ' · AI' : ''}`;
 };
 
-/** A receipt of the round as it started and, once the ballot lands, the result. */
-export function RoundReceipt({ round }: { readonly round: RoundReceiptView }) {
+/**
+ * A receipt of the round as it started and, once the ballot lands, the
+ * result. `children` (the decision, coaching and transcript) follow the
+ * result, ahead of the cast and settings.
+ */
+export function RoundReceipt({
+  round,
+  children,
+}: {
+  readonly round: RoundReceiptView;
+  readonly children?: ReactNode;
+}) {
   return (
     <main className="mx-auto flex w-full max-w-dash-column flex-col gap-6 px-6 py-8">
       <header>
@@ -114,6 +125,7 @@ export function RoundReceipt({ round }: { readonly round: RoundReceiptView }) {
           Return to room
         </MediaPageLink>
       </header>
+      {children}
       <section
         aria-label="Frozen cast"
         className="rounded-xl bg-surface p-6 shadow-1"

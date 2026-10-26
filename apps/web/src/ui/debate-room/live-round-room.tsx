@@ -28,6 +28,7 @@ import type { RoundFormState } from '../../features/round-runtime/command-form';
 import type { FormAction } from '../form-action/form-action';
 import { RoundCommandActions } from './round-command-actions';
 import { leaveIntent } from '../../features/round-runtime/leave-intent';
+import { RoundEndedNotice } from './round-ended';
 
 const nowMs = () => Date.parse(systemClock.now());
 
@@ -49,7 +50,8 @@ function useSecond(renderedAtMs: number): number {
  * round's durable snapshot, the snapshot kept current by round sync from
  * its doorbell and reads, never by re-rendering the route (ADR 0066), and
  * the debater's files saved on the persisted Round. A round this debater no
- * longer debates live leaves for its receipt.
+ * longer debates live leaves for its result page (`RoundCommandActions`),
+ * showing the way there meanwhile.
  */
 export function LiveRoundRoom({
   view: seed,
@@ -152,7 +154,9 @@ export function LiveRoundRoom({
               save={save}
               leave={leaving}
             />
-          ) : null
+          ) : (
+            <RoundEndedNotice roundId={view.id} />
+          )
         }
       </RoundCommandActions>
     </>

@@ -1,4 +1,4 @@
-import type { LobbyMode } from '../../../features/lobby/query';
+import type { LobbyMode } from '../../../features/lobby/discovery-query';
 import { cn } from '../../cn';
 import { modeOptionClass, modeTrackClass } from './mode-toggle-class';
 

@@ -37,7 +37,7 @@ describe('SettingsPage', () => {
     assert({
       given: 'a signed-in member',
       should:
-        'show one h1, the six sections, three real forms and a link to their profile',
+        'show one h1, the five sections, three real forms and a link to their profile',
       actual: [
         html.match(/<h1 /g)?.length,
         html.match(/<section id=/g)?.length,
@@ -45,7 +45,7 @@ describe('SettingsPage', () => {
         html.includes('href="/profile/debater-a"'),
         html.includes('href="/settings/security"'),
       ],
-      expected: [1, 6, 3, true, true],
+      expected: [1, 5, 3, true, true],
     });
   });
 
@@ -95,16 +95,17 @@ describe('SettingsPage', () => {
     });
   });
 
-  test('your account', () => {
+  test('no sample account actions', () => {
     const html = render('debater-a');
     assert({
-      given: 'the account section',
-      should: 'answer export and delete as working sample actions',
+      given: 'the settings page while export and deletion have no backend',
+      should: 'offer neither Export my data nor Delete my account',
       actual: [
-        html.includes('href="?did=Export+my+data"'),
-        html.includes('href="?did=Delete+my+account"'),
+        html.includes('Export my data'),
+        html.includes('Delete my account'),
+        html.includes('?did='),
       ],
-      expected: [true, true],
+      expected: [false, false, false],
     });
   });
 });

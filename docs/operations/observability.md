@@ -86,6 +86,7 @@ diverge:
 | `auth.email_change.cleanup_failed`       | error    | A scheduled email-change-token cleanup batch failed                                                                                                                                                                                                                                        |
 | `round.media.unsafe`                     | error    | A media reconcile failed; the session is marked unsafe and the error goes to the error tracker under the same request ID (`operation`, `errorCode`, `requestId`)                                                                                                                           |
 | `round.judging.failed`                   | error    | A judging worker pass failed; claimed judging work stays recoverable for the next pass (`operation` is `round.judging.` plus one of `execute`, `scan`, `renew`; `errorCode` is the error's own code or `INTERNAL`)                                                                         |
+| `round.coaching.failed`                  | error    | An AI coaching call failed after its claim; the Round is claimed again on a later scan while it has paid calls left (ADR 0071) (`operation` is `round.coaching.` plus one of `coach`, `scan`; `errorCode` only). A full provider is not a failure                                          |
 | `round.control.failed`                   | error    | A bot control receipt pass failed; the receipt work stays recoverable (`operation` is `round.control.` plus one of `pulse`, `discover`; `errorCode`)                                                                                                                                       |
 | `round.speaking.failed`                  | error    | A bot speaking turn failed; the phrase stays uncredited and the control receipt continues (`operation` is `round.speaking.` plus one of `generate`, `synthesize`, `publish`, `poll`; `errorCode` only). A pool capacity refusal does not spend a delivery attempt                          |
 | `round.maintenance.failed`               | error    | A competitive maintenance pass failed; the next tick retries (`operation` is `round.maintenance.` plus one of `discover`, `tick`, `evaluate`, `finalize`, `rate`; `errorCode`)                                                                                                             |
@@ -107,8 +108,9 @@ diverge:
 | `service.lease_failed`                   | error    | A realtime service lease renewal failed; the interval retries on its next tick                                                                                                                                                                                                             |
 | `telemetry.unknown_event`                | warn     | An unregistered runtime event name was normalized                                                                                                                                                                                                                                          |
 
-The four round worker failure events (`round.maintenance.failed`,
-`round.judging.failed`, `round.control.failed`, `round.speaking.failed`) carry
+The five round worker failure events (`round.maintenance.failed`,
+`round.judging.failed`, `round.coaching.failed`, `round.control.failed`,
+`round.speaking.failed`) carry
 the worker stage in `operation` and the error's own code (`INTERNAL` when
 untyped). The raw error goes only to the scrubbed `ErrorReporter`. Two outcomes
 are not failures: a lost lease (`CONFLICT` once the Round completes or the claim

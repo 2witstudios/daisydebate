@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { destinationHref } from '../../../features/coming-soon/launch';
 import { buttonClass } from '../../components/button/button-class';
 import { Notice } from '../../components/notice/notice';
 import { PageHeader } from '../../components/page-header/page-header';
@@ -57,7 +58,9 @@ export function CreateRoomPage({
           className="flex w-rail shrink-0 flex-col gap-4 max-compact:w-full"
         >
           <Notice tone="accent" icon="trophy" title="This room is unranked">
-            <Link href="/ranked/host">Host a ranked table</Link>
+            <Link href={destinationHref('ranked', { path: '/ranked/host' })}>
+              Host a ranked room
+            </Link>
           </Notice>
         </aside>
       </div>

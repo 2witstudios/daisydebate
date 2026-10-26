@@ -185,6 +185,10 @@ export type RoomMutationOutcome =
   | { readonly ok: false; readonly refusal: RoomRefusal };
 
 /** Provisional discovery resource-work settings; these are not Room capacity. */
+/** The discovery statuses a listing can be narrowed to. */
+export const roomListStatuses = ['open', 'starting', 'live'] as const;
+export type RoomListStatus = (typeof roomListStatuses)[number];
+
 export const roomListQuerySchema = z.strictObject({
   cursor: idSchema.optional(),
   pageSize: z.int().min(1).max(50).default(20),
@@ -195,7 +199,7 @@ export const roomListQuerySchema = z.strictObject({
    * client's every-status or any-mode choice omits the key. `status` is
    * where a listed Room stands: open (assembling), starting (ready) or live.
    */
-  status: z.enum(['open', 'starting', 'live']).optional(),
+  status: z.enum(roomListStatuses).optional(),
   mode: z.enum(competitionTypes).optional(),
 });
 /** Active discovery deliberately omits cast, format/configuration and consent. */

@@ -142,9 +142,11 @@ export {
   roomStatuses,
   roomListQuerySchema,
   roomListPageSchema,
+  roomListStatuses,
 } from './room-contract';
 export type {
   RoomListQuery,
+  RoomListStatus,
   RoomListEntry,
   RoomListPage,
   RoomCreate,
@@ -255,6 +257,7 @@ export {
 } from './round-ballot-read';
 export type {
   RoundBallotRead,
+  RoundCoaching,
   RoundJudgeAssignment,
 } from './round-ballot-read';
 export {

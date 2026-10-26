@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { destinationHref } from '../../../features/coming-soon/launch';
 import type { OnboardingAnswers } from '../../../features/onboarding/answers';
 import { Icon } from '../../components/icon/icon';
 import { SampleAction } from '../../components/sample-action/sample-action';
@@ -89,7 +90,10 @@ export function ReadyStep({
         Your first debate
       </h1>
       <div className="flex flex-wrap gap-3">
-        <Link href="/train" className={`${card} bg-surface-raised text-ink`}>
+        <Link
+          href={destinationHref('train')}
+          className={`${card} bg-surface-raised text-ink`}
+        >
           <span className="flex items-center gap-3 font-display text-2xl font-semibold max-narrow:text-xl">
             <Icon name="bolt" size={22} />
             Debate a bot
