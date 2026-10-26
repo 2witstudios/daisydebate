@@ -10,7 +10,7 @@ test('CI task results use immutable cache actions with fork writes refused', () 
   assert({
     given: 'the shared cache action used by static checks and browser builds',
     should:
-      'pin both cache operations and allow saves only on main pushes or same-repository PRs',
+      'pin both cache operations and admit trusted main/pu pushes or same-repository PRs',
     actual: {
       pins: [
         ...action.matchAll(
@@ -89,5 +89,59 @@ test('persisted results include root operational inputs and stay in the owning c
         '.env*',
       ],
     },
+  });
+});
+
+test('branch saves remain scoped and dispatch/fork writes are refused', async () => {
+  const { runInNewContext } = await import('node:vm');
+  const action = Bun.YAML.parse(
+    read('.github/actions/turbo-cache/action.yml'),
+  ) as {
+    runs: { steps: { uses?: string; if: string; with?: { key: string } }[] };
+  };
+  const save = action.runs.steps.find((step) => step.uses?.includes('/save@'))!;
+  for (const [event, ref, headRepository, expected] of [
+    ['push', 'refs/heads/pu/ci-affected', 'owner/repo', true],
+    ['push', 'refs/heads/main', 'owner/repo', true],
+    ['push', 'refs/heads/topic', 'owner/repo', false],
+    ['workflow_dispatch', 'refs/heads/pu/ci-affected', 'owner/repo', false],
+    ['workflow_dispatch', 'refs/heads/main', 'owner/repo', false],
+    ['pull_request', 'refs/pull/406/merge', 'fork/repo', false],
+    ['pull_request', 'refs/pull/406/merge', 'owner/repo', true],
+    ['pull_request_target', 'refs/heads/main', 'fork/repo', false],
+  ] as const) {
+    const context = {
+      inputs: { phase: 'save' },
+      github: {
+        event_name: event,
+        ref,
+        repository: 'owner/repo',
+        event: {
+          pull_request: { head: { repo: { full_name: headRepository } } },
+        },
+      },
+      startsWith: (value: string, prefix: string) => value.startsWith(prefix),
+    };
+    assert({
+      given: `${event} ${ref} ${headRepository}`,
+      should: 'admit only trusted branch-scoped saves',
+      actual: runInNewContext(save.if, context),
+      expected,
+    });
+    context.inputs.phase = 'restore';
+    assert({
+      given: `${event} in restore phase`,
+      should: 'never save',
+      actual: runInNewContext(save.if, context),
+      expected: false,
+    });
+  }
+  assert({
+    given: 'cache scope managed by GitHub',
+    should: 'never override scope with a privileged token or upload to main',
+    actual: /token:|GITHUB_TOKEN|cache-mode:|gh cache|ref:/.test(
+      read('.github/actions/turbo-cache/action.yml'),
+    ),
+    expected: false,
   });
 });

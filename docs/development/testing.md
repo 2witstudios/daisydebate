@@ -480,7 +480,10 @@ Only task outputs and logs are archived, never `.env`, credentials or service
 state. Infrastructure and browser test results are always executed fresh.
 
 Only successful task steps save, and only for main pushes or pull requests
-whose head repository is this repository. Fork PRs and manual dispatches may
+whose head repository is this repository, plus `pu/**` branch pushes. The latter
+seed standalone quick-check runs in their own GitHub branch scope; main and
+sibling branches cannot restore those caches. No privileged token or scope
+override is used. Fork PRs and manual dispatches may
 restore but never save through this action. GitHub also scopes PR caches to
 their merge ref: main cannot restore a PR cache. No `pull_request_target` job
 executes PR code or publishes its outputs into a main cache.
