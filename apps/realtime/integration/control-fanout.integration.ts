@@ -1,6 +1,6 @@
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { encodeOutboxCursor } from '@daisy/db';
+import { encodeOutboxCursor } from '@daisy/db/outbox';
 import { waitForOutboxFinality } from '@daisy/db/testing';
 import { buildUserInboxTopic } from '@daisy/protocol';
 import { serveRealtime } from '../src/serve';

@@ -1,6 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { Identity } from '@daisy/auth';
-import type { OnboardingStepWrite } from '@daisy/db';
+import type { OnboardingStepWrite } from '@daisy/db/profile';
 import { silentLogger } from '../../server/test-loggers.test-support';
 import { createOnboardingHandler } from './save-answers';
 import {
