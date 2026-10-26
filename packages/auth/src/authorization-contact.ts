@@ -70,7 +70,7 @@ export function contactSafetyAllowed(
  * declining a request is a safety exit, open even across a block; asking or
  * accepting needs both accounts current members and no block either way.
  */
-export function friendshipAllowed(
+function friendshipAllowed(
   actorId: string,
   capability: string,
   pair: ContactAuthorizationFact,
@@ -84,3 +84,14 @@ export function friendshipAllowed(
     (context.contactAccounts ?? []).every((account) => account.member)
   );
 }
+
+/** The one contact-pair decision: a block's safety rule, or friendship's. */
+export const contactPairAllowed = (
+  actorId: string,
+  capability: string,
+  pair: ContactAuthorizationFact,
+  context: AuthorizationInput['context'],
+): boolean =>
+  capability === 'social.block'
+    ? contactSafetyAllowed(actorId, pair, context)
+    : friendshipAllowed(actorId, capability, pair, context);

@@ -76,7 +76,12 @@ test('a request by username', async () => {
   assert({
     given: 'a member with no pair',
     should: 'commit a pending request and report it outgoing',
-    actual: await changeFriendship(principal, 'request', 'ada', run.dependencies),
+    actual: await changeFriendship(
+      principal,
+      'request',
+      'ada',
+      run.dependencies,
+    ),
     expected: { username: 'ada', relation: 'outgoing' },
   });
   assert({
@@ -102,7 +107,12 @@ test('accepting an incoming request', async () => {
   assert({
     given: 'an incoming request',
     should: 'report the pair friends',
-    actual: await changeFriendship(principal, 'accept', 'ada', run.dependencies),
+    actual: await changeFriendship(
+      principal,
+      'accept',
+      'ada',
+      run.dependencies,
+    ),
     expected: { username: 'ada', relation: 'friends' },
   });
 });
@@ -128,10 +138,10 @@ test('refusals', async () => {
   });
   await assertRejects({
     given: 'the actor’s own username',
-    should: 'refuse as validation',
+    should: 'refuse as an invariant',
     actual: () =>
       changeFriendship(principal, 'request', 'me', harness().dependencies),
-    code: 'VALIDATION',
+    code: 'INVARIANT',
   });
   await assertRejects({
     given: 'a fence denying the pair (a block)',

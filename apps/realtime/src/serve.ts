@@ -25,6 +25,23 @@ function drainOptions(
   };
 }
 
+const presenceTracker = (
+  resources: RealtimeApp,
+  presence:
+    { readonly instanceId: string; readonly nextId: () => string } | undefined,
+  timers: IntervalTimers,
+) =>
+  presence === undefined
+    ? {}
+    : {
+        presence: createPresenceTracker({
+          leases: resources.redis,
+          instanceId: presence.instanceId,
+          nextId: presence.nextId,
+          timers,
+        }),
+      };
+
 const listenerTls = (tls: Bun.TLSOptions | undefined) =>
   tls === undefined ? {} : { tls };
 
@@ -134,16 +151,7 @@ export async function serveRealtime({
       authenticate: delivery.authenticate,
       validatePrincipal: delivery.validatePrincipal,
       now,
-      ...(presence
-        ? {
-            presence: createPresenceTracker({
-              leases: resources.redis,
-              instanceId: presence.instanceId,
-              nextId: presence.nextId,
-              timers: scheduler,
-            }),
-          }
-        : {}),
+      ...presenceTracker(resources, presence, scheduler),
     },
   });
   let hintSubscription:

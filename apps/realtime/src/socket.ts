@@ -185,12 +185,21 @@ export function createWebSocketHandlers({
     if (!(await currentPrincipal(ws))) return;
     if (frame.type === 'ping')
       send(ws, { v: ENVELOPE_VERSION, type: 'pong', id: frame.id });
-    else if (frame.type === 'subscribe' && ws.data.connection)
-      await registry?.subscribe(ws.data.connection, frame);
-    else if (frame.type === 'unsubscribe' && ws.data.connection)
-      registry?.unsubscribe(ws.data.connection, frame);
     else if (frame.type === 'presence.activity')
       ws.data.presence?.activity(frame.activity);
+    else await receiveSubscription(ws, frame);
+  }
+  async function receiveSubscription(
+    ws: ServerWebSocket<SocketData>,
+    frame: Extract<
+      NonNullable<ReturnType<typeof parseFrame>>,
+      { type: 'subscribe' | 'unsubscribe' }
+    >,
+  ) {
+    if (!ws.data.connection) return;
+    if (frame.type === 'subscribe')
+      await registry?.subscribe(ws.data.connection, frame);
+    else registry?.unsubscribe(ws.data.connection, frame);
   }
   function parseFrame(ws: ServerWebSocket<SocketData>, message: string) {
     let parsed: unknown;

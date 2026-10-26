@@ -46,16 +46,7 @@ export function contactBlockWriter(
       )
       .returning();
     if (!updated) throw createAppError('NOT_FOUND');
-    // A block ends any friendship or request; unblocking never restores one.
-    if (command.blocked)
-      await tx
-        .delete(messagingFriendships)
-        .where(
-          and(
-            eq(messagingFriendships.lowActorId, pair.lowActorId),
-            eq(messagingFriendships.highActorId, pair.highActorId),
-          ),
-        );
+    await endFriendshipOnBlock(tx, pair, command.blocked);
     const [dm] = await tx
       .select()
       .from(messagingDmPairs)
@@ -88,6 +79,23 @@ export function contactBlockWriter(
       revision,
     };
   };
+}
+
+/** A block ends any friendship or request; unblocking never restores one. */
+async function endFriendshipOnBlock(
+  tx: Pick<BunSQLDatabase, 'delete'>,
+  pair: typeof messagingContactPairs.$inferSelect,
+  blocked: boolean,
+) {
+  if (!blocked) return;
+  await tx
+    .delete(messagingFriendships)
+    .where(
+      and(
+        eq(messagingFriendships.lowActorId, pair.lowActorId),
+        eq(messagingFriendships.highActorId, pair.highActorId),
+      ),
+    );
 }
 
 function requireChannel<T>(channel: T | undefined): asserts channel is T {

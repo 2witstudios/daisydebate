@@ -1,5 +1,5 @@
 import type { ConnectionDiagnostic } from './connection-diagnostics';
-import type { ServerMessage } from '@daisy/protocol';
+import type { PresenceActivity, ServerMessage } from '@daisy/protocol';
 import type { TerminalReason } from './close-code-policy';
 
 /**
@@ -61,6 +61,11 @@ export type ConnectionStore = {
   readonly resubscribeTopic: (topic: string) => void;
   /** Single-flight: a no-op while already connecting or open. */
   readonly connect: () => void;
+  /**
+   * This tab's presence activity (ADR 0033 §1): sent once per change while
+   * open, and again after a reconnect when it is not `active`.
+   */
+  readonly reportActivity: (activity: PresenceActivity) => void;
   /** User-initiated close (logout): closes the socket, never reconnects. */
   readonly close: () => void;
   /**

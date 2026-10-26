@@ -20,8 +20,7 @@ test('several actors’ presence and the online count come from live leases', ()
     await redis.upsertPresenceLease(lease('connP4', mixed, 'active'), 60);
     assert({
       given: 'an active, an idle, a mixed and an offline actor',
-      should:
-        'report active, idle, active and null, and count three online',
+      should: 'report active, idle, active and null, and count three online',
       actual: [
         [
           ...(

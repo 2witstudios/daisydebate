@@ -67,10 +67,7 @@ export const messagingFriendships = pgTable(
       'messaging_friendships_requester',
       sql`${table.requesterActorId} in (${table.lowActorId}, ${table.highActorId})`,
     ),
-    check(
-      'messaging_friendships_state',
-      oneOf(table.state, friendshipStates),
-    ),
+    check('messaging_friendships_state', oneOf(table.state, friendshipStates)),
     check(
       'messaging_friendships_time',
       sql`(${table.state} = 'pending' and ${table.acceptedAt} is null) or (${table.state} = 'accepted' and ${table.acceptedAt} is not null and ${table.acceptedAt} >= ${table.requestedAt})`,

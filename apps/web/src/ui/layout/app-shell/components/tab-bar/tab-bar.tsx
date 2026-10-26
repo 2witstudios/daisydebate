@@ -5,8 +5,7 @@ import { usePathname } from 'next/navigation';
 import { cn } from '../../../../cn';
 import { Icon, type IconName } from '../../../../components/icon/icon';
 import { itemActive } from '../../../../components/nav-item/nav-item';
-import { onlineNow } from '../../../../friends/friends';
-import { useUiState } from '../../../../store/store';
+import { useFriendsOnline } from '../../../../friends/use-friends-online';
 import type { ShellAccount } from '../../account';
 import {
   friendsLabel,
@@ -79,9 +78,7 @@ const moreLinksFor = (
  */
 export function TabBar({ account }: { readonly account: ShellAccount }) {
   const pathname = usePathname();
-  const online = useUiState((state) =>
-    onlineNow(state.collections.onlineUsers),
-  );
+  const online = useFriendsOnline(account.state === 'member') ?? 0;
   const moreLinks = moreLinksFor(account, online);
   return (
     <nav

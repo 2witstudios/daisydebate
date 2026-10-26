@@ -40,6 +40,8 @@ export function createFriendHandlers(dependencies: {
   readonly counts: (
     principal: AuthorizationPrincipal,
   ) => Promise<Omit<OnlineCounts, 'version'>>;
+  /** Named on the counts read, so the shell can open its presence socket. */
+  readonly websocketEndpoint: string | null;
 }) {
   const write = (
     request: Request,
@@ -69,12 +71,14 @@ export function createFriendHandlers(dependencies: {
     request: Request,
     name: string,
     operation: (principal: AuthorizationPrincipal) => Promise<T>,
+    headers: Readonly<Record<string, string>> = {},
   ) =>
     runMessagingHandler(dependencies.boundary, request, {
       name: `friends.${name}`,
       readOnly: true,
       readInput: async () => null,
       operation: (_input, principal) => operation(principal),
+      headers: { 'cache-control': 'no-store', ...headers },
     });
   return {
     request: (request: Request) =>
@@ -100,11 +104,17 @@ export function createFriendHandlers(dependencies: {
         }),
       ),
     counts: (request: Request) =>
-      read(request, 'counts', async (principal) =>
-        onlineCountsSchema.parse({
-          version: 1,
-          ...(await dependencies.counts(principal)),
-        }),
+      read(
+        request,
+        'counts',
+        async (principal) =>
+          onlineCountsSchema.parse({
+            version: 1,
+            ...(await dependencies.counts(principal)),
+          }),
+        dependencies.websocketEndpoint
+          ? { 'x-realtime-socket-url': dependencies.websocketEndpoint }
+          : {},
       ),
   };
 }

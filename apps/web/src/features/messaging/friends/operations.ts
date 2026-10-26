@@ -38,7 +38,7 @@ export type FriendOperationDependencies = {
 const refusalError = (refusal: FriendshipRefusal) =>
   createAppError(
     refusal === 'self'
-      ? 'VALIDATION'
+      ? 'INVARIANT'
       : refusal === 'limit'
         ? 'RATE_LIMIT'
         : refusal === 'no-request'
@@ -99,7 +99,9 @@ export async function changeFriendship(
 }
 
 export type FriendReadDependencies = {
-  readonly list: (actorId: string) => Promise<readonly MessagingFriendshipRow[]>;
+  readonly list: (
+    actorId: string,
+  ) => Promise<readonly MessagingFriendshipRow[]>;
   /** Each actor's presence; only friends are ever asked about. */
   readonly presence: (
     actorIds: readonly string[],

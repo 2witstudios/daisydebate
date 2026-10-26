@@ -61,6 +61,7 @@ export function composeFriendRoutes(app: App) {
     boundary: messagingHttpBoundary(app),
     change: composeFriendChange(app),
     list,
+    websocketEndpoint: app.websocketEndpoint,
     counts: async (principal) => {
       const [{ friends }, membersOnline] = await Promise.all([
         list(principal),

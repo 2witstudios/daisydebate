@@ -55,9 +55,14 @@ test('readFriendship reads the locked pair and both members’ counts', async ()
 test('commitFriendship reauthorizes and writes the next pair', async () => {
   const { client, queries } = fakeSql([[], [], []]);
   let fences = 0;
-  const frame = friendshipFrame(drizzle({ client }), input, [pair], async () => {
-    fences += 1;
-  });
+  const frame = friendshipFrame(
+    drizzle({ client }),
+    input,
+    [pair],
+    async () => {
+      fences += 1;
+    },
+  );
   await frame.commitFriendship({
     previous: null,
     next: { state: 'pending', requesterActorId: high },

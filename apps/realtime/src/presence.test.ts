@@ -22,7 +22,13 @@ const harness = ({
     failing ? Promise.reject(new Error('redis down')) : Promise.resolve(value);
   const leases: PresenceLeases = {
     upsertPresenceLease: (lease, ttl) => {
-      calls.push(['upsert', lease.connId, lease.activity, lease.instanceId, ttl]);
+      calls.push([
+        'upsert',
+        lease.connId,
+        lease.activity,
+        lease.instanceId,
+        ttl,
+      ]);
       return settle(undefined);
     },
     refreshPresenceLease: (lease, ttl) => {

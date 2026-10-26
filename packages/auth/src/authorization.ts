@@ -8,10 +8,7 @@ import { groupCommandResultAllowed } from './authorization-group-result';
 import { groupInvitationAllowed } from './authorization-invitation';
 import { requestChannelDecision } from './authorization-request';
 import { pendingFileCleanupAllowed } from './authorization-file';
-import {
-  contactSafetyAllowed,
-  friendshipAllowed,
-} from './authorization-contact';
+import { contactPairAllowed } from './authorization-contact';
 import { socialCreationAllowed } from './authorization-creation';
 import { policyEvidenceCurrent as currentPolicy } from './authorization-policy';
 import {
@@ -232,9 +229,7 @@ function resolveMemberResource(
       return decision(pendingFileCleanupAllowed(actorId, resource));
     case 'contact_pair':
       return decision(
-        capability === 'social.block'
-          ? contactSafetyAllowed(actorId, resource, context)
-          : friendshipAllowed(actorId, capability, resource, context),
+        contactPairAllowed(actorId, capability, resource, context),
       );
     case 'social_creation':
       return decision(

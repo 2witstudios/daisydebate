@@ -69,32 +69,50 @@ function acceptIncoming(
   return become({ state: 'accepted', requesterActorId: pair.requesterActorId });
 }
 
+const incomingOf = (facts: FriendshipFacts): FriendshipPair | null =>
+  facts.pair?.state === 'pending' &&
+  facts.pair.requesterActorId !== facts.actorId
+    ? facts.pair
+    : null;
+
+function decideRequest(facts: FriendshipFacts): FriendshipDecision {
+  const { pair } = facts;
+  if (pair?.state === 'accepted') return keep(pair);
+  const incoming = incomingOf(facts);
+  if (incoming) return acceptIncoming(facts, incoming);
+  if (pair) return keep(pair);
+  if (facts.blocked) return refuse('unavailable');
+  if (facts.actorPendingOutgoing >= friendshipPolicy.maxPendingOutgoing)
+    return refuse('limit');
+  return become({ state: 'pending', requesterActorId: facts.actorId });
+}
+
+function decideAccept(facts: FriendshipFacts): FriendshipDecision {
+  if (facts.pair?.state === 'accepted') return keep(facts.pair);
+  const incoming = incomingOf(facts);
+  return incoming ? acceptIncoming(facts, incoming) : refuse('no-request');
+}
+
+function decideDecline(facts: FriendshipFacts): FriendshipDecision {
+  if (!facts.pair) return keep(null);
+  return incomingOf(facts) ? become(null) : refuse('no-request');
+}
+
+const decisions: Readonly<
+  Record<FriendshipCommand, (facts: FriendshipFacts) => FriendshipDecision>
+> = {
+  request: decideRequest,
+  accept: decideAccept,
+  decline: decideDecline,
+  remove: (facts) => (facts.pair ? become(null) : keep(null)),
+};
+
 export function decideFriendship(
   facts: FriendshipFacts,
   command: FriendshipCommand,
 ): FriendshipDecision {
   if (facts.actorId === facts.otherActorId) return refuse('self');
-  const { pair } = facts;
-  const incoming =
-    pair?.state === 'pending' && pair.requesterActorId !== facts.actorId;
-  switch (command) {
-    case 'remove':
-      return pair ? become(null) : keep(null);
-    case 'decline':
-      if (!pair) return keep(null);
-      return incoming ? become(null) : refuse('no-request');
-    case 'accept':
-      if (pair?.state === 'accepted') return keep(pair);
-      return incoming ? acceptIncoming(facts, pair) : refuse('no-request');
-    case 'request':
-      if (pair?.state === 'accepted') return keep(pair);
-      if (incoming) return acceptIncoming(facts, pair);
-      if (pair) return keep(pair);
-      if (facts.blocked) return refuse('unavailable');
-      if (facts.actorPendingOutgoing >= friendshipPolicy.maxPendingOutgoing)
-        return refuse('limit');
-      return become({ state: 'pending', requesterActorId: facts.actorId });
-  }
+  return decisions[command](facts);
 }
 
 /** The viewer's relation to the other member of a pair. */

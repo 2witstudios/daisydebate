@@ -1,15 +1,12 @@
 'use client';
 
 import { NavItem } from '../../../../components/nav-item/nav-item';
-import { onlineNow } from '../../../../friends/friends';
-import { useUiState } from '../../../../store/store';
+import { useFriendsOnline } from '../../../../friends/use-friends-online';
 import { friendsLabel, memberDestinations } from '../destinations';
 
 /** Friends in the rail, with how many are online on the icon and in its name. */
 export function FriendsLink() {
-  const online = useUiState((state) =>
-    onlineNow(state.collections.onlineUsers),
-  );
+  const online = useFriendsOnline(true) ?? 0;
   const { href, icon, label } = memberDestinations.friends;
   return (
     <NavItem
