@@ -6,7 +6,8 @@ import { isNamedSeat, type RoomView } from '@daisy/protocol';
 import { AssemblyCommandFields } from './assembly-command-fields';
 import { buttonClass } from '../../components/button/button-class';
 import { readinessControl, type LocalReadiness } from './assembly-controls';
-import { waitingOn } from './room-labels';
+import { startRefusalText, waitingOn } from './room-labels';
+import type { ReactNode } from 'react';
 
 type Control = 'ready' | 'unready' | 'start-round';
 type View = Pick<
@@ -28,7 +29,7 @@ type Props = {
   readonly commandIds: Readonly<Record<Control, string>>;
 };
 
-function launchFence(
+function startFence(
   view: View,
   actorId: string,
   local: LocalReadiness,
@@ -105,7 +106,7 @@ export function ReadyControl({
       ) : null}
       {CommandForm({
         type: ready.type,
-        label: ready.type === 'ready' ? 'I am ready' : 'Not ready',
+        label: ready.type === 'ready' ? 'I’m ready' : 'Not ready',
         enabled: ready.enabled,
         version: view.version,
         commandId: commandIds[ready.type],
@@ -119,56 +120,62 @@ export function ReadyControl({
   );
 }
 
-function launchNotice(
+function startNotice(
   view: View,
   actorId: string,
   blocked: boolean,
 ): string | null {
   const waiting = waitingOn(view, actorId);
   if (waiting.length > 0) return `Waiting on: ${waiting.join(', ')}`;
-  if (blocked) return 'Waiting on: your readiness update';
+  if (blocked) return 'Waiting on: your camera and microphone check';
   if (view.startRefusal)
-    return `Waiting on: ${view.startRefusal.replaceAll('-', ' ')}`;
-  return null;
+    return `Waiting on ${startRefusalText(view.startRefusal)}`;
+  return 'Everyone is here and ready.';
 }
 
-/** "Waiting on" for everyone; the Launch submission for the host alone. */
-export function LaunchControl({
+/** The Start card: what it waits on for everyone, Start round for the host, then prep. */
+export function StartControl({
   view,
   actorId,
   local,
   action,
   commandIds,
-}: Props) {
-  const blocked = launchFence(view, actorId, local);
+  prep,
+}: Props & { readonly prep: ReactNode }) {
+  const blocked = startFence(view, actorId, local);
   const admissionBlocked =
     view.botAdmission !== null &&
     (view.botAdmission.kind === 'unavailable' ||
       view.botAdmission.refusal !== null);
-  const notice = launchNotice(view, actorId, blocked);
+  const notice = startNotice(view, actorId, blocked);
   return (
     <section
-      aria-label="Launch"
-      className="flex flex-wrap items-center justify-end gap-3"
+      aria-labelledby="room-start-title"
+      className="flex min-w-0 flex-col gap-3 rounded-xl border border-border bg-surface px-4 py-3"
     >
-      <p role="status" className="mr-auto text-sm text-ink-muted">
+      <h2 id="room-start-title" className="text-md font-semibold">
+        Start the round
+      </h2>
+      <p role="status" className="text-sm text-ink-muted">
         {notice}
       </p>
       {view.capabilities.host ? (
         <BotAdmissionNotice admission={view.botAdmission} />
       ) : null}
-      {view.capabilities.host
-        ? CommandForm({
-            type: 'start-round',
-            label: 'Launch',
-            enabled:
-              view.capabilities.canStart && !blocked && !admissionBlocked,
-            version: view.version,
-            commandId: commandIds['start-round'],
-            action,
-            className: buttonClass('primary'),
-          })
-        : null}
+      {view.capabilities.host ? (
+        CommandForm({
+          type: 'start-round',
+          label: 'Start round',
+          enabled: view.capabilities.canStart && !blocked && !admissionBlocked,
+          version: view.version,
+          commandId: commandIds['start-round'],
+          action,
+          className: `${buttonClass('primary')} w-full`,
+        })
+      ) : (
+        <p className="text-sm text-ink-muted">The host starts the round.</p>
+      )}
+      {prep}
     </section>
   );
 }

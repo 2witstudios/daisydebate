@@ -1,5 +1,7 @@
 import type { RoundView } from '@daisy/protocol';
 import { seatLabel } from '../room-page/assembly-controls';
+import { clockDuration } from '../../../features/rooms/duration-input';
+import { ruleRows, speechName } from '../../../features/debate-room/vocabulary';
 import { MediaPageLink } from '../../round-media/media-page-link';
 
 export type RoundReceiptView = Pick<
@@ -20,10 +22,10 @@ export type RoundReceiptView = Pick<
 };
 
 const statusLabel: Readonly<Record<RoundView['status'], string>> = {
-  scheduled: 'Scheduled',
-  active: 'Active',
-  completed: 'Completed',
-  abandoned: 'Abandoned',
+  scheduled: 'Not started',
+  active: 'In progress',
+  completed: 'Finished',
+  abandoned: 'Closed',
 };
 
 /**
@@ -47,6 +49,24 @@ const resultLabel: Readonly<Record<NonNullable<RoundView['outcome']>, string>> =
 
 type Participant = RoundReceiptView['participants'][number];
 
+/** The frozen rules in the room's words. */
+const settingRows = (round: RoundReceiptView) => {
+  const { interaction } = round.rules;
+  return ruleRows({
+    preRoundPrepMs: round.config.preRoundPrep.enabled
+      ? round.config.preRoundPrep.durationMs
+      : null,
+    prepPerSideMs: round.rules.inRoundPrep?.budgetMsPerSide ?? null,
+    countdownMs: round.rules.countdownMs,
+    crossExMode: interaction.crossExMode,
+    interruptions: interaction.interruptions && {
+      mode: interaction.interruptions.allowed,
+      minRemainingMs: interaction.interruptions.minRemainingMs,
+    },
+    yielding: interaction.yield,
+  });
+};
+
 /**
  * A seat's line. A human judge stays anonymous until both debaters have
  * reviewed the ballot, which nothing records yet (DEC-98).
@@ -61,12 +81,7 @@ const participantLine = (participant: Participant) => {
   return `${seat} · ${participant.label}${participant.kind === 'bot' ? ' · AI' : ''}`;
 };
 
-const duration = (ms: number) => {
-  const seconds = ms / 1000;
-  return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
-};
-
-/** A receipt of durable Launch and, once the ballot lands, the result. */
+/** A receipt of the round as it started and, once the ballot lands, the result. */
 export function RoundReceipt({ round }: { readonly round: RoundReceiptView }) {
   return (
     <main className="mx-auto flex w-full max-w-dash-column flex-col gap-6 px-6 py-8">
@@ -74,13 +89,27 @@ export function RoundReceipt({ round }: { readonly round: RoundReceiptView }) {
         <p className="text-sm text-ink-muted">
           Round · {statusLabel[round.status]}
         </p>
-        <h1 className="text-2xl font-strong text-ink">{round.topic}</h1>
+        <h1 className="font-display text-2xl font-semibold text-ink">
+          Round result
+        </h1>
         {round.outcome || round.status === 'completed' ? (
           <p className="text-lg font-strong text-ink">
             Result · {resultText(round)}
           </p>
         ) : null}
         <p className="text-ink-muted">Media is not available yet.</p>
+        <section
+          aria-labelledby="receipt-resolution"
+          className="mt-4 rounded-xl border border-border bg-surface-raised p-5"
+        >
+          <h2
+            id="receipt-resolution"
+            className="text-xs font-bold tracking-wide text-ink-muted uppercase"
+          >
+            Resolution
+          </h2>
+          <p className="font-display text-xl wrap-anywhere">{round.topic}</p>
+        </section>
         <MediaPageLink href={`/rooms/${round.roomId}`}>
           Return to room
         </MediaPageLink>
@@ -102,33 +131,14 @@ export function RoundReceipt({ round }: { readonly round: RoundReceiptView }) {
         aria-label="Frozen settings"
         className="rounded-xl bg-surface p-6 shadow-1"
       >
-        <h2 className="font-strong">Settings at Launch</h2>
-        <dl>
-          <dt>Pre-round preparation</dt>
-          <dd>
-            {round.config.preRoundPrep.enabled
-              ? duration(round.config.preRoundPrep.durationMs)
-              : 'Disabled'}
-          </dd>
-          <dt>In-round preparation per side</dt>
-          <dd>
-            {round.rules.inRoundPrep
-              ? duration(round.rules.inRoundPrep.budgetMsPerSide)
-              : 'Disabled'}
-          </dd>
-          <dt>Countdown</dt>
-          <dd>{duration(round.rules.countdownMs)}</dd>
-          <dt>Cross-examination</dt>
-          <dd>{round.rules.interaction.crossExMode}</dd>
-          <dt>Interruptions</dt>
-          <dd>
-            {round.rules.interaction.interruptions?.allowed ??
-              'Unavailable in this format'}
-          </dd>
-          <dt>Yielding</dt>
-          <dd>
-            {round.rules.interaction.yield?.allowed ? 'Allowed' : 'Disabled'}
-          </dd>
+        <h2 className="font-strong">Settings when the round started</h2>
+        <dl className="flex flex-col gap-2 text-sm">
+          {settingRows(round).map(([label, value]) => (
+            <div key={label} className="flex justify-between gap-3">
+              <dt className="text-ink-muted">{label}</dt>
+              <dd className="text-right tabular-nums">{value}</dd>
+            </div>
+          ))}
         </dl>
       </section>
       <section
@@ -139,8 +149,8 @@ export function RoundReceipt({ round }: { readonly round: RoundReceiptView }) {
         <ol>
           {round.rules.segments.map((segment) => (
             <li key={segment.key}>
-              {segment.label} · {seatLabel(segment.side, segment.slot)} ·{' '}
-              {duration(segment.durationMs)}
+              {speechName(segment)} · {seatLabel(segment.side, segment.slot)} ·{' '}
+              {clockDuration(segment.durationMs)}
             </li>
           ))}
         </ol>

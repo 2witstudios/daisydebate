@@ -1,57 +1,66 @@
 import { renderToStaticMarkup } from 'react-dom/server';
-import type { RoomView } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assemblySnapshot } from '../../../features/rooms/assembly.test-support';
-import { findElements } from '../../test-support/find-elements';
-import { AssemblySettingsForm } from './assembly-settings-form';
 import { RoomSettings } from './room-settings';
 
 setupRitewayBun();
-const action = async () => ({ values: {} });
 const guestView = {
   ...assemblySnapshot,
   capabilities: { ...assemblySnapshot.capabilities, canEdit: false },
 };
 
 test('saved schedule preserves the pinned asymmetric order and precise durations', () => {
-  const html = renderToStaticMarkup(
-    <RoomSettings view={guestView} commandId="c" action={action} />,
-  );
+  const html = renderToStaticMarkup(<RoomSettings view={guestView} />);
   assert({
     given:
       'the saved N3 then A1 rules with an independent millisecond override',
     should:
-      'render the actual order, seats and exact clock without a symmetric template',
+      'list the actual order by full name and code, with seats and the exact clock',
     actual: [
-      html.indexOf('Third negative reply') <
-        html.indexOf('Affirmative opening'),
+      html.indexOf('Third negative reply (N3)') <
+        html.indexOf('Affirmative opening (A1)'),
       html.includes('Negative 3'),
       html.includes('1:38.765'),
-      html.includes('test-unequal-template · revision 7'),
     ],
-    expected: [true, true, true, true],
+    expected: [true, true, true],
   });
 });
 
-test('saved settings summary and the host edit form', () => {
-  const html = renderToStaticMarkup(
-    <RoomSettings view={guestView} commandId="c" action={action} />,
-  );
-  const editForms = (view: RoomView) =>
-    findElements(
-      RoomSettings({ view, commandId: 'c', action }),
-      (element) => element.type === AssemblySettingsForm,
-    ).length;
+test('the summary reads in words and never shows the raw format id', () => {
+  const html = renderToStaticMarkup(<RoomSettings view={guestView} />);
   assert({
-    given: 'saved preparation and interaction settings, for host and guest',
-    should: 'summarize every value and offer editing to the host alone',
+    given: 'saved preparation and interaction settings',
+    should: 'summarize every value in the room vocabulary',
     actual: [
-      ['5:21', '14:47 each', '0:00.444', 'Free', 'Yield'].every((value) =>
-        html.includes(value),
-      ),
-      editForms(assemblySnapshot),
-      editForms(guestView),
+      [
+        '2v3 · about',
+        '5:21',
+        '14:47 per side',
+        '0:00.444',
+        'Open floor',
+        'Ending a speech early',
+      ].every((value) => html.includes(value)),
+      html.includes('test-unequal-template'),
+      html.includes('revision'),
     ],
-    expected: [true, 1, 0],
+    expected: [true, false, false],
+  });
+});
+
+test('only the host is offered Customize, which opens Room setup', () => {
+  const customize = (canEdit: boolean) =>
+    renderToStaticMarkup(
+      <RoomSettings
+        view={{
+          ...assemblySnapshot,
+          capabilities: { ...assemblySnapshot.capabilities, canEdit },
+        }}
+      />,
+    ).includes('href="#room-setup"');
+  assert({
+    given: 'the host, then a guest',
+    should: 'link the host to Room setup and give the guest the summary alone',
+    actual: [customize(true), customize(false)],
+    expected: [true, false],
   });
 });

@@ -16,7 +16,14 @@ const slot = (
   code: string,
   side: SpeechSlot['side'],
   durationMs: number,
-): SpeechSlot => ({ id, code, side, kind: 'speech', durationMs });
+): SpeechSlot => ({
+  id,
+  code,
+  name: code,
+  side,
+  kind: 'speech',
+  durationMs,
+});
 
 const speeches = [
   slot('ac', 'AC', 'aff', 300_000),

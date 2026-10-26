@@ -1,5 +1,9 @@
-import { isNamedSeat, type RoomView } from '@daisy/protocol';
-import { clockDuration } from '../../../features/rooms/duration-input';
+import { isNamedSeat, type RoomRefusal, type RoomView } from '@daisy/protocol';
+import {
+  roundLength,
+  ruleRows,
+  shapeLabel,
+} from '../../../features/debate-room/vocabulary';
 import { declaredSeats, seatLabel } from './assembly-controls';
 
 type Role = RoomView['participants'][number]['role'];
@@ -34,44 +38,98 @@ export function waitingOn(
     },
   );
   const prepRunning = view.prep.startedAt !== null && !view.prep.finished;
-  return prepRunning ? [...seats, 'Preparation'] : seats;
+  return prepRunning ? [...seats, 'Prep before the round'] : seats;
 }
 
+export const ROOM_SETUP_ID = 'room-setup';
+/** Every way into Room setup is this fragment link, so it opens without script. */
+export const ROOM_SETUP_HREF = `#${ROOM_SETUP_ID}`;
+
 const statusLabels = {
-  assembling: 'Before the round',
-  ready: 'Ready to launch',
-  started: 'Round started',
+  assembling: 'Setting up',
+  ready: 'Ready to start',
+  started: 'In progress',
   abandoned: 'Closed',
 } as const;
+
+/** "Setting up · 1 of 3 seats filled": the room's one status line. */
+export function roomStatus(
+  view: Pick<RoomView, 'status' | 'participants'> & {
+    readonly definition: Pick<RoomView['definition'], 'seats'>;
+  },
+): string {
+  const status = statusLabels[view.status];
+  if (view.status !== 'assembling') return status;
+  const { affirmative, negative, judge } = view.definition.seats;
+  const seats = affirmative + negative + judge;
+  return `${status} · ${view.participants.length} of ${seats} seats filled`;
+}
+
+const visibilityLabels = {
+  public: 'Listed in the lobby',
+  unlisted: 'Anyone with the link',
+  private: 'Invite only',
+} as const;
 const competitionLabels = {
-  ranked: 'Ranked',
-  casual: 'Casual',
+  ranked: 'Ranked · counts toward ratings',
+  casual: 'Casual · ratings don’t change',
 } as const;
 
-/** Status, shape and competition type: the room header chips. */
-export function roomChips(
-  view: Pick<RoomView, 'status' | 'definition' | 'competitionType'>,
-): readonly [string, string, string] {
-  const { affirmative, negative } = view.definition.seats;
-  const shape =
-    affirmative === 1 && negative === 1
-      ? 'One-on-one'
-      : `${affirmative} v ${negative}`;
+/** Host, who can join, and whether the result is rated: the header's meta line. */
+export function roomMeta(
+  view: Pick<RoomView, 'hostLabel' | 'visibility' | 'competitionType'>,
+): readonly string[] {
   return [
-    statusLabels[view.status],
-    shape,
+    ...(view.hostLabel === null ? [] : [`Hosted by ${view.hostLabel}`]),
+    visibilityLabels[view.visibility],
     competitionLabels[view.competitionType],
   ];
+}
+
+/** "1v1 · about 30 min": the format line, derived from the saved schedule. */
+export function formatLine(
+  view: Pick<RoomView, 'rules' | 'config'> & {
+    readonly definition: Pick<RoomView['definition'], 'seats'>;
+  },
+): string {
+  const { config } = view;
+  return `${shapeLabel(view.definition.seats)} · ${roundLength({
+    speechesMs: view.rules.segments.map((segment) => segment.durationMs),
+    countdownMs: config.speechTiming.countdownMs,
+    prepPerSideMs: config.inRoundPrep.enabled
+      ? config.inRoundPrep.budgetMsPerSide
+      : null,
+  })}`;
+}
+
+const refusalText: Readonly<Record<RoomRefusal, string>> = {
+  'version-conflict': 'the latest room changes',
+  'host-required': 'the host',
+  'room-closed': 'nothing: this room is closed',
+  'illegal-config': 'round settings the format allows',
+  'seat-unavailable': 'an open seat',
+  'actor-ineligible': 'an eligible debater',
+  'not-seated': 'every seat to be filled',
+  'incomplete-cast': 'every seat to be filled',
+  'not-ready': 'everyone to be ready',
+  'readiness-unavailable': 'everyone’s camera and microphone check',
+  'prep-running': 'prep before the round to finish',
+  'prep-unavailable': 'prep before the round',
+  'command-conflict': 'the latest room changes',
+  'consent-conflict': 'the latest readiness changes',
+};
+
+/** Why Start round is refused, in words; never the raw refusal code. */
+export function startRefusalText(refusal: RoomRefusal): string {
+  return refusalText[refusal];
 }
 
 export function seatStatus(occupant: Participant | undefined): string {
   if (!occupant) return 'Open';
   if (!occupant.eligible) return 'Not eligible';
-  if (!occupant.needsReady) return 'Server managed';
+  if (!occupant.needsReady) return 'Always ready';
   if (occupant.ready === 'ready') return 'Ready';
-  return occupant.ready === 'unavailable'
-    ? 'Readiness unavailable'
-    : 'Not ready';
+  return occupant.ready === 'unavailable' ? 'Checking devices' : 'Not ready';
 }
 
 // Literal class names so the Tailwind scanner emits every step.
@@ -96,52 +154,23 @@ export function speechGrow(durationMs: number): (typeof growSteps)[number] {
   return growSteps[Math.min(Math.max(minutes, 1), growSteps.length) - 1]!;
 }
 
-const interruptionLabels = {
-  disabled: 'Off',
-  cross_ex_only: 'Cross-ex only',
-  enabled: 'Allowed',
-} as const;
-
-function yieldLabel(yielding: RoomView['config']['yielding']): string {
-  if (!yielding?.allowed) return 'Off';
-  return yielding.returnsTime ? 'Returns time' : 'Allowed';
-}
-
-/** The saved configuration as label/value rows. */
+/** The saved configuration as label/value rows, in the room's vocabulary. */
 export function settingRows(
   view: Pick<RoomView, 'config'>,
 ): readonly (readonly [string, string])[] {
   const { config } = view;
-  const interruptions = config.interruptions;
-  return [
-    [
-      'Before the round',
-      config.preRoundPrep.enabled
-        ? clockDuration(config.preRoundPrep.durationMs)
-        : 'Off',
-    ],
-    [
-      'Prep',
-      config.inRoundPrep.enabled
-        ? `${clockDuration(config.inRoundPrep.budgetMsPerSide)} each`
-        : 'Off',
-    ],
-    ['Countdown', clockDuration(config.speechTiming.countdownMs)],
-    [
-      'Cross-ex',
-      config.crossExamination.crossExMode === 'ordered' ? 'Ordered' : 'Free',
-    ],
-    ['Interruptions', interruptionLabels[interruptions?.mode ?? 'disabled']],
-    ...(interruptions && interruptions.mode !== 'disabled'
-      ? [
-          [
-            'Minimum remaining',
-            clockDuration(interruptions.minRemainingMs),
-          ] as const,
-        ]
-      : []),
-    ['Yield', yieldLabel(config.yielding)],
-  ];
+  return ruleRows({
+    preRoundPrepMs: config.preRoundPrep.enabled
+      ? config.preRoundPrep.durationMs
+      : null,
+    prepPerSideMs: config.inRoundPrep.enabled
+      ? config.inRoundPrep.budgetMsPerSide
+      : null,
+    countdownMs: config.speechTiming.countdownMs,
+    crossExMode: config.crossExamination.crossExMode,
+    interruptions: config.interruptions,
+    yielding: config.yielding,
+  });
 }
 
 /** "Maya Okafor" → "MO": an avatar's two initials. */

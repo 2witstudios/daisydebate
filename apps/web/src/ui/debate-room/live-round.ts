@@ -23,8 +23,8 @@ const sideOf: Readonly<Record<DebateSide, Side>> = {
   negative: 'neg',
 };
 const sideName: Readonly<Record<DebateSide, string>> = {
-  affirmative: 'Aff',
-  negative: 'Neg',
+  affirmative: 'Affirmative',
+  negative: 'Negative',
 };
 
 const live = (view: RoundView) =>
@@ -76,6 +76,7 @@ const speechesOf = (view: RoundView): readonly SpeechSlot[] =>
   view.rules.segments.map((segment, index) => ({
     id: `${index}-${segment.key}`,
     code: segment.key,
+    name: segment.label,
     side: sideOf[segment.side],
     kind: segment.type === 'cross_ex' ? 'cross-ex' : 'speech',
     durationMs: segment.durationMs,
@@ -127,7 +128,7 @@ const segmentClock = (
 ) => ({
   label:
     open.type === 'cross_ex'
-      ? `${open.key} · ${open.side === side ? 'You ask' : 'You answer'}`
+      ? `Cross-examination · ${open.side === side ? 'You ask' : 'You answer'}`
       : `${open.key} · ${open.label}`,
   remainingMs: open.remainingMs,
 });

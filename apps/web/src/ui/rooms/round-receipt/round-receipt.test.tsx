@@ -68,13 +68,13 @@ test('persisted scheduled Round renders the frozen asymmetric schedule and cast'
       'show its real receipt, ordered slots and exact durations without implying media or a ballot exists',
     actual: [
       html.includes('&lt;Frozen topic&gt;'),
-      html.includes('Scheduled'),
-      html.includes('0m 45s'),
-      html.includes('free'),
+      html.includes('Not started'),
+      html.includes('0:45'),
+      html.includes('Open floor'),
       html.includes('Affirmative 2'),
-      html.includes('2m 5s'),
-      html.includes('1m 30s'),
-      html.indexOf('Aff reply') < html.indexOf('Neg closing'),
+      html.includes('2:05'),
+      html.includes('1:30'),
+      html.indexOf('Aff reply (A2)') < html.indexOf('Neg closing (N1)'),
       html.includes('Judge Sage'),
       html.includes('AI'),
       html.includes('/rooms/room-owned'),
@@ -134,7 +134,7 @@ test('a completed zero-judge Round presents an unjudged result without inventing
       html.includes('Result · Unjudged'),
       html.includes('Draw'),
       html.includes('won'),
-      html.includes('Abandoned'),
+      html.includes('Closed'),
     ],
     expected: [true, false, false, false],
   });
@@ -147,7 +147,7 @@ test('a judged Round hands its result to the receipt', () => {
     should:
       'show it completed with the result, and the judge seat without the judge’s name',
     actual: [
-      html.includes('Round · Completed'),
+      html.includes('Round · Finished'),
       html.includes('Negative won'),
       html.includes('Judge 1'),
       html.includes('Riley'),
@@ -195,5 +195,20 @@ test('a Round closed on an incomplete transcript says so instead of blaming the 
       html.includes('won'),
     ],
     expected: [true, false, false, false],
+  });
+});
+
+test('the receipt labels the resolution and never shows a raw setting value', () => {
+  const html = renderToStaticMarkup(<RoundReceipt round={scheduled} />);
+  assert({
+    given: 'a frozen round with prep, countdown and interaction rules',
+    should: 'label the resolution and read every setting in words',
+    actual: [
+      html.includes('>Resolution</h2>'),
+      html.includes('Settings when the round started'),
+      /Disabled|>free<|>disabled<|\dm \d+s|Launch/.test(html),
+      html.includes('>Off<'),
+    ],
+    expected: [true, true, false, true],
   });
 });

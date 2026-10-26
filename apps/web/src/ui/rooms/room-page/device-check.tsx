@@ -44,12 +44,22 @@ const remedy: Partial<Record<Reason, (kind: DeviceKind) => string>> = {
     `Make sure nothing covers or mutes your ${kind}, or choose another, then check again.`,
 };
 
+const statusLabel: Readonly<
+  Record<Exclude<Snapshot[DeviceKind]['status'], 'passed'>, string>
+> = {
+  unchecked: 'not checked yet',
+  checking: 'checking…',
+  denied: 'blocked',
+  unavailable: 'can’t be used',
+};
+
+/** "Camera: in use": the reason when there is one, else the state in words. */
 function statusText(kind: DeviceKind, state: Snapshot[DeviceKind]) {
   if (state.status === 'passed')
     return { line: `✓ ${kindLabel[kind]}`, help: null };
   const reason = state.reason;
   return {
-    line: `${kindLabel[kind]}: ${state.status}${reason ? ` · ${reasonLabel[reason](kind)}` : ''}`,
+    line: `${kindLabel[kind]}: ${reason ? reasonLabel[reason](kind) : statusLabel[state.status]}`,
     help: (reason && remedy[reason]?.(kind)) ?? null,
   };
 }

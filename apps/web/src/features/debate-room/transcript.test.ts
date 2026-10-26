@@ -13,6 +13,7 @@ setupRitewayBun();
 const speech = (id: string, side: SpeechSlot['side']): SpeechSlot => ({
   id,
   code: id.toUpperCase(),
+  name: id.toUpperCase(),
   side,
   kind: 'speech',
   durationMs: 300_000,

@@ -23,6 +23,32 @@ export const deniedCommand = (
     headers: { origin },
     data: { ...body, commandId: createId(), expectedVersion: view.version },
   });
+/** Opens Room setup; `rules` also opens its speeches-and-rules disclosure. */
+export async function openRoomSetup(page: Page, rules = false) {
+  await page.getByRole('link', { name: 'Room setup', exact: true }).click();
+  if (rules)
+    await page
+      .getByText('Customize speeches and rules', { exact: true })
+      .click();
+  return page.getByRole('form', { name: 'Round settings' });
+}
+/** Turns prep before the round off in Room setup; returns the settings form. */
+export async function turnOffPreRoundPrep(page: Page) {
+  const settings = await openRoomSetup(page);
+  await settings
+    .getByRole('checkbox', { name: /^Prep before the round/ })
+    .uncheck();
+  await settings.getByRole('button', { name: 'Save round settings' }).click();
+  return settings;
+}
+/** "1:03.456": a duration as the m:ss field takes it. */
+export const clockText = (ms: number) => {
+  const rest = ms % 60000;
+  const fraction = rest % 1000;
+  return `${Math.floor(ms / 60000)}:${String(Math.floor(rest / 1000)).padStart(2, '0')}${
+    fraction ? `.${String(fraction).padStart(3, '0').replace(/0+$/, '')}` : ''
+  }`;
+};
 /** Fills and submits the shared create-Room form, from /play/room or a fresh-Room page. */
 export async function submitCreateRoom(
   page: Page,
@@ -31,7 +57,7 @@ export async function submitCreateRoom(
 ) {
   const form = page.getByRole('form', { name: 'Create a room' });
   await expect(form).toBeVisible();
-  const templates = form.getByLabel('Format template');
+  const templates = form.getByLabel('Format', { exact: true });
   const values = await templates
     .locator('option')
     .evaluateAll((options) =>
@@ -43,10 +69,8 @@ export async function submitCreateRoom(
   if (!selected) throw new Error('Required actual format template is missing');
   await templates.selectOption(selected);
   await form.getByLabel('Room name', { exact: true }).fill(title);
-  await form
-    .getByLabel('Debate topic')
-    .fill('Proof cities should fund transit');
-  await form.getByLabel('Who can find the room').selectOption('public');
+  await form.getByLabel('Resolution').fill('Proof cities should fund transit');
+  await form.getByLabel('Who can join').selectOption('public');
   await form.getByRole('button', { name: 'Create room', exact: true }).click();
   await expect(page).toHaveURL(/\/rooms\/[a-z0-9]+$/);
   const id = new URL(page.url()).pathname.split('/').at(-1)!;
@@ -113,10 +137,7 @@ export async function prepareRoomAs(
   own: (typeof seats)[number],
 ) {
   let view = await createFromPlay(page, title, 'one-on-one');
-  await page.getByText('Edit settings', { exact: true }).click();
-  const settings = page.getByRole('form', { name: 'Room settings' });
-  await settings.getByLabel('Enable preparation before Launch').uncheck();
-  await settings.getByRole('button', { name: 'Save settings' }).click();
+  const settings = await turnOffPreRoundPrep(page);
   await expect(async () => {
     view = await reread(page.request, view.id);
     expect(view.config.preRoundPrep).toEqual({ enabled: false });
@@ -191,7 +212,7 @@ export async function readyUp(
     await page
       .getByRole('button', { name: `Check ${device}`, exact: true })
       .click();
-  await page.getByRole('button', { name: 'I am ready', exact: true }).click();
+  await page.getByRole('button', { name: 'I’m ready', exact: true }).click();
   await expect(
     page.getByRole('button', { name: 'Not ready', exact: true }),
   ).toBeVisible();

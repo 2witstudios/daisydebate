@@ -53,7 +53,7 @@ export async function proveUnjudgedJourney(browser: Browser) {
     await expect(
       header.getByText('Result · Unjudged', { exact: true }),
     ).toBeVisible();
-    await expect(header).toContainText('Round · Completed');
+    await expect(header).toContainText('Round · Finished');
     for (const untrue of ['Draw', 'Abandoned', 'won', 'ballot'])
       await expect(header).not.toContainText(untrue);
   } finally {

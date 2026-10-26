@@ -41,13 +41,13 @@ describe('DebateRoom', () => {
     assert({
       given: 'a casual round with a human judge, recording',
       should:
-        'show the kind, the live speech as the current step, the anonymous judge, Rec and Leave',
+        'show the kind, the live speech as the current step, the anonymous judge, Recording and Leave round',
       actual: [
-        html.includes('>Casual<'),
+        html.includes('Casual'),
         html.includes('aria-current="step"'),
         html.includes('>Judge present<'),
-        html.includes('● Rec'),
-        html.includes('aria-label="Leave room"'),
+        html.includes('● Recording'),
+        html.includes('Leave round'),
       ],
       expected: [true, true, true, true, true],
     });
@@ -218,7 +218,7 @@ describe('DebateRoom', () => {
       actual: [
         html.includes('● Live'),
         html.includes('>Complete<'),
-        html.includes('>Rec stopped<'),
+        html.includes('>Recording stopped<'),
         html.includes('● Rec'),
       ],
       expected: [false, true, true, false],

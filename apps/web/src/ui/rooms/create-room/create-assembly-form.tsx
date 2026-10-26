@@ -46,37 +46,39 @@ export function CreateAssemblyFields({
           className={controlClass}
         />
       </FormField>
-      <FormField id="assembly-topic" label="Debate topic">
+      <FormField id="assembly-topic" label="Resolution">
         <textarea
           id="assembly-topic"
           name="topic"
           required
+          aria-describedby="assembly-topic-hint"
           defaultValue={state.values.topic ?? ''}
           className={controlClass}
         />
       </FormField>
+      <p id="assembly-topic-hint" className="-mt-3 text-xs text-ink-muted">
+        One statement: the Affirmative argues for it, the Negative against it.
+      </p>
       <FormatTemplatePicker
         key={state.values.selection ?? 'initial'}
         choices={choices}
         defaultValue={state.values.selection}
       />
-      <FormField id="assembly-visibility" label="Who can find the room">
+      <FormField id="assembly-visibility" label="Who can join">
         <select
           id="assembly-visibility"
           name="visibility"
           defaultValue={state.values.visibility ?? 'unlisted'}
           className={controlClass}
         >
-          <option value="unlisted">
-            Unlisted — join through the room link
-          </option>
-          <option value="public">Public — show in the Lobby</option>
+          <option value="unlisted">Anyone with the link</option>
+          <option value="public">Listed in the lobby — anyone can join</option>
           {/* Private returns with an invite path (ISSUE-443, DEC-206). */}
         </select>
       </FormField>
       <FormError error={state.error} />
       {choices.length === 0 ? (
-        <p role="status">No format templates are available yet.</p>
+        <p role="status">No formats are available yet.</p>
       ) : null}
       <button
         type="submit"

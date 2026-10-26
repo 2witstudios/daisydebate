@@ -1,3 +1,4 @@
+import { clockText } from './room-launch-flow';
 import type { Browser } from '@playwright/test';
 import { createId } from '@paralleldrive/cuid2';
 import { roomCatalogChoiceSchema } from '@daisy/protocol';
@@ -26,7 +27,7 @@ export async function proveFormatPicker(browser: Browser) {
     if (!chosen)
       throw new Error('Format picker proof needs an actual catalog choice');
     const form = page.getByRole('form', { name: 'Create a room' });
-    const native = form.getByLabel('Format template', { exact: true });
+    const native = form.getByLabel('Format', { exact: true });
     const before = await native.inputValue();
     const browse = form.getByRole('button', {
       name: 'Browse formats',
@@ -46,7 +47,7 @@ export async function proveFormatPicker(browser: Browser) {
         chosen.defaultConfig.speechTiming.segmentDurationOverrides[
           segment.key
         ] ?? segment.defaultDurationMs;
-      await expect(ordered.nth(index)).toContainText(`${duration / 1000} s`);
+      await expect(ordered.nth(index)).toContainText(clockText(duration));
     }
     await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
     await expect(native).toHaveValue(before);
@@ -68,7 +69,7 @@ export async function proveFormatPicker(browser: Browser) {
       .getByLabel('Room name', { exact: true })
       .fill(`Picker ${createId().slice(0, 8)}`);
     await form
-      .getByLabel('Debate topic')
+      .getByLabel('Resolution')
       .fill('Proof cities should fund transit');
     await form
       .getByRole('button', { name: 'Create room', exact: true })
