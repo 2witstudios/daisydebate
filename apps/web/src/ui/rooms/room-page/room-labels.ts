@@ -117,6 +117,7 @@ const refusalText: Readonly<Record<RoomRefusal, string>> = {
   'prep-unavailable': 'prep before the round',
   'command-conflict': 'the latest room changes',
   'consent-conflict': 'the latest readiness changes',
+  'active-room': 'everyone to leave their other rooms',
 };
 
 /** Why Start round is refused, in words; never the raw refusal code. */

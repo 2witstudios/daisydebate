@@ -165,13 +165,19 @@ describe('room lobby labels', () => {
 
   test('a start refusal reads as what the room still needs', () => {
     assert({
-      given: 'an incomplete cast and a version conflict',
+      given:
+        'an incomplete cast, a version conflict and a member in another room',
       should: 'never show the raw refusal code',
       actual: [
         startRefusalText('incomplete-cast'),
         startRefusalText('version-conflict'),
+        startRefusalText('active-room'),
       ],
-      expected: ['every seat to be filled', 'the latest room changes'],
+      expected: [
+        'every seat to be filled',
+        'the latest room changes',
+        'everyone to leave their other rooms',
+      ],
     });
   });
 
