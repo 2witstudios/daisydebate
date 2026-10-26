@@ -39,7 +39,8 @@ export async function roundCommandAction(
 /**
  * Leaving a live Round forfeits it: the existing forfeit command ends the
  * Round, which frees its Room's members (ADR 0070), then the debater goes
- * to the lobby. A refused forfeit stays in the Round with its reason.
+ * to the Round's result, where a seat that no longer plays always lands.
+ * A refused forfeit stays in the Round with its reason.
  */
 export async function leaveRoundAction(
   roundId: string,
@@ -48,7 +49,7 @@ export async function leaveRoundAction(
 ): Promise<RoundFormState> {
   const { incoming, answer } = await submitRound(roundId, form);
   if (!answer.acknowledged) return answer;
-  return { values: {}, ...moveOn(incoming, '/lobby') };
+  return { values: {}, ...moveOn(incoming, `/rounds/${roundId}`) };
 }
 
 const nativeState = processRoute(

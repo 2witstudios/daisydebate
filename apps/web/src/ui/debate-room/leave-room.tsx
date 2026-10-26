@@ -37,7 +37,7 @@ const action =
 
 const unanswered: RoundFormState = { values: {} };
 
-/** Leave as the confirmed forfeit; it works without script and moves on to the lobby. */
+/** Leave as the confirmed forfeit; it works without script and moves on to the result. */
 function ForfeitLeave({
   forfeit,
 }: {
