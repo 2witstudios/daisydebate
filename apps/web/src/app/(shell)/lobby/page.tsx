@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { systemClock } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import type { SearchParams } from '../../../features/access/decision';
 import { parseRoomDiscoveryQuery } from '../../../features/lobby/discovery-query';
@@ -21,6 +22,7 @@ export default async function LobbyPage({
     requestActiveRoom(),
   ]);
   if (listing.kind !== 'found') throw createAppError('INFRASTRUCTURE');
+  const now = Date.parse(systemClock.now());
   return (
     <Lobby
       query={query.data}
@@ -28,7 +30,7 @@ export default async function LobbyPage({
       nextCursor={listing.nextCursor}
       retry={listing.retry}
       activeRoom={activeRoom}
-      now={Date.now()}
+      now={now}
     />
   );
 }

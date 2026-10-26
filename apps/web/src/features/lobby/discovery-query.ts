@@ -3,18 +3,24 @@ import {
   roomListQuerySchema,
   roomListStatuses,
   type RoomListQuery,
+  type RoomListStatus,
 } from '@daisy/protocol';
 import type { SearchParams } from '../access/decision';
 
 /** The listing's own page size when the URL names none. */
 export const defaultPageSize = 20;
 
+/** A status tab: every status, or one the listing narrows to. */
+export type LobbyStatus = 'all' | RoomListStatus;
+
 /** The status tabs: every status, then each one the listing narrows to. */
-export const lobbyStatusChoices = ['all', ...roomListStatuses] as const;
+export const lobbyStatusChoices: readonly LobbyStatus[] = [
+  'all',
+  ...roomListStatuses,
+];
 /** The mode select: any mode, then each competition type. */
 export const lobbyModeChoices = ['any', ...competitionTypes] as const;
 
-export type LobbyStatus = (typeof lobbyStatusChoices)[number];
 export type LobbyMode = (typeof lobbyModeChoices)[number];
 
 /** The Lobby's "every status" and "any mode" choices narrow nothing. */
