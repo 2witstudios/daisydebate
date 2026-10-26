@@ -1,6 +1,8 @@
 import type {
   DebateRole,
+  FormatChange,
   FormatDefinition,
+  FormatStanding,
   RoomConfig,
   RoomExecutionPlan,
   RoundRules,
@@ -23,66 +25,6 @@ export type StandingBasis = {
   readonly definition: FormatDefinition;
   readonly config: RoomConfig;
 };
-
-type Interruptions = RoundRules['interaction']['interruptions'];
-type Yielding = RoundRules['interaction']['yield'];
-
-/**
- * One rule a room changed from its basis. Viewer-safe by construction: no
- * variant carries host-authored text or an arbitrary config object.
- */
-type FormatChange =
-  | {
-      readonly kind: 'seats';
-      readonly role: DebateRole;
-      readonly from: number;
-      readonly to: number;
-    }
-  | {
-      readonly kind: 'segments';
-      readonly added: readonly string[];
-      readonly removed: readonly string[];
-      /** Kept keys whose speaker, type, label or position moved. */
-      readonly changed: readonly string[];
-    }
-  | {
-      readonly kind: 'segment-duration';
-      readonly key: string;
-      readonly fromMs: number;
-      readonly toMs: number;
-    }
-  | {
-      readonly kind: 'countdown';
-      readonly fromMs: number;
-      readonly toMs: number;
-    }
-  | {
-      readonly kind: 'in-round-prep' | 'pre-round-prep';
-      readonly fromMs: number | null;
-      readonly toMs: number | null;
-    }
-  | {
-      readonly kind: 'cross-ex-mode';
-      readonly from: RoundRules['interaction']['crossExMode'];
-      readonly to: RoundRules['interaction']['crossExMode'];
-    }
-  | {
-      readonly kind: 'interruptions';
-      readonly from: Interruptions;
-      readonly to: Interruptions;
-    }
-  | { readonly kind: 'yield'; readonly from: Yielding; readonly to: Yielding };
-
-type FormatStanding =
-  | { readonly kind: 'standard'; readonly formatId: string }
-  | {
-      readonly kind: 'custom';
-      readonly basis: {
-        readonly formatId: string;
-        readonly role: 'standard' | 'template';
-      } | null;
-      readonly changes: readonly FormatChange[];
-    };
 
 type Compiled = {
   readonly rules: RoundRules;

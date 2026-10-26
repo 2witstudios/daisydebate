@@ -26,6 +26,8 @@ export {
   segmentTypes,
 } from './format';
 export type { FormatDefinition, RoundRules, SegmentType } from './format';
+export { formatStandingSchema } from './format-standing';
+export type { FormatChange, FormatStanding } from './format-standing';
 export { roomConfigSchema, roomExecutionPlanSchema } from './room';
 export {
   CAPTURE_CALL_DEADLINE_MS,
