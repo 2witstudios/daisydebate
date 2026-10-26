@@ -3,11 +3,7 @@
 import { headers } from 'next/headers';
 import { revalidatePath } from 'next/cache';
 import { systemId } from '@daisy/clock';
-import {
-  friendCommandResultSchema,
-  friendListSchema,
-  parseUsername,
-} from '@daisy/protocol';
+import { friendCommandResultSchema } from '@daisy/protocol';
 import {
   friendDoneNotice,
   friendFormUnavailable,
@@ -16,8 +12,7 @@ import {
   parseFriendForm,
   type FriendFormState,
 } from '../../../features/messaging/friends/forms';
-import { challengeRoomForm } from '../../../features/messaging/friends/challenge';
-import { readRoomTemplates } from '../../../features/rooms/read-catalog';
+import { challengeFriend } from '../../../features/messaging/friends/challenge';
 import { submitRoomCreation } from '../../../features/rooms/create-room-form';
 import { requestIdentity } from '../../../lib/request-session';
 import { inProcessFetch } from '../../../server/in-process-fetch';
@@ -74,25 +69,6 @@ export async function friendAction(
   }
 }
 
-/** Whether `username` is one of this member's accepted friends now. */
-async function isFriend(incoming: Headers, username: string) {
-  try {
-    const response = await inProcessFetch(friendList, incoming)(
-      '/api/friends',
-      { method: 'GET' },
-    );
-    const list = friendListSchema.safeParse(
-      response.ok ? await response.json() : null,
-    );
-    return (
-      list.success &&
-      list.data.friends.some((friend) => friend.username === username)
-    );
-  } catch {
-    return false;
-  }
-}
-
 /**
  * Challenge an accepted friend: an unlisted room named for the two members,
  * then the room itself, whose invite link the challenger sends (ADR 0072).
@@ -101,31 +77,19 @@ export async function challengeAction(
   _previous: FriendFormState,
   form: FormData,
 ): Promise<FriendFormState> {
-  const friend = parseUsername(form.get('username'));
-  const unavailable = {
-    username: '',
-    notice: 'Could not open a challenge room. Try again.',
-  };
   const identity = await requestIdentity();
-  if (!friend.ok || identity.state !== 'member') return unavailable;
+  if (identity.state !== 'member')
+    return { username: '', notice: 'Sign in to challenge a friend.' };
   const incoming = new Headers(await headers());
-  if (!(await isFriend(incoming, friend.username))) return unavailable;
-  const catalog = await readRoomTemplates(
-    inProcessFetch(roomCatalog, incoming),
-  );
-  const template = catalog.kind === 'found' ? catalog.choices[0] : undefined;
-  if (!template) return unavailable;
-  const created = await submitRoomCreation(
-    inProcessFetch(createRoom, incoming),
-    incoming,
-    challengeRoomForm({
-      viewer: identity.username,
-      friend: friend.username,
-      template,
-      commandId: systemId.next(),
-    }),
-  );
-  return created.next === undefined
-    ? { username: '', notice: created.error ?? unavailable.notice }
-    : { username: '', next: created.next };
+  return challengeFriend({
+    viewer: identity.username,
+    form,
+    commandId: systemId.next(),
+    routes: {
+      friends: inProcessFetch(friendList, incoming),
+      catalog: inProcessFetch(roomCatalog, incoming),
+    },
+    create: (room) =>
+      submitRoomCreation(inProcessFetch(createRoom, incoming), incoming, room),
+  });
 }

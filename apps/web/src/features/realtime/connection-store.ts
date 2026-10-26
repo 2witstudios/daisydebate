@@ -64,7 +64,10 @@ export function createConnectionStore(
   let pingCounter = 0;
   let heartbeatTimer: unknown = null;
   let reconnectTimer: unknown = null;
-  const activity = createActivityReport((frame) => socket?.send(frame));
+  const activity = createActivityReport(
+    (frame) => socket?.send(frame),
+    deps.reportsPresence === true,
+  );
   const listeners = new Set<(state: ConnectionState) => void>();
   const topics = createTopicSubscriptions({
     send: (frame) => {

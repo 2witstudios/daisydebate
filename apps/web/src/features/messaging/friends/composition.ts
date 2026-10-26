@@ -1,6 +1,7 @@
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { App } from '../../../server/app';
 import { consumeOrThrow } from '../../auth/abuse/rate-limit';
+import { requireMessagingAuthorization } from '../authorization';
 import { messagingHttpBoundary } from '../handler-boundary';
 import { messagingSocialAuthorizationFence } from '../social-authorization';
 import { createFriendHandlers } from './handlers';
@@ -15,8 +16,19 @@ import type { FriendshipCommand } from './friendship';
 /** Friend changes per member per minute: generous for people, not for scripts. */
 const FRIEND_RULE = { windowSeconds: 60, max: 30 } as const;
 
-const friendReads = (app: App): FriendReadDependencies => ({
-  list: (actorId) => app.database.listMessagingFriendships(actorId),
+const friendReads = (
+  app: App,
+  principal: AuthorizationPrincipal,
+): FriendReadDependencies => ({
+  list: (scope) =>
+    app.database.listMessagingFriendships(scope, async ({ account }) =>
+      requireMessagingAuthorization({
+        principal,
+        capability: 'social.friend.list',
+        resource: { kind: 'messaging_collection', actorId: scope.actorId },
+        context: { account },
+      }),
+    ),
   presence: async (actorIds) =>
     new Map(
       [...(await app.redis.readActorsPresence(actorIds))].map(
@@ -26,11 +38,8 @@ const friendReads = (app: App): FriendReadDependencies => ({
 });
 
 /** The member's own friend list, for pages and the list route. */
-const composeFriendList = (app: App) => {
-  const reads = friendReads(app);
-  return (principal: AuthorizationPrincipal) =>
-    readFriendList(principal, reads);
-};
+const composeFriendList = (app: App) => (principal: AuthorizationPrincipal) =>
+  readFriendList(principal, friendReads(app, principal));
 
 /** One friendship change through the contact fence for the principal. */
 const composeFriendChange =

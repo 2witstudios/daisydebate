@@ -76,18 +76,36 @@ test('a friendship is asked, accepted, listed both ways and ended by a block (AD
         [{ requester: actorId, state: 'accepted', accepted: true }],
       ],
     });
-    const [mine, theirs] = await Promise.all([
-      listMessagingFriendships(database, actorId!),
-      listMessagingFriendships(database, otherActorId!),
-    ]);
+    const fenced: unknown[] = [];
+    const fence: Parameters<typeof listMessagingFriendships>[2] = async ({
+      account,
+    }) => {
+      fenced.push([account?.actorId, account?.member, account?.erased]);
+    };
+    const mine = await listMessagingFriendships(
+      database,
+      { userId: userId!, actorId: actorId! },
+      fence,
+    );
+    const theirs = await listMessagingFriendships(
+      database,
+      { userId: otherUserId!, actorId: otherActorId! },
+      fence,
+    );
     assert({
       given: 'the accepted pair',
-      should: 'list each member to the other by username',
+      should:
+        'fence each reader on their fresh account and list each member to the other by username',
       actual: [
+        fenced,
         mine.map((row) => [row.otherActorId, row.username, row.state]),
         theirs.map((row) => [row.otherActorId, row.username, row.state]),
       ],
       expected: [
+        [
+          [actorId, true, false],
+          [otherActorId, true, false],
+        ],
         [[otherActorId, otherUserId, 'accepted']],
         [[actorId, userId, 'accepted']],
       ],

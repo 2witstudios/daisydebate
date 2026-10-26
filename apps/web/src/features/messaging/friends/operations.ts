@@ -99,9 +99,11 @@ export async function changeFriendship(
 }
 
 export type FriendReadDependencies = {
-  readonly list: (
-    actorId: string,
-  ) => Promise<readonly MessagingFriendshipRow[]>;
+  /** The reader's own rows, behind the `social.friend.list` decision. */
+  readonly list: (scope: {
+    readonly userId: string;
+    readonly actorId: string;
+  }) => Promise<readonly MessagingFriendshipRow[]>;
   /** Each actor's presence; only friends are ever asked about. */
   readonly presence: (
     actorIds: readonly string[],
@@ -125,8 +127,8 @@ export async function readFriendList(
   principal: AuthorizationPrincipal,
   dependencies: FriendReadDependencies,
 ): Promise<Omit<FriendList, 'version'>> {
-  const { actorId } = requireMessagingActor(principal);
-  const rows = await dependencies.list(actorId);
+  const { actorId, userId } = requireMessagingActor(principal);
+  const rows = await dependencies.list({ userId, actorId });
   const accepted = rows.filter((row) => row.state === 'accepted');
   const presence = accepted.length
     ? await dependencies.presence(accepted.map((row) => row.otherActorId))

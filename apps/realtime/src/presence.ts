@@ -33,7 +33,10 @@ export type PresenceSession = {
   readonly stop: () => void;
 };
 export type PresenceTracker = {
-  readonly start: (actorId: string) => PresenceSession;
+  readonly start: (
+    actorId: string,
+    activity: PresenceActivity,
+  ) => PresenceSession;
 };
 
 /**
@@ -56,9 +59,9 @@ export function createPresenceTracker({
 }): PresenceTracker {
   const ignore = () => {};
   return {
-    start(actorId) {
+    start(actorId, activity) {
       const key = { connId: nextId(), actorId };
-      let current: PresenceActivity = 'active';
+      let current = activity;
       let stopped = false;
       const upsert = () =>
         leases.upsertPresenceLease(

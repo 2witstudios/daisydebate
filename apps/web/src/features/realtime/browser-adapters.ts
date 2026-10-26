@@ -51,9 +51,13 @@ export function onDocumentVisibilityChange(
  * resolves the realtime origin itself, since that seam belongs to whoever
  * wires the store into a page (out of RT-2.6a's scope; see the handoff).
  */
-export function createBrowserConnectionStore(url: string): ConnectionStore {
+export function createBrowserConnectionStore(
+  url: string,
+  { reportsPresence = false }: { readonly reportsPresence?: boolean } = {},
+): ConnectionStore {
   const deps: ConnectionStoreDeps = {
     url,
+    reportsPresence,
     createSocket: (socketUrl: string): WebSocketLike =>
       new WebSocket(socketUrl),
     scheduler: systemScheduler,

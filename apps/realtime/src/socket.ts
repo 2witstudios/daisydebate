@@ -4,6 +4,7 @@ import {
   clientMessageSchema,
   ENVELOPE_VERSION,
   serverMessageSchema,
+  type PresenceActivity,
   type ServerMessage,
 } from '@daisy/protocol';
 import type {
@@ -159,7 +160,6 @@ export function createWebSocketHandlers({
     clearHelloTimer(ws, timers);
     ws.data.principal = principal;
     ws.data.phase = 'authenticated';
-    ws.data.presence = presence?.start(principal.actorId);
     if (registry)
       ws.data.connection = registry.add(
         {
@@ -190,8 +190,21 @@ export function createWebSocketHandlers({
     if (frame.type === 'ping')
       send(ws, { v: ENVELOPE_VERSION, type: 'pong', id: frame.id });
     else if (frame.type === 'presence.activity')
-      ws.data.presence?.activity(frame.activity);
+      reportActivity(ws, frame.activity);
     else await receiveSubscription(ws, frame);
+  }
+  /**
+   * Only a socket that reports activity holds a presence lease (ADR 0072):
+   * a room's or a conversation's socket is transport, not the member's
+   * activity, so it never keeps them online.
+   */
+  function reportActivity(
+    ws: ServerWebSocket<SocketData>,
+    activity: PresenceActivity,
+  ) {
+    if (ws.data.presence) ws.data.presence.activity(activity);
+    else if (ws.data.principal)
+      ws.data.presence = presence?.start(ws.data.principal.actorId, activity);
   }
   async function receiveSubscription(
     ws: ServerWebSocket<SocketData>,

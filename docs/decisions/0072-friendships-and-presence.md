@@ -46,15 +46,20 @@ fence (accounts, then the pair, then a channel).
    room membership or any competitive standing. When friendship starts a
    DM, messaging's own age and contact policy (ADR 0061) decides that, not
    this record.
-6. **Presence is written by realtime.** Each authenticated socket holds one
-   ADR 0033 lease: upserted `active` on hello, refreshed every 20 s with a
-   60 s TTL, updated by `presence.activity` frames and deleted on close. A
-   lease write that fails is logged by the Redis adapter and never closes a
-   socket. The shell keeps one realtime socket open per signed-in tab and
-   reports `idle` while the tab is hidden or has had no input for five
-   minutes.
-7. **Who may see presence.** Only accepted friends see a member's status:
-   `GET /api/friends` reads each friend's leases in one bounded Lua op
+6. **Presence is written by realtime, for the tab's presence connection
+   only.** A socket holds an ADR 0033 lease only once it reports activity:
+   its first `presence.activity` frame upserts the lease, later frames
+   update it, it refreshes every 20 s with a 60 s TTL, and it is deleted on
+   close. The shell opens one presence connection per signed-in tab and
+   reports on every ready, then `idle` while the tab is hidden or has had no
+   input for five minutes and `active` again on input. A room's or a
+   conversation's socket never reports, so transport liveness never keeps a
+   member online; several genuinely active tabs still do. A lease write that
+   fails is logged by the Redis adapter and never closes a socket.
+7. **Who may see presence.** Only accepted friends see a member's status.
+   `GET /api/friends` first passes `authorize` (`social.friend.list` over the
+   reader's own `messaging_collection`, on their freshly locked account),
+   lists only unblocked pairs, then reads each friend's leases in one bounded Lua op
    (`readActorsPresence`) and shows `online` (any active connection), `away`
    (only idle ones) or `offline`. The member count online
    (`countOnlinePresence`) is an aggregate with no identities. Presence

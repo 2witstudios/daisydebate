@@ -47,6 +47,8 @@ export type ConnectionStoreDeps = {
   readonly onVisibilityChange: (
     callback: (visible: boolean) => void,
   ) => () => void;
+  /** Whether this connection carries the tab's presence (the shell's only). */
+  readonly reportsPresence?: boolean;
 };
 
 export type ConnectionStore = {
@@ -62,8 +64,9 @@ export type ConnectionStore = {
   /** Single-flight: a no-op while already connecting or open. */
   readonly connect: () => void;
   /**
-   * This tab's presence activity (ADR 0033 §1): sent once per change while
-   * open, and again after a reconnect when it is not `active`.
+   * This tab's presence activity (ADR 0033 §1): a presence-reporting
+   * connection sends it on every ready and once per change while open;
+   * any other connection ignores it.
    */
   readonly reportActivity: (activity: PresenceActivity) => void;
   /** User-initiated close (logout): closes the socket, never reconnects. */

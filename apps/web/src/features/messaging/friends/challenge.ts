@@ -1,4 +1,6 @@
-import type { RoomTemplate } from '../../rooms/read-catalog';
+import { friendListSchema, parseUsername } from '@daisy/protocol';
+import type { MockFormState } from '../../mock-form/form';
+import { readRoomTemplates, type RoomTemplate } from '../../rooms/read-catalog';
 
 /** The topic a challenge room opens with; the host edits it on the room page. */
 const CHALLENGE_TOPIC = 'Open topic: agree on a resolution in the room';
@@ -8,7 +10,7 @@ const CHALLENGE_TOPIC = 'Open topic: agree on a resolution in the room';
  * link reaches it, on the catalog's first template with that template's
  * own defaults, named for the two members.
  */
-export function challengeRoomForm({
+function challengeRoomForm({
   viewer,
   friend,
   template,
@@ -35,4 +37,68 @@ export function challengeRoomForm({
     }),
   );
   return form;
+}
+
+type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
+type ChallengeAnswer = {
+  readonly username: string;
+  readonly notice?: string;
+  readonly next?: string;
+};
+const challengeUnavailable: ChallengeAnswer = {
+  username: '',
+  notice: 'Could not open a challenge room. Try again.',
+};
+
+/** Whether `username` is one of the caller's accepted friends now. */
+async function isFriend(friends: FetchLike, username: string) {
+  try {
+    const response = await friends('/api/friends', { method: 'GET' });
+    const list = friendListSchema.safeParse(
+      response.ok ? await response.json() : null,
+    );
+    return (
+      list.success &&
+      list.data.friends.some((friend) => friend.username === username)
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Challenge an accepted friend (ADR 0072): confirm the friendship through
+ * the friend list route, take the catalog's default template, and create
+ * the room through the one room-create route, every call carrying the
+ * caller's own request. A member who is not a friend gets the same answer
+ * as an outage.
+ */
+export async function challengeFriend({
+  viewer,
+  form,
+  commandId,
+  routes,
+  create,
+}: {
+  readonly viewer: string;
+  readonly form: FormData;
+  readonly commandId: string;
+  readonly routes: { readonly friends: FetchLike; readonly catalog: FetchLike };
+  readonly create: (form: FormData) => Promise<MockFormState>;
+}): Promise<ChallengeAnswer> {
+  const friend = parseUsername(form.get('username'));
+  if (!friend.ok || !(await isFriend(routes.friends, friend.username)))
+    return challengeUnavailable;
+  const catalog = await readRoomTemplates(routes.catalog);
+  const template = catalog.kind === 'found' ? catalog.choices[0] : undefined;
+  if (!template) return challengeUnavailable;
+  const created = await create(
+    challengeRoomForm({ viewer, friend: friend.username, template, commandId }),
+  );
+  return created.next === undefined
+    ? {
+        username: '',
+        notice: created.error ?? challengeUnavailable.notice ?? '',
+      }
+    : { username: '', next: created.next };
 }

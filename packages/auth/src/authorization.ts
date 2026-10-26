@@ -64,6 +64,7 @@ function validResourceKind(
     'channel.reaction.remove': 'channel_reaction',
     'channel.preferences.clear': 'channel_preference',
     'channel.inbox.read': 'messaging_collection',
+    'social.friend.list': 'messaging_collection',
     'channel.file.cleanup': 'pending_file',
   } as const;
   const kind = specialized[capability as keyof typeof specialized];

@@ -60,7 +60,7 @@ const harness = ({
 
 test('a socket’s lease lifecycle', async () => {
   const { tracker, calls, intervals } = harness();
-  const session = tracker.start(actorId);
+  const session = tracker.start(actorId, 'active');
   intervals[0]!.callback();
   session.activity('idle');
   session.activity('idle');
@@ -89,7 +89,7 @@ test('a socket’s lease lifecycle', async () => {
 
 test('an expired lease is upserted again on refresh', async () => {
   const { tracker, calls, intervals } = harness({ refreshed: false });
-  tracker.start(actorId);
+  tracker.start(actorId, 'active');
   intervals[0]!.callback();
   await flush();
   assert({
@@ -102,7 +102,7 @@ test('an expired lease is upserted again on refresh', async () => {
 
 test('a Redis outage never throws into the socket', async () => {
   const { tracker, intervals } = harness({ failing: true });
-  const session = tracker.start(actorId);
+  const session = tracker.start(actorId, 'active');
   intervals[0]!.callback();
   session.activity('idle');
   session.stop();

@@ -90,7 +90,9 @@ export const retainPresenceSession = createPresenceSessions({
   fetch: (url, init) => fetch(url, init),
   startBeacon: (endpoint) =>
     startPresenceBeacon({
-      connection: createBrowserConnectionStore(endpoint),
+      connection: createBrowserConnectionStore(endpoint, {
+        reportsPresence: true,
+      }),
       scheduler: systemScheduler,
       isVisible: () => document.visibilityState === 'visible',
       onVisibilityChange: onDocumentVisibilityChange,

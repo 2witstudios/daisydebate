@@ -18,8 +18,8 @@ const hello = JSON.stringify({
 const connect = async () => {
   const events: unknown[][] = [];
   const presence: PresenceTracker = {
-    start: (actor) => {
-      events.push(['start', actor]);
+    start: (actor, activity) => {
+      events.push(['start', actor, activity]);
       return {
         activity: (activity) => events.push(['activity', activity]),
         stop: () => events.push(['stop']),
@@ -48,28 +48,37 @@ const connect = async () => {
   return { ws, handlers, events };
 };
 
-test('an authenticated socket holds one presence session', async () => {
-  const { ws, handlers, events } = await connect();
-  await handlers.message(
-    ws,
-    JSON.stringify({ v: 1, type: 'presence.activity', activity: 'idle' }),
-  );
-  handlers.close(ws);
+const activity = (value: 'active' | 'idle') =>
+  JSON.stringify({ v: 1, type: 'presence.activity', activity: value });
+
+test('only a socket that reports activity holds a presence session', async () => {
+  const quiet = await connect();
+  quiet.handlers.close(quiet.ws);
+  const reporting = await connect();
+  await reporting.handlers.message(reporting.ws, activity('active'));
+  await reporting.handlers.message(reporting.ws, activity('idle'));
+  reporting.handlers.close(reporting.ws);
   assert({
-    given: 'a hello, an idle report and a clean close',
-    should: 'start presence for the actor, report idle, then stop it',
-    actual: events,
-    expected: [['start', actorId], ['activity', 'idle'], ['stop']],
+    given:
+      'a room or conversation socket that never reports, and a shell socket that reports active then idle',
+    should:
+      'hold no lease for the first, and start, update and stop one for the second',
+    actual: [quiet.events, reporting.events],
+    expected: [
+      [],
+      [['start', actorId, 'active'], ['activity', 'idle'], ['stop']],
+    ],
   });
 });
 
 test('a rejected socket stops its presence session', async () => {
   const { ws, handlers, events } = await connect();
+  await handlers.message(ws, activity('idle'));
   await handlers.message(ws, 'not json');
   assert({
-    given: 'an authenticated socket sending an unparseable frame',
+    given: 'a reporting socket sending an unparseable frame',
     should: 'stop presence as it closes',
     actual: events,
-    expected: [['start', actorId], ['stop']],
+    expected: [['start', actorId, 'idle'], ['stop']],
   });
 });

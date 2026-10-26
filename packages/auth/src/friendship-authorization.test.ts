@@ -70,3 +70,38 @@ test('friendship authority over the contact pair', () => {
     expected: [false, false],
   });
 });
+
+test('a member reads only their own friend collection', () => {
+  const read = (
+    actorId: string,
+    account: ReturnType<typeof adultAccount>['account'] | null,
+  ) =>
+    authorize({
+      principal: { kind: 'user', userId: 'a', actorId: 'a' },
+      capability: 'social.friend.list',
+      resource: { kind: 'messaging_collection', actorId },
+      context: { account },
+    }).allow;
+  assert({
+    given:
+      'their own collection, another actor’s, and their own with an erased, non-member or missing account',
+    should: 'allow only the current member reading their own',
+    actual: [
+      read('a', adultAccount('a').account),
+      read('b', adultAccount('a').account),
+      read('a', { ...adultAccount('a').account, erased: true }),
+      read('a', { ...adultAccount('a').account, member: false }),
+      read('a', null),
+    ],
+    expected: [true, false, false, false, false],
+  });
+  assert({
+    given: 'the list capability on a contact pair',
+    should: 'deny the mismatched resource',
+    actual: authorize({
+      ...input('social.friend.request'),
+      capability: 'social.friend.list',
+    }).allow,
+    expected: false,
+  });
+});

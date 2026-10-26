@@ -4,6 +4,7 @@ const authorizationCapabilities = [
   'social.block',
   'social.friend.request',
   'social.friend.end',
+  'social.friend.list',
   'social.request.create',
   'channel.create.private_group',
   'foundation.create',
