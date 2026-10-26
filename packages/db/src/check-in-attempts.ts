@@ -37,6 +37,16 @@ export function checkInAttemptLifecycle(attempt: CheckInAttempt) {
       metadata: CheckInAttemptMetadata,
       outcome: 'committed' | 'aborted',
     ): Promise<void> {
+      // An abort closes only after the writer's absence is confirmed, and the
+      // reconciler settles exactly such markers. Lock first: this waits out a
+      // reconciler mid-transaction and then reads its committed state, and one
+      // it already aborted for this writer is the same verified fact
+      // (ISSUE-618). A single statement's snapshot would still see 'pending'.
+      const [held] = (await control.execute(
+        sql`select state from round_check_in_attempts where attempt_id=${attempt.attemptId}
+     and backend_pid=${metadata.writer.pid} and backend_started_at=${metadata.writer.backendStart}::timestamptz for update`,
+      )) as unknown as { state: string }[];
+      if (outcome === 'aborted' && held?.state === 'aborted') return;
       const rows =
         await control.execute(sql`update round_check_in_attempts a set state=${outcome},resolved_at=statement_timestamp()
     where a.attempt_id=${attempt.attemptId} and a.state='pending' and a.backend_pid=${metadata.writer.pid}
