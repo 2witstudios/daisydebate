@@ -1,6 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   configsForScript,
+  compilerArgs,
   sameDiagnostics,
   parseMeasurement,
 } from './typecheck-benchmark';
@@ -29,6 +30,26 @@ describe('typecheck benchmark evidence', () => {
         "bun ../../scripts/heavy.ts sh -c 'next typegen && tsc --noEmit'",
       ),
       expected: ['apps/web/tsconfig.json'],
+    });
+  });
+  test('isolates compiler incremental state for generated Next types', () => {
+    assert({
+      given: 'web negative and timing controls from different engines',
+      should:
+        'use private incremental metadata without changing typechecking options',
+      actual: compilerArgs(
+        'apps/web/tsconfig.json',
+        '/tmp/evidence/native.tsbuildinfo',
+      ),
+      expected: [
+        '--noEmit',
+        '--pretty',
+        'false',
+        '-p',
+        'apps/web/tsconfig.json',
+        '--tsBuildInfoFile',
+        '/tmp/evidence/native.tsbuildinfo',
+      ],
     });
   });
   test('compares diagnostics without hiding changed codes, locations or text', () => {

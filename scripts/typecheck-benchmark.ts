@@ -3,9 +3,20 @@ import { mkdir, rm } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 
 export const configsForScript = (workspace: string, script: string): string[] =>
-  [...script.matchAll(/(?:tsc|tsgo) --noEmit(?: -p ([\w.\/-]+))?/g)].map(
+  [...script.matchAll(/(?:tsc|tsgo) --noEmit(?: -p ([\w./-]+))?/g)].map(
     (match) => `${workspace}/${match[1] ?? 'tsconfig.json'}`,
   );
+
+export const compilerArgs = (project: string, buildInfo: string) => [
+  '--noEmit',
+  '--pretty',
+  'false',
+  '-p',
+  project,
+  ...(project === 'apps/web/tsconfig.json'
+    ? ['--tsBuildInfoFile', buildInfo]
+    : []),
+];
 
 export const sameDiagnostics = (left: string, right: string): boolean =>
   left.replaceAll('\r\n', '\n').trim() ===
@@ -90,9 +101,7 @@ async function measureProject(
     for (const [engine, command] of order) {
       const buildInfo = `${output}/${engine}.tsbuildinfo`;
       await rm(buildInfo, { force: true });
-      const args = ['--noEmit', '--pretty', 'false', '-p', project];
-      if (project === 'apps/web/tsconfig.json')
-        args.push('--tsBuildInfoFile', buildInfo);
+      const args = compilerArgs(project, buildInfo);
       samples.push(
         await measure(
           project,
@@ -122,12 +131,14 @@ async function negativeControl(
   try {
     const results: Sample[] = [];
     for (const [engine, command] of Object.entries(engines)) {
+      const buildInfo = `${output}/${engine}-negative.tsbuildinfo`;
+      await rm(buildInfo, { force: true });
       results.push(
         await measure(
           project,
           engine,
           0,
-          [...command, '--noEmit', '--pretty', 'false', '-p', project],
+          [...command, ...compilerArgs(project, buildInfo)],
           output,
         ),
       );
