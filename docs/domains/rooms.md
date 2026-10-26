@@ -120,3 +120,8 @@ and when the tab becomes visible. Doorbells carry no delivery guarantee, so
 the driver also polls: every 30 seconds while realtime is connected, and every
 5 seconds without a connection or while stale. A hydrated command adopts the
 server's answer instead of navigating.
+
+Room persistence has one command path: `createRoomCommand` and
+`executeRoomCommand` atomically persist the engine's member set with every
+accepted Room mutation. Seating, prep and Launch all use that path; there is
+no separate low-level seat or freeze writer.

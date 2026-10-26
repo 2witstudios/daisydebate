@@ -1,5 +1,6 @@
 import { requireTestServices } from '@daisy/config';
 import {
+  buildDebateTopic,
   roomViewSchema,
   roomCatalogChoiceSchema,
   roomCastChoiceSchema,
@@ -32,6 +33,23 @@ test('outbox failure rolls back Launch including frozen Round and participants',
     });
     const launched = await f.command(f.host, view, { type: 'start-round' });
     roomViewSchema.parse(launched.view);
+    const phase = await f.sql`
+      select payload from outbox
+      where topic = ${buildDebateTopic(launched.view.roundRef!.id)}
+        and kind = 'debate.phase-changed'
+    `;
+    assert({
+      given: 'a Room frozen through the canonical command operation',
+      should: 'commit exactly one scheduled Round phase doorbell',
+      actual: phase.map((row) => row.payload),
+      expected: [
+        {
+          kind: 'debate.phase-changed',
+          ids: [launched.view.roundRef!.id],
+          entityVersion: 1,
+        },
+      ],
+    });
     (await f.operations.catalog(f.host)).forEach((choice) =>
       roomCatalogChoiceSchema.parse(choice),
     );
