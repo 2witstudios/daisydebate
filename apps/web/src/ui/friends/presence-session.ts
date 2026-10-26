@@ -4,12 +4,11 @@
 import '../debate-room/zod-jitless';
 import { onlineCountsSchema } from '@daisy/protocol';
 import {
+  browserTabPresence,
   createBrowserConnectionStore,
-  onDocumentVisibilityChange,
-  systemScheduler,
 } from '../../features/realtime/browser-adapters';
 import { realtimeEndpointOf } from '../../features/realtime/endpoint-header';
-import { startPresenceBeacon } from '../../features/realtime/presence-beacon';
+import { keepPresenceConnection } from '../../features/realtime/tab-presence';
 
 /** How often the shell re-reads how many friends are online. */
 const ONLINE_COUNTS_POLL_MS = 60_000;
@@ -18,7 +17,7 @@ type Listener = (friendsOnline: number) => void;
 
 type SessionPorts = {
   readonly fetch: (url: string, init: RequestInit) => Promise<Response>;
-  /** Opens the presence socket at `endpoint`; returns its stop. */
+  /** Keeps a presence socket at `endpoint` while the tab has none; returns its stop. */
   readonly startBeacon: (endpoint: string) => () => void;
   readonly setInterval: (callback: () => void, ms: number) => unknown;
   readonly clearInterval: (handle: unknown) => void;
@@ -77,29 +76,13 @@ export function createPresenceSessions(ports: SessionPorts) {
   };
 }
 
-const INPUT_EVENTS = ['pointerdown', 'keydown', 'wheel', 'touchstart'] as const;
-const onDocumentInput = (listener: () => void) => {
-  for (const type of INPUT_EVENTS)
-    document.addEventListener(type, listener, { passive: true });
-  return () => {
-    for (const type of INPUT_EVENTS)
-      document.removeEventListener(type, listener);
-  };
-};
-
 /** This tab's presence session over the browser's own fetch, timers and socket. */
 export const retainPresenceSession = createPresenceSessions({
   fetch: (url, init) => fetch(url, init),
   startBeacon: (endpoint) =>
-    startPresenceBeacon({
-      connection: createBrowserConnectionStore(endpoint, {
-        reportsPresence: true,
-      }),
-      scheduler: systemScheduler,
-      isVisible: () => document.visibilityState === 'visible',
-      onVisibilityChange: onDocumentVisibilityChange,
-      onInput: onDocumentInput,
-    }),
+    keepPresenceConnection(browserTabPresence(), () =>
+      createBrowserConnectionStore(endpoint),
+    ),
   setInterval: (callback, ms) => setInterval(callback, ms),
   clearInterval: (handle) =>
     clearInterval(handle as ReturnType<typeof setInterval>),

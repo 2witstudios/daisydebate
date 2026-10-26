@@ -283,9 +283,10 @@ test('actual authenticated socket enforces version, hello deadline, malformed fr
       accounts.members[0]!.context,
       'RT native refusals',
     );
-    // A signed-in shell page holds the tab's presence connection (ADR 0072):
-    // it is a real socket, so it takes one of the actor's slots. Wait until
-    // it is ready, then the cap leaves room for exactly maxPerActor - 1 more.
+    // The lobby opens no socket of its own, so the shell holds the tab's
+    // presence connection (ADR 0072): a real socket, taking one of the
+    // actor's slots. Wait until it is ready, then the cap leaves room for
+    // exactly maxPerActor - 1 more.
     const presenceReady = page
       .waitForEvent('websocket')
       .then((socket) =>

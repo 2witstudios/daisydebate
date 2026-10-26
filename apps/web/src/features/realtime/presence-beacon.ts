@@ -1,26 +1,23 @@
-import type { ConnectionStore, Scheduler } from './connection-types';
+import type { PresenceActivity } from '@daisy/protocol';
+import type { Scheduler } from './connection-types';
 
 /** ADR 0033 §1: idle after five minutes without input, or while hidden. */
 export const IDLE_AFTER_MS = 300_000;
 
 /**
- * Keeps a signed-in tab's realtime connection open so its presence lease
- * lives, and reports `idle` while the tab is hidden or has had no input for
- * `IDLE_AFTER_MS`, `active` otherwise. Input only stamps a time; one timer
- * checks it, so a burst of input costs no timer churn. Returns a stop that
- * closes the connection.
+ * A tab's one activity source (ADR 0072): reports `idle` while the tab is
+ * hidden or has had no input for `IDLE_AFTER_MS`, `active` otherwise. Input
+ * only stamps a time; one timer checks it, so a burst of input costs no
+ * timer churn. Returns a stop that releases every listener.
  */
 export function startPresenceBeacon({
-  connection,
+  report,
   scheduler,
   isVisible,
   onVisibilityChange,
   onInput,
 }: {
-  readonly connection: Pick<
-    ConnectionStore,
-    'connect' | 'close' | 'reportActivity'
-  >;
+  readonly report: (activity: PresenceActivity) => void;
   readonly scheduler: Scheduler;
   readonly isVisible: () => boolean;
   readonly onVisibilityChange: (
@@ -39,10 +36,10 @@ export function startPresenceBeacon({
     // only one check is ever scheduled.
     if (timer !== null) scheduler.clearTimeout(timer);
     timer = null;
-    if (!isVisible()) return connection.reportActivity('idle');
+    if (!isVisible()) return report('idle');
     const quiet = scheduler.now() - lastInput;
-    if (quiet >= IDLE_AFTER_MS) return connection.reportActivity('idle');
-    connection.reportActivity('active');
+    if (quiet >= IDLE_AFTER_MS) return report('idle');
+    report('active');
     arm(IDLE_AFTER_MS - quiet);
   }
   const stopVisibility = onVisibilityChange((visible) => {
@@ -53,12 +50,10 @@ export function startPresenceBeacon({
     lastInput = scheduler.now();
     if (timer === null && isVisible()) check();
   });
-  connection.connect();
   check();
   return () => {
     stopVisibility();
     stopInput();
     if (timer !== null) scheduler.clearTimeout(timer);
-    connection.close();
   };
 }

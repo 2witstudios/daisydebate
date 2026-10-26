@@ -8,6 +8,7 @@ import {
   type ConnectionStore,
 } from './connection-store';
 import { fetchRealtimeTicket } from './ticket-client';
+import { createTabPresence, type TabPresence } from './tab-presence';
 
 /**
  * The real browser clock and timer queue (production `Scheduler`). Elapsed
@@ -51,13 +52,31 @@ export function onDocumentVisibilityChange(
  * resolves the realtime origin itself, since that seam belongs to whoever
  * wires the store into a page (out of RT-2.6a's scope; see the handoff).
  */
-export function createBrowserConnectionStore(
-  url: string,
-  { reportsPresence = false }: { readonly reportsPresence?: boolean } = {},
-): ConnectionStore {
+const INPUT_EVENTS = ['pointerdown', 'keydown', 'wheel', 'touchstart'] as const;
+function onDocumentInput(listener: () => void): () => void {
+  for (const type of INPUT_EVENTS)
+    document.addEventListener(type, listener, { passive: true });
+  return () => {
+    for (const type of INPUT_EVENTS)
+      document.removeEventListener(type, listener);
+  };
+}
+
+let tab: TabPresence | null = null;
+/** This document's one presence, created with its first connection. */
+export const browserTabPresence = (): TabPresence =>
+  (tab ??= createTabPresence({
+    scheduler: systemScheduler,
+    isVisible: () => document.visibilityState === 'visible',
+    onVisibilityChange: onDocumentVisibilityChange,
+    onInput: onDocumentInput,
+  }));
+
+export function createBrowserConnectionStore(url: string): ConnectionStore {
   const deps: ConnectionStoreDeps = {
     url,
-    reportsPresence,
+    // Every connection in the tab carries the tab's one activity (ADR 0072).
+    reportsPresence: true,
     createSocket: (socketUrl: string): WebSocketLike =>
       new WebSocket(socketUrl),
     scheduler: systemScheduler,
@@ -69,5 +88,13 @@ export function createBrowserConnectionStore(
     random: secureRandom,
     onVisibilityChange: onDocumentVisibilityChange,
   };
-  return createConnectionStore(deps);
+  const store = createConnectionStore(deps);
+  const detach = browserTabPresence().attach(store);
+  return {
+    ...store,
+    close: () => {
+      detach();
+      store.close();
+    },
+  };
 }

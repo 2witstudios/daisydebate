@@ -11,11 +11,7 @@ const harness = () => {
   let visibility: ((visible: boolean) => void) | null = null;
   let input: (() => void) | null = null;
   const stop = startPresenceBeacon({
-    connection: {
-      connect: () => events.push('connect'),
-      close: () => events.push('close'),
-      reportActivity: (activity) => events.push(activity),
-    },
+    report: (activity) => events.push(activity),
     scheduler,
     isVisible: () => visible,
     onVisibilityChange: (listener) => {
@@ -55,9 +51,9 @@ test('a visible tab starts active and goes idle after five quiet minutes', () =>
   h.scheduler.advance(1);
   assert({
     given: 'a visible tab with no input',
-    should: 'connect and report active, then idle at five minutes',
+    should: 'report active, then idle at five minutes',
     actual: [before, h.events.at(-1)],
-    expected: [['connect', 'active'], 'idle'],
+    expected: [['active'], 'idle'],
   });
 });
 
@@ -91,14 +87,14 @@ test('hiding the tab reports idle and showing it reports active', () => {
   });
 });
 
-test('stop closes the connection and releases every listener', () => {
+test('stop releases every listener', () => {
   const h = harness();
   h.stop();
   assert({
     given: 'a stopped beacon',
-    should: 'close the connection and stop listening',
-    actual: [h.events.at(-1), h.listening()],
-    expected: ['close', false],
+    should: 'stop listening',
+    actual: h.listening(),
+    expected: false,
   });
 });
 

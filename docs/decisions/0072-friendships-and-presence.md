@@ -46,21 +46,24 @@ fence (accounts, then the pair, then a channel).
    room membership or any competitive standing. When friendship starts a
    DM, messaging's own age and contact policy (ADR 0061) decides that, not
    this record.
-6. **Presence is written by realtime, for the tab's presence connection
-   only.** A socket holds an ADR 0033 lease only once it reports activity:
-   its first `presence.activity` frame upserts the lease, later frames
-   update it, it refreshes every 20 s with a 60 s TTL, and it is deleted on
-   close. The shell opens one presence connection per signed-in tab and
-   reports on every ready, then `idle` while the tab is hidden or has had no
-   input for five minutes and `active` again on input. A room's or a
-   conversation's socket never reports, so transport liveness never keeps a
-   member online; several genuinely active tabs still do. The presence
-   connection is an ordinary socket: it takes one of the actor's
-   `maxPerActor` slots, and its `presence.activity` frames spend the same
-   per-socket inbound budget as any other frame. The client sends one only
-   on a change of state, so a tab sends a few per five minutes, while a
-   socket that floods presence is closed `4004` like any other. A lease write that
-   fails is logged by the Redis adapter and never closes a socket.
+6. **Presence is written by realtime, from one activity source per tab.**
+   A socket holds an ADR 0033 lease only once it reports activity: its
+   first `presence.activity` frame upserts the lease, later frames update
+   it, it refreshes every 20 s with a 60 s TTL, and it is deleted on close.
+   In the browser every realtime connection of a tab attaches to the tab's
+   one presence: it reports on every ready and on each change of the tab's
+   activity, `idle` while the tab is hidden or has had no input for five
+   minutes and `active` again on input. So a hidden tab goes idle on all of
+   its sockets at once, and transport liveness never keeps a member online;
+   several genuinely active tabs still do. The shell opens its own presence
+   connection only while the tab has no other (a page with a conversation
+   or room socket carries the tab's presence) and closes it when one
+   appears, so a tab normally holds one socket. Each connection takes one of
+   the actor's `maxPerActor` slots, and its `presence.activity` frames spend
+   the same per-socket inbound budget as any other frame; a tab sends a few
+   per five minutes, while a socket that floods presence is closed `4004`
+   like any other. A lease write that fails is logged by the Redis adapter
+   and never closes a socket.
 7. **Who may see presence.** Only accepted friends see a member's status.
    `GET /api/friends` first passes `authorize` (`social.friend.list` over the
    reader's own `messaging_collection`, on their freshly locked account),
