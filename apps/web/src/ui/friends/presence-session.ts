@@ -43,7 +43,10 @@ function startSession(): () => void {
         cache: 'no-store',
       });
       if (stopped || !response.ok) return;
-      const counts = onlineCountsSchema.safeParse(await response.json());
+      // jitless: the strict CSP refuses Zod's eval-compiled parser.
+      const counts = onlineCountsSchema.safeParse(await response.json(), {
+        jitless: true,
+      });
       if (!counts.success) return;
       for (const listener of listeners) listener(counts.data.friendsOnline);
       const endpoint = realtimeEndpointOf(response);
