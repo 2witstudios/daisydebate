@@ -79,12 +79,12 @@ test('real own collection projects pending direction through fresh request grant
     );
     const sentAt = '2026-10-09T18:05:00.000Z';
     await client.unsafe(
-      "insert into messaging_messages(id,channel_id,author_actor_id,sequence,change_version,text,created_at) values($1,$2,$3,1,1,'First message',$4),($5,$2,$3,2,2,'Gone',$4)",
-      [createId(), fixture.channelId, sender.actorId, sentAt, createId()],
+      "insert into messaging_messages(id,channel_id,author_actor_id,sequence,change_version,text,created_at) values($1,$2,$3,1,1,'First message',$4)",
+      [createId(), fixture.channelId, sender.actorId, sentAt],
     );
     await client.unsafe(
-      'update messaging_messages set text=null, removed_at=$2 where channel_id=$1 and sequence=2',
-      [fixture.channelId, sentAt],
+      'insert into messaging_messages(id,channel_id,author_actor_id,sequence,change_version,text,created_at,removed_at) values($1,$2,$3,2,2,null,$4,$4)',
+      [createId(), fixture.channelId, sender.actorId, sentAt],
     );
     await client.unsafe(
       'update messaging_channels set message_sequence=2, change_version=2 where id=$1',
