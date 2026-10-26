@@ -40,12 +40,13 @@ async function completedRound(
     [1, neg.id],
   ] as const)
     await fixture.sql`insert into utterances(id,round_id,segment_id,round_participant_id,sequence,text) values(${createId()},${roundId},${segmentId},${seat},${sequence},'a frozen line')`;
+  await fixture.sql`insert into round_transcripts(round_id,revision) values(${roundId},2)`;
   if (beforeFreeze) {
     await fixture.sql`update rounds set status='active',current_stage='speech',completed_at=null,outcome=null where id=${roundId}`;
     await beforeFreeze(aff);
     await fixture.sql`update rounds set status='completed',current_stage=null,completed_at=${end},outcome='affirmative' where id=${roundId}`;
   }
-  await fixture.sql`insert into round_transcript_freezes(round_id,revision,frontier,completeness) values(${roundId},1,(select count(*)::int from utterances where round_id=${roundId}),'complete')`;
+  await fixture.sql`insert into round_transcript_freezes(round_id,revision,frontier,completeness) values(${roundId},1,2,'complete')`;
   return { aff };
 }
 
