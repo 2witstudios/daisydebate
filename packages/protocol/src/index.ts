@@ -265,7 +265,6 @@ export {
 
 export {
   matchHistoryQuerySchema,
-  memberProfileSchema,
   type DebateRecord,
   type JudgePanel,
   type MatchHistoryEntry,
