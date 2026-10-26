@@ -31,6 +31,20 @@ request, so the unsafe episode ends and capture discovery resumes (ISSUE-465);
 a terminal Round keeps it.
 Token/open admission must refuse unsafe or pending sessions independently.
 
+A floor change writes permissions in a fixed order: every stale microphone
+closes before any microphone opens. The closes use the snapshot the known
+publishers were read with, since nothing is written between that read and the
+closes. The opens rehydrate first. The browser transport
+(`features/round-media/browser-transport.ts`) holds published exactly the
+sources its own LiveKit permission allows, once LiveKit has reported one; until
+then, the reconcile reply's grants decide. So a microphone opens on LiveKit's
+`ParticipantPermissionsChanged` instead of after the reconcile reply, and a
+reply that crossed that change cannot publish or unpublish against it. LiveKit
+enforces the floor either way. A seat that publishes anything (a human
+debater) also holds its microphone captured but unpublished between turns, so
+a grant costs a publish rather than a device open. The track ends when the
+seat's grants close, on disconnect or at a terminal stop (ISSUE-572).
+
 Cleanup first calls `prepareMediaAbsenceProof` under the current session owner
 and epoch. It returns no proof while any intent is pending. Otherwise it records
 the settled immutable-intent count with that fence. Only after that transaction

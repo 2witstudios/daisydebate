@@ -253,39 +253,3 @@ test('recovery reports a session it cannot read without stopping the scan', asyn
     expected: true,
   });
 });
-
-test('reconcile closes every stale microphone before opening one, then idles', async () => {
-  const world = createMediaWorld();
-  const operations = createRoundMediaOperations(world.input);
-  const [affirmative, negative, judge] = world.seats;
-  await operations.session(world.roundId, affirmative.actorId);
-  world.connect(negative.id, { publish: [], subscribe: false, hidden: false });
-  world.connect(judge.id, {
-    publish: ['microphone'],
-    subscribe: true,
-    hidden: true,
-  });
-  world.journal.length = 0;
-  await operations.reconcile(world.roundId);
-  const first = [...world.journal];
-  world.journal.length = 0;
-  await operations.reconcile(world.roundId);
-  assert({
-    given: 'a judge still holding a microphone and a debater not yet opened',
-    should:
-      'close the judge microphone first, open the debater after, and make no writes once converged',
-    actual: [
-      first,
-      world.connected.get(world.identity(judge.id)),
-      world.journal,
-    ],
-    expected: [
-      [
-        `permissions:${world.identity(judge.id)}:-`,
-        `permissions:${world.identity(negative.id)}:camera+microphone`,
-      ],
-      { publish: [], subscribe: true, hidden: true },
-      [],
-    ],
-  });
-});

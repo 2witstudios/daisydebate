@@ -91,7 +91,7 @@ export function createMediaReconcileRun(
       input.media.publicationPermissions(claim.roomName),
     );
     const state = await snapshot(claim.roundId);
-    return current.flatMap((entry) => {
+    const known = current.flatMap((entry) => {
       const binding = state.bindings.find(
         (binding) => binding.identity === entry.identity,
       );
@@ -99,9 +99,18 @@ export function createMediaReconcileRun(
         ? [{ ...entry, participantId: binding.roundParticipantId }]
         : [];
     });
+    return { known, state };
   };
-  const closeStale = async (claim: Claim, known: KnownPublisher[]) => {
-    const state = await snapshot(claim.roundId);
+  /**
+   * Closes against the snapshot the publishers were read with: nothing was
+   * written in between, and each close is authorized under its own lock, so
+   * a second read would only delay the floor change (ISSUE-572).
+   */
+  const closeStale = async (
+    claim: Claim,
+    known: KnownPublisher[],
+    state: MediaSnapshot,
+  ) => {
     for (const entry of known) {
       const desired = seatGrants(state, entry.participantId, input.nextId);
       if (
@@ -181,8 +190,9 @@ export function createMediaReconcileRun(
       if (!admission) return;
       if (!(await createRoom(claim, admission)).acknowledged) return;
     }
-    const known = await knownPublishers(claim);
-    if (await closeStale(claim, known)) await applyPermissions(claim, known);
+    const { known, state } = await knownPublishers(claim);
+    if (await closeStale(claim, known, state))
+      await applyPermissions(claim, known);
   };
   /** The caller's step under the lease; its failure is returned, not thrown. */
   const runHeld = async (whileHeld?: () => Promise<void>) => {
