@@ -15,6 +15,7 @@ import {
   assertFrozenLaunch,
   clockText,
   openRoomSetup,
+  saveRoundSettings,
 } from './support/room-launch-flow';
 import { launchCustomSelection } from './support/room-launch-custom';
 import { proveLoopbackUpstreams } from './support/launch-loopback';
@@ -96,7 +97,7 @@ test('canonical browser create, settings, cast, refusals and reread preserve dur
     await settings
       .locator(`[name="duration.segment.${second.key}"]`)
       .fill(clockText(secondMs));
-    await settings.getByRole('button', { name: 'Save round settings' }).click();
+    await saveRoundSettings(host);
     await expect(async () => {
       view = await reread(host.request, view.id);
       expect(view.rules.segments.slice(0, 2).map((s) => s.durationMs)).toEqual([
@@ -255,7 +256,7 @@ test('canonical browser custom-create preserves declared unequal seats and order
     ).toBeVisible();
     const settings = await openRoomSetup(page, true);
     await settings.locator('[name="duration.segment.A2"]').fill('0:59');
-    await settings.getByRole('button', { name: 'Save round settings' }).click();
+    await saveRoundSettings(page);
     await expect(async () => {
       view = await reread(context.request, view.id);
       expect(view.rules.segments.map((segment) => segment.durationMs)).toEqual([
