@@ -17,12 +17,19 @@
  * into the final state.
  */
 import {
+  citedRunIds,
   declaredBuilder,
   linkedPageIds,
   verifyReviewRecord,
   type PullRequest,
 } from './review-record';
-import { fetchPullRequest, gh, ghJson, readRecords } from './review-record-io';
+import {
+  fetchPullRequest,
+  gh,
+  ghJson,
+  readCiEvidence,
+  readRecords,
+} from './review-record-io';
 
 const USAGE =
   'usage: bun review:check <recordPageId> --pr <n> [--sha <sha>] [--dispatch]';
@@ -102,7 +109,8 @@ export async function main(
     linkedPageIds([pr.body, ...fetched.comments]),
   );
   const { records, unreadable } = await readRecords(ids, { localCli: true });
-  const verdict = verifyReviewRecord(pr, records, unreadable);
+  const ci = readCiEvidence(gh, repository, citedRunIds(records));
+  const verdict = verifyReviewRecord(pr, records, unreadable, ci);
   if (verdict.state !== 'success') {
     process.stdout.write(`${verdict.description}\n`);
     return 1;

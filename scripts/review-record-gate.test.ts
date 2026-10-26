@@ -13,6 +13,7 @@ type Job = {
   readonly if?: string;
   readonly needs?: string | string[];
   readonly environment?: string;
+  readonly permissions?: Record<string, string>;
   readonly outputs?: Record<string, string>;
   readonly steps: readonly Step[];
 };
@@ -78,6 +79,26 @@ describe('review-record before and after the App exists', () => {
         verifyNeedsGate: true,
         verifyOnlyWhenEnforcing: true,
         gateWritesStatus: false,
+      },
+    });
+  });
+
+  test('reads cited CI runs with the workflow token, read-only', () => {
+    const { verify } = workflow.jobs;
+    const verifyStep = verify.steps.find((step) =>
+      (step.run ?? '').includes('scripts/review-record.ts'),
+    );
+    assert({
+      given: 'the verify job',
+      should:
+        'grant only read access to Actions and hand the verifier the workflow token, never the App token',
+      actual: {
+        permissions: verify.permissions,
+        ciReadToken: verifyStep?.env?.CI_READ_TOKEN,
+      },
+      expected: {
+        permissions: { contents: 'read', actions: 'read' },
+        ciReadToken: '${{ github.token }}',
       },
     });
   });

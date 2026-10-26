@@ -71,6 +71,9 @@ Candidate: <full head sha> · PR #<n> · Builder: <PR body's Builder id> · Revi
 bun check at <sha>: PASS (format, lint, policy, knip, duplication, invariants, evidence,
 typecheck, unit tests, metrics, build) · date
 bun test:integration: PASS (<n> pass, 0 fail)
+or, when integration ran only in CI:
+Integration: PASS (CI run https://github.com/<owner>/<repo>/actions/runs/<id>, job Infrastructure contracts, sha <full head sha>)
+E2E: PASS (CI run https://github.com/<owner>/<repo>/actions/runs/<id>, job Playwright E2E, sha <full head sha>)
 Negative control run: yes (below)
 
 ## Findings
@@ -136,8 +139,29 @@ Rules:
   Service tests may be NOT RUN with the documentation-only reason. Instruction
   files, skills, templates, workflows, executable/symlink modes, mixed changes,
   missing or incomplete diffs never qualify. Runtime/unclassified approvals
-  require integration PASS and a negative control regardless of finding count.
+  require integration PASS (local, or verified CI evidence below) and a
+  negative control regardless of finding count.
   A decorated or false PASS saying NOT RUN, deferred or carrying `?` never counts.
+- CI evidence is verified, never trusted. A Gates run line beginning
+  `Integration: PASS` or `E2E: PASS` must read exactly
+  `<gate>: PASS (CI run <run url>, job <job name>, sha <40-hex>)`, and the
+  check reads the run and its latest jobs from the GitHub Actions API (with
+  the workflow's own read-only `actions: read` token; PR code is never
+  checked out). It accepts the citation only when the URL is a run of this
+  repository; the cited and run SHAs equal the reviewed SHA (which must be
+  the PR head); the run's repository and head repository are this one (never
+  a fork); it was triggered by `pull_request` or `push`; it ran the gate's
+  own workflow (`.github/workflows/ci.yml` for `Integration`,
+  `.github/workflows/e2e.yml` for `E2E`); the complete PR diff does not
+  change that workflow; and the named job exists and concluded `success`.
+  `Integration` cites only the CI job `Infrastructure contracts` (the one
+  that runs `bun test:integration`); `E2E` cites `Playwright E2E` or
+  `Isolated Room Launch E2E`. A verified `Integration` citation satisfies
+  the runtime integration requirement in place of a local
+  `bun test:integration: PASS`; an `E2E` citation never does. Any malformed
+  or unverifiable citation refuses the record with its reason, even when a
+  local PASS is also present. The negative control requirement is
+  unchanged.
 - Branch feedback carries `Review stage: branch` and the nonacceptance verdict
   `BRANCH FEEDBACK` (source conclusions go in prose). It names the candidate,
   findings and deferred proof but cannot mint main acceptance. An acceptance

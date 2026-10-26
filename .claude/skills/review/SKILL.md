@@ -63,6 +63,14 @@ link. These administrative writes are part of review; preserve task criteria
 and status. Without a drive, publish the full record as a PR comment; without
 either destination, return it in chat and identify the missing destination.
 
+Report each gate you ran locally as the record format shows. Where the
+repository's record format accepts CI evidence and a gate ran only in CI, cite
+the exact job instead of claiming a local run, one line per gate:
+`Integration: PASS (CI run <run url>, job <job name>, sha <full head sha>)`
+(and `E2E: PASS (…)` for a cited browser job). Cite only a job you saw conclude
+success on the reviewed SHA; the check re-reads it from GitHub and refuses
+anything it cannot verify. A negative control remains your own work.
+
 Run the repository's review self-check when available. Correct record-format
 errors and report missing evidence or verifier failures truthfully. Post the
 verdict, findings and record link as a PR comment. The repository check determines

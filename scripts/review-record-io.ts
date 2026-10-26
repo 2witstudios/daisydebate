@@ -6,6 +6,7 @@
  * read through this module, so there is exactly one copy of each call.
  */
 import { execFileSync } from 'node:child_process';
+import type { CiEvidence, CiJob, CiRun } from './review-ci';
 import type { ReviewDiff } from './review-diff';
 import { pagespaceApi } from './pagespace-docs';
 
@@ -49,13 +50,19 @@ export const commentBodies = (
 
 export type Run = (args: readonly string[]) => { code: number; stdout: string };
 
-export const gh: Run = (args) => {
-  const result = Bun.spawnSync(['gh', ...args], {
-    stdout: 'pipe',
-    stderr: 'inherit',
-  });
-  return { code: result.exitCode, stdout: result.stdout.toString() };
-};
+/** gh as the ambient identity, or as an explicit token when one is given. */
+export const ghAs =
+  (token?: string): Run =>
+  (args) => {
+    const result = Bun.spawnSync(['gh', ...args], {
+      stdout: 'pipe',
+      stderr: 'inherit',
+      env: token ? { ...process.env, GH_TOKEN: token } : process.env,
+    });
+    return { code: result.exitCode, stdout: result.stdout.toString() };
+  };
+
+export const gh: Run = ghAs();
 
 export function ghJson<T>(args: readonly string[]): T {
   const result = gh(args);
@@ -247,4 +254,93 @@ export async function readRecords(
     ),
     unreadable: ids.filter((_, index) => read[index] === undefined),
   };
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
+const fullName = (value: unknown): string | undefined =>
+  isRecord(value) && typeof value.full_name === 'string'
+    ? value.full_name
+    : undefined;
+
+function ciJob(job: unknown): CiJob | undefined {
+  if (
+    !isRecord(job) ||
+    typeof job.name !== 'string' ||
+    typeof job.status !== 'string' ||
+    (job.conclusion !== null && typeof job.conclusion !== 'string')
+  )
+    return undefined;
+  return { name: job.name, status: job.status, conclusion: job.conclusion };
+}
+
+/**
+ * A workflow run and its latest jobs from the Actions API, or undefined
+ * when either response is not the shape GitHub documents: a run the edge
+ * cannot fully read never reaches the verifier.
+ */
+export function ciRunFromApi(
+  id: string,
+  run: unknown,
+  jobPages: unknown,
+): CiRun | undefined {
+  const repository = isRecord(run) ? fullName(run.repository) : undefined;
+  if (
+    !isRecord(run) ||
+    String(run.id) !== id ||
+    repository === undefined ||
+    typeof run.head_sha !== 'string' ||
+    typeof run.event !== 'string' ||
+    typeof run.path !== 'string' ||
+    !Array.isArray(jobPages)
+  )
+    return undefined;
+  const raw = jobPages.flatMap((page: unknown) =>
+    isRecord(page) && Array.isArray(page.jobs) ? page.jobs : [undefined],
+  );
+  const jobs = raw.map(ciJob);
+  if (jobs.some((job) => job === undefined)) return undefined;
+  return {
+    id,
+    repository,
+    headRepository: fullName(run.head_repository),
+    headSha: run.head_sha,
+    event: run.event,
+    path: run.path,
+    jobs: jobs.filter((job): job is CiJob => job !== undefined),
+  };
+}
+
+/** Every cited run of this repository the API returns; the rest stay unread. */
+export function readCiEvidence(
+  run: Run,
+  repository: string,
+  ids: readonly string[],
+): CiEvidence {
+  const api = (args: readonly string[]): unknown => {
+    const result = run(args);
+    if (result.code !== 0) throw new Error('CI run unavailable');
+    return JSON.parse(result.stdout);
+  };
+  const runs = ids.flatMap((id) => {
+    if (!/^\d+$/.test(id)) return [];
+    try {
+      const read = ciRunFromApi(
+        id,
+        api(['api', `repos/${repository}/actions/runs/${id}`]),
+        // filter=latest: a re-run's jobs replace the attempt before it.
+        api([
+          'api',
+          '--paginate',
+          '--slurp',
+          `repos/${repository}/actions/runs/${id}/jobs?filter=latest&per_page=100`,
+        ]),
+      );
+      return read ? [read] : [];
+    } catch {
+      return [];
+    }
+  });
+  return { repository, runs };
 }
