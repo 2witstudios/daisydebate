@@ -182,6 +182,43 @@ end
 return result
 `);
 /**
+ * One read-only op over several actors (a member's friends): for each
+ * declared actor zset, the activity across that actor's live connections,
+ * `active` if any connection is active, `idle` if all are idle, and an empty
+ * string when none is live. Lapsed members are filtered by score, never
+ * deleted. Connection hashes are read from ARGV[1] .. connId for the same
+ * single-node reason as `readActorConnectionsScript`, and a hash naming a
+ * different actor never counts. Returns the Redis `now` first, then one
+ * value per key in KEYS order. KEYS[n] actor zsets. ARGV[1] conn-hash key
+ * prefix; ARGV[2] the most connections read per actor; ARGV[2 + n] the
+ * actorId of KEYS[n].
+ */
+export const readActorsPresenceScript = defineScript(`
+${nowFromTime}
+local result = {now}
+for k = 1, #KEYS do
+  local members = redis.call('ZREVRANGEBYSCORE', KEYS[k], '+inf', now, 'LIMIT', 0, tonumber(ARGV[2]))
+  local activity = ''
+  for i = 1, #members do
+    local fields = redis.call('HMGET', ARGV[1] .. members[i], 'actorId', 'activity')
+    if fields[1] == ARGV[2 + k] then
+      if fields[2] == 'active' then activity = 'active' elseif activity == '' then activity = fields[2] or '' end
+    end
+  end
+  table.insert(result, activity)
+end
+return result
+`);
+/**
+ * How many actors are online now: the online set's members whose latest
+ * lease has not expired, counted by score with no write. KEYS[1] online
+ * zset.
+ */
+export const countOnlinePresenceScript = defineScript(`
+${nowFromTime}
+return redis.call('ZCOUNT', KEYS[1], now, '+inf')
+`);
+/**
  * A bounded write-path sweep: removes up to ARGV[1] members of the online
  * set whose score is in the past. Trimming moved here, off the read path
  * (`readOnlinePresenceScript`), so a read never mutates state; the web
@@ -222,6 +259,8 @@ export function assertTtlSeconds(ttlSeconds: number) {
  * limit (ISSUE-46).
  */
 export const PRESENCE_LIMIT_MAX = 1000;
+/** The most actors one `readActorsPresence` call reads: a member's friend bound. */
+export const PRESENCE_ACTORS_MAX = 250;
 /** The most live connections `readActorConnections` returns for one actor. */
 export const ACTOR_CONNECTIONS_MAX = 32;
 export function assertLimit(limit: number) {

@@ -7,8 +7,11 @@ import {
   assertKeySegment,
   assertLimit,
   assertTtlSeconds,
+  countOnlinePresenceScript,
   createScriptRunner,
   deletePresenceLeaseScript,
+  PRESENCE_ACTORS_MAX,
+  readActorsPresenceScript,
   parseActivity,
   readActorConnectionsScript,
   readOnlinePresenceScript,
@@ -185,6 +188,60 @@ export function createPresenceOperations({
         return { actors, nowMs };
       } catch (error) {
         reportFailure('readOnlinePresence');
+        throw error;
+      }
+    },
+    /**
+     * Each actor's activity across their live connections (`null` when
+     * none is live), for at most `PRESENCE_ACTORS_MAX` actors in one
+     * read-only op. The caller decides who may see it: presence grants
+     * nothing (ADR 0071).
+     */
+    async readActorsPresence(
+      actorIds: readonly string[],
+    ): Promise<ReadonlyMap<string, PresenceActivity | null>> {
+      if (actorIds.length > PRESENCE_ACTORS_MAX)
+        throw new Error(
+          `At most ${PRESENCE_ACTORS_MAX} actors per presence read`,
+        );
+      for (const actorId of actorIds) assertActorId(actorId);
+      if (actorIds.length === 0) return new Map();
+      try {
+        await client.connect();
+        const flat = (await runScript(
+          readActorsPresenceScript,
+          actorIds.length,
+          [
+            ...actorIds.map((actorId) =>
+              redisKey(namespace, 'presence', 'actor', actorId),
+            ),
+            `${redisKey(namespace, 'presence', 'conn')}:`,
+            String(ACTOR_CONNECTIONS_MAX),
+            ...actorIds,
+          ],
+        )) as (string | number)[];
+        return new Map(
+          actorIds.map((actorId, index) => {
+            const value = String(flat[index + 1] ?? '');
+            return [actorId, value === '' ? null : parseActivity(value)];
+          }),
+        );
+      } catch (error) {
+        reportFailure('readActorsPresence');
+        throw error;
+      }
+    },
+    /** How many actors hold a live lease now, by the Redis clock. */
+    async countOnlinePresence(): Promise<number> {
+      try {
+        await client.connect();
+        return Number(
+          await runScript(countOnlinePresenceScript, 1, [
+            redisKey(namespace, 'presence', 'online'),
+          ]),
+        );
+      } catch (error) {
+        reportFailure('countOnlinePresence');
         throw error;
       }
     },
