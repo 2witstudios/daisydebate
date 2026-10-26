@@ -4,7 +4,7 @@ import {
   debateSides,
   type DebateSide,
 } from '@daisy/protocol';
-import { and, asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, sql, type SQL } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { z } from 'zod';
 import type { BoundedTransaction } from './bounded-transaction';
@@ -99,6 +99,13 @@ export async function readRoundCoachingFacts(
   };
 }
 
+/** Erasure survives even when no freeze or coaching row existed at the time. */
+const erasedParticipant = (roundId: string | SQL) => sql`exists (
+  select 1 from round_participants p
+  join actors a on a.id = p.actor_id
+  join users u on u.id = a.user_id
+  where p.round_id = ${roundId} and u.deleted_at is not null)`;
+
 /** The Round's row while this token still holds its lease. */
 const heldBy = (roundId: string, token: string) =>
   and(
@@ -167,7 +174,7 @@ export function createRoundFeedbackJobs(input: {
         const rows =
           (await tx.execute(sql`select r.id as "roundId" from rounds r
           left join round_feedback f on f.round_id = r.id
-          where r.status = 'completed' and (
+          where r.status = 'completed' and not ${erasedParticipant(sql`r.id`)} and (
             (f.round_id is null and r.completed_at > ${from}
               and exists (select 1 from round_transcript_freezes z where z.round_id = r.id)
               and exists (select 1 from utterances u where u.round_id = r.id)
@@ -196,6 +203,11 @@ export function createRoundFeedbackJobs(input: {
         await tx.execute(
           sql`select pg_advisory_xact_lock(hashtextextended(${roundId},59004))`,
         );
+        const [privacy] = (await tx.execute(
+          sql`select ${erasedParticipant(roundId)} as erased`,
+        )) as unknown as { erased: boolean }[];
+        if (!privacy) throw createAppError('INVARIANT');
+        if (privacy.erased) return null;
         const decision = decide(await readRoundCoachingFacts(tx, roundId));
         if (decision === 'fail') {
           const failed = failLease(roundId);
