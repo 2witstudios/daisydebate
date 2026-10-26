@@ -137,7 +137,7 @@ export async function acceptMessagingJourney(
   ).toBeVisible();
   await page
     .getByRole('link', {
-      name: `Message request from ${journey.senderUsername}`,
+      name: `Message request from ${journey.senderUsername}, unread`,
       exact: true,
     })
     .click();

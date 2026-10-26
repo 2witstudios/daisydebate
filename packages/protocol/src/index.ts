@@ -207,6 +207,7 @@ export { createMessagingFileSchemas } from './messaging/files';
 export {
   createMessagingInboxSchemas,
   messagingInboxPreviewMax,
+  messagingInboxTitleMax,
 } from './messaging/inbox';
 
 export {

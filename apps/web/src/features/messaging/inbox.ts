@@ -1,6 +1,9 @@
 import { isAppError } from '@daisy/errors';
 import type { MessagingInboxSummary } from '@daisy/db/messaging';
-import { messagingInboxPreviewMax } from '@daisy/protocol';
+import {
+  messagingInboxPreviewMax,
+  messagingInboxTitleMax,
+} from '@daisy/protocol';
 type SummarizedKind =
   | 'conversation'
   | 'group_conversation'
@@ -59,17 +62,27 @@ export function messagingInboxView(authority: InboxAuthority, actorId: string) {
   } as const;
 }
 
-/** One line of at most the protocol bound, cut on code points with an ellipsis. */
-export function messagingInboxExcerpt(text: string): string | null {
+/** One line of at most `max` UTF-16 units, cut on code points with an ellipsis. */
+export function messagingInboxExcerpt(
+  text: string,
+  max = messagingInboxPreviewMax,
+): string | null {
   const line = text.replace(/\s+/g, ' ').trim();
   if (line === '') return null;
-  if (line.length <= messagingInboxPreviewMax) return line;
+  if (line.length <= max) return line;
   let excerpt = '';
   for (const point of line) {
-    if (excerpt.length + point.length > messagingInboxPreviewMax - 1) break;
+    if (excerpt.length + point.length > max - 1) break;
     excerpt += point;
   }
   return `${excerpt.trimEnd()}…`;
+}
+
+/** The newest message, else the request introduction, as a bounded line. */
+function previewOf(summary: MessagingInboxSummary) {
+  const source = summary.lastMessage ?? summary.introduction;
+  const text = source?.text ? messagingInboxExcerpt(source.text) : null;
+  return source && text !== null ? { text, fromSelf: source.fromSelf } : null;
 }
 
 export function summarizeMessagingInboxEntry(
@@ -77,14 +90,14 @@ export function summarizeMessagingInboxEntry(
   kind: SummarizedKind,
   summary: MessagingInboxSummary,
 ): Extract<MessagingInboxEntry, { readonly kind: SummarizedKind }> {
-  const source = summary.lastMessage ?? summary.introduction;
-  const text = source?.text ? messagingInboxExcerpt(source.text) : null;
   return {
     channelId,
     kind,
-    title: summary.title,
-    preview:
-      source && text !== null ? { text, fromSelf: source.fromSelf } : null,
+    title:
+      summary.title === null
+        ? null
+        : messagingInboxExcerpt(summary.title, messagingInboxTitleMax),
+    preview: previewOf(summary),
     activityAt:
       summary.lastMessage?.createdAt ??
       summary.introduction?.requestedAt ??

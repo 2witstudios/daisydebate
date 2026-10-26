@@ -125,6 +125,7 @@ function SummaryRow({
               <span className="sr-only">{kind.spoken}</span>
             ) : null}
             {title}
+            {entry.unread ? <span className="sr-only">, unread</span> : null}
           </Link>
           {kind.badge ? (
             <span aria-hidden="true">
@@ -141,9 +142,7 @@ function SummaryRow({
         <p
           className={`truncate text-sm ${entry.unread ? 'text-ink' : 'text-ink-muted'}`}
         >
-          {entry.preview === null
-            ? kind.empty
-            : `${entry.preview.fromSelf ? 'You: ' : ''}${entry.preview.text}`}
+          {previewLine(entry, kind.empty)}
         </p>
       </div>
       {entry.unread ? <UnreadMark /> : null}
@@ -159,14 +158,17 @@ function SummaryRow({
   );
 }
 
+const previewLine = (entry: Summarized, empty: string) =>
+  entry.preview === null
+    ? empty
+    : `${entry.preview.fromSelf ? 'You: ' : ''}${entry.preview.text}`;
+
+/** Visual only: the row's link already names its unread state. */
 function UnreadMark() {
   return (
-    <span className="flex shrink-0 items-center">
-      <span
-        aria-hidden="true"
-        className="inline-block size-presence-dot rounded-round bg-accent"
-      />
-      <span className="sr-only">Unread</span>
-    </span>
+    <span
+      aria-hidden="true"
+      className="inline-block size-presence-dot shrink-0 rounded-round bg-accent"
+    />
   );
 }

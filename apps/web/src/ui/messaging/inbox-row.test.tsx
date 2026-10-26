@@ -24,15 +24,15 @@ test('an inbox row names the other party, previews the newest message and shows 
       html.includes('kelvin</a>'),
       html.includes('You: Good round'),
       html.includes('>45m</time>'),
-      html.includes('Unread'),
+      html.includes('unread'),
     ],
     expected: [true, true, true, true, false],
   });
   assert({
     given: 'an unread conversation',
-    should: 'announce and mark it unread',
+    should: 'name its unread state in the link itself',
     actual: render({ ...entry, unread: true }).includes(
-      '<span class="sr-only">Unread</span>',
+      'kelvin<span class="sr-only">, unread</span></a>',
     ),
     expected: true,
   });

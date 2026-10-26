@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { idSchema } from '../primitives';
 /** Display bounds: a preview is a truncated excerpt, never the full message. */
 export const messagingInboxPreviewMax = 120;
-const messagingInboxTitleMax = 200;
+export const messagingInboxTitleMax = 200;
 /**
  * A summarized entry carries what its own grant already shows: the
  * counterpart's public username or the group title, and a truncated excerpt

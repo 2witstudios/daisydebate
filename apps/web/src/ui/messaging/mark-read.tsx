@@ -1,5 +1,6 @@
 'use client';
 import { useEffect } from 'react';
+import { messagingMarkReadBody } from '../../features/messaging/mark-read';
 
 /**
  * Marks a conversation read through `sequence` once it is on screen. The
@@ -18,11 +19,7 @@ export function MarkConversationRead({
       method: 'POST',
       credentials: 'same-origin',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        version: 1,
-        channelId,
-        cursor: { channelId, sequence },
-      }),
+      body: JSON.stringify(messagingMarkReadBody(channelId, sequence)),
     }).catch(() => undefined);
   }, [channelId, sequence]);
   return null;

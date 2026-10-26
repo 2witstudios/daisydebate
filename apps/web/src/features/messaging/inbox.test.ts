@@ -160,6 +160,23 @@ test('excerpts are one bounded line', () => {
     actual: [emoji.length <= 120, /\uD83D(?!\uDE00)/.test(emoji)],
     expected: [true, false],
   });
+  const title = summarizeMessagingInboxEntry(
+    'c'.repeat(24),
+    'group_conversation',
+    {
+      title: 'T'.repeat(500),
+      lastMessage: null,
+      introduction: null,
+      createdAt: '2026-10-01T00:00:00.000Z',
+      unread: false,
+    },
+  ).title;
+  assert({
+    given: 'a group title longer than the inbox title bound',
+    should: 'cut it rather than refuse the whole inbox',
+    actual: [title?.length, title?.endsWith('…')],
+    expected: [200, true],
+  });
   assert({
     given: 'whitespace only',
     should: 'yield no excerpt',
