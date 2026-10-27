@@ -12,7 +12,7 @@ published page. A no-op is a valid result and should be recorded.
 
 All documentation content lives in the existing `Daisy Debate` drive under the
 top-level `Documentation` folder. The Documentation Agent lives under the
-drive's `Agents` folder with the Scrum Master, Builder, and Reviewer. The
+drive's `Library/Agents` folder with the Scrum Master, Builder, and Reviewer. The
 repository records the drive and folder IDs in
 `PAGESPACE_DOCUMENTATION_DRIVE_ID` and
 `PAGESPACE_DOCUMENTATION_ROOT_PAGE_ID`.
