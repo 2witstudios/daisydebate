@@ -1,52 +1,20 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
-import { createId } from '@paralleldrive/cuid2';
-import { isAppError } from '@daisy/errors';
-import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import { openMessagingFixture } from './messaging-fixture.test-support';
-import { changeFriendship } from '../src/features/messaging/friends/operations';
 import { friendshipPolicy } from '../src/features/messaging/friends/friendship';
-import { blockMessagingContact } from '../src/features/messaging/block';
-import { messagingSocialAuthorizationFence } from '../src/features/messaging/social-authorization';
+import {
+  blockContact,
+  friendChange,
+  raceBehindAccountLock,
+  removeMembers,
+  seedFriendships,
+  seedMembers,
+  settle,
+  type Opened,
+} from './friendship-races.test-support';
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
-
-type Opened = Awaited<ReturnType<typeof openMessagingFixture>>;
-
-/** The real operation, fence and store, as the friend routes compose them. */
-const friendChange =
-  ({ database, fixture }: Opened) =>
-  (
-    principal: AuthorizationPrincipal,
-    command: Parameters<typeof changeFriendship>[1],
-    username: string,
-  ) => {
-    const clock = { now: () => fixture.now };
-    return changeFriendship(principal, command, username, {
-      clock,
-      limit: async () => {},
-      lookup: (name) => database.lookupHumanActorByUsername(name),
-      store: (capability) =>
-        database.messagingSocialStore(
-          messagingSocialAuthorizationFence({
-            principal,
-            clock,
-            operation: { kind: 'friend', capability },
-          }),
-        ),
-    });
-  };
-
-/** What a refused change answers: its error code, or the relation it made. */
-const settle = async (change: Promise<{ readonly relation: string }>) => {
-  try {
-    return (await change).relation;
-  } catch (error) {
-    if (isAppError(error)) return error.code;
-    throw error;
-  }
-};
 
 const friendshipRows = (opened: Opened) =>
   opened.client.unsafe(
@@ -72,14 +40,27 @@ const close = async (opened: Opened) => {
   await opened.client.close();
 };
 
+const countFriendships = async (
+  opened: Opened,
+  where: string,
+): Promise<number> => {
+  const [row] = (await opened.client.unsafe(
+    `select count(*)::int as count from messaging_friendships where ${where}`,
+    [opened.fixture.actorId],
+  )) as { count: number }[];
+  return row!.count;
+};
+
 test('simultaneous reciprocal requests become one friendship (ADR 0072)', async () => {
   const opened = await openMessagingFixture(databaseUrl);
   const change = friendChange(opened);
   const { sender, recipient, senderName, recipientName } = participants(opened);
   try {
-    const answers = await Promise.all([
-      settle(change(sender, 'request', recipientName)),
-      settle(change(recipient, 'request', senderName)),
+    // Without the pair lock both would read no row and both insert; the
+    // loser would then fail on the primary key rather than accept.
+    const answers = await raceBehindAccountLock(opened.client, sender.userId, [
+      () => settle(change(sender, 'request', recipientName)),
+      () => settle(change(recipient, 'request', senderName)),
     ]);
     assert({
       given: 'two members asking each other on separate connections at once',
@@ -96,49 +77,65 @@ test('simultaneous reciprocal requests become one friendship (ADR 0072)', async 
   }
 });
 
+test('a block racing a fresh request leaves no friendship', async () => {
+  const opened = await openMessagingFixture(databaseUrl);
+  const change = friendChange(opened);
+  const { sender, recipient, senderName } = participants(opened);
+  try {
+    // Unserialized, the block would find no row to delete while the request
+    // inserts one past it: the interleaving the pair lock exists to prevent.
+    const [requested, block] = await raceBehindAccountLock(
+      opened.client,
+      sender.userId,
+      [
+        () => settle(change(recipient, 'request', senderName)),
+        () => blockContact(opened, sender, recipient.actorId),
+      ],
+    );
+    assert({
+      given:
+        'a request and a block of the same pair at once, with no prior row',
+      should:
+        'either request then delete, or refuse the request without naming the block, and keep no friendship',
+      actual: [
+        ['outgoing', 'NOT_FOUND'].includes(requested),
+        block.blocked,
+        await friendshipRows(opened),
+      ],
+      expected: [true, true, []],
+    });
+  } finally {
+    // The fixture's cleanup removes the block's command receipt too.
+    await close(opened);
+  }
+});
+
 test('a block racing an acceptance leaves no friendship', async () => {
   const opened = await openMessagingFixture(databaseUrl);
   const change = friendChange(opened);
   const { sender, recipient, senderName, recipientName } = participants(opened);
-  const clock = { now: () => opened.fixture.now };
   try {
     await change(sender, 'request', recipientName);
-    const [accepted] = await Promise.all([
-      settle(change(recipient, 'accept', senderName)),
-      blockMessagingContact(
-        {
-          version: 1,
-          requestId: createId(),
-          otherActorId: opened.fixture.otherActorId,
-          blocked: true,
-        },
-        sender,
-        {
-          bounds: { introductionUnits: 100, titleUnits: 80, batchActors: 10 },
-          clock,
-          limit: async () => {},
-          store: opened.database.messagingSocialStore(
-            messagingSocialAuthorizationFence({
-              principal: sender,
-              clock,
-              operation: { kind: 'block' },
-            }),
-          ),
-        },
-      ),
-    ]);
+    const [accepted, block] = await raceBehindAccountLock(
+      opened.client,
+      sender.userId,
+      [
+        () => settle(change(recipient, 'accept', senderName)),
+        () => blockContact(opened, sender, recipient.actorId),
+      ],
+    );
     assert({
       given: 'an acceptance and a block of the same pair at once',
       should:
         'either accept then delete, or refuse the acceptance without naming the block, and keep no friendship',
       actual: [
         ['friends', 'NOT_FOUND'].includes(accepted),
+        block.blocked,
         await friendshipRows(opened),
       ],
-      expected: [true, []],
+      expected: [true, true, []],
     });
   } finally {
-    // The fixture's cleanup removes the block's command receipt too.
     await close(opened);
   }
 });
@@ -149,61 +146,94 @@ test('the last outgoing request is granted once under concurrency', async () => 
   const { sender } = participants(opened);
   const { client, fixture } = opened;
   const asked = friendshipPolicy.maxPendingOutgoing - 1;
-  const members = Array.from({ length: asked + 2 }, () => ({
-    userId: createId(),
-    actorId: createId(),
-  }));
+  const members = await seedMembers(client, asked + 2, { now: fixture.now });
   try {
-    for (const member of members) {
-      await client.unsafe(
-        'insert into users(id,username,email_verified) values($1,$1,true)',
-        [member.userId],
-      );
-      await client.unsafe(
-        "insert into actors(id,kind,user_id) values($1,'human',$2)",
-        [member.actorId, member.userId],
-      );
-    }
-    for (const member of members.slice(0, asked)) {
-      const [low, high] = [fixture.actorId!, member.actorId].sort();
-      await client.unsafe(
-        'insert into messaging_contact_pairs(low_actor_id,high_actor_id) values($1,$2)',
-        [low, high],
-      );
-      await client.unsafe(
-        "insert into messaging_friendships(low_actor_id,high_actor_id,requester_actor_id,state,requested_at) values($1,$2,$3,'pending',$4)",
-        [low, high, fixture.actorId, fixture.now],
-      );
-    }
-    const last = members.slice(asked);
-    const answers = await Promise.all(
-      last.map((member) => settle(change(sender, 'request', member.userId))),
+    await seedFriendships(client, fixture.actorId!, members.slice(0, asked), {
+      state: 'pending',
+      requesterActorId: () => fixture.actorId!,
+      now: fixture.now,
+    });
+    const answers = await raceBehindAccountLock(
+      client,
+      sender.userId,
+      members
+        .slice(asked)
+        .map(
+          (member) => () => settle(change(sender, 'request', member.userId)),
+        ),
     );
-    const [pending] = (await client.unsafe(
-      "select count(*)::int as count from messaging_friendships where requester_actor_id=$1 and state='pending'",
-      [fixture.actorId],
-    )) as { count: number }[];
     assert({
       given: `a member one request below the ${friendshipPolicy.maxPendingOutgoing}-request limit asking two more at once`,
       should: 'grant exactly one and refuse the other as a limit',
-      actual: [[...answers].sort(), pending?.count],
+      actual: [
+        [...answers].sort(),
+        await countFriendships(
+          opened,
+          "requester_actor_id=$1 and state='pending'",
+        ),
+      ],
       expected: [
         ['RATE_LIMIT', 'outgoing'],
         friendshipPolicy.maxPendingOutgoing,
       ],
     });
   } finally {
-    const actorIds = members.map((member) => member.actorId);
-    await client.unsafe(
-      'delete from messaging_contact_pairs where low_actor_id = any($1::text[]) or high_actor_id = any($1::text[])',
-      [actorIds],
+    await removeMembers(client, members);
+    await close(opened);
+  }
+});
+
+test('the last friend place is granted once under concurrency', async () => {
+  const opened = await openMessagingFixture(databaseUrl);
+  const change = friendChange(opened);
+  const { sender, senderName } = participants(opened);
+  const { client, fixture } = opened;
+  const befriended = friendshipPolicy.maxFriends - 1;
+  const friends = await seedMembers(client, befriended, { now: fixture.now });
+  const accepting = await seedMembers(client, 2, {
+    adult: true,
+    now: fixture.now,
+  });
+  try {
+    await seedFriendships(client, fixture.actorId!, friends, {
+      state: 'accepted',
+      requesterActorId: () => fixture.actorId!,
+      now: fixture.now,
+    });
+    await seedFriendships(client, fixture.actorId!, accepting, {
+      state: 'pending',
+      requesterActorId: () => fixture.actorId!,
+      now: fixture.now,
+    });
+    // Two different pairs: only the asker's account lock serializes them.
+    const answers = await raceBehindAccountLock(
+      client,
+      sender.userId,
+      accepting.map(
+        (member) => () =>
+          settle(
+            change(
+              { kind: 'user', userId: member.userId, actorId: member.actorId },
+              'accept',
+              senderName,
+            ),
+          ),
+      ),
     );
-    await client.unsafe('delete from actors where id = any($1::text[])', [
-      actorIds,
-    ]);
-    await client.unsafe('delete from users where id = any($1::text[])', [
-      members.map((member) => member.userId),
-    ]);
+    assert({
+      given: `a member one friend below the ${friendshipPolicy.maxFriends}-friend limit whose two requests are accepted at once`,
+      should: 'accept exactly one and refuse the other as a limit',
+      actual: [
+        [...answers].sort(),
+        await countFriendships(
+          opened,
+          "(low_actor_id=$1 or high_actor_id=$1) and state='accepted'",
+        ),
+      ],
+      expected: [['RATE_LIMIT', 'friends'], friendshipPolicy.maxFriends],
+    });
+  } finally {
+    await removeMembers(client, [...friends, ...accepting]);
     await close(opened);
   }
 });

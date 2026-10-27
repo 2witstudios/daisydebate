@@ -119,15 +119,19 @@ test('a socket the registry closes stops its presence session once', async () =>
     unsubscribe: () => {},
   } as never;
   const { ws, handlers, events } = await connect({ registry });
+  const closes: number[] = [];
+  // As Bun does, closing the socket delivers its close event to the handler.
+  ws.close = (code?: number) => {
+    closes.push(code ?? 0);
+    handlers.close(ws);
+  };
   await handlers.message(ws, activity('active'));
   closeFromRegistry!();
-  // Bun then delivers the socket's close event to the handler.
-  handlers.close(ws);
   handlers.close(ws);
   assert({
-    given: 'the registry closing a reporting socket, then two close events',
-    should: 'stop presence exactly once',
-    actual: events,
-    expected: [['start', actorId, 'active'], ['stop']],
+    given: 'the registry closing a reporting socket, then a second close event',
+    should: 'close the socket and stop presence exactly once',
+    actual: [closes, events],
+    expected: [[4005], [['start', actorId, 'active'], ['stop']]],
   });
 });
