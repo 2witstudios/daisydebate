@@ -1,6 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { Identity } from '@daisy/auth';
-import { decideAccess } from './decision';
+import { decideAccess, requirementFor } from './decision';
 
 setupRitewayBun();
 
@@ -32,6 +32,31 @@ describe('decideAccess for the beta gate (ADR 0075)', () => {
       expected: [
         { kind: 'redirect', to: '/beta?next=%2Fplay%3Fx%3D1' },
         { kind: 'allow' },
+      ],
+    });
+  });
+
+  test('a fresh sign-up finishes onboarding unapproved and waits with its destination', () => {
+    assert({
+      given:
+        'a pending account finishing onboarding toward /ranked, then going there',
+      should:
+        'leave the onboarding steps ungated and send /ranked to /beta carrying it',
+      actual: [
+        requirementFor('/onboarding/welcome'),
+        requirementFor('/onboarding/ready'),
+        requirementFor('/beta'),
+        decideAccess({
+          identity: waitlisted,
+          path: '/ranked',
+          requirement: 'participant',
+        }),
+      ],
+      expected: [
+        null,
+        null,
+        null,
+        { kind: 'redirect', to: '/beta?next=%2Franked' },
       ],
     });
   });

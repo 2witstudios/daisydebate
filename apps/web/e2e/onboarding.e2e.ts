@@ -157,6 +157,8 @@ test('a visitor who signs up from the Help link goes through onboarding once and
   await confirmSignIn(page, await emailedLink(request, email));
   await answerAgeStep(page);
   await claimUsername(page, uniqueName('helper'));
+  // Approved by an operator (ADR 0075); beta.e2e.ts proves the wait itself.
+  await approveBetaAccounts(email);
   await page.getByRole('button', { name: 'Not now' }).click();
   // The destination is already the welcome step: no onboarding inside it.
   await expect(page).toHaveURL(/\/onboarding\/welcome\?next=(\/|%2F)lobby$/);

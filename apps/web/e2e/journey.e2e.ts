@@ -163,6 +163,8 @@ test('declining the passkey offer after onboarding from a protected page other t
   await answerAgeStep(page);
   await expect(page).toHaveURL(/\/onboarding\/username\?next=(\/|%2F)ranked$/);
   await claimUsername(page, uniqueName('ranked'));
+  // Approved by an operator (ADR 0075); beta.e2e.ts proves the wait itself.
+  await approveBetaAccounts(email);
   await expect(
     page.getByRole('heading', { name: /next time, one tap/i }),
   ).toBeVisible();
@@ -184,6 +186,8 @@ test('return destinations are validated and spectator routes stay public', async
   await answerAgeStep(page);
   await expect(page).toHaveURL(/\/onboarding\/username\?next=(\/|%2F)lobby$/);
   await claimUsername(page, uniqueName('safe'));
+  // Approved by an operator (ADR 0075); beta.e2e.ts proves the wait itself.
+  await approveBetaAccounts(email);
   await page.getByRole('button', { name: 'Not now' }).click();
   await skipOnboarding(page, /\/lobby$/);
 });
@@ -250,6 +254,8 @@ test('an emailed link opened in a different browser than the one that requested 
   await answerAgeStep(otherPage);
   await expect(otherPage).toHaveURL(/\/onboarding\/username/);
   await claimUsername(otherPage, uniqueName('cross-browser'));
+  // Approved by an operator (ADR 0075); beta.e2e.ts proves the wait itself.
+  await approveBetaAccounts(email);
   await expect(
     otherPage.getByRole('heading', { name: /next time, one tap/i }),
   ).toBeVisible();
@@ -266,7 +272,7 @@ test('refreshing or navigating back mid-onboarding does not lose the session or 
   page,
   request,
 }) => {
-  await reachOnboarding(page, request);
+  const email = await reachOnboarding(page, request);
 
   // A reload mid-flow must not sign the person out or drop the destination.
   await page.reload();
@@ -275,6 +281,8 @@ test('refreshing or navigating back mid-onboarding does not lose the session or 
   const name = uniqueName('resumed');
   const offer = page.getByRole('heading', { name: /next time, one tap/i });
   await claimUsername(page, name);
+  // Approved by an operator (ADR 0075); beta.e2e.ts proves the wait itself.
+  await approveBetaAccounts(email);
   await expect(offer).toBeVisible();
 
   // The offer is its own page: a reload keeps it, and the session.
