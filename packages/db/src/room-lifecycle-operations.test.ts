@@ -155,6 +155,7 @@ test('an idle Room the engine expires is closed, released and announced', async 
     now,
     [[foundationDefinition]],
     [],
+    [], // its friend challenges are deleted (ISSUE-699)
     [],
     [],
     [],
