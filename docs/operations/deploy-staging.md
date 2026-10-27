@@ -971,6 +971,43 @@ admin request is authenticated by its passkey session and authorized by
 /app/apps/admin/src/scripts/operator-enroll.ts --name owner --replace"` mints a
 replacement link; consuming it revokes every earlier passkey and session.
 
+**Owner sign-in on staging today.** The `owner` operator already exists:
+BETA-H created it and its first link expired unused, and the ISSUE-685 smoke
+proof (below) added a passkey to it from a throwaway virtual authenticator. So
+the owner's first sign-in uses `--name owner --replace` instead of step 5's
+plain `--name owner`; consuming that link leaves the owner's own passkey as
+the only one.
+
+1. `fly ssh console -a daisy-debate-staging-admin -C "bun /app/apps/admin/src/scripts/operator-enroll.ts --name owner --replace"`
+2. In another terminal, `fly proxy 4800:8080 -a daisy-debate-staging-admin`.
+3. Open the printed `http://localhost:4800/enroll#…` link within 15 minutes,
+   choose **Create passkey**, then **Sign in with a passkey**.
+4. **Accounts** lists pending sign-ups. **Approve** queues the approval email
+   (the page says "Done. Approval email queued."); **Revoke** removes access
+   on the tester's next request. **Audit** shows the hash chain.
+
+**Approval smoke proof (ISSUE-685, 2026-10-27).** A browser journey across
+both apps in CI is out of scope: it would need the production web build and
+its PostgreSQL and Redis inside the admin E2E job, and the real 6PN topology
+exists only on Fly. The proof splits instead:
+
+- **On staging:** the admin app over `fly proxy`, a passkey session, then
+  approve and revoke of a synthetic tester (`beta_smoke_685b`, a
+  `delivered+…@resend.dev` address) through web's signed listener. Web
+  logged `operator.command.applied` twice. The account's events read
+  `pending → approved → revoked` with the `operator:daisy-admin/<id>`
+  principal, and the approval email was cancelled as `not-owed` once the
+  revoke landed.
+- **In CI:** `apps/web/e2e/beta.e2e.ts` proves an approved account reaches
+  `/play` on its next request, and `apps/admin/e2e/operator-journey.e2e.ts`
+  proves the admin journey against a verifying stand-in.
+
+A tester without an adult age record is refused with `INVARIANT`
+(ISSUE-664): the account must finish onboarding before approval. The first
+synthetic tester, `beta_smoke_685`, was created without one, was refused, and
+was then revoked. Both testers stay on staging, revoked. Their addresses are
+Resend's test inbox, not a person's, and nobody can sign in as them.
+
 ## Staging data inventory (ISSUE-169, 2026-09-28)
 
 A row-by-row read of `daisy-debate-staging-db` (read-only except the one
