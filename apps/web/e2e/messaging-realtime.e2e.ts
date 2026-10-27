@@ -100,8 +100,28 @@ for (const javaScriptEnabled of [true, false]) {
         journey.sender,
         'the sender durable history',
       );
+      // ISSUE-639 social clause: the reply shows unread in the sender's
+      // inbox until they read it, by script or, without one, by native POST.
+      await sender.goto('/messages');
+      await expect(sender.getByRole('link', { name: /, unread$/ })).toHaveCount(
+        1,
+      );
       await sender.goto(`/messages/${journey.channelId}`);
       await expect(messageInHistory(sender, text)).toHaveCount(1);
+      await expect(
+        sender.getByRole('heading', { name: `@${journey.recipientUsername}` }),
+      ).toBeVisible();
+      if (!javaScriptEnabled)
+        await sender
+          .getByRole('button', { name: 'Mark as read', exact: true })
+          .click();
+      await expect(async () => {
+        await sender.goto('/messages');
+        await expect(
+          sender.getByRole('link', { name: /, unread$/ }),
+        ).toHaveCount(0);
+      }).toPass();
+      await sender.goto(`/messages/${journey.channelId}`);
       await attachNativeMessageFile(recipient, sender, journey.channelId, text);
       await manageNativePreferences(sender, journey, javaScriptEnabled);
       await manageNativeReactions(sender, journey.channelId, text);
