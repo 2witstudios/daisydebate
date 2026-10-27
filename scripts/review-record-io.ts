@@ -22,6 +22,8 @@ export type PullRequest = {
   readonly diff?: ReviewDiff;
   /** The PR's head and base branches and the repository default; CI evidence needs all three. */
   readonly headRef?: string;
+  /** Set only after trusted queue-candidate membership verification. */
+  readonly queueRef?: string;
   readonly baseRef?: string;
   readonly defaultBranch?: string;
   readonly createdAt?: string;

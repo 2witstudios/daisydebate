@@ -33,7 +33,7 @@ export function ActiveRoomBar({ room }: { readonly room: ActiveRoomSummary }) {
     <MediaPageLink
       href={room.href}
       aria-label={`Return to room: ${room.title}, ${activeRoomPhaseLabel(room.phase)}`}
-      className="flex items-center gap-3 bg-butter px-6 py-2 text-sm text-forest no-underline hover:no-underline max-narrow:px-4"
+      className="flex items-center gap-3 border-b border-border bg-hue-sky-soft px-6 py-2 text-sm text-ink no-underline hover:no-underline max-narrow:px-4"
     >
       <span className={activeRoomDotClass(room.phase)} aria-hidden="true" />
       <span className="min-w-0 truncate">

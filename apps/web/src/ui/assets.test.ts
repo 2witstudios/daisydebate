@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { art, avatarSrc } from './assets';
-import { createInitialState } from './store/state';
+import { users } from './mock/users';
 
 setupRitewayBun();
 
@@ -27,9 +27,7 @@ describe('art registry', () => {
 
 describe('avatarSrc', () => {
   test('resolves every seeded user to a shipped portrait', () => {
-    const names = createInitialState().collections.onlineUsers.map(
-      (user) => user.name,
-    );
+    const names = users.map((user) => user.name);
     assert({
       given: 'the seeded roster names',
       should: 'return a portrait path that exists in public/',

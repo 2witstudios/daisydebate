@@ -232,13 +232,15 @@ function runProblem(
 function triggerProblem(run: CiRun, pr: PullRequest): string | undefined {
   const { id } = run;
   const expected =
-    run.event === 'push'
-      ? pr.defaultBranch
-      : run.event === 'pull_request'
-        ? pr.headRef
-        : undefined;
+    run.event === 'merge_group'
+      ? pr.queueRef
+      : run.event === 'push'
+        ? pr.defaultBranch
+        : run.event === 'pull_request'
+          ? pr.headRef
+          : undefined;
   if (expected === undefined)
-    return `CI run ${id} was triggered by ${run.event}, not pull_request or push`;
+    return `CI run ${id} was triggered by ${run.event}, not an admitted pull_request, push or merge_group`;
   return run.headBranch === expected
     ? undefined
     : `CI run ${id} ran branch ${run.headBranch ?? 'unknown'}, not ${expected}`;

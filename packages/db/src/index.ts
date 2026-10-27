@@ -1,4 +1,5 @@
 import { messagingOperations } from './messaging/operations';
+import { friendshipReadOperations } from './messaging/friendships';
 import { createMediaSessionStore } from './media-session';
 import { roundUnjudgedCompletionOperations } from './round-unjudged-completion';
 import { roundMaintenanceOperations } from './round-maintenance';
@@ -27,6 +28,7 @@ import {
   type RealtimeHintHandlers,
 } from './realtime-hints';
 import { claimUsername } from './username-claim';
+import { mailIntentOperations } from './mail-intents';
 import { authOperations } from './auth-operations';
 import { authorizationSessionOperations } from './authorization-session';
 import { formatOperations } from './format-operations';
@@ -152,8 +154,10 @@ export function createDatabase({
     ...authOperations({ database, eventSink }),
     ...authorizationSessionOperations({ database }),
     ...emailDeliveryOperations({ database, eventSink }),
+    ...mailIntentOperations({ database, eventSink }),
     ...actorOperations({ database, eventSink }),
     ...messagingOperations(database),
+    ...friendshipReadOperations({ database, eventSink }),
     ...outboxOperations({ database, eventSink }),
     ...transcriptRetention({ database, eventSink }),
     readOutboxRetentionBoundary: () =>

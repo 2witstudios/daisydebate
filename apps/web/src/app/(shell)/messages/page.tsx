@@ -1,5 +1,5 @@
 import { createAppError } from '@daisy/errors';
-import { systemId } from '@daisy/clock';
+import { systemClock, systemId } from '@daisy/clock';
 import { InboxLive } from '../../../ui/messaging/conversation-live';
 import { headers } from 'next/headers';
 import Link from 'next/link';
@@ -7,15 +7,9 @@ import { requireAccess } from '../../../lib/access';
 import type { SearchParams } from '../../../features/access/decision';
 import { readMessagingInboxResponse } from '../../../features/messaging/inbox-response';
 import { PageHeader } from '../../../ui/components/page-header/page-header';
+import { InboxRow } from '../../../ui/messaging/inbox-row';
 import { GET } from '../../api/messaging/inbox/route';
 export const metadata = { title: 'Messages' };
-const labels = {
-  conversation: 'Conversation',
-  group_conversation: 'Group conversation',
-  incoming_request: 'Message request',
-  outgoing_request: 'Sent request',
-  incoming_invitation: 'Group invitation',
-} as const;
 export default async function MessagesPage({
   searchParams,
 }: {
@@ -36,6 +30,7 @@ export default async function MessagesPage({
     }),
   );
   const inbox = await readMessagingInboxResponse(response);
+  const now = systemClock.now();
   return (
     <main className="mx-auto flex w-full max-w-reading flex-col gap-6 p-6">
       <PageHeader
@@ -59,38 +54,14 @@ export default async function MessagesPage({
         >
           {inbox.entries.length === 0 ? (
             <p className="text-ink-muted">
-              No conversations or requests on this page.
+              {inbox.nextAfter === null && params.after === undefined
+                ? 'No conversations yet. Message someone to start one.'
+                : 'No conversations or requests on this page.'}
             </p>
           ) : (
-            <ul className="flex flex-col gap-3">
+            <ul aria-label="Conversations" className="flex flex-col gap-3">
               {inbox.entries.map((entry) => (
-                <li
-                  key={entry.channelId}
-                  className="rounded-lg border border-border bg-surface-raised p-4"
-                >
-                  <Link
-                    href={
-                      entry.kind === 'incoming_invitation'
-                        ? `/messages/groups/invitations/${entry.channelId}`
-                        : entry.kind === 'conversation' ||
-                            entry.kind === 'group_conversation'
-                          ? `/messages/${entry.channelId}`
-                          : entry.kind === 'incoming_request'
-                            ? `/messages/requests/${entry.channelId}`
-                            : `/messages/requests/${entry.channelId}/status`
-                    }
-                  >
-                    {labels[entry.kind]}
-                  </Link>
-                  {entry.kind === 'group_conversation' ? (
-                    <Link
-                      className="ml-4"
-                      href={`/messages/groups/${entry.channelId}/manage`}
-                    >
-                      Group membership
-                    </Link>
-                  ) : null}
-                </li>
+                <InboxRow key={entry.channelId} entry={entry} now={now} />
               ))}
             </ul>
           )}

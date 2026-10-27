@@ -209,3 +209,43 @@ its key or self-approve this identity permission change. Record a human-only
 acceptance prerequisite and verify the protected-main workflow after that update.
 Unapproved or unreadable facts fail closed; agents continue independent branch
 work without representing document classification or main acceptance as passed.
+
+## Merge queue: exact candidate review
+
+CI and Browser E2E run on `merge_group.checks_requested` and test the full
+synthetic candidate. Its SHA is different from the PR head. A PR-head review
+never approves it by inheritance. The queue initially supports one PR per
+group; the verifier refuses multiple parents, a moved PR head, a stale queue
+ref, or a base outside default-branch history.
+
+After the queue Browser E2E run completes, `review-record.yml` receives
+`workflow_run` on the default branch. It checks out only the default branch,
+never downloads candidate artifacts, and never executes queue/PR code. The
+review App environment remains main-only. `merge-queue-review.ts` reads the
+run, live queue ref, parents and PR through the API, then requires an independent
+record for the **synthetic SHA**, linked from that PR. Without that record it
+publishes pending, never success. CI citations must name `merge_group` runs
+of the admitted ref and SHA. Self-modifying workflow evidence is still refused.
+
+The reviewer publishes the exact queue-candidate record, including the PR
+number and builder, full CI evidence and a negative control, then requests
+verification from trusted main:
+
+```sh
+gh workflow run review-record.yml --ref main -f queue_run=<Browser-E2E-run-id>
+```
+
+Ordinary PR review still uses `-f pr=<number>`. Do not relax the environment
+branch restriction or use a candidate checkout with App credentials. The queue
+path is fail-closed until exercised against real owner-enabled queue events;
+unknown GitHub topology is a refusal, not inferred acceptance.
+
+Owner-only rollout: after these workflows are on main, keep the existing
+App-bound CI gate, Playwright E2E and review-record checks, add Isolated Room
+Launch E2E bound to GitHub Actions (15368), and enable Require merge queue.
+Use merge commits, build concurrency 1, minimum/maximum merge group size 1,
+minimum wait 0 minutes, only merge non-failing PRs, and a 120-minute status
+check timeout to allow exact-candidate review. Keep the review-record App
+binding (5049967) and main-only environment. Confirm an actual queue candidate
+gets full CI/browser jobs and remains pending until its own record verifies
+before relying on affected PR savings. Agents never mutate these settings.

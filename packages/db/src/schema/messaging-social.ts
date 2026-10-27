@@ -10,6 +10,7 @@ import {
   text,
   unique,
 } from 'drizzle-orm/pg-core';
+import { friendshipStates } from '@daisy/protocol';
 import { actors } from './actors';
 import { messagingActorColumn } from './messaging-columns';
 import { oneOf, timestampColumn } from './columns';
@@ -36,6 +37,49 @@ export const messagingContactPairs = pgTable(
       'messaging_contact_pairs_revision',
       sql`${table.revision} between 1 and 9007199254740991`,
     ),
+  ],
+);
+
+/**
+ * The friendship producer (ADR 0072): one row per asked or accepted pair,
+ * fenced by the same contact pair row as blocks and DMs. Declining or
+ * removing deletes the row, and a block deletes it too, so unblocking never
+ * restores a friendship.
+ */
+export const messagingFriendships = pgTable(
+  'messaging_friendships',
+  {
+    lowActorId: messagingActorColumn('low_actor_id'),
+    highActorId: messagingActorColumn('high_actor_id'),
+    requesterActorId: text('requester_actor_id').notNull(),
+    state: text('state').notNull(),
+    requestedAt: timestampColumn('requested_at').notNull(),
+    acceptedAt: timestampColumn('accepted_at'),
+  },
+  (table) => [
+    index('messaging_friendships_high_actor_idx').on(table.highActorId),
+    primaryKey({ columns: [table.lowActorId, table.highActorId] }),
+    check(
+      'messaging_friendships_order',
+      sql`${table.lowActorId} < ${table.highActorId}`,
+    ),
+    check(
+      'messaging_friendships_requester',
+      sql`${table.requesterActorId} in (${table.lowActorId}, ${table.highActorId})`,
+    ),
+    check('messaging_friendships_state', oneOf(table.state, friendshipStates)),
+    check(
+      'messaging_friendships_time',
+      sql`(${table.state} = 'pending' and ${table.acceptedAt} is null) or (${table.state} = 'accepted' and ${table.acceptedAt} is not null and ${table.acceptedAt} >= ${table.requestedAt})`,
+    ),
+    foreignKey({
+      name: 'messaging_friendships_contact_fk',
+      columns: [table.lowActorId, table.highActorId],
+      foreignColumns: [
+        messagingContactPairs.lowActorId,
+        messagingContactPairs.highActorId,
+      ],
+    }).onDelete('cascade'),
   ],
 );
 

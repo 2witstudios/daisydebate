@@ -3,7 +3,15 @@ import { readRealtimeTransportConfig } from '@daisy/config';
 import { ENVELOPE_VERSION, PROTOCOL_VERSION } from '@daisy/protocol';
 
 /** Actual issued tickets and native sockets; only fixed close codes leave the page. */
-export async function nativeRealtimeRefusals(page: Page, endpoint: string) {
+/**
+ * `heldConnections` names the actor's sockets already open (a shell page's
+ * presence connection), so the cap leaves exactly the rest to fill.
+ */
+export async function nativeRealtimeRefusals(
+  page: Page,
+  endpoint: string,
+  heldConnections: number,
+) {
   return page.evaluate(
     async ({ endpoint, v, protocolVersion, actorLimit }) => {
       async function ticket() {
@@ -105,7 +113,8 @@ export async function nativeRealtimeRefusals(page: Page, endpoint: string) {
       endpoint,
       v: ENVELOPE_VERSION,
       protocolVersion: PROTOCOL_VERSION,
-      actorLimit: readRealtimeTransportConfig(process.env).maxPerActor,
+      actorLimit:
+        readRealtimeTransportConfig(process.env).maxPerActor - heldConnections,
     },
   );
 }
