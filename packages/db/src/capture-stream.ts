@@ -82,10 +82,10 @@ export async function observeCapturedStream(
     observedFrom: new Date(from),
     observedUntil: new Date(until),
   });
-  return {
-    duplicate: false,
-    revision: await advanceTranscriptRevision(tx, input.roundId),
-  };
+  const revision = await advanceTranscriptRevision(tx, input.roundId);
+  if (context.created)
+    await appendTranscriptChanged(tx, input.roundId, revision);
+  return { duplicate: false, revision };
 }
 export async function sealCapturedStream(
   tx: CaptureTx,
