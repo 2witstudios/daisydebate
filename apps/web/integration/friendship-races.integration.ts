@@ -56,8 +56,9 @@ test('simultaneous reciprocal requests become one friendship (ADR 0072)', async 
   const change = friendChange(opened);
   const { sender, recipient, senderName, recipientName } = participants(opened);
   try {
-    // Without the pair lock both would read no row and both insert; the
-    // loser would then fail on the primary key rather than accept.
+    // Unserialized, both would read no row and both insert; the loser would
+    // then fail on the primary key rather than accept. The shared account
+    // lock is what orders them here.
     const answers = await raceBehindAccountLock(opened.client, sender.userId, [
       () => settle(change(sender, 'request', recipientName)),
       () => settle(change(recipient, 'request', senderName)),
@@ -83,7 +84,7 @@ test('a block racing a fresh request leaves no friendship', async () => {
   const { sender, recipient, senderName } = participants(opened);
   try {
     // Unserialized, the block would find no row to delete while the request
-    // inserts one past it: the interleaving the pair lock exists to prevent.
+    // inserts one past it; the shared account lock orders them instead.
     const [requested, block] = await raceBehindAccountLock(
       opened.client,
       sender.userId,

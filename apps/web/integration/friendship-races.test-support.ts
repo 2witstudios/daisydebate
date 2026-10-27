@@ -2,7 +2,10 @@ import type { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { isAppError } from '@daisy/errors';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
-import type { openMessagingFixture } from './messaging-fixture.test-support';
+import {
+  blockDependencies,
+  type openMessagingFixture,
+} from './messaging-fixture.test-support';
 import { changeFriendship } from '../src/features/messaging/friends/operations';
 import { blockMessagingContact } from '../src/features/messaging/block';
 import { messagingSocialAuthorizationFence } from '../src/features/messaging/social-authorization';
@@ -32,26 +35,6 @@ export const friendChange =
         ),
     });
   };
-
-/** The real block dependencies: its bounds, clock and fenced store. */
-export const blockDependencies = (
-  { database, fixture }: Pick<Opened, 'database' | 'fixture'>,
-  principal: AuthorizationPrincipal,
-) => {
-  const clock = { now: () => fixture.now };
-  return {
-    bounds: { introductionUnits: 100, titleUnits: 80, batchActors: 10 },
-    clock,
-    limit: async () => {},
-    store: database.messagingSocialStore(
-      messagingSocialAuthorizationFence({
-        principal,
-        clock,
-        operation: { kind: 'block' },
-      }),
-    ),
-  };
-};
 
 /** The real block operation through the same store. */
 export const blockContact = (
@@ -126,26 +109,41 @@ export async function raceBehindAccountLock<T extends readonly unknown[]>(
   const racing = (changes as readonly (() => Promise<unknown>)[]).map(
     (change) => change(),
   );
+  const settled: unknown[] = [];
+  for (const change of racing)
+    change.then(
+      (value) => settled.push(value),
+      (error: unknown) => settled.push(error),
+    );
   try {
     for (
       let poll = 0;
       (await queuedBehind(client, pid)) < changes.length;
       poll++
     ) {
+      // A change that ends before the gate opens never took the lock.
+      if (settled.length > 0)
+        throw new Error('a racing change ended before the account lock', {
+          cause: settled[0],
+        });
       if (poll === GATE_POLLS)
         throw new Error('the racing changes never queued on the account lock');
       await Bun.sleep(10);
     }
-  } finally {
+  } catch (error) {
     release();
     await gate;
+    await Promise.allSettled(racing);
+    throw error;
   }
+  release();
+  await gate;
   return (await Promise.all(racing)) as unknown as T;
 }
 
 type Member = { readonly userId: string; readonly actorId: string };
 
-/** Members who may be named; `adult` members may also act. */
+/** Members who may be named; `adult` ones also carry an account age, as the fixture's members do. */
 export async function seedMembers(
   client: SQL,
   count: number,

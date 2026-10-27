@@ -1,10 +1,12 @@
-import { openMessagingFixture } from './messaging-fixture.test-support';
+import {
+  blockDependencies,
+  openMessagingFixture,
+} from './messaging-fixture.test-support';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assertRejects } from '@daisy/errors/testing';
 import { blockMessagingContact } from '../src/features/messaging/block';
-import { blockDependencies } from './friendship-races.test-support';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 
