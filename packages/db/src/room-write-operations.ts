@@ -17,7 +17,7 @@ import {
 } from './authorization';
 
 import { instrumented, type DatabaseEventSink } from './instrumented';
-import { drawStartFacts } from './room-draw-persistence';
+import { drawStartFacts } from './draw-start-facts';
 
 import { rooms, roomParticipants } from './schema/rooms';
 
@@ -119,12 +119,13 @@ export const roomWriteOperations = ({
         const target = input.targetActorId
           ? await actorFact(tx, input.targetActorId)
           : null;
-        const outcome = execute(state, now, target, account, {
-          seed: drawSeed,
-          ...(input.type === 'start-pre-round'
-            ? await drawStartFacts(tx, state)
-            : { bank: null, exclusions: [] }),
-        });
+        const outcome = execute(
+          state,
+          now,
+          target,
+          account,
+          await drawFacts(tx, input.type, state, drawSeed),
+        );
         if (!outcome.ok)
           throw createAppError(refusalCode(outcome.refusal), outcome.refusal);
         const next = outcome.mutation.state;
@@ -134,7 +135,7 @@ export const roomWriteOperations = ({
           input.roundId,
           now,
           true,
-          state.resolutionDraw?.strikes.length ?? 0,
+          storedStrikes(state),
         );
         await reserveBotFreeze(
           tx,
@@ -163,6 +164,21 @@ export const roomWriteOperations = ({
     );
   },
 });
+
+/** The seed, plus new-draw facts only for `start-pre-round`. */
+const drawFacts = async (
+  tx: Tx,
+  type: string,
+  state: RoomAssemblyState,
+  seed: string | null,
+): Promise<RoomDrawFacts> => ({
+  seed,
+  ...(type === 'start-pre-round'
+    ? await drawStartFacts(tx, state)
+    : { bank: null, exclusions: [] }),
+});
+const storedStrikes = (state: RoomAssemblyState) =>
+  state.resolutionDraw?.strikes.length ?? 0;
 
 const refusalCode = (refusal: string) =>
   refusal === 'host-required'

@@ -100,7 +100,6 @@ describe('resolveRoomConfiguration', () => {
         ...oneOnOneDefinition.configurable,
         inRoundPrep: null,
         preRoundPrep: null,
-        resolutionDraw: null,
         interaction: {
           crossExModes: ['ordered'],
           interruptions: null,
@@ -116,7 +115,6 @@ describe('resolveRoomConfiguration', () => {
         interruptions: null,
         yielding: null,
         preRoundPrep: { enabled: true, durationMs: 60_000 },
-        resolutionDraw: { enabled: false },
       }),
     ];
     assert({

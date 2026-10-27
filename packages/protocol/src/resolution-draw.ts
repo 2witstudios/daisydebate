@@ -164,6 +164,30 @@ export const resolutionDrawViewSchema = z.discriminatedUnion('visibility', [
 ]);
 export type ResolutionDrawView = z.infer<typeof resolutionDrawViewSchema>;
 
+/** The bank filters a draw read: its revision and v1's fixed policy. */
+const bankSourceSchema = z.strictObject({
+  kind: z.literal('bank'),
+  revision: z.int().positive(),
+  categories: categoriesSchema,
+  locale: z.literal('en'),
+  difficulties: z.tuple([
+    z.literal('advanced'),
+    z.literal('intro'),
+    z.literal('standard'),
+  ]),
+});
+
+/** A bank snapshot the adapter loads for a new draw; the engine filters it. */
+export type DrawBankSnapshot = {
+  readonly revision: number;
+  readonly entries: readonly {
+    readonly id: string;
+    readonly text: string;
+    readonly category: ResolutionCategory;
+    readonly locale: string;
+  }[];
+};
+
 /**
  * The public draw manifest, version 1: proof metadata only. It carries no
  * unsalted digest and no count of private inputs, so guessed pools cannot
@@ -175,17 +199,7 @@ export const resolutionDrawManifestSchema = z.strictObject({
   roomId: idSchema,
   drawId: idSchema,
   source: z.discriminatedUnion('kind', [
-    z.strictObject({
-      kind: z.literal('bank'),
-      revision: z.int().positive(),
-      categories: categoriesSchema,
-      locale: z.literal('en'),
-      difficulties: z.tuple([
-        z.literal('advanced'),
-        z.literal('intro'),
-        z.literal('standard'),
-      ]),
-    }),
+    bankSourceSchema,
     z.strictObject({ kind: z.literal('host'), count: z.int().min(2).max(20) }),
   ]),
   drawSize: z.int().min(2).max(20),
@@ -243,17 +257,7 @@ const hexSchema = z.string().regex(/^[0-9a-f]{64}$/);
 
 /** The canonical source a draw read: the bank's filters, or the host's list. */
 const drawSourceInputSchema = z.discriminatedUnion('kind', [
-  z.strictObject({
-    kind: z.literal('bank'),
-    revision: z.int().positive(),
-    categories: categoriesSchema,
-    locale: z.literal('en'),
-    difficulties: z.tuple([
-      z.literal('advanced'),
-      z.literal('intro'),
-      z.literal('standard'),
-    ]),
-  }),
+  bankSourceSchema,
   z.strictObject({
     kind: z.literal('host'),
     resolutions: hostResolutionsSchema,

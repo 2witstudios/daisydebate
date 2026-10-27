@@ -1,5 +1,4 @@
 import type {
-  ResolutionCategory,
   ResolutionDrawManifest,
   RoomAssemblyState,
   RoomCommand,
@@ -17,6 +16,7 @@ import {
   needsStart,
   preRoundBegun,
   preRoundPhase,
+  type DrawStartFacts,
 } from './pre-round-phase';
 import {
   bytesOf,
@@ -38,11 +38,64 @@ const refuse = (refusal: RoomRefusal): RoomMutationOutcome => ({
   refusal,
 });
 
+type EnabledDraw = Extract<
+  RoomAssemblyState['executionPlan']['resolutionDraw'],
+  { enabled: true }
+>;
+
 const DIFFICULTIES: ['advanced', 'intro', 'standard'] = [
   'advanced',
   'intro',
   'standard',
 ];
+
+/** A draw starts only with every seat eligible and every human Ready. */
+const drawGate = (
+  room: RoomAssemblyState,
+  consent: RoomConsent,
+): RoomRefusal | null => {
+  if (room.participants.some((p) => !p.eligible)) return 'actor-ineligible';
+  if (!consent.available) return 'readiness-unavailable';
+  return room.participants.some(
+    (p) => p.kind === 'human' && !consent.readyActorIds.includes(p.actorId),
+  )
+    ? 'not-ready'
+    : null;
+};
+
+/** The candidates, exclusions and canonical source a draw reads, or null. */
+const drawSource = (draw: EnabledDraw, facts: DrawStartFacts | null) => {
+  if (!facts) return null;
+  if (draw.source.kind === 'host')
+    return {
+      candidates: draw.source.resolutions.map((text, i) => ({
+        id: `h:${i}`,
+        text,
+        category: null,
+      })),
+      exclusions: [],
+      sourceInput: {
+        kind: 'host' as const,
+        resolutions: draw.source.resolutions,
+      },
+    };
+  const { bank } = facts;
+  if (!bank) return null;
+  const categories = draw.source.categories;
+  return {
+    candidates: bank.entries
+      .filter((e) => e.locale === 'en' && categories.includes(e.category))
+      .map(({ id, text, category }) => ({ id, text, category })),
+    exclusions: facts.exclusions,
+    sourceInput: {
+      kind: 'bank' as const,
+      revision: bank.revision,
+      categories: [...categories].sort(),
+      locale: 'en' as const,
+      difficulties: DIFFICULTIES,
+    },
+  };
+};
 
 function beginDraw(
   room: RoomAssemblyState,
@@ -51,59 +104,27 @@ function beginDraw(
 ): RoomMutationOutcome {
   const draw = room.executionPlan.resolutionDraw;
   if (!draw.enabled) throw new Error('beginDraw requires an enabled draw');
-  if (room.participants.some((p) => !p.eligible))
-    return refuse('actor-ineligible');
-  if (!consent.available) return refuse('readiness-unavailable');
-  if (
-    room.participants.some(
-      (p) => p.kind === 'human' && !consent.readyActorIds.includes(p.actorId),
-    )
-  )
-    return refuse('not-ready');
+  const gate = drawGate(room, consent);
+  if (gate) return refuse(gate);
   const facts = edges.drawStart;
-  const bank = draw.source.kind === 'bank' ? facts?.bank : null;
-  if (!facts || (draw.source.kind === 'bank' && !bank))
-    return refuse('draw-unavailable');
-  const categories = draw.source.kind === 'bank' ? draw.source.categories : [];
-  const candidates =
-    draw.source.kind === 'bank'
-      ? bank!.entries
-          .filter((e) => e.locale === 'en' && categories.includes(e.category))
-          .map(({ id, text, category }) => ({ id, text, category }))
-      : draw.source.resolutions.map((text, i) => ({
-          id: `h:${i}`,
-          text,
-          category: null,
-        }));
+  const source = drawSource(draw, facts);
+  if (!facts || !source) return refuse('draw-unavailable');
   const seed = bytesOf(facts.seed);
   const drawn = drawResolutions({
-    candidates,
-    exclusions: draw.source.kind === 'bank' ? facts.exclusions : [],
+    candidates: source.candidates,
+    exclusions: source.exclusions,
     size: draw.drawSize,
     seed,
   });
   if (!drawn.ok) return refuse('draw-unavailable');
-  const sortedCategories = [...categories].sort();
-  const sourceInput =
-    draw.source.kind === 'bank'
-      ? {
-          kind: 'bank' as const,
-          revision: bank!.revision,
-          categories: sortedCategories,
-          locale: 'en' as const,
-          difficulties: DIFFICULTIES,
-        }
-      : { kind: 'host' as const, resolutions: draw.source.resolutions };
-  const inputs = {
+  const { sourceInput } = source;
+  const committed = {
     candidateIds: drawn.candidateIds,
     exclusions: drawn.exclusions,
     exclusionsRelaxed: drawn.exclusionsRelaxed,
     sourceInput,
     configInput: draw,
-    salt: facts.salt,
   };
-  const { salt: _salt, ...committed } = inputs;
-  void _salt;
   const manifest: ResolutionDrawManifest = {
     version: 1,
     algorithm: 'daisy-draw-v1',
@@ -141,7 +162,12 @@ function beginDraw(
         strikes: [],
       },
     },
-    { drawSecrets: { seed: facts.seed, inputs } },
+    {
+      drawSecrets: {
+        seed: facts.seed,
+        inputs: { ...committed, salt: facts.salt },
+      },
+    },
   );
 }
 

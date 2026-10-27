@@ -1,4 +1,4 @@
-import type { RoomAssemblyState, ResolutionCategory } from '@daisy/protocol';
+import type { DrawBankSnapshot, RoomAssemblyState } from '@daisy/protocol';
 import { revealed, turnOf } from './resolution-draw';
 
 export const prepFinished = (room: RoomAssemblyState, now: string) =>
@@ -64,15 +64,7 @@ export type DrawStartFacts = {
   readonly seed: string;
   readonly salt: string;
   /** The bank snapshot at its current revision; null for a host list. */
-  readonly bank: {
-    readonly revision: number;
-    readonly entries: readonly {
-      readonly id: string;
-      readonly text: string;
-      readonly category: ResolutionCategory;
-      readonly locale: string;
-    }[];
-  } | null;
+  readonly bank: DrawBankSnapshot | null;
   /** Bank entries chosen in the seated humans' recent Rounds. */
   readonly exclusions: readonly string[];
 };

@@ -238,14 +238,14 @@ const roomCapabilities = (
     canReady: canReady(open, own),
     canStartPreRound: manage && phase.phase === 'not-begun' && complete(room),
     canStrike: open && mayStrike(room, actorId, phase),
-    canFinishPrep:
-      manage &&
-      room.executionPlan.preRoundPrep.enabled &&
-      room.prepStartedAt !== null &&
-      prepFinished(room, now),
+    canFinishPrep: manage && prepCanFinish(room, now),
     canStart: host && blocker === null,
   };
 };
+const prepCanFinish = (room: RoomAssemblyState, now: string) =>
+  room.executionPlan.preRoundPrep.enabled &&
+  room.prepStartedAt !== null &&
+  prepFinished(room, now);
 const canReady = (
   open: boolean,
   own: RoomAssemblyState['participants'][number] | undefined,

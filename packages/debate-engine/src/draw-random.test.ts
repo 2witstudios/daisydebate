@@ -14,17 +14,10 @@ setupRitewayBun();
 
 const seed = bytesOf('01'.repeat(32));
 
-/** An independent SHA3-256 (Bun's native hasher) for cross-checking. */
-const nativeWord = (bytes: Uint8Array) => {
-  const hasher = new Bun.CryptoHasher('sha3-256');
-  hasher.update(bytes);
-  return new DataView(hasher.digest().buffer).getUint32(0, false);
-};
-
 describe('wordStream', () => {
   test('matches an independent SHA3-256 over domain, seed, prefix and counter', () => {
-    const domain = new TextEncoder().encode('daisy-draw-v1/auto');
-    const bytes = new Uint8Array([...domain, ...seed, 0, 0, 0, 3, 0, 0, 0, 1]);
+    // Computed with Bun's native SHA3-256 over
+    // utf8("daisy-draw-v1/auto") ‖ 01×32 ‖ u32be(3) ‖ u32be(1).
     assert({
       given: 'word 1 of the stream for ordinal 3',
       should: 'be the first four bytes, big-endian, of SHA3-256 of the parts',
@@ -33,7 +26,7 @@ describe('wordStream', () => {
         seed,
         new Uint8Array([0, 0, 0, 3]),
       )(1),
-      expected: nativeWord(bytes),
+      expected: 2_388_923_841,
     });
   });
 });

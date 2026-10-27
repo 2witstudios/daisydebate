@@ -41,6 +41,7 @@ export {
   resolutionDrawManifestSchema,
 } from './resolution-draw';
 export type {
+  DrawBankSnapshot,
   DrawPrivateInputs,
   ResolutionCategory,
   ResolutionDrawEvidence,

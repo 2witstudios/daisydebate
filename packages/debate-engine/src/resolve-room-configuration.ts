@@ -1,5 +1,17 @@
 import { formatDefinitionSchema } from '@daisy/protocol';
 import { attendancePolicy } from './attendance';
+import {
+  resolvePreRoundPrep,
+  resolveResolutionDraw,
+} from './resolve-room-plan';
+import {
+  refusalOf,
+  stepRefused,
+  within,
+  type ResolveRefusal,
+  type ResolveRefusalKind,
+  type Step,
+} from './resolve-steps';
 import type {
   FormatDefinition,
   RoomConfig,
@@ -18,20 +30,6 @@ import type {
  * is what keeps its refusal set closed and its totality provable.
  */
 
-type ResolveRefusalKind =
-  | 'invalid-definition'
-  | 'capability-forbidden'
-  | 'out-of-range'
-  | 'unknown-segment-key'
-  | 'invalid-choice'
-  | 'incomplete-timing';
-
-type ResolveRefusal = {
-  readonly kind: ResolveRefusalKind;
-  /** What was refused and why, for the operator and the logs. */
-  readonly message: string;
-};
-
 export type ResolveOutcome =
   | {
       readonly ok: true;
@@ -43,33 +41,13 @@ export type ResolveOutcome =
   | { readonly ok: false; readonly refusal: ResolveRefusal };
 
 /** One step's outcome: a resolved value or a refusal. */
-type Step<T> =
-  | { readonly ok: true; readonly value: T }
-  | { readonly ok: false; readonly refusal: ResolveRefusal };
-
-const refusalOf = (
-  kind: ResolveRefusalKind,
-  message: string,
-): ResolveRefusal => ({ kind, message });
 const refused = (
   kind: ResolveRefusalKind,
   message: string,
 ): ResolveOutcome => ({ ok: false, refusal: refusalOf(kind, message) });
-const stepRefused = (
-  kind: ResolveRefusalKind,
-  message: string,
-): { readonly ok: false; readonly refusal: ResolveRefusal } => ({
-  ok: false,
-  refusal: refusalOf(kind, message),
-});
-
-const within = (value: number, range: { min: number; max: number }) =>
-  value >= range.min && value <= range.max;
-
 /** The rules' segment: the definition's identity verbatim, nothing else —
  * in particular never the definition's own `defaultDurationMs`, which is
- * compiler input, not resolved rules. */
-const resolvedSegment = (
+ * compiler input, not resolved rules. */ const resolvedSegment = (
   segment: FormatDefinition['segments'][number],
   durationMs: number,
 ): RoundRules['segments'][number] => ({
@@ -120,63 +98,6 @@ function resolveSegments(
     segments.push(resolvedSegment(segment, segment.defaultDurationMs));
   }
   return { ok: true, value: segments };
-}
-
-/** Resolves the Room-executed pre-round prep, or refuses. */
-function resolvePreRoundPrep(
-  definition: FormatDefinition,
-  config: RoomConfig,
-): Step<RoomExecutionPlan['preRoundPrep']> {
-  if (!config.preRoundPrep.enabled)
-    return { ok: true, value: config.preRoundPrep };
-  const bounds = definition.configurable.preRoundPrep;
-  if (bounds === null)
-    return stepRefused(
-      'capability-forbidden',
-      'The format forbids pre-round prep',
-    );
-  if (!within(config.preRoundPrep.durationMs, bounds.durationMs))
-    return stepRefused(
-      'out-of-range',
-      `Pre-round prep ${config.preRoundPrep.durationMs}ms is outside ${bounds.durationMs.min}-${bounds.durationMs.max}ms`,
-    );
-  return { ok: true, value: config.preRoundPrep };
-}
-
-/** Resolves the Room-executed resolution draw, or refuses. */
-function resolveResolutionDraw(
-  definition: FormatDefinition,
-  config: RoomConfig,
-): Step<RoomExecutionPlan['resolutionDraw']> {
-  const draw = config.resolutionDraw;
-  if (!draw.enabled) return { ok: true, value: draw };
-  const bounds = definition.configurable.resolutionDraw;
-  if (bounds === null)
-    return stepRefused(
-      'capability-forbidden',
-      'The format forbids a resolution draw',
-    );
-  if (!within(draw.drawSize, bounds.drawSize))
-    return stepRefused(
-      'out-of-range',
-      `Draw size ${draw.drawSize} is outside ${bounds.drawSize.min}-${bounds.drawSize.max}`,
-    );
-  if (!within(draw.strikeWindowMs, bounds.strikeWindowMs))
-    return stepRefused(
-      'out-of-range',
-      `Strike window ${draw.strikeWindowMs}ms is outside ${bounds.strikeWindowMs.min}-${bounds.strikeWindowMs.max}ms`,
-    );
-  if (!bounds.firstStrikers.includes(draw.firstStriker))
-    return stepRefused(
-      'invalid-choice',
-      `First striker ${draw.firstStriker} is not permitted`,
-    );
-  if (!bounds.sources.includes(draw.source.kind))
-    return stepRefused(
-      'invalid-choice',
-      `Draw source ${draw.source.kind} is not permitted`,
-    );
-  return { ok: true, value: draw };
 }
 
 /** Resolves the ECS-enforced in-round budget, or refuses. */

@@ -7,12 +7,7 @@ import type {
   RoomRefusal,
 } from '@daisy/protocol';
 
-import {
-  complete,
-  prepFinished,
-  startBlocker,
-  type Edges,
-} from './room-assembly-facts';
+import { prepFinished, startBlocker, type Edges } from './room-assembly-facts';
 const refuse = (refusal: RoomRefusal): RoomMutationOutcome => ({
   ok: false,
   refusal,
