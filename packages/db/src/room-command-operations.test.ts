@@ -109,6 +109,7 @@ test('Start mutation commits one frozen Round, cast, receipt, and change signal'
     [],
     [{ now: new Date('2026-10-09T00:00:00.000Z') }],
     [],
+    [], // a started Room's friend challenges are deleted (ISSUE-699)
     [],
     [],
     [],

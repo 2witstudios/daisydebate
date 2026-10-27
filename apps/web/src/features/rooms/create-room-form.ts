@@ -8,19 +8,24 @@ const assemblingRoomOf = (href: string) =>
 
 /**
  * `beforeMoveOn` is best effort: the Room exists either way, so a hook that
- * fails never keeps its member from moving on to it.
+ * fails never keeps its member from moving on to it. A hook may instead
+ * answer a notice its member must read first, which they get in place of
+ * moving on.
  */
 async function runHook(
-  hook: (roomId: string) => Promise<void>,
+  hook: BeforeMoveOn,
   roomId: string | undefined,
-) {
-  if (!roomId) return;
+): Promise<string | undefined> {
+  if (!roomId) return undefined;
   try {
-    await hook(roomId);
+    return (await hook(roomId)) ?? undefined;
   } catch {
     // The Room's own invite link still reaches anyone the hook missed.
+    return undefined;
   }
 }
+
+type BeforeMoveOn = (roomId: string) => Promise<string | void>;
 
 /**
  * Normal creation and explicit rematch keep the same native/enhanced
@@ -33,7 +38,7 @@ export async function submitRoomCreation(
   incoming: Headers,
   form: unknown,
   path = '/api/rooms',
-  beforeMoveOn: (roomId: string) => Promise<void> = async () => {},
+  beforeMoveOn: BeforeMoveOn = async () => {},
 ): Promise<MockFormState> {
   const submitted = form instanceof FormData ? form : new FormData();
   const result = await createAssembly(
@@ -41,12 +46,14 @@ export async function submitRoomCreation(
     submitted,
   );
   if (result.kind === 'created') {
-    await runHook(beforeMoveOn, result.roomId);
+    const notice = await runHook(beforeMoveOn, result.roomId);
+    if (notice) return refused(submitted, notice);
     return { values: {}, ...moveOn(incoming, `/rooms/${result.roomId}`) };
   }
   // One active Room per user (ADR 0070): the answer is to go back to it.
   if (result.kind === 'active-room' && result.href) {
-    await runHook(beforeMoveOn, assemblingRoomOf(result.href));
+    const notice = await runHook(beforeMoveOn, assemblingRoomOf(result.href));
+    if (notice) return refused(submitted, notice);
     return { values: {}, ...moveOn(incoming, result.href) };
   }
   return refused(submitted, creationRefusal(result));

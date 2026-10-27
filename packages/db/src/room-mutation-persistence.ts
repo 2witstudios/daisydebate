@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 import type { RoomMutationOutcome } from '@daisy/protocol';
 
 import { rooms, roomParticipants } from './schema/rooms';
+import { messagingFriendChallenges } from './schema/messaging-social';
 import { roundLadder, rounds } from './schema/rounds';
 import { roundParticipants } from './schema/round-participants';
 import { appendRoundPhaseChanged } from './round-projection-writer';
@@ -43,6 +44,12 @@ export const persistRoomMutation = async (
       updatedAt: new Date(now),
     })
     .where(eq(rooms.id, next.id));
+  // ISSUE-699: a challenge invites to a room still gathering its players,
+  // so it goes the moment the room starts or is abandoned.
+  if (next.status === 'started' || next.status === 'abandoned')
+    await tx
+      .delete(messagingFriendChallenges)
+      .where(eq(messagingFriendChallenges.roomId, next.id));
   await tx.delete(roomParticipants).where(eq(roomParticipants.roomId, next.id));
   if (next.participants.length)
     await tx.insert(roomParticipants).values(

@@ -72,21 +72,32 @@ async function isFriend(friends: FetchLike, username: string) {
  * link still reaches them. A refused delivery is not silent to operators:
  * the challenges route logs its status like every route.
  */
+/**
+ * Delivers the challenge, answering a notice when the held room already
+ * challenges another friend (ISSUE-700): that friend was not invited, and
+ * the challenger is told so before moving on.
+ */
 async function deliverChallenge(
   challenges: FetchLike,
   username: string,
   roomId: string,
-) {
+): Promise<string | undefined> {
   try {
-    await challenges('/api/friends/challenges', {
+    const response = await challenges('/api/friends/challenges', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ version: 1, username, roomId }),
     });
+    if (response.status === 409) return secondChallengeNotice(username);
   } catch {
     // The room page's invite link is the fallback.
   }
+  return undefined;
 }
+
+/** What a challenger reads when their room already challenges someone. */
+export const secondChallengeNotice = (username: string) =>
+  `Your room already challenges another friend, so @${username} was not invited. Go back to your room to share its link with them.`;
 
 /**
  * Challenge an accepted friend (ADR 0072): confirm the friendship through
@@ -112,7 +123,7 @@ export async function challengeFriend({
   };
   readonly create: (
     form: FormData,
-    beforeMoveOn: (roomId: string) => Promise<void>,
+    beforeMoveOn: (roomId: string) => Promise<string | void>,
   ) => Promise<MockFormState>;
 }): Promise<ChallengeAnswer> {
   const friend = parseUsername(form.get('username'));

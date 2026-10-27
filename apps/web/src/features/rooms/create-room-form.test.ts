@@ -96,3 +96,23 @@ test('the hook sees the Room its member reaches while it assembles, and never bl
     expected: [`/rooms/${assemblySnapshot.id}`, [held]],
   });
 });
+
+test('a hook that answers a notice keeps its member in place to read it', async () => {
+  const state = await submitRoomCreation(
+    async () =>
+      Response.json(
+        { receipt: { roomId: assemblySnapshot.id }, view: assemblySnapshot },
+        { status: 201 },
+      ),
+    hydrated,
+    form(),
+    undefined,
+    async () => 'Your friend was not invited.',
+  );
+  assert({
+    given: 'a created Room whose hook answers a notice',
+    should: 'answer that notice instead of moving on',
+    actual: [state.next, state.error],
+    expected: [undefined, 'Your friend was not invited.'],
+  });
+});

@@ -1,7 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { roomCreateSchema } from '@daisy/protocol';
 import { unequalTemplate as template } from '../../rooms/assembly.test-support';
-import { challengeFriend } from './challenge';
+import { challengeFriend, secondChallengeNotice } from './challenge';
 
 setupRitewayBun();
 
@@ -26,6 +26,7 @@ const run = async (
   username: string,
   friends: readonly string[],
   outcome: { next?: string; error?: string } = { next: '/rooms/r1' },
+  delivery = 200,
 ) => {
   const created: FormData[] = [];
   const delivered: unknown[] = [];
@@ -38,13 +39,17 @@ const run = async (
       catalog: catalog as never,
       challenges: async (url, init) => {
         delivered.push([url, JSON.parse(String(init.body))]);
-        return Response.json({});
+        return Response.json({}, { status: delivery });
       },
     },
     create: async (form, beforeMoveOn) => {
       created.push(form);
-      if (outcome.next) await beforeMoveOn('r'.repeat(24));
-      return { values: {}, ...outcome };
+      const notice = outcome.next
+        ? await beforeMoveOn('r'.repeat(24))
+        : undefined;
+      return notice
+        ? { values: {}, error: notice }
+        : { values: {}, ...outcome };
     },
   });
   return { answer, created, delivered };
@@ -123,5 +128,16 @@ test('a refused room keeps its own words', async () => {
     should: 'answer its refusal as the notice',
     actual: answer,
     expected: { username: '', notice: 'You are already in a room.' },
+  });
+});
+
+test('a challenge the held room cannot carry tells the challenger the friend was not invited (ISSUE-700)', async () => {
+  const { answer, delivered } = await run('bea', ['bea'], undefined, 409);
+  assert({
+    given: 'a challenger whose held room already challenges another friend',
+    should:
+      'try the delivery, then keep them on /friends with a notice naming who was not invited',
+    actual: [answer, delivered.length],
+    expected: [{ username: '', notice: secondChallengeNotice('bea') }, 1],
   });
 });
