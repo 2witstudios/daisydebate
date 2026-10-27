@@ -1,16 +1,25 @@
 import type { Database } from '@daisy/db';
 import { maintainRoom } from '@daisy/debate-engine';
-import type { WorkerTimers } from '../../lib/worker-timers';
+import {
+  startSingleFlightWorker,
+  type WorkerTimers,
+} from '../../lib/worker-timers';
 
 /** How often Room maintenance runs: due draw strikes settle within a pulse. */
 const ROOM_MAINTENANCE_PULSE_MS = 500;
 
+/** Where a Room maintenance failure happened: reading the page, or one Room. */
+type RoomMaintenanceFailed = (
+  error: unknown,
+  stage: 'discover' | 'maintain',
+) => void;
+
 /**
  * Room lifecycle maintenance (ISSUE-771): settles due draw strikes and
  * closes open Rooms idle past the policy timeout, a page per pulse.
- * Settlement runs even with expiry unset (`idleTimeoutMs` null). A Room
- * that fails is reported after the page, so it never holds back the Rooms
- * after it.
+ * Settlement runs even with expiry unset (`idleTimeoutMs` null). Each Room
+ * that fails is reported on its own, with its own error, and never holds
+ * back the Rooms after it.
  */
 export const createRoomMaintenance =
   (input: {
@@ -21,13 +30,12 @@ export const createRoomMaintenance =
     /** Injected Room policy, or null to leave idle Room expiry inert (ADR 0070). */
     readonly idleTimeoutMs: number | null;
   }) =>
-  async (): Promise<void> => {
+  async (failed: RoomMaintenanceFailed): Promise<void> => {
     const { idleTimeoutMs } = input;
     const roomIds = await input.store.readMaintenanceCandidates({
       idleTimeoutMs,
       limit: 64,
     });
-    const failures: unknown[] = [];
     for (const roomId of roomIds)
       await input.store
         .maintainRoom({
@@ -40,44 +48,19 @@ export const createRoomMaintenance =
               drawSeed: facts.drawSeed,
             }),
         })
-        .catch((error: unknown) => failures.push(error));
-    if (failures.length)
-      throw new AggregateError(failures, 'Room maintenance failed');
+        .catch((error: unknown) => failed(error, 'maintain'));
   };
 
-/**
- * Runs Room maintenance on its own timer, apart from Round maintenance: one
- * pass at a time, a failed pass reported and retried on the next pulse.
- */
+/** Runs Room maintenance on its own single-flight timer, apart from Round maintenance. */
 export function startRoomMaintenance(input: {
-  readonly maintainRooms: () => Promise<unknown>;
+  readonly maintainRooms: (failed: RoomMaintenanceFailed) => Promise<void>;
   readonly timers: WorkerTimers;
-  readonly failed: (error: unknown) => void;
+  readonly failed: RoomMaintenanceFailed;
 }) {
-  let stopped = false,
-    running = false;
-  let work = Promise.resolve();
-  const sweep = async () => {
-    running = true;
-    try {
-      await input.maintainRooms();
-    } catch (error) {
-      input.failed(error);
-    } finally {
-      running = false;
-    }
-  };
-  const pulse = () => {
-    if (!stopped && !running) work = sweep();
-    return work;
-  };
-  const timer = input.timers.setInterval(pulse, ROOM_MAINTENANCE_PULSE_MS);
-  return {
-    ready: pulse(),
-    stop: () => {
-      stopped = true;
-      input.timers.clearInterval(timer);
-      return work;
-    },
-  };
+  return startSingleFlightWorker({
+    run: () => input.maintainRooms(input.failed),
+    everyMs: ROOM_MAINTENANCE_PULSE_MS,
+    timers: input.timers,
+    failed: (error) => input.failed(error, 'discover'),
+  });
 }

@@ -76,7 +76,7 @@ export async function proveMvpJourney(browser: Browser) {
       'ISSUE-639',
     );
     const title = `ISSUE-639 ${createId().slice(0, 8)}`;
-    let room = await createFromPlay(aff, title, 'value');
+    let room = await createFromPlay(aff, title);
     for (const page of [neg, judge]) await joinFromLobby(page, title, room.id);
     const players: Player[] = [
       { page: aff, seat: 'Affirmative 1' },

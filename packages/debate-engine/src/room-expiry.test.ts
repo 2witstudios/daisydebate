@@ -25,7 +25,7 @@ describe('idle expiry', () => {
     });
     assert({
       given: 'an open Room whose last command is exactly the timeout old',
-      should: 'abandon it as a new change, keeping its version',
+      should: 'close it as a new change, keeping its version',
       actual: expired && [
         expired.mutation.state.status,
         expired.mutation.state.changeVersion,

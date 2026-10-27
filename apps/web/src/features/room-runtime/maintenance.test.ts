@@ -1,4 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { failureLog, manualTimers } from '../../lib/worker-timers.test-support';
 import { createRoomMaintenance, startRoomMaintenance } from './maintenance';
 setupRitewayBun();
 
@@ -54,7 +55,9 @@ test('idle Room expiry applies the engine rule under the injected policy (ADR 00
         },
       } as never,
       idleTimeoutMs,
-    })();
+    })(() => {
+      throw new Error('no Room should fail');
+    });
   await sweep(null);
   const inert = [...calls];
   await sweep(600_000);
@@ -74,7 +77,8 @@ test('idle Room expiry applies the engine rule under the injected policy (ADR 00
 test('one Room that cannot be maintained does not stop the rest of the sweep (PR #472 review)', async () => {
   const maintained: string[] = [];
   const failure = new Error('room read failed');
-  const outcome = await createRoomMaintenance({
+  const { failures, failed } = failureLog();
+  await createRoomMaintenance({
     store: {
       readMaintenanceCandidates: async () => ['broken', 'next'],
       maintainRoom: async (input: { roomId: string }) => {
@@ -84,60 +88,39 @@ test('one Room that cannot be maintained does not stop the rest of the sweep (PR
       },
     } as never,
     idleTimeoutMs: null,
-  })().then(
-    () => null,
-    (error: unknown) => error,
-  );
+  })(failed);
   assert({
     given: 'a page whose first Room throws',
     should:
-      'still maintain the next Room, then report the failure once the page is done',
-    actual: {
-      maintained,
-      reported:
-        outcome instanceof AggregateError ? outcome.errors : 'not reported',
-    },
-    expected: { maintained: ['next'], reported: [failure] },
+      "still maintain the next Room and report that Room's own error at the maintain stage",
+    actual: { maintained, failures },
+    expected: { maintained: ['next'], failures: [[failure, 'maintain']] },
   });
 });
 
-test('Room maintenance runs on its own timer, one pass at a time (ISSUE-771)', async () => {
-  const failure = new Error('page failed');
-  const failed: unknown[] = [];
-  let interval: number | undefined;
-  let pulse: (() => Promise<void>) | undefined;
-  let passes = 0;
-  let release!: () => void;
-  const held = new Promise<void>((done) => {
-    release = done;
-  });
+test('Room maintenance runs on its own 500 ms single-flight timer (ISSUE-771)', async () => {
+  const { tasks, timers } = manualTimers();
+  const { failures, failed } = failureLog();
+  const pageFailure = new Error('page read failed');
   const service = startRoomMaintenance({
     maintainRooms: async () => {
-      passes += 1;
-      await held;
-      throw failure;
+      throw pageFailure;
     },
-    timers: {
-      setInterval: (tick: () => Promise<void>, ms: number) => {
-        interval = ms;
-        pulse = tick;
-        return 1;
-      },
-      clearInterval: () => {},
-    },
-    failed: (error) => failed.push(error),
+    timers,
+    failed,
   });
-  void pulse?.();
-  release();
-  await service.ready;
+  await service.started;
+  const pulse = tasks.get(500);
   await service.stop();
-  await pulse?.();
   assert({
-    given:
-      'a pass still running when the next pulse fires, a failing pass, then a pulse after stop',
+    given: 'a pass whose page read fails, then a stop',
     should:
-      'pulse every 500ms, skip the overlapping pulse, report the failure once and run nothing after stop',
-    actual: { interval, passes, failed },
-    expected: { interval: 500, passes: 1, failed: [failure] },
+      'pulse every 500 ms, report the failure at the discover stage and clear its interval',
+    actual: { pulsed: pulse !== undefined, failures, cleared: !tasks.has(500) },
+    expected: {
+      pulsed: true,
+      failures: [[pageFailure, 'discover']],
+      cleared: true,
+    },
   });
 });

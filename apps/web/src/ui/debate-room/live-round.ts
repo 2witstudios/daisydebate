@@ -11,7 +11,7 @@ import {
   sideName,
   type Seat,
 } from '../../features/round-runtime/round-reading';
-import { initialsOf } from '../components/avatar/initials';
+import { initialsOf } from '../../lib/initials';
 import type {
   Side,
   SpeechSlot,

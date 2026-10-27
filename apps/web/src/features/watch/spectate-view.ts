@@ -12,7 +12,7 @@ import {
   sideLabel,
   visibilityLabel,
 } from './labels';
-import { initialsOf } from '../../ui/components/avatar/initials';
+import { initialsOf } from '../../lib/initials';
 import { replayHref } from './routes';
 import { spokenTurns, totalSeconds, type Turn } from './schedule';
 import type { SpectatorSocial } from './social';

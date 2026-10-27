@@ -6,7 +6,7 @@ import type { DeviceKind } from '../../../features/video/device-check-controller
 import { controlClass } from '../../components/form-field/form-field-class';
 import { buttonClass } from '../../components/button/button-class';
 import { MicLevel } from './mic-level';
-import { initialsOf } from '../../components/avatar/initials';
+import { initialsOf } from '../../../lib/initials';
 
 type Devices = ReturnType<typeof createBrowserDeviceChecks>;
 type Snapshot = ReturnType<Devices['readSnapshot']>;

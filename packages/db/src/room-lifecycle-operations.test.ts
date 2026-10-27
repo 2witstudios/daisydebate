@@ -182,7 +182,7 @@ test('an idle Room the engine expires is closed, released and announced', async 
   assert({
     given: 'an open Room the engine finds idle',
     should:
-      'abandon it, delete every membership it held and ring its doorbell once',
+      'close it, delete every membership it held and ring its doorbell once',
     actual: [
       expired,
       queries.some(({ query }) => query.startsWith('update "rooms"')),

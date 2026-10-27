@@ -4,7 +4,7 @@ import { AssemblyCast, type CastProps, type IntentIds } from './assembly-cast';
 import { AssemblyCommandFields } from './assembly-command-fields';
 import { AssemblyCommandForm } from './assembly-command-form';
 import { declaredSeats, seatLabel } from './assembly-controls';
-import { initialsOf } from '../../components/avatar/initials';
+import { initialsOf } from '../../../lib/initials';
 import { seatStatus } from './room-labels';
 import { RoomInvite } from './room-invite';
 

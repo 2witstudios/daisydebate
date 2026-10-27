@@ -26,6 +26,6 @@ export function startRoomLifecycleMaintenance(input: {
       idleTimeoutMs: app.roomPolicy?.idleTimeoutMs ?? null,
     }),
     timers: input.timers,
-    failed: (error) => failed(error, 'sweep'),
+    failed,
   });
 }

@@ -16,7 +16,7 @@ import { RoundEndedNotice } from '../debate-room/round-ended';
 import { useLiveRoundView } from '../debate-room/use-live-round-view';
 import { useRoundEndedRoute } from '../debate-room/use-round-ended';
 import { useSecond } from '../debate-room/use-second';
-import { initialsOf } from '../components/avatar/initials';
+import { initialsOf } from '../../lib/initials';
 import { FreshnessNotice } from '../resource-sync/freshness-notice';
 
 const audienceLabel: Readonly<Record<SpectatorAudience, string>> = {
