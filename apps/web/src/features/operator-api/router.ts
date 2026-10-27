@@ -21,6 +21,7 @@ import {
   operatorAccountsQuerySchema,
   operatorLimits,
   type OperatorAccountsPage,
+  type OperatorCommandState,
 } from '@daisy/protocol/operator';
 
 /**
@@ -292,7 +293,7 @@ async function readCommand(
   deps: OperatorApiDependencies,
   principal: AuthorizationPrincipal,
   commandId: string,
-) {
+): Promise<OperatorCommandState> {
   if (
     principal.kind !== 'operator_service' ||
     !principal.capabilities.includes('account.beta_access.update')

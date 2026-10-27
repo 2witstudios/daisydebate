@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { betaAccessStates } from './beta-access';
+import { betaAccessCommandResultSchema, betaAccessStates } from './beta-access';
 import { idSchema } from './primitives';
 
 /**
@@ -107,3 +107,16 @@ export const betaAccessCommandSchema = z.strictObject({
   /** The admin audit chain head after this command's intent (cross-database anchor). */
   adminAuditHead: z.string().regex(/^[0-9a-f]{64}$/),
 });
+
+/**
+ * `GET /operator/v1/commands/{id}`: a command's stored result and its
+ * approval mail's state (null when it owed none), for the admin app to
+ * reconcile a response it never received.
+ */
+export const operatorCommandStateSchema = z.strictObject({
+  result: betaAccessCommandResultSchema,
+  mailState: z
+    .enum(['queued', 'leased', 'sent', 'failed', 'cancelled'])
+    .nullable(),
+});
+export type OperatorCommandState = z.infer<typeof operatorCommandStateSchema>;
