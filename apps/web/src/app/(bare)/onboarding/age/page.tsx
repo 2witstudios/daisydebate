@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { headers } from 'next/headers';
+import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { systemClock } from '@daisy/clock';
 import {
@@ -8,7 +8,10 @@ import {
   type SearchParams,
 } from '../../../../features/access/decision';
 import { birthYears } from '../../../../features/account/age-form';
-import { heldRefusal } from '../../../../features/account/age-step';
+import {
+  AGE_HOLD_COOKIE,
+  holdRefusal,
+} from '../../../../features/account/age-step';
 import { readOnboardingEntry } from '../../../../lib/auth-entry';
 import { requestHasRecordedAge } from '../../../../lib/request-session';
 import { AgeRefusalStep } from '../../../../ui/onboarding/age/age-refusal';
@@ -30,7 +33,10 @@ export default async function OnboardingAgePage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  const held = heldRefusal((await headers()).get('cookie'));
+  // cookies(), not the raw request header: the form action that sets the
+  // hold re-renders this page in the same response, and only cookies()
+  // reflects a cookie that action just set.
+  const held = holdRefusal((await cookies()).get(AGE_HOLD_COOKIE)?.value);
   if (held !== null) return <AgeRefusalStep refusal={held} />;
   const { destination, identity } = await readOnboardingEntry(
     searchParams,

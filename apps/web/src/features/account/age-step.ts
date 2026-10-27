@@ -27,14 +27,17 @@ export type AgeRefusal = Exclude<AgeStepDecision, 'accept'>;
 export const AGE_HOLD_COOKIE = '__Host-daisy-age-held';
 const HOLD_SECONDS = 24 * 60 * 60;
 
+/** A hold cookie's value as the refusal it holds, or null for anything else. */
+export const holdRefusal = (value: string | undefined): AgeRefusal | null =>
+  value === 'under-13' || value === 'below-floor' ? value : null;
+
 /** The hold a browser carries, read from its own cookie header. */
-export function heldRefusal(cookieHeader: string | null): AgeRefusal | null {
-  const cookie = cookieHeader ?? '';
-  const value = new RegExp(`(?:^|;\\s*)${AGE_HOLD_COOKIE}=([a-z0-9-]+)`).exec(
-    cookie,
-  )?.[1];
-  return value === 'under-13' || value === 'below-floor' ? value : null;
-}
+const heldRefusal = (cookieHeader: string | null): AgeRefusal | null =>
+  holdRefusal(
+    new RegExp(`(?:^|;\\s*)${AGE_HOLD_COOKIE}=([a-z0-9-]+)`).exec(
+      cookieHeader ?? '',
+    )?.[1],
+  );
 
 /** How long a refusal holds its browser (WAIT-4.7). */
 export const AGE_HOLD_SECONDS = HOLD_SECONDS;
