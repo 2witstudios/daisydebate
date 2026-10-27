@@ -13,6 +13,7 @@ const friendsOf = (friends: readonly string[]) => async () =>
     friends: friends.map((username) => ({ username, presence: 'online' })),
     incoming: [],
     outgoing: [{ username: 'eve', requestedAt: at }],
+    challenges: [],
   });
 const catalog = async () => Response.json({ choices: [template], bots: [] });
 const formFor = (username: string) => {
@@ -27,32 +28,42 @@ const run = async (
   outcome: { next?: string; error?: string } = { next: '/rooms/r1' },
 ) => {
   const created: FormData[] = [];
+  const delivered: unknown[] = [];
   const answer = await challengeFriend({
     viewer: 'ada',
     form: formFor(username),
     commandId: 'c'.repeat(24),
-    routes: { friends: friendsOf(friends), catalog: catalog as never },
-    create: async (form) => {
+    routes: {
+      friends: friendsOf(friends),
+      catalog: catalog as never,
+      challenges: async (url, init) => {
+        delivered.push([url, JSON.parse(String(init.body))]);
+        return Response.json({});
+      },
+    },
+    create: async (form, beforeMoveOn) => {
       created.push(form);
+      if (outcome.next) await beforeMoveOn('r'.repeat(24));
       return { values: {}, ...outcome };
     },
   });
-  return { answer, created };
+  return { answer, created, delivered };
 };
 
 test('challenging a friend opens an unlisted room for the pair', async () => {
-  const { answer, created } = await run('bea', ['bea']);
+  const { answer, created, delivered } = await run('bea', ['bea']);
   const form = created[0]!;
   assert({
     given: 'an accepted friend and the default template',
     should:
-      'create an unlisted casual room named for both on that template, then move on to it',
+      'create an unlisted casual room named for both on that template, deliver the challenge, then move on to it',
     actual: [
       answer,
       form.get('title'),
       form.get('visibility'),
       form.get('commandId'),
       JSON.parse(String(form.get('selection'))),
+      delivered,
       roomCreateSchema.safeParse({
         commandId: form.get('commandId'),
         title: form.get('title'),
@@ -73,6 +84,12 @@ test('challenging a friend opens an unlisted room for the pair', async () => {
         competitionType: 'casual',
         config: template.defaultConfig,
       },
+      [
+        [
+          '/api/friends/challenges',
+          { version: 1, username: 'bea', roomId: 'r'.repeat(24) },
+        ],
+      ],
       true,
     ],
   });

@@ -28,6 +28,8 @@ const routes = {
   request: processRoute((all) => all.friends.request),
   respond: processRoute((all) => all.friends.respond),
   remove: processRoute((all) => all.friends.remove),
+  challenge: processRoute((all) => all.friends.challenge),
+  declineChallenge: processRoute((all) => all.friends.declineChallenge),
 };
 const presenceRoute = processRoute((all) => all.friends.presence);
 const friendList = processRoute((all) => all.friends.list);
@@ -45,8 +47,8 @@ export async function friendAction(
 ): Promise<FriendFormState> {
   const kept = friendFormUnavailable(form);
   try {
-    const { intent, username } = parseFriendForm(form);
-    const { route, path, body } = friendRouteFor(intent, username);
+    const { intent, username, roomId } = parseFriendForm(form);
+    const { route, path, body } = friendRouteFor(intent, username, roomId);
     const response = await inProcessFetch(
       routes[route],
       new Headers(await headers()),
@@ -79,7 +81,8 @@ export async function friendAction(
 
 /**
  * Challenge an accepted friend: an unlisted room named for the two members,
- * then the room itself, whose invite link the challenger sends (ADR 0072).
+ * the challenge delivered to the friend's /friends, then the room itself
+ * (ADR 0072).
  */
 export async function challengeAction(
   _previous: FriendFormState,
@@ -96,9 +99,16 @@ export async function challengeAction(
     routes: {
       friends: inProcessFetch(friendList, incoming),
       catalog: inProcessFetch(roomCatalog, incoming),
+      challenges: inProcessFetch(routes.challenge, incoming),
     },
-    create: (room) =>
-      submitRoomCreation(inProcessFetch(createRoom, incoming), incoming, room),
+    create: (room, beforeMoveOn) =>
+      submitRoomCreation(
+        inProcessFetch(createRoom, incoming),
+        incoming,
+        room,
+        '/api/rooms',
+        beforeMoveOn,
+      ),
   });
 }
 
