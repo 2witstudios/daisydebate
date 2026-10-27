@@ -1,5 +1,10 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { clamdTestPort, slotEnvValues, worktreeSlot } from './slot-model';
+import {
+  clamdTestPort,
+  clickHouseTest,
+  slotEnvValues,
+  worktreeSlot,
+} from './slot-model';
 
 setupRitewayBun();
 
@@ -13,6 +18,7 @@ type Compose = {
     string,
     {
       command?: string[];
+      environment?: Record<string, string>;
       healthcheck?: unknown;
       image?: string;
       ports?: string[];
@@ -36,11 +42,11 @@ test('CI starts Redis and LiveKit from the one local compose stack', async () =>
   assert({
     given: 'the infrastructure and isolated Room Launch jobs',
     should:
-      'use the compose memory-only Redis, dev-key LiveKit and pinned clamd instead of service copies, waiting for health',
+      'use the compose memory-only Redis, dev-key LiveKit, pinned clamd and the log store instead of service copies, waiting for health',
     actual: {
       integrationServices: Object.keys(integration.services ?? {}).sort(),
       integrationStarts: runs(integration).includes(
-        'docker compose -f infra/compose.yaml up -d --wait redis livekit clamd',
+        'docker compose -f infra/compose.yaml up -d --wait redis livekit clamd clickhouse',
       ),
       launchServices: Object.keys(launch.services ?? {}).sort(),
       launchStartsStack: runs(launch).includes('bun slot:up'),
@@ -90,6 +96,48 @@ test('clamd is one pinned compose service on the port every job and slot names',
       integrationPort: port,
       launchPort: port,
       slotPort: port,
+    },
+  });
+});
+
+test('the log store is one compose service whose port and passwords every job and slot name', async () => {
+  const ci = await read<{
+    jobs: Record<string, Job & { env?: Record<string, string> }>;
+  }>('.github/workflows/ci.yml');
+  const compose = await read<Compose>('infra/compose.yaml');
+  const service = compose.services.clickhouse;
+  const env = ci.jobs.integration!.env ?? {};
+  const slot = slotEnvValues({
+    slot: worktreeSlot('abc'),
+    env: { DATABASE_URL: 'postgres://h/d', REDIS_URL: 'redis://h' },
+    portBlock: 1,
+  });
+  const named = (source: Record<string, string | undefined>) => ({
+    url: source.TEST_CLICKHOUSE_URL,
+    shipperPassword: source.TEST_CLICKHOUSE_SHIPPER_PASSWORD,
+    readerPassword: source.TEST_CLICKHOUSE_READER_PASSWORD,
+  });
+  assert({
+    given: 'the compose log store, the integration job and a slot',
+    should:
+      'publish one loopback port with healthcheck and the same dev-only passwords everywhere',
+    actual: {
+      ports: service?.ports,
+      healthcheck: service?.healthcheck !== undefined,
+      compose: {
+        url: `http://${service?.ports?.[0]?.split(':').slice(0, 2).join(':')}`,
+        shipperPassword: service?.environment?.CLICKHOUSE_SHIPPER_PASSWORD,
+        readerPassword: service?.environment?.CLICKHOUSE_READER_PASSWORD,
+      },
+      ci: named(env),
+      slot: named(slot),
+    },
+    expected: {
+      ports: ['127.0.0.1:18123:8123'],
+      healthcheck: true,
+      compose: clickHouseTest,
+      ci: clickHouseTest,
+      slot: clickHouseTest,
     },
   });
 });
