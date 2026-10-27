@@ -74,9 +74,16 @@ fence (accounts, then the pair, then a channel).
    never grants a relationship, channel, room or attendance fact, and an
    expired lease changes no relationship.
 8. **Challenge** creates an unlisted casual room on the catalog's default
-   template, named for the two members, and takes the challenger to it; the
-   room's invite link is how the friend arrives. Sending that link to the
-   friend directly is a follow-up.
+   template, named for the two members, delivers the challenge to the
+   friend, and takes the challenger to the room. Delivery is a
+   `messaging_friend_challenges` row (room, challenger, challenged), written
+   in the same contact-fenced transaction that confirms the pair is an
+   accepted friendship and that the challenger hosts the room while it
+   assembles. The friend's `/friends` lists it with Join (the room) and
+   Decline (which deletes it); it shows only while the room assembles or is
+   ready, only from an accepted, unblocked friend, and it goes with its
+   room. A Challenge that cannot be delivered still opens the room, whose
+   invite link reaches the friend.
 
 ## Consequences
 
@@ -89,6 +96,8 @@ fence (accounts, then the pair, then a channel).
   tells a friend they chose to hide. The members-online aggregate still
   counts them, since it names no one. The row is personal/private, deleted
   on subject erasure and exported to its member.
+- `messaging_friend_challenges` is personal/private like the friendship
+  row, deleted on subject erasure and exported to either member.
 - `messaging_friendships` is personal/private, deleted on subject erasure
   and exported to either member, on the same pending lawful-basis and
   retention decisions as `messaging_contact_pairs`.

@@ -53,7 +53,7 @@ const compose = (options: { decide?: (key: string) => Decision }) => {
 const isRecipientKey = (key: string | undefined) =>
   /^auth:magic-link:recipient:[0-9a-f]{64}:\d+$/.test(key ?? '');
 const isGlobalKey = (key: string | undefined) =>
-  /^auth:magic-link:global:\d+$/.test(key ?? '');
+  /^auth:magic-link:global:(?:60|day:\d{4}-\d{2}-\d{2})$/.test(key ?? '');
 
 describe('auth rate-limit gate: recipient bucket', () => {
   test('consumes the client bucket, its network, three recipient windows and two global ceilings', async () => {

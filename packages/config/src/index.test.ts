@@ -101,6 +101,7 @@ describe('authentication configuration', () => {
         RESEND_API_KEY: authEnv.RESEND_API_KEY,
         AUTH_EMAIL_FROM: authEnv.AUTH_EMAIL_FROM,
         AUTH_TRUSTED_PROXIES: [],
+        AUTH_SIGN_UP_MAIL_CEILINGS: { perMinute: 120, perDay: 3000 },
       },
     });
   });
@@ -244,6 +245,7 @@ describe('authentication configuration', () => {
       ).sort(),
       expected: [
         'AUTH_EMAIL_FROM',
+        'AUTH_SIGN_UP_MAIL_CEILINGS',
         'AUTH_TRUSTED_PROXIES',
         'BETTER_AUTH_SECRET',
         'PUBLIC_APP_URL',

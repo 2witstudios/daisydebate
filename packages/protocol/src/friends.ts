@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { idSchema } from './primitives';
 import { usernameSchema as username } from './username';
 
 /**
@@ -28,6 +29,10 @@ export const friendCommandSchemas = {
     decision: z.enum(['accept', 'decline']),
   }),
   remove: z.strictObject(command),
+  /** Records a challenge to a friend for a room the caller just opened. */
+  challenge: z.strictObject({ ...command, roomId: idSchema }),
+  /** Declines a friend's challenge to the caller. */
+  declineChallenge: z.strictObject({ ...command, roomId: idSchema }),
   /** The caller's own choice to hide their online status from friends. */
   presence: z.strictObject({ version: z.literal(1), hidden: z.boolean() }),
 } as const;
@@ -61,6 +66,15 @@ export const friendListSchema = z.strictObject({
   ),
   outgoing: z.array(
     z.strictObject({ username: z.string(), requestedAt: z.iso.datetime() }),
+  ),
+  /** Friends' challenges waiting for the reader, rooms still assembling. */
+  challenges: z.array(
+    z.strictObject({
+      username: z.string(),
+      roomId: idSchema,
+      title: z.string(),
+      challengedAt: z.iso.datetime(),
+    }),
   ),
 });
 export type FriendList = z.infer<typeof friendListSchema>;

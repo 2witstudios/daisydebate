@@ -1,3 +1,5 @@
+import { onboardingHref, usernameHref } from '../access/decision';
+
 /** What the age form's server action answers. */
 export type AgeFormState = {
   /** The choices as posted, so a refused form shows them again. */
@@ -72,3 +74,42 @@ export function readAgeForm(form: FormData):
       }
     : { ok: false, state: { month, year, terms, missing } };
 }
+
+/** What POST /api/account/age answered, as the form action needs it. */
+export type AgeAnswer =
+  | { readonly kind: 'accepted' }
+  | { readonly kind: 'refused'; readonly refusal: 'under-13' | 'below-floor' }
+  | { readonly kind: 'unavailable' };
+
+/**
+ * Reads the age route's answer. A 409 means this account answered already
+ * and that first answer stands, so it moves on like an accepted answer
+ * (DEC-246); a 403 carries the refusal that holds the browser; anything else
+ * is unavailable and the form is shown again.
+ */
+export async function readAgeAnswer(response: Response): Promise<AgeAnswer> {
+  if (response.ok || response.status === 409) return { kind: 'accepted' };
+  if (response.status !== 403) return { kind: 'unavailable' };
+  const body: unknown = await response.json().catch(() => null);
+  const refusal = (body as { error?: { refusal?: unknown } } | null)?.error
+    ?.refusal;
+  return refusal === 'under-13' || refusal === 'below-floor'
+    ? { kind: 'refused', refusal }
+    : { kind: 'unavailable' };
+}
+
+/**
+ * Where the form goes after an answer: an accepted answer (or one given
+ * already) on to the username step, a refusal back to the age step, which
+ * then shows it; the validated destination rides along either way. Null
+ * when the form stays put.
+ */
+export const ageAnswerHref = (
+  answer: AgeAnswer,
+  destination: string,
+): string | null =>
+  answer.kind === 'accepted'
+    ? usernameHref(destination)
+    : answer.kind === 'refused'
+      ? onboardingHref(destination)
+      : null;

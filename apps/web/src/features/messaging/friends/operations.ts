@@ -1,6 +1,7 @@
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { Clock } from '@daisy/clock';
 import type {
+  MessagingFriendChallengeRow,
   MessagingFriendshipRow,
   MessagingSocialStore,
 } from '@daisy/db/messaging';
@@ -104,6 +105,11 @@ export type FriendReadDependencies = {
     readonly userId: string;
     readonly actorId: string;
   }) => Promise<readonly MessagingFriendshipRow[]>;
+  /** Friends' challenges waiting for the reader, behind the same decision. */
+  readonly challenges: (scope: {
+    readonly userId: string;
+    readonly actorId: string;
+  }) => Promise<readonly MessagingFriendChallengeRow[]>;
   /** Whether the reader hides their own status, behind the same decision. */
   readonly hidden: (scope: {
     readonly userId: string;
@@ -137,8 +143,9 @@ export async function readFriendList(
   dependencies: FriendReadDependencies,
 ): Promise<Omit<FriendList, 'version'>> {
   const { actorId, userId } = requireMessagingActor(principal);
-  const [rows, hidden] = await Promise.all([
+  const [rows, challenges, hidden] = await Promise.all([
     dependencies.list({ userId, actorId }),
+    dependencies.challenges({ userId, actorId }),
     dependencies.hidden({ userId, actorId }),
   ]);
   const accepted = rows.filter((row) => row.state === 'accepted');
@@ -172,5 +179,11 @@ export async function readFriendList(
       ),
     incoming: pending(true),
     outgoing: pending(false),
+    challenges: challenges.map(({ username, roomId, title, challengedAt }) => ({
+      username,
+      roomId,
+      title,
+      challengedAt,
+    })),
   };
 }
