@@ -56,6 +56,8 @@ export type MessagingRuntimePolicy = {
     readonly typing: readonly RateRule[];
     /** DEC-251: attachment uploads per account per day. */
     readonly fileUploadsDaily: number;
+    /** DEC-251: the largest attachment a file runtime may accept. */
+    readonly fileBytes: number;
   };
 };
 export function composeMessagingRoutes(app: App) {

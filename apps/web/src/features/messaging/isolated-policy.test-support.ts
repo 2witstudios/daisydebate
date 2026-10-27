@@ -34,6 +34,7 @@ export const isolatedMessagingPolicy = (
     reactions: [{ max: 60, windowSeconds: 60 }],
     typing: [{ max: 30, windowSeconds: 60 }],
     fileUploadsDaily: dec251MessagingValues.fileUploadsDaily,
+    fileBytes: dec251MessagingValues.fileBytes,
   },
   social: {
     bounds: {

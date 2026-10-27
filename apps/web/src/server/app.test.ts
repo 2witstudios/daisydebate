@@ -49,6 +49,31 @@ const errorOf = (run: () => unknown) => {
 };
 
 describe('createApp', () => {
+  test('runs the DEC-251 beta messaging policy, tightened only by MESSAGING_POLICY', async () => {
+    const shipped = build(baseEnv);
+    const tightened = build({
+      ...baseEnv,
+      MESSAGING_POLICY: JSON.stringify({ editWindowMs: 60_000 }),
+    });
+    assert({
+      given: 'no override, a tighter edit window, then a looser one',
+      should:
+        'run the shipped policy, apply the tighter value, and refuse to boot on the looser',
+      actual: [
+        shipped.messagingPolicy === betaMessagingPolicy,
+        tightened.messagingPolicy.editWindowMs,
+        errorOf(() =>
+          build({
+            ...baseEnv,
+            MESSAGING_POLICY: JSON.stringify({ editWindowMs: 900_001 }),
+          }),
+        ).includes('MESSAGING_POLICY.editWindowMs would loosen DEC-251'),
+      ],
+      expected: [true, 60_000, true],
+    });
+    await Promise.all([shipped.close(), tightened.close()]);
+  });
+
   test('builds independent instances from their own environments', async () => {
     const first = build({ ...baseEnv, FOUNDATION_PROOF_ENABLED: 'true' });
     const second = build({

@@ -17,6 +17,7 @@ export const fileFramePolicy: FilePolicy = {
   maxFilenameUnits: 50,
   maxImagePixels: 100,
   serviceMs: 1000,
+  maxUploadsPerDay: 20,
 };
 export const fileFrameScope = {
   actorId: 'a'.repeat(24),

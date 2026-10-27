@@ -81,7 +81,7 @@ export async function openComposedFileFixture(
     const dependenciesFor = (
       identity: AuthorizationPrincipal,
     ): FileDependencies => ({
-      policy: fileProofPolicy,
+      policy: { ...fileProofPolicy, maxUploadsPerDay: 20 },
       store: composeMessagingFileStore({
         database,
         principal: identity,

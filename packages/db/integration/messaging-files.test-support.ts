@@ -73,4 +73,5 @@ export const fileDatabaseProofPolicy: FilePolicy = {
   maxFilenameUnits: 50,
   maxImagePixels: 100,
   serviceMs: 1000,
+  maxUploadsPerDay: 20,
 };

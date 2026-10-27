@@ -24,7 +24,10 @@ import { createSendMail } from '../features/auth/mail/send-mail';
 import { deriveRecipientSubkey } from '../features/auth/mail/recipient-key';
 import type { Deliver } from '../features/auth/mail/deliver-or-unavailable';
 import { createAlertRecorder, withAlertRecording } from './alert-recorder';
-import { parseMessagingPolicyLimits } from '../features/messaging/beta-limits';
+import {
+  parseMessagingFileLimits,
+  parseMessagingPolicyLimits,
+} from '../features/messaging/beta-limits';
 import { tightenMessagingPolicy } from '../features/messaging/beta-policy';
 import { createMetricsStore, type MetricsStore } from './metrics-store';
 
@@ -169,6 +172,9 @@ export function createApp({
     });
   };
   let aiVoice: OpenRouter | undefined;
+  const policy = parseMessagingPolicyLimits(
+    tightenMessagingPolicy(messagingPolicy, config.MESSAGING_POLICY),
+  );
   const drainState = createDrainState([database, redis]);
   return {
     config,
@@ -177,10 +183,10 @@ export function createApp({
       NODE_ENV: config.NODE_ENV,
     }),
     roomPolicy: roomPolicy ?? config.ROOM_POLICY ?? null,
-    messagingPolicy: parseMessagingPolicyLimits(
-      tightenMessagingPolicy(messagingPolicy, config.MESSAGING_POLICY),
-    ),
-    messagingFiles: messagingFiles ?? null,
+    messagingPolicy: policy,
+    messagingFiles: messagingFiles
+      ? parseMessagingFileLimits(messagingFiles, policy)
+      : null,
     clock,
     ids,
     logger,

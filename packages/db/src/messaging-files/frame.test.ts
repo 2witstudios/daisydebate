@@ -16,6 +16,7 @@ test('file admission binds durable authority and replay preserves the existing r
   const f = fileFrameFixture([
     [],
     [['0', '0']],
+    [['0']],
     [[4]],
     fileRow(),
     fileRow(),
@@ -166,5 +167,25 @@ test('quarantine and renewal preserve byte charges while fencing old generations
       f.remaining.length,
     ],
     expected: [2, 60, [false, false], 0],
+  });
+});
+
+test('an owner who reserved the day’s uploads cannot reserve another (DEC-251)', async () => {
+  const f = fileFrameFixture([
+    [],
+    [['0', '0']],
+    [[String(policy.maxUploadsPerDay)]],
+  ]);
+  await assertRejects({
+    given: 'an owner with the policy’s daily reservations already made',
+    should: 'refuse the next as a rate limit, deleted files included',
+    actual: () => f.frame.reserve(command, now, policy),
+    code: 'RATE_LIMIT',
+  });
+  assert({
+    given: 'the refused reservation',
+    should: 'write nothing',
+    actual: f.writes().length,
+    expected: 0,
   });
 });

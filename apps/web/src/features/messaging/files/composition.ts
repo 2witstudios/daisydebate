@@ -11,9 +11,13 @@ export function messagingFileDependencies(
 ): FileDependencies {
   const runtime = app.messagingFiles,
     policy = app.messagingPolicy;
-  if (!runtime || !policy) throw createAppError('INFRASTRUCTURE');
+  if (!runtime) throw createAppError('INFRASTRUCTURE');
   return {
     ...runtime,
+    policy: {
+      ...runtime.policy,
+      maxUploadsPerDay: policy.limits.fileUploadsDaily,
+    },
     clock: app.clock,
     ids: app.ids,
     store: composeMessagingFileStore({

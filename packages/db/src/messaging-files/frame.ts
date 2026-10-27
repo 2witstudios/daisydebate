@@ -1,4 +1,4 @@
-import { and, eq, ne, sql } from 'drizzle-orm';
+import { and, eq, gt, ne, sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { buildChannelTopic, idSchema } from '@daisy/protocol';
@@ -182,6 +182,22 @@ export function channelFileFrame(
         Number(quota!.count) >= policy.maxStoredFiles
       )
         throw createAppError('PAYLOAD_TOO_LARGE');
+      // Every reservation counts, deleted or not, so removing a file never
+      // refills the day.
+      const [today] = await tx
+        .select({ count: sql<string>`count(*)` })
+        .from(messagingFiles)
+        .where(
+          and(
+            eq(messagingFiles.ownerActorId, input.actorId),
+            gt(
+              messagingFiles.createdAt,
+              new Date(Date.parse(now) - 86_400_000),
+            ),
+          ),
+        );
+      if (Number(today!.count) >= policy.maxUploadsPerDay)
+        throw createAppError('RATE_LIMIT');
       const row: typeof messagingFiles.$inferInsert = {
         id: command.id,
         objectKey: command.objectKey,

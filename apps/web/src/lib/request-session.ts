@@ -19,6 +19,14 @@ const requestSession = cache(async () =>
   resolveSession(processApp().auth(), await headers()),
 );
 
+/**
+ * Whether this app offers private-group creation, invitation and
+ * admission: never in beta (ISSUE-643), only under an isolated test
+ * composition. Pages omit those controls when it does not.
+ */
+export const privateGroupsOffered = (): boolean =>
+  processApp().messagingPolicy.privateGroups === 'isolated-test-fixture';
+
 /** Who is asking in this server-component render. */
 export const requestIdentity = async (): Promise<Identity> =>
   (await requestSession()).identity;

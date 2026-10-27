@@ -10,6 +10,8 @@ export type FilePolicy = Readonly<{
   maxFilenameUnits: number;
   maxImagePixels: number;
   serviceMs: number;
+  /** DEC-251: reservations one owner may make per rolling day. */
+  maxUploadsPerDay: number;
 }>;
 export type FileScope = Readonly<{
   channelId: string;

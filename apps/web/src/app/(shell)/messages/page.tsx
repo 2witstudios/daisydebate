@@ -4,6 +4,7 @@ import { InboxLive } from '../../../ui/messaging/conversation-live';
 import { headers } from 'next/headers';
 import Link from 'next/link';
 import { requireAccess } from '../../../lib/access';
+import { privateGroupsOffered } from '../../../lib/request-session';
 import type { SearchParams } from '../../../features/access/decision';
 import { readMessagingInboxResponse } from '../../../features/messaging/inbox-response';
 import { PageHeader } from '../../../ui/components/page-header/page-header';
@@ -39,7 +40,9 @@ export default async function MessagesPage({
       />
       <nav aria-label="Start a conversation" className="flex gap-4">
         <Link href="/messages/new">Message someone</Link>
-        <Link href="/messages/new?kind=group">Create private group</Link>
+        {privateGroupsOffered() ? (
+          <Link href="/messages/new?kind=group">Create private group</Link>
+        ) : null}
         <Link href="/messages/contacts" className="text-accent hover:underline">
           Contact safety
         </Link>

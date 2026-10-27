@@ -25,6 +25,8 @@ export type MessagingBetaValues = {
     readonly declineBlockMs: number;
   };
   readonly fileUploadsDaily: number;
+  /** Bytes per attachment; fixed by DEC-251, never overridden. */
+  readonly fileBytes: number;
 };
 
 const freeze = <Value>(value: Value): Value => {
@@ -60,6 +62,7 @@ export const dec251MessagingValues: MessagingBetaValues = freeze({
     declineBlockMs: 30 * DAY_SECONDS * 1_000,
   },
   fileUploadsDaily: 20,
+  fileBytes: 10_000_000,
 });
 
 const refuse = (field: string): never => {
@@ -149,6 +152,7 @@ export function tightenMessagingValues(
       floor.fileUploadsDaily,
       override.fileUploadsDaily,
     ),
+    fileBytes: floor.fileBytes,
   });
 }
 
@@ -166,8 +170,10 @@ const betaDmPolicy = {
 } as const satisfies SocialContactPolicy;
 
 /**
- * Proposed in the slice channel [748]; DEC-251 sets no reaction set or
- * typing display bounds.
+ * Beta defaults DEC-251 leaves open, approved by the orchestrator [749] and
+ * recorded on the DEC-251 page: this reaction set, 8-unit reactions, typing
+ * refetched every 3 s for at most 2 actors (DMs only while groups are off),
+ * and no per-channel send window.
  */
 const reactionChoices = ['👍', '❤️', '😂', '😮', '😢', '👏'];
 
@@ -200,6 +206,7 @@ function composeBetaMessagingPolicy(
       reactions: values.reactions.windows,
       typing: values.typing,
       fileUploadsDaily: values.fileUploadsDaily,
+      fileBytes: values.fileBytes,
     },
     social: {
       bounds: {
@@ -227,6 +234,7 @@ const valuesOf = (policy: MessagingRuntimePolicy): MessagingBetaValues => ({
   typing: policy.limits.typing,
   socialRequests: policy.social.requests,
   fileUploadsDaily: policy.limits.fileUploadsDaily,
+  fileBytes: policy.limits.fileBytes,
 });
 
 /**
@@ -253,6 +261,7 @@ export function tightenMessagingPolicy(
       reactions: values.reactions.windows,
       typing: values.typing,
       fileUploadsDaily: values.fileUploadsDaily,
+      fileBytes: values.fileBytes,
     },
     social: { ...policy.social, requests: values.socialRequests },
   };

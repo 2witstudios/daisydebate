@@ -14,6 +14,21 @@ type MessagingPolicyLimits = {
 };
 
 /**
+ * DEC-251: a file runtime may accept attachments no larger than the
+ * policy's limit; a larger one is refused before any route uses it.
+ */
+export function parseMessagingFileLimits<
+  Runtime extends { readonly policy: { readonly maxFileBytes: number } },
+>(
+  runtime: Runtime,
+  policy: { readonly limits: { readonly fileBytes: number } },
+) {
+  if (runtime.policy.maxFileBytes > policy.limits.fileBytes)
+    throw createAppError('VALIDATION');
+  return runtime;
+}
+
+/**
  * DEC-124: a runtime messaging policy may be tighter than the beta limits,
  * never looser. The app refuses one that is looser before any route uses it.
  */

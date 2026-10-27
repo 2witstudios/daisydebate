@@ -1,3 +1,4 @@
+import { requirePrivateGroups } from './private-groups';
 import type { App } from '../../server/app';
 import { parseValidated, readJson } from '../../server/http';
 import { consumeWindowsOrThrow } from '../auth/abuse/rate-limit';
@@ -16,6 +17,8 @@ export function composeMessagingCreationIntentRoutes(app: App) {
       readOnly: false,
       readInput: () => readJson(request, policy.maxBodyBytes),
       operation: async (input, principal) => {
+        // Before any username lookup or limiter: groups are off (ISSUE-643).
+        if (kind === 'private_group') requirePrivateGroups(policy);
         const block =
           kind === 'block'
             ? parseValidated(schemas.blockUsername, input)
