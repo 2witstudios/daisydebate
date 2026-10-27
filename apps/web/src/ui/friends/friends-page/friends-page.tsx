@@ -1,66 +1,166 @@
-'use client';
-
 import Link from 'next/link';
-import { avatarSrc } from '../../assets';
+import type { ReactNode } from 'react';
+import type { FriendList } from '@daisy/protocol';
+import type { FriendFormState } from '../../../features/messaging/friends/forms';
 import { Avatar } from '../../components/avatar/avatar';
 import { PageHeader } from '../../components/page-header/page-header';
 import { ReadingPage } from '../../components/reading-page/reading-page';
-import { useUiState } from '../../store/store';
-import { friendGroups, onlineNow } from '../friends';
+import type { FormAction } from '../../form-action/form-action';
+import { profileHref } from '../../layout/app-shell/components/destinations';
+import { AddFriendForm, FriendButtonForm } from '../friend-forms';
+import { friendsLede, presenceLabel } from '../friends';
+
+type Action = FormAction<FriendFormState>;
+
+function Section({
+  id,
+  title,
+  children,
+}: {
+  readonly id: string;
+  readonly title: string;
+  readonly children: ReactNode;
+}) {
+  return (
+    <section aria-labelledby={id} className="flex flex-col gap-2">
+      <h2 id={id} className="text-sm font-semibold text-ink-muted">
+        {title}
+      </h2>
+      {children}
+    </section>
+  );
+}
+
+function PersonRow({
+  username,
+  detail,
+  presence,
+  children,
+}: {
+  readonly username: string;
+  readonly detail?: string;
+  readonly presence?: FriendList['friends'][number]['presence'];
+  readonly children: ReactNode;
+}) {
+  return (
+    <li className="flex min-h-12 flex-wrap items-center gap-3 rounded-md px-2 py-1 hover:bg-surface-overlay">
+      <Avatar name={username} size="sm" {...(presence ? { presence } : {})} />
+      <div className="flex min-w-0 flex-1 flex-col">
+        <Link
+          href={profileHref(username)}
+          className="truncate text-base text-ink no-underline hover:no-underline"
+        >
+          @{username}
+        </Link>
+        {detail ? (
+          <span className="text-sm text-ink-muted">{detail}</span>
+        ) : null}
+      </div>
+      <div className="flex flex-wrap items-center gap-2">{children}</div>
+    </li>
+  );
+}
 
 /**
- * A member's friends who are around, grouped by what they are doing, each
- * with a link to their profile and what you can do with them right now.
+ * A member's friends, online first, the requests waiting on them and the
+ * ones they sent, and a way to add someone. Every button is a native form,
+ * so the page works before any script and with none.
  */
-export function FriendsPage() {
-  const users = useUiState((state) => state.collections.onlineUsers);
+export function FriendsPage({
+  list,
+  friendAction,
+  challengeAction,
+}: {
+  readonly list: FriendList | null;
+  readonly friendAction: Action;
+  readonly challengeAction: Action;
+}) {
   return (
     <ReadingPage>
-      <PageHeader title="Friends" lede={`${onlineNow(users)} online`} />
-      {friendGroups(users).map((group) => (
-        <section
-          key={group.status}
-          aria-labelledby={`friends-${group.status}`}
-          className="flex flex-col gap-1"
-        >
-          <h2
-            id={`friends-${group.status}`}
-            className="text-sm font-semibold text-ink-muted"
-          >
-            {group.label}
-          </h2>
+      <PageHeader
+        title="Friends"
+        lede={list ? friendsLede(list) : 'Friends are unavailable right now.'}
+      />
+      {list && list.incoming.length > 0 ? (
+        <Section id="friends-incoming" title="Requests">
           <ul className="flex flex-col">
-            {group.people.map((person) => (
-              <li
-                key={person.name}
-                className="flex min-h-12 items-center gap-3 rounded-md px-2 hover:bg-surface-overlay"
+            {list.incoming.map(({ username }) => (
+              <PersonRow
+                key={username}
+                username={username}
+                detail="Wants to be friends"
               >
-                <Avatar
-                  name={person.name}
-                  src={avatarSrc(person.name)}
-                  presence={person.status}
-                  size="sm"
-                  nameVisible
+                <FriendButtonForm
+                  action={friendAction}
+                  username={username}
+                  intent="accept"
+                  label="Accept"
+                  variant="primary"
                 />
-                <Link
-                  href={person.profileHref}
-                  className="min-w-0 flex-1 truncate text-base text-ink no-underline hover:no-underline"
-                >
-                  {person.name}
-                </Link>
-                {person.action ? (
-                  <Link
-                    href={person.action.href}
-                    className="flex min-h-nav-target items-center px-2 text-sm font-semibold no-underline hover:no-underline"
-                  >
-                    {person.action.label}
-                  </Link>
-                ) : null}
-              </li>
+                <FriendButtonForm
+                  action={friendAction}
+                  username={username}
+                  intent="decline"
+                  label="Decline"
+                  variant="ghost"
+                />
+              </PersonRow>
             ))}
           </ul>
-        </section>
-      ))}
+        </Section>
+      ) : null}
+      {list && list.friends.length > 0 ? (
+        <Section id="friends-list" title="Your friends">
+          <ul className="flex flex-col">
+            {list.friends.map(({ username, presence }) => (
+              <PersonRow
+                key={username}
+                username={username}
+                presence={presence}
+                detail={presenceLabel[presence]}
+              >
+                <FriendButtonForm
+                  action={challengeAction}
+                  username={username}
+                  intent="challenge"
+                  label="Challenge"
+                />
+                <FriendButtonForm
+                  action={friendAction}
+                  username={username}
+                  intent="remove"
+                  label="Remove"
+                  variant="ghost"
+                />
+              </PersonRow>
+            ))}
+          </ul>
+        </Section>
+      ) : null}
+      {list && list.outgoing.length > 0 ? (
+        <Section id="friends-outgoing" title="Sent requests">
+          <ul className="flex flex-col">
+            {list.outgoing.map(({ username }) => (
+              <PersonRow
+                key={username}
+                username={username}
+                detail="Waiting for an answer"
+              >
+                <FriendButtonForm
+                  action={friendAction}
+                  username={username}
+                  intent="cancel"
+                  label="Cancel"
+                  variant="ghost"
+                />
+              </PersonRow>
+            ))}
+          </ul>
+        </Section>
+      ) : null}
+      <Section id="friends-add" title="Add a friend">
+        <AddFriendForm action={friendAction} />
+      </Section>
     </ReadingPage>
   );
 }

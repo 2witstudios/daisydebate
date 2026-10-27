@@ -275,3 +275,19 @@ export {
   type MemberProfile,
   type RecordResult,
 } from './member-profile';
+
+export {
+  friendCommandResultSchema,
+  friendCommandSchemas,
+  friendListSchema,
+  friendshipStates,
+  onlineCountsSchema,
+} from './friends';
+export type {
+  FriendCommandResult,
+  FriendList,
+  FriendPresence,
+  FriendRelation,
+  FriendshipState,
+  OnlineCounts,
+} from './friends';

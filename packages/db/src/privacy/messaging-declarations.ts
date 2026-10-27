@@ -38,6 +38,18 @@ const messagingColumns = {
     ],
     none: ['revision'],
   },
+  messaging_friendships: {
+    identifier: [],
+    personal: [
+      'low_actor_id',
+      'high_actor_id',
+      'requester_actor_id',
+      'state',
+      'requested_at',
+      'accepted_at',
+    ],
+    none: [],
+  },
   messaging_dm_pairs: {
     identifier: ['channel_id'],
     personal: [

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 import { buttonClass } from '../../components/button/button-class';
 import { cn } from '../../cn';
 
@@ -10,9 +11,12 @@ import { cn } from '../../cn';
 export function ProfileActions({
   username,
   me,
+  children,
 }: {
   readonly username: string;
   readonly me: boolean;
+  /** Actions toward this member, which the viewer's own relations decide. */
+  readonly children?: ReactNode;
 }) {
   return (
     <div
@@ -30,7 +34,9 @@ export function ProfileActions({
         >
           Edit profile
         </Link>
-      ) : null}
+      ) : (
+        children
+      )}
     </div>
   );
 }
