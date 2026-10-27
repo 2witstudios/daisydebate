@@ -210,3 +210,24 @@ describe('the public commitments resist pool enumeration', () => {
     });
   });
 });
+
+test('the turn reports its time left as of the read (PR #472 review)', () => {
+  const striking = begin().state;
+  const at = (seconds: number) =>
+    new Date(Date.parse(edges.now) + seconds * 1000).toISOString();
+  const turnOf = (now: string, viewer: string) =>
+    projectRoom(striking, viewer, consent, now, SEED).resolutionDraw?.turn;
+  assert({
+    given:
+      'a 60 s window read at the start, 13 s later, and 90 s later after a time-out',
+    should:
+      'project the time left on the current turn from the server clock, for a debater and a spectator alike',
+    actual: [
+      turnOf(edges.now, 'host')?.remainingMs,
+      turnOf(at(13), 'host')?.remainingMs,
+      turnOf(at(13), 'watcher')?.remainingMs,
+      turnOf(at(90), 'host')?.remainingMs,
+    ],
+    expected: [60_000, 47_000, 47_000, 30_000],
+  });
+});

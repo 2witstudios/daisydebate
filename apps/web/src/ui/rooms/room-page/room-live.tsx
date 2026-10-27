@@ -115,7 +115,6 @@ export function RoomLive(props: Props) {
       <RoomStrike
         view={view}
         actorId={props.actorId}
-        now={now}
         action={props.commandAction}
         strikeIds={ids.strikes}
       />

@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useSyncExternalStore } from 'react';
+import { useId } from 'react';
 import type { RoomCatalogChoice, RoomView } from '@daisy/protocol';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
 import type { RoomCommandIds } from '../../../features/rooms/room-command-ids';
@@ -16,8 +16,6 @@ import { FormatTemplatePicker } from '../create-room/format-template-picker';
 import { formatTitle } from './room-labels';
 import { FormField } from '../../components/form-field/form-field';
 import { controlClass } from '../../components/form-field/form-field-class';
-
-const subscribeNever = () => () => undefined;
 
 /** One radio or select value names one catalog tuple; the form decoder spreads it. */
 const tuple = (format: {
@@ -79,7 +77,7 @@ const leagueField = {
 };
 
 const optionClass =
-  'relative flex min-h-room-target flex-col gap-1 rounded-lg border border-border p-3 has-checked:border-2 has-checked:border-accent has-checked:bg-surface-raised';
+  'relative flex min-h-room-target flex-col gap-1 rounded-lg border border-border p-3 has-checked:border-2 has-checked:border-accent has-checked:bg-surface-raised has-focus-visible:border-accent has-focus-visible:ring-2 has-focus-visible:ring-accent';
 
 type FormProps = {
   readonly view: RoomView;
@@ -98,13 +96,12 @@ const choiceTuple = (choice: RoomCatalogChoice) =>
 /** In a draw room a set-resolution choice needs typed text (FMT-2b). */
 const drawing = (view: RoomView) => view.executionPlan.resolutionDraw.enabled;
 
-/** The standards and Custom, one radio each; outside a draw, choosing submits at once. */
+/**
+ * The standards and Custom, one radio each. Choosing posts only from the
+ * button: a format change bumps the Room and clears everyone's Ready, so
+ * arrowing through the group must never submit (WCAG 3.2.2).
+ */
 function StandardsForm({ view, choices, ids, action }: FormProps) {
-  const interactive = useSyncExternalStore(
-    subscribeNever,
-    () => true,
-    () => false,
-  );
   const legendId = useId();
   const standing = view.format.standing;
   const draws = drawing(view);
@@ -129,9 +126,6 @@ function StandardsForm({ view, choices, ids, action }: FormProps) {
               defaultChecked={
                 standing.kind === 'standard' &&
                 standing.formatId === choice.formatId
-              }
-              onChange={(event) =>
-                draws ? undefined : event.currentTarget.form?.requestSubmit()
               }
             />
             <span className="font-strong">{choice.label}</span>
@@ -158,11 +152,7 @@ function StandardsForm({ view, choices, ids, action }: FormProps) {
         </label>
       </div>
       {draws ? <ResolutionField id="room-format-topic" /> : null}
-      <button
-        type="submit"
-        hidden={interactive && !draws}
-        className={buttonClass('secondary')}
-      >
+      <button type="submit" className={buttonClass('secondary')}>
         Use this format
       </button>
     </AssemblyCommandForm>

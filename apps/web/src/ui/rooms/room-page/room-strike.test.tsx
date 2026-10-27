@@ -48,6 +48,7 @@ const turn = {
   ordinal: 1,
   side: 'affirmative' as const,
   dueAt: '2026-10-12T00:01:00.000Z',
+  remainingMs: 47_000,
 };
 const debaterView: RoomView = {
   ...base,
@@ -81,7 +82,6 @@ const render = (view: RoomView, actorId: string) =>
     <RoomStrike
       view={view}
       actorId={actorId}
-      now={Date.parse('2026-10-12T00:00:13.000Z')}
       action={async () => ({ values: {} })}
       strikeIds={['strike-0', 'strike-1']}
     />,
@@ -215,7 +215,6 @@ test('after the reveal, debaters see how the resolution was chosen', () => {
         <RoomStrike
           view={revealed(debaterView)}
           actorId={host}
-          now={0}
           action={async () => ({ values: {} })}
           strikeIds={[]}
         />,

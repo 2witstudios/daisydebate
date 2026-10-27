@@ -33,17 +33,16 @@ export const viewerSideOf = (view: RoomView, actorId: string): Side | null => {
   return seat && seat.role !== 'judge' ? seat.role : null;
 };
 
+/** The turn's time left as presented: the read's own count, ticking down from it. */
 function Countdown({
   draw,
-  now,
   mine,
 }: {
   readonly draw: Draw;
-  readonly now: number;
   readonly mine: boolean;
 }) {
   if (!draw.turn) return null;
-  const left = Math.max(0, Date.parse(draw.turn.dueAt) - now);
+  const left = draw.turn.remainingMs;
   return (
     <p
       role="timer"
@@ -126,13 +125,11 @@ const strikeCopy = (view: RoomView, draw: Draw, mine: boolean) => {
 export function RoomStrike({
   view,
   actorId,
-  now,
   action,
   strikeIds,
 }: {
   readonly view: RoomView;
   readonly actorId: string;
-  readonly now: number;
   readonly action: FormAction<RoomFormState>;
   readonly strikeIds: readonly string[];
 }) {
@@ -159,7 +156,7 @@ export function RoomStrike({
           </h2>
           <p className="text-sm text-ink-muted">{copy.lede}</p>
         </div>
-        <Countdown draw={draw} now={now} mine={mine} />
+        <Countdown draw={draw} mine={mine} />
       </div>
       {draw.visibility === 'progress' ? (
         <Progress draw={draw} view={view} />

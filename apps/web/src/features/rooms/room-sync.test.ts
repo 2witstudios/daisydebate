@@ -5,6 +5,7 @@ import type { RoomCommandIds } from './room-command-ids';
 import {
   prepDeadline,
   presentedView,
+  roomDeadline,
   roomSync,
   seedRoomSync,
 } from './room-sync';
@@ -97,6 +98,42 @@ describe('room sync time', () => {
       should: 'present the held view itself',
       actual: presentedView(seeded, 50000) === seeded.value.view,
       expected: true,
+    });
+  });
+});
+
+describe('strike time', () => {
+  const striking = seedRoomSync(
+    {
+      ...view(3),
+      resolutionDraw: {
+        visibility: 'progress',
+        drawSize: 5,
+        strikes: [],
+        turn: {
+          ordinal: 0,
+          side: 'negative',
+          dueAt: '2026-10-12T00:01:00.000Z',
+          remainingMs: 60_000,
+        },
+        revealedAt: null,
+      },
+    },
+    ids('a'),
+    1000,
+  );
+  test('the strike counts down from the read, whatever the client clock says (PR #472 review)', () => {
+    assert({
+      given:
+        'a turn with 60 s left at a read at 1 s, observed at 16 s and 91 s',
+      should:
+        'present 45 s then zero, and reread when the reported time runs out',
+      actual: [
+        presentedView(striking, 16_000).resolutionDraw?.turn?.remainingMs,
+        presentedView(striking, 91_000).resolutionDraw?.turn?.remainingMs,
+        roomDeadline(striking),
+      ],
+      expected: [45_000, 0, 61_000],
     });
   });
 });

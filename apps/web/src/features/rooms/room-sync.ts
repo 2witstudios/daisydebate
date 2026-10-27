@@ -53,10 +53,10 @@ export function prepDeadline(state: RoomSync): number | null {
     : state.readAt + remaining;
 }
 
-/** When the open strike falls due, the room must be read again. */
+/** When the open strike falls due by the read's own account, the room must be read again. */
 function drawDeadline(state: RoomSync): number | null {
-  const due = state.value.view.resolutionDraw?.turn?.dueAt;
-  return due ? Date.parse(due) : null;
+  const turn = state.value.view.resolutionDraw?.turn;
+  return turn ? state.readAt + turn.remainingMs : null;
 }
 
 /** The nearest time-derived change: the strike due instant or the prep end. */
@@ -67,16 +67,33 @@ export function roomDeadline(state: RoomSync): number | null {
   return deadlines.length ? Math.min(...deadlines) : null;
 }
 
-/** The held view as of `now`: a running prep counts down from its read. */
+/** The held view as of `now`: a running prep and an open strike count down from their read. */
 export function presentedView(state: RoomSync, now: number): RoomView {
   const { view } = state.value;
+  const elapsed = now - state.readAt;
   const remaining = runningPrep(view);
-  if (remaining === null) return view;
+  const draw = view.resolutionDraw;
+  if (remaining === null && !draw?.turn) return view;
   return {
     ...view,
-    prep: {
-      ...view.prep,
-      remainingMs: Math.max(0, remaining - (now - state.readAt)),
-    },
+    ...(remaining === null
+      ? {}
+      : {
+          prep: {
+            ...view.prep,
+            remainingMs: Math.max(0, remaining - elapsed),
+          },
+        }),
+    ...(draw?.turn
+      ? {
+          resolutionDraw: {
+            ...draw,
+            turn: {
+              ...draw.turn,
+              remainingMs: Math.max(0, draw.turn.remainingMs - elapsed),
+            },
+          },
+        }
+      : {}),
   };
 }

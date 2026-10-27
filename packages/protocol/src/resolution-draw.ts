@@ -135,6 +135,8 @@ const turnSchema = z
     ordinal: z.int().min(0),
     side: debateSideSchema,
     dueAt: timestamp,
+    /** Time left on the turn as of the read: a page without scripts shows it as is. */
+    remainingMs: z.int().min(0).max(MAX_STRIKE_WINDOW_MS),
   })
   .nullable();
 

@@ -111,7 +111,7 @@ export function projectRoom(
         ? { resolutions: source.resolutions }
         : null,
     resolutionDraw: room.resolutionDraw
-      ? projectDraw(room, actorId, phase)
+      ? projectDraw(room, actorId, phase, now)
       : null,
     rules: room.rules,
     participants: room.participants.map((p) => {
@@ -175,6 +175,7 @@ const projectDraw = (
   room: RoomAssemblyState,
   actorId: string,
   phase: PreRoundPhase,
+  now: string,
 ): ResolutionDrawView => {
   const draw = room.resolutionDraw!;
   const turn =
@@ -183,6 +184,10 @@ const projectDraw = (
           ordinal: phase.turn.ordinal,
           side: phase.turn.side,
           dueAt: phase.turn.dueAt,
+          remainingMs: Math.max(
+            0,
+            Date.parse(phase.turn.dueAt) - Date.parse(now),
+          ),
         }
       : null;
   const revealedAt = survivorOf(draw)?.at ?? null;
