@@ -4,22 +4,17 @@ import { ballotEyebrowClass } from '../ballot/ballot-class';
 import { BallotSummary } from '../ballot/ballot-summary/ballot-summary';
 import { StoredBallotScores } from '../ballot/stored-ballot-scores';
 import { TranscriptContent } from './transcript-content';
-import {
-  resultBallots,
-  resultCoaching,
-  transcriptSections,
-} from './result-view';
+import { resultBallots, transcriptSections } from './result-view';
 
 const cardClass = 'flex flex-col gap-4 rounded-xl bg-surface p-6 shadow-1';
 
 /**
  * Why the round went the way it did: the judges' official decision, then the
- * reader's own AI coaching, then the transcript a seated reader may read.
- * The decision and the coaching are labelled apart: only ballots decide.
+ * transcript a seated reader may read. Round analysis is a separate product
+ * with its own read and component; it never appears here.
  */
 export function RoundResult({ view }: { readonly view: RoundBallotRead }) {
   const ballots = resultBallots(view);
-  const coaching = resultCoaching(view);
   const sections = transcriptSections(view);
   return (
     <>
@@ -61,24 +56,6 @@ export function RoundResult({ view }: { readonly view: RoundBallotRead }) {
               />
             </section>
           ))}
-        </section>
-      ) : null}
-      {coaching ? (
-        <section aria-labelledby="result-coaching" className={cardClass}>
-          <div className="flex flex-col gap-1">
-            <h2 id="result-coaching" className="font-strong">
-              AI coaching for you
-            </h2>
-            <p className="text-sm text-ink-muted">
-              Only you see this. It is advice from the transcript and does not
-              change the decision.
-            </p>
-          </div>
-          {coaching.kind === 'ready' ? (
-            <p className="text-base text-ink">{coaching.text}</p>
-          ) : (
-            <p className="text-ink-muted">{coaching.text}</p>
-          )}
         </section>
       ) : null}
       {view.transcript ? (

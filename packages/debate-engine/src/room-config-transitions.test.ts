@@ -4,6 +4,16 @@ import { consent, edges, state } from './room-assembly.test-support';
 
 setupRitewayBun();
 
+/** The Room with one judge seat added to its rules and definition. */
+const withJudgeSeat = (room: ReturnType<typeof state>) => ({
+  ...room,
+  rules: { ...room.rules, seats: { ...room.rules.seats, judge: 1 } },
+  definition: {
+    ...room.definition,
+    seats: { ...room.definition.seats, judge: 1 },
+  },
+});
+
 test('host details and legal timing edits advance version and clear consent', () => {
   const room = state();
   const details = executeRoomCommand(
@@ -79,14 +89,7 @@ test('format publication updates the pinned definition and admits an eligible bo
     consent,
     { ...edges, formatId: 'published-format' },
   );
-  const expanded = {
-    ...room,
-    rules: { ...room.rules, seats: { ...room.rules.seats, judge: 1 } },
-    definition: {
-      ...room.definition,
-      seats: { ...room.definition.seats, judge: 1 },
-    },
-  };
+  const expanded = withJudgeSeat(room);
   const bot = {
     id: 'bot-source',
     actorId: 'judge-bot',
@@ -95,6 +98,7 @@ test('format publication updates the pinned definition and admits an eligible bo
     role: 'judge' as const,
     slot: 0,
     eligible: true,
+    seatRole: 'judge' as const,
     consentVersion: 0,
   };
   const assigned = executeRoomCommand(
@@ -126,5 +130,55 @@ test('format publication updates the pinned definition and admits an eligible bo
       ['published-format', 1, true],
       { ...bot, id: edges.participantId, consentCommandId: null },
     ],
+  });
+});
+
+test('a bot debater never takes the judge seat and the AI judge never takes a side', () => {
+  const room = state();
+  const expanded = withJudgeSeat(room);
+  const assign = (
+    seatRole: 'debater' | 'judge',
+    role: 'judge' | 'affirmative',
+  ) => {
+    const outcome = executeRoomCommand(
+      expanded,
+      'host',
+      {
+        type: 'assign-seat',
+        commandId: `assign-${seatRole}-${role}`,
+        expectedVersion: expanded.version,
+        actorId: 'ai-actor',
+        role,
+        slot: role === 'judge' ? 0 : 1,
+      },
+      consent,
+      {
+        ...edges,
+        target: {
+          id: 'ai',
+          actorId: 'ai-actor',
+          label: 'AI',
+          kind: 'bot',
+          role,
+          slot: 0,
+          eligible: true,
+          seatRole,
+          consentVersion: 0,
+        },
+      },
+    );
+    return outcome.ok ? 'assigned' : outcome.refusal;
+  };
+  assert({
+    given: 'a bot debater for the judge seat, then the AI judge for a side',
+    should: 'refuse both as an ineligible actor',
+    actual: [assign('debater', 'judge'), assign('judge', 'affirmative')],
+    expected: ['actor-ineligible', 'actor-ineligible'],
+  });
+  assert({
+    given: 'the AI judge for the judge seat',
+    should: 'assign it',
+    actual: assign('judge', 'judge'),
+    expected: 'assigned',
   });
 });

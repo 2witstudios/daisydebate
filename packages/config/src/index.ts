@@ -5,7 +5,11 @@ import { roomPolicyConfig } from './room-policy';
 import { messagingPolicyConfig } from './messaging-policy';
 import { contactsPolicyConfig } from './contacts-policy';
 import { botWorkerPolicyConfig } from './bot-worker-policy';
+import { judgingPolicyConfig } from './judging-policy';
+import { roundAnalysisPolicyConfig } from './round-analysis-policy';
 export type { RoundBotWorkerPolicy } from './bot-worker-policy';
+export type { RoundJudgingPolicy } from './judging-policy';
+export type { RoundAnalysisPolicy } from './round-analysis-policy';
 export type { MessagingPolicyOverride } from './messaging-policy';
 export type { ContactsPolicyOverride } from './contacts-policy';
 import { mediaEndpoint } from './media-endpoint';
@@ -59,8 +63,20 @@ const serverFields = {
   AI_ROUND_BUSY_CAP: z.coerce.number().int().positive().optional(),
   /** DEC-183 as amended (ISSUE-646): AI Rounds per approved beta host per UTC calendar month. */
   AI_ROUND_MONTHLY_CAP: z.coerce.number().int().min(1).max(1000).default(20),
+  /**
+   * Concurrent provider calls for competitive work: AI judging and live bot
+   * speech share this one budget. Round analysis has its own.
+   */
+  COMPETITIVE_PROVIDER_CONCURRENCY: z.coerce
+    .number()
+    .int()
+    .positive()
+    .max(64)
+    .optional(),
   ROUND_BOT_WORKER_POLICY: botWorkerPolicyConfig,
-  /** DEC-247: grant coaching premium to approved beta accounts; false at launch. */
+  ROUND_JUDGING_POLICY: judgingPolicyConfig,
+  ROUND_ANALYSIS_POLICY: roundAnalysisPolicyConfig,
+  /** DEC-247: beta-sourced round analysis grants count as premium; false at launch. */
   PREMIUM_BETA_GRANT: z
     .enum(['true', 'false'])
     .default('true')
@@ -94,10 +110,35 @@ const serverFields = {
   // AI debates are unavailable and nothing calls out.
   OPENROUTER_API_KEY: secret(z.string().regex(/^\S+$/)).optional(),
 };
+/**
+ * AI judging and bot debaters run only inside the competitive provider
+ * budget: a policy for either without the budget would boot, accept AI
+ * seats and then never judge or speak, so the configuration is refused.
+ */
+function requireCompetitiveBudget(
+  config: {
+    readonly COMPETITIVE_PROVIDER_CONCURRENCY?: number | undefined;
+    readonly ROUND_JUDGING_POLICY?: unknown;
+    readonly ROUND_BOT_WORKER_POLICY?: unknown;
+  },
+  ctx: z.RefinementCtx,
+) {
+  if (config.COMPETITIVE_PROVIDER_CONCURRENCY !== undefined) return;
+  if (
+    config.ROUND_JUDGING_POLICY !== undefined ||
+    config.ROUND_BOT_WORKER_POLICY !== undefined
+  )
+    ctx.addIssue({
+      code: 'custom',
+      path: ['COMPETITIVE_PROVIDER_CONCURRENCY'],
+      message: 'AI judging and bot workers need the competitive budget',
+    });
+}
 const serverConfigSchema = z
   .object(serverFields)
   .superRefine((config, ctx) => {
     refineOperatorConfig(config, ctx);
+    requireCompetitiveBudget(config, ctx);
     if (config.NODE_ENV !== 'production') return;
     requireHttpsOrigin(config.PUBLIC_APP_URL, ctx);
     requireDeploymentIdentity(config, ctx);

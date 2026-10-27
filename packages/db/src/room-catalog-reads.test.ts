@@ -100,11 +100,13 @@ test('Room bot catalog includes current actor eligibility facts', async () => {
   const account = accountRow();
   const availableBotId = 'c6a4e2f8h1j3k5m7n9p2r4t6';
   const unavailableBotId = 'c2a4e6f8h1j3k5m7n9p2r4t6';
+  const judgeId = 'c3a4e6f8h1j3k5m7n9p2r4t6';
   const { database } = createTestDatabase([
     [account],
-    [[availableBotId], [unavailableBotId]],
-    [[availableBotId, 'bot', null, null, null, 'Debater']],
-    [[unavailableBotId, 'bot', null, null, null, null]],
+    [[availableBotId], [unavailableBotId], [judgeId]],
+    [[availableBotId, 'bot', null, null, null, 'Debater', null]],
+    [[unavailableBotId, 'bot', null, null, null, null, null]],
+    [[judgeId, 'bot', null, null, null, null, 'The Panel']],
   ]);
 
   const bots = await database.listRoomBots(
@@ -113,16 +115,20 @@ test('Room bot catalog includes current actor eligibility facts', async () => {
   );
 
   assert({
-    given: 'a current bot catalog with one configured and one unconfigured bot',
-    should: 'preserve the bot identity and expose eligibility as a fact',
-    actual: bots.map(({ actorId, label, eligible }) => [
+    given:
+      'a bot debater, an unconfigured bot and the AI judge in its own profile table',
+    should:
+      'preserve each identity and expose eligibility and the one seat role each may hold',
+    actual: bots.map(({ actorId, label, eligible, seatRole }) => [
       actorId,
       label,
       eligible,
+      seatRole,
     ]),
     expected: [
-      [availableBotId, 'Debater', true],
-      [unavailableBotId, '', false],
+      [availableBotId, 'Debater', true, 'debater'],
+      [unavailableBotId, '', false, null],
+      [judgeId, 'The Panel', true, 'judge'],
     ],
   });
 });

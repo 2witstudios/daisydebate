@@ -4,7 +4,6 @@ import {
   roundBallotReadSchema,
   roundJudgeAssignmentsSchema,
   type LaunchedRound,
-  type DebateSide,
   type RoundBallotRead,
 } from '@daisy/protocol';
 import { and, desc, eq } from 'drizzle-orm';
@@ -13,29 +12,11 @@ import { readLockedFrozenRoundTranscript } from './frozen-transcript';
 import { sharedAccount, type Caller, type Account } from './room-command-facts';
 import { readAuthorizedRound } from './round-read-authority';
 import { ballotReadView, ownJudgeSeat } from './round-ballot-view';
-import {
-  readRoundCoachingFacts,
-  type RoundCoachingFacts,
-} from './round-feedback';
 import { roundViewFor } from './round-view-projection';
 import { ballots } from './schema/ballots';
 import { rounds } from './schema/rounds';
 import { roundParticipants } from './schema/round-participants';
 import { roundTranscriptFreezes } from './schema/round-transcript-freezes';
-
-const roundBallotRecordSchema = roundBallotReadSchema.omit({ coaching: true });
-
-/**
- * A Round's ballot read before the coaching feature adds the debater's
- * coaching: the read itself, and the reader's side with its coaching facts.
- */
-export type RoundBallotRecord = {
-  readonly read: Omit<RoundBallotRead, 'coaching'>;
-  readonly coaching: {
-    readonly side: DebateSide;
-    readonly facts: RoundCoachingFacts;
-  } | null;
-};
 
 /** The frozen transcript an authorized audience reads once the Round completes. */
 async function audienceTranscript(
@@ -94,11 +75,7 @@ export const roundBallotReads = ({
       round: LaunchedRound,
       account: Account,
     ) => boolean;
-    readonly authorizeCoaching: (
-      round: LaunchedRound,
-      account: Account,
-    ) => boolean;
-  }): Promise<RoundBallotRecord> {
+  }): Promise<RoundBallotRead> {
     if (!idSchema.safeParse(input.roundId).success)
       throw createAppError('VALIDATION');
     return database.transaction(async (tx) => {
@@ -110,7 +87,6 @@ export const roundBallotReads = ({
           return input.authorize(candidate, account);
         },
       });
-      const coachingAllowed = input.authorizeCoaching(round, currentAccount);
       const ownSeat = ownJudgeSeat(round.participants, input.caller.actorId);
       const rows = await tx
         .select()
@@ -129,33 +105,23 @@ export const roundBallotReads = ({
           .filter((p) => p.role === 'judge' && p.kind === 'bot')
           .map((p) => p.id),
       );
-      return {
-        read: roundBallotRecordSchema.parse({
-          round: roundViewFor(round, input.caller.actorId),
-          ...ballotReadView({
-            status: round.status,
-            ownSeatId: ownSeat?.id,
-            viewerSide,
-            aiJudgeSeatIds,
-            rows,
-            frozen,
-          }),
-          // The shared transcript audience policy owns this private read.
-          transcript: await audienceTranscript(
-            tx,
-            input.roundId,
-            completed && input.authorizeTranscript(round, currentAccount),
-          ),
+      return roundBallotReadSchema.parse({
+        round: roundViewFor(round, input.caller.actorId),
+        ...ballotReadView({
+          status: round.status,
+          ownSeatId: ownSeat?.id,
+          viewerSide,
+          aiJudgeSeatIds,
+          rows,
+          frozen,
         }),
-        // The coaching feature decides the debater's coaching from these facts.
-        coaching:
-          coachingAllowed && viewerSide && completed
-            ? {
-                side: viewerSide,
-                facts: await readRoundCoachingFacts(tx, input.roundId),
-              }
-            : null,
-      };
+        // The shared transcript audience policy owns this private read.
+        transcript: await audienceTranscript(
+          tx,
+          input.roundId,
+          completed && input.authorizeTranscript(round, currentAccount),
+        ),
+      });
     });
   },
 });

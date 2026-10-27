@@ -12,7 +12,8 @@
     "./bot-activity-testing": "./src/bot-activity.test-support.ts",
     "./resolution-draw": "./src/resolution-draw.ts",
     "./privacy": "./src/privacy.ts",
-    "./operator": "./src/operator.ts"
+    "./operator": "./src/operator.ts",
+    "./round-analysis-testing": "./src/round-analysis.test-support.ts"
   },
   "scripts": {
     "typecheck": "tsgo --noEmit && tsgo --noEmit -p tsconfig.test.json",

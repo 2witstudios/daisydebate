@@ -75,7 +75,7 @@ export async function transcriptProofFixture(
           }),
       });
     }
-    // ISSUE-646: an approved beta host has the flat monthly cap; nothing is granted or reset.
+    // ISSUE-646: an approved beta host has the flat monthly cap through its ai_rounds grant; nothing is reset.
     const sessionId = createId();
     const token = Buffer.from(
       crypto.getRandomValues(new Uint8Array(32)),

@@ -769,8 +769,9 @@ app had every realtime socket rejected `auth_failed` until it was unset
 
 The web app adds `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` (the LiveKit pair)
 and `MEDIA_WORKER_SECRET` (the worker's value) as secrets, and
-`LIVEKIT_URL`, `LIVEKIT_PUBLIC_URL`, `REALTIME_PUBLIC_URL` and
-`ROUND_BOT_WORKER_POLICY` in `fly.toml`.
+`LIVEKIT_URL`, `LIVEKIT_PUBLIC_URL`, `REALTIME_PUBLIC_URL`,
+`COMPETITIVE_PROVIDER_CONCURRENCY`, `ROUND_BOT_WORKER_POLICY`,
+`ROUND_JUDGING_POLICY` and `ROUND_ANALYSIS_POLICY` in `fly.toml`.
 
 **LiveKit on Fly.** Browsers signal over `wss://daisy-debate-staging-livekit.fly.dev`
 (fly-proxy terminates TLS on 443 and forwards to 7880). Media is UDP 7882,

@@ -5,6 +5,10 @@ export {
   betaAccessPrivacyExpectedColumns,
 } from './beta-access-declarations';
 export {
+  entitlementGrantPrivacyAdopter,
+  entitlementGrantPrivacyExpectedColumns,
+} from './entitlement-grant-declarations';
+export {
   erasePrivacySubject,
   exportPrivacySubject,
   type PrivacyVerificationBinding,

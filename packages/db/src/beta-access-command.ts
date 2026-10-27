@@ -11,6 +11,7 @@ import { lockAuthorizationActors } from './authorization';
 import type { authorizationAccountFact } from './authorization-account';
 import type { DatabaseEventSink } from './instrumented';
 import { appendSessionRevokedFor } from './session-revoked';
+import { applyBetaEntitlementGrants } from './entitlement-grants';
 
 type Transaction = Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0];
 type AccountFact = NonNullable<ReturnType<typeof authorizationAccountFact>>;
@@ -129,7 +130,7 @@ const commandResult = (
         mail: 'none',
       };
 
-/** State, revision, audit event and the owed mail or revocation push. */
+/** State, revision, entitlement grants, audit event and the owed mail or revocation push. */
 async function applyChange(
   tx: Transaction,
   input: BetaAccessCommandInput,
@@ -140,6 +141,8 @@ async function applyChange(
   await tx.execute(sql`update account_beta_access set state = ${decision.to},
       revision = ${decision.revision}, decided_at = now()
     where user_id = ${input.targetUserId}`);
+  // Premium entitlements are their own fact, written with the state change.
+  await applyBetaEntitlementGrants(tx, input.targetUserId, decision.to);
   // The account fact's revision moves, so live realtime sessions re-check.
   await tx.execute(
     sql`update users set version = version + 1 where id = ${input.targetUserId}`,
