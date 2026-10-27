@@ -87,7 +87,7 @@ export async function setupCommands(
       desiredState: 'approved',
       expectedRevision,
     });
-  return { deps, stub, operatorId, approve };
+  return { deps, stub, operatorId, approve, advance: base.advance };
 }
 
 export const kinds = async (db: Db) =>

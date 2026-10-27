@@ -209,9 +209,13 @@ operator API (ADR 0079), with this client:
     re-read and authorized first. Only if allowed is it resent under the same
     id and anchor with a fresh nonce. The participant app's receipt makes any
     resend idempotent.
-  - When that operator is no longer allowed, nothing is signed. The denial is
-    audited, and the command closes as `abandoned`. That is true: it was never
-    applied.
+  - When that operator is no longer allowed, nothing is signed, and the
+    denial is audited. A NOT_FOUND only means the receipt has not committed
+    yet. A PUT the client gave up on can still land while its signature is
+    valid, which is up to the operator API's 30 s clock skew after the 5 s
+    client timeout. So the command stays open until that window has passed,
+    and only then closes as `abandoned`. At that point it is true that it
+    was never applied (ISSUE-708).
   - A read that returns `unknown` (the participant app is unreachable) stops
     the batch, and the rest stay open. A page load never waits out every call.
 - **Screens.** The accounts screen has Pending, Approved and Revoked tabs with

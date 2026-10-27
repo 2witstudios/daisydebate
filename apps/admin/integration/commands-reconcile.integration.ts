@@ -1,7 +1,10 @@
 import { requireTestServices } from '@daisy/config';
 import { eq } from 'drizzle-orm';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { reconcileOpenCommands } from '../src/features/accounts/commands';
+import {
+  ABANDON_AFTER_MS,
+  reconcileOpenCommands,
+} from '../src/features/accounts/commands';
 import { operators } from '../src/db/schema';
 import { suiteDatabase } from './admin.test-support';
 import {
@@ -46,13 +49,13 @@ test('an approval refused for a missing age record settles and is never resent',
   });
 });
 
-test('a lost command whose operator is disabled is abandoned, never signed in their name', async () => {
-  const { deps, stub, operatorId, approve } = await setupCommands(db);
+test('a lost command whose operator is disabled is abandoned only once its PUT can no longer land (ISSUE-708)', async () => {
+  const { deps, stub, operatorId, approve, advance } = await setupCommands(db);
   stub.lose('lose-before-apply');
   await approve();
   await db
     .update(operators)
-    .set({ disabledAt: new Date('2026-10-26T12:00:30.000Z') })
+    .set({ disabledAt: new Date('2026-10-26T12:00:00.000Z') })
     .where(eq(operators.id, operatorId));
   const viewer = deps.ids.next();
   await db.insert(operators).values({
@@ -61,31 +64,36 @@ test('a lost command whose operator is disabled is abandoned, never signed in th
     role: 'owner',
     createdAt: new Date(deps.clock.now()),
   });
-  const reconciled = await reconcileOpenCommands(deps, viewer);
+  const inFlight = await reconcileOpenCommands(deps, viewer);
+  const openWhileInFlight = await openCount(db);
+  advance(ABANDON_AFTER_MS);
+  const settled = await reconcileOpenCommands(deps, viewer);
   assert({
     given:
-      'a command lost before it arrived, its operator then disabled, and a second owner reconciling',
+      'a command lost before it arrived, its operator then disabled, and a second owner reconciling inside and then past the skew-plus-timeout window',
     should:
-      'read it back as the viewer, sign no resend, and close it as abandoned with the denial audited',
+      'read it back as the viewer and never resend; keep it open while its PUT could still land, then close it as abandoned',
     actual: [
       routes(stub),
-      stub.received.map(({ operatorRef }) => operatorRef === viewer),
+      stub.received.every(
+        ({ route, operatorRef }) =>
+          route !== 'readCommand' || operatorRef === viewer,
+      ),
       stub.accounts.get(pending().userId)?.accessState,
-      reconciled,
-      await kinds(db),
+      inFlight,
+      openWhileInFlight,
+      settled,
+      (await kinds(db)).filter((kind) => kind.includes('abandoned')),
       await openCount(db),
     ],
     expected: [
-      ['setBetaAccess', 'readCommand'],
-      [false, true],
+      ['setBetaAccess', 'readCommand', 'readCommand'],
+      true,
       'pending',
+      { settled: 0, open: 1 },
+      1,
       { settled: 1, open: 0 },
-      [
-        'command.intent::approved',
-        'command.outcome:unknown:',
-        'access.denied::operator_disabled',
-        'command.reconciled:abandoned:operator_disabled',
-      ],
+      ['command.reconciled:abandoned:operator_disabled'],
       0,
     ],
   });

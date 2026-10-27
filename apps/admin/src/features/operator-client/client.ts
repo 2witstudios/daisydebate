@@ -26,6 +26,9 @@ export type OperatorClientConfig = {
   readonly audience: string;
 };
 
+/** How long a signed request may take before its outcome counts as unknown. */
+export const OPERATOR_TIMEOUT_MS = 5_000;
+
 export type OperatorFetch = (
   url: string,
   init: RequestInit,

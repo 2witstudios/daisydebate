@@ -43,6 +43,12 @@ const withdrawals: readonly AuthorizationCapability[] = [
   'channel.invitation.result',
   'channel.group.archive',
   'channel.group.result',
+  // ISSUE-692: removing your own message and cancelling your own request or
+  // invitation only shrink your own footprint.
+  'channel.message.remove',
+  'channel.request.cancel',
+  'channel.request.result',
+  'channel.invitation.cancel',
 ];
 /** Whether a bound member holds a capability under the admission rule. */
 export function admitsCapability(

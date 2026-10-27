@@ -9,13 +9,18 @@ import {
   type OperatorFact,
 } from '../../authorization/authorize-operator';
 import type { AdminDatabase } from '../../db/client';
-import type { OperatorClient } from '../operator-client/client';
+import { operatorLimits } from '@daisy/protocol/operator';
+import {
+  OPERATOR_TIMEOUT_MS,
+  type OperatorClient,
+} from '../operator-client/client';
 import { auditedOutcome, commandView, mailDetail } from './outcome';
 import {
   intentAnchor,
   openCommands,
   openPendingCommand,
   resolvePendingCommand,
+  type OpenCommand,
   type PendingCommand,
 } from './store';
 
@@ -170,15 +175,27 @@ const settledBy = (recorded: boolean): Reconciled => ({
 });
 
 /**
- * A command the participant never saw: resend it under its own operator
- * only if that operator may still update; otherwise sign nothing and close
- * it as abandoned, which is true, since it was never applied.
+ * How long a NOT_FOUND read-back may still hide a PUT in flight: a signed
+ * request stays valid for the participant's clock skew, and the client may
+ * have given up on it after its own timeout (ISSUE-708).
+ */
+export const ABANDON_AFTER_MS = operatorLimits.skewMs + OPERATOR_TIMEOUT_MS;
+
+/**
+ * A command the participant has not seen: resend it under its own operator
+ * only if that operator may still update. Otherwise sign nothing; once the
+ * original PUT can no longer be valid, close it as abandoned, which is then
+ * true, since it was never applied. Until then it stays open.
  */
 async function resendOrAbandon(
   deps: CommandDeps,
-  command: PendingCommand,
+  command: OpenCommand,
 ): Promise<Reconciled> {
   const refused = await updateRefusal(deps, command.operatorId);
+  const inFlight =
+    Date.parse(deps.clock.now()) - Date.parse(command.openedAt) <
+    ABANDON_AFTER_MS;
+  if (refused !== null && inFlight) return { kind: 'open' };
   if (refused !== null)
     return settledBy(
       await recordOutcome(deps, command, 'command.reconciled', {
@@ -206,7 +223,7 @@ async function resendOrAbandon(
  */
 async function reconcileOne(
   deps: CommandDeps,
-  command: PendingCommand,
+  command: OpenCommand,
   viewerId: string,
 ): Promise<Reconciled> {
   const read = await deps.client.readCommand(viewerId, command.commandId);

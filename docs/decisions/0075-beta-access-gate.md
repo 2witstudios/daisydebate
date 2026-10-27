@@ -129,9 +129,15 @@ The rest of this record describes BETA-2.
     - leaving: `room.leave` and `channel.leave`;
     - blocking: `social.block`;
     - own cleanup: `channel.reaction.remove`, `channel.file.cleanup`,
+      `channel.message.remove` (own messages only),
       `channel.invitation.decline` and `channel.group.archive`;
-    - the replay reads of their own commands: `channel.group.result` and
-      `channel.invitation.result`.
+    - cancelling their own requests and invitations (ISSUE-692):
+      `channel.request.cancel` and `channel.invitation.cancel`;
+    - the replay reads of their own commands: `channel.group.result`,
+      `channel.invitation.result` and `channel.request.result`.
+    - forfeiting a Round (DEC-249, confirmed), so a non-admitted member is
+      never trapped in a Round; the opponent's result follows the normal
+      forfeit rules.
   - **Not withdrawals.** Management transfer (`channel.manage`) grants
     authority to someone else, so the last manager without admission
     archives the group instead. Typing is presence, so it is refused.
@@ -155,15 +161,21 @@ The rest of this record describes BETA-2.
   and repeats no age check of its own.
 - **Round independence.** Facts about other accounts keep using `member`,
   so a revoked participant never blocks an opponent's Round or its outcome.
-- **Round commands decide inside the fence (DEC-249).** The commanding
-  human's own access facts reach the evaluator with the Round authority,
-  read after any lock wait, so a revoke that commits after the edge's
-  identity read still refuses the command. A human without access keeps
-  `forfeit`, which is how a participant leaves a live Round. Start,
-  preparation, speech, yield, interrupt and judge ballots are refused.
-  Seats stay membership-only.
   The same holds in a channel: one member losing admission never closes
   reading for the others.
+- **Fenced commands decide access inside the fence (DEC-249,
+  ISSUE-693).** The commanding human's own access facts are read under
+  the account fence, after any lock wait, and checked by the one rule
+  (`admitsPrincipalAccess`), which the web app injects. So a revoke that
+  commits after the edge's identity read still refuses the command. This
+  covers:
+  - Round commands and judge ballots: a human without access keeps only
+    `forfeit`;
+  - attendance check-in and target reads;
+  - Round media binding, snapshots, reconcile requests and token minting.
+
+  Seats stay membership-only.
+
 - **What a pending account sees.**
   - Every member requirement is denied.
   - After onboarding, a pending account lands on `/beta` ("You're on the

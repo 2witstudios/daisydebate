@@ -48,11 +48,14 @@ export async function resolvePendingCommand(
   return rows.length === 1;
 }
 
+/** An open command and when its intent was written. */
+export type OpenCommand = PendingCommand & { readonly openedAt: string };
+
 /** Oldest first: the commands whose outcome is still unknown. */
 export async function openCommands(
   db: AdminExecutor,
   limit: number,
-): Promise<readonly PendingCommand[]> {
+): Promise<readonly OpenCommand[]> {
   const rows = await db
     .select()
     .from(pendingCommands)
@@ -65,6 +68,7 @@ export async function openCommands(
     targetUserId: row.targetUserId,
     desiredState: row.desiredState as PendingCommand['desiredState'],
     expectedRevision: row.expectedRevision,
+    openedAt: row.createdAt.toISOString(),
   }));
 }
 
