@@ -10,12 +10,10 @@ setupRitewayBun();
 
 const { databaseUrl: url } = requireTestServices(process.env);
 
-/** The expand migration's statements, as the migrator runs them. */
-const expandStatements = () => {
+/** A migration folder's statements, as the migrator runs them. */
+const folderStatements = (suffix: string) => {
   const root = join(import.meta.dir, '..', 'migrations');
-  const folder = readdirSync(root).find((name) =>
-    name.endsWith('_beta_access_gate'),
-  );
+  const folder = readdirSync(root).find((name) => name.endsWith(suffix));
   return readFileSync(join(root, folder!, 'migration.sql'), 'utf8')
     .split('--> statement-breakpoint')
     .map((statement) => statement.trim())
@@ -25,37 +23,60 @@ const expandStatements = () => {
     );
 };
 
+/** Every statement the gate and its follow-up re-install in place. */
+const reinstalledStatements = () =>
+  ['_beta_access_gate', '_age_band_null_birth_month']
+    .flatMap(folderStatements)
+    .map((statement) => statement.replace(/^(--[^\n]*\n)+/, ''))
+    .filter((statement) => statement.startsWith('CREATE OR REPLACE FUNCTION'));
+
 describe('the v2 account fence expands without breaking v1 callers (ADR 0075)', () => {
-  test('statements prepared against v1 keep working after the v1 contract is re-installed', async () => {
+  test('statements prepared against the v1 readers keep working after every in-place re-install', async () => {
     await withFixture(url, async (fixture) => {
-      const { userId } = await createAuthorizationSubject(fixture);
-      // A live instance's runtime connection, its v1 statements prepared.
+      const { userId, actorId } = await createAuthorizationSubject(fixture);
+      // A live instance's runtime connection, its old statements prepared.
       const live = new SQL(url, { max: 1 });
       const installer = new SQL(url, { max: 1 });
       try {
         await live.unsafe('set role daisy_web');
-        const read = () =>
-          live`select * from public.daisy_authorization_accounts(null::text[], ${userId}::text, false)`;
+        const read = async () => {
+          const [account] =
+            await live`select * from public.daisy_authorization_accounts(null::text[], ${userId}::text, false)`;
+          const [room] =
+            await live`select * from public.daisy_room_read_account(${actorId}::text, ${userId}::text)`;
+          const [age] =
+            await live`select * from public.daisy_authorization_age(${userId}, ${actorId}, 1, clock_timestamp())`;
+          return [account, room, age].map((row) => Object.keys(row ?? {}));
+        };
         const before = await read();
-        // The release migrator re-installs the v1 contract on its own connection.
+        // The release migrator re-installs on its own connection.
         await installer.begin(async (tx) => {
-          for (const statement of expandStatements().filter((s) =>
-            s.startsWith(
-              'CREATE OR REPLACE FUNCTION public.daisy_authorization_accounts(',
-            ),
-          ))
+          for (const statement of reinstalledStatements())
             await tx.unsafe(statement);
         });
-        const after = await read();
+        const v1 = ['userId', 'actorId', 'member', 'erased', 'revision'];
+        const age = [
+          'actorId',
+          'band',
+          'revision',
+          'accountRevision',
+          'validUntil',
+        ];
         assert({
           given:
-            'a v1 read prepared on a live runtime connection, then the expand re-installed',
-          should: 'keep the exact five-column v1 result on the same connection',
-          actual: [Object.keys(before[0] ?? {}), Object.keys(after[0] ?? {})],
-          expected: [
-            ['userId', 'actorId', 'member', 'erased', 'revision'],
-            ['userId', 'actorId', 'member', 'erased', 'revision'],
-          ],
+            'the v1 account, v1 Room and age reads prepared on a live runtime connection, then every in-place re-install applied',
+          should:
+            'keep each exact result shape on the same connection (ISSUE-677 holds the predecessor-database proof)',
+          actual: {
+            before,
+            after: await read(),
+            reinstalled: reinstalledStatements().length,
+          },
+          expected: {
+            before: [v1, v1, age],
+            after: [v1, v1, age],
+            reinstalled: 3,
+          },
         });
       } finally {
         await live.close();
@@ -168,6 +189,21 @@ describe('one age validity rule for the fence and the age reader (ADR 0075)', ()
         should: 'report the corrected band on the next fenced read',
         actual: [before, await band()],
         expected: ['adult', '16-17'],
+      });
+    });
+  });
+
+  test('the shared helper is total: a null birth month is no record', async () => {
+    await withFixture(url, async (fixture) => {
+      const [row] = await fixture.sql`select
+        public.daisy_age_band(null, 1, now() - interval '1 day', now()) as missing,
+        public.daisy_age_band('2000-01', 1, now() - interval '1 day', now()) as adult`;
+      assert({
+        given:
+          'a null birth month beside an otherwise valid record (ISSUE-676)',
+        should: 'return NULL, never fall through to adult',
+        actual: [row?.missing ?? null, row?.adult ?? null],
+        expected: [null, 'adult'],
       });
     });
   });
