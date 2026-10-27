@@ -40,7 +40,30 @@ export const request = (state: string, decidedAt: Date | null = null) => [
   new Date(now),
   decidedAt,
 ];
-/** The budget read's facts: no decline block and nothing spent yet. */
-export const budget = (facts: Partial<Record<string, unknown>> = {}) => [
-  { declined: false, unrelated: true, daily: 0, hourly: 0, ...facts },
+/** A positional `messaging_channels` row for the DM's channel. */
+export const channelRow = (
+  lifecycle: string,
+  changeVersion = 4,
+  revision = 2,
+) => [
+  channelId,
+  'dm',
+  'social.dm',
+  1,
+  lifecycle,
+  null,
+  null,
+  0,
+  changeVersion,
+  revision,
+  new Date(now),
 ];
+/** The budget read's facts: no decline block and nothing spent yet. */
+export const budget = (
+  facts: Partial<{
+    declined: boolean;
+    unrelated: boolean;
+    daily: number;
+    hourly: number;
+  }> = {},
+) => [{ declined: false, unrelated: true, daily: 0, hourly: 0, ...facts }];

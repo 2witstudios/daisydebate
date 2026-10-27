@@ -13,25 +13,13 @@ import {
   command,
   request,
   budget,
+  channelRow,
 } from './social-request.test-support';
 setupRitewayBun();
-const channelRow = (lifecycle: string, changeVersion = 4, revision = 2) => [
-  channelId,
-  'dm',
-  'social.dm',
-  1,
-  lifecycle,
-  null,
-  null,
-  0,
-  changeVersion,
-  revision,
-  new Date(now),
-];
 test('a closed DM reopens the durable channel and invalidates current authority rather than allocating a replacement', async () => {
   const { client, queries } = fakeSql([
     [request('declined', new Date('2026-10-09T17:00:00Z'))],
-    budget({ unrelated: false }),
+    budget(),
     [channelRow('active')],
     [],
     [[1, '9']],
@@ -57,10 +45,13 @@ test('a closed DM reopens the durable channel and invalidates current authority 
   const write = queries.find((entry) =>
     entry.query.startsWith('update "messaging_dm_pairs"'),
   );
+  const ledger = queries.find((entry) =>
+    entry.query.startsWith('insert into messaging_social_commands'),
+  );
   assert({
     given: 'a closed active DM inside its budget',
     should:
-      'reuse its channel, clear decision time, replace introduction, and advance authority exactly once',
+      'reuse its channel, clear decision time, replace introduction, advance authority exactly once, and ledger the request as unrelated (A1)',
     actual: [
       result,
       queries.some((entry) =>
@@ -72,8 +63,9 @@ test('a closed DM reopens the durable channel and invalidates current authority 
           entry.query.startsWith('update "messaging_channels"'),
         )
         .map((entry) => entry.params.slice(0, 2)),
+      ledger?.params.at(-1),
     ],
-    expected: [{ channelId, state: 'pending' }, false, true, [[5, 3]]],
+    expected: [{ channelId, state: 'pending' }, false, true, [[5, 3]], true],
   });
 });
 for (const channel of [
@@ -84,7 +76,7 @@ for (const channel of [
   test(`closed request cannot reopen ${channel === null ? 'absent' : channel[4]} exhausted=${channel?.[8] === Number.MAX_SAFE_INTEGER}`, async () => {
     const { client, queries } = fakeSql([
       [request('cancelled', new Date('2026-10-09T17:00:00Z'))],
-      budget({ unrelated: false }),
+      budget(),
       channel ? [channel] : [],
     ]);
     const frame = dmRequestFrame(

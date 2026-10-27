@@ -198,10 +198,12 @@ test('a decline block refuses a new DM request before the limiter, yet an existi
     await client.unsafe('delete from messaging_channels where id=$1', [
       fixture.channelId,
     ]);
-    const refused = await ask().then(
-      () => 'accepted',
-      (error: { code?: string }) => error.code,
-    );
+    await assertRejects({
+      given: 'the decline-blocked requester asking once the DM is gone',
+      should: 'refuse the new request as an unknown recipient is',
+      actual: ask,
+      code: 'NOT_FOUND',
+    });
     const [pairs] = await client.unsafe(
       'select count(*)::int as n from messaging_dm_pairs where low_actor_id=$1 and high_actor_id=$2',
       [low, high],
@@ -210,18 +212,16 @@ test('a decline block refuses a new DM request before the limiter, yet an existi
       given:
         'a requester decline-blocked by the recipient, asking first while their accepted DM exists, then after it is gone',
       should:
-        'converge on the accepted DM and refuse the later new request as NOT_FOUND, spending the limiter for neither and writing no pair',
+        'converge on the accepted DM, then spend the limiter for neither request and write no pair',
       actual: {
         converged,
         spentOnConvergence,
-        refused,
         spends,
         pairs: pairs.n,
       },
       expected: {
         converged: { channelId: fixture.channelId, state: 'accepted' },
         spentOnConvergence: [],
-        refused: 'NOT_FOUND',
         spends: [],
         pairs: 0,
       },

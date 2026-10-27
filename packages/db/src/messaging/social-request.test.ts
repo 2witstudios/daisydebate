@@ -14,6 +14,7 @@ import {
   command,
   request,
   budget,
+  channelRow,
 } from './social-request.test-support';
 test('a new admitted DM persists pending authority once and emits only content-free invalidations', async () => {
   const { client, queries } = fakeSql([
@@ -231,15 +232,14 @@ test('the screen refuses a decline-blocked new request as a block', async () => 
     expected: true,
   });
 });
-test('a reopened request to a declined DM partner spends the unrelated hour (A1)', async () => {
-  const { client } = fakeSql([
+test('a declined DM is no convergence: the commit spends the budget and refuses an exhausted unrelated hour', async () => {
+  const { client, queries } = fakeSql([
     [request('declined', new Date(now))],
-    budget({ unrelated: true, hourly: 5, daily: 19 }),
+    budget({ hourly: 5, daily: 19 }),
   ]);
   await assertRejects({
-    given:
-      'a declined DM, which relates nobody, asked again with the unrelated hour spent',
-    should: 'refuse it as rate limited',
+    given: 'a declined DM asked again with the unrelated hour spent',
+    should: 'refuse it as rate limited rather than as a convergence',
     actual: () =>
       dmRequestFrame(
         drizzle({ client }),
@@ -249,7 +249,65 @@ test('a reopened request to a declined DM partner spends the unrelated hour (A1)
       ).commitDmRequest(command),
     code: 'RATE_LIMIT',
   });
+  assert({
+    given: 'the refusal',
+    should: 'perform reads only',
+    actual: queries.every((entry) => entry.query.startsWith('select')),
+    expected: true,
+  });
 });
+/** The screen over a declined DM on a channel in `lifecycle`. */
+const screenDeclined = (lifecycle: string, blocked: boolean) => {
+  const { client, queries } = fakeSql([
+    [request('declined', new Date(now))],
+    [channelRow(lifecycle)],
+    [{ blocked }],
+  ]);
+  const frame = dmRequestFrame(
+    drizzle({ client }),
+    input,
+    [pair],
+    async () => {},
+  );
+  const order = () =>
+    queries.map((entry) =>
+      entry.query.includes('messaging_social_declines')
+        ? 'declines'
+        : entry.query.includes('"messaging_channels"')
+          ? 'channel'
+          : 'pair',
+    );
+  return { screen: () => frame.screenDmRequest(now), order };
+};
+test('the screen answers null for a declined DM on an active channel, after checking it and the declines', async () => {
+  const { screen, order } = screenDeclined('active', false);
+  assert({
+    given: 'a declined DM on an active channel, with no decline block',
+    should:
+      'answer null to commit, reading the pair, then locking the channel, then the declines',
+    actual: [await screen(), order()],
+    expected: [null, ['pair', 'channel', 'declines']],
+  });
+});
+for (const [lifecycle, blocked, reads] of [
+  ['archived', false, ['pair', 'channel']],
+  ['active', true, ['pair', 'channel', 'declines']],
+] as const)
+  test(`the screen refuses a declined DM before spending: ${lifecycle} channel, decline block ${blocked}`, async () => {
+    const { screen, order } = screenDeclined(lifecycle, blocked);
+    await assertRejects({
+      given: `a declined DM asked again on an ${lifecycle} channel, decline block ${blocked}`,
+      should: 'refuse it as a block is refused',
+      actual: screen,
+      code: 'AUTHORIZATION',
+    });
+    assert({
+      given: 'the refused screen',
+      should: 'stop at the first refusal',
+      actual: order(),
+      expected: [...reads],
+    });
+  });
 test('malformed time or limits never query the budget', async () => {
   for (const next of [
     { ...command, now: 'invalid' },
