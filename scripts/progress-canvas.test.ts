@@ -130,6 +130,26 @@ ${block('Privacy policy &amp; terms', { ...rounds, Category: 'Business &amp; leg
     });
   });
 
+  test('refuses a misspelled Score heading instead of dropping it', () => {
+    assert({
+      given:
+        'a heading written "Score : Rounds" and one written "Score - Rounds"',
+      should: 'throw naming the exact form to use',
+      actual: [
+        message(
+          block('Rounds', rounds).replace('Score: Rounds', 'Score : Rounds'),
+        ),
+        message(
+          block('Rounds', rounds).replace('Score: Rounds', 'Score - Rounds'),
+        ),
+      ],
+      expected: [
+        'Rooms and play (p1): write the heading as "Score: <area>", not "Score : Rounds"',
+        'Rooms and play (p1): write the heading as "Score: <area>", not "Score - Rounds"',
+      ],
+    });
+  });
+
   test('reads a Score heading whose text an editor wrapped in markup', () => {
     const wrapped = block('Rounds', rounds).replace(
       '<h3>Score: Rounds</h3>',

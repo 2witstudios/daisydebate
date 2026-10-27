@@ -69,7 +69,6 @@ function assertUnchanged(deps: BoardDeps, pageId: string, read: string) {
 }
 
 /** Replaces the whole page, refusing if it changed since it was read. */
-/** Replaces a whole page after checking nobody changed it since `before` was read. */
 export function writePage(
   deps: BoardDeps,
   pageId: string,

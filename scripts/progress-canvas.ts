@@ -77,8 +77,12 @@ export function parseScoreBlocks(
   // Each h3 on its own, so a heading never runs into the next one.
   const headings = [
     ...html.matchAll(/<h3[^>]*>((?:(?!<\/h3>)[\s\S])*)<\/h3>/g),
-  ].filter(([, heading]) => text(heading).startsWith('Score:'));
+  ].filter(([, heading]) => /^Score\s*[:\-–—]/.test(text(heading)));
   return headings.map((match) => {
+    if (!text(match[1]).startsWith('Score:'))
+      throw new Error(
+        `${page.title} (${page.id}): write the heading as "Score: <area>", not "${text(match[1])}"`,
+      );
     const name = text(match[1]).slice('Score:'.length).trim();
     if (name === '')
       throw new Error(
