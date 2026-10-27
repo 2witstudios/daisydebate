@@ -9,6 +9,7 @@ test('capture renewal is independent of blocked history or native work', async (
   const renewed = Promise.withResolvers<void>();
   let now = 0,
     calls = 0;
+  let requestedEpoch: number | undefined;
   const running = maintainCaptureLease({
     epoch: 1,
     signal: stop.signal,
@@ -20,7 +21,8 @@ test('capture renewal is independent of blocked history or native work', async (
           signal.addEventListener('abort', () => resolve(), { once: true }),
         );
     },
-    lease: async () => {
+    lease: async (_ms, _signal, expectedEpoch) => {
+      requestedEpoch = expectedEpoch;
       calls++;
       renewed.resolve();
       return { epoch: 1, expiresAt: new Date(20000).toISOString() };
@@ -34,8 +36,8 @@ test('capture renewal is independent of blocked history or native work', async (
   assert({
     given: 'the capture history or native loop has not advanced',
     should: 'still renew its lease on the independent heartbeat',
-    actual: calls,
-    expected: 1,
+    actual: [calls, requestedEpoch],
+    expected: [1, 1],
   });
 });
 

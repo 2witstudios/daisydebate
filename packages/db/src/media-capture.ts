@@ -86,6 +86,14 @@ export const mediaCaptureOperations = (dependencies: CaptureDependencies) => ({
         current.expiresAt > now
       )
         throw createAppError('CONFLICT', 'Capture worker lease is held');
+      if (
+        input.expectedEpoch !== undefined &&
+        (!current ||
+          current.workerId !== input.workerId ||
+          current.epoch !== input.expectedEpoch ||
+          current.expiresAt <= now)
+      )
+        throw createAppError('CONFLICT', 'Capture worker lease is stale');
       const epoch = !current
         ? 1
         : current.expiresAt > now
