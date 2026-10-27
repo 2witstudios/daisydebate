@@ -196,7 +196,8 @@ function liveDeps(repository: string, pr: number): FollowupDeps {
         .toString()
         .split('\n')
         .filter(Boolean)
-        .map((line) => JSON.parse(line) as string);
+        .map((line): unknown => JSON.parse(line))
+        .filter((body): body is string => typeof body === 'string');
     },
   };
 }
