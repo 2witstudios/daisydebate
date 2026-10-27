@@ -19,8 +19,6 @@ export type MediaAdmissionPrincipal =
   | {
       readonly kind: 'human';
       readonly actorId: string;
-      /** ADR 0075: participant access over the caller's fenced facts. */
-      readonly admits: ParticipantAdmission;
     }
   | {
       readonly kind: 'bot';
@@ -43,6 +41,8 @@ export const createMediaAdmissionStore = (run: BoundedTransaction) => ({
   async issueMediaToken<T>(input: {
     readonly roundId: string;
     readonly principal: MediaAdmissionPrincipal;
+    /** ADR 0075: participant access, for the human caller and every human seat. */
+    readonly admits: ParticipantAdmission;
     readonly buildProjection: LockedRoundTickInput['buildProjection'];
     /**
      * The reconcile lease owner the caller holds, if any. A live lease
@@ -55,13 +55,9 @@ export const createMediaAdmissionStore = (run: BoundedTransaction) => ({
     return run(async (tx) => {
       let snapshot = await requiredSnapshot(tx, {
         roundId: input.roundId,
+        admits: input.admits,
         ...(input.principal.kind === 'human'
-          ? {
-              caller: {
-                actorId: input.principal.actorId,
-                admits: input.principal.admits,
-              },
-            }
+          ? { actorId: input.principal.actorId }
           : {}),
         buildProjection: input.buildProjection,
       });
@@ -78,6 +74,7 @@ export const createMediaAdmissionStore = (run: BoundedTransaction) => ({
         // Run/claim locks can wait. Re-tick at the actual post-lock instant before signing.
         snapshot = await requiredSnapshot(tx, {
           roundId: input.roundId,
+          admits: input.admits,
           buildProjection: input.buildProjection,
         });
         await verifyLockedBotWorker(

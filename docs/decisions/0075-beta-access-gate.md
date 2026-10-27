@@ -176,6 +176,27 @@ The rest of this record describes BETA-2.
 
   Seats stay membership-only.
 
+- **A revoked human already in a Round's media stops publishing
+  (ISSUE-714).** Every media snapshot and every reconcile mutation also
+  lists the human seats whose own fenced facts fail the rule
+  (`withdrawn`). These are read inside the same fences, with the rule the
+  web app injects. A withdrawn seat gets no media grants: no publish, no
+  subscribe, and a judge stays hidden. Only that seat is affected: the room
+  stays open, and the opponent's grants and floor are computed exactly as
+  before, so the Round continues and forfeit stays available (DEC-249).
+  - **The bound.** Media recovery reconciles every live session on a
+    500 ms cadence. The first pass after the revoke commits sets the
+    revoked identity's room permissions to nothing.
+  - **Old tokens.** A token minted before the revoke stays usable for its
+    60 s join window, because self-hosted LiveKit does not invalidate it.
+    A rejoin with one is demoted again by the next pass. No new token can
+    be minted. So the revoked human can publish at most for one pass after
+    any join, and not at all once 60 s have passed since their last mint.
+  - **Proof.** `packages/db/integration/fenced-admission.integration.ts`
+    proves the withdrawn seat in the snapshot and the mutation authority.
+    `apps/web/src/features/round-media/revoked-media.test.ts` proves the
+    demotion, the open room and the untouched opponent.
+
 - **What a pending account sees.**
   - Every member requirement is denied.
   - After onboarding, a pending account lands on `/beta` ("You're on the

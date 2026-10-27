@@ -90,7 +90,7 @@ export async function lockMediaRound(
   const caller = mediaCaller
     ? boundCaller(participants, accounts, mediaCaller)
     : null;
-  return { participants, caller };
+  return { participants, caller, accounts };
 }
 
 export const mediaWindowClosed = (

@@ -1,3 +1,4 @@
+import type { MediaReconcileFence } from '../src/media-reconcile-contracts';
 import { mediaTestHuman } from './media-session.test-support';
 import { admitsPrincipalAccess } from '@daisy/auth/authorization';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -8,6 +9,19 @@ import { withFixture } from './constraint-helpers';
 import { mediaTestStore, mediaTestTick } from './media-session.test-support';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
+
+/** A room-creating vendor intent under `fence`, with nothing more to authorize. */
+const beginCreate = (
+  store: ReturnType<typeof mediaTestStore>,
+  fence: MediaReconcileFence,
+) =>
+  store.beginMediaMutation({
+    ...fence,
+    intent: { kind: 'create', identity: null, payload: {} },
+    buildProjection: mediaTestTick,
+    admits: admitsPrincipalAccess,
+    authorize: () => undefined,
+  });
 
 async function reconcileFixture(fixture: Parameters<typeof mediaTestHuman>[0]) {
   const { roundId, seat } = await mediaTestHuman(fixture);
@@ -89,12 +103,7 @@ test('restart, verified absence and late acknowledgement never erase unknown ven
         owner: createId(),
       });
       if (claim.kind !== 'claimed') throw new Error('Missing initial claim');
-      const intent = await store.beginMediaMutation({
-        ...claim.fence,
-        intent: { kind: 'create', identity: null, payload: {} },
-        buildProjection: mediaTestTick,
-        authorize: () => undefined,
-      });
+      const intent = await beginCreate(store, claim.fence);
       // Persisted process-crash state: no outcome arrived and the old owner's lease is expired.
       await fixture.sql.unsafe(
         "update media_sessions set reconcile_lease_until=clock_timestamp()-interval '1 second', reconcile_started_at=clock_timestamp()-interval '1 second' where id=$1",
@@ -110,13 +119,7 @@ test('restart, verified absence and late acknowledgement never erase unknown ven
       await assertRejects({
         given: 'a new process with an unresolved pre-crash creation',
         should: 'refuse another opening mutation',
-        actual: () =>
-          restarted.beginMediaMutation({
-            ...recovery.fence,
-            intent: { kind: 'create', identity: null, payload: {} },
-            buildProjection: mediaTestTick,
-            authorize: () => undefined,
-          }),
+        actual: () => beginCreate(restarted, recovery.fence),
         code: 'CONFLICT',
       });
       let signed = false;
@@ -129,8 +132,8 @@ test('restart, verified absence and late acknowledgement never erase unknown ven
             principal: {
               kind: 'human',
               actorId: seat.actorId,
-              admits: admitsPrincipalAccess,
             },
+            admits: admitsPrincipalAccess,
             buildProjection: mediaTestTick,
             sign: async () => {
               signed = true;
@@ -183,12 +186,7 @@ test('absence proof cannot cross a different reconciliation fence or later mutat
       });
       if (claim.kind !== 'claimed') throw new Error('Missing proof claim');
       const proof = await store.prepareMediaAbsenceProof(claim.fence);
-      const intent = await store.beginMediaMutation({
-        ...claim.fence,
-        intent: { kind: 'create', identity: null, payload: {} },
-        buildProjection: mediaTestTick,
-        authorize: () => undefined,
-      });
+      const intent = await beginCreate(store, claim.fence);
       await store.markMediaUnsafe(claim.fence);
       assert({
         given: 'an outstanding actual durable intent',
@@ -242,8 +240,8 @@ test('an aborted reconcile past its lease never holds media admission', async ()
         principal: {
           kind: 'human',
           actorId: seat.actorId,
-          admits: admitsPrincipalAccess,
         },
+        admits: admitsPrincipalAccess,
         buildProjection: mediaTestTick,
         sign: async () => 'signed',
       });
@@ -251,6 +249,7 @@ test('an aborted reconcile past its lease never holds media admission', async ()
       (
         await store.readMediaSession({
           roundId,
+          admits: admitsPrincipalAccess,
           buildProjection: mediaTestTick,
         })
       )?.reconciling;

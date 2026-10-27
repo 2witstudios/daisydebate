@@ -27,6 +27,29 @@ export function principalAccessOf(
 }
 
 /**
+ * The human seats whose own fenced facts no longer hold participant access
+ * (ISSUE-714): seats stay membership-only for the Round (DEC-249), but media
+ * grants these none, so a revoked human already in the room stops publishing.
+ */
+export function withdrawnSeats(
+  participants: readonly {
+    readonly id: string;
+    readonly actorId: string;
+    readonly kind: 'human' | 'bot';
+  }[],
+  accounts: FencedAccounts,
+  admits: ParticipantAdmission,
+): readonly string[] {
+  return participants
+    .filter(
+      (seat) =>
+        seat.kind === 'human' &&
+        !admits(principalAccessOf(accounts, seat.actorId)),
+    )
+    .map((seat) => seat.id);
+}
+
+/**
  * Refuses a human whose own fenced facts lack participant access, read
  * after any lock wait (ADR 0075, DEC-249): a revoke that commits after the
  * HTTP edge's identity read still refuses here.

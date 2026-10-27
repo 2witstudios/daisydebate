@@ -36,7 +36,8 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
   const snapshot = async (roundId: string, actorId?: string) => {
     const state = await input.store.readMediaSession({
       roundId,
-      ...(actorId ? { caller: callerOf(actorId) } : {}),
+      admits: admitsPrincipalAccess,
+      ...(actorId ? { actorId } : {}),
       buildProjection,
     });
     if (!state) throw createAppError('NOT_FOUND');
@@ -144,6 +145,7 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
       held.issued = await input.store.issueMediaToken({
         roundId,
         principal,
+        admits: admitsPrincipalAccess,
         reconcileOwner: claim.fence.owner,
         buildProjection,
         sign,
@@ -176,10 +178,7 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
     read,
     holdForCapture,
     async session(roundId: string, actorId: string) {
-      const response = await admit(roundId, {
-        kind: 'human',
-        ...callerOf(actorId),
-      });
+      const response = await admit(roundId, { kind: 'human', actorId });
       return roundMediaAdmissionSchema.parse({
         version: response.version,
         roundId: response.roundId,
