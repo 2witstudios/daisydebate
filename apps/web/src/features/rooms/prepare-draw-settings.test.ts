@@ -1,3 +1,4 @@
+import { drawCapableBounds } from '@daisy/protocol/testing';
 import type { RoomView } from '@daisy/protocol';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assemblySnapshot } from './assembly.test-support';
@@ -11,12 +12,7 @@ const drawCapable: RoomView = {
     ...assemblySnapshot.definition,
     configurable: {
       ...assemblySnapshot.definition.configurable,
-      resolutionDraw: {
-        drawSize: { min: 3, max: 7 },
-        strikeWindowMs: { min: 15_000, max: 180_000 },
-        firstStrikers: ['negative', 'affirmative'],
-        sources: ['bank', 'host'],
-      },
+      resolutionDraw: drawCapableBounds,
     },
   },
 };

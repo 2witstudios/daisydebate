@@ -1,3 +1,4 @@
+import { drawCapableBounds } from '@daisy/protocol/testing';
 import { createId } from '@paralleldrive/cuid2';
 import {
   roomCatalogChoiceSchema,
@@ -39,12 +40,7 @@ async function createDrawRoom(
           ...choice.definition,
           configurable: {
             ...choice.definition.configurable,
-            resolutionDraw: {
-              drawSize: { min: 3, max: 7 },
-              strikeWindowMs: { min: 15_000, max: 180_000 },
-              firstStrikers: ['negative', 'affirmative'],
-              sources: ['bank', 'host'],
-            },
+            resolutionDraw: drawCapableBounds,
           },
         },
         config: {
@@ -108,7 +104,7 @@ test('debaters strike to one resolution without JavaScript while a spectator nev
     storageState: await guest.context.storageState(),
   });
   try {
-    const negative = await noScript.newPage();
+    const negative = await openPage(noScript, 'Strike negative, no JavaScript');
     await negative.goto(`/rooms/${view.id}`);
     await expect(
       negative.getByRole('heading', {

@@ -1,3 +1,4 @@
+import { drawCapableBounds } from '@daisy/protocol/testing';
 import type { RoomAssemblyState, RoomCommand } from '@daisy/protocol';
 import { executeRoomCommand } from './room-assembly';
 import { consent, edges, state } from './room-assembly.test-support';
@@ -33,12 +34,7 @@ export const drawRoom = (
       ...base.definition,
       configurable: {
         ...base.definition.configurable,
-        resolutionDraw: {
-          drawSize: { min: 3, max: 7 },
-          strikeWindowMs: { min: 15_000, max: 180_000 },
-          firstStrikers: ['negative', 'affirmative'],
-          sources: ['bank', 'host'],
-        },
+        resolutionDraw: drawCapableBounds,
       },
     },
     config: { ...base.config, resolutionDraw },
