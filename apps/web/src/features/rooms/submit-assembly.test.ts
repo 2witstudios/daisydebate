@@ -77,21 +77,24 @@ test('invalid intents refuse before transport and a version conflict is never re
   });
 });
 
-test('a native format choice posts its catalog tuple as select-format (FMT-3)', async () => {
+/** A Room setup format form choosing `formatId`'s tuple, plus any extra fields. */
+const formatForm = (formatId: string, extra: Record<string, string> = {}) => {
   const form = new FormData();
   for (const [key, value] of Object.entries({
     type: 'select-format',
     intent: 'choose',
     commandId: 's'.repeat(24),
     expectedVersion: '3',
-    format: JSON.stringify({
-      formatId: 'policy',
-      formatVersion: 1,
-      presetVersion: 2,
-    }),
+    format: JSON.stringify({ formatId, formatVersion: 1, presetVersion: 2 }),
+    ...extra,
   }))
     form.set(key, value);
-  let sent: unknown;
+  return form;
+};
+
+/** The command body a form posts, or {} when it never reaches transport. */
+const postedBody = async (form: FormData) => {
+  let sent: Record<string, unknown> = {};
   await submitAssembly(
     async (_path, init) => {
       sent = JSON.parse(String(init.body));
@@ -100,6 +103,12 @@ test('a native format choice posts its catalog tuple as select-format (FMT-3)', 
     assemblySnapshot.id,
     form,
   );
+  return sent;
+};
+
+test('a native format choice posts its catalog tuple as select-format (FMT-3)', async () => {
+  const form = formatForm('policy');
+  const sent = await postedBody(form);
   assert({
     given: 'a format radio whose value names one catalog tuple',
     should: 'spread the tuple into the command, never post the raw field',
@@ -129,5 +138,22 @@ test('a native format choice posts its catalog tuple as select-format (FMT-3)', 
     should: 'refuse it before transport',
     actual: refused,
     expected: { kind: 'invalid' },
+  });
+});
+
+test('a draw room’s format choice sends its resolution only when typed (FMT-2b)', async () => {
+  const posted = async (topic: string) => {
+    const sent = await postedBody(formatForm('value', { topic }));
+    return [sent.type, sent.topic];
+  };
+  assert({
+    given: 'the resolution field typed, and left empty',
+    should:
+      'post the choice either way: with the typed resolution, or with no topic at all',
+    actual: [await posted('A new motion'), await posted('')],
+    expected: [
+      ['select-format', 'A new motion'],
+      ['select-format', undefined],
+    ],
   });
 });

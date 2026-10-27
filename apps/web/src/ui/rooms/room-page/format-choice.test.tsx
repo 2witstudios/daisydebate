@@ -38,11 +38,32 @@ const ids = {
 };
 const action = async () => ({ values: {} });
 
-const render = (format: RoomView['format']) =>
+const strike = {
+  enabled: true as const,
+  drawSize: 5,
+  strikeWindowMs: 60_000,
+  firstStriker: 'negative' as const,
+  source: { kind: 'bank' as const, categories: ['policy' as const] },
+};
+const freestyle: RoomCatalogChoice = {
+  ...standard('freestyle', 'Freestyle', 3),
+  preset: {
+    version: 1,
+    config: { ...unequalTemplate.preset.config, resolutionDraw: strike },
+  },
+};
+
+const render = (
+  format: RoomView['format'],
+  options: {
+    readonly catalog?: readonly RoomCatalogChoice[];
+    readonly view?: Partial<RoomView>;
+  } = {},
+) =>
   renderToStaticMarkup(
     <FormatChoice
-      view={{ ...assemblySnapshot, format }}
-      choices={choices}
+      view={{ ...assemblySnapshot, format, ...options.view }}
+      choices={options.catalog ?? choices}
       ids={ids}
       action={action}
     />,
@@ -192,6 +213,59 @@ describe('FormatChoice', () => {
         submit: true,
         standardsExcluded: true,
       },
+    });
+  });
+
+  test('Freestyle joins the standards (FMT-2b)', () => {
+    const standards = (html: string) =>
+      [
+        ...html.matchAll(
+          /<span class="[^"]*font-strong[^"]*">(Policy|Value|Freestyle|Custom)</g,
+        ),
+      ].map((match) => match[1]);
+    assert({
+      given: 'the catalog before and after Freestyle is published',
+      should: 'leave it out, then offer it third among the standards',
+      actual: [
+        standards(render(valueStandard)),
+        standards(render(valueStandard, { catalog: [...choices, freestyle] })),
+      ],
+      expected: [
+        ['Policy', 'Value', 'Custom'],
+        ['Policy', 'Value', 'Freestyle', 'Custom'],
+      ],
+    });
+  });
+
+  test('a room that strikes its resolution', () => {
+    const html = render(
+      {
+        ...valueStandard,
+        name: 'Freestyle',
+        basis: {
+          ...valueStandard.basis!,
+          formatId: 'freestyle',
+          name: 'Freestyle',
+        },
+        standing: { kind: 'standard', formatId: 'freestyle' },
+      },
+      {
+        catalog: [...choices, freestyle],
+        view: {
+          topic: null,
+          executionPlan: {
+            ...assemblySnapshot.executionPlan,
+            resolutionDraw: strike,
+          },
+        },
+      },
+    );
+    assert({
+      given: 'a room running a draw',
+      should:
+        'ask for the resolution a set-resolution format needs, in the standards and league forms',
+      actual: html.match(/name="topic"/g)?.length,
+      expected: 2,
     });
   });
 });

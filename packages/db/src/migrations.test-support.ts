@@ -38,3 +38,25 @@ export const seededPresets = [
     config: preset,
   })),
 ];
+
+/** Presets in one canonical order: the catalog lands across migrations (FMT-2a, FMT-2b). */
+export const canonicalPresets = <
+  T extends {
+    formatId: string;
+    version: number;
+    formatVersion: number;
+    config: unknown;
+  },
+>(
+  presets: readonly T[],
+) =>
+  presets
+    .map(({ formatId, version, formatVersion, config }) => ({
+      formatId,
+      version,
+      formatVersion,
+      config,
+    }))
+    .sort((a, b) =>
+      `${a.formatId}@${a.version}`.localeCompare(`${b.formatId}@${b.version}`),
+    );

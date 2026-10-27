@@ -108,7 +108,8 @@ export const roomCommandSchema = z.discriminatedUnion('type', [
   /**
    * Choose a catalog format at its canonical preset, or reset to the room's
    * pinned basis (FMT-1). The server decides through the one selection
-   * policy; `topic` follows the draw-state rule (FMT-7).
+   * policy. Choosing is itself the act, so `topic` is required exactly when
+   * the choice leaves a draw: entering a draw clears the topic (FMT-2b).
    */
   z.strictObject({
     ...envelope,

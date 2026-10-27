@@ -5,6 +5,7 @@ import { executeRoomCommand } from './room-assembly';
 import { consent, edges, state } from './room-assembly.test-support';
 import { oneOnOneConfig } from './runtime.test-support';
 import type { FormatSelectionFacts } from './format-selection';
+import { drawRoom } from './room-pre-round.test-support';
 
 setupRitewayBun();
 
@@ -199,6 +200,51 @@ describe('select-format', () => {
       expected: {
         config: oneOnOneConfig,
         basis: { formatId: 'value', presetVersion: 3 },
+      },
+    });
+  });
+
+  test('the topic follows the draw state', () => {
+    const drawn = drawRoom({ kind: 'bank', categories: ['policy', 'value'] });
+    const freestyleFacts: FormatSelectionFacts = {
+      ...valueFacts,
+      format: { ...valueFacts.format, id: 'freestyle', name: 'Freestyle' },
+      definition: drawn.definition,
+      preset: { ...valueFacts.preset, config: drawn.config },
+    };
+    const freestyle = (room: RoomAssemblyState, topic?: string) =>
+      run(
+        room,
+        selectFormat(room, {
+          formatId: 'freestyle',
+          ...(topic === undefined ? {} : { topic }),
+        }),
+        freestyleFacts,
+      );
+    const value = (room: RoomAssemblyState, topic?: string) =>
+      run(room, selectFormat(room, topic === undefined ? {} : { topic }));
+    const topicOf = (outcome: ReturnType<typeof run>) =>
+      outcome.ok ? outcome.mutation.state.topic : outcome.refusal;
+    assert({
+      given:
+        'switching into a draw, out of one, and between draws, with and without a topic',
+      should:
+        'clear the topic entering a draw, require new text leaving one, and refuse any topic the change does not need',
+      actual: {
+        intoDraw: topicOf(freestyle(state())),
+        intoDrawWithText: topicOf(freestyle(state(), 'A motion')),
+        outOfDraw: topicOf(value(drawn, 'A new motion')),
+        outOfDrawWithoutText: topicOf(value(drawn)),
+        betweenDraws: topicOf(freestyle(drawn)),
+        betweenDrawsWithText: topicOf(freestyle(drawn, 'A motion')),
+      },
+      expected: {
+        intoDraw: null,
+        intoDrawWithText: 'illegal-config',
+        outOfDraw: 'A new motion',
+        outOfDrawWithoutText: 'illegal-config',
+        betweenDraws: null,
+        betweenDrawsWithText: 'illegal-config',
       },
     });
   });

@@ -1,15 +1,18 @@
-import type {
-  FormatDefinition,
-  RoomConfig,
-  SegmentType,
-} from '@daisy/protocol';
+import type { FormatDefinition, RoomConfig } from '@daisy/protocol';
 import { oneOnOneDefinition, oneOnOneRoomConfig } from './reference-formats';
 import {
+  strikeConfig,
+  templateConfig,
+  templateDefinition,
+  withDraw,
+} from './catalog-builders';
+import {
   bigQuestionsSegments,
+  ipdaSegments,
   ldSegments,
   publicForumSegments,
+  teamIpdaSegments,
   teamPolicySegments,
-  type SegmentRow,
 } from './catalog-segments';
 
 /**
@@ -20,77 +23,11 @@ import {
  * published default inside bounds wide enough for practice.
  */
 
-const minute = 60_000;
-const speechBounds = { min: minute, max: 15 * minute };
-const crossExBounds = { min: 30_000, max: 5 * minute };
-
-/** Every template grants the same interaction and timing latitude. */
-function templateDefinition({
-  seats,
-  segments,
-  prepBefore,
-}: {
-  readonly seats: { readonly perSide: number };
-  readonly segments: readonly SegmentRow[];
-  readonly prepBefore: readonly SegmentType[];
-}): FormatDefinition {
-  return {
-    version: 1,
-    seats: { affirmative: seats.perSide, negative: seats.perSide, judge: 1 },
-    segments: segments.map(([key, label, type, side, slot, minutes]) => ({
-      key,
-      label,
-      type,
-      side,
-      slot,
-      defaultDurationMs: minutes * minute,
-    })),
-    configurable: {
-      timing: {
-        segmentDurationMs: Object.fromEntries(
-          segments.map(([key, , type]) => [
-            key,
-            type === 'speech' ? speechBounds : crossExBounds,
-          ]),
-        ),
-        countdownMs: { min: 0, max: minute },
-      },
-      inRoundPrep: {
-        budgetMsPerSide: { min: 0, max: 15 * minute },
-        spendableBefore: [...prepBefore],
-        expiresAtSegment: null,
-      },
-      preRoundPrep: { durationMs: { min: 0, max: 60 * minute } },
-      resolutionDraw: null,
-      interaction: {
-        crossExModes: ['ordered', 'free'],
-        interruptions: {
-          modes: ['disabled', 'cross_ex_only', 'enabled'],
-          minRemainingMs: { min: 0, max: 5 * minute },
-        },
-        yield: {
-          enabledChoices: [true, false],
-          returnsTimeChoices: [true, false],
-        },
-      },
-    },
-  };
-}
-
-/** A template's starting config: its league prep and questioning, Daisy's usual floor rules. */
-function templateConfig(
-  prepMinutesPerSide: number,
-  crossExMode: 'ordered' | 'free',
-): RoomConfig {
-  return {
-    ...oneOnOneRoomConfig,
-    inRoundPrep: {
-      enabled: true,
-      budgetMsPerSide: prepMinutesPerSide * minute,
-    },
-    crossExamination: { crossExMode },
-  };
-}
+const ipdaBylaws = {
+  rulesEdition: 'IPDA Constitution and Bylaws (revised 2018)',
+  sourceUrl:
+    'https://www.ipdadebate.info/s/ipda_constitution_revised_2018-1.pdf',
+};
 
 const nsdaManual = {
   rulesEdition: 'NSDA High School Unified Manual 2026–27',
@@ -118,11 +55,18 @@ export type CatalogFormat = {
   readonly preset: RoomConfig;
 };
 
-/** Daisy's standards share the one-on-one schedule; Policy and Value differ only in the resolution. */
+/**
+ * Daisy's standards share the one-on-one schedule. Policy and Value differ
+ * only in the resolution; Freestyle strikes it (FMT-2b).
+ */
 const standard = (
-  id: Exclude<(typeof standardFormatIds)[number], 'freestyle'>,
+  id: (typeof standardFormatIds)[number],
   name: string,
   sortOrder: number,
+  { definition, preset }: Pick<CatalogFormat, 'definition' | 'preset'> = {
+    definition: oneOnOneDefinition,
+    preset: oneOnOneRoomConfig,
+  },
 ): CatalogFormat => ({
   id,
   name,
@@ -133,8 +77,8 @@ const standard = (
   sortOrder,
   rulesEdition: null,
   sourceUrl: null,
-  definition: oneOnOneDefinition,
-  preset: oneOnOneRoomConfig,
+  definition,
+  preset,
 });
 
 const template = (format: Omit<CatalogFormat, 'role'>): CatalogFormat => ({
@@ -145,6 +89,10 @@ const template = (format: Omit<CatalogFormat, 'role'>): CatalogFormat => ({
 export const catalogFormats: readonly CatalogFormat[] = [
   standard('policy', 'Policy', 1),
   standard('value', 'Value', 2),
+  standard('freestyle', 'Freestyle', 3, {
+    definition: withDraw(oneOnOneDefinition),
+    preset: strikeConfig(oneOnOneRoomConfig, 20),
+  }),
   template({
     id: 'nsda-ld',
     name: 'NSDA Lincoln-Douglas',
@@ -271,5 +219,39 @@ export const catalogFormats: readonly CatalogFormat[] = [
       prepBefore: ['speech', 'cross_ex'],
     }),
     preset: templateConfig(3, 'free'),
+  }),
+  template({
+    id: 'ipda',
+    name: 'IPDA',
+    family: 'parli',
+    leagues: ['IPDA'],
+    searchTerms: 'ipda public debate parli strike impromptu college',
+    sortOrder: 40,
+    ...ipdaBylaws,
+    definition: withDraw(
+      templateDefinition({
+        seats: { perSide: 1 },
+        segments: ipdaSegments,
+        prepBefore: [],
+      }),
+    ),
+    preset: strikeConfig(templateConfig(0, 'ordered'), 30),
+  }),
+  template({
+    id: 'team-ipda',
+    name: 'Team IPDA',
+    family: 'parli',
+    leagues: ['IPDA'],
+    searchTerms: 'ipda team public debate parli strike college',
+    sortOrder: 41,
+    ...ipdaBylaws,
+    definition: withDraw(
+      templateDefinition({
+        seats: { perSide: 2 },
+        segments: teamIpdaSegments,
+        prepBefore: [],
+      }),
+    ),
+    preset: strikeConfig(templateConfig(0, 'ordered'), 30),
   }),
 ];

@@ -30,7 +30,11 @@ function commandFields(form: FormData): Record<string, unknown> | null {
   return 'format' in raw ? withFormatTuple(raw) : raw;
 }
 
-/** One radio or select names a whole catalog tuple (FMT-3); spread it, refuse anything else. */
+/**
+ * One radio or select names a whole catalog tuple (FMT-3); spread it, refuse
+ * anything else. A draw room's optional resolution field sends no topic
+ * when left empty (FMT-2b).
+ */
 function withFormatTuple(
   raw: Record<string, unknown>,
 ): Record<string, unknown> | null {
@@ -38,7 +42,9 @@ function withFormatTuple(
   const tuple = formatTupleSchema.safeParse(JSON.parse(raw.format));
   if (!tuple.success) return null;
   const fields = Object.fromEntries(
-    Object.entries(raw).filter(([key]) => key !== 'format'),
+    Object.entries(raw).filter(
+      ([key, value]) => key !== 'format' && !(key === 'topic' && value === ''),
+    ),
   );
   return { ...fields, ...tuple.data };
 }

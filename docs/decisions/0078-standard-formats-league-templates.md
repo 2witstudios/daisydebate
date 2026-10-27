@@ -17,9 +17,12 @@ made it rankable.
 
 ## Decision
 
-1. **Daisy's standards are catalog formats.** Policy, Value and (once the
-   resolution strike lands, FMT-2b) Freestyle are formats with ids
-   `policy`, `value` and `freestyle`, each with one canonical preset.
+1. **Daisy's standards are catalog formats.** Policy, Value and Freestyle
+   (FMT-2b) are formats with ids `policy`, `value` and `freestyle`, each
+   with one canonical preset. Freestyle runs the shared 1v1 schedule and
+   strikes its resolution from five drawn from Daisy's bank (ADR 0076),
+   Negative first, then 20 minutes of prep and none during the round. Its
+   preset is not ranked-eligible until its ranked preset is published.
    Ratings and ranked presets are already keyed by format, so ranked play
    on a standard needs no new key or store.
 2. **Catalog role is picker visibility.** `formats.catalog_role` is

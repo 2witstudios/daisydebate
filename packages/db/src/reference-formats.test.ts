@@ -14,6 +14,7 @@ import {
 setupRitewayBun();
 
 import {
+  canonicalPresets,
   committedMigrationSql,
   seededFormats,
   seededPresets,
@@ -164,30 +165,20 @@ describe('reference data', () => {
       should:
         'approve the same full-length revisions, superseding all but the newest per format, and keep no quick preset (DEC-237)',
       actual: {
-        approved: rows.presets,
-        current: rows.presets.filter(
-          ({ formatId, version }) =>
-            !rows.superseded.has(`${formatId}@${version}`),
+        approved: canonicalPresets(rows.presets),
+        current: canonicalPresets(
+          rows.presets.filter(
+            ({ formatId, version }) =>
+              !rows.superseded.has(`${formatId}@${version}`),
+          ),
         ),
       },
       expected: {
-        approved: seededPresets.map(
-          ({ formatId, version, formatVersion, config }) => ({
-            formatId,
-            version,
-            formatVersion,
-            config,
-          }),
-        ),
-        current: [
+        approved: canonicalPresets(seededPresets),
+        current: canonicalPresets([
           ...currentReferencePresets(),
           ...seededPresets.slice(referencePresets.length),
-        ].map(({ formatId, version, formatVersion, config }) => ({
-          formatId,
-          version,
-          formatVersion,
-          config,
-        })),
+        ]),
       },
     });
   });

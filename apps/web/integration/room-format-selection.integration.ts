@@ -191,3 +191,110 @@ test('ranked One-on-one stays creatable outside the picker', async () => {
     });
   });
 });
+
+test('a room switches into and out of a striking format (FMT-2b)', async () => {
+  await withRoomRuntime(async (f) => {
+    const catalog = await f.operations.catalog(f.host);
+    const value = catalog.find((choice) => choice.formatId === 'value')!;
+    const freestyle = catalog.find(
+      (choice) => choice.formatId === 'freestyle',
+    )!;
+    const created = (
+      await f.create({
+        selection: {
+          kind: 'catalog',
+          ...tuple(value),
+          competitionType: 'casual',
+        },
+      })
+    ).view;
+    const striking = (
+      await f.command(f.host, created, {
+        type: 'select-format',
+        intent: 'choose',
+        ...tuple(freestyle),
+      })
+    ).view;
+    await assertRejects({
+      given: 'leaving the draw with no resolution',
+      should: 'refuse: a set-resolution format needs one',
+      actual: () =>
+        f.command(f.host, striking, {
+          type: 'select-format',
+          intent: 'choose',
+          ...tuple(value),
+        }),
+      code: 'CONFLICT',
+    });
+    const back = (
+      await f.command(f.host, striking, {
+        type: 'select-format',
+        intent: 'choose',
+        ...tuple(value),
+        topic: 'Cities should ban cars downtown',
+      })
+    ).view;
+    const fresh = (
+      await f.create(
+        {
+          topic: null,
+          selection: {
+            kind: 'catalog',
+            ...tuple(freestyle),
+            competitionType: 'casual',
+          },
+        },
+        f.guest,
+      )
+    ).view;
+    assert({
+      given:
+        'a Value room choosing Freestyle, then Value with a resolution, and a new Freestyle room',
+      should:
+        'clear the topic and run the strike, restore a set resolution, and create the striking room with no topic',
+      actual: {
+        striking: [
+          summary(striking),
+          striking.topic,
+          striking.config.resolutionDraw.enabled,
+        ],
+        back: [summary(back), back.topic],
+        fresh: [summary(fresh), fresh.topic],
+        listed: catalog
+          .filter((c) => c.role === 'standard')
+          .map((c) => c.formatId),
+      },
+      expected: {
+        striking: [
+          {
+            formatId: 'freestyle',
+            name: 'Freestyle',
+            basis: 'freestyle',
+            standing: 'standard',
+          },
+          null,
+          true,
+        ],
+        back: [
+          {
+            formatId: 'value',
+            name: 'Value',
+            basis: 'value',
+            standing: 'standard',
+          },
+          'Cities should ban cars downtown',
+        ],
+        fresh: [
+          {
+            formatId: 'freestyle',
+            name: 'Freestyle',
+            basis: 'freestyle',
+            standing: 'standard',
+          },
+          null,
+        ],
+        listed: ['policy', 'value', 'freestyle'],
+      },
+    });
+  });
+});

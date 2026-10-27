@@ -58,8 +58,7 @@ export const updateConfig = (
  * Choose a catalog format, or go back to the room's pinned basis (FMT-1).
  * The one selection policy decides from the facts the adapter loaded; the
  * room then runs that definition at that preset's config and records the
- * basis. No catalog format enables a draw yet, so the command never carries
- * a topic; FMT-7's draw-state rule extends this.
+ * basis. The topic follows the draw state (`selectedTopic`).
  */
 export const selectFormat = (
   room: RoomAssemblyState,
@@ -69,7 +68,6 @@ export const selectFormat = (
   edges: Edges,
 ): RoomMutationOutcome => {
   if (room.competitionType === 'ranked') return refuse('illegal-config');
-  if (command.topic !== undefined) return refuse('illegal-config');
   const decision = decideFormatSelection(
     {
       intent: command.intent,
@@ -84,6 +82,12 @@ export const selectFormat = (
   const { rules, roomPlan } = decision.resolved;
   if (room.participants.some((p) => p.slot >= rules.seats[p.role]))
     return refuse('seat-unavailable');
+  const topic = selectedTopic(
+    room,
+    roomPlan.resolutionDraw.enabled,
+    command.topic,
+  );
+  if (topic === undefined) return refuse('illegal-config');
   // The policy refuses role-null facts for `choose`; a reset to a retired
   // basis keeps its pinned provenance but is no longer a standard.
   const facts = edges.formatFacts!;
@@ -109,6 +113,7 @@ export const selectFormat = (
     config: decision.config,
     rules,
     executionPlan: roomPlan,
+    topic,
     prepStartedAt: null,
     prepRemainingMs: roomPlan.preRoundPrep.enabled
       ? roomPlan.preRoundPrep.durationMs
@@ -147,6 +152,21 @@ const nextTopic = (
     return topic === undefined ? room.topic : undefined;
   if (drawAfter) return topic === null ? null : undefined;
   return typeof topic === 'string' ? topic : undefined;
+};
+/**
+ * The topic after choosing a format, or undefined when the command breaks
+ * the rule. Choosing is itself the act, so only leaving a draw carries
+ * text: entering a draw clears the topic, and every other choice keeps it.
+ */
+const selectedTopic = (
+  room: RoomAssemblyState,
+  drawAfter: boolean,
+  topic: string | undefined,
+): string | null | undefined => {
+  const leavingDraw = room.executionPlan.resolutionDraw.enabled && !drawAfter;
+  if (leavingDraw !== (topic !== undefined)) return undefined;
+  if (leavingDraw) return topic;
+  return drawAfter ? null : room.topic;
 };
 const seatAdmission = (
   room: RoomAssemblyState,
