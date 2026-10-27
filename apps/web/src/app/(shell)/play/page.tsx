@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import type { SearchParams } from '../../../features/access/decision';
-import { lobbyHref, playOptions } from '../../../features/play/options';
+import { liveHref } from '../../../features/coming-soon/launch';
+import { playOptions } from '../../../features/play/options';
 import { requireAccess } from '../../../lib/access';
 import { PageHeader } from '../../../ui/components/page-header/page-header';
 import { ReadingPage } from '../../../ui/components/reading-page/reading-page';
@@ -23,7 +24,7 @@ export default async function PlayPage({
     <ReadingPage>
       <PageHeader title="Play" />
       <PlayChoices options={playOptions} />
-      <Link href={lobbyHref} className="self-center font-strong">
+      <Link href={liveHref('lobby')} className="self-center font-strong">
         Just browse the Lobby
       </Link>
     </ReadingPage>
