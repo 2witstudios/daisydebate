@@ -117,9 +117,7 @@ async function fixture(
     overrides: Partial<RoomCreate> = {},
     who: typeof host = host,
   ) => {
-    const config = (await operations.catalog(host)).find(
-      (c) => c.formatId === 'foundation',
-    )!.defaultConfig;
+    const config = (await foundation()).defaultConfig;
     const r = await operations.create(who, {
       commandId: createId(),
       title: 'Durable room',
