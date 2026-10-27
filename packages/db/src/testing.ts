@@ -121,4 +121,5 @@ export {
   removeUnowedBetaDigests,
 } from './beta-access-testing';
 export { refuseCapacity } from './transaction-admission';
+export { eraseRoomDrawSubject } from './testing-room-draw';
 export { refuseFinalSpeech } from './bot-generation-rules';

@@ -18,7 +18,7 @@ setupRitewayBun();
 
 const adopter = createRoomDrawPrivacyAdopter({
   closeRoom: (room) => room,
-  removeSeat: (room) => room,
+  eraseSeats: (room) => room,
   activeRoomMembers: () => [],
 });
 const names = (columns: Record<string, { name: string }>) =>
@@ -56,9 +56,9 @@ test('draw declarations cover every bank, draw and Round evidence column', () =>
     expected: { problems: [], activationHeld: true },
   });
   assert({
-    given: 'host-written text, private inputs and the seeds',
+    given: 'host-written text, the salted private inputs and the seeds',
     should:
-      'classify the text and inputs personal and private and the seeds secret, none exportable',
+      'classify the text personal and private and the inputs and seeds secret, none exportable',
     actual: adopter.fields
       .filter((f) => f.category === 'personal' || f.category === 'secret')
       .map(({ table, column, category, visibility, exportable }) => [
@@ -69,11 +69,11 @@ test('draw declarations cover every bank, draw and Round evidence column', () =>
       ]),
     expected: [
       ['room_resolution_draws.seed', 'secret', null, false],
-      ['room_resolution_draw_inputs.inputs', 'personal', 'private', false],
+      ['room_resolution_draw_inputs.inputs', 'secret', null, false],
       ['room_resolution_draw_items.text', 'personal', 'private', false],
       ['round_draw_seeds.seed', 'secret', null, false],
       ['round_resolution_draw_texts.text', 'personal', 'private', false],
-      ['round_draw_private_inputs.inputs', 'personal', 'private', false],
+      ['round_draw_private_inputs.inputs', 'secret', null, false],
     ],
   });
 });

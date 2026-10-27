@@ -8,11 +8,14 @@ export { ratePeriod } from './glicko2';
 export { rateDebate, ratingPolicy } from './rating';
 export { planRating, ratingEligibility } from './rating-decision';
 export {
+  eraseSeats,
   executeRoomCommand,
   hostIdentityHidden,
   projectRoom,
 } from './room-assembly';
 export { activeRoomMembers, projectActiveRoom } from './room-membership';
+/** Pure transitions the privacy erasure applies under its own authority. */
+export { closeRoom } from './room-consent-transitions';
 export { maintainRoom } from './room-expiry';
 export { deriveRoundOutcome } from './round-outcome';
 export { recordResult, tallyRecord } from './debate-record';

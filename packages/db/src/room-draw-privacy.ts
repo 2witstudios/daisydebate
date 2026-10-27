@@ -79,9 +79,9 @@ const open = (room: RoomAssemblyState) =>
  */
 export const createRoomDrawPrivacyAdopter = (transitions: {
   readonly closeRoom: (room: RoomAssemblyState) => RoomAssemblyState;
-  readonly removeSeat: (
+  readonly eraseSeats: (
     room: RoomAssemblyState,
-    participantId: string,
+    actorId: string,
   ) => RoomAssemblyState;
   readonly activeRoomMembers: (room: RoomAssemblyState) => readonly string[];
 }): PrivacyAdopter => {
@@ -218,17 +218,8 @@ export const createRoomDrawPrivacyAdopter = (transitions: {
       .for('update');
     for (const row of unbegun) {
       const { state } = await roomFacts(tx, row);
-      const seats = state.participants.filter((p) => p.actorId === actorId);
-      if (!seats.length) continue;
-      await persist(
-        tx,
-        state,
-        seats.reduce(
-          (room, seat) => transitions.removeSeat(room, seat.id),
-          state,
-        ),
-        now,
-      );
+      if (!state.participants.some((p) => p.actorId === actorId)) continue;
+      await persist(tx, state, transitions.eraseSeats(state, actorId), now);
     }
   };
 
@@ -239,9 +230,11 @@ export const createRoomDrawPrivacyAdopter = (transitions: {
     erase: async (tx, subject, { now }) => {
       // The privacy transaction is the authority; the setting only lets its
       // own deletes of immutable Round copies past the accidental-write guard.
+      // Later adopters in the same transaction get the guard back (ISSUE-703).
       await tx.execute(sql`set local daisy.privacy_erasure = 'on'`);
       await eraseAuthor(tx as unknown as Tx, subject.actorId, now);
       await erasePlayer(tx as unknown as Tx, subject.actorId, now);
+      await tx.execute(sql`set local daisy.privacy_erasure = 'off'`);
     },
     export: async (tx, subject) => {
       const hosted = await (tx as unknown as Tx)

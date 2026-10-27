@@ -8,6 +8,7 @@ import type {
 
 import { assemblyOpen, complete, type Edges } from './room-assembly-facts';
 import { activeRoomMembers } from './room-membership';
+import { removeSeat } from './room-edit-transitions';
 export { hostIdentityHidden, projectRoom } from './room-projection';
 import {
   updateConfig,
@@ -109,15 +110,7 @@ export function executeRoomCommand(
     publishDefinition,
     drawSecrets,
   } = outcome.mutation;
-  if (edit)
-    next = {
-      ...next,
-      version: room.version + 1,
-      participants: next.participants.map((p) => ({
-        ...p,
-        consentCommandId: null,
-      })),
-    };
+  if (edit) next = afterEdit(room, next);
   if (assemblyOpen(next)) next = { ...next, status: assembledStatus(next) };
   next = { ...next, changeVersion: room.changeVersion + 1 };
   if (!topicInvariantHolds(next))
@@ -137,3 +130,33 @@ export function executeRoomCommand(
 
 const assembledStatus = (room: RoomAssemblyState) =>
   complete(room) ? ('ready' as const) : ('assembling' as const);
+
+/** An edit bumps the version and asks every seat to ready again. */
+const afterEdit = (
+  room: RoomAssemblyState,
+  next: RoomAssemblyState,
+): RoomAssemblyState => ({
+  ...next,
+  version: room.version + 1,
+  participants: next.participants.map((p) => ({
+    ...p,
+    consentCommandId: null,
+  })),
+});
+
+/**
+ * Privacy erasure of a seated player before any pre-round: their seats go
+ * as if they had left, under the erasure's authority instead of a command.
+ */
+export const eraseSeats = (
+  room: RoomAssemblyState,
+  actorId: string,
+): RoomAssemblyState => {
+  const next = afterEdit(
+    room,
+    room.participants
+      .filter((p) => p.actorId === actorId)
+      .reduce((held, seat) => removeSeat(held, seat.id), room),
+  );
+  return assemblyOpen(next) ? { ...next, status: assembledStatus(next) } : next;
+};
