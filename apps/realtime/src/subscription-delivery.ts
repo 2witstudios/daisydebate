@@ -17,7 +17,9 @@ import {
   type Subscription,
   type SubscriptionTransport,
   subscriptionRefusal,
+  principalValid,
 } from './subscription-state';
+import { boundedFanout } from './bounded-fanout';
 
 /** Recipients of one row authorized concurrently (RT-2.3c-arch1). */
 const RECIPIENTS_IN_FLIGHT = 32;
@@ -206,19 +208,31 @@ export function createSubscriptionDelivery({
   async function deliverTo(connection: Connection, row: OutboxRow) {
     const sub = connection.topics.get(row.topic);
     if (!sub?.attached) return;
-    const outcome = await refresh(connection, row.topic, sub);
+    let outcome: Awaited<ReturnType<typeof refresh>> = 'superseded';
+    // A newer bell or a concurrent revalidation can fence this attempt, even
+    // after its allow arrived: authorize the row once more rather than drop it.
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      outcome = await refresh(connection, row.topic, sub);
+      if (!ownsSubscription(connection, row.topic, sub)) return;
+      if (
+        outcome === 'allowed' &&
+        transport.current(connection, row.topic, sub)
+      ) {
+        // The current lease is checked after the final await, immediately before publish.
+        publishRow(connection, row, sub);
+        return;
+      }
+      if (outcome !== 'allowed' && outcome !== 'superseded') break;
+    }
+    if (outcome === 'denied') terminate(connection, row.topic, sub);
     // The event cannot be authorized now: the subscriber re-reads and asks
     // again rather than missing it silently (ISSUE-445-r2).
-    if (outcome === 'unavailable' || outcome === 'stale')
+    else
       transport.resync(
         connection,
         { id: sub.requestId, topic: row.topic },
         sub,
       );
-    if (outcome === 'denied') terminate(connection, row.topic, sub);
-    if (outcome !== 'allowed') return;
-    // The current lease is checked after the final await, immediately before publish.
-    publishRow(connection, row, sub);
   }
   async function revalidateTopic(
     connection: Connection,
@@ -226,11 +240,19 @@ export function createSubscriptionDelivery({
     sub: Subscription,
   ) {
     if (sub.initializing) return;
-    if (!sub.lease.current()) transport.detach(connection, topic, sub);
+    // Only an elapsed lease means rows may have gone undelivered. A lease
+    // merely invalidated by a queued row still has that row to deliver.
+    if (sub.lease.expired()) transport.detach(connection, topic, sub);
     const outcome = await refresh(connection, topic, sub);
+    if (!ownsSubscription(connection, topic, sub)) return;
     if (outcome === 'denied') {
-      if (ownsSubscription(connection, topic, sub))
-        terminate(connection, topic, sub);
+      terminate(connection, topic, sub);
+      return;
+    }
+    // An allow that expired in flight left the stream detached: reread now,
+    // as the row path does, rather than stay silently stale until next pass.
+    if (outcome === 'stale') {
+      transport.resync(connection, { id: sub.requestId, topic }, sub);
       return;
     }
     if (outcome !== 'allowed') return;
@@ -240,16 +262,6 @@ export function createSubscriptionDelivery({
     // subscribes again, so recovery needs no later mutation (RT-2.5c-arch1).
     if (!sub.attached)
       transport.resync(connection, { id: sub.requestId, topic }, sub);
-  }
-  async function principalValid(
-    connection: Connection,
-    validate: (principal: SocketPrincipal) => Promise<boolean>,
-  ) {
-    try {
-      return await validate(connection.principal);
-    } catch {
-      return false;
-    }
   }
   async function revalidateConnection(
     connection: Connection,
@@ -295,20 +307,12 @@ export function createSubscriptionDelivery({
      */
     async deliver(row: OutboxRow) {
       if (!isPayloadDeliverableOnTopic(row.topic, row.payload)) return;
-      const recipients = [...connections].filter(
-        (connection) => connection.topics.get(row.topic)?.attached,
-      );
-      let next = 0;
-      const lane = async () => {
-        // One recipient's failure never stops the others or frees the slot early.
-        while (next < recipients.length)
-          await deliverTo(recipients[next++]!, row).catch(() => {});
-      };
-      await Promise.all(
-        Array.from(
-          { length: Math.min(RECIPIENTS_IN_FLIGHT, recipients.length) },
-          lane,
+      await boundedFanout(
+        [...connections].filter(
+          (connection) => connection.topics.get(row.topic)?.attached,
         ),
+        RECIPIENTS_IN_FLIGHT,
+        (connection) => deliverTo(connection, row),
       );
     },
     /** Whether any local subscription is owed rows of `topic`. */

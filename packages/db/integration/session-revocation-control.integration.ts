@@ -39,6 +39,23 @@ const controls = async (fixture: Fixture, actorId: string) =>
       order by seq`) as { payload: { ids: string[] } }[]
   ).map(({ payload }) => payload.ids);
 
+/** One account with an actor and one live session, inside a fixture. */
+const withSessionOwner = (
+  run: (
+    fixture: Fixture,
+    owner: {
+      readonly userId: string;
+      readonly actorId: string;
+      readonly id: string;
+    },
+  ) => Promise<void>,
+) =>
+  withFixture(url, async (fixture) => {
+    const userId = await fixture.user();
+    const actorId = await fixture.actor(userId);
+    await run(fixture, { userId, actorId, id: await session(fixture, userId) });
+  });
+
 describe('session revocation control (MSG-2.1-arch1, ADR 0032 §5)', () => {
   test('revoke-all announces exactly each deleted session, in the deleting transaction', async () => {
     await withFixture(url, async (fixture) => {
@@ -94,10 +111,7 @@ describe('session revocation control (MSG-2.1-arch1, ADR 0032 §5)', () => {
   });
 
   test('a direct delete, as Better Auth signs out, announces that session', async () => {
-    await withFixture(url, async (fixture) => {
-      const userId = await fixture.user();
-      const actorId = await fixture.actor(userId);
-      const id = await session(fixture, userId);
+    await withSessionOwner(async (fixture, { actorId, id }) => {
       await fixture.sql`delete from session where id=${id}`;
       assert({
         given:
@@ -109,7 +123,7 @@ describe('session revocation control (MSG-2.1-arch1, ADR 0032 §5)', () => {
     });
   });
 
-  test('the expiry sweep announces the sessions it removes', async () => {
+  test('the expiry sweep removes expired sessions without announcing them', async () => {
     await withFixture(url, async (fixture) => {
       const userId = await fixture.user();
       const actorId = await fixture.actor(userId);
@@ -118,18 +132,24 @@ describe('session revocation control (MSG-2.1-arch1, ADR 0032 §5)', () => {
         userId,
         '2000-01-01T00:00:00.000Z',
       );
-      await session(fixture, userId);
+      const live = await session(fixture, userId);
       await withDatabase(url, (database) =>
         database.purgeExpiredSessions({
           before: '2001-01-01T00:00:00.000Z',
           limit: 100,
         }),
       );
+      await fixture.sql`delete from session where id=${live}`;
       assert({
-        given: 'one expired and one live session and the retention sweep',
-        should: 'announce only the expired session',
-        actual: await controls(fixture, actorId),
-        expected: [[actorId, expired]],
+        given:
+          'the retention sweep removing an expired session, then a live session deleted',
+        should:
+          'append no control for the expired session (realtime already refuses it) and one for the live one',
+        actual: {
+          expiredGone: await fixture.count('session', 'id', expired),
+          controls: await controls(fixture, actorId),
+        },
+        expected: { expiredGone: 0, controls: [[actorId, live]] },
       });
     });
   });
@@ -154,10 +174,7 @@ describe('session revocation control (MSG-2.1-arch1, ADR 0032 §5)', () => {
   });
 
   test('a rolled-back delete leaves no control', async () => {
-    await withFixture(url, async (fixture) => {
-      const userId = await fixture.user();
-      const actorId = await fixture.actor(userId);
-      const id = await session(fixture, userId);
+    await withSessionOwner(async (fixture, { actorId, id }) => {
       await fixture.sql
         .begin(async (tx) => {
           await tx`delete from session where id=${id}`;
@@ -177,10 +194,7 @@ describe('session revocation control (MSG-2.1-arch1, ADR 0032 §5)', () => {
   });
 
   test('a failed control append rolls the delete back', async () => {
-    await withFixture(url, async (fixture) => {
-      const userId = await fixture.user();
-      const actorId = await fixture.actor(userId);
-      const id = await session(fixture, userId);
+    await withSessionOwner(async (fixture, { actorId, id }) => {
       const topic = buildUserInboxTopic(actorId);
       const guard = `block_${createId()}`;
       await fixture.sql.unsafe(`create function ${guard}() returns trigger

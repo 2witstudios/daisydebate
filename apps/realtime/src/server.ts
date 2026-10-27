@@ -46,7 +46,11 @@ const readyResponse = async (resources: RealtimeServerResources) => {
       { deliverySeqLagEstimate: report.deliverySeqLagEstimate },
       'Delivery lag estimated',
     );
-  if (report.deliveryBacklog !== undefined)
+  // Only owed work is worth a line; an idle instance reports nothing.
+  if (
+    report.deliveryBacklog !== undefined &&
+    report.deliveryBacklog.retained > 0
+  )
     resources.logger.log(
       'realtime.delivery.backlog',
       { ...report.deliveryBacklog },

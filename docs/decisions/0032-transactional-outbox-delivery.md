@@ -244,8 +244,10 @@ are not best-effort HTTP.
   `/revoke-session`, Daisy's serialized revoke-all `revokeOtherSessions`
   (ISSUE-22; the email-change completion and the self-service
   `/revoke-other-sessions` and `/revoke-sessions`), the sign-in address
-  check, the expiry sweep, the restore purge and a cascading account
-  deletion. A failed append rolls the delete back, so a revocation can no
+  check and the restore purge. A session already past its expiry appends
+  nothing (realtime refuses it anyway), so the expiry sweep adds no rows; a
+  user with an actor cannot be deleted (`actors.user_id` RESTRICT), so the
+  only account deletion, of a provisional user, has no control to send. A failed append rolls the delete back, so a revocation can no
   longer commit without its control, and realtime closes exactly the
   deleted session's sockets rather than every socket of the actor. A user
   with no actor has no realtime presence and appends nothing. The trigger

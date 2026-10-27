@@ -202,3 +202,30 @@ test('a batch that overflows a topic resyncs it once', () => {
     expected: ['t:a'],
   });
 });
+
+test('global pressure resyncs the topic that built the backlog, not a new arrival', () => {
+  const overflowed: string[] = [];
+  const scheduler = createDeliveryScheduler({
+    maxRunningTopics: 1,
+    maxPerTopic: 10,
+    maxRetained: 6,
+    deliver: () => new Promise<void>(() => {}),
+    overflow: (topic) => overflowed.push(topic),
+  });
+  scheduler.enqueue([row('slow:a')]);
+  scheduler.enqueue([
+    row('slow:b'),
+    row('slow:b'),
+    row('slow:b'),
+    row('slow:b'),
+  ]);
+  scheduler.enqueue([row('slow:c')]);
+  scheduler.enqueue([row('quiet:d')]);
+  assert({
+    given:
+      'a full global bound mostly held by one slow topic, then one row on a quiet topic',
+    should: 'resync the slow topic and admit the quiet row',
+    actual: { overflowed, retained: scheduler.backlog(0).retained },
+    expected: { overflowed: ['slow:b'], retained: 3 },
+  });
+});

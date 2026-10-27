@@ -162,3 +162,35 @@ test('access.revoked ends exactly the named subscription on its request', async 
     },
   });
 });
+
+test('a lease invalidated by a queued row is renewed in place, not resynced', async () => {
+  const f = await suspended();
+  // The row invalidates the lease; revalidation races its delivery.
+  f.registry.sink([row(1)]);
+  await f.revalidate();
+  await f.registry.settled();
+  assert({
+    given: 'a revalidation pass over a lease only invalidated by a pending row',
+    should: 'stay attached, send no resync, and deliver the row',
+    actual: { frames: f.frames(), attached: f.attached.size },
+    expected: { frames: ['subscribed', 'event'], attached: 1 },
+  });
+});
+
+test('an allow that expires in flight during revalidation resyncs at once', async () => {
+  const f = await suspended();
+  f.setNow(60_000);
+  // The answer is already past its own validUntil when it arrives.
+  f.decide({ revision: '1', validUntil: 59_000 });
+  await f.revalidate();
+  assert({
+    given:
+      'an expired subscription whose renewal returns an already-expired allow',
+    should: 'ask the subscriber to reread instead of staying silently detached',
+    actual: {
+      frames: f.frames(),
+      retained: f.connection.topics.has(topic),
+    },
+    expected: { frames: ['subscribed', 'resync_required'], retained: false },
+  });
+});

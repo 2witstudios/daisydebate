@@ -1,15 +1,18 @@
 -- G6 (MSG-2.1-arch1): every session deletion announces itself in the deleting
 -- transaction. Better Auth's sign-out and single-session revoke, Daisy's
--- revoke-all, the sign-in address check, the expiry sweep, the restore purge
--- and a cascading account deletion all delete `session` rows; one trigger
--- appends the exact `session.revoked` control for each deleted session, so a crash
+-- revoke-all, the sign-in address check and the restore purge all delete
+-- live `session` rows; one trigger appends the exact `session.revoked`
+-- control for each deleted live session, so a crash
 -- between the delete and an application append can no longer lose it, and a
 -- failed append rolls the delete back. The control names the actor and the
 -- session (`ids: [actorId, sessionId]`), so realtime closes only that
 -- session's sockets. A user with no actor (never claimed a username) has no
--- realtime presence and appends nothing. A statement-level trigger over the
--- deleted rows' transition table: a bulk delete (the expiry sweep, the
--- restore purge) costs one insert and one notification, not one per row.
+-- realtime presence and appends nothing, which also covers the only account
+-- delete there is (a provisional user; `actors.user_id` RESTRICTs deleting a
+-- user who has one). A session already past its expiry announces nothing:
+-- realtime refuses it at admission and revalidation, so the expiry sweep
+-- adds no outbox rows. A statement-level trigger over the deleted rows'
+-- transition table: a bulk delete costs one insert and one notification.
 --
 -- SECURITY INVOKER: the deleting role already inserts outbox rows and reads
 -- actors; the trigger grants nothing new. It takes no parent lock after the
@@ -35,6 +38,7 @@ BEGIN
       )
     FROM revoked_sessions AS revoked
     JOIN public.actors AS a ON a.user_id = revoked.user_id
+    WHERE revoked.expires_at > pg_catalog.statement_timestamp()
     ORDER BY revoked.id
     RETURNING txid, seq
   )

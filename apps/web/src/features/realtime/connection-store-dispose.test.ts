@@ -190,3 +190,20 @@ test('the browser visibility adapter removes its document listener', () => {
     expected: { seen: [true], held: 0 },
   });
 });
+
+test('a listener that reconnects on the final close cannot reopen a disposed store', () => {
+  const visibility = liveVisibility();
+  const scheduler = createTimerQueue((clock, ms) => clock + ms);
+  const sockets: FakeSocket[] = [];
+  const store = createConnectionStore(deps(visibility, scheduler, sockets));
+  store.subscribe((state) => {
+    if (state.status === 'closed') store.connect();
+  });
+  store.dispose();
+  assert({
+    given: 'a state listener that calls connect whenever it sees closed',
+    should: 'open no socket during or after disposal',
+    actual: { sockets: sockets.length, timers: scheduler.pending() },
+    expected: { sockets: 0, timers: 0 },
+  });
+});

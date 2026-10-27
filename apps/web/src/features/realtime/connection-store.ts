@@ -317,8 +317,9 @@ export function createConnectionStore(
   // RT-2.6a-arch1: `close`'s generation fences late tickets and sockets.
   function dispose() {
     if (disposed) return;
-    close();
+    // First, so a listener reacting to the final `closed` cannot reconnect.
     disposed = true;
+    close();
     for (const release of [stopVisibility, topics.release, diagnostics.release])
       release();
     listeners.clear();

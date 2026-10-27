@@ -22,9 +22,10 @@ type TopicQueue = {
  * deliver one at a time in order; at most `maxRunningTopics` topics run at
  * once and ready topics take turns after each row, so a slow authorization on
  * one topic never stalls another. Retained work is counted, never an open
- * promise chain: a topic past `maxPerTopic`, or any arrival past
- * `maxRetained`, drops that topic's waiting rows and reports `overflow`
- * synchronously so its subscribers resync instead of silently missing rows.
+ * promise chain: a topic past `maxPerTopic` drops its waiting rows and
+ * reports `overflow` synchronously so its subscribers resync instead of
+ * silently missing rows; past `maxRetained` the topic holding the largest
+ * waiting backlog is the one dropped, never an innocent arrival.
  * A running row stays counted until its delivery settles.
  */
 export function createDeliveryScheduler({
@@ -53,16 +54,39 @@ export function createDeliveryScheduler({
     if (position >= 0) ready.splice(position, 1);
     if (!queue.running) queues.delete(topic);
   }
+  function resync(topic: string, overflowed: Set<string>) {
+    const queue = queues.get(topic);
+    if (queue) drop(topic, queue);
+    overflowed.add(topic);
+    overflow(topic);
+  }
+  /** The topic holding the most waiting rows: the one causing the pressure. */
+  function largestBacklog() {
+    let largest: string | undefined;
+    let size = 0;
+    for (const [topic, queue] of queues)
+      if (queue.rows.length > size)
+        [largest, size] = [topic, queue.rows.length];
+    return largest;
+  }
   function admit(row: OutboxRow, overflowed: Set<string>) {
     // A topic overflowed in this batch stays resynced: its later rows are moot.
     if (overflowed.has(row.topic)) return;
     const queue = queues.get(row.topic) ?? { rows: [], running: undefined };
     const topicRetained = queue.rows.length + (queue.running ? 1 : 0);
-    if (topicRetained >= maxPerTopic || retained >= maxRetained) {
-      if (queues.has(row.topic)) drop(row.topic, queue);
-      overflowed.add(row.topic);
-      overflow(row.topic);
+    if (topicRetained >= maxPerTopic) {
+      resync(row.topic, overflowed);
       return;
+    }
+    // Global pressure resyncs whichever topic built the backlog, never an
+    // innocent arrival, unless the arrival is itself the largest backlog.
+    if (retained >= maxRetained) {
+      const culprit = largestBacklog();
+      if (culprit === undefined || culprit === row.topic) {
+        resync(row.topic, overflowed);
+        return;
+      }
+      resync(culprit, overflowed);
     }
     queues.set(row.topic, queue);
     queue.rows.push(row);

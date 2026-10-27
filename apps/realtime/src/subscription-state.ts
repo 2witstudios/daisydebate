@@ -111,3 +111,15 @@ export async function readSubscriptionDecision(
     return AUTHORITY_UNAVAILABLE;
   }
 }
+
+/** A periodic session check that fails to answer counts as invalid. */
+export async function principalValid(
+  connection: Connection,
+  validate: (principal: SocketPrincipal) => Promise<boolean>,
+) {
+  try {
+    return await validate(connection.principal);
+  } catch {
+    return false;
+  }
+}

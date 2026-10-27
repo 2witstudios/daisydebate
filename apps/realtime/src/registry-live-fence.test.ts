@@ -39,3 +39,39 @@ test('a newer authority bell fences a pending live allow on an attached subscrip
     expected: { checks: 3, frames: ['subscribed', 'error'], attached: [] },
   });
 });
+
+test('a row whose authorization a revalidation fenced is authorized again, not dropped', async () => {
+  let resolveFirst!: (decision: {
+    revision: string;
+    validUntil: number;
+  }) => void;
+  let checks = 0;
+  let began!: () => void;
+  const eventStarted = new Promise<void>((done) => {
+    began = done;
+  });
+  const { registry, connection, sent } = fixture({
+    authorize: async () => {
+      checks += 1;
+      if (checks === 2)
+        return new Promise((done) => {
+          resolveFirst = done;
+          began();
+        });
+      return { revision: '1', validUntil: 60_000 };
+    },
+  });
+  await registry.subscribe(connection, { id: 'request', topic });
+  registry.sink([row(1)]);
+  await eventStarted;
+  await registry.revalidate(async () => true);
+  resolveFirst({ revision: '1', validUntil: 60_000 });
+  await registry.settled();
+  assert({
+    given:
+      'a revalidation that supersedes a pending event authorization, with no later row',
+    should: 'authorize the event again and publish it',
+    actual: sent.map((frame) => frame.type),
+    expected: ['subscribed', 'event'],
+  });
+});
