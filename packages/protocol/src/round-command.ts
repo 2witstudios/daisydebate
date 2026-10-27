@@ -2,6 +2,7 @@ import type { RoundParticipantSeat } from './runtime';
 import { z } from 'zod';
 import { idSchema } from './primitives';
 import type { RoundView } from './round-view';
+import type { BetaAccessState } from './beta-access';
 
 const seated = (
   type: 'start_prep' | 'start_speech' | 'yield' | 'interrupt' | 'forfeit',
@@ -53,6 +54,15 @@ export type RoundCommandPrincipal =
 export type RoundCommandAuthority = {
   readonly roundId: string;
   readonly hostActorId: string | null;
+  /**
+   * ADR 0075: the commanding human's own access facts, read under the
+   * account fence (null for an AgentRun). The evaluator decides from them;
+   * seats stay membership-only so an opponent's Round is independent.
+   */
+  readonly principalAccess: {
+    readonly beta: BetaAccessState | null;
+    readonly ageBand: 'under-13' | '13-15' | '16-17' | 'adult' | null;
+  } | null;
   readonly participants: readonly (RoundParticipantSeat & {
     readonly kind: 'human' | 'bot';
     readonly eligible: boolean;

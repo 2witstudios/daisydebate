@@ -3,7 +3,7 @@ import { systemId } from '@daisy/clock';
 import type { SearchParams } from '../../../features/access/decision';
 import { requireAccess } from '../../../lib/access';
 import { FriendsPage } from '../../../ui/friends/friends-page/friends-page';
-import { challengeAction, friendAction } from './actions';
+import { challengeAction, friendAction, presenceAction } from './actions';
 import { readFriends } from './read-friends';
 import { MessageUserButton } from '../../../ui/messaging/message-user-button';
 import { createConversationAction } from '../messages/new/actions';
@@ -28,6 +28,7 @@ export default async function Friends({
           action={createConversationAction.bind(null, 'dm')}
         />
       )}
+      presenceAction={presenceAction}
     />
   );
 }
