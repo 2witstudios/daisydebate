@@ -216,6 +216,11 @@ export async function removeMembers(client: SQL, members: readonly Member[]) {
     'delete from messaging_contact_pairs where low_actor_id = any($1::text[]) or high_actor_id = any($1::text[])',
     [textArray(actorIds)],
   );
+  // Friend requests leave DEC-251 ledger rows naming both members.
+  await client.unsafe(
+    'delete from messaging_social_commands where actor_id = any($1::text[]) or counterpart_actor_id = any($1::text[])',
+    [textArray(actorIds)],
+  );
   await client.unsafe('delete from actors where id = any($1::text[])', [
     textArray(actorIds),
   ]);

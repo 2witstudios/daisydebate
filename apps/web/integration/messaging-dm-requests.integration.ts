@@ -150,13 +150,13 @@ test('real DM recipient accept opens history/post and binds closed retry through
       ],
     );
     assert({
-      given: 'committed accept and block authority changes',
+      given: 'committed accept, block and the accepted send (ISSUE-603)',
       should:
-        'invalidate both own inboxes without channel IDs or request content',
+        'invalidate both own inboxes for each, without channel IDs or request content',
       actual: bells.map((row: { payload: Record<string, unknown> }) =>
         Object.keys(row.payload).sort(),
       ),
-      expected: Array.from({ length: 4 }, () => ['kind']),
+      expected: Array.from({ length: 6 }, () => ['kind']),
     });
     await fixture.eraseSubject(sender.actorId);
     await assertRejects({
