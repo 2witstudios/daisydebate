@@ -292,8 +292,8 @@ describe('the durable mail queue (ADR 0075)', () => {
         });
       });
       const left = (await fixture.sql.unsafe(
-        'select id from mail_intents where id = any($1)',
-        [[finished, waiting]],
+        'select id from mail_intents where id in ($1, $2)',
+        [finished, waiting],
       )) as Array<{ id: string }>;
       assert({
         given: 'a sent intent past the cutoff and a queued one',
