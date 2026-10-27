@@ -1,6 +1,10 @@
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
-import { buildUserInboxTopic } from '@daisy/protocol';
+import {
+  buildUserInboxTopic,
+  isPayloadStorableOnTopic,
+  outboxPayloadSchema,
+} from '@daisy/protocol';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   rejected,
@@ -57,11 +61,34 @@ describe('session revocation control (MSG-2.1-arch1, ADR 0032 §5)', () => {
         actual: { removed, ids: ids.map(([, id]) => id).sort() },
         expected: { removed: 2, ids: [first!, second!].sort() },
       });
+      const rows = (await fixture.sql`select topic, kind, payload from outbox
+        where topic=${buildUserInboxTopic(actorId)}`) as {
+        topic: string;
+        kind: string;
+        payload: unknown;
+      }[];
       assert({
-        given: 'each control',
-        should: 'name the actor first',
-        actual: ids.every(([actor]) => actor === actorId),
-        expected: true,
+        given: 'each control the trigger wrote',
+        should:
+          'name the actor first and parse as a storable session.revoked under the protocol schema',
+        actual: rows.map(({ topic, kind, payload }) => {
+          const parsed = outboxPayloadSchema.safeParse(payload);
+          return {
+            kind,
+            parsed: parsed.success && parsed.data.kind === kind,
+            storable: isPayloadStorableOnTopic(topic, payload),
+            actorFirst:
+              parsed.success && 'ids' in parsed.data
+                ? parsed.data.ids[0] === actorId
+                : false,
+          };
+        }),
+        expected: rows.map(() => ({
+          kind: 'session.revoked',
+          parsed: true,
+          storable: true,
+          actorFirst: true,
+        })),
       });
     });
   });

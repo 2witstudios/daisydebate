@@ -237,7 +237,7 @@ Revocations are outbox rows, so every instance applies them durably. They
 are not best-effort HTTP.
 
 - **`session.revoked`** has one writer: the database itself. An
-  `AFTER DELETE` row trigger on `session`
+  `AFTER DELETE` statement trigger on `session`
   (`daisy_session_revoked_control`, amended 2026-10-27, MSG-2.1-arch1)
   appends `{ ids: [actorId, sessionId] }` on the actor's inbox topic in the
   **same transaction** as every session delete: Better Auth's sign-out and

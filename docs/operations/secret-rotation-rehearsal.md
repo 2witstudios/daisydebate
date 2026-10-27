@@ -145,7 +145,7 @@ healthy, and a fresh sign-in immediately afterward succeeded. That record
 predates the session delete trigger (ADR 0032 §5, 2026-10-27): a raw
 `DELETE FROM session` now appends one `session.revoked` control per deleted
 session in the same statement, so connected realtime sockets close at once.
-A `TRUNCATE` would skip the row trigger; use `DELETE` for this step.
+A `TRUNCATE` would skip the delete trigger; use `DELETE` for this step.
 
 **Recovery/rollback**: Fly secrets are write-only and the safe pattern above
 pipes a fresh CSPRNG value straight into `fly secrets import` without ever
