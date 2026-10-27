@@ -216,15 +216,32 @@ inventory becomes the single index:
   own lines, keeps other debaters', and discards every pending judgment of a
   Round the subject sat in. Export returns the subject's own lines.
 - **Operational logs** (AUTH-7.5-AC3): every process writes structured
-  JSON to stdout only ([observability](observability.md)); no log shipper
-  or second store is configured, so Fly.io's platform log search is the
-  only place they persist, and it
-  [retains app logs for 7 days](https://docs.fly.io/monitoring/logging-overview/).
-  Operational logs are kept no longer than 30 days: that is a ceiling,
-  not a minimum (owner decision DEC-42, confirmed 2026-09-29). Fly's 7-day
-  log search satisfies it, and no log shipper is added. Any log drain or
-  shipper added later must keep its retention at or under 30 days and
-  record it here.
+  JSON to stdout only ([observability](observability.md)). Operational logs
+  are kept no longer than 30 days: that is a ceiling, not a minimum (owner
+  decision DEC-42, confirmed 2026-09-29). Two places hold them:
+  - Fly.io's platform log search
+    [retains app logs for 7 days](https://docs.fly.io/monitoring/logging-overview/).
+  - On staging, the operational log store
+    ([ADR 0081](../decisions/0081-operational-log-pipeline.md)): a
+    self-hosted ClickHouse on 6PN, fed by the log shipper. It keeps only
+    lines the `@daisy/logger` vocabulary admits, with a **28-day TTL** on
+    the shipper's receipt time. Daily partitions are dropped whole, and an
+    hourly sweep drops any partition older than 29 days, so no row
+    outlives the 30-day ceiling. There are no volume snapshots or backups,
+    and no ClickHouse internal log tables.
+
+  Its columns carry no personal, sensitive or secret field.
+  - Identifiers, scoped to the log surface: `requestId`, `traceId`,
+    `userId`, `actorId`, `providerMessageId`, and `clientIdHash` (a SHA3
+    digest, never an address).
+  - Category `none`: `app`, `region`, `instance` (Fly machine ids),
+    `service`, `appVersion`, `gitCommit`, `event`, `severity`, and every
+    code, path and count field.
+
+  Purpose: operator security views in the admin app. Lawful basis:
+  legitimate interest in securing the service. Erasure is by expiry; no
+  row is exported. Any further log drain or shipper must keep its
+  retention at or under 30 days and record it here.
 
 ## Data subject rights
 
