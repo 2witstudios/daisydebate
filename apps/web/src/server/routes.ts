@@ -19,6 +19,7 @@ import {
   deriveRecipientSubkey,
   recipientKey,
 } from '../features/auth/mail/recipient-key';
+import { admitsOptionalAnswers } from '@daisy/auth/account-age';
 import { createUsernameHandler } from '../features/account/username';
 import { createConfirmEmailHandlers } from '../features/auth/email-change/confirm-email';
 import { createConfirmHandlers } from '../features/auth/confirmation/confirm';
@@ -146,7 +147,11 @@ export function createRoutes(app: App) {
         identify: (request) => identify(app.auth(), request.headers),
         limiter: () => app.auth().limiter,
         clock: app.clock,
-        save: (userId, answers) => database.saveOnboardingStep(userId, answers),
+        save: (input) =>
+          database.saveOnboardingStep({
+            ...input,
+            admits: admitsOptionalAnswers,
+          }),
         complete: (userId, at) => database.completeOnboarding(userId, at),
       }),
     },

@@ -1,8 +1,6 @@
-import type { SQL } from 'drizzle-orm';
-import { PgDialect } from 'drizzle-orm/pg-core';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { accountAgePrivacyAdopter } from './account-age';
-import type { AuthorizationTransaction } from './authorization';
+import { scriptedTransaction } from './scripted-transaction.test-support';
 
 setupRitewayBun();
 const input = {
@@ -10,20 +8,10 @@ const input = {
   birthMonth: '2000-01',
   now: '2026-10-09T00:00:00.000Z',
 };
-function ageDatabase(responses: unknown[][]) {
-  const remaining = [...responses];
-  const queries: { sql: string; params: unknown[] }[] = [];
-  const dialect = new PgDialect();
-  const tx = {
-    execute: async (statement: SQL) => {
-      queries.push(dialect.sqlToQuery(statement));
-      const result = remaining.shift();
-      if (!result) throw new Error('Unexpected age query');
-      return result;
-    },
-  } as unknown as AuthorizationTransaction;
-  return { tx, queries };
-}
+const ageDatabase = (responses: unknown[][]) =>
+  scriptedTransaction(responses, () => {
+    throw new Error('Unexpected age query');
+  });
 
 test('age adopter binds own export/delete under the approved age-step policy', async () => {
   const subject = { userId: input.userId, actorId: 'a'.repeat(24) };

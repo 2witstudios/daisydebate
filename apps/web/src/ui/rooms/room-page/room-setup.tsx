@@ -39,6 +39,11 @@ function closeSheet(sheet: HTMLElement | null): boolean {
   return true;
 }
 
+/** An accepted save leaves setup even when a sibling form still holds a refusal. */
+export function finishSetupSave(close: () => boolean, navigate: () => void) {
+  if (!close()) navigate();
+}
+
 /** The sheet shows while its fragment is the URL's or a refused save is on it. */
 export function sheetOpen(hash: string, refused: boolean): boolean {
   return hash === ROOM_SETUP_HREF || refused;
@@ -109,7 +114,10 @@ function useSheetFocus(roomHref: string) {
   };
   /** An accepted save leaves the sheet, as the native post's redirect does. */
   const saved = () => {
-    closeSheet(sheet.current);
+    finishSetupSave(
+      () => closeSheet(sheet.current),
+      () => window.location.assign(roomHref),
+    );
   };
   return { sheet, heading, key, close, saved };
 }

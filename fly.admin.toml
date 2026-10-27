@@ -1,0 +1,25 @@
+# The admin app (ADR 0077): its own deployable, database and operator
+# accounts, on the org's default 6PN with no public address (`fly deploy
+# --no-public-ips`, checked with `fly ips list`). There is no
+# [http_service] or [[services]]: fly-proxy never routes to it. The owner
+# reaches it with `fly proxy 4800:8080 -a daisy-debate-staging-admin` and
+# opens http://localhost:4800, the only Host the app answers. Its secrets
+# (ADMIN_DATABASE_URL as daisy_admin_app, ADMIN_ATTEMPT_KEY, and the
+# operator API key once BETA-5 signs) are Fly secrets, never written here.
+app = "daisy-debate-staging-admin"
+primary_region = "ord"
+# The server drains for at most 10 s (SHUTDOWN_DEADLINE_MS in start.ts).
+kill_timeout = 20
+
+[build]
+  dockerfile = "apps/web/Dockerfile"
+  build-target = "admin"
+
+[env]
+  # `[::]:8080`: fly proxy arrives over 6PN (IPv6).
+  ADMIN_HOST = "::"
+  ADMIN_PORT = "8080"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

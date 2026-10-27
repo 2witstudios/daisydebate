@@ -3,7 +3,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { rooms, roomParticipants } from '../schema/rooms';
 import { rounds } from '../schema/rounds';
 import { roundParticipants } from '../schema/round-participants';
-import { validatePrivacyAdoption } from './declarations';
+import { validatePrivacyAdoption } from '@daisy/protocol/privacy';
 import { roomPrivacyFields } from './room-declarations';
 
 setupRitewayBun();

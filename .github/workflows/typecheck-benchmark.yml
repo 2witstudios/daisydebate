@@ -43,6 +43,9 @@ jobs:
       - name: Generate Next route types with the retained toolchain
         working-directory: apps/web
         run: bunx --no-install next typegen
+      - name: Generate the admin app's Next route types
+        working-directory: apps/admin
+        run: bunx --no-install next typegen
       - name: Measure every workspace config and negative controls
         run: bun scripts/typecheck-benchmark.ts "$RUNNER_TEMP/typecheck-results" "$RUNNER_TEMP/tsgo/node_modules/.bin/tsgo"
       - name: Prove the retained TypeScript API supports typed ESLint

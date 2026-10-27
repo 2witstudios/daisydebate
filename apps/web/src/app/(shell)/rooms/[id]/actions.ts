@@ -12,6 +12,7 @@ import { inProcessFetch } from '../../../../server/in-process-fetch';
 import { hydratedPost, moveOn } from '../../../../server/form-action';
 import {
   commandAnswer,
+  roomFormAnswer,
   type RoomFormState,
 } from '../../../../features/rooms/command-answer';
 import { processRoute } from '../../../../server/process-app';
@@ -51,20 +52,10 @@ export async function submitRoomFormAction(
   form: FormData,
 ): Promise<RoomFormState> {
   const { incoming, result } = await submitRoomCommand(id, form);
-  // A redirect without a fragment inherits the post's #room-setup, which
-  // would keep Room setup open; the empty fragment closes it.
-  if (result.kind === 'accepted')
-    return hydratedPost(incoming)
-      ? { values: {}, view: result.view }
-      : { values: {}, ...moveOn(incoming, `/rooms/${result.view.id}#`) };
-  return refused(
-    form,
-    result.kind === 'refused' && result.reason === 'version-conflict'
-      ? 'The room changed. Review the latest room before saving.'
-      : result.kind === 'unavailable'
-        ? 'The update is not acknowledged. Try again.'
-        : 'These changes were refused. Check the room settings.',
-  );
+  return roomFormAnswer(result, form, {
+    hydrated: hydratedPost(incoming),
+    move: (destination) => moveOn(incoming, destination),
+  });
 }
 
 /** Native posts return to a fresh projection; the hydrated room adopts the answer. */

@@ -18,11 +18,12 @@ export type ReadyStepProps = {
   /** The Train bots by name, for the bot card. */
   readonly botNames: readonly string[];
   readonly homeHref: string;
+  /** Null when optional answers are not asked of this member: no summary, nothing to edit. */
   readonly editHrefs: {
     readonly about: string;
     readonly experience: string;
     readonly topics: string;
-  };
+  } | null;
 };
 
 const none = '—';
@@ -52,33 +53,38 @@ export function ReadyStep({
   editHrefs,
 }: ReadyStepProps) {
   const club = clubAction(answers);
-  const summary = [
-    [
-      'Wants to',
-      answers.wants.map((want) => wantLabels[want]).join(', '),
-      editHrefs.about,
-    ],
-    [
-      'Club',
-      answers.club === null ? '' : clubLabels[answers.club],
-      editHrefs.about,
-    ],
-    [
-      'Experience',
-      answers.experience === null ? '' : experienceLabels[answers.experience],
-      editHrefs.experience,
-    ],
-    [
-      'Formats',
-      answers.formats.map((format) => formatLabels[format]).join(' · '),
-      editHrefs.experience,
-    ],
-    [
-      'Topics',
-      answers.topics.map((topic) => topicLabels[topic]).join(', '),
-      editHrefs.topics,
-    ],
-  ] as const;
+  const summary =
+    editHrefs === null
+      ? []
+      : ([
+          [
+            'Wants to',
+            answers.wants.map((want) => wantLabels[want]).join(', '),
+            editHrefs.about,
+          ],
+          [
+            'Club',
+            answers.club === null ? '' : clubLabels[answers.club],
+            editHrefs.about,
+          ],
+          [
+            'Experience',
+            answers.experience === null
+              ? ''
+              : experienceLabels[answers.experience],
+            editHrefs.experience,
+          ],
+          [
+            'Formats',
+            answers.formats.map((format) => formatLabels[format]).join(' · '),
+            editHrefs.experience,
+          ],
+          [
+            'Topics',
+            answers.topics.map((topic) => topicLabels[topic]).join(', '),
+            editHrefs.topics,
+          ],
+        ] as const);
   return (
     <OnboardingFrame step={null} titleId="onboarding-title">
       <SampleActionNotice />
@@ -116,30 +122,32 @@ export function ReadyStep({
           {club}
         </SampleAction>
       )}
-      <dl className="m-0 flex flex-col border-t border-border">
-        {summary.map(([label, value, edit]) => (
-          <div
-            key={label}
-            className="flex min-h-onboarding-touch items-center gap-4 border-b border-border"
-          >
-            <dt className="w-onboarding-label shrink-0 text-sm text-ink-muted">
-              {label}
-            </dt>
-            <dd className="m-0 flex min-w-0 flex-1 items-center justify-between gap-3">
-              <span className="min-w-0 text-base font-strong text-ink">
-                {value === '' ? none : value}
-              </span>
-              <Link
-                href={edit}
-                aria-label={`Edit ${label.toLowerCase()}`}
-                className="inline-flex min-h-onboarding-touch shrink-0 items-center px-2 text-sm font-strong"
-              >
-                Edit
-              </Link>
-            </dd>
-          </div>
-        ))}
-      </dl>
+      {editHrefs === null ? null : (
+        <dl className="m-0 flex flex-col border-t border-border">
+          {summary.map(([label, value, edit]) => (
+            <div
+              key={label}
+              className="flex min-h-onboarding-touch items-center gap-4 border-b border-border"
+            >
+              <dt className="w-onboarding-label shrink-0 text-sm text-ink-muted">
+                {label}
+              </dt>
+              <dd className="m-0 flex min-w-0 flex-1 items-center justify-between gap-3">
+                <span className="min-w-0 text-base font-strong text-ink">
+                  {value === '' ? none : value}
+                </span>
+                <Link
+                  href={edit}
+                  aria-label={`Edit ${label.toLowerCase()}`}
+                  className="inline-flex min-h-onboarding-touch shrink-0 items-center px-2 text-sm font-strong"
+                >
+                  Edit
+                </Link>
+              </dd>
+            </div>
+          ))}
+        </dl>
+      )}
       <Link
         href={homeHref}
         className="inline-flex min-h-onboarding-touch items-center self-start text-base font-strong"
