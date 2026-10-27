@@ -1,4 +1,5 @@
 import { mediaTestHuman } from './media-session.test-support';
+import { admitsPrincipalAccess } from '@daisy/auth/authorization';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
@@ -19,7 +20,10 @@ test('media authority fence permits durable attendance marker FK admission while
       now: performance.now,
     });
     const held = run(async (tx) => {
-      await lockMediaRound(tx, roundId, seat.actorId);
+      await lockMediaRound(tx, roundId, {
+        actorId: seat.actorId,
+        admits: admitsPrincipalAccess,
+      });
       entered.resolve();
       await release.promise;
     });

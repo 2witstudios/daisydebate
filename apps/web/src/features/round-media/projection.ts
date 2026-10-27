@@ -36,16 +36,26 @@ export const admissionRevoked = (
         !seat.eligible,
     ),
   );
+/**
+ * A seat's media grants. A withdrawn seat (a human whose participant access
+ * was revoked, ISSUE-714) gets none: the next reconcile demotes it in the
+ * room. Only that seat is treated as ineligible, so every other seat's
+ * grants, the opponent's floor included, are computed as before.
+ */
 export const seatGrants = (
   snapshot: Pick<
     MediaSnapshot,
-    'round' | 'now' | 'finalSegmentEndedAt' | 'participants'
+    'round' | 'now' | 'finalSegmentEndedAt' | 'participants' | 'withdrawn'
   >,
   participantId: string,
   nextId: () => string,
 ) =>
   mediaGrants({
-    participants: snapshot.participants,
+    participants: snapshot.withdrawn.includes(participantId)
+      ? snapshot.participants.map((seat) =>
+          seat.id === participantId ? { ...seat, eligible: false } : seat,
+        )
+      : snapshot.participants,
     participantId,
     rules: snapshot.round.rules,
     position: mediaRuntime(snapshot, nextId).position(snapshot.now),

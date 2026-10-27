@@ -28,7 +28,11 @@ import type {
   AuthorizationInput,
   AuthorizationDecision,
 } from './authorization-facts';
-export { ageAdmitted, participantAccess } from './participant-access';
+export {
+  admitsPrincipalAccess,
+  ageAdmitted,
+  participantAccess,
+} from './participant-access';
 export type {
   AuthorizationPrincipal,
   AuthorizationCapability,

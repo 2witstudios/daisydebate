@@ -7,7 +7,10 @@ import {
 import { createId } from '@paralleldrive/cuid2';
 import { createDatabase } from '../src';
 import { createTestOnlyOperations } from '../src/test-only-operations';
-import { removeUnowedBetaDigests } from '../src/beta-access-testing';
+import {
+  admitParticipants,
+  removeUnowedBetaDigests,
+} from '../src/beta-access-testing';
 import { buildDebateTopic, buildUserInboxTopic } from '@daisy/protocol';
 
 type PostgresFailure = { errno?: unknown; constraint?: unknown };
@@ -238,9 +241,14 @@ export class Fixture {
     return (await this.seat(roundId, role, slot, actorId)).actorId;
   }
 
+  private async seatedHuman(userId?: string) {
+    // A seated fresh human is an admitted participant (ADR 0075).
+    await admitParticipants(this.sql, [(userId ??= await this.user())]);
+    return this.actor(userId);
+  }
   /** The authoritative participant row, with its surrogate seat id. */
   async seat(roundId: string, role: string, slot = 0, actorId?: string) {
-    const seated = actorId ?? (await this.actor());
+    const seated = actorId ?? (await this.seatedHuman());
     const id = createId();
     await this.insert('round_participants', {
       id,

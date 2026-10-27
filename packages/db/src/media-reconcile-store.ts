@@ -19,6 +19,10 @@ import {
 } from './round-clock-transaction';
 import { hydrateRoundRows, type RoundHydration } from './round-hydration';
 import type { RoundCommandAuthority } from '@daisy/protocol';
+import {
+  withdrawnSeats,
+  type ParticipantAdmission,
+} from './participant-admission';
 import { mediaParticipants } from './schema/media-sessions';
 import { sampleRoundExecutionTime } from './round-execution-time';
 import { mediaSessions } from './schema/media-sessions';
@@ -79,7 +83,11 @@ export function createMediaReconcileStore(input: {
       .for('update');
     if (!session) throw createAppError('NOT_FOUND');
     // The fenced seats travel with the session, so no caller locks twice.
-    return { ...session, seats: authority.participants };
+    return {
+      ...session,
+      seats: authority.participants,
+      accounts: authority.accounts,
+    };
   };
   const withFence = <T>(
     request: MediaReconcileFence,
@@ -106,10 +114,13 @@ export function createMediaReconcileStore(input: {
       request: MediaReconcileFence & {
         readonly intent: MediaVendorIntent;
         readonly buildProjection: LockedRoundTickInput['buildProjection'];
+        /** ADR 0075: participant access, read for every human seat. */
+        readonly admits: ParticipantAdmission;
         readonly authorize: (context: {
           readonly round: RoundHydration;
           readonly participants: RoundCommandAuthority['participants'];
           readonly bindings: readonly { readonly roundParticipantId: string }[];
+          readonly withdrawn: readonly string[];
           readonly now: string;
           readonly finalSegmentEndedAt: string | null;
           readonly participantId: string | null;
@@ -163,6 +174,11 @@ export function createMediaReconcileStore(input: {
             botLeases,
             round,
             tick.now,
+          ),
+          withdrawn: withdrawnSeats(
+            session.seats,
+            session.accounts,
+            request.admits,
           ),
           now: tick.now,
           finalSegmentEndedAt: tick.finalSegmentEndedAt,

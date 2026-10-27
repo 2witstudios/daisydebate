@@ -175,6 +175,36 @@ describe('operator beta access commands (ADR 0079)', () => {
     });
   });
 
+  test('one command id reused concurrently for two targets answers a conflict, not a key error (ISSUE-682)', async () => {
+    await withFixture(url, async (fixture) => {
+      const first = await pendingAccount(fixture);
+      const second = await pendingAccount(fixture);
+      const commandId = createId();
+      await withDatabase(url, async (database) => {
+        const outcomes = await Promise.allSettled(
+          [first.userId, second.userId].map((userId) =>
+            database.runBetaAccessCommand(
+              command(userId, 'approved', 1, { commandId }),
+            ),
+          ),
+        );
+        assert({
+          given:
+            'two concurrent approvals sharing one command id, each for another account',
+          should: 'apply exactly one and answer CONFLICT to the other',
+          actual: outcomes
+            .map((outcome) =>
+              outcome.status === 'fulfilled'
+                ? 'applied'
+                : (outcome.reason as { code?: string }).code,
+            )
+            .sort(),
+          expected: ['CONFLICT', 'applied'],
+        });
+      });
+    });
+  });
+
   test('an account without a durable 16+ age record is not approved (ISSUE-664)', async () => {
     await withFixture(url, async (fixture) => {
       const { userId } = await pendingAccount(fixture);
@@ -208,6 +238,17 @@ describe('operator beta access commands (ADR 0079)', () => {
           should: 'answer not found',
           actual: () =>
             database.runBetaAccessCommand(command(createId(), 'approved', 1)),
+          code: 'NOT_FOUND',
+        });
+        const erased = await pendingAccount(fixture);
+        await fixture.sql`update users set username = null, email = null, deleted_at = now(), version = version + 1 where id = ${erased.userId}`;
+        await assertRejects({
+          given: 'a command for an erased account (ISSUE-684)',
+          should: 'answer not found, as for an unknown one',
+          actual: () =>
+            database.runBetaAccessCommand(
+              command(erased.userId, 'approved', 1),
+            ),
           code: 'NOT_FOUND',
         });
         await assertRejects({

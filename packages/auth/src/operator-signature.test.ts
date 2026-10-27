@@ -71,16 +71,17 @@ const verify = (
   });
 
 describe('operator request signature (ADR 0079)', () => {
-  test('a signed request verifies and names its key, operator and nonce', () => {
+  test('a signed request verifies and names its key, operator, nonce and time', () => {
     assert({
       given: 'a request signed with a configured key',
-      should: 'verify, binding the key id, operator and nonce',
+      should: 'verify, binding the key id, operator, nonce and signed time',
       actual: verify(),
       expected: {
         ok: true,
         keyId: 'k20261026',
         operatorRef: 'o'.repeat(24),
         nonce: 'n'.repeat(22),
+        timestampMs: now,
       },
     });
   });

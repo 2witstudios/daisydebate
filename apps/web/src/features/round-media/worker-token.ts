@@ -1,3 +1,4 @@
+import { admitsPrincipalAccess } from '@daisy/auth/authorization';
 import type { Database } from '@daisy/db';
 import type { createMediaService } from '@daisy/media';
 import type { createMediaWorkerAuthentication } from '@daisy/media/internal';
@@ -42,6 +43,7 @@ export function createMediaWorkerTokenBroker(input: {
       const read = async () => {
         const state = await input.sessions.readMediaSession({
           roundId: scope.roundId,
+          admits: admitsPrincipalAccess,
           buildProjection,
         });
         if (!state || state.session.id !== scope.sessionId)

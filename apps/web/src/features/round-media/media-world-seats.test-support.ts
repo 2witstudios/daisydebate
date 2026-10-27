@@ -3,6 +3,7 @@ import {
   oneOnOneRoomConfig,
 } from '@daisy/db/reference-formats';
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
+
 /** Deterministic 24-character identifiers the real media adapter accepts. */
 export const fixedId = (label: string) =>
   label
@@ -16,6 +17,7 @@ const compiled = resolveRoomConfiguration(
 );
 if (!compiled.ok) throw new Error('Canonical rules fixture refused');
 export const rules = compiled.rules;
+export const roomName = fixedId('room');
 export const sessionId = fixedId('session');
 export const roundId = fixedId('round');
 export const seats = [

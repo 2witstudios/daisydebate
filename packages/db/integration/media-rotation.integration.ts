@@ -8,6 +8,8 @@ import {
   mediaTestStore,
   mediaTestTick,
 } from './media-session.test-support';
+import { admitsPrincipalAccess } from '@daisy/auth/authorization';
+import { admitParticipants } from '../src/beta-access-testing';
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 
@@ -30,14 +32,17 @@ for (const failure of [
       const store = mediaTestStore(f.sql);
       const binding = await store.ensureBinding({
         roundId,
-        actorId: seat.actorId,
+        caller: { actorId: seat.actorId, admits: admitsPrincipalAccess },
         buildProjection: mediaTestTick,
       });
       const judge = await f.seat(roundId, role);
       await f.sql`update users set email_verified=true where id=(select user_id from actors where id=${judge.actorId})`;
+      const [judgeUser] =
+        await f.sql`select user_id from actors where id=${judge.actorId}`;
+      await admitParticipants(f.sql, [judgeUser!.user_id as string]);
       await store.ensureBinding({
         roundId,
-        actorId: judge.actorId,
+        caller: { actorId: judge.actorId, admits: admitsPrincipalAccess },
         buildProjection: mediaTestTick,
       });
       try {
@@ -50,6 +55,7 @@ for (const failure of [
           ...claim.fence,
           intent: { kind: 'delete', identity: null, payload: {} },
           buildProjection: mediaTestTick,
+          admits: admitsPrincipalAccess,
           authorize: () => undefined,
         });
         await f.sql`insert into media_worker_leases(session_id,worker_id,epoch,expires_at) values(${binding.sessionId},${createId()},1,clock_timestamp()+interval '15 seconds')`;
@@ -108,7 +114,7 @@ for (const failure of [
           actual: () =>
             store.ensureBinding({
               roundId,
-              actorId: judge.actorId,
+              caller: { actorId: judge.actorId, admits: admitsPrincipalAccess },
               buildProjection: mediaTestTick,
             }),
         });

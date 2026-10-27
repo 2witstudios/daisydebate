@@ -18,17 +18,20 @@ for (const actorId of [undefined, 'a'.repeat(24)])
         : 'retain internal absence semantics',
       code: actorId ? 'AUTHORIZATION' : 'NOT_FOUND',
       actual: () =>
-        lockMediaRound(drizzle({ client }), 'r'.repeat(24), actorId),
+        lockMediaRound(
+          drizzle({ client }),
+          'r'.repeat(24),
+          actorId ? { actorId, admits: () => true } : undefined,
+        ),
     });
   });
 
 test('a human gets the same refusal for a missing Round as for an unseated one (ISSUE-505)', async () => {
   const { client } = fakeSql([[], []]);
-  const refusal = await lockMediaRound(
-    drizzle({ client }),
-    'r'.repeat(24),
-    'a'.repeat(24),
-  ).then(
+  const refusal = await lockMediaRound(drizzle({ client }), 'r'.repeat(24), {
+    actorId: 'a'.repeat(24),
+    admits: () => true,
+  }).then(
     () => null,
     (error: Error & { code?: string }) => [error.code, error.message],
   );

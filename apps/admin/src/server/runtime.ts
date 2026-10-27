@@ -10,11 +10,11 @@ import {
 } from '../config';
 import { openAdminDatabase, type AdminDatabaseHandle } from '../db/client';
 import type { CommandDeps } from '../features/accounts/commands';
-import { createOperatorClient } from '../features/operator-client/client';
+import {
+  createOperatorClient,
+  OPERATOR_TIMEOUT_MS,
+} from '../features/operator-client/client';
 import { bunOperatorCrypto } from '../features/operator-client/bun-crypto';
-
-/** How long a signed request may take before its outcome counts as unknown. */
-const OPERATOR_TIMEOUT_MS = 5_000;
 
 /**
  * The process's one set of resources, built on first use from the validated

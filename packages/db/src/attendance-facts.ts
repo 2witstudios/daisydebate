@@ -87,7 +87,7 @@ export async function fenceAttendance(
       return { ...seat, ...seatEligibility(actor, accounts, seat.actorId) };
     }),
   );
-  return { current, round, seats };
+  return { current, round, seats, accounts };
 }
 export async function attendanceEvidence(
   tx: AttendanceTransactionContext,

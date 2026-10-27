@@ -6,6 +6,7 @@ import {
   decodeBase64url,
   nodeOperatorCrypto,
 } from '../features/operator-api/node-crypto';
+import type { ErrorReporter } from '@daisy/observability';
 import type { App } from './app';
 
 /**
@@ -14,7 +15,7 @@ import type { App } from './app';
  * that cannot be bound, reject: the process refuses to start rather than
  * run without the listener it was configured for.
  */
-export async function startOperatorApi(app: App) {
+export async function startOperatorApi(app: App, reporter: ErrorReporter) {
   const { config } = app;
   if (config.OPERATOR_API_KEYS === undefined) {
     app.logger.log(
@@ -41,6 +42,7 @@ export async function startOperatorApi(app: App) {
       store: app.database,
       nextId: () => app.ids.next(),
       logger: app.logger,
+      reporter,
     }),
   });
   app.logger.log(

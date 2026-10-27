@@ -6,6 +6,7 @@ import {
   type MediaSessionRead,
 } from './media-session-snapshot';
 import { requireMediaWindow } from './media-session-authority';
+import type { ParticipantAdmission } from './participant-admission';
 import type { BoundedTransactionContext } from './transaction-context';
 import type { LockedRoundTickInput } from './round-clock-transaction';
 import {
@@ -15,7 +16,10 @@ import {
 } from './bot-publication-context';
 
 export type MediaAdmissionPrincipal =
-  | { readonly kind: 'human'; readonly actorId: string }
+  | {
+      readonly kind: 'human';
+      readonly actorId: string;
+    }
   | {
       readonly kind: 'bot';
       readonly scope: BotPublicationScope;
@@ -37,6 +41,8 @@ export const createMediaAdmissionStore = (run: BoundedTransaction) => ({
   async issueMediaToken<T>(input: {
     readonly roundId: string;
     readonly principal: MediaAdmissionPrincipal;
+    /** ADR 0075: participant access, for the human caller and every human seat. */
+    readonly admits: ParticipantAdmission;
     readonly buildProjection: LockedRoundTickInput['buildProjection'];
     /**
      * The reconcile lease owner the caller holds, if any. A live lease
@@ -49,6 +55,7 @@ export const createMediaAdmissionStore = (run: BoundedTransaction) => ({
     return run(async (tx) => {
       let snapshot = await requiredSnapshot(tx, {
         roundId: input.roundId,
+        admits: input.admits,
         ...(input.principal.kind === 'human'
           ? { actorId: input.principal.actorId }
           : {}),
@@ -67,6 +74,7 @@ export const createMediaAdmissionStore = (run: BoundedTransaction) => ({
         // Run/claim locks can wait. Re-tick at the actual post-lock instant before signing.
         snapshot = await requiredSnapshot(tx, {
           roundId: input.roundId,
+          admits: input.admits,
           buildProjection: input.buildProjection,
         });
         await verifyLockedBotWorker(

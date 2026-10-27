@@ -1,111 +1,39 @@
 import { requireTestServices } from '@daisy/config';
-import { asc, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import {
-  createOperatorApiStub,
-  type StubAccount,
-} from '../e2e/support/operator-api-stub';
 import { acknowledgedAnchors } from '../src/audit/store';
-import { systemRandom } from '../src/auth/secrets';
-import {
-  reconcileOpenCommands,
-  submitBetaAccess,
-  type CommandDeps,
-} from '../src/features/accounts/commands';
-import { createOperatorClient } from '../src/features/operator-client/client';
-import { bunOperatorCrypto } from '../src/features/operator-client/bun-crypto';
+import { reconcileOpenCommands } from '../src/features/accounts/commands';
 import { auditEvents, operators, pendingCommands } from '../src/db/schema';
-import { suiteDatabase, testDeps } from './admin.test-support';
+import { suiteDatabase } from './admin.test-support';
+import {
+  kinds,
+  openCount,
+  setupCommands,
+  userId,
+} from './commands.test-support';
 
 requireTestServices(process.env);
 setupRitewayBun();
 const { db } = suiteDatabase();
 
-const keyId = 'admin1';
-const key = new Uint8Array(32).fill(5);
-const audience = 'daisy-web:local';
-const userId = 'p'.repeat(24);
-const pending = (): StubAccount => ({
-  userId,
-  username: 'pending-player',
-  accessState: 'pending',
-  accessRevision: 1,
-  requestedAt: '2026-10-25T09:00:00.123456Z',
-  decidedAt: null,
-});
-
-/** An owner row, a stub that verifies every signature, and a client for it. */
-async function setup(
-  observe: (body: unknown) => Promise<void> = async () => {},
-) {
-  const base = testDeps(db);
-  const stub = createOperatorApiStub({
-    audience,
-    keyId,
-    key,
-    nowMs: () => Date.parse(base.clock.now()),
-    accounts: [pending()],
-  });
-  const client = createOperatorClient({
-    config: { baseUrl: 'http://operator.test', keyId, key, audience },
-    crypto: bunOperatorCrypto,
-    clock: base.clock,
-    random: systemRandom,
-    fetch: async (url, init) => {
-      if (init.body) await observe(JSON.parse(String(init.body)));
-      return stub.handle(new Request(url, init));
-    },
-    timeoutMs: 5_000,
-  });
-  const operatorId = base.ids.next();
-  await db.insert(operators).values({
-    id: operatorId,
-    displayName: 'owner',
-    role: 'owner',
-    createdAt: new Date(base.clock.now()),
-  });
-  const deps: CommandDeps = {
-    db,
-    clock: base.clock,
-    ids: base.ids,
-    client,
-  };
-  const approve = (expectedRevision = 1) =>
-    submitBetaAccess(deps, {
-      operatorId,
-      targetUserId: userId,
-      desiredState: 'approved',
-      expectedRevision,
-    });
-  return { deps, stub, operatorId, approve };
-}
-
-const kinds = async () =>
-  (await db.select().from(auditEvents).orderBy(asc(auditEvents.seq))).map(
-    ({ kind, outcome, detail }) =>
-      [kind, outcome ?? '', detail ?? ''].join(':'),
-  );
-const openCount = async () =>
-  (await db.select().from(pendingCommands)).filter(
-    ({ resolvedAt }) => resolvedAt === null,
-  ).length;
-
 test('the intent is durable before the command is sent', async () => {
   const seen: unknown[] = [];
-  const { approve } = await setup(async (body) => {
-    const [intent] = await db
-      .select()
-      .from(auditEvents)
-      .where(eq(auditEvents.kind, 'command.intent'));
-    const [open] = await db.select().from(pendingCommands);
-    seen.push({
-      anchored:
-        intent?.hash === (body as { adminAuditHead: string }).adminAuditHead,
-      sameId:
-        open?.commandId === (body as { commandId: string }).commandId &&
-        intent?.commandId === open?.commandId,
-      open: open?.resolvedAt === null,
-    });
+  const { approve } = await setupCommands(db, {
+    observe: async (body) => {
+      const [intent] = await db
+        .select()
+        .from(auditEvents)
+        .where(eq(auditEvents.kind, 'command.intent'));
+      const [open] = await db.select().from(pendingCommands);
+      seen.push({
+        anchored:
+          intent?.hash === (body as { adminAuditHead: string }).adminAuditHead,
+        sameId:
+          open?.commandId === (body as { commandId: string }).commandId &&
+          intent?.commandId === open?.commandId,
+        open: open?.resolvedAt === null,
+      });
+    },
   });
   const view = await approve();
   assert({
@@ -115,8 +43,8 @@ test('the intent is durable before the command is sent', async () => {
     actual: [
       seen,
       view,
-      await kinds(),
-      await openCount(),
+      await kinds(db),
+      await openCount(db),
       await acknowledgedAnchors(db),
     ],
     expected: [
@@ -130,12 +58,12 @@ test('the intent is durable before the command is sent', async () => {
 });
 
 test('a response lost after the change applied', async () => {
-  const { deps, stub, operatorId, approve } = await setup();
+  const { deps, stub, operatorId, approve } = await setupCommands(db);
   stub.lose('lose-after-apply');
   const view = await approve();
   const afterLoss = [
-    await kinds(),
-    await openCount(),
+    await kinds(db),
+    await openCount(db),
     await acknowledgedAnchors(db),
   ];
   const reconciled = await reconcileOpenCommands(deps, operatorId);
@@ -147,8 +75,8 @@ test('a response lost after the change applied', async () => {
       view,
       afterLoss,
       reconciled,
-      await kinds(),
-      await openCount(),
+      await kinds(db),
+      await openCount(db),
       stub.received.map(({ route }) => route),
       stub.accounts.get(userId)?.accessState,
       await acknowledgedAnchors(db),
@@ -171,7 +99,7 @@ test('a response lost after the change applied', async () => {
 });
 
 test('a command lost before it arrived', async () => {
-  const { deps, stub, operatorId, approve } = await setup();
+  const { deps, stub, operatorId, approve } = await setupCommands(db);
   stub.lose('lose-before-apply');
   await approve();
   await reconcileOpenCommands(deps, operatorId);
@@ -191,8 +119,8 @@ test('a command lost before it arrived', async () => {
       new Set(ids).size,
       new Set(anchors).size,
       new Set(stub.received.map(({ nonce }) => nonce)).size,
-      await kinds(),
-      await openCount(),
+      await kinds(db),
+      await openCount(db),
     ],
     expected: [
       ['setBetaAccess', 'readCommand', 'setBetaAccess'],
@@ -210,7 +138,7 @@ test('a command lost before it arrived', async () => {
 });
 
 test('a stale form', async () => {
-  const { stub, approve } = await setup();
+  const { stub, approve } = await setupCommands(db);
   const account = stub.accounts.get(userId);
   if (account) account.accessRevision = 2;
   const view = await approve(1);
@@ -220,8 +148,8 @@ test('a stale form', async () => {
     actual: [
       view,
       stub.accounts.get(userId)?.accessState,
-      await kinds(),
-      await openCount(),
+      await kinds(db),
+      await openCount(db),
       await acknowledgedAnchors(db),
     ],
     expected: [
@@ -235,7 +163,7 @@ test('a stale form', async () => {
 });
 
 test('an operator disabled mid-session', async () => {
-  const { stub, operatorId, approve } = await setup();
+  const { stub, operatorId, approve } = await setupCommands(db);
   await db
     .update(operators)
     .set({ disabledAt: new Date('2026-10-26T11:59:00.000Z') })
@@ -246,7 +174,7 @@ test('an operator disabled mid-session', async () => {
     should: 'deny it, audit the denial and send nothing',
     actual: [
       view,
-      await kinds(),
+      await kinds(db),
       (await db.select().from(pendingCommands)).length,
       stub.received.length,
     ],

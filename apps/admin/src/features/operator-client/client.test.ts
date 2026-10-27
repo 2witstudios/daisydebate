@@ -20,6 +20,8 @@ const config = {
   audience: 'daisy-web:local',
 };
 const now = '2026-10-27T12:00:00.000Z';
+/** A PUT's signing time, recorded before the send (ADR 0077), not the clock's now. */
+const signedAt = '2026-10-27T11:59:58.000Z';
 
 /** Each call draws the next byte pattern, so nonces are distinguishable. */
 const countingRandom = () => {
@@ -29,7 +31,10 @@ const countingRandom = () => {
 
 type Captured = { readonly url: string; readonly init: RequestInit };
 
-const clientWith = (answer: (captured: Captured) => Promise<Response>) => {
+const clientWith = (
+  answer: (captured: Captured) => Promise<Response>,
+  timeoutMs = 5_000,
+) => {
   const sent: Captured[] = [];
   const fetch: OperatorFetch = (url, init) => {
     sent.push({ url, init });
@@ -41,7 +46,7 @@ const clientWith = (answer: (captured: Captured) => Promise<Response>) => {
     clock: fixedClock(now),
     random: countingRandom(),
     fetch,
-    timeoutMs: 5_000,
+    timeoutMs,
   });
   return { client, sent };
 };
@@ -76,7 +81,7 @@ const headersOf = (init: RequestInit) =>
 describe('the signing operator client', () => {
   test('signs each request with the shared signer', async () => {
     const { client, sent } = clientWith(() => json(200, applied));
-    await client.setBetaAccess(operatorRef, userId, command);
+    await client.setBetaAccess(operatorRef, userId, command, signedAt);
     const [request] = sent;
     const body = new TextEncoder().encode(String(request?.init.body));
     const expected = signOperatorRequest(
@@ -86,7 +91,7 @@ describe('the signing operator client', () => {
         path: `/operator/v1/accounts/${userId}/beta-access`,
         query: [],
         keyId: config.keyId,
-        timestamp: String(Date.parse(now)),
+        timestamp: String(Date.parse(signedAt)),
         nonce: Buffer.from(new Uint8Array(16).fill(1)).toString('base64url'),
         operatorRef,
         body,
@@ -96,8 +101,9 @@ describe('the signing operator client', () => {
     );
     const headers = headersOf(request?.init ?? {});
     assert({
-      given: 'a beta access command',
-      should: 'send the canonical signature headers and the JSON body',
+      given: 'a beta access command recorded as signed two seconds ago',
+      should:
+        'sign it at that recorded time with the canonical headers and send the JSON body',
       actual: {
         url: request?.url,
         method: request?.init.method,
@@ -147,14 +153,15 @@ describe('the signing operator client', () => {
         keyId: config.keyId,
         operatorRef,
         nonce: Buffer.from(new Uint8Array(16).fill(1)).toString('base64url'),
+        timestampMs: Date.parse(now),
       },
     });
   });
 
   test('a retry is signed with a fresh nonce', async () => {
     const { client, sent } = clientWith(() => json(200, applied));
-    await client.setBetaAccess(operatorRef, userId, command);
-    await client.setBetaAccess(operatorRef, userId, command);
+    await client.setBetaAccess(operatorRef, userId, command, signedAt);
+    await client.setBetaAccess(operatorRef, userId, command, signedAt);
     const nonces = sent.map(({ init }) => headersOf(init)['daisy-nonce']);
     assert({
       given: 'the same command sent twice',
@@ -172,6 +179,7 @@ describe('operator response outcomes', () => {
         operatorRef,
         userId,
         command,
+        signedAt,
       )
     ).kind;
 
@@ -183,6 +191,7 @@ describe('operator response outcomes', () => {
         operatorRef,
         userId,
         command,
+        signedAt,
       ),
       expected: { kind: 'ok', value: applied },
     });
@@ -196,13 +205,15 @@ describe('operator response outcomes', () => {
       ['NOT_FOUND', 404],
       ['CONFLICT', 409],
       ['PAYLOAD_TOO_LARGE', 413],
+      // The age refusal (ISSUE-664): definite, nothing written.
+      ['INVARIANT', 422],
     ] as const;
     const actual = [];
     for (const [code, status] of refusals)
       actual.push(
         await clientWith(() =>
           json(status, { error: { code } }),
-        ).client.setBetaAccess(operatorRef, userId, command),
+        ).client.setBetaAccess(operatorRef, userId, command, signedAt),
       );
     assert({
       given: 'each refusal the API makes before or instead of a change',
@@ -213,11 +224,9 @@ describe('operator response outcomes', () => {
   });
 
   test('anything that leaves the outcome open', async () => {
-    const abort = () =>
-      Promise.reject(new DOMException('timed out', 'TimeoutError'));
     assert({
       given:
-        'an infrastructure or internal error, a code at the wrong status, a malformed result, a network error or a timeout',
+        'an infrastructure or internal error, a code at the wrong status, a malformed result or a network error',
       should: 'treat the outcome as unknown',
       actual: [
         await outcomeOf(() => json(503, { error: { code: 'INFRASTRUCTURE' } })),
@@ -228,9 +237,34 @@ describe('operator response outcomes', () => {
           Promise.resolve(new Response('not json', { status: 200 })),
         ),
         await outcomeOf(() => Promise.reject(new TypeError('fetch failed'))),
-        await outcomeOf(abort),
       ],
-      expected: Array(7).fill('unknown'),
+      expected: Array(6).fill('unknown'),
+    });
+  });
+
+  test('a request outliving its timeout ends on the client signal', async () => {
+    let signal: AbortSignal | null = null;
+    // This fetch settles only when the signal the client passed aborts.
+    const { client } = clientWith(
+      ({ init }) =>
+        new Promise<Response>((_, reject) => {
+          signal = init.signal ?? null;
+          signal?.addEventListener('abort', () => reject(signal?.reason));
+        }),
+      1,
+    );
+    const outcome = await client.setBetaAccess(
+      operatorRef,
+      userId,
+      command,
+      signedAt,
+    );
+    assert({
+      given: 'a participant that never answers, with a 1 ms timeout',
+      should:
+        'abort through the signal the client gave fetch and leave the outcome unknown',
+      actual: [outcome.kind, (signal as AbortSignal | null)?.aborted ?? null],
+      expected: ['unknown', true],
     });
   });
 

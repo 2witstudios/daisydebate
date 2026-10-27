@@ -26,6 +26,9 @@ export type OperatorClientConfig = {
   readonly audience: string;
 };
 
+/** How long a signed request may take before its outcome counts as unknown. */
+export const OPERATOR_TIMEOUT_MS = 5_000;
+
 export type OperatorFetch = (
   url: string,
   init: RequestInit,
@@ -39,6 +42,8 @@ const definiteRefusals = {
   NOT_FOUND: 404,
   CONFLICT: 409,
   PAYLOAD_TOO_LARGE: 413,
+  // The participant's age refusal (ISSUE-664): definite, and it writes nothing.
+  INVARIANT: 422,
 } as const;
 type OperatorRefusal = keyof typeof definiteRefusals;
 
@@ -86,6 +91,8 @@ type Signed = {
   readonly path: string;
   readonly query: readonly (readonly [string, string])[];
   readonly body?: string;
+  /** The signing time a durable record already holds; otherwise now. */
+  readonly signedAt?: string;
 };
 
 export function createOperatorClient(deps: {
@@ -109,7 +116,7 @@ export function createOperatorClient(deps: {
         path: request.path,
         query: request.query,
         keyId: config.keyId,
-        timestamp: String(Date.parse(deps.clock.now())),
+        timestamp: String(Date.parse(request.signedAt ?? deps.clock.now())),
         nonce: toBase64Url(deps.random(NONCE_BYTES)),
         operatorRef,
         body: new TextEncoder().encode(request.body ?? ''),
@@ -163,10 +170,12 @@ export function createOperatorClient(deps: {
         },
         operatorAccountsPageSchema,
       ),
+    /** Signed at `signedAt`, which the caller recorded first (ADR 0077). */
     setBetaAccess: (
       operatorRef: string,
       targetUserId: string,
       command: z.infer<typeof betaAccessCommandSchema>,
+      signedAt: string,
     ) =>
       call(
         operatorRef,
@@ -175,6 +184,7 @@ export function createOperatorClient(deps: {
           path: `/operator/v1/accounts/${targetUserId}/beta-access`,
           query: [],
           body: JSON.stringify(command),
+          signedAt,
         },
         betaAccessCommandResultSchema,
       ),
