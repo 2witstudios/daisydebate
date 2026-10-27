@@ -7,6 +7,7 @@ import {
   startRuntimeRound,
   type withRoomRuntime,
 } from './round-runtime.test-support';
+import { botAdmissionForTests } from './bot-admission.test-support';
 /** Real shared Room/engine launch; custom opening side controls only this test schedule. */
 async function controlledSpeech(
   f: Parameters<Parameters<typeof withRoomRuntime>[0]>[0],
@@ -52,7 +53,7 @@ export const ownSpeech = (
 ) => controlledSpeech(f, 'negative');
 
 export const botControlOptions = {
-  botBusyCap: 4,
+  ...botAdmissionForTests,
   botPublication: {
     leaseMs: 30000,
     models: { speech: 'explicit-speech', cross_ex: 'explicit-cross' },

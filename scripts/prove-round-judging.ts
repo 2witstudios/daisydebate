@@ -97,7 +97,6 @@ await withRunDatabase({
         );
       },
       {
-        botBusyCap: 4,
         judging: {
           leaseMs: 60000,
           model,

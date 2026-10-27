@@ -5,10 +5,14 @@ import {
   type RoundMediaState,
 } from '@daisy/protocol';
 
+/** The transport's error for a device the Room check passed that is now gone. */
+export const CHECKED_DEVICE_MISSING = 'CheckedDeviceMissingError';
+
 export type MediaConnectionState =
   | 'connecting'
   | 'reconnecting'
   | 'live'
+  | 'device-missing'
   | 'device-blocked'
   | 'unavailable'
   | 'ended';
@@ -109,7 +113,13 @@ export function createMediaController(input: {
     release(current);
     if (stale(generation)) return;
     transport = null;
-    change(deviceBlocked(error) ? 'device-blocked' : 'unavailable');
+    change(
+      error instanceof Error && error.name === CHECKED_DEVICE_MISSING
+        ? 'device-missing'
+        : deviceBlocked(error)
+          ? 'device-blocked'
+          : 'unavailable',
+    );
   };
   /** One media request, retried through the configured pauses while it fails transiently. */
   const retrying = async (

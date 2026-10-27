@@ -1,3 +1,4 @@
+import { castSpendsAiRound } from './ai-round-cast';
 import { acceptedRoomMutation } from './room-assembly-facts';
 import type {
   RoomAssemblyState,
@@ -96,7 +97,10 @@ export const startRound = (
   const blocker = startBlocker(room, consent, edges.now);
   if (blocker) return refuse(blocker);
   next = { ...room, status: 'started' };
-  return acceptedRoomMutation(next, { freeze: true });
+  return acceptedRoomMutation(next, {
+    freeze: true,
+    spendsAiRound: castSpendsAiRound(next),
+  });
 };
 export const close = (
   room: RoomAssemblyState,

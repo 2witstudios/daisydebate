@@ -2,6 +2,7 @@ import { assertRejects } from '@daisy/errors/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import {
   admissionRefusal,
+  utcMonth,
   requireAdmissionTarget,
   requireBusyCap,
   requireOwnReservation,
@@ -130,16 +131,17 @@ test('a model call counts only the reservation found for its Round', async () =>
     });
 });
 
-test('admission refuses the allowance, then capacity', async () => {
+test('admission refuses eligibility, then the allowance, then capacity', async () => {
   assert({
     given: 'facts that trip each check in turn, and none',
     should: 'report the first refusal in order',
     actual: [
-      admissionRefusal({ spent: 5, busy: 9 }, 5, 4),
-      admissionRefusal({ spent: 4, busy: 4 }, 5, 4),
-      admissionRefusal({ spent: 4, busy: 3 }, 5, 4),
+      admissionRefusal({ spent: 0, busy: 9 }, null, 4),
+      admissionRefusal({ spent: 20, busy: 9 }, 20, 4),
+      admissionRefusal({ spent: 19, busy: 4 }, 20, 4),
+      admissionRefusal({ spent: 19, busy: 3 }, 20, 4),
     ],
-    expected: ['allowance', 'capacity', null],
+    expected: ['not-eligible', 'allowance', 'capacity', null],
   });
   for (const busyCap of [0, -1, 1.5])
     await assertRejects({
@@ -148,4 +150,25 @@ test('admission refuses the allowance, then capacity', async () => {
       actual: () => requireBusyCap(busyCap),
       code: 'VALIDATION',
     });
+});
+
+test('the allowance period is the exact UTC calendar month', () => {
+  assert({
+    given:
+      'instants at a month start, the last millisecond of a year and mid-month',
+    should: 'select the UTC calendar month holding each instant',
+    actual: [
+      '2026-10-01T00:00:00.000Z',
+      '2026-12-31T23:59:59.999Z',
+      '2026-02-14T09:30:00.000+05:00',
+    ].map((instant) => {
+      const { start, end } = utcMonth(new Date(instant));
+      return [start.toISOString(), end.toISOString()];
+    }),
+    expected: [
+      ['2026-10-01T00:00:00.000Z', '2026-11-01T00:00:00.000Z'],
+      ['2026-12-01T00:00:00.000Z', '2027-01-01T00:00:00.000Z'],
+      ['2026-02-01T00:00:00.000Z', '2026-03-01T00:00:00.000Z'],
+    ],
+  });
 });

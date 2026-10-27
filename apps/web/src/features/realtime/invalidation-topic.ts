@@ -11,6 +11,7 @@ export function attachInvalidationTopic({
   connection,
   invalidate,
   refetch,
+  catchUpOnSubscribe = false,
 }: {
   readonly topic: string;
   readonly matches: (frame: ServerMessage) => boolean;
@@ -21,6 +22,7 @@ export function attachInvalidationTopic({
   readonly invalidate: () => void;
   /** The frame that rang, or null when the connection reported an error. */
   readonly refetch: (frame: ServerMessage | null) => void;
+  readonly catchUpOnSubscribe?: boolean;
 }) {
   let resync = false;
   let refusals = 0;
@@ -32,8 +34,10 @@ export function attachInvalidationTopic({
     if (frame.type === 'resync_required') {
       resync = true;
       refresh(frame);
-    } else if (frame.type === 'subscribed') refusals = 0;
-    else if (frame.type === 'error' && frame.code === 'INFRASTRUCTURE') {
+    } else if (frame.type === 'subscribed') {
+      refusals = 0;
+      if (catchUpOnSubscribe) refresh(null);
+    } else if (frame.type === 'error' && frame.code === 'INFRASTRUCTURE') {
       // The server could not decide authority for now; the read this error
       // triggers proves authority again, then the topic resubscribes. Any
       // other refusal (AUTHORIZATION, RATE_LIMIT) is final for this socket.

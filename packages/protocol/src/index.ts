@@ -194,6 +194,8 @@ export {
 } from './round-view';
 
 export {
+  AI_ROUND_MONTHLY_CAP_MAX,
+  botAdmissionRefusals,
   roomViewSchema,
   roomCatalogChoiceSchema,
   roomCastChoiceSchema,
@@ -306,3 +308,8 @@ export type {
   FriendshipState,
   OnlineCounts,
 } from './friends';
+
+export {
+  roundTranscriptReadSchema,
+  type RoundTranscriptRead,
+} from './round-transcript';

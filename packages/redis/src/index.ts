@@ -1,3 +1,4 @@
+import { createMediaAdmissionHints } from './media-admission';
 import { createBotActivityOperations } from './bot-activity';
 import { createMessagingTypingOperations } from './messaging-typing';
 import { RedisClient } from 'bun';
@@ -206,6 +207,7 @@ export function createRedis({
       }
     },
     ...createBotActivityOperations({ client, namespace, reportFailure }),
+    ...createMediaAdmissionHints({ client, namespace, reportFailure }),
     ...createRoomReadinessOperations({ client, namespace, reportFailure }),
     ...createPresenceOperations({ client, namespace, reportFailure }),
     ...createMessagingTypingOperations({ client, namespace, reportFailure }),

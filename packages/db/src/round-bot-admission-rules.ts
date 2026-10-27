@@ -1,5 +1,5 @@
 import { createAppError } from '@daisy/errors';
-import { idSchema } from '@daisy/protocol';
+import { idSchema, type botAdmissionRefusals } from '@daisy/protocol';
 
 type Account = {
   readonly member: boolean;
@@ -64,14 +64,26 @@ export function requireOwnReservation<R extends ReservationRow>(
   return current;
 }
 
-/** Refusal order: the sponsor's allowance, then global capacity. */
+/**
+ * Refusal order: the sponsor's eligibility (a null limit), its allowance,
+ * then global live bot-debater capacity.
+ */
 export function admissionRefusal(
   facts: { readonly spent: number; readonly busy: number },
-  limit: number,
+  limit: number | null,
   busyCap: number,
-): 'allowance' | 'capacity' | null {
+): (typeof botAdmissionRefusals)[number] | null {
+  if (limit === null) return 'not-eligible';
   if (facts.spent >= limit) return 'allowance';
   return facts.busy >= busyCap ? 'capacity' : null;
+}
+
+/** DEC-183: the allowance period is the exact UTC calendar month holding `now`. */
+export function utcMonth(now: Date) {
+  return {
+    start: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)),
+    end: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)),
+  };
 }
 
 export function requireBusyCap(busyCap: number): void {

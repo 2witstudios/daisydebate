@@ -119,6 +119,12 @@ do not need human device checks. Preview is local `getUserMedia` only until
 CAP commits a Round: no preview token or LiveKit join. Camera and microphone
 independently expose unchecked/checking/passed/denied/unavailable, with
 selected device identity kept local and results bound to a check generation.
+Passed camera and microphone IDs carry across the Room-to-Round document load
+in tab-scoped session storage, keyed by Room ID, and expire when the tab
+closes. They never enter server requests, logs, analytics or vendor metadata.
+Round capture uses exact device constraints, including the warm microphone;
+a disappeared checked input is reported as missing rather than replaced by a
+default input (ISSUE-573).
 Retain checked preview tracks until departure or deliberate Round transition.
 Selection changes, track ending, disappearance or revoked permission
 synchronously invalidate the relevant pass. Intentional teardown is not a

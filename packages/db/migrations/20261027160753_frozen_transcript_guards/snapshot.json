@@ -1,10 +1,10 @@
 {
+  "id": "e73a17b5-526e-442a-bbcd-77e39f2b4b88",
+  "prevIds": [
+    "da07e818-2802-47fe-a2d4-3c59372ac359"
+  ],
   "version": "8",
   "dialect": "postgres",
-  "id": "d23996d5-dc0c-4bc6-8b86-9f6e374ea99e",
-  "prevIds": [
-    "c2e7935e-66f3-4ef9-8077-d82d9ff3da14"
-  ],
   "ddl": [
     {
       "isRlsEnabled": false,
@@ -27,12 +27,6 @@
     {
       "isRlsEnabled": false,
       "name": "agent_runs",
-      "entityType": "tables",
-      "schema": "public"
-    },
-    {
-      "isRlsEnabled": false,
-      "name": "ai_allowance_grants",
       "entityType": "tables",
       "schema": "public"
     },
@@ -804,71 +798,6 @@
       "entityType": "columns",
       "schema": "public",
       "table": "agent_runs"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "ai_allowance_grants"
-    },
-    {
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "actor_id",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "ai_allowance_grants"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "period_start",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "ai_allowance_grants"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "period_end",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "ai_allowance_grants"
-    },
-    {
-      "type": "timestamp with time zone",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "name": "revoked_at",
-      "entityType": "columns",
-      "schema": "public",
-      "table": "ai_allowance_grants"
     },
     {
       "type": "text",
@@ -8330,41 +8259,6 @@
       "nameExplicit": true,
       "columns": [
         {
-          "value": "actor_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "period_start",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "period_end",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "ai_allowance_grants_actor_period_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "ai_allowance_grants"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
           "value": "provider_id",
           "isExpression": false,
           "asc": true,
@@ -8553,30 +8447,6 @@
       "method": "btree",
       "concurrently": false,
       "name": "verification_identifier_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "verification"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "identifier",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": {
-            "name": "text_pattern_ops",
-            "default": false
-          }
-        }
-      ],
-      "isUnique": false,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "verification_identifier_pattern_idx",
       "entityType": "indexes",
       "schema": "public",
       "table": "verification"
@@ -12505,34 +12375,6 @@
       "nameExplicit": true,
       "columns": [
         {
-          "value": "created_at",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
-      "where": "\"username\" is null and \"deleted_at\" is null",
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "name": "users_provisional_created_idx",
-      "entityType": "indexes",
-      "schema": "public",
-      "table": "users"
-    },
-    {
-      "nameExplicit": true,
-      "columns": [
-        {
           "value": "segment_id",
           "isExpression": false,
           "asc": true,
@@ -12785,23 +12627,6 @@
       "entityType": "fks",
       "schema": "public",
       "table": "agent_runs"
-    },
-    {
-      "nameExplicit": false,
-      "columns": [
-        "actor_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "actors",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
-      "name": "ai_allowance_grants_actor_id_actors_id_fkey",
-      "entityType": "fks",
-      "schema": "public",
-      "table": "ai_allowance_grants"
     },
     {
       "nameExplicit": false,
@@ -15370,16 +15195,6 @@
         "id"
       ],
       "nameExplicit": false,
-      "name": "ai_allowance_grants_pkey",
-      "schema": "public",
-      "table": "ai_allowance_grants",
-      "entityType": "pks"
-    },
-    {
-      "columns": [
-        "id"
-      ],
-      "nameExplicit": false,
       "name": "account_pkey",
       "schema": "public",
       "table": "account",
@@ -16097,13 +15912,6 @@
       "entityType": "checks",
       "schema": "public",
       "table": "agent_runs"
-    },
-    {
-      "value": "\"period_end\" > \"period_start\"",
-      "name": "ai_allowance_grants_period_check",
-      "entityType": "checks",
-      "schema": "public",
-      "table": "ai_allowance_grants"
     },
     {
       "value": "\"freeze_revision\" > 0",

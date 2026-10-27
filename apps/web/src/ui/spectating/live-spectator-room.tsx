@@ -1,6 +1,7 @@
 'use client';
 import '../debate-room/zod-jitless';
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 import type { RoundView } from '@daisy/protocol';
 import { formatClock } from '../../features/debate-room/clock';
 import type { RoundRead } from '../../features/rooms/read-round';
@@ -156,6 +157,7 @@ const stageNote = (watched: SpectatorView): string | null => {
  * (ADR 0053); once the Round ends the viewer goes to its result.
  */
 export function LiveSpectatorRoom(props: {
+  readonly transcript?: ReactNode;
   readonly view: RoundView;
   readonly audience: SpectatorAudience;
   readonly renderedAtMs: number;
@@ -213,6 +215,7 @@ export function LiveSpectatorRoom(props: {
         follow who’s speaking, the clock and the speech order.
       </p>
       <SpeechOrder watched={watched} />
+      {props.transcript}
       <section
         aria-labelledby="spectator-roster"
         className={`${cardClass} flex flex-col gap-3 px-5 py-4`}

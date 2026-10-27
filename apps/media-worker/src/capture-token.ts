@@ -29,7 +29,10 @@ export async function issueCaptureToken(
       )
         throw tagCaptureFailure('token', error);
     }
-    const renewed = await atStage('renewal', client.lease(15000, signal));
+    const renewed = await atStage(
+      'renewal',
+      client.lease(15000, signal, epoch),
+    );
     if (renewed.epoch !== epoch)
       throw tagCaptureFailure(
         'renewal',

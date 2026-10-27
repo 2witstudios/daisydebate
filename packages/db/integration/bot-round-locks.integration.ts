@@ -2,9 +2,11 @@ import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { withBotPublication } from './bot-publication.test-support';
-import { admissionSponsor } from './bot-admission.test-support';
+import {
+  admissionSponsor,
+  testBotAdmission,
+} from './bot-admission.test-support';
 import { lockRoundAgentContext } from '../src/round-agent-runs';
-import { createRoundBotAdmission } from '../src/round-bot-admission';
 setupRitewayBun();
 requireTestServices(process.env);
 
@@ -12,11 +14,7 @@ for (const writer of ['agent', 'admission'] as const) {
   test(`${writer} Round fence permits an earlier pending attendance receipt`, async () => {
     await withBotPublication(async ({ fixture, run, target }) => {
       const actorId = await admissionSponsor(fixture, [target.roundId]);
-      const admission = createRoundBotAdmission({
-        run,
-        nextId: createId,
-        busyCap: 4,
-      });
+      const admission = testBotAdmission(run);
       const held = Promise.withResolvers<void>();
       const release = Promise.withResolvers<void>();
       const transaction = run(async (tx) => {
