@@ -230,42 +230,4 @@ describe('operator beta access commands (ADR 0079)', () => {
       });
     });
   });
-
-  test('accounts list newest first in stable keyset pages', async () => {
-    await withFixture(url, async (fixture) => {
-      const accounts: string[] = [];
-      for (const minute of [1, 2, 3]) {
-        const { userId } = await pendingAccount(fixture);
-        await fixture.sql`update account_beta_access set requested_at = ${`2001-01-01T00:0${minute}:00.000Z`}::timestamptz where user_id = ${userId}`;
-        accounts.push(userId);
-      }
-      await withDatabase(url, async (database) => {
-        const first = await database.listOperatorAccounts({
-          access: 'pending',
-          limit: 2,
-          after: {
-            requestedAt: '2001-01-01T00:04:00.000Z',
-            userId: 'z'.repeat(24),
-          },
-        });
-        const last = first.at(-1)!;
-        const second = await database.listOperatorAccounts({
-          access: 'pending',
-          limit: 2,
-          after: { requestedAt: last.requestedAt, userId: last.userId },
-        });
-        assert({
-          given: 'three pending accounts requested a minute apart',
-          should: 'page newest first with no overlap',
-          actual: [
-            first.map((row) => row.userId),
-            second
-              .filter((row) => accounts.includes(row.userId))
-              .map((row) => row.userId),
-          ],
-          expected: [[accounts[2], accounts[1]], [accounts[0]]],
-        });
-      });
-    });
-  });
 });

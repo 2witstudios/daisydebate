@@ -1,6 +1,5 @@
 import { createAppError } from '@daisy/errors';
 import {
-  betaAccessCommandResultSchema,
   betaAccessStates,
   idSchema,
   type BetaAccessState,
@@ -8,6 +7,7 @@ import {
 import { sql } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { z } from 'zod';
+import { operatorCommandStateSchema } from '@daisy/protocol/operator';
 import {
   runBetaAccessCommand,
   type BetaAccessCommandInput,
@@ -25,7 +25,9 @@ const accountRow = z.object({
   username: z.string().nullable(),
   state: z.enum(betaAccessStates),
   revision: z.coerce.number().int().positive(),
-  requested_at: instant,
+  // The keyset position: kept to the microsecond, as stored, so a cursor
+  // built from it never skips a row requested in the same millisecond.
+  requested_at: z.iso.datetime({ precision: 6 }),
   decided_at: instant.nullable(),
 });
 
@@ -75,7 +77,8 @@ export function operatorAccountOperations({
           : sql``;
         const rows =
           (await database.execute(sql`select b.user_id, u.username, b.state,
-            b.revision, b.requested_at, b.decided_at
+            b.revision, to_char(b.requested_at at time zone 'UTC',
+              'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as requested_at, b.decided_at
           from account_beta_access b join users u on u.id = b.user_id
           where b.state = ${input.access} and u.deleted_at is null ${after}
           order by b.requested_at desc, b.user_id desc
@@ -119,13 +122,10 @@ export function operatorAccountOperations({
             mail_state: string | null;
           }[];
         if (!row) return null;
-        return {
-          result: betaAccessCommandResultSchema.parse(row.result),
-          mailState: z
-            .enum(['queued', 'leased', 'sent', 'failed', 'cancelled'])
-            .nullable()
-            .parse(row.mail_state),
-        };
+        return operatorCommandStateSchema.parse({
+          result: row.result,
+          mailState: row.mail_state,
+        });
       }),
   };
 }
