@@ -5,16 +5,14 @@ import type { RoomCatalogChoice, RoomView } from '@daisy/protocol';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
 import type { RoomCommandIds } from '../../../features/rooms/room-command-ids';
 import {
-  browseTemplates,
   choiceSummary,
   standardOptions,
 } from '../../../features/rooms/format-browser';
 import { formatChangeLine } from '../../../features/rooms/format-changes';
-import { formatFamilyLabel } from '../../../features/debate-room/vocabulary';
 import type { FormAction } from '../../form-action/form-action';
 import { buttonClass } from '../../components/button/button-class';
-import { controlClass } from '../../components/form-field/form-field-class';
 import { AssemblyCommandForm } from './assembly-command-form';
+import { FormatTemplatePicker } from '../create-room/format-template-picker';
 import { formatTitle } from './room-labels';
 
 const subscribeNever = () => () => undefined;
@@ -50,6 +48,12 @@ function CommandFields({
   );
 }
 
+const leagueField = {
+  name: 'format',
+  label: 'Start from a league format',
+  id: 'room-league-format',
+};
+
 const optionClass =
   'relative flex min-h-room-target flex-col gap-1 rounded-lg border border-border p-3 has-checked:border-2 has-checked:border-accent has-checked:bg-surface-raised';
 
@@ -78,14 +82,7 @@ export function FormatChoice({
   const legendId = useId();
   const standing = view.format.standing;
   const custom = standing.kind === 'custom';
-  const allTemplates = (['policy', 'value', 'parli', 'other'] as const)
-    .map((family) => ({
-      family,
-      templates: browseTemplates(choices, { family, query: '' }).flatMap(
-        (group) => group.templates,
-      ),
-    }))
-    .filter((group) => group.templates.length > 0);
+  const templates = choices.filter((choice) => choice.role === 'template');
   const basis = view.format.basis;
   return (
     <div className="flex flex-col gap-4">
@@ -175,39 +172,23 @@ export function FormatChoice({
         </section>
       ) : null}
 
-      {allTemplates.length ? (
+      {templates.length ? (
         <AssemblyCommandForm action={action} className="flex flex-col gap-2">
           <CommandFields view={view} commandId={ids.template} intent="choose" />
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-strong">Start from a league format</span>
-            <span className="text-xs text-ink-muted">
-              The room becomes Custom, based on the league’s rules.
-            </span>
-            <select name="format" required className={controlClass}>
-              {allTemplates.map((group) => (
-                <optgroup
-                  key={group.family}
-                  label={formatFamilyLabel[group.family]}
-                >
-                  {group.templates.map((choice) => (
-                    <option
-                      key={choice.formatId}
-                      value={tuple({
-                        formatId: choice.formatId,
-                        formatVersion: choice.formatVersion,
-                        presetVersion: choice.preset.version,
-                      })}
-                    >
-                      {choice.label}
-                      {choice.leagues.length
-                        ? ` · ${choice.leagues.join(', ')}`
-                        : ''}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
-          </label>
+          <FormatTemplatePicker
+            choices={templates}
+            field={leagueField}
+            serialize={(choice) =>
+              tuple({
+                formatId: choice.formatId,
+                formatVersion: choice.formatVersion,
+                presetVersion: choice.preset.version,
+              })
+            }
+          />
+          <p className="text-xs text-ink-muted">
+            The room becomes Custom, based on the league’s rules.
+          </p>
           <button type="submit" className={buttonClass('secondary')}>
             Start from this format
           </button>

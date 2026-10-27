@@ -179,9 +179,9 @@ describe('FormatChoice', () => {
       should:
         'offer it, grouped by family, as a native select that starts the room from it',
       actual: {
-        group: html.includes('<optgroup label="Other formats">'),
+        group: html.includes('<optgroup label="League rules · Other formats">'),
         option: html.includes(
-          `<option value="${tuple(unequalTemplate.formatId, 5, unequalTemplate.formatVersion)}">`,
+          `value="${tuple(unequalTemplate.formatId, 5, unequalTemplate.formatVersion)}"`,
         ),
         submit: html.includes('Start from this format'),
         standardsExcluded: !/<option value="[^"]*policy/.test(html),
