@@ -44,7 +44,8 @@ export async function QuestionPage({
       backHref={
         editing ? destination : onboardingStepHref(previous[step], destination)
       }
-      skip={stepSkip(destination)}
+      skip={editing ? null : stepSkip(destination)}
+      editing={editing}
     />
   );
 }

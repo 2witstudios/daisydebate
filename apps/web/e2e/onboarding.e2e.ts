@@ -239,8 +239,10 @@ test.describe('onboarding answers in Settings without JavaScript', () => {
     await expect(page).toHaveURL(
       /\/onboarding\/topics\?next=%2Fsettings&edit=1$/,
     );
+    // Edit mode: Save goes back, and there is no Skip to detour through Ready.
+    await expect(page.getByRole('button', { name: 'Skip' })).toHaveCount(0);
     await page.locator('label', { hasText: 'Economics' }).click();
-    await page.getByRole('button', { name: 'Finish' }).click();
+    await page.getByRole('button', { name: 'Save' }).click();
     await expect(page).toHaveURL(/\/settings$/);
     const row = (edit: string) =>
       page
@@ -254,7 +256,7 @@ test.describe('onboarding answers in Settings without JavaScript', () => {
       /\/onboarding\/about\?next=%2Fsettings&edit=1$/,
     );
     await page.locator('label', { hasText: 'On my own' }).click();
-    await page.getByRole('button', { name: 'Next' }).click();
+    await page.getByRole('button', { name: 'Save' }).click();
     await expect(page).toHaveURL(/\/settings$/);
     await expect(row('Edit club')).toContainText('On my own');
   });

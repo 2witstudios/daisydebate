@@ -29,6 +29,11 @@ export type QuestionStepProps = {
   readonly refused?: boolean;
   readonly backHref: string;
   readonly skip: ReactNode;
+  /**
+   * Opened from Settings to change one answer (ISSUE-324): the submit saves
+   * and goes back, so it reads Save and the onboarding progress is hidden.
+   */
+  readonly editing?: boolean;
 };
 
 const heading =
@@ -96,6 +101,7 @@ function StepForm({
   skip,
   stepNumber,
   finish = false,
+  editing = false,
   children,
 }: Omit<QuestionStepProps, 'answers'> & {
   readonly step: 'about' | 'experience' | 'topics';
@@ -106,7 +112,11 @@ function StepForm({
   readonly children: ReactNode;
 }) {
   return (
-    <OnboardingFrame step={stepNumber} titleId="onboarding-title" skip={skip}>
+    <OnboardingFrame
+      step={editing ? null : stepNumber}
+      titleId="onboarding-title"
+      skip={skip}
+    >
       <form
         action={action}
         aria-busy={pending}
@@ -133,7 +143,7 @@ function StepForm({
           backHref={backHref}
           next={
             <NextButton pending={pending}>
-              {finish ? 'Finish' : 'Next'}
+              {editing ? 'Save' : finish ? 'Finish' : 'Next'}
             </NextButton>
           }
         />

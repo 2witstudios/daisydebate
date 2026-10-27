@@ -1,6 +1,9 @@
 import Link from 'next/link';
 import { onboardingStepHref } from '../../../features/access/decision';
-import type { OnboardingAnswers } from '../../../features/onboarding/answers';
+import type {
+  OnboardingAnswers,
+  QuestionStep,
+} from '../../../features/onboarding/answers';
 import {
   clubLabels,
   experienceLabels,
@@ -25,7 +28,7 @@ export const answerEditHrefs = (
   destination: string,
   editing = false,
 ): AnswerEditHrefs => {
-  const href = (step: 'about' | 'experience' | 'topics') =>
+  const href = (step: QuestionStep) =>
     `${onboardingStepHref(step, destination)}${editing ? '&edit=1' : ''}`;
   return {
     about: href('about'),
