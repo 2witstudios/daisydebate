@@ -31,7 +31,9 @@ export async function lockMediaRound(
     .select({ hostActorId: rounds.createdByActorId })
     .from(rounds)
     .where(eq(rounds.id, roundId));
-  if (!initial) throw createAppError('NOT_FOUND');
+  const missing = () =>
+    createAppError(actorId === undefined ? 'NOT_FOUND' : 'AUTHORIZATION');
+  if (!initial) throw missing();
   const actorIds = fencedActorIds(seats, initial.hostActorId, actorId);
   const accounts = actorIds.length
     ? await lockAuthorizationActors(tx, actorIds, {
@@ -43,9 +45,9 @@ export async function lockMediaRound(
     .from(rounds)
     .where(eq(rounds.id, roundId))
     .for('no key update');
-  if (!row) throw createAppError('NOT_FOUND');
+  if (!row) throw missing();
   const round = await hydrateRoundRows(tx, roundId);
-  if (!round) throw createAppError('NOT_FOUND');
+  if (!round) throw missing();
   const participants: RoundCommandAuthority['participants'] = await Promise.all(
     round.participants.map(async (seat) => {
       if (!actorIds.includes(seat.actorId)) throw createAppError('CONFLICT');
