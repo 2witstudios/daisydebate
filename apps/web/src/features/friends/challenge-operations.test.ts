@@ -2,7 +2,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { friendTestPorts } from './friend-ports.test-support';
 import { assertRejects } from '@daisy/errors/testing';
 import { createAppError } from '@daisy/errors';
-import type { MessagingSocialStore } from '@daisy/db/messaging';
+import type { FriendStore } from '@daisy/db/friends';
 import { changeChallenge } from './challenge-operations';
 import type { FriendshipPair } from './friendship';
 
@@ -25,7 +25,7 @@ const harness = ({
 } = {}) => {
   const writes: unknown[] = [];
   const capabilities: string[] = [];
-  const store = (capability: string): MessagingSocialStore => {
+  const store = (capability: string): FriendStore => {
     capabilities.push(capability);
     return {
       withContacts: async (_input, work) => {

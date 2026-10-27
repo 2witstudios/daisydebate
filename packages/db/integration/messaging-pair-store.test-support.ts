@@ -2,22 +2,22 @@ import { SQL } from 'bun';
 import { createId } from '@paralleldrive/cuid2';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { createMessagingTestFixture } from '../src/testing';
+import { createFriendStore, type FriendFrame } from '../src/friends';
 import { createMessagingSocialStore } from '../src/messaging';
-import type { MessagingSocialFrame } from '../src/messaging/social-contracts';
 
-/** Two fixture members and the social store, unfenced, over one client. */
+/** Two fixture members and the friend store, unfenced, over one client. */
 export const openPairStore = async (databaseUrl: string) => {
   const client = new SQL(databaseUrl);
   const database = drizzle({ client });
   const fixture = await createMessagingTestFixture(client);
-  const store = createMessagingSocialStore({
+  const store = createFriendStore({
     database,
     authorize: async () => {},
   });
   const frameFor = <T>(
     self: string,
     selfUser: string,
-    work: (frame: MessagingSocialFrame) => Promise<T>,
+    work: (frame: FriendFrame) => Promise<T>,
   ) =>
     store.withContacts(
       {
@@ -27,7 +27,22 @@ export const openPairStore = async (databaseUrl: string) => {
       },
       work,
     );
-  return { client, database, fixture, frameFor };
+  const members = [fixture.actorId!, fixture.otherActorId!];
+  /** A block by `self` through messaging's contact store (ADR 0061). */
+  const blockFor = (
+    self: string,
+    selfUser: string,
+    command: { readonly blocked: boolean; readonly digest: string },
+    now: string,
+  ) =>
+    createMessagingSocialStore({
+      database,
+      authorize: async () => {},
+    }).withContacts(
+      { actorId: self, userId: selfUser, memberActorIds: members },
+      (frame) => frame.commitBlock({ requestId: createId(), ...command, now }),
+    );
+  return { client, database, fixture, frameFor, blockFor };
 };
 
 /** DEC-251's social request limits, as the beta policy composes them. */

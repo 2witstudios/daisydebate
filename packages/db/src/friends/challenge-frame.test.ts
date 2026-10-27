@@ -2,7 +2,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { fakeSql } from '../index.test-support';
-import { challengeFrame } from './social-challenge';
+import { challengeFrame } from './challenge-frame';
 setupRitewayBun();
 
 const low = 'a'.repeat(24),

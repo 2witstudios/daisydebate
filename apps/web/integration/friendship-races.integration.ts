@@ -1,7 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { openMessagingFixture } from './messaging-fixture.test-support';
-import { friendshipPolicy } from '../src/features/messaging/friends/friendship';
+import { friendshipPolicy } from '../src/features/friends/friendship';
 import {
   blockContact,
   friendChange,

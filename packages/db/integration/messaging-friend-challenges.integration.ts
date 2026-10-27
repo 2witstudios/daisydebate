@@ -1,8 +1,8 @@
 import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import type { MessagingSocialFrame } from '../src/messaging/social-contracts';
-import { listMessagingFriendChallenges } from '../src/messaging/friendships';
+import type { FriendFrame } from '../src/friends';
+import { listFriendChallenges } from '../src/friends/reads';
 import { Fixture } from './constraint-helpers';
 import {
   friendCommand,
@@ -13,13 +13,13 @@ setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
 
 test('a challenge reaches only its friend while the room is open, and ends with the friendship (ADR 0072)', async () => {
-  const { client, database, fixture, frameFor } =
+  const { client, database, fixture, frameFor, blockFor } =
     await openPairStore(databaseUrl);
   const rooms = new Fixture(client);
   const { userId, otherUserId, actorId, otherActorId, now } = fixture;
-  const asChallenger = <T>(work: (frame: MessagingSocialFrame) => Promise<T>) =>
+  const asChallenger = <T>(work: (frame: FriendFrame) => Promise<T>) =>
     frameFor(actorId!, userId!, work);
-  const asFriend = <T>(work: (frame: MessagingSocialFrame) => Promise<T>) =>
+  const asFriend = <T>(work: (frame: FriendFrame) => Promise<T>) =>
     frameFor(otherActorId!, otherUserId!, work);
   const befriend = async () => {
     await asChallenger(async (frame) => {
@@ -45,7 +45,7 @@ test('a challenge reaches only its friend while the room is open, and ends with 
     asChallenger((frame) => frame.commitChallenge({ roomId, now }));
   const listed = async (reader: 'challenger' | 'friend') =>
     (
-      await listMessagingFriendChallenges(
+      await listFriendChallenges(
         database,
         reader === 'friend'
           ? { userId: otherUserId!, actorId: otherActorId! }
@@ -130,22 +130,18 @@ test('a challenge reaches only its friend while the room is open, and ends with 
     });
 
     await challenge(open);
-    await asFriend((frame) =>
-      frame.commitBlock({
-        requestId: createId(),
-        blocked: true,
-        digest: 'd'.repeat(64),
-        now,
-      }),
+    await blockFor(
+      otherActorId!,
+      otherUserId!,
+      { blocked: true, digest: 'd'.repeat(64) },
+      now,
     );
     const afterBlock = [await stored(), await listed('friend')];
-    await asFriend((frame) =>
-      frame.commitBlock({
-        requestId: createId(),
-        blocked: false,
-        digest: 'e'.repeat(64),
-        now,
-      }),
+    await blockFor(
+      otherActorId!,
+      otherUserId!,
+      { blocked: false, digest: 'e'.repeat(64) },
+      now,
     );
     await befriend();
     await challenge(open);

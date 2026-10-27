@@ -14,14 +14,7 @@ export type {
 
 export { createMessagingPrivacyAdopter } from './privacy';
 export { createMessagingSocialStore } from './social-store';
-export type {
-  MessagingFriendChallengeRow,
-  MessagingFriendshipRow,
-} from './friendships';
-export type {
-  MessagingSocialAuthorizationFence,
-  MessagingSocialStore,
-} from './social-contracts';
+export type { MessagingSocialStore } from './social-contracts';
 export { createMessagingFileStore } from './file-store';
 
 export {

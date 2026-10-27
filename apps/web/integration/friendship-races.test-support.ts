@@ -8,7 +8,7 @@ import {
   blockDependencies,
   type openMessagingFixture,
 } from './messaging-fixture.test-support';
-import { changeFriendship } from '../src/features/messaging/friends/operations';
+import { changeFriendship } from '../src/features/friends/operations';
 import { blockMessagingContact } from '../src/features/messaging/block';
 import { messagingSocialAuthorizationFence } from '../src/features/messaging/social-authorization';
 
@@ -30,7 +30,7 @@ export const friendChange =
       limit: async () => {},
       lookup: (name) => database.lookupHumanActorByUsername(name),
       store: (capability) =>
-        database.messagingSocialStore(
+        database.friendStore(
           messagingSocialAuthorizationFence({
             principal,
             clock,

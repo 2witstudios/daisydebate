@@ -3,7 +3,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { socialDeclineRetention } from '../src/messaging/social-request-budget';
+import { socialDeclineRetention } from '../src/contacts/request-budget';
 import {
   friendCommand,
   openPairStore,

@@ -1,8 +1,8 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { fakeSql } from '../index.test-support';
-import { contactBlockWriter } from './social-block';
-import { friendshipFrame } from './social-friendship';
+import { contactBlockWriter } from '../messaging/social-block';
+import { friendshipFrame } from './friendship-frame';
 setupRitewayBun();
 
 const low = 'a'.repeat(24),

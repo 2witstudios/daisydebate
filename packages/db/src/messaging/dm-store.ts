@@ -12,7 +12,7 @@ import { advanceSocialChannelAuthority } from './social-channel-change';
 import {
   clearSocialDeclines,
   recordSocialDecline,
-} from './social-request-budget';
+} from '../contacts/request-budget';
 import type {
   MessagingDmFence,
   MessagingDmStore,

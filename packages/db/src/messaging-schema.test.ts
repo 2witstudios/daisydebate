@@ -4,7 +4,12 @@ import {
   messagingChannels,
   messagingActorStates,
 } from './schema/messaging-channels';
-import { messagingGroupInvitations, messagingSocialCommands, messagingDmPairs, messagingGroupGrants } from './schema/messaging-social';
+import {
+  messagingGroupInvitations,
+  messagingSocialCommands,
+  messagingDmPairs,
+  messagingGroupGrants,
+} from './schema/messaging-social';
 import { contactPairs } from './schema/contacts';
 import {
   messagingMessages,

@@ -1,12 +1,9 @@
 import { SQL } from 'bun';
-import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createMessagingTestFixture } from '../src/testing';
-import {
-  listMessagingFriendships,
-  writePresenceHidden,
-} from '../src/messaging/friendships';
+import { listFriendships } from '../src/friends/reads';
+import { writePresenceHidden } from '../src/presence/settings';
 import {
   friendCommand,
   openPairStore,
@@ -22,7 +19,7 @@ const rowsOf = async (client: SQL, low: string, high: string) =>
   )) as { requester: string; state: string; accepted: boolean }[];
 
 test('a friendship is asked, accepted, listed both ways and ended by a block (ADR 0072)', async () => {
-  const { client, database, fixture, frameFor } =
+  const { client, database, fixture, frameFor, blockFor } =
     await openPairStore(databaseUrl);
   const { userId, otherUserId, actorId, otherActorId, low, high, now } =
     fixture;
@@ -65,17 +62,17 @@ test('a friendship is asked, accepted, listed both ways and ended by a block (AD
       ],
     });
     const fenced: unknown[] = [];
-    const fence: Parameters<typeof listMessagingFriendships>[2] = async ({
+    const fence: Parameters<typeof listFriendships>[2] = async ({
       account,
     }) => {
       fenced.push([account?.actorId, account?.member, account?.erased]);
     };
-    const mine = await listMessagingFriendships(
+    const mine = await listFriendships(
       database,
       { userId: userId!, actorId: actorId! },
       fence,
     );
-    const theirs = await listMessagingFriendships(
+    const theirs = await listFriendships(
       database,
       { userId: otherUserId!, actorId: otherActorId! },
       fence,
@@ -98,22 +95,18 @@ test('a friendship is asked, accepted, listed both ways and ended by a block (AD
         [[actorId, userId, 'accepted']],
       ],
     });
-    await frameFor(actorId!, userId!, (frame) =>
-      frame.commitBlock({
-        requestId: createId(),
-        blocked: true,
-        digest: 'd'.repeat(64),
-        now,
-      }),
+    await blockFor(
+      actorId!,
+      userId!,
+      { blocked: true, digest: 'd'.repeat(64) },
+      now,
     );
     const afterBlock = await rowsOf(client, low!, high!);
-    await frameFor(actorId!, userId!, (frame) =>
-      frame.commitBlock({
-        requestId: createId(),
-        blocked: false,
-        digest: 'e'.repeat(64),
-        now,
-      }),
+    await blockFor(
+      actorId!,
+      userId!,
+      { blocked: false, digest: 'e'.repeat(64) },
+      now,
     );
     assert({
       given: 'a block and then an unblock',
@@ -172,7 +165,7 @@ test('a friend’s hidden choice reaches the other member’s list as one stored
   const unfenced = async () => {};
   const otherHidden = async () =>
     (
-      await listMessagingFriendships(
+      await listFriendships(
         database,
         { userId: userId!, actorId: actorId! },
         unfenced,

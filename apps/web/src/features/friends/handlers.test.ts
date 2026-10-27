@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { silentLogger } from '../../../server/test-loggers.test-support';
+import { silentLogger } from '../../server/test-loggers.test-support';
 import { createFriendHandlers } from './handlers';
 
 setupRitewayBun();

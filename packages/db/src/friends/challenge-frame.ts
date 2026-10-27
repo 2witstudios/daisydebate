@@ -4,10 +4,8 @@ import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
 import { friendChallenges } from '../schema/friends';
 import { type contactPairs } from '../schema/contacts';
-import type {
-  MessagingSocialFrame,
-  MessagingSocialInput,
-} from './social-contracts';
+import type { ContactInput } from '../contacts/fence';
+import type { FriendFrame } from './contracts';
 
 type ContactPair = Pick<
   typeof contactPairs.$inferSelect,
@@ -46,10 +44,10 @@ export async function endPairChallenges(
  */
 export function challengeFrame(
   tx: Pick<BunSQLDatabase, 'execute'>,
-  input: MessagingSocialInput,
+  input: ContactInput,
   rows: readonly (typeof contactPairs.$inferSelect)[],
   authorize: () => Promise<void>,
-): Pick<MessagingSocialFrame, 'commitChallenge' | 'declineChallenge'> {
+): Pick<FriendFrame, 'commitChallenge' | 'declineChallenge'> {
   const otherOf = () => {
     if (rows.length !== 1) throw createAppError('VALIDATION');
     const pair = rows[0]!;

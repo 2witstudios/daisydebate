@@ -31,10 +31,7 @@ export const friendships = pgTable(
   (table) => [
     index('friendships_high_actor_idx').on(table.highActorId),
     primaryKey({ columns: [table.lowActorId, table.highActorId] }),
-    check(
-      'friendships_order',
-      sql`${table.lowActorId} < ${table.highActorId}`,
-    ),
+    check('friendships_order', sql`${table.lowActorId} < ${table.highActorId}`),
     check(
       'friendships_requester',
       sql`${table.requesterActorId} in (${table.lowActorId}, ${table.highActorId})`,
@@ -47,10 +44,7 @@ export const friendships = pgTable(
     foreignKey({
       name: 'friendships_contact_fk',
       columns: [table.lowActorId, table.highActorId],
-      foreignColumns: [
-        contactPairs.lowActorId,
-        contactPairs.highActorId,
-      ],
+      foreignColumns: [contactPairs.lowActorId, contactPairs.highActorId],
     }).onDelete('cascade'),
   ],
 );
@@ -71,16 +65,11 @@ export const friendChallenges = pgTable(
     createdAt: timestampColumn('created_at').notNull(),
   },
   (table) => [
-    index('friend_challenges_challenged_idx').on(
-      table.challengedActorId,
-    ),
-    index('friend_challenges_challenger_idx').on(
-      table.challengerActorId,
-    ),
+    index('friend_challenges_challenged_idx').on(table.challengedActorId),
+    index('friend_challenges_challenger_idx').on(table.challengerActorId),
     check(
       'friend_challenges_distinct',
       sql`${table.challengerActorId} <> ${table.challengedActorId}`,
     ),
   ],
 );
-

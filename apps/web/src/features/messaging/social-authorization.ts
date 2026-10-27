@@ -6,7 +6,7 @@ import type {
   SocialCreationPolicy,
 } from '@daisy/auth/authorization';
 import type { Clock } from '@daisy/clock';
-import type { MessagingSocialAuthorizationFence } from '@daisy/db/messaging';
+import type { ContactAuthorizationFence } from '@daisy/db/contacts';
 import { createAppError } from '@daisy/errors';
 import { loadAccountPolicyFacts } from '../authorization/account-policy-facts';
 import { requireMessagingAuthorization } from './authorization';
@@ -29,7 +29,7 @@ export function messagingSocialAuthorizationFence({
         readonly kind: 'dm' | 'private_group';
         readonly policy: SocialCreationPolicy;
       };
-}): MessagingSocialAuthorizationFence {
+}): ContactAuthorizationFence {
   return async (tx, input, facts) => {
     if (
       principal.kind !== 'user' ||

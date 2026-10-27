@@ -1,4 +1,4 @@
-import type { SocialRequestLimits } from './social-request-budget';
+import type { SocialRequestLimits } from '../contacts/request-budget';
 import type {
   MessagingAuthorizationFence,
   MessagingChannelStore,

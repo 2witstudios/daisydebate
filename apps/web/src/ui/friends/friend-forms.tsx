@@ -9,7 +9,7 @@ import {
   type FriendFormState,
   type FriendIntent,
   type PresenceFormState,
-} from '../../features/messaging/friends/forms';
+} from '../../features/friends/forms';
 import { Button } from '../components/button/button';
 import { controlClass } from '../components/form-field/form-field-class';
 import { FormField } from '../components/form-field/form-field';

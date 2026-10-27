@@ -1,6 +1,6 @@
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import { createAppError, isAppError } from '@daisy/errors';
-import { requireMessagingActor } from '../principal';
+import { requireMessagingActor } from '../messaging/principal';
 import { mayChallenge } from './friendship';
 import type { FriendOperationDependencies } from './operations';
 

@@ -2,10 +2,10 @@ import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { Clock, IdGenerator } from '@daisy/clock';
 import type { SocialRequestLimits } from '@daisy/db';
 import type {
-  MessagingFriendChallengeRow,
-  MessagingFriendshipRow,
-  MessagingSocialStore,
-} from '@daisy/db/messaging';
+  FriendChallengeRow,
+  FriendshipRow,
+  FriendStore,
+} from '@daisy/db/friends';
 import { createAppError, isAppError } from '@daisy/errors';
 import type {
   FriendCommandResult,
@@ -13,7 +13,7 @@ import type {
   FriendPresence,
   PresenceActivity,
 } from '@daisy/protocol';
-import { requireMessagingActor } from '../principal';
+import { requireMessagingActor } from '../messaging/principal';
 import {
   decideFriendship,
   friendRelationOf,
@@ -37,7 +37,7 @@ export type FriendOperationDependencies = {
   readonly limit: (actorId: string) => Promise<void>;
   readonly lookup: (username: string) => Promise<string | null>;
   /** The social store behind the authorize fence for this capability. */
-  readonly store: (capability: FriendCapability) => MessagingSocialStore;
+  readonly store: (capability: FriendCapability) => FriendStore;
 };
 
 const refusalError = (refusal: FriendshipRefusal) =>
@@ -110,12 +110,12 @@ export type FriendReadDependencies = {
   readonly list: (scope: {
     readonly userId: string;
     readonly actorId: string;
-  }) => Promise<readonly MessagingFriendshipRow[]>;
+  }) => Promise<readonly FriendshipRow[]>;
   /** Friends' challenges waiting for the reader, behind the same decision. */
   readonly challenges: (scope: {
     readonly userId: string;
     readonly actorId: string;
-  }) => Promise<readonly MessagingFriendChallengeRow[]>;
+  }) => Promise<readonly FriendChallengeRow[]>;
   /** Whether the reader hides their own status, behind the same decision. */
   readonly hidden: (scope: {
     readonly userId: string;

@@ -80,8 +80,7 @@ test('dedicated MSG declarations match all actual producer columns', async () =>
       .filter(
         (field) =>
           field.column === 'text' ||
-          (field.table === 'contact_pairs' &&
-            field.column === 'low_actor_id'),
+          (field.table === 'contact_pairs' && field.column === 'low_actor_id'),
       )
       .map((field) => field.erasure),
     expected: ['delete', 'scrub'],

@@ -1,7 +1,7 @@
 import { friendListSchema, parseUsername } from '@daisy/protocol';
-import type { MockFormState } from '../../mock-form/form';
-import { casualSelection, defaultChoice } from '../../rooms/format-browser';
-import { readRoomTemplates, type RoomTemplate } from '../../rooms/read-catalog';
+import type { MockFormState } from '../mock-form/form';
+import { casualSelection, defaultChoice } from '../rooms/format-browser';
+import { readRoomTemplates, type RoomTemplate } from '../rooms/read-catalog';
 
 /** The topic a challenge room opens with; the host edits it on the room page. */
 const CHALLENGE_TOPIC = 'Open topic: agree on a resolution in the room';

@@ -12,8 +12,8 @@ import {
   type OnlineCounts,
 } from '@daisy/protocol';
 import type { FriendshipCommand } from './friendship';
-import { parseValidated, readJson } from '../../../server/http';
-import { runMessagingHandler } from '../handler-boundary';
+import { parseValidated, readJson } from '../../server/http';
+import { runMessagingHandler } from '../messaging/handler-boundary';
 
 const MAX_BODY_BYTES = 1024;
 

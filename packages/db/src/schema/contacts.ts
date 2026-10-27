@@ -67,9 +67,7 @@ export const socialRequests = pgTable(
       table.actorId,
       table.createdAt,
     ),
-    index('social_requests_counterpart_actor_idx').on(
-      table.counterpartActorId,
-    ),
+    index('social_requests_counterpart_actor_idx').on(table.counterpartActorId),
     check('social_requests_kind', oneOf(table.kind, ['dm', 'friend'])),
     check(
       'social_requests_distinct',
@@ -108,10 +106,7 @@ export const socialRequestDeclines = pgTable(
     index('social_request_declines_expires_idx').on(table.expiresAt),
     foreignKey({
       columns: [table.lowActorId, table.highActorId],
-      foreignColumns: [
-        contactPairs.lowActorId,
-        contactPairs.highActorId,
-      ],
+      foreignColumns: [contactPairs.lowActorId, contactPairs.highActorId],
     }).onDelete('cascade'),
     check(
       'social_request_declines_pair',

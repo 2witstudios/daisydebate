@@ -1,7 +1,7 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { fixedClock } from '@daisy/clock';
-import { setPresenceHidden } from './presence-setting';
+import { setPresenceHidden } from './setting';
 
 setupRitewayBun();
 

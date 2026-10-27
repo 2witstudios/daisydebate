@@ -1,12 +1,12 @@
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
-import type { App } from '../../../server/app';
-import { consumeOrThrow } from '../../auth/abuse/rate-limit';
-import { requireMessagingAuthorization } from '../authorization';
-import { messagingHttpBoundary } from '../handler-boundary';
-import { messagingSocialAuthorizationFence } from '../social-authorization';
+import type { App } from '../../server/app';
+import { consumeOrThrow } from '../auth/abuse/rate-limit';
+import { requireMessagingAuthorization } from '../messaging/authorization';
+import { messagingHttpBoundary } from '../messaging/handler-boundary';
+import { messagingSocialAuthorizationFence } from '../messaging/social-authorization';
 import { createFriendHandlers } from './handlers';
 import { changeChallenge } from './challenge-operations';
-import { setPresenceHidden } from './presence-setting';
+import { setPresenceHidden } from '../presence/setting';
 import type { OwnCollectionFence } from '@daisy/db/authorization';
 import {
   changeFriendship,
@@ -39,12 +39,12 @@ const friendReads = (
   principal: AuthorizationPrincipal,
 ): FriendReadDependencies => ({
   list: (scope) =>
-    app.database.listMessagingFriendships(
+    app.database.listFriendships(
       scope,
       ownFence(principal, 'social.friend.list'),
     ),
   challenges: (scope) =>
-    app.database.listMessagingFriendChallenges(
+    app.database.listFriendChallenges(
       scope,
       ownFence(principal, 'social.friend.list'),
     ),
@@ -77,7 +77,7 @@ const friendPorts = (
     consumeOrThrow(app.auth().limiter, `friends:${actorId}`, FRIEND_RULE),
   lookup: (name) => app.database.lookupHumanActorByUsername(name),
   store: (capability) =>
-    app.database.messagingSocialStore(
+    app.database.friendStore(
       messagingSocialAuthorizationFence({
         principal,
         clock: app.clock,

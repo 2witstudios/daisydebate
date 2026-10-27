@@ -3,16 +3,14 @@ import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { contactPairs } from '../schema/contacts';
 import { friendships } from '../schema/friends';
-import type {
-  MessagingSocialFrame,
-  MessagingSocialInput,
-} from './social-contracts';
-import { endPairChallenges } from './social-challenge';
+import type { ContactInput } from '../contacts/fence';
+import type { FriendFrame } from './contracts';
+import { endPairChallenges } from './challenge-frame';
 import {
   clearSocialDeclines,
   recordSocialDecline,
   spendSocialRequest,
-} from './social-request-budget';
+} from '../contacts/request-budget';
 
 type FriendshipTransaction = Pick<
   BunSQLDatabase,
@@ -46,10 +44,10 @@ async function countWhere(
  */
 export function friendshipFrame(
   tx: FriendshipTransaction,
-  input: MessagingSocialInput,
+  input: ContactInput,
   rows: readonly (typeof contactPairs.$inferSelect)[],
   authorize: () => Promise<void>,
-): Pick<MessagingSocialFrame, 'readFriendship' | 'commitFriendship'> {
+): Pick<FriendFrame, 'readFriendship' | 'commitFriendship'> {
   const pairOf = () => {
     if (rows.length !== 1) throw createAppError('VALIDATION');
     return rows[0]!;

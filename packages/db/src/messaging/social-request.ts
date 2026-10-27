@@ -12,20 +12,18 @@ import { contactPairs } from '../schema/contacts';
 import {
   refuseDeclineBlock,
   spendSocialRequest,
-} from './social-request-budget';
+} from '../contacts/request-budget';
 import { appendOutboxEvent } from '../outbox';
 import { advanceSocialChannelAuthority } from './social-channel-change';
-import type {
-  MessagingSocialFrame,
-  MessagingSocialInput,
-} from './social-contracts';
+import type { ContactInput } from '../contacts/fence';
+import type { MessagingSocialFrame } from './social-contracts';
 type Tx = Pick<BunSQLDatabase, 'select' | 'insert' | 'update' | 'execute'>;
 type Pair = typeof contactPairs.$inferSelect;
 
 /** Pair fence is already held; all counts share the initiating account fence. */
 export function dmRequestFrame(
   tx: Tx,
-  input: MessagingSocialInput,
+  input: ContactInput,
   rows: readonly Pair[],
   authorize: () => Promise<void>,
 ): Pick<
@@ -153,7 +151,7 @@ export function dmRequestFrame(
     },
   };
 }
-function counterpartOf(input: MessagingSocialInput) {
+function counterpartOf(input: ContactInput) {
   const counterpartActorId = input.memberActorIds.find(
     (actorId) => actorId !== input.actorId,
   );

@@ -4,7 +4,7 @@ import type { FriendList } from '@daisy/protocol';
 import type {
   FriendFormState,
   PresenceFormState,
-} from '../../../features/messaging/friends/forms';
+} from '../../../features/friends/forms';
 import { Avatar } from '../../components/avatar/avatar';
 import { buttonClass } from '../../components/button/button-class';
 import { cn } from '../../cn';

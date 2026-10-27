@@ -9,18 +9,16 @@ import { contactPairs } from '../schema/contacts';
 import { friendships } from '../schema/friends';
 import { messagingChannels } from '../schema/messaging-channels';
 import { advanceSocialChannelAuthority } from './social-channel-change';
-import { endPairChallenges } from './social-challenge';
-import type {
-  MessagingSocialFrame,
-  MessagingSocialInput,
-} from './social-contracts';
+import { endPairChallenges } from '../friends/challenge-frame';
+import type { ContactInput } from '../contacts/fence';
+import type { MessagingSocialFrame } from './social-contracts';
 
 export function contactBlockWriter(
   tx: Pick<
     BunSQLDatabase,
     'select' | 'update' | 'insert' | 'delete' | 'execute'
   >,
-  input: MessagingSocialInput,
+  input: ContactInput,
   rows: readonly (typeof contactPairs.$inferSelect)[],
   authorize: () => Promise<void>,
 ): MessagingSocialFrame['commitBlock'] {

@@ -1,5 +1,5 @@
 import { fixedClock, sequentialId } from '@daisy/clock';
-import { dec251MessagingValues } from '../beta-policy';
+import { dec251MessagingValues } from '../messaging/beta-policy';
 
 /** The clock, ledger ids and DEC-251 budgets friend operation tests share. */
 export const friendTestPorts = (now: string) => ({

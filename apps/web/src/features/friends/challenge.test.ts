@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { roomCreateSchema } from '@daisy/protocol';
-import { unequalTemplate as template } from '../../rooms/assembly.test-support';
+import { unequalTemplate as template } from '../rooms/assembly.test-support';
 import { challengeFriend, secondChallengeNotice } from './challenge';
 
 setupRitewayBun();

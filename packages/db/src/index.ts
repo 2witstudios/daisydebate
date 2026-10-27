@@ -1,5 +1,8 @@
 import { messagingOperations } from './messaging/operations';
-import { friendshipReadOperations } from './messaging/friendships';
+import { friendshipReadOperations } from './friends/reads';
+import { createFriendStore } from './friends/store';
+import { presenceSettingOperations } from './presence/settings';
+import type { ContactAuthorizationFence } from './contacts/fence';
 import { retainedConversationOperations } from './messaging/retained-store';
 import { createMediaSessionStore } from './media-session';
 import { roundUnjudgedCompletionOperations } from './round-unjudged-completion';
@@ -55,13 +58,13 @@ import type { RateDebateInput } from './rating-facts';
 import { emailDeliveryOperations } from './email-delivery-operations';
 import { outboxOperations } from './outbox';
 import { transcriptRetention } from './transcript-retention';
-import { socialDeclineRetention } from './messaging/social-request-budget';
+import { socialDeclineRetention } from './contacts/request-budget';
 import { readOutboxCatchup } from './outbox-catchup';
 import { readOutboxRetentionBoundary } from './outbox-retention-boundary';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { RUNTIME_SESSION } from './session-bounds';
 export type { DatabaseEventSink } from './instrumented';
-export type { SocialRequestLimits } from './messaging/social-request-budget';
+export type { SocialRequestLimits } from './contacts/request-budget';
 export type {
   ProvisionalLinkPurposes,
   ProvisionalMailCleanup,
@@ -173,6 +176,9 @@ export function createDatabase({
     ...actorOperations({ database, eventSink }),
     ...messagingOperations(database),
     ...friendshipReadOperations({ database, eventSink }),
+    ...presenceSettingOperations({ database, eventSink }),
+    friendStore: (authorize: ContactAuthorizationFence) =>
+      createFriendStore({ database, authorize }),
     ...retainedConversationOperations({ database, eventSink }),
     ...outboxOperations({ database, eventSink }),
     ...transcriptRetention({ database, eventSink }),

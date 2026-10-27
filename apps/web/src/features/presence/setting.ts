@@ -1,6 +1,6 @@
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { Clock } from '@daisy/clock';
-import { requireMessagingActor } from '../principal';
+import { requireMessagingActor } from '../messaging/principal';
 
 /**
  * The member's own choice to hide their online status from friends (ADR

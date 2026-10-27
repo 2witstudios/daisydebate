@@ -17,8 +17,8 @@ import {
   presenceNotice,
   type FriendFormState,
   type PresenceFormState,
-} from '../../../features/messaging/friends/forms';
-import { challengeFriend } from '../../../features/messaging/friends/challenge';
+} from '../../../features/friends/forms';
+import { challengeFriend } from '../../../features/friends/challenge';
 import { submitRoomCreation } from '../../../features/rooms/create-room-form';
 import { requestIdentity } from '../../../lib/request-session';
 import { inProcessFetch } from '../../../server/in-process-fetch';

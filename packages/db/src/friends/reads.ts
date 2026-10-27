@@ -10,7 +10,7 @@ import { presenceSettings } from '../schema/presence';
 import { readOwnCollection, type OwnCollectionFence } from '../authorization';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
 
-export type MessagingFriendshipRow = {
+export type FriendshipRow = {
   readonly otherActorId: string;
   readonly username: string;
   readonly state: 'pending' | 'accepted';
@@ -43,18 +43,18 @@ const requireScope = (scope: FriendshipListScope) => {
  * unnamed and blocked counterparts drop out. A read only: every change
  * reloads the pair under the contact fence (ADR 0072).
  */
-export async function listMessagingFriendships(
+export async function listFriendships(
   database: BunSQLDatabase,
   scope: FriendshipListScope,
   authorize: OwnCollectionFence<FriendshipListScope>,
-): Promise<readonly MessagingFriendshipRow[]> {
+): Promise<readonly FriendshipRow[]> {
   requireScope(scope);
   return readOwnCollection(database, scope, authorize, (tx) =>
     readRows(tx, scope.actorId),
   );
 }
 
-export type MessagingFriendChallengeRow = {
+export type FriendChallengeRow = {
   readonly roomId: string;
   readonly username: string;
   readonly title: string;
@@ -66,11 +66,11 @@ export type MessagingFriendChallengeRow = {
  * friends, for rooms that still assemble, after `authorize` passes on the
  * reader's locked account. Newest first, bounded like the list.
  */
-export async function listMessagingFriendChallenges(
+export async function listFriendChallenges(
   database: BunSQLDatabase,
   scope: FriendshipListScope,
   authorize: OwnCollectionFence<FriendshipListScope>,
-): Promise<readonly MessagingFriendChallengeRow[]> {
+): Promise<readonly FriendChallengeRow[]> {
   if (
     !idSchema.safeParse(scope.userId).success ||
     !idSchema.safeParse(scope.actorId).success
@@ -109,43 +109,6 @@ export async function listMessagingFriendChallenges(
   });
 }
 
-/** Whether the member hides their online status; no row means visible. */
-export function readPresenceHidden(
-  database: BunSQLDatabase,
-  scope: FriendshipListScope,
-  authorize: OwnCollectionFence<FriendshipListScope>,
-): Promise<boolean> {
-  requireScope(scope);
-  return readOwnCollection(database, scope, authorize, async (tx) => {
-    const [row] = await tx
-      .select({ hidden: presenceSettings.hidden })
-      .from(presenceSettings)
-      .where(eq(presenceSettings.actorId, scope.actorId));
-    return row?.hidden ?? false;
-  });
-}
-
-/** Sets the member's own choice, after `authorize` on their locked account. */
-export function writePresenceHidden(
-  database: BunSQLDatabase,
-  scope: FriendshipListScope,
-  input: { readonly hidden: boolean; readonly now: string },
-  authorize: OwnCollectionFence<FriendshipListScope>,
-): Promise<boolean> {
-  requireScope(scope);
-  return readOwnCollection(database, scope, authorize, async (tx) => {
-    const values = { hidden: input.hidden, updatedAt: new Date(input.now) };
-    await tx
-      .insert(presenceSettings)
-      .values({ actorId: scope.actorId, ...values })
-      .onConflictDoUpdate({
-        target: presenceSettings.actorId,
-        set: values,
-      });
-    return input.hidden;
-  });
-}
-
 /** The database's friendship reads, instrumented like its other operations. */
 export const friendshipReadOperations = ({
   database,
@@ -155,43 +118,27 @@ export const friendshipReadOperations = ({
   readonly eventSink?: DatabaseEventSink | undefined;
 }) => ({
   /** One member's own friendships and requests (ADR 0072). */
-  listMessagingFriendships: (
+  listFriendships: (
     scope: FriendshipListScope,
     authorize: OwnCollectionFence<FriendshipListScope>,
   ) =>
-    instrumented(eventSink, 'listMessagingFriendships', () =>
-      listMessagingFriendships(database, scope, authorize),
+    instrumented(eventSink, 'listFriendships', () =>
+      listFriendships(database, scope, authorize),
     ),
   /** The challenges waiting for one member (ADR 0072). */
-  listMessagingFriendChallenges: (
+  listFriendChallenges: (
     scope: FriendshipListScope,
     authorize: OwnCollectionFence<FriendshipListScope>,
   ) =>
-    instrumented(eventSink, 'listMessagingFriendChallenges', () =>
-      listMessagingFriendChallenges(database, scope, authorize),
-    ),
-  /** The member's own presence visibility (ADR 0072). */
-  readPresenceHidden: (
-    scope: FriendshipListScope,
-    authorize: OwnCollectionFence<FriendshipListScope>,
-  ) =>
-    instrumented(eventSink, 'readPresenceHidden', () =>
-      readPresenceHidden(database, scope, authorize),
-    ),
-  writePresenceHidden: (
-    scope: FriendshipListScope,
-    input: { readonly hidden: boolean; readonly now: string },
-    authorize: OwnCollectionFence<FriendshipListScope>,
-  ) =>
-    instrumented(eventSink, 'writePresenceHidden', () =>
-      writePresenceHidden(database, scope, input, authorize),
+    instrumented(eventSink, 'listFriendChallenges', () =>
+      listFriendChallenges(database, scope, authorize),
     ),
 });
 
 async function readRows(
   tx: Pick<BunSQLDatabase, 'select'>,
   actorId: string,
-): Promise<readonly MessagingFriendshipRow[]> {
+): Promise<readonly FriendshipRow[]> {
   const other = sql<string>`case when ${friendships.lowActorId} = ${actorId} then ${friendships.highActorId} else ${friendships.lowActorId} end`;
   const rows = await tx
     .select({

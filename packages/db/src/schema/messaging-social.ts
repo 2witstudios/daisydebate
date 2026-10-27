@@ -62,10 +62,7 @@ export const messagingDmPairs = pgTable(
     foreignKey({
       name: 'messaging_dm_pairs_contact_fk',
       columns: [table.lowActorId, table.highActorId],
-      foreignColumns: [
-        contactPairs.lowActorId,
-        contactPairs.highActorId,
-      ],
+      foreignColumns: [contactPairs.lowActorId, contactPairs.highActorId],
     }),
     foreignKey({
       name: 'messaging_dm_pairs_channel_kind_fk',
@@ -217,4 +214,3 @@ export const messagingSocialCommands = pgTable(
     ),
   ],
 );
-
