@@ -3,7 +3,7 @@ import { inertActions } from '../../../features/prep/actions';
 import { Badge } from '../../components/badge/badge';
 import { Breadcrumb } from '../breadcrumb/breadcrumb';
 import { InertActionButton } from '../inert-action/inert-action';
-import { PrepIcon } from '../prep-icon/prep-icon';
+import { Icon } from '../../components/icon/icon';
 import { PrepTabs } from '../prep-tabs/prep-tabs';
 import { CaseCompare } from './case-compare';
 import { CaseCompose } from './case-compose';
@@ -34,7 +34,7 @@ export function CasePage({ view }: { readonly view: CaseView }) {
           <Badge tone="gold">{`Draft on v${latest}`}</Badge>
         )}
         <span className="ml-auto inline-flex items-center gap-2 text-sm text-ink-muted">
-          <PrepIcon name="lock" size={14} />
+          <Icon name="lock" size={14} />
           {c.visibility.kind === 'team'
             ? `Shared with ${c.visibility.teamName}: ${c.sharedRight}`
             : 'Private to you'}

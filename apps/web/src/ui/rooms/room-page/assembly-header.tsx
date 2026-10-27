@@ -8,6 +8,7 @@ import { AssemblyCommandForm } from './assembly-command-form';
 import { ROOM_SETUP_HREF, roomMeta, roomStatus } from './room-labels';
 import { RoomInvite } from './room-invite';
 import { drawnTopicLabel } from '../../../features/debate-room/vocabulary';
+import { ROOM_SETUP_HOME, ROOM_TITLE } from './room-setup-modal';
 
 /** The resolution, labelled as such: the statement the two sides debate. */
 export function RoomResolution({
@@ -130,7 +131,11 @@ export function AssemblyHeader({
           <p className="text-sm font-strong text-hue-teal">
             {roomStatus(view)}
           </p>
-          <h1 className="font-display text-3xl leading-tight font-semibold tracking-tight wrap-anywhere">
+          <h1
+            {...{ [ROOM_TITLE]: '' }}
+            tabIndex={-1}
+            className="font-display text-3xl leading-tight font-semibold tracking-tight wrap-anywhere"
+          >
             {roomNumber === undefined ? null : (
               <span className="text-ink-muted">Room {roomNumber} · </span>
             )}
@@ -152,7 +157,7 @@ export function AssemblyHeader({
           {view.capabilities.canEdit ? (
             <a
               href={ROOM_SETUP_HREF}
-              data-room-setup-home
+              {...{ [ROOM_SETUP_HOME]: '' }}
               className={buttonClass('secondary')}
             >
               Room setup

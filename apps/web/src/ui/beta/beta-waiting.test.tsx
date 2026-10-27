@@ -66,3 +66,49 @@ describe('BetaWaiting (ADR 0075)', () => {
     });
   });
 });
+
+describe('signing out of /beta without JavaScript (ISSUE-691)', () => {
+  test('every waiting reason carries a native sign-out form', () => {
+    const forms = (['pending', 'revoked', 'age-required'] as const).map(
+      (reason) =>
+        renderToString(
+          h(BetaWaiting, {
+            username: 'ada',
+            reason,
+            ageHref: '/onboarding/age?next=%2Fbeta',
+          }),
+        ).includes(
+          '<form action="/auth/sign-out" method="post"><input type="hidden" name="next" value="/beta"/><button type="submit"',
+        ),
+    );
+    assert({
+      given: 'a pending, a revoked and an age-required account',
+      should: 'offer a sign-out form that posts without script on each page',
+      actual: forms,
+      expected: [true, true, true],
+    });
+  });
+
+  test('a failed sign-out is said plainly', () => {
+    const page = (signOutFailed: boolean) =>
+      renderToString(
+        h(BetaWaiting, {
+          username: 'ada',
+          reason: 'pending',
+          ageHref: '/onboarding/age?next=%2Fbeta',
+          signOutFailed,
+        }),
+      );
+    const notice = 'We couldn’t sign you out. Please try again.';
+    assert({
+      given: 'a return from a failed sign-out, and an ordinary visit',
+      should: 'announce the failure only on the return',
+      actual: [
+        page(true).includes(notice),
+        page(true).includes('role="alert"'),
+        page(false).includes(notice),
+      ],
+      expected: [true, true, false],
+    });
+  });
+});

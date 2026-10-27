@@ -7,7 +7,7 @@ import { inertActions } from '../../../features/prep/actions';
 import { buttonClass } from '../../components/button/button-class';
 import { controlClass } from '../form-controls/form-class';
 import { InertActionButton } from '../inert-action/inert-action';
-import { PrepIcon } from '../prep-icon/prep-icon';
+import { Icon } from '../../components/icon/icon';
 
 const opMark: Readonly<Record<Change['op'], { mark: string; cls: string }>> = {
   add: { mark: '+', cls: 'text-online' },
@@ -96,7 +96,7 @@ export function CaseCompare({ view }: { readonly view: CaseView }) {
           value={compare.from}
           options={compare.fromOptions}
         />
-        <PrepIcon name="arrowRight" size={18} className="mb-3 text-ink-faint" />
+        <Icon name="arrowRight" size={18} className="mb-3 text-ink-faint" />
         <VersionSelect
           name="to"
           label="To"

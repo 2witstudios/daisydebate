@@ -15,13 +15,13 @@ import {
   FiltersLabel,
   SearchField,
 } from '../../../components/filter-form/filter-form';
-import { AutoSubmitForm } from '../../../lobby/filter-bar/auto-submit-form';
+import { AutoSubmitForm } from '../../../components/filter-bar/auto-submit-form';
 import {
   dividerClass,
   filterBarClass,
   panelClass,
   summaryClass,
-} from '../../../lobby/filter-bar/filter-bar-class';
+} from '../../../components/filter-bar/filter-bar-class';
 import { TabLinks } from '../../../components/tab-links/tab-links';
 
 export type FilterBarProps = {

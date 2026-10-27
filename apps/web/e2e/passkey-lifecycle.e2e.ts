@@ -117,8 +117,7 @@ test('a passkey enrolled from settings can sign back in after signing out, and l
   await enrollFromSettings(page);
   await expect(page.getByRole('button', { name: 'Rename' })).toBeVisible();
 
-  // Hardening (ISSUE-212): sign-out is a script button, and a click before
-  // hydration is a silent no-op (ISSUE-84).
+  // Sign-out is a native form (review F9 on #474), so it works before hydration.
   const signOut = page.getByRole('button', { name: 'Sign out', exact: true });
   await hydrated(signOut);
   await signOut.click();

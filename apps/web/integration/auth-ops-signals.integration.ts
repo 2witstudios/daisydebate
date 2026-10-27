@@ -8,6 +8,7 @@ import {
 } from '../src/server/retention-sweep';
 import { createFaultedApp } from './fault-proxy';
 import { cookieHeader, createTestApp, linkFrom, tokenOf } from './fixtures';
+import { provisionalLinkPurposes } from '../src/features/auth/mail/provisional-mail';
 import { sampleOf, serveEdge } from './ops-edge';
 
 /**
@@ -203,6 +204,7 @@ describe('ISSUE-190 storage unavailable and retention signals', () => {
       targets: retentionTargets({
         database: app.database,
         redis: app.redis,
+        provisionalLinks: provisionalLinkPurposes,
       }),
       clock: app.clock,
       logger: app.logger,
@@ -243,6 +245,7 @@ describe('ISSUE-190 storage unavailable and retention signals', () => {
             'retention.verification',
             'retention.outbox',
             'retention.session',
+            'retention.provisional_user',
             'retention.room_commands',
             'retention.round_commands',
             'retention.round_check_in_attempts',
@@ -255,7 +258,7 @@ describe('ISSUE-190 storage unavailable and retention signals', () => {
             'retention.pending_ballots',
             'retention.round_feedback',
           ],
-          failuresByTarget: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+          failuresByTarget: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
           lastSuccessWithinSweep: true,
         },
       });

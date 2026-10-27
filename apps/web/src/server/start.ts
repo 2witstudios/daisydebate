@@ -1,3 +1,4 @@
+import { provisionalLinkPurposes } from '../features/auth/mail/provisional-mail';
 import { startRoundCompetitiveMaintenance } from './round-maintenance';
 import { createRoundMediaRuntime } from '../features/round-media/composition';
 import { startRoundMediaRecovery } from './round-media-recovery';
@@ -129,7 +130,11 @@ const roundWorkers = startRoundWorkers({
 // a spurious retention.sweep.failed on every cold boot.
 const retention = startRetentionSweep({
   sweep: createRetentionSweep({
-    targets: retentionTargets({ database: app.database, redis: app.redis }),
+    targets: retentionTargets({
+      database: app.database,
+      redis: app.redis,
+      provisionalLinks: provisionalLinkPurposes,
+    }),
     clock: app.clock,
     logger: app.logger,
   }),

@@ -223,6 +223,11 @@ describe('POST /api/account/sessions/revoke from another session', () => {
     // The two reads the browser check makes with the revoked session's own
     // cookie: the mounted get-session route without the cookie cache, and
     // the durable identity read behind /lobby's server-side guard.
+    // As src/lib/access.ts does, a /lobby outside the guarded-area table is a
+    // wiring error, never a silent default (ISSUE-201).
+    const lobbyRequirement = requirementFor('/lobby');
+    if (lobbyRequirement === null)
+      throw new Error('/lobby left the guarded-area table');
     const nextRequest = async () => {
       const response = await authRoute.GET(
         new Request(`${origin}/api/auth/get-session?disableCookieCache=true`, {
@@ -234,7 +239,7 @@ describe('POST /api/account/sessions/revoke from another session', () => {
         lobby: decideAccess({
           identity: await identifyAs(other),
           path: '/lobby',
-          requirement: requirementFor('/lobby') ?? 'participant',
+          requirement: lobbyRequirement,
         }),
       };
     };

@@ -9,12 +9,16 @@ import {
 } from '../../auth/onboarding/passkey-enrollment';
 import {
   loadSecurityOverview,
-  outcomeFor,
   revokeOtherSessions,
   type PasskeyRow,
   type SessionRow,
 } from '../../../features/account/security-client';
 import { Button } from '../../components/button/button';
+import { buttonClass } from '../../components/button/button-class';
+import {
+  SIGN_OUT_FAILED_NOTICE,
+  SignOutForm,
+} from '../../components/sign-out-form/sign-out-form';
 import { Notice } from '../../auth/notice/notice';
 import { PasskeyRowView } from './passkey-row';
 import { SessionRowView } from './session-row';
@@ -37,14 +41,19 @@ const enrollment = createPasskeyEnrollment({
  */
 export function SecurityPage({
   changeEmail,
+  signOutFailed = false,
 }: {
   /** The email-change form's server action. */
   readonly changeEmail: EmailChangeAction;
+  /** Back from a sign-out that did not happen. */
+  readonly signOutFailed?: boolean;
 }) {
   const [passkeys, setPasskeys] = useState<readonly PasskeyRow[]>([]);
   const [sessions, setSessions] = useState<readonly SessionRow[]>([]);
   const [passkeysNotice, setPasskeysNotice] = useState<string | undefined>();
-  const [sessionsNotice, setSessionsNotice] = useState<string | undefined>();
+  const [sessionsNotice, setSessionsNotice] = useState<string | undefined>(
+    signOutFailed ? SIGN_OUT_FAILED_NOTICE : undefined,
+  );
   const [enrolling, setEnrolling] = useState(false);
   const [enrollNotice, setEnrollNotice] = useState<string | undefined>();
   const [reloadToken, setReloadToken] = useState(0);
@@ -160,17 +169,10 @@ export function SecurityPage({
           >
             Sign out of all other sessions
           </Button>
-          <Button
-            variant="ghost"
-            onClick={() =>
-              void authClient.signOut().then(({ error }) => {
-                if (!error) window.location.assign('/sign-in');
-                else setSessionsNotice(OUTCOME_NOTICES[outcomeFor(error).kind]);
-              })
-            }
-          >
-            Sign out
-          </Button>
+          <SignOutForm
+            next="/settings/security"
+            className={buttonClass('ghost')}
+          />
         </div>
       </section>
 

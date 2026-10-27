@@ -45,7 +45,6 @@ export type SecurityClient = {
     }) => Result<{ status: boolean }>;
   };
   readonly revokeOtherSessions: () => Result<{ status: boolean }>;
-  readonly signOut: () => Result<unknown>;
 };
 
 /** A settings action's outcome. Only `ok` did what it says. */

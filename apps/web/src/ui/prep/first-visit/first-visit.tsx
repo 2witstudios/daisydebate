@@ -6,15 +6,15 @@ import {
 } from '../../components/button/button-class';
 import { InertActionButton } from '../inert-action/inert-action';
 import { PrivacyNote } from './privacy-note';
-import { PrepIcon, type PrepIconName } from '../prep-icon/prep-icon';
+import { Icon, type IconName } from '../../components/icon/icon';
 
 const starters: readonly {
   readonly title: string;
   readonly cta: string;
   readonly href: string;
   readonly variant: ButtonVariant;
-  readonly symbol: PrepIconName;
-  readonly ctaSymbol: PrepIconName;
+  readonly symbol: IconName;
+  readonly ctaSymbol: IconName;
 }[] = [
   {
     title: 'Add an evidence card',
@@ -67,14 +67,14 @@ export function FirstVisit() {
             className="flex min-h-16 flex-col gap-3 rounded-lg bg-surface-raised p-5 shadow-1"
           >
             <span className="inline-flex size-avatar-lg items-center justify-center rounded-lg bg-accent-soft text-accent">
-              <PrepIcon name={starter.symbol} size={20} />
+              <Icon name={starter.symbol} size={20} />
             </span>
             <h3 className="flex-1 text-md font-bold">{starter.title}</h3>
             <Link
               href={starter.href}
               className={`${buttonClass(starter.variant)} no-underline hover:no-underline`}
             >
-              <PrepIcon name={starter.ctaSymbol} size={18} />
+              <Icon name={starter.ctaSymbol} size={18} />
               {starter.cta}
             </Link>
           </li>

@@ -4,7 +4,7 @@ import {
   whoSeesInDebate,
 } from '../../../features/prep/privacy';
 import { Breadcrumb } from '../breadcrumb/breadcrumb';
-import { PrepIcon } from '../prep-icon/prep-icon';
+import { Icon } from '../../components/icon/icon';
 
 const columns = ['What', 'Who can see it', 'Retention and erasure'] as const;
 
@@ -24,7 +24,7 @@ export function PrivacyPage() {
             key={promise.title}
             className="flex flex-col gap-2 rounded-lg bg-surface p-5 shadow-1"
           >
-            <PrepIcon name={promise.symbol} size={22} className="text-accent" />
+            <Icon name={promise.symbol} size={22} className="text-accent" />
             <h2 className="text-md font-bold">{promise.title}</h2>
             <p className="text-sm text-ink-muted">{promise.body}</p>
           </li>
@@ -48,7 +48,7 @@ export function PrivacyPage() {
                     : 'border-dashed border-border-strong text-ink-faint'
                 }`}
               >
-                {entry.hasPanel ? <PrepIcon name="lock" size={14} /> : null}
+                {entry.hasPanel ? <Icon name="lock" size={14} /> : null}
                 {entry.hasPanel ? 'Your prep' : 'No prep panel'}
               </p>
               <p className="text-sm text-ink-muted">{entry.sees}</p>
