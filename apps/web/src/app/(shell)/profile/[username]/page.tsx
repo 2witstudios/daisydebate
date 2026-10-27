@@ -1,10 +1,20 @@
 import { parseUsername } from '@daisy/auth';
+import { systemId } from '@daisy/clock';
 import { matchHistoryQuerySchema } from '@daisy/protocol';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import type { SearchParams } from '../../../../features/access/decision';
 import { ProfilePage } from '../../../../ui/profile/profile-page/profile-page';
-import { requestMemberProfile } from '../../../../lib/request-session';
+import {
+  requestIdentity,
+  requestMemberProfile,
+} from '../../../../lib/request-session';
+import { ProfileFriendActions } from '../../../../ui/friends/profile-friend-actions';
+import { relationTo } from '../../../../ui/friends/friends';
+import { challengeAction, friendAction } from '../../friends/actions';
+import { readFriends } from '../../friends/read-friends';
+import { MessageUserButton } from '../../../../ui/messaging/message-user-button';
+import { createConversationAction } from '../../messages/new/actions';
 
 export const metadata: Metadata = { title: 'Profile' };
 
@@ -29,6 +39,37 @@ export default async function ProfileRoute({
   const profile = await requestMemberProfile(name.username, query.data);
   if (profile === null) notFound();
   return (
-    <ProfilePage profile={profile} paged={query.data.before !== undefined} />
+    <ProfilePage
+      profile={profile}
+      paged={query.data.before !== undefined}
+      actions={profile.me ? null : await friendActionsFor(profile.username)}
+    />
+  );
+}
+
+/**
+ * A member's Add friend or Challenge, and Message, toward someone else;
+ * nothing for a visitor. Message goes through the ordinary DM request, so a
+ * friendship never bypasses DM admission.
+ */
+async function friendActionsFor(username: string) {
+  if ((await requestIdentity()).state !== 'member') return null;
+  const list = await readFriends();
+  return (
+    <>
+      {list ? (
+        <ProfileFriendActions
+          username={username}
+          relation={relationTo(list, username)}
+          friendAction={friendAction}
+          challengeAction={challengeAction}
+        />
+      ) : null}
+      <MessageUserButton
+        username={username}
+        requestId={systemId.next()}
+        action={createConversationAction.bind(null, 'dm')}
+      />
+    </>
   );
 }

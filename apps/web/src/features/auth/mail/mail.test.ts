@@ -119,6 +119,24 @@ describe('Resend sender', () => {
     });
   });
 
+  test('sends under the caller-owned idempotency key when the message carries one', async () => {
+    const { sender, calls } = create([ok('msg_intent')]);
+    await sender.send({ ...message, idempotencyKey: 'intent-1' });
+    const body = JSON.parse(String(calls[0]?.init.body));
+    assert({
+      given: 'a durable mail intent resending under its own id',
+      should: 'use that id as the provider key and never put it in the body',
+      actual: {
+        key: new Headers(calls[0]?.init.headers).get('idempotency-key'),
+        bodyKeys: Object.keys(body).sort(),
+      },
+      expected: {
+        key: 'intent-1',
+        bodyKeys: ['from', 'html', 'subject', 'text', 'to'],
+      },
+    });
+  });
+
   test('retries at most once and then fails without provider detail', async () => {
     const { sender, calls } = create([
       new Response('{"message":"leak player@daisy.example.com"}', {

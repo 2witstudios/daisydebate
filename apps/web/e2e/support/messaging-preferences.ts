@@ -12,8 +12,16 @@ async function submit(page: Page, channelId: string, name: string) {
   await page.getByRole('button', { name, exact: true }).click();
   await committed;
 }
-/** Both native DM modes exercise the same current authorized state and explicit selections. */
-export async function manageNativePreferences(page: Page, channelId: string) {
+/**
+ * Both native DM modes exercise the same current authorized state and
+ * explicit selections. The reader has already viewed the conversation, which
+ * marks it read only when the browser runs JavaScript.
+ */
+export async function manageNativePreferences(
+  page: Page,
+  { channelId }: { readonly channelId: string },
+  javaScriptEnabled: boolean,
+) {
   await page.goto(`/messages/${channelId}/preferences`);
   await expect(
     page.getByRole('heading', { name: 'Conversation preferences' }),
@@ -31,7 +39,20 @@ export async function manageNativePreferences(page: Page, channelId: string) {
   const result = await saved.json();
   expect(result.state.following).toBe(false);
   expect(result.state.notificationLevel).toBe('none');
-  expect(result.unread).toBeGreaterThanOrEqual(1);
+  if (javaScriptEnabled)
+    await expect
+      .poll(
+        async () =>
+          (
+            await (
+              await page.request.get(
+                `/api/messaging/channels/${channelId}/preferences`,
+              )
+            ).json()
+          ).unread,
+      )
+      .toBe(0);
+  else expect(result.unread).toBeGreaterThanOrEqual(1);
   await submit(page, channelId, 'Clear saved preferences');
   await expect(page.getByLabel('Follow this conversation')).toHaveValue('');
   const cleared = await page.request.get(

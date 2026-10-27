@@ -4,6 +4,7 @@ import {
   clientMessageSchema,
   ENVELOPE_VERSION,
   serverMessageSchema,
+  type PresenceActivity,
   type ServerMessage,
 } from '@daisy/protocol';
 import type {
@@ -13,6 +14,7 @@ import type {
 } from './registry';
 import type { AdmissionReservation } from './admission';
 import { closeFor, evaluateFirstMessage } from './handlers/hello';
+import type { PresenceSession, PresenceTracker } from './presence';
 
 /** ADR 0031 §11.5: the first message must arrive within 5s or the socket closes 4001. */
 export const HELLO_TIMEOUT_MS = 5_000;
@@ -25,6 +27,7 @@ export type SocketData = {
   principal?: SocketPrincipal;
   connection?: RegistryConnection;
   helloTimer?: ReturnType<typeof setTimeout> | undefined;
+  presence?: PresenceSession | undefined;
 };
 export type SocketTimers = {
   readonly setTimeout: (
@@ -71,6 +74,7 @@ export function createWebSocketHandlers({
   authenticate,
   registry,
   validatePrincipal,
+  presence,
 }: {
   readonly logger: Logger;
   readonly timers?: SocketTimers;
@@ -81,17 +85,23 @@ export function createWebSocketHandlers({
   ) => Promise<SocketPrincipal | null>;
   readonly registry?: SubscriptionRegistry;
   readonly validatePrincipal?: (principal: SocketPrincipal) => Promise<boolean>;
+  readonly presence?: PresenceTracker;
 }) {
+  /** Closes the socket's phase and frees everything it owns, once or again. */
+  function release(ws: ServerWebSocket<SocketData>) {
+    ws.data.phase = 'closed';
+    clearHelloTimer(ws, timers);
+    if (ws.data.connection) registry?.remove(ws.data.connection);
+    ws.data.presence?.stop();
+    ws.data.admission?.release();
+  }
   function reject(
     ws: ServerWebSocket<SocketData>,
     reason: Parameters<typeof closeFor>[0],
     cause: 'hello_timeout' | 'message_rejected' = 'message_rejected',
   ) {
     if (ws.data.phase === 'closed') return;
-    ws.data.phase = 'closed';
-    clearHelloTimer(ws, timers);
-    if (ws.data.connection) registry?.remove(ws.data.connection);
-    ws.data.admission?.release();
+    release(ws);
     const outcome = closeFor(reason);
     logRejection(logger, cause, outcome.code, outcome.reason);
     ws.close(outcome.code, outcome.reason);
@@ -179,10 +189,34 @@ export function createWebSocketHandlers({
     if (!(await currentPrincipal(ws))) return;
     if (frame.type === 'ping')
       send(ws, { v: ENVELOPE_VERSION, type: 'pong', id: frame.id });
-    else if (frame.type === 'subscribe' && ws.data.connection)
+    else if (frame.type === 'presence.activity')
+      reportActivity(ws, frame.activity);
+    else await receiveSubscription(ws, frame);
+  }
+  /**
+   * Only a socket that reports activity holds a presence lease (ADR 0072):
+   * a room's or a conversation's socket is transport, not the member's
+   * activity, so it never keeps them online.
+   */
+  function reportActivity(
+    ws: ServerWebSocket<SocketData>,
+    activity: PresenceActivity,
+  ) {
+    if (ws.data.presence) ws.data.presence.activity(activity);
+    else if (ws.data.principal)
+      ws.data.presence = presence?.start(ws.data.principal.actorId, activity);
+  }
+  async function receiveSubscription(
+    ws: ServerWebSocket<SocketData>,
+    frame: Extract<
+      NonNullable<ReturnType<typeof parseFrame>>,
+      { type: 'subscribe' | 'unsubscribe' }
+    >,
+  ) {
+    if (!ws.data.connection) return;
+    if (frame.type === 'subscribe')
       await registry?.subscribe(ws.data.connection, frame);
-    else if (frame.type === 'unsubscribe' && ws.data.connection)
-      registry?.unsubscribe(ws.data.connection, frame);
+    else registry?.unsubscribe(ws.data.connection, frame);
   }
   function parseFrame(ws: ServerWebSocket<SocketData>, message: string) {
     let parsed: unknown;
@@ -233,11 +267,6 @@ export function createWebSocketHandlers({
       if (ws.data.phase !== 'authenticated') return receiveHello(ws, message);
       return receiveAuthenticated(ws, message);
     },
-    close(ws: ServerWebSocket<SocketData>) {
-      ws.data.phase = 'closed';
-      clearHelloTimer(ws, timers);
-      if (ws.data.connection) registry?.remove(ws.data.connection);
-      ws.data.admission?.release();
-    },
+    close: release,
   };
 }
