@@ -266,3 +266,26 @@ test('a timeout or a server refusal for now is transient; other refusals are def
     expected: [true, true, false, false],
   });
 });
+
+test('a missing checked device is reported distinctly from permission denial', async () => {
+  const controller = createMediaController({
+    roundId,
+    api: { admit: async () => admission, reconcile: async () => snapshot },
+    transport: () => ({
+      connect: async () => undefined,
+      apply: async () => {
+        throw new DOMException('private device detail', 'OverconstrainedError');
+      },
+      stopTracks: () => undefined,
+      disconnect: async () => undefined,
+    }),
+    changed: () => undefined,
+  });
+  await controller.join();
+  assert({
+    given: 'an exact selected device missing when Round capture starts',
+    should: 'report the missing device without raw browser details',
+    actual: controller.state(),
+    expected: 'device-missing',
+  });
+});

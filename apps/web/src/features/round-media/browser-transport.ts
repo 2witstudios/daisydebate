@@ -59,6 +59,10 @@ export function createBrowserMediaTransport(
     readonly tracks: (tracks: readonly MediaTrack[]) => void;
     readonly invalidated: () => void;
     readonly reconnect: () => void;
+    readonly devices?: {
+      readonly camera?: string;
+      readonly microphone?: string;
+    };
   },
   sdk: MediaSdk = livekit,
 ) {
@@ -141,6 +145,9 @@ export function createBrowserMediaTransport(
       events.reconnect();
     }
   });
+  const audioCapture = events.devices?.microphone
+    ? { deviceId: { exact: events.devices.microphone } }
+    : true;
   const captureSource = async (source: Source) => {
     if (source === 'microphone' && warm) {
       const held = warm;
@@ -148,10 +155,15 @@ export function createBrowserMediaTransport(
       return [held];
     }
     return sdk.capture({
-      audio: source === 'microphone',
+      audio: source === 'microphone' ? audioCapture : false,
       video:
         source === 'camera'
-          ? { resolution: VideoPresets.h360.resolution }
+          ? {
+              resolution: VideoPresets.h360.resolution,
+              ...(events.devices?.camera
+                ? { deviceId: { exact: events.devices.camera } }
+                : {}),
+            }
           : false,
     });
   };
@@ -171,8 +183,11 @@ export function createBrowserMediaTransport(
     if (desired.length === 0) return releaseWarm();
     if (holdsMicrophone()) return;
     const [track] = await sdk
-      .capture({ audio: true, video: false })
-      .catch(() => [] as LocalTrack[]);
+      .capture({ audio: audioCapture, video: false })
+      .catch((error: unknown) => {
+        if (events.devices?.microphone) throw error;
+        return [] as LocalTrack[];
+      });
     if (holdsMicrophone()) track?.stop();
     else warm = track ?? null;
   };
