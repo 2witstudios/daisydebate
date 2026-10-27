@@ -1,7 +1,9 @@
+import { requireTestServices } from '@daisy/config';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { withFixture } from './constraint-helpers';
 import { member, save, url, withDatabase } from './onboarding-support';
 
+requireTestServices(process.env);
 setupRitewayBun();
 
 describe('onboarding answers (ONB-1.4)', () => {

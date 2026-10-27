@@ -1,10 +1,12 @@
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { admitsOptionalAnswers } from '@daisy/auth/account-age';
+import { requireTestServices } from '@daisy/config';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { withFixture } from './constraint-helpers';
 import { member, now, save, url, withDatabase } from './onboarding-support';
 import { onboardingPrivacyAdopter } from '../src/onboarding-privacy';
 
+requireTestServices(process.env);
 setupRitewayBun();
 
 describe('optional onboarding answers and age (ISSUE-645)', () => {
