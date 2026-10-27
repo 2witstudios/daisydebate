@@ -106,7 +106,6 @@ test('the month boundary counts only reservations made in the current UTC month'
     const actorId = await admissionSponsor(fixture, [firstRound, earlier]);
     const [{ start }] =
       await fixture.sql`select date_trunc('month', clock_timestamp() at time zone 'UTC') at time zone 'UTC' as start`;
-    await fixture.sql`update rounds set status='completed', outcome='affirmative', completed_at=${start} where id=${earlier}`;
     await fixture.insert('usage_reservations', {
       id: createId(),
       actor_id: actorId,
