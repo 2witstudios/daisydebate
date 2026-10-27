@@ -2,18 +2,19 @@
 /**
  * `bun progress:sync [--apply]`: renders the drive's Project Status canvas
  * from the Score blocks on the Product intent area pages, plus a Now section
- * of the open PRs. A dry run reports drift and exits 1; --apply writes the
- * canvas through the board writer's content-hash check. Scores are edited on
+ * of the open PRs. A dry run exits 1 only when the scores drifted (a stale
+ * Now section is reported, not failed); --apply writes the canvas through the
+ * board writer's content-hash check and reads it back. Scores are edited on
  * the area pages, never on the canvas.
  *
- * A Score block is an `<h3>Score: <Area></h3>` followed by a table whose rows
- * are `Field | Value | Evidence`: Category, Subtitle, Features, Stable,
- * Hardened, Scale, Spec (0-100 or n/a), Status and an optional Tag.
+ * A Score block is an `<h3>Score: <Area></h3>` followed directly by a table
+ * whose rows are `Field | Value | Evidence`: Category, Subtitle, Features,
+ * Stable, Hardened, Scale, Spec (0-100 or n/a, at least one scored), Status
+ * and an optional Tag. A Score heading it cannot read throws rather than
+ * dropping the area.
  */
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { rmSync, writeFileSync } from 'node:fs';
-import { contentHash } from './board-model';
+import { escapeHtml as escape } from './board-model';
+import { liveBoardDeps, writePage } from './board';
 import { DAISY_DEBATE_DRIVE_ID } from './pagespace-docs';
 
 const PROJECT_STATUS_ID = 'qndsohpp7nihje7a2dw3a2kl';
@@ -68,24 +69,22 @@ const text = (html: string): string =>
     .replace(/\s+/g, ' ')
     .trim();
 
-const escape = (value: string): string =>
-  value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;');
-
 /** Every Score block on one area page; a malformed block throws. */
 export function parseScoreBlocks(
   html: string,
   page: { readonly id: string; readonly title: string },
 ): readonly Area[] {
-  const blocks = html.matchAll(
-    /<h3[^>]*>\s*Score:\s*([\s\S]*?)<\/h3>\s*<table[^>]*>([\s\S]*?)<\/table>/g,
-  );
-  return [...blocks].map(([, heading, table]) => {
-    const name = text(heading);
+  // Each h3 on its own, so a heading never runs into the next one.
+  const headings = [
+    ...html.matchAll(/<h3[^>]*>((?:(?!<\/h3>)[\s\S])*)<\/h3>/g),
+  ].filter(([, heading]) => text(heading).startsWith('Score:'));
+  return headings.map((match) => {
+    const name = text(match[1]).slice('Score:'.length).trim();
     const where = `${page.title} (${page.id}), Score: ${name}`;
+    const after = html.slice((match.index ?? 0) + match[0].length);
+    const table = /^\s*<table[^>]*>([\s\S]*?)<\/table>/.exec(after)?.[1];
+    if (table === undefined)
+      throw new Error(`${where}: the table must follow the heading directly`);
     const fields = new Map(
       [...table.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/g)]
         .map(([, row]) => [...row.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)])
@@ -104,6 +103,8 @@ export function parseScoreBlocks(
         );
       return Number(value);
     });
+    if (scores.every((score) => score === undefined))
+      throw new Error(`${where}: needs at least one scored dimension`);
     return {
       name,
       pageId: page.id,
@@ -125,6 +126,20 @@ const overall = (area: Area): number =>
 const bar = (value: number): string => {
   const band = value < 40 ? 'lo' : value < 66 ? 'mid' : 'hi';
   return `<div class="bar ${band}"><i style="width:${value}%"></i><span>${value}%</span></div>`;
+};
+
+const NOW_START = '<!-- now:start -->';
+const NOW_END = '<!-- now:end -->';
+
+/** The canvas without its Now section or trailing whitespace: what the scores decide. */
+const scoresOnly = (canvas: string): string => {
+  const start = canvas.indexOf(NOW_START);
+  const end = canvas.indexOf(NOW_END);
+  const cut =
+    start >= 0 && end > start
+      ? canvas.slice(0, start) + canvas.slice(end + NOW_END.length)
+      : canvas;
+  return cut.trimEnd();
 };
 
 const NA = '<span style="color:var(--muted);font-size:12px">n/a</span>';
@@ -216,9 +231,11 @@ ${STYLE}
 
 <div class="overall big"><table><tr><td class="name">Whole product<small>average of ${areas.length} areas</small></td><td>${bar(whole)}</td><td class="note">Furthest from 100%: ${escape(lowest.join(', '))}.</td></tr></table></div>
 
+${NOW_START}
 <div class="cat"><h2>Now</h2>
 ${now}
 </div>
+${NOW_END}
 
 ${categories.join('\n\n')}
 </div>
@@ -243,17 +260,26 @@ export function runProgressSync(deps: ProgressDeps, apply: boolean): number {
   const areas = deps
     .areaPages()
     .flatMap((page) => parseScoreBlocks(page.content, page));
+  if (areas.length === 0) {
+    deps.out(
+      'No Score blocks found on the Product intent pages; Project Status left unchanged\n',
+    );
+    return 1;
+  }
   const desired = renderStatus(areas, deps.openPrs());
   const current = deps.canvas();
-  if (current === desired) {
+  if (current.trimEnd() === desired.trimEnd()) {
     deps.out(`Project Status in sync with ${areas.length} areas\n`);
     return 0;
   }
+  const scoresDrifted = scoresOnly(current) !== scoresOnly(desired);
   if (!apply) {
     deps.out(
-      `Project Status drifted from ${areas.length} areas; run bun progress:sync --apply\n`,
+      scoresDrifted
+        ? `Project Status drifted from ${areas.length} areas; run bun progress:sync --apply\n`
+        : `Project Status scores in sync with ${areas.length} areas; the Now section is out of date (run --apply to refresh it)\n`,
     );
-    return 1;
+    return scoresDrifted ? 1 : 0;
   }
   deps.write(current, desired);
   deps.out(`Project Status updated from ${areas.length} areas\n`);
@@ -264,6 +290,7 @@ if (import.meta.main) {
   const args = process.argv.slice(2);
   if (args.some((arg) => arg !== '--apply'))
     throw new Error('usage: bun progress:sync [--apply]');
+  const board = liveBoardDeps();
   const run = (command: string[]): string => {
     const result = Bun.spawnSync(command, {
       stdout: 'pipe',
@@ -308,37 +335,16 @@ if (import.meta.main) {
             '--state',
             'open',
             '--limit',
-            '100',
+            '1000',
             '--json',
             'number,title,isDraft',
           ]),
         ) as OpenPr[],
       canvas: () => read(PROJECT_STATUS_ID),
       write: (before, after) => {
-        const file = join(tmpdir(), `progress-sync-${process.pid}.html`);
-        writeFileSync(file, after);
-        try {
-          const lines = String(before.split('\n').length);
-          run([
-            'bun',
-            join(import.meta.dir, 'board.ts'),
-            'replace',
-            PROJECT_STATUS_ID,
-            '--start',
-            '1',
-            '--end',
-            lines,
-            '--expect-lines',
-            lines,
-            '--expect-hash',
-            contentHash(before),
-            '--file',
-            file,
-          ]);
-        } finally {
-          rmSync(file, { force: true });
-        }
-        if (read(PROJECT_STATUS_ID) !== after)
+        // The board writer checks the content hash and refuses with a reason.
+        writePage(board, PROJECT_STATUS_ID, before, after);
+        if (read(PROJECT_STATUS_ID).trimEnd() !== after.trimEnd())
           throw new Error('Project Status readback differs from the render');
       },
       out: (text) => process.stdout.write(text),

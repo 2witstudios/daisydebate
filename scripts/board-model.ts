@@ -310,11 +310,31 @@ export function bucketPageIds(
     .map((t) => t.pageId);
 }
 
+/** The Issues bucket a name refers to (case-insensitive), or why there is none. */
+export function findBucket(
+  issuesRoot: readonly { readonly title: string; readonly pageId: string }[],
+  name: string,
+): { readonly pageId: string } | { readonly error: string } {
+  const buckets = new Set(bucketPageIds(issuesRoot, 'ISSUE'));
+  const named = issuesRoot.filter((task) => buckets.has(task.pageId));
+  const found = named.find(
+    (task) => task.title.toLowerCase() === name.toLowerCase(),
+  );
+  return found
+    ? { pageId: found.pageId }
+    : {
+        error: `No Issues bucket named "${name}"; buckets: ${named.map((task) => task.title).join(', ')}`,
+      };
+}
+
 /** Issues filed directly under the Issues list instead of in a bucket. */
 export function strayIssues<T extends { readonly title?: string }>(
   tasks: readonly T[],
-): readonly T[] {
-  return tasks.filter(({ title }) => /^ISSUE-\d+\b/.test(title ?? ''));
+): readonly (T & { readonly code: string })[] {
+  return tasks.flatMap((task) => {
+    const code = /^ISSUE-\d+\b/.exec(task.title ?? '')?.[0];
+    return code ? [{ ...task, code }] : [];
+  });
 }
 
 /** One more than the highest `<PREFIX>-n` title; 1 for an empty list. */
@@ -330,7 +350,7 @@ export function nextCodeNumber(
   return Math.max(0, ...numbers) + 1;
 }
 
-const escapeHtml = (text: string): string =>
+export const escapeHtml = (text: string): string =>
   text
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')

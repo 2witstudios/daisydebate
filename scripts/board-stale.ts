@@ -92,7 +92,7 @@ function reportStrays(deps: StaleDeps, lists: ReadonlyMap<string, TaskList>) {
   const strays = strayIssues(lists.get(ISSUES_LIST_ID)?.tasks ?? []);
   for (const issue of strays)
     deps.out(
-      `ERROR ${taskCode(issue.title)} sits directly under Issues; file it into a bucket  (${issue.pageId})\n`,
+      `ERROR ${issue.code} sits directly under Issues; file it into a bucket  (${issue.pageId})\n`,
     );
   return strays.length > 0 ? 1 : 0;
 }

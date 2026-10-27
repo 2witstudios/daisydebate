@@ -42,13 +42,22 @@ describe('strayIssues', () => {
     assert({
       given:
         'the Issues list holding buckets, one stray issue and a stray decision-like title',
-      should: 'return only the ISSUE-n pages',
+      should:
+        'return only the ISSUE-n pages with their codes, however they are titled',
       actual: strayIssues([
         { title: 'Bugs', pageId: 'b' },
         { title: 'ISSUE-12 — Given a, should b', pageId: 'i12' },
         { title: 'Backlog', pageId: 'k' },
+        { title: 'ISSUE-7: filed by hand', pageId: 'i7' },
       ]),
-      expected: [{ title: 'ISSUE-12 — Given a, should b', pageId: 'i12' }],
+      expected: [
+        {
+          title: 'ISSUE-12 — Given a, should b',
+          pageId: 'i12',
+          code: 'ISSUE-12',
+        },
+        { title: 'ISSUE-7: filed by hand', pageId: 'i7', code: 'ISSUE-7' },
+      ],
     });
   });
 });

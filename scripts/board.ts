@@ -9,12 +9,13 @@ import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
+  ISSUES_LIST_ID,
   appendRelated,
   bucketPageIds,
   checkReplace,
   contentHash,
+  findBucket,
   findTask,
-  ISSUES_LIST_ID,
   leafBody,
   nextCodeNumber,
   parseBoardArgs,
@@ -68,7 +69,8 @@ function assertUnchanged(deps: BoardDeps, pageId: string, read: string) {
 }
 
 /** Replaces the whole page, refusing if it changed since it was read. */
-function writePage(
+/** Replaces a whole page after checking nobody changed it since `before` was read. */
+export function writePage(
   deps: BoardDeps,
   pageId: string,
   before: string,
@@ -137,25 +139,20 @@ function create(
       'list',
       listId,
     ]).tasks;
-  // Issue numbers are global across the Issues buckets, wherever this lands.
-  const numbered = (): { title: string }[] => {
-    if (command.prefix !== 'ISSUE') return listTitles(listId);
-    const root = listTitles(ISSUES_LIST_ID);
-    return [...root, ...bucketPageIds(root, 'ISSUE').flatMap(listTitles)];
-  };
-  const listId = (() => {
-    if ('listId' in command.into) return command.into.listId;
-    const root = listTitles(ISSUES_LIST_ID);
-    const buckets = new Set(bucketPageIds(root, 'ISSUE'));
-    const named = root.filter((task) => buckets.has(task.pageId));
-    const wanted = command.into.bucket.toLowerCase();
-    const found = named.find((task) => task.title.toLowerCase() === wanted);
-    if (!found)
-      throw new BoardError(
-        `No Issues bucket named "${command.into.bucket}"; buckets: ${named.map((task) => task.title).join(', ')}`,
-      );
-    return found.pageId;
-  })();
+  // One read of Issues serves both the bucket and the global issue numbers.
+  const root = command.prefix === 'ISSUE' ? listTitles(ISSUES_LIST_ID) : [];
+  const bucket =
+    'bucket' in command.into
+      ? findBucket(root, command.into.bucket)
+      : undefined;
+  if (bucket && 'error' in bucket) throw new BoardError(bucket.error);
+  const listId =
+    'listId' in command.into ? command.into.listId : bucket?.pageId;
+  if (!listId) throw new BoardError('create needs a task list');
+  const numbered = (): { title: string }[] =>
+    command.prefix === 'ISSUE'
+      ? [...root, ...bucketPageIds(root, 'ISSUE').flatMap(listTitles)]
+      : listTitles(listId);
   const titles = command.prefix ? numbered().map((task) => task.title) : [];
   const title = command.prefix
     ? `${command.prefix}-${nextCodeNumber(titles, command.prefix)} — ${command.title}`
@@ -237,28 +234,28 @@ export function runBoard(deps: BoardDeps, argv: readonly string[]): number {
   }
 }
 
-if (import.meta.main) {
+/** The pagespace CLI, the filesystem and stdout, for the board commands and their callers. */
+export function liveBoardDeps(): BoardDeps {
   const branch =
     Bun.spawnSync(['git', 'rev-parse', '--abbrev-ref', 'HEAD'])
       .stdout.toString()
       .trim()
       .replaceAll('/', '-') || 'detached';
-  process.exitCode = runBoard(
-    {
-      pagespace: (args) => {
-        const result = Bun.spawnSync(['pagespace', ...args], {
-          stdout: 'pipe',
-          stderr: 'inherit',
-        });
-        return { code: result.exitCode, stdout: result.stdout.toString() };
-      },
-      readFile: (path) => readFileSync(path, 'utf8'),
-      // A registered agent is an agent, as in the guard.
-      autonomous: sessionIsAgent(process.env),
-      scratch: (name) =>
-        join(tmpdir(), `board-${branch}-${process.pid}-${name}`),
-      out: (text) => process.stdout.write(text),
+  return {
+    pagespace: (args) => {
+      const result = Bun.spawnSync(['pagespace', ...args], {
+        stdout: 'pipe',
+        stderr: 'inherit',
+      });
+      return { code: result.exitCode, stdout: result.stdout.toString() };
     },
-    process.argv.slice(2),
-  );
+    readFile: (path) => readFileSync(path, 'utf8'),
+    // A registered agent is an agent, as in the guard.
+    autonomous: sessionIsAgent(process.env),
+    scratch: (name) => join(tmpdir(), `board-${branch}-${process.pid}-${name}`),
+    out: (text) => process.stdout.write(text),
+  };
 }
+
+if (import.meta.main)
+  process.exitCode = runBoard(liveBoardDeps(), process.argv.slice(2));

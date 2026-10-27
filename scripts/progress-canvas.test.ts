@@ -3,6 +3,7 @@ import {
   parseScoreBlocks,
   renderStatus,
   runProgressSync,
+  type OpenPr,
   type ProgressDeps,
 } from './progress-canvas';
 
@@ -30,6 +31,16 @@ const rounds = {
   Scale: '45',
   Spec: '80',
   Status: 'Bot rounds proven on staging.',
+};
+
+/** The message parseScoreBlocks throws for this page, or 'no error'. */
+const message = (html: string) => {
+  try {
+    parseScoreBlocks(html, { id: 'p1', title: 'Rooms and play' });
+    return 'no error';
+  } catch (error) {
+    return (error as Error).message;
+  }
 };
 
 describe('parseScoreBlocks', () => {
@@ -66,15 +77,6 @@ ${block('Privacy policy &amp; terms', { ...rounds, Category: 'Business &amp; leg
   });
 
   test('refuses a malformed block, naming the page and area', () => {
-    const page = { id: 'p1', title: 'Rooms and play' };
-    const message = (html: string) => {
-      try {
-        parseScoreBlocks(html, page);
-        return 'no error';
-      } catch (error) {
-        return (error as Error).message;
-      }
-    };
     assert({
       given: 'a score above 100, a missing dimension and an unknown category',
       should: 'throw a message naming the page, the area and the problem',
@@ -88,6 +90,49 @@ ${block('Privacy policy &amp; terms', { ...rounds, Category: 'Business &amp; leg
         'Rooms and play (p1), Score: Rounds: Scale must be 0-100 or n/a, not ""',
         'Rooms and play (p1), Score: Rounds: unknown Category "Misc"',
       ],
+    });
+  });
+
+  test('refuses a Score heading it cannot read, instead of dropping the area', () => {
+    const note = block('Rounds', rounds).replace('</h3>', '</h3><p>note</p>');
+    assert({
+      given:
+        'a note between a Score heading and its table, a Score heading with no table, and five n/a dimensions',
+      should: 'throw for each, naming the page and area',
+      actual: [
+        message(note),
+        message('<h3>Score: Rounds</h3><h3>Notes</h3><table></table>'),
+        message(
+          block('Rounds', {
+            ...rounds,
+            Features: 'n/a',
+            Stable: 'n/a',
+            Hardened: 'n/a',
+            Scale: 'n/a',
+            Spec: 'n/a',
+          }),
+        ),
+      ],
+      expected: [
+        'Rooms and play (p1), Score: Rounds: the table must follow the heading directly',
+        'Rooms and play (p1), Score: Rounds: the table must follow the heading directly',
+        'Rooms and play (p1), Score: Rounds: needs at least one scored dimension',
+      ],
+    });
+  });
+
+  test('reads a Score heading whose text an editor wrapped in markup', () => {
+    const wrapped = block('Rounds', rounds).replace(
+      '<h3>Score: Rounds</h3>',
+      '<h3><strong>Score: Rounds</strong></h3>',
+    );
+    assert({
+      given: 'a bold Score heading',
+      should: 'read the area name',
+      actual: parseScoreBlocks(wrapped, { id: 'p1', title: 'x' }).map(
+        (area) => area.name,
+      ),
+      expected: ['Rounds'],
     });
   });
 
@@ -178,14 +223,20 @@ describe('renderStatus', () => {
 
 const CANVAS = 'qndsohpp7nihje7a2dw3a2kl';
 
-function fakes(current: string) {
+const PAGES = [
+  { id: 'p1', title: 'Rooms and play', content: block('Rounds', rounds) },
+];
+
+function fakes(
+  current: string,
+  pages: typeof PAGES = PAGES,
+  prs: OpenPr[] = [],
+) {
   const writes: string[][] = [];
   const output: string[] = [];
   const deps: ProgressDeps = {
-    areaPages: () => [
-      { id: 'p1', title: 'Rooms and play', content: block('Rounds', rounds) },
-    ],
-    openPrs: () => [],
+    areaPages: () => pages,
+    openPrs: () => prs,
     canvas: () => current,
     write: (before, after) => void writes.push([before, after]),
     out: (text) => void output.push(text),
@@ -222,6 +273,53 @@ describe('runProgressSync', () => {
         applied.writes,
       ],
       expected: [1, 0, 0, [['<p>old</p>', rendered]]],
+    });
+  });
+
+  test('refuses to write when no area parses', () => {
+    const { deps, writes, output } = fakes('<p>old</p>', []);
+    assert({
+      given: 'area pages without any Score block',
+      should: 'exit 1 and never replace the canvas with an empty one',
+      actual: [runProgressSync(deps, true), writes.length, output.join('')],
+      expected: [
+        1,
+        0,
+        'No Score blocks found on the Product intent pages; Project Status left unchanged\n',
+      ],
+    });
+  });
+
+  test('gates only on scores: a changed PR list is reported, not a failure', () => {
+    const pr = { number: 7, title: 'feat: x', isDraft: true };
+    const dry = fakes(rendered, PAGES, [pr]);
+    const applied = fakes(rendered, PAGES, [pr]);
+    assert({
+      given: 'scores in sync and one new open PR',
+      should:
+        'exit 0 on a dry run naming the Now drift, and refresh it on --apply',
+      actual: [
+        runProgressSync(dry.deps, false),
+        dry.output.join(''),
+        runProgressSync(applied.deps, true),
+        applied.writes.length,
+      ],
+      expected: [
+        0,
+        'Project Status scores in sync with 1 areas; the Now section is out of date (run --apply to refresh it)\n',
+        0,
+        1,
+      ],
+    });
+  });
+
+  test('ignores trailing whitespace the page store may trim', () => {
+    const { deps, writes } = fakes(rendered.trimEnd());
+    assert({
+      given: 'a canvas equal to the render except its final newline',
+      should: 'report in sync and not write',
+      actual: [runProgressSync(deps, true), writes.length],
+      expected: [0, 0],
     });
   });
 });
