@@ -5,7 +5,7 @@ import {
 } from '@daisy/auth/operator-signature';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { createOperatorClient, type OperatorFetch } from './client';
-import { nodeOperatorCrypto } from './node-crypto';
+import { bunOperatorCrypto } from './bun-crypto';
 
 setupRitewayBun();
 
@@ -37,7 +37,7 @@ const clientWith = (answer: (captured: Captured) => Promise<Response>) => {
   };
   const client = createOperatorClient({
     config,
-    crypto: nodeOperatorCrypto,
+    crypto: bunOperatorCrypto,
     clock: fixedClock(now),
     random: countingRandom(),
     fetch,
@@ -92,7 +92,7 @@ describe('the signing operator client', () => {
         body,
       },
       key,
-      nodeOperatorCrypto,
+      bunOperatorCrypto,
     );
     const headers = headersOf(request?.init ?? {});
     assert({
@@ -140,7 +140,7 @@ describe('the signing operator client', () => {
         body: new Uint8Array(),
         keys: new Map([[config.keyId, key]]),
         nowMs: Date.parse(now),
-        crypto: nodeOperatorCrypto,
+        crypto: bunOperatorCrypto,
       }),
       expected: {
         ok: true,

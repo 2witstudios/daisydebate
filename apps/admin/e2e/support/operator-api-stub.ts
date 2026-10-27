@@ -1,5 +1,8 @@
 import { decideBetaAccessChange } from '@daisy/auth';
-import { verifyOperatorRequest } from '@daisy/auth/operator-signature';
+import {
+  verifyOperatorRequest,
+  type OperatorCrypto,
+} from '@daisy/auth/operator-signature';
 import type { BetaAccessCommandResult, BetaAccessState } from '@daisy/protocol';
 import {
   betaAccessCommandSchema,
@@ -7,7 +10,7 @@ import {
   operatorAccountsQuerySchema,
   type OperatorAccountsPage,
 } from '@daisy/protocol/operator';
-import { nodeOperatorCrypto } from '../../src/features/operator-client/node-crypto';
+import { createHash, createHmac } from 'node:crypto';
 
 /**
  * A stand-in for the participant app's operator API (ADR 0079) that the
@@ -25,7 +28,7 @@ export type StubAccount = {
   decidedAt: string | null;
 };
 
-export type StubRequest = {
+type StubRequest = {
   readonly route: string;
   readonly nonce: string;
   readonly operatorRef: string;
@@ -43,7 +46,56 @@ const json = (status: number, body: unknown) =>
 const refusal = (status: number, code: string) =>
   json(status, { error: { code } });
 
-export class LostResponse extends Error {}
+class LostResponse extends Error {}
+
+/** node:crypto, as the participant app verifies, so a mismatch shows. */
+const participantCrypto: OperatorCrypto = {
+  hmacSha256: (key, text) =>
+    createHmac('sha256', key).update(text, 'utf8').digest('base64url'),
+  sha256Hex: (bytes) => createHash('sha256').update(bytes).digest('hex'),
+  sha3Hex: (text) => createHash('sha3-256').update(text, 'utf8').digest('hex'),
+};
+
+const parsedBody = (bytes: Uint8Array): unknown =>
+  bytes.byteLength === 0 ? null : JSON.parse(new TextDecoder().decode(bytes));
+
+type Command = {
+  readonly state: 'approved' | 'revoked';
+  readonly expectedRevision: number;
+};
+type Decision = ReturnType<typeof decideBetaAccessChange>;
+
+/** The shared transition over the stub's account (age is not this suite's subject). */
+const decide = (account: StubAccount | undefined, command: Command) =>
+  decideBetaAccessChange({
+    current: account
+      ? { state: account.accessState, revision: account.accessRevision }
+      : null,
+    desired: command.state,
+    expectedRevision: command.expectedRevision,
+    ageAdmitted: true,
+  });
+
+/** Not found when the account is missing; every other refusal is a conflict. */
+const refusalOf = (decision: Decision) =>
+  decision.kind === 'refused' && decision.reason !== 'not-found'
+    ? refusal(409, 'CONFLICT')
+    : refusal(404, 'NOT_FOUND');
+
+const resultOf = (
+  commandId: string,
+  account: StubAccount,
+  decision: Exclude<Decision, { kind: 'refused' }>,
+): BetaAccessCommandResult => ({
+  commandId,
+  outcome: decision.kind,
+  accessState: account.accessState,
+  accessRevision: account.accessRevision,
+  mail:
+    decision.kind === 'changed' && decision.to === 'approved'
+      ? 'queued'
+      : 'none',
+});
 
 export function createOperatorApiStub(input: {
   readonly audience: string;
@@ -76,40 +128,21 @@ export function createOperatorApiStub(input: {
     const stored = receipts.get(command.data.commandId);
     if (stored) return json(200, stored);
     const account = accounts.get(userId);
-    const decision = decideBetaAccessChange({
-      current: account
-        ? { state: account.accessState, revision: account.accessRevision }
-        : null,
-      desired: command.data.state,
-      expectedRevision: command.data.expectedRevision,
-      ageAdmitted: true,
-    });
-    if (decision.kind === 'refused' || !account)
-      return decision.kind === 'refused' && decision.reason === 'not-found'
-        ? refusal(404, 'NOT_FOUND')
-        : refusal(409, 'CONFLICT');
-    const changed = decision.kind === 'changed';
-    if (changed) {
-      account.accessState = decision.to;
-      account.accessRevision = decision.revision;
-      account.decidedAt = new Date(input.nowMs()).toISOString();
-    }
-    const result: BetaAccessCommandResult = {
-      commandId: command.data.commandId,
-      outcome: decision.kind,
-      accessState: account.accessState,
-      accessRevision: account.accessRevision,
-      mail: changed && decision.to === 'approved' ? 'queued' : 'none',
-    };
+    const decision = decide(account, command.data);
+    if (decision.kind === 'refused' || !account) return refusalOf(decision);
+    if (decision.kind === 'changed')
+      Object.assign(account, {
+        accessState: decision.to,
+        accessRevision: decision.revision,
+        decidedAt: new Date(input.nowMs()).toISOString(),
+      });
+    const result = resultOf(command.data.commandId, account, decision);
     receipts.set(command.data.commandId, result);
     return json(200, result);
   }
 
-  async function handle(request: Request): Promise<Response> {
-    const url = new URL(request.url);
-    const route = matchOperatorRoute(request.method, url.pathname);
-    if (!route) return refusal(404, 'NOT_FOUND');
-    const bytes = new Uint8Array(await request.arrayBuffer());
+  /** The real verifier, then a one-time nonce; null refuses as AUTHENTICATION. */
+  function authenticate(request: Request, url: URL, bytes: Uint8Array) {
     const verified = verifyOperatorRequest({
       audience: input.audience,
       method: request.method,
@@ -119,36 +152,48 @@ export function createOperatorApiStub(input: {
       body: bytes,
       keys: new Map([[input.keyId, input.key]]),
       nowMs: input.nowMs(),
-      crypto: nodeOperatorCrypto,
+      crypto: participantCrypto,
     });
-    if (!verified.ok || nonces.has(verified.nonce))
-      return refusal(401, 'AUTHENTICATION');
+    if (!verified.ok || nonces.has(verified.nonce)) return null;
     nonces.add(verified.nonce);
-    const body =
-      bytes.byteLength === 0
-        ? null
-        : JSON.parse(new TextDecoder().decode(bytes));
+    return verified;
+  }
+
+  function readBack(commandId: string): Response {
+    const stored = receipts.get(commandId);
+    return stored
+      ? json(200, {
+          result: stored,
+          mailState: stored.mail === 'queued' ? 'queued' : null,
+        })
+      : refusal(404, 'NOT_FOUND');
+  }
+
+  function command(userId: string, body: unknown): Response {
+    const fault = faults.shift();
+    if (fault === 'lose-before-apply') throw new LostResponse('lost');
+    const response = apply(userId, body);
+    if (fault === 'lose-after-apply') throw new LostResponse('lost');
+    return response;
+  }
+
+  async function handle(request: Request): Promise<Response> {
+    const url = new URL(request.url);
+    const route = matchOperatorRoute(request.method, url.pathname);
+    if (!route) return refusal(404, 'NOT_FOUND');
+    const bytes = new Uint8Array(await request.arrayBuffer());
+    const verified = authenticate(request, url, bytes);
+    if (!verified) return refusal(401, 'AUTHENTICATION');
+    const body = parsedBody(bytes);
     received.push({
       route: route.route,
       nonce: verified.nonce,
       operatorRef: verified.operatorRef,
       body,
     });
+    const id = route.id ?? '';
     if (route.route === 'listAccounts') return json(200, list(url));
-    if (route.route === 'readCommand') {
-      const stored = receipts.get(route.id ?? '');
-      return stored
-        ? json(200, {
-            result: stored,
-            mailState: stored.mail === 'queued' ? 'queued' : null,
-          })
-        : refusal(404, 'NOT_FOUND');
-    }
-    const fault = faults.shift();
-    if (fault === 'lose-before-apply') throw new LostResponse('lost');
-    const response = apply(route.id ?? '', body);
-    if (fault === 'lose-after-apply') throw new LostResponse('lost');
-    return response;
+    return route.route === 'readCommand' ? readBack(id) : command(id, body);
   }
 
   return {
@@ -159,4 +204,3 @@ export function createOperatorApiStub(input: {
     lose: (fault: StubFault) => faults.push(fault),
   };
 }
-export type OperatorApiStub = ReturnType<typeof createOperatorApiStub>;

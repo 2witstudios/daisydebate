@@ -39,7 +39,7 @@ const definiteRefusals = {
   CONFLICT: 409,
   PAYLOAD_TOO_LARGE: 413,
 } as const;
-export type OperatorRefusal = keyof typeof definiteRefusals;
+type OperatorRefusal = keyof typeof definiteRefusals;
 
 export type OperatorCall<T> =
   | { readonly kind: 'ok'; readonly value: T }
@@ -47,7 +47,7 @@ export type OperatorCall<T> =
   | { readonly kind: 'unknown' };
 
 /** What the command route returns: the stored result and the mail's state. */
-export const operatorCommandReadSchema = z.strictObject({
+const operatorCommandReadSchema = z.strictObject({
   result: betaAccessCommandResultSchema,
   mailState: z
     .enum(['queued', 'leased', 'sent', 'failed', 'cancelled'])
@@ -63,7 +63,7 @@ const NONCE_BYTES = 16;
 const unknown = { kind: 'unknown' } as const;
 
 /** The closed outcome of one response; pure over its status and body. */
-export function callOutcome<T>(
+function callOutcome<T>(
   status: number,
   body: unknown,
   schema: z.ZodType<T>,

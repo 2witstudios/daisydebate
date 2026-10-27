@@ -97,7 +97,8 @@ test('readOperatorClientConfig', () => {
       return (error as Error).message;
     }
   };
-  const { OPERATOR_API_KEY: _key, ...withoutKey } = operator;
+  const withoutKey: Record<string, string> = { ...operator };
+  delete withoutKey.OPERATOR_API_KEY;
   assert({
     given: 'none, all four, three of four, and a key shorter than 32 bytes',
     should:

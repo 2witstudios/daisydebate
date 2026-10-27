@@ -5,6 +5,7 @@ import {
   createOperatorApiStub,
   type StubAccount,
 } from '../e2e/support/operator-api-stub';
+import { acknowledgedAnchors } from '../src/audit/store';
 import { systemRandom } from '../src/auth/secrets';
 import {
   reconcileOpenCommands,
@@ -12,7 +13,7 @@ import {
   type CommandDeps,
 } from '../src/features/accounts/commands';
 import { createOperatorClient } from '../src/features/operator-client/client';
-import { nodeOperatorCrypto } from '../src/features/operator-client/node-crypto';
+import { bunOperatorCrypto } from '../src/features/operator-client/bun-crypto';
 import { auditEvents, operators, pendingCommands } from '../src/db/schema';
 import { suiteDatabase, testDeps } from './admin.test-support';
 
@@ -47,7 +48,7 @@ async function setup(
   });
   const client = createOperatorClient({
     config: { baseUrl: 'http://operator.test', keyId, key, audience },
-    crypto: nodeOperatorCrypto,
+    crypto: bunOperatorCrypto,
     clock: base.clock,
     random: systemRandom,
     fetch: async (url, init) => {
@@ -111,12 +112,19 @@ test('the intent is durable before the command is sent', async () => {
     given: 'an approval',
     should:
       'send only after the pending command and its intent exist, anchored to the head after the intent',
-    actual: [seen, view, await kinds(), await openCount()],
+    actual: [
+      seen,
+      view,
+      await kinds(),
+      await openCount(),
+      await acknowledgedAnchors(db),
+    ],
     expected: [
       [{ anchored: true, sameId: true, open: true }],
       { notice: 'changed', mail: 'queued' },
       ['command.intent::approved', 'command.outcome:changed:mail_queued'],
       0,
+      1,
     ],
   });
 });
@@ -125,7 +133,11 @@ test('a response lost after the change applied', async () => {
   const { deps, stub, operatorId, approve } = await setup();
   stub.lose('lose-after-apply');
   const view = await approve();
-  const afterLoss = [await kinds(), await openCount()];
+  const afterLoss = [
+    await kinds(),
+    await openCount(),
+    await acknowledgedAnchors(db),
+  ];
   const reconciled = await reconcileOpenCommands(deps, operatorId);
   assert({
     given: 'an approval whose response never arrived, then a reconciliation',
@@ -139,10 +151,11 @@ test('a response lost after the change applied', async () => {
       await openCount(),
       stub.received.map(({ route }) => route),
       stub.accounts.get(userId)?.accessState,
+      await acknowledgedAnchors(db),
     ],
     expected: [
       { notice: 'unknown', mail: null },
-      [['command.intent::approved', 'command.outcome:unknown:'], 1],
+      [['command.intent::approved', 'command.outcome:unknown:'], 1, 0],
       { settled: 1, open: 0 },
       [
         'command.intent::approved',
@@ -152,6 +165,7 @@ test('a response lost after the change applied', async () => {
       0,
       ['setBetaAccess', 'readCommand'],
       'approved',
+      1,
     ],
   });
 });
@@ -208,11 +222,13 @@ test('a stale form', async () => {
       stub.accounts.get(userId)?.accessState,
       await kinds(),
       await openCount(),
+      await acknowledgedAnchors(db),
     ],
     expected: [
       { notice: 'conflict', mail: null },
       'pending',
       ['command.intent::approved', 'command.outcome:rejected:CONFLICT:'],
+      0,
       0,
     ],
   });
