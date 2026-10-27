@@ -67,10 +67,32 @@ async function isFriend(friends: FetchLike, username: string) {
 }
 
 /**
+ * Delivers the challenge to the friend (ADR 0072): their /friends page then
+ * offers the room. Best effort: the room exists either way, and its invite
+ * link still reaches them. A refused delivery is not silent to operators:
+ * the challenges route logs its status like every route.
+ */
+async function deliverChallenge(
+  challenges: FetchLike,
+  username: string,
+  roomId: string,
+) {
+  try {
+    await challenges('/api/friends/challenges', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ version: 1, username, roomId }),
+    });
+  } catch {
+    // The room page's invite link is the fallback.
+  }
+}
+
+/**
  * Challenge an accepted friend (ADR 0072): confirm the friendship through
  * the friend list route, take the catalog's default template, and create
- * the room through the one room-create route, every call carrying the
- * caller's own request. A member who is not a friend gets the same answer
+ * the room through the one room-create route, then deliver the challenge to
+ * the friend, every call carrying the caller's own request. A member who is not a friend gets the same answer
  * as an outage.
  */
 export async function challengeFriend({
@@ -83,8 +105,15 @@ export async function challengeFriend({
   readonly viewer: string;
   readonly form: FormData;
   readonly commandId: string;
-  readonly routes: { readonly friends: FetchLike; readonly catalog: FetchLike };
-  readonly create: (form: FormData) => Promise<MockFormState>;
+  readonly routes: {
+    readonly friends: FetchLike;
+    readonly catalog: FetchLike;
+    readonly challenges: FetchLike;
+  };
+  readonly create: (
+    form: FormData,
+    beforeMoveOn: (roomId: string) => Promise<void>,
+  ) => Promise<MockFormState>;
 }): Promise<ChallengeAnswer> {
   const friend = parseUsername(form.get('username'));
   if (!friend.ok || !(await isFriend(routes.friends, friend.username)))
@@ -94,6 +123,7 @@ export async function challengeFriend({
   if (!template) return challengeUnavailable;
   const created = await create(
     challengeRoomForm({ viewer, friend: friend.username, template, commandId }),
+    (roomId) => deliverChallenge(routes.challenges, friend.username, roomId),
   );
   return created.next === undefined
     ? {

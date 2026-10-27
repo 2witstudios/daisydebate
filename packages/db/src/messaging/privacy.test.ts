@@ -49,6 +49,14 @@ test('subject export removes other-direction private state and serializes dates/
         accepted_at: date,
       },
     ],
+    [
+      {
+        room_id: 'r'.repeat(24),
+        challenger_actor_id: peerId,
+        challenged_actor_id: actorId,
+        created_at: date,
+      },
+    ],
     [{ actor_id: actorId, hidden: true, updated_at: date }],
     [],
     [{ actor_id: peerId, subject_actor_id: actorId }],
@@ -91,6 +99,7 @@ test('subject export removes other-direction private state and serializes dates/
       result.messaging_dm_pairs,
       result.messaging_friendships,
       result.messaging_presence_settings,
+      result.messaging_friend_challenges,
       result.messaging_group_invitations,
       result.messaging_files,
     ],
@@ -126,6 +135,14 @@ test('subject export removes other-direction private state and serializes dates/
         },
       ],
       [{ actor_id: actorId, hidden: true, updated_at: now }],
+      [
+        {
+          room_id: 'r'.repeat(24),
+          challenger_actor_id: peerId,
+          challenged_actor_id: actorId,
+          created_at: now,
+        },
+      ],
       [
         {
           invitee_actor_id: actorId,
@@ -175,6 +192,7 @@ test('erasure fences every subject channel before file cleanup and publishes fin
     [],
     [],
     [{ channelId }],
+    [],
     [],
     [],
     [],
