@@ -1,8 +1,10 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { eventRegistry } from '@daisy/logger';
 import { sections, securityViews } from './sections';
 import {
   coverageBounds,
   coverageOf,
+  RETENTION_ALARM_MS,
   securityHref,
   securityQuery,
   windowBounds,
@@ -76,6 +78,23 @@ describe('the security screen', () => {
   });
 });
 
+test('the error view reads by event, every registered error included', () => {
+  const sql = sections.errors[0]?.sql ?? '';
+  const listed = [...sql.matchAll(/'([a-z_.]+)'/g)].map((match) => match[1]);
+  assert({
+    given: 'the errors section and the logger registry',
+    should: 'filter on the sort key by exactly the registry error events',
+    actual: { listed: listed.sort(), bySeverity: sql.includes('severity') },
+    expected: {
+      listed: Object.entries(eventRegistry)
+        .filter(([, severity]) => severity === 'error')
+        .map(([event]) => event)
+        .sort(),
+      bySeverity: false,
+    },
+  });
+});
+
 describe('coverage', () => {
   const heartbeat = {
     at: '2026-10-27 12:59:30',
@@ -102,6 +121,7 @@ describe('coverage', () => {
         reconnects: 2,
         refusing: [],
         retention: 'ok',
+        ages: [{ store: 'unknown', hours: 7 * 24 + 13 }],
       },
     });
   });
@@ -138,6 +158,32 @@ describe('coverage', () => {
       should: 'read degraded and name that app, never live over zero counts',
       actual: { shipper: refusing.shipper, refusing: refusing.refusing },
       expected: { shipper: 'degraded', refusing: ['daisy-debate-staging'] },
+    });
+  });
+
+  test('the retention alarm sits past the designed worst case', () => {
+    const at = (ms: number) =>
+      new Date(Date.parse(now) - ms)
+        .toISOString()
+        .replace('T', ' ')
+        .replace('Z', '');
+    const retentionAt = (ageMs: number) =>
+      coverageOf({
+        ...healthy,
+        oldest: [{ store: 'events', oldest: at(ageMs) }],
+      });
+    const day = 86_400_000;
+    assert({
+      given:
+        'a row 29 d 30 min old (D 00:00 before the first sweep of D + 29) and one past the alarm',
+      should: 'read ok, then overdue, with the age shown in whole hours',
+      actual: [
+        retentionAt(29 * day + 30 * 60_000).retention,
+        retentionAt(RETENTION_ALARM_MS + 60_000).retention,
+        retentionAt(29 * day + 30 * 60_000).ages,
+        RETENTION_ALARM_MS < 30 * day,
+      ],
+      expected: ['ok', 'overdue', [{ store: 'events', hours: 696 }], true],
     });
   });
 

@@ -1,3 +1,5 @@
+import { eventRegistry } from '@daisy/logger';
+
 /**
  * The Security page's views (ADR 0084): each one a fixed set of SQL
  * statements over `daisy_logs`, bounded by the `{from}`/`{to}` bind
@@ -19,6 +21,17 @@ export type Section = {
   readonly sql: string;
   readonly columns: readonly Column[];
 };
+
+/**
+ * The registry's error events as an IN list. Filtering on `event`, the
+ * leading sort key, keeps a 28-day read to the matching ranges instead of
+ * every row in the window. The names are registry constants, never caller
+ * text.
+ */
+const errorEvents = Object.entries(eventRegistry)
+  .filter(([, severity]) => severity === 'error')
+  .map(([event]) => `'${event}'`)
+  .join(', ');
 
 /** Every query reads only rows received inside the window. */
 const inWindow =
@@ -123,7 +136,7 @@ export const sections: Readonly<Record<SecurityView, readonly Section[]>> = {
       title: 'Errors per hour by event and service',
       sql: `SELECT toStartOfHour(received_at) AS hour, event, service,
           count() AS n
-        FROM daisy_logs.events WHERE ${inWindow} AND severity = 'error'
+        FROM daisy_logs.events WHERE ${inWindow} AND event IN (${errorEvents})
         GROUP BY hour, event, service ORDER BY hour DESC, n DESC LIMIT 500`,
       columns: [
         { key: 'hour', label: 'Hour (UTC)' },

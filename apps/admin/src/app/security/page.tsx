@@ -92,9 +92,9 @@ const shipperText = (coverage: Coverage) => {
   }
 };
 const retentionText: Readonly<Record<Coverage['retention'], string>> = {
-  ok: 'Retention: every stored row is under 29 days old.',
+  ok: 'Retention: every stored row is inside its lifecycle (alarm at 29 d 2 h, ceiling 30 d).',
   overdue:
-    'Retention overdue: a stored row is older than 29 days. Check the partition sweep (docs/operations/log-pipeline.md).',
+    'Retention overdue: a stored row is older than 29 d 2 h, past the designed lifecycle. Check the partition sweep (docs/operations/log-pipeline.md).',
   unswept:
     'Retention unverified: no partition sweep in the last two hours. Check the log store (docs/operations/log-pipeline.md).',
 };
@@ -114,7 +114,7 @@ async function CoverageBanner({
     now,
     heartbeat: heartbeat as Parameters<typeof coverageOf>[0]['heartbeat'],
     flow: flow as Parameters<typeof coverageOf>[0]['flow'],
-    oldest: oldest as readonly { readonly oldest: string }[],
+    oldest: oldest as Parameters<typeof coverageOf>[0]['oldest'],
     lastSweep,
   });
   return (
@@ -125,6 +125,17 @@ async function CoverageBanner({
       <p className={coverage.retention === 'ok' ? 'muted' : 'badge-bad'}>
         {retentionText[coverage.retention]}
         {lastSweep ? ` Last partition sweep: ${lastSweep} UTC.` : ''}
+      </p>
+      <p className="muted" data-testid="retention-ages">
+        Oldest stored row:{' '}
+        {coverage.ages
+          .map(({ store, hours }) =>
+            hours === null
+              ? `${store} empty`
+              : `${store} ${Math.floor(hours / 24)} d ${hours % 24} h`,
+          )
+          .join('; ')}
+        .
       </p>
       <p className="muted">
         Last line received:{' '}

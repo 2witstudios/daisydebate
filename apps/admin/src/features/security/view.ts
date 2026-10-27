@@ -57,11 +57,20 @@ export const coverageBounds = (now: string) => ({
 
 /** A heartbeat older than this means the counts below may be incomplete. */
 const HEARTBEAT_STALE_MS = 3 * 60_000;
-/** Past this age a stored row breaks the retention lifecycle (DEC-42: 30). */
-const RETENTION_ALARM_MS = 29 * 86_400_000;
+const HOUR_MS = 3_600_000;
+const DAY_MS = 24 * HOUR_MS;
+/**
+ * The designed worst case (ADR 0084 §5): day D's partition goes on the
+ * first hourly sweep of D + 29, so its oldest row may legitimately reach
+ * 29 days and 1 hour. The alarm sits one sweep interval past that, still
+ * under DEC-42's 30 days.
+ */
+const SWEEP_INTERVAL_MS = HOUR_MS;
+const DESIGNED_MAX_AGE_MS = 29 * DAY_MS + SWEEP_INTERVAL_MS;
+export const RETENTION_ALARM_MS = DESIGNED_MAX_AGE_MS + SWEEP_INTERVAL_MS;
 
 /** The sweep runs hourly; two missed runs mean retention is not enforced. */
-const SWEEP_STALE_MS = 2 * 3_600_000;
+const SWEEP_STALE_MS = 2 * SWEEP_INTERVAL_MS;
 
 export type Coverage = {
   readonly shipper: 'live' | 'degraded' | 'stale' | 'missing';
@@ -70,6 +79,11 @@ export type Coverage = {
   /** Apps whose refused lines (other than non-JSON output) in the last hour are at least their stored ones. */
   readonly refusing: readonly string[];
   readonly retention: 'ok' | 'overdue' | 'unswept';
+  /** Each table's oldest stored row, in hours; null for an empty table. */
+  readonly ages: readonly {
+    readonly store: string;
+    readonly hours: number | null;
+  }[];
 };
 
 type Heartbeat = {
@@ -91,16 +105,22 @@ const shipperState = (nowMs: number, heartbeat: Heartbeat | null) =>
       ? 'stale'
       : 'live';
 
+type Oldest = { readonly store?: string; readonly oldest: string };
+
+// An empty table reports the epoch as its minimum.
+const ageMs = (nowMs: number, text: string) => {
+  const ms = fromChTime(text);
+  return ms > 0 ? nowMs - ms : null;
+};
+
 const retentionState = (
   nowMs: number,
-  oldest: readonly { readonly oldest: string }[],
+  oldest: readonly Oldest[],
   lastSweep: string | null,
 ) => {
-  // An empty table reports the epoch as its minimum.
-  const overdue = oldest.some(({ oldest: text }) => {
-    const ms = fromChTime(text);
-    return ms > 0 && nowMs - ms > RETENTION_ALARM_MS;
-  });
+  const overdue = oldest.some(
+    ({ oldest: text }) => (ageMs(nowMs, text) ?? 0) > RETENTION_ALARM_MS,
+  );
   if (overdue) return 'overdue';
   const swept = lastSweep === null ? 0 : fromChTime(lastSweep);
   return swept > 0 && nowMs - swept <= SWEEP_STALE_MS ? 'ok' : 'unswept';
@@ -122,7 +142,7 @@ export function coverageOf({
   readonly now: string;
   readonly heartbeat: Heartbeat | null;
   readonly flow: readonly Flow[];
-  readonly oldest: readonly { readonly oldest: string }[];
+  readonly oldest: readonly Oldest[];
   readonly lastSweep: string | null;
 }): Coverage {
   const nowMs = Date.parse(now);
@@ -139,5 +159,12 @@ export function coverageOf({
     reconnects: heartbeat ? Number(heartbeat.reconnects) : null,
     refusing,
     retention: retentionState(nowMs, oldest, lastSweep),
+    ages: oldest.map(({ store, oldest: text }) => {
+      const age = ageMs(nowMs, text);
+      return {
+        store: store ?? 'unknown',
+        hours: age === null ? null : Math.floor(age / HOUR_MS),
+      };
+    }),
   };
 }

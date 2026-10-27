@@ -1,9 +1,9 @@
 -- The operational log store's baseline (ADR 0084). entrypoint.sh applies
 -- each file of this folder once, in order, as the localhost-only `default`
--- user and records it in daisy_logs.schema_migrations; every statement is
+-- user and records it in daisy_meta.schema_migrations; every statement is
 -- also idempotent. Retention runs on the shipper's receipt time: 28-day TTL,
 -- daily partitions dropped whole, under DEC-42's 30-day ceiling (the hourly
--- partition sweep in entrypoint.sh is the backstop). The `events` columns
+-- partition sweep, sweep.sql, is what bounds it). The `events` columns
 -- mirror @daisy/logger's loggableFields one to one
 -- (apps/log-shipper/src/rows.test.ts).
 

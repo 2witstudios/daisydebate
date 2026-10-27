@@ -160,8 +160,10 @@ therefore rests on several mechanisms together:
   (28-day TTL). An integration test runs the same file with injected dates.
 - **Bounded reads.** No read goes past 28 days: the longest window on the
   Security page is 28 days.
-- **Monitoring.** The Security page marks retention "overdue" when any
-  stored row is older than 29 days. It marks it "unverified" when no sweep
+- **Monitoring.** The Security page shows each table's oldest stored row.
+  It marks retention "overdue" when any row is older than 29 days 2 hours,
+  which is one sweep interval past the designed worst case of 29 days 1
+  hour and still under 30 days. It marks it "unverified" when no sweep
   has completed in the last two hours, and it shows the last sweep's time.
 - **No other copies.** The volume is created with scheduled snapshots off,
   and there are no backups. Every ClickHouse internal log table is disabled.
