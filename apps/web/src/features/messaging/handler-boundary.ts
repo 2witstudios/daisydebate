@@ -4,7 +4,7 @@ import type { Identity } from '@daisy/auth';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { Logger } from '@daisy/logger';
 import { createAppError } from '@daisy/errors';
-import { consumeOrThrow } from '../auth/abuse/rate-limit';
+import { consumeWindowsOrThrow } from '../auth/abuse/rate-limit';
 import {
   handleOperation,
   requireSameOrigin,
@@ -44,7 +44,7 @@ export function messagingActorHandlerPort(
     boundary: messagingHttpBoundary(app),
     maxBodyBytes: policy.maxBodyBytes,
     consume: (actorId: string) =>
-      consumeOrThrow(
+      consumeWindowsOrThrow(
         app.auth().limiter,
         `messaging:${bucket}:${actorId}`,
         policy.limits.read,

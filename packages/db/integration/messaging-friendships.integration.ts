@@ -7,7 +7,10 @@ import {
   listMessagingFriendships,
   writePresenceHidden,
 } from '../src/messaging/friendships';
-import { openPairStore } from './messaging-pair-store.test-support';
+import {
+  friendCommand,
+  openPairStore,
+} from './messaging-pair-store.test-support';
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
@@ -27,6 +30,7 @@ test('a friendship is asked, accepted, listed both ways and ended by a block (AD
     await frameFor(actorId!, userId!, async (frame) => {
       const facts = await frame.readFriendship();
       await frame.commitFriendship({
+        ...friendCommand(),
         previous: facts.pair,
         next: { state: 'pending', requesterActorId: actorId! },
         now,
@@ -36,6 +40,7 @@ test('a friendship is asked, accepted, listed both ways and ended by a block (AD
     const facts = await frameFor(otherActorId!, otherUserId!, async (frame) => {
       const read = await frame.readFriendship();
       await frame.commitFriendship({
+        ...friendCommand(),
         previous: read.pair,
         next: { state: 'accepted', requesterActorId: actorId! },
         now,

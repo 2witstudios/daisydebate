@@ -1,20 +1,15 @@
 import type { App } from '../../server/app';
 import { parseValidated, readJson } from '../../server/http';
-import { consumeOrThrow } from '../auth/abuse/rate-limit';
+import { consumeWindowsOrThrow } from '../auth/abuse/rate-limit';
 import { createMessagingSocialSchemas } from '@daisy/protocol';
-import {
-  runMessagingHandler,
-  messagingHttpBoundary,
-  unavailableMessagingHandler,
-} from './handler-boundary';
+import { runMessagingHandler, messagingHttpBoundary } from './handler-boundary';
 import { resolveMessagingCreationIntent } from './creation-intent';
 import { composeMessagingCreationOperation } from './creation-operation';
 import { composeMessagingBlockOperation } from './block-composition';
 export function composeMessagingCreationIntentRoutes(app: App) {
   const run = (request: Request, kind: 'dm' | 'private_group' | 'block') => {
     const policy = app.messagingPolicy,
-      social = policy?.social;
-    if (!policy || !social) return unavailableMessagingHandler(app, request);
+      social = policy.social;
     const schemas = createMessagingSocialSchemas(social.bounds);
     return runMessagingHandler(messagingHttpBoundary(app), request, {
       name: `messaging.${kind}.username`,
@@ -40,7 +35,7 @@ export function composeMessagingCreationIntentRoutes(app: App) {
             lookup: (username) =>
               app.database.lookupHumanActorByUsername(username),
             limit: (actorId) =>
-              consumeOrThrow(
+              consumeWindowsOrThrow(
                 app.auth().limiter,
                 `messaging:discovery:${actorId}`,
                 social.abuse,

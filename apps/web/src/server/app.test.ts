@@ -4,6 +4,7 @@ import { rejectionOf } from '@daisy/errors/testing';
 import { authTestEnv } from '../features/auth/auth-server.test-support';
 import { createApp } from './app';
 import { createRoutes } from './routes';
+import { betaMessagingPolicy } from '../features/messaging/beta-policy';
 
 setupRitewayBun();
 
@@ -31,6 +32,7 @@ function recordingFetch() {
 
 const build = (env: Record<string, string>, fetch = recordingFetch().fetch) =>
   createApp({
+    messagingPolicy: betaMessagingPolicy,
     env,
     fetch,
     clock: fixedClock('2026-09-23T00:00:00.000Z'),

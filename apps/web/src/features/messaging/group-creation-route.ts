@@ -1,15 +1,10 @@
 import type { App } from '../../server/app';
 import { readJson } from '../../server/http';
-import {
-  messagingHttpBoundary,
-  runMessagingHandler,
-  unavailableMessagingHandler,
-} from './handler-boundary';
+import { messagingHttpBoundary, runMessagingHandler } from './handler-boundary';
 import { composeMessagingCreationOperation } from './creation-operation';
 export function composeMessagingGroupCreationRoute(app: App) {
   return (request: Request) => {
     const policy = app.messagingPolicy;
-    if (!policy?.social) return unavailableMessagingHandler(app, request);
     return runMessagingHandler(messagingHttpBoundary(app), request, {
       name: 'messaging.group.create',
       readOnly: false,

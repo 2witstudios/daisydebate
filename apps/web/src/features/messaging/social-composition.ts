@@ -1,7 +1,4 @@
-import {
-  messagingHttpBoundary,
-  unavailableMessagingHandler,
-} from './handler-boundary';
+import { messagingHttpBoundary } from './handler-boundary';
 import { composeMessagingInbox } from './inbox-composition';
 import type { SocialCreationPolicy } from '@daisy/auth/authorization';
 import {
@@ -10,7 +7,8 @@ import {
 } from '@daisy/protocol';
 import type { App } from '../../server/app';
 import { parseValidated } from '../../server/http';
-import { consumeOrThrow } from '../auth/abuse/rate-limit';
+import type { SocialRequestLimits } from '@daisy/db';
+import { consumeWindowsOrThrow, type RateRule } from '../auth/abuse/rate-limit';
 import { createMessagingSocialHandlers } from './social-handlers';
 import { composeMessagingDmStore } from './dm-composition';
 import { requestMessagingDm } from './request';
@@ -26,13 +24,10 @@ export type MessagingSocialRuntimePolicy = {
     readonly maxMembers: number;
     readonly maxPendingInvitations: number;
   };
-  readonly requestLimits: {
-    readonly windowMs: number;
-    readonly maxNewPairs: number;
-    readonly maxPending: number;
-    readonly cooldownMs: number;
-  };
-  readonly abuse: { readonly max: number; readonly windowSeconds: number };
+  /** DEC-251 social request budgets, shared by DM and friend requests. */
+  readonly requests: SocialRequestLimits;
+  /** Per-account ceiling on every social command. */
+  readonly abuse: readonly RateRule[];
 };
 
 export function composeMessagingSocialRoutes(app: App) {
@@ -42,10 +37,9 @@ export function composeMessagingSocialRoutes(app: App) {
     channelId?: string,
   ) => {
     const policy = app.messagingPolicy,
-      social = policy?.social;
-    if (!policy || !social) return unavailableMessagingHandler(app, request);
+      social = policy.social;
     const limit = (actorId: string) =>
-      consumeOrThrow(
+      consumeWindowsOrThrow(
         app.auth().limiter,
         `messaging:social:${actorId}`,
         social.abuse,
@@ -69,6 +63,7 @@ export function composeMessagingSocialRoutes(app: App) {
           bounds: social.bounds,
           clock: app.clock,
           limit,
+          limits: social.requests,
         }),
       status: (input, principal) => {
         const command = parseValidated(

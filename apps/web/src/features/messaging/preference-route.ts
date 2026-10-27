@@ -4,7 +4,6 @@ import { parseValidated } from '../../server/http';
 import {
   runMessagingHandler,
   messagingActorHandlerPort,
-  unavailableMessagingHandler,
   readMessagingScope,
   type MessagingHandlerPort,
 } from './handler-boundary';
@@ -17,12 +16,6 @@ export function composeMessagingPreferenceRoutes(app: App) {
     channelId?: string,
   ) => {
     const policy = app.messagingPolicy;
-    if (!policy)
-      return unavailableMessagingHandler(
-        app,
-        request,
-        'messaging.preferences.unavailable',
-      );
     return createMessagingPreferenceHandler({
       ...messagingActorHandlerPort(app, policy, 'preferences'),
       store: (principal) =>

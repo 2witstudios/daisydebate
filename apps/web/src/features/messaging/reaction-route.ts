@@ -2,12 +2,8 @@ import { createAppError } from '@daisy/errors';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { App } from '../../server/app';
 import { readJson } from '../../server/http';
-import { consumeOrThrow } from '../auth/abuse/rate-limit';
-import {
-  messagingHttpBoundary,
-  runMessagingHandler,
-  unavailableMessagingHandler,
-} from './handler-boundary';
+import { consumeWindowsOrThrow } from '../auth/abuse/rate-limit';
+import { messagingHttpBoundary, runMessagingHandler } from './handler-boundary';
 import { changeMessagingReaction, readMessagingReactions } from './reactions';
 import { messagingReactionFence } from './reaction-fence';
 
@@ -15,12 +11,6 @@ import { messagingReactionFence } from './reaction-fence';
 export function composeMessagingReactionRoute(app: App) {
   return (request: Request, channelId?: string) => {
     const policy = app.messagingPolicy;
-    if (!policy?.reactions)
-      return unavailableMessagingHandler(
-        app,
-        request,
-        'messaging.reactions.unavailable',
-      );
     const reactionPolicy = policy.reactions;
     const store = (principal: AuthorizationPrincipal) =>
       app.database.messagingReactionStore(
@@ -44,7 +34,7 @@ export function composeMessagingReactionRoute(app: App) {
             policy: reactionPolicy,
             store: store(principal),
             limit: (actorId) =>
-              consumeOrThrow(
+              consumeWindowsOrThrow(
                 app.auth().limiter,
                 `messaging:reaction-read:${actorId}`,
                 policy.limits.read,
@@ -59,10 +49,10 @@ export function composeMessagingReactionRoute(app: App) {
           policy: reactionPolicy,
           store: store(principal),
           limit: (actorId) =>
-            consumeOrThrow(
+            consumeWindowsOrThrow(
               app.auth().limiter,
               `messaging:reaction:${actorId}`,
-              policy.limits.actorSend,
+              policy.limits.reactions,
             ),
         }),
     })(request);

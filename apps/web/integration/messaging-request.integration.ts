@@ -1,3 +1,4 @@
+import { dec251MessagingValues } from '../src/features/messaging/beta-policy';
 import { openMessagingFixture } from './messaging-fixture.test-support';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -22,12 +23,7 @@ test('canonical prospective authorization creates one pending DM and enforces du
     clock,
     ids: { next: () => fixture.channelId },
     bounds: { introductionUnits: 100, titleUnits: 80, batchActors: 10 },
-    limits: {
-      windowMs: 86400000,
-      maxNewPairs: 10,
-      maxPending: 20,
-      cooldownMs: 604800000,
-    },
+    limits: dec251MessagingValues.socialRequests,
     limit: async () => {},
     store: db.messagingSocialStore(
       messagingSocialAuthorizationFence({
@@ -97,7 +93,7 @@ test('canonical prospective authorization creates one pending DM and enforces du
     try {
       await assertRejects({
         given:
-          'an actor at the injected durable pending limit requesting a new pair',
+          'an actor who has spent the injected daily request budget asking a new pair',
         should: 'refuse and roll back the absent-pair fence',
         actual: () =>
           requestMessagingDm(
@@ -110,7 +106,7 @@ test('canonical prospective authorization creates one pending DM and enforces du
             {
               ...deps,
               ids: { next: () => extraChannel },
-              limits: { ...deps.limits, maxPending: 1 },
+              limits: { ...deps.limits, daily: 1 },
             },
           ),
         code: 'RATE_LIMIT',
@@ -120,7 +116,7 @@ test('canonical prospective authorization creates one pending DM and enforces du
         [extraLow, extraHigh],
       );
       assert({
-        given: 'a refused new pair at the pending boundary',
+        given: 'a refused new pair at the daily boundary',
         should: 'leave no materialized contact association',
         actual: count.pairs,
         expected: 0,
@@ -141,22 +137,11 @@ test('canonical prospective authorization creates one pending DM and enforces du
       "update messaging_dm_pairs set request_state='declined',decided_at=$2 where channel_id=$1",
       [fixture.channelId, fixture.now],
     );
-    now = new Date(Date.parse(fixture.now) + 999).toISOString();
-    const renewal = { ...command, requestId: createId() };
-    const renewalDeps = {
-      ...deps,
-      limits: { ...deps.limits, cooldownMs: 1000 },
-    };
-    await assertRejects({
-      given: 'a renewal one millisecond before the injected cooldown',
-      should: 'refuse without renewing introduction or authority',
-      actual: () => requestMessagingDm(renewal, principal, renewalDeps),
-      code: 'RATE_LIMIT',
-    });
     now = new Date(Date.parse(fixture.now) + 1000).toISOString();
-    const renewed = await requestMessagingDm(renewal, principal, renewalDeps);
+    const renewal = { ...command, requestId: createId() };
+    const renewed = await requestMessagingDm(renewal, principal, deps);
     assert({
-      given: 'the exact injected cooldown boundary',
+      given: 'a declined request asked again inside the day budget',
       should: 'renew explicitly on the same canonical pair and channel',
       actual: renewed,
       expected: { channelId: fixture.channelId, state: 'pending' },

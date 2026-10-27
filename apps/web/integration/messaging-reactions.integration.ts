@@ -11,7 +11,11 @@ test('mounted reactions retain current aggregates, replay immutability and own c
   const fixture = await mountedMessaging.mountedMessagingPair(databaseUrl, {
     messagingPolicy: {
       ...mountedMessaging.messagingRoutePolicy,
-      reactions: { reactionUnits: 8, choices: ['👍', '❤️'] },
+      reactions: {
+        reactionUnits: 8,
+        choices: ['👍', '❤️'],
+        distinctPerMessage: 2,
+      },
     },
   });
   const { app, first, second, me, peer, client, channelId, routes } = fixture;

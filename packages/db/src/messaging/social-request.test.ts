@@ -8,16 +8,16 @@ setupRitewayBun();
 import {
   peerId,
   channelId,
-  now,
   input,
   pair,
   command,
   request,
+  budget,
 } from './social-request.test-support';
 test('a new admitted DM persists pending authority once and emits only content-free invalidations', async () => {
   const { client, queries } = fakeSql([
     [],
-    [[0, 0]],
+    budget(),
     [],
     [],
     [[1, '9']],
@@ -48,7 +48,7 @@ test('a new admitted DM persists pending authority once and emits only content-f
     actual: [
       result,
       admitted,
-      inserts.map((entry) => entry.query.match(/insert into "([^"]+)"/)?.[1]),
+      inserts.map((entry) => entry.query.match(/insert into "?([a-z_]+)/)?.[1]),
       bells,
     ],
     expected: [
@@ -84,7 +84,7 @@ test('a new admitted DM persists pending authority once and emits only content-f
 });
 for (const state of ['pending', 'accepted'])
   test(`existing ${state} pair converges without replacing authority`, async () => {
-    const { client, queries } = fakeSql([[request(state)], []]);
+    const { client, queries } = fakeSql([[request(state)], budget(), []]);
     const frame = dmRequestFrame(
       drizzle({ client }),
       input,
@@ -94,13 +94,13 @@ for (const state of ['pending', 'accepted'])
     assert({
       given: `an existing ${state} DM`,
       should:
-        'return the durable channel and bind the new request receipt without creating channels or renewing pair state',
+        'return the durable channel and spend the new request receipt without creating channels or renewing pair state',
       actual: [
         await frame.commitDmRequest(command),
-        queries.map((entry) => entry.query.split(' ')[0]),
+        queries.map((entry) => entry.query.split(/\s/)[0]),
         queries.at(-1)?.params.includes(channelId),
       ],
-      expected: [{ channelId, state }, ['select', 'insert'], true],
+      expected: [{ channelId, state }, ['select', 'select', 'insert'], true],
     });
   });
 test('authority loss, pair ambiguity and policy drift refuse before request mutation', async () => {
@@ -143,9 +143,14 @@ test('authority loss, pair ambiguity and policy drift refuse before request muta
     expected: 0,
   });
 });
-for (const counts of [[], [[3, 0]], [[0, 5]]])
-  test(`request limits refuse ${JSON.stringify(counts)} before inserts`, async () => {
-    const { client, queries } = fakeSql([[], counts]);
+for (const [facts, code] of [
+  [[], 'INFRASTRUCTURE'],
+  [budget({ declined: true }), 'AUTHORIZATION'],
+  [budget({ daily: 20 }), 'RATE_LIMIT'],
+  [budget({ hourly: 5 }), 'RATE_LIMIT'],
+] as const)
+  test(`a ${code} budget read refuses before any write`, async () => {
+    const { client, queries } = fakeSql([[], facts]);
     const frame = dmRequestFrame(
       drizzle({ client }),
       input,
@@ -153,33 +158,50 @@ for (const counts of [[], [[3, 0]], [[0, 5]]])
       async () => {},
     );
     await assertRejects({
-      given: 'missing count facts or an exhausted pending/new pair bound',
-      should: 'refuse without creating personal pair history',
+      given:
+        'missing budget facts, a decline block, a spent day or a spent unrelated hour',
+      should:
+        'refuse a block as a block is refused, and an exhausted budget as a rate limit',
       actual: () => frame.commitDmRequest(command),
-      code: 'RATE_LIMIT',
+      code,
     });
     assert({
-      given: 'request refusal',
-      should: 'perform reads only',
+      given: 'the refused request',
+      should: 'perform reads only, leaving no pair history or ledger row',
       actual: queries.every((entry) => entry.query.startsWith('select')),
       expected: true,
     });
   });
-test('a recently decided pair preserves cooldown and malformed limits never query counts', async () => {
-  for (const [current, next, code] of [
-    [request('declined', new Date(now)), command, 'RATE_LIMIT'],
-    [
-      request('cancelled', new Date('2026-10-09T17:00:00Z')),
-      { ...command, now: 'invalid' },
-      'VALIDATION',
-    ],
-    [
-      null,
-      { ...command, limits: { ...command.limits, maxPending: 0 } },
-      'VALIDATION',
-    ],
-  ] as const) {
-    const { client, queries } = fakeSql([current ? [current] : []]);
+test('a request to a related account is not held to the unrelated hour', async () => {
+  const { client, queries } = fakeSql([
+    [request('accepted')],
+    budget({ unrelated: false, hourly: 5, daily: 19 }),
+    [],
+  ]);
+  const frame = dmRequestFrame(
+    drizzle({ client }),
+    input,
+    [pair],
+    async () => {},
+  );
+  await frame.commitDmRequest(command);
+  const ledger = queries.find((entry) =>
+    entry.query.startsWith('insert into messaging_social_commands'),
+  );
+  assert({
+    given:
+      'a request to a DM partner inside the day budget with the unrelated hour spent',
+    should: 'spend the request and record it as related',
+    actual: ledger?.params.at(-1),
+    expected: false,
+  });
+});
+test('malformed time or limits never query the budget', async () => {
+  for (const next of [
+    { ...command, now: 'invalid' },
+    { ...command, limits: { ...command.limits, daily: 0 } },
+  ]) {
+    const { client, queries } = fakeSql([[]]);
     const frame = dmRequestFrame(
       drizzle({ client }),
       input,
@@ -187,10 +209,10 @@ test('a recently decided pair preserves cooldown and malformed limits never quer
       async () => {},
     );
     await assertRejects({
-      given: 'cooldown or invalid time/bounds',
+      given: 'an invalid time or a zero budget',
       should: 'refuse without counts or writes',
       actual: () => frame.commitDmRequest(next),
-      code,
+      code: 'VALIDATION',
     });
     assert({
       given: 'the refused request',

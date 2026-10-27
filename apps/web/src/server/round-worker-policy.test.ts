@@ -2,6 +2,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { rejectionOf } from '@daisy/errors/testing';
 import { fixedClock, sequentialId } from '@daisy/clock';
 import { createApp } from './app';
+import { betaMessagingPolicy } from '../features/messaging/beta-policy';
 setupRitewayBun();
 const env = {
   NODE_ENV: 'test',
@@ -36,6 +37,7 @@ test('configured bot worker policy requires an actual injected bearer producer',
         'refuse rather than silently leave configured workers inert or infer a token',
       actual: await rejectionOf(() => {
         app = createApp({
+          messagingPolicy: betaMessagingPolicy,
           env,
           fetch: async () => {
             throw Error('no network');

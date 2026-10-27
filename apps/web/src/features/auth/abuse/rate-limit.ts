@@ -10,7 +10,7 @@ import {
 } from '@daisy/ingress/client-networks';
 
 /** Fixed-window allowance the gate asks the limiter to enforce for one key. */
-type RateRule = {
+export type RateRule = {
   readonly windowSeconds: number;
   readonly max: number;
 };
@@ -212,6 +212,20 @@ export async function consumeOrThrow(
     throw createAppError('INFRASTRUCTURE', undefined, error);
   }
   if (!decision.allowed) throw createAppError('RATE_LIMIT');
+}
+
+/**
+ * One multi-window rule: every window is its own fixed-window bucket under
+ * `key`, and the first exhausted window refuses. Windows have distinct
+ * lengths, so their keys never collide.
+ */
+export async function consumeWindowsOrThrow(
+  limiter: AuthRateLimiter,
+  key: string,
+  windows: readonly RateRule[],
+): Promise<void> {
+  for (const rule of windows)
+    await consumeOrThrow(limiter, `${key}:${rule.windowSeconds}`, rule);
 }
 
 const logDenial = (

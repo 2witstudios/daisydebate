@@ -6,6 +6,8 @@ import { messagingTextSchema } from './core';
 export type MessagingReactionPolicy = {
   readonly reactionUnits: number;
   readonly choices: readonly string[];
+  /** DEC-251: distinct reactions one member may hold on one message. */
+  readonly distinctPerMessage: number;
 };
 
 export function createMessagingReactionSchemas(
@@ -19,6 +21,7 @@ export function createMessagingReactionSchemas(
     .nonempty()
     .refine((items) => new Set(items).size === items.length)
     .parse(policy.choices);
+  z.number().int().positive().safe().parse(policy.distinctPerMessage);
   const summary = z.strictObject({
     reaction,
     count: z.number().int().positive().safe(),

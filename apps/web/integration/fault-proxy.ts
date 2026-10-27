@@ -4,6 +4,7 @@ import { systemClock, systemId, type Clock } from '@daisy/clock';
 import { createApp } from '../src/server/app';
 import { createRoutes } from '../src/server/routes';
 import { testDatabaseUrl, testRedisUrl, type TestApp } from './fixtures';
+import { betaMessagingPolicy } from '../src/features/messaging/beta-policy';
 
 /**
  * A pausable TCP relay in front of a real service (PostgreSQL or Redis),
@@ -150,6 +151,7 @@ export function createFaultedApp(
     port: Number(target.port),
   });
   const app = createApp({
+    messagingPolicy: betaMessagingPolicy,
     env: { ...testApp.env, [service]: throughProxy(url, proxy) },
     fetch: testApp.mailbox.fetch,
     clock,

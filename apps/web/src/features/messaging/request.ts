@@ -1,5 +1,6 @@
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { IdGenerator } from '@daisy/clock';
+import type { SocialRequestLimits } from '@daisy/db';
 import type { MessagingSocialStore } from '@daisy/db/messaging';
 import { createAppError } from '@daisy/errors';
 import {
@@ -15,12 +16,7 @@ export async function requestMessagingDm(
   dependencies: SocialOperationDependencies<MessagingSocialStore> & {
     readonly ids: IdGenerator;
     readonly policyRevision: number;
-    readonly limits: {
-      readonly windowMs: number;
-      readonly maxNewPairs: number;
-      readonly maxPending: number;
-      readonly cooldownMs: number;
-    };
+    readonly limits: SocialRequestLimits;
   },
 ) {
   const { actorId, userId } = requireMessagingActor(principal);
@@ -34,6 +30,8 @@ export async function requestMessagingDm(
     command.recipientActorId,
     command.introduction ?? null,
   ]);
+  // Limiters run before the transaction, never while it holds locks.
+  await dependencies.limit(actorId);
   return dependencies.store.withContacts(
     {
       actorId,
@@ -51,7 +49,6 @@ export async function requestMessagingDm(
           throw createAppError('CONFLICT');
         return current;
       }
-      await dependencies.limit(actorId);
       return frame.commitDmRequest({
         requestId: command.requestId,
         channelId: dependencies.ids.next(),

@@ -108,8 +108,22 @@ const messagingColumns = {
       'counterpart_actor_id',
       'digest',
       'result_channel_id',
+      'unrelated',
     ],
     none: ['kind', 'created_at'],
+  },
+  messaging_social_declines: {
+    identifier: [],
+    personal: [
+      'decliner_actor_id',
+      'requester_actor_id',
+      'low_actor_id',
+      'high_actor_id',
+      'declined_count',
+      'last_declined_at',
+      'blocked_until',
+    ],
+    none: [],
   },
   messaging_group_invitations: {
     identifier: [],
@@ -186,6 +200,11 @@ function privacyPurpose(
   }
   if (table === 'messaging_files') {
     return 'Private attachment metadata and quota reservation';
+  }
+  if (table === 'messaging_social_declines') {
+    // DEC-251: counts 30 days, blocks 30 days; deleted on acceptance, with
+    // the pair, on erasure, or by the retention sweep once spent.
+    return 'Social request decline block';
   }
   if (category === 'personal') {
     return 'Subject-directed private communication and social access';

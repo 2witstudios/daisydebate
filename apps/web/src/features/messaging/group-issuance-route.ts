@@ -6,11 +6,13 @@ import { requireMessagingActor } from './principal';
 import { messagingGroupCommandRoute } from './group-command-route';
 import { composeMessagingGroupIssuanceStore } from './group-issuance-composition';
 import { inviteMessagingGroup } from './group-issuance';
+import { requirePrivateGroups } from './private-groups';
 export function composeMessagingGroupIssuanceRoute(app: App) {
   return messagingGroupCommandRoute(
     app,
     'messaging.group.invite',
-    async (input, principal, { social, limit }) => {
+    async (input, principal, { policy, social, limit }) => {
+      requirePrivateGroups(policy);
       const actor = requireMessagingActor(principal);
       const intent = parseValidated(
         createMessagingSocialSchemas(social.bounds).inviteGroupUsernames,

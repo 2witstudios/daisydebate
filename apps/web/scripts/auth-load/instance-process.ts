@@ -8,6 +8,7 @@ import {
 import { createApp } from '../../src/server/app';
 import { adoptProcessApp } from '../../src/server/process-app';
 import { createMailCapture } from '../../e2e/support/mail-capture';
+import { betaMessagingPolicy } from '../../src/features/messaging/beta-policy';
 
 /**
  * AUTH-6.7: one production application instance for the load harness's
@@ -70,6 +71,7 @@ if (import.meta.main) {
 
   adoptProcessApp(
     createApp({
+      messagingPolicy: betaMessagingPolicy,
       env: process.env,
       fetch: mailCapture.captureFetch,
       clock: systemClock,

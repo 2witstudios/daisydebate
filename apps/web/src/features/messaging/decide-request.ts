@@ -1,3 +1,4 @@
+import type { SocialRequestLimits } from '@daisy/db';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { MessagingDmStore } from '@daisy/db/messaging';
 import { createAppError } from '@daisy/errors';
@@ -17,7 +18,9 @@ const resultStates = {
 export async function decideMessagingDm(
   input: unknown,
   principal: AuthorizationPrincipal,
-  dependencies: SocialOperationDependencies<MessagingDmStore>,
+  dependencies: SocialOperationDependencies<MessagingDmStore> & {
+    readonly limits: SocialRequestLimits;
+  },
 ) {
   const { actorId, userId } = requireMessagingActor(principal);
   const command = parseSocialCommand(
@@ -29,6 +32,7 @@ export async function decideMessagingDm(
     command.channelId,
     command.decision,
   ]);
+  await dependencies.limit(actorId);
   return dependencies.store.withChannel(
     { actorId, userId, channelId: command.channelId },
     async (frame) => {
@@ -36,14 +40,18 @@ export async function decideMessagingDm(
       const replay = replayDecision(command, state, digest);
       if (replay) return replay;
       if (state.state !== 'pending') throw createAppError('AUTHORIZATION');
-      await dependencies.limit(actorId);
       const now = dependencies.clock.now();
       if (
         !Number.isFinite(Date.parse(now)) ||
         Date.parse(now) < Date.parse(state.requestedAt)
       )
         throw createAppError('VALIDATION');
-      return frame.commitDecision({ ...command, digest, now });
+      return frame.commitDecision({
+        ...command,
+        digest,
+        now,
+        limits: dependencies.limits,
+      });
     },
   );
 }

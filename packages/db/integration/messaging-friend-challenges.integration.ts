@@ -4,7 +4,10 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import type { MessagingSocialFrame } from '../src/messaging/social-contracts';
 import { listMessagingFriendChallenges } from '../src/messaging/friendships';
 import { Fixture } from './constraint-helpers';
-import { openPairStore } from './messaging-pair-store.test-support';
+import {
+  friendCommand,
+  openPairStore,
+} from './messaging-pair-store.test-support';
 
 setupRitewayBun();
 const { databaseUrl } = requireTestServices(process.env);
@@ -22,6 +25,7 @@ test('a challenge reaches only its friend while the room is open, and ends with 
     await asChallenger(async (frame) => {
       const { pair } = await frame.readFriendship();
       await frame.commitFriendship({
+        ...friendCommand(),
         previous: pair,
         next: { state: 'pending', requesterActorId: actorId! },
         now,
@@ -30,6 +34,7 @@ test('a challenge reaches only its friend while the room is open, and ends with 
     await asFriend(async (frame) => {
       const { pair } = await frame.readFriendship();
       await frame.commitFriendship({
+        ...friendCommand(),
         previous: pair,
         next: { state: 'accepted', requesterActorId: actorId! },
         now,
@@ -106,7 +111,12 @@ test('a challenge reaches only its friend while the room is open, and ends with 
 
     await asFriend(async (frame) => {
       const { pair } = await frame.readFriendship();
-      await frame.commitFriendship({ previous: pair, next: null, now });
+      await frame.commitFriendship({
+        ...friendCommand(),
+        previous: pair,
+        next: null,
+        now,
+      });
     });
     const afterUnfriend = await stored();
     await befriend();

@@ -6,7 +6,7 @@ import { signedMessagingAuth } from './signed-messaging.test-support';
 import { typingWorld } from './typing.test-support';
 import { composeMessagingReactionRoute } from './reaction-route';
 setupRitewayBun();
-test('actual app reaction route binds signed identity and canonical operation fence without guessing an optional policy', async () => {
+test('actual app reaction route binds signed identity and canonical operation fence ', async () => {
   const f = typingWorld(),
     self = f.accounts[0]!.account;
   const { auth, cookie, user } = await signedMessagingAuth(
@@ -40,7 +40,7 @@ test('actual app reaction route binds signed identity and canonical operation fe
     ids: sequentialId('reaction-route'),
     messagingPolicy: {
       ...f.policy,
-      reactions: { reactionUnits: 8, choices: ['👍'] },
+      reactions: { reactionUnits: 8, choices: ['👍'], distinctPerMessage: 1 },
     },
   });
   const bound: typeof app = {
@@ -112,10 +112,6 @@ test('actual app reaction route binds signed identity and canonical operation fe
         }),
       }),
     );
-    const absent = await composeMessagingReactionRoute({
-      ...bound,
-      messagingPolicy: f.policy,
-    })(new Request(`${origin}/reactions`));
     const scope = {
       actorId: self.actorId,
       userId: String(user.id),
@@ -124,25 +120,22 @@ test('actual app reaction route binds signed identity and canonical operation fe
     assert({
       given:
         'actual signed session, minimal fact SQL adapter and configured reaction store port',
-      should:
-        'bind both methods to current canonical authority and keep missing reaction policy unavailable',
+      should: 'bind both methods to current canonical authority',
       actual: [
         read.status,
         (await read.json()).policy,
         change.status,
-        absent.status,
         events,
         queries.length,
       ],
       expected: [
         200,
-        { reactionUnits: 8, choices: ['👍'] },
+        { reactionUnits: 8, choices: ['👍'], distinctPerMessage: 1 },
         200,
-        503,
         [
-          { reactionUnits: 8, choices: ['👍'] },
+          { reactionUnits: 8, choices: ['👍'], distinctPerMessage: 1 },
           ['read', scope],
-          { reactionUnits: 8, choices: ['👍'] },
+          { reactionUnits: 8, choices: ['👍'], distinctPerMessage: 1 },
           ['change', scope],
         ],
         4,

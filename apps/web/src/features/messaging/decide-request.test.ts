@@ -1,3 +1,4 @@
+import { dec251MessagingValues } from './beta-policy';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import type { MessagingDmStore } from '@daisy/db/messaging';
@@ -50,6 +51,7 @@ test('DM decisions bind retries to the original own receipt without replaying wr
     store,
     clock: { now: () => '2026-10-09T18:01:00.000Z' },
     bounds: { introductionUnits: 100, titleUnits: 80, batchActors: 10 },
+    limits: dec251MessagingValues.socialRequests,
     limit: async () => {
       calls.push('limit');
     },
@@ -58,12 +60,13 @@ test('DM decisions bind retries to the original own receipt without replaying wr
   const retry = await decideMessagingDm(command, principal, dependencies);
   assert({
     given: 'a successful decision and identical closed retry',
-    should: 'return the original minimal result with one limiter/write only',
+    should:
+      'return the original minimal result, spending the limiter before each transaction and writing once',
     actual: [first, retry, calls],
     expected: [
       { channelId: command.channelId, state: 'accepted' },
       { channelId: command.channelId, state: 'accepted' },
-      ['limit', 'commit'],
+      ['limit', 'commit', 'limit'],
     ],
   });
   state = 'pending';

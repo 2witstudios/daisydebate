@@ -1,3 +1,4 @@
+import type { SocialRequestLimits } from './social-request-budget';
 import type { AuthorizationTransaction } from '../authorization';
 import type { authorizationAccountFact } from '../authorization-account';
 
@@ -45,7 +46,10 @@ export type MessagingSocialFrame = {
   readonly commitFriendship: (input: {
     readonly previous: MessagingFriendshipPair | null;
     readonly next: MessagingFriendshipPair | null;
+    /** Ledger id for a new request, which spends a DEC-251 social request. */
+    readonly requestId: string;
     readonly now: string;
+    readonly limits: SocialRequestLimits;
   }) => Promise<void>;
   readonly readDmRequest: () => Promise<{
     readonly channelId: string;
@@ -58,12 +62,7 @@ export type MessagingSocialFrame = {
     readonly digest: string;
     readonly policyRevision: number;
     readonly now: string;
-    readonly limits: {
-      readonly windowMs: number;
-      readonly maxNewPairs: number;
-      readonly maxPending: number;
-      readonly cooldownMs: number;
-    };
+    readonly limits: SocialRequestLimits;
   }) => Promise<{ readonly channelId: string; readonly state: string }>;
   readonly blocking: boolean | null;
   readonly contacts: readonly MessagingContactFact[];

@@ -12,6 +12,7 @@ import {
   pair,
   command,
   request,
+  budget,
 } from './social-request.test-support';
 setupRitewayBun();
 const channelRow = (lifecycle: string, changeVersion = 4, revision = 2) => [
@@ -27,10 +28,10 @@ const channelRow = (lifecycle: string, changeVersion = 4, revision = 2) => [
   revision,
   new Date(now),
 ];
-test('a cooled down closed DM reopens the durable channel and invalidates current authority rather than allocating a replacement', async () => {
+test('a closed DM reopens the durable channel and invalidates current authority rather than allocating a replacement', async () => {
   const { client, queries } = fakeSql([
     [request('declined', new Date('2026-10-09T17:00:00Z'))],
-    [[0, 0]],
+    budget({ unrelated: false }),
     [channelRow('active')],
     [],
     [[1, '9']],
@@ -57,7 +58,7 @@ test('a cooled down closed DM reopens the durable channel and invalidates curren
     entry.query.startsWith('update "messaging_dm_pairs"'),
   );
   assert({
-    given: 'a closed active DM beyond cooldown',
+    given: 'a closed active DM inside its budget',
     should:
       'reuse its channel, clear decision time, replace introduction, and advance authority exactly once',
     actual: [
@@ -83,7 +84,7 @@ for (const channel of [
   test(`closed request cannot reopen ${channel === null ? 'absent' : channel[4]} exhausted=${channel?.[8] === Number.MAX_SAFE_INTEGER}`, async () => {
     const { client, queries } = fakeSql([
       [request('cancelled', new Date('2026-10-09T17:00:00Z'))],
-      [[0, 0]],
+      budget({ unrelated: false }),
       channel ? [channel] : [],
     ]);
     const frame = dmRequestFrame(

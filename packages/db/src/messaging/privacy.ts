@@ -163,6 +163,7 @@ async function eraseAssociations(
     sql`delete from messaging_friend_challenges where challenger_actor_id=${actorId} or challenged_actor_id=${actorId}`,
     sql`delete from messaging_presence_settings where actor_id=${actorId}`,
     sql`delete from messaging_friendships where low_actor_id=${actorId} or high_actor_id=${actorId}`,
+    sql`delete from messaging_social_declines where low_actor_id=${actorId} or high_actor_id=${actorId}`,
     sql`delete from messaging_contact_pairs where low_actor_id=${actorId} or high_actor_id=${actorId}`,
   ])
     await tx.execute(statement);
@@ -264,6 +265,12 @@ export function createMessagingPrivacyAdopter(): PrivacyAdopter {
           sql`select * from messaging_presence_settings where actor_id=${actorId}`,
         ),
       );
+      // Only the subject's own declines: the declines of others stay theirs.
+      const declines = rowsOf<Record<string, unknown>>(
+        await tx.execute(
+          sql`select * from messaging_social_declines where decliner_actor_id=${actorId} order by requester_actor_id`,
+        ),
+      );
       const commands = rowsOf<Record<string, unknown>>(
         await tx.execute(
           sql`select * from messaging_social_commands where actor_id=${actorId} order by created_at,request_id`,
@@ -302,6 +309,7 @@ export function createMessagingPrivacyAdopter(): PrivacyAdopter {
           messaging_friend_challenges: challenges,
           messaging_presence_settings: presenceSettings,
           messaging_social_commands: commands,
+          messaging_social_declines: declines,
           messaging_social_command_subjects: commandSubjects,
           messaging_group_invitations: invitations,
         }).map(([table, rows]) => [table, exportRows(rows)]),

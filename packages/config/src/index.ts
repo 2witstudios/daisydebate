@@ -2,8 +2,10 @@ import { signUpMailCeilingsConfig } from './sign-up-mail-ceilings';
 import { z } from 'zod';
 import { databaseUrl } from './urls';
 import { roomPolicyConfig } from './room-policy';
+import { messagingPolicyConfig } from './messaging-policy';
 import { botWorkerPolicyConfig } from './bot-worker-policy';
 export type { RoundBotWorkerPolicy } from './bot-worker-policy';
+export type { MessagingPolicyOverride } from './messaging-policy';
 import { mediaEndpoint } from './media-endpoint';
 import {
   deploymentIdentityFields,
@@ -59,6 +61,8 @@ const serverFields = {
     .default('true')
     .transform((value) => value === 'true'),
   ROOM_POLICY: roomPolicyConfig,
+  /** DEC-251 tightening overrides for the composed beta messaging policy. */
+  MESSAGING_POLICY: messagingPolicyConfig,
   /** Configured isolated member/session resource for the actual public check-in probe. */
   ATTENDANCE_PUBLIC_PROBE: secret(z.string()).optional(),
   ...deploymentIdentityFields,

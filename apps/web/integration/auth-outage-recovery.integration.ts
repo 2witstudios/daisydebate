@@ -8,6 +8,7 @@ import { CLIENT_IP_HEADER } from '@daisy/ingress/client-ip';
 import type { Fetch } from '../src/features/auth/mail/mail';
 import { createApp } from '../src/server/app';
 import { createRoutes } from '../src/server/routes';
+import { betaMessagingPolicy } from '../src/features/messaging/beta-policy';
 
 /**
  * AUTH-6.7 AC3: instance restart is already proven by
@@ -153,6 +154,7 @@ describe('AUTH-6.7 AC3 Resend timeout and recovery', () => {
       });
     };
     const app = createApp({
+      messagingPolicy: betaMessagingPolicy,
       env: testApp.env,
       fetch: onceHungThenRecovers,
       clock: systemClock,

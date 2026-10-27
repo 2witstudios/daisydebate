@@ -2,21 +2,11 @@ import type { App } from '../../server/app';
 import { createMessagingInboxSchemas } from '@daisy/protocol';
 import { createAppError } from '@daisy/errors';
 import { parseValidated } from '../../server/http';
-import {
-  runMessagingHandler,
-  messagingHttpBoundary,
-  unavailableMessagingHandler,
-} from './handler-boundary';
+import { runMessagingHandler, messagingHttpBoundary } from './handler-boundary';
 import { composeMessagingInbox } from './inbox-composition';
 export function composeMessagingInboxRoute(app: App) {
   return (request: Request) => {
     const policy = app.messagingPolicy;
-    if (!policy)
-      return unavailableMessagingHandler(
-        app,
-        request,
-        'messaging.inbox.unavailable',
-      );
     const schemas = createMessagingInboxSchemas(policy.bounds.pageItems);
     return runMessagingHandler(messagingHttpBoundary(app), request, {
       name: 'messaging.inbox',

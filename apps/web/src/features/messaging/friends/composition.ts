@@ -71,6 +71,8 @@ const friendPorts = (
   principal: AuthorizationPrincipal,
 ): FriendOperationDependencies => ({
   clock: app.clock,
+  ids: app.ids,
+  limits: app.messagingPolicy.social.requests,
   limit: (actorId) =>
     consumeOrThrow(app.auth().limiter, `friends:${actorId}`, FRIEND_RULE),
   lookup: (name) => app.database.lookupHumanActorByUsername(name),

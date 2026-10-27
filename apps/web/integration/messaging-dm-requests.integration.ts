@@ -1,3 +1,4 @@
+import { dec251MessagingValues } from '../src/features/messaging/beta-policy';
 import { buildUserInboxTopic } from '@daisy/protocol';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
@@ -36,6 +37,7 @@ test('real DM recipient accept opens history/post and binds closed retry through
     bounds,
     clock,
     limit: async () => {},
+    limits: dec251MessagingValues.socialRequests,
   };
   const command = {
     version: 1,
@@ -187,6 +189,7 @@ for (const decision of ['decline', 'cancel'] as const) {
       bounds,
       clock,
       limit: async () => {},
+      limits: dec251MessagingValues.socialRequests,
       store: composeMessagingDmStore({
         database,
         principal,

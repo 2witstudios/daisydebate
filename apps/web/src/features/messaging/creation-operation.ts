@@ -1,7 +1,8 @@
+import { requirePrivateGroups } from './private-groups';
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import { createAppError } from '@daisy/errors';
 import type { App } from '../../server/app';
-import { consumeOrThrow } from '../auth/abuse/rate-limit';
+import { consumeWindowsOrThrow } from '../auth/abuse/rate-limit';
 import { requestMessagingDm } from './request';
 import { createMessagingGroup } from './create-group';
 import { composeMessagingGroupCreationStore } from './group-creation-composition';
@@ -13,14 +14,13 @@ export function composeMessagingCreationOperation(
 ) {
   return async (input: unknown, principal: AuthorizationPrincipal) => {
     const policy = app.messagingPolicy,
-      social = policy?.social;
-    if (!policy || !social) throw createAppError('INFRASTRUCTURE');
+      social = policy.social;
     const common = {
       bounds: social.bounds,
       clock: app.clock,
       ids: app.ids,
       limit: (actorId: string) =>
-        consumeOrThrow(
+        consumeWindowsOrThrow(
           app.auth().limiter,
           `messaging:social:${actorId}`,
           social.abuse,
@@ -39,9 +39,10 @@ export function composeMessagingCreationOperation(
           }),
         ),
         policyRevision: social.creation.revision,
-        limits: social.requestLimits,
+        limits: social.requests,
       });
     }
+    requirePrivateGroups(policy);
     return createMessagingGroup(input, principal, {
       ...common,
       store: composeMessagingGroupCreationStore({

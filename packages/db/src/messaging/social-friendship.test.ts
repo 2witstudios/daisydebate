@@ -52,8 +52,30 @@ test('readFriendship reads the locked pair and both members’ counts', async ()
   });
 });
 
+const limits = {
+  daily: 20,
+  unrelatedHourly: 5,
+  declinesToBlock: 3,
+  declineBlockMs: 2_592_000_000,
+};
+const tables = (queries: readonly { query: string }[]) =>
+  queries.map(({ query }) =>
+    [
+      query.split(/\s/)[0],
+      query.match(/(?:into|from|update) "?([a-z_]+)/)?.[1],
+    ].join(' '),
+  );
+
 test('commitFriendship reauthorizes and writes the next pair', async () => {
-  const { client, queries } = fakeSql([[], [], [], []]);
+  const { client, queries } = fakeSql([
+    [{ declined: false, unrelated: true, daily: 0, hourly: 0 }],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+  ]);
   let fences = 0;
   const frame = friendshipFrame(
     drizzle({ client }),
@@ -63,33 +85,63 @@ test('commitFriendship reauthorizes and writes the next pair', async () => {
       fences += 1;
     },
   );
-  await frame.commitFriendship({
-    previous: null,
-    next: { state: 'pending', requesterActorId: high },
-    now,
-  });
-  await frame.commitFriendship({
-    previous: { state: 'pending', requesterActorId: low },
-    next: { state: 'accepted', requesterActorId: low },
-    now,
-  });
-  await frame.commitFriendship({
-    previous: { state: 'accepted', requesterActorId: low },
-    next: null,
-    now,
-  });
+  const change = (
+    previous: Parameters<typeof frame.commitFriendship>[0]['previous'],
+    next: Parameters<typeof frame.commitFriendship>[0]['next'],
+  ) => frame.commitFriendship({ previous, next, requestId, now, limits });
+  await change(null, { state: 'pending', requesterActorId: high });
+  await change(
+    { state: 'pending', requesterActorId: low },
+    { state: 'accepted', requesterActorId: low },
+  );
+  await change({ state: 'accepted', requesterActorId: low }, null);
   assert({
-    given: 'an insert, an acceptance and a removal',
+    given: 'a request, an acceptance and a removal',
     should:
-      'fence each write, issue insert, update and delete, and end the pair’s challenges with the friendship',
-    actual: [
-      fences,
-      queries.map((query) => query.query.split(' ')[0]),
-      queries[0]?.params.includes(high),
-      queries[1]?.params.includes('accepted'),
-      queries[3]?.query.includes('"messaging_friend_challenges"'),
+      'fence each write, spend the request on the ledger, clear declines on acceptance, and end the pair’s challenges with the friendship',
+    actual: [fences, tables(queries), queries[1]?.params.at(-1)],
+    expected: [
+      3,
+      [
+        'select messaging_social_declines',
+        'insert messaging_social_commands',
+        'insert messaging_friendships',
+        'delete messaging_social_declines',
+        'update messaging_friendships',
+        'delete messaging_friendships',
+        'delete messaging_friend_challenges',
+      ],
+      true,
     ],
-    expected: [3, ['insert', 'update', 'delete', 'delete'], true, true, true],
+  });
+});
+
+test('declining a friend request counts toward the DEC-251 decline block; cancelling does not', async () => {
+  const run = async (requesterActorId: string) => {
+    const { client, queries } = fakeSql([[], [], []]);
+    await friendshipFrame(
+      drizzle({ client }),
+      input,
+      [pair],
+      async () => {},
+    ).commitFriendship({
+      previous: { state: 'pending', requesterActorId },
+      next: null,
+      requestId,
+      now,
+      limits,
+    });
+    return queries
+      .find((entry) =>
+        entry.query.includes('insert into messaging_social_declines'),
+      )
+      ?.params.slice(1, 3);
+  };
+  assert({
+    given: 'the other member’s pending request ended, then the caller’s own',
+    should: 'record the caller declining the requester only for the first',
+    actual: [await run(low), await run(high)],
+    expected: [[high, low], undefined],
   });
 });
 

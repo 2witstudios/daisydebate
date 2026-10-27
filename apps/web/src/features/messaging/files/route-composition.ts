@@ -12,7 +12,7 @@ import { createMessagingFileHandlers } from './handlers';
 export function composeMessagingFileRoutes(app: App) {
   const configured = () => {
     const runtime = app.messagingFiles;
-    if (!runtime || !app.messagingPolicy) return null;
+    if (!runtime) return null;
     return createMessagingFileHandlers({
       boundary: messagingHttpBoundary(app),
       maxJsonBytes: app.messagingPolicy.maxBodyBytes,

@@ -97,7 +97,7 @@ export function channelReactionFrame(
       await authorize(command.active ? 'add' : 'remove', own ?? undefined);
       const changed = command.active ? own === null : true;
       if (changed) {
-        await changeAssociation(tx, scope, command);
+        await changeAssociation(tx, scope, command, policy.distinctPerMessage);
         changeVersion = await advanceReactionVersion(
           tx,
           scope.channelId,
@@ -156,7 +156,17 @@ async function changeAssociation(
   tx: Tx,
   scope: Scope,
   command: MessagingReactionCommand,
+  distinctPerMessage: number,
 ) {
+  // DEC-251: the message row is locked, so the member's count is current.
+  if (command.active) {
+    const [held] = await tx.execute(sql`
+    select count(*)::int as "count" from messaging_reactions
+    where actor_id=${scope.actorId} and message_id=${command.messageId}
+  `);
+    if (Number(held?.count ?? Infinity) >= distinctPerMessage)
+      throw createAppError('VALIDATION');
+  }
   const rows = command.active
     ? await tx.execute(sql`
     insert into messaging_reactions(actor_id,channel_id,message_id,reaction)

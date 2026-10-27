@@ -1,13 +1,10 @@
+import { requirePrivateGroups } from './private-groups';
 import { createAppError } from '@daisy/errors';
 import { createMessagingSocialSchemas } from '@daisy/protocol';
 import type { App } from '../../server/app';
 import { parseValidated, readJson } from '../../server/http';
-import { consumeOrThrow } from '../auth/abuse/rate-limit';
-import {
-  runMessagingHandler,
-  messagingHttpBoundary,
-  unavailableMessagingHandler,
-} from './handler-boundary';
+import { consumeWindowsOrThrow } from '../auth/abuse/rate-limit';
+import { runMessagingHandler, messagingHttpBoundary } from './handler-boundary';
 import { composeMessagingGroupInvitationStore } from './group-invitation-composition';
 import {
   readMessagingGroupInvitation,
@@ -21,8 +18,7 @@ export function composeMessagingGroupInvitationRoutes(app: App) {
     channelId?: string,
   ) => {
     const policy = app.messagingPolicy,
-      social = policy?.social;
-    if (!policy || !social) return unavailableMessagingHandler(app, request);
+      social = policy.social;
     return runMessagingHandler(messagingHttpBoundary(app), request, {
       name: `messaging.invitation.${mode}`,
       readOnly: mode === 'read',
@@ -36,11 +32,11 @@ export function composeMessagingGroupInvitationRoutes(app: App) {
             createMessagingSocialSchemas(social.bounds).decideGroupInvitation,
             input,
           );
-          if (
-            command.decision === 'accept' &&
-            social.groupAdmission?.state !== 'approved'
-          )
-            throw createAppError('INFRASTRUCTURE');
+          if (command.decision === 'accept') {
+            requirePrivateGroups(policy);
+            if (social.groupAdmission?.state !== 'approved')
+              throw createAppError('INFRASTRUCTURE');
+          }
         }
         const dependencies = {
           store: composeMessagingGroupInvitationStore({
@@ -54,7 +50,7 @@ export function composeMessagingGroupInvitationRoutes(app: App) {
           bounds: social.bounds,
           clock: app.clock,
           limit: (actorId: string) =>
-            consumeOrThrow(
+            consumeWindowsOrThrow(
               app.auth().limiter,
               `messaging:social:${actorId}`,
               social.abuse,

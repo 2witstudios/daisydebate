@@ -42,7 +42,7 @@ test('social command receipts and invitations persist private authority transiti
   assert({
     given: 'social commands that can precede a channel',
     should:
-      'keep dedupe separate from message receipts and record durable request timing',
+      'keep dedupe separate from message receipts and record durable request timing and the requester’s relation when asked',
     actual: getTableConfig(messagingSocialCommands)
       .columns.map((column) => column.name)
       .sort(),
@@ -54,6 +54,7 @@ test('social command receipts and invitations persist private authority transiti
       'kind',
       'request_id',
       'result_channel_id',
+      'unrelated',
     ],
   });
 });

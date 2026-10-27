@@ -1,5 +1,6 @@
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
-import type { Clock } from '@daisy/clock';
+import type { Clock, IdGenerator } from '@daisy/clock';
+import type { SocialRequestLimits } from '@daisy/db';
 import type {
   MessagingFriendChallengeRow,
   MessagingFriendshipRow,
@@ -30,6 +31,9 @@ export const capabilityFor = (command: FriendshipCommand): FriendCapability =>
 
 export type FriendOperationDependencies = {
   readonly clock: Clock;
+  readonly ids: IdGenerator;
+  /** DEC-251: a friend request spends the shared social request budgets. */
+  readonly limits: SocialRequestLimits;
   readonly limit: (actorId: string) => Promise<void>;
   readonly lookup: (username: string) => Promise<string | null>;
   /** The social store behind the authorize fence for this capability. */
@@ -84,7 +88,9 @@ export async function changeFriendship(
             await frame.commitFriendship({
               previous: facts.pair,
               next: decision.next,
+              requestId: dependencies.ids.next(),
               now: dependencies.clock.now(),
+              limits: dependencies.limits,
             });
           return {
             username,

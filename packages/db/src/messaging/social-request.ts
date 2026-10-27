@@ -1,5 +1,5 @@
 import { invalidateMessagingInboxes } from './inbox-change';
-import { and, eq, gte, or, sql } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { buildChannelTopic } from '@daisy/protocol';
@@ -7,8 +7,8 @@ import { messagingChannels } from '../schema/messaging-channels';
 import {
   messagingContactPairs,
   messagingDmPairs,
-  messagingSocialCommands,
 } from '../schema/messaging-social';
+import { spendSocialRequest } from './social-request-budget';
 import { appendOutboxEvent } from '../outbox';
 import { advanceSocialChannelAuthority } from './social-channel-change';
 import type {
@@ -17,7 +17,6 @@ import type {
 } from './social-contracts';
 type Tx = Pick<BunSQLDatabase, 'select' | 'insert' | 'update' | 'execute'>;
 type Pair = typeof messagingContactPairs.$inferSelect;
-type RequestCommand = Parameters<MessagingSocialFrame['commitDmRequest']>[0];
 
 /** Pair fence is already held; all counts share the initiating account fence. */
 export function dmRequestFrame(
@@ -53,11 +52,19 @@ export function dmRequestFrame(
       if (command.policyRevision !== input.policyRevision)
         throw createAppError('CONFLICT');
       const current = await read();
+      const record = await spendSocialRequest(tx, {
+        actorId: input.actorId,
+        counterpartActorId: counterpartOf(input),
+        kind: 'dm.request',
+        requestId: command.requestId,
+        digest: command.digest,
+        now: command.now,
+        limits: command.limits,
+      });
       if (current && ['pending', 'accepted'].includes(current.requestState)) {
-        await recordRequest(tx, input, command, current.channelId);
+        await record(current.channelId);
         return { channelId: current.channelId, state: current.requestState };
       }
-      await enforceRequestLimits(tx, input.actorId, command, current);
       const pair = rows[0]!;
       const channelId = current?.channelId ?? command.channelId;
       if (current) {
@@ -109,71 +116,15 @@ export function dmRequestFrame(
           payload: { kind: 'channel.changed', channelId, changeVersion: 1 },
         });
       }
-      await recordRequest(tx, input, command, channelId);
+      await record(channelId);
       return { channelId, state: 'pending' };
     },
   };
 }
-async function recordRequest(
-  tx: Tx,
-  input: MessagingSocialInput,
-  command: RequestCommand,
-  channelId: string,
-) {
+function counterpartOf(input: MessagingSocialInput) {
   const counterpartActorId = input.memberActorIds.find(
     (actorId) => actorId !== input.actorId,
   );
   if (!counterpartActorId) throw createAppError('VALIDATION');
-  await tx.insert(messagingSocialCommands).values({
-    actorId: input.actorId,
-    counterpartActorId,
-    requestId: command.requestId,
-    kind: 'dm.request',
-    digest: command.digest,
-    resultChannelId: channelId,
-    createdAt: new Date(command.now),
-  });
-}
-async function enforceRequestLimits(
-  tx: Tx,
-  actorId: string,
-  command: RequestCommand,
-  current: typeof messagingDmPairs.$inferSelect | null,
-) {
-  const now = Date.parse(command.now),
-    limits = command.limits;
-  if (
-    !Number.isFinite(now) ||
-    !Object.values(limits).every(
-      (value) => Number.isSafeInteger(value) && value > 0,
-    )
-  )
-    throw createAppError('VALIDATION');
-  if (
-    current?.decidedAt &&
-    now - current.decidedAt.getTime() < limits.cooldownMs
-  )
-    throw createAppError('RATE_LIMIT');
-  const sender = eq(messagingDmPairs.requestSenderActorId, actorId);
-  const [counts] = await tx
-    .select({
-      pending: sql<number>`count(*) filter(where ${messagingDmPairs.requestState}='pending')::int`,
-      recent: sql<number>`count(*) filter(where ${messagingDmPairs.requestedAt} > ${new Date(now - limits.windowMs)})::int`,
-    })
-    .from(messagingDmPairs)
-    .where(
-      and(
-        sender,
-        or(
-          eq(messagingDmPairs.requestState, 'pending'),
-          gte(messagingDmPairs.requestedAt, new Date(now - limits.windowMs)),
-        ),
-      ),
-    );
-  if (
-    !counts ||
-    counts.pending >= limits.maxPending ||
-    counts.recent >= limits.maxNewPairs
-  )
-    throw createAppError('RATE_LIMIT');
+  return counterpartActorId;
 }

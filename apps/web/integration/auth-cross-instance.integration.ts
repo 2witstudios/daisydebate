@@ -18,6 +18,7 @@ import {
   buildRegistrationResponse,
   createSoftwareCredential,
 } from './webauthn-authenticator';
+import { betaMessagingPolicy } from '../src/features/messaging/beta-policy';
 
 /**
  * AUTH-6.7 AC1: two application instances over the same PostgreSQL database
@@ -38,6 +39,7 @@ const testApp = createTestApp();
 const rpID = 'localhost';
 
 const instanceB = createApp({
+  messagingPolicy: betaMessagingPolicy,
   env: testApp.env,
   fetch: testApp.mailbox.fetch,
   clock: systemClock,

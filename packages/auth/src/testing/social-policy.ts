@@ -1,13 +1,6 @@
-import type {
-  ChannelAuthorizationFact,
-  SocialAccountFact,
-  SocialCreationPolicy,
-} from '../authorization-facts';
-import { policyEvidenceCurrent } from '../authorization-policy';
-import {
-  socialPolicyEvidence,
-  type SocialContactPolicy,
-} from '../social-policy';
+import type { SocialCreationPolicy } from '../authorization-facts';
+import type { SocialContactPolicy } from '../social-policy';
+import { socialMemberReading } from '../social-reading';
 
 /** Explicit isolated-fixture policy; never a runtime default or product approval. */
 export const messagingTestPosting = {
@@ -25,50 +18,7 @@ export const messagingTestGroupPolicy = {
   groupBlockScope: 'all_pairs',
 } as const satisfies SocialCreationPolicy;
 
-/**
- * Membership, not participant admission: facts about the other accounts in
- * a channel use `member` (ADR 0075), so one account losing admission never
- * closes reading for the rest.
- */
-function currentBoundMember({ account }: SocialAccountFact) {
-  return (
-    account.actorId !== null &&
-    account.member &&
-    !account.erased &&
-    Number.isSafeInteger(account.revision) &&
-    account.revision > 0
-  );
-}
-
-/**
- * Isolated fixture evidence only. Consumers must still call canonical authorize
- * with freshly fenced facts; this does not grant membership or content access.
- */
-type ReadingInput = {
-  readonly channel: ChannelAuthorizationFact;
-  readonly accounts: readonly SocialAccountFact[];
-  readonly now: string;
-};
-function fixtureReading(
-  { channel, accounts, now }: ReadingInput,
-  policy: typeof messagingTestPosting | typeof messagingTestGroupPolicy,
-) {
-  const evidence = socialPolicyEvidence(channel, accounts, now);
-  const candidate = { ...evidence, allowed: true };
-  const allowed =
-    `social.${channel.authority.kind}` === policy.key &&
-    channel.policyKey === policy.key &&
-    channel.policyRevision === policy.revision &&
-    accounts.every(currentBoundMember) &&
-    policyEvidenceCurrent(channel, candidate, {
-      account: accounts[0]?.account ?? null,
-      socialAccounts: accounts,
-      now,
-    });
-  return { ...evidence, allowed };
-}
-
-export const messagingTestReading = (input: ReadingInput) =>
-  fixtureReading(input, messagingTestPosting);
-export const messagingTestGroupReading = (input: ReadingInput) =>
-  fixtureReading(input, messagingTestGroupPolicy);
+export const messagingTestReading = socialMemberReading(messagingTestPosting);
+export const messagingTestGroupReading = socialMemberReading(
+  messagingTestGroupPolicy,
+);

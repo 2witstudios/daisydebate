@@ -9,6 +9,10 @@ import {
 import { withMessagingChannel } from './channel-frame';
 import { readMessagingChannelFact } from './social';
 import { advanceSocialChannelAuthority } from './social-channel-change';
+import {
+  clearSocialDeclines,
+  recordSocialDecline,
+} from './social-request-budget';
 import type {
   MessagingDmFence,
   MessagingDmStore,
@@ -142,6 +146,19 @@ export function createMessagingDmStore({
                 resultChannelId: scope.channelId,
                 createdAt: new Date(command.now),
               });
+              if (command.decision === 'decline')
+                await recordSocialDecline(tx, {
+                  declinerActorId: scope.actorId,
+                  requesterActorId: counterpartActorId,
+                  now: command.now,
+                  limits: command.limits,
+                });
+              if (command.decision === 'accept')
+                await clearSocialDeclines(
+                  tx,
+                  scope.actorId,
+                  counterpartActorId,
+                );
               await advanceSocialChannelAuthority(tx, channel);
               observed = null;
               return { channelId: scope.channelId, state };

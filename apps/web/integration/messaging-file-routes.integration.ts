@@ -5,7 +5,6 @@ import { createId } from '@paralleldrive/cuid2';
 import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { origin } from './fixtures';
-import { createRoutes } from '../src/server/routes';
 import {
   mountedMessagingPair,
   closeMountedMessagingPair,
@@ -126,21 +125,6 @@ test('mounted native multipart attaches scanned private content and peers downlo
       should: 'refuse private bytes on fresh authority',
       actual: denied.status,
       expected: 404,
-    });
-    // An injected reading policy still governs retained history; pending evidence cannot grant private bytes.
-    const unavailable = createRoutes({ ...app.app, messagingPolicy: null });
-    const held = await unavailable.messaging.files.download(
-      new Request(`${origin}/files?generation=${file.generation}`, {
-        headers: { cookie: second.cookie },
-      }),
-      channelId,
-      file.fileId,
-    );
-    assert({
-      given: 'missing explicitly configured file/reading runtime',
-      should: 'remain unavailable rather than return stored bytes',
-      actual: held.status,
-      expected: 503,
     });
   } finally {
     try {

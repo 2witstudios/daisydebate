@@ -1,3 +1,4 @@
+import { dec251MessagingValues } from '../src/features/messaging/beta-policy';
 import type { SQL } from 'bun';
 import { admitParticipants } from '@daisy/db/testing';
 import { createId } from '@paralleldrive/cuid2';
@@ -24,6 +25,8 @@ export const friendChange =
     const clock = { now: () => fixture.now };
     return changeFriendship(principal, command, username, {
       clock,
+      ids: { next: createId },
+      limits: dec251MessagingValues.socialRequests,
       limit: async () => {},
       lookup: (name) => database.lookupHumanActorByUsername(name),
       store: (capability) =>

@@ -1,12 +1,8 @@
 import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { App } from '../../server/app';
 import { readJson } from '../../server/http';
-import { consumeOrThrow } from '../auth/abuse/rate-limit';
-import {
-  messagingHttpBoundary,
-  runMessagingHandler,
-  unavailableMessagingHandler,
-} from './handler-boundary';
+import { consumeWindowsOrThrow } from '../auth/abuse/rate-limit';
+import { messagingHttpBoundary, runMessagingHandler } from './handler-boundary';
 import type { MessagingRuntimePolicy } from './composition';
 import type { MessagingSocialRuntimePolicy } from './social-composition';
 type Context = {
@@ -26,13 +22,12 @@ export function messagingGroupCommandRoute(
 ) {
   return (request: Request) => {
     const policy = app.messagingPolicy,
-      social = policy?.social;
-    if (!policy || !social) return unavailableMessagingHandler(app, request);
+      social = policy.social;
     const context = {
       policy,
       social,
       limit: (actorId: string) =>
-        consumeOrThrow(
+        consumeWindowsOrThrow(
           app.auth().limiter,
           `messaging:social:${actorId}`,
           social.abuse,

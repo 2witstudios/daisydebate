@@ -22,7 +22,12 @@ export const command = {
   digest: 'd'.repeat(64),
   now,
   policyRevision: 1,
-  limits: { windowMs: 60000, maxNewPairs: 5, maxPending: 3, cooldownMs: 1000 },
+  limits: {
+    daily: 20,
+    unrelatedHourly: 5,
+    declinesToBlock: 3,
+    declineBlockMs: 2_592_000_000,
+  },
 };
 export const request = (state: string, decidedAt: Date | null = null) => [
   actorId,
@@ -34,4 +39,8 @@ export const request = (state: string, decidedAt: Date | null = null) => [
   'Old introduction',
   new Date(now),
   decidedAt,
+];
+/** The budget read's facts: no decline block and nothing spent yet. */
+export const budget = (facts: Partial<Record<string, unknown>> = {}) => [
+  { declined: false, unrelated: true, daily: 0, hourly: 0, ...facts },
 ];

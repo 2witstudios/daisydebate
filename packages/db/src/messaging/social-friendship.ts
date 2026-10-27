@@ -10,10 +10,15 @@ import type {
   MessagingSocialInput,
 } from './social-contracts';
 import { endPairChallenges } from './social-challenge';
+import {
+  clearSocialDeclines,
+  recordSocialDecline,
+  spendSocialRequest,
+} from './social-request-budget';
 
 type FriendshipTransaction = Pick<
   BunSQLDatabase,
-  'select' | 'insert' | 'update' | 'delete'
+  'select' | 'insert' | 'update' | 'delete' | 'execute'
 >;
 
 const accepted = (actorId: string) =>
@@ -88,15 +93,42 @@ export function friendshipFrame(
         otherFriends: await countWhere(tx, accepted(otherActorId)),
       };
     },
-    async commitFriendship({ previous, next, now }) {
+    async commitFriendship({ previous, next, requestId, now, limits }) {
       await authorize();
       const pair = pairOf();
+      const otherActorId =
+        pair.lowActorId === input.actorId ? pair.highActorId : pair.lowActorId;
       if (!next) {
         await tx.delete(messagingFriendships).where(where(pair));
         await endPairChallenges(tx, pair);
+        // Ending someone else's pending request is a decline (DEC-251).
+        if (
+          previous?.state === 'pending' &&
+          previous.requesterActorId !== input.actorId
+        )
+          await recordSocialDecline(tx, {
+            declinerActorId: input.actorId,
+            requesterActorId: previous.requesterActorId,
+            now,
+            limits,
+          });
         return;
       }
+      if (next.state === 'accepted')
+        await clearSocialDeclines(tx, input.actorId, otherActorId);
       if (!previous) {
+        if (next.state === 'pending')
+          await (
+            await spendSocialRequest(tx, {
+              actorId: input.actorId,
+              counterpartActorId: otherActorId,
+              kind: 'friend.request',
+              requestId,
+              digest: null,
+              now,
+              limits,
+            })
+          )(null);
         await tx.insert(messagingFriendships).values({
           lowActorId: pair.lowActorId,
           highActorId: pair.highActorId,

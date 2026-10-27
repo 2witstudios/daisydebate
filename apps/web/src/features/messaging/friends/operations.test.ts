@@ -1,6 +1,7 @@
+import { dec251MessagingValues } from '../beta-policy';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
-import { fixedClock } from '@daisy/clock';
+import { fixedClock, sequentialId } from '@daisy/clock';
 import { createAppError } from '@daisy/errors';
 import type { MessagingSocialStore } from '@daisy/db/messaging';
 import {
@@ -62,6 +63,8 @@ const harness = ({
     limited,
     dependencies: {
       clock: fixedClock(now),
+      ids: sequentialId('friend-request'),
+      limits: dec251MessagingValues.socialRequests,
       limit: async (actorId: string) => {
         limited.push(actorId);
       },
@@ -96,7 +99,9 @@ test('a request by username', async () => {
         {
           previous: null,
           next: { state: 'pending', requesterActorId: me },
+          requestId: 'friend-request-1',
           now,
+          limits: dec251MessagingValues.socialRequests,
         },
       ],
     ],

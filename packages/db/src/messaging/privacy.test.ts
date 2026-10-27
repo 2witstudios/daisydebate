@@ -58,6 +58,15 @@ test('subject export removes other-direction private state and serializes dates/
       },
     ],
     [{ actor_id: actorId, hidden: true, updated_at: date }],
+    [
+      {
+        decliner_actor_id: actorId,
+        requester_actor_id: peerId,
+        declined_count: 1,
+        last_declined_at: date,
+        blocked_until: null,
+      },
+    ],
     [],
     [{ actor_id: peerId, subject_actor_id: actorId }],
     [
@@ -102,6 +111,12 @@ test('subject export removes other-direction private state and serializes dates/
       result.messaging_friend_challenges,
       result.messaging_group_invitations,
       result.messaging_files,
+      result.messaging_social_declines,
+      queries.some((entry) =>
+        entry.query.includes(
+          'from messaging_social_declines where decliner_actor_id=',
+        ),
+      ),
     ],
     expected: [
       [],
@@ -160,6 +175,16 @@ test('subject export removes other-direction private state and serializes dates/
           created_at: now,
         },
       ],
+      [
+        {
+          decliner_actor_id: actorId,
+          requester_actor_id: peerId,
+          declined_count: 1,
+          last_declined_at: now,
+          blocked_until: null,
+        },
+      ],
+      true,
     ],
   });
   const fileQuery = queries.at(-1);
@@ -192,6 +217,7 @@ test('erasure fences every subject channel before file cleanup and publishes fin
     [],
     [],
     [{ channelId }],
+    [],
     [],
     [],
     [],

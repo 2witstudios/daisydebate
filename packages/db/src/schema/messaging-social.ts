@@ -294,8 +294,18 @@ export const messagingSocialCommands = pgTable(
       { onDelete: 'set null' },
     ),
     createdAt: timestampColumn('created_at').notNull(),
+    /**
+     * DEC-251: whether a request's recipient had no relation to the
+     * requester when it was asked (no friendship and no DM), snapshotted so
+     * a later pair row never refills the unrelated budget.
+     */
+    unrelated: boolean('unrelated').notNull().default(false),
   },
   (table) => [
+    index('messaging_social_commands_actor_created_idx').on(
+      table.actorId,
+      table.createdAt,
+    ),
     index('messaging_social_commands_counterpart_actor_idx').on(
       table.counterpartActorId,
     ),
@@ -311,6 +321,7 @@ export const messagingSocialCommands = pgTable(
       'messaging_social_commands_kind',
       oneOf(table.kind, [
         'dm.request',
+        'friend.request',
         'dm.decide',
         'dm.block',
         'group.create',
@@ -321,6 +332,47 @@ export const messagingSocialCommands = pgTable(
         'group.transfer',
         'group.archive',
       ]),
+    ),
+  ],
+);
+
+/**
+ * DEC-251 decline blocks, one row per direction: how often `decliner` has
+ * declined `requester` since the count last reset, and until when further
+ * requests from `requester` are refused. Acceptance deletes both directions,
+ * and the row goes with its contact pair.
+ */
+export const messagingSocialDeclines = pgTable(
+  'messaging_social_declines',
+  {
+    declinerActorId: messagingActorColumn('decliner_actor_id'),
+    requesterActorId: messagingActorColumn('requester_actor_id'),
+    lowActorId: messagingActorColumn('low_actor_id'),
+    highActorId: messagingActorColumn('high_actor_id'),
+    declinedCount: bigint('declined_count', { mode: 'number' }).notNull(),
+    lastDeclinedAt: timestampColumn('last_declined_at').notNull(),
+    blockedUntil: timestampColumn('blocked_until'),
+  },
+  (table) => [
+    primaryKey({ columns: [table.declinerActorId, table.requesterActorId] }),
+    index('messaging_social_declines_pair_idx').on(
+      table.lowActorId,
+      table.highActorId,
+    ),
+    foreignKey({
+      columns: [table.lowActorId, table.highActorId],
+      foreignColumns: [
+        messagingContactPairs.lowActorId,
+        messagingContactPairs.highActorId,
+      ],
+    }).onDelete('cascade'),
+    check(
+      'messaging_social_declines_pair',
+      sql`(${table.lowActorId} = ${table.declinerActorId} and ${table.highActorId} = ${table.requesterActorId}) or (${table.lowActorId} = ${table.requesterActorId} and ${table.highActorId} = ${table.declinerActorId})`,
+    ),
+    check(
+      'messaging_social_declines_count',
+      sql`${table.declinedCount} between 0 and 9007199254740991`,
     ),
   ],
 );
