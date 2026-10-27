@@ -277,8 +277,14 @@ before diagnosing missing credentials or asking the owner to log in. Never
 print credentials or copy them into the worktree to bypass the sandbox.
 
 All repository work is planned in the PageSpace "Daisy Debate" drive
-(`lguvh1y1ejhadk96xcftohha`, via the `pagespace` CLI); its `Roadmap` page is the
-operating system. Record and claim work within the owner-authorized outcome; Ready means useful
+(`lguvh1y1ejhadk96xcftohha`, via the `pagespace` CLI). Open its `Start here`
+page, then the living integration order for current work and `Roadmap` for
+execution. Before planning or building, read `Product intent/Product map`, the
+applicable capability intents and their "Constraints other features must respect
+now" sections, following affected-capability cross-links. Include these source
+links in the scoped plan and prompt. Design work extends the existing shipped
+UI and canvases in `Designs`. Record and claim work within the owner-authorized
+outcome; Ready means useful
 branch progress is available, not that every prerequisite has merged. Board
 administration never reauthorizes the same outcome. Advance In Progress to
 In Review at handoff; Done requires independent acceptance evidence. Status belongs in the status field; task bodies are
@@ -290,7 +296,12 @@ escalation when required. The sandbox can block network access.
 PageSpace is the workspace, not only the board. Plans, prompts, handoffs and
 review records are task artifacts: they live in the drive's `Plans`,
 `Prompts` and `Reviews` folders (one subfolder per epic), reusable prompts
-and skills live in `Library`, and tasks link them with page mentions. The
+and skills live in `Library`, and tasks link them with page mentions.
+`Library/Agents` holds the existing
+agent pages; `Library/Engineering Standards` holds the published conventions.
+`Archive/Work history` remains a TASK_LIST: moves preserve task/page identity,
+criteria and move-time status. Normal stale-status and independent acceptance
+reconciliation still apply there; Archive never hides review debt. The
 rules are the drive's "Task artifacts and linking" page
 (`szsrb6lui57zjemvl25ywfox`); read it before producing any of these.
 Board and scratch-versus-durable-artifact rules (what counts as scratch, who

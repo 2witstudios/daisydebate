@@ -1,4 +1,5 @@
 import type { PrivacyFieldDeclaration } from '@daisy/protocol/privacy';
+import { privacyColumns, pendingPrivacyField } from './field-declarations';
 
 const columns = {
   users: {
@@ -20,39 +21,25 @@ const columns = {
   },
 } as const;
 export const corePrivacyFields: readonly PrivacyFieldDeclaration[] =
-  Object.entries(columns).flatMap(([table, groups]) =>
-    Object.entries(groups).flatMap(([category, names]) =>
-      names.map((column: string) => ({
-        table,
-        column,
-        category: category as 'identifier' | 'personal' | 'none',
-        ...(category === 'personal'
-          ? {
-              visibility:
-                column === 'username'
-                  ? ('public' as const)
-                  : ('private' as const),
-            }
-          : {}),
-        storage: 'postgres' as const,
-        owner: 'PRIV',
-        purpose:
-          table === 'users'
-            ? 'Account identity and subject rights'
-            : 'Durable configured vendor erasure intent and acknowledgment',
-        lawfulBasis: {
-          status: 'pending' as const,
-          decision: 'jc0qcdvpkmqzrelpaesi3pah',
-        },
-        retention: {
-          status: 'pending' as const,
-          decision: 'njiorsf64z4iqjm2dbfa3zuu',
-        },
-        erasure:
-          category === 'personal'
-            ? ('scrub' as const)
-            : ('retain-nonpersonal' as const),
-        exportable: table === 'users',
-      })),
-    ),
+  privacyColumns(columns).map(({ table, column, category }) =>
+    pendingPrivacyField({
+      table,
+      column,
+      category,
+      ...(category === 'personal'
+        ? {
+            visibility:
+              column === 'username'
+                ? ('public' as const)
+                : ('private' as const),
+          }
+        : {}),
+      owner: 'PRIV',
+      purpose:
+        table === 'users'
+          ? 'Account identity and subject rights'
+          : 'Durable configured vendor erasure intent and acknowledgment',
+      erasure: category === 'personal' ? 'scrub' : 'retain-nonpersonal',
+      exportable: table === 'users',
+    }),
   );
