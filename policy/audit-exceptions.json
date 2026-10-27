@@ -3,7 +3,10 @@
   "advisories": [
     {
       "advisory": "GHSA-82fw-gwwq-j7x9",
-      "packages": ["@vitest/mocker", "vitest"],
+      "packages": [
+        "@vitest/mocker",
+        "vitest"
+      ],
       "dependencyPath": "riteway 9.3.0 (devDependency of every testing workspace) > vitest 3.2.7 > @vitest/mocker 3.2.7. better-auth also lists vitest as an optional peer; production installation can retain this transitive tooling even when RITEway is omitted.",
       "reason": "Path traversal in @vitest/mocker's redirect mock (moderate). Fixed in vitest 4.1.11, but riteway 9.x hard-depends on vitest ^3.2.4 for its riteway/vitest entry.",
       "unreachable": "Unused development tooling: Daisy tests run through riteway/bun on bun:test, and application entry points import no Vitest runner, mocker plugin, tinypool worker or Better Auth test entry. No affected Vite mocker server or Vitest worker pool is started. Production package absence is not assumed; transitive packages may remain installed.",
@@ -13,7 +16,9 @@
     },
     {
       "advisory": "GHSA-qpx9-hpmf-5gmw",
-      "packages": ["underscore"],
+      "packages": [
+        "underscore"
+      ],
       "dependencyPath": "@daisy/debate-engine > @adobe/data 0.10.19 > jsonpath 1.3.0 > underscore 1.13.6 (exact pin in jsonpath).",
       "reason": "Unbounded recursion in _.flatten and _.isEqual, a denial of service (high). Fixed in underscore 1.13.8, which jsonpath's exact pin excludes.",
       "unreachable": "Only @adobe/data's schema/dynamic modules import jsonpath. Daisy imports @adobe/data/ecs alone (packages/debate-engine/src/ecs-adapter.ts), whose module graph contains neither jsonpath nor underscore.",
@@ -24,7 +29,9 @@
     {
       "advisory": "GHSA-5gmw-xhrv-c9v3",
       "reason": "Prototype pollution gadget in worker options leading to remote code execution (critical). Fixed in tinypool 2.1.1, but vitest 3.x pins tinypool ^1 and riteway 9.x hard-depends on vitest ^3.2.4.",
-      "packages": ["tinypool"],
+      "packages": [
+        "tinypool"
+      ],
       "dependencyPath": "riteway 9.3.0 (devDependency of every testing workspace) > vitest 3.2.7 > tinypool 1.1.1. better-auth also lists vitest as an optional peer; production installation can retain this transitive tooling even when RITEway is omitted.",
       "unreachable": "Unused development tooling: Daisy tests run through riteway/bun on bun:test, and application entry points import no Vitest runner, mocker plugin, tinypool worker or Better Auth test entry. No affected Vite mocker server or Vitest worker pool is started. Production package absence is not assumed; transitive packages may remain installed.",
       "owner": "platform",
@@ -34,7 +41,9 @@
     {
       "advisory": "GHSA-85c8-ppgw-ccpr",
       "reason": "Prototype pollution gadget in run() options leading to remote code execution (critical). Fixed in tinypool 2.1.2, but vitest 3.x pins tinypool ^1 and riteway 9.x hard-depends on vitest ^3.2.4.",
-      "packages": ["tinypool"],
+      "packages": [
+        "tinypool"
+      ],
       "dependencyPath": "riteway 9.3.0 (devDependency of every testing workspace) > vitest 3.2.7 > tinypool 1.1.1. better-auth also lists vitest as an optional peer; production installation can retain this transitive tooling even when RITEway is omitted.",
       "unreachable": "Unused development tooling: Daisy tests run through riteway/bun on bun:test, and application entry points import no Vitest runner, mocker plugin, tinypool worker or Better Auth test entry. No affected Vite mocker server or Vitest worker pool is started. Production package absence is not assumed; transitive packages may remain installed.",
       "owner": "platform",
@@ -43,13 +52,52 @@
     },
     {
       "advisory": "GHSA-qxg6-89mg-rqv8",
-      "packages": ["@vitest/mocker"],
+      "packages": [
+        "@vitest/mocker"
+      ],
       "dependencyPath": "riteway 9.3.0 (devDependency of every testing workspace) > vitest 3.2.7 > @vitest/mocker 3.2.7. better-auth lists vitest only as an optional peer.",
       "reason": "Unauthenticated manual mock registration interpolates unescaped URLs into generated modules on the Vitest Vite development server (moderate). Fixed in Vitest 4.1.12 and 5.0.3; RITEway 9.3.0 requires Vitest ^3.2.4.",
       "unreachable": "The installed packages remain physically present in the production dependency graph, but their affected interceptor is never activated: application/test/script sources import no vitest, riteway/vitest or Better Auth test entry and start no Vite mocker server or mock-registration WebSocket. Tests use riteway/bun backed by bun:test. Production package absence is not assumed.",
       "owner": "platform",
       "adr": "docs/decisions/0068-vitest-manual-mock-audit-exception.md",
       "reviewBy": "2026-12-23"
+    },
+    {
+      "advisory": "GHSA-965c-763c-88jm",
+      "packages": [
+        "better-auth"
+      ],
+      "dependencyPath": "@daisy/web > better-auth 1.7.5 (and @better-auth/passkey > better-auth)",
+      "reason": "OAuth state usable as a magic link to sign in as another user (critical). Fixed in 1.7.7, whose magic-link storage change ('magic-link:' prefix on hashed identifiers) needs a reader migration being built now (lane-ui).",
+      "unreachable": "Daisy configures no social or Generic OAuth provider and no OAuth plugin (apps/web/src/features/auth/server.ts), so no OAuth state is ever issued.",
+      "owner": "auth",
+      "adr": "docs/decisions/0039-dated-dependency-audit-exceptions.md",
+      "reviewBy": "2026-11-10"
+    },
+    {
+      "advisory": "GHSA-r4xp-prcw-77qf",
+      "packages": [
+        "better-auth"
+      ],
+      "dependencyPath": "@daisy/web > better-auth 1.7.5",
+      "reason": "OAuth Proxy sign-in as another user (high). Fixed in 1.7.7 (same pending upgrade).",
+      "unreachable": "The oauth-proxy plugin is not installed or configured (apps/web/src/features/auth/server.ts).",
+      "owner": "auth",
+      "adr": "docs/decisions/0039-dated-dependency-audit-exceptions.md",
+      "reviewBy": "2026-11-10"
+    },
+    {
+      "advisory": "GHSA-44jh-23m7-hpcf",
+      "packages": [
+        "@better-auth/drizzle-adapter",
+        "better-auth"
+      ],
+      "dependencyPath": "@daisy/db and @daisy/web > better-auth > @better-auth/drizzle-adapter 1.7.5",
+      "reason": "Concurrent requests can exceed Better Auth's database-backed rate limits on PostgreSQL (low). Fixed in 1.7.7 (same pending upgrade).",
+      "unreachable": "Better Auth's rate limiter is disabled (rateLimit: { enabled: false }, apps/web/src/features/auth/server.ts:137); Daisy enforces limits through its own Redis limiter.",
+      "owner": "auth",
+      "adr": "docs/decisions/0039-dated-dependency-audit-exceptions.md",
+      "reviewBy": "2026-11-10"
     }
   ]
 }
