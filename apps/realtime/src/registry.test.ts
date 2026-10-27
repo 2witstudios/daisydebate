@@ -1,5 +1,5 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import type { OutboxRow } from '@daisy/db';
+import type { OutboxRow } from '@daisy/db/outbox';
 import { fixture, row, topic, pendingRead } from './registry.test-support';
 
 setupRitewayBun();

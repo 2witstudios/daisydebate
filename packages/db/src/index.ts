@@ -1,3 +1,4 @@
+import { messagingOperations } from './messaging/operations';
 import { createMediaSessionStore } from './media-session';
 import { roundUnjudgedCompletionOperations } from './round-unjudged-completion';
 import { roundMaintenanceOperations } from './round-maintenance';
@@ -18,20 +19,6 @@ import { createBoundedTransaction } from './bounded-transaction';
 export { isTransactionCapacityRefusal } from './transaction-admission';
 import { readUnratedAttendanceForfeits } from './attendance-rating';
 import { roundProtectedReads } from './round-protected-reads';
-import { createMessagingTypingPrivacyPort } from './privacy/typing-rights';
-import { createMessagingTypingStore } from './messaging/typing-store';
-import { createMessagingPreferenceStore } from './messaging/preference-store';
-import { createMessagingFileMaintenance } from './messaging-files/maintenance';
-import { createMessagingGroupIssuanceStore } from './messaging/group-issuance-store';
-import type { MessagingGroupIssuanceFence } from './messaging/group-issuance-contracts';
-import { createMessagingGroupManagementStore } from './messaging/group-management-store';
-import type { MessagingGroupManagementFence } from './messaging/group-management-contracts';
-import { createMessagingGroupCreationStore } from './messaging/group-creation-store';
-import type { MessagingGroupCreationFence } from './messaging/group-creation-contracts';
-import { createMessagingGroupInvitationStore } from './messaging/group-invitation-store';
-import type { MessagingGroupInvitationFence } from './messaging/group-invitation-contracts';
-import { createMessagingInboxStore } from './messaging/inbox-store';
-import { createMessagingChannelAuthority } from './messaging/authority-frame';
 import { SQL } from 'bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { subscribeOutbox, type OutboxListenHandlers } from './listen';
@@ -52,16 +39,6 @@ import { transcriptFinalizationOperations } from './transcript-finalization';
 import { utteranceOperations } from './utterance-operations';
 import { documentOperations } from './document-operations';
 import { onboardingOperations } from './onboarding-operations';
-import {
-  createMessagingStore,
-  createMessagingReactionStore,
-  createMessagingFileStore,
-  createMessagingDmStore,
-  createMessagingFileCleanup,
-  type MessagingAuthorizationFence,
-  createMessagingSocialStore,
-  type MessagingSocialAuthorizationFence,
-} from './messaging';
 import { actorOperations } from './actor-operations';
 import { rateCompletedRound } from './rating-operations';
 import { standingsOperations } from './standings';
@@ -74,39 +51,7 @@ import { readOutboxCatchup } from './outbox-catchup';
 import { readOutboxRetentionBoundary } from './outbox-retention-boundary';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { RUNTIME_SESSION } from './session-bounds';
-export type {
-  RateDebateInput,
-  RateDebateResult,
-  RatingDecision,
-} from './rating-facts';
-export type {
-  FormatRevisionRecord,
-  FormatPresetRecord,
-} from './format-operations';
-export type { NewRoom } from './room-operations';
-export type {
-  CoachingClaimDecision,
-  RoundCoachingFacts,
-} from './round-feedback';
-export type { RoundHydration } from './round-hydration';
-export type { RoundExecutionWrite } from './round-operations';
-export type { DocumentRecord, DocumentSave } from './document-operations';
-export type { ActorRecord } from './actor-operations';
-export type { UsernameClaim } from './username-claim';
-export type {
-  OnboardingRecord,
-  OnboardingStepWrite,
-} from './onboarding-operations';
-export type { StandingsRead } from './standings';
 export type { DatabaseEventSink } from './instrumented';
-export {
-  encodeOutboxCursor,
-  decodeOutboxCursor,
-  OUTBOX_ORIGIN,
-  type OutboxAppendInput,
-  type OutboxPosition,
-  type OutboxRow,
-} from './outbox';
 export { refuseSchemaAlteringRole } from './runtime-role';
 
 /**
@@ -208,43 +153,7 @@ export function createDatabase({
     ...authorizationSessionOperations({ database }),
     ...emailDeliveryOperations({ database, eventSink }),
     ...actorOperations({ database, eventSink }),
-    messagingInboxStore: (
-      authorize: Parameters<typeof createMessagingInboxStore>[1],
-    ) => createMessagingInboxStore(database, authorize),
-    messagingDmStore: (
-      authorize: Parameters<typeof createMessagingDmStore>[0]['authorize'],
-    ) => createMessagingDmStore({ database, authorize }),
-    messagingChannelAuthority: createMessagingChannelAuthority(database),
-    messagingFileMaintenance: createMessagingFileMaintenance(database),
-    messagingFileCleanup: (
-      authorize: Parameters<typeof createMessagingFileCleanup>[0]['authorize'],
-    ) => createMessagingFileCleanup({ database, authorize }),
-    messagingFileStore: (
-      authorize: Parameters<typeof createMessagingFileStore>[0]['authorize'],
-    ) => createMessagingFileStore({ database, authorize }),
-    messagingTypingStore: createMessagingTypingStore(database),
-    messagingTypingPrivacyPort: (
-      producer: Parameters<typeof createMessagingTypingPrivacyPort>[1],
-    ) => createMessagingTypingPrivacyPort(database, producer),
-    messagingPreferenceStore: (
-      authorize: Parameters<typeof createMessagingPreferenceStore>[1],
-    ) => createMessagingPreferenceStore(database, authorize),
-    messagingChannelStore: (authorize: MessagingAuthorizationFence) =>
-      createMessagingStore({ database, authorize }),
-    messagingReactionStore: (
-      policy: Parameters<typeof createMessagingReactionStore>[1],
-      authorize: Parameters<typeof createMessagingReactionStore>[2],
-    ) => createMessagingReactionStore(database, policy, authorize),
-    messagingGroupCreationStore: (authorize: MessagingGroupCreationFence) =>
-      createMessagingGroupCreationStore(database, authorize),
-    messagingGroupIssuanceStore: (authorize: MessagingGroupIssuanceFence) =>
-      createMessagingGroupIssuanceStore({ database, authorize }),
-    messagingGroupManagementStore: (authorize: MessagingGroupManagementFence) =>
-      createMessagingGroupManagementStore({ database, authorize }),
-    messagingGroupInvitationStore: (authorize: MessagingGroupInvitationFence) =>
-      createMessagingGroupInvitationStore({ database, authorize }),
-    messagingSocialStore: (authorize: MessagingSocialAuthorizationFence) =>
-      createMessagingSocialStore({ database, authorize }),
+    ...messagingOperations(database),
     ...outboxOperations({ database, eventSink }),
     ...transcriptRetention({ database, eventSink }),
     readOutboxRetentionBoundary: () =>
@@ -298,35 +207,3 @@ export function createDatabase({
   };
 }
 export type Database = ReturnType<typeof createDatabase>;
-
-export type { LockedRoundCommandContext } from './round-command-operations';
-
-export type { FrozenRoundTranscript } from './frozen-transcript';
-
-export type {
-  LockedRoundBallotInput,
-  LockedRoundBallotContext,
-  RoundBallotLeaseContext,
-} from './round-ballot-operations';
-export type {
-  AttendanceTransactionContext,
-  AttendanceTransaction,
-  AttendancePrincipal,
-  AttendanceFacts,
-  LockedAttendanceCheckIn,
-} from './attendance-operations';
-export type { AttendanceEvaluationFacts } from './attendance-evaluator';
-export type { AttendanceResolution } from './attendance-adjudication';
-export type {
-  AvailabilityEvidence,
-  AvailabilityCause,
-} from './availability-operations';
-export type {
-  CheckInAttempt,
-  CheckInAttemptMetadata,
-} from './check-in-attempts';
-
-export type {
-  AttendanceStore,
-  AttendanceEvaluator,
-} from './attendance-entrypoints';

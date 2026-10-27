@@ -1,4 +1,4 @@
-import type { OutboxPosition, OutboxRow } from '@daisy/db';
+import type { OutboxPosition, OutboxRow } from '@daisy/db/outbox';
 import type { RealtimeApp } from './app';
 import { noopLogger } from './outbox-drain.test-support';
 
