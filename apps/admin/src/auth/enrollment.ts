@@ -73,7 +73,7 @@ export async function beginEnrollment(
 > {
   const opened = await openForAttempt(deps, input);
   if ('code' in opened) return opened;
-  const { attempt, open, now } = opened;
+  const { open, now } = opened;
   const bytes = deps.random(SECRET_BYTES);
   await insertChallenge(deps.db, {
     id: deps.ids.next(),
