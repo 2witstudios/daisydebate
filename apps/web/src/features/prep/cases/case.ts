@@ -1,5 +1,6 @@
 import type { Side, Visibility } from '../library/library-item';
-import { budget, formatClock, readSeconds, type Budget } from '../reading-time';
+import { budget, readSeconds, type Budget } from '../reading-time';
+import { formatSeconds } from '../../clock-display/clock-display';
 
 /**
  * A block of a speech: a brief section, a card, or a private transition note.
@@ -83,11 +84,11 @@ export function speechTime(
   const result = budget(seconds, limitSeconds);
   return {
     seconds,
-    clock: formatClock(seconds),
+    clock: formatSeconds(seconds),
     budget: result,
-    overClock: formatClock(result.over ? result.deltaSeconds : 0),
+    overClock: formatSeconds(result.over ? result.deltaSeconds : 0),
   };
 }
 
 export const blockClock = (block: Block, pace: number): string =>
-  formatClock(readSeconds(block.words, pace));
+  formatSeconds(readSeconds(block.words, pace));

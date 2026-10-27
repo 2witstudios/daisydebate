@@ -2,12 +2,12 @@ import { escapeHtml } from '../../debate-room/documents/documents';
 import { sideLabel } from '../library/library-item';
 import {
   budget,
-  formatClock,
   readSeconds,
   trimWords,
   wordCount,
   type Budget,
 } from '../reading-time';
+import { formatSeconds } from '../../clock-display/clock-display';
 import type { Brief, BriefCardRef, Contention } from './brief';
 
 /** A card the brief can quote: its claim, cite and read-aloud passage. */
@@ -159,7 +159,7 @@ export function briefOutline(
       label: label === '' ? `Section ${index + 1}` : label,
       cards: body.split('<blockquote').length - 1,
       words,
-      clock: formatClock(readSeconds(words, pace)),
+      clock: formatSeconds(readSeconds(words, pace)),
     };
   });
   const words = sections.reduce((total, s) => total + s.words, 0);
@@ -169,9 +169,9 @@ export function briefOutline(
     sections,
     cards: sections.reduce((total, s) => total + s.cards, 0),
     words,
-    clock: formatClock(seconds),
+    clock: formatSeconds(seconds),
     budget: result,
-    overClock: formatClock(result.over ? result.deltaSeconds : 0),
+    overClock: formatSeconds(result.over ? result.deltaSeconds : 0),
     trimWords: result.over ? trimWords(result.deltaSeconds, pace) : 0,
   };
 }

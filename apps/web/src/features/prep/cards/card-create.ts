@@ -17,7 +17,8 @@ import {
   importUnreachable,
   type Notice,
 } from '../notices';
-import { formatClock, readSeconds, wordCount } from '../reading-time';
+import { readSeconds, wordCount } from '../reading-time';
+import { formatSeconds } from '../../clock-display/clock-display';
 
 const steps = ['source', 'highlight', 'cite'] as const;
 const sources = ['paste', 'link', 'file'] as const;
@@ -208,7 +209,7 @@ export function cardCreateView(
         segments.map((segment) => segment.text).join(''),
       ),
       readWords: words,
-      readClock: formatClock(readSeconds(words, pace)),
+      readClock: formatSeconds(readSeconds(words, pace)),
     },
     cite: {
       fields,

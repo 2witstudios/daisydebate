@@ -1,5 +1,7 @@
-import { formatClock as formatSeconds } from '../../judge/clock';
-import { formatClock } from '../clock';
+import {
+  formatCountdown,
+  formatSeconds,
+} from '../../clock-display/clock-display';
 
 export type DebateMark = 'aff' | 'neg' | 'extend' | 'dropped' | 'new';
 export const debateMarks: readonly DebateMark[] = [
@@ -115,7 +117,7 @@ function speechPlanTemplate(context: TemplateContext): string {
   );
   return doc([
     heading(1, title),
-    heading(2, `${next.code} · ${formatClock(next.durationMs)}`),
+    heading(2, `${next.code} · ${formatCountdown(next.durationMs)}`),
     bulletList(rows),
   ]);
 }

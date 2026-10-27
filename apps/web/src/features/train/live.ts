@@ -5,7 +5,7 @@ import {
 } from '../../ui/mock/train-practice';
 import { motionText, type PracticeConfig } from './practice';
 import type { OpponentAdapter } from './opponent';
-import { formatClock } from './speech-clock';
+import { formatCountdown } from '../clock-display/clock-display';
 import { buildTurns, lengthLabel, turnAt, type Side, type Turn } from './turns';
 
 export type TurnRow = {
@@ -87,7 +87,7 @@ function spoken(
 const prepLabel = (prepMinutes: number): string =>
   prepMinutes === 0
     ? 'No prep time'
-    : `${formatClock(prepMinutes * 60_000)} of ${formatClock(prepMinutes * 60_000)}`;
+    : `${formatCountdown(prepMinutes * 60_000)} of ${formatCountdown(prepMinutes * 60_000)}`;
 
 /**
  * The live practice screen for a turn: who speaks, what the coach offers and

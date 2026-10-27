@@ -9,7 +9,8 @@ import {
   type CardVersion,
   type Segment,
 } from './card';
-import { formatClock, readSeconds } from '../reading-time';
+import { readSeconds } from '../reading-time';
+import { formatSeconds } from '../../clock-display/clock-display';
 
 const views = ['read', 'full', 'cite'] as const;
 type CardDetailTab = (typeof views)[number];
@@ -111,7 +112,7 @@ export function cardDetailView(
             currentHref: cardHref(card.id, { view: query.view, version: 0 }),
           },
     readSegments: readView(shown.segments),
-    readClock: formatClock(readSeconds(readWords(shown.segments), pace)),
+    readClock: formatSeconds(readSeconds(readWords(shown.segments), pace)),
     provenance: [
       ['Author', `${card.author}, ${card.qualifications}`],
       ['Publication', card.publication],

@@ -3,7 +3,7 @@ import '../debate-room/zod-jitless';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import type { RoundView } from '@daisy/protocol';
-import { formatClock } from '../../features/debate-room/clock';
+import { formatCountdown } from '../../features/clock-display/clock-display';
 import type { RoundRead } from '../../features/rooms/read-round';
 import {
   spectatorViewOf,
@@ -111,7 +111,7 @@ function SpeechOrder({ watched }: { readonly watched: SpectatorView }) {
           <>
             <p className="font-strong">{watched.clock.label}</p>
             <p className="ml-auto font-display text-3xl font-semibold tabular-nums">
-              {formatClock(watched.clock.remainingMs)}
+              {formatCountdown(watched.clock.remainingMs)}
             </p>
           </>
         ) : null}
@@ -132,7 +132,7 @@ function SpeechOrder({ watched }: { readonly watched: SpectatorView }) {
             <span className="block font-strong">{speech.key}</span>
             <span className="sr-only">{speech.label}, </span>
             {stateLabel[speech.state] ? `${stateLabel[speech.state]} · ` : ''}
-            {formatClock(speech.durationMs)}
+            {formatCountdown(speech.durationMs)}
           </li>
         ))}
       </ol>

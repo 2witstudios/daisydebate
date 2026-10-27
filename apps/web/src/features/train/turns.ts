@@ -1,4 +1,4 @@
-import { formatClock } from './speech-clock';
+import { formatCountdown } from '../clock-display/clock-display';
 import type { PracticeConfig, Opponent } from './practice';
 
 export type Side = 'aff' | 'neg';
@@ -56,7 +56,7 @@ export function turnAt(turns: readonly Turn[], seq: number): Turn | null {
 }
 
 export const lengthLabel = (turn: Turn): string =>
-  formatClock(turn.lengthSeconds * 1000);
+  formatCountdown(turn.lengthSeconds * 1000);
 
 /** The opponent's turn at or after a position, else their last; null with none. */
 export function opponentTurnAt(

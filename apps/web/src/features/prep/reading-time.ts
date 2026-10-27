@@ -6,10 +6,6 @@ export const wordCount = (text: string): number =>
 export const readSeconds = (words: number, wpm: number): number =>
   wpm > 0 ? Math.round((words / wpm) * 60) : 0;
 
-/** Seconds as m:ss. */
-export const formatClock = (seconds: number): string =>
-  `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
-
 /** How a time compares with a limit the debate rules supply. */
 export type Budget = {
   readonly over: boolean;

@@ -6,7 +6,8 @@ import {
   MAX_FIELD_LENGTH,
 } from '../library/library-query';
 import { listLibrary } from '../library/list-library';
-import { formatClock, readSeconds } from '../reading-time';
+import { readSeconds } from '../reading-time';
+import { formatSeconds } from '../../clock-display/clock-display';
 
 export type BlockSource = {
   readonly id: string;
@@ -56,7 +57,7 @@ export function findBlockSources(
               id: row.id,
               kind: 'card',
               title: row.title,
-              detail: `Card · ${formatClock(readSeconds(readWords(currentVersion(card).segments), pace))}`,
+              detail: `Card · ${formatSeconds(readSeconds(readWords(currentVersion(card).segments), pace))}`,
             },
           ];
     }

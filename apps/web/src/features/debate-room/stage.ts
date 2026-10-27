@@ -1,4 +1,4 @@
-import { formatClock } from './clock';
+import { formatCountdown } from '../clock-display/clock-display';
 import type { Side, SpeechSlot } from './documents/documents';
 import type { RoundPhase } from './layout';
 import type { TranscriptSegment } from './transcript';
@@ -41,7 +41,7 @@ export function upNext(
       .slice(liveIndex + 1)
       .map(
         (slot) =>
-          `${slot.code} · ${slot.side === selfSide ? 'You' : opponentName} · ${formatClock(slot.durationMs)}`,
+          `${slot.code} · ${slot.side === selfSide ? 'You' : opponentName} · ${formatCountdown(slot.durationMs)}`,
       ),
     'Judging',
   ].slice(0, 2);

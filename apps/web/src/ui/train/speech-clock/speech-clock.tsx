@@ -8,13 +8,13 @@ import {
 } from 'react';
 import {
   elapsedPercent,
-  formatClock,
   isTimeUp,
   pause,
   resume,
   startClock,
   tick,
 } from '../../../features/train/speech-clock';
+import { formatCountdown } from '../../../features/clock-display/clock-display';
 import { renderSpeechClock } from './speech-clock.render';
 
 export type SpeechClockProps = {
@@ -54,8 +54,8 @@ export function SpeechClock({ seconds, actions, endHref }: SpeechClockProps) {
   }, []);
 
   return renderSpeechClock({
-    display: formatClock(state.remainingMs),
-    lengthLabel: formatClock(seconds * 1000),
+    display: formatCountdown(state.remainingMs),
+    lengthLabel: formatCountdown(seconds * 1000),
     percent: elapsedPercent(seconds, state),
     paused: state.paused,
     timeUp: isTimeUp(state),

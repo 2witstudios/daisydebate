@@ -1,13 +1,13 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   elapsedPercent,
-  formatClock,
   isTimeUp,
   pause,
   resume,
   startClock,
   tick,
 } from './speech-clock';
+import { formatCountdown } from '../clock-display/clock-display';
 
 setupRitewayBun();
 
@@ -16,7 +16,7 @@ describe('speech clock', () => {
     assert({
       given: 'a five minute clock after 90 seconds',
       should: 'have 3:30 left',
-      actual: formatClock(tick(startClock(300), 90_000).remainingMs),
+      actual: formatCountdown(tick(startClock(300), 90_000).remainingMs),
       expected: '3:30',
     });
   });
@@ -51,21 +51,6 @@ describe('speech clock', () => {
       should: 'return the same state',
       actual: [tick(state, 0) === state, tick(state, -5) === state],
       expected: [true, true],
-    });
-  });
-
-  test('formatting', () => {
-    assert({
-      given: 'whole, part and zero seconds and an hour-long input',
-      should: 'round part seconds up and pad seconds',
-      actual: [
-        formatClock(300_000),
-        formatClock(59_001),
-        formatClock(0),
-        formatClock(-5),
-        formatClock(65_000),
-      ],
-      expected: ['5:00', '1:00', '0:00', '0:00', '1:05'],
     });
   });
 

@@ -8,7 +8,7 @@ import { withDone, withPlanContext, type HubQuery } from './query';
 import { OWN_MOTION, type PracticeConfig } from './practice';
 import { opponents } from './practice';
 import { buildTurns, effectiveOpponent, type Side, type Turn } from './turns';
-import { formatClock } from './speech-clock';
+import { formatCountdown } from '../clock-display/clock-display';
 
 /** The debrief's URL state: how far the debate got and what was done here. */
 export type DebriefQuery = {
@@ -99,10 +99,10 @@ const pct = (used: number, length: number): number =>
 
 const usedLabel = (length: number, delta: number): string =>
   delta < 0
-    ? `${formatClock((length + delta) * 1000)} of ${formatClock(length * 1000)}`
+    ? `${formatCountdown((length + delta) * 1000)} of ${formatCountdown(length * 1000)}`
     : delta === 0
-      ? `${formatClock(length * 1000)} used`
-      : `${formatClock(length * 1000)} used, ${delta} s over`;
+      ? `${formatCountdown(length * 1000)} used`
+      : `${formatCountdown(length * 1000)} used, ${delta} s over`;
 
 const workItems = [
   {

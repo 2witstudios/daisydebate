@@ -1,11 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
-import {
-  budget,
-  formatClock,
-  readSeconds,
-  trimWords,
-  wordCount,
-} from './reading-time';
+import { budget, readSeconds, trimWords, wordCount } from './reading-time';
+import { formatSeconds } from '../clock-display/clock-display';
 
 setupRitewayBun();
 
@@ -24,10 +19,10 @@ describe('reading time', () => {
       given: '440, 180 and 26 words at 160 a minute, and a zero pace',
       should: 'read 2:45, 1:08, 0:10 and 0:00',
       actual: [
-        formatClock(readSeconds(440, 160)),
-        formatClock(readSeconds(180, 160)),
-        formatClock(readSeconds(26, 160)),
-        formatClock(readSeconds(10, 0)),
+        formatSeconds(readSeconds(440, 160)),
+        formatSeconds(readSeconds(180, 160)),
+        formatSeconds(readSeconds(26, 160)),
+        formatSeconds(readSeconds(10, 0)),
       ],
       expected: ['2:45', '1:08', '0:10', '0:00'],
     });

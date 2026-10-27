@@ -2,7 +2,7 @@
 import type { RoundView } from '@daisy/protocol';
 import { systemClock } from '@daisy/clock';
 import { useEffect, useState } from 'react';
-import { formatClock } from '../../../features/debate-room/clock';
+import { formatCountdown } from '../../../features/clock-display/clock-display';
 import {
   attendanceSettlesAtMs,
   ballotOpensInMs,
@@ -80,7 +80,7 @@ export function BallotOpensNotice({
         aria-hidden="true"
         className="font-display text-2xl font-bold text-hue-sky tabular-nums"
       >
-        {formatClock(opensInMs)}
+        {formatCountdown(opensInMs)}
       </span>
       <p className="text-base text-ink">
         <span className="font-strong">{`Submitting opens in about ${seconds} seconds.`}</span>{' '}

@@ -12,9 +12,9 @@ import {
 import {
   clockMilestone,
   clockUrgency,
-  formatClock,
   type ClockUrgency,
 } from '../../features/debate-room/clock';
+import { formatCountdown } from '../../features/clock-display/clock-display';
 import {
   effectivePreset,
   layoutPresets,
@@ -210,11 +210,11 @@ function PrepClocks({ round }: { readonly round: RoundSnapshot }) {
     <span className="text-sm text-ink-muted tabular-nums">
       Your prep{' '}
       <strong className={sideInk[round.self.side]}>
-        {formatClock(prep[round.self.side])}
+        {formatCountdown(prep[round.self.side])}
       </strong>{' '}
       · {sideName[round.opponent.side]} prep{' '}
       <strong className={sideInk[round.opponent.side]}>
-        {formatClock(prep[round.opponent.side])}
+        {formatCountdown(prep[round.opponent.side])}
       </strong>
     </span>
   );
@@ -241,7 +241,7 @@ function MainClock({ round }: { readonly round: RoundSnapshot }) {
     <>
       <div
         role="timer"
-        aria-label={`${clock.label} ${formatClock(clock.remainingMs)}`}
+        aria-label={`${clock.label} ${formatCountdown(clock.remainingMs)}`}
         className={center}
       >
         <span className="text-xs font-strong tracking-wider text-ink-muted uppercase">
@@ -253,7 +253,7 @@ function MainClock({ round }: { readonly round: RoundSnapshot }) {
             urgencyInk[clockUrgency(clock.remainingMs)],
           )}
         >
-          {formatClock(clock.remainingMs)}
+          {formatCountdown(clock.remainingMs)}
         </span>
       </div>
       <p aria-live="polite" className="sr-only">

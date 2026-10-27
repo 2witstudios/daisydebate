@@ -9,7 +9,8 @@ import { findBlockSources } from './cards/block-sources';
 import { getCard } from './cards/get-card';
 import { getCase, listCases } from './cases/get-case';
 import { caseChangedElsewhere, type Notice } from './notices';
-import { formatClock, readSeconds } from './reading-time';
+import { readSeconds } from './reading-time';
+import { formatSeconds } from '../clock-display/clock-display';
 import {
   roomPanelHref,
   type PanelTab,
@@ -90,7 +91,7 @@ export type RoomPanelView = {
 const panelCard = (card: Card, pace: number): PanelCard => ({
   id: card.id,
   title: card.tagLine,
-  meta: `${card.author} ${card.year} · ${formatClock(readSeconds(readWords(currentVersion(card).segments), pace))}`,
+  meta: `${card.author} ${card.year} · ${formatSeconds(readSeconds(readWords(currentVersion(card).segments), pace))}`,
   href: `/prep/cards/${card.id}`,
 });
 
@@ -180,7 +181,7 @@ function pinnedPanel(
       body: {
         kind: 'card',
         card,
-        clock: formatClock(
+        clock: formatSeconds(
           readSeconds(readWords(currentVersion(card).segments), pace),
         ),
         sendAsk: query.send,
