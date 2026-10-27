@@ -16,7 +16,8 @@ import { messagingSocialDigest } from './social-command-digest';
  * spent, so a refusal never says which it was (DEC-251, as ADR 0072 does for
  * friends). The requester's own fence refusal (a waitlisted account) is
  * deliberately folded in too: telling it apart would need the fence to say
- * which side refused. An existing pending or accepted DM converges.
+ * which side refused. An existing pending or accepted DM converges, with
+ * nothing spent.
  */
 export async function requestMessagingDm(
   input: unknown,
@@ -59,7 +60,10 @@ export async function requestMessagingDm(
         // As send and block do: a replay never spends the limiter; a new
         // command spends it after the refusals that need no budget.
         const now = dependencies.clock.now();
-        await frame.screenDmRequest(now);
+        // An existing pending or accepted DM is no new request: it converges
+        // without spending any limiter.
+        const converged = await frame.screenDmRequest(now);
+        if (converged) return converged;
         await dependencies.limit(actorId);
         return frame.commitDmRequest({
           requestId: command.requestId,

@@ -61,9 +61,11 @@ export function dmRequestFrame(
     async screenDmRequest(now) {
       await authorize();
       const current = await read();
-      if (converges(current)) return;
+      if (current && converges(current))
+        return { channelId: current.channelId, state: current.requestState };
       if (current) await activeChannel(current.channelId);
       await refuseDeclineBlock(tx, input.actorId, counterpartOf(input), now);
+      return null;
     },
     async readDmRequest() {
       await authorize();

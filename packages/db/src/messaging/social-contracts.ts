@@ -65,12 +65,16 @@ export type MessagingSocialFrame = {
     readonly limits: SocialRequestLimits;
   }) => Promise<{ readonly channelId: string; readonly state: string }>;
   /**
-   * Before any budget is spent, refuses (AUTHORIZATION, as a block) a new DM
-   * request that the commit would refuse: one the other member's declines
-   * block at `now` (DEC-251), or one on an inactive channel. A pending or
-   * accepted DM converges instead, so it is never refused here.
+   * Before any budget is spent: answers the existing pending or accepted DM
+   * a request converges on, or else refuses (AUTHORIZATION, as a block) a
+   * new request the commit would refuse, one the other member's declines
+   * block at `now` (DEC-251) or one on an inactive channel, or answers null
+   * for a new request to commit.
    */
-  readonly screenDmRequest: (now: string) => Promise<void>;
+  readonly screenDmRequest: (now: string) => Promise<{
+    readonly channelId: string;
+    readonly state: string;
+  } | null>;
   readonly blocking: boolean | null;
   readonly contacts: readonly MessagingContactFact[];
   readonly readReceipt: (requestId: string) => Promise<{

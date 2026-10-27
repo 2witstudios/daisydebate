@@ -44,6 +44,7 @@ const storeWith = (
         readReceipt: async () => receipt,
         screenDmRequest: async () => {
           if (refusal?.at === 'decline') throw createAppError(refusal.code);
+          return null;
         },
         readDmRequest: async () => ({ channelId, state: 'pending' }),
         commitDmRequest: async (plan: unknown) => {

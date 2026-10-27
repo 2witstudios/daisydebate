@@ -210,7 +210,7 @@ test('a decline block refuses a new DM request before the limiter, yet an existi
       given:
         'a requester decline-blocked by the recipient, asking first while their accepted DM exists, then after it is gone',
       should:
-        'converge on the accepted DM, then refuse the new request as NOT_FOUND with no limiter spend and no pair written',
+        'converge on the accepted DM and refuse the later new request as NOT_FOUND, spending the limiter for neither and writing no pair',
       actual: {
         converged,
         spentOnConvergence,
@@ -220,9 +220,9 @@ test('a decline block refuses a new DM request before the limiter, yet an existi
       },
       expected: {
         converged: { channelId: fixture.channelId, state: 'accepted' },
-        spentOnConvergence: [fixture.actorId],
+        spentOnConvergence: [],
         refused: 'NOT_FOUND',
-        spends: [fixture.actorId],
+        spends: [],
         pairs: 0,
       },
     });
