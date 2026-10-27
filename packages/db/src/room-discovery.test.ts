@@ -151,3 +151,34 @@ function discoveryFixture(rows: readonly Record<string, unknown>[]) {
     rows,
   ]);
 }
+
+test('discovery keys oldest and newest pages on immutable creation time and Room id', async () => {
+  for (const sort of ['longest-waiting', 'newest'] as const) {
+    const { database, queries } = discoveryFixture([
+      { ...entry, role: null, slot: null },
+    ]);
+    await database.listRoomPage(
+      caller,
+      { pageSize: 2, q: '', sort, cursor: ids[1] },
+      () => true,
+      () => true,
+      () => false,
+    );
+    assert({
+      given: `a ${sort} page after a Room that may have launched`,
+      should:
+        'seek and order both discovery branches by the same immutable tuple',
+      actual: [
+        queries[1]!.query.includes('(r.created_at, r.id collate "C")'),
+        queries[1]!.query.includes(sort === 'newest' ? '<' : '>'),
+        queries[1]!.query.includes(
+          'select r.created_at, r.id collate "C" from rooms r',
+        ),
+        queries[1]!.query.includes('order by created_at'),
+        queries[1]!.params.includes(ids[1]),
+        queries.at(-1)!.query.includes('order by r.created_at'),
+      ],
+      expected: [true, true, true, true, true, true],
+    });
+  }
+});

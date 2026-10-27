@@ -86,6 +86,7 @@ export async function readRoomList(
     ...(query.cursor ? { cursor: query.cursor } : {}),
     ...(query.status ? { status: query.status } : {}),
     ...(query.mode ? { mode: query.mode } : {}),
+    ...(query.sort ? { sort: query.sort } : {}),
   });
   const result = await readProjection(
     fetch,
@@ -99,12 +100,13 @@ export async function readRoomList(
 }
 
 function validPage(page: RoomListPage, query: RoomListQuery) {
+  const ids = page.rooms.map((room) => room.id);
+  // Creation tuples are ordered by the producer. Opaque Room IDs alone
+  // cannot establish that order, but repeats and cursor substitution are invalid.
   return !(
     page.rooms.length > query.pageSize ||
-    page.rooms.some(
-      (room, index) =>
-        room.id <= (index ? page.rooms[index - 1]!.id : (query.cursor ?? '')),
-    ) ||
+    new Set(ids).size !== ids.length ||
+    ids.includes(query.cursor ?? '') ||
     (page.nextCursor !== null && page.nextCursor !== page.rooms.at(-1)?.id) ||
     (page.retry && (page.rooms.length > 0 || page.nextCursor !== null))
   );
