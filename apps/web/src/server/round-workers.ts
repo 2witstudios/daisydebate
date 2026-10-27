@@ -12,6 +12,7 @@ import { startRoundJudgingService } from '../features/round-judging/service';
 import { createRoundCoachingOperations } from '../features/round-coaching/operations';
 import { startRoundCoachingService } from '../features/round-coaching/service';
 import { coachingPolicy } from '../features/round-coaching/policy';
+import { canGenerateCoaching } from '../features/round-coaching/authorization';
 
 /** Provider work owns an independent lifecycle; availability/competitive maintenance never await it. */
 export function startRoundWorkers(input: {
@@ -59,6 +60,7 @@ export function startRoundWorkers(input: {
   });
   // Coaching shares the model and total budget, with reserved competitive capacity.
   const coaching = createRoundCoachingOperations({
+    betaGrantsPremium: app.config.PREMIUM_BETA_GRANT,
     store: app.database,
     voice: app.aiVoice,
     withProvider: (signal, work) => withProvider(signal, work, 'coaching'),
@@ -71,6 +73,7 @@ export function startRoundWorkers(input: {
         new Date(
           Date.parse(app.clock.now()) - coachingPolicy.windowMs,
         ).toISOString(),
+        (access) => canGenerateCoaching(access, app.config.PREMIUM_BETA_GRANT),
       ),
     coach: (roundId, signal) =>
       coaching.coach(

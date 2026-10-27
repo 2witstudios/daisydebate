@@ -8,6 +8,7 @@ import { createAppError } from '@daisy/errors';
 import type { ProviderCapacity } from '../round-judging/operations';
 import { frozenPromptInput } from '../round-judging/prompt';
 import { claimDecision } from './policy';
+import { canGenerateCoaching } from './authorization';
 
 type Store = Pick<
   Database,
@@ -25,6 +26,7 @@ type Store = Pick<
  */
 export function createRoundCoachingOperations(input: {
   readonly store: Store;
+  readonly betaGrantsPremium: boolean;
   readonly voice: () => Pick<OpenRouter, 'complete'>;
   readonly withProvider: ProviderCapacity;
   /** The decision's clock, read inside each claim. */
@@ -37,7 +39,11 @@ export function createRoundCoachingOperations(input: {
           throw createAppError('CONFLICT', 'Coaching cancelled');
         const claim = await input.store.claimRoundFeedbackJob(
           roundId,
-          (facts) => claimDecision(facts, input.now()),
+          (facts, access) => {
+            if (!canGenerateCoaching(access, input.betaGrantsPremium))
+              return facts.pass?.status === 'leased' ? 'fail' : 'skip';
+            return claimDecision(facts, input.now());
+          },
         );
         if (!claim) return;
         const answer = await input.voice().complete({

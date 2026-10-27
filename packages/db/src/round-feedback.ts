@@ -1,3 +1,7 @@
+import {
+  readRoundCoachingAccess,
+  type RoundCoachingAccess,
+} from './round-coaching-access';
 import { createAppError } from '@daisy/errors';
 import {
   ballotFeedbackSchema,
@@ -146,6 +150,8 @@ export function createRoundFeedbackJobs(input: {
   )
     throw createAppError('VALIDATION');
   if (!input.model.trim()) throw createAppError('VALIDATION');
+  let cursor: { readonly completedAt: Date; readonly roundId: string } | null =
+    null;
   return {
     /**
      * Candidates only: frozen Rounds with lines, completed after `since`,
@@ -154,7 +160,11 @@ export function createRoundFeedbackJobs(input: {
      * The prefilter only keeps Rounds that cannot need coaching from holding
      * the batch; the decision stays the authority.
      */
-    scan: (limit: number, since: string) => {
+    scan: (
+      limit: number,
+      since: string,
+      authorize: (access: RoundCoachingAccess) => boolean,
+    ) => {
       const from = new Date(since);
       if (
         !Number.isSafeInteger(limit) ||
@@ -165,9 +175,10 @@ export function createRoundFeedbackJobs(input: {
         throw createAppError('VALIDATION');
       return input.run(async (tx) => {
         const rows =
-          (await tx.execute(sql`select r.id as "roundId" from rounds r
+          (await tx.execute(sql`select r.id as "roundId", r.completed_at as "completedAt" from rounds r
           left join round_feedback f on f.round_id = r.id
-          where r.status = 'completed' and (
+          where r.status = 'completed'
+          and (${cursor === null} or (r.completed_at, r.id) > (${cursor?.completedAt ?? from}, ${cursor?.roundId ?? ''})) and (
             (f.round_id is null and r.completed_at > ${from}
               and exists (select 1 from round_transcript_freezes z where z.round_id = r.id)
               and exists (select 1 from utterances u where u.round_id = r.id)
@@ -179,8 +190,21 @@ export function createRoundFeedbackJobs(input: {
             or (f.status = 'leased' and f.lease_expires_at <= clock_timestamp()))
           order by r.completed_at, r.id limit ${limit}`)) as unknown as {
             roundId: string;
+            completedAt: Date;
           }[];
-        return rows.map((row) => row.roundId);
+        // Denied candidates cannot permanently monopolize the bounded scan.
+        const last = rows.at(-1);
+        cursor = rows.length === limit && last ? last : null;
+        const permitted: string[] = [];
+        for (const row of rows) {
+          if (
+            authorize(
+              await readRoundCoachingAccess(tx, row.roundId, 'discovery'),
+            )
+          )
+            permitted.push(row.roundId);
+        }
+        return permitted;
       });
     },
     /**
@@ -190,13 +214,20 @@ export function createRoundFeedbackJobs(input: {
      */
     claim: (
       roundId: string,
-      decide: (facts: RoundCoachingFacts) => CoachingClaimDecision,
+      decide: (
+        facts: RoundCoachingFacts,
+        access: RoundCoachingAccess,
+      ) => CoachingClaimDecision,
     ) =>
       input.run(async (tx) => {
         await tx.execute(
           sql`select pg_advisory_xact_lock(hashtextextended(${roundId},59004))`,
         );
-        const decision = decide(await readRoundCoachingFacts(tx, roundId));
+        const access = await readRoundCoachingAccess(tx, roundId, 'claim');
+        const decision = decide(
+          await readRoundCoachingFacts(tx, roundId),
+          access,
+        );
         if (decision === 'fail') {
           const failed = failLease(roundId);
           await tx.update(roundFeedback).set(failed.set).where(failed.where);

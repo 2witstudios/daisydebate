@@ -61,7 +61,34 @@ forfeit evidence.
 
 The coaching worker ([ADR 0071](../decisions/0071-post-round-coaching-pass.md))
 runs beside judging under the same lifecycle and worker policy. It uses the
-judge model and the same provider capacity.
+judge model and one bounded provider budget. Pure `providerAdmission` caps
+coaching at half that budget (rounded down), and coaching never takes the last
+competitive slot. With one slot, only competitive work runs. Realtime speech
+and TTS keep the existing budget; this reservation protects judging from
+coaching, not from other competitive work.
+
+Judging reserves admission **before** claiming its durable lease. A full budget
+therefore leaves the job unclaimed for the next scan, rather than stranding it
+until lease expiry. The reservation covers saved-ballot retries and remains
+occupied until actual execution settles, even after cancellation. An old lease
+renewal can release only its own entry, never a replacement claim.
+
+Coaching is premium (DEC-247). The authorization evaluator owns
+`round.coaching.generate` and `round.coaching.read`. The named
+`accountEntitlements.coaching` fact currently derives only from approved beta
+access and the validated server setting `PREMIUM_BETA_GRANT` (default `true`).
+Launch sets the grant to `false`; billing supplies the future premium source
+through the same entitlement function, without changes to coaching callers.
+AI-round allowance grants do not grant coaching. No billing writer or generic
+flags platform exists here.
+
+Discovery filters out rounds without an entitled human debater, using canonical
+account facts. A bounded cursor advances past denied candidates. Claims reread
+those facts under the account fence before spending an attempt. Each debater
+needs their own current entitlement to read the separate coaching pass. The
+complete existing side-private judge ballot projection, including AI feedback,
+remains available under normal round-read authorization. The official ballot
+is never premium-gated.
 
 Its scan lists candidates: frozen Rounds completed within the window that have
 no pass yet, and every lapsed lease. Whether a candidate is coached is the
@@ -70,7 +97,8 @@ when it:
 
 - completed within 24 hours;
 - is frozen with at least one line;
-- is not already coached on both sides by a submitted AI ballot.
+- is not already coached on both sides by a submitted AI ballot;
+- has an entitled human debater.
 
 For each listed Round it works in this order:
 

@@ -108,3 +108,20 @@ The declarations live in `round-transcript-privacy.ts`.
   draws on AI practice.
 - A different model for coaching would add a policy field. Until then it
   shares the judge model.
+
+## Premium entitlement and competitive admission (DEC-247, ISSUE-664)
+
+Coaching generation and reads require premium through the shared authorization
+evaluator. Approved beta access supplies that grant only while
+`PREMIUM_BETA_GRANT=true`; at launch the grant is disabled and billing can
+supply the same named entitlement. AI-round allowances are not premium facts.
+Official judge results remain available independently of coaching premium.
+
+Coaching uses at most half the configured provider slots, rounded down, and
+leaves one competitive slot. A one-slot deployment runs competitive work only.
+Judging reserves capacity before its durable lease is claimed and holds it
+through actual settlement and saved-ballot retries, so coaching refusal cannot
+strand a judge lease. Discovery reads advisory canonical account facts without account locks; claims
+reevaluate under canonical account fences;
+reads withhold the separate coaching pass when the reader lacks premium.
+Official ballots retain their existing side-private feedback projection.

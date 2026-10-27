@@ -97,6 +97,11 @@ const deploymentIdentityFields = {
 const serverFields = {
   AI_ROUND_BUSY_CAP: z.coerce.number().int().positive().optional(),
   ROUND_BOT_WORKER_POLICY: botWorkerPolicyConfig,
+  /** DEC-247: grant coaching premium to approved beta accounts; false at launch. */
+  PREMIUM_BETA_GRANT: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((value) => value === 'true'),
   ROOM_POLICY: roomPolicyConfig,
   /** Configured isolated member/session resource for the actual public check-in probe. */
   ATTENDANCE_PUBLIC_PROBE: secret(z.string()).optional(),

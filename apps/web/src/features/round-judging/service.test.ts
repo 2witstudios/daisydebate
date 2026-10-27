@@ -209,3 +209,57 @@ test('capacity refusal never consumes a judging lease and retry needs no lease e
     await service.stop();
   }
 });
+
+test('claim failure and shutdown while claiming return the reserved provider slot', async () => {
+  const reclaimed: boolean[] = [];
+  for (const mode of ['failure', 'shutdown'] as const) {
+    const capacity = createProviderCapacity(1);
+    const claiming = Promise.withResolvers<void>();
+    const claimDone = Promise.withResolvers<{
+      scope: { roundId: string; judgeParticipantId: string };
+      token: string;
+    }>();
+    const service = startRoundJudgingService({
+      reserveCapacity: () => capacity.reserve('judging'),
+      store: {
+        scanRoundJudgingJobs: async () => [
+          { roundId: mode, judgeParticipantId: 'seat' },
+        ],
+        claimRoundJudgingJob: () => {
+          claiming.resolve();
+          return claimDone.promise;
+        },
+        renewRoundJudgingJob: async () => {},
+        verifyRoundJudgingJob: async () => ({ pendingBallot: null }),
+      },
+      execute: async () => {
+        throw Error('claim must not execute');
+      },
+      limits: { parallel: 1, scanBatch: 1, scanMs: 500, renewMs: 3000 },
+      timers: { setInterval: () => 1, clearInterval: () => {} },
+      failed: () => {
+        throw Error('advisory claim failure should be ignored');
+      },
+    });
+    await claiming.promise;
+    const stopping = mode === 'shutdown' ? service.stop() : null;
+    if (mode === 'failure') claimDone.reject(createAppError('CONFLICT'));
+    else
+      claimDone.resolve({
+        scope: { roundId: mode, judgeParticipantId: 'seat' },
+        token: 'claim',
+      });
+    await service.started;
+    await stopping;
+    const release = capacity.reserve('judging');
+    reclaimed.push(release !== null);
+    release?.();
+    await service.stop();
+  }
+  assert({
+    given: 'a failed durable claim or shutdown before its reply',
+    should: 'return admission without leaving an occupied provider slot',
+    actual: reclaimed,
+    expected: [true, true],
+  });
+});
