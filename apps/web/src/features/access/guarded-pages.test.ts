@@ -31,6 +31,10 @@ mock.module(join(import.meta.dir, '../../lib/access.ts'), () => ({
 // an anonymous visitor instead of the request's cookies.
 mock.module(join(import.meta.dir, '../../lib/request-session.ts'), () => ({
   requestIdentity: async () => ({ state: 'anonymous' }),
+  // Settings reads the member's own onboarding answers (ISSUE-324); a
+  // visitor has none admitted.
+  requestOptionalAnswersAdmitted: async () => false,
+  requestOnboardingAnswers: async () => null,
 }));
 // The settings screen's client component is not under test here; loading it
 // would only add code this suite never runs.
