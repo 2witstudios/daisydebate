@@ -71,7 +71,8 @@ export function roomDeadline(state: RoomSync): number | null {
 /** The held view as of `now`: a running prep and an open strike count down from their read. */
 export function presentedView(state: RoomSync, now: number): RoomView {
   const { view } = state.value;
-  const elapsed = now - state.readAt;
+  // Whole milliseconds: a client clock reads fractions, a duration never does.
+  const elapsed = Math.floor(now - state.readAt);
   const remaining = runningPrep(view);
   const draw = view.resolutionDraw;
   if (remaining === null && !draw?.turn) return view;

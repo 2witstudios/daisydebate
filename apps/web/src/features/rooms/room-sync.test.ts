@@ -74,6 +74,12 @@ describe('room sync time', () => {
       ],
       expected: [45000, 0],
     });
+    assert({
+      given: 'a client clock that reads fractions of a millisecond',
+      should: 'present whole milliseconds, as every duration is',
+      actual: presentedView(prepping, 16000.7).prep.remainingMs,
+      expected: 45000,
+    });
   });
 
   test('a running prep has a read deadline; any other room has none', () => {

@@ -155,18 +155,24 @@ test('a host-list draw strikes to one resolution, freezes evidence onto the Roun
       f.sql`delete from room_resolution_draw_items where draw_id in (select id from room_resolution_draws where room_id = ${view.id})`,
       f.sql`delete from room_resolution_draws where room_id = ${view.id}`,
     ]);
+    // The deletes must meet the guard itself, not any error a broken guard raises.
+    const refusal = (r: PromiseSettledResult<unknown>) => {
+      if (r.status === 'fulfilled') return 'fulfilled';
+      const { errno, constraint } = r.reason as {
+        errno?: string;
+        constraint?: string;
+      };
+      return `${errno} ${constraint}`;
+    };
+    const kept = '23514 room_resolution_draw_rows_kept';
     assert({
       given: 'writes the triggers guard, including direct deletes of a draw',
-      should: 'reject every one',
-      actual: refused.map((r) => r.status),
-      expected: [
-        'rejected',
-        'rejected',
-        'rejected',
-        'rejected',
-        'rejected',
-        'rejected',
+      should: 'reject every one, each delete by the ISSUE-702 guard',
+      actual: [
+        ...refused.slice(0, 3).map((r) => r.status),
+        ...refused.slice(3).map(refusal),
       ],
+      expected: ['rejected', 'rejected', 'rejected', kept, kept, kept],
     });
   });
 });

@@ -223,20 +223,30 @@ const startRows = (changeVersion = 1) => [
   [],
 ];
 
-test('Start mutation commits one frozen Round, cast, receipt, and change signal', async () => {
-  const statements = startRows();
-  const { database, queries } = createTestDatabase([
+/** One attempt up to the Room lock: prepared at one change version, locked at another. */
+const attemptRows = (prepared: number, locked: number) => {
+  const before = startRows(prepared);
+  const after = startRows(locked);
+  return [
     [],
     [accountRow()],
-    ...statements.slice(4, 11),
+    ...before.slice(4, 11),
     [], // no draw
     [],
-    statements[12]!,
-    ...statements.slice(0, 3),
-    ...statements.slice(4, 11),
+    before[12]!,
+    ...after.slice(0, 3),
+    ...after.slice(4, 11),
     [], // no draw
-    ...statements.slice(12),
-  ]);
+  ];
+};
+/** A whole accepted start at `changeVersion`, through its receipt. */
+const successRows = (changeVersion = 1) => [
+  ...attemptRows(changeVersion, changeVersion),
+  ...startRows(changeVersion).slice(12),
+];
+
+test('Start mutation commits one frozen Round, cast, receipt, and change signal', async () => {
+  const { database, queries } = createTestDatabase(successRows());
 
   const receipt = await database.executeRoomCommand(startInput);
 
@@ -285,38 +295,58 @@ test('Start mutation commits one frozen Round, cast, receipt, and change signal'
 });
 
 test('a Room that moves under a command retries from fresh facts, then refuses as changed', async () => {
-  const moved = startRows(2);
-  // Prepared at change version 1; locked at 2, so the attempt is stale.
-  const attempt = [
-    [],
-    [accountRow()],
-    ...startRows(1).slice(4, 11),
-    [], // no draw
-    [],
-    startRows(1)[12]!,
-    ...moved.slice(0, 3),
-    ...moved.slice(4, 11),
-    [], // no draw
-  ];
+  // Prepared at change version 1, locked at 2 every time: each attempt is stale.
+  const stale = attemptRows(1, 2);
   const { database, queries } = createTestDatabase([
-    ...attempt,
-    ...attempt,
-    ...attempt,
+    ...stale,
+    ...stale,
+    ...stale,
+    ...stale,
+    ...stale,
+    ...stale,
   ]);
 
   await assertRejects({
     given: 'a Room whose change version moves before every lock',
-    should: 'refuse as version-conflict, in words the page already has',
+    should: 'refuse as a conflict',
     actual: () => database.executeRoomCommand(startInput),
     code: 'CONFLICT',
   });
+  const refusal = await database
+    .executeRoomCommand(startInput)
+    .catch((error: Error) => error.message);
   assert({
-    given: 'three stale attempts',
-    should: 'prepare three times from fresh facts and write nothing',
+    given: 'three stale attempts, twice',
+    should:
+      'prepare three times each, write nothing, and refuse in the words the page has',
     actual: [
       queries.filter(({ query }) => query.includes('for update')).length,
       queries.filter(({ query }) => query.startsWith('insert')).length,
+      refusal,
     ],
-    expected: [3, 0],
+    expected: [6, 0, 'version-conflict'],
+  });
+});
+
+test('a command that meets one stale attempt succeeds on fresh facts (PR #472 race)', async () => {
+  const { database, queries } = createTestDatabase([
+    ...attemptRows(1, 2),
+    ...successRows(2),
+  ]);
+
+  const receipt = await database.executeRoomCommand(startInput);
+
+  assert({
+    given: 'maintenance moving the Room once between preparation and the lock',
+    should:
+      'prepare twice, then write the Round exactly once and return the receipt',
+    actual: [
+      queries.filter(({ query }) => query.includes('for update')).length,
+      queries.filter(({ query }) => query.includes('insert into "rounds"'))
+        .length,
+      receipt.replayed,
+      receipt.roundRef,
+    ],
+    expected: [2, 1, false, { id: roundId, status: 'scheduled' }],
   });
 });
