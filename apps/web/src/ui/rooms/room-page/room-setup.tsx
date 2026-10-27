@@ -14,13 +14,7 @@ import { Icon } from '../../components/icon/icon';
 import { AssemblyDetails } from './assembly-details';
 import { AssemblySettingsForm } from './assembly-settings-form';
 import { formatLine, ROOM_SETUP_HREF, ROOM_SETUP_ID } from './room-labels';
-import {
-  dismissal,
-  holdInert,
-  releaseInert,
-  returnTarget,
-  setupOpener,
-} from './room-setup-modal';
+import { dismissal, modalSheet } from './room-setup-modal';
 
 const competition = {
   ranked: 'Ranked',
@@ -44,16 +38,9 @@ export function finishSetupSave(close: () => boolean, navigate: () => void) {
   if (!close()) navigate();
 }
 
-/** The sheet shows while its fragment is the URL's or a refused save is on it. */
-export function sheetOpen(hash: string, refused: boolean): boolean {
-  return hash === ROOM_SETUP_HREF || refused;
-}
-
 /**
- * While the sheet is open the rest of the page is inert, content room sync
- * mounts behind it included, so focus and assistive technology stay in it;
- * opening moves focus to its heading and closing returns it to the link
- * that opened it.
+ * The sheet's modal behaviour (`modalSheet`), held for as long as it is
+ * mounted.
  */
 function useModalSheet(
   sheet: RefObject<HTMLElement | null>,
@@ -62,40 +49,11 @@ function useModalSheet(
   useEffect(() => {
     const element = sheet.current;
     if (!element) return;
-    const held = new Set<HTMLElement>();
-    let opener: HTMLElement | null = null;
-    let wasOpen = false;
-    const sync = () => {
-      const open = sheetOpen(
-        window.location.hash,
-        element.querySelector('[role="alert"]') !== null,
-      );
-      if (open) holdInert(element, held);
-      if (open === wasOpen) return;
-      wasOpen = open;
-      if (open) {
-        opener = setupOpener(document.activeElement) ?? opener;
-        heading.current?.focus();
-        return;
-      }
-      releaseInert(held);
-      returnTarget(document, opener)?.focus();
-      opener = null;
-    };
-    const remember = (event: Event) => {
-      opener = setupOpener(event.target) ?? opener;
-    };
-    sync();
-    const observer = new MutationObserver(sync);
-    observer.observe(document.body, { childList: true, subtree: true });
-    document.addEventListener('click', remember, true);
-    window.addEventListener('hashchange', sync);
-    return () => {
-      observer.disconnect();
-      document.removeEventListener('click', remember, true);
-      window.removeEventListener('hashchange', sync);
-      releaseInert(held);
-    };
+    return modalSheet({
+      window,
+      sheet: element,
+      heading: () => heading.current,
+    });
   }, [sheet, heading]);
 }
 
