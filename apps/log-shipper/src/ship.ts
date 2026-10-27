@@ -6,8 +6,8 @@ import { toEventRow, type EventRow } from './rows';
 
 /**
  * Why a stream record was not stored (ADR 0081): the logger's own reasons,
- * plus an oversized record, a malformed envelope or one that disagrees with
- * its subject, an app outside the configured list, a source time too far
+ * plus an oversized record, a malformed envelope, one that disagrees with
+ * its subject (`placement`), an app outside the configured list, a source time too far
  * from receipt, and a full buffer. A record is never kept in any raw form.
  */
 export type ShipDropReason =
@@ -77,8 +77,8 @@ export function classify({
   const { app } = placement;
   if (data.byteLength > MAX_RECORD_BYTES) return drop(app, 'size');
   const record = parseEnvelope(new TextDecoder().decode(data));
-  if (!record || !samePlacement(record, placement))
-    return drop(app, 'envelope');
+  if (!record) return drop(app, 'envelope');
+  if (!samePlacement(record, placement)) return drop(app, 'placement');
   const admitted = admitLogLine(record.message);
   if (!admitted.ok) return drop(app, admitted.reason);
   if (!nearReceipt(admitted.entry.at, receivedAt)) return drop(app, 'time');
