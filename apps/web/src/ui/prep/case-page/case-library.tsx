@@ -1,9 +1,11 @@
+import { Icon } from '../../components/icon/icon';
 import Link from 'next/link';
 import type { CaseView } from '../../../features/prep/cases/case-view';
-import { Icon } from '../../components/icon/icon';
 import { controlClass } from '../form-controls/form-class';
 import { IconButtonInert } from '../inert-action/icon-button-inert';
-import { PrepIcon } from '../prep-icon/prep-icon';
+
+/** A case source's glyph: a brief draws as a document, a card as a card. */
+const sourceGlyph = { brief: 'doc', card: 'card' } as const;
 
 /** The left panel: find a brief or card to add. Search is a GET form. */
 export function CaseLibraryPanel({ view }: { readonly view: CaseView }) {
@@ -51,10 +53,7 @@ export function CaseLibraryPanel({ view }: { readonly view: CaseView }) {
                     : 'bg-gold-soft text-gold'
                 }`}
               >
-                <PrepIcon
-                  name={source.kind === 'brief' ? 'doc' : 'card'}
-                  size={14}
-                />
+                <Icon name={sourceGlyph[source.kind]} size={14} />
               </span>
               <span className="flex min-w-0 flex-1 flex-col">
                 <span className="text-sm font-strong">{source.title}</span>

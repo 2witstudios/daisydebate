@@ -4,9 +4,9 @@ import { MAX_SEARCH_LENGTH } from '../../../features/watch/live-query';
 import { buttonClass } from '../../components/button/button-class';
 import { Icon } from '../../components/icon/icon';
 import { cn } from '../../cn';
-import { AutoSubmitForm } from '../../lobby/filter-bar/auto-submit-form';
-import { controlClass } from '../../lobby/filter-bar/filter-bar-class';
-import { ModeToggle } from '../../lobby/mode-toggle/mode-toggle';
+import { AutoSubmitForm } from '../../components/filter-bar/auto-submit-form';
+import { controlClass } from '../../components/filter-bar/filter-bar-class';
+import { ModeToggle } from '../mode-toggle/mode-toggle';
 
 export type FilterFormProps = {
   readonly action: string;

@@ -19,7 +19,7 @@ import {
 } from '../library-empty/library-empty';
 import { LibraryList } from '../library-row/library-row';
 import { LibraryPreview } from '../library-preview/library-preview';
-import { PrepIcon } from '../prep-icon/prep-icon';
+import { Icon } from '../../components/icon/icon';
 import { PrepTabs } from '../prep-tabs/prep-tabs';
 import { LibraryFilters } from './library-filters';
 
@@ -77,7 +77,7 @@ export function Library({ listing, query }: LibraryProps) {
           aria-label="Import source"
           className={`${buttonClass('ghost')} ${link}`}
         >
-          <PrepIcon name="upload" size={18} />
+          <Icon name="upload" size={18} />
           <span className="max-compact:hidden">Import source</span>
         </Link>
         <Link
@@ -85,14 +85,14 @@ export function Library({ listing, query }: LibraryProps) {
           aria-label="New brief"
           className={`${buttonClass('secondary')} ${link}`}
         >
-          <PrepIcon name="doc" size={18} />
+          <Icon name="doc" size={18} />
           <span className="max-compact:hidden">New brief</span>
         </Link>
         <Link
           href={prepDestinations.addEvidence}
           className={`${buttonClass('primary')} ${link}`}
         >
-          <PrepIcon name="plus" size={18} />
+          <Icon name="plus" size={18} />
           Add evidence
         </Link>
       </header>

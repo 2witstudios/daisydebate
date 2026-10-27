@@ -2,7 +2,7 @@ import Link from 'next/link';
 import type { RoomPanelView } from '../../../features/prep/room-panel';
 import { Badge } from '../../components/badge/badge';
 import { buttonClass } from '../../components/button/button-class';
-import { PrepIcon } from '../prep-icon/prep-icon';
+import { Icon } from '../../components/icon/icon';
 import { RoomPanel } from '../room-panel/room-panel';
 import { scrimClass } from '../room-panel/room-panel-class';
 
@@ -32,7 +32,7 @@ export function InDebatePage({ view, loadedAt }: InDebatePageProps) {
               href={view.showHref}
               className={`${buttonClass('secondary')} no-underline hover:no-underline`}
             >
-              <PrepIcon name="doc" size={18} />
+              <Icon name="doc" size={18} />
               Show prep
             </Link>
           ) : null}
@@ -79,7 +79,7 @@ export function InDebatePage({ view, loadedAt }: InDebatePageProps) {
           aria-label="Your prep"
           className="sticky bottom-0 hidden items-center gap-3 border-t border-border-strong bg-surface-raised px-4 py-3 shadow-3 max-compact:flex"
         >
-          <PrepIcon name="book" size={18} className="text-accent" />
+          <Icon name="book" size={18} className="text-accent" />
           <span className="flex min-w-0 flex-1 flex-col">
             <span className="font-display text-md leading-tight font-bold">
               Your prep

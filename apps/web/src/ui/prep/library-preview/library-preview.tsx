@@ -5,7 +5,7 @@ import { buttonClass } from '../../components/button/button-class';
 import { kindLabel } from '../item-tile/item-tile';
 import { itemBadgeClass } from '../item-tile/item-tile-class';
 import { InertActionButton } from '../inert-action/inert-action';
-import { PrepIcon } from '../prep-icon/prep-icon';
+import { Icon } from '../../components/icon/icon';
 import { TagList } from '../tag-list/tag-list';
 
 const action = 'min-h-prep-control px-3 py-2 text-sm';
@@ -22,7 +22,7 @@ function Access({ preview }: { readonly preview: Preview }) {
       href={prepDestinations.privacy}
       className="inline-flex items-center gap-1 text-xs text-ink-muted"
     >
-      <PrepIcon name="lock" size={14} />
+      <Icon name="lock" size={14} />
       Private to you
     </Link>
   );

@@ -5,7 +5,7 @@ import { Badge } from '../../components/badge/badge';
 import { buttonClass } from '../../components/button/button-class';
 import { Breadcrumb } from '../breadcrumb/breadcrumb';
 import { ItemTile } from '../item-tile/item-tile';
-import { PrepIcon } from '../prep-icon/prep-icon';
+import { Icon } from '../../components/icon/icon';
 import { CommentsRail } from './comments-rail';
 import { ShareDialog } from './share-dialog';
 
@@ -33,14 +33,14 @@ export function ReviewPage({ view }: { readonly view: ReviewView }) {
             aria-expanded={view.share !== null}
             className={`${buttonClass('secondary')} ${link}`}
           >
-            <PrepIcon name="share" size={18} />
+            <Icon name="share" size={18} />
             Share
           </Link>
           <Link
             href={view.editHref}
             className={`${buttonClass('primary')} ${link}`}
           >
-            <PrepIcon name="pencil" size={18} />
+            <Icon name="pencil" size={18} />
             Edit
           </Link>
         </header>
@@ -73,7 +73,7 @@ export function ReviewPage({ view }: { readonly view: ReviewView }) {
             </p>
             {view.openComments > 0 ? (
               <p className="inline-flex items-center gap-2 self-start rounded-round bg-surface-overlay px-3 py-1 text-sm font-strong">
-                <PrepIcon name="comment" size={14} />
+                <Icon name="comment" size={14} />
                 {`${view.openComments} open ${view.openComments === 1 ? 'comment' : 'comments'} on this text`}
               </p>
             ) : null}

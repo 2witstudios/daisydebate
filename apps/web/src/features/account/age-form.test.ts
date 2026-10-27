@@ -56,7 +56,7 @@ test('what the age route answered, for the form action', async () => {
     );
   assert({
     given:
-      'a recorded answer, a 409 (this account answered already), the two refusals, a 403 without a refusal and a 500',
+      'a recorded answer, a 409 (this account answered already), the two refusals, a 403 with an unrecognised refusal, a 403 with no refusal field, a 403 whose body is not JSON, and a 500 (ISSUE-688)',
     should:
       'move on for the first two (the first answer stands), hold the browser for a refusal, and say it was unavailable otherwise',
     actual: await Promise.all(
@@ -66,6 +66,8 @@ test('what the age route answered, for the form action', async () => {
         refusal('under-13'),
         refusal('below-floor'),
         refusal('anything-else'),
+        Response.json({ error: { code: 'AGE_REFUSED' } }, { status: 403 }),
+        new Response('<html>forbidden</html>', { status: 403 }),
         new Response('oops', { status: 500 }),
       ].map(readAgeAnswer),
     ),
@@ -74,6 +76,8 @@ test('what the age route answered, for the form action', async () => {
       { kind: 'accepted' },
       { kind: 'refused', refusal: 'under-13' },
       { kind: 'refused', refusal: 'below-floor' },
+      { kind: 'unavailable' },
+      { kind: 'unavailable' },
       { kind: 'unavailable' },
       { kind: 'unavailable' },
     ],

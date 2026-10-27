@@ -1,3 +1,4 @@
+import { Icon } from '../../components/icon/icon';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import {
@@ -9,8 +10,6 @@ import {
   type LibrarySort,
 } from '../../../features/prep/library/library-query';
 import type { LibraryListing } from '../../../features/prep/library/list-library';
-import { Icon } from '../../components/icon/icon';
-import { PrepIcon } from '../prep-icon/prep-icon';
 
 const sortLabels: Readonly<Record<LibrarySort, string>> = {
   recent: 'Recently edited',
@@ -126,7 +125,7 @@ export function LibraryFilters({ query, listing }: LibraryFiltersProps) {
             type="submit"
             className={`${pill} cursor-pointer font-strong`}
           >
-            <PrepIcon name="filter" size={16} />
+            <Icon name="filter" size={16} />
             Apply
           </button>
           {hasFilters(query) || query.q !== '' ? (

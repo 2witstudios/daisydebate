@@ -1,17 +1,26 @@
-import type { LobbyMode } from '../../../features/lobby/discovery-query';
+import { competitionTypes } from '@daisy/protocol';
 import { cn } from '../../cn';
 import { modeOptionClass, modeTrackClass } from './mode-toggle-class';
 
+/** Which competitions a filter shows: any, or one competition type. */
+const competitionModes = ['any', ...competitionTypes] as const;
+type CompetitionMode = (typeof competitionModes)[number];
+
+const modeLabels: Readonly<Record<CompetitionMode, string>> = {
+  any: 'Any',
+  ranked: 'Ranked',
+  casual: 'Casual',
+};
+
 export type ModeToggleProps = {
-  readonly value: LobbyMode;
+  readonly value: CompetitionMode;
   readonly className?: string;
 };
 
-const options: readonly { value: LobbyMode; label: string }[] = [
-  { value: 'any', label: 'Any' },
-  { value: 'ranked', label: 'Ranked' },
-  { value: 'casual', label: 'Casual' },
-];
+const options = competitionModes.map((value) => ({
+  value,
+  label: modeLabels[value],
+}));
 
 /** Any / Ranked / Casual as real radios, so the form carries the choice. */
 export function ModeToggle({ value, className }: ModeToggleProps) {

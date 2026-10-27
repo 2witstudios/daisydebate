@@ -1,6 +1,10 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import type { BetaAccessState } from '@daisy/protocol';
-import { resolveIdentity, type VerifiedSession } from './identity';
+import {
+  claimedUsername,
+  resolveIdentity,
+  type VerifiedSession,
+} from './identity';
 
 setupRitewayBun();
 
@@ -219,5 +223,32 @@ describe('resolveIdentity', () => {
       }),
       expected: { state: 'unavailable', principal: { kind: 'anonymous' } },
     });
+  });
+});
+
+test('the claimed username, approved or waiting (ISSUE-690)', () => {
+  const user = { kind: 'user', userId: 'user1', actorId: 'actor1' } as const;
+  assert({
+    given:
+      'a member, a pending, revoked and age-required account, a provisional account and a visitor',
+    should:
+      'give the username to every account that claimed one, and null to the rest',
+    actual: [
+      claimedUsername({ state: 'member', username: 'ada', principal: user }),
+      ...(['pending', 'revoked', 'age-required'] as const).map((reason) =>
+        claimedUsername({
+          state: 'waitlisted',
+          username: 'ada',
+          reason,
+          principal: user,
+        }),
+      ),
+      claimedUsername({
+        state: 'provisional',
+        principal: { ...user, actorId: null },
+      }),
+      claimedUsername({ state: 'anonymous', principal: { kind: 'anonymous' } }),
+    ],
+    expected: ['ada', 'ada', 'ada', 'ada', null, null],
   });
 });

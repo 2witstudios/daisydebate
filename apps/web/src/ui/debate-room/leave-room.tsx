@@ -20,6 +20,11 @@ export type LeaveLinks = {
   /** Where leaving takes the debater when there is nothing to forfeit. */
   readonly leaveHref: string;
   /**
+   * A debater after the last speech while the Round awaits its ballot: the
+   * Room no longer holds them, and leaving forfeits nothing (ISSUE-590).
+   */
+  readonly freed?: boolean;
+  /**
    * While the Round is live, leaving it forfeits (ADR 0070): Leave posts
    * the round's forfeit command, already confirmed by this dialog.
    */
@@ -121,6 +126,10 @@ export function LeaveRoom({ links }: { readonly links: LeaveLinks }) {
         {links.forfeit ? (
           <p className="text-sm text-ink-muted">
             Leaving now forfeits the round to your opponent.
+          </p>
+        ) : links.freed ? (
+          <p className="text-sm text-ink-muted">
+            The debate is over, so leaving forfeits nothing.
           </p>
         ) : null}
         <div className="flex justify-end gap-2">
