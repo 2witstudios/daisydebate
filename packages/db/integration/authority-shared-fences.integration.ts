@@ -258,12 +258,17 @@ describe('read-compatible authority fences (MSG-2.1-arch1)', () => {
           (answer) => answer,
           (error: { code?: unknown }) => `refused:${String(error.code)}`,
         );
-      // Wait until the reader is queued on the writer's channel row lock.
-      for (let tries = 0; tries < 100; tries += 1) {
-        const [{ waiting }] =
-          await client`select count(*)::int as waiting from pg_locks where not granted`;
-        if (waiting > 0) break;
-        await Bun.sleep(20);
+      // Wait until the reader is queued on the writer's channel row lock:
+      // waiters in this database, on a backend other than the poller.
+      let waited = false;
+      for (let tries = 0; tries < 100 && !waited; tries += 1) {
+        const [{ waiting }] = await client`
+          select count(*)::int as waiting from pg_locks l
+          join pg_stat_activity a on a.pid = l.pid
+          where not l.granted and a.datname = current_database()
+            and l.pid <> pg_backend_pid()`;
+        waited = waiting > 0;
+        if (!waited) await Bun.sleep(20);
       }
       revoke.resolve();
       await writer;
@@ -272,14 +277,15 @@ describe('read-compatible authority fences (MSG-2.1-arch1)', () => {
         given:
           'a member reading a private group while a writer holds the channel and revokes that member before committing',
         should:
-          'refuse the read, never handing authorization a cast that still includes the revoked member',
+          'block behind the writer, then refuse the read, never handing authorization a cast that still includes the revoked member',
         actual: {
+          waited,
           refused: outcome.startsWith('refused:'),
           staleCasts: casts.filter((members) =>
             members.includes(f.otherActorId),
           ).length,
         },
-        expected: { refused: true, staleCasts: 0 },
+        expected: { waited: true, refused: true, staleCasts: 0 },
       });
     } finally {
       await client.unsafe('delete from messaging_channels where id=$1', [
