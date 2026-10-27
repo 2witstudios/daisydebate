@@ -5,6 +5,7 @@ import type { MockFormState } from '../../../features/mock-form/form';
 import type { RoomFormState } from '../../../features/rooms/command-answer';
 import { type FormAction } from '../../form-action/form-action';
 import { FormField } from '../../components/form-field/form-field';
+import { drawnTopicLabel } from '../../../features/debate-room/vocabulary';
 import { controlClass } from '../../components/form-field/form-field-class';
 import { buttonClass } from '../../components/button/button-class';
 import { AssemblyEditForm, AssemblyEditFeedback } from './assembly-edit-form';
@@ -81,20 +82,30 @@ export function AssemblyDetailsFields({
           className={controlClass}
         />
       </FormField>
-      <FormField id="room-topic" label="Resolution">
-        <textarea
-          id="room-topic"
-          name="topic"
-          required
-          readOnly={!view.capabilities.canEdit}
-          aria-describedby="room-topic-hint"
-          defaultValue={state.values.topic ?? view.topic ?? ''}
-          className={controlClass}
-        />
-      </FormField>
-      <p id="room-topic-hint" className="-mt-2 text-xs text-ink-muted">
-        One statement: the Affirmative argues for it, the Negative against it.
-      </p>
+      {view.topic === null ? (
+        <p className="text-sm text-ink-muted">
+          Resolution: {drawnTopicLabel.toLocaleLowerCase()}. Turn the strike off
+          in the round settings to name one instead.
+        </p>
+      ) : (
+        <>
+          <FormField id="room-topic" label="Resolution">
+            <textarea
+              id="room-topic"
+              name="topic"
+              required
+              readOnly={!view.capabilities.canEdit}
+              aria-describedby="room-topic-hint"
+              defaultValue={state.values.topic ?? view.topic ?? ''}
+              className={controlClass}
+            />
+          </FormField>
+          <p id="room-topic-hint" className="-mt-2 text-xs text-ink-muted">
+            One statement: the Affirmative argues for it, the Negative against
+            it.
+          </p>
+        </>
+      )}
       <VisibilityField
         saved={state.values.visibility ?? view.visibility}
         disabled={!view.capabilities.canEdit}
