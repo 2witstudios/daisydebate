@@ -5,7 +5,6 @@ import { drizzle } from 'drizzle-orm/bun-sql';
 import { discoverRooms } from '../src/room-discovery';
 import { withFixture } from './constraint-helpers';
 import { createAuthorizationSubject } from './authorization.test-support';
-import { validConfig, validRules } from './round-fixtures';
 import { integrationSuite } from './suite.test-support';
 
 requireTestServices(process.env);
@@ -24,19 +23,12 @@ test('starting ranked discovery projects the host current-season Ranked rating',
       [createId(), 'assembling', 'ranked'],
       [createId(), 'ready', 'casual'],
     ] as const)
-      await f.insert('rooms', {
+      await f.room(caller.actorId, formatId, {
         id,
-        host_actor_id: caller.actorId,
         title: token,
         topic: token,
-        visibility: 'public',
-        format_id: formatId,
-        format_version: 1,
         preset_version: mode === 'ranked' ? 1 : null,
         competition_type: mode,
-        config: validConfig,
-        execution_plan: {},
-        rules_snapshot: validRules,
         status,
       });
     for (const [status, rating] of [
