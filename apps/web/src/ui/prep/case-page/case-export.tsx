@@ -3,7 +3,7 @@ import type { CaseView } from '../../../features/prep/cases/case-view';
 import { inertActions } from '../../../features/prep/actions';
 import { buttonClass } from '../../components/button/button-class';
 import { InertActionButton } from '../inert-action/inert-action';
-import { PrepIcon } from '../prep-icon/prep-icon';
+import { Icon } from '../../components/icon/icon';
 
 /** Export and print: choose a file kind and what goes in it. */
 export function CaseExport({ view }: { readonly view: CaseView }) {
@@ -103,7 +103,7 @@ export function CaseExport({ view }: { readonly view: CaseView }) {
         role="status"
         className="flex items-start gap-3 rounded-md bg-accent-soft p-4 text-sm"
       >
-        <PrepIcon name="info" size={18} className="mt-1 text-accent" />
+        <Icon name="info" size={18} className="mt-1 text-accent" />
         <span>Exports cannot be taken back once shared.</span>
       </p>
     </div>

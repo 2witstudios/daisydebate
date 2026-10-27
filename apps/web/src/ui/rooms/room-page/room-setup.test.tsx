@@ -3,7 +3,8 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assemblySnapshot } from '../../../features/rooms/assembly.test-support';
 import { WithAppRouter } from '../../test-support/app-router';
 import { savedAnswer } from './assembly-edit-form';
-import { RoomSetup, sheetOpen, finishSetupSave } from './room-setup';
+import { RoomSetup, finishSetupSave } from './room-setup';
+import { sheetOpen } from './room-setup-modal';
 
 setupRitewayBun();
 const action = async () => ({ values: {} });

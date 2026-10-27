@@ -34,6 +34,7 @@ import { claimUsername } from './username-claim';
 import { mailIntentOperations } from './mail-intents';
 import { betaAccessOperations } from './beta-access';
 import { operatorAccountOperations } from './operator-accounts';
+import { provisionalRetentionOperations } from './provisional-retention';
 import { authOperations } from './auth-operations';
 import { authorizationSessionOperations } from './authorization-session';
 import { formatOperations } from './format-operations';
@@ -59,6 +60,10 @@ import { readOutboxRetentionBoundary } from './outbox-retention-boundary';
 import { instrumented, type DatabaseEventSink } from './instrumented';
 import { RUNTIME_SESSION } from './session-bounds';
 export type { DatabaseEventSink } from './instrumented';
+export type {
+  ProvisionalLinkPurposes,
+  ProvisionalMailCleanup,
+} from './provisional-cleanup';
 export { refuseSchemaAlteringRole } from './runtime-role';
 
 /**
@@ -157,6 +162,7 @@ export function createDatabase({
       await client.close({ timeout: 5 });
     },
     ...authOperations({ database, eventSink }),
+    ...provisionalRetentionOperations({ database, eventSink }),
     ...authorizationSessionOperations({ database }),
     ...emailDeliveryOperations({ database, eventSink }),
     ...mailIntentOperations({ database, eventSink }),

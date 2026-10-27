@@ -11,7 +11,6 @@ export const clientWith = (
     deletePasskey: noop,
   },
   revokeOtherSessions: noop,
-  signOut: noop,
   ...overrides,
 });
 
