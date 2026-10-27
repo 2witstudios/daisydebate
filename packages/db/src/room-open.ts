@@ -7,6 +7,10 @@ import { rooms } from './schema/rooms';
  */
 const openRoomStatuses: ('assembling' | 'ready')[] = ['assembling', 'ready'];
 
+/** Whether a room in `status` is still open (its own state, outside SQL). */
+export const isOpenRoomStatus = (status: string) =>
+  (openRoomStatuses as readonly string[]).includes(status);
+
 /** Whether the `rooms` row in the query is still open. */
 export const roomIsOpen = () => inArray(rooms.status, openRoomStatuses);
 

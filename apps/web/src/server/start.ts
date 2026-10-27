@@ -1,12 +1,13 @@
 import { provisionalLinkPurposes } from '../features/auth/mail/provisional-mail';
 import { startRoundCompetitiveMaintenance } from './round-maintenance';
+import { startRoomLifecycleMaintenance } from './room-maintenance';
 import { createRoundMediaRuntime } from '../features/round-media/composition';
 import { startRoundMediaRecovery } from './round-media-recovery';
 import { startRoundWorkers } from './round-workers';
 import { startMessagingFileMaintenance } from './file-maintenance';
 import { startRoundAvailability } from './round-availability';
 import { startBetaMail } from './beta-mail';
-import type { WorkerTimers } from '../features/round-bots/worker-timers';
+import type { WorkerTimers } from '../lib/worker-timers';
 import { startOperatorApi } from './operator-api';
 import { readFileSync } from 'node:fs';
 import next from 'next';
@@ -113,6 +114,10 @@ const workerTimers: WorkerTimers = {
   clearInterval: (handle) =>
     clearInterval(handle as ReturnType<typeof setInterval>),
 };
+const roomMaintenance = startRoomLifecycleMaintenance({
+  app,
+  timers: workerTimers,
+});
 const roundWorkers = startRoundWorkers({
   app,
   instanceId: availability.instanceId,
@@ -181,6 +186,7 @@ async function shutdown() {
   const workersStopped = roundWorkers?.stop();
   const mediaRecoveryStopped = mediaRecovery?.stop();
   const roundMaintenanceStopped = roundMaintenance.stop();
+  const roomMaintenanceStopped = roomMaintenance.stop();
   app.logger.log(
     'server.shutdown',
     { operation: 'server.shutdown' },
@@ -210,6 +216,7 @@ async function shutdown() {
         workersStopped,
         mediaRecoveryStopped,
         roundMaintenanceStopped,
+        roomMaintenanceStopped,
       ]);
       await closeProcessApp();
     },

@@ -11,7 +11,7 @@ export async function roomBotAdmission(
     state.hostActorId !== actorId ||
     state.competitionType === 'ranked' ||
     state.status === 'started' ||
-    state.status === 'abandoned' ||
+    state.status === 'closed' ||
     !state.participants.some((p) => p.kind === 'bot')
   )
     return null;

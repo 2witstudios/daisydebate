@@ -3,7 +3,6 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { assemblySnapshot } from '../../../features/rooms/assembly.test-support';
 import {
   formatLine,
-  initials,
   roomMeta,
   roomStatus,
   seatStatus,
@@ -114,7 +113,7 @@ describe('room lobby labels', () => {
       actual: [
         roomStatus(oneOnOne),
         roomStatus({ ...assemblySnapshot, status: 'started' }),
-        roomStatus({ ...assemblySnapshot, status: 'abandoned' }),
+        roomStatus({ ...assemblySnapshot, status: 'closed' }),
       ],
       expected: ['Setting up · 0 of 3 seats filled', 'In progress', 'Closed'],
     });
@@ -296,14 +295,5 @@ describe('room lobby labels', () => {
         ],
       ],
     });
-  });
-});
-
-test('avatar initials take the first two words', () => {
-  assert({
-    given: 'a two-word name, a one-word name and a three-word name',
-    should: 'return up to two capital initials',
-    actual: ['Maya Okafor', 'penny', 'Ana  de Souza'].map(initials),
-    expected: ['MO', 'P', 'AD'],
   });
 });

@@ -13,6 +13,7 @@ import { appendRoundPhaseChanged } from './round-projection-writer';
 import { holdActiveRoomMembers } from './room-membership-persistence';
 
 import { type Tx, publishDefinition } from './room-command-facts';
+import { isOpenRoomStatus } from './room-open';
 
 /** The room row a mutation writes; the idle anchor moves only on an accepted command. */
 const roomRow = (
@@ -62,8 +63,8 @@ export const persistRoomMutation = async (
     .set(roomRow(next, acceptedCommand, now))
     .where(eq(rooms.id, next.id));
   // ISSUE-699: a challenge invites to a room still gathering its players,
-  // so it goes the moment the room starts or is abandoned.
-  if (next.status === 'started' || next.status === 'abandoned')
+  // so it goes the moment the room is no longer open (Rooms' own vocabulary).
+  if (!isOpenRoomStatus(next.status))
     await tx
       .delete(friendChallenges)
       .where(eq(friendChallenges.roomId, next.id));

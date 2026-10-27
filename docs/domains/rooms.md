@@ -20,6 +20,19 @@ UI copy may say "match"; the stored noun is the Round. "Lobby" is the public
 browsing surface of open Rooms. A LiveKit room is a media session
 (`media_sessions`), never a Daisy Room.
 
+"Topic" has three distinct meanings, and the code keeps them apart (ISSUE-404):
+
+- **A Room's or Round's `topic`** is the proposition being debated. The
+  Formats slice owns renaming it to "resolution" on the contracts.
+- **An onboarding interest category** (`InterestCategory`,
+  `interestCategoryChoices`) is a subject a member says they like debating.
+  Its partner, the format the member prefers, is `FormatPreference`, never a
+  Round's `FormatDefinition`.
+- **A realtime topic** is a routing address for doorbells, never debate
+  content.
+
+No shared "Topic" entity spans them.
+
 ## Formats
 
 A casual Room runs one of Daisy's standards (Policy, Value and Freestyle,
@@ -57,10 +70,12 @@ membership. Every terminal state frees its members:
 
 - **Close.** Only the host's explicit Close closes an open Room. Hosting is
   independent of seating: a host who leaves their seat (or never took one)
-  still hosts, and stays a member, through the live Round.
-- **Idle expiry.** With `ROOM_POLICY.idleTimeoutMs` set, maintenance closes an
-  open Room with no accepted command (or running pre-round prep) for that
-  long, by database time.
+  still hosts, and stays a member, through the live Round. A closed Room's
+  status is `closed` (ISSUE-770); `abandoned` belongs to a Round alone.
+- **Idle expiry.** With `ROOM_POLICY.idleTimeoutMs` set, the Room maintenance
+  sweep (its own worker, apart from Round maintenance) closes an open Room
+  with no accepted command (or running pre-round prep) for that long, by
+  database time.
 - **Leave.** A guest leaving their seat frees only themselves. Leaving a live
   Round forfeits it, which ends the Round.
 - **The debate ends**: the last speech ends, or the Round completes, is

@@ -44,7 +44,7 @@ export function maintainRoom(
   if (!expired && settled === room) return null;
   return acceptedRoomMutation({
     ...settled,
-    status: expired ? 'abandoned' : settled.status,
+    status: expired ? 'closed' : settled.status,
     changeVersion: room.changeVersion + 1,
   });
 }

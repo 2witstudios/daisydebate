@@ -43,7 +43,8 @@ live Round was a link that changed nothing on the server.
    the existing forfeit command and so ends the Round; idle expiry; and any
    Round end.
 6. **Idle expiry.** `ROOM_POLICY.idleTimeoutMs` is optional with no
-   default; absent, expiry is inert. The maintenance sweep closes an open
+   default; absent, expiry is inert. The Room maintenance sweep, a worker of its
+   own apart from Round maintenance (ISSUE-771), closes an open
    Room whose last accepted command, or the end of its running pre-round
    prep, is at least that old by database statement time. The engine's
    `expireIdleRoom` decides under the Room's row lock (`SKIP LOCKED`); the
