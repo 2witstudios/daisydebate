@@ -1,3 +1,4 @@
+import { signUpMailCeilingsConfig } from './sign-up-mail-ceilings';
 import { z } from 'zod';
 import { roomPolicyConfig } from './room-policy';
 import { botWorkerPolicyConfig } from './bot-worker-policy';
@@ -91,6 +92,7 @@ const deploymentIdentityFields = {
   MIGRATION_DATABASE_URL: secret(z.string()).optional(),
 };
 const serverFields = {
+  AUTH_SIGN_UP_MAIL_CEILINGS: signUpMailCeilingsConfig,
   AI_ROUND_BUSY_CAP: z.coerce.number().int().positive().optional(),
   ROUND_BOT_WORKER_POLICY: botWorkerPolicyConfig,
   ROOM_POLICY: roomPolicyConfig,
@@ -214,6 +216,7 @@ export function readTrustedProxyConfig(
  * composition is activated: baseline startup never requires auth variables.
  */
 const authFields = {
+  AUTH_SIGN_UP_MAIL_CEILINGS: signUpMailCeilingsConfig,
   /** 64 characters from 32 random bytes (hex); see `bun auth:provision`. */
   BETTER_AUTH_SECRET: secret(z.string().regex(/^\S{64}$/)),
   /**
