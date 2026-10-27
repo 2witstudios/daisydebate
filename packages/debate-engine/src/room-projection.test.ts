@@ -1,5 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { hostIdentityHidden, projectRoom } from './room-projection';
+import { roomViewSchema } from '@daisy/protocol';
 import { edges, state } from './room-assembly.test-support';
 
 setupRitewayBun();
@@ -141,5 +142,88 @@ test('a judge-host is hidden from everyone but themselves', () => {
       hostIdentityHidden({ hostActorId: host, hostIsHumanJudge: true }, host),
     ],
     expected: [true, false, false],
+  });
+});
+
+describe('projectRoom format (FMT-1)', () => {
+  // Countdown latitude, so an edit compiles and shows as a change.
+  const definition = {
+    ...base.definition,
+    configurable: {
+      ...base.definition.configurable,
+      timing: {
+        ...base.definition.configurable.timing,
+        countdownMs: { min: 0, max: 10_000 },
+      },
+    },
+  };
+  const standard = {
+    ...base,
+    definition,
+    formatId: 'value',
+    catalogFormat: { name: 'Value', role: 'standard' as const, leagues: [] },
+    basis: {
+      formatId: 'value',
+      presetVersion: 3,
+      formatVersion: base.formatVersion,
+      name: 'Value',
+      role: 'standard' as const,
+      definition,
+      config: base.config,
+    },
+  };
+  test('a room still on its standard', () => {
+    const seen = projectRoom(standard, 'other', consent, edges.now);
+    assert({
+      given: 'a room running its standard basis unchanged',
+      should:
+        'carry the format’s name, its basis and a Standard standing, and no internal basis fields',
+      actual: {
+        format: seen.format,
+        leaked: ['catalogFormat', 'basis'].filter((key) => key in seen),
+        parses: roomViewSchema.shape.format.safeParse(seen.format).success,
+      },
+      expected: {
+        format: {
+          name: 'Value',
+          role: 'standard',
+          leagues: [],
+          basis: { formatId: 'value', name: 'Value', presetVersion: 3 },
+          standing: { kind: 'standard', formatId: 'value' },
+        },
+        leaked: [],
+        parses: true,
+      },
+    });
+  });
+  test('a room edited away from its standard', () => {
+    const seen = projectRoom(
+      {
+        ...standard,
+        config: {
+          ...standard.config,
+          speechTiming: { ...standard.config.speechTiming, countdownMs: 5_000 },
+        },
+      },
+      'other',
+      consent,
+      edges.now,
+    );
+    assert({
+      given: 'a standard room whose countdown changed',
+      should: 'read Custom, based on the standard, with the typed change',
+      actual: seen.format.standing,
+      expected: {
+        kind: 'custom',
+        basis: { formatId: 'value', role: 'standard' },
+        changes: [
+          {
+            kind: 'countdown',
+            fromMs: standard.config.speechTiming.countdownMs,
+            toMs: 5_000,
+          },
+        ],
+      },
+    });
   });
 });

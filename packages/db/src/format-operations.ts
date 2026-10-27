@@ -50,6 +50,8 @@ export type SelectionTuple = {
 export type FormatSelectionFactsRecord = {
   readonly format: {
     readonly id: string;
+    readonly name: string;
+    readonly leagues: readonly string[];
     readonly catalogOwned: boolean;
     readonly role: 'standard' | 'template' | null;
     readonly currentVersion: number;
@@ -78,6 +80,8 @@ export async function readFormatSelectionFacts(
   const [row] = await client
     .select({
       id: formats.id,
+      name: formats.name,
+      leagues: formats.leagues,
       createdByActorId: formats.createdByActorId,
       role: formats.catalogRole,
       currentVersion: formats.currentVersion,
@@ -110,6 +114,8 @@ export async function readFormatSelectionFacts(
   return {
     format: {
       id: row.id,
+      name: row.name,
+      leagues: row.leagues,
       catalogOwned: row.createdByActorId === null,
       role: row.role,
       currentVersion: row.currentVersion,

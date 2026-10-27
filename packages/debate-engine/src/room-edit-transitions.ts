@@ -77,11 +77,27 @@ export const selectFormat = (
   const { rules, roomPlan } = decision.resolved;
   if (room.participants.some((p) => p.slot >= rules.seats[p.role]))
     return refuse('seat-unavailable');
+  // The policy refuses role-null facts for `choose`; a reset to a retired
+  // basis keeps its pinned provenance but is no longer a standard.
+  const facts = edges.formatFacts!;
   return acceptedRoomMutation({
     ...room,
     formatId: command.formatId,
     formatVersion: command.formatVersion,
-    basis: decision.basis,
+    catalogFormat: {
+      name: facts.format.name,
+      role: facts.format.role,
+      leagues: facts.format.leagues,
+    },
+    basis: {
+      formatId: facts.format.id,
+      presetVersion: facts.preset.version,
+      formatVersion: facts.preset.formatVersion,
+      name: facts.format.name,
+      role: facts.format.role ?? 'template',
+      definition: decision.definition,
+      config: decision.config,
+    },
     definition: decision.definition,
     config: decision.config,
     rules,

@@ -1,3 +1,4 @@
+import { formatStanding } from './format-standing';
 import type { RoomAssemblyState, RoomConsent, RoomView } from '@daisy/protocol';
 
 import {
@@ -53,7 +54,13 @@ export function projectRoom(
 ): RoomView {
   const blocker = startBlocker(room, consent, now);
   const hidden = hiddenJudges(room, actorId);
-  const { prepStartedAt: _anchor, prepRemainingMs: _remaining, ...rest } = room;
+  const {
+    prepStartedAt: _anchor,
+    prepRemainingMs: _remaining,
+    catalogFormat,
+    basis,
+    ...rest
+  } = room;
   void _anchor;
   void _remaining;
   return {
@@ -89,6 +96,23 @@ export function projectRoom(
           : { ...p, ...state };
       },
     ),
+    format: {
+      ...catalogFormat,
+      basis: basis && {
+        formatId: basis.formatId,
+        name: basis.name,
+        presetVersion: basis.presetVersion,
+      },
+      standing: formatStanding({
+        active: {
+          formatId: room.formatId,
+          formatVersion: room.formatVersion,
+          definition: room.definition,
+          config: room.config,
+        },
+        basis,
+      }),
+    },
     readiness: {
       available: consent.available,
       version: room.version,

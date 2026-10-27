@@ -42,6 +42,7 @@ export const state = (): RoomAssemblyState => ({
   formatId: 'format',
   formatVersion: 1,
   presetVersion: null,
+  catalogFormat: { name: 'Custom format', role: null, leagues: [] },
   basis: null,
   competitionType: 'casual',
   definition: {

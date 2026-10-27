@@ -11,6 +11,8 @@ setupRitewayBun();
 const valueFacts: FormatSelectionFacts = {
   format: {
     id: 'value',
+    name: 'Value',
+    leagues: [],
     catalogOwned: true,
     role: 'standard',
     currentVersion: 1,
@@ -62,6 +64,7 @@ describe('select-format', () => {
         formatId: outcome.mutation.state.formatId,
         formatVersion: outcome.mutation.state.formatVersion,
         basis: outcome.mutation.state.basis,
+        catalogFormat: outcome.mutation.state.catalogFormat,
         config: outcome.mutation.state.config,
         definition: outcome.mutation.state.definition,
         version: outcome.mutation.state.version,
@@ -73,7 +76,16 @@ describe('select-format', () => {
       expected: {
         formatId: 'value',
         formatVersion: 1,
-        basis: { formatId: 'value', presetVersion: 3 },
+        basis: {
+          formatId: 'value',
+          presetVersion: 3,
+          formatVersion: 1,
+          name: 'Value',
+          role: 'standard',
+          definition: oneOnOneFormatFixture,
+          config: oneOnOneConfig,
+        },
+        catalogFormat: { name: 'Value', role: 'standard', leagues: [] },
         config: oneOnOneConfig,
         definition: oneOnOneFormatFixture,
         version: room.version + 1,
@@ -158,7 +170,15 @@ describe('select-format', () => {
   test('back to the pinned basis', () => {
     const room: RoomAssemblyState = {
       ...state(),
-      basis: { formatId: 'value', presetVersion: 3 },
+      basis: {
+        formatId: 'value',
+        presetVersion: 3,
+        formatVersion: 1,
+        name: 'Value',
+        role: 'standard',
+        definition: oneOnOneFormatFixture,
+        config: oneOnOneConfig,
+      },
       config: { ...oneOnOneConfig, inRoundPrep: { enabled: false } },
     };
     const outcome = run(room, selectFormat(room, { intent: 'reset' }), {
@@ -171,7 +191,10 @@ describe('select-format', () => {
       should: 'restore the room’s own pinned preset',
       actual: outcome.ok && {
         config: outcome.mutation.state.config,
-        basis: outcome.mutation.state.basis,
+        basis: outcome.mutation.state.basis && {
+          formatId: outcome.mutation.state.basis.formatId,
+          presetVersion: outcome.mutation.state.basis.presetVersion,
+        },
       },
       expected: {
         config: oneOnOneConfig,

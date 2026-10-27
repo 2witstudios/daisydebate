@@ -94,6 +94,21 @@ export const assemblySnapshot = {
   formatId: unequalTemplate.formatId,
   formatVersion: unequalTemplate.formatVersion,
   presetVersion: null,
+  format: {
+    name: unequalTemplate.label,
+    role: 'template',
+    leagues: unequalTemplate.leagues,
+    basis: {
+      formatId: unequalTemplate.formatId,
+      name: unequalTemplate.label,
+      presetVersion: unequalTemplate.preset.version,
+    },
+    standing: {
+      kind: 'custom',
+      basis: { formatId: unequalTemplate.formatId, role: 'template' },
+      changes: [],
+    },
+  },
   competitionType: 'casual',
   definition: unequalTemplate.definition,
   config: unequalTemplate.preset.config,

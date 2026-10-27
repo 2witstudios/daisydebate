@@ -17,6 +17,8 @@ const facts = (
 ): FormatSelectionFacts => ({
   format: {
     id: 'value',
+    name: 'Value',
+    leagues: [],
     catalogOwned: true,
     role: 'standard',
     currentVersion: 1,

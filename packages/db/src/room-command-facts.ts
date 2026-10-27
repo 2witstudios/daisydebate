@@ -24,6 +24,7 @@ import { rooms, roomParticipants } from './schema/rooms';
 import { rounds } from './schema/rounds';
 
 import { formats } from './schema/formats';
+import { formatPresets } from './schema/format-presets';
 import { formatRevisions } from './schema/format-revisions';
 
 export type Tx = Parameters<Parameters<BunSQLDatabase['transaction']>[0]>[0];
@@ -119,13 +120,64 @@ export const publishDefinition = async (
     createdByActorId: hostActorId,
   });
 };
+/**
+ * The catalog preset a room is based on, with its pinned revision, for
+ * standing (FMT-1). A basis whose format left the catalog keeps its pinned
+ * provenance but is no longer a standard.
+ */
+const basisSource = async (
+  tx: Tx,
+  row: typeof rooms.$inferSelect,
+): Promise<RoomAssemblyState['basis']> => {
+  if (row.basisFormatId === null || row.basisPresetVersion === null)
+    return null;
+  const [basis] = await tx
+    .select({
+      formatVersion: formatPresets.formatVersion,
+      config: formatPresets.config,
+      name: formats.name,
+      role: formats.catalogRole,
+      definition: formatRevisions.definition,
+    })
+    .from(formatPresets)
+    .innerJoin(formats, eq(formats.id, formatPresets.formatId))
+    .innerJoin(
+      formatRevisions,
+      and(
+        eq(formatRevisions.formatId, formatPresets.formatId),
+        eq(formatRevisions.version, formatPresets.formatVersion),
+      ),
+    )
+    .where(
+      and(
+        eq(formatPresets.formatId, row.basisFormatId),
+        eq(formatPresets.version, row.basisPresetVersion),
+      ),
+    );
+  if (!basis) throw createAppError('INVARIANT');
+  return {
+    formatId: row.basisFormatId,
+    presetVersion: row.basisPresetVersion,
+    formatVersion: basis.formatVersion,
+    name: basis.name,
+    role: basis.role ?? 'template',
+    definition: basis.definition,
+    config: basis.config,
+  };
+};
 export const roomState = async (
   tx: Tx,
   row: typeof rooms.$inferSelect,
 ): Promise<RoomAssemblyState> => {
   const [revision] = await tx
-    .select({ definition: formatRevisions.definition })
+    .select({
+      definition: formatRevisions.definition,
+      name: formats.name,
+      role: formats.catalogRole,
+      leagues: formats.leagues,
+    })
     .from(formatRevisions)
+    .innerJoin(formats, eq(formats.id, formatRevisions.formatId))
     .where(
       and(
         eq(formatRevisions.formatId, row.formatId),
@@ -133,6 +185,7 @@ export const roomState = async (
       ),
     );
   if (!revision) throw createAppError('INVARIANT');
+  const basis = await basisSource(tx, row);
   const seats = await tx
     .select()
     .from(roomParticipants)
@@ -169,13 +222,12 @@ export const roomState = async (
     formatId: row.formatId,
     formatVersion: row.formatVersion,
     presetVersion: row.presetVersion,
-    basis:
-      row.basisFormatId !== null && row.basisPresetVersion !== null
-        ? {
-            formatId: row.basisFormatId,
-            presetVersion: row.basisPresetVersion,
-          }
-        : null,
+    catalogFormat: {
+      name: revision.name,
+      role: revision.role,
+      leagues: revision.leagues,
+    },
+    basis,
     competitionType: row.competitionType,
     definition: revision.definition,
     config: row.config,

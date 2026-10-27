@@ -3,6 +3,7 @@ import { idSchema, debateRoleSchema } from './primitives';
 import { formatDefinitionSchema, roundRulesSchema } from './format';
 import { roomConfigSchema, roomExecutionPlanSchema } from './room';
 import { competitionTypes, roundStatusSchema } from './round';
+import { formatStandingSchema } from './format-standing';
 const version = z.int().positive();
 const visibility = z.enum(['public', 'unlisted', 'private']);
 const nullableTimestamp = z.iso.datetime({ offset: true }).nullable();
@@ -73,6 +74,24 @@ export const roomViewSchema = z.strictObject({
   formatId: z.string().min(1),
   formatVersion: version,
   presetVersion: version.nullable(),
+  /**
+   * What the room runs and whether it is still its standard (FMT-1).
+   * Viewer-safe for every reader: names, roles and a typed change list,
+   * never a host-authored list or config object.
+   */
+  format: z.strictObject({
+    name: z.string().min(1),
+    role: z.enum(['standard', 'template']).nullable(),
+    leagues: z.array(z.string()).readonly(),
+    basis: z
+      .strictObject({
+        formatId: z.string().min(1),
+        name: z.string().min(1),
+        presetVersion: version,
+      })
+      .nullable(),
+    standing: formatStandingSchema,
+  }),
   competitionType: z.enum(competitionTypes),
   definition: formatDefinitionSchema,
   config: roomConfigSchema,

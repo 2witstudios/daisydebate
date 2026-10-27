@@ -30,6 +30,8 @@ export type FormatSelectionRequest = {
 export type FormatSelectionFacts = {
   readonly format: {
     readonly id: string;
+    readonly name: string;
+    readonly leagues: readonly string[];
     /** No owning actor: a publisher catalog row, never a private custom format. */
     readonly catalogOwned: boolean;
     /** Null when the picker does not offer it (One-on-one, Foundation). */

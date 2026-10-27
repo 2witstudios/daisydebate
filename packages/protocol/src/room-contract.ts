@@ -165,10 +165,24 @@ export type RoomAssemblyState = {
   readonly formatId: string;
   readonly formatVersion: number;
   readonly presetVersion: number | null;
-  /** The catalog preset a casual room is based on (FMT-1); null for ranked and custom rooms. */
+  /** The running format's display facts; a custom format has no role and no leagues. */
+  readonly catalogFormat: {
+    readonly name: string;
+    readonly role: 'standard' | 'template' | null;
+    readonly leagues: readonly string[];
+  };
+  /**
+   * The catalog preset a casual room is based on (FMT-1), hydrated with what
+   * standing compares against; null for ranked and custom rooms.
+   */
   readonly basis: {
     readonly formatId: string;
     readonly presetVersion: number;
+    readonly formatVersion: number;
+    readonly name: string;
+    readonly role: 'standard' | 'template';
+    readonly definition: FormatDefinition;
+    readonly config: RoomConfig;
   } | null;
   readonly competitionType: CompetitionType;
   readonly definition: FormatDefinition;

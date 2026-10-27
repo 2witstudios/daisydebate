@@ -97,6 +97,8 @@ describe('formatOperations', () => {
       [
         [
           'value',
+          'Value',
+          [],
           null,
           'standard',
           2,
@@ -122,6 +124,8 @@ describe('formatOperations', () => {
       expected: {
         format: {
           id: 'value',
+          name: 'Value',
+          leagues: [],
           catalogOwned: true,
           role: 'standard',
           currentVersion: 2,
