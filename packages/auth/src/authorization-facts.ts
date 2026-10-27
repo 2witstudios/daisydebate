@@ -265,7 +265,7 @@ export type AuthorizationInput = {
   readonly context: {
     readonly account: AccountAuthorizationFact | null;
     /** Named premium facts for this exact account; they do not grant participant admission or a seat. */
-    readonly entitlements?: { readonly coaching: boolean };
+    readonly entitlements?: { readonly roundAnalysis: boolean };
     /** Trusted current facts/time from the same account-fenced transaction. */
     readonly now?: string;
     /** Exact fresh pair accounts under the same account fence; no age eligibility required. */

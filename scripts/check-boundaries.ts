@@ -10,6 +10,8 @@ import {
   adminSurfaceIssue,
   adobeIsolationIssue,
   allowedWorkspaceDependencies as allowed,
+  conceptCouplingIssue,
+  reservedWordIssue,
   deepImportIssue,
   operatorApiIssue,
   runnerOnlyIssue,
@@ -43,6 +45,11 @@ const byName = new Map(
   workspaces.map((workspace) => [workspace.manifest.name, workspace]),
 );
 const issues: string[] = [];
+/** The text of an identifier, string or JSX text node: what the reserved-word check reads. */
+const wordOf = (node: ts.Node) =>
+  ts.isIdentifier(node) || ts.isStringLiteralLike(node) || ts.isJsxText(node)
+    ? node.text
+    : null;
 const architectureExceptionMarkers: string[] = [];
 const visit = (name: string, trail: string[]) => {
   if (trail.includes(name)) {
@@ -99,6 +106,8 @@ for (const workspace of workspaces) {
       if (operatorApi) issues.push(`${relative(root, file)}: ${operatorApi}`);
       const testSupport = testSupportIssue(specifier, relative(root, file));
       if (testSupport) issues.push(`${relative(root, file)}: ${testSupport}`);
+      const coupling = conceptCouplingIssue(specifier, relative(root, file));
+      if (coupling) issues.push(`${relative(root, file)}: ${coupling}`);
       if (specifier.startsWith('.')) {
         const target = resolve(dirname(file), specifier);
         if (!target.startsWith(`${resolve(root, workspace.path)}/`))
@@ -134,6 +143,9 @@ for (const workspace of workspaces) {
       }
     };
     const walk = (node: ts.Node) => {
+      const word = wordOf(node);
+      const reserved = word && reservedWordIssue(relative(root, file), word);
+      if (reserved) issues.push(reserved);
       if (
         (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) &&
         node.moduleSpecifier &&

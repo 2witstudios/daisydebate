@@ -83,7 +83,12 @@ kill_timeout = 35
   # proof's capacity); without it the
   # web app has no bot admission and refuses to start any Round with a bot.
   AI_ROUND_BUSY_CAP = "4"
-  ROUND_BOT_WORKER_POLICY = '{"maxControllers":4,"providerConcurrency":2,"scanBatch":16,"scanMs":250,"leaseMs":15000,"renewMs":3000,"callTimeoutMs":30000,"models":{"speech":"anthropic/claude-sonnet-5.5","cross_ex":"anthropic/claude-sonnet-5.5","judge":"anthropic/claude-sonnet-5.5","tts":"deepgram/aura-2"}}'
+  # AI judging and live bot speech share this competitive provider budget.
+  COMPETITIVE_PROVIDER_CONCURRENCY = "2"
+  ROUND_BOT_WORKER_POLICY = '{"maxControllers":4,"scanBatch":16,"scanMs":250,"leaseMs":15000,"renewMs":3000,"callTimeoutMs":30000,"models":{"speech":"anthropic/claude-sonnet-5.5","cross_ex":"anthropic/claude-sonnet-5.5","tts":"deepgram/aura-2"}}'
+  ROUND_JUDGING_POLICY = '{"scanBatch":16,"scanMs":250,"leaseMs":15000,"renewMs":3000,"callTimeoutMs":30000,"model":"anthropic/claude-sonnet-5.5"}'
+  # Round analysis (DEC-247) has its own policy and provider budget.
+  ROUND_ANALYSIS_POLICY = '{"concurrency":1,"scanBatch":8,"scanMs":5000,"leaseMs":30000,"callTimeoutMs":60000,"model":"anthropic/claude-sonnet-5.5"}'
 
 [http_service]
   # Must match Dockerfile EXPOSE and the PORT env above.

@@ -84,7 +84,7 @@ export async function fenceAttendance(
   const seats = await Promise.all(
     round.participants.map(async (seat) => {
       const actor = await actorFact(tx, seat.actorId);
-      return { ...seat, ...seatEligibility(actor, accounts, seat.actorId) };
+      return { ...seat, ...seatEligibility(actor, accounts, seat) };
     }),
   );
   return { current, round, seats, accounts };

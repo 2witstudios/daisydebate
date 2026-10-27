@@ -6,7 +6,7 @@ import { isAppError } from '@daisy/errors';
 import { TEST_RUN_MAX_MS } from '@daisy/redis/testing';
 import { systemId } from '@daisy/clock';
 import { withRunDatabase } from './test-run-database';
-import { createProviderCapacity } from '../apps/web/src/features/round-bots/provider-capacity';
+import { createProviderBudget } from '../apps/web/src/server/provider-budget';
 import { createRoundJudgingOperations } from '../apps/web/src/features/round-judging/operations';
 
 const model = process.argv[2],
@@ -45,7 +45,7 @@ await withRunDatabase({
           store: f.store,
           nextId: () => systemId.next(),
           voice: () => provider,
-          withProvider: createProviderCapacity(1),
+          withProvider: createProviderBudget(1),
         });
         const blocked = async (current: typeof claim) => {
           try {

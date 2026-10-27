@@ -200,3 +200,63 @@ export const runnerOnlyIssue = (
     .startsWith('scripts/')
     ? `import of runner-only code from ${specifier}`
     : null;
+
+/**
+ * The owner's concept rule (ISSUE-745..752): round analysis and judging are
+ * different features. Nothing of round analysis (its feature, UI and worker)
+ * imports round judging or round ballots, and neither of those imports
+ * round analysis; both read only neutral modules such as transcript evidence.
+ */
+const conceptGroups = {
+  'round analysis': [
+    'apps/web/src/features/round-analysis',
+    'apps/web/src/ui/round-analysis',
+    'apps/web/src/server/round-analysis-workers',
+  ],
+  judging: [
+    'apps/web/src/features/round-judging',
+    'apps/web/src/features/round-ballots',
+    'apps/web/src/server/round-judging-workers',
+  ],
+} as const;
+const conceptOf = (path: string) =>
+  (Object.keys(conceptGroups) as (keyof typeof conceptGroups)[]).find(
+    (concept) =>
+      conceptGroups[concept].some(
+        (prefix) =>
+          path === prefix ||
+          path.startsWith(`${prefix}/`) ||
+          path.startsWith(`${prefix}.`),
+      ),
+  );
+export const conceptCouplingIssue = (
+  specifier: string,
+  importer: string,
+): string | null => {
+  if (!specifier.startsWith('.')) return null;
+  const from = conceptOf(importer);
+  const to = conceptOf(
+    posix.normalize(posix.join(posix.dirname(importer), specifier)),
+  );
+  return from && to && from !== to
+    ? `${from} imports ${to} ${specifier} (concept coupling)`
+    : null;
+};
+
+/**
+ * "Coach" and "coaching" are reserved for future human coaches (owner,
+ * 2026-10-27): no AI feature may use the words. Product code is checked
+ * (tests may name the word to prove it is absent); the only current users
+ * are the onboarding choice of wanting to coach, which means a human.
+ */
+const humanCoaching = [
+  'packages/protocol/src/onboarding.ts',
+  'apps/web/src/ui/onboarding/',
+  'apps/web/src/ui/mock/debate-room.ts',
+];
+export const reservedWordIssue = (file: string, word: string): string | null =>
+  /coach/i.test(word) &&
+  !TEST_CODE.test(file) &&
+  !humanCoaching.some((path) => file.startsWith(path))
+    ? `${file}: '${word}' uses the reserved word coach (human coaching only)`
+    : null;

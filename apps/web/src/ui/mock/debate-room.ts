@@ -263,7 +263,7 @@ export function sampleRound(
     messages,
     agents: [
       { id: 'assistant', title: 'Assistant', scope: 'round' },
-      { id: 'coach', title: 'Coach', scope: 'club' },
+      { id: 'drill', title: 'Drill partner', scope: 'club' },
     ],
     agentThreads: {
       assistant: [
@@ -286,7 +286,7 @@ export function sampleRound(
           },
         },
       ],
-      coach: [
+      drill: [
         { id: 'c1', from: 'you', text: 'Drill me on Kenya answers.' },
         {
           id: 'c2',
@@ -301,7 +301,7 @@ export function sampleRound(
         'Add the 1AR to Flow',
         'Tighten my NR plan',
       ],
-      coach: ['Drill me', 'Review my last round'],
+      drill: ['Drill me', 'Review my last round'],
     },
     transcript,
   };

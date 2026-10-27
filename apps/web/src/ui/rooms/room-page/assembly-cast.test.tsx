@@ -22,6 +22,7 @@ test('host cast controls carry actual bot actors and asymmetric declared seats',
           actorId: 't'.repeat(24),
           kind: 'bot',
           label: 'Stored judge bot',
+          seatRole: 'judge',
           eligible: true,
         },
       ]}
@@ -66,5 +67,47 @@ test('non-host cast exposes no assignment authority', () => {
       html.includes('value="remove-seat"'),
     ],
     expected: [false, false],
+  });
+});
+
+test('each seat offers only the AI actors that may hold it', () => {
+  const html = renderToStaticMarkup(
+    <AssemblyCast
+      view={assemblySnapshot}
+      viewer={{
+        actorId: assemblySnapshot.hostActorId,
+        label: assemblySnapshot.hostLabel,
+      }}
+      bots={[
+        {
+          actorId: 'd'.repeat(24),
+          kind: 'bot',
+          label: 'Debater bot',
+          seatRole: 'debater',
+          eligible: true,
+        },
+        {
+          actorId: 'j'.repeat(24),
+          kind: 'bot',
+          label: 'AI judge',
+          seatRole: 'judge',
+          eligible: true,
+        },
+      ]}
+      {...nativeIntents}
+    />,
+  );
+  const seatsOffering = (label: string) =>
+    (html.match(new RegExp(`>${label} · AI<`, 'g')) ?? []).length;
+  const judgeSeats = assemblySnapshot.rules.seats.judge;
+  const sideSeats =
+    assemblySnapshot.rules.seats.affirmative +
+    assemblySnapshot.rules.seats.negative;
+  assert({
+    given: 'a bot debater and the AI judge in the cast choices (ISSUE-750)',
+    should:
+      'offer the bot debater only for side seats and the AI judge only for judge seats',
+    actual: [seatsOffering('Debater bot'), seatsOffering('AI judge')],
+    expected: [sideSeats, judgeSeats],
   });
 });

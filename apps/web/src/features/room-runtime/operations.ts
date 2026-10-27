@@ -222,14 +222,19 @@ export function createRoomRuntimeOperations({
         await store.listRoomBots(caller, (account) =>
           can(caller, 'room.list', account),
         )
-      )
-        .filter((p) => p.kind === 'bot')
-        .map((p) => ({
-          actorId: p.actorId,
-          kind: 'bot',
-          label: p.label,
-          eligible: p.eligible && botsAvailable(),
-        }));
+      ).flatMap((p) =>
+        p.kind === 'bot' && p.seatRole
+          ? [
+              {
+                actorId: p.actorId,
+                kind: 'bot' as const,
+                label: p.label,
+                seatRole: p.seatRole,
+                eligible: p.eligible && botsAvailable(),
+              },
+            ]
+          : [],
+      );
     },
     async list(caller: Caller, query: RoomListQuery) {
       return store.listRoomPage(

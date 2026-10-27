@@ -1,7 +1,10 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { expect } from 'bun:test';
 import { frozenJudgingMessages } from './prompt';
-import { frozen, round } from './judging.test-support';
+import {
+  frozen,
+  round,
+} from '../round-runtime/transcript-evidence.test-support';
 setupRitewayBun();
 test('actual frozen identities map to side/slot without becoming prompt metadata', () => {
   const messages = frozenJudgingMessages({ round, frozen });
@@ -33,6 +36,6 @@ test('foreign frozen seat, segment or Round cannot become judge evidence', () =>
     { ...frozen, coverage: [{ ...frozen.coverage[0]!, segmentId: 'foreign' }] },
   ])
     expect(() => frozenJudgingMessages({ round, frozen: invalid })).toThrow(
-      'Frozen judging scope changed',
+      'Frozen transcript scope changed',
     );
 });
