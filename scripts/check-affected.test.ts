@@ -1,5 +1,8 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { parseBaseRef, partitionAffected, planGates } from './check-affected';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 setupRitewayBun();
 
@@ -194,6 +197,73 @@ describe('global affected fanout', () => {
 });
 
 describe('affectedLintDirectories', () => {
+  test('lints source alongside config-only and ignored affected workspaces', async () => {
+    const { affectedLintDirectories } = await import('./check-affected');
+    const fixture = mkdtempSync(join(tmpdir(), 'daisy-affected-eslint-'));
+    try {
+      for (const workspace of ['typescript-config', 'source', 'ignored'])
+        mkdirSync(join(fixture, 'packages', workspace), { recursive: true });
+      writeFileSync(
+        join(fixture, 'packages/typescript-config/base.json'),
+        '{}',
+      );
+      writeFileSync(join(fixture, 'packages/source/index.js'), 'export {};');
+      writeFileSync(join(fixture, 'packages/ignored/index.js'), 'debugger;');
+      writeFileSync(
+        join(fixture, 'eslint.config.mjs'),
+        "export default [{ ignores: ['packages/ignored/**'] }, { files: ['**/*.js'], rules: { 'no-debugger': 'error' } }];",
+      );
+      const directories = affectedLintDirectories({
+        tasks: ['typescript-config', 'source', 'ignored'].map((workspace) => ({
+          directory: `packages/${workspace}`,
+        })),
+      });
+      const lint = planGates(
+        {
+          ...partitionAffected(['packages/source/index.js']),
+          lintFiles: directories,
+        },
+        'base',
+      ).find(({ name }) => name.startsWith('eslint'));
+      if (!lint) throw new Error('Missing affected source lint gate');
+      const run = () =>
+        Bun.spawnSync(
+          [
+            process.execPath,
+            join(import.meta.dir, '../node_modules/eslint/bin/eslint.js'),
+            ...lint.args.slice(3),
+            '--format',
+            'json',
+          ],
+          { cwd: fixture, stdout: 'pipe', stderr: 'pipe' },
+        );
+      const clean = run();
+      assert({
+        given:
+          'config-only and globally ignored workspaces in the affected graph',
+        should: 'finish linting the eligible source without pattern errors',
+        actual: { exitCode: clean.exitCode, stderr: clean.stderr.toString() },
+        expected: { exitCode: 0, stderr: '' },
+      });
+      writeFileSync(join(fixture, 'packages/source/index.js'), 'debugger;');
+      const failed = run();
+      assert({
+        given: 'the same graph with a real source lint violation',
+        should: 'reject that source rather than ignoring the affected graph',
+        actual: {
+          exitCode: failed.exitCode,
+          rules: JSON.parse(failed.stdout.toString()).flatMap(
+            (file: { messages: { ruleId: string }[] }) =>
+              file.messages.map(({ ruleId }) => ruleId),
+          ),
+        },
+        expected: { exitCode: 1, rules: ['no-debugger'] },
+      });
+    } finally {
+      rmSync(fixture, { recursive: true, force: true });
+    }
+  });
+
   test('uses every dependent task directory and rejects invalid dry-run output', async () => {
     const { affectedLintDirectories } = await import('./check-affected');
     assert({
