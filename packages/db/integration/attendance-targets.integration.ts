@@ -1,4 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { admitsPrincipalAccess } from '@daisy/auth/authorization';
 import { requireTestServices } from '@daisy/config';
 import { assertRejects } from '@daisy/errors/testing';
 import { createId } from '@paralleldrive/cuid2';
@@ -47,6 +48,7 @@ test('target discovery authenticates fresh seats and returns actual unresolved h
     const facts = await store.readRoundAttendanceTargets({
       roundId,
       principal,
+      admits: admitsPrincipalAccess,
     });
     assert({
       given: 'actual closed speech without a receipt or resolution',
@@ -65,7 +67,12 @@ test('target discovery authenticates fresh seats and returns actual unresolved h
     await assertRejects({
       given: 'same cached principal after canonical erasure',
       should: 'refuse target discovery from fresh account facts',
-      actual: () => store.readRoundAttendanceTargets({ roundId, principal }),
+      actual: () =>
+        store.readRoundAttendanceTargets({
+          roundId,
+          principal,
+          admits: admitsPrincipalAccess,
+        }),
       code: 'AUTHORIZATION',
     });
   });

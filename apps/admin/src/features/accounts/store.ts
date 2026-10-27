@@ -26,7 +26,23 @@ export async function openPendingCommand(
     desiredState: command.desiredState,
     expectedRevision: command.expectedRevision,
     createdAt: new Date(command.now),
+    lastSignedAt: new Date(command.now),
   });
+}
+
+/**
+ * Records a resend's signing time before it is sent, so a crash between the
+ * two never leaves an earlier time that would abandon a PUT still valid.
+ */
+export async function markSigned(
+  db: AdminExecutor,
+  commandId: string,
+  signedAt: string,
+): Promise<void> {
+  await db
+    .update(pendingCommands)
+    .set({ lastSignedAt: new Date(signedAt) })
+    .where(eq(pendingCommands.commandId, commandId));
 }
 
 /** True when this caller closed it; false when someone already had. */
@@ -48,11 +64,14 @@ export async function resolvePendingCommand(
   return rows.length === 1;
 }
 
+/** An open command and when its latest PUT was signed. */
+export type OpenCommand = PendingCommand & { readonly lastSignedAt: string };
+
 /** Oldest first: the commands whose outcome is still unknown. */
 export async function openCommands(
   db: AdminExecutor,
   limit: number,
-): Promise<readonly PendingCommand[]> {
+): Promise<readonly OpenCommand[]> {
   const rows = await db
     .select()
     .from(pendingCommands)
@@ -65,6 +84,7 @@ export async function openCommands(
     targetUserId: row.targetUserId,
     desiredState: row.desiredState as PendingCommand['desiredState'],
     expectedRevision: row.expectedRevision,
+    lastSignedAt: row.lastSignedAt.toISOString(),
   }));
 }
 

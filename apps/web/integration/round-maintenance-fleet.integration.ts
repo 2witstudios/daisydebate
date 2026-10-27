@@ -1,3 +1,4 @@
+import { admitsPrincipalAccess } from '@daisy/auth/authorization';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
@@ -54,7 +55,7 @@ test('five actual Rounds leave shared bounded capacity for media and first-recei
       const [binding, receipt] = await Promise.all([
         f.store.mediaSessions.ensureBinding({
           roundId,
-          actorId: f.host.actorId,
+          caller: { actorId: f.host.actorId, admits: admitsPrincipalAccess },
           buildProjection: roundTickProjection(createId),
         }),
         attendance.checkIn(

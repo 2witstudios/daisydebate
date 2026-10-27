@@ -8,6 +8,10 @@ import { and, eq, isNull } from 'drizzle-orm';
 import type { BoundedTransactionContext } from './transaction-context';
 import { lockMediaRound, mediaId } from './media-session-authority';
 import {
+  withdrawnSeats,
+  type ParticipantAdmission,
+} from './participant-admission';
+import {
   executeLockedRoundTick,
   type LockedRoundTickInput,
 } from './round-clock-transaction';
@@ -18,6 +22,9 @@ import { reconcileLive } from './media-reconcile-rules';
 
 export type MediaSessionRead = {
   readonly roundId: string;
+  /** ADR 0075: participant access, read for every human seat's fenced facts. */
+  readonly admits: ParticipantAdmission;
+  /** A human reader, refused unless its own facts meet `admits`. */
   readonly actorId?: string;
   readonly buildProjection: LockedRoundTickInput['buildProjection'];
 };
@@ -27,7 +34,13 @@ export async function lockedMediaSnapshot(
   input: MediaSessionRead,
 ) {
   const roundId = mediaId(input.roundId);
-  const authority = await lockMediaRound(tx, roundId, input.actorId);
+  const { accounts, ...authority } = await lockMediaRound(
+    tx,
+    roundId,
+    input.actorId === undefined
+      ? undefined
+      : { actorId: input.actorId, admits: input.admits },
+  );
   const [session] = await tx
     .select()
     .from(mediaSessions)
@@ -72,6 +85,8 @@ export async function lockedMediaSnapshot(
       round,
       tick.now,
     ),
+    /** Seats whose media grants are withdrawn by a lost participant access (ISSUE-714). */
+    withdrawn: withdrawnSeats(authority.participants, accounts, input.admits),
     bindings,
     now: tick.now,
     finalSegmentEndedAt: tick.finalSegmentEndedAt,

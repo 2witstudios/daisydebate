@@ -17,6 +17,8 @@ test('a command waiting on the account fence sees a revoke that commits first (A
     const blocker = new SQL(url, { max: 1 });
     const command = new SQL(url, { max: 1 });
     try {
+      // The command's own single connection, so the probe watches exactly it.
+      const [own] = await command`select pg_backend_pid() as pid`;
       // The operator's revoke holds the account row, as its command does.
       await blocker.unsafe('begin');
       await blocker.unsafe(
@@ -32,9 +34,8 @@ test('a command waiting on the account fence sees a revoke that commits first (A
       );
       let waiting = false;
       for (let attempt = 0; attempt < 500 && !waiting; attempt += 1) {
-        const [row] = await fixture.sql.unsafe(
-          "select exists(select 1 from pg_stat_activity where datname = current_database() and wait_event_type = 'Lock' and query like '%daisy_authorization_accounts%') as waiting",
-        );
+        const [row] =
+          await fixture.sql`select exists(select 1 from pg_stat_activity where pid = ${own?.pid} and wait_event_type = 'Lock') as waiting`;
         waiting = row.waiting;
       }
       await blocker.unsafe('commit');
