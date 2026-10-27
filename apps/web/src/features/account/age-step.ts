@@ -128,8 +128,10 @@ export function createAgeStepHandler(dependencies: AgeStepDependencies) {
         const held = heldRefusal(request.headers.get('cookie'));
         if (held !== null) {
           // ISSUE-660: a held browser that signed up again keeps no new
-          // account. One that already answered is kept: its first answer stands.
-          await dependencies.forget(userId);
+          // account. One that already answered is kept and its first answer
+          // stands: a conflict, as below, never a fresh hold.
+          if ((await dependencies.forget(userId)) === 'refused')
+            throw createAppError('CONFLICT');
           return refused(held, id);
         }
         const { month, year } = parseValidated(

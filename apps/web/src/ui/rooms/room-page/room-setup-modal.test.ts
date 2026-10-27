@@ -36,8 +36,12 @@ function roomPage() {
   };
 }
 
-/** Lets the MutationObserver deliver its records. */
-const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+/**
+ * Waits for happy-dom's own pending work, MutationObserver deliveries
+ * included: its completion signal, never a timer guess.
+ */
+const settle = (page: ReturnType<typeof roomPage>) =>
+  page.happy.happyDOM.waitUntilComplete();
 
 /** Opens the sheet by its fragment from the Edit link, as a click would. */
 const openFrom = async (page: ReturnType<typeof roomPage>, id: string) => {
@@ -48,13 +52,13 @@ const openFrom = async (page: ReturnType<typeof roomPage>, id: string) => {
   );
   page.happy.location.hash = '#room-setup';
   page.happy.dispatchEvent(new page.happy.Event('hashchange'));
-  await settle();
+  await settle(page);
 };
 
 const closeByFragment = async (page: ReturnType<typeof roomPage>) => {
   page.happy.location.hash = '';
   page.happy.dispatchEvent(new page.happy.Event('hashchange'));
-  await settle();
+  await settle(page);
 };
 
 const watch = (page: ReturnType<typeof roomPage>) =>
@@ -176,7 +180,7 @@ test('the sheet’s own wiring keeps late body content inert and returns focus (
   // Mounted on the body itself, outside the sheet's own subtree.
   const late = page.document.createElement('aside');
   page.document.body.append(late);
-  await settle();
+  await settle(page);
   const whileOpen = late.inert;
   await closeByFragment(page);
   const focused = page.document.activeElement?.id;
@@ -232,7 +236,7 @@ test('held nodes that room sync replaced are dropped, and only a plain click ope
   // The sheet then opens from the address bar, with no link focused.
   page.happy.location.hash = '#room-setup';
   page.happy.dispatchEvent(new page.happy.Event('hashchange'));
-  await settle();
+  await settle(page);
   await closeByFragment(page);
   const focused = page.document.activeElement?.id;
   stop();

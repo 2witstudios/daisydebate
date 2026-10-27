@@ -6,7 +6,7 @@ import { Icon } from '../../components/icon/icon';
 import { cn } from '../../cn';
 import { AutoSubmitForm } from '../../components/filter-bar/auto-submit-form';
 import { controlClass } from '../../components/filter-bar/filter-bar-class';
-import { ModeToggle } from '../../components/mode-toggle/mode-toggle';
+import { ModeToggle } from '../mode-toggle/mode-toggle';
 
 export type FilterFormProps = {
   readonly action: string;

@@ -59,18 +59,18 @@ export function createSignOutFormHandler({
         body: '{}',
       }),
     ).catch(() => null);
-    if (!response?.ok) {
+    if (!response?.ok)
       // A fixed event only: never the exception, the body or the cookie.
       logger.log(
         'auth.sign_out.failed',
         { operation: 'auth.sign_out' },
         'sign out failed',
       );
-      return seeOther(failedHref(next));
-    }
-    const signedOut = seeOther('/sign-in');
-    for (const cookie of response.headers.getSetCookie())
-      signedOut.headers.append('set-cookie', cookie);
-    return signedOut;
+    const answer = seeOther(response?.ok ? '/sign-in' : failedHref(next));
+    // Whatever auth cleared goes to the browser, refused or not, so a retry
+    // never meets the same stale cookie.
+    for (const cookie of response?.headers.getSetCookie() ?? [])
+      answer.headers.append('set-cookie', cookie);
+    return answer;
   };
 }

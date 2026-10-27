@@ -157,4 +157,23 @@ describe('the sign-out form (ISSUE-691)', () => {
       ],
     });
   });
+
+  test('a refused sign-out still carries the cookies auth cleared (review on #474)', async () => {
+    const { handler } = handlerWith(
+      new Response(null, { status: 401, headers: { 'set-cookie': CLEARED } }),
+    );
+    const response = await handler(formPost(ORIGIN, 'next=%2Fbeta'));
+    assert({
+      given:
+        'the auth sign-out refusing a stale session while clearing its cookie',
+      should:
+        'return to the page with the notice and the cleared cookie, so a retry does not meet the same stale cookie',
+      actual: [
+        response.status,
+        response.headers.get('location'),
+        response.headers.getSetCookie(),
+      ],
+      expected: [303, '/beta?signOut=failed', [CLEARED]],
+    });
+  });
 });
