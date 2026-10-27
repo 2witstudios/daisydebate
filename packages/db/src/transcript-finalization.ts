@@ -104,21 +104,18 @@ export async function finalizeLockedRoundTranscript(
     .select()
     .from(roundTranscripts)
     .where(eq(roundTranscripts.roundId, request.roundId));
+  const revision = frontier?.revision ?? 0;
   const [freeze] = await tx
     .insert(roundTranscriptFreezes)
     .values({
       roundId: request.roundId,
       revision: 1,
-      frontier: frontier?.revision ?? 0,
+      frontier: revision,
       completeness: state,
     })
     .returning();
   await planFrozenJudging(tx, request, state);
-  await appendTranscriptChanged(
-    tx,
-    request.roundId,
-    (frontier?.revision ?? 0) + 1,
-  );
+  await appendTranscriptChanged(tx, request.roundId, revision + 1);
   return {
     status: 'frozen' as const,
     freeze: { ...freeze!, frozenAt: freeze!.frozenAt.toISOString() },

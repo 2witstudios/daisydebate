@@ -45,7 +45,9 @@ export function LiveRoundRoom({
   commandIds: seedIds,
   mediaSlot,
   attendanceSlot,
+  transcript,
 }: {
+  readonly transcript?: ReactNode;
   readonly view: RoundView;
   readonly commandIds: RoundCommandIds;
   readonly commandAction: FormAction<RoundFormState>;
@@ -126,6 +128,7 @@ export function LiveRoundRoom({
         {(actions) =>
           round ? (
             <DebateRoom
+              transcript={transcript}
               media={(mediaSlot ?? defaultMedia)(view)}
               actions={actions}
               round={round}

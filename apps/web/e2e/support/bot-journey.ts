@@ -13,6 +13,10 @@ import {
 } from './human-ballot-round';
 import { humanRoundSelection } from './human-round-selection';
 import { checkIn, openSpeech, yieldSpeech } from './human-judged-journey';
+import {
+  expectHistoryTranscript,
+  expectLiveTranscript,
+} from './transcript-proof';
 import { botSpeechEvidence } from './bot-speech-evidence';
 
 /** The shortest legal bot speech; the bot holds the floor until its clock ends. */
@@ -66,6 +70,21 @@ export async function proveHumanBotJourney(browser: Browser) {
     // the room is never left to the hidden worker alone.
     await host.context.grantPermissions(['camera', 'microphone'], { origin });
     const stage = await openPage(host.context, 'human in the bot Round room');
+    let transcriptDoorbells = 0;
+    stage.on('websocket', (socket) =>
+      socket.on('framereceived', (frame) => {
+        try {
+          const message = JSON.parse(String(frame.payload));
+          if (
+            message.type === 'event' &&
+            message.payload?.kind === 'debate.transcript-changed'
+          )
+            transcriptDoorbells++;
+        } catch {
+          /* Non-JSON transport frames carry no application doorbell. */
+        }
+      }),
+    );
     await stage.goto(`/rounds/${view.id}/room`);
     await expect(
       stage.getByRole('status').filter({ hasText: /^Connected$/ }),
@@ -76,6 +95,8 @@ export async function proveHumanBotJourney(browser: Browser) {
     view = await yieldSpeech(host, first.view, 'affirmative');
     const bot = await openSpeech(host.context.request, view, 1);
     expect(bot.open.durationMs).toBe(BOT_SPEECH_MS);
+    await expectLiveTranscript(stage, view.id);
+    expect(transcriptDoorbells).toBeGreaterThan(0);
     await expect(async () => {
       const round = await readBallotRound(host.context.request, view.id);
       expect(round.status).toBe('completed');
@@ -105,6 +126,7 @@ export async function proveHumanBotJourney(browser: Browser) {
     await expect(
       receipt.getByText(/^Result · (Affirmative|Negative) won$/),
     ).toBeVisible();
+    await expectHistoryTranscript(browser, receipt, host.username, view.id);
   } finally {
     await accounts.closeContexts();
   }

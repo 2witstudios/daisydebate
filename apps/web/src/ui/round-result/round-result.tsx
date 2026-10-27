@@ -1,9 +1,9 @@
 import type { RoundBallotRead } from '@daisy/protocol';
 import { ballotDebaters } from '../../features/round-ballots/presentation';
-import { ballotEyebrowClass, sideTextClass } from '../ballot/ballot-class';
+import { ballotEyebrowClass } from '../ballot/ballot-class';
 import { BallotSummary } from '../ballot/ballot-summary/ballot-summary';
 import { StoredBallotScores } from '../ballot/stored-ballot-scores';
-import { cn } from '../cn';
+import { TranscriptContent } from './transcript-content';
 import {
   resultBallots,
   resultCoaching,
@@ -91,38 +91,10 @@ export function RoundResult({ view }: { readonly view: RoundBallotRead }) {
               Some speech was not captured, so this transcript is incomplete.
             </p>
           ) : null}
-          {sections.length ? (
-            <details>
-              <summary className="cursor-pointer font-strong">
-                Show the transcript
-              </summary>
-              {sections.map((section) => (
-                <section key={section.key} className="pt-3">
-                  <h3
-                    className={cn(
-                      'mb-1 text-sm font-strong',
-                      sideTextClass(section.side),
-                    )}
-                  >
-                    {section.heading}
-                  </h3>
-                  <ol className="flex flex-col gap-1">
-                    {section.lines.map((line) => (
-                      <li key={line.id} className="text-sm text-ink">
-                        <span className="font-strong">{line.speaker}: </span>
-                        {line.text}
-                        {line.partial ? (
-                          <span className="text-ink-muted"> (cut off)</span>
-                        ) : null}
-                      </li>
-                    ))}
-                  </ol>
-                </section>
-              ))}
-            </details>
-          ) : (
-            <p className="text-ink-muted">No speech was captured.</p>
-          )}
+          <TranscriptContent
+            sections={sections}
+            empty="No speech was captured."
+          />
         </section>
       ) : null}
     </>

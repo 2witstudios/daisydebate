@@ -54,7 +54,7 @@ test('fresh account admission dominates a historical seat', () => {
     actual: [
       { ...request.context.account, beta: { state: 'revoked', revision: 2 } },
       { ...request.context.account, erased: true },
-      { ...request.context.account, ageBand: 'under_floor' },
+      { ...request.context.account, ageBand: '13-15' },
       { ...request.context.account, actorId: 'another' },
     ].map(
       (account) =>

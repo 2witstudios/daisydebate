@@ -131,12 +131,7 @@ test('premium coaching discovery, claims and reads use current beta entitlement'
           roundId,
           caller: f.host,
           authorize: (r, a) => canReadRound(f.host, r, a),
-          authorizeTranscript: (r, a) =>
-            canReadTranscript(
-              { userId: a!.userId, actorId: a!.actorId! },
-              r,
-              a,
-            ),
+          authorizeTranscript: (r, a) => canReadTranscript(f.host, r, a),
           authorizeCoaching: (r, a) =>
             canCoach(
               a,

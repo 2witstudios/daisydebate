@@ -364,3 +364,25 @@ publication/generation authority lives in its dedicated lease and execution
 producers. This separation adds no personal-data field, retention extension or
 production/legal activation. Captured text and retry digests retain the declared
 private transcript purpose, human basis gate and owning-Round erasure contract.
+
+## Live transcript reads
+
+`GET /api/rounds/:id/transcript` is the single round-wide live text read. It
+samples the current account and Round under the shared read fences and applies
+`round.transcript.read`, the same audience policy used for completed result
+transcripts. Current policy admits the Round's debaters and judges; public
+visibility and a seatless host confer no transcript right. Persistence and the
+viewer consume the authorization decision without another seat requirement,
+so a future approved audience producer can extend that policy alone.
+
+The read reuses ordered `utterances`, explicit `transcript_segments` states and
+the immutable freeze marker. Its revision follows capture independently of
+competitive Round version, with one additional revision at freeze. Text append,
+stream seal and freeze transactionally append a `debate.transcript-changed`
+doorbell to the existing Round topic. It contains only the Round id and the
+transcript revision. The viewer refetches the protected read on that doorbell
+and reconnect/visibility recovery; clients without a connected socket use a
+30-second fallback. Refused reads remove the displayed text. Native page reloads
+use the identical read and the shared transcript disclosure works without
+JavaScript. Capturing requires an explicit open, unfrozen stream; partial
+closure and incomplete freeze never wait for a client deadline to show Partial.
