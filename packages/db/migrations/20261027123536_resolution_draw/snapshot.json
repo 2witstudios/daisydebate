@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "4d6f4b20-571a-4fb8-8ecb-25d019c74301",
+  "id": "43d7db8e-d475-4122-a397-2430581f2ca6",
   "prevIds": [
     "e629a460-738b-4969-b28a-12f616ae658c"
   ],
@@ -10881,6 +10881,174 @@
       "entityType": "indexes",
       "schema": "public",
       "table": "seasons"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "added_in_revision",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "resolution_bank_entries_added_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "resolution_bank_entries"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "retired_in_revision",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "resolution_bank_entries_retired_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "resolution_bank_entries"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "draw_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "source_kind",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "room_resolution_draw_items_kind_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "room_resolution_draw_items"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "draw_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "draw_size",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "room_resolution_draw_items_size_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "room_resolution_draw_items"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "bank_entry_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "room_resolution_draw_items_bank_entry_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "room_resolution_draw_items"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "draw_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "draw_size",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "room_resolution_strikes_size_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "room_resolution_strikes"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "actor_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "name": "room_resolution_strikes_actor_idx",
+      "entityType": "indexes",
+      "schema": "public",
+      "table": "room_resolution_strikes"
     },
     {
       "nameExplicit": true,

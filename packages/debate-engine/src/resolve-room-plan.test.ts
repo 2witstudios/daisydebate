@@ -93,4 +93,38 @@ describe('resolution draw resolution', () => {
       expected: 'capability-forbidden',
     });
   });
+
+  test('pre-round prep on a format that forbids it is refused', () => {
+    assert({
+      given:
+        'enabled pre-round prep on a definition whose prep capability is null',
+      should: 'refuse it as forbidden before the draw is considered',
+      actual: kind(
+        resolveRoomConfiguration(
+          {
+            ...definition,
+            configurable: { ...definition.configurable, preRoundPrep: null },
+          },
+          {
+            ...base,
+            preRoundPrep: { enabled: true, durationMs: 60_000 },
+            resolutionDraw: draw,
+          },
+        ),
+      ),
+      expected: 'capability-forbidden',
+    });
+    assert({
+      given: 'pre-round prep longer than the format allows',
+      should: 'refuse it as out of range',
+      actual: kind(
+        resolveRoomConfiguration(definition, {
+          ...base,
+          preRoundPrep: { enabled: true, durationMs: 1_200_001 },
+          resolutionDraw: draw,
+        }),
+      ),
+      expected: 'out-of-range',
+    });
+  });
 });

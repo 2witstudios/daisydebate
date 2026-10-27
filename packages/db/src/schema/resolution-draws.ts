@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import {
   check,
   foreignKey,
+  index,
   integer,
   pgTable,
   primaryKey,
@@ -59,6 +60,9 @@ export const resolutionBankEntries = pgTable(
     ),
   },
   (table) => [
+    // Every foreign key leads an index (baseline contract).
+    index('resolution_bank_entries_added_idx').on(table.addedInRevision),
+    index('resolution_bank_entries_retired_idx').on(table.retiredInRevision),
     check(
       'resolution_bank_entries_category_check',
       oneOf(table.category, resolutionCategories),
@@ -161,6 +165,15 @@ export const roomResolutionDrawItems = pgTable(
       columns: [table.drawId, table.drawSize],
       foreignColumns: [roomResolutionDraws.id, roomResolutionDraws.drawSize],
     }).onDelete('cascade'),
+    index('room_resolution_draw_items_kind_idx').on(
+      table.drawId,
+      table.sourceKind,
+    ),
+    index('room_resolution_draw_items_size_idx').on(
+      table.drawId,
+      table.drawSize,
+    ),
+    index('room_resolution_draw_items_bank_entry_idx').on(table.bankEntryId),
     check(
       'room_resolution_draw_items_bank_entry_check',
       sql`(${table.sourceKind} = 'bank') = (${table.bankEntryId} is not null)`,
@@ -206,6 +219,8 @@ export const roomResolutionStrikes = pgTable(
       columns: [table.drawId, table.drawSize],
       foreignColumns: [roomResolutionDraws.id, roomResolutionDraws.drawSize],
     }).onDelete('cascade'),
+    index('room_resolution_strikes_size_idx').on(table.drawId, table.drawSize),
+    index('room_resolution_strikes_actor_idx').on(table.actorId),
     check(
       'room_resolution_strikes_ordinal_check',
       sql`${table.ordinal} >= 0 and ${table.ordinal} < ${table.drawSize} - 1`,
