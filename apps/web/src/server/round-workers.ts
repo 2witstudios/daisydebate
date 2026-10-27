@@ -33,9 +33,11 @@ export function startRoundWorkers(input: {
     store: app.database,
     nextId: () => app.ids.next(),
     voice: app.aiVoice,
-    withProvider,
+    // The service reserves before claiming and holds admission through retries.
+    withProvider: (_signal, work) => work(),
   });
   const judging = startRoundJudgingService({
+    reserveCapacity: () => withProvider.reserve('judging'),
     store: app.database,
     execute: (claim, signal) =>
       operations.executeClaim(
@@ -55,11 +57,11 @@ export function startRoundWorkers(input: {
       'Judging work remains recoverable',
     ),
   });
-  // ADR 0071: coaching shares the judge model and the provider capacity.
+  // Coaching shares the model and total budget, with reserved competitive capacity.
   const coaching = createRoundCoachingOperations({
     store: app.database,
     voice: app.aiVoice,
-    withProvider,
+    withProvider: (signal, work) => withProvider(signal, work, 'coaching'),
     now: () => app.clock.now(),
   });
   const coach = startRoundCoachingService({

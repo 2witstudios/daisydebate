@@ -17,6 +17,7 @@ function oneJob(input: {
   const { tasks, timers } = manualTimers();
   let claims = 0;
   const service = startRoundJudgingService({
+    reserveCapacity: () => () => {},
     store: {
       scanRoundJudgingJobs: async () => [
         { roundId: 'round', judgeParticipantId: 'judge' },
@@ -114,5 +115,58 @@ test('a saved ballot that keeps failing to submit is reported and its slot relea
       failures: [[refusal, 'execute']],
       claims: 2,
     },
+  });
+});
+
+test('a delayed old renewal cannot remove a replacement judging claim', async () => {
+  const { tasks, timers } = manualTimers();
+  const oldRenewal = Promise.withResolvers<void>();
+  const firstExecution = Promise.withResolvers<void>();
+  const replacementEntered = Promise.withResolvers<void>();
+  const firstReported = Promise.withResolvers<void>();
+  const renewed: string[] = [];
+  let claims = 0;
+  const service = startRoundJudgingService({
+    reserveCapacity: () => () => {},
+    store: {
+      scanRoundJudgingJobs: async () => [
+        { roundId: 'replace', judgeParticipantId: 'judge' },
+      ],
+      claimRoundJudgingJob: async (scope) => ({
+        scope,
+        token: String(++claims),
+      }),
+      renewRoundJudgingJob: async (_scope, token) => {
+        renewed.push(token);
+        if (token === '1') await oldRenewal.promise;
+      },
+      verifyRoundJudgingJob: async () => ({ pendingBallot: null }),
+    },
+    execute: async (claim, signal) => {
+      if (claim.token === '1') return firstExecution.promise;
+      replacementEntered.resolve();
+      await new Promise<void>((resolve) =>
+        signal.addEventListener('abort', () => resolve(), { once: true }),
+      );
+    },
+    limits: { parallel: 1, scanBatch: 4, scanMs: 500, renewMs: 3000 },
+    timers,
+    failed: () => firstReported.resolve(),
+  });
+  await service.started;
+  const renewing = tasks.get(3000)!();
+  firstExecution.reject(createAppError('INFRASTRUCTURE'));
+  await firstReported.promise;
+  await tasks.get(500)!();
+  await replacementEntered.promise;
+  oldRenewal.reject(createAppError('CONFLICT'));
+  await renewing;
+  await tasks.get(3000)!();
+  await service.stop();
+  assert({
+    given: 'a lost old lease renewal after its job was reclaimed locally',
+    should: 'renew and retain shutdown tracking for the replacement claim',
+    actual: renewed,
+    expected: ['1', '2'],
   });
 });
