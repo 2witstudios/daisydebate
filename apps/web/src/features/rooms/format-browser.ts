@@ -25,6 +25,21 @@ export function standardOptions<T extends CatalogEntry>(
   return bySortOrder(catalog.filter((entry) => entry.role === 'standard'));
 }
 
+/** A new room starts on Value, Daisy's default standard (FMT-3). */
+export const defaultChoice = <T extends CatalogEntry>(catalog: readonly T[]) =>
+  catalog.find((entry) => entry.formatId === 'value') ??
+  standardOptions(catalog)[0] ??
+  catalog[0];
+
+/** The create-room selection for a catalog choice, pinned to its preset. */
+export const casualSelection = (choice: RoomCatalogChoice) => ({
+  kind: 'catalog' as const,
+  formatId: choice.formatId,
+  formatVersion: choice.formatVersion,
+  presetVersion: choice.preset.version,
+  competitionType: 'casual' as const,
+});
+
 const matches = (entry: CatalogEntry, words: readonly string[]) => {
   const haystack =
     `${entry.label} ${entry.leagues.join(' ')} ${entry.searchTerms}`.toLowerCase();

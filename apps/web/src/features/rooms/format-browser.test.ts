@@ -3,9 +3,12 @@ import {
   browseTemplates,
   browserListing,
   browserTabs,
+  casualSelection,
   catalogGroups,
+  defaultChoice,
   standardOptions,
 } from './format-browser';
+import { unequalTemplate } from './assembly.test-support';
 
 setupRitewayBun();
 
@@ -70,6 +73,42 @@ describe('standardOptions', () => {
       should: 'offer only the standards, in catalog order',
       actual: ids(standardOptions(catalog)),
       expected: ['policy', 'value'],
+    });
+  });
+});
+
+describe('defaultChoice', () => {
+  test('a new room’s format', () => {
+    assert({
+      given: 'a catalog with Value, a catalog without it, and an empty one',
+      should:
+        'start on Value, else the first standard, else the first entry, else nothing',
+      actual: [
+        defaultChoice(catalog)?.formatId,
+        defaultChoice(catalog.filter((item) => item.formatId !== 'value'))
+          ?.formatId,
+        defaultChoice(catalog.filter((item) => item.role === 'template'))
+          ?.formatId,
+        defaultChoice([]),
+      ],
+      expected: ['value', 'policy', 'nsda-pf', undefined],
+    });
+  });
+});
+
+describe('casualSelection', () => {
+  test('a catalog choice', () => {
+    assert({
+      given: 'a catalog choice',
+      should: 'select its pinned format and preset for a casual room',
+      actual: casualSelection(unequalTemplate),
+      expected: {
+        kind: 'catalog',
+        formatId: unequalTemplate.formatId,
+        formatVersion: unequalTemplate.formatVersion,
+        presetVersion: unequalTemplate.preset.version,
+        competitionType: 'casual',
+      },
     });
   });
 });

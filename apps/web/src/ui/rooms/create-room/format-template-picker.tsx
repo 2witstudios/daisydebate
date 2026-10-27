@@ -19,23 +19,17 @@ import {
 import {
   browserListing,
   browserTabs,
+  casualSelection,
   catalogGroups,
   choiceSummary,
+  defaultChoice,
   presetSpeechMs,
-  standardOptions,
 } from '../../../features/rooms/format-browser';
 
 const subscribeNever = () => () => undefined;
 
-function selectionValue(choice: RoomTemplate) {
-  return JSON.stringify({
-    kind: 'catalog',
-    formatId: choice.formatId,
-    formatVersion: choice.formatVersion,
-    presetVersion: choice.preset.version,
-    competitionType: 'casual',
-  });
-}
+const selectionValue = (choice: RoomTemplate) =>
+  JSON.stringify(casualSelection(choice));
 
 /** "One-on-one (1v1) · about 30 min", derived from the template's own config. */
 function templateLine(choice: RoomTemplate) {
@@ -194,12 +188,6 @@ const createField: PickerField = {
   label: 'Format',
   id: 'assembly-format',
 };
-
-/** A new room starts on Value, Daisy's default standard (FMT-3). */
-const defaultChoice = (choices: readonly RoomTemplate[]) =>
-  choices.find((choice) => choice.formatId === 'value') ??
-  standardOptions(choices)[0] ??
-  choices[0];
 
 /** Local browsing enhances the canonical select; the native POST remains authoritative. */
 export function FormatTemplatePicker({
