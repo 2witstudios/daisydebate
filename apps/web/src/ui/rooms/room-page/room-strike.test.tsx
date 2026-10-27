@@ -159,34 +159,34 @@ test('nothing renders before the draw or after the reveal', () => {
   });
 });
 
-const revealed = (view: RoomView): RoomView => ({
-  ...view,
-  topic: `${SENTINEL} 0`,
-  resolutionDraw: view.resolutionDraw && {
-    ...view.resolutionDraw,
-    strikes: [
-      ...view.resolutionDraw.strikes,
-      ...(view.resolutionDraw.visibility === 'debater'
-        ? [
-            {
-              ordinal: 1,
-              side: 'affirmative' as const,
-              kind: 'debater' as const,
-              position: 1,
-            },
-          ]
-        : [
-            {
-              ordinal: 1,
-              side: 'affirmative' as const,
-              kind: 'debater' as const,
-            },
-          ]),
-    ],
-    turn: null,
-    revealedAt: '2026-10-12T00:00:40.000Z',
-  },
-});
+const revealedAt = '2026-10-12T00:00:40.000Z';
+const lastStrike = {
+  ordinal: 1,
+  side: 'affirmative' as const,
+  kind: 'debater' as const,
+};
+const revealed = (view: RoomView): RoomView => {
+  const draw = view.resolutionDraw;
+  if (!draw) return view;
+  return {
+    ...view,
+    topic: `${SENTINEL} 0`,
+    resolutionDraw:
+      draw.visibility === 'debater'
+        ? {
+            ...draw,
+            strikes: [...draw.strikes, { ...lastStrike, position: 1 }],
+            turn: null,
+            revealedAt,
+          }
+        : {
+            ...draw,
+            strikes: [...draw.strikes, lastStrike],
+            turn: null,
+            revealedAt,
+          },
+  };
+};
 
 test('after the reveal, debaters see how the resolution was chosen', () => {
   const debater = renderToStaticMarkup(
