@@ -1,3 +1,4 @@
+import { consumeOrThrow, type AuthRateLimiter } from '../auth/abuse/rate-limit';
 import type { Identity } from '@daisy/auth';
 import {
   authorize,
@@ -87,15 +88,33 @@ const toEntry = (row: HistoryRow): MatchHistoryEntry => {
  * hides. An unreadable session is an outage, never a visitor's view.
  */
 export async function readProfile(
-  store: ProfileStore,
+  {
+    store,
+    limiter,
+  }: { readonly store: ProfileStore; readonly limiter: AuthRateLimiter },
   input: {
     readonly identity: Identity;
     readonly username: string;
     readonly query: MatchHistoryQuery;
+    /** Ingress-stamped client hash; absent clients share the unknown bucket. */
+    readonly clientId?: string | null;
   },
 ): Promise<MemberProfile | null> {
   const { identity } = input;
   if (identity.state === 'unavailable') throw createAppError('INFRASTRUCTURE');
+  // Budget the in-process render itself: no API request protects this read.
+  await consumeOrThrow(
+    limiter,
+    `profile:read:client:${input.clientId ?? 'unknown'}`,
+    {
+      max: 60,
+      windowSeconds: 60,
+    },
+  );
+  await consumeOrThrow(limiter, 'profile:read:global', {
+    max: 600,
+    windowSeconds: 60,
+  });
   const caller =
     identity.state === 'member' && identity.principal.actorId !== null
       ? {

@@ -143,7 +143,11 @@ export function AssemblyHeader({
             label="Copy invite link"
           />
           {view.capabilities.canEdit ? (
-            <a href={ROOM_SETUP_HREF} className={buttonClass('secondary')}>
+            <a
+              href={ROOM_SETUP_HREF}
+              data-room-setup-home
+              className={buttonClass('secondary')}
+            >
               Room setup
             </a>
           ) : null}
