@@ -83,6 +83,7 @@ export async function readRoundWriteContext(
     authority: {
       roundId: round.id,
       hostActorId: row?.hostActorId ?? null,
+      principalAccess: principalAccessOf(input.principal, accounts),
       participants,
       agentRun: commandRunAuthority(agentRun, purpose, {
         principal: input.principal,
@@ -95,6 +96,18 @@ export async function readRoundWriteContext(
     },
     now,
   };
+}
+
+/** The commanding human's own fenced access facts; the evaluator decides. */
+function principalAccessOf(
+  principal: RoundCommandPrincipal,
+  accounts: Awaited<ReturnType<typeof lockAuthorizationActors>>,
+): RoundCommandAuthority['principalAccess'] {
+  if (principal.kind !== 'human') return null;
+  const account = accounts.find((a) => a?.actorId === principal.actorId);
+  return account
+    ? { beta: account.beta?.state ?? null, ageBand: account.ageBand }
+    : { beta: null, ageBand: null };
 }
 
 export const roundPrincipalColumns = (principal: RoundCommandPrincipal) => ({
