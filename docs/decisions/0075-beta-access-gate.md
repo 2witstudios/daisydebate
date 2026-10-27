@@ -184,9 +184,12 @@ The rest of this record describes BETA-2.
   subscribe, and a judge stays hidden. Only that seat is affected: the room
   stays open, and the opponent's grants and floor are computed exactly as
   before, so the Round continues and forfeit stays available (DEC-249).
-  - **The bound.** Media recovery reconciles every live session on a
-    500 ms cadence. The first pass after the revoke commits sets the
-    revoked identity's room permissions to nothing.
+  - **The bound.** The revoked identity's room permissions go to nothing
+    by the end of the first full media recovery pass that starts after the
+    revoke commits. Passes start on a 500 ms cadence, but that is not a
+    latency. A pass reconciles every live session serially, each with its
+    own bounded vendor calls, so with N live Rounds the demotion can wait
+    up to N reconciles behind a pass already under way.
   - **Old tokens.** A token minted before the revoke stays usable for its
     60 s join window, because self-hosted LiveKit does not invalidate it.
     A rejoin with one is demoted again by the next pass. No new token can
