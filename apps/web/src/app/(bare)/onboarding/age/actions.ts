@@ -12,7 +12,7 @@ import {
 } from '../../../../features/account/age-form';
 import {
   AGE_HOLD_COOKIE,
-  AGE_HOLD_SECONDS,
+  AGE_HOLD_COOKIE_OPTIONS,
 } from '../../../../features/account/age-step';
 import { returnableDestination } from '../../../../features/auth/redirect';
 import { moveOn } from '../../../../server/form-action';
@@ -70,13 +70,7 @@ export async function ageStepAction(
       missing: [],
       unavailable: true,
     };
-  (await cookies()).set(AGE_HOLD_COOKIE, refusal, {
-    path: '/',
-    maxAge: AGE_HOLD_SECONDS,
-    secure: true,
-    httpOnly: true,
-    sameSite: 'lax',
-  });
+  (await cookies()).set(AGE_HOLD_COOKIE, refusal, AGE_HOLD_COOKIE_OPTIONS);
   return {
     ...initialAgeForm,
     ...moveOn(incoming, onboardingHref(destination)),
