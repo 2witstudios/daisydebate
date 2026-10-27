@@ -5,6 +5,11 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { requireTestServices } from '@daisy/config';
 import { withFixture } from './constraint-helpers';
 import { createAuthorizationSubject } from './authorization.test-support';
+import {
+  ageColumns,
+  legacyReadShapes,
+  v1AccountColumns,
+} from './account-fence.test-support';
 
 setupRitewayBun();
 
@@ -39,29 +44,16 @@ describe('the v2 account fence expands without breaking v1 callers (ADR 0075)', 
       const installer = new SQL(url, { max: 1 });
       try {
         await live.unsafe('set role daisy_web');
-        const read = async () => {
-          const [account] =
-            await live`select * from public.daisy_authorization_accounts(null::text[], ${userId}::text, false)`;
-          const [room] =
-            await live`select * from public.daisy_room_read_account(${actorId}::text, ${userId}::text)`;
-          const [age] =
-            await live`select * from public.daisy_authorization_age(${userId}, ${actorId}, 1, clock_timestamp())`;
-          return [account, room, age].map((row) => Object.keys(row ?? {}));
-        };
+        const subject = { userId, actorId };
+        const read = () => legacyReadShapes(live, subject);
         const before = await read();
         // The release migrator re-installs on its own connection.
         await installer.begin(async (tx) => {
           for (const statement of reinstalledStatements())
             await tx.unsafe(statement);
         });
-        const v1 = ['userId', 'actorId', 'member', 'erased', 'revision'];
-        const age = [
-          'actorId',
-          'band',
-          'revision',
-          'accountRevision',
-          'validUntil',
-        ];
+        const v1 = v1AccountColumns;
+        const age = ageColumns;
         assert({
           given:
             'the v1 account, v1 Room and age reads prepared on a live runtime connection, then every in-place re-install applied',
