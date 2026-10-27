@@ -17,7 +17,7 @@ export function roomAllowed(
     );
   return capability === 'room.manage' ? host : seated;
 }
-export function roundReadable(
+function roundReadable(
   actorId: string,
   resource: RoundAuthorizationFact,
 ): boolean {
