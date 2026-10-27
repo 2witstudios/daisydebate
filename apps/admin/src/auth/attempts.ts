@@ -4,6 +4,7 @@ import type { AuditDetail } from '../audit/chain';
 import type { AdminDatabase } from '../db/client';
 import type { RandomBytes } from './secrets';
 import {
+  ATTEMPT_LIMIT,
   attemptBucket,
   attemptsExhausted,
   attemptWindow,
@@ -61,7 +62,12 @@ const audited = (
     }),
   );
 
-/** Counts and audits one failed attempt, then refuses uniformly. */
+/**
+ * Counts and audits one failed attempt, then refuses uniformly. The failure
+ * that exhausts the window also records the limit, once: the count comes
+ * back from the same atomic increment, so racing failures cross it exactly
+ * once, and blocked requests after it write nothing.
+ */
 export async function refuse(
   deps: AuthDeps,
   attempt: Attempt,
@@ -69,26 +75,23 @@ export async function refuse(
   operatorId: string | null = null,
 ): Promise<Refusal> {
   const now = deps.clock.now();
-  await recordFailure(deps.db, {
+  const count = await recordFailure(deps.db, {
     bucket: bucketOf(deps, attempt, now),
     windowStart: attemptWindow(now),
   });
   await audited(deps, now, detail, operatorId);
+  if (count === ATTEMPT_LIMIT) await audited(deps, now, 'rate_limited', null);
   return { ok: false, code: 'AUTHENTICATION' };
 }
 
-/** Refuses before any ceremony once the client's window is exhausted. */
+/** Refuses before any ceremony, unaudited, once the window is exhausted. */
 export async function rateLimited(
   deps: AuthDeps,
   attempt: Attempt,
 ): Promise<Refusal | null> {
   const now = deps.clock.now();
-  if (
-    !attemptsExhausted(await failuresIn(deps.db, bucketOf(deps, attempt, now)))
-  )
-    return null;
-  await audited(deps, now, 'rate_limited', null);
-  return { ok: false, code: 'RATE_LIMIT' };
+  const failures = await failuresIn(deps.db, bucketOf(deps, attempt, now));
+  return attemptsExhausted(failures) ? { ok: false, code: 'RATE_LIMIT' } : null;
 }
 
 /** PostgreSQL unique_violation, whether drizzle wrapped the driver error or not. */

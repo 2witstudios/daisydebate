@@ -150,7 +150,12 @@ test('the rate limit trips', async () => {
       presented: null,
       response: await device.assert('bogus-challenge', deps.ceremony, 1),
     });
-  const blocked = await beginSignIn(deps, { address });
+  const crossed = await lastKinds(2);
+  const audited = (await db.select().from(auditEvents)).length;
+  const blocked = await Promise.all(
+    [1, 2, 3].map(() => beginSignIn(deps, { address })),
+  );
+  const unchanged = (await db.select().from(auditEvents)).length === audited;
   const elsewhere = await beginSignIn(deps, { address: '198.51.100.4' });
   deps.advance(10 * 60_000);
   const later = await beginSignIn(deps, { address });
@@ -158,12 +163,16 @@ test('the rate limit trips', async () => {
     given: 'ten failed sign-ins from one client',
     should:
       'refuse that client for the rest of the window, and no other client',
-    actual: [blocked, elsewhere.ok, later.ok, await lastKinds(2)],
+    actual: [blocked[0], elsewhere.ok, later.ok],
+    expected: [{ ok: false, code: 'RATE_LIMIT' }, true, true],
+  });
+  assert({
+    given: 'the failure that exhausts the window, then more blocked requests',
+    should: 'audit the limit once, at the crossing, and nothing after it',
+    actual: [crossed, unchanged],
     expected: [
-      { ok: false, code: 'RATE_LIMIT' },
-      true,
-      true,
       ['auth.failure:challenge_invalid', 'auth.failure:rate_limited'],
+      true,
     ],
   });
 });

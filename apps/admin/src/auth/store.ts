@@ -275,11 +275,12 @@ export async function failuresIn(
   return row?.count ?? 0;
 }
 
+/** The window's count after this failure, incremented atomically. */
 export async function recordFailure(
   db: AdminExecutor,
   input: { readonly bucket: string; readonly windowStart: string },
-): Promise<void> {
-  await db
+): Promise<number> {
+  const [row] = await db
     .insert(authAttempts)
     .values({
       bucket: input.bucket,
@@ -289,5 +290,7 @@ export async function recordFailure(
     .onConflictDoUpdate({
       target: authAttempts.bucket,
       set: { count: sql`${authAttempts.count} + 1` },
-    });
+    })
+    .returning({ count: authAttempts.count });
+  return row?.count ?? 0;
 }
