@@ -84,7 +84,10 @@ export function requireCaptureRenewal(
         readonly expiresAt: Date;
       }
     | undefined,
-  request: { readonly workerId: string; readonly expectedEpoch?: number },
+  request: {
+    readonly workerId: string;
+    readonly expectedEpoch?: number | undefined;
+  },
   now: Date,
 ) {
   if (request.expectedEpoch === undefined) return;
