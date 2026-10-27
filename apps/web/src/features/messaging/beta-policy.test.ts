@@ -131,6 +131,7 @@ test('a deployment override may only tighten DEC-251', async () => {
       tightened.reactions.distinctPerMessage,
       tightened.social.requests,
       tightened.limits.read,
+      tightened.social.abuse.map((rule) => rule.max),
     ],
     expected: [
       true,
@@ -144,6 +145,7 @@ test('a deployment override may only tighten DEC-251', async () => {
         declineBlockMs: 3_000_000_000,
       },
       [{ max: 120, windowSeconds: 60 }],
+      [5, 30, 100],
     ],
   });
   for (const [given, override] of [

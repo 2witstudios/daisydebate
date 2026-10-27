@@ -16,11 +16,14 @@ export function RequestDecision({
   requestId,
   mode = 'recipient',
   subject = 'request',
+  acceptable = true,
 }: {
   readonly action: FormAction<DmDecisionFormState>;
   readonly requestId: string;
   readonly mode?: 'recipient' | 'sender';
   readonly subject?: 'request' | 'invitation';
+  /** False offers only Decline (an invitation to a group while groups are off). */
+  readonly acceptable?: boolean;
 }) {
   const [answer, post, pending] = useFormAction<DmDecisionFormState>(
     action,
@@ -47,17 +50,20 @@ export function RequestDecision({
         </div>
       ) : null}
       <div className="flex flex-wrap gap-3">
-        <Button
-          id="request-primary"
-          type="submit"
-          name="decision"
-          value={mode === 'sender' ? 'cancel' : 'accept'}
-          disabled={pending || answer.next !== undefined}
-        >
-          {mode === 'sender' ? `Cancel ${subject}` : `Accept ${subject}`}
-        </Button>
+        {acceptable || mode === 'sender' ? (
+          <Button
+            id="request-primary"
+            type="submit"
+            name="decision"
+            value={mode === 'sender' ? 'cancel' : 'accept'}
+            disabled={pending || answer.next !== undefined}
+          >
+            {mode === 'sender' ? `Cancel ${subject}` : `Accept ${subject}`}
+          </Button>
+        ) : null}
         {mode === 'recipient' ? (
           <Button
+            {...(acceptable ? {} : { id: 'request-primary' })}
             type="submit"
             name="decision"
             value="decline"

@@ -79,8 +79,12 @@ export function challengeFrame(
         from rooms r
         where r.id = ${roomId} and r.host_actor_id = ${input.actorId}
           and r.status in ('assembling', 'ready')
-        on conflict (room_id) do nothing
+        on conflict (room_id) do update set created_at = messaging_friend_challenges.created_at
+          where messaging_friend_challenges.challenger_actor_id = excluded.challenger_actor_id
+            and messaging_friend_challenges.challenged_actor_id = excluded.challenged_actor_id
         returning room_id`);
+      // A room already challenging this same friend is recorded (a repeat
+      // Challenge); one challenging someone else is not (ISSUE-700).
       return { recorded: recorded.length === 1 };
     },
     async declineChallenge({ roomId }) {

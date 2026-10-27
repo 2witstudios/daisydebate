@@ -112,6 +112,15 @@ export function channelReadFrame(
       requireOrder(sequence);
       if (sequence > counters.messageSequence)
         throw createAppError('VALIDATION');
+      const [before] = await tx
+        .select({ readSequence: messagingActorStates.readSequence })
+        .from(messagingActorStates)
+        .where(
+          and(
+            eq(messagingActorStates.channelId, input.channelId),
+            eq(messagingActorStates.actorId, input.actorId),
+          ),
+        );
       const [row] = await tx
         .insert(messagingActorStates)
         .values({
@@ -133,8 +142,10 @@ export function channelReadFrame(
         })
         .returning({ readSequence: messagingActorStates.readSequence });
       if (!row) throw createAppError('INFRASTRUCTURE');
-      // ISSUE-603: the reader's other open inboxes refresh their unread state.
-      await invalidateMessagingInboxes(tx, [input.actorId]);
+      // ISSUE-603: the reader's other open inboxes refresh their unread
+      // state, only when this read moved it.
+      if (row.readSequence !== (before?.readSequence ?? 0))
+        await invalidateMessagingInboxes(tx, [input.actorId]);
       return row.readSequence;
     },
   };

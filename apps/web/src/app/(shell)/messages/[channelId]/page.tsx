@@ -36,13 +36,13 @@ export default async function ConversationPage({
   const id = idSchema.safeParse((await params).channelId);
   if (!id.success) notFound();
   const query = await searchParams;
-  const { searchQuery, conversation } = await readPageConversation(
-    id.data,
-    query,
-  );
+  const [{ searchQuery, conversation }, entry] = await Promise.all([
+    readPageConversation(id.data, query),
+    readChannelEntry(id.data),
+  ]);
   const actorId =
     identity.state === 'member' ? identity.principal.actorId : null;
-  const names = conversationNames(await readChannelEntry(id.data));
+  const names = conversationNames(entry);
   const readThrough =
     conversation === null
       ? null

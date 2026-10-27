@@ -266,7 +266,13 @@ export function tightenMessagingPolicy(
       fileUploadsDaily: values.fileUploadsDaily,
       fileBytes: values.fileBytes,
     },
-    social: { ...policy.social, requests: values.socialRequests },
+    social: {
+      ...policy.social,
+      requests: values.socialRequests,
+      // Social commands share the per-account send ceiling, so a tighter
+      // send tightens them too.
+      abuse: tighterWindows('send', policy.social.abuse, override.send),
+    },
   };
 }
 

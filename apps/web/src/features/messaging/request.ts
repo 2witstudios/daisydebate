@@ -4,6 +4,7 @@ import type { SocialRequestLimits } from '@daisy/db';
 import type { MessagingSocialStore } from '@daisy/db/messaging';
 import { createAppError } from '@daisy/errors';
 import {
+  limitBeforeReplay,
   parseSocialCommand,
   type SocialOperationDependencies,
 } from './social-command';
@@ -30,8 +31,7 @@ export async function requestMessagingDm(
     command.recipientActorId,
     command.introduction ?? null,
   ]);
-  // Limiters run before the transaction, never while it holds locks.
-  await dependencies.limit(actorId);
+  const limited = await limitBeforeReplay(dependencies.limit, actorId);
   return dependencies.store.withContacts(
     {
       actorId,
@@ -49,6 +49,7 @@ export async function requestMessagingDm(
           throw createAppError('CONFLICT');
         return current;
       }
+      limited.unlessReplayed();
       return frame.commitDmRequest({
         requestId: command.requestId,
         channelId: dependencies.ids.next(),

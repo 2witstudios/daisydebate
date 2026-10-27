@@ -25,10 +25,10 @@ export async function deleteMessageFiles(
       ),
     );
 }
-/** Only this subject's authored objects, never another member's shared files. */
 /**
- * Deletes `actorId`'s files, in `channelId` only when given, queuing each
- * stored object's deletion through a file intent.
+ * Deletes only `actorId`'s own files (never another member's shared ones),
+ * in `channelId` only when given, queuing each stored object's deletion
+ * through a file intent.
  */
 export async function eraseSubjectFiles(
   tx: AuthorizationTransaction,

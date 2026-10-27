@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createTypingWriter } from './typing-writer';
+import { createTypingWriter, TYPING_RETRY_MS } from './typing-writer';
 import { createTimerQueue } from '../realtime/connection-store.test-support';
 setupRitewayBun();
 test('renewal follows only current server timing and stops on unavailable acknowledgement or disposal', async () => {
@@ -31,12 +31,21 @@ test('renewal follows only current server timing and stops on unavailable acknow
   });
   timers.advance(1);
   await writer.activity(true);
+  await writer.activity(true);
   timers.advance(1000);
+  const beforeRetry = [...sent];
+  timers.advance(TYPING_RETRY_MS - 1000);
+  await writer.activity(true);
   assert({
-    given: 'the bounded renewal fails with an unavailable HTTP response',
-    should: 'perform the due renewal once and arm no unapproved retry timing',
-    actual: sent,
-    expected: [true, true],
+    given:
+      'the bounded renewal refused (a 429 or an outage), then keystrokes while it is refused',
+    should:
+      'perform the due renewal once, post nothing per keystroke, and retry once after the back-off',
+    actual: [beforeRetry, sent],
+    expected: [
+      [true, true],
+      [true, true, true],
+    ],
   });
   await writer.close();
   await writer.close();
@@ -46,6 +55,6 @@ test('renewal follows only current server timing and stops on unavailable acknow
     given: 'duplicate disposal and activity after the writer is closed',
     should: 'send exactly one stop without resurrecting renewal',
     actual: sent,
-    expected: [true, true, false],
+    expected: [true, true, true, false],
   });
 });

@@ -40,16 +40,12 @@ export default async function GroupInvitationPage({
         title="Group invitation"
         actions={<Link href="/messages">Back to messages</Link>}
       />
-      {invitation && !privateGroupsOffered() ? (
-        <p role="status">
-          Private groups are not available in the beta, so this invitation
-          cannot be accepted.
-        </p>
-      ) : invitation ? (
+      {invitation ? (
         <section className="flex flex-col gap-6 rounded-lg border border-border bg-surface-raised p-5">
           <p>
-            You have been invited to a private group. Accept to join, or
-            decline.
+            {privateGroupsOffered()
+              ? 'You have been invited to a private group. Accept to join, or decline.'
+              : 'You have been invited to a private group. Private groups are not available in the beta, so you can only decline.'}
           </p>
           <RequestDecision
             action={decideInvitationAction.bind(
@@ -59,6 +55,7 @@ export default async function GroupInvitationPage({
             )}
             requestId={systemId.next()}
             subject="invitation"
+            acceptable={privateGroupsOffered()}
           />
         </section>
       ) : (

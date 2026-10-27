@@ -26,6 +26,7 @@ test('protected history and changes preserve bounded pagination and authority-on
     [row(3, 4), row(2, 3), row(1, 2)],
     [row(2, 6), row(3, 7)],
     [row(3, 7)],
+    [], // no read position yet
     [[3]],
     [[1n, '9']], // the reader's own inbox doorbell (ISSUE-603)
   ]);
@@ -71,8 +72,8 @@ test('protected history and changes preserve bounded pagination and authority-on
     actual: [
       queries[0]?.query.includes('strpos(lower('),
       queries[0]?.params.includes(channelId),
-      queries[3]?.query.includes('greatest('),
-      queries[3]?.query
+      queries[4]?.query.includes('greatest('),
+      queries[4]?.query
         .split('do update set')[1]
         ?.includes('notification_level'),
     ],

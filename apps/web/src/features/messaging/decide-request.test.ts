@@ -1,6 +1,7 @@
 import { dec251MessagingValues } from './beta-policy';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
+import { createAppError } from '@daisy/errors';
 import type { MessagingDmStore } from '@daisy/db/messaging';
 import { decideMessagingDm } from './decide-request';
 setupRitewayBun();
@@ -68,6 +69,17 @@ test('DM decisions bind retries to the original own receipt without replaying wr
       { channelId: command.channelId, state: 'accepted' },
       ['limit', 'commit', 'limit'],
     ],
+  });
+  assert({
+    given: 'the same retry once the actor’s social limiter is exhausted',
+    should: 'still answer the stored result rather than RATE_LIMIT',
+    actual: await decideMessagingDm(command, principal, {
+      ...dependencies,
+      limit: async () => {
+        throw createAppError('RATE_LIMIT');
+      },
+    }),
+    expected: { channelId: command.channelId, state: 'accepted' },
   });
   state = 'pending';
   await assertRejects({

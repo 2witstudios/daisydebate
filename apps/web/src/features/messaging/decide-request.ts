@@ -3,6 +3,7 @@ import type { AuthorizationPrincipal } from '@daisy/auth/authorization';
 import type { MessagingDmStore } from '@daisy/db/messaging';
 import { createAppError } from '@daisy/errors';
 import {
+  limitBeforeReplay,
   parseSocialCommand,
   type SocialOperationDependencies,
 } from './social-command';
@@ -32,13 +33,14 @@ export async function decideMessagingDm(
     command.channelId,
     command.decision,
   ]);
-  await dependencies.limit(actorId);
+  const limited = await limitBeforeReplay(dependencies.limit, actorId);
   return dependencies.store.withChannel(
     { actorId, userId, channelId: command.channelId },
     async (frame) => {
       const state = await frame.readDecisionState(command);
       const replay = replayDecision(command, state, digest);
       if (replay) return replay;
+      limited.unlessReplayed();
       if (state.state !== 'pending') throw createAppError('AUTHORIZATION');
       const now = dependencies.clock.now();
       if (

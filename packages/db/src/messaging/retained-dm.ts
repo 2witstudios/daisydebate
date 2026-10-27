@@ -67,9 +67,7 @@ export async function retainSurvivorDms(
 ) {
   const deleted: string[] = [];
   for (const { channelId, survivorActorId } of dms) {
-    await tx.execute(
-      sql`delete from messaging_messages where channel_id=${channelId} and author_actor_id=${actorId}`,
-    );
+    await deleteAuthoredRows(tx, channelId, actorId);
     const [own] = rowsOf<{ live: boolean }>(
       await tx.execute(
         sql`select exists(select 1 from messaging_messages where channel_id=${channelId} and author_actor_id=${survivorActorId} and removed_at is null) as "live"`,
@@ -104,14 +102,28 @@ export async function eraseRetainedAuthorship(
   idSchema.parse(actorId);
   for (const channelId of channelIds) {
     await eraseSubjectFiles(tx, actorId, channelId);
-    await tx.execute(
-      sql`delete from messaging_messages where channel_id=${channelId} and author_actor_id=${actorId}`,
-    );
+    await deleteAuthoredRows(tx, channelId, actorId);
     await tx.execute(
       sql`delete from messaging_retained_authors where channel_id=${channelId} and actor_id=${actorId}`,
     );
   }
   await deleteAbandonedChannels(tx, channelIds);
+}
+
+/**
+ * Deletes `actorId`'s messages in one channel. Every receipt still naming
+ * one of them goes first (the author's own send and edit receipts, and the
+ * survivor's own when they delete a conversation), since receipts hold a
+ * foreign key to their message.
+ */
+async function deleteAuthoredRows(tx: Tx, channelId: string, actorId: string) {
+  const authored = sql`select id from messaging_messages where channel_id=${channelId} and author_actor_id=${actorId}`;
+  await tx.execute(
+    sql`delete from messaging_receipts where channel_id=${channelId} and message_id in (${authored})`,
+  );
+  await tx.execute(
+    sql`delete from messaging_messages where channel_id=${channelId} and author_actor_id=${actorId}`,
+  );
 }
 
 /** Deletes each channel no retained author holds and no DM pair fences. */

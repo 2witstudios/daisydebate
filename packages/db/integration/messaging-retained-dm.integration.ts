@@ -64,6 +64,20 @@ const openDm = async () => {
     'insert into messaging_receipts(channel_id,actor_id,request_id,payload_digest,message_id) values($1,$2,$3,$4,$5)',
     [channelId, survivor.actorId, createId(), 'a'.repeat(64), ids.theirs],
   );
+  // Each author's own send receipt names their own message (FK to it).
+  await client.unsafe(
+    'insert into messaging_receipts(channel_id,actor_id,request_id,payload_digest,message_id) values($1,$2,$3,$4,$5),($1,$6,$7,$4,$8)',
+    [
+      channelId,
+      subject.actorId,
+      createId(),
+      'b'.repeat(64),
+      ids.theirs,
+      survivor.actorId,
+      createId(),
+      ids.reply,
+    ],
+  );
   await client.unsafe(
     "insert into messaging_actor_states(channel_id,actor_id,following,hidden,notification_level,read_sequence) values($1,$2,true,false,'all',1),($1,$3,true,false,'all',2)",
     [channelId, subject.actorId, survivor.actorId],
@@ -122,14 +136,15 @@ test('erasing one DM member keeps only the survivor’s own rows, with nothing p
         (select string_agg(actor_id, ',') from messaging_retained_authors r where r.channel_id=c.id) as survivors,
         (select count(*)::int from messaging_reactions where channel_id=c.id) as reactions,
         (select count(*)::int from messaging_actor_states where channel_id=c.id) as cursors,
-        (select count(*)::int from messaging_receipts where channel_id=c.id and (message_id is not null or payload_digest is not null)) as pointing
+        (select count(*)::int from messaging_receipts where channel_id=c.id and (actor_id=$2 or (message_id is distinct from $3 and (message_id is not null or payload_digest is not null)))) as pointing,
+        (select count(*)::int from messaging_receipts where channel_id=c.id and actor_id=$4 and message_id=$3) as own
       from messaging_channels c where c.id=$1`,
-      [channelId],
+      [channelId, dm.subject.actorId, ids.reply, survivor.actorId],
     )) as Record<string, unknown>[];
     assert({
       given: 'a committed erasure of the subject',
       should:
-        'delete the subject’s rows and the reactions on them, null the survivor’s reply pointer, reduce their receipt to a consumed marker, drop both cursors and retain the channel for the survivor alone',
+        'delete the subject’s rows with their receipts and the reactions on them, null the survivor’s reply pointer, reduce their receipt on the subject’s message to a consumed marker, keep their own send receipt, drop both cursors and retain the channel for the survivor alone',
       actual: [messages, state],
       expected: [
         [
@@ -142,6 +157,7 @@ test('erasing one DM member keeps only the survivor’s own rows, with nothing p
           reactions: 0,
           cursors: 0,
           pointing: 0,
+          own: 1,
         },
       ],
     });

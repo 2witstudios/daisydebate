@@ -1,4 +1,11 @@
 import { readTypingResponse } from './typing-response';
+
+/**
+ * After a refused write (a 429 from DEC-251's one-signal-per-3-s rule, or
+ * any failure) the writer waits this long before trying again, instead of
+ * posting on every keystroke.
+ */
+export const TYPING_RETRY_MS = 3_000;
 /** Serializes intent writes, coalesces raw keystrokes and renews only at a server-supplied bound. */
 export function createTypingWriter({
   channelId,
@@ -30,11 +37,11 @@ export function createTypingWriter({
       const interval =
         (await readTypingResponse(channelId, write(sent)))?.refreshAfterMs ??
         null;
-      if (!queued && !closed && desired && interval !== null)
+      if (!queued && !closed && desired)
         timer = timers.setTimeout(() => {
           timer = null;
           return trigger();
-        }, interval);
+        }, interval ?? TYPING_RETRY_MS);
     } while (queued);
     busy = false;
   };

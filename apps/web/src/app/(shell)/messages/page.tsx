@@ -35,19 +35,19 @@ export default async function MessagesPage({
     typeof params.after === 'string'
       ? `?after=${encodeURIComponent(params.after)}`
       : '';
-  const response = await GET(
-    new Request(`http://in-process.invalid/api/messaging/inbox${query}`, {
-      headers: new Headers(await headers()),
-    }),
-  );
-  const inbox = await readMessagingInboxResponse(response);
-  const retained = await readRetainedConversations(
-    await retainedList(
-      new Request('http://in-process.invalid/api/messaging/retained', {
-        headers: new Headers(await headers()),
+  const incoming = await headers();
+  const [inbox, retained] = await Promise.all([
+    GET(
+      new Request(`http://in-process.invalid/api/messaging/inbox${query}`, {
+        headers: new Headers(incoming),
       }),
-    ),
-  );
+    ).then(readMessagingInboxResponse),
+    retainedList(
+      new Request('http://in-process.invalid/api/messaging/retained', {
+        headers: new Headers(incoming),
+      }),
+    ).then(readRetainedConversations),
+  ]);
   const now = systemClock.now();
   return (
     <main className="mx-auto flex w-full max-w-reading flex-col gap-6 p-6">
