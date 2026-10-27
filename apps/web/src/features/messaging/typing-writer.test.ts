@@ -1,24 +1,48 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { createTypingWriter, TYPING_RETRY_MS } from './typing-writer';
+import {
+  createTypingWriter,
+  TYPING_RETRY_MAX_MS,
+  TYPING_RETRY_MS,
+} from './typing-writer';
 import { createTimerQueue } from '../realtime/connection-store.test-support';
 setupRitewayBun();
 
 const channelId = 'c'.repeat(24);
-/** A writer over queued timers whose nth write (1-based) answers `answer(n)`. */
+/**
+ * A writer over queued timers whose nth write (1-based) answers `answer(n)`.
+ * `settled()` awaits the write the last fired timer started.
+ */
 const writerAnswering = (answer: (n: number) => Response | Error) => {
   const sent: boolean[] = [];
-  const timers = createTimerQueue((clock, delay) => clock + delay);
+  const at: number[] = [];
+  const queue = createTimerQueue((clock, delay) => clock + delay);
+  let retry: unknown = undefined;
+  const timers = {
+    ...queue,
+    setTimeout: (callback: () => void, ms: number) =>
+      queue.setTimeout(() => {
+        // The writer's callback answers its write's completion.
+        retry = callback();
+      }, ms),
+  };
   const writer = createTypingWriter({
     channelId,
     timers,
     write: async (value) => {
       sent.push(value);
+      at.push(queue.now());
       const reply = answer(sent.length);
       if (reply instanceof Error) throw reply;
       return reply;
     },
   });
-  return { sent, timers, writer };
+  return {
+    sent,
+    at,
+    timers: queue,
+    writer,
+    settled: () => Promise.resolve(retry),
+  };
 };
 const renewIn = (refreshAfterMs: number, typing: boolean) =>
   Response.json({ version: 1, channelId, typing, refreshAfterMs });
@@ -83,26 +107,44 @@ test('renewal follows server timing, backs off when refused as too soon, and sta
   });
 });
 
-test('a dropped write or a 5xx backs off and retries every TYPING_RETRY_MS, never stalls', async () => {
-  const { sent, timers, writer } = writerAnswering((n) =>
-    n === 1
-      ? new TypeError('Failed to fetch')
-      : n === 2
-        ? new Response(null, { status: 503 })
-        : renewIn(5000, true),
+test('transient failures back off doubling to a cap, honour Retry-After, and restart after an acknowledgement', async () => {
+  const unavailable = () => new Response(null, { status: 503 });
+  const answers: Record<number, () => Response | Error> = {
+    1: () => new TypeError('Failed to fetch'),
+    2: unavailable,
+    3: () => new Response('<html>proxy</html>', { status: 200 }),
+    4: () => new Response(null, { status: 408 }),
+    5: unavailable,
+    6: () => renewIn(5000, true),
+    7: unavailable,
+    8: () =>
+      new Response(null, { status: 429, headers: { 'Retry-After': '10' } }),
+  };
+  const { at, timers, writer, settled } = writerAnswering(
+    (n) => answers[n]?.() ?? renewIn(5000, true),
   );
   await writer.activity(true);
-  await writer.activity(true);
-  timers.advance(TYPING_RETRY_MS);
-  await writer.activity(true); // settles the retry in flight
-  timers.advance(TYPING_RETRY_MS);
-  await writer.activity(true);
+  for (let elapsed = 0; elapsed < 93_000; elapsed += 1000) {
+    await writer.activity(true);
+    timers.advance(1000);
+    await settled();
+  }
   assert({
-    given: 'a typing start the network dropped, a keystroke, then a 503',
+    given:
+      'a dropped start, a 503, an unparseable 2xx, a 408 and a 503, an acknowledgement, a 503, then a 429 with Retry-After, all under a keystroke every second',
     should:
-      'post nothing per keystroke and retry after each back-off until it is acknowledged',
-    actual: sent,
-    expected: [true, true, true],
+      'post nothing per keystroke and wait 3, 6, 12 and 24 s, then the cap, the server bound, 3 s again, then the hinted 10 s',
+    actual: at.slice(1).map((time, index) => time - at[index]!),
+    expected: [
+      TYPING_RETRY_MS,
+      TYPING_RETRY_MS * 2,
+      TYPING_RETRY_MS * 4,
+      TYPING_RETRY_MS * 8,
+      TYPING_RETRY_MAX_MS,
+      5000,
+      TYPING_RETRY_MS,
+      10_000,
+    ],
   });
   await writer.close();
 });
