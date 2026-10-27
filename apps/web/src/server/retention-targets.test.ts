@@ -1,6 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { fixedClock } from '@daisy/clock';
 import { createRetentionSweep, retentionTargets } from './retention-sweep';
+import { provisionalLinkPurposes } from '../features/auth/mail/provisional-mail';
 import { createRecordingLogger } from './test-loggers.test-support';
 
 setupRitewayBun();
@@ -58,11 +59,7 @@ describe('retention targets', () => {
     const targets = retentionTargets({
       database,
       redis,
-      provisionalMail: {
-        signInPurpose: 'sign-in',
-        emailChangePurposes: ['email-change-approve', 'email-change-verify'],
-        recipientHashOf: (email) => email,
-      },
+      provisionalLinks: provisionalLinkPurposes,
     });
     const { logger } = recorder();
     await createRetentionSweep({
@@ -159,11 +156,7 @@ describe('retention targets', () => {
       targets: retentionTargets({
         database,
         redis,
-        provisionalMail: {
-          signInPurpose: 'sign-in',
-          emailChangePurposes: ['email-change-approve', 'email-change-verify'],
-          recipientHashOf: (email) => email,
-        },
+        provisionalLinks: provisionalLinkPurposes,
       }),
       clock: { now: () => 'not a timestamp' },
       logger,

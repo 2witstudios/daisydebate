@@ -7,13 +7,8 @@ import {
   retentionTargets,
 } from '../src/server/retention-sweep';
 import { createFaultedApp } from './fault-proxy';
-import {
-  cookieHeader,
-  createTestApp,
-  linkFrom,
-  testProvisionalMail,
-  tokenOf,
-} from './fixtures';
+import { cookieHeader, createTestApp, linkFrom, tokenOf } from './fixtures';
+import { provisionalLinkPurposes } from '../src/features/auth/mail/provisional-mail';
 import { sampleOf, serveEdge } from './ops-edge';
 
 /**
@@ -209,7 +204,7 @@ describe('ISSUE-190 storage unavailable and retention signals', () => {
       targets: retentionTargets({
         database: app.database,
         redis: app.redis,
-        provisionalMail: testProvisionalMail,
+        provisionalLinks: provisionalLinkPurposes,
       }),
       clock: app.clock,
       logger: app.logger,

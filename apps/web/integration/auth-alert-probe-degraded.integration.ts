@@ -11,7 +11,8 @@ import {
 import { createSelfSignedTlsEdge } from '../e2e/support/tls-edge';
 import { ALERT_STATE_READ_TIMEOUT_MS } from '../src/server/alert-state';
 import { createFaultedApp } from './fault-proxy';
-import { createTestApp, testProvisionalMail } from './fixtures';
+import { createTestApp } from './fixtures';
+import { provisionalLinkPurposes } from '../src/features/auth/mail/provisional-mail';
 
 requireTestServices(process.env);
 setupRitewayBun();
@@ -126,7 +127,7 @@ describe('ISSUE-199 the probe over an unreadable alert state', () => {
       targets: retentionTargets({
         database: testApp.app.database,
         redis: testApp.app.redis,
-        provisionalMail: testProvisionalMail,
+        provisionalLinks: provisionalLinkPurposes,
       }),
       clock: testApp.app.clock,
       logger: testApp.app.logger,

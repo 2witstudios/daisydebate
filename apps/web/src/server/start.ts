@@ -1,4 +1,4 @@
-import { provisionalMailCleanup } from '../features/auth/mail/provisional-mail';
+import { provisionalLinkPurposes } from '../features/auth/mail/provisional-mail';
 import { startRoundCompetitiveMaintenance } from './round-maintenance';
 import { createRoundMediaRuntime } from '../features/round-media/composition';
 import { startRoundMediaRecovery } from './round-media-recovery';
@@ -130,9 +130,7 @@ const retention = startRetentionSweep({
     targets: retentionTargets({
       database: app.database,
       redis: app.redis,
-      provisionalMail: provisionalMailCleanup(
-        () => app.auth().config.RECIPIENT_HASH_SECRET,
-      ),
+      provisionalLinks: provisionalLinkPurposes,
     }),
     clock: app.clock,
     logger: app.logger,
