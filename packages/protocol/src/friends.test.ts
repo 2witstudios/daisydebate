@@ -52,6 +52,7 @@ test('friend reads', () => {
       friends: [{ username: 'ada', presence: 'in-debate' }],
       incoming: [],
       outgoing: [],
+      challenges: [],
     }).success,
     expected: false,
   });
@@ -64,5 +65,25 @@ test('friend reads', () => {
       membersOnline: 0,
     }).success,
     expected: false,
+  });
+});
+
+test('challenge commands', () => {
+  assert({
+    given: 'a challenge naming a friend and a room, and one with a bad room id',
+    should: 'accept the first and refuse the second',
+    actual: [
+      friendCommandSchemas.challenge.safeParse({
+        version: 1,
+        username: 'ada',
+        roomId: 'r'.repeat(24),
+      }).success,
+      friendCommandSchemas.declineChallenge.safeParse({
+        version: 1,
+        username: 'ada',
+        roomId: 'not-a-room',
+      }).success,
+    ],
+    expected: [true, false],
   });
 });

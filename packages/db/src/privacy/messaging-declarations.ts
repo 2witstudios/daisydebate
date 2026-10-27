@@ -50,6 +50,11 @@ const messagingColumns = {
     ],
     none: [],
   },
+  messaging_friend_challenges: {
+    identifier: ['room_id'],
+    personal: ['challenger_actor_id', 'challenged_actor_id', 'created_at'],
+    none: [],
+  },
   messaging_dm_pairs: {
     identifier: ['channel_id'],
     personal: [

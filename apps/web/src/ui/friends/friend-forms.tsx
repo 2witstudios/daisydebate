@@ -66,12 +66,18 @@ export function FriendButtonForm({
   intent,
   label,
   variant = 'secondary',
+  roomId,
+  accessibleName,
 }: {
   readonly action: Action;
   readonly username: string;
   readonly intent: FriendIntent | 'challenge';
   readonly label: string;
   readonly variant?: 'primary' | 'secondary' | 'ghost';
+  /** The challenge's room, for declining it. */
+  readonly roomId?: string;
+  /** The button's full name when `label @username` does not read right. */
+  readonly accessibleName?: string;
 }) {
   const [answer, post, pending] = useFormAction(
     action,
@@ -85,11 +91,12 @@ export function FriendButtonForm({
     <form action={post} className="flex items-center gap-2">
       <input type="hidden" name="intent" value={intent} />
       <input type="hidden" name="username" value={username} />
+      {roomId ? <input type="hidden" name="roomId" value={roomId} /> : null}
       <Button
         type="submit"
         variant={variant}
         disabled={pending || answer.next !== undefined}
-        aria-label={`${label} @${username}`}
+        aria-label={accessibleName ?? `${label} @${username}`}
         className="px-3 py-2 text-sm"
       >
         {label}

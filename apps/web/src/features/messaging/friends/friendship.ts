@@ -124,3 +124,7 @@ export function friendRelationOf(
   if (pair.state === 'accepted') return 'friends';
   return pair.requesterActorId === viewerActorId ? 'outgoing' : 'incoming';
 }
+
+/** Only an accepted friend may be challenged (ADR 0072). */
+export const mayChallenge = (pair: FriendshipPair | null): boolean =>
+  pair?.state === 'accepted';

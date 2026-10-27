@@ -2,20 +2,27 @@ import { createAssembly } from './create-assembly';
 import { refused, type MockFormState } from '../mock-form/form';
 import { moveOn } from '../../server/form-action';
 
-/** Normal creation and explicit rematch keep the same native/enhanced acknowledgement behavior. */
+/**
+ * Normal creation and explicit rematch keep the same native/enhanced
+ * acknowledgement behavior. `afterCreate` runs once the Room exists and
+ * before moving on to it (a Challenge records itself there).
+ */
 export async function submitRoomCreation(
   fetch: Parameters<typeof createAssembly>[0],
   incoming: Headers,
   form: unknown,
   path = '/api/rooms',
+  afterCreate: (roomId: string) => Promise<void> = async () => {},
 ): Promise<MockFormState> {
   const submitted = form instanceof FormData ? form : new FormData();
   const result = await createAssembly(
     (_, init) => fetch(path, init),
     submitted,
   );
-  if (result.kind === 'created')
+  if (result.kind === 'created') {
+    await afterCreate(result.roomId);
     return { values: {}, ...moveOn(incoming, `/rooms/${result.roomId}`) };
+  }
   // One active Room per user (ADR 0070): the answer is to go back to it.
   if (result.kind === 'active-room' && result.href)
     return { values: {}, ...moveOn(incoming, result.href) };

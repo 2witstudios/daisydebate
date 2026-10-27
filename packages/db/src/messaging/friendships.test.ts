@@ -3,7 +3,10 @@ import { assertRejects } from '@daisy/errors/testing';
 import { createAppError } from '@daisy/errors';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { fakeSql } from '../index.test-support';
-import { listMessagingFriendships } from './friendships';
+import {
+  listMessagingFriendChallenges,
+  listMessagingFriendships,
+} from './friendships';
 setupRitewayBun();
 
 const me = 'a'.repeat(24),
@@ -99,5 +102,49 @@ test('a refusing fence reads nothing', async () => {
         async () => {},
       ),
     code: 'VALIDATION',
+  });
+});
+
+test('listMessagingFriendChallenges reads only open rooms from unblocked friends', async () => {
+  const { client, queries } = fakeSql([
+    [account],
+    [
+      {
+        roomId: 'r'.repeat(24),
+        username: 'ada',
+        title: 'Ada vs me',
+        challengedAt: new Date('2026-10-26T18:00:00.000Z'),
+      },
+    ],
+  ]);
+  const rows = await listMessagingFriendChallenges(
+    drizzle({ client }),
+    { userId, actorId: me },
+    async () => {},
+  );
+  const read = queries.at(-1)?.query ?? '';
+  assert({
+    given: 'one waiting challenge',
+    should:
+      'name the challenger and room, and filter on room status, accepted friendship and no block',
+    actual: [
+      rows,
+      read.includes("r.status in ('assembling', 'ready')"),
+      read.includes("f.state = 'accepted'"),
+      read.includes('not p.low_blocks_high'),
+    ],
+    expected: [
+      [
+        {
+          roomId: 'r'.repeat(24),
+          username: 'ada',
+          title: 'Ada vs me',
+          challengedAt: '2026-10-26T18:00:00.000Z',
+        },
+      ],
+      true,
+      true,
+      true,
+    ],
   });
 });
