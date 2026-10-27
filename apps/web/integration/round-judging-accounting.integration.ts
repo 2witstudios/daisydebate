@@ -8,7 +8,7 @@ import { assertRejects } from '@daisy/errors/testing';
 import { withRoomRuntime } from './round-runtime.test-support';
 import { fixtureBallot, freezeBotJudge } from './round-judging.test-support';
 import { createRoundJudgingOperations } from '../src/features/round-judging/operations';
-import { createProviderCapacity } from '../src/features/round-bots/provider-capacity';
+import { createProviderBudget } from '../src/server/provider-budget';
 import { botAdmissionForTests } from './bot-admission.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
@@ -61,7 +61,7 @@ for (const mode of ['terminal', 'invalid-ballot', 'http-error'] as const)
           store: f.store,
           nextId: createId,
           voice: () => voice,
-          withProvider: createProviderCapacity(1),
+          withProvider: createProviderBudget(1),
         });
         const work = operation
           .executeClaim(claim, new AbortController().signal)

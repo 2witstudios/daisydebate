@@ -2,11 +2,7 @@ import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { speechName } from '../../features/debate-room/vocabulary';
 import { seatLabel } from '../rooms/room-page/assembly-controls';
 import { completed, speeches } from './result.test-support';
-import {
-  resultBallots,
-  resultCoaching,
-  transcriptSections,
-} from './result-view';
+import { resultBallots, transcriptSections } from './result-view';
 
 setupRitewayBun();
 
@@ -53,41 +49,6 @@ describe('resultBallots()', () => {
         round: { ...completed.round, status: 'active' },
       }),
       expected: [],
-    });
-  });
-});
-
-describe('resultCoaching()', () => {
-  const coaching = (value: (typeof completed)['coaching']) =>
-    resultCoaching({ ...completed, coaching: value });
-  test('every state', () => {
-    assert({
-      given: 'ready, in-ballot, pending, unavailable and no coaching',
-      should:
-        'show the text, or say where it is, that it is coming, or that there is none',
-      actual: [
-        coaching({ status: 'ready', text: 'Answer the cost turn first.' }),
-        coaching({ status: 'in-ballot' }),
-        coaching({ status: 'pending' }),
-        coaching({ status: 'unavailable' }),
-        coaching(null),
-      ],
-      expected: [
-        { kind: 'ready', text: 'Answer the cost turn first.' },
-        {
-          kind: 'note',
-          text: 'Your coaching is the AI judge’s feedback for you on its ballot above.',
-        },
-        {
-          kind: 'note',
-          text: 'Your coaching is being written. Reload this page in a minute.',
-        },
-        {
-          kind: 'note',
-          text: 'AI coaching is not available for this round.',
-        },
-        null,
-      ],
     });
   });
 });

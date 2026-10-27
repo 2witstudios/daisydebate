@@ -2,13 +2,13 @@ import type { OpenRouter } from '@daisy/ai-voice';
 import type { Database } from '@daisy/db';
 import { createAudioPublication } from '@daisy/media/audio';
 import type { BotPublicationScope } from '@daisy/db/bot-publication';
-import type { ProviderCapacity } from '../round-judging/operations';
+import type { ProviderCall } from '../../server/provider-budget';
 import { createBotActivityFeed } from './activity-feed';
 import { createBotGeneration } from './generation';
 import { createBotPublisher } from './publication';
 import { createBotSeat } from './seat';
 import { createBotSpeaker } from './speaker';
-import type { WorkerTimers } from './worker-timers';
+import type { WorkerTimers } from '../../server/worker-timers';
 
 type Claim = Awaited<ReturnType<Database['claimRoundBotWorker']>>;
 const ACTIVITY_POLL_MS = 50;
@@ -24,7 +24,7 @@ export function createSpeakingBotControl(input: {
     | 'databaseNow'
   >;
   readonly voice: () => Pick<OpenRouter, 'complete' | 'speakPcm'>;
-  readonly withProvider: ProviderCapacity;
+  readonly withProvider: ProviderCall;
   readonly botToken: (
     scope: BotPublicationScope,
     token: string,

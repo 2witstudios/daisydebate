@@ -1,5 +1,6 @@
 import { composeAttendanceRoutes } from '../features/attendance/composition';
 import { composeMediaCaptureRoutes } from '../features/media-capture/composition';
+import { composeRoundAnalysisRoutes } from '../features/round-analysis/composition';
 import { composeRoundBallotRoutes } from '../features/round-ballots/composition';
 import { createRoundMediaHandlers } from '../features/round-media/handlers';
 import { createRoundMediaRuntime } from '../features/round-media/composition';
@@ -78,6 +79,7 @@ export function createRoutes(app: App) {
       read: rooms.roundRead,
       ...composeRoundRoutes(app),
       ...composeRoundBallotRoutes(app),
+      ...composeRoundAnalysisRoutes(app),
     },
     auth,
     signOut: {

@@ -14,11 +14,9 @@ import {
 } from './round-maintenance.test-support';
 import { seedSettledAttendanceLedger } from './round-attendance-fixture.test-support';
 import { finishedOrBlockedBehind } from '@daisy/db/testing';
-import {
-  canGenerateCoaching,
-  canCoach,
-} from '../src/features/round-coaching/authorization';
-import { createRoundCoachingOperations } from '../src/features/round-coaching/operations';
+import { sampleRoundAnalysisReport } from '@daisy/protocol/round-analysis-testing';
+import { canGenerateRoundAnalysis } from '../src/features/round-analysis/authorization';
+import { createRoundAnalysisOperations } from '../src/features/round-analysis/operations';
 import {
   canReadRound,
   canReadTranscript,
@@ -26,7 +24,7 @@ import {
 setupRitewayBun();
 requireTestServices(process.env);
 
-test('premium coaching discovery, claims and reads use current beta entitlement', async () => {
+test('round analysis discovery and claims use the seat account’s own entitlement grant, and never change the ballot read', async () => {
   await withRoomRuntime(
     async (f) => {
       const room = await f.assemble();
@@ -41,19 +39,22 @@ test('premium coaching discovery, claims and reads use current beta entitlement'
       const seat = round.participants.find(
         (p) => p.actorId === f.host.actorId,
       )!;
-      await f.sql`insert into utterances(id,round_id,segment_id,round_participant_id,sequence,text) values (${createId()},${roundId},${segment.id},${seat.id},0,'Captured fixture speech for coaching')`;
+      await f.sql`insert into utterances(id,round_id,segment_id,round_participant_id,sequence,text) values (${createId()},${roundId},${segment.id},${seat.id},0,'Captured fixture speech for analysis')`;
       await f.sql`insert into round_transcripts(round_id,revision) values (${roundId},1) on conflict (round_id) do update set revision=1`;
       await finalizeAsWeb(f, roundId);
       await seedSettledAttendanceLedger(f, roundId);
       await finalizeByMaintenance(f, roundId);
       const since = new Date(Date.now() - 60_000).toISOString();
       const scan = (grant: boolean) =>
-        f.store.scanRoundFeedbackJobs(64, since, (access) =>
-          canGenerateCoaching(access, grant),
-        );
+        f.store
+          .scanRoundAnalysisJobs(64, since, (access) =>
+            canGenerateRoundAnalysis(access, grant),
+          )
+          .then((seats) => seats.map((s) => s.roundParticipantId));
       let calls = 0;
-      const coach = (grant: boolean) =>
-        createRoundCoachingOperations({
+      const hostSeat = { roundId, roundParticipantId: seat.id };
+      const analyse = (grant: boolean) =>
+        createRoundAnalysisOperations({
           store: f.store,
           betaGrantsPremium: grant,
           now: () => new Date().toISOString(),
@@ -62,25 +63,22 @@ test('premium coaching discovery, claims and reads use current beta entitlement'
             complete: async () => {
               calls++;
               return {
-                text: JSON.stringify({
-                  affirmative: 'Weigh access.',
-                  negative: 'Answer the turn.',
-                }),
+                text: JSON.stringify(sampleRoundAnalysisReport),
                 promptTokens: 1,
                 completionTokens: 1,
               };
             },
           }),
-        }).coach(roundId, new AbortController().signal);
+        }).analyse(hostSeat, new AbortController().signal);
       assert({
         given: 'a completed round and launch policy with no beta premium',
-        should: 'never enqueue it for coaching',
-        actual: (await scan(false)).includes(roundId),
+        should: 'never enqueue its seat for an analysis',
+        actual: (await scan(false)).includes(seat.id),
         expected: false,
       });
-      await coach(false);
+      await analyse(false);
       const [before] =
-        await f.sql`select count(*)::int as rows from round_feedback where round_id=${roundId}`;
+        await f.sql`select count(*)::int as rows from round_analyses where round_id=${roundId}`;
       assert({
         given: 'a direct worker attempt without premium',
         should: 'spend no lease, attempt or provider call',
@@ -111,67 +109,60 @@ test('premium coaching discovery, claims and reads use current beta entitlement'
         expected: 'finished',
       });
       assert({
-        given: 'approved beta debaters and the beta premium grant',
-        should: 'discover the entitled round',
-        actual: (await scan(true)).includes(roundId),
+        given:
+          'a debater holding a beta round analysis grant, with the beta grant counting',
+        should: 'discover their seat',
+        actual: (await scan(true)).includes(seat.id),
         expected: true,
       });
-      await f.sql`update account_beta_access set state='revoked',revision=revision+1 where user_id in (${f.host.userId},${f.guest.userId})`;
-      await coach(true);
+      await f.sql`delete from account_entitlement_grants where user_id=${f.host.userId} and entitlement='round_analysis'`;
+      await analyse(true);
       assert({
-        given: 'access revoked after discovery but before the claim',
-        should: 'reevaluate the canonical account facts and buy no call',
+        given:
+          'the round analysis grant removed after discovery but before the claim, beta state still approved',
+        should: 'reevaluate the seat’s own grant facts and buy no call',
         actual: calls,
         expected: 0,
       });
-      await f.sql`update account_beta_access set state='approved',revision=revision+1 where user_id in (${f.host.userId},${f.guest.userId})`;
-      await coach(true);
-      const read = (grant: boolean) =>
+      await f.sql`insert into account_entitlement_grants(user_id,entitlement,source) values (${f.host.userId},'round_analysis','beta')`;
+      await analyse(true);
+      const ballotRead = () =>
         f.store.readRoundBallot({
           roundId,
           caller: f.host,
           authorize: (r, a) => canReadRound(f.host, r, a),
           authorizeTranscript: (r, a) => canReadTranscript(f.host, r, a),
-          authorizeCoaching: (r, a) =>
-            canCoach(
-              a,
-              {
-                kind: 'round',
-                roundId: r.id,
-                createdByActorId: r.hostActorId,
-                visibility: r.visibility,
-                status: r.status,
-                revision: r.version,
-                participants: r.participants,
-              },
-              grant,
-              'round.coaching.read',
-            ),
         });
-      const entitled = await read(true),
-        ordinary = await read(false);
+      const withPremium = JSON.stringify(await ballotRead());
+      await f.sql`delete from account_entitlement_grants where user_id=${f.host.userId}`;
+      const withoutPremium = JSON.stringify(await ballotRead());
+      const own = await f.store.readRoundAnalysis({
+        roundId,
+        caller: f.host,
+      });
       assert({
         given:
-          'stored premium coaching and a fresh read with the beta grant disabled',
-        should: 'withhold coaching while preserving the official round result',
+          'a stored round analysis, then the same ballot read with and without the premium grant',
+        should:
+          'make one paid call, store the report for the debater’s own seat, and leave the ballot read identical',
         actual: {
           calls,
-          entitled: entitled.coaching?.facts.pass?.feedback?.affirmative,
-          ordinary: ordinary.coaching,
-          status: ordinary.read.round.status,
-          outcome: ordinary.read.round.outcome,
+          report: own.facts.analysis?.report?.summary,
+          identical: withPremium === withoutPremium,
+          analysisInBallotRead: Object.keys(JSON.parse(withPremium)).filter(
+            (key) => /analysis|coaching/i.test(key),
+          ),
         },
         expected: {
           calls: 1,
-          entitled: 'Weigh access.',
-          ordinary: null,
-          status: 'completed',
-          outcome: null,
+          report: sampleRoundAnalysisReport.summary,
+          identical: true,
+          analysisInBallotRead: [],
         },
       });
     },
     {
-      coaching: {
+      roundAnalysis: {
         leaseMs: 30000,
         model: 'fixture',
         nextToken: () => randomBytes(32).toString('base64url'),

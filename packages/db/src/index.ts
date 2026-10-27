@@ -7,8 +7,13 @@ import {
   roundWorkerEntrypoints,
   type JudgingOptions,
   type BotPublicationOptions,
-  type CoachingOptions,
 } from './round-worker-entrypoints';
+import {
+  roundAnalysisEntrypoints,
+  type RoundAnalysisOptions,
+} from './round-analysis-entrypoints';
+import { roundAnalysisReads } from './round-analysis-reads';
+import { roundAnalysisRetention } from './round-analysis-retention';
 import { attendanceEntrypoints } from './attendance-entrypoints';
 import { availabilityOperations } from './availability-operations';
 import { databaseHealthOperations } from './database-health';
@@ -85,7 +90,7 @@ export function createDatabase({
   botAdmission,
   judging,
   botPublication,
-  coaching,
+  roundAnalysis,
 }: {
   url: string;
   maxConnections?: number;
@@ -93,7 +98,8 @@ export function createDatabase({
   botAdmission?: BotAdmissionOptions | undefined;
   judging?: JudgingOptions | undefined;
   botPublication?: BotPublicationOptions | undefined;
-  coaching?: CoachingOptions | undefined;
+  /** Round analysis's own jobs (DEC-247); absent, none run. */
+  roundAnalysis?: RoundAnalysisOptions | undefined;
   eventSink?: DatabaseEventSink;
   /** Overrides dialing `url`; tests inject a scripted client at this seam. */
   client?: SQL;
@@ -129,8 +135,9 @@ export function createDatabase({
       nextId: nextActorId,
       judging,
       botPublication,
-      coaching,
     }),
+    ...roundAnalysisEntrypoints({ run: transcriptTransaction, roundAnalysis }),
+    ...roundAnalysisReads({ database }),
     mediaSessions: createMediaSessionStore({
       database,
       run: transcriptTransaction,
@@ -172,6 +179,7 @@ export function createDatabase({
     ...friendshipReadOperations({ database, eventSink }),
     ...outboxOperations({ database, eventSink }),
     ...transcriptRetention({ database, eventSink }),
+    ...roundAnalysisRetention({ database, eventSink }),
     readOutboxRetentionBoundary: () =>
       instrumented(eventSink, 'readOutboxRetentionBoundary', () =>
         readOutboxRetentionBoundary(database),

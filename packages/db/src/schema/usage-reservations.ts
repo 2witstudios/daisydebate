@@ -5,12 +5,12 @@ import { actors } from './actors';
 import { rounds } from './rounds';
 
 /** The reservation kinds, until a second billable surface arrives. */
-export const usageReservationKinds = ['ai_practice'] as const;
+export const usageReservationKinds = ['ai_round'] as const;
 
 /**
  * Entitlement accounting, kept off the kernel (ADR 0058 §8): one row per
  * actor, round and kind answers "when did this member begin consuming an
- * AI-practice allowance?" — a question a human-human, ranked or tournament
+ * AI-round allowance?" — a question a human-human, ranked or tournament
  * round has no use for. `counted_at` is null until the first billable call.
  */
 export const usageReservations = pgTable(

@@ -236,7 +236,6 @@ test('protected Round reads preserve hidden judges and keep transcript content p
       roundId,
       authorize: (r, a) => canReadRound(spectator, r, a),
       authorizeTranscript: (r, a) => canReadRound(spectator, r, a),
-      authorizeCoaching: () => false,
     });
     assert({
       given:
@@ -244,7 +243,7 @@ test('protected Round reads preserve hidden judges and keep transcript content p
       should: 'read live and completed text without another seat veto',
       actual: [
         futureAudience.utterances.map((l) => l.text),
-        completedAudience.read.transcript?.utterances.map((l) => l.text),
+        completedAudience.transcript?.utterances.map((l) => l.text),
       ],
       expected: [['Private transcript'], ['Private transcript']],
     });

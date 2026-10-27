@@ -52,6 +52,5 @@ export const completed: RoundBallotRead = {
       },
     ],
   },
-  coaching: { status: 'ready', text: 'Answer the cost turn first.' },
 };
 export const speeches = rules.slice(0, 2);

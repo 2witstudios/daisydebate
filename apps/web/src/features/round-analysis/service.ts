@@ -1,40 +1,45 @@
 import { isAppError } from '@daisy/errors';
-import type { WorkerTimers } from '../round-bots/worker-timers';
+import type { RoundAnalysisSeat } from '@daisy/db/rounds';
+import type { WorkerTimers } from '../../server/worker-timers';
 
 /**
- * The coaching worker (ADR 0071): each scan lists Rounds that need coaching
- * and starts one coaching call per Round, up to `parallel` at once. A call's
- * lease covers it whole, so nothing renews; a lapsed lease is simply claimed
- * again on a later scan while the Round has calls left.
+ * The round analysis worker: each scan lists debater seats that need an
+ * analysis and starts one analysis call per seat, up to `parallel` at once.
+ * A call's lease covers it whole, so nothing renews; a lapsed lease is
+ * simply claimed again on a later scan while the seat has calls left.
  */
-export function startRoundCoachingService(input: {
-  readonly scan: (limit: number) => Promise<readonly string[]>;
-  readonly coach: (roundId: string, signal: AbortSignal) => Promise<unknown>;
+export function startRoundAnalysisService(input: {
+  readonly scan: (limit: number) => Promise<readonly RoundAnalysisSeat[]>;
+  readonly analyse: (
+    seat: RoundAnalysisSeat,
+    signal: AbortSignal,
+  ) => Promise<unknown>;
   readonly limits: {
     readonly parallel: number;
     readonly scanBatch: number;
     readonly scanMs: number;
   };
   readonly timers: WorkerTimers;
-  /** `stage` names the work that failed: coach or scan. */
+  /** `stage` names the work that failed: analyse or scan. */
   readonly failed: (error: unknown, stage: string) => void;
 }) {
   const running = new Map<string, Promise<void>>();
   const abort = new AbortController();
   let scanning: Promise<void> | null = null;
-  const start = (roundId: string) => {
+  const start = (seat: RoundAnalysisSeat) => {
+    const key = seat.roundParticipantId;
     const work = input
-      .coach(roundId, abort.signal)
+      .analyse(seat, abort.signal)
       .then(
         () => undefined,
         (error: unknown) => {
-          // A full provider or a stop is not a fault: the Round waits for a later scan.
+          // A full provider or a stop is not a fault: the seat waits for a later scan.
           if (isAppError(error) && error.code === 'CONFLICT') return;
-          input.failed(error, 'coach');
+          input.failed(error, 'analyse');
         },
       )
-      .finally(() => running.delete(roundId));
-    running.set(roundId, work);
+      .finally(() => running.delete(key));
+    running.set(key, work);
   };
   const scan = (): Promise<void> => {
     if (abort.signal.aborted || scanning) return scanning ?? Promise.resolve();
@@ -43,10 +48,10 @@ export function startRoundCoachingService(input: {
     scanning = (async () => {
       try {
         if (running.size >= input.limits.parallel) return;
-        for (const roundId of await input.scan(input.limits.scanBatch)) {
+        for (const seat of await input.scan(input.limits.scanBatch)) {
           if (abort.signal.aborted || running.size >= input.limits.parallel)
             break;
-          if (!running.has(roundId)) start(roundId);
+          if (!running.has(seat.roundParticipantId)) start(seat);
         }
       } catch (error) {
         input.failed(error, 'scan');

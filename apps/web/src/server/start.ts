@@ -6,7 +6,7 @@ import { startRoundWorkers } from './round-workers';
 import { startMessagingFileMaintenance } from './file-maintenance';
 import { startRoundAvailability } from './round-availability';
 import { startBetaMail } from './beta-mail';
-import type { WorkerTimers } from '../features/round-bots/worker-timers';
+import type { WorkerTimers } from './worker-timers';
 import { startOperatorApi } from './operator-api';
 import { readFileSync } from 'node:fs';
 import next from 'next';

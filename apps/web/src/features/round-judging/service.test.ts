@@ -1,6 +1,6 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError } from '@daisy/errors';
-import { createProviderCapacity } from '../round-bots/provider-capacity';
+import { createProviderBudget } from '../../server/provider-budget';
 import { startRoundJudgingService } from './service';
 import {
   failureLog,
@@ -152,19 +152,18 @@ test('a judging lease lost at completion releases without a failure', async () =
 });
 
 test('capacity refusal never consumes a judging lease and retry needs no lease expiry', async () => {
-  const capacity = createProviderCapacity(2);
-  const coachingDone = Promise.withResolvers<void>();
-  const coach = capacity(
+  const capacity = createProviderBudget(2);
+  const speechDone = Promise.withResolvers<void>();
+  const speech = capacity(
     new AbortController().signal,
-    () => coachingDone.promise,
-    'coaching',
+    () => speechDone.promise,
   );
-  const otherJudge = capacity.reserve('judging')!;
+  const otherJudge = capacity.reserve()!;
   const { tasks, timers } = manualTimers();
   let claims = 0;
   const executed = Promise.withResolvers<void>();
   const service = startRoundJudgingService({
-    reserveCapacity: () => capacity.reserve('judging'),
+    reserveCapacity: () => capacity.reserve(),
     store: {
       scanRoundJudgingJobs: async () => [
         { roundId: 'waiting', judgeParticipantId: 'seat' },
@@ -188,7 +187,7 @@ test('capacity refusal never consumes a judging lease and retry needs no lease e
   try {
     await service.started;
     assert({
-      given: 'coaching and another judge occupy the provider budget',
+      given: 'live bot speech and another judge occupy the competitive budget',
       should: 'leave the waiting job unclaimed',
       actual: claims,
       expected: 0,
@@ -197,15 +196,15 @@ test('capacity refusal never consumes a judging lease and retry needs no lease e
     await tasks.get(500)!();
     await executed.promise;
     assert({
-      given: 'one competitive slot freed while coaching remains held',
+      given: 'one competitive slot freed while bot speech remains held',
       should: 'claim and execute on the next scan without a lease-expiry delay',
       actual: claims,
       expected: 1,
     });
   } finally {
     otherJudge();
-    coachingDone.resolve();
-    await coach;
+    speechDone.resolve();
+    await speech;
     await service.stop();
   }
 });
@@ -213,14 +212,14 @@ test('capacity refusal never consumes a judging lease and retry needs no lease e
 test('claim failure and shutdown while claiming return the reserved provider slot', async () => {
   const reclaimed: boolean[] = [];
   for (const mode of ['failure', 'shutdown'] as const) {
-    const capacity = createProviderCapacity(1);
+    const capacity = createProviderBudget(1);
     const claiming = Promise.withResolvers<void>();
     const claimDone = Promise.withResolvers<{
       scope: { roundId: string; judgeParticipantId: string };
       token: string;
     }>();
     const service = startRoundJudgingService({
-      reserveCapacity: () => capacity.reserve('judging'),
+      reserveCapacity: () => capacity.reserve(),
       store: {
         scanRoundJudgingJobs: async () => [
           { roundId: mode, judgeParticipantId: 'seat' },
@@ -251,7 +250,7 @@ test('claim failure and shutdown while claiming return the reserved provider slo
       });
     await service.started;
     await stopping;
-    const release = capacity.reserve('judging');
+    const release = capacity.reserve();
     reclaimed.push(release !== null);
     release?.();
     await service.stop();

@@ -34,7 +34,7 @@ export const eventRegistry = {
   'round.media.unsafe': 'error',
   'round.media.fairness_degraded': 'warn',
   'round.judging.failed': 'error',
-  'round.coaching.failed': 'error',
+  'round.analysis.failed': 'error',
   'beta.mail.failed': 'error',
   'operator.request.refused': 'warn',
   'operator.command.applied': 'info',

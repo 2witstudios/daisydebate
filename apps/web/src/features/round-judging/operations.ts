@@ -3,6 +3,7 @@ import type { Database } from '@daisy/db';
 import { createAppError } from '@daisy/errors';
 import { prepareRoundBallotSubmission } from '../round-ballots/operations';
 import { frozenJudgingMessages } from './prompt';
+import type { ProviderCall } from '../../server/provider-budget';
 
 type Store = Pick<
   Database,
@@ -13,10 +14,6 @@ type Store = Pick<
   | 'submitRoundJudgingResult'
 >;
 type Claim = Awaited<ReturnType<Database['claimRoundJudgingJob']>>;
-export type ProviderCapacity = <T>(
-  signal: AbortSignal,
-  work: () => Promise<T>,
-) => Promise<T>;
 function requireNotCancelled(signal: AbortSignal) {
   if (signal.aborted) throw createAppError('CONFLICT', 'Judging cancelled');
 }
@@ -25,7 +22,7 @@ export function createRoundJudgingOperations(input: {
   readonly store: Store;
   readonly nextId: () => string;
   readonly voice: () => Pick<OpenRouter, 'complete'>;
-  readonly withProvider: ProviderCapacity;
+  readonly withProvider: ProviderCall;
 }) {
   return {
     async executeClaim(claim: Claim, signal: AbortSignal) {

@@ -1,4 +1,4 @@
-import type { WorkerTimers } from './worker-timers';
+import type { WorkerTimers } from '../../server/worker-timers';
 /** Manual interval registry keyed by period; tests fire ticks explicitly. */
 export function manualTimers() {
   const tasks = new Map<number, () => Promise<void>>();

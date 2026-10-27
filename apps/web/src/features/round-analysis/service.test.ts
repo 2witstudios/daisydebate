@@ -1,6 +1,6 @@
 import { createAppError } from '@daisy/errors';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { startRoundCoachingService } from './service';
+import { startRoundAnalysisService } from './service';
 
 setupRitewayBun();
 
@@ -17,15 +17,19 @@ const manualTimers = () => {
   };
 };
 const limits = { parallel: 2, scanBatch: 8, scanMs: 100 };
+const seat = (roundParticipantId: string) => ({
+  roundId: `round-${roundParticipantId}`,
+  roundParticipantId,
+});
 
 test('each scan starts at most `parallel` coaching calls and none twice', async () => {
   const started: string[] = [];
   const release: (() => void)[] = [];
   const { tick, timers } = manualTimers();
-  const service = startRoundCoachingService({
-    scan: async () => ['a', 'b', 'c'],
-    coach: (roundId) => {
-      started.push(roundId);
+  const service = startRoundAnalysisService({
+    scan: async () => ['a', 'b', 'c'].map(seat),
+    analyse: ({ roundParticipantId }) => {
+      started.push(roundParticipantId);
       return new Promise<void>((resolve) => release.push(resolve));
     },
     limits,
@@ -38,10 +42,10 @@ test('each scan starts at most `parallel` coaching calls and none twice', async 
   release.forEach((done) => done());
   await service.stop();
   started.length = 0;
-  const again = startRoundCoachingService({
-    scan: async () => ['c'],
-    coach: async (roundId) => {
-      started.push(roundId);
+  const again = startRoundAnalysisService({
+    scan: async () => [seat('c')],
+    analyse: async ({ roundParticipantId }) => {
+      started.push(roundParticipantId);
     },
     limits,
     timers,
@@ -51,7 +55,7 @@ test('each scan starts at most `parallel` coaching calls and none twice', async 
   await tick();
   await again.stop();
   assert({
-    given: 'three Rounds needing coaching, a parallel limit of two',
+    given: 'three seats needing an analysis, a parallel limit of two',
     should:
       'start two and none again while they run; a later scan picks up the rest, every scan',
     actual: { whileBusy, after: started },
@@ -62,12 +66,15 @@ test('each scan starts at most `parallel` coaching calls and none twice', async 
 test('a full provider waits; other failures are reported', async () => {
   const failures: [string, string][] = [];
   const { timers } = manualTimers();
-  const service = startRoundCoachingService({
-    scan: async () => ['busy', 'broken'],
-    coach: async (roundId) => {
-      throw roundId === 'busy'
+  const service = startRoundAnalysisService({
+    scan: async () => ['busy', 'broken'].map(seat),
+    analyse: async ({ roundParticipantId }) => {
+      throw roundParticipantId === 'busy'
         ? createAppError('CONFLICT', 'Provider capacity unavailable')
-        : createAppError('INFRASTRUCTURE', 'The coach answered malformed JSON');
+        : createAppError(
+            'INFRASTRUCTURE',
+            'The analyst answered malformed JSON',
+          );
     },
     limits,
     timers,
@@ -76,9 +83,9 @@ test('a full provider waits; other failures are reported', async () => {
   await service.started;
   await service.stop();
   assert({
-    given: 'one Round refused for capacity and one whose call failed',
+    given: 'one seat refused for capacity and one whose call failed',
     should: 'report only the failed call',
     actual: failures,
-    expected: [['coach', 'The coach answered malformed JSON']],
+    expected: [['analyse', 'The analyst answered malformed JSON']],
   });
 });

@@ -20,10 +20,6 @@ export type ResultBallot = {
   readonly ballot: Ballot;
 };
 
-export type ResultCoaching =
-  | { readonly kind: 'ready'; readonly text: string }
-  | { readonly kind: 'note'; readonly text: string };
-
 export type TranscriptSection = {
   readonly key: string;
   readonly heading: string;
@@ -57,34 +53,6 @@ export function resultBallots(view: RoundBallotRead): readonly ResultBallot[] {
 }
 
 /**
- * The reader's own AI coaching (ADR 0071): the text, or a plain note saying
- * where it is or why there is none. Null for anyone who did not debate.
- */
-export function resultCoaching(view: RoundBallotRead): ResultCoaching | null {
-  const { coaching } = view;
-  if (!coaching) return null;
-  switch (coaching.status) {
-    case 'ready':
-      return { kind: 'ready', text: coaching.text };
-    case 'in-ballot':
-      return {
-        kind: 'note',
-        text: 'Your coaching is the AI judge’s feedback for you on its ballot above.',
-      };
-    case 'pending':
-      return {
-        kind: 'note',
-        text: 'Your coaching is being written. Reload this page in a minute.',
-      };
-    case 'unavailable':
-      return {
-        kind: 'note',
-        text: 'AI coaching is not available for this round.',
-      };
-  }
-}
-
-/**
  * The frozen transcript by speech, in the order it was played: each speech
  * named as the room names it, each line with its speaker's seat name.
  */
@@ -96,16 +64,28 @@ export function transcriptSections(
   return sectionsOf(view.round, transcript.utterances);
 }
 
+/**
+ * The frozen transcript's lines by played position with their speaker's
+ * seat name, for any card on the page that cites a line.
+ */
+export function transcriptLines(view: RoundBallotRead) {
+  return (view.transcript?.utterances ?? []).map((line) => ({
+    segment: line.segmentSequence,
+    sequence: line.sequence,
+    speaker: speakerOf(view.round, line.roundParticipantId),
+    text: line.text,
+  }));
+}
+
+const speakerOf = (round: RoundView, participantId: string) =>
+  round.participants.filter(isNamedSeat).find((p) => p.id === participantId)
+    ?.label ?? 'Unknown speaker';
+
 function sectionsOf(
   round: RoundView,
   utterances: NonNullable<RoundBallotRead['transcript']>['utterances'],
 ): readonly TranscriptSection[] {
-  const speaker = (participantId: string) => {
-    const seat = round.participants
-      .filter(isNamedSeat)
-      .find((p) => p.id === participantId);
-    return seat ? seat.label : 'Unknown speaker';
-  };
+  const speaker = (participantId: string) => speakerOf(round, participantId);
   const sections = new Map<number, TranscriptSection>();
   for (const line of utterances) {
     const section =

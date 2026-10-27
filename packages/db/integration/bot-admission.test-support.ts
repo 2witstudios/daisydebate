@@ -8,8 +8,10 @@ import type { Fixture } from './constraint-helpers';
 
 /** The beta quota policy production composes, at the beta cap of 20 (ISSUE-646). */
 export const betaAllowance = (monthlyCap = 20) => ({
-  allowance: (account: Parameters<typeof aiRoundAllowance>[0]) =>
-    aiRoundAllowance(account, { monthlyCap }),
+  allowance: (
+    account: Parameters<typeof aiRoundAllowance>[0],
+    grants: Parameters<typeof aiRoundAllowance>[1],
+  ) => aiRoundAllowance(account, grants, { monthlyCap }),
 });
 
 /** A canonical member, approved for the beta unless `beta` says otherwise, hosting `roundIds`. */

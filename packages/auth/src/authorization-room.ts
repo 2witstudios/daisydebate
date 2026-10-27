@@ -28,7 +28,7 @@ function roundReadable(
   );
 }
 
-/** Coaching entitlement supplements participant admission and an own debating seat. */
+/** The round analysis entitlement supplements participant admission and an own debating seat. */
 export function roundAllowed(
   actorId: string,
   capability: AuthorizationCapability,
@@ -37,10 +37,10 @@ export function roundAllowed(
 ): boolean {
   if (capability === 'round.transcript.read')
     return resource.participants.some((p) => p.actorId === actorId);
-  if (!capability.startsWith('round.coaching.'))
+  if (!capability.startsWith('round.analysis.'))
     return roundReadable(actorId, resource);
   return (
-    context.entitlements?.coaching === true &&
+    context.entitlements?.roundAnalysis === true &&
     resource.status === 'completed' &&
     resource.participants.some(
       (p) =>

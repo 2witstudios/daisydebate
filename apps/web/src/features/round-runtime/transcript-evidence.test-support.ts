@@ -1,4 +1,4 @@
-/** A frozen Round and transcript a judging prompt or claim can be built from. */
+/** A frozen Round and transcript any prompt evidence or claim can be built from. */
 export const round = {
   id: 'round',
   resolution: 'Transit should be free',

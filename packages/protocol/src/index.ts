@@ -286,6 +286,12 @@ export type {
   RoundBallotRead,
   RoundJudgeAssignment,
 } from './round-ballot-read';
+export { entitlementKinds, entitlementSources } from './entitlements';
+export type {
+  EntitlementGrant,
+  EntitlementKind,
+  EntitlementSource,
+} from './entitlements';
 export {
   roundAnalysisLimits,
   roundAnalysisLineSchema,

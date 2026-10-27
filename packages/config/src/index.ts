@@ -3,7 +3,11 @@ import { z } from 'zod';
 import { databaseUrl } from './urls';
 import { roomPolicyConfig } from './room-policy';
 import { botWorkerPolicyConfig } from './bot-worker-policy';
+import { judgingPolicyConfig } from './judging-policy';
+import { roundAnalysisPolicyConfig } from './round-analysis-policy';
 export type { RoundBotWorkerPolicy } from './bot-worker-policy';
+export type { RoundJudgingPolicy } from './judging-policy';
+export type { RoundAnalysisPolicy } from './round-analysis-policy';
 import { mediaEndpoint } from './media-endpoint';
 import {
   deploymentIdentityFields,
@@ -55,8 +59,20 @@ const serverFields = {
   AI_ROUND_BUSY_CAP: z.coerce.number().int().positive().optional(),
   /** DEC-183 as amended (ISSUE-646): AI Rounds per approved beta host per UTC calendar month. */
   AI_ROUND_MONTHLY_CAP: z.coerce.number().int().min(1).max(1000).default(20),
+  /**
+   * Concurrent provider calls for competitive work: AI judging and live bot
+   * speech share this one budget. Round analysis has its own.
+   */
+  COMPETITIVE_PROVIDER_CONCURRENCY: z.coerce
+    .number()
+    .int()
+    .positive()
+    .max(64)
+    .optional(),
   ROUND_BOT_WORKER_POLICY: botWorkerPolicyConfig,
-  /** DEC-247: grant coaching premium to approved beta accounts; false at launch. */
+  ROUND_JUDGING_POLICY: judgingPolicyConfig,
+  ROUND_ANALYSIS_POLICY: roundAnalysisPolicyConfig,
+  /** DEC-247: beta-sourced round analysis grants count as premium; false at launch. */
   PREMIUM_BETA_GRANT: z
     .enum(['true', 'false'])
     .default('true')

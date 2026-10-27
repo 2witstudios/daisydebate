@@ -3,6 +3,7 @@
 import { headers } from 'next/headers';
 import { readTranscript } from '../../../../features/round-runtime/read-transcript';
 import { readRoundReceipt } from '../../../../features/rooms/read-round';
+import { readRoundAnalysis } from '../../../../features/round-analysis/reads';
 import { inProcessFetch } from '../../../../server/in-process-fetch';
 import { processRoute } from '../../../../server/process-app';
 
@@ -33,6 +34,21 @@ const transcriptRead = processRoute(
 export async function readPersistedTranscript(id: string) {
   return readTranscript(
     inProcessFetch(transcriptRead, new Headers(await headers())),
+    id,
+  );
+}
+
+const analysisRead = processRoute(
+  (routes) => (request) =>
+    routes.rounds.getRoundAnalysis(
+      request,
+      new URL(request.url).pathname.split('/')[3] ?? '',
+    ),
+);
+/** The caller's own round analysis, a read of its own, never part of the ballot read. */
+export async function readPersistedRoundAnalysis(id: string) {
+  return readRoundAnalysis(
+    inProcessFetch(analysisRead, new Headers(await headers())),
     id,
   );
 }

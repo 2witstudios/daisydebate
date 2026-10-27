@@ -15,7 +15,6 @@ const env = {
   LOG_LEVEL: 'silent',
   ROUND_BOT_WORKER_POLICY: JSON.stringify({
     maxControllers: 4,
-    providerConcurrency: 1,
     scanBatch: 4,
     scanMs: 500,
     leaseMs: 15000,
@@ -24,9 +23,24 @@ const env = {
     models: {
       speech: 'explicit-speech',
       cross_ex: 'explicit-cross',
-      judge: 'explicit-judge',
       tts: 'explicit-tts',
     },
+  }),
+  ROUND_JUDGING_POLICY: JSON.stringify({
+    scanBatch: 4,
+    scanMs: 500,
+    leaseMs: 15000,
+    renewMs: 3000,
+    callTimeoutMs: 10000,
+    model: 'explicit-judge',
+  }),
+  ROUND_ANALYSIS_POLICY: JSON.stringify({
+    concurrency: 1,
+    scanBatch: 4,
+    scanMs: 5000,
+    leaseMs: 15000,
+    callTimeoutMs: 45000,
+    model: 'explicit-analysis',
   }),
 };
 test('configured bot worker policy requires an actual injected bearer producer', async () => {
@@ -57,9 +71,8 @@ test('configured bot worker policy requires an actual injected bearer producer',
 const configuredOptions = async () => {
   const { readServerConfig } = await import('@daisy/config');
   const { roundWorkerDatabaseOptions } = await import('./round-worker-policy');
-  return roundWorkerDatabaseOptions(
-    readServerConfig(env).ROUND_BOT_WORKER_POLICY,
-    () => 'x'.repeat(43),
+  return roundWorkerDatabaseOptions(readServerConfig(env), () =>
+    'x'.repeat(43),
   );
 };
 
@@ -77,14 +90,35 @@ test('worker composition supplies the explicit TTS model and retained per-seat s
   });
 });
 
-test('coaching uses the judge model with a lease covering its whole call', async () => {
+test('judging and round analysis each read their own policy and model', async () => {
   const options = await configuredOptions();
   assert({
-    given: 'configured worker policy',
+    given: 'configured judging and round analysis policies',
     should:
-      'coach with the configured judge model under a lease of the call timeout plus the worker lease',
-    actual: [options.coaching?.model, options.coaching?.leaseMs],
-    expected: ['explicit-judge', 25000],
+      'judge with the judging model, and analyse with the analysis model under a lease of its call timeout plus its lease',
+    actual: {
+      judging: [options.judging?.model, options.judging?.leaseMs],
+      analysis: [options.roundAnalysis?.model, options.roundAnalysis?.leaseMs],
+    },
+    expected: {
+      judging: ['explicit-judge', 15000],
+      analysis: ['explicit-analysis', 60000],
+    },
+  });
+});
+
+test('an absent policy leaves only its own store absent', async () => {
+  const { roundWorkerDatabaseOptions } = await import('./round-worker-policy');
+  const { ROUND_ANALYSIS_POLICY: _analysis, ...withoutAnalysis } = env;
+  const options = roundWorkerDatabaseOptions(
+    readServerConfig(withoutAnalysis),
+    () => 'x'.repeat(43),
+  );
+  assert({
+    given: 'judging and bot policies with no round analysis policy',
+    should: 'compose judging and bots and no round analysis store',
+    actual: Object.keys(options).sort(),
+    expected: ['botPublication', 'judging'],
   });
 });
 
@@ -105,15 +139,14 @@ test('bot-debater admission composes the busy cap with the flat beta quota', () 
   assert({
     given: 'no busy cap, then a busy cap with the default monthly cap',
     should:
-      'admit no bot debater without a bound, else apply the cap to approved accounts only',
+      'admit no bot debater without a bound, else apply the cap only to an account holding an ai_rounds grant',
     actual: [
       botAdmissionOptions({ AI_ROUND_MONTHLY_CAP: 20 }),
       configured?.busyCap,
-      configured?.allowance(approved),
-      configured?.allowance({
-        ...approved,
-        beta: { state: 'pending', revision: 1 },
-      }),
+      configured?.allowance(approved, [
+        { entitlement: 'ai_rounds', source: 'beta' },
+      ]),
+      configured?.allowance(approved, []),
     ],
     expected: [{}, 4, 20, null],
   });

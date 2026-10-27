@@ -1,152 +1,59 @@
-import { publicationStopOf } from '@daisy/media/audio';
 import type { ErrorReporter } from '@daisy/observability';
-import { workerFailures } from './recoverable-failure';
-import { createAttendanceFeature } from '../features/attendance/operations';
-import { createBotControl } from '../features/round-bots/control';
-import { startBotControlService } from '../features/round-bots/control-service';
-import { createSpeakingBotControl } from '../features/round-bots/speaking';
 import type { App } from './app';
-import { createProviderCapacity } from '../features/round-bots/provider-capacity';
-import { createRoundJudgingOperations } from '../features/round-judging/operations';
-import { startRoundJudgingService } from '../features/round-judging/service';
-import { createRoundCoachingOperations } from '../features/round-coaching/operations';
-import { startRoundCoachingService } from '../features/round-coaching/service';
-import { coachingPolicy } from '../features/round-coaching/policy';
-import { canGenerateCoaching } from '../features/round-coaching/authorization';
+import { createProviderBudget } from './provider-budget';
+import { startRoundAnalysisWorkers } from './round-analysis-workers';
+import { startRoundBotWorkers } from './round-bot-workers';
+import { startRoundJudgingWorkers } from './round-judging-workers';
+import type { WorkerTimers } from './worker-timers';
 
-/** Provider work owns an independent lifecycle; availability/competitive maintenance never await it. */
+type Started = {
+  readonly started: Promise<unknown>;
+  readonly stop: () => Promise<void>;
+};
+
+/**
+ * Starts each provider worker its own policy configures (ISSUE-749), each
+ * with an independent lifecycle; availability/competitive maintenance never
+ * await them. AI judging and bot speech share the competitive provider
+ * budget; round analysis has its own.
+ */
 export function startRoundWorkers(input: {
   readonly app: App;
   readonly instanceId: string;
-  readonly timers: Parameters<typeof startRoundJudgingService>[0]['timers'];
-  /** Media broker grant; without configured media, seats keep receipts only. */
-  readonly botToken:
-    Parameters<typeof createSpeakingBotControl>[0]['botToken'] | null;
+  readonly timers: WorkerTimers;
+  readonly botToken: Parameters<typeof startRoundBotWorkers>[0]['botToken'];
   /** Scrubbed raw-error destination (ADR 0037); inert until configured. */
   readonly reporter?: ErrorReporter;
 }) {
   const { app } = input;
-  const policy = app.config.ROUND_BOT_WORKER_POLICY;
-  if (!policy) return null;
-  const failure = workerFailures(app, input.reporter);
-  const withProvider = createProviderCapacity(policy.providerConcurrency);
-  const operations = createRoundJudgingOperations({
-    store: app.database,
-    nextId: () => app.ids.next(),
-    voice: app.aiVoice,
-    // The service reserves before claiming and holds admission through retries.
-    withProvider: (_signal, work) => work(),
-  });
-  const judging = startRoundJudgingService({
-    reserveCapacity: () => withProvider.reserve('judging'),
-    store: app.database,
-    execute: (claim, signal) =>
-      operations.executeClaim(
-        claim,
-        AbortSignal.any([signal, AbortSignal.timeout(policy.callTimeoutMs)]),
-      ),
-    limits: {
-      parallel: policy.providerConcurrency,
-      scanBatch: policy.scanBatch,
-      scanMs: policy.scanMs,
-      renewMs: policy.renewMs,
-    },
-    timers: input.timers,
-    failed: failure(
-      'round.judging.failed',
-      'round.judging',
-      'Judging work remains recoverable',
-    ),
-  });
-  // Coaching shares the model and total budget, with reserved competitive capacity.
-  const coaching = createRoundCoachingOperations({
-    betaGrantsPremium: app.config.PREMIUM_BETA_GRANT,
-    store: app.database,
-    voice: app.aiVoice,
-    withProvider: (signal, work) => withProvider(signal, work, 'coaching'),
-    now: () => app.clock.now(),
-  });
-  const coach = startRoundCoachingService({
-    scan: (limit) =>
-      app.database.scanRoundFeedbackJobs(
-        limit,
-        new Date(
-          Date.parse(app.clock.now()) - coachingPolicy.windowMs,
-        ).toISOString(),
-        (access) => canGenerateCoaching(access, app.config.PREMIUM_BETA_GRANT),
-      ),
-    coach: (roundId, signal) =>
-      coaching.coach(
-        roundId,
-        AbortSignal.any([signal, AbortSignal.timeout(policy.callTimeoutMs)]),
-      ),
-    limits: {
-      parallel: policy.providerConcurrency,
-      scanBatch: policy.scanBatch,
-      scanMs: policy.scanMs,
-    },
-    timers: input.timers,
-    failed: failure(
-      'round.coaching.failed',
-      'round.coaching',
-      'Coaching work remains recoverable',
-    ),
-  });
-  const attendance = createAttendanceFeature({
-    checkIns: app.database,
-    evaluate: app.database.evaluateRoundAttendance,
-    nextId: () => app.ids.next(),
-    instanceId: input.instanceId,
-  });
-  const speaking = input.botToken
-    ? createSpeakingBotControl({
-        store: app.database,
-        voice: app.aiVoice,
-        withProvider,
-        botToken: input.botToken,
-        readActivity: app.redis.readBotActivity,
-        readHeard: app.redis.readCaptureHeard,
-        timers: input.timers,
-        nextId: () => app.ids.next(),
-        nowMs: () => Date.parse(app.clock.now()),
-        callTimeoutMs: policy.callTimeoutMs,
-        failed: failure(
-          'round.speaking.failed',
-          'round.speaking',
-          'Bot speech stays uncredited',
-          // Says whether a publish stopped at a stall or a native failure.
-          publicationStopOf,
-        ),
-      })
-    : null;
-  const control = startBotControlService({
-    store: app.database,
-    control: (claim) => {
-      const receipts = createBotControl({
-        claim,
-        store: app.database,
-        attendance,
-        nextId: () => app.ids.next(),
-      });
-      return speaking ? speaking(claim, receipts) : receipts;
-    },
-    limits: {
-      maxControllers: policy.maxControllers,
-      scanBatch: policy.scanBatch,
-      scanMs: policy.scanMs,
-      renewMs: policy.renewMs,
-    },
-    timers: input.timers,
-    failed: failure(
-      'round.control.failed',
-      'round.control',
-      'Control receipt work remains recoverable',
-    ),
-  });
+  const concurrency = app.config.COMPETITIVE_PROVIDER_CONCURRENCY;
+  const competitive = concurrency ? createProviderBudget(concurrency) : null;
+  const judging = app.config.ROUND_JUDGING_POLICY;
+  const bots = app.config.ROUND_BOT_WORKER_POLICY;
+  const analysis = app.config.ROUND_ANALYSIS_POLICY;
+  const workers: Started[] = [
+    ...(judging && competitive && concurrency
+      ? [
+          startRoundJudgingWorkers({
+            ...input,
+            policy: judging,
+            budget: competitive,
+            parallel: concurrency,
+          }),
+        ]
+      : []),
+    ...(bots && competitive
+      ? [startRoundBotWorkers({ ...input, policy: bots, budget: competitive })]
+      : []),
+    ...(analysis
+      ? [startRoundAnalysisWorkers({ ...input, policy: analysis })]
+      : []),
+  ];
+  if (!workers.length) return null;
   return {
-    started: Promise.all([judging.started, coach.started, control.started]),
+    started: Promise.all(workers.map((worker) => worker.started)),
     stop: async () => {
-      await Promise.all([judging.stop(), coach.stop(), control.stop()]);
+      await Promise.all(workers.map((worker) => worker.stop()));
     },
   };
 }

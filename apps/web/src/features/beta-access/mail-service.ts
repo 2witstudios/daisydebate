@@ -1,4 +1,4 @@
-import type { WorkerTimers } from '../round-bots/worker-timers';
+import type { WorkerTimers } from '../../server/worker-timers';
 
 /**
  * The mail intent worker's loop (ADR 0075): one batch per tick, never two at

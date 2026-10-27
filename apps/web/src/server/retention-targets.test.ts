@@ -43,7 +43,7 @@ describe('retention targets', () => {
         purgeExpiredAvailabilitySamples: record('availability_samples'),
         purgeExpiredUtterances: record('utterances'),
         clearExpiredPendingBallots: record('pending_ballots'),
-        purgeExpiredRoundFeedback: record('round_feedback'),
+        purgeExpiredRoundAnalyses: record('round_analyses'),
       },
       redis: {
         sweepOnlinePresence: async (limit: number) => {
@@ -70,7 +70,7 @@ describe('retention targets', () => {
     assert({
       given: 'the production targets and a clock at 2026-09-20T12:00Z',
       should:
-        'purge verification, session and outbox rows past 24 hours, email rows past 30 days, transcripts, pending judgments and AI coaching past 180 days, and sweep the Redis online set, each in its own bounded batches',
+        'purge verification, session and outbox rows past 24 hours, email rows past 30 days, transcripts, pending judgments and round analyses past 180 days, and sweep the Redis online set, each in its own bounded batches',
       actual: {
         targets: targets.map(({ name, batchSize, maxBatches }) => ({
           name,
@@ -112,7 +112,7 @@ describe('retention targets', () => {
           { name: 'retention.mail_intents', batchSize: 500, maxBatches: 20 },
           { name: 'retention.utterances', batchSize: 500, maxBatches: 20 },
           { name: 'retention.pending_ballots', batchSize: 500, maxBatches: 20 },
-          { name: 'retention.round_feedback', batchSize: 500, maxBatches: 20 },
+          { name: 'retention.round_analyses', batchSize: 500, maxBatches: 20 },
           {
             name: 'retention.presence_online',
             batchSize: 1000,
@@ -142,7 +142,7 @@ describe('retention targets', () => {
           mail_intents: [{ before: '2026-08-21T12:00:00.000Z', limit: 500 }],
           utterances: [{ before: '2026-03-24T12:00:00.000Z', limit: 500 }],
           pending_ballots: [{ before: '2026-03-24T12:00:00.000Z', limit: 500 }],
-          round_feedback: [{ before: '2026-03-24T12:00:00.000Z', limit: 500 }],
+          round_analyses: [{ before: '2026-03-24T12:00:00.000Z', limit: 500 }],
         },
         sweeps: [1000],
       },
@@ -188,7 +188,7 @@ describe('retention targets', () => {
           ['retention.mail_intents', false],
           ['retention.utterances', false],
           ['retention.pending_ballots', false],
-          ['retention.round_feedback', false],
+          ['retention.round_analyses', false],
           ['retention.presence_online', true],
         ],
         calls: {},

@@ -144,7 +144,7 @@ export async function freezeBotJudge(
   return { roundId, target };
 }
 
-/** The production private transcript policy, with coaching always enabled for these fixtures. */
+/** The production private transcript policy. */
 export const readBallotAs = (
   f: RoomFixture,
   caller: { readonly userId: string; readonly actorId: string },
@@ -155,5 +155,4 @@ export const readBallotAs = (
     roundId,
     authorize: (r, a) => canReadRound(caller, r, a),
     authorizeTranscript: (r, a) => canReadTranscript(caller, r, a),
-    authorizeCoaching: () => true,
   });

@@ -27,7 +27,7 @@ export async function withRoomRuntime(
     | 'botAdmission'
     | 'judging'
     | 'botPublication'
-    | 'coaching'
+    | 'roundAnalysis'
   > = {},
 ) {
   const f = await fixture(options);
@@ -45,7 +45,7 @@ async function fixture(
     | 'botAdmission'
     | 'judging'
     | 'botPublication'
-    | 'coaching'
+    | 'roundAnalysis'
   >,
 ) {
   const sql = new SQL(services.databaseUrl),

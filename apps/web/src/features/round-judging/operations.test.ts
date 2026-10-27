@@ -1,6 +1,9 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createRoundJudgingOperations } from './operations';
-import { frozen, round } from './judging.test-support';
+import {
+  frozen,
+  round,
+} from '../round-runtime/transcript-evidence.test-support';
 setupRitewayBun();
 
 test('a judging job that may buy no more calls never reaches the provider', async () => {

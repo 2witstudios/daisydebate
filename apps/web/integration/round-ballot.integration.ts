@@ -84,10 +84,10 @@ test('all actual human judges submit one shared ballot against actual frozen inp
       should:
         'expose input and own seat only to the assigned judge without hidden judge identifiers in the debater response',
       actual: [
-        ownRead.read.own?.participantId,
-        ownRead.read.freeze?.revision,
-        opponentRead.read.freeze,
-        opponentRead.read.own,
+        ownRead.own?.participantId,
+        ownRead.freeze?.revision,
+        opponentRead.freeze,
+        opponentRead.own,
         seats.some(
           (seat) =>
             JSON.stringify(opponentRead).includes(seat.id) ||
@@ -183,14 +183,14 @@ test('all actual human judges submit one shared ballot against actual frozen inp
         'affirmative' | 'negative';
     const released = await Promise.all(
       [f.host, f.guest, judges[1]!].map(async (caller) => {
-        const { read, coaching } = await readAs(caller);
+        const read = await readAs(caller);
         return {
           judges: read.ballots.map((entry) => entry.judge),
           feedback: read.ballots.map((entry) => entry.ballot.feedback),
-          // Coaching facts go only to a debater, for their own side.
-          coaching: coaching
-            ? { side: coaching.side, aiBallots: coaching.facts.aiBallots }
-            : null,
+          // The ballot read carries no round analysis, for anyone.
+          analysis: Object.keys(read).filter((key) =>
+            /coach|analysis/i.test(key),
+          ),
           transcript: read.transcript === null,
         };
       }),
@@ -201,27 +201,27 @@ test('all actual human judges submit one shared ballot against actual frozen inp
     };
     assert({
       given:
-        'a completed Round whose two human ballots coach both sides, read by each debater and a judge',
+        'a completed Round whose two human ballots give both sides feedback, read by each debater and a judge',
       should:
-        'label both ballots human, give each debater only their own feedback and coaching facts for their side, and the judge neither; every seat reads the transcript',
+        'label both ballots human, give each debater only their own feedback and the judge none, carry no round analysis, and let every seat read the transcript',
       actual: released,
       expected: [
         {
           judges: ['human', 'human'],
           feedback: [own(f.host.actorId), own(f.host.actorId)],
-          coaching: { side: sideOf(f.host.actorId), aiBallots: [] },
+          analysis: [],
           transcript: false,
         },
         {
           judges: ['human', 'human'],
           feedback: [own(f.guest.actorId), own(f.guest.actorId)],
-          coaching: { side: sideOf(f.guest.actorId), aiBallots: [] },
+          analysis: [],
           transcript: false,
         },
         {
           judges: ['human', 'human'],
           feedback: [{}, {}],
-          coaching: null,
+          analysis: [],
           transcript: false,
         },
       ],

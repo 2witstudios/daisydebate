@@ -111,7 +111,6 @@ export function parseRoundAnalysis(
     (item) => lineKey(item.line),
   );
   if (!cited.every((key) => lines.has(key))) throw invalid();
-  if (input.history.length === 0 && report.patterns.length > 0)
-    throw invalid();
+  if (input.history.length === 0 && report.patterns.length > 0) throw invalid();
   return report;
 }

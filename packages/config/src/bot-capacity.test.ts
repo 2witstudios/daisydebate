@@ -43,7 +43,6 @@ test('the AI-round allowance is one flat trusted monthly cap', () => {
 test('bot workers require a complete explicit bounded resource policy', () => {
   const policy = {
     maxControllers: 8,
-    providerConcurrency: 2,
     scanBatch: 8,
     scanMs: 250,
     leaseMs: 30000,
@@ -52,7 +51,6 @@ test('bot workers require a complete explicit bounded resource policy', () => {
     models: {
       speech: 'anthropic/claude-sonnet-5.5',
       cross_ex: 'openai/gpt-6-luna',
-      judge: 'anthropic/claude-sonnet-5.5',
       tts: 'deepgram/aura-2',
     },
   };
@@ -73,12 +71,70 @@ test('bot workers require a complete explicit bounded resource policy', () => {
     '{}',
     JSON.stringify({ ...policy, scanMs: 501 }),
     JSON.stringify({ ...policy, renewMs: 15000 }),
-    JSON.stringify({ ...policy, providerConcurrency: 0 }),
-    JSON.stringify({ ...policy, models: { ...policy.models, judge: '' } }),
+    JSON.stringify({ ...policy, providerConcurrency: 2 }),
+    JSON.stringify({ ...policy, models: { ...policy.models, judge: 'x' } }),
+    JSON.stringify({ ...policy, models: { ...policy.models, tts: '' } }),
     JSON.stringify({ ...policy, inferredPremium: true }),
   ]) {
     expect(() =>
       readServerConfig({ ...env, ROUND_BOT_WORKER_POLICY: value }),
     ).toThrow('Invalid server configuration: ROUND_BOT_WORKER_POLICY');
   }
+});
+
+test('AI judging and round analysis each have their own policy, and competitive work its own budget', () => {
+  const judging = {
+    scanBatch: 8,
+    scanMs: 250,
+    leaseMs: 15000,
+    renewMs: 3000,
+    callTimeoutMs: 30000,
+    model: 'anthropic/claude-sonnet-5.5',
+  };
+  const analysis = {
+    concurrency: 1,
+    scanBatch: 8,
+    scanMs: 5000,
+    leaseMs: 60000,
+    callTimeoutMs: 45000,
+    model: 'anthropic/claude-sonnet-5.5',
+  };
+  const read = (extra: Record<string, string>) =>
+    readServerConfig({ ...env, ...extra });
+  assert({
+    given: 'no policies, then each set explicitly',
+    should: 'leave each absent, then retain each without defaults',
+    actual: [
+      [
+        read({}).ROUND_JUDGING_POLICY,
+        read({}).ROUND_ANALYSIS_POLICY,
+        read({}).COMPETITIVE_PROVIDER_CONCURRENCY,
+      ],
+      [
+        read({ ROUND_JUDGING_POLICY: JSON.stringify(judging) })
+          .ROUND_JUDGING_POLICY,
+        read({ ROUND_ANALYSIS_POLICY: JSON.stringify(analysis) })
+          .ROUND_ANALYSIS_POLICY,
+        read({ COMPETITIVE_PROVIDER_CONCURRENCY: '2' })
+          .COMPETITIVE_PROVIDER_CONCURRENCY,
+      ],
+    ],
+    expected: [
+      [undefined, undefined, undefined],
+      [judging, analysis, 2],
+    ],
+  });
+  for (const [key, value] of [
+    ['ROUND_JUDGING_POLICY', JSON.stringify({ ...judging, renewMs: 9000 })],
+    ['ROUND_JUDGING_POLICY', JSON.stringify({ ...judging, models: {} })],
+    ['ROUND_ANALYSIS_POLICY', JSON.stringify({ ...analysis, concurrency: 0 })],
+    [
+      'ROUND_ANALYSIS_POLICY',
+      JSON.stringify({ ...analysis, providerConcurrency: 2 }),
+    ],
+    ['COMPETITIVE_PROVIDER_CONCURRENCY', '0'],
+  ] as const)
+    expect(() => read({ [key]: value })).toThrow(
+      `Invalid server configuration: ${key}`,
+    );
 });

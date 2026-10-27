@@ -1,7 +1,7 @@
 import { readServerConfig } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { launchAppInput } from '../e2e/support/room-launch-app-input';
-import { launchWorkerPolicy } from '../e2e/support/room-launch-worker-policy';
+import { launchWorkerEnv } from '../e2e/support/room-launch-worker-policy';
 import { roundWorkerDatabaseOptions } from '../src/server/round-worker-policy';
 setupRitewayBun();
 test('the launch browser server composes its configured round workers', () => {
@@ -10,14 +10,11 @@ test('the launch browser server composes its configured round workers', () => {
     DATABASE_URL: 'postgres://user:secret@localhost:5432/daisy',
     REDIS_URL: 'redis://localhost:6379',
     PUBLIC_APP_URL: 'http://localhost:3000',
-    ROUND_BOT_WORKER_POLICY: launchWorkerPolicy,
+    ...launchWorkerEnv,
   };
   const input = launchAppInput(env, fetch);
   const startup = () =>
-    roundWorkerDatabaseOptions(
-      readServerConfig(env).ROUND_BOT_WORKER_POLICY,
-      input.nextWorkerToken,
-    );
+    roundWorkerDatabaseOptions(readServerConfig(env), input.nextWorkerToken);
   let refusal: unknown = null;
   try {
     startup();

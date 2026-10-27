@@ -40,12 +40,17 @@ describe('roundAnalysisMessages', () => {
         'name that seat, read the same neutral evidence as judging, and carry no ballot rubric or ballot shape',
       actual: {
         seat: all.includes('Analyse the affirmative debater in slot 0'),
-        sameEvidence: evidenceOf(messages[1]!.content) ===
-          evidenceOf(judge[1]!.content),
+        sameEvidence:
+          evidenceOf(messages[1]!.content) === evidenceOf(judge[1]!.content),
         rubric: /Score every category|rubricVersion|"winner"/.test(all),
         decides: all.includes('You never decide or guess who won'),
       },
-      expected: { seat: true, sameEvidence: true, rubric: false, decides: true },
+      expected: {
+        seat: true,
+        sameEvidence: true,
+        rubric: false,
+        decides: true,
+      },
     });
   });
 
@@ -77,10 +82,13 @@ describe('parseRoundAnalysis', () => {
     assert({
       given: 'a fenced report citing a real line',
       should: 'return the report',
-      actual: parseRoundAnalysis('```json\n' + JSON.stringify(report) + '\n```', {
-        evidence,
-        history: [],
-      }),
+      actual: parseRoundAnalysis(
+        '```json\n' + JSON.stringify(report) + '\n```',
+        {
+          evidence,
+          history: [],
+        },
+      ),
       expected: report,
     });
   });

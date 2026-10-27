@@ -110,7 +110,7 @@ test('the month boundary counts only reservations made in the current UTC month'
       id: createId(),
       actor_id: actorId,
       round_id: earlier,
-      kind: 'ai_practice',
+      kind: 'ai_round',
       reserved_at: new Date(start.getTime() - 1),
       counted_at: new Date(start.getTime() - 1),
     });

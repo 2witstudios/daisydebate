@@ -2,14 +2,12 @@ import { createId } from '@paralleldrive/cuid2';
 import { randomBytes } from 'node:crypto';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import type { SQL } from 'bun';
-import {
-  createRoundFeedbackJobs,
-  readRoundCoachingFacts,
-} from '../src/round-feedback';
+import { createRoundAnalysisJobs } from '../src/round-analysis-jobs';
+import { readRoundAnalysisFacts } from '../src/round-analysis-facts';
 import { withBoundedRound } from './bounded-transaction.test-support';
 import type { Fixture } from './constraint-helpers';
 
-/** A Round that completed a minute ago, its two debaters' lines frozen at revision 1. */
+/** A Round that completed a minute ago, its two human debaters' lines frozen at revision 1. */
 async function completedRound(
   fixture: Fixture,
   roundId: string,
@@ -50,47 +48,58 @@ async function completedRound(
   if (frozen)
     await fixture.sql`insert into round_transcript_freezes(round_id,revision,frontier,completeness)
       select ${roundId},1,revision,'complete' from round_transcripts where round_id=${roundId}`;
-  return { aff };
+  return { aff, neg };
 }
 
-/** A completed Round with its coaching store and a read of its coaching facts. */
+type Seat = { id: string; actorId: string };
+
+/** A completed Round with its analysis store and a read of a seat's analysis facts. */
 export const withCompletedRound = (
   work: (value: {
     fixture: Fixture;
     roundId: string;
     client: SQL;
-    aff: { id: string; actorId: string };
-    jobs: ReturnType<typeof createRoundFeedbackJobs>;
-    facts: () => ReturnType<typeof readRoundCoachingFacts>;
+    aff: Seat;
+    neg: Seat;
+    /** The seat keys the store takes. */
+    seats: {
+      aff: { roundId: string; roundParticipantId: string };
+      neg: { roundId: string; roundParticipantId: string };
+    };
+    jobs: ReturnType<typeof createRoundAnalysisJobs>;
+    facts: (seat: Seat) => ReturnType<typeof readRoundAnalysisFacts>;
   }) => Promise<void>,
   options: {
     readonly frozen?: boolean;
     readonly beforeFreeze?: (
       fixture: Fixture,
       client: SQL,
-      aff: { id: string; actorId: string },
+      aff: Seat,
     ) => Promise<void>;
   } = {},
 ) =>
   withBoundedRound(async (fixture, run, roundId, client) => {
     const { beforeFreeze } = options;
-    const { aff } = await completedRound(
+    const { aff, neg } = await completedRound(
       fixture,
       roundId,
       options.frozen ?? true,
       beforeFreeze ? (aff) => beforeFreeze(fixture, client, aff) : undefined,
     );
+    const key = (seat: Seat) => ({ roundId, roundParticipantId: seat.id });
     await work({
       fixture,
       roundId,
       client,
       aff,
-      jobs: createRoundFeedbackJobs({
+      neg,
+      seats: { aff: key(aff), neg: key(neg) },
+      jobs: createRoundAnalysisJobs({
         run,
         nextToken: () => randomBytes(32).toString('base64url'),
         leaseMs: 30000,
         model: 'anthropic/claude-sonnet-5.5',
       }),
-      facts: () => readRoundCoachingFacts(drizzle({ client }), roundId),
+      facts: (seat) => readRoundAnalysisFacts(drizzle({ client }), key(seat)),
     });
   });

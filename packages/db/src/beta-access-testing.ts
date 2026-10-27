@@ -44,6 +44,10 @@ export async function admitParticipants(
     on conflict (user_id) do update set state = 'approved', revision = account_beta_access.revision + 1,
       decided_at = now()
     where account_beta_access.state <> 'approved'`;
+  await sql`insert into account_entitlement_grants (user_id, entitlement, source)
+    select id, entitlement, 'beta' from unnest(${ids}::text[]) as id
+    cross join unnest('{round_analysis,ai_rounds}'::text[]) as entitlement
+    on conflict do nothing`;
   await sql`insert into account_age (user_id, birth_month, version, recorded_at)
     select id, '2000-01', 1, coalesce(${recordedAt ?? null}::timestamptz, now())
     from unnest(${ids}::text[]) as id

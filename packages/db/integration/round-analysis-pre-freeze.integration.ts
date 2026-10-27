@@ -2,40 +2,40 @@ import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { drizzle } from 'drizzle-orm/bun-sql';
 import { erasePrivacySubject } from '../src/privacy';
-import { roundTranscriptPrivacyAdopter } from '../src/round-transcript-privacy';
-import { withCompletedRound } from './round-feedback.test-support';
+import { roundAnalysisPrivacyAdopter } from '../src/round-analysis-privacy';
+import { withCompletedRound } from './round-analysis.test-support';
 import { bindings } from './privacy.test-support';
 
 setupRitewayBun();
 requireTestServices(process.env);
 
-test('canonical erasure during an active Round prevents coaching after its later freeze', async () => {
+test('canonical erasure during an active Round prevents any round analysis after its later freeze', async () => {
   let erasedWhileActive = false;
   await withCompletedRound(
-    async ({ fixture, roundId, jobs, facts }) => {
-      const state = await facts();
+    async ({ fixture, roundId, aff, neg, seats, jobs, facts }) => {
+      const state = await facts(aff);
       const [before] =
-        await fixture.sql`select count(*)::int as n from round_feedback where round_id=${roundId}`;
+        await fixture.sql`select count(*)::int as n from round_analyses where round_id=${roundId}`;
       let decisions = 0;
-      const claimed = await jobs.claim(roundId, () => {
+      const claimed = await jobs.claim(seats.neg, () => {
         decisions++;
         return 'claim';
       });
       const [after] =
-        await fixture.sql`select count(*)::int as n from round_feedback where round_id=${roundId}`;
+        await fixture.sql`select count(*)::int as n from round_analyses where round_id=${roundId}`;
       assert({
         given:
           'a seated debater canonically erased before the active Round completed and froze',
         should:
-          'never list or claim later coaching, even when another debater has remaining text',
+          'never list or claim a later analysis, even for the other debater who has remaining text',
         actual: {
           erasedWhileActive,
           status: state.status,
           frozen: state.frozen,
           lines: state.lines,
-          listed: (
-            await jobs.scan(64, new Date(0).toISOString(), () => true)
-          ).includes(roundId),
+          listed: (await jobs.scan(64, new Date(0).toISOString(), () => true))
+            .map((seat) => seat.roundParticipantId)
+            .some((id) => [aff.id, neg.id].includes(id)),
           claimed,
           decisions,
           attempts: [before.n, after.n],
@@ -59,7 +59,7 @@ test('canonical erasure during an active Round prevents coaching after its later
         const [state] = await fixture.sql`select r.status,
           exists(select 1 from round_transcript_freezes f where f.round_id=r.id) as frozen
           from rounds r join round_participants p on p.round_id=r.id where p.id=${aff.id}`;
-        const adopter = roundTranscriptPrivacyAdopter;
+        const adopter = roundAnalysisPrivacyAdopter;
         const expectedColumns = Object.fromEntries(
           [...new Set(adopter.fields.map((field) => field.table))].map(
             (table) => [
