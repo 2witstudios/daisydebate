@@ -1,4 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { assertRejects } from '@daisy/errors/testing';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
 import { randomBytes } from 'node:crypto';
@@ -136,6 +137,13 @@ test('round analysis discovery and claims use the seat account’s own entitleme
       const withPremium = JSON.stringify(await ballotRead());
       await f.sql`delete from account_entitlement_grants where user_id=${f.host.userId}`;
       const withoutPremium = JSON.stringify(await ballotRead());
+      await assertRejects({
+        given: 'a member who did not debate the Round reading its analysis',
+        should: 'refuse with NOT_FOUND: only a seated debater has one',
+        actual: () =>
+          f.store.readRoundAnalysis({ roundId, caller: f.outsider }),
+        code: 'NOT_FOUND',
+      });
       const own = await f.store.readRoundAnalysis({
         roundId,
         caller: f.host,
