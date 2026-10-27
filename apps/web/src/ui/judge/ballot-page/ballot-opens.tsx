@@ -6,29 +6,50 @@ import { formatClock } from '../../../features/debate-room/clock';
 import {
   attendanceSettlesAtMs,
   ballotOpensInMs,
+  countdownNowMs,
 } from '../../../features/round-ballots/settling';
+
+const deviceInstant = () => ({
+  wallMs: Date.parse(systemClock.now()),
+  monotonicMs: performance.now(),
+});
 
 /**
  * How long until the open ballot can be submitted, counted down once a
- * second from the server's render instant and stopping at zero; null when
- * there is nothing to wait for or no ballot is open.
+ * second from the server's render instant by the time elapsed on this
+ * device (countdownNowMs), so a device clock that is off never holds
+ * Submit back; it stops at zero. Null when there is nothing to wait for or
+ * no ballot is open. A new render instant restarts the count from it.
  */
 export function useBallotOpensIn(
   round: Pick<RoundView, 'rules' | 'segments'>,
   renderedAtMs: number,
   open: boolean,
 ): number | null {
-  const [now, setNow] = useState(renderedAtMs);
+  const [elapsed, setElapsed] = useState({
+    base: renderedAtMs,
+    nowMs: renderedAtMs,
+  });
+  const now = elapsed.base === renderedAtMs ? elapsed.nowMs : renderedAtMs;
   const opensInMs = open ? ballotOpensInMs(round, now) : null;
   const waiting = opensInMs !== null;
   useEffect(() => {
     if (!waiting) return;
+    const mounted = deviceInstant();
     const tick = window.setInterval(
-      () => setNow(Date.parse(systemClock.now())),
+      () =>
+        setElapsed({
+          base: renderedAtMs,
+          nowMs: countdownNowMs({
+            renderedAtMs,
+            mounted,
+            current: deviceInstant(),
+          }),
+        }),
       1000,
     );
     return () => window.clearInterval(tick);
-  }, [waiting]);
+  }, [waiting, renderedAtMs]);
   return opensInMs;
 }
 
