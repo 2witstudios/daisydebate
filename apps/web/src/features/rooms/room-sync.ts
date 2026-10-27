@@ -54,6 +54,20 @@ export function prepDeadline(state: RoomSync): number | null {
 }
 
 /** The held view as of `now`: a running prep counts down from its read. */
+/** When the open strike falls due, the room must be read again. */
+export function drawDeadline(state: RoomSync): number | null {
+  const due = state.value.view.resolutionDraw?.turn?.dueAt;
+  return due ? Date.parse(due) : null;
+}
+
+/** The nearest time-derived change: the strike due instant or the prep end. */
+export function roomDeadline(state: RoomSync): number | null {
+  const deadlines = [prepDeadline(state), drawDeadline(state)].filter(
+    (at): at is number => at !== null,
+  );
+  return deadlines.length ? Math.min(...deadlines) : null;
+}
+
 export function presentedView(state: RoomSync, now: number): RoomView {
   const { view } = state.value;
   const remaining = runningPrep(view);

@@ -9,9 +9,15 @@ import { CommandForm } from './assembly-readiness';
 
 function prepState(view: RoomView): string {
   const config = view.config.preRoundPrep;
-  if (!config.enabled) return 'Off';
+  const draw = view.config.resolutionDraw.enabled;
+  if (!config.enabled)
+    return draw
+      ? 'Strike from the drawn resolutions, then start the round'
+      : 'Off';
   if (!view.prep.startedAt)
-    return `Optional · ${clockDuration(config.durationMs)} for both sides`;
+    return draw
+      ? `${clockDuration(config.durationMs)} for both sides, starting when the resolution is chosen`
+      : `Optional · ${clockDuration(config.durationMs)} for both sides`;
   if (view.prep.finished) return 'Done';
   return view.prep.remainingMs === null
     ? 'Under way'
@@ -49,7 +55,9 @@ export function RoomPrep({
     >
       <div className="min-w-0 flex-1">
         <h3 id="room-prep-title" className="text-sm font-semibold">
-          Prep before the round
+          {view.config.preRoundPrep.enabled
+            ? 'Prep before the round'
+            : 'Resolution strike'}
         </h3>
         <p role="status" className="text-sm text-ink-muted tabular-nums">
           {prepState(view)}
@@ -59,7 +67,13 @@ export function RoomPrep({
         Prep library
       </Link>
       {view.capabilities.canStartPreRound
-        ? command('start-pre-round', 'Start prep', commandIds.start)
+        ? command(
+            'start-pre-round',
+            view.config.resolutionDraw.enabled
+              ? 'Draw the resolutions'
+              : 'Start prep',
+            commandIds.start,
+          )
         : null}
       {view.capabilities.canFinishPrep
         ? command('finish-prep', 'End prep', commandIds.finish)

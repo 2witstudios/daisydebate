@@ -7,6 +7,7 @@ import { AssemblyCommandFields } from './assembly-command-fields';
 import { AssemblyCommandForm } from './assembly-command-form';
 import { ROOM_SETUP_HREF, roomMeta, roomStatus } from './room-labels';
 import { RoomInvite } from './room-invite';
+import { drawnTopicLabel } from '../../../features/debate-room/vocabulary';
 
 /** The resolution, labelled as such: the statement the two sides debate. */
 export function RoomResolution({
@@ -38,9 +39,15 @@ export function RoomResolution({
           </a>
         ) : null}
       </div>
-      <p className="font-display text-2xl leading-tight font-semibold wrap-anywhere">
-        {view.topic}
-      </p>
+      {view.topic === null ? (
+        <p className="font-display text-2xl leading-tight text-ink-muted">
+          {drawnTopicLabel}
+        </p>
+      ) : (
+        <p className="font-display text-2xl leading-tight font-semibold wrap-anywhere">
+          {view.topic}
+        </p>
+      )}
       <p className="flex flex-wrap gap-x-5 gap-y-1 text-sm">
         <span>
           <span className="font-strong text-hue-sky">Affirmative</span>{' '}

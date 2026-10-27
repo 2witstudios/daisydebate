@@ -13,6 +13,11 @@ export type RoomCommandIds = {
     readonly 'start-round': string;
   };
   readonly prep: { readonly start: string; readonly finish: string };
+  /**
+   * One per strike ordinal: a form that a time-out made stale keeps its own
+   * identifier, so it is refused as a conflict, never replayed.
+   */
+  readonly strikes: readonly string[];
   readonly settings: string;
   /** Per declared seat, in `declaredSeats` order. */
   readonly seats: readonly {
@@ -40,6 +45,11 @@ export function roomCommandIds(
   };
   const prep = { start: nextId(), finish: nextId() };
   const settings = nextId();
+  const draw = view.config.resolutionDraw;
+  const strikes = Array.from(
+    { length: draw.enabled ? draw.drawSize - 1 : 0 },
+    () => nextId(),
+  );
   const { affirmative, negative, judge } = view.definition.seats;
   const seats = Array.from({ length: affirmative + negative + judge }, () => ({
     claim: nextId(),
@@ -47,5 +57,5 @@ export function roomCommandIds(
     remove: nextId(),
     ai: nextId(),
   }));
-  return { header, readiness, prep, settings, seats };
+  return { header, readiness, prep, strikes, settings, seats };
 }
