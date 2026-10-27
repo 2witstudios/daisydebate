@@ -1,4 +1,6 @@
 import { admitsCapability } from './participant-access';
+import { validResourceKind } from './authorization-resource-kind';
+import { operatorDecision, operatorResource } from './authorization-operator';
 export { accountEntitlements } from './account-entitlements';
 import { validChannelAuthority } from './authorization-channel-validation';
 import { reactionAssociationOwned } from './authorization-reaction';
@@ -57,41 +59,6 @@ const allow: AuthorizationDecision = { allow: true };
 
 const positiveRevision = (value: number) =>
   Number.isSafeInteger(value) && value > 0;
-function validResourceKind(
-  capability: AuthorizationCapability,
-  resource: AuthorizationInput['resource'],
-) {
-  const specialized = {
-    'channel.group.result': 'group_command_result',
-    'channel.group.invite': 'group_invitation_creation',
-    'channel.reaction.remove': 'channel_reaction',
-    'channel.preferences.clear': 'channel_preference',
-    'channel.inbox.read': 'messaging_collection',
-    'social.friend.list': 'messaging_collection',
-    'member.history.read': 'member_history',
-    'channel.file.cleanup': 'pending_file',
-  } as const;
-  const kind = specialized[capability as keyof typeof specialized];
-  if (kind) return resource.kind === kind;
-  if (capability.startsWith('channel.invitation.'))
-    return resource.kind === 'group_invitation';
-  if (capability === 'social.block' || capability.startsWith('social.friend.'))
-    return resource.kind === 'contact_pair';
-  if (
-    ['social.request.create', 'channel.create.private_group'].includes(
-      capability,
-    )
-  )
-    return resource.kind === 'social_creation';
-  if (capability.startsWith('foundation.'))
-    return resource.kind === 'foundation';
-  if (capability.startsWith('round.')) return resource.kind === 'round';
-  if (['room.create', 'room.list'].includes(capability))
-    return resource.kind === 'room_collection';
-  return (
-    resource.kind === (capability.startsWith('room.') ? 'room' : 'channel')
-  );
-}
 type UserPrincipal = Extract<AuthorizationPrincipal, { kind: 'user' }>;
 function boundMember(
   principal: UserPrincipal,
@@ -170,6 +137,28 @@ function channelDecision(
     return allow;
   return channelMutation(capability, resource, context);
 }
+/**
+ * Requests a service principal answers, or that address operator
+ * resources (ADR 0079); null routes the request to the member decision.
+ */
+function serviceRoute(
+  principal: AuthorizationPrincipal,
+  capability: AuthorizationCapability,
+  resource: AuthorizationInput['resource'],
+  context: AuthorizationInput['context'],
+): AuthorizationDecision | null {
+  if (principal.kind === 'operator_service' || operatorResource(resource))
+    return operatorDecision(principal, capability, context);
+  return principal.kind === 'service'
+    ? serviceDecision(principal, capability, resource)
+    : null;
+}
+const nonMemberResource = (
+  resource: AuthorizationInput['resource'],
+): resource is Extract<
+  AuthorizationInput['resource'],
+  { kind: 'foundation' | 'account' | 'account_collection' }
+> => resource.kind === 'foundation' || operatorResource(resource);
 function serviceDecision(
   principal: Extract<AuthorizationPrincipal, { kind: 'service' }>,
   capability: AuthorizationCapability,
@@ -194,9 +183,9 @@ export function authorize({
   )
     return deny('denied');
   if (context.account?.erased) return deny('account-erased');
-  if (principal.kind === 'service')
-    return serviceDecision(principal, capability, resource);
-  if (resource.kind === 'foundation') return deny('missing-capability');
+  const serviceRouted = serviceRoute(principal, capability, resource, context);
+  if (serviceRouted) return serviceRouted;
+  if (nonMemberResource(resource)) return deny('missing-capability');
   if (principal.kind !== 'user') return deny('unauthenticated');
   if (!admittedMember(principal, capability, context.account))
     return deny('missing-capability');
@@ -222,7 +211,14 @@ function resolveMemberResource(
   capability: AuthorizationCapability,
   resource: Exclude<
     AuthorizationInput['resource'],
-    { kind: 'foundation' | 'channel_reaction' | 'member_history' }
+    {
+      kind:
+        | 'foundation'
+        | 'account'
+        | 'account_collection'
+        | 'channel_reaction'
+        | 'member_history';
+    }
   >,
   context: AuthorizationInput['context'],
 ):
@@ -264,7 +260,10 @@ function resolveMemberResource(
 function memberDecision(
   actorId: string,
   capability: AuthorizationCapability,
-  resource: Exclude<AuthorizationInput['resource'], { kind: 'foundation' }>,
+  resource: Exclude<
+    AuthorizationInput['resource'],
+    { kind: 'foundation' | 'account' | 'account_collection' }
+  >,
   context: AuthorizationInput['context'],
 ): AuthorizationDecision {
   // A member's private history is theirs alone (ISSUE-600).

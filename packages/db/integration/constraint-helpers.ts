@@ -8,7 +8,7 @@ import { createId } from '@paralleldrive/cuid2';
 import { createDatabase } from '../src';
 import { createTestOnlyOperations } from '../src/test-only-operations';
 import { removeUnowedBetaDigests } from '../src/beta-access-testing';
-import { buildDebateTopic } from '@daisy/protocol';
+import { buildDebateTopic, buildUserInboxTopic } from '@daisy/protocol';
 
 type PostgresFailure = { errno?: unknown; constraint?: unknown };
 
@@ -246,6 +246,11 @@ export class Fixture {
     for (const roundId of this.tracked.get('rounds') ?? [])
       await this
         .sql`delete from outbox where topic=${buildDebateTopic(roundId)}`;
+    // A beta revocation or session end pushes a control row to the actor's
+    // inbox topic (ADR 0075); it goes with the fixture's actors too.
+    for (const actorId of this.tracked.get('actors') ?? [])
+      await this
+        .sql`delete from outbox where topic=${buildUserInboxTopic(actorId)}`;
     // Documents are created through the adapter, never inserted here, and
     // they RESTRICT their owner. Clearing them by owner means every document
     // a fixture's actors own goes with the fixture, however it was written.
