@@ -6,7 +6,11 @@ import {
   type Section,
   type SecurityView,
 } from '../../features/security/sections';
-import type { Row, SecurityStore } from '../../features/security/store';
+import type {
+  CoverageRows,
+  Row,
+  StoreRead,
+} from '../../features/security/store';
 import {
   coverageBounds,
   coverageOf,
@@ -100,23 +104,16 @@ const retentionText: Readonly<Record<Coverage['retention'], string>> = {
 };
 
 /** Coverage first: zero events never reads as a healthy pipeline. */
-async function CoverageBanner({
-  store,
+function CoverageBanner({
+  read,
   now,
 }: {
-  readonly store: SecurityStore;
+  readonly read: StoreRead<CoverageRows>;
   readonly now: string;
 }) {
-  const read = await store.coverage(coverageBounds(now));
   if (read.kind === 'unreachable') return unreachable;
-  const { heartbeat, apps, flow, oldest, lastSweep } = read.value;
-  const coverage = coverageOf({
-    now,
-    heartbeat: heartbeat as Parameters<typeof coverageOf>[0]['heartbeat'],
-    flow: flow as Parameters<typeof coverageOf>[0]['flow'],
-    oldest: oldest as Parameters<typeof coverageOf>[0]['oldest'],
-    lastSweep,
-  });
+  const { apps, lastSweep } = read.value;
+  const coverage = coverageOf({ now, ...read.value });
   return (
     <section aria-label="Coverage" data-testid="coverage">
       <p className={coverage.shipper === 'live' ? 'badge-ok' : 'badge-bad'}>
@@ -175,15 +172,16 @@ export default async function SecurityPage({
       </>
     );
   const now = systemClock.now();
-  const result = await security.view(
-    query.view,
-    windowBounds(now, query.window),
-  );
+  // Two chains at once, each one query at a time inside the store.
+  const [result, coverage] = await Promise.all([
+    security.view(query.view, windowBounds(now, query.window)),
+    security.coverage(coverageBounds(now)),
+  ]);
   return (
     <>
       {nav}
       <h1>Security</h1>
-      <CoverageBanner store={security} now={now} />
+      <CoverageBanner read={coverage} now={now} />
       <nav aria-label="Security views">
         {securityViews.map((view) => (
           <Link

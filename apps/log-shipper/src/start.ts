@@ -56,8 +56,15 @@ for (const { subject, queue } of subscriptionsFor(config.SHIPPER_APPS))
 logger.log('logship.started', {}, 'Log shipper started');
 
 let stopping = false;
+// Resolves on SIGTERM or SIGINT, so a backoff sleep of up to 30 s never
+// eats the shutdown budget before the drain.
+let wake: () => void = () => undefined;
+const stopped = new Promise<void>((resolve) => {
+  wake = resolve;
+});
 const stop = () => {
   stopping = true;
+  wake();
   setTimeout(() => process.exit(0), SHUTDOWN_DEADLINE_MS).unref();
 };
 process.once('SIGTERM', stop);
@@ -73,7 +80,8 @@ const beat = async () => {
 let delay = FLUSH_INTERVAL_MS;
 let lastBeat = 0;
 while (!stopping) {
-  await Bun.sleep(delay);
+  await Promise.race([Bun.sleep(delay), stopped]);
+  if (stopping) break;
   const result = await flush({ buffer, sink, logger, maxBatch: MAX_BATCH });
   delay =
     result === 'failed'

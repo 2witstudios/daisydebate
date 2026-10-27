@@ -96,6 +96,7 @@ describe('admitLogLine', () => {
       [line({ ...base, event: 42 }), 'event'],
       [line({ ...base, level: 30 }), 'level'],
       [line({ ...base, time: 'yesterday' }), 'base'],
+      [line({ ...base, time: 9_000_000_000_000_000 }), 'base'],
       [line({ ...base, service: 'web service' }), 'base'],
       [line({ ...base, gitCommit: undefined }), 'base'],
       [line({ ...base, email: 'someone@example.com' }), 'field'],
@@ -105,7 +106,7 @@ describe('admitLogLine', () => {
     ];
     assert({
       given:
-        'malformed JSON, an unregistered event, a wrong level, a bad base field or a field outside the allowlist',
+        'malformed JSON, an unregistered event, a wrong level, a bad base field (a time past the Date range included) or a field outside the allowlist',
       should: 'drop the whole line with its reason',
       actual: cases.map(([text]) => {
         const result = admitLogLine(text);

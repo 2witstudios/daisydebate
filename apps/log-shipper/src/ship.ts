@@ -8,7 +8,8 @@ import { toEventRow, type EventRow } from './rows';
  * Why a stream record was not stored (ADR 0084): the logger's own reasons,
  * plus an oversized record, a malformed envelope, one that disagrees with
  * its subject (`placement`), an app outside the configured list, a source
- * time too far from receipt, and a full buffer. A record is never kept in any raw form.
+ * time too far from receipt, a full buffer, and a record whose handling
+ * threw (`unexpected`, a defect). A record is never kept in any raw form.
  */
 export type ShipDropReason =
   | DropReason
@@ -17,7 +18,8 @@ export type ShipDropReason =
   | 'placement'
   | 'app'
   | 'time'
-  | 'backpressure';
+  | 'backpressure'
+  | 'unexpected';
 export type DropRow = {
   readonly minute: string;
   readonly app: string;
@@ -40,6 +42,9 @@ export type Sink = {
     token: string,
   ) => Promise<void>;
 };
+
+/** Stateless when called without `{ stream: true }`, so one serves every record. */
+const decoder = new TextDecoder();
 
 /** Fly's record ceiling here, checked before any byte is decoded. */
 export const MAX_RECORD_BYTES = 16_384;
@@ -82,7 +87,7 @@ export function classify({
   if (!placement) return drop('unknown', 'app');
   const { app } = placement;
   if (data.byteLength > MAX_RECORD_BYTES) return drop(app, 'size');
-  const record = parseEnvelope(new TextDecoder().decode(data));
+  const record = parseEnvelope(decoder.decode(data));
   if (!record) return drop(app, 'envelope');
   if (!samePlacement(record, placement)) return drop(app, 'placement');
   const admitted = admitLogLine(record.message);
@@ -181,8 +186,18 @@ export function createShipBuffer({
     tallies.set(key, tally);
   };
   return {
+    /**
+     * Never throws: it runs inside the NATS client's reader loop, which
+     * would stop reading for good on a throw while the connection still
+     * reports itself connected.
+     */
     receive(subject: string, data: Uint8Array) {
-      const result = classify({ subject, data, apps, receivedAt: clock.now() });
+      let result: Classified;
+      try {
+        result = classify({ subject, data, apps, receivedAt: clock.now() });
+      } catch {
+        result = drop('unknown', 'unexpected');
+      }
       if (result.kind === 'drop') count(result.app, result.reason);
       else if (held() >= capacity || bytes + result.bytes > maxBytes)
         count(String(result.row.app), 'backpressure');

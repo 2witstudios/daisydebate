@@ -1,4 +1,5 @@
 import { createClient } from '@clickhouse/client-web';
+import { z } from 'zod';
 import { coverageSql, sections, type SecurityView } from './sections';
 
 /** The read-only role ADR 0084 grants SELECT on `daisy_logs` and nothing else. */
@@ -16,6 +17,26 @@ export type StoreRead<T> =
   { readonly kind: 'ok'; readonly value: T } | { readonly kind: 'unreachable' };
 
 export type SecurityStore = ReturnType<typeof createSecurityStore>;
+
+/**
+ * The coverage rows are parsed, not cast: a malformed heartbeat must never
+ * read as a live shipper. Any row outside these shapes makes the read
+ * `unreachable`.
+ */
+const chTimeText = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d{1,3})?$/);
+const count = z.union([z.string().regex(/^\d+$/), z.number().int().min(0)]);
+export const coverageSchema = z.object({
+  heartbeat: z
+    .object({ at: chTimeText, nats_state: z.string(), reconnects: count })
+    .nullable(),
+  apps: z.array(z.object({ app: z.string(), last_received: chTimeText })),
+  flow: z.array(z.object({ app: z.string(), admitted: count, dropped: count })),
+  oldest: z.array(z.object({ store: z.string(), oldest: chTimeText })),
+  lastSweep: chTimeText.nullable(),
+});
+export type CoverageRows = z.infer<typeof coverageSchema>;
 
 /**
  * Reads the Security page's sections and coverage through the reader role.
@@ -74,13 +95,13 @@ export function createSecurityStore(config: LogStoreConfig) {
             [coverageSql.oldest, {}],
             [coverageSql.sweep, { floor: bounds.floor }],
           ]);
-        return {
+        return coverageSchema.parse({
           heartbeat: heartbeat[0] ?? null,
           apps,
           flow,
           oldest,
-          lastSweep: (sweep[0]?.last_sweep as string | undefined) ?? null,
-        };
+          lastSweep: sweep[0]?.last_sweep ?? null,
+        });
       }),
   };
 }

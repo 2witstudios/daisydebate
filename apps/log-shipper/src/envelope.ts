@@ -12,10 +12,14 @@ export type FlyLogRecord = {
   readonly message: string;
 };
 
-const name = z.string().regex(/^[a-z0-9][a-z0-9-]{0,62}$/);
+/** A Fly app name; the configured app list uses the same schema. */
+export const flyAppName = z.string().regex(/^[a-z0-9][a-z0-9-]{0,62}$/);
 const envelopeSchema = z.object({
   fly: z.object({
-    app: z.object({ name, instance: z.string().regex(/^[a-z0-9]{1,32}$/) }),
+    app: z.object({
+      name: flyAppName,
+      instance: z.string().regex(/^[a-z0-9]{1,32}$/),
+    }),
     region: z.string().regex(/^[a-z]{3}$/),
   }),
   message: z.string(),

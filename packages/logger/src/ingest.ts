@@ -54,6 +54,9 @@ const parseObject = (line: string): Record<string, unknown> | null => {
   }
 };
 
+/** The largest instant a JavaScript Date can hold (ECMA-262 §21.4.1.1). */
+const MAX_DATE_MS = 8_640_000_000_000_000;
+
 const validBase = ({
   time,
   service,
@@ -62,6 +65,7 @@ const validBase = ({
 }: Record<string, unknown>) =>
   Number.isSafeInteger(time) &&
   (time as number) >= 0 &&
+  (time as number) <= MAX_DATE_MS &&
   [service, appVersion, gitCommit].every(baseValue);
 
 /** Every non-envelope key as a loggable field of its kind, or null. */

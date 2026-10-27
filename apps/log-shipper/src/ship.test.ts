@@ -124,6 +124,32 @@ describe('ship buffer', () => {
     });
   });
 
+  test('never throws into the NATS reader loop', () => {
+    const buffer = createShipBuffer({
+      apps,
+      capacity: 10,
+      maxBytes: 1_000_000,
+      clock: {
+        now: () => {
+          throw new RangeError('Invalid time value');
+        },
+      },
+      ids: sequentialId('batch'),
+    });
+    let threw = false;
+    try {
+      buffer.receive(subject, valid);
+    } catch {
+      threw = true;
+    }
+    assert({
+      given: 'a record whose handling throws',
+      should: 'count it as unexpected instead of throwing',
+      actual: { threw, pending: buffer.pendingTallies() },
+      expected: { threw: false, pending: 1 },
+    });
+  });
+
   test('stays bounded through a long outage', () => {
     const buffer = bufferOf(5, 1_000_000);
     for (let index = 0; index < 1_000; index += 1) {
