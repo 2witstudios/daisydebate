@@ -32,6 +32,9 @@ export async function reachExpiredLink(
 ): Promise<string> {
   const { email, link } = await requestConfirmLink(page, request);
   await confirmSignIn(page, link);
+  // The click may finish before redemption does. Leaving now can abort the
+  // POST, so the revisit would redeem a fresh token instead of an expired one.
+  await page.waitForURL(/\/onboarding\/username$/);
   await page.context().clearCookies();
   await gotoWithTheme(page, link, theme);
   await page.getByRole('button', { name: 'Sign in to Daisy Debate' }).click();
