@@ -77,7 +77,7 @@ test('a debater without the coaching entitlement keeps the whole official ballot
       'show both official ballots with their feedback for the debater and the transcript, and no coaching section',
     actual: [
       html.includes('Official decision · AI judge'),
-      html.includes('Feedback for you from the ai judge'),
+      html.includes('Feedback for you from the AI judge'),
       html.includes(aiFeedback),
       html.includes('Weigh earlier.'),
       html.includes('Show the transcript'),
