@@ -3,13 +3,16 @@ import { requireTestServices } from '@daisy/config';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createDatabase } from '../src';
 import { withFixture } from './constraint-helpers';
+import { createAuthorizationSubject } from './authorization.test-support';
+import { authoredRoundCommand } from './round-command.test-support';
 setupRitewayBun();
 const { databaseUrl: url } = requireTestServices(process.env);
 const instant = '2026-10-07T12:00:00.000Z';
 
 test('Round lifecycle samples after lock acquisition and survives a delayed write exactly', async () => {
   await withFixture(url, async (fixture) => {
-    const roundId = await fixture.round();
+    const { actorId } = await createAuthorizationSubject(fixture);
+    const roundId = await fixture.round({ created_by_actor_id: actorId });
     const database = createDatabase({ url, nextActorId: createId });
     const blocker = await fixture.sql.reserve();
     const callbackEntered = Promise.withResolvers<string>();
@@ -22,7 +25,7 @@ test('Round lifecycle samples after lock acquisition and survives a delayed writ
     await fixture.sql.unsafe(
       `create trigger ${trigger} before update on rounds for each row when (new.id = '${roundId}') execute function ${trigger}()`,
     );
-    let operation: Promise<void> | undefined;
+    let operation: Promise<unknown> | undefined;
     try {
       await blocker.unsafe('select pg_advisory_lock(hashtextextended($1, 0))', [
         roundId,
@@ -31,11 +34,9 @@ test('Round lifecycle samples after lock acquisition and survives a delayed writ
       await blocker.unsafe('select id from rounds where id = $1 for update', [
         roundId,
       ]);
-      operation = database.applyRoundExecution({
-        roundId,
-        expectedVersion: 1,
-        command: null,
-        buildProjection: (now) => {
+      operation = database.executeRoundCommand({
+        ...authoredRoundCommand({ roundId, actorId }, 1),
+        buildProjection: ({ now }) => {
           callbackEntered.resolve(now);
           return {
             round: {
@@ -121,15 +122,18 @@ test('Round lifecycle samples after lock acquisition and survives a delayed writ
 
 test('a scheduled forfeit persists abandonment without a start instant or ballot', async () => {
   await withFixture(url, async (fixture) => {
-    const roundId = await fixture.round();
+    const { actorId } = await createAuthorizationSubject(fixture);
+    const roundId = await fixture.round({ created_by_actor_id: actorId });
+    const participant = await fixture.seat(roundId, 'affirmative', 0, actorId);
     const database = createDatabase({ url, nextActorId: createId });
     try {
       const before = await database.getRound(roundId);
       if (!before) throw new Error('the scheduled round did not hydrate');
-      await database.applyRoundExecution({
-        roundId,
-        expectedVersion: before.version,
-        command: null,
+      await database.executeRoundCommand({
+        ...authoredRoundCommand({ roundId, actorId }, before.version, {
+          type: 'forfeit',
+          participantId: participant.id,
+        }),
         buildProjection: () => ({
           round: {
             status: 'abandoned',

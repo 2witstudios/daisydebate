@@ -301,13 +301,15 @@ export const withFixture = async (
 export const roundAuthoring = async (fixture: Fixture, url: string) => {
   const formatId = await fixture.format();
   const roundId = createId();
+  const actorId = await fixture.actor();
+  await fixture.sql`update users set email_verified=true where id=(select user_id from actors where id=${actorId})`;
   // Tracked before the row exists: the caller creates the round through the
   // adapter, so this is the only record the purge gets. Deleting the round
   // cascades to its participants, segments, commands and refs.
   fixture.track('rounds', roundId);
   return {
     roundId,
-    actorId: await fixture.actor(),
+    actorId,
     formatId,
     rules: validRules,
     database: createDatabase({ url, nextActorId: createId }),
@@ -322,7 +324,7 @@ export const createScheduledRound = async (
 ): Promise<void> => {
   await authoring.database.createRound({
     id: authoring.roundId,
-    createdByActorId: null,
+    createdByActorId: authoring.actorId,
     resolution,
     competitionType: 'casual',
     formatId: authoring.formatId,

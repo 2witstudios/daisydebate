@@ -232,10 +232,8 @@ test('one write closes a speech and opens the next under the one-open-row index'
     };
     const database = createDatabase({ url, nextActorId: createId });
     try {
-      await database.applyRoundExecution({
+      await database.executeRoundTick({
         roundId,
-        expectedVersion: 1,
-        command: null,
         buildProjection: () => projection,
       });
       const rows = (await fixture.sql.unsafe(
