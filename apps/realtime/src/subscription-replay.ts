@@ -4,7 +4,7 @@ import {
   encodeOutboxCursor,
   type OutboxPosition,
   type OutboxRow,
-} from '@daisy/db';
+} from '@daisy/db/outbox';
 import { ENVELOPE_VERSION } from '@daisy/protocol';
 import { createAuthorityLease } from './authority-lease';
 import {

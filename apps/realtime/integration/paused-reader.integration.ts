@@ -5,7 +5,7 @@ import {
   PROTOCOL_VERSION,
   type ServerMessage,
 } from '@daisy/protocol';
-import { encodeOutboxCursor } from '@daisy/db';
+import { encodeOutboxCursor } from '@daisy/db/outbox';
 import type { SocketData } from '../src/socket';
 import {
   socketAuthorityFixture,

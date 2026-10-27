@@ -1,14 +1,7 @@
 import { z } from 'zod';
 import { idSchema } from '../primitives';
 import { messagingTextSchema } from './core';
-import { parseUsername } from '../username';
-
-const recipientUsername = z.string().transform((value, context) => {
-  const parsed = parseUsername(value);
-  if (parsed.ok) return parsed.username;
-  context.addIssue({ code: 'custom', message: 'Invalid username' });
-  return z.NEVER;
-});
+import { usernameSchema as recipientUsername } from '../username';
 
 export type MessagingSocialBounds = Readonly<{
   introductionUnits: number;

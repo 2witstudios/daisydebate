@@ -1,5 +1,5 @@
 import { assert, setupRitewayBun, test } from 'riteway/bun';
-import { OUTBOX_ORIGIN } from '@daisy/db';
+import { OUTBOX_ORIGIN } from '@daisy/db/outbox';
 import { serveRealtime } from './serve';
 import { fakeApp } from './serve.test-support';
 import { deferred } from './outbox-drain.test-support';

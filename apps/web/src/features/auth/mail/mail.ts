@@ -84,7 +84,7 @@ export function createResendSender({
   };
   return {
     async send(message) {
-      const idempotencyKey = ids.next();
+      const idempotencyKey = message.idempotencyKey ?? ids.next();
       const started = elapsed();
       const remaining = () => timeoutMs - (elapsed() - started);
       try {

@@ -34,4 +34,21 @@ describe('ProfileActions', () => {
       expected: [true, false],
     });
   });
+
+  test('actions toward another member', () => {
+    const toward = (me: boolean) =>
+      renderToString(
+        h(
+          ProfileActions,
+          { username: 'debater-a', me },
+          h('button', null, 'Add friend'),
+        ),
+      ).includes('Add friend');
+    assert({
+      given: 'actions toward the member on their profile and on your own',
+      should: 'show them only on someone else’s profile',
+      actual: [toward(false), toward(true)],
+      expected: [true, false],
+    });
+  });
 });

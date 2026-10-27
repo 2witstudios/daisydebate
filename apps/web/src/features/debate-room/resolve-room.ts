@@ -1,4 +1,5 @@
-import type { Database, NewRoom } from '@daisy/db';
+import type { Database } from '@daisy/db';
+import type { NewRoom } from '@daisy/db/rooms';
 import { resolveRoomConfiguration } from '@daisy/debate-engine';
 import { createAppError, isAppError } from '@daisy/errors';
 import type { FormatDefinition, RoomConfig } from '@daisy/protocol';
