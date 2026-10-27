@@ -52,6 +52,7 @@ const harness = (
                   erased: false,
                   revision: 1,
                   beta: { state: 'approved', revision: 1 },
+                  ageBand: 'adult',
                 },
               ],
             },

@@ -126,3 +126,31 @@ test('premium spectators, host-only members and judges cannot read or generate c
     });
   }
 });
+
+test('premium entitlement cannot replace durable participant admission', () => {
+  const account = input.context.account!;
+  assert({
+    given: 'an approved premium debater without a durable age record',
+    should: 'deny coaching through canonical participant admission',
+    actual: authorize({
+      ...input,
+      capability: 'round.coaching.generate',
+      resource: {
+        kind: 'round',
+        roundId: 'round',
+        createdByActorId: account.actorId!,
+        visibility: 'public',
+        status: 'completed',
+        revision: 1,
+        participants: [
+          { actorId: account.actorId!, role: 'affirmative', slot: 0 },
+        ],
+      },
+      context: {
+        account: { ...account, ageBand: null },
+        entitlements: { coaching: true },
+      },
+    }).allow,
+    expected: false,
+  });
+});

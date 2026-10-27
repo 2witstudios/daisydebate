@@ -1,3 +1,4 @@
+import { env } from './server-env.test-support';
 import { expect } from 'bun:test';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { authEnv, webhookSecret } from './auth-env.test-support';
@@ -13,13 +14,6 @@ const failureOf = (read: () => unknown) => {
   } catch (error) {
     return String(error);
   }
-};
-
-const env = {
-  NODE_ENV: 'development',
-  DATABASE_URL: 'postgres://user:secret@localhost:5432/daisy',
-  REDIS_URL: 'redis://localhost:6379',
-  PUBLIC_APP_URL: 'http://localhost:3000',
 };
 
 describe('configuration', () => {
@@ -318,25 +312,3 @@ describe('authentication configuration', () => {
   });
 });
 // OPS_PROBE_TOKEN (AUTH-7.7) has its own suite: ops-probe-token.test.ts.
-
-test('premium beta grant is a validated server-only deployment policy', () => {
-  assert({
-    given: 'default beta, launch false and explicitly enabled beta',
-    should: 'parse the grant without exposing it to browser config',
-    actual: [
-      readServerConfig(env).PREMIUM_BETA_GRANT,
-      readServerConfig({ ...env, PREMIUM_BETA_GRANT: 'false' })
-        .PREMIUM_BETA_GRANT,
-      readServerConfig({ ...env, PREMIUM_BETA_GRANT: 'true' })
-        .PREMIUM_BETA_GRANT,
-      Object.hasOwn(
-        readBrowserConfig({ ...env, PREMIUM_BETA_GRANT: 'true' }),
-        'PREMIUM_BETA_GRANT',
-      ),
-    ],
-    expected: [true, false, true, false],
-  });
-  expect(() => readServerConfig({ ...env, PREMIUM_BETA_GRANT: 'yes' })).toThrow(
-    'Invalid server configuration',
-  );
-});

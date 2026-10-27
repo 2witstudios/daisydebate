@@ -1,12 +1,9 @@
-<<<<<<< HEAD
 import { admitsCapability } from './participant-access';
-=======
 export { accountEntitlements } from './account-entitlements';
->>>>>>> 38a97acd (feat(coaching): authorize beta premium before generation and reads (ISSUE-664))
 import { validChannelAuthority } from './authorization-channel-validation';
 import { reactionAssociationOwned } from './authorization-reaction';
 import { preferenceClearAllowed } from './authorization-preferences';
-import { roomAllowed, roundReadable } from './authorization-room';
+import { roomAllowed, roundAllowed } from './authorization-room';
 import { groupInvitationCreationAllowed } from './authorization-group-invite';
 import { groupSafetyAllowed } from './authorization-group-safety';
 import { groupCommandResultAllowed } from './authorization-group-result';
@@ -88,8 +85,7 @@ function validResourceKind(
     return resource.kind === 'social_creation';
   if (capability.startsWith('foundation.'))
     return resource.kind === 'foundation';
-  if (capability === 'round.read' || capability.startsWith('round.coaching.'))
-    return resource.kind === 'round';
+  if (capability.startsWith('round.')) return resource.kind === 'round';
   if (['room.create', 'room.list'].includes(capability))
     return resource.kind === 'room_collection';
   return (
@@ -290,19 +286,8 @@ function memberDecision(
   );
   if ('allow' in resolved) return resolved;
   if (!positiveRevision(resolved.revision)) return deny('denied');
-  if (resolved.kind === 'round') {
-    if (capability.startsWith('round.coaching.'))
-      return decision(
-        context.entitlements?.coaching === true &&
-          resolved.status === 'completed' &&
-          resolved.participants.some(
-            (p) =>
-              p.actorId === actorId &&
-              ['affirmative', 'negative'].includes(p.role),
-          ),
-      );
-    return decision(roundReadable(actorId, resolved));
-  }
+  if (resolved.kind === 'round')
+    return decision(roundAllowed(actorId, capability, resolved, context));
   return resolved.kind === 'room'
     ? decision(roomAllowed(actorId, capability, resolved))
     : channelDecision(actorId, capability, resolved, context);
