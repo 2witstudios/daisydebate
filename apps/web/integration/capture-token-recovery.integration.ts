@@ -2,16 +2,25 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { assertRejects } from '@daisy/errors/testing';
 import { requireTestServices } from '@daisy/config';
 import { createId } from '@paralleldrive/cuid2';
-import { withMediaRound, captureWorkerScope } from './round-media.test-support';
+import {
+  withMediaRound,
+  captureWorkerScope,
+  captureOperations,
+} from './round-media.test-support';
 import { signedCaptureBroker } from './capture-token.test-support';
 setupRitewayBun();
 requireTestServices(process.env);
 
 test('a leased capture reaches recovery while unsafe, but never mints into unresolved admission', async () => {
   await withMediaRound(async (f) => {
-    const scope = { ...(await captureWorkerScope(f)), epoch: 1 };
+    const identity = await captureWorkerScope(f);
+    const lease = await captureOperations(f).claimMediaWorkerLease({
+      ...identity,
+      leaseMs: 30000,
+    });
+    const scope = { ...identity, epoch: lease.epoch };
     let holds = 0;
-    const { capture, broker, principal } = signedCaptureBroker(
+    const { broker, principal } = signedCaptureBroker(
       f,
       scope,
       async (sessionId, work) => {
@@ -19,7 +28,6 @@ test('a leased capture reaches recovery while unsafe, but never mints into unres
         return f.mediaOperations.holdForCapture(sessionId, work);
       },
     );
-    await capture.claimMediaWorkerLease({ ...scope, leaseMs: 30000 });
     await assertRejects({
       given: 'a signed worker claiming another worker identity',
       should: 'refuse before acquiring a recovery hold',
