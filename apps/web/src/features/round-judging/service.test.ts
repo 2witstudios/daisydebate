@@ -2,10 +2,7 @@ import { assert, setupRitewayBun, test } from 'riteway/bun';
 import { createAppError } from '@daisy/errors';
 import { createProviderCapacity } from '../round-bots/provider-capacity';
 import { startRoundJudgingService } from './service';
-import {
-  failureLog,
-  manualTimers,
-} from '../../lib/worker-timers.test-support';
+import { failureLog, manualTimers } from '../../lib/worker-timers.test-support';
 setupRitewayBun();
 test('judging renewal and discovery do not wait for a provider operation', async () => {
   const tasks = new Map<number, () => Promise<void>>();
