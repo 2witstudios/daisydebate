@@ -7,6 +7,7 @@ import { createRoundBotAdmission } from '../src/round-bot-admission';
 import {
   admissionSponsor,
   betaAllowance,
+  refusalMessage,
   testBotAdmission,
 } from './bot-admission.test-support';
 import { createBotSeat } from './bot-seat.test-support';
@@ -146,13 +147,15 @@ test('actual global capacity fails closed', async () => {
     const admission = testBotAdmission(run, 1);
     await createBotSeat(fixture, firstRound, 'negative');
     await admission.reserve({ actorId, roundId: firstRound });
-    await assertRejects({
+    assert({
       given:
         'another approved host with allowance but one occupied global slot',
-      should: 'refuse capacity without guessing settings',
-      actual: () =>
+      should:
+        'refuse capacity without guessing settings, as the bots-busy room refusal',
+      actual: await refusalMessage(() =>
         admission.reserve({ actorId: otherActor, roundId: secondRound }),
-      code: 'CONFLICT',
+      ),
+      expected: 'bots-busy',
     });
     assert({
       given: 'invalid capacity configuration',
@@ -195,12 +198,14 @@ test('capacity counts live bot-debater Rounds, not reservations (ISSUE-773)', as
       expected: firstRound,
     });
     await createBotSeat(fixture, unseated, 'affirmative');
-    await assertRejects({
+    assert({
       given:
         'a live bot-debater Round holding no reservation, as ranked play leaves it, at a cap of 1',
-      should: 'refuse the next AI Round for capacity',
-      actual: () => admission.reserve({ actorId, roundId: refused }),
-      code: 'CONFLICT',
+      should: 'refuse the next AI Round for capacity, as bots-busy',
+      actual: await refusalMessage(() =>
+        admission.reserve({ actorId, roundId: refused }),
+      ),
+      expected: 'bots-busy',
     });
     const status = await admission.readStatus(actorId);
     assert({
@@ -229,8 +234,14 @@ test('two bot-debater Rounds racing for the last capacity slot admit exactly one
         'one live bot-debater Round at a cap of 2 and two more bot-debater Rounds reserving concurrently',
       should:
         'serialize on the bot-admission lock and admit exactly one, refusing the other for capacity',
-      actual: [attempts.map((a) => a.status).sort(), n],
-      expected: [['fulfilled', 'rejected'], 1],
+      actual: [
+        attempts.map((a) => a.status).sort(),
+        attempts.flatMap((a) =>
+          a.status === 'rejected' ? [(a.reason as Error).message] : [],
+        ),
+        n,
+      ],
+      expected: [['fulfilled', 'rejected'], ['bots-busy'], 1],
     });
   });
 });

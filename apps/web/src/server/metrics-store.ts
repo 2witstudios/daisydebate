@@ -80,7 +80,7 @@ export type MetricsSnapshot = {
   >;
 };
 
-/** The network scopes `rate-limit.ts` limits: the only labels counted. */
+/** Mail purposes: the only `mail_delivery_failures_total` labels. */
 const MAIL_PURPOSES = [
   'auth',
   'beta-access',
@@ -88,6 +88,7 @@ const MAIL_PURPOSES = [
 type MailPurposeLabel = (typeof MAIL_PURPOSES)[number];
 const isMailPurpose = (value: unknown): value is MailPurposeLabel =>
   (MAIL_PURPOSES as readonly unknown[]).includes(value);
+/** The network scopes `rate-limit.ts` limits: the only labels counted. */
 const NETWORK_SCOPES = ['ipv6_56', 'ipv6_48', 'ipv4_24'] as const;
 type NetworkScopeLabel = (typeof NETWORK_SCOPES)[number];
 const isNetworkScope = (value: unknown): value is NetworkScopeLabel =>

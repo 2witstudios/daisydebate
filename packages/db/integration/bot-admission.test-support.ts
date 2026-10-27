@@ -54,3 +54,10 @@ export const withTwoRoundAdmission = (
     const admission = testBotAdmission(run);
     await work({ fixture, run, firstRound, secondRound, actorId, admission });
   });
+
+/** The refusal's message, which the Room answers as its refusal (`bots-busy`); null when it succeeds. */
+export const refusalMessage = (work: () => Promise<unknown>) =>
+  work().then(
+    () => null,
+    (error: Error) => error.message,
+  );
