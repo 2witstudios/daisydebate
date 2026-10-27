@@ -1,3 +1,6 @@
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 
 setupRitewayBun();
@@ -27,7 +30,8 @@ const runSweep = ({
         *) cat > /dev/null; ${failListing ? 'return 1' : `printf '%b' "$LISTING"`} ;;
       esac
     }`;
-  const log = `${process.env.TMPDIR ?? '/tmp'}/sweep-${crypto.randomUUID()}.log`;
+  const dir = mkdtempSync(join(tmpdir(), 'sweep-'));
+  const log = join(dir, 'calls.log');
   const result = Bun.spawnSync(
     [
       'bash',
@@ -37,7 +41,7 @@ const runSweep = ({
     { env: { ...process.env, LOG: log, LISTING: listing } },
   );
   const calls = Bun.spawnSync(['cat', log]).stdout.toString().trim();
-  Bun.spawnSync(['rm', '-f', log]);
+  rmSync(dir, { recursive: true, force: true });
   return {
     status: result.exitCode,
     drops: calls.split('\n').filter((line) => line === 'DROP').length,

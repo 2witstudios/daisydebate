@@ -77,7 +77,12 @@
     },
     "test:integration": {
       "cache": false,
-      "passThroughEnv": ["CLAMD_TEST_PORT"]
+      "passThroughEnv": [
+        "CLAMD_TEST_PORT",
+        "TEST_CLICKHOUSE_URL",
+        "TEST_CLICKHOUSE_SHIPPER_PASSWORD",
+        "TEST_CLICKHOUSE_READER_PASSWORD"
+      ]
     },
     "test:e2e": {
       "dependsOn": ["build"],
