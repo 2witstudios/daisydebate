@@ -82,7 +82,9 @@ export function createMediaReconcileRun(
             : seat.id === admission.scope.roundParticipantId &&
               seat.kind === 'bot',
         );
-        if (!seat?.eligible) throw createAppError('AUTHORIZATION');
+        // A human revoked after binding is refused here too (ISSUE-714).
+        if (!seat?.eligible || context.withdrawn.includes(seat.id))
+          throw createAppError('AUTHORIZATION');
       },
     );
   };

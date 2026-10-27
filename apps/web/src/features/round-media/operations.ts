@@ -152,8 +152,13 @@ export function createRoundMediaOperations(input: MediaOperationInput) {
       });
     });
     if (held.issued) return held.issued;
-    // The reconcile refused or cleaned up and never reached the issue.
-    if (admissionRevoked(await snapshot(roundId)))
+    // The reconcile refused or cleaned up and never reached the issue. Read
+    // as the human caller, so one revoked meanwhile is refused as such.
+    const after = await snapshot(
+      roundId,
+      principal.kind === 'human' ? principal.actorId : undefined,
+    );
+    if (admissionRevoked(after))
       throw createAppError('CONFLICT', 'Round media admission is closed');
     throw createAppError('INFRASTRUCTURE');
   };

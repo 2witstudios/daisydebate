@@ -61,11 +61,10 @@ async function currentFact(
 }
 
 /**
- * Authorizes a mutation now from the operator row read now; a denial is
- * audited, and the caller signs nothing. Returns the refusal detail, or
- * null when allowed.
+ * Whether the operator row read now may mutate: the refusal detail, or null
+ * when allowed. Nothing is audited here.
  */
-async function updateRefusal(
+async function refusalOf(
   deps: CommandDeps,
   operatorId: string,
 ): Promise<ReturnType<typeof deniedDetail> | null> {
@@ -77,7 +76,19 @@ async function updateRefusal(
         policy: currentApprovalPolicy,
       })
     : ({ allowed: false, reason: 'disabled' } as const);
-  if (decision.allowed) return null;
+  return decision.allowed ? null : deniedDetail(decision.reason);
+}
+
+/**
+ * Authorizes the acting operator's own mutation now; a denial is audited,
+ * and the caller signs nothing. Returns the refusal detail, or null.
+ */
+async function updateRefusal(
+  deps: CommandDeps,
+  operatorId: string,
+): Promise<ReturnType<typeof deniedDetail> | null> {
+  const refused = await refusalOf(deps, operatorId);
+  if (refused === null) return null;
   await record(
     deps,
     {
@@ -86,11 +97,11 @@ async function updateRefusal(
       commandId: null,
       targetUserId: null,
       outcome: null,
-      detail: deniedDetail(decision.reason),
+      detail: refused,
     },
     deps.clock.now(),
   );
-  return deniedDetail(decision.reason);
+  return refused;
 }
 
 const mayUpdate = async (deps: CommandDeps, operatorId: string) =>
@@ -203,7 +214,10 @@ async function resendOrAbandon(
   deps: CommandDeps,
   command: OpenCommand,
 ): Promise<Reconciled> {
-  const refused = await updateRefusal(deps, command.operatorId);
+  // Another owner's reconcile re-reads the original operator; that operator
+  // did not act, so no access.denied row is written under it. A close as
+  // abandoned records the reason itself.
+  const refused = await refusalOf(deps, command.operatorId);
   const inFlight =
     Date.parse(deps.clock.now()) - Date.parse(command.lastSignedAt) <
     ABANDON_AFTER_MS;
@@ -257,7 +271,11 @@ async function reconcileOne(
 
 export const RECONCILE_BATCH = 20;
 
-/** Settles what it can of the open commands; returns how many stay open. */
+/**
+ * Settles what it can of the open commands. `settled` counts what this
+ * caller recorded; `open` excludes every command now closed, including one
+ * a racing reconciler closed first.
+ */
 export async function reconcileOpenCommands(
   deps: CommandDeps,
   viewerId: string,
@@ -266,11 +284,14 @@ export async function reconcileOpenCommands(
   if (open.length === 0 || !(await mayUpdate(deps, viewerId)))
     return { settled: 0, open: open.length };
   let settled = 0;
+  let closed = 0;
   for (const command of open) {
     const reconciled = await reconcileOne(deps, command, viewerId);
     // An unreachable participant would time out every remaining call.
     if (reconciled.kind === 'unreachable') break;
-    if (reconciled.kind === 'settled' && reconciled.recorded) settled += 1;
+    if (reconciled.kind !== 'settled') continue;
+    closed += 1;
+    if (reconciled.recorded) settled += 1;
   }
-  return { settled, open: open.length - settled };
+  return { settled, open: open.length - closed };
 }

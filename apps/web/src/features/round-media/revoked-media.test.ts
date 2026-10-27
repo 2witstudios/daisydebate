@@ -63,3 +63,35 @@ test('a revoked human cannot mint a fresh media token (ISSUE-693, ISSUE-714)', a
     expected: 'AUTHORIZATION',
   });
 });
+
+test('a human revoked after binding never gets a vendor room created (ISSUE-714)', async () => {
+  const world = createMediaWorld();
+  const [affirmative] = world.seats;
+  const bind = world.input.store.ensureBinding;
+  // The revoke commits between the binding and the reconcile's create.
+  world.input.store.ensureBinding = (async (
+    ...args: Parameters<typeof bind>
+  ) => {
+    const bound = await bind(...args);
+    world.withdraw(affirmative.id);
+    return bound;
+  }) as typeof bind;
+  const operations = createRoundMediaOperations(world.input);
+  const outcome = await operations
+    .session(world.roundId, affirmative.actorId)
+    .then(
+      () => 'issued',
+      (error: { code?: string }) => error.code,
+    );
+  assert({
+    given:
+      'a human whose access is revoked after binding, before the room exists',
+    should: 'refuse the room creation and the token, and create nothing',
+    actual: {
+      outcome,
+      created: world.journal.filter((entry) => entry.startsWith('create')),
+      rooms: world.rooms.size,
+    },
+    expected: { outcome: 'AUTHORIZATION', created: [], rooms: 0 },
+  });
+});

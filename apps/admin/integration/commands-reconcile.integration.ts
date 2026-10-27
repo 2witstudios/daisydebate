@@ -81,7 +81,7 @@ test('a lost command whose operator is disabled is abandoned only once its PUT c
     given:
       'a command lost before it arrived, its operator then disabled, and a second owner reconciling inside and then past the window its PUT could still commit in',
     should:
-      'read it back as the viewer and never resend; keep it open while its PUT could still land, then close it as abandoned',
+      'read it back as the viewer and never resend; keep it open while its PUT could still land, then close it as abandoned without auditing a denial the operator never made',
     actual: [
       routes(stub),
       stub.received.every(
@@ -93,6 +93,8 @@ test('a lost command whose operator is disabled is abandoned only once its PUT c
       openWhileInFlight,
       settled,
       (await kinds(db)).filter((kind) => kind.includes('abandoned')),
+      // The disabled operator never acted, so no denial is audited under it.
+      (await kinds(db)).filter((kind) => kind.startsWith('access.denied')),
       await openCount(db),
     ],
     expected: [
@@ -103,6 +105,7 @@ test('a lost command whose operator is disabled is abandoned only once its PUT c
       1,
       { settled: 1, open: 0 },
       ['command.reconciled:abandoned:operator_disabled'],
+      [],
       0,
     ],
   });
@@ -157,13 +160,14 @@ test('racing reconcilers settle a command exactly once', async () => {
   assert({
     given: 'a response lost after it applied, then two concurrent reconcilers',
     should:
-      'record one reconciliation, close the command once, and count it once',
+      'record one reconciliation, close the command once, count it once, and report nothing open to either',
     actual: [
       reconciledRows,
       await openCount(db),
       results.reduce((sum, { settled }) => sum + settled, 0),
+      results.map(({ open }) => open),
     ],
-    expected: [['command.reconciled:changed:mail_queued'], 0, 1],
+    expected: [['command.reconciled:changed:mail_queued'], 0, 1, [0, 0]],
   });
 });
 
