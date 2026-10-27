@@ -38,6 +38,9 @@ export function createConnectionDiagnostics() {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
+    release() {
+      listeners.clear();
+    },
     emit(
       generation: number,
       phase: ConnectionDiagnostic['phase'],

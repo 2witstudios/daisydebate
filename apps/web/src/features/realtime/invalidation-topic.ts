@@ -37,14 +37,16 @@ export function attachInvalidationTopic({
     } else if (frame.type === 'subscribed') {
       refusals = 0;
       if (catchUpOnSubscribe) refresh(null);
-    } else if (frame.type === 'error' && frame.code === 'INFRASTRUCTURE') {
-      // The server could not decide authority for now; the read this error
-      // triggers proves authority again, then the topic resubscribes. Any
-      // other refusal (AUTHORIZATION, RATE_LIMIT) is final for this socket.
-      if (refusals < MAX_REFUSAL_RETRIES) {
-        refusals += 1;
-        resync = true;
-      }
+    } else if (frame.type === 'error') {
+      // INFRASTRUCTURE: the server could not decide authority for now; the
+      // read this error triggers proves authority again, then the topic
+      // resubscribes. Any other refusal (AUTHORIZATION, RATE_LIMIT), and an
+      // exhausted retry budget, is final for this socket: a pending recovery
+      // is cancelled so a later snapshot never resubscribes (RT-2.5c-arch1).
+      const retry =
+        frame.code === 'INFRASTRUCTURE' && refusals < MAX_REFUSAL_RETRIES;
+      if (retry) refusals += 1;
+      resync = retry;
     } else if (matches(frame)) refresh(frame);
   });
   const stopErrors = connection.onMessage((frame) => {

@@ -120,7 +120,6 @@ export function createSecondInstances(testApp: TestApp) {
       },
       limiter: overrides.limiter ? overrides.limiter(base) : base,
       ledger: noLedger,
-      appendSessionRevoked: async () => {},
       revokeOtherSessions: async () => 0,
       completeEmailChange: (input) => database.completeEmailChange(input),
       revokeSessionUnlessAddressHeld: (input) =>

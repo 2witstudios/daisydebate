@@ -14,8 +14,6 @@ const { databaseUrl: url } = requireTestServices(process.env);
 
 const migration = '20261027160753_frozen_transcript_guards';
 const scratch = scratchDatabase(url, 'frozenguardit');
-// Up to and including the guard folder: later folders add their own ledger rows.
-const throughGuard = (folder: string) => folder <= migration;
 
 afterAll(() => scratch.drop());
 
@@ -58,7 +56,9 @@ test(
         return refused;
       };
 
-      const refusal = await scratch.migrate(throughGuard).then(
+      // Up to this folder only: a later migration must not change its ledger.
+      const throughGuards = (folder: string) => folder <= migration;
+      const refusal = await scratch.migrate(throughGuards).then(
         () => 'applied',
         (error: unknown) => {
           const { message, cause } = error as Error & { cause?: Error };
@@ -85,9 +85,9 @@ test(
       // The adjudicated repair the preflight asks for; the predecessor guard
       // only refuses UPDATE, so this deletion is the operator's decision.
       await f.sql`delete from round_transcript_freezes where round_id=${mismatched.roundId}`;
-      await scratch.migrate(throughGuard);
+      await scratch.migrate(throughGuards);
       const installed = { ledger: await ledger(), guards: await guards() };
-      await scratch.migrate(throughGuard);
+      await scratch.migrate(throughGuards);
       const [freeze] =
         await f.sql`select frontier, completeness from round_transcript_freezes where round_id=${kept.roundId}`;
       assert({

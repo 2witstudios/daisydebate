@@ -68,7 +68,10 @@ it (`packages/protocol/src/realtime-payloads.ts`):
 - **Storage-only, never delivered as an `event` to any client**
   (storable through `isPayloadStorableOnTopic` only): the three `user:inbox` control kinds
   (`session.revoked`, `access.revoked`,
-  `actor.presence-preference-changed`), each an array of ids only. These
+  `actor.presence-preference-changed`), each an array of ids only
+  (`session.revoked` is `[actorId]` for an access-wide revocation or
+  `[actorId, sessionId]` when a session row was deleted, both category
+  `identifier`, retained with the outbox's 24-hour prune). These
   are durable rows the realtime service consumes internally to close
   sockets or re-project presence; they never ride a subscribed topic as an
   `event` message, so their exposure is narrower than the delivered kinds

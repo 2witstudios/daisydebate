@@ -50,9 +50,10 @@ export type SubscriptionTransport = {
     subscription: Subscription,
   ) => boolean;
   readonly nativeTopic: (connection: Connection, topic: string) => string;
+  /** Ends the stream and asks its subscriber, on its own request id, to reread. */
   readonly resync: (
     connection: Connection,
-    request: Pick<SubscribeRequest, 'id' | 'topic'>,
+    topic: string,
     sub: Subscription,
   ) => void;
 };
@@ -109,5 +110,17 @@ export async function readSubscriptionDecision(
   } catch (error) {
     failed(error);
     return AUTHORITY_UNAVAILABLE;
+  }
+}
+
+/** A periodic session check that fails to answer counts as invalid. */
+export async function principalValid(
+  connection: Connection,
+  validate: (principal: SocketPrincipal) => Promise<boolean>,
+) {
+  try {
+    return await validate(connection.principal);
+  } catch {
+    return false;
   }
 }

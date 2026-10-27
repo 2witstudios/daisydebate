@@ -40,7 +40,8 @@ export type ConnectionStoreDeps = {
   readonly url: string;
   readonly createSocket: (url: string) => WebSocketLike;
   readonly scheduler: Scheduler;
-  readonly fetchTicket: () => Promise<string>;
+  /** Aborted when the store is disposed, so a disposed store mints no ticket. */
+  readonly fetchTicket: (signal: AbortSignal) => Promise<string>;
   readonly random: () => number;
   /** Registers a visibility listener; the callback receives `true` when the
    * tab becomes visible. Returns an unsubscribe function. */
@@ -71,6 +72,11 @@ export type ConnectionStore = {
   readonly reportActivity: (activity: PresenceActivity) => void;
   /** User-initiated close (logout): closes the socket, never reconnects. */
   readonly close: () => void;
+  /**
+   * Final disposal: closes, then releases the document listeners and every
+   * state listener. Idempotent; the store cannot connect again.
+   */
+  readonly dispose: () => void;
   /**
    * A token refresh never reconnects a healthy socket: this is a documented
    * no-op seam, kept so callers have somewhere to report the refresh without

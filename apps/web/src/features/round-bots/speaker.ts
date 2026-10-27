@@ -1,5 +1,5 @@
 import type { BotPublicationScope } from '@daisy/db/bot-publication';
-import { isTransactionCapacityRefusal } from '@daisy/db';
+import { isTransactionCapacityRefusal } from '@daisy/db/capacity';
 import { isFinalBotSpeechRefusal } from '@daisy/db/bot-publication';
 import { createAppError, isAppError } from '@daisy/errors';
 import { publicationStopError, type PublicationStop } from '@daisy/media/audio';

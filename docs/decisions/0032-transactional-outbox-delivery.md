@@ -236,41 +236,36 @@ from the current position.
 Revocations are outbox rows, so every instance applies them durably. They
 are not best-effort HTTP.
 
-- **`session.revoked`** has two kinds of writer, split by whether a
-  Daisy-owned transaction wraps the delete (revision 4.7, from RT-2.2's
-  second review pass: main's AUTH-5.6 made the email-change session delete
-  Daisy-owned):
-  - The browser calls Better Auth's `/revoke-session` directly (AUTH-5.5);
-    no Daisy-owned transaction wraps that internal delete. The writer is a
-    Better Auth plugin registering `hooks.after` on it
-    (`apps/web/src/features/auth/sessions/session-revoked-outbox.ts`). The append is
-    **best-effort**, appended **after** the delete is confirmed, in its own
-    short transaction, never in the same transaction as the delete. A
-    failed append is logged as a registered structured event and never
-    fails the revocation, whose session delete has already committed. The
-    realtime service's 60 s session revalidation is the safety net, so the
-    kick is late by at most 60 s, never missed.
-  - Every revoke-all deletes through `@daisy/db`'s `revokeOtherSessions`,
-    Daisy's one serialized revoke-all (ISSUE-22): the email-change
-    completion (AUTH-5.6) and the self-service `/revoke-other-sessions` and
-    `/revoke-sessions`, which `revoke-sessions.ts` replaces under Better
-    Auth's own paths. It locks the user row, then deletes in one statement,
-    so a session committed while it runs cannot survive it
-    ([persistence](../architecture/persistence.md)). Because Daisy owns the
-    transaction here, the append happens in the **same transaction** as that
-    DELETE: a failed append rolls the DELETE back too. The email change
-    reports the cleanup step failed; the self-service endpoints report the
-    outage, so the person retries rather than believing they signed out
-    other devices. These are the `session.revoked` writers that are atomic
-    with their delete.
+- **`session.revoked`** has one writer: the database itself. An
+  `AFTER DELETE` statement trigger on `session`
+  (`daisy_session_revoked_control`, amended 2026-10-27, MSG-2.1-arch1)
+  appends `{ ids: [actorId, sessionId] }` on the actor's inbox topic in the
+  **same transaction** as every session delete: Better Auth's sign-out and
+  `/revoke-session`, Daisy's serialized revoke-all `revokeOtherSessions`
+  (ISSUE-22; the email-change completion and the self-service
+  `/revoke-other-sessions` and `/revoke-sessions`), the sign-in address
+  check and the restore purge. A session already past its expiry appends
+  nothing (realtime refuses it anyway), so the expiry sweep adds no rows; a
+  user with an actor cannot be deleted (`actors.user_id` RESTRICT), so the
+  only account deletion, of a provisional user, has no control to send. A failed append rolls the delete back, so a revocation can no
+  longer commit without its control. Every deleting route fails closed:
+  Better Auth 1.7.5's own `/sign-out` would log a failed delete and answer
+  200 with the cookie cleared, so `signOutFailsClosedPlugin` deletes the
+  session first and lets the failure reach the caller (ISSUE-719), and realtime closes exactly the
+  deleted session's sockets rather than every socket of the actor. A user
+  with no actor has no realtime presence and appends nothing. The trigger
+  runs as the deleting role (`SECURITY INVOKER`) and reads the actor without
+  locking, so it adds no privilege and no lock after the child delete.
+  Application code never appends `session.revoked` for a session delete;
+  the beta access revocation, which ends access without deleting a session,
+  still appends the actor-wide form `{ ids: [actorId] }` in its own command
+  transaction.
 
 - **`access.revoked`** is appended by the seat and visibility mutations:
   leaving a seat, removal from a debate, and a debate becoming private. The
   row is written in the mutation's own transaction.
-- **Better Auth's other internal session deletes** (expiry, sign-out and
-  any path that does not pass through these writers) append nothing. They are
-  bounded by the realtime service's 60 s session revalidation: a socket on a
-  deleted session is closed at the next revalidation at the latest.
+- The realtime service's periodic session revalidation remains the backstop
+  for anything else that ends a session's validity without deleting it.
 
 On `session.revoked` an instance closes the matching sockets with the
 revoked close code; on `access.revoked` it unsubscribes the actor from the

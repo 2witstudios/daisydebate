@@ -1,6 +1,7 @@
 import { spyOn } from 'bun:test';
 import { createId } from '@paralleldrive/cuid2';
 import { assert, setupRitewayBun, test } from 'riteway/bun';
+import { validRules } from '@daisy/db/testing';
 import { createDatabase } from '@daisy/db';
 import type { RecordedLogs } from '../src/features/auth/log-leaks';
 import { createAuthRouteHandlers } from '../src/features/auth/handlers';
@@ -82,15 +83,10 @@ test('pool lifecycle closes and the app failure boundary reports without SQL mat
       formatId: 'foundation',
       formatVersion: foundation?.version ?? 1,
       presetVersion: null,
-      // Resolved rules, so the failure is the author foreign key.
-      rules: foundation!.definition.segments.map((segment) => ({
-        key: segment.key,
-        label: segment.label,
-        type: segment.type,
-        side: segment.side,
-        slot: segment.slot,
-        durationMs: segment.defaultDurationMs,
-      })) as never,
+      // Rules the column accepts, so the driver itself refuses: the author
+      // foreign key. Invalid rules would be a VALIDATION answer instead,
+      // which is not a database failure (ISSUE-555).
+      rules: validRules,
     });
   } catch {
     foreignKeyRejected = true;

@@ -123,3 +123,6 @@ export {
 export { refuseCapacity } from './transaction-admission';
 export { eraseRoomDrawSubject } from './testing-room-draw';
 export { refuseFinalSpeech } from './bot-generation-rules';
+
+/** The database boundary's failure wrapper, for composing refusal telemetry across packages. */
+export { instrumented } from './instrumented';

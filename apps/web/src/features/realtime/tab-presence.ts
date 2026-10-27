@@ -58,10 +58,10 @@ export type TabPresence = ReturnType<typeof createTabPresence>;
  */
 export function keepPresenceConnection(
   tab: Pick<TabPresence, 'size' | 'subscribe'>,
-  open: () => Pick<ConnectionStore, 'connect' | 'close'>,
+  open: () => Pick<ConnectionStore, 'connect' | 'dispose'>,
   defer: (task: () => void) => void = queueMicrotask,
 ): () => void {
-  let own: Pick<ConnectionStore, 'connect' | 'close'> | null = null;
+  let own: Pick<ConnectionStore, 'connect' | 'dispose'> | null = null;
   let stopped = false;
   let pending = false;
   let syncing = false;
@@ -91,7 +91,7 @@ export function keepPresenceConnection(
       own = null;
       syncing = true;
       try {
-        closing.close();
+        closing.dispose();
       } finally {
         syncing = false;
       }
@@ -104,6 +104,6 @@ export function keepPresenceConnection(
     unsubscribe();
     const closing = own;
     own = null;
-    closing?.close();
+    closing?.dispose();
   };
 }
