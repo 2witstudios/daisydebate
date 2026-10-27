@@ -64,9 +64,8 @@ widths. Measured on `origin/main`:
 - A push made with the workflow token does not start CI (GitHub's rule
   against recursive runs), so the branch's next push, or a close and
   reopen of the pull request, runs the gates on the rebaselined head.
-- The bot commit moves the pull request head, so a review record for the
-  earlier head no longer covers it; rebaseline before the independent
-  review, or have the record name the new head.
+- The bot commit moves the pull request head; rebaseline before reviewers
+  start, so their comments refer to the head that merges.
 - Visual coverage of the removed surfaces is gone by choice; their
   behavior, accessibility and contrast remain covered by the E2E, axe and
   palette suites.

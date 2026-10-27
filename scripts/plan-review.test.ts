@@ -33,7 +33,7 @@ describe('planReviewPrompt', () => {
     });
   });
 
-  test('distinguishes branch availability from main acceptance', () => {
+  test('distinguishes branch availability from merge readiness', () => {
     assert({
       given:
         'an owner-authorized plan with unmerged producers and deferred checks',
@@ -109,7 +109,7 @@ describe('adrIndex', () => {
       expected: [
         files.length,
         'Bun as the only runtime and package manager',
-        ['0022'],
+        ['0022', '0065'],
       ],
     });
   });

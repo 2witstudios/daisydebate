@@ -101,7 +101,7 @@ test('branch saves remain scoped and dispatch/fork writes are refused', async ()
   };
   const save = action.runs.steps.find((step) => step.uses?.includes('/save@'))!;
   for (const [event, ref, headRepository, expected] of [
-    ['push', 'refs/heads/pu/ci-affected', 'owner/repo', true],
+    ['push', 'refs/heads/pu/ci-affected', 'owner/repo', false],
     ['push', 'refs/heads/main', 'owner/repo', true],
     ['push', 'refs/heads/topic', 'owner/repo', false],
     ['workflow_dispatch', 'refs/heads/pu/ci-affected', 'owner/repo', false],

@@ -1,7 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   applyRefusal,
-  desiredRuleset,
   diffValues,
   ghFailure,
   planRules,
@@ -19,7 +18,7 @@ const ruleTypes = (ruleset: { rules: { type: string }[] }) =>
   ruleset.rules.map((rule) => rule.type);
 
 describe('the committed main ruleset', () => {
-  const ruleset = desiredRuleset(config, 424242);
+  const { ruleset } = config;
 
   test('requires pull requests and forbids force-push and deletion', () => {
     assert({
@@ -43,18 +42,19 @@ describe('the committed main ruleset', () => {
     });
   });
 
-  test('requires the CI gate from Actions and review-record from the review App', () => {
+  test('requires the CI and browser gates from GitHub Actions alone', () => {
     const checks = ruleset.rules.find(
       (rule) => rule.type === 'required_status_checks',
     )?.parameters?.required_status_checks;
     assert({
-      given: 'the review App id read from the repository',
-      should: 'pin each required check to its only legitimate source',
+      given: 'the committed required checks',
+      should:
+        'pin each to GitHub Actions and require no review status (ADR 0083)',
       actual: checks,
       expected: [
         { context: 'CI gate', integration_id: 15368 },
         { context: 'Playwright E2E', integration_id: 15368 },
-        { context: 'review-record', integration_id: 424242 },
+        { context: 'Isolated Room Launch E2E', integration_id: 15368 },
       ],
     });
   });
@@ -112,7 +112,6 @@ describe('planRules', () => {
   test('plans creating the ruleset and fixing settings on a bare repository', () => {
     const plan = planRules({
       config,
-      appId: 424242,
       live: { ruleset: undefined, settings: liveSettings },
     });
     assert({
@@ -137,9 +136,8 @@ describe('planRules', () => {
   test('plans nothing when live GitHub matches', () => {
     const plan = planRules({
       config,
-      appId: 424242,
       live: {
-        ruleset: { id: 9, ...desiredRuleset(config, 424242) },
+        ruleset: { id: 9, ...config.ruleset },
         settings: config.settings,
       },
     });
@@ -173,24 +171,18 @@ describe('ghFailure', () => {
 });
 
 describe('applyRefusal', () => {
-  const ok = {
-    autonomous: false,
-    login: '2witstudios',
-    owner: '2witstudios',
-    appId: 1,
-  };
+  const ok = { autonomous: false, login: '2witstudios', owner: '2witstudios' };
 
-  test('lets only the owner apply, and only with the review App known', () => {
+  test('lets only the owner apply', () => {
     assert({
-      given: 'the owner, an agent, another login, and a missing App id',
+      given: 'the owner, an agent and another login',
       should: 'allow the owner and refuse the rest',
       actual: [
         applyRefusal(ok),
         applyRefusal({ ...ok, autonomous: true }),
         applyRefusal({ ...ok, login: 'daisy-agent' }),
-        applyRefusal({ ...ok, appId: undefined }),
       ].map((refusal) => refusal === undefined),
-      expected: [true, false, false, false],
+      expected: [true, false, false],
     });
   });
 });

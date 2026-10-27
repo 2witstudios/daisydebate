@@ -82,6 +82,28 @@ const native = new Set(
 );
 const launch = [...native].filter((spec) => !spec.includes('realtime'));
 const standard = Object.keys(browserOwners).filter((spec) => !native.has(spec));
+// A PR skips Isolated Room Launch only when every changed file is
+// documentation or sits in a known area the suite does not exercise; room,
+// round, realtime, messaging and media paths, auth, the database, Redis,
+// dependencies and anything unknown all run it (ADR 0083).
+const nonNative = [
+  'docs/',
+  '.claude/',
+  '.opencode/',
+  'policy/agent-pipeline/',
+  'apps/admin/',
+  ...theme,
+  'apps/web/src/ui/dashboard/',
+  'apps/web/src/ui/beta/',
+  'apps/web/src/app/(bare)/beta/',
+];
+const skipsNative = (file: string) =>
+  file.endsWith('.md') || nonNative.some((prefix) => file.startsWith(prefix));
+// Per-change runs (PRs, main pushes, the queue) use Chromium alone; the
+// nightly and manual runs keep every engine, mobile layout and the visual
+// project (ADR 0083).
+const chromiumEvents = new Set(['pull_request', 'push', 'merge_group']);
+const visual = 'visual.e2e.ts';
 const smoke = [
   'app.e2e.ts',
   'journey-no-js.e2e.ts',
@@ -106,13 +128,16 @@ export function selectBrowserSpecs(
     !enforced ||
     files.length === 0 ||
     files.some((file) => !known(file));
-  const specs = full
-    ? standard
-    : standard.filter(
-        (spec) =>
-          smoke.includes(spec) ||
-          files.some((file) => matches(file, spec, browserOwners[spec])),
-      );
+  const chromiumOnly = chromiumEvents.has(event);
+  const specs = (
+    full
+      ? standard
+      : standard.filter(
+          (spec) =>
+            smoke.includes(spec) ||
+            files.some((file) => matches(file, spec, browserOwners[spec])),
+        )
+  ).filter((spec) => !chromiumOnly || spec !== visual);
   const nativeFull =
     full ||
     files.some((file) =>
@@ -129,6 +154,12 @@ export function selectBrowserSpecs(
       );
   return {
     nativeSpecs,
+    runNative:
+      event !== 'pull_request' ||
+      files.length === 0 ||
+      !files.every(skipsNative),
+    projectArgs: chromiumOnly ? ['--project=chromium'] : [],
+    browsers: chromiumOnly ? 'chromium' : 'chromium firefox webkit',
     mode: full ? 'full' : 'affected',
     specs,
     excluded: standard.filter((spec) => !specs.includes(spec)),
@@ -155,10 +186,6 @@ export function queueEnforced(value: unknown): boolean {
       checks.some(
         (check) => check.context === name && check.integration_id === 15368,
       ),
-    ) &&
-    checks.some(
-      (check) =>
-        check.context === 'review-record' && check.integration_id === 5049967,
     )
   );
 }

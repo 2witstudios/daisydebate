@@ -386,9 +386,11 @@ export default [
         'error',
         { argsIgnorePattern: '^_' },
       ],
-      complexity: ['error', 10],
+      // Size and complexity are signals, not gates (ADR 0083): they warn,
+      // and the review loop's /simplify pass acts on them.
+      complexity: ['warn', 10],
       'max-lines': [
-        'error',
+        'warn',
         { max: 300, skipBlankLines: true, skipComments: true },
       ],
     },
@@ -547,11 +549,11 @@ export default [
     // CLI glue exactly like the root scripts/ tree, not application source.
     files: ['scripts/**/*.ts', 'apps/web/scripts/**/*.ts'],
     rules: {
-      // Repo tooling is procedural CLI glue; application source remains subject
-      // to the stricter complexity and size ratchets.
-      complexity: ['error', 15],
+      // Repo tooling is procedural CLI glue; application source keeps the
+      // lower complexity and size thresholds.
+      complexity: ['warn', 15],
       'max-lines': [
-        'error',
+        'warn',
         { max: 400, skipBlankLines: true, skipComments: true },
       ],
       'no-console': 'off',

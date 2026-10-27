@@ -1,6 +1,6 @@
 # 0013: Knip dead-code gate
 
-Status: accepted.
+Status: accepted; amended by [ADR 0083](0083-lean-gates-and-slice-process.md): knip warns on PRs and blocks only the nightly CI run on main.
 
 Unused files, exports and dependencies are defect inventory: they mislead
 readers, inflate bundles and mask which declarations carry real contracts.

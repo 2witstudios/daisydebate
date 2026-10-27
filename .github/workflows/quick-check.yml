@@ -1,7 +1,7 @@
 name: Quick check
+# ci.yml is the one caller on pushes and PRs, so each push runs this once
+# (ADR 0083). Dispatch checks an unpushed-to-PR branch or commit on demand.
 on:
-  push:
-    branches: ['pu/**']
   workflow_dispatch:
     inputs:
       ref:
@@ -57,7 +57,7 @@ jobs:
       - name: Run and measure affected gates
         env:
           BASE_REF: ${{ github.event.pull_request.base.sha || 'origin/main' }}
-          FULL: ${{ github.event_name == 'merge_group' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.ref == '') }}
+          FULL: ${{ github.event_name == 'merge_group' || github.event_name == 'schedule' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.ref == '') }}
         run: |
           started=$SECONDS
           args=()
