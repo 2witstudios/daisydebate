@@ -117,6 +117,12 @@ export {
   type Topic,
   type Want,
 } from './onboarding';
+export {
+  betaAccessProvenances,
+  betaAccessCommandResultSchema,
+  betaAccessStates,
+  operatorConsoleOrigin,
+} from './beta-access';
 export { closeCodeTable } from './close-codes';
 export type { CloseCodeReason } from './close-codes';
 export {

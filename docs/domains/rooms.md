@@ -54,6 +54,8 @@ membership. Every terminal state frees its members:
 ## Playing
 
 The host's `start` command activates the Round; only the host may start it.
+At or past the start horizon, the command refuses atomically, even before
+maintenance sweeps the scheduled Round; maintenance then abandons it.
 From then on, the runtime moves through the rules' segments and prep under the
 database clock.
 Only the floor holder may yield. An interrupter's yield returns the floor to

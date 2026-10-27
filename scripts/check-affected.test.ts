@@ -1,5 +1,8 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { parseBaseRef, partitionAffected, planGates } from './check-affected';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 setupRitewayBun();
 
@@ -92,6 +95,7 @@ describe('planGates', () => {
       expected: [
         { name: 'boundaries', args: ['bun', 'scripts/check-boundaries.ts'] },
         { name: 'styling', args: ['bun', 'scripts/check-styling.ts'] },
+        { name: 'knip', args: ['bun', 'run', 'knip'] },
         { name: 'duplication', args: ['bun', 'run', 'duplication'] },
       ],
     });
@@ -126,6 +130,7 @@ describe('planGates', () => {
       expected: [
         'boundaries',
         'styling',
+        'knip',
         'duplication',
         'turbo affected (typecheck, test)',
       ],
@@ -154,6 +159,124 @@ describe('parseBaseRef', () => {
         'origin/develop',
       ]),
       expected: 'origin/develop',
+    });
+  });
+});
+
+describe('global affected fanout', () => {
+  test('root configuration and global dependencies select every workspace', () => {
+    for (const file of [
+      'bun.lock',
+      'package.json',
+      'turbo.json',
+      '.bun-version',
+      'eslint.config.mjs',
+      'packages/typescript-config/base.json',
+    ]) {
+      const gates = planGates(partitionAffected([file]), 'base');
+      assert({
+        given: file,
+        should: 'run unfiltered workspace typechecks and tests',
+        actual: gates
+          .find(({ name }) => name.startsWith('turbo'))
+          ?.args.includes('--filter'),
+        expected: false,
+      });
+    }
+  });
+  test('repository-wide dead-code detection runs for leaf changes', () => {
+    assert({
+      given: 'a leaf edit',
+      should: 'include Knip across package boundaries',
+      actual: planGates(partitionAffected(['apps/web/src/a.ts']), 'base').some(
+        ({ name }) => name === 'knip',
+      ),
+      expected: true,
+    });
+  });
+});
+
+describe('affectedLintDirectories', () => {
+  test('lints source alongside config-only and ignored affected workspaces', async () => {
+    const { affectedLintDirectories } = await import('./check-affected');
+    const fixture = mkdtempSync(join(tmpdir(), 'daisy-affected-eslint-'));
+    try {
+      for (const workspace of ['typescript-config', 'source', 'ignored'])
+        mkdirSync(join(fixture, 'packages', workspace), { recursive: true });
+      writeFileSync(
+        join(fixture, 'packages/typescript-config/base.json'),
+        '{}',
+      );
+      writeFileSync(join(fixture, 'packages/source/index.js'), 'export {};');
+      writeFileSync(join(fixture, 'packages/ignored/index.js'), 'debugger;');
+      writeFileSync(
+        join(fixture, 'eslint.config.mjs'),
+        "export default [{ ignores: ['packages/ignored/**'] }, { files: ['**/*.js'], rules: { 'no-debugger': 'error' } }];",
+      );
+      const directories = affectedLintDirectories({
+        tasks: ['typescript-config', 'source', 'ignored'].map((workspace) => ({
+          directory: `packages/${workspace}`,
+        })),
+      });
+      const lint = planGates(
+        {
+          ...partitionAffected(['packages/source/index.js']),
+          lintFiles: directories,
+        },
+        'base',
+      ).find(({ name }) => name.startsWith('eslint'));
+      if (!lint) throw new Error('Missing affected source lint gate');
+      const run = () =>
+        Bun.spawnSync(
+          [
+            process.execPath,
+            join(import.meta.dir, '../node_modules/eslint/bin/eslint.js'),
+            ...lint.args.slice(3),
+            '--format',
+            'json',
+          ],
+          { cwd: fixture, stdout: 'pipe', stderr: 'pipe' },
+        );
+      const clean = run();
+      assert({
+        given:
+          'config-only and globally ignored workspaces in the affected graph',
+        should: 'finish linting the eligible source without pattern errors',
+        actual: { exitCode: clean.exitCode, stderr: clean.stderr.toString() },
+        expected: { exitCode: 0, stderr: '' },
+      });
+      writeFileSync(join(fixture, 'packages/source/index.js'), 'debugger;');
+      const failed = run();
+      assert({
+        given: 'the same graph with a real source lint violation',
+        should: 'reject that source rather than ignoring the affected graph',
+        actual: {
+          exitCode: failed.exitCode,
+          rules: JSON.parse(failed.stdout.toString()).flatMap(
+            (file: { messages: { ruleId: string }[] }) =>
+              file.messages.map(({ ruleId }) => ruleId),
+          ),
+        },
+        expected: { exitCode: 1, rules: ['no-debugger'] },
+      });
+    } finally {
+      rmSync(fixture, { recursive: true, force: true });
+    }
+  });
+
+  test('uses every dependent task directory and rejects invalid dry-run output', async () => {
+    const { affectedLintDirectories } = await import('./check-affected');
+    assert({
+      given: 'a producer and dependent selected by Turbo',
+      should: 'lint both workspaces once',
+      actual: affectedLintDirectories({
+        tasks: [
+          { directory: 'packages/protocol' },
+          { directory: 'apps/web' },
+          { directory: 'apps/web' },
+        ],
+      }),
+      expected: ['apps/web', 'packages/protocol'],
     });
   });
 });

@@ -35,6 +35,10 @@ const child = Bun.spawn(
     'test',
     '--config',
     profile.config,
+    // TEMPORARY (ISSUE-652 proof, reverted before READY): repeat the flaky specs.
+    ...(profile.config.includes('messaging')
+      ? ['--repeat-each', '4', '--grep', 'doorbell|keyboard|accepts a DM']
+      : []),
   ],
   browserDriverOptions(checkout, process.env),
 );

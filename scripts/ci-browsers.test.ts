@@ -11,7 +11,7 @@ type Step = {
   with?: Record<string, string>;
   'timeout-minutes'?: number;
 };
-type Workflow = { jobs: Record<string, { steps: Step[] }> };
+type Workflow = { jobs: Record<string, { steps?: Step[] }> };
 
 const read = (path: string) =>
   Bun.file(new URL(`../${path}`, import.meta.url)).text();
@@ -27,11 +27,13 @@ const browserJobs = async () => {
   const files = ['.github/workflows/e2e.yml', '.github/workflows/ci.yml'];
   const parsed = await Promise.all(files.map(workflow));
   return parsed.flatMap((value) =>
-    Object.entries(value.jobs).filter(([, job]) =>
-      job.steps.some((step) =>
-        /cli\.js install|ci-browsers\.sh/.test(step.run ?? ''),
+    Object.entries(value.jobs)
+      .map(([name, job]) => [name, { steps: job.steps ?? [] }] as const)
+      .filter(([, job]) =>
+        job.steps.some((step) =>
+          /cli\.js install|ci-browsers\.sh/.test(step.run ?? ''),
+        ),
       ),
-    ),
   );
 };
 

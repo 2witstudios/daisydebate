@@ -480,7 +480,10 @@ Only task outputs and logs are archived, never `.env`, credentials or service
 state. Infrastructure and browser test results are always executed fresh.
 
 Only successful task steps save, and only for main pushes or pull requests
-whose head repository is this repository. Fork PRs and manual dispatches may
+whose head repository is this repository, plus `pu/**` branch pushes. The latter
+seed standalone quick-check runs in their own GitHub branch scope; main and
+sibling branches cannot restore those caches. No privileged token or scope
+override is used. Fork PRs and manual dispatches may
 restore but never save through this action. GitHub also scopes PR caches to
 their merge ref: main cannot restore a PR cache. No `pull_request_target` job
 executes PR code or publishes its outputs into a main cache.
@@ -500,3 +503,59 @@ References read before configuration:
 [cache action 4.2.4](https://github.com/actions/cache/tree/v4.2.4),
 [GitHub cache scope](https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching),
 and [Turbo 2.11.2 configuration](https://github.com/vercel/turborepo/blob/v2.11.2/apps/docs/content/docs/reference/configuration.mdx).
+
+### Fast branch checks and affected browser selection
+
+`gh workflow run quick-check.yml -f ref=<branch>` checks the requested ref;
+a trusted read-only job resolves the ref before checkout, and a separate job
+publishes `Quick check (dispatched)` on that exact SHA. The publishing job
+executes no candidate code and alone has checks-write permission. Candidate
+execution keeps contents-read permission; dispatches never save task caches.
+Pushes to `pu/**` also publish `Quick check`. Browser E2E
+calls the same workflow in-process; both browser jobs require its success
+before allocating their runners. CI also calls quick-check before its complete
+11-task matrix (including build), image and integration jobs. Audit and migration
+checks remain immediately runnable. Across CI and Browser E2E, this changes the
+original 17 initially runnable jobs to 4 (5 including the standalone branch-push
+quick check): two quick checks, audit and migrations. All 15 existing expensive
+jobs wait for quick success. Passing PRs still fan out; this reduces initial
+fanout, not peak concurrency across distinct passing PRs. Existing per-PR
+cancellation groups are unchanged. CI gate requires quick and every full job.
+Always-running terminal checks require both the quick prerequisite and actual
+suite success; skipped or cancelled browser jobs cannot pass a required check.
+The existing full CI matrix and aggregate gate remain required.
+
+`check:affected` uses the merge base, includes deletions in graph selection,
+and excludes missing paths from file CLIs. Turbo's affected typecheck graph
+selects whole workspace directories for ESLint, including reverse dependents:
+imported types can change type-aware lint in consumers. Root configuration,
+lockfiles, unknown non-document root inputs and every `globalDependencies`
+pattern in `turbo.json` fan out to all workspaces. Knip, duplication,
+architecture and styling checks remain repository-wide. `--full` forces full
+static/unit checks even when HEAD equals the base (main and queue runs).
+The inner loop is not the production build or main acceptance gate.
+
+`scripts/affected-e2e.ts` explicitly owns every `apps/web/e2e/*.e2e.ts` file.
+An inventory mismatch fails before browser work. Recognized PR changes select
+owned specs plus `app`, `journey-no-js`, `csp` and `shell` smoke. Unknown files,
+shared fixtures, routes, core packages and configuration fall back to full.
+Main, merge groups and manual three-run release qualification always run full.
+Native Launch retains `room-launch` smoke, adds owned round/media specs, and
+falls back to all eight specs for auth, room, realtime, shared or unknown inputs.
+Main, merge groups, manual runs and unenforced PRs retain all eight. Both
+one-file realtime profiles stay full. Native admission and full configuration
+inventories remain unchanged; validated CLI file filters select execution.
+Every selected standard and native spec must have a passed result in its report; existing zero-discovery, skipped-test and retry guards
+remain enforced.
+
+Affected PR selection activates only after the live main branch rules API
+reports a merge queue and all four required checks, bound to their expected
+Apps: CI gate, Playwright E2E, Isolated Room Launch E2E and review-record.
+Absent, unreadable or incomplete enforcement retains full PR browser coverage.
+This is a fail-closed rollout, not a claim that a queue has been enabled.
+
+Measurements belong in the linked CI-speed handoff with candidate/run/job URLs.
+The initial Quick check on `a871b592ba99f9af748a4f87810dd257a437c203`
+ran 23:16:30–23:20:39 UTC on 2026-10-26 (249 seconds, including job setup).
+Warm <=240 seconds is a target, not an asserted result. Browser execution
+savings for standard and native selection remain conditional on owner queue activation.

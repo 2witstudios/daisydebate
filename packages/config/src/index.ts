@@ -106,6 +106,12 @@ const serverFields = {
     .default('false')
     .transform((value) => value === 'true'),
   PUBLIC_APP_URL: z.url(),
+  /**
+   * ADR 0075: where the owner's beta request digest goes. Personal data, so
+   * it is set in the deploy's secret store, never committed; absent, owed
+   * digests are cancelled as unconfigured.
+   */
+  BETA_NOTIFY_EMAIL: z.email().optional(),
   REALTIME_PUBLIC_URL: realtimePublicUrlSchema.optional(),
   LIVEKIT_URL: mediaEndpoint(/^https?$/).optional(),
   LIVEKIT_PUBLIC_URL: mediaEndpoint(/^wss?$/).optional(),

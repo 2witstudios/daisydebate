@@ -6,13 +6,19 @@ import { corePrivacyFields } from './core-declarations';
 import { validatePrivacyAdoption } from '@daisy/protocol/privacy';
 
 setupRitewayBun();
-test('core privacy declarations match actual current schema columns', () => {
-  const expected = Object.fromEntries(
-    [users, privacyJobs].map((table) => [
+
+/** Each table's actual column names, keyed by table name. */
+const currentColumns = (
+  tables: readonly Parameters<typeof getTableName>[0][],
+) =>
+  Object.fromEntries(
+    tables.map((table) => [
       getTableName(table),
       Object.values(getTableColumns(table)).map((column) => column.name),
     ]),
   );
+test('core privacy declarations match actual current schema columns', () => {
+  const expected = currentColumns([users, privacyJobs]);
   assert({
     given: 'actual users and privacy_jobs Drizzle schema',
     should:
@@ -37,12 +43,7 @@ test('dedicated MSG declarations match all actual producer columns', async () =>
     ...Object.values(subjects),
     ...Object.values(messages),
   ];
-  const expected = Object.fromEntries(
-    tables.map((table) => [
-      getTableName(table),
-      Object.values(getTableColumns(table)).map((column) => column.name),
-    ]),
-  );
+  const expected = currentColumns(tables);
   assert({
     given: 'MSG dedicated social/channel/message producer schema',
     should: 'declare the exact real table and column set with policy holds',
@@ -197,5 +198,49 @@ test('multi-target command subjects declare private erasable relationships', asy
       'delete',
       true,
     ]),
+  });
+});
+
+test('beta access declarations match all actual producer columns', async () => {
+  const beta = await import('../schema/beta-access');
+  const intents = await import('../schema/mail-intents');
+  const { betaAccessPrivacyFields, betaAccessPrivacyExpectedColumns } =
+    await import('./beta-access-declarations');
+  const tables = [
+    beta.accountBetaAccess,
+    beta.accountAccessEvents,
+    beta.operatorCommandReceipts,
+    intents.mailIntents,
+  ];
+  const expected = currentColumns(tables);
+  assert({
+    given: 'the ADR 0075 beta access and mail intent schema',
+    should: 'declare the exact real table and column set with policy holds',
+    actual: validatePrivacyAdoption(expected, betaAccessPrivacyFields),
+    expected: { problems: [], activationHeld: true },
+  });
+  assert({
+    given: 'the beta adopter manifest',
+    should: 'name exactly the producer tables',
+    actual: Object.keys(betaAccessPrivacyExpectedColumns).sort(),
+    expected: Object.keys(expected).sort(),
+  });
+  assert({
+    given: 'subject-owned beta rows and retained operator audit',
+    should:
+      'delete the access row and mail, and keep only identifiers of the audit',
+    actual: [
+      ...new Set(
+        betaAccessPrivacyFields.map(
+          (field) => `${field.table}:${field.erasure}`,
+        ),
+      ),
+    ].sort(),
+    expected: [
+      'account_access_events:retain-nonpersonal',
+      'account_beta_access:delete',
+      'mail_intents:delete',
+      'operator_command_receipts:retain-nonpersonal',
+    ],
   });
 });
