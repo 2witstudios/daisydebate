@@ -9,7 +9,6 @@ import {
   changeChallenge,
   type ChallengeOperationDependencies,
 } from './challenge-operations';
-import { setPresenceHidden } from '../presence/setting';
 import type { OwnCollectionFence } from '@daisy/db/authorization';
 import {
   changeFriendship,
@@ -29,19 +28,13 @@ const FRIEND_RULE = { windowSeconds: 60, max: 30 } as const;
 const ownFence =
   (
     principal: AuthorizationPrincipal,
-    capability: 'social.friend.list' | 'social.presence.update',
+    capability: 'social.friend.list',
   ): OwnCollectionFence<{ readonly actorId: string }> =>
   async ({ scope, account }) =>
     requireAuthorization({
       principal,
       capability,
-      resource: {
-        kind:
-          capability === 'social.friend.list'
-            ? 'friend_collection'
-            : 'presence_setting',
-        actorId: scope.actorId,
-      },
+      resource: { kind: 'friend_collection', actorId: scope.actorId },
       context: { account },
     });
 
@@ -126,23 +119,6 @@ export function composeFriendRoutes(app: App) {
         input,
         challengePorts(app, principal),
       ),
-    presence: (principal, hidden) =>
-      setPresenceHidden(principal, hidden, {
-        clock: app.clock,
-        // Its own bucket: toggling visibility never spends friend changes.
-        limit: (actorId) =>
-          consumeOrThrow(
-            app.auth().limiter,
-            `friends-presence:${actorId}`,
-            FRIEND_RULE,
-          ),
-        write: (scope, input) =>
-          app.database.writePresenceHidden(
-            scope,
-            input,
-            ownFence(principal, 'social.presence.update'),
-          ),
-      }),
     list,
     websocketEndpoint: app.websocketEndpoint,
     counts: async (principal) => {

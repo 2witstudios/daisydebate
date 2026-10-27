@@ -6,7 +6,7 @@ import { actors } from '../schema/actors';
 import { users } from '../schema/users';
 import { contactPairs } from '../schema/contacts';
 import { friendships } from '../schema/friends';
-import { presenceSettings } from '../schema/presence';
+import { presenceHiddenOf } from '../presence/settings';
 import { readOwnCollection, type OwnCollectionFence } from '../authorization';
 import { instrumented, type DatabaseEventSink } from '../instrumented';
 import { roomIsOpen } from '../room-open';
@@ -145,7 +145,7 @@ async function readRows(
     .select({
       otherActorId: other,
       username: users.username,
-      otherHidden: sql<boolean>`coalesce(${presenceSettings.hidden}, false)`,
+      otherHidden: presenceHiddenOf(other),
       state: friendships.state,
       requesterActorId: friendships.requesterActorId,
       requestedAt: friendships.requestedAt,
@@ -159,7 +159,6 @@ async function readRows(
       ),
     )
     .innerJoin(actors, eq(actors.id, other))
-    .leftJoin(presenceSettings, eq(presenceSettings.actorId, other))
     .innerJoin(users, eq(users.id, actors.userId))
     .where(
       and(

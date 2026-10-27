@@ -88,20 +88,3 @@ test('challenge commands', () => {
     expected: [true, false],
   });
 });
-
-test('the presence setting command', () => {
-  assert({
-    given: 'a boolean choice, and a choice naming another member',
-    should: 'accept the first and refuse the second',
-    actual: [
-      friendCommandSchemas.presence.safeParse({ version: 1, hidden: true })
-        .success,
-      friendCommandSchemas.presence.safeParse({
-        version: 1,
-        hidden: true,
-        username: 'ada',
-      }).success,
-    ],
-    expected: [true, false],
-  });
-});

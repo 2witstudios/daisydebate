@@ -34,7 +34,7 @@ const routes = {
   challenge: processRoute((all) => all.friends.challenge),
   declineChallenge: processRoute((all) => all.friends.declineChallenge),
 };
-const presenceRoute = processRoute((all) => all.friends.presence);
+const presenceRoute = processRoute((all) => all.presence.set);
 const friendList = processRoute((all) => all.friends.list);
 const createRoom = processRoute((all) => all.rooms.create);
 const roomCatalog = processRoute((all) => all.rooms.catalog);
@@ -128,7 +128,7 @@ export async function presenceAction(
     const response = await inProcessFetch(
       presenceRoute,
       new Headers(await headers()),
-    )('/api/friends/presence', {
+    )('/api/presence', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ version: 1, hidden }),

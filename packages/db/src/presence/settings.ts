@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { eq, sql, type SQL } from 'drizzle-orm';
 import type { BunSQLDatabase } from 'drizzle-orm/bun-sql/postgres';
 import { createAppError } from '@daisy/errors';
 import { idSchema } from '@daisy/protocol';
@@ -20,6 +20,14 @@ const requireScope = (scope: PresenceScope) => {
   )
     throw createAppError('VALIDATION');
 };
+
+/**
+ * Presence's published read for other features: whether the member named by
+ * `actorId` (a column or value) hides their online status. No row means
+ * visible.
+ */
+export const presenceHiddenOf = (actorId: SQL) =>
+  sql<boolean>`coalesce((select ${presenceSettings.hidden} from ${presenceSettings} where ${presenceSettings.actorId} = ${actorId}), false)`;
 
 /** Whether the member hides their online status; no row means visible. */
 export function readPresenceHidden(

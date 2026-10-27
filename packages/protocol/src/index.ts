@@ -318,8 +318,11 @@ export {
   friendPresences,
   friendshipStates,
   onlineCountsSchema,
-  presenceSettingResultSchema,
 } from './friends';
+export {
+  presenceSettingResultSchema,
+  presenceSettingSchema,
+} from './presence-setting';
 export type {
   ChallengeCommandResult,
   FriendCommandResult,

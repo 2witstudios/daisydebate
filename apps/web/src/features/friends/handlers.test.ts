@@ -35,10 +35,6 @@ const harness = (identity: unknown = member) => {
         challenge: command === 'challenge' ? 'sent' : 'declined',
       } as const;
     },
-    presence: async (_principal, hidden) => {
-      calls.push(['presence', hidden]);
-      return { hidden };
-    },
     list: async () => ({
       hidden: false,
       friends: [],
@@ -199,25 +195,5 @@ test('the challenge routes carry a friend and a room', async () => {
         ['decline', 'cat', room],
       ],
     ],
-  });
-});
-
-test('the presence route sets only the caller’s own choice', async () => {
-  const { handlers, calls } = harness();
-  const set = await handlers.presence(
-    post('/api/friends/presence', { version: 1, hidden: true }),
-  );
-  const named = await handlers.presence(
-    post('/api/friends/presence', {
-      version: 1,
-      hidden: true,
-      username: 'ada',
-    }),
-  );
-  assert({
-    given: 'a valid choice, then one that names another member',
-    should: 'set the first and refuse the second before any change',
-    actual: [set.status, await set.json(), named.status, calls],
-    expected: [200, { version: 1, hidden: true }, 400, [['presence', true]]],
   });
 });
