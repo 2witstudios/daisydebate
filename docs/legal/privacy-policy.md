@@ -82,7 +82,7 @@ A sign-in session lasts up to 7 days of inactivity and its record is deleted 24 
 
 Email delivery records are deleted after 30 days. A record that an address bounced or complained, kept only as a one-way hash, is kept so we do not email it again.
 
-Operational logs are kept no longer than 30 days.
+Our application’s logs are kept no longer than 30 days. The hosting platform’s and the live audio and video relay’s technical logs follow their own retention, as stated under “Why we use it”.
 
 Transcripts and AI feedback are deleted after 180 days, and an AI ballot still awaiting a result is discarded 180 days after it arrives.
 
