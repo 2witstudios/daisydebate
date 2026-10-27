@@ -53,8 +53,8 @@ plan() {
    - The architecture rules in AGENTS.md "Design constraints" are blockers: never build on flawed architecture, one concept one home, no coupling for efficiency, and the reserved words.
 2. Board: one leaf per task code under the slice's epic in Roadmap (`bun board:create` when present), so the merge automation can move them. Reuse existing leaves; never duplicate a code. A finding outside the slice is an issue, always in a bucket: `bun board:create --issue --bucket <name>`.
    - Name the areas the slice advances in the plan, and update their Score blocks on the area pages when the slice merges.
-3. Post one channel message: `pagespace channels send ijy2klr2s7g77351a0zilrol "<slice> (<agent id>) → point guard + architecture reviewer: PLAN <url> — <one-paragraph summary>; questions: …"`.
-4. Start building at once on anything the open questions do not touch. The confirmation arrives on the Delivery channel; apply any redirect to the plan and keep going.
+3. Post one channel message: `pagespace channels send <Delivery channel id> "<slice> (<agent id>) → point guard + architecture reviewer: PLAN <url> — <one-paragraph summary>; questions: …"`.
+4. Start building at once on anything the open questions do not touch. The confirmation arrives on the Delivery channel (read it with `pagespace pages read <Delivery channel id>`; AGENTS.md names the id); apply any redirect to the plan and keep going.
    }
 
 ### 3 — Build and deliver
@@ -76,7 +76,7 @@ Read the plan and the board. Set each task you are building to In Progress, and 
 ### replan — change without drift
 
 replan() {
-Edit the plan's Design and Task list first, then the board. New tasks take new codes or suffixes (`AUTH-7.5a`); never renumber. A changed product outcome or a scope cut goes to the point guard on the Delivery channel; execution changes need no approval.
+Edit the plan first (its Ideal design and Build sections; the task list lives in Build, and a changed intent starts again from Intent), then the board. New tasks take new codes or suffixes (`AUTH-7.5a`); never renumber. A changed product outcome or a scope cut goes to the point guard on the Delivery channel; execution changes need no approval.
 }
 
 ### validate — board versus plan

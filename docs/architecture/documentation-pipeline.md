@@ -34,9 +34,12 @@ creation workflow.
    from trusted CI context, and carries the event last in a nonce-fenced block
    marked untrusted. The fenced event is bounded to 6,000 characters
    (`scripts/docs-event-bound.ts`, ISSUE-786): a slice-sized PR made the agent
-   refuse the consult with "Prompt exceeds max length". Dispatch shortens the
-   PR body first, then drops trailing changed files and source refs, and names
-   every cut in trusted text just above the fence. A consult runs an agent, so
+   refuse the consult with "Prompt exceeds max length". Dispatch cuts the least
+   useful text first: the source refs when they only repeat the changed files,
+   then the PR body down to half the budget, then trailing changed files and
+   other source refs, then the rest of the body, the title and the task ids.
+   It names every cut in trusted text just above the fence, and an event that
+   still cannot fit fails the dispatch rather than overflow. A consult runs an agent, so
    it is never retried in-process.
    Dispatch waits for the run to answer, but the socket is not the receipt:
    the route persists the question before the run and the answer after it,

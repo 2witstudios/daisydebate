@@ -24,10 +24,13 @@ it. The delivery process itself is [the slice process](agent-pipeline.md).
 pu spawn --agent claude --name <slice> "<mission brief>"
 pu spawn --agent claude -w <worktreeId> "/review <PR url>"
 pu send <agent> "<text>"
-pagespace channels send ijy2klr2s7g77351a0zilrol "<slice>: <text>"
+pagespace channels send <Delivery channel id> "<slice>: <text>"
+pagespace pages read <Delivery channel id>
 pu status | pu logs <agent> | pu attach <agent>
 pu kill --agent <agent> && pu clean
 ```
+
+AGENTS.md ("Channels") names the Delivery and Incidents channel ids.
 
 - **One builder per slice.** The point guard spawns one Claude builder for
   each semantic slice, in its own worktree. Claude is required because its

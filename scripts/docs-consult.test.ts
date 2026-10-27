@@ -91,13 +91,16 @@ describe('composeConsultQuestion', async () => {
   });
 
   test('bounds a slice-sized event and names what it left out', async () => {
+    const files = Array.from({ length: 500 }, (_, i) => `scripts/f-${i}.ts`);
     const big = {
       ...event,
       pullRequest: event.pullRequest && {
         ...event.pullRequest,
         body: 'z'.repeat(30_000),
       },
-      changedFiles: Array.from({ length: 500 }, (_, i) => `scripts/f-${i}.ts`),
+      // Dispatch defaults sourceRefs to the changed files.
+      changedFiles: files,
+      sourceRefs: files,
     };
     const bounded = composeConsultQuestion({
       event: big,
@@ -115,7 +118,7 @@ describe('composeConsultQuestion', async () => {
         fenced:
           fenced.split('\n</documentation-event-n0nce>')[0].length <=
           EVENT_MAX_CHARS,
-        said: /This event was shortened to fit the 6000-character consult budget; left out: the PR body \(\d+ of 30000 characters kept\), \d+ of 500 changed files\./.test(
+        said: /This event was shortened to fit the 6000-character consult budget; left out: the source refs \(the same 500 paths as the changed files\), \d+ of 30000 characters of the PR body, \d+ of 500 changed files\./.test(
           bounded,
         ),
       },

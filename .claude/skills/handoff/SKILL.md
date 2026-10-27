@@ -33,7 +33,7 @@ Process {
    `pu spawn --agent claude -w <your worktree id> "/code-review <PR url>"`
    They are read-only and post PR comments. Kill each one (`pu kill --agent <id>`) once it has posted.
 6. Channel: one message asking the architecture reviewer for a pass and telling the point guard the PR is open:
-   `pagespace channels send ijy2klr2s7g77351a0zilrol "<slice> (<agent id>): PR <url> open for <CODES>; @<architecture reviewer> architecture pass please; PR loop starting."`
+   `pagespace channels send <Delivery channel id> "<slice> (<agent id>): PR <url> open for <CODES>; @<architecture reviewer> architecture pass please; PR loop starting."`
 7. Verify: `gh pr view <n> --json headRefOid` equals the SHA from step 1, the tasks read In Review, and both reviewers are running. Then start (or continue) the PR loop.
    }
 

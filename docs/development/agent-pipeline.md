@@ -22,11 +22,28 @@ product intent; agents own routine execution
      respect now" sections, and the `Issues` buckets touching the slice);
    - the inherited PRs and branches.
 
-   Every task is a `Given X, should Y` criterion with a code. The builder
-   posts the plan's link on the PageSpace Delivery channel.
+   The plan starts from intent, not from the existing code. Its sections, in
+   order, are:
+   1. Intent;
+   2. Concepts and names;
+   3. Ideal design, written before studying the current implementation;
+   4. Current state and divergence;
+   5. Refactors first;
+   6. Build.
 
-3. **One confirmation.** The architecture reviewer and the point guard
-   confirm or redirect within minutes. No other approval follows. Product,
+   The template is in [the task skill](../../.claude/skills/task/SKILL.md).
+   Every task is a `Given X, should Y` criterion with a code. The builder
+   posts the plan's link on the PageSpace Delivery channel. AGENTS.md
+   "Design constraints" holds the architecture rules that block a plan: never
+   build on flawed architecture, one concept one home, no coupling for
+   efficiency, and the reserved words.
+
+3. **One confirmation, after a dialogue.** Planning is a dialogue on
+   Delivery. The builder asks intent and design questions as they arise, and
+   the point guard answers and challenges them ("is this the best way, or just
+   the existing way?"). The architecture reviewer and the point guard confirm
+   or redirect once the Ideal design and the Divergence have been discussed.
+   No other approval follows. Product,
    architecture or scope questions that come up later go to the point guard
    on the Delivery channel and are answered there.
 4. **One PR.** The builder builds the whole slice on one branch and opens

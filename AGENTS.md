@@ -300,14 +300,19 @@ Builders never merge. The point guard's flow sweep merges a PR into main
 once its builder has emitted `PR_READY` and the required checks are green at
 the exact head, at most two merges per cycle.
 
-- Spawn agents with `pu spawn` and message them with `pu send`. Post plans,
-  questions, decisions and status to the PageSpace Delivery channel
-  (`pagespace channels send ijy2klr2s7g77351a0zilrol "<slice>: <message>"`) and incidents (main red,
-  staging down, security) to Incidents (`pagespace channels send
-h72n2om8p0oq3y3h6nfjy1pm "..."`); the pu channel is retired. Builders report to whoever spawned
-  them directly; the owner is not the message bus. Reviewers join the
-  builder's worktree (`pu spawn -w <worktree>`) and are killed once they
-  have posted.
+- Spawn agents with `pu spawn` and message them with `pu send`. Builders
+  report to whoever spawned them directly; the owner is not the message bus.
+  Reviewers join the builder's worktree (`pu spawn -w <worktree>`) and are
+  killed once they have posted.
+- **Channels.** These two PageSpace channels are the only place their ids
+  live; skills and docs refer here. The pu channel is retired.
+  - **Delivery** (`ijy2klr2s7g77351a0zilrol`) carries plans, questions,
+    decisions and status. Post with
+    `pagespace channels send ijy2klr2s7g77351a0zilrol "<slice>: <message>"`
+    and read with `pagespace pages read ijy2klr2s7g77351a0zilrol` (newest
+    lines last).
+  - **Incidents** (`h72n2om8p0oq3y3h6nfjy1pm`) carries main red, staging
+    down and security reports.
 - Code-writing help is a `pu` child in its own worktree, never a
   worktree-isolated subagent or fork; subagents and forks do read-only work.
 - Take ADR numbers from `bun adr:next`; `bun policy` fails a

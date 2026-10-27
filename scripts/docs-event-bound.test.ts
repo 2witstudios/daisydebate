@@ -1,70 +1,124 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import { boundEvent, EVENT_MAX_CHARS } from './docs-event-bound';
-import { mergeEvent } from './docs-consult.test-support';
+import { createDocumentationEvent } from './docs-pipeline';
 
 setupRitewayBun();
 
-const withPr = (body: string, files: number) => {
-  const event = mergeEvent('feat(formats): the whole slice');
-  return {
-    ...event,
-    pullRequest: event.pullRequest && { ...event.pullRequest, body },
+// Built the way dispatch builds it, so sourceRefs defaults to changedFiles.
+const event = ({
+  body = '',
+  files = 3,
+  title = 'feat(formats): the whole slice',
+}: {
+  body?: string;
+  files?: number;
+  title?: string;
+}) =>
+  createDocumentationEvent({
+    eventId: '1001-merge007',
+    eventType: 'pull_request.merged',
+    occurredAt: '2026-09-20T00:00:00.000Z',
+    repository: '2witstudios/daisydebate',
+    baseRef: 'main',
+    commit: 'merge007aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    pullRequest: {
+      number: 7,
+      title,
+      body: body || null,
+      url: 'https://github.com/2witstudios/daisydebate/pull/7',
+      author: '2witstudios',
+      mergedBy: '2witstudios',
+    },
+    taskIds: [],
     changedFiles: Array.from(
       { length: files },
       (_, index) => `apps/web/src/features/formats/file-${index}.ts`,
     ),
-  };
-};
+  });
+
+const fits = (value: unknown) =>
+  JSON.stringify(value).length <= EVENT_MAX_CHARS;
 
 describe('boundEvent', () => {
   test('passes a small event through untouched', () => {
-    const event = withPr('A short body.', 3);
+    const small = event({ body: 'A short body.' });
     assert({
       given: 'an event well under the cap',
       should: 'return it unchanged with nothing omitted',
-      actual: boundEvent(event),
-      expected: { event, omitted: [] },
+      actual: boundEvent(small),
+      expected: { event: small, omitted: [] },
     });
   });
 
-  test('shortens a long PR body first and says so', () => {
-    const { event, omitted } = boundEvent(withPr('x'.repeat(20_000), 3));
+  test('drops the duplicate source refs before anything a reader needs', () => {
+    const { event: bounded, omitted } = boundEvent(
+      event({ body: 'b'.repeat(2_000), files: 60 }),
+    );
     assert({
-      given: 'a 20,000-character PR body and three changed files',
+      given:
+        'a 2,000-character body and 60 changed files, whose sourceRefs repeat them',
       should:
-        'fit the cap by cutting only the body, keeping every file and naming the cut',
+        'fit by dropping the duplicate refs, keeping the body and every file',
       actual: {
-        fits: JSON.stringify(event).length <= EVENT_MAX_CHARS,
-        files: event.changedFiles.length,
-        bodyEndsWithMarker: event.pullRequest?.body?.endsWith('… [cut]'),
-        omitted: omitted.map((note) => note.replace(/\d+ of/, 'N of')),
+        fits: fits(bounded),
+        body: bounded.pullRequest?.body?.length,
+        files: bounded.changedFiles.length,
+        refs: bounded.sourceRefs.length,
+        omitted,
       },
       expected: {
         fits: true,
-        files: 3,
-        bodyEndsWithMarker: true,
-        omitted: ['the PR body (N of 20000 characters kept)'],
+        body: 2_000,
+        files: 60,
+        refs: 0,
+        omitted: ['the source refs (the same 60 paths as the changed files)'],
       },
     });
   });
 
-  test('drops trailing changed files once the body is gone and still too long', () => {
-    const { event, omitted } = boundEvent(withPr('y'.repeat(20_000), 400));
+  test('keeps part of a long body and part of a long file list', () => {
+    const { event: bounded, omitted } = boundEvent(
+      event({ body: 'x'.repeat(20_000), files: 400 }),
+    );
     assert({
-      given: 'a long body and 400 changed files',
+      given: 'a 20,000-character body and 400 changed files',
       should:
-        'fit the cap, keep the first files and count the ones it left out',
+        'fit the cap while keeping a useful share of both, and count what it left out',
       actual: {
-        fits: JSON.stringify(event).length <= EVENT_MAX_CHARS,
-        firstKept: event.changedFiles[0],
-        notes: omitted.length,
-        filesNote: /^\d+ of 400 changed files$/.test(omitted[1] ?? ''),
+        fits: fits(bounded),
+        bodyKept: (bounded.pullRequest?.body?.length ?? 0) >= 2_000,
+        bodyMarked: bounded.pullRequest?.body?.endsWith('… [cut]'),
+        someFiles: bounded.changedFiles.length > 0,
+        notes: omitted.map((note) => note.replace(/^\d+/, 'N')),
       },
       expected: {
         fits: true,
-        firstKept: 'apps/web/src/features/formats/file-0.ts',
-        notes: 2,
-        filesNote: true,
+        bodyKept: true,
+        bodyMarked: true,
+        someFiles: true,
+        notes: [
+          'the source refs (the same 400 paths as the changed files)',
+          'N of 20000 characters of the PR body',
+          'N of 400 changed files',
+        ],
+      },
+    });
+  });
+
+  test('caps the whole event, title included, and names only real cuts', () => {
+    const { event: bounded, omitted } = boundEvent(
+      event({ title: 't'.repeat(7_000), files: 0 }),
+    );
+    assert({
+      given: 'a 7,000-character title, no body and no files',
+      should: 'fit the cap by cutting the title, with one note for it',
+      actual: {
+        fits: fits(bounded),
+        notes: omitted.map((note) => note.replace(/^\d+/, 'N')),
+      },
+      expected: {
+        fits: true,
+        notes: ['N of 7000 characters of the PR title'],
       },
     });
   });
