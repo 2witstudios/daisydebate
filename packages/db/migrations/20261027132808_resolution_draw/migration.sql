@@ -396,4 +396,31 @@ INSERT INTO "resolution_bank_entries" ("id", "text", "category", "difficulty", "
   ('zpbw43ua40maeqtykgvdiu58', 'Online learning is as effective as in-person learning.', 'fact', 'standard', 'en', 'daisy-original', 1),
   ('mv0nd6jqxhimdl220oj25h4p', 'Professional sports have a positive effect on their host cities.', 'fact', 'standard', 'en', 'daisy-original', 1),
   ('dstx376pzzsuy7jg5znpguls', 'Electric scooters have improved urban transportation.', 'fact', 'standard', 'en', 'daisy-original', 1),
-  ('lqddhh8h4zd6etzy9ogjk6lh', 'The four-year college degree is losing its value.', 'fact', 'standard', 'en', 'daisy-original', 1);
+  ('lqddhh8h4zd6etzy9ogjk6lh', 'The four-year college degree is losing its value.', 'fact', 'standard', 'en', 'daisy-original', 1);--> statement-breakpoint
+--> ISSUE-702: a draw, its items and its strikes leave only with their Room. A
+--> direct DELETE would silently undo a strike or a draw; the cascade from the
+--> parent's own deletion is the one path out, as for Round draw seeds.
+CREATE FUNCTION refuse_room_draw_delete() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  IF TG_TABLE_NAME = 'room_resolution_draws'
+    AND NOT EXISTS (SELECT 1 FROM rooms WHERE id = OLD.room_id) THEN
+    RETURN OLD;
+  END IF;
+  IF TG_TABLE_NAME <> 'room_resolution_draws'
+    AND NOT EXISTS (SELECT 1 FROM room_resolution_draws WHERE id = OLD.draw_id) THEN
+    RETURN OLD;
+  END IF;
+  RAISE EXCEPTION 'A draw, its items and its strikes leave only with their Room'
+    USING ERRCODE = '23514', CONSTRAINT = 'room_resolution_draw_rows_kept';
+END;
+$$;
+--> statement-breakpoint
+CREATE TRIGGER room_resolution_draws_kept BEFORE DELETE ON room_resolution_draws
+FOR EACH ROW EXECUTE FUNCTION refuse_room_draw_delete();
+--> statement-breakpoint
+CREATE TRIGGER room_resolution_draw_items_kept BEFORE DELETE ON room_resolution_draw_items
+FOR EACH ROW EXECUTE FUNCTION refuse_room_draw_delete();
+--> statement-breakpoint
+CREATE TRIGGER room_resolution_strikes_kept BEFORE DELETE ON room_resolution_strikes
+FOR EACH ROW EXECUTE FUNCTION refuse_room_draw_delete();

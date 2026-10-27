@@ -131,16 +131,42 @@ test('a host-list draw strikes to one resolution, freezes evidence onto the Roun
       expected: [true, 4, false, { kind: 'host', count: 5 }, [5, 1, 1]],
     });
 
+    // ISSUE-705: until the Round ends, its read carries the topic and no draw text.
+    const roundJson = async (viewer: typeof f.host) =>
+      JSON.stringify(await f.operations.roundView(viewer, roundId));
+    assert({
+      given: 'the scheduled Round read by its debater and by a spectator',
+      should:
+        'carry the debated resolution once and no other drawn line, and no audit envelope',
+      actual: [
+        (await roundJson(f.host)).split(SENTINEL).length - 1,
+        (await roundJson(f.outsider)).split(SENTINEL).length - 1,
+        (await f.operations.roundView(f.outsider, roundId)).resolutionAudit,
+      ],
+      expected: [1, 1, null],
+    });
+
     const refused = await Promise.allSettled([
       f.sql`update rounds set resolution_evidence = '{}'::jsonb where id = ${roundId}`,
       f.sql`delete from round_resolution_draw_texts where round_id = ${roundId}`,
       f.sql`update room_resolution_draws set commitment = commitment where room_id = ${view.id}`,
+      // ISSUE-702: a draw, an item or a strike leaves only with its Room.
+      f.sql`delete from room_resolution_strikes where draw_id in (select id from room_resolution_draws where room_id = ${view.id})`,
+      f.sql`delete from room_resolution_draw_items where draw_id in (select id from room_resolution_draws where room_id = ${view.id})`,
+      f.sql`delete from room_resolution_draws where room_id = ${view.id}`,
     ]);
     assert({
-      given: 'writes the triggers guard',
+      given: 'writes the triggers guard, including direct deletes of a draw',
       should: 'reject every one',
       actual: refused.map((r) => r.status),
-      expected: ['rejected', 'rejected', 'rejected'],
+      expected: [
+        'rejected',
+        'rejected',
+        'rejected',
+        'rejected',
+        'rejected',
+        'rejected',
+      ],
     });
   });
 });

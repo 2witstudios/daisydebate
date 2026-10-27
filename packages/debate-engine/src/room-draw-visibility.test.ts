@@ -231,3 +231,53 @@ test('the turn reports its time left as of the read (PR #472 review)', () => {
     expected: [60_000, 47_000, 47_000, 30_000],
   });
 });
+
+test('between strikes, no one outside the debaters receives a line, the seed or the salt (PR #472 review)', () => {
+  const botJudge = {
+    ...judge,
+    id: 'p4',
+    actorId: 'bot-judge',
+    kind: 'bot' as const,
+    slot: 1,
+    consentCommandId: null,
+  };
+  const panel: RoomAssemblyState = {
+    ...withJudge(begin().state),
+    participants: [...withJudge(begin().state).participants, botJudge],
+  };
+  // One strike in: the draw is mid-way, with more turns to come.
+  const once = strike(
+    panel,
+    'other',
+    0,
+    panel.resolutionDraw!.items[0]!.position,
+  );
+  if (!once.ok) throw new Error(once.refusal);
+  const middle = once.mutation.state;
+  const leaked = (viewer: string) => {
+    const json = JSON.stringify(
+      projectRoom(middle, viewer, consent, edges.now, SEED),
+    );
+    return [SENTINEL, SEED, SALT].filter((secret) => json.includes(secret));
+  };
+  assert({
+    given:
+      'a draw after its first strike, read by a human judge, a bot judge, a spectator and a debater',
+    should:
+      'deliver no drawn line, seed or salt to anyone outside the debaters, and lines but never the seed or salt to a debater',
+    actual: {
+      judge: leaked('judge'),
+      botJudge: leaked('bot-judge'),
+      spectator: leaked('watcher'),
+      debater: leaked('other'),
+      strikes: middle.resolutionDraw!.strikes.length,
+    },
+    expected: {
+      judge: [],
+      botJudge: [],
+      spectator: [],
+      debater: [SENTINEL],
+      strikes: 1,
+    },
+  });
+});
