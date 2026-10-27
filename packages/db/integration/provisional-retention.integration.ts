@@ -138,12 +138,11 @@ test('busy provisional rows skip the batch and a cleanup failure inside an accou
         database.purgeExpiredProvisionalUsers({
           ...options,
           // Fails inside the account's own transaction, after the lock.
-          emailChangePurposes: {
-            length: 1,
+          emailChangePurposes: Object.assign(['email-change-approve'], {
             map: () => {
               throw new Error('proof cleanup failure');
             },
-          } as unknown as string[],
+          }),
         }),
       ).rejects.toThrow('proof cleanup failure');
       const kept = [
