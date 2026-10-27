@@ -1,7 +1,7 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
 import {
   formatDefinitionSchema,
-  roomConfigSchema,
+  formatSettingsSchema,
   type FormatDefinition,
 } from '@daisy/protocol';
 import {
@@ -261,7 +261,8 @@ describe('reference data', () => {
   test('every reference definition and preset passes the protocol schemas', () => {
     assert({
       given: 'all reference formats and presets',
-      should: 'each validate against the definition and config schemas',
+      should:
+        'each validate as a format definition and as format settings, never a Room config (ISSUE-775)',
       actual: {
         definitions: referenceFormats.flatMap(({ revisions }) =>
           revisions.map(
@@ -270,7 +271,7 @@ describe('reference data', () => {
           ),
         ),
         configs: referencePresets.map(
-          ({ config }) => roomConfigSchema.safeParse(config).success,
+          ({ config }) => formatSettingsSchema.safeParse(config).success,
         ),
       },
       expected: {
