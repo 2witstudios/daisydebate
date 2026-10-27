@@ -20,7 +20,9 @@ NOCREATEROLE NOREPLICATION NOBYPASSRLS`. It owns the participant database,
 which makes it the owner of schema `public` through `pg_database_owner`. It
 also owns schema `drizzle` and every table, index, sequence, type and
 function it migrates, plus the trusted `btree_gist` extension. It has
-`CONNECT` on no other database. So the `SECURITY DEFINER` authorization
+`CONNECT` on no other application database (only PostgreSQL's default
+PUBLIC `CONNECT` on `postgres`, `repmgr` and the templates, where it owns
+nothing). So the `SECURITY DEFINER` authorization
 functions run as the table owner, never as a superuser, and the credential
 cannot open the admin database. Local and CI databases migrate as the
 superuser `daisy`.
