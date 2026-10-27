@@ -30,7 +30,7 @@ Custom can also start from a league template (NSDA Lincoln-Douglas, NDT
 policy, Public Forum and others) whose rules Daisy runs faithfully; a template
 always reads as Custom. Standing is derived from the Room and its basis, never
 stored. Templates set structure only, never judging (DEC-243). Ranked Rooms
-run their format unchanged. See ADR 0077.
+run their format unchanged. See ADR 0078.
 
 ## Assembly and Launch
 

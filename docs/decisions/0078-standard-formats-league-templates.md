@@ -1,4 +1,4 @@
-# 0077: Standard formats, league templates and the room's basis
+# 0078: Standard formats, league templates and the room's basis
 
 Status: accepted; owner decisions 2026-10-26 (format picker), DEC-243.
 Extends [ADR 0058](0058-one-round-model.md) §2a–§5. Plan:
