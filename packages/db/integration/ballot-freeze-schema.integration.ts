@@ -122,6 +122,12 @@ test('every judge has a separate job and only owning Round erasure removes froze
         await fixture.seat(roundId, 'judge'),
         await fixture.seat(roundId, 'judge', 1),
       ];
+      const segmentId = await captureSchemaSegment(fixture, roundId);
+      await capturedSchemaUtterance(fixture, {
+        roundId,
+        segmentId,
+        seatId: judges[0]!.id,
+      });
       await fixture.sql.unsafe(
         "insert into round_transcript_freezes(round_id,revision,frontier,completeness) values($1,1,0,'incomplete')",
         [roundId],
@@ -168,7 +174,8 @@ test('every judge has a separate job and only owning Round erasure removes froze
       );
       assert({
         given: 'standalone freeze or submitted judge-seat deletion',
-        should: 'defer refusal to commit and roll back the entire deletion',
+        should:
+          'refuse freeze deletion immediately and seat deletion at commit, preserving both',
         actual: {
           reachedFreezeCommit,
           reachedSeatCommit,
@@ -182,19 +189,13 @@ test('every judge has a separate job and only owning Round erasure removes froze
           seats: await fixture.count('round_participants', 'round_id', roundId),
         },
         expected: {
-          reachedFreezeCommit: true,
+          reachedFreezeCommit: false,
           reachedSeatCommit: true,
-          freezeRefusal: 'ballots_freeze_revision_fk',
+          freezeRefusal: 'round_transcript_freezes_immutable',
           seatRefusal: 'ballots_judge_seat_fk',
           freezes: 1,
           seats: 2,
         },
-      });
-      const segmentId = await captureSchemaSegment(fixture, roundId);
-      await capturedSchemaUtterance(fixture, {
-        roundId,
-        segmentId,
-        seatId: judges[0]!.id,
       });
       await fixture.sql.unsafe('delete from rounds where id=$1', [roundId]);
       const tables = [
@@ -213,17 +214,7 @@ test('every judge has a separate job and only owning Round erasure removes froze
         expected: [0, 0, 0, 0, 0],
       });
     } finally {
-      await fixture.sql.unsafe('delete from ballots where round_id=$1', [
-        roundId,
-      ]);
-      await fixture.sql.unsafe(
-        'delete from round_judging_jobs where round_id=$1',
-        [roundId],
-      );
-      await fixture.sql.unsafe(
-        'delete from round_transcript_freezes where round_id=$1',
-        [roundId],
-      );
+      await fixture.sql`delete from rounds where id=${roundId}`;
     }
   });
 });

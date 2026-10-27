@@ -15,6 +15,7 @@ import { systemId } from '@daisy/clock';
 import { isNamedSeat, type RoomView } from '@daisy/protocol';
 import { createLocalConsent } from '../../../features/rooms/local-consent';
 import { createBrowserDeviceChecks } from '../../../features/video/browser-device-checks';
+import { rememberCheckedDevices } from '../../../features/video/device-selection';
 import type { DeviceKind } from '../../../features/video/device-check-controller';
 import type { RoomRead } from '../../../features/rooms/read-assembly';
 import type { submitAssembly } from '../../../features/rooms/submit-assembly';
@@ -194,6 +195,7 @@ export function AssemblyDeviceReadiness(props: Props) {
       },
     });
     const unsubscribe = devices.subscribe((snapshot) => {
+      rememberCheckedDevices(roomId, snapshot);
       void consent.devices(snapshot.devicesPassed);
     });
     void consent.devices(devices.readSnapshot().devicesPassed);

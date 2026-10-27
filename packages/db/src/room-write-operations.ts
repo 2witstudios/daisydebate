@@ -204,12 +204,8 @@ async function reserveBotFreeze(
   admission: RoundBotAdmission | undefined,
 ) {
   const state = mutation.state;
-  if (
-    !mutation.freeze ||
-    state.competitionType === 'ranked' ||
-    !state.participants.some((p) => p.kind === 'bot')
-  )
-    return;
+  // The pure engine decides whether this cast spends an AI round (DEC-186).
+  if (!mutation.freeze || !mutation.spendsAiRound) return;
   if (!admission)
     throw createAppError('INFRASTRUCTURE', 'Bot admission unavailable');
   await admission.reserveLocked(tx, { actorId: state.hostActorId, roundId });

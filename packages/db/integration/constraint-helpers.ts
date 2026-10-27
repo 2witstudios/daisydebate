@@ -263,7 +263,8 @@ export class Fixture {
   /** Commits a transcript freeze a ballot or judging job can name; erased with its Round. */
   async freeze(roundId: string, revision = 1) {
     await this.sql.unsafe(
-      "insert into round_transcript_freezes(round_id,revision,frontier,completeness) values($1,$2,0,'incomplete')",
+      // The frontier is the durable counter, as the ISSUE-505 guard requires.
+      "insert into round_transcript_freezes(round_id,revision,frontier,completeness) values($1,$2,coalesce((select revision from round_transcripts where round_id=$1),0),'incomplete')",
       [roundId, revision],
     );
     return revision;
@@ -335,13 +336,15 @@ export const withFixture = async (
 export const roundAuthoring = async (fixture: Fixture, url: string) => {
   const formatId = await fixture.format();
   const roundId = createId();
+  const actorId = await fixture.actor();
+  await fixture.sql`update users set email_verified=true where id=(select user_id from actors where id=${actorId})`;
   // Tracked before the row exists: the caller creates the round through the
   // adapter, so this is the only record the purge gets. Deleting the round
   // cascades to its participants, segments, commands and refs.
   fixture.track('rounds', roundId);
   return {
     roundId,
-    actorId: await fixture.actor(),
+    actorId,
     formatId,
     rules: validRules,
     database: createDatabase({ url, nextActorId: createId }),
@@ -356,7 +359,7 @@ export const createScheduledRound = async (
 ): Promise<void> => {
   await authoring.database.createRound({
     id: authoring.roundId,
-    createdByActorId: null,
+    createdByActorId: authoring.actorId,
     resolution,
     competitionType: 'casual',
     formatId: authoring.formatId,

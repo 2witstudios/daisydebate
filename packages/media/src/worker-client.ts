@@ -166,8 +166,22 @@ export function createMediaWorkerClient(input: Dependencies) {
     return { value: parsed(schema, raw), sentAtMs, receivedAtMs };
   };
   return {
-    lease: async (leaseMs: number, signal?: AbortSignal) =>
-      (await call('lease', { leaseMs }, leaseReply, signal)).value,
+    lease: async (
+      leaseMs: number,
+      signal?: AbortSignal,
+      expectedEpoch?: number,
+    ) =>
+      (
+        await call(
+          'lease',
+          {
+            leaseMs,
+            ...(expectedEpoch === undefined ? {} : { expectedEpoch }),
+          },
+          leaseReply,
+          signal,
+        )
+      ).value,
     async read(
       request: {
         readonly epoch: number;

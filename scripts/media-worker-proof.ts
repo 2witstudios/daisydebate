@@ -1,3 +1,4 @@
+import { createCaptureProofDiagnostics } from './media-worker-diagnostics';
 import { randomBytes } from 'node:crypto';
 import { createOpenRouter } from '@daisy/ai-voice';
 import { createAudioPublication } from '@daisy/media/audio';
@@ -13,7 +14,10 @@ import {
 } from '../apps/web/src/features/round-finalization/maintenance';
 import { createMediaWorkerTokenBroker } from '../apps/web/src/features/round-media/worker-token';
 import { createMediaCaptureHandlers } from '../apps/web/src/features/media-capture/handlers';
-import { createBotActivityRelay } from '../apps/web/src/features/round-bots/activity-relay';
+import {
+  createBotActivityRelay,
+  createBotHeardRelay,
+} from '../apps/web/src/features/round-bots/activity-relay';
 import { mediaDependencies } from '../apps/web/integration/round-media.test-support';
 import { mediaWorkerRole } from './test-logins';
 import type { withRoomRuntime } from '../apps/web/integration/room-runtime.test-support';
@@ -115,6 +119,7 @@ function ingress(f: Fixture, deps: ReturnType<typeof mediaDependencies>) {
     workerUrl: deps.workerUrl,
     nextId,
     deadline: deps.deadline,
+    hold: createRoundMediaOperations(deps).holdForCapture,
   });
   const authentication = createMediaWorkerAuthentication({
     secret,
@@ -125,6 +130,11 @@ function ingress(f: Fixture, deps: ReturnType<typeof mediaDependencies>) {
     authentication: () => authentication,
     capture: () => capture,
     token: (scope, principal) => broker.captureToken(scope, principal),
+    heard: createBotHeardRelay({
+      readCapture: (value) => capture.readMediaCaptureState(value),
+      readLease: (value) => capture.readCurrentCaptureLease(value),
+      write: f.redis.writeCaptureHeard,
+    }),
     activity: createBotActivityRelay({
       readCapture: (value) => capture.readMediaCaptureState(value),
       readLease: (value) => capture.readCurrentCaptureLease(value),
@@ -200,24 +210,34 @@ export async function proveMediaWorker(f: Fixture, key: string, root: string) {
       stderr: 'ignore',
     },
   );
-  const events = new Response(worker.stdout).text().then((text) =>
-    text
-      .trim()
-      .split('\n')
-      .filter(Boolean)
-      .map((line) => (JSON.parse(line) as { event: string }).event),
-  );
+  const diagnostics = createCaptureProofDiagnostics();
+  const events = (async () => {
+    const decoder = new TextDecoder();
+    let carry = '';
+    for await (const chunk of worker.stdout) {
+      carry += decoder.decode(chunk, { stream: true });
+      const lines = carry.split('\n');
+      carry = lines.pop()!.slice(-65536);
+      lines.forEach(diagnostics.observe);
+    }
+    if (carry) diagnostics.observe(carry);
+    return diagnostics.events();
+  })();
   const publishing = new AbortController();
   const publishers: { close: () => Promise<void> }[] = [];
   try {
-    await until(
-      async () =>
-        (await deps.media.participants(binding.room_name)).some(
-          (p) => p.permission.hidden,
-        ),
-      10000,
-      () => worker.exitCode !== null,
-    );
+    try {
+      await until(
+        async () =>
+          (await deps.media.participants(binding.room_name)).some(
+            (p) => p.permission.hidden,
+          ),
+        10000,
+        () => worker.exitCode !== null,
+      );
+    } catch {
+      throw new Error(diagnostics.failure(worker.exitCode));
+    }
     // The host speaks then holds silence; the guest's seat stays silent.
     for (const seat of bindings) {
       const token = await deps.media.joinToken({

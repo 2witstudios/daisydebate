@@ -16,15 +16,9 @@ requireTestServices(process.env);
 const recordedAt = '2026-01-01T00:00:00.000Z';
 
 /**
- * Two human debaters who each said one line in the first speech, and the AI
- * judge's validated response cached on its job, all recorded at `at`.
+ * Two human debaters who each said one line before the Round freezes.
  */
-async function spokenRound(
-  fixture: Fixture,
-  target: { roundId: string; judgeParticipantId: string },
-  at: string,
-) {
-  const { roundId, judgeParticipantId } = target;
+async function spokenRound(fixture: Fixture, roundId: string, at: string) {
   const userId = await fixture.user();
   const subject = { userId, actorId: await fixture.actor(userId) };
   const speaker = await fixture.seat(
@@ -51,6 +45,16 @@ async function spokenRound(
     [1, lines.other, other.id],
   ] as const)
     await fixture.sql`insert into utterances(id,round_id,segment_id,round_participant_id,sequence,text,created_at) values(${id},${roundId},${segmentId},${seat},${sequence},'a private line',${at}::timestamptz)`;
+  return { subject, lines };
+}
+
+/** The validated response is cached only after its freeze and job exist. */
+async function pendingJudgment(
+  fixture: Fixture,
+  target: { roundId: string; judgeParticipantId: string },
+  at: string,
+) {
+  const { roundId, judgeParticipantId } = target;
   const runId = createId();
   await fixture.insert('agent_runs', {
     id: runId,
@@ -73,12 +77,34 @@ async function spokenRound(
       utterances: left.map((row) => row.id),
     };
   };
-  return { subject, lines, state };
+  return state;
 }
 
+const withSpokenRound = (
+  at: string,
+  work: (
+    input: Awaited<ReturnType<typeof spokenRound>> & {
+      fixture: Fixture;
+      state: Awaited<ReturnType<typeof pendingJudgment>>;
+    },
+  ) => Promise<void>,
+) => {
+  let spoken: Awaited<ReturnType<typeof spokenRound>> | undefined;
+  return withJudgingJob(
+    async ({ fixture, target }) => {
+      if (!spoken) throw new Error('Expected pre-freeze transcript setup');
+      const state = await pendingJudgment(fixture, target, at);
+      await work({ fixture, ...spoken, state });
+    },
+    'complete',
+    async (fixture, target) => {
+      spoken = await spokenRound(fixture, target.roundId, at);
+    },
+  );
+};
+
 test('transcript retention removes utterances and pending judging responses 180 days old, not before', async () =>
-  withJudgingJob(async ({ fixture, target }) => {
-    const { lines, state } = await spokenRound(fixture, target, recordedAt);
+  withSpokenRound(recordedAt, async ({ fixture, lines, state }) => {
     const retention = transcriptRetention({
       database: drizzle({ client: fixture.sql }),
     });
@@ -108,31 +134,33 @@ test('transcript retention removes utterances and pending judging responses 180 
   }));
 
 test('subject erasure removes their transcript lines and every pending judgment of their Rounds', async () =>
-  withJudgingJob(async ({ fixture, target }) => {
-    const now = new Date().toISOString();
-    const { subject, lines, state } = await spokenRound(fixture, target, now);
-    const database = drizzle({ client: fixture.sql });
-    const exported = await database.transaction((tx) =>
-      roundTranscriptPrivacyAdopter.export(tx, subject),
-    );
-    await database.transaction((tx) =>
-      roundTranscriptPrivacyAdopter.erase(tx, subject, { now }),
-    );
-    assert({
-      given:
-        "an erased debater's line, the other debater's line and the AI judge's cached response",
-      should:
-        "export only the subject's own line, then delete it, keep the other debater's, and discard the response by failing its job",
-      actual: {
-        exported: exported.utterances?.map((row) => row.id),
-        after: await state(),
-      },
-      expected: {
-        exported: [lines.subject],
-        after: {
-          job: { status: 'failed', cleared: true },
-          utterances: [lines.other],
+  withSpokenRound(
+    new Date().toISOString(),
+    async ({ fixture, subject, lines, state }) => {
+      const now = new Date().toISOString();
+      const database = drizzle({ client: fixture.sql });
+      const exported = await database.transaction((tx) =>
+        roundTranscriptPrivacyAdopter.export(tx, subject),
+      );
+      await database.transaction((tx) =>
+        roundTranscriptPrivacyAdopter.erase(tx, subject, { now }),
+      );
+      assert({
+        given:
+          "an erased debater's line, the other debater's line and the AI judge's cached response",
+        should:
+          "export only the subject's own line, then delete it, keep the other debater's, and discard the response by failing its job",
+        actual: {
+          exported: exported.utterances?.map((row) => row.id),
+          after: await state(),
         },
-      },
-    });
-  }));
+        expected: {
+          exported: [lines.subject],
+          after: {
+            job: { status: 'failed', cleared: true },
+            utterances: [lines.other],
+          },
+        },
+      });
+    },
+  ));

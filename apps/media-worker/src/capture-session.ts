@@ -1,7 +1,5 @@
-import { createAppError } from '@daisy/errors';
 import type { OpenRouter } from '@daisy/ai-voice';
 import type { createCaptureSubscription } from '@daisy/media/capture';
-import { isCaptureClosedRefusal } from '@daisy/media/worker';
 import { createClipQueue } from './clip-queue';
 import { readCaptureHistory, type CaptureClient } from './capture-history';
 import { createCaptureStaging } from './capture-staging';
@@ -19,10 +17,10 @@ import {
   relayActivity,
 } from './capture-activity';
 import type { consumeCaptureClips, QueuedClip } from './capture-consumer';
-import { createHeardReporter } from './capture-heard';
+import { createHeardReporter, reportHeardTracks } from './capture-heard';
 import { createStreamTracker } from './capture-streams';
 import { closeCaptureSession, gracefulStop } from './capture-drain';
-import { createSessionOutcome } from './capture-outcome';
+import { captureSessionClosed, createSessionOutcome } from './capture-outcome';
 import { sealCaptureStreams } from './capture-seal';
 import { atStage } from './capture-exit';
 import { maintainCaptureLease } from './capture-lease';
@@ -51,7 +49,7 @@ export async function runCaptureSession(
   const renewing = maintainCaptureLease({
     epoch: lease.epoch,
     signal: renewalStop.signal,
-    lease: (ttl, heartbeat) => input.client.lease(ttl, heartbeat),
+    lease: (...args) => input.client.lease(...args),
     nowMs: input.nowMs,
     waitUntilMs: input.waitUntilMs,
   }).catch((error) => {
@@ -185,6 +183,13 @@ async function captureSession(
       await input.waitUntilMs(due, signal).catch(() => undefined);
     }
   })();
+  const reporting = reportHeardTracks({
+    ...input,
+    reporter: heard,
+    state: () => current.state,
+    epoch,
+    signal,
+  });
   try {
     while (!signal.aborted) {
       const due = input.nowMs() + CAPTURE_BATCH_INTERVAL_MS;
@@ -198,7 +203,6 @@ async function captureSession(
         'refresh',
         capture.setIdentities(identities(current)).catch(outcome.closedAsDrop),
       );
-      await atStage('batch', heard.report(current.state, epoch, signal));
       await atStage(
         'batch',
         validateCaptureBatch({
@@ -252,7 +256,7 @@ async function captureSession(
     // A failing shutdown step never masks the failure that stopped the session.
     try {
       await capture.close();
-      await relaying;
+      await Promise.all([relaying, reporting]);
       activity.clear();
       staging.clear();
       stats.sealedStreams += await closeCaptureSession({
@@ -290,16 +294,7 @@ async function captureSession(
     }
   }
   const failure = await outcome.settle(epoch);
-  // The server closed the capture for good: a normal end, not a failure.
-  if (failure && isCaptureClosedRefusal(failure))
-    return { ...stats, closed: true };
-  if (failure)
-    throw createAppError(
-      'INFRASTRUCTURE',
-      'Capture session ended before safe completion',
-      failure,
-    );
-  return { ...stats, closed: false };
+  return { ...stats, closed: captureSessionClosed(failure) };
 }
 const identities = (snapshot: Awaited<ReturnType<CaptureClient['read']>>) =>
   snapshot.state.participants.flatMap((p) => (p.identity ? [p.identity] : []));

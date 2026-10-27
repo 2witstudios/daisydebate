@@ -18,11 +18,7 @@ type Dependencies = RoundMemberRouteDependencies & {
     'command'
   >;
   readonly view: (caller: Caller, roundId: string) => Promise<RoundView>;
-  readonly utterances: (
-    caller: Caller,
-    roundId: string,
-    segmentId: string,
-  ) => Promise<unknown>;
+  readonly transcript: (caller: Caller, roundId: string) => Promise<unknown>;
 };
 /** Shared HTTP gates for the JSON command envelope; native forms reach it through the server action, and bots call the same operation server-side. */
 export function createRoundHandlers(d: Dependencies) {
@@ -50,14 +46,10 @@ export function createRoundHandlers(d: Dependencies) {
         version: view.version,
         segments: view.segments,
       })),
-    utterances: (request: Request, roundId: string, segmentId: string) =>
+    transcript: (request: Request, roundId: string) =>
       run(request, 'read', async (caller) =>
         Response.json(
-          await d.utterances(
-            caller,
-            parseValidated(idSchema, roundId),
-            parseValidated(idSchema, segmentId),
-          ),
+          await d.transcript(caller, parseValidated(idSchema, roundId)),
         ),
       ),
     commands: (request: Request, roundId: string) =>

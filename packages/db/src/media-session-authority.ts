@@ -43,7 +43,7 @@ function boundCaller(
       candidate.kind === 'human' &&
       candidate.eligible,
   );
-  if (!seat) throw createAppError('AUTHORIZATION');
+  if (!seat) throw unseatedRefusal();
   requireAdmittedPrincipal(mediaCaller.admits, accounts, mediaCaller.actorId);
   return seat;
 }
@@ -65,7 +65,10 @@ export async function lockMediaRound(
     .select({ hostActorId: rounds.createdByActorId })
     .from(rounds)
     .where(eq(rounds.id, roundId));
-  if (!initial) throw createAppError('NOT_FOUND');
+  // A human gets the unseated refusal for a missing Round: no existence oracle.
+  const missing = () =>
+    actorId === undefined ? createAppError('NOT_FOUND') : unseatedRefusal();
+  if (!initial) throw missing();
   const actorIds = fencedActorIds(seats, initial.hostActorId, actorId);
   const accounts = actorIds.length
     ? await lockAuthorizationActors(tx, actorIds, {
@@ -77,9 +80,9 @@ export async function lockMediaRound(
     .from(rounds)
     .where(eq(rounds.id, roundId))
     .for('no key update');
-  if (!row) throw createAppError('NOT_FOUND');
+  if (!row) throw missing();
   const round = await hydrateRoundRows(tx, roundId);
-  if (!round) throw createAppError('NOT_FOUND');
+  if (!round) throw missing();
   const participants: RoundCommandAuthority['participants'] = await Promise.all(
     round.participants.map(async (seat) => {
       if (!actorIds.includes(seat.actorId)) throw createAppError('CONFLICT');
@@ -92,6 +95,9 @@ export async function lockMediaRound(
     : null;
   return { participants, caller, accounts };
 }
+
+/** The one refusal a human gets for a Round it holds no live seat in, or that does not exist. */
+export const unseatedRefusal = () => createAppError('AUTHORIZATION');
 
 export const mediaWindowClosed = (
   status: string,

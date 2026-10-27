@@ -142,6 +142,7 @@ function choiceHandler(
 type RoomProps = {
   readonly round: RoundSnapshot;
   readonly media?: ReactNode;
+  readonly transcript?: ReactNode;
   readonly actions?: ReactNode;
   /** Server-backed documents; without it the room keeps them in memory. */
   readonly sync?: DocumentSync;
@@ -204,6 +205,7 @@ export function DebateRoom({ round, sync, ...props }: RoomProps) {
             </p>
           ) : null}
           <BallotStatus round={round} />
+          {props.transcript}
           <VideoDivider
             value={video}
             min={videoBounds.min}

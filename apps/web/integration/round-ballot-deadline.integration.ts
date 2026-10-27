@@ -212,7 +212,7 @@ test('when no judge rules by the deadline the Round completes without a winner',
   });
 });
 
-test('an AI judging job still open at the deadline is recorded as a known failure', async () => {
+test('an AI judging job no provider ever served by the deadline is a known failure and spends no allowance (DEC-186)', async () => {
   await withRoomRuntime(
     async (f) => {
       const { roundId } = await freezeBotJudge(f);
@@ -221,15 +221,24 @@ test('an AI judging job still open at the deadline is recorded as a known failur
       await maintainWith(f, 1, (finalize) => Promise.all(finalize(roundId)));
       const [job] =
         await f.sql`select status,lease_token_digest from round_judging_jobs where round_id=${roundId}`;
+      const [{ reservations }] =
+        await f.sql`select count(*)::int as reservations from usage_reservations where round_id=${roundId}`;
+      const round = (await f.store.getRound(roundId))!;
       assert({
-        given: 'a queued bot judging job when its ballot deadline passes',
-        should: 'complete the Round and fail the job without a lease',
-        actual: [(await f.store.getRound(roundId))!.status, job],
-        expected: ['completed', { status: 'failed', lease_token_digest: null }],
+        given:
+          'an AI-judge-only Round frozen with no bot admission resource, its job never claimed (judging capacity exhausted) when the ballot deadline passes',
+        should:
+          'complete without a winner, fail the job without a lease and leave the host allowance untouched',
+        actual: [round.status, round.outcome, job, reservations],
+        expected: [
+          'completed',
+          null,
+          { status: 'failed', lease_token_digest: null },
+          0,
+        ],
       });
     },
     {
-      botBusyCap: 4,
       judging: {
         leaseMs: 60000,
         model: 'fixture-model',

@@ -80,36 +80,47 @@ test('a caller outside the Round is refused before any vendor write', async () =
   });
 });
 
-test('revoked human eligibility closes admission until it is restored', async () => {
-  const world = createMediaWorld();
-  const operations = createRoundMediaOperations(world.input);
-  const [affirmative, , judge] = world.seats;
-  await operations.session(world.roundId, affirmative.actorId);
+test('revoked bound seats rotate the room and remaining humans rejoin without restoring eligibility', async () => {
+  const { world, operations, affirmative } = await admitted();
+  const judge = world.seats[2];
+  await operations.session(world.roundId, judge.actorId);
+  const oldRoom = world.snapshot().session.roomName;
   world.revoke(judge.id);
-  await operations.recoverActiveSessions();
-  const closed = world.rooms.size;
-  await assertRejects({
-    given: 'a debater admission while a seat is revoked',
-    should: 'refuse to recreate the room',
-    code: 'CONFLICT',
-    actual: () => operations.session(world.roundId, affirmative.actorId),
-  });
-  const read = await operations.read(world.roundId, affirmative.actorId);
-  world.revoke(judge.id, true);
   const reopened = await operations.session(world.roundId, affirmative.actorId);
+  const current = world.snapshot();
   assert({
-    given: 'self-hosted tokens that outlive revocation',
+    given: 'a revoked judge holding an old-room token',
     should:
-      'delete the room, report unavailable, and reopen only after fresh eligibility',
+      'rotate on admission, remove only the revoked binding and admit the debater',
     actual: [
-      closed,
-      world.journal.filter((call) => call === 'delete').length,
-      read.state,
-      read.grants.publish,
       reopened.state,
-      world.rooms.size,
+      current.session.roomName !== oldRoom,
+      world.rooms.has(oldRoom),
+      world.rooms.has(current.session.roomName),
+      current.bindings.map((binding) => binding.roundParticipantId),
     ],
-    expected: [0, 1, 'unavailable', [], 'ready', 1],
+    expected: ['ready', true, false, true, [affirmative.id]],
+  });
+  await assertRejects({
+    given: 'the still-revoked judge',
+    should: 'deny a new grant',
+    code: 'AUTHORIZATION',
+    actual: () => operations.session(world.roundId, judge.actorId),
+  });
+});
+
+test('an ineligible human without a token-bearing binding does not close media', async () => {
+  const { world, operations, affirmative } = await admitted();
+  world.revoke(world.seats[2].id);
+  await operations.recoverActiveSessions();
+  assert({
+    given: 'a revoked seat that never joined media',
+    should: 'retain the existing room and admit remaining eligible seats',
+    actual: [
+      (await operations.session(world.roundId, affirmative.actorId)).state,
+      world.journal.includes('delete'),
+    ],
+    expected: ['ready', false],
   });
 });
 

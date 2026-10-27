@@ -9,7 +9,10 @@ import {
   type LocalTrack,
 } from 'livekit-client';
 import type { RoundMediaState } from '@daisy/protocol';
-import type { BrowserMediaTransport } from './media-controller';
+import {
+  CHECKED_DEVICE_MISSING,
+  type BrowserMediaTransport,
+} from './media-controller';
 
 export type MediaTrack = {
   readonly identity: string;
@@ -39,7 +42,7 @@ const livekit: MediaSdk = {
   capture: createLocalTracks,
 };
 
-type Source = 'camera' | 'microphone';
+export type Source = 'camera' | 'microphone';
 /**
  * The sources to hold published (ISSUE-572). LiveKit enforces the floor
  * (DEC-218/220) and the server sets its permission from the same seat grants
@@ -53,12 +56,27 @@ const desiredSources = (
   permitted: readonly Source[] | null,
 ): readonly Source[] => permitted ?? granted;
 
+const deviceAbsent = (error: unknown) =>
+  error instanceof Error &&
+  ['NotFoundError', 'OverconstrainedError'].includes(error.name);
+/** A device the Room check passed is gone; carries no browser detail. */
+const checkedDeviceMissing = () =>
+  Object.assign(new Error('Checked device missing'), {
+    name: CHECKED_DEVICE_MISSING,
+  });
+
 /** Browser SDK only. Opaque identities stay in memory; no SDK diagnostics reach console. */
 export function createBrowserMediaTransport(
   events: {
     readonly tracks: (tracks: readonly MediaTrack[]) => void;
     readonly invalidated: () => void;
     readonly reconnect: () => void;
+    readonly devices?: {
+      readonly camera?: string;
+      readonly microphone?: string;
+    };
+    /** A device the Room check passed is gone (ISSUE-573); the transport stays up. */
+    readonly missing?: (source: Source) => void;
   },
   sdk: MediaSdk = livekit,
 ) {
@@ -141,25 +159,45 @@ export function createBrowserMediaTransport(
       events.reconnect();
     }
   });
+  const audioCapture = events.devices?.microphone
+    ? { deviceId: { exact: events.devices.microphone } }
+    : true;
+  /** Only a device the Room check passed is reported missing (ISSUE-573). */
+  const checked = <T>(source: Source, work: Promise<T>) =>
+    work.catch((error: unknown) => {
+      if (!events.devices?.[source] || !deviceAbsent(error)) throw error;
+      events.missing?.(source);
+      throw checkedDeviceMissing();
+    });
   const captureSource = async (source: Source) => {
     if (source === 'microphone' && warm) {
       const held = warm;
       warm = null;
       return [held];
     }
-    return sdk.capture({
-      audio: source === 'microphone',
-      video:
-        source === 'camera'
-          ? { resolution: VideoPresets.h360.resolution }
-          : false,
-    });
+    return checked(
+      source,
+      sdk.capture({
+        audio: source === 'microphone' ? audioCapture : false,
+        video:
+          source === 'camera'
+            ? {
+                resolution: VideoPresets.h360.resolution,
+                ...(events.devices?.camera
+                  ? { deviceId: { exact: events.devices.camera } }
+                  : {}),
+              }
+            : false,
+      }),
+    );
   };
   /**
    * A seat that publishes anything is a debater's: its microphone waits warm
    * so its grant costs a publish, not a device open. Best effort: a refusal
-   * here is reported by the capture its grant makes. A seat that publishes
-   * nothing holds no microphone.
+   * fails only the capture its grant makes, so a camera-only turn keeps its
+   * camera and every remote track. A checked microphone that is gone is still
+   * reported now through `missing`, since its debater will need it
+   * (ISSUE-573). A seat that publishes nothing holds no microphone.
    */
   const holdsMicrophone = () =>
     stopped || warm !== null || tracks.has('microphone');
@@ -170,9 +208,10 @@ export function createBrowserMediaTransport(
   const warmMicrophone = async (desired: readonly Source[]) => {
     if (desired.length === 0) return releaseWarm();
     if (holdsMicrophone()) return;
-    const [track] = await sdk
-      .capture({ audio: true, video: false })
-      .catch(() => [] as LocalTrack[]);
+    const [track] = await checked(
+      'microphone',
+      sdk.capture({ audio: audioCapture, video: false }),
+    ).catch(() => [] as LocalTrack[]);
     if (holdsMicrophone()) track?.stop();
     else warm = track ?? null;
   };

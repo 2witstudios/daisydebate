@@ -133,20 +133,22 @@ cadence and test proof counts have category `none`; no personal content is logge
 The explicit `bun --env-file=.env run proof:media-worker` CLI creates and drops an
 isolated, fully migrated run database and fails when the configured provider
 capability is absent. It uses a real custom Room with two legal forty-second
-speeches, the shared engine's actual clock, a connected publishing peer, actual
+speeches, the shared engine's actual clock, two connected publishing peers, actual
 Aura PCM, hidden native capture, Whisper transcription and signed durable ingress.
 The worker runs as the supervisor under the worker login and discovers the
 session itself. It passes only when the supervisor drains cleanly (exit 0,
 logging exactly `server.ready` then `server.shutdown`) and the finalized
-transcript is frozen, `incomplete`, has at least one captured utterance and no
-`open` coverage stream. Chunk counts vary per run and are not part of the
+transcript is frozen, `complete`, has at least one captured utterance and every
+coverage stream is complete. The host publishes speech then silence, and the
+other debater publishes honest silence through its full speaking grant. Chunk
+counts vary per run and are not part of the
 predicate. Expected streams come from `createStreamTracker` (unit-tested in
 `capture-streams.test.ts`): every committed nonempty in-segment speaking
-interval is expected, so a silent seat seals partial instead of staying open,
-and no nominal/possible window becomes coverage. A seal below the stored chunk
+interval is expected; recorded silence can be complete, while an unobserved
+seat stays partial. No nominal/possible window becomes coverage. A seal below the stored chunk
 count is refused, so a takeover worker that knows only its own epoch's chunks
 leaves that stream open for finalization rather than under-reporting it. This
 scoped result does not claim human browser recording, bot generation admission,
-judging, soak or all race acceptance. The publishing peer stays
+judging, soak or all race acceptance. Both publishing peers stay
 connected until the actual Round end so normal empty-room departure does not
 prematurely end the fixture's capture process.
