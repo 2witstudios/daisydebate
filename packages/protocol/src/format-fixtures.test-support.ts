@@ -1,4 +1,4 @@
-import type { FormatDefinition, RoomConfig } from './index';
+import type { FormatDefinition, FormatSettings, RoomConfig } from './index';
 
 /** A room config with no prep, timing overrides, interruptions or yielding. */
 export const plainRoomConfig: RoomConfig = {
@@ -9,6 +9,23 @@ export const plainRoomConfig: RoomConfig = {
   crossExamination: { crossExMode: 'ordered' },
   interruptions: null,
   yielding: null,
+};
+
+/**
+ * One-on-one's casual format settings, shared by the engine's tests and
+ * pinned to `@daisy/db`'s reference value by its test (ISSUE-775).
+ */
+export const oneOnOneSettingsFixture: FormatSettings = {
+  preRoundPrep: { enabled: false },
+  resolutionDraw: { enabled: false },
+  inRoundPrep: { enabled: true, budgetMsPerSide: 240_000 },
+  speechTiming: {
+    countdownMs: 10_000,
+    segmentDurationOverrides: {},
+  },
+  crossExamination: { crossExMode: 'ordered' },
+  interruptions: { mode: 'cross_ex_only', minRemainingMs: 30_000 },
+  yielding: { allowed: true, returnsTime: true },
 };
 
 /** Shared one-on-one format fixture for protocol and engine contract tests. */

@@ -1,9 +1,8 @@
-import type {
-  FormatSettings,
-  RoundParticipantSeat,
-  RoundRules,
-} from '@daisy/protocol';
-import { oneOnOneFormatFixture } from '@daisy/protocol/testing';
+import type { RoundParticipantSeat, RoundRules } from '@daisy/protocol';
+import {
+  oneOnOneFormatFixture,
+  oneOnOneSettingsFixture,
+} from '@daisy/protocol/testing';
 import { createRoundRuntime } from './round-runtime';
 import { resolveRoomConfiguration } from './resolve-room-configuration';
 
@@ -11,18 +10,7 @@ import { resolveRoomConfiguration } from './resolve-room-configuration';
 export const oneOnOneDefinition = oneOnOneFormatFixture;
 
 /** One-on-one's format settings; a room adopts them as its config. */
-export const oneOnOneSettings: FormatSettings = {
-  preRoundPrep: { enabled: false },
-  resolutionDraw: { enabled: false },
-  inRoundPrep: { enabled: true, budgetMsPerSide: 240_000 },
-  speechTiming: {
-    countdownMs: 10_000,
-    segmentDurationOverrides: {},
-  },
-  crossExamination: { crossExMode: 'ordered' },
-  interruptions: { mode: 'cross_ex_only', minRemainingMs: 30_000 },
-  yielding: { allowed: true, returnsTime: true },
-};
+export const oneOnOneSettings = oneOnOneSettingsFixture;
 
 /** The resolved rules for the one-on-one casual room; throws when it refuses. */
 export const oneOnOneRules = (): RoundRules => {

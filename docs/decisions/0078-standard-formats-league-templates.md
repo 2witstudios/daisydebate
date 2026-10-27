@@ -70,7 +70,9 @@ made it rankable.
     interruptions, yielding, prep, and a draw policy that can name only
     Daisy's bank. `roomConfigSchema` embeds those settings and extends the
     draw source with the Room-only host-written list. A Room setting never
-    changes the preset schema, and no preset can carry host-written lines.
+    changes the preset schema. No preset can carry host-written lines: the
+    `format_presets_bank_draw_only` CHECK refuses one however the row
+    arrives, migration SQL included.
 
 ## Consequences
 

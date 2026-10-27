@@ -67,5 +67,11 @@ export const formatPresets = pgTable(
       sql`${table.formatVersion} > 0`,
     ),
     jsonbIsObject('format_presets', table.config),
+    // A host-written list is a Room's own input; no preset carries one, by
+    // whatever path the row arrives (ISSUE-775, ADR 0078 §10).
+    check(
+      'format_presets_bank_draw_only',
+      sql`${table.config} #>> '{resolutionDraw,source,kind}' is distinct from 'host'`,
+    ),
   ],
 );

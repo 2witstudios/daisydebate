@@ -4,7 +4,9 @@ import {
   formatSettingsSchema,
   type FormatDefinition,
 } from '@daisy/protocol';
+import { oneOnOneSettingsFixture } from '@daisy/protocol/testing';
 import {
+  oneOnOneSettings,
   referenceBots,
   referenceFormats,
   referencePresets,
@@ -180,6 +182,16 @@ describe('reference data', () => {
           ...seededPresets.slice(referencePresets.length),
         ]),
       },
+    });
+  });
+
+  test("one-on-one's settings are the engine's fixture, never a drifting copy", () => {
+    assert({
+      given:
+        "the reference one-on-one settings and the protocol's shared fixture",
+      should: 'be equal, so the engine and db tests exercise the same defaults',
+      actual: oneOnOneSettings,
+      expected: oneOnOneSettingsFixture,
     });
   });
 

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { formatSettingsFields } from './format-settings';
+import { formatSettingsFields, preRoundPrepSchema } from './format-settings';
 import {
   freezeResolutionDraw,
   frozenResolutionDrawSchema,
@@ -37,13 +37,13 @@ export type FrozenRoomConfig = z.infer<typeof frozenRoomConfigSchema>;
  * the definition, the config and this plan together.
  */
 export const roomExecutionPlanSchema = z.strictObject({
-  preRoundPrep: formatSettingsFields.preRoundPrep,
+  preRoundPrep: preRoundPrepSchema,
   resolutionDraw: roomResolutionDrawSchema,
 });
 export type RoomExecutionPlan = z.infer<typeof roomExecutionPlanSchema>;
 
 export const frozenRoomExecutionPlanSchema = z.strictObject({
-  preRoundPrep: formatSettingsFields.preRoundPrep,
+  preRoundPrep: preRoundPrepSchema,
   resolutionDraw: frozenResolutionDrawSchema,
 });
 export type FrozenRoomExecutionPlan = z.infer<

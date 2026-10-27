@@ -8,13 +8,15 @@ import { formatResolutionDrawSchema } from './resolution-draw';
 
 /**
  * "Available and declined" has exactly one spelling per level (ADR 0058):
- * a `null` capability in the definition means forbidden, so the config has
- * nothing to spell; `{ enabled: false }` here means the capability exists
- * and this room declined it. `forbidden ≠ available-but-disabled`.
+ * a `null` capability in the definition means forbidden, so the settings
+ * have nothing to spell; `{ enabled: false }` here means the capability
+ * exists and these format settings decline it. `forbidden ≠
+ * available-but-disabled`.
  */
 const declinedSchema = z.strictObject({ enabled: z.literal(false) });
 
-const preRoundPrepSchema = z.discriminatedUnion('enabled', [
+/** Pre-round prep: format structure, which the Room executes (ADR 0058). */
+export const preRoundPrepSchema = z.discriminatedUnion('enabled', [
   declinedSchema,
   z.strictObject({
     enabled: z.literal(true),
