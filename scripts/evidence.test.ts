@@ -1,6 +1,6 @@
 import { assert, describe, setupRitewayBun, test } from 'riteway/bun';
+import { adminE2EClaimProblems } from './evidence-admin';
 import {
-  adminE2EClaimProblems,
   ciGateProblems,
   ciInvokedTasks,
   classifyTestFile,

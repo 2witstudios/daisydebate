@@ -1,5 +1,5 @@
 import { sha3 } from '../auth/secrets';
-import type { auditKinds } from '../db/schema';
+import type { auditDetails, auditKinds } from '../db/schema';
 
 /**
  * The admin audit chain (ADR 0076): each row's
@@ -13,27 +13,6 @@ export const GENESIS_HASH = sha3('daisy-admin-audit-v1');
 
 export type AuditKind = (typeof auditKinds)[number];
 
-/** Closed detail vocabulary: never free text, never a credential. */
-const auditDetails = [
-  'initial',
-  'additional',
-  'replace',
-  'rate_limited',
-  'challenge_invalid',
-  'enrollment_invalid',
-  'credential_unknown',
-  'credential_duplicate',
-  'verification_failed',
-  'counter_regressed',
-  'operator_disabled',
-  'session_expired',
-  'session_idle',
-  'signed_out',
-  'rotated',
-  'replaced',
-  'role',
-  'approval_missing',
-] as const;
 export type AuditDetail = (typeof auditDetails)[number];
 
 export type AuditEvent = {

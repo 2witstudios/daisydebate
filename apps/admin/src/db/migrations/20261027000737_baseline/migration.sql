@@ -11,6 +11,7 @@ CREATE TABLE "audit_events" (
 	"prev_hash" text NOT NULL,
 	"hash" text NOT NULL,
 	CONSTRAINT "audit_events_kind_check" CHECK ("kind" in ('enrollment.issued', 'operator.enrolled', 'auth.success', 'auth.failure', 'access.denied', 'credential.revoked', 'session.revoked')),
+	CONSTRAINT "audit_events_detail_check" CHECK ("detail" is null or "detail" in ('initial', 'additional', 'replace', 'rate_limited', 'challenge_invalid', 'enrollment_invalid', 'credential_unknown', 'credential_duplicate', 'verification_failed', 'counter_regressed', 'operator_disabled', 'session_expired', 'session_idle', 'signed_out', 'rotated', 'replaced', 'role', 'approval_missing')),
 	CONSTRAINT "audit_events_seq_positive" CHECK ("seq" >= 1)
 );
 --> statement-breakpoint

@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "ae7b2b40-68c2-4b8f-9312-009075cad92b",
+  "id": "b725ae26-5318-49b5-9c0c-54133bbb4a29",
   "prevIds": ["00000000-0000-0000-0000-000000000000"],
   "ddl": [
     {
@@ -1104,6 +1104,13 @@
     {
       "value": "\"kind\" in ('enrollment.issued', 'operator.enrolled', 'auth.success', 'auth.failure', 'access.denied', 'credential.revoked', 'session.revoked')",
       "name": "audit_events_kind_check",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "audit_events"
+    },
+    {
+      "value": "\"detail\" is null or \"detail\" in ('initial', 'additional', 'replace', 'rate_limited', 'challenge_invalid', 'enrollment_invalid', 'credential_unknown', 'credential_duplicate', 'verification_failed', 'counter_regressed', 'operator_disabled', 'session_expired', 'session_idle', 'signed_out', 'rotated', 'replaced', 'role', 'approval_missing')",
+      "name": "audit_events_detail_check",
       "entityType": "checks",
       "schema": "public",
       "table": "audit_events"

@@ -37,6 +37,27 @@ export const auditKinds = [
   'session.revoked',
 ] as const;
 
+/** Closed detail vocabulary: never free text, never a credential. */
+export const auditDetails = [
+  'initial',
+  'additional',
+  'replace',
+  'rate_limited',
+  'challenge_invalid',
+  'enrollment_invalid',
+  'credential_unknown',
+  'credential_duplicate',
+  'verification_failed',
+  'counter_regressed',
+  'operator_disabled',
+  'session_expired',
+  'session_idle',
+  'signed_out',
+  'rotated',
+  'replaced',
+  'role',
+  'approval_missing',
+] as const;
 export const operators = pgTable(
   'operators',
   {
@@ -183,6 +204,10 @@ export const auditEvents = pgTable(
   },
   (table) => [
     check('audit_events_kind_check', inList('kind', auditKinds)),
+    check(
+      'audit_events_detail_check',
+      sql`${table.detail} is null or ${inList('detail', auditDetails)}`,
+    ),
     check('audit_events_seq_positive', sql`${table.seq} >= 1`),
     uniqueIndex('audit_events_id_unique').on(table.id),
   ],
