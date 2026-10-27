@@ -25,7 +25,7 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-# No quick check here: ci.yml runs it once per push, and a lint failure there
+# No quick check here: ci.yml runs it once per PR or main push, and a lint failure there
 # never cascades into browser reds (ADR 0083).
 jobs:
   # Decides, without installing or building anything, whether this run needs

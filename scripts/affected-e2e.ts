@@ -92,9 +92,7 @@ const nonNative = [
   'apps/admin/',
   ...theme,
   'apps/web/src/ui/dashboard/',
-  'apps/web/src/ui/shell/',
   'apps/web/src/ui/beta/',
-  'apps/web/src/features/access/',
   'apps/web/src/app/(bare)/beta/',
 ];
 const skipsNative = (file: string) =>

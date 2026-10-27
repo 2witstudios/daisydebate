@@ -564,7 +564,7 @@ cascades into browser reds.
   sits in a known area the suite does not exercise:
   - agent process files (`.claude/`, `.opencode/`, `policy/agent-pipeline/`);
   - the admin app;
-  - theme, dashboard, shell, and the beta gate and access screens.
+  - theme, dashboard and the beta gate screens.
 
   Anything else runs it, including room, round, realtime, messaging, media,
   auth, database, Redis, dependency and unknown paths, and so does an empty

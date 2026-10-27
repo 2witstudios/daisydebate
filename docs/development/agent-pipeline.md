@@ -75,7 +75,7 @@ its next plan, on the channel.
 ## Checks
 
 Local runs are targeted: typecheck, lint, knip and unit tests for what you
-touched. CI is the full gate. Heavy commands queue machine-wide through
+touched. CI holds the blocking gates. Heavy commands queue machine-wide through
 `scripts/heavy.ts`.
 
 - `bun check:affected` is the inner loop. `bun check` mirrors the blocking

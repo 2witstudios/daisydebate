@@ -174,6 +174,7 @@ describe('native path filter', () => {
       'bun.lock',
       'package.json',
       'apps/web/src/proxy.ts',
+      'apps/web/src/features/access/decision.ts',
       'apps/web/e2e/room-launch.e2e.ts',
       'apps/web/e2e/support/room-launch-runner.ts',
       '.github/workflows/e2e.yml',
