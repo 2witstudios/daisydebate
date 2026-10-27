@@ -23,13 +23,37 @@ const input = {
 const now = '2026-10-26T18:00:00.000Z';
 
 test('commitChallenge records only a room the caller hosts while it assembles', async () => {
-  const { client, queries } = fakeSql([[], [[room]], [], []]);
+  const { client, queries } = fakeSql([
+    [],
+    [[room]],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [{ recorded: 1 }],
+  ]);
   let fences = 0;
   const frame = challengeFrame(drizzle({ client }), input, [pair], async () => {
     fences += 1;
   });
   const recorded = await frame.commitChallenge({ roomId: room, now });
   const missing = await frame.commitChallenge({ roomId: room, now });
+  const repeat = await frame.commitChallenge({ roomId: room, now });
+  const fallback = queries.at(-1)?.query ?? '';
+  assert({
+    given:
+      'a room already challenging the same friend, while the caller still hosts it open',
+    should:
+      'record the repeat Challenge, guarding the read by host and open status like the insert (E5)',
+    actual: [
+      repeat,
+      fallback.includes('r.host_actor_id'),
+      fallback.includes("r.status in ('assembling', 'ready')"),
+      fallback.includes('c.challenged_actor_id'),
+    ],
+    expected: [{ recorded: true }, true, true, true],
+  });
   assert({
     given: 'a challenge the room check admits, then one it does not',
     should:
@@ -44,7 +68,7 @@ test('commitChallenge records only a room the caller hosts while it assembles', 
       queries[1]?.params.slice(0, 2),
     ],
     expected: [
-      2,
+      3,
       { recorded: true },
       { recorded: false },
       true,

@@ -226,14 +226,14 @@ function composeBetaMessagingPolicy(
 }
 
 /** Whether two rules allow the same counts over the same windows. */
-const sameWindows = (a: Windows, b: Windows) =>
-  a.length === b.length &&
-  a.every((rule) =>
-    b.some(
-      (other) =>
-        other.windowSeconds === rule.windowSeconds && other.max === rule.max,
-    ),
-  );
+const sameWindows = (a: Windows, b: Windows) => {
+  const key = (rules: Windows) =>
+    rules
+      .map(({ max, windowSeconds }) => `${windowSeconds}:${max}`)
+      .sort()
+      .join(',');
+  return key(a) === key(b);
+};
 
 /** The tightenable numbers a composed policy carries. */
 const valuesOf = (policy: MessagingRuntimePolicy): MessagingBetaValues => ({

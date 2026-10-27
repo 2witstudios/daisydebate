@@ -13,6 +13,13 @@ import { requirePrivateGroups } from './private-groups';
 
 setupRitewayBun();
 
+/** A send tighter than DEC-251's in its burst and hour windows. */
+const tighterSend = [
+  { max: 5, windowSeconds: 10 },
+  { max: 30, windowSeconds: 60 },
+  { max: 100, windowSeconds: 3_600 },
+];
+
 test('the shipped beta policy is DEC-251, frozen, within DEC-124', () => {
   assert({
     given: 'the composed beta messaging policy',
@@ -112,11 +119,7 @@ test('private groups are off in the beta policy, whatever group policy is suppli
 test('a deployment override may only tighten DEC-251', async () => {
   const tightened = tightenMessagingPolicy(betaMessagingPolicy, {
     editWindowMs: 60_000,
-    send: [
-      { max: 5, windowSeconds: 10 },
-      { max: 30, windowSeconds: 60 },
-      { max: 100, windowSeconds: 3_600 },
-    ],
+    send: tighterSend,
     reactions: { distinctPerMessage: 3 },
     socialRequests: { daily: 10, declineBlockMs: 3_000_000_000 },
   });
@@ -170,22 +173,43 @@ test('a deployment override may only tighten DEC-251', async () => {
           },
         },
         {
-          send: [
-            { max: 5, windowSeconds: 10 },
-            { max: 30, windowSeconds: 60 },
-            { max: 100, windowSeconds: 3_600 },
-          ],
+          send: tighterSend,
         },
       ).social.abuse.map((rule) => rule.max),
       tightenMessagingPolicy(ownSocial, {
-        send: [
-          { max: 5, windowSeconds: 10 },
-          { max: 30, windowSeconds: 60 },
-          { max: 100, windowSeconds: 3_600 },
-        ],
+        send: tighterSend,
       }).social.abuse,
     ],
     expected: [[5, 30, 100], [{ max: 3, windowSeconds: 60 }]],
+  });
+  const repeated = {
+    ...betaMessagingPolicy,
+    limits: {
+      ...betaMessagingPolicy.limits,
+      actorSend: [
+        { max: 30, windowSeconds: 60 },
+        { max: 600, windowSeconds: 3_600 },
+      ],
+    },
+    social: {
+      ...betaMessagingPolicy.social,
+      abuse: [
+        { max: 30, windowSeconds: 60 },
+        { max: 30, windowSeconds: 60 },
+      ],
+    },
+  };
+  assert({
+    given:
+      'social windows that repeat one of send’s rules but differ from send',
+    should: 'treat them as their own windows and keep them',
+    actual: tightenMessagingPolicy(repeated, {
+      send: [
+        { max: 20, windowSeconds: 60 },
+        { max: 600, windowSeconds: 3_600 },
+      ],
+    }).social.abuse,
+    expected: repeated.social.abuse,
   });
   for (const [given, override] of [
     ['a longer edit window', { editWindowMs: 900_001 }],

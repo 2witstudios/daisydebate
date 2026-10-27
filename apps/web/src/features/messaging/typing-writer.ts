@@ -2,8 +2,9 @@ import { readTypingResponse } from './typing-response';
 
 /**
  * After a write refused as too soon (a 429 from DEC-251's one signal per
- * 3 s) the writer waits this long before trying again, instead of posting
- * on every keystroke. Any other refusal or failure stops renewal.
+ * 3 s), or one the network dropped, the writer waits this long before
+ * trying again instead of posting on every keystroke. A definite refusal
+ * stops renewal.
  */
 export const TYPING_RETRY_MS = 3_000;
 /** Serializes intent writes, coalesces raw keystrokes and renews only at a server-supplied bound. */
@@ -23,8 +24,8 @@ export function createTypingWriter({
     busy = false,
     closed = false,
     queued = false,
-    // A refusal other than 429 (offline, 401, 403, 503): no renewal, and
-    // no post per keystroke, until the member stops and starts again.
+    // A definite refusal (401, 403, 404, 400, 503): no renewal, and no post
+    // per keystroke, until the member stops and starts again.
     stalled = false;
   let timer: unknown = null;
   let completion = Promise.resolve();
@@ -38,13 +39,13 @@ export function createTypingWriter({
       queued = false;
       const sent = desired;
       const response = await write(sent).catch(() => null);
+      // Too soon (429) or a dropped request: one back-off, then retry. A
+      // definite refusal (401, 403, 404, 400, 503) stalls instead.
       const interval =
-        response?.status === 429
+        response === null || response.status === 429
           ? TYPING_RETRY_MS
-          : response === null
-            ? null
-            : ((await readTypingResponse(channelId, response))
-                ?.refreshAfterMs ?? null);
+          : ((await readTypingResponse(channelId, response))?.refreshAfterMs ??
+            null);
       stalled = sent && interval === null;
       if (!queued && !closed && desired && interval !== null)
         timer = timers.setTimeout(() => {

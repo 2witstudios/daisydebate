@@ -57,6 +57,14 @@ test('renewal follows server timing, backs off only when refused as too soon, an
     actual: sent,
     expected: [true, true, true],
   });
+  await writer.activity(false);
+  await writer.activity(true);
+  assert({
+    given: 'the member stops and starts typing again after the stall',
+    should: 'send the stop and try the start again',
+    actual: sent,
+    expected: [true, true, true, false, true],
+  });
   await writer.close();
   await writer.close();
   await writer.activity(true);
@@ -65,6 +73,36 @@ test('renewal follows server timing, backs off only when refused as too soon, an
     given: 'duplicate disposal and activity after the writer is closed',
     should: 'send exactly one stop without resurrecting renewal',
     actual: sent,
-    expected: [true, true, true, false],
+    expected: [true, true, true, false, true, false],
   });
+});
+
+test('a write the network dropped backs off once and retries, never stalls', async () => {
+  const channelId = 'c'.repeat(24),
+    sent: boolean[] = [];
+  const timers = createTimerQueue((clock, delay) => clock + delay);
+  const writer = createTypingWriter({
+    channelId,
+    timers,
+    write: async (value) => {
+      sent.push(value);
+      if (sent.length === 1) throw new TypeError('Failed to fetch');
+      return Response.json({
+        version: 1,
+        channelId,
+        typing: true,
+        refreshAfterMs: 5000,
+      });
+    },
+  });
+  await writer.activity(true);
+  await writer.activity(true);
+  timers.advance(TYPING_RETRY_MS);
+  assert({
+    given: 'a typing start the network dropped, then a keystroke',
+    should: 'post nothing per keystroke and retry once after the back-off',
+    actual: sent,
+    expected: [true, true],
+  });
+  await writer.close();
 });
