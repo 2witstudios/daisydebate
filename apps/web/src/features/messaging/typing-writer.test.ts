@@ -22,11 +22,11 @@ const writerAnswering = (answer: (n: number) => Response | Error) => {
 };
 const renewIn = (refreshAfterMs: number, typing: boolean) =>
   Response.json({ version: 1, channelId, typing, refreshAfterMs });
-test('renewal follows server timing, backs off only when refused as too soon, and stops on any other refusal or disposal', async () => {
+test('renewal follows server timing, backs off when refused as too soon, and stalls on a refusal (4xx) or disposal', async () => {
   const { sent, timers, writer } = writerAnswering((n) =>
     n === 1
       ? renewIn(450, false)
-      : new Response(null, { status: n === 2 ? 429 : 503 }),
+      : new Response(null, { status: n === 2 ? 429 : 403 }),
   );
   await writer.activity(true);
   timers.advance(449);
@@ -58,8 +58,7 @@ test('renewal follows server timing, backs off only when refused as too soon, an
   await writer.activity(true);
   await writer.activity(true);
   assert({
-    given:
-      'the retry refused as unavailable (503), not as too soon, then more keystrokes',
+    given: 'the retry refused outright (403), then more keystrokes',
     should: 'stop renewing and post nothing per keystroke',
     actual: sent,
     expected: [true, true, true],
@@ -67,7 +66,7 @@ test('renewal follows server timing, backs off only when refused as too soon, an
   await writer.activity(false);
   await writer.activity(true);
   assert({
-    given: 'the member stops and starts typing again after the stall',
+    given: 'the member stops and starts typing again after the refusal',
     should: 'send the stop and try the start again',
     actual: sent,
     expected: [true, true, true, false, true],
@@ -84,18 +83,26 @@ test('renewal follows server timing, backs off only when refused as too soon, an
   });
 });
 
-test('a write the network dropped backs off once and retries, never stalls', async () => {
+test('a dropped write or a 5xx backs off and retries every TYPING_RETRY_MS, never stalls', async () => {
   const { sent, timers, writer } = writerAnswering((n) =>
-    n === 1 ? new TypeError('Failed to fetch') : renewIn(5000, true),
+    n === 1
+      ? new TypeError('Failed to fetch')
+      : n === 2
+        ? new Response(null, { status: 503 })
+        : renewIn(5000, true),
   );
   await writer.activity(true);
   await writer.activity(true);
   timers.advance(TYPING_RETRY_MS);
+  await writer.activity(true); // settles the retry in flight
+  timers.advance(TYPING_RETRY_MS);
+  await writer.activity(true);
   assert({
-    given: 'a typing start the network dropped, then a keystroke',
-    should: 'post nothing per keystroke and retry once after the back-off',
+    given: 'a typing start the network dropped, a keystroke, then a 503',
+    should:
+      'post nothing per keystroke and retry after each back-off until it is acknowledged',
     actual: sent,
-    expected: [true, true],
+    expected: [true, true, true],
   });
   await writer.close();
 });

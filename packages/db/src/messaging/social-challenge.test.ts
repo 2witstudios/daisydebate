@@ -41,6 +41,7 @@ test('commitChallenge records only a room the caller hosts while it assembles', 
   const missing = await frame.commitChallenge({ roomId: room, now });
   const repeat = await frame.commitChallenge({ roomId: room, now });
   const fallback = queries.at(-1)?.query ?? '';
+  const fallbackParams = queries.at(-1)?.params ?? [];
   assert({
     given:
       'a room already challenging the same friend, while the caller still hosts it open',
@@ -51,8 +52,9 @@ test('commitChallenge records only a room the caller hosts while it assembles', 
       fallback.includes('r.host_actor_id'),
       fallback.includes("r.status in ('assembling', 'ready')"),
       fallback.includes('c.challenged_actor_id'),
+      fallbackParams.slice(0, 3),
     ],
-    expected: [{ recorded: true }, true, true, true],
+    expected: [{ recorded: true }, true, true, true, [room, high, low]],
   });
   assert({
     given: 'a challenge the room check admits, then one it does not',

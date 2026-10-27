@@ -1,10 +1,11 @@
 import { readTypingResponse } from './typing-response';
 
 /**
- * After a write refused as too soon (a 429 from DEC-251's one signal per
- * 3 s), or one the network dropped, the writer waits this long before
- * trying again instead of posting on every keystroke. A definite refusal
- * stops renewal.
+ * After a transient failure (too soon, a 429 from DEC-251's one signal per
+ * 3 s; a dropped request; or a 5xx) the writer waits this long before trying
+ * again, every TYPING_RETRY_MS while typing is wanted, instead of posting on
+ * every keystroke. A refusal (4xx) stops renewal. A dropped stop is not
+ * retried: the server's lease expiry clears it.
  */
 export const TYPING_RETRY_MS = 3_000;
 /** Serializes intent writes, coalesces raw keystrokes and renews only at a server-supplied bound. */
@@ -24,8 +25,8 @@ export function createTypingWriter({
     busy = false,
     closed = false,
     queued = false,
-    // A definite refusal (401, 403, 404, 400, 503): no renewal, and no post
-    // per keystroke, until the member stops and starts again.
+    // A refusal (400, 401, 403, 404): no renewal, and no post per
+    // keystroke, until the member stops and starts again.
     stalled = false;
   let timer: unknown = null;
   let completion = Promise.resolve();
@@ -39,10 +40,10 @@ export function createTypingWriter({
       queued = false;
       const sent = desired;
       const response = await write(sent).catch(() => null);
-      // Too soon (429) or a dropped request: one back-off, then retry. A
-      // definite refusal (401, 403, 404, 400, 503) stalls instead.
+      // Transient (dropped, 429, 5xx): back off, then retry. A refusal
+      // (400, 401, 403, 404) stalls instead.
       const interval =
-        response === null || response.status === 429
+        response === null || response.status === 429 || response.status >= 500
           ? TYPING_RETRY_MS
           : ((await readTypingResponse(channelId, response))?.refreshAfterMs ??
             null);

@@ -4,6 +4,7 @@ import { assertRejects } from '@daisy/errors/testing';
 import { createAppError } from '@daisy/errors';
 import type { MessagingDmStore } from '@daisy/db/messaging';
 import { decideMessagingDm } from './decide-request';
+import { messagingSocialDigest } from './social-command-digest';
 setupRitewayBun();
 test('DM decisions bind retries to the original own receipt without replaying writes', async () => {
   const command = {
@@ -81,6 +82,33 @@ test('DM decisions bind retries to the original own receipt without replaying wr
     }),
     expected: { channelId: command.channelId, state: 'accepted' },
   });
+  const backdated: string[] = [];
+  receipt = null;
+  state = 'pending';
+  await assertRejects({
+    given: 'a new decision under a clock before the request was made',
+    should: 'refuse it as invalid before spending the limiter',
+    actual: () =>
+      decideMessagingDm(command, principal, {
+        ...dependencies,
+        clock: { now: () => '2026-10-09T17:00:00.000Z' },
+        limit: async () => {
+          backdated.push('limit');
+        },
+      }),
+    code: 'VALIDATION',
+  });
+  assert({
+    given: 'the refused backdated decision',
+    should: 'never have called the limiter',
+    actual: backdated,
+    expected: [],
+  });
+  receipt = {
+    kind: 'dm.decide',
+    digest: messagingSocialDigest('dm.decide', [command.channelId, 'accept']),
+    channelId: command.channelId,
+  };
   state = 'pending';
   await assertRejects({
     given: 'an old own decision receipt after the pair has reopened pending',
