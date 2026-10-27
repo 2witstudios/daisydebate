@@ -34,7 +34,7 @@ test('invitation candidates require their own current grant and never turn an ou
           'a content-denied candidate with fresh own pending invitation grant',
         should: 'return only invitation navigation',
         actual: await inspect(),
-        expected: { channelId, kind: 'incoming_invitation' },
+        expected: { channelId, kind: 'incoming_invitation' as const },
       });
     assert({
       given: code,

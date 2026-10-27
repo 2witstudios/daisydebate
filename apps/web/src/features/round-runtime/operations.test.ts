@@ -18,15 +18,15 @@ const envelope = (
 const host = { kind: 'human' as const, actorId: caller.actorId };
 
 /** A store that authorizes and projects against fixed locked facts. */
-const operations = () => {
+const operations = (locked = context) => {
   const calls: { payloadDigest: string }[] = [];
   const ops = createRoundRuntimeOperations({
     nextSegmentId: () => 's4n6p8r2t4v6x8z1k3b5c7d9',
     store: {
       executeRoundCommand: async (input) => {
         calls.push(input);
-        input.authorize(context);
-        return input.buildProjection(context) as never;
+        input.authorize(locked);
+        return input.buildProjection(locked) as never;
       },
       executeRoundTick: async (input) =>
         input.buildProjection({ round: context.round, now }) as never,
@@ -123,3 +123,26 @@ test('a tick projects the locked Round through the shared engine clock', async (
     expected: ['scheduled', []],
   });
 });
+
+for (const elapsed of [899_999, 900_000, 900_001])
+  test(`start enforces the durable horizon at ${elapsed} ms after Launch`, async () => {
+    const { ops } = operations({
+      ...context,
+      now: new Date(
+        Date.parse(context.round.launchedAt) + elapsed,
+      ).toISOString(),
+    });
+    const result = await ops
+      .command(host, launched.id, envelope({ type: 'start' }))
+      .then(
+        () => 'active',
+        (error: unknown) =>
+          error instanceof Error ? error.message : 'unknown',
+      );
+    assert({
+      given: `a host start ${elapsed} ms after Launch before maintenance sweeps`,
+      should: 'activate only strictly before the same horizon maintenance uses',
+      actual: result,
+      expected: elapsed < 900_000 ? 'active' : 'illegal-command',
+    });
+  });

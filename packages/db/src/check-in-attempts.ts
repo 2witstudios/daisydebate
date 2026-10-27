@@ -24,19 +24,32 @@ export function checkInAttemptLifecycle(attempt: CheckInAttempt) {
     (attempt.actorId === null) === (attempt.serviceId === null)
   )
     throw createAppError('VALIDATION');
+  let opening: 'unopened' | 'present' | 'absent' = 'unopened';
   return {
+    /** Called only after the adapter confirms the opening control COMMIT. */
+    requireRound(): void {
+      if (opening === 'unopened') throw createAppError('INVARIANT');
+      if (opening === 'absent') throw createAppError('NOT_FOUND');
+    },
     async open(
       control: AttendanceTransactionContext,
       metadata: CheckInAttemptMetadata,
     ): Promise<void> {
-      await control.execute(sql`insert into round_check_in_attempts(attempt_id,command_id,round_id,payload_digest,actor_id,service_id,received_at,backend_pid,backend_started_at,state)
-    values(${attempt.attemptId},${attempt.commandId},${attempt.roundId},${attempt.payloadDigest},${attempt.actorId},${attempt.serviceId},${metadata.receivedAt}::timestamptz,${metadata.writer.pid},${metadata.writer.backendStart}::timestamptz,'pending')`);
+      // Lock the parent through control COMMIT so concurrent erasure cannot
+      // turn this existence decision into an INSERT foreign-key failure.
+      const rows = await control.execute(sql`with parent as (
+        select id from rounds where id=${attempt.roundId} for key share
+      ) insert into round_check_in_attempts(attempt_id,command_id,round_id,payload_digest,actor_id,service_id,received_at,backend_pid,backend_started_at,state)
+    select ${attempt.attemptId},${attempt.commandId},parent.id,${attempt.payloadDigest},${attempt.actorId},${attempt.serviceId},${metadata.receivedAt}::timestamptz,${metadata.writer.pid},${metadata.writer.backendStart}::timestamptz,'pending' from parent returning attempt_id`);
+      opening = rows.length === 1 ? 'present' : 'absent';
     },
     async close(
       control: AttendanceTransactionContext,
       metadata: CheckInAttemptMetadata,
       outcome: 'committed' | 'aborted',
     ): Promise<void> {
+      if (opening === 'absent' && outcome === 'aborted') return;
+      if (opening !== 'present') throw createAppError('INVARIANT');
       // An abort closes only after the writer's absence is confirmed, and the
       // reconciler settles exactly such markers. Lock first: this waits out a
       // reconciler mid-transaction and then reads its committed state, and one

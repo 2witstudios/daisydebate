@@ -54,3 +54,8 @@ export type {
   MessagingReactionFence,
   MessagingReactionStore,
 } from './reaction-contracts';
+
+export {
+  readMessagingInboxSummary,
+  type MessagingInboxSummary,
+} from './inbox-summary';
