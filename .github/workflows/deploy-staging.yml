@@ -63,7 +63,8 @@ jobs:
   deploy:
     name: Deploy main to daisy-debate-staging
     runs-on: ubuntu-24.04
-    # Five deploys (migrator, LiveKit, realtime, web, capture worker) run
+    # Seven deploys (migrator, LiveKit, realtime, web, capture worker, admin
+    # migrator, admin) run
     # back to back, each building on this runner and pushing its image.
     timeout-minutes: 60
     needs: ready
@@ -86,6 +87,8 @@ jobs:
         deploy.realtime=${{ steps.realtime.outcome }}
         deploy.deploy=${{ steps.deploy.outcome }}
         deploy.media-worker=${{ steps.media-worker.outcome }}
+        deploy.admin-migrate=${{ steps.admin-migrate.outcome }}
+        deploy.admin=${{ steps.admin.outcome }}
         deploy.readiness=${{ steps.readiness.outcome }}
     steps:
       - id: checkout
@@ -166,6 +169,36 @@ jobs:
           flyctl deploy -c fly.media-worker.toml --local-only --ha=false
           --build-arg APP_VERSION="${DEPLOY_SHA::7}"
           --build-arg GIT_COMMIT="$DEPLOY_SHA"
+      - id: admin-migrate
+        name: Migrate the admin database
+        # ADR 0076: the release-only admin migrator, holding only the admin
+        # database owner credential. Until the owner creates the app and its
+        # deploy token (BETA-H), the secret is empty and this step skips.
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_ADMIN_MIGRATE_API_TOKEN }}
+        run: |
+          if [ -z "$FLY_API_TOKEN" ]; then
+            echo "FLY_ADMIN_MIGRATE_API_TOKEN is not set; the admin database is not deployed yet"
+            exit 0
+          fi
+          flyctl deploy -c fly.admin-migrate.toml --local-only --update-only \
+            --build-arg APP_VERSION="${DEPLOY_SHA::7}" \
+            --build-arg GIT_COMMIT="$DEPLOY_SHA"
+      - id: admin
+        name: Deploy the admin app
+        # 6PN only: no public address is ever allocated. Skips while either
+        # admin token is missing, so it never runs on an unmigrated database.
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_ADMIN_API_TOKEN }}
+          MIGRATOR_READY: ${{ secrets.FLY_ADMIN_MIGRATE_API_TOKEN != '' }}
+        run: |
+          if [ -z "$FLY_API_TOKEN" ] || [ "$MIGRATOR_READY" != true ]; then
+            echo "Admin deploy tokens are not set; the admin app is not deployed yet"
+            exit 0
+          fi
+          flyctl deploy -c fly.admin.toml --local-only --ha=false --no-public-ips \
+            --build-arg APP_VERSION="${DEPLOY_SHA::7}" \
+            --build-arg GIT_COMMIT="$DEPLOY_SHA"
       - id: readiness
         name: Verify readiness
         run: |

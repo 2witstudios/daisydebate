@@ -11,7 +11,18 @@ import {
  * apps/web/Dockerfile name their stage and the line of source that bounds
  * how long they take to stop; LiveKit is a pinned third-party image.
  */
-export const SERVICE_APPS = [
+type ServiceApp = {
+  readonly file: string;
+  readonly token: string;
+  readonly target: string | null;
+  readonly stop: { readonly source: string; readonly pattern: RegExp } | null;
+  /** A release-only app (ADR 0041): it runs a release_command and no machine. */
+  readonly release?: true;
+  /** The service app config whose deploy must come first. */
+  readonly after?: string;
+};
+
+export const SERVICE_APPS: readonly ServiceApp[] = [
   {
     file: 'fly.livekit.toml',
     token: 'FLY_LIVEKIT_API_TOKEN',
@@ -36,7 +47,25 @@ export const SERVICE_APPS = [
       pattern: /child\.kill\('SIGKILL'\), ([\d_]+)\)/,
     },
   },
-] as const;
+  // ADR 0076: the admin database's release-only migrator, then the admin app.
+  {
+    file: 'fly.admin-migrate.toml',
+    token: 'FLY_ADMIN_MIGRATE_API_TOKEN',
+    target: 'admin-migrate',
+    stop: null,
+    release: true,
+  },
+  {
+    file: 'fly.admin.toml',
+    token: 'FLY_ADMIN_API_TOKEN',
+    target: 'admin',
+    stop: {
+      source: 'apps/admin/src/server/start.ts',
+      pattern: /const SHUTDOWN_DEADLINE_MS = ([\d_]+);/,
+    },
+    after: 'fly.admin-migrate.toml',
+  },
+];
 
 /**
  * Pure check of one built service app config: it builds its own stage,
@@ -47,14 +76,17 @@ export function findServiceAppProblems(input: {
   readonly file: string;
   readonly toml: string;
   readonly target: string;
-  readonly stopMs: number;
+  /** Absent for a release-only app, which never runs a machine to stop. */
+  readonly stopMs?: number;
+  readonly release?: boolean;
 }): readonly string[] {
   const code = uncommented(input.toml);
   const build = uncommented(
     (tableBody(input.toml, '[build]') ?? []).join('\n'),
   );
-  const stopSeconds = Math.ceil(input.stopMs / 1000);
+  const stopSeconds = Math.ceil((input.stopMs ?? 0) / 1000);
   const required = stopSeconds + KILL_TIMEOUT_MARGIN_S;
+  const releases = /^\s*release_command\s*=/m.test(code);
   return [
     /^\s*dockerfile\s*=\s*"apps\/web\/Dockerfile"\s*$/m.test(build) &&
     new RegExp(`^\\s*build-target\\s*=\\s*"${input.target}"\\s*$`, 'm').test(
@@ -62,10 +94,14 @@ export function findServiceAppProblems(input: {
     )
       ? null
       : `${input.file} must build \`build-target = "${input.target}"\` from apps/web/Dockerfile`,
-    /^\s*release_command\s*=/m.test(code)
-      ? `${input.file} runs a release_command; migrations run only from fly.migrate.toml`
-      : null,
-    killTimeoutSeconds(input.toml) >= required
+    input.release
+      ? releases
+        ? null
+        : `${input.file} is release-only and must run its migration as release_command`
+      : releases
+        ? `${input.file} runs a release_command; migrations run only from fly.migrate.toml`
+        : null,
+    input.stopMs === undefined || killTimeoutSeconds(input.toml) >= required
       ? null
       : `${input.file} kill_timeout must be at least ${required} s (the ${stopSeconds} s stop budget plus ${KILL_TIMEOUT_MARGIN_S} s margin)`,
   ].filter((problem): problem is string => problem !== null);
@@ -146,11 +182,18 @@ export function findServiceAppConfigProblems(
 
 /** A built app's stage and stop budget; LiveKit's pinned image has neither. */
 function builtServiceProblems(
-  app: (typeof SERVICE_APPS)[number],
+  app: ServiceApp,
   toml: string,
   read: (path: string) => string | undefined,
 ): readonly string[] {
-  if (app.target === null || app.stop === null) return [];
+  if (app.target === null) return [];
+  if (app.stop === null)
+    return findServiceAppProblems({
+      file: app.file,
+      toml,
+      target: app.target,
+      ...(app.release ? { release: true } : {}),
+    });
   const stop = uncommented(read(app.stop.source) ?? '').match(app.stop.pattern);
   if (!stop)
     return [
@@ -187,12 +230,18 @@ export function findServiceDeployProblems(workflow: string): readonly string[] {
       const own = steps.find((step) =>
         step.includes(`flyctl deploy -c ${app.file} `),
       );
+      const after =
+        app.after === undefined
+          ? migrate
+          : code.indexOf(`flyctl deploy -c ${app.after} `);
       return migrate !== -1 &&
         deploy > migrate &&
+        deploy > after &&
+        after !== -1 &&
         own?.includes(`FLY_API_TOKEN: \${{ secrets.${app.token} }}`)
         ? []
         : [
-            `deploy-staging.yml must deploy ${app.file} after the migration, with its own secrets.${app.token}`,
+            `deploy-staging.yml must deploy ${app.file} after ${app.after ?? 'the migration'}, with its own secrets.${app.token}`,
           ];
     }),
   ];

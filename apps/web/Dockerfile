@@ -18,6 +18,7 @@ WORKDIR /app
 # image, `bun check` covers it in CI).
 FROM base AS deps
 COPY package.json bun.lock .bun-version ./
+COPY apps/admin/package.json apps/admin/package.json
 COPY apps/web/package.json apps/web/package.json
 COPY packages/ai-voice/package.json packages/ai-voice/package.json
 COPY packages/auth/package.json packages/auth/package.json
@@ -56,6 +57,7 @@ RUN DAISY_IMAGE_BUILD=1 NODE_ENV=production bun run --cwd apps/web build \
 # devDependencies (eslint, jscpd, playwright, typescript, ...).
 FROM base AS prod-deps
 COPY package.json bun.lock .bun-version ./
+COPY apps/admin/package.json apps/admin/package.json
 COPY apps/web/package.json apps/web/package.json
 COPY packages/ai-voice/package.json packages/ai-voice/package.json
 COPY packages/auth/package.json packages/auth/package.json
@@ -132,6 +134,46 @@ FROM server-source AS media-worker
 COPY --chown=daisy:daisy apps/media-worker/src apps/media-worker/src
 WORKDIR /app/apps/media-worker
 CMD ["bun", "src/start.ts"]
+
+# ---- admin-build: the admin app's Next build (ADR 0076), selected only by
+# the admin target below; it keeps its own TypeScript pass (a small app).
+FROM deps AS admin-build
+COPY . .
+RUN NODE_ENV=production bun run --cwd apps/admin build \
+  && rm -rf apps/admin/.next/cache
+
+# ---- admin-source: non-root, the production dependencies and only the
+# packages the admin app imports. No participant database, Redis or auth
+# package source ships in an admin image.
+FROM base AS admin-source
+ARG APP_VERSION=development
+ARG GIT_COMMIT=unknown
+ENV APP_VERSION=${APP_VERSION}
+ENV GIT_COMMIT=${GIT_COMMIT}
+ENV NODE_ENV=production
+RUN groupadd --system --gid 1001 daisy \
+  && useradd --system --uid 1001 --gid daisy --home-dir /app --shell /usr/sbin/nologin daisy
+COPY --from=prod-deps --chown=daisy:daisy /app /app
+COPY --chown=daisy:daisy packages/clock/src packages/clock/src
+COPY --chown=daisy:daisy packages/logger/src packages/logger/src
+COPY --chown=daisy:daisy packages/protocol/src packages/protocol/src
+COPY --chown=daisy:daisy apps/admin/src apps/admin/src
+WORKDIR /app/apps/admin
+USER daisy
+
+# ---- admin-migrate: fly.admin-migrate.toml's release command migrates the
+# admin database as its owner (ADMIN_MIGRATION_DATABASE_URL), ADR 0041.
+FROM admin-source AS admin-migrate
+CMD ["bun", "src/db/migrate.ts"]
+
+# ---- admin: apps/admin on 6PN only (fly.admin.toml); `fly proxy 4800:8080`.
+FROM admin-source AS admin
+COPY --chown=daisy:daisy apps/admin/next.config.ts apps/admin/next.config.ts
+COPY --from=admin-build --chown=daisy:daisy /app/apps/admin/.next .next
+ENV ADMIN_PORT=8080
+ENV ADMIN_HOST=::
+EXPOSE 8080
+CMD ["bun", "src/server/start.ts"]
 
 # ---- runtime: the web app, and the default target (the last stage).
 FROM server-source AS runtime
