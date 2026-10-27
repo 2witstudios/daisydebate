@@ -117,6 +117,12 @@ export {
   type Topic,
   type Want,
 } from './onboarding';
+export {
+  betaAccessProvenances,
+  betaAccessCommandResultSchema,
+  betaAccessStates,
+  operatorConsoleOrigin,
+} from './beta-access';
 export { closeCodeTable } from './close-codes';
 export type { CloseCodeReason } from './close-codes';
 export {
@@ -143,6 +149,7 @@ export {
   roomListQuerySchema,
   roomListPageSchema,
   roomListStatuses,
+  roomListDefaultPageSize,
 } from './room-contract';
 export type {
   RoomListQuery,
@@ -203,7 +210,11 @@ export { serverMessageSchema, type ServerMessage } from './realtime-server';
 
 export { createMessagingFileSchemas } from './messaging/files';
 
-export { createMessagingInboxSchemas } from './messaging/inbox';
+export {
+  createMessagingInboxSchemas,
+  messagingInboxPreviewMax,
+  messagingInboxTitleMax,
+} from './messaging/inbox';
 
 export {
   messagingGroupInvitationResultSchema,
@@ -275,3 +286,19 @@ export {
   type MemberProfile,
   type RecordResult,
 } from './member-profile';
+
+export {
+  friendCommandResultSchema,
+  friendCommandSchemas,
+  friendListSchema,
+  friendshipStates,
+  onlineCountsSchema,
+} from './friends';
+export type {
+  FriendCommandResult,
+  FriendList,
+  FriendPresence,
+  FriendRelation,
+  FriendshipState,
+  OnlineCounts,
+} from './friends';

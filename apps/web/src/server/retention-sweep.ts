@@ -50,6 +50,7 @@ export function retentionTargets({
     readonly purgeExpiredOutboxEvents: (batch: Batch) => Promise<number>;
     readonly purgeExpiredEmailDeliveryEvents: (batch: Batch) => Promise<number>;
     readonly purgeExpiredEmailDeliveries: (batch: Batch) => Promise<number>;
+    readonly purgeExpiredMailIntents: (batch: Batch) => Promise<number>;
     readonly purgeExpiredRoomCommands: (batch: Batch) => Promise<number>;
     readonly purgeExpiredRoundCommands: (batch: Batch) => Promise<number>;
     readonly purgeExpiredRoundCheckInAttempts: (
@@ -140,6 +141,17 @@ export function retentionTargets({
       maxBatches: 20,
       purge: ({ now, limit }) =>
         database.purgeExpiredEmailDeliveries({
+          before: cutoff(now, 30 * DAY_MS),
+          limit,
+        }),
+    },
+    /** ADR 0075: sent, failed and cancelled mail intents are kept 30 days. */
+    {
+      name: 'retention.mail_intents',
+      batchSize: 500,
+      maxBatches: 20,
+      purge: ({ now, limit }) =>
+        database.purgeExpiredMailIntents({
           before: cutoff(now, 30 * DAY_MS),
           limit,
         }),

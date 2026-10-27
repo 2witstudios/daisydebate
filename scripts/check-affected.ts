@@ -1,4 +1,5 @@
 import { existsSync } from 'node:fs';
+import turboConfig from '../turbo.json';
 import { resolve } from 'node:path';
 
 const root = resolve(import.meta.dir, '..');
@@ -7,6 +8,7 @@ export type AffectedPlan = {
   readonly lintFiles: readonly string[];
   readonly prettierFiles: readonly string[];
   readonly runTurbo: boolean;
+  readonly allWorkspaces: boolean;
   readonly runRootScriptsTests: boolean;
   readonly runEslintConfigTest: boolean;
 };
@@ -46,20 +48,83 @@ export function partitionAffected(
   const onDisk = (file: string) => !missing.has(file);
   const inWorkspace = (file: string) =>
     file.startsWith('apps/') || file.startsWith('packages/');
+  // Unknown root inputs are global. Documentation alone cannot affect builds.
+  const allWorkspaces = changedFiles.some(
+    (file) =>
+      (!inWorkspace(file) &&
+        !file.startsWith('docs/') &&
+        !file.endsWith('.md')) ||
+      turboConfig.globalDependencies.some((pattern) =>
+        new Bun.Glob(pattern).match(file),
+      ),
+  );
   return {
+    allWorkspaces,
     lintFiles: changedFiles.filter(
       (file) => onDisk(file) && eslintExtensions.has(extension(file)),
     ),
     prettierFiles: changedFiles.filter(
       (file) => onDisk(file) && prettierExtensions.has(extension(file)),
     ),
-    runTurbo: changedFiles.some(inWorkspace),
-    runRootScriptsTests: changedFiles.some(
-      (file) => file.startsWith('scripts/') || file === 'eslint.config.test.ts',
-    ),
+    runTurbo: allWorkspaces || changedFiles.some(inWorkspace),
+    runRootScriptsTests:
+      allWorkspaces ||
+      changedFiles.some(
+        (file) =>
+          file.startsWith('scripts/') || file === 'eslint.config.test.ts',
+      ),
     runEslintConfigTest: changedFiles.some((file) =>
       file.startsWith('eslint.config'),
     ),
+  };
+}
+
+export function affectedLintDirectories(value: unknown): readonly string[] {
+  const tasks = (value as { tasks?: { directory?: unknown }[] })?.tasks;
+  if (!Array.isArray(tasks)) throw new Error('Missing affected task graph');
+  const directories = tasks.map(({ directory }) => {
+    if (
+      typeof directory !== 'string' ||
+      !/^(apps|packages)\/[a-z0-9-]+$/.test(directory)
+    )
+      throw new Error('Invalid affected workspace directory');
+    return directory;
+  });
+  return [...new Set(directories)].sort();
+}
+
+async function lintGraph(
+  plan: AffectedPlan,
+  mergeBase: string,
+): Promise<AffectedPlan> {
+  if (plan.allWorkspaces || !plan.runTurbo) return plan;
+  const child = Bun.spawn(
+    [
+      'bunx',
+      '--bun',
+      'turbo',
+      'run',
+      'typecheck',
+      '--filter',
+      `...[${mergeBase}]`,
+      '--dry=json',
+    ],
+    { cwd: root, stdout: 'pipe', stderr: 'inherit' },
+  );
+  const output = await new Response(child.stdout).text();
+  if ((await child.exited) !== 0)
+    throw new Error('Could not select affected lint graph');
+  const directories = affectedLintDirectories(JSON.parse(output));
+  // Deleted source still selects the producer and reverse dependents via Git.
+  // Lint all their files: imported types can alter type-aware lint in consumers.
+  return {
+    ...plan,
+    lintFiles: [
+      ...directories,
+      ...plan.lintFiles.filter(
+        (file) => !directories.some((dir) => file.startsWith(`${dir}/`)),
+      ),
+    ],
   };
 }
 
@@ -105,12 +170,31 @@ export function planGates(
   mergeBase: string,
 ): readonly Gate[] {
   const gates: Gate[] = [];
-  if (plan.lintFiles.length > 0)
+  if (plan.allWorkspaces)
     gates.push({
-      name: 'eslint (changed files)',
-      args: ['bunx', '--bun', 'eslint', ...plan.lintFiles],
+      name: 'eslint (all files)',
+      args: ['bunx', '--bun', 'eslint', '.'],
     });
-  if (plan.prettierFiles.length > 0)
+  else if (plan.lintFiles.length > 0)
+    gates.push({
+      name: 'eslint (affected graph and root files)',
+      // Turbo includes config-only workspaces; empty/ignored patterns are not
+      // source failures. ESLint still reports all violations in matched source.
+      args: [
+        'bunx',
+        '--bun',
+        'eslint',
+        '--no-error-on-unmatched-pattern',
+        '--no-warn-ignored',
+        ...plan.lintFiles,
+      ],
+    });
+  if (plan.allWorkspaces)
+    gates.push({
+      name: 'prettier (all files)',
+      args: ['bun', 'run', 'format:check'],
+    });
+  else if (plan.prettierFiles.length > 0)
     gates.push({
       name: 'prettier (changed files)',
       args: ['bunx', 'prettier', '--check', ...plan.prettierFiles],
@@ -122,6 +206,7 @@ export function planGates(
   gates.push({ name: 'styling', args: ['bun', 'scripts/check-styling.ts'] });
   // Repo-wide by nature and ~0.05s: a clone is only visible against the whole
   // tree, so the tripwire runs on every push (ADR 0026).
+  gates.push({ name: 'knip', args: ['bun', 'run', 'knip'] });
   gates.push({ name: 'duplication', args: ['bun', 'run', 'duplication'] });
   if (plan.runRootScriptsTests)
     gates.push({ name: 'root script tests', args: ['bun', 'test', 'scripts'] });
@@ -141,8 +226,7 @@ export function planGates(
         'run',
         'typecheck',
         'test',
-        '--filter',
-        `...[${mergeBase}]`,
+        ...(plan.allWorkspaces ? [] : ['--filter', `...[${mergeBase}]`]),
       ],
     });
   return gates;
@@ -158,7 +242,7 @@ function formatAffectedReport(
   return [
     `Daisy check:affected — ${changedFiles.length} changed file${changedFiles.length === 1 ? '' : 's'}`,
     ...results.map(({ name, ok }) => `${ok ? 'PASS' : 'FAIL'} ${name}`),
-    'bun check is the main acceptance gate; this inner loop skips knip, metrics, and build.',
+    'bun check is the main acceptance gate; this inner loop skips metrics and build.',
     '',
   ].join('\n');
 }
@@ -182,17 +266,29 @@ if (import.meta.main) {
     ]);
     const changedFiles = await collectChangedFiles(mergeBase);
     const results: { name: string; ok: boolean }[] = [];
-    if (changedFiles.length === 0) {
-      results.push({ name: 'no changes since base', ok: true });
-    } else {
-      const missingFiles = changedFiles.filter(
-        (file) => !existsSync(resolve(root, file)),
-      );
-      for (const gate of planGates(
-        partitionAffected(changedFiles, missingFiles),
-        mergeBase,
-      ))
-        results.push({ name: gate.name, ok: await runGate(gate) });
+    const missingFiles = changedFiles.filter(
+      (file) => !existsSync(resolve(root, file)),
+    );
+    const plan = await lintGraph(
+      partitionAffected(changedFiles, missingFiles),
+      mergeBase,
+    );
+    const full = process.argv.includes('--full');
+    for (const gate of planGates(
+      full
+        ? {
+            ...plan,
+            allWorkspaces: true,
+            runTurbo: true,
+            runRootScriptsTests: true,
+            runEslintConfigTest: true,
+          }
+        : plan,
+      mergeBase,
+    )) {
+      const ok = await runGate(gate);
+      results.push({ name: gate.name, ok });
+      if (!ok) break;
     }
     process.stdout.write(
       formatAffectedReport(

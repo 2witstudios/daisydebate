@@ -1,4 +1,4 @@
-import type { RoundHydration } from '@daisy/db';
+import type { RoundHydration } from '@daisy/db/rounds';
 import type { AttendanceWindow } from '@daisy/debate-engine';
 import { createAppError } from '@daisy/errors';
 /** Actual immutable opening + frozen scheduled slot; current floor/media eligibility grant no attendance authority. */

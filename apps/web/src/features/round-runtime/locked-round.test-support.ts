@@ -1,4 +1,4 @@
-import type { LockedRoundCommandContext } from '@daisy/db';
+import type { LockedRoundCommandContext } from '@daisy/db/rounds';
 import { emptyRuntimeCheckpoint } from '@daisy/protocol';
 import { caller, launched, now } from '../room-runtime/operations.test-support';
 
