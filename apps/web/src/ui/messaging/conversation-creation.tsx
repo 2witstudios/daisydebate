@@ -1,5 +1,7 @@
 'use client';
+import { messagingBetaLimits } from '@daisy/protocol';
 import { DraftNotice } from './draft-notice';
+import { CountedTextarea } from './counted-textarea';
 import {
   useFormAction,
   useFocusAfterAnswer,
@@ -81,11 +83,12 @@ export function ConversationCreation({
           >
             Introduction (optional)
           </label>
-          <textarea
+          <CountedTextarea
             id="creation-introduction"
             name="introduction"
             key={answer.introduction}
             defaultValue={answer.introduction}
+            maxUnits={messagingBetaLimits.introductionUnits}
             disabled={pending}
             rows={4}
             className={fieldClass}

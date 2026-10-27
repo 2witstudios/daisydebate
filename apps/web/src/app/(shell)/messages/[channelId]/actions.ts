@@ -26,6 +26,7 @@ export async function sendMessageAction(
   const kept = messageFormUnavailable(form);
   const incoming = new Headers(await headers());
   const notices: Readonly<Record<number, string>> = {
+    400: 'Your message needs text and must fit the character limit. Your draft is kept.',
     429: 'Please wait before sending again. Your draft is kept.',
     403: 'You cannot send to this conversation now. Your draft is kept.',
     404: 'You cannot send to this conversation now. Your draft is kept.',

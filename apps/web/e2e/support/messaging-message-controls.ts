@@ -12,6 +12,7 @@ import {
 } from '@playwright/test';
 import { effectsRan } from './hydration';
 import { testDraftSurvivesRefresh } from './messaging-draft-refresh';
+import { testComposerCharacterLimit } from './messaging-character-limit';
 import { pressByKeyboard } from './focus';
 import { expectNotInUrl } from './forms';
 import { listenForChannelBells, seedControlMessage } from './channel-bells';
@@ -205,6 +206,7 @@ function messageControlIntent(form: Locator) {
 /** Registered in the dedicated native MSG suite, sharing its authenticated fixture. */
 export function testMessageControlFocus() {
   testDraftSurvivesRefresh();
+  testComposerCharacterLimit();
   for (const javaScriptEnabled of [true, false]) {
     test(`native message controls navigate with JavaScript ${javaScriptEnabled ? 'enabled' : 'disabled'}`, async ({
       browser,

@@ -2,6 +2,7 @@
 import { useEffect, useRef } from 'react';
 import { createBrowserTypingWriter } from './typing-browser';
 import { DraftNotice } from './draft-notice';
+import { CountedTextarea } from './counted-textarea';
 import {
   useFormAction,
   useFocusAfterAnswer,
@@ -59,12 +60,12 @@ export function MessageComposer({
       <label htmlFor="message-text" className="text-sm font-semibold">
         Your message
       </label>
-      <textarea
+      <CountedTextarea
         key={answer.text}
         id="message-text"
         name="text"
         defaultValue={answer.text}
-        maxLength={maxUnits}
+        maxUnits={maxUnits}
         required
         disabled={pending}
         rows={4}
@@ -75,7 +76,7 @@ export function MessageComposer({
           void typing.current?.activity(false);
         }}
         className="rounded-md border border-border-strong bg-surface px-3 py-2 text-ink disabled:opacity-60"
-        aria-describedby={answer.notice ? 'message-notice' : undefined}
+        describedBy={answer.notice ? 'message-notice' : undefined}
       />
       <DraftNotice id="message-notice" notice={answer.notice} />
       <div className="flex justify-end">

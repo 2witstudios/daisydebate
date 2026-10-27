@@ -2,7 +2,7 @@ import { headers } from 'next/headers';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { systemId } from '@daisy/clock';
-import { idSchema } from '@daisy/protocol';
+import { idSchema, messagingBetaLimits } from '@daisy/protocol';
 import { requireAccess } from '../../../../lib/access';
 import type { SearchParams } from '../../../../features/access/decision';
 import {
@@ -132,7 +132,7 @@ function ConversationSearch({
           name="query"
           type="search"
           defaultValue={searchQuery ?? ''}
-          maxLength={maxUnits}
+          maxLength={Math.min(maxUnits, messagingBetaLimits.queryUnits)}
           required
           className="rounded-md border border-border-strong bg-surface px-3 py-2 text-ink"
         />

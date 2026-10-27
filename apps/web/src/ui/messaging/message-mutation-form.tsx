@@ -7,6 +7,7 @@ import {
 import { useMovedOn } from '../form-action/use-moved-on';
 import { Button } from '../components/button/button';
 import { DraftNotice } from './draft-notice';
+import { CountedTextarea } from './counted-textarea';
 import { messageMutationUnavailable } from '../../features/messaging/forms/message-mutation-form';
 import type { MessageFormState } from '../../features/messaging/forms/send-form';
 /** These own-message controls do not grant author, posting or cleanup permission. */
@@ -73,23 +74,26 @@ export function MessageMutationFields({
   readonly action: (form: FormData) => void;
 }) {
   const noticeId = `message-mutation-${answer.requestId}`;
+  const editId = `message-edit-${answer.requestId}`;
   return (
     <form action={action} className="flex flex-col gap-3">
       <input type="hidden" name="requestId" value={answer.requestId} />
       <input type="hidden" name="operation" value="edit" />
-      <label className="flex flex-col gap-2">
+      <label htmlFor={editId} className="flex flex-col gap-2">
         Revise your message
-        <textarea
-          name="text"
-          key={answer.text}
-          defaultValue={answer.text}
-          maxLength={maxUnits}
-          rows={3}
-          required
-          disabled={pending}
-          className="rounded-md border border-border-strong bg-surface px-3 py-2 text-ink"
-        />
       </label>
+      <CountedTextarea
+        id={editId}
+        name="text"
+        key={answer.text}
+        defaultValue={answer.text}
+        maxUnits={maxUnits}
+        rows={3}
+        required
+        disabled={pending}
+        className="rounded-md border border-border-strong bg-surface px-3 py-2 text-ink"
+        describedBy={answer.notice ? noticeId : undefined}
+      />
       <DraftNotice id={noticeId} notice={answer.notice} />
       <div className="flex gap-3">
         <Button type="submit" disabled={pending || answer.next !== undefined}>
