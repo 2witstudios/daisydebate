@@ -396,3 +396,34 @@ vocabulary stays in `@daisy/protocol` and the decision is `@daisy/auth`'s.
 `unlisted` is a listing flag, and anyone with a debate's id may read an
 unlisted debate. The 60 s re-authorization batch, the per-socket bound and
 the revocation messaging are unchanged here, and the RT epic owns them.
+
+## Amendment (2026-10-27): bounded delivery, gaps and terminal denial
+
+RT-2.3c-arch1, RT-2.5c-arch1 and RT-2.6a-arch1 (platform hardening) change
+what two server messages can mean and how delivery is bounded. Nothing on
+the wire is added.
+
+- **Delivery is bounded and isolated.** An instance delivers at most 8
+  topics at once, one row per topic in order, with up to 32 recipient
+  authorizations of that row in flight. It retains at most 64 rows per
+  topic and 1,024 in all, counting only rows some local subscription is
+  owed. Past a bound the topic's waiting rows are dropped and each of its
+  subscribers gets `resync_required`. Under global pressure, the topic
+  dropped is the one holding the largest backlog. Readiness reports the
+  retained backlog and its oldest publication age. It reports them; it
+  never gates `ready` on them.
+- **`resync_required` also means "a gap may exist".** Besides a `since`
+  before the retained range, the server sends it when a topic overflows,
+  when an event cannot be authorized now, and when a subscription whose
+  lease elapsed (or whose allow arrived already expired) is allowed again.
+  A gapped stream is never reattached in place. The client rereads over
+  HTTP and subscribes again, so recovery needs no later mutation.
+- **`error` `AUTHORIZATION` with the subscription's `id` ends it.** Sent
+  when a revalidation, an event authorization or a typing hint is
+  definitively denied, and on `access.revoked`. The server removes the
+  subscription, and a later allow cannot revive it. The client clears that
+  view and cancels any pending recovery. An `INFRASTRUCTURE` refusal stays
+  transient and is never treated as a denial.
+- **A connection store has a final `dispose`.** It is separate from the
+  reusable `close` and releases every listener, timer and pending ticket,
+  so a page that builds a store per mount returns to its baseline.
