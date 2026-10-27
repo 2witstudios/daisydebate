@@ -143,6 +143,28 @@ describe('createRoundAnalysisJobs()', () => {
     });
   });
 
+  test('a lapsed lease always reaches the claim, whatever the entitlement', async () => {
+    const { jobs, left } = jobsWith([
+      [{ roundId: 'r1', roundParticipantId: 'p1', lapsed: true }],
+    ]);
+    let authorized = 0;
+    assert({
+      given:
+        'a lapsed lease whose debater the feature would no longer authorize',
+      should:
+        'list it without reading access, so the claim decision can end it',
+      actual: {
+        listed: await jobs.scan(8, '2026-10-25T12:00:00.000Z', () => {
+          authorized++;
+          return false;
+        }),
+        authorized,
+        left: left(),
+      },
+      expected: { listed: [seat], authorized: 0, left: 0 },
+    });
+  });
+
   test('a seat that is not a human debater is never analysed', async () => {
     for (const roundParticipantId of ['p2', 'p3'])
       await assertRejects({

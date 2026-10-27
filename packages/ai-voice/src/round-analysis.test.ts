@@ -111,16 +111,15 @@ describe('parseRoundAnalysis', () => {
     });
   });
 
-  test('refuses patterns without history and anything but a report', async () => {
-    await assertRejects({
+  test('drops patterns without history and refuses anything but a report', async () => {
+    assert({
       given: 'patterns for a debater with no earlier analyses',
-      should: 'refuse with INFRASTRUCTURE',
-      actual: async () =>
-        parseRoundAnalysis(
-          JSON.stringify({ ...report, patterns: ['You drop contentions.'] }),
-          { evidence, history: [] },
-        ),
-      code: 'INFRASTRUCTURE',
+      should: 'keep the report and drop the unsupported patterns',
+      actual: parseRoundAnalysis(
+        JSON.stringify({ ...report, patterns: ['You drop contentions.'] }),
+        { evidence, history: [] },
+      ),
+      expected: { ...report, patterns: [] },
     });
     await assertRejects({
       given: 'two sentences of free text',

@@ -141,9 +141,25 @@ test('an AI ballot with feedback for both sides never stops a round analysis', a
     });
   }));
 
-test('a debater’s later analysis reads their own earlier skill scores, and only theirs (RA-2)', async () =>
+test('a debater’s analysis reads only their own analyses of Rounds that completed earlier (RA-2)', async () =>
   withCompletedRound(async ({ fixture, aff, seats, jobs }) => {
-    // Both seats of the first Round are analysed; the opponent scores 1.
+    const scoresOf = (result: typeof report) =>
+      Object.fromEntries(
+        Object.entries(result.skills).map(([skill, { score }]) => [
+          skill,
+          score,
+        ]),
+      );
+    const analyse = async (
+      seat: { roundId: string; roundParticipantId: string },
+      result: typeof report,
+    ) => {
+      const claimed = await jobs.claim(seat, claim);
+      if (!claimed) throw Error('Expected a claim');
+      await jobs.complete(seat, claimed.token, result);
+      return claimed.history;
+    };
+    // Round A's opponent is analysed first; their scores are never the debater's.
     const theirs = {
       ...report,
       skills: Object.fromEntries(
@@ -153,73 +169,38 @@ test('a debater’s later analysis reads their own earlier skill scores, and onl
         ]),
       ) as typeof report.skills,
     };
-    for (const [seat, result] of [
-      [seats.aff, report],
-      [seats.neg, theirs],
-    ] as const) {
-      const claimed = await jobs.claim(seat, claim);
-      if (!claimed) throw Error('Expected a claim');
-      await jobs.complete(seat, claimed.token, result);
-    }
-    // The same affirmative debater then sits a second completed Round.
-    const laterRound = await fixture.round();
-    const { aff: later } = await completedRound(
-      fixture,
-      laterRound,
-      true,
-      undefined,
-      aff.actorId,
-    );
-    const next = await jobs.claim(
-      { roundId: laterRound, roundParticipantId: later.id },
-      claim,
-    );
+    await analyse(seats.neg, theirs);
+    const sitAgain = async () => {
+      const roundId = await fixture.round();
+      const { aff: seat } = await completedRound(
+        fixture,
+        roundId,
+        true,
+        undefined,
+        aff.actorId,
+      );
+      return { roundId, roundParticipantId: seat.id };
+    };
+    // The same debater's later Round B is analysed before Round A.
+    const roundB = await sitAgain();
+    const historyB = await analyse(roundB, report);
+    const historyA = await analyse(seats.aff, report);
+    // A third Round C reads both earlier analyses of this debater.
+    const roundC = await sitAgain();
+    const historyC = (await jobs.claim(roundC, claim))?.history;
     assert({
       given:
-        'a debater with one earlier analysis whose opponent was also analysed',
+        'a debater analysed in a later Round B before their earlier Round A, then in Round C, with A’s opponent analysed too',
       should:
-        'give the later claim exactly that debater’s earlier skill scores, never the opponent’s',
-      actual: next?.history,
-      expected: [
-        Object.fromEntries(
-          Object.entries(report.skills).map(([skill, { score }]) => [
-            skill,
-            score,
-          ]),
-        ),
-      ],
+        'give B no history, give A none (B completed later), and give C both of the debater’s own earlier scores and never the opponent’s',
+      actual: { historyB, historyA, historyC },
+      expected: {
+        historyB: [],
+        historyA: [],
+        historyC: [scoresOf(report), scoresOf(report)],
+      },
     });
-    if (!next) throw Error('Expected a claim');
-    await jobs.complete(
-      { roundId: laterRound, roundParticipantId: later.id },
-      next.token,
-      report,
-    );
-    // A Round that completed before both, analysed (or retried) only now.
-    const earlierRound = await fixture.round();
-    const { aff: earlier } = await completedRound(
-      fixture,
-      earlierRound,
-      true,
-      undefined,
-      aff.actorId,
-    );
-    await fixture.sql`update rounds set started_at=started_at - interval '1 day',
-      completed_at=completed_at - interval '1 day',
-      final_segment_ended_at=final_segment_ended_at - interval '1 day'
-      where id=${earlierRound}`;
-    const retried = await jobs.claim(
-      { roundId: earlierRound, roundParticipantId: earlier.id },
-      () => 'claim',
-    );
-    assert({
-      given:
-        'the same debater’s Round that completed before both analysed Rounds, analysed only afterwards',
-      should: 'read no history: later Rounds are never "earlier" scores',
-      actual: retried?.history,
-      expected: [],
-    });
-    await fixture.sql`delete from rounds where id in (${laterRound}, ${earlierRound})`;
+    await fixture.sql`delete from rounds where id in (${roundB.roundId}, ${roundC.roundId})`;
   }));
 
 test('a lapsed lease is listed again and the decision retakes or ends it', async () =>
@@ -282,5 +263,36 @@ test('a frozen Round with no lines is never a candidate', async () =>
         lines: (await facts(aff)).lines,
       },
       expected: { listed: false, lines: 0 },
+    });
+  }));
+
+test('a lapsed lease is listed even when its debater is no longer entitled, so its claim can end it', async () =>
+  withCompletedRound(async ({ fixture, aff, seats, jobs, facts }) => {
+    await jobs.claim(seats.aff, claim);
+    await lapse(fixture, aff.id);
+    const listed = (
+      await jobs.scan(64, new Date().toISOString(), () => false)
+    ).map((seat) => seat.roundParticipantId);
+    const ended = await jobs.claim(seats.aff, () => 'fail');
+    assert({
+      given: 'a lapsed lease and a feature that no longer authorizes the seat',
+      should: 'list it anyway, then let the decision end it failed',
+      actual: {
+        listed: listed.includes(aff.id),
+        ended,
+        status: (await facts(aff)).analysis?.status,
+      },
+      expected: { listed: true, ended: null, status: 'failed' },
+    });
+  }));
+
+test('a completed Round without a visibility is never read by the scan', async () =>
+  withCompletedRound(async ({ fixture, roundId, aff, jobs }) => {
+    await fixture.sql`update rounds set visibility=null where id=${roundId}`;
+    assert({
+      given: 'a roomless completed Round with no visibility',
+      should: 'scan without failing and never list its seats',
+      actual: (await listedSeats(jobs, dayAgo())).includes(aff.id),
+      expected: false,
     });
   }));

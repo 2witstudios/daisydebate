@@ -31,28 +31,19 @@ function canAnalyse(
   }).allow;
 }
 
-/** A paid analysis attempt is made only for a seat whose own debater is entitled. */
-export const canGenerateRoundAnalysis = (
+/**
+ * Whether the seat's own debater may generate (a paid attempt) or read
+ * their round analysis; a debater who may not read it sees it locked.
+ */
+export const canUseRoundAnalysis = (
   access: RoundAnalysisAccess,
   betaGrantsPremium: boolean,
+  capability: 'round.analysis.read' | 'round.analysis.generate',
 ) =>
   canAnalyse(
     access.account,
     access.grants,
     access.round,
     betaGrantsPremium,
-    'round.analysis.generate',
-  );
-
-/** Whether the seat's debater may read their analysis (otherwise they see it locked). */
-export const canReadRoundAnalysis = (
-  access: RoundAnalysisAccess,
-  betaGrantsPremium: boolean,
-) =>
-  canAnalyse(
-    access.account,
-    access.grants,
-    access.round,
-    betaGrantsPremium,
-    'round.analysis.read',
+    capability,
   );

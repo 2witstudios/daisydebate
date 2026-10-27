@@ -1,7 +1,7 @@
 import { createAppError } from '@daisy/errors';
 import type { App } from '../../server/app';
 import { composeRoundMemberDependencies } from '../round-runtime/member-composition';
-import { canReadRoundAnalysis } from './authorization';
+import { canUseRoundAnalysis } from './authorization';
 import { createRoundAnalysisHandlers } from './handlers';
 import { roundAnalysisView } from './policy';
 
@@ -22,7 +22,11 @@ export function composeRoundAnalysisRoutes(app: App) {
       if (facts.status !== 'completed') throw createAppError('NOT_FOUND');
       return roundAnalysisView({
         facts,
-        entitled: canReadRoundAnalysis(access, app.config.PREMIUM_BETA_GRANT),
+        entitled: canUseRoundAnalysis(
+          access,
+          app.config.PREMIUM_BETA_GRANT,
+          'round.analysis.read',
+        ),
         now: app.clock.now(),
         enabled: app.config.ROUND_ANALYSIS_POLICY !== undefined,
       });

@@ -81,8 +81,8 @@ const lineKey = (line: { segment: number; sequence: number }) =>
 /**
  * The analyst's answer as a validated report: its own shape and limits, and
  * every cited line present in the evidence, so no report points at speech
- * that never happened. Patterns need history. Anything else is an
- * infrastructure failure.
+ * that never happened. Patterns without history are dropped. Anything else
+ * is an infrastructure failure.
  */
 export function parseRoundAnalysis(
   answer: string,
@@ -111,6 +111,7 @@ export function parseRoundAnalysis(
     (item) => lineKey(item.line),
   );
   if (!cited.every((key) => lines.has(key))) throw invalid();
-  if (input.history.length === 0 && report.patterns.length > 0) throw invalid();
-  return report;
+  // Patterns need earlier analyses; without any they are dropped, so a
+  // valid paid answer is not thrown away.
+  return input.history.length === 0 ? { ...report, patterns: [] } : report;
 }

@@ -16,7 +16,7 @@ import {
 import { seedSettledAttendanceLedger } from './round-attendance-fixture.test-support';
 import { finishedOrBlockedBehind } from '@daisy/db/testing';
 import { sampleRoundAnalysisReport } from '@daisy/protocol/round-analysis-testing';
-import { canGenerateRoundAnalysis } from '../src/features/round-analysis/authorization';
+import { canUseRoundAnalysis } from '../src/features/round-analysis/authorization';
 import { createRoundAnalysisOperations } from '../src/features/round-analysis/operations';
 import {
   canReadRound,
@@ -49,7 +49,7 @@ test('round analysis discovery and claims use the seat account’s own entitleme
       const scan = (grant: boolean) =>
         f.store
           .scanRoundAnalysisJobs(64, since, (access) =>
-            canGenerateRoundAnalysis(access, grant),
+            canUseRoundAnalysis(access, grant, 'round.analysis.generate'),
           )
           .then((seats) => seats.map((s) => s.roundParticipantId));
       let calls = 0;

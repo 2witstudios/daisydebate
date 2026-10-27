@@ -128,7 +128,9 @@ export function createRoundAnalysisJobs(input: {
      * completed after `since`, with no analysis yet, and every lapsed lease,
      * so the decision can claim or end it. The prefilter only keeps seats
      * that cannot need an analysis from holding the batch; the decision
-     * stays the authority.
+     * stays the authority. `authorize` filters new seats only: a lapsed
+     * lease always reaches the claim, which ends it once its debater is no
+     * longer entitled. A Round without a visibility (no Room) is never read.
      */
     scan: (
       limit: number,
@@ -145,12 +147,13 @@ export function createRoundAnalysisJobs(input: {
         throw createAppError('VALIDATION');
       return input.run(async (tx) => {
         const rows =
-          (await tx.execute(sql`select r.id as "roundId", p.id as "roundParticipantId", r.completed_at as "completedAt"
+          (await tx.execute(sql`select r.id as "roundId", p.id as "roundParticipantId", r.completed_at as "completedAt",
+            f.round_id is not null as "lapsed"
           from rounds r
           join round_participants p on p.round_id = r.id and p.role in ('affirmative', 'negative')
           join actors a on a.id = p.actor_id and a.user_id is not null
           left join round_analyses f on f.round_id = r.id and f.round_participant_id = p.id
-          where r.status = 'completed' and not ${erasedParticipant(sql`r.id`)}
+          where r.status = 'completed' and r.visibility is not null and not ${erasedParticipant(sql`r.id`)}
           and (${cursor === null} or (r.completed_at, p.id) > (${cursor?.completedAt ?? from}, ${cursor?.roundParticipantId ?? ''})) and (
             (f.round_id is null and r.completed_at > ${from}
               and exists (select 1 from round_transcript_freezes z where z.round_id = r.id)
@@ -160,14 +163,18 @@ export function createRoundAnalysisJobs(input: {
             roundId: string;
             roundParticipantId: string;
             completedAt: Date;
+            lapsed: boolean;
           }[];
         // Denied candidates cannot permanently monopolize the bounded scan.
         const last = rows.at(-1);
         cursor = rows.length === limit && last ? last : null;
         const permitted: RoundAnalysisSeat[] = [];
-        for (const { roundId, roundParticipantId } of rows) {
+        for (const { roundId, roundParticipantId, lapsed } of rows) {
           const seat = { roundId, roundParticipantId };
-          if (authorize(await readRoundAnalysisAccess(tx, seat, 'discovery')))
+          if (
+            lapsed ||
+            authorize(await readRoundAnalysisAccess(tx, seat, 'discovery'))
+          )
             permitted.push(seat);
         }
         return permitted;

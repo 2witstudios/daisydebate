@@ -1,6 +1,6 @@
 import type { RoundAnalysisPolicy } from '@daisy/config';
 import type { ErrorReporter } from '@daisy/observability';
-import { canGenerateRoundAnalysis } from '../features/round-analysis/authorization';
+import { canUseRoundAnalysis } from '../features/round-analysis/authorization';
 import { createRoundAnalysisOperations } from '../features/round-analysis/operations';
 import { roundAnalysisBounds } from '../features/round-analysis/policy';
 import { startRoundAnalysisService } from '../features/round-analysis/service';
@@ -38,7 +38,11 @@ export function startRoundAnalysisWorkers(input: {
           Date.parse(app.clock.now()) - roundAnalysisBounds.windowMs,
         ).toISOString(),
         (access) =>
-          canGenerateRoundAnalysis(access, app.config.PREMIUM_BETA_GRANT),
+          canUseRoundAnalysis(
+            access,
+            app.config.PREMIUM_BETA_GRANT,
+            'round.analysis.generate',
+          ),
       ),
     analyse: (seat, signal) =>
       operations.analyse(

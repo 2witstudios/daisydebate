@@ -8,8 +8,15 @@ import type { RoundAnalysisSeat } from '@daisy/db/rounds';
 import { createAppError } from '@daisy/errors';
 import type { ProviderCall } from '../../server/provider-budget';
 import { transcriptEvidenceInput } from '../round-runtime/transcript-evidence';
-import { canGenerateRoundAnalysis } from './authorization';
+import { canUseRoundAnalysis } from './authorization';
 import { roundAnalysisClaimDecision } from './policy';
+
+/**
+ * Output room for a report at every limit (about 11k characters, under 3k
+ * tokens, before JSON keys) plus the reasoning the provider carves out of
+ * the same budget, so a long valid report is never cut off mid-JSON.
+ */
+const analysisMaxTokens = 12_000;
 
 type Store = Pick<
   Database,
@@ -42,7 +49,13 @@ export function createRoundAnalysisOperations(input: {
         const claim = await input.store.claimRoundAnalysisJob(
           seat,
           (facts, access) => {
-            if (!canGenerateRoundAnalysis(access, input.betaGrantsPremium))
+            if (
+              !canUseRoundAnalysis(
+                access,
+                input.betaGrantsPremium,
+                'round.analysis.generate',
+              )
+            )
               return facts.analysis?.status === 'leased' ? 'fail' : 'skip';
             return roundAnalysisClaimDecision(facts, input.now());
           },
@@ -56,7 +69,7 @@ export function createRoundAnalysisOperations(input: {
             seat: claim.seat,
             history: claim.history,
           }),
-          maxTokens: 4000,
+          maxTokens: analysisMaxTokens,
           temperature: 0.3,
           json: true,
           reasoning: 'low',
