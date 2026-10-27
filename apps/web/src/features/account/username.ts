@@ -1,7 +1,7 @@
 import type { Logger } from '@daisy/logger';
 import { createAppError } from '@daisy/errors';
 import { parseUsername, type Identity } from '@daisy/auth';
-import type { UsernameClaim } from '@daisy/db';
+import type { UsernameClaim } from '@daisy/db/profile';
 import { z } from 'zod';
 import { consumeOrThrow, type AuthRateLimiter } from '../auth/abuse/rate-limit';
 import {

@@ -1,4 +1,4 @@
-import type { StandingsRead } from '@daisy/db';
+import type { StandingsRead } from '@daisy/db/ratings';
 
 /** One debater's line in one season, summed from the ledger. */
 export type StandingSummary = {
