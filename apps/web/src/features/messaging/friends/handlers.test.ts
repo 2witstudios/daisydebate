@@ -27,6 +27,10 @@ const harness = (identity: unknown = member) => {
       calls.push([command, username]);
       return { username, relation: 'outgoing' };
     },
+    challenge: async (_principal, command, input) => {
+      calls.push([command, input.username, input.roomId]);
+      return { username: input.username, relation: 'friends' };
+    },
     presence: async (_principal, hidden) => {
       calls.push(['presence', hidden]);
       return { hidden };
@@ -36,6 +40,7 @@ const harness = (identity: unknown = member) => {
       friends: [],
       incoming: [],
       outgoing: [],
+      challenges: [],
     }),
     counts: async () => ({ friendsOnline: 2, membersOnline: 9 }),
     websocketEndpoint: 'wss://realtime.daisy.example/ws',
@@ -141,7 +146,54 @@ test('the list read answers the member’s own list', async () => {
     actual: [response.status, await response.json()],
     expected: [
       200,
-      { version: 1, hidden: false, friends: [], incoming: [], outgoing: [] },
+      {
+        version: 1,
+        hidden: false,
+        friends: [],
+        incoming: [],
+        outgoing: [],
+        challenges: [],
+      },
+    ],
+  });
+});
+
+test('the challenge routes carry a friend and a room', async () => {
+  const { handlers, calls } = harness();
+  const room = 'r'.repeat(24);
+  const responses = await Promise.all([
+    handlers.challenge(
+      post('/api/friends/challenges', {
+        version: 1,
+        username: 'Bea',
+        roomId: room,
+      }),
+    ),
+    handlers.declineChallenge(
+      post('/api/friends/challenges/decline', {
+        version: 1,
+        username: 'cat',
+        roomId: room,
+      }),
+    ),
+    handlers.challenge(
+      post('/api/friends/challenges', {
+        version: 1,
+        username: 'bea',
+        roomId: 'x',
+      }),
+    ),
+  ]);
+  assert({
+    given: 'a challenge, a decline and a challenge with a bad room id',
+    should: 'pass the first two on and refuse the third before any change',
+    actual: [responses.map((response) => response.status), calls],
+    expected: [
+      [200, 200, 400],
+      [
+        ['challenge', 'bea', room],
+        ['decline', 'cat', room],
+      ],
     ],
   });
 });

@@ -26,7 +26,7 @@ test('parseFriendForm', async () => {
         ['username', 'ada'],
       ]),
     ),
-    expected: { intent: 'accept', username: 'ada' },
+    expected: { intent: 'accept', username: 'ada', roomId: '' },
   });
   await assertRejects({
     given: 'an unknown intent',
@@ -132,6 +132,33 @@ test('every outcome has its own words', () => {
       'You cannot add yourself as a friend.',
       'You have reached a friend limit for now. Try again later.',
       'Could not change this friendship. Try again.',
+    ],
+  });
+});
+
+test('declining a challenge', async () => {
+  assert({
+    given: 'a decline-challenge form with its room',
+    should: 'read the room and post to the challenge decline route',
+    actual: (() => {
+      const parsed = parseFriendForm(
+        form([
+          ['intent', 'decline-challenge'],
+          ['username', 'ada'],
+          ['roomId', 'r'.repeat(24)],
+        ]),
+      );
+      const { path, body } = friendRouteFor(
+        parsed.intent,
+        parsed.username,
+        parsed.roomId,
+      );
+      return [path, body, friendDoneNotice(parsed.intent, 'ada', 'friends')];
+    })(),
+    expected: [
+      '/api/friends/challenges/decline',
+      { version: 1, username: 'ada', roomId: 'r'.repeat(24) },
+      "Declined @ada's challenge.",
     ],
   });
 });

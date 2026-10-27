@@ -157,18 +157,15 @@ async function eraseAssociations(
   await tx.execute(
     sql`delete from messaging_group_grants where actor_id=${actorId}`,
   );
-  await tx.execute(
+  // In order: every social row goes before the contact pairs they hang from.
+  for (const statement of [
     sql`delete from messaging_dm_pairs where low_actor_id=${actorId} or high_actor_id=${actorId}`,
-  );
-  await tx.execute(
+    sql`delete from messaging_friend_challenges where challenger_actor_id=${actorId} or challenged_actor_id=${actorId}`,
     sql`delete from messaging_presence_settings where actor_id=${actorId}`,
-  );
-  await tx.execute(
     sql`delete from messaging_friendships where low_actor_id=${actorId} or high_actor_id=${actorId}`,
-  );
-  await tx.execute(
     sql`delete from messaging_contact_pairs where low_actor_id=${actorId} or high_actor_id=${actorId}`,
-  );
+  ])
+    await tx.execute(statement);
   for (const { channelId } of authorityChannels) {
     await tx.execute(
       sql`update messaging_channels c set lifecycle='archived' where c.id=${channelId} and c.kind='private_group' and not exists(select 1 from messaging_group_grants g where g.channel_id=c.id and g.role='manager' and g.revoked_at is null)`,
@@ -257,6 +254,11 @@ export function createMessagingPrivacyAdopter(): PrivacyAdopter {
           sql`select * from messaging_friendships where low_actor_id=${actorId} or high_actor_id=${actorId} order by low_actor_id,high_actor_id`,
         ),
       );
+      const challenges = rowsOf<Record<string, unknown>>(
+        await tx.execute(
+          sql`select * from messaging_friend_challenges where challenger_actor_id=${actorId} or challenged_actor_id=${actorId} order by created_at,room_id`,
+        ),
+      );
       const presenceSettings = rowsOf<Record<string, unknown>>(
         await tx.execute(
           sql`select * from messaging_presence_settings where actor_id=${actorId}`,
@@ -297,6 +299,7 @@ export function createMessagingPrivacyAdopter(): PrivacyAdopter {
           messaging_contact_pairs: contacts,
           messaging_dm_pairs: ownPairs,
           messaging_friendships: friendships,
+          messaging_friend_challenges: challenges,
           messaging_presence_settings: presenceSettings,
           messaging_social_commands: commands,
           messaging_social_command_subjects: commandSubjects,

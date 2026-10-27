@@ -5,16 +5,17 @@ import { requireMessagingAuthorization } from '../authorization';
 import { messagingHttpBoundary } from '../handler-boundary';
 import { messagingSocialAuthorizationFence } from '../social-authorization';
 import { createFriendHandlers } from './handlers';
+import { changeChallenge } from './challenge-operations';
 import { setPresenceHidden } from './presence-setting';
 import type { OwnCollectionFence } from '@daisy/db/authorization';
 import {
   changeFriendship,
+  type FriendOperationDependencies,
   friendPresenceOf,
   friendsOnlineOf,
   readFriendList,
   type FriendReadDependencies,
 } from './operations';
-import type { FriendshipCommand } from './friendship';
 
 /** Friend changes per member per minute: generous for people, not for scripts. */
 const FRIEND_RULE = { windowSeconds: 60, max: 30 } as const;
@@ -42,6 +43,11 @@ const friendReads = (
       scope,
       ownFence(principal, 'social.friend.list'),
     ),
+  challenges: (scope) =>
+    app.database.listMessagingFriendChallenges(
+      scope,
+      ownFence(principal, 'social.friend.list'),
+    ),
   hidden: (scope) =>
     app.database.readPresenceHidden(
       scope,
@@ -59,34 +65,38 @@ const friendReads = (
 const composeFriendList = (app: App) => (principal: AuthorizationPrincipal) =>
   readFriendList(principal, friendReads(app, principal));
 
-/** One friendship change through the contact fence for the principal. */
-const composeFriendChange =
-  (app: App) =>
-  (
-    principal: AuthorizationPrincipal,
-    command: FriendshipCommand,
-    username: string,
-  ) =>
-    changeFriendship(principal, command, username, {
-      clock: app.clock,
-      limit: (actorId) =>
-        consumeOrThrow(app.auth().limiter, `friends:${actorId}`, FRIEND_RULE),
-      lookup: (name) => app.database.lookupHumanActorByUsername(name),
-      store: (capability) =>
-        app.database.messagingSocialStore(
-          messagingSocialAuthorizationFence({
-            principal,
-            clock: app.clock,
-            operation: { kind: 'friend', capability },
-          }),
-        ),
-    });
+/** The operations' ports for the principal: limiter, lookup and fenced store. */
+const friendPorts = (
+  app: App,
+  principal: AuthorizationPrincipal,
+): FriendOperationDependencies => ({
+  clock: app.clock,
+  limit: (actorId) =>
+    consumeOrThrow(app.auth().limiter, `friends:${actorId}`, FRIEND_RULE),
+  lookup: (name) => app.database.lookupHumanActorByUsername(name),
+  store: (capability) =>
+    app.database.messagingSocialStore(
+      messagingSocialAuthorizationFence({
+        principal,
+        clock: app.clock,
+        operation: { kind: 'friend', capability },
+      }),
+    ),
+});
 
 export function composeFriendRoutes(app: App) {
   const list = composeFriendList(app);
   return createFriendHandlers({
     boundary: messagingHttpBoundary(app),
-    change: composeFriendChange(app),
+    change: (principal, command, username) =>
+      changeFriendship(
+        principal,
+        command,
+        username,
+        friendPorts(app, principal),
+      ),
+    challenge: (principal, command, input) =>
+      changeChallenge(principal, command, input, friendPorts(app, principal)),
     presence: (principal, hidden) =>
       setPresenceHidden(principal, hidden, {
         clock: app.clock,
