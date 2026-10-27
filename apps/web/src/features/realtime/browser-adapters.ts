@@ -39,10 +39,14 @@ function secureRandom(): number {
 /** The real `document.visibilitychange` event, wrapped to the store's seam. */
 export function onDocumentVisibilityChange(
   callback: (visible: boolean) => void,
+  target: Pick<
+    Document,
+    'visibilityState' | 'addEventListener' | 'removeEventListener'
+  > = document,
 ): () => void {
-  const handler = () => callback(document.visibilityState === 'visible');
-  document.addEventListener('visibilitychange', handler);
-  return () => document.removeEventListener('visibilitychange', handler);
+  const handler = () => callback(target.visibilityState === 'visible');
+  target.addEventListener('visibilitychange', handler);
+  return () => target.removeEventListener('visibilitychange', handler);
 }
 
 /**
@@ -80,9 +84,10 @@ export function createBrowserConnectionStore(url: string): ConnectionStore {
     createSocket: (socketUrl: string): WebSocketLike =>
       new WebSocket(socketUrl),
     scheduler: systemScheduler,
-    fetchTicket: () =>
+    fetchTicket: (signal) =>
       fetchRealtimeTicket({
         expectedSocketUrl: url,
+        signal,
         fetchImpl: (url, init) => fetch(url, init),
       }),
     random: secureRandom,
@@ -95,6 +100,10 @@ export function createBrowserConnectionStore(url: string): ConnectionStore {
     close: () => {
       detach();
       store.close();
+    },
+    dispose: () => {
+      detach();
+      store.dispose();
     },
   };
 }

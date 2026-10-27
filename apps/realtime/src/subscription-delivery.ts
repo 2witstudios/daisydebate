@@ -16,7 +16,19 @@ import {
   type SocketPrincipal,
   type Subscription,
   type SubscriptionTransport,
+  subscriptionRefusal,
+  principalValid,
 } from './subscription-state';
+import { boundedFanout } from './bounded-fanout';
+
+/** Recipients of one row authorized concurrently (RT-2.3c-arch1). */
+const RECIPIENTS_IN_FLIGHT = 32;
+/**
+ * Authorizations one row may take while newer bells keep fencing them. A
+ * hot topic fences every pending allow, so a row is retried rather than
+ * resynced; the per-topic queue (64 rows) bounds how many bells can land.
+ */
+const FENCED_ATTEMPTS = 64;
 
 export function createSubscriptionDelivery({
   connections,
@@ -37,6 +49,16 @@ export function createSubscriptionDelivery({
 }) {
   const hints = new Map<string, Promise<void>>();
   type TypingHint = Extract<ServerMessage, { type: 'typing_changed' }>;
+  /**
+   * A definitive denial ends the subscription and says so on its own
+   * request id, so the client clears that view instead of waiting for
+   * events that will never come (RT-2.5c-arch1).
+   */
+  function terminate(connection: Connection, topic: string, sub: Subscription) {
+    transport.detach(connection, topic, sub);
+    connection.topics.delete(topic);
+    connection.socket.send(subscriptionRefusal(sub.requestId, 'AUTHORIZATION'));
+  }
   function revoke(connection: Connection) {
     remove(connection);
     connection.socket.close(4002, 'revoked');
@@ -44,8 +66,7 @@ export function createSubscriptionDelivery({
   function revokeAccess(connection: Connection, id: string | undefined) {
     for (const [topic, sub] of connection.topics) {
       if (topic.split(':')[1] !== id) continue;
-      transport.detach(connection, topic, sub);
-      connection.topics.delete(topic);
+      terminate(connection, topic, sub);
     }
   }
   function applyControl(
@@ -93,9 +114,15 @@ export function createSubscriptionDelivery({
       return 'superseded' as const;
     // Nothing is published without a fresh allow; the next revalidation retries.
     if (decision === AUTHORITY_UNAVAILABLE) return 'unavailable' as const;
-    if (!decision || !sub.lease.accept(attempt, decision.validUntil)) {
+    if (!decision) {
       transport.detach(connection, topic, sub);
       return 'denied' as const;
+    }
+    // An allow that expired before it arrived is not a denial: the stream
+    // stays detached (gapped) until a fresh allow resyncs it.
+    if (!sub.lease.accept(attempt, decision.validUntil)) {
+      transport.detach(connection, topic, sub);
+      return 'stale' as const;
     }
     sub.revision = decision.revision;
     return 'allowed' as const;
@@ -105,10 +132,7 @@ export function createSubscriptionDelivery({
     row: OutboxRow,
     sub: Subscription,
   ) {
-    if (!transport.current(connection, row.topic, sub)) {
-      transport.detach(connection, row.topic, sub);
-      return;
-    }
+    // publishFrame detaches a stream whose lease is no longer current.
     if (compare(row, sub.delivered) <= 0) return;
     if (publishFrame(connection, row.topic, sub, () => event(row)))
       sub.delivered = row;
@@ -153,8 +177,7 @@ export function createSubscriptionDelivery({
     )
       return;
     if (!decision) {
-      transport.detach(connection, frame.topic, sub);
-      connection.topics.delete(frame.topic);
+      terminate(connection, frame.topic, sub);
       return;
     }
     if (
@@ -187,19 +210,47 @@ export function createSubscriptionDelivery({
 
   async function deliverTo(connection: Connection, row: OutboxRow) {
     const sub = connection.topics.get(row.topic);
-    if (!sub?.attached) return;
-    const outcome = await refresh(connection, row.topic, sub);
+    if (!sub || sub.initializing) return;
+    // A detached stream has a gap: a row on it rechecks authority now, so
+    // an elapsed lease resyncs at once rather than at the next pass, and an
+    // outage stays detached (RT-2.5c-arch1).
+    if (!sub.attached) {
+      await revalidateTopic(connection, row.topic, sub);
+      return;
+    }
+    const outcome = await authorizeRow(connection, row, sub);
+    if (outcome === 'published' || outcome === 'gone') return;
+    if (outcome === 'denied') terminate(connection, row.topic, sub);
     // The event cannot be authorized now: the subscriber re-reads and asks
     // again rather than missing it silently (ISSUE-445-r2).
-    if (outcome === 'unavailable')
-      transport.resync(
-        connection,
-        { id: sub.requestId, topic: row.topic },
-        sub,
-      );
-    if (outcome !== 'allowed') return;
-    // The current lease is checked after the final await, immediately before publish.
-    publishRow(connection, row, sub);
+    else transport.resync(connection, row.topic, sub);
+  }
+  /**
+   * Authorizes one row for one attached subscription and publishes it. A
+   * newer bell or a concurrent revalidation can fence an attempt, even after
+   * its allow arrived, so a fenced row is authorized again rather than
+   * dropped; the last refusal is returned for the caller to act on.
+   */
+  async function authorizeRow(
+    connection: Connection,
+    row: OutboxRow,
+    sub: Subscription,
+  ) {
+    let outcome: Awaited<ReturnType<typeof refresh>> = 'superseded';
+    for (let attempt = 0; attempt < FENCED_ATTEMPTS; attempt += 1) {
+      outcome = await refresh(connection, row.topic, sub);
+      if (!ownsSubscription(connection, row.topic, sub)) return 'gone' as const;
+      if (
+        outcome === 'allowed' &&
+        transport.current(connection, row.topic, sub)
+      ) {
+        // The current lease is checked after the final await, immediately before publish.
+        publishRow(connection, row, sub);
+        return 'published' as const;
+      }
+      if (outcome !== 'allowed' && outcome !== 'superseded') break;
+    }
+    return outcome;
   }
   async function revalidateTopic(
     connection: Connection,
@@ -207,29 +258,27 @@ export function createSubscriptionDelivery({
     sub: Subscription,
   ) {
     if (sub.initializing) return;
-    if (!sub.lease.current()) transport.detach(connection, topic, sub);
+    // Only an elapsed lease means rows may have gone undelivered. A lease
+    // merely invalidated by a queued row still has that row to deliver.
+    if (sub.lease.expired()) transport.detach(connection, topic, sub);
     const outcome = await refresh(connection, topic, sub);
-    if (outcome === 'superseded' || outcome === 'unavailable') return;
+    if (!ownsSubscription(connection, topic, sub)) return;
     if (outcome === 'denied') {
-      if (ownsSubscription(connection, topic, sub))
-        connection.topics.delete(topic);
+      terminate(connection, topic, sub);
       return;
     }
+    // An allow that expired in flight left the stream detached: reread now,
+    // as the row path does, rather than stay silently stale until next pass.
+    if (outcome === 'stale') {
+      transport.resync(connection, topic, sub);
+      return;
+    }
+    if (outcome !== 'allowed') return;
     if (!transport.current(connection, topic, sub)) return;
-    if (!sub.attached) {
-      connection.socket.subscribe(transport.nativeTopic(connection, topic));
-      sub.attached = true;
-    }
-  }
-  async function principalValid(
-    connection: Connection,
-    validate: (principal: SocketPrincipal) => Promise<boolean>,
-  ) {
-    try {
-      return await validate(connection.principal);
-    } catch {
-      return false;
-    }
+    // A detached stream may have missed rows while it was suspended: it is
+    // never reattached in place. The subscriber rereads its snapshot and
+    // subscribes again, so recovery needs no later mutation (RT-2.5c-arch1).
+    if (!sub.attached) transport.resync(connection, topic, sub);
   }
   async function revalidateConnection(
     connection: Connection,
@@ -266,10 +315,26 @@ export function createSubscriptionDelivery({
     invalidate: (rows: readonly OutboxRow[]) => {
       for (const row of rows) invalidateRow(row);
     },
+    /**
+     * One deliverable row (the registry filters the rest before enqueueing)
+     * to its local recipients, at most `RECIPIENTS_IN_FLIGHT`
+     * authorizations at a time, so a topic with many viewers drains at
+     * roughly that multiple of one authorization's latency. The scheduler
+     * keeps one row per topic in flight, so each subscription still sees
+     * its rows in order.
+     */
     async deliver(row: OutboxRow) {
-      if (!isPayloadDeliverableOnTopic(row.topic, row.payload)) return;
-      for (const connection of connections) await deliverTo(connection, row);
+      await boundedFanout(
+        [...connections].filter((connection) =>
+          connection.topics.has(row.topic),
+        ),
+        RECIPIENTS_IN_FLIGHT,
+        (connection) => deliverTo(connection, row),
+      );
     },
+    /** Topics some local subscription is owed rows of, read once per batch. */
+    observedTopics: () =>
+      new Set([...connections].flatMap(({ topics }) => [...topics.keys()])),
     async revalidate(
       validate: (principal: SocketPrincipal) => Promise<boolean>,
     ) {

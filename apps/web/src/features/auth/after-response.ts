@@ -1,6 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { DEFAULT_MAX_CONNECTIONS } from '@daisy/db';
 import type { Logger } from '@daisy/logger';
+import { reportAuthFailure } from './failure-report';
 
 /**
  * Handed-off tasks holding a slot at once. A holder spends almost all its
@@ -74,10 +75,11 @@ export function createAfterResponse(
   const run = (work: Work) => {
     const task: Promise<void> = inTask
       .run(true, () => Promise.resolve().then(work))
-      .catch(() =>
-        logger.log(
-          'request.unhandled',
-          { source: 'auth.after-response' },
+      .catch((error: unknown) =>
+        reportAuthFailure(
+          logger,
+          error,
+          'auth.after-response',
           'Authentication work after the answer failed',
         ),
       )

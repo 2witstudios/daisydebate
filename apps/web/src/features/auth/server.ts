@@ -18,17 +18,18 @@ import {
 } from './email-change/email-change';
 import { createMagicLinkGatePlugin } from './confirmation/magic-link-gate';
 import { createSuppressionCheck } from './mail/suppression-check';
+import { betterAuthLogger, reportAuthFailure } from './failure-report';
 import { freshSessionGatePlugin } from './sessions/fresh-session-gate';
 import { browserSessionShapePlugin } from './sessions/browser-session-shape';
 import { passkeyDeviceHintPlugin } from './passkeys/passkey-device-hint';
 import { passkeyNotificationsPlugin } from './passkeys/passkey-notifications';
 import { passkeyOwnershipGuardPlugin } from './passkeys/passkey-ownership-guard';
-import { sessionRevokedOutboxPlugin } from './sessions/session-revoked-outbox';
 import { revokeOthersOnEmailChangePlugin } from './email-change/revoke-others-on-email-change';
 import {
   revokeSessionsPlugin,
   type RevokeSessions,
 } from './sessions/revoke-sessions';
+import { signOutFailsClosedPlugin } from './sessions/sign-out-fails-closed';
 import {
   signInAddressGuardPlugin,
   type RevokeSessionUnlessAddressHeld,
@@ -84,7 +85,6 @@ const composeBetterAuth = (dependencies: {
   readonly logger: Logger;
   readonly ids: IdGenerator;
   readonly clock: Clock;
-  readonly appendSessionRevoked: (userId: string) => Promise<void>;
   readonly revokeOtherSessions: RevokeSessions;
   readonly completeEmailChange: CompleteEmailChange;
   readonly revokeSessionUnlessAddressHeld: RevokeSessionUnlessAddressHeld;
@@ -99,19 +99,7 @@ const composeBetterAuth = (dependencies: {
     trustedOrigins: [origin],
     secret: config.BETTER_AUTH_SECRET,
     database: dependencies.database,
-    // Better Auth's default logger prints driver errors verbatim, including
-    // SQL text and bound parameters (magic-link tokens, emails). Report only
-    // the severity through the application logger.
-    logger: {
-      log: (level) => {
-        if (level === 'error' || level === 'warn')
-          dependencies.logger.log(
-            'request.unhandled',
-            { source: 'better-auth', sourceLevel: level },
-            'Authentication library reported a failure',
-          );
-      },
-    },
+    logger: betterAuthLogger(dependencies.logger),
     // better-call prints unhandled errors with console.error, exposing SQL and
     // parameters; rethrow so the guarded handler below reports them safely.
     onAPIError: { throw: true },
@@ -225,15 +213,12 @@ const composeBetterAuth = (dependencies: {
         checkSuppression,
       }),
       freshSessionGatePlugin,
-      sessionRevokedOutboxPlugin(
-        dependencies.appendSessionRevoked,
-        dependencies.logger,
-      ),
       revokeOthersOnEmailChangePlugin(
         dependencies.revokeOtherSessions,
         dependencies.logger,
       ),
       revokeSessionsPlugin(dependencies.revokeOtherSessions),
+      signOutFailsClosedPlugin,
       // Last: strips the session token and ipAddress from every HTTP
       // response after the plugins above have read the full result.
       browserSessionShapePlugin,
@@ -247,9 +232,10 @@ const composeBetterAuth = (dependencies: {
           instance.handler(request),
         );
       } catch (error) {
-        dependencies.logger.log(
-          'request.unhandled',
-          { source: 'better-auth' },
+        reportAuthFailure(
+          dependencies.logger,
+          error,
+          'better-auth',
           'Authentication request failed',
         );
         // A retryable outage, typed at the source, so callers (the mounted
@@ -308,7 +294,6 @@ export function createAuthServer<
   /** The handed-off work's bounds; the production sizes unless a test narrows them. */
   readonly afterResponseLimits?: AfterResponseLimits | undefined;
   /** RT-2.2: appends `session.revoked` after a confirmed self-service revoke. */
-  readonly appendSessionRevoked: (userId: string) => Promise<void>;
   /**
    * ISSUE-22: the one serialized revoke-all (`@daisy/db`), behind the email
    * change's revocation and both self-service revoke-all endpoints.
@@ -357,7 +342,6 @@ export function createAuthServer<
       logger: dependencies.logger,
       ids: dependencies.ids,
       clock: dependencies.clock,
-      appendSessionRevoked: dependencies.appendSessionRevoked,
       revokeOtherSessions: dependencies.revokeOtherSessions,
       completeEmailChange: dependencies.completeEmailChange,
       revokeSessionUnlessAddressHeld:

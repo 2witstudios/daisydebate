@@ -56,15 +56,15 @@ test(
         return refused;
       };
 
-      const refusal = await scratch
-        .migrate(() => true)
-        .then(
-          () => 'applied',
-          (error: unknown) => {
-            const { message, cause } = error as Error & { cause?: Error };
-            return `${message} ${cause?.message ?? ''}`;
-          },
-        );
+      // Up to this folder only: a later migration must not change its ledger.
+      const throughGuards = (folder: string) => folder <= migration;
+      const refusal = await scratch.migrate(throughGuards).then(
+        () => 'applied',
+        (error: unknown) => {
+          const { message, cause } = error as Error & { cause?: Error };
+          return `${message} ${cause?.message ?? ''}`;
+        },
+      );
       const afterRefusal = { ledger: await ledger(), guards: await guards() };
       assert({
         given:
@@ -85,9 +85,9 @@ test(
       // The adjudicated repair the preflight asks for; the predecessor guard
       // only refuses UPDATE, so this deletion is the operator's decision.
       await f.sql`delete from round_transcript_freezes where round_id=${mismatched.roundId}`;
-      await scratch.migrate(() => true);
+      await scratch.migrate(throughGuards);
       const installed = { ledger: await ledger(), guards: await guards() };
-      await scratch.migrate(() => true);
+      await scratch.migrate(throughGuards);
       const [freeze] =
         await f.sql`select frontier, completeness from round_transcript_freezes where round_id=${kept.roundId}`;
       assert({

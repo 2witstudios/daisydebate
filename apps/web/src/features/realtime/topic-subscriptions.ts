@@ -111,6 +111,11 @@ export function createTopicSubscriptions({
     clear() {
       topics.clear();
     },
+    /** Final disposal: no topic or message listener survives. */
+    release() {
+      topics.clear();
+      messageListeners.clear();
+    },
     emit(frame: ServerMessage) {
       const entry = entryFor(frame);
       if (!correlated(frame, entry)) return;

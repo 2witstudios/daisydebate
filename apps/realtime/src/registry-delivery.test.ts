@@ -49,12 +49,13 @@ describe('subscription registry delivery', () => {
     await registry.settled();
     assert({
       given: 'elapsed lease expiry without any timer firing',
-      should: 'detach before send',
+      should:
+        'detach before send, publish nothing, and ask the subscriber to reread once authority allows',
       actual: {
         attached: [...attached],
         types: sent.map((frame) => frame.type),
       },
-      expected: { attached: [], types: ['subscribed'] },
+      expected: { attached: [], types: ['subscribed', 'resync_required'] },
     });
   });
   test('late catch-up allow cannot attach after unsubscribe', async () => {
