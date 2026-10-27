@@ -14,6 +14,13 @@ import { Icon } from '../../components/icon/icon';
 import { AssemblyDetails } from './assembly-details';
 import { AssemblySettingsForm } from './assembly-settings-form';
 import { formatLine, ROOM_SETUP_HREF, ROOM_SETUP_ID } from './room-labels';
+import {
+  dismissal,
+  holdInert,
+  releaseInert,
+  returnTarget,
+  setupOpener,
+} from './room-setup-modal';
 
 const competition = {
   ranked: 'Ranked',
@@ -27,7 +34,7 @@ const competition = {
  * fragment.
  */
 function closeSheet(sheet: HTMLElement | null): boolean {
-  if (sheet?.querySelector('[role="alert"]')) return false;
+  if (dismissal(sheet) === 'navigate') return false;
   window.location.hash = '';
   return true;
 }
@@ -37,24 +44,11 @@ export function sheetOpen(hash: string, refused: boolean): boolean {
   return hash === ROOM_SETUP_HREF || refused;
 }
 
-/** Every element beside the sheet and its ancestors, up to the body. */
-function outside(sheet: HTMLElement): readonly HTMLElement[] {
-  const elements: HTMLElement[] = [];
-  for (let node: HTMLElement = sheet; node.parentElement;) {
-    const parent: HTMLElement = node.parentElement;
-    for (const sibling of parent.children)
-      if (sibling !== node && sibling instanceof HTMLElement)
-        elements.push(sibling);
-    if (parent === document.body) break;
-    node = parent;
-  }
-  return elements;
-}
-
 /**
- * While the sheet is open the rest of the page is inert, so focus and
- * assistive technology stay in it; opening moves focus to its heading and
- * closing returns it to the Room setup link.
+ * While the sheet is open the rest of the page is inert, content room sync
+ * mounts behind it included, so focus and assistive technology stay in it;
+ * opening moves focus to its heading and closing returns it to the link
+ * that opened it.
  */
 function useModalSheet(
   sheet: RefObject<HTMLElement | null>,
@@ -63,38 +57,39 @@ function useModalSheet(
   useEffect(() => {
     const element = sheet.current;
     if (!element) return;
-    let inert: readonly HTMLElement[] = [];
+    const held = new Set<HTMLElement>();
+    let opener: HTMLElement | null = null;
     let wasOpen = false;
-    const release = () => {
-      for (const node of inert) node.inert = false;
-      inert = [];
-    };
     const sync = () => {
       const open = sheetOpen(
         window.location.hash,
         element.querySelector('[role="alert"]') !== null,
       );
+      if (open) holdInert(element, held);
       if (open === wasOpen) return;
       wasOpen = open;
       if (open) {
-        inert = outside(element).filter((node) => !node.inert);
-        for (const node of inert) node.inert = true;
+        opener = setupOpener(document.activeElement) ?? opener;
         heading.current?.focus();
         return;
       }
-      release();
-      document
-        .querySelector<HTMLElement>(`a[href="${ROOM_SETUP_HREF}"]`)
-        ?.focus();
+      releaseInert(held);
+      returnTarget(document, opener)?.focus();
+      opener = null;
+    };
+    const remember = (event: Event) => {
+      opener = setupOpener(event.target) ?? opener;
     };
     sync();
     const observer = new MutationObserver(sync);
-    observer.observe(element, { childList: true, subtree: true });
+    observer.observe(document.body, { childList: true, subtree: true });
+    document.addEventListener('click', remember, true);
     window.addEventListener('hashchange', sync);
     return () => {
       observer.disconnect();
+      document.removeEventListener('click', remember, true);
       window.removeEventListener('hashchange', sync);
-      release();
+      releaseInert(held);
     };
   }, [sheet, heading]);
 }

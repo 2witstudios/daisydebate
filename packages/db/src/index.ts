@@ -34,7 +34,6 @@ import { authorizationSessionOperations } from './authorization-session';
 import { formatOperations } from './format-operations';
 import { roomCommandOperations } from './room-command-operations';
 import { roomCommandTransaction } from './room-command-transaction';
-import { roomOperations } from './room-operations';
 import { roundCommandOperations } from './round-command-operations';
 import { roundOperations } from './round-operations';
 import { transcriptFinalizationOperations } from './transcript-finalization';
@@ -175,7 +174,6 @@ export function createDatabase({
         readOutboxCatchup(database, topic, since, through, limit),
       ),
     ...formatOperations({ database, eventSink }),
-    ...roomOperations({ database, eventSink }),
     ...roomCommandOperations({
       database,
       botAdmission,
