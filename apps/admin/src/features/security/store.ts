@@ -40,6 +40,15 @@ export function createSecurityStore(config: LogStoreConfig) {
     });
     return result.json<Row>();
   };
+  /** One query at a time: a page holds at most one of the reader's four slots. */
+  const inTurn = async (
+    queries: readonly (readonly [string, Readonly<Record<string, string>>])[],
+  ) => {
+    const results: (readonly Row[])[] = [];
+    for (const [query, params] of queries)
+      results.push(await rows(query, params));
+    return results;
+  };
   const read = async <T>(work: () => Promise<T>): Promise<StoreRead<T>> => {
     try {
       return { kind: 'ok', value: await work() };
@@ -53,17 +62,18 @@ export function createSecurityStore(config: LogStoreConfig) {
       bounds: { readonly from: string; readonly to: string },
     ) =>
       read(() =>
-        Promise.all(sections[view].map(({ sql }) => rows(sql, bounds))),
+        inTurn(sections[view].map(({ sql }) => [sql, bounds] as const)),
       ),
     coverage: (bounds: { readonly floor: string; readonly recent: string }) =>
       read(async () => {
-        const [heartbeat, apps, flow, oldest, sweep] = await Promise.all([
-          rows(coverageSql.heartbeat, { floor: bounds.floor }),
-          rows(coverageSql.apps, { floor: bounds.floor }),
-          rows(coverageSql.flow, { recent: bounds.recent }),
-          rows(coverageSql.oldest, {}),
-          rows(coverageSql.sweep, { floor: bounds.floor }),
-        ]);
+        const [heartbeat = [], apps = [], flow = [], oldest = [], sweep = []] =
+          await inTurn([
+            [coverageSql.heartbeat, { floor: bounds.floor }],
+            [coverageSql.apps, { floor: bounds.floor }],
+            [coverageSql.flow, { recent: bounds.recent }],
+            [coverageSql.oldest, {}],
+            [coverageSql.sweep, { floor: bounds.floor }],
+          ]);
         return {
           heartbeat: heartbeat[0] ?? null,
           apps,

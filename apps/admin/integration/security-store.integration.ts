@@ -71,11 +71,17 @@ describe('the security store', () => {
 
   test('every view runs under the read-only profile', async () => {
     const bounds = windowBounds(now, '28d');
-    const reads = await Promise.all(
-      (['auth', 'operator', 'realtime', 'invariants', 'errors'] as const).map(
-        (view) => security.view(view, bounds),
-      ),
-    );
+    // In turn, as the page reads: the reader role runs at most four queries
+    // at once.
+    const reads = [];
+    for (const view of [
+      'auth',
+      'operator',
+      'realtime',
+      'invariants',
+      'errors',
+    ] as const)
+      reads.push(await security.view(view, bounds));
     const coverage = await security.coverage(coverageBounds(now));
     assert({
       given: 'each view over the longest window, and the coverage reads',
