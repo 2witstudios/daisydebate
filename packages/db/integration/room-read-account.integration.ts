@@ -40,7 +40,15 @@ for (const role of ['daisy_web', 'daisy_realtime'])
             'return current minimal authority while excluding both exclusive and non-key account writers',
           actual: { account, peer: peer[0], writers },
           expected: {
-            account: { ...caller, member: true, erased: false, revision: 1 },
+            account: {
+              ...caller,
+              member: true,
+              erased: false,
+              revision: 1,
+              beta: { state: 'approved', revision: 1 },
+              ageBand: 'adult',
+            },
+            // The v1 reader keeps its exact five-column contract (ADR 0075).
             peer: { ...caller, member: true, erased: false, revision: 1 },
             writers: ['55P03', '55P03'],
           },
