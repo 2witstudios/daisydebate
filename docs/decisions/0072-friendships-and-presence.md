@@ -17,8 +17,15 @@ fence (accounts, then the pair, then a channel).
 
 ## Decision
 
-1. **Friendship is a messaging-social producer, not a second relationship
-   store.** `friendships` holds one row per asked or accepted
+1. **Friendship is a Social capability over the shared contact pair, not a
+   second relationship store.** _Amended 2026-10-27 (#479, ISSUE-754):_
+   Friends, challenges and presence have their own homes, apart from
+   Messaging: tables `friendships`, `friend_challenges` and
+   `presence_settings`; db modules `friends/` (a `FriendStore` and
+   `FriendFrame`) and `presence/`; web features `features/friends` and
+   `features/presence`. They sit over the Contacts base (`contact_pairs`,
+   the `withContactPairs` fence, `social_requests` and
+   `social_request_declines`), which Messaging also uses. `friendships` holds one row per asked or accepted
    pair (`low_actor_id < high_actor_id`, `requester_actor_id`, `state`
    `pending | accepted`, `requested_at`, `accepted_at`). It references the
    contact pair row and cascades with it. Every change runs in the social
@@ -30,7 +37,7 @@ fence (accounts, then the pair, then a channel).
    and `social.friend.end` (decline, cancel or remove: always open to a
    pair member, even across a block) on the `contact_pair` resource. The
    pure transition rules (`decideFriendship` in
-   `apps/web/src/features/messaging/friends`) decide the next pair state:
+   `apps/web/src/features/friends`) decide the next pair state:
    a request to someone who already asked you accepts it, so reciprocal
    requests converge on one friendship; declining or removing deletes the
    row; a repeat changes nothing.
@@ -43,7 +50,8 @@ fence (accounts, then the pair, then a channel).
    per minute through the shared limiter. A member's list reads at most 500
    rows. _Amended 2026-10-27 (DEC-251, #479):_ a friend request is also a
    DEC-251 social request. It spends the same budgets as a DM request, which
-   are counted from the append-only `messaging_social_commands` ledger: 20
+   are counted from the append-only `social_requests` ledger (Contacts),
+   never from messaging's receipts: 20
    per day, and 5 per hour to an account with no accepted friendship or
    accepted DM, judged when asked; a pending or declined request relates
    nobody. Three declines by one person, counted per direction in
@@ -92,7 +100,13 @@ fence (accounts, then the pair, then a channel).
    Decline (which deletes it); it shows only while the room assembles or is
    ready, only from an accepted, unblocked friend, and it goes with its
    room. A Challenge that cannot be delivered still opens the room, whose
-   invite link reaches the friend.
+   invite link reaches the friend. _Amended 2026-10-27 (#479, S2–S4, S7):_
+   a challenge is authorized by its own `social.challenge.send` (current
+   members, no block) and `social.challenge.decline` (a safety exit, open
+   across a block). It spends its own `friend-challenges:<actor>` budget
+   (30 a minute), never the friend-change one. It answers its own
+   `challengeCommandResultSchema` result, and it asks Rooms' open-room
+   predicate (`room-open.ts`) rather than naming Room statuses.
 
 ## Consequences
 

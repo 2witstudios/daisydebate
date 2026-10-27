@@ -130,6 +130,8 @@ The beta's request bounds are DEC-251's, composed in
   `NOT_FOUND` before any budget is spent; each decline row expires 30 days
   after its last decline, and the retention sweep deletes it then.
 
-All of these are counted durably from the `messaging_social_commands`
-ledger and `social_request_declines`, never from Redis. Posting stays
+All of these are counted durably from the Contacts-owned `social_requests`
+ledger and `social_request_declines`, never from Redis; messaging's own
+`messaging_social_commands` keeps only its receipts (a DM request is
+`channel.dm.request`, a block is ledgered as `contact.block`). Posting stays
 within one age band (16–17 or adult); no cross-band pair is composed.
