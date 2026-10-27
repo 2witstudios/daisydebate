@@ -178,7 +178,16 @@ export function planGates(
   else if (plan.lintFiles.length > 0)
     gates.push({
       name: 'eslint (affected graph and root files)',
-      args: ['bunx', '--bun', 'eslint', ...plan.lintFiles],
+      // Turbo includes config-only workspaces; empty/ignored patterns are not
+      // source failures. ESLint still reports all violations in matched source.
+      args: [
+        'bunx',
+        '--bun',
+        'eslint',
+        '--no-error-on-unmatched-pattern',
+        '--no-warn-ignored',
+        ...plan.lintFiles,
+      ],
     });
   if (plan.allWorkspaces)
     gates.push({
