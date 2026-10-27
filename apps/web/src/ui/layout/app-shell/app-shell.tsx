@@ -27,7 +27,9 @@ export function AppShell({ children, account, activeRoom }: AppShellProps) {
     <div className="grid min-h-screen grid-shell items-start bg-background">
       <Rail account={account} />
       <main className="min-w-0 area-main">
-        {activeRoom ? <ActiveRoomBar room={activeRoom} /> : null}
+        {account.state === 'member' ? (
+          <ActiveRoomBar room={activeRoom} />
+        ) : null}
         {children}
       </main>
       <TabBar account={account} />
