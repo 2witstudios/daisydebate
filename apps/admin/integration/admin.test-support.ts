@@ -24,7 +24,7 @@ function adminTestDatabase() {
   const handle = openAdminDatabase(requireAdminTestDatabase(process.env));
   const reset = async () => {
     await handle.db.execute(sql`
-      truncate audit_events, chain_checkpoints, auth_attempts,
+      truncate audit_events, chain_checkpoints, auth_attempts, pending_commands,
         operator_sessions, operator_challenges, operator_credentials,
         operator_enrollments, operators
     `);

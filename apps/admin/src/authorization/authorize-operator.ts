@@ -92,3 +92,9 @@ export const currentApprovalPolicy: ApprovalPolicy = {
   twoPerson: false,
   revision: 1,
 };
+
+/** The closed audit detail a denial is recorded under. */
+export const deniedDetail = (
+  reason: Extract<OperatorDecision, { allowed: false }>['reason'],
+): 'operator_disabled' | 'role' | 'approval_missing' =>
+  reason === 'disabled' ? 'operator_disabled' : reason;

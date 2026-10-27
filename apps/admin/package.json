@@ -14,6 +14,7 @@
     "db:generate": "bun --bun x drizzle-kit generate"
   },
   "dependencies": {
+    "@daisy/auth": "workspace:*",
     "@daisy/clock": "workspace:*",
     "@daisy/logger": "workspace:*",
     "@daisy/protocol": "workspace:*",
